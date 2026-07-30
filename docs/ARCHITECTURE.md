@@ -1,8 +1,10 @@
-# Zhuge AI OS Skeleton Architecture
+# Zhuge AI OS Architecture
 
-## Phase 1 decision
+## Phase 2 decision
 
-`zhuge-ai-os` is the future root repository. The existing `worklog-workspace` repository remains the production reference and is not modified by this skeleton migration.
+`zhuge-ai-os` is the only active development repository. The existing
+`worklog-workspace` repository remains a read-only historical/Production
+reference and is not modified by this migration.
 
 ## Runtime shape
 
@@ -10,6 +12,8 @@
 Root URL
   ↓
 Dashboard (`app/dashboard/`)
+  ↓
+Root Router (`app/router/`)
   ↓
 Module Launcher
   ├─ WorkLog (`modules/worklog/`)
@@ -19,18 +23,57 @@ Module Launcher
 ## Boundaries
 
 ```text
-app/       Root shell, dashboard, and router boundary
-shared/    Cross-module services and UI primitives
+app/       Root shell, Dashboard, and router boundary
+shared/    Single implementations of auth, provider, API, state, theme, and utilities
 modules/   Independent product modules
-assets/    Shared static assets and theme
-config/    Environment and product configuration
+assets/    Skeleton-only static assets
+config/    Environment and product configuration boundary
 docs/      Architecture and migration decisions
 public/    Public/static supporting assets
-tests/     Future test suites
+tests/     Regression and migration tests
+
+## Shared Core
+
+```text
+shared/
+├── app-config.js
+├── app-state.js
+├── app-router.js
+├── auth/auth-service.js
+├── google/google-drive-service.js
+├── api/{data-service,knowledge-api,repositories,realtime-service,services}.js
+├── components/{index,workspaces}.js
+├── theme/{zhuge-os,ai-product,legal,public-home}.css
+└── utils/{shared-utils,render-engine,priority-engine}.js
 ```
 
-Modules may depend on `shared/*` only. A module must not import or reach into another module. Authentication and provider integration are planned under `shared/auth`, `shared/google`, and `shared/supabase`; no production OAuth client or callback is copied in Phase 1.
+WorkLog loads these files from `shared/*`. It does not carry a second Auth,
+Google, Router, Theme, or global configuration implementation.
+
+## WorkLog Module
+
+```text
+modules/worklog/
+├── index.html
+├── worklog-app.js
+├── worklog.css
+├── knowledge-*.js
+├── ai-*.js
+├── work-*.js
+├── chat/
+└── resources/
+```
+
+Only WorkLog-specific UI and business logic remains inside this directory.
+```
+
+Modules may depend on `shared/*` only. A module must not import or reach into
+another module. The existing Production OAuth client, Supabase schema, and
+credentials are preserved; this Phase 2 change relocates code and does not
+change their behavior.
 
 ## Migration rule
 
-Phase 1 establishes boundaries only. WorkLog business logic, Supabase schema, production OAuth, and the existing `worklog-workspace` deployment remain untouched.
+The migration is a file/layout change, not a business-logic rewrite. The
+legacy repository remains untouched, and the new repository's WorkLog baseline
+is `0.9.0-alpha.8.4` / `20260730-1135`.

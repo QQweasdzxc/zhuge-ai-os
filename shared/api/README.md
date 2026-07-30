@@ -1,3 +1,9 @@
 # Shared API
 
-Reserved cross-module API contracts and transport adapters.
+Shared transport and repository adapters:
+
+- `data-service.js`
+- `knowledge-api.js`
+- `repositories.js`
+- `realtime-service.js`
+- `services.js`

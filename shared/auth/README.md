@@ -1,3 +1,5 @@
 # Shared Auth
 
-Reserved interface for the future unified identity/session layer. No production OAuth code is copied in Phase 1.
+The unified Google/Supabase session adapter lives here. It is loaded by the
+WorkLog module as a shared dependency; modules do not maintain their own auth
+implementation.

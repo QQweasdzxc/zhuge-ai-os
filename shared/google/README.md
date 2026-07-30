@@ -1,3 +1,5 @@
 # Shared Google
 
-Reserved provider boundary for future Google integrations. It does not alter the existing production OAuth setup.
+Google Drive Picker and import integration lives here. Provider configuration
+is consumed from `../app-config.js`; this migration does not change the
+Production OAuth client or scopes.

@@ -1,13 +1,15 @@
 # Repository Migration Plan
 
-## Phase 1 — Skeleton
+## Phase 1 — Skeleton (complete)
 
-Create the repository, Dashboard entry point, shared boundaries, module boundaries, version source, documentation, and GitHub Pages deployment.
+Created the repository, Dashboard entry point, module boundaries, shared
+boundaries, version source, documentation, and GitHub Pages deployment.
 
-## Phase 2 — Shared Identity Design
+## Phase 2 — WorkLog migration (current)
 
-Design the new repository's authentication and provider interfaces without changing the production OAuth client used by `worklog-workspace`.
+Moved the `0.9.0-alpha.8.4 / 20260730-1135` WorkLog source into
+`modules/worklog/`, moved cross-module runtime dependencies into `shared/`,
+and moved public/legal pages to the new repository root.
 
-## Phase 3 — WorkLog Migration Proposal
-
-Only after the skeleton and shared contracts are approved, prepare a separately reviewed WorkLog migration. No files are copied or business logic changed in Phase 1.
+The legacy `worklog-workspace` repository is not modified. Production OAuth,
+Supabase schema, and WorkLog business logic remain unchanged.

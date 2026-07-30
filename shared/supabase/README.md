@@ -1,3 +1,4 @@
 # Shared Supabase
 
-Reserved data/auth adapter boundary. No schema or production Supabase configuration is changed in Phase 1.
+Supabase repository and realtime adapters are shared across modules. The
+existing production schema and credentials are preserved unchanged.

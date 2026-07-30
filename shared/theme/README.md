@@ -1,3 +1,8 @@
 # Shared Theme
 
-Reserved design tokens and visual language for the Zhuge AI OS shell and modules.
+Shared visual assets used by the WorkLog module and public product pages:
+
+- `zhuge-os.css`
+- `ai-product.css`
+- `legal.css`
+- `public-home.css`

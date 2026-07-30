@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Zhuge AI OS Dashboard — the shared entry point for future work modules.">
+    <meta name="description" content="Zhuge AI OS Dashboard — the shared entry point for WorkLog and future work modules.">
     <title>Zhuge AI OS Dashboard</title>
     <link rel="stylesheet" href="../../assets/zhuge-skeleton.css">
   </head>
@@ -19,7 +19,7 @@
         <div>
           <p class="eyebrow">FOUNDATION SKELETON</p>
           <h2 id="status-title">One entry point for every module.</h2>
-          <p>This repository establishes the Zhuge AI OS shell, shared boundaries, and module launcher. Authentication and WorkLog migration remain separate follow-up work.</p>
+          <p>The Zhuge AI OS Dashboard is the shared entry point for WorkLog and future work modules. WorkLog is now served from the modular application tree.</p>
         </div>
         <span class="status-badge">Architecture Ready</span>
       </section>
@@ -34,7 +34,7 @@
             <span class="module-icon">🪶</span>
             <span>
               <strong>WorkLog</strong>
-              <small>First application module · migration pending</small>
+            <small>First application module · Production baseline migrated</small>
             </span>
             <span class="module-state">Foundation</span>
           </a>
@@ -52,13 +52,14 @@
       <section class="architecture-note" aria-labelledby="boundary-title">
         <p class="eyebrow">MODULE BOUNDARY</p>
         <h2 id="boundary-title">Shared identity, independent modules.</h2>
-        <p>Modules may depend on <code>shared/*</code> only. No module imports another module. OAuth and Supabase integration will be designed in the new repository without changing the existing production application.</p>
+        <p>Modules may depend on <code>shared/*</code> only. No module imports another module. Shared Auth, Google, and Supabase adapters are reused without changing the existing Production OAuth client or database.</p>
       </section>
 
       <footer class="site-footer">
-        <span>Version 0.1.0-skeleton · Build 20260730-2116</span>
+        <span>Version 0.9.0-alpha.8.4 · Build 20260730-1135</span>
         <a href="../../docs/ARCHITECTURE.md">Architecture</a>
       </footer>
     </main>
+    <script src="../router/index.js"></script>
   </body>
 </html>

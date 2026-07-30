@@ -10,7 +10,7 @@
     <meta property="og:description" content="Zhuge AI OS is an AI-powered productivity platform for document management and AI knowledge workspace.">
     <title>Zhuge AI OS</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='30' fill='%23071526'/%3E%3Cpath d='M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z' fill='%2354d7ff'/%3E%3Cpath d='M29 100c17-20 34-37 57-55' fill='none' stroke='%23e9f7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
-    <link id="public-home-styles" rel="stylesheet" href="./public-home.css?v=20260730-1">
+    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20260730-1">
   </head>
   <body>
     <div id="app">
@@ -78,12 +78,12 @@
       <footer class="public-footer">
         <div class="footer-brand"><strong>Zhuge AI OS</strong><span>AI-powered productivity and knowledge workspace.</span></div>
         <nav aria-label="Legal and support links">
-          <a href="./product/">Product</a>
-          <a href="./privacy/">Privacy Policy</a>
-          <a href="./terms/">Terms of Service</a>
-          <a href="./support/">Support</a>
-          <a href="./contact/">Contact</a>
-          <a href="./google-data/">How Google Data Is Used</a>
+          <a href="../../product/">Product</a>
+          <a href="../../privacy/">Privacy Policy</a>
+          <a href="../../terms/">Terms of Service</a>
+          <a href="../../support/">Support</a>
+          <a href="../../contact/">Contact</a>
+          <a href="../../google-data/">How Google Data Is Used</a>
         </nav>
       </footer>
     </div>
@@ -95,17 +95,20 @@
     <script>
       (() => {
         const runtimeFiles = [
-          "app-config.js", "shared-utils.js", "app-state.js", "render-engine.js", "app-router.js", "components/index.js",
-          "workspaces/index.js", "auth-service.js", "zhuge-dashboard.js", "priority-engine.js", "ai-daily-brief.js",
-          "repositories.js", "data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js",
-          "realtime-service.js", "services/index.js", "work-intelligence.js", "suggestion-intelligence.js", "knowledge-intelligence.js",
-          "knowledge-engine.js", "knowledge-repository-service.js", "knowledge-api.js", "google-drive-service.js",
-          "knowledge-ingestion-service.js", "worklog-app.js"
+          "../../shared/app-config.js", "../../shared/utils/shared-utils.js", "../../shared/app-state.js",
+          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js",
+          "../../shared/components/workspaces.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
+          "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
+          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js",
+          "../../shared/api/realtime-service.js", "../../shared/api/services.js", "work-intelligence.js",
+          "suggestion-intelligence.js", "knowledge-intelligence.js", "knowledge-engine.js",
+          "knowledge-repository-service.js", "../../shared/api/knowledge-api.js",
+          "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worklog-app.js"
         ];
         const appStyles = [
           "./worklog.css?v=20260727-1619",
-          "./zhuge-os.css?v=20260729-2158",
-          "./ai-product.css?v=20260729-2158"
+          "../../shared/theme/zhuge-os.css?v=20260729-2158",
+          "../../shared/theme/ai-product.css?v=20260729-2158"
         ];
         const params = new URLSearchParams(window.location.search);
         const hasOAuthCallback = params.has("code") || params.has("error") || window.location.hash.includes("access_token");
@@ -133,7 +136,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `./${runtimeFiles[index]}?v=20260730-1`;
+            script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260730-1135`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>'; };
