@@ -3,16 +3,147 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WorkLog Module · Zhuge AI OS</title>
-    <link rel="stylesheet" href="../../assets/zhuge-skeleton.css">
+    <meta name="description" content="Zhuge AI OS is an AI-powered productivity platform for document management and AI knowledge workspace.">
+    <meta name="theme-color" content="#030914">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Zhuge AI OS">
+    <meta property="og:description" content="Zhuge AI OS is an AI-powered productivity platform for document management and AI knowledge workspace.">
+    <title>Zhuge AI OS</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='30' fill='%23071526'/%3E%3Cpath d='M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z' fill='%2354d7ff'/%3E%3Cpath d='M29 100c17-20 34-37 57-55' fill='none' stroke='%23e9f7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link id="public-home-styles" rel="stylesheet" href="./public-home.css?v=20260730-1">
   </head>
   <body>
-    <main class="page-shell compact-page">
-      <p class="eyebrow">MODULE / WORKLOG</p>
-      <h1>WorkLog</h1>
-      <p class="lead">This is the reserved WorkLog module boundary for the new Zhuge AI OS repository.</p>
-      <div class="architecture-note"><strong>Migration status</strong><p>Existing WorkLog functionality remains in <code>worklog-workspace</code> during Phase 1. No business logic is copied or changed in this skeleton.</p></div>
-      <a class="back-link" href="../../app/dashboard/">← Back to Dashboard</a>
-    </main>
+    <div id="app">
+      <header class="public-header">
+        <a class="brand" href="./" aria-label="Zhuge AI OS home">
+          <svg class="brand-mark" viewBox="0 0 128 128" role="img" aria-label="Zhuge AI OS logo">
+            <defs><linearGradient id="brand-gradient" x1="26" y1="106" x2="103" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#2F82F6"/><stop offset="1" stop-color="#54D7FF"/></linearGradient></defs>
+            <rect width="128" height="128" rx="30" fill="#071526"/>
+            <path d="M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z" fill="url(#brand-gradient)"/>
+            <path d="M29 100c17-20 34-37 57-55M52 80l-1-23M67 66l20-2M40 91l-1-14M79 53l15-1" fill="none" stroke="#E9F7FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M24 108c19-2 37-8 52-18" fill="none" stroke="#42D392" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <span><strong>Zhuge AI OS</strong><small>by Mr. KM</small></span>
+        </a>
+        <a class="header-link" href="?app=1">Open WorkLog</a>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">Personal productivity · AI knowledge workspace</p>
+            <h1 id="hero-title">Zhuge AI OS</h1>
+            <p class="hero-lead">Zhuge AI OS is an AI-powered work management platform for WorkLog, Google Drive, and AI Knowledge.</p>
+            <p class="hero-body">Sign in securely with Google, record daily work in WorkLog, and import only the Google Drive files you explicitly select after authorization for AI analysis and knowledge management.</p>
+            <p class="hero-local">專為個人工作管理與 AI 協作設計，讓 Google 登入、工時紀錄、文件理解與知識整理在同一個安全工作空間中自然銜接。</p>
+            <div class="hero-actions">
+              <a class="button primary" href="?app=1">使用 Google 登入</a>
+              <a class="button secondary" href="#features">View features</a>
+            </div>
+          </div>
+          <div class="hero-logo-card" aria-label="Zhuge AI OS product logo">
+            <svg class="hero-logo" viewBox="0 0 128 128" aria-hidden="true">
+              <defs><linearGradient id="hero-gradient" x1="26" y1="106" x2="103" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#2F82F6"/><stop offset="1" stop-color="#54D7FF"/></linearGradient></defs>
+              <rect width="128" height="128" rx="30" fill="#071526"/>
+              <path d="M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z" fill="url(#hero-gradient)"/>
+              <path d="M29 100c17-20 34-37 57-55M52 80l-1-23M67 66l20-2M40 91l-1-14M79 53l15-1" fill="none" stroke="#E9F7FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M24 108c19-2 37-8 52-18" fill="none" stroke="#42D392" stroke-width="5" stroke-linecap="round"/>
+            </svg>
+            <strong>Work smarter with Mr. KM</strong>
+            <span>Understand work. Keep knowledge. Move forward.</span>
+          </div>
+        </section>
+
+        <section class="section" id="features" aria-labelledby="features-title">
+          <div class="section-heading"><p class="eyebrow">Features</p><h2 id="features-title">One secure workspace for everyday work.</h2></div>
+          <div class="feature-grid">
+            <article class="feature-card"><span class="feature-icon">W</span><h3>WorkLog</h3><p>Record daily work, time spent, progress, and completion in one workspace.</p></article>
+            <article class="feature-card"><span class="feature-icon">G</span><h3>Google Login</h3><p>Use one Google identity to securely access your Zhuge AI OS workspace.</p></article>
+            <article class="feature-card"><span class="feature-icon">D</span><h3>Google Drive</h3><p>After authorization, import only the individual Drive files you explicitly select.</p></article>
+            <article class="feature-card"><span class="feature-icon">AI</span><h3>AI Knowledge</h3><p>Mr. KM analyzes confirmed work content and organizes it into reusable knowledge.</p></article>
+            <article class="feature-card"><span class="feature-icon">S</span><h3>Secure Workspace</h3><p>Keep work records and selected knowledge sources together with clear access boundaries.</p></article>
+          </div>
+        </section>
+
+        <section class="section trust-section" aria-labelledby="trust-title">
+          <div class="section-heading"><p class="eyebrow">Designed for trust</p><h2 id="trust-title">Your data, your choices.</h2></div>
+          <div class="trust-grid">
+            <div><strong>Selected files only</strong><p>After you authorize Google Drive, access is limited to files you explicitly choose through Google Picker.</p></div>
+            <div><strong>Read-only Drive access</strong><p>Drive files are read for analysis; Zhuge AI OS does not modify, delete, or share them.</p></div>
+            <div><strong>Personal productivity</strong><p>Built for individual work management and AI-assisted knowledge organization.</p></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="public-footer">
+        <div class="footer-brand"><strong>Zhuge AI OS</strong><span>AI-powered productivity and knowledge workspace.</span></div>
+        <nav aria-label="Legal and support links">
+          <a href="./product/">Product</a>
+          <a href="./privacy/">Privacy Policy</a>
+          <a href="./terms/">Terms of Service</a>
+          <a href="./support/">Support</a>
+          <a href="./contact/">Contact</a>
+          <a href="./google-data/">How Google Data Is Used</a>
+        </nav>
+      </footer>
+    </div>
+
+    <noscript>
+      <p class="noscript-message">Zhuge AI OS is an AI-powered productivity platform. JavaScript is required to open WorkLog after you choose to sign in.</p>
+    </noscript>
+
+    <script>
+      (() => {
+        const runtimeFiles = [
+          "app-config.js", "shared-utils.js", "app-state.js", "render-engine.js", "app-router.js", "components/index.js",
+          "workspaces/index.js", "auth-service.js", "zhuge-dashboard.js", "priority-engine.js", "ai-daily-brief.js",
+          "repositories.js", "data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js",
+          "realtime-service.js", "services/index.js", "work-intelligence.js", "suggestion-intelligence.js", "knowledge-intelligence.js",
+          "knowledge-engine.js", "knowledge-repository-service.js", "knowledge-api.js", "google-drive-service.js",
+          "knowledge-ingestion-service.js", "worklog-app.js"
+        ];
+        const appStyles = [
+          "./worklog.css?v=20260727-1619",
+          "./zhuge-os.css?v=20260729-2158",
+          "./ai-product.css?v=20260729-2158"
+        ];
+        const params = new URLSearchParams(window.location.search);
+        const hasOAuthCallback = params.has("code") || params.has("error") || window.location.hash.includes("access_token");
+        const hasSession = (() => {
+          try { return Boolean(localStorage.getItem("zhuge_ai_os_google_auth_session_v1") || localStorage.getItem("zhuge_ai_os_session_v1")); }
+          catch { return false; }
+        })();
+        const shouldOpenApp = params.get("app") === "1" || hasOAuthCallback || hasSession;
+        if (!shouldOpenApp) return;
+
+        const root = document.getElementById("app");
+        document.getElementById("public-home-styles")?.remove();
+        root.innerHTML = '<main class="app-loading" aria-live="polite"><div class="loading-mark">Zhuge AI OS</div><p>Opening WorkLog…</p></main>';
+        const loadStyles = (index = 0) => {
+          if (index >= appStyles.length) return Promise.resolve();
+          return new Promise((resolve, reject) => {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = appStyles[index];
+            link.onload = () => resolve(loadStyles(index + 1));
+            link.onerror = () => reject(new Error(`Unable to load App stylesheet: ${appStyles[index]}`));
+            document.head.appendChild(link);
+          });
+        };
+        const load = (index = 0) => {
+          if (index >= runtimeFiles.length) return;
+          const script = document.createElement("script");
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `./${runtimeFiles[index]}?v=20260730-1`;
+          script.async = false;
+          script.onload = () => load(index + 1);
+          script.onerror = () => { root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>'; };
+          document.body.appendChild(script);
+        };
+        loadStyles().then(() => load()).catch(error => {
+          console.error("Zhuge AI OS App stylesheet load failed", error);
+          root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog styles could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>';
+        });
+      })();
+    </script>
   </body>
 </html>
