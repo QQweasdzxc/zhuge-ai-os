@@ -1,30 +1,32 @@
 # Zhuge AI OS Architecture
 
-## Phase 2 decision
+## Foundation v1.0 decision
 
 `zhuge-ai-os` is the only active development repository. The existing
-`worklog-workspace` repository remains a read-only historical/Production
-reference and is not modified by this migration.
+`worklog-workspace` repository is now a read-only historical archive whose
+root redirects to the new AI OS entry point.
 
 ## Runtime shape
 
 ```text
 Root URL
   ↓
-Dashboard (`app/dashboard/`)
+AI OS 首頁 (`app/dashboard/`)
   ↓
 Root Router (`app/router/`)
   ↓
-Module Launcher
+Identity Hub / 工作模組入口
   ├─ WorkLog (`modules/worklog/`)
-  └─ Investment (`modules/investment/`)
+  ├─ Investment (`modules/investment/`)
+  ├─ Travel (`modules/travel/`)
+  └─ HR (`modules/hr/`)
 ```
 
 ## Boundaries
 
 ```text
 app/       Root shell, Dashboard, and router boundary
-shared/    Single implementations of auth, provider, API, state, theme, and utilities
+shared/    Single implementations of auth, provider, API, state, theme, i18n, and utilities
 modules/   Independent product modules
 assets/    Skeleton-only static assets
 config/    Environment and product configuration boundary
@@ -44,6 +46,7 @@ shared/
 ├── api/{data-service,knowledge-api,repositories,realtime-service,services}.js
 ├── components/{index,workspaces}.js
 ├── theme/{zhuge-os,ai-product,legal,public-home}.css
+├── i18n/zh-TW.js
 └── utils/{shared-utils,render-engine,priority-engine}.js
 ```
 
@@ -75,5 +78,5 @@ change their behavior.
 ## Migration rule
 
 The migration is a file/layout change, not a business-logic rewrite. The
-legacy repository remains untouched, and the new repository's WorkLog baseline
+legacy repository is redirect-only, and the new repository's WorkLog baseline
 is `0.9.0-alpha.8.4` / `20260730-1135`.

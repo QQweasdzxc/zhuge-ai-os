@@ -592,7 +592,7 @@ function parseTaipeiBusinessDateTime(value, fallback = new Date()) {
 
 function taipeiDateTimeParts(value) {
   const d = parseTaipeiBusinessDateTime(value);
-  const parts = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", {
     timeZone: BUSINESS_TIME_ZONE,
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hour12: false
@@ -1566,8 +1566,8 @@ function taipeiWeekdayIndex(dateKey = "") {
   const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
   const date = new Date(`${dateKey}T12:00:00${BUSINESS_UTC_OFFSET}`);
-  const label = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TIME_ZONE, weekday: "short" }).format(date);
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(label);
+  const label = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", { timeZone: BUSINESS_TIME_ZONE, weekday: "short" }).format(date);
+  return ["週日", "週一", "週二", "週三", "週四", "週五", "週六"].indexOf(label);
 }
 
 function assistantDateLabel(dateKey = "") {
@@ -2340,13 +2340,13 @@ function header() {
  */
 function workspaceContextBar() {
   const workspace = workspaceDef(activeWorkspace);
-  return `<div class="workspace-context-bar"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作區選單">☰</button><div class="workspace-context-title"><span aria-hidden="true">${workspace.icon}</span> ${escapeHtml(workspace.label)}</div>${headerWorkIdentityStatus()}</div></div>`;
+  return `<div class="workspace-context-bar"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${headerWorkIdentityStatus()}</div></div>`;
 }
 
 function authScreen() {
   const oauthError = getStoredOAuthError();
   const errorBlock = oauthError ? `<div class="empty" role="alert" style="margin:14px 0;border-color:#d97878"><b>Google 登入未完成</b><div class="muted">${escapeHtml(oauthError.message || "請稍後再試")}</div><small>錯誤代碼：${escapeHtml(oauthError.code || "unknown")}</small></div>` : "";
-  return `<div class="wrap"><div class="card"><section class="panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><p>Zhuge AI OS 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">請使用 Google 帳號登入 Zhuge AI OS，登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<button class="btn full" id="googleLoginBtn">使用 Google 登入</button><nav class="auth-public-links" aria-label="公開產品資訊"><a href="./product/">產品介紹</a><a href="./privacy/">Privacy</a><a href="./terms/">Terms</a><a href="./support/">Support</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><p>Zhuge AI OS 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">請使用 Google 帳號登入 Zhuge AI OS，登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<button class="btn full" id="googleLoginBtn">使用 Google 登入</button><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
 }
 
 function worklogWelcomeSeen() {
@@ -2473,7 +2473,7 @@ function osSidebar() {
 }
 
 function workspaceTabs() {
-  if (!openTabs.length) return `<div class="workspace-tabs empty"><span>🪶 Zhuge AI OS</span><span class="muted">Module Launcher</span></div>`;
+  if (!openTabs.length) return `<div class="workspace-tabs empty"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
   if (openTabs.length === 1) {
     const w = workspaceDef(openTabs[0]);
     return `<div class="workspace-title">${w.icon} ${w.label}</div>`;
@@ -2894,7 +2894,7 @@ function workMemoryPage(options = {}) {
   const cloudNotice = workMemoryFoundationNotInitialized
     ? `<div class="empty work-memory-cloud-notice"><b>🟡 Work Memory Cloud 尚未初始化</b><div class="muted">目前畫面只顯示本機快取，不能視為正式記憶。請先執行 ${escapeHtml(WORK_MEMORY_SCHEMA_SQL)}。</div></div>`
     : "";
-  const cards = items.length ? `<section class="work-memory-folder"><div class="work-memory-folder-head"><div><span class="work-memory-folder-icon">📁</span><b>我的工作（Workspace）</b><small>${items.length} 項工作</small></div><span class="muted">分類僅作標籤與篩選</span></div><div class="work-memory-card-grid">${items.map(item => { const selected = workMemoryMergeSelection.includes(item.name); const cardAction = workMemoryMergeMode ? `<button class="btn2 ${selected ? "selected" : ""}" type="button" data-toggle-work-memory-merge="${escapeHtml(item.name)}">${selected ? "✓ 已選取" : "＋ 選取合併"}</button>` : `<div class="work-memory-card-actions"><button class="btn2" type="button" data-edit-work-memory="${escapeHtml(item.name)}">✏️ 編輯</button><button class="btn2" type="button" data-start-work-memory-merge="${escapeHtml(item.name)}">🔀 合併</button></div>`; return `<article class="work-memory-card work-memory-confirmed-card ${selected ? "is-merge-selected" : ""}"><div class="work-memory-card-top"><span class="work-memory-confirmed-label">已採用工作</span><span class="status-dot ${item.enabled ? "ok" : "off"}" title="${item.enabled ? "已啟用" : "已停用"}"></span></div><b class="work-memory-card-title">${escapeHtml(item.name)}</b><small>${escapeHtml(item.description)}</small><div class="work-memory-card-meta"><span>熟悉度 ${escapeHtml(workMemoryFamiliarityBars(item.familiarityScore))}</span><span>${item.usageCount ? `使用 ${item.usageCount} 次` : "尚未使用"}</span></div>${cardAction}</article>`; }).join("")}</div></section>` : `<div class="empty"><b>${workMemoryItems().length ? "找不到符合條件的工作" : "目前還沒有已採用工作"}</b><div class="muted">${workMemoryItems().length ? "請調整搜尋或分類條件。" : "你可以新增工作，或查看 Mr. KM 整理好的 AI 建議。"}</div></div>`;
+  const cards = items.length ? `<section class="work-memory-folder"><div class="work-memory-folder-head"><div><span class="work-memory-folder-icon">📁</span><b>我的工作</b><small>${items.length} 項工作</small></div><span class="muted">分類僅作標籤與篩選</span></div><div class="work-memory-card-grid">${items.map(item => { const selected = workMemoryMergeSelection.includes(item.name); const cardAction = workMemoryMergeMode ? `<button class="btn2 ${selected ? "selected" : ""}" type="button" data-toggle-work-memory-merge="${escapeHtml(item.name)}">${selected ? "✓ 已選取" : "＋ 選取合併"}</button>` : `<div class="work-memory-card-actions"><button class="btn2" type="button" data-edit-work-memory="${escapeHtml(item.name)}">✏️ 編輯</button><button class="btn2" type="button" data-start-work-memory-merge="${escapeHtml(item.name)}">🔀 合併</button></div>`; return `<article class="work-memory-card work-memory-confirmed-card ${selected ? "is-merge-selected" : ""}"><div class="work-memory-card-top"><span class="work-memory-confirmed-label">已採用工作</span><span class="status-dot ${item.enabled ? "ok" : "off"}" title="${item.enabled ? "已啟用" : "已停用"}"></span></div><b class="work-memory-card-title">${escapeHtml(item.name)}</b><small>${escapeHtml(item.description)}</small><div class="work-memory-card-meta"><span>熟悉度 ${escapeHtml(workMemoryFamiliarityBars(item.familiarityScore))}</span><span>${item.usageCount ? `使用 ${item.usageCount} 次` : "尚未使用"}</span></div>${cardAction}</article>`; }).join("")}</div></section>` : `<div class="empty"><b>${workMemoryItems().length ? "找不到符合條件的工作" : "目前還沒有已採用工作"}</b><div class="muted">${workMemoryItems().length ? "請調整搜尋或分類條件。" : "你可以新增工作，或查看 Mr. KM 整理好的 AI 建議。"}</div></div>`;
   const editingItem = items.find(item => item.name === editingWorkMemoryName);
   const editor = editingItem ? `<div class="quick-add-dialog work-memory-editor"><div class="quick-add-card"><div class="panel-head"><div><h3>✏️ 編輯工作</h3><div class="muted">修改後，Mr. KM 會依照新的內容提供工時建議。</div></div><button class="btn2" type="button" data-cancel-work-memory-edit="1">關閉</button></div><label>工作名稱</label><input class="input" id="workMemoryEditName" value="${escapeHtml(editingItem.name)}"><label>工作說明</label><textarea id="workMemoryEditDescription">${escapeHtml(editingItem.description)}</textarea><label>分類</label><input class="input" id="workMemoryEditCategory" value="${escapeHtml(editingItem.category)}"><label>啟用狀態</label><select class="input" id="workMemoryEditEnabled"><option value="1" ${editingItem.enabled ? "selected" : ""}>啟用</option><option value="0" ${editingItem.enabled ? "" : "selected"}>停用</option></select><div class="form-actions"><button class="btn2 danger" type="button" data-delete-work-memory="${escapeHtml(editingItem.name)}">刪除</button><button class="btn" type="button" data-save-work-memory-edit="${escapeHtml(editingItem.name)}">儲存修改</button></div></div></div>` : "";
   const categories = [...new Set(workMemoryItems().map(item => item.category || "其他"))].sort((a, b) => a.localeCompare(b, "zh-Hant"));

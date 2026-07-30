@@ -11,7 +11,7 @@
   });
 
   function dateKey(value = new Date()) {
-    const parts = new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", {
       timeZone: TIME_ZONE,
       year: "numeric", month: "2-digit", day: "2-digit"
     }).formatToParts(value);

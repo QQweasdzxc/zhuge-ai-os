@@ -6,7 +6,9 @@
   const routes = Object.freeze({
     dashboard: "app/dashboard/",
     worklog: "modules/worklog/",
-    investment: "modules/investment/"
+    investment: "modules/investment/",
+    travel: "modules/travel/",
+    hr: "modules/hr/"
   });
 
   function resolve(name = "dashboard") {

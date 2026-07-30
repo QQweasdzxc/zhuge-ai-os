@@ -28,26 +28,35 @@ function zhugeRootModuleCard({ id, icon, title, description, enabled = false, no
   return `<button class="zhuge-module-card" type="button" data-open-workspace="${escapeHtml(id)}" data-root-module-card="${escapeHtml(id)}">${content}<span class="zhuge-module-arrow" aria-hidden="true">→</span></button>`;
 }
 
+function zhugeRootReleaseMeta() {
+  const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.8.4";
+  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20260730-2214";
+  return `<div class="zhuge-root-release-meta" aria-label="版本資訊"><div><span>版本</span><strong>v${escapeHtml(version)}</strong></div><div><span>Build</span><strong>${escapeHtml(build)}</strong></div><div><span>環境</span><strong>Production</strong></div><div><span>Repository</span><strong>zhuge-ai-os</strong></div></div>`;
+}
+
 function zhugeRootDashboardMarkup(identity = null) {
   return `<section class="panel zhuge-root-dashboard" data-zhuge-root-dashboard>
     <div class="zhuge-root-hero">
       <div class="zhuge-root-brand-lockup">
         <div class="zhuge-root-mark" aria-hidden="true">🪶</div>
-        <div><p class="zhuge-root-eyebrow">Zhuge AI OS</p><h2>AI 工作管理平台</h2><p class="muted">AI Work Management Platform</p><p class="muted">使用 Google 帳號登入後，可管理待辦事項、工時紀錄、工作知識，並安全存取已授權的 Google Drive 文件。</p><p class="muted">Designed for personal productivity and work management.</p></div>
+        <div><p class="zhuge-root-eyebrow">Zhuge AI OS</p><h2>AI 工作管理平台</h2><p class="muted">一個身分，進入所有工作模組</p><p class="muted">使用 Google 帳號管理待辦事項、工時紀錄、工作知識，並安全存取已授權的 Google Drive 文件。</p></div>
       </div>
       ${zhugeRootIdentityMarkup(identity)}
     </div>
-    ${typeof aiDailyBriefMarkup === "function" ? aiDailyBriefMarkup() : ""}
+    <section class="zhuge-root-section" aria-labelledby="zhuge-daily-brief-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">AI DAILY BRIEF</p><h3 id="zhuge-daily-brief-title">Mr. KM 今日工作簡報</h3></div>${typeof aiDailyBriefMarkup === "function" ? aiDailyBriefMarkup() : `<div class="zhuge-root-empty">登入後即可查看今日待辦、工時與 AI 建議。</div>`}</section>
     <section class="zhuge-module-launcher" aria-labelledby="zhuge-module-launcher-title">
-      <div class="zhuge-module-launcher-head"><div><h3 id="zhuge-module-launcher-title">Module Launcher</h3><p class="muted">選擇今天要使用的工作空間</p></div><span class="zhuge-session-badge">🔐 共用 Google Session</span></div>
+      <div class="zhuge-module-launcher-head"><div><p class="zhuge-root-eyebrow">MODULE LAUNCHER</p><h3 id="zhuge-module-launcher-title">工作模組入口</h3><p class="muted">請選擇要進入的工作模組</p></div><span class="zhuge-session-badge">🔐 共用 Google Session</span></div>
       <div class="zhuge-module-grid">
-        ${zhugeRootModuleCard({ id: "worklog", icon: "🪶", title: "WorkLog", description: "記錄、管理與回顧你的工作", enabled: true })}
-        ${zhugeRootModuleCard({ id: "investment", icon: "📈", title: "Investment", description: "投資工作空間", note: "Coming Soon" })}
-        ${zhugeRootModuleCard({ id: "hr", icon: "👥", title: "HR", description: "人資工作空間", note: "Coming Soon" })}
-        ${zhugeRootModuleCard({ id: "travel", icon: "✈️", title: "Travel", description: "旅遊工作空間", note: "Coming Soon" })}
-        ${zhugeRootModuleCard({ id: "settings", icon: "⚙️", title: "Settings", description: "帳號、同步與系統設定", enabled: true })}
+        ${zhugeRootModuleCard({ id: "worklog", icon: "🪶", title: "WorkLog", description: "工作管理、工時紀錄、待辦事項", enabled: true })}
+        ${zhugeRootModuleCard({ id: "investment", icon: "📈", title: "Investment", description: "市場資訊、股票分析、新聞整理", note: "開發中" })}
+        ${zhugeRootModuleCard({ id: "hr", icon: "👥", title: "HR", description: "人員、制度與工作協作", note: "開發中" })}
+        ${zhugeRootModuleCard({ id: "travel", icon: "✈️", title: "Travel", description: "旅遊規劃、天氣、景點", note: "開發中" })}
+        ${zhugeRootModuleCard({ id: "settings", icon: "⚙️", title: "設定", description: "帳號、同步與系統設定", enabled: true })}
       </div>
     </section>
-    <div class="zhuge-root-principle"><span aria-hidden="true">🪶</span><span>Mr. KM、WorkLog 與藏書閣將在同一個 Zhuge AI OS 身分下持續陪你工作。</span></div>
+    <section class="zhuge-root-section zhuge-recent-activity" aria-labelledby="zhuge-recent-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">RECENT ACTIVITY</p><h3 id="zhuge-recent-title">最近使用</h3></div><button class="zhuge-activity-row" type="button" data-open-workspace="worklog"><span class="zhuge-activity-icon">🪶</span><span><strong>WorkLog</strong><small>工作管理與每日工時</small></span><span class="zhuge-activity-arrow" aria-hidden="true">→</span></button></section>
+    <section class="zhuge-root-section zhuge-ai-notice" aria-labelledby="zhuge-notice-title"><p class="zhuge-root-eyebrow">AI NOTICE</p><h3 id="zhuge-notice-title">Mr. KM 已準備好陪你開始工作</h3><p class="muted">先完成登入，再由 AI OS 首頁帶你進入今天需要的工作模組。</p></section>
+    ${zhugeRootReleaseMeta()}
+    <div class="zhuge-root-principle"><span aria-hidden="true">🪶</span><span>單一身分 · 單一首頁 · 獨立模組 · 共用基礎層</span></div>
   </section>`;
 }

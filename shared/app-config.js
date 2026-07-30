@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.8.4";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260730-1135";
+const BUILD_TIME = "20260730-2214";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -100,13 +100,13 @@ const KNOWLEDGE_ROLE_OPTIONS = ["PROCUREMENT", "HR", "IT", "ADMIN", "FINANCE", "
 const WORK_PROFILE_SCHEMA_SQL = "docs/supabase/20260712_p4_5_user_work_profile_schema.sql";
 const workspaceRegistry = {
   dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "system", enabled: true, hidden: true, root: true },
-  worklog: { icon: "🪶", label: "工時營帳", group: "camp", enabled: true },
+  worklog: { icon: "🪶", label: "WorkLog", group: "camp", enabled: true },
   tasks: { icon: "✅", label: "待辦事項", group: "camp", enabled: true },
-  investment: { icon: "📈", label: "投資營帳", group: "camp", comingSoon: true },
+  investment: { icon: "📈", label: "Investment", group: "camp", comingSoon: true },
   procurement: { icon: "📦", label: "採購營帳", group: "camp", comingSoon: true },
-  hr: { icon: "👥", label: "HR營帳", group: "camp", comingSoon: true },
-  travel: { icon: "✈️", label: "旅遊營帳", group: "camp", comingSoon: true },
-  library: { icon: "📚", label: "藏書閣", group: "system", enabled: true },
+  hr: { icon: "👥", label: "HR", group: "camp", comingSoon: true },
+  travel: { icon: "✈️", label: "Travel", group: "camp", comingSoon: true },
+  library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
   aiSuggestions: { icon: "🪶", label: "AI 建議", group: "system", enabled: true, hidden: true },
   sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
   settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }

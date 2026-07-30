@@ -8,7 +8,7 @@
   const WORKDAY_HOURS = 8;
 
   function briefParts(value = new Date()) {
-    const parts = new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("zh-TW-u-ca-gregory", {
       timeZone: TIME_ZONE,
       year: "numeric", month: "2-digit", day: "2-digit",
       weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false

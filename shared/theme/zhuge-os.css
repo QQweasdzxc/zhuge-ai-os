@@ -43,6 +43,24 @@ button.zhuge-module-card:hover, button.zhuge-module-card:focus-visible { border-
 .zhuge-module-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.25rem; }
 .zhuge-root-principle { display: flex; align-items: center; gap: 9px; margin-top: 24px; padding: 13px 15px; border-left: 3px solid #69aaff; color: #c8d8eb; background: rgba(11, 32, 62, .55); font-size: .86rem; line-height: 1.5; }
 .zhuge-root-principle span:first-child { color: #8fc2ff; }
+.zhuge-root-section { margin-top: 25px; padding-top: 22px; border-top: 1px solid rgba(145, 180, 226, .16); }
+.zhuge-root-section-heading { margin-bottom: 12px; }
+.zhuge-root-section-heading h3 { margin: 0; font-size: 1.12rem; }
+.zhuge-root-empty { border: 1px dashed rgba(145, 180, 226, .24); border-radius: 14px; padding: 15px; color: #b6c7dc; }
+.zhuge-recent-activity { display: block; }
+.zhuge-activity-row { width: 100%; display: flex; align-items: center; gap: 12px; border: 1px solid rgba(145, 180, 226, .25); border-radius: 15px; padding: 14px; color: inherit; text-align: left; background: rgba(9, 25, 49, .72); cursor: pointer; }
+.zhuge-activity-row:hover, .zhuge-activity-row:focus-visible { border-color: #63a9ff; outline: none; }
+.zhuge-activity-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(113, 166, 235, .14); font-size: 20px; }
+.zhuge-activity-row span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.zhuge-activity-row small { color: #b6c7dc; }
+.zhuge-activity-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.2rem; }
+.zhuge-ai-notice { border-left: 3px solid #69aaff; }
+.zhuge-ai-notice h3 { margin: 0 0 4px; }
+.zhuge-ai-notice p { margin: 0; }
+.zhuge-root-release-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.zhuge-root-release-meta div { display: grid; gap: 2px; padding: 11px 12px; border: 1px solid rgba(145, 180, 226, .18); border-radius: 12px; background: rgba(4, 14, 30, .28); }
+.zhuge-root-release-meta span { color: #9eb7d2; font-size: .72rem; }
+.zhuge-root-release-meta strong { overflow: hidden; color: #e6f0ff; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-brand .brand-stack[data-open-workspace="dashboard"] { cursor: pointer; }
 
 /* Child workspaces never render the Root Dashboard hero.  On narrow screens
@@ -51,6 +69,9 @@ button.zhuge-module-card:hover, button.zhuge-module-card:focus-visible { border-
 .workspace-context-bar { display: none; max-width: 1520px; margin: 0 auto 10px; }
 .workspace-context-inner { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border: 1px solid #334155; border-radius: 16px; background: linear-gradient(180deg,#0b1728,#091422); }
 .workspace-context-title { display: flex; align-items: center; gap: 7px; min-width: 0; color: #f8fafc; font-weight: 900; }
+.workspace-breadcrumb { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.workspace-breadcrumb-root { color: #8fc2ff; }
+.workspace-breadcrumb-separator { color: #6f8eae; }
 .workspace-context-title span { flex: 0 0 auto; }
 .workspace-context-inner .work-identity-header-status { margin-left: auto; }
 @media (max-width: 1279px) {
@@ -67,4 +88,5 @@ button.zhuge-module-card:hover, button.zhuge-module-card:focus-visible { border-
   .zhuge-module-launcher-head { align-items: flex-start; flex-direction: column; }
   .zhuge-module-grid { grid-template-columns: 1fr; }
   .zhuge-module-card { min-height: 86px; }
+  .zhuge-root-release-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
