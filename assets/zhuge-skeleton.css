@@ -36,6 +36,12 @@ h2 { margin: 0 0 12px; line-height: 1.2; }
 .about-product h2 { margin-bottom: 10px; }
 .about-product p { max-width: 860px; }
 .about-product ul { margin: 14px 0 0; color: var(--muted); }
+.reviewer-workflow { margin-bottom: 32px; border: 1px solid var(--line); border-radius: 20px; background: rgba(12, 27, 46, .84); padding: 28px; }
+.workflow-grid { display: grid; justify-items: center; gap: 7px; width: min(360px, 100%); margin: 0 auto 22px; }
+.workflow-grid div { width: 100%; border: 1px solid rgba(109,184,255,.34); border-radius: 12px; background: var(--panel); padding: 11px 16px; text-align: center; font-weight: 700; }
+.workflow-grid span { color: var(--accent); font-weight: 800; line-height: 1; }
+.reviewer-note { border-left: 3px solid var(--accent); border-radius: 4px; background: rgba(6,16,30,.34); padding: 12px 16px; }
+.reviewer-note p { margin: 4px 0; }
 .identity-hub h2, .daily-brief h2, .recent-activity h2, .ai-notice h2 { margin-bottom: 8px; }
 .primary-action { align-self: center; border-radius: 999px; padding: 12px 18px; background: var(--accent); color: #06101e; font-weight: 800; text-decoration: none; white-space: nowrap; }
 .primary-action small { display: block; font-size: .72rem; font-weight: 700; opacity: .78; }
