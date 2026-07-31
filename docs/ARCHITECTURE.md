@@ -85,4 +85,4 @@ only and must not import or reach into another module.
 
 The migration is a file/layout change, not a business-logic rewrite. The
 legacy repository is redirect-only, and the Foundation release identity is
-`0.9.0-alpha.8.4` / `20260731-0833`.
+`0.9.0-alpha.8.4` / `20260731-0905`.

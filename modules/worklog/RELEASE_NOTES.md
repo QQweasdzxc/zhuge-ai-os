@@ -3,8 +3,8 @@
 ## Release Build
 
 - Version: `0.9.0-alpha.8.4`
-- Build: `20260731-0833`
-- Package time: 2026-07-31 08:33 (Asia/Taipei)
+- Build: `20260731-0905`
+- Package time: 2026-07-31 09:05 (Asia/Taipei)
 
 ## Changes
 
@@ -15,6 +15,8 @@
 - Privacy policy reviewer section labels and authorization wording
 - Foundation v1.0 contracts: Shell, Shared Core, Services, AI, Theme, Config,
   Assets, and module boundaries
+- Release identity correction: ZIP, version metadata, UI, and build stamp now
+  use `20260731-0905`
 
 ## Runtime and Data
 

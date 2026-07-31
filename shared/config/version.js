@@ -3,7 +3,7 @@
   const config = global.ZhugeFoundationConfig || {};
   config.version = Object.freeze({
     version: "0.9.0-alpha.8.4",
-    build: "20260731-0833",
+    build: "20260731-0905",
     foundation: "1.0",
     module: "WorkLog",
     moduleVersion: "0.9",

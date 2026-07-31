@@ -41,4 +41,4 @@ AI OS 首頁（Identity Hub + AI Daily Brief + 工作模組入口）
 
 ## 版本基準
 
-Foundation v1.0 建立於 `0.9.0-alpha.8.4` / `20260731-0833`。
+Foundation v1.0 建立於 `0.9.0-alpha.8.4` / `20260731-0905`。

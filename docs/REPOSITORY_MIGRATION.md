@@ -7,7 +7,7 @@ boundaries, version source, documentation, and GitHub Pages deployment.
 
 ## Phase 2 — WorkLog migration (current)
 
-Moved the `0.9.0-alpha.8.4 / 20260731-0833` WorkLog source into
+Moved the `0.9.0-alpha.8.4 / 20260731-0905` WorkLog source into
 `modules/worklog/`, moved cross-module runtime dependencies into `shared/`,
 and moved public/legal pages to the new repository root.
 
