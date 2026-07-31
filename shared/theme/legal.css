@@ -74,6 +74,8 @@ p, li { color: #d7e0ea; }
 }
 .button.secondary { background: transparent; border: 1px solid var(--line); }
 .site-footer { padding: 24px 0 40px; border-top: 1px solid var(--line); color: var(--muted); }
+.site-footer .footer-meta { display: block; margin-top: 14px; color: var(--muted); }
+.button small { display: block; margin-top: 2px; font-size: .75rem; opacity: .85; }
 .updated { color: var(--muted); }
 code { color: #b8d9ff; }
 
