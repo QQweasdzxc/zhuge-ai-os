@@ -4,7 +4,7 @@
 
 ```text
 Version: 0.9.0-alpha.8.4
-Build:   20260730-1135
+Build:   20260731-0833
 ```
 
 ## Dashboard tree

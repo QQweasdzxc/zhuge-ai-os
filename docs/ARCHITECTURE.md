@@ -1,5 +1,8 @@
 # Zhuge AI OS Architecture
 
+The detailed Foundation contracts are documented in `docs/FOUNDATION.md` and
+the companion module, naming, UI, coding, and release specifications.
+
 ## Foundation v1.0 decision
 
 `zhuge-ai-os` is the only active development repository. The existing
@@ -15,7 +18,7 @@ AI OS 首頁 (`app/dashboard/`)
   ↓
 Root Router (`app/router/`)
   ↓
-Identity Hub / 工作模組入口
+AI OS Portal / Identity Hub / 工作模組入口
   ├─ WorkLog (`modules/worklog/`)
   ├─ Investment (`modules/investment/`)
   ├─ Travel (`modules/travel/`)
@@ -25,58 +28,61 @@ Identity Hub / 工作模組入口
 ## Boundaries
 
 ```text
-app/       Root shell, Dashboard, and router boundary
-shared/    Single implementations of auth, provider, API, state, theme, i18n, and utilities
+app/       Root shell, layout, Dashboard, and router boundary
+shared/    Single implementations of platform contracts
 modules/   Independent product modules
-assets/    Skeleton-only static assets
-config/    Environment and product configuration boundary
+assets/    Public static assets
+config/    Repository-level configuration boundary
 docs/      Architecture and migration decisions
 public/    Public/static supporting assets
 tests/     Regression and migration tests
+```
 
-## Shared Core
+## Shared Foundation
 
 ```text
 shared/
-├── app-config.js
+├── core/{identity,session,workspace,permission,navigation}-manager.js
+├── services/       Cross-module service boundary
+├── ai/index.js     Mr. KM capability boundary
+├── config/         Environment, OAuth, Supabase, version, feature flags
+├── assets/logo/    Shared Zhuge AI OS brand mark
+├── app-config.js   Validated WorkLog compatibility config
 ├── app-state.js
 ├── app-router.js
 ├── auth/auth-service.js
 ├── google/google-drive-service.js
 ├── api/{data-service,knowledge-api,repositories,realtime-service,services}.js
 ├── components/{index,workspaces}.js
-├── theme/{zhuge-os,ai-product,legal,public-home}.css
+├── theme/          Runtime styles and Foundation tokens
 ├── i18n/zh-TW.js
 └── utils/{shared-utils,render-engine,priority-engine}.js
 ```
 
-WorkLog loads these files from `shared/*`. It does not carry a second Auth,
-Google, Router, Theme, or global configuration implementation.
+WorkLog loads the validated implementations from `shared/*`. It does not carry
+a second Auth, Google, Router, Theme, AI, or global configuration
+implementation. The new contracts are introduced incrementally and are not a
+second runtime.
 
-## WorkLog Module
+## Module shape
 
 ```text
-modules/worklog/
-├── index.html
-├── worklog-app.js
-├── worklog.css
-├── knowledge-*.js
-├── ai-*.js
-├── work-*.js
-├── chat/
-└── resources/
+modules/<module>/
+├── pages/
+├── components/
+├── services/
+├── models/
+├── config/
+├── assets/
+└── index.html
 ```
 
-Only WorkLog-specific UI and business logic remains inside this directory.
-```
-
-Modules may depend on `shared/*` only. A module must not import or reach into
-another module. The existing Production OAuth client, Supabase schema, and
-credentials are preserved; this Phase 2 change relocates code and does not
-change their behavior.
+The WorkLog compatibility entry remains in `modules/worklog/index.html` while
+its staged internal boundaries are prepared. Modules may depend on `shared/*`
+only and must not import or reach into another module.
 
 ## Migration rule
 
 The migration is a file/layout change, not a business-logic rewrite. The
-legacy repository is redirect-only, and the new repository's WorkLog baseline
-is `0.9.0-alpha.8.4` / `20260730-1135`.
+legacy repository is redirect-only, and the Foundation release identity is
+`0.9.0-alpha.8.4` / `20260731-0833`.

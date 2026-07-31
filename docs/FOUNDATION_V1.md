@@ -1,5 +1,10 @@
 # Zhuge AI OS Foundation v1.0
 
+This document is the concise baseline. The detailed contracts live in
+[`FOUNDATION.md`](./FOUNDATION.md), [`MODULE_SPEC.md`](./MODULE_SPEC.md),
+[`NAMING.md`](./NAMING.md), [`UI_GUIDELINE.md`](./UI_GUIDELINE.md),
+[`CODING_STANDARD.md`](./CODING_STANDARD.md), and [`RELEASE.md`](./RELEASE.md).
+
 ## 永久規範
 
 - One Identity：Google Identity 與 Supabase Session 只建立一次。
@@ -36,4 +41,4 @@ AI OS 首頁（Identity Hub + AI Daily Brief + 工作模組入口）
 
 ## 版本基準
 
-Foundation v1.0 建立於 `0.9.0-alpha.8.4` / `20260730-1135`。
+Foundation v1.0 建立於 `0.9.0-alpha.8.4` / `20260731-0833`。

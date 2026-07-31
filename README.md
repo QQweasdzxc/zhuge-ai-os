@@ -4,7 +4,7 @@ This repository is the formal Zhuge AI OS development mainline.
 
 The root entry point is the Zhuge AI OS Dashboard. WorkLog is the first
 application module and has been migrated into `modules/worklog/` at the
-Production baseline `0.9.0-alpha.8.4 / 20260730-1135`.
+Production baseline `0.9.0-alpha.8.4 / 20260731-0833`.
 
 Foundation rules: One Identity, One Dashboard, One Shared Runtime,
 Independent Modules. The default product locale is `zh-TW` with timezone
@@ -18,6 +18,8 @@ Independent Modules. The default product locale is `zh-TW` with timezone
 - preserve WorkLog business logic and runtime behavior while relocating files;
 - expose public product/legal pages from the new `zhuge-ai-os` site;
 - keep the legacy `worklog-workspace` repository as a redirect-only archive.
+- keep Shell, Shared Core, Services, AI, Theme, i18n, and module contracts
+  stable for future modules.
 
 ## Local preview
 
