@@ -42,8 +42,11 @@ tests/     Regression and migration tests
 
 ```text
 shared/
-├── core/{identity,session,workspace,permission,navigation}-manager.js
-├── services/       Cross-module service boundary
+├── identity/       Canonical immutable Auth UUID / public identity contract
+├── auth/           Validated OAuth runtime + redacted Shared Session adapter
+├── security/       Capability and ADR-013 Security Gate contracts
+├── core/           Compatibility facades + workspace/navigation managers
+├── services/       ModuleContext and Shared Platform composition boundary
 ├── ai/index.js     Mr. KM capability boundary
 ├── config/         Environment, OAuth, Supabase, version, feature flags
 ├── assets/logo/    Shared Zhuge AI OS brand mark
@@ -110,3 +113,7 @@ Investment Gate 2 design contracts are recorded in:
 
 These documents are design-only until PM explicitly authorizes Database
 Migration and Coding.
+
+Investment Gate 3 Shared Platform evidence is recorded in
+[`SHARED_PLATFORM_ARCHITECTURE_REVIEW.md`](SHARED_PLATFORM_ARCHITECTURE_REVIEW.md).
+It introduces no WorkLog load-path, OAuth, Router, or database change.

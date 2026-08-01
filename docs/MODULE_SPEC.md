@@ -19,6 +19,10 @@ modules/<module>/
 - A module can depend on `shared/*` only.
 - A module must not import another module.
 - A module must read the shared identity/session and never start OAuth itself.
+- A module receives identity, session, and authorization only through its
+  root-created `ModuleContext`.
+- A module must not import Supabase Auth, decode/store tokens, or read auth
+  browser-storage keys.
 - A module must use shared services for persistence and integrations.
 - A disabled module is represented by a launcher state, not a fake feature.
 

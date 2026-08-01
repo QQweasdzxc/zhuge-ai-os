@@ -1,9 +1,8 @@
-/* Permission decisions belong to the shared identity layer. This contract
- * reports capability state; it never requests OAuth permission by itself. */
+/* Compatibility facade. New modules use ModuleContext.security. */
 (function (global) {
-  function can(capability, permissions = {}) {
-    return permissions[String(capability)] === true;
-  }
-
-  global.PermissionManager = Object.freeze({ can });
+  if (!global.ZhugePermissions) throw new Error("ZhugePermissions must load before PermissionManager.");
+  global.PermissionManager = Object.freeze({
+    create: options => global.ZhugePermissions.createPermissionService(options),
+    can: (service, capability) => Boolean(service?.can?.(capability))
+  });
 })(window);

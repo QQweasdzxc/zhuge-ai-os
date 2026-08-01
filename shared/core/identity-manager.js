@@ -1,13 +1,8 @@
-/* Foundation contract: identity is read from the shared session only. */
+/* Compatibility facade. New modules receive identity through ModuleContext. */
 (function (global) {
-  function normalize(identity = {}) {
-    return Object.freeze({
-      id: identity.id || identity.userId || null,
-      email: identity.email || "",
-      name: identity.name || identity.displayName || "",
-      avatar: identity.avatar || identity.avatarUrl || ""
-    });
-  }
-
-  global.IdentityManager = Object.freeze({ normalize });
+  if (!global.ZhugeIdentity) throw new Error("ZhugeIdentity must load before IdentityManager.");
+  global.IdentityManager = Object.freeze({
+    normalize: source => global.ZhugeIdentity.normalize(source),
+    requireUserId: source => global.ZhugeIdentity.requireUserId(source)
+  });
 })(window);

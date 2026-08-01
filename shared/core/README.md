@@ -1,13 +1,14 @@
 # Shared Core
 
-`shared/core/` defines the application-level contracts that every module may
-use:
+`shared/core/` contains compatibility names for Foundation contracts:
 
-- `IdentityManager` — normalized Google/Supabase identity data.
-- `SessionManager` — read-only access to the existing authenticated session.
+- `IdentityManager` — facade over `shared/identity/`.
+- `SessionManager` — facade over the redacted adapter in `shared/auth/`.
 - `WorkspaceManager` — active module, recent modules, and favourites.
-- `PermissionManager` — capability checks without triggering OAuth.
+- `PermissionManager` — facade over `shared/security/`.
 - `NavigationManager` — module route contracts.
 
-These contracts do not replace the validated runtime services and do not add a
-second login flow. They are the stable seam for future modules.
+New modules do not assemble these facades themselves. The root shell creates
+one `ZhugeSharedPlatform` and passes each module a `ModuleContext`. These files
+do not replace the validated runtime services and do not add a second login
+flow.

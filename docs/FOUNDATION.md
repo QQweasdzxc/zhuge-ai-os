@@ -19,8 +19,11 @@ cross-module contracts belong to the Foundation.
 
 ```text
 app/              Shell, layout, Dashboard Portal, root routing
-shared/core/      Identity, session, permissions, navigation, module context
-shared/services/  Cross-module service boundary
+shared/identity/  Canonical Auth UUID and public identity normalization
+shared/auth/      Validated auth runtime and redacted session adapter
+shared/security/  Permission and ADR-013 Security Gate
+shared/core/      Compatibility facades, navigation, workspace contracts
+shared/services/  ModuleContext and Shared Platform composition boundary
 shared/ai/        Mr. KM capability boundary
 shared/theme/     Design tokens and shared styles
 shared/assets/    Product brand assets
@@ -30,3 +33,10 @@ modules/          Independent business modules
 The existing WorkLog runtime remains a compatibility implementation. The
 Foundation contracts are introduced first so future migrations can be staged
 without changing validated behavior.
+
+## Module identity boundary
+
+New modules receive a `ModuleContext` from the root-owned Shared Platform.
+They do not receive Supabase Auth, OAuth methods, tokens, or storage access.
+The context exposes only redacted identity/session snapshots and centralized
+security decisions.

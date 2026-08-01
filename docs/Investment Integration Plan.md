@@ -353,40 +353,53 @@ Discovery evidence：[`DATABASE_DISCOVERY.md`](DATABASE_DISCOVERY.md)。Gate 1
 - [x] 產出 [`INVESTMENT_MIGRATION_RUNBOOK.md`](INVESTMENT_MIGRATION_RUNBOOK.md)。
 - [x] 產出 [`INVESTMENT_ROLLBACK_PLAN.md`](INVESTMENT_ROLLBACK_PLAN.md)。
 - [x] 產出 [`INVESTMENT_DATA_HEALTH_CHECK.md`](INVESTMENT_DATA_HEALTH_CHECK.md)。
-- [ ] PM Review APPROVED。
+- [x] PM Review APPROVED；Gate 3 directive received（2026-08-01）。
 - [ ] Coding / Database Migration AUTHORIZED。
 
 本 Gate 只產出設計與 read-only validation contract，不執行 SQL mutation。
 
-### Gate 3 — Domain Extraction
+### Gate 3 — Shared Platform Preparation
+
+- [x] 建立 `shared/identity/` canonical UUID contract。
+- [x] 建立 `shared/auth/session-service.js` redacted read-only adapter。
+- [x] 建立 `shared/security/` Permission / Security Gate。
+- [x] 建立 ModuleContext，Investment 不接觸 Supabase Auth 細節。
+- [x] WorkLog Runtime／load order 完全不變。
+- [x] Automated Shared Platform contract tests。
+- [ ] PM Architecture Review APPROVED。
+- [ ] Investment Runtime / Database Migration AUTHORIZED。
+
+Evidence：[`SHARED_PLATFORM_ARCHITECTURE_REVIEW.md`](SHARED_PLATFORM_ARCHITECTURE_REVIEW.md)。
+
+### Gate 4 — Domain Extraction
 
 - [ ] 搬移並測試資產彙總與損益計算。
 - [ ] 建立 Portfolio／Position／Transaction／Watchlist Model。
 - [ ] 移除所有固定 Workspace／User 值。
 - [ ] 不引入 DOM、Network、Auth 或 Storage 相依。
 
-### Gate 4 — Data Boundary
+### Gate 5 — Data Boundary
 
 - [ ] 建立 Shared Supabase Gateway。
 - [ ] 建立 Investment Repository Contract。
 - [ ] 所有 Query 使用 Shared Session 與 Auth UUID。
 - [ ] 驗證兩個不同 UUID 彼此完全隔離。
 
-### Gate 5 — Module UI
+### Gate 6 — Module UI
 
 - [ ] 將舊 Dashboard 拆成 Pages／Components。
 - [ ] 使用 Shared Theme Token 與 Shared Component。
 - [ ] 加入 `Zhuge AI OS > Investment` Breadcrumb。
 - [ ] 不建立 Module Login、Router 或 Global Shell。
 
-### Gate 6 — Integration
+### Gate 7 — Integration
 
 - [ ] Dashboard 只在 Shared Session 有效時啟用 Investment。
 - [ ] Root Router Mount／Unmount 正常。
 - [ ] Browser Back、Refresh、Logout、Account Switch 正常。
 - [ ] WorkLog、Dashboard、OAuth、Session Regression PASS。
 
-### Gate 7 — Security and SIT
+### Gate 8 — Security and SIT
 
 - [ ] RLS CRUD Isolation PASS。
 - [ ] View／RPC Isolation PASS。
@@ -402,6 +415,7 @@ PM Approves IIAR
   → Database Catalog & UUID Audit
   → UUID Migration & Security Remediation Design
   → PM Gate 2 Approval
+  → Shared Platform Preparation + PM Gate 3 Approval
   → Pure Domain Extraction + Tests
   → Shared Supabase Gateway
   → Investment Repository
