@@ -107,8 +107,13 @@
       global.ZhugeComponents.Summary.update(pageRoot, errorScreen(error));
     }
 
-    await load().catch(handleError);
-    return Object.freeze({ status: "ready", context, repository, store, reload: load, navigate });
+    try {
+      await load();
+      return Object.freeze({ status: "ready", context, repository, store, reload: load, navigate });
+    } catch (error) {
+      handleError(error);
+      return Object.freeze({ status: "error", context, repository, store, reload: load, navigate });
+    }
   }
 
   async function boot() {
