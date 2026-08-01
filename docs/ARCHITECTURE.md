@@ -86,3 +86,16 @@ only and must not import or reach into another module.
 The migration is a file/layout change, not a business-logic rewrite. The
 legacy repository is redirect-only, and the Foundation release identity is
 `0.9.0-alpha.8.4` / `20260731-0905`.
+
+## Architecture Decision Records
+
+The following records are part of the Architecture Bible and are binding for
+all current and future modules:
+
+- [`ADR-011 — Module Independence Principle`](adr/ADR-011-module-independence.md)
+- [`ADR-012 — Shared First Principle`](adr/ADR-012-shared-first.md)
+- [`ADR-013 — Security Level Policy`](adr/ADR-013-security-level-policy.md)
+
+Investment Gate 1 database evidence is recorded in
+[`DATABASE_DISCOVERY.md`](DATABASE_DISCOVERY.md). No Module may bypass an ADR
+through a local implementation or a compatibility copy.
