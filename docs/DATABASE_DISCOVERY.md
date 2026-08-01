@@ -2,9 +2,10 @@
 
 Document Version: 1.0
 Discovery Date: 2026-08-01（Asia/Taipei）
-Status: PM Review Required
+Status: Approved — Gate 1 PASS
 Coding Status: Not Authorized
 Database Mutation: None（read-only catalog only）
+PM Decision Date: 2026-08-01
 
 ## 1. Scope and Source
 
@@ -392,11 +393,11 @@ Migration history 已存在，但 Migration Source ZIP 內的 SQL 只有 Stub，
 - [ ] RLS、View、RPC remediation。
 - [ ] Domain JS、UI 或 Shared Gateway Coding。
 
-Recommended Gate status：
+Final Gate status：
 
 ```text
-Gate 1 Discovery: COMPLETE
-Gate 1 PM Review: REQUIRED
+Gate 1 Discovery: PASS
+Gate 1 PM Review: APPROVED
 Coding: NOT AUTHORIZED
 Next Decision: UUID Migration + Security Remediation Design
 ```

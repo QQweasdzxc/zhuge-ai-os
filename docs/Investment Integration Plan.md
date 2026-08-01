@@ -341,40 +341,52 @@ RLS user_id = auth.uid()
 - [x] 匯出 Constraint、Index、View、Function 與 RLS。
 - [x] 確認每個 `user_id` 的實際型別與語意。
 - [x] 建立 Legacy User → Auth UUID Mapping Report。
-- [ ] 建立可重複執行的 Migration、Health Check 與 Rollback Plan。
+- [x] PM Review APPROVED（2026-08-01）。
 
 Discovery evidence：[`DATABASE_DISCOVERY.md`](DATABASE_DISCOVERY.md)。Gate 1
-Discovery 已完成，但需 PM Review 後才可進入 Migration Design；Coding 仍未授權。
+已核准；Coding 與 Database Mutation 仍未授權。
 
-### Gate 2 — Domain Extraction
+### Gate 2 — UUID Migration & Security Remediation Design
+
+- [x] 產出 [`UUID_MIGRATION_STRATEGY.md`](UUID_MIGRATION_STRATEGY.md)。
+- [x] 產出 [`INVESTMENT_SECURITY_REMEDIATION.md`](INVESTMENT_SECURITY_REMEDIATION.md)。
+- [x] 產出 [`INVESTMENT_MIGRATION_RUNBOOK.md`](INVESTMENT_MIGRATION_RUNBOOK.md)。
+- [x] 產出 [`INVESTMENT_ROLLBACK_PLAN.md`](INVESTMENT_ROLLBACK_PLAN.md)。
+- [x] 產出 [`INVESTMENT_DATA_HEALTH_CHECK.md`](INVESTMENT_DATA_HEALTH_CHECK.md)。
+- [ ] PM Review APPROVED。
+- [ ] Coding / Database Migration AUTHORIZED。
+
+本 Gate 只產出設計與 read-only validation contract，不執行 SQL mutation。
+
+### Gate 3 — Domain Extraction
 
 - [ ] 搬移並測試資產彙總與損益計算。
 - [ ] 建立 Portfolio／Position／Transaction／Watchlist Model。
 - [ ] 移除所有固定 Workspace／User 值。
 - [ ] 不引入 DOM、Network、Auth 或 Storage 相依。
 
-### Gate 3 — Data Boundary
+### Gate 4 — Data Boundary
 
 - [ ] 建立 Shared Supabase Gateway。
 - [ ] 建立 Investment Repository Contract。
 - [ ] 所有 Query 使用 Shared Session 與 Auth UUID。
 - [ ] 驗證兩個不同 UUID 彼此完全隔離。
 
-### Gate 4 — Module UI
+### Gate 5 — Module UI
 
 - [ ] 將舊 Dashboard 拆成 Pages／Components。
 - [ ] 使用 Shared Theme Token 與 Shared Component。
 - [ ] 加入 `Zhuge AI OS > Investment` Breadcrumb。
 - [ ] 不建立 Module Login、Router 或 Global Shell。
 
-### Gate 5 — Integration
+### Gate 6 — Integration
 
 - [ ] Dashboard 只在 Shared Session 有效時啟用 Investment。
 - [ ] Root Router Mount／Unmount 正常。
 - [ ] Browser Back、Refresh、Logout、Account Switch 正常。
 - [ ] WorkLog、Dashboard、OAuth、Session Regression PASS。
 
-### Gate 6 — Security and SIT
+### Gate 7 — Security and SIT
 
 - [ ] RLS CRUD Isolation PASS。
 - [ ] View／RPC Isolation PASS。
@@ -388,7 +400,8 @@ Discovery 已完成，但需 PM Review 後才可進入 Migration Design；Coding
 ```text
 PM Approves IIAR
   → Database Catalog & UUID Audit
-  → Repeatable Migration Design
+  → UUID Migration & Security Remediation Design
+  → PM Gate 2 Approval
   → Pure Domain Extraction + Tests
   → Shared Supabase Gateway
   → Investment Repository

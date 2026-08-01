@@ -99,3 +99,14 @@ all current and future modules:
 Investment Gate 1 database evidence is recorded in
 [`DATABASE_DISCOVERY.md`](DATABASE_DISCOVERY.md). No Module may bypass an ADR
 through a local implementation or a compatibility copy.
+
+Investment Gate 2 design contracts are recorded in:
+
+- [`UUID_MIGRATION_STRATEGY.md`](UUID_MIGRATION_STRATEGY.md)
+- [`INVESTMENT_SECURITY_REMEDIATION.md`](INVESTMENT_SECURITY_REMEDIATION.md)
+- [`INVESTMENT_MIGRATION_RUNBOOK.md`](INVESTMENT_MIGRATION_RUNBOOK.md)
+- [`INVESTMENT_ROLLBACK_PLAN.md`](INVESTMENT_ROLLBACK_PLAN.md)
+- [`INVESTMENT_DATA_HEALTH_CHECK.md`](INVESTMENT_DATA_HEALTH_CHECK.md)
+
+These documents are design-only until PM explicitly authorizes Database
+Migration and Coding.
