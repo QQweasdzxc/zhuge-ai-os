@@ -4104,12 +4104,7 @@ function bindWorklogWelcome() {
       toast("工作身分已完成");
     } catch (error) {
       console.error("Work Profile setup sync failed", { error, supabase: error.supabase || null });
-      if (typeof isWorkProfileNotInitializedError==="function" && isWorkProfileNotInitializedError(error)) {
-        toast("尚未初始化 user_work_profiles，請先執行 Work Profile Schema SQL");
-      } else {
-        const message = error?.supabase?.message || error?.message || "工作身分同步失敗，請稍後再試";
-        toast(message);
-      }
+      toast("工作身分同步失敗，請稍後再試");
       return;
     }
     render();
