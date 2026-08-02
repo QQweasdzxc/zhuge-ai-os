@@ -55,16 +55,6 @@
         return decision(false, snapshot.isExpired ? "SESSION_EXPIRED" : "SESSION_REQUIRED", { moduleId, action, level });
       }
 
-      const securityState = readSecurityState({ moduleId, action, level }) || {};
-      if (securityState.locked) {
-        return decision(false, "MODULE_LOCKED", {
-          moduleId,
-          action,
-          level,
-          reason: String(securityState.reason || "locked")
-        });
-      }
-
       const requiredAal = String(request.requiredAal || policy.requiredAal || "aal1").toLowerCase();
       if ((AAL_WEIGHT[snapshot.aal] || 0) < (AAL_WEIGHT[requiredAal] || 1)) {
         return decision(false, "STEP_UP_REQUIRED", {
@@ -73,6 +63,16 @@
           level,
           currentAal: snapshot.aal,
           requiredAal
+        });
+      }
+
+      const securityState = readSecurityState({ moduleId, action, level }) || {};
+      if (securityState.locked) {
+        return decision(false, "MODULE_LOCKED", {
+          moduleId,
+          action,
+          level,
+          reason: String(securityState.reason || "locked")
         });
       }
 

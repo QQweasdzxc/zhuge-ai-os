@@ -16,7 +16,7 @@
   const policies = Object.freeze({
     "dashboard.view": Object.freeze({ capability: "dashboard.view", requiredAal: "aal1" }),
     "worklog.view": Object.freeze({ capability: "worklog.view", requiredAal: "aal1" }),
-    "investment.view": Object.freeze({ capability: "investment.view", requiredAal: "aal1" })
+    "investment.view": Object.freeze({ capability: "investment.view", requiredAal: "aal2" })
   });
 
   return Object.freeze({ capabilities, policies });

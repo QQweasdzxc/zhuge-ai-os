@@ -3,14 +3,14 @@
 This repository is the formal Zhuge AI OS development mainline.
 
 The root entry point is the Zhuge AI OS Dashboard. WorkLog is the first
-application module and has been migrated into `modules/worklog/` at the
-Production baseline `0.9.0-alpha.8.4 / 20260731-0905`.
+application module. Investment is Module 02 and reads owner-scoped Supabase
+data only after Shared AAL2 verification.
 
 Foundation rules: One Identity, One Dashboard, One Shared Runtime,
 Independent Modules. The default product locale is `zh-TW` with timezone
 `Asia/Taipei`.
 
-## Phase 2 scope
+## Current foundation
 
 - establish Dashboard → module routing;
 - keep shared auth, Google, Supabase, API, component, theme, and utility code
@@ -20,6 +20,8 @@ Independent Modules. The default product locale is `zh-TW` with timezone
 - keep the legacy `worklog-workspace` repository as a redirect-only archive.
 - keep Shell, Shared Core, Services, AI, Theme, i18n, and module contracts
   stable for future modules.
+- keep module data access behind Shared Data Gateway and Shared Identity.
+- require a short-lived Shared AAL2 unlock for sensitive Investment data.
 
 ## Local preview
 

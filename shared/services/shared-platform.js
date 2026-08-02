@@ -40,8 +40,11 @@
       readSecurityState: options.readSecurityState
     });
 
+    const dataGateway = options.dataGateway || null;
+    const mfaService = options.mfaService || null;
+
     function forModule(moduleId) {
-      return ModuleContext.createModuleContext({ moduleId, sessionService, securityGate });
+      return ModuleContext.createModuleContext({ moduleId, sessionService, securityGate, dataGateway, mfaService });
     }
 
     return Object.freeze({

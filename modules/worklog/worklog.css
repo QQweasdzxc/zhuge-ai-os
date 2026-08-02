@@ -117,6 +117,10 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .suggestion-scan-footer{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}.suggestion-batch-actions{display:grid;grid-template-columns:1fr 1fr;width:auto}.suggestion-batch-actions .btn2{min-width:70px;padding:9px 6px}
 }
 
+.worklog-description-label{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.worklog-description-label output{color:#94a3b8;font-size:var(--font-xs);font-weight:900}
+.worklog-description-label output.is-limit{color:#fbbf24}
+
 /* Public login links: keep the unauthenticated product entry useful without changing the app layout. */
 .public-entry-fallback{max-width:720px;margin:12vh auto;padding:32px;border:1px solid #263b58;border-radius:18px;background:#0b1524;color:#e5eefc;line-height:1.7}
 .public-entry-fallback h1{margin-top:0}

@@ -12,7 +12,7 @@
       privacyMode: value.privacyMode !== false,
       gainColor: "red",
       lossColor: "green",
-      dataMode: "mock"
+      dataMode: String(value.dataMode || "cloud")
     });
   }
 

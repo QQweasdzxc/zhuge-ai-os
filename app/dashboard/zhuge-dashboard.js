@@ -13,11 +13,19 @@ function zhugeRootIdentityMarkup(identity = null) {
     ? `<img class="zhuge-root-avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(identity.name || "Google 使用者")}">`
     : `<span class="zhuge-root-avatar zhuge-root-avatar-fallback" aria-hidden="true">${escapeHtml(zhugeRootInitials(identity))}</span>`;
   return `<div class="zhuge-root-identity" data-root-identity>
-    ${avatarMarkup}
-    <div class="zhuge-root-identity-copy">
-      <strong>${escapeHtml(identity.name || "Google 使用者")}</strong>
-      <span>${escapeHtml(identity.email || "")}</span>
-      <small>🟢 Google 已登入 · Supabase Session 共用中</small>
+    <button class="zhuge-root-account-button" type="button" data-root-account-toggle aria-haspopup="menu" aria-expanded="false">
+      ${avatarMarkup}
+      <span class="zhuge-root-identity-copy">
+        <strong>${escapeHtml(identity.name || "Google 使用者")}</strong>
+        <span>${escapeHtml(identity.email || "")}</span>
+      </span>
+      <span class="zhuge-root-account-chevron" aria-hidden="true">▾</span>
+    </button>
+    <div class="zhuge-root-account-menu" data-root-account-menu role="menu" hidden>
+      <div class="zhuge-root-account-summary"><strong>${escapeHtml(identity.name || "Google 使用者")}</strong><span>${escapeHtml(identity.email || "")}</span></div>
+      <a href="https://myaccount.google.com/" target="_blank" rel="noopener noreferrer" role="menuitem">Google 帳號</a>
+      <button type="button" data-open-workspace="settings" role="menuitem">設定</button>
+      <button type="button" data-logout="1" role="menuitem">登出</button>
     </div>
   </div>`;
 }
@@ -29,8 +37,8 @@ function zhugeRootModuleCard({ id, icon, title, description, enabled = false, no
 }
 
 function zhugeRootReleaseMeta() {
-  const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.9.0";
-  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20260801-2359";
+  const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.9.1";
+  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20260802-1005";
   return `<div class="zhuge-root-release-meta" aria-label="版本資訊"><div><span>版本</span><strong>v${escapeHtml(version)}</strong></div><div><span>Build</span><strong>${escapeHtml(build)}</strong></div><div><span>環境</span><strong>Production</strong></div><div><span>Repository</span><strong>zhuge-ai-os</strong></div></div>`;
 }
 

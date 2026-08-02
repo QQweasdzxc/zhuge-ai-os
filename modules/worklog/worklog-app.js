@@ -184,6 +184,7 @@ function normalizeEntries() {
 
 function validateEntry(item) {
   if (!item.title) return "請輸入工作描述";
+  if (worklogDescriptionLength(item.title) > WORKLOG_DESCRIPTION_MAX_LENGTH) return `工作描述不可超過 ${WORKLOG_DESCRIPTION_MAX_LENGTH} 個字元`;
   if (!item.at || Number.isNaN(new Date(item.at).getTime())) return "請選擇正確時間";
   if (!item.hours || item.hours <= 0) return "請選擇工時";
   if (item.hours > 8) return "單筆工時不可超過 8 小時";
@@ -193,6 +194,10 @@ function validateEntry(item) {
   if (sameDayHours + Number(item.hours) > 12) return "同日工時已超過 12 小時，請確認是否輸入錯誤";
   if (worklogTimeConflicts(item)) return "這段時間與既有工時重疊，請調整日期或開始時間";
   return "";
+}
+
+function worklogDescriptionLength(value = "") {
+  return Array.from(String(value || "")).length;
 }
 
 function worklogTimeConflicts(item = {}) {
@@ -3432,7 +3437,7 @@ function workDescriptionSuggestions(query = "") {
 
 function descriptionSuggestionChips(query = "") {
   const list = workDescriptionSuggestions(query);
-  return `<div class="history-suggestions" id="descriptionSuggestions">${list.map(x => `<button class="btn2 suggestion-chip" type="button" data-title-suggestion="${escapeHtml(x)}">${escapeHtml(x)}</button>`).join("")}<button class="btn2 suggestion-chip add-chip" type="button" data-open-work-description-dialog="1">＋新增</button></div><div class="quick-add-dialog" id="workDescriptionDialog" style="display:none"><div class="quick-add-card"><h3>新增工作描述</h3><label>名稱：</label><input class="input" id="newWorkDescription" placeholder="例如：請假-特休、會議、主管交辦"><div class="form-actions"><button class="btn2" type="button" data-cancel-work-description="1">取消</button><button class="btn" type="button" data-add-work-description="1">新增</button></div></div></div>`;
+  return `<div class="history-suggestions" id="descriptionSuggestions">${list.map(x => `<button class="btn2 suggestion-chip" type="button" data-title-suggestion="${escapeHtml(x)}">${escapeHtml(x)}</button>`).join("")}<button class="btn2 suggestion-chip add-chip" type="button" data-open-work-description-dialog="1">＋新增</button></div><div class="quick-add-dialog" id="workDescriptionDialog" style="display:none"><div class="quick-add-card"><h3>新增工作描述</h3><label>名稱：</label><input class="input" id="newWorkDescription" maxlength="${WORKLOG_DESCRIPTION_MAX_LENGTH}" placeholder="例如：請假-特休、會議、主管交辦"><div class="form-actions"><button class="btn2" type="button" data-cancel-work-description="1">取消</button><button class="btn" type="button" data-add-work-description="1">新增</button></div></div></div>`;
 }
 
 function capture(editId = null, seed = null) {
@@ -3446,7 +3451,7 @@ function capture(editId = null, seed = null) {
   const ecpTask = e ? (e.ecpTask || "") : (seed ? seed.ecpTask || defaultEcpTaskName(seed.title) : defaultEcpTaskName(title));
   const isSuggestion = Boolean(seed?.suggestionId || seed?.source === "ai-card");
   const startAt = e?.at || seed?.at || captureDefaultStart(seed?.hours || 1);
-  return `<section class="panel capture-panel" style="margin-top:18px"><div class="panel-head"><div><h2>${e ? "編輯工時" : isSuggestion ? "確認加入工時" : "➕ 快速紀錄"}</h2>${isSuggestion ? `<div class="muted">這筆建議需要確認時間或內容，確認後才會正式寫入工時月曆。</div>` : ""}</div></div><div class="form capture-form"><label>日期 / 開始時間</label><input class="input" id="dt" type="datetime-local" value="${startAt}"><label>工作描述（必填）</label><input class="input" id="title" value="${escapeHtml(title)}" placeholder="例如：採購案件處理、特休" autocomplete="off">${descriptionSuggestionChips(title)}<label>ECP 任務（選填）</label><select id="ecpTaskSelect" class="input">${ecpTaskOptions(ecpTask)}</select><div class="work-model-add ecp-task-quick-add" id="ecpTaskQuickAdd" style="display:none"><input class="input" id="newEcpTaskCapture" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" data-add-capture-ecp-task="1" type="button">＋ 新增</button></div><label>工時</label><div class="row hours">${[0.5, 1, 1.5, 2, 3, 4, 5, 8].map(h => `<button class="btn2 hour ${Number(seed?.hours || e?.hours || 1) === h ? "selected" : ""}" data-h="${h}">${formatHumanDuration(h)}</button>`).join("")}</div><label>備註（選填）</label><input class="input" id="note" value="${escapeHtml(note)}" placeholder="補充說明，不參與 ECP 匯出"><div class="form-actions capture-actions"><button class="btn2" data-capture-cancel="1">取消</button><button class="btn" id="saveEntry">${isSuggestion ? "確認建立" : "儲存"}</button></div></div></section>`;
+  return `<section class="panel capture-panel" style="margin-top:18px"><div class="panel-head"><div><h2>${e ? "編輯工時" : isSuggestion ? "確認加入工時" : "➕ 快速紀錄"}</h2>${isSuggestion ? `<div class="muted">這筆建議需要確認時間或內容，確認後才會正式寫入工時月曆。</div>` : ""}</div></div><div class="form capture-form"><label>日期 / 開始時間</label><input class="input" id="dt" type="datetime-local" value="${startAt}"><div class="worklog-description-label"><label for="title">工作描述（必填）</label><output id="titleCount" aria-live="polite">${worklogDescriptionLength(title)}/${WORKLOG_DESCRIPTION_MAX_LENGTH}</output></div><input class="input" id="title" maxlength="${WORKLOG_DESCRIPTION_MAX_LENGTH}" value="${escapeHtml(title)}" placeholder="例如：採購案件處理、特休" autocomplete="off">${descriptionSuggestionChips(title)}<label>ECP 任務（選填）</label><select id="ecpTaskSelect" class="input">${ecpTaskOptions(ecpTask)}</select><div class="work-model-add ecp-task-quick-add" id="ecpTaskQuickAdd" style="display:none"><input class="input" id="newEcpTaskCapture" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" data-add-capture-ecp-task="1" type="button">＋ 新增</button></div><label>工時</label><div class="row hours">${[0.5, 1, 1.5, 2, 3, 4, 5, 8].map(h => `<button class="btn2 hour ${Number(seed?.hours || e?.hours || 1) === h ? "selected" : ""}" data-h="${h}">${formatHumanDuration(h)}</button>`).join("")}</div><label>備註（選填）</label><input class="input" id="note" value="${escapeHtml(note)}" placeholder="補充說明，不參與 ECP 匯出"><div class="form-actions capture-actions"><button class="btn2" data-capture-cancel="1">取消</button><button class="btn" id="saveEntry">${isSuggestion ? "確認建立" : "儲存"}</button></div></div></section>`;
 }
 
 function sync() {
@@ -4017,6 +4022,20 @@ function bindMigration() {
 }
 
 function bindDashboard() {
+  document.querySelectorAll("[data-root-account-toggle]").forEach(button => {
+    button.onclick = event => {
+      event.stopPropagation();
+      const container = button.closest("[data-root-identity]");
+      const menu = container?.querySelector("[data-root-account-menu]");
+      if (!menu) return;
+      const willOpen = menu.hidden;
+      menu.hidden = !willOpen;
+      button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    };
+  });
+  document.querySelectorAll("[data-root-account-menu]").forEach(menu => {
+    menu.onclick = event => event.stopPropagation();
+  });
   document.querySelectorAll("[data-google-drive-authorize]").forEach(button => {
     button.onclick = () => {
       button.disabled = true;
@@ -5318,9 +5337,17 @@ function bindCapture(editId = null) {
   let automaticTime = !editingEntry && (!suggestionSeed?.at || suggestionSeed?.timeResolution === "earliest_gap" || suggestionSeed?.autoScheduled);
   document.querySelectorAll("[data-capture-back],[data-capture-cancel]").forEach(b => b.onclick = () => { view = "center"; editingEntryId = null; captureSeed = null; saveAll(); render(); });
   const titleInput = document.getElementById("title");
+  const updateDescriptionCount = () => {
+    const output = document.getElementById("titleCount");
+    if (!output || !titleInput) return;
+    const length = worklogDescriptionLength(titleInput.value);
+    output.textContent = `${length}/${WORKLOG_DESCRIPTION_MAX_LENGTH}`;
+    output.classList.toggle("is-limit", length >= WORKLOG_DESCRIPTION_MAX_LENGTH);
+  };
   const bindDescriptionSuggestions = () => {
     document.querySelectorAll("[data-title-suggestion]").forEach(b => b.onclick = () => {
       titleInput.value = b.dataset.titleSuggestion;
+      updateDescriptionCount();
     });
     document.querySelectorAll("[data-open-work-description-dialog]").forEach(b => b.onclick = () => {
       const dialog = document.getElementById("workDescriptionDialog");
@@ -5342,10 +5369,12 @@ function bindCapture(editId = null) {
       const input = document.getElementById("newWorkDescription");
       const name = input?.value.trim() || "";
       if (!name) return toast("請輸入工作描述名稱");
+      if (worklogDescriptionLength(name) > WORKLOG_DESCRIPTION_MAX_LENGTH) return toast(`工作描述不可超過 ${WORKLOG_DESCRIPTION_MAX_LENGTH} 個字元`);
       b.disabled = true;
       try {
         await saveWorkModel(name);
         titleInput.value = name;
+        updateDescriptionCount();
         const box = document.getElementById("descriptionSuggestions");
         if (box) {
           box.outerHTML = descriptionSuggestionChips(titleInput.value);
@@ -5373,12 +5402,14 @@ function bindCapture(editId = null) {
   };
   bindDescriptionSuggestions();
   if (titleInput) titleInput.oninput = () => {
+    updateDescriptionCount();
     const box = document.getElementById("descriptionSuggestions");
     if (box) {
       box.outerHTML = descriptionSuggestionChips(titleInput.value);
       bindDescriptionSuggestions();
     }
   };
+  updateDescriptionCount();
   const ecpTaskSelect = document.getElementById("ecpTaskSelect");
   const quickAdd = document.getElementById("ecpTaskQuickAdd");
   if (ecpTaskSelect) ecpTaskSelect.onchange = () => {

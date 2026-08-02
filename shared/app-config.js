@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
-const VERSION = "0.9.0-alpha.9.0";
+const VERSION = "0.9.0-alpha.9.1";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260801-2359";
+const BUILD_TIME = "20260802-1005";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -12,6 +12,7 @@ const DRIVE_DEBUG_MODE = (() => {
   catch { return false; }
 })();
 const GOOGLE_DRIVE_OAUTH_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+const WORKLOG_DESCRIPTION_MAX_LENGTH = 50;
 // Google Picker configuration is intentionally public-client configuration. Keep secrets out of this file.
 // Set these values per deployment; an empty value keeps the Picker action disabled with a clear message.
 const GOOGLE_PICKER_API_KEY = "AIzaSyBqKb6rxJLvtT9Rb1sLJU6zuNDOTlEh10U";

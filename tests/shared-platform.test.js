@@ -10,6 +10,7 @@ const Permissions = require("../shared/security/permission-service.js");
 const Security = require("../shared/security/security-gate.js");
 const ModuleContext = require("../shared/services/module-context.js");
 const SharedPlatform = require("../shared/services/shared-platform.js");
+const Mfa = require("../shared/security/mfa-service.js");
 
 const USER_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -104,6 +105,69 @@ test("security gate denies unknown modules and requires configured assurance", (
   assert.equal(gate.evaluate({ moduleId: "investment", action: "trade" }).allowed, true);
 });
 
+test("Investment requires AAL2 and a module unlock while Dashboard and WorkLog remain available", () => {
+  let current = authenticatedSession({ aal: "aal1" });
+  let locked = true;
+  const sessionService = Session.createSessionService({ readSession: () => current });
+  const gate = Security.createSecurityGate({
+    sessionService,
+    policies: { "investment.view": { requiredAal: "aal2" } },
+    readSecurityState: ({ moduleId }) => ({ locked: moduleId === "investment" && locked })
+  });
+
+  assert.equal(gate.evaluate({ moduleId: "dashboard", action: "view" }).allowed, true);
+  assert.equal(gate.evaluate({ moduleId: "worklog", action: "view" }).allowed, true);
+  assert.equal(gate.evaluate({ moduleId: "investment", action: "view" }).code, "STEP_UP_REQUIRED");
+  current = authenticatedSession({ aal: "aal2" });
+  assert.equal(gate.evaluate({ moduleId: "investment", action: "view" }).code, "MODULE_LOCKED");
+  locked = false;
+  assert.equal(gate.evaluate({ moduleId: "investment", action: "view" }).allowed, true);
+});
+
+test("Shared MFA supports TOTP, keeps future providers, and expires Investment unlock after 10 minutes", async () => {
+  let clock = 1000;
+  let verified = false;
+  let staleRemoved = false;
+  const values = new Map();
+  const storage = {
+    getItem: key => values.get(key) || null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key)
+  };
+  const auth = {
+    mfa: {
+      listFactors: async () => ({ data: { totp: [{ id: "factor-1", factor_type: "totp", status: "verified" }], all: [{ id: "stale-1", factor_type: "totp", status: "unverified" }] }, error: null }),
+      unenroll: async ({ factorId }) => {
+        staleRemoved = factorId === "stale-1";
+        return { error: null };
+      },
+      enroll: async () => ({ data: { id: "factor-2", totp: { qr_code: "data:image/svg+xml,test", secret: "SECRET" } }, error: null }),
+      challengeAndVerify: async ({ factorId, code }) => {
+        verified = factorId === "factor-1" && code === "123456";
+        return { error: verified ? null : new Error("invalid code") };
+      }
+    }
+  };
+  const service = Mfa.createMfaService({
+    gateway: { getAuthClient: async () => ({ auth }), syncCanonicalSession: async () => ({}) },
+    now: () => clock,
+    unlockDurationMs: 10 * 60 * 1000,
+    storage
+  });
+
+  assert.equal(service.providers().totp.available, true);
+  assert.equal(service.providers().emailOtp.available, false);
+  assert.equal(service.providers().passkey.available, false);
+  assert.deepEqual(await service.prepare(), { mode: "challenge", provider: "totp", factorId: "factor-1", friendlyName: "Google Authenticator" });
+  assert.equal((await service.enroll()).factorId, "factor-2");
+  assert.equal(staleRemoved, true);
+  await service.verify({ moduleId: "investment", userId: USER_ID, factorId: "factor-1", code: "123456" });
+  assert.equal(verified, true);
+  assert.equal(service.getUnlockState("investment", USER_ID).unlocked, true);
+  clock += 10 * 60 * 1000 + 1;
+  assert.equal(service.getUnlockState("investment", USER_ID).unlocked, false);
+});
+
 test("canonical module security levels cannot be lowered or overridden", () => {
   const sessionService = Session.createSessionService({ readSession: () => authenticatedSession() });
   assert.throws(
@@ -112,17 +176,18 @@ test("canonical module security levels cannot be lowered or overridden", () => {
   );
 });
 
-test("module context exposes only redacted identity, session, and security APIs", () => {
+test("module context exposes only redacted identity, session, and security APIs", async () => {
   const sessionService = Session.createSessionService({ readSession: () => authenticatedSession() });
   const gate = Security.createSecurityGate({ sessionService });
   const context = ModuleContext.createModuleContext({ moduleId: "investment", sessionService, securityGate: gate });
 
-  assert.deepEqual(Object.keys(context).sort(), ["identity", "moduleId", "security", "session"]);
+  assert.deepEqual(Object.keys(context).sort(), ["data", "identity", "moduleId", "security", "session"]);
   assert.equal(context.identity.getUserId(), USER_ID);
   assert.equal(context.security.can("view"), true);
   assert.equal(context.security.evaluate("view").code, "ALLOWED");
   assert.equal("signInWithOAuth" in context.session, false);
   assert.equal("getAccessToken" in context.session, false);
+  await assert.rejects(async () => context.data.select("portfolios"), /Data Gateway/);
 });
 
 test("shared platform creates an Investment context without Supabase Auth coupling", () => {
