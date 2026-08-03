@@ -1,0 +1,13 @@
+{
+  "version": "0.9.0-alpha.9.7",
+  "build": "20260803-1125",
+  "foundation": "1.0",
+  "module": "Zhuge AI OS",
+  "moduleVersion": "0.9",
+  "modules": {
+    "worklog": "0.9",
+    "investment": "0.2.0-sit.2"
+  },
+  "shared": "1.0",
+  "api": "v1"
+}
