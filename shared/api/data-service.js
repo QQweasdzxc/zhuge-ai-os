@@ -115,37 +115,16 @@ const DataService = {
     try {
       if (scopes.has("profile") && profile) {
         syncWorkProfileFromProfile();
-        try {
-          await SupabaseRepository.upsertUserProfile(profile);
-        } catch (error) {
-          error.syncStage = "user_profile";
-          throw error;
-        }
-        try {
-          await SupabaseRepository.upsertExportSettings(profile);
-        } catch (error) {
-          error.syncStage = "export_settings";
-          throw error;
-        }
-        try {
-          await SupabaseRepository.upsertWorkProfile(workProfile);
-        } catch (error) {
-          error.syncStage = "work_profile";
-          throw error;
-        }
+        await SupabaseRepository.upsertUserProfile(profile);
+        await SupabaseRepository.upsertExportSettings(profile);
+        await SupabaseRepository.upsertWorkProfile(workProfile);
       }
       if (scopes.has("workModels")) {
         const rows = await SupabaseRepository.saveWorkModels(workMemoryObjects(), profile);
         setWorkModels(Array.isArray(rows) ? rows : workMemoryObjects());
       }
       if (scopes.has("ecpTasks")) {
-        let rows;
-        try {
-          rows = await SupabaseRepository.saveEcpTasks(ecpTasks());
-        } catch (error) {
-          error.syncStage = "ecp_tasks";
-          throw error;
-        }
+        const rows = await SupabaseRepository.saveEcpTasks(ecpTasks());
         setEcpTasks(Array.isArray(rows) ? rows.map(row => row.name).filter(Boolean) : ecpTasks());
       }
       if (scopes.has("tasks")) {

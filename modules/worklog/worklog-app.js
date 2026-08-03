@@ -1,4 +1,9 @@
 // P5.2A-1 Foundation Split: app startup, routing, rendering, and module coordination.
+function currentCalendarMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function nextMonthKey(month = monthKey()) {
   const [year, m] = month.split("-").map(Number);
   const d = new Date(year, m, 1);
@@ -18,7 +23,7 @@ function defaultWorkProfileSeed(baseProfile = profile) {
     profileCompletedAt: completed ? new Date().toISOString() : "",
     lastProfileCheckDate: "",
     lastProfilePromptDate: "",
-    taskEffectiveMonth: firstTask ? monthKey() : "",
+    taskEffectiveMonth: firstTask ? currentCalendarMonthKey() : "",
     taskVerifiedAt: firstTask ? new Date().toISOString() : "",
     expiresAt: ""
   };
@@ -48,7 +53,7 @@ function normalizeWorkProfile(value = {}, baseProfile = profile) {
   result.profileCompleted = !!(result.ecpResponsiblePerson && result.ecpDepartment && result.defaultTask);
   if (!result.profileCompleted) result.profileCompletedAt = "";
   if (result.profileCompleted && !result.profileCompletedAt) result.profileCompletedAt = new Date().toISOString();
-  if (result.defaultTask && !result.taskEffectiveMonth) result.taskEffectiveMonth = monthKey();
+  if (result.defaultTask && !result.taskEffectiveMonth) result.taskEffectiveMonth = currentCalendarMonthKey();
   if (result.defaultTask && !result.taskVerifiedAt) result.taskVerifiedAt = new Date().toISOString();
   return result;
 }
@@ -538,90 +543,6 @@ function toast(t) {
   document.body.appendChild(e);
   setTimeout(() => e.classList.add("show"), 10);
   setTimeout(() => { e.classList.remove("show"); setTimeout(() => e.remove(), 220); }, 1800);
-}
-
-function workProfileSyncDiagnostic(error = {}) {
-  const rootError = error?.cause || error || {};
-  const supabase = error?.supabase || rootError?.supabase || {};
-  const stageMap = {
-    user_profile: "使用者設定 user_profiles",
-    export_settings: "匯出設定 user_export_settings",
-    work_profile: "工作身分 user_work_profiles",
-    ecp_tasks: "ECP 任務",
-    unknown: "未識別同步階段"
-  };
-  const stage = error?.syncStage || rootError?.syncStage || "unknown";
-  const status = Number(supabase.status || 0);
-  const code = String(supabase.code || error?.code || rootError?.code || "");
-  const message = String(supabase.message || error?.message || rootError?.message || "工作身分同步失敗");
-  const path = String(supabase.path || "");
-  let source = "ZIP 程式／前端狀態";
-  let suggestion = "請重新整理頁面並重新登入後再試；若仍失敗，請提供本診斷內容。";
-  if (status || path || supabase.message) {
-    source = "Supabase API／資料庫設定";
-    suggestion = "請依 API、狀態碼與錯誤代碼檢查 Supabase Table、RLS Policy、欄位或 Constraint。";
-  }
-  if (status === 401 || code === "AUTH_SESSION_EXPIRED") {
-    source = "登入工作階段／Token";
-    suggestion = "請重新整理頁面並重新登入；若立即再次發生，需檢查 Shared Session Refresh。";
-  } else if (status === 403 || code === "42501") {
-    suggestion = "Supabase 已收到請求但拒絕寫入，優先檢查該資料表的 RLS INSERT／UPDATE Policy。";
-  } else if (status === 404 || code === "42P01" || /relation .* does not exist|schema cache/i.test(message)) {
-    suggestion = "優先確認資料表是否存在，以及 Supabase API Schema Cache 是否已更新。";
-  } else if (status === 409 || /^23/.test(code)) {
-    suggestion = "優先檢查唯一鍵、外鍵、NOT NULL 或資料型態 Constraint。";
-  }
-  return {
-    stage,
-    stageLabel: stageMap[stage] || stage,
-    source,
-    suggestion,
-    path,
-    method: String(supabase.method || ""),
-    status: status || "—",
-    code: code || "—",
-    message,
-    details: String(supabase.details || ""),
-    hint: String(supabase.hint || ""),
-    tokenExpiresAt: String(supabase.access_token_expires_at || "")
-  };
-}
-
-function showWorkProfileSyncDiagnostic(error = {}) {
-  const diagnostic = workProfileSyncDiagnostic(error);
-  const existing = document.querySelector("[data-work-profile-diagnostic]");
-  if (existing) existing.remove();
-  const overlay = document.createElement("div");
-  overlay.className = "quick-add-dialog";
-  overlay.dataset.workProfileDiagnostic = "1";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.style.display = "grid";
-  const rows = [
-    ["判斷來源", diagnostic.source],
-    ["失敗階段", diagnostic.stageLabel],
-    ["API", [diagnostic.method, diagnostic.path].filter(Boolean).join(" ") || "—"],
-    ["HTTP 狀態", String(diagnostic.status)],
-    ["錯誤代碼", diagnostic.code],
-    ["錯誤訊息", diagnostic.message],
-    ["詳細資訊", diagnostic.details || "—"],
-    ["Supabase Hint", diagnostic.hint || "—"],
-    ["Token 到期時間", diagnostic.tokenExpiresAt || "—"]
-  ];
-  const report = rows.map(([label, value]) => `${label}: ${value}`).join("\n") + `\n建議: ${diagnostic.suggestion}`;
-  overlay.innerHTML = `<div class="quick-add-card" style="max-width:760px"><div class="panel-head"><div><h3>工作身分同步診斷</h3><div class="muted">此畫面不顯示 Access Token 或敏感資料。</div></div></div><div style="display:grid;gap:10px;margin-top:14px">${rows.map(([label, value]) => `<div style="display:grid;grid-template-columns:minmax(120px,160px) 1fr;gap:12px;padding:9px 0;border-bottom:1px solid rgba(148,163,184,.18)"><strong>${escapeHtml(label)}</strong><span style="overflow-wrap:anywhere">${escapeHtml(value)}</span></div>`).join("")}</div><div class="panel" style="margin-top:14px;padding:12px"><strong>建議處理</strong><div style="margin-top:6px">${escapeHtml(diagnostic.suggestion)}</div></div><div class="form-actions"><button class="btn2" type="button" data-copy-work-profile-diagnostic>複製診斷</button><button class="btn" type="button" data-close-work-profile-diagnostic>關閉</button></div></div>`;
-  document.body.appendChild(overlay);
-  overlay.querySelector("[data-close-work-profile-diagnostic]")?.addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", event => { if (event.target === overlay) overlay.remove(); });
-  overlay.querySelector("[data-copy-work-profile-diagnostic]")?.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(report);
-      toast("診斷內容已複製");
-    } catch {
-      console.info("Work Profile sync diagnostic", report);
-      toast("無法存取剪貼簿，診斷內容已輸出至 Console");
-    }
-  });
 }
 
 function showCreatedWorklogToast(item = {}) {
@@ -2456,7 +2377,7 @@ function worklogWelcomeScreen() {
   const progress = {
     owner: ["Step 1 / 4", "■□□□", "ECP 負責人", "setupEcpOwner", draft.ecpResponsiblePerson, "例如：陳彥達-UU"],
     department: ["Step 2 / 4", "■■□□", "ECP 負責部門", "setupEcpDepartment", draft.ecpDepartment, "例如：UU管理部"],
-    task: ["Step 3 / 4", "■■■□", "目前工作任務（Current Active Task）", "setupEcpTask", draft.defaultTask, "例如：202607管理部月工作-採購及管理(含臨時交辦)"],
+    task: ["Step 3 / 4", "■■■□", "本月工作任務", "setupEcpTask", draft.defaultTask, "例如：202608管理部月工作-採購及管理(含臨時交辦)"],
     confirm: ["Step 4 / 4", "■■■■"]
   };
   if (step === "welcome") {
@@ -2464,7 +2385,7 @@ function worklogWelcomeScreen() {
   }
   if (step === "confirm") {
     const [label, bars] = progress.confirm;
-    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${label}</b><em>${bars}</em></div><h1>請確認您的工作身分</h1><div class="work-profile-confirm"><div>負責人：<b>${escapeHtml(draft.ecpResponsiblePerson || "尚未填寫")}</b></div><div>部門：<b>${escapeHtml(draft.ecpDepartment || "尚未填寫")}</b></div><div>目前工作任務：<b>${escapeHtml(draft.defaultTask || "尚未填寫")}</b></div></div><div class="form-actions"><button class="btn2" data-work-identity-back="task">修改</button><button class="btn" data-confirm-work-profile-setup="1">確認</button></div></section></div></div>`;
+    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${label}</b><em>${bars}</em></div><h1>請確認您的工作身分</h1><div class="work-profile-confirm"><div>負責人：<b>${escapeHtml(draft.ecpResponsiblePerson || "尚未填寫")}</b></div><div>部門：<b>${escapeHtml(draft.ecpDepartment || "尚未填寫")}</b></div><div>本月工作任務：<b>${escapeHtml(draft.defaultTask || "尚未填寫")}</b></div></div><p class="muted">若主管尚未分派本月任務，可以稍後再設定，不會阻擋進入 WorkLog。</p><div class="form-actions"><button class="btn2" data-work-identity-back="task">返回編輯</button><button class="btn2" data-skip-work-profile-setup="1">稍後設定</button><button class="btn" data-confirm-work-profile-setup="1">完成</button></div></section></div></div>`;
   }
   const cfg = progress[step] || progress.owner;
   return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${escapeHtml(cfg[0])}</b><em>${escapeHtml(cfg[1])}</em></div><h1>${escapeHtml(cfg[2])}</h1><p class="muted">我會一步一步協助您完成。這些資訊會讓未來工時與 ECP 匯出更順。</p><label>${escapeHtml(cfg[2])}</label><input class="input" id="${escapeHtml(cfg[3])}" value="${escapeHtml(cfg[4])}" placeholder="${escapeHtml(cfg[5])}"><div class="form-actions"><button class="btn2" data-work-identity-prev="1">返回</button><button class="btn" data-work-identity-next="${escapeHtml(step)}">下一步</button></div></section></div></div>`;
@@ -4159,15 +4080,27 @@ function bindWorklogWelcome() {
     if (step === "task") {
       const value = document.getElementById("setupEcpTask")?.value.trim() || "";
       if (!value) return toast("請輸入目前工作任務");
-      writeDraft({ ...draft, defaultTask: value, taskEffectiveMonth: monthKey(), taskVerifiedAt: new Date().toISOString() });
+      writeDraft({ ...draft, defaultTask: value, taskEffectiveMonth: currentCalendarMonthKey(), taskVerifiedAt: new Date().toISOString() });
       return setStep("confirm");
     }
+  });
+  document.querySelectorAll("[data-skip-work-profile-setup]").forEach(b => b.onclick = () => {
+    localStorage.setItem(scopedLocalKey(WORKLOG_WELCOME_KEY), "1");
+    localStorage.removeItem(stepKey);
+    localStorage.removeItem(draftKey);
+    activeWorkspace = "worklog";
+    openTabs = ["worklog"];
+    recentWorkspaces = ["worklog"];
+    hasOsShellState = true;
+    saveAll();
+    toast("已稍後設定，可先使用 WorkLog");
+    render();
   });
   document.querySelectorAll("[data-confirm-work-profile-setup]").forEach(b => b.onclick = async () => {
     const draft = readDraft();
     const next = normalizeWorkProfile({
       ...draft,
-      taskEffectiveMonth: monthKey(),
+      taskEffectiveMonth: currentCalendarMonthKey(),
       taskVerifiedAt: new Date().toISOString(),
       lastProfileCheckDate: key(new Date())
     }, profile);
@@ -4179,21 +4112,18 @@ function bindWorklogWelcome() {
     recentWorkspaces = ["worklog"];
     hasOsShellState = true;
     saveAll();
-    try {
-      await DataService.saveProfileSettingsOnly({ requireCloud: true });
-      await DataService.saveEcpTasksOnly({ requireCloud: true });
-      localStorage.setItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY), "1");
-      localStorage.removeItem(stepKey);
-      localStorage.removeItem(draftKey);
-      toast("工作身分已完成");
-    } catch (error) {
-      const diagnostic = workProfileSyncDiagnostic(error);
-      console.error("Work Profile setup sync failed", { error, diagnostic, supabase: error.supabase || error?.cause?.supabase || null });
-      toast("工作身分同步失敗，已產生診斷結果");
-      showWorkProfileSyncDiagnostic(error);
-      return;
-    }
+    localStorage.setItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY), "1");
+    localStorage.removeItem(stepKey);
+    localStorage.removeItem(draftKey);
+    toast("工作身分已完成，資料將於背景同步");
     render();
+    Promise.allSettled([
+      DataService.saveProfileSettingsOnly(),
+      DataService.saveEcpTasksOnly()
+    ]).then(results => {
+      const failed = results.find(result => result.status === "rejected");
+      if (failed) console.error("Work Profile background sync failed", failed.reason);
+    });
   });
   document.querySelectorAll("[data-enter-ai-os]").forEach(b => b.onclick = () => {
     localStorage.removeItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY));

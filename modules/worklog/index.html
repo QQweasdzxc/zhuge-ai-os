@@ -136,7 +136,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-            script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260803-0905`;
+            script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260802-2126`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>'; };
