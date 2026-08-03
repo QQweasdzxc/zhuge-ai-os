@@ -1,4 +1,4 @@
--- v0.9.0-alpha.9.5
+-- v0.9.0-alpha.9.6
 -- Fix Conversation Cloud upsert contracts used by PostgREST on_conflict.
 create unique index if not exists assistant_conversations_user_thread_uidx
   on public.assistant_conversations (user_uuid, thread_key);

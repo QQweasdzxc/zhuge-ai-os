@@ -2364,7 +2364,12 @@ function worklogWelcomeSeen() {
 }
 
 function needsWorklogWelcome() {
-  return !!session && (!isWorkProfileReady(workProfile) || localStorage.getItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY)) === "1");
+  if (!session) return false;
+  const completionPending = localStorage.getItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY)) === "1";
+  if (completionPending) return true;
+  // Onboarding is a one-time, non-blocking guide. Once the user has completed
+  // or deferred it, an incomplete monthly task must never gate WorkLog.
+  return !worklogWelcomeSeen();
 }
 
 function worklogWelcomeScreen() {
@@ -2385,10 +2390,10 @@ function worklogWelcomeScreen() {
   }
   if (step === "confirm") {
     const [label, bars] = progress.confirm;
-    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${label}</b><em>${bars}</em></div><h1>請確認您的工作身分</h1><div class="work-profile-confirm"><div>負責人：<b>${escapeHtml(draft.ecpResponsiblePerson || "尚未填寫")}</b></div><div>部門：<b>${escapeHtml(draft.ecpDepartment || "尚未填寫")}</b></div><div>本月工作任務：<b>${escapeHtml(draft.defaultTask || "尚未填寫")}</b></div></div><p class="muted">若主管尚未分派本月任務，可以稍後再設定，不會阻擋進入 WorkLog。</p><div class="form-actions"><button class="btn2" data-work-identity-back="task">返回編輯</button><button class="btn2" data-skip-work-profile-setup="1">稍後設定</button><button class="btn" data-confirm-work-profile-setup="1">完成</button></div></section></div></div>`;
+    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${label}</b><em>${bars}</em></div><h1>請確認您的工作身分</h1><div class="work-profile-confirm"><div>負責人：<b>${escapeHtml(draft.ecpResponsiblePerson || "尚未填寫")}</b></div><div>部門：<b>${escapeHtml(draft.ecpDepartment || "尚未填寫")}</b></div><div>本月工作任務：<b>${escapeHtml(draft.defaultTask || "尚未填寫")}</b></div></div><p class="muted">若主管尚未分派本月任務，可以稍後再設定，不會阻擋進入 WorkLog。</p><div class="form-actions"><button class="btn2" data-work-identity-back="task">返回編輯</button><button class="btn2" data-skip-work-profile-setup="1">先使用 WorkLog</button><button class="btn" data-confirm-work-profile-setup="1">完成</button></div></section></div></div>`;
   }
   const cfg = progress[step] || progress.owner;
-  return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${escapeHtml(cfg[0])}</b><em>${escapeHtml(cfg[1])}</em></div><h1>${escapeHtml(cfg[2])}</h1><p class="muted">我會一步一步協助您完成。這些資訊會讓未來工時與 ECP 匯出更順。</p><label>${escapeHtml(cfg[2])}</label><input class="input" id="${escapeHtml(cfg[3])}" value="${escapeHtml(cfg[4])}" placeholder="${escapeHtml(cfg[5])}"><div class="form-actions"><button class="btn2" data-work-identity-prev="1">返回</button>${step === "task" ? `<button class="btn2" data-skip-work-profile-task="1">稍後設定</button>` : ""}<button class="btn" data-work-identity-next="${escapeHtml(step)}">下一步</button></div></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${escapeHtml(cfg[0])}</b><em>${escapeHtml(cfg[1])}</em></div><h1>${escapeHtml(cfg[2])}</h1><p class="muted">我會一步一步協助您完成。這些資訊會讓未來工時與 ECP 匯出更順。</p><label>${escapeHtml(cfg[2])}</label><input class="input" id="${escapeHtml(cfg[3])}" value="${escapeHtml(cfg[4])}" placeholder="${escapeHtml(cfg[5])}"><div class="form-actions"><button class="btn2" data-work-identity-prev="1">返回</button>${step === "task" ? `<button class="btn2" data-skip-work-profile-task="1">先使用 WorkLog</button>` : ""}<button class="btn" data-work-identity-next="${escapeHtml(step)}">下一步</button></div></section></div></div>`;
 }
 
 function migrationScreen() {
@@ -4087,10 +4092,21 @@ function bindWorklogWelcome() {
   document.querySelectorAll("[data-skip-work-profile-task]").forEach(b => b.onclick = () => {
     const draft = readDraft();
     writeDraft({ ...draft, defaultTask: "", taskEffectiveMonth: currentCalendarMonthKey(), taskVerifiedAt: "" });
-    setStep("confirm");
+    localStorage.setItem(scopedLocalKey(WORKLOG_WELCOME_KEY), "1");
+    localStorage.removeItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY));
+    localStorage.removeItem(stepKey);
+    localStorage.removeItem(draftKey);
+    activeWorkspace = "worklog";
+    openTabs = ["worklog"];
+    recentWorkspaces = ["worklog"];
+    hasOsShellState = true;
+    saveAll();
+    toast("已稍後設定，可先使用 WorkLog");
+    render();
   });
   document.querySelectorAll("[data-skip-work-profile-setup]").forEach(b => b.onclick = () => {
     localStorage.setItem(scopedLocalKey(WORKLOG_WELCOME_KEY), "1");
+    localStorage.removeItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY));
     localStorage.removeItem(stepKey);
     localStorage.removeItem(draftKey);
     activeWorkspace = "worklog";
@@ -4109,7 +4125,8 @@ function bindWorklogWelcome() {
       taskVerifiedAt: new Date().toISOString(),
       lastProfileCheckDate: key(new Date())
     }, profile);
-    if (!isWorkProfileReady(next)) return toast(`尚未完成工作身分：${workProfileMissingFields(next).join("、")}`);
+    // The monthly task is optional. Save whatever has been provided and
+    // never block product access because the assignment is not ready yet.
     applyWorkProfileToProfile(next);
     localStorage.setItem(scopedLocalKey(WORKLOG_WELCOME_KEY), "1");
     activeWorkspace = "worklog";
@@ -4117,7 +4134,7 @@ function bindWorklogWelcome() {
     recentWorkspaces = ["worklog"];
     hasOsShellState = true;
     saveAll();
-    localStorage.setItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY), "1");
+    localStorage.removeItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY));
     localStorage.removeItem(stepKey);
     localStorage.removeItem(draftKey);
     toast("工作身分已完成，資料將於背景同步");

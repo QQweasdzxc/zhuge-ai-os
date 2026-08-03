@@ -1,8 +1,8 @@
-# WorkLog v0.9.0-alpha.9.5 Optimization Record
+# WorkLog v0.9.0-alpha.9.6 Optimization Record
 
-Build: `20260803-1125`  
+Build: `20260803-1044`  
 Previous Version: `0.9.0-alpha.9.4`  
-New Version: `0.9.0-alpha.9.5`
+New Version: `0.9.0-alpha.9.6`
 
 ## Purpose
 
@@ -113,4 +113,4 @@ This release does not redesign:
 ## Version Mapping
 
 - `0.9.0-alpha.9.4`: non-blocking final confirmation and background profile sync.
-- `0.9.0-alpha.9.5`: optional Step 3, historical month load retry, real summary bars, Conversation upsert fix, Investment SIT status synchronization.
+- `0.9.0-alpha.9.6`: optional Step 3, historical month load retry, real summary bars, Conversation upsert fix, Investment SIT status synchronization.

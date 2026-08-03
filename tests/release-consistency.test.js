@@ -12,8 +12,8 @@ test("Sprint 3 release identity is consistent across product and module manifest
   const worklog = json("modules/worklog/version.json");
   const investment = json("modules/investment/version.json");
 
-  assert.equal(root.version, "0.9.0-alpha.9.5");
-  assert.equal(root.build, "20260803-1125");
+  assert.equal(root.version, "0.9.0-alpha.9.6");
+  assert.equal(root.build, "20260803-1044");
   assert.equal(worklog.version, root.version);
   assert.equal(worklog.build, root.build);
   assert.equal(investment.version, root.version);
