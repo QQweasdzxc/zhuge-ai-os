@@ -1,6 +1,6 @@
 {
-  "version": "0.9.0-alpha.9.4",
-  "build": "20260803-0955",
+  "version": "0.9.0-alpha.9.5",
+  "build": "20260803-1125",
   "foundation": "1.0",
   "module": "WorkLog",
   "moduleVersion": "0.9",

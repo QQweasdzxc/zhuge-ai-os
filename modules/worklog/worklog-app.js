@@ -2377,7 +2377,7 @@ function worklogWelcomeScreen() {
   const progress = {
     owner: ["Step 1 / 4", "■□□□", "ECP 負責人", "setupEcpOwner", draft.ecpResponsiblePerson, "例如：陳彥達-UU"],
     department: ["Step 2 / 4", "■■□□", "ECP 負責部門", "setupEcpDepartment", draft.ecpDepartment, "例如：UU管理部"],
-    task: ["Step 3 / 4", "■■■□", "本月工作任務", "setupEcpTask", draft.defaultTask, "例如：202608管理部月工作-採購及管理(含臨時交辦)"],
+    task: ["Step 3 / 4", "■■■□", "本月工作任務（可稍後設定）", "setupEcpTask", draft.defaultTask, "例如：202608管理部月工作-採購及管理(含臨時交辦)"],
     confirm: ["Step 4 / 4", "■■■■"]
   };
   if (step === "welcome") {
@@ -2388,7 +2388,7 @@ function worklogWelcomeScreen() {
     return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${label}</b><em>${bars}</em></div><h1>請確認您的工作身分</h1><div class="work-profile-confirm"><div>負責人：<b>${escapeHtml(draft.ecpResponsiblePerson || "尚未填寫")}</b></div><div>部門：<b>${escapeHtml(draft.ecpDepartment || "尚未填寫")}</b></div><div>本月工作任務：<b>${escapeHtml(draft.defaultTask || "尚未填寫")}</b></div></div><p class="muted">若主管尚未分派本月任務，可以稍後再設定，不會阻擋進入 WorkLog。</p><div class="form-actions"><button class="btn2" data-work-identity-back="task">返回編輯</button><button class="btn2" data-skip-work-profile-setup="1">稍後設定</button><button class="btn" data-confirm-work-profile-setup="1">完成</button></div></section></div></div>`;
   }
   const cfg = progress[step] || progress.owner;
-  return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${escapeHtml(cfg[0])}</b><em>${escapeHtml(cfg[1])}</em></div><h1>${escapeHtml(cfg[2])}</h1><p class="muted">我會一步一步協助您完成。這些資訊會讓未來工時與 ECP 匯出更順。</p><label>${escapeHtml(cfg[2])}</label><input class="input" id="${escapeHtml(cfg[3])}" value="${escapeHtml(cfg[4])}" placeholder="${escapeHtml(cfg[5])}"><div class="form-actions"><button class="btn2" data-work-identity-prev="1">返回</button><button class="btn" data-work-identity-next="${escapeHtml(step)}">下一步</button></div></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-profile-setup" style="margin-top:18px"><div class="setup-progress"><span>建立工作身分</span><b>${escapeHtml(cfg[0])}</b><em>${escapeHtml(cfg[1])}</em></div><h1>${escapeHtml(cfg[2])}</h1><p class="muted">我會一步一步協助您完成。這些資訊會讓未來工時與 ECP 匯出更順。</p><label>${escapeHtml(cfg[2])}</label><input class="input" id="${escapeHtml(cfg[3])}" value="${escapeHtml(cfg[4])}" placeholder="${escapeHtml(cfg[5])}"><div class="form-actions"><button class="btn2" data-work-identity-prev="1">返回</button>${step === "task" ? `<button class="btn2" data-skip-work-profile-task="1">稍後設定</button>` : ""}<button class="btn" data-work-identity-next="${escapeHtml(step)}">下一步</button></div></section></div></div>`;
 }
 
 function migrationScreen() {
@@ -2418,6 +2418,7 @@ function rememberWorkspace(id) {
 
 function openWorkspace(id) {
   if (!workspaceRegistry[id]) return;
+  if (workspaceRegistry[id].externalHref) { location.href = workspaceRegistry[id].externalHref; return; }
   if (workspaceRegistry[id].comingSoon) return;
   const route = typeof AppRouter !== "undefined" ? AppRouter.resolve(id, view) : { workspace: id, view };
   if (id === "dashboard") {
@@ -2461,7 +2462,7 @@ function agentStatusPanel() {
 }
 
 function sidebarSection(title, group) {
-  return `<div class="side-section"><h3>${title}</h3>${Object.entries(workspaceRegistry).filter(([, w]) => w.group === group && !w.hidden).map(([id, w]) => w.enabled ? `<button class="side-item ${activeWorkspace === id ? "on" : ""}" data-open-workspace="${id}"><span>${w.icon} ${w.label}</span></button>` : `<div class="side-item disabled"><span>${w.icon} ${w.label}</span>${w.comingSoon ? `<small>🚧 施工中</small>` : ""}</div>`).join("")}</div>`;
+  return `<div class="side-section"><h3>${title}</h3>${Object.entries(workspaceRegistry).filter(([, w]) => w.group === group && !w.hidden).map(([id, w]) => w.enabled ? `<button class="side-item ${activeWorkspace === id ? "on" : ""}" data-open-workspace="${id}"><span>${w.icon} ${w.label}</span>${w.status ? `<small>${escapeHtml(w.status)}</small>` : ""}</button>` : `<div class="side-item disabled"><span>${w.icon} ${w.label}</span>${w.comingSoon ? `<small>🚧 施工中</small>` : ""}</div>`).join("")}</div>`;
 }
 
 function developerConsoleMarkup() {
@@ -3067,7 +3068,7 @@ function todaySummaryPanel() {
   const weekProgress = Math.min(100, Math.round(weekDone / 40 * 100));
   const todayProgress = Math.min(100, Math.round(todayDone / 8 * 100));
   const summaryOpen = readScopedUiFlag(MOBILE_SUMMARY_OPEN_KEY, true);
-  return `<section class="panel mobile-summary-module summary-dashboard ${summaryOpen ? "summary-open" : "summary-collapsed"}"><div class="summary-dashboard-head"><button class="summary-heading-toggle" type="button" data-toggle-mobile-summary="1" aria-expanded="${summaryOpen}"><span>📊 工時摘要 <i>（點擊${summaryOpen ? "收合" : "展開"}）</i></span><small>${summaryOpen ? "⌃" : "⌄"}</small></button></div><div class="summary-grid"><div class="summary-tile"><span>本月進度</span><b>${formatHumanDuration(monthlyDone)} / ${formatHumanDuration(monthlyTarget)}</b><em>${monthProgress}%</em></div><div class="summary-tile"><span>本週進度</span><b>${formatHumanDuration(weekDone)} / 40h</b><em>${weekProgress}%</em></div><div class="summary-tile"><span>今日進度</span><b>${formatHumanDuration(todayDone)} / 8h</b><em>${todayProgress}%</em></div><div class="summary-tile summary-forecast ${health.className}"><span>達標預測</span><b>${health.label}</b></div></div></section>`;
+  return `<section class="panel mobile-summary-module summary-dashboard ${summaryOpen ? "summary-open" : "summary-collapsed"}"><div class="summary-dashboard-head"><button class="summary-heading-toggle" type="button" data-toggle-mobile-summary="1" aria-expanded="${summaryOpen}"><span>📊 工時摘要 <i>（點擊${summaryOpen ? "收合" : "展開"}）</i></span><small>${summaryOpen ? "⌃" : "⌄"}</small></button></div><div class="summary-grid"><div class="summary-tile" style="--summary-progress:${monthProgress}%"><span>本月進度</span><b>${formatHumanDuration(monthlyDone)} / ${formatHumanDuration(monthlyTarget)}</b><em>${monthProgress}%</em></div><div class="summary-tile" style="--summary-progress:${weekProgress}%"><span>本週進度</span><b>${formatHumanDuration(weekDone)} / 40h</b><em>${weekProgress}%</em></div><div class="summary-tile" style="--summary-progress:${todayProgress}%"><span>今日進度</span><b>${formatHumanDuration(todayDone)} / 8h</b><em>${todayProgress}%</em></div><div class="summary-tile summary-forecast ${health.className}"><span>達標預測</span><b>${health.label}</b></div></div></section>`;
 }
 
 function mobileCalendarPanel() {
@@ -4079,10 +4080,14 @@ function bindWorklogWelcome() {
     }
     if (step === "task") {
       const value = document.getElementById("setupEcpTask")?.value.trim() || "";
-      if (!value) return toast("請輸入目前工作任務");
-      writeDraft({ ...draft, defaultTask: value, taskEffectiveMonth: currentCalendarMonthKey(), taskVerifiedAt: new Date().toISOString() });
+      writeDraft({ ...draft, defaultTask: value, taskEffectiveMonth: currentCalendarMonthKey(), taskVerifiedAt: value ? new Date().toISOString() : "" });
       return setStep("confirm");
     }
+  });
+  document.querySelectorAll("[data-skip-work-profile-task]").forEach(b => b.onclick = () => {
+    const draft = readDraft();
+    writeDraft({ ...draft, defaultTask: "", taskEffectiveMonth: currentCalendarMonthKey(), taskVerifiedAt: "" });
+    setStep("confirm");
   });
   document.querySelectorAll("[data-skip-work-profile-setup]").forEach(b => b.onclick = () => {
     localStorage.setItem(scopedLocalKey(WORKLOG_WELCOME_KEY), "1");

@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
-const VERSION = "0.9.0-alpha.9.4";
+const VERSION = "0.9.0-alpha.9.5";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260803-0955";
+const BUILD_TIME = "20260803-1125";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -103,7 +103,7 @@ const workspaceRegistry = {
   dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "system", enabled: true, hidden: true, root: true },
   worklog: { icon: "🪶", label: "WorkLog", group: "camp", enabled: true },
   tasks: { icon: "✅", label: "待辦事項", group: "camp", enabled: true },
-  investment: { icon: "📈", label: "Investment", group: "camp", comingSoon: true },
+  investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, status: "SIT", externalHref: "../investment/" },
   procurement: { icon: "📦", label: "採購營帳", group: "camp", comingSoon: true },
   hr: { icon: "👥", label: "HR", group: "camp", comingSoon: true },
   travel: { icon: "✈️", label: "Travel", group: "camp", comingSoon: true },
@@ -114,5 +114,5 @@ const workspaceRegistry = {
 };
 const agentStatuses = [
   ["🪶", "工時 Agent", "🟢 在線"],
-  ["📈", "投資 Agent", "🚧 施工中"]
+  ["📈", "投資 Agent", "🟡 SIT"]
 ];

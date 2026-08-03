@@ -195,7 +195,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .summary-grid{gap:12px;margin-top:0}
 .summary-tile{min-height:108px;padding:14px;border-radius:13px;background:linear-gradient(145deg,#0b1b2c,#0a1422)}
 .summary-tile em{position:relative;padding-bottom:12px}
-.summary-tile em:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:999px;background:linear-gradient(90deg,#3b82f6 38%,#26364a 38%)}
+.summary-tile em:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:999px;background:linear-gradient(90deg,#3b82f6 var(--summary-progress,0%),#26364a var(--summary-progress,0%))}
 .workbench-grid{--daily-workspace-panel-height:clamp(560px,calc(100vh - 280px),720px)}.workbench-grid>.calendar-module,.workbench-grid>.today-module,.workbench-grid>.suggestion-module{height:var(--daily-workspace-panel-height);min-height:var(--daily-workspace-panel-height);max-height:var(--daily-workspace-panel-height);overflow:hidden;border-radius:17px;background:linear-gradient(160deg,#081827,#0a1422)}
 .panel-layout,.desktop-calendar{height:100%;min-height:0}.panel-layout,.calendar-module,.today-module,.suggestion-module{display:flex;flex-direction:column}.panel-fixed-header,.panel-fixed-footer{flex:0 0 auto}.panel-scroll-content{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#334155 transparent}.calendar-scroll-content,.today-entry-list{padding-right:3px}.calendar-panel-footer,.today-panel-footer,.suggestion-scan-footer{position:relative;z-index:1;background:linear-gradient(180deg,rgba(8,24,39,.94),#081827)}
 .calendar-module,.today-module,.suggestion-module{scrollbar-width:thin;scrollbar-color:#334155 transparent}
