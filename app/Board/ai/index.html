@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zhuge AI OS｜AI 工程看板 Prototype</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">B</div>
+        <div class="brand-text">
+          <strong>Zhuge AI OS</strong>
+          <span>AI Board Prototype</span>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="globalSearch" placeholder="搜尋..." autocomplete="off" />
+        <span class="shortcut">⌘K</span>
+      </div>
+
+      <section class="nav-section">
+        <div class="nav-section-title">工作 <span id="taskCountSide">0</span></div>
+        <button class="nav-item active" data-view="board">
+          <span>▦</span><span>工程看板</span>
+        </button>
+        <button class="nav-item" data-view="all">
+          <span>☷</span><span>全部工作</span>
+        </button>
+        <button class="nav-item disabled" title="Prototype 此階段不處理">
+          <span>◇</span><span>里程碑</span>
+        </button>
+        <button class="nav-item disabled" title="Prototype 此階段不處理">
+          <span>▤</span><span>草稿</span>
+        </button>
+        <button class="nav-item disabled" title="Prototype 此階段不處理">
+          <span>▥</span><span>統計</span>
+        </button>
+      </section>
+
+      <section class="nav-section muted-section">
+        <div class="nav-section-title">文件 <span>0</span></div>
+        <div class="nav-placeholder">目前 Prototype 不處理</div>
+      </section>
+
+      <section class="nav-section muted-section">
+        <div class="nav-section-title">決策 <span>0</span></div>
+        <div class="nav-placeholder">目前 Prototype 不處理</div>
+      </section>
+
+      <div class="sidebar-bottom">
+        <button id="connectionBtn" class="connection-badge">
+          <span id="connectionDot" class="dot"></span>
+          <span id="connectionLabel">尚未連線 Supabase</span>
+        </button>
+        <small>唯一資料來源：board_tasks</small>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">工程看板</h1>
+          <p>AI（Codex）工作流程｜真實資料來源：Supabase / board_tasks</p>
+        </div>
+        <div class="top-actions">
+          <button id="refreshBtn" class="btn ghost">↻ 重新整理</button>
+          <button id="newTaskBtn" class="btn primary">＋ 新增工作</button>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div class="segmented">
+          <button class="segment active" id="allTasksSegment">全部工作</button>
+          <button class="segment disabled" title="Prototype 不處理里程碑">里程碑</button>
+        </div>
+        <select id="moduleFilter">
+          <option value="">所有模組</option>
+        </select>
+        <select id="priorityFilter">
+          <option value="">所有優先度</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select id="assigneeFilter">
+          <option value="">所有負責人</option>
+        </select>
+        <button id="clearFiltersBtn" class="btn small ghost">清除篩選</button>
+      </div>
+
+      <div id="statusBanner" class="status-banner hidden"></div>
+
+      <section id="boardView" class="board-wrap">
+        <div id="board" class="board"></div>
+      </section>
+
+      <section id="allView" class="all-view hidden">
+        <div class="all-header">
+          <h2>全部工作</h2>
+          <span id="allCount">0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>標題</th>
+                <th>模組</th>
+                <th>狀態</th>
+                <th>優先度</th>
+                <th>負責人</th>
+                <th>更新時間</th>
+              </tr>
+            </thead>
+            <tbody id="allTasksBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden"></div>
+
+  <section id="taskDrawer" class="drawer hidden" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-kicker">工作內容</span>
+        <h2 id="drawerTitle">工作</h2>
+      </div>
+      <button id="closeDrawerBtn" class="icon-btn">✕</button>
+    </div>
+    <form id="taskForm" class="drawer-body">
+      <input type="hidden" id="taskId" />
+
+      <label>標題
+        <input id="taskTitle" required />
+      </label>
+
+      <div class="grid2">
+        <label>模組
+          <input id="taskModule" placeholder="Engineering" />
+        </label>
+        <label>狀態
+          <select id="taskStatus">
+            <option value="inbox">Inbox｜收件匣</option>
+            <option value="ready">Ready｜待執行</option>
+            <option value="inprogress">In Progress｜進行中</option>
+            <option value="qa">QA｜待驗收</option>
+            <option value="done">Done｜已完成</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>優先度
+          <select id="taskPriority">
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <label>負責人
+          <input id="taskAssignee" placeholder="AI / Codex / PM" />
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>來源
+          <input id="taskSource" placeholder="PM / GPT / AI" />
+        </label>
+        <label>建立者
+          <input id="taskCreatedBy" placeholder="可留空" disabled />
+        </label>
+      </div>
+
+      <label>工作說明
+        <textarea id="taskDescription" rows="7"></textarea>
+      </label>
+
+      <div class="drawer-meta">
+        <div><span>建立</span><strong id="createdAtText">—</strong></div>
+        <div><span>更新</span><strong id="updatedAtText">—</strong></div>
+      </div>
+
+      <div class="drawer-actions">
+        <button type="button" id="deleteTaskBtn" class="btn danger hidden">刪除</button>
+        <div class="spacer"></div>
+        <button type="button" id="cancelTaskBtn" class="btn ghost">取消</button>
+        <button type="submit" class="btn primary">儲存</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="connectionModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="drawer-kicker">Supabase 連線</span>
+          <h2>連接真實 board_tasks</h2>
+        </div>
+        <button id="closeConnectionBtn" class="icon-btn">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="help">
+          Prototype 不內建任何假資料。請輸入 Supabase Project URL 與 Anon Key。
+          只會儲存在此瀏覽器的 localStorage，方便你 QA。
+        </p>
+        <label>Project URL
+          <input id="supabaseUrl" placeholder="https://xxxx.supabase.co" />
+        </label>
+        <label>Anon / Publishable Key
+          <textarea id="supabaseKey" rows="5" placeholder="eyJ..."></textarea>
+        </label>
+        <div class="connection-test" id="connectionTest"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="clearConnectionBtn" class="btn ghost">清除連線</button>
+        <div class="spacer"></div>
+        <button id="testConnectionBtn" class="btn ghost">測試連線</button>
+        <button id="saveConnectionBtn" class="btn primary">儲存並載入</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
