@@ -3,13 +3,13 @@
 Artifact type: **GPT Review Candidate**  
 Development Batch: **AI Board Operational Workflow & Engineering Handoff — PM QA FAIL Hotfix**  
 Product Version: `v0.9.0-alpha.9.12`  
-Runtime / Source Build: `20260809-2038`
-Artifact timestamp: `20260809-2038`
+Runtime / Source Build: `20260809-2041`
+Artifact timestamp: `20260809-2041`
 
 ## Artifacts
 
-- Source: `20260809_2038_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_Source.zip`
-- GPT Review Candidate: `20260809_2038_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_GPT_Review_Candidate.zip`
+- Source: `20260809_2041_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_Source.zip`
+- GPT Review Candidate: `20260809_2041_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_GPT_Review_Candidate.zip`
 
 Artifact timestamp and Runtime Build timestamp are identical. This is a review
 candidate, not a Release. `main` is not merged and GitHub Pages is not deployed.
