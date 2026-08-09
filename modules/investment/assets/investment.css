@@ -46,6 +46,7 @@ button { color: inherit; }
 .investment-back-link:hover { color: var(--investment-accent); }
 
 .investment-main { min-width: 0; padding: clamp(18px, 3vw, 36px); }
+.investment-module-shell .investment-layout{display:block;min-height:auto}.investment-module-shell .investment-local-nav{display:flex;gap:8px;flex-wrap:wrap;padding:0 clamp(18px,3vw,36px) 16px}.investment-module-shell .investment-nav-item{border:1px solid var(--investment-border,#2a3443);background:var(--investment-panel,#111820);color:var(--investment-text,#d8e0ea);border-radius:8px;padding:8px 12px;cursor:pointer}.investment-module-shell .investment-nav-item.active,.investment-module-shell .investment-nav-item:hover{background:#2869df;border-color:#2869df;color:#fff}.investment-module-shell .investment-main{padding:clamp(18px,3vw,36px)}.investment-module-shell .investment-page{max-width:none}
 .investment-sit-banner { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
 .investment-sit-banner span, .investment-pill { border: 1px solid var(--investment-line); border-radius: 999px; background: rgba(16, 38, 65, .64); padding: 6px 10px; color: var(--investment-muted); font-size: .72rem; font-weight: 700; }
 .investment-page { max-width: 1240px; margin: 0 auto; }

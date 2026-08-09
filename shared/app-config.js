@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.9.12";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260809-2041";
+const BUILD_TIME = "20260810-0623";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -102,8 +102,12 @@ const WORK_PROFILE_SCHEMA_SQL = "docs/supabase/20260712_p4_5_user_work_profile_s
 const workspaceRegistry = {
   dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "system", enabled: true, hidden: true, root: true },
   worklog: { icon: "🪶", label: "WorkLog", group: "camp", enabled: true },
-  tasks: { icon: "✅", label: "待辦事項", group: "camp", enabled: true },
+  tasks: { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, status: "SIT", externalHref: "../investment/" },
+  "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
+  "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
+  "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },
+  "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=system-map" },
   procurement: { icon: "📦", label: "採購營帳", group: "camp", comingSoon: true },
   hr: { icon: "👥", label: "HR", group: "camp", comingSoon: true },
   travel: { icon: "✈️", label: "Travel", group: "camp", comingSoon: true },

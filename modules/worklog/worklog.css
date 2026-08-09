@@ -117,6 +117,16 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .suggestion-scan-footer{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}.suggestion-batch-actions{display:grid;grid-template-columns:1fr 1fr;width:auto}.suggestion-batch-actions .btn2{min-width:70px;padding:9px 6px}
 }
 
+/* Shared App Shell parity: the component is canonical; WorkLog only adds its
+   content-specific theme. These rules keep the same collapse rail contract. */
+.workspace-worklog.zhuge-nav-collapsed .os-body{grid-template-columns:72px minmax(0,1fr)}
+.workspace-worklog.zhuge-nav-collapsed .os-sidebar{padding:10px 8px}
+.workspace-worklog.zhuge-nav-collapsed .brand-name,.workspace-worklog.zhuge-nav-collapsed .brand-companion,.workspace-worklog.zhuge-nav-collapsed .agent-panel,.workspace-worklog.zhuge-nav-collapsed .nav-section-label,.workspace-worklog.zhuge-nav-collapsed .side-item-label,.workspace-worklog.zhuge-nav-collapsed .side-item small,.workspace-worklog.zhuge-nav-collapsed .developer-build-info{display:none}
+.workspace-worklog.zhuge-nav-collapsed .side-section{padding:6px 4px;background:transparent;border-color:transparent}
+.workspace-worklog.zhuge-nav-collapsed .side-section h3{justify-content:center;font-size:1rem}
+.workspace-worklog.zhuge-nav-collapsed .side-section[data-nav-group="camp"] .side-item-child,.workspace-worklog.zhuge-nav-collapsed .side-section[data-nav-group="ai-board"] .side-item-child,.workspace-worklog.zhuge-nav-collapsed .side-section[data-nav-group="system"] .side-item-child{display:none}
+.workspace-worklog.zhuge-nav-collapsed .side-item{justify-content:center;margin-left:0;width:100%;padding:9px 4px}
+
 .worklog-description-label{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .worklog-description-label output{color:#94a3b8;font-size:var(--font-xs);font-weight:900}
 .worklog-description-label output.is-limit{color:#fbbf24}

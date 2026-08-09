@@ -118,6 +118,10 @@
     const dependencies = dependencyBundle();
 
     global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
+    const sharedNavTarget = root.querySelector("#zhugeSharedNavigation");
+    if (sharedNavTarget && global.ZhugeSharedNavigation) {
+      global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../" });
+    }
     const pageRoot = root.querySelector("#investmentPage");
 
     function renderPage() {

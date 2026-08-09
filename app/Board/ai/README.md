@@ -13,7 +13,7 @@ host rather than opened as an isolated local file.
 ## Controlled interactions
 - Collapse / expand the global left navigation (Sidebar ↔ Icon Rail)
 - Refresh the formal cloud projection
-- Review the fixed `📘 最高原則` area
+- Open the AI Board child views: `📋 工作看板`, `📘 工程準則`, and `🗺️ 系統藍圖`
 - Review Cloud TASK cards mapped to 待辦 → 推進 → 驗證 → 完成
 - Search TASKs by code, title, requirement, usage scenario, or assignee
 - Review the ordered TASK detail: requirement → usage scenario → checklist/evidence → next action
@@ -25,8 +25,12 @@ tables directly. GPT and Co remain AI workflow actors and do not receive
 Supabase Auth users or UUIDs. Custom workspace management remains out of scope.
 
 ## Board model
-固定區 | 可移動、可新增區
-📘 最高原則 | 待辦 → 推進 → 驗證 → 完成
+📋 工作看板: 待辦 → 推進 → 驗證 → 完成
+
+📘 工程準則: approved principles from `engineering_knowledge`; it is not a TASK
+status and never enters the Kanban.
+
+🗺️ 系統藍圖: the current system composition and data-flow projection.
 
 ## Notes
 This is the formal Cloud Board slice. It does not use Mock Data, task

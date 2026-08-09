@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { tasks: [], principles: [], taskById: new Map(), searchQuery: "", stopRealtime: null, refreshPromise: null, realtimeTimer: null };
+  const state = { tasks: [], principles: [], systemMaps: [], taskById: new Map(), searchQuery: "", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board" };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -58,19 +58,25 @@
       "</div><div class=\"card-action-hint\">點擊查看 Checklist／Evidence · 拖曳交接流程</div></article>";
   }
   function principleMarkup(principle) {
-    return "<div class=\"card rule board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
+    return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
       "<div class=\"code\">" + esc(principle.code || "PRINCIPLE") + "</div><h3>" + esc(principle.title) + "</h3>" +
       (principle.summary ? "<p>" + esc(principle.summary) + "</p>" : "") +
       "<div class=\"meta\"><span class=\"tag rule-tag\">最高原則</span>" +
-      (principle.version ? "<span class=\"tag\">v" + esc(principle.version) + "</span>" : "") + "</div></div>";
+      (principle.version ? "<span class=\"tag\">v" + esc(principle.version) + "</span>" : "") + "</div></article>";
   }
   function renderPrinciples(principles) {
-    const zone = document.querySelector(".principles .cards");
-    const count = document.querySelector(".principles .count");
+    const zone = document.getElementById("principlesCards");
     if (!zone) return;
     zone.replaceChildren();
     zone.innerHTML = principles.length ? principles.map(principleMarkup).join("") : "<div class=\"board-empty\">目前沒有可讀取的已核准最高原則。</div>";
-    if (count) count.textContent = String(principles.length);
+  }
+  function renderSystemMaps(systemMaps) {
+    const zone = document.getElementById("systemMapCards");
+    if (!zone) return;
+    const fallback = [{ code: "CURRENT-SYSTEM-MAP", title: "Zhuge AI OS Current System Map", summary: "Shared Identity、Shared Navigation、Shared Supabase Gateway，以及 WorkLog、Investment、AI Board 的目前模組關係。", version: "目前資料尚待補充" }];
+    zone.replaceChildren();
+    const rows = systemMaps.length ? systemMaps : fallback;
+    zone.innerHTML = rows.map(item => `<article class="system-map-card"><div class="code">${esc(item.code || "SYSTEM-MAP")}</div><h3>${esc(item.title)}</h3><p>${esc(item.summary || "尚未補充系統藍圖內容")}</p><div class="meta"><span class="tag">Current Architecture</span>${item.version ? `<span class="tag">v${esc(item.version)}</span>` : ""}</div></article>`).join("");
   }
   function renderTasks(tasks) {
     const groups = Object.fromEntries(service.STATUS_WORKSPACES.map(workspace => [workspace.uiKey, []]));
@@ -148,6 +154,19 @@
       setBanner("目前由 GPT Review 接球；請先完成 GPT Review，再交 QJC 進行 PM QA。", "error");
       return;
     }
+    if (targetUiKey === "done") {
+      try {
+        const items = await service.loadChecklist(task.id);
+        const required = items.filter(item => item.required);
+        if (!required.length || required.some(item => item.state !== "pass" || !item.evidenceNote)) {
+          setBanner("尚未完成必要 Checklist／Evidence，不能標記完成。請逐項驗收後再交接。", "error");
+          return;
+        }
+      } catch (error) {
+        setBanner("無法確認 Checklist，為避免假成功，暫停完成操作。", "error");
+        return;
+      }
+    }
     const transition = transitionFor(task.status, targetUiKey);
     if (!transition) {
       setBanner("此狀態不允許直接跳轉，請依目前接球流程逐步交接。", "error");
@@ -191,18 +210,9 @@
   }
   function wireNavigation() {
     const handlers = {
-      home: () => {
-        document.querySelector(".board-shell")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        setBanner("AI Board 首頁：顯示正式 Cloud TASK、Checklist 與最高原則。", "info");
-      },
-      all: () => {
-        document.querySelector(".board-shell")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        setBanner("全部工作：已顯示所有正式 Cloud TASK，依 Status 分布於四個工作區。", "info");
-      },
-      principles: () => {
-        document.querySelector(".principles")?.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
-        setBanner("Engineering Center：左側固定區顯示已核准最高原則。", "info");
-      }
+      board: () => showBoardView("board"),
+      principles: () => showBoardView("principles"),
+      "system-map": () => showBoardView("system-map")
     };
     document.querySelectorAll("[data-board-nav]").forEach(item => {
       const activate = () => {
@@ -214,6 +224,19 @@
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
       };
     });
+  }
+  function showBoardView(view) {
+    state.boardView = view;
+    document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
+    const boardShell = document.querySelector(".board-shell");
+    if (boardShell) boardShell.hidden = view !== "board";
+    const toolbar = document.querySelector(".toolbar");
+    if (toolbar) toolbar.hidden = view !== "board";
+    const note = document.querySelector(".note");
+    if (note) note.hidden = view !== "board";
+    if (view === "principles") setBanner("工程準則：📘 最高原則來自正式 engineering_knowledge，不參與 TASK 狀態流轉。", "info");
+    else if (view === "system-map") setBanner("系統藍圖：顯示目前正式系統組成與資料來源。", "info");
+    else setBanner("工作看板：顯示正式 Cloud TASK、Checklist、Evidence 與交接流程。", "info");
   }
   function ensureTaskDetailModal() {
     if (document.getElementById("taskDetailModal")) return;
@@ -229,15 +252,20 @@
   }
   function checklistMarkup(item) {
     const checked = item.state === "pass" ? " checked" : "";
-    const evidence = item.evidenceNote ? "<div class=\"checklist-evidence\">Evidence：" + esc(item.evidenceNote) + "</div>" : "<div class=\"checklist-evidence missing\">尚未提供 Evidence</div>";
-    return "<div class=\"checklist-item\" data-checklist-id=\"" + esc(item.id) + "\"><label class=\"checklist-checkline\"><input type=\"checkbox\" class=\"checklist-check\" data-id=\"" + esc(item.id) + "\"" + checked + "><span><b>" + esc(item.label) +
-      "</b><small>" + esc(stageLabels[item.stage] || item.stage.toUpperCase()) + " · " + esc(stateLabels[item.state] || item.state) +
-      (item.required ? " · 必要" : "") + "</small></span></label><div class=\"checklist-actions\"><button class=\"btn checklist-evidence-btn\" data-id=\"" + esc(item.id) + "\">Evidence</button><button class=\"btn checklist-fail-btn\" data-id=\"" + esc(item.id) + "\">標記 FAIL</button>" + evidence + "</div></div>";
+    const stage = stageLabels[item.stage] || item.stage.toUpperCase();
+    const stateLabel = stateLabels[item.state] || item.state;
+    const expectedEvidence = item.evidenceRef || "Browser 操作結果、Screenshot、Test Result、Commit／Build 等可核對證據";
+    const evidence = item.evidenceNote
+      ? `<div class="checklist-evidence-detail"><strong>Evidence 位置／說明：</strong>${esc(item.evidenceNote)}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
+      : `<div class="checklist-evidence-detail missing"><strong>Evidence 位置／說明：</strong>尚待${esc(stage)}提供實際證據</div>`;
+    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個 Gate。" : item.state === "fail" ? "請查看失敗原因並退回負責角色修正。" : `請由${esc(stage)}完成驗證並提供證據。`;
+    return `<div class="checklist-item" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><label class="checklist-checkline"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${item.required ? " · 必要" : ""}</small></span></label><div class="checklist-question"><strong>驗證內容：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions"><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充證據</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">標記 FAIL</button><div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
   }
   function checklistSummary(items) {
     const required = items.filter(item => item.required);
     const passed = required.filter(item => item.state === "pass").length;
     const failed = required.filter(item => item.state === "fail").length;
+    if (!required.length) return "尚未提供正式 Checklist";
     return "必要項目 " + passed + "/" + required.length + " 已通過" + (failed ? " · " + failed + " 項 FAIL" : "");
   }
   async function openTaskDetail(task) {
@@ -249,7 +277,7 @@
       esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(task.summary || "尚未補充需求內容") +
       "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
       "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／PM QA Checklist · Checklist／Evidence</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
-      "<p class=\"checklist-contract-note\">Checklist 由 TASK Development Contract 預先定義；QJC 逐項確認狀態與必要 Evidence。</p><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
+      "<p class=\"checklist-contract-note\">Checklist 由 TASK Development Contract／Co Handoff／GPT Review 預先定義；QJC 逐項確認狀態、負責階段與必要 Evidence。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
     modal.style.display = "grid";
     const actions = document.getElementById("taskTransitionActions");
@@ -268,7 +296,19 @@
       const rows = document.getElementById("checklistRows");
       const summary = document.getElementById("checklistSummary");
       if (summary) summary.textContent = items.length ? checklistSummary(items) : "缺少正式 Checklist";
-      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 缺少正式 Development Contract Checklist，暫停驗收並回報 GPT／Co。</div>";
+      const required = items.filter(item => item.required);
+      const passed = required.filter(item => item.state === "pass").length;
+      const hasChecklist = required.length > 0;
+      const allPassed = hasChecklist && passed === required.length;
+      const consistency = document.getElementById("checklistConsistency");
+      if (task.status === "done" && !hasChecklist) {
+        consistency.innerHTML = "<div class=\"history-note\"><strong>歷史完成</strong><br>此 TASK 完成於 Checklist 制度導入前；系統不補造 PASS、驗證者或 Evidence。</div>";
+      } else if (task.status === "done" && !allPassed) {
+        consistency.innerHTML = "<div class=\"consistency-warning\"><strong>完成狀態與 Checklist 不一致</strong><br>目前 TASK 已標記完成，但必要驗收尚未全部通過。請記錄 Finding，勿偽造歷史 Evidence。</div>";
+      } else if (hasChecklist) {
+        consistency.innerHTML = `<div class="checklist-contract-note">驗收進度：${passed}/${required.length} 已通過；必要項目需全部 PASS 才能進入完成。</div>`;
+      }
+      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚無正式 Development Contract Checklist，不能進行正式驗收；請回報 GPT／Co 補齊，不由 QJC 臨時創造。</div>";
       rows.querySelectorAll(".checklist-check").forEach(input => {
         input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
       });
@@ -332,8 +372,10 @@
     state.refreshPromise = service.load().then(result => {
       state.tasks = result.tasks;
       state.principles = result.principles;
+      state.systemMaps = result.systemMaps || [];
       state.taskById = new Map(result.tasks.map(task => [task.id, task]));
       renderPrinciples(result.principles);
+      renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
       if (!options.quiet) setBanner("已讀取 " + result.tasks.length + " 筆正式 Cloud TASK、" + result.principles.length + " 條已核准原則。<strong>QJC 可操作；GPT／Co 由受控工程服務交接。</strong>", "success");
@@ -369,11 +411,17 @@
     wireNavigation();
     wireSearch();
     renderPrinciples([]);
+    renderSystemMaps([]);
     renderTasks([]);
     const note = document.querySelector(".note");
     if (note) note.innerHTML = "正式 Board 以 Supabase 為唯一 TASK 來源。QJC 使用 authenticated Shared Identity；GPT／Co 使用受控 Engineering Service。Status、Assignee、Checklist 變更均留下 Activity Audit。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
+    const initialView = new URLSearchParams(global.location.search).get("view");
+    if (["principles", "system-map"].includes(initialView)) {
+      const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
+      nav?.click();
+    } else showBoardView("board");
     refreshBoard().then(initRealtime).catch(() => {});
   }
   root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail });

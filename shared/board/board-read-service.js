@@ -80,10 +80,26 @@
     return type.includes("principle") || type.includes("policy") || code.startsWith("PRINCIPLE") || title.includes("原則");
   }
 
+  function isSystemMap(row = {}) {
+    const code = String(row.knowledge_code || row.code || "").toUpperCase();
+    const title = String(row.title || "").toLowerCase();
+    return code.includes("SYSTEM-MAP") || code.includes("SYSTEM_MAP") || title.includes("system map") || title.includes("系統藍圖") || title.includes("系統地圖");
+  }
+
   function normalizePrinciple(row = {}) {
     return Object.freeze({
       code: String(row.knowledge_code || row.code || ""),
       title: String(row.title || "未命名原則"),
+      summary: String(row.summary || row.content || ""),
+      version: String(row.version || ""),
+      updatedAt: row.updated_at || null
+    });
+  }
+
+  function normalizeSystemMap(row = {}) {
+    return Object.freeze({
+      code: String(row.knowledge_code || row.code || ""),
+      title: String(row.title || "系統藍圖"),
       summary: String(row.summary || row.content || ""),
       version: String(row.version || ""),
       updatedAt: row.updated_at || null
@@ -117,13 +133,13 @@
     const gateway = options.gateway || requireGateway();
     const [taskRows, knowledgeRows] = await Promise.all([
       gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,usage_scenario,work_code,created_by,created_at,updated_at&order=created_at.asc"),
-      gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=eq.approved&order=updated_at.desc")
+      gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=not.is.null&order=updated_at.desc")
     ]);
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(normalizeTask);
-    const principles = (Array.isArray(knowledgeRows) ? knowledgeRows : [])
-      .filter(isPrinciple)
-      .map(normalizePrinciple);
-    return Object.freeze({ identity, tasks, principles, readOnly: false, source: "Supabase Shared Data Gateway" });
+    const knowledge = Array.isArray(knowledgeRows) ? knowledgeRows : [];
+    const principles = knowledge.filter(row => String(row.status || "").toLowerCase() === "approved").filter(isPrinciple).map(normalizePrinciple);
+    const systemMaps = knowledge.filter(isSystemMap).map(normalizeSystemMap);
+    return Object.freeze({ identity, tasks, principles, systemMaps, readOnly: false, source: "Supabase Shared Data Gateway" });
   }
 
   async function loadChecklist(taskId, options = {}) {
@@ -209,7 +225,9 @@
     normalizeTask,
     normalizeChecklistItem,
     isPrinciple,
+    isSystemMap,
     normalizePrinciple,
+    normalizeSystemMap,
     load,
     loadChecklist,
     transitionTask,

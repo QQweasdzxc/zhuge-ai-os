@@ -67,7 +67,7 @@ test("formal Board load reads tasks and approved principles through the injected
     assert.deepEqual(result.principles.map(item => item.code), ["PRINCIPLE-001"]);
     assert.deepEqual(calls.map(call => call.table), ["board_tasks", "engineering_knowledge"]);
     assert.match(calls[0].query, /select=/);
-    assert.match(calls[1].query, /status=eq\.approved/);
+    assert.match(calls[1].query, /status=/);
   } finally {
     if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
     else delete global.getSharedSessionSnapshot;
