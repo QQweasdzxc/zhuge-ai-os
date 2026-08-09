@@ -36,7 +36,7 @@ AI Board Formal Cloud Read & Shared Workflow Integration
 ## Candidate commits
 
 Implementation candidate commit: `e2c8a491c207107c553ba04447b75ce0baa0b38e`  
-Artifact record commit: `PENDING_RECORD_COMMIT`
+Artifact record commit: `b30d4699d53d21706bd49470884a55c1fc917b80`
 
 ## QA status
 
