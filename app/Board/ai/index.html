@@ -38,6 +38,8 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .toast{position:fixed;right:22px;bottom:22px;background:#202938;border:1px solid #3b485c;border-radius:9px;padding:10px 14px;color:#dfe7f2;display:none;z-index:80;font-size:12px}
 .board-read-status{margin:14px 24px 0;padding:10px 13px;border:1px solid #293241;background:#111b29;border-radius:9px;color:#aabbd1;font-size:12px;line-height:1.5}.board-read-status[data-state="loading"]{color:#e5c66b;border-color:#5a4a27}.board-read-status[data-state="success"]{color:#80e0ad;border-color:#285b45}.board-read-status[data-state="error"]{color:#ff9a9d;border-color:#6b3038}.board-read-status a{color:#9ec5ff}.board-empty{padding:22px 10px;text-align:center;border:1px dashed #344052;border-radius:8px;color:#77869b;font-size:12px}.board-cloud-card{cursor:default}.actions .btn:disabled,.add:disabled,.addcol:disabled{opacity:.55;cursor:not-allowed}
+<style>
+.checklist-contract-note{color:#8493a7;font-size:12px;margin:8px 0}.checklist-heading span{color:#9bb7dc;font-size:11px}.checklist-checkline{display:flex;align-items:flex-start;gap:9px;min-width:0;cursor:pointer}.checklist-check{margin-top:3px;accent-color:#4d8dff}.checklist-actions{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;justify-content:flex-end}.checklist-actions .btn{font-size:11px;padding:5px 8px}.checklist-evidence{flex-basis:100%;font-size:11px;color:#9fb3ca}.checklist-evidence.missing{color:#d6a76f}
 </style>
 
 <style>
@@ -61,14 +63,14 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  <div class="brand"><div class="mark">B</div><div><b>Zhuge AI OS</b><small>AI Board Interactive Prototype v0.9</small></div></div>
  <div class="search">⌕　搜尋...</div>
  <div class="navtitle">工作</div>
- <div class="nav active" title="AI Board"><span class="ico">▦</span><span class="label">　AI Board</span></div><div class="nav" title="全部工作"><span class="ico">☷</span><span class="label">　全部工作</span></div>
- <div class="navtitle">系統</div><div class="nav" title="Engineering Center"><span class="ico">◇</span><span class="label">　Engineering Center</span></div>
+ <div class="nav active" title="AI Board" data-board-nav="home" role="button" tabindex="0"><span class="ico">▦</span><span class="label">　AI Board</span></div><div class="nav" title="全部工作" data-board-nav="all" role="button" tabindex="0"><span class="ico">☷</span><span class="label">　全部工作</span></div>
+ <div class="navtitle">系統</div><div class="nav" title="Engineering Center" data-board-nav="principles" role="button" tabindex="0"><span class="ico">◇</span><span class="label">　Engineering Center</span></div>
  <div class="sidefoot">● Supabase 已連線<br><br>Board 為呈現層<br>資料可來自不同 SB Table</div>
 </aside>
 <main class="main">
  <header class="top">
   <div><h1>AI Board</h1><p>PM × GPT × Supabase × Co　｜　人看繁中，AI／程式看標準英文</p></div>
-  <div class="actions"><button class="btn">↻ 重新整理</button><button class="btn primary">QJC 可操作模式</button></div>
+  <div class="actions"><button class="btn">↻ 重新整理</button></div>
  </header>
  <div class="toolbar">
    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span>
@@ -137,12 +139,12 @@ window.addEventListener("DOMContentLoaded",()=>{
  wireCards();
 });
 </script>
-<script src="../../../shared/app-config.js?v=20260809-1741"></script>
-<script src="../../../shared/utils/shared-utils.js?v=20260809-1741"></script>
-<script src="../../../shared/app-state.js?v=20260809-1741"></script>
-<script src="../../../shared/auth/auth-service.js?v=20260809-1741"></script>
-<script src="../../../shared/identity/identity-service.js?v=20260809-1741"></script>
-<script src="../../../shared/supabase/supabase-gateway.js?v=20260809-1741"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260809-1741"></script>
-<script src="./board-runtime.js?v=20260809-1741"></script>
+<script src="../../../shared/app-config.js?v=20260809-1903"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260809-1903"></script>
+<script src="../../../shared/app-state.js?v=20260809-1903"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260809-1903"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260809-1903"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260809-1903"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260809-1903"></script>
+<script src="./board-runtime.js?v=20260809-1903"></script>
 <div id="toast" class="toast"></div></body></html>

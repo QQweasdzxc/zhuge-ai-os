@@ -29,6 +29,8 @@
     const raw = String(value || "").trim();
     return raw ? "目前：" + raw : "尚未指派";
   }
+  const stageLabels = Object.freeze({ co: "Co Developer QA", gpt: "GPT Review", qjc: "QJC PM QA" });
+  const stateLabels = Object.freeze({ not_verified: "未驗證", pass: "已通過", fail: "FAIL", na: "N/A" });
   function setBanner(message, kind) {
     let banner = document.getElementById("boardReadStatus");
     if (!banner) {
@@ -105,7 +107,27 @@
     const row = map[status] && map[status][targetUiKey];
     return row ? { status: row[0], assignee: row[1] } : null;
   }
+  function actionLabel(task, targetUiKey) {
+    if (task.status === "ready" && targetUiKey === "progress") return "開始推進（Co）";
+    if (task.status === "inprogress" && targetUiKey === "qa") return "Co 完成 → 交 GPT";
+    if (task.status === "qa" && targetUiKey === "progress") return task.assignee === "QJC" ? "PM QA 退回 → Co" : "退回 Co";
+    if (task.status === "qa" && targetUiKey === "qa") return "GPT Review 通過 → 交 QJC";
+    if (task.status === "qa" && targetUiKey === "done") return "PM QA 通過 → 完成";
+    return "執行交接";
+  }
+  function transitionTargets(task) {
+    if (task.status === "ready") return ["progress"];
+    if (task.status === "inprogress") return ["qa"];
+    if (task.status !== "qa") return [];
+    if (task.assignee === "GPT") return ["progress", "qa"];
+    if (task.assignee === "QJC") return ["progress", "done"];
+    return ["progress", "qa", "done"];
+  }
   async function transitionTask(task, targetUiKey) {
+    if (task.status === "qa" && task.assignee === "GPT" && targetUiKey === "done") {
+      setBanner("目前由 GPT Review 接球；請先完成 GPT Review，再交 QJC 進行 PM QA。", "error");
+      return;
+    }
     const transition = transitionFor(task.status, targetUiKey);
     if (!transition) {
       setBanner("此狀態不允許直接跳轉，請依目前接球流程逐步交接。", "error");
@@ -147,6 +169,32 @@
       };
     });
   }
+  function wireNavigation() {
+    const handlers = {
+      home: () => {
+        document.querySelector(".board-shell")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setBanner("AI Board 首頁：顯示正式 Cloud TASK、Checklist 與最高原則。", "info");
+      },
+      all: () => {
+        document.querySelector(".board-shell")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setBanner("全部工作：已顯示所有正式 Cloud TASK，依 Status 分布於四個工作區。", "info");
+      },
+      principles: () => {
+        document.querySelector(".principles")?.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+        setBanner("Engineering Center：左側固定區顯示已核准最高原則。", "info");
+      }
+    };
+    document.querySelectorAll("[data-board-nav]").forEach(item => {
+      const activate = () => {
+        document.querySelectorAll("[data-board-nav]").forEach(node => node.classList.toggle("active", node === item));
+        handlers[item.dataset.boardNav]?.();
+      };
+      item.onclick = activate;
+      item.onkeydown = event => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
+      };
+    });
+  }
   function ensureTaskDetailModal() {
     if (document.getElementById("taskDetailModal")) return;
     const modal = document.createElement("div");
@@ -160,10 +208,17 @@
     document.getElementById("closeTaskDetail").onclick = () => { modal.style.display = "none"; };
   }
   function checklistMarkup(item) {
-    const labels = { not_verified: "未驗證", pass: "PASS", fail: "FAIL", na: "N/A" };
-    return "<div class=\"checklist-item\" data-checklist-id=\"" + esc(item.id) + "\"><div><b>" + esc(item.label) +
-      "</b><small>" + esc(item.stage.toUpperCase()) + " · " + esc(labels[item.state] || item.state) +
-      (item.required ? " · 必要" : "") + "</small></div><button class=\"btn checklist-edit\" data-id=\"" + esc(item.id) + "\">更新</button></div>";
+    const checked = item.state === "pass" ? " checked" : "";
+    const evidence = item.evidenceNote ? "<div class=\"checklist-evidence\">Evidence：" + esc(item.evidenceNote) + "</div>" : "<div class=\"checklist-evidence missing\">尚未提供 Evidence</div>";
+    return "<div class=\"checklist-item\" data-checklist-id=\"" + esc(item.id) + "\"><label class=\"checklist-checkline\"><input type=\"checkbox\" class=\"checklist-check\" data-id=\"" + esc(item.id) + "\"" + checked + "><span><b>" + esc(item.label) +
+      "</b><small>" + esc(stageLabels[item.stage] || item.stage.toUpperCase()) + " · " + esc(stateLabels[item.state] || item.state) +
+      (item.required ? " · 必要" : "") + "</small></span></label><div class=\"checklist-actions\"><button class=\"btn checklist-evidence-btn\" data-id=\"" + esc(item.id) + "\">Evidence</button><button class=\"btn checklist-fail-btn\" data-id=\"" + esc(item.id) + "\">標記 FAIL</button>" + evidence + "</div></div>";
+  }
+  function checklistSummary(items) {
+    const required = items.filter(item => item.required);
+    const passed = required.filter(item => item.state === "pass").length;
+    const failed = required.filter(item => item.state === "fail").length;
+    return "必要項目 " + passed + "/" + required.length + " 已通過" + (failed ? " · " + failed + " 項 FAIL" : "");
   }
   async function openTaskDetail(task) {
     ensureTaskDetailModal();
@@ -172,54 +227,62 @@
     document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
     body.innerHTML = "<div class=\"task-detail-meta\"><span>" + esc(statusLabel(task.status)) + "</span><span>" +
       esc(assigneeLabel(task.assignee)) + "</span></div><p>" + esc(task.summary || "尚無摘要") +
-      "</p><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／QA Evidence</h3>" +
-      "<button class=\"btn\" id=\"addChecklistBtn\">＋ 新增項目</button></div><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
+      "</p><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／PM QA Checklist</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
+      "<p class=\"checklist-contract-note\">Checklist 由 TASK Development Contract 預先定義；QJC 逐項確認狀態與必要 Evidence。</p><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
     modal.style.display = "grid";
-    document.getElementById("addChecklistBtn").onclick = () => addChecklistItem(task);
     const actions = document.getElementById("taskTransitionActions");
-    const actionMap = { ready: ["progress"], inprogress: ["qa"], qa: ["progress", "qa", "done"] };
-    (actionMap[task.status] || []).forEach(target => {
+    transitionTargets(task).forEach(target => {
       const transition = transitionFor(task.status, target);
       if (!transition) return;
       const button = document.createElement("button");
       button.className = "btn primary";
-      button.textContent = "交接至 " + transition.assignee;
+      button.textContent = actionLabel(task, target);
+      button.title = "目前狀態：" + statusLabel(task.status) + "；目前接球者：" + (task.assignee || "未指派");
       button.onclick = async () => { await transitionTask(task, target); modal.style.display = "none"; };
       actions.appendChild(button);
     });
     try {
       const items = await service.loadChecklist(task.id);
       const rows = document.getElementById("checklistRows");
-      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">尚無 Checklist。可由 QJC 建立驗收項目。</div>";
-      rows.querySelectorAll(".checklist-edit").forEach(button => {
-        button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id));
+      const summary = document.getElementById("checklistSummary");
+      if (summary) summary.textContent = items.length ? checklistSummary(items) : "缺少正式 Checklist";
+      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 缺少正式 Development Contract Checklist，暫停驗收並回報 GPT／Co。</div>";
+      rows.querySelectorAll(".checklist-check").forEach(input => {
+        input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
+      });
+      rows.querySelectorAll(".checklist-fail-btn").forEach(button => {
+        button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id), "fail");
+      });
+      rows.querySelectorAll(".checklist-evidence-btn").forEach(button => {
+        button.onclick = () => updateChecklistEvidence(task, items.find(item => item.id === button.dataset.id));
       });
     } catch (error) {
       document.getElementById("checklistRows").innerHTML = "<div class=\"board-empty\">Checklist 讀取失敗：" + esc(error && error.message || "未知錯誤") + "</div>";
     }
   }
-  async function addChecklistItem(task) {
-    const label = window.prompt("Checklist 項目內容");
-    if (!label || !label.trim()) return;
-    const stage = (window.prompt("Stage：co / gpt / qjc", "qjc") || "").trim().toLowerCase();
-    if (["co", "gpt", "qjc"].indexOf(stage) < 0) { setBanner("Stage 必須是 co、gpt 或 qjc。", "error"); return; }
-    try {
-      await service.createChecklistItem({ taskId: task.id, checklistType: "task_acceptance", stage: stage, itemKey: "item-" + Date.now(), label: label.trim() });
-      await openTaskDetail(task);
-      setBanner("Checklist 項目已建立。", "success");
-    } catch (error) { setBanner("Checklist 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
-  }
-  async function updateChecklistItem(task, item) {
+  async function updateChecklistItem(task, item, nextState) {
     if (!item) return;
-    const nextState = (window.prompt("狀態：not_verified / pass / fail / na", item.state) || "").trim();
-    if (["not_verified", "pass", "fail", "na"].indexOf(nextState) < 0) { setBanner("Checklist 狀態不合法。", "error"); return; }
-    const note = window.prompt("Evidence／Note（可留空）", item.evidenceNote || "");
+    let note = item.evidenceNote || "";
+    if (nextState === "pass" || nextState === "fail") {
+      note = window.prompt("請輸入必要 Evidence／Note", note);
+      if (!note || !note.trim()) { setBanner("PASS／FAIL 必須附 Evidence。", "error"); await openTaskDetail(task); return; }
+    }
     try {
       await service.updateChecklistItem({ id: item.id, state: nextState, evidenceNote: note || "" });
       await openTaskDetail(task);
-      setBanner("Checklist Evidence 已更新。", "success");
+      setBanner("Checklist 狀態與 Evidence 已更新。", "success");
     } catch (error) { setBanner("Checklist 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
+  }
+  async function updateChecklistEvidence(task, item) {
+    if (!item) return;
+    const note = window.prompt("Evidence／Note", item.evidenceNote || "");
+    if (note === null) return;
+    try {
+      await service.updateChecklistItem({ id: item.id, state: item.state, evidenceNote: note.trim() });
+      await openTaskDetail(task);
+      setBanner("Checklist Evidence 已更新。", "success");
+    } catch (error) { setBanner("Checklist Evidence 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   function openQuickAdd(workspace) {
     const modal = document.getElementById("addCardModal");
@@ -282,19 +345,13 @@
   function enableBoardActions() {
     const refresh = document.querySelector(".actions .btn:not(.primary)");
     if (refresh) { refresh.id = "refreshBoardBtn"; refresh.onclick = () => refreshBoard(); }
-    const topAction = document.querySelector(".actions .btn.primary");
-    if (topAction) {
-      topAction.textContent = "QJC 可操作模式";
-      topAction.disabled = false;
-      topAction.removeAttribute("aria-disabled");
-      topAction.title = "QJC 使用受控 Transition／Checklist RPC；GPT／Co 由服務路徑交接。";
-    }
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
     document.querySelectorAll(".addcol").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
   function init() {
     enableBoardActions();
     ensureTaskDetailModal();
+    wireNavigation();
     renderPrinciples([]);
     renderTasks([]);
     const note = document.querySelector(".note");

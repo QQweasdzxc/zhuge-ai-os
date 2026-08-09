@@ -279,6 +279,19 @@ begin
     'board_task', created_task.id::text, 'task_created', to_jsonb(created_task),
     'Board task created', actor_id_value, actor_type_value, actor_label_value
   );
+
+  -- Every newly created TASK receives its Development Contract immediately.
+  -- This keeps Checklist a contract/evidence surface, not a PM-authored blank.
+  insert into public.engineering_checklist_items (
+    task_id, checklist_type, stage, item_key, label, required, sort_order, version
+  ) values
+    (created_task.id, 'task_acceptance', 'co', 'developer-qa',
+      format('Co Developer QA：完成「%s」並附 Evidence', created_task.title), true, 10, 1),
+    (created_task.id, 'task_acceptance', 'gpt', 'gpt-review',
+      format('GPT Review：確認「%s」的 Scope、Architecture 與 Regression Evidence', created_task.title), true, 20, 1),
+    (created_task.id, 'task_acceptance', 'qjc', 'pm-acceptance',
+      format('QJC PM QA：依「%s」Acceptance Criteria 驗收並確認 Artifact／Build', created_task.title), true, 30, 1);
+
   return created_task;
 end;
 $$;

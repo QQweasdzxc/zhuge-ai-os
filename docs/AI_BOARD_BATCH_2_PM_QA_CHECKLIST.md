@@ -1,8 +1,8 @@
 # AI Board Development Batch #2 — PM QA Checklist
 
 Product Version: `v0.9.0-alpha.9.12`
-Runtime / Source Build: `20260809-1741`
-Artifact: `20260809_1741_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candidate.zip`
+Runtime / Source Build: `20260809-1903`
+Artifact: `20260809_1903_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_GPT_Review_Candidate.zip`
 
 ## Access and Cloud Read
 
@@ -24,11 +24,13 @@ Artifact: `20260809_1741_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candi
 
 ## Checklist and evidence
 
-- [ ] Open a task and create a structured checklist item.
-- [ ] Confirm stage is one of Co / GPT / QJC.
-- [ ] Update state to PASS or FAIL and add evidence note/reference.
-- [ ] Confirm the next reviewer can independently read the item and evidence.
+- [ ] Open a task and confirm its pre-defined Development Contract / PM QA Checklist is already present.
+- [ ] Confirm the checklist is grouped by Co Developer QA, GPT Review, and QJC PM QA stages.
+- [ ] Tick an item to PASS and provide required Evidence; uncheck returns it to `not_verified`.
+- [ ] Mark an item FAIL and provide Evidence; the failure remains visible to the next receiver.
+- [ ] Confirm the next reviewer can independently read each item, state, checked actor, timestamp, and Evidence.
 - [ ] Confirm required items are not treated as PASS when still `not_verified`.
+- [ ] Confirm QJC is not asked to invent the acceptance criteria and no blank-checklist creation flow is shown.
 
 ## Realtime
 
