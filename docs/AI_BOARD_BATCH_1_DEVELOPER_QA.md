@@ -17,7 +17,7 @@ The implementation is intentionally limited to formal Board Cloud Read, Shared I
 - `app/Board/ai/board-runtime.js` — renders Cloud Read results, maps status to the four approved workspaces, clears prototype fixtures, and disables write/drag affordances.
 - `shared/board/board-read-service.js` — canonical read adapter for `public.board_tasks` and approved `public.engineering_knowledge` through `ZhugeSupabaseGateway` and Shared Identity.
 - `app/dashboard/zhuge-dashboard.js` — adds the authenticated AI Board module entry.
-- `app/Board/ai/README.md` and `app/Board/ai/README.txt` — documents the formal Cloud Read boundary and QA expectations.
+- `app/Board/ai/README.md` — documents the formal Cloud Board boundary and QA expectations.
 - `app/Board/ai/app.js` — marked as legacy prototype reference; it is not loaded by the formal Board entry point.
 - `tests/ai-board-cloud-read.test.js` — unit/static regression coverage for mapping, data separation, source wiring, and no-write boundary.
 

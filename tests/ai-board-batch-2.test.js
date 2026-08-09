@@ -20,6 +20,7 @@ test("Batch 2 migration defines authenticated Board boundary and no AI Auth user
 
 test("Board read service exposes workflow, checklist, RPC, and Realtime adapters", () => {
   const source = read("shared/board/board-read-service.js");
+  const usageMigration = read("docs/supabase/20260809_ai_board_batch_2_usage_scenario.sql");
   assert.match(source, /loadChecklist/);
   assert.match(source, /transitionTask/);
   assert.match(source, /createChecklistItem/);
@@ -27,6 +28,10 @@ test("Board read service exposes workflow, checklist, RPC, and Realtime adapters
   assert.match(source, /subscribe/);
   assert.match(source, /board_transition_task/);
   assert.match(source, /board_update_checklist_item/);
+  assert.match(source, /usage_scenario/);
+  assert.match(source, /p_usage_scenario/);
+  assert.match(usageMigration, /add column if not exists usage_scenario/i);
+  assert.match(usageMigration, /p_usage_scenario/);
 });
 
 test("Shared Supabase Gateway keeps RPC and Realtime behind the shared boundary", () => {

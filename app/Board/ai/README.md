@@ -1,8 +1,7 @@
-# Zhuge AI OS — AI Board Cloud Read v0.9
+# Zhuge AI OS — AI Board
 
 ## Purpose
-The confirmed v0.9 layout is retained as the UI baseline. The formal Board
-runtime now reads `public.board_tasks` and approved principles from
+The formal Board runtime reads `public.board_tasks` and approved principles from
 `public.engineering_knowledge` through the Shared Identity and Shared
 Supabase Data Gateway.
 
@@ -16,6 +15,8 @@ host rather than opened as an isolated local file.
 - Refresh the formal cloud projection
 - Review the fixed `📘 最高原則` area
 - Review Cloud TASK cards mapped to 待辦 → 推進 → 驗證 → 完成
+- Search TASKs by code, title, requirement, usage scenario, or assignee
+- Review the ordered TASK detail: requirement → usage scenario → checklist/evidence → next action
 - See the current assignee on each card
 
 Task creation, drag status changes, assignee changes, and Checklist evidence
@@ -28,8 +29,8 @@ Supabase Auth users or UUIDs. Custom workspace management remains out of scope.
 📘 最高原則 | 待辦 → 推進 → 驗證 → 完成
 
 ## Notes
-This is the formal Cloud Read slice. It does not use Mock Data, task
-LocalStorage, or an independent Supabase client. The legacy `app.js` is kept
-for historical comparison only and is not loaded by the Board entry point.
+This is the formal Cloud Board slice. It does not use Mock Data, task
+LocalStorage, or an independent Supabase client. The legacy `app.js` remains
+unloaded historical source only; it is not part of the Board runtime.
 Related approved slices: TASK-001, TASK-005, TASK-015, TASK-016, TASK-021,
 TASK-022 and TASK-023.

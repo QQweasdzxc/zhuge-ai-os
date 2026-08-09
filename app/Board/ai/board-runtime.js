@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { tasks: [], principles: [], taskById: new Map(), stopRealtime: null, refreshPromise: null, realtimeTimer: null };
+  const state = { tasks: [], principles: [], taskById: new Map(), searchQuery: "", stopRealtime: null, refreshPromise: null, realtimeTimer: null };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -90,6 +90,26 @@
       if (count) count.textContent = String(rows.length);
     });
     wireTaskCards();
+  }
+  function visibleTasks() {
+    const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");
+    if (!query) return state.tasks;
+    return state.tasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.assignee]
+      .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query)));
+  }
+  function applySearch(query) {
+    state.searchQuery = String(query || "");
+    renderTasks(visibleTasks());
+    const count = visibleTasks().length;
+    setBanner(state.searchQuery.trim() ? "搜尋「" + esc(state.searchQuery.trim()) + "」：找到 " + count + " 筆 TASK。" : "已清除搜尋，顯示全部正式 Cloud TASK。", "info");
+  }
+  function wireSearch() {
+    const input = document.getElementById("boardSearch");
+    if (!input) return;
+    input.oninput = event => applySearch(event.target.value);
+    input.onkeydown = event => {
+      if (event.key === "Escape") { input.value = ""; applySearch(""); }
+    };
   }
   function setConnection(taskCount, principleCount, realtime) {
     const foot = document.querySelector(".sidefoot");
@@ -226,8 +246,9 @@
     const body = document.getElementById("taskDetailBody");
     document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
     body.innerHTML = "<div class=\"task-detail-meta\"><span>" + esc(statusLabel(task.status)) + "</span><span>" +
-      esc(assigneeLabel(task.assignee)) + "</span></div><p>" + esc(task.summary || "尚無摘要") +
-      "</p><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／PM QA Checklist</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
+      esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(task.summary || "尚未補充需求內容") +
+      "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
+      "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／PM QA Checklist · Checklist／Evidence</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
       "<p class=\"checklist-contract-note\">Checklist 由 TASK Development Contract 預先定義；QJC 逐項確認狀態與必要 Evidence。</p><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
     modal.style.display = "grid";
@@ -287,27 +308,22 @@
   function openQuickAdd(workspace) {
     const modal = document.getElementById("addCardModal");
     if (!modal) return;
-    if (workspace === "principles") { setBanner("最高原則需透過 Engineering Knowledge 管理，不可由 TASK 新增。", "error"); return; }
     modal.style.display = "grid";
-    const select = document.getElementById("workspaceSelect");
-    if (select) select.value = workspace === "progress" ? "progress" : workspace === "qa" ? "qa" : workspace === "done" ? "done" : "todo";
+    if (workspace && workspace !== "todo") setBanner("新 TASK 一律從待辦開始，完成後依正式流程交接。", "info");
   }
   async function createCard() {
     const modal = document.getElementById("addCardModal");
-    const fields = modal ? Array.from(modal.querySelectorAll("input, textarea")) : [];
-    const summary = fields[0]?.value?.trim() || "";
-    const title = fields[1]?.value?.trim() || summary.slice(0, 80);
+    const summary = modal?.querySelector("#taskSummary")?.value?.trim() || "";
+    const usageScenario = modal?.querySelector("#taskUsageScenario")?.value?.trim() || "";
+    const title = modal?.querySelector("#taskTitle")?.value?.trim() || summary.slice(0, 80);
     if (!title) { setBanner("請輸入 Task 標題或內容。", "error"); return; }
     try {
-      await service.createTask({ title: title, summary: summary });
+      await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
       modal.style.display = "none";
-      fields.forEach(field => { field.value = ""; });
+      modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
       await refreshBoard({ quiet: true });
       setBanner("TASK 已建立並進入待辦，由 Co 接球。", "success");
     } catch (error) { setBanner("TASK 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
-  }
-  function addWorkspace() {
-    setBanner("固定四階段工作區已啟用；自訂工作區管理尚未納入本次 Batch。", "info");
   }
   async function refreshBoard(options) {
     options = options || {};
@@ -318,7 +334,7 @@
       state.principles = result.principles;
       state.taskById = new Map(result.tasks.map(task => [task.id, task]));
       renderPrinciples(result.principles);
-      renderTasks(result.tasks);
+      renderTasks(visibleTasks());
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
       if (!options.quiet) setBanner("已讀取 " + result.tasks.length + " 筆正式 Cloud TASK、" + result.principles.length + " 條已核准原則。<strong>QJC 可操作；GPT／Co 由受控工程服務交接。</strong>", "success");
       return result;
@@ -346,19 +362,18 @@
     const refresh = document.querySelector(".actions .btn:not(.primary)");
     if (refresh) { refresh.id = "refreshBoardBtn"; refresh.onclick = () => refreshBoard(); }
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
-    document.querySelectorAll(".addcol").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
   function init() {
     enableBoardActions();
     ensureTaskDetailModal();
     wireNavigation();
+    wireSearch();
     renderPrinciples([]);
     renderTasks([]);
     const note = document.querySelector(".note");
     if (note) note.innerHTML = "正式 Board 以 Supabase 為唯一 TASK 來源。QJC 使用 authenticated Shared Identity；GPT／Co 使用受控 Engineering Service。Status、Assignee、Checklist 變更均留下 Activity Audit。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
-    root.addWorkspace = addWorkspace;
     refreshBoard().then(initRealtime).catch(() => {});
   }
   root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail });

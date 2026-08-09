@@ -8,7 +8,7 @@ const os = require("node:os");
 const ROOT = path.join(__dirname, "..");
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-test("AI Board Browser UI exposes contract checklist, explicit handoff, and working navigation", () => {
+test("AI Board Browser UI exposes contract checklist, usage scenario, search, create flow, handoff, and navigation", () => {
   if (!fs.existsSync(CHROME)) {
     assert.fail("Chrome executable is required for the browser regression test");
   }
@@ -23,11 +23,16 @@ test("AI Board Browser UI exposes contract checklist, explicit handoff, and work
   const output = result.stdout;
 
   assert.match(output, /Development Contract／PM QA Checklist/);
+  assert.match(output, /GPT 先讀取正式來源，再由 QJC 驗收/);
   assert.match(output, /checklist-check/);
   assert.match(output, /Evidence/);
   assert.match(output, /退回 Co/);
   assert.match(output, /GPT Review 通過 → 交 QJC/);
   assert.match(output, /全部工作：已顯示所有正式 Cloud TASK/);
+  assert.match(output, /AI Board 首頁：顯示正式 Cloud TASK/);
+  assert.match(output, /Engineering Center：左側固定區顯示已核准最高原則/);
+  assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
+  assert.match(output, /TASK 已建立並進入待辦/);
   assert.doesNotMatch(output, /QJC 可操作模式/);
   assert.doesNotMatch(output, /新增項目/);
   assert.doesNotMatch(output, /交接至 GPT/);

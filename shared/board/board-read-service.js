@@ -46,6 +46,7 @@
       assignee: String(row.assignee || ""),
       source: String(row.source_workspace || row.source || ""),
       summary: String(row.summary || row.objective || row.description || ""),
+      usageScenario: String(row.usage_scenario || row.usageScenario || ""),
       createdBy: String(row.created_by || ""),
       updatedAt: row.updated_at || row.updatedAt || null,
       createdAt: row.created_at || row.createdAt || null
@@ -115,7 +116,7 @@
     }
     const gateway = options.gateway || requireGateway();
     const [taskRows, knowledgeRows] = await Promise.all([
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,work_code,created_by,created_at,updated_at&order=created_at.asc"),
+      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,usage_scenario,work_code,created_by,created_at,updated_at&order=created_at.asc"),
       gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=eq.approved&order=updated_at.desc")
     ]);
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(normalizeTask);
@@ -152,6 +153,7 @@
     return gateway.rpc("board_create_task", {
       p_title: input.title,
       p_summary: input.summary || null,
+      p_usage_scenario: input.usageScenario || null,
       p_priority: input.priority || null,
       p_actor_type: "human",
       p_actor_label: "QJC"

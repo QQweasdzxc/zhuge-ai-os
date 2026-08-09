@@ -69,5 +69,5 @@ No OAuth, Session, Router, WorkLog, Investment business logic, or Product Versio
 1. Live QJC browser QA against a deployed artifact remains the next gate.
 2. GPT/Co writes require a controlled service/tool path; the browser intentionally cannot impersonate them.
 3. Existing tasks may have no checklist rows until QJC creates the approved checklist items.
-4. The prototype “新增工作區” action remains informational; arbitrary custom workspaces are out of scope.
+4. The legacy prototype source is retained only for artifact provenance and is not loaded or exposed by the formal Board; custom workspace creation is not a Board feature.
 5. `npm test` cannot run without a repository package manifest.
