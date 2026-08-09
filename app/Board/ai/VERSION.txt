@@ -1,5 +1,0 @@
-Prototype: AI Board Interactive Prototype
-Version: v0.9
-Related TASK: TASK-025
-Artifact type: Interactive HTML Prototype
-Entry point: index.html
