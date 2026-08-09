@@ -2,7 +2,7 @@
 
 - Artifact type: GPT Review Candidate (not a release)
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime / Source Build: `20260810-0623`
+- Runtime / Source Build: `20260810-0624`
 - Branch: `review/ai-board-batch1-20260809`
 - Base Commit: `3a72563668dcb82d05078a575d29fa445edde805`
 - Candidate Commit: `9903a67a8cdbd26751f7aa99693d8c22edbcbd0e`
@@ -14,8 +14,8 @@
 The deployable candidate and source archive use the same release identity:
 
 ```text
-20260810_0623_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_SharedShell_GPT_Review_Candidate.zip
-20260810_0623_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_SharedShell_Source.zip
+20260810_0624_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_SharedShell_GPT_Review_Candidate.zip
+20260810_0624_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_SharedShell_Source.zip
 ```
 
 The timestamp is the artifact/runtime build identity for this candidate. It does not authorize a production release, merge to `main`, or deployment.
