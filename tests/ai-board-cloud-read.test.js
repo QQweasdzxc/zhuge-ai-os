@@ -56,7 +56,7 @@ test("formal Board load reads tasks and approved principles through the injected
   };
   try {
     const result = await BoardRead.load({ gateway });
-    assert.equal(result.readOnly, true);
+    assert.equal(result.readOnly, false);
     assert.equal(result.source, "Supabase Shared Data Gateway");
     assert.equal(result.tasks[0].workspace, "progress");
     assert.equal(result.tasks[0].assignee, "Co");
@@ -79,9 +79,10 @@ test("Board entry loads Shared runtime and read adapter, not legacy prototype ru
   assert.match(read("app/dashboard/zhuge-dashboard.js"), /data-root-module-card="ai-board"/);
 });
 
-test("Board runtime exposes no database write path and clears prototype fixtures before Cloud Read", () => {
+test("Board runtime uses controlled workflow RPCs and clears prototype fixtures before Cloud Read", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(runtime, /read-only Supabase Shared Gateway projection/);
+  assert.match(runtime, /controlled RPC writes/);
+  assert.match(runtime, /Realtime/);
   assert.match(runtime, /renderPrinciples\(\[\]\)/);
   assert.match(runtime, /renderTasks\(\[\]\)/);
   assert.doesNotMatch(runtime, /\.(insert|update|delete)\s*\(/);

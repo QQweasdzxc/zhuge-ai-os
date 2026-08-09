@@ -52,6 +52,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .locknote{border:1px solid #4a3f71;background:#1b1928;color:#bcaee7;border-radius:8px;padding:9px 10px;font-size:12px;margin-top:4px}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .toast{position:fixed;right:22px;bottom:22px;background:#202938;border:1px solid #3b485c;border-radius:9px;padding:10px 14px;color:#dfe7f2;display:none;z-index:80;font-size:12px}
+.taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.card-action-hint{margin-top:10px;color:#6f8199;font-size:10px}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
 </style>
 </head>
 <body>
@@ -67,7 +68,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <main class="main">
  <header class="top">
   <div><h1>AI Board</h1><p>PM × GPT × Supabase × Co　｜　人看繁中，AI／程式看標準英文</p></div>
-  <div class="actions"><button class="btn">↻ 重新整理</button><button class="btn primary">唯讀模式</button></div>
+  <div class="actions"><button class="btn">↻ 重新整理</button><button class="btn primary">QJC 可操作模式</button></div>
  </header>
  <div class="toolbar">
    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span>
@@ -120,28 +121,28 @@ function toggleSidebar(){
  document.querySelector(".collapseBtn").textContent=app.classList.contains("collapsed")?"›":"‹";
 }
 function openQuickAdd(workspace){
- toast("AI Board 目前為唯讀模式；正式寫入需先完成 Ownership / RLS 審核。");
+ toast("AI Board 受控操作載入中，請稍候。");
 }
 function createCard(){
- toast("AI Board 目前為唯讀模式；正式寫入尚未授權。");
+ toast("AI Board 受控操作載入中，請稍候。");
 }
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function updateCount(col){col.querySelector(".count").textContent=col.querySelector(".cards").children.length}
 function wireCards(){}
 function addWorkspace(){
- toast("AI Board 目前為唯讀模式；流程工作區管理尚未授權。");
+ toast("固定四階段工作區已啟用；自訂工作區管理不在本批範圍。");
 }
 window.addEventListener("DOMContentLoaded",()=>{
  if(localStorage.getItem("proto_sidebar_collapsed")==="1"){document.querySelector(".app").classList.add("collapsed");document.querySelector(".collapseBtn").textContent="›"}
  wireCards();
 });
 </script>
-<script src="../../../shared/app-config.js?v=20260804-1515"></script>
-<script src="../../../shared/utils/shared-utils.js?v=20260804-1515"></script>
-<script src="../../../shared/app-state.js?v=20260804-1515"></script>
-<script src="../../../shared/auth/auth-service.js?v=20260804-1515"></script>
-<script src="../../../shared/identity/identity-service.js?v=20260804-1515"></script>
-<script src="../../../shared/supabase/supabase-gateway.js?v=20260804-1515"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260804-1515"></script>
-<script src="./board-runtime.js?v=20260804-1515"></script>
+<script src="../../../shared/app-config.js?v=20260809-1737"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260809-1737"></script>
+<script src="../../../shared/app-state.js?v=20260809-1737"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260809-1737"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260809-1737"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260809-1737"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260809-1737"></script>
+<script src="./board-runtime.js?v=20260809-1737"></script>
 <div id="toast" class="toast"></div></body></html>

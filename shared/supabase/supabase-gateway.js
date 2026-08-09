@@ -13,6 +13,7 @@
   const SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js";
   let sdkPromise = null;
   let authClient = null;
+  let realtimeChannels = new Map();
 
   function loadSdk() {
     if (root?.supabase?.createClient) return Promise.resolve(root.supabase);
@@ -133,7 +134,36 @@
 
   function createDataGateway() {
     return Object.freeze({
-      select: (table, query = "") => request(`${encodeURIComponent(String(table || ""))}${encodedQuery(query)}`, { method: "GET" })
+      select: (table, query = "") => request(`${encodeURIComponent(String(table || ""))}${encodedQuery(query)}`, { method: "GET" }),
+      rpc: (functionName, args = {}) => request(`rpc/${encodeURIComponent(String(functionName || ""))}`, {
+        method: "POST",
+        body: JSON.stringify(args || {})
+      }),
+      subscribe: async (table, callback) => {
+        const name = `zhuge-board-${String(table || "table")}`;
+        if (realtimeChannels.has(name)) return () => {};
+        const client = await initializeAuthClient();
+        await client.realtime.setAuth(currentAccessToken());
+        const channel = client.channel(name).on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: String(table || "") },
+          payload => callback?.(payload)
+        );
+        const status = await new Promise(resolve => {
+          channel.subscribe(value => resolve(value));
+        });
+        if (status !== "SUBSCRIBED") {
+          await client.removeChannel(channel);
+          throw new Error(`Supabase Realtime 訂閱失敗：${status}`);
+        }
+        realtimeChannels.set(name, channel);
+        return async () => {
+          const active = realtimeChannels.get(name);
+          if (!active) return;
+          realtimeChannels.delete(name);
+          await client.removeChannel(active);
+        };
+      }
     });
   }
 

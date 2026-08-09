@@ -11,16 +11,17 @@ Sign in to Zhuge AI OS, open the Dashboard, and choose **AI Board**. The Board
 expects the existing Shared Session and should be served from the repository
 host rather than opened as an isolated local file.
 
-## Read-only interactions
+## Controlled interactions
 - Collapse / expand the global left navigation (Sidebar ↔ Icon Rail)
 - Refresh the formal cloud projection
 - Review the fixed `📘 最高原則` area
 - Review Cloud TASK cards mapped to 待辦 → 推進 → 驗證 → 完成
 - See the current assignee on each card
 
-Writing, drag status changes, assignee changes, ownership changes and custom
-workspace management are intentionally disabled in Development Batch #1 until
-the minimum Ownership / RLS proposal is approved.
+Task creation, drag status changes, assignee changes, and Checklist evidence
+use only the approved controlled RPC boundary. The browser never writes Board
+tables directly. GPT and Co remain AI workflow actors and do not receive
+Supabase Auth users or UUIDs. Custom workspace management remains out of scope.
 
 ## Board model
 固定區 | 可移動、可新增區
