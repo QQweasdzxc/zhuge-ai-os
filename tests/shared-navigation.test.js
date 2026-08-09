@@ -6,20 +6,25 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-test("AI Board is mounted inside the shared Zhuge AI OS navigation shell", () => {
+test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component", () => {
   const index = read("app/Board/ai/index.html");
-  const nav = read("shared/components/global-navigation.js");
-  const css = read("shared/theme/global-navigation.css");
-  assert.match(index, /id="zhugeGlobalNavigation"/);
-  assert.match(index, /shared\/components\/global-navigation\.js/);
-  assert.match(index, /shared\/theme\/global-navigation\.css/);
+  const nav = read("shared/components/zhuge-navigation.js");
+  const css = read("shared/theme/zhuge-navigation.css");
+  const worklog = read("modules/worklog/worklog-app.js");
+  const worklogIndex = read("modules/worklog/index.html");
+  assert.match(index, /id="zhugeSharedNavigation"/);
+  assert.match(index, /shared\/components\/zhuge-navigation\.js/);
+  assert.match(index, /shared\/theme\/zhuge-navigation\.css/);
+  assert.match(worklog, /ZhugeSharedNavigation\.render/);
+  assert.match(worklogIndex, /shared\/components\/zhuge-navigation\.js/);
   for (const label of ["WorkLog", "待辦事項", "Investment", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
-  assert.match(css, /\.zhuge-module-shell/);
-  assert.match(css, /\.zhuge-global-nav-link\.is-active/);
+  assert.match(nav, /data-zhuge-shared-navigation/);
+  assert.match(css, /\.os-sidebar/);
+  assert.match(css, /\.side-item\.on/);
 });
 
 test("Shared Navigation opens WorkLog internal destinations without a private Board router", () => {
-  const nav = read("shared/components/global-navigation.js");
+  const nav = read("shared/components/zhuge-navigation.js");
   const worklog = read("modules/worklog/index.html");
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=tasks/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=library/);

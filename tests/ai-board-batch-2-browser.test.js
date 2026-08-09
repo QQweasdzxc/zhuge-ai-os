@@ -4,17 +4,16 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const os = require("node:os");
+const { resolveBrowserExecutable } = require("./browser-executable");
 
 const ROOT = path.join(__dirname, "..");
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-test("AI Board Browser UI exposes contract checklist, usage scenario, search, create flow, handoff, and navigation", () => {
-  if (!fs.existsSync(CHROME)) {
-    assert.fail("Chrome executable is required for the browser regression test");
-  }
+test("AI Board Browser UI exposes contract checklist, usage scenario, search, create flow, handoff, and navigation", t => {
+  const browserExecutable = resolveBrowserExecutable();
+  if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the browser regression");
   const fixture = path.join(__dirname, "ai-board-batch-2-browser.html");
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-ai-board-batch2-"));
-  const result = spawnSync(CHROME, [
+  const result = spawnSync(browserExecutable, [
     "--headless", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     "--no-first-run", `--user-data-dir=${profile}`,
     "--virtual-time-budget=2500", "--dump-dom", `file://${fixture}`
@@ -33,13 +32,14 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /Engineering Center：左側固定區顯示已核准最高原則/);
   assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
   assert.match(output, /TASK 已建立並進入待辦/);
-  assert.match(output, /data-global-nav="worklog"/);
-  assert.match(output, /data-global-nav="tasks"/);
-  assert.match(output, /data-global-nav="investment"/);
-  assert.match(output, /data-global-nav="library"/);
-  assert.match(output, /data-global-nav="sync"/);
-  assert.match(output, /data-global-nav="settings"/);
-  assert.match(output, /共用導覽/);
+  assert.match(output, /data-zhuge-shared-navigation="true"/);
+  assert.match(output, /data-shared-nav-item="worklog"/);
+  assert.match(output, /data-shared-nav-item="tasks"/);
+  assert.match(output, /data-shared-nav-item="investment"/);
+  assert.match(output, /data-shared-nav-item="library"/);
+  assert.match(output, /data-shared-nav-item="sync"/);
+  assert.match(output, /data-shared-nav-item="settings"/);
+  assert.match(output, /營帳/);
   assert.doesNotMatch(output, /QJC 可操作模式/);
   assert.doesNotMatch(output, /新增項目/);
   assert.doesNotMatch(output, /交接至 GPT/);

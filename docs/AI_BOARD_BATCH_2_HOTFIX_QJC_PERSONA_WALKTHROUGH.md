@@ -8,8 +8,9 @@ QJC's final live PM QA.
 
 1. Open the Zhuge AI OS Dashboard and select **AI Board**.
    - Expected: the formal Board loads from authenticated Shared Identity and
-     Supabase Cloud data; no prototype fixture is shown. The Zhuge AI OS
-     Shared Navigation remains visible around the Board content.
+     Supabase Cloud data; no prototype fixture is shown. The existing
+     `ZhugeSharedNavigation` component and WorkLog Shell classes remain
+     visible around the Board content.
 2. Use the search field to enter `TASK-026` (or a usage-scenario phrase).
    - Expected: the task cards filter immediately and the result count is shown.
 3. Open the `TASK-026` card.

@@ -4,23 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Zhuge AI OS｜AI Board</title>
-    <link rel="stylesheet" href="../../../shared/theme/global-navigation.css?v=20260809-2009">
+    <link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260809-2038">
 <style>
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
-.app{display:grid;grid-template-columns:238px 1fr;min-height:100vh;transition:grid-template-columns .18s ease}
-.app.collapsed{grid-template-columns:64px 1fr}
-.app.collapsed .sidebar{padding-left:8px;padding-right:8px}
-.app.collapsed .brand>div:last-child,.app.collapsed .search,.app.collapsed .navtitle,.app.collapsed .nav .label,.app.collapsed .sidefoot{display:none}
-.app.collapsed .brand{justify-content:center;margin-left:0;margin-right:0}
-.app.collapsed .nav{display:grid;place-items:center;padding:11px 0;font-size:0}
-.app.collapsed .nav .ico{font-size:17px}
-
-.sidebar{border-right:1px solid var(--line);background:#0b1016;padding:20px 14px;display:flex;flex-direction:column;position:relative}
-.brand{display:flex;gap:11px;align-items:center;margin:0 6px 24px}.mark{width:34px;height:34px;border-radius:10px;background:#2563eb;display:grid;place-items:center;font-weight:800}
-.brand small{display:block;color:var(--muted);margin-top:2px}
+.app{display:block;min-height:100vh;min-width:0}
 .search{background:#141a23;border:1px solid var(--line);border-radius:9px;padding:0;color:#758194;margin-bottom:20px}.search input{width:100%;background:transparent;border:0;outline:0;color:var(--text);padding:10px 12px;font:inherit}.search input::placeholder{color:#758194}
-.navtitle{font-size:12px;color:#657185;margin:12px 8px 7px}.nav{padding:10px 11px;border-radius:8px;color:#aab4c2;margin:2px 0}.nav.active{background:#182335;color:#fff}.collapseBtn{position:absolute;right:-13px;top:28px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#151c26;color:#aeb8c5;z-index:5}.sidefoot{margin-top:auto;font-size:12px;color:#758194;border-top:1px solid var(--line);padding-top:15px}
+.board-local-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:12px 24px;border-bottom:1px solid #202938}.nav{border:1px solid var(--line);background:#151c26;color:#aab4c2;padding:8px 11px;border-radius:8px;cursor:pointer}.nav.active{background:#2869df;border-color:#2869df;color:#fff}
 .main{min-width:0}.top{height:82px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
 .top h1{font-size:21px;margin:0 0 5px}.top p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:8px}
 button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#d8e0ea;border-radius:8px;padding:9px 13px}.btn.primary{background:#2869df;border-color:#2869df;color:white}
@@ -34,7 +24,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .cards{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:570px}.card{background:#171e28;cursor:grab;border:1px solid #2a3443;border-radius:10px;padding:12px;box-shadow:0 3px 10px #0002}.rule{background:#1b1928;cursor:default;border-color:#41375f}.code{font-size:10px;color:#6f7c8e;margin-bottom:7px}.card h3{font-size:14px;line-height:1.35;margin:0 0 7px}.card p{font-size:12px;line-height:1.5;color:#9ba7b7;margin:0 0 10px}.meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tag{font-size:10px;padding:3px 6px;border-radius:5px;background:#232d3b;color:#aeb8c5}.tag.high{background:#3a2025;color:#ff9a9d}.tag.med{background:#3b321e;color:#e7c76d}.tag.qjc{background:#1f304a;color:#91b9ff}.tag.rule-tag{background:#30264c;color:#cdbdff}
 .add{margin:0 10px 10px;width:calc(100% - 20px);border:1px dashed #344052;background:transparent;color:#77869b;padding:9px;border-radius:8px;text-align:left}.principles .add{border-color:#4a3f71;color:#9f90cb}
 .note{margin:0 24px 20px;padding:10px 13px;border:1px solid #26344a;background:#111b29;border-radius:9px;color:#8ea2bf;font-size:12px}
-@media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{display:none}.top{padding:0 14px}.board-shell,.toolbar{padding-left:14px;padding-right:14px}}
+@media(max-width:800px){.top{padding:0 14px}.board-shell,.toolbar,.board-local-nav{padding-left:14px;padding-right:14px}}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .board-read-status{margin:14px 24px 0;padding:10px 13px;border:1px solid #293241;background:#111b29;border-radius:9px;color:#aabbd1;font-size:12px;line-height:1.5}.board-read-status[data-state="loading"]{color:#e5c66b;border-color:#5a4a27}.board-read-status[data-state="success"]{color:#80e0ad;border-color:#285b45}.board-read-status[data-state="error"]{color:#ff9a9d;border-color:#6b3038}.board-read-status a{color:#9ec5ff}.board-empty{padding:22px 10px;text-align:center;border:1px dashed #344052;border-radius:8px;color:#77869b;font-size:12px}.board-cloud-card{cursor:default}.actions .btn:disabled,.add:disabled{opacity:.55;cursor:not-allowed}
 .checklist-contract-note{color:#8493a7;font-size:12px;margin:8px 0}.checklist-heading span{color:#9bb7dc;font-size:11px}.checklist-checkline{display:flex;align-items:flex-start;gap:9px;min-width:0;cursor:pointer}.checklist-check{margin-top:3px;accent-color:#4d8dff}.checklist-actions{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;justify-content:flex-end}.checklist-actions .btn{font-size:11px;padding:5px 8px}.checklist-evidence{flex-basis:100%;font-size:11px;color:#9fb3ca}.checklist-evidence.missing{color:#d6a76f}
@@ -57,22 +47,20 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 </head>
 <body>
 <div class="zhuge-module-shell">
-<aside id="zhugeGlobalNavigation" class="zhuge-global-nav" data-root-path="../../../"></aside>
+<div id="zhugeSharedNavigation" data-external-root="../../../"></div>
 <div class="app">
-<aside class="sidebar"><button class="collapseBtn" title="收合／展開導航" onclick="toggleSidebar()">‹</button>
- <div class="brand"><div class="mark">B</div><div><b>Zhuge AI OS</b><small>工程工作平台</small></div></div>
- <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
- <div class="navtitle">工作</div>
- <div class="nav active" title="AI Board" data-board-nav="home" role="button" tabindex="0"><span class="ico">▦</span><span class="label">　AI Board</span></div><div class="nav" title="全部工作" data-board-nav="all" role="button" tabindex="0"><span class="ico">☷</span><span class="label">　全部工作</span></div>
- <div class="navtitle">系統</div><div class="nav" title="Engineering Center" data-board-nav="principles" role="button" tabindex="0"><span class="ico">◇</span><span class="label">　Engineering Center</span></div>
- <div class="sidefoot">● Supabase 已連線<br><br>Board 為呈現層<br>資料可來自不同 SB Table</div>
-</aside>
 <main class="main">
  <header class="top">
   <div><h1>AI Board</h1><p>PM × GPT × Supabase × Co　｜　人看繁中，AI／程式看標準英文</p></div>
   <div class="actions"><button class="btn">↻ 重新整理</button></div>
  </header>
+ <div class="board-local-nav" aria-label="AI Board 內容導覽">
+   <button class="nav active" title="AI Board" data-board-nav="home" type="button">▦ AI Board</button>
+   <button class="nav" title="全部工作" data-board-nav="all" type="button">☷ 全部工作</button>
+   <button class="nav" title="Engineering Center" data-board-nav="principles" type="button">◇ Engineering Center</button>
+ </div>
  <div class="toolbar">
+   <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span>
    <span class="legend">固定區不參與 TASK 狀態流轉</span>
  </div>
@@ -107,23 +95,13 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  </div>
 </div>
 
-<script>
-function toggleSidebar(){
- const app=document.querySelector(".app"); app.classList.toggle("collapsed");
- localStorage.setItem("ai_board_sidebar_collapsed",app.classList.contains("collapsed")?"1":"0");
- document.querySelector(".collapseBtn").textContent=app.classList.contains("collapsed")?"›":"‹";
-}
-window.addEventListener("DOMContentLoaded",()=>{
- if(localStorage.getItem("ai_board_sidebar_collapsed")==="1"){document.querySelector(".app").classList.add("collapsed");document.querySelector(".collapseBtn").textContent="›"}
-});
-</script>
-<script src="../../../shared/components/global-navigation.js?v=20260809-2009"></script>
-<script src="../../../shared/app-config.js?v=20260809-2009"></script>
-<script src="../../../shared/utils/shared-utils.js?v=20260809-2009"></script>
-<script src="../../../shared/app-state.js?v=20260809-2009"></script>
-<script src="../../../shared/auth/auth-service.js?v=20260809-2009"></script>
-<script src="../../../shared/identity/identity-service.js?v=20260809-2009"></script>
-<script src="../../../shared/supabase/supabase-gateway.js?v=20260809-2009"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260809-2009"></script>
-<script src="./board-runtime.js?v=20260809-2009"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260809-2038"></script>
+<script src="../../../shared/app-config.js?v=20260809-2038"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260809-2038"></script>
+<script src="../../../shared/app-state.js?v=20260809-2038"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260809-2038"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260809-2038"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260809-2038"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260809-2038"></script>
+<script src="./board-runtime.js?v=20260809-2038"></script>
 </body></html>

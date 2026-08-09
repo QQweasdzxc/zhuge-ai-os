@@ -2498,14 +2498,6 @@ function closeWorkspace(id) {
   render("workspace-change");
 }
 
-function agentStatusPanel() {
-  return `<div class="agent-panel"><h3>🤖 Agent</h3>${agentStatuses.map(([icon, name, status]) => `<div class="agent-row"><span>${icon} ${name}</span><b>${escapeHtml(status)}</b></div>`).join("")}</div>`;
-}
-
-function sidebarSection(title, group) {
-  return `<div class="side-section"><h3>${title}</h3>${Object.entries(workspaceRegistry).filter(([, w]) => w.group === group && !w.hidden).map(([id, w]) => w.enabled ? `<button class="side-item ${activeWorkspace === id ? "on" : ""}" data-open-workspace="${id}"><span>${w.icon} ${w.label}</span>${w.status ? `<small>${escapeHtml(w.status)}</small>` : ""}</button>` : `<div class="side-item disabled"><span>${w.icon} ${w.label}</span>${w.comingSoon ? `<small>🚧 施工中</small>` : ""}</div>`).join("")}</div>`;
-}
-
 function developerConsoleMarkup() {
   const conversationLastSync = conversationSync.lastSyncedAt ? fmt(conversationSync.lastSyncedAt) : "尚未同步";
   const conversationStatus = conversationSync.status === "synced" ? "🟢 已同步" : conversationSync.status === "syncing" ? "🟡 同步中" : conversationSync.status === "failed" ? "🔴 同步失敗" : "🟡 尚未同步";
@@ -2521,7 +2513,17 @@ function developerConsoleMarkup() {
 function osSidebar() {
   const checked = new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
   const syncTime = cloudSync.lastSyncedAt ? fmt(cloudSync.lastSyncedAt) : "尚未同步";
-  return `<aside class="os-sidebar"><div class="sidebar-brand"><div class="brand-row"><div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span> Zhuge AI OS</h1><span class="brand-companion">by Mr. KM</span></div></div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="營帳選單">☰</button></div>${agentStatusPanel()}${sidebarSection("🏕️ 營帳", "camp")}${sidebarSection("⚙️ 系統", "system")}<div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${escapeHtml(sidebarSyncStatusLabel())}</strong><span>最後同步</span><time>${escapeHtml(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${escapeHtml(VERSION)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${escapeHtml(BUILD_TIME)}</strong></div></div></aside>`;
+  if (typeof ZhugeSharedNavigation === "undefined") return "";
+  return ZhugeSharedNavigation.render({
+    workspaceRegistry,
+    activeWorkspace,
+    agentStatuses,
+    escapeHtml,
+    sidebarSyncStatusLabel,
+    syncTime,
+    version: VERSION,
+    build: BUILD_TIME
+  });
 }
 
 function workspaceTabs() {

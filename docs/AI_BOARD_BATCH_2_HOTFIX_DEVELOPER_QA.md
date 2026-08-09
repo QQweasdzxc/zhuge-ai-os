@@ -1,6 +1,6 @@
 # AI Board Batch #2 — PM QA Hotfix Developer QA
 
-Runtime / Source Build: `20260809-2009`
+Runtime / Source Build: `20260809-2038`
 Candidate type: **GPT Review Candidate** (not a Release)
 
 ## Candidate scope
@@ -56,4 +56,4 @@ production QA and final acceptance remain the next gate.
 
 ## Developer QA conclusion
 
-**PASS — ready for GPT Review.** This navigation hotfix is included in the new candidate build. The artifact timestamp and Runtime Build are `20260809-2009`; QJC PM QA is the next gate and this report does not mark any TASK done.
+**PASS — ready for GPT Review.** This navigation hotfix is included in the new candidate build. The artifact timestamp and Runtime Build are `20260809-2038`; QJC PM QA is the next gate and this report does not mark any TASK done.

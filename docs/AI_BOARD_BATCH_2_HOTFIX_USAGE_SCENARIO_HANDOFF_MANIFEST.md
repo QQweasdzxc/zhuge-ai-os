@@ -3,13 +3,13 @@
 Artifact type: **GPT Review Candidate**  
 Development Batch: **AI Board Operational Workflow & Engineering Handoff — PM QA FAIL Hotfix**  
 Product Version: `v0.9.0-alpha.9.12`  
-Runtime / Source Build: `20260809-2009`
-Artifact timestamp: `20260809-2009`
+Runtime / Source Build: `20260809-2038`
+Artifact timestamp: `20260809-2038`
 
 ## Artifacts
 
-- Source: `20260809_2009_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_Source.zip`
-- GPT Review Candidate: `20260809_2009_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_GPT_Review_Candidate.zip`
+- Source: `20260809_2038_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_Source.zip`
+- GPT Review Candidate: `20260809_2038_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Hotfix_SharedNavigation_GPT_Review_Candidate.zip`
 
 Artifact timestamp and Runtime Build timestamp are identical. This is a review
 candidate, not a Release. `main` is not merged and GitHub Pages is not deployed.
@@ -23,7 +23,7 @@ candidate, not a Release. `main` is not merged and GitHub Pages is not deployed.
 - TASK detail order is requirement → usage scenario → Development Contract／PM QA Checklist / Evidence → next action.
 - `board_tasks.usage_scenario text` is persisted by the approved `board_create_task` RPC; historical NULL values render as `尚未補充使用情境`.
 - Create TASK modal collects requirement, usage scenario, and title with explicit success/failure feedback.
-- TASK-024 shared navigation keeps the Zhuge AI OS shell visible around AI Board; direct links open WorkLog, 待辦事項, Investment, Knowledge, 控制台, and 設定 without Browser Back.
+- TASK-024 reuses the existing `ZhugeSharedNavigation` component and WorkLog Shell classes around AI Board; direct links open WorkLog, 待辦事項, Investment, Knowledge, 控制台, and 設定 without Browser Back.
 
 ## Evidence
 

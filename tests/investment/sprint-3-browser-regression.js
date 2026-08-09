@@ -1,12 +1,11 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { chromium } = require("playwright");
+const { resolveBrowserExecutable } = require("../browser-executable");
 
 (async () => {
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  });
+  const executablePath = resolveBrowserExecutable();
+  const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
   const errors = [];
   page.on("console", message => {
