@@ -2,7 +2,7 @@
 
 Artifact type: **Review Candidate**  
 Artifact filename: `20260809_1024_ZhugeAIOS_AI_Board_Batch1_Review_Candidate.zip`  
-Artifact created_at: `2026-08-09T10:24:27+08:00` (Asia/Taipei)  
+Artifact created_at: `2026-08-09T10:24+08:00` (Asia/Taipei; minute precision matches the artifact naming rule)  
 Development Batch: **Development Batch #1 — AI Board Formal Cloud Read & Shared Workflow Integration**
 
 ## Parent / baseline
