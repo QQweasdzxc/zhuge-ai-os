@@ -1,24 +1,34 @@
-# Zhuge AI OS — AI Board Interactive Prototype v0.9
+# Zhuge AI OS — AI Board Cloud Read v0.9
 
 ## Purpose
-Interactive prototype for PM review and TASK-025 validation.
+The confirmed v0.9 layout is retained as the UI baseline. The formal Board
+runtime now reads `public.board_tasks` and approved principles from
+`public.engineering_knowledge` through the Shared Identity and Shared
+Supabase Data Gateway.
 
 ## How to use
-Open `index.html` in Chrome on a desktop computer.
+Sign in to Zhuge AI OS, open the Dashboard, and choose **AI Board**. The Board
+expects the existing Shared Session and should be served from the repository
+host rather than opened as an isolated local file.
 
-## Prototype interactions
+## Read-only interactions
 - Collapse / expand the global left navigation (Sidebar ↔ Icon Rail)
-- Add cards from the global `新增卡片` entry
-- Quick-add cards from the top of each workspace
-- Add cards to `📘 最高原則`
-- Drag TASK cards between process workspaces
-- Highest-principle cards do not participate in TASK status dragging
-- Add a new process workspace
+- Refresh the formal cloud projection
+- Review the fixed `📘 最高原則` area
+- Review Cloud TASK cards mapped to 待辦 → 推進 → 驗證 → 完成
+- See the current assignee on each card
+
+Writing, drag status changes, assignee changes, ownership changes and custom
+workspace management are intentionally disabled in Development Batch #1 until
+the minimum Ownership / RLS proposal is approved.
 
 ## Board model
 固定區 | 可移動、可新增區
 📘 最高原則 | 待辦 → 推進 → 驗證 → 完成
 
 ## Notes
-This is an interactive prototype only. Actions are simulated locally and are not connected to Supabase.
-Related PM validation task: TASK-025.
+This is the formal Cloud Read slice. It does not use Mock Data, task
+LocalStorage, or an independent Supabase client. The legacy `app.js` is kept
+for historical comparison only and is not loaded by the Board entry point.
+Related approved slices: TASK-001, TASK-005, TASK-015, TASK-016, TASK-021,
+TASK-022 and TASK-023.

@@ -1,3 +1,6 @@
+/* Legacy connected prototype. The formal Board entry point does not load this
+ * file because it owns an independent Supabase client and write workflow.
+ * Retained only for historical comparison during the Cloud Read integration. */
 (() => {
   const STATUS = [
     { key: 'inbox', label: 'Inbox', zh: '收件匣' },

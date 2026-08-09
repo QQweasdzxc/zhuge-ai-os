@@ -37,6 +37,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 @media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{display:none}.top{padding:0 14px}.board-shell,.toolbar{padding-left:14px;padding-right:14px}}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .toast{position:fixed;right:22px;bottom:22px;background:#202938;border:1px solid #3b485c;border-radius:9px;padding:10px 14px;color:#dfe7f2;display:none;z-index:80;font-size:12px}
+.board-read-status{margin:14px 24px 0;padding:10px 13px;border:1px solid #293241;background:#111b29;border-radius:9px;color:#aabbd1;font-size:12px;line-height:1.5}.board-read-status[data-state="loading"]{color:#e5c66b;border-color:#5a4a27}.board-read-status[data-state="success"]{color:#80e0ad;border-color:#285b45}.board-read-status[data-state="error"]{color:#ff9a9d;border-color:#6b3038}.board-read-status a{color:#9ec5ff}.board-empty{padding:22px 10px;text-align:center;border:1px dashed #344052;border-radius:8px;color:#77869b;font-size:12px}.board-cloud-card{cursor:default}.actions .btn:disabled,.add:disabled,.addcol:disabled{opacity:.55;cursor:not-allowed}
 </style>
 
 <style>
@@ -66,7 +67,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <main class="main">
  <header class="top">
   <div><h1>AI Board</h1><p>PM × GPT × Supabase × Co　｜　人看繁中，AI／程式看標準英文</p></div>
-  <div class="actions"><button class="btn">↻ 重新整理</button><button class="btn primary">＋ 新增卡片</button></div>
+  <div class="actions"><button class="btn">↻ 重新整理</button><button class="btn primary">唯讀模式</button></div>
  </header>
  <div class="toolbar">
    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span>
@@ -78,34 +79,14 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
    <div class="column principles">
     <div class="colhead">📘 最高原則 <span class="count">4</span></div>
     <button class="add" onclick="openQuickAdd('principles')">＋ 新增卡片</button>
-    <div class="cards">
-     <div class="card rule"><div class="code">PRINCIPLE-001</div><h3>PM 擁有最終決策權</h3><p>智能不得自行變更已確認的架構、安全、身份、資料庫與 Release 決策。</p><div class="meta"><span class="tag rule-tag">最高原則</span></div></div>
-     <div class="card rule"><div class="code">PRINCIPLE-002</div><h3>人看繁中，AI／程式看標準英文</h3><p>前台以繁中降低操作門檻；技術欄位與程式維持標準英文。</p><div class="meta"><span class="tag rule-tag">最高原則</span></div></div>
-     <div class="card rule"><div class="code">PRINCIPLE-003</div><h3>你 ↔ GPT ↔ Supabase ↔ Co</h3><p>以 Supabase 作為智能共同資料中心，減少 PM 人工搬運資訊。</p><div class="meta"><span class="tag rule-tag">最高原則</span></div></div>
-     <div class="card rule"><div class="code">PRINCIPLE-004</div><h3>智能先讀原則，再讀 TASK</h3><p>開始執行前先取得有效最高原則，再依 TASK 規格執行與回寫。</p><div class="meta"><span class="tag rule-tag">最高原則</span></div></div>
-    </div>
+    <div class="cards"></div>
     
    </div>
    <div class="divider"></div>
-   <div class="column process" data-status="todo"><div class="colhead">待辦 <span class="count">3</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('todo')">＋ 新增卡片</button><div class="cards">
-    <div class="card taskcard" draggable="true"><div class="code">TASK-014</div><h3>WorkLog 統一工作區版型</h3><p>固定左側導航，主要功能於右側工作區切換。</p><div class="meta"><span class="tag qjc">WorkLog</span><span class="tag high">HIGH</span></div></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-015</div><h3>使用者介面繁體中文化</h3><p>人看繁中，AI／程式看標準英文。</p><div class="meta"><span class="tag qjc">QJC</span></div></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-023</div><h3>Board「最高原則」固定工作區</h3><p>最高原則與流程工作區共同呈現，但不參與 TASK Status。</p><div class="meta"><span class="tag qjc">QJC</span><span class="tag high">HIGH</span></div></div>
-   </div></div>
-   <div class="column process" data-status="progress"><div class="colhead">推進 <span class="count">1</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('progress')">＋ 新增卡片</button><div class="cards">
-    <div class="card taskcard" draggable="true"><div class="code">TASK-022</div><h3>Board 自訂工作區與狀態</h3><p>PM 可新增、命名、拖曳排序流程型工作區。</p><div class="meta"><span class="tag qjc">QJC</span><span class="tag med">MEDIUM</span></div></div>
-   </div></div>
-   <div class="column process" data-status="qa"><div class="colhead">驗證 <span class="count">3</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('qa')">＋ 新增卡片</button><div class="cards">
-    <div class="card taskcard" draggable="true"><div class="code">TASK-016</div><h3>Board 與 Supabase 雲端資料同步</h3><p>驗證讀、寫、狀態變更皆直接同步 SB。</p><div class="meta"><span class="tag qjc">QJC</span><span class="tag high">CRITICAL</span></div></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-017</div><h3>拖曳更新 Status</h3><p>拖曳卡片後同步更新 Supabase 狀態。</p><div class="meta"><span class="tag qjc">QJC</span></div></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-021</div><h3>智能直接存取 Supabase</h3><p>GPT 已驗證；Co 讀寫仍待驗證。</p><div class="meta"><span class="tag qjc">QJC</span><span class="tag high">HIGH</span></div></div>
-   </div></div>
-   <div class="column process" data-status="done"><div class="colhead">完成 <span class="count">4</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('done')">＋ 新增卡片</button><div class="cards">
-    <div class="card taskcard" draggable="true"><div class="code">TASK-012</div><h3>已完成工作</h3><p>保留歷程紀錄。</p></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-013</div><h3>已完成工作</h3><p>保留歷程紀錄。</p></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-018</div><h3>AI Board 四欄</h3><p>流程工作區已建立。</p></div>
-    <div class="card taskcard" draggable="true"><div class="code">TASK-019</div><h3>移除假資料</h3><p>正式資料以 Supabase 為準。</p></div>
-   </div></div>
+   <div class="column process" data-status="todo"><div class="colhead">待辦 <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('todo')">＋ 新增卡片</button><div class="cards"></div></div>
+   <div class="column process" data-status="progress"><div class="colhead">推進 <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('progress')">＋ 新增卡片</button><div class="cards"></div></div>
+   <div class="column process" data-status="qa"><div class="colhead">驗證 <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('qa')">＋ 新增卡片</button><div class="cards"></div></div>
+   <div class="column process" data-status="done"><div class="colhead">完成 <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('done')">＋ 新增卡片</button><div class="cards"></div></div>
    <button class="addcol" onclick="addWorkspace()">＋ 新增工作區</button>
   </div>
  </section>
@@ -139,62 +120,28 @@ function toggleSidebar(){
  document.querySelector(".collapseBtn").textContent=app.classList.contains("collapsed")?"›":"‹";
 }
 function openQuickAdd(workspace){
- const modal=document.getElementById('addCardModal'),sel=document.getElementById('workspaceSelect');
- if(workspace){sel.value=workspace}
- document.getElementById('ruleHint').style.display=sel.value==='principles'?'block':'none';
- modal.style.display='grid';
+ toast("AI Board 目前為唯讀模式；正式寫入需先完成 Ownership / RLS 審核。");
 }
 function createCard(){
- const sel=document.getElementById("workspaceSelect");
- const textarea=document.querySelector("#addCardModal textarea");
- const titleInput=document.querySelector("#addCardModal input");
- const title=titleInput.value.trim()||((textarea.value.trim()||"新卡片").slice(0,22));
- const desc=textarea.value.trim()||"尚未填寫內容";
- if(sel.value==="principles"){
-   const cards=document.querySelector(".principles .cards");
-   const n=cards.children.length+1;
-   cards.insertAdjacentHTML("beforeend",`<div class="card rule"><div class="code">PRINCIPLE-00${n}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(desc)}</p><div class="meta"><span class="tag rule-tag">最高原則</span></div></div>`);
-   document.querySelector(".principles .count").textContent=cards.children.length;
- } else {
-   const col=document.querySelector(`.process[data-status="${sel.value}"]`),cards=col.querySelector(".cards");
-   cards.insertAdjacentHTML("beforeend",`<div class="card taskcard" draggable="true"><div class="code">TASK-NEW</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(desc)}</p><div class="meta"><span class="tag qjc">QJC</span></div></div>`);
-   wireCards(); updateCount(col);
- }
- document.getElementById("addCardModal").style.display="none"; textarea.value="";titleInput.value="";
- toast(`已新增至「${names[sel.value]||sel.options[sel.selectedIndex].text}」`);
+ toast("AI Board 目前為唯讀模式；正式寫入尚未授權。");
 }
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function updateCount(col){col.querySelector(".count").textContent=col.querySelector(".cards").children.length}
-let dragged=null;
-function wireCards(){
- document.querySelectorAll(".taskcard").forEach(c=>{
-  c.ondragstart=e=>{dragged=c;e.dataTransfer.effectAllowed="move"};
-  c.ondragend=()=>dragged=null;
- });
- document.querySelectorAll(".process .cards").forEach(zone=>{
-  zone.ondragover=e=>{e.preventDefault();zone.classList.add("dropzone")};
-  zone.ondragleave=()=>zone.classList.remove("dropzone");
-  zone.ondrop=e=>{e.preventDefault();zone.classList.remove("dropzone");if(!dragged)return;
-    const old=dragged.closest(".process"),next=zone.closest(".process"); zone.appendChild(dragged);
-    updateCount(old); if(old!==next)updateCount(next);
-    toast(`卡片狀態 → ${next.querySelector(".colhead").childNodes[0].textContent.trim()}（原型模擬）`);
-  };
- });
-}
+function wireCards(){}
 function addWorkspace(){
- const name=prompt("新增工作區名稱");
- if(!name)return;
- const btn=document.querySelector(".addcol");
- const key="custom_"+Date.now();
- const col=document.createElement("div"); col.className="column process";col.dataset.status=key;
- col.innerHTML=`<div class="colhead">${escapeHtml(name)} <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('${key}')">＋ 新增卡片</button><div class="cards"></div>`;
- btn.parentNode.insertBefore(col,btn);
- const sel=document.getElementById("workspaceSelect"),op=document.createElement("option");op.value=key;op.textContent=name;sel.appendChild(op);names[key]=name;
- wireCards();toast(`已新增工作區「${name}」（原型模擬）`);
+ toast("AI Board 目前為唯讀模式；流程工作區管理尚未授權。");
 }
 window.addEventListener("DOMContentLoaded",()=>{
  if(localStorage.getItem("proto_sidebar_collapsed")==="1"){document.querySelector(".app").classList.add("collapsed");document.querySelector(".collapseBtn").textContent="›"}
  wireCards();
 });
 </script>
+<script src="../../../shared/app-config.js?v=20260804-1515"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260804-1515"></script>
+<script src="../../../shared/app-state.js?v=20260804-1515"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260804-1515"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260804-1515"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260804-1515"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260804-1515"></script>
+<script src="./board-runtime.js?v=20260804-1515"></script>
 <div id="toast" class="toast"></div></body></html>

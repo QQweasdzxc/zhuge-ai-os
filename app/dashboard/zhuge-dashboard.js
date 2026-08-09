@@ -56,6 +56,7 @@ function zhugeRootDashboardMarkup(identity = null) {
       <div class="zhuge-module-launcher-head"><div><p class="zhuge-root-eyebrow">MODULE LAUNCHER</p><h3 id="zhuge-module-launcher-title">工作模組入口</h3><p class="muted">請選擇要進入的工作模組</p></div><span class="zhuge-session-badge">🔐 共用 Google Session</span></div>
       <div class="zhuge-module-grid">
         ${zhugeRootModuleCard({ id: "worklog", icon: "🪶", title: "WorkLog", description: "工作管理、工時紀錄、待辦事項", enabled: true })}
+        <a class="zhuge-module-card" href="../../app/Board/ai/" data-root-module-card="ai-board" style="text-decoration:none"><span class="zhuge-module-icon" aria-hidden="true">▦</span><span class="zhuge-module-copy"><strong>AI Board</strong><small>正式 TASK、最高原則與 PM 驗證</small></span><span class="zhuge-module-note">Cloud Read</span><span class="zhuge-module-arrow" aria-hidden="true">→</span></a>
         <a class="zhuge-module-card" href="../investment/" data-root-module-card="investment" style="text-decoration:none"><span class="zhuge-module-icon" aria-hidden="true">📈</span><span class="zhuge-module-copy"><strong>Investment</strong><small>投資組合、觀察清單與策略</small></span><span class="zhuge-module-note">SIT</span><span class="zhuge-module-arrow" aria-hidden="true">→</span></a>
         ${zhugeRootModuleCard({ id: "hr", icon: "👥", title: "HR", description: "人員、制度與工作協作", note: "開發中" })}
         ${zhugeRootModuleCard({ id: "travel", icon: "✈️", title: "Travel", description: "旅遊規劃、天氣、景點", note: "開發中" })}
