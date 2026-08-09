@@ -33,6 +33,13 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /Engineering Center：左側固定區顯示已核准最高原則/);
   assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
   assert.match(output, /TASK 已建立並進入待辦/);
+  assert.match(output, /data-global-nav="worklog"/);
+  assert.match(output, /data-global-nav="tasks"/);
+  assert.match(output, /data-global-nav="investment"/);
+  assert.match(output, /data-global-nav="library"/);
+  assert.match(output, /data-global-nav="sync"/);
+  assert.match(output, /data-global-nav="settings"/);
+  assert.match(output, /共用導覽/);
   assert.doesNotMatch(output, /QJC 可操作模式/);
   assert.doesNotMatch(output, /新增項目/);
   assert.doesNotMatch(output, /交接至 GPT/);

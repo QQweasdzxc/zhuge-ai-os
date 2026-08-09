@@ -8,7 +8,8 @@ QJC's final live PM QA.
 
 1. Open the Zhuge AI OS Dashboard and select **AI Board**.
    - Expected: the formal Board loads from authenticated Shared Identity and
-     Supabase Cloud data; no prototype fixture is shown.
+     Supabase Cloud data; no prototype fixture is shown. The Zhuge AI OS
+     Shared Navigation remains visible around the Board content.
 2. Use the search field to enter `TASK-026` (or a usage-scenario phrase).
    - Expected: the task cards filter immediately and the result count is shown.
 3. Open the `TASK-026` card.
@@ -23,20 +24,25 @@ QJC's final live PM QA.
 5. For `qa / GPT`, inspect the handoff actions.
    - Expected: `退回 Co` and `GPT Review 通過 → 交 QJC` are clear; a direct
      PM completion action is not presented to GPT.
-6. Click **全部工作** and **Engineering Center**.
-   - Expected: each navigation item scrolls to its real section and produces a
-     visible confirmation banner. No clickable item is a no-op.
-7. Click **＋ 新增 TASK** in 待辦.
+6. Use Shared Navigation to click **WorkLog**, **待辦事項**, **Investment**,
+   **Knowledge**, **控制台**, and **設定**.
+   - Expected: each link has a real destination; WorkLog links open the
+     requested internal workspace directly. Browser Back is not required.
+7. Use the Board-private navigation to click **全部工作** and
+   **Engineering Center**.
+   - Expected: each item scrolls to its real section and produces a visible
+     confirmation banner. No clickable item is a no-op.
+8. Click **＋ 新增 TASK** in 待辦.
    - Enter a requirement, a concrete 使用情境, and a title, then submit.
    - Expected: the modal closes only after the controlled create operation
      succeeds; a success or failure banner is always shown.
-8. Verify the usage-scenario persistence path against the authenticated
+9. Verify the usage-scenario persistence path against the authenticated
    Supabase environment:
    - Create TASK → `board_tasks.usage_scenario` is written → reopen detail →
      scenario is visible → refresh → scenario remains.
    - Existing records with NULL are shown as `尚未補充使用情境`; no scenario is
      invented for historical TASKs.
-9. Confirm the fixed **最高原則** area has no add-card control and there is no
+10. Confirm the fixed **最高原則** area has no add-card control and there is no
    unavailable **新增工作區** action.
 
 ## Evidence status

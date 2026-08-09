@@ -119,6 +119,21 @@
         const shouldOpenApp = params.get("app") === "1" || hasOAuthCallback || hasSession;
         if (!shouldOpenApp) return;
 
+        // Shared Navigation passes a workspace query when opening an internal
+        // WorkLog destination. This is a routing adapter only; the WorkLog
+        // runtime remains the owner of workspace rendering and business logic.
+        const requestedWorkspace = params.get("workspace");
+        const allowedWorkspaces = new Set(["worklog", "tasks", "library", "sync", "settings"]);
+        if (allowedWorkspaces.has(requestedWorkspace)) {
+          try {
+            // Explicit global-navigation intent opens exactly that WorkLog
+            // workspace even when this browser has no prior shell tabs.
+            localStorage.setItem("zhuge_os_open_tabs_v1", JSON.stringify([requestedWorkspace]));
+            localStorage.setItem("zhuge_os_active_workspace_v1", requestedWorkspace);
+            localStorage.setItem("zhuge_os_recent_workspaces_v1", JSON.stringify([requestedWorkspace]));
+          } catch {}
+        }
+
         const root = document.getElementById("app");
         document.getElementById("public-home-styles")?.remove();
         root.innerHTML = '<main class="app-loading" aria-live="polite"><div class="loading-mark">Zhuge AI OS</div><p>Opening WorkLog…</p></main>';
@@ -136,7 +151,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-            script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260809-1956`;
+            script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260809-2009`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>'; };
