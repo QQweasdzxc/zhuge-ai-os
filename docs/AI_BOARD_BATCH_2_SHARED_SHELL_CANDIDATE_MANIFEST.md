@@ -5,7 +5,8 @@
 - Runtime / Source Build: `20260810-0625`
 - Branch: `review/ai-board-batch1-20260809`
 - Base Commit: `3a72563668dcb82d05078a575d29fa445edde805`
-- Candidate Commit: `9903a67a8cdbd26751f7aa99693d8c22edbcbd0e`
+- Candidate Implementation Commit: `dd7178418b7ff1d50e3c5731901f31abba82f16c`
+- Artifact Documentation Commit: this manifest is included in the handoff commit following the implementation stamp.
 - Scope: Shared App Shell, canonical Navigation IA, AI Board views, Checklist/Evidence UX, responsive Kanban, Investment Shell reuse
 - Related TASK: `TASK-001`, `TASK-005`, `TASK-015`, `TASK-016`, `TASK-021`, `TASK-022`, `TASK-023`; `TASK-026` remains `qa / GPT`
 
