@@ -1,13 +1,13 @@
 # AI Board Development Batch #2 — Handoff Manifest
 
-Artifact Type: **PM QA Candidate**  
-Development Batch: **AI Board Operational Workflow & Engineering Handoff**  
-Product Version: `v0.9.0-alpha.9.12`  
-Runtime / Source Build: `20260809-1737`  
-Artifact Timestamp: `20260809-1737`  
-PM QA Candidate: `20260809_1737_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candidate.zip`  
-Source Candidate: `20260809_1737_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Source.zip`  
-Parent Source Baseline: `20260809_0725_ZhugeAIOS_v0.9.0-alpha.9.12_Source_Flicker_Hotfix.zip`  
+Artifact Type: **PM QA Candidate**
+Development Batch: **AI Board Operational Workflow & Engineering Handoff**
+Product Version: `v0.9.0-alpha.9.12`
+Runtime / Source Build: `20260809-1741`
+Artifact Timestamp: `20260809-1741`
+PM QA Candidate: `20260809_1741_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candidate.zip`
+Source Candidate: `20260809_1741_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_Source.zip`
+Parent Source Baseline: `20260809_0725_ZhugeAIOS_v0.9.0-alpha.9.12_Source_Flicker_Hotfix.zip`
 Candidate Branch: `review/ai-board-batch1-20260809`
 
 ## Covered TASK

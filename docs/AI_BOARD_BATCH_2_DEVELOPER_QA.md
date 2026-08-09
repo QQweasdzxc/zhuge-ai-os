@@ -1,14 +1,14 @@
 # AI Board Development Batch #2 — Developer QA Evidence
 
-Batch: **AI Board Operational Workflow & Engineering Handoff**  
-Product Version: `v0.9.0-alpha.9.12`  
-Runtime / Source Build: `20260809-1737`  
+Batch: **AI Board Operational Workflow & Engineering Handoff**
+Product Version: `v0.9.0-alpha.9.12`
+Runtime / Source Build: `20260809-1741`
 Branch: `review/ai-board-batch1-20260809`
 
 ## Approved scope
 
-Core: `TASK-021`, `TASK-022`, `TASK-023`, `TASK-032`, `TASK-026` (integration / QA gate).  
-Integration slice: `TASK-015`, `TASK-024`.  
+Core: `TASK-021`, `TASK-022`, `TASK-023`, `TASK-032`, `TASK-026` (integration / QA gate).
+Integration slice: `TASK-015`, `TASK-024`.
 Deferred: `TASK-033`.
 
 The implementation keeps GPT and Co as workflow actors. No GPT/Co Supabase Auth users or UUIDs were created. `QJC` is the authenticated human owner; browser writes use controlled RPCs, and AI actor writes require the controlled service path.

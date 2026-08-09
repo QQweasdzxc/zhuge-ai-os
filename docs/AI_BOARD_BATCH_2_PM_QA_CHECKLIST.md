@@ -1,8 +1,8 @@
 # AI Board Development Batch #2 — PM QA Checklist
 
-Product Version: `v0.9.0-alpha.9.12`  
-Runtime / Source Build: `20260809-1737`  
-Artifact: `20260809_1737_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candidate.zip`
+Product Version: `v0.9.0-alpha.9.12`
+Runtime / Source Build: `20260809-1741`
+Artifact: `20260809_1741_ZhugeAIOS_v0.9.0-alpha.9.12_AI_Board_Batch2_PM_QA_Candidate.zip`
 
 ## Access and Cloud Read
 
