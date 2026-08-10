@@ -5,9 +5,9 @@
 - Candidate filename: `20260810_2305_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
 - Runtime Build: `20260810-2305`
-- Package time: `2026-08-10 23:04 Asia/Taipei`
+- Package time: `2026-08-10 23:05 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: `20754469f831ab067f28a57b350a2c8b4e9208fb`
+- Source commit: `81300e43853102668433d2d72304a858d7fcd8e2`
 - Source identity check: PASS — all candidate metadata and QA references use this single source commit
 - Supersedes: `20260810_2246_Candidate.zip` (`Superseded — GPT Review FAIL`)
 
@@ -27,7 +27,7 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 ## GPT Review FAIL fixes included
 
 - FAIL-01: AI Board task cards are sorted by the numeric portion of a valid `TASK-###` code within each workspace. Invalid or missing codes use a stable fallback order. Browser and unit coverage include `TASK-002`, `TASK-003`, and `TASK-010`.
-- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `20754469f831ab067f28a57b350a2c8b4e9208fb`.
+- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `81300e43853102668433d2d72304a858d7fcd8e2`.
 
 ## Developer QA
 
