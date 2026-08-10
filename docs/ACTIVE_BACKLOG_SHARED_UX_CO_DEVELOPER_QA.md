@@ -44,6 +44,8 @@ The refreshed AI Board desktop fixture screenshot (`docs/evidence/ai-board-share
 
 TASK-014 and TASK-024 therefore remain `inprogress / Co` until the signed-session WorkLog shell, narrow viewport, and cross-Workspace visual path can be exercised. This is an external browser/session gate, not a fabricated Developer QA result.
 
+RCA evidence for the current gate: the local Chrome executable can run the deterministic AI Board fixture, but the connected in-app browser refused the production host because of a saved user permission setting. No alternate browser surface or policy workaround was attempted.
+
 ## Scope boundary
 
 No Candidate ZIP, Runtime Build change, Release, GitHub Pages deployment, or `main` merge is performed at this checkpoint. GPT and QJC checklist stages remain unverified until their independent review and PM operation.
