@@ -2,9 +2,9 @@
 
 ## Candidate identity
 
-- Candidate filename: `20260810_2304_Candidate.zip`
+- Candidate filename: `20260810_2305_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260810-2304`
+- Runtime Build: `20260810-2305`
 - Package time: `2026-08-10 23:04 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
 - Source commit: `20754469f831ab067f28a57b350a2c8b4e9208fb`
