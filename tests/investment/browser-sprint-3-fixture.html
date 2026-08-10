@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Investment Sprint 3 Browser QA</title>
+    <link rel="stylesheet" href="../../shared/theme/tokens.css">
+    <link rel="stylesheet" href="../../shared/theme/variables.css">
+    <link rel="stylesheet" href="../../shared/theme/typography.css">
+    <link rel="stylesheet" href="../../shared/theme/dark.css">
+    <link rel="stylesheet" href="../../modules/investment/assets/investment.css">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20260810-0847">
+  </head>
+  <body>
+    <div id="investmentApp"></div>
+    <script src="../../shared/components/index.js"></script>
+    <script src="../../shared/config/version.js?v=20260810-0847"></script>
+    <script src="../../shared/components/zhuge-navigation.js?v=20260810-0847"></script>
+    <script src="../../modules/investment/utils/safe-html.js"></script>
+    <script src="../../modules/investment/utils/formatters.js"></script>
+    <script src="../../modules/investment/models/position.js"></script>
+    <script src="../../modules/investment/services/portfolio-calculation-service.js"></script>
+    <script src="../../modules/investment/components/position-card.js"></script>
+    <script src="../../modules/investment/components/module-shell.js"></script>
+    <script src="../../modules/investment/pages/overview-page.js"></script>
+    <script>
+      const identity = { displayName: "PM 驗收者", email: "pm@example.test" };
+      const positions = [
+        InvestmentPosition.normalize({ id: "tw-1", userId: "owner", portfolioId: "portfolio", symbol: "2330", name: "台積電", market: "TW", quantity: 10, avg_cost: 900, last_price: 950, market_value: 9500, invested_cost: 9000, unrealized_pnl: 500, currency: "TWD" }),
+        InvestmentPosition.normalize({ id: "us-1", userId: "owner", portfolioId: "portfolio", symbol: "MSFT", name: "Microsoft", market: "US", quantity: 2, avg_cost: 400, last_price: 420, market_value: 840, invested_cost: 800, unrealized_pnl: 40, currency: "USD" })
+      ];
+      const state = { activePage: "overview", identity, positions };
+      const dependencies = {
+        escape: InvestmentSafeHtml.escape,
+        format: InvestmentFormatters,
+        calculation: PortfolioCalculationService,
+        positionCard: InvestmentPositionCard
+      };
+      ZhugeComponents.Summary.mount(document.getElementById("investmentApp"), InvestmentModuleShell.render(state, dependencies));
+      ZhugeComponents.Summary.mount(document.getElementById("investmentPage"), InvestmentOverviewPage.render(state, dependencies));
+    </script>
+  </body>
+</html>
