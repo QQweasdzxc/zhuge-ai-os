@@ -5,9 +5,9 @@
 - Candidate filename: `20260810_2303_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
 - Runtime Build: `20260810-2303`
-- Package time: `2026-08-10 23:02 Asia/Taipei`
+- Package time: `2026-08-10 23:03 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: `bec570507211938105faf4f794e93938816fdaea`
+- Source commit: `b147d9e71651f8a57d974a1447fcb19a8f91e914`
 - Source identity check: PASS — all candidate metadata and QA references use this single source commit
 - Supersedes: `20260810_2246_Candidate.zip` (`Superseded — GPT Review FAIL`)
 
