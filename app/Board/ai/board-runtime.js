@@ -551,7 +551,7 @@
     if (note) note.innerHTML = "正式工作卡以 Cloud 資料為唯一來源。QJC 可直接操作；GPT／Co 透過受控流程交接。每次狀態、接球者與驗收紀錄都會保留完整紀錄。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
-    const initialView = new URLSearchParams(global.location.search).get("view");
+    const initialView = new URLSearchParams(root.location.search).get("view");
     if (["principles", "system-map"].includes(initialView)) {
       const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
       nav?.click();
