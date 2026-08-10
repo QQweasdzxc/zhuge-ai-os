@@ -171,6 +171,24 @@
     }
     return [];
   }
+  function completionGateStatus(items) {
+    if (typeof service.completionGateStatus === "function") return service.completionGateStatus(items);
+    const rows = (Array.isArray(items) ? items : []).filter(item => item && item.required && String(item.stage || "").toLowerCase() !== "gpt");
+    const coItems = rows.filter(item => String(item.stage || "").toLowerCase() === "co");
+    const qjcItems = rows.filter(item => String(item.stage || "").toLowerCase() === "qjc");
+    const passed = rows.filter(item => item.state === "pass" && (item.evidenceNote || item.evidenceRef));
+    const failed = rows.filter(item => item.state === "fail");
+    const missingEvidence = rows.filter(item => item.state === "pass" && !(item.evidenceNote || item.evidenceRef));
+    const missing = rows.filter(item => item.state !== "pass");
+    return { required: rows, coItems, qjcItems, passed, failed, missingEvidence, missing, missingStages: [...(!coItems.length ? ["Co 開發驗證"] : []), ...(!qjcItems.length ? ["QJC PM 驗收"] : [])], hasRequired: rows.length > 0, allowed: rows.length > 0 && coItems.length > 0 && qjcItems.length > 0 && !missing.length && !missingEvidence.length };
+  }
+  function completionGateMessage(gate) {
+    if (gate.missingStages?.length) return `尚未建立${esc(gate.missingStages.join("、"))}的必要驗收項目；請先補齊正式驗收清單。`;
+    if (gate.failed?.length) return `有 ${gate.failed.length} 項驗收未通過；請查看失敗原因，退回負責角色修正。`;
+    if (gate.missingEvidence?.length) return `有 ${gate.missingEvidence.length} 項驗收已通過但缺少 Evidence；請補充可追溯的驗收說明。`;
+    if (gate.missing?.length) return `尚有 ${gate.missing.length} 項 Co／QJC 必要驗收未完成；請由負責角色完成驗證。`;
+    return "目前尚未完成 Co 開發驗證與 QJC PM 驗收。";
+  }
   async function transitionTask(task, targetUiKey) {
     const plan = transitionFor(task, targetUiKey);
     if (!plan?.allowed) {
@@ -180,11 +198,9 @@
     if (targetUiKey === "done") {
       try {
         const items = await service.loadChecklist(task.id);
-        const required = items.filter(item => item.required);
-        const missingEvidence = required.filter(item => item.state !== "pass" || (!item.evidenceNote && !item.evidenceRef));
-        if (!required.length || missingEvidence.length) {
-          const details = missingEvidence.length ? `尚有 ${missingEvidence.length} 項必要驗證未完成或缺少證據。` : "目前沒有正式 Checklist。";
-          setBanner(`${esc(details)} 請先完成 QJC PM QA，再移入完成。`, "error");
+        const gate = completionGateStatus(items);
+        if (!gate.allowed) {
+          setBanner(`${completionGateMessage(gate)} GPT 工程審查紀錄會保留，但不列入 QJC 完成 Gate。`, "error");
           return;
         }
       } catch (error) {
@@ -341,25 +357,27 @@
   function checklistMarkup(item) {
     const checked = item.state === "pass" ? " checked" : "";
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
+    const isEngineeringReview = String(item.stage || "").toLowerCase() === "gpt";
     const stateLabel = stateLabels[item.state] || item.state;
     const expectedEvidence = stageEvidenceLabels[item.stage] || "可追溯的操作結果、測試結果或交接說明";
     const evidence = item.evidenceNote || item.evidenceRef
       ? `<div class="checklist-evidence-detail"><strong>證據位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}</div><div class="checklist-audit-detail"><strong>驗證紀錄：</strong>${item.checkedBy ? `驗證者 ${esc(item.checkedBy)}` : "尚未記錄驗證者"}${item.checkedAt ? ` · 時間 ${esc(dateLabel(item.checkedAt))}` : " · 尚未記錄時間"}</div>`
       : `<div class="checklist-evidence-detail missing"><strong>證據現在在哪裡：</strong>尚待${esc(stage)}提供；目前沒有可供 QJC 核對的紀錄。</div><div class="checklist-audit-detail missing"><strong>驗證紀錄：</strong>尚未記錄驗證者與驗證時間。</div>`;
-    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
+    const next = isEngineeringReview
+      ? "此為 GPT 工程審查紀錄；QJC 不需在此勾選，請查看工程 Evidence。"
+      : item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
     const qjcCanAct = item.stage === "qjc";
     const controls = qjcCanAct
       ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
       : `<div class="checklist-readonly-note">由${esc(stage)}在工程交接中更新，QJC 僅查看結果。</div>`;
-    return `<div class="checklist-item ${qjcCanAct ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${item.required ? " · 必要" : ""}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
+    const requirementLabel = isEngineeringReview ? " · 工程紀錄（不列入 QJC 完成 Gate）" : item.required ? " · 必要" : "";
+    return `<div class="checklist-item ${qjcCanAct ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${requirementLabel}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
   }
   function checklistSummary(items) {
-    const required = items.filter(item => item.required);
-    const passed = required.filter(item => item.state === "pass").length;
-    const failed = required.filter(item => item.state === "fail").length;
-    if (!required.length) return "尚未提供正式驗收清單";
-    const remaining = required.length - passed;
-    return "必要項目 " + passed + "/" + required.length + " 已通過" + (failed ? " · " + failed + " 項需要修正" : remaining ? " · 尚有 " + remaining + " 項待驗證" : "");
+    const gate = completionGateStatus(items);
+    if (!gate.hasRequired) return items.some(item => String(item.stage || "").toLowerCase() === "gpt") ? "目前只有 GPT 工程審查紀錄，不列入 QJC 完成 Gate" : "尚未提供正式驗收清單";
+    const remaining = gate.required.length - gate.passed.length;
+    return "QJC 完成條件 " + gate.passed.length + "/" + gate.required.length + " 已通過" + (gate.failed.length ? " · " + gate.failed.length + " 項需要修正" : remaining ? " · 尚有 " + remaining + " 項待驗證" : "") + " · GPT 工程審查為獨立紀錄";
   }
   function requirementContent(task) {
     const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
@@ -386,7 +404,7 @@
       "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
       "</p></section><section class=\"task-detail-section task-next-step\"><h3>下一步</h3><p>" + esc(nextStepLabel(task)) +
       "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>開發契約與驗收清單</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
-      "<p class=\"checklist-contract-note\">這份清單是 TASK 的正式驗收契約：先看 Co 做了什麼，再看 GPT 審查結果，最後由 QJC 逐項操作驗收。工程證據保留在每一項的詳細資訊中。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
+      "<p class=\"checklist-contract-note\">先看 Co 開發驗證，再由 QJC 完成 PM 驗收。GPT 工程審查會保留為獨立 Evidence／Audit，不是 QJC 必須勾選的完成項目。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
     modal.style.display = "grid";
     const actions = document.getElementById("taskTransitionActions");
@@ -410,17 +428,16 @@
       const rows = document.getElementById("checklistRows");
       const summary = document.getElementById("checklistSummary");
       if (summary) summary.textContent = items.length ? checklistSummary(items) : "缺少正式 Checklist";
-      const required = items.filter(item => item.required);
-      const passed = required.filter(item => item.state === "pass").length;
-      const hasChecklist = required.length > 0;
-      const allPassed = hasChecklist && passed === required.length;
+      const gate = completionGateStatus(items);
       const consistency = document.getElementById("checklistConsistency");
-      if (task.status === "done" && !hasChecklist) {
+      if (task.status === "done" && !items.length) {
         consistency.innerHTML = "<div class=\"history-note\"><strong>歷史完成</strong><br>此 TASK 完成於 Checklist 制度導入前；系統不補造 PASS、驗證者或 Evidence。</div>";
-      } else if (task.status === "done" && !allPassed) {
+      } else if (task.status === "done" && !gate.allowed) {
         consistency.innerHTML = "<div class=\"consistency-warning\"><strong>完成狀態與 Checklist 不一致</strong><br>目前 TASK 已標記完成，但必要驗收尚未全部通過。請記錄 Finding，勿偽造歷史 Evidence。</div>";
-      } else if (hasChecklist) {
-        consistency.innerHTML = `<div class="checklist-contract-note">驗收進度：${passed}/${required.length} 已通過；必要項目需全部 PASS 才能進入完成。</div>`;
+      } else if (gate.hasRequired) {
+        consistency.innerHTML = `<div class="checklist-contract-note">QJC 完成條件：${gate.passed.length}/${gate.required.length} 已通過；GPT 工程審查為獨立紀錄，不阻擋 QJC 完成。</div>`;
+      } else if (items.length) {
+        consistency.innerHTML = "<div class=\"checklist-contract-note\">目前只有工程審查紀錄，尚未建立 Co／QJC 完成驗收項目。</div>";
       }
       rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單，因此目前不能進行正式驗收。請由 Co／GPT 依 Development Contract 補齊；QJC 不需要自行猜測驗收項目。</div>";
       rows.querySelectorAll(".checklist-check").forEach(input => {
@@ -541,7 +558,7 @@
     } else showBoardView("board");
     refreshBoard().then(initRealtime).catch(() => {});
   }
-  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, sortTasksByCode: sortTasksByCode });
+  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, sortTasksByCode: sortTasksByCode, completionGateStatus: completionGateStatus, completionGateMessage: completionGateMessage });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 })(window);
