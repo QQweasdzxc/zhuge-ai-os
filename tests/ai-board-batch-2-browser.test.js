@@ -66,6 +66,10 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /data-shared-nav-item="settings"/);
   assert.match(output, /營帳/);
   assert.match(output, /AI Board/);
+  assert.match(output, /Version/);
+  assert.match(output, /v0\.9\.0-alpha\.9\.12/);
+  assert.match(output, /Build/);
+  assert.match(output, /20260810-0844/);
   assert.match(output, /工作看板/);
   assert.match(output, /工程準則/);
   assert.match(output, /系統藍圖/);

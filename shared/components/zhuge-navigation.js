@@ -17,9 +17,9 @@
     "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true },
     "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true },
     "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true },
-    procurement: { icon: "📦", label: "採購營帳", group: "construction", comingSoon: true },
-    hr: { icon: "👥", label: "HR", group: "construction", comingSoon: true },
-    travel: { icon: "✈️", label: "Travel", group: "construction", comingSoon: true },
+    procurement: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
+    hr: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
+    travel: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
     library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
     sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
     settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }
@@ -93,12 +93,14 @@
 
   function render(options = {}) {
     const esc = options.escapeHtml || escape;
+    const foundation = global.ZhugeFoundationConfig || {};
+    const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
     const registry = registryFor(options);
     const agents = options.agentStatuses || DEFAULT_AGENTS;
     const syncLabel = typeof options.sidebarSyncStatusLabel === "function" ? options.sidebarSyncStatusLabel() : (options.sidebarSyncStatusLabel || "🟢 已同步");
     const syncTime = options.syncTime || "尚未同步";
-    const version = options.version || "";
-    const build = options.build || "";
+    const version = options.version || release.version || "";
+    const build = options.build || release.build || "";
     const root = options.externalRoot || "";
     const collapsed = (() => { try { return global.localStorage?.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } })();
     const brand = root
@@ -106,7 +108,7 @@
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const camp = sectionMarkup("營帳", "⛺", ["worklog", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
-    const construction = sectionMarkup("施工中", "🚧", ["procurement", "hr", "travel"], registry, { ...options, externalRoot: root }, esc, "construction");
+    const construction = ["procurement", "hr", "travel"].map(id => sectionMarkup("施工中", "🚧", [], registry, { ...options, externalRoot: root }, esc, `construction-${id}`)).join("");
     const system = sectionMarkup("系統", "⚙️", ["library", "sync", "settings"], registry, { ...options, externalRoot: root }, esc, "system", [0, 1, 2]);
     return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="營帳選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div>${agentPanel(agents, esc)}${camp}${board}${construction}${system}<div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${esc(version)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
@@ -133,7 +135,9 @@
   }
   function mount(target, options = {}) {
     if (!target) return null;
-    target.outerHTML = render({ ...options, activeWorkspace: options.activeWorkspace || target.dataset.activeWorkspace || "", externalRoot: target.dataset.externalRoot || options.externalRoot || "" });
+    const targetVersion = target.dataset.version || "";
+    const targetBuild = target.dataset.build || "";
+    target.outerHTML = render({ ...options, version: options.version || targetVersion, build: options.build || targetBuild, activeWorkspace: options.activeWorkspace || target.dataset.activeWorkspace || "", externalRoot: target.dataset.externalRoot || options.externalRoot || "" });
     const node = document.querySelector("[data-zhuge-shared-navigation='true']");
     const shell = shellFor(node);
     if (shell) setCollapsed(shell, shell.classList.contains("zhuge-nav-collapsed") || (() => { try { return global.localStorage?.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } })());

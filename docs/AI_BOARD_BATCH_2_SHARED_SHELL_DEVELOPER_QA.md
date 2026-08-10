@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime / Source Build: `20260810-0832`
+- Runtime / Source Build: `20260810-0844`
 - Candidate type: GPT Review Candidate (not a release)
 - Branch: `review/ai-board-batch1-20260809`
 - Scope: Shared App Shell, Navigation IA, AI Board views, Checklist/Evidence UX, responsive Kanban, Investment Shell reuse
@@ -19,7 +19,7 @@ The candidate keeps one `ZhugeSharedNavigation` component for WorkLog, Investmen
 
 The AI Board opens directly on 工作看板. Engineering Principles and System Map are separate read views, not Kanban cards and not TASK statuses. The shared shell collapses to major-group icons and gives the released width to the content area.
 
-The AI Board Workspace heading is the single 🤖 AI Board navigation entry. It opens the default 工作看板 view; the only child entries are 工作看板, 工程準則 and 系統藍圖. No duplicate AI Board menu item is rendered.
+The AI Board Workspace heading is the single 🤖 AI Board navigation entry. It opens the default 工作看板 view; the only child entries are 工作看板, 工程準則 and 系統藍圖. No duplicate AI Board menu item is rendered. The three unfinished Workspace placeholders are separate 🚧 施工中 sections; no unfinished Workspace name is exposed.
 
 Task detail presents `需求內容 → 使用情境 → Development Contract / Checklist / Evidence → 下一步`. Checklist rows identify validation content, responsible stage, required evidence, evidence location/note, state, and next action. A completed TASK without a checklist is shown as `歷史完成` and explicitly says that evidence is not fabricated. New TASK completion still requires required checklist PASS plus evidence.
 
@@ -48,7 +48,7 @@ JavaScript syntax / inline scripts              PASS
 git diff --check                                PASS
 ```
 
-The browser test accepts `CHROME_PATH`, `CHROMIUM_PATH`, or `BROWSER_EXECUTABLE`; it does not contain a machine-specific executable path.
+The real AI Board DOM also shows Version `v0.9.0-alpha.9.12` and Build `20260810-0844` from `shared/config/version.js`. The browser test accepts `CHROME_PATH`, `CHROMIUM_PATH`, or `BROWSER_EXECUTABLE`; it does not contain a machine-specific executable path.
 
 ## Regression and safety boundary
 

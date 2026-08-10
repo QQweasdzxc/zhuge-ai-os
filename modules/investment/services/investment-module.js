@@ -120,7 +120,9 @@
     global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
     const sharedNavTarget = root.querySelector("#zhugeSharedNavigation");
     if (sharedNavTarget && global.ZhugeSharedNavigation) {
-      global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../" });
+      const foundation = global.ZhugeFoundationConfig || {};
+      const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
+      global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
     }
     const pageRoot = root.querySelector("#investmentPage");
 

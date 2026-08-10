@@ -22,6 +22,11 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
   assert.match(nav, /sectionHeadingMarkup/);
   assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
+  assert.match(nav, /\["procurement", "hr", "travel"\]\.map/);
+  assert.match(nav, /sectionMarkup\("施工中", "🚧", \[\]/);
+  assert.doesNotMatch(nav, /label: "採購營帳"/);
+  assert.doesNotMatch(nav, /label: "Travel"/);
+  assert.match(nav, /ZhugeFoundationConfig/);
   assert.match(css, /\.os-sidebar/);
   assert.match(css, /\.side-section-heading/);
   assert.match(css, /\.side-item\.on/);
