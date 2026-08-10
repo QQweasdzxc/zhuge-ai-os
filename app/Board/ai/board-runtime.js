@@ -47,7 +47,8 @@
     const priority = priorityLabel(task.priority);
     const priorityClass = priority === "P0" || priority === "P1" ? "high" : priority === "P2" ? "med" : "";
     const timestamp = dateLabel(task.updatedAt || task.createdAt);
-    return "<article class=\"card taskcard board-cloud-card\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" tabindex=\"0\" draggable=\"true\">" +
+    const draggable = task.status !== "done";
+    return "<article class=\"card taskcard board-cloud-card\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
@@ -55,7 +56,7 @@
       (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
       (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">點擊查看 Checklist／Evidence · 拖曳交接流程</div></article>";
+      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看 Checklist／Evidence · 拖曳交接流程" : "點擊查看歷史 Checklist／Evidence · 已完成不可再拖曳") + "</div></article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -123,62 +124,54 @@
       taskCount + " 筆 TASK · " + principleCount + " 條原則<br>" +
       (realtime ? "Realtime 已訂閱" : "Realtime 連線中");
   }
-  function transitionFor(status, targetUiKey) {
-    const map = {
-      ready: { progress: ["inprogress", "Co"] },
-      inprogress: { qa: ["qa", "GPT"], progress: ["inprogress", "Co"] },
-      qa: { done: ["done", "QJC"], progress: ["inprogress", "Co"], qa: ["qa", "QJC"] },
-      done: {}
-    };
-    const row = map[status] && map[status][targetUiKey];
-    return row ? { status: row[0], assignee: row[1] } : null;
+  function transitionFor(task, targetUiKey) {
+    return typeof service.planTransition === "function"
+      ? service.planTransition(task, targetUiKey)
+      : null;
   }
   function actionLabel(task, targetUiKey) {
-    if (task.status === "ready" && targetUiKey === "progress") return "開始推進（Co）";
-    if (task.status === "inprogress" && targetUiKey === "qa") return "Co 完成 → 交 GPT";
-    if (task.status === "qa" && targetUiKey === "progress") return task.assignee === "QJC" ? "PM QA 退回 → Co" : "退回 Co";
-    if (task.status === "qa" && targetUiKey === "qa") return "GPT Review 通過 → 交 QJC";
-    if (task.status === "qa" && targetUiKey === "done") return "PM QA 通過 → 完成";
-    return "執行交接";
+    return transitionFor(task, targetUiKey)?.action || "執行交接";
   }
   function transitionTargets(task) {
-    if (task.status === "ready") return ["progress"];
-    if (task.status === "inprogress") return ["qa"];
-    if (task.status !== "qa") return [];
-    if (task.assignee === "GPT") return ["progress", "qa"];
-    if (task.assignee === "QJC") return ["progress", "done"];
-    return ["progress", "qa", "done"];
+    if (typeof service.availableTransitions === "function") {
+      return service.availableTransitions(task).map(item => item.targetWorkspace);
+    }
+    return [];
   }
   async function transitionTask(task, targetUiKey) {
-    if (task.status === "qa" && task.assignee === "GPT" && targetUiKey === "done") {
-      setBanner("目前由 GPT Review 接球；請先完成 GPT Review，再交 QJC 進行 PM QA。", "error");
+    const plan = transitionFor(task, targetUiKey);
+    if (!plan?.allowed) {
+      setBanner(esc(plan?.reason || "目前工作階段不允許這個交接。"), "error");
       return;
     }
     if (targetUiKey === "done") {
       try {
         const items = await service.loadChecklist(task.id);
         const required = items.filter(item => item.required);
-        if (!required.length || required.some(item => item.state !== "pass" || !item.evidenceNote)) {
-          setBanner("尚未完成必要 Checklist／Evidence，不能標記完成。請逐項驗收後再交接。", "error");
+        const missingEvidence = required.filter(item => item.state !== "pass" || (!item.evidenceNote && !item.evidenceRef));
+        if (!required.length || missingEvidence.length) {
+          const details = missingEvidence.length ? `尚有 ${missingEvidence.length} 項必要驗證未完成或缺少證據。` : "目前沒有正式 Checklist。";
+          setBanner(`${esc(details)} 請先完成 QJC PM QA，再移入完成。`, "error");
           return;
         }
       } catch (error) {
-        setBanner("無法確認 Checklist，為避免假成功，暫停完成操作。", "error");
+        setBanner("無法確認 Checklist；為避免誤標完成，暫停這次交接。", "error");
         return;
       }
     }
-    const transition = transitionFor(task.status, targetUiKey);
-    if (!transition) {
-      setBanner("此狀態不允許直接跳轉，請依目前接球流程逐步交接。", "error");
-      return;
-    }
-    setBanner("正在將 " + esc(task.workCode || task.title) + " 交接至 " + esc(transition.assignee) + "…", "loading");
+    setBanner("正在將 " + esc(task.workCode || task.title) + " 交接至 " + esc(plan.assignee) + "…", "loading");
     try {
-      await service.transitionTask(task.id, transition.status, transition.assignee, "AI Board drag handoff");
+      await service.transitionTask(task.id, plan.status, plan.assignee, `QJC 拖曳交接：${task.status}/${task.assignee || "未指派"} → ${plan.status}/${plan.assignee}`);
       await refreshBoard({ quiet: true });
-      setBanner("已完成交接：" + esc(task.workCode || task.title) + " → " + esc(transition.assignee) + "。", "success");
+      setBanner(`已完成交接：${esc(task.workCode || task.title)} → ${esc(statusLabel(plan.status))}／${esc(plan.assignee)}。Cloud、Audit 與 Realtime 將以正式資料為準。`, "success");
     } catch (error) {
-      setBanner("交接失敗：" + esc(error && error.message || "未知錯誤") + "。資料未變更。", "error");
+      const raw = String(error && error.message || "");
+      const message = /not permitted|unsupported|transition/i.test(raw)
+        ? "這個工作區移動不符合目前流程 Gate；請先完成目前階段的驗收，再交給下一位。"
+        : /checklist|evidence/i.test(raw)
+          ? "尚未完成必要 Checklist／Evidence；請先補齊驗收證據。"
+          : "受控交接失敗，正式資料未變更；請確認登入狀態與 Cloud 連線。";
+      setBanner(message, "error");
     }
   }
   function wireTaskCards() {
@@ -190,6 +183,7 @@
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task); }
       };
       card.ondragstart = event => {
+        if (task.status === "done") { event.preventDefault(); return; }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", task.id);
         card.classList.add("dragging");
@@ -197,7 +191,14 @@
       card.ondragend = () => card.classList.remove("dragging");
     });
     document.querySelectorAll(".process .cards").forEach(zone => {
-      zone.ondragover = event => { event.preventDefault(); zone.classList.add("dropzone"); };
+      zone.ondragover = event => {
+        const task = state.taskById.get(document.querySelector(".taskcard.dragging")?.dataset.taskId || "");
+        const target = zone.closest(".process")?.dataset.status;
+        const plan = task && target ? transitionFor(task, target) : null;
+        if (!plan?.allowed) { zone.classList.remove("dropzone"); return; }
+        event.preventDefault();
+        zone.classList.add("dropzone");
+      };
       zone.ondragleave = () => zone.classList.remove("dropzone");
       zone.ondrop = async event => {
         event.preventDefault();
@@ -255,8 +256,8 @@
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
     const stateLabel = stateLabels[item.state] || item.state;
     const expectedEvidence = item.evidenceRef || "Browser 操作結果、Screenshot、Test Result、Commit／Build 等可核對證據";
-    const evidence = item.evidenceNote
-      ? `<div class="checklist-evidence-detail"><strong>Evidence 位置／說明：</strong>${esc(item.evidenceNote)}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
+    const evidence = item.evidenceNote || item.evidenceRef
+      ? `<div class="checklist-evidence-detail"><strong>Evidence 位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
       : `<div class="checklist-evidence-detail missing"><strong>Evidence 位置／說明：</strong>尚待${esc(stage)}提供實際證據</div>`;
     const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個 Gate。" : item.state === "fail" ? "請查看失敗原因並退回負責角色修正。" : `請由${esc(stage)}完成驗證並提供證據。`;
     return `<div class="checklist-item" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><label class="checklist-checkline"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${item.required ? " · 必要" : ""}</small></span></label><div class="checklist-question"><strong>驗證內容：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions"><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充證據</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">標記 FAIL</button><div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;

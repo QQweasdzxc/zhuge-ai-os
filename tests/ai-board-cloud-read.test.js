@@ -22,6 +22,33 @@ test("AI Board canonical status vocabulary maps to the four approved workspaces"
   );
 });
 
+test("TASK-022 QJC drag planning follows the controlled workflow and keeps the receiver explicit", () => {
+  const ready = BoardRead.normalizeTask({ status: "ready", assignee: "Co" });
+  const start = BoardRead.planTransition(ready, "progress");
+  assert.deepEqual(
+    { allowed: start.allowed, status: start.status, assignee: start.assignee, targetWorkspace: start.targetWorkspace },
+    { allowed: true, status: "inprogress", assignee: "Co", targetWorkspace: "progress" }
+  );
+
+  const inProgress = BoardRead.normalizeTask({ status: "inprogress", assignee: "Co" });
+  const handoff = BoardRead.planTransition(inProgress, "qa");
+  assert.equal(handoff.status, "qa");
+  assert.equal(handoff.assignee, "GPT");
+
+  const gptQa = BoardRead.normalizeTask({ status: "qa", assignee: "GPT" });
+  assert.equal(BoardRead.planTransition(gptQa, "qa").assignee, "QJC");
+  assert.equal(BoardRead.planTransition(gptQa, "progress").assignee, "Co");
+  assert.equal(BoardRead.planTransition(gptQa, "done").allowed, false);
+
+  const qjcQa = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
+  assert.equal(BoardRead.planTransition(qjcQa, "done").status, "done");
+  assert.equal(BoardRead.planTransition(qjcQa, "todo").allowed, false);
+  assert.match(BoardRead.planTransition(qjcQa, "todo").reason, /只能依序/);
+
+  const completed = BoardRead.normalizeTask({ status: "done", assignee: "QJC" });
+  assert.equal(BoardRead.availableTransitions(completed).length, 0);
+});
+
 test("Board read adapter normalizes task ownership and keeps principles separate", () => {
   const task = BoardRead.normalizeTask({
     id: "task-1",

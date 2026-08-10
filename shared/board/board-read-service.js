@@ -21,6 +21,28 @@
   const STATUS_BY_KEY = Object.freeze(Object.fromEntries(STATUS_WORKSPACES.map(item => [item.key, item])));
   const STATUS_BY_UI_KEY = Object.freeze(Object.fromEntries(STATUS_WORKSPACES.map(item => [item.uiKey, item])));
 
+  /*
+   * The server-side board_transition_task() remains the authority.  This
+   * client-side map is deliberately only a UX contract: it tells QJC which
+   * drop targets are meaningful before the controlled RPC is called and gives
+   * a PM-readable reason when a drop is rejected.  It must stay in lockstep
+   * with the approved RPC transitions, never replace them.
+   */
+  const QJC_TRANSITIONS = Object.freeze({
+    ready: Object.freeze({
+      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "開始推進（Co）" })
+    }),
+    inprogress: Object.freeze({
+      qa: Object.freeze({ status: "qa", assignee: "GPT", action: "Co 完成 → 交 GPT" })
+    }),
+    qa: Object.freeze({
+      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "退回 Co 修正" }),
+      qa: Object.freeze({ status: "qa", assignee: "QJC", action: "GPT Review 通過 → 交 QJC", requiresAssignee: "GPT" }),
+      done: Object.freeze({ status: "done", assignee: "QJC", action: "PM QA 通過 → 完成", requiresAssignee: "QJC" })
+    }),
+    done: Object.freeze({})
+  });
+
   function normalizeStatus(value) {
     const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
     if (raw === "inprogress" || raw === "doing" || raw === "progress") return "inprogress";
@@ -32,6 +54,46 @@
 
   function workspaceForStatus(value) {
     return STATUS_BY_KEY[normalizeStatus(value)] || STATUS_BY_KEY.ready;
+  }
+
+  function planTransition(task, targetUiKey) {
+    const currentStatus = normalizeStatus(task?.status);
+    const currentWorkspace = workspaceForStatus(currentStatus).uiKey;
+    const target = QJC_TRANSITIONS[currentStatus]?.[String(targetUiKey || "")];
+    if (!target) {
+      return Object.freeze({
+        allowed: false,
+        currentStatus,
+        currentWorkspace,
+        reason: currentWorkspace === targetUiKey
+          ? "這張卡片已在目前工作區，不需要重複交接。"
+          : `目前在「${workspaceForStatus(currentStatus).label}」，只能依序交給下一個工作階段；不能直接跳到「${STATUS_BY_UI_KEY[targetUiKey]?.label || "未知工作區"}」。`
+      });
+    }
+    if (target.requiresAssignee && String(task?.assignee || "") !== target.requiresAssignee) {
+      const owner = target.requiresAssignee === "GPT" ? "GPT Review" : "QJC PM QA";
+      return Object.freeze({
+        allowed: false,
+        currentStatus,
+        currentWorkspace,
+        reason: `目前接球者不是${owner}，不能執行這個交接；請先由目前負責角色完成驗證。`
+      });
+    }
+    return Object.freeze({
+      allowed: true,
+      currentStatus,
+      currentWorkspace,
+      targetWorkspace: String(targetUiKey),
+      status: target.status,
+      assignee: target.assignee,
+      action: target.action
+    });
+  }
+
+  function availableTransitions(task) {
+    return Object.freeze(Object.keys(QJC_TRANSITIONS[normalizeStatus(task?.status)] || {})
+      .map(target => planTransition(task, target))
+      .filter(item => item.allowed));
   }
 
   function normalizeTask(row = {}) {
@@ -220,6 +282,8 @@
   return Object.freeze({
     STATUS_WORKSPACES,
     STATUS_BY_UI_KEY,
+    planTransition,
+    availableTransitions,
     normalizeStatus,
     workspaceForStatus,
     normalizeTask,
