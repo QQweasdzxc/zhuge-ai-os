@@ -27,7 +27,7 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 ## GPT Review FAIL fixes included
 
 - FAIL-01: AI Board task cards are sorted by the numeric portion of a valid `TASK-###` code within each workspace. Invalid or missing codes use a stable fallback order. Browser and unit coverage include `TASK-002`, `TASK-003`, and `TASK-010`.
-- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `bec570507211938105faf4f794e93938816fdaea`.
+- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `20754469f831ab067f28a57b350a2c8b4e9208fb`.
 
 ## Developer QA
 
