@@ -13,6 +13,8 @@ test("Shared Auth exposes Supabase Email/Password lifecycle without a custom pas
   assert.match(source, /auth\/v1\/recover/);
   assert.match(source, /auth\/v1\/user/);
   assert.match(source, /provider\s*=\s*"email-password"|provider\s*:\s*"email-password"/);
+  assert.match(source, /exchangeLinkedIdentityForSession/);
+  assert.match(source, /linkIdentity/);
   assert.doesNotMatch(source, /passwords?\s*(table|schema)|custom_password/i);
 });
 

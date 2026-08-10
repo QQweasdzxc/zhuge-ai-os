@@ -6096,9 +6096,16 @@ function bindSettings() {
       if (message) { message.textContent = error.message || "設定密碼失敗。"; message.style.color = "#ffb4ab"; }
     } finally { button.disabled = false; }
   });
-  document.querySelectorAll("[data-link-google-identity]").forEach(button => button.onclick = () => {
+  document.querySelectorAll("[data-link-google-identity]").forEach(button => button.onclick = async () => {
     const message = document.getElementById("accountIdentityMessage");
-    if (message) message.textContent = "Google 連結需要由 Supabase Auth 的正式 Identity Linking 流程完成；目前未改變既有登入狀態。";
+    button.disabled = true;
+    try {
+      if (message) message.textContent = "正在開啟 Google 連結授權…";
+      await linkGoogleIdentity();
+    } catch (error) {
+      if (message) { message.textContent = error.message || "Google 連結失敗；目前登入狀態未變更。"; message.style.color = "#ffb4ab"; }
+      button.disabled = false;
+    }
   });
 }
 

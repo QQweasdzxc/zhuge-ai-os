@@ -238,7 +238,7 @@ async function getAuthSession() {
     if (stored?.access_token || hasGoogleOAuthSession()) return stored || session;
     return null;
   }
-  return captureHashAuthSession() || await exchangeCodeForSession() || await refreshAuthSession(false) || getStoredAuthSession();
+  return captureHashAuthSession() || await exchangeLinkedIdentityForSession() || await exchangeCodeForSession() || await refreshAuthSession(false) || getStoredAuthSession();
 }
 
 function authSessionFromResponse(data, provider = "email-password") {
@@ -256,6 +256,25 @@ function authSessionFromResponse(data, provider = "email-password") {
   setStoredAuthSession(sessionValue);
   setStoredAuthProvider(provider);
   return sessionValue;
+}
+
+async function exchangeLinkedIdentityForSession() {
+  const code = new URLSearchParams(location.search).get("code");
+  if (!code || localStorage.getItem(AUTH_LINK_PENDING_KEY) !== "1") return null;
+  const gateway = typeof ZhugeSupabaseGateway !== "undefined" ? ZhugeSupabaseGateway : null;
+  if (!gateway?.getAuthClient) return null;
+  try {
+    const client = await gateway.getAuthClient();
+    const { data, error } = await client.auth.exchangeCodeForSession(code);
+    if (error || !data?.session?.access_token) return null;
+    const sessionValue = authSessionFromResponse(data.session, "google-oauth");
+    localStorage.removeItem(AUTH_LINK_PENDING_KEY);
+    cleanAuthCallbackUrl();
+    return sessionValue;
+  } catch (error) {
+    recordOAuthDebug("identity_link_exchange_failed", { message: error?.message || String(error) });
+    return null;
+  }
 }
 
 async function getSupabaseAuthUser() {
@@ -325,6 +344,20 @@ async function setPasswordForCurrentUser(password) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.msg || data.message || "設定密碼失敗。");
   return data;
+}
+
+async function linkGoogleIdentity() {
+  const gateway = typeof ZhugeSupabaseGateway !== "undefined" ? ZhugeSupabaseGateway : null;
+  if (!gateway?.getAuthClient) throw new Error("Shared Auth 連結服務尚未載入。");
+  const client = await gateway.getAuthClient();
+  const { data, error } = await client.auth.linkIdentity({
+    provider: "google",
+    options: { redirectTo: location.origin + location.pathname }
+  });
+  if (error) throw error;
+  if (!data?.url) throw new Error("Google 連結網址未建立。");
+  localStorage.setItem(AUTH_LINK_PENDING_KEY, "1");
+  location.href = data.url;
 }
 
 async function signInWithGoogle() {
