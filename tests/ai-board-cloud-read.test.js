@@ -50,6 +50,57 @@ test("TASK-022 QJC drag planning follows the controlled workflow and keeps the r
   assert.equal(BoardRead.availableTransitions(completed).length, 0);
 });
 
+test("shared completion gate requires Co and QJC evidence, not GPT checkbox", () => {
+  const coPass = { id: "co", stage: "co", required: true, state: "pass", evidenceNote: "Co Developer QA PASS" };
+  const qjcPass = { id: "qjc", stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PM QA PASS" };
+  const gptPending = { id: "gpt", stage: "gpt", required: true, state: "not_verified", evidenceNote: "" };
+  const gate = BoardRead.completionGateStatus([coPass, qjcPass, gptPending]);
+  assert.equal(gate.allowed, true, "GPT engineering review is not a QJC completion checkbox");
+  assert.deepEqual(gate.required.map(item => item.id), ["co", "qjc"]);
+  assert.equal(gptPending.state, "not_verified", "historical/current GPT evidence must not be fabricated");
+});
+
+test("completion gate blocks failed or missing Co/QJC evidence and keeps done immutable", () => {
+  const coPass = { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" };
+  const qjcPass = { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" };
+  const qjcFail = { stage: "qjc", required: true, state: "fail", evidenceNote: "QJC FAIL" };
+  const coMissing = { stage: "co", required: true, state: "not_verified", evidenceNote: "" };
+  assert.equal(BoardRead.completionGateStatus([coPass, qjcFail]).allowed, false);
+  assert.equal(BoardRead.completionGateStatus([coMissing, qjcPass]).allowed, false);
+  assert.equal(BoardRead.planTransition(BoardRead.normalizeTask({ status: "done", assignee: "QJC" }), "done").allowed, false);
+});
+
+test("Case D/E: QJC PASS permits both the drag and button transition to Done", () => {
+  const task = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
+  const coPass = { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" };
+  const qjcPass = { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" };
+  const gptPending = { stage: "gpt", required: true, state: "not_verified" };
+  assert.equal(BoardRead.completionGateStatus([coPass, qjcPass, gptPending]).allowed, true);
+  const donePlan = BoardRead.planTransition(task, "done");
+  assert.equal(donePlan.allowed, true);
+  assert.equal(donePlan.action, "PM QA 通過 → 完成");
+});
+
+test("Case F: historical GPT evidence is retained without becoming a completion gate", () => {
+  const gptEvidence = { id: "gpt-history", stage: "gpt", required: true, state: "pass", evidenceNote: "GPT Review PASS — retained audit" };
+  const gate = BoardRead.completionGateStatus([
+    { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" },
+    { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" },
+    gptEvidence
+  ]);
+  assert.equal(gate.allowed, true);
+  assert.equal(gate.required.some(item => item.id === "gpt-history"), false);
+  assert.equal(gptEvidence.evidenceNote, "GPT Review PASS — retained audit");
+});
+
+test("QJC completion button and drag use the same controlled transition contract", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  assert.match(runtime, /transitionTask\(task, target\)/);
+  assert.match(runtime, /QJC 拖曳交接/);
+  assert.match(runtime, /GPT 工程審查紀錄會保留，但不列入 QJC 完成 Gate/);
+  assert.match(runtime, /completionGateStatus/);
+});
+
 test("Board read adapter normalizes task ownership and keeps principles separate", () => {
   const task = BoardRead.normalizeTask({
     id: "task-1",

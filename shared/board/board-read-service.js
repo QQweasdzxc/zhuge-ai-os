@@ -163,6 +163,37 @@
     });
   }
 
+  function completionGateStatus(items = []) {
+    const rows = (Array.isArray(items) ? items : []).map(item => item && Object.prototype.hasOwnProperty.call(item, "evidenceNote") ? item : normalizeChecklistItem(item));
+    const required = rows.filter(item => item.required && item.stage.toLowerCase() !== "gpt");
+    const coItems = required.filter(item => item.stage.toLowerCase() === "co");
+    const qjcItems = required.filter(item => item.stage.toLowerCase() === "qjc");
+    const passed = required.filter(item => item.state === "pass" && Boolean(item.evidenceNote || item.evidenceRef));
+    const failed = required.filter(item => item.state === "fail");
+    const missingEvidence = required.filter(item => item.state === "pass" && !item.evidenceNote && !item.evidenceRef);
+    const missing = required.filter(item => item.state !== "pass");
+    const missingStages = [];
+    if (!coItems.length) missingStages.push("Co 開發驗證");
+    if (!qjcItems.length) missingStages.push("QJC PM 驗收");
+    const allowed = required.length > 0
+      && coItems.length > 0
+      && qjcItems.length > 0
+      && missing.length === 0
+      && missingEvidence.length === 0;
+    return Object.freeze({
+      required,
+      coItems,
+      qjcItems,
+      passed,
+      failed,
+      missing,
+      missingEvidence,
+      missingStages,
+      hasRequired: required.length > 0,
+      allowed
+    });
+  }
+
   function isPrinciple(row = {}) {
     const code = String(row.knowledge_code || row.code || "").toUpperCase();
     const type = String(row.knowledge_type || row.type || "").toLowerCase();
@@ -285,15 +316,15 @@
     const gateway = options.gateway || requireGateway();
     let checklistRows = [];
     try {
-      checklistRows = await gateway.select("engineering_checklist_items", "?select=task_id,state,required,evidence_note,evidence_ref");
+      checklistRows = await gateway.select("engineering_checklist_items", "?select=task_id,stage,state,required,evidence_note,evidence_ref");
     } catch (error) {
       findings.push(healthFinding("checklist_read_failed", "error", "Checklist 無法讀取", "無法完成 Checklist consistency 檢查；請確認 Shared Gateway 與權限。", [error.message || "gateway"]));
     }
     const checklistByTask = new Map();
     (Array.isArray(checklistRows) ? checklistRows : []).forEach(row => checklistByTask.set(String(row.task_id), [...(checklistByTask.get(String(row.task_id)) || []), row]));
     tasks.filter(task => task.status === "done").forEach(task => {
-      const required = (checklistByTask.get(task.id) || []).filter(row => row.required !== false);
-      if (required.length && required.some(row => row.state !== "pass" || (!row.evidence_note && !row.evidence_ref))) findings.push(healthFinding("done_checklist_conflict", "error", `${task.workCode || "TASK"} 完成狀態與 Checklist 不一致`, "完成 TASK 仍有必要驗收未通過或缺少 Evidence；不得偽造歷史驗證。", [task.id]));
+      const gate = completionGateStatus(checklistByTask.get(task.id) || []);
+      if (gate.hasRequired && !gate.allowed) findings.push(healthFinding("done_checklist_conflict", "error", `${task.workCode || "TASK"} 完成狀態與 Checklist 不一致`, "完成 TASK 的 Co／QJC 必要驗收仍未完整通過或缺少 Evidence；GPT 工程審查紀錄不列入 QJC 完成 Gate。", [task.id]));
     });
     if (!result.governanceMetadataAvailable) {
       findings.push(healthFinding("schema_capability", "error", "治理欄位無法讀取", "目前無法確認 Merge／Cancel／Link／Ignore 的正式治理欄位；請先確認 TASK-033 Migration。", ["board_tasks"]));
@@ -386,6 +417,7 @@
     normalizeTask,
     isGovernanceTerminal,
     normalizeChecklistItem,
+    completionGateStatus,
     isPrinciple,
     isSystemMap,
     normalizePrinciple,
