@@ -3,7 +3,7 @@
 Candidate: `20260810_1500_Candidate.zip`
 Product Version: `v0.9.0-alpha.9.12`
 Runtime / Source Build: `20260810-1500`
-Source Commit: finalized by the Candidate commit containing this manifest
+Source Commit: `11385908866c57771da48e8257eb49f887fdc942`
 
 ## Included scope
 
