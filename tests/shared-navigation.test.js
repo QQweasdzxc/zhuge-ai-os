@@ -19,7 +19,11 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(worklogIndex, /shared\/components\/zhuge-navigation\.js/);
   for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /data-zhuge-shared-navigation/);
+  assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
+  assert.match(nav, /sectionHeadingMarkup/);
+  assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
   assert.match(css, /\.os-sidebar/);
+  assert.match(css, /\.side-section-heading/);
   assert.match(css, /\.side-item\.on/);
 });
 

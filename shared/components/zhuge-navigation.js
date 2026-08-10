@@ -77,9 +77,18 @@
     return `<button type="button" class="${cls}" ${attrs}>${label}${item.status ? `<small>${esc(item.status)}</small>` : ""}</button>`;
   }
 
-  function sectionMarkup(title, icon, ids, registry, options, esc, group, childIndexes = []) {
+  function sectionHeadingMarkup(title, icon, id, registry, options, esc) {
+    const item = registry[id];
+    if (!item) return `<h3><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></h3>`;
+    const active = options.activeWorkspace === id || String(options.activeWorkspace || "").startsWith(`${id}-`);
+    const href = options.externalRoot ? destination(id, options.externalRoot) : (item.externalHref || "#");
+    return `<a class="side-section-heading ${active ? "on" : ""}" data-shared-nav-item="${esc(id)}" data-open-workspace="${esc(id)}" href="${esc(href)}" title="${esc(title)}"><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></a>`;
+  }
+
+  function sectionMarkup(title, icon, ids, registry, options, esc, group, childIndexes = [], headingId = null) {
     const items = ids.map((id, index) => registry[id] ? itemMarkup(id, registry[id], options, esc, childIndexes.includes(index) ? 1 : 0) : "").join("");
-    return `<div class="side-section" data-nav-group="${esc(group)}"><h3><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></h3>${items}</div>`;
+    const heading = headingId ? sectionHeadingMarkup(title, icon, headingId, registry, options, esc) : `<h3><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></h3>`;
+    return `<div class="side-section" data-nav-group="${esc(group)}">${heading}${items}</div>`;
   }
 
   function render(options = {}) {
@@ -96,7 +105,7 @@
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const camp = sectionMarkup("營帳", "⛺", ["worklog", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
-    const board = sectionMarkup("AI Board", "🤖", ["ai-board", "ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [1, 2, 3]);
+    const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
     const construction = sectionMarkup("施工中", "🚧", ["procurement", "hr", "travel"], registry, { ...options, externalRoot: root }, esc, "construction");
     const system = sectionMarkup("系統", "⚙️", ["library", "sync", "settings"], registry, { ...options, externalRoot: root }, esc, "system", [0, 1, 2]);
     return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="營帳選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div>${agentPanel(agents, esc)}${camp}${board}${construction}${system}<div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${esc(version)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;

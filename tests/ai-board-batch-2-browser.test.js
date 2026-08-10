@@ -73,6 +73,7 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /zhuge-nav-collapsed/);
   assert.match(output, /cross-workspace-audit/);
   assert.match(output, /worklog,tasks,investment,ai-board,ai-board-board,ai-board-principles,ai-board-system-map/);
+  assert.match(output, /heading=1;duplicateMenu=0;children=3/);
   assert.ok(args.includes("--window-size=1600,1000"), "Browser QA must execute with a desktop viewport");
   assert.match(output, /history-audit/);
   assert.match(output, /歷史完成/);

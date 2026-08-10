@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime / Source Build: `20260810-0626`
+- Runtime / Source Build: `20260810-0831`
 - Candidate type: GPT Review Candidate (not a release)
 - Branch: `review/ai-board-batch1-20260809`
 - Scope: Shared App Shell, Navigation IA, AI Board views, Checklist/Evidence UX, responsive Kanban, Investment Shell reuse
@@ -19,6 +19,8 @@ The candidate keeps one `ZhugeSharedNavigation` component for WorkLog, Investmen
 
 The AI Board opens directly on 工作看板. Engineering Principles and System Map are separate read views, not Kanban cards and not TASK statuses. The shared shell collapses to major-group icons and gives the released width to the content area.
 
+The AI Board Workspace heading is the single 🤖 AI Board navigation entry. It opens the default 工作看板 view; the only child entries are 工作看板, 工程準則 and 系統藍圖. No duplicate AI Board menu item is rendered.
+
 Task detail presents `需求內容 → 使用情境 → Development Contract / Checklist / Evidence → 下一步`. Checklist rows identify validation content, responsible stage, required evidence, evidence location/note, state, and next action. A completed TASK without a checklist is shown as `歷史完成` and explicitly says that evidence is not fabricated. New TASK completion still requires required checklist PASS plus evidence.
 
 ## QJC persona browser walkthrough
@@ -33,6 +35,7 @@ Executed with the configurable browser executable (`CHROME_PATH`) and a desktop 
 6. Collapse and expand the shared navigation; verify the shell class changes and the content layout remains available.
 7. Verify the cross-workspace navigation destinations are present for WorkLog, 工作待辦, Investment, AI Board and system entries.
 8. Open a historical done TASK fixture; verify `歷史完成` and the no-fabricated-evidence explanation.
+9. Verify the AI Board navigation IA audit reports `heading=1;duplicateMenu=0;children=3`.
 
 The browser regression passed with all UI assertions. A 1600×1000 production-shell screenshot is included at `docs/evidence/ai-board-shared-shell-desktop.png`.
 
