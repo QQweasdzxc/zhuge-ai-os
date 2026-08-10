@@ -7,7 +7,7 @@
 - Runtime Build: `20260810-2336`
 - Package time: `2026-08-10 23:35 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: `320fd9431f2f44da0d978c0c63441a051b2afeed`
+- Source commit: `df1e0eed8c9d98eb8d4420b9f094c04420b26260`
 - Source identity check: PASS — all candidate metadata and QA references use this single source commit
 - Supersedes: `20260810_2305_Candidate.zip` (`Superseded — GPT Review FAIL: completion gate regression`)
 
@@ -27,7 +27,7 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 ## GPT Review FAIL fixes included
 
 - FAIL-01: AI Board task cards are sorted by the numeric portion of a valid `TASK-###` code within each workspace. Invalid or missing codes use a stable fallback order. Browser and unit coverage include `TASK-002`, `TASK-003`, and `TASK-010`.
-- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `320fd9431f2f44da0d978c0c63441a051b2afeed`.
+- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `df1e0eed8c9d98eb8d4420b9f094c04420b26260`.
 - Workflow gate regression: QJC completion now requires Co + QJC evidence only. GPT Review evidence remains visible and auditable, but is not a QJC checkbox gate. Button and drag/drop use the same controlled transition path; regression cases A–G are documented in `docs/AI_BOARD_COMPLETION_GATE_REGRESSION.md`.
 
 ## Developer QA
