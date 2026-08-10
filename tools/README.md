@@ -18,6 +18,19 @@ The Supabase service-role key remains only in the Edge Function runtime. It is
 never placed in source, ZIP artifacts, HTML, JavaScript served to browsers, or
 this tool's environment.
 
+On the protected macOS Engineering Runtime, the rotated private JWK is held in
+Keychain under the service `zhuge-ai-os-engineering-actor-private-jwk` and is
+loaded only into the broker process environment. It must never be echoed,
+written to a file, committed, or pasted into chat:
+
+```bash
+ENGINEERING_ACTOR_PRIVATE_JWK="$(security find-generic-password \
+  -a co-gpt-broker \
+  -s zhuge-ai-os-engineering-actor-private-jwk \
+  -w)" \
+node tools/engineering-actor-broker.js issue --actor Co
+```
+
 ## Actor token issuance (protected broker runtime)
 
 ```bash
