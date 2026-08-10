@@ -2,9 +2,9 @@
 
 ## Candidate identity
 
-- Candidate filename: `20260810_2346_Candidate.zip`
+- Candidate filename: `20260810_2347_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260810-2346`
+- Runtime Build: `20260810-2347`
 - Package time: `2026-08-10 23:46 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
 - Source commit: `9637d8017c2943de78b8030da2c8e24c24cba7b3`
@@ -33,7 +33,7 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 
 ## Developer QA
 
-- Automated suite: `68 passed / 0 failed / 0 skipped`
+- Automated suite: `69 passed / 0 failed / 0 skipped`
 - AI Board Chrome fixture at 1600×1000: PASS
 - Investment browser regression: PASS
 - JavaScript syntax: PASS
