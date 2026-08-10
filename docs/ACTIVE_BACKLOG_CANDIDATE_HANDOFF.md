@@ -5,7 +5,7 @@
 - Candidate filename: `20260810_2336_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
 - Runtime Build: `20260810-2336`
-- Package time: `2026-08-10 23:35 Asia/Taipei`
+- Package time: `2026-08-10 23:36 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
 - Source commit: `df1e0eed8c9d98eb8d4420b9f094c04420b26260`
 - Source identity check: PASS — all candidate metadata and QA references use this single source commit
