@@ -23,7 +23,9 @@
     return "";
   }
   function statusLabel(status) {
-    return (service.STATUS_WORKSPACES.find(item => item.key === status) || {}).label || "待辦";
+    return service.workspaceForStatus?.(status)?.label
+      || service.STATUS_WORKSPACES.find(item => item.key === status)?.label
+      || "待辦";
   }
   function assigneeLabel(value) {
     const raw = String(value || "").trim();
@@ -52,11 +54,16 @@
     const priority = priorityLabel(task.priority);
     const priorityClass = priority === "P0" || priority === "P1" ? "high" : priority === "P2" ? "med" : "";
     const timestamp = dateLabel(task.updatedAt || task.createdAt);
-    const draggable = task.status !== "done";
+    const terminal = service.isGovernanceTerminal?.(task) || false;
+    const governance = terminal
+      ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
+      : "";
+    const draggable = task.status !== "done" && !terminal;
     return "<article class=\"card taskcard board-cloud-card\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
+      governance +
       "<div class=\"meta\"><span class=\"tag status-tag\">" + esc(statusLabel(task.status)) + "</span>" +
       (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
@@ -86,7 +93,8 @@
   }
   function renderTasks(tasks) {
     const groups = Object.fromEntries(service.STATUS_WORKSPACES.map(workspace => [workspace.uiKey, []]));
-    tasks.forEach(task => {
+    const history = tasks.filter(task => service.isGovernanceTerminal?.(task));
+    tasks.filter(task => !service.isGovernanceTerminal?.(task)).forEach(task => {
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspace) ? task.workspace : "todo";
       groups[bucket].push(task);
     });
@@ -101,6 +109,10 @@
       cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : "<div class=\"board-empty\">目前沒有工作</div>";
       if (count) count.textContent = String(rows.length);
     });
+    const historyCards = document.getElementById("historyTaskCards");
+    if (historyCards) historyCards.innerHTML = history.length
+      ? history.map(taskMarkup).join("")
+      : "<div class=\"board-empty\">目前沒有已合併或已取消的歷史 TASK。</div>";
     wireTaskCards();
   }
   function visibleTasks() {
@@ -177,6 +189,31 @@
           ? "尚未完成必要 Checklist／Evidence；請先補齊驗收證據。"
           : "受控交接失敗，正式資料未變更；請確認登入狀態與 Cloud 連線。";
       setBanner(message, "error");
+    }
+  }
+
+  function governanceTarget(task, reference) {
+    const value = String(reference || "").trim().toLowerCase();
+    return state.tasks.find(row => String(row.id).toLowerCase() === value || String(row.workCode).toLowerCase() === value) || null;
+  }
+
+  async function applyGovernanceAction(task, action) {
+    const labels = { merged: "合併", cancelled: "取消", linked: "關聯", ignored: "忽略" };
+    const label = labels[action] || action;
+    const needsTarget = action === "merged" || action === "linked";
+    const reference = needsTarget ? window.prompt(`請輸入要${label}到哪一張 TASK（TASK 編號或 ID）`, "") : "";
+    if (needsTarget && !reference) return;
+    const target = needsTarget ? governanceTarget(task, reference) : null;
+    if (needsTarget && !target) { setBanner("找不到指定的目標 TASK，治理動作未執行。", "error"); return; }
+    const reason = window.prompt(`請說明這次${label}決策的原因（至少 3 個字）`, "") || "";
+    if (reason.trim().length < 3) { setBanner("治理決策必須留下清楚原因，未執行。", "error"); return; }
+    try {
+      await service.governanceAction(task.id, action, target?.id || null, reason.trim());
+      document.getElementById("taskDetailModal").style.display = "none";
+      await refreshBoard({ quiet: true });
+      setBanner(`${esc(task.workCode || task.title)} 已完成「${esc(label)}」治理決策，Cloud 與 Audit 已同步。`, "success");
+    } catch (error) {
+      setBanner("治理決策未完成：" + esc(error?.message || "請確認 QJC 登入與權限。"), "error");
     }
   }
   function wireTaskCards() {
@@ -321,7 +358,7 @@
     modal.style.display = "grid";
     const actions = document.getElementById("taskTransitionActions");
     transitionTargets(task).forEach(target => {
-      const transition = transitionFor(task.status, target);
+      const transition = transitionFor(task, target);
       if (!transition) return;
       const button = document.createElement("button");
       button.className = "btn primary";
@@ -330,6 +367,11 @@
       button.onclick = async () => { await transitionTask(task, target); modal.style.display = "none"; };
       actions.appendChild(button);
     });
+    const governanceActions = task.status !== "done" && !service.isGovernanceTerminal?.(task)
+      ? `<section class="task-governance-section"><h3>治理處理</h3><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></section>`
+      : "";
+    actions.insertAdjacentHTML("beforebegin", governanceActions);
+    document.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
       const items = await service.loadChecklist(task.id);
       const rows = document.getElementById("checklistRows");

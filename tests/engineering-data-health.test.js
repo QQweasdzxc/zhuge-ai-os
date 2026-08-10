@@ -5,7 +5,7 @@ global.getSharedSessionSnapshot = () => ({ isAuthenticated: true, user_id: "qjc"
 global.ZhugeIdentity = { normalize: value => ({ ...value, isAuthenticated: true }) };
 const Board = require("../shared/board/board-read-service.js");
 
-test("Engineering Data Health is read-only and reports duplicate, stale, and schema findings", async () => {
+test("Engineering Data Health is read-only and reports duplicate and stale findings", async () => {
   const gateway = {
     select: async table => {
       if (table === "board_tasks") return [
@@ -21,5 +21,5 @@ test("Engineering Data Health is read-only and reports duplicate, stale, and sch
   assert.equal(report.writable, false);
   assert.ok(report.findings.some(item => item.type === "duplicate_code"));
   assert.ok(report.findings.some(item => item.type === "stale_knowledge"));
-  assert.ok(report.findings.some(item => item.type === "schema_capability"));
+  assert.equal(report.findings.some(item => item.type === "schema_capability"), false);
 });

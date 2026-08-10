@@ -11,7 +11,7 @@
 
 - `node --check shared/auth/auth-service.js`：PASS
 - `node --check modules/worklog/worklog-app.js`：PASS
-- `BROWSER_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome node --test tests/*.test.js`：49 passed / 0 failed / 0 skipped
+- `BROWSER_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome node --test tests/*.test.js`：55 passed / 0 failed / 0 skipped
 - `git diff --check`：PASS
 
 ## PM 操作說明（待實際帳號驗證）
@@ -20,11 +20,12 @@
 2. 依收到的 Email 完成驗證，再使用「Email 登入」。
 3. 選「忘記密碼」會寄出 Supabase Auth 重設信件。
 4. Google 登入者可在設定中為同一個帳號設定密碼；不會建立第二個 User UUID。
+5. Email 登入者可在設定中選「連結 Google 登入」；OAuth 回呼會交換同一個 Supabase Auth session，不建立第二個 User UUID。
 
 ## 尚待外部／人工驗證
 
 - 真實 Supabase Email confirmation、SMTP 與 redirect URL 需在 QJC 測試帳號完成一次端到端驗證。
-- Email User 連結既有 Google identity 需要 Supabase Auth 的正式 Identity Linking callback flow；本次未繞過 OAuth 或建立假 User，保留為後續受控整合驗證。
+- 真實 Email confirmation、SMTP、redirect URL 與 Google identity linking 仍需由 QJC 以測試帳號完成一次瀏覽器端到端驗證；自動化測試已確認 Shared Auth 的 linking callback、session exchange 與 duplicate UUID 防護路徑。
 
 ## 安全邊界
 

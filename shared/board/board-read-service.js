@@ -20,6 +20,10 @@
   ]);
   const STATUS_BY_KEY = Object.freeze(Object.fromEntries(STATUS_WORKSPACES.map(item => [item.key, item])));
   const STATUS_BY_UI_KEY = Object.freeze(Object.fromEntries(STATUS_WORKSPACES.map(item => [item.uiKey, item])));
+  const TERMINAL_WORKSPACES = Object.freeze({
+    merged: Object.freeze({ key: "merged", uiKey: "history", label: "已合併", code: "merged" }),
+    cancelled: Object.freeze({ key: "cancelled", uiKey: "history", label: "已取消", code: "cancelled" })
+  });
 
   /*
    * The server-side board_transition_task() remains the authority.  This
@@ -45,6 +49,8 @@
 
   function normalizeStatus(value) {
     const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (raw === "merged" || raw === "merge") return "merged";
+    if (raw === "cancelled" || raw === "canceled" || raw === "cancel") return "cancelled";
     if (raw === "inprogress" || raw === "doing" || raw === "progress") return "inprogress";
     if (raw === "qa" || raw === "review" || raw === "readyforqa") return "qa";
     if (raw === "done" || raw === "complete" || raw === "completed") return "done";
@@ -53,7 +59,13 @@
   }
 
   function workspaceForStatus(value) {
-    return STATUS_BY_KEY[normalizeStatus(value)] || STATUS_BY_KEY.ready;
+    const status = normalizeStatus(value);
+    return STATUS_BY_KEY[status] || TERMINAL_WORKSPACES[status] || STATUS_BY_KEY.ready;
+  }
+
+  function isGovernanceTerminal(taskOrStatus) {
+    const value = typeof taskOrStatus === "object" ? taskOrStatus?.status : taskOrStatus;
+    return ["merged", "cancelled"].includes(normalizeStatus(value));
   }
 
   function planTransition(task, targetUiKey) {
@@ -109,6 +121,12 @@
       source: String(row.source_workspace || row.source || ""),
       summary: String(row.summary || row.objective || row.description || ""),
       usageScenario: String(row.usage_scenario || row.usageScenario || ""),
+      resolutionAction: String(row.resolution_action || ""),
+      mergedInto: String(row.merged_into || ""),
+      linkedTo: String(row.linked_to || ""),
+      resolutionReason: String(row.resolution_reason || ""),
+      resolvedAt: row.resolved_at || null,
+      resolvedBy: String(row.resolved_by || ""),
       createdBy: String(row.created_by || ""),
       updatedAt: row.updated_at || row.updatedAt || null,
       createdAt: row.created_at || row.createdAt || null
@@ -194,14 +212,14 @@
     }
     const gateway = options.gateway || requireGateway();
     const [taskRows, knowledgeRows] = await Promise.all([
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,usage_scenario,work_code,created_by,created_at,updated_at&order=created_at.asc"),
+      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
       gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=not.is.null&order=updated_at.desc")
     ]);
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(normalizeTask);
     const knowledge = Array.isArray(knowledgeRows) ? knowledgeRows : [];
     const principles = knowledge.filter(row => String(row.status || "").toLowerCase() === "approved").filter(isPrinciple).map(normalizePrinciple);
     const systemMaps = knowledge.filter(isSystemMap).map(normalizeSystemMap);
-    return Object.freeze({ identity, tasks, principles, systemMaps, readOnly: false, source: "Supabase Shared Data Gateway" });
+    return Object.freeze({ identity, tasks, principles, systemMaps, governanceMetadataAvailable: true, readOnly: false, source: "Supabase Shared Data Gateway" });
   }
 
   async function loadChecklist(taskId, options = {}) {
@@ -267,7 +285,9 @@
       const required = (checklistByTask.get(task.id) || []).filter(row => row.required !== false);
       if (required.length && required.some(row => row.state !== "pass" || (!row.evidence_note && !row.evidence_ref))) findings.push(healthFinding("done_checklist_conflict", "error", `${task.workCode || "TASK"} 完成狀態與 Checklist 不一致`, "完成 TASK 仍有必要驗收未通過或缺少 Evidence；不得偽造歷史驗證。", [task.id]));
     });
-    findings.push(healthFinding("schema_capability", "info", "合併／取消欄位尚未存在於目前資料模型", "目前 board_tasks 沒有 merged_into、cancellation_reason 等欄位；Merge／Cancel／Audit 動作先保持唯讀，需 PM 核准最小 Schema Proposal。", ["board_tasks"]));
+    if (!result.governanceMetadataAvailable) {
+      findings.push(healthFinding("schema_capability", "error", "治理欄位無法讀取", "目前無法確認 Merge／Cancel／Link／Ignore 的正式治理欄位；請先確認 TASK-033 Migration。", ["board_tasks"]));
+    }
     return Object.freeze({ scannedAt: new Date().toISOString(), taskCount: tasks.length, findingCount: findings.length, findings, writable: false, source: "Supabase Shared Data Gateway (read-only)" });
   }
 
@@ -281,6 +301,16 @@
       p_actor_label: "QJC",
       p_note: note || null
     });
+  }
+
+  async function governanceAction(taskId, action, targetTaskId = null, reason = "", options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_governance_action", {
+      p_task_id: taskId,
+      p_action: action,
+      p_target_task_id: targetTaskId || null,
+      p_reason: reason
+    }).then(normalizeTask);
   }
 
   async function createTask(input = {}, options = {}) {
@@ -344,6 +374,7 @@
     normalizeStatus,
     workspaceForStatus,
     normalizeTask,
+    isGovernanceTerminal,
     normalizeChecklistItem,
     isPrinciple,
     isSystemMap,
@@ -352,6 +383,7 @@
     load,
     loadChecklist,
     transitionTask,
+    governanceAction,
     createTask,
     createChecklistItem,
     updateChecklistItem,
