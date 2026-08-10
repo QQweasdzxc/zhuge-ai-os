@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime / Source Build: `20260810-0831`
+- Runtime / Source Build: `20260810-0832`
 - Candidate type: GPT Review Candidate (not a release)
 - Branch: `review/ai-board-batch1-20260809`
 - Scope: Shared App Shell, Navigation IA, AI Board views, Checklist/Evidence UX, responsive Kanban, Investment Shell reuse
