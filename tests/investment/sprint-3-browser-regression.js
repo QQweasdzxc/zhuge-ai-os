@@ -15,7 +15,7 @@ const { resolveBrowserExecutable } = require("../browser-executable");
 
   const fixture = path.join(__dirname, "browser-sprint-3-fixture.html");
   await page.goto(`file://${fixture}`);
-  await page.waitForSelector("[data-investment-module]");
+  await page.waitForSelector("[data-investment-module-shell]");
 
   assert.equal(await page.locator(".investment-identity strong").textContent(), "PM 驗收者");
   assert.equal(await page.locator(".investment-identity small").textContent(), "pm@example.test");
@@ -59,7 +59,7 @@ const { resolveBrowserExecutable } = require("../browser-executable");
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(cloudRows[table] || []) });
     });
     await runtime.goto(`${baseUrl}/modules/investment/`);
-    await runtime.waitForSelector("[data-investment-module]");
+    await runtime.waitForSelector("[data-investment-module-shell]");
     assert.equal(await runtime.locator(".investment-page-heading h1").textContent(), "投資首頁");
     assert.equal(await runtime.locator(".investment-position-card").count(), 2);
     assert.equal(runtimeErrors.length, 0, runtimeErrors.join("\n"));

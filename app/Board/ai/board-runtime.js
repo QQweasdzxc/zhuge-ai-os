@@ -33,8 +33,8 @@
   }
   const stageLabels = Object.freeze({ co: "Co 開發驗證", gpt: "GPT 工程審查", qjc: "QJC PM 驗收" });
   const stageEvidenceLabels = Object.freeze({
-    co: "Developer QA 結果、測試結果、Commit／Build",
-    gpt: "GPT Review 結論、範圍檢查與 Regression 結果",
+    co: "開發測試結果、測試摘要、版本與打包資訊",
+    gpt: "工程審查結論、範圍檢查與回歸測試結果",
     qjc: "瀏覽器實際操作結果、截圖／錄影或 PM 驗收說明"
   });
   const stateLabels = Object.freeze({ not_verified: "尚未驗證", pass: "已通過", fail: "需要修正", na: "不適用" });
@@ -68,7 +68,7 @@
       (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
       (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看 Checklist／Evidence · 拖曳交接流程" : "點擊查看歷史 Checklist／Evidence · 已完成不可再拖曳") + "</div></article>";
+      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看驗收清單與證據 · 拖曳推進工作" : "點擊查看歷史驗收清單與證據 · 已完成不可再拖曳") + "</div></article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -328,9 +328,9 @@
     const stateLabel = stateLabels[item.state] || item.state;
     const expectedEvidence = stageEvidenceLabels[item.stage] || "可追溯的操作結果、測試結果或交接說明";
     const evidence = item.evidenceNote || item.evidenceRef
-      ? `<div class="checklist-evidence-detail"><strong>證據位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
-      : `<div class="checklist-evidence-detail missing"><strong>證據位置／說明：</strong>尚待${esc(stage)}提供；目前沒有可供 QJC 核對的紀錄。</div>`;
-    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個 Gate。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
+      ? `<div class="checklist-evidence-detail"><strong>證據位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}</div><div class="checklist-audit-detail"><strong>驗證紀錄：</strong>${item.checkedBy ? `驗證者 ${esc(item.checkedBy)}` : "尚未記錄驗證者"}${item.checkedAt ? ` · 時間 ${esc(dateLabel(item.checkedAt))}` : " · 尚未記錄時間"}</div>`
+      : `<div class="checklist-evidence-detail missing"><strong>證據現在在哪裡：</strong>尚待${esc(stage)}提供；目前沒有可供 QJC 核對的紀錄。</div><div class="checklist-audit-detail missing"><strong>驗證紀錄：</strong>尚未記錄驗證者與驗證時間。</div>`;
+    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
     const qjcCanAct = item.stage === "qjc";
     const controls = qjcCanAct
       ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
@@ -341,8 +341,24 @@
     const required = items.filter(item => item.required);
     const passed = required.filter(item => item.state === "pass").length;
     const failed = required.filter(item => item.state === "fail").length;
-    if (!required.length) return "尚未提供正式 Checklist";
-    return "必要項目 " + passed + "/" + required.length + " 已通過" + (failed ? " · " + failed + " 項 FAIL" : "");
+    if (!required.length) return "尚未提供正式驗收清單";
+    const remaining = required.length - passed;
+    return "必要項目 " + passed + "/" + required.length + " 已通過" + (failed ? " · " + failed + " 項需要修正" : remaining ? " · 尚有 " + remaining + " 項待驗證" : "");
+  }
+  function requirementContent(task) {
+    const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
+      .map(value => String(value || "").trim()).filter(Boolean);
+    return [...new Set(parts)].join("\n\n") || "尚未補充需求內容";
+  }
+  function nextStepLabel(task) {
+    const status = service.normalizeStatus ? service.normalizeStatus(task.status) : String(task.status || "ready");
+    const assignee = String(task.assignee || "").toUpperCase();
+    if (status === "ready") return "由 Co 接球並開始推進。";
+    if (status === "inprogress") return "由 Co 完成開發驗證後，交給 GPT Review。";
+    if (status === "qa" && assignee === "GPT") return "由 GPT 完成工程審查；通過後交給 QJC PM 驗收，失敗則退回 Co。";
+    if (status === "qa" && assignee === "QJC") return "由 QJC 依清單逐項操作驗收；通過後完成，失敗則退回 Co。";
+    if (status === "done") return "已完成；可查看歷史驗收與 Evidence。";
+    return "請依目前接球者與驗收清單繼續。";
   }
   async function openTaskDetail(task) {
     ensureTaskDetailModal();
@@ -350,8 +366,9 @@
     const body = document.getElementById("taskDetailBody");
     document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
     body.innerHTML = "<div class=\"task-detail-meta\"><span>" + esc(statusLabel(task.status)) + "</span><span>" +
-      esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(task.summary || "尚未補充需求內容") +
+      esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(requirementContent(task)).replace(/\n/g, "<br>") +
       "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
+      "</p></section><section class=\"task-detail-section task-next-step\"><h3>下一步</h3><p>" + esc(nextStepLabel(task)) +
       "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>開發契約與驗收清單</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
       "<p class=\"checklist-contract-note\">這份清單是 TASK 的正式驗收契約：先看 Co 做了什麼，再看 GPT 審查結果，最後由 QJC 逐項操作驗收。工程證據保留在每一項的詳細資訊中。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
@@ -408,7 +425,7 @@
     let note = item.evidenceNote || "";
     if (nextState === "pass" || nextState === "fail") {
       note = window.prompt("請輸入必要 Evidence／Note", note);
-      if (!note || !note.trim()) { setBanner("PASS／FAIL 必須附 Evidence。", "error"); await openTaskDetail(task); return; }
+      if (!note || !note.trim()) { setBanner("通過或退回前必須填寫驗收說明。", "error"); await openTaskDetail(task); return; }
     }
     try {
       await service.updateChecklistItem({ id: item.id, state: nextState, evidenceNote: note || "" });
@@ -418,7 +435,7 @@
   }
   async function updateChecklistEvidence(task, item) {
     if (!item) return;
-    const note = window.prompt("Evidence／Note", item.evidenceNote || "");
+    const note = window.prompt("請補充驗收證據或操作說明", item.evidenceNote || "");
     if (note === null) return;
     try {
       await service.updateChecklistItem({ id: item.id, state: item.state, evidenceNote: note.trim() });
@@ -459,7 +476,7 @@
       renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
-      if (!options.quiet) setBanner("已讀取 " + result.tasks.length + " 筆正式 Cloud TASK、" + result.principles.length + " 條已核准原則。<strong>QJC 可操作；GPT／Co 由受控工程服務交接。</strong>", "success");
+      if (!options.quiet) setBanner("已讀取 " + result.tasks.length + " 張正式工作卡與 " + result.principles.length + " 條已核准原則。<strong>QJC 可直接操作；GPT／Co 會透過受控流程交接。</strong>", "success");
       return result;
     }).catch(error => {
       const loginLink = "../../../?app=1";
@@ -498,7 +515,7 @@
     renderTasks([]);
     document.querySelectorAll(".process .cards").forEach(cards => { cards.innerHTML = "<div class=\"board-empty\">正在讀取正式 Cloud TASK…</div>"; });
     const note = document.querySelector(".note");
-    if (note) note.innerHTML = "正式 Board 以 Supabase 為唯一 TASK 來源。QJC 使用 authenticated Shared Identity；GPT／Co 使用受控 Engineering Service。Status、Assignee、Checklist 變更均留下 Activity Audit。";
+    if (note) note.innerHTML = "正式工作卡以 Cloud 資料為唯一來源。QJC 可直接操作；GPT／Co 透過受控流程交接。每次狀態、接球者與驗收紀錄都會保留完整紀錄。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
     const initialView = new URLSearchParams(global.location.search).get("view");

@@ -3007,7 +3007,7 @@ function osShell() {
   const shellHeader = isRootDashboard ? "" : workspaceContextBar();
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem("zhuge_shared_nav_collapsed_v1") === "1"; } catch { /* optional UI preference */ }
-  return `<div class="os-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""}">${shellHeader}<div class="os-body">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main">${workspaceTabs()}<div class="workspace-canvas">${workspaceContent()}</div></main></div>${floatingAssistantWidget()}</div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""}">${shellHeader}<div class="os-body">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main">${workspaceTabs()}<div class="workspace-canvas">${workspaceContent()}</div></main></div>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {

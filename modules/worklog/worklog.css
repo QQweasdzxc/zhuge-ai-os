@@ -199,6 +199,26 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .workspace-worklog .side-section{background:rgba(10,24,40,.82)}
 .workspace-worklog .side-item{min-height:46px;font-size:0.9375rem}
 .workspace-worklog .side-item.on{background:linear-gradient(135deg,#173d83,#17346d);border-color:#3b82f6}
+
+/* Shared Workspace Shell parity (TASK-014).  WorkLog keeps its existing
+ * business panels and data flow, while the outer frame now uses the same
+ * header, sub-navigation, container and responsive surface as AI Board and
+ * Investment.  These overrides intentionally sit after the legacy mockup
+ * rules above so the old dashboard treatment cannot hide the shared frame. */
+.workspace-shell.workspace-worklog .workspace-context-bar{display:block;width:100%;max-width:none;margin:0 0 12px}
+.workspace-shell.workspace-worklog .workspace-title,
+.workspace-shell.workspace-worklog .workspace-tabs{display:flex}
+.workspace-shell.workspace-worklog .workspace-canvas{border:1px solid #334155;border-radius:0 0 22px 22px;background:#1e293b;padding:16px;min-height:calc(100vh - 152px);overflow-x:hidden}
+.workspace-shell.workspace-worklog .os-main{min-width:0}
+
+@media(max-width:1279px){
+  .workspace-shell.workspace-worklog .workspace-context-bar{display:block}
+}
+
+@media(max-width:767px){
+  .workspace-shell.workspace-worklog .workspace-context-bar{margin:0 0 8px;border-radius:14px;padding:10px 12px}
+  .workspace-shell.workspace-worklog .workspace-canvas{border-radius:0 0 16px 16px;padding:0;min-height:calc(100svh - 120px)}
+}
 .summary-heading-toggle span i{font-style:normal;color:#94a3b8;font-size:.72em;font-weight:750}
 .summary-heading-toggle small{display:grid;place-items:center;width:42px;height:34px;border:1px solid #475569;border-radius:13px;color:#f8fafc;font-size:1.25rem;line-height:1}
 .summary-dashboard{padding:16px;background:linear-gradient(135deg,#081827,#0a1524 62%,#101d31)}

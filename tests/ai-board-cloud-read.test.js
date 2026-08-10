@@ -64,6 +64,8 @@ test("Board read adapter normalizes task ownership and keeps principles separate
   assert.equal(task.workspace, "qa");
   assert.equal(task.assignee, "GPT");
   assert.equal(task.usageScenario, "GPT 先讀取正式來源，再由 QJC 驗收。");
+  assert.equal(BoardRead.normalizeTask({ problem: "要解決的問題", objective: "要完成的目標", acceptance_criteria: "完成判定" }).problem, "要解決的問題");
+  assert.equal(BoardRead.normalizeTask({ problem: "要解決的問題", objective: "要完成的目標", acceptance_criteria: "完成判定" }).acceptanceCriteria, "完成判定");
   assert.equal(BoardRead.normalizeTask({ usage_scenario: null }).usageScenario, "");
   assert.equal(BoardRead.isPrinciple({ knowledge_type: "approved_principle" }), true);
   assert.equal(BoardRead.isPrinciple({ knowledge_type: "task" }), false);

@@ -119,7 +119,17 @@
       priority: String(row.priority || ""),
       assignee: String(row.assignee || ""),
       source: String(row.source_workspace || row.source || ""),
-      summary: String(row.summary || row.objective || row.description || ""),
+      // Keep the PM-readable contract fields separate.  The Board can present
+      // a clear narrative without asking a reviewer to infer it from internal
+      // engineering columns.
+      summary: String(row.summary || row.objective || row.problem || row.description || ""),
+      problem: String(row.problem || ""),
+      objective: String(row.objective || ""),
+      proposedSolution: String(row.proposed_solution || row.proposedSolution || ""),
+      acceptanceCriteria: String(row.acceptance_criteria || row.acceptanceCriteria || ""),
+      relatedWork: String(row.related_work || row.relatedWork || ""),
+      developerNotes: String(row.developer_notes || row.developerNotes || ""),
+      pmNotes: String(row.pm_notes || row.pmNotes || ""),
       usageScenario: String(row.usage_scenario || row.usageScenario || ""),
       resolutionAction: String(row.resolution_action || ""),
       mergedInto: String(row.merged_into || ""),
@@ -212,7 +222,7 @@
     }
     const gateway = options.gateway || requireGateway();
     const [taskRows, knowledgeRows] = await Promise.all([
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,objective,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
+      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
       gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=not.is.null&order=updated_at.desc")
     ]);
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(normalizeTask);

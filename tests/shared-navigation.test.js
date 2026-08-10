@@ -46,6 +46,9 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(index, /class="board-local-nav workspace-subnav"/);
   assert.match(investmentShell, /workspace-shell-header/);
   assert.match(worklog, /workspace-context-bar workspace-shell-header/);
+  assert.match(worklog, /os-shell workspace-shell workspace-/);
+  assert.match(read("modules/worklog/worklog.css"), /Shared Workspace Shell parity/);
+  assert.match(read("modules/worklog/worklog.css"), /workspace-shell\.workspace-worklog/);
 });
 
 test("Shared Navigation opens WorkLog internal destinations without a private Board router", () => {
