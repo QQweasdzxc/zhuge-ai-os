@@ -14,13 +14,25 @@ const ACTOR_ISSUER = "zhuge-ai-os-engineering-broker";
 const ACTOR_AUDIENCE = "engineering-transition";
 const ACTOR_SCOPE = "board:transition";
 const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810";
-const ACTOR_MAX_TTL_SECONDS = 300;
-const ACTOR_PUBLIC_JWK = {
-  kty: "EC",
-  crv: "P-256",
-  x: "Qdce6jarGF0avgy-jb4s55xUhO32SUJ8ecg8zj12iZs",
-  y: "KE86FOv3Y8k-t-fbwSYoOgiEZQE1ka-dS5dOeY4D5yE"
+// The closure key is an additional protected broker key. Keeping the original
+// public key preserves existing short-lived tokens while the closure runtime
+// can use a separately managed private key without rotating the old one.
+const ACTOR_PUBLIC_JWKS: Record<string, JsonWebKey> = {
+  [ACTOR_KEY_ID]: {
+    kty: "EC",
+    crv: "P-256",
+    x: "Qdce6jarGF0avgy-jb4s55xUhO32SUJ8ecg8zj12iZs",
+    y: "KE86FOv3Y8k-t-fbwSYoOgiEZQE1ka-dS5dOeY4D5yE"
+  },
+  "zhuge-engineering-actor-20260810-closure": {
+    kty: "EC",
+    crv: "P-256",
+    x: "JIfqIVA-8A_tJIR5WJQ2WB40BHWvsOr1RBXC1GP4XcI",
+    y: "dHdO8O3aZCP5sDGKY_FPkCAPqWFdHJ6v8tArYFmb1GI"
+  }
 };
+const ACTOR_MAX_TTL_SECONDS = 300;
+const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS: Record<string, Record<string, Record<string, string>>> = {
   Co: {
     ready: { inprogress: "Co" },
@@ -72,7 +84,7 @@ async function requireActorToken(request: Request) {
   } catch {
     throw new AuthenticationError("Engineering Actor Token is malformed.");
   }
-  if (header.alg !== "ES256" || header.typ !== "JWT" || header.kid !== ACTOR_KEY_ID) {
+  if (header.alg !== "ES256" || header.typ !== "JWT" || !ACTOR_PUBLIC_JWKS[header.kid]) {
     throw new AuthenticationError("Engineering Actor Token header is invalid.");
   }
   if (claims.iss !== ACTOR_ISSUER || claims.aud !== ACTOR_AUDIENCE) {
@@ -85,7 +97,7 @@ async function requireActorToken(request: Request) {
   if (!Number.isInteger(claims.iat) || !Number.isInteger(claims.exp) || claims.iat > now + 30 || claims.exp <= now || claims.exp - claims.iat > ACTOR_MAX_TTL_SECONDS) {
     throw new AuthenticationError("Engineering Actor Token is expired or outside the allowed TTL.");
   }
-  const key = await crypto.subtle.importKey("jwk", ACTOR_PUBLIC_JWK, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  const key = await crypto.subtle.importKey("jwk", ACTOR_PUBLIC_JWKS[header.kid], { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
   const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, base64urlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
   if (!valid) throw new AuthenticationError("Engineering Actor Token signature is invalid.");
   return { actor: claims.actor_label, jti: String(claims.jti || "") };
@@ -140,6 +152,30 @@ async function audit(cfg: ReturnType<typeof config>, taskId: string) {
   return Array.isArray(rows) ? rows : [];
 }
 
+async function findChecklistItem(cfg: ReturnType<typeof config>, taskId: string, itemKey: string) {
+  const query = `engineering_checklist_items?select=id,task_id,stage,item_key,label,required,state,checked_by,checked_at,evidence_note,evidence_ref,updated_at&task_id=eq.${encodeURIComponent(taskId)}&item_key=eq.${encodeURIComponent(itemKey)}&limit=1`;
+  const rows = await request(cfg, query);
+  const item = Array.isArray(rows) ? rows[0] : null;
+  if (!item) throw new Error(`Checklist item not found: ${itemKey}`);
+  return item;
+}
+
+async function checklistAudit(cfg: ReturnType<typeof config>, itemId: string) {
+  const query = `engineering_activity_log?select=id,entity_id,action,actor_type,actor_label,before_data,after_data,note,created_at&entity_type=eq.engineering_checklist_item&entity_id=eq.${encodeURIComponent(itemId)}&order=created_at.desc&limit=10`;
+  const rows = await request(cfg, query);
+  return Array.isArray(rows) ? rows : [];
+}
+
+function validateChecklistUpdate(actor: string, item: any, state: string, evidenceNote: string, evidenceRef: string) {
+  if (!CHECKLIST_STATES.has(state)) throw new Error(`Unsupported checklist state: ${state}`);
+  if (String(item.stage || "").toLowerCase() !== actor.toLowerCase()) {
+    throw new Error(`Actor ${actor} may only update the ${item.stage} checklist stage.`);
+  }
+  if (state !== "not_verified" && !evidenceNote && !evidenceRef) {
+    throw new Error("Evidence note or evidence reference is required for a verified checklist state.");
+  }
+}
+
 Deno.serve(async (requestValue) => {
   try {
     if (requestValue.method !== "POST") return json({ error: "POST required" }, 405);
@@ -150,7 +186,31 @@ Deno.serve(async (requestValue) => {
     const task = await findTask(cfg, String(body.task || ""));
 
     if (operation === "inspect") return json({ task, audit: await audit(cfg, task.id) });
-    if (operation !== "transition") return json({ error: "operation must be inspect or transition" }, 400);
+    if (operation === "checklist") {
+      const itemKey = String(body.itemKey || "");
+      const state = String(body.state || "");
+      const evidenceNote = String(body.evidenceNote || "").trim();
+      const evidenceRef = String(body.evidenceRef || "").trim();
+      const item = await findChecklistItem(cfg, task.id, itemKey);
+      validateChecklistUpdate(actorToken.actor, item, state, evidenceNote, evidenceRef);
+      if (body.expectedState && item.state !== body.expectedState) {
+        return json({ error: `Expected ${body.task}/${itemKey} to be ${body.expectedState}, found ${item.state}.` }, 409);
+      }
+      const result = await request(cfg, "rpc/board_update_checklist_item", {
+        method: "POST",
+        body: JSON.stringify({
+          p_item_id: item.id,
+          p_state: state,
+          p_evidence_note: evidenceNote || null,
+          p_evidence_ref: evidenceRef || null,
+          p_actor_type: "ai",
+          p_actor_label: actorToken.actor
+        })
+      });
+      const updated = await findChecklistItem(cfg, task.id, itemKey);
+      return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
+    }
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;

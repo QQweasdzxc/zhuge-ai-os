@@ -32,6 +32,21 @@ test("unapproved transitions and actors are rejected", () => {
   }));
 });
 
+test("controlled checklist evidence is limited to the matching AI stage", () => {
+  assert.doesNotThrow(() => Tool.validateChecklist({
+    actor: "Co", stage: "co", state: "pass", evidenceNote: "Developer QA passed"
+  }));
+  assert.doesNotThrow(() => Tool.validateChecklist({
+    actor: "GPT", stage: "gpt", state: "fail", evidenceRef: "commit:abc123"
+  }));
+  assert.throws(() => Tool.validateChecklist({
+    actor: "Co", stage: "gpt", state: "pass", evidenceNote: "wrong stage"
+  }), /only update/);
+  assert.throws(() => Tool.validateChecklist({
+    actor: "GPT", stage: "gpt", state: "pass"
+  }), /Evidence/);
+});
+
 test("actor token is required and service key is not read by the tool", () => {
   assert.throws(() => Tool.configFromEnvironment({ SUPABASE_URL: "https://example.supabase.co" }), /ACTOR_TOKEN/);
   assert.deepEqual(Tool.configFromEnvironment({

@@ -77,7 +77,10 @@ if (require.main === module) {
   try {
     const args = parseArgs(process.argv.slice(2));
     if (args.command !== "issue" || !args.actor) throw new Error("Usage: node tools/engineering-actor-broker.js issue --actor Co|GPT");
-    console.log(issueActorToken(args.actor, { ttlSeconds: args.ttl ? Number(args.ttl) : undefined }));
+    console.log(issueActorToken(args.actor, {
+      ttlSeconds: args.ttl ? Number(args.ttl) : undefined,
+      keyId: args["key-id"] || undefined
+    }));
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

@@ -10,6 +10,7 @@
 
 const ALLOWED_ACTORS = new Set(["Co", "GPT"]);
 const ALLOWED_STATUSES = new Set(["ready", "inprogress", "qa", "done"]);
+const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS = Object.freeze({
   Co: Object.freeze({
     ready: Object.freeze({ inprogress: "Co" }),
@@ -29,6 +30,9 @@ function usage(message = "") {
     "    --task TASK-001 --target-status inprogress --target-assignee Co \\",
     "    --actor Co --expected-status ready --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js inspect --task TASK-001",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js checklist \\",
+    "    --task TASK-001 --item-key developer-qa --state pass --actor Co \\",
+    "    --evidence-note 'Developer QA evidence' --evidence-ref 'commit:...' --confirm",
     "",
     "Actors: Co, GPT (QJC uses the authenticated UI path).",
     "Status: ready, inprogress, qa, done.",
@@ -74,6 +78,17 @@ function validateTransition({ actor, currentStatus, targetStatus, targetAssignee
   }
 }
 
+function validateChecklist({ actor, stage, state, evidenceNote = "", evidenceRef = "" }) {
+  if (!ALLOWED_ACTORS.has(actor)) throw new Error(`Unsupported AI actor: ${actor || "(empty)"}`);
+  if (String(stage || "").toLowerCase() !== actor.toLowerCase()) {
+    throw new Error(`Actor ${actor} may only update the ${stage || "(unknown)"} checklist stage.`);
+  }
+  if (!CHECKLIST_STATES.has(state)) throw new Error(`Unsupported checklist state: ${state || "(empty)"}`);
+  if (state !== "not_verified" && !String(evidenceNote).trim() && !String(evidenceRef).trim()) {
+    throw new Error("Evidence note or evidence reference is required for a verified checklist state.");
+  }
+}
+
 async function requestTool(config, payload) {
   const response = await fetch(config.functionUrl, {
     method: "POST",
@@ -114,11 +129,36 @@ async function transition(config, args) {
   });
 }
 
+async function checklist(config, args) {
+  if (!args.task || !args.actor || !args["item-key"] || !args.state) {
+    throw new Error("--task, --actor, --item-key and --state are required.");
+  }
+  validateChecklist({
+    actor: args.actor,
+    stage: args.stage || args.actor,
+    state: args.state,
+    evidenceNote: args["evidence-note"] || "",
+    evidenceRef: args["evidence-ref"] || ""
+  });
+  const payload = {
+    operation: "checklist",
+    task: args.task,
+    actor: args.actor,
+    itemKey: args["item-key"],
+    state: args.state,
+    expectedState: args["expected-state"] || null,
+    evidenceNote: args["evidence-note"] || "",
+    evidenceRef: args["evidence-ref"] || ""
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition"].includes(args.command)) return usage("Command must be inspect or transition.");
+  if (!["inspect", "transition", "checklist"].includes(args.command)) return usage("Command must be inspect, transition or checklist.");
   const config = configFromEnvironment();
-  const result = args.command === "inspect" ? await inspect(config, args) : await transition(config, args);
+  const result = args.command === "inspect" ? await inspect(config, args) : args.command === "transition" ? await transition(config, args) : await checklist(config, args);
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -126,4 +166,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, TRANSITIONS, configFromEnvironment, validateTransition, parseArgs };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, parseArgs };

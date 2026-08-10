@@ -1,7 +1,6 @@
 # Foundation Runtime Batch 1 — Developer QA
 
-Scope: TASK-001 / TASK-002 / TASK-003 / TASK-005, with the approved
-repository-bootstrap and cloud-sync slice used by TASK-004 / TASK-006.
+Scope: TASK-001 / TASK-002 / TASK-003 / TASK-004 / TASK-005 / TASK-006.
 
 ## Implemented shared contracts
 
@@ -15,7 +14,8 @@ repository-bootstrap and cloud-sync slice used by TASK-004 / TASK-006.
 - `shared/core/repository-bootstrap.js`: observable Session → Identity →
   Repository → Cloud → Module phases with timeout/error propagation.
 - `shared/api/sync-queue.js`: idempotency-key deduplication, retry/backoff and
-  degraded result reporting.
+  degraded result reporting, offline failure tracking and explicit conflict
+  detection (no silent overwrite).
 
 ## Runtime wiring
 
@@ -27,13 +27,20 @@ state only.
 
 ## Evidence
 
-- `node --test`: **87 passed, 0 failed, 2 browser tests skipped** (browser
+- `node --test`: **92 passed, 0 failed, 2 browser tests skipped** (browser
   executable not configured in this environment).
-- Foundation contract tests: **6 passed**.
+- Foundation runtime contract/completion tests: **8 passed** (including
+  bootstrap timeout and sync conflict/offline tracking).
 - JavaScript syntax checks: **PASS**.
 - `git diff --check`: **PASS**.
-- Database migration/RLS/Auth/OAuth/WorkLog business logic: **unchanged by this
-  Foundation slice**.
+- Runtime slice did not modify RLS/Auth/OAuth/WorkLog business logic. The
+  separate, approved TASK-021 checklist-audit constraint correction is recorded
+  below.
+
+The approved TASK-021 checklist-audit constraint migration is recorded in
+`docs/supabase/20260810_task_021_allow_checklist_audit_entity.sql`; it changes
+only the existing `engineering_activity_log_entity_type_check` to allow the
+already-used `engineering_checklist_item` audit entity.
 
 ## Browser note
 

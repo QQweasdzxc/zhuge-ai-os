@@ -59,6 +59,12 @@ test("Repository Bootstrap exposes phases and fails explicitly", async () => {
   assert.ok(phases.includes("complete:ready"));
 });
 
+test("Repository Bootstrap rejects a timed-out phase", async () => {
+  const boot = Bootstrap.create({ timeoutMs: 10 });
+  await assert.rejects(() => boot.run({ session: () => new Promise(() => {}) }), error => error.code === "BOOTSTRAP_TIMEOUT");
+  assert.equal(boot.getSnapshot().status, "error");
+});
+
 test("Sync Queue deduplicates operations and retries transient failures", async () => {
   let attempts = 0;
   const queue = SyncQueue.create({ backoffMs: 0, maxRetries: 2, execute: async item => { attempts += 1; if (attempts < 2) throw new Error("transient"); return item; } });
@@ -68,4 +74,18 @@ test("Sync Queue deduplicates operations and retries transient failures", async 
   assert.equal(result.status, "synced");
   assert.equal(attempts, 2);
   assert.equal(queue.pending().length, 0);
+});
+
+test("Sync Queue tracks offline failures and never silently accepts conflicts", async () => {
+  const failedQueue = SyncQueue.create({ backoffMs: 0, maxRetries: 0, execute: async () => { throw Object.assign(new Error("offline"), { code: "OFFLINE" }); } });
+  assert.equal(failedQueue.enqueue({ idempotencyKey: "offline-1", payload: { value: 1 } }), true);
+  const failedResult = await failedQueue.flush();
+  assert.equal(failedResult.status, "degraded");
+  assert.equal(failedQueue.pending()[0].state, "failed");
+
+  const conflictQueue = SyncQueue.create({ backoffMs: 0, execute: async () => ({ conflict: true, reason: "remote changed" }) });
+  conflictQueue.enqueue({ idempotencyKey: "conflict-1", payload: { value: 1 } });
+  const conflictResult = await conflictQueue.flush();
+  assert.equal(conflictResult.conflicts, 1);
+  assert.equal(conflictQueue.conflicts()[0].item.state, "conflict");
 });
