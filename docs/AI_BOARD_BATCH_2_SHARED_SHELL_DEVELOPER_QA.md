@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime / Source Build: `20260810-0846`
+- Runtime / Source Build: `20260810-0847`
 - Candidate type: GPT Review Candidate (not a release)
 - Branch: `review/ai-board-batch1-20260809`
 - Scope: Shared App Shell, Navigation IA, AI Board views, Checklist/Evidence UX, responsive Kanban, Investment Shell reuse
@@ -48,7 +48,7 @@ JavaScript syntax / inline scripts              PASS
 git diff --check                                PASS
 ```
 
-The real AI Board DOM also shows Version `v0.9.0-alpha.9.12` and Build `20260810-0846` from `shared/config/version.js`. The browser test accepts `CHROME_PATH`, `CHROMIUM_PATH`, or `BROWSER_EXECUTABLE`; it does not contain a machine-specific executable path.
+The real AI Board DOM also shows Version `v0.9.0-alpha.9.12` and Build `20260810-0847` from `shared/config/version.js`. The browser test accepts `CHROME_PATH`, `CHROMIUM_PATH`, or `BROWSER_EXECUTABLE`; it does not contain a machine-specific executable path.
 
 ## Regression and safety boundary
 
