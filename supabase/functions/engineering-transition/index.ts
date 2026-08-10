@@ -13,22 +13,15 @@ const ALLOWED_STATUSES = new Set(["ready", "inprogress", "qa", "done"]);
 const ACTOR_ISSUER = "zhuge-ai-os-engineering-broker";
 const ACTOR_AUDIENCE = "engineering-transition";
 const ACTOR_SCOPE = "board:transition";
-const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810";
-// The closure key is an additional protected broker key. Keeping the original
-// public key preserves existing short-lived tokens while the closure runtime
-// can use a separately managed private key without rotating the old one.
+const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810-212242";
+// Key rotation is intentional: only this current public key is accepted, so
+// tokens signed with either historical key id are rejected after deployment.
 const ACTOR_PUBLIC_JWKS: Record<string, JsonWebKey> = {
   [ACTOR_KEY_ID]: {
     kty: "EC",
     crv: "P-256",
-    x: "Qdce6jarGF0avgy-jb4s55xUhO32SUJ8ecg8zj12iZs",
-    y: "KE86FOv3Y8k-t-fbwSYoOgiEZQE1ka-dS5dOeY4D5yE"
-  },
-  "zhuge-engineering-actor-20260810-closure": {
-    kty: "EC",
-    crv: "P-256",
-    x: "JIfqIVA-8A_tJIR5WJQ2WB40BHWvsOr1RBXC1GP4XcI",
-    y: "dHdO8O3aZCP5sDGKY_FPkCAPqWFdHJ6v8tArYFmb1GI"
+    x: "NWv0bZHSDQJix1hScadvLAFLAFeTibhO8zkfrjNNBgg",
+    y: "dIdBSqeL6aM8YOImmClgcboyEeSQrJG8sftwwY2NKbM"
   }
 };
 const ACTOR_MAX_TTL_SECONDS = 300;

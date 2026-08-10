@@ -15,7 +15,7 @@ const ISSUER = "zhuge-ai-os-engineering-broker";
 const AUDIENCE = "engineering-transition";
 const SCOPE = "board:transition";
 const MAX_TTL_SECONDS = 300;
-const DEFAULT_KEY_ID = "zhuge-engineering-actor-20260810";
+const DEFAULT_KEY_ID = "zhuge-engineering-actor-20260810-212242";
 
 function base64url(value) {
   return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
