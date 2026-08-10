@@ -8,6 +8,14 @@ function setStoredAuthSession(value) {
   localStorage.removeItem("wl_google_auth_session_v1");
 }
 
+function setStoredAuthProvider(provider) {
+  localStorage.setItem(AUTH_PROVIDER_KEY, String(provider || "email-password"));
+}
+
+function getStoredAuthProvider() {
+  return localStorage.getItem(AUTH_PROVIDER_KEY) || "email-password";
+}
+
 let authSessionRefreshPromise = null;
 
 async function performAuthSessionRefresh() {
@@ -86,6 +94,7 @@ async function ensureFreshAuthSession(force = false) {
 function clearStoredAuthSession() {
   localStorage.removeItem(AUTH_SESSION_KEY);
   localStorage.removeItem("wl_google_auth_session_v1");
+  localStorage.removeItem(AUTH_PROVIDER_KEY);
 }
 
 function getStoredCodeVerifier() {
@@ -176,6 +185,10 @@ function captureHashAuthSession() {
     expires_at: Date.now() + Number(hash.get("expires_in") || 3600) * 1000
   };
   setStoredAuthSession(sessionValue);
+  // A confirmation/recovery link uses the same Supabase hash contract as an
+  // OAuth callback.  The provider marker lets boot restore the correct shared
+  // identity without treating every password session as Google OAuth.
+  setStoredAuthProvider(getStoredAuthProvider());
   clearStoredCodeVerifier();
   history.replaceState(null, "", location.pathname + location.search);
   return sessionValue;
@@ -210,6 +223,7 @@ async function exchangeCodeForSession() {
     expires_at: Date.now() + Number(data.expires_in || 3600) * 1000
   };
   setStoredAuthSession(sessionValue);
+  setStoredAuthProvider("google-oauth");
   clearStoredCodeVerifier();
   cleanAuthCallbackUrl();
   return sessionValue;
@@ -227,11 +241,98 @@ async function getAuthSession() {
   return captureHashAuthSession() || await exchangeCodeForSession() || await refreshAuthSession(false) || getStoredAuthSession();
 }
 
+function authSessionFromResponse(data, provider = "email-password") {
+  if (!data?.access_token) return null;
+  const sessionValue = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || "",
+    provider_token: data.provider_token || "",
+    provider_refresh_token: data.provider_refresh_token || "",
+    provider_expires_at: data.provider_token ? Date.now() + Number(data.expires_in || 3600) * 1000 : null,
+    token_type: data.token_type || "bearer",
+    expires_in: Number(data.expires_in || 3600),
+    expires_at: Date.now() + Number(data.expires_in || 3600) * 1000
+  };
+  setStoredAuthSession(sessionValue);
+  setStoredAuthProvider(provider);
+  return sessionValue;
+}
+
+async function getSupabaseAuthUser() {
+  const authSession = await getAuthSession();
+  if (!authSession?.access_token) return null;
+  let activeAuthSession = authSession;
+  let res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
+  if (res.status === 401) {
+    const refreshed = await refreshAuthSession(true);
+    if (refreshed?.access_token) {
+      activeAuthSession = refreshed;
+      res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
+    }
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, body });
+    clearStoredAuthSession();
+    return null;
+  }
+  const user = await res.json();
+  return { user, authSession: activeAuthSession, provider: getStoredAuthProvider() };
+}
+
+async function signInWithEmailPassword(email, password) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail || !password) throw new Error("請輸入 Email 與密碼。");
+  const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify({ email: normalizedEmail, password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error_description || data.msg || data.message || "Email 登入失敗，請確認帳密或完成 Email 驗證。");
+  return authSessionFromResponse(data, "email-password");
+}
+
+async function signUpWithEmailPassword(email, password) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail || !password) throw new Error("請輸入 Email 與密碼。");
+  if (String(password).length < 8) throw new Error("密碼至少需要 8 個字元。");
+  const emailRedirectTo = location.origin + location.pathname;
+  const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/signup?redirect_to=${encodeURIComponent(emailRedirectTo)}`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify({ email: normalizedEmail, password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.msg || data.message || "建立帳號失敗，請稍後再試。");
+  if (data.access_token) authSessionFromResponse(data, "email-password");
+  return data;
+}
+
+async function requestPasswordReset(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) throw new Error("請先輸入 Email。");
+  const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/recover`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify({ email: normalizedEmail, redirect_to: location.origin + location.pathname })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.msg || data.message || "重設密碼信件寄送失敗。");
+  return data;
+}
+
+async function setPasswordForCurrentUser(password) {
+  if (!currentAccessToken()) throw new Error("請先登入後再設定密碼。");
+  if (String(password || "").length < 8) throw new Error("密碼至少需要 8 個字元。");
+  const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, {
+    method: "PUT", headers: authHeaders(currentAccessToken()), body: JSON.stringify({ password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.msg || data.message || "設定密碼失敗。");
+  return data;
+}
+
 async function signInWithGoogle() {
   clearStoredOAuthError();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await codeChallengeFromVerifier(codeVerifier);
   setStoredCodeVerifier(codeVerifier);
+  setStoredAuthProvider("google-oauth");
   const redirectTo = location.origin + location.pathname;
   const params = new URLSearchParams({
     provider: "google",
@@ -246,10 +347,14 @@ async function signInWithGoogle() {
 }
 
 function googleSessionFromUser(authUser, authSession = {}) {
+  return supabaseSessionFromUser(authUser, authSession, "google-oauth");
+}
+
+function supabaseSessionFromUser(authUser, authSession = {}, provider = getStoredAuthProvider()) {
   const meta = authUser.user_metadata || {};
   const email = authUser.email || "";
   return {
-    provider: "google-oauth",
+    provider,
     user_uuid: authUser.id,
     uuid: authUser.id,
     name: meta.full_name || meta.name || email || "Google User",
@@ -281,29 +386,12 @@ function hasGoogleDriveAccess() {
 }
 
 async function getGoogleAuthUser() {
-  const authSession = await getAuthSession();
-  if (!authSession?.access_token) return null;
-  let activeAuthSession = authSession;
-  let res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
-  if (res.status === 401) {
-    const refreshed = await refreshAuthSession(true);
-    if (refreshed?.access_token) {
-      activeAuthSession = refreshed;
-      res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
-    }
-  }
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, body });
-    clearStoredAuthSession();
-    return null;
-  }
-  const user = await res.json();
-  return { user, authSession: activeAuthSession };
+  const result = await getSupabaseAuthUser();
+  return result ? { user: result.user, authSession: result.authSession } : null;
 }
 
 function hasGoogleOAuthSession() {
-  return session?.provider === "google-oauth" && !!session.email && !!currentUserUuid() && !!currentAccessToken();
+  return !!session?.email && !!currentUserUuid() && !!currentAccessToken();
 }
 
 function clearInvalidAuthState() {

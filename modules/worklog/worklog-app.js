@@ -2392,7 +2392,7 @@ function workspaceContextBar() {
 function authScreen() {
   const oauthError = getStoredOAuthError();
   const errorBlock = oauthError ? `<div class="empty" role="alert" style="margin:14px 0;border-color:#d97878"><b>Google 登入未完成</b><div class="muted">${escapeHtml(oauthError.message || "請稍後再試")}</div><small>錯誤代碼：${escapeHtml(oauthError.code || "unknown")}</small></div>` : "";
-  return `<div class="wrap"><div class="card"><section class="panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><p>Zhuge AI OS 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">請使用 Google 帳號登入 Zhuge AI OS，登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<button class="btn full" id="googleLoginBtn">使用 Google 登入</button><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
+  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><p>Zhuge AI OS 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">可使用 Google 或 Email 帳號登入；登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<div class="auth-methods"><button class="btn full" id="googleLoginBtn">使用 Google 帳號登入</button><div class="auth-divider"><span>或使用 Email</span></div><form id="emailAuthForm" novalidate><label for="emailAuthEmail">Email</label><input class="input" id="emailAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" required><label for="emailAuthPassword">密碼</label><input class="input" id="emailAuthPassword" type="password" autocomplete="current-password" minlength="8" placeholder="至少 8 個字元" required><div class="form-actions"><button class="btn" type="submit" data-email-auth-mode="login">Email 登入</button><button class="btn2" type="button" data-email-auth-mode="signup">建立帳號</button><button class="btn2" type="button" data-email-auth-mode="reset">忘記密碼</button></div></form><div id="emailAuthMessage" class="muted" role="status" aria-live="polite"></div></div><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
 }
 
 function worklogWelcomeSeen() {
@@ -3998,7 +3998,10 @@ function settings() {
   const tasks = ecpTasks();
   const wp = normalizeWorkProfile(workProfile || {}, profile);
   const profileStatus = isWorkProfileReady(wp) ? "✓ 已完成" : `⚠ 尚未完成：${workProfileMissingFields(wp).join("、")}`;
-  return `<section class="panel" style="margin-top:18px"><h2>⚙️ 設定</h2><div class="entry"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div><div class="entry"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label>角色</label><select id="roleSet" class="input">${roles.map(r => `<option ${profile && profile.role === r ? "selected" : ""}>${r}</option>`).join("")}</select><div class="work-model-section">${workMemoryPage({ compact: true })}</div><div class="work-model-section"><label>ECP 設定</label><label>ECP 負責人</label><input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"><label>ECP 負責部門</label><input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"><label>目前工作任務（Current Active Task）</label>${ecpTaskList(tasks)}<div class="work-model-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源；快速紀錄仍可選「不指定 ECP 任務」。</div></div><button class="btn gray full" id="resetProfile">重新初次認識</button><button class="btn red full" id="logoutBtn">登出</button><div class="entry"><b>版本</b><div class="muted">${VERSION}</div></div></section>`;
+  const identitySetup = session.provider === "google-oauth"
+    ? `<div class="work-model-section"><h3>登入方式</h3><div class="muted">目前使用 Google 登入。同一個 Zhuge AI OS 身分可以設定 Email 密碼，仍會沿用同一個 User UUID。</div><label for="accountPassword">設定 Email 密碼</label><input id="accountPassword" class="input" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 個字元"><button class="btn2" type="button" data-set-account-password="1">儲存密碼</button><div id="accountPasswordMessage" class="muted" role="status"></div></div>`
+    : `<div class="work-model-section"><h3>登入方式</h3><div class="muted">目前使用 Email 登入。Google 可作為同一個帳號的其他登入方式（完成連結前不會建立第二個 User）。</div><button class="btn2" type="button" data-link-google-identity="1">連結 Google 登入</button><div id="accountIdentityMessage" class="muted" role="status">連結會先開啟 Google 授權頁。</div></div>`;
+  return `<section class="panel" style="margin-top:18px"><h2>⚙️ 設定</h2><div class="entry"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div>${identitySetup}<div class="entry"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label>角色</label><select id="roleSet" class="input">${roles.map(r => `<option ${profile && profile.role === r ? "selected" : ""}>${r}</option>`).join("")}</select><div class="work-model-section">${workMemoryPage({ compact: true })}</div><div class="work-model-section"><label>ECP 設定</label><label>ECP 負責人</label><input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"><label>ECP 負責部門</label><input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"><label>目前工作任務（Current Active Task）</label>${ecpTaskList(tasks)}<div class="work-model-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源；快速紀錄仍可選「不指定 ECP 任務」。</div></div><button class="btn gray full" id="resetProfile">重新初次認識</button><button class="btn red full" id="logoutBtn">登出</button><div class="entry"><b>版本</b><div class="muted">${VERSION}</div></div></section>`;
 }
 
 function currentViewHtml() {
@@ -4049,8 +4052,7 @@ function render(reason = "state-update") {
 
 function bindAuth() {
   const button = document.getElementById("googleLoginBtn");
-  if (!button) return;
-  button.onclick = () => {
+  if (button) button.onclick = () => {
     // Browser Back may restore the pre-OAuth auth screen from bfcache even
     // though the Google/Supabase session is still valid.
     if (hasGoogleOAuthSession()) {
@@ -4066,6 +4068,54 @@ function bindAuth() {
     }
     signInWithGoogle();
   };
+  const form = document.getElementById("emailAuthForm");
+  const message = document.getElementById("emailAuthMessage");
+  const setMessage = (text, isError = false) => {
+    if (!message) return;
+    message.textContent = text;
+    message.style.color = isError ? "#ffb4ab" : "";
+  };
+  const completeEmailSession = async () => {
+    const result = await getSupabaseAuthUser();
+    if (!result) throw new Error("登入已完成，但尚未取得使用者工作階段，請重新整理後再試。");
+    session = supabaseSessionFromUser(result.user, result.authSession, "email-password");
+    loadTasksForSession();
+    saveAll();
+    await DataService.init();
+    if (typeof RealtimeService !== "undefined") await RealtimeService.start();
+    render("email-auth-success");
+  };
+  form?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const email = document.getElementById("emailAuthEmail")?.value || "";
+    const password = document.getElementById("emailAuthPassword")?.value || "";
+    const submitter = event.submitter;
+    if (submitter?.dataset.emailAuthMode !== "login") return;
+    submitter.disabled = true;
+    setMessage("正在登入…");
+    try { await signInWithEmailPassword(email, password); await completeEmailSession(); }
+    catch (error) { setMessage(error.message || "Email 登入失敗。", true); }
+    finally { submitter.disabled = false; }
+  });
+  document.querySelectorAll("[data-email-auth-mode]").forEach(control => {
+    if (control.dataset.emailAuthMode === "login") return;
+    control.onclick = async () => {
+      const email = document.getElementById("emailAuthEmail")?.value || "";
+      const password = document.getElementById("emailAuthPassword")?.value || "";
+      control.disabled = true;
+      try {
+        if (control.dataset.emailAuthMode === "signup") {
+          const result = await signUpWithEmailPassword(email, password);
+          setMessage(result?.access_token ? "帳號已建立，正在登入…" : "帳號已建立，請先到 Email 收信完成驗證，再回來登入。", false);
+          if (result?.access_token) await completeEmailSession();
+        } else {
+          await requestPasswordReset(email);
+          setMessage("重設密碼信件已寄出，請依 Email 指示完成操作。", false);
+        }
+      } catch (error) { setMessage(error.message || "操作失敗，請稍後再試。", true); }
+      finally { control.disabled = false; }
+    };
+  });
 }
 
 function bindMigration() {
@@ -6034,6 +6084,22 @@ function bindSettings() {
   });
   document.getElementById("resetProfile").onclick = () => { profile = null; saveAll(); render(); };
   document.getElementById("logoutBtn").onclick = () => doLogout();
+  document.querySelectorAll("[data-set-account-password]").forEach(button => button.onclick = async () => {
+    const input = document.getElementById("accountPassword");
+    const message = document.getElementById("accountPasswordMessage");
+    button.disabled = true;
+    try {
+      await setPasswordForCurrentUser(input?.value || "");
+      if (message) message.textContent = "密碼已設定；之後可用同一個 Zhuge AI OS 身分登入。";
+      if (input) input.value = "";
+    } catch (error) {
+      if (message) { message.textContent = error.message || "設定密碼失敗。"; message.style.color = "#ffb4ab"; }
+    } finally { button.disabled = false; }
+  });
+  document.querySelectorAll("[data-link-google-identity]").forEach(button => button.onclick = () => {
+    const message = document.getElementById("accountIdentityMessage");
+    if (message) message.textContent = "Google 連結需要由 Supabase Auth 的正式 Identity Linking 流程完成；目前未改變既有登入狀態。";
+  });
 }
 
 const CRC_TABLE = (() => {
@@ -6354,9 +6420,9 @@ async function exportEcpImportFile() {
 
 async function boot() {
   try {
-    const googleAuth = await getGoogleAuthUser();
-    if (googleAuth) {
-      session = googleSessionFromUser(googleAuth.user, googleAuth.authSession);
+    const authResult = await getSupabaseAuthUser();
+    if (authResult) {
+      session = supabaseSessionFromUser(authResult.user, authResult.authSession, authResult.provider);
       loadTasksForSession();
       if (authCallbackCaptured) { activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; hasOsShellState = true; }
       saveAll();
@@ -6369,7 +6435,7 @@ async function boot() {
     }
   } catch {
     clearStoredAuthSession();
-    if (session?.provider === "google-oauth") {
+    if (session) {
       session = null;
       saveAll();
     }

@@ -24,6 +24,7 @@ const IS_EXTENSION_ENTRY = document.body?.classList.contains("extension");
 const WEB_APP_URL = "https://qqweasdzxc.github.io/zhuge-ai-os/";
 const CHROME_EXTENSION_STORE_URL = "";
 const AUTH_SESSION_KEY = "zhuge_ai_os_google_auth_session_v1";
+const AUTH_PROVIDER_KEY = "zhuge_ai_os_auth_provider_v1";
 const AUTH_CODE_VERIFIER_KEY = "zhuge_ai_os_pkce_code_verifier_v1";
 const OAUTH_ERROR_KEY = "zhuge_ai_os_oauth_error_v1";
 const AI_OS_SESSION_KEY = "zhuge_ai_os_session_v1";
