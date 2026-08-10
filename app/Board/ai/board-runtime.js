@@ -91,10 +91,26 @@
     const rows = systemMaps.length ? systemMaps : fallback;
     zone.innerHTML = rows.map(item => `<article class="system-map-card"><div class="code">${esc(item.code || "SYSTEM-MAP")}</div><h3>${esc(item.title)}</h3><p>${esc(item.summary || "尚未補充系統藍圖內容")}</p><div class="meta"><span class="tag">Current Architecture</span>${item.version ? `<span class="tag">v${esc(item.version)}</span>` : ""}</div></article>`).join("");
   }
+  function taskCodeNumber(task) {
+    const code = String(task?.workCode || task?.work_code || "").trim();
+    const match = code.match(/^TASK[-_ ]?(\d+)$/i);
+    return match ? Number(match[1]) : null;
+  }
+  function sortTasksByCode(tasks) {
+    return (Array.isArray(tasks) ? tasks : []).map((task, index) => ({ task, index, number: taskCodeNumber(task) }))
+      .sort((left, right) => {
+        const leftValid = left.number !== null;
+        const rightValid = right.number !== null;
+        if (leftValid && rightValid && left.number !== right.number) return left.number - right.number;
+        if (leftValid !== rightValid) return leftValid ? -1 : 1;
+        return left.index - right.index;
+      })
+      .map(item => item.task);
+  }
   function renderTasks(tasks) {
     const groups = Object.fromEntries(service.STATUS_WORKSPACES.map(workspace => [workspace.uiKey, []]));
     const history = tasks.filter(task => service.isGovernanceTerminal?.(task));
-    tasks.filter(task => !service.isGovernanceTerminal?.(task)).forEach(task => {
+    sortTasksByCode(tasks).filter(task => !service.isGovernanceTerminal?.(task)).forEach(task => {
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspace) ? task.workspace : "todo";
       groups[bucket].push(task);
     });
@@ -525,7 +541,7 @@
     } else showBoardView("board");
     refreshBoard().then(initRealtime).catch(() => {});
   }
-  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail });
+  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, sortTasksByCode: sortTasksByCode });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 })(window);

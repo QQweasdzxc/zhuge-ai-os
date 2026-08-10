@@ -56,6 +56,7 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /工程準則：📘 最高原則來自正式 engineering_knowledge/);
   assert.match(output, /系統藍圖：顯示目前正式系統組成/);
   assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
+  assert.match(output, /TASK-002,TASK-003,TASK-010,TASK-026/);
   assert.match(output, /TASK 已建立並進入待辦/);
   assert.match(output, /data-zhuge-shared-navigation="true"/);
   assert.match(output, /data-shared-nav-item="worklog"/);

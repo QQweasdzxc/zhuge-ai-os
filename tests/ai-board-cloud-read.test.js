@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const ROOT = path.join(__dirname, "..");
 const BoardRead = require("../shared/board/board-read-service.js");
@@ -127,4 +128,23 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.match(index, /id="taskUsageScenario"/);
   assert.doesNotMatch(index, /新增工作區/);
   assert.doesNotMatch(index, /Interactive Prototype v0\.9/);
+});
+
+test("AI Board sorts valid TASK codes numerically and keeps invalid codes in stable fallback order", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const context = {
+    ZhugeBoardReadService: {},
+    document: { readyState: "loading", addEventListener() {} }
+  };
+  context.window = context;
+  vm.runInNewContext(runtime, context, { filename: "board-runtime.js" });
+  const sorted = context.ZhugeBoardRuntime.sortTasksByCode([
+    { workCode: "TASK-002", id: "two" },
+    { workCode: "TASK-010", id: "ten" },
+    { workCode: "TASK-003", id: "three" },
+    { workCode: "LEGACY", id: "legacy-a" },
+    { id: "missing" },
+    { workCode: "LEGACY", id: "legacy-b" }
+  ]);
+  assert.deepEqual(sorted.map(task => task.id), ["two", "three", "ten", "legacy-a", "missing", "legacy-b"]);
 });
