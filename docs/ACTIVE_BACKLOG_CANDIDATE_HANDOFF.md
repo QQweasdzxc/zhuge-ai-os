@@ -5,11 +5,11 @@
 - Candidate filename: `20260810_2335_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
 - Runtime Build: `20260810-2335`
-- Package time: `2026-08-10 23:05 Asia/Taipei`
+- Package time: `2026-08-10 23:35 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: `81300e43853102668433d2d72304a858d7fcd8e2`
+- Source commit: `320fd9431f2f44da0d978c0c63441a051b2afeed`
 - Source identity check: PASS — all candidate metadata and QA references use this single source commit
-- Supersedes: `20260810_2246_Candidate.zip` (`Superseded — GPT Review FAIL`)
+- Supersedes: `20260810_2305_Candidate.zip` (`Superseded — GPT Review FAIL: completion gate regression`)
 
 This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages deployment, or merge to `main`.
 
@@ -27,11 +27,12 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 ## GPT Review FAIL fixes included
 
 - FAIL-01: AI Board task cards are sorted by the numeric portion of a valid `TASK-###` code within each workspace. Invalid or missing codes use a stable fallback order. Browser and unit coverage include `TASK-002`, `TASK-003`, and `TASK-010`.
-- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `81300e43853102668433d2d72304a858d7fcd8e2`.
+- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `320fd9431f2f44da0d978c0c63441a051b2afeed`.
+- Workflow gate regression: QJC completion now requires Co + QJC evidence only. GPT Review evidence remains visible and auditable, but is not a QJC checkbox gate. Button and drag/drop use the same controlled transition path; regression cases A–G are documented in `docs/AI_BOARD_COMPLETION_GATE_REGRESSION.md`.
 
 ## Developer QA
 
-- Automated suite: `56 passed / 0 failed / 0 skipped`
+- Automated suite: `68 passed / 0 failed / 0 skipped`
 - AI Board Chrome fixture at 1600×1000: PASS
 - Investment browser regression: PASS
 - JavaScript syntax: PASS
