@@ -7,7 +7,7 @@
 - Runtime Build: `20260810-2246`
 - Package time: `2026-08-10 22:46 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: recorded in the final handoff report accompanying this ZIP
+- Source commit: `a84e652fb5e151f769ecf79b483c5e3d76be82ff`
 - Parent source checkpoint: `8ffa75a23c31fbd7c8400a72180b7758ed82fd5f`
 
 This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages deployment, or merge to `main`.
@@ -47,4 +47,3 @@ The following are intentionally not fabricated as PASS:
 - Production Deploy: NO.
 - GitHub `main` merge: NO.
 - Formal Release: NO.
-
