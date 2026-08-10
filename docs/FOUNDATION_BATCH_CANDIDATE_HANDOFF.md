@@ -1,8 +1,8 @@
 # Foundation Batch Candidate Handoff
 
-Candidate: `20260810_1500_Candidate.zip`
+Candidate: `20260810_1501_Candidate.zip`
 Product Version: `v0.9.0-alpha.9.12`
-Runtime / Source Build: `20260810-1500`
+Runtime / Source Build: `20260810-1501`
 Source Commit: `11385908866c57771da48e8257eb49f887fdc942`
 
 ## Included scope
@@ -29,4 +29,4 @@ Source Commit: `11385908866c57771da48e8257eb49f887fdc942`
 
 The ZIP is the single handoff artifact. Its filename timestamp, `version.json`
 build, runtime cache-busting token and visible Build metadata all use the same
-`20260810-1500` identity.
+`20260810-1501` identity.
