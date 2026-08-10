@@ -3,7 +3,7 @@
 Candidate: `20260810_1501_Candidate.zip`
 Product Version: `v0.9.0-alpha.9.12`
 Runtime / Source Build: `20260810-1501`
-Source Commit: `11385908866c57771da48e8257eb49f887fdc942`
+Source Commit: `9049f30626ea443956f7323302bccc0d606fdf3d`
 
 ## Included scope
 
