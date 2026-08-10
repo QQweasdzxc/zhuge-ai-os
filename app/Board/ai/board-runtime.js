@@ -256,6 +256,35 @@
     modal.addEventListener("click", event => { if (event.target === modal) modal.style.display = "none"; });
     document.getElementById("closeTaskDetail").onclick = () => { modal.style.display = "none"; };
   }
+  function ensureHealthModal() {
+    if (document.getElementById("healthCheckModal")) return;
+    const modal = document.createElement("div");
+    modal.id = "healthCheckModal";
+    modal.className = "modalback";
+    modal.innerHTML = "<div class=\"modal board-task-modal\" role=\"dialog\" aria-modal=\"true\"><div class=\"modalhead\"><h2>資料健康度檢查（唯讀）</h2><button class=\"x\" id=\"closeHealthCheck\" aria-label=\"關閉\">×</button></div><div class=\"modalbody\" id=\"healthCheckBody\"><div class=\"board-empty\">尚未執行檢查。</div></div></div>";
+    document.body.appendChild(modal);
+    modal.addEventListener("click", event => { if (event.target === modal) modal.style.display = "none"; });
+    document.getElementById("closeHealthCheck").onclick = () => { modal.style.display = "none"; };
+  }
+  const healthSeverity = Object.freeze({ error: "需要處理", warning: "請檢查", info: "資訊" });
+  function renderHealthReport(report) {
+    ensureHealthModal();
+    const body = document.getElementById("healthCheckBody");
+    const rows = report.findings.map(item => `<article class="health-finding health-${esc(item.severity)}"><div class="meta"><span class="tag">${esc(healthSeverity[item.severity] || item.severity)}</span><span class="tag">${esc(item.type)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>${item.records.length ? `<small>涉及資料：${esc(item.records.join("、"))}</small>` : ""}</article>`).join("");
+    body.innerHTML = `<div class="health-summary"><strong>已掃描 ${report.taskCount} 張正式 Cloud TASK，發現 ${report.findingCount} 項 Finding。</strong><p>本次只讀取資料，不會自動 Merge、Cancel、刪除或修改任何正式紀錄。</p></div>${rows || "<div class=\"board-empty\">目前沒有發現需要提示的資料問題。</div>"}<div class="health-boundary">Merge／Link／Cancel／Ignore 等整理動作需要既有 Schema、權限與 Audit 能力；目前先保留 Finding，交由 PM／GPT 決定。</div>`;
+    document.getElementById("healthCheckModal").style.display = "grid";
+  }
+  async function runHealthCheck() {
+    const button = document.getElementById("healthCheckBtn");
+    if (button) { button.disabled = true; button.textContent = "檢查中…"; }
+    setBanner("正在檢查 TASK、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
+    try {
+      const report = await service.runHealthCheck();
+      renderHealthReport(report);
+      setBanner(`資料健康度檢查完成：${report.findingCount} 項 Finding。結果為唯讀，未修改 Cloud。`, "success");
+    } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
+    finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
+  }
   function checklistMarkup(item) {
     const checked = item.state === "pass" ? " checked" : "";
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
@@ -417,6 +446,8 @@
   }
   function init() {
     enableBoardActions();
+    ensureHealthModal();
+    document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
     ensureTaskDetailModal();
     wireNavigation();
     wireSearch();

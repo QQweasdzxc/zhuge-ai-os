@@ -214,6 +214,63 @@
     return (Array.isArray(rows) ? rows : []).map(normalizeChecklistItem);
   }
 
+  function healthFinding(type, severity, title, detail, records = []) {
+    return Object.freeze({ type, severity, title, detail, records: records.map(String) });
+  }
+
+  function normalizedTitle(value = "") {
+    return String(value).toLocaleLowerCase("zh-TW").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  }
+
+  async function runHealthCheck(options = {}) {
+    const result = await load(options);
+    const findings = [];
+    const tasks = result.tasks;
+    const byCode = new Map();
+    tasks.forEach(task => {
+      const code = String(task.workCode || "").trim();
+      if (!code) findings.push(healthFinding("missing_work_code", "warning", "TASK 缺少編號", `${task.title} 尚未有正式 TASK Code。`, [task.id]));
+      else byCode.set(code, [...(byCode.get(code) || []), task]);
+      if (!task.title.trim()) findings.push(healthFinding("missing_required_field", "warning", "TASK 缺少標題", "沒有標題的 TASK 無法讓 PM 辨識。", [task.id]));
+      if (!task.summary.trim()) findings.push(healthFinding("missing_required_field", "info", "TASK 缺少需求內容", "此 TASK 尚未補充需求內容，請由 GPT／PM 判斷是否需要補充。", [task.workCode || task.id]));
+    });
+    byCode.forEach((rows, code) => {
+      if (rows.length > 1) findings.push(healthFinding("duplicate_code", "error", `TASK Code 重複：${code}`, "同一個正式編號對應多張 TASK；不要自動刪除，應由 PM 決定整理方式。", rows.map(row => row.id)));
+    });
+    const numbers = [...byCode.keys()].map(code => Number(String(code).match(/TASK[-_ ]?(\d+)/i)?.[1] || 0)).filter(Boolean).sort((a, b) => a - b);
+    if (numbers.length > 1) {
+      const present = new Set(numbers);
+      const gaps = [];
+      for (let n = numbers[0]; n <= numbers[numbers.length - 1]; n++) if (!present.has(n)) gaps.push(`TASK-${String(n).padStart(3, "0")}`);
+      if (gaps.length) findings.push(healthFinding("number_gap", "info", "TASK 編號存在歷史缺口", `發現 ${gaps.join("、")}；這只是 Finding，不自動補建假 TASK。`, gaps));
+    }
+    const titleRows = tasks.map(task => ({ task, title: normalizedTitle(task.title) })).filter(item => item.title);
+    for (let i = 0; i < titleRows.length; i++) for (let j = i + 1; j < titleRows.length; j++) {
+      const a = new Set(titleRows[i].title.split(" "));
+      const b = new Set(titleRows[j].title.split(" "));
+      const overlap = [...a].filter(token => token && b.has(token)).length / Math.max(a.size, b.size);
+      if (overlap >= 0.8) findings.push(healthFinding("high_similarity", "warning", "TASK 標題高度相似", `${titleRows[i].task.workCode || titleRows[i].task.id} 與 ${titleRows[j].task.workCode || titleRows[j].task.id} 可能描述同一範圍；保留原資料，交 PM／GPT 判斷。`, [titleRows[i].task.id, titleRows[j].task.id]));
+    }
+    const latestTaskAt = Math.max(...tasks.map(task => Date.parse(task.updatedAt || task.createdAt || "") || 0), 0);
+    const latestMapAt = Math.max(...result.systemMaps.map(map => Date.parse(map.updatedAt || "") || 0), 0);
+    if (latestTaskAt && (!latestMapAt || latestMapAt < latestTaskAt)) findings.push(healthFinding("stale_knowledge", "warning", "系統藍圖可能落後目前 TASK", "目前正式 TASK 最近更新時間晚於 System Map；先保留 Stale Finding，更新需走既有治理流程。", ["TASK-026-SYSTEM-MAP"]));
+    const gateway = options.gateway || requireGateway();
+    let checklistRows = [];
+    try {
+      checklistRows = await gateway.select("engineering_checklist_items", "?select=task_id,state,required,evidence_note,evidence_ref");
+    } catch (error) {
+      findings.push(healthFinding("checklist_read_failed", "error", "Checklist 無法讀取", "無法完成 Checklist consistency 檢查；請確認 Shared Gateway 與權限。", [error.message || "gateway"]));
+    }
+    const checklistByTask = new Map();
+    (Array.isArray(checklistRows) ? checklistRows : []).forEach(row => checklistByTask.set(String(row.task_id), [...(checklistByTask.get(String(row.task_id)) || []), row]));
+    tasks.filter(task => task.status === "done").forEach(task => {
+      const required = (checklistByTask.get(task.id) || []).filter(row => row.required !== false);
+      if (required.length && required.some(row => row.state !== "pass" || (!row.evidence_note && !row.evidence_ref))) findings.push(healthFinding("done_checklist_conflict", "error", `${task.workCode || "TASK"} 完成狀態與 Checklist 不一致`, "完成 TASK 仍有必要驗收未通過或缺少 Evidence；不得偽造歷史驗證。", [task.id]));
+    });
+    findings.push(healthFinding("schema_capability", "info", "合併／取消欄位尚未存在於目前資料模型", "目前 board_tasks 沒有 merged_into、cancellation_reason 等欄位；Merge／Cancel／Audit 動作先保持唯讀，需 PM 核准最小 Schema Proposal。", ["board_tasks"]));
+    return Object.freeze({ scannedAt: new Date().toISOString(), taskCount: tasks.length, findingCount: findings.length, findings, writable: false, source: "Supabase Shared Data Gateway (read-only)" });
+  }
+
   async function transitionTask(taskId, targetStatus, targetAssignee, note = "", options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_transition_task", {
@@ -298,6 +355,7 @@
     createTask,
     createChecklistItem,
     updateChecklistItem,
+    runHealthCheck,
     subscribe
   });
 });
