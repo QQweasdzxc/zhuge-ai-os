@@ -45,11 +45,11 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   });
   assert.ok(output, "Chrome produced no DOM output");
 
-  assert.match(output, /Development Contract／PM QA Checklist/);
+  assert.match(output, /開發契約與驗收清單/);
   assert.match(output, /GPT 先讀取正式來源，再由 QJC 驗收/);
   assert.match(output, /checklist-audit/);
-  assert.match(output, /Co Developer QA 已完成/);
-  assert.match(output, /Evidence/);
+  assert.match(output, /Co 開發驗證/);
+  assert.match(output, /證據位置／說明/);
   assert.match(output, /退回 Co/);
   assert.match(output, /GPT Review 通過 → 交 QJC/);
   assert.match(output, /工作看板：顯示正式 Cloud TASK/);

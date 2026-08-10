@@ -2386,7 +2386,7 @@ function header() {
  */
 function workspaceContextBar() {
   const workspace = workspaceDef(activeWorkspace);
-  return `<div class="workspace-context-bar"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${headerWorkIdentityStatus()}</div></div>`;
+  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${headerWorkIdentityStatus()}</div></div>`;
 }
 
 function authScreen() {
@@ -2527,12 +2527,12 @@ function osSidebar() {
 }
 
 function workspaceTabs() {
-  if (!openTabs.length) return `<div class="workspace-tabs empty"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
+  if (!openTabs.length) return `<div class="workspace-tabs workspace-subnav empty"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
   if (openTabs.length === 1) {
     const w = workspaceDef(openTabs[0]);
-    return `<div class="workspace-title">${w.icon} ${w.label}</div>`;
+    return `<div class="workspace-title workspace-subnav">${w.icon} ${w.label}</div>`;
   }
-  return `<div class="workspace-tabs">${openTabs.map(id => { const w = workspaceDef(id); const close = openTabs.length > 1 ? `<span class="tab-close" data-close-workspace="${id}">×</span>` : ""; return `<button class="workspace-tab ${activeWorkspace === id ? "active" : ""}" data-activate-workspace="${id}"><span>${w.icon} ${w.label}</span>${close}</button>`; }).join("")}</div>`;
+  return `<div class="workspace-tabs workspace-subnav">${openTabs.map(id => { const w = workspaceDef(id); const close = openTabs.length > 1 ? `<span class="tab-close" data-close-workspace="${id}">×</span>` : ""; return `<button class="workspace-tab ${activeWorkspace === id ? "active" : ""}" data-activate-workspace="${id}"><span>${w.icon} ${w.label}</span>${close}</button>`; }).join("")}</div>`;
 }
 
 function comingSoonWorkspace(id) {

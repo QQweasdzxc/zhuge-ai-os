@@ -29,8 +29,13 @@
     const raw = String(value || "").trim();
     return raw ? "目前：" + raw : "尚未指派";
   }
-  const stageLabels = Object.freeze({ co: "Co Developer QA", gpt: "GPT Review", qjc: "QJC PM QA" });
-  const stateLabels = Object.freeze({ not_verified: "未驗證", pass: "已通過", fail: "FAIL", na: "N/A" });
+  const stageLabels = Object.freeze({ co: "Co 開發驗證", gpt: "GPT 工程審查", qjc: "QJC PM 驗收" });
+  const stageEvidenceLabels = Object.freeze({
+    co: "Developer QA 結果、測試結果、Commit／Build",
+    gpt: "GPT Review 結論、範圍檢查與 Regression 結果",
+    qjc: "瀏覽器實際操作結果、截圖／錄影或 PM 驗收說明"
+  });
+  const stateLabels = Object.freeze({ not_verified: "尚未驗證", pass: "已通過", fail: "需要修正", na: "不適用" });
   function setBanner(message, kind) {
     let banner = document.getElementById("boardReadStatus");
     if (!banner) {
@@ -255,12 +260,16 @@
     const checked = item.state === "pass" ? " checked" : "";
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
     const stateLabel = stateLabels[item.state] || item.state;
-    const expectedEvidence = item.evidenceRef || "Browser 操作結果、Screenshot、Test Result、Commit／Build 等可核對證據";
+    const expectedEvidence = stageEvidenceLabels[item.stage] || "可追溯的操作結果、測試結果或交接說明";
     const evidence = item.evidenceNote || item.evidenceRef
-      ? `<div class="checklist-evidence-detail"><strong>Evidence 位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
-      : `<div class="checklist-evidence-detail missing"><strong>Evidence 位置／說明：</strong>尚待${esc(stage)}提供實際證據</div>`;
-    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個 Gate。" : item.state === "fail" ? "請查看失敗原因並退回負責角色修正。" : `請由${esc(stage)}完成驗證並提供證據。`;
-    return `<div class="checklist-item" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><label class="checklist-checkline"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${item.required ? " · 必要" : ""}</small></span></label><div class="checklist-question"><strong>驗證內容：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions"><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充證據</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">標記 FAIL</button><div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
+      ? `<div class="checklist-evidence-detail"><strong>證據位置／說明：</strong>${item.evidenceNote ? esc(item.evidenceNote) : ""}${item.evidenceRef ? `${item.evidenceNote ? " · " : ""}參照：${esc(item.evidenceRef)}` : ""}${item.checkedBy ? ` · 驗證者：${esc(item.checkedBy)}` : ""}${item.checkedAt ? ` · 時間：${esc(dateLabel(item.checkedAt))}` : ""}</div>`
+      : `<div class="checklist-evidence-detail missing"><strong>證據位置／說明：</strong>尚待${esc(stage)}提供；目前沒有可供 QJC 核對的紀錄。</div>`;
+    const next = item.state === "pass" ? "已完成此驗證項目，可繼續下一個 Gate。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
+    const qjcCanAct = item.stage === "qjc";
+    const controls = qjcCanAct
+      ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
+      : `<div class="checklist-readonly-note">由${esc(stage)}在工程交接中更新，QJC 僅查看結果。</div>`;
+    return `<div class="checklist-item ${qjcCanAct ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${item.required ? " · 必要" : ""}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
   }
   function checklistSummary(items) {
     const required = items.filter(item => item.required);
@@ -277,8 +286,8 @@
     body.innerHTML = "<div class=\"task-detail-meta\"><span>" + esc(statusLabel(task.status)) + "</span><span>" +
       esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(task.summary || "尚未補充需求內容") +
       "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
-      "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>Development Contract／PM QA Checklist · Checklist／Evidence</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
-      "<p class=\"checklist-contract-note\">Checklist 由 TASK Development Contract／Co Handoff／GPT Review 預先定義；QJC 逐項確認狀態、負責階段與必要 Evidence。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">讀取 Checklist…</div></div></div>" +
+      "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>開發契約與驗收清單</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
+      "<p class=\"checklist-contract-note\">這份清單是 TASK 的正式驗收契約：先看 Co 做了什麼，再看 GPT 審查結果，最後由 QJC 逐項操作驗收。工程證據保留在每一項的詳細資訊中。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
       "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
     modal.style.display = "grid";
     const actions = document.getElementById("taskTransitionActions");
@@ -309,7 +318,7 @@
       } else if (hasChecklist) {
         consistency.innerHTML = `<div class="checklist-contract-note">驗收進度：${passed}/${required.length} 已通過；必要項目需全部 PASS 才能進入完成。</div>`;
       }
-      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚無正式 Development Contract Checklist，不能進行正式驗收；請回報 GPT／Co 補齊，不由 QJC 臨時創造。</div>";
+      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單，因此目前不能進行正式驗收。請由 Co／GPT 依 Development Contract 補齊；QJC 不需要自行猜測驗收項目。</div>";
       rows.querySelectorAll(".checklist-check").forEach(input => {
         input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
       });
@@ -414,6 +423,7 @@
     renderPrinciples([]);
     renderSystemMaps([]);
     renderTasks([]);
+    document.querySelectorAll(".process .cards").forEach(cards => { cards.innerHTML = "<div class=\"board-empty\">正在讀取正式 Cloud TASK…</div>"; });
     const note = document.querySelector(".note");
     if (note) note.innerHTML = "正式 Board 以 Supabase 為唯一 TASK 來源。QJC 使用 authenticated Shared Identity；GPT／Co 使用受控 Engineering Service。Status、Assignee、Checklist 變更均留下 Activity Audit。";
     root.openQuickAdd = openQuickAdd;

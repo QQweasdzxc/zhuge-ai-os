@@ -14,6 +14,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   const worklogIndex = read("modules/worklog/index.html");
   const investmentIndex = read("modules/investment/index.html");
   const investmentModule = read("modules/investment/services/investment-module.js");
+  const investmentShell = read("modules/investment/components/module-shell.js");
   assert.match(index, /id="zhugeSharedNavigation"/);
   assert.match(index, /shared\/components\/zhuge-navigation\.js/);
   assert.match(index, /shared\/theme\/zhuge-navigation\.css/);
@@ -27,14 +28,24 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
   assert.match(nav, /sectionHeadingMarkup/);
   assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
-  assert.match(nav, /\["procurement", "hr", "travel"\]\.map/);
-  assert.match(nav, /sectionMarkup\("施工中", "🚧", \[\]/);
+  assert.match(nav, /procurement: \{ icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false/);
+  assert.match(nav, /function isVisible\(item\)/);
+  assert.match(nav, /ids\.filter\(id => isVisible\(registry\[id\]\)\)/);
+  assert.doesNotMatch(nav, /const construction =/);
   assert.doesNotMatch(nav, /label: "採購營帳"/);
   assert.doesNotMatch(nav, /label: "Travel"/);
   assert.match(nav, /ZhugeFoundationConfig/);
   assert.match(css, /\.os-sidebar/);
   assert.match(css, /\.side-section-heading/);
   assert.match(css, /\.side-item\.on/);
+  assert.match(css, /\.workspace-shell-header/);
+  assert.match(css, /\.workspace-subnav/);
+  assert.match(css, /\.workspace-content-container/);
+  assert.match(index, /class="zhuge-module-shell workspace-shell"/);
+  assert.match(index, /class="top workspace-shell-header"/);
+  assert.match(index, /class="board-local-nav workspace-subnav"/);
+  assert.match(investmentShell, /workspace-shell-header/);
+  assert.match(worklog, /workspace-context-bar workspace-shell-header/);
 });
 
 test("Shared Navigation opens WorkLog internal destinations without a private Board router", () => {

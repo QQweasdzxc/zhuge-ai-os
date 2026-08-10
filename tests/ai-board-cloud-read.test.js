@@ -120,7 +120,7 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(runtime, /\.(insert|update|delete)\s*\(/);
   assert.doesNotMatch(runtime, /board_tasks.*(?:INSERT|UPDATE|DELETE)/i);
   assert.match(runtime, /usageScenario/);
-  assert.match(runtime, /Development Contract／PM QA Checklist/);
+  assert.match(runtime, /開發契約與驗收清單/);
   assert.match(index, /id="boardSearch"/);
   assert.match(index, /id="taskUsageScenario"/);
   assert.doesNotMatch(index, /新增工作區/);

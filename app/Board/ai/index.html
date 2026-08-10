@@ -43,7 +43,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .locknote{border:1px solid #4a3f71;background:#1b1928;color:#bcaee7;border-radius:8px;padding:9px 10px;font-size:12px;margin-top:4px}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.card-action-hint{margin-top:10px;color:#6f8199;font-size:10px}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
-.board-subview{margin:18px 24px 28px;border:1px solid var(--line);border-radius:12px;background:#10161f;padding:20px}.subview-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:1px solid var(--line)}.subview-kicker{font-size:11px;color:#8fa9cb;letter-spacing:.08em}.subview-header h2{margin:5px 0;font-size:22px}.subview-header p{margin:0;color:var(--muted);font-size:13px}.subview-source{font-size:11px;color:#7790ab;white-space:nowrap}.principles-card-grid,.system-map-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding-top:16px}.principle-card,.system-map-card{border:1px solid #41375f;border-radius:10px;background:#1b1928;padding:14px}.principle-card h3,.system-map-card h3{font-size:14px;margin:0 0 8px}.principle-card p,.system-map-card p{font-size:12px;line-height:1.55;color:#a9b5c6;margin:0 0 10px}.system-map-card{border-color:#29496f;background:#111d2d}.board-shell[hidden],.board-subview[hidden]{display:none}.checklist-main{min-width:0;flex:1}.checklist-main b{font-size:13px;line-height:1.45}.checklist-main small{line-height:1.45}.checklist-question,.checklist-next,.checklist-evidence-detail{font-size:11px;color:#aabbd0;margin-top:6px;line-height:1.45}.checklist-question strong,.checklist-next strong{color:#d8e6f6}.checklist-state{font-size:11px;margin-top:6px;color:#80e0ad}.checklist-state.missing{color:#d6a76f}.checklist-actions{min-width:130px}.history-note{border:1px solid #5b4d2b;background:#2a2416;color:#e4c978;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;margin-top:12px}.consistency-warning{border:1px solid #7b343b;background:#2d171c;color:#ffb5b7;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;margin-top:12px}
+.checklist-stage-mark{flex:0 0 1.25rem;text-align:center}.checklist-readonly-item{border-color:#344052;background:#151b24}.checklist-readonly-note{font-size:10px;color:#8fa1b7;line-height:1.4;margin-top:5px}.checklist-qjc-item{border-color:#385b82}.checklist-qjc-control{font-size:11px;color:#dbeafe;white-space:nowrap}.checklist-evidence-detail.missing{color:#e4c978}
 </style>
 <style>
 .board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;min-width:0}.column{width:auto;min-width:0}.board-shell{overflow-x:auto}
@@ -51,15 +51,15 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 </style>
 </head>
 <body>
-<div class="zhuge-module-shell">
+<div class="zhuge-module-shell workspace-shell">
 <div id="zhugeSharedNavigation" data-external-root="../../../" data-active-workspace="ai-board"></div>
-<div class="app">
+<div class="app workspace-app">
 <main class="main">
- <header class="top">
+ <header class="top workspace-shell-header">
   <div><h1>AI Board</h1><p>PM × GPT × Supabase × Co　｜　人看繁中，AI／程式看標準英文</p></div>
   <div class="actions"><button class="btn">↻ 重新整理</button></div>
  </header>
- <div class="board-local-nav" aria-label="AI Board 子功能導覽">
+ <div class="board-local-nav workspace-subnav" aria-label="AI Board 子功能導覽">
    <button class="nav active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
    <button class="nav" title="工程準則" data-board-nav="principles" type="button">📘 工程準則</button>
    <button class="nav" title="系統藍圖" data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
@@ -70,7 +70,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
    <span class="legend">固定區不參與 TASK 狀態流轉</span>
  </div>
  <div class="note">正式 Cloud TASK 依待辦、推進、驗證、完成分區；點開 TASK 可查看需求內容、使用情境、Checklist 與下一步。</div>
- <section class="board-shell">
+ <section class="board-shell workspace-content-container">
   <div class="board">
    <div class="column process" data-status="todo"><div class="colhead">待辦 <span class="count">0</span><span class="drag">⠿</span></div><button class="add" onclick="openQuickAdd('todo')">＋ 新增 TASK</button><div class="cards"></div></div>
    <div class="column process" data-status="progress"><div class="colhead">推進 <span class="count">0</span><span class="drag">⠿</span></div><div class="cards"></div></div>
