@@ -2,13 +2,14 @@
 
 ## Candidate identity
 
-- Candidate filename: `20260810_2246_Candidate.zip`
+- Candidate filename: `20260810_2302_Candidate.zip`
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260810-2246`
-- Package time: `2026-08-10 22:46 Asia/Taipei`
+- Runtime Build: `20260810-2302`
+- Package time: `2026-08-10 23:02 Asia/Taipei`
 - Source branch: `review/ai-board-batch1-20260809`
-- Source commit: `a84e652fb5e151f769ecf79b483c5e3d76be82ff`
-- Parent source checkpoint: `8ffa75a23c31fbd7c8400a72180b7758ed82fd5f`
+- Source commit: `bec570507211938105faf4f794e93938816fdaea`
+- Source identity check: PASS — all candidate metadata and QA references use this single source commit
+- Supersedes: `20260810_2246_Candidate.zip` (`Superseded — GPT Review FAIL`)
 
 This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages deployment, or merge to `main`.
 
@@ -23,14 +24,21 @@ This is the single GPT/QJC Candidate artifact. It is not a Release, GitHub Pages
 - TASK-032 — Checklist / Development Contract / Evidence UX (Co Evidence, `qa / GPT`)
 - TASK-033 — Engineering Data Health / Governance (Co Evidence, `qa / GPT`; QJC governance-action QA required)
 
+## GPT Review FAIL fixes included
+
+- FAIL-01: AI Board task cards are sorted by the numeric portion of a valid `TASK-###` code within each workspace. Invalid or missing codes use a stable fallback order. Browser and unit coverage include `TASK-002`, `TASK-003`, and `TASK-010`.
+- FAIL-02: Candidate Source Identity is consistent. Candidate manifest, handoff report, build metadata, and QA evidence identify source commit `bec570507211938105faf4f794e93938816fdaea`.
+
 ## Developer QA
 
-- Automated suite: `55 passed / 0 failed / 0 skipped`
+- Automated suite: `56 passed / 0 failed / 0 skipped`
 - AI Board Chrome fixture at 1600×1000: PASS
 - Investment browser regression: PASS
 - JavaScript syntax: PASS
 - `git diff --check`: PASS
 - Secret scan: PASS; no private JWK, Service Role key, token, `.env`, `.pem`, or `.key` included
+- Source identity consistency: PASS
+- ZIP integrity: verified after packaging
 
 ## QJC Live QA Required
 
@@ -39,6 +47,7 @@ The following are intentionally not fabricated as PASS:
 - TASK-014 / TASK-024: signed QJC WorkLog Live Browser QA, narrow/mobile view, and cross-Workspace visual navigation.
 - TASK-027: real email confirmation, SMTP redirect, password reset, Google identity linking, and single-UUID confirmation.
 - TASK-033: QJC Merge / Cancel / Link / Ignore, Audit History, and Realtime verification.
+- TASK-022: QJC PM workflow QA.
 
 ## Safety boundary
 
