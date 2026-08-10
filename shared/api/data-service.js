@@ -57,7 +57,7 @@ const DataService = {
     list.filter(Boolean).forEach(scope => autoSaveDirtyScopes.add(scope));
     LocalCache.saveAll();
     if (!hasGoogleOAuthSession()) {
-      this.setStatus("failed", "尚未登入 Google，無法同步設定");
+      this.setStatus("failed", "尚未登入 Zhuge AI OS，無法同步設定");
       return;
     }
     if (dataServiceHydrating || migrationRequired || migrationRunning) {
@@ -72,7 +72,7 @@ const DataService = {
     if (autoSaveInFlight) return;
     if (!autoSaveDirtyScopes.size) return;
     if (!hasGoogleOAuthSession()) {
-      this.setStatus("failed", "尚未登入 Google，無法同步設定");
+      this.setStatus("failed", "尚未登入 Zhuge AI OS，無法同步設定");
       return;
     }
     if (dataServiceHydrating || migrationRequired || migrationRunning) {
@@ -604,7 +604,7 @@ const DataService = {
         LocalCache.saveAll();
         this.setStatus("synced");
       } else {
-        const reason = !hasGoogleOAuthSession() ? "尚未登入 Google" : "Cloud Sync 正在初始化";
+        const reason = !hasGoogleOAuthSession() ? "尚未登入 Zhuge AI OS" : "Cloud Sync 正在初始化";
         console.warn("Work Memory saved to cache; cloud sync deferred", { reason, models: workMemoryObjects().map(item => item.name) });
         if (options.requireCloud) throw new Error(reason);
       }
@@ -658,7 +658,7 @@ const DataService = {
         LocalCache.saveAll();
         this.setStatus("synced");
       } else {
-        const reason = !hasGoogleOAuthSession() ? "尚未登入 Google" : "Cloud Sync 正在初始化";
+        const reason = !hasGoogleOAuthSession() ? "尚未登入 Zhuge AI OS" : "Cloud Sync 正在初始化";
         console.warn("ECP tasks saved to cache; cloud sync deferred", { reason, tasks: ecpTasks() });
         if (options.requireCloud) throw new Error(reason);
       }
@@ -681,7 +681,7 @@ const DataService = {
         LocalCache.saveAll();
         this.setStatus("synced");
       } else {
-        const reason = !hasGoogleOAuthSession() ? "尚未登入 Google" : "Cloud Sync 正在初始化";
+        const reason = !hasGoogleOAuthSession() ? "尚未登入 Zhuge AI OS" : "Cloud Sync 正在初始化";
         console.warn("Profile settings saved to cache; cloud sync deferred", { reason });
         if (options.requireCloud) throw new Error(reason);
       }
