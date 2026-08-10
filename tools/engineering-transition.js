@@ -3,8 +3,8 @@
  * Zhuge AI OS Controlled Engineering Transition Tool
  *
  * This file is a server/tool-side adapter only. It must never be loaded by a
- * browser or bundled into a public client. The Supabase service-role key is
- * read exclusively from SUPABASE_SERVICE_ROLE_KEY at execution time.
+ * browser or bundled into a public client. This tool never receives the
+ * Supabase service-role key; it uses a short-lived Engineering Actor Token.
  */
 "use strict";
 
@@ -25,10 +25,10 @@ function usage(message = "") {
   if (message) console.error(`Error: ${message}`);
   console.error([
     "Usage:",
-    "  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node tools/engineering-transition.js transition \\",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js transition \\",
     "    --task TASK-001 --target-status inprogress --target-assignee Co \\",
     "    --actor Co --expected-status ready --confirm",
-    "  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node tools/engineering-transition.js inspect --task TASK-001",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js inspect --task TASK-001",
     "",
     "Actors: Co, GPT (QJC uses the authenticated UI path).",
     "Status: ready, inprogress, qa, done.",
@@ -55,13 +55,13 @@ function parseArgs(argv) {
 
 function configFromEnvironment(env = process.env) {
   const url = String(env.SUPABASE_URL || env.ZHUGE_SUPABASE_URL || "").replace(/\/$/, "");
-  const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || "");
   if (!url) throw new Error("SUPABASE_URL is required in the protected tool environment.");
-  if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required in the protected tool environment.");
+  const actorToken = String(env.ENGINEERING_ACTOR_TOKEN || "");
+  if (!actorToken) throw new Error("ENGINEERING_ACTOR_TOKEN is required in the protected actor tool environment.");
   if (!/^https:\/\//i.test(url)) throw new Error("SUPABASE_URL must use HTTPS.");
   const functionUrl = String(env.ENGINEERING_TRANSITION_URL || `${url}/functions/v1/engineering-transition`).replace(/\/$/, "");
   if (!/^https:\/\//i.test(functionUrl)) throw new Error("ENGINEERING_TRANSITION_URL must use HTTPS.");
-  return Object.freeze({ url, serviceRoleKey, functionUrl });
+  return Object.freeze({ url, actorToken, functionUrl });
 }
 
 function validateTransition({ actor, currentStatus, targetStatus, targetAssignee }) {
@@ -78,8 +78,7 @@ async function requestTool(config, payload) {
   const response = await fetch(config.functionUrl, {
     method: "POST",
     headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: `Bearer ${config.serviceRoleKey}`,
+      Authorization: `Bearer ${config.actorToken}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)

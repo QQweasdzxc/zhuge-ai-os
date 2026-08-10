@@ -2,18 +2,30 @@
 
 `engineering-transition.js` is a server/tool-side adapter for the approved
 `board_transition_task` RPC. It is not browser code and must not be bundled by
-GitHub Pages or any module.
+GitHub Pages or any module. `engineering-actor-broker.js` only issues short-lived
+Co/GPT actor tokens; it never calls Supabase or writes Board data.
 
 The tool requires these environment variables in a protected execution
 environment:
 
 ```text
 SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<secret, never committed>
+ENGINEERING_ACTOR_TOKEN=<short-lived protected token>
+ENGINEERING_ACTOR_PRIVATE_JWK=<protected broker-only P-256 private JWK>
 ```
 
-The service-role key is read at runtime only. It must not be placed in source,
-ZIP artifacts, HTML, JavaScript served to browsers, or client configuration.
+The Supabase service-role key remains only in the Edge Function runtime. It is
+never placed in source, ZIP artifacts, HTML, JavaScript served to browsers, or
+this tool's environment.
+
+## Actor token issuance (protected broker runtime)
+
+```bash
+ENGINEERING_ACTOR_PRIVATE_JWK='…' node tools/engineering-actor-broker.js issue --actor Co
+```
+
+The token is short-lived (maximum five minutes), scoped to `board:transition`,
+and must never be placed in browser code, a ZIP, source control, or chat.
 
 ## Read-only inspection
 

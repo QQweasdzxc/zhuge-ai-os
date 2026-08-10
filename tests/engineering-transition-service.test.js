@@ -32,12 +32,12 @@ test("unapproved transitions and actors are rejected", () => {
   }));
 });
 
-test("service key is required and only read from protected environment", () => {
-  assert.throws(() => Tool.configFromEnvironment({ SUPABASE_URL: "https://example.supabase.co" }), /SERVICE_ROLE_KEY/);
+test("actor token is required and service key is not read by the tool", () => {
+  assert.throws(() => Tool.configFromEnvironment({ SUPABASE_URL: "https://example.supabase.co" }), /ACTOR_TOKEN/);
   assert.deepEqual(Tool.configFromEnvironment({
     SUPABASE_URL: "https://example.supabase.co/",
-    SUPABASE_SERVICE_ROLE_KEY: "secret"
-  }), { url: "https://example.supabase.co", serviceRoleKey: "secret", functionUrl: "https://example.supabase.co/functions/v1/engineering-transition" });
+    ENGINEERING_ACTOR_TOKEN: "actor-token"
+  }), { url: "https://example.supabase.co", actorToken: "actor-token", functionUrl: "https://example.supabase.co/functions/v1/engineering-transition" });
 });
 
 test("argument parser requires explicit confirmation for writes", () => {

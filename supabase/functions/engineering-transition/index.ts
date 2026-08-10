@@ -1,14 +1,26 @@
 /* Zhuge AI OS Controlled Engineering Service
  *
  * This Edge Function is the server-side bridge for Co/GPT workflow actors.
- * It accepts only a service-role JWT at the function boundary, validates the
+ * It authenticates a short-lived signed Engineering Actor Token, validates the
  * requested transition again, then calls the existing board_transition_task
- * RPC. The service-role secret is supplied by Supabase runtime environment and
- * is never returned to callers or bundled into browser assets.
+ * RPC with the server-only Service Role secret. Co/GPT never receive that key.
+ * The public verification key is not a credential; the private signing key is
+ * held only by the protected Engineering Actor Broker runtime.
  */
 
 const ALLOWED_ACTORS = new Set(["Co", "GPT"]);
 const ALLOWED_STATUSES = new Set(["ready", "inprogress", "qa", "done"]);
+const ACTOR_ISSUER = "zhuge-ai-os-engineering-broker";
+const ACTOR_AUDIENCE = "engineering-transition";
+const ACTOR_SCOPE = "board:transition";
+const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810";
+const ACTOR_MAX_TTL_SECONDS = 300;
+const ACTOR_PUBLIC_JWK = {
+  kty: "EC",
+  crv: "P-256",
+  x: "Qdce6jarGF0avgy-jb4s55xUhO32SUJ8ecg8zj12iZs",
+  y: "KE86FOv3Y8k-t-fbwSYoOgiEZQE1ka-dS5dOeY4D5yE"
+};
 const TRANSITIONS: Record<string, Record<string, Record<string, string>>> = {
   Co: {
     ready: { inprogress: "Co" },
@@ -25,26 +37,58 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
 
+class AuthenticationError extends Error {
+  status: number;
+  constructor(message: string, status = 401) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function bearer(request: Request) {
   const value = request.headers.get("authorization") || "";
   return value.startsWith("Bearer ") ? value.slice(7).trim() : "";
 }
 
-function jwtPayload(token: string) {
-  try {
-    const encoded = token.split(".")[1];
-    if (!encoded) return null;
-    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(encoded.length / 4) * 4, "=");
-    return JSON.parse(atob(normalized));
-  } catch {
-    return null;
-  }
+function base64urlBytes(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const decoded = atob(normalized);
+  return Uint8Array.from(decoded, character => character.charCodeAt(0));
 }
 
-function requireServiceActor(request: Request) {
+function decodeJson(value: string) {
+  return JSON.parse(new TextDecoder().decode(base64urlBytes(value)));
+}
+
+async function requireActorToken(request: Request) {
   const token = bearer(request);
-  const claims = jwtPayload(token);
-  if (!token || claims?.role !== "service_role") throw new Error("Controlled Engineering Service requires a service-role tool caller.");
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new AuthenticationError("Engineering Actor Token is required.");
+  let header: any;
+  let claims: any;
+  try {
+    header = decodeJson(parts[0]);
+    claims = decodeJson(parts[1]);
+  } catch {
+    throw new AuthenticationError("Engineering Actor Token is malformed.");
+  }
+  if (header.alg !== "ES256" || header.typ !== "JWT" || header.kid !== ACTOR_KEY_ID) {
+    throw new AuthenticationError("Engineering Actor Token header is invalid.");
+  }
+  if (claims.iss !== ACTOR_ISSUER || claims.aud !== ACTOR_AUDIENCE) {
+    throw new AuthenticationError("Engineering Actor Token issuer or audience is invalid.");
+  }
+  if (claims.actor_type !== "ai" || !ALLOWED_ACTORS.has(claims.actor_label) || claims.scope !== ACTOR_SCOPE) {
+    throw new AuthenticationError("Engineering Actor Token actor or scope is invalid.", 403);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isInteger(claims.iat) || !Number.isInteger(claims.exp) || claims.iat > now + 30 || claims.exp <= now || claims.exp - claims.iat > ACTOR_MAX_TTL_SECONDS) {
+    throw new AuthenticationError("Engineering Actor Token is expired or outside the allowed TTL.");
+  }
+  const key = await crypto.subtle.importKey("jwk", ACTOR_PUBLIC_JWK, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, base64urlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+  if (!valid) throw new AuthenticationError("Engineering Actor Token signature is invalid.");
+  return { actor: claims.actor_label, jti: String(claims.jti || "") };
 }
 
 function config() {
@@ -98,8 +142,8 @@ async function audit(cfg: ReturnType<typeof config>, taskId: string) {
 
 Deno.serve(async (requestValue) => {
   try {
-    requireServiceActor(requestValue);
     if (requestValue.method !== "POST") return json({ error: "POST required" }, 405);
+    const actorToken = await requireActorToken(requestValue);
     const body = await requestValue.json();
     const cfg = config();
     const operation = String(body.operation || "");
@@ -108,7 +152,8 @@ Deno.serve(async (requestValue) => {
     if (operation === "inspect") return json({ task, audit: await audit(cfg, task.id) });
     if (operation !== "transition") return json({ error: "operation must be inspect or transition" }, 400);
 
-    const actor = String(body.actor || "");
+    if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
+    const actor = actorToken.actor;
     const targetStatus = String(body.targetStatus || "");
     const targetAssignee = String(body.targetAssignee || "");
     if (body.expectedStatus && task.status !== body.expectedStatus) {
@@ -129,6 +174,7 @@ Deno.serve(async (requestValue) => {
     const updated = await findTask(cfg, String(body.task));
     return json({ result, task: updated, audit: await audit(cfg, updated.id) });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Controlled Engineering Service failed" }, 400);
+    const status = error instanceof AuthenticationError ? error.status : 400;
+    return json({ error: error instanceof Error ? error.message : "Controlled Engineering Service failed" }, status);
   }
 });
