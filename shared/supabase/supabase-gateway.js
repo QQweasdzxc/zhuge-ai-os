@@ -14,6 +14,19 @@
   let sdkPromise = null;
   let authClient = null;
   let realtimeChannels = new Map();
+  let sessionLifecycle = null;
+
+  function getSessionLifecycle() {
+    if (sessionLifecycle || !root?.ZhugeSessionLifecycle?.create) return sessionLifecycle;
+    sessionLifecycle = root.ZhugeSessionLifecycle.create({
+      readSession: () => typeof getStoredAuthSession === "function" ? getStoredAuthSession() : null,
+      refreshSession: force => typeof refreshAuthSession === "function" ? refreshAuthSession(Boolean(force)) : null,
+      clearSession: () => {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      }
+    });
+    return sessionLifecycle;
+  }
 
   function loadSdk() {
     if (root?.supabase?.createClient) return Promise.resolve(root.supabase);
@@ -99,7 +112,6 @@
   }
 
   async function request(path, options = {}) {
-    if (typeof ensureFreshAuthSession === "function") await ensureFreshAuthSession(false);
     const config = requireConfig();
     const run = () => fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
       ...options,
@@ -107,8 +119,22 @@
         ? cloudHeaders(options.headers || {})
         : { apikey: config.supabaseAnonKey, ...(options.headers || {}) }
     });
-    let response = await run();
+    let response;
+    const lifecycle = getSessionLifecycle();
+    if (lifecycle) response = await lifecycle.request(run);
+    else {
+      if (typeof ensureFreshAuthSession === "function") await ensureFreshAuthSession(false);
+      response = await run();
+    }
     if (response.status === 401 && typeof refreshAuthSession === "function") {
+      // Legacy fallback only; the Shared Session Lifecycle already performs
+      // the single refresh/retry path when it is loaded.
+      if (lifecycle) {
+        const error = new Error("登入工作階段已逾時，請重新登入。");
+        error.code = "AUTH_SESSION_EXPIRED";
+        error.status = 401;
+        throw error;
+      }
       const refreshed = await refreshAuthSession(true);
       if (!refreshed?.access_token || (typeof accessTokenNeedsRefresh === "function" && accessTokenNeedsRefresh(0))) {
         const error = new Error("登入工作階段已逾時，請重新整理頁面後重新登入。");

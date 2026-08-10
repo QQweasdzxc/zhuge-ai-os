@@ -1,4 +1,18 @@
 // P5.2A-1 Foundation Split: shared runtime state.
+// TASK-001: run only the versioned, prefix-scoped browser cache migration
+// before any module reads its state.  Supabase remains the business-data SSOT.
+try {
+  if (globalThis.ZhugeStorageMigration) {
+    globalThis.ZhugeStorageMigration.run({
+      versionKey: "zhuge_storage_schema_version",
+      targetVersion: globalThis.ZhugeStorageMigration.STORAGE_SCHEMA_VERSION,
+      allowedPrefixes: ["zhuge_", "wl_", "ai_os_"],
+      migrations: {}
+    });
+  }
+} catch (error) {
+  console.warn("Storage migration deferred; cloud data is unaffected.", error?.message || error);
+}
 let activeModule = localStorage.getItem(ACTIVE_MODULE_KEY) || "dashboard";
 let authCallbackCaptured = false;
 let view = localStorage.getItem("wl_view") || "center";
