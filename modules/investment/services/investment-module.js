@@ -19,11 +19,36 @@
     };
   }
 
+  // Locked/error states still belong to the Investment Workspace. Keep the
+  // protected message inside the canonical OS Shell so a security gate never
+  // makes the product look like a separate application. This is presentation
+  // only; the existing session, MFA and permission decisions remain intact.
+  function accessShell(content, options = {}) {
+    const title = global.InvestmentSafeHtml.escape(options.title || "Investment");
+    const description = global.InvestmentSafeHtml.escape(options.description || "投資模組｜受保護的工作空間");
+    return `<div class="zhuge-module-shell workspace-shell investment-module-shell investment-access-shell"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment"></div><div class="app workspace-app investment-app"><div id="zhugeSharedHeader" data-zhuge-shared-header data-title="${title}" data-description="${description}"></div><main class="investment-access-content">${content}</main></div></div>`;
+  }
+
+  function mountAccessShell(root, options = {}) {
+    const nav = root?.querySelector("#zhugeSharedNavigation");
+    if (nav && global.ZhugeSharedNavigation) {
+      const foundation = global.ZhugeFoundationConfig || {};
+      const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
+      global.ZhugeSharedNavigation.mount(nav, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
+    }
+    const header = root?.querySelector("#zhugeSharedHeader");
+    if (header && global.ZhugeSharedShell) {
+      const foundation = global.ZhugeFoundationConfig || {};
+      const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
+      global.ZhugeSharedShell.mountHeader(header, { title: options.title || "Investment", description: options.description || "投資模組｜受保護的工作空間", version: release.version, build: release.build });
+    }
+  }
+
   function accessScreen(result = {}) {
     const reason = result.code === "SESSION_EXPIRED"
       ? "登入狀態已過期，請重新登入。"
       : "請先使用 Google 帳號登入 Zhuge AI OS，再開啟投資模組。";
-    return `<main class="investment-access-screen"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">Zhuge AI OS › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="../worklog/?app=1">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></main>`;
+    return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">Zhuge AI OS › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="../worklog/?app=1">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
   }
 
   function unlockScreen(state = {}) {
@@ -38,7 +63,7 @@
     } else if (state.mode === "challenge") {
       content = `<p>請輸入 Google Authenticator 顯示的 6 位數驗證碼。驗證成功後，投資模組會解鎖 10 分鐘。</p>${unlockCodeForm(state, busy)}`;
     }
-    return `<main class="investment-access-screen investment-unlock-screen"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">投資安全驗證</p><h1>解鎖投資模組</h1>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></main>`;
+    return accessShell(`<div class="investment-access-panel investment-unlock-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">投資安全驗證</p><h1>解鎖投資模組</h1>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 解鎖", description: "投資模組｜完成安全驗證後即可進入" });
   }
 
   function unlockCodeForm(state = {}, busy = false) {
@@ -47,7 +72,10 @@
 
   async function mountUnlock(root, context) {
     let state = { status: "loading", mode: "preparing", error: "" };
-    const paint = () => global.ZhugeComponents.Summary.mount(root, unlockScreen(state));
+    const paint = () => {
+      global.ZhugeComponents.Summary.mount(root, unlockScreen(state));
+      mountAccessShell(root, { title: "Investment 解鎖", description: "投資模組｜完成安全驗證後即可進入" });
+    };
     const bind = () => {
       const enroll = root.querySelector("[data-investment-enroll]");
       if (enroll) enroll.onclick = async () => {
@@ -93,7 +121,7 @@
   }
 
   function errorScreen(error) {
-    return `<main class="investment-access-screen"><p class="investment-eyebrow">投資模組</p><h1>投資模組初始化失敗</h1><p>${global.InvestmentSafeHtml.escape(error?.message || "發生未知錯誤")}</p><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></main>`;
+    return accessShell(`<div class="investment-access-panel"><p class="investment-eyebrow">投資模組</p><h1>投資模組初始化失敗</h1><p>${global.InvestmentSafeHtml.escape(error?.message || "發生未知錯誤")}</p><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div>`, { title: "Investment", description: "投資模組｜初始化狀態" });
   }
 
   async function createRuntime(root) {
@@ -105,6 +133,7 @@
         return mountUnlock(root, context);
       }
       global.ZhugeComponents.Summary.mount(root, accessScreen(access));
+      mountAccessShell(root, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
       return Object.freeze({ status: "blocked", access });
     }
 
@@ -124,6 +153,29 @@
       const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
       global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
     }
+    function renderSharedHeader(pageId) {
+      const sharedHeaderTarget = root.querySelector("#zhugeSharedHeader");
+      if (!sharedHeaderTarget || !global.ZhugeSharedShell) return;
+      const pageKey = pageId || activePage;
+      const [pageTitle, pageIcon] = global.InvestmentModuleShell.labels[pageKey] || ["投資", "📈"];
+      const descriptions = {
+        overview: "投資模組｜查看投資組合、近期變化與今日重點",
+        portfolio: "投資組合｜查看目前持倉、成本與損益",
+        watchlist: "觀察清單｜追蹤關注中的市場標的",
+        strategy: "投資策略｜整理策略、判斷與風險提醒",
+        settings: "偏好設定｜管理投資模組的顯示與計算偏好"
+      };
+      const release = global.ZhugeFoundationConfig?.version || {};
+      global.ZhugeSharedShell.mountHeader(sharedHeaderTarget, {
+        title: `${pageIcon} ${pageTitle}`,
+        description: descriptions[pageKey] || "Zhuge AI OS 投資模組",
+        identity,
+        version: release.version,
+        build: release.build,
+        actionMarkup: '<button class="btn" type="button" data-investment-refresh>↻ 重新整理</button>'
+      });
+    }
+    renderSharedHeader(activePage);
     const pageRoot = root.querySelector("#investmentPage");
 
     function renderPage() {
@@ -141,6 +193,7 @@
       if (!global.InvestmentConfig.pages.includes(page)) return;
       if (updateHash && global.location.hash !== `#${page}`) global.location.hash = page;
       store.setActivePage(page);
+      renderSharedHeader(page);
       renderPage();
     }
 
@@ -170,6 +223,14 @@
     }
 
     root.addEventListener("click", event => {
+      if (event.target.closest("[data-toggle-sidebar]")) {
+        root.querySelector(".zhuge-module-shell")?.classList.toggle("sidebar-open");
+        return;
+      }
+      if (event.target.closest("[data-close-sidebar]")) {
+        root.querySelector(".zhuge-module-shell")?.classList.remove("sidebar-open");
+        return;
+      }
       const route = event.target.closest("[data-investment-route]");
       if (route) navigate(route.dataset.investmentRoute);
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
@@ -199,6 +260,7 @@
     } catch (error) {
       console.error("Investment module boot failed", { message: error?.message || String(error) });
       global.ZhugeComponents.Summary.mount(root, errorScreen(error));
+      mountAccessShell(root, { title: "Investment", description: "投資模組｜初始化狀態" });
     }
   }
 

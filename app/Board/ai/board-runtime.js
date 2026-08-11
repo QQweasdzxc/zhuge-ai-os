@@ -537,6 +537,13 @@
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
   function init() {
+    const shell = document.querySelector(".zhuge-module-shell");
+    document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
+      button.onclick = () => shell?.classList.toggle("sidebar-open");
+    });
+    document.querySelectorAll("[data-close-sidebar]").forEach(button => {
+      button.onclick = () => shell?.classList.remove("sidebar-open");
+    });
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);

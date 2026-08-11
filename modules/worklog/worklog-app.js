@@ -2386,6 +2386,24 @@ function header() {
  */
 function workspaceContextBar() {
   const workspace = workspaceDef(activeWorkspace);
+  const descriptions = {
+    dashboard: "AI OS 首頁｜查看今日摘要與工作模組入口",
+    worklog: "工作管理｜工時與每日進度",
+    tasks: "工作待辦｜管理現實工作上的待辦事項與推進紀錄",
+    library: "Knowledge｜整理文件、工作知識與 AI 分析結果",
+    sync: "控制台｜查看同步狀態、資料健康度與系統連線",
+    settings: "設定｜管理個人工作身分與 Zhuge AI OS 偏好"
+  };
+  if (typeof ZhugeSharedShell !== "undefined") {
+    return ZhugeSharedShell.renderHeader({
+      title: `${workspace.icon} ${workspace.label}`,
+      description: descriptions[activeWorkspace] || "Zhuge AI OS 工作模組",
+      identity: session,
+      version: VERSION,
+      build: BUILD_TIME,
+      actionMarkup: headerWorkIdentityStatus()
+    });
+  }
   return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${headerWorkIdentityStatus()}</div></div>`;
 }
 
@@ -3000,14 +3018,10 @@ function workspaceContent() {
 
 function osShell() {
   normalizeWorkspaceState();
-  const isRootDashboard = activeWorkspace === "dashboard";
-  // The authenticated Dashboard owns the single Root Hero inside its content.
-  // The global shell banner is reserved for the unauthenticated landing view;
-  // child workspaces use only their compact context bar on narrow screens.
-  const shellHeader = isRootDashboard ? "" : workspaceContextBar();
+  const shellHeader = workspaceContextBar();
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem("zhuge_shared_nav_collapsed_v1") === "1"; } catch { /* optional UI preference */ }
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""}">${shellHeader}<div class="os-body">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main">${workspaceTabs()}<div class="workspace-canvas">${workspaceContent()}</div></main></div>${floatingAssistantWidget()}</div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="workspace-canvas">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {

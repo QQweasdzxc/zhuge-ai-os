@@ -112,10 +112,17 @@
     const brand = root
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
-    const camp = sectionMarkup("營帳", "⛺", ["worklog", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
+    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
-    const system = sectionMarkup("系統", "⚙️", ["library", "sync", "settings"], registry, { ...options, externalRoot: root }, esc, "system", [0, 1, 2]);
-    return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="營帳選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div>${agentPanel(agents, esc)}${camp}${board}${system}<div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${esc(version)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
+    // The sidebar structure must be identical for every Workspace. Visibility
+    // remains an explicit presentation option for a future existing permission
+    // signal; it is not a new security boundary. The current QJC runtime keeps
+    // the governance group visible so active state is the only page delta.
+    const showGovernance = options.adminVisible !== false;
+    const governance = showGovernance ? `<div class="sidebar-admin-group" data-sidebar-admin="engineering-governance"><div class="sidebar-admin-label">系統管理</div>${board}</div>` : "";
+    const systemItems = ["library", "sync", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
+    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${systemItems[1]}${governance}${systemItems[2]}</div>`;
+    return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div><div class="sidebar-scroll">${agentPanel(agents, esc)}${camp}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${esc(version)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
@@ -145,7 +152,13 @@
     target.outerHTML = render({ ...options, version: options.version || targetVersion, build: options.build || targetBuild, activeWorkspace: options.activeWorkspace || target.dataset.activeWorkspace || "", externalRoot: target.dataset.externalRoot || options.externalRoot || "" });
     const node = document.querySelector("[data-zhuge-shared-navigation='true']");
     const shell = shellFor(node);
-    if (shell) setCollapsed(shell, shell.classList.contains("zhuge-nav-collapsed") || (() => { try { return global.localStorage?.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } })());
+    if (shell) {
+      let stored = null;
+      try { stored = global.localStorage?.getItem(COLLAPSED_KEY); } catch { /* preference is optional */ }
+      const tabletViewport = Boolean(global.matchMedia?.("(min-width: 768px) and (max-width: 1180px)")?.matches);
+      const shouldCollapse = shell.classList.contains("zhuge-nav-collapsed") || stored === "1" || (stored == null && tabletViewport);
+      setCollapsed(shell, shouldCollapse);
+    }
     wireCollapse();
     return node;
   }

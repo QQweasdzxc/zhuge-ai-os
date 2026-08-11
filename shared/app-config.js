@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.9.12";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260810-2347";
+const BUILD_TIME = "20260811-1325";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -103,7 +103,9 @@ const KNOWLEDGE_ROLE_OPTIONS = ["PROCUREMENT", "HR", "IT", "ADMIN", "FINANCE", "
 const WORK_PROFILE_SCHEMA_SQL = "docs/supabase/20260712_p4_5_user_work_profile_schema.sql";
 const workspaceRegistry = {
   dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "system", enabled: true, hidden: true, root: true },
-  worklog: { icon: "🪶", label: "WorkLog", group: "camp", enabled: true },
+  // Keep the WorkLog icon aligned with the canonical AI Board navigation.
+  // Active state is the only per-workspace visual delta in the shared rail.
+  worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true },
   tasks: { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, status: "SIT", externalHref: "../investment/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },

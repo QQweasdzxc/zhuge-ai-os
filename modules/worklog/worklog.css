@@ -349,3 +349,211 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .today-module .today-add-bottom{display:block!important;position:static;width:100%;margin:0;min-height:48px}
   .worklog-created-toast{bottom:max(12px,env(safe-area-inset-bottom));min-width:calc(100vw - 24px);gap:10px}
 }
+
+/* Runtime parity: WorkLog must render the AI Board Sidebar Golden Master.
+ * WorkLog keeps its content/business styles, but no longer overrides the
+ * shared rail geometry, density, surfaces, or active-state treatment. */
+.workspace-worklog .os-sidebar {
+  box-sizing: border-box;
+  align-self: start;
+  position: sticky;
+  top: 18px;
+  width: 260px;
+  height: calc(100vh - 14px);
+  min-height: 0;
+  max-height: calc(100vh - 14px);
+  overflow: hidden;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 22px;
+  padding: 14px;
+  font: 16px -apple-system, system-ui, "Noto Sans TC", "Segoe UI", sans-serif;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .sidebar-brand {
+  box-sizing: border-box;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0 0 8px;
+  border: 0;
+}
+.workspace-worklog .os-sidebar .sidebar-brand .brand-companion {
+  margin: 0 0 0 34px;
+  font-size: .75rem;
+}
+.workspace-worklog .os-sidebar .sidebar-menu-mark { display: none; }
+.workspace-worklog .os-sidebar .brand-stack h1 {
+  font-size: 1.25rem;
+  line-height: normal;
+  margin: 0;
+}
+.workspace-worklog .os-sidebar .agent-panel,
+.workspace-worklog .os-sidebar .side-section {
+  display: block;
+  box-sizing: border-box;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+}
+.workspace-worklog .os-sidebar .agent-panel h3,
+.workspace-worklog .os-sidebar .side-section h3,
+.workspace-worklog .os-sidebar .side-section-heading {
+  font-size: .85rem;
+  line-height: normal;
+  margin: 0 0 5px;
+}
+.workspace-worklog .os-sidebar .agent-row {
+  padding: 4px 0;
+  font-size: .78rem;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .side-item {
+  min-height: 40px;
+  padding: 6px 8px;
+  margin-top: 3px;
+  border-radius: 11px;
+  font-size: .88rem;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .side-item-child {
+  width: calc(100% - 10px);
+  min-height: 36px;
+  margin-left: 10px;
+  padding: 5px 8px;
+  font-size: .82rem;
+}
+.workspace-worklog .os-sidebar .side-item.on,
+.workspace-worklog .os-sidebar .side-section-heading.on {
+  background: #172554;
+  border-color: #60a5fa;
+}
+.workspace-worklog .os-sidebar .sidebar-admin-group {
+  margin: 6px 0 2px 8px;
+  padding: 6px 0 2px 8px;
+}
+.workspace-worklog .os-sidebar .sidebar-admin-label {
+  margin: 0 0 3px;
+  font-size: .68rem;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .sidebar-admin-group .side-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.workspace-worklog .os-sidebar .sidebar-admin-group .side-section-heading {
+  font-size: .8rem;
+  padding: 5px 6px;
+}
+.workspace-worklog .os-sidebar .sidebar-admin-group .side-item-child {
+  min-height: 34px;
+}
+.workspace-worklog .os-sidebar .developer-build-info {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px 0 0;
+  color: #f5f7fb;
+  font-size: 16px;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .sidebar-sync-summary,
+.workspace-worklog .os-sidebar .sidebar-version-summary,
+.workspace-worklog .os-sidebar .sidebar-build-summary {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 4px 2px;
+  margin: 0;
+  font-size: .75rem;
+  line-height: normal;
+}
+.workspace-worklog .os-sidebar .sidebar-sync-summary strong,
+.workspace-worklog .os-sidebar .sidebar-version-summary strong,
+.workspace-worklog .os-sidebar .sidebar-build-summary strong { color: #cbd5e1; }
+.workspace-worklog .os-sidebar .sidebar-version-summary,
+.workspace-worklog .os-sidebar .sidebar-build-summary { color: #cbd5e1; }
+.workspace-worklog .os-sidebar .sidebar-version-summary span,
+.workspace-worklog .os-sidebar .sidebar-build-summary span { color: #94a3b8; }
+.workspace-worklog .os-sidebar .sidebar-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+@media(max-width:767px){
+  .workspace-worklog .os-sidebar {
+    width: min(280px, calc(100vw - 24px));
+    height: calc(100svh - 24px);
+    max-height: calc(100svh - 24px);
+  }
+  .workspace-worklog .os-sidebar .sidebar-menu-mark { display: inline-flex; }
+}
+
+/* Shared Shell geometry parity: WorkLog uses the AI Board frame as its
+ * Golden Master. This only changes the outer layout; WorkLog business
+ * content, data and interactions remain untouched. */
+.workspace-worklog .os-main {
+  min-width: 0;
+  width: 100%;
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+  overflow: visible;
+  box-sizing: border-box;
+}
+.workspace-worklog .zhuge-shared-header {
+  height: var(--shell-header-height);
+  min-height: var(--shell-header-height);
+  margin-bottom: var(--shell-header-content-gap);
+  box-sizing: border-box;
+  font: 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", Arial, sans-serif;
+  line-height: normal;
+}
+.workspace-worklog .zhuge-shared-header-actions { margin: 0; }
+.workspace-worklog .zhuge-shared-header-actions .work-identity-header-status {
+  min-height: 40px;
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-size: .875rem;
+  line-height: 1.4;
+}
+.workspace-shell.workspace-worklog .workspace-title { display: none !important; }
+.workspace-shell.workspace-worklog .workspace-canvas {
+  min-width: 0;
+  max-width: none;
+  min-height: calc(100vh - 152px);
+  padding: 16px;
+  background: var(--zhuge-surface);
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--shell-radius);
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .workspace-worklog .os-main { padding: 14px; }
+  .workspace-worklog .zhuge-shared-header {
+    height: auto;
+    min-height: 64px;
+  }
+  .workspace-shell.workspace-worklog .workspace-canvas { min-height: 0; }
+}
+
+@media (max-width: 767px) {
+  .workspace-worklog .os-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: 0;
+  }
+  .workspace-worklog .os-main { padding: 10px; }
+  .workspace-shell.workspace-worklog .workspace-canvas { padding: 12px; border-radius: 14px; }
+}

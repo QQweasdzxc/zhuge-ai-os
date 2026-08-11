@@ -136,6 +136,16 @@ button { color: inherit; }
 .investment-unlock-button:disabled { cursor: wait; opacity: .65; }
 .investment-unlock-error { max-width: 520px; margin: 12px auto !important; border: 1px solid rgba(255, 107, 120, .5); border-radius: 12px; padding: 11px 13px; color: #fecaca; background: rgba(127, 29, 29, .24); }
 .investment-empty-state { grid-column: 1 / -1; border: 1px dashed var(--investment-line); border-radius: var(--zhuge-radius-md); padding: 24px; color: var(--investment-muted); text-align: center; }
+.investment-access-shell { min-height: 100vh; }
+.investment-access-content { min-width: 0; min-height: calc(100vh - var(--shell-header-height) - var(--shell-header-content-gap) - (2 * var(--shell-page-padding-y))); display: grid; place-items: center; padding: var(--shell-page-padding-y) 0; }
+.investment-access-panel { display: grid; place-items: center; align-content: center; width: min(620px, 100%); min-height: 420px; padding: 32px; text-align: center; }
+.investment-access-panel img { width: 76px; height: 76px; margin-bottom: 18px; }
+.investment-access-panel h1 { margin: 6px 0; }
+.investment-access-panel p, .investment-access-panel small { color: var(--investment-muted); }
+.investment-access-panel > div { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 20px; }
+.investment-unlock-panel > p { max-width: 520px; line-height: 1.7; }
+.investment-unlock-panel > div { display: block; margin: 14px 0; }
+@media (max-width: 900px) { .investment-access-content { min-height: 0; padding: 10px 0 18px; } .investment-access-panel { min-height: 360px; padding: 20px; } }
 @keyframes investment-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 980px) {
