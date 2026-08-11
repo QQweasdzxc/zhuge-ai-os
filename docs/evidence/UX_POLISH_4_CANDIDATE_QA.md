@@ -1,8 +1,8 @@
 # Full Site UX Polish — Batch 4 QA Evidence
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260811-1714`
-- Package Time (Asia/Taipei): `20260811_1714`
+- Runtime Build: `20260811-1715`
+- Package Time (Asia/Taipei): `20260811_1715`
 - Scope: existing UX polish only; no new TASK, schema, RLS, Auth, OAuth, or business-logic changes.
 
 ## Implemented
