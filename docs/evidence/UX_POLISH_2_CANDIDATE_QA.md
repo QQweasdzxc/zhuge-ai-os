@@ -3,8 +3,8 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260811-1603`
-- Package Time (Asia/Taipei): `20260811_1603`
+- Runtime Build: `20260811-1606`
+- Package Time (Asia/Taipei): `20260811_1606`
 - Scope: WorkLog suggestions and quick-add emphasis; Dashboard WorkLog mini calendar; WorkLog service panel removal; task creation drawer and active/completed filtering; Control Center entry cards.
 
 ## Implementation evidence
