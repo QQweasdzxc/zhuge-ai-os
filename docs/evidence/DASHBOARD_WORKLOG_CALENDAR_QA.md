@@ -1,7 +1,7 @@
 # Dashboard WorkLog Calendar — PM QA Evidence
 
 Product Version: v0.9.0-alpha.9.12  
-Runtime Build: 20260811-1749 (candidate packaging timestamp)
+Runtime Build: 20260811-1752 (candidate packaging timestamp)
 
 ## Scope
 
