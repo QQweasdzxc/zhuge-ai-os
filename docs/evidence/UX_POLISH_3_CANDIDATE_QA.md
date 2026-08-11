@@ -3,8 +3,8 @@
 ## Candidate identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260811-1645`
-- Package Time (Asia/Taipei): `20260811_1645`
+- Runtime Build: `20260811-1647`
+- Package Time (Asia/Taipei): `20260811_1647`
 - Base Candidate: `20260811_1607_Candidate.zip` / `20260811-1607`
 - Scope: PM QA Fix Batch 3 (QA-01 through QA-08).
 
