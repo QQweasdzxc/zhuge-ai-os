@@ -125,6 +125,19 @@
 .zhuge-dashboard-shell .module-card strong { color: var(--zhuge-text); }
 .zhuge-dashboard-shell .module-card .module-overview,
 .zhuge-dashboard-shell .module-card .zhuge-module-overview { display:block; margin-top:5px; color:var(--zhuge-accent); font-size:.72rem; font-weight:700; }
+.zhuge-dashboard-shell .zhuge-module-card .zhuge-mini-worklog-calendar{width:100%;margin-top:9px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--zhuge-border) 72%,transparent)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--zhuge-muted);font-size:.65rem;line-height:1.2}
+.zhuge-dashboard-shell .zhuge-mini-calendar-head strong{color:var(--zhuge-text);font-size:.7rem}
+.zhuge-dashboard-shell .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:5px}
+.zhuge-dashboard-shell .zhuge-mini-calendar-weekdays span{text-align:center;color:var(--zhuge-muted);font-size:.56rem;font-weight:800}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day{display:grid;place-items:center;min-height:25px;padding:2px 1px;border:1px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--zhuge-surface) 78%,transparent);color:var(--zhuge-muted);font:inherit;cursor:pointer;line-height:1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day b{font-size:.63rem;font-weight:800}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day small{display:block;min-height:7px;color:var(--zhuge-accent);font-size:.43rem;line-height:1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day:hover,.zhuge-dashboard-shell .zhuge-mini-calendar-day:focus-visible{border-color:var(--zhuge-accent);outline:none}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.has-hours{background:color-mix(in srgb,var(--zhuge-accent) 15%,var(--zhuge-surface));color:var(--zhuge-text)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--zhuge-accent)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-empty{cursor:default;opacity:.35}
+.zhuge-dashboard-shell .zhuge-mini-calendar-note{display:block;margin-top:6px;color:var(--zhuge-muted);font-size:.62rem;line-height:1.25}
 .zhuge-dashboard-shell .module-card:hover { border-color: var(--zhuge-accent); box-shadow: 0 10px 24px rgba(0, 0, 0, .12); }
 .zhuge-dashboard-shell .module-state.active,
 .zhuge-dashboard-shell .status-badge { border-color: color-mix(in srgb, var(--zhuge-success) 55%, transparent); color: var(--zhuge-success); }
@@ -154,6 +167,7 @@
 .zhuge-dashboard-shell .dashboard-workspaces .section-heading { margin-bottom: 12px; }
 .zhuge-dashboard-shell .dashboard-workspaces .ai-module-grid { grid-template-columns: 1fr; gap: 8px; }
 .zhuge-dashboard-shell .dashboard-workspaces .module-card { min-height: 68px; padding: 11px 13px; }
+.zhuge-dashboard-shell .dashboard-workspaces .module-card:has(.zhuge-mini-worklog-calendar) { align-items: start; }
 .zhuge-dashboard-shell .dashboard-right-column { display: grid; gap: var(--shell-section-gap); min-width: 0; }
 .zhuge-dashboard-shell .dashboard-section-heading,
 .zhuge-dashboard-shell .dashboard-section-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }

@@ -3173,7 +3173,9 @@ function todayPanel() {
 }
 
 function suggestionBatchSize(viewportWidth = window.innerWidth) {
-  return 6;
+  // Desktop has enough vertical room for the approved 2 × 4 first view;
+  // mobile keeps the smaller batch so cards remain comfortably tappable.
+  return Number(viewportWidth) >= 768 ? 8 : 6;
 }
 
 function suggestionBatchState(total = 0, requestedStart = 0, viewportWidth = window.innerWidth) {
@@ -3483,7 +3485,7 @@ function aiStatusBar() {
 }
 
 function center() {
-  return `<div class="daily-workspace"><div class="workbench-grid">${todaySummaryPanel()}${mobileWorklogTabs()}<section class="panel module calendar-module" id="mobile-worklog-time"><div class="desktop-calendar">${calendarPanel()}</div><div class="mobile-calendar">${mobileCalendarPanel()}</div></section><section class="panel module today-module">${todayPanel()}</section><section class="panel module suggestion-module" id="mobile-worklog-suggestions">${suggestionPanel()}</section></div>${aiStatusBar()}</div>`;
+  return `<div class="daily-workspace"><div class="workbench-grid">${todaySummaryPanel()}${mobileWorklogTabs()}<section class="panel module calendar-module" id="mobile-worklog-time"><div class="desktop-calendar">${calendarPanel()}</div><div class="mobile-calendar">${mobileCalendarPanel()}</div></section><section class="panel module today-module">${todayPanel()}</section><section class="panel module suggestion-module" id="mobile-worklog-suggestions">${suggestionPanel()}</section></div></div>`;
 }
 
 function workProfileStatusCard() {
@@ -3531,14 +3533,14 @@ function sync() {
     ["Supabase", session ? "🟢 已連線" : "⚪ 尚未登入", ""],
     ["本機資料", "🟢 正常", ""]
   ];
-  const consoleTabs = [
-    `<button class="console-tab active" type="button" aria-current="page">系統狀態</button>`,
-    `<button class="console-tab" type="button" data-open-workspace="ai-board">AI Board</button>`,
-    `<button class="console-tab" type="button" data-open-workspace="ai-board-board">工作看板</button>`,
-    `<button class="console-tab" type="button" data-open-workspace="ai-board-principles">工程準則</button>`,
-    `<button class="console-tab" type="button" data-open-workspace="ai-board-system-map">系統藍圖</button>`
-  ].join("");
-  return `<section class="panel control-center" style="margin-top:18px"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">查看系統狀態，並從這裡進入工程管理工具。</div></div></div><nav class="console-tabs" aria-label="控制台功能"><div class="console-tab-list">${consoleTabs}</div></nav><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section>`;
+  const controlCards = [
+    ["ai-board", "🤖", "AI Board", "AI／Co／PM 協作與工程入口"],
+    ["ai-board-board", "✅", "工作看板", "查看工程工作與執行狀態"],
+    ["ai-board-principles", "📚", "工程準則", "閱讀開發規則與治理原則"],
+    ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"]
+  ];
+  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
+  return `<section class="panel control-center" style="margin-top:18px"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
 }
 
 function nextKnowledgeId() {
@@ -4682,7 +4684,15 @@ function legacyBindTasks() {
 // Sprint 7 task lifecycle bindings. Search and drafts update locally without
 // writing task records; only explicit save/start/complete actions sync Cloud.
 function bindTasks() {
-  document.querySelectorAll("[data-task-new]").forEach(button => button.onclick = () => { editingTaskId = null; taskDraft = loadTaskDraft("new") || null; render(); });
+  document.querySelectorAll("[data-task-new]").forEach(button => button.onclick = () => { editingTaskId = null; taskDraft = loadTaskDraft("new") || null; taskDrawerOpen = true; render("task-drawer-open"); });
+  document.querySelectorAll("[data-task-drawer-close]").forEach(button => button.onclick = event => {
+    if (event.target.closest(".task-drawer-backdrop") || event.target.closest(".task-drawer-close")) {
+      clearTaskDraft(editingTaskId || "new");
+      editingTaskId = null;
+      taskDrawerOpen = false;
+      render("task-drawer-close");
+    }
+  });
   document.querySelectorAll("[data-task-filter]").forEach(button => button.onclick = () => { taskFilter = button.dataset.taskFilter || "all"; render(); });
   const search = document.getElementById("taskSearch");
   if (search) {
@@ -4717,7 +4727,7 @@ function bindTasks() {
     if (output) output.value = `${value}%`;
   });
   document.querySelector("[data-journal-save]")?.addEventListener("click", () => saveTaskJournal(taskJournalTaskId));
-  document.querySelectorAll("[data-task-cancel]").forEach(button => button.onclick = () => { clearTaskDraft(editingTaskId || "new"); editingTaskId = null; render(); });
+  document.querySelectorAll("[data-task-cancel]").forEach(button => button.onclick = () => { clearTaskDraft(editingTaskId || "new"); editingTaskId = null; taskDrawerOpen = false; render(); });
   const draftField = (field, value) => saveTaskDraft(editingTaskId || "new", { ...(loadTaskDraft(editingTaskId || "new") || {}), [field]: value });
   document.getElementById("taskTitle")?.addEventListener("input", event => draftField("title", event.target.value));
   document.getElementById("taskNote")?.addEventListener("input", event => draftField("note", event.target.value));
@@ -4739,6 +4749,7 @@ function bindTasks() {
     else createTask(title, note, dueDate, { priority, userPinned, status, progress });
     clearTaskDraft(editingTaskId || "new");
     editingTaskId = null;
+    taskDrawerOpen = false;
     saveTasks();
     toast("待辦事項已儲存");
     render();
@@ -4811,7 +4822,7 @@ function bindTasks() {
     }
     render("task-completed");
   });
-  document.querySelectorAll("[data-task-edit]").forEach(button => button.onclick = () => { editingTaskId = button.dataset.taskEdit; taskDraft = loadTaskDraft(editingTaskId) || null; render(); });
+  document.querySelectorAll("[data-task-edit]").forEach(button => button.onclick = () => { editingTaskId = button.dataset.taskEdit; taskDraft = loadTaskDraft(editingTaskId) || null; taskDrawerOpen = true; render("task-drawer-edit"); });
   document.querySelectorAll("[data-task-delete]").forEach(button => button.onclick = () => {
     const task = tasks.find(item => item.id === button.dataset.taskDelete);
     if (!task || !confirm(`確定刪除待辦事項「${task.title}」？`)) return;
@@ -4842,7 +4853,7 @@ function taskWorkspace() {
   const list = taskListItems();
   const draft = loadTaskDraft(editingTaskId || "new") || {};
   const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦事項"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦事項"}</button></div></section>`;
+  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦事項"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增待辦事項">×</button></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦事項"}</button></div></section>`;
   const rows = list.length ? list.map(task => {
     const timeline = workJournalForTask(task);
     const latest = timeline[timeline.length - 1];
@@ -4857,7 +4868,9 @@ function taskWorkspace() {
   const completionDisplayHours = completionExistingHours || completionElapsedHours;
   const completionCanCreateWorklog = Boolean(completionTask && taskCloudUuid(completionTask) && completionDisplayHours > 0);
   const dialog = completionTask ? `<div class="quick-add-dialog task-completion-dialog" role="dialog" aria-modal="true"><div class="quick-add-card"><h3>完成待辦事項</h3><p>完成是這件工作的最後一步；Journal 會保留結案結果，既有工時不會重複建立。</p><label for="taskCompletionNote">完成說明</label><textarea class="input" id="taskCompletionNote" rows="4" placeholder="例如：已完成安裝並驗收，客戶確認無誤。"></textarea><div class="task-completion-summary"><span>耗時</span><strong>${completionDisplayHours > 0 ? escapeHtml(formatHumanDuration(completionDisplayHours)) : "尚無關聯工時"}</strong></div><label class="task-completion-option"><input type="checkbox" id="taskCompletionCreateWorklog" ${completionCanCreateWorklog ? "checked" : ""} ${completionCanCreateWorklog ? "" : "disabled"}> 建立工時紀錄${completionExistingHours > 0 ? "（沿用既有工時）" : ""}</label><label class="task-completion-option"><input type="checkbox" id="taskCompletionCreateRecord" checked> 建立 Completion Record</label><div class="muted task-completion-hint">${completionCanCreateWorklog ? "已有關聯工時時不會重複建立。" : "請先透過工作紀錄建立工時，完成時才能帶入實際耗時。"}</div><div class="form-actions"><button class="btn2" type="button" data-task-completion-cancel>取消</button><button class="btn" type="button" data-task-completion-confirm>儲存並完成</button></div></div></div>` : "";
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section>${form}</div>${dialog}</section>`;
+  const drawerOpen = Boolean(editing || taskDrawerOpen);
+  const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦事項">${form}</aside>`;
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
@@ -4889,6 +4902,18 @@ function bind() {
   document.querySelectorAll("[data-toggle-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = !sidebarOpen; render(); });
   document.querySelectorAll("[data-close-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = false; render(); });
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
+  document.querySelectorAll("[data-open-worklog-date]").forEach(b => b.onclick = async () => {
+    const nextDate = new Date(`${b.dataset.openWorklogDate}T12:00:00`);
+    if (Number.isNaN(nextDate.getTime())) return;
+    sidebarOpen = false;
+    activeWorkspace = "worklog";
+    if (!openTabs.includes("worklog")) openTabs.push("worklog");
+    rememberWorkspace("worklog");
+    selected = nextDate;
+    const nextMonth = monthKey(nextDate);
+    if (nextMonth !== selectedMonth) await setSelectedMonth(nextMonth, nextDate.getDate());
+    else { selectedMonth = nextMonth; view = "center"; saveAll(); render("dashboard-worklog-date"); }
+  });
   document.querySelectorAll("[data-activate-workspace]").forEach(b => b.onclick = () => activateWorkspace(b.dataset.activateWorkspace));
   document.querySelectorAll("[data-close-workspace]").forEach(b => b.onclick = e => { e.stopPropagation(); closeWorkspace(b.dataset.closeWorkspace); });
   document.querySelectorAll("[data-month-nav]").forEach(b => b.onclick = async () => {

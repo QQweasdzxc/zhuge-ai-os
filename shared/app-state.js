@@ -27,10 +27,11 @@ let selectedMonth = monthKey(selected);
 let entries = [];
 let tasks = [];
 let editingTaskId = null;
-let taskFilter = "all";
+let taskFilter = "open";
 let taskSearch = "";
 let taskSearchComposing = false;
 let taskCompletionDialogId = null;
+let taskDrawerOpen = false;
 let taskDraft = null;
 // Sprint 7.2: Work Journal is an independent cloud-backed 1:N domain.
 let workJournalEntries = [];

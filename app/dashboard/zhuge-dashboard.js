@@ -36,14 +36,42 @@ function zhugeRootModuleCard({ id, icon, title, description, enabled = false, no
   return `<button class="zhuge-module-card" type="button" data-open-workspace="${escapeHtml(id)}" data-root-module-card="${escapeHtml(id)}">${content}<span class="zhuge-module-arrow" aria-hidden="true">→</span></button>`;
 }
 
+function zhugeRootWorklogCalendarMarkup() {
+  const hasEntries = typeof entries !== "undefined" && Array.isArray(entries);
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthRows = hasEntries ? entries.filter(item => String(item?.date || "").startsWith(monthKey)) : [];
+  const total = monthRows.reduce((sum, item) => sum + Number(item?.hours || 0), 0);
+  const todayKey = `${monthKey}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayTotal = monthRows.filter(item => item.date === todayKey).reduce((sum, item) => sum + Number(item?.hours || 0), 0);
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const days = [];
+  for (let index = 0; index < first.getDay(); index += 1) days.push(null);
+  for (let day = 1; day <= last.getDate(); day += 1) days.push(new Date(year, month, day));
+  while (days.length % 7) days.push(null);
+  const duration = value => typeof formatHumanDuration === "function" ? formatHumanDuration(value) : `${Number(value || 0)}h`;
+  const dayMarkup = day => {
+    if (!day) return `<span class="zhuge-mini-calendar-day is-empty" aria-hidden="true"></span>`;
+    const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    const dayTotal = monthRows.filter(item => item.date === dateKey).reduce((sum, item) => sum + Number(item?.hours || 0), 0);
+    const classes = ["zhuge-mini-calendar-day", dayTotal > 0 ? "has-hours" : "", dateKey === todayKey ? "is-today" : ""].filter(Boolean).join(" ");
+    return `<button class="${classes}" type="button" data-open-worklog-date="${dateKey}" aria-label="${dateKey}，${dayTotal > 0 ? `工時 ${duration(dayTotal)}` : "尚無工時"}"><b>${day.getDate()}</b><small>${dayTotal > 0 ? escapeHtml(duration(dayTotal)) : ""}</small></button>`;
+  };
+  return `<div class="zhuge-mini-worklog-calendar" data-mini-worklog-calendar><div class="zhuge-mini-calendar-head"><strong>${year} 年 ${month + 1} 月</strong><span>本月 ${escapeHtml(duration(total))}｜今日 ${escapeHtml(duration(todayTotal))}</span></div><div class="zhuge-mini-calendar-weekdays" aria-hidden="true">${["日", "一", "二", "三", "四", "五", "六"].map(label => `<span>${label}</span>`).join("")}</div><div class="zhuge-mini-calendar-grid">${days.map(dayMarkup).join("")}</div>${hasEntries && monthRows.length ? "" : "<small class=\"zhuge-mini-calendar-note\">登入後同步工時，點擊日期可直接進入 WorkLog。</small>"}</div>`;
+}
+
 function zhugeRootWorklogOverviewMarkup() {
   const hasEntries = typeof entries !== "undefined" && Array.isArray(entries);
-  if (!hasEntries) return `<small class="zhuge-module-overview">登入後顯示本月與今日工時</small>`;
-  const monthTotal = typeof monthEntries === "function" && typeof hours === "function" ? hours(monthEntries()) : 0;
+  if (!hasEntries) return `<small class="zhuge-module-overview">登入後顯示本月與今日工時</small>${zhugeRootWorklogCalendarMarkup()}`;
+  const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const monthTotal = typeof hours === "function" ? hours(entries.filter(item => String(item?.date || "").startsWith(currentMonthKey))) : 0;
   const todayTotal = typeof entriesForDate === "function" && typeof hours === "function" ? hours(entriesForDate(new Date())) : 0;
-  if (!entries.length) return `<small class="zhuge-module-overview">尚無工時紀錄 · 點擊開始記錄</small>`;
+  if (!entries.length) return `<small class="zhuge-module-overview">尚無工時紀錄 · 點擊開始記錄</small>${zhugeRootWorklogCalendarMarkup()}`;
   const duration = value => typeof formatHumanDuration === "function" ? formatHumanDuration(value) : `${Number(value || 0)}h`;
-  return `<small class="zhuge-module-overview">本月 ${escapeHtml(duration(monthTotal))} · 今日 ${escapeHtml(duration(todayTotal))}</small>`;
+  return `<small class="zhuge-module-overview">本月 ${escapeHtml(duration(monthTotal))} · 今日 ${escapeHtml(duration(todayTotal))}</small>${zhugeRootWorklogCalendarMarkup()}`;
 }
 
 function zhugeRootWorkspaceEnabled(id) {
@@ -105,6 +133,5 @@ function zhugeRootDashboardMarkup(identity = null) {
         <section class="zhuge-dashboard-section" aria-labelledby="zhuge-continue-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">最近工作</p><h3 id="zhuge-continue-title">繼續工作</h3></div></div>${zhugeRootContinueMarkup()}</section>
       </div>
     </div>
-    <div class="zhuge-root-principle"><span aria-hidden="true">🪶</span><span>單一身分 · 單一首頁 · 獨立模組 · 共用基礎層</span></div>
   </section>`;
 }
