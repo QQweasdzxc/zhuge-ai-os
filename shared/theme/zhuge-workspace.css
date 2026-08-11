@@ -7,6 +7,20 @@
  */
 /* Product-wide tokens are defined once in shared/theme/zhuge-shell.css. */
 
+/* Canonical Workspace Tabs tokens.  Every workspace route uses this same
+ * geometry; page styles may change only the active state and content below. */
+:root {
+  --zhuge-workspace-tabs-height: 42px;
+  --zhuge-workspace-tabs-gap: 6px;
+  --zhuge-workspace-tabs-padding-inline: 8px;
+  --zhuge-workspace-tab-height: 38px;
+  --zhuge-workspace-tab-padding-block: 8px;
+  --zhuge-workspace-tab-padding-inline: 12px;
+  --zhuge-workspace-tab-icon-gap: 6px;
+  --zhuge-workspace-tab-close-size: 18px;
+  --zhuge-workspace-tab-radius: 9px;
+}
+
 /* Shared frame geometry. Modules keep their own content markup, but the
  * outer page always uses the same background, header and content rhythm. */
 .zhuge-module-shell.workspace-shell {
@@ -508,24 +522,38 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell .workspace-tabs {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
-  min-height: 42px;
-  padding: 0 8px;
+  gap: var(--zhuge-workspace-tabs-gap);
+  min-height: var(--zhuge-workspace-tabs-height);
+  padding: 0 var(--zhuge-workspace-tabs-padding-inline);
   border: 0;
   border-bottom: 1px solid var(--zhuge-border);
   border-radius: 0;
   background: transparent;
 }
 .zhuge-module-shell .workspace-tab {
-  min-height: 38px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--zhuge-workspace-tab-icon-gap);
+  min-height: var(--zhuge-workspace-tab-height);
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--zhuge-workspace-tab-padding-block) var(--zhuge-workspace-tab-padding-inline);
   border: 1px solid transparent !important;
   border-bottom: 2px solid transparent !important;
-  border-radius: 9px 9px 0 0;
+  border-radius: var(--zhuge-workspace-tab-radius) var(--zhuge-workspace-tab-radius) 0 0;
   background: transparent;
   color: var(--zhuge-muted);
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.25;
   white-space: nowrap;
+}
+.zhuge-module-shell .workspace-tab > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zhuge-workspace-tab-icon-gap);
+  min-width: 0;
+  line-height: inherit;
 }
 .zhuge-module-shell .workspace-tab:hover,
 .zhuge-module-shell .workspace-tab:focus-visible {
@@ -545,10 +573,13 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell .workspace-tab .tab-close {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  flex: 0 0 var(--zhuge-workspace-tab-close-size);
+  width: var(--zhuge-workspace-tab-close-size);
+  height: var(--zhuge-workspace-tab-close-size);
   margin-left: 2px;
   border-radius: 5px;
+  font-size: .85rem;
+  font-weight: 800;
   line-height: 1;
 }
 .zhuge-module-shell .workspace-tab .tab-close:hover { background: color-mix(in srgb, var(--zhuge-text) 12%, transparent); }
