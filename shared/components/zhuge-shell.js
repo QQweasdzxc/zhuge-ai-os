@@ -43,16 +43,19 @@
   }
 
   function renderHeader(options = {}) {
-    const release = releaseInfo(options);
     const identity = identityInfo(options);
     const title = options.title || "Zhuge AI OS";
     const description = options.description || "AI 工作管理平台";
-    const actionMarkup = options.actionMarkup || (options.actionLabel
+    const requestedActionMarkup = options.actionMarkup || (options.actionLabel
       ? `<button class="btn" type="button" ${options.actionId ? `id="${esc(options.actionId)}"` : ""} ${options.actionData ? esc(options.actionData) : ""}>${esc(options.actionLabel)}</button>`
       : "");
+    // WorkLog used to inject its work-identity completion badge into every
+    // shared header.  Keep the account control as the only identity affordance
+    // in the header; the full profile state remains available in Settings.
+    const actionMarkup = /work-identity-header-status/.test(requestedActionMarkup) ? "" : requestedActionMarkup;
     const actions = actionMarkup ? `<div class="actions zhuge-shared-header-actions">${actionMarkup}</div>` : "";
     const id = options.id ? ` id="${esc(options.id)}"` : "";
-    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true"><div class="zhuge-shared-header-main"><button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽">☰</button><div class="zhuge-shared-header-copy"><p class="zhuge-shared-header-kicker">Zhuge AI OS</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}<span class="zhuge-shared-header-build" title="目前 Runtime 版本與 Build">v${esc(release.version)} · ${esc(release.build)}</span></div></header>`;
+    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true"><div class="zhuge-shared-header-main"><button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽">☰</button><div class="zhuge-shared-header-copy"><p class="zhuge-shared-header-kicker">Zhuge AI OS</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
   }
 
   function optionsFromTarget(target) {

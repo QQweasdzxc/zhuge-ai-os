@@ -78,6 +78,8 @@ html[data-theme="light"] {
 .zhuge-dashboard-shell .page-shell,.zhuge-dashboard-shell .page-shell h1,.zhuge-dashboard-shell .page-shell h2,.zhuge-dashboard-shell .page-shell p{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}.zhuge-dashboard-shell .identity-hub>div{min-width:0;max-width:100%}
 .zhuge-module-shell.zhuge-nav-collapsed>.workspace-app,.zhuge-module-shell.zhuge-nav-collapsed>.app{min-width:0}
 @media(max-width:900px){.zhuge-shared-header{height:auto;min-height:64px;align-items:flex-start;flex-direction:column;padding:13px 16px}.zhuge-shared-header-right{width:100%;justify-content:flex-start}.zhuge-shared-header-build{margin-left:auto}}
+@media (min-width: 768px) and (max-width: 1180px){.zhuge-shared-menu{display:inline-flex}}
+@media (min-width: 1181px){.zhuge-module-shell.zhuge-nav-collapsed .zhuge-shared-menu{display:inline-flex}}
 @media(max-width:767px){.zhuge-shared-header{border-radius:14px;padding:12px 14px}.zhuge-shared-menu{display:inline-flex}.zhuge-shared-header-right{gap:7px}.zhuge-shared-identity{max-width:100%}.zhuge-shared-header-actions .btn{padding:7px 10px;font-size:.75rem}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
 @media(max-width:900px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:14px}}
 @media(max-width:767px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:10px}}

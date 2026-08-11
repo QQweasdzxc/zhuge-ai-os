@@ -117,6 +117,13 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .suggestion-scan-footer{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}.suggestion-batch-actions{display:grid;grid-template-columns:1fr 1fr;width:auto}.suggestion-batch-actions .btn2{min-width:70px;padding:9px 6px}
 }
 
+/* UX polish: make the existing WorkLog entry path unmistakable without
+ * introducing a second capture flow. */
+.today-module .today-add-top{min-height:40px;padding:8px 13px;border-radius:10px;background:linear-gradient(180deg,#4fa2ff,#3489ec);white-space:nowrap}
+.today-module .today-empty-state span{color:#cbd5e1;font-size:.8rem;margin-top:5px}
+.suggestion-empty-state{display:grid;gap:8px;place-items:start;min-height:180px;padding:18px}
+.suggestion-empty-state .btn{margin-top:4px}
+
 /* Shared App Shell parity: the component is canonical; WorkLog only adds its
    content-specific theme. These rules keep the same collapse rail contract. */
 .workspace-worklog.zhuge-nav-collapsed .os-body{grid-template-columns:72px minmax(0,1fr)}
@@ -483,6 +490,21 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .workspace-worklog .os-sidebar .sidebar-build-summary { color: #cbd5e1; }
 .workspace-worklog .os-sidebar .sidebar-version-summary span,
 .workspace-worklog .os-sidebar .sidebar-build-summary span { color: #94a3b8; }
+
+/* Full-site UX polish: compact console navigation and clear quick-add hierarchy. */
+.console-tabs{margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid rgba(148,163,184,.18)}
+.console-tab-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.console-tab{min-height:36px;padding:7px 12px;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:rgba(15,23,42,.42);color:#cbd5e1;font:inherit;font-size:.8rem;font-weight:800;cursor:pointer;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.console-tab:hover,.console-tab:focus-visible{border-color:#60a5fa;background:rgba(30,64,175,.22);color:#eff6ff;outline:none}
+.console-tab.active,.console-tab[aria-current="page"]{border-color:#60a5fa;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.22)}
+.today-module .today-add-top{min-height:38px;padding:8px 14px;border:1px solid rgba(96,165,250,.62);background:linear-gradient(135deg,#2563eb,#3b82f6);box-shadow:0 4px 12px rgba(37,99,235,.18);white-space:nowrap}
+.today-module .today-add-top:hover,.today-module .today-add-top:focus-visible{background:linear-gradient(135deg,#1d4ed8,#2563eb);outline:none}
+.suggestion-empty-state{display:grid;place-items:start;gap:8px;min-height:180px;padding:18px}
+.suggestion-empty-state .btn{margin-top:4px}
+@media (max-width:767px){
+  .console-tab{flex:1 1 calc(50% - 6px);min-height:42px}
+  .today-module .today-add-top{min-height:42px}
+}
 .workspace-worklog .os-sidebar .sidebar-scroll {
   min-height: 0;
   flex: 1 1 auto;

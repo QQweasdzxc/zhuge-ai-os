@@ -161,7 +161,10 @@ test("Board entry loads Shared runtime and read adapter, not legacy prototype ru
   assert.match(index, /\.\/board-runtime\.js/);
   assert.doesNotMatch(index, /<script[^>]+app\.js/);
   assert.doesNotMatch(index, /TASK-014|TASK-016|PRINCIPLE-001/);
-  assert.match(read("app/dashboard/zhuge-dashboard.js"), /data-root-module-card="ai-board"/);
+  // AI Board is an engineering/admin destination reached from the Control
+  // Console, not a general-user Dashboard launcher card.
+  assert.doesNotMatch(read("app/dashboard/zhuge-dashboard.js"), /data-root-module-card="ai-board"/);
+  assert.match(read("modules/worklog/worklog-app.js"), /console-tabs/);
 });
 
 test("Board runtime uses controlled workflow RPCs and clears prototype fixtures before Cloud Read", () => {

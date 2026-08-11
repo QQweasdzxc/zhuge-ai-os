@@ -30,10 +30,64 @@ function zhugeRootIdentityMarkup(identity = null) {
   </div>`;
 }
 
-function zhugeRootModuleCard({ id, icon, title, description, enabled = false, note = "" } = {}) {
-  const content = `<span class="zhuge-module-icon" aria-hidden="true">${icon}</span><span class="zhuge-module-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small></span>${note ? `<span class="zhuge-module-note">${escapeHtml(note)}</span>` : ""}`;
+function zhugeRootModuleCard({ id, icon, title, description, enabled = false, note = "", metaMarkup = "" } = {}) {
+  const content = `<span class="zhuge-module-icon" aria-hidden="true">${icon}</span><span class="zhuge-module-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small>${metaMarkup}</span>${note ? `<span class="zhuge-module-note">${escapeHtml(note)}</span>` : ""}`;
   if (!enabled) return `<article class="zhuge-module-card is-disabled" aria-disabled="true">${content}</article>`;
   return `<button class="zhuge-module-card" type="button" data-open-workspace="${escapeHtml(id)}" data-root-module-card="${escapeHtml(id)}">${content}<span class="zhuge-module-arrow" aria-hidden="true">→</span></button>`;
+}
+
+function zhugeRootWorklogOverviewMarkup() {
+  const hasEntries = typeof entries !== "undefined" && Array.isArray(entries);
+  if (!hasEntries) return `<small class="zhuge-module-overview">登入後顯示本月與今日工時</small>`;
+  const monthTotal = typeof monthEntries === "function" && typeof hours === "function" ? hours(monthEntries()) : 0;
+  const todayTotal = typeof entriesForDate === "function" && typeof hours === "function" ? hours(entriesForDate(new Date())) : 0;
+  if (!entries.length) return `<small class="zhuge-module-overview">尚無工時紀錄 · 點擊開始記錄</small>`;
+  const duration = value => typeof formatHumanDuration === "function" ? formatHumanDuration(value) : `${Number(value || 0)}h`;
+  return `<small class="zhuge-module-overview">本月 ${escapeHtml(duration(monthTotal))} · 今日 ${escapeHtml(duration(todayTotal))}</small>`;
+}
+
+function zhugeRootWorkspaceEnabled(id) {
+  if (typeof workspaceRegistry === "undefined") return true;
+  const item = workspaceRegistry[id];
+  return Boolean(item && item.enabled !== false && item.hidden !== true && !item.comingSoon);
+}
+
+function zhugeRootWorkspaceCards() {
+  const definitions = [
+    ["worklog", "✏️", "WorkLog", "工時管理與工作紀錄", zhugeRootWorklogOverviewMarkup()],
+    ["tasks", "✅", "工作待辦", "管理今天要完成的工作"],
+    ["investment", "📈", "Investment", "投資組合與觀察清單"]
+  ];
+  return definitions.filter(([id]) => zhugeRootWorkspaceEnabled(id)).map(([id, icon, title, description, metaMarkup]) => zhugeRootModuleCard({ id, icon, title, description, metaMarkup, enabled: true })).join("");
+}
+
+function zhugeRootTaskStatusLabel(status = "") {
+  const labels = { open: "未完成", not_started: "待開始", in_progress: "進行中", completed: "已完成" };
+  return labels[status] || "待處理";
+}
+
+function zhugeRootTodoMarkup() {
+  const source = typeof tasks !== "undefined" && Array.isArray(tasks) ? tasks : [];
+  const pending = source
+    .filter(task => task && task.status !== "completed")
+    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+    .slice(0, 5);
+  if (!pending.length) return `<div class="zhuge-dashboard-empty"><strong>目前沒有待辦事項</strong><span>建立待辦後，這裡會顯示目前帳號需要處理的工作。</span></div>`;
+  return `<div class="zhuge-dashboard-task-list">${pending.map(task => `<button type="button" class="zhuge-dashboard-task-row" data-open-workspace="tasks"><span class="zhuge-dashboard-task-icon" aria-hidden="true">✅</span><span class="zhuge-dashboard-task-copy"><strong>${escapeHtml(task.title || "未命名待辦")}</strong><small>${escapeHtml(zhugeRootTaskStatusLabel(task.status))}${task.dueDate ? `｜期限 ${escapeHtml(task.dueDate)}` : ""}</small></span><span class="zhuge-dashboard-task-arrow" aria-hidden="true">→</span></button>`).join("")}</div>`;
+}
+
+function zhugeRootContinueMarkup() {
+  const recent = typeof recentWorkspaces !== "undefined" && Array.isArray(recentWorkspaces) ? recentWorkspaces : [];
+  const items = [...new Set(recent)]
+    .filter(id => id !== "dashboard" && zhugeRootWorkspaceEnabled(id))
+    .slice(0, 3)
+    .map(id => {
+      const item = typeof workspaceRegistry !== "undefined" ? workspaceRegistry[id] : null;
+      return item ? { id, icon: item.icon, title: item.label } : null;
+    })
+    .filter(Boolean);
+  if (!items.length) return `<div class="zhuge-dashboard-empty"><strong>目前尚無可繼續的工作</strong><span>開始使用工作空間後，最近處理的內容會顯示在這裡。</span></div>`;
+  return `<div class="zhuge-dashboard-continue-list">${items.map(item => `<button type="button" class="zhuge-dashboard-continue-row" data-open-workspace="${escapeHtml(item.id)}"><span class="zhuge-dashboard-continue-icon" aria-hidden="true">${escapeHtml(item.icon || "□")}</span><span><strong>${escapeHtml(item.title)}</strong><small>繼續使用這個工作空間</small></span><span class="zhuge-dashboard-task-arrow" aria-hidden="true">→</span></button>`).join("")}</div>`;
 }
 
 function zhugeRootReleaseMeta() {
@@ -44,28 +98,13 @@ function zhugeRootReleaseMeta() {
 
 function zhugeRootDashboardMarkup(identity = null) {
   return `<section class="panel zhuge-root-dashboard" data-zhuge-root-dashboard>
-    <div class="zhuge-root-hero">
-      <div class="zhuge-root-brand-lockup">
-        <div class="zhuge-root-mark" aria-hidden="true">🪶</div>
-        <div><p class="zhuge-root-eyebrow">Zhuge AI OS</p><h2>AI 工作管理平台</h2><p class="muted">一個身分，進入所有工作模組</p><p class="muted">使用 Google 帳號管理待辦事項、工時紀錄、工作知識，並安全存取已授權的 Google Drive 文件。</p></div>
+    <div class="zhuge-dashboard-workspace-layout">
+      <section class="zhuge-dashboard-section zhuge-dashboard-workspaces" aria-labelledby="zhuge-workspaces-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">工作空間</p><h3 id="zhuge-workspaces-title">我的工作空間</h3><p class="muted">只顯示目前帳號可使用的正式模組。</p></div><div class="zhuge-dashboard-workspace-list">${zhugeRootWorkspaceCards()}</div></section>
+      <div class="zhuge-dashboard-right-column">
+        <section class="zhuge-dashboard-section" aria-labelledby="zhuge-todo-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">待處理</p><h3 id="zhuge-todo-title">我的待辦事項</h3></div><button type="button" class="btn2" data-open-workspace="tasks">查看全部</button></div>${zhugeRootTodoMarkup()}</section>
+        <section class="zhuge-dashboard-section" aria-labelledby="zhuge-continue-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">最近工作</p><h3 id="zhuge-continue-title">繼續工作</h3></div></div>${zhugeRootContinueMarkup()}</section>
       </div>
-      ${zhugeRootIdentityMarkup(identity)}
     </div>
-    <section class="zhuge-root-section" aria-labelledby="zhuge-daily-brief-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">AI DAILY BRIEF</p><h3 id="zhuge-daily-brief-title">Mr. KM 今日工作簡報</h3></div>${typeof aiDailyBriefMarkup === "function" ? aiDailyBriefMarkup() : `<div class="zhuge-root-empty">登入後即可查看今日待辦、工時與 AI 建議。</div>`}</section>
-    <section class="zhuge-module-launcher" aria-labelledby="zhuge-module-launcher-title">
-      <div class="zhuge-module-launcher-head"><div><p class="zhuge-root-eyebrow">MODULE LAUNCHER</p><h3 id="zhuge-module-launcher-title">工作模組入口</h3><p class="muted">請選擇要進入的工作模組</p></div><span class="zhuge-session-badge">🔐 共用 Google Session</span></div>
-      <div class="zhuge-module-grid">
-        ${zhugeRootModuleCard({ id: "worklog", icon: "🪶", title: "WorkLog", description: "工作管理、工時紀錄、待辦事項", enabled: true })}
-        <a class="zhuge-module-card" href="../../app/Board/ai/" data-root-module-card="ai-board" style="text-decoration:none"><span class="zhuge-module-icon" aria-hidden="true">▦</span><span class="zhuge-module-copy"><strong>AI Board</strong><small>正式 TASK、最高原則與 PM 驗證</small></span><span class="zhuge-module-note">Cloud Read</span><span class="zhuge-module-arrow" aria-hidden="true">→</span></a>
-        <a class="zhuge-module-card" href="../investment/" data-root-module-card="investment" style="text-decoration:none"><span class="zhuge-module-icon" aria-hidden="true">📈</span><span class="zhuge-module-copy"><strong>Investment</strong><small>投資組合、觀察清單與策略</small></span><span class="zhuge-module-note">SIT</span><span class="zhuge-module-arrow" aria-hidden="true">→</span></a>
-        ${zhugeRootModuleCard({ id: "hr", icon: "👥", title: "HR", description: "人員、制度與工作協作", note: "開發中" })}
-        ${zhugeRootModuleCard({ id: "travel", icon: "✈️", title: "Travel", description: "旅遊規劃、天氣、景點", note: "開發中" })}
-        ${zhugeRootModuleCard({ id: "settings", icon: "⚙️", title: "設定", description: "帳號、同步與系統設定", enabled: true })}
-      </div>
-    </section>
-    <section class="zhuge-root-section zhuge-recent-activity" aria-labelledby="zhuge-recent-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">RECENT ACTIVITY</p><h3 id="zhuge-recent-title">最近使用</h3></div><button class="zhuge-activity-row" type="button" data-open-workspace="worklog"><span class="zhuge-activity-icon">🪶</span><span><strong>WorkLog</strong><small>工作管理與每日工時</small></span><span class="zhuge-activity-arrow" aria-hidden="true">→</span></button></section>
-    <section class="zhuge-root-section zhuge-ai-notice" aria-labelledby="zhuge-notice-title"><p class="zhuge-root-eyebrow">AI NOTICE</p><h3 id="zhuge-notice-title">Mr. KM 已準備好陪你開始工作</h3><p class="muted">先完成登入，再由 AI OS 首頁帶你進入今天需要的工作模組。</p></section>
-    ${zhugeRootReleaseMeta()}
     <div class="zhuge-root-principle"><span aria-hidden="true">🪶</span><span>單一身分 · 單一首頁 · 獨立模組 · 共用基礎層</span></div>
   </section>`;
 }

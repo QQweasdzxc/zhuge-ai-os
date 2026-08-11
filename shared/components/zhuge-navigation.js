@@ -8,6 +8,7 @@
   "use strict";
 
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
+  const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
@@ -97,6 +98,14 @@
     return `<div class="side-section" data-nav-group="${esc(group)}">${heading}${items}</div>`;
   }
 
+  function controlGroupMarkup(registry, options, esc, root, board) {
+    // Engineering destinations live inside the Control Console workspace.  The
+    // global rail exposes one compact entry only; the console owns its own
+    // second-level tabs so AI Board does not permanently expand in every view.
+    const control = itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
+    return `<div class="side-control-group" data-sidebar-control-group="1">${control}</div>`;
+  }
+
   function render(options = {}) {
     const esc = options.escapeHtml || escape;
     const foundation = global.ZhugeFoundationConfig || {};
@@ -114,14 +123,13 @@
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
-    // The sidebar structure must be identical for every Workspace. Visibility
-    // remains an explicit presentation option for a future existing permission
-    // signal; it is not a new security boundary. The current QJC runtime keeps
-    // the governance group visible so active state is the only page delta.
+    // The sidebar structure must be identical for every Workspace. Governance
+    // destinations are rendered by the Control Console's second-level tabs;
+    // keeping the source definition here preserves one canonical registry.
     const showGovernance = options.adminVisible !== false;
-    const governance = showGovernance ? `<div class="sidebar-admin-group" data-sidebar-admin="engineering-governance"><div class="sidebar-admin-label">系統管理</div>${board}</div>` : "";
-    const systemItems = ["library", "sync", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
-    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${systemItems[1]}${governance}${systemItems[2]}</div>`;
+    const control = showGovernance ? controlGroupMarkup(registry, options, esc, root, board) : itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
+    const systemItems = ["library", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
+    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}</div>`;
     return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div><div class="sidebar-scroll">${agentPanel(agents, esc)}${camp}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-version-summary"><span>Version</span><strong>v${esc(version)}</strong></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
@@ -143,6 +151,21 @@
       event.preventDefault();
       const shell = shellFor(button);
       setCollapsed(shell, !shell?.classList.contains("zhuge-nav-collapsed"));
+    });
+    document.addEventListener("click", event => {
+      const button = event.target.closest("[data-shared-nav-group-toggle='control']");
+      if (!button) return;
+      event.preventDefault();
+      const content = document.getElementById(button.getAttribute("aria-controls") || "shared-nav-control-content");
+      if (!content) return;
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", expanded ? "false" : "true");
+      button.setAttribute("title", expanded ? "展開控制台" : "收合控制台");
+      button.textContent = expanded ? "⌄" : "⌃";
+      content.hidden = expanded;
+      content.classList.toggle("is-expanded", !expanded);
+      content.classList.toggle("is-collapsed", expanded);
+      try { global.localStorage?.setItem(CONTROL_GROUP_KEY, expanded ? "0" : "1"); } catch { /* preference is optional */ }
     });
   }
   function mount(target, options = {}) {

@@ -51,6 +51,24 @@ button.zhuge-module-card:hover, button.zhuge-module-card:focus-visible { border-
 .zhuge-module-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.25rem; }
 .zhuge-root-principle { display: flex; align-items: center; gap: 9px; margin-top: 24px; padding: 13px 15px; border-left: 3px solid #69aaff; color: #c8d8eb; background: rgba(11, 32, 62, .55); font-size: .86rem; line-height: 1.5; }
 .zhuge-root-principle span:first-child { color: #8fc2ff; }
+.zhuge-dashboard-workspace-layout { display: grid; grid-template-columns: minmax(0, .42fr) minmax(0, .58fr); gap: 14px; align-items: start; }
+.zhuge-dashboard-section { min-width: 0; padding: 18px; border: 1px solid rgba(145, 180, 226, .18); border-radius: 16px; background: rgba(9, 25, 49, .58); }
+.zhuge-dashboard-right-column { display: grid; gap: 14px; min-width: 0; }
+.zhuge-dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.zhuge-dashboard-section-heading h3 { margin: 0; font-size: 1.05rem; }
+.zhuge-dashboard-workspace-list { display: grid; gap: 8px; }
+.zhuge-dashboard-workspace-list .zhuge-module-card { min-height: 68px; padding: 12px 14px; }
+.zhuge-dashboard-task-list,.zhuge-dashboard-continue-list { display: grid; gap: 6px; }
+.zhuge-dashboard-task-row,.zhuge-dashboard-continue-row { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid rgba(145, 180, 226, .16); border-radius: 12px; color: inherit; text-align: left; background: rgba(4, 14, 30, .28); cursor: pointer; }
+.zhuge-dashboard-task-row:hover,.zhuge-dashboard-task-row:focus-visible,.zhuge-dashboard-continue-row:hover,.zhuge-dashboard-continue-row:focus-visible { border-color: #63a9ff; background: rgba(25, 65, 122, .38); outline: none; }
+.zhuge-dashboard-task-icon,.zhuge-dashboard-continue-icon { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 9px; background: rgba(113, 166, 235, .14); }
+.zhuge-dashboard-task-copy,.zhuge-dashboard-continue-row > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.zhuge-dashboard-task-copy strong,.zhuge-dashboard-continue-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-dashboard-task-copy small,.zhuge-dashboard-continue-row small { color: #b6c7dc; font-size: .76rem; }
+.zhuge-dashboard-task-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.05rem; }
+.zhuge-dashboard-empty { display: grid; gap: 4px; padding: 12px 2px 2px; color: #b6c7dc; }
+.zhuge-dashboard-empty strong { color: #e6f0ff; }
+.zhuge-dashboard-empty span { font-size: .8rem; line-height: 1.45; }
 .zhuge-root-section { margin-top: 25px; padding-top: 22px; border-top: 1px solid rgba(145, 180, 226, .16); }
 .zhuge-root-section-heading { margin-bottom: 12px; }
 .zhuge-root-section-heading h3 { margin: 0; font-size: 1.12rem; }
@@ -90,6 +108,7 @@ button.zhuge-module-card:hover, button.zhuge-module-card:focus-visible { border-
   .zhuge-root-hero { align-items: stretch; flex-direction: column; }
   .zhuge-root-identity { min-width: 0; }
   .zhuge-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zhuge-dashboard-workspace-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
   .zhuge-root-dashboard { padding: 18px 14px; }

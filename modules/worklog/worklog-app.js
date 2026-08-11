@@ -3161,7 +3161,7 @@ function mobileHomeActionPanel() {
   const todayDone = hours(entriesForDate(new Date()));
   const remaining = Math.max(0, Math.round((8 - todayDone) * 10) / 10);
   const message = remaining > 0 ? `💬 今天還有 ${formatHumanDuration(remaining)} 尚未記錄` : "💬 今天工時已完成 ✅";
-  return `<section class="panel mobile-home-action"><button class="btn full" data-action="add">＋ 新增工時</button><div class="mobile-today-metrics"><div><span>今日工時</span><b>${formatHumanDuration(todayDone)} / 8h</b></div><div><span>剩餘工時</span><b>${formatHumanDuration(remaining)}</b></div></div><div class="muted">${message}</div></section>`;
+  return `<section class="panel mobile-home-action"><button class="btn full" data-action="add">＋ 加入工時</button><div class="mobile-today-metrics"><div><span>今日工時</span><b>${formatHumanDuration(todayDone)} / 8h</b></div><div><span>剩餘工時</span><b>${formatHumanDuration(remaining)}</b></div></div><div class="muted">${message}</div></section>`;
 }
 
 function todayPanel() {
@@ -3169,11 +3169,11 @@ function todayPanel() {
   const h = hours(list);
   const selectedIsToday = key(selected) === key(new Date());
   const selectedLabel = selectedIsToday ? "今天" : `${selected.getMonth() + 1}/${selected.getDate()}`;
-  return `<div class="panel-head panel-fixed-header"><h2>我的工時</h2><div class="tag">${selectedLabel}｜${formatHumanDuration(h)} / 8h</div></div><div class="panel-scroll-content today-entry-list">${list.length ? list.map(e => `<div class="entry"><div class="entry-main"><b>${escapeHtml(e.title)}</b><div class="muted">${escapeHtml(formatWorklogTimeRange(e))}｜${formatHumanDuration(e.hours)}${e.ecpTask ? `｜🏷 任務` : ""}${e.taskTitleSnapshot ? `｜🔗 ${escapeHtml(e.taskTitleSnapshot)}` : ""}</div></div><div class="actions compact entry-actions"><button class="btn amber" data-edit-id="${e.id}">編輯</button><button class="btn red" data-del-id="${e.id}">刪除</button></div></div>`).join("") : `<div class="empty today-empty-state"><b>${selectedIsToday ? "今天" : selectedLabel}尚未建立工時</b></div>`}</div><div class="panel-fixed-footer today-panel-footer"><button class="btn full today-add-bottom" data-action="add">＋ 新增工時</button></div>`;
+  return `<div class="panel-head panel-fixed-header"><div><h2>我的工時</h2><div class="tag">${selectedLabel}｜${formatHumanDuration(h)} / 8h</div></div><button class="btn today-add-top" type="button" data-action="add">＋ 加入工時</button></div><div class="panel-scroll-content today-entry-list">${list.length ? list.map(e => `<div class="entry"><div class="entry-main"><b>${escapeHtml(e.title)}</b><div class="muted">${escapeHtml(formatWorklogTimeRange(e))}｜${formatHumanDuration(e.hours)}${e.ecpTask ? `｜🏷 任務` : ""}${e.taskTitleSnapshot ? `｜🔗 ${escapeHtml(e.taskTitleSnapshot)}` : ""}</div></div><div class="actions compact entry-actions"><button class="btn amber" data-edit-id="${e.id}">編輯</button><button class="btn red" data-del-id="${e.id}">刪除</button></div></div>`).join("") : `<div class="empty today-empty-state"><b>${selectedIsToday ? "今天" : selectedLabel}尚未建立工時</b><span>按「加入工時」開始記錄今天的工作。</span></div>`}</div><div class="panel-fixed-footer today-panel-footer"><button class="btn2 full today-add-bottom" data-action="add">＋ 加入工時</button></div>`;
 }
 
 function suggestionBatchSize(viewportWidth = window.innerWidth) {
-  return Number(viewportWidth || 0) <= 767 ? 6 : 8;
+  return 6;
 }
 
 function suggestionBatchState(total = 0, requestedStart = 0, viewportWidth = window.innerWidth) {
@@ -3234,7 +3234,7 @@ function suggestionPriority(model = {}) {
   let reason = "這是你已確認的「我的工作」，可直接加入今天工時。";
   if (weekdayUsage > 0) reason = `你曾在相同星期記錄這項工作 ${weekdayUsage} 次。`;
   else if (recentUsage > 0) reason = `你最近 90 天曾記錄這項工作 ${recentUsage} 次。`;
-  else if (knowledgeReferences.length > 0) reason = "這項工作來自 Mr. KM 最近學到並經你確認的工作內容。";
+  else if (knowledgeReferences.length > 0) reason = "這項工作來自最近整理並經你確認的工作內容。";
   return { score, reason };
 }
 
@@ -3272,11 +3272,11 @@ function suggestionCardMarkup(item = {}) {
 
 function suggestionPanel() {
   const suggestions = makeSuggestions();
-  if (!suggestions.length) return `<div class="suggestion-panel-head panel-fixed-header"><h2>🪶 Mr. KM 建議</h2></div><div class="panel-scroll-content"><div class="empty"><b>目前沒有建議</b><div class="muted">可能工時已滿，或「我的工作」尚未建立。</div></div></div>`;
+  if (!suggestions.length) return `<div class="suggestion-panel-head panel-fixed-header"><h2>🪶 工作建議</h2></div><div class="panel-scroll-content"><div class="empty suggestion-empty-state"><b>目前沒有工作建議</b><div class="muted">建立第一筆工時後，這裡會依你的工作模型提供更相關的建議。</div><button class="btn" type="button" data-action="add">＋ 加入工時</button></div></div>`;
   const state = suggestionBatchState(suggestions.length, aiTodaySuggestionIndex);
   aiTodaySuggestionIndex = state.start;
   const batch = suggestions.slice(state.start, state.end);
-  return `<div class="suggestion-panel-head panel-fixed-header"><h2>🪶 Mr. KM 建議</h2><b data-suggestion-total>${suggestions.length} 項待處理</b><span data-suggestion-batch-status>第 ${state.batchIndex + 1} / ${state.batchCount} 批</span></div><div class="panel-scroll-content ai-suggestion-scan-list" data-suggestion-batch-list>${batch.map(suggestionCardMarkup).join("")}</div><div class="suggestion-scan-footer panel-fixed-footer"><span class="muted" data-suggestion-remaining>${state.remaining > 0 ? `還有 ${state.remaining} 項` : "✓ 已看完這批建議"}</span><div class="suggestion-batch-actions"><button class="btn2 ${state.batchIndex === 0 ? "is-disabled" : ""}" type="button" data-suggestion-prev-batch aria-disabled="${state.batchIndex === 0}">上一批</button><button class="btn2 ${state.batchIndex >= state.batchCount - 1 ? "is-disabled" : ""}" type="button" data-suggestion-next-batch aria-disabled="${state.batchIndex >= state.batchCount - 1}">下一批</button></div></div>`;
+  return `<div class="suggestion-panel-head panel-fixed-header"><h2>🪶 工作建議</h2><b data-suggestion-total>${suggestions.length} 項待處理</b><span data-suggestion-batch-status>第 ${state.batchIndex + 1} / ${state.batchCount} 批</span></div><div class="panel-scroll-content ai-suggestion-scan-list" data-suggestion-batch-list>${batch.map(suggestionCardMarkup).join("")}</div><div class="suggestion-scan-footer panel-fixed-footer"><span class="muted" data-suggestion-remaining>${state.remaining > 0 ? `還有 ${state.remaining} 項` : "✓ 已看完這批建議"}</span><div class="suggestion-batch-actions"><button class="btn2 ${state.batchIndex === 0 ? "is-disabled" : ""}" type="button" data-suggestion-prev-batch aria-disabled="${state.batchIndex === 0}">上一批</button><button class="btn2 ${state.batchIndex >= state.batchCount - 1 ? "is-disabled" : ""}" type="button" data-suggestion-next-batch aria-disabled="${state.batchIndex >= state.batchCount - 1}">下一批</button></div></div>`;
 }
 
 function bindSuggestionCardActions(root = document) {
@@ -3331,7 +3331,7 @@ function mobileWorklogTabs() {
   const suggestionCount = makeSuggestions().length;
   const tabs = [
     { id: "time", label: "工時" },
-    { id: "suggestions", label: `Mr. KM 建議 <span class="mobile-worklog-badge">${suggestionCount}</span>` }
+    { id: "suggestions", label: `工作建議 <span class="mobile-worklog-badge">${suggestionCount}</span>` }
   ];
   return `<nav class="mobile-worklog-tabs" aria-label="工時工作區捷徑">${tabs.map(tab => `<button class="mobile-worklog-tab ${mobileWorklogTab === tab.id ? "active" : ""}" type="button" data-mobile-worklog-tab="${tab.id}">${tab.label}</button>`).join("")}</nav>`;
 }
@@ -3531,7 +3531,14 @@ function sync() {
     ["Supabase", session ? "🟢 已連線" : "⚪ 尚未登入", ""],
     ["本機資料", "🟢 正常", ""]
   ];
-  return `<section class="panel control-center" style="margin-top:18px"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">AI OS 健康狀態。</div></div></div><h3 class="dashboard-section-label">Operational Status</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section>`;
+  const consoleTabs = [
+    `<button class="console-tab active" type="button" aria-current="page">系統狀態</button>`,
+    `<button class="console-tab" type="button" data-open-workspace="ai-board">AI Board</button>`,
+    `<button class="console-tab" type="button" data-open-workspace="ai-board-board">工作看板</button>`,
+    `<button class="console-tab" type="button" data-open-workspace="ai-board-principles">工程準則</button>`,
+    `<button class="console-tab" type="button" data-open-workspace="ai-board-system-map">系統藍圖</button>`
+  ].join("");
+  return `<section class="panel control-center" style="margin-top:18px"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">查看系統狀態，並從這裡進入工程管理工具。</div></div></div><nav class="console-tabs" aria-label="控制台功能"><div class="console-tab-list">${consoleTabs}</div></nav><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section>`;
 }
 
 function nextKnowledgeId() {

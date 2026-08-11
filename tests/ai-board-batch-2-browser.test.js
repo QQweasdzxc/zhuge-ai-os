@@ -78,8 +78,10 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /nav-collapse-audit/);
   assert.match(output, /zhuge-nav-collapsed/);
   assert.match(output, /cross-workspace-audit/);
-  assert.match(output, /dashboard,worklog,tasks,investment,library,sync,ai-board,ai-board-board,ai-board-principles,ai-board-system-map,settings/);
-  assert.match(output, /heading=1;duplicateMenu=0;children=3/);
+  // Engineering destinations live inside 控制台; the global rail keeps only
+  // the canonical user-facing workspaces and system entry points.
+  assert.match(output, /dashboard,worklog,tasks,investment,library,sync,settings/);
+  assert.match(output, /heading=0;duplicateMenu=0;children=0/);
   assert.ok(args.includes("--window-size=1600,1000"), "Browser QA must execute with a desktop viewport");
   assert.match(output, /history-audit/);
   assert.match(output, /歷史完成/);
