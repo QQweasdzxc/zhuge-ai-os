@@ -1,0 +1,83 @@
+/* Shared page frame and canonical visual tokens. Modules own their content;
+ * this file owns the product-wide surfaces, typography contrast and header
+ * geometry. Keep light/dark values here so every Workspace changes together. */
+:root {
+  --zhuge-page-bg: #0b0f16;
+  --zhuge-surface: #141a23;
+  --zhuge-surface-raised: #1b2330;
+  --zhuge-surface-soft: rgba(20, 26, 35, .76);
+  --zhuge-border: rgba(148, 163, 184, .18);
+  --zhuge-text: #f5f7fb;
+  --zhuge-muted: #a5afbf;
+  --zhuge-accent: #79aefc;
+  --zhuge-accent-strong: #4d8df4;
+  --zhuge-success: #55d39a;
+  --zhuge-warning: #e9bb63;
+  --zhuge-danger: #ef8d98;
+  --zhuge-radius-lg: 22px;
+  --zhuge-radius-md: 16px;
+  --zhuge-radius-sm: 12px;
+  /* Canonical Shared App Shell geometry.  Modules may shape their content,
+   * but the outer frame, header rhythm and main gutter use these tokens. */
+  --shell-sidebar-width: 260px;
+  --shell-main-gap: 14px;
+  --shell-page-padding-x: 24px;
+  --shell-page-padding-y: 24px;
+  --shell-header-height: 94px;
+  --shell-header-content-gap: 12px;
+  --shell-section-gap: 10px;
+  --shell-radius: 16px;
+  --zhuge-shadow: 0 18px 45px rgba(0, 0, 0, .16);
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --zhuge-page-bg: #f2f4f7;
+  --zhuge-surface: #f8fafc;
+  --zhuge-surface-raised: #ffffff;
+  --zhuge-surface-soft: rgba(248, 250, 252, .92);
+  --zhuge-border: rgba(51, 65, 85, .12);
+  --zhuge-text: #1d2430;
+  --zhuge-muted: #687386;
+  --zhuge-accent: #2878e8;
+  --zhuge-accent-strong: #1769d2;
+  --zhuge-success: #138a5d;
+  --zhuge-warning: #9a6a00;
+  --zhuge-danger: #bd3848;
+  --zhuge-shadow: 0 18px 45px rgba(15, 23, 42, .07);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] {
+    --zhuge-page-bg: #f2f4f7;
+    --zhuge-surface: #f8fafc;
+    --zhuge-surface-raised: #ffffff;
+    --zhuge-surface-soft: rgba(248, 250, 252, .92);
+    --zhuge-border: rgba(51, 65, 85, .12);
+    --zhuge-text: #1d2430;
+    --zhuge-muted: #687386;
+    --zhuge-accent: #2878e8;
+    --zhuge-accent-strong: #1769d2;
+    --zhuge-success: #138a5d;
+    --zhuge-warning: #9a6a00;
+    --zhuge-danger: #bd3848;
+    --zhuge-shadow: 0 18px 45px rgba(15, 23, 42, .07);
+    color-scheme: light;
+  }
+}
+
+.zhuge-shared-header{width:100%;min-width:0;height:var(--shell-header-height);min-height:var(--shell-header-height);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 22px;border:1px solid #334155;border-radius:var(--shell-radius);background:#1e293b;color:#f8fafc;box-shadow:0 10px 30px rgba(2,6,23,.14);box-sizing:border-box;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;line-height:normal}
+.zhuge-shared-header-main{display:flex;align-items:center;gap:12px;min-width:0}.zhuge-shared-menu{display:none;flex:0 0 auto}
+.zhuge-shared-header-copy{min-width:0}.zhuge-shared-header-kicker{margin:0 0 3px;color:#93c5fd;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:normal}.zhuge-shared-header h1{margin:0;font-size:1.28rem;line-height:1.25}.zhuge-shared-header-copy>p:last-child{margin:4px 0 0;color:#cbd5e1;font-size:.78rem;line-height:1.45}.zhuge-shared-header-right{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;flex-wrap:wrap}.zhuge-shared-identity{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid #334155;border-radius:12px;background:#111827;padding:7px 10px}.zhuge-shared-identity-dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;flex:0 0 auto}.zhuge-shared-identity-dot.is-authenticated{background:#22c55e}.zhuge-shared-identity-copy{display:flex;flex-direction:column;min-width:0}.zhuge-shared-identity-copy strong{font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zhuge-shared-identity-copy small{color:#94a3b8;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zhuge-shared-header-actions{margin:0}.zhuge-shared-header-build{color:#94a3b8;font-size:.68rem;white-space:nowrap}
+.zhuge-module-shell>.workspace-app,.zhuge-module-shell>.app{min-width:0;width:100%}.zhuge-module-shell>.workspace-app>.zhuge-shared-header{margin-bottom:var(--shell-header-content-gap)}.workspace-content-container,.workspace-canvas{min-width:0;max-width:none}
+.os-shell.zhuge-module-shell{max-width:none;margin:0}.os-shell.zhuge-module-shell>.os-main{min-width:0;width:100%}.os-shell.zhuge-module-shell>.sidebar-backdrop{display:none}
+.zhuge-dashboard-shell .page-shell{width:100%;max-width:none;margin:0;padding:0 0 40px}.zhuge-dashboard-shell .section-heading{margin-top:0}
+.zhuge-dashboard-shell>.workspace-app{min-width:0;padding:var(--shell-page-padding-y) var(--shell-page-padding-x);box-sizing:border-box}
+.investment-module-shell>.workspace-app{min-width:0;padding:var(--shell-page-padding-y) var(--shell-page-padding-x);box-sizing:border-box}
+.zhuge-dashboard-shell .page-shell,.zhuge-dashboard-shell .page-shell h1,.zhuge-dashboard-shell .page-shell h2,.zhuge-dashboard-shell .page-shell p{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}.zhuge-dashboard-shell .identity-hub>div{min-width:0;max-width:100%}
+.zhuge-module-shell.zhuge-nav-collapsed>.workspace-app,.zhuge-module-shell.zhuge-nav-collapsed>.app{min-width:0}
+@media(max-width:900px){.zhuge-shared-header{height:auto;min-height:64px;align-items:flex-start;flex-direction:column;padding:13px 16px}.zhuge-shared-header-right{width:100%;justify-content:flex-start}.zhuge-shared-header-build{margin-left:auto}}
+@media(max-width:767px){.zhuge-shared-header{border-radius:14px;padding:12px 14px}.zhuge-shared-menu{display:inline-flex}.zhuge-shared-header-right{gap:7px}.zhuge-shared-identity{max-width:100%}.zhuge-shared-header-actions .btn{padding:7px 10px;font-size:.75rem}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
+@media(max-width:900px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:14px}}
+@media(max-width:767px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:10px}}

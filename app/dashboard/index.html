@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Zhuge AI OS is an AI-powered productivity platform for personal work management, Google Drive knowledge, and secure AI assistance.">
+    <meta name="application-version" content="0.9.0-alpha.9.12">
+    <meta name="theme-color" content="#06101e">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Zhuge AI OS｜AI Productivity Platform">
+    <meta property="og:description" content="Zhuge AI OS is an AI-powered productivity platform for personal work management and knowledge organization.">
+    <meta property="og:image" content="https://qqweasdzxc.github.io/zhuge-ai-os/shared/assets/logo/zhuge-ai-os.svg">
+    <link rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/app/dashboard/">
+    <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
+    <title>Zhuge AI OS</title>
+    <link rel="stylesheet" href="../../assets/zhuge-skeleton.css">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20260811-1340">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20260811-1340">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-dashboard.css?v=20260811-dashboard-1">
+    <script src="../../shared/i18n/zh-TW.js"></script>
+  </head>
+  <body>
+    <div class="zhuge-module-shell workspace-shell zhuge-dashboard-shell">
+      <div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="dashboard"></div>
+      <div class="app workspace-app">
+        <div id="zhugeSharedHeader" data-zhuge-shared-header data-title="AI OS 首頁" data-description="AI 工作管理平台｜單一 Google 身分，管理所有工作模組"></div>
+        <main class="page-shell ai-os-home">
+
+      <div class="dashboard-appearance-bar" aria-label="外觀設定">
+        <div class="dashboard-appearance-copy"><strong>首頁外觀</strong><span>選擇你偏好的顯示方式；系統模式會跟隨裝置設定。</span></div>
+        <div class="appearance-segmented" role="group" aria-label="選擇外觀">
+          <button type="button" data-appearance="system" aria-pressed="false">系統</button>
+          <button type="button" data-appearance="light" aria-pressed="false">淺色</button>
+          <button type="button" data-appearance="dark" aria-pressed="false">深色</button>
+        </div>
+      </div>
+
+      <section class="identity-hub" aria-labelledby="identity-title">
+        <div>
+          <p class="eyebrow">AI 工作管理平台</p>
+          <h2 id="identity-title">一個 Google 身分，管理每一天的工作</h2>
+          <p>使用 Google 帳號登入，進入 WorkLog、工作待辦與 Investment。</p>
+          <p>Google Drive 僅在你主動選取檔案後使用。</p>
+        </div>
+        <a class="primary-action" href="../../modules/worklog/?app=1">使用 Google 帳號登入 <small>Continue with Google</small></a>
+      </section>
+
+      <section aria-labelledby="modules-title">
+        <div class="section-heading"><p class="eyebrow">工作空間</p><h2 id="modules-title">我的工作空間</h2><p>選擇今天要開始的工作</p></div>
+        <div class="module-grid ai-module-grid">
+          <a class="module-card" href="../../modules/worklog/" data-module="worklog"><span class="module-icon">📝</span><span><strong>WorkLog</strong><small>工時管理、工作紀錄、AI 建議</small></span><span class="module-state active">可使用</span></a>
+          <a class="module-card" href="../../modules/worklog/?app=1&amp;workspace=tasks" data-module="tasks"><span class="module-icon">✅</span><span><strong>工作待辦</strong><small>管理今天要完成的工作</small></span><span class="module-state active">可使用</span></a>
+          <a class="module-card" href="../../modules/investment/" data-module="investment"><span class="module-icon">📈</span><span><strong>Investment</strong><small>投資組合、觀察清單與策略</small></span><span class="module-state active">SIT 可使用</span></a>
+        </div>
+      </section>
+
+      <section class="recent-activity" aria-labelledby="recent-title">
+        <div class="section-heading"><p class="eyebrow">最近活動</p><h2 id="recent-title">最近使用</h2></div>
+        <div class="activity-row dashboard-empty-state"><span class="module-icon">🕘</span><div><strong>目前尚無最近活動</strong><p>登入並開始使用工作模組後，最近開啟的內容會顯示在這裡。</p></div></div>
+      </section>
+
+      <section class="system-status" aria-labelledby="system-status-title">
+        <div class="section-heading"><p class="eyebrow">服務概況</p><h2 id="system-status-title">系統狀態</h2></div>
+        <div class="system-status-grid">
+          <div class="system-status-card"><strong>工作空間</strong><span class="status-badge neutral">登入後確認</span></div>
+          <div class="system-status-card"><strong>資料同步</strong><span class="status-badge neutral">登入後確認</span></div>
+          <div class="system-status-card"><strong>AI 協作</strong><span class="status-badge neutral">登入後確認</span></div>
+          <div class="system-status-card"><strong>Knowledge</strong><span class="status-badge neutral">登入後確認</span></div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <div><strong>Zhuge AI OS</strong><span>AI OS Foundation v1.0</span></div>
+        <nav aria-label="產品資訊"><a href="../../product/">Product</a><a href="../../privacy/">Privacy Policy</a><a href="../../terms/">Terms of Service</a><a href="../../scopes/">Scopes</a><a href="../../google-data/">Google Data</a><a href="../../support/">Support</a><a href="../../contact/">Contact</a></nav>
+        <small class="copyright">Copyright © 2026 Zhuge AI OS</small>
+      </footer>
+        </main>
+      </div>
+    </div>
+    <script src="../../shared/config/version.js?v=20260811-1340"></script>
+    <script src="../../shared/components/zhuge-navigation.js?v=20260811-1340"></script>
+    <script src="../../shared/components/zhuge-shell.js?v=20260811-1340"></script>
+    <script src="../../shared/theme/zhuge-appearance.js?v=20260811-dashboard-1"></script>
+    <script src="../router/index.js"></script>
+    <script>
+      document.addEventListener("click", event => {
+        const shell = document.querySelector(".zhuge-dashboard-shell");
+        if (!shell) return;
+        if (event.target.closest("[data-toggle-sidebar]")) shell.classList.toggle("sidebar-open");
+        if (event.target.closest("[data-close-sidebar]")) shell.classList.remove("sidebar-open");
+      });
+    </script>
+  </body>
+</html>
