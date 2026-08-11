@@ -60,7 +60,7 @@ function zhugeRootWorklogCalendarMarkup() {
     const classes = ["zhuge-mini-calendar-day", dayTotal > 0 ? "has-hours" : "", dateKey === todayKey ? "is-today" : ""].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-open-worklog-date="${dateKey}" aria-label="${dateKey}，${dayTotal > 0 ? `工時 ${duration(dayTotal)}` : "尚無工時"}"><b>${day.getDate()}</b><small>${dayTotal > 0 ? escapeHtml(duration(dayTotal)) : ""}</small></button>`;
   };
-  return `<div class="zhuge-mini-worklog-calendar" data-mini-worklog-calendar><div class="zhuge-mini-calendar-head"><strong>${year} 年 ${month + 1} 月</strong><span>本月 ${escapeHtml(duration(total))}｜今日 ${escapeHtml(duration(todayTotal))}</span></div><div class="zhuge-mini-calendar-weekdays" aria-hidden="true">${["日", "一", "二", "三", "四", "五", "六"].map(label => `<span>${label}</span>`).join("")}</div><div class="zhuge-mini-calendar-grid">${days.map(dayMarkup).join("")}</div>${hasEntries && monthRows.length ? "" : "<small class=\"zhuge-mini-calendar-note\">登入後同步工時，點擊日期可直接進入 WorkLog。</small>"}</div>`;
+  return `<div class="zhuge-mini-worklog-calendar" data-mini-worklog-calendar><div class="zhuge-mini-calendar-head"><strong>${year} 年 ${month + 1} 月</strong><span>本月 ${escapeHtml(duration(total))}｜今日 ${escapeHtml(duration(todayTotal))}</span></div><div class="zhuge-mini-calendar-weekdays" aria-hidden="true">${["日", "一", "二", "三", "四", "五", "六"].map(label => `<span>${label}</span>`).join("")}</div><div class="zhuge-mini-calendar-grid" data-mini-calendar-grid>${days.map(dayMarkup).join("")}</div>${hasEntries && monthRows.length ? "" : "<small class=\"zhuge-mini-calendar-note\">登入後同步工時，點擊日期可直接進入 WorkLog。</small>"}</div>`;
 }
 
 function zhugeRootWorklogOverviewMarkup() {

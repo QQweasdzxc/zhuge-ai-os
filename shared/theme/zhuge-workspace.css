@@ -503,3 +503,79 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   .investment-module-shell .investment-watch-grid,
   .investment-module-shell .investment-settings-grid { grid-template-columns: 1fr; }
 }
+
+/* PM QA Round 3: shared geometry and interaction polish. */
+.zhuge-module-shell .workspace-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--zhuge-border);
+  border-radius: 0;
+  background: transparent;
+}
+.zhuge-module-shell .workspace-tab {
+  min-height: 38px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+  color: var(--zhuge-muted);
+  white-space: nowrap;
+}
+.zhuge-module-shell .workspace-tab:hover,
+.zhuge-module-shell .workspace-tab:focus-visible {
+  border-color: color-mix(in srgb, var(--zhuge-accent) 36%, transparent) !important;
+  border-bottom-color: var(--zhuge-accent) !important;
+  background: color-mix(in srgb, var(--zhuge-accent) 8%, transparent);
+  color: var(--zhuge-text);
+  outline: none;
+}
+.zhuge-module-shell .workspace-tab.active {
+  border-color: var(--zhuge-border) !important;
+  border-bottom-color: var(--zhuge-accent) !important;
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: 0 -1px 0 var(--zhuge-surface);
+}
+.zhuge-module-shell .workspace-tab .tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border-radius: 5px;
+  line-height: 1;
+}
+.zhuge-module-shell .workspace-tab .tab-close:hover { background: color-mix(in srgb, var(--zhuge-text) 12%, transparent); }
+.zhuge-module-shell .btn,
+.zhuge-module-shell .btn2 { min-height: 40px; border-radius: var(--zhuge-radius-sm); }
+.zhuge-module-shell .settings-reset-action,
+.zhuge-module-shell .settings-logout-action { width: 100%; }
+.zhuge-module-shell .settings-reset-action { border-color: var(--zhuge-border); background: var(--zhuge-surface-soft); color: var(--zhuge-text); }
+.zhuge-module-shell .settings-logout-action { background: var(--zhuge-danger, #dc2626); color: #fff; box-shadow: 0 5px 14px color-mix(in srgb, var(--zhuge-danger, #dc2626) 22%, transparent); }
+.zhuge-module-shell .settings-logout-action:hover,
+.zhuge-module-shell .settings-logout-action:focus-visible { background: #b91c1c; }
+.tasks-workspace .task-workspace-grid { display: block !important; grid-template-columns: none !important; }
+.tasks-workspace .task-drawer:not(.is-open) { pointer-events: none; }
+
+@media (min-width: 768px) {
+  .zhuge-module-shell .workspace-worklog .workbench-grid { align-items: start; grid-auto-rows: auto; }
+  .zhuge-module-shell .workspace-worklog .workbench-grid > .panel,
+  .zhuge-module-shell .workspace-worklog .summary-dashboard,
+  .zhuge-module-shell .workspace-worklog .calendar-module,
+  .zhuge-module-shell .workspace-worklog .today-module,
+  .zhuge-module-shell .workspace-worklog .suggestion-module { height: auto !important; min-height: 0 !important; max-height: none !important; }
+  .zhuge-module-shell .workspace-worklog .calendar-module,
+  .zhuge-module-shell .workspace-worklog .today-module,
+  .zhuge-module-shell .workspace-worklog .suggestion-module,
+  .zhuge-module-shell .workspace-worklog .panel-layout,
+  .zhuge-module-shell .workspace-worklog .desktop-calendar { overflow: visible; }
+  .zhuge-module-shell .workspace-worklog .panel-scroll-content,
+  .zhuge-module-shell .workspace-worklog .today-entry-list,
+  .zhuge-module-shell .workspace-worklog .calendar-scroll-content { max-height: none; overflow: visible; }
+}

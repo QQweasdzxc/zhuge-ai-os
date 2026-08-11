@@ -138,6 +138,7 @@
 .zhuge-dashboard-shell .zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--zhuge-accent)}
 .zhuge-dashboard-shell .zhuge-mini-calendar-day.is-empty{cursor:default;opacity:.35}
 .zhuge-dashboard-shell .zhuge-mini-calendar-note{display:block;margin-top:6px;color:var(--zhuge-muted);font-size:.62rem;line-height:1.25}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;grid-auto-flow:row;width:100%}.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-rows:minmax(25px,auto)}
 .zhuge-dashboard-shell .module-card:hover { border-color: var(--zhuge-accent); box-shadow: 0 10px 24px rgba(0, 0, 0, .12); }
 .zhuge-dashboard-shell .module-state.active,
 .zhuge-dashboard-shell .status-badge { border-color: color-mix(in srgb, var(--zhuge-success) 55%, transparent); color: var(--zhuge-success); }

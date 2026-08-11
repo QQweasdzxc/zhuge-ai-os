@@ -20,8 +20,11 @@ test("WorkLog Quick Add keeps one primary add flow and compact suggestions", () 
 
 test("Dashboard exposes a current-user mini WorkLog calendar without engineering copy", () => {
   const dashboard = read("app/dashboard/zhuge-dashboard.js");
+  const dashboardCss = read("shared/theme/zhuge-dashboard.css");
   assert.match(dashboard, /function zhugeRootWorklogCalendarMarkup/);
   assert.match(dashboard, /data-open-worklog-date/);
+  assert.match(dashboard, /data-mini-calendar-grid/);
+  assert.match(dashboardCss, /grid-template-columns:repeat\(7/);
   assert.match(dashboard, /登入後顯示本月與今日工時/);
   assert.doesNotMatch(dashboard, /zhuge-root-principle/);
 });
@@ -46,7 +49,20 @@ test("Tasks default to active items and open the existing form in a drawer", () 
   assert.match(source, /taskDrawerOpen = false/);
   assert.match(css, /\.task-drawer-backdrop/);
   assert.match(css, /\.task-drawer\.is-open/);
+  assert.match(css, /task-workspace-grid\{display:block/);
   assert.match(source, /taskFilter === "open" \? task.status !== "completed"/);
+});
+
+test("Full-site UX polish keeps collapsible regions out of layout flow and uses shared tab/action semantics", () => {
+  const workspaceCss = read("shared/theme/zhuge-workspace.css");
+  const worklogCss = read("modules/worklog/worklog.css");
+  const settings = read("modules/worklog/worklog-app.js");
+  assert.match(workspaceCss, /workspace-tabs[\s\S]*border-bottom/);
+  assert.match(workspaceCss, /workspace-worklog[\s\S]*summary-dashboard/);
+  assert.match(workspaceCss, /task-drawer:not\(\.is-open\)/);
+  assert.match(settings, /settings-reset-action/);
+  assert.match(settings, /settings-logout-action/);
+  assert.match(read("shared/theme/zhuge-os.css"), /zhuge-mini-calendar-grid/);
 });
 
 test("Shared hamburger visibility is controlled by shell breakpoints", () => {
