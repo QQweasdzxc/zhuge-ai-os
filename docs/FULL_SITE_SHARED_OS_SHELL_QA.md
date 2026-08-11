@@ -3,7 +3,7 @@
 ## Candidate baseline
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260811-1331`
+- Runtime Build: `20260811-1336`
 - Scope: Shared OS Shell / Navigation / Theme / Responsive presentation only
 - Golden Master: AI Board Shared OS Shell geometry
 
