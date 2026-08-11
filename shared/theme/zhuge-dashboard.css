@@ -293,4 +293,9 @@ html[data-theme="light"] .zhuge-dashboard-shell .sidebar-build-summary { color: 
   .zhuge-dashboard-shell .module-card { min-height: 76px; }
   .zhuge-dashboard-shell .dashboard-workspaces .ai-module-grid { grid-template-columns: 1fr; }
   .zhuge-dashboard-shell .dashboard-section-heading { align-items: flex-start; }
+  .zhuge-dashboard-shell .dashboard-auth-strip { width: 100%; min-width: 0; overflow: hidden; }
+  .zhuge-dashboard-shell .dashboard-auth-strip > div { width: 100%; max-width: 100%; }
+  .zhuge-dashboard-shell .dashboard-auth-strip .primary-action { width: 100%; max-width: 100%; white-space: normal; }
+  .zhuge-dashboard-shell .page-shell,
+  .zhuge-dashboard-shell .zhuge-root-dashboard { width: 100%; min-width: 0; }
 }
