@@ -29,6 +29,19 @@ test("Dashboard exposes a current-user mini WorkLog calendar without engineering
   assert.doesNotMatch(dashboard, /zhuge-root-principle/);
 });
 
+test("Dashboard WorkLog calendar reuses WorkLog month cells without nested interactive cards", () => {
+  const dashboard = read("app/dashboard/zhuge-dashboard.js");
+  const worklog = read("modules/worklog/worklog-app.js");
+  const osCss = read("shared/theme/zhuge-os.css");
+  assert.match(worklog, /function worklogCalendarCells\(year, month/);
+  assert.match(worklog, /worklogCalendarCells\(y, m\)/);
+  assert.match(dashboard, /worklogCalendarCells\(year, month, monthRows\)/);
+  assert.match(dashboard, /data-dashboard-add-worklog/);
+  assert.match(dashboard, /zhuge-module-card-main/);
+  assert.doesNotMatch(dashboard, /<button class="zhuge-module-card"/);
+  assert.match(osCss, /\.zhuge-module-card-main[\s\S]*\.zhuge-module-card-detail/);
+});
+
 test("Control Console owns engineering destinations instead of global sidebar children", () => {
   const worklog = read("modules/worklog/worklog-app.js");
   for (const label of ["系統狀態", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));

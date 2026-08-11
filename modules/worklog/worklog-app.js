@@ -3032,23 +3032,35 @@ function onboarding() {
   return `<div class="wrap"><div class="card"><div class="top"><div><div class="muted">🪶 初次認識</div><h1>你好，我是 Mr. KM</h1><div class="muted">我想先了解你的工作，之後才能產生更貼近你的每日工作建議卡。</div></div><div class="header-right">${userBadge()}<div class="tag">${VERSION}</div></div></div><section class="panel" style="margin-top:18px"><div class="profile-grid"><div><label>你的職務</label><select id="role" class="input">${roles.map(r => `<option>${r}</option>`).join("")}</select></div><div><label>每日工時</label><select class="input"><option>09:00~18:00，午休 12:00~13:00</option></select></div></div><label>我的工作</label><div class="row two" id="tagOptions">${tagButtons(tagsForRole("採購"))}</div><label>SOP 狀態</label><select id="sop" class="input"><option>目前沒有 SOP，先用職務模型</option><option>有 SOP，之後上傳</option></select><label>工作來源</label><div class="row two">${["Google Drive", "手動紀錄"].map(s => `<button class="btn2 src-btn" data-src="${s}">${s}</button>`).join("")}</div><button class="btn full" id="saveProfile">建立我的工作</button></section></div></div>`;
 }
 
+/* Shared month-cell model used by WorkLog's full calendar and the Dashboard
+ * compact preview.  Keeping the date math here prevents the two views from
+ * drifting into different week layouts or work-hour indicators. */
+function worklogCalendarCells(year, month, sourceEntries = entries) {
+  const first = new Date(year, month, 1);
+  const cells = [];
+  const leadingDays = first.getDay();
+  for (let offset = 0; offset < 42; offset += 1) {
+    const cellDate = new Date(year, month, 1 - leadingDays + offset);
+    const inCurrentMonth = cellDate.getMonth() === month;
+    const dateKey = key(cellDate);
+    const dayHours = (Array.isArray(sourceEntries) ? sourceEntries : [])
+      .filter(entry => entry?.date === dateKey)
+      .reduce((sum, entry) => sum + Number(entry?.hours || 0), 0);
+    cells.push({ date: cellDate, dateKey, day: cellDate.getDate(), inCurrentMonth, hours: dayHours, isToday: dateKey === key(new Date()) });
+  }
+  return cells;
+}
+
 function calendarPanel() {
   const base = selectedMonthDate(1);
-  const y = base.getFullYear(), m = base.getMonth(), first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
+  const y = base.getFullYear(), m = base.getMonth();
   const selectedInMonth = monthKey(selected) === selectedMonth;
   const monthLabel = `${y}/${String(m + 1).padStart(2, "0")}`;
   let html = `<div class="panel-layout"><div class="panel-head panel-fixed-header"><h2>${monthLabel}</h2><div class="actions compact"><button class="btn2" data-month-nav="-1">上一月</button><button class="btn2" data-today="1">今天</button><button class="btn2" data-month-nav="1">下一月</button></div></div><div class="panel-scroll-content calendar-scroll-content"><div class="cal">${["日", "一", "二", "三", "四", "五", "六"].map(x => `<div class="muted cal-head">${x}</div>`).join("")}`;
-  const leadingDays = first.getDay();
-  for (let offset = 0; offset < 42; offset++) {
-    const cellDate = new Date(y, m, 1 - leadingDays + offset);
-    const d = cellDate.getDate();
-    const inCurrentMonth = cellDate.getMonth() === m;
-    const dk = key(cellDate);
-    const h = entries.filter(e => e.date === dk).reduce((s, e) => s + Number(e.hours || 0), 0);
-    const isToday = dk === key(new Date());
-    const selectedDay = inCurrentMonth && selectedInMonth && d === selected.getDate();
-    html += `<div class="day ${inCurrentMonth ? "" : "outside-month"} ${isToday ? "today" : ""} ${selectedDay ? "sel" : ""}"${inCurrentMonth ? ` data-day="${d}"` : ` aria-disabled="true"`}><b>${d}</b><div class="bar"><div class="fill" style="width:${Math.min(100, h / 8 * 100)}%"></div></div><small>${h ? formatHumanDuration(h) : ""}</small></div>`;
-  }
+  worklogCalendarCells(y, m).forEach(cell => {
+    const selectedDay = cell.inCurrentMonth && selectedInMonth && cell.day === selected.getDate();
+    html += `<div class="day ${cell.inCurrentMonth ? "" : "outside-month"} ${cell.isToday ? "today" : ""} ${selectedDay ? "sel" : ""}"${cell.inCurrentMonth ? ` data-day="${cell.day}"` : ` aria-disabled="true"`}><b>${cell.day}</b><div class="bar"><div class="fill" style="width:${Math.min(100, cell.hours / 8 * 100)}%"></div></div><small>${cell.hours ? formatHumanDuration(cell.hours) : ""}</small></div>`;
+  });
   html += `</div></div><div class="panel-fixed-footer calendar-panel-footer"><div class="month-summary"><b>${monthLabel} 工時</b><span>${formatHumanDuration(hours(monthEntries()))}</span></div><button class="btn full" data-export-month="1">⬇️ 下載 ${monthLabel} ECP 匯入檔</button></div></div>`;
   return html;
 }
@@ -4904,6 +4916,18 @@ function bind() {
   document.querySelectorAll("[data-toggle-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = !sidebarOpen; render(); });
   document.querySelectorAll("[data-close-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = false; render(); });
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
+  document.querySelectorAll("[data-dashboard-add-worklog]").forEach(b => b.onclick = event => {
+    event.stopPropagation();
+    sidebarOpen = false;
+    activeWorkspace = "worklog";
+    if (!openTabs.includes("worklog")) openTabs.push("worklog");
+    rememberWorkspace("worklog");
+    editingEntryId = null;
+    captureSeed = null;
+    view = "capture";
+    saveAll();
+    render("dashboard-add-worklog");
+  });
   document.querySelectorAll("[data-open-worklog-date]").forEach(b => b.onclick = async () => {
     const nextDate = new Date(`${b.dataset.openWorklogDate}T12:00:00`);
     if (Number.isNaN(nextDate.getTime())) return;

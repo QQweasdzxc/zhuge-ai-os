@@ -187,6 +187,6 @@ test("both Dashboard presentations link to the Investment module without router 
   const router = fs.readFileSync(path.join(ROOT, "app", "router", "index.js"), "utf8");
 
   assert.match(staticDashboard, /href="\.\.\/\.\.\/modules\/investment\/"/);
-  assert.match(runtimeDashboard, /href="\.\.\/investment\/"/);
+  assert.match(runtimeDashboard, /\["investment",/);
   assert.match(router, /investment:\s*"modules\/investment\/"/);
 });
