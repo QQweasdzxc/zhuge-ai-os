@@ -156,7 +156,7 @@
  * current-user work and continuation context on the right. */
 .zhuge-dashboard-shell .dashboard-workspace-layout {
   display: grid;
-  grid-template-columns: minmax(0, .42fr) minmax(0, .58fr);
+  grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr);
   gap: var(--shell-section-gap);
   align-items: start;
 }

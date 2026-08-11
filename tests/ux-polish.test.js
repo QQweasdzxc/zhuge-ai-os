@@ -45,6 +45,16 @@ test("Dashboard WorkLog calendar reuses WorkLog month cells without nested inter
   assert.match(osCss, /\.zhuge-module-card-main[\s\S]*\.zhuge-module-card-detail/);
 });
 
+test("Dashboard workspace layout gives the calendar the wider column and keeps secondary cards compact", () => {
+  const os = read("shared/theme/zhuge-os.css");
+  const dashboard = read("shared/theme/zhuge-dashboard.css");
+  assert.match(os, /zhuge-dashboard-workspace-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2\.1fr\) minmax\(280px, 1fr\)/s);
+  assert.match(os, /zhuge-dashboard-workspace-list\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(os, /zhuge-dashboard-worklog-entry\s*\{[^}]*grid-column:\s*1 \/ -1/s);
+  assert.match(os, /@media \(max-width: 900px\)[\s\S]*zhuge-dashboard-workspace-list\s*\{\s*grid-template-columns: 1fr/s);
+  assert.match(dashboard, /dashboard-workspace-layout[\s\S]*grid-template-columns: minmax\(0, 2\.1fr\) minmax\(280px, 1fr\)/s);
+});
+
 test("Control Console owns engineering destinations instead of global sidebar children", () => {
   const worklog = read("modules/worklog/worklog-app.js");
   for (const label of ["系統狀態", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));
