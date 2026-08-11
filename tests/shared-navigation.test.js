@@ -41,6 +41,12 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /\.workspace-shell-header/);
   assert.match(css, /\.workspace-subnav/);
   assert.match(css, /\.workspace-content-container/);
+  assert.match(css, /--zhuge-sidebar-item-height: 40px/);
+  assert.match(css, /--zhuge-sidebar-child-height: 36px/);
+  assert.match(css, /canonical Sidebar geometry/i);
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
+  assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.side-item\{min-height:46px/);
+  assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.os-sidebar\{min-height/);
   assert.match(index, /class="zhuge-module-shell workspace-shell"/);
   assert.match(index, /class="top workspace-shell-header"/);
   assert.match(index, /class="board-local-nav workspace-subnav"/);

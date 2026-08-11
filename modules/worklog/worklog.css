@@ -192,21 +192,8 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .workspace-worklog .workspace-canvas{border:0;border-radius:0;background:transparent;padding:0;min-height:0;overflow:visible}
 .workspace-worklog .workbench-grid{margin-top:0;grid-template-columns:minmax(0,33.5fr) minmax(0,33fr) minmax(0,33.5fr);gap:14px}
 .workspace-worklog .os-body{align-items:stretch}
-.workspace-worklog .os-sidebar{min-height:calc(100vh - 36px);display:flex;flex-direction:column;background:linear-gradient(180deg,#0b1728,#0b1421)}
-.workspace-worklog .agent-panel{display:none}
-.sidebar-brand{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 6px 18px;margin:-2px -2px 10px;border-bottom:1px solid #334155}
-.sidebar-brand .brand-row{min-width:0}.sidebar-brand .brand-stack h1{font-size:1.25rem;line-height:1.15;white-space:nowrap}
-.brand-mark{display:inline-block;filter:saturate(1.25)}
-.sidebar-brand .brand-companion{margin-left:35px;margin-top:4px;font-size:0.8125rem}
-.sidebar-menu-mark{display:inline-flex;flex:0 0 auto;border:0;background:transparent;font-size:1.125rem;padding:5px;color:#94a3b8}
-.workspace-worklog .developer-build-info{margin-top:auto;color:#94a3b8;font-size:0.6875rem;padding:12px 6px 4px;line-height:1.5}
-.sidebar-sync-summary{display:grid;gap:2px;cursor:pointer}.sidebar-sync-summary strong{color:#cbd5e1;font-size:0.75rem}.sidebar-sync-summary span,.sidebar-sync-summary time,.sidebar-version-summary span,.sidebar-version-summary strong{display:block}.sidebar-sync-summary time{color:#cbd5e1;font-style:normal}.sidebar-version-summary{display:grid;gap:2px;margin-top:9px;color:#94a3b8}.sidebar-version-summary strong{color:#cbd5e1}
 .developer-version-details{margin-top:8px;border-top:1px solid rgba(51,65,85,.72);padding-top:7px}.developer-version-details summary{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#bfdbfe;font-weight:850;cursor:pointer;list-style:none}.developer-version-details summary::-webkit-details-marker{display:none}.developer-version-details[open] summary span{transform:rotate(90deg)}.developer-version-details summary span{transition:transform .16s ease}.developer-version-content{display:grid;gap:3px;margin-top:7px;color:#64748b;overflow-wrap:anywhere}
 .daily-workspace{display:flex;flex-direction:column;min-width:0;min-height:calc(100vh - 36px)}.ai-status-bar{display:flex;align-items:center;gap:18px;margin-top:12px;padding:12px 16px;border:1px solid #334155;border-radius:14px;background:linear-gradient(135deg,#0a1828,#0b1422);color:#cbd5e1}.ai-status-bar>strong{flex:0 0 auto;color:#f8fafc;font-size:0.8125rem;letter-spacing:.03em}.ai-status-items{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.ai-service-badge{display:inline-flex;align-items:center;min-height:30px;padding:5px 10px;border:1px solid #334155;border-radius:999px;background:#0f2033;color:#dbeafe}.ai-status-items span{font-size:0.75rem;font-weight:800;white-space:nowrap}
-.workspace-worklog .side-section{background:rgba(10,24,40,.82)}
-.workspace-worklog .side-item{min-height:46px;font-size:0.9375rem}
-.workspace-worklog .side-item.on{background:linear-gradient(135deg,#173d83,#17346d);border-color:#3b82f6}
-
 /* Shared Workspace Shell parity (TASK-014).  WorkLog keeps its existing
  * business panels and data flow, while the outer frame now uses the same
  * header, sub-navigation, container and responsive surface as AI Board and
@@ -270,7 +257,6 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 @media(min-width:768px) and (max-width:1279px){
   .workspace-worklog .os-body{grid-template-columns:220px minmax(0,1fr)}
   .workspace-worklog .workbench-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"summary summary" "calendar today" "suggestion suggestion";gap:10px}
-  .sidebar-brand .brand-stack h1{font-size:1.0625rem}
   .workbench-grid{--daily-workspace-panel-height:clamp(540px,calc(100vh - 260px),640px)}
   .workbench-grid>.suggestion-module{height:var(--daily-workspace-panel-height);min-height:var(--daily-workspace-panel-height);max-height:var(--daily-workspace-panel-height)}
 }
@@ -284,8 +270,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .workspace-worklog .os-topbar .header-right{margin-left:auto}
   .workspace-worklog .work-identity-header-status{width:38px;height:32px;padding:0;display:grid;place-items:center;border-radius:11px}
   .workspace-worklog .work-identity-header-status span{font-size:0;max-width:none}.workspace-worklog .work-identity-header-status.ready span:after{content:"🟢";font-size:0.875rem}.workspace-worklog .work-identity-header-status.incomplete span:after{content:"🟡";font-size:0.875rem}.workspace-worklog .work-identity-header-status small{display:none}
-  .workspace-worklog .os-body{display:block}.workspace-worklog .os-sidebar{min-height:100vh}
-  .sidebar-brand .sidebar-menu-mark{display:none}.sidebar-brand .sidebar-close{margin:0;display:inline-flex}
+  .workspace-worklog .os-body{display:block}.sidebar-brand .sidebar-close{margin:0;display:inline-flex}
   .workspace-worklog .workspace-canvas{padding:0}
   .workspace-worklog .workbench-grid{grid-template-columns:1fr;grid-template-areas:"summary" "mobiletabs" "calendar" "today" "suggestion";gap:8px;margin:0}
   .mobile-worklog-tabs{grid-area:mobiletabs;display:grid!important;grid-template-columns:1fr 1fr;gap:4px;padding:0;background:#071321}
@@ -366,140 +351,6 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .worklog-created-toast{bottom:max(12px,env(safe-area-inset-bottom));min-width:calc(100vw - 24px);gap:10px}
 }
 
-/* Runtime parity: WorkLog must render the AI Board Sidebar Golden Master.
- * WorkLog keeps its content/business styles, but no longer overrides the
- * shared rail geometry, density, surfaces, or active-state treatment. */
-.workspace-worklog .os-sidebar {
-  box-sizing: border-box;
-  align-self: start;
-  position: sticky;
-  top: 18px;
-  width: 260px;
-  height: calc(100vh - 14px);
-  min-height: 0;
-  max-height: calc(100vh - 14px);
-  overflow: hidden;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 22px;
-  padding: 14px;
-  font: 16px -apple-system, system-ui, "Noto Sans TC", "Segoe UI", sans-serif;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .sidebar-brand {
-  box-sizing: border-box;
-  align-items: flex-start;
-  justify-content: space-between;
-  width: auto;
-  height: auto;
-  padding: 0;
-  margin: 0 0 8px;
-  border: 0;
-}
-.workspace-worklog .os-sidebar .sidebar-brand .brand-companion {
-  margin: 0 0 0 34px;
-  font-size: .75rem;
-}
-.workspace-worklog .os-sidebar .sidebar-menu-mark { display: none; }
-.workspace-worklog .os-sidebar .brand-stack h1 {
-  font-size: 1.25rem;
-  line-height: normal;
-  margin: 0;
-}
-.workspace-worklog .os-sidebar .agent-panel,
-.workspace-worklog .os-sidebar .side-section {
-  display: block;
-  box-sizing: border-box;
-  background: #111827;
-  border: 1px solid #334155;
-  border-radius: 14px;
-  padding: 8px 10px;
-  margin: 0 0 8px;
-}
-.workspace-worklog .os-sidebar .agent-panel h3,
-.workspace-worklog .os-sidebar .side-section h3,
-.workspace-worklog .os-sidebar .side-section-heading {
-  font-size: .85rem;
-  line-height: normal;
-  margin: 0 0 5px;
-}
-.workspace-worklog .os-sidebar .agent-row {
-  padding: 4px 0;
-  font-size: .78rem;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .side-item {
-  min-height: 40px;
-  padding: 6px 8px;
-  margin-top: 3px;
-  border-radius: 11px;
-  font-size: .88rem;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .side-item-child {
-  width: calc(100% - 10px);
-  min-height: 36px;
-  margin-left: 10px;
-  padding: 5px 8px;
-  font-size: .82rem;
-}
-.workspace-worklog .os-sidebar .side-item.on,
-.workspace-worklog .os-sidebar .side-section-heading.on {
-  background: #172554;
-  border-color: #60a5fa;
-}
-.workspace-worklog .os-sidebar .sidebar-admin-group {
-  margin: 6px 0 2px 8px;
-  padding: 6px 0 2px 8px;
-}
-.workspace-worklog .os-sidebar .sidebar-admin-label {
-  margin: 0 0 3px;
-  font-size: .68rem;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .sidebar-admin-group .side-section {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.workspace-worklog .os-sidebar .sidebar-admin-group .side-section-heading {
-  font-size: .8rem;
-  padding: 5px 6px;
-}
-.workspace-worklog .os-sidebar .sidebar-admin-group .side-item-child {
-  min-height: 34px;
-}
-.workspace-worklog .os-sidebar .developer-build-info {
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 6px 0 0;
-  color: #f5f7fb;
-  font-size: 16px;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .sidebar-sync-summary,
-.workspace-worklog .os-sidebar .sidebar-version-summary,
-.workspace-worklog .os-sidebar .sidebar-build-summary {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 4px 2px;
-  margin: 0;
-  font-size: .75rem;
-  line-height: normal;
-}
-.workspace-worklog .os-sidebar .sidebar-sync-summary strong,
-.workspace-worklog .os-sidebar .sidebar-version-summary strong,
-.workspace-worklog .os-sidebar .sidebar-build-summary strong { color: #cbd5e1; }
-.workspace-worklog .os-sidebar .sidebar-version-summary,
-.workspace-worklog .os-sidebar .sidebar-build-summary { color: #cbd5e1; }
-.workspace-worklog .os-sidebar .sidebar-version-summary span,
-.workspace-worklog .os-sidebar .sidebar-build-summary span { color: #94a3b8; }
-
 /* Full-site UX polish: compact console navigation and clear quick-add hierarchy. */
 .console-tabs{margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid rgba(148,163,184,.18)}
 .console-tab-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -532,22 +383,6 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .console-tab{flex:1 1 calc(50% - 6px);min-height:42px}
   .today-module .today-add-top{min-height:42px}
 }
-.workspace-worklog .os-sidebar .sidebar-scroll {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: auto;
-  scrollbar-width: thin;
-}
-
-@media(max-width:767px){
-  .workspace-worklog .os-sidebar {
-    width: min(280px, calc(100vw - 24px));
-    height: calc(100svh - 24px);
-    max-height: calc(100svh - 24px);
-  }
-  .workspace-worklog .os-sidebar .sidebar-menu-mark { display: inline-flex; }
-}
-
 /* Shared Shell geometry parity: WorkLog uses the AI Board frame as its
  * Golden Master. This only changes the outer layout; WorkLog business
  * content, data and interactions remain untouched. */
@@ -596,13 +431,6 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 }
 
 @media (max-width: 767px) {
-  .workspace-worklog .os-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: auto;
-    bottom: 0;
-  }
   .workspace-worklog .os-main { padding: 10px; }
   .workspace-shell.workspace-worklog .workspace-canvas { padding: 12px; border-radius: 14px; }
 }
