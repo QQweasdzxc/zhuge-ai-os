@@ -1,7 +1,11 @@
 # Dashboard WorkLog Calendar — PM QA Evidence
 
 Product Version: v0.9.0-alpha.9.12  
-Runtime Build: 20260811-1752 (candidate packaging timestamp)
+Runtime Build: 20260811-2145 (candidate packaging timestamp)
+
+## PM QA follow-up
+
+Dashboard WorkLog 的大型模組卡已移除；WorkLog 月份摘要、7 欄 compact calendar 與 `＋ 新增工時` 現在直接位於「我的工作空間」清單中。工作待辦與 Investment 仍保留原有 Module Card。Calendar cell 尺寸與列距已恢復為可讀的 Mini Month Calendar 比例，未引入另一套日期計算或 WorkLog business flow。
 
 ## Scope
 

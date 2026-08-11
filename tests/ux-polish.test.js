@@ -24,8 +24,9 @@ test("Dashboard exposes a current-user mini WorkLog calendar without engineering
   assert.match(dashboard, /function zhugeRootWorklogCalendarMarkup/);
   assert.match(dashboard, /data-open-worklog-date/);
   assert.match(dashboard, /data-mini-calendar-grid/);
+  assert.match(dashboard, /data-root-worklog-entry/);
+  assert.doesNotMatch(dashboard, /zhuge-worklog-module-card/);
   assert.match(dashboardCss, /grid-template-columns:repeat\(7/);
-  assert.match(dashboard, /登入後顯示本月與今日工時/);
   assert.doesNotMatch(dashboard, /zhuge-root-principle/);
 });
 
@@ -37,6 +38,8 @@ test("Dashboard WorkLog calendar reuses WorkLog month cells without nested inter
   assert.match(worklog, /worklogCalendarCells\(y, m\)/);
   assert.match(dashboard, /worklogCalendarCells\(year, month, monthRows\)/);
   assert.match(dashboard, /data-dashboard-add-worklog/);
+  assert.match(dashboard, /zhuge-dashboard-worklog-entry/);
+  assert.doesNotMatch(dashboard, /data-root-module-card=\\"worklog\\"/);
   assert.match(dashboard, /zhuge-module-card-main/);
   assert.doesNotMatch(dashboard, /<button class="zhuge-module-card"/);
   assert.match(osCss, /\.zhuge-module-card-main[\s\S]*\.zhuge-module-card-detail/);
