@@ -98,5 +98,7 @@ test("Full-site UX polish keeps collapsible regions out of layout flow and uses 
 test("Shared hamburger visibility is controlled by shell breakpoints", () => {
   const shell = read("shared/theme/zhuge-shell.css");
   assert.match(shell, /min-width: 768px.*max-width: 1180px.*zhuge-shared-menu\{display:inline-flex\}/s);
-  assert.match(shell, /zhuge-module-shell\.zhuge-nav-collapsed \.zhuge-shared-menu\{display:inline-flex\}/);
+  assert.match(shell, /min-width: 1181px[\s\S]*zhuge-shared-menu\{display:none!important\}/);
+  const navigation = read("shared/theme/zhuge-navigation.css");
+  assert.match(navigation, /min-width: 1181px[\s\S]*sidebar-menu-mark[\s\S]*display: none !important/);
 });
