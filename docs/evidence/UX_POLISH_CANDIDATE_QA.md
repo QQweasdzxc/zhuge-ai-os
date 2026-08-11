@@ -14,8 +14,8 @@ Business logic, authentication, OAuth, Supabase schema, RLS, identity, and exist
 ## Build identity
 
 - Product Version: `v0.9.0-alpha.9.12`
-- Runtime Build: `20260811-1517`
-- Candidate package time: `2026-08-11 15:17 Asia/Taipei`
+- Runtime Build: `20260811-1518`
+- Candidate package time: `2026-08-11 15:18 Asia/Taipei`
 
 The Runtime Build and the final package timestamp must be updated together at packaging time.
 
