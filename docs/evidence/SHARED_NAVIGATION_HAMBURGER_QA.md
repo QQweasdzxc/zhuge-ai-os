@@ -29,4 +29,4 @@ the hamburger and the circular collapse/expand control.
 - JavaScript syntax checks: PASS
 - `git diff --check`: PASS
 
-Candidate build and package timestamp: `20260811-2327`.
+Candidate build and package timestamp: `20260811-2328`.
