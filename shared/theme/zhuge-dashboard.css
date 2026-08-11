@@ -1,0 +1,301 @@
+/* Dashboard visual baseline. Tokens come from shared/theme/zhuge-shell.css. */
+
+.zhuge-dashboard-shell {
+  background: var(--zhuge-page-bg);
+  color: var(--zhuge-text);
+}
+.zhuge-dashboard-shell .workspace-app { min-width: 0; }
+.zhuge-dashboard-shell .zhuge-shared-header {
+  background: var(--zhuge-surface);
+  border-color: var(--zhuge-border);
+  color: var(--zhuge-text);
+  box-shadow: var(--zhuge-shadow);
+}
+.zhuge-dashboard-shell .zhuge-shared-header-copy>p:last-child,
+.zhuge-dashboard-shell .zhuge-shared-header-build { color: var(--zhuge-muted); }
+.zhuge-dashboard-shell .zhuge-shared-header-kicker { color: var(--zhuge-accent); }
+.zhuge-dashboard-shell .zhuge-shared-identity { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); }
+.zhuge-dashboard-shell .zhuge-shared-identity-copy strong { color: var(--zhuge-text); }
+.zhuge-dashboard-shell .zhuge-shared-identity-copy small { color: var(--zhuge-muted); }
+.zhuge-dashboard-shell .page-shell {
+  width: 100%;
+  padding: 30px 0 48px;
+}
+.zhuge-dashboard-shell .page-shell>section,
+.zhuge-dashboard-shell .page-shell>footer {
+  border-color: var(--zhuge-border);
+}
+.zhuge-dashboard-shell .page-shell>section {
+  background: var(--zhuge-surface-soft);
+  border-radius: var(--zhuge-radius-lg);
+  box-shadow: var(--zhuge-shadow);
+}
+.zhuge-dashboard-shell .eyebrow {
+  color: var(--zhuge-accent);
+  letter-spacing: .12em;
+  font-size: .68rem;
+}
+.zhuge-dashboard-shell h2 { color: var(--zhuge-text); letter-spacing: -.02em; }
+.zhuge-dashboard-shell p,
+.zhuge-dashboard-shell .lead,
+.zhuge-dashboard-shell .module-card small,
+.zhuge-dashboard-shell .environment-grid span { color: var(--zhuge-muted); }
+
+.dashboard-appearance-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  color: var(--zhuge-muted);
+  font-size: .78rem;
+}
+.dashboard-appearance-copy strong { display: block; color: var(--zhuge-text); font-size: .86rem; }
+.dashboard-appearance-copy span { display: block; margin-top: 2px; }
+.appearance-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: 999px;
+  background: var(--zhuge-surface-raised);
+}
+.appearance-segmented button {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--zhuge-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.appearance-segmented button:hover,
+.appearance-segmented button.is-selected { background: var(--zhuge-accent-strong); color: #fff; }
+
+.zhuge-dashboard-shell .identity-hub {
+  align-items: center;
+  gap: 30px;
+  padding: 38px;
+  background: linear-gradient(135deg, rgba(48, 105, 190, .36), var(--zhuge-surface) 72%);
+  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 25%, var(--zhuge-border));
+}
+.zhuge-dashboard-shell .identity-hub h2 { max-width: 720px; font-size: clamp(1.8rem, 3vw, 2.55rem); }
+.zhuge-dashboard-shell .identity-hub p { max-width: 700px; margin: 7px 0 0; }
+.zhuge-dashboard-shell .identity-hub .primary-action {
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: var(--zhuge-accent-strong);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(23, 105, 210, .24);
+}
+.zhuge-dashboard-shell .identity-hub .primary-action:hover { background: var(--zhuge-accent); transform: translateY(-1px); }
+.zhuge-dashboard-shell .dashboard-auth-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--zhuge-surface-soft);
+}
+.zhuge-dashboard-shell .dashboard-auth-strip > div { display: grid; gap: 3px; min-width: 0; }
+.zhuge-dashboard-shell .dashboard-auth-strip strong { color: var(--zhuge-text); font-size: .92rem; }
+.zhuge-dashboard-shell .dashboard-auth-strip span { color: var(--zhuge-muted); font-size: .8rem; }
+.zhuge-dashboard-shell .dashboard-auth-strip .primary-action { flex: 0 0 auto; border-radius: 11px; background: var(--zhuge-accent-strong); color: #fff; }
+.zhuge-dashboard-shell .dashboard-auth-strip .primary-action:hover { background: var(--zhuge-accent); transform: translateY(-1px); }
+.zhuge-dashboard-shell .about-product,
+.zhuge-dashboard-shell .reviewer-workflow,
+.zhuge-dashboard-shell .daily-brief,
+.zhuge-dashboard-shell .recent-activity,
+.zhuge-dashboard-shell .ai-notice,
+.zhuge-dashboard-shell .reviewer-environment { padding: 28px; }
+.zhuge-dashboard-shell .about-product { border-left: 3px solid var(--zhuge-accent); }
+.zhuge-dashboard-shell .reviewer-note { border-left-color: var(--zhuge-accent); background: color-mix(in srgb, var(--zhuge-accent) 7%, transparent); }
+.zhuge-dashboard-shell .brief-grid article,
+.zhuge-dashboard-shell .portal-card,
+.zhuge-dashboard-shell .environment-grid>div,
+.zhuge-dashboard-shell .system-status-card,
+.zhuge-dashboard-shell .module-card {
+  background: var(--zhuge-surface-raised);
+  border-color: var(--zhuge-border);
+  box-shadow: none;
+}
+.zhuge-dashboard-shell .module-card { min-height: 120px; border-radius: var(--zhuge-radius-md); }
+.zhuge-dashboard-shell .module-card strong { color: var(--zhuge-text); }
+.zhuge-dashboard-shell .module-card .module-overview,
+.zhuge-dashboard-shell .module-card .zhuge-module-overview { display:block; margin-top:5px; color:var(--zhuge-accent); font-size:.72rem; font-weight:700; }
+.zhuge-dashboard-shell .zhuge-module-card .zhuge-mini-worklog-calendar{width:100%;margin-top:9px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--zhuge-border) 72%,transparent)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--zhuge-muted);font-size:.65rem;line-height:1.2}
+.zhuge-dashboard-shell .zhuge-mini-calendar-head strong{color:var(--zhuge-text);font-size:.7rem}
+.zhuge-dashboard-shell .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:5px}
+.zhuge-dashboard-shell .zhuge-mini-calendar-weekdays span{text-align:center;color:var(--zhuge-muted);font-size:.56rem;font-weight:800}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day{display:grid;place-items:center;min-height:25px;padding:2px 1px;border:1px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--zhuge-surface) 78%,transparent);color:var(--zhuge-muted);font:inherit;cursor:pointer;line-height:1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day b{font-size:.63rem;font-weight:800}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day small{display:block;min-height:7px;color:var(--zhuge-accent);font-size:.43rem;line-height:1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day:hover,.zhuge-dashboard-shell .zhuge-mini-calendar-day:focus-visible{border-color:var(--zhuge-accent);outline:none}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.has-hours{background:color-mix(in srgb,var(--zhuge-accent) 15%,var(--zhuge-surface));color:var(--zhuge-text)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--zhuge-accent)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-empty{cursor:default;opacity:.35}
+.zhuge-dashboard-shell .zhuge-mini-calendar-note{display:block;margin-top:6px;color:var(--zhuge-muted);font-size:.62rem;line-height:1.25}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;grid-auto-flow:row;width:100%}.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-rows:minmax(25px,auto)}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar{display:block;min-width:0;width:100%}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);min-width:0}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-flow:row dense;grid-auto-columns:minmax(0,1fr);grid-auto-rows:minmax(25px,auto);min-width:0;min-height:0}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-day{min-width:0;width:auto;overflow:hidden}
+.zhuge-dashboard-shell .module-card:hover { border-color: var(--zhuge-accent); box-shadow: 0 10px 24px rgba(0, 0, 0, .12); }
+.zhuge-dashboard-shell .module-state.active,
+.zhuge-dashboard-shell .status-badge { border-color: color-mix(in srgb, var(--zhuge-success) 55%, transparent); color: var(--zhuge-success); }
+.zhuge-dashboard-shell .status-badge.neutral,
+.zhuge-dashboard-shell .module-state { border-color: var(--zhuge-border); color: var(--zhuge-muted); }
+.zhuge-dashboard-shell .site-footer { border-top-color: var(--zhuge-border); }
+.zhuge-dashboard-shell .site-footer a { color: var(--zhuge-muted); }
+.zhuge-dashboard-shell .site-footer a:hover { color: var(--zhuge-accent); }
+
+/* Personal workspace dashboard IA: current-user workspaces on the left,
+ * current-user work and continuation context on the right. */
+.zhuge-dashboard-shell .dashboard-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr);
+  gap: var(--shell-section-gap);
+  align-items: start;
+}
+.zhuge-dashboard-shell .dashboard-workspaces,
+.zhuge-dashboard-shell .dashboard-section {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-lg);
+  background: var(--zhuge-surface-soft);
+  box-shadow: var(--zhuge-shadow);
+}
+.zhuge-dashboard-shell .dashboard-workspaces .section-heading { margin-bottom: 12px; }
+.zhuge-dashboard-shell .dashboard-workspaces .ai-module-grid { grid-template-columns: 1fr; gap: 8px; }
+.zhuge-dashboard-shell .dashboard-workspaces .module-card { min-height: 68px; padding: 11px 13px; }
+.zhuge-dashboard-shell .dashboard-workspaces .module-card:has(.zhuge-mini-worklog-calendar) { align-items: start; }
+.zhuge-dashboard-shell .dashboard-right-column { display: grid; gap: var(--shell-section-gap); min-width: 0; }
+.zhuge-dashboard-shell .dashboard-section-heading,
+.zhuge-dashboard-shell .dashboard-section-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.zhuge-dashboard-shell .dashboard-section-heading { margin-bottom: 10px; }
+.zhuge-dashboard-shell .dashboard-section-heading h2 { margin: 0; font-size: 1.18rem; }
+.zhuge-dashboard-shell .dashboard-empty-state { display: grid; gap: 4px; padding: 13px 2px 4px; }
+.zhuge-dashboard-shell .dashboard-empty-state strong { color: var(--zhuge-text); }
+.zhuge-dashboard-shell .dashboard-empty-state p { margin: 0; font-size: .8rem; }
+
+html[data-theme="light"] .zhuge-dashboard-shell .os-sidebar {
+  background: var(--zhuge-surface);
+  border-color: var(--zhuge-border);
+  color: var(--zhuge-text);
+}
+html[data-theme="light"] .zhuge-dashboard-shell .agent-panel,
+html[data-theme="light"] .zhuge-dashboard-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
+html[data-theme="light"] .zhuge-dashboard-shell .agent-panel h3,
+html[data-theme="light"] .zhuge-dashboard-shell .side-section h3,
+html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading,
+html[data-theme="light"] .zhuge-dashboard-shell .side-item { color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-dashboard-shell .brand-stack,
+html[data-theme="light"] .zhuge-dashboard-shell .brand-stack h1 { color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-dashboard-shell .brand-companion { color: var(--zhuge-accent-strong); }
+html[data-theme="light"] .zhuge-dashboard-shell .side-item:hover,
+html[data-theme="light"] .zhuge-dashboard-shell .side-item.on,
+html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading:hover,
+html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
+html[data-theme="light"] .zhuge-dashboard-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
+html[data-theme="light"] .zhuge-dashboard-shell .agent-row b { color: var(--zhuge-accent-strong); }
+html[data-theme="light"] .zhuge-dashboard-shell .mini,
+html[data-theme="light"] .zhuge-dashboard-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-dashboard-shell .sidebar-sync-summary,
+html[data-theme="light"] .zhuge-dashboard-shell .sidebar-version-summary,
+html[data-theme="light"] .zhuge-dashboard-shell .sidebar-build-summary { color: var(--zhuge-text); }
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] .zhuge-dashboard-shell .os-sidebar { background: var(--zhuge-surface); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-dashboard-shell .agent-panel,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
+  html[data-theme="system"] .zhuge-dashboard-shell .agent-panel h3,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-section h3,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-item { color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-dashboard-shell .brand-stack,
+  html[data-theme="system"] .zhuge-dashboard-shell .brand-stack h1 { color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-dashboard-shell .brand-companion { color: var(--zhuge-accent-strong); }
+  html[data-theme="system"] .zhuge-dashboard-shell .side-item:hover,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-item.on,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading:hover,
+  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
+  html[data-theme="system"] .zhuge-dashboard-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
+  html[data-theme="system"] .zhuge-dashboard-shell .agent-row b { color: var(--zhuge-accent-strong); }
+  html[data-theme="system"] .zhuge-dashboard-shell .mini,
+  html[data-theme="system"] .zhuge-dashboard-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-sync-summary,
+  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-version-summary,
+  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-build-summary { color: var(--zhuge-text); }
+}
+
+@media (max-width: 767px) {
+  .dashboard-appearance-bar { align-items: flex-start; flex-direction: column; }
+  .appearance-segmented { width: 100%; }
+  .appearance-segmented button { flex: 1; }
+  .zhuge-dashboard-shell .page-shell { padding-top: 20px; }
+  .zhuge-dashboard-shell .identity-hub,
+  .zhuge-dashboard-shell .about-product,
+  .zhuge-dashboard-shell .reviewer-workflow,
+  .zhuge-dashboard-shell .daily-brief,
+  .zhuge-dashboard-shell .recent-activity,
+  .zhuge-dashboard-shell .ai-notice,
+  .zhuge-dashboard-shell .reviewer-environment { padding: 22px; }
+}
+
+/* Dashboard one-screen density pass: preserve readable type while reducing
+ * vertical chrome and giving the three active workspaces equal prominence. */
+.zhuge-dashboard-shell .page-shell { padding: 16px 0 32px; }
+.zhuge-dashboard-shell .page-shell > section { margin-bottom: 10px; padding: 14px 18px; }
+.zhuge-dashboard-shell .dashboard-appearance-bar { margin-bottom: 12px; }
+.zhuge-dashboard-shell .page-shell > .identity-hub { padding: 20px 24px; }
+.zhuge-dashboard-shell .identity-hub h2 { font-size: clamp(1.7rem, 2.6vw, 2.25rem); margin-bottom: 5px; }
+.zhuge-dashboard-shell .identity-hub p { margin: 4px 0 0; }
+.zhuge-dashboard-shell .identity-hub .primary-action { padding: 10px 15px; }
+.zhuge-dashboard-shell .section-heading { margin-bottom: 6px; }
+.zhuge-dashboard-shell .section-heading > p { margin: 0 0 4px; }
+.zhuge-dashboard-shell .section-heading h2 { margin-bottom: 4px; font-size: 1.35rem; }
+.zhuge-dashboard-shell .ai-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 0; }
+.zhuge-dashboard-shell .module-card { min-height: 86px; padding: 12px 14px; gap: 10px; }
+.zhuge-dashboard-shell .module-icon { font-size: 1.65rem; }
+.zhuge-dashboard-shell .module-card strong { font-size: 1rem; }
+.zhuge-dashboard-shell .module-card small { margin-top: 3px; font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-dashboard-shell .module-state { padding: 4px 8px; font-size: .72rem; }
+.zhuge-dashboard-shell .recent-activity { padding: 14px 20px; }
+.zhuge-dashboard-shell .recent-activity .activity-row { min-height: 0; padding: 8px 2px; border: 0; background: transparent; gap: 10px; }
+.zhuge-dashboard-shell .recent-activity .module-icon { font-size: 1.4rem; }
+.zhuge-dashboard-shell .recent-activity .activity-row p { font-size: .8rem; }
+.zhuge-dashboard-shell .system-status { padding: 14px 20px; }
+.zhuge-dashboard-shell .system-status-grid { gap: 8px; }
+.zhuge-dashboard-shell .system-status-card { display: flex; align-items: center; justify-content: space-between; min-height: 0; padding: 9px 11px; border-radius: 12px; gap: 8px; }
+.zhuge-dashboard-shell .system-status-card strong { font-size: .86rem; }
+.zhuge-dashboard-shell .system-status .status-badge { padding: 4px 8px; font-size: .72rem; }
+.zhuge-dashboard-shell .site-footer { padding-top: 12px; }
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  .zhuge-dashboard-shell .ai-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .zhuge-dashboard-shell .dashboard-workspace-layout { grid-template-columns: 1fr; }
+  .zhuge-dashboard-shell .dashboard-workspaces .ai-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .zhuge-dashboard-shell .page-shell { padding-top: 14px; }
+  .zhuge-dashboard-shell .page-shell > section { padding: 14px; }
+  .zhuge-dashboard-shell .page-shell > .identity-hub { padding: 18px; }
+  .zhuge-dashboard-shell .dashboard-auth-strip { align-items: flex-start; flex-direction: column; padding: 14px; }
+  .zhuge-dashboard-shell .ai-module-grid { grid-template-columns: 1fr; }
+  .zhuge-dashboard-shell .module-card { min-height: 76px; }
+  .zhuge-dashboard-shell .dashboard-workspaces .ai-module-grid { grid-template-columns: 1fr; }
+  .zhuge-dashboard-shell .dashboard-section-heading { align-items: flex-start; }
+  .zhuge-dashboard-shell .dashboard-auth-strip { width: 100%; min-width: 0; overflow: hidden; }
+  .zhuge-dashboard-shell .dashboard-auth-strip > div { width: 100%; max-width: 100%; }
+  .zhuge-dashboard-shell .dashboard-auth-strip .primary-action { width: 100%; max-width: 100%; white-space: normal; }
+  .zhuge-dashboard-shell .page-shell,
+  .zhuge-dashboard-shell .zhuge-root-dashboard { width: 100%; min-width: 0; }
+}
