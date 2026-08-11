@@ -130,15 +130,15 @@
 .zhuge-dashboard-shell .zhuge-mini-calendar-head strong{color:var(--zhuge-text);font-size:.7rem}
 .zhuge-dashboard-shell .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:5px}
 .zhuge-dashboard-shell .zhuge-mini-calendar-weekdays span{text-align:center;color:var(--zhuge-muted);font-size:.56rem;font-weight:800}
-.zhuge-dashboard-shell .zhuge-mini-calendar-day{display:grid;place-items:center;min-height:25px;padding:2px 1px;border:1px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--zhuge-surface) 78%,transparent);color:var(--zhuge-muted);font:inherit;cursor:pointer;line-height:1}
-.zhuge-dashboard-shell .zhuge-mini-calendar-day b{font-size:.63rem;font-weight:800}
-.zhuge-dashboard-shell .zhuge-mini-calendar-day small{display:block;min-height:7px;color:var(--zhuge-accent);font-size:.43rem;line-height:1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day{display:grid;place-items:center;align-content:center;gap:3px;min-height:44px;padding:5px 1px;border:1px solid transparent;border-radius:6px;background:color-mix(in srgb,var(--zhuge-surface) 78%,transparent);color:var(--zhuge-muted);font:inherit;cursor:pointer;line-height:1.1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day b{font-size:.9rem;font-weight:850;line-height:1.1}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day small{display:block;min-height:1em;color:var(--zhuge-accent);font-size:.7rem;font-weight:750;line-height:1.1;white-space:nowrap}
 .zhuge-dashboard-shell .zhuge-mini-calendar-day:hover,.zhuge-dashboard-shell .zhuge-mini-calendar-day:focus-visible{border-color:var(--zhuge-accent);outline:none}
 .zhuge-dashboard-shell .zhuge-mini-calendar-day.has-hours{background:color-mix(in srgb,var(--zhuge-accent) 15%,var(--zhuge-surface));color:var(--zhuge-text)}
-.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--zhuge-accent)}
+.zhuge-dashboard-shell .zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px var(--zhuge-accent);background:color-mix(in srgb,var(--zhuge-accent) 12%,var(--zhuge-surface))}
 .zhuge-dashboard-shell .zhuge-mini-calendar-day.is-empty{cursor:default;opacity:.35}
 .zhuge-dashboard-shell .zhuge-mini-calendar-note{display:block;margin-top:6px;color:var(--zhuge-muted);font-size:.62rem;line-height:1.25}
-.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;grid-auto-flow:row;width:100%}.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-rows:minmax(25px,auto)}
+.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays,.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;grid-auto-flow:row;width:100%}.zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-rows:minmax(44px,auto)}
 .zhuge-dashboard-shell .zhuge-mini-worklog-calendar{display:block;min-width:0;width:100%}
 .zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);min-width:0}
 .zhuge-dashboard-shell .zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-flow:row dense;grid-auto-columns:minmax(0,1fr);grid-auto-rows:minmax(25px,auto);min-width:0;min-height:0}

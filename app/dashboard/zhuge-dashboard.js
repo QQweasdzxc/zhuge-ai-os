@@ -116,7 +116,7 @@ function zhugeRootReleaseMeta() {
 function zhugeRootDashboardMarkup(identity = null) {
   return `<section class="panel zhuge-root-dashboard" data-zhuge-root-dashboard>
     <div class="zhuge-dashboard-workspace-layout">
-      <section class="zhuge-dashboard-section zhuge-dashboard-workspaces" aria-labelledby="zhuge-workspaces-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">工作空間</p><h3 id="zhuge-workspaces-title">我的工作空間</h3><p class="muted">只顯示目前帳號可使用的正式模組。</p></div><div class="zhuge-dashboard-workspace-list">${zhugeRootWorkspaceCards()}</div></section>
+      <section class="zhuge-dashboard-section zhuge-dashboard-workspaces" aria-labelledby="zhuge-workspaces-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">工作空間</p><h3 id="zhuge-workspaces-title">我的工作空間</h3></div><div class="zhuge-dashboard-workspace-list">${zhugeRootWorkspaceCards()}</div></section>
       <div class="zhuge-dashboard-right-column">
         <section class="zhuge-dashboard-section" aria-labelledby="zhuge-todo-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">待處理</p><h3 id="zhuge-todo-title">我的待辦事項</h3></div><button type="button" class="btn2" data-open-workspace="tasks">查看全部</button></div>${zhugeRootTodoMarkup()}</section>
         <section class="zhuge-dashboard-section" aria-labelledby="zhuge-continue-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">最近工作</p><h3 id="zhuge-continue-title">繼續工作</h3></div></div>${zhugeRootContinueMarkup()}</section>

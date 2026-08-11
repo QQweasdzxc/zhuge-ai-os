@@ -25,8 +25,12 @@ test("Dashboard exposes a current-user mini WorkLog calendar without engineering
   assert.match(dashboard, /data-open-worklog-date/);
   assert.match(dashboard, /data-mini-calendar-grid/);
   assert.match(dashboard, /data-root-worklog-entry/);
+  assert.doesNotMatch(dashboard, /只顯示目前帳號可使用的正式模組/);
   assert.doesNotMatch(dashboard, /zhuge-worklog-module-card/);
   assert.match(dashboardCss, /grid-template-columns:repeat\(7/);
+  assert.match(read("shared/theme/zhuge-os.css"), /zhuge-mini-calendar-day b\{font-size:\.9rem/);
+  assert.match(read("shared/theme/zhuge-os.css"), /zhuge-mini-calendar-day small\{[^}]*font-size:\.7rem/);
+  assert.match(read("shared/theme/zhuge-os.css"), /grid-auto-rows:minmax\(44px,auto\)/);
   assert.doesNotMatch(dashboard, /zhuge-root-principle/);
 });
 
