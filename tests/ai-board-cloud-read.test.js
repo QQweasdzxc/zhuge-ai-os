@@ -180,7 +180,8 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.match(runtime, /開發契約與驗收清單/);
   assert.match(index, /id="boardSearch"/);
   assert.match(index, /id="taskUsageScenario"/);
-  assert.doesNotMatch(index, /新增工作區/);
+  assert.match(index, /新增工作區/);
+  assert.match(index, /workspaceCreateDrawer/);
   assert.doesNotMatch(index, /Interactive Prototype v0\.9/);
 });
 

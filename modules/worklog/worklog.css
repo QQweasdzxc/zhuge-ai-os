@@ -519,7 +519,15 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .tasks-workspace .task-drawer .panel-head{align-items:flex-start;margin-bottom:6px}
 .task-drawer-close{font-size:1.15rem;line-height:1;min-width:38px;min-height:38px;padding:7px 10px}
 .tasks-workspace .task-drawer .form-actions{position:sticky;bottom:0;margin:8px -24px -24px;padding:14px 24px 24px;background:linear-gradient(180deg,transparent,var(--zhuge-surface,#111827) 28%)}
+.tasks-workspace .task-journal-drawer{padding:24px;overflow-y:auto}
+.tasks-workspace .task-journal-drawer .task-journal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--zhuge-border,#334155)}
+.tasks-workspace .task-journal-drawer .task-journal-head h3{margin:0;font-size:1.05rem}
+.tasks-workspace .task-journal-drawer .task-journal-head-actions{display:flex;align-items:center;gap:8px}
+.tasks-workspace .task-journal-drawer .task-journal-timeline{display:grid;gap:10px;padding:18px 0}
+.tasks-workspace .task-journal-drawer .task-journal-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--zhuge-border,#334155)}
+.tasks-workspace .task-journal-drawer .task-journal-form .form-actions{position:sticky;bottom:0;margin:8px -24px -24px;padding:14px 24px 24px;background:linear-gradient(180deg,transparent,var(--zhuge-surface,#111827) 28%)}
 @media (max-width:767px){.tasks-workspace .task-drawer{width:100%;border-left:0;border-radius:18px 18px 0 0;top:auto;height:min(88svh,760px);transform:translateY(104%)}.tasks-workspace .task-drawer.is-open{transform:translateY(0)}.tasks-workspace .task-drawer .task-form{padding:18px}.tasks-workspace .task-drawer .form-actions{margin:8px -18px -18px;padding:12px 18px 18px}}
+@media (max-width:767px){.tasks-workspace .task-journal-drawer{padding:18px}.tasks-workspace .task-journal-drawer .task-journal-form .form-actions{margin:8px -18px -18px;padding:12px 18px 18px}}
 @media (max-width:767px){
   .console-tab{flex:1 1 calc(50% - 6px);min-height:42px}
   .today-module .today-add-top{min-height:42px}

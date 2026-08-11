@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Zhuge AI OS｜AI Board</title>
-    <link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260811-1647">
-    <link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260811-1646">
+    <link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260811-1714">
+    <link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260811-1714">
 <style>
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
@@ -15,8 +15,8 @@
 .main{min-width:0}.top{height:82px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
 .top h1{font-size:21px;margin:0 0 5px}.top p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:8px}
 button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#d8e0ea;border-radius:8px;padding:9px 13px}.btn.primary{background:#2869df;border-color:#2869df;color:white}
-.toolbar{display:flex;align-items:center;gap:8px;padding:14px 24px;border-bottom:1px solid #202938}.chip{font-size:12px;border:1px solid var(--line);padding:7px 10px;border-radius:7px;color:#aab5c3;background:#111720}
-.legend{margin-left:auto;color:#728096;font-size:12px}
+.toolbar{display:flex;align-items:center;gap:8px;padding:14px 24px;border-bottom:1px solid #202938;flex-wrap:wrap}.board-toolbar .search{flex:1 1 260px;min-width:220px;margin:0}.board-toolbar .chip,.board-toolbar #healthCheckBtn{height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}.chip{font-size:12px;border:1px solid var(--line);padding:7px 10px;border-radius:7px;color:#aab5c3;background:#111720}
+.legend{margin-left:auto;color:#728096;font-size:12px;flex:1 1 180px;text-align:right}
 .board-shell{padding:18px 24px 28px;overflow-x:auto}
 .board{display:flex;gap:14px;align-items:flex-start;min-width:max-content}
 .divider{width:1px;background:#354052;align-self:stretch;min-height:690px;margin:0 4px;position:relative}.divider:before{content:"固定區";position:absolute;top:-17px;left:-56px;color:#66758a;font-size:11px}.divider:after{content:"可移動、可新增區";position:absolute;top:-17px;left:18px;width:120px;color:#66758a;font-size:11px}
@@ -41,6 +41,10 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .field input,.field textarea,.field select{width:100%;background:#0f151e;border:1px solid #344052;border-radius:8px;color:#e8edf5;padding:10px 11px;font:inherit}
 .field textarea{height:92px;resize:none}.hint{font-size:11px;color:#718096;margin-top:6px}
 .modalfoot{padding:13px 18px;border-top:1px solid #293241;display:flex;justify-content:flex-end;gap:8px}
+.board-create-drawer-backdrop{display:block;position:fixed;inset:0;background:#0009;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s ease}.board-create-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
+.board-create-drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,calc(100vw - 12px));background:#151c26;border-left:1px solid #344052;box-shadow:-24px 0 70px #0008;z-index:55;transform:translateX(104%);transition:transform .24s ease;visibility:hidden;overflow:auto}.board-create-drawer.is-open{transform:translateX(0);visibility:visible}.board-create-drawer .modal{width:100%;min-height:100%;border:0;border-radius:0;box-shadow:none}.board-create-drawer .modalbody{padding:24px}.board-create-drawer .modalfoot{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#151c26 26%);padding:16px 24px 24px;border-top:0}
+.board-workspace-drawer{padding:24px;color:var(--text)}.board-workspace-drawer h2{margin:0 0 8px}.board-workspace-drawer p{color:var(--muted);line-height:1.6}.board-workspace-drawer .drawer-actions{display:flex;justify-content:flex-end;margin-top:24px}
+@media(max-width:767px){.board-create-drawer{top:auto;bottom:0;width:100%;max-height:88svh;border-left:0;border-top:1px solid #344052;border-radius:18px 18px 0 0;transform:translateY(104%)}.board-create-drawer.is-open{transform:translateY(0)}.board-create-drawer .modalbody,.board-workspace-drawer{padding:18px}.board-create-drawer .modalfoot{padding:12px 18px 18px}}
 .locknote{border:1px solid #4a3f71;background:#1b1928;color:#bcaee7;border-radius:8px;padding:9px 10px;font-size:12px;margin-top:4px}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.card-action-hint{margin-top:10px;color:#6f8199;font-size:10px}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
@@ -60,13 +64,13 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <div id="zhugeSharedNavigation" data-external-root="../../../" data-active-workspace="ai-board"></div>
 <div class="app workspace-app">
 <main class="main">
- <div id="zhugeSharedHeader" class="top workspace-shell-header" data-zhuge-shared-header data-title="AI Board" data-description="工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態" data-action-label="↻ 重新整理" data-action-id="refreshBoardBtn"></div>
+ <div id="zhugeSharedHeader" class="top workspace-shell-header" data-zhuge-shared-header data-title="AI Board" data-description="工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態" data-action-label="↻" data-action-id="refreshBoardBtn"></div>
  <div class="board-local-nav workspace-subnav" aria-label="AI Board 子功能導覽">
    <button class="nav active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
    <button class="nav" title="工程準則" data-board-nav="principles" type="button">📘 工程準則</button>
    <button class="nav" title="系統藍圖" data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
  </div>
- <div class="toolbar">
+ <div class="toolbar board-toolbar">
    <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span><button class="btn" id="healthCheckBtn" type="button">檢查資料健康度</button>
    <span class="legend">固定區不參與 TASK 狀態流轉</span>
@@ -97,8 +101,8 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 </div>
 </div>
 
-<div id="addCardModal" class="modalback">
- <div class="modal">
+<div id="addCardModal" class="modalback" aria-hidden="true">
+ <div class="modal board-create-drawer">
   <div class="modalhead"><h2>新增 TASK</h2><button class="x" onclick="document.getElementById('addCardModal').style.display='none'">×</button></div>
   <div class="modalbody">
    <div class="field"><label for="taskSummary">需求內容</label><textarea id="taskSummary" placeholder="要完成什麼？"></textarea></div>
@@ -109,23 +113,30 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  </div>
 </div>
 
-<script src="../../../shared/config/version.js?v=20260811-1646"></script>
-<script src="../../../shared/components/zhuge-navigation.js?v=20260811-1646"></script>
-<script src="../../../shared/components/zhuge-shell.js?v=20260811-1646"></script>
+<div id="workspaceCreateDrawerBackdrop" class="board-create-drawer-backdrop" data-workspace-drawer-close aria-hidden="true"></div>
+<aside id="workspaceCreateDrawer" class="board-create-drawer board-workspace-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="新增工作區">
+ <div class="modalhead"><h2>＋ 新增工作區</h2><button class="x" type="button" data-workspace-drawer-close aria-label="關閉新增工作區">×</button></div>
+ <div class="modalbody"><p>目前工作區資料模型尚未提供安全的建立流程。</p><p class="hint">這個入口已保留為管理介面，但本版本不會寫入資料庫或建立未經核准的工作區。</p></div>
+ <div class="drawer-actions"><button class="btn" type="button" data-workspace-drawer-close>知道了</button></div>
+</aside>
+
+<script src="../../../shared/config/version.js?v=20260811-1714"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260811-1714"></script>
+<script src="../../../shared/components/zhuge-shell.js?v=20260811-1714"></script>
 <script src="../../../shared/theme/zhuge-appearance.js?v=20260811-workspace-1"></script>
-<script src="../../../shared/app-config.js?v=20260811-1646"></script>
-<script src="../../../shared/utils/shared-utils.js?v=20260811-1646"></script>
-<script src="../../../shared/storage/storage-migration.js?v=20260811-1646"></script>
-<script src="../../../shared/api/data-result.js?v=20260811-1646"></script>
-<script src="../../../shared/identity/identity-health.js?v=20260811-1646"></script>
-<script src="../../../shared/auth/session-lifecycle.js?v=20260811-1646"></script>
-<script src="../../../shared/core/repository-bootstrap.js?v=20260811-1646"></script>
-<script src="../../../shared/api/sync-queue.js?v=20260811-1646"></script>
-<script src="../../../shared/foundation/index.js?v=20260811-1646"></script>
-<script src="../../../shared/app-state.js?v=20260811-1646"></script>
-<script src="../../../shared/auth/auth-service.js?v=20260811-1646"></script>
-<script src="../../../shared/identity/identity-service.js?v=20260811-1646"></script>
-<script src="../../../shared/supabase/supabase-gateway.js?v=20260811-1646"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260811-1646"></script>
-<script src="./board-runtime.js?v=20260811-1646"></script>
+<script src="../../../shared/app-config.js?v=20260811-1714"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260811-1714"></script>
+<script src="../../../shared/storage/storage-migration.js?v=20260811-1714"></script>
+<script src="../../../shared/api/data-result.js?v=20260811-1714"></script>
+<script src="../../../shared/identity/identity-health.js?v=20260811-1714"></script>
+<script src="../../../shared/auth/session-lifecycle.js?v=20260811-1714"></script>
+<script src="../../../shared/core/repository-bootstrap.js?v=20260811-1714"></script>
+<script src="../../../shared/api/sync-queue.js?v=20260811-1714"></script>
+<script src="../../../shared/foundation/index.js?v=20260811-1714"></script>
+<script src="../../../shared/app-state.js?v=20260811-1714"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260811-1714"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260811-1714"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260811-1714"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260811-1714"></script>
+<script src="./board-runtime.js?v=20260811-1714"></script>
 </body></html>

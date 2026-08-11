@@ -479,8 +479,44 @@
   function openQuickAdd(workspace) {
     const modal = document.getElementById("addCardModal");
     if (!modal) return;
+    const drawer = modal.querySelector(".board-create-drawer");
     modal.style.display = "grid";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    drawer?.classList.add("is-open");
     if (workspace && workspace !== "todo") setBanner("新 TASK 一律從待辦開始，完成後依正式流程交接。", "info");
+  }
+  function closeQuickAdd() {
+    const modal = document.getElementById("addCardModal");
+    if (!modal) return;
+    const drawer = modal.querySelector(".board-create-drawer");
+    modal.classList.remove("is-open");
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+    drawer?.classList.remove("is-open");
+  }
+  function openWorkspaceDrawer() {
+    const backdrop = document.getElementById("workspaceCreateDrawerBackdrop");
+    const drawer = document.getElementById("workspaceCreateDrawer");
+    if (!backdrop || !drawer) return;
+    backdrop.classList.add("is-open");
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+  }
+  function closeWorkspaceDrawer() {
+    const backdrop = document.getElementById("workspaceCreateDrawerBackdrop");
+    const drawer = document.getElementById("workspaceCreateDrawer");
+    backdrop?.classList.remove("is-open");
+    drawer?.classList.remove("is-open");
+    drawer?.setAttribute("aria-hidden", "true");
+  }
+  function renderBoardHeaderActions() {
+    const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
+    if (!actions) return;
+    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
+    actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
+    actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
+    actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => refreshBoard());
   }
   async function createCard() {
     const modal = document.getElementById("addCardModal");
@@ -490,7 +526,7 @@
     if (!title) { setBanner("請輸入 Task 標題或內容。", "error"); return; }
     try {
       await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
-      modal.style.display = "none";
+      closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
       await refreshBoard({ quiet: true });
       setBanner("TASK 已建立並進入待辦，由 Co 接球。", "success");
@@ -532,8 +568,10 @@
     }).catch(error => setBanner("Realtime 尚未連線：" + esc(error && error.message || "未知錯誤") + "。Refresh 可作為暫時 Recovery。", "error"));
   }
   function enableBoardActions() {
-    const refresh = document.querySelector(".actions .btn:not(.primary)");
-    if (refresh) { refresh.id = "refreshBoardBtn"; refresh.onclick = () => refreshBoard(); }
+    renderBoardHeaderActions();
+    document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
+    document.querySelector("#addCardModal .x")?.addEventListener("click", closeQuickAdd);
+    document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
   function init() {

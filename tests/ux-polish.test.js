@@ -31,10 +31,24 @@ test("Dashboard exposes a current-user mini WorkLog calendar without engineering
 
 test("Control Console owns engineering destinations instead of global sidebar children", () => {
   const worklog = read("modules/worklog/worklog-app.js");
-  for (const label of ["系統狀態", "AI Board", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));
+  for (const label of ["系統狀態", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));
   assert.match(worklog, /control-center-entry/);
   const syncBlock = worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()"));
+  assert.doesNotMatch(syncBlock, /\["ai-board",/);
   assert.doesNotMatch(syncBlock, /console-tabs/);
+});
+
+test("Batch 4 moves work journal into a shared dynamic drawer and keeps Board actions available", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  const board = read("app/Board/ai/board-runtime.js");
+  const boardHtml = read("app/Board/ai/index.html");
+  assert.match(worklog, /task-journal-drawer/);
+  assert.match(worklog, /data-journal-close/);
+  assert.doesNotMatch(worklog, /\$\{taskJournalPanel\(task\)\}/);
+  assert.match(board, /data-board-create-card/);
+  assert.match(board, /data-board-create-workspace/);
+  assert.match(boardHtml, /class="toolbar board-toolbar"/);
+  assert.match(boardHtml, /workspaceCreateDrawer/);
 });
 
 test("Tasks default to active items and open the existing form in a drawer", () => {
