@@ -1,0 +1,752 @@
+/* Zhuge AI OS shared workspace surface.
+ *
+ * Dashboard establishes the product language; this file carries the same
+ * calm surfaces, spacing and responsive frame to the existing WorkLog,
+ * Investment, Knowledge, Control Panel and AI Board views. It is presentation
+ * only: no routing, identity, persistence or business rules live here.
+ */
+/* Product-wide tokens are defined once in shared/theme/zhuge-shell.css. */
+
+/* Canonical Workspace Tabs tokens.  Every workspace route uses this same
+ * geometry; page styles may change only the active state and content below. */
+:root {
+  --zhuge-workspace-tabs-height: 42px;
+  --zhuge-workspace-tabs-gap: 6px;
+  --zhuge-workspace-tabs-padding-inline: 8px;
+  --zhuge-workspace-tab-height: 38px;
+  --zhuge-workspace-tab-padding-block: 8px;
+  --zhuge-workspace-tab-padding-inline: 12px;
+  --zhuge-workspace-tab-icon-gap: 6px;
+  --zhuge-workspace-tab-close-size: 18px;
+  --zhuge-workspace-tab-radius: 9px;
+}
+
+/* Shared frame geometry. Modules keep their own content markup, but the
+ * outer page always uses the same background, header and content rhythm. */
+.zhuge-module-shell.workspace-shell {
+  min-height: 100vh;
+  background: var(--zhuge-page-bg);
+  color: var(--zhuge-text);
+}
+.zhuge-module-shell .workspace-app,
+.zhuge-module-shell .os-main,
+.zhuge-module-shell .main { min-width: 0; }
+.zhuge-module-shell .workspace-canvas,
+.zhuge-module-shell .investment-main,
+.zhuge-module-shell .main {
+  background: transparent;
+  color: var(--zhuge-text);
+}
+.zhuge-module-shell .workspace-canvas {
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+  min-height: calc(100vh - 132px);
+}
+.zhuge-module-shell .workspace-context-bar,
+.zhuge-module-shell .zhuge-shared-header,
+.zhuge-module-shell .workspace-shell-header {
+  border-color: var(--zhuge-border);
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: var(--zhuge-shadow);
+}
+.zhuge-module-shell .workspace-context-bar { margin-bottom: var(--shell-header-content-gap); }
+.zhuge-module-shell .zhuge-shared-header { margin-bottom: var(--shell-header-content-gap); }
+.zhuge-module-shell .zhuge-shared-header-kicker { color: var(--zhuge-accent); }
+.zhuge-module-shell .zhuge-shared-header-copy>p:last-child,
+.zhuge-module-shell .zhuge-shared-header-build { color: var(--zhuge-muted); }
+.zhuge-module-shell .zhuge-shared-identity {
+  border-color: var(--zhuge-border);
+  background: var(--zhuge-surface-raised);
+}
+.zhuge-module-shell .zhuge-shared-identity-copy strong { color: var(--zhuge-text); }
+.zhuge-module-shell .zhuge-shared-identity-copy small { color: var(--zhuge-muted); }
+.zhuge-module-shell .workspace-tabs,
+.zhuge-module-shell .workspace-subnav,
+.zhuge-module-shell .investment-local-nav {
+  border-color: var(--zhuge-border);
+  background: color-mix(in srgb, var(--zhuge-surface) 92%, transparent);
+}
+.zhuge-module-shell .workspace-tabs { padding: 7px 8px 0; min-height: 44px; }
+.zhuge-module-shell .workspace-tab,
+.zhuge-module-shell .investment-nav-item,
+.zhuge-module-shell .workspace-subnav button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--zhuge-muted);
+  border-radius: 10px;
+  padding: 8px 11px;
+  min-height: 36px;
+}
+.zhuge-module-shell .workspace-tab:hover,
+.zhuge-module-shell .workspace-tab.active,
+.zhuge-module-shell .investment-nav-item:hover,
+.zhuge-module-shell .investment-nav-item.active,
+.zhuge-module-shell .workspace-subnav button:hover,
+.zhuge-module-shell .workspace-subnav button.active {
+  border-color: color-mix(in srgb, var(--zhuge-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--zhuge-accent) 15%, transparent);
+  color: var(--zhuge-text);
+}
+
+/* Existing WorkLog panels become the same quiet, compact surfaces as the
+ * Dashboard. The selectors are intentionally generic so Knowledge, Control
+ * Panel and Settings inherit the same language without touching their logic. */
+.zhuge-module-shell .panel,
+.zhuge-module-shell .entry,
+.zhuge-module-shell .empty,
+.zhuge-module-shell .service-card,
+.zhuge-module-shell .task-form,
+.zhuge-module-shell .task-list-section,
+.zhuge-module-shell .work-model-section {
+  border-color: var(--zhuge-border);
+  background: var(--zhuge-surface);
+  box-shadow: none;
+}
+.zhuge-module-shell .panel { border-radius: var(--zhuge-radius-md); padding: clamp(14px, 1.8vw, 20px); }
+.zhuge-module-shell .entry,
+.zhuge-module-shell .empty,
+.zhuge-module-shell .service-card { border-radius: var(--zhuge-radius-sm); padding: 12px 14px; }
+.zhuge-module-shell h1,
+.zhuge-module-shell h2,
+.zhuge-module-shell h3,
+.zhuge-module-shell strong { color: var(--zhuge-text); }
+.zhuge-module-shell .muted,
+.zhuge-module-shell small,
+.zhuge-module-shell .source-path,
+.zhuge-module-shell .entry small { color: var(--zhuge-muted); }
+.zhuge-module-shell .btn,
+.zhuge-module-shell .btn2,
+.zhuge-module-shell .input,
+.zhuge-module-shell textarea,
+.zhuge-module-shell select {
+  border-color: var(--zhuge-border);
+  border-radius: 10px;
+  background: var(--zhuge-surface-raised);
+  color: var(--zhuge-text);
+}
+.zhuge-module-shell .btn,
+.zhuge-module-shell .btn2 { min-height: 36px; padding: 8px 12px; }
+.zhuge-module-shell .btn:not(.gray):not(.red):not(.amber),
+.zhuge-module-shell .btn2.selected { border-color: var(--zhuge-accent-strong); }
+.zhuge-module-shell .btn:hover,
+.zhuge-module-shell .btn2:hover { border-color: var(--zhuge-accent); }
+.zhuge-module-shell .input:focus,
+.zhuge-module-shell textarea:focus,
+.zhuge-module-shell select:focus { outline: 3px solid color-mix(in srgb, var(--zhuge-accent) 20%, transparent); border-color: var(--zhuge-accent); }
+
+/* Common toolbar/health density. */
+.zhuge-module-shell .panel-head { margin-bottom: 10px; }
+.zhuge-module-shell .control-grid,
+.zhuge-module-shell .knowledge-card-grid,
+.zhuge-module-shell .task-workspace-grid { gap: 10px; }
+.zhuge-module-shell .service-card { min-height: 0; }
+.zhuge-module-shell .control-grid .service-card b { color: var(--zhuge-success); }
+
+/* Control Center entries are part of the same shared card family as the
+ * System Health cards above.  Their content stays purpose-specific, while
+ * surface, border, radius, spacing and interaction come from the shell. */
+.zhuge-module-shell .control-center-entry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.zhuge-module-shell .control-center-entry {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-sm);
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: none;
+  transform: none;
+}
+.zhuge-module-shell .control-center-entry:hover,
+.zhuge-module-shell .control-center-entry:focus-visible {
+  border-color: color-mix(in srgb, var(--zhuge-accent) 58%, var(--zhuge-border));
+  background: var(--zhuge-surface-raised);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--zhuge-accent) 10%, transparent);
+  outline: none;
+  transform: translateY(-1px);
+}
+.zhuge-module-shell .control-center-entry-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--zhuge-accent) 14%, var(--zhuge-surface-raised));
+}
+.zhuge-module-shell .control-center-entry strong { color: var(--zhuge-text); }
+.zhuge-module-shell .control-center-entry small { color: var(--zhuge-muted); }
+.zhuge-module-shell .control-center-entry > span:last-child { color: var(--zhuge-accent); }
+
+@media (max-width: 767px) {
+  .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Investment keeps its finance-specific content, but inherits the same
+ * Workspace frame and compact information rhythm. */
+.investment-module-shell .investment-layout { display: block; min-height: 0; }
+.investment-module-shell .investment-local-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 clamp(14px, 2vw, 24px) 10px;
+}
+.investment-module-shell .investment-main { padding: clamp(14px, 2vw, 24px); }
+.investment-module-shell .investment-page { max-width: none; }
+.investment-module-shell .investment-page-heading,
+.investment-module-shell .investment-section-heading { margin-bottom: 14px; gap: 12px; }
+.investment-module-shell .investment-page-heading h1 { font-size: clamp(1.55rem, 2.6vw, 2.1rem); }
+.investment-module-shell .investment-kpi-grid { gap: 10px; margin-bottom: 12px; }
+.investment-module-shell .investment-kpi-grid article,
+.investment-module-shell .investment-settings-grid article {
+  min-height: 92px;
+  border-color: var(--zhuge-border);
+  border-radius: var(--zhuge-radius-md);
+  background: var(--zhuge-surface);
+  box-shadow: none;
+  padding: 13px;
+}
+.investment-module-shell .investment-decision { margin: 12px 0 18px; padding: 16px; border-radius: var(--zhuge-radius-md); }
+.investment-module-shell .investment-position-grid,
+.investment-module-shell .investment-watch-grid,
+.investment-module-shell .investment-settings-grid { gap: 10px; margin-bottom: 18px; }
+.investment-module-shell .investment-position-card,
+.investment-module-shell .investment-watch-card,
+.investment-module-shell .investment-strategy-card,
+.investment-module-shell .investment-table {
+  border-color: var(--zhuge-border);
+  border-radius: var(--zhuge-radius-md);
+  background: var(--zhuge-surface);
+  box-shadow: none;
+  padding: 14px;
+}
+.investment-module-shell .investment-table { padding: 0; }
+.investment-module-shell .investment-transaction-row { padding: 10px 13px; border-bottom-color: var(--zhuge-border); }
+.investment-module-shell .investment-sit-banner { margin-bottom: 12px; }
+.investment-module-shell .investment-sit-banner span,
+.investment-module-shell .investment-pill { border-color: var(--zhuge-border); background: var(--zhuge-surface-raised); }
+.investment-module-shell .investment-page p,
+.investment-module-shell .investment-page small,
+.investment-module-shell .investment-page span { color: var(--zhuge-muted); }
+.investment-module-shell .investment-page strong,
+.investment-module-shell .investment-page b,
+.investment-module-shell .investment-page h1,
+.investment-module-shell .investment-page h2,
+.investment-module-shell .investment-page h3 { color: var(--zhuge-text); }
+
+/* AI Board remains an engineering workspace; only its outer frame is
+ * consolidated. Workflow, card data and transition controls are untouched. */
+.zhuge-module-shell .main {
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+  overflow: visible;
+}
+.zhuge-module-shell .main > .workspace-subnav,
+.zhuge-module-shell .main > .toolbar,
+.zhuge-module-shell .main > .note,
+.zhuge-module-shell .main > .board-shell,
+.zhuge-module-shell .main > .governance-history,
+.zhuge-module-shell .main > .board-subview { max-width: none; }
+.zhuge-module-shell .main > .toolbar { margin-bottom: var(--shell-section-gap); }
+.zhuge-module-shell .main > .note { margin: 0 0 var(--shell-section-gap); }
+.zhuge-module-shell .main .board-shell { border-color: var(--zhuge-border); border-radius: var(--zhuge-radius-md); }
+
+/* Legacy pages set a document-level dark background. On runtime pages the
+ * shared appearance preference is authoritative. */
+body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
+html[data-theme="light"] body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
+
+html[data-theme="light"] .zhuge-module-shell .os-sidebar,
+html[data-theme="light"] .zhuge-module-shell .os-sidebar {
+  background: var(--zhuge-surface);
+  border-color: var(--zhuge-border);
+}
+html[data-theme="light"] .zhuge-module-shell .agent-panel,
+html[data-theme="light"] .zhuge-module-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
+html[data-theme="light"] .zhuge-module-shell .agent-panel h3,
+html[data-theme="light"] .zhuge-module-shell .side-section h3,
+html[data-theme="light"] .zhuge-module-shell .side-section-heading,
+html[data-theme="light"] .zhuge-module-shell .side-item { color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-module-shell .side-item:hover,
+html[data-theme="light"] .zhuge-module-shell .side-item.on,
+html[data-theme="light"] .zhuge-module-shell .side-section-heading:hover,
+html[data-theme="light"] .zhuge-module-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
+html[data-theme="light"] .zhuge-module-shell .agent-row,
+html[data-theme="light"] .zhuge-module-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
+html[data-theme="light"] .zhuge-module-shell .mini,
+html[data-theme="light"] .zhuge-module-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+
+/* The WorkLog runtime predates the shared theme and has a few explicit dark
+ * surfaces. Remap only those presentation surfaces in light mode; data and
+ * interaction behaviour remain unchanged. */
+html[data-theme="light"] .zhuge-module-shell .summary-dashboard,
+html[data-theme="light"] .zhuge-module-shell .summary-block,
+html[data-theme="light"] .zhuge-module-shell .summary-tile,
+html[data-theme="light"] .zhuge-module-shell .calendar-module,
+html[data-theme="light"] .zhuge-module-shell .today-module,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module,
+html[data-theme="light"] .zhuge-module-shell .workbench-grid > .panel,
+html[data-theme="light"] .zhuge-module-shell .task-list-section,
+html[data-theme="light"] .zhuge-module-shell .task-form {
+  background: var(--zhuge-surface);
+  border-color: var(--zhuge-border);
+  color: var(--zhuge-text);
+}
+html[data-theme="light"] .zhuge-module-shell .summary-dashboard h2,
+html[data-theme="light"] .zhuge-module-shell .summary-dashboard b,
+html[data-theme="light"] .zhuge-module-shell .summary-tile b,
+html[data-theme="light"] .zhuge-module-shell .summary-main b,
+html[data-theme="light"] .zhuge-module-shell .calendar-module h2,
+html[data-theme="light"] .zhuge-module-shell .today-module h2,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module h2 { color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-module-shell .summary-dashboard *,
+html[data-theme="light"] .zhuge-module-shell .today-module *,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module * { color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-module-shell .summary-dashboard .muted,
+html[data-theme="light"] .zhuge-module-shell .today-module .muted,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .muted,
+html[data-theme="light"] .zhuge-module-shell .suggestion-source { color: var(--zhuge-muted); }
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .ai-suggestion-card,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .entry,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-scan-item {
+  background: var(--zhuge-surface-raised);
+  border-color: var(--zhuge-border);
+  color: var(--zhuge-text);
+}
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion *,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .ai-suggestion-card *,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-scan-item h3,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-scan-item .suggestion-card-meta { color: var(--zhuge-text) !important; }
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-source,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-reason,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-card-meta,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-reason,
+html[data-theme="light"] .zhuge-module-shell .suggestion-module .suggestion-reason p { color: var(--zhuge-muted) !important; }
+html[data-theme="light"] .zhuge-module-shell .day,
+html[data-theme="light"] .zhuge-module-shell .mobile-day,
+html[data-theme="light"] .zhuge-module-shell .month-summary,
+html[data-theme="light"] .zhuge-module-shell .summary-metrics div { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+html[data-theme="light"] body:has(.investment-module-shell) {
+  --investment-bg: var(--zhuge-page-bg);
+  --investment-panel: var(--zhuge-surface);
+  --investment-panel-soft: var(--zhuge-surface-raised);
+  --investment-line: var(--zhuge-border);
+  --investment-text: var(--zhuge-text);
+  --investment-muted: var(--zhuge-muted);
+}
+html[data-theme="light"] body:has(.zhuge-module-shell .board) {
+  --bg: var(--zhuge-page-bg);
+  --panel: var(--zhuge-surface-raised);
+  --panel2: var(--zhuge-surface-soft);
+  --line: rgba(15, 23, 42, .10);
+  --text: #1d1d1f;
+  --muted: #687386;
+  --blue: #2878e8;
+  --blue-soft: #eaf2ff;
+}
+
+/* Light mode surfaces for legacy dark module CSS. */
+html[data-theme="light"] .zhuge-module-shell,
+html[data-theme="light"] .zhuge-module-shell body { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
+html[data-theme="light"] .zhuge-module-shell .workspace-tabs,
+html[data-theme="light"] .zhuge-module-shell .workspace-subnav,
+html[data-theme="light"] .zhuge-module-shell .investment-local-nav { background: var(--zhuge-surface-soft); }
+html[data-theme="light"] .zhuge-module-shell .panel,
+html[data-theme="light"] .zhuge-module-shell .entry,
+html[data-theme="light"] .zhuge-module-shell .empty,
+html[data-theme="light"] .zhuge-module-shell .service-card,
+html[data-theme="light"] .zhuge-module-shell .task-form,
+html[data-theme="light"] .zhuge-module-shell .task-list-section { background: var(--zhuge-surface); }
+html[data-theme="light"] .zhuge-module-shell .workspace-canvas {
+  background: var(--zhuge-page-bg) !important;
+  border-color: var(--zhuge-border) !important;
+}
+html[data-theme="light"] .zhuge-module-shell .board-local-nav,
+html[data-theme="light"] .zhuge-module-shell .toolbar,
+html[data-theme="light"] .zhuge-module-shell .board-shell,
+html[data-theme="light"] .zhuge-module-shell .governance-history,
+html[data-theme="light"] .zhuge-module-shell .board-subview {
+  background: var(--zhuge-surface) !important;
+  border-color: var(--zhuge-border) !important;
+  color: var(--zhuge-text) !important;
+}
+html[data-theme="light"] .zhuge-module-shell .board-local-nav .nav,
+html[data-theme="light"] .zhuge-module-shell .toolbar .chip,
+html[data-theme="light"] .zhuge-module-shell .toolbar .search,
+html[data-theme="light"] .zhuge-module-shell .toolbar .btn,
+html[data-theme="light"] .zhuge-module-shell .board-read-status,
+html[data-theme="light"] .zhuge-module-shell .note {
+  background: var(--zhuge-surface-raised) !important;
+  border-color: var(--zhuge-border) !important;
+  color: var(--zhuge-text) !important;
+}
+html[data-theme="light"] .zhuge-module-shell .toolbar .search input,
+html[data-theme="light"] .zhuge-module-shell .toolbar .search input::placeholder { color: var(--zhuge-muted) !important; }
+html[data-theme="light"] .zhuge-module-shell .column,
+html[data-theme="light"] .zhuge-module-shell .column.principles {
+  background: var(--zhuge-surface) !important;
+  border-color: var(--zhuge-border) !important;
+  color: var(--zhuge-text) !important;
+}
+html[data-theme="light"] .zhuge-module-shell .colhead,
+html[data-theme="light"] .zhuge-module-shell .card,
+html[data-theme="light"] .zhuge-module-shell .rule,
+html[data-theme="light"] .zhuge-module-shell .health-finding,
+html[data-theme="light"] .zhuge-module-shell .health-summary,
+html[data-theme="light"] .zhuge-module-shell .task-next-step,
+html[data-theme="light"] .zhuge-module-shell .checklist-item {
+  background: var(--zhuge-surface-raised) !important;
+  border-color: var(--zhuge-border) !important;
+  color: var(--zhuge-text) !important;
+}
+html[data-theme="light"] .zhuge-module-shell .card h3,
+html[data-theme="light"] .zhuge-module-shell .card p,
+html[data-theme="light"] .zhuge-module-shell .card .code,
+html[data-theme="light"] .zhuge-module-shell .card .meta,
+html[data-theme="light"] .zhuge-module-shell .task-detail-section h3,
+html[data-theme="light"] .zhuge-module-shell .task-detail-section p,
+html[data-theme="light"] .zhuge-module-shell .column-sub,
+html[data-theme="light"] .zhuge-module-shell .legend,
+html[data-theme="light"] .zhuge-module-shell .board-empty { color: var(--zhuge-text) !important; }
+html[data-theme="light"] .zhuge-module-shell .column-sub,
+html[data-theme="light"] .zhuge-module-shell .legend,
+html[data-theme="light"] .zhuge-module-shell .card p,
+html[data-theme="light"] .zhuge-module-shell .card .code,
+html[data-theme="light"] .zhuge-module-shell .board-empty { color: var(--zhuge-muted) !important; }
+html[data-theme="light"] .zhuge-module-shell .tag,
+html[data-theme="light"] .zhuge-module-shell .count { background: #edf2f7 !important; color: var(--zhuge-muted) !important; }
+html[data-theme="light"] .zhuge-module-shell .add { color: var(--zhuge-muted) !important; border-color: var(--zhuge-border) !important; }
+html[data-theme="light"] .zhuge-module-shell .modal,
+html[data-theme="light"] .zhuge-module-shell .modalhead,
+html[data-theme="light"] .zhuge-module-shell .modalbody,
+html[data-theme="light"] .zhuge-module-shell .modalfoot { background: var(--zhuge-surface) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+html[data-theme="light"] .zhuge-module-shell .field input,
+html[data-theme="light"] .zhuge-module-shell .field textarea,
+html[data-theme="light"] .zhuge-module-shell .field select { background: var(--zhuge-surface-raised) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+@media (prefers-color-scheme: light) {
+  html[data-theme="system"] body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .os-sidebar { background: var(--zhuge-surface); border-color: var(--zhuge-border); }
+  html[data-theme="system"] .zhuge-module-shell .agent-panel,
+  html[data-theme="system"] .zhuge-module-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
+  html[data-theme="system"] .zhuge-module-shell .agent-panel h3,
+  html[data-theme="system"] .zhuge-module-shell .side-section h3,
+  html[data-theme="system"] .zhuge-module-shell .side-section-heading,
+  html[data-theme="system"] .zhuge-module-shell .side-item { color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .side-item:hover,
+  html[data-theme="system"] .zhuge-module-shell .side-item.on,
+  html[data-theme="system"] .zhuge-module-shell .side-section-heading:hover,
+  html[data-theme="system"] .zhuge-module-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
+  html[data-theme="system"] .zhuge-module-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
+  html[data-theme="system"] .zhuge-module-shell .mini,
+  html[data-theme="system"] .zhuge-module-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .summary-dashboard,
+  html[data-theme="system"] .zhuge-module-shell .summary-block,
+  html[data-theme="system"] .zhuge-module-shell .summary-tile,
+  html[data-theme="system"] .zhuge-module-shell .calendar-module,
+  html[data-theme="system"] .zhuge-module-shell .today-module,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module,
+  html[data-theme="system"] .zhuge-module-shell .workbench-grid > .panel,
+  html[data-theme="system"] .zhuge-module-shell .task-list-section,
+  html[data-theme="system"] .zhuge-module-shell .task-form { background: var(--zhuge-surface); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .summary-dashboard h2,
+  html[data-theme="system"] .zhuge-module-shell .summary-dashboard b,
+  html[data-theme="system"] .zhuge-module-shell .summary-tile b,
+  html[data-theme="system"] .zhuge-module-shell .summary-main b,
+  html[data-theme="system"] .zhuge-module-shell .calendar-module h2,
+  html[data-theme="system"] .zhuge-module-shell .today-module h2,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module h2 { color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .summary-dashboard *,
+  html[data-theme="system"] .zhuge-module-shell .today-module *,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module * { color: var(--zhuge-text); }
+  html[data-theme="system"] .zhuge-module-shell .summary-dashboard .muted,
+  html[data-theme="system"] .zhuge-module-shell .today-module .muted,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .muted,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-source { color: var(--zhuge-muted); }
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .ai-suggestion-card,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .entry,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-scan-item {
+    background: var(--zhuge-surface-raised);
+    border-color: var(--zhuge-border);
+    color: var(--zhuge-text);
+  }
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion *,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .ai-suggestion-card *,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-scan-item h3,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-scan-item .suggestion-card-meta { color: var(--zhuge-text) !important; }
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-source,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-reason,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-card-meta,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-reason,
+  html[data-theme="system"] .zhuge-module-shell .suggestion-module .suggestion-reason p { color: var(--zhuge-muted) !important; }
+  html[data-theme="system"] .zhuge-module-shell .day,
+  html[data-theme="system"] .zhuge-module-shell .mobile-day,
+  html[data-theme="system"] .zhuge-module-shell .month-summary,
+  html[data-theme="system"] .zhuge-module-shell .summary-metrics div { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+  html[data-theme="system"] body:has(.investment-module-shell) { --investment-bg: var(--zhuge-page-bg); --investment-panel: var(--zhuge-surface); --investment-panel-soft: var(--zhuge-surface-raised); --investment-line: var(--zhuge-border); --investment-text: var(--zhuge-text); --investment-muted: var(--zhuge-muted); }
+  html[data-theme="system"] body:has(.zhuge-module-shell .board) { --bg: var(--zhuge-page-bg); --panel: var(--zhuge-surface-raised); --panel2: var(--zhuge-surface-soft); --line: var(--zhuge-border); --text: var(--zhuge-text); --muted: var(--zhuge-muted); --blue: var(--zhuge-accent); --blue-soft: color-mix(in srgb, var(--zhuge-accent) 12%, transparent); }
+  html[data-theme="system"] .zhuge-module-shell .workspace-tabs,
+  html[data-theme="system"] .zhuge-module-shell .workspace-subnav,
+  html[data-theme="system"] .zhuge-module-shell .investment-local-nav { background: var(--zhuge-surface-soft); }
+  html[data-theme="system"] .zhuge-module-shell .panel,
+  html[data-theme="system"] .zhuge-module-shell .entry,
+  html[data-theme="system"] .zhuge-module-shell .empty,
+  html[data-theme="system"] .zhuge-module-shell .service-card,
+  html[data-theme="system"] .zhuge-module-shell .task-form,
+  html[data-theme="system"] .zhuge-module-shell .task-list-section { background: var(--zhuge-surface); }
+  html[data-theme="system"] .zhuge-module-shell .workspace-canvas {
+    background: var(--zhuge-page-bg) !important;
+    border-color: var(--zhuge-border) !important;
+  }
+  html[data-theme="system"] .zhuge-module-shell .board-local-nav,
+  html[data-theme="system"] .zhuge-module-shell .toolbar,
+  html[data-theme="system"] .zhuge-module-shell .board-shell,
+  html[data-theme="system"] .zhuge-module-shell .governance-history,
+  html[data-theme="system"] .zhuge-module-shell .board-subview,
+  html[data-theme="system"] .zhuge-module-shell .column,
+  html[data-theme="system"] .zhuge-module-shell .column.principles,
+  html[data-theme="system"] .zhuge-module-shell .card,
+  html[data-theme="system"] .zhuge-module-shell .rule,
+  html[data-theme="system"] .zhuge-module-shell .health-finding,
+  html[data-theme="system"] .zhuge-module-shell .health-summary,
+  html[data-theme="system"] .zhuge-module-shell .task-next-step,
+  html[data-theme="system"] .zhuge-module-shell .checklist-item { background: var(--zhuge-surface) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+  html[data-theme="system"] .zhuge-module-shell .board-local-nav .nav,
+  html[data-theme="system"] .zhuge-module-shell .toolbar .chip,
+  html[data-theme="system"] .zhuge-module-shell .toolbar .search,
+  html[data-theme="system"] .zhuge-module-shell .toolbar .btn,
+  html[data-theme="system"] .zhuge-module-shell .board-read-status,
+  html[data-theme="system"] .zhuge-module-shell .note,
+  html[data-theme="system"] .zhuge-module-shell .colhead { background: var(--zhuge-surface-raised) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+  html[data-theme="system"] .zhuge-module-shell .card h3,
+  html[data-theme="system"] .zhuge-module-shell .card p,
+  html[data-theme="system"] .zhuge-module-shell .card .code,
+  html[data-theme="system"] .zhuge-module-shell .card .meta,
+  html[data-theme="system"] .zhuge-module-shell .column-sub,
+  html[data-theme="system"] .zhuge-module-shell .legend,
+  html[data-theme="system"] .zhuge-module-shell .board-empty { color: var(--zhuge-text) !important; }
+  html[data-theme="system"] .zhuge-module-shell .column-sub,
+  html[data-theme="system"] .zhuge-module-shell .legend,
+  html[data-theme="system"] .zhuge-module-shell .card p,
+  html[data-theme="system"] .zhuge-module-shell .card .code,
+  html[data-theme="system"] .zhuge-module-shell .board-empty { color: var(--zhuge-muted) !important; }
+  html[data-theme="system"] .zhuge-module-shell .modal,
+  html[data-theme="system"] .zhuge-module-shell .modalhead,
+  html[data-theme="system"] .zhuge-module-shell .modalbody,
+  html[data-theme="system"] .zhuge-module-shell .modalfoot { background: var(--zhuge-surface) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+  html[data-theme="system"] .zhuge-module-shell .field input,
+  html[data-theme="system"] .zhuge-module-shell .field textarea,
+  html[data-theme="system"] .zhuge-module-shell .field select { background: var(--zhuge-surface-raised) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
+}
+
+/* Canonical Sidebar geometry. This final shared layer intentionally follows
+ * module styles so no Workspace can change the navigation width, row height,
+ * padding, typography or line spacing independently. Active state is the only
+ * allowed per-route difference. */
+.zhuge-module-shell .os-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: calc(100vh - 36px);
+  padding: 14px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 22px;
+}
+.zhuge-module-shell .sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 6px 18px;
+  margin: -2px -2px 12px;
+  border-bottom: 1px solid #334155;
+}
+.zhuge-module-shell .sidebar-brand .brand-row { min-width: 0; }
+.zhuge-module-shell .sidebar-brand .brand-stack h1 {
+  font-size: 1.25rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.zhuge-module-shell .brand-mark { display: inline-block; filter: saturate(1.25); }
+.zhuge-module-shell .sidebar-brand .brand-companion {
+  margin-left: 35px;
+  margin-top: 4px;
+  font-size: .8125rem;
+}
+.zhuge-module-shell .sidebar-menu-mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  font-size: 1.125rem;
+  padding: 5px;
+  color: #94a3b8;
+}
+.zhuge-module-shell .agent-panel,
+.zhuge-module-shell .side-section {
+  padding: 12px 10px;
+  margin-bottom: var(--zhuge-sidebar-section-gap);
+  border-radius: 18px;
+}
+.zhuge-module-shell .agent-panel h3,
+.zhuge-module-shell .side-section h3,
+.zhuge-module-shell .side-section-heading {
+  font-size: .9375rem;
+  line-height: var(--zhuge-sidebar-item-line-height);
+  margin-bottom: 10px;
+}
+.zhuge-module-shell .agent-row {
+  padding: 7px 0;
+  font-size: .8125rem;
+  line-height: var(--zhuge-sidebar-item-line-height);
+}
+.zhuge-module-shell .side-item {
+  min-height: var(--zhuge-sidebar-item-height);
+  padding: var(--zhuge-sidebar-item-padding-block) var(--zhuge-sidebar-item-padding-inline);
+  margin-top: 6px;
+  border-radius: var(--zhuge-sidebar-item-radius);
+  font-size: var(--zhuge-sidebar-item-font-size);
+  line-height: var(--zhuge-sidebar-item-line-height);
+}
+.zhuge-module-shell .side-item-child {
+  min-height: var(--zhuge-sidebar-child-height);
+  padding: var(--zhuge-sidebar-child-padding-block) var(--zhuge-sidebar-child-padding-inline);
+  font-size: .875rem;
+  line-height: var(--zhuge-sidebar-item-line-height);
+}
+.zhuge-module-shell .side-item.on {
+  background: #172554;
+  border-color: #60a5fa;
+}
+.zhuge-module-shell .developer-build-info {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 8px 6px 2px;
+  color: #94a3b8;
+  font-size: .75rem;
+  line-height: 1.5;
+}
+.zhuge-module-shell .sidebar-sync-summary,
+.zhuge-module-shell .sidebar-version-summary,
+.zhuge-module-shell .sidebar-build-summary {
+  padding: 4px 2px;
+}
+
+@media (max-width: 900px) {
+  .zhuge-module-shell .workspace-canvas,
+  .zhuge-module-shell .investment-main,
+  .zhuge-module-shell .main { padding: 14px; }
+}
+@media (max-width: 700px) {
+  .zhuge-module-shell .workspace-canvas,
+  .zhuge-module-shell .investment-main,
+  .zhuge-module-shell .main { padding: 10px; }
+  .zhuge-module-shell .panel { padding: 14px; border-radius: 14px; }
+  .zhuge-module-shell .workspace-tabs,
+  .zhuge-module-shell .workspace-subnav,
+  .zhuge-module-shell .investment-local-nav { overflow-x: auto; flex-wrap: nowrap; }
+  .investment-module-shell .investment-kpi-grid,
+  .investment-module-shell .investment-position-grid,
+  .investment-module-shell .investment-watch-grid,
+  .investment-module-shell .investment-settings-grid { grid-template-columns: 1fr; }
+}
+
+/* PM QA Round 3: shared geometry and interaction polish. */
+.zhuge-module-shell .workspace-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--zhuge-workspace-tabs-gap);
+  min-height: var(--zhuge-workspace-tabs-height);
+  padding: 0 var(--zhuge-workspace-tabs-padding-inline);
+  border: 0;
+  border-bottom: 1px solid var(--zhuge-border);
+  border-radius: 0;
+  background: transparent;
+}
+.zhuge-module-shell .workspace-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--zhuge-workspace-tab-icon-gap);
+  min-height: var(--zhuge-workspace-tab-height);
+  margin: 0;
+  padding: var(--zhuge-workspace-tab-padding-block) var(--zhuge-workspace-tab-padding-inline);
+  border: 1px solid transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: var(--zhuge-workspace-tab-radius) var(--zhuge-workspace-tab-radius) 0 0;
+  background: transparent;
+  color: var(--zhuge-muted);
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.zhuge-module-shell .workspace-tab > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zhuge-workspace-tab-icon-gap);
+  min-width: 0;
+  line-height: inherit;
+}
+.zhuge-module-shell .workspace-tab:hover,
+.zhuge-module-shell .workspace-tab:focus-visible {
+  border-color: color-mix(in srgb, var(--zhuge-accent) 36%, transparent) !important;
+  border-bottom-color: var(--zhuge-accent) !important;
+  background: color-mix(in srgb, var(--zhuge-accent) 8%, transparent);
+  color: var(--zhuge-text);
+  outline: none;
+}
+.zhuge-module-shell .workspace-tab.active {
+  border-color: var(--zhuge-border) !important;
+  border-bottom-color: var(--zhuge-accent) !important;
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: 0 -1px 0 var(--zhuge-surface);
+}
+.zhuge-module-shell .workspace-tab .tab-close {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 var(--zhuge-workspace-tab-close-size);
+  width: var(--zhuge-workspace-tab-close-size);
+  height: var(--zhuge-workspace-tab-close-size);
+  margin-left: 2px;
+  border-radius: 5px;
+  font-size: .85rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.zhuge-module-shell .workspace-tab .tab-close:hover { background: color-mix(in srgb, var(--zhuge-text) 12%, transparent); }
+.zhuge-module-shell .btn,
+.zhuge-module-shell .btn2 { min-height: 40px; border-radius: var(--zhuge-radius-sm); }
+.zhuge-module-shell .settings-reset-action,
+.zhuge-module-shell .settings-logout-action { width: 100%; }
+.zhuge-module-shell .settings-reset-action { border-color: var(--zhuge-border); background: var(--zhuge-surface-soft); color: var(--zhuge-text); }
+.zhuge-module-shell .settings-logout-action { background: var(--zhuge-danger, #dc2626); color: #fff; box-shadow: 0 5px 14px color-mix(in srgb, var(--zhuge-danger, #dc2626) 22%, transparent); }
+.zhuge-module-shell .settings-logout-action:hover,
+.zhuge-module-shell .settings-logout-action:focus-visible { background: #b91c1c; }
+.tasks-workspace .task-workspace-grid { display: block !important; grid-template-columns: none !important; }
+.tasks-workspace .task-drawer:not(.is-open) { pointer-events: none; }
+
+@media (min-width: 768px) {
+  .zhuge-module-shell .workspace-worklog .workbench-grid { align-items: start; grid-auto-rows: auto; }
+  .zhuge-module-shell .workspace-worklog .workbench-grid > .panel,
+  .zhuge-module-shell .workspace-worklog .summary-dashboard,
+  .zhuge-module-shell .workspace-worklog .calendar-module,
+  .zhuge-module-shell .workspace-worklog .today-module,
+  .zhuge-module-shell .workspace-worklog .suggestion-module { height: auto !important; min-height: 0 !important; max-height: none !important; }
+  .zhuge-module-shell .workspace-worklog .calendar-module,
+  .zhuge-module-shell .workspace-worklog .today-module,
+  .zhuge-module-shell .workspace-worklog .suggestion-module,
+  .zhuge-module-shell .workspace-worklog .panel-layout,
+  .zhuge-module-shell .workspace-worklog .desktop-calendar { overflow: visible; }
+  .zhuge-module-shell .workspace-worklog .panel-scroll-content,
+  .zhuge-module-shell .workspace-worklog .today-entry-list,
+  .zhuge-module-shell .workspace-worklog .calendar-scroll-content { max-height: none; overflow: visible; }
+}
+
+/* WorkLog content should end at its actual panels rather than reserve a
+ * viewport-sized spacer beneath the calendar and work suggestions. */
+.zhuge-module-shell.workspace-shell.workspace-worklog .workspace-canvas,
+.zhuge-module-shell.workspace-shell.workspace-worklog .daily-workspace {
+  min-height: 0;
+}
