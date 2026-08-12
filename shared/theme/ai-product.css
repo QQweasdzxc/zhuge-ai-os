@@ -85,13 +85,17 @@
 .task-completion-dialog{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(2,6,23,.72)}
 .task-completion-dialog .quick-add-card{width:min(520px,calc(100vw - 28px));max-height:90vh;overflow:auto}
 .task-search{align-items:center}.task-search>span{flex:0 0 auto}.task-search-clear{flex:0 0 auto;min-width:40px;padding-inline:10px}
+.task-sort-hint{display:inline-flex;align-items:center;min-height:32px;padding:0 4px;color:#9fb6ce;font-size:.74rem;font-weight:750;white-space:nowrap}
 .task-row-core{display:block;min-width:0;width:100%}
 .task-row.task-journal-open{display:block}
-.task-latest-journal{width:100%;margin-top:8px;padding:11px 13px;border-top:1px solid rgba(96,165,250,.28);border-bottom:1px solid rgba(96,165,250,.18);border-left:3px solid #65a9ff;border-radius:7px;background:rgba(30,64,175,.13);color:#dbeafe;line-height:1.5;overflow-wrap:anywhere}
-.task-latest-journal-label{color:#9fc6e8;font-size:.78rem;font-weight:800;letter-spacing:.02em}
-.task-latest-journal-line{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:3px}
-.task-latest-journal-content{flex:1 1 260px;min-width:0;font-size:.96rem;white-space:pre-wrap}
-.task-latest-journal time{flex:0 1 auto;margin-left:auto;color:#94a3b8;font-size:.72rem;white-space:nowrap}
+.task-latest-journal{width:100%;margin-top:8px;padding:8px 11px;border-top:1px solid rgba(96,165,250,.24);border-bottom:1px solid rgba(96,165,250,.16);border-left:3px solid #65a9ff;border-radius:7px;background:rgba(30,64,175,.1);color:#dbeafe;line-height:1.45;overflow-wrap:anywhere}
+.task-latest-journal summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}
+.task-latest-journal summary::-webkit-details-marker{display:none}
+.task-latest-journal summary::after{content:"＋";color:#9fc6e8;font-size:.82rem;font-weight:800}
+.task-latest-journal[open] summary::after{content:"−"}
+.task-latest-journal-label{color:#9fc6e8;font-size:.76rem;font-weight:800;letter-spacing:.02em}
+.task-latest-journal-content{min-width:0;margin-top:7px;padding-top:7px;border-top:1px solid rgba(148,163,184,.14);font-size:.88rem;white-space:pre-wrap}
+.task-latest-journal time{margin-left:auto;color:#94a3b8;font-size:.7rem;white-space:nowrap}
 .task-journal-timeline{display:grid;gap:0;margin-left:4px;padding:2px 4px 4px 13px;border-left:2px solid rgba(96,165,250,.45)}
 .task-journal-entry{position:relative;display:flex;gap:9px;padding:8px 8px 8px 0;border:0;border-bottom:1px solid rgba(148,163,184,.12);border-radius:0;background:transparent}
 .task-journal-entry:last-child{border-bottom:0}

@@ -441,6 +441,45 @@ async function openTaskJournal(taskId = "") {
   }
 }
 
+function openDashboardTask(taskId = "") {
+  const task = tasks.find(item => String(item.id) === String(taskId));
+  if (!task) return openWorkspace("tasks");
+  sidebarOpen = false;
+  activeWorkspace = "tasks";
+  if (!openTabs.includes("tasks")) openTabs.push("tasks");
+  rememberWorkspace("tasks");
+  taskFilter = task.status === "completed" ? "completed" : "open";
+  taskSearch = "";
+  editingTaskId = null;
+  taskDrawerOpen = false;
+  taskJournalTaskId = null;
+  taskJournalDraft = null;
+  taskJournalLoading = false;
+  saveAll();
+  render("dashboard-task-open");
+  // Let the task workspace paint first, then open the existing Cloud journal
+  // drawer and bring the exact row into view.
+  setTimeout(() => {
+    const row = [...document.querySelectorAll("[data-task-card]")].find(item => item.dataset.taskCard === String(task.id));
+    row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    openTaskJournal(task.id);
+  }, 0);
+}
+
+function openDashboardNewTask() {
+  sidebarOpen = false;
+  activeWorkspace = "tasks";
+  if (!openTabs.includes("tasks")) openTabs.push("tasks");
+  rememberWorkspace("tasks");
+  taskFilter = "open";
+  taskSearch = "";
+  editingTaskId = null;
+  taskDraft = loadTaskDraft("new") || null;
+  taskDrawerOpen = true;
+  saveAll();
+  render("dashboard-task-new");
+}
+
 async function saveTaskJournal(taskId = "") {
   let task = tasks.find(item => item.id === taskId);
   const content = document.getElementById("taskJournalContent")?.value?.trim() || "";
@@ -485,14 +524,31 @@ async function saveTaskJournal(taskId = "") {
   }
 }
 
+function taskTimestamp(task = {}, field = "updatedAt") {
+  const fallback = field === "updatedAt" ? "updated_at" : "created_at";
+  const raw = task?.[field] ?? task?.[fallback] ?? "";
+  const value = Date.parse(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+// One ordering contract for the full task workspace and Dashboard preview:
+// recently changed work is easiest to resume, with deterministic fallbacks.
+function sortTasksByRecentUpdate(list = []) {
+  return [...(Array.isArray(list) ? list : [])].sort((a, b) => {
+    const updated = taskTimestamp(b, "updatedAt") - taskTimestamp(a, "updatedAt");
+    if (updated) return updated;
+    const created = taskTimestamp(b, "createdAt") - taskTimestamp(a, "createdAt");
+    if (created) return created;
+    return String(a?.title || "").localeCompare(String(b?.title || ""), "zh-Hant");
+  });
+}
+
 function taskListItems() {
   const search = taskSearch.trim().toLowerCase();
   const filtered = tasks
     .filter(task => taskFilter === "all" || (taskFilter === "open" ? task.status !== "completed" : task.status === "completed"))
     .filter(task => !search || `${task.title} ${task.note}`.toLowerCase().includes(search));
-  return typeof PriorityEngine !== "undefined"
-    ? PriorityEngine.rank(filtered, { includeCompleted: true })
-    : filtered;
+  return sortTasksByRecentUpdate(filtered);
 }
 
 function taskPriorityOptions(selected = "p2") {
@@ -4869,7 +4925,7 @@ function taskWorkspace() {
   const rows = list.length ? list.map(task => {
     const timeline = workJournalForTask(task);
     const latest = timeline[timeline.length - 1];
-    const latestMarkup = latest ? `<div class="task-latest-journal"><div class="task-latest-journal-label">🟢 最新更新</div><div class="task-latest-journal-line"><div class="task-latest-journal-content">${escapeHtml(latest.content)}</div><time>${escapeHtml(fmt(latest.createdAt))}</time></div></div>` : "";
+    const latestMarkup = latest ? `<details class="task-latest-journal"><summary><span class="task-latest-journal-label">🟢 最新更新</span><time>${escapeHtml(fmt(latest.createdAt))}</time></summary><div class="task-latest-journal-content">${escapeHtml(latest.content)}</div></details>` : "";
     const journalToggleLabel = `${taskJournalTaskId === task.id ? "▾" : "▸"} 工作推進紀錄（${timeline.length}）`;
     const worklogHours = taskWorklogHours(task);
     return `<article class="entry task-row ${task.status === "completed" ? "task-completed" : ""}" data-task-card="${escapeHtml(task.id)}"><div class="task-row-core"><header class="task-row-header"><div class="task-row-title">${taskPriorityBadge(task)} ${taskWorkflowBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><div class="task-row-actions actions compact"><button class="btn2" type="button" data-task-journal="${escapeHtml(task.id)}">${journalToggleLabel}</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></header><div class="task-row-content"><div class="task-progress-track" aria-label="進度 ${task.progress}%"><span style="width:${task.progress}%"></span></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}${worklogHours > 0 ? `｜⏱ ${escapeHtml(formatHumanDuration(worklogHours))}` : ""}</small>${latestMarkup}${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div></div></article>`;
@@ -4884,7 +4940,7 @@ function taskWorkspace() {
   const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦事項">${form}</aside>`;
   const journalTask = taskJournalTaskId ? tasks.find(task => task.id === taskJournalTaskId) : null;
   const journalDrawer = taskJournalPanel(journalTask);
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${journalDrawer}${dialog}</section>`;
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${journalDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
@@ -4916,6 +4972,14 @@ function bind() {
   document.querySelectorAll("[data-toggle-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = !sidebarOpen; render(); });
   document.querySelectorAll("[data-close-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = false; render(); });
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
+  document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    openDashboardTask(button.dataset.dashboardTaskId || "");
+  });
+  document.querySelectorAll("[data-dashboard-add-task]").forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    openDashboardNewTask();
+  });
   document.querySelectorAll("[data-dashboard-add-worklog]").forEach(b => b.onclick = event => {
     event.stopPropagation();
     sidebarOpen = false;

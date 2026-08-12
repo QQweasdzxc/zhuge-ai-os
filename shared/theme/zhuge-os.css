@@ -60,6 +60,8 @@
 .zhuge-dashboard-right-column { display: grid; gap: 14px; min-width: 0; }
 .zhuge-dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .zhuge-dashboard-section-heading h3 { margin: 0; font-size: 1.05rem; }
+.zhuge-dashboard-section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 0 0 auto; }
+.zhuge-dashboard-section-actions .btn { white-space: nowrap; }
 .zhuge-dashboard-workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
 .zhuge-dashboard-workspace-list .zhuge-module-card { min-height: 68px; padding: 0; }
 .zhuge-dashboard-workspace-list .zhuge-module-card-main { min-height: 68px; padding: 12px 14px; }
@@ -98,6 +100,7 @@
 .zhuge-activity-row small { color: #b6c7dc; }
 .zhuge-activity-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.2rem; }
 .zhuge-ai-notice { border-left: 3px solid #69aaff; }
+@media(max-width:767px){.zhuge-dashboard-section-heading{align-items:flex-start}.zhuge-dashboard-section-actions{align-items:stretch;flex-direction:column;width:auto}.zhuge-dashboard-section-actions .btn,.zhuge-dashboard-section-actions .btn2{min-height:38px;padding-inline:10px}}
 .zhuge-ai-notice h3 { margin: 0 0 4px; }
 .zhuge-ai-notice p { margin: 0; }
 .zhuge-root-release-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }

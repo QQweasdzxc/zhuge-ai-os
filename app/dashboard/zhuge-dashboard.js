@@ -85,12 +85,13 @@ function zhugeRootTaskStatusLabel(status = "") {
 
 function zhugeRootTodoMarkup() {
   const source = typeof tasks !== "undefined" && Array.isArray(tasks) ? tasks : [];
-  const pending = source
-    .filter(task => task && task.status !== "completed")
-    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+  const pendingSource = source.filter(task => task && task.status !== "completed");
+  const pending = (typeof sortTasksByRecentUpdate === "function"
+    ? sortTasksByRecentUpdate(pendingSource)
+    : pendingSource.sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))))
     .slice(0, 5);
   if (!pending.length) return `<div class="zhuge-dashboard-empty"><strong>目前沒有待辦事項</strong><span>建立待辦後，這裡會顯示目前帳號需要處理的工作。</span></div>`;
-  return `<div class="zhuge-dashboard-task-list">${pending.map(task => `<button type="button" class="zhuge-dashboard-task-row" data-open-workspace="tasks"><span class="zhuge-dashboard-task-icon" aria-hidden="true">✅</span><span class="zhuge-dashboard-task-copy"><strong>${escapeHtml(task.title || "未命名待辦")}</strong><small>${escapeHtml(zhugeRootTaskStatusLabel(task.status))}${task.dueDate ? `｜期限 ${escapeHtml(task.dueDate)}` : ""}</small></span><span class="zhuge-dashboard-task-arrow" aria-hidden="true">→</span></button>`).join("")}</div>`;
+  return `<div class="zhuge-dashboard-task-list">${pending.map(task => `<button type="button" class="zhuge-dashboard-task-row" data-dashboard-task-id="${escapeHtml(task.id)}" aria-label="開啟待辦：${escapeHtml(task.title || "未命名待辦")}"><span class="zhuge-dashboard-task-icon" aria-hidden="true">✅</span><span class="zhuge-dashboard-task-copy"><strong>${escapeHtml(task.title || "未命名待辦")}</strong><small>${escapeHtml(zhugeRootTaskStatusLabel(task.status))}${task.dueDate ? `｜期限 ${escapeHtml(task.dueDate)}` : ""}</small></span><span class="zhuge-dashboard-task-arrow" aria-hidden="true">→</span></button>`).join("")}</div>`;
 }
 
 function zhugeRootContinueMarkup() {
@@ -118,7 +119,7 @@ function zhugeRootDashboardMarkup(identity = null) {
     <div class="zhuge-dashboard-workspace-layout">
       <section class="zhuge-dashboard-section zhuge-dashboard-workspaces" aria-labelledby="zhuge-workspaces-title"><div class="zhuge-root-section-heading"><p class="zhuge-root-eyebrow">工作空間</p><h3 id="zhuge-workspaces-title">我的工作空間</h3></div><div class="zhuge-dashboard-workspace-list">${zhugeRootWorkspaceCards()}</div></section>
       <div class="zhuge-dashboard-right-column">
-        <section class="zhuge-dashboard-section" aria-labelledby="zhuge-todo-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">待處理</p><h3 id="zhuge-todo-title">我的待辦事項</h3></div><button type="button" class="btn2" data-open-workspace="tasks">查看全部</button></div>${zhugeRootTodoMarkup()}</section>
+        <section class="zhuge-dashboard-section" aria-labelledby="zhuge-todo-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">待處理</p><h3 id="zhuge-todo-title">我的待辦事項</h3></div><div class="zhuge-dashboard-section-actions"><button type="button" class="btn" data-dashboard-add-task="1">＋ 新增待辦</button><button type="button" class="btn2" data-open-workspace="tasks">查看全部</button></div></div>${zhugeRootTodoMarkup()}</section>
         <section class="zhuge-dashboard-section" aria-labelledby="zhuge-continue-title"><div class="zhuge-dashboard-section-heading"><div><p class="zhuge-root-eyebrow">最近工作</p><h3 id="zhuge-continue-title">繼續工作</h3></div></div>${zhugeRootContinueMarkup()}</section>
       </div>
     </div>
