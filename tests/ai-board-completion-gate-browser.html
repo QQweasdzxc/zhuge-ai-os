@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AI Board completion gate browser regression</title>
+<link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
+<div class="zhuge-module-shell">
+  <div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.12" data-build="20260812-1355"></div>
+  <div class="main">
+    <aside><button data-board-nav="board" type="button">📋 工作看板</button><button data-board-nav="principles" type="button">📘 工程準則</button><button data-board-nav="system-map" type="button">🗺️ 系統藍圖</button></aside>
+    <div class="actions"><button class="btn">重新整理</button></div><div class="toolbar"></div><div class="note"></div>
+    <section class="board-shell"><section class="process" data-status="todo"><span class="count">0</span><div class="cards"></div></section><section class="process" data-status="progress"><span class="count">0</span><div class="cards"></div></section><section class="process" data-status="qa"><span class="count">0</span><div class="cards"></div></section><section class="process" data-status="done"><span class="count">0</span><div class="cards"></div></section></section>
+    <section class="board-subview principles-view" data-board-view="principles" hidden><div id="principlesCards"></div></section><section class="board-subview system-map-view" data-board-view="system-map" hidden><div id="systemMapCards"></div></section><div class="sidefoot"></div>
+  </div>
+</div>
+<script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script>
+<script>
+  window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
+  const tasks = [
+    { id: "button-task", workCode: "TASK-BUTTON", title: "QJC 按鈕完成", status: "qa", workspace: "qa", assignee: "QJC", summary: "Co 與 QJC 證據完成。", usageScenario: "QJC 點擊 PM QA 完成。" },
+    { id: "drag-task", workCode: "TASK-DRAG", title: "QJC 拖曳完成", status: "qa", workspace: "qa", assignee: "QJC", summary: "Co 與 QJC 證據完成。", usageScenario: "QJC 將卡片拖到完成。" }
+  ];
+  const calls = [];
+  window.ZhugeBoardReadService = {
+    STATUS_WORKSPACES: [{ key: "ready", uiKey: "todo", label: "待辦" }, { key: "inprogress", uiKey: "progress", label: "推進" }, { key: "qa", uiKey: "qa", label: "驗證" }, { key: "done", uiKey: "done", label: "完成" }],
+    load: async () => ({ tasks, principles: [], systemMaps: [] }),
+    loadChecklist: async () => [
+      { id: "co", stage: "co", state: "pass", required: true, label: "Co 開發驗證", evidenceNote: "Co Developer QA PASS" },
+      { id: "gpt", stage: "gpt", state: "not_verified", required: true, label: "GPT 工程審查", evidenceNote: "" },
+      { id: "qjc", stage: "qjc", state: "pass", required: true, label: "QJC PM 驗收", evidenceNote: "QJC PM QA PASS" }
+    ],
+    planTransition: (task, target) => task.status === "qa" && task.assignee === "QJC" && target === "done" ? { allowed: true, targetWorkspace: "done", status: "done", assignee: "QJC", action: "PM QA 通過 → 完成" } : { allowed: false, reason: "目前不允許這個交接。" },
+    availableTransitions: task => task.status === "qa" && task.assignee === "QJC" ? [{ allowed: true, targetWorkspace: "done", status: "done", assignee: "QJC", action: "PM QA 通過 → 完成" }] : [],
+    transitionTask: async (taskId, status, assignee, note) => { calls.push(`${taskId}:${status}:${assignee}`); const task = tasks.find(item => item.id === taskId); if (task) { task.status = status; task.workspace = "done"; task.assignee = assignee; } return {}; },
+    updateChecklistItem: async () => ({}),
+    subscribe: async () => async () => {}
+  };
+  window.__gateCalls = calls;
+</script>
+<script>window.__gateErrors = []; window.addEventListener('error', event => window.__gateErrors.push(`${event.message} @${event.filename}:${event.lineno}:${event.colno} ${(event.error?.stack || '')}`));</script>
+<script src="../app/Board/ai/board-runtime.js"></script>
+<script>
+  window.__runtimeLoaded = Boolean(window.ZhugeBoardRuntime);
+  setTimeout(() => window.ZhugeBoardRuntime?.refresh()?.catch(error => window.__gateErrors.push(`refresh ${error.stack || error.message}`)), 100);
+  setTimeout(() => document.querySelector('[data-task-id="button-task"]')?.click(), 900);
+  setTimeout(() => document.querySelector('#taskTransitionActions button')?.click(), 1200);
+  setTimeout(() => {
+    const card = document.querySelector('[data-task-id="drag-task"]'); const zone = document.querySelector('.process[data-status="done"] .cards');
+    const data = { values: {}, setData(type, value) { this.values[type] = value; }, getData(type) { return this.values[type]; } };
+    card?.ondragstart({ dataTransfer: data }); zone?.ondrop({ preventDefault() {}, dataTransfer: data });
+  }, 1700);
+  setTimeout(() => { const audit = document.createElement('pre'); audit.id = 'completion-gate-audit'; audit.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};done=${tasks.filter(item => item.status === 'done').length};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(audit); }, 2800);
+</script>
