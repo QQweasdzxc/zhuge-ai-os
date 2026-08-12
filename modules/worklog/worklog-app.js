@@ -4169,6 +4169,15 @@ function bindAuth() {
     const result = await getSupabaseAuthUser();
     if (!result) throw new Error("登入已完成，但尚未取得使用者工作階段，請重新整理後再試。");
     session = supabaseSessionFromUser(result.user, result.authSession, "email-password");
+    // Every successful login enters the product through the same Dashboard
+    // landing surface. Workspace links still set an explicit destination in
+    // the routing adapter before authentication begins.
+    activeModule = "dashboard";
+    activeWorkspace = "dashboard";
+    openTabs = [];
+    recentWorkspaces = [];
+    view = "center";
+    hasOsShellState = true;
     loadTasksForSession();
     saveAll();
     await DataService.init();

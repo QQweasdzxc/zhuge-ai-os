@@ -62,6 +62,22 @@
 .zhuge-dashboard-section-heading h3 { margin: 0; font-size: 1.05rem; }
 .zhuge-dashboard-section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 0 0 auto; }
 .zhuge-dashboard-section-actions .btn { white-space: nowrap; }
+/* Dashboard actions use the shared primary/secondary hierarchy.  Keep the
+ * new-task action visibly actionable in every theme instead of inheriting a
+ * low-contrast legacy button surface. */
+.zhuge-dashboard-section-actions [data-dashboard-add-task] {
+  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 82%, white 18%);
+  background: linear-gradient(135deg, var(--zhuge-accent-strong), var(--zhuge-accent));
+  color: #fff;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--zhuge-accent-strong) 28%, transparent);
+}
+.zhuge-dashboard-section-actions [data-dashboard-add-task]:hover,
+.zhuge-dashboard-section-actions [data-dashboard-add-task]:focus-visible {
+  border-color: var(--zhuge-accent);
+  background: linear-gradient(135deg, var(--zhuge-accent), color-mix(in srgb, var(--zhuge-accent) 72%, white 28%));
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--zhuge-accent-strong) 36%, transparent);
+  outline: none;
+}
 .zhuge-dashboard-workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
 .zhuge-dashboard-workspace-list .zhuge-module-card { min-height: 68px; padding: 0; }
 .zhuge-dashboard-workspace-list .zhuge-module-card-main { min-height: 68px; padding: 12px 14px; }

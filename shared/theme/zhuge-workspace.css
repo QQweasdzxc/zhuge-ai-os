@@ -130,6 +130,19 @@
 .zhuge-module-shell .btn2.selected { border-color: var(--zhuge-accent-strong); }
 .zhuge-module-shell .btn:hover,
 .zhuge-module-shell .btn2:hover { border-color: var(--zhuge-accent); }
+.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task] {
+  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 82%, white 18%);
+  background: linear-gradient(135deg, var(--zhuge-accent-strong), var(--zhuge-accent));
+  color: #fff;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--zhuge-accent-strong) 28%, transparent);
+}
+.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task]:hover,
+.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task]:focus-visible {
+  border-color: var(--zhuge-accent);
+  background: linear-gradient(135deg, var(--zhuge-accent), color-mix(in srgb, var(--zhuge-accent) 72%, white 28%));
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--zhuge-accent-strong) 36%, transparent);
+  outline: none;
+}
 .zhuge-module-shell .input:focus,
 .zhuge-module-shell textarea:focus,
 .zhuge-module-shell select:focus { outline: 3px solid color-mix(in srgb, var(--zhuge-accent) 20%, transparent); border-color: var(--zhuge-accent); }
@@ -141,6 +154,45 @@
 .zhuge-module-shell .task-workspace-grid { gap: 10px; }
 .zhuge-module-shell .service-card { min-height: 0; }
 .zhuge-module-shell .control-grid .service-card b { color: var(--zhuge-success); }
+
+/* Control Center entries are part of the same shared card family as the
+ * System Health cards above.  Their content stays purpose-specific, while
+ * surface, border, radius, spacing and interaction come from the shell. */
+.zhuge-module-shell .control-center-entry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.zhuge-module-shell .control-center-entry {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-sm);
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: none;
+  transform: none;
+}
+.zhuge-module-shell .control-center-entry:hover,
+.zhuge-module-shell .control-center-entry:focus-visible {
+  border-color: color-mix(in srgb, var(--zhuge-accent) 58%, var(--zhuge-border));
+  background: var(--zhuge-surface-raised);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--zhuge-accent) 10%, transparent);
+  outline: none;
+  transform: translateY(-1px);
+}
+.zhuge-module-shell .control-center-entry-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--zhuge-accent) 14%, var(--zhuge-surface-raised));
+}
+.zhuge-module-shell .control-center-entry strong { color: var(--zhuge-text); }
+.zhuge-module-shell .control-center-entry small { color: var(--zhuge-muted); }
+.zhuge-module-shell .control-center-entry > span:last-child { color: var(--zhuge-accent); }
+
+@media (max-width: 767px) {
+  .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Investment keeps its finance-specific content, but inherits the same
  * Workspace frame and compact information rhythm. */
