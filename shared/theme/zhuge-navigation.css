@@ -84,6 +84,17 @@
   font-size: 1rem;
   line-height: var(--zhuge-sidebar-item-line-height);
 }
+/* Group headings are descriptive labels, not destinations.  Once the rail
+ * is collapsed, keep only actionable workspace icons so no inert icon looks
+ * like a button. */
+.zhuge-module-shell.zhuge-nav-collapsed .side-section > h3 {
+  display: none;
+}
+.zhuge-module-shell.zhuge-nav-collapsed .side-section {
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: 6px;
+}
 .zhuge-module-shell.zhuge-nav-collapsed .side-item {
   min-height: var(--zhuge-sidebar-item-height);
   justify-content: center;

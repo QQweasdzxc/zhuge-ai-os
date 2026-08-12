@@ -53,7 +53,7 @@ function fixture(files, activeWorkspace) {
   </main><script>
     const shell = document.querySelector('.zhuge-module-shell');
     const target = document.getElementById('zhugeSharedNavigation');
-    target.outerHTML = window.ZhugeSharedNavigation.render({ activeWorkspace: ${JSON.stringify(activeWorkspace)}, version: '0.9.0-alpha.9.12', build: '20260812-1203' });
+    target.outerHTML = window.ZhugeSharedNavigation.render({ activeWorkspace: ${JSON.stringify(activeWorkspace)}, version: '0.9.0-alpha.9.12', build: '20260812-1307' });
     requestAnimationFrame(() => {
       const sidebar = shell.querySelector('.os-sidebar');
       const css = element => {
@@ -141,5 +141,6 @@ test("collapsed rail geometry is owned by shared navigation, not WorkLog CSS", (
   assert.match(nav, /--zhuge-sidebar-collapsed-width:\s*72px/);
   assert.match(nav, /--zhuge-sidebar-collapsed-item-padding-block:\s*9px/);
   assert.match(nav, /\.zhuge-module-shell\.zhuge-nav-collapsed\s*>\s*\.os-sidebar/);
+  assert.match(nav, /\.zhuge-module-shell\.zhuge-nav-collapsed \.side-section > h3\s*\{\s*display:\s*none/);
   assert.doesNotMatch(worklog, /workspace-worklog\.zhuge-nav-collapsed/);
 });
