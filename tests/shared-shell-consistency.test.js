@@ -49,7 +49,8 @@ test("Canonical Navigation hides disabled construction placeholders", () => {
 test("tablet and mobile layout retain a usable rail/drawer without horizontal overflow rules", () => {
   const navigation = read("shared/theme/zhuge-navigation.css");
   assert.match(navigation, /min-width: 768px.*max-width: 1180px/s);
-  assert.match(navigation, /grid-template-columns: 72px minmax\(0, 1fr\)/);
+  assert.match(navigation, /--zhuge-sidebar-collapsed-width:\s*72px/);
+  assert.match(navigation, /grid-template-columns:\s*var\(--zhuge-sidebar-collapsed-width\) minmax\(0, 1fr\)/);
   assert.match(navigation, /position:fixed/);
   assert.match(navigation, /transform:translateX\(-105%\)/);
 });
