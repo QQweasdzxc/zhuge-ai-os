@@ -53,7 +53,7 @@ function fixture(files, activeWorkspace) {
   </main><script>
     const shell = document.querySelector('.zhuge-module-shell');
     const target = document.getElementById('zhugeSharedNavigation');
-    target.outerHTML = window.ZhugeSharedNavigation.render({ activeWorkspace: ${JSON.stringify(activeWorkspace)}, version: '0.9.0-alpha.9.12', build: '20260812-0912' });
+    target.outerHTML = window.ZhugeSharedNavigation.render({ activeWorkspace: ${JSON.stringify(activeWorkspace)}, version: '0.9.0-alpha.9.12', build: '20260812-0913' });
     requestAnimationFrame(() => {
       const sidebar = shell.querySelector('.os-sidebar');
       const css = element => {
