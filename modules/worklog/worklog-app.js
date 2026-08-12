@@ -417,7 +417,24 @@ function workJournalForTask(task = {}) {
 }
 
 function journalEntryTypeLabel(value = "progress") {
-  return ({ progress: "進度更新", status_change: "狀態變更", worklog: "工時紀錄", note: "工作筆記", completion: "結案紀錄" })[value] || "工作推進";
+  return ({ progress: "進度更新", status_change: "狀態變更", worklog: "工時紀錄", note: "工作筆記", completion: "結案紀錄" })[value] || "進度紀錄";
+}
+
+function journalEntryKey(entry = {}) {
+  return String(entry.cloudId || entry.id || entry.clientId || "");
+}
+
+// Keep long URLs and pasted notes readable in the drawer without changing
+// the stored journal content.  Links become a compact, explicit action while
+// the surrounding note keeps its original line breaks.
+function renderJournalContent(value = "") {
+  const safe = escapeHtml(value);
+  return safe.replace(/(https?:\/\/[^\s<]+)/gi, (match) => {
+    const trailingMatch = match.match(/[),.;!?]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const url = trailing ? match.slice(0, -trailing.length) : match;
+    return `<a class="task-journal-link" href="${url}" target="_blank" rel="noopener noreferrer" title="開啟連結">查看連結</a>${trailing}`;
+  });
 }
 
 async function openTaskJournal(taskId = "") {
@@ -425,6 +442,7 @@ async function openTaskJournal(taskId = "") {
   if (!task) return;
   taskJournalTaskId = task.id;
   taskJournalDraft = null;
+  taskJournalEditingEntryId = null;
   taskJournalLoading = true;
   render("journal-open");
   try {
@@ -454,6 +472,7 @@ function openDashboardTask(taskId = "") {
   taskDrawerOpen = false;
   taskJournalTaskId = null;
   taskJournalDraft = null;
+  taskJournalEditingEntryId = null;
   taskJournalLoading = false;
   saveAll();
   render("dashboard-task-open");
@@ -483,7 +502,32 @@ function openDashboardNewTask() {
 async function saveTaskJournal(taskId = "") {
   let task = tasks.find(item => item.id === taskId);
   const content = document.getElementById("taskJournalContent")?.value?.trim() || "";
-  if (!task || !content) return toast("請輸入工作推進紀錄");
+  if (!task || !content) return toast("請輸入進度紀錄");
+  const timeline = workJournalForTask(task);
+  const editingEntry = taskJournalEditingEntryId
+    ? timeline.find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId))
+    : null;
+  if (editingEntry) {
+    try {
+      if (!taskCloudUuid(task)) throw new Error("待辦事項尚未取得 Cloud UUID，請先儲存待辦事項");
+      const saved = await DataService.saveWorkJournalEntry({
+        ...editingEntry,
+        cloudId: editingEntry.cloudId || editingEntry.id,
+        taskUuid: taskCloudUuid(task),
+        content,
+        metadata: { ...(editingEntry.metadata || {}), editedAt: new Date().toISOString(), editSource: "task-workspace" }
+      });
+      upsertWorkJournalEntry(saved || { ...editingEntry, content, updatedAt: new Date().toISOString() });
+      taskJournalDraft = null;
+      taskJournalEditingEntryId = null;
+      toast("進度紀錄已更新至 Cloud");
+      render("journal-edited");
+    } catch (error) {
+      console.error("Work Journal edit failed", { error, taskId, entryId: taskJournalEditingEntryId });
+      toast(error.message || "進度紀錄更新失敗，未完成儲存");
+    }
+    return;
+  }
   const isFirstJournal = workJournalForTask(task).length === 0;
   const journalStartedAt = task.startedAt || new Date().toISOString();
   const updateStatus = document.getElementById("taskJournalUpdateStatus")?.checked === true;
@@ -516,7 +560,7 @@ async function saveTaskJournal(taskId = "") {
     }
     upsertWorkJournalEntry(saved);
     taskJournalDraft = null;
-    toast(isFirstJournal && task.status !== "completed" ? "工作已開始，推進紀錄已儲存至 Cloud" : "工作推進紀錄已儲存至 Cloud");
+    toast(isFirstJournal && task.status !== "completed" ? "工作已開始，進度紀錄已儲存至 Cloud" : "進度紀錄已儲存至 Cloud");
     render("journal-saved");
   } catch (error) {
     console.error("Work Journal save failed", { error, taskId });
@@ -570,9 +614,9 @@ function taskPriorityBadge(task = {}) {
 function legacyTaskWorkspace() {
   const editing = tasks.find(task => task.id === editingTaskId) || null;
   const list = taskListItems();
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦事項"}</h3><div class="muted">把需要完成的事情留下來，完成後再標記即可。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(editing?.title || "")}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="2" placeholder="補充說明">${escapeHtml(editing?.note || "")}</textarea><label>期限（選填）</label><input class="input" id="taskDueDate" type="date" value="${escapeHtml(editing?.dueDate || "")}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(editing?.priority || "p2")}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${editing?.userPinned ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦事項"}</button></div></section>`;
+  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">把需要完成的事情留下來，完成後再標記即可。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(editing?.title || "")}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="2" placeholder="補充說明">${escapeHtml(editing?.note || "")}</textarea><label>期限（選填）</label><input class="input" id="taskDueDate" type="date" value="${escapeHtml(editing?.dueDate || "")}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(editing?.priority || "p2")}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${editing?.userPinned ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
   const rows = list.length ? list.map(task => `<div class="entry task-row ${task.status === "completed" ? "task-completed" : ""}"><div class="entry-main"><div class="task-row-title">${taskPriorityBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")}${task.note ? `｜${escapeHtml(task.note)}` : ""}</small></div><div class="actions compact"><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></div>`).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以從上方建立第一個待辦事項，或在 Mr. KM 對話中說：「提醒我寄採購資料」。</div></div>`;
-  return `<section class="panel tasks-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦事項</button></div>${form}<section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2" type="button" data-task-search-submit="1">搜尋</button></div></div><div class="task-list">${rows}</div></section></section>`;
+  return `<section class="panel tasks-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦</button></div>${form}<section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2" type="button" data-task-search-submit="1">搜尋</button></div></div><div class="task-list">${rows}</div></section></section>`;
 }
 
 // Sprint 7 lifecycle workspace. This later declaration intentionally replaces
@@ -582,11 +626,11 @@ function taskWorkspaceV7() {
   const list = taskListItems();
   const draft = loadTaskDraft(editingTaskId || "new") || {};
   const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦事項"}</h3><div class="muted">草稿只保存在本機；按下建立或儲存後才會同步雲端。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦事項"}</button></div></section>`;
+  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">草稿只保存在本機；按下建立或儲存後才會同步雲端。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
   const rows = list.length ? list.map(task => `<article class="entry task-row ${task.status === "completed" ? "task-completed" : ""}" data-task-card="${escapeHtml(task.id)}"><div class="entry-main"><div class="task-row-title">${taskPriorityBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}</small>${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div><div class="actions compact"><button class="btn2" type="button" data-task-start="${escapeHtml(task.id)}" ${task.status === "completed" ? "disabled" : ""}>${task.startedAt ? "繼續工作" : "開始工作"}</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></article>`).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以從上方建立第一個待辦事項，或在 Mr. KM 對話中說：「提醒我寄採購資料」。</div></div>`;
   const completionTask = taskCompletionDialogId ? tasks.find(task => task.id === taskCompletionDialogId) : null;
   const dialog = completionTask ? `<div class="quick-add-dialog task-completion-dialog" role="dialog" aria-modal="true"><div class="quick-add-card"><h3>完成待辦事項</h3><p>請留下完成說明，讓 Mr. KM 了解這次工作的結果。</p><label for="taskCompletionNote">完成說明</label><textarea class="input" id="taskCompletionNote" rows="4" placeholder="例如：已完成施工並驗收，客戶確認無誤。"></textarea><div class="form-actions"><button class="btn2" type="button" data-task-completion-cancel>取消</button><button class="btn" type="button" data-task-completion-confirm>儲存並完成</button></div></div></div>` : "";
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section>${form}</div>${dialog}</section>`;
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section>${form}</div>${dialog}</section>`;
 }
 
 function toast(t) {
@@ -2485,7 +2529,7 @@ function needsWorklogWelcome() {
 function worklogWelcomeScreen() {
   const completionPending = localStorage.getItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY)) === "1";
   if (completionPending && isWorkProfileReady(workProfile)) {
-    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-complete" style="margin-top:18px"><h1>🎉 工作身分建立完成！</h1><p>之後您只需要用自然語言，例如：</p><div class="work-identity-example">今天下午開會兩小時</div><p>我就可以協助您：</p><ul class="work-identity-list"><li>✅ 建立工時</li><li>✅ 寫入工時月曆</li><li>✅ 建立待辦事項</li></ul><div class="form-actions"><button class="btn" data-enter-ai-os="1">開始使用</button></div></section></div></div>`;
+    return `<div class="wrap"><div class="card"><section class="panel welcome-panel work-identity-complete" style="margin-top:18px"><h1>🎉 工作身分建立完成！</h1><p>之後您只需要用自然語言，例如：</p><div class="work-identity-example">今天下午開會兩小時</div><p>我就可以協助您：</p><ul class="work-identity-list"><li>✅ 建立工時</li><li>✅ 寫入工時月曆</li><li>✅ 建立待辦</li></ul><div class="form-actions"><button class="btn" data-enter-ai-os="1">開始使用</button></div></section></div></div>`;
   }
   const step = localStorage.getItem(scopedLocalKey(WORK_IDENTITY_SETUP_STEP_KEY)) || "welcome";
   const draft = normalizeWorkProfile(readJson(scopedLocalKey(WORK_IDENTITY_SETUP_DRAFT_KEY), workProfile || {}), profile);
@@ -3409,7 +3453,7 @@ function mobileWorklogTabs() {
 function renderAssistantCard(card = null) {
   if (!card) return "";
   if (card.type === "quick_suggestions") {
-  return `<div class="assistant-command-card assistant-quick-card"><div class="assistant-card-title">可以從這裡開始</div><div class="assistant-quick-row"><button class="btn2" type="button" data-assistant-quick="worklog">💼 建立工時</button><button class="btn2" type="button" data-assistant-quick="calendar">🗓 補登工時</button><button class="btn2" type="button" data-assistant-quick="task">✅ 建立待辦事項</button></div></div>`;
+  return `<div class="assistant-command-card assistant-quick-card"><div class="assistant-card-title">可以從這裡開始</div><div class="assistant-quick-row"><button class="btn2" type="button" data-assistant-quick="worklog">💼 建立工時</button><button class="btn2" type="button" data-assistant-quick="calendar">🗓 補登工時</button><button class="btn2" type="button" data-assistant-quick="task">✅ 建立待辦</button></div></div>`;
   }
   if (card.type === "confirm_entry") {
     const p = card.payload || {};
@@ -3429,7 +3473,7 @@ function renderAssistantCard(card = null) {
   }
   if (card.type === "task_draft") {
     const p = card.payload || {};
-    return `<div class="assistant-command-card"><div class="assistant-card-title">✅ 待辦事項建議</div><div class="assistant-card-grid"><span>待辦事項</span><b>${escapeHtml(p.title || "待辦")}</b><span>狀態</span><b>等待你確認</b></div><div class="assistant-card-actions"><button class="btn green" type="button" data-assistant-create-task="1">建立待辦事項</button><button class="btn2" type="button" data-assistant-edit-task="1">調整</button></div></div>`;
+    return `<div class="assistant-command-card"><div class="assistant-card-title">✅ 待辦事項建議</div><div class="assistant-card-grid"><span>待辦事項</span><b>${escapeHtml(p.title || "待辦")}</b><span>狀態</span><b>等待你確認</b></div><div class="assistant-card-actions"><button class="btn green" type="button" data-assistant-create-task="1">建立待辦</button><button class="btn2" type="button" data-assistant-edit-task="1">調整</button></div></div>`;
   }
   if (card.type === "calendar_draft") {
     const p = card.payload || {};
@@ -4529,7 +4573,7 @@ function bindWorklogAssistant() {
         assistant: "可以。請告訴我日期、時間與工作內容，例如：明天上午處理紀念品。"
       },
       task: {
-        user: "建立待辦事項",
+        user: "建立待辦",
         assistant: "可以。請告訴我要提醒或整理的待辦事項，例如：提醒我寄採購資料。"
       }
     };
@@ -4558,7 +4602,7 @@ function bindWorklogAssistant() {
     const message = button.closest(".assistant-command-card");
     const title = message?.querySelector(".assistant-card-grid b")?.textContent?.trim() || "待辦";
     createTask(title);
-    addConversationMessage("assistant", `已建立待辦事項：「${title}」。`);
+    addConversationMessage("assistant", `已建立待辦：「${title}」。`);
     activeWorkspace = "tasks";
     if (!openTabs.includes("tasks")) openTabs.push("tasks");
     rememberWorkspace("tasks");
@@ -4781,11 +4825,20 @@ function bindTasks() {
     if (taskJournalTaskId === button.dataset.taskJournal) {
       taskJournalTaskId = null;
       taskJournalDraft = null;
+      taskJournalEditingEntryId = null;
       taskJournalLoading = false;
       render("journal-close");
     } else openTaskJournal(button.dataset.taskJournal);
   });
-  document.querySelectorAll("[data-journal-close]").forEach(button => button.addEventListener("click", () => { taskJournalTaskId = null; taskJournalDraft = null; taskJournalLoading = false; render("journal-close"); }));
+  document.querySelectorAll("[data-journal-close]").forEach(button => button.addEventListener("click", () => { taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; taskJournalLoading = false; render("journal-close"); }));
+  document.querySelectorAll("[data-journal-edit]").forEach(button => button.addEventListener("click", () => {
+    const task = tasks.find(item => item.id === taskJournalTaskId);
+    const entry = task ? workJournalForTask(task).find(item => journalEntryKey(item) === String(button.dataset.journalEdit)) : null;
+    if (!entry) return toast("找不到這筆進度紀錄");
+    taskJournalEditingEntryId = journalEntryKey(entry);
+    taskJournalDraft = { content: entry.content, editEntryId: taskJournalEditingEntryId, updateStatus: false, updateProgress: false, status: entry.status, progress: entry.progress };
+    render("journal-edit-open");
+  }));
   document.getElementById("taskJournalContent")?.addEventListener("input", event => { taskJournalDraft = { ...(taskJournalDraft || {}), content: event.target.value }; });
   document.getElementById("taskJournalUpdateStatus")?.addEventListener("change", event => {
     taskJournalDraft = { ...(taskJournalDraft || {}), updateStatus: event.target.checked };
@@ -4910,17 +4963,21 @@ function bindTasks() {
 function taskJournalPanel(task = null) {
   if (!task || taskJournalTaskId !== task.id) return "";
   const timeline = workJournalForTask(task);
+  const editingEntry = taskJournalEditingEntryId ? timeline.find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null;
   const rows = taskJournalLoading
     ? `<div class="task-journal-loading">🌀 正在從 Cloud 載入工作紀錄…</div>`
     : timeline.length
-      ? timeline.map(entry => `<article class="task-journal-entry"><span class="task-journal-dot" aria-hidden="true">●</span><div class="task-journal-entry-body"><div class="task-journal-entry-head"><b>${escapeHtml(journalEntryTypeLabel(entry.entryType))}</b><time>${escapeHtml(fmt(entry.createdAt))}</time></div><div>${escapeHtml(entry.content)}</div></div></article>`).join("")
-      : `<div class="empty">尚無工作推進紀錄。留下今天做到哪裡的第一筆紀錄。</div>`;
+      ? timeline.map(entry => `<article class="task-journal-entry"><span class="task-journal-dot" aria-hidden="true">●</span><div class="task-journal-entry-body"><div class="task-journal-entry-head"><b>${escapeHtml(journalEntryTypeLabel(entry.entryType))}</b><time>${escapeHtml(fmt(entry.createdAt))}</time><button class="btn2 task-journal-edit" type="button" data-journal-edit="${escapeHtml(journalEntryKey(entry))}" aria-label="編輯這筆進度紀錄" title="編輯這筆進度紀錄">✎</button></div><div class="task-journal-entry-content">${renderJournalContent(entry.content)}</div></div></article>`).join("")
+      : `<div class="empty">尚無進度紀錄。留下今天做到哪裡的第一筆紀錄。</div>`;
   const defaultStatus = normalizeTaskStatus(task.status, task);
   const defaultProgress = taskProgressValue(task.progress);
   const updateStatus = taskJournalDraft?.updateStatus === true;
   const updateProgress = taskJournalDraft?.updateProgress === true;
-  const content = `<div class="task-journal-head"><div><h3>工作推進紀錄（${timeline.length}）</h3><div class="muted">${escapeHtml(task.title)} · Cloud Timeline</div></div><div class="task-journal-head-actions"><span class="task-journal-cloud-badge">☁ Cloud</span><button class="btn2 task-drawer-close" type="button" data-journal-close aria-label="關閉工作推進紀錄">×</button></div></div><div class="task-journal-timeline">${rows}</div><div class="task-journal-form"><label for="taskJournalContent">＋ 新增推進紀錄</label><textarea class="input" id="taskJournalContent" rows="3" placeholder="例如：已確認現場有留電源，並已通知廠商。">${escapeHtml(taskJournalDraft?.content || "")}</textarea><label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateProgress" ${updateProgress ? "checked" : ""}> 同時更新目前進度</label><div class="task-journal-optional-field ${updateProgress ? "" : "is-hidden"}" data-journal-progress-fields><label class="task-progress-label">目前進度 <output id="taskJournalProgressOutput">${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}%</output></label><input class="task-progress-range" id="taskJournalProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}"></div><label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateStatus" ${updateStatus ? "checked" : ""}> 同時更新目前狀態</label><div class="task-journal-optional-field ${updateStatus ? "" : "is-hidden"}" data-journal-status-fields><select class="input" id="taskJournalStatus">${taskStatusOptions(taskJournalDraft?.status || defaultStatus)}</select></div><div class="form-actions"><button class="btn" type="button" data-journal-save>儲存推進紀錄</button></div></div>`;
-  return `<div class="task-drawer-backdrop is-open" data-journal-close aria-hidden="true"></div><aside class="task-drawer task-journal-drawer is-open" data-journal-drawer role="dialog" aria-modal="true" aria-label="工作推進紀錄">${content}</aside>`;
+  const journalTitle = editingEntry ? "編輯進度紀錄" : "工作進度紀錄";
+  const formLabel = editingEntry ? "✎ 編輯這筆進度紀錄" : "＋ 新增進度紀錄";
+  const saveLabel = editingEntry ? "儲存更新" : "儲存進度紀錄";
+  const content = `<div class="task-journal-head"><div><h3>${journalTitle}（${timeline.length}）</h3><div class="muted">${escapeHtml(task.title)} · Cloud Timeline</div></div><div class="task-journal-head-actions"><span class="task-journal-cloud-badge">☁ Cloud</span><button class="btn2 task-drawer-close" type="button" data-journal-close aria-label="關閉工作進度紀錄">×</button></div></div><div class="task-journal-timeline">${rows}</div><div class="task-journal-form"><label for="taskJournalContent">${formLabel}</label><textarea class="input" id="taskJournalContent" rows="3" placeholder="例如：已確認現場有留電源，並已通知廠商。">${escapeHtml(taskJournalDraft?.content || "")}</textarea>${editingEntry ? `<div class="task-journal-edit-hint">只修改這筆紀錄文字；原有日期、狀態與 Cloud 追蹤資訊會保留。</div>` : `<label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateProgress" ${updateProgress ? "checked" : ""}> 同時更新目前進度</label><div class="task-journal-optional-field ${updateProgress ? "" : "is-hidden"}" data-journal-progress-fields><label class="task-progress-label">目前進度 <output id="taskJournalProgressOutput">${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}%</output></label><input class="task-progress-range" id="taskJournalProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}"></div><label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateStatus" ${updateStatus ? "checked" : ""}> 同時更新目前狀態</label><div class="task-journal-optional-field ${updateStatus ? "" : "is-hidden"}" data-journal-status-fields><select class="input" id="taskJournalStatus">${taskStatusOptions(taskJournalDraft?.status || defaultStatus)}</select></div>`}<div class="form-actions"><button class="btn" type="button" data-journal-save>${saveLabel}</button></div></div>`;
+  return `<div class="task-drawer-backdrop is-open" data-journal-close aria-hidden="true"></div><aside class="task-drawer task-journal-drawer is-open" data-journal-drawer role="dialog" aria-modal="true" aria-label="工作進度紀錄">${content}</aside>`;
 }
 
 // Sprint 7.1: workflow-aware task editor. It keeps the Sprint 7.0 layout and
@@ -4930,12 +4987,12 @@ function taskWorkspace() {
   const list = taskListItems();
   const draft = loadTaskDraft(editingTaskId || "new") || {};
   const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦事項"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增待辦事項">×</button></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦事項"}</button></div></section>`;
+  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增待辦">×</button></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
   const rows = list.length ? list.map(task => {
     const timeline = workJournalForTask(task);
     const latest = timeline[timeline.length - 1];
-    const latestMarkup = latest ? `<details class="task-latest-journal"><summary><span class="task-latest-journal-label">🟢 最新更新</span><time>${escapeHtml(fmt(latest.createdAt))}</time></summary><div class="task-latest-journal-content">${escapeHtml(latest.content)}</div></details>` : "";
-    const journalToggleLabel = `${taskJournalTaskId === task.id ? "▾" : "▸"} 工作推進紀錄（${timeline.length}）`;
+    const latestMarkup = latest ? `<details class="task-latest-journal"><summary><span class="task-latest-journal-label">🟢 最新更新</span><time>${escapeHtml(fmt(latest.createdAt))}</time></summary><div class="task-latest-journal-content">${renderJournalContent(latest.content)}</div></details>` : "";
+    const journalToggleLabel = `${taskJournalTaskId === task.id ? "▾" : "▸"} 工作進度紀錄（${timeline.length}）`;
     const worklogHours = taskWorklogHours(task);
     return `<article class="entry task-row ${task.status === "completed" ? "task-completed" : ""}" data-task-card="${escapeHtml(task.id)}"><div class="task-row-core"><header class="task-row-header"><div class="task-row-title">${taskPriorityBadge(task)} ${taskWorkflowBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><div class="task-row-actions actions compact"><button class="btn2" type="button" data-task-journal="${escapeHtml(task.id)}">${journalToggleLabel}</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></header><div class="task-row-content"><div class="task-progress-track" aria-label="進度 ${task.progress}%"><span style="width:${task.progress}%"></span></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}${worklogHours > 0 ? `｜⏱ ${escapeHtml(formatHumanDuration(worklogHours))}` : ""}</small>${latestMarkup}${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div></div></article>`;
   }).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以建立今天第一個待辦事項。</div></div>`;
@@ -4946,13 +5003,13 @@ function taskWorkspace() {
   const completionCanCreateWorklog = Boolean(completionTask && taskCloudUuid(completionTask) && completionDisplayHours > 0);
   const dialog = completionTask ? `<div class="quick-add-dialog task-completion-dialog" role="dialog" aria-modal="true"><div class="quick-add-card"><h3>完成待辦事項</h3><p>完成是這件工作的最後一步；Journal 會保留結案結果，既有工時不會重複建立。</p><label for="taskCompletionNote">完成說明</label><textarea class="input" id="taskCompletionNote" rows="4" placeholder="例如：已完成安裝並驗收，客戶確認無誤。"></textarea><div class="task-completion-summary"><span>耗時</span><strong>${completionDisplayHours > 0 ? escapeHtml(formatHumanDuration(completionDisplayHours)) : "尚無關聯工時"}</strong></div><label class="task-completion-option"><input type="checkbox" id="taskCompletionCreateWorklog" ${completionCanCreateWorklog ? "checked" : ""} ${completionCanCreateWorklog ? "" : "disabled"}> 建立工時紀錄${completionExistingHours > 0 ? "（沿用既有工時）" : ""}</label><label class="task-completion-option"><input type="checkbox" id="taskCompletionCreateRecord" checked> 建立 Completion Record</label><div class="muted task-completion-hint">${completionCanCreateWorklog ? "已有關聯工時時不會重複建立。" : "請先透過工作紀錄建立工時，完成時才能帶入實際耗時。"}</div><div class="form-actions"><button class="btn2" type="button" data-task-completion-cancel>取消</button><button class="btn" type="button" data-task-completion-confirm>儲存並完成</button></div></div></div>` : "";
   const drawerOpen = Boolean(editing || taskDrawerOpen);
-  const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦事項">${form}</aside>`;
+  const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦">${form}</aside>`;
   const journalTask = taskJournalTaskId ? tasks.find(task => task.id === taskJournalTaskId) : null;
   const journalDrawer = taskJournalPanel(journalTask);
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦事項</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${journalDrawer}${dialog}</section>`;
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${journalDrawer}${dialog}</section>`;
 }
 
-function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
+function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
 
 function bindOnboarding() {
   let tags = [], src = [];

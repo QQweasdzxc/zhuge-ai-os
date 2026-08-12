@@ -37,6 +37,7 @@ let taskDraft = null;
 let workJournalEntries = [];
 let taskJournalTaskId = null;
 let taskJournalDraft = null;
+let taskJournalEditingEntryId = null;
 let taskJournalLoading = false;
 let profile = readJson("wl_profile", null);
 let workProfile = readJson("wl_work_profile", null);

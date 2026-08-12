@@ -210,6 +210,19 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .summary-tile{min-height:108px;padding:14px;border-radius:13px;background:linear-gradient(145deg,#0b1b2c,#0a1422)}
 .summary-tile em{position:relative;padding-bottom:12px}
 .summary-tile em:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:999px;background:linear-gradient(90deg,#3b82f6 var(--summary-progress,0%),#26364a var(--summary-progress,0%))}
+@media(min-width:768px){
+  /* Compact the established KPI block into the WorkLog header rhythm. */
+  .workspace-worklog .summary-dashboard{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;padding:11px 14px}
+  .workspace-worklog .summary-dashboard-head{margin:0;min-width:max-content}
+  .workspace-worklog .summary-heading-toggle{width:auto;gap:8px}
+  .workspace-worklog .summary-heading-toggle span{font-size:1rem}
+  .workspace-worklog .summary-heading-toggle span i{display:none}
+  .workspace-worklog .summary-heading-toggle small{width:30px;height:28px;border-radius:9px;font-size:1rem}
+  .workspace-worklog .summary-grid{gap:8px}
+  .workspace-worklog .summary-tile{min-height:72px;padding:9px 11px}
+  .workspace-worklog .summary-tile b{font-size:1.05rem;margin-top:4px}
+  .workspace-worklog .summary-tile em{font-size:.84rem;margin-top:4px;padding-bottom:8px}
+}
 .workbench-grid{--daily-workspace-panel-height:clamp(560px,calc(100vh - 280px),720px)}.workbench-grid>.calendar-module,.workbench-grid>.today-module,.workbench-grid>.suggestion-module{height:var(--daily-workspace-panel-height);min-height:var(--daily-workspace-panel-height);max-height:var(--daily-workspace-panel-height);overflow:hidden;border-radius:17px;background:linear-gradient(160deg,#081827,#0a1422)}
 .panel-layout,.desktop-calendar{height:100%;min-height:0}.panel-layout,.calendar-module,.today-module,.suggestion-module{display:flex;flex-direction:column}.panel-fixed-header,.panel-fixed-footer{flex:0 0 auto}.panel-scroll-content{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#334155 transparent}.calendar-scroll-content,.today-entry-list{padding-right:3px}.calendar-panel-footer,.today-panel-footer,.suggestion-scan-footer{position:relative;z-index:1;background:linear-gradient(180deg,rgba(8,24,39,.94),#081827)}
 .calendar-module,.today-module,.suggestion-module{scrollbar-width:thin;scrollbar-color:#334155 transparent}
@@ -365,6 +378,18 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .tasks-workspace .task-journal-drawer .task-journal-head h3{margin:0;font-size:1.05rem}
 .tasks-workspace .task-journal-drawer .task-journal-head-actions{display:flex;align-items:center;gap:8px}
 .tasks-workspace .task-journal-drawer .task-journal-timeline{display:grid;gap:10px;padding:18px 0}
+.tasks-workspace .task-journal-drawer .task-journal-entry{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+.tasks-workspace .task-journal-drawer .task-journal-entry:last-child{border-bottom:0}
+.tasks-workspace .task-journal-drawer .task-journal-entry-body{min-width:0;display:grid;gap:7px}
+.tasks-workspace .task-journal-drawer .task-journal-entry-head{display:flex;align-items:center;gap:8px;min-width:0}
+.tasks-workspace .task-journal-drawer .task-journal-entry-head b{color:#dbeafe;font-size:.82rem}
+.tasks-workspace .task-journal-drawer .task-journal-entry-head time{margin-left:auto;color:#94a3b8;font-size:.72rem;white-space:nowrap}
+.tasks-workspace .task-journal-drawer .task-journal-edit{flex:0 0 auto;min-width:30px;min-height:30px;padding:4px 7px;border-radius:9px;font-size:.85rem;line-height:1;color:#bfdbfe}
+.tasks-workspace .task-journal-drawer .task-journal-edit:hover,.tasks-workspace .task-journal-drawer .task-journal-edit:focus-visible{border-color:#60a5fa;background:#172554;color:#fff;outline:none}
+.tasks-workspace .task-journal-drawer .task-journal-entry-content{color:#f8fafc;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+.tasks-workspace .task-journal-drawer .task-journal-link{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid rgba(96,165,250,.5);border-radius:8px;background:rgba(30,64,175,.3);color:#bfdbfe;font-weight:800;text-decoration:none;white-space:nowrap}
+.tasks-workspace .task-journal-drawer .task-journal-link:hover,.tasks-workspace .task-journal-drawer .task-journal-link:focus-visible{background:#2563eb;color:#fff;outline:none}
+.tasks-workspace .task-journal-drawer .task-journal-edit-hint{color:#94a3b8;font-size:.78rem;line-height:1.45}
 .tasks-workspace .task-journal-drawer .task-journal-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--zhuge-border,#334155)}
 .tasks-workspace .task-journal-drawer .task-journal-form .form-actions{position:sticky;bottom:0;margin:8px -24px -24px;padding:14px 24px 24px;background:linear-gradient(180deg,transparent,var(--zhuge-surface,#111827) 28%)}
 @media (max-width:767px){.tasks-workspace .task-drawer{width:100%;border-left:0;border-radius:18px 18px 0 0;top:auto;height:min(88svh,760px);transform:translateY(104%)}.tasks-workspace .task-drawer.is-open{transform:translateY(0)}.tasks-workspace .task-drawer .task-form{padding:18px}.tasks-workspace .task-drawer .form-actions{margin:8px -18px -18px;padding:12px 18px 18px}}

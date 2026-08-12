@@ -95,6 +95,19 @@ test("Batch 4 moves work journal into a shared dynamic drawer and keeps Board ac
   assert.match(boardHtml, /workspaceCreateDrawer/);
 });
 
+test("Work journal entries stay readable and can be edited through the existing Cloud path", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  const css = read("modules/worklog/worklog.css");
+  const repositories = read("shared/api/repositories.js");
+  assert.match(worklog, /data-journal-edit/);
+  assert.match(worklog, /function renderJournalContent/);
+  assert.match(worklog, /進度紀錄已更新至 Cloud/);
+  assert.match(css, /task-journal-entry-content{[^}]*overflow-wrap:anywhere/);
+  assert.match(css, /task-journal-link{[^}]*text-decoration:none/);
+  assert.match(repositories, /if \(entry\.cloudId \|\| entry\.id\)/);
+  assert.doesNotMatch(worklog, /＋ 新增待辦事項/);
+});
+
 test("Tasks default to active items and open the existing form in a drawer", () => {
   const state = read("shared/app-state.js");
   const source = read("modules/worklog/worklog-app.js");

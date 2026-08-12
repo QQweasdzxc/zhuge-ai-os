@@ -384,7 +384,7 @@ const SupabaseRepository = {
     const taskUuid = String(entry.taskUuid || entry.task_uuid || "").trim();
     const content = String(entry.content || "").trim();
     if (!taskUuid) throw new Error("Work Journal 缺少待辦事項 UUID");
-    if (!content) throw new Error("請輸入工作推進紀錄");
+    if (!content) throw new Error("請輸入進度紀錄");
     const payload = {
       user_uuid: currentUserUuid(),
       task_uuid: taskUuid,
