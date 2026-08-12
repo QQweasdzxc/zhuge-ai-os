@@ -158,7 +158,10 @@
   display: grid;
   grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr);
   gap: var(--shell-section-gap);
-  align-items: start;
+  /* The left workspace surface follows the full height of the stacked right
+   * column.  Its calendar/content keeps its natural height; only the shared
+   * surface stretches to the row's measured height. */
+  align-items: stretch;
 }
 .zhuge-dashboard-shell .dashboard-workspaces,
 .zhuge-dashboard-shell .dashboard-section {

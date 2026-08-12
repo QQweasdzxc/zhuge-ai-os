@@ -39,6 +39,12 @@ test("Shared Shell owns the canonical geometry and appearance tokens", () => {
   assert.match(read("shared/theme/zhuge-appearance.js"), /system.*light.*dark|allowed/si);
 });
 
+test("Dashboard workspace surface stretches with the stacked right column", () => {
+  const dashboard = read("shared/theme/zhuge-dashboard.css");
+  assert.match(dashboard, /\.zhuge-dashboard-shell \.dashboard-workspace-layout\s*\{[\s\S]*?align-items:\s*stretch;/);
+  assert.match(dashboard, /\.zhuge-dashboard-shell \.dashboard-right-column\s*\{[\s\S]*?display:\s*grid;/);
+});
+
 test("Canonical Navigation hides disabled construction placeholders", () => {
   const navigation = read("shared/components/zhuge-navigation.js");
   assert.match(navigation, /enabled: false, visible: false/);
