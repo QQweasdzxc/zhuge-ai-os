@@ -743,3 +743,10 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   .zhuge-module-shell .workspace-worklog .today-entry-list,
   .zhuge-module-shell .workspace-worklog .calendar-scroll-content { max-height: none; overflow: visible; }
 }
+
+/* WorkLog content should end at its actual panels rather than reserve a
+ * viewport-sized spacer beneath the calendar and work suggestions. */
+.zhuge-module-shell.workspace-shell.workspace-worklog .workspace-canvas,
+.zhuge-module-shell.workspace-shell.workspace-worklog .daily-workspace {
+  min-height: 0;
+}
