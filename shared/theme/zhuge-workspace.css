@@ -130,19 +130,6 @@
 .zhuge-module-shell .btn2.selected { border-color: var(--zhuge-accent-strong); }
 .zhuge-module-shell .btn:hover,
 .zhuge-module-shell .btn2:hover { border-color: var(--zhuge-accent); }
-.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task] {
-  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 82%, white 18%);
-  background: linear-gradient(135deg, var(--zhuge-accent-strong), var(--zhuge-accent));
-  color: #fff;
-  box-shadow: 0 5px 16px color-mix(in srgb, var(--zhuge-accent-strong) 28%, transparent);
-}
-.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task]:hover,
-.zhuge-module-shell .zhuge-dashboard-section-actions [data-dashboard-add-task]:focus-visible {
-  border-color: var(--zhuge-accent);
-  background: linear-gradient(135deg, var(--zhuge-accent), color-mix(in srgb, var(--zhuge-accent) 72%, white 28%));
-  box-shadow: 0 7px 20px color-mix(in srgb, var(--zhuge-accent-strong) 36%, transparent);
-  outline: none;
-}
 .zhuge-module-shell .input:focus,
 .zhuge-module-shell textarea:focus,
 .zhuge-module-shell select:focus { outline: 3px solid color-mix(in srgb, var(--zhuge-accent) 20%, transparent); border-color: var(--zhuge-accent); }
