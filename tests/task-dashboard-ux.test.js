@@ -31,10 +31,11 @@ test("Task journal previews are collapsed until requested", () => {
 
 test("Dashboard new-task action is visibly primary and auth entry targets Dashboard", () => {
   assert.match(dashboard, /data-dashboard-add-task="1"/);
+  assert.match(dashboard, /<button type="button" class="btn2" data-dashboard-add-task="1">/);
   assert.match(landing, /modules\/worklog\/\?app=1&amp;workspace=dashboard/);
   assert.match(worklogEntry, /\?app=1&amp;workspace=dashboard/);
   assert.match(worklogEntry, /allowedWorkspaces = new Set\(\["dashboard"/);
-  assert.match(workspaceTheme, /zhuge-dashboard-section-actions \[data-dashboard-add-task\]/);
+  assert.match(workspaceTheme, /\.zhuge-module-shell \.btn2:hover/);
 });
 
 test("Control Center entries use the shared card surface", () => {
