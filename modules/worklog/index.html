@@ -106,8 +106,8 @@
           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worklog-app.js"
         ];
         const appStyles = [
-          "../../shared/theme/zhuge-navigation.css?v=20260812-1132",
-          "../../shared/theme/zhuge-shell.css?v=20260812-1132",
+          "../../shared/theme/zhuge-navigation.css?v=20260812-1133",
+          "../../shared/theme/zhuge-shell.css?v=20260812-1133",
           "./worklog.css?v=20260727-1619",
           "../../shared/theme/zhuge-os.css?v=20260729-2158",
           "../../shared/theme/ai-product.css?v=20260729-2158",
@@ -160,7 +160,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260812-1132`;
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260812-1133`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { root.innerHTML = '<main class="app-loading" role="alert"><h1>Zhuge AI OS</h1><p>WorkLog could not be loaded. Please refresh and try again.</p><a href="./">Return to home</a></main>'; };
