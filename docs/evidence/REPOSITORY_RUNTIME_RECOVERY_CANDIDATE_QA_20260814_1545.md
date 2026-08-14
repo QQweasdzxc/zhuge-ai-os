@@ -7,6 +7,7 @@
 - Candidate Build ID: `20260814-1545` (Asia/Taipei)
 - Recovery Workspace: `/Users/qq/Documents/Zhuge AI OS/Worktrees/recovery-5d641a7d-20260814`
 - Recovery Branch: `recovery/task-5d641a7d-20260814`
+- Recovery Source Commit: `c5c30c513fb9b1df97c7efb01eb49d8e5e5c5665`
 
 ## Recovery source boundary
 
