@@ -185,6 +185,7 @@ begin
     actor_label_value = 'QJC'
     and (
       (current_row.status = 'ready' and target_status_value = 'inprogress' and target_assignee_value = 'Co')
+      or (current_row.status = 'inprogress' and target_status_value = 'ready' and target_assignee_value = 'Co')
       or (current_row.status = 'inprogress' and target_status_value = 'qa' and target_assignee_value = 'GPT')
       or (current_row.status = 'qa' and target_status_value = 'qa' and target_assignee_value = 'QJC')
       or (current_row.status = 'qa' and target_status_value = 'inprogress' and target_assignee_value = 'Co')
@@ -192,6 +193,7 @@ begin
     )
     or (actor_label_value = 'Co' and (
       (current_row.status = 'ready' and target_status_value = 'inprogress' and target_assignee_value = 'Co')
+      or (current_row.status = 'inprogress' and target_status_value = 'ready' and target_assignee_value = 'Co')
       or (current_row.status = 'inprogress' and target_status_value = 'qa' and target_assignee_value = 'GPT')
       or (current_row.status = 'qa' and target_status_value = 'inprogress' and target_assignee_value = 'Co')
     ))

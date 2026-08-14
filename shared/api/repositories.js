@@ -269,7 +269,7 @@ const SupabaseRepository = {
     return this.select(table, "?select=*&is_active=eq.true&order=sort_order.asc,name.asc");
   },
   loadWorkModels() {
-    return this.select("user_work_models", "?select=id,user_uuid,role_code,name,description,category,aliases,source,source_references,keywords,is_active,familiarity,last_used_at,sort_order,created_at,updated_at&order=sort_order.asc,name.asc");
+    return this.select("user_work_models", "?select=id,user_uuid,role_code,name,description,category,aliases,source,source_references,keywords,is_active,familiarity,last_used_at,sort_order,default_duration_minutes,created_at,updated_at&order=sort_order.asc,name.asc");
   },
   async saveWorkModels(items, profileValue = profile) {
     const current = await this.loadWorkModels() || [];
@@ -278,6 +278,7 @@ const SupabaseRepository = {
     const retainedNames = new Set();
     for (const [index, item] of normalized.entries()) {
       const existing = current.find(row => (item.id && row.id === item.id) || row.name === item.name);
+      const durationValue = Number(item.defaultDurationMinutes ?? item.default_duration_minutes ?? 60);
       const payload = {
         user_uuid: currentUserUuid(),
         role_code: roleCode(profileValue?.role || "採購"),
@@ -291,6 +292,7 @@ const SupabaseRepository = {
         is_active: item.isActive !== false,
         familiarity: Math.min(5, Math.max(1, Number(item.familiarity || 1))),
         last_used_at: item.lastUsedAt || null,
+        default_duration_minutes: Number.isFinite(durationValue) ? Math.max(0, Math.min(1440, Math.round(durationValue))) : 60,
         sort_order: index
       };
       if (existing) {

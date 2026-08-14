@@ -55,19 +55,19 @@
     const escape = global.InvestmentSafeHtml.escape;
     const busy = state.status === "loading" || state.status === "verifying";
     const error = state.error ? `<div class="investment-unlock-error" role="alert">${escape(state.error)}</div>` : "";
-    let content = `<div class="investment-loading"><span></span><p>正在檢查二次驗證狀態…</p></div>`;
+    let content = `<div class="investment-loading zhuge-mfa-progress"><span></span><p>正在檢查安全驗證…</p></div>`;
     if (state.mode === "enrollment_required") {
-      content = `<p>投資資料屬於較敏感的個人資訊。第一次使用時，請設定 Google Authenticator。</p><button class="investment-unlock-button" type="button" data-investment-enroll ${busy ? "disabled" : ""}>設定 Google Authenticator</button>`;
+      content = `<div class="zhuge-mfa-info"><strong>投資資料需要額外保護</strong><span>第一次使用請先設定驗證器。完成後，之後只要輸入驗證碼即可進入。</span></div><div class="investment-unlock-actions"><button class="investment-unlock-button" type="button" data-investment-enroll ${busy ? "disabled" : ""}>開始設定驗證器</button></div>`;
     } else if (state.mode === "enroll") {
-      content = `<p>請用 Google Authenticator 掃描 QR Code，再輸入 App 顯示的 6 位數驗證碼。</p><img class="investment-unlock-qr" src="${escape(state.qrCode || "")}" alt="Google Authenticator QR Code"><details class="investment-unlock-secret"><summary>無法掃描？顯示設定金鑰</summary><code>${escape(state.secret || "")}</code></details>${unlockCodeForm(state, busy)}`;
+      content = `<div class="zhuge-mfa-grid"><div class="zhuge-mfa-qr"><img class="investment-unlock-qr" src="${escape(state.qrCode || "")}" alt="Google Authenticator 設定 QR Code"><p>用 Google Authenticator 掃描此 QR Code</p><details class="investment-unlock-secret zhuge-mfa-secret"><summary>無法掃描？查看設定金鑰</summary><code>${escape(state.secret || "")}</code></details></div><div class="zhuge-mfa-step"><div class="zhuge-mfa-info"><strong>完成安全驗證</strong><span>掃描後，輸入 App 顯示的 6 位數驗證碼。QR Code 只用於設定驗證器，不會取代 Google 登入。</span></div>${unlockCodeForm(state, busy)}</div></div>`;
     } else if (state.mode === "challenge") {
-      content = `<p>請輸入 Google Authenticator 顯示的 6 位數驗證碼。驗證成功後，投資模組會解鎖 10 分鐘。</p>${unlockCodeForm(state, busy)}`;
+      content = `<div class="zhuge-mfa-info"><strong>請輸入驗證碼</strong><span>開啟 Google Authenticator，輸入目前顯示的 6 位數驗證碼。驗證成功後，投資模組會解鎖 10 分鐘。</span></div>${unlockCodeForm(state, busy)}`;
     }
-    return accessShell(`<div class="investment-access-panel investment-unlock-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">投資安全驗證</p><h1>解鎖投資模組</h1>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 解鎖", description: "投資模組｜完成安全驗證後即可進入" });
+    return accessShell(`<div class="investment-access-panel investment-unlock-panel zhuge-mfa-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow zhuge-mfa-kicker">安全驗證</p><h1>解鎖投資</h1><p class="zhuge-mfa-intro">這是受保護的投資工作區。完成安全驗證後即可進入。</p>${error}${content}<a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a><small>只會解鎖投資模組；AI OS 首頁與工時模組不受影響。</small></div>`, { title: "Investment 安全驗證", description: "投資模組｜完成安全驗證後即可進入" });
   }
 
   function unlockCodeForm(state = {}, busy = false) {
-    return `<form class="investment-unlock-form" data-investment-unlock-form><label for="investmentTotpCode">6 位數驗證碼</label><input id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : "驗證並解鎖"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
+    return `<form class="investment-unlock-form zhuge-mfa-form" data-investment-unlock-form><label for="investmentTotpCode">驗證碼</label><input class="zhuge-mfa-code" id="investmentTotpCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required><button class="investment-unlock-button" type="submit" ${busy ? "disabled" : ""}>${busy ? "驗證中…" : "驗證並進入"}</button><input type="hidden" name="factorId" value="${global.InvestmentSafeHtml.escape(state.factorId || "")}"></form>`;
   }
 
   async function mountUnlock(root, context) {
@@ -127,6 +127,8 @@
   async function createRuntime(root) {
     const platform = global.ZhugeRuntimeSessionProvider.createPlatform();
     const context = platform.forModule("investment");
+    await context.creator?.resolve?.();
+    await context.security.loadMfaPolicy?.();
     const access = context.security.evaluate("view");
     if (!access.allowed) {
       if (["STEP_UP_REQUIRED", "MODULE_LOCKED"].includes(access.code) && context.session.getSnapshot().isAuthenticated) {

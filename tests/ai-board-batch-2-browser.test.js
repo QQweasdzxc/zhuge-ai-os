@@ -68,7 +68,7 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /工作空間/);
   assert.match(output, /AI Board/);
   assert.match(output, /Version/);
-  assert.match(output, /v0\.9\.0-alpha\.9\.12/);
+  assert.match(output, /v0\.9\.0-alpha\.9\.13/);
   assert.match(output, /Build/);
   const build = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
   assert.match(output, new RegExp(build));

@@ -14,6 +14,12 @@ test("controlled transition permits Co to hand GPT", () => {
   }));
 });
 
+test("controlled transition permits Co to return work to ready", () => {
+  assert.doesNotThrow(() => Tool.validateTransition({
+    actor: "Co", currentStatus: "inprogress", targetStatus: "ready", targetAssignee: "Co"
+  }));
+});
+
 test("controlled transition permits GPT fail and pass handoffs", () => {
   assert.doesNotThrow(() => Tool.validateTransition({
     actor: "GPT", currentStatus: "qa", targetStatus: "inprogress", targetAssignee: "Co"

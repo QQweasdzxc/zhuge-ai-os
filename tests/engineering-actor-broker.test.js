@@ -30,8 +30,34 @@ test("broker issues a bounded Co token without service-role claims", () => {
 
 test("broker rejects invalid actors and TTL outside five minutes", () => {
   assert.throws(() => Broker.issueActorToken("QJC", { privateJwk }), /Unsupported AI actor/);
+  assert.throws(() => Broker.issueActorToken("Co", { privateJwk, profile: "write-all" }), /profile/);
   assert.throws(() => Broker.issueActorToken("GPT", { privateJwk, ttlSeconds: 301 }), /TTL/);
   assert.throws(() => Broker.issueActorToken("GPT", { privateJwk, ttlSeconds: 0 }), /TTL/);
+});
+
+test("broker issues a separate read-only Engineering Memory capability", () => {
+  const token = Broker.issueActorToken("Co", {
+    privateJwk,
+    profile: "memory-read",
+    nowMs: 1_700_000_000_000,
+    jti: "test-memory-read"
+  });
+  const parsed = decode(token);
+  assert.equal(parsed.payload.aud, "engineering-memory-read");
+  assert.equal(parsed.payload.scope, "engineering-memory:read");
+  assert.equal(parsed.payload.role, undefined);
+  assert.equal(parsed.payload.service_role, undefined);
+});
+
+test("broker restricts governance-write capability to GPT", () => {
+  assert.throws(() => Broker.issueActorToken("Co", { privateJwk, profile: "governance-write" }), /not allowed/);
+  const token = Broker.issueActorToken("GPT", { privateJwk, profile: "governance-write", nowMs: 1_700_000_000_000, jti: "test-governance-write" });
+  const parsed = decode(token);
+  assert.equal(parsed.payload.sub, "ai:GPT");
+  assert.equal(parsed.payload.aud, "engineering-governance-write");
+  assert.equal(parsed.payload.scope, "engineering-governance:write");
+  assert.equal(parsed.payload.role, undefined);
+  assert.equal(parsed.payload.service_role, undefined);
 });
 
 test("broker requires a protected private JWK environment", () => {

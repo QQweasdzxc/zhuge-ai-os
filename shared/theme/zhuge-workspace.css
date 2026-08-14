@@ -360,7 +360,6 @@ html[data-theme="light"] .zhuge-module-shell .workspace-canvas {
   background: var(--zhuge-page-bg) !important;
   border-color: var(--zhuge-border) !important;
 }
-html[data-theme="light"] .zhuge-module-shell .board-local-nav,
 html[data-theme="light"] .zhuge-module-shell .toolbar,
 html[data-theme="light"] .zhuge-module-shell .board-shell,
 html[data-theme="light"] .zhuge-module-shell .governance-history,
@@ -369,7 +368,6 @@ html[data-theme="light"] .zhuge-module-shell .board-subview {
   border-color: var(--zhuge-border) !important;
   color: var(--zhuge-text) !important;
 }
-html[data-theme="light"] .zhuge-module-shell .board-local-nav .nav,
 html[data-theme="light"] .zhuge-module-shell .toolbar .chip,
 html[data-theme="light"] .zhuge-module-shell .toolbar .search,
 html[data-theme="light"] .zhuge-module-shell .toolbar .btn,
@@ -497,7 +495,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
     background: var(--zhuge-page-bg) !important;
     border-color: var(--zhuge-border) !important;
   }
-  html[data-theme="system"] .zhuge-module-shell .board-local-nav,
   html[data-theme="system"] .zhuge-module-shell .toolbar,
   html[data-theme="system"] .zhuge-module-shell .board-shell,
   html[data-theme="system"] .zhuge-module-shell .governance-history,
@@ -510,7 +507,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   html[data-theme="system"] .zhuge-module-shell .health-summary,
   html[data-theme="system"] .zhuge-module-shell .task-next-step,
   html[data-theme="system"] .zhuge-module-shell .checklist-item { background: var(--zhuge-surface) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
-  html[data-theme="system"] .zhuge-module-shell .board-local-nav .nav,
   html[data-theme="system"] .zhuge-module-shell .toolbar .chip,
   html[data-theme="system"] .zhuge-module-shell .toolbar .search,
   html[data-theme="system"] .zhuge-module-shell .toolbar .btn,
@@ -721,9 +717,9 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell .settings-reset-action,
 .zhuge-module-shell .settings-logout-action { width: 100%; }
 .zhuge-module-shell .settings-reset-action { border-color: var(--zhuge-border); background: var(--zhuge-surface-soft); color: var(--zhuge-text); }
-.zhuge-module-shell .settings-logout-action { background: var(--zhuge-danger, #dc2626); color: #fff; box-shadow: 0 5px 14px color-mix(in srgb, var(--zhuge-danger, #dc2626) 22%, transparent); }
+.zhuge-module-shell .settings-logout-action { background: #ef4444; border-color: #f87171; color: #fff; box-shadow: 0 5px 14px rgba(239,68,68,.24); }
 .zhuge-module-shell .settings-logout-action:hover,
-.zhuge-module-shell .settings-logout-action:focus-visible { background: #b91c1c; }
+.zhuge-module-shell .settings-logout-action:focus-visible { background: #dc2626; border-color: #fca5a5; }
 .tasks-workspace .task-workspace-grid { display: block !important; grid-template-columns: none !important; }
 .tasks-workspace .task-drawer:not(.is-open) { pointer-events: none; }
 
@@ -749,4 +745,185 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell.workspace-shell.workspace-worklog .workspace-canvas,
 .zhuge-module-shell.workspace-shell.workspace-worklog .daily-workspace {
   min-height: 0;
+}
+
+/* Shared OS Shell convergence: every workspace uses one outer frame, one
+ * header-to-navigation rhythm and one workspace-tab geometry.  This is kept
+ * in the shared layer so Control Center and AI Board cannot drift apart with
+ * page-specific spacing overrides. */
+.zhuge-module-shell > .workspace-app,
+.zhuge-module-shell > .app.workspace-app {
+  box-sizing: border-box;
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+}
+.zhuge-module-shell > .app.workspace-app > .main {
+  box-sizing: border-box;
+  padding: 0 !important;
+}
+.zhuge-module-shell .workspace-shell-header {
+  box-sizing: border-box;
+  height: var(--shell-header-height);
+  min-height: var(--shell-header-height);
+  padding: 14px 22px;
+  margin-bottom: var(--shell-header-content-gap);
+}
+.zhuge-module-shell .workspace-tabs,
+.zhuge-module-shell .workspace-subnav {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: var(--zhuge-workspace-tabs-gap);
+  width: 100%;
+  height: var(--zhuge-workspace-tabs-height);
+  min-height: var(--zhuge-workspace-tabs-height);
+  padding: 0 var(--zhuge-workspace-tabs-padding-inline);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--zhuge-border);
+  border-radius: 0;
+  background: transparent;
+}
+.zhuge-module-shell .workspace-subnav {
+  margin-top: 0 !important;
+}
+.zhuge-module-shell .workspace-tabs + .workspace-canvas,
+.zhuge-module-shell .workspace-subnav + .toolbar,
+.zhuge-module-shell .workspace-subnav + .note,
+.zhuge-module-shell .workspace-subnav + .workspace-content-container {
+  margin-top: var(--shell-header-content-gap);
+}
+.zhuge-module-shell .workspace-tab,
+.zhuge-module-shell .workspace-subnav > button,
+.zhuge-module-shell .workspace-subnav > .nav {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zhuge-workspace-tab-icon-gap);
+  height: var(--zhuge-workspace-tab-height);
+  min-height: var(--zhuge-workspace-tab-height);
+  margin: 0;
+  padding: var(--zhuge-workspace-tab-padding-block) var(--zhuge-workspace-tab-padding-inline);
+  border-radius: var(--zhuge-workspace-tab-radius) var(--zhuge-workspace-tab-radius) 0 0;
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.zhuge-module-shell .workspace-canvas {
+  min-height: 0;
+}
+.zhuge-module-shell .daily-workspace {
+  min-height: 0;
+}
+
+/* Shared protected-workspace verification surface. Investment and AI Board
+ * use the same MFA presentation while keeping their existing security
+ * services and enrollment/challenge flows unchanged. */
+.zhuge-module-shell .zhuge-mfa-panel {
+  box-sizing: border-box;
+  width: min(760px, 100%);
+  min-height: 0;
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-lg);
+  background: var(--zhuge-surface);
+  box-shadow: var(--zhuge-shadow);
+  text-align: left;
+}
+.zhuge-module-shell .zhuge-mfa-panel > img {
+  display: block;
+  width: 58px;
+  height: 58px;
+  margin: 0 0 14px;
+}
+.zhuge-module-shell .zhuge-mfa-panel h1,
+.zhuge-module-shell .zhuge-mfa-panel h2 { margin: 4px 0 8px; }
+.zhuge-module-shell .zhuge-mfa-kicker,
+.zhuge-module-shell .board-access-eyebrow {
+  color: var(--zhuge-accent);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.zhuge-module-shell .zhuge-mfa-intro,
+.zhuge-module-shell .zhuge-mfa-panel > p,
+.zhuge-module-shell .zhuge-mfa-panel > small { color: var(--zhuge-muted); line-height: 1.65; }
+.zhuge-module-shell .zhuge-mfa-info {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 28%, var(--zhuge-border));
+  border-radius: var(--zhuge-radius-md);
+  background: color-mix(in srgb, var(--zhuge-accent) 7%, var(--zhuge-surface));
+  color: var(--zhuge-text);
+}
+.zhuge-module-shell .zhuge-mfa-info span { color: var(--zhuge-muted); line-height: 1.55; }
+.zhuge-module-shell .zhuge-mfa-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, .72fr) minmax(250px, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin: 16px 0 8px;
+}
+.zhuge-module-shell .zhuge-mfa-qr {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-md);
+  background: var(--zhuge-surface-raised);
+  text-align: center;
+}
+.zhuge-module-shell .zhuge-mfa-qr img {
+  display: block;
+  width: min(210px, 100%);
+  height: auto;
+  padding: 8px;
+  border: 8px solid #fff;
+  border-radius: 12px;
+  background: #fff;
+}
+.zhuge-module-shell .zhuge-mfa-qr p { margin: 0; color: var(--zhuge-muted); font-size: .82rem; }
+.zhuge-module-shell .zhuge-mfa-secret { width: 100%; color: var(--zhuge-muted); font-size: .78rem; text-align: left; }
+.zhuge-module-shell .zhuge-mfa-secret code { display: block; margin-top: 6px; overflow-wrap: anywhere; color: var(--zhuge-text); }
+.zhuge-module-shell .zhuge-mfa-form { display: grid; gap: 10px; margin-top: 14px; }
+.zhuge-module-shell .zhuge-mfa-form label { color: var(--zhuge-text); font-size: .85rem; font-weight: 700; }
+.zhuge-module-shell .zhuge-mfa-code { width: 100%; box-sizing: border-box; text-align: center; letter-spacing: .18em; font-size: 1.15rem; }
+.zhuge-module-shell .zhuge-mfa-panel .investment-unlock-actions { display: flex; margin: 16px 0 8px; }
+.zhuge-module-shell .zhuge-mfa-progress { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--zhuge-muted); }
+.zhuge-module-shell .zhuge-mfa-progress span { flex: 0 0 auto; }
+.zhuge-module-shell .zhuge-mfa-panel > a { display: inline-flex; margin-top: 14px; }
+.zhuge-module-shell .zhuge-mfa-panel > small { display: block; margin-top: 12px; }
+@media (max-width: 700px) {
+  .zhuge-module-shell .zhuge-mfa-grid { grid-template-columns: 1fr; gap: 14px; }
+  .zhuge-module-shell .zhuge-mfa-qr img { width: min(190px, 70vw); }
+}
+
+@media (max-width: 900px) {
+  .zhuge-module-shell .workspace-shell-header {
+    height: auto;
+    min-height: 64px;
+    padding: 13px 16px;
+  }
+  .zhuge-module-shell > .workspace-app,
+  .zhuge-module-shell > .app.workspace-app {
+    padding: 14px;
+  }
+}
+@media (max-width: 700px) {
+  .zhuge-module-shell .workspace-shell-header {
+    min-height: 58px;
+    padding: 12px 14px;
+  }
+  .zhuge-module-shell > .workspace-app,
+  .zhuge-module-shell > .app.workspace-app {
+    padding: 10px;
+  }
 }

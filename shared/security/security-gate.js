@@ -14,6 +14,7 @@
     dashboard: 1,
     worklog: 2,
     investment: 3,
+    "ai-board": 3,
     hr: 4
   });
 
@@ -56,17 +57,21 @@
       }
 
       const requiredAal = String(request.requiredAal || policy.requiredAal || "aal1").toLowerCase();
-      if ((AAL_WEIGHT[snapshot.aal] || 0) < (AAL_WEIGHT[requiredAal] || 1)) {
+      const securityState = readSecurityState({ moduleId, action, level }) || {};
+      const bypassMfa = securityState.bypassMfa === true || securityState.bypassed === true;
+      const effectiveRequiredAal = bypassMfa ? "aal1" : requiredAal;
+      if ((AAL_WEIGHT[snapshot.aal] || 0) < (AAL_WEIGHT[effectiveRequiredAal] || 1)) {
         return decision(false, "STEP_UP_REQUIRED", {
           moduleId,
           action,
           level,
           currentAal: snapshot.aal,
-          requiredAal
+          requiredAal: effectiveRequiredAal,
+          configuredRequiredAal: requiredAal,
+          bypassedMfa: bypassMfa
         });
       }
 
-      const securityState = readSecurityState({ moduleId, action, level }) || {};
       if (securityState.locked) {
         return decision(false, "MODULE_LOCKED", {
           moduleId,
@@ -78,7 +83,7 @@
 
       const capability = String(request.capability || policy.capability || "").trim();
       if (capability && (!permissionService || !permissionService.can(capability))) {
-        return decision(false, "CAPABILITY_REQUIRED", { moduleId, action, level, capability, requiredAal });
+        return decision(false, "CAPABILITY_REQUIRED", { moduleId, action, level, capability, requiredAal: effectiveRequiredAal, bypassedMfa: bypassMfa });
       }
 
       return decision(true, "ALLOWED", {
@@ -86,7 +91,9 @@
         action,
         level,
         currentAal: snapshot.aal,
-        requiredAal,
+        requiredAal: effectiveRequiredAal,
+        configuredRequiredAal: requiredAal,
+        bypassedMfa: bypassMfa,
         capability: capability || null
       });
     }

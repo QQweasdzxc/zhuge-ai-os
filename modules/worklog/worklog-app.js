@@ -785,6 +785,14 @@ function tagsForRole(role) {
   return roleTagMap[role] || defaultTags;
 }
 
+const DEFAULT_WORK_DURATION_MINUTES = 60;
+
+function normalizeWorkDurationMinutes(value = DEFAULT_WORK_DURATION_MINUTES) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes)) return DEFAULT_WORK_DURATION_MINUTES;
+  return Math.max(0, Math.min(1440, Math.round(minutes)));
+}
+
 function normalizeWorkMemoryObject(value = {}, index = 0, existing = null) {
   const raw = typeof value === "string" ? { name: value } : (value || {});
   const name = String(raw.name || "").trim();
@@ -820,6 +828,7 @@ function normalizeWorkMemoryObject(value = {}, index = 0, existing = null) {
     isActive: Boolean(raw.isActive ?? raw.is_active ?? base.isActive ?? true),
     familiarity: Math.min(5, Math.max(1, Number(raw.familiarity ?? base.familiarity ?? 1) || 1)),
     lastUsedAt: raw.lastUsedAt || raw.last_used_at || base.lastUsedAt || "",
+    defaultDurationMinutes: normalizeWorkDurationMinutes(raw.defaultDurationMinutes ?? raw.default_duration_minutes ?? base.defaultDurationMinutes ?? base.default_duration_minutes ?? DEFAULT_WORK_DURATION_MINUTES),
     sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? base.sortOrder ?? index) || 0,
     createdAt: raw.createdAt || raw.created_at || base.createdAt || "",
     updatedAt: raw.updatedAt || raw.updated_at || base.updatedAt || ""
@@ -3024,6 +3033,21 @@ function workMemoryMergeCompletedBanner() {
   return `<div class="entry work-memory-merge-completed" role="status"><b>✓ Merge Completed</b><div class="muted">${escapeHtml(workMemoryMergeCompletedNotice)}</div><div class="actions compact"><button class="btn" type="button" data-rebuild-work-memory-suggestions="1" ${rebuilding ? "disabled aria-busy=\"true\"" : ""}>${rebuilding ? "⏳ 重新分析中…" : "🔄 重新分析 AI"}</button><button class="btn2" type="button" data-dismiss-work-memory-merge-notice="1" ${rebuilding ? "disabled" : ""}>關閉</button></div></div>`;
 }
 
+function workMemoryListRowMarkup(item = {}) {
+  const selected = workMemoryMergeSelection.includes(item.name);
+  const actionMarkup = workMemoryMergeMode
+    ? `<button class="btn2 ${selected ? "selected" : ""}" type="button" aria-pressed="${selected ? "true" : "false"}" data-toggle-work-memory-merge="${escapeHtml(item.name)}">${selected ? "取消選取" : "＋ 選取合併"}</button>`
+    : `<button class="btn2" type="button" data-edit-work-memory="${escapeHtml(item.name)}">✏️ 編輯</button><button class="btn2" type="button" data-start-work-memory-merge="${escapeHtml(item.name)}">🔀 合併</button>`;
+  return `<article class="work-memory-list-row work-memory-confirmed-card ${selected ? "is-merge-selected" : ""}">
+    <div class="work-memory-list-main">
+      <div class="work-memory-list-title"><span class="status-dot ${item.enabled ? "ok" : "off"}" title="${item.enabled ? "已啟用" : "已停用"}" aria-label="${item.enabled ? "已啟用" : "已停用"}"></span><b>${escapeHtml(item.name)}</b><span class="work-memory-confirmed-label">已採用工作</span></div>
+      <small class="work-memory-list-description">${escapeHtml(item.description)}</small>
+    </div>
+    <div class="work-memory-list-meta"><span>預設工時 ${escapeHtml(formatHumanDuration(Number(item.defaultDurationMinutes || 0) / 60))}</span></div>
+    <div class="work-memory-list-actions">${actionMarkup}</div>
+  </article>`;
+}
+
 function setWorkMemoryMergeNotice(message = "") {
   workMemoryMergeCompletedNotice = String(message || "");
   try {
@@ -3061,19 +3085,19 @@ function workMemoryPage(options = {}) {
     ? `<button class="btn" data-open-workspace="aiSuggestions">🪶 查看 AI 建議（${aiSuggestionCount}）</button>`
     : `<button class="btn2" disabled>目前沒有新的 AI 建議</button>`;
   const headActions = workMemoryMergeMode
-    ? `<button class="btn2" data-cancel-work-memory-merge="1">取消合併</button><button class="btn" data-next-work-memory-merge="1" ${workMemoryMergeSelection.length < 2 ? "disabled" : ""}>下一步（${workMemoryMergeSelection.length}）</button>`
+    ? `<button class="btn" data-next-work-memory-merge="1" ${workMemoryMergeSelection.length < 2 ? "disabled" : ""}>下一步（${workMemoryMergeSelection.length}）</button>`
     : `<button class="btn" data-add-work-memory="1">＋ 新增工作</button>${aiSuggestionButton}`;
   const cloudNotice = workMemoryFoundationNotInitialized
     ? `<div class="empty work-memory-cloud-notice"><b>🟡 Work Memory Cloud 尚未初始化</b><div class="muted">目前畫面只顯示本機快取，不能視為正式記憶。請先執行 ${escapeHtml(WORK_MEMORY_SCHEMA_SQL)}。</div></div>`
     : "";
-  const cards = items.length ? `<section class="work-memory-folder"><div class="work-memory-folder-head"><div><span class="work-memory-folder-icon">📁</span><b>我的工作</b><small>${items.length} 項工作</small></div><span class="muted">分類僅作標籤與篩選</span></div><div class="work-memory-card-grid">${items.map(item => { const selected = workMemoryMergeSelection.includes(item.name); const cardAction = workMemoryMergeMode ? `<button class="btn2 ${selected ? "selected" : ""}" type="button" data-toggle-work-memory-merge="${escapeHtml(item.name)}">${selected ? "✓ 已選取" : "＋ 選取合併"}</button>` : `<div class="work-memory-card-actions"><button class="btn2" type="button" data-edit-work-memory="${escapeHtml(item.name)}">✏️ 編輯</button><button class="btn2" type="button" data-start-work-memory-merge="${escapeHtml(item.name)}">🔀 合併</button></div>`; return `<article class="work-memory-card work-memory-confirmed-card ${selected ? "is-merge-selected" : ""}"><div class="work-memory-card-top"><span class="work-memory-confirmed-label">已採用工作</span><span class="status-dot ${item.enabled ? "ok" : "off"}" title="${item.enabled ? "已啟用" : "已停用"}"></span></div><b class="work-memory-card-title">${escapeHtml(item.name)}</b><small>${escapeHtml(item.description)}</small><div class="work-memory-card-meta"><span>熟悉度 ${escapeHtml(workMemoryFamiliarityBars(item.familiarityScore))}</span><span>${item.usageCount ? `使用 ${item.usageCount} 次` : "尚未使用"}</span></div>${cardAction}</article>`; }).join("")}</div></section>` : `<div class="empty"><b>${workMemoryItems().length ? "找不到符合條件的工作" : "目前還沒有已採用工作"}</b><div class="muted">${workMemoryItems().length ? "請調整搜尋或分類條件。" : "你可以新增工作，或查看 Mr. KM 整理好的 AI 建議。"}</div></div>`;
+  const cards = items.length ? `<section class="work-memory-folder"><div class="work-memory-folder-head"><div><span class="work-memory-folder-icon">📁</span><b>我的工作</b><small>${items.length} 項工作</small></div><span class="muted">分類僅作標籤與篩選</span></div><div class="work-memory-list">${items.map(workMemoryListRowMarkup).join("")}</div></section>` : `<div class="empty"><b>${workMemoryItems().length ? "找不到符合條件的工作" : "目前還沒有已採用工作"}</b><div class="muted">${workMemoryItems().length ? "請調整搜尋或分類條件。" : "你可以新增工作，或查看 Mr. KM 整理好的 AI 建議。"}</div></div>`;
   const editingItem = items.find(item => item.name === editingWorkMemoryName);
-  const editor = editingItem ? `<div class="quick-add-dialog work-memory-editor"><div class="quick-add-card"><div class="panel-head"><div><h3>✏️ 編輯工作</h3><div class="muted">修改後，Mr. KM 會依照新的內容提供工時建議。</div></div><button class="btn2" type="button" data-cancel-work-memory-edit="1">關閉</button></div><label>工作名稱</label><input class="input" id="workMemoryEditName" value="${escapeHtml(editingItem.name)}"><label>工作說明</label><textarea id="workMemoryEditDescription">${escapeHtml(editingItem.description)}</textarea><label>分類</label><input class="input" id="workMemoryEditCategory" value="${escapeHtml(editingItem.category)}"><label>啟用狀態</label><select class="input" id="workMemoryEditEnabled"><option value="1" ${editingItem.enabled ? "selected" : ""}>啟用</option><option value="0" ${editingItem.enabled ? "" : "selected"}>停用</option></select><div class="form-actions"><button class="btn2 danger" type="button" data-delete-work-memory="${escapeHtml(editingItem.name)}">刪除</button><button class="btn" type="button" data-save-work-memory-edit="${escapeHtml(editingItem.name)}">儲存修改</button></div></div></div>` : "";
+  const editor = editingItem ? `<div class="quick-add-dialog work-memory-editor"><div class="quick-add-card"><div class="panel-head"><div><h3>✏️ 編輯工作</h3><div class="muted">設定後，點擊「加入工時」會先帶入這個預設時數，特殊情況仍可再調整。</div></div><button class="btn2 work-memory-editor-close" type="button" data-cancel-work-memory-edit="1" aria-label="關閉編輯工作" title="關閉">×</button></div><label>工作名稱</label><input class="input" id="workMemoryEditName" value="${escapeHtml(editingItem.name)}"><label>工作說明</label><textarea id="workMemoryEditDescription">${escapeHtml(editingItem.description)}</textarea><label>預設工時（分鐘）</label><input class="input" id="workMemoryEditDuration" type="number" min="0" max="1440" step="15" value="${normalizeWorkDurationMinutes(editingItem.defaultDurationMinutes)}"><div class="muted work-memory-duration-help">加入工時時會自動帶入；例如 60 代表 1 小時。需要時仍可在新增工時畫面修改。</div><label>分類</label><input class="input" id="workMemoryEditCategory" value="${escapeHtml(editingItem.category)}"><label>啟用狀態</label><select class="input" id="workMemoryEditEnabled"><option value="1" ${editingItem.enabled ? "selected" : ""}>啟用</option><option value="0" ${editingItem.enabled ? "" : "selected"}>停用</option></select><div class="form-actions"><button class="btn2 danger" type="button" data-delete-work-memory="${escapeHtml(editingItem.name)}">刪除</button><button class="btn" type="button" data-save-work-memory-edit="${escapeHtml(editingItem.name)}">儲存修改</button></div></div></div>` : "";
   const categories = [...new Set(workMemoryItems().map(item => item.category || "其他"))].sort((a, b) => a.localeCompare(b, "zh-Hant"));
   const filters = `<div class="work-memory-toolbar"><input class="input" type="search" data-work-memory-search placeholder="搜尋我的工作、別名或來源" value="${escapeHtml(workMemoryQuery)}"><select class="input" data-work-memory-category><option value="all" ${workMemoryCategoryFilter === "all" ? "selected" : ""}>全部分類</option>${categories.map(category => `<option value="${escapeHtml(category)}" ${category === workMemoryCategoryFilter ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select class="input" data-work-memory-sort><option value="name" ${workMemorySort === "name" ? "selected" : ""}>名稱</option><option value="usage" ${workMemorySort === "usage" ? "selected" : ""}>最近使用</option></select></div>`;
   const mergePreview = workMemoryMergeSuggestions(2);
   const mergeNotice = mergePreview.length && !workMemoryMergeMode ? `<div class="work-memory-ai-notice"><b>🪶 我發現 ${mergePreview.length} 組工作可能可以整理</b><span>${mergePreview.map(item => `${escapeHtml(item.a)} ↔ ${escapeHtml(item.b)}`).join("、")}</span><button class="btn2" data-open-workspace="aiSuggestions">查看 AI 建議</button></div>` : "";
-  const mergeModeNotice = workMemoryMergeMode ? `<div class="work-memory-merge-mode"><b>🔀 手動合併工作</b><span>請選擇至少兩項工作；下一步會使用與 AI 建議相同的 Merge Preview。</span><strong>已選 ${workMemoryMergeSelection.length} 項</strong></div>` : "";
+  const mergeModeNotice = workMemoryMergeMode ? `<div class="work-memory-merge-mode" role="status"><b>🔀 手動合併工作</b><span>請選擇至少兩項工作；下一步會先顯示預覽，確認後才會合併。</span><strong>已選 ${workMemoryMergeSelection.length} 項</strong><button class="btn2" type="button" data-cancel-work-memory-merge="1">取消合併</button></div>` : "";
   const manualPreview = workMemoryManualMergeSuggestion ? `<div class="work-memory-manual-merge-preview">${workMemoryMergePreviewMarkup(workMemoryManualMergeSuggestion)}<div class="merge-preview-actions"><button class="btn green" data-confirm-work-memory-merge="1">✅ 採用合併</button><button class="btn2" data-cancel-work-memory-merge="1">先保留</button></div></div>` : "";
   const content = `<div class="panel-head"><div><h2>🪶 我的工作</h2><div class="muted">這裡只放你已經確認的工作，也是工時建議的正式來源。</div></div><div class="actions compact work-memory-head-actions">${headActions}</div></div>${workMemoryMergeCompletedBanner()}${cloudNotice}${mergeModeNotice}${manualPreview}${mergeNotice}${filters}<div class="work-memory-count muted">顯示 ${items.length} / ${workMemoryItems().length} 項工作</div><div class="work-memory-folder-grid">${cards}</div>${editor}`;
   return compact ? `<div class="work-memory-page">${content}</div>` : `<section class="panel work-memory-page" style="margin-top:18px">${content}</section>`;
@@ -3358,12 +3382,15 @@ function makeSuggestions() {
     .map(model => {
       const ranking = suggestionPriority(model);
       const learnedConfidence = (model.sourceReferences || []).reduce((highest, reference) => Math.max(highest, Number(reference?.confidence || 0)), 0);
+      const defaultDurationMinutes = normalizeWorkDurationMinutes(model.defaultDurationMinutes);
+      const defaultHours = defaultDurationMinutes / 60;
       return {
         id: model.name,
         title: model.name,
         note: "",
-        hours: 1,
-        at: resolveWorklogTime({ dateKey: key(), hours: 1 }).at,
+        hours: defaultHours,
+        defaultDurationMinutes,
+        at: resolveWorklogTime({ dateKey: key(), hours: defaultHours }).at,
         ecpTask: defaultEcpTaskName(model.name),
         sourceLabel: `📂 來源：${model.name}`,
         priority: model.priority || "p2",
@@ -3381,7 +3408,7 @@ function makeSuggestions() {
 function suggestionCardMarkup(item = {}) {
   const relatedTask = Array.isArray(tasks) ? tasks.find(task => task.status !== "completed" && (task.title === item.title || task.title.includes(item.title) || item.title.includes(task.title))) : null;
   const workflow = relatedTask ? `<span class="suggestion-workflow-state">狀態：${escapeHtml(taskStatusLabel(relatedTask.status))}｜進度：${taskProgressValue(relatedTask.progress)}%</span>` : "";
-  return `<div class="suggestion-scan-item"><div class="suggestion-scan-body"><h3>${escapeHtml(item.title)}</h3><div class="suggestion-card-meta"><span>${escapeHtml(item.sourceLabel || `📂 來源：${item.title}`)}</span>${workflow}</div><details class="suggestion-reason"><summary>ℹ︎ 為什麼推薦？</summary><p>${escapeHtml(item.reason || "這是你已確認的「我的工作」，可直接加入今天工時。")}</p></details><div class="actions suggestion-actions"><button class="btn green" data-accept="${escapeHtml(item.id)}">加入工時</button><button class="btn2" data-adjust="${escapeHtml(item.id)}">調整</button></div></div></div>`;
+  return `<div class="suggestion-scan-item"><div class="suggestion-scan-body"><h3>${escapeHtml(item.title)}</h3><div class="suggestion-card-meta"><span>${escapeHtml(item.sourceLabel || `📂 來源：${item.title}`)}</span><span>預設 ${escapeHtml(formatHumanDuration(Number(item.defaultDurationMinutes ?? (Number(item.hours || 1) * 60)) / 60))}</span>${workflow}</div><details class="suggestion-reason"><summary>ℹ︎ 為什麼推薦？</summary><p>${escapeHtml(item.reason || "這是你已確認的「我的工作」，可直接加入今天工時。")}</p></details><div class="actions suggestion-actions"><button class="btn green" data-accept="${escapeHtml(item.id)}">加入工時</button><button class="btn2" data-adjust="${escapeHtml(item.id)}">調整</button></div></div></div>`;
 }
 
 function suggestionPanel() {
@@ -3651,7 +3678,7 @@ function sync() {
     ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"]
   ];
   const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
-  return `<section class="panel control-center" style="margin-top:18px"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
+  return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
 }
 
 function nextKnowledgeId() {
@@ -5470,6 +5497,7 @@ function bindWorkMemory() {
     const description = String(document.getElementById("workMemoryEditDescription")?.value || "").trim();
     const category = String(document.getElementById("workMemoryEditCategory")?.value || "其他").trim();
     const enabled = document.getElementById("workMemoryEditEnabled")?.value !== "0";
+    const defaultDurationMinutes = normalizeWorkDurationMinutes(document.getElementById("workMemoryEditDuration")?.value);
     if (!name) return toast("請輸入工作名稱");
     const similarity = name === originalName ? { action: "create" } : confirmWorkMemorySimilarity(name, { excludeNames: [originalName] });
     if (similarity.action === "cancel") return;
@@ -5482,6 +5510,7 @@ function bindWorkMemory() {
       name: targetName,
       description,
       category,
+      defaultDurationMinutes,
       isActive: enabled,
       aliases: similarity.action === "merge" ? [...new Set([...(target?.aliases || []), ...(original?.aliases || []), originalName, name].filter(alias => alias && alias !== targetName))] : (original?.aliases || []),
       updatedAt: new Date().toISOString()
@@ -5602,7 +5631,7 @@ async function persistEntry(item, options = {}) {
 async function acceptSuggestion(id) {
   const s = makeSuggestions().find(x => x.id === id);
   if (!s) return;
-  const defaultHours = 1;
+  const defaultHours = normalizeWorkDurationMinutes(s.defaultDurationMinutes) / 60;
   const resolved = resolveWorklogTime({ dateKey: key(), hours: defaultHours });
   const item = createEntry({
     date: resolved.dateKey,
@@ -5644,7 +5673,7 @@ async function acceptSuggestion(id) {
 function adjustSuggestion(id) {
   const s = makeSuggestions().find(x => x.id === id);
   if (!s) return;
-  const defaultHours = 1;
+  const defaultHours = normalizeWorkDurationMinutes(s.defaultDurationMinutes) / 60;
   const resolved = resolveWorklogTime({ dateKey: key(), hours: defaultHours });
   editingEntryId = null;
   captureSeed = { ...s, hours: defaultHours, at: resolved.at, timeResolution: resolved.reason, source: "ai-card", suggestionId: s.id, wasAdjusted: true };

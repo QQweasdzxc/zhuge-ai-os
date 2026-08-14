@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
-const VERSION = "0.9.0-alpha.9.12";
+const VERSION = "0.9.0-alpha.9.13";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260812-1307";
+const BUILD_TIME = "20260814-1545";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -107,7 +107,7 @@ const workspaceRegistry = {
   // Active state is the only per-workspace visual delta in the shared rail.
   worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true },
   tasks: { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true },
-  investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, status: "SIT", externalHref: "../investment/" },
+  investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, externalHref: "../investment/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },

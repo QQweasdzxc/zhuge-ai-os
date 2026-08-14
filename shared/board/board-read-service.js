@@ -37,6 +37,7 @@
       progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "開始推進（Co）" })
     }),
     inprogress: Object.freeze({
+      todo: Object.freeze({ status: "ready", assignee: "Co", action: "退回待辦（Co）" }),
       qa: Object.freeze({ status: "qa", assignee: "GPT", action: "Co 完成 → 交 GPT" })
     }),
     qa: Object.freeze({
@@ -244,6 +245,16 @@
     return gateway;
   }
 
+  function requireEngineeringMemoryResolver(options = {}) {
+    const resolver = options.memoryResolver || root.ZhugeEngineeringMemory;
+    if (!resolver || typeof resolver.resolveCurrentCanonical !== "function") {
+      const error = new Error("Canonical Engineering Memory Resolver 尚未載入。");
+      error.code = "ENGINEERING_MEMORY_RESOLVER_UNAVAILABLE";
+      throw error;
+    }
+    return resolver;
+  }
+
   async function load(options = {}) {
     const identity = currentIdentity();
     if (!identity?.isAuthenticated) {
@@ -252,15 +263,25 @@
       throw error;
     }
     const gateway = options.gateway || requireGateway();
-    const [taskRows, knowledgeRows] = await Promise.all([
+    const resolver = options.engineeringMemory ? null : requireEngineeringMemoryResolver(options);
+    const [taskRows, engineeringMemory] = await Promise.all([
       gateway.select("board_tasks", "?select=id,title,status,priority,assignee,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
-      gateway.select("engineering_knowledge", "?select=knowledge_code,knowledge_type,title,summary,content,version,status,updated_at&status=not.is.null&order=updated_at.desc")
+      options.engineeringMemory || resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes })
     ]);
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(normalizeTask);
-    const knowledge = Array.isArray(knowledgeRows) ? knowledgeRows : [];
+    const knowledge = (engineeringMemory?.records || []).map(row => ({
+      knowledge_code: row.knowledgeCode,
+      knowledge_type: row.knowledgeType,
+      title: row.title,
+      summary: row.summary,
+      content: row.content,
+      version: row.version,
+      status: "approved",
+      updated_at: row.updatedAt
+    }));
     const principles = knowledge.filter(row => String(row.status || "").toLowerCase() === "approved").filter(isPrinciple).map(normalizePrinciple);
     const systemMaps = knowledge.filter(isSystemMap).map(normalizeSystemMap);
-    return Object.freeze({ identity, tasks, principles, systemMaps, governanceMetadataAvailable: true, readOnly: false, source: "Supabase Shared Data Gateway" });
+    return Object.freeze({ identity, tasks, principles, systemMaps, engineeringMemory, engineeringMemoryFailures: engineeringMemory?.failures || [], governanceMetadataAvailable: true, readOnly: false, source: "Supabase Shared Data Gateway → Canonical Engineering Memory Resolver" });
   }
 
   async function loadChecklist(taskId, options = {}) {
@@ -284,6 +305,15 @@
   async function runHealthCheck(options = {}) {
     const result = await load(options);
     const findings = [];
+    if (result.engineeringMemoryFailures?.length) {
+      result.engineeringMemoryFailures.forEach(failure => findings.push(healthFinding(
+        failure.reason === "Canonical Conflict / Need PM Decision" ? "canonical_conflict" : "canonical_retrieval_failed",
+        "error",
+        `${failure.knowledgeCode || "Engineering Principle"} | ${failure.reason}`,
+        "Canonical Principle 無法由 public.engineering_knowledge 唯一解析；未使用 Repository 舊文件、歷史引用或舊 Context fallback。",
+        [failure.knowledgeCode || "public.engineering_knowledge"]
+      )));
+    }
     const tasks = result.tasks;
     const byCode = new Map();
     tasks.forEach(task => {

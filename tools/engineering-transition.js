@@ -14,7 +14,7 @@ const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS = Object.freeze({
   Co: Object.freeze({
     ready: Object.freeze({ inprogress: "Co" }),
-    inprogress: Object.freeze({ qa: "GPT" }),
+    inprogress: Object.freeze({ ready: "Co", qa: "GPT" }),
     qa: Object.freeze({ inprogress: "Co" })
   }),
   GPT: Object.freeze({

@@ -136,6 +136,48 @@ test("Full-site UX polish keeps collapsible regions out of layout flow and uses 
   assert.match(read("shared/theme/zhuge-os.css"), /zhuge-mini-calendar-grid/);
 });
 
+test("Settings work memory uses a compact list and keeps the logout action dangerous", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  const worklogCss = read("modules/worklog/worklog.css");
+  const shellCss = read("shared/theme/zhuge-workspace.css");
+  assert.match(worklog, /function workMemoryListRowMarkup\(item = \{\}\)/);
+  assert.match(worklog, /class="work-memory-list"/);
+  assert.match(worklogCss, /\.work-memory-list-row\{display:grid/);
+  assert.match(worklogCss, /\.work-memory-list\{display:grid;grid-template-columns:repeat\(2/);
+  assert.doesNotMatch(worklog, /<span>熟悉度 \$\{escapeHtml\(workMemoryFamiliarityBars\(item\.familiarityScore\)\)\}<\/span>/);
+  assert.doesNotMatch(worklog, /使用 \$\{item\.usageCount\} 次/);
+  assert.match(shellCss, /settings-logout-action \{ background: #ef4444/);
+  assert.doesNotMatch(worklog, /work-memory-card-grid.*items\.map/);
+});
+
+test("Work memory editor uses a compact horizontal close control", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  const worklogCss = read("modules/worklog/worklog.css");
+  assert.match(worklog, /class="btn2 work-memory-editor-close"[^>]*data-cancel-work-memory-edit="1"[^>]*aria-label="關閉編輯工作"[^>]*>×<\/button>/);
+  assert.doesNotMatch(worklog, /data-cancel-work-memory-edit="1">關閉<\/button>/);
+  assert.match(worklogCss, /\.work-memory-editor \.work-memory-editor-close\{[^}]*white-space:nowrap/);
+});
+
+test("Work Memory merge mode always exposes a safe cancel path", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  assert.match(worklog, /data-cancel-work-memory-merge="1"/);
+  assert.match(worklog, /已選 \$\{workMemoryMergeSelection\.length\} 項<\/strong><button class="btn2"[^>]*data-cancel-work-memory-merge/);
+  assert.match(worklog, /selected \? "取消選取" : "＋ 選取合併"/);
+});
+
+test("Work Memory stores a per-work default duration and carries it into Quick Add", () => {
+  const worklog = read("modules/worklog/worklog-app.js");
+  const repositories = read("shared/api/repositories.js");
+  const migration = read("docs/supabase/20260812_user_work_models_default_duration.sql");
+  assert.match(worklog, /defaultDurationMinutes/);
+  assert.match(worklog, /id="workMemoryEditDuration"/);
+  assert.match(worklog, /defaultHours = normalizeWorkDurationMinutes\(s\.defaultDurationMinutes\) \/ 60/);
+  assert.match(worklog, /預設工時/);
+  assert.match(repositories, /default_duration_minutes/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS default_duration_minutes integer NOT NULL DEFAULT 60/);
+  assert.match(migration, /default_duration_minutes BETWEEN 0 AND 1440/);
+});
+
 test("Shared hamburger visibility is controlled by shell breakpoints", () => {
   const shell = read("shared/theme/zhuge-shell.css");
   assert.match(shell, /min-width: 768px.*max-width: 1180px.*zhuge-shared-menu\{display:inline-flex\}/s);

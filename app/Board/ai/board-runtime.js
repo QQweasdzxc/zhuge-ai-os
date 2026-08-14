@@ -68,7 +68,7 @@
       (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
       (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看驗收清單與證據 · 拖曳推進工作" : "點擊查看歷史驗收清單與證據 · 已完成不可再拖曳") + "</div></article>";
+      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看驗收清單與證據 · 拖曳推進或退回工作" : "點擊查看歷史驗收清單與證據 · 已完成不可再拖曳") + "</div></article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -152,10 +152,23 @@
     };
   }
   function setConnection(taskCount, principleCount, realtime) {
-    const foot = document.querySelector(".sidefoot");
-    if (foot) foot.innerHTML = "● Supabase 已連線<br><br>正式 Cloud Read／Write<br>" +
-      taskCount + " 筆 TASK · " + principleCount + " 條原則<br>" +
-      (realtime ? "Realtime 已訂閱" : "Realtime 連線中");
+    const label = realtime ? "🟢 已同步" : "🟡 同步中";
+    const time = realtime ? dateLabel(new Date()) : "Cloud Read 完成，等待 Realtime";
+    const updated = root.ZhugeSharedNavigation?.setSyncStatus?.({
+      label,
+      time,
+      state: realtime ? "synced" : "syncing"
+    });
+    if (updated) return;
+    // Compatibility fallback for older preview shells; the canonical shell
+    // above is the only production path.
+    const summary = document.getElementById("developerCloudSyncStatus");
+    if (summary) {
+      const status = summary.querySelector("strong");
+      const syncTime = summary.querySelector("time");
+      if (status) status.textContent = label;
+      if (syncTime) syncTime.textContent = time;
+    }
   }
   function transitionFor(task, targetUiKey) {
     return typeof service.planTransition === "function"
@@ -287,7 +300,8 @@
     const handlers = {
       board: () => showBoardView("board"),
       principles: () => showBoardView("principles"),
-      "system-map": () => showBoardView("system-map")
+      "system-map": () => showBoardView("system-map"),
+      security: () => showBoardView("security")
     };
     document.querySelectorAll("[data-board-nav]").forEach(item => {
       const activate = () => {
@@ -305,13 +319,79 @@
     document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
     const boardShell = document.querySelector(".board-shell");
     if (boardShell) boardShell.hidden = view !== "board";
+    const history = document.querySelector(".governance-history");
+    if (history) history.hidden = view !== "board";
     const toolbar = document.querySelector(".toolbar");
     if (toolbar) toolbar.hidden = view !== "board";
     const note = document.querySelector(".note");
     if (note) note.hidden = view !== "board";
     if (view === "principles") setBanner("工程準則：📘 最高原則來自正式 engineering_knowledge，不參與 TASK 狀態流轉。", "info");
     else if (view === "system-map") setBanner("系統藍圖：顯示目前正式系統組成與資料來源。", "info");
+    else if (view === "security") setBanner("敏感模組二次驗證：只有 Creator 可以查看或變更 Cloud MFA Preference。", "info");
     else setBanner("工作看板：顯示正式 Cloud TASK、Checklist、Evidence 與交接流程。", "info");
+  }
+
+  function mountCreatorMfaSettings(context) {
+    if (!context?.creator?.getSnapshot?.().is_creator) return;
+    const tabs = document.querySelector(".workspace-subnav");
+    const main = document.querySelector(".main");
+    if (!tabs || !main || document.querySelector('[data-board-nav="security"]')) return;
+
+    const tab = document.createElement("button");
+    tab.className = "workspace-tab";
+    tab.type = "button";
+    tab.title = "敏感模組二次驗證";
+    tab.dataset.boardNav = "security";
+    tab.textContent = "🔐 安全設定";
+    tabs.appendChild(tab);
+
+    const section = document.createElement("section");
+    section.className = "board-subview creator-mfa-settings-view";
+    section.dataset.boardView = "security";
+    section.hidden = true;
+    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／Creator Control</span><h2>🔐 敏感模組二次驗證</h2><p>Google Login、Supabase Session、User UUID、RLS 與 Cloud Data 維持開啟；以下只控制指定模組是否略過 TOTP Challenge。</p></div><span class="subview-source">來源：Supabase Cloud Settings</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於 Supabase Cloud。</p></div>`;
+    main.appendChild(section);
+
+    const moduleLabels = Object.freeze({
+      investment: "Investment",
+      "ai-board": "AI Board"
+    });
+    const requiredKey = moduleId => moduleId === "investment" ? "investment_mfa_required" : "ai_board_mfa_required";
+    const render = () => {
+      const policy = context.security.getMfaPolicy?.() || {};
+      const list = section.querySelector("[data-creator-mfa-list]");
+      const note = section.querySelector("[data-creator-mfa-note]");
+      if (!list) return;
+      list.innerHTML = ["investment", "ai-board"].map(moduleId => {
+        const required = policy[requiredKey(moduleId)] !== false;
+        const label = moduleLabels[moduleId];
+        return `<div class="creator-mfa-row" data-mfa-row="${moduleId}"><div><strong>${label}｜Google Authenticator</strong><span class="creator-mfa-status ${required ? "is-on" : "is-off"}" data-mfa-status>${required ? "🟢 二次驗證 ON" : "🟡 二次驗證暫停"}</span></div><label class="creator-mfa-switch"><span class="sr-only">${label} Google Authenticator 二次驗證</span><input type="checkbox" data-mfa-module="${moduleId}" ${required ? "checked" : ""}><span class="creator-mfa-switch-track" aria-hidden="true"></span></label></div>`;
+      }).join("");
+      if (note) {
+        note.textContent = policy.status === "error"
+          ? "設定讀取失敗，已依安全預設保持兩個模組 ON。"
+          : "設定只會保存於 Supabase Cloud。兩個開關互不連動。";
+      }
+      list.querySelectorAll("[data-mfa-module]").forEach(input => {
+        input.addEventListener("change", async event => {
+          const control = event.currentTarget;
+          const moduleId = control.dataset.mfaModule;
+          const required = control.checked;
+          control.disabled = true;
+          try {
+            await context.security.setMfaRequired({ moduleId, required });
+            await context.security.loadMfaPolicy({ force: true });
+            render();
+          } catch (error) {
+            control.checked = !required;
+            control.disabled = false;
+            if (note) note.textContent = error?.message || "設定寫入失敗，已維持原本狀態。";
+          }
+        });
+      });
+    };
+    render();
+    tab.addEventListener("click", () => showBoardView("security"));
   }
   function ensureTaskDetailModal() {
     if (document.getElementById("taskDetailModal")) return;
@@ -545,14 +625,18 @@
       renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
-      if (!options.quiet) setBanner("已讀取 " + result.tasks.length + " 張正式工作卡與 " + result.principles.length + " 條已核准原則。<strong>QJC 可直接操作；GPT／Co 會透過受控流程交接。</strong>", "success");
+      if (result.engineeringMemoryFailures?.length) {
+        const failures = result.engineeringMemoryFailures.map(item => `${esc(item.knowledgeCode || "Engineering Principle")} | ${esc(item.reason)}`).join("；");
+        setBanner("Canonical Retrieval Failed：" + failures + "。未使用舊文件或舊 Context fallback。", "error");
+      } else if (!options.quiet) {
+        setBanner("已讀取 " + result.tasks.length + " 張正式工作卡與 " + result.principles.length + " 條已核准原則。<strong>QJC 可直接操作；GPT／Co 會透過受控流程交接。</strong>", "success");
+      }
       return result;
     }).catch(error => {
       const loginLink = "../../../?app=1";
       const message = error && error.code === "BOARD_SESSION_REQUIRED" ? "請先登入 Zhuge AI OS，再開啟 AI Board。<a href=\"" + loginLink + "\">前往登入</a>" : "正式 Cloud Read 失敗：" + esc(error && error.message || "未知錯誤") + "。請重新整理或確認 Shared Session。";
       setBanner(message, "error");
-      const foot = document.querySelector(".sidefoot");
-      if (foot) foot.innerHTML = "● Cloud Read 尚未就緒<br><br>未使用本機 TASK 或假資料";
+      root.ZhugeSharedNavigation?.setSyncStatus?.({ label: "🔴 同步失敗", time: "請重新整理", state: "error" });
       throw error;
     }).finally(() => { state.refreshPromise = null; });
     return state.refreshPromise;
@@ -574,7 +658,7 @@
     document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
-  function init() {
+  function startBoardRuntime() {
     const shell = document.querySelector(".zhuge-module-shell");
     document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.toggle("sidebar-open");
@@ -582,6 +666,7 @@
     document.querySelectorAll("[data-close-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.remove("sidebar-open");
     });
+    mountCreatorMfaSettings(accessContext);
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
@@ -602,6 +687,159 @@
       nav?.click();
     } else showBoardView("board");
     refreshBoard().then(initRealtime).catch(() => {});
+  }
+
+  let originalMainMarkup = null;
+  let accessContext = null;
+
+  function captureBoardMarkup() {
+    const main = document.querySelector(".main");
+    if (main && originalMainMarkup === null) {
+      // The shared shell may already have rendered the header by the time the
+      // board gate runs. Mark it as mounted so restoring the board does not
+      // remount it with the generic fallback title.
+      main.querySelector("[data-zhuge-shared-header]")?.setAttribute("data-mounted", "true");
+      originalMainMarkup = main.innerHTML;
+    }
+  }
+
+  function sharedHeaderMarkup() {
+    const header = document.querySelector(".main [data-zhuge-shared-header]");
+    if (!header) return "";
+    const clone = header.cloneNode(true);
+    clone.setAttribute("data-mounted", "true");
+    clone.querySelector(".zhuge-shared-header-actions")?.remove();
+    return clone.outerHTML;
+  }
+
+  function renderAccessState({ title, message, kind = "info", body = "", panelClass = "" } = {}) {
+    const main = document.querySelector(".main");
+    if (!main) return;
+    main.innerHTML = `${sharedHeaderMarkup()}<section class="board-access-state" data-state="${esc(kind)}">
+      <div class="board-access-panel ${esc(panelClass)}">
+        <div class="board-access-eyebrow">AI BOARD · 工程治理工作區</div>
+        <h2>${esc(title || "AI Board")}</h2>
+        <p class="board-access-message">${esc(message || "")}</p>
+        ${body}
+      </div>
+    </section>`;
+  }
+
+  function renderLoginState() {
+    renderAccessState({
+      title: "請先登入 AI Board",
+      message: "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
+      kind: "login",
+      body: `<div class="board-access-actions"><a class="btn primary" href="../../../?app=1">前往登入</a><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a></div>`
+    });
+  }
+
+  function renderAccessError(message) {
+    renderAccessState({
+      title: "目前無法開啟 AI Board",
+      message,
+      kind: "error",
+      body: `<div class="board-access-actions"><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a><button class="btn" type="button" id="boardAccessRetry">重新檢查</button></div>`
+    });
+    document.getElementById("boardAccessRetry")?.addEventListener("click", () => init());
+  }
+
+  function restoreBoardMarkup() {
+    const main = document.querySelector(".main");
+    if (!main || originalMainMarkup === null) return;
+    main.innerHTML = originalMainMarkup;
+    startBoardRuntime();
+  }
+
+  function renderMfaUnlock(context, access) {
+    const state = { mode: "loading", factorId: "", qrCode: "", secret: "", error: "", busy: false };
+    const paint = () => {
+      const error = state.error ? `<div class="board-access-error" role="alert">${esc(state.error)}</div>` : "";
+      let body = `<div class="zhuge-mfa-info"><strong>AI Board 需要額外保護</strong><span>完成安全驗證後即可進入工程治理工作區；驗證只會解鎖目前帳號的 AI Board，不會變更登入身份。</span></div>${error}`;
+      if (state.mode === "loading") {
+        body += `<div class="board-access-progress" role="status">正在檢查安全驗證…</div>`;
+      } else if (state.mode === "enrollment_required") {
+        body += `<div class="board-access-actions"><button class="btn primary" type="button" id="boardMfaEnroll" ${state.busy ? "disabled" : ""}>開始設定驗證器</button></div>`;
+      } else {
+        const qr = state.qrCode ? `<div class="zhuge-mfa-qr"><img src="${esc(state.qrCode)}" alt="Google Authenticator 設定 QR Code"><p>用 Google Authenticator 掃描此 QR Code</p>${state.secret ? `<details class="board-access-secret zhuge-mfa-secret"><summary>無法掃描？查看設定金鑰</summary><code>${esc(state.secret)}</code></details>` : ""}</div>` : "";
+        body += `<div class="zhuge-mfa-grid">${qr}<div class="zhuge-mfa-step"><div class="zhuge-mfa-info"><strong>完成安全驗證</strong><span>掃描後，輸入 App 顯示的 6 位數驗證碼。QR Code 只用於設定驗證器，不會取代 Google 登入。</span></div><form class="board-access-form zhuge-mfa-form" id="boardMfaForm">
+          <label for="boardMfaCode">驗證碼</label>
+          <input class="zhuge-mfa-code" id="boardMfaCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="輸入 6 位數驗證碼" required>
+          <button class="btn primary" type="submit" ${state.busy ? "disabled" : ""}>驗證並進入</button>
+        </form></div></div>`;
+      }
+      renderAccessState({ title: "安全驗證", message: "這是受保護的工程治理工作區。", kind: "mfa", body, panelClass: "zhuge-mfa-panel" });
+      document.getElementById("boardMfaEnroll")?.addEventListener("click", async () => {
+        state.busy = true; state.error = ""; paint();
+        try {
+          const result = await context.security.enrollTotp();
+          state.mode = "enroll"; state.factorId = result.factorId || ""; state.qrCode = result.qrCode || ""; state.secret = result.secret || "";
+        } catch (error) {
+          state.error = error?.message || "無法開始設定驗證器，請稍後再試。";
+        } finally { state.busy = false; paint(); }
+      });
+      document.getElementById("boardMfaForm")?.addEventListener("submit", async event => {
+        event.preventDefault();
+        const code = document.getElementById("boardMfaCode")?.value || "";
+        state.busy = true; state.error = ""; paint();
+        try {
+          await context.security.verifyUnlock({ factorId: state.factorId, code });
+          restoreBoardMarkup();
+        } catch (error) {
+          state.error = error?.message || "驗證失敗，請確認驗證碼後再試。";
+          state.busy = false; paint();
+        }
+      });
+    };
+    paint();
+    Promise.resolve().then(async () => {
+      try {
+        const prepared = await context.security.prepareUnlock();
+        state.mode = prepared.mode || "enrollment_required";
+        state.factorId = prepared.factorId || "";
+        state.qrCode = prepared.qrCode || "";
+        state.secret = prepared.secret || "";
+      } catch (error) {
+        state.mode = "enrollment_required";
+        state.error = error?.message || "無法檢查驗證器狀態，請稍後再試。";
+      }
+      paint();
+    });
+  }
+
+  async function init() {
+    captureBoardMarkup();
+    const provider = root.ZhugeRuntimeSessionProvider;
+    if (!provider?.createPlatform) {
+      renderAccessError("安全服務尚未準備完成，請重新整理後再試。\n");
+      return;
+    }
+    let context;
+    try {
+      const platform = provider.createPlatform();
+      context = platform.forModule("ai-board");
+      accessContext = context;
+      await context.creator?.resolve?.();
+      await context.security.loadMfaPolicy?.();
+    } catch (error) {
+      renderAccessError(error?.message || "安全服務初始化失敗。\n");
+      return;
+    }
+    const access = context.security.evaluate("view");
+    if (access.allowed) {
+      startBoardRuntime();
+      return;
+    }
+    const session = context.session.getSnapshot();
+    if (!session.isAuthenticated || access.code === "SESSION_REQUIRED" || access.code === "SESSION_EXPIRED") {
+      renderLoginState();
+      return;
+    }
+    if (["STEP_UP_REQUIRED", "MODULE_LOCKED"].includes(access.code)) {
+      renderMfaUnlock(context, access);
+      return;
+    }
+    renderAccessError(access.code === "CAPABILITY_REQUIRED" ? "目前登入帳號沒有 AI Board 管理權限。" : "目前帳號尚未通過 AI Board 安全檢查。\n");
   }
   root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, sortTasksByCode: sortTasksByCode, completionGateStatus: completionGateStatus, completionGateMessage: completionGateMessage });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });

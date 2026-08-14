@@ -25,6 +25,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(investmentModule, /version: release\.version, build: release\.build/);
   for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /data-zhuge-shared-navigation/);
+  assert.doesNotMatch(nav, /investment:[^\n]*status:\s*["']SIT["']/);
+  assert.doesNotMatch(read("shared/app-config.js"), /investment:[^\n]*status:\s*["']SIT["']/);
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
   assert.match(nav, /sectionHeadingMarkup/);
   assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
@@ -50,7 +52,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.os-sidebar\{min-height/);
   assert.match(index, /class="zhuge-module-shell workspace-shell"/);
   assert.match(index, /class="top workspace-shell-header"/);
-  assert.match(index, /class="board-local-nav workspace-subnav"/);
+  assert.match(index, /class="workspace-tabs workspace-subnav"/);
+  assert.doesNotMatch(index, /board-local-nav/);
   assert.match(investmentShell, /workspace-shell-header/);
   assert.match(worklog, /workspace-context-bar workspace-shell-header/);
   assert.match(worklog, /os-shell workspace-shell workspace-/);

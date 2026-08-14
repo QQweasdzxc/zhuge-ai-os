@@ -13,7 +13,10 @@
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
     tasks: { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, visible: true },
-    investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, visible: true, status: "SIT" },
+    // Status badges belong to workspace content, not the canonical global rail.
+    // Keeping this entry label-only prevents one module from looking different
+    // from the rest of the shared navigation.
+    investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, visible: true },
     "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, visible: true },
     "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, visible: true },
     "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, visible: true },
@@ -133,6 +136,20 @@
     shell.querySelector("[data-shared-nav-collapse]").textContent = collapsed ? "›" : "‹";
     try { global.localStorage?.setItem(COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* cache preference is optional */ }
   }
+  function setSyncStatus({ label = "🟢 已同步", time = "尚未同步", state = "" } = {}) {
+    const summary = document.getElementById("developerCloudSyncStatus");
+    if (!summary) return false;
+    const status = summary.querySelector("strong");
+    const syncLabel = summary.querySelector("span");
+    const syncTime = summary.querySelector("time");
+    if (!status || !syncLabel || !syncTime) return false;
+    status.textContent = String(label);
+    syncLabel.textContent = "最後同步";
+    syncTime.textContent = String(time);
+    if (state) summary.dataset.syncState = state;
+    else delete summary.dataset.syncState;
+    return true;
+  }
   function wireCollapse() {
     if (document.documentElement.dataset.zhugeSharedNavWired) return;
     document.documentElement.dataset.zhugeSharedNavWired = "1";
@@ -176,7 +193,7 @@
     wireCollapse();
     return node;
   }
-  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, setCollapsed });
+  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, setCollapsed, setSyncStatus });
   function autoMount() {
     wireCollapse();
     const target = document.getElementById("zhugeSharedNavigation");

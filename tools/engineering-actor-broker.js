@@ -12,8 +12,13 @@ const crypto = require("node:crypto");
 
 const ALLOWED_ACTORS = new Set(["Co", "GPT"]);
 const ISSUER = "zhuge-ai-os-engineering-broker";
-const AUDIENCE = "engineering-transition";
-const SCOPE = "board:transition";
+const ACTOR_PROFILES = Object.freeze({
+  transition: Object.freeze({ audience: "engineering-transition", scope: "board:transition" }),
+  "memory-read": Object.freeze({ audience: "engineering-memory-read", scope: "engineering-memory:read" }),
+  "governance-write": Object.freeze({ audience: "engineering-governance-write", scope: "engineering-governance:write", actors: Object.freeze(["GPT"]) })
+});
+const AUDIENCE = ACTOR_PROFILES.transition.audience;
+const SCOPE = ACTOR_PROFILES.transition.scope;
 const MAX_TTL_SECONDS = 300;
 const DEFAULT_KEY_ID = "zhuge-engineering-actor-20260810-212242";
 
@@ -32,6 +37,10 @@ function privateKeyFromEnvironment(env = process.env) {
 
 function issueActorToken(actor, options = {}) {
   if (!ALLOWED_ACTORS.has(actor)) throw new Error(`Unsupported AI actor: ${actor || "(empty)"}`);
+  const profileName = options.profile || "transition";
+  const profile = ACTOR_PROFILES[profileName];
+  if (!profile) throw new Error(`Unsupported Engineering Actor profile: ${profileName}`);
+  if (profile.actors && !profile.actors.includes(actor)) throw new Error(`Actor ${actor} is not allowed for profile ${profileName}.`);
   const nowMs = Number.isFinite(options.nowMs) ? options.nowMs : Date.now();
   const issuedAt = Math.floor(nowMs / 1000);
   const ttl = Number.isFinite(options.ttlSeconds) ? Math.floor(options.ttlSeconds) : MAX_TTL_SECONDS;
@@ -39,11 +48,11 @@ function issueActorToken(actor, options = {}) {
   const header = { alg: "ES256", typ: "JWT", kid: options.keyId || DEFAULT_KEY_ID };
   const payload = {
     iss: ISSUER,
-    aud: AUDIENCE,
+    aud: profile.audience,
     sub: `ai:${actor}`,
     actor_type: "ai",
     actor_label: actor,
-    scope: SCOPE,
+    scope: profile.scope,
     iat: issuedAt,
     exp: issuedAt + ttl,
     jti: options.jti || crypto.randomUUID()
@@ -78,6 +87,7 @@ if (require.main === module) {
     const args = parseArgs(process.argv.slice(2));
     if (args.command !== "issue" || !args.actor) throw new Error("Usage: node tools/engineering-actor-broker.js issue --actor Co|GPT");
     console.log(issueActorToken(args.actor, {
+      profile: args.profile || "transition",
       ttlSeconds: args.ttl ? Number(args.ttl) : undefined,
       keyId: args["key-id"] || undefined
     }));
@@ -87,4 +97,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { ALLOWED_ACTORS, ISSUER, AUDIENCE, SCOPE, MAX_TTL_SECONDS, DEFAULT_KEY_ID, issueActorToken, parseArgs };
+module.exports = { ALLOWED_ACTORS, ACTOR_PROFILES, ISSUER, AUDIENCE, SCOPE, MAX_TTL_SECONDS, DEFAULT_KEY_ID, issueActorToken, parseArgs };

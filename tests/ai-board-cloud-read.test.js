@@ -32,6 +32,12 @@ test("TASK-022 QJC drag planning follows the controlled workflow and keeps the r
   );
 
   const inProgress = BoardRead.normalizeTask({ status: "inprogress", assignee: "Co" });
+  const rollback = BoardRead.planTransition(inProgress, "todo");
+  assert.deepEqual(
+    { allowed: rollback.allowed, status: rollback.status, assignee: rollback.assignee, targetWorkspace: rollback.targetWorkspace },
+    { allowed: true, status: "ready", assignee: "Co", targetWorkspace: "todo" }
+  );
+  assert.match(rollback.action, /退回/);
   const handoff = BoardRead.planTransition(inProgress, "qa");
   assert.equal(handoff.status, "qa");
   assert.equal(handoff.assignee, "GPT");
@@ -131,24 +137,26 @@ test("formal Board load reads tasks and approved principles through the injected
     select: async (table, query) => {
       calls.push({ table, query });
       if (table === "board_tasks") return [{ id: "1", title: "TASK-001", status: "inprogress", assignee: "Co", usage_scenario: "Co 執行並交給 GPT Review。" }];
-      if (table === "engineering_knowledge") return [
-        { knowledge_code: "PRINCIPLE-001", knowledge_type: "principle", title: "PM 決策權", status: "approved" },
-        { knowledge_code: "TASK-001", knowledge_type: "task", title: "不要混入 TASK" }
-      ];
       return [];
     }
   };
   try {
-    const result = await BoardRead.load({ gateway });
+    const result = await BoardRead.load({
+      gateway,
+      engineeringMemory: {
+        status: "ready",
+        records: [{ knowledgeCode: "PRINCIPLE-001", knowledgeType: "principle", title: "PM 決策權", summary: "", content: "", version: "1", updatedAt: null }],
+        failures: []
+      }
+    });
     assert.equal(result.readOnly, false);
-    assert.equal(result.source, "Supabase Shared Data Gateway");
+    assert.match(result.source, /Canonical Engineering Memory Resolver/);
     assert.equal(result.tasks[0].workspace, "progress");
     assert.equal(result.tasks[0].assignee, "Co");
     assert.equal(result.tasks[0].usageScenario, "Co 執行並交給 GPT Review。");
     assert.deepEqual(result.principles.map(item => item.code), ["PRINCIPLE-001"]);
-    assert.deepEqual(calls.map(call => call.table), ["board_tasks", "engineering_knowledge"]);
+    assert.deepEqual(calls.map(call => call.table), ["board_tasks"]);
     assert.match(calls[0].query, /select=/);
-    assert.match(calls[1].query, /status=/);
   } finally {
     if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
     else delete global.getSharedSessionSnapshot;

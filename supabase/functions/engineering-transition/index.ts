@@ -11,8 +11,12 @@
 const ALLOWED_ACTORS = new Set(["Co", "GPT"]);
 const ALLOWED_STATUSES = new Set(["ready", "inprogress", "qa", "done"]);
 const ACTOR_ISSUER = "zhuge-ai-os-engineering-broker";
-const ACTOR_AUDIENCE = "engineering-transition";
-const ACTOR_SCOPE = "board:transition";
+const ACTOR_PROFILES: Record<string, { audience: string; scope: string; actors: Set<string> }> = {
+  transition: { audience: "engineering-transition", scope: "board:transition", actors: ALLOWED_ACTORS },
+  "memory-read": { audience: "engineering-memory-read", scope: "engineering-memory:read", actors: ALLOWED_ACTORS },
+  "governance-write": { audience: "engineering-governance-write", scope: "engineering-governance:write", actors: new Set(["GPT"]) }
+};
+const GOVERNANCE_OPERATIONS = new Set(["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact"]);
 const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810-212242";
 // Key rotation is intentional: only this current public key is accepted, so
 // tokens signed with either historical key id are rejected after deployment.
@@ -29,7 +33,7 @@ const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS: Record<string, Record<string, Record<string, string>>> = {
   Co: {
     ready: { inprogress: "Co" },
-    inprogress: { qa: "GPT" },
+    inprogress: { ready: "Co", qa: "GPT" },
     qa: { inprogress: "Co" }
   },
   GPT: {
@@ -44,9 +48,11 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 class AuthenticationError extends Error {
   status: number;
-  constructor(message: string, status = 401) {
+  code: string;
+  constructor(message: string, status = 401, code = "AUTHORIZATION_FAILED") {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -80,10 +86,11 @@ async function requireActorToken(request: Request) {
   if (header.alg !== "ES256" || header.typ !== "JWT" || !ACTOR_PUBLIC_JWKS[header.kid]) {
     throw new AuthenticationError("Engineering Actor Token header is invalid.");
   }
-  if (claims.iss !== ACTOR_ISSUER || claims.aud !== ACTOR_AUDIENCE) {
-    throw new AuthenticationError("Engineering Actor Token issuer or audience is invalid.");
+  const profile = Object.entries(ACTOR_PROFILES).find(([, value]) => value.audience === claims.aud && value.scope === claims.scope);
+  if (claims.iss !== ACTOR_ISSUER || !profile) {
+    throw new AuthenticationError("Engineering Actor Token issuer, audience or scope is invalid.");
   }
-  if (claims.actor_type !== "ai" || !ALLOWED_ACTORS.has(claims.actor_label) || claims.scope !== ACTOR_SCOPE) {
+  if (claims.actor_type !== "ai" || !profile[1].actors.has(claims.actor_label)) {
     throw new AuthenticationError("Engineering Actor Token actor or scope is invalid.", 403);
   }
   const now = Math.floor(Date.now() / 1000);
@@ -93,7 +100,7 @@ async function requireActorToken(request: Request) {
   const key = await crypto.subtle.importKey("jwk", ACTOR_PUBLIC_JWKS[header.kid], { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
   const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, base64urlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
   if (!valid) throw new AuthenticationError("Engineering Actor Token signature is invalid.");
-  return { actor: claims.actor_label, jti: String(claims.jti || "") };
+  return { actor: claims.actor_label, jti: String(claims.jti || ""), profile: profile[0] };
 }
 
 function config() {
@@ -176,6 +183,63 @@ Deno.serve(async (requestValue) => {
     const body = await requestValue.json();
     const cfg = config();
     const operation = String(body.operation || "");
+
+    if (actorToken.profile === "governance-write") {
+      if (operation !== "governance_write") {
+        throw new AuthenticationError("Governance write capability only accepts governance_write.", 403);
+      }
+      const governanceOperation = String(body.governanceOperation || "");
+      if (!GOVERNANCE_OPERATIONS.has(governanceOperation)) {
+        throw new AuthenticationError("Need PM Decision: governance operation is not allowlisted.", 403);
+      }
+      const authorizationToken = String(body.pmAuthorizationToken || "").trim();
+      if (!authorizationToken) {
+        throw new AuthenticationError("PM Authorization Missing.", 403);
+      }
+      try {
+        const result = await request(cfg, "rpc/execute_engineering_governance_write", {
+          method: "POST",
+          body: JSON.stringify({
+            p_authorization_token: authorizationToken,
+            p_operation: governanceOperation,
+            p_payload: body.payload && typeof body.payload === "object" ? body.payload : {},
+            p_actor_label: actorToken.actor
+          })
+        });
+        return json({
+          capability: "engineering-governance:write",
+          actor: actorToken.actor,
+          operation: governanceOperation,
+          result
+        });
+      } catch (error) {
+        if (error instanceof Error && /PM Authorization|PM Decision|allowlisted|payload does not match/i.test(error.message)) {
+          throw new AuthenticationError(error.message, 403);
+        }
+        throw error;
+      }
+    }
+
+    if (actorToken.profile === "memory-read") {
+      if (operation !== "startup_gate") {
+        throw new AuthenticationError("Engineering memory read capability cannot write or transition.", 403);
+      }
+      const knowledgeCodes = Array.isArray(body.knowledgeCodes)
+        ? body.knowledgeCodes.map((code: unknown) => String(code || "").trim().toUpperCase()).filter(Boolean)
+        : null;
+      const startupGate = await request(cfg, "rpc/resolve_engineering_startup_gate", {
+        method: "POST",
+        body: JSON.stringify({ p_knowledge_codes: knowledgeCodes?.length ? knowledgeCodes : null })
+      });
+      return json({
+        capability: "engineering-memory:read",
+        actor: actorToken.actor,
+        startup_gate: startupGate
+      });
+    }
+    if (operation === "startup_gate") {
+      throw new AuthenticationError("Engineering transition capability cannot read engineering memory.", 403);
+    }
     const task = await findTask(cfg, String(body.task || ""));
 
     if (operation === "inspect") return json({ task, audit: await audit(cfg, task.id) });
@@ -228,6 +292,9 @@ Deno.serve(async (requestValue) => {
     return json({ result, task: updated, audit: await audit(cfg, updated.id) });
   } catch (error) {
     const status = error instanceof AuthenticationError ? error.status : 400;
-    return json({ error: error instanceof Error ? error.message : "Controlled Engineering Service failed" }, status);
+    return json({
+      code: error instanceof AuthenticationError ? error.code : "ENGINEERING_SERVICE_FAILED",
+      error: error instanceof Error ? error.message : "Controlled Engineering Service failed"
+    }, status);
   }
 });

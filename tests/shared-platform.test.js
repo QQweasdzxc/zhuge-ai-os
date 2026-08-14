@@ -124,6 +124,41 @@ test("Investment requires AAL2 and a module unlock while Dashboard and WorkLog r
   assert.equal(gate.evaluate({ moduleId: "investment", action: "view" }).allowed, true);
 });
 
+test("AI Board requires AAL2 and a module unlock without changing the shared session boundary", () => {
+  let current = authenticatedSession({ aal: "aal1" });
+  let locked = true;
+  const sessionService = Session.createSessionService({ readSession: () => current });
+  const permissionService = Permissions.createPermissionService({ capabilities: ["ai-board.view"] });
+  const gate = Security.createSecurityGate({
+    sessionService,
+    permissionService,
+    policies: { "ai-board.view": { capability: "ai-board.view", requiredAal: "aal2" } },
+    readSecurityState: ({ moduleId }) => ({ locked: moduleId === "ai-board" && locked })
+  });
+
+  assert.equal(gate.evaluate({ moduleId: "ai-board", action: "view" }).code, "STEP_UP_REQUIRED");
+  current = authenticatedSession({ aal: "aal2" });
+  assert.equal(gate.evaluate({ moduleId: "ai-board", action: "view" }).code, "MODULE_LOCKED");
+  locked = false;
+  assert.equal(gate.evaluate({ moduleId: "ai-board", action: "view" }).allowed, true);
+});
+
+test("Creator OFF bypasses only the protected module TOTP/AAL2 step while keeping the session", () => {
+  const sessionService = Session.createSessionService({ readSession: () => authenticatedSession({ aal: "aal1" }) });
+  const gate = Security.createSecurityGate({
+    sessionService,
+    policies: { "investment.view": { requiredAal: "aal2" } },
+    readSecurityState: ({ moduleId }) => moduleId === "investment"
+      ? { locked: false, bypassMfa: true }
+      : { locked: false }
+  });
+  const result = gate.evaluate({ moduleId: "investment", action: "view" });
+  assert.equal(result.allowed, true);
+  assert.equal(result.bypassedMfa, true);
+  assert.equal(result.requiredAal, "aal1");
+  assert.equal(result.configuredRequiredAal, "aal2");
+});
+
 test("Shared MFA supports TOTP, keeps future providers, and expires Investment unlock after 10 minutes", async () => {
   let clock = 1000;
   let verified = false;
@@ -181,7 +216,7 @@ test("module context exposes only redacted identity, session, and security APIs"
   const gate = Security.createSecurityGate({ sessionService });
   const context = ModuleContext.createModuleContext({ moduleId: "investment", sessionService, securityGate: gate });
 
-  assert.deepEqual(Object.keys(context).sort(), ["data", "identity", "moduleId", "security", "session"]);
+  assert.deepEqual(Object.keys(context).sort(), ["creator", "data", "identity", "moduleId", "security", "session"]);
   assert.equal(context.identity.getUserId(), USER_ID);
   assert.equal(context.security.can("view"), true);
   assert.equal(context.security.evaluate("view").code, "ALLOWED");

@@ -79,7 +79,7 @@ test("Investment is registered as a Level 3 Shared Platform module", () => {
   assert.equal(context.identity.getUserId(), USER_ID);
   assert.equal(context.session.getSnapshot().identity.email, "owner@example.com");
   assert.equal(context.security.require("view").level, 3);
-  assert.deepEqual(Object.keys(context).sort(), ["data", "identity", "moduleId", "security", "session"]);
+  assert.deepEqual(Object.keys(context).sort(), ["creator", "data", "identity", "moduleId", "security", "session"]);
   assert.equal("supabase" in context, false);
   assert.equal("oauth" in context, false);
 });

@@ -15,12 +15,19 @@
     passkey: Object.freeze({ id: "passkey", label: "Passkey", available: false })
   });
 
+  const MODULES = Object.freeze({
+    investment: Object.freeze({ settingKey: "investment_mfa_required" }),
+    "ai-board": Object.freeze({ settingKey: "ai_board_mfa_required" })
+  });
+
   function createMfaService(options = {}) {
     const gateway = options.gateway;
+    const dataGateway = options.dataGateway || null;
     const now = typeof options.now === "function" ? options.now : () => Date.now();
     const unlockDurationMs = Math.max(60000, Number(options.unlockDurationMs || 10 * 60 * 1000));
     const storage = options.storage || (typeof sessionStorage !== "undefined" ? sessionStorage : null);
     const keyPrefix = String(options.keyPrefix || "zhuge_module_unlock_v1");
+    const policyCache = new Map();
     if (!gateway || typeof gateway.getAuthClient !== "function" || typeof gateway.syncCanonicalSession !== "function") {
       throw new TypeError("MFA Service requires the Shared Supabase Gateway.");
     }
@@ -52,6 +59,96 @@
       return Object.freeze({ unlocked: false, expiresAt: null, remainingMs: 0 });
     }
 
+    function moduleConfig(moduleId) {
+      return MODULES[String(moduleId || "").trim().toLowerCase()] || null;
+    }
+
+    function defaultPolicy(userId, isCreator = false, status = "default", error = null) {
+      return Object.freeze({
+        userId: String(userId || ""),
+        is_creator: isCreator === true,
+        investment_mfa_required: true,
+        ai_board_mfa_required: true,
+        status,
+        error: error ? String(error?.message || error) : null
+      });
+    }
+
+    function boolPreference(value, fallback = true) {
+      return typeof value === "boolean" ? value : fallback;
+    }
+
+    function normalizePolicy(payload, userId) {
+      const row = Array.isArray(payload) ? payload[0] : payload;
+      return Object.freeze({
+        userId: String(userId || ""),
+        is_creator: true,
+        investment_mfa_required: boolPreference(row?.investment_mfa_required),
+        ai_board_mfa_required: boolPreference(row?.ai_board_mfa_required),
+        status: "resolved",
+        error: null
+      });
+    }
+
+    function getPolicy(userId) {
+      return policyCache.get(String(userId || "")) || defaultPolicy(userId);
+    }
+
+    async function loadPolicy({ userId, isCreator = false, force = false } = {}) {
+      const normalizedUserId = String(userId || "");
+      if (!isCreator) {
+        const policy = defaultPolicy(normalizedUserId, false, "non_creator");
+        policyCache.set(normalizedUserId, policy);
+        return policy;
+      }
+      if (!force && policyCache.get(normalizedUserId)?.status === "resolved") return policyCache.get(normalizedUserId);
+      try {
+        if (!dataGateway || typeof dataGateway.rpc !== "function") throw new Error("MFA Settings Cloud RPC 尚未載入。");
+        const payload = await dataGateway.rpc("get_creator_mfa_preferences", {});
+        const policy = normalizePolicy(payload, normalizedUserId);
+        policyCache.set(normalizedUserId, policy);
+        return policy;
+      } catch (error) {
+        // Settings read errors are fail-closed: both protected modules remain ON.
+        const policy = defaultPolicy(normalizedUserId, true, "error", error);
+        policyCache.set(normalizedUserId, policy);
+        return policy;
+      }
+    }
+
+    async function setRequired({ moduleId, userId, isCreator = false, required } = {}) {
+      const config = moduleConfig(moduleId);
+      if (!config) throw new Error("不支援的敏感模組設定。");
+      if (!isCreator) {
+        const error = new Error("只有 Creator 可以變更敏感模組二次驗證設定。");
+        error.code = "CREATOR_CAPABILITY_REQUIRED";
+        throw error;
+      }
+      if (!dataGateway || typeof dataGateway.rpc !== "function") throw new Error("MFA Settings Cloud RPC 尚未載入。");
+      const normalizedUserId = String(userId || "");
+      await dataGateway.rpc("set_creator_mfa_preference", {
+        p_module_id: String(moduleId).trim().toLowerCase(),
+        p_required: required !== false
+      });
+      const previous = getPolicy(normalizedUserId);
+      const next = Object.freeze({
+        ...previous,
+        userId: normalizedUserId,
+        is_creator: true,
+        [config.settingKey]: required !== false,
+        status: "resolved",
+        error: null
+      });
+      policyCache.set(normalizedUserId, next);
+      return next;
+    }
+
+    function isModuleRequired(moduleId, userId) {
+      const config = moduleConfig(moduleId);
+      if (!config) return true;
+      return getPolicy(userId)[config.settingKey] !== false;
+    }
+
     async function listVerifiedTotpFactors() {
       const client = await gateway.getAuthClient();
       const { data, error } = await client.auth.mfa.listFactors();
@@ -76,7 +173,7 @@
         const { error: removeError } = await client.auth.mfa.unenroll({ factorId: factor.id });
         if (removeError) throw removeError;
       }
-      const { data, error } = await client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Zhuge AI OS Investment" });
+      const { data, error } = await client.auth.mfa.enroll({ factorType: "totp", friendlyName: "Zhuge AI OS Protected Module" });
       if (error) throw error;
       return Object.freeze({
         mode: "enroll",
@@ -100,7 +197,14 @@
 
     return Object.freeze({
       providers: () => PROVIDERS,
-      getUnlockState: (moduleId, userId) => readUnlock(moduleId, userId) || Object.freeze({ unlocked: false, expiresAt: null, remainingMs: 0 }),
+      getPolicy: userId => getPolicy(userId),
+      loadPolicy,
+      setRequired,
+      isModuleRequired,
+      getUnlockState: (moduleId, userId) => {
+        if (!isModuleRequired(moduleId, userId)) return Object.freeze({ unlocked: true, bypassed: true, expiresAt: null, remainingMs: 0 });
+        return readUnlock(moduleId, userId) || Object.freeze({ unlocked: false, expiresAt: null, remainingMs: 0 });
+      },
       prepare,
       enroll,
       verify,
@@ -108,5 +212,5 @@
     });
   }
 
-  return Object.freeze({ PROVIDERS, createMfaService });
+  return Object.freeze({ PROVIDERS, MODULES, createMfaService });
 });
