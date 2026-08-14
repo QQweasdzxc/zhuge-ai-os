@@ -21,7 +21,10 @@ let authSessionRefreshPromise = null;
 async function performAuthSessionRefresh() {
   const stored = getStoredAuthSession();
   const refreshToken = stored?.refresh_token || session?.refresh_token || "";
-  if (!refreshToken) return null;
+  if (!refreshToken) {
+    clearStoredAuthSession();
+    return null;
+  }
   const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
     headers: authHeaders(),
@@ -41,6 +44,10 @@ async function performAuthSessionRefresh() {
       body,
       has_refresh_token: !!refreshToken
     });
+    // Supabase refresh tokens rotate. Once refresh fails, the stored access /
+    // refresh pair is no longer recoverable and must not remain usable by the
+    // root UI or a later REST request.
+    clearStoredAuthSession();
     return null;
   }
   const data = await res.json();
@@ -95,6 +102,10 @@ function clearStoredAuthSession() {
   localStorage.removeItem(AUTH_SESSION_KEY);
   localStorage.removeItem("wl_google_auth_session_v1");
   localStorage.removeItem(AUTH_PROVIDER_KEY);
+  // Keep the root application snapshot aligned with the canonical auth store.
+  // A failed refresh is a terminal session failure until the next login.
+  localStorage.removeItem(AI_OS_SESSION_KEY);
+  if (typeof session !== "undefined") session = null;
 }
 
 function getStoredCodeVerifier() {
@@ -235,10 +246,12 @@ async function getAuthSession() {
     // Browser Back can restore a stale OAuth error after login succeeded.
     // Preserve the valid existing session instead of entering OAuth again.
     const stored = getStoredAuthSession();
-    if (stored?.access_token || hasGoogleOAuthSession()) return stored || session;
-    return null;
+    if ((stored?.access_token || hasGoogleOAuthSession()) && !accessTokenNeedsRefresh(0)) return stored || session;
+    return refreshAuthSession(false);
   }
-  return captureHashAuthSession() || await exchangeLinkedIdentityForSession() || await exchangeCodeForSession() || await refreshAuthSession(false) || getStoredAuthSession();
+  // refreshAuthSession() owns the canonical stored session. Do not fall back
+  // to the old stored value after an expired/invalid refresh has been cleared.
+  return captureHashAuthSession() || await exchangeLinkedIdentityForSession() || await exchangeCodeForSession() || await refreshAuthSession(false);
 }
 
 function authSessionFromResponse(data, provider = "email-password") {
@@ -428,8 +441,7 @@ function hasGoogleOAuthSession() {
 }
 
 function clearInvalidAuthState() {
-  if (session && !hasGoogleOAuthSession()) {
-    session = null;
-    saveAll();
-  }
+  const stored = getStoredAuthSession();
+  const hasRefreshToken = Boolean(stored?.refresh_token || session?.refresh_token);
+  if (session && (!hasGoogleOAuthSession() || (accessTokenNeedsRefresh(0) && !hasRefreshToken))) clearStoredAuthSession();
 }
