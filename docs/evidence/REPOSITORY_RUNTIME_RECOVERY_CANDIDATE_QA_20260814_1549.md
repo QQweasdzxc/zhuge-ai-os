@@ -4,7 +4,7 @@
 - Current TASK: `Repository / Runtime Recovery`
 - Stage at Startup Gate: `recovery_planning / ready_for_engineering`
 - Product Version: `v0.9.0-alpha.9.13`
-- Candidate Build ID: `20260814-1545` (Asia/Taipei)
+- Candidate Build ID: `20260814-1549` (Asia/Taipei)
 - Recovery Workspace: `/Users/qq/Documents/Zhuge AI OS/Worktrees/recovery-5d641a7d-20260814`
 - Recovery Branch: `recovery/task-5d641a7d-20260814`
 - Recovery Source Commit: `c5c30c513fb9b1df97c7efb01eb49d8e5e5c5665`
@@ -28,7 +28,7 @@
   Trusted Agent Read, PM-authorized Governance Write, Artifact Governance,
   Engineering Memory, WorkLog, Investment, AI Board, and Shared OS Shell.
 - Applied only the PM-approved Recovery identity integration: Version
-  `v0.9.0-alpha.9.13`, new Build `20260814-1545`, matching runtime metadata,
+  `v0.9.0-alpha.9.13`, new Build `20260814-1549`, matching runtime metadata,
   entry-point cache-busting, and the corresponding release-test fixtures.
 - No unrelated Feature, UI redesign, architecture expansion, GitHub restore,
   Production Runtime change, or PM Accepted Product Baseline write.
@@ -41,7 +41,7 @@
 - Recursive JSON parse for source manifests — **PASS**.
 - `git diff --check` — **PASS**.
 - Root, WorkLog, Investment, shared runtime metadata and cache-busting —
-  **PASS**, all aligned to `v0.9.0-alpha.9.13 / 20260814-1545`.
+  **PASS**, all aligned to `v0.9.0-alpha.9.13 / 20260814-1549`.
 - Candidate package must be generated only after these checks and registered
   only through the PM-authorized `register_artifact` path as `candidate`.
 
