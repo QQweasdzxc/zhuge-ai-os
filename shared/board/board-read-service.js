@@ -68,6 +68,14 @@
     return ["merged", "cancelled"].includes(normalizeStatus(value));
   }
 
+  // Archive presentation is derived from the existing Engineering/Governance
+  // state.  It is intentionally not a second status or persistence flag.
+  function isArchiveTask(taskOrStatus) {
+    const value = typeof taskOrStatus === "object" ? taskOrStatus?.status : taskOrStatus;
+    const status = normalizeStatus(value);
+    return status === "done" || isGovernanceTerminal(value);
+  }
+
   function planTransition(task, targetUiKey) {
     const currentStatus = normalizeStatus(task?.status);
     const currentStatusDescriptor = statusDescriptorFor(currentStatus);
@@ -524,6 +532,7 @@
     normalizeMovement,
     normalizeTask,
     isGovernanceTerminal,
+    isArchiveTask,
     normalizeChecklistItem,
     completionGateStatus,
     isPrinciple,

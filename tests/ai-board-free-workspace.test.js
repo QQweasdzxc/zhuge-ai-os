@@ -47,16 +47,29 @@ test("Free Workspace scope leaves WorkLog and existing workflow RPC untouched", 
   assert.match(service, /engineering_activity_log/);
 });
 
-test("Free Workspace Board keeps Trello-style fixed desktop columns and a trailing add-workspace control", () => {
+test("Free Workspace Board keeps Trello-style fixed desktop columns and header controls", () => {
   const html = read("app/Board/ai/index.html");
   const runtime = read("app/Board/ai/board-runtime.js");
   assert.match(html, /\.board\{display:flex;[^}]*width:max-content/);
   assert.match(html, /\.column\{flex:0 0 300px;width:300px;min-width:300px/);
   assert.match(html, /\.board-shell\{overflow-x:auto/);
-  assert.match(html, /\.workspace-add-column\{flex:0 0 300px;width:300px;min-width:300px/);
-  assert.match(html, /@media\(max-width:767px\)\{\.column,\.workspace-add-column\{flex-basis:calc\(100vw - 28px\)/);
+  assert.match(html, /class="workspace-canvas"/);
+  assert.match(html, /data-archive-close/);
+  assert.doesNotMatch(html, /workspace-add-column/);
   assert.match(html, /\.column \.card\{[^}]*overflow-wrap:anywhere;word-break:break-word/);
-  assert.match(runtime, /workspace-add-column/);
   assert.match(runtime, /data-board-create-workspace/);
-  assert.match(runtime, /addWorkspaceButton\.onclick = openWorkspaceDrawer/);
+  assert.match(runtime, /data-board-open-archive/);
+  assert.match(runtime, /isArchiveTask/);
+  assert.doesNotMatch(runtime, /historyTaskCards/);
+});
+
+test("Archive derives read-only records from canonical task status and governance state", () => {
+  const service = read("shared/board/board-read-service.js");
+  const runtime = read("app/Board/ai/board-runtime.js");
+  assert.match(service, /function isArchiveTask\(taskOrStatus\)/);
+  assert.match(service, /status === "done"/);
+  assert.match(service, /isGovernanceTerminal\(value\)/);
+  assert.match(runtime, /封存資料僅供查閱/);
+  assert.match(runtime, /不可恢復、移動或修改/);
+  assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)/i);
 });

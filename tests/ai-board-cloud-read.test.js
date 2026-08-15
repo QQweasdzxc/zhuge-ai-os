@@ -21,6 +21,15 @@ test("AI Board keeps engineering status independent from Cloud workspace positio
   assert.equal(BoardRead.normalizeTask({ status: "qa", workspace_id: "ws-1", workspace_key: "gpt", workspace_name: "GPT區" }).workspace, "gpt");
 });
 
+test("Archive read model derives only from existing done and terminal governance state", () => {
+  assert.equal(BoardRead.isArchiveTask({ status: "done" }), true);
+  assert.equal(BoardRead.isArchiveTask({ status: "merged" }), true);
+  assert.equal(BoardRead.isArchiveTask({ status: "cancelled" }), true);
+  assert.equal(BoardRead.isArchiveTask({ status: "ready" }), false);
+  assert.equal(BoardRead.isArchiveTask({ status: "inprogress" }), false);
+  assert.equal(BoardRead.isArchiveTask({ status: "qa" }), false);
+});
+
 test("TASK-022 QJC drag planning follows the controlled workflow and keeps the receiver explicit", () => {
   const ready = BoardRead.normalizeTask({ status: "ready", assignee: "Co" });
   const start = BoardRead.planTransition(ready, "progress");

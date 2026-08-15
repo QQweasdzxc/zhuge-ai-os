@@ -14,19 +14,18 @@
 .main{min-width:0}.top{height:82px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
 .top h1{font-size:21px;margin:0 0 5px}.top p{margin:0;color:var(--muted);font-size:13px}.actions{display:flex;gap:8px}
 button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#d8e0ea;border-radius:8px;padding:9px 13px}.btn.primary{background:#2869df;border-color:#2869df;color:white}
-.toolbar{display:flex;align-items:center;gap:8px;padding:14px 24px;border-bottom:1px solid #202938;flex-wrap:wrap}.board-toolbar .search{flex:1 1 260px;min-width:220px;margin:0}.board-toolbar .chip,.board-toolbar #healthCheckBtn{height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}.chip{font-size:12px;border:1px solid var(--line);padding:7px 10px;border-radius:7px;color:#aab5c3;background:#111720}
+.toolbar{display:flex;align-items:center;gap:8px;padding:14px 0;border-bottom:1px solid #202938;flex-wrap:wrap}.board-toolbar .search{flex:1 1 260px;min-width:220px;margin:0}.board-toolbar .chip,.board-toolbar #healthCheckBtn{height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}.chip{font-size:12px;border:1px solid var(--line);padding:7px 10px;border-radius:7px;color:#aab5c3;background:#111720}.board-search-count{flex:0 1 auto;color:#8ea2bf;font-size:12px;line-height:1.4}
 .legend{margin-left:auto;color:#728096;font-size:12px;flex:1 1 180px;text-align:right}
-.board-shell{padding:18px 24px 28px;overflow-x:auto}
+.board-shell{padding:18px 0 28px;overflow-x:auto;overflow-y:visible}
 .board{display:flex;gap:14px;align-items:flex-start;min-width:max-content}
 .divider{width:1px;background:#354052;align-self:stretch;min-height:690px;margin:0 4px;position:relative}.divider:before{content:"固定區";position:absolute;top:-17px;left:-56px;color:#66758a;font-size:11px}.divider:after{content:"可移動、可新增區";position:absolute;top:-17px;left:18px;width:120px;color:#66758a;font-size:11px}
 .column{width:286px;background:#10161f;border:1px solid var(--line);border-radius:12px;overflow:hidden}.column.principles{width:310px;border-color:#4a3f71;background:#12121d}
 .colhead{height:55px;padding:0 14px;display:flex;align-items:center;border-bottom:1px solid var(--line);gap:8px;font-weight:700}.drag{margin-left:auto;color:#647187;font-size:15px}.count{font-size:11px;background:#232d3b;color:#aeb8c5;padding:2px 7px;border-radius:20px}.principles .count{background:#30264c;color:#cdbdff}
 .cards{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:570px}.card{background:#171e28;cursor:grab;border:1px solid #2a3443;border-radius:10px;padding:12px;box-shadow:0 3px 10px #0002}.rule{background:#1b1928;cursor:default;border-color:#41375f}.code{font-size:10px;color:#6f7c8e;margin-bottom:7px}.card h3{font-size:14px;line-height:1.35;margin:0 0 7px}.card p{font-size:12px;line-height:1.5;color:#9ba7b7;margin:0 0 10px}.meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tag{font-size:10px;padding:3px 6px;border-radius:5px;background:#232d3b;color:#aeb8c5}.tag.high{background:#3a2025;color:#ff9a9d}.tag.med{background:#3b321e;color:#e7c76d}.tag.qjc{background:#1f304a;color:#91b9ff}.tag.rule-tag{background:#30264c;color:#cdbdff}
 .add{margin:0 10px 10px;width:calc(100% - 20px);border:1px dashed #344052;background:transparent;color:#77869b;padding:9px;border-radius:8px;text-align:left}.principles .add{border-color:#4a3f71;color:#9f90cb}
-.note{margin:0 24px 20px;padding:10px 13px;border:1px solid #26344a;background:#111b29;border-radius:9px;color:#8ea2bf;font-size:12px}
-@media(max-width:800px){.top{padding:0 14px}.board-shell,.toolbar{padding-left:14px;padding-right:14px}}
+@media(max-width:800px){.top{padding:0 14px}}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
-.board-read-status{margin:14px 24px 0;padding:10px 13px;border:1px solid #293241;background:#111b29;border-radius:9px;color:#aabbd1;font-size:12px;line-height:1.5}.board-read-status[data-state="loading"]{color:#e5c66b;border-color:#5a4a27}.board-read-status[data-state="success"]{color:#80e0ad;border-color:#285b45}.board-read-status[data-state="error"]{color:#ff9a9d;border-color:#6b3038}.board-read-status a{color:#9ec5ff}.board-empty{padding:22px 10px;text-align:center;border:1px dashed #344052;border-radius:8px;color:#77869b;font-size:12px}.board-cloud-card{cursor:default}.actions .btn:disabled,.add:disabled{opacity:.55;cursor:not-allowed}
+.board-read-status{margin:0 0 12px;padding:10px 13px;border:1px solid #293241;background:#111b29;border-radius:9px;color:#aabbd1;font-size:12px;line-height:1.5}.board-read-status[data-state="loading"]{color:#e5c66b;border-color:#5a4a27}.board-read-status[data-state="success"]{color:#80e0ad;border-color:#285b45}.board-read-status[data-state="error"]{color:#ff9a9d;border-color:#6b3038}.board-read-status a{color:#9ec5ff}.board-empty{padding:22px 10px;text-align:center;border:1px dashed #344052;border-radius:8px;color:#77869b;font-size:12px}.board-cloud-card{cursor:default}.archive-taskcard{cursor:pointer}.actions .btn:disabled,.add:disabled{opacity:.55;cursor:not-allowed}
 .checklist-contract-note{color:#8493a7;font-size:12px;margin:8px 0}.checklist-heading span{color:#9bb7dc;font-size:11px}.checklist-checkline{display:flex;align-items:flex-start;gap:9px;min-width:0;cursor:pointer}.checklist-check{margin-top:3px;accent-color:#4d8dff}.checklist-actions{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;justify-content:flex-end}.checklist-actions .btn{font-size:11px;padding:5px 8px}.checklist-evidence{flex-basis:100%;font-size:11px;color:#9fb3ca}.checklist-evidence.missing{color:#d6a76f}
 .task-detail-section{border-top:1px solid #293241;padding-top:12px;margin-top:12px}.task-detail-section h3{font-size:13px;margin:0 0 6px;color:#b9c9df}.task-detail-section p{margin:0;color:#d8e0ea;line-height:1.55;white-space:pre-wrap}
 </style>
@@ -42,22 +41,21 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .modalfoot{padding:13px 18px;border-top:1px solid #293241;display:flex;justify-content:flex-end;gap:8px}
 .board-create-drawer-backdrop{display:block;position:fixed;inset:0;background:#0009;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s ease}.board-create-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
 .board-create-drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,calc(100vw - 12px));background:#151c26;border-left:1px solid #344052;box-shadow:-24px 0 70px #0008;z-index:55;transform:translateX(104%);transition:transform .24s ease;visibility:hidden;overflow:auto}.board-create-drawer.is-open{transform:translateX(0);visibility:visible}.board-create-drawer .modal{width:100%;min-height:100%;border:0;border-radius:0;box-shadow:none}.board-create-drawer .modalbody{padding:24px}.board-create-drawer .modalfoot{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#151c26 26%);padding:16px 24px 24px;border-top:0}
-.board-workspace-drawer{padding:24px;color:var(--text)}.board-workspace-drawer h2{margin:0 0 8px}.board-workspace-drawer p{color:var(--muted);line-height:1.6}.board-workspace-drawer .drawer-actions{display:flex;justify-content:flex-end;margin-top:24px}
-@media(max-width:767px){.board-create-drawer{top:auto;bottom:0;width:100%;max-height:88svh;border-left:0;border-top:1px solid #344052;border-radius:18px 18px 0 0;transform:translateY(104%)}.board-create-drawer.is-open{transform:translateY(0)}.board-create-drawer .modalbody,.board-workspace-drawer{padding:18px}.board-create-drawer .modalfoot{padding:12px 18px 18px}}
+.board-workspace-drawer{padding:24px;color:var(--text)}.board-workspace-drawer h2{margin:0 0 8px}.board-workspace-drawer p{color:var(--muted);line-height:1.6}.board-workspace-drawer .drawer-actions{display:flex;justify-content:flex-end;margin-top:24px}.board-archive-drawer{width:min(760px,calc(100vw - 12px))}.board-archive-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:10px;margin-bottom:12px}.board-archive-toolbar input,.board-archive-toolbar select{margin:0}.board-archive-count{color:#8ea2bf;font-size:12px;margin:0 0 12px}.board-archive-list{display:grid;gap:10px}.board-archive-list .taskcard{cursor:pointer}.board-archive-list .taskcard:hover{transform:none}
+@media(max-width:767px){.board-create-drawer{top:auto;bottom:0;width:100%;max-height:88svh;border-left:0;border-top:1px solid #344052;border-radius:18px 18px 0 0;transform:translateY(104%)}.board-create-drawer.is-open{transform:translateY(0)}.board-create-drawer .modalbody,.board-workspace-drawer{padding:18px}.board-create-drawer .modalfoot{padding:12px 18px 18px}.board-archive-toolbar{grid-template-columns:1fr}.board-archive-drawer{max-height:92svh}}
 .locknote{border:1px solid #4a3f71;background:#1b1928;color:#bcaee7;border-radius:8px;padding:9px 10px;font-size:12px;margin-top:4px}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
 .taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.card-action-hint{margin-top:10px;color:#6f8199;font-size:10px}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
 .checklist-stage-mark{flex:0 0 1.25rem;text-align:center}.checklist-readonly-item{border-color:#344052;background:#151b24}.checklist-readonly-note{font-size:10px;color:#8fa1b7;line-height:1.4;margin-top:5px}.checklist-qjc-item{border-color:#385b82}.checklist-qjc-control{font-size:11px;color:#dbeafe;white-space:nowrap}.checklist-evidence-detail.missing{color:#e4c978}.checklist-audit-detail{margin-top:6px;color:#8fa1b7;font-size:10px;line-height:1.4}.checklist-audit-detail.missing{color:#c7a965}.task-next-step{background:#111d2d;border:1px solid #385b82;border-radius:8px;padding:11px 12px}.task-next-step h3{color:#bcd3f8}.task-next-step p{font-size:12px}
 .task-governance-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.task-governance-section h3{font-size:14px;margin:0 0 6px}.task-governance-section p{font-size:12px;line-height:1.5;color:#9fb0c5;margin:0 0 10px}.governance-actions{display:flex;gap:8px;flex-wrap:wrap}.governance-actions .btn{font-size:11px;padding:6px 9px}
-.governance-history{margin:0 24px 20px;border:1px solid #39465a;border-radius:10px;background:#111820;padding:14px}.governance-history h2{font-size:14px;margin:0 0 4px}.governance-history p{font-size:11px;color:#92a1b4;margin:0 0 10px}.governance-history .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));min-height:0;padding:0}.governance-history-note{margin:8px 0;color:#e4c978;font-size:11px;line-height:1.4}
+.governance-history-note{margin:8px 0;color:#e4c978;font-size:11px;line-height:1.4}
 .health-finding{border:1px solid #293241;border-radius:9px;background:#111820;padding:11px;margin:9px 0}.health-finding h3{font-size:13px;margin:8px 0 5px}.health-finding p{font-size:12px;line-height:1.5;margin:0 0 6px;color:#c9d3df}.health-finding small{color:#8493a7}.health-error{border-color:#70404a}.health-warning{border-color:#6b5a34}.health-info{border-color:#38536f}.health-summary{border:1px solid #385b82;background:#111d2d;color:#c9d9ed;padding:11px;border-radius:9px}.health-summary p{font-size:12px;color:#9eb2ca;margin:6px 0 0}.health-boundary{margin-top:12px;border:1px dashed #6b5a34;color:#e4c978;padding:10px;border-radius:8px;font-size:12px;line-height:1.5}
 .board-access-state{min-height:calc(100vh - 190px);display:grid;place-items:center;padding:32px 24px}.board-access-panel{width:min(620px,100%);padding:30px;border:1px solid #344052;border-radius:16px;background:#151c26;box-shadow:0 18px 50px #0004}.board-access-panel h2{margin:0 0 8px;font-size:24px}.board-access-panel p{margin:0 0 18px;color:#aeb9c8;line-height:1.7}.board-access-panel .board-access-message{padding:11px 13px;margin:0 0 18px;border:1px solid #4a3f71;background:#1b1928;border-radius:9px;color:#d7caff;font-size:13px}.board-access-actions{display:flex;gap:9px;flex-wrap:wrap}.board-access-actions .btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.board-access-panel .board-access-error{border-color:#70404a;background:#2a1b23;color:#ffb0b3}.board-access-panel .board-access-success{border-color:#285b45;background:#12271f;color:#9be5be}.board-access-form{display:grid;gap:12px;margin-top:18px}.board-access-form label{font-size:12px;color:#aeb9c8}.board-access-form input{width:100%;background:#0f151e;border:1px solid #344052;border-radius:8px;color:#e8edf5;padding:11px;font:inherit;letter-spacing:.2em}.board-access-qr{display:block;max-width:210px;width:100%;margin:14px auto;border-radius:8px;background:#fff;padding:8px}.board-access-secret{display:block;margin:12px 0;color:#9fb3ca;font-size:12px;word-break:break-all}.board-access-secret code{display:block;margin-top:6px;color:#d7caff}
 </style>
 <style>
 .board{display:flex;align-items:flex-start;gap:14px;width:max-content;min-width:max-content}.column{flex:0 0 300px;width:300px;min-width:300px;box-sizing:border-box}.column .cards{min-width:0}.column .card{min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}.board-shell{overflow-x:auto;overflow-y:visible}
-.workspace-add-column{flex:0 0 300px;width:300px;min-width:300px;min-height:570px;box-sizing:border-box;border:1px dashed #344052;border-radius:12px;background:#111820;padding:10px;display:flex;align-items:flex-start}.workspace-add-button{width:100%;border:1px dashed #4d8dff;background:#111d2d;color:#bcd3f8;border-radius:10px;padding:12px;cursor:pointer;font:inherit;text-align:left}.workspace-add-button:hover,.workspace-add-button:focus-visible{background:#192945;border-color:#80aefc;color:#fff}
 .workspace-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workspace-rename{border:0;background:transparent;color:#8ea0b8;padding:3px 5px;border-radius:5px;cursor:pointer}.workspace-rename:hover,.workspace-rename:focus-visible{color:#e8edf5;background:#263248}.workspace-drag-handle{cursor:grab}.workspace-dragging{opacity:.55}.workspace-dropzone{outline:1px dashed #8c72ff;outline-offset:-4px;background:#1c1830}.workspace-movement-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.workspace-movement-section h3{font-size:14px;margin:0 0 8px}.workspace-movement-row{display:grid;grid-template-columns:minmax(140px,auto) minmax(0,1fr);gap:5px 10px;padding:9px 10px;margin:7px 0;border:1px solid #293241;border-radius:8px;background:#111820;font-size:12px}.workspace-movement-row small{grid-column:1/-1;color:#8493a7;font-size:11px}
-@media(max-width:767px){.column,.workspace-add-column{flex-basis:calc(100vw - 28px);width:calc(100vw - 28px);min-width:calc(100vw - 28px);max-width:calc(100vw - 28px)}.workspace-add-column{min-height:480px}}
+@media(max-width:767px){.column{flex-basis:calc(100vw - 28px);width:calc(100vw - 28px);min-width:calc(100vw - 28px);max-width:calc(100vw - 28px)}}
 .creator-mfa-settings-card{max-width:860px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px}.creator-mfa-settings-list{display:grid;gap:10px}.creator-mfa-row{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:16px}.creator-mfa-row>div{display:grid;gap:6px}.creator-mfa-status{font-size:12px;color:var(--muted)}.creator-mfa-status.is-off{color:#f6c85f}.creator-mfa-switch{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;cursor:pointer}.creator-mfa-switch input{position:absolute;opacity:0;pointer-events:none}.creator-mfa-switch-track{display:block;width:46px;height:26px;border-radius:999px;background:#3b4656;box-shadow:inset 0 0 0 1px #5c6878;transition:background .18s ease}.creator-mfa-switch-track:after{content:"";display:block;width:20px;height:20px;margin:3px;border-radius:50%;background:#f7fafc;transition:transform .18s ease}.creator-mfa-switch input:checked+.creator-mfa-switch-track{background:#2d8a68;box-shadow:inset 0 0 0 1px #5dd4a0}.creator-mfa-switch input:checked+.creator-mfa-switch-track:after{transform:translateX(20px)}.creator-mfa-switch input:focus-visible+.creator-mfa-switch-track{outline:2px solid var(--blue);outline-offset:3px}.creator-mfa-settings-note{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 <link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20260811-workspace-2">
@@ -73,28 +71,27 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
    <button class="workspace-tab" title="工程準則" data-board-nav="principles" type="button">📘 工程準則</button>
    <button class="workspace-tab" title="系統藍圖" data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
  </div>
- <div class="toolbar board-toolbar">
-   <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
-   <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span><button class="btn" id="healthCheckBtn" type="button">檢查資料健康度</button>
-   <span class="legend">工作區位置獨立於工程狀態、負責人與 PM Acceptance</span>
+ <div class="workspace-canvas">
+  <div class="board-main-view" data-board-main-view>
+   <div class="toolbar board-toolbar">
+    <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋目前工作中的 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
+    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span><button class="btn" id="healthCheckBtn" type="button">檢查資料健康度</button>
+    <span id="boardSearchCount" class="board-search-count" aria-live="polite">顯示目前工作中的正式 TASK</span>
+    <span class="legend">工作區位置獨立於工程狀態、負責人與 PM Acceptance</span>
+   </div>
+   <section class="board-shell">
+    <div class="board" id="boardColumns"></div>
+   </section>
+  </div>
+  <section class="board-subview principles-view" data-board-view="principles" hidden>
+   <header class="subview-header"><div><span class="subview-kicker">AI Board／工程準則</span><h2>📘 最高原則</h2><p>工程協作必須遵守的正式原則；固定區不參與 TASK Status 流轉。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
+   <div id="principlesCards" class="principles-card-grid"></div>
+  </section>
+  <section class="board-subview system-map-view" data-board-view="system-map" hidden>
+   <header class="subview-header"><div><span class="subview-kicker">AI Board／系統藍圖</span><h2>🗺️ 系統藍圖</h2><p>目前 Zhuge AI OS 的組成、模組關係與資料流。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
+   <div id="systemMapCards" class="system-map-grid"></div>
+  </section>
  </div>
- <div class="note">正式 Cloud TASK 以自由工作區呈現；點開 TASK 可查看工程狀態、負責人、需求內容、Checklist、Evidence 與工作區移動紀錄。</div>
- <section class="board-shell workspace-content-container">
-  <div class="board" id="boardColumns"></div>
- </section>
- <section class="governance-history" aria-labelledby="governanceHistoryTitle">
-  <h2 id="governanceHistoryTitle">歷史治理紀錄</h2>
-  <p>已合併／已取消 TASK 不再進入一般開發流程，但保留原始內容、治理原因與 Audit，可搜尋及查看。</p>
-  <div id="historyTaskCards" class="cards"></div>
- </section>
- <section class="board-subview principles-view" data-board-view="principles" hidden>
-  <header class="subview-header"><div><span class="subview-kicker">AI Board／工程準則</span><h2>📘 最高原則</h2><p>工程協作必須遵守的正式原則；固定區不參與 TASK Status 流轉。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
-  <div id="principlesCards" class="principles-card-grid"></div>
- </section>
- <section class="board-subview system-map-view" data-board-view="system-map" hidden>
-  <header class="subview-header"><div><span class="subview-kicker">AI Board／系統藍圖</span><h2>🗺️ 系統藍圖</h2><p>目前 Zhuge AI OS 的組成、模組關係與資料流。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
-  <div id="systemMapCards" class="system-map-grid"></div>
- </section>
 </main>
 </div>
 </div>
@@ -116,6 +113,16 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  <div class="modalhead"><h2>＋ 新增工作區</h2><button class="x" type="button" data-workspace-drawer-close aria-label="關閉新增工作區">×</button></div>
  <div class="modalbody"><div class="field"><label for="workspaceName">工作區名稱</label><input id="workspaceName" type="text" maxlength="80" placeholder="例如：測試區" autocomplete="off"><div class="hint">建立後會寫入正式 Cloud，並依目前排序出現在 Board 最右側。</div></div></div>
  <div class="drawer-actions"><button class="btn" type="button" data-workspace-drawer-close>取消</button><button class="btn primary" type="button" data-workspace-create>建立</button></div>
+</aside>
+
+<div id="archiveDrawerBackdrop" class="board-create-drawer-backdrop" data-archive-close aria-hidden="true"></div>
+<aside id="archiveDrawer" class="board-create-drawer board-archive-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="封存">
+ <div class="modalhead"><h2>📦 封存</h2><button class="x" type="button" data-archive-close aria-label="關閉封存">×</button></div>
+ <div class="modalbody">
+  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 TASK、治理原因或負責人" aria-label="搜尋封存 TASK"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
+  <div id="archiveCount" class="board-archive-count" aria-live="polite"></div>
+  <div id="archiveTaskList" class="board-archive-list"><div class="board-empty">目前沒有封存 TASK。</div></div>
+ </div>
 </aside>
 
 <script src="../../../shared/config/version.js?v=20260815-0842"></script>

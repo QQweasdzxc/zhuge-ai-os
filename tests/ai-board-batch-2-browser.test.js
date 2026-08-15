@@ -52,9 +52,6 @@ test("AI Board Browser UI exposes contract checklist, free workspace movement, a
   assert.match(output, /證據位置／說明/);
   assert.match(output, /退回 Co/);
   assert.match(output, /由 GPT 完成工程審查/);
-  assert.match(output, /工作看板：顯示正式 Cloud TASK/);
-  assert.match(output, /工程準則：📘 最高原則來自正式 engineering_knowledge/);
-  assert.match(output, /系統藍圖：顯示目前正式系統組成/);
   assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
   assert.match(output, /TASK-002,TASK-003,TASK-010,TASK-026/);
   assert.match(output, /GPT區/);

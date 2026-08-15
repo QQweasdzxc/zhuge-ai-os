@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board" };
+  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board" };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -45,22 +45,36 @@
       banner = document.createElement("div");
       banner.id = "boardReadStatus";
       banner.className = "board-read-status";
-      const toolbar = document.querySelector(".toolbar");
-      document.querySelector(".main")?.insertBefore(banner, toolbar);
+      const toolbar = document.querySelector(".workspace-canvas .toolbar, .toolbar");
+      const parent = toolbar?.parentElement || document.querySelector(".main");
+      if (parent) parent.insertBefore(banner, toolbar || parent.firstChild);
     }
     banner.dataset.state = kind || "info";
     banner.innerHTML = message;
   }
-  function taskMarkup(task) {
+  function clearBanner() {
+    document.getElementById("boardReadStatus")?.remove();
+  }
+  function isArchiveTask(task) {
+    if (typeof service.isArchiveTask === "function") return service.isArchiveTask(task);
+    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").toLowerCase();
+    return status === "done" || service.isGovernanceTerminal?.(task) === true;
+  }
+  function taskMarkup(task, options = {}) {
     const priority = priorityLabel(task.priority);
     const priorityClass = priority === "P0" || priority === "P1" ? "high" : priority === "P2" ? "med" : "";
     const timestamp = dateLabel(task.updatedAt || task.createdAt);
     const terminal = service.isGovernanceTerminal?.(task) || false;
+    const archiveOnly = options.readOnly === true || isArchiveTask(task);
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
-    const draggable = !terminal;
-    return "<article class=\"card taskcard board-cloud-card\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
+    const draggable = !archiveOnly && !terminal;
+    const archiveClass = archiveOnly ? " archive-taskcard" : "";
+    const actionHint = archiveOnly
+      ? "點擊查看歷史驗收清單、Evidence 與 Activity Log · 封存內容僅供查閱，不可恢復、移動或修改"
+      : "點擊查看驗收清單與證據 · 可拖曳至任意工作區（不改變工程狀態／負責人）";
+    return "<article class=\"card taskcard board-cloud-card" + archiveClass + "\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
@@ -69,7 +83,7 @@
       (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
       (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看驗收清單與證據 · 可拖曳至任意工作區（不改變工程狀態／負責人）" : "點擊查看歷史驗收清單與證據 · 治理終止 TASK 不可移動") + "</div></article>";
+      "</div><div class=\"card-action-hint\">" + actionHint + "</div></article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -123,13 +137,13 @@
           addTask + "<div class=\"cards\"></div></div>";
       }).join("")
       : "<div class=\"board-empty\">尚未讀取可用工作區。</div>";
-    board.innerHTML = columns + "<div class=\"workspace-add-column\"><button class=\"workspace-add-button\" type=\"button\" data-board-create-workspace aria-label=\"新增工作區\">＋ 工作區</button></div>";
+    board.innerHTML = columns;
   }
   function renderTasks(tasks) {
     renderWorkspaceColumns();
     const groups = Object.fromEntries(state.workspaces.filter(workspace => workspace.active).map(workspace => [workspace.id, []]));
-    const history = tasks.filter(task => service.isGovernanceTerminal?.(task));
-    sortTasksByCode(tasks).filter(task => !service.isGovernanceTerminal?.(task)).forEach(task => {
+    const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
+    sortTasksByCode(activeTasks).forEach(task => {
       const fallback = state.workspaces.find(workspace => workspace.key === "todo");
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
       if (bucket && groups[bucket]) groups[bucket].push(task);
@@ -145,23 +159,21 @@
       cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : "<div class=\"board-empty\">目前沒有工作</div>";
       if (count) count.textContent = String(rows.length);
     });
-    const historyCards = document.getElementById("historyTaskCards");
-    if (historyCards) historyCards.innerHTML = history.length
-      ? history.map(taskMarkup).join("")
-      : "<div class=\"board-empty\">目前沒有已合併或已取消的歷史 TASK。</div>";
     wireTaskCards();
   }
   function visibleTasks() {
     const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");
-    if (!query) return state.tasks;
-    return state.tasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.assignee]
+    const activeTasks = state.tasks.filter(task => !isArchiveTask(task));
+    if (!query) return activeTasks;
+    return activeTasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.assignee]
       .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query)));
   }
   function applySearch(query) {
     state.searchQuery = String(query || "");
     renderTasks(visibleTasks());
     const count = visibleTasks().length;
-    setBanner(state.searchQuery.trim() ? "搜尋「" + esc(state.searchQuery.trim()) + "」：找到 " + count + " 筆 TASK。" : "已清除搜尋，顯示全部正式 Cloud TASK。", "info");
+    const result = document.getElementById("boardSearchCount");
+    if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 TASK" : "顯示目前工作中的正式 TASK";
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");
@@ -170,6 +182,61 @@
     input.onkeydown = event => {
       if (event.key === "Escape") { input.value = ""; applySearch(""); }
     };
+  }
+  function archiveTasks() {
+    const filter = String(state.archiveFilter || "all").toLowerCase();
+    const query = state.archiveSearch.trim().toLocaleLowerCase("zh-TW");
+    return sortTasksByCode(state.tasks.filter(task => {
+      if (!isArchiveTask(task)) return false;
+      const status = service.normalizeStatus ? service.normalizeStatus(task.status) : String(task.status || "").toLowerCase();
+      if (filter !== "all" && status !== filter) return false;
+      if (!query) return true;
+      return [task.workCode, task.title, task.summary, task.usageScenario, task.assignee, task.status, task.resolutionReason, task.mergedInto, task.linkedTo]
+        .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query));
+    }));
+  }
+  function renderArchive() {
+    const list = document.getElementById("archiveTaskList");
+    const count = document.getElementById("archiveCount");
+    if (!list) return;
+    const all = state.tasks.filter(task => isArchiveTask(task));
+    const rows = archiveTasks();
+    if (count) count.textContent = `顯示 ${rows.length} / ${all.length} 筆封存 TASK（唯讀）`;
+    list.innerHTML = rows.length
+      ? rows.map(task => taskMarkup(task, { readOnly: true })).join("")
+      : `<div class="board-empty">${all.length ? "找不到符合條件的封存 TASK。" : "目前沒有封存 TASK。"}</div>`;
+    wireTaskCards();
+  }
+  function openArchiveDrawer() {
+    const backdrop = document.getElementById("archiveDrawerBackdrop");
+    const drawer = document.getElementById("archiveDrawer");
+    if (!backdrop || !drawer) return;
+    backdrop.classList.add("is-open");
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    renderArchive();
+    window.setTimeout(() => document.getElementById("archiveSearch")?.focus(), 0);
+  }
+  function closeArchiveDrawer() {
+    const backdrop = document.getElementById("archiveDrawerBackdrop");
+    const drawer = document.getElementById("archiveDrawer");
+    backdrop?.classList.remove("is-open");
+    drawer?.classList.remove("is-open");
+    drawer?.setAttribute("aria-hidden", "true");
+  }
+  function wireArchiveControls() {
+    document.querySelectorAll("[data-archive-close]").forEach(button => {
+      button.onclick = closeArchiveDrawer;
+    });
+    const input = document.getElementById("archiveSearch");
+    if (input) {
+      input.oninput = event => { state.archiveSearch = String(event.target.value || ""); renderArchive(); };
+      input.onkeydown = event => {
+        if (event.key === "Escape") { input.value = ""; state.archiveSearch = ""; renderArchive(); }
+      };
+    }
+    const filter = document.getElementById("archiveFilter");
+    if (filter) filter.onchange = event => { state.archiveFilter = String(event.target.value || "all"); renderArchive(); };
   }
   function setConnection(taskCount, principleCount, realtime) {
     const label = realtime ? "🟢 已同步" : "🟡 同步中";
@@ -277,8 +344,6 @@
     }
   }
   function wireWorkspaceControls() {
-    const addWorkspaceButton = document.querySelector("[data-board-create-workspace]");
-    if (addWorkspaceButton) addWorkspaceButton.onclick = openWorkspaceDrawer;
     document.querySelectorAll("[data-workspace-add]").forEach(button => {
       button.onclick = () => openQuickAdd(button.dataset.workspaceAdd);
     });
@@ -324,12 +389,13 @@
     document.querySelectorAll(".taskcard").forEach(card => {
       const task = state.taskById.get(card.dataset.taskId);
       if (!task) return;
-      card.onclick = () => openTaskDetail(task);
+      const archiveOnly = isArchiveTask(task);
+      card.onclick = () => openTaskDetail(task, { readOnly: archiveOnly });
       card.onkeydown = event => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task); }
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
       };
       card.ondragstart = event => {
-        if (service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
+        if (archiveOnly || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/x-zhuge-task-id", task.id);
         event.dataTransfer.setData("text/plain", task.id);
@@ -378,25 +444,25 @@
   function showBoardView(view) {
     state.boardView = view;
     document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
-    const boardShell = document.querySelector(".board-shell");
-    if (boardShell) boardShell.hidden = view !== "board";
-    const history = document.querySelector(".governance-history");
-    if (history) history.hidden = view !== "board";
-    const toolbar = document.querySelector(".toolbar");
-    if (toolbar) toolbar.hidden = view !== "board";
-    const note = document.querySelector(".note");
-    if (note) note.hidden = view !== "board";
-    if (view === "principles") setBanner("工程準則：📘 最高原則來自正式 engineering_knowledge，不參與 TASK 狀態流轉。", "info");
-    else if (view === "system-map") setBanner("系統藍圖：顯示目前正式系統組成與資料來源。", "info");
-    else if (view === "security") setBanner("敏感模組二次驗證：只有 Creator 可以查看或變更 Cloud MFA Preference。", "info");
-    else setBanner("工作看板：顯示正式 Cloud TASK、Checklist、Evidence 與交接流程。", "info");
+    const canvas = document.querySelector(".workspace-canvas");
+    const boardMain = document.querySelector("[data-board-main-view]");
+    if (boardMain) boardMain.hidden = view !== "board";
+    else if (canvas) canvas.hidden = view !== "board";
+    else {
+      const boardShell = document.querySelector(".board-shell");
+      if (boardShell) boardShell.hidden = view !== "board";
+      const toolbar = document.querySelector(".toolbar");
+      if (toolbar) toolbar.hidden = view !== "board";
+    }
+    clearBanner();
   }
 
   function mountCreatorMfaSettings(context) {
     if (!context?.creator?.getSnapshot?.().is_creator) return;
     const tabs = document.querySelector(".workspace-subnav");
     const main = document.querySelector(".main");
-    if (!tabs || !main || document.querySelector('[data-board-nav="security"]')) return;
+    const content = document.querySelector(".workspace-canvas") || main;
+    if (!tabs || !content || document.querySelector('[data-board-nav="security"]')) return;
 
     const tab = document.createElement("button");
     tab.className = "workspace-tab";
@@ -411,7 +477,7 @@
     section.dataset.boardView = "security";
     section.hidden = true;
     section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／Creator Control</span><h2>🔐 敏感模組二次驗證</h2><p>Google Login、Supabase Session、User UUID、RLS 與 Cloud Data 維持開啟；以下只控制指定模組是否略過 TOTP Challenge。</p></div><span class="subview-source">來源：Supabase Cloud Settings</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於 Supabase Cloud。</p></div>`;
-    main.appendChild(section);
+    content.appendChild(section);
 
     const moduleLabels = Object.freeze({
       investment: "Investment",
@@ -495,7 +561,8 @@
     } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
     finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
   }
-  function checklistMarkup(item) {
+  function checklistMarkup(item, options = {}) {
+    const readOnly = options.readOnly === true;
     const checked = item.state === "pass" ? " checked" : "";
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
     const isEngineeringReview = String(item.stage || "").toLowerCase() === "gpt";
@@ -508,7 +575,9 @@
       ? "此為 GPT 工程審查紀錄；QJC 不需在此勾選，請查看工程 Evidence。"
       : item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
     const qjcCanAct = item.stage === "qjc";
-    const controls = qjcCanAct
+    const controls = readOnly
+      ? "<div class=\"checklist-readonly-note\">封存資料僅供查閱；不可修改 Checklist 或 Evidence。</div>"
+      : qjcCanAct
       ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
       : `<div class="checklist-readonly-note">由${esc(stage)}在工程交接中更新，QJC 僅查看結果。</div>`;
     const requirementLabel = isEngineeringReview ? " · 工程紀錄（不列入 QJC 完成 Gate）" : item.required ? " · 必要" : "";
@@ -535,12 +604,14 @@
     if (status === "done") return "已完成；可查看歷史驗收與 Evidence。";
     return "請依目前接球者與驗收清單繼續。";
   }
-  async function openTaskDetail(task) {
+  async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
+    const archiveOnly = options.readOnly === true || isArchiveTask(task);
     document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
-    body.innerHTML = "<div class=\"task-detail-meta\"><span>工作區：" + esc(workspaceLabel(task)) + "</span><span>工程狀態：" + esc(statusLabel(task.status)) + "</span><span>" +
+    body.innerHTML = "<div class=\"task-detail-meta\"><span>工作區：" + esc(workspaceLabel(task)) + "</span><span>工程狀態：" + esc(statusLabel(task.status)) + "</span>" +
+      (archiveOnly ? "<span>📦 封存（唯讀）</span>" : "") + "<span>" +
       esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(requirementContent(task)).replace(/\n/g, "<br>") +
       "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
       "</p></section><section class=\"task-detail-section task-next-step\"><h3>下一步</h3><p>" + esc(nextStepLabel(task)) +
@@ -548,7 +619,7 @@
       "<p class=\"checklist-contract-note\">先看 Co 開發驗證，再由 QJC 完成 PM 驗收。GPT 工程審查會保留為獨立 Evidence／Audit，不是 QJC 必須勾選的完成項目。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
       "<div class=\"workspace-movement-section\" id=\"workspaceMovementHistory\"><h3>工作區移動紀錄</h3><div class=\"board-empty\">讀取中…</div></div>";
     modal.style.display = "grid";
-    const governanceActions = task.status !== "done" && !service.isGovernanceTerminal?.(task)
+    const governanceActions = !archiveOnly && task.status !== "done" && !service.isGovernanceTerminal?.(task)
       ? `<section class="task-governance-section"><h3>治理處理</h3><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></section>`
       : "";
     document.getElementById("workspaceMovementHistory")?.insertAdjacentHTML("beforebegin", governanceActions);
@@ -569,16 +640,18 @@
       } else if (items.length) {
         consistency.innerHTML = "<div class=\"checklist-contract-note\">目前只有工程審查紀錄，尚未建立 Co／QJC 完成驗收項目。</div>";
       }
-      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單，因此目前不能進行正式驗收。請由 Co／GPT 依 Development Contract 補齊；QJC 不需要自行猜測驗收項目。</div>";
-      rows.querySelectorAll(".checklist-check").forEach(input => {
-        input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
-      });
-      rows.querySelectorAll(".checklist-fail-btn").forEach(button => {
-        button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id), "fail");
-      });
-      rows.querySelectorAll(".checklist-evidence-btn").forEach(button => {
-        button.onclick = () => updateChecklistEvidence(task, items.find(item => item.id === button.dataset.id));
-      });
+      rows.innerHTML = items.length ? items.map(item => checklistMarkup(item, { readOnly: archiveOnly })).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單，因此目前不能進行正式驗收。請由 Co／GPT 依 Development Contract 補齊；QJC 不需要自行猜測驗收項目。</div>";
+      if (!archiveOnly) {
+        rows.querySelectorAll(".checklist-check").forEach(input => {
+          input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
+        });
+        rows.querySelectorAll(".checklist-fail-btn").forEach(button => {
+          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id), "fail");
+        });
+        rows.querySelectorAll(".checklist-evidence-btn").forEach(button => {
+          button.onclick = () => updateChecklistEvidence(task, items.find(item => item.id === button.dataset.id));
+        });
+      }
       const movement = document.getElementById("workspaceMovementHistory");
       if (movement) {
         const movements = typeof service.loadMovementHistory === "function"
@@ -677,8 +750,10 @@
   function renderBoardHeaderActions() {
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
-    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
+    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
+    actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
+    actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
     actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => refreshBoard());
   }
   async function createCard() {
@@ -698,7 +773,7 @@
   async function refreshBoard(options) {
     options = options || {};
     if (state.refreshPromise) return state.refreshPromise;
-    if (!options.quiet) setBanner("正在透過 Shared Supabase Gateway 讀取正式 TASK 與最高原則…", "loading");
+    if (!options.quiet) clearBanner();
     state.refreshPromise = service.load().then(result => {
       state.workspaces = result.workspaces || [];
       state.tasks = result.tasks;
@@ -709,12 +784,13 @@
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());
+      if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
       if (result.engineeringMemoryFailures?.length) {
         const failures = result.engineeringMemoryFailures.map(item => `${esc(item.knowledgeCode || "Engineering Principle")} | ${esc(item.reason)}`).join("；");
         setBanner("Canonical Retrieval Failed：" + failures + "。未使用舊文件或舊 Context fallback。", "error");
-      } else if (!options.quiet) {
-        setBanner("已讀取 " + result.tasks.length + " 張正式工作卡、" + state.workspaces.length + " 個 Cloud 工作區與 " + result.principles.length + " 條已核准原則。<strong>工作區可自由移動；工程狀態、負責人與治理紀錄獨立保留。</strong>", "success");
+      } else if (document.getElementById("boardReadStatus")?.dataset.state === "loading") {
+        clearBanner();
       }
       return result;
     }).catch(error => {
@@ -732,12 +808,12 @@
       state.realtimeTimer = setTimeout(() => refreshBoard({ quiet: true }).catch(() => {}), 160);
     }).then(stop => {
       state.stopRealtime = stop;
-      setBanner("Cloud Read 已完成，Realtime 已訂閱。其他工程角色的交接會即時反映。", "success");
       setConnection(state.tasks.length, state.principles.length, true);
     }).catch(error => setBanner("Realtime 尚未連線：" + esc(error && error.message || "未知錯誤") + "。Refresh 可作為暫時 Recovery。", "error"));
   }
   function enableBoardActions() {
     renderBoardHeaderActions();
+    wireArchiveControls();
     document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
     document.querySelector("[data-workspace-create]")?.addEventListener("click", createWorkspace);
     document.getElementById("workspaceName")?.addEventListener("keydown", event => {
@@ -765,11 +841,10 @@
     renderPrinciples([]);
     renderSystemMaps([]);
     renderTasks([]);
-    const note = document.querySelector(".note");
-    if (note) note.innerHTML = "正式工作卡與工作區以 Cloud 資料為唯一來源。工作區位置不等於工程狀態、負責人或 PM Accepted Product Baseline；卡片可移動至任意工作區，治理與驗收紀錄會完整保留。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
     root.createWorkspace = createWorkspace;
+    root.openArchiveDrawer = openArchiveDrawer;
     const initialView = new URLSearchParams(root.location.search).get("view");
     if (["principles", "system-map"].includes(initialView)) {
       const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
