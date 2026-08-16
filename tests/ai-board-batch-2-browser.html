@@ -3,7 +3,7 @@
 <title>AI Board Batch 2 browser regression fixture</title>
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
 <link rel="stylesheet" href="../shared/theme/task-drawer.css">
-<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260816-1034"></div>
+<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260816-1128"></div>
 <div class="main">
   <aside>
     <button data-board-nav="board" type="button">📋 工作看板</button>
@@ -42,7 +42,7 @@
     { id: "ws-done", key: "done", name: "已完工", sortOrder: 50, active: true }
   ];
   const mockTasks = [
-    { id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "確認三方傳接球。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。" },
+    { id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "確認三方傳接球。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。", developerNotes: "Co 已完成 Shared Drawer Presentation Layer 修正。", pmNotes: "PM QA 檢查 Drawer 的 Evidence presentation。" },
     { id: "task-010", workCode: "TASK-010", title: "排序測試 10", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" },
     { id: "task-002", workCode: "TASK-002", title: "排序測試 2", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" },
     { id: "task-003", workCode: "TASK-003", title: "排序測試 3", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" }
@@ -58,6 +58,11 @@
       { id: "check-1", stage: "co", state: "pass", required: true, label: "Co Developer QA 已完成", evidenceNote: "source evidence" },
       { id: "check-2", stage: "gpt", state: "not_verified", required: true, label: "GPT Review 尚待確認", evidenceNote: "" },
       { id: "check-3", stage: "qjc", state: "not_verified", required: true, label: "QJC PM QA 尚待確認", evidenceNote: "" }
+    ],
+    loadActivity: async () => [
+      { id: "activity-status", entityType: "board_task", action: "workflow_transition", beforeData: { status: "ready" }, afterData: { status: "inprogress" }, actorLabel: "Co", timestamp: "2026-08-16T02:00:00Z" },
+      { id: "activity-workspace", entityType: "board_task", action: "workspace_moved", beforeData: { workspace_name: "待辦" }, afterData: { workspace_name: "Co區" }, actorLabel: "QJC", timestamp: "2026-08-16T02:01:00Z" },
+      { id: "activity-evidence", entityType: "engineering_checklist_item", action: "checklist_item_updated", note: "Co Developer QA completed", actorLabel: "Co", timestamp: "2026-08-16T02:02:00Z" }
     ],
     loadMovementHistory: async () => [],
     moveTaskWorkspace: async (taskId, targetWorkspaceId) => {
@@ -77,7 +82,7 @@
 <script src="../app/Board/ai/board-runtime.js"></script>
 <script>
   (function recordTaskOrder(attempt) { const codes = Array.from(document.querySelectorAll('.process[data-workspace-key="gpt"] .taskcard .code')).map(code => code.textContent.trim()); if (codes.length === 4 || attempt >= 100) { const audit = document.createElement("pre"); audit.id = "task-order-audit"; audit.textContent = codes.join(","); document.body.appendChild(audit); return; } setTimeout(() => recordTaskOrder(attempt + 1), 50); })(0);
-  setTimeout(() => { const card = document.querySelector(".taskcard"); card?.click(); window.ZhugeBoardRuntime?.openTaskDetail({ id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", assignee: "GPT", summary: "確認三方傳接球。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。" }); }, 1400);
+  setTimeout(() => { const card = document.querySelector(".taskcard"); card?.click(); window.ZhugeBoardRuntime?.openTaskDetail({ id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", assignee: "GPT", summary: "確認三方傳接球。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。", developerNotes: "Co 已完成 Shared Drawer Presentation Layer 修正。", pmNotes: "PM QA 檢查 Drawer 的 Evidence presentation。" }); }, 1400);
   setTimeout(() => { const audit = document.createElement("pre"); audit.id = "checklist-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 1650);
   setTimeout(() => document.getElementById("refreshBoardBtn")?.click(), 1700);
   setTimeout(() => { const task = window.ZhugeBoardReadService.load ? window.ZhugeBoardReadService.load().then(result => result.tasks[0]) : null; Promise.resolve(task).then(row => row && window.ZhugeBoardRuntime?.moveTaskToWorkspace(row, "ws-co")); }, 1900);

@@ -274,7 +274,13 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
 
 test("TASK Drawer v2 keeps PM summary, audit, and governance in existing boundaries", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(runtime, /☑️ 開發與驗收/);
+  assert.match(runtime, /工程驗證摘要/);
+  assert.match(runtime, /Task Checklist/);
+  assert.match(runtime, /data-progress-note-write="unavailable"/);
+  assert.match(runtime, /人工 Progress Note/);
+  assert.match(runtime, /System Activity/);
+  assert.match(runtime, /Engineering Evidence 原始資料/);
+  assert.doesNotMatch(runtime, /Checklist／Evidence 原始資料/);
   assert.match(runtime, /💬 工作進度紀錄/);
   assert.match(runtime, /📎 附件與交付物/);
   assert.match(runtime, /⚙️ 工程詳細資料/);
@@ -309,7 +315,7 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(runtime, /\.(insert|update|delete)\s*\(/);
   assert.doesNotMatch(runtime, /board_tasks.*(?:INSERT|UPDATE|DELETE)/i);
   assert.match(runtime, /usageScenario/);
-  assert.match(runtime, /☑️ 開發與驗收/);
+  assert.match(runtime, /工程驗證摘要/);
   assert.match(runtime, /⚙️ 工程詳細資料/);
   assert.match(index, /id="boardSearch"/);
   assert.match(index, /id="taskUsageScenario"/);
@@ -327,11 +333,29 @@ test("AI Board Task Drawer uses shared presentation with a single PM Acceptance 
   assert.match(runtime, /shared-task-drawer/);
   assert.match(runtime, /allowAcceptanceAction/);
   assert.match(runtime, /PM 驗收通過/);
+  assert.match(runtime, /engineeringEvidenceSummaryMarkup/);
+  assert.match(runtime, /pmAcceptanceMarkup/);
+  assert.match(runtime, /progressNoteComposerMarkup/);
+  assert.match(runtime, /activityKindLabel/);
   assert.doesNotMatch(runtime, /QJC 驗收通過/);
   assert.match(runtime, /rawActivityMarkup/);
   assert.match(runtime, /rawMovementMarkup/);
   assert.match(runtime, /artifactMarkup/);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
+});
+
+test("AI Board keeps human Progress Note on canonical fields and disables unavailable browser write bridge", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const adapter = read("shared/board/board-read-service.js");
+  const governance = read("docs/supabase/20260814_pm_authorized_governance_write.sql");
+  assert.match(adapter, /developer_notes/);
+  assert.match(adapter, /pm_notes/);
+  assert.match(adapter, /engineering_activity_log/);
+  assert.match(governance, /'developer_notes', 'pm_notes'/);
+  assert.match(runtime, /data-progress-note-write="unavailable"/);
+  assert.match(runtime, /沒有 issuance／bridge/);
+  assert.doesNotMatch(runtime, /localStorage.*(?:note|progress)|(?:note|progress).*localStorage/i);
+  assert.doesNotMatch(runtime, /engineering_activity_log.*(?:INSERT|UPDATE|DELETE)/i);
 });
 
 test("AI Board sorts valid TASK codes numerically and keeps invalid codes in stable fallback order", () => {

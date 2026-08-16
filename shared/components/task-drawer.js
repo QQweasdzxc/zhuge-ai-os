@@ -39,10 +39,11 @@
     const title = escapeHtml(item.title || "");
     const content = asMarkup(item.html, item.emptyText);
     const className = item.className ? ` ${escapeHtml(item.className)}` : "";
+    const hidden = item.hidden === true ? " hidden" : "";
     if (item.collapsible) {
       return `<details class="shared-task-drawer-section shared-task-drawer-collapsible${className}"${item.open ? " open" : ""}><summary>${title}</summary><div class="shared-task-drawer-section-body">${content}</div></details>`;
     }
-    return `<section class="shared-task-drawer-section${className}" data-shared-task-drawer-section="${escapeHtml(item.id || "")}"><div class="shared-task-drawer-section-heading"><h3>${title}</h3>${item.hint ? `<span>${escapeHtml(item.hint)}</span>` : ""}</div><div class="shared-task-drawer-section-body">${content}</div></section>`;
+    return `<section class="shared-task-drawer-section${className}"${hidden} data-shared-task-drawer-section="${escapeHtml(item.id || "")}"><div class="shared-task-drawer-section-heading"><h3>${title}</h3>${item.hint ? `<span>${escapeHtml(item.hint)}</span>` : ""}</div><div class="shared-task-drawer-section-body">${content}</div></section>`;
   }
 
   function render(options) {

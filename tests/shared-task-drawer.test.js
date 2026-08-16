@@ -14,6 +14,7 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
     meta: [{ label: "工程狀態", value: "驗證中" }],
     sections: [
       { id: "content", title: "需求內容", html: "<p>Adapter-owned content</p>" },
+      { id: "optional-checklist", title: "Task Checklist", hidden: true, html: "<p>Optional shared checklist</p>" },
       { id: "details", title: "工程詳細資料", html: "<p>Canonical evidence</p>", collapsible: true }
     ],
     activity: { title: "💬 工作進度紀錄", notesHtml: "<p>Human note</p>", html: "<p>System activity</p>" },
@@ -26,6 +27,7 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   assert.match(html, /💬 工作進度紀錄/);
   assert.match(html, /Human note/);
   assert.match(html, /data-governance="cancelled"/);
+  assert.match(html, /hidden data-shared-task-drawer-section="optional-checklist"/);
 });
 
 test("Shared Task Drawer has no domain, Cloud, authorization, or WorkLog ownership", () => {

@@ -48,6 +48,18 @@ test("AI Board Browser UI exposes contract checklist, free workspace movement, a
   assert.match(output, /開發契約與驗收清單/);
   assert.match(output, /GPT 先讀取正式來源，再由 QJC 驗收/);
   assert.match(output, /checklist-audit/);
+  assert.match(output, /工程驗證摘要/);
+  assert.match(output, /Co QA/);
+  assert.match(output, /GPT Review/);
+  assert.match(output, /Regression/);
+  assert.match(output, /PM 驗收通過/);
+  assert.match(output, /新增工作進度/);
+  assert.match(output, /System Activity/);
+  assert.match(output, /人工 Progress Note/);
+  assert.match(output, /System Activity · Status/);
+  assert.match(output, /System Activity · Workspace Move/);
+  assert.match(output, /System Activity · Evidence/);
+  assert.doesNotMatch(output, /Checklist／Evidence 原始資料/);
   assert.match(output, /Co 開發驗證/);
   assert.match(output, /證據位置／說明/);
   assert.match(output, /退回 Co/);
