@@ -147,11 +147,14 @@
   }
 
   function normalizeActivity(row = {}) {
+    const action = String(row.action || "");
+    const activityType = String(row.activity_type || row.activityType || (action === "progress_note_created" ? "human_progress_note" : "system_activity"));
     return Object.freeze({
       id: String(row.id || ""),
       entityType: String(row.entity_type || ""),
       entityId: String(row.entity_id || ""),
-      action: String(row.action || ""),
+      action,
+      activityType,
       beforeData: row.before_data && typeof row.before_data === "object" ? row.before_data : {},
       afterData: row.after_data && typeof row.after_data === "object" ? row.after_data : {},
       note: String(row.note || ""),
@@ -391,7 +394,7 @@
   async function loadActivity(taskId, options = {}) {
     const gateway = options.gateway || requireGateway();
     const encodedTaskId = encodeURIComponent(String(taskId || ""));
-    const fields = "id,entity_type,entity_id,action,before_data,after_data,note,actor_id,actor_type,actor_label,created_at";
+    const fields = "id,entity_type,entity_id,action,activity_type,before_data,after_data,note,actor_id,actor_type,actor_label,created_at";
     const taskRowsPromise = gateway.select(
       "engineering_activity_log",
       `?select=${fields}&entity_type=eq.board_task&entity_id=eq.${encodedTaskId}&order=created_at.asc`
@@ -580,6 +583,14 @@
     }).then(normalizeChecklistItem);
   }
 
+  async function addTaskProgressNote(taskId, note, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_add_task_progress_note", {
+      p_task_id: taskId,
+      p_note: note
+    }).then(normalizeActivity);
+  }
+
   async function subscribe(callback, options = {}) {
     const gateway = options.gateway || requireGateway();
     if (typeof gateway.subscribe !== "function") {
@@ -629,6 +640,7 @@
     createTask,
     createChecklistItem,
     updateChecklistItem,
+    addTaskProgressNote,
     runHealthCheck,
     subscribe
   });

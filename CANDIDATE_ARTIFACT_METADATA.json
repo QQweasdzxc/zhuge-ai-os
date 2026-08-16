@@ -1,18 +1,19 @@
 {
-  "artifactFilename": "20260816-1128-Zhuge_AI_OS-v0.9.0-alpha.9.13-SharedTaskDrawer-AIBoard-UXCorrection-FullCandidate.zip",
+  "artifactFilename": "20260816-2144-Zhuge_AI_OS-v0.9.0-alpha.9.13-SharedTaskDrawer-AIBoard-HumanProgressNote-FullCandidate.zip",
   "artifactType": "candidate",
   "productVersion": "v0.9.0-alpha.9.13",
-  "runtimeBuildId": "20260816-1128",
-  "artifactCreatedAt": "2026-08-16T11:28:42+0800",
+  "runtimeBuildId": "20260816-2144",
+  "artifactCreatedAt": "2026-08-16T21:44:10+0800",
   "timezone": "Asia/Taipei",
   "gitCommit": "739c45bf9589283b51212b93866536aced64c27f",
   "sourceReference": "recovery/task-5d641a7d-20260814 @ 739c45bf9589283b51212b93866536aced64c27f + working-tree snapshot",
-  "qaReportBuild": "20260816-1128",
+  "qaReportBuild": "20260816-2144",
   "fullCandidate": true,
-  "scope": "Shared Task Drawer UX correction — AI Board first consumer",
+  "scope": "AI Board Shared Task Drawer — Human Progress Note canonical path and Engineering Details presentation correction",
   "excludedPackagingGarbage": [
     "dist/*.zip",
     ".git",
-    ".DS_Store"
+    ".DS_Store",
+    "node_modules"
   ]
 }

@@ -1,11 +1,11 @@
 ---
 id: TASK-4
 title: Shared Task Drawer Foundation — AI Board First Consumer
-status: In Progress
+status: Done
 assignee:
   - '@Co'
 created_date: '2026-08-16 02:21'
-updated_date: '2026-08-16 03:17'
+updated_date: '2026-08-16 03:31'
 labels:
   - ai-board
   - shared-ux
@@ -52,6 +52,8 @@ ordinal: 5000
 
 <!-- SECTION:NOTES:BEGIN -->
 Validation: node --test tests/*.test.js from working tree and extracted Candidate = 132 pass / 0 fail / 4 skipped; 4 skipped are existing external-Chrome fixtures without configured executable. In-app browser Desktop fixture PASS for shared two-column Drawer, canonical Activity, single PM Acceptance action, and Archive read-only; mobile 390x844 smoke PASS. Candidate: 20260816-1034-Zhuge_AI_OS-v0.9.0-alpha.9.13-SharedTaskDrawer-AIBoard-FullCandidate.zip; extracted ZIP integrity/source completeness/content match PASS; Build identity and Artifact Created At minute match PASS. WorkLog remains assessment-only; no Cloud/Schema/RPC/RLS/Auth/MFA/UUID changes.
+
+PM QA correction verified: primary Task Checklist is hidden unless canonical task_checklist/shared-task-checklist rows exist; Co QA, GPT Review, and Regression are compact read-only 工程驗證摘要; complete Engineering Evidence is collapsed under 工程詳細資料; PM Acceptance has one primary action. Canonical developer_notes/pm_notes and engineering_activity_log are presented as human/System timeline. Browser PM Progress Note composer remains disabled because no operational PM authorization issuance bridge exists; no parallel write path was added. Targeted: 22 pass / 0 fail / 2 skipped. Full working-tree and extracted Candidate regression: 133 pass / 0 fail / 4 skipped. In-app browser Desktop and Mobile 390x844 PASS. Full Candidate: 20260816-1128-Zhuge_AI_OS-v0.9.0-alpha.9.13-SharedTaskDrawer-AIBoard-UXCorrection-FullCandidate.zip; Build identity, ZIP integrity, source completeness, and content match PASS.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -84,5 +86,5 @@ PM QA not accepted: started combined Checklist/Evidence presentation correction 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Implemented Shared Task Drawer Foundation with AI Board as first consumer. Added domain-neutral responsive shared shell, AI Board adapter mapping, read-only Engineering Evidence with one PM Acceptance action, canonical Activity/Artifact presentation, and WorkLog compatibility assessment. Verified targeted/full regression and delivered append-only Full Candidate for PM Runtime QA; PM Accepted Baseline unchanged.
+Corrected AI Board Shared Task Drawer UX after PM QA rejection: separated Task Checklist from Engineering Evidence, added compact Co QA/GPT Review/Regression summary with one PM Acceptance action, and presented canonical human notes plus visually distinct System Activity in a real progress timeline. The note composer is explicitly disabled because the existing PM-authorized write path has no browser operational bridge; no parallel data source or write path was created. Verified targeted/full regression, Desktop/Mobile browser smoke, and delivered the append-only Full Candidate 20260816-1128-...UXCorrection-FullCandidate.zip. WorkLog, Cloud architecture, Governance, MFA, and PM Baseline unchanged.
 <!-- SECTION:FINAL_SUMMARY:END -->

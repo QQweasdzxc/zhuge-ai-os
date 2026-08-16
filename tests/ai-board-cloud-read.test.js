@@ -272,14 +272,16 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
   assert.equal(artifacts[0].pmAcceptanceStatus, "pending");
 });
 
-test("TASK Drawer v2 keeps PM summary, audit, and governance in existing boundaries", () => {
+test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in existing boundaries", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   assert.match(runtime, /工程驗證摘要/);
   assert.match(runtime, /Task Checklist/);
-  assert.match(runtime, /data-progress-note-write="unavailable"/);
-  assert.match(runtime, /人工 Progress Note/);
+  assert.match(runtime, /data-progress-note-write="available"/);
+  assert.match(runtime, /Human Progress Note/);
   assert.match(runtime, /System Activity/);
-  assert.match(runtime, /Engineering Evidence 原始資料/);
+  assert.match(runtime, /Engineering Evidence Detail/);
+  assert.match(runtime, /engineeringEvidenceDetailMarkup/);
+  assert.doesNotMatch(runtime, /items\.length \? items\.map\(item => checklistMarkup/);
   assert.doesNotMatch(runtime, /Checklist／Evidence 原始資料/);
   assert.match(runtime, /💬 工作進度紀錄/);
   assert.match(runtime, /📎 附件與交付物/);
@@ -344,16 +346,23 @@ test("AI Board Task Drawer uses shared presentation with a single PM Acceptance 
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
 });
 
-test("AI Board keeps human Progress Note on canonical fields and disables unavailable browser write bridge", () => {
+test("AI Board writes Human Progress Note through the canonical controlled RPC", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const adapter = read("shared/board/board-read-service.js");
   const governance = read("docs/supabase/20260814_pm_authorized_governance_write.sql");
+  const progressMigration = read("docs/supabase/20260816_ai_board_human_progress_note.sql");
   assert.match(adapter, /developer_notes/);
   assert.match(adapter, /pm_notes/);
   assert.match(adapter, /engineering_activity_log/);
   assert.match(governance, /'developer_notes', 'pm_notes'/);
-  assert.match(runtime, /data-progress-note-write="unavailable"/);
-  assert.match(runtime, /沒有 issuance／bridge/);
+  assert.match(adapter, /addTaskProgressNote/);
+  assert.match(progressMigration, /activity_type/);
+  assert.match(progressMigration, /board_add_task_progress_note/);
+  assert.match(progressMigration, /human_progress_note/);
+  assert.match(runtime, /data-progress-note-write="available"/);
+  assert.match(runtime, /新增工作進度/);
+  assert.doesNotMatch(runtime, /data-progress-note-write="unavailable"/);
+  assert.doesNotMatch(runtime, /沒有 issuance／bridge/);
   assert.doesNotMatch(runtime, /localStorage.*(?:note|progress)|(?:note|progress).*localStorage/i);
   assert.doesNotMatch(runtime, /engineering_activity_log.*(?:INSERT|UPDATE|DELETE)/i);
 });

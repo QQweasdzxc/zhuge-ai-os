@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board" };
+  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "" };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -534,7 +534,10 @@
     modal.innerHTML = "<div id=\"taskDetailBody\"></div>";
     document.body.appendChild(modal);
     modal.addEventListener("click", event => {
-      if (event.target.matches?.("[data-shared-task-drawer-close]")) modal.style.display = "none";
+      if (event.target.matches?.("[data-shared-task-drawer-close]")) {
+        modal.style.display = "none";
+        state.activeTaskId = "";
+      }
     });
   }
   function ensureHealthModal() {
@@ -647,6 +650,7 @@
     return `<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>${item.state === "pass" ? "☑" : "☐"} PM 驗收通過</span></label><span class="pm-acceptance-state">目前狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button></div></div>`;
   }
   function activityActionLabel(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度紀錄";
     const labels = {
       task_created: "建立 TASK",
       workflow_transition: "工程狀態交接",
@@ -660,6 +664,9 @@
     return labels[item.action] || item.action || "系統活動";
   }
   function activityDetail(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") {
+      return item.note || "（未提供進度內容）";
+    }
     if (item.action === "workspace_moved") {
       const from = item.beforeData?.workspace_name || item.beforeData?.workspace_id || "未知工作區";
       const to = item.afterData?.workspace_name || item.afterData?.workspace_id || "未知工作區";
@@ -673,6 +680,7 @@
     return item.note || "保留於正式 Audit Trail。";
   }
   function activityKind(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "human";
     const identity = `${item?.action || ""} ${item?.note || ""}`.toLowerCase();
     if (/acceptance|accepted|驗收/.test(identity)) return "acceptance";
     if (item?.action === "workflow_transition") return "status";
@@ -685,22 +693,41 @@
   }
   function activityMarkup(activity) {
     const rows = Array.isArray(activity) ? activity : [];
-    if (!rows.length) return "<div class=\"board-empty\">目前沒有可讀取的 System Activity；未建立平行 Timeline。</div>";
+    if (!rows.length) return "<div class=\"board-empty\">目前沒有可讀取的工作進度紀錄。</div>";
     return rows.map(item => {
       const kind = activityKind(item);
+      if (kind === "human") {
+        return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p><small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small></div></article>`;
+      }
       return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="system" data-activity-type="${kind}"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">System Activity · ${esc(activityKindLabel(kind))}</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item))}</p><small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "Legacy")}</small></div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
     const notes = [
-      task.developerNotes ? { label: "Developer Progress Note", text: task.developerNotes } : null,
-      task.pmNotes ? { label: "PM Progress Note", text: task.pmNotes } : null
+      task.developerNotes ? { label: "Developer TASK Contract Note", text: task.developerNotes } : null,
+      task.pmNotes ? { label: "PM TASK Contract Note", text: task.pmNotes } : null
     ].filter(Boolean);
-    if (!notes.length) return "<div class=\"board-empty\">目前沒有既有人工 Progress Note；未建立平行資料來源。</div>";
-    return notes.map(note => `<article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="human"><span class="shared-task-drawer-activity-badge">人工 Progress Note</span><strong>${esc(note.label)}</strong><p>${esc(note.text).replace(/\n/g, "<br>")}</p><small>來源：Canonical TASK 欄位（唯讀呈現）</small></article>`).join("");
+    if (!notes.length) return "<div class=\"board-empty\">目前沒有既有 TASK Contract Note。</div>";
+    return `<section class="task-legacy-notes"><span class="shared-task-drawer-activity-badge">既有 TASK Contract Notes（唯讀）</span>${notes.map(note => `<article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>${esc(note.label)}</strong><p>${esc(note.text).replace(/\n/g, "<br>")}</p><small>來源：Canonical TASK 欄位</small></article>`).join("")}</section>`;
   }
-  function progressNoteComposerMarkup() {
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="unavailable"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="新增工作進度..."></textarea><div><button class="btn" type="button" disabled>新增工作進度</button><small>人工 Progress Note 目前僅能透過既有 PM-authorized TASK Contract Write Path 保存；本 Runtime 沒有 issuance／bridge，未執行寫入。</small></div></section>`;
+  function progressNoteComposerMarkup(archiveOnly) {
+    if (archiveOnly) {
+      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><div><button class="btn" type="button" disabled>新增工作進度</button><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small></div></section>`;
+    }
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div><button class="btn primary" id="addTaskProgressNote" type="button">新增工作進度</button><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small></div></section>`;
+  }
+  function engineeringEvidenceDetailMarkup(items) {
+    const rows = (Array.isArray(items) ? items : []).filter(item => !isTaskChecklistItem(item));
+    if (!rows.length) return "<div class=\"board-empty\">此 TASK 尚未建立正式 Engineering Evidence；系統不補造歷史資料。</div>";
+    return `<div class="engineering-evidence-detail-list">${rows.map(item => {
+      const stage = stageLabels[item.stage] || item.stage || "未分類";
+      const status = stateLabels[item.state] || item.state || "尚未驗證";
+      const evidenceNote = item.evidenceNote || "未提供 Result / Summary";
+      const evidenceRef = item.evidenceRef || "未提供 Evidence Reference";
+      const actor = item.checkedBy || "未提供（詳見 Audit Trail）";
+      const timestamp = item.checkedAt ? dateLabel(item.checkedAt) : "未提供";
+      return `<article class="engineering-evidence-detail-row" data-evidence-detail-type="${esc(item.checklistType || "engineering_evidence")}"><header><strong>${esc(stage)}</strong><span class="engineering-evidence-detail-status">${esc(status)}</span></header><dl><div><dt>Evidence Type</dt><dd>${esc(item.checklistType || "Engineering Evidence")}</dd></div><div><dt>Status</dt><dd>${esc(status)}</dd></div><div><dt>Actor</dt><dd>${esc(actor)}</dd></div><div><dt>Timestamp</dt><dd>${esc(timestamp)}</dd></div><div><dt>Result / Summary</dt><dd>${esc(evidenceNote).replace(/\n/g, "<br>")}</dd></div><div><dt>Evidence Reference</dt><dd>${esc(evidenceRef)}</dd></div><div><dt>Artifact / Build</dt><dd>${esc(evidenceRef === "未提供 Evidence Reference" ? "未提供" : evidenceRef)}</dd></div></dl></article>`;
+    }).join("")}</div>`;
   }
   function artifactMarkup(artifacts, error) {
     if (error) return `<div class="task-read-warning">Artifact／交付物讀取失敗：${esc(error.message || "未知錯誤")}。未建立第二套附件來源。</div>`;
@@ -733,11 +760,42 @@
     if (status === "done") return "已完成；可查看歷史驗收與 Evidence。";
     return "請依目前接球者與驗收清單繼續。";
   }
+  function wireProgressNoteComposer(task, archiveOnly) {
+    if (archiveOnly) return;
+    const textarea = document.getElementById("taskProgressNote");
+    const button = document.getElementById("addTaskProgressNote");
+    if (!textarea || !button) return;
+    const submit = async () => {
+      const note = textarea.value.trim();
+      if (!note) {
+        setBanner("請輸入工作進度內容。", "error");
+        textarea.focus();
+        return;
+      }
+      button.disabled = true;
+      try {
+        await service.addTaskProgressNote(task.id, note);
+        await openTaskDetail(task, { readOnly: archiveOnly });
+        setBanner("工作進度已保存至正式 Cloud。", "success");
+      } catch (error) {
+        setBanner("工作進度保存失敗：" + esc(error?.message || "正式 Cloud 未接受這次寫入。"), "error");
+        button.disabled = false;
+      }
+    };
+    button.onclick = submit;
+    textarea.onkeydown = event => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        submit();
+      }
+    };
+  }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    state.activeTaskId = String(task?.id || "");
     const governanceActions = !archiveOnly && task.status !== "done" && !service.isGovernanceTerminal?.(task)
       ? `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></div></details>`
       : `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>${archiveOnly ? "封存資料僅供查閱；不可 Restore／Reopen。" : "目前沒有可用的進階治理動作。"}</p></div></details>`;
@@ -770,7 +828,7 @@
         activity: {
           title: "💬 工作進度紀錄",
           hint: "人工備註＋System Activity",
-          notesHtml: `${progressNoteComposerMarkup()}<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
+          notesHtml: `${progressNoteComposerMarkup(archiveOnly)}<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
         footerHtml: governanceActions
@@ -812,10 +870,11 @@
       const movements = movementResult.status === "fulfilled" ? movementResult.value : [];
       const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
       const detailsBody = document.getElementById("taskEngineeringDetailsBody");
-      if (detailsBody) detailsBody.innerHTML = `<section class="task-engineering-section"><h4>Engineering Evidence 原始資料</h4><div id="engineeringChecklistRows">${items.length ? items.map(item => checklistMarkup(item, { readOnly: true, readOnlyMessage: "Engineering Evidence／Canonical 資料唯讀呈現；主要 Task 操作區不提供工程勾選。" })).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式 Engineering Evidence；系統不補造歷史資料。</div>"}</div></section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, activityResult.status === "rejected" ? activityResult.reason : null)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, movementResult.status === "rejected" ? movementResult.reason : null)}</div></section>`;
+      if (detailsBody) detailsBody.innerHTML = `<section class="task-engineering-section"><h4>Engineering Evidence Detail</h4><p class="engineering-evidence-detail-intro">Canonical Evidence 唯讀摘要；完整驗證資料、Artifact／Build 與 Audit Trail 保留於此，不提供第二套 Checklist 或 Acceptance 操作。</p>${engineeringEvidenceDetailMarkup(items)}</section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, activityResult.status === "rejected" ? activityResult.reason : null)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, movementResult.status === "rejected" ? movementResult.reason : null)}</div></section>`;
       document.getElementById("taskHumanNotes").innerHTML = humanNotesMarkup(task);
       document.getElementById("taskActivityList").innerHTML = activityMarkup(activity);
       document.getElementById("taskDeliverables").innerHTML = artifactMarkup(artifacts, artifactResult.status === "rejected" ? artifactResult.reason : null);
+      wireProgressNoteComposer(task, archiveOnly);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
         acceptance.querySelectorAll(".checklist-check").forEach(input => {
@@ -973,7 +1032,16 @@
   function initRealtime() {
     service.subscribe(() => {
       if (state.realtimeTimer) clearTimeout(state.realtimeTimer);
-      state.realtimeTimer = setTimeout(() => refreshBoard({ quiet: true }).catch(() => {}), 160);
+      state.realtimeTimer = setTimeout(() => {
+        refreshBoard({ quiet: true }).then(() => {
+          const modal = document.getElementById("taskDetailModal");
+          const activeTask = state.activeTaskId ? state.taskById.get(state.activeTaskId) : null;
+          if (modal?.style.display === "block" && activeTask) {
+            return openTaskDetail(activeTask, { readOnly: isArchiveTask(activeTask) });
+          }
+          return null;
+        }).catch(() => {});
+      }, 160);
     }).then(stop => {
       state.stopRealtime = stop;
       setConnection(state.tasks.length, state.principles.length, true);
