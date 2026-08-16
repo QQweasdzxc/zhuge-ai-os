@@ -318,6 +318,22 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(index, /Interactive Prototype v0\.9/);
 });
 
+test("AI Board Task Drawer uses shared presentation with a single PM Acceptance action", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const index = read("app/Board/ai/index.html");
+  assert.match(index, /shared\/components\/task-drawer\.js/);
+  assert.match(index, /shared\/theme\/task-drawer\.css/);
+  assert.match(runtime, /ZhugeSharedTaskDrawer/);
+  assert.match(runtime, /shared-task-drawer/);
+  assert.match(runtime, /allowAcceptanceAction/);
+  assert.match(runtime, /PM 驗收通過/);
+  assert.doesNotMatch(runtime, /QJC 驗收通過/);
+  assert.match(runtime, /rawActivityMarkup/);
+  assert.match(runtime, /rawMovementMarkup/);
+  assert.match(runtime, /artifactMarkup/);
+  assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
+});
+
 test("AI Board sorts valid TASK codes numerically and keeps invalid codes in stable fallback order", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const context = {

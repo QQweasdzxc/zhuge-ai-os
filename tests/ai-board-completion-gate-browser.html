@@ -2,8 +2,9 @@
 <meta charset="utf-8">
 <title>AI Board completion gate browser regression</title>
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
+<link rel="stylesheet" href="../shared/theme/task-drawer.css">
 <div class="zhuge-module-shell">
-  <div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260816-0313"></div>
+  <div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260816-1034"></div>
   <div class="main">
     <aside><button data-board-nav="board" type="button">📋 工作看板</button><button data-board-nav="principles" type="button">📘 工程準則</button><button data-board-nav="system-map" type="button">🗺️ 系統藍圖</button></aside>
     <div class="actions"><button class="btn">重新整理</button></div><div class="toolbar"></div><div class="note"></div>
@@ -11,7 +12,7 @@
     <section class="board-subview principles-view" data-board-view="principles" hidden><div id="principlesCards"></div></section><section class="board-subview system-map-view" data-board-view="system-map" hidden><div id="systemMapCards"></div></section><div class="sidefoot"></div>
   </div>
 </div>
-<script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script>
+<script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script><script src="../shared/components/task-drawer.js"></script>
 <script>
   window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
   window.ZhugeRuntimeSessionProvider = {

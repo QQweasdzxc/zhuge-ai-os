@@ -1,0 +1,17 @@
+{
+  "artifactFilename": "20260816-1034-Zhuge_AI_OS-v0.9.0-alpha.9.13-SharedTaskDrawer-AIBoard-FullCandidate.zip",
+  "artifactType": "candidate",
+  "productVersion": "v0.9.0-alpha.9.13",
+  "runtimeBuildId": "20260816-1034",
+  "artifactCreatedAt": "2026-08-16T10:34:38+0800",
+  "timezone": "Asia/Taipei",
+  "gitCommit": "739c45bf9589283b51212b93866536aced64c27f",
+  "sourceReference": "recovery/task-5d641a7d-20260814 @ 739c45bf9589283b51212b93866536aced64c27f + working-tree snapshot",
+  "qaReportBuild": "20260816-1034",
+  "fullCandidate": true,
+  "excludedPackagingGarbage": [
+    "dist/*.zip",
+    ".git",
+    ".DS_Store"
+  ]
+}

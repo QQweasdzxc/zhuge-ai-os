@@ -530,13 +530,12 @@
     if (document.getElementById("taskDetailModal")) return;
     const modal = document.createElement("div");
     modal.id = "taskDetailModal";
-    modal.className = "modalback";
-    modal.innerHTML = "<div class=\"modal board-task-modal\" role=\"dialog\" aria-modal=\"true\">" +
-      "<div class=\"modalhead\"><h2 id=\"taskDetailTitle\">TASK</h2><button class=\"x\" id=\"closeTaskDetail\" aria-label=\"關閉\">×</button></div>" +
-      "<div class=\"modalbody\" id=\"taskDetailBody\"><div class=\"board-empty\">讀取中…</div></div></div>";
+    modal.className = "task-detail-modal-host";
+    modal.innerHTML = "<div id=\"taskDetailBody\"></div>";
     document.body.appendChild(modal);
-    modal.addEventListener("click", event => { if (event.target === modal) modal.style.display = "none"; });
-    document.getElementById("closeTaskDetail").onclick = () => { modal.style.display = "none"; };
+    modal.addEventListener("click", event => {
+      if (event.target.matches?.("[data-shared-task-drawer-close]")) modal.style.display = "none";
+    });
   }
   function ensureHealthModal() {
     if (document.getElementById("healthCheckModal")) return;
@@ -567,6 +566,10 @@
     } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
     finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
   }
+  function isPmAcceptanceItem(item) {
+    const identity = `${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
+    return String(item?.stage || "").toLowerCase() === "qjc" && (item?.itemKey === "pm-acceptance" || /pm[-_ ]?acceptance|pm[-_ ]?qa|驗收/.test(identity));
+  }
   function checklistMarkup(item, options = {}) {
     const readOnly = options.readOnly === true;
     const checked = item.state === "pass" ? " checked" : "";
@@ -580,14 +583,15 @@
     const next = isEngineeringReview
       ? "此為 GPT 工程審查紀錄；QJC 不需在此勾選，請查看工程 Evidence。"
       : item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
-    const qjcCanAct = item.stage === "qjc";
+    const pmAcceptanceCanAct = options.allowAcceptanceAction === true && isPmAcceptanceItem(item);
     const controls = readOnly
       ? "<div class=\"checklist-readonly-note\">封存資料僅供查閱；不可修改 Checklist 或 Evidence。</div>"
-      : qjcCanAct
-      ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
-      : `<div class="checklist-readonly-note">由${esc(stage)}在工程交接中更新，QJC 僅查看結果。</div>`;
+      : pmAcceptanceCanAct
+      ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>${item.state === "pass" ? "☑" : "☐"} PM 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
+      : `<div class="checklist-readonly-note">${isPmAcceptanceItem(item) ? "PM Acceptance 只可透過正式控制路徑操作；" : "Engineering Evidence／系統狀態；"}目前唯讀呈現。</div>`;
+    const isActionable = pmAcceptanceCanAct;
     const requirementLabel = isEngineeringReview ? " · 工程紀錄（不列入 QJC 完成 Gate）" : item.required ? " · 必要" : "";
-    return `<div class="checklist-item ${qjcCanAct ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${requirementLabel}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
+    return `<div class="checklist-item ${isActionable ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${requirementLabel}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
   }
   function checklistSummary(items) {
     const gate = completionGateStatus(items);
@@ -698,12 +702,45 @@
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
-    document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
     const governanceActions = !archiveOnly && task.status !== "done" && !service.isGovernanceTerminal?.(task)
       ? `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></div></details>`
       : `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>${archiveOnly ? "封存資料僅供查閱；不可 Restore／Reopen。" : "目前沒有可用的進階治理動作。"}</p></div></details>`;
-    body.innerHTML = `<div class="task-detail-meta"><span>工作區：${esc(workspaceLabel(task))}</span><span>工程狀態：${esc(statusLabel(task.status))}</span>${priorityLabel(task.priority) ? `<span>優先級：${esc(priorityLabel(task.priority))}</span>` : ""}${archiveOnly ? "<span>📦 封存（唯讀）</span>" : ""}<span>${esc(assigneeLabel(task.assignee))}</span></div><section class="task-detail-section task-detail-requirement"><h3>需求內容</h3><p>${esc(requirementContent(task)).replace(/\n/g, "<br>")}</p></section><section class="task-detail-section"><h3>使用情境</h3><p>${esc(task.usageScenario || "尚未補充使用情境")}</p></section><section class="task-detail-section task-next-step"><h3>下一步</h3><p>${esc(nextStepLabel(task))}</p></section><section class="task-summary-section"><div class="task-section-heading"><h3>☑️ 開發與驗收</h3><span id="checklistSummary">讀取中…</span></div><p class="checklist-contract-note">以既有 Co／GPT／QJC Canonical checklist 做 PM-readable summary；GPT Review 保留為工程紀錄，不列入 QJC 完成 Gate。</p><div id="checklistSummaryRows"><div class="board-empty">正在讀取正式驗收清單…</div></div><div id="checklistConsistency"></div></section><section class="task-progress-section"><div class="task-section-heading"><h3>💬 工作進度紀錄</h3><span>既有備註＋System Activity</span></div><div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div><div class="task-activity-list" id="taskActivityList"><div class="board-empty">讀取中…</div></div></section><section class="task-deliverables-section"><div class="task-section-heading"><h3>📎 附件與交付物</h3><span>Canonical Artifact／Evidence 唯讀</span></div><div id="taskDeliverables"><div class="board-empty">讀取中…</div></div></section><details class="task-engineering-details"><summary>⚙️ 工程詳細資料</summary><div id="taskEngineeringDetailsBody"><div class="board-empty">讀取中…</div></div></details>${governanceActions}`;
-    modal.style.display = "grid";
+    const drawer = root.ZhugeSharedTaskDrawer;
+    const title = `${task.workCode || "TASK"}｜${task.title || "未命名 TASK"}`;
+    const meta = [
+      { label: "工作區", value: workspaceLabel(task) },
+      { label: "工程狀態", value: statusLabel(task.status) },
+      priorityLabel(task.priority) ? { label: "優先級", value: priorityLabel(task.priority) } : null,
+      archiveOnly ? { label: "模式", value: "📦 封存（唯讀）" } : null,
+      { label: "負責人", value: assigneeLabel(task.assignee) }
+    ].filter(Boolean);
+    const sections = [
+      { id: "requirements", title: "需求內容", className: "task-detail-section task-detail-requirement", html: `<p>${esc(requirementContent(task)).replace(/\n/g, "<br>")}</p>` },
+      { id: "usage", title: "使用情境", className: "task-detail-section", html: `<p>${esc(task.usageScenario || "尚未補充使用情境")}</p>` },
+      { id: "next-step", title: "下一步", className: "task-detail-section task-next-step", html: `<p>${esc(nextStepLabel(task))}</p>` },
+      { id: "checklist", title: "☑️ 開發與驗收", hint: "Engineering Evidence 唯讀；PM 只有一個最終 Acceptance Action", className: "task-summary-section", html: `<span id="checklistSummary">讀取中…</span><p class="checklist-contract-note">Co／GPT／Regression 是既有工程 Evidence；不要求 PM 重複人工勾選。正式 PM Acceptance 只透過下方唯一控制項操作。</p><div id="checklistSummaryRows"><div class="board-empty">正在讀取正式驗收清單…</div></div><div id="checklistConsistency"></div>` },
+      { id: "deliverables", title: "📎 附件與交付物", hint: "Canonical Artifact／Evidence 唯讀", className: "task-deliverables-section", html: `<div id="taskDeliverables"><div class="board-empty">讀取中…</div></div>` },
+      { id: "engineering-details", title: "⚙️ 工程詳細資料", collapsible: true, html: `<div id="taskEngineeringDetailsBody"><div class="board-empty">讀取中…</div></div>` }
+    ];
+    if (drawer?.render) {
+      body.innerHTML = drawer.render({
+        title,
+        subtitle: archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer",
+        meta,
+        sections,
+        readOnly: archiveOnly,
+        activity: {
+          title: "💬 工作進度紀錄",
+          hint: "人工備註＋System Activity",
+          notesHtml: "<div id=\"taskHumanNotes\"><div class=\"board-empty\">讀取中…</div></div>",
+          html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
+        },
+        footerHtml: governanceActions
+      });
+    } else {
+      body.innerHTML = "<div class=\"board-empty\">Shared Task Drawer foundation 尚未載入；未執行任何 Cloud 寫入。</div>";
+    }
+    modal.style.display = "block";
     body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
       const items = await service.loadChecklist(task.id);
@@ -731,7 +768,7 @@
       const movements = movementResult.status === "fulfilled" ? movementResult.value : [];
       const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
       const detailsBody = document.getElementById("taskEngineeringDetailsBody");
-      if (detailsBody) detailsBody.innerHTML = `<section class="task-engineering-section"><h4>Checklist／Evidence 原始資料</h4><div id="engineeringChecklistRows">${items.length ? items.map(item => checklistMarkup(item, { readOnly: archiveOnly })).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單；系統不補造歷史 Evidence。</div>"}</div></section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, activityResult.status === "rejected" ? activityResult.reason : null)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, movementResult.status === "rejected" ? movementResult.reason : null)}</div></section>`;
+      if (detailsBody) detailsBody.innerHTML = `<section class="task-engineering-section"><h4>Checklist／Evidence 原始資料</h4><div id="engineeringChecklistRows">${items.length ? items.map(item => checklistMarkup(item, { readOnly: archiveOnly, allowAcceptanceAction: !archiveOnly })).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單；系統不補造歷史 Evidence。</div>"}</div></section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, activityResult.status === "rejected" ? activityResult.reason : null)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, movementResult.status === "rejected" ? movementResult.reason : null)}</div></section>`;
       document.getElementById("taskHumanNotes").innerHTML = humanNotesMarkup(task);
       document.getElementById("taskActivityList").innerHTML = activityMarkup(activity);
       document.getElementById("taskDeliverables").innerHTML = artifactMarkup(artifacts, artifactResult.status === "rejected" ? artifactResult.reason : null);
