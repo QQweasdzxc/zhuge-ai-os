@@ -157,3 +157,53 @@ The PM authorization token is not a GPT identity and cannot be created by the
 GPT broker. Approved Principle maintenance, arbitrary SQL, direct DML, PM
 Accepted Baseline writes, and Artifact writes are outside this first-phase
 allowlist.
+
+## PM Governance Approval Runner
+
+`pm-governance-approval.js` is a localhost-only operational bridge for the
+same allowlisted Governance Write path. It is not a second Authorization or
+Governance system. A protected engineering workflow supplies one immutable
+action manifest; PM/QJC only reviews the rendered action and chooses approve or
+reject in the local page.
+
+```bash
+node tools/pm-governance-approval.js start \
+  --action-file /protected/path/governance-action.json \
+  --port 8765 \
+  --open
+```
+
+The runner binds only to `127.0.0.1`, performs the existing Supabase Google
+OAuth/PKCE login, keeps the authenticated session in memory, and then uses:
+
+1. `issue_engineering_governance_authorization(jsonb)` with the authenticated
+   PM/QJC session;
+2. `engineering-actor-broker.js` with the protected GPT governance-write
+   profile;
+3. `engineering-governance-write.js` and the existing
+   `engineering-transition` Edge Function; and
+4. an authenticated read-back of the affected canonical record.
+
+The browser never receives an authorization capability, actor capability,
+JWK, service credential, or action payload JSON. The action is immutable for
+the runner process; reject/cancel and a second approval attempt do not execute
+a write. Capability values exist only in the local process memory and are
+cleared after the attempt. The runner does not log request bodies or secrets.
+
+### One-time local redirect setup
+
+Before the first local run, PM/QJC must add the exact callback URL to the
+existing Supabase Auth redirect allow-list:
+
+```text
+http://127.0.0.1:8765/auth/callback
+```
+
+No Google OAuth provider callback or Production URL is replaced. If a different
+port is used, add that exact `127.0.0.1` URL and use the same port for the
+runner. `SUPABASE_URL`/`ZHUGE_SUPABASE_URL` and
+`ENGINEERING_GOVERNANCE_WRITE_URL` are resolved from protected environment
+values when present; the existing checked-in URL/anon configuration is only a
+public fallback. The Engineering Actor private JWK is loaded at approval time
+from the protected environment or the existing macOS Keychain entry and is
+never written to a file.

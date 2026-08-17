@@ -274,7 +274,7 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
 
 test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in existing boundaries", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(runtime, /工程驗證摘要/);
+  assert.match(runtime, /工程驗證狀態/);
   assert.match(runtime, /Task Checklist/);
   assert.match(runtime, /data-progress-note-write="available"/);
   assert.match(runtime, /Human Progress Note/);
@@ -317,7 +317,7 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(runtime, /\.(insert|update|delete)\s*\(/);
   assert.doesNotMatch(runtime, /board_tasks.*(?:INSERT|UPDATE|DELETE)/i);
   assert.match(runtime, /usageScenario/);
-  assert.match(runtime, /工程驗證摘要/);
+  assert.match(runtime, /工程驗證狀態/);
   assert.match(runtime, /⚙️ 工程詳細資料/);
   assert.match(index, /id="boardSearch"/);
   assert.match(index, /id="taskUsageScenario"/);
@@ -336,12 +336,18 @@ test("AI Board Task Drawer uses shared presentation with a single PM Acceptance 
   assert.match(runtime, /allowAcceptanceAction/);
   assert.match(runtime, /PM 驗收通過/);
   assert.match(runtime, /engineeringEvidenceSummaryMarkup/);
+  assert.match(runtime, /engineeringVerificationStatusMarkup/);
+  assert.match(runtime, /Acceptance Criteria/);
+  assert.match(runtime, /pm-acceptance-readiness/);
+  assert.match(runtime, /data-engineering-verification-ready/);
   assert.match(runtime, /pmAcceptanceMarkup/);
   assert.match(runtime, /progressNoteComposerMarkup/);
   assert.match(runtime, /activityKindLabel/);
   assert.doesNotMatch(runtime, /QJC 驗收通過/);
   assert.match(runtime, /rawActivityMarkup/);
   assert.match(runtime, /rawMovementMarkup/);
+  assert.match(runtime, /人工工作進度 · Human Progress Note/);
+  assert.match(runtime, /filter\(item => !isTaskChecklistItem\(item\) && !isPmAcceptanceItem\(item\)\)/);
   assert.match(runtime, /artifactMarkup/);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
 });
