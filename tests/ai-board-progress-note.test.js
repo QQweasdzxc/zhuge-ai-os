@@ -49,7 +49,8 @@ test("Activity read path sorts Human Progress Note and System Activity together"
     }
   };
   const rows = await BoardRead.loadActivity("task-1", { gateway, checklistItems: [] });
-  assert.deepEqual(rows.map(item => item.id), ["human", "system"]);
+  assert.deepEqual(rows.map(item => item.id), ["system", "human"]);
+  assert.ok(calls.every(call => call.query.includes("order=created_at.desc")));
   assert.ok(calls[0].query.includes("activity_type"));
 });
 

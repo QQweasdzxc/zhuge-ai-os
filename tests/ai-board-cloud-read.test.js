@@ -265,7 +265,7 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
   };
   const activity = await BoardRead.loadActivity("task-1", { gateway, checklistItems: [{ id: "check-1" }] });
   const artifacts = await BoardRead.loadArtifacts({ id: "task-1", workCode: "TASK-001" }, { gateway });
-  assert.deepEqual(activity.map(item => item.action), ["workspace_moved", "checklist_item_updated"]);
+  assert.deepEqual(activity.map(item => item.action), ["checklist_item_updated", "workspace_moved"]);
   assert.equal(activity[0].actorLabel, "QJC");
   assert.equal(artifacts.length, 1);
   assert.equal(artifacts[0].runtimeBuild, "20260815-2314");
@@ -362,12 +362,12 @@ test("AI Board Task Drawer uses Need-to-Act presentation and progressive enginee
   assert.match(runtime, /openEngineeringRecords/);
   assert.match(runtime, /目前狀態/);
   assert.match(runtime, /工作內容/);
-  assert.match(runtime, /附件與交付物/);
+  assert.match(runtime, /title: "📎 附件"/);
   assert.match(runtime, /shared-task-attachment-list/);
   assert.match(runtime, /rawActivityMarkup/);
   assert.match(runtime, /rawMovementMarkup/);
   assert.match(runtime, /人工工作進度 · Human Progress Note/);
-  assert.match(runtime, /filter\(item => !isTaskChecklistItem\(item\) && !isPmAcceptanceItem\(item\)\)/);
+  assert.match(runtime, /filter\(item => !isTaskChecklistItem\(item\) && !isPmAcceptanceItem\(item\) && hasValidEngineeringEvidence\(item\)\)/);
   assert.match(runtime, /artifactMarkup/);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
 });

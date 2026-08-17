@@ -2526,8 +2526,43 @@ function worklogWelcomeSeen() {
   return localStorage.getItem(scopedLocalKey(WORKLOG_WELCOME_KEY)) === "1";
 }
 
+function worklogInitializationState() {
+  if (!session) return { state: "unauthorized", error: "" };
+  if (typeof DataService === "undefined" || typeof DataService.getInitializationState !== "function") {
+    return { state: "loading", error: "正在準備工作空間資料" };
+  }
+  const state = DataService.getInitializationState();
+  return state?.state === "idle" ? { ...state, state: "loading", error: "正在確認登入、設定與工作身分" } : state;
+}
+
+function worklogInitializationLoadingScreen() {
+  return `<div class="wrap" data-worklog-init-state="loading"><div class="card"><section class="panel" style="margin-top:18px"><h1>正在準備工作空間…</h1><p class="muted">正在確認登入、雲端設定與工作身分。確認完成前不會開啟初次認識工時簿。</p><div class="worklog-init-skeleton" aria-hidden="true"><div></div><div></div><div></div></div></section></div></div>`;
+}
+
+function worklogInitializationErrorScreen(state = {}) {
+  const message = state.error || "雲端設定或工作身分尚未完成讀取。";
+  return `<div class="wrap" data-worklog-init-state="error"><div class="card"><section class="panel" style="margin-top:18px"><h1>工作空間暫時無法確認</h1><p class="muted">${escapeHtml(message)}</p><p class="muted">為避免把讀取失敗誤判為 onboarding，請先重試；目前不會顯示「初次認識工時簿」。</p><div class="form-actions"><button class="btn" type="button" data-retry-worklog-initialization>重新讀取</button></div></section></div></div>`;
+}
+
+function bindWorklogInitialization() {
+  const button = document.querySelector("[data-retry-worklog-initialization]");
+  if (!button) return;
+  button.onclick = async () => {
+    button.disabled = true;
+    button.textContent = "讀取中…";
+    try {
+      await DataService.init();
+      if (typeof RealtimeService !== "undefined" && hasGoogleOAuthSession()) await RealtimeService.start();
+    } catch (error) {
+      console.error("WorkLog initialization retry failed", { error, supabase: error?.supabase || null });
+    }
+    render("worklog-initialization-retry");
+  };
+}
+
 function needsWorklogWelcome() {
   if (!session) return false;
+  if (worklogInitializationState().state !== "ready") return false;
   const completionPending = localStorage.getItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY)) === "1";
   if (completionPending) return true;
   // Onboarding is a one-time, non-blocking guide. Once the user has completed
@@ -4191,6 +4226,20 @@ function render(reason = "state-update") {
     clearInvalidAuthState();
     if (!session) { replaceRootContent(authScreen()); bindAuth(); return; }
     if (migrationRequired) { replaceRootContent(migrationScreen()); bindMigration(); bindGlobal(); return; }
+    const initialization = worklogInitializationState();
+    if (initialization.state === "unauthorized") { replaceRootContent(authScreen()); bindAuth(); return; }
+    if (initialization.state === "loading" || initialization.state === "idle" || initialization.state === "migration_required") {
+      replaceRootContent(worklogInitializationLoadingScreen());
+      bindWorklogInitialization();
+      bindGlobal();
+      return;
+    }
+    if (initialization.state === "error") {
+      replaceRootContent(worklogInitializationErrorScreen(initialization));
+      bindWorklogInitialization();
+      bindGlobal();
+      return;
+    }
     if (isStandaloneChatRoute()) { replaceRootContent(standaloneChatScreen()); bindWorklogAssistant(); bindGlobal(); return; }
     if (needsWorklogWelcome()) { replaceRootContent(worklogWelcomeScreen()); bindWorklogWelcome(); bindGlobal(); return; }
     replaceRootContent(osShell());

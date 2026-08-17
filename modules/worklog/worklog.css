@@ -456,3 +456,10 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .workspace-worklog .os-main { padding: 10px; }
   .workspace-shell.workspace-worklog .workspace-canvas { padding: 12px; border-radius: 14px; }
 }
+
+/* WorkLog startup guard: never expose onboarding while Cloud state is unknown. */
+.worklog-init-skeleton { display: grid; gap: 10px; margin-top: 18px; }
+.worklog-init-skeleton div { height: 18px; border-radius: 8px; background: linear-gradient(90deg, rgba(148,163,184,.16), rgba(148,163,184,.30), rgba(148,163,184,.16)); background-size: 220% 100%; animation: worklog-init-shimmer 1.4s ease-in-out infinite; }
+.worklog-init-skeleton div:nth-child(2) { width: 86%; }
+.worklog-init-skeleton div:nth-child(3) { width: 64%; }
+@keyframes worklog-init-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }

@@ -397,7 +397,7 @@
     const fields = "id,entity_type,entity_id,action,activity_type,before_data,after_data,note,actor_id,actor_type,actor_label,created_at";
     const taskRowsPromise = gateway.select(
       "engineering_activity_log",
-      `?select=${fields}&entity_type=eq.board_task&entity_id=eq.${encodedTaskId}&order=created_at.asc`
+      `?select=${fields}&entity_type=eq.board_task&entity_id=eq.${encodedTaskId}&order=created_at.desc`
     );
     const checklistItems = Array.isArray(options.checklistItems)
       ? options.checklistItems
@@ -406,13 +406,13 @@
     const checklistRowsPromise = checklistIds.length
       ? gateway.select(
         "engineering_activity_log",
-        `?select=${fields}&entity_type=eq.engineering_checklist_item&entity_id=in.(${checklistIds.join(",")})&order=created_at.asc`
+        `?select=${fields}&entity_type=eq.engineering_checklist_item&entity_id=in.(${checklistIds.join(",")})&order=created_at.desc`
       )
       : Promise.resolve([]);
     const [taskRows, checklistRows] = await Promise.all([taskRowsPromise, checklistRowsPromise]);
     return [...(Array.isArray(taskRows) ? taskRows : []), ...(Array.isArray(checklistRows) ? checklistRows : [])]
       .map(normalizeActivity)
-      .sort((left, right) => (Date.parse(left.timestamp || "") || 0) - (Date.parse(right.timestamp || "") || 0));
+      .sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
   }
 
   async function loadArtifacts(task, options = {}) {
