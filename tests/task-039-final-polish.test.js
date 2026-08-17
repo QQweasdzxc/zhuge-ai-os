@@ -21,7 +21,7 @@ test("WorkLog onboarding is gated by resolved Auth/Profile/Settings initializati
   assert.match(app, /不會顯示「初次認識工時簿」/);
 });
 
-test("AI Board Drawer keeps PM-facing content concise and pushes engineering records to progressive disclosure", () => {
+test("AI Board Drawer keeps PM-facing content concise and removes engineering-only entry points", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const css = read("shared/theme/task-drawer.css");
   assert.doesNotMatch(runtime, /下一步：由 Co 接球/);
@@ -30,14 +30,17 @@ test("AI Board Drawer keeps PM-facing content concise and pushes engineering rec
   assert.match(runtime, /PM Acceptance Criteria（PM 實際要驗證）/);
   assert.match(runtime, /驗收通過/);
   assert.match(runtime, /退回修改/);
-  assert.match(runtime, /data-engineering-records/);
-  assert.match(runtime, /function hasValidEngineeringEvidence\(item\)/);
-  assert.match(runtime, /\.filter\(item => !isTaskChecklistItem\(item\) && !isPmAcceptanceItem\(item\) && hasValidEngineeringEvidence\(item\)\)/);
   assert.match(runtime, /const rows = \(Array\.isArray\(activity\) \? activity : \[\]\)\.slice\(\)\.sort\(\(left, right\) => .*right\.timestamp/);
   assert.match(runtime, /Human Progress Note/);
   assert.match(runtime, /System Activity/);
   assert.match(runtime, /data-progress-note-write="available"/);
+  assert.match(runtime, /footerHtml: ""/);
+  assert.doesNotMatch(runtime, /taskMoreMarkup|data-engineering-records|⚙️ 工程紀錄|⋯ 更多/);
+  assert.match(runtime, /title: "📎 工作附件"/);
+  assert.match(runtime, /aria-label="工作附件"/);
   assert.match(css, /\.shared-task-progress-submit\{/);
+  assert.match(css, /min-height:82px/);
+  assert.match(css, /opacity:.82/);
 });
 
 test("Human Progress Note stays controlled and append-only", () => {

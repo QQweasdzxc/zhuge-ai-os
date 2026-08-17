@@ -68,11 +68,13 @@ test("Progress Note adapter uses the controlled RPC and never direct DML", async
   assert.doesNotMatch(read("shared/board/board-read-service.js"), /\.from\(["']engineering_activity_log["']\)\.(insert|update|delete)/i);
 });
 
-test("Engineering Details is read-only evidence detail, not a second checklist", () => {
+test("General Task Drawer does not mount engineering-only evidence UI", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(runtime, /engineeringEvidenceDetailMarkup/);
-  assert.match(runtime, /Engineering Evidence Detail/);
+  assert.doesNotMatch(runtime, /engineeringEvidenceDetailMarkup/);
+  assert.doesNotMatch(runtime, /Engineering Evidence Detail/);
   assert.doesNotMatch(runtime, /items\.length \? items\.map\(item => checklistMarkup/);
   assert.match(runtime, /data-progress-note-write="available"/);
   assert.match(runtime, /activityType === "human_progress_note"/);
+  assert.match(runtime, /footerHtml: ""/);
+  assert.doesNotMatch(runtime, /data-engineering-records|taskMoreMarkup/);
 });

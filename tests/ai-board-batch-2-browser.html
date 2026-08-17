@@ -3,7 +3,7 @@
 <title>AI Board Batch 2 browser regression fixture</title>
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
 <link rel="stylesheet" href="../shared/theme/task-drawer.css">
-<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260817-1416"></div>
+<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260817-1441"></div>
 <div class="main">
   <aside>
     <button data-board-nav="board" type="button">📋 工作看板</button>
@@ -88,8 +88,6 @@
   setTimeout(() => { const card = document.querySelector(".taskcard"); card?.click(); window.ZhugeBoardRuntime?.openTaskDetail({ id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", assignee: "QJC", summary: "確認三方傳接球。", acceptanceCriteria: "打開 TASK Drawer，確認工作進度紀錄可正常新增。\n重新整理頁面，確認紀錄仍存在。\n確認 Drawer Desktop / Mobile 顯示正常。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。", developerNotes: "Co 已完成 Shared Drawer Presentation Layer 修正。", pmNotes: "PM QA 檢查 Drawer 的 Evidence presentation。" }); }, 1400);
   setTimeout(() => { const audit = document.createElement("pre"); audit.id = "checklist-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 1650);
   setTimeout(() => document.getElementById("refreshBoardBtn")?.click(), 1700);
-  setTimeout(() => document.querySelector("[data-engineering-records]")?.click(), 2000);
-  setTimeout(() => { const audit = document.createElement("pre"); audit.id = "engineering-records-audit"; audit.textContent = document.getElementById("taskEngineeringRecordsBody")?.textContent || ""; document.body.appendChild(audit); }, 2150);
   setTimeout(() => { const task = window.ZhugeBoardReadService.load ? window.ZhugeBoardReadService.load().then(result => result.tasks[0]) : null; Promise.resolve(task).then(row => row && window.ZhugeBoardRuntime?.moveTaskToWorkspace(row, "ws-co")); }, 1900);
   setTimeout(() => { document.querySelector('[data-board-nav="board"]')?.click(); const audit = document.createElement("pre"); audit.id = "board-nav-audit"; audit.textContent = document.getElementById("boardReadStatus")?.textContent || ""; document.body.appendChild(audit); }, 2200);
   setTimeout(() => { document.querySelector('[data-board-nav="principles"]')?.click(); const audit = document.createElement("pre"); audit.id = "principles-nav-audit"; audit.textContent = document.getElementById("boardReadStatus")?.textContent || ""; document.body.appendChild(audit); }, 2500);
