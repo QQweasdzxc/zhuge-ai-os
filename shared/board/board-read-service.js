@@ -3,7 +3,7 @@
  * The Board is a presentation module. It receives the current Shared
  * Identity and Shared Supabase Data Gateway; it never creates a second
  * Supabase client or reads a task from browser storage. Mutations are limited
- * to the approved controlled RPC boundary.
+ * to approved controlled RPCs or the existing PM Governance Runner boundary.
  */
 (function (root, factory) {
   const api = factory(root);
@@ -591,6 +591,40 @@
     }).then(normalizeActivity);
   }
 
+  function governanceRunnerUrl(options = {}) {
+    return String(options.runnerUrl || root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765").replace(/\/$/, "");
+  }
+
+  async function governanceRunnerJson(pathname, options = {}) {
+    const response = await (root.fetch || fetch)(`${governanceRunnerUrl(options)}${pathname}`, {
+      method: options.method || "GET",
+      headers: options.body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      cache: "no-store"
+    });
+    let body = null;
+    try { body = await response.json(); } catch { body = null; }
+    if (!response.ok) {
+      const error = new Error(body?.message || "PM Governance Approval Runner 未接受這次受控請求。");
+      error.code = body?.code || "GOVERNANCE_RUNNER_UNAVAILABLE";
+      error.status = response.status;
+      throw error;
+    }
+    return body;
+  }
+
+  async function requestTaskContractUpdate(input = {}, options = {}) {
+    const payload = { task_id: input.taskId };
+    if (Object.prototype.hasOwnProperty.call(input, "summary")) payload.summary = String(input.summary ?? "");
+    if (Object.prototype.hasOwnProperty.call(input, "usageScenario")) payload.usage_scenario = String(input.usageScenario ?? "");
+    return governanceRunnerJson("/api/request-task-update", { ...options, method: "POST", body: payload });
+  }
+
+  async function taskContractUpdateStatus(requestId, options = {}) {
+    const query = `?request_id=${encodeURIComponent(String(requestId || ""))}`;
+    return governanceRunnerJson(`/api/task-update-status${query}`, options);
+  }
+
   async function subscribe(callback, options = {}) {
     const gateway = options.gateway || requireGateway();
     if (typeof gateway.subscribe !== "function") {
@@ -641,6 +675,8 @@
     createChecklistItem,
     updateChecklistItem,
     addTaskProgressNote,
+    requestTaskContractUpdate,
+    taskContractUpdateStatus,
     runHealthCheck,
     subscribe
   });

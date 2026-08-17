@@ -58,14 +58,32 @@ test("Human Progress Note stays controlled and append-only", () => {
   assert.match(service, /order=created_at\.desc/);
 });
 
-test("Workspace delete and task content editing remain blocked without canonical controlled paths", () => {
+test("General Task Drawer renders Human Progress only while preserving canonical activity read", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const service = read("shared/board/board-read-service.js");
+  assert.match(service, /engineering_activity_log/);
+  assert.match(service, /loadActivity/);
+  assert.match(runtime, /const humanRows = rows\.filter\(item => activityKind\(item\) === "human"\)/);
+  assert.match(runtime, /data-human-progress-empty/);
+  assert.match(runtime, /System Activity 與 Workspace Audit 保留於正式紀錄/);
+  assert.doesNotMatch(runtime, /return rows\.map\(item => \{[\s\S]*System Activity ·/);
+});
+
+test("Workspace delete remains blocked while task content editing uses the existing PM-controlled path", () => {
   const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("app/Board/ai/board-runtime.js");
+  const runner = read("tools/pm-governance-approval.js");
   assert.doesNotMatch(migration, /board_delete_workspace/i);
   assert.doesNotMatch(service, /deleteWorkspace|board_delete_workspace/i);
   assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace/i);
-  assert.doesNotMatch(service, /board_update_task/i);
-  assert.doesNotMatch(runtime, /board_update_task|updateTaskContent/i);
+  assert.match(service, /requestTaskContractUpdate/);
+  assert.match(service, /api\/request-task-update/);
+  assert.match(runtime, /data-task-inline-edit/);
+  assert.match(runtime, /送出 PM 核准/);
+  assert.match(runner, /update_task_contract/);
+  assert.match(runner, /PRODUCT_TASK_UPDATE_FIELDS/);
+  assert.doesNotMatch(service, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
+  assert.doesNotMatch(runtime, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.match(migration, /on delete restrict/i);
 });

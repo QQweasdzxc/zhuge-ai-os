@@ -55,6 +55,87 @@ test("action manifest is immutable and mirrors the existing governance operation
   assert.throws(() => Runner.normalizeActionManifest({ operation: "register_artifact", payload: { artifact_type: "release" } }), /candidate/);
 });
 
+test("product inline-edit bridge queues only summary or usage_scenario and never exposes a capability", async () => {
+  const pmCapability = "pm-capability-only-in-process";
+  const actorCapability = "actor-capability-only-in-process";
+  let writeCount = 0;
+  const runner = Runner.createRunner({
+    waitForProduct: true,
+    productOrigins: ["https://app.example"],
+    environment: {
+      supabaseUrl: "https://example.supabase.co",
+      supabaseAnonKey: "public-key",
+      governanceWriteUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+    },
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/auth/v1/user") return new Response(JSON.stringify({ id: "owner-id", email: "qjc@example.com" }), { status: 200 });
+      if (pathname === "/rest/v1/rpc/issue_engineering_governance_authorization") return new Response(JSON.stringify({ authorization_id: "authorization-id", authorization_token: pmCapability }), { status: 200 });
+      if (pathname === "/rest/v1/board_tasks") return new Response(JSON.stringify([{ id: "task-id", work_code: "TASK-039", title: "Drawer", status: "ready" }]), { status: 200 });
+      throw new Error(`Unexpected network call: ${pathname}`);
+    },
+    readPrivateJwk: () => privateJwk,
+    issueActorToken: () => actorCapability,
+    writeGovernance: async (config, operation, payload) => {
+      writeCount += 1;
+      assert.equal(operation, "update_task_contract");
+      assert.deepEqual(payload, { task_id: "task-id", summary: "新的工作內容" });
+      assert.equal(config.pmAuthorizationToken, pmCapability);
+      assert.equal(config.actorToken, actorCapability);
+      return { result: { result: { result: { id: "task-id" } } } };
+    }
+  });
+  const started = await runner.start({ port: 18770 });
+  const productHeaders = { Origin: "https://app.example", "Content-Type": "application/json" };
+  try {
+    const waiting = await fetch(`${started.url}api/state`);
+    assert.equal((await waiting.json()).phase, "waiting");
+
+    const preflight = await fetch(`${started.url}api/request-task-update`, { method: "OPTIONS", headers: { Origin: "https://app.example", "Access-Control-Request-Method": "POST" } });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-origin"), "https://app.example");
+
+    const denied = await fetch(`${started.url}api/request-task-update`, { method: "POST", headers: productHeaders, body: JSON.stringify({ operation: "register_artifact", task_id: "task-id" }) });
+    assert.equal(denied.status, 422);
+
+    const queued = await fetch(`${started.url}api/request-task-update`, { method: "POST", headers: productHeaders, body: JSON.stringify({ task_id: "task-id", summary: "新的工作內容" }) });
+    assert.equal(queued.status, 202);
+    const queuedBody = await queued.text();
+    assert.match(queuedBody, /"phase":"pending"/);
+    assert.match(queuedBody, /更新 task-id 的工作內容/);
+    assert.doesNotMatch(queuedBody, /payload|pm-capability-only-in-process|actor-capability-only-in-process/);
+    const requestId = JSON.parse(queuedBody).requestId;
+
+    const beforeApproval = await fetch(`${started.url}api/task-update-status?request_id=${encodeURIComponent(requestId)}`, { headers: { Origin: "https://app.example" } });
+    assert.equal((await beforeApproval.json()).phase, "pending");
+    assert.equal(writeCount, 0);
+
+    runner.sessions.set("owner-session", {
+      accessToken: "access-only-in-process",
+      refreshToken: "refresh-only-in-process",
+      expiresAt: Date.now() + 300000,
+      createdAt: Date.now(),
+      user: { id: "owner-id", email: "qjc@example.com", name: "QJC" },
+      ownerStatus: "allowed"
+    });
+    const approval = await fetch(`${started.url}api/approve`, {
+      method: "POST",
+      headers: { Cookie: "pm_governance_sid=owner-session", Origin: "http://127.0.0.1:18770", "X-PM-Approval-Nonce": runner.approval.csrf }
+    });
+    const approvalBody = await approval.text();
+    assert.equal(approval.status, 200);
+    assert.match(approvalBody, /"phase":"success"/);
+    assert.match(approvalBody, /TASK-039/);
+    assert.doesNotMatch(approvalBody, /pm-capability-only-in-process|actor-capability-only-in-process/);
+    assert.equal(writeCount, 1);
+
+    const afterApproval = await fetch(`${started.url}api/task-update-status?request_id=${encodeURIComponent(requestId)}`, { headers: { Origin: "https://app.example" } });
+    assert.equal((await afterApproval.json()).phase, "success");
+  } finally {
+    await new Promise(resolve => started.server.close(resolve));
+  }
+});
+
 test("browser approval page receives only review metadata and never embeds capability labels", () => {
   const page = Runner.renderApprovalPage({
     operation: "建立 Canonical TASK Contract",

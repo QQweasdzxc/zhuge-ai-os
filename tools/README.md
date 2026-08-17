@@ -190,6 +190,28 @@ the runner process; reject/cancel and a second approval attempt do not execute
 a write. Capability values exist only in the local process memory and are
 cleared after the attempt. The runner does not log request bodies or secrets.
 
+### AI Board inline task-content update mode
+
+AI Board `工作內容` and `使用情境` inline edit use the same controlled
+`update_task_contract` operation through a deliberately narrow local request
+bridge. Start a fresh runner in product-request mode before saving an edit:
+
+```bash
+node tools/pm-governance-approval.js start \
+  --wait-for-product \
+  --port 8765 \
+  --open
+```
+
+The bridge accepts only `task_id`, `summary`, and `usage_scenario`; it does not
+accept an arbitrary Governance operation or caller-supplied display payload.
+The browser receives only a request id and status. PM review, existing
+`issue_engineering_governance_authorization(jsonb)`, the protected GPT actor
+broker, `engineering-transition`, and canonical `board_tasks` read-back remain
+the write path. A rejected, expired, unavailable, or unapproved request leaves
+the original TASK unchanged. Start a new runner for each subsequent inline
+edit request; one runner process is one approval attempt.
+
 ### One-time local redirect setup
 
 Before the first local run, PM/QJC must add the exact callback URL to the

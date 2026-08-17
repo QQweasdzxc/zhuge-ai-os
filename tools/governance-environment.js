@@ -35,6 +35,16 @@ function readPublicSupabaseConfig(filePath = PUBLIC_CONFIG_PATH) {
   });
 }
 
+function readPublicAppOrigin(filePath = PUBLIC_CONFIG_PATH) {
+  const source = fs.readFileSync(filePath, "utf8");
+  const match = source.match(/WEB_APP_URL\s*=\s*["']([^"']+)["']/);
+  if (!match) throw new Error("Canonical public Web App URL is incomplete.");
+  let url;
+  try { url = new URL(match[1]); } catch { throw new Error("Canonical public Web App URL is invalid."); }
+  if (!/^https?:$/i.test(url.protocol)) throw new Error("Canonical public Web App URL must use HTTP(S).");
+  return url.origin;
+}
+
 function resolveExecutionEnvironment(env = process.env, options = {}) {
   const publicConfig = options.publicConfig || readPublicSupabaseConfig(options.publicConfigPath || PUBLIC_CONFIG_PATH);
   const configuredUrl = env.SUPABASE_URL || env.ZHUGE_SUPABASE_URL || publicConfig.supabaseUrl;
@@ -51,6 +61,7 @@ function resolveExecutionEnvironment(env = process.env, options = {}) {
     supabaseUrl,
     supabaseAnonKey,
     governanceWriteUrl,
+    productOrigins: Object.freeze([readPublicAppOrigin(options.publicConfigPath || PUBLIC_CONFIG_PATH)]),
     urlSource: env.SUPABASE_URL || env.ZHUGE_SUPABASE_URL ? "protected-environment" : "canonical-public-project-config"
   });
 }
@@ -94,6 +105,7 @@ module.exports = {
   PUBLIC_CONFIG_PATH,
   normalizeHttpsUrl,
   readPublicSupabaseConfig,
+  readPublicAppOrigin,
   resolveExecutionEnvironment,
   parsePrivateJwk,
   readProtectedPrivateJwk,

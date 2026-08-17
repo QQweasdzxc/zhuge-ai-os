@@ -1,0 +1,15 @@
+{
+  "artifact_type": "candidate",
+  "candidate_scope": "Full Zhuge AI OS Source",
+  "related_task": "TASK-039",
+  "product_version": "v0.9.0-alpha.9.13",
+  "runtime_build_id": "20260817-2149",
+  "artifact_created_at": "2026-08-17T21:49:15+08:00",
+  "timezone": "Asia/Taipei (UTC+8)",
+  "git_commit": "739c45bf9589283b51212b93866536aced64c27f",
+  "source_reference": "recovery/task-5d641a7d-20260814 working-tree snapshot",
+  "pm_acceptance_status": "Pending / Not Accepted",
+  "developer_qa": "154 pass / 0 fail / 4 skipped",
+  "targeted_qa": "34 pass / 0 fail / 0 skipped",
+  "candidate_note": "Immutable Full Candidate packaging only; no PM Accepted Baseline or Release is implied."
+}

@@ -27,6 +27,9 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const OAUTH_ATTEMPT_COOKIE = "pm_governance_oauth_attempt";
 const MAX_ACTION_BYTES = 96 * 1024;
+const PRODUCT_TASK_UPDATE_PATH = "/api/request-task-update";
+const PRODUCT_TASK_UPDATE_STATUS_PATH = "/api/task-update-status";
+const PRODUCT_TASK_UPDATE_FIELDS = new Set(["task_id", "summary", "usage_scenario"]);
 const ALLOWED_OPERATIONS = new Set([
   "create_task_contract",
   "update_task_contract",
@@ -91,6 +94,7 @@ function parseArgs(argv) {
   for (let index = 0; index < rest.length; index += 1) {
     const value = rest[index];
     if (value === "--open") { args.open = true; continue; }
+    if (value === "--wait-for-product") { args.waitForProduct = true; continue; }
     if (value === "--help" || value === "-h") { args.help = true; continue; }
     if (!value.startsWith("--")) throw new RunnerError("INVALID_ARGUMENT", `Unexpected argument: ${value}`);
     const key = value.slice(2);
@@ -167,6 +171,48 @@ function normalizeActionManifest(value) {
     payload,
     display: Object.freeze({ title, purpose, impact, scope }),
     pmNote
+  });
+}
+
+function normalizeProductTaskUpdateRequest(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RunnerError("INVALID_ACTION", "Task Contract update request must be an object.");
+  }
+  const source = value;
+  assertNoSecretFields(source);
+  const taskId = stringValue(source.task_id, "payload.task_id", 120).trim();
+  if (!taskId) throw new RunnerError("INVALID_ACTION", "A TASK identity is required.");
+  const payload = { task_id: taskId };
+  const changedFields = [];
+  for (const field of ["summary", "usage_scenario"]) {
+    if (!Object.prototype.hasOwnProperty.call(source, field)) continue;
+    payload[field] = stringValue(source[field], `payload.${field}`, 20000);
+    changedFields.push(field);
+  }
+  for (const key of Object.keys(source)) {
+    if (!PRODUCT_TASK_UPDATE_FIELDS.has(key)) throw new RunnerError("INVALID_ACTION", `Field ${key} is not allowlisted for the AI Board inline edit path.`);
+  }
+  if (!changedFields.length) throw new RunnerError("INVALID_ACTION", "At least one editable TASK field is required.");
+  const labels = Object.freeze({ summary: "工作內容", usage_scenario: "使用情境" });
+  const displayFields = changedFields.map(field => labels[field]);
+  return normalizeActionManifest({
+    operation: "update_task_contract",
+    payload,
+    display: {
+      title: `更新 ${taskId} 的${displayFields.join("／")}`,
+      purpose: "PM 核准後，透過既有受控 update_task_contract path 保存 AI Board TASK 內容；不修改狀態、工作區、負責人或其他治理欄位。",
+      scope: [
+        `只更新：${displayFields.join("、")}`,
+        "沿用既有 PM Authorization、GPT governance-write actor 與 engineering-transition",
+        "完成後由正式 board_tasks read-back 驗證"
+      ],
+      impact: [
+        "TASK identity、工程狀態、工作區、負責人與治理紀錄維持不變",
+        "不使用 Browser Direct DML、localStorage 或 Shadow Field",
+        "PM 可拒絕；未核准不會寫入 Cloud"
+      ]
+    },
+    pm_note: `AI Board inline edit：${displayFields.join("、")}`
   });
 }
 
@@ -305,8 +351,8 @@ function actionView(action) {
 
 function renderApprovalPage(view, runtime = {}) {
   const state = {
-    action: view,
-    phase: runtime.phase || "pending",
+    action: view || runtime.action || null,
+    phase: runtime.phase || (view ? "pending" : "waiting"),
     authenticated: Boolean(runtime.authenticated),
     ownerVerified: Boolean(runtime.ownerVerified),
     user: runtime.user || null,
@@ -344,13 +390,17 @@ section{padding:22px 26px}.kicker{font-size:11px;color:#8db7ef;letter-spacing:.0
   const $ = id => document.getElementById(id);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const setChips = (id, values, rowId) => { const list = Array.isArray(values) ? values : []; $(id).innerHTML = list.map(item => '<span class="chip">' + esc(item) + '</span>').join(""); $(rowId).hidden = !list.length; };
-  $("operationLabel").textContent = initial.action?.operationLabel || "Governance Action";
-  $("title").textContent = initial.action?.title || "—";
-  $("purpose").textContent = initial.action?.purpose || "—";
-  setChips("scope", initial.action?.scope, "scopeRow");
-  setChips("impact", initial.action?.impact, "impactRow");
+  function renderAction(action) {
+    $("operationLabel").textContent = action?.operationLabel || "等待受控工作內容更新請求";
+    $("title").textContent = action?.title || "—";
+    $("purpose").textContent = action?.purpose || "—";
+    setChips("scope", action?.scope, "scopeRow");
+    setChips("impact", action?.impact, "impactRow");
+  }
+  renderAction(initial.action);
   function stateMessage(data) {
     const phase = data.phase || "pending";
+    if (phase === "waiting" || !data.action) return ["warn", "等待 AI Board 提交一筆工作內容／使用情境更新請求；PM 核准前不會寫入 Cloud。"];
     if (phase === "success") {
       const readBack = data.result?.readBack;
       const identity = readBack?.workCode || readBack?.filename || readBack?.identity || "canonical record";
@@ -364,19 +414,20 @@ section{padding:22px 26px}.kicker{font-size:11px;color:#8db7ef;letter-spacing:.0
     return ["", "已登入。按下核准後，Server 會重新驗證 Engineering owner 並執行既有受控流程。"];
   }
   function render(data) {
+    renderAction(data.action);
     const [kind, message] = stateMessage(data); const box = $("status"); box.className = "status " + kind; box.textContent = message;
     $("identity").textContent = data.user?.email ? "目前登入：" + data.user.email : "";
     $("login").hidden = Boolean(data.authenticated) || ["running","success","rejected"].includes(data.phase);
-    $("approve").hidden = !data.ownerVerified;
-    $("approve").disabled = !data.authenticated || !data.ownerVerified || data.phase !== "pending" || !data.csrf;
-    $("reject").hidden = !data.ownerVerified;
-    $("reject").disabled = ["running","success","rejected"].includes(data.phase);
+    $("approve").hidden = !data.ownerVerified || !data.action;
+    $("approve").disabled = !data.authenticated || !data.ownerVerified || data.phase !== "pending" || !data.csrf || !data.action;
+    $("reject").hidden = !data.ownerVerified || !data.action;
+    $("reject").disabled = !data.action || ["running","success","rejected"].includes(data.phase);
   }
   async function refresh() { try { const response = await fetch("/api/state", { cache: "no-store" }); const data = await response.json(); render(data); window.__PM_GOVERNANCE_APPROVAL__ = data; } catch { $("status").textContent = "Runner 連線失敗；請確認 localhost process 仍在執行。"; } }
   $("login").onclick = () => { location.href = "/auth/start"; };
   $("approve").onclick = async () => { $("approve").disabled = true; try { const response = await fetch("/api/approve", { method: "POST", headers: { "X-PM-Approval-Nonce": window.__PM_GOVERNANCE_APPROVAL__?.csrf || "" } }); const data = await response.json(); render(data); window.__PM_GOVERNANCE_APPROVAL__ = data; } catch { await refresh(); } };
   $("reject").onclick = async () => { try { const response = await fetch("/api/reject", { method: "POST", headers: { "X-PM-Approval-Nonce": window.__PM_GOVERNANCE_APPROVAL__?.csrf || "" } }); const data = await response.json(); render(data); window.__PM_GOVERNANCE_APPROVAL__ = data; } catch { await refresh(); } };
-  render(initial); refresh();
+  render(initial); refresh(); window.setInterval(refresh, 1000);
 })();
 </script></body></html>`;
 }
@@ -431,18 +482,64 @@ function createRunner(options = {}) {
   const writeGovernance = options.writeGovernance || GovernanceTool.writeGovernance;
   const readPrivateJwk = options.readPrivateJwk || (() => Environment.readProtectedPrivateJwk(options.env || process.env, options));
   const now = options.now || (() => Date.now());
-  const action = options.action;
-  if (!action) throw new RunnerError("INVALID_ACTION", "A validated action manifest is required.");
+  let action = options.action || null;
+  const waitForProduct = options.waitForProduct === true;
+  if (!action && !waitForProduct) throw new RunnerError("INVALID_ACTION", "A validated action manifest is required.");
+  const productOrigins = new Set((options.productOrigins || environment.productOrigins || [Environment.readPublicAppOrigin()]).map(origin => {
+    try { return new URL(String(origin)).origin; } catch { throw new RunnerError("INVALID_ARGUMENT", "Product origin is invalid."); }
+  }));
   const sessions = new Map();
   const oauthAttempts = new Map();
   const approval = {
-    phase: "pending",
+    phase: action ? "pending" : "waiting",
     csrf: randomToken(24),
     error: null,
-    result: null
+    result: null,
+    action,
+    requestId: null
   };
 
   function baseUrl(port) { return `http://${HOST}:${port}`; }
+
+  function assertProductOrigin(request, port) {
+    const origin = request.headers.origin;
+    if (origin === baseUrl(port)) return origin;
+    if (!origin || !productOrigins.has(origin)) throw new RunnerError("CSRF_DENIED", "Product origin is not allowed.");
+    return origin;
+  }
+
+  function setProductCors(response, origin) {
+    if (!origin) return;
+    response.setHeader("Access-Control-Allow-Origin", origin);
+    response.setHeader("Vary", "Origin");
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+
+  function queueProductTaskUpdate(requestValue) {
+    if (!waitForProduct) throw new RunnerError("NOT_FOUND", "This runner is not in Product inline-edit mode.");
+    if (approval.phase !== "waiting") throw new RunnerError("RUNNER_BUSY", "This approval runner already has an active or completed action; start a new runner for another edit.");
+    action = normalizeProductTaskUpdateRequest(requestValue);
+    approval.action = action;
+    approval.requestId = randomToken(16);
+    approval.phase = "pending";
+    approval.csrf = randomToken(24);
+    approval.error = null;
+    approval.result = null;
+    return approval.requestId;
+  }
+
+  function productTaskUpdateState(requestId) {
+    if (!approval.requestId || String(requestId || "") !== approval.requestId) {
+      throw new RunnerError("REQUEST_NOT_FOUND", "The inline-edit request is no longer available.");
+    }
+    return {
+      requestId: approval.requestId,
+      phase: approval.phase,
+      readBack: approval.result?.readBack || null,
+      error: approval.error
+    };
+  }
 
   function purgeEphemeral() {
     const cutoff = now() - OAUTH_STATE_TTL_MS;
@@ -642,18 +739,23 @@ function createRunner(options = {}) {
       authenticated: Boolean(session),
       ownerVerified: session?.ownerStatus === "allowed",
       user: session?.user ? { email: session.user.email, name: session.user.name } : null,
-      action: actionView(action),
+      action: approval.action ? actionView(approval.action) : null,
+      requestId: approval.requestId,
       csrf: session && approval.phase === "pending" ? approval.csrf : "",
       error: approval.error,
       result: approval.result
     };
   }
 
+  function currentProductStatus(requestId) {
+    return productTaskUpdateState(requestId);
+  }
+
   async function handle(request, response, port) {
     const requestUrl = new URL(request.url || "/", baseUrl(port));
     const session = await getSession(request);
     if (request.method === "GET" && requestUrl.pathname === "/") {
-      respondHtml(response, renderApprovalPage(actionView(action), currentState(session)));
+      respondHtml(response, renderApprovalPage(approval.action ? actionView(approval.action) : null, currentState(session)));
       return;
     }
     if (request.method === "GET" && requestUrl.pathname === "/auth/start") {
@@ -665,11 +767,40 @@ function createRunner(options = {}) {
     if (request.method === "GET" && requestUrl.pathname === "/auth/callback") {
       appendSetCookie(response, clearEphemeralCookie(OAUTH_ATTEMPT_COOKIE));
       try { await completeOAuth(request, response, port, requestUrl.searchParams); }
-      catch (error) { respondHtml(response, renderApprovalPage(actionView(action), { ...currentState(null), error: publicError(error) }), 400); }
+      catch (error) { respondHtml(response, renderApprovalPage(approval.action ? actionView(approval.action) : null, { ...currentState(null), error: publicError(error) }), 400); }
       return;
     }
     if (request.method === "GET" && requestUrl.pathname === "/api/state") {
       respondJson(response, currentState(session));
+      return;
+    }
+    if (requestUrl.pathname === PRODUCT_TASK_UPDATE_PATH || requestUrl.pathname === PRODUCT_TASK_UPDATE_STATUS_PATH) {
+      const origin = assertProductOrigin(request, port);
+      setProductCors(response, origin);
+      if (request.method === "OPTIONS") {
+        response.statusCode = 204;
+        response.end();
+        return;
+      }
+      if (requestUrl.pathname === PRODUCT_TASK_UPDATE_PATH && request.method === "POST") {
+        try {
+          const body = await readRequestBody(request);
+          const requestId = queueProductTaskUpdate(JSON.parse(body || "{}"));
+          respondJson(response, { ok: true, requestId, phase: approval.phase, action: actionView(approval.action) }, 202);
+        } catch (error) {
+          respondJson(response, publicError(error), error?.code === "CSRF_DENIED" ? 403 : 422);
+        }
+        return;
+      }
+      if (requestUrl.pathname === PRODUCT_TASK_UPDATE_STATUS_PATH && request.method === "GET") {
+        try {
+          respondJson(response, currentProductStatus(requestUrl.searchParams.get("request_id")));
+        } catch (error) {
+          respondJson(response, publicError(error), error?.code === "CSRF_DENIED" ? 403 : 404);
+        }
+        return;
+      }
+      respondJson(response, { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." }, 405);
       return;
     }
     if (request.method === "POST" && ["/api/approve", "/api/reject"].includes(requestUrl.pathname)) {
@@ -688,6 +819,7 @@ function createRunner(options = {}) {
           respondJson(response, currentState(session));
           return;
         }
+        if (!approval.action) throw new RunnerError("INVALID_ACTION", "No Governance action is waiting for PM approval.");
         approval.phase = "running";
         approval.result = await issueAndExecute(session);
         approval.phase = "success";
@@ -727,7 +859,7 @@ function createRunner(options = {}) {
     });
   }
 
-  return Object.freeze({ action, environment, currentState, handle, start, sessions, oauthAttempts, approval });
+  return Object.freeze({ action, environment, currentState, handle, start, sessions, oauthAttempts, approval, queueProductTaskUpdate, productTaskUpdateState: currentProductStatus });
 }
 
 function usage(message = "") {
@@ -735,9 +867,11 @@ function usage(message = "") {
   console.error([
     "Usage:",
     "  node tools/pm-governance-approval.js start --action-file /path/to/action.json [--port 8765] [--open]",
+    "  node tools/pm-governance-approval.js start --wait-for-product [--port 8765] [--open]",
     "",
-    "The action file is supplied by the protected engineering workflow. PM only reviews",
-    "the rendered action and clicks approve or reject; no token, JSON or SQL is entered." 
+    "The action file is supplied by the protected engineering workflow. In product mode,",
+    "AI Board may submit only an allowlisted task-content update request. PM reviews",
+    "the rendered action and clicks approve or reject; no token, JSON or SQL is entered."
   ].join("\n"));
   process.exitCode = message ? 1 : 0;
 }
@@ -745,10 +879,11 @@ function usage(message = "") {
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (args.help) return usage();
-  if (args.command !== "start" || !args["action-file"]) return usage("start and --action-file are required.");
-  const action = readActionManifest(args["action-file"]);
+  if (args.command !== "start" || (!args["action-file"] && !args.waitForProduct)) return usage("start requires --action-file or --wait-for-product.");
+  if (args["action-file"] && args.waitForProduct) return usage("choose --action-file or --wait-for-product, not both.");
+  const action = args["action-file"] ? readActionManifest(args["action-file"]) : null;
   const environment = Environment.resolveExecutionEnvironment(process.env);
-  const runner = createRunner({ action, environment });
+  const runner = createRunner({ action, environment, waitForProduct: Boolean(args.waitForProduct) });
   const started = await runner.start({ port: args.port || DEFAULT_PORT });
   console.log(`PM Governance Approval Runner listening at ${started.url}`);
   console.log("PM must complete Google Login, review the action, then click approve or reject in the local page.");
@@ -767,12 +902,16 @@ module.exports = {
   DEFAULT_PORT,
   HOST,
   OAUTH_ATTEMPT_COOKIE,
+  PRODUCT_TASK_UPDATE_PATH,
+  PRODUCT_TASK_UPDATE_STATUS_PATH,
+  PRODUCT_TASK_UPDATE_FIELDS,
   OPERATION_LABELS,
   PAYLOAD_FIELDS,
   RunnerError,
   parseArgs,
   validatePayload,
   normalizeActionManifest,
+  normalizeProductTaskUpdateRequest,
   readActionManifest,
   renderApprovalPage,
   createRunner,

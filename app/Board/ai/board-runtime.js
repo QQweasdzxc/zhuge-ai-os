@@ -748,14 +748,13 @@
   }
   function activityMarkup(activity) {
     const rows = (Array.isArray(activity) ? activity : []).slice().sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
-    if (!rows.length) return "<div class=\"board-empty\">目前沒有可讀取的工作進度紀錄。</div>";
-    return rows.map(item => {
-      const kind = activityKind(item);
-      if (kind === "human") {
-        return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">人工工作進度 · Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p><small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small></div></article>`;
-      }
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="system" data-activity-type="${kind}"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">System Activity · ${esc(activityKindLabel(kind))}</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item))}</p><small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "Legacy")}</small></div></article>`;
-    }).join("");
+    // The adapter still reads the complete canonical activity stream so that
+    // Audit / Governance data is never discarded.  The general Task Drawer,
+    // however, is a human work-progress surface: System Activity and
+    // Workspace Move remain in the canonical source but are not rendered here.
+    const humanRows = rows.filter(item => activityKind(item) === "human");
+    if (!humanRows.length) return "<div class=\"board-empty\" data-human-progress-empty=\"true\">目前沒有人工工作進度紀錄。</div>";
+    return humanRows.map(item => `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">人工工作進度 · Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p><small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small></div></article>`).join("");
   }
   function humanNotesMarkup(task) {
     // Legacy developer notes remain canonical data, but their engineering
@@ -783,6 +782,95 @@
     const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
       .map(value => String(value || "").trim()).filter(Boolean);
     return [...new Set(parts)].join("\n\n") || "尚未補充需求內容";
+  }
+  function editableTaskFieldValue(task, field) {
+    if (field === "summary") return String(task?.summary || task?.problem || task?.objective || "");
+    if (field === "usage_scenario") return String(task?.usageScenario || "");
+    return "";
+  }
+  function editableTaskFieldMarkup(task, field, options = {}) {
+    const archiveOnly = options.readOnly === true;
+    const label = field === "summary" ? "工作內容" : "使用情境";
+    const value = editableTaskFieldValue(task, field);
+    const placeholder = field === "summary" ? "尚未補充工作內容" : "尚未補充使用情境";
+    const editButton = archiveOnly ? "" : `<button class="btn2 task-inline-edit-button" type="button" data-task-inline-edit="${field}" aria-label="編輯${label}">✏️ 編輯</button>`;
+    const editor = archiveOnly ? "" : `<div class="task-inline-editor" data-task-inline-editor="${field}" hidden><textarea data-task-inline-input="${field}" aria-label="${label}">${esc(value)}</textarea><div class="task-inline-editor-actions"><button class="btn2" type="button" data-task-inline-cancel="${field}">取消</button><button class="btn2 primary" type="button" data-task-inline-save="${field}">送出 PM 核准</button></div><small>儲存會送至既有 PM Governance Approval Runner；未經 PM 核准不會寫入 Cloud。</small></div>`;
+    return `<div class="task-inline-field" data-task-inline-field="${field}"><div class="task-inline-field-toolbar"><span class="task-inline-field-value" data-task-inline-value="${field}">${esc(value || placeholder).replace(/\n/g, "<br>")}</span>${editButton}</div>${editor}</div>`;
+  }
+  async function waitForTaskContractUpdate(task, requestId) {
+    const deadline = Date.now() + 5 * 60 * 1000;
+    const check = async () => {
+      if (Date.now() > deadline) {
+        setBanner("PM Governance Approval 尚未完成；TASK 尚未更新。請稍後從正式 Cloud 重新讀取。", "info");
+        return;
+      }
+      try {
+        const result = await service.taskContractUpdateStatus(requestId);
+        if (result.phase === "success") {
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || task;
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("工作內容已經 PM 核准並由正式 board_tasks read-back 確認。", "success");
+          return;
+        }
+        if (["failed", "rejected"].includes(result.phase)) {
+          setBanner(result.phase === "rejected" ? "PM 已拒絕這次工作內容更新；原資料未變更。" : "工作內容更新未完成；原資料未變更。", "error");
+          return;
+        }
+        window.setTimeout(check, 1200);
+      } catch {
+        window.setTimeout(check, 1600);
+      }
+    };
+    window.setTimeout(check, 600);
+  }
+  function wireTaskInlineEditors(task, archiveOnly) {
+    if (archiveOnly) return;
+    const body = document.getElementById("taskDetailBody");
+    if (!body) return;
+    body.querySelectorAll("[data-task-inline-edit]").forEach(button => {
+      button.onclick = () => {
+        const field = button.dataset.taskInlineEdit;
+        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
+        const value = body.querySelector(`[data-task-inline-value="${field}"]`);
+        if (!editor || !value) return;
+        editor.hidden = false;
+        value.hidden = true;
+        button.hidden = true;
+        editor.querySelector("textarea")?.focus();
+      };
+    });
+    body.querySelectorAll("[data-task-inline-cancel]").forEach(button => {
+      button.onclick = () => {
+        const field = button.dataset.taskInlineCancel;
+        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
+        const value = body.querySelector(`[data-task-inline-value="${field}"]`);
+        const edit = body.querySelector(`[data-task-inline-edit="${field}"]`);
+        if (editor) editor.hidden = true;
+        if (value) value.hidden = false;
+        if (edit) edit.hidden = false;
+      };
+    });
+    body.querySelectorAll("[data-task-inline-save]").forEach(button => {
+      button.onclick = async () => {
+        const field = button.dataset.taskInlineSave;
+        const input = body.querySelector(`[data-task-inline-input="${field}"]`);
+        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
+        if (!input || !editor) return;
+        const runnerUrl = root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765";
+        window.open?.(`${runnerUrl}/`, "zhuge-ai-os-governance-approval");
+        button.disabled = true;
+        try {
+          const request = await service.requestTaskContractUpdate({ taskId: task.id, [field]: input.value });
+          editor.querySelector("small").textContent = "已送出 PM Review；請在 Governance Approval 視窗核准。等待正式 read-back…";
+          setBanner("工作內容更新已送至 PM Governance Approval；PM 核准前原資料維持不變。", "info");
+          waitForTaskContractUpdate(task, request.requestId);
+        } catch (error) {
+          button.disabled = false;
+          setBanner("工作內容更新未送出：" + esc(error?.message || "PM Governance Runner 未啟動產品更新模式。"), "error");
+        }
+      };
+    });
   }
   function wireProgressNoteComposer(task, archiveOnly) {
     if (archiveOnly) return;
@@ -830,8 +918,8 @@
       archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
     ].filter(Boolean);
     const sections = [
-      { id: "requirements", title: "工作內容", className: "task-detail-section task-detail-requirement", html: `<p>${esc(requirementContent(task)).replace(/\n/g, "<br>")}</p>` },
-      { id: "usage", title: "使用情境", className: "task-detail-section", html: `<p>${esc(task.usageScenario || "尚未補充使用情境")}</p>` },
+      { id: "requirements", title: "工作內容", className: "task-detail-section task-detail-requirement", html: editableTaskFieldMarkup(task, "summary", { readOnly: archiveOnly }) },
+      { id: "usage", title: "使用情境", className: "task-detail-section", html: editableTaskFieldMarkup(task, "usage_scenario", { readOnly: archiveOnly }) },
       { id: "task-checklist", title: "☑️ Task Checklist", hint: "Shared Checklist（有正式資料時顯示）", className: "task-checklist-section", hidden: true, html: `<div id="taskChecklistRows"></div>` },
       { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` },
       { id: "attachments", title: "📎 附件", hint: "有正式附件／交付物時顯示", className: "task-attachments-section", hidden: true, html: `<div id="taskAttachments"></div>` }
@@ -845,7 +933,7 @@
         readOnly: archiveOnly,
         activity: {
           title: "💬 工作進度紀錄",
-          hint: "人工備註＋System Activity",
+          hint: "只顯示人工工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
           composerHtml: progressNoteComposerMarkup(archiveOnly),
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
@@ -889,6 +977,7 @@
         humanNotesZone.hidden = !humanNotes;
       }
       document.getElementById("taskActivityList").innerHTML = activityMarkup(activity);
+      wireTaskInlineEditors(task, archiveOnly);
       wireProgressNoteComposer(task, archiveOnly);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
