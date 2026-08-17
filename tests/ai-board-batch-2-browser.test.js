@@ -54,6 +54,12 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /退回修改/);
   assert.match(output, /engineering-records-audit/);
   assert.match(output, /⚙️ 工程紀錄/);
+  assert.match(output, /data-shared-task-properties/);
+  assert.match(output, /目前狀態/);
+  assert.match(output, /工作內容/);
+  assert.match(output, /📎 附件與交付物/);
+  assert.match(output, /shared-task-attachment-list/);
+  assert.match(output, /data-shared-task-timeline/);
   assert.match(output, /Engineering Evidence Detail/);
   assert.match(output, /Artifact \/ Build/);
   assert.match(output, /Co 開發驗證/);

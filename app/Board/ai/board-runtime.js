@@ -25,6 +25,19 @@
   function statusLabel(status) {
     return service.statusDescriptorFor?.(status)?.label || "未知工程狀態";
   }
+  function readableWorkStatus(task) {
+    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
+    const assignee = String(task?.assignee || "").trim().toUpperCase();
+    if (status === "ready") return "待開始";
+    if (status === "inprogress") return "進行中";
+    if (status === "qa" && assignee === "GPT") return "等待工程審查";
+    if (status === "qa" && assignee === "QJC") return "等待 PM 驗收";
+    if (status === "qa") return "等待驗證";
+    if (status === "done") return "已完成";
+    if (status === "merged") return "已合併（封存）";
+    if (status === "cancelled") return "已取消（封存）";
+    return statusLabel(status);
+  }
   function workspaceLabel(task) {
     return String(task?.workspaceName || task?.workspaceKey || "未分類工作區");
   }
@@ -782,6 +795,12 @@
     if (!rows.length) return "<div class=\"board-empty\">目前沒有可由此 TASK 解析的正式 Artifact／交付物；未建立平行附件來源。</div>";
     return rows.map(item => `<article class="task-artifact-row"><div><strong>${esc(item.filename || item.artifactId)}</strong><small>${esc(item.artifactType || "Artifact")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></div><span>${esc(item.qaStatus || "QA 狀態未提供")}</span><small>PM Acceptance：${esc(item.pmAcceptanceStatus || "未提供")} · SHA-256：${esc(item.sha256 || "未提供")}</small></article>`).join("");
   }
+  function attachmentMarkup(artifacts, error) {
+    if (error) return `<div class="task-read-warning">附件讀取失敗：${esc(error.message || "未知錯誤")}。未建立第二套附件來源。</div>`;
+    const rows = Array.isArray(artifacts) ? artifacts : [];
+    if (!rows.length) return "";
+    return `<div class="shared-task-attachment-list">${rows.map(item => `<article class="shared-task-attachment"><span class="shared-task-attachment-icon" aria-hidden="true">📎</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名附件")}</strong><small>${esc(item.artifactType || "Artifact")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("")}</div>`;
+  }
   function rawActivityMarkup(activity, error) {
     if (error) return `<div class="task-read-warning">Audit Trail 讀取失敗：${esc(error.message || "未知錯誤")}。</div>`;
     const rows = Array.isArray(activity) ? activity : [];
@@ -887,31 +906,33 @@
     state.engineeringRecords = { taskId: state.activeTaskId, html: "<div class=\"board-empty\">工程紀錄讀取中…</div>" };
     const drawer = root.ZhugeSharedTaskDrawer;
     const title = `${task.workCode || "TASK"}｜${task.title || "未命名 TASK"}`;
-    const meta = [
-      { label: "工作區", value: workspaceLabel(task) },
-      { label: "工程狀態", value: statusLabel(task.status) },
-      priorityLabel(task.priority) ? { label: "優先級", value: priorityLabel(task.priority) } : null,
-      archiveOnly ? { label: "模式", value: "📦 封存（唯讀）" } : null,
-      { label: "負責人", value: assigneeLabel(task.assignee) }
+    const properties = [
+      { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
+      { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
+      { key: "assignee", icon: "👤", label: "負責人", value: String(task.assignee || "").trim() || "尚未指派" },
+      priorityLabel(task.priority) ? { key: "priority", icon: "⚑", label: "優先度", value: priorityLabel(task.priority) } : null,
+      archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
     ].filter(Boolean);
     const sections = [
-      { id: "requirements", title: "需求內容", className: "task-detail-section task-detail-requirement", html: `<p>${esc(requirementContent(task)).replace(/\n/g, "<br>")}</p>` },
+      { id: "requirements", title: "工作內容", className: "task-detail-section task-detail-requirement", html: `<p>${esc(requirementContent(task)).replace(/\n/g, "<br>")}</p>` },
       { id: "usage", title: "使用情境", className: "task-detail-section", html: `<p>${esc(task.usageScenario || "尚未補充使用情境")}</p>` },
       { id: "next-step", title: "下一步", className: "task-detail-section task-next-step", html: `<p>${esc(nextStepLabel(task))}</p>` },
       { id: "task-checklist", title: "☑️ Task Checklist", hint: "Shared Checklist（有正式資料時顯示）", className: "task-checklist-section", hidden: true, html: `<div id="taskChecklistRows"></div>` },
-      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
+      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` },
+      { id: "attachments", title: "📎 附件與交付物", hint: "正式來源（有資料時顯示）", className: "task-attachments-section", hidden: true, html: `<div id="taskAttachments"></div>` }
     ];
     if (drawer?.render) {
       body.innerHTML = drawer.render({
         title,
         subtitle: archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer",
-        meta,
+        properties,
         sections,
         readOnly: archiveOnly,
         activity: {
           title: "💬 工作進度紀錄",
           hint: "人工備註＋System Activity",
-          notesHtml: `${progressNoteComposerMarkup(archiveOnly)}<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
+          composerHtml: progressNoteComposerMarkup(archiveOnly),
+          notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
         footerHtml: taskMoreMarkup(task, archiveOnly)
@@ -944,6 +965,11 @@
       const activity = activityResult.status === "fulfilled" ? activityResult.value : [];
       const movements = movementResult.status === "fulfilled" ? movementResult.value : [];
       const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
+      const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
+      const attachmentZone = document.getElementById("taskAttachments");
+      const attachmentHtml = attachmentMarkup(artifacts, artifactResult.status === "rejected" ? artifactResult.reason : null);
+      if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
+      if (attachmentSection) attachmentSection.hidden = !attachmentHtml;
       state.engineeringRecords = {
         taskId: state.activeTaskId,
         html: engineeringRecordsMarkup(task, items, activity, movements, artifacts, {

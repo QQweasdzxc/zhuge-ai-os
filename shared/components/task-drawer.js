@@ -24,13 +24,15 @@
     return value == null || value === "" ? `<div class="shared-task-drawer-empty">${escapeHtml(emptyText || "尚未提供內容")}</div>` : String(value);
   }
 
-  function renderMeta(meta) {
-    const rows = Array.isArray(meta) ? meta : [];
+  function renderProperties(properties) {
+    const rows = Array.isArray(properties) ? properties.filter(item => item && (item.label || item.value)) : [];
     if (!rows.length) return "";
-    return `<div class="shared-task-drawer-meta">${rows.map(item => {
-      const label = escapeHtml(item?.label || "");
-      const value = escapeHtml(item?.value || "");
-      return `<span class="shared-task-drawer-meta-item"><b>${label}</b><span>${value}</span></span>`;
+    return `<div class="shared-task-drawer-properties" data-shared-task-properties role="list">${rows.map(item => {
+      const icon = item.icon ? `<span class="shared-task-drawer-property-icon" aria-hidden="true">${escapeHtml(item.icon)}</span>` : "";
+      const label = escapeHtml(item.label || "");
+      const value = escapeHtml(item.value || "—");
+      const key = escapeHtml(item.key || item.label || "property");
+      return `<div class="shared-task-drawer-property" data-task-property="${key}" role="listitem">${icon}<span class="shared-task-drawer-property-copy"><span class="shared-task-drawer-property-label">${label}</span><strong class="shared-task-drawer-property-value">${value}</strong></span></div>`;
     }).join("")}</div>`;
   }
 
@@ -54,18 +56,20 @@
     const activity = config.activity || {};
     const activityTitle = escapeHtml(activity.title || "💬 工作進度紀錄");
     const activityHint = escapeHtml(activity.hint || "人工備註＋System Activity");
+    const activityComposer = activity.composerHtml ? String(activity.composerHtml) : "";
     const activityNotes = asMarkup(activity.notesHtml, "目前沒有人工工作進度紀錄。");
     const activityRows = asMarkup(activity.html, "目前沒有可讀取的 System Activity。");
     const footer = config.footerHtml ? `<footer class="shared-task-drawer-footer">${config.footerHtml}</footer>` : "";
     const readOnly = config.readOnly === true ? " data-read-only=\"true\"" : "";
-    return `<div class="shared-task-drawer" data-shared-task-drawer${readOnly}>
+    const properties = Array.isArray(config.properties) ? config.properties : config.meta;
+    return `<div class="shared-task-drawer" data-shared-task-drawer data-shared-task-framework="v1"${readOnly}>
       <div class="shared-task-drawer-backdrop" data-shared-task-drawer-close aria-hidden="true"></div>
       <aside class="shared-task-drawer-panel" role="dialog" aria-modal="true" aria-label="${title}">
-        <header class="shared-task-drawer-header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><h2 id="taskDetailTitle">${title}</h2></div><button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></header>
-        <div class="shared-task-drawer-meta-wrap">${renderMeta(config.meta)}</div>
+        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><h2 id="taskDetailTitle" data-shared-task-title>${title}</h2></div><button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></header>
+        <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
         <div class="shared-task-drawer-grid">
-          <main class="shared-task-drawer-content">${sections.map(renderSection).join("")}</main>
-          <aside class="shared-task-drawer-activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div><div class="shared-task-drawer-activity-notes">${activityNotes}</div><div class="shared-task-drawer-activity-list">${activityRows}</div></aside>
+          <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
+          <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div><div class="shared-task-drawer-activity-notes">${activityComposer}${activityNotes}</div><div class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div></aside>
         </div>
         ${footer}
       </aside>
@@ -82,5 +86,5 @@
     return root;
   }
 
-  return Object.freeze({ escapeHtml, render, mount });
+  return Object.freeze({ escapeHtml, renderProperties, render, mount });
 });
