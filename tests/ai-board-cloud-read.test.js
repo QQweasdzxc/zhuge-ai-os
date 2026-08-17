@@ -274,7 +274,11 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
 
 test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in existing boundaries", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(runtime, /工程驗證狀態/);
+  assert.doesNotMatch(runtime, /工程驗證狀態/);
+  assert.match(runtime, /⚠️ 需要你的確認/);
+  assert.match(runtime, /isPmTurn/);
+  assert.match(runtime, /data-pm-accept/);
+  assert.match(runtime, /data-pm-reject/);
   assert.match(runtime, /Task Checklist/);
   assert.match(runtime, /data-progress-note-write="available"/);
   assert.match(runtime, /Human Progress Note/);
@@ -284,8 +288,9 @@ test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in ex
   assert.doesNotMatch(runtime, /items\.length \? items\.map\(item => checklistMarkup/);
   assert.doesNotMatch(runtime, /Checklist／Evidence 原始資料/);
   assert.match(runtime, /💬 工作進度紀錄/);
-  assert.match(runtime, /📎 附件與交付物/);
-  assert.match(runtime, /⚙️ 工程詳細資料/);
+  assert.match(runtime, /Artifact \/ Build/);
+  assert.doesNotMatch(runtime, /⚙️ 工程詳細資料/);
+  assert.match(runtime, /⚙️ 工程紀錄/);
   assert.match(runtime, /⋯ 更多/);
   assert.match(runtime, /loadActivity/);
   assert.match(runtime, /loadArtifacts/);
@@ -317,8 +322,10 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(runtime, /\.(insert|update|delete)\s*\(/);
   assert.doesNotMatch(runtime, /board_tasks.*(?:INSERT|UPDATE|DELETE)/i);
   assert.match(runtime, /usageScenario/);
-  assert.match(runtime, /工程驗證狀態/);
-  assert.match(runtime, /⚙️ 工程詳細資料/);
+  assert.doesNotMatch(runtime, /工程驗證狀態/);
+  assert.match(runtime, /⚠️ 需要你的確認/);
+  assert.match(runtime, /data-engineering-records/);
+  assert.match(runtime, /⚙️ 工程紀錄/);
   assert.match(index, /id="boardSearch"/);
   assert.match(index, /id="taskUsageScenario"/);
   assert.match(index, /新增工作區/);
@@ -326,24 +333,29 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(index, /Interactive Prototype v0\.9/);
 });
 
-test("AI Board Task Drawer uses shared presentation with a single PM Acceptance action", () => {
+test("AI Board Task Drawer uses Need-to-Act presentation and progressive engineering disclosure", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const index = read("app/Board/ai/index.html");
   assert.match(index, /shared\/components\/task-drawer\.js/);
   assert.match(index, /shared\/theme\/task-drawer\.css/);
   assert.match(runtime, /ZhugeSharedTaskDrawer/);
   assert.match(runtime, /shared-task-drawer/);
-  assert.match(runtime, /allowAcceptanceAction/);
-  assert.match(runtime, /PM 驗收通過/);
-  assert.match(runtime, /engineeringEvidenceSummaryMarkup/);
-  assert.match(runtime, /engineeringVerificationStatusMarkup/);
+  assert.match(runtime, /isPmTurn/);
+  assert.match(runtime, /data-pm-accept/);
+  assert.match(runtime, /data-pm-reject/);
+  assert.match(runtime, /🙋 需要你的操作/);
+  assert.match(runtime, /⚠️ 需要你的確認/);
+  assert.doesNotMatch(runtime, /engineeringEvidenceSummaryMarkup/);
+  assert.doesNotMatch(runtime, /engineeringVerificationStatusMarkup/);
   assert.match(runtime, /Acceptance Criteria/);
-  assert.match(runtime, /pm-acceptance-readiness/);
-  assert.match(runtime, /data-engineering-verification-ready/);
   assert.match(runtime, /pmAcceptanceMarkup/);
   assert.match(runtime, /progressNoteComposerMarkup/);
   assert.match(runtime, /activityKindLabel/);
   assert.doesNotMatch(runtime, /QJC 驗收通過/);
+  assert.match(runtime, /taskEngineeringRecordsModal/);
+  assert.match(runtime, /engineeringRecordsMarkup/);
+  assert.match(runtime, /taskMoreMarkup/);
+  assert.match(runtime, /openEngineeringRecords/);
   assert.match(runtime, /rawActivityMarkup/);
   assert.match(runtime, /rawMovementMarkup/);
   assert.match(runtime, /人工工作進度 · Human Progress Note/);

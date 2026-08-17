@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Zhuge AI OS｜AI Board</title>
-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260817-1101">
-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260817-1101">
-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260817-1101">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260817-1205">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260817-1205">
+<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260817-1205">
 <style>
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
@@ -60,6 +60,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 .creator-mfa-settings-card{max-width:860px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:18px}.creator-mfa-settings-list{display:grid;gap:10px}.creator-mfa-row{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:16px}.creator-mfa-row>div{display:grid;gap:6px}.creator-mfa-status{font-size:12px;color:var(--muted)}.creator-mfa-status.is-off{color:#f6c85f}.creator-mfa-switch{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;cursor:pointer}.creator-mfa-switch input{position:absolute;opacity:0;pointer-events:none}.creator-mfa-switch-track{display:block;width:46px;height:26px;border-radius:999px;background:#3b4656;box-shadow:inset 0 0 0 1px #5c6878;transition:background .18s ease}.creator-mfa-switch-track:after{content:"";display:block;width:20px;height:20px;margin:3px;border-radius:50%;background:#f7fafc;transition:transform .18s ease}.creator-mfa-switch input:checked+.creator-mfa-switch-track{background:#2d8a68;box-shadow:inset 0 0 0 1px #5dd4a0}.creator-mfa-switch input:checked+.creator-mfa-switch-track:after{transform:translateX(20px)}.creator-mfa-switch input:focus-visible+.creator-mfa-switch-track{outline:2px solid var(--blue);outline-offset:3px}.creator-mfa-settings-note{margin:14px 0 0;color:var(--muted);font-size:12px;line-height:1.6}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .task-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.task-section-heading h3{margin:0;font-size:14px;color:#b9c9df}.task-section-heading>span{color:#8ea2bf;font-size:11px;text-align:right}.task-summary-section,.task-progress-section,.task-deliverables-section{border-top:1px solid #293241;margin-top:16px;padding-top:14px}.task-summary-check{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:11px 12px;margin:8px 0;border:1px solid #293241;border-radius:9px;background:#111820}.task-summary-check>div{min-width:0}.task-summary-check strong{display:block;font-size:12px}.task-summary-check small{display:block;color:#8493a7;font-size:11px;line-height:1.4;margin-top:4px}.task-summary-check>span{font-size:11px;border-radius:999px;padding:4px 8px;white-space:nowrap}.task-summary-check em{grid-column:1/-1;color:#718096;font-style:normal;font-size:10px;line-height:1.35}.task-summary-pass{border-color:#285b45}.task-summary-pass>span{background:#173b2c;color:#80e0ad}.task-summary-fail{border-color:#70404a}.task-summary-fail>span{background:#3d2028;color:#ff9a9d}.task-summary-partial,.task-summary-pending{border-color:#66542b}.task-summary-partial>span,.task-summary-pending>span{background:#3b321e;color:#e7c76d}.task-summary-missing{border-style:dashed}.task-summary-missing>span{background:#232d3b;color:#aeb8c5}.task-human-note{border-left:3px solid #4d8dff;background:#111820;border-radius:0 8px 8px 0;padding:9px 11px;margin:8px 0}.task-human-note strong{font-size:11px;color:#bcd3f8}.task-human-note p{font-size:12px;line-height:1.5;margin:5px 0;color:#d8e0ea}.task-human-note small,.task-artifact-row small{color:#8493a7;font-size:10px}.task-activity-list{position:relative;margin-top:10px;padding-left:8px}.task-activity-list:before{content:"";position:absolute;left:12px;top:6px;bottom:6px;width:1px;background:#344052}.task-activity-row{position:relative;display:grid;grid-template-columns:14px minmax(0,1fr);gap:9px;padding:8px 0}.task-activity-dot{width:9px;height:9px;margin-top:5px;border-radius:50%;background:#4d8dff;box-shadow:0 0 0 3px #18263b;z-index:1}.task-activity-row strong{font-size:12px}.task-activity-row p{font-size:11px;line-height:1.45;color:#c9d3df;margin:3px 0}.task-activity-row small{font-size:10px;color:#8493a7}.task-artifact-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;border:1px solid #293241;border-radius:9px;background:#111820;padding:10px;margin:8px 0}.task-artifact-row strong{display:block;font-size:12px;overflow-wrap:anywhere}.task-artifact-row span{font-size:10px;color:#80e0ad;white-space:nowrap}.task-artifact-row>small{grid-column:1/-1;overflow-wrap:anywhere}.task-engineering-details{border-top:1px solid #293241;margin-top:16px;padding-top:14px}.task-engineering-details>summary,.task-more-menu>summary{cursor:pointer;color:#bcd3f8;font-size:13px;font-weight:700;list-style:none}.task-engineering-details>summary::-webkit-details-marker,.task-more-menu>summary::-webkit-details-marker{display:none}.task-engineering-details>summary:before,.task-more-menu>summary:before{content:"＋";display:inline-block;width:18px;color:#718096}.task-engineering-details[open]>summary:before,.task-more-menu[open]>summary:before{content:"−"}.task-engineering-section{border-top:1px solid #293241;margin-top:14px;padding-top:12px}.task-engineering-section h4{font-size:12px;color:#aebbd0;margin:0 0 8px}.task-more-menu{border-top:1px solid #293241;margin-top:16px;padding-top:14px}.task-more-body{padding:9px 0 0}.task-more-body p{font-size:11px;line-height:1.5;color:#9fb0c5;margin:0 0 10px}.task-raw-row{display:grid;grid-template-columns:minmax(120px,auto) minmax(0,1fr);gap:4px 8px;border-bottom:1px solid #202938;padding:8px 0}.task-raw-row code{color:#9bb7dc;font-size:10px;overflow-wrap:anywhere}.task-raw-row span,.task-raw-row small{font-size:10px;color:#8493a7}.task-raw-row small{grid-column:1/-1}.task-read-warning{border:1px solid #70404a;background:#2a1b23;color:#ffb0b3;border-radius:8px;padding:9px;font-size:11px;line-height:1.5}.governance-actions .btn{white-space:normal}
 @media(max-width:767px){.board-task-modal{max-height:92svh}.task-section-heading{align-items:flex-start;flex-direction:column;gap:5px}.task-section-heading>span{text-align:left}.task-summary-check{grid-template-columns:minmax(0,1fr)}.task-summary-check>span{justify-self:start}.task-artifact-row{grid-template-columns:1fr}.task-artifact-row span{justify-self:start}.task-raw-row{grid-template-columns:1fr}.task-raw-row small{grid-column:auto}}
+.task-engineering-records-modal{z-index:75}.task-engineering-records-modal-panel{width:min(900px,100%);max-height:min(88vh,880px);overflow:auto}.engineering-records-context{display:grid;gap:5px;border:1px solid #38536f;border-radius:9px;background:#111d2d;padding:11px;margin-bottom:12px}.engineering-records-context strong{font-size:13px;color:#dcecff}.engineering-records-context span{font-size:11px;line-height:1.45;color:#9fb2ca}.pm-attention-panel{display:grid;gap:8px;border:1px solid #805d2d;border-radius:10px;background:#2a2518;padding:12px}.pm-attention-panel>strong{color:#f0d17a;font-size:13px}.pm-attention-panel ul{display:grid;gap:5px;margin:0;padding-left:20px;color:#e8dcb8;font-size:11px;line-height:1.5}.pm-acceptance-context{display:grid;gap:4px;border:1px solid #385b82;border-radius:9px;background:#111d2d;padding:10px;margin-bottom:10px}.pm-acceptance-context strong{color:#dcecff;font-size:13px}.pm-acceptance-context span{color:#9fb2ca;font-size:11px;line-height:1.45}
 </style>
 <link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20260811-workspace-2">
 </head>
@@ -128,34 +129,34 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  </div>
 </aside>
 
-<script src="../../../shared/config/version.js?v=20260817-1101"></script>
-<script src="../../../shared/components/zhuge-navigation.js?v=20260817-1101"></script>
-<script src="../../../shared/components/zhuge-shell.js?v=20260817-1101"></script>
-<script src="../../../shared/components/task-drawer.js?v=20260817-1101"></script>
+<script src="../../../shared/config/version.js?v=20260817-1205"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260817-1205"></script>
+<script src="../../../shared/components/zhuge-shell.js?v=20260817-1205"></script>
+<script src="../../../shared/components/task-drawer.js?v=20260817-1205"></script>
 <script src="../../../shared/theme/zhuge-appearance.js?v=20260811-workspace-1"></script>
-<script src="../../../shared/app-config.js?v=20260817-1101"></script>
-<script src="../../../shared/utils/shared-utils.js?v=20260817-1101"></script>
-<script src="../../../shared/storage/storage-migration.js?v=20260817-1101"></script>
-<script src="../../../shared/api/data-result.js?v=20260817-1101"></script>
-<script src="../../../shared/identity/identity-health.js?v=20260817-1101"></script>
-<script src="../../../shared/auth/session-lifecycle.js?v=20260817-1101"></script>
-<script src="../../../shared/core/repository-bootstrap.js?v=20260817-1101"></script>
-<script src="../../../shared/api/sync-queue.js?v=20260817-1101"></script>
-<script src="../../../shared/foundation/index.js?v=20260817-1101"></script>
-<script src="../../../shared/app-state.js?v=20260817-1101"></script>
-<script src="../../../shared/auth/auth-service.js?v=20260817-1101"></script>
-<script src="../../../shared/identity/identity-service.js?v=20260817-1101"></script>
-<script src="../../../shared/supabase/supabase-gateway.js?v=20260817-1101"></script>
+<script src="../../../shared/app-config.js?v=20260817-1205"></script>
+<script src="../../../shared/utils/shared-utils.js?v=20260817-1205"></script>
+<script src="../../../shared/storage/storage-migration.js?v=20260817-1205"></script>
+<script src="../../../shared/api/data-result.js?v=20260817-1205"></script>
+<script src="../../../shared/identity/identity-health.js?v=20260817-1205"></script>
+<script src="../../../shared/auth/session-lifecycle.js?v=20260817-1205"></script>
+<script src="../../../shared/core/repository-bootstrap.js?v=20260817-1205"></script>
+<script src="../../../shared/api/sync-queue.js?v=20260817-1205"></script>
+<script src="../../../shared/foundation/index.js?v=20260817-1205"></script>
+<script src="../../../shared/app-state.js?v=20260817-1205"></script>
+<script src="../../../shared/auth/auth-service.js?v=20260817-1205"></script>
+<script src="../../../shared/identity/identity-service.js?v=20260817-1205"></script>
+<script src="../../../shared/supabase/supabase-gateway.js?v=20260817-1205"></script>
  <script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20260814-engineering-memory"></script>
- <script src="../../../shared/auth/session-service.js?v=20260817-1101"></script>
+ <script src="../../../shared/auth/session-service.js?v=20260817-1205"></script>
  <script src="../../../shared/identity/creator-resolver.js?v=20260814-creator-mfa"></script>
-<script src="../../../shared/security/permission-service.js?v=20260817-1101"></script>
+<script src="../../../shared/security/permission-service.js?v=20260817-1205"></script>
  <script src="../../../shared/security/mfa-service.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/security/security-gate.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/module-context.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/shared-platform.js?v=20260814-creator-mfa"></script>
-<script src="../../../shared/security/platform-policy.js?v=20260817-1101"></script>
+ <script src="../../../shared/security/platform-policy.js?v=20260817-1205"></script>
  <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260817-1101"></script>
- <script src="./board-runtime.js?v=20260817-1101"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260817-1205"></script>
+ <script src="./board-runtime.js?v=20260817-1205"></script>
 </body></html>

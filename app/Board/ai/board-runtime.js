@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "" };
+  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", engineeringRecords: null };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -537,8 +537,10 @@
       if (event.target.matches?.("[data-shared-task-drawer-close]")) {
         modal.style.display = "none";
         state.activeTaskId = "";
+        closeEngineeringRecords();
       }
     });
+    ensureEngineeringRecordsModal();
   }
   function ensureHealthModal() {
     if (document.getElementById("healthCheckModal")) return;
@@ -625,12 +627,6 @@
       return `<div class="shared-task-checklist-item"><span aria-hidden="true">${mark}</span><strong>${esc(item.label || "未命名項目")}</strong><small>${esc(stateLabels[item.state] || item.state || "待驗")}</small></div>`;
     }).join("")}<small class="shared-task-checklist-note">Task Checklist 是獨立的共用 UX；目前只呈現正式標示為 Task Checklist 的資料。</small></div>`;
   }
-  function evidenceSummaryStatus(status) {
-    if (status.tone === "pass") return "✓";
-    if (status.tone === "fail") return "需修正";
-    return "待驗";
-  }
-
   function isRegressionEvidence(item) {
     const identity = `${item?.checklistType || ""} ${item?.itemKey || ""} ${item?.label || ""} ${item?.evidenceNote || ""} ${item?.evidenceRef || ""}`.toLowerCase();
     return String(item?.checklistType || "").toLowerCase() === "batch_regression"
@@ -656,34 +652,6 @@
     });
   }
 
-  function engineeringVerificationStatusMarkup(task, items) {
-    const verification = engineeringVerificationState(items);
-    const current = `${statusLabel(task?.status)} · ${assigneeLabel(task?.assignee)}`;
-    const completed = verification.completed.length ? verification.completed.map(entry => entry.label).join("、") : "尚無";
-    const pending = verification.incomplete.length ? verification.incomplete.map(entry => entry.label).join("、") : "無";
-    const blocker = verification.failed.length
-      ? `目前卡在：${verification.failed.map(entry => `${entry.label}需要修正`).join("、")}。`
-      : verification.ready
-        ? "目前卡住：無。"
-        : `目前卡在：${pending}尚未具備完整 Evidence。`;
-    const readiness = verification.ready
-      ? "工程驗證完成，可以進行 PM 驗收。"
-      : "工程驗證進行中，目前不需要 PM 操作。";
-    return `<div class="engineering-verification-status" data-engineering-verification-ready="${verification.ready ? "true" : "false"}">
-      <div class="engineering-verification-overview"><strong>${readiness}</strong><span>目前做到哪裡：${esc(current)}</span></div>
-      <div class="engineering-verification-facts"><div><small>已完成</small><b>${esc(completed)}</b></div><div><small>待完成</small><b>${esc(pending)}</b></div><div><small>阻塞</small><b>${esc(blocker)}</b></div><div><small>下一步</small><b>${esc(nextStepLabel(task))}</b></div></div>
-      <div class="engineering-verification-summary-list">${engineeringEvidenceSummaryMarkup(items)}</div>
-    </div>`;
-  }
-
-  function engineeringEvidenceSummaryMarkup(items) {
-    const groups = engineeringVerificationState(items).groups;
-    return groups.map(entry => {
-      const status = entry.status;
-      return `<div class="task-summary-check task-summary-${status.tone}" data-evidence-summary="${esc(entry.label)}"><div><strong>${entry.label}</strong><small>Status：${esc(status.label)} · ${esc(status.detail)}</small></div><span>${evidenceSummaryStatus(status)}</span></div>`;
-    }).join("");
-  }
-
   function acceptanceCriteriaItems(task) {
     const raw = String(task?.acceptanceCriteria || "").trim();
     if (!raw) return [];
@@ -696,36 +664,34 @@
     return `<div class="pm-acceptance-criteria"><strong>PM Acceptance Criteria（PM 實際要驗證）</strong><ol>${criteria.map(item => `<li>${esc(item)}</li>`).join("")}</ol></div>`;
   }
 
+  function isPmTurn(task) {
+    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
+    return status === "qa" && String(task?.assignee || "").trim().toUpperCase() === "QJC";
+  }
+
+  function pmAttentionMarkup(item, task, verification, reason) {
+    const failed = verification?.failed || [];
+    const failureSummary = failed.map(entry => entry.label).join("、");
+    const action = item
+      ? `<div class="pm-acceptance-support"><button class="btn checklist-fail-btn" data-pm-reject="${esc(item.id)}">退回修改</button></div>`
+      : "";
+    return `<div class="pm-attention-panel" data-pm-attention="true"><strong>⚠️ 需要你的確認</strong><ul><li>發生什麼事：${esc(reason || (failureSummary ? `${failureSummary} 有未通過的正式紀錄。` : "PM 驗收資料尚未完整。"))}</li><li>為什麼需要 PM：目前工程工作已經交到 QJC，需要決定是否退回修正或補正正式驗收資料。</li><li>PM 要決定什麼：${item ? "確認退回修改；完成修正後再重新驗收。" : "先補正正式 Acceptance Criteria／Acceptance Record，暫不進行盲目驗收。"}</li></ul>${action}</div>`;
+  }
+
   function pmAcceptanceMarkup(item, archiveOnly, task, verification) {
+    if (archiveOnly || !isPmTurn(task)) return "";
     const criteria = acceptanceCriteriaItems(task);
-    const engineeringReady = verification?.ready === true;
-    const canAct = Boolean(item && criteria.length && engineeringReady && !archiveOnly);
-    const readiness = criteria.length === 0
-      ? "等待正式 Acceptance Criteria"
-      : !engineeringReady
-        ? "等待工程驗證完成"
-        : !item
-          ? "正式 PM Acceptance 尚未建立"
-          : item.state === "pass" ? "PM 已完成驗收" : "可以進行 PM 驗收";
-    const readinessItems = [
-      { label: "Acceptance Criteria", value: criteria.length ? "已提供" : "待補充" },
-      { label: "工程驗證", value: engineeringReady ? "已完成" : "尚未完成" },
-      { label: "PM Acceptance", value: readiness }
-    ];
-    const readinessMarkup = `<div class="pm-acceptance-readiness">${readinessItems.map(row => `<div><small>${esc(row.label)}</small><strong>${esc(row.value)}</strong></div>`).join("")}</div>`;
-    const criteriaMarkup = acceptanceCriteriaMarkup(task);
-    if (!item) return `<div class="pm-acceptance-panel">${criteriaMarkup}${readinessMarkup}<div class="pm-acceptance-unavailable">正式 PM Acceptance 尚未建立；不建立平行控制項。</div></div>`;
-    const checked = item.state === "pass" ? " checked" : "";
+    if (verification?.failed?.length) return pmAttentionMarkup(item, task, verification);
+    if (!verification?.ready) return "";
+    if (!item || !criteria.length) {
+      return pmAttentionMarkup(item, task, verification, !item
+        ? "正式 PM Acceptance Record 尚未建立。"
+        : "這張 TASK 尚未提供正式 Acceptance Criteria。"
+      );
+    }
+    if (item.state === "pass") return "";
     const state = stateLabels[item.state] || item.state || "尚未驗證";
-    if (archiveOnly) return `<div class="pm-acceptance-panel">${criteriaMarkup}${readinessMarkup}<div class="pm-acceptance-readonly"><strong>${item.state === "pass" ? "☑" : "☐"} PM 驗收通過</strong><span>${esc(state)}</span><small>封存資料僅供查閱；不可 Restore／Reopen 或修改。</small></div></div>`;
-    const disabled = canAct ? "" : " disabled";
-    const actionHint = !criteria.length
-      ? "未提供正式 Acceptance Criteria，PM Acceptance 保持不可操作。"
-      : !engineeringReady
-        ? "工程驗證尚未完成；目前不需要 PM 操作。"
-        : "請先依上列 Acceptance Criteria 完成實機驗證。";
-    const support = canAct ? `<div class="pm-acceptance-support"><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button></div>` : `<small class="pm-acceptance-action-hint">${esc(actionHint)}</small>`;
-    return `<div class="pm-acceptance-panel">${criteriaMarkup}${readinessMarkup}<div class="pm-acceptance-action${canAct ? "" : " is-disabled"}" data-pm-acceptance-id="${esc(item.id)}"><label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}${disabled}><span>${item.state === "pass" ? "☑" : "☐"} PM 驗收通過</span></label><span class="pm-acceptance-state">目前狀態：${esc(state)}</span>${support}</div></div>`;
+    return `<div class="pm-acceptance-panel" data-pm-action="acceptance"><div class="pm-acceptance-context"><strong>現在需要你操作 PM QA</strong><span>工程驗證已完成；請依下列項目完成實機驗證，再做最後決定。</span></div>${acceptanceCriteriaMarkup(task)}<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><span class="pm-acceptance-state">目前 Acceptance 狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn primary" type="button" data-pm-accept="${esc(item.id)}">驗收通過</button><button class="btn" type="button" data-pm-reject="${esc(item.id)}">退回修改</button></div></div></div>`;
   }
   function activityActionLabel(item) {
     if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度紀錄";
@@ -826,6 +792,45 @@
     const rows = Array.isArray(movements) ? movements : [];
     return rows.length ? rows.map(item => `<div class="workspace-movement-row"><strong>${esc(dateLabel(item.timestamp) || "時間未提供")}</strong><span>${esc(item.fromWorkspace || "未知")}${item.toWorkspace ? " → " + esc(item.toWorkspace) : ""}</span><small>Actor: ${esc(item.actor || "未知")}${item.note ? " · " + esc(item.note) : ""}</small></div>`).join("") : "<div class=\"board-empty\">尚無工作區移動紀錄。</div>";
   }
+  function engineeringRecordsMarkup(task, items, activity, movements, artifacts, errors = {}) {
+    return `<div class="engineering-records-context"><strong>${esc(task?.workCode || task?.id || "TASK")}｜${esc(task?.title || "未命名 TASK")}</strong><span>Canonical Engineering Evidence、Artifact 與 Audit 唯讀查閱；不提供第二套 Workflow 或 Acceptance 操作。</span></div><section class="task-engineering-section"><h4>Engineering Evidence Detail</h4><p class="engineering-evidence-detail-intro">只提供 Evidence Type、Status、Actor、Timestamp、Result、Reference 與 Artifact／Build。</p>${engineeringEvidenceDetailMarkup(items, artifacts)}</section><section class="task-engineering-section"><h4>Artifact / Build</h4><div class="task-artifacts">${artifactMarkup(artifacts, errors.artifact)}</div></section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, errors.activity)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, errors.movement)}</div></section>`;
+  }
+  function ensureEngineeringRecordsModal() {
+    if (document.getElementById("taskEngineeringRecordsModal")) return;
+    const modal = document.createElement("div");
+    modal.id = "taskEngineeringRecordsModal";
+    modal.className = "modalback task-engineering-records-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = "<div class=\"modal task-engineering-records-modal-panel\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"taskEngineeringRecordsTitle\"><div class=\"modalhead\"><h2 id=\"taskEngineeringRecordsTitle\">⚙️ 工程紀錄</h2><button class=\"x\" type=\"button\" data-engineering-records-close aria-label=\"關閉工程紀錄\">×</button></div><div class=\"modalbody\" id=\"taskEngineeringRecordsBody\"><div class=\"board-empty\">尚未載入工程紀錄。</div></div></div>";
+    document.body.appendChild(modal);
+    modal.addEventListener("click", event => {
+      if (event.target === modal || event.target.matches?.("[data-engineering-records-close]")) closeEngineeringRecords();
+    });
+  }
+  function closeEngineeringRecords() {
+    const modal = document.getElementById("taskEngineeringRecordsModal");
+    modal?.classList.remove("is-open");
+    modal?.setAttribute("aria-hidden", "true");
+    if (modal) modal.style.display = "none";
+  }
+  function openEngineeringRecords() {
+    ensureEngineeringRecordsModal();
+    const modal = document.getElementById("taskEngineeringRecordsModal");
+    const body = document.getElementById("taskEngineeringRecordsBody");
+    const snapshot = state.engineeringRecords;
+    body.innerHTML = snapshot?.taskId === state.activeTaskId
+      ? snapshot.html
+      : "<div class=\"board-empty\">工程紀錄尚未完成讀取。</div>";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    modal.style.display = "grid";
+  }
+  function taskMoreMarkup(task, archiveOnly) {
+    const governance = !archiveOnly && task.status !== "done" && !service.isGovernanceTerminal?.(task)
+      ? `<p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div>`
+      : `<p>${archiveOnly ? "封存資料僅供查閱；不可 Restore／Reopen。" : "目前沒有可用的進階治理動作。"}</p>`;
+    return `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><button class="btn" type="button" data-engineering-records>⚙️ 工程紀錄</button>${governance}</div></details>`;
+  }
   function requirementContent(task) {
     const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
       .map(value => String(value || "").trim()).filter(Boolean);
@@ -873,13 +878,13 @@
   }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
+    ensureEngineeringRecordsModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
     state.activeTaskId = String(task?.id || "");
-    const governanceActions = !archiveOnly && task.status !== "done" && !service.isGovernanceTerminal?.(task)
-      ? `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></div></details>`
-      : `<details class="task-more-menu"><summary>⋯ 更多</summary><div class="task-more-body"><p>${archiveOnly ? "封存資料僅供查閱；不可 Restore／Reopen。" : "目前沒有可用的進階治理動作。"}</p></div></details>`;
+    closeEngineeringRecords();
+    state.engineeringRecords = { taskId: state.activeTaskId, html: "<div class=\"board-empty\">工程紀錄讀取中…</div>" };
     const drawer = root.ZhugeSharedTaskDrawer;
     const title = `${task.workCode || "TASK"}｜${task.title || "未命名 TASK"}`;
     const meta = [
@@ -894,10 +899,7 @@
       { id: "usage", title: "使用情境", className: "task-detail-section", html: `<p>${esc(task.usageScenario || "尚未補充使用情境")}</p>` },
       { id: "next-step", title: "下一步", className: "task-detail-section task-next-step", html: `<p>${esc(nextStepLabel(task))}</p>` },
       { id: "task-checklist", title: "☑️ Task Checklist", hint: "Shared Checklist（有正式資料時顯示）", className: "task-checklist-section", hidden: true, html: `<div id="taskChecklistRows"></div>` },
-      { id: "evidence-summary", title: "🛠️ 工程驗證狀態", hint: "目前進度／完成條件／阻塞／下一步", className: "task-summary-section", html: `<span id="checklistSummary">Engineering Evidence 讀取中…</span><p class="checklist-contract-note">這裡只回答工程是否準備好交給 PM；Co QA、GPT Review、Regression 只呈現狀態摘要，不提供 PM 人工勾選。完整 Evidence 收於「⚙️ 工程詳細資料」。</p><div id="checklistSummaryRows"><div class="board-empty">正在讀取正式 Engineering Evidence…</div></div><div id="checklistConsistency"></div>` },
-      { id: "pm-acceptance", title: "PM Acceptance", hint: "唯一 PM-facing 最終驗收 Action", className: "pm-acceptance-section", html: `<div id="pmAcceptanceAction"><div class="board-empty">正式 PM Acceptance 讀取中…</div></div>` },
-      { id: "deliverables", title: "📎 附件與交付物", hint: "Canonical Artifact／Evidence 唯讀", className: "task-deliverables-section", html: `<div id="taskDeliverables"><div class="board-empty">讀取中…</div></div>` },
-      { id: "engineering-details", title: "⚙️ 工程詳細資料", collapsible: true, html: `<div id="taskEngineeringDetailsBody"><div class="board-empty">讀取中…</div></div>` }
+      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
     ];
     if (drawer?.render) {
       body.innerHTML = drawer.render({
@@ -912,13 +914,14 @@
           notesHtml: `${progressNoteComposerMarkup(archiveOnly)}<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
-        footerHtml: governanceActions
+        footerHtml: taskMoreMarkup(task, archiveOnly)
       });
     } else {
       body.innerHTML = "<div class=\"board-empty\">Shared Task Drawer foundation 尚未載入；未執行任何 Cloud 寫入。</div>";
     }
     modal.style.display = "block";
     body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
+    body.querySelectorAll("[data-engineering-records]").forEach(button => { button.onclick = openEngineeringRecords; });
     try {
       const items = await service.loadChecklist(task.id);
       const taskChecklistItems = items.filter(isTaskChecklistItem);
@@ -927,24 +930,12 @@
       const taskChecklistRows = document.getElementById("taskChecklistRows");
       if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems);
       const verification = engineeringVerificationState(items);
-      const summaryRows = document.getElementById("checklistSummaryRows");
-      const summary = document.getElementById("checklistSummary");
-      if (summary) summary.textContent = verification.ready ? "工程驗證完成，可以進行 PM 驗收" : "工程驗證進行中，目前不需要 PM 操作";
-      if (summaryRows) summaryRows.innerHTML = engineeringVerificationStatusMarkup(task, items) || "<div class=\"board-empty\">尚未提供正式 Engineering Evidence。</div>";
       const pmAcceptanceItem = items.find(isPmAcceptanceItem);
       const pmAcceptanceAction = document.getElementById("pmAcceptanceAction");
-      if (pmAcceptanceAction) pmAcceptanceAction.innerHTML = pmAcceptanceMarkup(pmAcceptanceItem, archiveOnly, task, verification);
-      const gate = completionGateStatus(items);
-      const consistency = document.getElementById("checklistConsistency");
-      if (task.status === "done" && !items.length) {
-        consistency.innerHTML = "<div class=\"history-note\"><strong>歷史完成</strong><br>此 TASK 完成於 Checklist 制度導入前；系統不補造 PASS、驗證者或 Evidence。</div>";
-      } else if (task.status === "done" && !gate.allowed) {
-        consistency.innerHTML = "<div class=\"consistency-warning\"><strong>完成狀態與 Checklist 不一致</strong><br>目前 TASK 已標記完成，但必要驗收尚未全部通過。請記錄 Finding，勿偽造歷史 Evidence。</div>";
-      } else if (items.length) {
-        consistency.innerHTML = verification.ready
-          ? "<div class=\"checklist-contract-note\">工程驗證已完成；PM 請依 Acceptance Criteria 進行實機驗收。</div>"
-          : "<div class=\"checklist-contract-note\">工程驗證尚未完成；PM 目前不需要操作，請由目前接球者完成待驗證項目。</div>";
-      }
+      const pmMarkup = pmAcceptanceMarkup(pmAcceptanceItem, archiveOnly, task, verification);
+      const pmAcceptanceSection = body.querySelector('[data-shared-task-drawer-section="pm-acceptance"]');
+      if (pmAcceptanceSection) pmAcceptanceSection.hidden = !pmMarkup;
+      if (pmAcceptanceAction) pmAcceptanceAction.innerHTML = pmMarkup;
       const [activityResult, movementResult, artifactResult] = await Promise.allSettled([
         typeof service.loadActivity === "function" ? service.loadActivity(task.id, { checklistItems: items }) : Promise.resolve([]),
         typeof service.loadMovementHistory === "function" ? service.loadMovementHistory(task.id) : Promise.resolve([]),
@@ -953,26 +944,31 @@
       const activity = activityResult.status === "fulfilled" ? activityResult.value : [];
       const movements = movementResult.status === "fulfilled" ? movementResult.value : [];
       const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
-      const detailsBody = document.getElementById("taskEngineeringDetailsBody");
-      if (detailsBody) detailsBody.innerHTML = `<section class="task-engineering-section"><h4>Engineering Evidence Detail</h4><p class="engineering-evidence-detail-intro">Canonical Evidence 唯讀摘要；只提供 Evidence Type、Status、Actor、Timestamp、Result、Reference 與 Artifact／Build，不提供第二套 Checklist 或 Acceptance 操作。</p>${engineeringEvidenceDetailMarkup(items, artifacts)}</section><section class="task-engineering-section"><h4>Audit Trail</h4><div class="task-raw-activity">${rawActivityMarkup(activity, activityResult.status === "rejected" ? activityResult.reason : null)}</div></section><section class="task-engineering-section"><h4>Workspace Movement History</h4><div class="workspace-movement-section">${rawMovementMarkup(movements, movementResult.status === "rejected" ? movementResult.reason : null)}</div></section>`;
+      state.engineeringRecords = {
+        taskId: state.activeTaskId,
+        html: engineeringRecordsMarkup(task, items, activity, movements, artifacts, {
+          activity: activityResult.status === "rejected" ? activityResult.reason : null,
+          movement: movementResult.status === "rejected" ? movementResult.reason : null,
+          artifact: artifactResult.status === "rejected" ? artifactResult.reason : null
+        })
+      };
+      const engineeringRecordsBody = document.getElementById("taskEngineeringRecordsBody");
+      if (engineeringRecordsBody && document.getElementById("taskEngineeringRecordsModal")?.style.display === "grid") engineeringRecordsBody.innerHTML = state.engineeringRecords.html;
       document.getElementById("taskHumanNotes").innerHTML = humanNotesMarkup(task);
       document.getElementById("taskActivityList").innerHTML = activityMarkup(activity);
-      document.getElementById("taskDeliverables").innerHTML = artifactMarkup(artifacts, artifactResult.status === "rejected" ? artifactResult.reason : null);
       wireProgressNoteComposer(task, archiveOnly);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
-        acceptance.querySelectorAll(".checklist-check").forEach(input => {
-          input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
+        acceptance.querySelectorAll("[data-pm-accept]").forEach(button => {
+          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.pmAccept), "pass");
         });
-        acceptance.querySelectorAll(".checklist-fail-btn").forEach(button => {
-          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id), "fail");
-        });
-        acceptance.querySelectorAll(".checklist-evidence-btn").forEach(button => {
-          button.onclick = () => updateChecklistEvidence(task, items.find(item => item.id === button.dataset.id));
+        acceptance.querySelectorAll("[data-pm-reject]").forEach(button => {
+          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.pmReject), "fail");
         });
       }
     } catch (error) {
-      document.getElementById("checklistSummaryRows").innerHTML = "<div class=\"board-empty\">Checklist 讀取失敗：" + esc(error && error.message || "未知錯誤") + "</div>";
+      const pmAcceptanceSection = body.querySelector('[data-shared-task-drawer-section="pm-acceptance"]');
+      if (pmAcceptanceSection) pmAcceptanceSection.hidden = true;
       document.getElementById("taskActivityList").innerHTML = "<div class=\"task-read-warning\">進度與治理讀取未完成；沒有寫入任何資料。</div>";
     }
   }
