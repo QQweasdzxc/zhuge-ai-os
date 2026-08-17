@@ -758,24 +758,26 @@
     }).join("");
   }
   function humanNotesMarkup(task) {
-    const notes = [
-      task.developerNotes ? { label: "Developer TASK Contract Note", text: task.developerNotes } : null,
-      task.pmNotes ? { label: "PM TASK Contract Note", text: task.pmNotes } : null
-    ].filter(Boolean);
-    if (!notes.length) return "<div class=\"board-empty\">目前沒有既有 TASK Contract Note。</div>";
-    return `<section class="task-legacy-notes"><span class="shared-task-drawer-activity-badge">既有 TASK Contract Notes（唯讀）</span>${notes.map(note => `<article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>${esc(note.label)}</strong><p>${esc(note.text).replace(/\n/g, "<br>")}</p><small>來源：Canonical TASK 欄位</small></article>`).join("")}</section>`;
+    // Legacy developer notes remain canonical data, but their engineering
+    // wording is not part of the general Task UX. Only an explicit PM-facing
+    // note is shown with neutral copy; an empty note has no presentation.
+    const developerNote = String(task.developerNotes || "").trim();
+    const note = String(task.pmNotes || "").trim();
+    void developerNote;
+    if (!note) return "";
+    return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${esc(note).replace(/\n/g, "<br>")}</p><small>來源：工作資料</small></article></section>`;
   }
   function progressNoteComposerMarkup(archiveOnly) {
     if (archiveOnly) {
-      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><div><button class="btn" type="button" disabled>新增工作進度</button><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small></div></section>`;
+      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><div><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small><button class="btn" type="button" disabled>新增工作進度</button></div></section>`;
     }
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button">新增工作進度</button><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small></div></section>`;
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button">新增工作進度</button></div></section>`;
   }
   function attachmentMarkup(artifacts, error) {
     if (error) return `<div class="task-read-warning">工作附件讀取失敗：${esc(error.message || "未知錯誤")}。</div>`;
     const rows = Array.isArray(artifacts) ? artifacts : [];
     if (!rows.length) return "";
-    return `<div class="shared-task-attachment-list" aria-label="工作附件">${rows.map(item => `<article class="shared-task-attachment"><span class="shared-task-attachment-icon" aria-hidden="true">📎</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名附件")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("")}</div>`;
+    return `<div class="shared-task-attachment-list" aria-label="附件">${rows.map(item => `<article class="shared-task-attachment"><span class="shared-task-attachment-icon" aria-hidden="true">📎</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名附件")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("")}</div>`;
   }
   function requirementContent(task) {
     const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
@@ -832,7 +834,7 @@
       { id: "usage", title: "使用情境", className: "task-detail-section", html: `<p>${esc(task.usageScenario || "尚未補充使用情境")}</p>` },
       { id: "task-checklist", title: "☑️ Task Checklist", hint: "Shared Checklist（有正式資料時顯示）", className: "task-checklist-section", hidden: true, html: `<div id="taskChecklistRows"></div>` },
       { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` },
-      { id: "attachments", title: "📎 工作附件", hint: "有正式附件／交付物時顯示", className: "task-attachments-section", hidden: true, html: `<div id="taskAttachments"></div>` }
+      { id: "attachments", title: "📎 附件", hint: "有正式附件／交付物時顯示", className: "task-attachments-section", hidden: true, html: `<div id="taskAttachments"></div>` }
     ];
     if (drawer?.render) {
       body.innerHTML = drawer.render({
@@ -880,7 +882,12 @@
       const attachmentHtml = attachmentMarkup(artifacts, artifactResult.status === "rejected" ? artifactResult.reason : null);
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = !attachmentHtml;
-      document.getElementById("taskHumanNotes").innerHTML = humanNotesMarkup(task);
+      const humanNotes = humanNotesMarkup(task);
+      const humanNotesZone = document.getElementById("taskHumanNotes");
+      if (humanNotesZone) {
+        humanNotesZone.innerHTML = humanNotes;
+        humanNotesZone.hidden = !humanNotes;
+      }
       document.getElementById("taskActivityList").innerHTML = activityMarkup(activity);
       wireProgressNoteComposer(task, archiveOnly);
       const acceptance = document.getElementById("pmAcceptanceAction");

@@ -3,7 +3,7 @@
 <title>AI Board Batch 2 browser regression fixture</title>
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
 <link rel="stylesheet" href="../shared/theme/task-drawer.css">
-<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260817-1441"></div>
+<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260817-1511"></div>
 <div class="main">
   <aside>
     <button data-board-nav="board" type="button">📋 工作看板</button>
@@ -67,7 +67,7 @@
       { id: "activity-human", entityType: "board_task", action: "progress_note_created", activityType: "human_progress_note", note: "已完成 Shared Task Drawer Presentation Layer 修正。", actorLabel: "QJC", timestamp: "2026-08-16T02:03:00Z" }
     ],
     loadMovementHistory: async () => [],
-    loadArtifacts: async () => [{ artifactId: "artifact-026", filename: "TASK-026-FullCandidate.zip", productVersion: "v0.9.0-alpha.9.13", runtimeBuild: "20260817-1200", artifactType: "candidate", qaStatus: "pass", pmAcceptanceStatus: "pending", sha256: "abc123" }],
+    loadArtifacts: async () => [{ artifactId: "artifact-026", relatedTask: "TASK-026", filename: "TASK-026-FullCandidate.zip", productVersion: "v0.9.0-alpha.9.13", runtimeBuild: "20260817-1200", artifactType: "candidate", qaStatus: "pass", pmAcceptanceStatus: "pending", sha256: "abc123" }],
     moveTaskWorkspace: async (taskId, targetWorkspaceId) => {
       const task = taskFor(taskId);
       const workspace = workspaceFor(targetWorkspaceId);

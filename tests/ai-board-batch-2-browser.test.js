@@ -58,7 +58,7 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /data-shared-task-properties/);
   assert.match(output, /目前狀態/);
   assert.match(output, /工作內容/);
-  assert.match(output, /📎 工作附件/);
+  assert.match(output, /📎 附件/);
   assert.match(output, /shared-task-attachment-list/);
   assert.match(output, /data-shared-task-timeline/);
   assert.doesNotMatch(output, /Engineering Evidence Detail/);

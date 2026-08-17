@@ -36,8 +36,13 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.match(runtime, /data-progress-note-write="available"/);
   assert.match(runtime, /footerHtml: ""/);
   assert.doesNotMatch(runtime, /taskMoreMarkup|data-engineering-records|⚙️ 工程紀錄|⋯ 更多/);
-  assert.match(runtime, /title: "📎 工作附件"/);
-  assert.match(runtime, /aria-label="工作附件"/);
+  assert.match(runtime, /title: "📎 附件"/);
+  assert.match(runtime, /aria-label="附件"/);
+  assert.match(runtime, /if \(!note\) return ""/);
+  assert.match(runtime, /<strong>工作補充<\/strong>/);
+  assert.doesNotMatch(runtime, /目前沒有既有 TASK Contract Note/);
+  assert.match(runtime, /<div><small>由目前登入的 QJC／owner 身分/);
+  assert.match(runtime, /身分保存至正式 Cloud[\s\S]*<button class="btn2 shared-task-progress-submit"/);
   assert.match(css, /\.shared-task-progress-submit\{/);
   assert.match(css, /min-height:82px/);
   assert.match(css, /opacity:.82/);
@@ -51,4 +56,16 @@ test("Human Progress Note stays controlled and append-only", () => {
   assert.match(sql, /revoke insert, update, delete on public\.engineering_activity_log from authenticated/i);
   assert.doesNotMatch(service, /engineering_activity_log["'`]\)\.(insert|update|delete)/i);
   assert.match(service, /order=created_at\.desc/);
+});
+
+test("Workspace delete and task content editing remain blocked without canonical controlled paths", () => {
+  const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql");
+  const service = read("shared/board/board-read-service.js");
+  const runtime = read("app/Board/ai/board-runtime.js");
+  assert.doesNotMatch(migration, /board_delete_workspace/i);
+  assert.doesNotMatch(service, /deleteWorkspace|board_delete_workspace/i);
+  assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace/i);
+  assert.doesNotMatch(service, /board_update_task/i);
+  assert.doesNotMatch(runtime, /board_update_task|updateTaskContent/i);
+  assert.match(migration, /on delete restrict/i);
 });

@@ -295,7 +295,7 @@ test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in ex
   assert.match(runtime, /loadArtifacts/);
   assert.match(runtime, /developerNotes/);
   assert.match(runtime, /footerHtml: ""/);
-  assert.match(runtime, /title: "📎 工作附件"/);
+  assert.match(runtime, /title: "📎 附件"/);
   assert.doesNotMatch(runtime, /taskMoreMarkup|data-engineering-records|taskEngineeringRecordsModal/);
   assert.doesNotMatch(runtime, /board_(?:create|update|delete)_activity|activity.*localStorage/i);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
@@ -354,7 +354,7 @@ test("AI Board Task Drawer uses Need-to-Act presentation and progressive enginee
   assert.doesNotMatch(runtime, /QJC 驗收通過/);
   assert.match(runtime, /目前狀態/);
   assert.match(runtime, /工作內容/);
-  assert.match(runtime, /title: "📎 工作附件"/);
+  assert.match(runtime, /title: "📎 附件"/);
   assert.match(runtime, /shared-task-attachment-list/);
   assert.match(runtime, /人工工作進度 · Human Progress Note/);
   assert.match(runtime, /footerHtml: ""/);
