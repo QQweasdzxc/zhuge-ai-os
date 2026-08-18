@@ -794,8 +794,10 @@
     const value = editableTaskFieldValue(task, field);
     const placeholder = field === "summary" ? "尚未補充工作內容" : "尚未補充使用情境";
     const editButton = archiveOnly ? "" : `<button class="btn2 task-inline-edit-button" type="button" data-task-inline-edit="${field}" aria-label="編輯${label}">✏️ 編輯</button>`;
-    const editor = archiveOnly ? "" : `<div class="task-inline-editor" data-task-inline-editor="${field}" hidden><textarea data-task-inline-input="${field}" aria-label="${label}">${esc(value)}</textarea><div class="task-inline-editor-actions"><button class="btn2" type="button" data-task-inline-cancel="${field}">取消</button><button class="btn2 primary" type="button" data-task-inline-save="${field}">送出 PM 核准</button></div><small>儲存會送至既有 PM Governance Approval Runner；未經 PM 核准不會寫入 Cloud。</small></div>`;
-    return `<div class="task-inline-field" data-task-inline-field="${field}"><div class="task-inline-field-toolbar"><span class="task-inline-field-value" data-task-inline-value="${field}">${esc(value || placeholder).replace(/\n/g, "<br>")}</span>${editButton}</div>${editor}</div>`;
+    // Read mode owns the initial markup. The editor is created only after the
+    // user explicitly enters edit mode, so a normal Task never renders both
+    // display text and a textarea at the same time.
+    return `<div class="task-inline-field" data-task-inline-field="${field}" data-task-inline-mode="read"><div class="task-inline-field-toolbar"><span class="task-inline-field-value" data-task-inline-value="${field}">${esc(value || placeholder).replace(/\n/g, "<br>")}</span>${editButton}</div></div>`;
   }
   async function waitForTaskContractUpdate(task, requestId) {
     const deadline = Date.now() + 5 * 60 * 1000;
@@ -831,45 +833,57 @@
     body.querySelectorAll("[data-task-inline-edit]").forEach(button => {
       button.onclick = () => {
         const field = button.dataset.taskInlineEdit;
-        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
-        const value = body.querySelector(`[data-task-inline-value="${field}"]`);
-        if (!editor || !value) return;
-        editor.hidden = false;
+        const fieldContainer = button.closest("[data-task-inline-field]");
+        const value = fieldContainer?.querySelector(`[data-task-inline-value="${field}"]`);
+        if (!fieldContainer || !value || fieldContainer.querySelector("[data-task-inline-editor]")) return;
+        const label = field === "summary" ? "工作內容" : "使用情境";
+        const editor = document.createElement("div");
+        editor.className = "task-inline-editor";
+        editor.dataset.taskInlineEditor = field;
+        editor.innerHTML = `<textarea data-task-inline-input="${field}" aria-label="${label}"></textarea><div class="task-inline-editor-actions"><button class="btn2" type="button" data-task-inline-cancel="${field}">取消</button><button class="btn2 primary" type="button" data-task-inline-save="${field}">送出 PM 核准</button></div><small>儲存會送至既有 PM Governance Approval Runner；未經 PM 核准不會寫入 Cloud。</small>`;
+        editor.querySelector("textarea").value = editableTaskFieldValue(task, field);
+        fieldContainer.appendChild(editor);
+        fieldContainer.dataset.taskInlineMode = "edit";
         value.hidden = true;
         button.hidden = true;
         editor.querySelector("textarea")?.focus();
+        wireTaskInlineEditorActions(task, fieldContainer, field);
       };
     });
-    body.querySelectorAll("[data-task-inline-cancel]").forEach(button => {
-      button.onclick = () => {
-        const field = button.dataset.taskInlineCancel;
-        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
-        const value = body.querySelector(`[data-task-inline-value="${field}"]`);
-        const edit = body.querySelector(`[data-task-inline-edit="${field}"]`);
-        if (editor) editor.hidden = true;
-        if (value) value.hidden = false;
-        if (edit) edit.hidden = false;
-      };
-    });
-    body.querySelectorAll("[data-task-inline-save]").forEach(button => {
-      button.onclick = async () => {
-        const field = button.dataset.taskInlineSave;
-        const input = body.querySelector(`[data-task-inline-input="${field}"]`);
-        const editor = body.querySelector(`[data-task-inline-editor="${field}"]`);
-        if (!input || !editor) return;
-        const runnerUrl = root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765";
-        window.open?.(`${runnerUrl}/`, "zhuge-ai-os-governance-approval");
-        button.disabled = true;
-        try {
-          const request = await service.requestTaskContractUpdate({ taskId: task.id, [field]: input.value });
-          editor.querySelector("small").textContent = "已送出 PM Review；請在 Governance Approval 視窗核准。等待正式 read-back…";
-          setBanner("工作內容更新已送至 PM Governance Approval；PM 核准前原資料維持不變。", "info");
-          waitForTaskContractUpdate(task, request.requestId);
-        } catch (error) {
-          button.disabled = false;
-          setBanner("工作內容更新未送出：" + esc(error?.message || "PM Governance Runner 未啟動產品更新模式。"), "error");
-        }
-      };
+  }
+  function leaveTaskInlineEdit(fieldContainer) {
+    if (!fieldContainer) return;
+    const editor = fieldContainer.querySelector("[data-task-inline-editor]");
+    const value = fieldContainer.querySelector("[data-task-inline-value]");
+    const edit = fieldContainer.querySelector("[data-task-inline-edit]");
+    editor?.remove();
+    if (value) value.hidden = false;
+    if (edit) {
+      edit.hidden = false;
+      edit.disabled = false;
+    }
+    fieldContainer.dataset.taskInlineMode = "read";
+  }
+  function wireTaskInlineEditorActions(task, fieldContainer, field) {
+    const editor = fieldContainer?.querySelector(`[data-task-inline-editor="${field}"]`);
+    if (!editor) return;
+    editor.querySelector("[data-task-inline-cancel]")?.addEventListener("click", () => leaveTaskInlineEdit(fieldContainer));
+    editor.querySelector("[data-task-inline-save]")?.addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const input = editor.querySelector(`[data-task-inline-input="${field}"]`);
+      if (!input) return;
+      const runnerUrl = root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765";
+      window.open?.(`${runnerUrl}/`, "zhuge-ai-os-governance-approval");
+      button.disabled = true;
+      try {
+        const request = await service.requestTaskContractUpdate({ taskId: task.id, [field]: input.value });
+        leaveTaskInlineEdit(fieldContainer);
+        setBanner("工作內容更新已送至 PM Governance Approval；PM 核准前原資料維持不變。", "info");
+        waitForTaskContractUpdate(task, request.requestId);
+      } catch (error) {
+        button.disabled = false;
+        setBanner("工作內容更新未送出：" + esc(error?.message || "PM Governance Runner 未啟動產品更新模式。"), "error");
+      }
     });
   }
   function wireProgressNoteComposer(task, archiveOnly) {

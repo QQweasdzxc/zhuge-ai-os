@@ -87,3 +87,17 @@ test("Workspace delete remains blocked while task content editing uses the exist
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.match(migration, /on delete restrict/i);
 });
+
+test("Task content fields start in read mode and switch in place to one editor", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const markupStart = runtime.indexOf("function editableTaskFieldMarkup");
+  const markupEnd = runtime.indexOf("async function waitForTaskContractUpdate");
+  const markup = runtime.slice(markupStart, markupEnd);
+  assert.doesNotMatch(markup, /<textarea/);
+  assert.match(markup, /data-task-inline-mode="read"/);
+  assert.match(runtime, /fieldContainer\.appendChild\(editor\)/);
+  assert.match(runtime, /fieldContainer\.dataset\.taskInlineMode = "edit"/);
+  assert.match(runtime, /function leaveTaskInlineEdit\(fieldContainer\)/);
+  assert.match(runtime, /editor\?\.remove\(\)/);
+  assert.match(runtime, /leaveTaskInlineEdit\(fieldContainer\)/);
+});
