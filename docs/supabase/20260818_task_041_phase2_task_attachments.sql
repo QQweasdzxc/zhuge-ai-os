@@ -7,10 +7,49 @@
 
 begin;
 
+-- A failed/partial attempt must never leave the Activity binding on a
+-- parallel UUID identity.  The canonical Activity primary key is bigint.
+do $$
+declare
+  activity_column_type text;
+  has_non_null_activity boolean;
+begin
+  if to_regclass('public.board_task_attachments') is not null then
+    select format_type(a.atttypid, a.atttypmod)
+      into activity_column_type
+    from pg_attribute a
+    join pg_class c on c.oid = a.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'board_task_attachments'
+      and a.attname = 'activity_id'
+      and not a.attisdropped;
+
+    if activity_column_type = 'uuid' then
+      execute 'select exists (select 1 from public.board_task_attachments where activity_id is not null)'
+        into has_non_null_activity;
+      if has_non_null_activity then
+        raise exception using
+          errcode = '42804',
+          message = 'Existing board_task_attachments.activity_id contains UUID values; manual canonical migration is required';
+      end if;
+      execute 'alter table public.board_task_attachments drop constraint if exists board_task_attachments_activity_id_fkey';
+      execute 'alter table public.board_task_attachments alter column activity_id type bigint using null::bigint';
+    elsif activity_column_type is null then
+      execute 'alter table public.board_task_attachments add column activity_id bigint';
+    elsif activity_column_type <> 'bigint' then
+      raise exception using
+        errcode = '42804',
+        message = format('Unexpected board_task_attachments.activity_id type: %s', activity_column_type);
+    end if;
+  end if;
+end
+$$;
+
 create table if not exists public.board_task_attachments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.board_tasks(id) on delete cascade,
-  activity_id uuid references public.engineering_activity_log(id) on delete restrict,
+  activity_id bigint references public.engineering_activity_log(id) on delete restrict,
   attachment_scope text not null default 'task',
   filename text not null,
   mime_type text not null,
@@ -37,6 +76,23 @@ create table if not exists public.board_task_attachments (
     check ((attachment_scope = 'task' and activity_id is null)
       or (attachment_scope = 'progress_note' and activity_id is not null))
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.board_task_attachments'::regclass
+      and conname = 'board_task_attachments_activity_id_fkey'
+  ) then
+    alter table public.board_task_attachments
+      add constraint board_task_attachments_activity_id_fkey
+      foreign key (activity_id)
+      references public.engineering_activity_log(id)
+      on delete restrict;
+  end if;
+end
+$$;
 
 create index if not exists board_task_attachments_task_idx
   on public.board_task_attachments (task_id, created_at desc);
@@ -99,7 +155,7 @@ create or replace function public.board_prepare_task_attachment(
   p_filename text,
   p_mime_type text,
   p_byte_size bigint,
-  p_activity_id uuid default null
+  p_activity_id bigint default null
 )
 returns public.board_task_attachments
 language plpgsql
@@ -230,11 +286,12 @@ begin
 end;
 $function$;
 
-revoke all on function public.board_prepare_task_attachment(uuid, text, text, bigint, uuid) from public;
+drop function if exists public.board_prepare_task_attachment(uuid, text, text, bigint, uuid);
+revoke all on function public.board_prepare_task_attachment(uuid, text, text, bigint, bigint) from public;
 revoke all on function public.board_complete_task_attachment(uuid) from public;
-revoke execute on function public.board_prepare_task_attachment(uuid, text, text, bigint, uuid) from anon;
+revoke execute on function public.board_prepare_task_attachment(uuid, text, text, bigint, bigint) from anon;
 revoke execute on function public.board_complete_task_attachment(uuid) from anon;
-grant execute on function public.board_prepare_task_attachment(uuid, text, text, bigint, uuid) to authenticated;
+grant execute on function public.board_prepare_task_attachment(uuid, text, text, bigint, bigint) to authenticated;
 grant execute on function public.board_complete_task_attachment(uuid) to authenticated;
 
 do $$

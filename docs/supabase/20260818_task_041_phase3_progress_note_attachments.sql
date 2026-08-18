@@ -6,7 +6,7 @@
 begin;
 
 create or replace function public.board_prepare_progress_note_attachment(
-  p_activity_id uuid,
+  p_activity_id bigint,
   p_filename text,
   p_mime_type text,
   p_byte_size bigint
@@ -45,11 +45,12 @@ begin
 end;
 $function$;
 
-revoke all on function public.board_prepare_progress_note_attachment(uuid, text, text, bigint) from public;
-revoke execute on function public.board_prepare_progress_note_attachment(uuid, text, text, bigint) from anon;
-grant execute on function public.board_prepare_progress_note_attachment(uuid, text, text, bigint) to authenticated;
+drop function if exists public.board_prepare_progress_note_attachment(uuid, text, text, bigint);
+revoke all on function public.board_prepare_progress_note_attachment(bigint, text, text, bigint) from public;
+revoke execute on function public.board_prepare_progress_note_attachment(bigint, text, text, bigint) from anon;
+grant execute on function public.board_prepare_progress_note_attachment(bigint, text, text, bigint) to authenticated;
 
-comment on function public.board_prepare_progress_note_attachment(uuid, text, text, bigint) is
+comment on function public.board_prepare_progress_note_attachment(bigint, text, text, bigint) is
   'Prepare an authenticated Progress Note attachment using the existing append-only activity and Board attachment paths.';
 
 notify pgrst, 'reload schema';

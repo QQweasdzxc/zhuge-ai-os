@@ -38,6 +38,10 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.doesNotMatch(runtime, /taskMoreMarkup|data-engineering-records|⚙️ 工程紀錄|⋯ 更多/);
   assert.match(runtime, /title: "📎 附件"/);
   assert.match(runtime, /aria-label="附件"/);
+  assert.match(runtime, /shared-task-attachment-open/);
+  assert.match(runtime, /noopener noreferrer/);
+  assert.match(runtime, /shared-task-progress-attachment-icon/);
+  assert.match(runtime, /附加圖片或文件.*aria-label/);
   assert.match(runtime, /action: "due-date", interactive: !archiveOnly/);
   assert.doesNotMatch(runtime, /id: "due-date", title: "日期"/);
   assert.match(runtime, /topHtml: taskChecklistPanelMarkup\(\)/);

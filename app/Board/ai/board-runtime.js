@@ -779,7 +779,7 @@
     if (archiveOnly) {
       return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><div><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small><button class="btn" type="button" disabled>新增工作進度</button></div></section>`;
     }
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件">📎<input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></section>`;
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></section>`;
   }
   function dueDateLabel(value) {
     if (!value) return "尚未設定日期";
@@ -1032,19 +1032,22 @@
         });
         if (!url) return;
         const mime = article.dataset.taskAttachmentMime || article.dataset.progressAttachmentMime || "";
+        const openLink = document.createElement("a");
+        openLink.className = "shared-task-attachment-open";
+        openLink.href = url;
+        openLink.target = "_blank";
+        openLink.rel = "noopener noreferrer";
+        openLink.setAttribute("aria-label", `開啟附件：${article.querySelector("strong")?.textContent || "未命名附件"}`);
         if (mime.startsWith("image/")) {
           const image = document.createElement("img");
           image.src = url;
           image.alt = article.querySelector("strong")?.textContent || "附件預覽";
           image.loading = "lazy";
-          preview.replaceChildren(image);
+          openLink.appendChild(image);
+          preview.replaceChildren(openLink);
         } else {
-          const link = document.createElement("a");
-          link.href = url;
-          link.target = "_blank";
-          link.rel = "noopener";
-          link.textContent = "開啟／下載";
-          preview.replaceChildren(link);
+          openLink.textContent = "開啟／下載";
+          preview.replaceChildren(openLink);
         }
       } catch {
         preview.textContent = "預覽不可用";
