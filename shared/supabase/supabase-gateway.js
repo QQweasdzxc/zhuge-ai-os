@@ -106,6 +106,27 @@
     return canonical;
   }
 
+  // Storage remains behind the same narrow authenticated gateway.  Consumers
+  // receive upload/signed-url operations only; the Supabase client, session,
+  // and credentials never leave this module.
+  async function uploadStorageObject(bucket, path, file, options = {}) {
+    const client = await initializeAuthClient();
+    const { data, error } = await client.storage.from(String(bucket || "")).upload(String(path || ""), file, {
+      cacheControl: options.cacheControl || "3600",
+      contentType: options.contentType || file?.type || "application/octet-stream",
+      upsert: false
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function createStorageSignedUrl(bucket, path, expiresIn = 3600) {
+    const client = await initializeAuthClient();
+    const { data, error } = await client.storage.from(String(bucket || "")).createSignedUrl(String(path || ""), Number(expiresIn) || 3600);
+    if (error) throw error;
+    return data?.signedUrl || "";
+  }
+
   function encodedQuery(query = "") {
     const value = String(query || "").trim();
     return value && !value.startsWith("?") ? `?${value}` : value;
@@ -165,6 +186,8 @@
         method: "POST",
         body: JSON.stringify(args || {})
       }),
+      uploadStorageObject,
+      createStorageSignedUrl,
       subscribe: async (table, callback) => {
         const name = `zhuge-board-${String(table || "table")}`;
         if (realtimeChannels.has(name)) return () => {};

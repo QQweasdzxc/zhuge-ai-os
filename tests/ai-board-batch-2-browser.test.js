@@ -66,10 +66,8 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.doesNotMatch(output, /Evidence Reference/);
   assert.match(output, /新增工作進度/);
   assert.match(output, /人工工作進度 · Human Progress Note/);
-  assert.match(output, /System Activity/);
-  assert.match(output, /System Activity · Status/);
-  assert.match(output, /System Activity · Workspace Move/);
-  assert.match(output, /System Activity · Evidence/);
+  assert.match(output, /System Activity 與 Workspace Audit 保留於正式紀錄/);
+  assert.doesNotMatch(output, /System Activity · (Status|Workspace Move|Evidence)/);
   assert.doesNotMatch(output, /Checklist／Evidence 原始資料/);
   assert.match(output, /aria-label="搜尋 TASK"/);
   assert.match(output, /data-work-code="TASK-026"/);

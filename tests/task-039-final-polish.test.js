@@ -41,8 +41,8 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.match(runtime, /if \(!note\) return ""/);
   assert.match(runtime, /<strong>工作補充<\/strong>/);
   assert.doesNotMatch(runtime, /目前沒有既有 TASK Contract Note/);
-  assert.match(runtime, /<div><small>由目前登入的 QJC／owner 身分/);
-  assert.match(runtime, /身分保存至正式 Cloud[\s\S]*<button class="btn2 shared-task-progress-submit"/);
+  assert.match(runtime, /由目前登入的 QJC／owner 身分/);
+  assert.match(runtime, /身分保存至正式 Cloud[\s\S]*shared-task-progress-submit/);
   assert.match(css, /\.shared-task-progress-submit\{/);
   assert.match(css, /min-height:82px/);
   assert.match(css, /opacity:.82/);
@@ -69,20 +69,23 @@ test("General Task Drawer renders Human Progress only while preserving canonical
   assert.doesNotMatch(runtime, /return rows\.map\(item => \{[\s\S]*System Activity ·/);
 });
 
-test("Workspace delete remains blocked while task content editing uses the existing PM-controlled path", () => {
+test("Workspace delete remains blocked while task content editing uses the authenticated controlled path", () => {
   const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("app/Board/ai/board-runtime.js");
-  const runner = read("tools/pm-governance-approval.js");
+  const inlineMigration = read("docs/supabase/20260818_task_039_inline_content_write.sql");
   assert.doesNotMatch(migration, /board_delete_workspace/i);
   assert.doesNotMatch(service, /deleteWorkspace|board_delete_workspace/i);
   assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace/i);
-  assert.match(service, /requestTaskContractUpdate/);
-  assert.match(service, /api\/request-task-update/);
+  assert.match(service, /updateTaskContent/);
+  assert.match(service, /board_update_task_content/);
   assert.match(runtime, /data-task-inline-edit/);
-  assert.match(runtime, /送出 PM 核准/);
-  assert.match(runner, /update_task_contract/);
-  assert.match(runner, /PRODUCT_TASK_UPDATE_FIELDS/);
+  assert.match(runtime, /authenticated controlled write path/);
+  assert.doesNotMatch(runtime, /requestTaskContractUpdate|送出 PM 核准|ZhugeGovernanceApprovalRunnerUrl/);
+  assert.match(inlineMigration, /auth\.uid\(\)/i);
+  assert.match(inlineMigration, /board_update_task_content/);
+  assert.match(inlineMigration, /task_content_updated/);
+  assert.match(inlineMigration, /revoke insert, update, delete on public\.board_tasks from authenticated/i);
   assert.doesNotMatch(service, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.match(migration, /on delete restrict/i);
@@ -91,7 +94,7 @@ test("Workspace delete remains blocked while task content editing uses the exist
 test("Task content fields start in read mode and switch in place to one editor", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const markupStart = runtime.indexOf("function editableTaskFieldMarkup");
-  const markupEnd = runtime.indexOf("async function waitForTaskContractUpdate");
+  const markupEnd = runtime.indexOf("function wireTaskInlineEditors");
   const markup = runtime.slice(markupStart, markupEnd);
   assert.doesNotMatch(markup, /<textarea/);
   assert.match(markup, /data-task-inline-mode="read"/);

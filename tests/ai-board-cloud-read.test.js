@@ -279,7 +279,7 @@ test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in ex
   assert.match(runtime, /isPmTurn/);
   assert.match(runtime, /data-pm-accept/);
   assert.match(runtime, /data-pm-reject/);
-  assert.match(runtime, /Task Checklist/);
+  assert.match(runtime, /工作 Checklist/);
   assert.match(runtime, /data-progress-note-write="available"/);
   assert.match(runtime, /Human Progress Note/);
   assert.match(runtime, /System Activity/);

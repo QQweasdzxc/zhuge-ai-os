@@ -196,6 +196,7 @@
       workspace: String(row.workspace_key || row.workspaceKey || ""),
       priority: String(row.priority || ""),
       assignee: String(row.assignee || ""),
+      dueDate: row.due_date || row.dueDate || null,
       source: String(row.source_workspace || row.source || ""),
       // Keep the PM-readable contract fields separate.  The Board can present
       // a clear narrative without asking a reviewer to infer it from internal
@@ -238,6 +239,39 @@
       sortOrder: Number(row.sort_order || 0),
       version: Number(row.version || 1),
       updatedAt: row.updated_at || null
+    });
+  }
+
+  function normalizeTaskChecklistItem(row = {}) {
+    return Object.freeze({
+      id: String(row.id || ""),
+      taskId: String(row.task_id || ""),
+      checklistType: "general_task",
+      label: String(row.label || ""),
+      completed: row.completed === true,
+      sortOrder: Number(row.sort_order || 0),
+      createdBy: String(row.created_by || ""),
+      updatedBy: String(row.updated_by || ""),
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
+    });
+  }
+
+  function normalizeTaskAttachment(row = {}) {
+    return Object.freeze({
+      attachmentId: String(row.id || row.attachment_id || ""),
+      taskId: String(row.task_id || ""),
+      activityId: String(row.activity_id || ""),
+      attachmentScope: String(row.attachment_scope || "task"),
+      filename: String(row.filename || ""),
+      mimeType: String(row.mime_type || "application/octet-stream"),
+      byteSize: Number(row.byte_size || 0),
+      storageBucket: String(row.storage_bucket || "board-task-attachments"),
+      storagePath: String(row.storage_path || ""),
+      uploadStatus: String(row.upload_status || ""),
+      createdBy: String(row.created_by || ""),
+      createdAt: row.created_at || null,
+      completedAt: row.completed_at || null
     });
   }
 
@@ -343,7 +377,7 @@
     const resolver = options.engineeringMemory ? null : requireEngineeringMemoryResolver(options);
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
       gateway.select("board_workspaces", "?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at&active=eq.true&order=sort_order.asc"),
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
+      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
       options.engineeringMemory || resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes })
     ]);
     const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(normalizeWorkspace);
@@ -379,6 +413,16 @@
       `?select=*&task_id=eq.${encoded}&order=sort_order.asc,created_at.asc`
     );
     return (Array.isArray(rows) ? rows : []).map(normalizeChecklistItem);
+  }
+
+  async function loadTaskChecklist(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const encoded = encodeURIComponent(String(taskId || ""));
+    const rows = await gateway.select(
+      "board_task_checklist_items",
+      `?select=id,task_id,label,completed,sort_order,created_by,updated_by,created_at,updated_at&task_id=eq.${encoded}&order=sort_order.asc,created_at.asc`
+    );
+    return (Array.isArray(rows) ? rows : []).map(normalizeTaskChecklistItem);
   }
 
   async function loadMovementHistory(taskId, options = {}) {
@@ -428,6 +472,16 @@
     return rows.flatMap(items => Array.isArray(items) ? items : [])
       .map(normalizeArtifact)
       .filter(item => item.artifactId && !seen.has(item.artifactId) && seen.add(item.artifactId));
+  }
+
+  async function loadTaskAttachments(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const encoded = encodeURIComponent(String(taskId || ""));
+    const rows = await gateway.select(
+      "board_task_attachments",
+      `?select=id,task_id,activity_id,attachment_scope,filename,mime_type,byte_size,storage_bucket,storage_path,upload_status,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&order=created_at.desc`
+    );
+    return (Array.isArray(rows) ? rows : []).map(normalizeTaskAttachment);
   }
 
   function healthFinding(type, severity, title, detail, records = []) {
@@ -556,6 +610,47 @@
     }).then(normalizeTask);
   }
 
+  async function updateTaskContent(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_update_task_content", {
+      p_task_id: input.taskId,
+      p_summary: input.summary == null ? null : String(input.summary),
+      p_usage_scenario: input.usageScenario == null ? null : String(input.usageScenario)
+    }).then(normalizeTask);
+  }
+
+  async function updateTaskDueDate(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_update_task_due_date", {
+      p_task_id: input.taskId,
+      p_due_date: input.dueDate || null
+    }).then(normalizeTask);
+  }
+
+  async function addTaskChecklistItem(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_add_task_checklist_item", {
+      p_task_id: input.taskId,
+      p_label: input.label,
+      p_sort_order: Number(input.sortOrder || 0)
+    }).then(normalizeTaskChecklistItem);
+  }
+
+  async function updateTaskChecklistItem(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_update_task_checklist_item", {
+      p_item_id: input.id,
+      p_label: Object.prototype.hasOwnProperty.call(input, "label") ? input.label : null,
+      p_completed: Object.prototype.hasOwnProperty.call(input, "completed") ? Boolean(input.completed) : null,
+      p_sort_order: Object.prototype.hasOwnProperty.call(input, "sortOrder") ? Number(input.sortOrder) : null
+    }).then(normalizeTaskChecklistItem);
+  }
+
+  async function deleteTaskChecklistItem(itemId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_delete_task_checklist_item", { p_item_id: itemId });
+  }
+
   async function createChecklistItem(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_create_checklist_item", {
@@ -589,6 +684,57 @@
       p_task_id: taskId,
       p_note: note
     }).then(normalizeActivity);
+  }
+
+  async function prepareTaskAttachment(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const file = input.file;
+    if (!file || !file.name || !Number.isFinite(Number(file.size))) {
+      throw new Error("請先選擇有效附件。");
+    }
+    return gateway.rpc("board_prepare_task_attachment", {
+      p_task_id: input.taskId,
+      p_filename: file.name,
+      p_mime_type: file.type || "application/octet-stream",
+      p_byte_size: Number(file.size),
+      p_activity_id: input.activityId || null
+    }).then(normalizeTaskAttachment);
+  }
+
+  async function prepareProgressNoteAttachment(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const file = input.file;
+    if (!file || !file.name || !Number.isFinite(Number(file.size))) {
+      throw new Error("請先選擇有效進度附件。");
+    }
+    return gateway.rpc("board_prepare_progress_note_attachment", {
+      p_activity_id: input.activityId,
+      p_filename: file.name,
+      p_mime_type: file.type || "application/octet-stream",
+      p_byte_size: Number(file.size)
+    }).then(normalizeTaskAttachment);
+  }
+
+  async function uploadTaskAttachment(attachment, file, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    if (typeof gateway.uploadStorageObject !== "function") {
+      throw new Error("Shared Supabase Gateway 尚未支援受控附件上傳。");
+    }
+    await gateway.uploadStorageObject(attachment.storageBucket, attachment.storagePath, file, {
+      contentType: attachment.mimeType
+    });
+    return attachment;
+  }
+
+  async function completeTaskAttachment(attachmentId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_complete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
+  }
+
+  async function taskAttachmentUrl(attachment, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    if (!attachment?.storageBucket || !attachment?.storagePath || typeof gateway.createStorageSignedUrl !== "function") return "";
+    return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 3600);
   }
 
   function governanceRunnerUrl(options = {}) {
@@ -633,11 +779,13 @@
       throw error;
     }
     const stopTask = await gateway.subscribe("board_tasks", callback);
+    const stopTaskChecklist = await gateway.subscribe("board_task_checklist_items", callback);
+    const stopTaskAttachments = await gateway.subscribe("board_task_attachments", callback);
     const stopChecklist = await gateway.subscribe("engineering_checklist_items", callback);
     const stopWorkspaces = await gateway.subscribe("board_workspaces", callback);
     const stopActivity = await gateway.subscribe("engineering_activity_log", callback);
     return async () => {
-      await Promise.allSettled([stopTask?.(), stopChecklist?.(), stopWorkspaces?.(), stopActivity?.()]);
+      await Promise.allSettled([stopTask?.(), stopTaskChecklist?.(), stopTaskAttachments?.(), stopChecklist?.(), stopWorkspaces?.(), stopActivity?.()]);
     };
   }
 
@@ -652,6 +800,8 @@
     normalizeActivity,
     normalizeArtifact,
     normalizeTask,
+    normalizeTaskChecklistItem,
+    normalizeTaskAttachment,
     isGovernanceTerminal,
     isArchiveTask,
     normalizeChecklistItem,
@@ -662,9 +812,11 @@
     normalizeSystemMap,
     load,
     loadChecklist,
+    loadTaskChecklist,
     loadMovementHistory,
     loadActivity,
     loadArtifacts,
+    loadTaskAttachments,
     transitionTask,
     createWorkspace,
     renameWorkspace,
@@ -672,9 +824,19 @@
     moveTaskWorkspace,
     governanceAction,
     createTask,
+    updateTaskContent,
+    updateTaskDueDate,
+    addTaskChecklistItem,
+    updateTaskChecklistItem,
+    deleteTaskChecklistItem,
     createChecklistItem,
     updateChecklistItem,
     addTaskProgressNote,
+    prepareTaskAttachment,
+    prepareProgressNoteAttachment,
+    uploadTaskAttachment,
+    completeTaskAttachment,
+    taskAttachmentUrl,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     runHealthCheck,
