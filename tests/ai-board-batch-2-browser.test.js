@@ -93,6 +93,10 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /系統藍圖/);
   assert.match(output, /nav-collapse-audit/);
   assert.match(output, /zhuge-nav-collapsed/);
+  assert.match(output, /collapsed-visible=worklog,tasks,investment,library,sync,settings/);
+  assert.match(output, /collapsed-tasks-tag=A/);
+  assert.match(output, /collapsed-tasks-title=工作待辦/);
+  assert.match(output, /collapsed-tasks-href=.*workspace=tasks/);
   assert.match(output, /cross-workspace-audit/);
   // Engineering destinations live inside 控制台; the global rail keeps only
   // the canonical user-facing workspaces and system entry points.
