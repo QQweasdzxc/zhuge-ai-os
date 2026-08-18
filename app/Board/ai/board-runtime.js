@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "" };
+  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", taskChecklistWrites: new Set() };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -786,9 +786,13 @@
     const raw = String(value).slice(0, 10);
     try { return new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeZone: "Asia/Taipei" }).format(new Date(`${raw}T00:00:00+08:00`)); } catch { return raw; }
   }
-  function dueDateMarkup(task, archiveOnly) {
-    const value = String(task?.dueDate || "").slice(0, 10);
-    return `<div class="task-due-date-field" data-task-due-date-field data-task-due-date-mode="read"><div class="task-due-date-read"><span data-task-due-date-value>${esc(dueDateLabel(value))}</span>${archiveOnly ? "" : `<button class="btn2 task-inline-edit-button" type="button" data-task-due-date-edit>✏️ 編輯</button>`}</div></div>`;
+  function taskChecklistCountMarkup(items) {
+    const rows = Array.isArray(items) ? items : [];
+    const completed = rows.filter(item => item && (item.completed === true || item.completed === 1)).length;
+    return `${completed} / ${rows.length}`;
+  }
+  function taskChecklistPanelMarkup() {
+    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
   }
   function attachmentMarkup(attachments, artifacts, error, archiveOnly) {
     // Progress-note attachments belong beside their Human Progress Note in
@@ -899,57 +903,70 @@
   }
   function wireDueDateEditor(task, archiveOnly) {
     if (archiveOnly) return;
-    const field = document.querySelector("[data-task-due-date-field]");
-    const edit = field?.querySelector("[data-task-due-date-edit]");
-    const value = field?.querySelector("[data-task-due-date-value]");
-    if (!field || !edit || !value) return;
-    edit.onclick = () => {
-      if (field.querySelector("[data-task-due-date-editor]")) return;
-      const editor = document.createElement("div");
-      editor.dataset.taskDueDateEditor = "true";
-      editor.className = "task-inline-editor task-due-date-editor";
-      editor.innerHTML = `<input type="date" data-task-due-date-input aria-label="日期"><div class="task-inline-editor-actions"><button class="btn2" type="button" data-task-due-date-cancel>取消</button><button class="btn2 primary" type="button" data-task-due-date-save>儲存</button></div><small>日期會經 authenticated controlled write path 保存至正式 Cloud。</small>`;
-      editor.querySelector("input").value = String(task.dueDate || "").slice(0, 10);
-      field.appendChild(editor);
-      field.dataset.taskDueDateMode = "edit";
+    const property = document.querySelector('[data-task-property-action="due-date"]');
+    const value = property?.querySelector("[data-task-property-value]") || property?.querySelector(".shared-task-drawer-property-value");
+    if (!property || !value) return;
+    property.onclick = event => {
+      if (event.target?.closest?.("input")) return;
+      if (property.querySelector("[data-task-due-date-picker]")) return;
+      const input = document.createElement("input");
+      input.type = "date";
+      input.className = "shared-task-due-date-picker";
+      input.dataset.taskDueDatePicker = "true";
+      input.setAttribute("aria-label", "日期");
+      input.value = String(task.dueDate || "").slice(0, 10);
+      property.classList.add("is-editing");
       value.hidden = true;
-      edit.hidden = true;
-      const leave = () => {
-        editor.remove();
+      property.appendChild(input);
+      const close = () => {
+        input.remove();
         value.hidden = false;
-        edit.hidden = false;
-        field.dataset.taskDueDateMode = "read";
+        property.classList.remove("is-editing");
       };
-      editor.querySelector("[data-task-due-date-cancel]").onclick = leave;
-      editor.querySelector("[data-task-due-date-save]").onclick = async event => {
-        const button = event.currentTarget;
-        const next = editor.querySelector("[data-task-due-date-input]").value || null;
-        button.disabled = true;
+      input.addEventListener("click", event => event.stopPropagation());
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") close();
+      });
+      input.addEventListener("blur", () => window.setTimeout(close, 0));
+      input.addEventListener("change", async () => {
+        const next = input.value || null;
+        input.disabled = true;
         try {
           await service.updateTaskDueDate({ taskId: task.id, dueDate: next });
-          leave();
+          close();
           await refreshBoard({ quiet: true });
           const freshTask = state.taskById.get(String(task.id)) || { ...task, dueDate: next };
           await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
           setBanner("日期已保存至正式 Cloud，Audit 已記錄。", "success");
         } catch (error) {
-          button.disabled = false;
+          input.disabled = false;
           setBanner("日期保存失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
         }
-      };
-      editor.querySelector("input")?.focus();
+      });
+      try {
+        if (typeof input.showPicker === "function") input.showPicker();
+        else input.focus();
+      } catch {
+        input.focus();
+      }
     };
   }
   function wireTaskChecklist(task, items, archiveOnly) {
     const zone = document.querySelector("[data-task-checklist]");
     if (!zone) return;
     if (!archiveOnly) {
-      zone.querySelector("[data-task-checklist-add]")?.addEventListener("submit", async event => {
+      const addForm = zone.querySelector("[data-task-checklist-add]");
+      if (addForm) addForm.onsubmit = async event => {
         event.preventDefault();
-        const input = event.currentTarget.querySelector("input[name=label]");
+        const form = event.currentTarget;
+        const input = form.querySelector("input[name=label]");
         const label = input?.value.trim();
         if (!label) return;
-        const button = event.currentTarget.querySelector("button[type=submit]");
+        const button = form.querySelector("button[type=submit]");
+        const taskKey = String(task.id);
+        if (state.taskChecklistWrites.has(taskKey) || form.dataset.taskChecklistSubmitting === "true") return;
+        state.taskChecklistWrites.add(taskKey);
+        form.dataset.taskChecklistSubmitting = "true";
         if (button) button.disabled = true;
         try {
           await service.addTaskChecklistItem({ taskId: task.id, label, sortOrder: items.length * 10 });
@@ -958,8 +975,11 @@
         } catch (error) {
           if (button) button.disabled = false;
           setBanner("工作 Checklist 新增失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+        } finally {
+          state.taskChecklistWrites = new Set(Array.from(state.taskChecklistWrites).filter(key => key !== taskKey));
+          form.dataset.taskChecklistSubmitting = "false";
         }
-      });
+      };
       zone.querySelectorAll("[data-task-checklist-toggle]").forEach(button => {
         button.onclick = async () => {
           const item = items.find(row => String(row.id) === String(button.dataset.taskChecklistToggle));
@@ -1108,16 +1128,14 @@
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
       { key: "assignee", icon: "👤", label: "負責人", value: String(task.assignee || "").trim() || "尚未指派" },
       priorityLabel(task.priority) ? { key: "priority", icon: "⚑", label: "優先度", value: priorityLabel(task.priority) } : null,
-      { key: "due-date", icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) },
+      { key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) },
       archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
     ].filter(Boolean);
     const sections = [
-      { id: "requirements", title: "工作內容", className: "task-detail-section task-detail-requirement", html: editableTaskFieldMarkup(task, "summary", { readOnly: archiveOnly }) },
-      { id: "usage", title: "使用情境", className: "task-detail-section", html: editableTaskFieldMarkup(task, "usage_scenario", { readOnly: archiveOnly }) },
-      { id: "due-date", title: "日期", hint: "一般工作 Due Date", className: "task-due-date-section", html: dueDateMarkup(task, archiveOnly) },
-      { id: "task-checklist", title: "☑️ 工作 Checklist", hint: "還有哪些工作要完成", className: "task-checklist-section", html: `<div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div>` },
-      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` },
-      { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` }
+      { id: "requirements", title: "工作內容", className: "task-content-section", html: editableTaskFieldMarkup(task, "summary", { readOnly: archiveOnly }) },
+      { id: "usage", title: "使用情境", className: "task-content-section", html: editableTaskFieldMarkup(task, "usage_scenario", { readOnly: archiveOnly }) },
+      { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` },
+      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
     ];
     if (drawer?.render) {
       body.innerHTML = drawer.render({
@@ -1129,6 +1147,7 @@
         activity: {
           title: "💬 工作進度紀錄",
           hint: "只顯示人工工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
+          topHtml: taskChecklistPanelMarkup(),
           composerHtml: progressNoteComposerMarkup(archiveOnly),
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
@@ -1145,10 +1164,12 @@
         service.loadChecklist(task.id),
         typeof service.loadTaskChecklist === "function" ? service.loadTaskChecklist(task.id) : Promise.resolve([])
       ]);
-      const taskChecklistSection = body.querySelector('[data-shared-task-drawer-section="task-checklist"]');
       const taskChecklistRows = document.getElementById("taskChecklistRows");
       if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly);
-      if (taskChecklistSection) taskChecklistSection.hidden = false;
+      const taskChecklistPanel = body.querySelector("[data-task-checklist-panel]");
+      const taskChecklistCount = taskChecklistPanel?.querySelector("[data-task-checklist-count]");
+      if (taskChecklistCount) taskChecklistCount.textContent = taskChecklistCountMarkup(taskChecklistItems);
+      if (taskChecklistPanel) taskChecklistPanel.open = Array.isArray(taskChecklistItems) && taskChecklistItems.length > 0;
       const verification = engineeringVerificationState(items);
       const pmAcceptanceItem = items.find(isPmAcceptanceItem);
       const pmAcceptanceAction = document.getElementById("pmAcceptanceAction");

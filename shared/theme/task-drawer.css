@@ -23,10 +23,22 @@
 .shared-task-drawer-property-copy{display:grid;gap:3px;min-width:0}
 .shared-task-drawer-property-label{color:#8493a7;font-size:10px;line-height:1.2}
 .shared-task-drawer-property-value{color:#d7e2f2;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.shared-task-drawer-property.is-interactive{appearance:none;width:100%;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.shared-task-drawer-property.is-interactive:hover,.shared-task-drawer-property.is-interactive:focus-visible{border-color:#5d9cff;background:#151f2d;outline:none}
+.shared-task-drawer-property.is-editing{border-color:#5d9cff;background:#151f2d}
+.shared-task-due-date-picker{grid-column:2;min-width:0;width:100%;box-sizing:border-box;border:1px solid #4b6691;border-radius:6px;background:#111720;color:#d7e2f2;padding:5px;font:inherit;font-size:11px}
 .shared-task-drawer-content[data-shared-task-region="work-body"]{background:#151c26}
 .shared-task-drawer-activity[data-shared-task-region="activity"]{background:#101720}
 .shared-task-drawer-activity[data-shared-task-region="activity"]>.shared-task-drawer-section-heading h3{color:#d7e2f2;font-size:15px}
 .shared-task-drawer-activity[data-shared-task-region="activity"]>.shared-task-drawer-section-heading span{font-size:10px}
+.shared-task-drawer-activity-top{margin:0 0 12px}
+.shared-task-drawer-checklist-panel{border:1px solid #344052;border-radius:10px;background:#151c26;overflow:hidden}
+.shared-task-drawer-checklist-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;padding:10px 11px;color:#d7e2f2;font-size:12px;font-weight:700}
+.shared-task-drawer-checklist-panel>summary::-webkit-details-marker{display:none}
+.shared-task-drawer-checklist-panel>summary::after{content:"⌄";color:#9fb0c5;font-size:14px;line-height:1}
+.shared-task-drawer-checklist-panel[open]>summary::after{content:"⌃"}
+.shared-task-drawer-checklist-count{color:#9fb0c5;font-size:11px;font-weight:600;margin-left:auto}
+.shared-task-drawer-checklist-body{border-top:1px solid #293241;padding:10px 11px}
 .shared-task-drawer-activity-list[data-shared-task-timeline]{position:relative;display:grid;gap:3px;padding:2px 0 4px 3px}
 .shared-task-drawer-activity-list[data-shared-task-timeline]::before{content:"";position:absolute;left:12px;top:11px;bottom:11px;width:1px;background:#344052}
 .shared-task-drawer-activity-list[data-shared-task-timeline] .shared-task-drawer-activity-row{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr);gap:9px;border:0;border-radius:9px;padding:9px 9px 9px 0;background:transparent}
