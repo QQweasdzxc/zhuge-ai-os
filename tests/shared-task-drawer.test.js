@@ -11,22 +11,26 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   const html = Drawer.render({
     title: "TASK-TEST｜Shared Drawer",
     subtitle: "AI Board · Shared Task Drawer",
-    properties: [{ key: "status", icon: "◉", label: "目前狀態", value: "等待 PM 驗收" }],
+    properties: [{ key: "status", icon: "◉", label: "目前狀態", value: "等待 PM 驗收" }, { key: "due-date", action: "due-date", interactive: true, icon: "📅", label: "日期", value: "尚未設定日期" }],
     sections: [
       { id: "content", title: "需求內容", html: "<p>Adapter-owned content</p>" },
       { id: "optional-checklist", title: "Task Checklist", hidden: true, html: "<p>Optional shared checklist</p>" },
       { id: "details", title: "工程詳細資料", html: "<p>Canonical evidence</p>", collapsible: true }
     ],
-    activity: { title: "💬 工作進度紀錄", composerHtml: "<textarea>進度</textarea>", notesHtml: "<p>Human note</p>", html: "<p>System activity</p>" },
+    activity: { title: "💬 工作進度紀錄", topHtml: "<details data-task-checklist-panel><summary>☑ 工作 Checklist <span data-task-checklist-count>1 / 2</span></summary></details>", composerHtml: "<textarea>進度</textarea>", notesHtml: "<p>Human note</p>", html: "<p>System activity</p>" },
     footerHtml: "<button data-governance=\"cancelled\">取消 TASK</button>"
   });
   assert.match(html, /data-shared-task-drawer/);
   assert.match(html, /data-shared-task-framework="v1"/);
   assert.match(html, /data-shared-task-properties/);
   assert.match(html, /data-task-property="status"/);
+  assert.match(html, /data-task-property-action="due-date"/);
+  assert.match(html, /class="shared-task-drawer-property is-interactive"/);
   assert.match(html, /data-shared-task-region="work-body"/);
   assert.match(html, /data-shared-task-region="activity"/);
   assert.match(html, /data-shared-task-timeline/);
+  assert.match(html, /shared-task-drawer-activity-top/);
+  assert.match(html, /data-task-checklist-panel/);
   assert.match(html, /shared-task-drawer-grid/);
   assert.match(html, /shared-task-drawer-content/);
   assert.match(html, /shared-task-drawer-activity/);

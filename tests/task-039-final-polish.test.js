@@ -38,6 +38,20 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.doesNotMatch(runtime, /taskMoreMarkup|data-engineering-records|⚙️ 工程紀錄|⋯ 更多/);
   assert.match(runtime, /title: "📎 附件"/);
   assert.match(runtime, /aria-label="附件"/);
+  assert.match(runtime, /shared-task-attachment-open/);
+  assert.match(runtime, /noopener noreferrer/);
+  assert.match(runtime, /shared-task-progress-attachment-icon/);
+  assert.match(runtime, /附加圖片或文件.*aria-label/);
+  assert.match(runtime, /action: "due-date", interactive: !archiveOnly/);
+  assert.doesNotMatch(runtime, /id: "due-date", title: "日期"/);
+  assert.match(runtime, /topHtml: taskChecklistPanelMarkup\(\)/);
+  assert.match(runtime, /function taskChecklistPanelMarkup\(\)/);
+  assert.match(runtime, /data-task-checklist-panel/);
+  assert.match(runtime, /taskChecklistPanel\.open = Array\.isArray\(taskChecklistItems\) && taskChecklistItems\.length > 0/);
+  assert.doesNotMatch(runtime, /id: "task-checklist"/);
+  assert.doesNotMatch(runtime, /data-task-due-date-edit/);
+  assert.match(css, /shared-task-drawer-checklist-panel/);
+  assert.match(css, /shared-task-due-date-picker/);
   assert.match(runtime, /if \(!note\) return ""/);
   assert.match(runtime, /<strong>工作補充<\/strong>/);
   assert.doesNotMatch(runtime, /目前沒有既有 TASK Contract Note/);
@@ -46,6 +60,19 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.match(css, /\.shared-task-progress-submit\{/);
   assert.match(css, /min-height:82px/);
   assert.match(css, /opacity:.82/);
+});
+
+test("General Task Checklist uses one listener and single-flight controlled create", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const start = runtime.indexOf("function wireTaskChecklist");
+  const end = runtime.indexOf("async function uploadAttachmentFiles", start);
+  const checklist = runtime.slice(start, end);
+  assert.match(runtime, /taskChecklistWrites: new Set\(\)/);
+  assert.match(checklist, /addForm\.onsubmit = async event/);
+  assert.match(checklist, /state\.taskChecklistWrites\.has\(taskKey\)/);
+  assert.match(checklist, /state\.taskChecklistWrites\.add\(taskKey\)/);
+  assert.match(checklist, /state\.taskChecklistWrites = new Set\(Array\.from\(state\.taskChecklistWrites\)/);
+  assert.doesNotMatch(checklist, /addEventListener\("submit"/);
 });
 
 test("Human Progress Note stays controlled and append-only", () => {

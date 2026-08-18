@@ -1,22 +1,31 @@
 Candidate QA Report
 
 Product Version: v0.9.0-alpha.9.13
-Runtime Build ID: 20260818-1549
-Artifact Created At: 2026-08-18T15:49:37+08:00
+Runtime Build ID: 20260818-2359
+Artifact Created At: 2026-08-19T06:30:45+08:00
 Timezone: Asia/Taipei (UTC+8)
-Git Commit: 739c45bf9589283b51212b93866536aced64c27f
-Source Reference: recovery/task-5d641a7d-20260814 working-tree snapshot
+Git Commit: 78862cebd7603431f2776d529860665e0b779c59
+Source Reference: origin/main@78862cebd7603431f2776d529860665e0b779c59 (PM-accepted runtime source) + fixture-only hydration contract overlay
+Source File Count: 350
 
 QA
-- Sidebar targeted QA: 23 pass / 0 fail / 0 skipped
-- Full regression: 172 pass / 0 fail / 0 skipped
-- Release identity and syntax checks: PASS
-- Cloud migrations: included as source; live Supabase deployment not performed
-- PM Acceptance: Pending / Not Accepted
+- Targeted browser fixtures: 3 pass / 0 fail / 0 skipped
+- Full regression: 169 pass / 0 fail / 0 skipped
+- ZIP integrity: PASS
+- Source completeness: PASS
+- Candidate content match: PASS
+- Filename timestamp matches Artifact Created At minute: PASS
+
+PM Runtime Acceptance
+- Build 20260818-2359: PASS
+- PM Accepted Baseline: unchanged
+- Release: not declared
+
+Fixture maintenance
+- tests/ai-board-batch-2-browser.html
+- tests/ai-board-completion-gate-browser.html
+- tests/creator-mfa-control-browser.html
 
 Scope
-- TASK-039 authenticated inline content write path with audit
-- TASK-041 Phase 1 Due Date and General Task Checklist
-- TASK-041 Phase 2 General Task Attachment via private Storage
-- TASK-041 Phase 3 Progress Note Attachment binding
-- Shared collapsed Sidebar Navigation UX
+- Test fixtures only: canonical AI Board session hydration seam and accepted runtime Build metadata.
+- Product runtime behavior, Cloud, GitHub, and PM baseline unchanged.

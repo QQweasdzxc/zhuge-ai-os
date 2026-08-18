@@ -1,22 +1,24 @@
 {
   "artifact_type": "candidate",
   "candidate_scope": "Full Zhuge AI OS Source",
-  "related_task": "TASK-039",
-  "supporting_capabilities": [
-    "TASK-041 Phase 1",
-    "TASK-041 Phase 2",
-    "TASK-041 Phase 3"
-  ],
-  "included_refinement": "Shared collapsed Sidebar Navigation UX",
+  "full_candidate": true,
   "product_version": "v0.9.0-alpha.9.13",
-  "runtime_build_id": "20260818-1549",
-  "artifact_created_at": "2026-08-18T15:49:37+08:00",
+  "runtime_build_id": "20260818-2359",
+  "artifact_created_at": "2026-08-19T06:30:45+08:00",
   "timezone": "Asia/Taipei (UTC+8)",
-  "git_commit": "739c45bf9589283b51212b93866536aced64c27f",
-  "source_reference": "recovery/task-5d641a7d-20260814 working-tree snapshot",
-  "pm_acceptance_status": "Pending / Not Accepted",
-  "developer_qa": "172 pass / 0 fail / 0 skipped",
-  "targeted_qa": "23 pass / 0 fail / 0 skipped",
-  "cloud_migration_status": "Source-prepared; live Supabase deployment not performed",
-  "candidate_note": "Immutable Full Candidate packaging only; no PM Accepted Baseline or Release is implied."
+  "git_commit": "78862cebd7603431f2776d529860665e0b779c59",
+  "source_reference": "origin/main@78862cebd7603431f2776d529860665e0b779c59 (PM-accepted runtime source) + fixture-only hydration contract overlay",
+  "fixture_maintenance_files": [
+    "tests/ai-board-batch-2-browser.html",
+    "tests/ai-board-completion-gate-browser.html",
+    "tests/creator-mfa-control-browser.html"
+  ],
+  "source_file_count": 350,
+  "developer_qa": "169 pass / 0 fail / 0 skipped",
+  "targeted_browser_qa": "3 pass / 0 fail / 0 skipped",
+  "final_regression": "169 pass / 0 fail / 0 skipped",
+  "pm_runtime_acceptance": "PASS",
+  "pm_accepted_baseline_changed": false,
+  "release_declared": false,
+  "candidate_note": "Immutable Full Candidate packaging only; no Release or PM Accepted Baseline is implied."
 }

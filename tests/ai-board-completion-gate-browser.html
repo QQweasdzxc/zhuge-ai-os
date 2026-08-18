@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
 <link rel="stylesheet" href="../shared/theme/task-drawer.css">
 <div class="zhuge-module-shell">
-  <div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260818-1549"></div>
+  <div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="20260818-2359"></div>
   <div class="main">
     <aside><button data-board-nav="board" type="button">📋 工作看板</button><button data-board-nav="principles" type="button">📘 工程準則</button><button data-board-nav="system-map" type="button">🗺️ 系統藍圖</button></aside>
     <div class="actions"><button class="btn">重新整理</button></div><div class="toolbar"></div><div class="note"></div>
@@ -14,7 +14,25 @@
 </div>
 <script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script><script src="../shared/components/task-drawer.js"></script>
 <script>
+  let session = null;
   window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
+  // Fixture-only implementation of the canonical AI Board session hydration seam.
+  const fixtureAuthUser = { id: "qjc-test", email: "qjc@example.test", user_metadata: { full_name: "QJC" } };
+  const fixtureAuthSession = { access_token: "fixture-access-token", refresh_token: "fixture-refresh-token", expires_at: Math.floor(Date.now() / 1000) + 3600 };
+  window.getSupabaseAuthUser = async () => ({ user: fixtureAuthUser, authSession: fixtureAuthSession, provider: "fixture" });
+  window.supabaseSessionFromUser = (authUser, authSession, provider) => ({
+    provider,
+    user_uuid: authUser.id,
+    uuid: authUser.id,
+    name: authUser.user_metadata.full_name,
+    email: authUser.email,
+    access_token: authSession.access_token,
+    refresh_token: authSession.refresh_token,
+    expires_at: authSession.expires_at,
+    token_type: "bearer",
+    loginAt: new Date().toISOString()
+  });
+  window.persistAiOsSessionOnly = () => {};
   window.ZhugeRuntimeSessionProvider = {
     createPlatform: () => ({
       forModule: () => ({
