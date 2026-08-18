@@ -1419,6 +1419,7 @@
 
   let originalMainMarkup = null;
   let accessContext = null;
+  let boardSessionHydrationPromise = null;
 
   function captureBoardMarkup() {
     const main = document.querySelector(".main");
@@ -1462,6 +1463,15 @@
     });
   }
 
+  function renderSessionHydrationState() {
+    renderAccessState({
+      title: "正在恢復 AI Board",
+      message: "正在檢查登入工作階段，完成前不會判定為未登入。",
+      kind: "loading",
+      body: `<div class="board-access-progress" role="status">正在同步 Shared Session…</div>`
+    });
+  }
+
   function renderAccessError(message) {
     renderAccessState({
       title: "目前無法開啟 AI Board",
@@ -1472,11 +1482,32 @@
     document.getElementById("boardAccessRetry")?.addEventListener("click", () => init());
   }
 
-  function restoreBoardMarkup() {
+  function restoreCapturedBoardMarkup() {
     const main = document.querySelector(".main");
     if (!main || originalMainMarkup === null) return;
     main.innerHTML = originalMainMarkup;
+  }
+
+  function restoreBoardMarkup() {
+    restoreCapturedBoardMarkup();
     startBoardRuntime();
+  }
+
+  function hydrateBoardSession() {
+    if (boardSessionHydrationPromise) return boardSessionHydrationPromise;
+    boardSessionHydrationPromise = (async () => {
+      if (typeof getSupabaseAuthUser !== "function"
+        || typeof supabaseSessionFromUser !== "function"
+        || typeof persistAiOsSessionOnly !== "function") {
+        throw new Error("Shared Auth hydration service 尚未準備完成。");
+      }
+      const result = await getSupabaseAuthUser();
+      if (!result?.user || !result?.authSession?.access_token) return false;
+      session = supabaseSessionFromUser(result.user, result.authSession, result.provider);
+      persistAiOsSessionOnly();
+      return true;
+    })().finally(() => { boardSessionHydrationPromise = null; });
+    return boardSessionHydrationPromise;
   }
 
   function renderMfaUnlock(context, access) {
@@ -1537,9 +1568,23 @@
 
   async function init() {
     captureBoardMarkup();
+    renderSessionHydrationState();
     const provider = root.ZhugeRuntimeSessionProvider;
     if (!provider?.createPlatform) {
       renderAccessError("安全服務尚未準備完成，請重新整理後再試。\n");
+      return;
+    }
+    let hydrated = false;
+    try {
+      hydrated = await hydrateBoardSession();
+    } catch (error) {
+      if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
+      return;
+    }
+    if (!hydrated) {
+      if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      renderLoginState();
       return;
     }
     let context;
@@ -1555,6 +1600,7 @@
     }
     const access = context.security.evaluate("view");
     if (access.allowed) {
+      restoreCapturedBoardMarkup();
       startBoardRuntime();
       return;
     }
