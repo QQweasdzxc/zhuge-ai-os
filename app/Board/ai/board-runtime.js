@@ -746,13 +746,31 @@
   function activityKindLabel(kind) {
     return ({ status: "Status", workspace: "Workspace Move", evidence: "Evidence", acceptance: "PM Acceptance", system: "System Activity" })[kind] || "System Activity";
   }
-  function activityMarkup(activity, attachments = []) {
+  function currentActorId() {
+    try {
+      if (typeof currentUserUuid === "function") return String(currentUserUuid() || "");
+      const snapshot = root.ZhugeSharedPlatform?.getSessionSnapshot?.() || root.ZhugeSharedPlatform?.getSession?.() || {};
+      return String(snapshot.identity?.userId || snapshot.identity?.uuid || snapshot.userId || "");
+    } catch {
+      return "";
+    }
+  }
+  function visibleHumanProgressRows(activity) {
+    const rows = (Array.isArray(activity) ? activity : []).slice().sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
+    const humanRows = rows.filter(item => activityKind(item) === "human");
+    const superseded = new Set(rows.filter(item => item?.revisionOf != null).map(item => String(item.revisionOf)));
+    const tombstoned = new Set(rows.filter(item => item?.tombstoneOf != null).map(item => String(item.tombstoneOf)));
+    return humanRows.filter(item => !superseded.has(String(item.id))
+      && !tombstoned.has(String(item.id))
+      && item.action !== "progress_note_deleted");
+  }
+  function activityMarkup(activity, attachments = [], options = {}) {
     const rows = (Array.isArray(activity) ? activity : []).slice().sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
     // The adapter still reads the complete canonical activity stream so that
     // Audit / Governance data is never discarded.  The general Task Drawer,
     // however, is a human work-progress surface: System Activity and
     // Workspace Move remain in the canonical source but are not rendered here.
-    const humanRows = rows.filter(item => activityKind(item) === "human");
+    const humanRows = visibleHumanProgressRows(rows);
     if (!humanRows.length) return "<div class=\"board-empty\" data-human-progress-empty=\"true\">目前沒有人工工作進度紀錄。</div>";
     const attachmentRows = (Array.isArray(attachments) ? attachments : []).filter(item => item.attachmentScope === "progress_note");
     const attachmentsByActivity = new Map();
@@ -762,7 +780,11 @@
       const attachmentMarkupForNote = noteAttachments.length
         ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<span class="shared-task-progress-attachment-row" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview>📎</span><strong>${esc(file.filename)}</strong></span>`).join("")}</div>`
         : "";
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">人工工作進度 · Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small></div></article>`;
+      const canManage = options.readOnly !== true && currentActorId() && String(item.actorId) === currentActorId();
+      const controls = canManage
+        ? `<div class="shared-task-progress-note-actions"><button class="btn2" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度">✏️ 編輯</button><button class="btn2 shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度">🗑️</button></div>`
+        : "";
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">人工工作進度 · Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small>${controls}</div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
@@ -777,9 +799,9 @@
   }
   function progressNoteComposerMarkup(archiveOnly) {
     if (archiveOnly) {
-      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly" data-progress-note-composer><div class="shared-task-progress-composer-body"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment is-disabled" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" disabled multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度" disabled>＋</button></div><small class="shared-task-progress-file-hint">封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small></div></section>`;
+      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly" data-progress-note-composer><div class="shared-task-progress-readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div></section>`;
     }
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer><div class="shared-task-progress-composer-body"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">＋</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="送出工作進度" title="送出工作進度">➤</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
   }
   function dueDateLabel(value) {
     if (!value) return "尚未設定日期";
@@ -803,10 +825,11 @@
     const errorMarkup = error ? `<div class="task-read-warning">工作附件讀取失敗：${esc(error.message || "未知錯誤")}。</div>` : "";
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong><small>${esc(item.mimeType || "文件")} · ${esc(formatByteSize(item.byteSize))}</small></span></article>`;
+      const remove = archiveOnly ? "" : `<button class="shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong><small>${esc(item.mimeType || "文件")} · ${esc(formatByteSize(item.byteSize))}</small></span>${remove}</article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
-    const empty = !attachmentRows && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
+    const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
     const add = archiveOnly ? "" : `<label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
     return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}</div>`;
   }
@@ -1059,8 +1082,7 @@
     if (archiveOnly) return;
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
-    if (!input) return;
-    input.onchange = async () => {
+    if (input) input.onchange = async () => {
       const files = Array.from(input.files || []);
       if (!files.length) return;
       input.disabled = true;
@@ -1076,21 +1098,54 @@
         input.disabled = false;
       }
     };
+    document.querySelectorAll("[data-task-attachment-delete]").forEach(button => {
+      button.onclick = async () => {
+        const attachmentId = button.dataset.taskAttachmentDelete;
+        const filename = button.closest("[data-task-attachment-id]")?.querySelector(".shared-task-attachment-copy strong")?.textContent || "這個附件";
+        if (!attachmentId || !window.confirm?.(`刪除附件「${filename}」？刪除後會保留 Audit 紀錄，但檔案不再可查閱。`)) return;
+        button.disabled = true;
+        try {
+          await service.deleteTaskAttachment(attachmentId);
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || task;
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("附件已透過受控刪除流程移除。", "success");
+        } catch (error) {
+          button.disabled = false;
+          setBanner("附件刪除失敗：" + esc(error?.message || "正式 Storage／controlled delete 未接受這次操作。"), "error");
+        }
+      };
+    });
   }
   function wireProgressNoteComposer(task, archiveOnly) {
     if (archiveOnly) return;
+    const composer = document.querySelector("[data-progress-note-composer][data-progress-note-write=available]");
+    const openButton = composer?.querySelector("[data-progress-note-open]");
+    const closeButton = composer?.querySelector("[data-progress-note-close]");
+    const panel = composer?.querySelector("[data-progress-note-panel]");
     const textarea = document.getElementById("taskProgressNote");
     const button = document.getElementById("addTaskProgressNote");
     const attachmentInput = document.getElementById("taskProgressAttachments");
     const attachmentHint = document.getElementById("taskProgressAttachmentHint");
     if (!textarea || !button) return;
+    const setExpanded = expanded => {
+      if (!composer || !panel) return;
+      composer.dataset.progressNoteExpanded = expanded ? "true" : "false";
+      panel.hidden = !expanded;
+      openButton?.toggleAttribute("hidden", expanded);
+      if (expanded) textarea.focus();
+    };
+    openButton?.addEventListener("click", () => setExpanded(true));
+    closeButton?.addEventListener("click", () => setExpanded(false));
     const submit = async () => {
+      if (button.dataset.submitting === "true") return;
       const note = textarea.value.trim();
       if (!note) {
         setBanner("請輸入工作進度內容。", "error");
         textarea.focus();
         return;
       }
+      button.dataset.submitting = "true";
       button.disabled = true;
       try {
         const createdNote = await service.addTaskProgressNote(task.id, note);
@@ -1104,6 +1159,7 @@
       } catch (error) {
         setBanner("工作進度保存失敗：" + esc(error?.message || "正式 Cloud 未接受這次寫入。"), "error");
         button.disabled = false;
+        button.dataset.submitting = "false";
       }
     };
     button.onclick = submit;
@@ -1118,6 +1174,125 @@
       if (attachmentHint) attachmentHint.textContent = count ? `已選擇 ${count} 個進度附件` : "可選擇圖片／文件附件";
     });
   }
+  function wireTaskTitleEditor(task, archiveOnly) {
+    if (archiveOnly) return;
+    const row = document.querySelector(".shared-task-drawer-title-row");
+    const value = row?.querySelector("[data-shared-task-title]");
+    const editButton = row?.querySelector("[data-task-title-edit]");
+    if (!row || !value || !editButton) return;
+    editButton.onclick = () => {
+      if (row.querySelector("[data-task-title-editor]")) return;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = String(task.title || "");
+      input.maxLength = 300;
+      input.className = "shared-task-drawer-title-input";
+      input.dataset.taskTitleEditor = "true";
+      input.setAttribute("aria-label", "TASK 主旨");
+      const actions = document.createElement("span");
+      actions.className = "shared-task-drawer-title-actions";
+      actions.innerHTML = '<button class="btn2" type="button" data-task-title-cancel>取消</button><button class="btn2 primary" type="button" data-task-title-save>儲存</button>';
+      value.hidden = true;
+      editButton.hidden = true;
+      row.querySelector("h2")?.append(input);
+      row.querySelector("h2")?.append(actions);
+      input.focus();
+      input.select();
+      const close = () => {
+        input.remove();
+        actions.remove();
+        value.hidden = false;
+        editButton.hidden = false;
+      };
+      actions.querySelector("[data-task-title-cancel]")?.addEventListener("click", close);
+      actions.querySelector("[data-task-title-save]")?.addEventListener("click", async event => {
+        const save = event.currentTarget;
+        const title = input.value.trim();
+        if (!title) {
+          setBanner("TASK 主旨不可為空白。", "error");
+          input.focus();
+          return;
+        }
+        save.disabled = true;
+        try {
+          await service.updateTaskTitle({ taskId: task.id, title });
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || { ...task, title };
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("TASK 主旨已保存至正式 Cloud，Audit 已記錄。", "success");
+        } catch (error) {
+          save.disabled = false;
+          setBanner("TASK 主旨保存失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+        }
+      });
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") close();
+        if (event.key === "Enter") actions.querySelector("[data-task-title-save]")?.click();
+      });
+    };
+  }
+  function wireHumanProgressNoteActions(task, activity, archiveOnly) {
+    if (archiveOnly) return;
+    const rows = Array.isArray(activity) ? activity : [];
+    document.querySelectorAll("[data-progress-note-edit], [data-progress-note-delete]").forEach(button => {
+      const activityId = String(button.dataset.progressNoteEdit || button.dataset.progressNoteDelete || "");
+      const source = rows.find(item => String(item.id) === activityId);
+      const row = button.closest("[data-activity-id]");
+      if (!source || !row) return;
+      if (button.dataset.progressNoteEdit) {
+        button.onclick = () => {
+          if (row.querySelector("[data-progress-note-editor]")) return;
+          const content = row.querySelector("[data-progress-note-content]");
+          if (!content) return;
+          const editor = document.createElement("div");
+          editor.className = "shared-task-progress-note-editor";
+          editor.dataset.progressNoteEditor = "true";
+          editor.innerHTML = '<textarea data-progress-note-input aria-label="工作進度內容"></textarea><div class="shared-task-progress-note-editor-actions"><button class="btn2" type="button" data-progress-note-cancel>取消</button><button class="btn2 primary" type="button" data-progress-note-save>儲存</button></div>';
+          editor.querySelector("textarea").value = activityDetail(source);
+          content.hidden = true;
+          row.querySelector(".shared-task-progress-note-actions")?.setAttribute("hidden", "true");
+          content.after(editor);
+          editor.querySelector("textarea")?.focus();
+          const restore = () => {
+            editor.remove();
+            content.hidden = false;
+            row.querySelector(".shared-task-progress-note-actions")?.removeAttribute("hidden");
+          };
+          editor.querySelector("[data-progress-note-cancel]")?.addEventListener("click", restore);
+          editor.querySelector("[data-progress-note-save]")?.addEventListener("click", async event => {
+            const save = event.currentTarget;
+            const note = editor.querySelector("textarea")?.value.trim();
+            if (!note) {
+              setBanner("工作進度內容不可為空白。", "error");
+              return;
+            }
+            save.disabled = true;
+            try {
+              await service.editTaskProgressNote(source.id, note);
+              await openTaskDetail(task, { readOnly: archiveOnly });
+              setBanner("工作進度已以 revision 保存，歷史 Audit 已保留。", "success");
+            } catch (error) {
+              save.disabled = false;
+              setBanner("工作進度修改失敗：" + esc(error?.message || "正式 revision path 未接受這次更新。"), "error");
+            }
+          });
+        };
+      } else {
+        button.onclick = async () => {
+          if (!window.confirm?.("撤回這筆工作進度？原始紀錄會保留於 Audit，但一般 Timeline 將不再顯示。")) return;
+          button.disabled = true;
+          try {
+            await service.deleteTaskProgressNote(source.id);
+            await openTaskDetail(task, { readOnly: archiveOnly });
+            setBanner("工作進度已透過 tombstone 撤回，歷史 Audit 已保留。", "success");
+          } catch (error) {
+            button.disabled = false;
+            setBanner("工作進度撤回失敗：" + esc(error?.message || "正式 tombstone path 未接受這次操作。"), "error");
+          }
+        };
+      }
+    });
+  }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
@@ -1125,7 +1300,8 @@
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
-    const title = `${task.workCode || "TASK"}｜${task.title || "未命名 TASK"}`;
+    const title = task.title || "未命名 TASK";
+    const titleCode = task.workCode || "TASK";
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
@@ -1143,6 +1319,8 @@
     if (drawer?.render) {
       body.innerHTML = drawer.render({
         title,
+        titleCode,
+        titleEditable: !archiveOnly,
         subtitle: archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer",
         properties,
         sections,
@@ -1200,12 +1378,14 @@
         humanNotesZone.innerHTML = humanNotes;
         humanNotesZone.hidden = !humanNotes;
       }
-      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments);
+      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly });
       wireTaskInlineEditors(task, archiveOnly);
+      wireTaskTitleEditor(task, archiveOnly);
       wireDueDateEditor(task, archiveOnly);
       wireTaskChecklist(task, taskChecklistItems, archiveOnly);
       wireTaskAttachments(task, archiveOnly);
       wireProgressNoteComposer(task, archiveOnly);
+      wireHumanProgressNoteActions(task, activity, archiveOnly);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
         acceptance.querySelectorAll("[data-pm-accept]").forEach(button => {
