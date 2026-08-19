@@ -777,9 +777,9 @@
   }
   function progressNoteComposerMarkup(archiveOnly) {
     if (archiveOnly) {
-      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><div><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small><button class="btn" type="button" disabled>新增工作進度</button></div></section>`;
+      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly" data-progress-note-composer><div class="shared-task-progress-composer-body"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" disabled placeholder="封存資料僅供查閱"></textarea><small>封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment is-disabled" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" disabled multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度" disabled>＋</button></div><small class="shared-task-progress-file-hint">封存資料僅供查閱；不可新增、修改或刪除工作進度紀錄。</small></div></section>`;
     }
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；不接受空白內容。</small><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></section>`;
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer><div class="shared-task-progress-composer-body"><label for="taskProgressNote">新增工作進度...</label><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="btn2 shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">＋</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
   }
   function dueDateLabel(value) {
     if (!value) return "尚未設定日期";
@@ -1151,7 +1151,8 @@
           title: "💬 工作進度紀錄",
           hint: "只顯示人工工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
           topHtml: taskChecklistPanelMarkup(),
-          composerHtml: progressNoteComposerMarkup(archiveOnly),
+          composerHtml: "",
+          bottomHtml: progressNoteComposerMarkup(archiveOnly),
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },

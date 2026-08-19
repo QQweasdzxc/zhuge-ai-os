@@ -62,9 +62,13 @@
     const activityTitle = escapeHtml(activity.title || "💬 工作進度紀錄");
     const activityHint = escapeHtml(activity.hint || "人工備註＋System Activity");
     const activityTop = activity.topHtml ? String(activity.topHtml) : "";
-    const activityComposer = activity.composerHtml ? String(activity.composerHtml) : "";
-    const activityNotes = asMarkup(activity.notesHtml, "目前沒有人工工作進度紀錄。");
+    const activityComposer = activity.bottomHtml ? "" : (activity.composerHtml ? String(activity.composerHtml) : "");
+    const activityNotes = activity.notesHtml ? String(activity.notesHtml) : "";
     const activityRows = asMarkup(activity.html, "目前沒有可讀取的 System Activity。");
+    const activityNotesMarkup = activityComposer || activityNotes
+      ? `<div class="shared-task-drawer-activity-notes">${activityComposer}${activityNotes}</div>`
+      : "";
+    const activityBottom = activity.bottomHtml ? `<div class="shared-task-drawer-activity-bottom">${String(activity.bottomHtml)}</div>` : "";
     const footer = config.footerHtml ? `<footer class="shared-task-drawer-footer">${config.footerHtml}</footer>` : "";
     const readOnly = config.readOnly === true ? " data-read-only=\"true\"" : "";
     const properties = Array.isArray(config.properties) ? config.properties : config.meta;
@@ -75,7 +79,7 @@
         <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
         <div class="shared-task-drawer-grid">
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
-          <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}<div class="shared-task-drawer-activity-notes">${activityComposer}${activityNotes}</div><div class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div></aside>
+          <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}${activityNotesMarkup}<div class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div>${activityBottom}</aside>
         </div>
         ${footer}
       </aside>
