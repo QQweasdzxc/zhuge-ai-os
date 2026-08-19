@@ -161,6 +161,8 @@
       actorId: String(row.actor_id || ""),
       actorType: String(row.actor_type || "legacy"),
       actorLabel: String(row.actor_label || "Legacy"),
+      revisionOf: row.revision_of == null ? null : String(row.revision_of),
+      tombstoneOf: row.tombstone_of == null ? null : String(row.tombstone_of),
       timestamp: row.created_at || null
     });
   }
@@ -269,6 +271,9 @@
       storageBucket: String(row.storage_bucket || "board-task-attachments"),
       storagePath: String(row.storage_path || ""),
       uploadStatus: String(row.upload_status || ""),
+      deletionStatus: String(row.deletion_status || "active"),
+      deletedAt: row.deleted_at || null,
+      deletedBy: String(row.deleted_by || ""),
       createdBy: String(row.created_by || ""),
       createdAt: row.created_at || null,
       completedAt: row.completed_at || null
@@ -438,7 +443,7 @@
   async function loadActivity(taskId, options = {}) {
     const gateway = options.gateway || requireGateway();
     const encodedTaskId = encodeURIComponent(String(taskId || ""));
-    const fields = "id,entity_type,entity_id,action,activity_type,before_data,after_data,note,actor_id,actor_type,actor_label,created_at";
+    const fields = "id,entity_type,entity_id,action,activity_type,before_data,after_data,note,actor_id,actor_type,actor_label,revision_of,tombstone_of,created_at";
     const taskRowsPromise = gateway.select(
       "engineering_activity_log",
       `?select=${fields}&entity_type=eq.board_task&entity_id=eq.${encodedTaskId}&order=created_at.desc`
@@ -479,7 +484,7 @@
     const encoded = encodeURIComponent(String(taskId || ""));
     const rows = await gateway.select(
       "board_task_attachments",
-      `?select=id,task_id,activity_id,attachment_scope,filename,mime_type,byte_size,storage_bucket,storage_path,upload_status,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&order=created_at.desc`
+      `?select=id,task_id,activity_id,attachment_scope,filename,mime_type,byte_size,storage_bucket,storage_path,upload_status,deletion_status,deleted_at,deleted_by,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&deletion_status=eq.active&order=created_at.desc`
     );
     return (Array.isArray(rows) ? rows : []).map(normalizeTaskAttachment);
   }
@@ -619,6 +624,14 @@
     }).then(normalizeTask);
   }
 
+  async function updateTaskTitle(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_update_task_title", {
+      p_task_id: input.taskId,
+      p_title: String(input.title || "")
+    }).then(normalizeTask);
+  }
+
   async function updateTaskDueDate(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_update_task_due_date", {
@@ -686,6 +699,21 @@
     }).then(normalizeActivity);
   }
 
+  async function editTaskProgressNote(activityId, note, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_edit_task_progress_note", {
+      p_activity_id: Number(activityId),
+      p_note: String(note || "")
+    }).then(normalizeActivity);
+  }
+
+  async function deleteTaskProgressNote(activityId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_delete_task_progress_note", {
+      p_activity_id: Number(activityId)
+    }).then(normalizeActivity);
+  }
+
   async function prepareTaskAttachment(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     const file = input.file;
@@ -729,6 +757,21 @@
   async function completeTaskAttachment(attachmentId, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_complete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
+  }
+
+  async function deleteTaskAttachment(attachmentId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const requested = await gateway.rpc("board_request_delete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
+    try {
+      if (typeof gateway.removeStorageObject !== "function") {
+        throw new Error("Shared Supabase Gateway 尚未支援受控附件刪除。");
+      }
+      await gateway.removeStorageObject(requested.storageBucket, requested.storagePath);
+      return gateway.rpc("board_finalize_delete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
+    } catch (error) {
+      await gateway.rpc("board_cancel_delete_task_attachment", { p_attachment_id: attachmentId }).catch(() => {});
+      throw error;
+    }
   }
 
   async function taskAttachmentUrl(attachment, options = {}) {
@@ -825,6 +868,7 @@
     governanceAction,
     createTask,
     updateTaskContent,
+    updateTaskTitle,
     updateTaskDueDate,
     addTaskChecklistItem,
     updateTaskChecklistItem,
@@ -832,10 +876,13 @@
     createChecklistItem,
     updateChecklistItem,
     addTaskProgressNote,
+    editTaskProgressNote,
+    deleteTaskProgressNote,
     prepareTaskAttachment,
     prepareProgressNoteAttachment,
     uploadTaskAttachment,
     completeTaskAttachment,
+    deleteTaskAttachment,
     taskAttachmentUrl,
     requestTaskContractUpdate,
     taskContractUpdateStatus,

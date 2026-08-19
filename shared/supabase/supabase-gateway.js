@@ -127,6 +127,13 @@
     return data?.signedUrl || "";
   }
 
+  async function removeStorageObject(bucket, path) {
+    const client = await initializeAuthClient();
+    const { data, error } = await client.storage.from(String(bucket || "")).remove([String(path || "")]);
+    if (error) throw error;
+    return data;
+  }
+
   function encodedQuery(query = "") {
     const value = String(query || "").trim();
     return value && !value.startsWith("?") ? `?${value}` : value;
@@ -188,6 +195,7 @@
       }),
       uploadStorageObject,
       createStorageSignedUrl,
+      removeStorageObject,
       subscribe: async (table, callback) => {
         const name = `zhuge-board-${String(table || "table")}`;
         if (realtimeChannels.has(name)) return () => {};

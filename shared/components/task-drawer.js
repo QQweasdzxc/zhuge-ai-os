@@ -56,6 +56,7 @@
   function render(options) {
     const config = options || {};
     const title = escapeHtml(config.title || "TASK");
+    const titleCode = escapeHtml(config.titleCode || "");
     const subtitle = escapeHtml(config.subtitle || "Task Detail");
     const sections = Array.isArray(config.sections) ? config.sections : [];
     const activity = config.activity || {};
@@ -71,11 +72,17 @@
     const activityBottom = activity.bottomHtml ? `<div class="shared-task-drawer-activity-bottom">${String(activity.bottomHtml)}</div>` : "";
     const footer = config.footerHtml ? `<footer class="shared-task-drawer-footer">${config.footerHtml}</footer>` : "";
     const readOnly = config.readOnly === true ? " data-read-only=\"true\"" : "";
+    const titleEditor = config.titleEditable === true && config.readOnly !== true
+      ? `<button class="shared-task-drawer-title-edit" type="button" data-task-title-edit aria-label="編輯 TASK 主旨" title="編輯 TASK 主旨">✏️</button>`
+      : "";
+    const heading = titleCode
+      ? `<span class="shared-task-drawer-title-code" data-shared-task-title-code>${titleCode}</span><span class="shared-task-drawer-title-separator" aria-hidden="true">｜</span><span id="taskDetailTitle" data-shared-task-title>${title}</span>`
+      : `<span id="taskDetailTitle" data-shared-task-title>${title}</span>`;
     const properties = Array.isArray(config.properties) ? config.properties : config.meta;
     return `<div class="shared-task-drawer" data-shared-task-drawer data-shared-task-framework="v1"${readOnly}>
       <div class="shared-task-drawer-backdrop" data-shared-task-drawer-close aria-hidden="true"></div>
       <aside class="shared-task-drawer-panel" role="dialog" aria-modal="true" aria-label="${title}">
-        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><h2 id="taskDetailTitle" data-shared-task-title>${title}</h2></div><button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></header>
+        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><div class="shared-task-drawer-title-row"><h2 data-shared-task-title-heading>${heading}</h2>${titleEditor}</div></div><button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></header>
         <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
         <div class="shared-task-drawer-grid">
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
