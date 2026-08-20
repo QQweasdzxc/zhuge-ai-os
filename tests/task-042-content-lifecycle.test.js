@@ -44,10 +44,15 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   const board = read("app/Board/ai/index.html");
   assert.match(drawer, /data-shared-task-title-code/);
   assert.match(drawer, /data-task-title-edit/);
+  assert.match(drawer, /data-shared-task-floating-action/);
+  assert.match(drawer, /floatingHtml/);
   assert.match(runtime, /titleEditable: !archiveOnly/);
   assert.match(runtime, /wireTaskTitleEditor/);
   assert.match(runtime, /data-progress-note-open/);
   assert.match(runtime, /data-progress-note-panel/);
+  assert.match(runtime, /floatingHtml: progressNoteComposerMarkup\(archiveOnly\)/);
+  assert.match(runtime, /aria-label="新增工作進度" title="新增工作進度">新增<\/button>/);
+  assert.doesNotMatch(runtime, />➤<\/button>/);
   assert.match(runtime, /data-task-attachment-delete/);
   assert.match(runtime, /data-progress-note-edit/);
   assert.match(runtime, /data-progress-note-delete/);
@@ -55,4 +60,14 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /readOnly: archiveOnly/);
   assert.match(board, /\.taskcard\{height:156px;min-height:156px/);
   assert.doesNotMatch(runtime, /task\.workCode \|\| "TASK"\}\｜\$\{task\.title/);
+});
+
+test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
+  const css = read("shared/theme/task-drawer.css");
+  assert.match(css, /\.shared-task-drawer-floating-action\{position:absolute;/);
+  assert.match(css, /\.shared-task-drawer-floating-action>\*\{pointer-events:auto\}/);
+  assert.match(css, /\.shared-task-progress-composer-trigger\{[\s\S]*border-radius:50%/);
+  assert.match(css, /\.shared-task-progress-composer-body\[hidden\]\{display:none\}/);
+  assert.match(css, /\.shared-task-progress-submit\{[\s\S]*min-width:56px/);
+  assert.match(css, /\.shared-task-drawer\[data-progress-note-composer-open="true"\]/);
 });
