@@ -33,6 +33,7 @@
 .shared-task-drawer-floating-action>*{pointer-events:auto}
 .shared-task-drawer-progress-composer{display:flex;justify-content:flex-end;align-items:flex-end;min-height:40px;padding:0;border:0;background:transparent;overflow:visible;margin:0}
 .shared-task-progress-composer-trigger{display:grid;place-items:center;width:42px;height:42px;border:1px solid #4b6691;border-radius:50%;background:#151f2d;color:#d7e2f2;font-size:25px;line-height:1;cursor:pointer;box-shadow:0 5px 16px #0008}
+.shared-task-progress-composer-trigger[hidden]{display:none!important}
 .shared-task-progress-composer-trigger:hover,.shared-task-progress-composer-trigger:focus-visible{border-color:#80b6ff;background:#1d3150;color:#fff;outline:none}
 .shared-task-progress-composer-body{width:100%;box-sizing:border-box;padding:12px;border:1px solid #4b6691;border-radius:12px;background:#151c26;box-shadow:0 8px 28px #0009}
 .shared-task-progress-composer-body[hidden]{display:none}
