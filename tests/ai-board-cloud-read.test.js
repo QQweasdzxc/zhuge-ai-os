@@ -356,7 +356,9 @@ test("AI Board Task Drawer uses Need-to-Act presentation and progressive enginee
   assert.match(runtime, /工作內容/);
   assert.match(runtime, /title: "📎 附件"/);
   assert.match(runtime, /shared-task-attachment-list/);
-  assert.match(runtime, /人工工作進度 · Human Progress Note/);
+  assert.match(runtime, /data-activity-type="human_progress_note"/);
+  assert.match(runtime, /shared-task-progress-note-title">工作進度/);
+  assert.doesNotMatch(runtime, /人工工作進度 · Human Progress Note/);
   assert.match(runtime, /footerHtml: ""/);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)_/i);
 });
