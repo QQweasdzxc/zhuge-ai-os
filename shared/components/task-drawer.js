@@ -64,6 +64,7 @@
     const activityHint = escapeHtml(activity.hint || "人工備註＋System Activity");
     const activityTop = activity.topHtml ? String(activity.topHtml) : "";
     const activityComposer = activity.bottomHtml ? "" : (activity.composerHtml ? String(activity.composerHtml) : "");
+    const activityFloating = activity.floatingHtml ? `<div class="shared-task-drawer-floating-action" data-shared-task-floating-action>${String(activity.floatingHtml)}</div>` : "";
     const activityNotes = activity.notesHtml ? String(activity.notesHtml) : "";
     const activityRows = asMarkup(activity.html, "目前沒有可讀取的 System Activity。");
     const activityNotesMarkup = activityComposer || activityNotes
@@ -88,6 +89,7 @@
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
           <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}${activityNotesMarkup}<div class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div>${activityBottom}</aside>
         </div>
+        ${activityFloating}
         ${footer}
       </aside>
     </div>`;

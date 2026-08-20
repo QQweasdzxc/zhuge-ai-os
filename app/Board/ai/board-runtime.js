@@ -798,10 +798,8 @@
     return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${esc(note).replace(/\n/g, "<br>")}</p><small>來源：工作資料</small></article></section>`;
   }
   function progressNoteComposerMarkup(archiveOnly) {
-    if (archiveOnly) {
-      return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="readonly" data-progress-note-composer><div class="shared-task-progress-readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div></section>`;
-    }
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="送出工作進度" title="送出工作進度">➤</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
+    if (archiveOnly) return "";
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
   }
   function dueDateLabel(value) {
     if (!value) return "尚未設定日期";
@@ -1131,6 +1129,7 @@
     const setExpanded = expanded => {
       if (!composer || !panel) return;
       composer.dataset.progressNoteExpanded = expanded ? "true" : "false";
+      composer.closest("[data-shared-task-drawer]")?.toggleAttribute("data-progress-note-composer-open", expanded);
       panel.hidden = !expanded;
       openButton?.toggleAttribute("hidden", expanded);
       if (expanded) textarea.focus();
@@ -1330,7 +1329,8 @@
           hint: "只顯示人工工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
           topHtml: taskChecklistPanelMarkup(),
           composerHtml: "",
-          bottomHtml: progressNoteComposerMarkup(archiveOnly),
+          bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",
+          floatingHtml: progressNoteComposerMarkup(archiveOnly),
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
