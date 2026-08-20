@@ -1129,7 +1129,9 @@
     const setExpanded = expanded => {
       if (!composer || !panel) return;
       composer.dataset.progressNoteExpanded = expanded ? "true" : "false";
-      composer.closest("[data-shared-task-drawer]")?.toggleAttribute("data-progress-note-composer-open", expanded);
+      const drawerRoot = composer.closest("[data-shared-task-drawer]");
+      if (expanded) drawerRoot?.setAttribute("data-progress-note-composer-open", "true");
+      else drawerRoot?.removeAttribute("data-progress-note-composer-open");
       panel.hidden = !expanded;
       openButton?.toggleAttribute("hidden", expanded);
       if (expanded) textarea.focus();
