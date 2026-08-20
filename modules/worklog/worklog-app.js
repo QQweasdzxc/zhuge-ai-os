@@ -492,7 +492,7 @@ function openDashboardTask(taskId = "") {
   activeWorkspace = "tasks";
   if (!openTabs.includes("tasks")) openTabs.push("tasks");
   rememberWorkspace("tasks");
-  taskFilter = task.archivedAt ? "archived" : task.status === "completed" ? "completed" : "open";
+  taskFilter = task.archivedAt ? "archived" : "all";
   taskSearch = "";
   editingTaskId = null;
   taskDrawerOpen = false;
@@ -516,7 +516,7 @@ function openDashboardNewTask() {
   activeWorkspace = "tasks";
   if (!openTabs.includes("tasks")) openTabs.push("tasks");
   rememberWorkspace("tasks");
-  taskFilter = "open";
+  taskFilter = "all";
   taskSearch = "";
   editingTaskId = null;
   taskDraft = loadTaskDraft("new") || null;
@@ -663,7 +663,6 @@ async function saveWorkTodoTaskProperties(taskId, patch = {}, message = "工作�
 
 function bindWorkTodoPropertyEditors(root, task) {
   const editors = [
-    { action: "work-property", field: "workProperty", label: "工作屬性", type: "text", value: task.workProperty || "", maxLength: 120 },
     { action: "estimated-minutes", field: "estimatedMinutes", label: "預估時間", type: "number", value: task.estimatedMinutes || "", min: 0, step: 15 }
   ];
   editors.forEach(config => {
@@ -1057,6 +1056,59 @@ function taskListItems() {
     })
     .filter(task => !search || `${task.workCode} ${task.title} ${task.note} ${task.usageScenario}`.toLowerCase().includes(search));
   return sortTasksByRecentUpdate(filtered);
+}
+
+// WorkTodo consumes the same board template as AI Board.  Status values remain
+// WorkTodo's canonical domain values; the shared board only receives a
+// normalized column/card contract and never reads or writes WorkTodo data.
+const WORKTODO_BOARD_COLUMNS = Object.freeze([
+  { key: "not_started", name: "待開始" },
+  { key: "in_progress", name: "進行中" },
+  { key: "waiting_reply", name: "等待回覆" },
+  { key: "waiting_acceptance", name: "等待驗收" },
+  { key: "blocked", name: "阻塞" },
+  { key: "completed", name: "完成", completion: true }
+]);
+
+function workTodoBoardItems() {
+  const search = taskSearch.trim().toLowerCase();
+  return tasks
+    .filter(task => taskFilter === "archived" ? Boolean(task.archivedAt) : !task.archivedAt)
+    .filter(task => !search || `${task.workCode} ${task.title} ${task.note} ${task.usageScenario}`.toLowerCase().includes(search))
+    .sort((a, b) => {
+      const statusOrder = TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(a.status, a)) - TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(b.status, b));
+      return statusOrder || String(a.workCode || a.id).localeCompare(String(b.workCode || b.id), "en", { numeric: true });
+    });
+}
+
+function workTodoBoardCard(task, readOnly = false) {
+  return ZhugeWorkTodoTaskAdapter.renderCard(task, {
+    summaryHtml: task.note
+      ? `<p class="shared-task-card-summary">${escapeHtml(task.note)}</p>`
+      : '<p class="shared-task-card-summary"><small>尚未補充工作內容。</small></p>',
+    attributes: {
+      draggable: readOnly ? "false" : "true"
+    }
+  });
+}
+
+function workTodoBoardMarkup() {
+  const foundation = typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null;
+  if (!foundation?.render) return `<div class="board-empty">Shared Task Board foundation 尚未載入。</div>`;
+  const items = workTodoBoardItems();
+  const columns = taskFilter === "archived"
+    ? [{ id: "archived", key: "archived", name: "📦 封存", readOnly: true, reorderable: false, cards: items, renderCard: task => workTodoBoardCard(task, true) }]
+    : WORKTODO_BOARD_COLUMNS.map(column => ({
+      ...column,
+      id: column.key,
+      reorderable: false,
+      addHtml: column.key === "not_started"
+        ? '<button class="shared-task-board-add-card" type="button" data-task-new="1" title="新增工作待辦卡片">＋新增卡片</button>'
+        : "",
+      cards: items.filter(task => normalizeTaskStatus(task.status, task) === column.key),
+      renderCard: task => workTodoBoardCard(task, false)
+    }));
+  return foundation.render({ id: "workTodoTaskBoard", boardKey: "worktodo", ariaLabel: "工作待辦看板", columns });
 }
 
 function taskPriorityOptions(selected = "p2") {
@@ -2925,6 +2977,11 @@ function headerWorkIdentityStatus() {
   return `<button class="work-identity-header-status ${ready ? "ready" : "incomplete"}" type="button" data-open-workspace="settings" title="${escapeHtml(detail)}"><span>${ready ? "🟢" : "🟡"} 工作身分</span><small>${ready ? "已完成" : "未完成"}</small></button>`;
 }
 
+function workTodoHeaderActions() {
+  if (activeWorkspace !== "tasks") return headerWorkIdentityStatus();
+  return `<div class="worktodo-header-actions" aria-label="工作待辦操作"><button class="btn" type="button" data-task-new="1">＋卡片</button><button class="btn2" type="button" data-worktodo-workspace-info title="工作待辦目前使用六個正式工作區">＋工作區</button><button class="btn2" type="button" data-task-filter="archived" title="查看封存工作">📦封存</button><button class="btn2 worktodo-refresh-button" type="button" data-worktodo-refresh aria-label="重新整理工作待辦" title="重新整理">↻</button></div>`;
+}
+
 function header() {
   return `<div class="top"><div class="brand-row"><button class="mini adaptive-menu" data-toggle-sidebar="1">☰</button><div class="brand-stack"><h1><span class="brand-mark" aria-hidden="true">🪶</span> Zhuge AI OS</h1><span class="brand-companion">by Mr. KM</span></div></div><div class="header-right">${headerWorkIdentityStatus()}</div></div>`;
 }
@@ -2952,10 +3009,10 @@ function workspaceContextBar() {
       identity: session,
       version: VERSION,
       build: BUILD_TIME,
-      actionMarkup: headerWorkIdentityStatus()
+      actionMarkup: workTodoHeaderActions()
     });
   }
-  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${headerWorkIdentityStatus()}</div></div>`;
+  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${workTodoHeaderActions()}</div></div>`;
 }
 
 function authScreen() {
@@ -5262,6 +5319,7 @@ function createTask(title = "", note = "", dueDate = "", options = {}) {
   const normalized = normalizeTask({
     title,
     note,
+    usageScenario: options.usageScenario || "",
     dueDate,
     priority: options.priority || "p2",
     userPinned: options.userPinned === true,
@@ -5288,7 +5346,28 @@ function bindTasks() {
       render("task-drawer-close");
     }
   });
-  document.querySelectorAll("[data-task-filter]").forEach(button => button.onclick = () => { taskFilter = button.dataset.taskFilter || "all"; render(); });
+  document.querySelectorAll("[data-task-filter]").forEach(button => button.onclick = () => {
+    const nextFilter = button.dataset.taskFilter || "all";
+    taskFilter = nextFilter === "archived" && taskFilter === "archived" ? "all" : nextFilter;
+    render();
+  });
+  document.querySelectorAll("[data-worktodo-workspace-info]").forEach(button => button.onclick = () => {
+    toast("工作待辦目前使用六個正式工作區：待開始｜進行中｜等待回覆｜等待驗收｜阻塞｜完成");
+  });
+  document.querySelectorAll("[data-worktodo-refresh]").forEach(button => button.onclick = async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      if (typeof DataService !== "undefined" && typeof DataService.loadCriticalData === "function") await DataService.loadCriticalData();
+      else if (typeof DataService !== "undefined" && typeof DataService.init === "function") await DataService.init();
+      toast("工作待辦已重新整理");
+    } catch (error) {
+      console.error("WorkTodo refresh failed", error);
+      toast(error.message || "工作待辦重新整理失敗");
+    } finally {
+      render("worktodo-refresh");
+    }
+  });
   const search = document.getElementById("taskSearch");
   if (search) {
     search.addEventListener("compositionstart", () => { taskSearchComposing = true; });
@@ -5304,6 +5383,24 @@ function bindTasks() {
     if (event.target.closest("button, a, input, select, textarea")) return;
     openTaskJournal(card.dataset.worktodoOpenTask || card.dataset.taskCard || "");
   }));
+  const boardFoundation = typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null;
+  const board = document.querySelector('[data-shared-task-board="worktodo"]');
+  boardFoundation?.bind(board, {
+    canDragCard: id => {
+      const task = tasks.find(item => String(item.id) === String(id));
+      return Boolean(task && taskFilter !== "archived" && !task.archivedAt);
+    },
+    onCardDrop: async ({ cardId, id }) => {
+      const task = tasks.find(item => String(item.id) === String(cardId));
+      const nextStatus = normalizeTaskStatus(id);
+      if (!task || task.archivedAt || !TASK_WORKFLOW_STATUSES.includes(nextStatus) || nextStatus === task.status) return;
+      const now = new Date().toISOString();
+      const patch = nextStatus === "completed"
+        ? { status: nextStatus, progress: 100, completedAt: task.completedAt || now, completedBy: task.completedBy || currentUserUuid(), completionSource: task.completionSource || "workspace" }
+        : { status: nextStatus, progress: task.progress, completedAt: "", completedNote: "", completedBy: "", archiveDueAt: "", archivedAt: "", archivedBy: "", completionSource: "workspace" };
+      await saveWorkTodoTaskPatch(task.id, patch, `工作區已更新為「${taskStatusLabel(nextStatus)}」`);
+    }
+  });
   document.querySelectorAll("[data-journal-close]").forEach(button => button.addEventListener("click", () => { taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; taskJournalLoading = false; render("journal-close"); }));
   document.querySelectorAll("[data-journal-edit]").forEach(button => button.addEventListener("click", () => {
     const task = tasks.find(item => item.id === taskJournalTaskId);
@@ -5334,6 +5431,7 @@ function bindTasks() {
   const draftField = (field, value) => saveTaskDraft(editingTaskId || "new", { ...(loadTaskDraft(editingTaskId || "new") || {}), [field]: value });
   document.getElementById("taskTitle")?.addEventListener("input", event => draftField("title", event.target.value));
   document.getElementById("taskNote")?.addEventListener("input", event => draftField("note", event.target.value));
+  document.getElementById("taskUsageScenario")?.addEventListener("input", event => draftField("usageScenario", event.target.value));
   document.getElementById("taskDueDate")?.addEventListener("input", event => draftField("dueDate", event.target.value));
   document.getElementById("taskStatus")?.addEventListener("change", event => draftField("status", event.target.value));
   document.getElementById("taskProgress")?.addEventListener("input", event => { draftField("progress", event.target.value); const output = document.getElementById("taskProgressOutput"); if (output) output.value = `${taskProgressValue(event.target.value)}%`; });
@@ -5341,20 +5439,21 @@ function bindTasks() {
   document.getElementById("taskPinned")?.addEventListener("change", event => draftField("userPinned", event.target.checked));
   document.querySelectorAll("[data-task-save]").forEach(button => button.onclick = () => {
     const title = document.getElementById("taskTitle")?.value?.trim() || "";
-    if (!title) return toast("請輸入待辦事項名稱");
+    if (!title) return toast("請輸入工作標題");
     const note = document.getElementById("taskNote")?.value?.trim() || "";
+    const usageScenario = document.getElementById("taskUsageScenario")?.value?.trim() || "";
     const dueDate = document.getElementById("taskDueDate")?.value || "";
     const status = normalizeTaskStatus(document.getElementById("taskStatus")?.value || "not_started");
     const progress = status === "completed" ? 100 : taskProgressValue(document.getElementById("taskProgress")?.value || 0);
     const priority = document.querySelector("input[name=taskPriority]:checked")?.value || "p2";
     const userPinned = document.getElementById("taskPinned")?.checked === true;
-    if (editingTaskId) tasks = tasks.map(task => task.id === editingTaskId ? normalizeTask({ ...task, title, note, dueDate, priority, userPinned, status, progress, updatedAt: new Date().toISOString() }) : task);
-    else createTask(title, note, dueDate, { priority, userPinned, status, progress });
+    if (editingTaskId) tasks = tasks.map(task => task.id === editingTaskId ? normalizeTask({ ...task, title, note, usageScenario, dueDate, priority, userPinned, status, progress, updatedAt: new Date().toISOString() }) : task);
+    else createTask(title, note, dueDate, { priority, userPinned, status, progress, usageScenario });
     clearTaskDraft(editingTaskId || "new");
     editingTaskId = null;
     taskDrawerOpen = false;
     saveTasks();
-    toast("待辦事項已儲存");
+    toast("卡片已儲存");
     render();
   });
   document.querySelectorAll("[data-task-start]").forEach(button => button.onclick = () => {
@@ -5442,18 +5541,9 @@ function bindTasks() {
 // adds only shared Status/Progress data to the existing list/editor surface.
 function taskWorkspace() {
   const editing = tasks.find(task => task.id === editingTaskId) || null;
-  const list = taskListItems();
   const draft = loadTaskDraft(editingTaskId || "new") || {};
   const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增待辦">×</button></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
-  const rows = list.length ? list.map(task => {
-    return ZhugeWorkTodoTaskAdapter.renderCard(task, {
-      titleHtml: escapeHtml(task.title),
-      summaryHtml: task.note ? escapeHtml(task.note) : "<small>尚未補充工作內容。</small>",
-      actionsHtml: "",
-      bodyHtml: ""
-    });
-  }).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以建立今天第一個待辦事項。</div></div>`;
+  const form = `<section class="task-form shared-task-create-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯卡片" : "＋ 新增卡片"}</h3><div class="muted">沿用 AI Board 建立卡片的資訊順序；內容仍寫入 WorkTodo 正式資料來源。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增卡片">×</button></div><label for="taskNote">工作內容</label><textarea class="input" id="taskNote" rows="4" placeholder="要完成什麼？">${escapeHtml(value("note"))}</textarea><label for="taskUsageScenario">使用情境</label><textarea class="input" id="taskUsageScenario" rows="4" placeholder="使用者為什麼需要？實際會怎麼使用？">${escapeHtml(value("usageScenario"))}</textarea><div class="muted task-form-contract-hint">使用情境是 WorkTodo 正式內容欄位；沒有資料時不自行猜測。</div><label for="taskTitle">工作標題</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><fieldset class="task-priority-fieldset worktodo-create-properties"><legend>工作設定</legend><label for="taskStatus">目前狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label for="taskDueDate">日期（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立卡片"}</button></div></section>`;
   const completionTask = taskCompletionDialogId ? tasks.find(task => task.id === taskCompletionDialogId) : null;
   const completionExistingHours = completionTask ? taskWorklogHours(completionTask) : 0;
   const completionElapsedHours = completionTask ? taskCompletionElapsedHours(completionTask) : 0;
@@ -5467,7 +5557,8 @@ function taskWorkspace() {
     ? ZhugeWorkTodoTaskAdapter.render(journalTask, { journal: workJournalForTask(journalTask), capabilityData: workTodoCapabilityData(journalTask), loading: taskJournalLoading, readOnly: Boolean(journalTask.archivedAt), journalDraft: taskJournalDraft, editingEntry: taskJournalEditingEntryId ? workJournalForTask(journalTask).find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null, actorLabel: session?.name || session?.email || "目前使用者", formatTimestamp: value => fmt(value), renderContent: value => renderJournalContent(value) })
     : "";
   const activeTasks = tasks.filter(task => !task.archivedAt);
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${tasks.filter(task => task.archivedAt).length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed", "archived"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : filter === "completed" ? "已完成" : "📦 封存"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${sharedDrawer}${dialog}</section>`;
+  const archivedTasks = tasks.filter(task => task.archivedAt);
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${archivedTasks.length} 項</div></div></div><div class="shared-task-board-toolbar task-toolbar"><div class="task-filters"><button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }

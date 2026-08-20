@@ -229,7 +229,6 @@
         { key: "progress", icon: "◒", label: "進度", value: `${vm.progress}%` },
         { key: "priority", icon: "⚑", label: "優先度", value: vm.priorityLabel },
         { key: "pin", icon: "📌", label: "置頂", value: vm.userPinned ? "是" : "否" },
-        { key: "work-property", action: "work-property", interactive: !readOnly, icon: "📍", label: "工作屬性", value: vm.workProperty || "尚未設定" },
         { key: "estimated-minutes", action: "estimated-minutes", interactive: !readOnly, icon: "⏱️", label: "預估時間", value: formatEstimatedMinutes(vm.estimatedMinutes) },
         { key: "due-date", action: "due-date", interactive: !readOnly, icon: "📅", label: "日期", value: formatDueDate(vm.dueDate) },
         { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" }
@@ -254,13 +253,20 @@
     const vm = normalize(task, options.journal || [], options.capabilityData || {});
     const summary = options.summaryHtml != null ? options.summaryHtml : (vm.note || "目前尚未補充工作內容。");
     return card.render({
-      className: ["entry", "task-row", "worktodo-shared-task-card", vm.status === "completed" ? "task-completed" : ""].filter(Boolean).join(" "),
+      className: ["shared-task-board-card", "shared-task-card", vm.status === "completed" ? "task-completed" : ""].filter(Boolean).join(" "),
       code: vm.workCode || vm.id,
       titleHtml: options.titleHtml != null ? String(options.titleHtml) : escapeHtml(vm.title),
       summaryHtml: summary,
       actionsHtml: options.actionsHtml,
       bodyHtml: "",
-      attributes: { "data-task-card": vm.id, "data-worktodo-open-task": vm.id, tabindex: "0", role: "button" }
+      attributes: Object.assign({
+        "data-task-card": vm.id,
+        "data-shared-task-board-card-id": vm.id,
+        "data-worktodo-open-task": vm.id,
+        tabindex: "0",
+        role: "button",
+        draggable: "true"
+      }, options.attributes || {})
     });
   }
 

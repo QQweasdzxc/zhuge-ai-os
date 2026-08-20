@@ -31,10 +31,11 @@ test("Free Workspace runtime does not derive card position from status or assign
   assert.match(service, /gateway\.select\("board_workspaces"/);
   assert.match(service, /workspace_id/);
   assert.match(service, /moveTaskWorkspace/);
-  assert.match(runtime, /data-workspace-id/);
+assert.match(runtime, /renderColumns/);
   assert.match(runtime, /data-workspace-rename/);
   assert.match(runtime, /board-workspace-count/);
-  assert.match(runtime, /application\/x-zhuge-workspace-id/);
+  assert.match(runtime, /ZhugeSharedTaskBoard/);
+  assert.match(runtime, /onColumnDrop/);
   assert.doesNotMatch(runtime, /process\[data-status/);
   assert.doesNotMatch(runtime, /只能依序交給下一個工作階段/);
 });

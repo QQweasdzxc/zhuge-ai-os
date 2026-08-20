@@ -17,7 +17,7 @@ test("QJC workspace movement preserves engineering status, assignee, and Co + QJ
     let stdout = ""; let stderr = ""; let settled = false;
     const finish = (error, value) => { if (settled) return; settled = true; clearTimeout(timer); try { child.kill("SIGKILL"); } catch {} error ? reject(error) : resolve(value); };
     const timer = setTimeout(() => finish(new Error(stderr || "Chrome timed out before producing DOM output")), 60000);
-    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.includes("</html>")) finish(null, stdout); });
+    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.includes("completion-gate-audit")) finish(null, stdout); });
     child.stderr.on("data", chunk => { stderr += chunk; }); child.on("error", error => finish(error)); child.on("close", code => stdout ? finish(null, stdout) : finish(new Error(stderr || `Chrome exited with code ${code}`)));
   });
   assert.match(output, /calls=button-task:ws-done,drag-task:ws-qjc/);

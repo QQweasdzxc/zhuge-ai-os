@@ -114,13 +114,14 @@
     const card = root.ZhugeSharedTaskCard;
     if (!card?.render) return "<div class=\"board-empty\">Shared Task Card foundation 尚未載入。</div>";
     return card.render({
-      className: "card taskcard board-cloud-card" + archiveClass,
+      className: "card taskcard shared-task-board-card board-cloud-card" + archiveClass,
       code: task.workCode || task.id || "TASK",
       title: task.title,
       summary: task.summary,
       bodyHtml: governance,
       attributes: {
         "data-task-id": task.id,
+        "data-shared-task-board-card-id": task.id,
         "data-work-code": task.workCode,
         "data-status": task.status,
         "data-workspace": task.workspace,
@@ -169,23 +170,27 @@
   function renderWorkspaceColumns() {
     const board = document.getElementById("boardColumns") || document.querySelector(".board");
     if (!board) return;
-      const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
+    const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
     board.style.setProperty("--board-workspace-count", String(Math.max(workspaces.length, 1)));
-    const columns = workspaces.length
-      ? workspaces.map(workspace => {
-        const addTask = workspace.key === "todo"
+    const columns = workspaces.map(workspace => {
+      const completion = isCompletionWorkspace(workspace);
+      return {
+        id: workspace.id,
+        key: workspace.key,
+        name: workspace.name,
+        completion,
+        reorderable: !completion,
+        addHtml: workspace.key === "todo"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
-          : "";
-        const completion = isCompletionWorkspace(workspace);
-        const workspaceControls = completion
+          : "",
+        controlsHtml: completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
-          : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button><span class=\"drag workspace-drag-handle\" draggable=\"true\" title=\"拖曳重新排序\" aria-label=\"拖曳重新排序\">⠿</span>";
-        return "<div class=\"column process\" data-workspace-id=\"" + esc(workspace.id) + "\" data-workspace-key=\"" + esc(workspace.key) + "\">" +
-          "<div class=\"colhead" + (completion ? " workspace-completion-column" : "") + "\" data-workspace-header=\"" + esc(workspace.id) + "\"><span class=\"workspace-title\">" + esc(workspace.name) + "</span><span class=\"count\">0</span>" + workspaceControls + "</div>" +
-          addTask + "<div class=\"cards\"></div></div>";
-      }).join("")
-      : "<div class=\"board-empty\">尚未讀取可用工作區。</div>";
-    board.innerHTML = columns;
+          : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button>"
+      };
+    });
+    board.innerHTML = root.ZhugeSharedTaskBoard?.renderColumns
+      ? root.ZhugeSharedTaskBoard.renderColumns(columns)
+      : "<div class=\"board-empty\">Shared Task Board foundation 尚未載入。</div>";
   }
   function renderTasks(tasks) {
     renderWorkspaceColumns();
@@ -197,10 +202,10 @@
       if (bucket && groups[bucket]) groups[bucket].push(task);
     });
     state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder).forEach(workspace => {
-      const column = document.querySelector(".process[data-workspace-id=\"" + workspace.id + "\"]");
+      const column = Array.from(document.querySelectorAll("[data-shared-task-board-column]")).find(item => item.dataset.workspaceId === workspace.id);
       if (!column) return;
-      const cards = column.querySelector(".cards");
-      const count = column.querySelector(".count");
+      const cards = column.querySelector("[data-shared-task-board-cards]");
+      const count = column.querySelector(".shared-task-board-column-count");
       if (!cards) return;
       cards.replaceChildren();
       const rows = groups[workspace.id] || [];
@@ -410,29 +415,6 @@
           .catch(error => setBanner("工作區重新命名失敗：" + esc(error?.message || "正式 Cloud 未接受這次命名。"), "error"));
       };
     });
-    document.querySelectorAll(".workspace-drag-handle").forEach(handle => {
-      handle.ondragstart = event => {
-        event.stopPropagation();
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("application/x-zhuge-workspace-id", handle.closest(".process")?.dataset.workspaceId || "");
-        handle.closest(".process")?.classList.add("workspace-dragging");
-      };
-      handle.ondragend = () => handle.closest(".process")?.classList.remove("workspace-dragging");
-    });
-    document.querySelectorAll(".process").forEach(column => {
-      column.ondragover = event => {
-        if (!hasDragType(event, "application/x-zhuge-workspace-id")) return;
-        event.preventDefault();
-        column.classList.add("workspace-dropzone");
-      };
-      column.ondragleave = () => column.classList.remove("workspace-dropzone");
-      column.ondrop = async event => {
-        if (!hasDragType(event, "application/x-zhuge-workspace-id")) return;
-        event.preventDefault();
-        column.classList.remove("workspace-dropzone");
-        await reorderWorkspace(event.dataTransfer.getData("application/x-zhuge-workspace-id"), column.dataset.workspaceId);
-      };
-    });
   }
   function wireTaskCards() {
     wireWorkspaceControls();
@@ -444,32 +426,19 @@
       card.onkeydown = event => {
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
       };
-      card.ondragstart = event => {
-        if (archiveOnly || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("application/x-zhuge-task-id", task.id);
-        event.dataTransfer.setData("text/plain", task.id);
-        card.classList.add("dragging");
-      };
-      card.ondragend = () => card.classList.remove("dragging");
     });
-    document.querySelectorAll(".process .cards").forEach(zone => {
-      zone.ondragover = event => {
-        if (!hasDragType(event, "application/x-zhuge-task-id")) return;
-        const targetWorkspace = state.workspaceById.get(zone.closest(".process")?.dataset.workspaceId || "");
-        if (!targetWorkspace) return;
-        event.preventDefault();
-        zone.classList.add("dropzone");
-      };
-      zone.ondragleave = () => zone.classList.remove("dropzone");
-      zone.ondrop = async event => {
-        if (!hasDragType(event, "application/x-zhuge-task-id")) return;
-        event.preventDefault();
-        zone.classList.remove("dropzone");
-        const task = state.taskById.get(event.dataTransfer.getData("application/x-zhuge-task-id") || event.dataTransfer.getData("text/plain"));
-        const targetWorkspaceId = zone.closest(".process")?.dataset.workspaceId;
-        if (task && targetWorkspaceId) await moveTaskToWorkspace(task, targetWorkspaceId);
-      };
+    const board = document.querySelector('[data-shared-task-board="ai-board"]');
+    root.ZhugeSharedTaskBoard?.bind(board, {
+      canDragCard: id => {
+        const task = state.taskById.get(String(id));
+        return Boolean(task && !isArchiveTask(task) && !service.isGovernanceTerminal?.(task));
+      },
+      onCardDrop: async ({ cardId, id }) => {
+        const task = state.taskById.get(String(cardId));
+        if (task) await moveTaskToWorkspace(task, id);
+      },
+      canReorderColumn: id => Boolean(state.workspaceById.get(String(id)) && isMainBoardWorkspace(state.workspaceById.get(String(id))) && !isCompletionWorkspace(state.workspaceById.get(String(id)))),
+      onColumnDrop: async ({ sourceId, id }) => reorderWorkspace(sourceId, id)
     });
   }
 

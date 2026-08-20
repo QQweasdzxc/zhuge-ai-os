@@ -404,6 +404,9 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   line-height: normal;
 }
 .workspace-worklog .zhuge-shared-header-actions { margin: 0; }
+.workspace-worklog .worktodo-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.workspace-worklog .worktodo-header-actions .btn,.workspace-worklog .worktodo-header-actions .btn2{min-height:40px;white-space:nowrap}
+.workspace-worklog .worktodo-header-actions .worktodo-refresh-button{min-width:40px;padding-left:10px;padding-right:10px;font-size:1.1rem}
 .workspace-worklog .zhuge-shared-header-actions .work-identity-header-status {
   min-height: 40px;
   padding: 9px 13px;
@@ -437,15 +440,8 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .workspace-shell.workspace-worklog .workspace-canvas { padding: 12px; border-radius: 14px; }
 }
 
-/* WorkTodo adapter presentation: shared card/drawer classes only. */
-.tasks-workspace .worktodo-shared-task-card{cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}
-.tasks-workspace .worktodo-shared-task-card:hover,.tasks-workspace .worktodo-shared-task-card:focus-within{border-color:#5d9cff;background:rgba(30,64,175,.12);transform:translateY(-1px)}
-.tasks-workspace .worktodo-shared-task-card{display:block;min-width:0;width:100%;padding:14px}
-.tasks-workspace .worktodo-shared-task-card .shared-task-card-code{color:#8ea2bf}
-.tasks-workspace .worktodo-shared-task-card .shared-task-card-title{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:7px 0 0;font-size:1rem;line-height:1.4}
-.tasks-workspace .worktodo-shared-task-card .shared-task-card-summary{display:block;margin:8px 0 0;color:#cbd5e1;font-size:.76rem;line-height:1.45}
-.tasks-workspace .worktodo-shared-task-card .shared-task-card-actions{max-width:100%}
-.tasks-workspace .worktodo-shared-task-card .shared-task-card-actions .btn2{white-space:nowrap}
+/* WorkTodo uses the shared card/board presentation. Domain-only drawer rules
+ * remain below; no WorkTodo-specific card geometry is allowed here. */
 .worktodo-shared-card-title-status{flex:0 0 auto}
 .worktodo-shared-inline-field{display:grid;gap:9px}
 .worktodo-shared-inline-field-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
@@ -473,3 +469,9 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .worktodo-shared-journal-readonly{padding:10px;border:1px dashed #344052;border-radius:8px;color:#8493a7;font-size:11px}
 .worktodo-shared-completion-note{margin:0;color:#cbd6e5;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 .worktodo-shared-footer-actions{display:flex;justify-content:flex-end;gap:8px}
+.tasks-workspace .shared-task-create-form{gap:10px}
+.tasks-workspace .task-form-contract-hint{margin-top:-4px;color:#8493a7;font-size:11px;line-height:1.45}
+.tasks-workspace .worktodo-create-properties{display:grid;gap:8px;margin:4px 0 0;padding:12px;border:1px solid rgba(148,163,184,.22);border-radius:12px}
+.tasks-workspace .worktodo-create-properties legend{padding:0 5px;color:#b9c9df;font-size:12px;font-weight:800}
+.tasks-workspace .worktodo-create-properties>label:not(.task-pin-option){display:grid;gap:5px;color:#b9c9df;font-size:11px;font-weight:700}
+@media(max-width:767px){.workspace-worklog .worktodo-header-actions{width:100%;justify-content:flex-start}.workspace-worklog .worktodo-header-actions .btn,.workspace-worklog .worktodo-header-actions .btn2{flex:1 1 auto}}

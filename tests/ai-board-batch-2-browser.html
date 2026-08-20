@@ -14,7 +14,7 @@
   <div class="toolbar"><input id="boardSearch" type="search" aria-label="搜尋 TASK"></div>
   <div class="note"></div>
   <section class="board-shell">
-    <div class="board" id="boardColumns"></div>
+    <div class="board" id="boardColumns" data-shared-task-board="ai-board"></div>
   </section>
   <section class="board-subview principles-view" data-board-view="principles" hidden><div id="principlesCards"></div></section>
   <section class="board-subview system-map-view" data-board-view="system-map" hidden><div id="systemMapCards"></div></section>
@@ -24,6 +24,7 @@
 <script src="../shared/components/zhuge-navigation.js"></script>
 <script src="../shared/components/task-card.js"></script>
 <script src="../shared/components/task-drawer.js"></script>
+<script src="../shared/components/task-board.js"></script>
 <div id="addCardModal" class="modalback"><div class="modal"><input id="taskSummary"><textarea id="taskUsageScenario"></textarea><input id="taskTitle"><button onclick="createCard()">建立卡片</button></div></div>
 <script>
   let session = null;

@@ -8,11 +8,11 @@
   <div class="main">
     <aside><button data-board-nav="board" type="button">📋 工作看板</button><button data-board-nav="principles" type="button">📘 工程準則</button><button data-board-nav="system-map" type="button">🗺️ 系統藍圖</button></aside>
     <div class="actions"><button class="btn">重新整理</button></div><div class="toolbar"></div><div class="note"></div>
-    <section class="board-shell"><div class="board" id="boardColumns"></div></section>
+    <section class="board-shell"><div class="board" id="boardColumns" data-shared-task-board="ai-board"></div></section>
     <section class="board-subview principles-view" data-board-view="principles" hidden><div id="principlesCards"></div></section><section class="board-subview system-map-view" data-board-view="system-map" hidden><div id="systemMapCards"></div></section><div class="sidefoot"></div>
   </div>
 </div>
-<script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script><script src="../shared/components/task-drawer.js"></script>
+<script src="../shared/config/version.js"></script><script src="../shared/components/zhuge-navigation.js"></script><script src="../shared/components/task-card.js"></script><script src="../shared/components/task-drawer.js"></script><script src="../shared/components/task-board.js"></script>
 <script>
   let session = null;
   window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
@@ -79,9 +79,9 @@
   setTimeout(() => document.querySelector('[data-task-id="button-task"]')?.click(), 900);
   setTimeout(() => window.ZhugeBoardRuntime?.moveTaskToWorkspace(tasks[0], "ws-done"), 1200);
   setTimeout(() => {
-    const card = document.querySelector('[data-task-id="drag-task"]'); const zone = document.querySelector('.process[data-workspace-key="qjc"] .cards');
-    const data = { values: { "application/x-zhuge-task-id": "drag-task" }, types: ["application/x-zhuge-task-id"], setData(type, value) { this.values[type] = value; }, getData(type) { return this.values[type]; } };
-    card?.ondragstart({ dataTransfer: data }); zone?.ondrop({ preventDefault() {}, dataTransfer: data });
+    const card = document.querySelector('[data-task-id="drag-task"]'); const column = document.querySelector('.process[data-workspace-key="qjc"]');
+    const data = { values: { "application/x-zhuge-shared-task-card": "drag-task" }, types: ["application/x-zhuge-shared-task-card"], setData(type, value) { this.values[type] = value; }, getData(type) { return this.values[type]; } };
+    card?.ondragstart({ dataTransfer: data }); column?.ondrop({ preventDefault() {}, dataTransfer: data });
   }, 1700);
   setTimeout(() => { const audit = document.createElement('pre'); audit.id = 'completion-gate-audit'; audit.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};engineeringDone=${tasks.filter(item => item.status === 'done').length};assignees=${tasks.map(item => item.assignee).join(',')};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(audit); }, 2800);
 </script>
