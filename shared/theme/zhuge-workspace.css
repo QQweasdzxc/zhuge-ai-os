@@ -236,8 +236,11 @@
 /* AI Board remains an engineering workspace; only its outer frame is
  * consolidated. Workflow, card data and transition controls are untouched. */
 .zhuge-module-shell .main {
-  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+  padding: 0;
   overflow: visible;
+}
+.zhuge-module-shell.workspace-shell > .workspace-app > .main > .workspace-canvas {
+  padding: 0;
 }
 .zhuge-module-shell .main > .workspace-subnav,
 .zhuge-module-shell .main > .toolbar,
@@ -273,6 +276,16 @@ html[data-theme="light"] .zhuge-module-shell .agent-row,
 html[data-theme="light"] .zhuge-module-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
 html[data-theme="light"] .zhuge-module-shell .mini,
 html[data-theme="light"] .zhuge-module-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
+
+/* Shared page boundary: every first-level Workspace enters the main region
+ * through the same shell inset. AI Board keeps its canvas blocks on that
+ * boundary; WorkLog and Investment retain their own inner content surfaces. */
+@media (max-width: 900px) {
+  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 14px; }
+}
+@media (max-width: 767px) {
+  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 10px; }
+}
 
 /* The WorkLog runtime predates the shared theme and has a few explicit dark
  * surfaces. Remap only those presentation surfaces in light mode; data and

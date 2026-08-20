@@ -70,7 +70,8 @@ test("Archive derives read-only records from canonical task status and governanc
   assert.match(service, /status === "done"/);
   assert.match(service, /isGovernanceTerminal\(value\)/);
   assert.match(runtime, /封存資料僅供查閱/);
-  assert.match(runtime, /不可恢復、移動或修改/);
+  assert.match(runtime, /readOnly: true/);
+  assert.match(runtime, /archiveOnly/);
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)/i);
 });
 

@@ -109,21 +109,13 @@
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
-    const completionWorkspace = String(task.workspaceKey || task.workspace || "").trim().toLowerCase() === "completed" || String(task.workspaceName || "").trim() === "已完成";
-    const completionActive = completionWorkspace && Boolean(task.completionAt) && Boolean(task.archiveDueAt) && !archiveOnly;
     const draggable = !archiveOnly && !terminal;
     const archiveClass = archiveOnly ? " archive-taskcard" : "";
-    const actionHint = archiveOnly
-      ? "點擊查看歷史驗收清單、Evidence 與 Activity Log · 封存內容僅供查閱，不可恢復、移動或修改"
-      : completionActive
-        ? "已確認完成 · 保留於「已完成」48 小時後由正式 Cloud lifecycle 自動封存；可拖出取消計時"
-      : "點擊查看工作內容與進度 · 可拖曳至任意工作區（工作區代表目前責任階段）";
     return "<article class=\"card taskcard board-cloud-card" + archiveClass + "\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
-      governance +
-      "<div class=\"card-action-hint\">" + actionHint + "</div></article>";
+      governance + "</article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +

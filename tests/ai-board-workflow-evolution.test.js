@@ -36,6 +36,7 @@ test("Board cards keep only identity and summary presentation", () => {
   const taskMarkup = runtime.match(/function taskMarkup\(task, options = \{\}\) \{[\s\S]*?\n  \}\n  function principleMarkup/);
   assert.ok(taskMarkup, "taskMarkup implementation should remain discoverable");
   assert.doesNotMatch(taskMarkup[0], /class=\\\"meta\\\"|workspace-tag|status-tag/);
+  assert.doesNotMatch(taskMarkup[0], /card-action-hint|點擊查看工作內容|48 小時/);
   assert.match(taskMarkup[0], /task\.workCode/);
   assert.match(taskMarkup[0], /task\.title/);
   assert.match(taskMarkup[0], /task\.summary/);

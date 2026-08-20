@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Zhuge AI OS｜AI Board</title>
-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260820-1411">
-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260820-1411">
-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260820-1411">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260820-1434">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260820-1434">
+<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260820-1434">
 <style>
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}
-.taskcard{height:136px;min-height:136px;display:flex;flex-direction:column;overflow:hidden;padding:10px}.taskcard h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;min-height:2.5em;max-height:2.5em;overflow:hidden;text-overflow:ellipsis}.taskcard p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;min-height:1.5em;max-height:1.5em;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}.taskcard .meta{max-height:22px;overflow:hidden}.taskcard .card-action-hint{margin-top:auto;max-height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:9px}
+.taskcard{height:104px;min-height:104px;display:flex;flex-direction:column;overflow:hidden;padding:8px 10px}.taskcard h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;min-height:2.5em;max-height:2.5em;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px}.taskcard p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;min-height:1.5em;max-height:1.5em;overflow:hidden;text-overflow:ellipsis;margin:0}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
 .app{display:block;min-height:100vh;min-width:0}
 .search{background:#141a23;border:1px solid var(--line);border-radius:9px;padding:0;color:#758194;margin-bottom:20px}.search input{width:100%;background:transparent;border:0;outline:0;color:var(--text);padding:10px 12px;font:inherit}.search input::placeholder{color:#758194}
@@ -47,7 +47,7 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 @media(max-width:767px){.board-create-drawer{top:auto;bottom:0;width:100%;max-height:88svh;border-left:0;border-top:1px solid #344052;border-radius:18px 18px 0 0;transform:translateY(104%)}.board-create-drawer.is-open{transform:translateY(0)}.board-create-drawer .modalbody,.board-workspace-drawer{padding:18px}.board-create-drawer .modalfoot{padding:12px 18px 18px}.board-archive-toolbar{grid-template-columns:1fr}.board-archive-drawer{max-height:92svh}}
 .locknote{border:1px solid #4a3f71;background:#1b1928;color:#bcaee7;border-radius:8px;padding:9px 10px;font-size:12px;margin-top:4px}
 .dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}
-.taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.card-action-hint{margin-top:10px;color:#6f8199;font-size:10px}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
+.taskcard{transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease}.taskcard:hover{border-color:#4d8dff;box-shadow:0 8px 24px #0005;transform:translateY(-1px)}.taskcard.dragging{opacity:.55}.status-tag{background:#24334a;color:#bcd3f8}.process .cards.dropzone{outline:1px dashed #4d8dff;outline-offset:-5px;background:#111d2d}.board-task-modal{width:min(720px,100%);max-height:min(80vh,760px);overflow:auto}.task-detail-meta{display:flex;gap:8px;flex-wrap:wrap;color:#a9bed9;font-size:12px;margin-bottom:10px}.task-detail-meta span{border:1px solid #344052;border-radius:6px;padding:5px 8px}.checklist-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.checklist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.checklist-heading h3{font-size:14px;margin:0}.checklist-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#111820;border:1px solid #293241;border-radius:8px;padding:10px;margin:7px 0}.checklist-item b{display:block;font-size:13px}.checklist-item small{display:block;color:#8493a7;font-size:11px;margin-top:4px}.transition-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid #293241}
 .checklist-stage-mark{flex:0 0 1.25rem;text-align:center}.checklist-readonly-item{border-color:#344052;background:#151b24}.checklist-readonly-note{font-size:10px;color:#8fa1b7;line-height:1.4;margin-top:5px}.checklist-qjc-item{border-color:#385b82}.checklist-qjc-control{font-size:11px;color:#dbeafe;white-space:nowrap}.checklist-evidence-detail.missing{color:#e4c978}.checklist-audit-detail{margin-top:6px;color:#8fa1b7;font-size:10px;line-height:1.4}.checklist-audit-detail.missing{color:#c7a965}.task-next-step{background:#111d2d;border:1px solid #385b82;border-radius:8px;padding:11px 12px}.task-next-step h3{color:#bcd3f8}.task-next-step p{font-size:12px}
 .task-governance-section{border-top:1px solid #293241;margin-top:15px;padding-top:14px}.task-governance-section h3{font-size:14px;margin:0 0 6px}.task-governance-section p{font-size:12px;line-height:1.5;color:#9fb0c5;margin:0 0 10px}.governance-actions{display:flex;gap:8px;flex-wrap:wrap}.governance-actions .btn{font-size:11px;padding:6px 9px}
 .governance-history-note{margin:8px 0;color:#e4c978;font-size:11px;line-height:1.4}
@@ -130,34 +130,34 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  </div>
 </aside>
 
-<script src="../../../shared/config/version.js?v=20260820-1411"></script>
-<script src="../../../shared/components/zhuge-navigation.js?v=20260820-1411"></script>
-<script src="../../../shared/components/zhuge-shell.js?v=20260820-1411"></script>
-<script src="../../../shared/components/task-drawer.js?v=20260820-1411"></script>
+<script src="../../../shared/config/version.js?v=20260820-1434"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260820-1434"></script>
+<script src="../../../shared/components/zhuge-shell.js?v=20260820-1434"></script>
+<script src="../../../shared/components/task-drawer.js?v=20260820-1434"></script>
 <script src="../../../shared/theme/zhuge-appearance.js?v=20260811-workspace-1"></script>
- <script src="../../../shared/app-config.js?v=20260820-1411"></script>
- <script src="../../../shared/utils/shared-utils.js?v=20260820-1411"></script>
- <script src="../../../shared/storage/storage-migration.js?v=20260820-1411"></script>
- <script src="../../../shared/api/data-result.js?v=20260820-1411"></script>
- <script src="../../../shared/identity/identity-health.js?v=20260820-1411"></script>
- <script src="../../../shared/auth/session-lifecycle.js?v=20260820-1411"></script>
- <script src="../../../shared/core/repository-bootstrap.js?v=20260820-1411"></script>
- <script src="../../../shared/api/sync-queue.js?v=20260820-1411"></script>
- <script src="../../../shared/foundation/index.js?v=20260820-1411"></script>
- <script src="../../../shared/app-state.js?v=20260820-1411"></script>
- <script src="../../../shared/auth/auth-service.js?v=20260820-1411"></script>
- <script src="../../../shared/identity/identity-service.js?v=20260820-1411"></script>
- <script src="../../../shared/supabase/supabase-gateway.js?v=20260820-1411"></script>
+ <script src="../../../shared/app-config.js?v=20260820-1434"></script>
+ <script src="../../../shared/utils/shared-utils.js?v=20260820-1434"></script>
+ <script src="../../../shared/storage/storage-migration.js?v=20260820-1434"></script>
+ <script src="../../../shared/api/data-result.js?v=20260820-1434"></script>
+ <script src="../../../shared/identity/identity-health.js?v=20260820-1434"></script>
+ <script src="../../../shared/auth/session-lifecycle.js?v=20260820-1434"></script>
+ <script src="../../../shared/core/repository-bootstrap.js?v=20260820-1434"></script>
+ <script src="../../../shared/api/sync-queue.js?v=20260820-1434"></script>
+ <script src="../../../shared/foundation/index.js?v=20260820-1434"></script>
+ <script src="../../../shared/app-state.js?v=20260820-1434"></script>
+ <script src="../../../shared/auth/auth-service.js?v=20260820-1434"></script>
+ <script src="../../../shared/identity/identity-service.js?v=20260820-1434"></script>
+ <script src="../../../shared/supabase/supabase-gateway.js?v=20260820-1434"></script>
  <script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20260814-engineering-memory"></script>
- <script src="../../../shared/auth/session-service.js?v=20260820-1411"></script>
+ <script src="../../../shared/auth/session-service.js?v=20260820-1434"></script>
  <script src="../../../shared/identity/creator-resolver.js?v=20260814-creator-mfa"></script>
- <script src="../../../shared/security/permission-service.js?v=20260820-1411"></script>
+ <script src="../../../shared/security/permission-service.js?v=20260820-1434"></script>
  <script src="../../../shared/security/mfa-service.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/security/security-gate.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/module-context.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/shared-platform.js?v=20260814-creator-mfa"></script>
- <script src="../../../shared/security/platform-policy.js?v=20260820-1411"></script>
+ <script src="../../../shared/security/platform-policy.js?v=20260820-1434"></script>
  <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260820-1411"></script>
-<script src="./board-runtime.js?v=20260820-1411"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260820-1434"></script>
+<script src="./board-runtime.js?v=20260820-1434"></script>
 </body></html>
