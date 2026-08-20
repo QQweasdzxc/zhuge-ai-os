@@ -31,6 +31,23 @@ test("Drawer replaces PM-visible Assignee with an in-drawer GPT Analysis entry",
   assert.doesNotMatch(runtime, /localStorage|sessionStorage/);
 });
 
+test("Board cards keep only identity and summary presentation", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const taskMarkup = runtime.match(/function taskMarkup\(task, options = \{\}\) \{[\s\S]*?\n  \}\n  function principleMarkup/);
+  assert.ok(taskMarkup, "taskMarkup implementation should remain discoverable");
+  assert.doesNotMatch(taskMarkup[0], /class=\\\"meta\\\"|workspace-tag|status-tag/);
+  assert.match(taskMarkup[0], /task\.workCode/);
+  assert.match(taskMarkup[0], /task\.title/);
+  assert.match(taskMarkup[0], /task\.summary/);
+});
+
+test("GPT Analysis replaces the full Drawer detail grid and restores it", () => {
+  const runtime = read("app/Board/ai/board-runtime.js");
+  assert.match(runtime, /gridParent\.replaceChild\(analysis, grid\)/);
+  assert.match(runtime, /viewState\.gridParent\.replaceChild\(viewState\.grid, viewState\.analysis\)/);
+  assert.match(runtime, /data-shared-task-floating-action/);
+});
+
 test("GPT Analysis presentation is transparent when formal persistence is unavailable", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   assert.match(runtime, /AI Analysis Layer · Read-only/);

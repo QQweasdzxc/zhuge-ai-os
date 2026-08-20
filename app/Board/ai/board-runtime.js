@@ -104,9 +104,6 @@
       && key !== "gpt" && name !== "GPT區";
   }
   function taskMarkup(task, options = {}) {
-    const priority = priorityLabel(task.priority);
-    const priorityClass = priority === "P0" || priority === "P1" ? "high" : priority === "P2" ? "med" : "";
-    const timestamp = dateLabel(task.updatedAt || task.createdAt);
     const terminal = service.isGovernanceTerminal?.(task) || false;
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
     const governance = terminal
@@ -126,10 +123,7 @@
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
       governance +
-      "<div class=\"meta\"><span class=\"tag workspace-tag\">工作區：" + esc(workspaceLabel(task)) + "</span><span class=\"tag status-tag\">工程狀態：" + esc(statusLabel(task.status)) + "</span>" +
-      (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
-      (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">" + actionHint + "</div></article>";
+      "<div class=\"card-action-hint\">" + actionHint + "</div></article>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -1352,14 +1346,15 @@
     const grid = root?.querySelector(".shared-task-drawer-grid");
     const panel = root?.querySelector(".shared-task-drawer-panel");
     if (!root || !grid || !panel) return;
-    if (root.querySelector("[data-task-analysis-view]")) return;
+    if (root.__taskAnalysisViewState) return;
     const view = document.createElement("section");
     view.innerHTML = taskAnalysisViewMarkup(task);
     const analysis = view.firstElementChild;
     if (!analysis) return;
-    panel.insertBefore(analysis, grid);
-    grid.hidden = true;
-    grid.setAttribute("aria-hidden", "true");
+    const gridParent = grid.parentElement;
+    if (!gridParent) return;
+    root.__taskAnalysisViewState = { grid, gridParent, analysis };
+    gridParent.replaceChild(analysis, grid);
     const floating = root.querySelector("[data-shared-task-floating-action]");
     if (floating) floating.hidden = true;
     analysis.querySelector("[data-task-analysis-close]")?.addEventListener("click", () => restoreTaskDetailView());
@@ -1367,11 +1362,10 @@
   }
   function restoreTaskDetailView() {
     const root = document.querySelector("[data-shared-task-drawer]");
-    const grid = root?.querySelector(".shared-task-drawer-grid");
-    root?.querySelector("[data-task-analysis-view]")?.remove();
-    if (grid) {
-      grid.hidden = false;
-      grid.removeAttribute("aria-hidden");
+    const viewState = root?.__taskAnalysisViewState;
+    if (viewState?.analysis?.parentNode === viewState.gridParent) {
+      viewState.gridParent.replaceChild(viewState.grid, viewState.analysis);
+      delete root.__taskAnalysisViewState;
     }
     const floating = root?.querySelector("[data-shared-task-floating-action]");
     if (floating) floating.hidden = false;
