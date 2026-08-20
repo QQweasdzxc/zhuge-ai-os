@@ -3188,6 +3188,10 @@ function osSidebar() {
 }
 
 function workspaceTabs() {
+  // WorkTodo is rendered as the AI Board Golden Master surface: its fixed
+  // sidebar and shared Header already provide the module navigation context.
+  // Do not add a second single-workspace title row above the board.
+  if (activeWorkspace === "tasks") return "";
   if (!openTabs.length) return `<div class="workspace-tabs workspace-subnav empty"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
   if (openTabs.length === 1) {
     const w = workspaceDef(openTabs[0]);
@@ -3677,9 +3681,10 @@ function workspaceContent() {
 function osShell() {
   normalizeWorkspaceState();
   const shellHeader = workspaceContextBar();
+  const workspaceCanvasClass = activeWorkspace === "tasks" ? "workspace-canvas worktodo-workspace-canvas" : "workspace-canvas";
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem("zhuge_shared_nav_collapsed_v1") === "1"; } catch { /* optional UI preference */ }
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="workspace-canvas">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {
@@ -5558,7 +5563,8 @@ function taskWorkspace() {
     : "";
   const activeTasks = tasks.filter(task => !task.archivedAt);
   const archivedTasks = tasks.filter(task => task.archivedAt);
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${archivedTasks.length} 項</div></div></div><div class="shared-task-board-toolbar task-toolbar"><div class="task-filters"><button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
+  const taskSummary = `<span class="task-worktodo-summary" role="status">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${archivedTasks.length} 項</span>`;
+  return `<section class="tasks-workspace lifecycle-task-workspace"><div class="shared-task-board-toolbar task-toolbar"><div class="task-filters">${taskSummary}<button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
