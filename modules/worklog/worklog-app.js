@@ -568,6 +568,122 @@ async function saveTaskJournal(taskId = "") {
   }
 }
 
+/*
+ * WorkTodo Shared Task Drawer integration.
+ *
+ * The adapter only renders a presentation contract.  These bindings keep
+ * every mutation on the existing WorkTodo DataService / Repository path.
+ */
+function workTodoSharedTask(taskId = taskJournalTaskId) {
+  return tasks.find(item => String(item.id) === String(taskId)) || null;
+}
+
+async function saveWorkTodoTaskPatch(taskId, patch = {}, message = "待辦事項已更新至 Cloud") {
+  const current = workTodoSharedTask(taskId);
+  if (!current) return;
+  const previous = tasks;
+  const next = normalizeTask({ ...current, ...patch, updatedAt: new Date().toISOString() });
+  tasks = tasks.map(item => item.id === current.id ? next : item);
+  try {
+    await DataService.saveTasksNow(tasks);
+    toast(message);
+    render("worktodo-shared-task-updated");
+  } catch (error) {
+    tasks = previous;
+    console.error("WorkTodo Shared Task update failed", { error, taskId, patch });
+    toast(error.message || "待辦事項更新失敗，未完成儲存");
+    render("worktodo-shared-task-update-failed");
+  }
+}
+
+function bindWorkTodoInlineField(root, task) {
+  root.querySelectorAll("[data-worktodo-edit-field]").forEach(button => {
+    button.onclick = () => {
+      const field = button.dataset.worktodoEditField;
+      const wrapper = root.querySelector(`[data-worktodo-inline-field="${field}"]`);
+      const valueNode = wrapper?.querySelector("[data-worktodo-field-value]");
+      if (!wrapper || !valueNode) return;
+      const currentValue = field === "note" ? task.note : "";
+      wrapper.innerHTML = `<div class="worktodo-shared-inline-editor"><textarea class="input" data-worktodo-field-editor rows="4">${escapeHtml(currentValue)}</textarea><div class="worktodo-shared-inline-editor-actions"><button class="btn2" type="button" data-worktodo-field-cancel>取消</button><button class="btn" type="button" data-worktodo-field-save>儲存</button></div></div>`;
+      wrapper.querySelector("[data-worktodo-field-editor]")?.focus();
+      wrapper.querySelector("[data-worktodo-field-cancel]")?.addEventListener("click", () => render("worktodo-inline-edit-cancel"));
+      wrapper.querySelector("[data-worktodo-field-save]")?.addEventListener("click", () => {
+        const nextValue = wrapper.querySelector("[data-worktodo-field-editor]")?.value?.trim() || "";
+        if (field === "note") saveWorkTodoTaskPatch(task.id, { note: nextValue }, "工作內容已更新至 Cloud");
+      });
+    };
+  });
+}
+
+function bindWorkTodoTitleEditor(root, task) {
+  root.querySelector("[data-task-title-edit]")?.addEventListener("click", () => {
+    const row = root.querySelector("[data-shared-task-title-heading]")?.closest(".shared-task-drawer-title-row");
+    const heading = row?.querySelector("[data-shared-task-title-heading]");
+    if (!row || !heading) return;
+    row.innerHTML = `<div class="worktodo-shared-title-editor"><span class="shared-task-drawer-title-code">${escapeHtml(task.id)}</span><span class="shared-task-drawer-title-separator" aria-hidden="true">｜</span><input class="shared-task-drawer-title-input" data-worktodo-title-editor value="${escapeHtml(task.title)}" aria-label="TASK 主旨"><span class="shared-task-drawer-title-actions"><button class="btn2" type="button" data-worktodo-title-cancel>取消</button><button class="btn" type="button" data-worktodo-title-save>儲存</button></span></div>`;
+    row.querySelector("[data-worktodo-title-editor]")?.focus();
+    row.querySelector("[data-worktodo-title-cancel]")?.addEventListener("click", () => render("worktodo-title-edit-cancel"));
+    row.querySelector("[data-worktodo-title-save]")?.addEventListener("click", () => {
+      const nextTitle = row.querySelector("[data-worktodo-title-editor]")?.value?.trim() || "";
+      if (!nextTitle) return toast("TASK 主旨不可為空白");
+      saveWorkTodoTaskPatch(task.id, { title: nextTitle }, "TASK 主旨已更新至 Cloud");
+    });
+  });
+}
+
+function bindWorkTodoControls(root, task) {
+  const progress = root.querySelector("[data-worktodo-progress]");
+  const output = root.querySelector("[data-worktodo-progress-output]");
+  progress?.addEventListener("input", () => { if (output) output.value = `${taskProgressValue(progress.value)}%`; });
+  root.querySelector("[data-worktodo-save-controls]")?.addEventListener("click", () => {
+    const status = normalizeTaskStatus(root.querySelector("[data-worktodo-status]")?.value || task.status, task);
+    const nextProgress = status === "completed" ? 100 : taskProgressValue(root.querySelector("[data-worktodo-progress]")?.value || task.progress);
+    saveWorkTodoTaskPatch(task.id, {
+      status,
+      progress: nextProgress,
+      priority: root.querySelector("[data-worktodo-priority]")?.value || task.priority,
+      dueDate: root.querySelector("[data-worktodo-due-date]")?.value || "",
+      userPinned: root.querySelector("[data-worktodo-pin]")?.checked === true,
+      completedAt: status === "completed" && task.status !== "completed" ? new Date().toISOString() : (status === "completed" ? task.completedAt : ""),
+      completedBy: status === "completed" ? (task.completedBy || currentUserUuid()) : ""
+    }, "工作屬性已更新至 Cloud");
+  });
+}
+
+function bindWorkTodoSharedDrawer() {
+  const root = document.querySelector("[data-worktodo-shared-drawer]");
+  if (!root) return;
+  const task = workTodoSharedTask(root.dataset.worktodoTaskId);
+  if (!task) return;
+  root.querySelectorAll("[data-shared-task-drawer-close]").forEach(button => {
+    button.onclick = event => {
+      event.preventDefault();
+      taskJournalTaskId = null;
+      taskJournalDraft = null;
+      taskJournalEditingEntryId = null;
+      taskJournalLoading = false;
+      render("worktodo-shared-drawer-close");
+    };
+  });
+  bindWorkTodoInlineField(root, task);
+  bindWorkTodoTitleEditor(root, task);
+  bindWorkTodoControls(root, task);
+  root.querySelectorAll("[data-worktodo-journal-edit]").forEach(button => {
+    button.onclick = () => {
+      const entry = workJournalForTask(task).find(item => journalEntryKey(item) === String(button.dataset.worktodoJournalEdit));
+      if (!entry) return toast("找不到這筆工作進度");
+      taskJournalEditingEntryId = journalEntryKey(entry);
+      taskJournalDraft = { content: entry.content, editEntryId: taskJournalEditingEntryId, updateStatus: false, updateProgress: false, status: entry.status, progress: entry.progress };
+      render("worktodo-journal-edit-open");
+    };
+  });
+  root.querySelector("[data-journal-cancel]")?.addEventListener("click", () => {
+    taskJournalDraft = null;
+    taskJournalEditingEntryId = null;
+    render("worktodo-journal-edit-cancel");
+  });
+}
+
 function taskTimestamp(task = {}, field = "updatedAt") {
   const fallback = field === "updatedAt" ? "updated_at" : "created_at";
   const raw = task?.[field] ?? task?.[fallback] ?? "";
@@ -609,28 +725,6 @@ function taskPriorityBadge(task = {}) {
   const meta = typeof PriorityEngine !== "undefined" ? PriorityEngine.getPriorityMeta(task.priority) : { label: "P2", icon: "🟠" };
   const reason = typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。";
   return `<span class="task-priority-badge task-priority-${meta.label.toLowerCase()}" title="${escapeHtml(reason)}">${meta.icon} ${meta.label}</span>`;
-}
-
-function legacyTaskWorkspace() {
-  const editing = tasks.find(task => task.id === editingTaskId) || null;
-  const list = taskListItems();
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">把需要完成的事情留下來，完成後再標記即可。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(editing?.title || "")}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="2" placeholder="補充說明">${escapeHtml(editing?.note || "")}</textarea><label>期限（選填）</label><input class="input" id="taskDueDate" type="date" value="${escapeHtml(editing?.dueDate || "")}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(editing?.priority || "p2")}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${editing?.userPinned ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
-  const rows = list.length ? list.map(task => `<div class="entry task-row ${task.status === "completed" ? "task-completed" : ""}"><div class="entry-main"><div class="task-row-title">${taskPriorityBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")}${task.note ? `｜${escapeHtml(task.note)}` : ""}</small></div><div class="actions compact"><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></div>`).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以從上方建立第一個待辦事項，或在 Mr. KM 對話中說：「提醒我寄採購資料」。</div></div>`;
-  return `<section class="panel tasks-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦</button></div>${form}<section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2" type="button" data-task-search-submit="1">搜尋</button></div></div><div class="task-list">${rows}</div></section></section>`;
-}
-
-// Sprint 7 lifecycle workspace. This later declaration intentionally replaces
-// the legacy task renderer without touching the validated worklog layout.
-function taskWorkspaceV7() {
-  const editing = tasks.find(task => task.id === editingTaskId) || null;
-  const list = taskListItems();
-  const draft = loadTaskDraft(editingTaskId || "new") || {};
-  const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
-  const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">草稿只保存在本機；按下建立或儲存後才會同步雲端。</div></div></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1" ${editing ? "" : "disabled"}>取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
-  const rows = list.length ? list.map(task => `<article class="entry task-row ${task.status === "completed" ? "task-completed" : ""}" data-task-card="${escapeHtml(task.id)}"><div class="entry-main"><div class="task-row-title">${taskPriorityBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}</small>${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div><div class="actions compact"><button class="btn2" type="button" data-task-start="${escapeHtml(task.id)}" ${task.status === "completed" ? "disabled" : ""}>${task.startedAt ? "繼續工作" : "開始工作"}</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></article>`).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以從上方建立第一個待辦事項，或在 Mr. KM 對話中說：「提醒我寄採購資料」。</div></div>`;
-  const completionTask = taskCompletionDialogId ? tasks.find(task => task.id === taskCompletionDialogId) : null;
-  const dialog = completionTask ? `<div class="quick-add-dialog task-completion-dialog" role="dialog" aria-modal="true"><div class="quick-add-card"><h3>完成待辦事項</h3><p>請留下完成說明，讓 Mr. KM 了解這次工作的結果。</p><label for="taskCompletionNote">完成說明</label><textarea class="input" id="taskCompletionNote" rows="4" placeholder="例如：已完成施工並驗收，客戶確認無誤。"></textarea><div class="form-actions"><button class="btn2" type="button" data-task-completion-cancel>取消</button><button class="btn" type="button" data-task-completion-confirm>儲存並完成</button></div></div></div>` : "";
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status === "open").length} 項</div></div><button class="btn2" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "未完成" : "已完成"}</button>`).join("")}</div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section>${form}</div>${dialog}</section>`;
 }
 
 function toast(t) {
@@ -2526,8 +2620,43 @@ function worklogWelcomeSeen() {
   return localStorage.getItem(scopedLocalKey(WORKLOG_WELCOME_KEY)) === "1";
 }
 
+function worklogInitializationState() {
+  if (!session) return { state: "unauthorized", error: "" };
+  if (typeof DataService === "undefined" || typeof DataService.getInitializationState !== "function") {
+    return { state: "loading", error: "正在準備工作空間資料" };
+  }
+  const state = DataService.getInitializationState();
+  return state?.state === "idle" ? { ...state, state: "loading", error: "正在確認登入、設定與工作身分" } : state;
+}
+
+function worklogInitializationLoadingScreen() {
+  return `<div class="wrap" data-worklog-init-state="loading"><div class="card"><section class="panel" style="margin-top:18px"><h1>正在準備工作空間…</h1><p class="muted">正在確認登入、雲端設定與工作身分。確認完成前不會開啟初次認識工時簿。</p><div class="worklog-init-skeleton" aria-hidden="true"><div></div><div></div><div></div></div></section></div></div>`;
+}
+
+function worklogInitializationErrorScreen(state = {}) {
+  const message = state.error || "雲端設定或工作身分尚未完成讀取。";
+  return `<div class="wrap" data-worklog-init-state="error"><div class="card"><section class="panel" style="margin-top:18px"><h1>工作空間暫時無法確認</h1><p class="muted">${escapeHtml(message)}</p><p class="muted">為避免把讀取失敗誤判為 onboarding，請先重試；目前不會顯示「初次認識工時簿」。</p><div class="form-actions"><button class="btn" type="button" data-retry-worklog-initialization>重新讀取</button></div></section></div></div>`;
+}
+
+function bindWorklogInitialization() {
+  const button = document.querySelector("[data-retry-worklog-initialization]");
+  if (!button) return;
+  button.onclick = async () => {
+    button.disabled = true;
+    button.textContent = "讀取中…";
+    try {
+      await DataService.init();
+      if (typeof RealtimeService !== "undefined" && hasGoogleOAuthSession()) await RealtimeService.start();
+    } catch (error) {
+      console.error("WorkLog initialization retry failed", { error, supabase: error?.supabase || null });
+    }
+    render("worklog-initialization-retry");
+  };
+}
+
 function needsWorklogWelcome() {
   if (!session) return false;
+  if (worklogInitializationState().state !== "ready") return false;
   const completionPending = localStorage.getItem(scopedLocalKey(WORK_IDENTITY_COMPLETION_KEY)) === "1";
   if (completionPending) return true;
   // Onboarding is a one-time, non-blocking guide. Once the user has completed
@@ -4191,6 +4320,20 @@ function render(reason = "state-update") {
     clearInvalidAuthState();
     if (!session) { replaceRootContent(authScreen()); bindAuth(); return; }
     if (migrationRequired) { replaceRootContent(migrationScreen()); bindMigration(); bindGlobal(); return; }
+    const initialization = worklogInitializationState();
+    if (initialization.state === "unauthorized") { replaceRootContent(authScreen()); bindAuth(); return; }
+    if (initialization.state === "loading" || initialization.state === "idle" || initialization.state === "migration_required") {
+      replaceRootContent(worklogInitializationLoadingScreen());
+      bindWorklogInitialization();
+      bindGlobal();
+      return;
+    }
+    if (initialization.state === "error") {
+      replaceRootContent(worklogInitializationErrorScreen(initialization));
+      bindWorklogInitialization();
+      bindGlobal();
+      return;
+    }
     if (isStandaloneChatRoute()) { replaceRootContent(standaloneChatScreen()); bindWorklogAssistant(); bindGlobal(); return; }
     if (needsWorklogWelcome()) { replaceRootContent(worklogWelcomeScreen()); bindWorklogWelcome(); bindGlobal(); return; }
     replaceRootContent(osShell());
@@ -4785,49 +4928,6 @@ function createTask(title = "", note = "", dueDate = "", options = {}) {
   return normalized;
 }
 
-function legacyBindTasks() {
-  document.querySelectorAll("[data-task-new]").forEach(button => button.onclick = () => { editingTaskId = null; taskSearch = ""; render(); });
-  document.querySelectorAll("[data-task-filter]").forEach(button => button.onclick = () => { taskFilter = button.dataset.taskFilter || "all"; render(); });
-  const search = document.getElementById("taskSearch");
-  const submitSearch = () => { taskSearch = search?.value?.trim() || ""; render(); };
-  document.querySelector("[data-task-search-submit]")?.addEventListener("click", submitSearch);
-  search?.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); submitSearch(); } });
-  document.querySelectorAll("[data-task-cancel]").forEach(button => button.onclick = () => { editingTaskId = null; render(); });
-  document.querySelectorAll("[data-task-save]").forEach(button => button.onclick = () => {
-    const title = document.getElementById("taskTitle")?.value?.trim() || "";
-    if (!title) return toast("請輸入待辦事項名稱");
-    const note = document.getElementById("taskNote")?.value?.trim() || "";
-    const dueDate = document.getElementById("taskDueDate")?.value || "";
-    const priority = document.querySelector("input[name=taskPriority]:checked")?.value || "p2";
-    const userPinned = document.getElementById("taskPinned")?.checked === true;
-    if (editingTaskId) {
-      tasks = tasks.map(task => task.id === editingTaskId ? normalizeTask({ ...task, title, note, dueDate, priority, userPinned, updatedAt: new Date().toISOString() }) : task);
-      toast("待辦事項已更新");
-    } else {
-      createTask(title, note, dueDate, { priority, userPinned });
-      toast("待辦事項已建立");
-    }
-    editingTaskId = null;
-    saveTasks();
-    render();
-  });
-  document.querySelectorAll("[data-task-toggle]").forEach(button => button.onclick = () => {
-    tasks = tasks.map(task => task.id === button.dataset.taskToggle ? normalizeTask({ ...task, status: task.status === "completed" ? "not_started" : "completed", progress: task.status === "completed" ? 0 : 100, completedAt: task.status === "completed" ? "" : new Date().toISOString(), updatedAt: new Date().toISOString() }) : task);
-    saveTasks();
-    toast("待辦事項狀態已更新");
-    render();
-  });
-  document.querySelectorAll("[data-task-edit]").forEach(button => button.onclick = () => { editingTaskId = button.dataset.taskEdit; render(); });
-  document.querySelectorAll("[data-task-delete]").forEach(button => button.onclick = () => {
-    const task = tasks.find(item => item.id === button.dataset.taskDelete);
-    if (!task || !confirm(`確定刪除待辦事項「${task.title}」？`)) return;
-    tasks = tasks.filter(item => item.id !== task.id);
-    saveTasks();
-    toast("待辦事項已刪除");
-    render();
-  });
-}
-
 // Sprint 7 task lifecycle bindings. Search and drafts update locally without
 // writing task records; only explicit save/start/complete actions sync Cloud.
 function bindTasks() {
@@ -4848,15 +4948,14 @@ function bindTasks() {
     search.addEventListener("input", () => { if (!taskSearchComposing) { taskSearch = search.value || ""; render(); } });
   }
   document.querySelector("[data-task-search-clear]")?.addEventListener("click", () => { taskSearch = ""; render(); });
-  document.querySelectorAll("[data-task-journal]").forEach(button => button.onclick = () => {
-    if (taskJournalTaskId === button.dataset.taskJournal) {
-      taskJournalTaskId = null;
-      taskJournalDraft = null;
-      taskJournalEditingEntryId = null;
-      taskJournalLoading = false;
-      render("journal-close");
-    } else openTaskJournal(button.dataset.taskJournal);
+  document.querySelectorAll("[data-task-journal]").forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    openTaskJournal(button.dataset.taskJournal);
   });
+  document.querySelectorAll("[data-worktodo-open-task]").forEach(card => card.addEventListener("click", event => {
+    if (event.target.closest("button, a, input, select, textarea")) return;
+    openTaskJournal(card.dataset.worktodoOpenTask || card.dataset.taskCard || "");
+  }));
   document.querySelectorAll("[data-journal-close]").forEach(button => button.addEventListener("click", () => { taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; taskJournalLoading = false; render("journal-close"); }));
   document.querySelectorAll("[data-journal-edit]").forEach(button => button.addEventListener("click", () => {
     const task = tasks.find(item => item.id === taskJournalTaskId);
@@ -4978,33 +5077,17 @@ function bindTasks() {
     }
     render("task-completed");
   });
-  document.querySelectorAll("[data-task-edit]").forEach(button => button.onclick = () => { editingTaskId = button.dataset.taskEdit; taskDraft = loadTaskDraft(editingTaskId) || null; taskDrawerOpen = true; render("task-drawer-edit"); });
+  document.querySelectorAll("[data-task-edit]").forEach(button => button.onclick = event => {
+    event.stopPropagation();
+    openTaskJournal(button.dataset.taskEdit);
+  });
   document.querySelectorAll("[data-task-delete]").forEach(button => button.onclick = () => {
     const task = tasks.find(item => item.id === button.dataset.taskDelete);
     if (!task || !confirm(`確定刪除待辦事項「${task.title}」？`)) return;
     tasks = tasks.filter(item => item.id !== task.id);
     saveTasks(); toast("待辦事項已刪除"); render();
   });
-}
-
-function taskJournalPanel(task = null) {
-  if (!task || taskJournalTaskId !== task.id) return "";
-  const timeline = workJournalForTask(task);
-  const editingEntry = taskJournalEditingEntryId ? timeline.find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null;
-  const rows = taskJournalLoading
-    ? `<div class="task-journal-loading">🌀 正在從 Cloud 載入工作紀錄…</div>`
-    : timeline.length
-      ? timeline.map(entry => `<article class="task-journal-entry"><span class="task-journal-dot" aria-hidden="true">●</span><div class="task-journal-entry-body"><div class="task-journal-entry-head"><b>${escapeHtml(journalEntryTypeLabel(entry.entryType))}</b><time>${escapeHtml(fmt(entry.createdAt))}</time><button class="btn2 task-journal-edit" type="button" data-journal-edit="${escapeHtml(journalEntryKey(entry))}" aria-label="編輯這筆進度紀錄" title="編輯這筆進度紀錄">✎</button></div><div class="task-journal-entry-content">${renderJournalContent(entry.content)}</div></div></article>`).join("")
-      : `<div class="empty">尚無進度紀錄。留下今天做到哪裡的第一筆紀錄。</div>`;
-  const defaultStatus = normalizeTaskStatus(task.status, task);
-  const defaultProgress = taskProgressValue(task.progress);
-  const updateStatus = taskJournalDraft?.updateStatus === true;
-  const updateProgress = taskJournalDraft?.updateProgress === true;
-  const journalTitle = editingEntry ? "編輯進度紀錄" : "工作進度紀錄";
-  const formLabel = editingEntry ? "✎ 編輯這筆進度紀錄" : "＋ 新增進度紀錄";
-  const saveLabel = editingEntry ? "儲存更新" : "儲存進度紀錄";
-  const content = `<div class="task-journal-head"><div><h3>${journalTitle}（${timeline.length}）</h3><div class="muted">${escapeHtml(task.title)} · Cloud Timeline</div></div><div class="task-journal-head-actions"><span class="task-journal-cloud-badge">☁ Cloud</span><button class="btn2 task-drawer-close" type="button" data-journal-close aria-label="關閉工作進度紀錄">×</button></div></div><div class="task-journal-timeline">${rows}</div><div class="task-journal-form"><label for="taskJournalContent">${formLabel}</label><textarea class="input" id="taskJournalContent" rows="3" placeholder="例如：已確認現場有留電源，並已通知廠商。">${escapeHtml(taskJournalDraft?.content || "")}</textarea>${editingEntry ? `<div class="task-journal-edit-hint">只修改這筆紀錄文字；原有日期、狀態與 Cloud 追蹤資訊會保留。</div>` : `<label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateProgress" ${updateProgress ? "checked" : ""}> 同時更新目前進度</label><div class="task-journal-optional-field ${updateProgress ? "" : "is-hidden"}" data-journal-progress-fields><label class="task-progress-label">目前進度 <output id="taskJournalProgressOutput">${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}%</output></label><input class="task-progress-range" id="taskJournalProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(taskJournalDraft?.progress ?? defaultProgress)}"></div><label class="task-journal-check"><input type="checkbox" id="taskJournalUpdateStatus" ${updateStatus ? "checked" : ""}> 同時更新目前狀態</label><div class="task-journal-optional-field ${updateStatus ? "" : "is-hidden"}" data-journal-status-fields><select class="input" id="taskJournalStatus">${taskStatusOptions(taskJournalDraft?.status || defaultStatus)}</select></div>`}<div class="form-actions"><button class="btn" type="button" data-journal-save>${saveLabel}</button></div></div>`;
-  return `<div class="task-drawer-backdrop is-open" data-journal-close aria-hidden="true"></div><aside class="task-drawer task-journal-drawer is-open" data-journal-drawer role="dialog" aria-modal="true" aria-label="工作進度紀錄">${content}</aside>`;
+  bindWorkTodoSharedDrawer();
 }
 
 // Sprint 7.1: workflow-aware task editor. It keeps the Sprint 7.0 layout and
@@ -5019,9 +5102,16 @@ function taskWorkspace() {
     const timeline = workJournalForTask(task);
     const latest = timeline[timeline.length - 1];
     const latestMarkup = latest ? `<details class="task-latest-journal"><summary><span class="task-latest-journal-label">🟢 最新更新</span><time>${escapeHtml(fmt(latest.createdAt))}</time></summary><div class="task-latest-journal-content">${renderJournalContent(latest.content)}</div></details>` : "";
-    const journalToggleLabel = `${taskJournalTaskId === task.id ? "▾" : "▸"} 工作進度紀錄（${timeline.length}）`;
     const worklogHours = taskWorklogHours(task);
-    return `<article class="entry task-row ${task.status === "completed" ? "task-completed" : ""}" data-task-card="${escapeHtml(task.id)}"><div class="task-row-core"><header class="task-row-header"><div class="task-row-title">${taskPriorityBadge(task)} ${taskWorkflowBadge(task)} <b>${task.status === "completed" ? "✅" : "⬜"} ${escapeHtml(task.title)}</b></div><div class="task-row-actions actions compact"><button class="btn2" type="button" data-task-journal="${escapeHtml(task.id)}">${journalToggleLabel}</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button></div></header><div class="task-row-content"><div class="task-progress-track" aria-label="進度 ${task.progress}%"><span style="width:${task.progress}%"></span></div><small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}${worklogHours > 0 ? `｜⏱ ${escapeHtml(formatHumanDuration(worklogHours))}` : ""}</small>${latestMarkup}${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div></div></article>`;
+    const taskActions = `<button class="btn2" type="button" data-task-journal="${escapeHtml(task.id)}">開啟</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button>`;
+    const taskSummary = `<small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}${worklogHours > 0 ? `｜⏱ ${escapeHtml(formatHumanDuration(worklogHours))}` : ""}</small>`;
+    const taskBody = `<div class="task-row-content"><div class="task-progress-track" aria-label="進度 ${task.progress}%"><span style="width:${task.progress}%"></span></div>${latestMarkup}${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div>`;
+    return ZhugeWorkTodoTaskAdapter.renderCard(task, {
+      titleHtml: `${taskPriorityBadge(task)} ${taskWorkflowBadge(task)} <span class="worktodo-shared-card-title-status" aria-hidden="true">${task.status === "completed" ? "✅" : "⬜"}</span> ${escapeHtml(task.title)}`,
+      summaryHtml: taskSummary,
+      actionsHtml: taskActions,
+      bodyHtml: taskBody
+    });
   }).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以建立今天第一個待辦事項。</div></div>`;
   const completionTask = taskCompletionDialogId ? tasks.find(task => task.id === taskCompletionDialogId) : null;
   const completionExistingHours = completionTask ? taskWorklogHours(completionTask) : 0;
@@ -5032,8 +5122,10 @@ function taskWorkspace() {
   const drawerOpen = Boolean(editing || taskDrawerOpen);
   const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦">${form}</aside>`;
   const journalTask = taskJournalTaskId ? tasks.find(task => task.id === taskJournalTaskId) : null;
-  const journalDrawer = taskJournalPanel(journalTask);
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${journalDrawer}${dialog}</section>`;
+  const sharedDrawer = journalTask && typeof ZhugeWorkTodoTaskAdapter !== "undefined"
+    ? ZhugeWorkTodoTaskAdapter.render(journalTask, { journal: workJournalForTask(journalTask), loading: taskJournalLoading, journalDraft: taskJournalDraft, editingEntry: taskJournalEditingEntryId ? workJournalForTask(journalTask).find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null, actorLabel: session?.name || session?.email || "目前使用者", formatTimestamp: value => fmt(value), renderContent: value => renderJournalContent(value) })
+    : "";
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }

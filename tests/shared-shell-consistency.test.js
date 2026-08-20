@@ -39,6 +39,12 @@ test("Shared Shell owns the canonical geometry and appearance tokens", () => {
   assert.match(read("shared/theme/zhuge-appearance.js"), /system.*light.*dark|allowed/si);
 });
 
+test("AI Board content blocks use the canonical shell boundary", () => {
+  const workspace = read("shared/theme/zhuge-workspace.css");
+  assert.match(workspace, /\.zhuge-module-shell > \.workspace-app,\s*\.zhuge-module-shell > \.app\.workspace-app/);
+  assert.match(workspace, /\.zhuge-module-shell\.workspace-shell > \.workspace-app > \.main > \.workspace-canvas\s*\{\s*padding:\s*0;/);
+});
+
 test("Dashboard workspace surface stretches with the stacked right column", () => {
   const dashboard = read("shared/theme/zhuge-dashboard.css");
   assert.match(dashboard, /\.zhuge-dashboard-shell \.dashboard-workspace-layout\s*\{[\s\S]*?align-items:\s*stretch;/);

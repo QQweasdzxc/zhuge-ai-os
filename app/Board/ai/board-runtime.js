@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { tasks: [], principles: [], systemMaps: [], taskById: new Map(), searchQuery: "", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board" };
+  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", taskChecklistWrites: new Set() };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -13,6 +13,24 @@
     try {
       return new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Taipei" }).format(new Date(value));
     } catch (error) { return String(value); }
+  }
+  function shortTimestampLabel(value) {
+    if (!value) return "時間未提供";
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "Asia/Taipei"
+      }).formatToParts(new Date(value)).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+      return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
+    } catch (error) { return String(value); }
+  }
+  function progressNoteMetaLabel(item) {
+    return `${item?.actorLabel || "QJC"} · ${shortTimestampLabel(item?.timestamp)}`;
   }
   function priorityLabel(priority) {
     const value = String(priority || "").toLowerCase();
@@ -23,13 +41,23 @@
     return "";
   }
   function statusLabel(status) {
-    return service.workspaceForStatus?.(status)?.label
-      || service.STATUS_WORKSPACES.find(item => item.key === status)?.label
-      || "待辦";
+    return service.statusDescriptorFor?.(status)?.label || "未知工程狀態";
   }
-  function assigneeLabel(value) {
-    const raw = String(value || "").trim();
-    return raw ? "目前：" + raw : "尚未指派";
+  function readableWorkStatus(task) {
+    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
+    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
+    const workspaceName = String(task?.workspaceName || "").trim();
+    if ((workspaceKey === "completed" || workspaceName === "已完成") && task?.completionAt && !task?.archivedAt) return "已完成";
+    if (status === "ready") return "待開始";
+    if (status === "inprogress") return "進行中";
+    if (status === "qa") return "等待驗證";
+    if (status === "done") return "已完成";
+    if (status === "merged") return "已合併（封存）";
+    if (status === "cancelled") return "已取消（封存）";
+    return statusLabel(status);
+  }
+  function workspaceLabel(task) {
+    return String(task?.workspaceName || task?.workspaceKey || "未分類工作區");
   }
   const stageLabels = Object.freeze({ co: "Co 開發驗證", gpt: "GPT 工程審查", qjc: "QJC PM 驗收" });
   const stageEvidenceLabels = Object.freeze({
@@ -44,31 +72,62 @@
       banner = document.createElement("div");
       banner.id = "boardReadStatus";
       banner.className = "board-read-status";
-      const toolbar = document.querySelector(".toolbar");
-      document.querySelector(".main")?.insertBefore(banner, toolbar);
+      const toolbar = document.querySelector(".workspace-canvas .toolbar, .toolbar");
+      const parent = toolbar?.parentElement || document.querySelector(".main");
+      if (parent) parent.insertBefore(banner, toolbar || parent.firstChild);
     }
     banner.dataset.state = kind || "info";
     banner.innerHTML = message;
   }
-  function taskMarkup(task) {
-    const priority = priorityLabel(task.priority);
-    const priorityClass = priority === "P0" || priority === "P1" ? "high" : priority === "P2" ? "med" : "";
-    const timestamp = dateLabel(task.updatedAt || task.createdAt);
+  function clearBanner() {
+    document.getElementById("boardReadStatus")?.remove();
+  }
+  function isArchiveTask(task) {
+    if (typeof service.isArchiveTask === "function") return service.isArchiveTask(task);
+    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").toLowerCase();
+    return status === "done" || service.isGovernanceTerminal?.(task) === true;
+  }
+  function isCompletionWorkspace(workspace) {
+    const key = String(workspace?.key || "").toLowerCase();
+    const name = String(workspace?.name || "").trim();
+    return key === "completed" || name === "已完成";
+  }
+  function isMainBoardWorkspace(workspace) {
+    const key = String(workspace?.key || "").toLowerCase();
+    const name = String(workspace?.name || "").trim();
+    // Keep the historical done/已完工 Cloud row intact but out of the active
+    // Board. The canonical renamed workspace 已完成 remains visible for the
+    // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
+    // column; the current workflow uses workspace position itself as the stage.
+    return workspace?.active === true
+      && key !== "done" && name !== "已完工"
+      && key !== "gpt" && name !== "GPT區";
+  }
+  function taskMarkup(task, options = {}) {
     const terminal = service.isGovernanceTerminal?.(task) || false;
+    const archiveOnly = options.readOnly === true || isArchiveTask(task);
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
-    const draggable = task.status !== "done" && !terminal;
-    return "<article class=\"card taskcard board-cloud-card\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
-      "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
-      "<h3>" + esc(task.title) + "</h3>" +
-      (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
-      governance +
-      "<div class=\"meta\"><span class=\"tag status-tag\">" + esc(statusLabel(task.status)) + "</span>" +
-      (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
-      (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
-      (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
-      "</div><div class=\"card-action-hint\">" + (draggable ? "點擊查看驗收清單與證據 · 拖曳推進或退回工作" : "點擊查看歷史驗收清單與證據 · 已完成不可再拖曳") + "</div></article>";
+    const draggable = !archiveOnly && !terminal;
+    const archiveClass = archiveOnly ? " archive-taskcard" : "";
+    const card = root.ZhugeSharedTaskCard;
+    if (!card?.render) return "<div class=\"board-empty\">Shared Task Card foundation 尚未載入。</div>";
+    return card.render({
+      className: "card taskcard board-cloud-card" + archiveClass,
+      code: task.workCode || task.id || "TASK",
+      title: task.title,
+      summary: task.summary,
+      bodyHtml: governance,
+      attributes: {
+        "data-task-id": task.id,
+        "data-work-code": task.workCode,
+        "data-status": task.status,
+        "data-workspace": task.workspace,
+        tabindex: "0",
+        draggable: String(draggable)
+      }
+    });
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -107,41 +166,62 @@
       })
       .map(item => item.task);
   }
+  function renderWorkspaceColumns() {
+    const board = document.getElementById("boardColumns") || document.querySelector(".board");
+    if (!board) return;
+      const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
+    board.style.setProperty("--board-workspace-count", String(Math.max(workspaces.length, 1)));
+    const columns = workspaces.length
+      ? workspaces.map(workspace => {
+        const addTask = workspace.key === "todo"
+          ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
+          : "";
+        const completion = isCompletionWorkspace(workspace);
+        const workspaceControls = completion
+          ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
+          : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button><span class=\"drag workspace-drag-handle\" draggable=\"true\" title=\"拖曳重新排序\" aria-label=\"拖曳重新排序\">⠿</span>";
+        return "<div class=\"column process\" data-workspace-id=\"" + esc(workspace.id) + "\" data-workspace-key=\"" + esc(workspace.key) + "\">" +
+          "<div class=\"colhead" + (completion ? " workspace-completion-column" : "") + "\" data-workspace-header=\"" + esc(workspace.id) + "\"><span class=\"workspace-title\">" + esc(workspace.name) + "</span><span class=\"count\">0</span>" + workspaceControls + "</div>" +
+          addTask + "<div class=\"cards\"></div></div>";
+      }).join("")
+      : "<div class=\"board-empty\">尚未讀取可用工作區。</div>";
+    board.innerHTML = columns;
+  }
   function renderTasks(tasks) {
-    const groups = Object.fromEntries(service.STATUS_WORKSPACES.map(workspace => [workspace.uiKey, []]));
-    const history = tasks.filter(task => service.isGovernanceTerminal?.(task));
-    sortTasksByCode(tasks).filter(task => !service.isGovernanceTerminal?.(task)).forEach(task => {
-      const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspace) ? task.workspace : "todo";
-      groups[bucket].push(task);
+    renderWorkspaceColumns();
+    const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
+    const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
+    sortTasksByCode(activeTasks).forEach(task => {
+      const fallback = state.workspaces.find(workspace => workspace.key === "todo");
+      const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
+      if (bucket && groups[bucket]) groups[bucket].push(task);
     });
-    service.STATUS_WORKSPACES.forEach(workspace => {
-      const column = document.querySelector(".process[data-status=\"" + workspace.uiKey + "\"]");
+    state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder).forEach(workspace => {
+      const column = document.querySelector(".process[data-workspace-id=\"" + workspace.id + "\"]");
       if (!column) return;
       const cards = column.querySelector(".cards");
       const count = column.querySelector(".count");
       if (!cards) return;
       cards.replaceChildren();
-      const rows = groups[workspace.uiKey] || [];
+      const rows = groups[workspace.id] || [];
       cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : "<div class=\"board-empty\">目前沒有工作</div>";
       if (count) count.textContent = String(rows.length);
     });
-    const historyCards = document.getElementById("historyTaskCards");
-    if (historyCards) historyCards.innerHTML = history.length
-      ? history.map(taskMarkup).join("")
-      : "<div class=\"board-empty\">目前沒有已合併或已取消的歷史 TASK。</div>";
     wireTaskCards();
   }
   function visibleTasks() {
     const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");
-    if (!query) return state.tasks;
-    return state.tasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.assignee]
+    const activeTasks = state.tasks.filter(task => !isArchiveTask(task));
+    if (!query) return activeTasks;
+    return activeTasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.workspaceName, task.workspaceKey]
       .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query)));
   }
   function applySearch(query) {
     state.searchQuery = String(query || "");
     renderTasks(visibleTasks());
     const count = visibleTasks().length;
-    setBanner(state.searchQuery.trim() ? "搜尋「" + esc(state.searchQuery.trim()) + "」：找到 " + count + " 筆 TASK。" : "已清除搜尋，顯示全部正式 Cloud TASK。", "info");
+    const result = document.getElementById("boardSearchCount");
+    if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 TASK" : "顯示目前工作中的正式 TASK";
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");
@@ -150,6 +230,61 @@
     input.onkeydown = event => {
       if (event.key === "Escape") { input.value = ""; applySearch(""); }
     };
+  }
+  function archiveTasks() {
+    const filter = String(state.archiveFilter || "all").toLowerCase();
+    const query = state.archiveSearch.trim().toLocaleLowerCase("zh-TW");
+    return sortTasksByCode(state.tasks.filter(task => {
+      if (!isArchiveTask(task)) return false;
+      const status = service.normalizeStatus ? service.normalizeStatus(task.status) : String(task.status || "").toLowerCase();
+      if (filter !== "all" && status !== filter) return false;
+      if (!query) return true;
+      return [task.workCode, task.title, task.summary, task.usageScenario, task.workspaceName, task.workspaceKey, task.status, task.resolutionReason, task.mergedInto, task.linkedTo]
+        .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query));
+    }));
+  }
+  function renderArchive() {
+    const list = document.getElementById("archiveTaskList");
+    const count = document.getElementById("archiveCount");
+    if (!list) return;
+    const all = state.tasks.filter(task => isArchiveTask(task));
+    const rows = archiveTasks();
+    if (count) count.textContent = `顯示 ${rows.length} / ${all.length} 筆封存 TASK（唯讀）`;
+    list.innerHTML = rows.length
+      ? rows.map(task => taskMarkup(task, { readOnly: true })).join("")
+      : `<div class="board-empty">${all.length ? "找不到符合條件的封存 TASK。" : "目前沒有封存 TASK。"}</div>`;
+    wireTaskCards();
+  }
+  function openArchiveDrawer() {
+    const backdrop = document.getElementById("archiveDrawerBackdrop");
+    const drawer = document.getElementById("archiveDrawer");
+    if (!backdrop || !drawer) return;
+    backdrop.classList.add("is-open");
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    renderArchive();
+    window.setTimeout(() => document.getElementById("archiveSearch")?.focus(), 0);
+  }
+  function closeArchiveDrawer() {
+    const backdrop = document.getElementById("archiveDrawerBackdrop");
+    const drawer = document.getElementById("archiveDrawer");
+    backdrop?.classList.remove("is-open");
+    drawer?.classList.remove("is-open");
+    drawer?.setAttribute("aria-hidden", "true");
+  }
+  function wireArchiveControls() {
+    document.querySelectorAll("[data-archive-close]").forEach(button => {
+      button.onclick = closeArchiveDrawer;
+    });
+    const input = document.getElementById("archiveSearch");
+    if (input) {
+      input.oninput = event => { state.archiveSearch = String(event.target.value || ""); renderArchive(); };
+      input.onkeydown = event => {
+        if (event.key === "Escape") { input.value = ""; state.archiveSearch = ""; renderArchive(); }
+      };
+    }
+    const filter = document.getElementById("archiveFilter");
+    if (filter) filter.onchange = event => { state.archiveFilter = String(event.target.value || "all"); renderArchive(); };
   }
   function setConnection(taskCount, principleCount, realtime) {
     const label = realtime ? "🟢 已同步" : "🟡 同步中";
@@ -170,20 +305,6 @@
       if (syncTime) syncTime.textContent = time;
     }
   }
-  function transitionFor(task, targetUiKey) {
-    return typeof service.planTransition === "function"
-      ? service.planTransition(task, targetUiKey)
-      : null;
-  }
-  function actionLabel(task, targetUiKey) {
-    return transitionFor(task, targetUiKey)?.action || "執行交接";
-  }
-  function transitionTargets(task) {
-    if (typeof service.availableTransitions === "function") {
-      return service.availableTransitions(task).map(item => item.targetWorkspace);
-    }
-    return [];
-  }
   function completionGateStatus(items) {
     if (typeof service.completionGateStatus === "function") return service.completionGateStatus(items);
     const rows = (Array.isArray(items) ? items : []).filter(item => item && item.required && String(item.stage || "").toLowerCase() !== "gpt");
@@ -202,38 +323,26 @@
     if (gate.missing?.length) return `尚有 ${gate.missing.length} 項 Co／QJC 必要驗收未完成；請由負責角色完成驗證。`;
     return "目前尚未完成 Co 開發驗證與 QJC PM 驗收。";
   }
-  async function transitionTask(task, targetUiKey) {
-    const plan = transitionFor(task, targetUiKey);
-    if (!plan?.allowed) {
-      setBanner(esc(plan?.reason || "目前工作階段不允許這個交接。"), "error");
+  async function moveTaskToWorkspace(task, targetWorkspaceId) {
+    const target = state.workspaceById.get(String(targetWorkspaceId || ""));
+    if (!task || !target || service.isGovernanceTerminal?.(task)) return;
+    if (String(task.workspaceId) === String(target.id)) {
+      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
     }
-    if (targetUiKey === "done") {
-      try {
-        const items = await service.loadChecklist(task.id);
-        const gate = completionGateStatus(items);
-        if (!gate.allowed) {
-          setBanner(`${completionGateMessage(gate)} GPT 工程審查紀錄會保留，但不列入 QJC 完成 Gate。`, "error");
-          return;
-        }
-      } catch (error) {
-        setBanner("無法確認 Checklist；為避免誤標完成，暫停這次交接。", "error");
-        return;
-      }
-    }
-    setBanner("正在將 " + esc(task.workCode || task.title) + " 交接至 " + esc(plan.assignee) + "…", "loading");
+    const current = state.workspaceById.get(String(task.workspaceId || ""));
+    setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
     try {
-      await service.transitionTask(task.id, plan.status, plan.assignee, `QJC 拖曳交接：${task.status}/${task.assignee || "未指派"} → ${plan.status}/${plan.assignee}`);
+      await service.moveTaskWorkspace(task.id, target.id, "QJC workspace movement");
       await refreshBoard({ quiet: true });
-      setBanner(`已完成交接：${esc(task.workCode || task.title)} → ${esc(statusLabel(plan.status))}／${esc(plan.assignee)}。Cloud、Audit 與 Realtime 將以正式資料為準。`, "success");
+      const lifecycleMessage = isCompletionWorkspace(target)
+        ? "已開始 48 小時 Cloud completion lifecycle。"
+        : isCompletionWorkspace(current)
+          ? "已取消原本的 48 小時 completion timer。"
+          : "";
+      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工作區現在代表這張 TASK 的責任階段；治理紀錄已保留。", "success");
     } catch (error) {
-      const raw = String(error && error.message || "");
-      const message = /not permitted|unsupported|transition/i.test(raw)
-        ? "這個工作區移動不符合目前流程 Gate；請先完成目前階段的驗收，再交給下一位。"
-        : /checklist|evidence/i.test(raw)
-          ? "尚未完成必要 Checklist／Evidence；請先補齊驗收證據。"
-          : "受控交接失敗，正式資料未變更；請確認登入狀態與 Cloud 連線。";
-      setBanner(message, "error");
+      setBanner("工作區移動失敗：" + esc(error?.message || "正式 Cloud 未接受這次移動；原資料未變更。"), "error");
     }
   }
 
@@ -261,17 +370,84 @@
       setBanner("治理決策未完成：" + esc(error?.message || "請確認 QJC 登入與權限。"), "error");
     }
   }
+  function hasDragType(event, type) {
+    return Array.from(event?.dataTransfer?.types || []).includes(type);
+  }
+  async function reorderWorkspace(draggedId, targetId) {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+    const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
+    const visible = ordered.filter(isMainBoardWorkspace);
+    const draggedIndex = visible.findIndex(workspace => workspace.id === draggedId);
+    const targetIndex = visible.findIndex(workspace => workspace.id === targetId);
+    if (draggedIndex < 0 || targetIndex < 0) return;
+    const [dragged] = visible.splice(draggedIndex, 1);
+    visible.splice(visible.findIndex(workspace => workspace.id === targetId), 0, dragged);
+    let visibleIndex = 0;
+    const fullOrder = ordered.map(workspace => isMainBoardWorkspace(workspace) ? visible[visibleIndex++] : workspace);
+    try {
+      setBanner("正在保存工作區排序…", "loading");
+      await service.reorderWorkspaces(fullOrder.map(workspace => workspace.id));
+      await refreshBoard({ quiet: true });
+      setBanner("工作區排序已保存至 Cloud。", "success");
+    } catch (error) {
+      setBanner("工作區排序失敗：" + esc(error?.message || "正式 Cloud 未接受這次排序；原順序未變更。"), "error");
+    }
+  }
+  function wireWorkspaceControls() {
+    document.querySelectorAll("[data-workspace-add]").forEach(button => {
+      button.onclick = () => openQuickAdd(button.dataset.workspaceAdd);
+    });
+    document.querySelectorAll("[data-workspace-rename]").forEach(button => {
+      button.onclick = event => {
+        event.stopPropagation();
+        const workspace = state.workspaceById.get(button.dataset.workspaceRename);
+        if (!workspace) return;
+        const nextName = window.prompt("請輸入新的工作區名稱", workspace.name);
+        if (nextName === null || !nextName.trim() || nextName.trim() === workspace.name) return;
+        service.renameWorkspace(workspace.id, nextName.trim())
+          .then(() => refreshBoard({ quiet: true }))
+          .then(() => setBanner("工作區已重新命名並保存至 Cloud。", "success"))
+          .catch(error => setBanner("工作區重新命名失敗：" + esc(error?.message || "正式 Cloud 未接受這次命名。"), "error"));
+      };
+    });
+    document.querySelectorAll(".workspace-drag-handle").forEach(handle => {
+      handle.ondragstart = event => {
+        event.stopPropagation();
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-zhuge-workspace-id", handle.closest(".process")?.dataset.workspaceId || "");
+        handle.closest(".process")?.classList.add("workspace-dragging");
+      };
+      handle.ondragend = () => handle.closest(".process")?.classList.remove("workspace-dragging");
+    });
+    document.querySelectorAll(".process").forEach(column => {
+      column.ondragover = event => {
+        if (!hasDragType(event, "application/x-zhuge-workspace-id")) return;
+        event.preventDefault();
+        column.classList.add("workspace-dropzone");
+      };
+      column.ondragleave = () => column.classList.remove("workspace-dropzone");
+      column.ondrop = async event => {
+        if (!hasDragType(event, "application/x-zhuge-workspace-id")) return;
+        event.preventDefault();
+        column.classList.remove("workspace-dropzone");
+        await reorderWorkspace(event.dataTransfer.getData("application/x-zhuge-workspace-id"), column.dataset.workspaceId);
+      };
+    });
+  }
   function wireTaskCards() {
+    wireWorkspaceControls();
     document.querySelectorAll(".taskcard").forEach(card => {
       const task = state.taskById.get(card.dataset.taskId);
       if (!task) return;
-      card.onclick = () => openTaskDetail(task);
+      const archiveOnly = isArchiveTask(task);
+      card.onclick = () => openTaskDetail(task, { readOnly: archiveOnly });
       card.onkeydown = event => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task); }
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
       };
       card.ondragstart = event => {
-        if (task.status === "done") { event.preventDefault(); return; }
+        if (archiveOnly || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
         event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-zhuge-task-id", task.id);
         event.dataTransfer.setData("text/plain", task.id);
         card.classList.add("dragging");
       };
@@ -279,23 +455,24 @@
     });
     document.querySelectorAll(".process .cards").forEach(zone => {
       zone.ondragover = event => {
-        const task = state.taskById.get(document.querySelector(".taskcard.dragging")?.dataset.taskId || "");
-        const target = zone.closest(".process")?.dataset.status;
-        const plan = task && target ? transitionFor(task, target) : null;
-        if (!plan?.allowed) { zone.classList.remove("dropzone"); return; }
+        if (!hasDragType(event, "application/x-zhuge-task-id")) return;
+        const targetWorkspace = state.workspaceById.get(zone.closest(".process")?.dataset.workspaceId || "");
+        if (!targetWorkspace) return;
         event.preventDefault();
         zone.classList.add("dropzone");
       };
       zone.ondragleave = () => zone.classList.remove("dropzone");
       zone.ondrop = async event => {
+        if (!hasDragType(event, "application/x-zhuge-task-id")) return;
         event.preventDefault();
         zone.classList.remove("dropzone");
-        const task = state.taskById.get(event.dataTransfer.getData("text/plain"));
-        const target = zone.closest(".process")?.dataset.status;
-        if (task && target) await transitionTask(task, target);
+        const task = state.taskById.get(event.dataTransfer.getData("application/x-zhuge-task-id") || event.dataTransfer.getData("text/plain"));
+        const targetWorkspaceId = zone.closest(".process")?.dataset.workspaceId;
+        if (task && targetWorkspaceId) await moveTaskToWorkspace(task, targetWorkspaceId);
       };
     });
   }
+
   function wireNavigation() {
     const handlers = {
       board: () => showBoardView("board"),
@@ -317,25 +494,25 @@
   function showBoardView(view) {
     state.boardView = view;
     document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
-    const boardShell = document.querySelector(".board-shell");
-    if (boardShell) boardShell.hidden = view !== "board";
-    const history = document.querySelector(".governance-history");
-    if (history) history.hidden = view !== "board";
-    const toolbar = document.querySelector(".toolbar");
-    if (toolbar) toolbar.hidden = view !== "board";
-    const note = document.querySelector(".note");
-    if (note) note.hidden = view !== "board";
-    if (view === "principles") setBanner("工程準則：📘 最高原則來自正式 engineering_knowledge，不參與 TASK 狀態流轉。", "info");
-    else if (view === "system-map") setBanner("系統藍圖：顯示目前正式系統組成與資料來源。", "info");
-    else if (view === "security") setBanner("敏感模組二次驗證：只有 Creator 可以查看或變更 Cloud MFA Preference。", "info");
-    else setBanner("工作看板：顯示正式 Cloud TASK、Checklist、Evidence 與交接流程。", "info");
+    const canvas = document.querySelector(".workspace-canvas");
+    const boardMain = document.querySelector("[data-board-main-view]");
+    if (boardMain) boardMain.hidden = view !== "board";
+    else if (canvas) canvas.hidden = view !== "board";
+    else {
+      const boardShell = document.querySelector(".board-shell");
+      if (boardShell) boardShell.hidden = view !== "board";
+      const toolbar = document.querySelector(".toolbar");
+      if (toolbar) toolbar.hidden = view !== "board";
+    }
+    clearBanner();
   }
 
   function mountCreatorMfaSettings(context) {
     if (!context?.creator?.getSnapshot?.().is_creator) return;
     const tabs = document.querySelector(".workspace-subnav");
     const main = document.querySelector(".main");
-    if (!tabs || !main || document.querySelector('[data-board-nav="security"]')) return;
+    const content = document.querySelector(".workspace-canvas") || main;
+    if (!tabs || !content || document.querySelector('[data-board-nav="security"]')) return;
 
     const tab = document.createElement("button");
     tab.className = "workspace-tab";
@@ -350,7 +527,7 @@
     section.dataset.boardView = "security";
     section.hidden = true;
     section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／Creator Control</span><h2>🔐 敏感模組二次驗證</h2><p>Google Login、Supabase Session、User UUID、RLS 與 Cloud Data 維持開啟；以下只控制指定模組是否略過 TOTP Challenge。</p></div><span class="subview-source">來源：Supabase Cloud Settings</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於 Supabase Cloud。</p></div>`;
-    main.appendChild(section);
+    content.appendChild(section);
 
     const moduleLabels = Object.freeze({
       investment: "Investment",
@@ -397,13 +574,15 @@
     if (document.getElementById("taskDetailModal")) return;
     const modal = document.createElement("div");
     modal.id = "taskDetailModal";
-    modal.className = "modalback";
-    modal.innerHTML = "<div class=\"modal board-task-modal\" role=\"dialog\" aria-modal=\"true\">" +
-      "<div class=\"modalhead\"><h2 id=\"taskDetailTitle\">TASK</h2><button class=\"x\" id=\"closeTaskDetail\" aria-label=\"關閉\">×</button></div>" +
-      "<div class=\"modalbody\" id=\"taskDetailBody\"><div class=\"board-empty\">讀取中…</div></div></div>";
+    modal.className = "task-detail-modal-host";
+    modal.innerHTML = "<div id=\"taskDetailBody\"></div>";
     document.body.appendChild(modal);
-    modal.addEventListener("click", event => { if (event.target === modal) modal.style.display = "none"; });
-    document.getElementById("closeTaskDetail").onclick = () => { modal.style.display = "none"; };
+    modal.addEventListener("click", event => {
+      if (event.target.matches?.("[data-shared-task-drawer-close]")) {
+        modal.style.display = "none";
+        state.activeTaskId = "";
+      }
+    });
   }
   function ensureHealthModal() {
     if (document.getElementById("healthCheckModal")) return;
@@ -434,7 +613,12 @@
     } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
     finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
   }
-  function checklistMarkup(item) {
+  function isPmAcceptanceItem(item) {
+    const identity = `${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
+    return String(item?.stage || "").toLowerCase() === "qjc" && (item?.itemKey === "pm-acceptance" || /pm[-_ ]?acceptance|pm[-_ ]?qa|驗收/.test(identity));
+  }
+  function checklistMarkup(item, options = {}) {
+    const readOnly = options.readOnly === true;
     const checked = item.state === "pass" ? " checked" : "";
     const stage = stageLabels[item.stage] || item.stage.toUpperCase();
     const isEngineeringReview = String(item.stage || "").toLowerCase() === "gpt";
@@ -446,12 +630,15 @@
     const next = isEngineeringReview
       ? "此為 GPT 工程審查紀錄；QJC 不需在此勾選，請查看工程 Evidence。"
       : item.state === "pass" ? "已完成此驗證項目，可繼續下一個驗收階段。" : item.state === "fail" ? "請查看失敗原因，退回負責角色修正後再驗證。" : `請由${esc(stage)}完成驗證，並提供：${esc(expectedEvidence)}。`;
-    const qjcCanAct = item.stage === "qjc";
-    const controls = qjcCanAct
-      ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>QJC 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
-      : `<div class="checklist-readonly-note">由${esc(stage)}在工程交接中更新，QJC 僅查看結果。</div>`;
+    const pmAcceptanceCanAct = options.allowAcceptanceAction === true && isPmAcceptanceItem(item);
+    const controls = readOnly
+      ? `<div class="checklist-readonly-note">${esc(options.readOnlyMessage || "封存資料僅供查閱；不可修改 Checklist 或 Evidence。")} </div>`
+      : pmAcceptanceCanAct
+      ? `<label class="checklist-checkline checklist-qjc-control"><input type="checkbox" class="checklist-check" data-id="${esc(item.id)}"${checked}><span>${item.state === "pass" ? "☑" : "☐"} PM 驗收通過</span></label><button class="btn checklist-evidence-btn" data-id="${esc(item.id)}">補充驗收說明</button><button class="btn checklist-fail-btn" data-id="${esc(item.id)}">退回修正</button>`
+      : `<div class="checklist-readonly-note">${isPmAcceptanceItem(item) ? "PM Acceptance 只可透過正式控制路徑操作；" : "Engineering Evidence／系統狀態；"}目前唯讀呈現。</div>`;
+    const isActionable = pmAcceptanceCanAct;
     const requirementLabel = isEngineeringReview ? " · 工程紀錄（不列入 QJC 完成 Gate）" : item.required ? " · 必要" : "";
-    return `<div class="checklist-item ${qjcCanAct ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${requirementLabel}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
+    return `<div class="checklist-item ${isActionable ? "checklist-qjc-item" : "checklist-readonly-item"}" data-checklist-id="${esc(item.id)}"><div class="checklist-main"><div class="checklist-checkline"><span class="checklist-stage-mark" aria-hidden="true">${item.state === "pass" ? "✅" : item.state === "fail" ? "⚠️" : "○"}</span><span><b>${esc(item.label || "未命名驗收項目")}</b><small>負責階段：${esc(stage)} · 目前狀態：${esc(stateLabel)}${requirementLabel}</small></span></div><div class="checklist-question"><strong>我要驗證什麼：</strong>${esc(item.label || "請確認此項目符合需求")}</div><div class="checklist-question"><strong>需要什麼證據：</strong>${esc(expectedEvidence)}</div>${evidence}<div class="checklist-next"><strong>下一步：</strong>${next}</div></div><div class="checklist-actions">${controls}<div class="checklist-state ${item.state === "not_verified" ? "missing" : ""}">${esc(stateLabel)}</div></div></div>`;
   }
   function checklistSummary(items) {
     const gate = completionGateStatus(items);
@@ -459,78 +646,848 @@
     const remaining = gate.required.length - gate.passed.length;
     return "QJC 完成條件 " + gate.passed.length + "/" + gate.required.length + " 已通過" + (gate.failed.length ? " · " + gate.failed.length + " 項需要修正" : remaining ? " · 尚有 " + remaining + " 項待驗證" : "") + " · GPT 工程審查為獨立紀錄";
   }
+  function checklistRowsBy(items, predicate) {
+    return (Array.isArray(items) ? items : []).filter(item => predicate(item));
+  }
+  function checklistStatus(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return { tone: "missing", label: "未建立正式紀錄", detail: "目前沒有可讀取的 Canonical checklist item。" };
+    if (list.some(item => item.state === "fail")) return { tone: "fail", label: "需要修正", detail: "正式紀錄中有未通過項目。" };
+    if (list.every(item => item.state === "pass" && (item.evidenceNote || item.evidenceRef))) return { tone: "pass", label: "已完成", detail: `${list.length} 項均已通過並附 Evidence。` };
+    if (list.some(item => item.state === "pass")) return { tone: "partial", label: "部分完成", detail: "仍有待驗證項目或 Evidence 尚未補齊。" };
+    return { tone: "pending", label: "待驗證", detail: "尚未完成正式驗證。" };
+  }
+  function isTaskChecklistItem(item) {
+    const type = String(item?.checklistType || "").toLowerCase().replace(/_/g, "-");
+    return type === "task-checklist" || type === "shared-task-checklist" || type === "general-task";
+  }
+  function taskChecklistMarkup(items, archiveOnly = false) {
+    const rows = Array.isArray(items) ? items : [];
+    const list = rows.length
+      ? rows.map(item => `<div class="shared-task-checklist-item${item.completed ? " is-complete" : ""}" data-task-checklist-id="${esc(item.id)}"><button class="shared-task-checklist-toggle" type="button" data-task-checklist-toggle="${esc(item.id)}" aria-label="${item.completed ? "標記未完成" : "標記完成"}"${archiveOnly ? " disabled" : ""}>${item.completed ? "☑" : "☐"}</button><strong>${esc(item.label || "未命名項目")}</strong>${archiveOnly ? "" : `<button class="shared-task-checklist-delete" type="button" data-task-checklist-delete="${esc(item.id)}" aria-label="刪除${esc(item.label || "項目")}">×</button>`}</div>`).join("")
+      : `<div class="shared-task-checklist-empty">目前沒有工作清單項目。</div>`;
+    const add = archiveOnly ? "" : `<form class="shared-task-checklist-add" data-task-checklist-add><input type="text" name="label" placeholder="新增待辦項目…" maxlength="300" aria-label="新增待辦項目"><button class="btn2" type="submit">新增</button></form>`;
+    return `<div class="shared-task-checklist-list" data-task-checklist>${list}<small class="shared-task-checklist-note">這是一般工作 Checklist，用來記錄還剩什麼要做；不會改變工程狀態或 PM Acceptance。</small>${add}</div>`;
+  }
+  function isRegressionEvidence(item) {
+    const identity = `${item?.checklistType || ""} ${item?.itemKey || ""} ${item?.label || ""} ${item?.evidenceNote || ""} ${item?.evidenceRef || ""}`.toLowerCase();
+    return String(item?.checklistType || "").toLowerCase() === "batch_regression"
+      || /regression|回歸|回归/.test(identity);
+  }
+
+  function engineeringVerificationState(items) {
+    const all = (Array.isArray(items) ? items : []).filter(item => !isTaskChecklistItem(item) && !isPmAcceptanceItem(item));
+    const groups = [
+      { label: "Co QA", rows: all.filter(item => String(item.stage || "").toLowerCase() === "co" && !isRegressionEvidence(item)), hint: "Developer QA" },
+      { label: "GPT Review", rows: all.filter(item => String(item.stage || "").toLowerCase() === "gpt" && !isRegressionEvidence(item)), hint: "工程審查" },
+      { label: "Regression", rows: all.filter(isRegressionEvidence), hint: "回歸驗證" }
+    ].map(entry => ({ ...entry, status: checklistStatus(entry.rows) }));
+    const completed = groups.filter(entry => entry.status.tone === "pass");
+    const failed = groups.filter(entry => entry.status.tone === "fail");
+    const incomplete = groups.filter(entry => entry.status.tone !== "pass");
+    return Object.freeze({
+      groups,
+      completed,
+      failed,
+      incomplete,
+      ready: groups.length === 3 && completed.length === 3
+    });
+  }
+
+  function acceptanceCriteriaItems(task) {
+    const raw = String(task?.acceptanceCriteria || "").trim();
+    if (!raw) return [];
+    return raw.split(/\r?\n+/).map(line => line.trim().replace(/^[-*•]\s*/, "")).filter(Boolean);
+  }
+
+  function acceptanceCriteriaMarkup(task) {
+    const criteria = acceptanceCriteriaItems(task);
+    if (!criteria.length) return `<div class="pm-acceptance-criteria-missing"><strong>尚未提供正式 Acceptance Criteria</strong><span>目前没有可供 PM 逐项操作驗證的 Canonical 驗收項目；因此不可盲勾 PM Acceptance。</span></div>`;
+    return `<div class="pm-acceptance-criteria"><strong>PM Acceptance Criteria（PM 實際要驗證）</strong><ol>${criteria.map(item => `<li>${esc(item)}</li>`).join("")}</ol></div>`;
+  }
+
+  function isPmTurn(task) {
+    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
+    const workspaceName = String(task?.workspaceName || "").trim();
+    return workspaceKey === "qjc" || workspaceName === "QJC驗證";
+  }
+
+  function pmAttentionMarkup(item, task, verification, reason) {
+    const failed = verification?.failed || [];
+    const failureSummary = failed.map(entry => entry.label).join("、");
+    const action = item
+      ? `<div class="pm-acceptance-support"><button class="btn checklist-fail-btn" data-pm-reject="${esc(item.id)}">退回修改</button></div>`
+      : "";
+    return `<div class="pm-attention-panel" data-pm-attention="true"><strong>⚠️ 需要你的確認</strong><ul><li>發生什麼事：${esc(reason || (failureSummary ? `${failureSummary} 有未通過的正式紀錄。` : "PM 驗收資料尚未完整。"))}</li><li>為什麼需要 PM：目前工程工作已經交到 QJC，需要決定是否退回修正或補正正式驗收資料。</li><li>PM 要決定什麼：${item ? "確認退回修改；完成修正後再重新驗收。" : "先補正正式 Acceptance Criteria／Acceptance Record，暫不進行盲目驗收。"}</li></ul>${action}</div>`;
+  }
+
+  function pmAcceptanceMarkup(item, archiveOnly, task, verification) {
+    if (archiveOnly || !isPmTurn(task)) return "";
+    const criteria = acceptanceCriteriaItems(task);
+    if (verification?.failed?.length) return pmAttentionMarkup(item, task, verification);
+    if (!verification?.ready) return "";
+    if (!item || !criteria.length) {
+      return pmAttentionMarkup(item, task, verification, !item
+        ? "正式 PM Acceptance Record 尚未建立。"
+        : "這張 TASK 尚未提供正式 Acceptance Criteria。"
+      );
+    }
+    if (item.state === "pass") return "";
+    const state = stateLabels[item.state] || item.state || "尚未驗證";
+    return `<div class="pm-acceptance-panel" data-pm-action="acceptance"><div class="pm-acceptance-context"><strong>現在需要你操作 PM QA</strong><span>工程驗證已完成；請依下列項目完成實機驗證，再做最後決定。</span></div>${acceptanceCriteriaMarkup(task)}<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><span class="pm-acceptance-state">目前 Acceptance 狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn primary" type="button" data-pm-accept="${esc(item.id)}">驗收通過</button><button class="btn" type="button" data-pm-reject="${esc(item.id)}">退回修改</button></div></div></div>`;
+  }
+  function activityActionLabel(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度";
+    const labels = {
+      task_created: "建立 TASK",
+      workflow_transition: "工程狀態交接",
+      workspace_moved: "工作區移動",
+      governance_action: "治理決策",
+      checklist_item_created: "建立驗收項目",
+      checklist_item_updated: "更新驗收項目",
+      pm_authorized_artifact_registered: "登記 Artifact",
+      pm_authorization_issued: "發出 PM Authorization"
+    };
+    return labels[item.action] || item.action || "系統活動";
+  }
+  function activityDetail(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") {
+      return item.note || "（未提供進度內容）";
+    }
+    if (item.action === "workspace_moved") {
+      const from = item.beforeData?.workspace_name || item.beforeData?.workspace_id || "未知工作區";
+      const to = item.afterData?.workspace_name || item.afterData?.workspace_id || "未知工作區";
+      return `${from} → ${to}`;
+    }
+    if (item.action === "workflow_transition") {
+      const from = item.beforeData?.status || "未知";
+      const to = item.afterData?.status || "未知";
+      return `工程狀態：${from} → ${to}`;
+    }
+    return item.note || "保留於正式 Audit Trail。";
+  }
+  function activityKind(item) {
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "human";
+    const identity = `${item?.action || ""} ${item?.note || ""}`.toLowerCase();
+    if (/acceptance|accepted|驗收/.test(identity)) return "acceptance";
+    if (item?.action === "workflow_transition") return "status";
+    if (item?.action === "workspace_moved") return "workspace";
+    if (item?.entityType === "engineering_checklist_item" || /checklist|evidence|回歸|regression/.test(identity)) return "evidence";
+    return "system";
+  }
+  function activityKindLabel(kind) {
+    return ({ status: "Status", workspace: "Workspace Move", evidence: "Evidence", acceptance: "PM Acceptance", system: "System Activity" })[kind] || "System Activity";
+  }
+  function currentActorId() {
+    try {
+      if (typeof currentUserUuid === "function") return String(currentUserUuid() || "");
+      const snapshot = root.ZhugeSharedPlatform?.getSessionSnapshot?.() || root.ZhugeSharedPlatform?.getSession?.() || {};
+      return String(snapshot.identity?.userId || snapshot.identity?.uuid || snapshot.userId || "");
+    } catch {
+      return "";
+    }
+  }
+  function visibleHumanProgressRows(activity) {
+    const rows = (Array.isArray(activity) ? activity : []).slice().sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
+    const humanRows = rows.filter(item => activityKind(item) === "human");
+    const superseded = new Set(rows.filter(item => item?.revisionOf != null).map(item => String(item.revisionOf)));
+    const tombstoned = new Set(rows.filter(item => item?.tombstoneOf != null).map(item => String(item.tombstoneOf)));
+    return humanRows.filter(item => !superseded.has(String(item.id))
+      && !tombstoned.has(String(item.id))
+      && item.action !== "progress_note_deleted");
+  }
+  function activityMarkup(activity, attachments = [], options = {}) {
+    const rows = (Array.isArray(activity) ? activity : []).slice().sort((left, right) => (Date.parse(right.timestamp || "") || 0) - (Date.parse(left.timestamp || "") || 0));
+    // The adapter still reads the complete canonical activity stream so that
+    // Audit / Governance data is never discarded.  The general Task Drawer,
+    // however, is a human work-progress surface: System Activity and
+    // Workspace Move remain in the canonical source but are not rendered here.
+    const humanRows = visibleHumanProgressRows(rows);
+    if (!humanRows.length) return "<div class=\"board-empty\" data-human-progress-empty=\"true\">目前沒有工作進度紀錄。</div>";
+    const attachmentRows = (Array.isArray(attachments) ? attachments : []).filter(item => item.attachmentScope === "progress_note");
+    const attachmentsByActivity = new Map();
+    attachmentRows.forEach(item => attachmentsByActivity.set(item.activityId, [...(attachmentsByActivity.get(item.activityId) || []), item]));
+    return humanRows.map(item => {
+      const noteAttachments = attachmentsByActivity.get(item.id) || [];
+      const attachmentMarkupForNote = noteAttachments.length
+        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<span class="shared-task-progress-attachment-row" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview>📎</span><strong>${esc(file.filename)}</strong></span>`).join("")}</div>`
+        : "";
+      const canManage = options.readOnly !== true && currentActorId() && String(item.actorId) === currentActorId();
+      const controls = canManage
+        ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
+        : "";
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${controls}</header><p data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
+    }).join("");
+  }
+  function humanNotesMarkup(task) {
+    // Legacy developer notes remain canonical data, but their engineering
+    // wording is not part of the general Task UX. Only an explicit PM-facing
+    // note is shown with neutral copy; an empty note has no presentation.
+    const developerNote = String(task.developerNotes || "").trim();
+    const note = String(task.pmNotes || "").trim();
+    void developerNote;
+    if (!note) return "";
+    return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${esc(note).replace(/\n/g, "<br>")}</p><small>來源：工作資料</small></article></section>`;
+  }
+  function progressNoteComposerMarkup(archiveOnly) {
+    if (archiveOnly) return "";
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
+  }
+  function dueDateLabel(value) {
+    if (!value) return "尚未設定日期";
+    const raw = String(value).slice(0, 10);
+    try { return new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeZone: "Asia/Taipei" }).format(new Date(`${raw}T00:00:00+08:00`)); } catch { return raw; }
+  }
+  function taskChecklistCountMarkup(items) {
+    const rows = Array.isArray(items) ? items : [];
+    const completed = rows.filter(item => item && (item.completed === true || item.completed === 1)).length;
+    return `${completed} / ${rows.length}`;
+  }
+  function taskChecklistPanelMarkup() {
+    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
+  }
+  function attachmentMarkup(attachments, artifacts, error, archiveOnly) {
+    // Progress-note attachments belong beside their Human Progress Note in
+    // the right-hand timeline.  Only general TASK attachments belong in the
+    // left-hand work-content section.
+    const rows = (Array.isArray(attachments) ? attachments : []).filter(item => item?.attachmentScope !== "progress_note");
+    const artifactRows = Array.isArray(artifacts) ? artifacts : [];
+    const errorMarkup = error ? `<div class="task-read-warning">工作附件讀取失敗：${esc(error.message || "未知錯誤")}。</div>` : "";
+    const attachmentRows = rows.map(item => {
+      const isImage = String(item.mimeType || "").startsWith("image/");
+      const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
+      const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
+    }).join("");
+    const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
+    const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
+    const add = archiveOnly ? "" : `<label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
+    return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}</div>`;
+  }
+  function formatByteSize(bytes) {
+    const value = Number(bytes || 0);
+    if (!value) return "大小未提供";
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
   function requirementContent(task) {
     const parts = [task.summary, task.problem && task.problem !== task.summary ? task.problem : "", task.objective && task.objective !== task.summary ? task.objective : ""]
       .map(value => String(value || "").trim()).filter(Boolean);
     return [...new Set(parts)].join("\n\n") || "尚未補充需求內容";
   }
-  function nextStepLabel(task) {
-    const status = service.normalizeStatus ? service.normalizeStatus(task.status) : String(task.status || "ready");
-    const assignee = String(task.assignee || "").toUpperCase();
-    if (status === "ready") return "由 Co 接球並開始推進。";
-    if (status === "inprogress") return "由 Co 完成開發驗證後，交給 GPT Review。";
-    if (status === "qa" && assignee === "GPT") return "由 GPT 完成工程審查；通過後交給 QJC PM 驗收，失敗則退回 Co。";
-    if (status === "qa" && assignee === "QJC") return "由 QJC 依清單逐項操作驗收；通過後完成，失敗則退回 Co。";
-    if (status === "done") return "已完成；可查看歷史驗收與 Evidence。";
-    return "請依目前接球者與驗收清單繼續。";
+  function editableTaskFieldValue(task, field) {
+    if (field === "summary") return String(task?.summary || task?.problem || task?.objective || "");
+    if (field === "usage_scenario") return String(task?.usageScenario || "");
+    return "";
   }
-  async function openTaskDetail(task) {
+  function editableTaskFieldMarkup(task, field, options = {}) {
+    const archiveOnly = options.readOnly === true;
+    const label = field === "summary" ? "工作內容" : "使用情境";
+    const value = editableTaskFieldValue(task, field);
+    const placeholder = field === "summary" ? "尚未補充工作內容" : "尚未補充使用情境";
+    const editButton = archiveOnly ? "" : `<button class="btn2 task-inline-edit-button" type="button" data-task-inline-edit="${field}" aria-label="編輯${label}">✏️ 編輯</button>`;
+    // Read mode owns the initial markup. The editor is created only after the
+    // user explicitly enters edit mode, so a normal Task never renders both
+    // display text and a textarea at the same time.
+    return `<div class="task-inline-field" data-task-inline-field="${field}" data-task-inline-mode="read"><div class="task-inline-field-toolbar"><span class="task-inline-field-value" data-task-inline-value="${field}">${esc(value || placeholder).replace(/\n/g, "<br>")}</span>${editButton}</div></div>`;
+  }
+  function wireTaskInlineEditors(task, archiveOnly) {
+    if (archiveOnly) return;
+    const body = document.getElementById("taskDetailBody");
+    if (!body) return;
+    body.querySelectorAll("[data-task-inline-edit]").forEach(button => {
+      button.onclick = () => {
+        const field = button.dataset.taskInlineEdit;
+        const fieldContainer = button.closest("[data-task-inline-field]");
+        const value = fieldContainer?.querySelector(`[data-task-inline-value="${field}"]`);
+        if (!fieldContainer || !value || fieldContainer.querySelector("[data-task-inline-editor]")) return;
+        const label = field === "summary" ? "工作內容" : "使用情境";
+        const editor = document.createElement("div");
+        editor.className = "task-inline-editor";
+        editor.dataset.taskInlineEditor = field;
+        editor.innerHTML = `<textarea data-task-inline-input="${field}" aria-label="${label}"></textarea><div class="task-inline-editor-actions"><button class="btn2" type="button" data-task-inline-cancel="${field}">取消</button><button class="btn2 primary" type="button" data-task-inline-save="${field}">儲存</button></div><small>一般內容會經 authenticated controlled write path 保存至正式 Cloud，並留下 Audit；不需要再次 PM Governance Approval。</small>`;
+        editor.querySelector("textarea").value = editableTaskFieldValue(task, field);
+        fieldContainer.appendChild(editor);
+        fieldContainer.dataset.taskInlineMode = "edit";
+        value.hidden = true;
+        button.hidden = true;
+        editor.querySelector("textarea")?.focus();
+        wireTaskInlineEditorActions(task, fieldContainer, field);
+      };
+    });
+  }
+  function leaveTaskInlineEdit(fieldContainer) {
+    if (!fieldContainer) return;
+    const editor = fieldContainer.querySelector("[data-task-inline-editor]");
+    const value = fieldContainer.querySelector("[data-task-inline-value]");
+    const edit = fieldContainer.querySelector("[data-task-inline-edit]");
+    editor?.remove();
+    if (value) value.hidden = false;
+    if (edit) {
+      edit.hidden = false;
+      edit.disabled = false;
+    }
+    fieldContainer.dataset.taskInlineMode = "read";
+  }
+  function wireTaskInlineEditorActions(task, fieldContainer, field) {
+    const editor = fieldContainer?.querySelector(`[data-task-inline-editor="${field}"]`);
+    if (!editor) return;
+    const label = field === "summary" ? "工作內容" : "使用情境";
+    editor.querySelector("[data-task-inline-cancel]")?.addEventListener("click", () => leaveTaskInlineEdit(fieldContainer));
+    editor.querySelector("[data-task-inline-save]")?.addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const input = editor.querySelector(`[data-task-inline-input="${field}"]`);
+      if (!input) return;
+      button.disabled = true;
+      try {
+        const summary = field === "summary" ? input.value : editableTaskFieldValue(task, "summary");
+        const usageScenario = field === "usage_scenario" ? input.value : editableTaskFieldValue(task, "usage_scenario");
+        await service.updateTaskContent({ taskId: task.id, summary, usageScenario });
+        leaveTaskInlineEdit(fieldContainer);
+        await refreshBoard({ quiet: true });
+        const freshTask = state.taskById.get(String(task.id)) || { ...task, summary, usageScenario };
+        await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+        setBanner(`${label}已保存至正式 Cloud，Audit 已記錄。`, "success");
+      } catch (error) {
+        button.disabled = false;
+        setBanner(`${label}保存失敗：` + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+      }
+    });
+  }
+  function wireDueDateEditor(task, archiveOnly) {
+    if (archiveOnly) return;
+    const property = document.querySelector('[data-task-property-action="due-date"]');
+    const value = property?.querySelector("[data-task-property-value]") || property?.querySelector(".shared-task-drawer-property-value");
+    if (!property || !value) return;
+    property.onclick = event => {
+      if (event.target?.closest?.("input")) return;
+      if (property.querySelector("[data-task-due-date-picker]")) return;
+      const input = document.createElement("input");
+      input.type = "date";
+      input.className = "shared-task-due-date-picker";
+      input.dataset.taskDueDatePicker = "true";
+      input.setAttribute("aria-label", "日期");
+      input.value = String(task.dueDate || "").slice(0, 10);
+      property.classList.add("is-editing");
+      value.hidden = true;
+      property.appendChild(input);
+      const close = () => {
+        input.remove();
+        value.hidden = false;
+        property.classList.remove("is-editing");
+      };
+      input.addEventListener("click", event => event.stopPropagation());
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") close();
+      });
+      input.addEventListener("blur", () => window.setTimeout(close, 0));
+      input.addEventListener("change", async () => {
+        const next = input.value || null;
+        input.disabled = true;
+        try {
+          await service.updateTaskDueDate({ taskId: task.id, dueDate: next });
+          close();
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || { ...task, dueDate: next };
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("日期已保存至正式 Cloud，Audit 已記錄。", "success");
+        } catch (error) {
+          input.disabled = false;
+          setBanner("日期保存失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+        }
+      });
+      try {
+        if (typeof input.showPicker === "function") input.showPicker();
+        else input.focus();
+      } catch {
+        input.focus();
+      }
+    };
+  }
+  function wireTaskChecklist(task, items, archiveOnly) {
+    const zone = document.querySelector("[data-task-checklist]");
+    if (!zone) return;
+    if (!archiveOnly) {
+      const addForm = zone.querySelector("[data-task-checklist-add]");
+      if (addForm) addForm.onsubmit = async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const input = form.querySelector("input[name=label]");
+        const label = input?.value.trim();
+        if (!label) return;
+        const button = form.querySelector("button[type=submit]");
+        const taskKey = String(task.id);
+        if (state.taskChecklistWrites.has(taskKey) || form.dataset.taskChecklistSubmitting === "true") return;
+        state.taskChecklistWrites.add(taskKey);
+        form.dataset.taskChecklistSubmitting = "true";
+        if (button) button.disabled = true;
+        try {
+          await service.addTaskChecklistItem({ taskId: task.id, label, sortOrder: items.length * 10 });
+          await openTaskDetail(task, { readOnly: archiveOnly });
+          setBanner("工作 Checklist 已新增並保存至正式 Cloud。", "success");
+        } catch (error) {
+          if (button) button.disabled = false;
+          setBanner("工作 Checklist 新增失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+        } finally {
+          state.taskChecklistWrites = new Set(Array.from(state.taskChecklistWrites).filter(key => key !== taskKey));
+          form.dataset.taskChecklistSubmitting = "false";
+        }
+      };
+      zone.querySelectorAll("[data-task-checklist-toggle]").forEach(button => {
+        button.onclick = async () => {
+          const item = items.find(row => String(row.id) === String(button.dataset.taskChecklistToggle));
+          if (!item) return;
+          button.disabled = true;
+          try {
+            await service.updateTaskChecklistItem({ id: item.id, completed: !item.completed });
+            await openTaskDetail(task, { readOnly: archiveOnly });
+          } catch (error) {
+            button.disabled = false;
+            setBanner("工作 Checklist 更新失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+          }
+        };
+      });
+      zone.querySelectorAll("[data-task-checklist-delete]").forEach(button => {
+        button.onclick = async () => {
+          const item = items.find(row => String(row.id) === String(button.dataset.taskChecklistDelete));
+          if (!item || !window.confirm?.(`刪除工作 Checklist「${item.label}」？`)) return;
+          button.disabled = true;
+          try {
+            await service.deleteTaskChecklistItem(item.id);
+            await openTaskDetail(task, { readOnly: archiveOnly });
+          } catch (error) {
+            button.disabled = false;
+            setBanner("工作 Checklist 刪除失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+          }
+        };
+      });
+    }
+  }
+  async function uploadAttachmentFiles(task, files, options = {}) {
+    const selected = Array.from(files || []).filter(file => file && file.size > 0);
+    for (const file of selected) {
+      const prepared = options.progressNote
+        ? await service.prepareProgressNoteAttachment({ activityId: options.activityId, file })
+        : await service.prepareTaskAttachment({ taskId: task.id, file });
+      await service.uploadTaskAttachment(prepared, file);
+      await service.completeTaskAttachment(prepared.attachmentId);
+    }
+  }
+  async function hydrateTaskAttachmentPreviews() {
+    const rows = document.querySelectorAll("[data-task-attachment-preview], [data-progress-attachment-preview]");
+    await Promise.all(Array.from(rows).map(async preview => {
+      const article = preview.closest("[data-task-attachment-path], [data-progress-attachment-path]");
+      if (!article) return;
+      try {
+        const url = await service.taskAttachmentUrl({
+          storageBucket: "board-task-attachments",
+          storagePath: article.dataset.taskAttachmentPath || article.dataset.progressAttachmentPath
+        });
+        if (!url) return;
+        const mime = article.dataset.taskAttachmentMime || article.dataset.progressAttachmentMime || "";
+        const openLink = document.createElement("a");
+        openLink.className = "shared-task-attachment-open";
+        openLink.href = url;
+        openLink.target = "_blank";
+        openLink.rel = "noopener noreferrer";
+        openLink.setAttribute("aria-label", `開啟附件：${article.querySelector("strong")?.textContent || "未命名附件"}`);
+        if (mime.startsWith("image/")) {
+          const image = document.createElement("img");
+          image.src = url;
+          image.alt = article.querySelector("strong")?.textContent || "附件預覽";
+          image.loading = "lazy";
+          openLink.appendChild(image);
+          preview.replaceChildren(openLink);
+        } else {
+          openLink.textContent = "開啟／下載";
+          preview.replaceChildren(openLink);
+        }
+      } catch {
+        preview.textContent = "預覽不可用";
+      }
+    }));
+  }
+  function wireTaskAttachments(task, archiveOnly) {
+    hydrateTaskAttachmentPreviews();
+    if (archiveOnly) return;
+    const input = document.getElementById("taskAttachmentsInput");
+    const hint = document.getElementById("taskAttachmentHint");
+    if (input) input.onchange = async () => {
+      const files = Array.from(input.files || []);
+      if (!files.length) return;
+      input.disabled = true;
+      if (hint) hint.textContent = `正在保存 ${files.length} 個附件…`;
+      try {
+        await uploadAttachmentFiles(task, files);
+        await openTaskDetail(task, { readOnly: archiveOnly });
+        setBanner("附件已保存至正式 Cloud。", "success");
+      } catch (error) {
+        if (hint) hint.textContent = "附件保存失敗，請確認登入狀態與檔案大小。";
+        setBanner("附件保存失敗：" + esc(error?.message || "正式 Storage／controlled path 未接受這次上傳。"), "error");
+      } finally {
+        input.disabled = false;
+      }
+    };
+    document.querySelectorAll("[data-task-attachment-delete]").forEach(button => {
+      button.onclick = async () => {
+        const attachmentId = button.dataset.taskAttachmentDelete;
+        const filename = button.closest("[data-task-attachment-id]")?.querySelector(".shared-task-attachment-copy strong")?.textContent || "這個附件";
+        if (!attachmentId || !window.confirm?.(`刪除附件「${filename}」？刪除後會保留 Audit 紀錄，但檔案不再可查閱。`)) return;
+        button.disabled = true;
+        try {
+          await service.deleteTaskAttachment(attachmentId);
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || task;
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("附件已透過受控刪除流程移除。", "success");
+        } catch (error) {
+          button.disabled = false;
+          setBanner("附件刪除失敗：" + esc(error?.message || "正式 Storage／controlled delete 未接受這次操作。"), "error");
+        }
+      };
+    });
+  }
+  function wireProgressNoteComposer(task, archiveOnly) {
+    if (archiveOnly) return;
+    const composer = document.querySelector("[data-progress-note-composer][data-progress-note-write=available]");
+    const openButton = composer?.querySelector("[data-progress-note-open]");
+    const closeButton = composer?.querySelector("[data-progress-note-close]");
+    const panel = composer?.querySelector("[data-progress-note-panel]");
+    const textarea = document.getElementById("taskProgressNote");
+    const button = document.getElementById("addTaskProgressNote");
+    const attachmentInput = document.getElementById("taskProgressAttachments");
+    const attachmentHint = document.getElementById("taskProgressAttachmentHint");
+    if (!textarea || !button) return;
+    const setExpanded = expanded => {
+      if (!composer || !panel) return;
+      composer.dataset.progressNoteExpanded = expanded ? "true" : "false";
+      const drawerRoot = composer.closest("[data-shared-task-drawer]");
+      if (expanded) drawerRoot?.setAttribute("data-progress-note-composer-open", "true");
+      else drawerRoot?.removeAttribute("data-progress-note-composer-open");
+      panel.hidden = !expanded;
+      openButton?.toggleAttribute("hidden", expanded);
+      if (expanded) textarea.focus();
+    };
+    openButton?.addEventListener("click", () => setExpanded(true));
+    closeButton?.addEventListener("click", () => setExpanded(false));
+    const submit = async () => {
+      if (button.dataset.submitting === "true") return;
+      const note = textarea.value.trim();
+      if (!note) {
+        setBanner("請輸入工作進度內容。", "error");
+        textarea.focus();
+        return;
+      }
+      button.dataset.submitting = "true";
+      button.disabled = true;
+      try {
+        const createdNote = await service.addTaskProgressNote(task.id, note);
+        const files = Array.from(attachmentInput?.files || []);
+        if (files.length) {
+          if (attachmentHint) attachmentHint.textContent = `正在保存 ${files.length} 個進度附件…`;
+          await uploadAttachmentFiles(task, files, { progressNote: true, activityId: createdNote.id });
+        }
+        await openTaskDetail(task, { readOnly: archiveOnly });
+        setBanner(files.length ? "工作進度與附件已保存至正式 Cloud。" : "工作進度已保存至正式 Cloud。", "success");
+      } catch (error) {
+        setBanner("工作進度保存失敗：" + esc(error?.message || "正式 Cloud 未接受這次寫入。"), "error");
+        button.disabled = false;
+        button.dataset.submitting = "false";
+      }
+    };
+    button.onclick = submit;
+    textarea.onkeydown = event => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        submit();
+      }
+    };
+    attachmentInput?.addEventListener("change", () => {
+      const count = attachmentInput.files?.length || 0;
+      if (attachmentHint) attachmentHint.textContent = count ? `已選擇 ${count} 個進度附件` : "可選擇圖片／文件附件";
+    });
+  }
+  function wireTaskTitleEditor(task, archiveOnly) {
+    if (archiveOnly) return;
+    const row = document.querySelector(".shared-task-drawer-title-row");
+    const value = row?.querySelector("[data-shared-task-title]");
+    const editButton = row?.querySelector("[data-task-title-edit]");
+    if (!row || !value || !editButton) return;
+    editButton.onclick = () => {
+      if (row.querySelector("[data-task-title-editor]")) return;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = String(task.title || "");
+      input.maxLength = 300;
+      input.className = "shared-task-drawer-title-input";
+      input.dataset.taskTitleEditor = "true";
+      input.setAttribute("aria-label", "TASK 主旨");
+      const actions = document.createElement("span");
+      actions.className = "shared-task-drawer-title-actions";
+      actions.innerHTML = '<button class="btn2" type="button" data-task-title-cancel>取消</button><button class="btn2 primary" type="button" data-task-title-save>儲存</button>';
+      value.hidden = true;
+      editButton.hidden = true;
+      row.querySelector("h2")?.append(input);
+      row.querySelector("h2")?.append(actions);
+      input.focus();
+      input.select();
+      const close = () => {
+        input.remove();
+        actions.remove();
+        value.hidden = false;
+        editButton.hidden = false;
+      };
+      actions.querySelector("[data-task-title-cancel]")?.addEventListener("click", close);
+      actions.querySelector("[data-task-title-save]")?.addEventListener("click", async event => {
+        const save = event.currentTarget;
+        const title = input.value.trim();
+        if (!title) {
+          setBanner("TASK 主旨不可為空白。", "error");
+          input.focus();
+          return;
+        }
+        save.disabled = true;
+        try {
+          await service.updateTaskTitle({ taskId: task.id, title });
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || { ...task, title };
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("TASK 主旨已保存至正式 Cloud，Audit 已記錄。", "success");
+        } catch (error) {
+          save.disabled = false;
+          setBanner("TASK 主旨保存失敗：" + esc(error?.message || "正式 controlled write 未接受這次更新。"), "error");
+        }
+      });
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") close();
+        if (event.key === "Enter") actions.querySelector("[data-task-title-save]")?.click();
+      });
+    };
+  }
+  function wireHumanProgressNoteActions(task, activity, archiveOnly) {
+    if (archiveOnly) return;
+    const rows = Array.isArray(activity) ? activity : [];
+    document.querySelectorAll("[data-progress-note-edit], [data-progress-note-delete]").forEach(button => {
+      const activityId = String(button.dataset.progressNoteEdit || button.dataset.progressNoteDelete || "");
+      const source = rows.find(item => String(item.id) === activityId);
+      const row = button.closest("[data-activity-id]");
+      if (!source || !row) return;
+      if (button.dataset.progressNoteEdit) {
+        button.onclick = () => {
+          if (row.querySelector("[data-progress-note-editor]")) return;
+          const content = row.querySelector("[data-progress-note-content]");
+          if (!content) return;
+          const editor = document.createElement("div");
+          editor.className = "shared-task-progress-note-editor";
+          editor.dataset.progressNoteEditor = "true";
+          editor.innerHTML = '<textarea data-progress-note-input aria-label="工作進度內容"></textarea><div class="shared-task-progress-note-editor-actions"><button class="btn2" type="button" data-progress-note-cancel>取消</button><button class="btn2 primary" type="button" data-progress-note-save>儲存</button></div>';
+          editor.querySelector("textarea").value = activityDetail(source);
+          content.hidden = true;
+          row.querySelector(".shared-task-progress-note-actions")?.setAttribute("hidden", "true");
+          content.after(editor);
+          editor.querySelector("textarea")?.focus();
+          const restore = () => {
+            editor.remove();
+            content.hidden = false;
+            row.querySelector(".shared-task-progress-note-actions")?.removeAttribute("hidden");
+          };
+          editor.querySelector("[data-progress-note-cancel]")?.addEventListener("click", restore);
+          editor.querySelector("[data-progress-note-save]")?.addEventListener("click", async event => {
+            const save = event.currentTarget;
+            const note = editor.querySelector("textarea")?.value.trim();
+            if (!note) {
+              setBanner("工作進度內容不可為空白。", "error");
+              return;
+            }
+            save.disabled = true;
+            try {
+              await service.editTaskProgressNote(source.id, note);
+              await openTaskDetail(task, { readOnly: archiveOnly });
+              setBanner("工作進度已以 revision 保存，歷史 Audit 已保留。", "success");
+            } catch (error) {
+              save.disabled = false;
+              setBanner("工作進度修改失敗：" + esc(error?.message || "正式 revision path 未接受這次更新。"), "error");
+            }
+          });
+        };
+      } else {
+        button.onclick = async () => {
+          if (!window.confirm?.("撤回這筆工作進度？原始紀錄會保留於 Audit，但一般 Timeline 將不再顯示。")) return;
+          button.disabled = true;
+          try {
+            await service.deleteTaskProgressNote(source.id);
+            await openTaskDetail(task, { readOnly: archiveOnly });
+            setBanner("工作進度已透過 tombstone 撤回，歷史 Audit 已保留。", "success");
+          } catch (error) {
+            button.disabled = false;
+            setBanner("工作進度撤回失敗：" + esc(error?.message || "正式 tombstone path 未接受這次操作。"), "error");
+          }
+        };
+      }
+    });
+  }
+  function taskAnalysisValue(task, fields) {
+    for (const field of fields) {
+      const value = String(task?.[field] || "").trim();
+      if (value) return value;
+    }
+    return "";
+  }
+  function taskAnalysisViewMarkup(task) {
+    const sections = [
+      { key: "understanding", title: "需求理解", fields: ["summary", "problem", "objective"] },
+      { key: "judgement", title: "分析與判斷", fields: ["problem", "objective"] },
+      { key: "proposal", title: "建議做法", fields: ["proposedSolution"] },
+      { key: "principles", title: "執行原則／Acceptance Criteria", fields: ["acceptanceCriteria"] },
+      { key: "handoff", title: "交付 Co 的執行摘要", fields: ["developerNotes", "pmNotes"] }
+    ].map(item => ({ ...item, value: taskAnalysisValue(task, item.fields) }));
+    const blocks = sections.map(item => `<article class="shared-task-analysis-card" data-task-analysis-field="${esc(item.key)}"><h3>${esc(item.title)}</h3>${item.value ? `<p>${esc(item.value).replace(/\n/g, "<br>")}</p>` : `<div class="shared-task-analysis-empty">目前正式 Cloud 尚未提供這項分析內容。</div>`}</article>`).join("");
+    return `<section class="shared-task-analysis-view" data-task-analysis-view aria-label="GPT 分析與建議"><header class="shared-task-analysis-header"><div><span class="shared-task-analysis-kicker">AI Analysis Layer · Read-only</span><h2>🤖 GPT 分析與建議</h2><p>此檢視只讀取既有 TASK canonical 內容；正式 Cloud 尚未提供的分析不以瀏覽器暫存、假資料或 hard-code 補寫。</p></div><button class="shared-task-analysis-close" type="button" data-task-analysis-close aria-label="返回 TASK 詳情" title="返回 TASK 詳情">×</button></header><div class="shared-task-analysis-grid">${blocks}</div></section>`;
+  }
+  function showTaskAnalysisView(task) {
+    const root = document.querySelector("[data-shared-task-drawer]");
+    const grid = root?.querySelector(".shared-task-drawer-grid");
+    const panel = root?.querySelector(".shared-task-drawer-panel");
+    if (!root || !grid || !panel) return;
+    if (root.__taskAnalysisViewState) return;
+    const view = document.createElement("section");
+    view.innerHTML = taskAnalysisViewMarkup(task);
+    const analysis = view.firstElementChild;
+    if (!analysis) return;
+    const gridParent = grid.parentElement;
+    if (!gridParent) return;
+    root.__taskAnalysisViewState = { grid, gridParent, analysis };
+    gridParent.replaceChild(analysis, grid);
+    const floating = root.querySelector("[data-shared-task-floating-action]");
+    if (floating) floating.hidden = true;
+    analysis.querySelector("[data-task-analysis-close]")?.addEventListener("click", () => restoreTaskDetailView());
+    analysis.querySelector("[data-task-analysis-close]")?.focus();
+  }
+  function restoreTaskDetailView() {
+    const root = document.querySelector("[data-shared-task-drawer]");
+    const viewState = root?.__taskAnalysisViewState;
+    if (viewState?.analysis?.parentNode === viewState.gridParent) {
+      viewState.gridParent.replaceChild(viewState.grid, viewState.analysis);
+      delete root.__taskAnalysisViewState;
+    }
+    const floating = root?.querySelector("[data-shared-task-floating-action]");
+    if (floating) floating.hidden = false;
+    root?.querySelector('[data-task-property-action="gpt-analysis"]')?.focus();
+  }
+  function wireTaskAnalysisView(task) {
+    const property = document.querySelector('[data-task-property-action="gpt-analysis"]');
+    if (!property) return;
+    property.onclick = () => showTaskAnalysisView(task);
+  }
+  async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
-    document.getElementById("taskDetailTitle").textContent = (task.workCode || "TASK") + "｜" + task.title;
-    body.innerHTML = "<div class=\"task-detail-meta\"><span>" + esc(statusLabel(task.status)) + "</span><span>" +
-      esc(assigneeLabel(task.assignee)) + "</span></div><section class=\"task-detail-section\"><h3>需求內容</h3><p>" + esc(requirementContent(task)).replace(/\n/g, "<br>") +
-      "</p></section><section class=\"task-detail-section\"><h3>使用情境</h3><p>" + esc(task.usageScenario || "尚未補充使用情境") +
-      "</p></section><section class=\"task-detail-section task-next-step\"><h3>下一步</h3><p>" + esc(nextStepLabel(task)) +
-      "</p></section><div class=\"checklist-section\"><div class=\"checklist-heading\"><h3>開發契約與驗收清單</h3><span id=\"checklistSummary\">讀取中…</span></div>" +
-      "<p class=\"checklist-contract-note\">先看 Co 開發驗證，再由 QJC 完成 PM 驗收。GPT 工程審查會保留為獨立 Evidence／Audit，不是 QJC 必須勾選的完成項目。</p><div id=\"checklistConsistency\"></div><div id=\"checklistRows\"><div class=\"board-empty\">正在讀取正式驗收清單…</div></div></div>" +
-      "<div class=\"transition-actions\" id=\"taskTransitionActions\"></div>";
-    modal.style.display = "grid";
-    const actions = document.getElementById("taskTransitionActions");
-    transitionTargets(task).forEach(target => {
-      const transition = transitionFor(task, target);
-      if (!transition) return;
-      const button = document.createElement("button");
-      button.className = "btn primary";
-      button.textContent = actionLabel(task, target);
-      button.title = "目前狀態：" + statusLabel(task.status) + "；目前接球者：" + (task.assignee || "未指派");
-      button.onclick = async () => { await transitionTask(task, target); modal.style.display = "none"; };
-      actions.appendChild(button);
-    });
-    const governanceActions = task.status !== "done" && !service.isGovernanceTerminal?.(task)
-      ? `<section class="task-governance-section"><h3>治理處理</h3><p>只有 QJC 可以做最終治理決策；Co／GPT 只能提出建議。每次決策都會保留 Audit。</p><div class="governance-actions"><button class="btn" data-governance="merged">合併至其他 TASK</button><button class="btn" data-governance="linked">關聯其他 TASK</button><button class="btn" data-governance="cancelled">取消 TASK</button><button class="btn" data-governance="ignored">保留並標記忽略</button></div></section>`
-      : "";
-    actions.insertAdjacentHTML("beforebegin", governanceActions);
-    document.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
+    const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    state.activeTaskId = String(task?.id || "");
+    const drawer = root.ZhugeSharedTaskDrawer;
+    const title = task.title || "未命名 TASK";
+    const titleCode = task.workCode || "TASK";
+    const properties = [
+      { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
+      { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
+      { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" },
+      priorityLabel(task.priority) ? { key: "priority", icon: "⚑", label: "優先度", value: priorityLabel(task.priority) } : null,
+      { key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) },
+      archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
+    ].filter(Boolean);
+    const sections = [
+      { id: "requirements", title: "工作內容", className: "task-content-section", html: editableTaskFieldMarkup(task, "summary", { readOnly: archiveOnly }) },
+      { id: "usage", title: "使用情境", className: "task-content-section", html: editableTaskFieldMarkup(task, "usage_scenario", { readOnly: archiveOnly }) },
+      { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` },
+      { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
+    ];
+    if (drawer?.render) {
+      body.innerHTML = drawer.render({
+        title,
+        titleCode,
+        titleEditable: !archiveOnly,
+        subtitle: archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer",
+        properties,
+        sections,
+        readOnly: archiveOnly,
+        activity: {
+          title: "💬 工作進度",
+          hint: "只顯示工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
+          topHtml: taskChecklistPanelMarkup(),
+          composerHtml: "",
+          bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",
+          floatingHtml: progressNoteComposerMarkup(archiveOnly),
+          notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
+          html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
+        },
+        footerHtml: ""
+      });
+    } else {
+      body.innerHTML = "<div class=\"board-empty\">Shared Task Drawer foundation 尚未載入；未執行任何 Cloud 寫入。</div>";
+    }
+    modal.style.display = "block";
+    body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
-      const items = await service.loadChecklist(task.id);
-      const rows = document.getElementById("checklistRows");
-      const summary = document.getElementById("checklistSummary");
-      if (summary) summary.textContent = items.length ? checklistSummary(items) : "缺少正式 Checklist";
-      const gate = completionGateStatus(items);
-      const consistency = document.getElementById("checklistConsistency");
-      if (task.status === "done" && !items.length) {
-        consistency.innerHTML = "<div class=\"history-note\"><strong>歷史完成</strong><br>此 TASK 完成於 Checklist 制度導入前；系統不補造 PASS、驗證者或 Evidence。</div>";
-      } else if (task.status === "done" && !gate.allowed) {
-        consistency.innerHTML = "<div class=\"consistency-warning\"><strong>完成狀態與 Checklist 不一致</strong><br>目前 TASK 已標記完成，但必要驗收尚未全部通過。請記錄 Finding，勿偽造歷史 Evidence。</div>";
-      } else if (gate.hasRequired) {
-        consistency.innerHTML = `<div class="checklist-contract-note">QJC 完成條件：${gate.passed.length}/${gate.required.length} 已通過；GPT 工程審查為獨立紀錄，不阻擋 QJC 完成。</div>`;
-      } else if (items.length) {
-        consistency.innerHTML = "<div class=\"checklist-contract-note\">目前只有工程審查紀錄，尚未建立 Co／QJC 完成驗收項目。</div>";
+      const [items, taskChecklistItems] = await Promise.all([
+        service.loadChecklist(task.id),
+        typeof service.loadTaskChecklist === "function" ? service.loadTaskChecklist(task.id) : Promise.resolve([])
+      ]);
+      const taskChecklistRows = document.getElementById("taskChecklistRows");
+      if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly);
+      const taskChecklistPanel = body.querySelector("[data-task-checklist-panel]");
+      const taskChecklistCount = taskChecklistPanel?.querySelector("[data-task-checklist-count]");
+      if (taskChecklistCount) taskChecklistCount.textContent = taskChecklistCountMarkup(taskChecklistItems);
+      if (taskChecklistPanel) taskChecklistPanel.open = Array.isArray(taskChecklistItems) && taskChecklistItems.length > 0;
+      const verification = engineeringVerificationState(items);
+      const pmAcceptanceItem = items.find(isPmAcceptanceItem);
+      const pmAcceptanceAction = document.getElementById("pmAcceptanceAction");
+      const pmMarkup = pmAcceptanceMarkup(pmAcceptanceItem, archiveOnly, task, verification);
+      const pmAcceptanceSection = body.querySelector('[data-shared-task-drawer-section="pm-acceptance"]');
+      if (pmAcceptanceSection) pmAcceptanceSection.hidden = !pmMarkup;
+      if (pmAcceptanceAction) pmAcceptanceAction.innerHTML = pmMarkup;
+      const [activityResult, artifactResult, attachmentResult] = await Promise.allSettled([
+        typeof service.loadActivity === "function" ? service.loadActivity(task.id, { checklistItems: items }) : Promise.resolve([]),
+        typeof service.loadArtifacts === "function" ? service.loadArtifacts(task) : Promise.resolve([]),
+        typeof service.loadTaskAttachments === "function" ? service.loadTaskAttachments(task.id) : Promise.resolve([])
+      ]);
+      const activity = activityResult.status === "fulfilled" ? activityResult.value : [];
+      const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
+      const attachments = attachmentResult.status === "fulfilled" ? attachmentResult.value : [];
+      const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
+      const attachmentZone = document.getElementById("taskAttachments");
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly);
+      if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
+      if (attachmentSection) attachmentSection.hidden = false;
+      const humanNotes = humanNotesMarkup(task);
+      const humanNotesZone = document.getElementById("taskHumanNotes");
+      if (humanNotesZone) {
+        humanNotesZone.innerHTML = humanNotes;
+        humanNotesZone.hidden = !humanNotes;
       }
-      rows.innerHTML = items.length ? items.map(checklistMarkup).join("") : "<div class=\"board-empty\">此 TASK 尚未建立正式驗收清單，因此目前不能進行正式驗收。請由 Co／GPT 依 Development Contract 補齊；QJC 不需要自行猜測驗收項目。</div>";
-      rows.querySelectorAll(".checklist-check").forEach(input => {
-        input.onchange = () => updateChecklistItem(task, items.find(item => item.id === input.dataset.id), input.checked ? "pass" : "not_verified");
-      });
-      rows.querySelectorAll(".checklist-fail-btn").forEach(button => {
-        button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.id), "fail");
-      });
-      rows.querySelectorAll(".checklist-evidence-btn").forEach(button => {
-        button.onclick = () => updateChecklistEvidence(task, items.find(item => item.id === button.dataset.id));
-      });
+      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly });
+      wireTaskInlineEditors(task, archiveOnly);
+      wireTaskTitleEditor(task, archiveOnly);
+      wireDueDateEditor(task, archiveOnly);
+      wireTaskChecklist(task, taskChecklistItems, archiveOnly);
+      wireTaskAttachments(task, archiveOnly);
+      wireProgressNoteComposer(task, archiveOnly);
+      wireHumanProgressNoteActions(task, activity, archiveOnly);
+      wireTaskAnalysisView(task);
+      const acceptance = document.getElementById("pmAcceptanceAction");
+      if (!archiveOnly && acceptance) {
+        acceptance.querySelectorAll("[data-pm-accept]").forEach(button => {
+          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.pmAccept), "pass");
+        });
+        acceptance.querySelectorAll("[data-pm-reject]").forEach(button => {
+          button.onclick = () => updateChecklistItem(task, items.find(item => item.id === button.dataset.pmReject), "fail");
+        });
+      }
     } catch (error) {
-      document.getElementById("checklistRows").innerHTML = "<div class=\"board-empty\">Checklist 讀取失敗：" + esc(error && error.message || "未知錯誤") + "</div>";
+      const pmAcceptanceSection = body.querySelector('[data-shared-task-drawer-section="pm-acceptance"]');
+      if (pmAcceptanceSection) pmAcceptanceSection.hidden = true;
+      document.getElementById("taskActivityList").innerHTML = "<div class=\"task-read-warning\">進度與治理讀取未完成；沒有寫入任何資料。</div>";
     }
   }
   async function updateChecklistItem(task, item, nextState) {
@@ -564,7 +1521,6 @@
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     drawer?.classList.add("is-open");
-    if (workspace && workspace !== "todo") setBanner("新 TASK 一律從待辦開始，完成後依正式流程交接。", "info");
   }
   function closeQuickAdd() {
     const modal = document.getElementById("addCardModal");
@@ -582,6 +1538,11 @@
     backdrop.classList.add("is-open");
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
+    const input = document.getElementById("workspaceName");
+    if (input) {
+      input.value = "";
+      window.setTimeout(() => input.focus(), 0);
+    }
   }
   function closeWorkspaceDrawer() {
     const backdrop = document.getElementById("workspaceCreateDrawerBackdrop");
@@ -590,12 +1551,34 @@
     drawer?.classList.remove("is-open");
     drawer?.setAttribute("aria-hidden", "true");
   }
+  async function createWorkspace() {
+    const input = document.getElementById("workspaceName");
+    const name = input?.value?.trim() || "";
+    if (!name) {
+      setBanner("請輸入工作區名稱。", "error");
+      input?.focus();
+      return;
+    }
+    const button = document.querySelector("[data-workspace-create]");
+    if (button) button.disabled = true;
+    try {
+      await service.createWorkspace(name);
+      closeWorkspaceDrawer();
+      await refreshBoard({ quiet: true });
+      setBanner("工作區「" + esc(name) + "」已建立並保存至 Cloud。", "success");
+    } catch (error) {
+      setBanner("工作區建立失敗：" + esc(error?.message || "正式 Cloud 未接受這次建立。"), "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
   function renderBoardHeaderActions() {
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
-    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
+    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
+    actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
     actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => refreshBoard());
   }
   async function createCard() {
@@ -615,21 +1598,24 @@
   async function refreshBoard(options) {
     options = options || {};
     if (state.refreshPromise) return state.refreshPromise;
-    if (!options.quiet) setBanner("正在透過 Shared Supabase Gateway 讀取正式 TASK 與最高原則…", "loading");
+    if (!options.quiet) clearBanner();
     state.refreshPromise = service.load().then(result => {
+      state.workspaces = result.workspaces || [];
       state.tasks = result.tasks;
       state.principles = result.principles;
       state.systemMaps = result.systemMaps || [];
       state.taskById = new Map(result.tasks.map(task => [task.id, task]));
+      state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());
+      if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
       if (result.engineeringMemoryFailures?.length) {
         const failures = result.engineeringMemoryFailures.map(item => `${esc(item.knowledgeCode || "Engineering Principle")} | ${esc(item.reason)}`).join("；");
         setBanner("Canonical Retrieval Failed：" + failures + "。未使用舊文件或舊 Context fallback。", "error");
-      } else if (!options.quiet) {
-        setBanner("已讀取 " + result.tasks.length + " 張正式工作卡與 " + result.principles.length + " 條已核准原則。<strong>QJC 可直接操作；GPT／Co 會透過受控流程交接。</strong>", "success");
+      } else if (document.getElementById("boardReadStatus")?.dataset.state === "loading") {
+        clearBanner();
       }
       return result;
     }).catch(error => {
@@ -644,16 +1630,29 @@
   function initRealtime() {
     service.subscribe(() => {
       if (state.realtimeTimer) clearTimeout(state.realtimeTimer);
-      state.realtimeTimer = setTimeout(() => refreshBoard({ quiet: true }).catch(() => {}), 160);
+      state.realtimeTimer = setTimeout(() => {
+        refreshBoard({ quiet: true }).then(() => {
+          const modal = document.getElementById("taskDetailModal");
+          const activeTask = state.activeTaskId ? state.taskById.get(state.activeTaskId) : null;
+          if (modal?.style.display === "block" && activeTask) {
+            return openTaskDetail(activeTask, { readOnly: isArchiveTask(activeTask) });
+          }
+          return null;
+        }).catch(() => {});
+      }, 160);
     }).then(stop => {
       state.stopRealtime = stop;
-      setBanner("Cloud Read 已完成，Realtime 已訂閱。其他工程角色的交接會即時反映。", "success");
       setConnection(state.tasks.length, state.principles.length, true);
     }).catch(error => setBanner("Realtime 尚未連線：" + esc(error && error.message || "未知錯誤") + "。Refresh 可作為暫時 Recovery。", "error"));
   }
   function enableBoardActions() {
     renderBoardHeaderActions();
+    wireArchiveControls();
     document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
+    document.querySelector("[data-workspace-create]")?.addEventListener("click", createWorkspace);
+    document.getElementById("workspaceName")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); createWorkspace(); }
+    });
     document.querySelector("#addCardModal .x")?.addEventListener("click", closeQuickAdd);
     document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
@@ -676,11 +1675,10 @@
     renderPrinciples([]);
     renderSystemMaps([]);
     renderTasks([]);
-    document.querySelectorAll(".process .cards").forEach(cards => { cards.innerHTML = "<div class=\"board-empty\">正在讀取正式 Cloud TASK…</div>"; });
-    const note = document.querySelector(".note");
-    if (note) note.innerHTML = "正式工作卡以 Cloud 資料為唯一來源。QJC 可直接操作；GPT／Co 透過受控流程交接。每次狀態、接球者與驗收紀錄都會保留完整紀錄。";
     root.openQuickAdd = openQuickAdd;
     root.createCard = createCard;
+    root.createWorkspace = createWorkspace;
+    root.openArchiveDrawer = openArchiveDrawer;
     const initialView = new URLSearchParams(root.location.search).get("view");
     if (["principles", "system-map"].includes(initialView)) {
       const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
@@ -691,6 +1689,7 @@
 
   let originalMainMarkup = null;
   let accessContext = null;
+  let boardSessionHydrationPromise = null;
 
   function captureBoardMarkup() {
     const main = document.querySelector(".main");
@@ -734,6 +1733,15 @@
     });
   }
 
+  function renderSessionHydrationState() {
+    renderAccessState({
+      title: "正在恢復 AI Board",
+      message: "正在檢查登入工作階段，完成前不會判定為未登入。",
+      kind: "loading",
+      body: `<div class="board-access-progress" role="status">正在同步 Shared Session…</div>`
+    });
+  }
+
   function renderAccessError(message) {
     renderAccessState({
       title: "目前無法開啟 AI Board",
@@ -744,11 +1752,32 @@
     document.getElementById("boardAccessRetry")?.addEventListener("click", () => init());
   }
 
-  function restoreBoardMarkup() {
+  function restoreCapturedBoardMarkup() {
     const main = document.querySelector(".main");
     if (!main || originalMainMarkup === null) return;
     main.innerHTML = originalMainMarkup;
+  }
+
+  function restoreBoardMarkup() {
+    restoreCapturedBoardMarkup();
     startBoardRuntime();
+  }
+
+  function hydrateBoardSession() {
+    if (boardSessionHydrationPromise) return boardSessionHydrationPromise;
+    boardSessionHydrationPromise = (async () => {
+      if (typeof getSupabaseAuthUser !== "function"
+        || typeof supabaseSessionFromUser !== "function"
+        || typeof persistAiOsSessionOnly !== "function") {
+        throw new Error("Shared Auth hydration service 尚未準備完成。");
+      }
+      const result = await getSupabaseAuthUser();
+      if (!result?.user || !result?.authSession?.access_token) return false;
+      session = supabaseSessionFromUser(result.user, result.authSession, result.provider);
+      persistAiOsSessionOnly();
+      return true;
+    })().finally(() => { boardSessionHydrationPromise = null; });
+    return boardSessionHydrationPromise;
   }
 
   function renderMfaUnlock(context, access) {
@@ -809,9 +1838,23 @@
 
   async function init() {
     captureBoardMarkup();
+    renderSessionHydrationState();
     const provider = root.ZhugeRuntimeSessionProvider;
     if (!provider?.createPlatform) {
       renderAccessError("安全服務尚未準備完成，請重新整理後再試。\n");
+      return;
+    }
+    let hydrated = false;
+    try {
+      hydrated = await hydrateBoardSession();
+    } catch (error) {
+      if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
+      return;
+    }
+    if (!hydrated) {
+      if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      renderLoginState();
       return;
     }
     let context;
@@ -827,6 +1870,7 @@
     }
     const access = context.security.evaluate("view");
     if (access.allowed) {
+      restoreCapturedBoardMarkup();
       startBoardRuntime();
       return;
     }
@@ -841,7 +1885,7 @@
     }
     renderAccessError(access.code === "CAPABILITY_REQUIRED" ? "目前登入帳號沒有 AI Board 管理權限。" : "目前帳號尚未通過 AI Board 安全檢查。\n");
   }
-  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, sortTasksByCode: sortTasksByCode, completionGateStatus: completionGateStatus, completionGateMessage: completionGateMessage });
+  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, moveTaskToWorkspace: moveTaskToWorkspace, sortTasksByCode: sortTasksByCode, completionGateStatus: completionGateStatus, completionGateMessage: completionGateMessage });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 })(window);

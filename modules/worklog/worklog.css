@@ -380,27 +380,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .tasks-workspace .task-drawer .panel-head{align-items:flex-start;margin-bottom:6px}
 .task-drawer-close{font-size:1.15rem;line-height:1;min-width:38px;min-height:38px;padding:7px 10px}
 .tasks-workspace .task-drawer .form-actions{position:sticky;bottom:0;margin:8px -24px -24px;padding:14px 24px 24px;background:linear-gradient(180deg,transparent,var(--zhuge-surface,#111827) 28%)}
-.tasks-workspace .task-journal-drawer{padding:24px;overflow-y:auto}
-.tasks-workspace .task-journal-drawer .task-journal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--zhuge-border,#334155)}
-.tasks-workspace .task-journal-drawer .task-journal-head h3{margin:0;font-size:1.05rem}
-.tasks-workspace .task-journal-drawer .task-journal-head-actions{display:flex;align-items:center;gap:8px}
-.tasks-workspace .task-journal-drawer .task-journal-timeline{display:grid;gap:10px;padding:18px 0}
-.tasks-workspace .task-journal-drawer .task-journal-entry{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid rgba(148,163,184,.14)}
-.tasks-workspace .task-journal-drawer .task-journal-entry:last-child{border-bottom:0}
-.tasks-workspace .task-journal-drawer .task-journal-entry-body{min-width:0;display:grid;gap:7px}
-.tasks-workspace .task-journal-drawer .task-journal-entry-head{display:flex;align-items:center;gap:8px;min-width:0}
-.tasks-workspace .task-journal-drawer .task-journal-entry-head b{color:#dbeafe;font-size:.82rem}
-.tasks-workspace .task-journal-drawer .task-journal-entry-head time{margin-left:auto;color:#94a3b8;font-size:.72rem;white-space:nowrap}
-.tasks-workspace .task-journal-drawer .task-journal-edit{flex:0 0 auto;min-width:30px;min-height:30px;padding:4px 7px;border-radius:9px;font-size:.85rem;line-height:1;color:#bfdbfe}
-.tasks-workspace .task-journal-drawer .task-journal-edit:hover,.tasks-workspace .task-journal-drawer .task-journal-edit:focus-visible{border-color:#60a5fa;background:#172554;color:#fff;outline:none}
-.tasks-workspace .task-journal-drawer .task-journal-entry-content{color:#f8fafc;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
-.tasks-workspace .task-journal-drawer .task-journal-link{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid rgba(96,165,250,.5);border-radius:8px;background:rgba(30,64,175,.3);color:#bfdbfe;font-weight:800;text-decoration:none;white-space:nowrap}
-.tasks-workspace .task-journal-drawer .task-journal-link:hover,.tasks-workspace .task-journal-drawer .task-journal-link:focus-visible{background:#2563eb;color:#fff;outline:none}
-.tasks-workspace .task-journal-drawer .task-journal-edit-hint{color:#94a3b8;font-size:.78rem;line-height:1.45}
-.tasks-workspace .task-journal-drawer .task-journal-form{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--zhuge-border,#334155)}
-.tasks-workspace .task-journal-drawer .task-journal-form .form-actions{position:sticky;bottom:0;margin:8px -24px -24px;padding:14px 24px 24px;background:linear-gradient(180deg,transparent,var(--zhuge-surface,#111827) 28%)}
 @media (max-width:767px){.tasks-workspace .task-drawer{width:100%;border-left:0;border-radius:18px 18px 0 0;top:auto;height:min(88svh,760px);transform:translateY(104%)}.tasks-workspace .task-drawer.is-open{transform:translateY(0)}.tasks-workspace .task-drawer .task-form{padding:18px}.tasks-workspace .task-drawer .form-actions{margin:8px -18px -18px;padding:12px 18px 18px}}
-@media (max-width:767px){.tasks-workspace .task-journal-drawer{padding:18px}.tasks-workspace .task-journal-drawer .task-journal-form .form-actions{margin:8px -18px -18px;padding:12px 18px 18px}}
 @media (max-width:767px){
   .console-tab{flex:1 1 calc(50% - 6px);min-height:42px}
   .today-module .today-add-top{min-height:42px}
@@ -456,3 +436,40 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .workspace-worklog .os-main { padding: 10px; }
   .workspace-shell.workspace-worklog .workspace-canvas { padding: 12px; border-radius: 14px; }
 }
+
+/* WorkTodo adapter presentation: shared card/drawer classes only. */
+.tasks-workspace .worktodo-shared-task-card{cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.tasks-workspace .worktodo-shared-task-card:hover,.tasks-workspace .worktodo-shared-task-card:focus-within{border-color:#5d9cff;background:rgba(30,64,175,.12);transform:translateY(-1px)}
+.tasks-workspace .worktodo-shared-task-card{display:block;min-width:0;width:100%;padding:14px}
+.tasks-workspace .worktodo-shared-task-card .shared-task-card-code{color:#8ea2bf}
+.tasks-workspace .worktodo-shared-task-card .shared-task-card-title{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:7px 0 0;font-size:1rem;line-height:1.4}
+.tasks-workspace .worktodo-shared-task-card .shared-task-card-summary{display:block;margin:8px 0 0;color:#cbd5e1;font-size:.76rem;line-height:1.45}
+.tasks-workspace .worktodo-shared-task-card .shared-task-card-actions{max-width:100%}
+.tasks-workspace .worktodo-shared-task-card .shared-task-card-actions .btn2{white-space:nowrap}
+.worktodo-shared-card-title-status{flex:0 0 auto}
+.worktodo-shared-inline-field{display:grid;gap:9px}
+.worktodo-shared-inline-field-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.worktodo-shared-inline-field-value{min-width:0;color:#cbd6e5;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.worktodo-shared-inline-editor{display:grid;gap:8px}
+.worktodo-shared-inline-editor textarea{width:100%;box-sizing:border-box;min-height:112px;resize:vertical;border:1px solid #4b6691;border-radius:8px;background:#111720;color:#d7e2f2;padding:9px;font:inherit;font-size:13px;line-height:1.55}
+.worktodo-shared-inline-editor-actions,.worktodo-shared-controls-actions{display:flex;justify-content:flex-end;gap:7px}
+.worktodo-shared-controls{display:grid;gap:9px}
+.worktodo-shared-controls label{display:grid;gap:5px;color:#b9c9df;font-size:11px;font-weight:700}
+.worktodo-shared-controls .input{width:100%;box-sizing:border-box}
+.worktodo-shared-controls .task-progress-range{width:100%}
+.worktodo-shared-pin{display:flex!important;align-items:center;gap:7px!important}
+.worktodo-shared-controls-readonly{display:flex;flex-wrap:wrap;gap:7px;color:#b9c9df;font-size:11px;line-height:1.45}
+.worktodo-shared-controls-readonly span{padding:6px 8px;border:1px solid #293241;border-radius:7px;background:#111820}
+.worktodo-shared-title-editor{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0;flex:1 1 auto}
+.worktodo-shared-title-editor .shared-task-drawer-title-input{flex:1 1 260px}
+.worktodo-shared-journal-composer{display:grid;gap:8px}
+.worktodo-shared-journal-options{display:flex;flex-wrap:wrap;gap:10px;color:#9fb0c5;font-size:10px}
+.worktodo-shared-journal-options label{display:flex;align-items:center;gap:5px;color:#9fb0c5;font-size:10px;font-weight:500}
+.worktodo-shared-journal-optional{display:grid;gap:5px}
+.worktodo-shared-journal-optional.is-hidden{display:none}
+.worktodo-shared-journal-optional label{display:grid;gap:5px;color:#b9c9df;font-size:10px}
+.worktodo-shared-journal-row{min-height:0!important}
+.worktodo-shared-journal-body{min-width:0}
+.worktodo-shared-journal-readonly{padding:10px;border:1px dashed #344052;border-radius:8px;color:#8493a7;font-size:11px}
+.worktodo-shared-completion-note{margin:0;color:#cbd6e5;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.worktodo-shared-footer-actions{display:flex;justify-content:flex-end;gap:8px}

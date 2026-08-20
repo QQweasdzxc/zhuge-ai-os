@@ -9,6 +9,24 @@
   </main></div>
   <script>
     const creator = new URLSearchParams(location.search).get("creator") !== "false";
+    let session = null;
+    // Fixture-only implementation of the canonical AI Board session hydration seam.
+    const fixtureAuthUser = { id: "qjc-test", email: "qjc@example.test", user_metadata: { full_name: "QJC" } };
+    const fixtureAuthSession = { access_token: "fixture-access-token", refresh_token: "fixture-refresh-token", expires_at: Math.floor(Date.now() / 1000) + 3600 };
+    window.getSupabaseAuthUser = async () => ({ user: fixtureAuthUser, authSession: fixtureAuthSession, provider: "fixture" });
+    window.supabaseSessionFromUser = (authUser, authSession, provider) => ({
+      provider,
+      user_uuid: authUser.id,
+      uuid: authUser.id,
+      name: authUser.user_metadata.full_name,
+      email: authUser.email,
+      access_token: authSession.access_token,
+      refresh_token: authSession.refresh_token,
+      expires_at: authSession.expires_at,
+      token_type: "bearer",
+      loginAt: new Date().toISOString()
+    });
+    window.persistAiOsSessionOnly = () => {};
     let policy = { investment_mfa_required: true, ai_board_mfa_required: true, status: "resolved" };
     window.ZhugeRuntimeSessionProvider = {
       createPlatform: () => ({

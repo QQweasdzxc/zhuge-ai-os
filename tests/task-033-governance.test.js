@@ -19,11 +19,11 @@ test("TASK-033 migration uses minimum metadata, QJC-only controlled action, and 
   assert.doesNotMatch(sql, /drop policy|disable row level security|service_role_key/i);
 });
 
-test("governance terminal statuses stay out of the four active Kanban workspaces", () => {
+test("governance terminal statuses stay out of active Free Workspace columns", () => {
   const merged = BoardRead.normalizeTask({ status: "merged", resolution_action: "merged" });
   const cancelled = BoardRead.normalizeTask({ status: "cancelled", resolution_action: "cancelled" });
-  assert.equal(merged.workspace, "history");
-  assert.equal(cancelled.workspace, "history");
+  assert.equal(merged.workspace, "");
+  assert.equal(cancelled.workspace, "");
   assert.equal(BoardRead.isGovernanceTerminal(merged), true);
   assert.equal(BoardRead.isGovernanceTerminal(cancelled), true);
   assert.equal(BoardRead.availableTransitions(merged).length, 0);

@@ -4,6 +4,9 @@ let conversationSync = readJson("zhuge_conversation_sync_status_v1", { status: "
 let dataServiceReady = false;
 let dataServiceHydrating = false;
 let dataServiceSyncing = false;
+let dataServiceInitializationState = "idle";
+let dataServiceInitializationError = "";
+let dataServiceInitializationFailures = [];
 let autoSaveTimer = null;
 let autoSaveInFlight = false;
 const autoSaveDirtyScopes = new Set();
@@ -33,6 +36,13 @@ const LocalCache = {
 const DataService = {
   workModelsState: null,
   ecpTasksState: null,
+  getInitializationState() {
+    return Object.freeze({
+      state: dataServiceInitializationState,
+      error: dataServiceInitializationError,
+      failedLoads: [...dataServiceInitializationFailures]
+    });
+  },
   async waitUntilHydrated(timeoutMs = 10000) {
     const started = Date.now();
     while (dataServiceHydrating) {
@@ -41,11 +51,28 @@ const DataService = {
     }
   },
   async init() {
-    if (!hasGoogleOAuthSession()) return;
+    if (!hasGoogleOAuthSession()) {
+      dataServiceInitializationState = "unauthorized";
+      dataServiceInitializationError = "";
+      dataServiceInitializationFailures = [];
+      return;
+    }
+    dataServiceInitializationState = "loading";
+    dataServiceInitializationError = "";
+    dataServiceInitializationFailures = [];
     dataServiceReady = true;
-    await this.prepareMigration();
-    if (migrationRequired) return;
-    await this.loadAll();
+    try {
+      await this.prepareMigration();
+      if (migrationRequired) {
+        dataServiceInitializationState = "migration_required";
+        return;
+      }
+      await this.loadAll();
+    } catch (error) {
+      dataServiceInitializationState = "error";
+      dataServiceInitializationError = error?.message || "工作空間初始化失敗";
+      throw error;
+    }
   },
   setStatus(status, error = "") {
     cloudSync = { status, error, lastSyncedAt: status === "synced" ? new Date().toISOString() : cloudSync.lastSyncedAt || "" };
@@ -307,6 +334,9 @@ const DataService = {
   async loadAll() {
     if (!dataServiceReady || dataServiceHydrating) return;
     dataServiceHydrating = true;
+    dataServiceInitializationState = "loading";
+    dataServiceInitializationError = "";
+    dataServiceInitializationFailures = [];
     this.setStatus("syncing");
     const errors = [];
     const failedLoads = new Set();
@@ -397,10 +427,24 @@ const DataService = {
       }
       LocalCache.saveAll();
       const coreFailures = [...failedLoads].filter(label => ["profile", "export_settings", "tasks", "entries"].includes(label));
+      const initializationFailures = [...failedLoads].filter(label => [
+        "profile", "export_settings", "work_profile", "work_models", "ecp_tasks", "tasks", "entries"
+      ].includes(label));
+      dataServiceInitializationFailures = initializationFailures;
+      if (initializationFailures.length) {
+        dataServiceInitializationState = "error";
+        dataServiceInitializationError = errors.filter(error => initializationFailures.some(label => error.startsWith(`${label}:`))).join(" | ") || `工作空間初始化失敗：${initializationFailures.join(", ")}`;
+      } else {
+        dataServiceInitializationState = "ready";
+        dataServiceInitializationError = "";
+      }
       if (coreFailures.length) this.setStatus("failed", errors.filter(error => coreFailures.some(label => error.startsWith(`${label}:`))).join(" | ") || `核心資料載入失敗：${coreFailures.join(", ")}`);
       else this.setStatus("synced");
     } catch (error) {
       console.error("Cloud Sync load failed", error);
+      dataServiceInitializationState = "error";
+      dataServiceInitializationError = error.message || "工作空間初始化失敗";
+      dataServiceInitializationFailures = ["load_all"];
       this.setStatus("failed", error.message || "Cloud Sync failed");
     } finally {
       dataServiceHydrating = false;

@@ -8,16 +8,21 @@ const { resolveBrowserExecutable } = require("./browser-executable");
 
 const ROOT = path.join(__dirname, "..");
 
-test("AI Board Browser UI exposes contract checklist, usage scenario, search, create flow, handoff, and navigation", async t => {
+test("AI Board Browser UI exposes PM-readable drawer status, free workspace movement, and navigation", async t => {
   const browserExecutable = resolveBrowserExecutable();
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the browser regression");
   const fixture = path.join(__dirname, "ai-board-batch-2-browser.html");
+  const build = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
+  const preparedFixture = path.join(__dirname, `.ai-board-batch-2-browser-${process.pid}.html`);
+  const fixtureSource = fs.readFileSync(fixture, "utf8").replaceAll("__RUNTIME_BUILD__", build);
+  fs.writeFileSync(preparedFixture, fixtureSource);
+  t.after(() => fs.rmSync(preparedFixture, { force: true }));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-ai-board-batch2-"));
   const args = [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     "--no-first-run", "--disable-background-networking", "--disable-component-update", "--disable-sync",
     "--disable-features=Translate,MediaRouter,OptimizationHints", "--window-size=1600,1000", `--user-data-dir=${profile}`,
-    "--virtual-time-budget=6000", "--dump-dom", `file://${fixture}`
+    "--virtual-time-budget=6000", "--dump-dom", `file://${preparedFixture}`
   ];
   const output = await new Promise((resolve, reject) => {
     const child = spawn(browserExecutable, args, { encoding: "utf8" });
@@ -45,18 +50,42 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   });
   assert.ok(output, "Chrome produced no DOM output");
 
-  assert.match(output, /開發契約與驗收清單/);
+  assert.doesNotMatch(output, /🛠️ 工程驗證狀態/);
   assert.match(output, /GPT 先讀取正式來源，再由 QJC 驗收/);
   assert.match(output, /checklist-audit/);
-  assert.match(output, /Co 開發驗證/);
-  assert.match(output, /證據位置／說明/);
-  assert.match(output, /退回 Co/);
-  assert.match(output, /GPT Review 通過 → 交 QJC/);
-  assert.match(output, /工作看板：顯示正式 Cloud TASK/);
-  assert.match(output, /工程準則：📘 最高原則來自正式 engineering_knowledge/);
-  assert.match(output, /系統藍圖：顯示目前正式系統組成/);
-  assert.match(output, /搜尋「TASK-026」：找到 1 筆 TASK/);
-  assert.match(output, /TASK-002,TASK-003,TASK-010,TASK-026/);
+  assert.match(output, /🙋 需要你的操作/);
+  assert.match(output, /PM Acceptance Criteria/);
+  assert.match(output, /驗收通過/);
+  assert.match(output, /退回修改/);
+  assert.doesNotMatch(output, /engineering-records-audit/);
+  assert.doesNotMatch(output, /⚙️ 工程紀錄/);
+  assert.doesNotMatch(output, /⋯ 更多/);
+  assert.match(output, /data-shared-task-properties/);
+  assert.match(output, /data-task-property-action="due-date"/);
+  assert.match(output, /尚未設定日期/);
+  assert.doesNotMatch(output, /task-due-date-section/);
+  assert.doesNotMatch(output, /data-task-due-date-edit/);
+  assert.match(output, /目前狀態/);
+  assert.match(output, /工作內容/);
+  assert.match(output, /shared-task-drawer-activity-top/);
+  assert.match(output, /data-task-checklist-panel/);
+  assert.match(output, /工作 Checklist/);
+  assert.match(output, /1 \/ 2/);
+  assert.match(output, /📎 附件/);
+  assert.match(output, /shared-task-attachment-list/);
+  assert.match(output, /data-shared-task-timeline/);
+  assert.doesNotMatch(output, /Engineering Evidence Detail/);
+  assert.doesNotMatch(output, /Artifact \/ Build/);
+  assert.doesNotMatch(output, /Evidence Reference/);
+  assert.match(output, /新增工作進度/);
+  assert.match(output, /工作進度/);
+  assert.match(output, /System Activity 與 Workspace Audit 保留於正式紀錄/);
+  assert.doesNotMatch(output, /System Activity · (Status|Workspace Move|Evidence)/);
+  assert.doesNotMatch(output, /Checklist／Evidence 原始資料/);
+  assert.match(output, /aria-label="搜尋 TASK"/);
+  assert.match(output, /data-work-code="TASK-026"/);
+  assert.match(output, /GPT區/);
+  assert.match(output, /Co區/);
   assert.match(output, /TASK 已建立並進入待辦/);
   assert.match(output, /data-zhuge-shared-navigation="true"/);
   assert.match(output, /data-shared-nav-item="worklog"/);
@@ -70,13 +99,16 @@ test("AI Board Browser UI exposes contract checklist, usage scenario, search, cr
   assert.match(output, /Version/);
   assert.match(output, /v0\.9\.0-alpha\.9\.13/);
   assert.match(output, /Build/);
-  const build = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
   assert.match(output, new RegExp(build));
   assert.match(output, /工作看板/);
   assert.match(output, /工程準則/);
   assert.match(output, /系統藍圖/);
   assert.match(output, /nav-collapse-audit/);
   assert.match(output, /zhuge-nav-collapsed/);
+  assert.match(output, /collapsed-visible=worklog,tasks,investment,library,sync,settings/);
+  assert.match(output, /collapsed-tasks-tag=A/);
+  assert.match(output, /collapsed-tasks-title=工作待辦/);
+  assert.match(output, /collapsed-tasks-href=.*workspace=tasks/);
   assert.match(output, /cross-workspace-audit/);
   // Engineering destinations live inside 控制台; the global rail keeps only
   // the canonical user-facing workspaces and system entry points.

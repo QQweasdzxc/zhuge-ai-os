@@ -86,8 +86,10 @@ test("Batch 4 moves work journal into a shared dynamic drawer and keeps Board ac
   const worklog = read("modules/worklog/worklog-app.js");
   const board = read("app/Board/ai/board-runtime.js");
   const boardHtml = read("app/Board/ai/index.html");
-  assert.match(worklog, /task-journal-drawer/);
-  assert.match(worklog, /data-journal-close/);
+  assert.match(worklog, /ZhugeWorkTodoTaskAdapter/);
+  assert.match(worklog, /data-worktodo-open-task/);
+  assert.match(worklog, /data-journal-save/);
+  assert.doesNotMatch(worklog, /function taskJournalPanel|task-journal-drawer/);
   assert.doesNotMatch(worklog, /\$\{taskJournalPanel\(task\)\}/);
   assert.match(board, /data-board-create-card/);
   assert.match(board, /data-board-create-workspace/);
@@ -99,11 +101,11 @@ test("Work journal entries stay readable and can be edited through the existing 
   const worklog = read("modules/worklog/worklog-app.js");
   const css = read("modules/worklog/worklog.css");
   const repositories = read("shared/api/repositories.js");
-  assert.match(worklog, /data-journal-edit/);
+  assert.match(worklog, /data-worktodo-journal-edit/);
   assert.match(worklog, /function renderJournalContent/);
   assert.match(worklog, /進度紀錄已更新至 Cloud/);
-  assert.match(css, /task-journal-entry-content{[^}]*overflow-wrap:anywhere/);
-  assert.match(css, /task-journal-link{[^}]*text-decoration:none/);
+  assert.match(css, /worktodo-shared-journal-body/);
+  assert.match(css, /worktodo-shared-journal-composer/);
   assert.match(repositories, /if \(entry\.cloudId \|\| entry\.id\)/);
   assert.doesNotMatch(worklog, /＋ 新增待辦事項/);
 });

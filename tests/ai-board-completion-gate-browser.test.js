@@ -6,7 +6,7 @@ const { spawn } = require("node:child_process");
 const os = require("node:os");
 const { resolveBrowserExecutable } = require("./browser-executable");
 
-test("QJC button and drag completion share the Co + QJC gate while GPT stays evidence-only", async t => {
+test("QJC workspace movement preserves engineering status, assignee, and Co + QJC evidence", async t => {
   const browserExecutable = resolveBrowserExecutable();
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the browser regression");
   const fixture = path.join(__dirname, "ai-board-completion-gate-browser.html");
@@ -20,8 +20,9 @@ test("QJC button and drag completion share the Co + QJC gate while GPT stays evi
     child.stdout.on("data", chunk => { stdout += chunk; if (stdout.includes("</html>")) finish(null, stdout); });
     child.stderr.on("data", chunk => { stderr += chunk; }); child.on("error", error => finish(error)); child.on("close", code => stdout ? finish(null, stdout) : finish(new Error(stderr || `Chrome exited with code ${code}`)));
   });
-  assert.match(output, /calls=button-task:done:QJC,drag-task:done:QJC/);
-  assert.match(output, /done=2/);
+  assert.match(output, /calls=button-task:ws-done,drag-task:ws-qjc/);
+  assert.match(output, /engineeringDone=0/);
+  assert.match(output, /assignees=QJC,QJC/);
   assert.match(output, /gptCheckboxes=0/);
   assert.match(output, /gptLabel=true/);
 });

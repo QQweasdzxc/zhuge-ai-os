@@ -132,7 +132,8 @@ Governance writes require two separate capabilities:
    `governance-write` actor token from the protected broker.
 
 The Edge Function accepts only `governance_write`, and the database executor
-allowlists `create_task_contract`, `update_task_contract`, and `update_checkpoint`. The executor rechecks
+allowlists `create_task_contract`, `update_task_contract`, `update_checkpoint`, and
+`register_artifact`. The executor rechecks
 the PM authorization, payload binding, expiry, single-use state, actor label,
 and service-role server path before calling the existing controlled RPCs.
 
@@ -154,6 +155,94 @@ node tools/engineering-governance-write.js write \
 ```
 
 The PM authorization token is not a GPT identity and cannot be created by the
-GPT broker. Approved Principle maintenance, arbitrary SQL, direct DML, PM
-Accepted Baseline writes, and Artifact writes are outside this first-phase
-allowlist.
+GPT broker. Approved Principle maintenance, arbitrary SQL, and direct DML are
+outside this allowlist.
+
+### PM Accepted Baseline Approval
+
+PM Accepted Baseline uses the same localhost-only approval surface, but it is a
+separate narrow operation inside the existing runner rather than an
+`engineering-transition` actor write. The protected action manifest uses only
+`set_pm_accepted_baseline` and the authenticated PM/QJC session calls the
+existing `set_engineering_pm_accepted_baseline(jsonb)` RPC. No table DML,
+service-role credential, PM authorization capability, or GPT actor token is
+used for this operation. The runner immediately calls
+`resolve_engineering_startup_gate` with the same authenticated session and
+requires the returned `pm_accepted_baseline` to match the approved payload.
+
+The baseline RPC remains the authorization boundary: the server checks
+`auth.uid()` and `is_engineering_member(array['owner'])`. The browser receives
+only review metadata and the final read-back summary; session and capability
+values stay in the local runner process.
+
+## PM Governance Approval Runner
+
+`pm-governance-approval.js` is a localhost-only operational bridge for the
+same allowlisted Governance Write path. It is not a second Authorization or
+Governance system. A protected engineering workflow supplies one immutable
+action manifest; PM/QJC only reviews the rendered action and chooses approve or
+reject in the local page.
+
+```bash
+node tools/pm-governance-approval.js start \
+  --action-file /protected/path/governance-action.json \
+  --port 8765 \
+  --open
+```
+
+The runner binds only to `127.0.0.1`, performs the existing Supabase Google
+OAuth/PKCE login, keeps the authenticated session in memory, and then uses:
+
+1. `issue_engineering_governance_authorization(jsonb)` with the authenticated
+   PM/QJC session;
+2. `engineering-actor-broker.js` with the protected GPT governance-write
+   profile;
+3. `engineering-governance-write.js` and the existing
+   `engineering-transition` Edge Function; and
+4. an authenticated read-back of the affected canonical record.
+
+The browser never receives an authorization capability, actor capability,
+JWK, service credential, or action payload JSON. The action is immutable for
+the runner process; reject/cancel and a second approval attempt do not execute
+a write. Capability values exist only in the local process memory and are
+cleared after the attempt. The runner does not log request bodies or secrets.
+
+### AI Board inline task-content update mode
+
+AI Board `工作內容` and `使用情境` inline edit use the same controlled
+`update_task_contract` operation through a deliberately narrow local request
+bridge. Start a fresh runner in product-request mode before saving an edit:
+
+```bash
+node tools/pm-governance-approval.js start \
+  --wait-for-product \
+  --port 8765 \
+  --open
+```
+
+The bridge accepts only `task_id`, `summary`, and `usage_scenario`; it does not
+accept an arbitrary Governance operation or caller-supplied display payload.
+The browser receives only a request id and status. PM review, existing
+`issue_engineering_governance_authorization(jsonb)`, the protected GPT actor
+broker, `engineering-transition`, and canonical `board_tasks` read-back remain
+the write path. A rejected, expired, unavailable, or unapproved request leaves
+the original TASK unchanged. Start a new runner for each subsequent inline
+edit request; one runner process is one approval attempt.
+
+### One-time local redirect setup
+
+Before the first local run, PM/QJC must add the exact callback URL to the
+existing Supabase Auth redirect allow-list:
+
+```text
+http://127.0.0.1:8765/auth/callback
+```
+
+No Google OAuth provider callback or Production URL is replaced. If a different
+port is used, add that exact `127.0.0.1` URL and use the same port for the
+runner. `SUPABASE_URL`/`ZHUGE_SUPABASE_URL` and
+`ENGINEERING_GOVERNANCE_WRITE_URL` are resolved from protected environment
+values when present; the existing checked-in URL/anon configuration is only a
+public fallback. The Engineering Actor private JWK is loaded at approval time
+from the protected environment or the existing macOS Keychain entry and is
+never written to a file.
