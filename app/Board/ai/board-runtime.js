@@ -46,6 +46,9 @@
   function readableWorkStatus(task) {
     const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
     const assignee = String(task?.assignee || "").trim().toUpperCase();
+    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
+    const workspaceName = String(task?.workspaceName || "").trim();
+    if ((workspaceKey === "completed" || workspaceName === "已完成") && task?.completionAt && !task?.archivedAt) return "已完成";
     if (status === "ready") return "待開始";
     if (status === "inprogress") return "進行中";
     if (status === "qa" && assignee === "GPT") return "等待工程審查";
@@ -113,13 +116,14 @@
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
-    const lifecycleLocked = task.status === "done" && Boolean(task.completionAt) && !archiveOnly;
-    const draggable = !archiveOnly && !terminal && !lifecycleLocked;
+    const completionWorkspace = String(task.workspaceKey || task.workspace || "").trim().toLowerCase() === "completed" || String(task.workspaceName || "").trim() === "已完成";
+    const completionActive = completionWorkspace && Boolean(task.completionAt) && Boolean(task.archiveDueAt) && !archiveOnly;
+    const draggable = !archiveOnly && !terminal;
     const archiveClass = archiveOnly ? " archive-taskcard" : "";
     const actionHint = archiveOnly
       ? "點擊查看歷史驗收清單、Evidence 與 Activity Log · 封存內容僅供查閱，不可恢復、移動或修改"
-      : lifecycleLocked
-        ? "PM Acceptance 已通過 · 保留於「已完成」48 小時後由正式 Cloud lifecycle 自動封存"
+      : completionActive
+        ? "已確認完成 · 保留於「已完成」48 小時後由正式 Cloud lifecycle 自動封存；可拖出取消計時"
       : "點擊查看驗收清單與證據 · 可拖曳至任意工作區（不改變工程狀態／負責人）";
     return "<article class=\"card taskcard board-cloud-card" + archiveClass + "\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
@@ -334,15 +338,16 @@
       return;
     }
     const current = state.workspaceById.get(String(task.workspaceId || ""));
-    if (isCompletionWorkspace(target)) {
-      setBanner("「已完成」只能由 PM Acceptance PASS 的正式 lifecycle 受控進入，不能手動拖曳。", "error");
-      return;
-    }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
     try {
       await service.moveTaskWorkspace(task.id, target.id, "QJC workspace movement");
       await refreshBoard({ quiet: true });
-      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。工程狀態、負責人與治理紀錄未變更。", "success");
+      const lifecycleMessage = isCompletionWorkspace(target)
+        ? "已開始 48 小時 Cloud completion lifecycle。"
+        : isCompletionWorkspace(current)
+          ? "已取消原本的 48 小時 completion timer。"
+          : "";
+      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工程狀態、負責人與治理紀錄未變更。", "success");
     } catch (error) {
       setBanner("工作區移動失敗：" + esc(error?.message || "正式 Cloud 未接受這次移動；原資料未變更。"), "error");
     }
@@ -442,13 +447,12 @@
       const task = state.taskById.get(card.dataset.taskId);
       if (!task) return;
       const archiveOnly = isArchiveTask(task);
-      const lifecycleLocked = task.status === "done" && Boolean(task.completionAt) && !archiveOnly;
       card.onclick = () => openTaskDetail(task, { readOnly: archiveOnly });
       card.onkeydown = event => {
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
       };
       card.ondragstart = event => {
-        if (archiveOnly || lifecycleLocked || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
+        if (archiveOnly || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/x-zhuge-task-id", task.id);
         event.dataTransfer.setData("text/plain", task.id);
@@ -739,7 +743,7 @@
     return `<div class="pm-acceptance-panel" data-pm-action="acceptance"><div class="pm-acceptance-context"><strong>現在需要你操作 PM QA</strong><span>工程驗證已完成；請依下列項目完成實機驗證，再做最後決定。</span></div>${acceptanceCriteriaMarkup(task)}<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><span class="pm-acceptance-state">目前 Acceptance 狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn primary" type="button" data-pm-accept="${esc(item.id)}">驗收通過</button><button class="btn" type="button" data-pm-reject="${esc(item.id)}">退回修改</button></div></div></div>`;
   }
   function activityActionLabel(item) {
-    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度紀錄";
+    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度";
     const labels = {
       task_created: "建立 TASK",
       workflow_transition: "工程狀態交接",
@@ -805,7 +809,7 @@
     // however, is a human work-progress surface: System Activity and
     // Workspace Move remain in the canonical source but are not rendered here.
     const humanRows = visibleHumanProgressRows(rows);
-    if (!humanRows.length) return "<div class=\"board-empty\" data-human-progress-empty=\"true\">目前沒有人工工作進度紀錄。</div>";
+    if (!humanRows.length) return "<div class=\"board-empty\" data-human-progress-empty=\"true\">目前沒有工作進度紀錄。</div>";
     const attachmentRows = (Array.isArray(attachments) ? attachments : []).filter(item => item.attachmentScope === "progress_note");
     const attachmentsByActivity = new Map();
     attachmentRows.forEach(item => attachmentsByActivity.set(item.activityId, [...(attachmentsByActivity.get(item.activityId) || []), item]));
@@ -858,8 +862,8 @@
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
       const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
-      const metadata = `<small class="shared-task-attachment-meta">${remove}<span>附件 · ${esc(shortTimestampLabel(item.createdAt))}</span></small>`;
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span></article>`;
+      const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
@@ -1362,8 +1366,8 @@
         sections,
         readOnly: archiveOnly,
         activity: {
-          title: "💬 工作進度紀錄",
-          hint: "只顯示人工工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
+          title: "💬 工作進度",
+          hint: "只顯示工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
           topHtml: taskChecklistPanelMarkup(),
           composerHtml: "",
           bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",

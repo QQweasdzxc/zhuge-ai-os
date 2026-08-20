@@ -65,7 +65,7 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /progressNoteMetaLabel\(item\)/);
   assert.match(runtime, /visibleHumanProgressRows/);
   assert.match(runtime, /readOnly: archiveOnly/);
-  assert.match(board, /\.taskcard\{height:156px;min-height:156px/);
+  assert.match(board, /\.taskcard\{height:136px;min-height:136px/);
   assert.doesNotMatch(runtime, /task\.workCode \|\| "TASK"\}\｜\$\{task\.title/);
 });
 
@@ -79,6 +79,6 @@ test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
   assert.match(css, /\.shared-task-drawer\[data-progress-note-composer-open="true"\]/);
   assert.match(css, /\.shared-task-progress-note-header\{display:flex/);
   assert.match(css, /\.shared-task-progress-note-actions\{display:inline-flex/);
-  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:86px/);
+  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:118px/);
   assert.match(css, /\.shared-task-icon-button\{display:grid/);
 });

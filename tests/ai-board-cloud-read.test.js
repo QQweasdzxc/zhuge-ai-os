@@ -285,7 +285,7 @@ test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in ex
   assert.match(runtime, /System Activity/);
   assert.doesNotMatch(runtime, /items\.length \? items\.map\(item => checklistMarkup/);
   assert.doesNotMatch(runtime, /Checklist／Evidence 原始資料/);
-  assert.match(runtime, /💬 工作進度紀錄/);
+  assert.match(runtime, /💬 工作進度/);
   assert.match(runtime, /readableWorkStatus/);
   assert.match(runtime, /attachmentMarkup/);
   assert.match(runtime, /shared-task-attachment/);

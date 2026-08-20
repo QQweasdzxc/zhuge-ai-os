@@ -56,7 +56,7 @@ test("AI Board is the first consumer and loads the shared Drawer assets", () => 
   assert.match(index, /shared\/components\/task-drawer\.js/);
   assert.match(index, /shared\/theme\/task-drawer\.css/);
   assert.match(runtime, /ZhugeSharedTaskDrawer/);
-  assert.match(runtime, /💬 工作進度紀錄/);
+  assert.match(runtime, /💬 工作進度/);
   assert.match(runtime, /PM 驗收通過/);
   assert.match(runtime, /allowAcceptanceAction/);
   assert.doesNotMatch(runtime, /QJC 驗收通過/);

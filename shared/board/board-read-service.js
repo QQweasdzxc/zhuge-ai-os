@@ -75,15 +75,28 @@
     const value = task ? task.status : taskOrStatus;
     const status = normalizeStatus(value);
     if (isGovernanceTerminal(value)) return true;
-    if (status !== "done") return false;
-    // Legacy done rows have no lifecycle timestamp and remain in the existing
-    // read-only Archive. A newly accepted task is visible in 已完成 until the
-    // server reconciliation path records archived_at after 48 hours.
-    if (!task) return true;
+    if (!task) return status === "done";
     if (task.archivedAt) return true;
-    if (!task.completionAt) return true;
-    const due = Date.parse(task.archiveDueAt || "");
-    return Number.isFinite(due) && due <= Date.now();
+    // A task is visible in 已完成 while its Cloud-owned 48-hour window is
+    // active.  The same row remains active after a PM drags it out: the old
+    // completion timestamp is retained as evidence, while archive_due_at is
+    // cleared to cancel the current timer. Re-entering 已完成 starts a new
+    // window through the controlled RPC.
+    if (task.completionAt && task.archiveDueAt) {
+      const due = Date.parse(task.archiveDueAt);
+      // A timestamped completion row is archive-eligible by its Cloud due
+      // time. The workspace normally identifies the active lifecycle window;
+      // keeping the timestamp branch also makes the adapter safe for older
+      // read fixtures that omit workspace columns.
+      return Number.isFinite(due) && due <= Date.now();
+    }
+    if (task.completionAt && !task.archiveDueAt) return false;
+    if (status !== "done") return false;
+
+    // Legacy done rows without the new lifecycle timestamps remain in the
+    // existing read-only Archive. New completion rows are governed by the
+    // workspace/timestamp branch above.
+    return true;
   }
 
   function planTransition(task, targetUiKey) {
