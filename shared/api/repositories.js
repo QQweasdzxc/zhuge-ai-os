@@ -66,6 +66,13 @@ const SupabaseRepository = {
   remove(table, query = "") {
     return this.request(`${table}${query}`, { method: "DELETE", headers: { Prefer: "return=representation" } });
   },
+  rpc(name, payload = {}) {
+    return this.request(`rpc/${name}`, {
+      method: "POST",
+      headers: { Prefer: "return=representation", "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    });
+  },
   async patch(table, query, payload) {
     const isKnowledgeSourcesPatch = table === "knowledge_sources";
     if (isKnowledgeSourcesPatch) {
@@ -322,12 +329,21 @@ const SupabaseRepository = {
   saveEcpTasks(names) {
     return this.syncNameList("user_ecp_tasks", names);
   },
-  loadTasks() {
+  loadTasks(options = {}) {
     const userUuid = currentUserUuid();
     if (!userUuid) throw new Error("缺少使用者 UUID，無法載入待辦事項");
+    const archiveFilter = options.includeArchived === true ? "" : "&archived_at=is.null";
     return this.select(
       "user_tasks",
-      `?select=*&user_uuid=eq.${encodeURIComponent(userUuid)}&deleted_at=is.null&order=updated_at.desc`
+      `?select=*&user_uuid=eq.${encodeURIComponent(userUuid)}&deleted_at=is.null${archiveFilter}&order=updated_at.desc`
+    );
+  },
+  loadArchivedTasks() {
+    const userUuid = currentUserUuid();
+    if (!userUuid) throw new Error("缺少使用者 UUID，無法載入封存待辦事項");
+    return this.select(
+      "user_tasks",
+      `?select=*&user_uuid=eq.${encodeURIComponent(userUuid)}&deleted_at=is.null&archived_at=not.is.null&order=archived_at.desc`
     );
   },
   async saveTasks(items = []) {
@@ -338,12 +354,19 @@ const SupabaseRepository = {
     const normalized = (items || []).map(item => normalizeTask(item)).filter(item => item.title);
     const retainedIds = new Set();
     for (const item of normalized) {
-      const existing = current.find(row => (item.cloudId && row.id === item.cloudId) || row.legacy_id === item.id);
+      const existing = current.find(row => (item.cloudId && row.id === item.cloudId) || row.legacy_id === item.legacyId || row.work_code === item.workCode || row.work_code === item.id);
       const payload = {
         user_uuid: currentUserUuid(),
-        legacy_id: item.id,
+        legacy_id: item.legacyId || (String(item.id || "").startsWith("WLTK-") ? null : item.id),
+        work_code: item.workCode || (String(item.id || "").startsWith("WLTK-") ? item.id : null),
         title: item.title,
         note: item.note || "",
+        usage_scenario: item.usageScenario || "",
+        gpt_understanding: item.gptUnderstanding || "",
+        gpt_analysis: item.gptAnalysis || "",
+        gpt_recommendation: item.gptRecommendation || "",
+        gpt_execution_principles: item.gptExecutionPrinciples || "",
+        gpt_handoff_summary: item.gptHandoffSummary || "",
         due_date: item.dueDate || null,
         deadline: item.dueDate || null,
         status: item.status || "not_started",
@@ -359,6 +382,9 @@ const SupabaseRepository = {
         completed_note: item.completedNote || "",
         completed_by: item.completedBy || null,
         completion_source: item.completionSource || "manual",
+        archive_due_at: item.archiveDueAt || null,
+        archived_at: item.archivedAt || null,
+        archived_by: item.archivedBy || null,
         deleted_at: null,
         updated_at: item.updatedAt || new Date().toISOString()
       };
@@ -371,15 +397,17 @@ const SupabaseRepository = {
       }
     }
     for (const row of current) {
-      if (!retainedIds.has(row.id)) await this.patch("user_tasks", `?id=eq.${encodeURIComponent(row.id)}`, { deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      // Archived WorkTodo rows remain canonical history and must never be
+      // soft-deleted merely because the active UI did not load them.
+      if (!retainedIds.has(row.id) && !row.archived_at) await this.patch("user_tasks", `?id=eq.${encodeURIComponent(row.id)}`, { deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     }
-    return this.loadTasks();
+    return this.loadTasks({ includeArchived: true });
   },
   // Sprint 7.2: Work Journal is an independent 1:N timeline.  It is never
   // stored inside a task note; every write is keyed by the cloud task UUID.
   loadWorkJournal(taskUuid = "") {
     const taskFilter = taskUuid ? `&task_uuid=eq.${encodeURIComponent(taskUuid)}` : "";
-    return this.select("work_journal_entries", `?select=*&user_uuid=eq.${encodeURIComponent(currentUserUuid())}${taskFilter}&order=created_at.asc`);
+    return this.select("work_journal_entries", `?select=*&user_uuid=eq.${encodeURIComponent(currentUserUuid())}${taskFilter}&lifecycle_status=eq.active&entry_type=in.(progress,completion,note)&order=created_at.asc`);
   },
   async saveWorkJournalEntry(entry = {}) {
     if (!currentUserUuid() || !currentAccessToken()) throw new Error("Cloud Sync 尚未就緒");
@@ -387,36 +415,89 @@ const SupabaseRepository = {
     const content = String(entry.content || "").trim();
     if (!taskUuid) throw new Error("Work Journal 缺少待辦事項 UUID");
     if (!content) throw new Error("請輸入進度紀錄");
-    const payload = {
-      user_uuid: currentUserUuid(),
-      task_uuid: taskUuid,
-      entry_type: entry.entryType || entry.entry_type || "progress",
-      content,
-      status: entry.status || null,
-      progress: Math.max(0, Math.min(100, Number(entry.progress || 0) || 0)),
-      work_entry_uuid: entry.workEntryUuid || entry.work_entry_uuid || null,
-      metadata: entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {},
-      client_id: entry.clientId || entry.client_id || uid("journal"),
-      created_by: currentUserUuid(),
-      created_at: entry.createdAt || entry.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
     if (entry.cloudId || entry.id) {
       const id = entry.cloudId || entry.id;
-      const rows = await this.patch("work_journal_entries", `?id=eq.${encodeURIComponent(id)}`, payload);
-      return rows?.[0] || null;
+      const rows = await this.rpc("worktodo_edit_progress_note", {
+        p_entry_id: id,
+        p_content: content,
+        p_metadata: entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {}
+      });
+      return Array.isArray(rows) ? rows[0] || null : rows || null;
     }
-    const rows = await this.request("work_journal_entries?on_conflict=user_uuid,client_id", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify(payload)
+    const rows = await this.rpc("worktodo_add_progress_note", {
+      p_task_id: taskUuid,
+      p_content: content,
+      p_entry_type: entry.entryType || entry.entry_type || "progress",
+      p_status: entry.status || null,
+      p_progress: Math.max(0, Math.min(100, Number(entry.progress || 0) || 0)),
+      p_metadata: entry.metadata && typeof entry.metadata === "object" ? entry.metadata : {}
     });
-    return rows?.[0] || null;
+    return Array.isArray(rows) ? rows[0] || null : rows || null;
   },
   deleteWorkJournalEntry(entry = {}) {
     const id = entry.cloudId || entry.id;
     if (!id) throw new Error("Work Journal 缺少 ID");
-    return this.remove("work_journal_entries", `?id=eq.${encodeURIComponent(id)}`);
+    return this.rpc("worktodo_delete_progress_note", { p_entry_id: id });
+  },
+  loadWorkTodoChecklist(taskUuid = "") {
+    if (!taskUuid) return Promise.resolve([]);
+    return this.select("worktodo_checklist_items", `?select=*&task_uuid=eq.${encodeURIComponent(taskUuid)}&deleted_at=is.null&order=sort_order.asc,created_at.asc`);
+  },
+  addWorkTodoChecklistItem(taskUuid, label, sortOrder = 0) {
+    return this.rpc("worktodo_add_checklist_item", { p_task_id: taskUuid, p_label: label, p_sort_order: sortOrder });
+  },
+  updateWorkTodoChecklistItem(itemId, patch = {}) {
+    return this.rpc("worktodo_update_checklist_item", { p_item_id: itemId, p_label: patch.label ?? null, p_completed: patch.completed ?? null, p_sort_order: patch.sortOrder ?? null });
+  },
+  deleteWorkTodoChecklistItem(itemId) {
+    return this.rpc("worktodo_delete_checklist_item", { p_item_id: itemId });
+  },
+  loadWorkTodoAttachments(taskUuid = "") {
+    if (!taskUuid) return Promise.resolve([]);
+    return this.select("worktodo_attachments", `?select=*&task_uuid=eq.${encodeURIComponent(taskUuid)}&upload_status=eq.ready&deletion_status=eq.active&order=created_at.asc`);
+  },
+  prepareWorkTodoAttachment(taskUuid, file, options = {}) {
+    return this.rpc("worktodo_prepare_attachment", {
+      p_task_id: taskUuid,
+      p_filename: file?.name || options.filename || "attachment",
+      p_mime_type: file?.type || options.mimeType || "application/octet-stream",
+      p_byte_size: Number(file?.size || options.byteSize || 0),
+      p_attachment_scope: options.scope || "task",
+      p_journal_entry_id: options.journalEntryId || null
+    });
+  },
+  uploadWorkTodoFile(path, file) {
+    if (!path || !file) throw new Error("缺少 WorkTodo 附件檔案或正式路徑");
+    return this.storageRequest(`object/worktodo-attachments/${this.encodeStoragePath(path)}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream", "x-upsert": "false" },
+      body: file
+    });
+  },
+  completeWorkTodoAttachment(attachmentId) {
+    return this.rpc("worktodo_complete_attachment", { p_attachment_id: attachmentId });
+  },
+  async signedWorkTodoAttachmentUrl(path = "", expiresIn = 300) {
+    if (!path) throw new Error("WorkTodo 附件尚無正式 Storage Path");
+    const data = await this.storageRequest(`object/sign/worktodo-attachments/${this.encodeStoragePath(path)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn })
+    });
+    const url = data?.signedURL || data?.signedUrl || data?.signed_url || "";
+    if (!url) throw new Error("WorkTodo Storage 未回傳預覽連結");
+    return url.startsWith("http") ? url : `${AUTH_CONFIG.supabaseUrl}/storage/v1${url}`;
+  },
+  async requestDeleteWorkTodoAttachment(attachmentId) {
+    const rows = await this.rpc("worktodo_request_attachment_delete", { p_attachment_id: attachmentId });
+    return Array.isArray(rows) ? rows[0] || null : rows || null;
+  },
+  async finalizeDeleteWorkTodoAttachment(attachmentId, path) {
+    await this.storageRequest(`object/worktodo-attachments/${this.encodeStoragePath(path)}`, { method: "DELETE" });
+    return this.rpc("worktodo_finalize_attachment_delete", { p_attachment_id: attachmentId });
+  },
+  reconcileWorkTodoCompletionLifecycle() {
+    return this.rpc("worktodo_reconcile_completion_lifecycle", {});
   },
   async ensureAssistantConversation() {
     if (!currentUserUuid() || !currentAccessToken()) throw new Error("Cloud Sync 尚未就緒");

@@ -62,13 +62,15 @@ test("WorkTodo adapter renders the shared Drawer without owning Cloud access", (
   });
 
   assert.match(html, /data-shared-task-framework="v1"/);
-  assert.match(html, /WorkTodo · Shared Task Drawer/);
+  assert.match(html, /WorkTodo · Shared Task UX/);
   assert.match(html, /補充採購資料/);
   assert.match(html, /data-worktodo-shared-drawer/);
   assert.match(html, /工作進度/);
   assert.match(html, /已開始整理/);
   assert.match(html, /data-worktodo-journal-entry="journal-1"/);
-  assert.doesNotMatch(html, /Checklist|GPT 分析與建議|工程詳細資料/);
+  assert.match(html, /工作 Checklist/);
+  assert.match(html, /GPT 分析與建議/);
+  assert.doesNotMatch(html, /工程詳細資料/);
 
   const source = read("modules/worklog/components/worktodo-task-adapter.js");
   assert.doesNotMatch(source, /\b(?:DataService|supabase|localStorage|sessionStorage)\s*(?:\.|\()/i);
@@ -79,18 +81,16 @@ test("WorkTodo adapter renders cards through the shared Task Card shell", () => 
   const html = Adapter.renderCard({ id: "task-2", title: "整理採購資料", note: "等待供應商回覆", status: "in_progress", progress: 30, priority: "p2" }, {
     card: Card,
     titleHtml: "<span>工作</span> 整理採購資料",
-    summaryHtml: "<small>期限：2026/08/25</small>",
-    actionsHtml: "<button data-task-edit=\"task-2\">編輯</button>",
-    bodyHtml: "<div data-progress>30%</div>"
+    summaryHtml: "<small>期限：2026/08/25</small>"
   });
   assert.match(html, /shared-task-card/);
   assert.match(html, /data-worktodo-open-task="task-2"/);
-  assert.match(html, /shared-task-card-actions/);
-  assert.match(html, /data-task-edit="task-2"/);
-  assert.match(html, /data-progress/);
+  assert.doesNotMatch(html, /shared-task-card-actions/);
+  assert.doesNotMatch(html, /data-task-edit/);
+  assert.doesNotMatch(html, /data-progress/);
 });
 
-test("WorkTodo adapter exposes explicit capability gaps instead of fake UI", () => {
+test("WorkTodo adapter exposes the approved shared capability contract", () => {
   assert.equal(Adapter.CAPABILITIES.title, true);
   assert.equal(Adapter.CAPABILITIES.note, true);
   assert.equal(Adapter.CAPABILITIES.status, true);
@@ -100,11 +100,14 @@ test("WorkTodo adapter exposes explicit capability gaps instead of fake UI", () 
   assert.equal(Adapter.CAPABILITIES.dueDate, true);
   assert.equal(Adapter.CAPABILITIES.completion, true);
   assert.equal(Adapter.CAPABILITIES.workJournal, true);
-  assert.equal(Adapter.CAPABILITIES.checklist, false);
-  assert.equal(Adapter.CAPABILITIES.generalAttachment, false);
-  assert.equal(Adapter.CAPABILITIES.progressNoteAttachment, false);
-  assert.equal(Adapter.CAPABILITIES.gptAnalysis, false);
-  assert.equal(Adapter.CAPABILITIES.usageScenario, false);
+  assert.equal(Adapter.CAPABILITIES.wltkIdentity, true);
+  assert.equal(Adapter.CAPABILITIES.checklist, true);
+  assert.equal(Adapter.CAPABILITIES.generalAttachment, true);
+  assert.equal(Adapter.CAPABILITIES.progressNoteAttachment, true);
+  assert.equal(Adapter.CAPABILITIES.progressNoteRevisionTombstone, true);
+  assert.equal(Adapter.CAPABILITIES.gptAnalysis, true);
+  assert.equal(Adapter.CAPABILITIES.usageScenario, true);
+  assert.equal(Adapter.CAPABILITIES.completionArchiveLifecycle, true);
 });
 
 test("WorkLog loads the shared Drawer and keeps WorkTodo writes in its existing path", () => {

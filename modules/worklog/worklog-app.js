@@ -1,4 +1,7 @@
 // P5.2A-1 Foundation Split: app startup, routing, rendering, and module coordination.
+// WorkTodo capability data is a short-lived Cloud projection for the open
+// drawer. It is never a source of truth and is refreshed from Repository/RPC.
+const workTodoCapabilityCache = new Map();
 function currentCalendarMonthKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -305,16 +308,26 @@ function taskStatusOptions(selected = "not_started") {
 
 function normalizeTask(item = {}) {
   const title = String(item.title || item.name || "").trim();
-  const clientId = item.legacy_id || item.clientId || item.client_id || item.id || uid("task");
+  const workCode = String(item.workCode || item.work_code || "").trim();
+  const legacyId = String(item.legacyId || item.legacy_id || item.clientId || item.client_id || "").trim();
+  const clientId = workCode || legacyId || item.id || uid("task");
   const priority = typeof PriorityEngine !== "undefined"
     ? PriorityEngine.normalizePriority(item.priority)
     : String(item.priority || "p2").toLowerCase();
   const status = normalizeTaskStatus(item.status, item);
   return {
     id: String(clientId),
-    cloudId: String(item.cloudId || item.cloud_id || (item.legacy_id ? item.id || "" : "")),
+    workCode,
+    legacyId,
+    cloudId: String(item.cloudId || item.cloud_id || item.id || ""),
     title,
     note: String(item.note || "").trim(),
+    usageScenario: String(item.usageScenario || item.usage_scenario || "").trim(),
+    gptUnderstanding: String(item.gptUnderstanding || item.gpt_understanding || "").trim(),
+    gptAnalysis: String(item.gptAnalysis || item.gpt_analysis || "").trim(),
+    gptRecommendation: String(item.gptRecommendation || item.gpt_recommendation || "").trim(),
+    gptExecutionPrinciples: String(item.gptExecutionPrinciples || item.gpt_execution_principles || "").trim(),
+    gptHandoffSummary: String(item.gptHandoffSummary || item.gpt_handoff_summary || "").trim(),
     dueDate: String(item.dueDate || item.deadline || item.due_date || "").slice(0, 10),
     status,
     progress: status === "completed" ? 100 : taskProgressValue(item.progress),
@@ -329,7 +342,10 @@ function normalizeTask(item = {}) {
     startedAt: item.startedAt || item.started_at || "",
     completedNote: String(item.completedNote || item.completed_note || "").trim(),
     completedBy: item.completedBy || item.completed_by || "",
-    completionSource: item.completionSource || item.completion_source || "manual"
+    completionSource: item.completionSource || item.completion_source || "manual",
+    archiveDueAt: item.archiveDueAt || item.archive_due_at || "",
+    archivedAt: item.archivedAt || item.archived_at || "",
+    archivedBy: item.archivedBy || item.archived_by || ""
   };
 }
 
@@ -366,7 +382,10 @@ function normalizeWorkJournalEntry(row = {}) {
     metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
     createdBy: String(row.created_by || row.createdBy || ""),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-    updatedAt: row.updated_at || row.updatedAt || row.created_at || new Date().toISOString()
+    updatedAt: row.updated_at || row.updatedAt || row.created_at || new Date().toISOString(),
+    lifecycleStatus: String(row.lifecycle_status || row.lifecycleStatus || "active"),
+    revisionOf: String(row.revision_of || row.revisionOf || ""),
+    tombstoneOf: String(row.tombstone_of || row.tombstoneOf || "")
   };
 }
 
@@ -447,9 +466,15 @@ async function openTaskJournal(taskId = "") {
   render("journal-open");
   try {
     if (!taskCloudUuid(task)) throw new Error("此待辦事項尚未完成 Cloud 建立，請先儲存後再新增工作紀錄");
-    const rows = await DataService.loadWorkJournal(taskCloudUuid(task));
+    const [rows, capabilityData] = await Promise.all([
+      DataService.loadWorkJournal(taskCloudUuid(task)),
+      typeof DataService.loadWorkTodoTaskCapabilities === "function"
+        ? DataService.loadWorkTodoTaskCapabilities(taskCloudUuid(task))
+        : Promise.resolve({ checklist: [], attachments: [] })
+    ]);
     const other = workJournalEntries.filter(entry => entry.taskUuid !== taskCloudUuid(task));
     setWorkJournalFromCloud([...other, ...(rows || [])]);
+    workTodoCapabilityCache.set(taskCloudUuid(task), capabilityData || { checklist: [], attachments: [] });
   } catch (error) {
     console.error("Work Journal load failed", error);
     toast(error.message || "工作紀錄載入失敗");
@@ -466,7 +491,7 @@ function openDashboardTask(taskId = "") {
   activeWorkspace = "tasks";
   if (!openTabs.includes("tasks")) openTabs.push("tasks");
   rememberWorkspace("tasks");
-  taskFilter = task.status === "completed" ? "completed" : "open";
+  taskFilter = task.archivedAt ? "archived" : task.status === "completed" ? "completed" : "open";
   taskSearch = "";
   editingTaskId = null;
   taskDrawerOpen = false;
@@ -503,6 +528,7 @@ async function saveTaskJournal(taskId = "") {
   let task = tasks.find(item => item.id === taskId);
   const content = document.getElementById("taskJournalContent")?.value?.trim() || "";
   if (!task || !content) return toast("請輸入進度紀錄");
+  const progressFiles = [...(document.getElementById("worktodoProgressAttachmentInput")?.files || [])];
   const timeline = workJournalForTask(task);
   const editingEntry = taskJournalEditingEntryId
     ? timeline.find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId))
@@ -517,7 +543,14 @@ async function saveTaskJournal(taskId = "") {
         content,
         metadata: { ...(editingEntry.metadata || {}), editedAt: new Date().toISOString(), editSource: "task-workspace" }
       });
-      upsertWorkJournalEntry(saved || { ...editingEntry, content, updatedAt: new Date().toISOString() });
+      if (progressFiles.length && saved?.id && typeof DataService.uploadWorkTodoProgressAttachment === "function") {
+        for (const file of progressFiles) await DataService.uploadWorkTodoProgressAttachment(taskCloudUuid(task), saved.id, file);
+      }
+      const refreshedCapabilities = await DataService.loadWorkTodoTaskCapabilities(taskCloudUuid(task)).catch(() => null);
+      if (refreshedCapabilities) workTodoCapabilityCache.set(taskCloudUuid(task), refreshedCapabilities);
+      const refreshedJournal = await DataService.loadWorkJournal(taskCloudUuid(task));
+      const otherJournal = workJournalEntries.filter(item => item.taskUuid !== taskCloudUuid(task));
+      setWorkJournalFromCloud([...otherJournal, ...(refreshedJournal || [])]);
       taskJournalDraft = null;
       taskJournalEditingEntryId = null;
       toast("進度紀錄已更新至 Cloud");
@@ -554,11 +587,16 @@ async function saveTaskJournal(taskId = "") {
       progress,
       metadata: { source: "task-workspace", previousStatus: task.status, previousProgress: task.progress, updateStatus, updateProgress, autoStarted: isFirstJournal && task.status !== "completed", startedAt: isFirstJournal && task.status !== "completed" ? journalStartedAt : task.startedAt }
     });
+    if (progressFiles.length && saved?.id && typeof DataService.uploadWorkTodoProgressAttachment === "function") {
+      for (const file of progressFiles) await DataService.uploadWorkTodoProgressAttachment(cloudTaskUuid, saved.id, file);
+    }
     if (updateStatus || updateProgress || (isFirstJournal && task.status !== "completed")) {
       tasks = tasks.map(item => item.id === task.id ? normalizeTask({ ...item, status, progress, startedAt: isFirstJournal && item.status !== "completed" ? journalStartedAt : item.startedAt, completedAt: updateStatus && status === "completed" ? new Date().toISOString() : item.completedAt, completedNote: updateStatus && status === "completed" ? content : item.completedNote, completedBy: updateStatus && status === "completed" ? currentUserUuid() : item.completedBy, updatedAt: new Date().toISOString() }) : item);
       await DataService.saveTasksNow(tasks);
     }
     upsertWorkJournalEntry(saved);
+    const refreshedCapabilities = await DataService.loadWorkTodoTaskCapabilities(cloudTaskUuid).catch(() => null);
+    if (refreshedCapabilities) workTodoCapabilityCache.set(cloudTaskUuid, refreshedCapabilities);
     taskJournalDraft = null;
     toast(isFirstJournal && task.status !== "completed" ? "工作已開始，進度紀錄已儲存至 Cloud" : "進度紀錄已儲存至 Cloud");
     render("journal-saved");
@@ -603,15 +641,177 @@ function bindWorkTodoInlineField(root, task) {
       const wrapper = root.querySelector(`[data-worktodo-inline-field="${field}"]`);
       const valueNode = wrapper?.querySelector("[data-worktodo-field-value]");
       if (!wrapper || !valueNode) return;
-      const currentValue = field === "note" ? task.note : "";
+      const currentValue = field === "note" ? task.note : field === "usageScenario" ? task.usageScenario : "";
       wrapper.innerHTML = `<div class="worktodo-shared-inline-editor"><textarea class="input" data-worktodo-field-editor rows="4">${escapeHtml(currentValue)}</textarea><div class="worktodo-shared-inline-editor-actions"><button class="btn2" type="button" data-worktodo-field-cancel>取消</button><button class="btn" type="button" data-worktodo-field-save>儲存</button></div></div>`;
       wrapper.querySelector("[data-worktodo-field-editor]")?.focus();
       wrapper.querySelector("[data-worktodo-field-cancel]")?.addEventListener("click", () => render("worktodo-inline-edit-cancel"));
       wrapper.querySelector("[data-worktodo-field-save]")?.addEventListener("click", () => {
         const nextValue = wrapper.querySelector("[data-worktodo-field-editor]")?.value?.trim() || "";
         if (field === "note") saveWorkTodoTaskPatch(task.id, { note: nextValue }, "工作內容已更新至 Cloud");
+        if (field === "usageScenario") saveWorkTodoTaskPatch(task.id, { usageScenario: nextValue }, "使用情境已更新至 Cloud");
       });
     };
+  });
+}
+
+async function refreshWorkTodoDrawerCapabilities() {
+  const task = workTodoSharedTask();
+  if (!task || !taskCloudUuid(task) || typeof DataService?.loadWorkTodoTaskCapabilities !== "function") return;
+  try {
+    const data = await DataService.loadWorkTodoTaskCapabilities(taskCloudUuid(task));
+    workTodoCapabilityCache.set(taskCloudUuid(task), data || { checklist: [], attachments: [] });
+    if (document.querySelector("[data-worktodo-shared-drawer]")) render("worktodo-capabilities-realtime");
+  } catch (error) {
+    console.warn("WorkTodo capability refresh failed", error);
+  }
+}
+
+function workTodoCapabilityData(task) {
+  return workTodoCapabilityCache.get(taskCloudUuid(task)) || { checklist: [], attachments: [] };
+}
+
+function bindWorkTodoChecklist(root, task) {
+  if (root.dataset.readOnly === "true") return;
+  root.querySelectorAll("[data-worktodo-checklist-complete]").forEach(input => {
+    input.onchange = async () => {
+      input.disabled = true;
+      try {
+        await DataService.updateWorkTodoChecklistItem(input.dataset.worktodoChecklistComplete, { completed: input.checked });
+        await refreshWorkTodoDrawerCapabilities();
+      } catch (error) {
+        input.checked = !input.checked;
+        input.disabled = false;
+        toast(error.message || "Checklist 更新失敗");
+      }
+    };
+  });
+  root.querySelectorAll("[data-worktodo-checklist-delete]").forEach(button => {
+    button.onclick = async () => {
+      if (!confirm("確定移除此 Checklist 項目？")) return;
+      button.disabled = true;
+      try {
+        await DataService.deleteWorkTodoChecklistItem(button.dataset.worktodoChecklistDelete);
+        await refreshWorkTodoDrawerCapabilities();
+      } catch (error) {
+        button.disabled = false;
+        toast(error.message || "Checklist 移除失敗");
+      }
+    };
+  });
+  root.querySelector("[data-worktodo-checklist-add]")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = root.querySelector("[data-worktodo-checklist-label]");
+    const label = input?.value?.trim() || "";
+    if (!label) return toast("請輸入 Checklist 項目");
+    const submit = event.currentTarget.querySelector("button[type=submit]");
+    if (submit?.disabled) return;
+    if (submit) submit.disabled = true;
+    try {
+      const count = workTodoCapabilityData(task).checklist?.length || 0;
+      await DataService.addWorkTodoChecklistItem(taskCloudUuid(task), label, count);
+      await refreshWorkTodoDrawerCapabilities();
+    } catch (error) {
+      if (submit) submit.disabled = false;
+      toast(error.message || "Checklist 新增失敗");
+    }
+  });
+}
+
+async function workTodoOpenAttachment(attachment) {
+  if (!attachment?.storagePath) return toast("附件尚無正式 Storage Path");
+  try {
+    const url = await SupabaseRepository.signedWorkTodoAttachmentUrl(attachment.storagePath, 300);
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    toast(error.message || "附件開啟失敗");
+  }
+}
+
+function bindWorkTodoAttachments(root, task) {
+  const data = workTodoCapabilityData(task);
+  const attachments = Array.isArray(data.attachments) ? data.attachments : [];
+  attachments.forEach(item => {
+    const preview = root.querySelector(`[data-worktodo-attachment-preview="${item.id}"]`);
+    if (preview && String(item.mime_type || item.mimeType || "").startsWith("image/")) {
+      SupabaseRepository.signedWorkTodoAttachmentUrl(item.storage_path || item.storagePath, 300).then(url => {
+        preview.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.filename || "附件預覽")}">`;
+      }).catch(() => {});
+    }
+  });
+  root.querySelectorAll("[data-worktodo-attachment-open]").forEach(button => {
+    button.onclick = () => workTodoOpenAttachment(attachments.find(item => String(item.id) === String(button.dataset.worktodoAttachmentOpen)));
+  });
+  if (root.dataset.readOnly === "true") return;
+  root.querySelectorAll("[data-worktodo-attachment-delete]").forEach(button => {
+    button.onclick = async () => {
+      const item = attachments.find(row => String(row.id) === String(button.dataset.worktodoAttachmentDelete));
+      if (!item || !confirm(`確定刪除附件「${item.filename}」？`)) return;
+      button.disabled = true;
+      try {
+        await DataService.deleteWorkTodoAttachment(item);
+        await refreshWorkTodoDrawerCapabilities();
+        toast("附件已透過正式刪除流程移除");
+      } catch (error) {
+        button.disabled = false;
+        toast(error.message || "附件刪除失敗");
+      }
+    };
+  });
+  root.querySelector("#worktodoTaskAttachmentInput")?.addEventListener("change", async event => {
+    const files = [...(event.target.files || [])];
+    if (!files.length) return;
+    event.target.disabled = true;
+    try {
+      for (const file of files) await DataService.uploadWorkTodoAttachment(taskCloudUuid(task), file, { scope: "task" });
+      await refreshWorkTodoDrawerCapabilities();
+      toast("附件已保存至 Cloud");
+    } catch (error) {
+      toast(error.message || "附件上傳失敗");
+    } finally {
+      event.target.disabled = false;
+      event.target.value = "";
+    }
+  });
+}
+
+function bindWorkTodoProgressComposer(root, task) {
+  const floating = root.querySelector("[data-shared-task-floating-action]");
+  const panel = root.querySelector("[data-worktodo-composer-panel]");
+  root.querySelector("[data-worktodo-composer-open]")?.addEventListener("click", () => {
+    if (panel) panel.hidden = false;
+    if (floating) floating.hidden = true;
+    panel?.querySelector("textarea")?.focus();
+  });
+  root.querySelector("[data-worktodo-composer-close]")?.addEventListener("click", () => {
+    if (panel) panel.hidden = true;
+    if (floating) floating.hidden = false;
+    taskJournalDraft = null;
+    taskJournalEditingEntryId = null;
+  });
+  root.querySelector("[data-worktodo-journal-save]")?.addEventListener("click", () => saveTaskJournal(task.id));
+}
+
+function bindWorkTodoAnalysis(root, task) {
+  const property = root.querySelector('[data-task-property-action="gpt-analysis"]');
+  property?.addEventListener("click", () => {
+    const grid = root.querySelector(".shared-task-drawer-grid");
+    const parent = grid?.parentElement;
+    if (!grid || !parent || root.__workTodoAnalysisView) return;
+    const holder = document.createElement("div");
+    holder.innerHTML = ZhugeWorkTodoTaskAdapter.analysisMarkup(ZhugeWorkTodoTaskAdapter.normalize(task, workJournalForTask(task), workTodoCapabilityData(task)));
+    const view = holder.firstElementChild;
+    if (!view) return;
+    root.__workTodoAnalysisView = { grid, parent, view };
+    parent.replaceChild(view, grid);
+    root.querySelector("[data-shared-task-floating-action]")?.setAttribute("hidden", "hidden");
+    view.querySelector("[data-worktodo-analysis-close]")?.addEventListener("click", () => {
+      const state = root.__workTodoAnalysisView;
+      if (state?.view?.parentNode === state.parent) {
+        state.parent.replaceChild(state.grid, state.view);
+        delete root.__workTodoAnalysisView;
+        root.querySelector("[data-task-property-action=\"gpt-analysis\"]")?.focus();
+      }
+    });
   });
 }
 
@@ -668,6 +868,10 @@ function bindWorkTodoSharedDrawer() {
   bindWorkTodoInlineField(root, task);
   bindWorkTodoTitleEditor(root, task);
   bindWorkTodoControls(root, task);
+  bindWorkTodoChecklist(root, task);
+  bindWorkTodoAttachments(root, task);
+  bindWorkTodoProgressComposer(root, task);
+  bindWorkTodoAnalysis(root, task);
   root.querySelectorAll("[data-worktodo-journal-edit]").forEach(button => {
     button.onclick = () => {
       const entry = workJournalForTask(task).find(item => journalEntryKey(item) === String(button.dataset.worktodoJournalEdit));
@@ -675,6 +879,24 @@ function bindWorkTodoSharedDrawer() {
       taskJournalEditingEntryId = journalEntryKey(entry);
       taskJournalDraft = { content: entry.content, editEntryId: taskJournalEditingEntryId, updateStatus: false, updateProgress: false, status: entry.status, progress: entry.progress };
       render("worktodo-journal-edit-open");
+    };
+  });
+  root.querySelectorAll("[data-worktodo-journal-delete]").forEach(button => {
+    button.onclick = async () => {
+      const entry = workJournalForTask(task).find(item => journalEntryKey(item) === String(button.dataset.worktodoJournalDelete));
+      if (!entry || !confirm("確定撤回這筆工作進度？原始歷程會保留於 Cloud Audit。")) return;
+      button.disabled = true;
+      try {
+        await DataService.deleteWorkJournalEntry({ cloudId: entry.cloudId || entry.id });
+        const rows = await DataService.loadWorkJournal(taskCloudUuid(task));
+        const other = workJournalEntries.filter(item => item.taskUuid !== taskCloudUuid(task));
+        setWorkJournalFromCloud([...other, ...(rows || [])]);
+        toast("工作進度已透過 tombstone 撤回");
+        render("worktodo-journal-deleted");
+      } catch (error) {
+        button.disabled = false;
+        toast(error.message || "工作進度撤回失敗");
+      }
     };
   });
   root.querySelector("[data-journal-cancel]")?.addEventListener("click", () => {
@@ -706,8 +928,13 @@ function sortTasksByRecentUpdate(list = []) {
 function taskListItems() {
   const search = taskSearch.trim().toLowerCase();
   const filtered = tasks
-    .filter(task => taskFilter === "all" || (taskFilter === "open" ? task.status !== "completed" : task.status === "completed"))
-    .filter(task => !search || `${task.title} ${task.note}`.toLowerCase().includes(search));
+    .filter(task => {
+      if (taskFilter === "archived") return Boolean(task.archivedAt);
+      if (task.archivedAt) return false;
+      if (taskFilter === "all") return true;
+      return taskFilter === "open" ? task.status !== "completed" : task.status === "completed";
+    })
+    .filter(task => !search || `${task.workCode} ${task.title} ${task.note} ${task.usageScenario}`.toLowerCase().includes(search));
   return sortTasksByRecentUpdate(filtered);
 }
 
@@ -5099,18 +5326,11 @@ function taskWorkspace() {
   const value = (key, fallback = "") => editing ? (draft[key] ?? editing[key] ?? fallback) : (draft[key] ?? fallback);
   const form = `<section class="task-form"><div class="panel-head"><div><h3>${editing ? "✏️ 編輯待辦事項" : "＋ 新增待辦"}</h3><div class="muted">進度描述工作目前在哪個階段；完成說明只在結案時填寫。</div></div><button class="btn2 task-drawer-close" type="button" data-task-drawer-close aria-label="關閉新增待辦">×</button></div><label>待辦事項名稱</label><input class="input" id="taskTitle" value="${escapeHtml(value("title"))}" placeholder="例如：寄出採購資料"><label>備註（選填）</label><textarea class="input" id="taskNote" rows="3" placeholder="補充說明">${escapeHtml(value("note"))}</textarea><label>狀態</label><select class="input" id="taskStatus">${taskStatusOptions(normalizeTaskStatus(value("status", editing?.status || "not_started")))}</select><label class="task-progress-label">進度 <output id="taskProgressOutput">${taskProgressValue(value("progress", editing?.progress || 0))}%</output></label><input class="task-progress-range" id="taskProgress" type="range" min="0" max="100" step="5" value="${taskProgressValue(value("progress", editing?.progress || 0))}"><label>期限（選填）</label><input class="input task-date-input" id="taskDueDate" type="date" value="${escapeHtml(value("dueDate"))}"><fieldset class="task-priority-fieldset"><legend>Priority</legend><div class="task-priority-options">${taskPriorityOptions(value("priority", editing?.priority || "p2"))}</div><label class="task-pin-option"><input type="checkbox" id="taskPinned" ${value("userPinned", editing?.userPinned) ? "checked" : ""}> 📌 置頂</label></fieldset><div class="form-actions"><button class="btn2" type="button" data-task-cancel="1">取消</button><button class="btn" type="button" data-task-save="1">${editing ? "儲存修改" : "建立待辦"}</button></div></section>`;
   const rows = list.length ? list.map(task => {
-    const timeline = workJournalForTask(task);
-    const latest = timeline[timeline.length - 1];
-    const latestMarkup = latest ? `<details class="task-latest-journal"><summary><span class="task-latest-journal-label">🟢 最新更新</span><time>${escapeHtml(fmt(latest.createdAt))}</time></summary><div class="task-latest-journal-content">${renderJournalContent(latest.content)}</div></details>` : "";
-    const worklogHours = taskWorklogHours(task);
-    const taskActions = `<button class="btn2" type="button" data-task-journal="${escapeHtml(task.id)}">開啟</button><button class="btn2" type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === "completed" ? "恢復" : "完成"}</button><button class="btn2" type="button" data-task-edit="${escapeHtml(task.id)}">編輯</button><button class="btn2 danger" type="button" data-task-delete="${escapeHtml(task.id)}">刪除</button>`;
-    const taskSummary = `<small>${task.dueDate ? `期限：${escapeHtml(task.dueDate)}` : "無期限"}｜${escapeHtml(typeof PriorityEngine !== "undefined" ? PriorityEngine.getReason(task) : "依目前工作優先順序。")} ${task.note ? `｜${escapeHtml(task.note)}` : ""}${worklogHours > 0 ? `｜⏱ ${escapeHtml(formatHumanDuration(worklogHours))}` : ""}</small>`;
-    const taskBody = `<div class="task-row-content"><div class="task-progress-track" aria-label="進度 ${task.progress}%"><span style="width:${task.progress}%"></span></div>${latestMarkup}${task.status === "completed" && task.completedNote ? `<div class="task-completion-note">完成說明：${escapeHtml(task.completedNote)}</div>` : ""}</div>`;
     return ZhugeWorkTodoTaskAdapter.renderCard(task, {
-      titleHtml: `${taskPriorityBadge(task)} ${taskWorkflowBadge(task)} <span class="worktodo-shared-card-title-status" aria-hidden="true">${task.status === "completed" ? "✅" : "⬜"}</span> ${escapeHtml(task.title)}`,
-      summaryHtml: taskSummary,
-      actionsHtml: taskActions,
-      bodyHtml: taskBody
+      titleHtml: escapeHtml(task.title),
+      summaryHtml: task.note ? escapeHtml(task.note) : "<small>尚未補充工作內容。</small>",
+      actionsHtml: "",
+      bodyHtml: ""
     });
   }).join("") : `<div class="empty"><b>${taskSearch ? "找不到符合的待辦事項" : "目前還沒有待辦事項"}</b><div class="muted">可以建立今天第一個待辦事項。</div></div>`;
   const completionTask = taskCompletionDialogId ? tasks.find(task => task.id === taskCompletionDialogId) : null;
@@ -5123,9 +5343,10 @@ function taskWorkspace() {
   const drawer = `<div class="task-drawer-backdrop ${drawerOpen ? "is-open" : ""}" data-task-drawer-close aria-hidden="true"></div><aside class="task-drawer ${drawerOpen ? "is-open" : ""}" data-task-drawer role="dialog" aria-modal="true" aria-hidden="${drawerOpen ? "false" : "true"}" aria-label="新增待辦">${form}</aside>`;
   const journalTask = taskJournalTaskId ? tasks.find(task => task.id === taskJournalTaskId) : null;
   const sharedDrawer = journalTask && typeof ZhugeWorkTodoTaskAdapter !== "undefined"
-    ? ZhugeWorkTodoTaskAdapter.render(journalTask, { journal: workJournalForTask(journalTask), loading: taskJournalLoading, journalDraft: taskJournalDraft, editingEntry: taskJournalEditingEntryId ? workJournalForTask(journalTask).find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null, actorLabel: session?.name || session?.email || "目前使用者", formatTimestamp: value => fmt(value), renderContent: value => renderJournalContent(value) })
+    ? ZhugeWorkTodoTaskAdapter.render(journalTask, { journal: workJournalForTask(journalTask), capabilityData: workTodoCapabilityData(journalTask), loading: taskJournalLoading, readOnly: Boolean(journalTask.archivedAt), journalDraft: taskJournalDraft, editingEntry: taskJournalEditingEntryId ? workJournalForTask(journalTask).find(entry => journalEntryKey(entry) === String(taskJournalEditingEntryId)) : null, actorLabel: session?.name || session?.email || "目前使用者", formatTimestamp: value => fmt(value), renderContent: value => renderJournalContent(value) })
     : "";
-  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${tasks.length} 項｜未完成 ${tasks.filter(task => task.status !== "completed").length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : "已完成"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${sharedDrawer}${dialog}</section>`;
+  const activeTasks = tasks.filter(task => !task.archivedAt);
+  return `<section class="panel tasks-workspace lifecycle-task-workspace" style="margin-top:18px"><div class="panel-head"><div><h2>✅ 待辦事項</h2><div class="muted">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${tasks.filter(task => task.archivedAt).length} 項</div></div><button class="btn" type="button" data-task-new="1">＋ 新增待辦</button></div><div class="task-workspace-grid"><section class="task-list-section"><div class="task-toolbar"><div class="task-filters">${["all", "open", "completed", "archived"].map(filter => `<button class="btn2 ${taskFilter === filter ? "selected" : ""}" type="button" data-task-filter="${filter}">${filter === "all" ? "全部" : filter === "open" ? "進行中" : filter === "completed" ? "已完成" : "📦 封存"}</button>`).join("")}<span class="task-sort-hint" title="待辦事項依最近更新時間排序">↕ 最近更新</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><div class="task-list">${rows}</div></section></div>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }

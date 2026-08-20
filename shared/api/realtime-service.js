@@ -12,7 +12,7 @@
       refreshInFlight = true;
       try {
         if (table === "user_tasks") {
-          const rows = await SupabaseRepository.loadTasks();
+          const rows = await SupabaseRepository.loadTasks({ includeArchived: true });
           setTasksFromCloud(rows);
         } else if (table === "work_entries") {
           const rows = await SupabaseRepository.loadEntries(selectedMonth);
@@ -20,6 +20,8 @@
         } else if (table === "work_journal_entries") {
           const rows = await SupabaseRepository.loadWorkJournal();
           setWorkJournalFromCloud(rows);
+        } else if (table === "worktodo_checklist_items" || table === "worktodo_attachments") {
+          if (typeof refreshWorkTodoDrawerCapabilities === "function") await refreshWorkTodoDrawerCapabilities();
         }
         LocalCache.saveAll();
         if (typeof refreshRealtimeSurface === "function") refreshRealtimeSurface(table);
@@ -44,7 +46,9 @@
     channel = client.channel(`zhuge-work-lifecycle-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_tasks", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("user_tasks"))
       .on("postgres_changes", { event: "*", schema: "public", table: "work_entries", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("work_entries"))
-      .on("postgres_changes", { event: "*", schema: "public", table: "work_journal_entries", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("work_journal_entries"));
+      .on("postgres_changes", { event: "*", schema: "public", table: "work_journal_entries", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("work_journal_entries"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "worktodo_checklist_items", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("worktodo_checklist_items"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "worktodo_attachments", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("worktodo_attachments"));
     const status = await new Promise(resolve => {
       channel.subscribe(value => resolve(value));
     });

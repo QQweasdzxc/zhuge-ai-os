@@ -46,7 +46,7 @@ test("Shared Task Drawer has no domain, Cloud, authorization, or WorkLog ownersh
   const source = read("shared/components/task-drawer.js");
   assert.doesNotMatch(source, /supabase|rpc|worklog|engineering_checklist|engineering_activity/i);
   assert.match(read("shared/components/README.md"), /does not read Cloud data|不會讀取 Cloud/i);
-  assert.match(read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md"), /WorkLog Runtime and Cloud data are unchanged/);
+  assert.match(read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md"), /second consumer of the Golden Master/);
   assert.match(source, /renderProperties/);
   assert.match(read("shared/components/README.md"), /Shared Task UX Framework v1/);
 });
@@ -90,6 +90,7 @@ test("WorkLog compatibility assessment preserves Date and Calendar as WorkLog do
   const assessment = read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md");
   assert.match(assessment, /dueDate/);
   assert.match(assessment, /Calendar/);
-  assert.match(assessment, /no WorkLog Runtime, data,[\s\S]*Calendar Sync/);
-  assert.match(assessment, /Not implemented in current WorkLog mapping/);
+  assert.match(assessment, /WorkLog-specific functional field/);
+  assert.match(assessment, /Canonical capability implemented/);
+  assert.match(assessment, /Calendar capability/);
 });

@@ -309,7 +309,16 @@ const DataService = {
     const result = { tasks: false, entries: false, errors: [] };
 
     try {
-      const taskRows = await SupabaseRepository.loadTasks();
+      // Completion/archive is Cloud-time based. Reconcile before the active
+      // task read so a refresh never presents an overdue completed row as
+      // active merely because a browser timer did not run.
+      await SupabaseRepository.reconcileWorkTodoCompletionLifecycle().catch(error => {
+        console.warn("WorkTodo completion lifecycle reconciliation deferred", error);
+      });
+      // Keep archived WorkTodo rows in the canonical projection so the
+      // Shared Task UX can offer an explicit read-only Archive view. The
+      // default board filter still excludes them from the active list.
+      const taskRows = await SupabaseRepository.loadTasks({ includeArchived: true });
       setTasksFromCloud(Array.isArray(taskRows) ? taskRows : []);
       result.tasks = true;
     } catch (error) {
@@ -603,6 +612,19 @@ const DataService = {
     if (!taskUuid && typeof setWorkJournalFromCloud === "function") setWorkJournalFromCloud(rows);
     return Array.isArray(rows) ? rows : [];
   },
+  async loadWorkTodoTaskCapabilities(taskUuid = "") {
+    if (!taskUuid || !hasGoogleOAuthSession() || dataServiceHydrating || migrationRunning) {
+      return { checklist: [], attachments: [] };
+    }
+    const [checklist, attachments] = await Promise.all([
+      SupabaseRepository.loadWorkTodoChecklist(taskUuid),
+      SupabaseRepository.loadWorkTodoAttachments(taskUuid)
+    ]);
+    return {
+      checklist: Array.isArray(checklist) ? checklist : [],
+      attachments: Array.isArray(attachments) ? attachments : []
+    };
+  },
   async saveWorkJournalEntry(entry = {}) {
     if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
     if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");
@@ -618,6 +640,52 @@ const DataService = {
       this.setStatus("failed", error.message || "Work Journal sync failed");
       throw error;
     }
+  },
+  async deleteWorkJournalEntry(entry = {}) {
+    if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
+    this.setStatus("syncing");
+    try {
+      const result = await SupabaseRepository.deleteWorkJournalEntry(entry);
+      LocalCache.saveAll();
+      this.setStatus("synced");
+      return result;
+    } catch (error) {
+      this.setStatus("failed", error.message || "Work Journal 撤回失敗");
+      throw error;
+    }
+  },
+  async addWorkTodoChecklistItem(taskUuid, label, sortOrder = 0) {
+    const rows = await SupabaseRepository.addWorkTodoChecklistItem(taskUuid, label, sortOrder);
+    return Array.isArray(rows) ? rows[0] || null : rows || null;
+  },
+  async updateWorkTodoChecklistItem(itemId, patch = {}) {
+    const rows = await SupabaseRepository.updateWorkTodoChecklistItem(itemId, patch);
+    return Array.isArray(rows) ? rows[0] || null : rows || null;
+  },
+  deleteWorkTodoChecklistItem(itemId) {
+    return SupabaseRepository.deleteWorkTodoChecklistItem(itemId);
+  },
+  async uploadWorkTodoAttachment(taskUuid, file, options = {}) {
+    const prepared = await SupabaseRepository.prepareWorkTodoAttachment(taskUuid, file, options);
+    const metadata = Array.isArray(prepared) ? prepared[0] : prepared;
+    if (!metadata?.id || !metadata?.storage_path) throw new Error("WorkTodo 附件 metadata 建立失敗");
+    try {
+      await SupabaseRepository.uploadWorkTodoFile(metadata.storage_path, file);
+      const completed = await SupabaseRepository.completeWorkTodoAttachment(metadata.id);
+      return Array.isArray(completed) ? completed[0] || metadata : completed || metadata;
+    } catch (error) {
+      console.error("WorkTodo attachment upload failed", { error, attachmentId: metadata.id });
+      throw error;
+    }
+  },
+  async deleteWorkTodoAttachment(attachment = {}) {
+    const id = attachment.id || attachment.attachmentId;
+    if (!id || !attachment.storage_path) throw new Error("WorkTodo 附件缺少正式 ID 或 Storage Path");
+    await SupabaseRepository.requestDeleteWorkTodoAttachment(id);
+    return SupabaseRepository.finalizeDeleteWorkTodoAttachment(id, attachment.storage_path);
+  },
+  async uploadWorkTodoProgressAttachment(taskUuid, journalEntryId, file) {
+    return this.uploadWorkTodoAttachment(taskUuid, file, { scope: "progress_note", journalEntryId });
   },
   async loadMonthEntries(month = selectedMonth) {
     if (!hasGoogleOAuthSession() || migrationRequired || migrationRunning) return false;
