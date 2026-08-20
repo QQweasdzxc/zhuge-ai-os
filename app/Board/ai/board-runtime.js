@@ -91,8 +91,18 @@
     const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").toLowerCase();
     return status === "done" || service.isGovernanceTerminal?.(task) === true;
   }
+  function isCompletionWorkspace(workspace) {
+    const key = String(workspace?.key || "").toLowerCase();
+    const name = String(workspace?.name || "").trim();
+    return key === "completed" || name === "已完成";
+  }
   function isMainBoardWorkspace(workspace) {
-    return workspace?.active === true && String(workspace.key || "").toLowerCase() !== "done";
+    const key = String(workspace?.key || "").toLowerCase();
+    const name = String(workspace?.name || "").trim();
+    // Keep the historical done/已完工 Cloud row intact but out of the active
+    // Board. The canonical renamed workspace 已完成 remains visible for the
+    // 48-hour post-acceptance lifecycle window.
+    return workspace?.active === true && key !== "done" && name !== "已完工";
   }
   function taskMarkup(task, options = {}) {
     const priority = priorityLabel(task.priority);
@@ -103,10 +113,13 @@
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
-    const draggable = !archiveOnly && !terminal;
+    const lifecycleLocked = task.status === "done" && Boolean(task.completionAt) && !archiveOnly;
+    const draggable = !archiveOnly && !terminal && !lifecycleLocked;
     const archiveClass = archiveOnly ? " archive-taskcard" : "";
     const actionHint = archiveOnly
       ? "點擊查看歷史驗收清單、Evidence 與 Activity Log · 封存內容僅供查閱，不可恢復、移動或修改"
+      : lifecycleLocked
+        ? "PM Acceptance 已通過 · 保留於「已完成」48 小時後由正式 Cloud lifecycle 自動封存"
       : "點擊查看驗收清單與證據 · 可拖曳至任意工作區（不改變工程狀態／負責人）";
     return "<article class=\"card taskcard board-cloud-card" + archiveClass + "\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
@@ -159,15 +172,19 @@
   function renderWorkspaceColumns() {
     const board = document.getElementById("boardColumns") || document.querySelector(".board");
     if (!board) return;
-    const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
+      const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
     board.style.setProperty("--board-workspace-count", String(Math.max(workspaces.length, 1)));
     const columns = workspaces.length
       ? workspaces.map(workspace => {
         const addTask = workspace.key === "todo"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
           : "";
+        const completion = isCompletionWorkspace(workspace);
+        const workspaceControls = completion
+          ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
+          : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button><span class=\"drag workspace-drag-handle\" draggable=\"true\" title=\"拖曳重新排序\" aria-label=\"拖曳重新排序\">⠿</span>";
         return "<div class=\"column process\" data-workspace-id=\"" + esc(workspace.id) + "\" data-workspace-key=\"" + esc(workspace.key) + "\">" +
-          "<div class=\"colhead\" data-workspace-header=\"" + esc(workspace.id) + "\"><span class=\"workspace-title\">" + esc(workspace.name) + "</span><span class=\"count\">0</span><button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button><span class=\"drag workspace-drag-handle\" draggable=\"true\" title=\"拖曳重新排序\" aria-label=\"拖曳重新排序\">⠿</span></div>" +
+          "<div class=\"colhead" + (completion ? " workspace-completion-column" : "") + "\" data-workspace-header=\"" + esc(workspace.id) + "\"><span class=\"workspace-title\">" + esc(workspace.name) + "</span><span class=\"count\">0</span>" + workspaceControls + "</div>" +
           addTask + "<div class=\"cards\"></div></div>";
       }).join("")
       : "<div class=\"board-empty\">尚未讀取可用工作區。</div>";
@@ -317,11 +334,9 @@
       return;
     }
     const current = state.workspaceById.get(String(task.workspaceId || ""));
-    if (target.key === "done" && current?.key !== "done") {
-      const confirmed = typeof window.confirm === "function"
-        ? window.confirm("確定將此工作標記為已完工？工作區位置不等於 PM Accepted Product Baseline。")
-        : true;
-      if (!confirmed) return;
+    if (isCompletionWorkspace(target)) {
+      setBanner("「已完成」只能由 PM Acceptance PASS 的正式 lifecycle 受控進入，不能手動拖曳。", "error");
+      return;
     }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
     try {
@@ -427,12 +442,13 @@
       const task = state.taskById.get(card.dataset.taskId);
       if (!task) return;
       const archiveOnly = isArchiveTask(task);
+      const lifecycleLocked = task.status === "done" && Boolean(task.completionAt) && !archiveOnly;
       card.onclick = () => openTaskDetail(task, { readOnly: archiveOnly });
       card.onkeydown = event => {
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
       };
       card.ondragstart = event => {
-        if (archiveOnly || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
+        if (archiveOnly || lifecycleLocked || service.isGovernanceTerminal?.(task)) { event.preventDefault(); return; }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/x-zhuge-task-id", task.id);
         event.dataTransfer.setData("text/plain", task.id);

@@ -74,10 +74,12 @@ test("Archive derives read-only records from canonical task status and governanc
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)/i);
 });
 
-test("Main Board hides the canonical done workspace while preserving Cloud order and Archive", () => {
+test("Main Board hides the legacy done workspace while retaining canonical 已完成 and Archive", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   assert.match(runtime, /function isMainBoardWorkspace\(workspace\)/);
-  assert.match(runtime, /String\(workspace\.key \|\| \"\"\)\.toLowerCase\(\) !== \"done\"/);
+  assert.match(runtime, /key !== "done"/);
+  assert.match(runtime, /name !== "已完工"/);
+  assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /state\.workspaces\.filter\(isMainBoardWorkspace\)/);
   assert.match(runtime, /const fullOrder = ordered\.map/);
   assert.match(runtime, /service\.reorderWorkspaces\(fullOrder\.map/);

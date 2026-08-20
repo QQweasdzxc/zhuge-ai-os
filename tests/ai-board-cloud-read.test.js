@@ -55,7 +55,7 @@ test("TASK-022 QJC drag planning follows the controlled workflow and keeps the r
   assert.equal(BoardRead.planTransition(gptQa, "done").allowed, false);
 
   const qjcQa = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
-  assert.equal(BoardRead.planTransition(qjcQa, "done").status, "done");
+  assert.equal(BoardRead.planTransition(qjcQa, "done").allowed, false);
   assert.equal(BoardRead.planTransition(qjcQa, "todo").allowed, false);
   assert.match(BoardRead.planTransition(qjcQa, "todo").reason, /只能依序/);
 
@@ -83,15 +83,15 @@ test("completion gate blocks failed or missing Co/QJC evidence and keeps done im
   assert.equal(BoardRead.planTransition(BoardRead.normalizeTask({ status: "done", assignee: "QJC" }), "done").allowed, false);
 });
 
-test("Case D/E: QJC PASS permits both the drag and button transition to Done", () => {
+test("Case D/E: QJC PASS uses the controlled acceptance path; workflow transition cannot bypass it", () => {
   const task = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
   const coPass = { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" };
   const qjcPass = { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" };
   const gptPending = { stage: "gpt", required: true, state: "not_verified" };
   assert.equal(BoardRead.completionGateStatus([coPass, qjcPass, gptPending]).allowed, true);
   const donePlan = BoardRead.planTransition(task, "done");
-  assert.equal(donePlan.allowed, true);
-  assert.equal(donePlan.action, "PM QA 通過 → 完成");
+  assert.equal(donePlan.allowed, false);
+  assert.match(donePlan.reason, /只能依序/);
 });
 
 test("Case F: historical GPT evidence is retained without becoming a completion gate", () => {

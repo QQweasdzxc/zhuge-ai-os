@@ -41,8 +41,7 @@
     }),
     qa: Object.freeze({
       progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "退回 Co 修正" }),
-      qa: Object.freeze({ status: "qa", assignee: "QJC", action: "GPT Review 通過 → 交 QJC", requiresAssignee: "GPT" }),
-      done: Object.freeze({ status: "done", assignee: "QJC", action: "PM QA 通過 → 完成", requiresAssignee: "QJC" })
+      qa: Object.freeze({ status: "qa", assignee: "QJC", action: "GPT Review 通過 → 交 QJC", requiresAssignee: "GPT" })
     }),
     done: Object.freeze({})
   });
@@ -68,12 +67,23 @@
     return ["merged", "cancelled"].includes(normalizeStatus(value));
   }
 
-  // Archive presentation is derived from the existing Engineering/Governance
-  // state.  It is intentionally not a second status or persistence flag.
+  // Archive presentation is derived from canonical Engineering/Governance
+  // state plus the server-owned completion lifecycle timestamps. It is not a
+  // second status or a browser-side timer.
   function isArchiveTask(taskOrStatus) {
-    const value = typeof taskOrStatus === "object" ? taskOrStatus?.status : taskOrStatus;
+    const task = typeof taskOrStatus === "object" && taskOrStatus !== null ? taskOrStatus : null;
+    const value = task ? task.status : taskOrStatus;
     const status = normalizeStatus(value);
-    return status === "done" || isGovernanceTerminal(value);
+    if (isGovernanceTerminal(value)) return true;
+    if (status !== "done") return false;
+    // Legacy done rows have no lifecycle timestamp and remain in the existing
+    // read-only Archive. A newly accepted task is visible in 已完成 until the
+    // server reconciliation path records archived_at after 48 hours.
+    if (!task) return true;
+    if (task.archivedAt) return true;
+    if (!task.completionAt) return true;
+    const due = Date.parse(task.archiveDueAt || "");
+    return Number.isFinite(due) && due <= Date.now();
   }
 
   function planTransition(task, targetUiKey) {
@@ -218,6 +228,13 @@
       resolutionReason: String(row.resolution_reason || ""),
       resolvedAt: row.resolved_at || null,
       resolvedBy: String(row.resolved_by || ""),
+      acceptedAt: row.accepted_at || null,
+      acceptedBy: String(row.accepted_by || ""),
+      completionAt: row.completion_at || null,
+      completionBy: String(row.completion_by || ""),
+      archiveDueAt: row.archive_due_at || null,
+      archivedAt: row.archived_at || null,
+      archivedBy: String(row.archived_by || ""),
       createdBy: String(row.created_by || ""),
       updatedAt: row.updated_at || row.updatedAt || null,
       createdAt: row.created_at || row.createdAt || null
@@ -380,9 +397,15 @@
     }
     const gateway = options.gateway || requireGateway();
     const resolver = options.engineeringMemory ? null : requireEngineeringMemoryResolver(options);
+    // Reconciliation is a server-side, authenticated RPC. It uses canonical
+    // timestamps and makes refresh/realtime reads converge without a browser
+    // timer or local state pretending that 48 hours have elapsed.
+    if (typeof gateway.rpc === "function") {
+      await gateway.rpc("board_reconcile_completion_lifecycle", {});
+    }
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
       gateway.select("board_workspaces", "?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at&active=eq.true&order=sort_order.asc"),
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by&order=created_at.asc"),
+      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by&order=created_at.asc"),
       options.engineeringMemory || resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes })
     ]);
     const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(normalizeWorkspace);
@@ -567,6 +590,11 @@
       p_actor_label: "QJC",
       p_note: note || null
     });
+  }
+
+  async function reconcileCompletionLifecycle(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_reconcile_completion_lifecycle", {});
   }
 
   async function createWorkspace(name, options = {}) {
@@ -854,6 +882,7 @@
     normalizePrinciple,
     normalizeSystemMap,
     load,
+    reconcileCompletionLifecycle,
     loadChecklist,
     loadTaskChecklist,
     loadMovementHistory,
