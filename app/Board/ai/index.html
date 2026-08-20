@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Zhuge AI OS｜AI Board</title>
-<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260820-1054">
-<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260820-1054">
-<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260820-1054">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260820-1158">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260820-1158">
+<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260820-1158">
 <style>
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}
 .taskcard{height:136px;min-height:136px;display:flex;flex-direction:column;overflow:hidden;padding:10px}.taskcard h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;min-height:2.5em;max-height:2.5em;overflow:hidden;text-overflow:ellipsis}.taskcard p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;min-height:1.5em;max-height:1.5em;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}.taskcard .meta{max-height:22px;overflow:hidden}.taskcard .card-action-hint{margin-top:auto;max-height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:9px}
@@ -79,10 +79,10 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  <div class="workspace-canvas">
   <div class="board-main-view" data-board-main-view>
    <div class="toolbar board-toolbar">
-    <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋目前工作中的 TASK、使用情境或負責人" aria-label="搜尋 TASK"></div>
-    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有負責人</span><button class="btn" id="healthCheckBtn" type="button">檢查資料健康度</button>
+    <div class="search"><input id="boardSearch" type="search" placeholder="⌕ 搜尋目前工作中的 TASK、使用情境或工作區" aria-label="搜尋 TASK"></div>
+    <span class="chip">全部來源</span><span class="chip">所有優先度</span><span class="chip">所有工作區</span><button class="btn" id="healthCheckBtn" type="button">檢查資料健康度</button>
     <span id="boardSearchCount" class="board-search-count" aria-live="polite">顯示目前工作中的正式 TASK</span>
-    <span class="legend">工作區位置獨立於工程狀態、負責人與 PM Acceptance</span>
+    <span class="legend">工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留</span>
    </div>
    <section class="board-shell">
     <div class="board" id="boardColumns"></div>
@@ -124,40 +124,40 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <aside id="archiveDrawer" class="board-create-drawer board-archive-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="封存">
  <div class="modalhead"><h2>📦 封存</h2><button class="x" type="button" data-archive-close aria-label="關閉封存">×</button></div>
  <div class="modalbody">
-  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 TASK、治理原因或負責人" aria-label="搜尋封存 TASK"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
+  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 TASK、治理原因或工作區" aria-label="搜尋封存 TASK"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
   <div id="archiveCount" class="board-archive-count" aria-live="polite"></div>
   <div id="archiveTaskList" class="board-archive-list"><div class="board-empty">目前沒有封存 TASK。</div></div>
  </div>
 </aside>
 
-<script src="../../../shared/config/version.js?v=20260820-1054"></script>
-<script src="../../../shared/components/zhuge-navigation.js?v=20260820-1054"></script>
-<script src="../../../shared/components/zhuge-shell.js?v=20260820-1054"></script>
-<script src="../../../shared/components/task-drawer.js?v=20260820-1054"></script>
+<script src="../../../shared/config/version.js?v=20260820-1158"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260820-1158"></script>
+<script src="../../../shared/components/zhuge-shell.js?v=20260820-1158"></script>
+<script src="../../../shared/components/task-drawer.js?v=20260820-1158"></script>
 <script src="../../../shared/theme/zhuge-appearance.js?v=20260811-workspace-1"></script>
- <script src="../../../shared/app-config.js?v=20260820-1054"></script>
- <script src="../../../shared/utils/shared-utils.js?v=20260820-1054"></script>
- <script src="../../../shared/storage/storage-migration.js?v=20260820-1054"></script>
- <script src="../../../shared/api/data-result.js?v=20260820-1054"></script>
- <script src="../../../shared/identity/identity-health.js?v=20260820-1054"></script>
- <script src="../../../shared/auth/session-lifecycle.js?v=20260820-1054"></script>
- <script src="../../../shared/core/repository-bootstrap.js?v=20260820-1054"></script>
- <script src="../../../shared/api/sync-queue.js?v=20260820-1054"></script>
- <script src="../../../shared/foundation/index.js?v=20260820-1054"></script>
- <script src="../../../shared/app-state.js?v=20260820-1054"></script>
- <script src="../../../shared/auth/auth-service.js?v=20260820-1054"></script>
- <script src="../../../shared/identity/identity-service.js?v=20260820-1054"></script>
- <script src="../../../shared/supabase/supabase-gateway.js?v=20260820-1054"></script>
+ <script src="../../../shared/app-config.js?v=20260820-1158"></script>
+ <script src="../../../shared/utils/shared-utils.js?v=20260820-1158"></script>
+ <script src="../../../shared/storage/storage-migration.js?v=20260820-1158"></script>
+ <script src="../../../shared/api/data-result.js?v=20260820-1158"></script>
+ <script src="../../../shared/identity/identity-health.js?v=20260820-1158"></script>
+ <script src="../../../shared/auth/session-lifecycle.js?v=20260820-1158"></script>
+ <script src="../../../shared/core/repository-bootstrap.js?v=20260820-1158"></script>
+ <script src="../../../shared/api/sync-queue.js?v=20260820-1158"></script>
+ <script src="../../../shared/foundation/index.js?v=20260820-1158"></script>
+ <script src="../../../shared/app-state.js?v=20260820-1158"></script>
+ <script src="../../../shared/auth/auth-service.js?v=20260820-1158"></script>
+ <script src="../../../shared/identity/identity-service.js?v=20260820-1158"></script>
+ <script src="../../../shared/supabase/supabase-gateway.js?v=20260820-1158"></script>
  <script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20260814-engineering-memory"></script>
- <script src="../../../shared/auth/session-service.js?v=20260820-1054"></script>
+ <script src="../../../shared/auth/session-service.js?v=20260820-1158"></script>
  <script src="../../../shared/identity/creator-resolver.js?v=20260814-creator-mfa"></script>
- <script src="../../../shared/security/permission-service.js?v=20260820-1054"></script>
+ <script src="../../../shared/security/permission-service.js?v=20260820-1158"></script>
  <script src="../../../shared/security/mfa-service.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/security/security-gate.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/module-context.js?v=20260814-creator-mfa"></script>
  <script src="../../../shared/services/shared-platform.js?v=20260814-creator-mfa"></script>
- <script src="../../../shared/security/platform-policy.js?v=20260820-1054"></script>
+ <script src="../../../shared/security/platform-policy.js?v=20260820-1158"></script>
  <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
-<script src="../../../shared/board/board-read-service.js?v=20260820-1054"></script>
-<script src="./board-runtime.js?v=20260820-1054"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260820-1158"></script>
+<script src="./board-runtime.js?v=20260820-1158"></script>
 </body></html>

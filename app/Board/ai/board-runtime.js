@@ -45,14 +45,11 @@
   }
   function readableWorkStatus(task) {
     const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
-    const assignee = String(task?.assignee || "").trim().toUpperCase();
     const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
     const workspaceName = String(task?.workspaceName || "").trim();
     if ((workspaceKey === "completed" || workspaceName === "已完成") && task?.completionAt && !task?.archivedAt) return "已完成";
     if (status === "ready") return "待開始";
     if (status === "inprogress") return "進行中";
-    if (status === "qa" && assignee === "GPT") return "等待工程審查";
-    if (status === "qa" && assignee === "QJC") return "等待 PM 驗收";
     if (status === "qa") return "等待驗證";
     if (status === "done") return "已完成";
     if (status === "merged") return "已合併（封存）";
@@ -61,10 +58,6 @@
   }
   function workspaceLabel(task) {
     return String(task?.workspaceName || task?.workspaceKey || "未分類工作區");
-  }
-  function assigneeLabel(value) {
-    const raw = String(value || "").trim();
-    return raw ? "目前：" + raw : "尚未指派";
   }
   const stageLabels = Object.freeze({ co: "Co 開發驗證", gpt: "GPT 工程審查", qjc: "QJC PM 驗收" });
   const stageEvidenceLabels = Object.freeze({
@@ -104,8 +97,11 @@
     const name = String(workspace?.name || "").trim();
     // Keep the historical done/已完工 Cloud row intact but out of the active
     // Board. The canonical renamed workspace 已完成 remains visible for the
-    // 48-hour post-acceptance lifecycle window.
-    return workspace?.active === true && key !== "done" && name !== "已完工";
+    // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
+    // column; the current workflow uses workspace position itself as the stage.
+    return workspace?.active === true
+      && key !== "done" && name !== "已完工"
+      && key !== "gpt" && name !== "GPT區";
   }
   function taskMarkup(task, options = {}) {
     const priority = priorityLabel(task.priority);
@@ -124,14 +120,13 @@
       ? "點擊查看歷史驗收清單、Evidence 與 Activity Log · 封存內容僅供查閱，不可恢復、移動或修改"
       : completionActive
         ? "已確認完成 · 保留於「已完成」48 小時後由正式 Cloud lifecycle 自動封存；可拖出取消計時"
-      : "點擊查看驗收清單與證據 · 可拖曳至任意工作區（不改變工程狀態／負責人）";
+      : "點擊查看工作內容與進度 · 可拖曳至任意工作區（工作區代表目前責任階段）";
     return "<article class=\"card taskcard board-cloud-card" + archiveClass + "\" data-task-id=\"" + esc(task.id) + "\" data-work-code=\"" + esc(task.workCode) + "\" data-status=\"" + esc(task.status) + "\" data-workspace=\"" + esc(task.workspace) + "\" tabindex=\"0\" draggable=\"" + draggable + "\">" +
       "<div class=\"code\">" + esc(task.workCode || task.id || "TASK") + "</div>" +
       "<h3>" + esc(task.title) + "</h3>" +
       (task.summary ? "<p>" + esc(task.summary) + "</p>" : "") +
       governance +
       "<div class=\"meta\"><span class=\"tag workspace-tag\">工作區：" + esc(workspaceLabel(task)) + "</span><span class=\"tag status-tag\">工程狀態：" + esc(statusLabel(task.status)) + "</span>" +
-      (task.assignee ? "<span class=\"tag qjc\">" + esc(assigneeLabel(task.assignee)) + "</span>" : "<span class=\"tag\">尚未指派</span>") +
       (priority ? "<span class=\"tag " + priorityClass + "\">" + esc(priority) + "</span>" : "") +
       (timestamp ? "<span class=\"tag\">" + esc(timestamp) + "</span>" : "") +
       "</div><div class=\"card-action-hint\">" + actionHint + "</div></article>";
@@ -220,7 +215,7 @@
     const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");
     const activeTasks = state.tasks.filter(task => !isArchiveTask(task));
     if (!query) return activeTasks;
-    return activeTasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.assignee]
+    return activeTasks.filter(task => [task.workCode, task.title, task.summary, task.usageScenario, task.workspaceName, task.workspaceKey]
       .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query)));
   }
   function applySearch(query) {
@@ -246,7 +241,7 @@
       const status = service.normalizeStatus ? service.normalizeStatus(task.status) : String(task.status || "").toLowerCase();
       if (filter !== "all" && status !== filter) return false;
       if (!query) return true;
-      return [task.workCode, task.title, task.summary, task.usageScenario, task.assignee, task.status, task.resolutionReason, task.mergedInto, task.linkedTo]
+      return [task.workCode, task.title, task.summary, task.usageScenario, task.workspaceName, task.workspaceKey, task.status, task.resolutionReason, task.mergedInto, task.linkedTo]
         .some(value => String(value || "").toLocaleLowerCase("zh-TW").includes(query));
     }));
   }
@@ -347,7 +342,7 @@
         : isCompletionWorkspace(current)
           ? "已取消原本的 48 小時 completion timer。"
           : "";
-      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工程狀態、負責人與治理紀錄未變更。", "success");
+      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工作區現在代表這張 TASK 的責任階段；治理紀錄已保留。", "success");
     } catch (error) {
       setBanner("工作區移動失敗：" + esc(error?.message || "正式 Cloud 未接受這次移動；原資料未變更。"), "error");
     }
@@ -714,8 +709,9 @@
   }
 
   function isPmTurn(task) {
-    const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
-    return status === "qa" && String(task?.assignee || "").trim().toUpperCase() === "QJC";
+    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
+    const workspaceName = String(task?.workspaceName || "").trim();
+    return workspaceKey === "qjc" || workspaceName === "QJC驗證";
   }
 
   function pmAttentionMarkup(item, task, verification, reason) {
@@ -1333,6 +1329,59 @@
       }
     });
   }
+  function taskAnalysisValue(task, fields) {
+    for (const field of fields) {
+      const value = String(task?.[field] || "").trim();
+      if (value) return value;
+    }
+    return "";
+  }
+  function taskAnalysisViewMarkup(task) {
+    const sections = [
+      { key: "understanding", title: "需求理解", fields: ["summary", "problem", "objective"] },
+      { key: "judgement", title: "分析與判斷", fields: ["problem", "objective"] },
+      { key: "proposal", title: "建議做法", fields: ["proposedSolution"] },
+      { key: "principles", title: "執行原則／Acceptance Criteria", fields: ["acceptanceCriteria"] },
+      { key: "handoff", title: "交付 Co 的執行摘要", fields: ["developerNotes", "pmNotes"] }
+    ].map(item => ({ ...item, value: taskAnalysisValue(task, item.fields) }));
+    const blocks = sections.map(item => `<article class="shared-task-analysis-card" data-task-analysis-field="${esc(item.key)}"><h3>${esc(item.title)}</h3>${item.value ? `<p>${esc(item.value).replace(/\n/g, "<br>")}</p>` : `<div class="shared-task-analysis-empty">目前正式 Cloud 尚未提供這項分析內容。</div>`}</article>`).join("");
+    return `<section class="shared-task-analysis-view" data-task-analysis-view aria-label="GPT 分析與建議"><header class="shared-task-analysis-header"><div><span class="shared-task-analysis-kicker">AI Analysis Layer · Read-only</span><h2>🤖 GPT 分析與建議</h2><p>此檢視只讀取既有 TASK canonical 內容；正式 Cloud 尚未提供的分析不以瀏覽器暫存、假資料或 hard-code 補寫。</p></div><button class="shared-task-analysis-close" type="button" data-task-analysis-close aria-label="返回 TASK 詳情" title="返回 TASK 詳情">×</button></header><div class="shared-task-analysis-grid">${blocks}</div></section>`;
+  }
+  function showTaskAnalysisView(task) {
+    const root = document.querySelector("[data-shared-task-drawer]");
+    const grid = root?.querySelector(".shared-task-drawer-grid");
+    const panel = root?.querySelector(".shared-task-drawer-panel");
+    if (!root || !grid || !panel) return;
+    if (root.querySelector("[data-task-analysis-view]")) return;
+    const view = document.createElement("section");
+    view.innerHTML = taskAnalysisViewMarkup(task);
+    const analysis = view.firstElementChild;
+    if (!analysis) return;
+    panel.insertBefore(analysis, grid);
+    grid.hidden = true;
+    grid.setAttribute("aria-hidden", "true");
+    const floating = root.querySelector("[data-shared-task-floating-action]");
+    if (floating) floating.hidden = true;
+    analysis.querySelector("[data-task-analysis-close]")?.addEventListener("click", () => restoreTaskDetailView());
+    analysis.querySelector("[data-task-analysis-close]")?.focus();
+  }
+  function restoreTaskDetailView() {
+    const root = document.querySelector("[data-shared-task-drawer]");
+    const grid = root?.querySelector(".shared-task-drawer-grid");
+    root?.querySelector("[data-task-analysis-view]")?.remove();
+    if (grid) {
+      grid.hidden = false;
+      grid.removeAttribute("aria-hidden");
+    }
+    const floating = root?.querySelector("[data-shared-task-floating-action]");
+    if (floating) floating.hidden = false;
+    root?.querySelector('[data-task-property-action="gpt-analysis"]')?.focus();
+  }
+  function wireTaskAnalysisView(task) {
+    const property = document.querySelector('[data-task-property-action="gpt-analysis"]');
+    if (!property) return;
+    property.onclick = () => showTaskAnalysisView(task);
+  }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
@@ -1345,7 +1394,7 @@
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
-      { key: "assignee", icon: "👤", label: "負責人", value: String(task.assignee || "").trim() || "尚未指派" },
+      { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" },
       priorityLabel(task.priority) ? { key: "priority", icon: "⚑", label: "優先度", value: priorityLabel(task.priority) } : null,
       { key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) },
       archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
@@ -1427,6 +1476,7 @@
       wireTaskAttachments(task, archiveOnly);
       wireProgressNoteComposer(task, archiveOnly);
       wireHumanProgressNoteActions(task, activity, archiveOnly);
+      wireTaskAnalysisView(task);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
         acceptance.querySelectorAll("[data-pm-accept]").forEach(button => {

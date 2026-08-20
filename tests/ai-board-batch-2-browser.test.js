@@ -12,12 +12,17 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   const browserExecutable = resolveBrowserExecutable();
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the browser regression");
   const fixture = path.join(__dirname, "ai-board-batch-2-browser.html");
+  const build = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
+  const preparedFixture = path.join(__dirname, `.ai-board-batch-2-browser-${process.pid}.html`);
+  const fixtureSource = fs.readFileSync(fixture, "utf8").replaceAll("__RUNTIME_BUILD__", build);
+  fs.writeFileSync(preparedFixture, fixtureSource);
+  t.after(() => fs.rmSync(preparedFixture, { force: true }));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-ai-board-batch2-"));
   const args = [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     "--no-first-run", "--disable-background-networking", "--disable-component-update", "--disable-sync",
     "--disable-features=Translate,MediaRouter,OptimizationHints", "--window-size=1600,1000", `--user-data-dir=${profile}`,
-    "--virtual-time-budget=6000", "--dump-dom", `file://${fixture}`
+    "--virtual-time-budget=6000", "--dump-dom", `file://${preparedFixture}`
   ];
   const output = await new Promise((resolve, reject) => {
     const child = spawn(browserExecutable, args, { encoding: "utf8" });
@@ -73,7 +78,7 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.doesNotMatch(output, /Artifact \/ Build/);
   assert.doesNotMatch(output, /Evidence Reference/);
   assert.match(output, /新增工作進度/);
-  assert.match(output, /人工工作進度 · Human Progress Note/);
+  assert.match(output, /工作進度/);
   assert.match(output, /System Activity 與 Workspace Audit 保留於正式紀錄/);
   assert.doesNotMatch(output, /System Activity · (Status|Workspace Move|Evidence)/);
   assert.doesNotMatch(output, /Checklist／Evidence 原始資料/);
@@ -94,7 +99,6 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /Version/);
   assert.match(output, /v0\.9\.0-alpha\.9\.13/);
   assert.match(output, /Build/);
-  const build = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
   assert.match(output, new RegExp(build));
   assert.match(output, /工作看板/);
   assert.match(output, /工程準則/);

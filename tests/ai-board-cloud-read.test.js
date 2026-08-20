@@ -110,7 +110,7 @@ test("AI Board workspace movement uses an independent controlled Cloud path", ()
   const runtime = read("app/Board/ai/board-runtime.js");
   assert.match(runtime, /moveTaskToWorkspace/);
   assert.match(runtime, /application\/x-zhuge-task-id/);
-  assert.match(runtime, /不改變工程狀態／負責人/);
+  assert.match(runtime, /工作區現在代表這張 TASK 的責任階段/);
   assert.doesNotMatch(runtime, /只能依序交給下一個工作階段/);
 });
 

@@ -14,18 +14,19 @@ host rather than opened as an isolated local file.
 - Collapse / expand the global left navigation (Sidebar ↔ Icon Rail)
 - Refresh the formal cloud projection
 - Open the AI Board child views: `📋 工作看板`, `📘 工程準則`, and `🗺️ 系統藍圖`
-- Review Cloud TASK cards mapped to 待辦 → 推進 → 驗證 → 完成
-- Search TASKs by code, title, requirement, usage scenario, or assignee
+- Review Cloud TASK cards mapped to 待辦 → Co區 → QJC驗證 → 已完成；工作區位置就是 PM 可見的責任階段
+- Search TASKs by code, title, requirement, usage scenario, or workspace
 - Review the ordered TASK detail: requirement → usage scenario → checklist/evidence → next action
-- See the current assignee on each card
+- Treat the current workspace as the PM-visible responsibility stage; legacy assignee data remains only for Cloud/history compatibility
 
-Task creation, drag status changes, assignee changes, and Checklist evidence
+Task creation, workspace movement, completion lifecycle, and Checklist evidence
 use only the approved controlled RPC boundary. The browser never writes Board
-tables directly. GPT and Co remain AI workflow actors and do not receive
+tables directly. Legacy assignee data remains a compatibility field only; GPT
+and Co remain workflow actors and do not receive
 Supabase Auth users or UUIDs. Custom workspace management remains out of scope.
 
 ## Board model
-📋 工作看板: 待辦 → 推進 → 驗證 → 完成
+📋 工作看板: 待辦 → Co區 → QJC驗證 → 已完成 → 48 小時後封存
 
 📘 工程準則: approved principles from `engineering_knowledge`; it is not a TASK
 status and never enters the Kanban.
