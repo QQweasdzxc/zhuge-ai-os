@@ -14,6 +14,24 @@
       return new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Taipei" }).format(new Date(value));
     } catch (error) { return String(value); }
   }
+  function shortTimestampLabel(value) {
+    if (!value) return "時間未提供";
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "Asia/Taipei"
+      }).formatToParts(new Date(value)).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+      return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
+    } catch (error) { return String(value); }
+  }
+  function progressNoteMetaLabel(item) {
+    return `${item?.actorLabel || "QJC"} · ${shortTimestampLabel(item?.timestamp)}`;
+  }
   function priorityLabel(priority) {
     const value = String(priority || "").toLowerCase();
     if (value === "critical" || value === "p0") return "P0";
@@ -782,9 +800,9 @@
         : "";
       const canManage = options.readOnly !== true && currentActorId() && String(item.actorId) === currentActorId();
       const controls = canManage
-        ? `<div class="shared-task-progress-note-actions"><button class="btn2" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度">✏️ 編輯</button><button class="btn2 shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度">🗑️</button></div>`
+        ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
         : "";
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><span class="shared-task-drawer-activity-badge">人工工作進度 · Human Progress Note</span><strong>${esc(activityActionLabel(item))}</strong><p data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small>${esc(dateLabel(item.timestamp) || "時間未提供")} · Actor: ${esc(item.actorLabel || "QJC")}</small>${controls}</div></article>`;
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${controls}</header><p data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
@@ -823,8 +841,9 @@
     const errorMarkup = error ? `<div class="task-read-warning">工作附件讀取失敗：${esc(error.message || "未知錯誤")}。</div>` : "";
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
-      const remove = archiveOnly ? "" : `<button class="shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong><small>${esc(item.mimeType || "文件")} · ${esc(formatByteSize(item.byteSize))}</small></span>${remove}</article>`;
+      const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
+      const metadata = `<small class="shared-task-attachment-meta">${remove}<span>附件 · ${esc(shortTimestampLabel(item.createdAt))}</span></small>`;
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span></article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";

@@ -55,8 +55,14 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /aria-label="新增工作進度" title="新增工作進度">新增<\/button>/);
   assert.doesNotMatch(runtime, />➤<\/button>/);
   assert.match(runtime, /data-task-attachment-delete/);
+  assert.match(runtime, /shared-task-attachment-meta/);
+  assert.match(runtime, /附件 · \$\{esc\(shortTimestampLabel\(item\.createdAt\)\)\}/);
   assert.match(runtime, /data-progress-note-edit/);
   assert.match(runtime, /data-progress-note-delete/);
+  assert.match(runtime, /shared-task-progress-note-header/);
+  assert.match(runtime, /shared-task-progress-note-title\">工作進度/);
+  assert.doesNotMatch(runtime, /人工工作進度 · Human Progress Note/);
+  assert.match(runtime, /progressNoteMetaLabel\(item\)/);
   assert.match(runtime, /visibleHumanProgressRows/);
   assert.match(runtime, /readOnly: archiveOnly/);
   assert.match(board, /\.taskcard\{height:156px;min-height:156px/);
@@ -71,4 +77,8 @@ test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
   assert.match(css, /\.shared-task-progress-composer-body\[hidden\]\{display:none\}/);
   assert.match(css, /\.shared-task-progress-submit\{[\s\S]*min-width:56px/);
   assert.match(css, /\.shared-task-drawer\[data-progress-note-composer-open="true"\]/);
+  assert.match(css, /\.shared-task-progress-note-header\{display:flex/);
+  assert.match(css, /\.shared-task-progress-note-actions\{display:inline-flex/);
+  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:86px/);
+  assert.match(css, /\.shared-task-icon-button\{display:grid/);
 });
