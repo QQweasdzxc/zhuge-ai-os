@@ -323,6 +323,7 @@ function normalizeTask(item = {}) {
     title,
     note: String(item.note || "").trim(),
     usageScenario: String(item.usageScenario || item.usage_scenario || "").trim(),
+    workProperty: String(item.workProperty || item.work_property || "").trim(),
     gptUnderstanding: String(item.gptUnderstanding || item.gpt_understanding || "").trim(),
     gptAnalysis: String(item.gptAnalysis || item.gpt_analysis || "").trim(),
     gptRecommendation: String(item.gptRecommendation || item.gpt_recommendation || "").trim(),
@@ -634,6 +635,124 @@ async function saveWorkTodoTaskPatch(taskId, patch = {}, message = "待辦事項
   }
 }
 
+async function saveWorkTodoTaskProperties(taskId, patch = {}, message = "工作屬性已更新至 Cloud") {
+  const current = workTodoSharedTask(taskId);
+  const cloudId = current ? taskCloudUuid(current) : "";
+  if (!current || !cloudId || typeof DataService?.updateWorkTodoTaskProperties !== "function") return;
+  const previous = tasks;
+  try {
+    const row = await DataService.updateWorkTodoTaskProperties(cloudId, patch);
+    const hasWorkProperty = row && Object.prototype.hasOwnProperty.call(row, "work_property");
+    const hasEstimatedMinutes = row && Object.prototype.hasOwnProperty.call(row, "estimated_minutes");
+    const next = normalizeTask({
+      ...current,
+      workProperty: hasWorkProperty ? row.work_property : (patch.workProperty ?? current.workProperty),
+      estimatedMinutes: hasEstimatedMinutes ? row.estimated_minutes : (patch.estimatedMinutes ?? current.estimatedMinutes),
+      updatedAt: row?.updated_at || new Date().toISOString()
+    });
+    tasks = tasks.map(item => item.id === current.id ? next : item);
+    toast(message);
+    render("worktodo-shared-task-properties-updated");
+  } catch (error) {
+    tasks = previous;
+    console.error("WorkTodo Shared Task property update failed", { error, taskId, patch });
+    toast(error.message || "工作屬性更新失敗，未完成儲存");
+    render("worktodo-shared-task-property-update-failed");
+  }
+}
+
+function bindWorkTodoPropertyEditors(root, task) {
+  const editors = [
+    { action: "work-property", field: "workProperty", label: "工作屬性", type: "text", value: task.workProperty || "", maxLength: 120 },
+    { action: "estimated-minutes", field: "estimatedMinutes", label: "預估時間", type: "number", value: task.estimatedMinutes || "", min: 0, step: 15 }
+  ];
+  editors.forEach(config => {
+    const property = root.querySelector(`[data-task-property-action="${config.action}"]`);
+    const value = property?.querySelector("[data-task-property-value]");
+    if (!property || !value || root.dataset.readOnly === "true") return;
+    property.onclick = event => {
+      if (event.target?.closest?.("input")) return;
+      if (property.querySelector("[data-worktodo-property-editor]")) return;
+      const input = document.createElement("input");
+      input.type = config.type;
+      input.className = "shared-task-property-editor";
+      input.dataset.worktodoPropertyEditor = config.field;
+      input.value = String(config.value ?? "");
+      input.setAttribute("aria-label", config.label);
+      if (config.maxLength) input.maxLength = config.maxLength;
+      if (config.min != null) input.min = String(config.min);
+      if (config.step != null) input.step = String(config.step);
+      property.classList.add("is-editing");
+      value.hidden = true;
+      property.appendChild(input);
+      input.focus();
+      const close = () => {
+        input.remove();
+        value.hidden = false;
+        property.classList.remove("is-editing");
+      };
+      input.addEventListener("click", event => event.stopPropagation());
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") close();
+        if (event.key === "Enter" && config.type !== "text") input.blur();
+      });
+      input.addEventListener("blur", () => window.setTimeout(close, 0));
+      input.addEventListener("change", async () => {
+        input.disabled = true;
+        const patch = config.field === "workProperty"
+          ? { workProperty: input.value.trim() }
+          : { estimatedMinutes: input.value === "" ? null : Number(input.value) };
+        try {
+          await saveWorkTodoTaskProperties(task.id, patch, `${config.label}已更新至 Cloud`);
+          close();
+        } catch (error) {
+          input.disabled = false;
+          toast(error.message || `${config.label}更新失敗`);
+        }
+      });
+    };
+  });
+}
+
+function bindWorkTodoDueDateEditor(root, task) {
+  if (root.dataset.readOnly === "true") return;
+  const property = root.querySelector('[data-task-property-action="due-date"]');
+  const value = property?.querySelector("[data-task-property-value]");
+  if (!property || !value) return;
+  property.onclick = event => {
+    if (event.target?.closest?.("input")) return;
+    if (property.querySelector("[data-worktodo-due-date-editor]")) return;
+    const input = document.createElement("input");
+    input.type = "date";
+    input.className = "shared-task-due-date-picker";
+    input.dataset.worktodoDueDateEditor = "true";
+    input.value = String(task.dueDate || "").slice(0, 10);
+    input.setAttribute("aria-label", "日期");
+    property.classList.add("is-editing");
+    value.hidden = true;
+    property.appendChild(input);
+    input.focus();
+    const close = () => {
+      input.remove();
+      value.hidden = false;
+      property.classList.remove("is-editing");
+    };
+    input.addEventListener("click", event => event.stopPropagation());
+    input.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+    input.addEventListener("blur", () => window.setTimeout(close, 0));
+    input.addEventListener("change", async () => {
+      input.disabled = true;
+      try {
+        await saveWorkTodoTaskPatch(task.id, { dueDate: input.value || "" }, "日期已更新至 Cloud");
+        close();
+      } catch (error) {
+        input.disabled = false;
+        toast(error.message || "日期更新失敗");
+      }
+    });
+  };
+}
+
 function bindWorkTodoInlineField(root, task) {
   root.querySelectorAll("[data-worktodo-edit-field]").forEach(button => {
     button.onclick = () => {
@@ -867,6 +986,8 @@ function bindWorkTodoSharedDrawer() {
   });
   bindWorkTodoInlineField(root, task);
   bindWorkTodoTitleEditor(root, task);
+  bindWorkTodoPropertyEditors(root, task);
+  bindWorkTodoDueDateEditor(root, task);
   bindWorkTodoControls(root, task);
   bindWorkTodoChecklist(root, task);
   bindWorkTodoAttachments(root, task);

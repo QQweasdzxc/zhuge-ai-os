@@ -19,6 +19,8 @@
     priority: true,
     pin: true,
     dueDate: true,
+    workProperty: true,
+    estimatedMinutes: true,
     completion: true,
     workJournal: true,
     wltkIdentity: true,
@@ -69,6 +71,15 @@
     const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
     if (Number.isNaN(date.getTime())) return String(value);
     return new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "numeric", day: "numeric" }).format(date);
+  }
+  function formatEstimatedMinutes(value) {
+    const minutes = Number(value || 0);
+    if (!Number.isFinite(minutes) || minutes <= 0) return "尚未設定";
+    const rounded = Math.round(minutes);
+    const hours = Math.floor(rounded / 60);
+    const remainder = rounded % 60;
+    if (!hours) return `${rounded} 分鐘`;
+    return remainder ? `${hours} 小時 ${remainder} 分鐘` : `${hours} 小時`;
   }
   function formatTimestamp(value, formatter) {
     if (typeof formatter === "function") return formatter(value);
@@ -138,6 +149,8 @@
       priority: normalizePriority(task.priority), priorityLabel: PRIORITY_LABELS[normalizePriority(task.priority)],
       userPinned: task.userPinned === true,
       dueDate: String(task.dueDate || "").slice(0, 10),
+      workProperty: String(task.workProperty || task.work_property || "").trim(),
+      estimatedMinutes: Number(task.estimatedMinutes ?? task.estimated_minutes ?? 0) || 0,
       startedAt: task.startedAt || "", completedAt: task.completedAt || "", completedNote: String(task.completedNote || "").trim(),
       completedBy: String(task.completedBy || ""), archiveDueAt: task.archiveDueAt || "", archivedAt: task.archivedAt || "", archivedBy: task.archivedBy || "",
       gptUnderstanding: String(task.gptUnderstanding || task.gpt_understanding || "").trim(),
@@ -216,7 +229,9 @@
         { key: "progress", icon: "◒", label: "進度", value: `${vm.progress}%` },
         { key: "priority", icon: "⚑", label: "優先度", value: vm.priorityLabel },
         { key: "pin", icon: "📌", label: "置頂", value: vm.userPinned ? "是" : "否" },
-        { key: "due-date", icon: "📅", label: "日期", value: formatDueDate(vm.dueDate) },
+        { key: "work-property", action: "work-property", interactive: !readOnly, icon: "📍", label: "工作屬性", value: vm.workProperty || "尚未設定" },
+        { key: "estimated-minutes", action: "estimated-minutes", interactive: !readOnly, icon: "⏱️", label: "預估時間", value: formatEstimatedMinutes(vm.estimatedMinutes) },
+        { key: "due-date", action: "due-date", interactive: !readOnly, icon: "📅", label: "日期", value: formatDueDate(vm.dueDate) },
         { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" }
       ],
       sections,

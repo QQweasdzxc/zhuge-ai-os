@@ -449,6 +449,13 @@ const SupabaseRepository = {
   updateWorkTodoChecklistItem(itemId, patch = {}) {
     return this.rpc("worktodo_update_checklist_item", { p_item_id: itemId, p_label: patch.label ?? null, p_completed: patch.completed ?? null, p_sort_order: patch.sortOrder ?? null });
   },
+  updateWorkTodoTaskProperties(taskUuid, patch = {}) {
+    const payload = {};
+    if (Object.prototype.hasOwnProperty.call(patch, "workProperty")) payload.work_property = patch.workProperty == null ? null : String(patch.workProperty);
+    if (Object.prototype.hasOwnProperty.call(patch, "estimatedMinutes")) payload.estimated_minutes = patch.estimatedMinutes == null ? null : Number(patch.estimatedMinutes);
+    if (!Object.keys(payload).length) throw new Error("沒有可更新的 WorkTodo Task Property");
+    return this.rpc("worktodo_update_task_properties", { p_task_id: taskUuid, p_patch: payload });
+  },
   deleteWorkTodoChecklistItem(itemId) {
     return this.rpc("worktodo_delete_checklist_item", { p_item_id: itemId });
   },

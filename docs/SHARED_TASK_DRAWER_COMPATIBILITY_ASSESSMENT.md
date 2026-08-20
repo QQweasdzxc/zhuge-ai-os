@@ -17,6 +17,8 @@ on its own DataService/Repository/RLS path.
 | Task identity | `user_tasks.id` plus `work_code` | Existing mapping; `WLTK-xxx` is Cloud-generated and concurrency-safe, while UUID remains the internal identity. |
 | Title | `normalizeTask().title` | Available. |
 | Metadata | `status`, `progress`, `priority`, `userPinned`, `createdAt`, `updatedAt` | Available; WorkLog status/progress remain WorkLog semantics. |
+| Work property | `user_tasks.work_property` | Canonical WorkTodo task-level capability; distinct from `user_work_models.category`, exposed in the Golden Master 工作區 property slot as `工作屬性`. |
+| Estimated time | `user_tasks.estimated_minutes` | Existing canonical field; exposed through the Shared Property Extension as `預估時間`, with WorkTodo-specific formatting and no layout fork. |
 | Description / usage | `note` plus `user_tasks.usage_scenario` | Existing mapping; both fields use the controlled WorkTodo task update path. |
 | Checklist | `worktodo_checklist_items` and controlled checklist RPCs | Canonical capability implemented; the adapter maps it to the Golden Master Checklist presentation. |
 | Attachment / artifact | `worktodo_attachments` plus private `worktodo-attachments` Storage bucket | Canonical capability implemented for general task and progress-note attachments; it is separate from AI Board artifacts. |
@@ -32,6 +34,7 @@ on its own DataService/Repository/RLS path.
 WorkTodo now consumes the existing Shared Task Card/Drawer/Checklist/Attachment/
 Progress/GPT presentation through `modules/worklog/components/worktodo-task-adapter.js`.
 WorkTodo-specific Pin and Calendar remain outside the Shared UX contract. The
-approved capability migration is `docs/supabase/20260820_worktodo_shared_task_capabilities.sql`;
-it extends only WorkTodo canonical tables and controlled paths, does not reuse
+approved capability migrations are `docs/supabase/20260820_worktodo_shared_task_capabilities.sql`
+and `docs/supabase/20260820_worktodo_task_properties.sql`;
+they extend only WorkTodo canonical tables and controlled paths, do not reuse
 AI Board tables/RPCs, and does not change the Pre-WorkTodo PM Accepted Baseline.

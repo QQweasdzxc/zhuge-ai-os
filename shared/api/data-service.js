@@ -662,6 +662,19 @@ const DataService = {
     const rows = await SupabaseRepository.updateWorkTodoChecklistItem(itemId, patch);
     return Array.isArray(rows) ? rows[0] || null : rows || null;
   },
+  async updateWorkTodoTaskProperties(taskUuid, patch = {}) {
+    if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
+    if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");
+    this.setStatus("syncing");
+    try {
+      const rows = await SupabaseRepository.updateWorkTodoTaskProperties(taskUuid, patch);
+      this.setStatus("synced");
+      return Array.isArray(rows) ? rows[0] || null : rows || null;
+    } catch (error) {
+      this.setStatus("failed", error.message || "WorkTodo Task Property sync failed");
+      throw error;
+    }
+  },
   deleteWorkTodoChecklistItem(itemId) {
     return SupabaseRepository.deleteWorkTodoChecklistItem(itemId);
   },
