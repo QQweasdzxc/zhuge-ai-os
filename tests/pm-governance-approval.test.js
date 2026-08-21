@@ -80,6 +80,49 @@ test("action manifest is immutable and mirrors the existing governance operation
   assert.throws(() => Runner.normalizeActionManifest({ operation: "set_pm_accepted_baseline", payload: { pm_acceptance_status: "accepted", product_version: "v", runtime_build: "b", git_commit: "c", artifact_reference: "a", archive_sha256: "secret" } }), /not allowlisted/);
 });
 
+test("Engineering Principle action is bounded to the PM-assigned EP-### payload and canonical read-back", () => {
+  const principle = Runner.normalizeActionManifest({
+    operation: "create_engineering_principle",
+    payload: {
+      knowledge_code: "EP-039",
+      title: "ONE Golden Master — Single Presentation Source of Truth",
+      summary: "Board-based Product 只有一個 Presentation / Interaction Source of Truth。",
+      content: "ONE GOLDEN MASTER",
+      module: "architecture",
+      version: "1.0",
+      source_path: "docs/principles/EP-039-one-golden-master-single-presentation-source-of-truth.md",
+      source_reference: "PM / CTO Decision 2026-08-21"
+    }
+  });
+  assert.equal(principle.operation, "create_engineering_principle");
+  assert.throws(() => Runner.normalizeActionManifest({
+    operation: "create_engineering_principle",
+    payload: { ...principle.payload, knowledge_code: "EP-40" }
+  }), /EP-###/);
+  assert.throws(() => Runner.normalizeActionManifest({
+    operation: "create_engineering_principle",
+    payload: { ...principle.payload, status: "approved" }
+  }), /not allowlisted/);
+  const readBack = Runner.summarizeReadBack(principle, [{
+    knowledge_code: "EP-039",
+    title: principle.payload.title,
+    summary: principle.payload.summary,
+    content: principle.payload.content,
+    source_path: principle.payload.source_path,
+    source_reference: principle.payload.source_reference,
+    status: "approved",
+    version: "1.0"
+  }]);
+  assert.deepEqual(readBack, {
+    table: "public.engineering_knowledge",
+    identity: "EP-039",
+    knowledgeCode: "EP-039",
+    status: "approved",
+    version: "1.0",
+    title: principle.payload.title
+  });
+});
+
 test("PM baseline approval uses the authenticated baseline RPC and Startup Gate read-back only", async () => {
   const approvedAction = baselineAction();
   const calls = [];
@@ -537,6 +580,13 @@ test("read-back targets stay within canonical sources and do not create a second
   assert.equal(checkpoint.identity, "current");
   const artifact = Runner.normalizeActionManifest({ operation: "register_artifact", payload: { artifact_type: "candidate", filename: "x.zip" } });
   assert.equal(Runner.readBackTarget(artifact, { result: { result: { result: { artifact_id: "artifact-id" } } } }).table, "engineering_artifacts");
+  const principle = Runner.normalizeActionManifest({ operation: "create_engineering_principle", payload: {
+    knowledge_code: "EP-039", title: "Title", summary: "Summary", content: "Content",
+    source_path: "docs/principles/EP-039.md", source_reference: "PM / CTO Decision 2026-08-21"
+  }});
+  const principleTarget = Runner.readBackTarget(principle, { result: { result: { result: { knowledge_code: "EP-039" } } } });
+  assert.equal(principleTarget.rpc, "resolve_engineering_startup_gate");
+  assert.deepEqual(principleTarget.knowledgeCodes, ["EP-039"]);
   assert.equal(Runner.summarizeReadBack(action(), [{ id: "task-id", work_code: "TASK-999", title: "QA", status: "ready" }]).workCode, "TASK-999");
 });
 

@@ -99,6 +99,27 @@ test("Empty Golden Master renders only the shared empty framework", () => {
   assert.doesNotMatch(html, /GM-FIX|WLTK-|TASK-\d+|fixture|Domain Data rows/i);
 });
 
+test("Golden Master owns the shared priority presentation decision", () => {
+  const drawer = {
+    render(options) {
+      return JSON.stringify(options.properties || []);
+    }
+  };
+  const html = GoldenMaster.renderDrawer({
+    properties: [
+      { key: "workspace", label: "工作區", value: "進行中" },
+      { key: "priority", label: "優先度", value: "P1" },
+      { key: "due-date", label: "日期", value: "2026/08/21" },
+      { key: "status", label: "目前狀態", value: "進行中" }
+    ]
+  }, { drawer });
+
+  assert.match(html, /工作區/);
+  assert.match(html, /目前狀態/);
+  assert.doesNotMatch(html, /優先度/);
+  assert.doesNotMatch(html, /日期|2026\/08\/21/);
+});
+
 test("AI Board and WorkTodo route Card, Board, Drawer, and binding through the same source", () => {
   const aiRuntime = read("app/Board/ai/board-runtime.js");
   const worktodoRuntime = read("modules/worklog/worklog-app.js");

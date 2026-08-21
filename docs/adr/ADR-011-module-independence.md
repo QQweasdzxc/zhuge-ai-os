@@ -47,3 +47,12 @@ Module 不得：
 - Module 可獨立開發、測試、停用與版本化。
 - Shared Contract 需要明確的 owner 與相容性規則。
 - 跨模組需求可能需要先做 Shared Design Review，但不允許以短期方便破壞邊界。
+
+## Supported Engineering Principle
+
+`EP-039 — ONE Golden Master — Single Presentation Source of Truth` 是本 ADR
+關於「不得以複製程式碼規避模組邊界、共同能力必須回到 shared contract」的
+正式 Mandatory Architecture Principle 支持來源。
+
+這裡只建立 cross-reference，不複製 EP-039 內容；EP-039 的 canonical
+runtime record 位於 `public.engineering_knowledge`。

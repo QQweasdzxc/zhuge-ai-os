@@ -57,7 +57,7 @@ test("completion drag leaves a cancelled timer active and archives only by due t
 
 test("TASK-039 final closing presentation keeps cards compact and progress cards readable", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
-  const board = read("app/Board/ai/index.html");
+  const board = read("shared/theme/task-board.css");
   const drawerCss = read("shared/theme/task-drawer.css");
   assert.doesNotMatch(runtime, /lifecycleLocked/);
   assert.doesNotMatch(runtime, /只能由 PM Acceptance PASS 的正式 lifecycle/);
@@ -65,7 +65,7 @@ test("TASK-039 final closing presentation keeps cards compact and progress cards
   assert.match(runtime, /data-task-attachment-delete/);
   assert.match(runtime, /shared-task-attachment-meta/);
   assert.match(runtime, /shared-task-progress-note-title\">工作進度/);
-  assert.match(board, /\.taskcard\{height:104px;min-height:104px/);
+  assert.match(board, /\.shared-task-board \.shared-task-card\{height:104px;min-height:104px/);
   assert.match(drawerCss, /shared-task-attachment\{[^}]*grid-template-columns:58px minmax\(0,1fr\) auto/);
   assert.match(drawerCss, /data-shared-task-timeline\].*min-height:118px/);
 });

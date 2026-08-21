@@ -51,13 +51,16 @@ test("Free Workspace scope leaves WorkLog and existing workflow RPC untouched", 
 test("Free Workspace Board keeps Trello-style fixed desktop columns and header controls", () => {
   const html = read("app/Board/ai/index.html");
   const runtime = read("app/Board/ai/board-runtime.js");
-  assert.match(html, /\.board\{display:flex;[^}]*width:max-content/);
-  assert.match(html, /\.column\{flex:0 0 300px;width:300px;min-width:300px/);
-  assert.match(html, /\.board-shell\{overflow-x:auto/);
+  const goldenMasterCss = read("shared/theme/golden-master.css");
+  const goldenMaster = read("shared/components/golden-master.js");
+  assert.match(goldenMasterCss, /\.zhuge-module-shell \.board\{display:flex;gap:14px;align-items:flex-start;min-width:max-content/);
+  assert.match(goldenMasterCss, /\.zhuge-module-shell \.column\{flex:0 0 300px;width:300px;min-width:300px/);
+  assert.match(goldenMasterCss, /\.zhuge-module-shell \.board-shell\{padding:18px 0 28px;overflow-x:auto/);
   assert.match(html, /class="workspace-canvas"/);
-  assert.match(html, /data-archive-close/);
+  assert.doesNotMatch(html, /data-archive-close|id="addCardModal"|id="workspaceCreateDrawer"|id="archiveDrawer"/);
   assert.doesNotMatch(html, /workspace-add-column/);
-  assert.match(html, /\.column \.card\{[^}]*overflow-wrap:anywhere;word-break:break-word/);
+  assert.match(goldenMaster, /renderOperations/);
+  assert.match(runtime, /mountOperations/);
   assert.match(runtime, /data-board-create-workspace/);
   assert.match(runtime, /data-board-open-archive/);
   assert.match(runtime, /isArchiveTask/);

@@ -29,18 +29,21 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
     "shared/components/task-drawer.js",
     "shared/components/task-board.js",
     "shared/components/golden-master.js",
-    "id=\"goldenMasterToolbar\"",
-    "id=\"boardColumns\"",
-    "id=\"addCardModal\"",
-    "id=\"workspaceCreateDrawer\"",
-    "id=\"archiveDrawer\""
+    "shared/components/golden-master-runtime.js",
+    "data-golden-master-surface"
   ]) {
     assert.match(aiBoard, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(worktodo, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), marker);
   }
   assert.match(worktodo, /<title>Zhuge AI OS｜工作待辦<\/title>/);
   assert.match(worktodo, /data-active-workspace="tasks-new"/);
-  assert.match(worktodo, /src="\.\.\/ai\/board-runtime\.js\?v=/);
+  assert.match(worktodo, /src="\.\.\/\.\.\/\.\.\/shared\/components\/golden-master-runtime\.js\?v=/);
+  assert.doesNotMatch(aiBoard, /<style[\s>]/i);
+  assert.doesNotMatch(worktodo, /<style[\s>]/i);
+  assert.doesNotMatch(aiBoard, /id="addCardModal"|id="workspaceCreateDrawer"|id="archiveDrawer"/);
+  assert.doesNotMatch(worktodo, /id="addCardModal"|id="workspaceCreateDrawer"|id="archiveDrawer"/);
+  assert.doesNotMatch(aiBoard, /class="(?:board-shell|board-toolbar|board)"/);
+  assert.doesNotMatch(worktodo, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /worktodo-task-adapter\.js|GM-FIX-|golden-master-preview/i);
   assert.match(aiBoard, /title="工程準則" data-board-nav="principles"/);
   assert.match(aiBoard, /title="系統藍圖" data-board-nav="system-map"/);
@@ -83,5 +86,5 @@ test("AI Board and new WorkTodo receive the same Golden Master column UI change"
   assert.match(aiBoard, /shared\/components\/golden-master\.js/);
   assert.match(worktodo, /shared\/components\/golden-master\.js/);
   assert.match(runtime, /root\.ZhugeGoldenMaster\?\.renderColumns/);
-  assert.match(worktodo, /src="\.\.\/ai\/board-runtime\.js\?v=/);
+  assert.match(worktodo, /src="\.\.\/\.\.\/\.\.\/shared\/components\/golden-master-runtime\.js\?v=/);
 });

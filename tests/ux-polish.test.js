@@ -93,8 +93,8 @@ test("Batch 4 moves work journal into a shared dynamic drawer and keeps Board ac
   assert.doesNotMatch(worklog, /\$\{taskJournalPanel\(task\)\}/);
   assert.match(board, /data-board-create-card/);
   assert.match(board, /data-board-create-workspace/);
-  assert.match(boardHtml, /class="toolbar board-toolbar"/);
-  assert.match(boardHtml, /workspaceCreateDrawer/);
+  assert.match(boardHtml, /data-golden-master-surface/);
+  assert.match(read("shared/components/golden-master.js"), /id="workspaceCreateDrawer"/);
 });
 
 test("Work journal entries stay readable and can be edited through the existing Cloud path", () => {

@@ -16,7 +16,7 @@ const ACTOR_PROFILES: Record<string, { audience: string; scope: string; actors: 
   "memory-read": { audience: "engineering-memory-read", scope: "engineering-memory:read", actors: ALLOWED_ACTORS },
   "governance-write": { audience: "engineering-governance-write", scope: "engineering-governance:write", actors: new Set(["GPT"]) }
 };
-const GOVERNANCE_OPERATIONS = new Set(["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact"]);
+const GOVERNANCE_OPERATIONS = new Set(["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact", "create_engineering_principle"]);
 const ACTOR_KEY_ID = "zhuge-engineering-actor-20260810-212242";
 // Key rotation is intentional: only this current public key is accepted, so
 // tokens signed with either historical key id are rejected after deployment.

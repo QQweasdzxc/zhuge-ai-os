@@ -1,6 +1,12 @@
-# Knowledge Write 與 Principle Reconciliation（Read-only Proposal）
+# Knowledge Write 與 Principle Reconciliation（Historical Read-only Proposal）
 
 日期：2026-08-10（Asia/Taipei）
+
+> Historical state note：本文件記錄 2026-08-10 的治理盤點，不代表目前
+> Principle Write 狀態。2026-08-21 PM／CTO 已指定 EP-039，並授權以
+> TASK-9 建立可重複使用的 PM Authorization → GPT governance-write actor
+> → `engineering-transition` → SECURITY DEFINER controlled write path；
+> EP-039 的 canonical runtime source 仍是 `public.engineering_knowledge`。
 
 本文件是 TASK-014／024 Shared Shell 回歸期間的治理盤點，不執行 Knowledge 寫入、Schema 變更或 RLS 變更。
 
@@ -40,4 +46,3 @@
 - 本提案不改變 Board Workflow、Controlled Transition、Auth、RLS、OAuth 或 WorkLog Business Logic。
 - 主要風險是沒有受控 Knowledge Write 入口時，任何直接寫入都會繞過 QJC 最終核准與 Audit；因此目前保持 read-only。
 - 若未來批准受控入口，必須先完成 Security／Audit 測試，再由 QJC 發布 Principle；Co／GPT 不得自行把提案標成 approved。
-
