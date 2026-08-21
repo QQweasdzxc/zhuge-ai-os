@@ -104,13 +104,18 @@
     return `<div class="board-empty">Shared Task Card 尚未載入。</div>`;
   }
 
+  function goldenMasterColumn(column = {}, options = {}, deps = dependencies(options)) {
+    return {
+      ...column,
+      className: ["golden-master-column", column.className || ""].filter(Boolean).join(" "),
+      renderCard: column.renderCard || (card => renderCard(card, options, deps))
+    };
+  }
+
   function renderColumns(columns = [], options = {}, deps = dependencies(options)) {
     const board = deps.board;
     if (!board?.renderColumns) return `<div class="board-empty">Shared Task Board 尚未載入。</div>`;
-    return board.renderColumns((Array.isArray(columns) ? columns : []).map(column => ({
-      ...column,
-      renderCard: column.renderCard || (card => renderCard(card, options, deps))
-    })));
+    return board.renderColumns((Array.isArray(columns) ? columns : []).map(column => goldenMasterColumn(column, options, deps)));
   }
 
   function renderBoard(options = {}, deps = dependencies(options)) {

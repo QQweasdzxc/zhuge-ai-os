@@ -3,6 +3,8 @@
 <title>AI Board Batch 2 browser regression fixture</title>
 <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
 <link rel="stylesheet" href="../shared/theme/task-drawer.css">
+<link rel="stylesheet" href="../shared/theme/task-board.css">
+<link rel="stylesheet" href="../shared/theme/golden-master.css">
 <div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="__RUNTIME_BUILD__"></div>
 <div class="main">
   <aside>
@@ -25,6 +27,7 @@
 <script src="../shared/components/task-card.js"></script>
 <script src="../shared/components/task-drawer.js"></script>
 <script src="../shared/components/task-board.js"></script>
+<script src="../shared/components/golden-master.js"></script>
 <div id="addCardModal" class="modalback"><div class="modal"><input id="taskSummary"><textarea id="taskUsageScenario"></textarea><input id="taskTitle"><button onclick="createCard()">建立卡片</button></div></div>
 <script>
   let session = null;
@@ -124,4 +127,5 @@
   setTimeout(() => { const audit = document.createElement("pre"); audit.id = "history-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 4100);
   setTimeout(() => { const btn = document.querySelector('[data-shared-nav-collapse]'); btn?.click(); const collapsed = document.createElement("pre"); collapsed.id = "nav-collapse-audit"; const visible = Array.from(document.querySelectorAll('.sidebar-scroll [data-shared-nav-item]')).filter(node => getComputedStyle(node).display !== "none"); const task = document.querySelector('.sidebar-scroll [data-shared-nav-item="tasks"]'); collapsed.textContent = `${document.querySelector(".zhuge-module-shell")?.className || ""};collapsed-visible=${visible.map(node => node.dataset.sharedNavItem).join(",")};collapsed-tasks-tag=${task?.tagName || ""};collapsed-tasks-title=${task?.getAttribute("title") || ""};collapsed-tasks-href=${task?.getAttribute("href") || ""}`; document.body.appendChild(collapsed); btn?.click(); }, 4500);
   setTimeout(() => { document.querySelectorAll('[data-shared-nav-item]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); })); const audit = document.createElement("pre"); audit.id = "cross-workspace-audit"; audit.textContent = Array.from(document.querySelectorAll('[data-shared-nav-item]')).map(link => link.dataset.sharedNavItem).join(","); document.body.appendChild(audit); const ia = document.createElement("pre"); ia.id = "ai-board-ia-audit"; ia.textContent = `heading=${document.querySelectorAll('.side-section-heading[data-shared-nav-item="ai-board"]').length};duplicateMenu=${document.querySelectorAll('.side-section .side-item[data-shared-nav-item="ai-board"]').length};children=${document.querySelectorAll('.side-section[data-nav-group="ai-board"] .side-item-child').length}`; document.body.appendChild(ia); }, 4700);
+  setTimeout(() => { const column = document.querySelector("[data-shared-task-board-column]"); const header = column?.querySelector(".shared-task-board-column-header"); const audit = document.createElement("pre"); audit.id = "golden-master-column-audit"; audit.textContent = `class=${column?.className || ""};background=${header ? getComputedStyle(header).backgroundColor : ""};border=${header ? getComputedStyle(header).borderBottomColor : ""}`; document.body.appendChild(audit); }, 1200);
 </script>

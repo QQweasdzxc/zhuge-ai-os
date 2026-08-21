@@ -4,7 +4,7 @@ title: WorkTodo → Shared Task UX Integration — Phase 1
 status: In Progress
 assignee: []
 created_date: '2026-08-20 07:46'
-updated_date: '2026-08-20 08:13'
+updated_date: '2026-08-21 09:00'
 labels:
   - worktodo
   - shared-ux
@@ -46,6 +46,8 @@ ordinal: 7000
 
 <!-- SECTION:PLAN:BEGIN -->
 1. 建立 WorkTodo normalized view model / capability contract；2. 接入 Shared Task Drawer 與 Work Journal Timeline；3. 保留既有 DataService/Repository writes；4. 補齊 adapter/responsive/regression tests；5. 執行 QA Runtime smoke 與 dead-code audit
+
+6. Modify one Golden Master shared presentation contract and verify AI Board and the new WorkTodo consumer render the same change; keep legacy WorkTodo, Cloud, Schema, RPC, RLS, and migration paths unchanged.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -54,6 +56,10 @@ ordinal: 7000
 PM 已核准 Implementation Audit PASS，可直接開始 Phase 1；Pre-WorkTodo Integration PM Accepted Baseline 保持不變。
 
 Phase 1 implementation completed: WorkTodo adapter/view model and capability flags, Shared Task Card/Drawer consumer integration, Work Journal shared timeline mapping, existing DataService/Repository write paths preserved, and legacy renderer consumer audit completed. Targeted: 25 passed / 0 failed / 0 skipped. Full automated regression: 191 passed / 0 failed / 4 skipped (browser tests require an available Chrome/Chromium executable). QA Runtime deployment and Live QA remain pending.
+
+PM revised the route on 2026-08-21: stop further legacy WorkTodo Presentation conformance. Preserve the existing WorkTodo page and canonical data unchanged; the new 工作待辦 consumer is routed through the AI Board source for Phase 1 visual QA.
+
+PM Decision implementation completed: Golden Master renderColumns now adds the shared golden-master-column presentation class and shared column-header accent; AI Board and the new WorkTodo route consume this same path. Legacy WorkTodo renderBoard path, Cloud, Schema, RPC, RLS, and migration paths remain unchanged. Targeted Golden Master conformance: 13 passed / 0 failed. Full browser regression: 211 passed / 0 failed. New WorkTodo Runtime smoke: one 工作看板 tab, six columns, each count 0, no 工程準則／系統藍圖. PM QA remains pending.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
@@ -63,5 +69,11 @@ author: Co
 created: 2026-08-20 08:13
 ---
 QA Runtime deployed to GitHub Pages main at commit ebd6d332f40305134f8fd0e01619e4431d6bd66b. Live WorkTodo smoke loaded v0.9.0-alpha.9.13 / Build 20260820-1605; shared task cards and WorkTodo Shared Task Drawer rendered, Work Journal timeline visible, WorkTodo navigation target active, browser console error/warn empty. No Cloud writes were performed during smoke. PM Runtime QA pending.
+---
+
+author: @codex
+created: 2026-08-21 08:26
+---
+PM Decision: stop the old WorkTodo Presentation integration route; do not modify, migrate, or retire the legacy WorkTodo path.
 ---
 <!-- COMMENTS:END -->

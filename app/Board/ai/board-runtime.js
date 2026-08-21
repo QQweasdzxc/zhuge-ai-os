@@ -395,6 +395,10 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   async function reorderWorkspace(draggedId, targetId) {
+    if (isEmptyWorkTodoMode()) {
+      emptyWorkTodoNotice();
+      return;
+    }
     if (!draggedId || !targetId || draggedId === targetId) return;
     const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
     const visible = ordered.filter(isMainBoardWorkspace);
@@ -421,6 +425,10 @@
     document.querySelectorAll("[data-workspace-rename]").forEach(button => {
       button.onclick = event => {
         event.stopPropagation();
+        if (isEmptyWorkTodoMode()) {
+          emptyWorkTodoNotice();
+          return;
+        }
         const workspace = state.workspaceById.get(button.dataset.workspaceRename);
         if (!workspace) return;
         const nextName = window.prompt("請輸入新的工作區名稱", workspace.name);
@@ -444,16 +452,25 @@
       };
     });
     const board = document.querySelector('[data-shared-task-board="ai-board"]');
+    const emptyMode = isEmptyWorkTodoMode();
     const boardHandlers = {
       canDragCard: id => {
+        if (emptyMode) return false;
         const task = state.taskById.get(String(id));
         return Boolean(task && !isArchiveTask(task) && !service.isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
+        if (emptyMode) {
+          emptyWorkTodoNotice();
+          return;
+        }
         const task = state.taskById.get(String(cardId));
         if (task) await moveTaskToWorkspace(task, id);
       },
-      canReorderColumn: id => Boolean(state.workspaceById.get(String(id)) && isMainBoardWorkspace(state.workspaceById.get(String(id))) && !isCompletionWorkspace(state.workspaceById.get(String(id)))),
+      canReorderColumn: id => {
+        const workspace = state.workspaceById.get(String(id));
+        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+      },
       onColumnDrop: async ({ sourceId, id }) => reorderWorkspace(sourceId, id)
     };
     if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
@@ -1646,6 +1663,82 @@
     document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
+  function isEmptyWorkTodoMode() {
+    const path = String(root.location?.pathname || "");
+    const consumer = queryParameter("consumer");
+    return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
+  }
+  function queryParameter(name) {
+    const search = String(root.location?.search || "");
+    const SearchParams = root.URLSearchParams || (typeof URLSearchParams === "function" ? URLSearchParams : null);
+    if (SearchParams) return new SearchParams(search).get(name) || "";
+    const match = search.match(new RegExp("(?:^|[?&])" + String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^&]*)"));
+    return match ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
+  }
+  function emptyWorkTodoNotice() {
+    setBanner("新版工作待辦目前是 AI Board 空白入口，尚未接入 WorkTodo Domain Data。", "info");
+  }
+  function emptyWorkTodoWorkspaces() {
+    return [
+      { id: "worktodo-new-todo", key: "todo", name: "待開始", active: true, sortOrder: 10 },
+      { id: "worktodo-new-inprogress", key: "inprogress", name: "進行中", active: true, sortOrder: 20 },
+      { id: "worktodo-new-waiting-reply", key: "waiting-reply", name: "等待回覆", active: true, sortOrder: 30 },
+      { id: "worktodo-new-waiting-acceptance", key: "waiting-acceptance", name: "等待驗收", active: true, sortOrder: 40 },
+      { id: "worktodo-new-blocked", key: "blocked", name: "阻塞", active: true, sortOrder: 50 },
+      { id: "worktodo-new-completed", key: "completed", name: "完成", active: true, sortOrder: 60 }
+    ];
+  }
+  function renderEmptyWorkTodoHeaderActions() {
+    const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
+    if (!actions) return;
+    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
+    actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
+    actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
+    actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
+    actions.querySelector("#refreshBoardBtn")?.addEventListener("click", emptyWorkTodoNotice);
+  }
+  function emptyWorkTodoAction() {
+    emptyWorkTodoNotice();
+    return Promise.resolve({ empty: true });
+  }
+  function startEmptyWorkTodoRuntime() {
+    state.workspaces = emptyWorkTodoWorkspaces();
+    state.tasks = [];
+    state.principles = [];
+    state.systemMaps = [];
+    state.taskById = new Map();
+    state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
+    const shell = document.querySelector(".zhuge-module-shell");
+    document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
+      button.onclick = () => shell?.classList.toggle("sidebar-open");
+    });
+    document.querySelectorAll("[data-close-sidebar]").forEach(button => {
+      button.onclick = () => shell?.classList.remove("sidebar-open");
+    });
+    renderGoldenMasterToolbar();
+    renderEmptyWorkTodoHeaderActions();
+    wireArchiveControls();
+    document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
+    document.querySelector("[data-workspace-create]")?.addEventListener("click", emptyWorkTodoAction);
+    document.querySelector("#addCardModal .x")?.addEventListener("click", closeQuickAdd);
+    document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
+    ensureHealthModal();
+    document.getElementById("healthCheckBtn")?.addEventListener("click", emptyWorkTodoNotice);
+    ensureTaskDetailModal();
+    wireNavigation();
+    wireSearch();
+    renderPrinciples([]);
+    renderSystemMaps([]);
+    renderTasks([]);
+    const board = document.getElementById("boardColumns");
+    if (board && !board.children.length) board.innerHTML = `<div class="board-empty shared-task-board-empty">目前沒有 WorkTodo 正式資料。</div>`;
+    root.ZhugeSharedNavigation?.setSyncStatus?.({ label: "🟢 空白框架", time: "尚未接入 WorkTodo Data", state: "empty" });
+    root.openQuickAdd = openQuickAdd;
+    root.createCard = emptyWorkTodoAction;
+    root.createWorkspace = emptyWorkTodoAction;
+    root.openArchiveDrawer = openArchiveDrawer;
+    showBoardView("board");
+  }
   function startBoardRuntime() {
     const shell = document.querySelector(".zhuge-module-shell");
     document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
@@ -1827,6 +1920,10 @@
   }
 
   async function init() {
+    if (isEmptyWorkTodoMode()) {
+      startEmptyWorkTodoRuntime();
+      return;
+    }
     captureBoardMarkup();
     renderSessionHydrationState();
     const provider = root.ZhugeRuntimeSessionProvider;
@@ -1875,7 +1972,15 @@
     }
     renderAccessError(access.code === "CAPABILITY_REQUIRED" ? "目前登入帳號沒有 AI Board 管理權限。" : "目前帳號尚未通過 AI Board 安全檢查。\n");
   }
-  root.ZhugeBoardRuntime = Object.freeze({ refresh: refreshBoard, openTaskDetail: openTaskDetail, moveTaskToWorkspace: moveTaskToWorkspace, sortTasksByCode: sortTasksByCode, completionGateStatus: completionGateStatus, completionGateMessage: completionGateMessage });
+  const emptyWorkTodoRuntime = isEmptyWorkTodoMode();
+  root.ZhugeBoardRuntime = Object.freeze({
+    refresh: emptyWorkTodoRuntime ? emptyWorkTodoAction : refreshBoard,
+    openTaskDetail: emptyWorkTodoRuntime ? emptyWorkTodoAction : openTaskDetail,
+    moveTaskToWorkspace: emptyWorkTodoRuntime ? emptyWorkTodoAction : moveTaskToWorkspace,
+    sortTasksByCode: sortTasksByCode,
+    completionGateStatus: completionGateStatus,
+    completionGateMessage: completionGateMessage
+  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
 })(window);
