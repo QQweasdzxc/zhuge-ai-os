@@ -1093,8 +1093,11 @@ function workTodoBoardCard(task, readOnly = false) {
 }
 
 function workTodoBoardMarkup() {
-  const foundation = typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null;
-  if (!foundation?.render) return `<div class="board-empty">Shared Task Board foundation 尚未載入。</div>`;
+  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
+  const foundation = goldenMaster?.renderBoard
+    ? goldenMaster
+    : (typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null);
+  if (!foundation?.renderBoard && !foundation?.render) return `<div class="board-empty">Shared Task Board foundation 尚未載入。</div>`;
   const items = workTodoBoardItems();
   const columns = taskFilter === "archived"
     ? [{ id: "archived", key: "archived", name: "📦 封存", readOnly: true, reorderable: false, cards: items, renderCard: task => workTodoBoardCard(task, true) }]
@@ -1108,7 +1111,9 @@ function workTodoBoardMarkup() {
       cards: items.filter(task => normalizeTaskStatus(task.status, task) === column.key),
       renderCard: task => workTodoBoardCard(task, false)
     }));
-  return foundation.render({ id: "workTodoTaskBoard", boardKey: "worktodo", ariaLabel: "工作待辦看板", columns });
+  return foundation.renderBoard
+    ? foundation.renderBoard({ id: "workTodoTaskBoard", boardKey: "worktodo", ariaLabel: "工作待辦看板", columns })
+    : foundation.render({ id: "workTodoTaskBoard", boardKey: "worktodo", ariaLabel: "工作待辦看板", columns });
 }
 
 function taskPriorityOptions(selected = "p2") {
@@ -4235,14 +4240,26 @@ function systemTemplates() {
   const actions = [template.capabilities.clone, template.capabilities.apply]
     .map(action => `<button class="btn2 system-template-action" type="button" data-template-action="${escapeHtml(action.key)}" disabled aria-disabled="true" title="${escapeHtml(action.reason)}">${escapeHtml(action.label)}<small>預留</small></button>`)
     .join("");
-  const previewRenderer = typeof ZhugeGoldenMasterPreview !== "undefined" ? ZhugeGoldenMasterPreview : null;
-  const preview = previewRenderer?.render
-    ? previewRenderer.render({
-      fixtureKey: template.preview.fixtureKey,
-      boardKey: template.preview.boardKey,
-      readOnly: template.preview.mode === "read-only"
+  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
+  const emptySurface = goldenMaster?.render
+    ? goldenMaster.render({
+      header: {
+        title: "AI Board",
+        description: "Empty Golden Master · Shared Board Framework",
+        identityHint: "No Domain Data"
+      },
+      toolbar: {
+        searchId: "systemTemplateSearch",
+        searchLabel: "Golden Master 搜尋",
+        searchPlaceholder: "Empty Framework 不載入正式資料",
+        disabled: true,
+        filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
+        status: "Empty · No Domain Data",
+        legend: "僅呈現共享版型與互動框架，不連線正式資料。"
+      },
+      columns: []
     })
-    : `<div class="empty">Shared Golden Master Preview foundation 尚未載入。</div>`;
+    : `<div class="empty">Empty Golden Master foundation 尚未載入。</div>`;
 
   return `<section class="panel system-template-manager" data-system-template-manager data-system-template-id="${escapeHtml(template.id)}">
     <div class="panel-head system-template-manager-head"><div><span class="system-template-kicker">管理功能／系統模板</span><h2>🧩 系統模板</h2><div class="muted">以唯一 Golden Master 管理共享工作表面，並保留未來多模板生命週期的受控入口。</div></div><button class="btn2" type="button" data-open-workspace="sync">返回控制台</button></div>
@@ -4258,7 +4275,7 @@ function systemTemplates() {
       </article>
       <aside class="system-template-catalog" aria-label="模板目錄"><div class="system-template-catalog-head"><div><span class="system-template-kicker">可擴充目錄</span><h3>模板目錄</h3></div><span class="system-template-count">${catalog.list().length} / 1</span></div><div class="system-template-catalog-item"><strong>🪶 ${escapeHtml(template.label)}</strong><span>目前唯一 Golden Master</span></div><div class="system-template-catalog-empty"><b>未新增其他模板</b><span>待 PM 核准模板生命週期後，才可加入第二個模板。</span></div></aside>
     </div>
-    <section class="system-template-preview"><div class="system-template-preview-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Golden Master Preview</h3></div><span class="system-template-preview-note">Template-only Fixture · Read-only · 不載入 Domain Data</span></div>${preview}</section>
+    <section class="system-template-surface"><div class="system-template-surface-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Empty Golden Master</h3></div><span class="system-template-surface-note">Empty Framework · Read-only · No Domain Data</span></div>${emptySurface}</section>
   </section>`;
 }
 
@@ -5430,9 +5447,12 @@ function bindTasks() {
     if (event.target.closest("button, a, input, select, textarea")) return;
     openTaskJournal(card.dataset.worktodoOpenTask || card.dataset.taskCard || "");
   }));
-  const boardFoundation = typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null;
+  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
+  const boardFoundation = goldenMaster?.bindBoard
+    ? goldenMaster
+    : (typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null);
   const board = document.querySelector('[data-shared-task-board="worktodo"]');
-  boardFoundation?.bind(board, {
+  const boardHandlers = {
     canDragCard: id => {
       const task = tasks.find(item => String(item.id) === String(id));
       return Boolean(task && taskFilter !== "archived" && !task.archivedAt);
@@ -5447,7 +5467,9 @@ function bindTasks() {
         : { status: nextStatus, progress: task.progress, completedAt: "", completedNote: "", completedBy: "", archiveDueAt: "", archivedAt: "", archivedBy: "", completionSource: "workspace" };
       await saveWorkTodoTaskPatch(task.id, patch, `工作區已更新為「${taskStatusLabel(nextStatus)}」`);
     }
-  });
+  };
+  if (boardFoundation?.bindBoard) boardFoundation.bindBoard(board, boardHandlers);
+  else boardFoundation?.bind(board, boardHandlers);
   document.querySelectorAll("[data-journal-close]").forEach(button => button.addEventListener("click", () => { taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; taskJournalLoading = false; render("journal-close"); }));
   document.querySelectorAll("[data-journal-edit]").forEach(button => button.addEventListener("click", () => {
     const task = tasks.find(item => item.id === taskJournalTaskId);
@@ -5606,7 +5628,19 @@ function taskWorkspace() {
   const activeTasks = tasks.filter(task => !task.archivedAt);
   const archivedTasks = tasks.filter(task => task.archivedAt);
   const taskSummary = `<span class="task-worktodo-summary" role="status">目前 ${activeTasks.length} 項｜未完成 ${activeTasks.filter(task => task.status !== "completed").length} 項｜封存 ${archivedTasks.length} 項</span>`;
-  return `<section class="tasks-workspace lifecycle-task-workspace"><div class="shared-task-board-toolbar task-toolbar"><div class="task-filters">${taskSummary}<button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div><section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
+  const taskToolbar = typeof ZhugeGoldenMaster !== "undefined"
+    ? ZhugeGoldenMaster.renderToolbar({
+      className: "task-toolbar shared-task-board-toolbar",
+      ariaLabel: "工作待辦工具列",
+      searchId: "taskSearch",
+      searchLabel: "搜尋待辦事項",
+      searchValue: taskSearch,
+      searchPlaceholder: "搜尋待辦事項",
+      statusHtml: `<div class="task-filters">${taskSummary}<button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div>`,
+      actionsHtml: `<button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button>`
+    })
+    : `<div class="shared-task-board-toolbar task-toolbar"><div class="task-filters">${taskSummary}<button class="btn2 ${taskFilter !== "archived" ? "selected" : ""}" type="button" data-task-filter="all">全部</button><span class="task-sort-hint" title="工作待辦依工作狀態分區">六個工作區</span></div><div class="task-search"><span aria-hidden="true">🔍</span><input class="input" id="taskSearch" value="${escapeHtml(taskSearch)}" placeholder="搜尋待辦事項"><button class="btn2 task-search-clear" type="button" data-task-search-clear aria-label="清除搜尋">✕</button></div></div>`;
+  return `<section class="tasks-workspace lifecycle-task-workspace">${taskToolbar}<section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
 function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
@@ -5750,10 +5784,6 @@ function bind() {
   if (activeWorkspace === "worklog" && !profile) bindOnboarding();
   if (activeWorkspace === "library" && view === "libraryForm") bindLibraryForm(editingLibraryId);
   if (activeWorkspace === "settings") bindSettings();
-  if (activeWorkspace === "system-templates") {
-    const preview = typeof ZhugeGoldenMasterPreview !== "undefined" ? ZhugeGoldenMasterPreview : null;
-    preview?.bind?.(document);
-  }
 }
 
 async function persistWorkMemory(nextModels = [], message = "我的工作已更新", options = {}) {

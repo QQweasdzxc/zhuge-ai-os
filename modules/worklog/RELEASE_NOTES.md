@@ -3,14 +3,14 @@
 ## Golden Master Phase 1 Candidate
 
 - Version: `0.9.0-alpha.9.13`
-- Build: `20260821-1456`
-- Package time: 2026-08-21 14:56 (Asia/Taipei)
+- Build: `20260821-1555`
+- Package time: 2026-08-21 15:55 (Asia/Taipei)
 - Artifact type: Full Source Candidate; not a Production Release
 
 ### Changes
 
-- Added the read-only System Template Surface for the AI Board Golden Master.
-- Added a Template-only Fixture and shared Board/Card/Drawer presentation.
+- Promoted the current AI Board presentation contract into the only Empty Golden Master.
+- System Template mounts the same empty shared framework; no Fixture, GM-FIX or parallel presentation remains.
 - Preserved the one-template, two-adapter, two-domain-data boundary.
 - No Cloud, Schema, RPC, RLS, GitHub, or deployment changes.
 

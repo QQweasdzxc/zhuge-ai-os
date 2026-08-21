@@ -64,7 +64,7 @@
     const className = ["shared-task-board", "board", options.className || ""].filter(Boolean).join(" ");
     const id = options.id ? ` id="${escapeHtml(options.id)}"` : "";
     const columns = renderColumns(options.columns || []);
-    return `<div class="${escapeHtml(className)}"${id} data-shared-task-board="${escapeHtml(options.boardKey || options.id || "task-board")}" aria-label="${escapeHtml(options.ariaLabel || "工作看板")}">${columns || `<div class="board-empty">尚未讀取可用工作區。</div>`}</div>`;
+    return `<div class="${escapeHtml(className)}"${id} data-shared-task-board="${escapeHtml(options.boardKey || options.id || "task-board")}" aria-label="${escapeHtml(options.ariaLabel || "工作看板")}">${columns || `<div class="board-empty shared-task-board-empty">${escapeHtml(options.emptyText || "尚未讀取可用工作區。")}</div>`}</div>`;
   }
 
   function hasDragType(event, type) {
