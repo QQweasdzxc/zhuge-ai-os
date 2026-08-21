@@ -79,6 +79,12 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
    <button class="workspace-tab active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
  </div>
  <div class="workspace-canvas">
+  <section id="oneTimeMigrationTrigger" class="board-read-status" data-state="info" hidden>
+   <strong>一次性受控 Migration｜WLTK-004</strong>
+   <div>僅接受目前登入 Session；Owner 由既有 RPC 的 auth.uid() 決定。</div>
+   <button id="oneTimeMigrationRun" class="btn primary" type="button">執行 WLTK-004 Migration</button>
+   <output id="oneTimeMigrationResult" aria-live="polite"></output>
+  </section>
   <div class="board-main-view" data-board-main-view>
    <!-- Shared Golden Master mounts the canonical search control as id="boardSearch" here. -->
    <div id="goldenMasterToolbar" class="toolbar board-toolbar" data-golden-master-toolbar-mount></div>
@@ -151,4 +157,63 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
 <script src="../../../shared/board/board-read-service.js?v=20260821-1555"></script>
 <script src="../ai/board-runtime.js?v=20260821-1555"></script>
+<script>
+(function () {
+  "use strict";
+  const allowedWorkCode = "WLTK-004";
+  const trigger = new URLSearchParams(window.location.search).get("one_time_migration");
+  if (trigger !== allowedWorkCode) return;
+
+  const panel = document.getElementById("oneTimeMigrationTrigger");
+  const button = document.getElementById("oneTimeMigrationRun");
+  const result = document.getElementById("oneTimeMigrationResult");
+  if (!panel || !button || !result) return;
+  panel.hidden = false;
+
+  let used = false;
+  document.addEventListener("click", async function (event) {
+    const button = event.target instanceof Element ? event.target.closest("#oneTimeMigrationRun") : null;
+    if (!button) return;
+    const panel = document.getElementById("oneTimeMigrationTrigger");
+    const result = document.getElementById("oneTimeMigrationResult");
+    if (!panel || !result) return;
+    if (used) return;
+    used = true;
+    button.disabled = true;
+    result.textContent = "執行中；固定只呼叫 WLTK-004。";
+    try {
+      const service = window.ZhugeBoardReadService;
+      if (!service || typeof service.worktodoMigrateTask !== "function") {
+        throw new Error("既有 WorkTodo Migration RPC adapter 尚未載入。");
+      }
+      const task = await service.worktodoMigrateTask(allowedWorkCode);
+      if (!task || task.workCode !== allowedWorkCode) {
+        throw new Error("RPC 回傳的 Work Code 不是 WLTK-004，已停止。");
+      }
+
+      let ownerCheck = "Owner 回傳值已取得";
+      try {
+        const authClient = await window.ZhugeSupabaseGateway?.getAuthClient?.();
+        const authResult = await authClient?.auth?.getUser?.();
+        const authUuid = String(authResult?.data?.user?.id || "");
+        ownerCheck = authUuid && authUuid === task.ownerUuid
+          ? "Owner UUID = auth.uid()：PASS"
+          : "Owner UUID = auth.uid()：FAIL";
+      } catch (error) {
+        ownerCheck = "Owner UUID 比對未完成：" + String(error?.message || "Auth read failed");
+      }
+
+      await window.ZhugeBoardRuntime?.refresh?.({ quiet: true });
+      result.textContent = "WLTK-004 Migration RPC 完成。" +
+        " Task=" + task.id + "；" +
+        " owner_uuid=" + (task.ownerUuid || "未回傳") + "；" + ownerCheck +
+        "。請勿再次執行。";
+      panel.dataset.state = "success";
+    } catch (error) {
+      result.textContent = "WLTK-004 Migration 未完成：" + String(error?.message || "未知錯誤") + "。已停止，請勿重試。";
+      panel.dataset.state = "error";
+    }
+  });
+})();
+</script>
 </body></html>
