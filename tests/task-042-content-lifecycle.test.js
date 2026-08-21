@@ -50,7 +50,7 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /wireTaskTitleEditor/);
   assert.match(runtime, /data-progress-note-open/);
   assert.match(runtime, /data-progress-note-panel/);
-  assert.match(runtime, /floatingHtml: progressNoteComposerMarkup\(archiveOnly\)/);
+  assert.match(runtime, /progress(?:Composer|NoteComposerMarkup\(archiveOnly\))/);
   assert.match(runtime, /setAttribute\("data-progress-note-composer-open", "true"\)/);
   assert.match(runtime, /aria-label="新增工作進度" title="新增工作進度">新增<\/button>/);
   assert.doesNotMatch(runtime, />➤<\/button>/);

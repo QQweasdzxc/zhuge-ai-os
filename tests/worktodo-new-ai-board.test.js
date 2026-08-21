@@ -8,7 +8,7 @@ const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 const GoldenMaster = require("../shared/components/golden-master.js");
 const SharedTaskBoard = require("../shared/components/task-board.js");
 
-test("new WorkTodo is a source-equivalent AI Board consumer with an empty data boundary", () => {
+test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data boundary", () => {
   const aiBoard = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
   const runtime = read("app/Board/ai/board-runtime.js");
@@ -16,6 +16,7 @@ test("new WorkTodo is a source-equivalent AI Board consumer with an empty data b
   const appConfig = read("shared/app-config.js");
   const dashboard = read("app/dashboard/index.html");
   const dashboardRuntime = read("app/dashboard/zhuge-dashboard.js");
+  const scopeMigration = read("docs/supabase/20260821_worktodo_application_scope_owner.sql");
 
   for (const marker of [
     "shared/theme/zhuge-navigation.css",
@@ -55,14 +56,19 @@ test("new WorkTodo is a source-equivalent AI Board consumer with an empty data b
   assert.match(dashboardRuntime, /\["tasks-new", "✅", "工作待辦"/);
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);
 
-  const emptyRuntime = runtime.slice(runtime.indexOf("function emptyWorkTodoWorkspaces"), runtime.indexOf("function startBoardRuntime"));
-  assert.match(runtime, /function isEmptyWorkTodoMode\(\)/);
-  assert.match(runtime, /if \(isEmptyWorkTodoMode\(\)\) \{/);
+  assert.match(runtime, /function isWorkTodoMode\(\)/);
+  assert.match(runtime, /service\.load\(\{ applicationScope: state\.applicationScope \}\)/);
+  assert.match(runtime, /service\.worktodoCreateTask/);
+  assert.match(runtime, /service\.worktodoUpdateTask/);
+  assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo" \}\)/);
+  assert.doesNotMatch(runtime, /emptyWorkTodo|GM-FIX-|golden-master-preview/i);
   for (const workspace of ["待開始", "進行中", "等待回覆", "等待驗收", "阻塞", "完成"]) {
-    assert.match(emptyRuntime, new RegExp(`name: "${workspace}"`));
+    assert.match(scopeMigration, new RegExp(`'[^']+', '${workspace}',`));
   }
-  assert.match(emptyRuntime, /state\.workspaces = emptyWorkTodoWorkspaces\(\)/);
-  assert.doesNotMatch(emptyRuntime, /service\.(load|subscribe|create|rename|move|reorder|update|delete|upload|governance)/);
+  assert.match(scopeMigration, /application_scope = 'worktodo'/);
+  assert.match(scopeMigration, /owner_uuid = \(select auth\.uid\(\)\)/);
+  assert.match(scopeMigration, /create or replace function public\.worktodo_create_task/);
+  assert.match(scopeMigration, /create or replace function public\.worktodo_migrate_task/);
 });
 
 test("AI Board and new WorkTodo receive the same Golden Master column UI change", () => {
