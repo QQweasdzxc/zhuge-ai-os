@@ -79,12 +79,6 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
    <button class="workspace-tab active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
  </div>
  <div class="workspace-canvas">
-  <section id="oneTimeMigrationTrigger" class="board-read-status" data-state="info" hidden>
-   <strong>一次性受控 Migration｜已核准 8 筆</strong>
-   <div>僅接受目前登入 Session；固定只處理已核准 Work Code，Owner 由既有 RPC 的 auth.uid() 決定。</div>
-   <button id="oneTimeMigrationRun" class="btn primary" type="button">執行剩餘 8 筆 Migration</button>
-   <output id="oneTimeMigrationResult" aria-live="polite"></output>
-  </section>
   <div class="board-main-view" data-board-main-view>
    <!-- Shared Golden Master mounts the canonical search control as id="boardSearch" here. -->
    <div id="goldenMasterToolbar" class="toolbar board-toolbar" data-golden-master-toolbar-mount></div>
@@ -157,71 +151,4 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
 <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
 <script src="../../../shared/board/board-read-service.js?v=20260821-1555"></script>
 <script src="../ai/board-runtime.js?v=20260821-1555"></script>
-<script>
-(function () {
-  "use strict";
-  const allowedWorkCodes = Object.freeze([
-    "WLTK-001", "WLTK-002", "WLTK-003", "WLTK-006",
-    "WLTK-007", "WLTK-008", "WLTK-010", "WLTK-011"
-  ]);
-  const trigger = new URLSearchParams(window.location.search).get("one_time_migration");
-  if (trigger !== "remaining-worktodo-no-note") return;
-
-  const panel = document.getElementById("oneTimeMigrationTrigger");
-  const button = document.getElementById("oneTimeMigrationRun");
-  const result = document.getElementById("oneTimeMigrationResult");
-  if (!panel || !button || !result) return;
-  panel.hidden = false;
-
-  let used = false;
-  document.addEventListener("click", async function (event) {
-    const clickedButton = event.target instanceof Element ? event.target.closest("#oneTimeMigrationRun") : null;
-    if (!clickedButton) return;
-    const currentPanel = document.getElementById("oneTimeMigrationTrigger");
-    const currentResult = document.getElementById("oneTimeMigrationResult");
-    if (!currentPanel || !currentResult || used) return;
-    used = true;
-    clickedButton.disabled = true;
-    currentResult.textContent = "執行中；固定只呼叫已核准的 8 個 Work Code。";
-    try {
-      const service = window.ZhugeBoardReadService;
-      if (!service || typeof service.worktodoMigrateTask !== "function") {
-        throw new Error("既有 WorkTodo Migration RPC adapter 尚未載入。");
-      }
-      const authClient = await window.ZhugeSupabaseGateway?.getAuthClient?.();
-      const authResult = await authClient?.auth?.getUser?.();
-      const authUuid = String(authResult?.data?.user?.id || "");
-      if (!authUuid) {
-        throw new Error("目前登入 Session 的 auth.uid() 無法取得，未執行任何 Migration。");
-      }
-
-      const outcomes = [];
-      for (const workCode of allowedWorkCodes) {
-        try {
-          const task = await service.worktodoMigrateTask(workCode);
-          if (!task || task.workCode !== workCode) {
-            throw new Error("RPC 回傳的 Work Code 不符：" + workCode);
-          }
-          if (task.ownerUuid !== authUuid) {
-            throw new Error("owner_uuid 與目前 auth.uid() 不符");
-          }
-          outcomes.push(workCode + "：成功");
-        } catch (error) {
-          outcomes.push(workCode + "：失敗｜" + String(error?.message || "未知錯誤"));
-        }
-        currentResult.textContent = outcomes.join("；");
-      }
-
-      await window.ZhugeBoardRuntime?.refresh?.({ quiet: true });
-      const failed = outcomes.filter((item) => item.includes("：失敗｜"));
-      currentResult.textContent = outcomes.join("；") +
-        "。完成；失敗 " + failed.length + " 筆。請勿再次執行。";
-      currentPanel.dataset.state = failed.length ? "error" : "success";
-    } catch (error) {
-      currentResult.textContent = "Migration 未執行：" + String(error?.message || "未知錯誤") + "。已停止，請勿重試。";
-      currentPanel.dataset.state = "error";
-    }
-  });
-})();
-</script>
 </body></html>
