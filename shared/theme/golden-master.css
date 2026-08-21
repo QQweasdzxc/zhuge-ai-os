@@ -12,8 +12,8 @@
 .golden-master-board-shell{min-width:0;max-width:100%;overflow-x:auto;overflow-y:visible;padding:18px 0 28px}
 .golden-master-board-shell .shared-task-board{min-height:72px}
 .golden-master-board-shell .shared-task-board:empty{min-height:180px}
-.zhuge-module-shell .workspace-canvas{container-type:inline-size}
-@container (min-width:1200px){
+@media(min-width:1600px){
+  .golden-master-board-shell{overflow-x:hidden}
   .golden-master-board-shell .shared-task-board{width:100%;min-width:0}
   .golden-master-board-shell .shared-task-board-column{flex:1 1 0;width:auto;min-width:0}
 }
