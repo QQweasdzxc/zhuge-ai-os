@@ -500,8 +500,6 @@ begin
     and deleted_at is null
   for share;
   if not found then raise exception using errcode = 'P0002', message = 'WorkTodo source task is not available to the current user'; end if;
-  if nullif(btrim(v_source.note), '') is null then raise exception using errcode = '22023', message = 'Migration requires a WorkTodo task note'; end if;
-
   select count(*) into v_journal_count
   from public.work_journal_entries
   where task_uuid = v_source.id
