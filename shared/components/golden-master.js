@@ -77,6 +77,7 @@
   function renderToolbar(options = {}) {
     const toolbar = options.toolbar || options;
     const className = ["toolbar", "board-toolbar", "golden-master-toolbar", toolbar.className || ""].filter(Boolean).join(" ");
+    const toolbarId = toolbar.id ? ` id="${escapeHtml(toolbar.id)}"` : "";
     const searchId = escapeHtml(toolbar.searchId || "goldenMasterSearch");
     const searchLabel = escapeHtml(toolbar.searchLabel || "搜尋");
     const placeholder = escapeHtml(toolbar.searchPlaceholder || "");
@@ -95,7 +96,64 @@
     const customActions = markup(toolbar.actionsHtml);
     const status = markup(toolbar.statusHtml || (toolbar.status ? `<span class="golden-master-toolbar-status">${escapeHtml(toolbar.status)}</span>` : ""));
     const legend = markup(toolbar.legendHtml || (toolbar.legend ? `<span class="golden-master-toolbar-legend">${escapeHtml(toolbar.legend)}</span>` : ""));
-    return `<div class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}</div>`;
+    return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}</div>`;
+  }
+
+  function renderHeaderActions(options = {}) {
+    const scope = escapeHtml(options.applicationScope || "");
+    const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
+    return `<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scope ? ` data-application-scope="${scope}"` : ""}>↻</button>`;
+  }
+
+  function renderOperations(options = {}) {
+    const scope = escapeHtml(options.applicationScope || "");
+    return `<div class="golden-master-operations" data-golden-master-operations="true"${scope ? ` data-application-scope="${scope}"` : ""}>
+<div id="addCardModal" class="modalback" aria-hidden="true">
+ <div class="modal board-create-drawer">
+  <div class="modalhead"><h2>新增 TASK</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 TASK">×</button></div>
+  <div class="modalbody">
+   <div class="field"><label for="taskSummary">需求內容</label><textarea id="taskSummary" placeholder="要完成什麼？"></textarea></div>
+   <div class="field"><label for="taskUsageScenario">使用情境</label><textarea id="taskUsageScenario" placeholder="使用者為什麼需要？實際會怎麼使用？"></textarea><div class="hint">使用情境是正式內容；沒有資料時不自行猜測。</div></div>
+   <div class="field"><label for="taskTitle">TASK 標題</label><input id="taskTitle" placeholder="例如：AI Board Checklist 驗收"></div>
+  </div>
+  <div class="modalfoot"><button class="btn" type="button" data-golden-master-close="add-card">取消</button><button class="btn primary" type="button" data-golden-master-create-card>建立卡片</button></div>
+ </div>
+</div>
+
+<div id="workspaceCreateDrawerBackdrop" class="board-create-drawer-backdrop" data-workspace-drawer-close aria-hidden="true"></div>
+<aside id="workspaceCreateDrawer" class="board-create-drawer board-workspace-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="新增工作區">
+ <div class="modalhead"><h2>＋ 新增工作區</h2><button class="x" type="button" data-workspace-drawer-close aria-label="關閉新增工作區">×</button></div>
+ <div class="modalbody"><div class="field"><label for="workspaceName">工作區名稱</label><input id="workspaceName" type="text" maxlength="80" placeholder="例如：測試區" autocomplete="off"><div class="hint">建立後會依目前排序出現在 Board 最右側。</div></div></div>
+ <div class="drawer-actions"><button class="btn" type="button" data-workspace-drawer-close>取消</button><button class="btn primary" type="button" data-workspace-create>建立</button></div>
+</aside>
+
+<div id="archiveDrawerBackdrop" class="board-create-drawer-backdrop" data-archive-close aria-hidden="true"></div>
+<aside id="archiveDrawer" class="board-create-drawer board-archive-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="封存">
+ <div class="modalhead"><h2>📦 封存</h2><button class="x" type="button" data-archive-close aria-label="關閉封存">×</button></div>
+ <div class="modalbody">
+  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 TASK、治理原因或工作區" aria-label="搜尋封存 TASK"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
+  <div id="archiveCount" class="board-archive-count" aria-live="polite"></div>
+  <div id="archiveTaskList" class="board-archive-list"><div class="board-empty">目前沒有封存 TASK。</div></div>
+ </div>
+</aside>
+
+<div id="healthCheckModal" class="modalback" aria-hidden="true">
+ <div class="modal board-task-modal" role="dialog" aria-modal="true"><div class="modalhead"><h2>資料健康度檢查（唯讀）</h2><button class="x" id="closeHealthCheck" type="button" aria-label="關閉">×</button></div><div class="modalbody" id="healthCheckBody"><div class="board-empty">尚未執行檢查。</div></div></div>
+</div>
+<div id="taskDetailModal" class="task-detail-modal-host" aria-hidden="true"><div id="taskDetailBody"></div></div>
+</div>`;
+  }
+
+  function mountOperations(target, options = {}) {
+    if (!target || typeof document === "undefined") return null;
+    const existing = target.querySelector?.("[data-golden-master-operations]") || document.querySelector("[data-golden-master-operations]");
+    if (existing) return existing;
+    const template = document.createElement("template");
+    template.innerHTML = renderOperations(options).trim();
+    const operations = template.content.firstElementChild;
+    if (!operations) return null;
+    target.appendChild(operations);
+    return operations;
   }
 
   function renderCard(cardOptions = {}, options = {}, deps = dependencies(options)) {
@@ -136,7 +194,14 @@
   }
 
   function renderDrawer(options = {}, deps = dependencies(options)) {
-    if (deps.drawer?.render) return deps.drawer.render(options.drawer || options);
+    const drawerOptions = options.drawer || options;
+    const properties = Array.isArray(drawerOptions.properties)
+      ? drawerOptions.properties.filter(item => !["priority", "due-date"].includes(item?.key))
+      : drawerOptions.properties;
+    const presentationOptions = properties === drawerOptions.properties
+      ? drawerOptions
+      : { ...drawerOptions, properties };
+    if (deps.drawer?.render) return deps.drawer.render(presentationOptions);
     return `<div class="shared-task-drawer-empty">Shared Task Drawer 尚未載入。</div>`;
   }
 
@@ -165,7 +230,10 @@
     EMPTY_MODEL,
     escapeHtml,
     renderHeader,
+    renderHeaderActions,
     renderToolbar,
+    renderOperations,
+    mountOperations,
     renderCard,
     renderColumns,
     renderBoard,
