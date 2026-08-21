@@ -551,7 +551,7 @@ begin
       'progress', j.progress,
       'migrated_from', 'worktodo'
     ),
-    btrim(j.content), coalesce(j.created_by, v_user), 'human', 'WorkTodo',
+    btrim(j.content), coalesce(j.created_by, v_user), 'human', 'Legacy',
     'human_progress_note', coalesce(j.created_at, now())
   from public.work_journal_entries j
   where j.task_uuid = v_source.id
