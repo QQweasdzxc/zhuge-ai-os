@@ -103,7 +103,7 @@
       (() => {
         const runtimeFiles = [
           "../../shared/i18n/zh-TW.js", "../../shared/app-config.js", "../../shared/utils/shared-utils.js", "../../shared/storage/storage-migration.js", "../../shared/api/data-result.js", "../../shared/identity/identity-health.js", "../../shared/auth/session-lifecycle.js", "../../shared/core/repository-bootstrap.js", "../../shared/api/sync-queue.js", "../../shared/foundation/index.js", "../../shared/app-state.js",
-          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "components/worktodo-task-adapter.js",
+          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/system-template-catalog.js", "components/worktodo-task-adapter.js",
           "../../shared/components/workspaces.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
           "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
           "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js",
@@ -113,12 +113,12 @@
           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worklog-app.js"
         ];
         const appStyles = [
-          "../../shared/theme/zhuge-navigation.css?v=20260820-2131",
-          "../../shared/theme/zhuge-shell.css?v=20260820-2131",
-          "../../shared/theme/task-card.css?v=20260820-2131",
-          "../../shared/theme/task-drawer.css?v=20260820-2131",
-          "../../shared/theme/task-board.css?v=20260820-2131",
-          "./worklog.css?v=20260820-2131",
+          "../../shared/theme/zhuge-navigation.css?v=20260821-1340",
+          "../../shared/theme/zhuge-shell.css?v=20260821-1340",
+          "../../shared/theme/task-card.css?v=20260821-1340",
+          "../../shared/theme/task-drawer.css?v=20260821-1340",
+          "../../shared/theme/task-board.css?v=20260821-1340",
+          "./worklog.css?v=20260821-1340",
           "../../shared/theme/zhuge-os.css?v=20260729-2158",
           "../../shared/theme/ai-product.css?v=20260729-2158",
           "../../shared/theme/zhuge-workspace.css?v=20260811-workspace-1"
@@ -140,7 +140,7 @@
         // WorkLog destination. This is a routing adapter only; the WorkLog
         // runtime remains the owner of workspace rendering and business logic.
         const requestedWorkspace = params.get("workspace");
-        const allowedWorkspaces = new Set(["dashboard", "worklog", "tasks", "library", "sync", "settings"]);
+        const allowedWorkspaces = new Set(["dashboard", "worklog", "tasks", "library", "sync", "system-templates", "settings"]);
         if (allowedWorkspaces.has(requestedWorkspace)) {
           try {
             // Explicit shared-navigation intent opens exactly that WorkLog
@@ -173,7 +173,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260820-2131`;
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260821-1340`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true); };
