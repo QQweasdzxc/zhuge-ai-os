@@ -208,6 +208,7 @@
   }
 
   function render(task, options = {}) {
+    const goldenMaster = options.goldenMaster || root?.ZhugeGoldenMaster;
     const drawer = options.drawer || root?.ZhugeSharedTaskDrawer;
     if (!drawer?.render) return `<div class="shared-task-drawer-empty">Shared Task Drawer 尚未載入。</div>`;
     const vm = normalize(task, options.journal || [], options.capabilityData || {});
@@ -218,7 +219,7 @@
       { id: "attachments", title: "📎 附件", hint: "圖片、文件與工作交付物", className: "worktodo-shared-attachments-section", html: attachmentMarkup(vm, readOnly) },
       vm.status === "completed" && vm.completedNote ? { id: "completion", title: "完成摘要", className: "worktodo-shared-completion-section", html: `<p>${contentMarkup(vm.completedNote, options.renderContent)}</p><small class="muted">完成時間：${escapeHtml(formatTimestamp(vm.completedAt, options.formatTimestamp))}</small>` } : null
     ].filter(Boolean);
-    const html = drawer.render({
+    const drawerOptions = {
       title: vm.title,
       titleCode: vm.workCode || vm.id,
       titleEditable: !readOnly,
@@ -243,16 +244,20 @@
         html: renderJournal(vm.journal, vm, { ...options, actorLabel: options.actorLabel, formatTimestamp: options.formatTimestamp })
       },
       footerHtml: readOnly ? "" : `<div class="worktodo-shared-footer-actions"><button class="btn2" type="button" data-task-toggle="${escapeHtml(vm.id)}">${vm.status === "completed" ? "恢復待辦" : "標記完成"}</button></div>`
-    });
+    };
+    const html = goldenMaster?.renderDrawer
+      ? goldenMaster.renderDrawer({ ...drawerOptions, components: { drawer } })
+      : drawer.render(drawerOptions);
     return html.replace('<div class="shared-task-drawer"', `<div class="shared-task-drawer worktodo-shared-task-drawer" data-worktodo-shared-drawer data-worktodo-task-id="${escapeHtml(vm.id)}" data-worktodo-task-cloud-id="${escapeHtml(vm.cloudId)}"`);
   }
 
   function renderCard(task, options = {}) {
+    const goldenMaster = options.goldenMaster || root?.ZhugeGoldenMaster;
     const card = options.card || root?.ZhugeSharedTaskCard;
     if (!card?.render) return `<div class="empty">Shared Task Card foundation 尚未載入。</div>`;
     const vm = normalize(task, options.journal || [], options.capabilityData || {});
     const summary = options.summaryHtml != null ? options.summaryHtml : (vm.note || "目前尚未補充工作內容。");
-    return card.render({
+    const cardOptions = {
       className: ["shared-task-board-card", "shared-task-card", vm.status === "completed" ? "task-completed" : ""].filter(Boolean).join(" "),
       code: vm.workCode || vm.id,
       titleHtml: options.titleHtml != null ? String(options.titleHtml) : escapeHtml(vm.title),
@@ -267,7 +272,10 @@
         role: "button",
         draggable: "true"
       }, options.attributes || {})
-    });
+    };
+    return goldenMaster?.renderCard
+      ? goldenMaster.renderCard(cardOptions, { components: { card } })
+      : card.render(cardOptions);
   }
 
   return Object.freeze({ CAPABILITIES, normalize, render, renderCard, renderJournal, journalComposer, analysisMarkup });

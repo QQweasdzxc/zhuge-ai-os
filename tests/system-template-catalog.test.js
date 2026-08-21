@@ -5,14 +5,14 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
+const exists = file => fs.existsSync(path.join(ROOT, file));
 const Catalog = require("../shared/components/system-template-catalog.js");
+const GoldenMaster = require("../shared/components/golden-master.js");
 const Board = require("../shared/components/task-board.js");
 const Card = require("../shared/components/task-card.js");
 const Drawer = require("../shared/components/task-drawer.js");
-const Fixture = require("../shared/components/golden-master-fixture.js");
-const Preview = require("../shared/components/golden-master-preview.js");
 
-test("System Template Catalog keeps one AI Board Golden Master", () => {
+test("System Template Catalog keeps one empty AI Board Golden Master", () => {
   const templates = Catalog.list();
   assert.equal(templates.length, 1);
   const template = Catalog.get(Catalog.GOLDEN_MASTER_ID);
@@ -22,22 +22,33 @@ test("System Template Catalog keeps one AI Board Golden Master", () => {
   assert.deepEqual(template.adapters.map(adapter => adapter.label), ["AI Board Adapter", "WorkTodo Adapter"]);
   assert.deepEqual(template.domainData.map(data => data.label), ["AI Board Domain Data", "WorkTodo Domain Data"]);
   assert.deepEqual(template.sharedSurfaces, [
-    "Shared Shell / Header",
-    "Shared Task Board",
+    "Shared Navigation / Shell",
+    "Shared Header",
+    "Shared Toolbar / Search / Filter",
+    "Shared Workspace / Column",
     "Shared Task Card",
-    "Shared Task Drawer",
-    "Shared Toolbar / Workspace Contract",
-    "Work Journal Timeline"
+    "Shared Task Drawer / Properties",
+    "Shared Work Content / Usage Scenario",
+    "Shared Attachment / Checklist / Timeline",
+    "Shared GPT Analysis",
+    "Shared Responsive / Interaction"
   ]);
+  assert.deepEqual(template.emptySurface, {
+    id: "empty-golden-master-surface",
+    renderer: "shared-golden-master",
+    mode: "empty",
+    domainData: false,
+    fixture: false,
+    cloudWrites: false
+  });
+  assert.equal(Object.hasOwn(template, "preview"), false);
 });
 
-test("System Template Catalog reserves multi-template actions without writes", () => {
+test("Empty Golden Master catalog reserves lifecycle actions without writes", () => {
   const source = read("shared/components/system-template-catalog.js");
   const template = Catalog.get();
   assert.equal(template.capabilities.catalog, "multi-template-ready");
-  assert.equal(template.capabilities.preview.fixtureOnly, true);
-  assert.equal(template.capabilities.preview.readOnly, true);
-  assert.equal(template.capabilities.preview.cloudWrites, false);
+  assert.deepEqual(template.capabilities.empty, { domainData: false, fixture: false, cloudWrites: false });
   assert.equal(template.capabilities.workspace.fixedColumns, false);
   assert.deepEqual(template.capabilities.workspace.operations, ["add", "edit", "delete", "reorder", "move-task"]);
   assert.equal(template.capabilities.clone.enabled, false);
@@ -45,11 +56,10 @@ test("System Template Catalog reserves multi-template actions without writes", (
   assert.equal(template.persistence.cloudWrites, false);
   const forbiddenWriteApi = /DataService\s*[.(]|Supabase(?:Repository)?\s*[.(]|localStorage\s*[.(]|sessionStorage\s*[.(]|fetch\s*\(|rpc\s*\(/i;
   assert.doesNotMatch(source, forbiddenWriteApi);
-  assert.doesNotMatch(read("shared/components/golden-master-fixture.js"), forbiddenWriteApi);
-  assert.doesNotMatch(read("shared/components/golden-master-preview.js"), forbiddenWriteApi);
+  assert.doesNotMatch(source, /GM-FIX|golden-master-preview|fixtureKey/i);
 });
 
-test("System Template Manager is routed from Control Center", () => {
+test("System Template Manager mounts the same Empty Golden Master source", () => {
   const config = read("shared/app-config.js");
   const router = read("shared/app-router.js");
   const index = read("modules/worklog/index.html");
@@ -57,46 +67,53 @@ test("System Template Manager is routed from Control Center", () => {
   assert.match(config, /"system-templates": \{ icon: "🧩", label: "系統模板"/);
   assert.match(router, /"system-templates"/);
   assert.match(index, /shared\/components\/system-template-catalog\.js/);
-  assert.match(index, /shared\/components\/golden-master-fixture\.js/);
-  assert.match(index, /shared\/components\/golden-master-preview\.js/);
-  assert.match(index, /shared\/theme\/golden-master-preview\.css/);
+  assert.match(index, /shared\/components\/golden-master\.js/);
+  assert.match(index, /shared\/theme\/golden-master\.css/);
+  assert.doesNotMatch(index, /golden-master-fixture|golden-master-preview|golden-master-preview\.css/);
   assert.match(index, /allowedWorkspaces = new Set\(\["dashboard"[\s\S]*"system-templates"/);
   assert.match(runtime, /\["system-templates", "🧩", "系統模板"/);
   assert.match(runtime, /if \(activeWorkspace === "system-templates"\) return systemTemplates\(\);/);
+  assert.match(runtime, /goldenMaster\.render\(/);
+  assert.doesNotMatch(runtime, /ZhugeGoldenMasterPreview|template\.preview|GM-FIX/);
   assert.match(runtime, /data-open-workspace="sync">返回控制台/);
 });
 
-test("System Template Manager uses the shared Golden Master Preview Renderer", () => {
-  const runtime = read("modules/worklog/worklog-app.js");
-  const manager = runtime.match(/function systemTemplates\(\) \{[\s\S]*?\n\}\n\nfunction nextKnowledgeId/);
-  assert.ok(manager, "systemTemplates function should be present");
-  assert.match(manager[0], /ZhugeGoldenMasterPreview/);
-  assert.match(manager[0], /template\.preview\.fixtureKey/);
-  assert.doesNotMatch(manager[0], /template\.preview\.columns/);
-  assert.match(manager[0], /data-template-action/);
-  assert.match(manager[0], /disabled aria-disabled="true"/);
-  assert.doesNotMatch(manager[0], /DataService\s*[.(]|Supabase(?:Repository)?\s*[.(]|localStorage\s*[.(]|sessionStorage\s*[.(]|fetch\s*\(|rpc\s*\(/i);
+test("Empty Golden Master renders only the shared empty framework", () => {
+  const html = GoldenMaster.render({
+    header: { title: "AI Board", description: "Empty Golden Master", identityHint: "No Domain Data" },
+    toolbar: { searchId: "goldenMasterSearch", disabled: true, status: "Empty · No Domain Data" },
+    columns: [],
+    components: {
+      board: Board,
+      card: Card,
+      drawer: Drawer,
+      shell: { renderHeader: options => `<header class="zhuge-shared-header"><h2>${options.title}</h2><p>${options.description}</p></header>` }
+    }
+  });
+  assert.match(html, /data-golden-master="empty"/);
+  assert.match(html, /data-golden-master-data="none"/);
+  assert.match(html, /data-golden-master-toolbar="true"/);
+  assert.match(html, /data-golden-master-board-shell="true"/);
+  assert.match(html, /data-shared-task-board="golden-master"/);
+  assert.match(html, /shared-task-board-empty/);
+  assert.doesNotMatch(html, /GM-FIX|WLTK-|TASK-\d+|fixture|Domain Data rows/i);
 });
 
-test("Golden Master Preview renders the complete fixture through shared Board/Card/Drawer", () => {
-  const fixture = Fixture.get();
-  assert.equal(fixture.id, Fixture.FIXTURE_ID);
-  const html = Preview.render({
-    fixture,
-    board: Board,
-    card: Card,
-    drawer: Drawer,
-    shell: { renderHeader: options => `<header class="zhuge-shared-header"><h2>${options.title}</h2><p>${options.description}</p>${options.actionMarkup || ""}</header>` }
-  });
-  assert.match(html, /data-golden-master-preview/);
-  assert.match(html, /data-mounted="true"/);
-  assert.match(html, /data-shared-task-board="ai-board-golden-master-preview"/);
-  assert.equal((html.match(/data-shared-task-board-column=/g) || []).length, 4);
-  assert.match(html, /data-golden-master-preview-card="gm-fixture-task"/);
-  assert.match(html, /data-shared-task-drawer/);
-  assert.match(html, /data-shared-task-properties/);
-  assert.match(html, /Checklist/);
-  assert.match(html, /golden-master-preview-analysis/);
-  assert.match(html, /data-shared-task-timeline/);
-  assert.match(html, /golden-master-fixture-spec\.md/);
+test("AI Board and WorkTodo route Card, Board, Drawer, and binding through the same source", () => {
+  const aiRuntime = read("app/Board/ai/board-runtime.js");
+  const worktodoRuntime = read("modules/worklog/worklog-app.js");
+  const worktodoAdapter = read("modules/worklog/components/worktodo-task-adapter.js");
+  assert.match(aiRuntime, /ZhugeGoldenMaster\.renderCard/);
+  assert.match(aiRuntime, /ZhugeGoldenMaster\.renderColumns/);
+  assert.match(aiRuntime, /ZhugeGoldenMaster\.bindBoard/);
+  assert.match(aiRuntime, /ZhugeGoldenMaster\??\.renderDrawer/);
+  assert.match(worktodoRuntime, /goldenMaster\??\.renderBoard|foundation\.renderBoard/);
+  assert.match(worktodoRuntime, /goldenMaster\??\.bindBoard|boardFoundation\??\.bindBoard/);
+  assert.match(worktodoRuntime, /ZhugeGoldenMaster\.renderToolbar/);
+  assert.match(worktodoAdapter, /ZhugeGoldenMaster/);
+  assert.match(worktodoAdapter, /goldenMaster\??\.renderCard/);
+  assert.match(worktodoAdapter, /goldenMaster\??\.renderDrawer/);
+  assert.equal(exists("shared/components/golden-master-fixture.js"), false);
+  assert.equal(exists("shared/components/golden-master-preview.js"), false);
+  assert.equal(exists("shared/theme/golden-master-preview.css"), false);
 });

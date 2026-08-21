@@ -111,9 +111,7 @@
       : "";
     const draggable = !archiveOnly && !terminal;
     const archiveClass = archiveOnly ? " archive-taskcard" : "";
-    const card = root.ZhugeSharedTaskCard;
-    if (!card?.render) return "<div class=\"board-empty\">Shared Task Card foundation 尚未載入。</div>";
-    return card.render({
+    const cardOptions = {
       className: "card taskcard shared-task-board-card board-cloud-card" + archiveClass,
       code: task.workCode || task.id || "TASK",
       title: task.title,
@@ -128,7 +126,10 @@
         tabindex: "0",
         draggable: String(draggable)
       }
-    });
+    };
+    if (root.ZhugeGoldenMaster?.renderCard) return root.ZhugeGoldenMaster.renderCard(cardOptions);
+    if (root.ZhugeSharedTaskCard?.render) return root.ZhugeSharedTaskCard.render(cardOptions);
+    return "<div class=\"board-empty\">Shared Task Card foundation 尚未載入。</div>";
   }
   function principleMarkup(principle) {
     return "<article class=\"principle-card board-cloud-card\" data-knowledge-code=\"" + esc(principle.code) + "\">" +
@@ -188,8 +189,10 @@
           : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button>"
       };
     });
-    board.innerHTML = root.ZhugeSharedTaskBoard?.renderColumns
-      ? root.ZhugeSharedTaskBoard.renderColumns(columns)
+    board.innerHTML = root.ZhugeGoldenMaster?.renderColumns
+      ? root.ZhugeGoldenMaster.renderColumns(columns)
+      : root.ZhugeSharedTaskBoard?.renderColumns
+        ? root.ZhugeSharedTaskBoard.renderColumns(columns)
       : "<div class=\"board-empty\">Shared Task Board foundation 尚未載入。</div>";
   }
   function renderTasks(tasks) {
@@ -227,6 +230,19 @@
     const count = visibleTasks().length;
     const result = document.getElementById("boardSearchCount");
     if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 TASK" : "顯示目前工作中的正式 TASK";
+  }
+  function renderGoldenMasterToolbar() {
+    const mount = document.getElementById("goldenMasterToolbar");
+    if (!mount || !root.ZhugeGoldenMaster?.renderToolbar) return;
+    mount.outerHTML = root.ZhugeGoldenMaster.renderToolbar({
+      searchId: "boardSearch",
+      searchLabel: "搜尋 TASK、使用情境或工作區",
+      searchPlaceholder: "⌕ 搜尋目前工作中的 TASK、使用情境或工作區",
+      filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
+      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
+      statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 TASK</span>',
+      legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
+    });
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");
@@ -428,7 +444,7 @@
       };
     });
     const board = document.querySelector('[data-shared-task-board="ai-board"]');
-    root.ZhugeSharedTaskBoard?.bind(board, {
+    const boardHandlers = {
       canDragCard: id => {
         const task = state.taskById.get(String(id));
         return Boolean(task && !isArchiveTask(task) && !service.isGovernanceTerminal?.(task));
@@ -439,7 +455,9 @@
       },
       canReorderColumn: id => Boolean(state.workspaceById.get(String(id)) && isMainBoardWorkspace(state.workspaceById.get(String(id))) && !isCompletionWorkspace(state.workspaceById.get(String(id)))),
       onColumnDrop: async ({ sourceId, id }) => reorderWorkspace(sourceId, id)
-    });
+    };
+    if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
+    else root.ZhugeSharedTaskBoard?.bind(board, boardHandlers);
   }
 
   function wireNavigation() {
@@ -1356,6 +1374,7 @@
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
+    const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
     const title = task.title || "未命名 TASK";
     const titleCode = task.workCode || "TASK";
     const properties = [
@@ -1372,8 +1391,8 @@
       { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` },
       { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
     ];
-    if (drawer?.render) {
-      body.innerHTML = drawer.render({
+    if (drawer?.render || drawerRenderer) {
+      const drawerOptions = {
         title,
         titleCode,
         titleEditable: !archiveOnly,
@@ -1392,7 +1411,8 @@
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
         footerHtml: ""
-      });
+      };
+      body.innerHTML = drawerRenderer ? drawerRenderer(drawerOptions) : drawer.render(drawerOptions);
     } else {
       body.innerHTML = "<div class=\"board-empty\">Shared Task Drawer foundation 尚未載入；未執行任何 Cloud 寫入。</div>";
     }
@@ -1635,6 +1655,7 @@
       button.onclick = () => shell?.classList.remove("sidebar-open");
     });
     mountCreatorMfaSettings(accessContext);
+    renderGoldenMasterToolbar();
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);

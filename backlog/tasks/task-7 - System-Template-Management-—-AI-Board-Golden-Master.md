@@ -1,10 +1,11 @@
 ---
 id: TASK-7
 title: System Template Management — AI Board Golden Master
-status: Done
-assignee: []
+status: In Progress
+assignee:
+  - '@codex'
 created_date: '2026-08-21 05:35'
-updated_date: '2026-08-21 05:41'
+updated_date: '2026-08-21 07:19'
 labels:
   - system-template
   - shared-ux
@@ -34,15 +35,23 @@ ordinal: 8000
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. 新增 presentation-only 的系統模板目錄契約，固定 AI Board Golden Master 與兩 Adapter／兩 Domain Data 映射。
-2. 在控制台管理功能加入系統模板入口，並於 WorkLog 內新增模板管理頁與共享 Task Board 預覽。
-3. 以 disabled 且明確標註待核准的複製／套用控制項預留未來多模板架構，不觸發 Cloud 寫入。
-4. 新增目錄、入口、路由、共享表面與無 Cloud 寫入邊界測試，完成語法檢查與完整回歸。
-5. 以實際 Asia/Taipei Artifact Created At 建立新的 append-only ZIP，完成解壓完整性與 SHA-256 驗證。
+1. 將現有 AI Board Presentation 原樣去資料化，升格為唯一 Empty Golden Master。 2. 保留 AI Board / WorkTodo 各自 Adapter、Domain Data、Repository、Cloud path 與 Business Rule。 3. 讓 System Template 只 mount 同一份空白母版，不使用 Fixture、GM-FIX 或 Preview renderer。 4. 完成 static QA、automated regression 與本機 Runtime smoke test；不做 migration、schema、RPC、RLS、Cloud write、Template Editor 或新功能。
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Source implementation complete. Added shared/components/system-template-catalog.js, Control Center system-templates route, WorkLog manager page, shared empty Task Board preview, responsive styling, README contract note, and regression coverage. Product Version remains 0.9.0-alpha.9.13; Runtime Build is 20260821-1340. Automated regression: 204 passed / 0 failed / 4 skipped; skipped tests are existing browser checks without a configured Chrome/Chromium executable. No GitHub, Cloud, deployment, schema, RPC, RLS, or unapproved write changes.
+Corrective implementation complete. Promoted the current AI Board presentation contract into `shared/components/golden-master.js` plus `shared/theme/golden-master.css` as the only Empty Golden Master; AI Board and WorkTodo route Board/Card/Drawer/Toolbar binding through that same source while retaining their adapters, domain data and existing controlled paths. Removed the previous Preview/Fixture components and renamed the System Template surface contract. Product Version remains 0.9.0-alpha.9.13; the final Candidate Build and artifact verification are recorded in the handoff response. Automated regression: 205 passed / 0 failed / 4 skipped; skipped tests are existing browser checks without a configured Chrome/Chromium executable. Runtime source smoke PASS; clean formal WorkLog route remains at onboarding gate without a session. No GitHub, Cloud, deployment, schema, RPC, RLS, migration, or unapproved write changes.
+
+PM Scope Confirmed PASS：Golden Master 定義為目前正式 AI Board UX/UI/Interaction 的空白框架；前一版 Fixture/Preview 路線不再延伸。
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @codex
+created: 2026-08-21 07:19
+---
+PM 已確認 Empty Golden Master Scope；開始 corrective implementation，禁止新增 Preview、Fixture、Domain migration 或功能。
+---
+<!-- COMMENTS:END -->

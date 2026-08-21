@@ -52,22 +52,28 @@
     adapters,
     domainData,
     sharedSurfaces: Object.freeze([
-      "Shared Shell / Header",
-      "Shared Task Board",
+      "Shared Navigation / Shell",
+      "Shared Header",
+      "Shared Toolbar / Search / Filter",
+      "Shared Workspace / Column",
       "Shared Task Card",
-      "Shared Task Drawer",
-      "Shared Toolbar / Workspace Contract",
-      "Work Journal Timeline"
+      "Shared Task Drawer / Properties",
+      "Shared Work Content / Usage Scenario",
+      "Shared Attachment / Checklist / Timeline",
+      "Shared GPT Analysis",
+      "Shared Responsive / Interaction"
     ]),
-    preview: Object.freeze({
-      boardKey: "ai-board-golden-master-preview",
-      fixtureKey: "ai-board-golden-master-fixture-v1",
-      renderer: "shared-golden-master-preview",
-      mode: "read-only"
+    emptySurface: Object.freeze({
+      id: "empty-golden-master-surface",
+      renderer: "shared-golden-master",
+      mode: "empty",
+      domainData: false,
+      fixture: false,
+      cloudWrites: false
     }),
     capabilities: Object.freeze({
       catalog: "multi-template-ready",
-      preview: Object.freeze({ fixtureOnly: true, readOnly: true, cloudWrites: false }),
+      empty: Object.freeze({ domainData: false, fixture: false, cloudWrites: false }),
       workspace: Object.freeze({
         fixedColumns: false,
         source: "consumer-provided-workspace-data",

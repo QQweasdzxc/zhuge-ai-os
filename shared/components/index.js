@@ -1,6 +1,6 @@
-/* Sprint 5.5 Foundation Freeze: presentation boundaries.
- * Components are intentionally adapter-shaped until the legacy runtime is
- * migrated. They do not own state and do not alter existing markup.
+/* Shared presentation registry.
+ * Golden Master owns the empty framework composition; consumers provide
+ * adapters, normalized data, and domain-owned interaction handlers.
  */
 (function (global) {
   const component = name => Object.freeze({
@@ -21,6 +21,7 @@
     Summary: component("Summary"),
     Calendar: component("Calendar"),
     TaskList: component("TaskList"),
+    GoldenMaster: component("GoldenMaster"),
     KnowledgePanel: component("KnowledgePanel"),
     AssistantPanel: component("AssistantPanel"),
     ControlCenter: component("ControlCenter")
