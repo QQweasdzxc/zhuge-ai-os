@@ -144,6 +144,8 @@
       id: String(row.id || ""),
       key: String(row.workspace_key || row.key || ""),
       name: String(row.name || "未命名工作區"),
+      applicationScope: String(row.application_scope || row.applicationScope || "ai_board"),
+      ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
       sortOrder: Number(row.sort_order || 0),
       active: row.active !== false,
       archivedAt: row.archived_at || null,
@@ -209,12 +211,16 @@
   }
 
   function normalizeTask(row = {}) {
-    const status = normalizeStatus(row.status);
+    const rawStatus = String(row.status || "").trim().toLowerCase();
+    const status = normalizeStatus(rawStatus);
     return Object.freeze({
       id: String(row.id || ""),
       workCode: String(row.work_code || row.workCode || ""),
       title: String(row.title || "未命名工作"),
       status,
+      rawStatus,
+      applicationScope: String(row.application_scope || row.applicationScope || "ai_board"),
+      ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
       workspaceId: String(row.workspace_id || row.workspaceId || ""),
       workspaceKey: String(row.workspace_key || row.workspaceKey || ""),
       workspaceName: String(row.workspace_name || row.workspaceName || ""),
@@ -409,17 +415,19 @@
       throw error;
     }
     const gateway = options.gateway || requireGateway();
-    const resolver = options.engineeringMemory ? null : requireEngineeringMemoryResolver(options);
+    const applicationScope = options.applicationScope === "worktodo" ? "worktodo" : "ai_board";
+    const isWorkTodo = applicationScope === "worktodo";
+    const resolver = options.engineeringMemory || isWorkTodo ? null : requireEngineeringMemoryResolver(options);
     // Reconciliation is a server-side, authenticated RPC. It uses canonical
     // timestamps and makes refresh/realtime reads converge without a browser
     // timer or local state pretending that 48 hours have elapsed.
-    if (typeof gateway.rpc === "function") {
+    if (!isWorkTodo && typeof gateway.rpc === "function") {
       await gateway.rpc("board_reconcile_completion_lifecycle", {});
     }
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
-      gateway.select("board_workspaces", "?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at&active=eq.true&order=sort_order.asc"),
-      gateway.select("board_tasks", "?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by&order=created_at.asc"),
-      options.engineeringMemory || resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes })
+      gateway.select("board_workspaces", `?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&application_scope=eq.${applicationScope}&active=eq.true&order=sort_order.asc`),
+      gateway.select("board_tasks", `?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&application_scope=eq.${applicationScope}&order=created_at.asc`),
+      options.engineeringMemory || (isWorkTodo ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
     ]);
     const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(normalizeWorkspace);
     const workspaceById = new Map(workspaces.map(workspace => [workspace.id, workspace]));
@@ -443,7 +451,7 @@
     }));
     const principles = knowledge.filter(row => String(row.status || "").toLowerCase() === "approved").filter(isPrinciple).map(normalizePrinciple);
     const systemMaps = knowledge.filter(isSystemMap).map(normalizeSystemMap);
-    return Object.freeze({ identity, workspaces, tasks, principles, systemMaps, engineeringMemory, engineeringMemoryFailures: engineeringMemory?.failures || [], governanceMetadataAvailable: true, readOnly: false, source: "Supabase Shared Data Gateway → Canonical Engineering Memory Resolver" });
+    return Object.freeze({ identity, workspaces, tasks, principles, systemMaps, engineeringMemory, engineeringMemoryFailures: engineeringMemory?.failures || [], governanceMetadataAvailable: true, readOnly: false, source: isWorkTodo ? "Supabase Shared Data Gateway → WorkTodo Application Scope" : "Supabase Shared Data Gateway → Canonical Engineering Memory Resolver" });
   }
 
   async function loadChecklist(taskId, options = {}) {
@@ -654,6 +662,42 @@
       p_actor_type: "human",
       p_actor_label: "QJC"
     }).then(normalizeTask);
+  }
+
+  async function worktodoCreateTask(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_create_task", {
+      p_title: input.title,
+      p_summary: input.summary || null,
+      p_status: input.status || "not_started",
+      p_usage_scenario: input.usageScenario || null
+    }).then(normalizeTask);
+  }
+
+  async function worktodoUpdateTask(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_update_task", {
+      p_task_id: input.taskId,
+      p_patch: input.patch && typeof input.patch === "object" ? input.patch : {}
+    }).then(normalizeTask);
+  }
+
+  async function worktodoDeleteTask(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_delete_task", { p_task_id: taskId });
+  }
+
+  async function worktodoAddTaskProgressNote(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_add_task_progress_note", {
+      p_task_id: input.taskId,
+      p_note: input.note
+    }).then(normalizeActivity);
+  }
+
+  async function worktodoMigrateTask(workCode, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_migrate_task", { p_work_code: String(workCode || "") }).then(normalizeTask);
   }
 
   async function updateTaskContent(input = {}, options = {}) {
@@ -909,6 +953,11 @@
     moveTaskWorkspace,
     governanceAction,
     createTask,
+    worktodoCreateTask,
+    worktodoUpdateTask,
+    worktodoDeleteTask,
+    worktodoAddTaskProgressNote,
+    worktodoMigrateTask,
     updateTaskContent,
     updateTaskTitle,
     updateTaskDueDate,

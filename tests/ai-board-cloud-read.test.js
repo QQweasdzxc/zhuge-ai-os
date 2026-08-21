@@ -180,6 +180,60 @@ test("formal Board load reads tasks and approved principles through the injected
   }
 });
 
+test("WorkTodo read and write adapters keep Application Scope and Owner UUID in the shared board layer", async () => {
+  const previousSnapshot = global.getSharedSessionSnapshot;
+  global.getSharedSessionSnapshot = () => ({ user_id: USER_ID, email: "owner@example.com", isAuthenticated: true });
+  const calls = [];
+  const taskRow = {
+    id: "worktodo-task-1",
+    work_code: "WLTK-004",
+    title: "WorkTodo task",
+    status: "blocked",
+    application_scope: "worktodo",
+    owner_uuid: USER_ID,
+    workspace_id: "worktodo-blocked-id",
+    summary: "工作內容",
+    usage_scenario: "使用情境"
+  };
+  const gateway = {
+    select: async (table, query) => {
+      calls.push({ type: "select", table, query });
+      if (table === "board_workspaces") return [{ id: "worktodo-blocked-id", workspace_key: "worktodo-blocked", name: "阻塞", sort_order: 50, active: true, application_scope: "worktodo", owner_uuid: null }];
+      if (table === "board_tasks") return [taskRow];
+      return [];
+    },
+    rpc: async (name, params) => {
+      calls.push({ type: "rpc", name, params });
+      if (name === "worktodo_add_task_progress_note") return { id: "activity-1", entity_type: "board_task", entity_id: taskRow.id, action: "progress_note_created", activity_type: "human_progress_note", note: params.p_note };
+      return taskRow;
+    }
+  };
+  try {
+    const result = await BoardRead.load({ gateway, applicationScope: "worktodo" });
+    assert.equal(result.source, "Supabase Shared Data Gateway → WorkTodo Application Scope");
+    assert.equal(result.tasks[0].rawStatus, "blocked");
+    assert.equal(result.tasks[0].applicationScope, "worktodo");
+    assert.equal(result.tasks[0].ownerUuid, USER_ID);
+    assert.ok(calls.filter(call => call.type === "select").every(call => /application_scope=eq\.worktodo/.test(call.query)));
+
+    await BoardRead.worktodoCreateTask({ title: "New", summary: "Body", status: "not_started", usageScenario: "Scenario" }, { gateway });
+    await BoardRead.worktodoUpdateTask({ taskId: taskRow.id, patch: { status: "waiting_reply" } }, { gateway });
+    await BoardRead.worktodoAddTaskProgressNote({ taskId: taskRow.id, note: "Progress" }, { gateway });
+    await BoardRead.worktodoMigrateTask("WLTK-004", { gateway });
+    assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
+      "worktodo_create_task",
+      "worktodo_update_task",
+      "worktodo_add_task_progress_note",
+      "worktodo_migrate_task"
+    ]);
+    assert.equal(calls.find(call => call.name === "worktodo_create_task").params.p_status, "not_started");
+    assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params.p_patch, { status: "waiting_reply" });
+  } finally {
+    if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
+    else delete global.getSharedSessionSnapshot;
+  }
+});
+
 test("Board workspace mutations and movement history stay behind controlled RPC/read adapters", async () => {
   const calls = [];
   const gateway = {
