@@ -132,8 +132,9 @@ Governance writes require two separate capabilities:
    `governance-write` actor token from the protected broker.
 
 The Edge Function accepts only `governance_write`, and the database executor
-allowlists `create_task_contract`, `update_task_contract`, `update_checkpoint`, and
-`register_artifact`. The executor rechecks
+allowlists `create_task_contract`, `update_task_contract`, `update_checkpoint`,
+`register_artifact`, and the bounded `create_engineering_principle` operation.
+The executor rechecks
 the PM authorization, payload binding, expiry, single-use state, actor label,
 and service-role server path before calling the existing controlled RPCs.
 
@@ -155,8 +156,10 @@ node tools/engineering-governance-write.js write \
 ```
 
 The PM authorization token is not a GPT identity and cannot be created by the
-GPT broker. Approved Principle maintenance, arbitrary SQL, and direct DML are
-outside this allowlist.
+GPT broker. Principle creation is limited to a PM-authorized, payload-bound
+`EP-###` record with fixed `knowledge_type = principle`, `status = approved`,
+and `conflict_status = none`; revision requires a separate PM Decision.
+Arbitrary SQL and direct DML remain outside this allowlist.
 
 ### PM Accepted Baseline Approval
 

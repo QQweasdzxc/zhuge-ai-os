@@ -18,6 +18,7 @@ test("governance-write reuses the existing Edge Function with a GPT-only profile
   assert.match(source, /update_task_contract/);
   assert.match(source, /update_checkpoint/);
   assert.match(source, /register_artifact/);
+  assert.match(source, /create_engineering_principle/);
   const governanceStart = source.indexOf('if (actorToken.profile === "governance-write")');
   const governanceEnd = source.indexOf('if (actorToken.profile === "memory-read")', governanceStart);
   assert.ok(governanceStart >= 0 && governanceEnd > governanceStart);
@@ -29,7 +30,7 @@ test("governance write tool requires both capabilities and has no direct SQL or 
   assert.match(source, /ENGINEERING_ACTOR_TOKEN/);
   assert.match(source, /PM_AUTHORIZATION_TOKEN/);
   assert.doesNotMatch(source, /SERVICE_ROLE|service_role|supabase_execute_sql|insert into|update .*set|delete from/i);
-  assert.deepEqual([...GovernanceTool.ALLOWED_OPERATIONS], ["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact"]);
+  assert.deepEqual([...GovernanceTool.ALLOWED_OPERATIONS], ["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact", "create_engineering_principle"]);
   assert.throws(() => GovernanceTool.parsePayload("[]"), /JSON object/);
   return assert.rejects(
     GovernanceTool.writeGovernance({ actorToken: "a", pmAuthorizationToken: "p", functionUrl: "https://example.com" }, "set_baseline", {}),
@@ -54,6 +55,13 @@ test("governance migration binds PM authorization to an opaque one-time token an
   assert.match(migration, /register_engineering_artifact/);
   assert.match(migration, /register_artifact/);
   assert.doesNotMatch(migration, /set_engineering_pm_accepted_baseline/);
+
+  const principleMigration = fs.readFileSync(path.join(root, "docs/supabase/20260821_ep_039_principle_write_governance.sql"), "utf8");
+  assert.match(principleMigration, /create_engineering_principle/);
+  assert.match(principleMigration, /public\.engineering_knowledge/);
+  assert.match(principleMigration, /pm_authorized_principle_created/);
+  assert.match(principleMigration, /knowledge_code.*EP-\[0-9\]\{3\}/s);
+  assert.doesNotMatch(principleMigration, /grant .*engineering_knowledge/i);
 });
 
 test("governance broker token has no privileged database claims", () => {

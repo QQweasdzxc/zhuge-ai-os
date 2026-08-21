@@ -8,7 +8,7 @@
  */
 "use strict";
 
-const ALLOWED_OPERATIONS = new Set(["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact"]);
+const ALLOWED_OPERATIONS = new Set(["create_task_contract", "update_task_contract", "update_checkpoint", "register_artifact", "create_engineering_principle"]);
 
 function parseArgs(argv) {
   const [command = "", ...rest] = argv;
@@ -79,7 +79,7 @@ async function writeGovernance(config, operation, payload) {
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (args.command !== "write" || !args.operation || !args.payload) {
-    throw new Error("Usage: node tools/engineering-governance-write.js write --operation create_task_contract|update_task_contract|update_checkpoint|register_artifact --payload '{...}'");
+    throw new Error("Usage: node tools/engineering-governance-write.js write --operation create_task_contract|update_task_contract|update_checkpoint|register_artifact|create_engineering_principle --payload '{...}'");
   }
   const result = await writeGovernance(configFromEnvironment(), args.operation, parsePayload(args.payload));
   console.log(JSON.stringify(result, null, 2));

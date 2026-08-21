@@ -360,7 +360,7 @@ test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in ex
 test("Board entry loads Shared runtime and read adapter, not legacy prototype runtime", () => {
   const index = read("app/Board/ai/index.html");
   assert.match(index, /shared\/board\/board-read-service\.js/);
-  assert.match(index, /\.\/board-runtime\.js/);
+  assert.match(index, /shared\/components\/golden-master-runtime\.js/);
   assert.doesNotMatch(index, /<script[^>]+app\.js/);
   assert.doesNotMatch(index, /TASK-014|TASK-016|PRINCIPLE-001/);
   // AI Board is an engineering/admin destination reached from the Control
@@ -372,7 +372,7 @@ test("Board entry loads Shared runtime and read adapter, not legacy prototype ru
 test("Board runtime uses controlled workflow RPCs and clears prototype fixtures before Cloud Read", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const index = read("app/Board/ai/index.html");
-  assert.match(runtime, /controlled RPC writes/);
+  assert.match(runtime, /service\.(?:createTask|worktodoCreateTask|updateTaskContent)/);
   assert.match(runtime, /Realtime/);
   assert.match(runtime, /renderPrinciples\(\[\]\)/);
   assert.match(runtime, /renderTasks\(\[\]\)/);
@@ -382,10 +382,10 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
   assert.doesNotMatch(runtime, /工程驗證狀態/);
   assert.match(runtime, /⚠️ 需要你的確認/);
   assert.doesNotMatch(runtime, /data-engineering-records|⚙️ 工程紀錄|⋯ 更多/);
-  assert.match(index, /id="boardSearch"/);
-  assert.match(index, /id="taskUsageScenario"/);
-  assert.match(index, /新增工作區/);
-  assert.match(index, /workspaceCreateDrawer/);
+  assert.match(runtime, /searchId: "boardSearch"/);
+  assert.match(read("shared/components/golden-master.js"), /id="taskUsageScenario"/);
+  assert.match(read("shared/components/golden-master.js"), /新增工作區/);
+  assert.match(read("shared/components/golden-master.js"), /id="workspaceCreateDrawer"/);
   assert.doesNotMatch(index, /Interactive Prototype v0\.9/);
 });
 

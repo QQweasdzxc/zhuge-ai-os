@@ -35,6 +35,7 @@ const ALLOWED_OPERATIONS = new Set([
   "update_task_contract",
   "update_checkpoint",
   "register_artifact",
+  "create_engineering_principle",
   "set_pm_accepted_baseline"
 ]);
 const OPERATION_LABELS = Object.freeze({
@@ -42,6 +43,7 @@ const OPERATION_LABELS = Object.freeze({
   update_task_contract: "更新 Canonical TASK Contract",
   update_checkpoint: "更新 Current Checkpoint",
   register_artifact: "登記 Candidate Artifact",
+  create_engineering_principle: "建立 Engineering Principle",
   set_pm_accepted_baseline: "登記 PM Accepted Baseline"
 });
 const PAYLOAD_FIELDS = Object.freeze({
@@ -60,6 +62,9 @@ const PAYLOAD_FIELDS = Object.freeze({
     "artifact_id", "filename", "product_version", "runtime_build", "artifact_timestamp", "git_commit",
     "sha256", "artifact_type", "qa_status", "pm_acceptance_status", "storage_location", "related_task",
     "lineage"
+  ]),
+  create_engineering_principle: new Set([
+    "knowledge_code", "title", "summary", "content", "module", "version", "source_path", "source_reference"
   ]),
   set_pm_accepted_baseline: new Set([
     "product_version", "runtime_build", "git_commit", "artifact_reference", "pm_accepted_at",
@@ -154,6 +159,19 @@ function validatePayload(operation, payload) {
   }
   if (operation === "register_artifact" && String(payload.artifact_type || "").toLowerCase() !== "candidate") {
     throw new RunnerError("INVALID_ACTION", "Only candidate Artifact Registration is allowlisted.");
+  }
+  if (operation === "create_engineering_principle") {
+    if (!/^EP-[0-9]{3}$/.test(String(payload.knowledge_code || "").trim())) {
+      throw new RunnerError("INVALID_ACTION", "Engineering Principle code must use the assigned EP-### namespace.");
+    }
+    for (const field of ["title", "summary", "content", "source_path", "source_reference"]) {
+      if (!String(payload[field] || "").trim()) {
+        throw new RunnerError("INVALID_ACTION", `${field} is required for an Engineering Principle.`);
+      }
+    }
+    if (payload.version !== undefined && !/^\d+\.\d+$/.test(String(payload.version).trim())) {
+      throw new RunnerError("INVALID_ACTION", "Engineering Principle version is invalid.");
+    }
   }
   if (operation === "set_pm_accepted_baseline") {
     if (String(payload.pm_acceptance_status || "").toLowerCase() !== "accepted") {
@@ -473,6 +491,10 @@ function extractExecutionResult(execution) {
 
 function readBackTarget(action, execution) {
   const record = extractExecutionResult(execution) || {};
+  if (action.operation === "create_engineering_principle") {
+    const knowledgeCode = String(record.knowledge_code || action.payload.knowledge_code || "").trim();
+    return knowledgeCode ? { rpc: "resolve_engineering_startup_gate", knowledgeCodes: [knowledgeCode], identity: knowledgeCode } : null;
+  }
   if (action.operation === "update_checkpoint") return { table: "engineering_project_checkpoints", filter: "checkpoint_key=eq.current", identity: "current" };
   if (action.operation === "register_artifact") {
     const artifactId = String(record.artifact_id || action.payload.artifact_id || "");
@@ -485,6 +507,25 @@ function readBackTarget(action, execution) {
 function summarizeReadBack(action, rows) {
   const row = Array.isArray(rows) ? rows[0] : rows;
   if (!row) throw new RunnerError("READ_BACK_FAILED", "Governance Write returned no canonical read-back record.");
+  if (action.operation === "create_engineering_principle") {
+    const principle = row.knowledge_code ? row : null;
+    if (!principle || String(principle.knowledge_code) !== String(action.payload.knowledge_code)) {
+      throw new RunnerError("READ_BACK_FAILED", "Engineering Principle read-back does not match the approved code.");
+    }
+    for (const field of ["title", "summary", "content", "source_path", "source_reference"]) {
+      if (String(principle[field] || "") !== String(action.payload[field] || "")) {
+        throw new RunnerError("READ_BACK_FAILED", `Engineering Principle read-back does not match ${field}.`);
+      }
+    }
+    return {
+      table: "public.engineering_knowledge",
+      identity: principle.knowledge_code,
+      knowledgeCode: principle.knowledge_code,
+      status: principle.status || null,
+      version: principle.version || null,
+      title: principle.title || null
+    };
+  }
   if (action.operation === "update_checkpoint") {
     return { table: "engineering_project_checkpoints", identity: "current", currentTask: row.current_task || null, currentStage: row.current_stage || null, updatedAt: row.updated_at || null };
   }
@@ -788,6 +829,17 @@ function createRunner(options = {}) {
         functionUrl: environment.governanceWriteUrl
       };
       const execution = await writeGovernance(writeConfig, action.operation, action.payload);
+      if (action.operation === "create_engineering_principle") {
+        const startupGate = await supabaseRequest("/rest/v1/rpc/resolve_engineering_startup_gate", {
+          method: "POST",
+          headers: authHeaders(environment.supabaseAnonKey, session.accessToken),
+          body: JSON.stringify({ p_knowledge_codes: [action.payload.knowledge_code] })
+        });
+        const principles = objectValue(startupGate?.principles);
+        const records = Array.isArray(principles?.records) ? principles.records : [];
+        const readBack = summarizeReadBack(action, records);
+        return { authorizationId, operation: action.operation, readBack };
+      }
       const target = readBackTarget(action, execution);
       if (!target) throw new RunnerError("READ_BACK_FAILED", "Governance Write completed without a canonical read-back identity.");
       const rows = await supabaseRequest(`/rest/v1/${target.table}?select=*&${target.filter}&limit=1`, {

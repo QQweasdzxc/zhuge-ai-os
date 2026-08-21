@@ -40,3 +40,13 @@ Module 只能保留自己的 Domain Logic。例如 Investment 可保留 Portfoli
 - 平台能力維持 One Identity、One Session、One Gateway、One Theme。
 - Shared 變更的影響面較大，必須經 Architecture Review 與 Regression Gate。
 - Module 與 Shared 的責任邊界需由 Contract 與測試固定。
+
+## Supported Engineering Principle
+
+`EP-039 — ONE Golden Master — Single Presentation Source of Truth` 是本 ADR
+關於「第二個 Consumer 使用的共同能力必須成為 Shared Contract、不得建立
+重複 Presentation implementation」的正式 Mandatory Architecture Principle
+支持來源。
+
+這裡只建立 cross-reference，不複製 EP-039 內容；EP-039 的 canonical
+runtime record 位於 `public.engineering_knowledge`。
