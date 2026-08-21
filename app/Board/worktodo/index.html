@@ -77,8 +77,6 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
  <div id="zhugeSharedHeader" class="top workspace-shell-header" data-zhuge-shared-header data-title="工作待辦" data-description="工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態" data-action-label="↻" data-action-id="refreshBoardBtn"></div>
  <div class="workspace-tabs workspace-subnav" aria-label="工作待辦子功能導覽">
    <button class="workspace-tab active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
-   <button class="workspace-tab" title="工程準則" data-board-nav="principles" type="button">📘 工程準則</button>
-   <button class="workspace-tab" title="系統藍圖" data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
  </div>
  <div class="workspace-canvas">
   <div class="board-main-view" data-board-main-view>
@@ -88,14 +86,6 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
     <div class="board" id="boardColumns" data-shared-task-board="ai-board"></div>
    </section>
   </div>
-  <section class="board-subview principles-view" data-board-view="principles" hidden>
-   <header class="subview-header"><div><span class="subview-kicker">工作待辦／工程準則</span><h2>📘 最高原則</h2><p>工程協作必須遵守的正式原則；固定區不參與 TASK Status 流轉。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
-   <div id="principlesCards" class="principles-card-grid"></div>
-  </section>
-  <section class="board-subview system-map-view" data-board-view="system-map" hidden>
-   <header class="subview-header"><div><span class="subview-kicker">工作待辦／系統藍圖</span><h2>🗺️ 系統藍圖</h2><p>目前 Zhuge AI OS 的組成、模組關係與資料流。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
-   <div id="systemMapCards" class="system-map-grid"></div>
-  </section>
  </div>
 </main>
 </div>

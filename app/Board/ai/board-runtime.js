@@ -395,6 +395,10 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   async function reorderWorkspace(draggedId, targetId) {
+    if (isEmptyWorkTodoMode()) {
+      emptyWorkTodoNotice();
+      return;
+    }
     if (!draggedId || !targetId || draggedId === targetId) return;
     const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
     const visible = ordered.filter(isMainBoardWorkspace);
@@ -421,6 +425,10 @@
     document.querySelectorAll("[data-workspace-rename]").forEach(button => {
       button.onclick = event => {
         event.stopPropagation();
+        if (isEmptyWorkTodoMode()) {
+          emptyWorkTodoNotice();
+          return;
+        }
         const workspace = state.workspaceById.get(button.dataset.workspaceRename);
         if (!workspace) return;
         const nextName = window.prompt("請輸入新的工作區名稱", workspace.name);
@@ -444,16 +452,25 @@
       };
     });
     const board = document.querySelector('[data-shared-task-board="ai-board"]');
+    const emptyMode = isEmptyWorkTodoMode();
     const boardHandlers = {
       canDragCard: id => {
+        if (emptyMode) return false;
         const task = state.taskById.get(String(id));
         return Boolean(task && !isArchiveTask(task) && !service.isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
+        if (emptyMode) {
+          emptyWorkTodoNotice();
+          return;
+        }
         const task = state.taskById.get(String(cardId));
         if (task) await moveTaskToWorkspace(task, id);
       },
-      canReorderColumn: id => Boolean(state.workspaceById.get(String(id)) && isMainBoardWorkspace(state.workspaceById.get(String(id))) && !isCompletionWorkspace(state.workspaceById.get(String(id)))),
+      canReorderColumn: id => {
+        const workspace = state.workspaceById.get(String(id));
+        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+      },
       onColumnDrop: async ({ sourceId, id }) => reorderWorkspace(sourceId, id)
     };
     if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
@@ -1661,6 +1678,16 @@
   function emptyWorkTodoNotice() {
     setBanner("新版工作待辦目前是 AI Board 空白入口，尚未接入 WorkTodo Domain Data。", "info");
   }
+  function emptyWorkTodoWorkspaces() {
+    return [
+      { id: "worktodo-new-todo", key: "todo", name: "待開始", active: true, sortOrder: 10 },
+      { id: "worktodo-new-inprogress", key: "inprogress", name: "進行中", active: true, sortOrder: 20 },
+      { id: "worktodo-new-waiting-reply", key: "waiting-reply", name: "等待回覆", active: true, sortOrder: 30 },
+      { id: "worktodo-new-waiting-acceptance", key: "waiting-acceptance", name: "等待驗收", active: true, sortOrder: 40 },
+      { id: "worktodo-new-blocked", key: "blocked", name: "阻塞", active: true, sortOrder: 50 },
+      { id: "worktodo-new-completed", key: "completed", name: "完成", active: true, sortOrder: 60 }
+    ];
+  }
   function renderEmptyWorkTodoHeaderActions() {
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
@@ -1675,6 +1702,12 @@
     return Promise.resolve({ empty: true });
   }
   function startEmptyWorkTodoRuntime() {
+    state.workspaces = emptyWorkTodoWorkspaces();
+    state.tasks = [];
+    state.principles = [];
+    state.systemMaps = [];
+    state.taskById = new Map();
+    state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
     const shell = document.querySelector(".zhuge-module-shell");
     document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.toggle("sidebar-open");
@@ -1704,10 +1737,7 @@
     root.createCard = emptyWorkTodoAction;
     root.createWorkspace = emptyWorkTodoAction;
     root.openArchiveDrawer = openArchiveDrawer;
-    const initialView = queryParameter("view");
-    if (["principles", "system-map"].includes(initialView)) {
-      document.querySelector(`[data-board-nav="${initialView}"]`)?.click();
-    } else showBoardView("board");
+    showBoardView("board");
   }
   function startBoardRuntime() {
     const shell = document.querySelector(".zhuge-module-shell");

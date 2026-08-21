@@ -39,6 +39,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with an empty data b
   assert.match(worktodo, /data-active-workspace="tasks-new"/);
   assert.match(worktodo, /src="\.\.\/ai\/board-runtime\.js\?v=/);
   assert.doesNotMatch(worktodo, /worktodo-task-adapter\.js|GM-FIX-|golden-master-preview/i);
+  assert.match(aiBoard, /title="工程準則" data-board-nav="principles"/);
+  assert.match(aiBoard, /title="系統藍圖" data-board-nav="system-map"/);
+  assert.doesNotMatch(worktodo, /工程準則|系統藍圖|data-board-nav="principles"|data-board-nav="system-map"/);
+  assert.deepEqual(worktodo.match(/data-board-nav="[^"]+"/g), ['data-board-nav="board"']);
   assert.match(navigation, /"tasks-new": \{ icon: "✅", label: "工作待辦"/);
   assert.match(navigation, /"tasks-new": "app\/Board\/worktodo\/"/);
   assert.match(navigation, /tasks: \{ icon: "🗂️", label: "工作待辦（舊）"/);
@@ -49,8 +53,12 @@ test("new WorkTodo is a source-equivalent AI Board consumer with an empty data b
   assert.match(dashboardRuntime, /\["tasks-new", "✅", "工作待辦"/);
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);
 
-  const emptyRuntime = runtime.slice(runtime.indexOf("function startEmptyWorkTodoRuntime"), runtime.indexOf("function startBoardRuntime"));
+  const emptyRuntime = runtime.slice(runtime.indexOf("function emptyWorkTodoWorkspaces"), runtime.indexOf("function startBoardRuntime"));
   assert.match(runtime, /function isEmptyWorkTodoMode\(\)/);
   assert.match(runtime, /if \(isEmptyWorkTodoMode\(\)\) \{/);
+  for (const workspace of ["待開始", "進行中", "等待回覆", "等待驗收", "阻塞", "完成"]) {
+    assert.match(emptyRuntime, new RegExp(`name: "${workspace}"`));
+  }
+  assert.match(emptyRuntime, /state\.workspaces = emptyWorkTodoWorkspaces\(\)/);
   assert.doesNotMatch(emptyRuntime, /service\.(load|subscribe|create|rename|move|reorder|update|delete|upload|governance)/);
 });
