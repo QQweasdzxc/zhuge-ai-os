@@ -4,7 +4,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", taskChecklistWrites: new Set() };
+  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", taskChecklistWrites: new Set() };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -43,7 +43,40 @@
   function statusLabel(status) {
     return service.statusDescriptorFor?.(status)?.label || "未知工程狀態";
   }
+  const WORKTODO_STATUS_LABELS = Object.freeze({
+    not_started: "待開始",
+    in_progress: "進行中",
+    waiting_reply: "等待回覆",
+    waiting_acceptance: "等待驗收",
+    blocked: "阻塞",
+    completed: "完成"
+  });
+  const WORKTODO_STATUS_BY_WORKSPACE = Object.freeze({
+    "worktodo-todo": "not_started",
+    "worktodo-inprogress": "in_progress",
+    "worktodo-waiting-reply": "waiting_reply",
+    "worktodo-waiting-acceptance": "waiting_acceptance",
+    "worktodo-blocked": "blocked",
+    "worktodo-completed": "completed"
+  });
+  function isWorkTodoMode() {
+    const path = String(root.location?.pathname || "");
+    const consumer = queryParameter("consumer");
+    return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
+  }
+  function isWorkTodoTask(task) {
+    return state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo";
+  }
+  function workTodoStatus(task) {
+    const raw = String(task?.rawStatus || task?.status || "not_started").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    return Object.prototype.hasOwnProperty.call(WORKTODO_STATUS_LABELS, raw) ? raw : "not_started";
+  }
+  function workTodoStatusForWorkspace(workspace) {
+    const key = String(workspace?.key || "").trim().toLowerCase();
+    return WORKTODO_STATUS_BY_WORKSPACE[key] || null;
+  }
   function readableWorkStatus(task) {
+    if (isWorkTodoTask(task)) return WORKTODO_STATUS_LABELS[workTodoStatus(task)] || "待開始";
     const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
     const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
     const workspaceName = String(task?.workspaceName || "").trim();
@@ -83,6 +116,7 @@
     document.getElementById("boardReadStatus")?.remove();
   }
   function isArchiveTask(task) {
+    if (isWorkTodoTask(task)) return Boolean(task?.archivedAt);
     if (typeof service.isArchiveTask === "function") return service.isArchiveTask(task);
     const status = service.normalizeStatus ? service.normalizeStatus(task?.status) : String(task?.status || "").toLowerCase();
     return status === "done" || service.isGovernanceTerminal?.(task) === true;
@@ -90,11 +124,14 @@
   function isCompletionWorkspace(workspace) {
     const key = String(workspace?.key || "").toLowerCase();
     const name = String(workspace?.name || "").trim();
-    return key === "completed" || name === "已完成";
+    return key === "completed" || key === "worktodo-completed" || name === "已完成" || name === "完成";
   }
   function isMainBoardWorkspace(workspace) {
     const key = String(workspace?.key || "").toLowerCase();
     const name = String(workspace?.name || "").trim();
+    if (state.applicationScope === "worktodo") {
+      return workspace?.active === true && workspace?.applicationScope === "worktodo";
+    }
     // Keep the historical done/已完工 Cloud row intact but out of the active
     // Board. The canonical renamed workspace 已完成 remains visible for the
     // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
@@ -180,11 +217,13 @@
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: !completion,
-        addHtml: workspace.key === "todo"
+        reorderable: state.applicationScope !== "worktodo" && !completion,
+        addHtml: workspace.key === "todo" || workspace.key === "worktodo-todo"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
           : "",
-        controlsHtml: completion
+        controlsHtml: state.applicationScope === "worktodo"
+          ? ""
+          : completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
           : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button>"
       };
@@ -200,7 +239,9 @@
     const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
     const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
     sortTasksByCode(activeTasks).forEach(task => {
-      const fallback = state.workspaces.find(workspace => workspace.key === "todo");
+      const fallback = state.workspaces.find(workspace => state.applicationScope === "worktodo"
+        ? workspace.key === "worktodo-todo"
+        : workspace.key === "todo");
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
       if (bucket && groups[bucket]) groups[bucket].push(task);
     });
@@ -347,6 +388,10 @@
   async function moveTaskToWorkspace(task, targetWorkspaceId) {
     const target = state.workspaceById.get(String(targetWorkspaceId || ""));
     if (!task || !target || service.isGovernanceTerminal?.(task)) return;
+    if (isWorkTodoTask(task)) {
+      await moveWorkTodoTask(task, target);
+      return;
+    }
     if (String(task.workspaceId) === String(target.id)) {
       setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
@@ -364,6 +409,26 @@
       setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工作區現在代表這張 TASK 的責任階段；治理紀錄已保留。", "success");
     } catch (error) {
       setBanner("工作區移動失敗：" + esc(error?.message || "正式 Cloud 未接受這次移動；原資料未變更。"), "error");
+    }
+  }
+
+  async function moveWorkTodoTask(task, target) {
+    const nextStatus = workTodoStatusForWorkspace(target);
+    if (!nextStatus) {
+      setBanner("WorkTodo 只能移動至既定六個工作區。", "error");
+      return;
+    }
+    if (String(task.workspaceId) === String(target.id)) {
+      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
+      return;
+    }
+    setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
+    try {
+      await service.worktodoUpdateTask({ taskId: task.id, patch: { status: nextStatus } });
+      await refreshBoard({ quiet: true });
+      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。", "success");
+    } catch (error) {
+      setBanner("工作區移動失敗：" + esc(error?.message || "WorkTodo controlled RPC 未接受這次移動；原資料未變更。"), "error");
     }
   }
 
@@ -395,8 +460,8 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   async function reorderWorkspace(draggedId, targetId) {
-    if (isEmptyWorkTodoMode()) {
-      emptyWorkTodoNotice();
+    if (isWorkTodoMode()) {
+      setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序。", "info");
       return;
     }
     if (!draggedId || !targetId || draggedId === targetId) return;
@@ -425,8 +490,8 @@
     document.querySelectorAll("[data-workspace-rename]").forEach(button => {
       button.onclick = event => {
         event.stopPropagation();
-        if (isEmptyWorkTodoMode()) {
-          emptyWorkTodoNotice();
+        if (isWorkTodoMode()) {
+          setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能重新命名。", "info");
           return;
         }
         const workspace = state.workspaceById.get(button.dataset.workspaceRename);
@@ -452,26 +517,29 @@
       };
     });
     const board = document.querySelector('[data-shared-task-board="ai-board"]');
-    const emptyMode = isEmptyWorkTodoMode();
+    const workTodoMode = isWorkTodoMode();
     const boardHandlers = {
       canDragCard: id => {
-        if (emptyMode) return false;
         const task = state.taskById.get(String(id));
         return Boolean(task && !isArchiveTask(task) && !service.isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
-        if (emptyMode) {
-          emptyWorkTodoNotice();
-          return;
-        }
         const task = state.taskById.get(String(cardId));
-        if (task) await moveTaskToWorkspace(task, id);
+        if (!task) return;
+        if (workTodoMode) await moveWorkTodoTask(task, state.workspaceById.get(String(id)));
+        else await moveTaskToWorkspace(task, id);
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return !workTodoMode && Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
       },
-      onColumnDrop: async ({ sourceId, id }) => reorderWorkspace(sourceId, id)
+      onColumnDrop: async ({ sourceId, id }) => {
+        if (workTodoMode) {
+          setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能重新排序。", "info");
+          return;
+        }
+        return reorderWorkspace(sourceId, id);
+      }
     };
     if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
     else root.ZhugeSharedTaskBoard?.bind(board, boardHandlers);
@@ -833,9 +901,11 @@
     if (!note) return "";
     return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${esc(note).replace(/\n/g, "<br>")}</p><small>來源：工作資料</small></article></section>`;
   }
-  function progressNoteComposerMarkup(archiveOnly) {
+  function progressNoteComposerMarkup(archiveOnly, options = {}) {
     if (archiveOnly) return "";
-    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions"><label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">新增</button></div><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small></div></section>`;
+    const workTodo = options.workTodo === true;
+    const attachment = workTodo ? "" : `<label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small>`;
+    return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions">${attachment}<button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">新增</button></div></div></section>`;
   }
   function dueDateLabel(value) {
     if (!value) return "尚未設定日期";
@@ -947,7 +1017,14 @@
       try {
         const summary = field === "summary" ? input.value : editableTaskFieldValue(task, "summary");
         const usageScenario = field === "usage_scenario" ? input.value : editableTaskFieldValue(task, "usage_scenario");
-        await service.updateTaskContent({ taskId: task.id, summary, usageScenario });
+        if (isWorkTodoTask(task)) {
+          await service.worktodoUpdateTask({
+            taskId: task.id,
+            patch: { summary, usage_scenario: usageScenario }
+          });
+        } else {
+          await service.updateTaskContent({ taskId: task.id, summary, usageScenario });
+        }
         leaveTaskInlineEdit(fieldContainer);
         await refreshBoard({ quiet: true });
         const freshTask = state.taskById.get(String(task.id)) || { ...task, summary, usageScenario };
@@ -960,7 +1037,7 @@
     });
   }
   function wireDueDateEditor(task, archiveOnly) {
-    if (archiveOnly) return;
+    if (archiveOnly || isWorkTodoTask(task)) return;
     const property = document.querySelector('[data-task-property-action="due-date"]');
     const value = property?.querySelector("[data-task-property-value]") || property?.querySelector(".shared-task-drawer-property-value");
     if (!property || !value) return;
@@ -1114,7 +1191,7 @@
   }
   function wireTaskAttachments(task, archiveOnly) {
     hydrateTaskAttachmentPreviews();
-    if (archiveOnly) return;
+    if (archiveOnly || isWorkTodoTask(task)) return;
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
     if (input) input.onchange = async () => {
@@ -1154,13 +1231,14 @@
   }
   function wireProgressNoteComposer(task, archiveOnly) {
     if (archiveOnly) return;
+    const workTodo = isWorkTodoTask(task);
     const composer = document.querySelector("[data-progress-note-composer][data-progress-note-write=available]");
     const openButton = composer?.querySelector("[data-progress-note-open]");
     const closeButton = composer?.querySelector("[data-progress-note-close]");
     const panel = composer?.querySelector("[data-progress-note-panel]");
     const textarea = document.getElementById("taskProgressNote");
     const button = document.getElementById("addTaskProgressNote");
-    const attachmentInput = document.getElementById("taskProgressAttachments");
+    const attachmentInput = workTodo ? null : document.getElementById("taskProgressAttachments");
     const attachmentHint = document.getElementById("taskProgressAttachmentHint");
     if (!textarea || !button) return;
     const setExpanded = expanded => {
@@ -1186,8 +1264,10 @@
       button.dataset.submitting = "true";
       button.disabled = true;
       try {
-        const createdNote = await service.addTaskProgressNote(task.id, note);
-        const files = Array.from(attachmentInput?.files || []);
+        const createdNote = workTodo
+          ? await service.worktodoAddTaskProgressNote({ taskId: task.id, note })
+          : await service.addTaskProgressNote(task.id, note);
+        const files = workTodo ? [] : Array.from(attachmentInput?.files || []);
         if (files.length) {
           if (attachmentHint) attachmentHint.textContent = `正在保存 ${files.length} 個進度附件…`;
           await uploadAttachmentFiles(task, files, { progressNote: true, activityId: createdNote.id });
@@ -1253,7 +1333,8 @@
         }
         save.disabled = true;
         try {
-          await service.updateTaskTitle({ taskId: task.id, title });
+          if (isWorkTodoTask(task)) await service.worktodoUpdateTask({ taskId: task.id, patch: { title } });
+          else await service.updateTaskTitle({ taskId: task.id, title });
           await refreshBoard({ quiet: true });
           const freshTask = state.taskById.get(String(task.id)) || { ...task, title };
           await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
@@ -1270,7 +1351,7 @@
     };
   }
   function wireHumanProgressNoteActions(task, activity, archiveOnly) {
-    if (archiveOnly) return;
+    if (archiveOnly || isWorkTodoTask(task)) return;
     const rows = Array.isArray(activity) ? activity : [];
     document.querySelectorAll("[data-progress-note-edit], [data-progress-note-delete]").forEach(button => {
       const activityId = String(button.dataset.progressNoteEdit || button.dataset.progressNoteDelete || "");
@@ -1388,18 +1469,22 @@
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
+    const workTodo = isWorkTodoTask(task);
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
     const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
     const title = task.title || "未命名 TASK";
     const titleCode = task.workCode || "TASK";
+    const progressComposer = workTodo
+      ? progressNoteComposerMarkup(archiveOnly, { workTodo: true })
+      : progressNoteComposerMarkup(archiveOnly);
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
       { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" },
       priorityLabel(task.priority) ? { key: "priority", icon: "⚑", label: "優先度", value: priorityLabel(task.priority) } : null,
-      { key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) },
+      !workTodo ? { key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "日期", value: dueDateLabel(task.dueDate) } : null,
       archiveOnly ? { key: "mode", icon: "📦", label: "模式", value: "封存（唯讀）" } : null
     ].filter(Boolean);
     const sections = [
@@ -1413,7 +1498,9 @@
         title,
         titleCode,
         titleEditable: !archiveOnly,
-        subtitle: archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer",
+          subtitle: workTodo
+            ? (archiveOnly ? "工作待辦 · 📦 Archive Read-only" : "工作待辦 · Shared Task Drawer")
+            : (archiveOnly ? "AI Board · 📦 Archive Read-only" : "AI Board · Shared Task Drawer"),
         properties,
         sections,
         readOnly: archiveOnly,
@@ -1423,7 +1510,7 @@
           topHtml: taskChecklistPanelMarkup(),
           composerHtml: "",
           bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",
-          floatingHtml: progressNoteComposerMarkup(archiveOnly),
+          floatingHtml: progressComposer,
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
           html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
         },
@@ -1437,11 +1524,11 @@
     body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
       const [items, taskChecklistItems] = await Promise.all([
-        service.loadChecklist(task.id),
+        workTodo ? Promise.resolve([]) : service.loadChecklist(task.id),
         typeof service.loadTaskChecklist === "function" ? service.loadTaskChecklist(task.id) : Promise.resolve([])
       ]);
       const taskChecklistRows = document.getElementById("taskChecklistRows");
-      if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly);
+      if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly || workTodo);
       const taskChecklistPanel = body.querySelector("[data-task-checklist-panel]");
       const taskChecklistCount = taskChecklistPanel?.querySelector("[data-task-checklist-count]");
       if (taskChecklistCount) taskChecklistCount.textContent = taskChecklistCountMarkup(taskChecklistItems);
@@ -1463,7 +1550,7 @@
       const attachments = attachmentResult.status === "fulfilled" ? attachmentResult.value : [];
       const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
       const attachmentZone = document.getElementById("taskAttachments");
-      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly);
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly || workTodo);
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = false;
       const humanNotes = humanNotesMarkup(task);
@@ -1472,11 +1559,11 @@
         humanNotesZone.innerHTML = humanNotes;
         humanNotesZone.hidden = !humanNotes;
       }
-      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly });
+      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly || workTodo });
       wireTaskInlineEditors(task, archiveOnly);
       wireTaskTitleEditor(task, archiveOnly);
       wireDueDateEditor(task, archiveOnly);
-      wireTaskChecklist(task, taskChecklistItems, archiveOnly);
+      wireTaskChecklist(task, taskChecklistItems, archiveOnly || workTodo);
       wireTaskAttachments(task, archiveOnly);
       wireProgressNoteComposer(task, archiveOnly);
       wireHumanProgressNoteActions(task, activity, archiveOnly);
@@ -1558,6 +1645,11 @@
     drawer?.setAttribute("aria-hidden", "true");
   }
   async function createWorkspace() {
+    if (isWorkTodoMode()) {
+      closeWorkspaceDrawer();
+      setBanner("新版工作待辦使用固定六個工作區；本次沒有建立自訂工作區。", "info");
+      return;
+    }
     const input = document.getElementById("workspaceName");
     const name = input?.value?.trim() || "";
     if (!name) {
@@ -1582,7 +1674,7 @@
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
     actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
-    actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
+    actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd(state.applicationScope === "worktodo" ? "worktodo-todo" : "todo"));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
     actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
     actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => refreshBoard());
@@ -1594,18 +1686,22 @@
     const title = modal?.querySelector("#taskTitle")?.value?.trim() || summary.slice(0, 80);
     if (!title) { setBanner("請輸入 Task 標題或內容。", "error"); return; }
     try {
-      await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
+      if (state.applicationScope === "worktodo") {
+        await service.worktodoCreateTask({ title, summary, status: "not_started", usageScenario });
+      } else {
+        await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
+      }
       closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
       await refreshBoard({ quiet: true });
-      setBanner("TASK 已建立並進入待辦，由 Co 接球。", "success");
+      setBanner(state.applicationScope === "worktodo" ? "工作待辦已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
     } catch (error) { setBanner("TASK 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   async function refreshBoard(options) {
     options = options || {};
     if (state.refreshPromise) return state.refreshPromise;
     if (!options.quiet) clearBanner();
-    state.refreshPromise = service.load().then(result => {
+    state.refreshPromise = service.load({ applicationScope: state.applicationScope }).then(result => {
       state.workspaces = result.workspaces || [];
       state.tasks = result.tasks;
       state.principles = result.principles;
@@ -1663,11 +1759,6 @@
     document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
-  function isEmptyWorkTodoMode() {
-    const path = String(root.location?.pathname || "");
-    const consumer = queryParameter("consumer");
-    return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
-  }
   function queryParameter(name) {
     const search = String(root.location?.search || "");
     const SearchParams = root.URLSearchParams || (typeof URLSearchParams === "function" ? URLSearchParams : null);
@@ -1675,39 +1766,8 @@
     const match = search.match(new RegExp("(?:^|[?&])" + String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^&]*)"));
     return match ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
   }
-  function emptyWorkTodoNotice() {
-    setBanner("新版工作待辦目前是 AI Board 空白入口，尚未接入 WorkTodo Domain Data。", "info");
-  }
-  function emptyWorkTodoWorkspaces() {
-    return [
-      { id: "worktodo-new-todo", key: "todo", name: "待開始", active: true, sortOrder: 10 },
-      { id: "worktodo-new-inprogress", key: "inprogress", name: "進行中", active: true, sortOrder: 20 },
-      { id: "worktodo-new-waiting-reply", key: "waiting-reply", name: "等待回覆", active: true, sortOrder: 30 },
-      { id: "worktodo-new-waiting-acceptance", key: "waiting-acceptance", name: "等待驗收", active: true, sortOrder: 40 },
-      { id: "worktodo-new-blocked", key: "blocked", name: "阻塞", active: true, sortOrder: 50 },
-      { id: "worktodo-new-completed", key: "completed", name: "完成", active: true, sortOrder: 60 }
-    ];
-  }
-  function renderEmptyWorkTodoHeaderActions() {
-    const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
-    if (!actions) return;
-    actions.innerHTML = `<button class="btn primary board-header-action" type="button" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="refreshBoardBtn" type="button" aria-label="重新整理" title="重新整理">↻</button>`;
-    actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd("todo"));
-    actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
-    actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
-    actions.querySelector("#refreshBoardBtn")?.addEventListener("click", emptyWorkTodoNotice);
-  }
-  function emptyWorkTodoAction() {
-    emptyWorkTodoNotice();
-    return Promise.resolve({ empty: true });
-  }
-  function startEmptyWorkTodoRuntime() {
-    state.workspaces = emptyWorkTodoWorkspaces();
-    state.tasks = [];
-    state.principles = [];
-    state.systemMaps = [];
-    state.taskById = new Map();
-    state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
+  function startBoardRuntime(options = {}) {
+    state.applicationScope = options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
     const shell = document.querySelector(".zhuge-module-shell");
     document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.toggle("sidebar-open");
@@ -1715,39 +1775,7 @@
     document.querySelectorAll("[data-close-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.remove("sidebar-open");
     });
-    renderGoldenMasterToolbar();
-    renderEmptyWorkTodoHeaderActions();
-    wireArchiveControls();
-    document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
-    document.querySelector("[data-workspace-create]")?.addEventListener("click", emptyWorkTodoAction);
-    document.querySelector("#addCardModal .x")?.addEventListener("click", closeQuickAdd);
-    document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
-    ensureHealthModal();
-    document.getElementById("healthCheckBtn")?.addEventListener("click", emptyWorkTodoNotice);
-    ensureTaskDetailModal();
-    wireNavigation();
-    wireSearch();
-    renderPrinciples([]);
-    renderSystemMaps([]);
-    renderTasks([]);
-    const board = document.getElementById("boardColumns");
-    if (board && !board.children.length) board.innerHTML = `<div class="board-empty shared-task-board-empty">目前沒有 WorkTodo 正式資料。</div>`;
-    root.ZhugeSharedNavigation?.setSyncStatus?.({ label: "🟢 空白框架", time: "尚未接入 WorkTodo Data", state: "empty" });
-    root.openQuickAdd = openQuickAdd;
-    root.createCard = emptyWorkTodoAction;
-    root.createWorkspace = emptyWorkTodoAction;
-    root.openArchiveDrawer = openArchiveDrawer;
-    showBoardView("board");
-  }
-  function startBoardRuntime() {
-    const shell = document.querySelector(".zhuge-module-shell");
-    document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
-      button.onclick = () => shell?.classList.toggle("sidebar-open");
-    });
-    document.querySelectorAll("[data-close-sidebar]").forEach(button => {
-      button.onclick = () => shell?.classList.remove("sidebar-open");
-    });
-    mountCreatorMfaSettings(accessContext);
+    if (state.applicationScope !== "worktodo") mountCreatorMfaSettings(accessContext);
     renderGoldenMasterToolbar();
     enableBoardActions();
     ensureHealthModal();
@@ -1797,10 +1825,11 @@
   function renderAccessState({ title, message, kind = "info", body = "", panelClass = "" } = {}) {
     const main = document.querySelector(".main");
     if (!main) return;
+    const workTodo = isWorkTodoMode();
     main.innerHTML = `${sharedHeaderMarkup()}<section class="board-access-state" data-state="${esc(kind)}">
       <div class="board-access-panel ${esc(panelClass)}">
-        <div class="board-access-eyebrow">AI BOARD · 工程治理工作區</div>
-        <h2>${esc(title || "AI Board")}</h2>
+        <div class="board-access-eyebrow">${workTodo ? "WORKTODO · 工作待辦" : "AI BOARD · 工程治理工作區"}</div>
+        <h2>${esc(title || (workTodo ? "工作待辦" : "AI Board"))}</h2>
         <p class="board-access-message">${esc(message || "")}</p>
         ${body}
       </div>
@@ -1808,17 +1837,19 @@
   }
 
   function renderLoginState() {
+    const workTodo = isWorkTodoMode();
     renderAccessState({
-      title: "請先登入 AI Board",
-      message: "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
+      title: workTodo ? "請先登入工作待辦" : "請先登入 AI Board",
+      message: workTodo ? "工作待辦需要目前登入的 UUID，才能只讀寫自己的正式資料。" : "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
       kind: "login",
       body: `<div class="board-access-actions"><a class="btn primary" href="../../../?app=1">前往登入</a><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a></div>`
     });
   }
 
   function renderSessionHydrationState() {
+    const workTodo = isWorkTodoMode();
     renderAccessState({
-      title: "正在恢復 AI Board",
+      title: workTodo ? "正在恢復工作待辦" : "正在恢復 AI Board",
       message: "正在檢查登入工作階段，完成前不會判定為未登入。",
       kind: "loading",
       body: `<div class="board-access-progress" role="status">正在同步 Shared Session…</div>`
@@ -1827,7 +1858,7 @@
 
   function renderAccessError(message) {
     renderAccessState({
-      title: "目前無法開啟 AI Board",
+      title: isWorkTodoMode() ? "目前無法開啟工作待辦" : "目前無法開啟 AI Board",
       message,
       kind: "error",
       body: `<div class="board-access-actions"><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a><button class="btn" type="button" id="boardAccessRetry">重新檢查</button></div>`
@@ -1920,12 +1951,27 @@
   }
 
   async function init() {
-    if (isEmptyWorkTodoMode()) {
-      startEmptyWorkTodoRuntime();
-      return;
-    }
+    const workTodo = isWorkTodoMode();
     captureBoardMarkup();
     renderSessionHydrationState();
+    if (workTodo) {
+      let hydrated = false;
+      try {
+        hydrated = await hydrateBoardSession();
+      } catch (error) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
+        return;
+      }
+      if (!hydrated) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderLoginState();
+        return;
+      }
+      restoreCapturedBoardMarkup();
+      startBoardRuntime({ applicationScope: "worktodo" });
+      return;
+    }
     const provider = root.ZhugeRuntimeSessionProvider;
     if (!provider?.createPlatform) {
       renderAccessError("安全服務尚未準備完成，請重新整理後再試。\n");
@@ -1972,11 +2018,10 @@
     }
     renderAccessError(access.code === "CAPABILITY_REQUIRED" ? "目前登入帳號沒有 AI Board 管理權限。" : "目前帳號尚未通過 AI Board 安全檢查。\n");
   }
-  const emptyWorkTodoRuntime = isEmptyWorkTodoMode();
   root.ZhugeBoardRuntime = Object.freeze({
-    refresh: emptyWorkTodoRuntime ? emptyWorkTodoAction : refreshBoard,
-    openTaskDetail: emptyWorkTodoRuntime ? emptyWorkTodoAction : openTaskDetail,
-    moveTaskToWorkspace: emptyWorkTodoRuntime ? emptyWorkTodoAction : moveTaskToWorkspace,
+    refresh: refreshBoard,
+    openTaskDetail: openTaskDetail,
+    moveTaskToWorkspace: moveTaskToWorkspace,
     sortTasksByCode: sortTasksByCode,
     completionGateStatus: completionGateStatus,
     completionGateMessage: completionGateMessage
