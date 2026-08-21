@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.9.13";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260820-2131";
+const BUILD_TIME = "20260821-1451";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -118,6 +118,7 @@ const workspaceRegistry = {
   library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
   aiSuggestions: { icon: "🪶", label: "AI 建議", group: "system", enabled: true, hidden: true },
   sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
+  "system-templates": { icon: "🧩", label: "系統模板", group: "system", enabled: true, hidden: true },
   settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }
 };
 const agentStatuses = [
