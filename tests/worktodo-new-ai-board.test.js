@@ -5,6 +5,8 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
+const GoldenMaster = require("../shared/components/golden-master.js");
+const SharedTaskBoard = require("../shared/components/task-board.js");
 
 test("new WorkTodo is a source-equivalent AI Board consumer with an empty data boundary", () => {
   const aiBoard = read("app/Board/ai/index.html");
@@ -61,4 +63,19 @@ test("new WorkTodo is a source-equivalent AI Board consumer with an empty data b
   }
   assert.match(emptyRuntime, /state\.workspaces = emptyWorkTodoWorkspaces\(\)/);
   assert.doesNotMatch(emptyRuntime, /service\.(load|subscribe|create|rename|move|reorder|update|delete|upload|governance)/);
+});
+
+test("AI Board and new WorkTodo receive the same Golden Master column UI change", () => {
+  const aiBoard = read("app/Board/ai/index.html");
+  const worktodo = read("app/Board/worktodo/index.html");
+  const runtime = read("app/Board/ai/board-runtime.js");
+  const boardCss = read("shared/theme/task-board.css");
+  const html = GoldenMaster.renderColumns([{ id: "shared-column", key: "shared", name: "共用欄位" }], {}, { board: SharedTaskBoard });
+
+  assert.match(html, /class="shared-task-board-column column process golden-master-column"/);
+  assert.match(boardCss, /\.golden-master-column \.shared-task-board-column-header/);
+  assert.match(aiBoard, /shared\/components\/golden-master\.js/);
+  assert.match(worktodo, /shared\/components\/golden-master\.js/);
+  assert.match(runtime, /root\.ZhugeGoldenMaster\?\.renderColumns/);
+  assert.match(worktodo, /src="\.\.\/ai\/board-runtime\.js\?v=/);
 });

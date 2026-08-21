@@ -61,6 +61,9 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.doesNotMatch(output, /⚙️ 工程紀錄/);
   assert.doesNotMatch(output, /⋯ 更多/);
   assert.match(output, /data-shared-task-properties/);
+  assert.match(output, /golden-master-column/);
+  assert.match(output, /golden-master-column-audit/);
+  assert.match(output, /background=rgb\(18, 28, 44\)/);
   assert.match(output, /data-task-property-action="due-date"/);
   assert.match(output, /尚未設定日期/);
   assert.doesNotMatch(output, /task-due-date-section/);
