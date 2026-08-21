@@ -4235,16 +4235,14 @@ function systemTemplates() {
   const actions = [template.capabilities.clone, template.capabilities.apply]
     .map(action => `<button class="btn2 system-template-action" type="button" data-template-action="${escapeHtml(action.key)}" disabled aria-disabled="true" title="${escapeHtml(action.reason)}">${escapeHtml(action.label)}<small>預留</small></button>`)
     .join("");
-  const board = typeof ZhugeSharedTaskBoard !== "undefined" ? ZhugeSharedTaskBoard : null;
-  const preview = board?.render
-    ? board.render({
-      id: "systemTemplatePreviewBoard",
+  const previewRenderer = typeof ZhugeGoldenMasterPreview !== "undefined" ? ZhugeGoldenMasterPreview : null;
+  const preview = previewRenderer?.render
+    ? previewRenderer.render({
+      fixtureKey: template.preview.fixtureKey,
       boardKey: template.preview.boardKey,
-      className: "system-template-preview-board",
-      ariaLabel: "AI Board Golden Master 空白預覽",
-      columns: template.preview.columns.map(column => ({ ...column, cards: [], readOnly: true, reorderable: false }))
+      readOnly: template.preview.mode === "read-only"
     })
-    : `<div class="empty">Shared Task Board foundation 尚未載入。</div>`;
+    : `<div class="empty">Shared Golden Master Preview foundation 尚未載入。</div>`;
 
   return `<section class="panel system-template-manager" data-system-template-manager data-system-template-id="${escapeHtml(template.id)}">
     <div class="panel-head system-template-manager-head"><div><span class="system-template-kicker">管理功能／系統模板</span><h2>🧩 系統模板</h2><div class="muted">以唯一 Golden Master 管理共享工作表面，並保留未來多模板生命週期的受控入口。</div></div><button class="btn2" type="button" data-open-workspace="sync">返回控制台</button></div>
@@ -4260,7 +4258,7 @@ function systemTemplates() {
       </article>
       <aside class="system-template-catalog" aria-label="模板目錄"><div class="system-template-catalog-head"><div><span class="system-template-kicker">可擴充目錄</span><h3>模板目錄</h3></div><span class="system-template-count">${catalog.list().length} / 1</span></div><div class="system-template-catalog-item"><strong>🪶 ${escapeHtml(template.label)}</strong><span>目前唯一 Golden Master</span></div><div class="system-template-catalog-empty"><b>未新增其他模板</b><span>待 PM 核准模板生命週期後，才可加入第二個模板。</span></div></aside>
     </div>
-    <section class="system-template-preview"><div class="system-template-preview-head"><div><span class="system-template-kicker">Shared Task Board</span><h3>空白 AI Board 預覽</h3></div><span class="system-template-preview-note">僅 presentation preview，不載入 Domain Data</span></div>${preview}</section>
+    <section class="system-template-preview"><div class="system-template-preview-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Golden Master Preview</h3></div><span class="system-template-preview-note">Template-only Fixture · Read-only · 不載入 Domain Data</span></div>${preview}</section>
   </section>`;
 }
 
@@ -5752,6 +5750,10 @@ function bind() {
   if (activeWorkspace === "worklog" && !profile) bindOnboarding();
   if (activeWorkspace === "library" && view === "libraryForm") bindLibraryForm(editingLibraryId);
   if (activeWorkspace === "settings") bindSettings();
+  if (activeWorkspace === "system-templates") {
+    const preview = typeof ZhugeGoldenMasterPreview !== "undefined" ? ZhugeGoldenMasterPreview : null;
+    preview?.bind?.(document);
+  }
 }
 
 async function persistWorkMemory(nextModels = [], message = "我的工作已更新", options = {}) {

@@ -33,18 +33,6 @@
     Object.freeze({ id: "worktodo-domain-data", label: "WorkTodo Domain Data", owner: "WorkTodo" })
   ]);
 
-  const previewColumns = Object.freeze([
-    Object.freeze({
-      id: "empty-template-preview",
-      key: "empty-template-preview",
-      name: "空白工作區",
-      readOnly: true,
-      reorderable: false,
-      cards: [],
-      emptyText: "Golden Master 不含任何 Domain Data。"
-    })
-  ]);
-
   const lifecycleAction = (key, label) => Object.freeze({
     key,
     label,
@@ -63,13 +51,28 @@
     model: "single-template-two-adapters-two-domain-data",
     adapters,
     domainData,
-    sharedSurfaces: Object.freeze(["Shared Task Board", "Shared Task Card", "Shared Task Drawer", "Work Journal Timeline"]),
+    sharedSurfaces: Object.freeze([
+      "Shared Shell / Header",
+      "Shared Task Board",
+      "Shared Task Card",
+      "Shared Task Drawer",
+      "Shared Toolbar / Workspace Contract",
+      "Work Journal Timeline"
+    ]),
     preview: Object.freeze({
       boardKey: "ai-board-golden-master-preview",
-      columns: previewColumns
+      fixtureKey: "ai-board-golden-master-fixture-v1",
+      renderer: "shared-golden-master-preview",
+      mode: "read-only"
     }),
     capabilities: Object.freeze({
       catalog: "multi-template-ready",
+      preview: Object.freeze({ fixtureOnly: true, readOnly: true, cloudWrites: false }),
+      workspace: Object.freeze({
+        fixedColumns: false,
+        source: "consumer-provided-workspace-data",
+        operations: Object.freeze(["add", "edit", "delete", "reorder", "move-task"])
+      }),
       clone: lifecycleAction("clone", "複製模板"),
       apply: lifecycleAction("apply", "套用模板")
     }),
