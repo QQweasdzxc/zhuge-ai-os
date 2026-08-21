@@ -171,7 +171,12 @@ button{font:inherit}.btn{border:1px solid var(--line);background:#151c26;color:#
   panel.hidden = false;
 
   let used = false;
-  button.addEventListener("click", async function () {
+  document.addEventListener("click", async function (event) {
+    const button = event.target instanceof Element ? event.target.closest("#oneTimeMigrationRun") : null;
+    if (!button) return;
+    const panel = document.getElementById("oneTimeMigrationTrigger");
+    const result = document.getElementById("oneTimeMigrationResult");
+    if (!panel || !result) return;
     if (used) return;
     used = true;
     button.disabled = true;
