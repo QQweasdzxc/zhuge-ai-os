@@ -40,6 +40,8 @@
 .zhuge-module-shell .workspace-canvas {
   padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
   min-height: calc(100vh - 132px);
+  min-width: 0;
+  overflow-x: hidden;
 }
 .zhuge-module-shell .workspace-context-bar,
 .zhuge-module-shell .zhuge-shared-header,
@@ -237,7 +239,8 @@
  * consolidated. Workflow, card data and transition controls are untouched. */
 .zhuge-module-shell .main {
   padding: 0;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 .zhuge-module-shell.workspace-shell > .workspace-app > .main > .workspace-canvas {
   padding: 0;
