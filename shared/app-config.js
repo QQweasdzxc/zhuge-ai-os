@@ -106,7 +106,8 @@ const workspaceRegistry = {
   // Keep the WorkLog icon aligned with the canonical AI Board navigation.
   // Active state is the only per-workspace visual delta in the shared rail.
   worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true },
-  tasks: { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true },
+  "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, externalHref: "../../app/Board/worktodo/" },
+  tasks: { icon: "✅", label: "工作待辦", navLabel: "工作待辦（舊）", navTitle: "工作待辦", group: "camp-child", enabled: true },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, externalHref: "../investment/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
