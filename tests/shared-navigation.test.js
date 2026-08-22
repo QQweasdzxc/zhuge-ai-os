@@ -10,6 +10,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   const index = read("app/Board/ai/index.html");
   const nav = read("shared/components/zhuge-navigation.js");
   const css = read("shared/theme/zhuge-navigation.css");
+  const worklogCss = read("modules/worklog/worklog.css");
   const worklog = read("modules/worklog/worklog-app.js");
   const worklogIndex = read("modules/worklog/index.html");
   const investmentIndex = read("modules/investment/index.html");
@@ -48,8 +49,13 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /--zhuge-sidebar-child-height: 42px/);
   assert.match(css, /canonical Sidebar geometry/i);
   assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
-  assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.side-item\{min-height:46px/);
-  assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.os-sidebar\{min-height/);
+  assert.doesNotMatch(worklogCss, /workspace-worklog \.side-item\{min-height:46px/);
+  assert.doesNotMatch(worklogCss, /workspace-worklog \.os-sidebar\{min-height/);
+  assert.doesNotMatch(
+    worklogCss,
+    /(?:\.os-shell|\.os-topbar|\.os-body|\.os-sidebar|\.os-main|\.side-item|\.side-section|\.agent-panel|\.adaptive-menu|\.sidebar-close|\.sidebar-backdrop|\.developer-build-info|\.sidebar-brand)/,
+    "WorkLog must not own navigation presentation"
+  );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
   assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "investment"\]/);
@@ -73,8 +79,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(investmentShell, /workspace-shell-header/);
   assert.match(worklog, /workspace-context-bar workspace-shell-header/);
   assert.match(worklog, /os-shell workspace-shell workspace-/);
-  assert.match(read("modules/worklog/worklog.css"), /Shared Workspace Shell parity/);
-  assert.match(read("modules/worklog/worklog.css"), /workspace-shell\.workspace-worklog/);
+  assert.match(worklogCss, /Shared Workspace Shell parity/);
+  assert.match(worklogCss, /workspace-shell\.workspace-worklog/);
   assert.match(read("shared/theme/zhuge-workspace.css"), /workspace-worklog \.workspace-canvas[\s\S]*min-height: 0/);
   assert.match(read("shared/theme/zhuge-workspace.css"), /workspace-worklog \.daily-workspace[\s\S]*min-height: 0/);
 });
