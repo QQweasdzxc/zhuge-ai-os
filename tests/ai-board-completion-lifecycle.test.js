@@ -35,6 +35,7 @@ test("completion archive presentation distinguishes the 48-hour window from Arch
 });
 
 test("board adapter exposes lifecycle timestamps without a second status model", () => {
+  const lifecycleDueAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const task = BoardRead.normalizeTask({
     status: "done",
     workspace_key: "completed",
@@ -43,14 +44,14 @@ test("board adapter exposes lifecycle timestamps without a second status model",
     accepted_by: "owner-1",
     completion_at: "2026-08-20T01:00:00Z",
     completion_by: "owner-1",
-    archive_due_at: "2026-08-22T01:00:00Z",
+    archive_due_at: lifecycleDueAt,
     archived_at: null
   });
   assert.equal(task.workspaceKey, "completed");
   assert.equal(task.workspaceName, "已完成");
   assert.equal(task.acceptedBy, "owner-1");
   assert.equal(task.completionAt, "2026-08-20T01:00:00Z");
-  assert.equal(task.archiveDueAt, "2026-08-22T01:00:00Z");
+  assert.equal(task.archiveDueAt, lifecycleDueAt);
   assert.equal(task.archivedAt, null);
   assert.equal(BoardRead.isArchiveTask(task), false);
 });

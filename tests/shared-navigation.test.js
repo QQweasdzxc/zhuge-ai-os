@@ -50,6 +50,20 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
   assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.side-item\{min-height:46px/);
   assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.os-sidebar\{min-height/);
+  assert.match(read("shared/app-config.js"), /tasks: \{ icon: "🗂️", label: "工作待辦", navLabel: "工作待辦（舊）"/);
+  assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
+  const stylesheetOrder = [
+    [index, "shared/theme/zhuge-workspace.css"],
+    [read("app/Board/worktodo/index.html"), "shared/theme/zhuge-workspace.css"],
+    [read("app/dashboard/index.html"), "shared/theme/zhuge-dashboard.css"],
+    [investmentIndex, "shared/theme/zhuge-workspace.css"]
+  ];
+  for (const [source, lastContentStyle] of stylesheetOrder) {
+    assert.ok(source.indexOf(lastContentStyle) < source.indexOf("shared/theme/zhuge-navigation.css"), `${lastContentStyle} must load before canonical navigation CSS`);
+  }
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /Canonical Sidebar geometry/);
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /\.zhuge-module-shell .*\.os-sidebar/);
+  assert.doesNotMatch(read("shared/theme/zhuge-dashboard.css"), /\.zhuge-dashboard-shell .*\.os-sidebar/);
   assert.match(index, /class="zhuge-module-shell workspace-shell"/);
   assert.match(index, /class="top workspace-shell-header"/);
   assert.match(index, /class="workspace-tabs workspace-subnav"/);

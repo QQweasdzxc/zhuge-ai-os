@@ -13,31 +13,31 @@ const NAV_SOURCE = path.join(ROOT, "shared/components/zhuge-navigation.js");
 const ROUTES = {
   worklog: [
     "shared/theme/zhuge-shell.css",
-    "shared/theme/zhuge-navigation.css",
     "modules/worklog/worklog.css",
     "shared/theme/zhuge-os.css",
     "shared/theme/ai-product.css",
-    "shared/theme/zhuge-workspace.css"
+    "shared/theme/zhuge-workspace.css",
+    "shared/theme/zhuge-navigation.css"
   ],
   investment: [
     "shared/theme/tokens.css",
     "shared/theme/variables.css",
     "shared/theme/typography.css",
     "shared/theme/dark.css",
-    "shared/theme/zhuge-navigation.css",
     "shared/theme/zhuge-shell.css",
     "modules/investment/assets/investment.css",
-    "shared/theme/zhuge-workspace.css"
+    "shared/theme/zhuge-workspace.css",
+    "shared/theme/zhuge-navigation.css"
   ],
   dashboard: [
-    "shared/theme/zhuge-navigation.css",
     "shared/theme/zhuge-shell.css",
-    "shared/theme/zhuge-dashboard.css"
+    "shared/theme/zhuge-dashboard.css",
+    "shared/theme/zhuge-navigation.css"
   ],
   aiBoard: [
-    "shared/theme/zhuge-navigation.css",
     "shared/theme/zhuge-shell.css",
-    "shared/theme/zhuge-workspace.css"
+    "shared/theme/zhuge-workspace.css",
+    "shared/theme/zhuge-navigation.css"
   ]
 };
 

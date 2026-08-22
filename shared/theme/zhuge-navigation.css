@@ -32,6 +32,17 @@
 @media(max-width:1180px){.zhuge-module-shell{grid-template-columns:1fr}.zhuge-module-shell>.os-sidebar{position:static}.zhuge-module-shell>.app{min-width:0}.os-shell.zhuge-nav-collapsed .os-body{grid-template-columns:1fr}}
 @media(max-width:767px){.zhuge-module-shell{display:block;padding:8px}.zhuge-module-shell>.os-sidebar{position:fixed;top:0;left:0;bottom:0;width:min(86vw,320px);z-index:120;transform:translateX(-105%);transition:transform .22s ease;overflow-y:auto;border-radius:0 22px 22px 0}.zhuge-module-shell.sidebar-open>.os-sidebar{transform:translateX(0)}.sidebar-close{display:inline-flex}.sidebar-menu-mark{display:inline-flex}.zhuge-module-shell>.app{width:100%}.zhuge-module-shell.zhuge-nav-collapsed{display:block}.zhuge-module-shell.zhuge-nav-collapsed>.os-sidebar{width:min(86vw,320px)}}
 
+.zhuge-module-shell > .sidebar-backdrop { display: none; }
+@media(max-width:767px) {
+  .zhuge-module-shell.sidebar-open > .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(2,6,23,.62);
+    z-index: 110;
+  }
+}
+
 /* Tablet uses the same canonical rail as desktop collapse.  The navigation
  * starts compact to protect content width, while the existing collapse
  * control removes the class and restores the expanded 260px workspace rail. */
@@ -192,7 +203,7 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell .sidebar-brand {
   align-items: center;
   padding: 10px 6px 18px;
-  margin: -2px -2px 10px;
+  margin: -2px -2px 12px;
   border-bottom: 1px solid var(--zhuge-border, #334155);
 }
 .zhuge-module-shell .sidebar-brand .brand-row { min-width: 0; }
@@ -208,26 +219,26 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 }
 .zhuge-module-shell .agent-panel,
 .zhuge-module-shell .side-section {
-  padding: 8px 10px;
+  padding: 12px 10px;
   margin-bottom: var(--zhuge-sidebar-section-gap);
-  border-radius: 14px;
+  border-radius: 18px;
 }
 .zhuge-module-shell .agent-panel h3,
 .zhuge-module-shell .side-section h3,
 .zhuge-module-shell .side-section-heading {
-  font-size: .85rem;
+  font-size: .9375rem;
   line-height: var(--zhuge-sidebar-item-line-height);
-  margin-bottom: 5px;
+  margin-bottom: 10px;
 }
 .zhuge-module-shell .agent-row {
-  padding: 4px 0;
-  font-size: .78rem;
+  padding: 7px 0;
+  font-size: .8125rem;
   line-height: var(--zhuge-sidebar-item-line-height);
 }
 .zhuge-module-shell .side-item {
   min-height: var(--zhuge-sidebar-item-height);
   padding: var(--zhuge-sidebar-item-padding-block) var(--zhuge-sidebar-item-padding-inline);
-  margin-top: 3px;
+  margin-top: 6px;
   border-radius: var(--zhuge-sidebar-item-radius);
   font-size: var(--zhuge-sidebar-item-font-size);
   line-height: var(--zhuge-sidebar-item-line-height);
@@ -235,14 +246,14 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell .side-item-child {
   min-height: var(--zhuge-sidebar-child-height);
   padding: var(--zhuge-sidebar-child-padding-block) var(--zhuge-sidebar-child-padding-inline);
-  font-size: .82rem;
+  font-size: .875rem;
   line-height: var(--zhuge-sidebar-item-line-height);
 }
 .zhuge-module-shell .developer-build-info {
   flex: 0 0 auto;
   margin-top: auto;
-  padding: 6px 6px 4px;
-  font-size: .6875rem;
+  padding: 8px 6px 2px;
+  font-size: .75rem;
   line-height: 1.5;
 }
 .zhuge-module-shell .sidebar-sync-summary,

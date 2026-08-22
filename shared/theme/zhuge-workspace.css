@@ -257,26 +257,6 @@
 body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
 html[data-theme="light"] body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
 
-html[data-theme="light"] .zhuge-module-shell .os-sidebar,
-html[data-theme="light"] .zhuge-module-shell .os-sidebar {
-  background: var(--zhuge-surface);
-  border-color: var(--zhuge-border);
-}
-html[data-theme="light"] .zhuge-module-shell .agent-panel,
-html[data-theme="light"] .zhuge-module-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
-html[data-theme="light"] .zhuge-module-shell .agent-panel h3,
-html[data-theme="light"] .zhuge-module-shell .side-section h3,
-html[data-theme="light"] .zhuge-module-shell .side-section-heading,
-html[data-theme="light"] .zhuge-module-shell .side-item { color: var(--zhuge-text); }
-html[data-theme="light"] .zhuge-module-shell .side-item:hover,
-html[data-theme="light"] .zhuge-module-shell .side-item.on,
-html[data-theme="light"] .zhuge-module-shell .side-section-heading:hover,
-html[data-theme="light"] .zhuge-module-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
-html[data-theme="light"] .zhuge-module-shell .agent-row,
-html[data-theme="light"] .zhuge-module-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
-html[data-theme="light"] .zhuge-module-shell .mini,
-html[data-theme="light"] .zhuge-module-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
-
 /* Shared page boundary: every first-level Workspace enters the main region
  * through the same shell inset. AI Board keeps its canvas blocks on that
  * boundary; WorkLog and Investment retain their own inner content surfaces. */
@@ -435,20 +415,6 @@ html[data-theme="light"] .zhuge-module-shell .field textarea,
 html[data-theme="light"] .zhuge-module-shell .field select { background: var(--zhuge-surface-raised) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
 @media (prefers-color-scheme: light) {
   html[data-theme="system"] body:has(.zhuge-module-shell) { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-module-shell .os-sidebar { background: var(--zhuge-surface); border-color: var(--zhuge-border); }
-  html[data-theme="system"] .zhuge-module-shell .agent-panel,
-  html[data-theme="system"] .zhuge-module-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
-  html[data-theme="system"] .zhuge-module-shell .agent-panel h3,
-  html[data-theme="system"] .zhuge-module-shell .side-section h3,
-  html[data-theme="system"] .zhuge-module-shell .side-section-heading,
-  html[data-theme="system"] .zhuge-module-shell .side-item { color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-module-shell .side-item:hover,
-  html[data-theme="system"] .zhuge-module-shell .side-item.on,
-  html[data-theme="system"] .zhuge-module-shell .side-section-heading:hover,
-  html[data-theme="system"] .zhuge-module-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
-  html[data-theme="system"] .zhuge-module-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
-  html[data-theme="system"] .zhuge-module-shell .mini,
-  html[data-theme="system"] .zhuge-module-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
   html[data-theme="system"] .zhuge-module-shell .summary-dashboard,
   html[data-theme="system"] .zhuge-module-shell .summary-block,
   html[data-theme="system"] .zhuge-module-shell .summary-tile,
@@ -545,100 +511,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   html[data-theme="system"] .zhuge-module-shell .field input,
   html[data-theme="system"] .zhuge-module-shell .field textarea,
   html[data-theme="system"] .zhuge-module-shell .field select { background: var(--zhuge-surface-raised) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
-}
-
-/* Canonical Sidebar geometry. This final shared layer intentionally follows
- * module styles so no Workspace can change the navigation width, row height,
- * padding, typography or line spacing independently. Active state is the only
- * allowed per-route difference. */
-.zhuge-module-shell .os-sidebar {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: calc(100vh - 36px);
-  padding: 14px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 22px;
-}
-.zhuge-module-shell .sidebar-brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 6px 18px;
-  margin: -2px -2px 12px;
-  border-bottom: 1px solid #334155;
-}
-.zhuge-module-shell .sidebar-brand .brand-row { min-width: 0; }
-.zhuge-module-shell .sidebar-brand .brand-stack h1 {
-  font-size: 1.25rem;
-  line-height: 1.15;
-  white-space: nowrap;
-}
-.zhuge-module-shell .brand-mark { display: inline-block; filter: saturate(1.25); }
-.zhuge-module-shell .sidebar-brand .brand-companion {
-  margin-left: 35px;
-  margin-top: 4px;
-  font-size: .8125rem;
-}
-.zhuge-module-shell .sidebar-menu-mark {
-  display: inline-flex;
-  flex: 0 0 auto;
-  border: 0;
-  background: transparent;
-  font-size: 1.125rem;
-  padding: 5px;
-  color: #94a3b8;
-}
-.zhuge-module-shell .agent-panel,
-.zhuge-module-shell .side-section {
-  padding: 12px 10px;
-  margin-bottom: var(--zhuge-sidebar-section-gap);
-  border-radius: 18px;
-}
-.zhuge-module-shell .agent-panel h3,
-.zhuge-module-shell .side-section h3,
-.zhuge-module-shell .side-section-heading {
-  font-size: .9375rem;
-  line-height: var(--zhuge-sidebar-item-line-height);
-  margin-bottom: 10px;
-}
-.zhuge-module-shell .agent-row {
-  padding: 7px 0;
-  font-size: .8125rem;
-  line-height: var(--zhuge-sidebar-item-line-height);
-}
-.zhuge-module-shell .side-item {
-  min-height: var(--zhuge-sidebar-item-height);
-  padding: var(--zhuge-sidebar-item-padding-block) var(--zhuge-sidebar-item-padding-inline);
-  margin-top: 6px;
-  border-radius: var(--zhuge-sidebar-item-radius);
-  font-size: var(--zhuge-sidebar-item-font-size);
-  line-height: var(--zhuge-sidebar-item-line-height);
-}
-.zhuge-module-shell .side-item-child {
-  min-height: var(--zhuge-sidebar-child-height);
-  padding: var(--zhuge-sidebar-child-padding-block) var(--zhuge-sidebar-child-padding-inline);
-  font-size: .875rem;
-  line-height: var(--zhuge-sidebar-item-line-height);
-}
-.zhuge-module-shell .side-item.on {
-  background: #172554;
-  border-color: #60a5fa;
-}
-.zhuge-module-shell .developer-build-info {
-  flex: 0 0 auto;
-  margin-top: auto;
-  padding: 8px 6px 2px;
-  color: #94a3b8;
-  font-size: .75rem;
-  line-height: 1.5;
-}
-.zhuge-module-shell .sidebar-sync-summary,
-.zhuge-module-shell .sidebar-version-summary,
-.zhuge-module-shell .sidebar-build-summary {
-  padding: 4px 2px;
 }
 
 @media (max-width: 900px) {

@@ -185,56 +185,6 @@
 .zhuge-dashboard-shell .dashboard-empty-state strong { color: var(--zhuge-text); }
 .zhuge-dashboard-shell .dashboard-empty-state p { margin: 0; font-size: .8rem; }
 
-html[data-theme="light"] .zhuge-dashboard-shell .os-sidebar {
-  background: var(--zhuge-surface);
-  border-color: var(--zhuge-border);
-  color: var(--zhuge-text);
-}
-html[data-theme="light"] .zhuge-dashboard-shell .agent-panel,
-html[data-theme="light"] .zhuge-dashboard-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
-html[data-theme="light"] .zhuge-dashboard-shell .agent-panel h3,
-html[data-theme="light"] .zhuge-dashboard-shell .side-section h3,
-html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading,
-html[data-theme="light"] .zhuge-dashboard-shell .side-item { color: var(--zhuge-text); }
-html[data-theme="light"] .zhuge-dashboard-shell .brand-stack,
-html[data-theme="light"] .zhuge-dashboard-shell .brand-stack h1 { color: var(--zhuge-text); }
-html[data-theme="light"] .zhuge-dashboard-shell .brand-companion { color: var(--zhuge-accent-strong); }
-html[data-theme="light"] .zhuge-dashboard-shell .side-item:hover,
-html[data-theme="light"] .zhuge-dashboard-shell .side-item.on,
-html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading:hover,
-html[data-theme="light"] .zhuge-dashboard-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
-html[data-theme="light"] .zhuge-dashboard-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
-html[data-theme="light"] .zhuge-dashboard-shell .agent-row b { color: var(--zhuge-accent-strong); }
-html[data-theme="light"] .zhuge-dashboard-shell .mini,
-html[data-theme="light"] .zhuge-dashboard-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
-html[data-theme="light"] .zhuge-dashboard-shell .sidebar-sync-summary,
-html[data-theme="light"] .zhuge-dashboard-shell .sidebar-version-summary,
-html[data-theme="light"] .zhuge-dashboard-shell .sidebar-build-summary { color: var(--zhuge-text); }
-
-@media (prefers-color-scheme: light) {
-  html[data-theme="system"] .zhuge-dashboard-shell .os-sidebar { background: var(--zhuge-surface); border-color: var(--zhuge-border); color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-dashboard-shell .agent-panel,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-section { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); }
-  html[data-theme="system"] .zhuge-dashboard-shell .agent-panel h3,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-section h3,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-item { color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-dashboard-shell .brand-stack,
-  html[data-theme="system"] .zhuge-dashboard-shell .brand-stack h1 { color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-dashboard-shell .brand-companion { color: var(--zhuge-accent-strong); }
-  html[data-theme="system"] .zhuge-dashboard-shell .side-item:hover,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-item.on,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading:hover,
-  html[data-theme="system"] .zhuge-dashboard-shell .side-section-heading.on { background: #eaf2ff; border-color: #8bb7f5; }
-  html[data-theme="system"] .zhuge-dashboard-shell .agent-row { color: var(--zhuge-muted); border-top-color: var(--zhuge-border); }
-  html[data-theme="system"] .zhuge-dashboard-shell .agent-row b { color: var(--zhuge-accent-strong); }
-  html[data-theme="system"] .zhuge-dashboard-shell .mini,
-  html[data-theme="system"] .zhuge-dashboard-shell .shared-nav-collapse { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-sync-summary,
-  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-version-summary,
-  html[data-theme="system"] .zhuge-dashboard-shell .sidebar-build-summary { color: var(--zhuge-text); }
-}
-
 @media (max-width: 767px) {
   .dashboard-appearance-bar { align-items: flex-start; flex-direction: column; }
   .appearance-segmented { width: 100%; }
