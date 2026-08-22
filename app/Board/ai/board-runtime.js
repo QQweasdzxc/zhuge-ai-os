@@ -1,1 +1,0 @@
-../../../shared/components/golden-master-runtime.js
