@@ -146,13 +146,20 @@
 
   function mountOperations(target, options = {}) {
     if (!target || typeof document === "undefined") return null;
-    const existing = target.querySelector?.("[data-golden-master-operations]") || document.querySelector("[data-golden-master-operations]");
+    // Keep the shared operation surfaces inside the Golden Master shell. The
+    // presentation CSS is intentionally scoped to that shell so the same
+    // hidden modal/drawer behavior is used by every Board consumer.
+    const mountTarget = target.closest?.(".zhuge-module-shell")
+      || target.querySelector?.(".zhuge-module-shell")
+      || document.querySelector?.(".zhuge-module-shell")
+      || target;
+    const existing = mountTarget.querySelector?.("[data-golden-master-operations]") || document.querySelector("[data-golden-master-operations]");
     if (existing) return existing;
     const template = document.createElement("template");
     template.innerHTML = renderOperations(options).trim();
     const operations = template.content.firstElementChild;
     if (!operations) return null;
-    target.appendChild(operations);
+    mountTarget.appendChild(operations);
     return operations;
   }
 

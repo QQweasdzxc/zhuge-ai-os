@@ -37,6 +37,8 @@ test("EP-039 has one Golden Master presentation runtime for formal Board consume
   assert.match(runtime, /ZhugeGoldenMaster\?\.renderBoard/);
   assert.match(runtime, /ZhugeGoldenMaster\?\.mountOperations/);
   assert.match(runtime, /ZhugeGoldenMaster\?\.renderHeaderActions/);
+  assert.match(goldenMaster, /const mountTarget = target\.closest\?\.\("\.zhuge-module-shell"\)/);
+  assert.match(goldenMaster, /mountTarget\.appendChild\(operations\)/);
   assert.match(runtime, /taskChecklistPanel\.open = false/);
   assert.doesNotMatch(runtime, /key: "due-date"|action: "due-date"|label: "日期"/);
   assert.doesNotMatch(taskDrawerCss, /shared-task-due-date-picker|task-due-date/);
