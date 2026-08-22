@@ -50,7 +50,9 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
   assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.side-item\{min-height:46px/);
   assert.doesNotMatch(read("modules/worklog/worklog.css"), /workspace-worklog \.os-sidebar\{min-height/);
-  assert.match(read("shared/app-config.js"), /tasks: \{ icon: "🗂️", label: "工作待辦", navLabel: "工作待辦（舊）"/);
+  assert.doesNotMatch(nav, /工作待辦（舊）/);
+  assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
+  assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "investment"\]/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const stylesheetOrder = [
     [index, "shared/theme/zhuge-workspace.css"],
@@ -80,7 +82,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
 test("Shared Navigation opens WorkLog internal destinations without a private Board router", () => {
   const nav = read("shared/components/zhuge-navigation.js");
   const worklog = read("modules/worklog/index.html");
-  assert.match(nav, /modules\/worklog\/\?app=1&workspace=tasks/);
+  assert.doesNotMatch(nav, /modules\/worklog\/\?app=1&workspace=tasks/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=library/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=sync/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=settings/);

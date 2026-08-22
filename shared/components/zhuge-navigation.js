@@ -12,11 +12,8 @@
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
-    // The new WorkTodo consumer is the AI Board presentation entry. Keep the
-    // existing tasks id as a compatibility/legacy route until PM accepts the
-    // new consumer; it must remain reachable without changing its runtime.
+    // The new WorkTodo consumer is the sole WorkTodo presentation entry.
     "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, visible: true },
-    tasks: { icon: "🗂️", label: "工作待辦（舊）", navTitle: "工作待辦", group: "camp-child", enabled: true, visible: true },
     // Status badges belong to workspace content, not the canonical global rail.
     // Keeping this entry label-only prevents one module from looking different
     // from the rest of the shared navigation.
@@ -42,7 +39,6 @@
     const paths = {
       dashboard: "app/dashboard/",
       worklog: "modules/worklog/?app=1&workspace=worklog",
-      tasks: "modules/worklog/?app=1&workspace=tasks",
       "tasks-new": "app/Board/worktodo/",
       investment: "modules/investment/",
       "ai-board": "app/Board/ai/",
@@ -120,7 +116,7 @@
     const brand = root
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
-    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "tasks", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1, 2]);
+    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
     // The sidebar structure must be identical for every Workspace. Governance
     // destinations are rendered by the Control Console's second-level tabs;

@@ -51,10 +51,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.deepEqual(worktodo.match(/data-board-nav="[^"]+"/g), ['data-board-nav="board"']);
   assert.match(navigation, /"tasks-new": \{ icon: "✅", label: "工作待辦"/);
   assert.match(navigation, /"tasks-new": "app\/Board\/worktodo\/"/);
-  assert.match(navigation, /tasks: \{ icon: "🗂️", label: "工作待辦（舊）"/);
-  assert.match(navigation, /modules\/worklog\/\?app=1&workspace=tasks/);
+  assert.doesNotMatch(navigation, /工作待辦（舊）/);
+  assert.doesNotMatch(navigation, /modules\/worklog\/\?app=1&workspace=tasks/);
   assert.match(appConfig, /"tasks-new": \{[\s\S]*externalHref: "\.\.\/\.\.\/app\/Board\/worktodo\/"/);
-  assert.match(appConfig, /tasks: \{ icon: "🗂️", label: "工作待辦", navLabel: "工作待辦（舊）"/);
+  assert.doesNotMatch(appConfig, /工作待辦（舊）/);
   assert.match(dashboard, /href="\.\.\/\.\.\/app\/Board\/worktodo\/" data-module="tasks-new"/);
   assert.match(dashboardRuntime, /\["tasks-new", "✅", "工作待辦"/);
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);

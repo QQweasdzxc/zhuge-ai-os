@@ -93,7 +93,7 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /data-zhuge-shared-navigation="true"/);
   assert.match(output, /data-shared-nav-item="worklog"/);
   assert.match(output, /data-shared-nav-item="tasks-new"/);
-  assert.match(output, /data-shared-nav-item="tasks"/);
+  assert.doesNotMatch(output, /data-shared-nav-item="tasks"/);
   assert.match(output, /data-shared-nav-item="investment"/);
   assert.match(output, /data-shared-nav-item="library"/);
   assert.match(output, /data-shared-nav-item="sync"/);
@@ -109,14 +109,14 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /系統藍圖/);
   assert.match(output, /nav-collapse-audit/);
   assert.match(output, /zhuge-nav-collapsed/);
-  assert.match(output, /collapsed-visible=worklog,tasks-new,tasks,investment,library,sync,settings/);
-  assert.match(output, /collapsed-tasks-tag=A/);
-  assert.match(output, /collapsed-tasks-title=工作待辦/);
-  assert.match(output, /collapsed-tasks-href=.*workspace=tasks/);
+  assert.match(output, /collapsed-visible=worklog,tasks-new,investment,library,sync,settings/);
+  assert.match(output, /collapsed-new-tasks-tag=A/);
+  assert.match(output, /collapsed-new-tasks-title=工作待辦/);
+  assert.match(output, /collapsed-new-tasks-href=.*app\/Board\/worktodo\//);
   assert.match(output, /cross-workspace-audit/);
   // Engineering destinations live inside 控制台; the global rail keeps only
   // the canonical user-facing workspaces and system entry points.
-  assert.match(output, /dashboard,worklog,tasks-new,tasks,investment,library,sync,settings/);
+  assert.match(output, /dashboard,worklog,tasks-new,investment,library,sync,settings/);
   assert.match(output, /heading=0;duplicateMenu=0;children=0/);
   assert.ok(args.includes("--window-size=1600,1000"), "Browser QA must execute with a desktop viewport");
   assert.match(output, /history-audit/);
