@@ -59,6 +59,16 @@
     };
   }
 
+  function normalizeNavigationItem(item) {
+    if (typeof item === "string") return { key: item, label: item, title: item, active: false };
+    return {
+      key: item?.key || item?.id || "board",
+      label: item?.label || item?.name || "",
+      title: item?.title || item?.name || item?.label || "",
+      active: item?.active === true
+    };
+  }
+
   function renderHeader(options = {}, deps = dependencies(options)) {
     const shell = deps.shell;
     const headerOptions = {
@@ -103,6 +113,18 @@
     const scope = escapeHtml(options.applicationScope || "");
     const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
     return `<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scope ? ` data-application-scope="${scope}"` : ""}>↻</button>`;
+  }
+
+  function renderNavigation(options = {}) {
+    const navigation = options.navigation || options;
+    const items = (Array.isArray(navigation.items) ? navigation.items : [])
+      .map(normalizeNavigationItem)
+      .filter(item => item.key && item.label);
+    if (!items.length) return "";
+    const ariaLabel = escapeHtml(navigation.ariaLabel || "工作區子功能導覽");
+    const className = ["workspace-tabs", "workspace-subnav", navigation.className || ""].filter(Boolean).join(" ");
+    const buttons = items.map(item => `<button class="workspace-tab${item.active ? " active" : ""}" title="${escapeHtml(item.title)}" data-board-nav="${escapeHtml(item.key)}" type="button">${escapeHtml(item.label)}</button>`).join("");
+    return `<div class="${escapeHtml(className)}" aria-label="${ariaLabel}" data-golden-master-navigation="true">${buttons}</div>`;
   }
 
   function renderOperations(options = {}) {
@@ -212,7 +234,7 @@
     const toolbar = options.toolbar || model.toolbar || {};
     const columns = Array.isArray(options.columns) ? options.columns : (Array.isArray(model.columns) ? model.columns : []);
     const drawer = options.drawer ? renderDrawer({ drawer: options.drawer, components: options.components }, deps) : "";
-    return `<section class="empty-golden-master" data-golden-master="empty" data-golden-master-data="none">${renderHeader({ ...header, components: options.components }, deps)}${renderToolbar({ ...toolbar, components: options.components })}${renderBoard({ ...options, columns, components: options.components }, deps)}${drawer ? `<div class="golden-master-drawer-host" data-golden-master-drawer-host>${drawer}</div>` : ""}</section>`;
+    return `<section class="empty-golden-master" data-golden-master="empty" data-golden-master-data="none">${renderHeader({ ...header, components: options.components }, deps)}${renderNavigation(options.navigation || {})}<div data-golden-master-board-view="true" data-board-main-view="true">${renderToolbar({ ...toolbar, components: options.components })}${renderBoard({ ...options, columns, components: options.components }, deps)}</div>${drawer ? `<div class="golden-master-drawer-host" data-golden-master-drawer-host>${drawer}</div>` : ""}</section>`;
   }
 
   function mount(target, options = {}) {
@@ -231,6 +253,7 @@
     escapeHtml,
     renderHeader,
     renderHeaderActions,
+    renderNavigation,
     renderToolbar,
     renderOperations,
     mountOperations,

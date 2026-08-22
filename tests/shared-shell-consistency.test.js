@@ -16,7 +16,8 @@ test("all formal workspace entry points mount the canonical Shared OS Shell", ()
   assert.match(worklog, /zhuge-navigation\.js/);
   assert.match(worklog, /zhuge-shell\.js/);
   assert.match(board, /zhugeSharedNavigation/);
-  assert.match(board, /zhugeSharedHeader/);
+  assert.match(board, /data-golden-master-surface/);
+  assert.match(board, /shared\/components\/golden-master\.js/);
   assert.match(investment, /zhugeSharedNavigation/);
   assert.match(investment, /zhugeSharedHeader/);
   assert.match(dashboard, /zhuge-dashboard-shell/);

@@ -45,10 +45,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.doesNotMatch(aiBoard, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /worktodo-task-adapter\.js|GM-FIX-|golden-master-preview/i);
-  assert.match(aiBoard, /title="工程準則" data-board-nav="principles"/);
-  assert.match(aiBoard, /title="系統藍圖" data-board-nav="system-map"/);
+  assert.match(runtime, /key: "principles"/);
+  assert.match(runtime, /key: "system-map"/);
+  assert.match(runtime, /key: "board"/);
   assert.doesNotMatch(worktodo, /工程準則|系統藍圖|data-board-nav="principles"|data-board-nav="system-map"/);
-  assert.deepEqual(worktodo.match(/data-board-nav="[^"]+"/g), ['data-board-nav="board"']);
   assert.match(navigation, /"tasks-new": \{ icon: "✅", label: "工作待辦"/);
   assert.match(navigation, /"tasks-new": "app\/Board\/worktodo\/"/);
   assert.match(navigation, /tasks: \{ icon: "🗂️", label: "工作待辦（舊）"/);
@@ -85,6 +85,7 @@ test("AI Board and new WorkTodo receive the same Golden Master column UI change"
   assert.match(boardCss, /\.golden-master-column \.shared-task-board-column-header/);
   assert.match(aiBoard, /shared\/components\/golden-master\.js/);
   assert.match(worktodo, /shared\/components\/golden-master\.js/);
-  assert.match(runtime, /root\.ZhugeGoldenMaster\?\.renderColumns/);
+  assert.match(runtime, /root\.ZhugeGoldenMaster\.mount/);
+  assert.match(runtime, /root\.ZhugeGoldenMaster\?\.renderBoard/);
   assert.match(worktodo, /src="\.\.\/\.\.\/\.\.\/shared\/components\/golden-master-runtime\.js\?v=/);
 });

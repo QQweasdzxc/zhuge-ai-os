@@ -201,7 +201,8 @@
   function renderWorkspaceColumns() {
     const boardMount = document.querySelector("[data-golden-master-board-mount]");
     const legacyBoard = document.getElementById("boardColumns") || document.querySelector(".board");
-    if (!boardMount && !legacyBoard) return;
+    const boardShell = document.querySelector("[data-golden-master-board-shell]");
+    if (!boardMount && !legacyBoard && !boardShell) return;
     const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
     const columns = workspaces.map(workspace => {
       const completion = isCompletionWorkspace(workspace);
@@ -229,6 +230,14 @@
         ariaLabel: state.applicationScope === "worktodo" ? "工作待辦工作看板" : "AI Board 工作看板",
         columns
       });
+    } else if (boardShell && root.ZhugeGoldenMaster?.renderBoard) {
+      boardShell.outerHTML = root.ZhugeGoldenMaster.renderBoard({
+        id: "boardColumns",
+        boardKey: "ai-board",
+        className: "golden-master-board",
+        ariaLabel: state.applicationScope === "worktodo" ? "工作待辦工作看板" : "AI Board 工作看板",
+        columns
+      });
     } else {
       legacyBoard.innerHTML = root.ZhugeGoldenMaster?.renderColumns
         ? root.ZhugeGoldenMaster.renderColumns(columns)
@@ -236,7 +245,7 @@
           ? root.ZhugeSharedTaskBoard.renderColumns(columns)
         : "<div class=\"board-empty\">Shared Task Board foundation 尚未載入。</div>";
     }
-    const board = boardMount?.querySelector("#boardColumns") || legacyBoard;
+    const board = boardMount?.querySelector("#boardColumns") || document.getElementById("boardColumns") || legacyBoard;
     board?.style.setProperty("--board-workspace-count", String(Math.max(workspaces.length, 1)));
   }
   function renderTasks(tasks) {
@@ -278,24 +287,42 @@
     if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 TASK" : "顯示目前工作中的正式 TASK";
   }
   function renderGoldenMasterToolbar() {
-    if (!root.ZhugeGoldenMaster?.renderToolbar) return;
-    const toolbarMarkup = root.ZhugeGoldenMaster.renderToolbar({
-      id: "goldenMasterToolbar",
-      searchId: "boardSearch",
-      searchLabel: "搜尋 TASK、使用情境或工作區",
-      searchPlaceholder: "⌕ 搜尋目前工作中的 TASK、使用情境或工作區",
-      filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
-      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
-      statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 TASK</span>',
-      legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
-    });
+    if (!root.ZhugeGoldenMaster?.mount) return;
     const surface = document.querySelector("[data-golden-master-surface]");
-    if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
-      surface.innerHTML = `${toolbarMarkup}<div data-golden-master-board-mount></div>`;
-      return;
-    }
-    const mount = document.getElementById("goldenMasterToolbar");
-    if (mount) mount.outerHTML = toolbarMarkup;
+    if (!surface) return;
+    const workTodo = state.applicationScope === "worktodo";
+    const navigationItems = workTodo
+      ? [{ key: "board", title: "工作看板", label: "📋 工作看板", active: true }]
+      : [
+        { key: "board", title: "工作看板", label: "📋 工作看板", active: true },
+        { key: "principles", title: "工程準則", label: "📘 工程準則" },
+        { key: "system-map", title: "系統藍圖", label: "🗺️ 系統藍圖" }
+      ];
+    const title = surface.dataset.goldenMasterTitle || (workTodo ? "工作待辦" : "AI Board");
+    const description = surface.dataset.goldenMasterDescription || "工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態";
+    root.ZhugeGoldenMaster.mount(surface, {
+      header: {
+        title,
+        description,
+        identityHint: "登入後顯示目前身份",
+        actionMarkup: root.ZhugeGoldenMaster.renderHeaderActions?.({ applicationScope: state.applicationScope }) || ""
+      },
+      navigation: {
+        ariaLabel: workTodo ? "工作待辦子功能導覽" : "AI Board 子功能導覽",
+        items: navigationItems
+      },
+      toolbar: {
+        id: "goldenMasterToolbar",
+        searchId: "boardSearch",
+        searchLabel: "搜尋 TASK、使用情境或工作區",
+        searchPlaceholder: "⌕ 搜尋目前工作中的 TASK、使用情境或工作區",
+        filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
+        actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
+        statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 TASK</span>',
+        legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
+      },
+      columns: []
+    });
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");
@@ -579,7 +606,7 @@
     state.boardView = view;
     document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
     const canvas = document.querySelector(".workspace-canvas");
-    const boardMain = document.querySelector("[data-board-main-view]");
+    const boardMain = document.querySelector("[data-golden-master-board-view]") || document.querySelector("[data-board-main-view]");
     if (boardMain) boardMain.hidden = view !== "board";
     else if (canvas) canvas.hidden = view !== "board";
     else {
@@ -1733,8 +1760,8 @@
     document.querySelectorAll("[data-close-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.remove("sidebar-open");
     });
-    if (state.applicationScope !== "worktodo") mountCreatorMfaSettings(accessContext);
     renderGoldenMasterToolbar();
+    if (state.applicationScope !== "worktodo") mountCreatorMfaSettings(accessContext);
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
@@ -1763,21 +1790,22 @@
   function captureBoardMarkup() {
     const main = document.querySelector(".main");
     if (main && originalMainMarkup === null) {
-      // The shared shell may already have rendered the header by the time the
-      // board gate runs. Mark it as mounted so restoring the board does not
-      // remount it with the generic fallback title.
-      main.querySelector("[data-zhuge-shared-header]")?.setAttribute("data-mounted", "true");
       originalMainMarkup = main.innerHTML;
     }
   }
 
   function sharedHeaderMarkup() {
     const header = document.querySelector(".main [data-zhuge-shared-header]");
-    if (!header) return "";
-    const clone = header.cloneNode(true);
-    clone.setAttribute("data-mounted", "true");
-    clone.querySelector(".zhuge-shared-header-actions")?.remove();
-    return clone.outerHTML;
+    if (header) {
+      const clone = header.cloneNode(true);
+      clone.setAttribute("data-mounted", "true");
+      clone.querySelector(".zhuge-shared-header-actions")?.remove();
+      return clone.outerHTML;
+    }
+    const surface = document.querySelector("[data-golden-master-surface]");
+    const title = surface?.dataset.goldenMasterTitle || (isWorkTodoMode() ? "工作待辦" : "AI Board");
+    const description = surface?.dataset.goldenMasterDescription || "工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態";
+    return root.ZhugeGoldenMaster?.renderHeader?.({ title, description, identityHint: "登入後顯示目前身份" }) || "";
   }
 
   function renderAccessState({ title, message, kind = "info", body = "", panelClass = "" } = {}) {
