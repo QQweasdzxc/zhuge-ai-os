@@ -1,5 +1,12 @@
 # Zhuge AI OS v0.9.0-alpha.9.13
 
+## Shared Board Layout Restoration Candidate — 20260822-0953
+
+- Restored the 20260821-1456 AI Board reference geometry in the shared Golden Master board presentation.
+- AI Board and the new WorkTodo continue to consume the same shared column, card, count, and add-task presentation.
+- No Cloud, Schema, RPC, RLS, migration data, or consumer domain logic changed.
+- Candidate only; PM visual QA remains required.
+
 ## Golden Master Phase 1 Candidate
 
 - Version: `0.9.0-alpha.9.13`

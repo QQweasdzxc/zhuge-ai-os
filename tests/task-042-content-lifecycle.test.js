@@ -65,7 +65,7 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /progressNoteMetaLabel\(item\)/);
   assert.match(runtime, /visibleHumanProgressRows/);
   assert.match(runtime, /readOnly: archiveOnly/);
-  assert.match(board, /\.shared-task-board \.shared-task-card\{height:104px;min-height:104px/);
+  assert.match(board, /\.shared-task-board-column \.shared-task-card\{height:104px;min-height:104px/);
   assert.doesNotMatch(runtime, /task\.workCode \|\| "TASK"\}\｜\$\{task\.title/);
 });
 

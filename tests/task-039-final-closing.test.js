@@ -65,7 +65,7 @@ test("TASK-039 final closing presentation keeps cards compact and progress cards
   assert.match(runtime, /data-task-attachment-delete/);
   assert.match(runtime, /shared-task-attachment-meta/);
   assert.match(runtime, /shared-task-progress-note-title\">工作進度/);
-  assert.match(board, /\.shared-task-board \.shared-task-card\{height:104px;min-height:104px/);
+  assert.match(board, /\.shared-task-board-column \.shared-task-card\{height:104px;min-height:104px/);
   assert.match(drawerCss, /shared-task-attachment\{[^}]*grid-template-columns:58px minmax\(0,1fr\) auto/);
   assert.match(drawerCss, /data-shared-task-timeline\].*min-height:118px/);
 });

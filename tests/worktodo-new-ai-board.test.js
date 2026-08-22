@@ -83,6 +83,10 @@ test("AI Board and new WorkTodo receive the same Golden Master column UI change"
 
   assert.match(html, /class="shared-task-board-column column process golden-master-column"/);
   assert.match(boardCss, /\.golden-master-column \.shared-task-board-column-header/);
+  assert.match(boardCss, /\.shared-task-board-column\{[^}]*background:#10161f[^}]*border:1px solid #293241[^}]*border-radius:12px/);
+  assert.match(boardCss, /\.shared-task-board-column-header\{height:55px;padding:0 14px/);
+  assert.match(boardCss, /\.shared-task-board-cards\{display:flex;flex-direction:column;gap:9px;min-height:570px;padding:10px/);
+  assert.match(boardCss, /\.shared-task-board-column \.shared-task-card\{height:104px;min-height:104px/);
   assert.match(aiBoard, /shared\/components\/golden-master\.js/);
   assert.match(worktodo, /shared\/components\/golden-master\.js/);
   assert.match(runtime, /root\.ZhugeGoldenMaster\?\.renderColumns/);
