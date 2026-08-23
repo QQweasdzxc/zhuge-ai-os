@@ -654,6 +654,57 @@
     render();
     tab.addEventListener("click", () => showBoardView("security"));
   }
+  function mountTemplateAdoptionSettings(context) {
+    if (!context?.creator?.getSnapshot?.().is_creator || !context.templates?.registry) return;
+    const content = document.querySelector(".workspace-canvas") || document.querySelector(".main");
+    if (!content || content.querySelector("[data-template-adoption-settings]")) return;
+    const section = document.createElement("section");
+    section.className = "board-subview creator-template-adoption-view";
+    section.dataset.boardView = "security";
+    section.dataset.templateAdoptionSettings = "true";
+    section.hidden = true;
+    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／Template Control</span><h2>🧩 模板套用設定</h2><p>只控制頁面是否套用 A｜導航欄；不影響登入、MFA、RLS、資料權限或任何業務資料。A／B／C 始終是唯一共用框架。</p></div><span class="subview-source">來源：Supabase Cloud Settings</span></header><div class="creator-mfa-settings-card"><div class="creator-template-catalog" data-template-catalog></div><div class="creator-mfa-settings-list" data-template-adoption-list></div><p class="creator-mfa-settings-note" data-template-adoption-note>設定只會保存於 Supabase Cloud。</p></div>`;
+    content.appendChild(section);
+
+    const registry = context.templates.registry();
+    const pageEntries = Object.values(registry.pages || {}).filter(page => page.supportedTemplates?.includes("navigation"));
+    const catalog = section.querySelector("[data-template-catalog]");
+    if (catalog) catalog.innerHTML = Object.values(registry.templates || {}).map(template => `<span class="creator-mfa-status">${esc(template.code)}｜${esc(template.label)}：${esc(template.description)}</span>`).join("　");
+    const render = () => {
+      const list = section.querySelector("[data-template-adoption-list]");
+      const note = section.querySelector("[data-template-adoption-note]");
+      if (!list) return;
+      list.innerHTML = pageEntries.map(page => {
+        const enabled = context.templates.isEnabled({ pageId: page.id, templateId: "navigation" });
+        return `<div class="creator-mfa-row" data-template-adoption-row="${esc(page.id)}"><div><strong>${esc(page.label)}｜A 導航欄</strong><span class="creator-mfa-status ${enabled ? "is-on" : "is-off"}" data-template-adoption-status>${enabled ? "🟢 已套用 A｜導航欄" : "⚪ 未套用 A｜導航欄"}</span></div><label class="creator-mfa-switch"><span class="sr-only">${esc(page.label)} 套用 A 導航欄</span><input type="checkbox" data-template-navigation-page="${esc(page.id)}" ${enabled ? "checked" : ""}><span class="creator-mfa-switch-track" aria-hidden="true"></span></label></div>`;
+      }).join("");
+      if (note) {
+        const policy = context.templates.getPolicy?.() || {};
+        note.textContent = policy.status === "error"
+          ? "設定讀取失敗，所有頁面維持未套用 A 的安全預設；請先確認 Template Adoption RPC 已部署。"
+          : "此頁目前控制 A｜導航欄。B｜工作區與 C｜看板區沿用同一套模板目錄，新增頁面時只需登錄套用，不建立第二套框架。";
+      }
+      list.querySelectorAll("[data-template-navigation-page]").forEach(input => {
+        input.addEventListener("change", async event => {
+          const control = event.currentTarget;
+          const pageId = control.dataset.templateNavigationPage;
+          const enabled = control.checked;
+          control.disabled = true;
+          try {
+            await context.templates.setEnabled({ pageId, templateId: "navigation", enabled });
+            await context.templates.load({ force: true });
+            document.dispatchEvent(new CustomEvent("zhuge-template-adoption-updated", { detail: { pageId, templateId: "navigation", enabled } }));
+            render();
+          } catch (error) {
+            control.checked = !enabled;
+            control.disabled = false;
+            if (note) note.textContent = error?.message || "模板套用設定寫入失敗，已維持原本狀態。";
+          }
+        });
+      });
+    };
+    render();
+  }
   function ensureTaskDetailModal() {
     root.ZhugeGoldenMaster?.mountOperations?.(document.body, { applicationScope: state.applicationScope });
     const modal = document.getElementById("taskDetailModal");
@@ -1733,7 +1784,10 @@
     document.querySelectorAll("[data-close-sidebar]").forEach(button => {
       button.onclick = () => shell?.classList.remove("sidebar-open");
     });
-    if (state.applicationScope !== "worktodo") mountCreatorMfaSettings(accessContext);
+    if (state.applicationScope !== "worktodo") {
+      mountCreatorMfaSettings(accessContext);
+      mountTemplateAdoptionSettings(accessContext);
+    }
     renderGoldenMasterToolbar();
     enableBoardActions();
     ensureHealthModal();
@@ -1847,6 +1901,7 @@
       if (!result?.user || !result?.authSession?.access_token) return false;
       session = supabaseSessionFromUser(result.user, result.authSession, result.provider);
       persistAiOsSessionOnly();
+      document.dispatchEvent(new CustomEvent("zhuge-template-adoption-updated", { detail: { reason: "session-hydrated" } }));
       return true;
     })().finally(() => { boardSessionHydrationPromise = null; });
     return boardSessionHydrationPromise;
@@ -1955,6 +2010,7 @@
       accessContext = context;
       await context.creator?.resolve?.();
       await context.security.loadMfaPolicy?.();
+      await context.templates?.load?.();
     } catch (error) {
       renderAccessError(error?.message || "安全服務初始化失敗。\n");
       return;

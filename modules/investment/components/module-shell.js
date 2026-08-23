@@ -17,7 +17,7 @@
     const escape = dependencies.escape;
     const identity = state.identity || {};
     const nav = Object.entries(labels).map(([id, [label, icon]]) => `<button type="button" class="investment-nav-item ${state.activePage === id ? "active" : ""}" data-investment-route="${id}"><span aria-hidden="true">${icon}</span>${label}</button>`).join("");
-    return `<div class="zhuge-module-shell workspace-shell investment-module-shell" data-investment-module-shell data-shared-navigation-mode="template-only"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-shared-navigation-disabled="true"></div><div class="app workspace-app investment-app">
+    return `<div class="zhuge-module-shell workspace-shell investment-module-shell" data-investment-module-shell data-shared-navigation-mode="template-only" data-template-page-id="investment"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-template-page-id="investment" data-shared-navigation-disabled="true"></div><div class="app workspace-app investment-app">
       <div id="zhugeSharedHeader" class="workspace-shell-header" data-zhuge-shared-header></div>
       <div class="investment-layout">
         <nav class="investment-local-nav workspace-subnav" aria-label="投資子功能導覽">${nav}</nav>

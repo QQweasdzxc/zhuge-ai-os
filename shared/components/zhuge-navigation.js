@@ -179,6 +179,10 @@
   }
   function mount(target, options = {}) {
     if (!target) return null;
+    const shellTarget = shellFor(target);
+    if (shellTarget?.dataset.sharedNavigationMode === "template-only") {
+      shellTarget.dataset.sharedNavigationActive = "true";
+    }
     const targetVersion = target.dataset.version || "";
     const targetBuild = target.dataset.build || "";
     target.outerHTML = render({ ...options, version: options.version || targetVersion, build: options.build || targetBuild, activeWorkspace: options.activeWorkspace || target.dataset.activeWorkspace || "", externalRoot: target.dataset.externalRoot || options.externalRoot || "" });
@@ -194,12 +198,80 @@
     wireCollapse();
     return node;
   }
-  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, setCollapsed, setSyncStatus });
+  let policyBootstrapPromise = null;
+  let policyBootstrapGeneration = 0;
+  function policyRuntime() {
+    return global.ZhugeTemplateAdoptionRuntime || null;
+  }
+  function readTemplatePolicyUserId() {
+    try {
+      if (typeof global.currentUserUuid === "function") return String(global.currentUserUuid() || "").trim();
+    } catch { /* the current page may not have hydrated its session yet */ }
+    for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
+      try {
+        const value = JSON.parse(global.localStorage?.getItem(key) || "null");
+        const userId = value?.user_uuid || value?.user?.id || value?.auth_user_id || "";
+        if (userId) return String(userId).trim();
+      } catch { /* session storage is optional */ }
+    }
+    return "";
+  }
+  async function bootstrapTemplatePolicy({ force = false } = {}) {
+    if (policyBootstrapPromise && !force) return policyBootstrapPromise;
+    const marker = document.querySelector("[data-template-page-id]");
+    const pageId = String(marker?.dataset.templatePageId || "").trim().toLowerCase();
+    if (!pageId || !global.ZhugeTemplateAdoptionPolicy?.createService) return null;
+    const generation = ++policyBootstrapGeneration;
+    const run = (async () => {
+      const dataGateway = global.ZhugeSupabaseGateway?.createDataGateway?.() || null;
+      const service = global.ZhugeTemplateAdoptionPolicy.createService({ dataGateway });
+      const userId = readTemplatePolicyUserId();
+      const resolver = global.ZhugeCreatorResolver?.create?.({ dataGateway, readUserId: () => userId }) || null;
+      const creator = await resolver?.resolve?.() || { is_creator: false };
+      const policy = await service.load({ userId, isCreator: creator.is_creator === true, force });
+      if (generation !== policyBootstrapGeneration) return policy;
+      global.ZhugeTemplateAdoptionRuntime = Object.freeze({ service, policy, pageId });
+      document.dispatchEvent(new CustomEvent("zhuge-template-adoption-ready", { detail: { pageId, status: policy.status } }));
+      return policy;
+    })().finally(() => { policyBootstrapPromise = null; });
+    policyBootstrapPromise = run;
+    return run;
+  }
+  function pageIdForTarget(target) {
+    return String(target?.dataset.templatePageId || target?.closest?.("[data-template-page-id]")?.dataset.templatePageId || "").trim().toLowerCase();
+  }
+  function isNavigationAdopted(target) {
+    const pageId = pageIdForTarget(target);
+    if (!pageId) return target?.dataset.sharedNavigationDisabled !== "true";
+    const runtime = policyRuntime();
+    return Boolean(runtime?.service?.isTemplateEnabled?.({
+      pageId,
+      templateId: "navigation",
+      userId: runtime.policy?.userId || ""
+    }));
+  }
   function autoMount() {
     wireCollapse();
     const target = document.getElementById("zhugeSharedNavigation");
-    if (target && target.dataset.sharedNavigationDisabled !== "true" && !target.dataset.worklogManaged) mount(target);
+    const pageTarget = Boolean(target?.dataset.templatePageId || target?.closest?.("[data-template-page-id]"));
+    const legacyTargetEnabled = target && target.dataset.sharedNavigationDisabled !== "true";
+    if (target && (legacyTargetEnabled || pageTarget) && !target.dataset.worklogManaged && isNavigationAdopted(target)) mount(target);
   }
+  function refresh() { autoMount(); }
+  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, autoMount, refresh, bootstrapTemplatePolicy, setCollapsed, setSyncStatus });
+  document.addEventListener("zhuge-template-adoption-ready", autoMount);
+  document.addEventListener("zhuge-template-adoption-updated", autoMount);
+  document.addEventListener("zhuge-template-adoption-updated", () => bootstrapTemplatePolicy({ force: true }));
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount, { once: true });
   else autoMount();
+  if (typeof MutationObserver === "function" && document.body) {
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById("zhugeSharedNavigation");
+      if (target && !target.dataset.zhugeNavigationMounted) autoMount();
+      if (!policyRuntime() && document.querySelector("[data-template-page-id]")) bootstrapTemplatePolicy();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => bootstrapTemplatePolicy(), { once: true });
+  else bootstrapTemplatePolicy();
 })(window);

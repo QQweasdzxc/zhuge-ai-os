@@ -14,10 +14,12 @@
     || (typeof require === "function" ? require("./module-context.js") : null);
   const Creator = root?.ZhugeCreatorResolver
     || (typeof require === "function" ? require("../identity/creator-resolver.js") : null);
-  const api = factory(Session, Permissions, Security, ModuleContext, Creator);
+  const TemplateAdoption = root?.ZhugeTemplateAdoptionPolicy
+    || (typeof require === "function" ? require("./template-adoption-policy.js") : null);
+  const api = factory(Session, Permissions, Security, ModuleContext, Creator, TemplateAdoption);
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.ZhugeSharedPlatform = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (Session, Permissions, Security, ModuleContext, Creator) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (Session, Permissions, Security, ModuleContext, Creator, TemplateAdoption) {
   "use strict";
 
   if (!Session || !Permissions || !Security || !ModuleContext) {
@@ -44,13 +46,14 @@
 
     const dataGateway = options.dataGateway || null;
     const mfaService = options.mfaService || null;
+    const templatePolicy = options.templatePolicy || TemplateAdoption?.createService?.({ dataGateway }) || null;
     const creatorResolver = options.creatorResolver || (Creator?.create?.({
       dataGateway,
       readUserId: () => sessionService.getCurrentUserId()
     }) || null);
 
     function forModule(moduleId) {
-      return ModuleContext.createModuleContext({ moduleId, sessionService, securityGate, dataGateway, mfaService, creatorResolver });
+      return ModuleContext.createModuleContext({ moduleId, sessionService, securityGate, dataGateway, mfaService, templatePolicy, creatorResolver });
     }
 
     return Object.freeze({

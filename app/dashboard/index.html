@@ -20,8 +20,8 @@
     <script src="../../shared/i18n/zh-TW.js"></script>
   </head>
   <body>
-    <div class="zhuge-module-shell workspace-shell zhuge-dashboard-shell" data-shared-navigation-mode="template-only">
-      <div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="dashboard" data-shared-navigation-disabled="true"></div>
+    <div class="zhuge-module-shell workspace-shell zhuge-dashboard-shell" data-shared-navigation-mode="template-only" data-template-page-id="dashboard">
+      <div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="dashboard" data-template-page-id="dashboard" data-shared-navigation-disabled="true"></div>
       <div class="app workspace-app">
         <div id="zhugeSharedHeader" data-zhuge-shared-header data-title="AI OS 首頁" data-description="今天要從哪個工作空間開始？"></div>
         <main class="page-shell ai-os-home">
@@ -55,6 +55,15 @@
       </div>
     </div>
     <script src="../../shared/config/version.js?v=20260822-2325"></script>
+    <script src="../../shared/app-config.js?v=20260822-2325"></script>
+    <script src="../../shared/utils/shared-utils.js?v=20260822-2325"></script>
+    <script src="../../shared/storage/storage-migration.js?v=20260822-2325"></script>
+    <script src="../../shared/auth/session-lifecycle.js?v=20260822-2325"></script>
+    <script src="../../shared/app-state.js?v=20260822-2325"></script>
+    <script src="../../shared/auth/auth-service.js?v=20260822-2325"></script>
+    <script src="../../shared/supabase/supabase-gateway.js?v=20260822-2325"></script>
+    <script src="../../shared/identity/creator-resolver.js?v=20260814-creator-mfa"></script>
+    <script src="../../shared/services/template-adoption-policy.js?v=20260823-template-adoption"></script>
     <script src="../../shared/components/zhuge-navigation.js?v=20260822-2325"></script>
     <script src="../../shared/components/zhuge-shell.js?v=20260822-2325"></script>
     <script src="../../shared/theme/zhuge-appearance.js?v=20260811-dashboard-1"></script>

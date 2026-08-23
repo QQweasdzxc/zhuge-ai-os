@@ -26,12 +26,14 @@
   function accessShell(content, options = {}) {
     const title = global.InvestmentSafeHtml.escape(options.title || "Investment");
     const description = global.InvestmentSafeHtml.escape(options.description || "投資模組｜受保護的工作空間");
-    return `<div class="zhuge-module-shell workspace-shell investment-module-shell investment-access-shell" data-shared-navigation-mode="template-only"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-shared-navigation-disabled="true"></div><div class="app workspace-app investment-app"><div id="zhugeSharedHeader" data-zhuge-shared-header data-title="${title}" data-description="${description}"></div><main class="investment-access-content">${content}</main></div></div>`;
+    return `<div class="zhuge-module-shell workspace-shell investment-module-shell investment-access-shell" data-shared-navigation-mode="template-only" data-template-page-id="investment"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-template-page-id="investment" data-shared-navigation-disabled="true"></div><div class="app workspace-app investment-app"><div id="zhugeSharedHeader" data-zhuge-shared-header data-title="${title}" data-description="${description}"></div><main class="investment-access-content">${content}</main></div></div>`;
   }
 
   function mountAccessShell(root, options = {}) {
     const nav = root?.querySelector("#zhugeSharedNavigation");
-    if (nav && nav.dataset.sharedNavigationDisabled !== "true" && global.ZhugeSharedNavigation) {
+    const policy = global.ZhugeTemplateAdoptionRuntime;
+    const navigationEnabled = policy?.service?.isTemplateEnabled?.({ pageId: "investment", templateId: "navigation", userId: policy.policy?.userId || "" }) === true;
+    if (nav && global.ZhugeSharedNavigation && navigationEnabled) {
       const foundation = global.ZhugeFoundationConfig || {};
       const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
       global.ZhugeSharedNavigation.mount(nav, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
@@ -150,7 +152,9 @@
 
     global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
     const sharedNavTarget = root.querySelector("#zhugeSharedNavigation");
-    if (sharedNavTarget && sharedNavTarget.dataset.sharedNavigationDisabled !== "true" && global.ZhugeSharedNavigation) {
+    const policy = global.ZhugeTemplateAdoptionRuntime;
+    const navigationEnabled = policy?.service?.isTemplateEnabled?.({ pageId: "investment", templateId: "navigation", userId: policy.policy?.userId || "" }) === true;
+    if (sharedNavTarget && global.ZhugeSharedNavigation && navigationEnabled) {
       const foundation = global.ZhugeFoundationConfig || {};
       const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
       global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });

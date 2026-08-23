@@ -11,6 +11,7 @@
     if (!global.ZhugeSharedPlatform) throw new Error("ZhugeSharedPlatform is not available.");
     const policy = global.ZhugePlatformPolicy || { capabilities: [], policies: {} };
     const dataGateway = global.ZhugeSupabaseGateway?.createDataGateway?.() || null;
+    const templatePolicy = global.ZhugeTemplateAdoptionPolicy?.createService?.({ dataGateway }) || null;
     const mfaService = global.ZhugeMfa?.createMfaService?.({
       gateway: global.ZhugeSupabaseGateway,
       dataGateway,
@@ -32,7 +33,8 @@
       policies: policy.policies,
       readSecurityState,
       dataGateway,
-      mfaService
+      mfaService,
+      templatePolicy
     });
   }
 

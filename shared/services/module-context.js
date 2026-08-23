@@ -12,6 +12,7 @@
     const securityGate = options.securityGate;
     const dataGateway = options.dataGateway || null;
     const mfaService = options.mfaService || null;
+    const templatePolicy = options.templatePolicy || null;
     const creatorResolver = options.creatorResolver || null;
 
     if (!moduleId) throw new TypeError("ModuleContext requires moduleId.");
@@ -85,7 +86,37 @@
       }
     });
 
-    return Object.freeze({ moduleId, identity, creator, session, security, data });
+    const templates = Object.freeze({
+      registry: () => Object.freeze({
+        templates: templatePolicy?.templates || Object.freeze({}),
+        pages: templatePolicy?.pages || Object.freeze({})
+      }),
+      getPolicy: () => templatePolicy?.getPolicy?.(sessionService.getCurrentUserId()) || Object.freeze({ userId: "", is_creator: false, version: 1, pages: Object.freeze({}), status: "default", error: null }),
+      load: async ({ force = false } = {}) => {
+        let userId = "";
+        try { userId = sessionService.getCurrentUserId(); } catch { return Object.freeze({ userId, is_creator: false, version: 1, pages: Object.freeze({}), status: "unknown", error: null }); }
+        const creatorState = await creator.resolve();
+        return templatePolicy?.load?.({ userId, isCreator: creatorState.is_creator === true, force })
+          || Object.freeze({ userId, is_creator: false, version: 1, pages: Object.freeze({}), status: "default", error: null });
+      },
+      isEnabled: ({ pageId, templateId } = {}) => {
+        let userId = "";
+        try { userId = sessionService.getCurrentUserId(); } catch { return false; }
+        return templatePolicy?.isTemplateEnabled?.({ pageId, templateId, userId }) === true;
+      },
+      setEnabled: async ({ pageId, templateId, enabled } = {}) => {
+        const userId = sessionService.getCurrentUserId();
+        const creatorState = await creator.resolve();
+        if (!templatePolicy?.setEnabled) throw new Error("Shared Template Adoption Service 尚未載入。" );
+        return templatePolicy.setEnabled({ pageId, templateId, userId, isCreator: creatorState.is_creator === true, enabled });
+      }
+    });
+
+    const context = { moduleId, identity, creator, session, security, data };
+    // Keep the existing redacted context surface stable for consumers that
+    // enumerate it; template adoption is an optional presentation control.
+    Object.defineProperty(context, "templates", { value: templates, enumerable: false, configurable: false, writable: false });
+    return Object.freeze(context);
   }
 
   return Object.freeze({ createModuleContext });
