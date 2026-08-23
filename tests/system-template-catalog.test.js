@@ -78,6 +78,28 @@ test("System Template Manager mounts the same Empty Golden Master source", () =>
   assert.match(runtime, /data-open-workspace="sync">返回控制台/);
 });
 
+test("System Template Manager exposes collapsible A/B/C views without a second UI runtime", () => {
+  const runtime = read("modules/worklog/worklog-app.js");
+  const styles = read("modules/worklog/worklog.css");
+  assert.match(runtime, /data-template-preview-area/);
+  assert.match(runtime, /data-template-preview-zone="a"/);
+  assert.match(runtime, /data-template-preview-zone="b"/);
+  assert.match(runtime, /data-template-preview-zone="c"/);
+  assert.match(runtime, /data-template-preview-surface="navigation"/);
+  assert.match(runtime, /data-template-preview-surface="workspace"/);
+  assert.match(runtime, /data-template-preview-surface="board"/);
+  assert.match(runtime, /osSidebar\(\)/);
+  assert.match(runtime, /workspaceContextBar\(\)/);
+  assert.match(runtime, /workspaceTabs\(\)/);
+  assert.match(runtime, /goldenMaster\.renderBoard\(/);
+  assert.match(runtime, /boardMarkup\("systemTemplatePreviewAiBoard", "ai_board", "AI Board Adapter"\)/);
+  assert.match(runtime, /boardMarkup\("systemTemplatePreviewWorkTodo", "worktodo", "WorkTodo Adapter"\)/);
+  assert.match(runtime, /inert aria-hidden="true"/);
+  assert.doesNotMatch(runtime, /<iframe\b/i);
+  assert.match(styles, /\.system-template-preview-area/);
+  assert.match(styles, /\.system-template-preview-zone/);
+});
+
 test("Empty Golden Master renders only the shared empty framework", () => {
   const html = GoldenMaster.render({
     header: { title: "AI Board", description: "Empty Golden Master", identityHint: "No Domain Data" },

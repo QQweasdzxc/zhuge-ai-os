@@ -4227,6 +4227,45 @@ function sync() {
   return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
 }
 
+function systemTemplatePreviewMarkup() {
+  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
+  const navigation = osSidebar() || `<div class="empty">Shared Navigation 尚未載入。</div>`;
+  const workspace = workspaceContextBar();
+  const tabs = workspaceTabs();
+  const boardMarkup = (id, boardKey, label) => {
+    const board = goldenMaster?.renderBoard
+      ? goldenMaster.renderBoard({
+        id,
+        boardKey,
+        className: "golden-master-board system-template-preview-board",
+        ariaLabel: `${label} Golden Master 工作看板`,
+        emptyText: "目前沒有套用的 Workspace Data。",
+        columns: []
+      })
+      : `<div class="empty">Golden Master Board foundation 尚未載入。</div>`;
+    return `<article class="system-template-preview-board-adapter" data-template-preview-adapter="${escapeHtml(boardKey)}"><div class="system-template-preview-board-head"><span class="system-template-kicker">${escapeHtml(boardKey)}</span><h4>${escapeHtml(label)}</h4><small>共用 Golden Master Board renderer · No Domain Data</small></div>${board}</article>`;
+  };
+
+  return `<details class="system-template-preview-area" data-template-preview-area>
+    <summary><span><span class="system-template-kicker">Template View</span><strong>模板檢視區</strong></span><small>A 導航欄 · B 工作區 · C AI Board／工作待辦看板</small></summary>
+    <p class="system-template-preview-note">以下三區只做結構檢視，均直接取用正式 Shared Navigation、Workspace Shell 與 Golden Master Board renderer；不建立第二套 UI、不載入 Domain Data、不執行 Cloud 寫入。</p>
+    <div class="system-template-preview-zones">
+      <details class="system-template-preview-zone" data-template-preview-zone="a" open>
+        <summary><span class="system-template-preview-zone-label">A 區</span><strong>只顯示導航欄</strong><small>Shared Navigation / Shell</small></summary>
+        <div class="system-template-preview-surface system-template-preview-surface-navigation" data-template-preview-surface="navigation" inert aria-hidden="true">${navigation}</div>
+      </details>
+      <details class="system-template-preview-zone" data-template-preview-zone="b">
+        <summary><span class="system-template-preview-zone-label">B 區</span><strong>只顯示工作區</strong><small>Shared Workspace Shell / Context</small></summary>
+        <div class="system-template-preview-surface system-template-preview-surface-workspace" data-template-preview-surface="workspace" inert aria-hidden="true">${workspace}${tabs}<div class="system-template-preview-workspace-canvas" data-template-preview-workspace="true"><span class="system-template-kicker">Shared Workspace / Column</span><strong>工作區容器</strong><p>此區只呈現正式 Workspace Shell 的邊界；看板內容集中由 C 區的 Golden Master renderer 提供。</p></div></div>
+      </details>
+      <details class="system-template-preview-zone" data-template-preview-zone="c">
+        <summary><span class="system-template-preview-zone-label">C 區</span><strong>只顯示 AI Board／工作待辦看板</strong><small>One Golden Master · Two Adapters</small></summary>
+        <div class="system-template-preview-surface system-template-preview-surface-board" data-template-preview-surface="board" inert aria-hidden="true">${boardMarkup("systemTemplatePreviewAiBoard", "ai_board", "AI Board Adapter")}${boardMarkup("systemTemplatePreviewWorkTodo", "worktodo", "WorkTodo Adapter")}</div>
+      </details>
+    </div>
+  </details>`;
+}
+
 function systemTemplates() {
   const catalog = typeof ZhugeSystemTemplateCatalog !== "undefined" ? ZhugeSystemTemplateCatalog : null;
   const template = catalog?.get?.();
@@ -4275,6 +4314,7 @@ function systemTemplates() {
       </article>
       <aside class="system-template-catalog" aria-label="模板目錄"><div class="system-template-catalog-head"><div><span class="system-template-kicker">可擴充目錄</span><h3>模板目錄</h3></div><span class="system-template-count">${catalog.list().length} / 1</span></div><div class="system-template-catalog-item"><strong>🪶 ${escapeHtml(template.label)}</strong><span>目前唯一 Golden Master</span></div><div class="system-template-catalog-empty"><b>未新增其他模板</b><span>待 PM 核准模板生命週期後，才可加入第二個模板。</span></div></aside>
     </div>
+    ${systemTemplatePreviewMarkup()}
     <section class="system-template-surface"><div class="system-template-surface-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Empty Golden Master</h3></div><span class="system-template-surface-note">Empty Framework · Read-only · No Domain Data</span></div>${emptySurface}</section>
   </section>`;
 }
