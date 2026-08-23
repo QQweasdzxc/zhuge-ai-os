@@ -259,3 +259,20 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell .sidebar-sync-summary,
 .zhuge-module-shell .sidebar-version-summary,
 .zhuge-module-shell .sidebar-build-summary { padding: 4px 2px; }
+
+/* Formal Runtime pages keep the canonical navigation component available for
+ * System Template A, but the global rail itself belongs only to that template
+ * view.  The explicit shell marker keeps browser regression fixtures and
+ * standalone component tests outside this product-wide policy. */
+.zhuge-module-shell[data-shared-navigation-mode="template-only"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.zhuge-module-shell[data-shared-navigation-mode="template-only"] > [data-zhuge-shared-navigation="true"],
+.zhuge-module-shell[data-shared-navigation-mode="template-only"] > #zhugeSharedNavigation {
+  display: none !important;
+}
+.zhuge-module-shell[data-shared-navigation-mode="template-only"] > .workspace-app,
+.zhuge-module-shell[data-shared-navigation-mode="template-only"] > .app {
+  grid-column: 1;
+  width: 100%;
+}

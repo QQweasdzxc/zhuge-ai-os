@@ -3041,10 +3041,12 @@ function workspaceContextBar() {
       identity: session,
       version: VERSION,
       build: BUILD_TIME,
+      showNavigationMenu: SYSTEM_TEMPLATE_VIEW === "navigation",
       actionMarkup: workTodoHeaderActions()
     });
   }
-  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner"><button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button><div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${workTodoHeaderActions()}</div></div>`;
+  const navigationMenu = SYSTEM_TEMPLATE_VIEW === "navigation" ? `<button class="mini adaptive-menu" data-toggle-sidebar="1" aria-label="開啟工作模組選單">☰</button>` : "";
+  return `<div class="workspace-context-bar workspace-shell-header"><div class="workspace-context-inner">${navigationMenu}<div class="workspace-context-title"><span class="workspace-breadcrumb"><span class="workspace-breadcrumb-root">Zhuge AI OS</span><span class="workspace-breadcrumb-separator" aria-hidden="true">›</span><span aria-hidden="true">${workspace.icon}</span><span>${escapeHtml(workspace.label)}</span></span></div>${workTodoHeaderActions()}</div></div>`;
 }
 
 function authScreen() {
@@ -3204,6 +3206,7 @@ function developerConsoleMarkup() {
 }
 
 function osSidebar() {
+  if (SYSTEM_TEMPLATE_VIEW !== "navigation") return "";
   const checked = new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
   const syncTime = cloudSync.lastSyncedAt ? fmt(cloudSync.lastSyncedAt) : "尚未同步";
   if (typeof ZhugeSharedNavigation === "undefined") return "";
@@ -3719,7 +3722,8 @@ function osShell() {
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem("zhuge_shared_nav_collapsed_v1") === "1"; } catch { /* optional UI preference */ }
   const templateClass = SYSTEM_TEMPLATE_VIEW ? ` template-view-${SYSTEM_TEMPLATE_VIEW}` : "";
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
+  const globalNavAttribute = SYSTEM_TEMPLATE_VIEW === "navigation" ? "" : ' data-shared-navigation-mode="template-only"';
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}>${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {

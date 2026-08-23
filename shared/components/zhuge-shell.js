@@ -55,7 +55,8 @@
     const actionMarkup = /work-identity-header-status/.test(requestedActionMarkup) ? "" : requestedActionMarkup;
     const actions = actionMarkup ? `<div class="actions zhuge-shared-header-actions">${actionMarkup}</div>` : "";
     const id = options.id ? ` id="${esc(options.id)}"` : "";
-    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true"><div class="zhuge-shared-header-main"><button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽">☰</button><div class="zhuge-shared-header-copy"><p class="zhuge-shared-header-kicker">Zhuge AI OS</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
+    const navigationMenu = options.showNavigationMenu === false ? "" : `<button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽">☰</button>`;
+    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true"><div class="zhuge-shared-header-main">${navigationMenu}<div class="zhuge-shared-header-copy"><p class="zhuge-shared-header-kicker">Zhuge AI OS</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
   }
 
   function optionsFromTarget(target) {
@@ -65,6 +66,7 @@
       actionLabel: target.dataset.actionLabel || "",
       actionId: target.dataset.actionId || "",
       identityHint: target.dataset.identityHint || "登入後顯示目前身份",
+      showNavigationMenu: !target.closest('[data-shared-navigation-mode="template-only"]'),
       version: target.dataset.version || "",
       build: target.dataset.build || ""
     };

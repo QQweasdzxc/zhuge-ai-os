@@ -198,7 +198,7 @@
   function autoMount() {
     wireCollapse();
     const target = document.getElementById("zhugeSharedNavigation");
-    if (target && !target.dataset.worklogManaged) mount(target);
+    if (target && target.dataset.sharedNavigationDisabled !== "true" && !target.dataset.worklogManaged) mount(target);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount, { once: true });
   else autoMount();
