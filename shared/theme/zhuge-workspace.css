@@ -176,9 +176,51 @@
 .zhuge-module-shell .control-center-entry strong { color: var(--zhuge-text); }
 .zhuge-module-shell .control-center-entry small { color: var(--zhuge-muted); }
 .zhuge-module-shell .control-center-entry > span:last-child { color: var(--zhuge-accent); }
+.zhuge-module-shell .control-center-entry-group {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.zhuge-module-shell .control-center-entry-toggle { width: 100%; text-align: left; cursor: pointer; }
+.zhuge-module-shell .control-center-entry-chevron { font-size: 1.25rem; font-weight: 800; }
+.zhuge-module-shell .system-template-launcher {
+  border: 1px solid color-mix(in srgb, var(--zhuge-accent) 34%, var(--zhuge-border));
+  border-radius: var(--zhuge-radius-sm);
+  background: color-mix(in srgb, var(--zhuge-accent) 5%, var(--zhuge-surface));
+  padding: 14px;
+}
+.zhuge-module-shell .system-template-launcher-intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.zhuge-module-shell .system-template-launcher-intro span,
+.zhuge-module-shell .system-template-launcher-card span { color: var(--zhuge-muted); font-size: .82rem; }
+.zhuge-module-shell .system-template-launcher-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.zhuge-module-shell .system-template-launcher-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: 10px;
+  background: var(--zhuge-surface);
+}
+.zhuge-module-shell .system-template-launcher-card > div:first-child { display: grid; gap: 5px; }
+.zhuge-module-shell .system-template-launcher-card .btn2 { align-self: flex-start; }
+.zhuge-module-shell .system-template-launcher-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.zhuge-module-shell .system-template-launcher-actions .btn2 { flex: 1 1 110px; }
 
 @media (max-width: 767px) {
   .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zhuge-module-shell .system-template-launcher-grid { grid-template-columns: 1fr; }
+  .zhuge-module-shell .system-template-launcher-intro { display: grid; gap: 4px; }
 }
 
 /* Investment keeps its finance-specific content, but inherits the same
@@ -251,6 +293,28 @@
 .zhuge-module-shell .main > .toolbar { margin-bottom: var(--shell-section-gap); }
 .zhuge-module-shell .main > .note { margin: 0 0 var(--shell-section-gap); }
 .zhuge-module-shell .main .board-shell { border-color: var(--zhuge-border); border-radius: var(--zhuge-radius-md); }
+
+/* System Template windows are view modes over the canonical Runtime.  A and
+ * B reuse the WorkLog shell; C reuses the existing AI Board/WorkTodo shell. */
+html[data-template-view="navigation"] .zhuge-module-shell {
+  grid-template-columns: minmax(232px, var(--shell-sidebar-width));
+}
+html[data-template-view="navigation"] .template-view-navigation > .workspace-app,
+html[data-template-view="navigation"] .template-view-navigation > .sidebar-backdrop,
+html[data-template-view="navigation"] .template-view-navigation > .floating-assistant-widget { display: none !important; }
+html[data-template-view="workspace"] .zhuge-module-shell {
+  display: block;
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+}
+html[data-template-view="workspace"] .template-view-workspace > .os-sidebar,
+html[data-template-view="workspace"] .template-view-workspace > .sidebar-backdrop,
+html[data-template-view="workspace"] .template-view-workspace > .floating-assistant-widget { display: none !important; }
+html[data-template-view="workspace"] .template-view-workspace > .workspace-app { width: 100%; padding: 0; }
+html[data-template-view="board"] .zhuge-module-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-template-view="board"] .zhuge-module-shell > [data-zhuge-shared-navigation="true"] { display: none !important; }
+html[data-template-view="board"] .zhuge-module-shell > .app { grid-column: 1; width: 100%; }
 
 /* Legacy pages set a document-level dark background. On runtime pages the
  * shared appearance preference is authoritative. */

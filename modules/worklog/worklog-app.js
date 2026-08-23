@@ -1,6 +1,32 @@
 // P5.2A-1 Foundation Split: app startup, routing, rendering, and module coordination.
 // WorkTodo capability data is a short-lived Cloud projection for the open
 // drawer. It is never a source of truth and is refreshed from Repository/RPC.
+const SYSTEM_TEMPLATE_VIEW = (() => {
+  try {
+    const value = new URLSearchParams(window.location.search).get("templateView");
+    return ["navigation", "workspace"].includes(value) ? value : "";
+  } catch {
+    return "";
+  }
+})();
+const IS_SYSTEM_TEMPLATE_VIEW = Boolean(SYSTEM_TEMPLATE_VIEW);
+function applySystemTemplateViewState() {
+  if (SYSTEM_TEMPLATE_VIEW === "workspace") {
+    activeWorkspace = "worklog";
+    openTabs = ["worklog"];
+    recentWorkspaces = ["worklog"];
+    view = "center";
+    hasOsShellState = true;
+  }
+  if (SYSTEM_TEMPLATE_VIEW === "navigation") {
+    activeWorkspace = "dashboard";
+    openTabs = [];
+    recentWorkspaces = [];
+    view = "center";
+    hasOsShellState = true;
+  }
+}
+
 const workTodoCapabilityCache = new Map();
 function currentCalendarMonthKey() {
   const now = new Date();
@@ -228,6 +254,7 @@ function saveAll(options = {}) {
 }
 
 function saveLocalSnapshot() {
+  if (IS_SYSTEM_TEMPLATE_VIEW) return;
   // Cloud SSOT: do not persist business data in browser storage.
   localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify(session));
   localStorage.removeItem("wl_session");
@@ -3685,12 +3712,14 @@ function workspaceContent() {
 }
 
 function osShell() {
+  applySystemTemplateViewState();
   normalizeWorkspaceState();
   const shellHeader = workspaceContextBar();
   const workspaceCanvasClass = activeWorkspace === "tasks" ? "workspace-canvas worktodo-workspace-canvas" : "workspace-canvas";
   let navCollapsed = false;
   try { navCollapsed = localStorage.getItem("zhuge_shared_nav_collapsed_v1") === "1"; } catch { /* optional UI preference */ }
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
+  const templateClass = SYSTEM_TEMPLATE_VIEW ? ` template-view-${SYSTEM_TEMPLATE_VIEW}` : "";
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell">${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {
@@ -4205,6 +4234,24 @@ function capture(editId = null, seed = null) {
   return `<section class="panel capture-panel" style="margin-top:18px"><div class="panel-head"><div><h2>${e ? "編輯工時" : isSuggestion ? "確認加入工時" : "➕ 快速紀錄"}</h2>${isSuggestion ? `<div class="muted">這筆建議需要確認時間或內容，確認後才會正式寫入工時月曆。</div>` : ""}</div></div><div class="form capture-form"><label>日期 / 開始時間</label><input class="input" id="dt" type="datetime-local" value="${startAt}"><div class="worklog-description-label"><label for="title">工作描述（必填）</label><output id="titleCount" aria-live="polite">${worklogDescriptionLength(title)}/${WORKLOG_DESCRIPTION_MAX_LENGTH}</output></div><input class="input" id="title" maxlength="${WORKLOG_DESCRIPTION_MAX_LENGTH}" value="${escapeHtml(title)}" placeholder="例如：採購案件處理、特休" autocomplete="off">${descriptionSuggestionChips(title)}<label>ECP 任務（選填）</label><select id="ecpTaskSelect" class="input">${ecpTaskOptions(ecpTask)}</select><div class="work-model-add ecp-task-quick-add" id="ecpTaskQuickAdd" style="display:none"><input class="input" id="newEcpTaskCapture" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" data-add-capture-ecp-task="1" type="button">＋ 新增</button></div><label>工時</label><div class="row hours">${[0.5, 1, 1.5, 2, 3, 4, 5, 8].map(h => `<button class="btn2 hour ${Number(seed?.hours || e?.hours || 1) === h ? "selected" : ""}" data-h="${h}">${formatHumanDuration(h)}</button>`).join("")}</div><label>備註（選填）</label><input class="input" id="note" value="${escapeHtml(note)}" placeholder="補充說明，不參與 ECP 匯出"><div class="form-actions capture-actions"><button class="btn2" data-capture-cancel="1">取消</button><button class="btn" id="saveEntry">${isSuggestion ? "確認建立" : "儲存"}</button></div></div></section>`;
 }
 
+function systemTemplateWindowUrl(target) {
+  const worklog = target === "navigation" || target === "workspace";
+  const url = worklog
+    ? new URL("./", window.location.href)
+    : new URL(target === "worktodo" ? "../../app/Board/worktodo/" : "../../app/Board/ai/", window.location.href);
+  url.search = new URLSearchParams(worklog
+    ? { app: "1", templateView: target, ...(target === "workspace" ? { workspace: "worklog" } : {}) }
+    : { templateView: "board" }).toString();
+  return url.href;
+}
+
+function openSystemTemplateWindow(target) {
+  const allowed = ["navigation", "workspace", "ai-board", "worktodo"];
+  if (!allowed.includes(target)) return;
+  const opened = window.open(systemTemplateWindowUrl(target), "_blank", "noopener,noreferrer");
+  if (!opened) toast("瀏覽器阻擋了新視窗，請允許此網站開啟彈出視窗後再試。");
+}
+
 function sync() {
   const googleState = googleConnectionLabel();
   const driveAuthorized = googleState.includes("🟢");
@@ -4223,47 +4270,11 @@ function sync() {
     ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"],
     ["system-templates", "🧩", "系統模板", "管理唯一 Golden Master 與未來模板套用"]
   ];
-  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
+  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => {
+    if (id !== "system-templates") return `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`;
+    return `<section class="control-center-entry-group" data-system-template-entry><button class="control-center-entry control-center-entry-toggle" type="button" data-toggle-system-template-launcher="systemTemplateLauncher" aria-expanded="false" aria-controls="systemTemplateLauncher"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>展開 A／B／C 區域檢視並另開視窗</small></span><span class="control-center-entry-chevron" aria-hidden="true">⌄</span></button><div class="system-template-launcher" id="systemTemplateLauncher" data-system-template-launcher hidden><div class="system-template-launcher-intro"><strong>系統模板區域檢視</strong><span>沿用正式 Runtime；每個區域會在獨立視窗開啟。</span></div><div class="system-template-launcher-grid"><article class="system-template-launcher-card"><div><b>A 區｜導航欄</b><span>只顯示共用導航欄</span></div><button class="btn2" type="button" data-open-system-template-window="navigation">開啟 A 區</button></article><article class="system-template-launcher-card"><div><b>B 區｜工作區</b><span>只顯示 WorkLog 工作區</span></div><button class="btn2" type="button" data-open-system-template-window="workspace">開啟 B 區</button></article><article class="system-template-launcher-card system-template-launcher-card-board"><div><b>C 區｜看板區</b><span>只顯示正式看板區（目前兩個 Consumer）</span></div><div class="system-template-launcher-actions"><button class="btn2" type="button" data-open-system-template-window="ai-board">AI Board</button><button class="btn2" type="button" data-open-system-template-window="worktodo">工作待辦</button></div></article></div></div></section>`;
+  }).join("");
   return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
-}
-
-function systemTemplatePreviewMarkup() {
-  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
-  const navigation = osSidebar() || `<div class="empty">Shared Navigation 尚未載入。</div>`;
-  const workspace = workspaceContextBar();
-  const tabs = workspaceTabs();
-  const boardMarkup = (id, boardKey, label) => {
-    const board = goldenMaster?.renderBoard
-      ? goldenMaster.renderBoard({
-        id,
-        boardKey,
-        className: "golden-master-board system-template-preview-board",
-        ariaLabel: `${label} Golden Master 工作看板`,
-        emptyText: "目前沒有套用的 Workspace Data。",
-        columns: []
-      })
-      : `<div class="empty">Golden Master Board foundation 尚未載入。</div>`;
-    return `<article class="system-template-preview-board-adapter" data-template-preview-adapter="${escapeHtml(boardKey)}"><div class="system-template-preview-board-head"><span class="system-template-kicker">${escapeHtml(boardKey)}</span><h4>${escapeHtml(label)}</h4><small>共用 Golden Master Board renderer · No Domain Data</small></div>${board}</article>`;
-  };
-
-  return `<details class="system-template-preview-area" data-template-preview-area>
-    <summary><span><span class="system-template-kicker">Template View</span><strong>模板檢視區</strong></span><small>A 導航欄 · B 工作區 · C AI Board／工作待辦看板</small></summary>
-    <p class="system-template-preview-note">以下三區只做結構檢視，均直接取用正式 Shared Navigation、Workspace Shell 與 Golden Master Board renderer；不建立第二套 UI、不載入 Domain Data、不執行 Cloud 寫入。</p>
-    <div class="system-template-preview-zones">
-      <details class="system-template-preview-zone" data-template-preview-zone="a" open>
-        <summary><span class="system-template-preview-zone-label">A 區</span><strong>只顯示導航欄</strong><small>Shared Navigation / Shell</small></summary>
-        <div class="system-template-preview-surface system-template-preview-surface-navigation" data-template-preview-surface="navigation" inert aria-hidden="true">${navigation}</div>
-      </details>
-      <details class="system-template-preview-zone" data-template-preview-zone="b">
-        <summary><span class="system-template-preview-zone-label">B 區</span><strong>只顯示工作區</strong><small>Shared Workspace Shell / Context</small></summary>
-        <div class="system-template-preview-surface system-template-preview-surface-workspace" data-template-preview-surface="workspace" inert aria-hidden="true">${workspace}${tabs}<div class="system-template-preview-workspace-canvas" data-template-preview-workspace="true"><span class="system-template-kicker">Shared Workspace / Column</span><strong>工作區容器</strong><p>此區只呈現正式 Workspace Shell 的邊界；看板內容集中由 C 區的 Golden Master renderer 提供。</p></div></div>
-      </details>
-      <details class="system-template-preview-zone" data-template-preview-zone="c">
-        <summary><span class="system-template-preview-zone-label">C 區</span><strong>只顯示 AI Board／工作待辦看板</strong><small>One Golden Master · Two Adapters</small></summary>
-        <div class="system-template-preview-surface system-template-preview-surface-board" data-template-preview-surface="board" inert aria-hidden="true">${boardMarkup("systemTemplatePreviewAiBoard", "ai_board", "AI Board Adapter")}${boardMarkup("systemTemplatePreviewWorkTodo", "worktodo", "WorkTodo Adapter")}</div>
-      </details>
-    </div>
-  </details>`;
 }
 
 function systemTemplates() {
@@ -4314,7 +4325,6 @@ function systemTemplates() {
       </article>
       <aside class="system-template-catalog" aria-label="模板目錄"><div class="system-template-catalog-head"><div><span class="system-template-kicker">可擴充目錄</span><h3>模板目錄</h3></div><span class="system-template-count">${catalog.list().length} / 1</span></div><div class="system-template-catalog-item"><strong>🪶 ${escapeHtml(template.label)}</strong><span>目前唯一 Golden Master</span></div><div class="system-template-catalog-empty"><b>未新增其他模板</b><span>待 PM 核准模板生命週期後，才可加入第二個模板。</span></div></aside>
     </div>
-    ${systemTemplatePreviewMarkup()}
     <section class="system-template-surface"><div class="system-template-surface-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Empty Golden Master</h3></div><span class="system-template-surface-note">Empty Framework · Read-only · No Domain Data</span></div>${emptySurface}</section>
   </section>`;
 }
@@ -4825,6 +4835,7 @@ function render(reason = "state-update") {
   renderInProgress = true;
   const performFullRender = () => {
     normalizeEntries();
+    applySystemTemplateViewState();
     if (IS_EXTENSION_ENTRY) { replaceRootContent(extensionAssistantScreen()); bindWorklogAssistant(); return; }
     clearInvalidAuthState();
     if (!session) { replaceRootContent(authScreen()); bindAuth(); return; }
@@ -5712,6 +5723,15 @@ function bind() {
   document.querySelectorAll("[data-toggle-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = !sidebarOpen; render(); });
   document.querySelectorAll("[data-close-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = false; render(); });
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
+  document.querySelectorAll("[data-toggle-system-template-launcher]").forEach(button => button.onclick = () => {
+    const launcher = document.getElementById(button.dataset.toggleSystemTemplateLauncher);
+    if (!launcher) return;
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", expanded ? "false" : "true");
+    launcher.hidden = expanded;
+    button.querySelector(".control-center-entry-chevron")?.replaceChildren(document.createTextNode(expanded ? "⌄" : "⌃"));
+  });
+  document.querySelectorAll("[data-open-system-template-window]").forEach(button => button.onclick = () => openSystemTemplateWindow(button.dataset.openSystemTemplateWindow));
   document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {
     event.stopPropagation();
     openDashboardTask(button.dataset.dashboardTaskId || "");
