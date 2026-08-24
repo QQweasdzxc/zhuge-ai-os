@@ -82,3 +82,23 @@ test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
   assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:118px/);
   assert.match(css, /\.shared-task-icon-button\{display:grid/);
 });
+
+test("Shared progress actions use the same Cloud lifecycle in AI Board and WorkTodo", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const css = read("shared/theme/task-drawer.css");
+  const aiBoard = read("app/Board/ai/index.html");
+  const worktodo = read("app/Board/worktodo/index.html");
+
+  assert.match(runtime, /data-progress-note-edit/);
+  assert.match(runtime, /data-progress-note-delete/);
+  assert.match(runtime, /data-progress-attachment-delete/);
+  assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\]/);
+  assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly \}\)/);
+  assert.doesNotMatch(runtime, /function wireHumanProgressNoteActions\(task, activity, archiveOnly\) \{\s*if \(archiveOnly \|\| isWorkTodoTask\(task\)\)/);
+  assert.match(css, /data-shared-task-timeline\].*gap:12px/);
+  assert.match(css, /shared-task-progress-attachment-row\{display:grid;grid-template-columns:34px minmax\(0,1fr\) auto/);
+  assert.match(aiBoard, /task-drawer\.css\?v=20260824-shared-task-drawer-actions/);
+  assert.match(worktodo, /task-drawer\.css\?v=20260824-shared-task-drawer-actions/);
+  assert.match(aiBoard, /golden-master-runtime\.js\?v=20260824-shared-task-drawer-actions/);
+  assert.match(worktodo, /golden-master-runtime\.js\?v=20260824-shared-task-drawer-actions/);
+});

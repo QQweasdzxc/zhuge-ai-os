@@ -944,14 +944,14 @@
     attachmentRows.forEach(item => attachmentsByActivity.set(item.activityId, [...(attachmentsByActivity.get(item.activityId) || []), item]));
     return humanRows.map(item => {
       const noteAttachments = attachmentsByActivity.get(item.id) || [];
-      const attachmentMarkupForNote = noteAttachments.length
-        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<span class="shared-task-progress-attachment-row" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview>📎</span><strong>${esc(file.filename)}</strong></span>`).join("")}</div>`
-        : "";
       const canManage = options.readOnly !== true && currentActorId() && String(item.actorId) === currentActorId();
+      const attachmentMarkupForNote = noteAttachments.length
+        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview>📎</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-progress-attachment-delete="${esc(file.attachmentId)}" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
+        : "";
       const controls = canManage
         ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
         : "";
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${controls}</header><p data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div class="shared-task-progress-note-body"><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${controls}</header><p class="shared-task-progress-content" data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
@@ -966,8 +966,7 @@
   }
   function progressNoteComposerMarkup(archiveOnly, options = {}) {
     if (archiveOnly) return "";
-    const workTodo = options.workTodo === true;
-    const attachment = workTodo ? "" : `<label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small>`;
+    const attachment = `<label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small>`;
     return `<section class="shared-task-drawer-progress-composer" data-progress-note-write="available" data-progress-note-composer data-progress-note-expanded="false"><button class="shared-task-progress-composer-trigger" type="button" data-progress-note-open aria-label="新增工作進度" title="新增工作進度">＋</button><div class="shared-task-progress-composer-body" data-progress-note-panel hidden><div class="shared-task-progress-composer-heading"><label for="taskProgressNote">新增工作進度...</label><button class="shared-task-progress-composer-close" type="button" data-progress-note-close aria-label="收合工作進度輸入">×</button></div><textarea id="taskProgressNote" placeholder="輸入本次工作進度..."></textarea><small>由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。</small><div class="shared-task-progress-composer-actions">${attachment}<button class="shared-task-progress-submit" id="addTaskProgressNote" type="button" aria-label="新增工作進度" title="新增工作進度">新增</button></div></div></section>`;
   }
   function taskChecklistCountMarkup(items) {
@@ -1199,7 +1198,7 @@
   }
   function wireTaskAttachments(task, archiveOnly) {
     hydrateTaskAttachmentPreviews();
-    if (archiveOnly || isWorkTodoTask(task)) return;
+    if (archiveOnly) return;
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
     if (input) input.onchange = async () => {
@@ -1218,10 +1217,11 @@
         input.disabled = false;
       }
     };
-    document.querySelectorAll("[data-task-attachment-delete]").forEach(button => {
+    document.querySelectorAll("[data-task-attachment-delete], [data-progress-attachment-delete]").forEach(button => {
       button.onclick = async () => {
-        const attachmentId = button.dataset.taskAttachmentDelete;
-        const filename = button.closest("[data-task-attachment-id]")?.querySelector(".shared-task-attachment-copy strong")?.textContent || "這個附件";
+        const attachmentId = button.dataset.taskAttachmentDelete || button.dataset.progressAttachmentDelete;
+        const row = button.closest("[data-task-attachment-id], [data-progress-attachment-id]");
+        const filename = row?.querySelector(".shared-task-attachment-copy strong, strong")?.textContent || "這個附件";
         if (!attachmentId || !window.confirm?.(`刪除附件「${filename}」？刪除後會保留 Audit 紀錄，但檔案不再可查閱。`)) return;
         button.disabled = true;
         try {
@@ -1246,7 +1246,7 @@
     const panel = composer?.querySelector("[data-progress-note-panel]");
     const textarea = document.getElementById("taskProgressNote");
     const button = document.getElementById("addTaskProgressNote");
-    const attachmentInput = workTodo ? null : document.getElementById("taskProgressAttachments");
+    const attachmentInput = document.getElementById("taskProgressAttachments");
     const attachmentHint = document.getElementById("taskProgressAttachmentHint");
     if (!textarea || !button) return;
     const setExpanded = expanded => {
@@ -1359,7 +1359,7 @@
     };
   }
   function wireHumanProgressNoteActions(task, activity, archiveOnly) {
-    if (archiveOnly || isWorkTodoTask(task)) return;
+    if (archiveOnly) return;
     const rows = Array.isArray(activity) ? activity : [];
     document.querySelectorAll("[data-progress-note-edit], [data-progress-note-delete]").forEach(button => {
       const activityId = String(button.dataset.progressNoteEdit || button.dataset.progressNoteDelete || "");
@@ -1558,7 +1558,7 @@
       const attachments = attachmentResult.status === "fulfilled" ? attachmentResult.value : [];
       const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
       const attachmentZone = document.getElementById("taskAttachments");
-      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly || workTodo);
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly);
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = false;
       const humanNotes = humanNotesMarkup(task);
@@ -1567,7 +1567,7 @@
         humanNotesZone.innerHTML = humanNotes;
         humanNotesZone.hidden = !humanNotes;
       }
-      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly || workTodo });
+      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly });
       wireTaskInlineEditors(task, archiveOnly);
       wireTaskTitleEditor(task, archiveOnly);
       wireTaskChecklist(task, taskChecklistItems, archiveOnly || workTodo);
