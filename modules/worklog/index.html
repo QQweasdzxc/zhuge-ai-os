@@ -110,7 +110,7 @@
       (() => {
         const runtimeFiles = [
           "../../shared/i18n/zh-TW.js", "../../shared/app-config.js", "../../shared/utils/shared-utils.js", "../../shared/storage/storage-migration.js", "../../shared/api/data-result.js", "../../shared/identity/identity-health.js", "../../shared/auth/session-lifecycle.js", "../../shared/core/repository-bootstrap.js", "../../shared/api/sync-queue.js", "../../shared/foundation/index.js", "../../shared/app-state.js",
-          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "components/worktodo-task-adapter.js",
+          "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "../../shared/components/template-management-center.js", "components/worktodo-task-adapter.js",
           "../../shared/components/workspaces.js", "../../shared/identity/creator-resolver.js", "../../shared/services/template-adoption-policy.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
           "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
           "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js",
@@ -148,7 +148,7 @@
         // WorkLog destination. This is a routing adapter only; the WorkLog
         // runtime remains the owner of workspace rendering and business logic.
         const requestedWorkspace = params.get("workspace");
-        const allowedWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "system-templates", "settings"]);
+        const allowedWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "settings"]);
         const isTemplateView = ["navigation", "workspace"].includes(params.get("templateView"));
         if (!isTemplateView && allowedWorkspaces.has(requestedWorkspace)) {
           try {

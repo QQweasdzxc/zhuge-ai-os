@@ -118,7 +118,6 @@ const workspaceRegistry = {
   library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
   aiSuggestions: { icon: "🪶", label: "AI 建議", group: "system", enabled: true, hidden: true },
   sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
-  "system-templates": { icon: "🧩", label: "系統模板", group: "system", enabled: true, hidden: true },
   settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }
 };
 const agentStatuses = [

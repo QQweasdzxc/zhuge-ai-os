@@ -2,9 +2,9 @@
  *
  * A/B/C are canonical presentation frameworks.  This service only stores
  * which formal page adopts which framework; it never owns auth, MFA, RLS, or
- * domain data.  The initial UI exposes A (navigation) because that is the
- * current requested switch.  B and C remain registered here for future page
- * adoption without creating another template implementation.
+ * domain data.  The management UI exposes the complete canonical A/B/C
+ * registry. Capability is defined here; adoption state is read from the
+ * existing Cloud service.
  */
 (function (root, factory) {
   const api = factory();
@@ -23,10 +23,10 @@
   const PAGE_REGISTRY = Object.freeze({
     dashboard: Object.freeze({ id: "dashboard", label: "Dashboard", supportedTemplates: Object.freeze(["navigation"]) }),
     worklog: Object.freeze({ id: "worklog", label: "WorkLog", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
-    library: Object.freeze({ id: "library", label: "Knowledge", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
-    sync: Object.freeze({ id: "sync", label: "控制台", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
-    settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
-    investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
+    library: Object.freeze({ id: "library", label: "Knowledge", supportedTemplates: Object.freeze(["navigation"]) }),
+    sync: Object.freeze({ id: "sync", label: "控制台", supportedTemplates: Object.freeze(["navigation"]) }),
+    settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
+    investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation"]) }),
     "ai-board": Object.freeze({ id: "ai-board", label: "AI Board", supportedTemplates: Object.freeze(["navigation", "board"]) }),
     "tasks-new": Object.freeze({ id: "tasks-new", label: "工作待辦", supportedTemplates: Object.freeze(["navigation", "board"]) })
   });

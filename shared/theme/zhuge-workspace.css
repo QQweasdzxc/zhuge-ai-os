@@ -184,43 +184,153 @@
 }
 .zhuge-module-shell .control-center-entry-toggle { width: 100%; text-align: left; cursor: pointer; }
 .zhuge-module-shell .control-center-entry-chevron { font-size: 1.25rem; font-weight: 800; }
-.zhuge-module-shell .system-template-launcher {
+.zhuge-module-shell .template-management-center {
+  gap: 12px;
+  padding: 14px;
   border: 1px solid color-mix(in srgb, var(--zhuge-accent) 34%, var(--zhuge-border));
   border-radius: var(--zhuge-radius-sm);
   background: color-mix(in srgb, var(--zhuge-accent) 5%, var(--zhuge-surface));
-  padding: 14px;
 }
-.zhuge-module-shell .system-template-launcher-intro {
+.zhuge-module-shell .template-management-heading {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
 }
-.zhuge-module-shell .system-template-launcher-intro span,
-.zhuge-module-shell .system-template-launcher-card span { color: var(--zhuge-muted); font-size: .82rem; }
-.zhuge-module-shell .system-template-launcher-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.zhuge-module-shell .system-template-launcher-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  min-height: 110px;
-  padding: 12px;
+.zhuge-module-shell .template-management-heading h3 { margin: 4px 0 5px; }
+.zhuge-module-shell .template-management-heading p { margin: 0; }
+.zhuge-module-shell .template-management-kicker {
+  color: var(--zhuge-accent);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.zhuge-module-shell .template-management-source {
+  color: var(--zhuge-muted);
+  font-size: .78rem;
+  white-space: nowrap;
+}
+.zhuge-module-shell .template-management-status {
+  padding: 9px 11px;
   border: 1px solid var(--zhuge-border);
-  border-radius: 10px;
+  border-radius: 9px;
+  color: var(--zhuge-muted);
+  background: color-mix(in srgb, var(--zhuge-surface-raised) 70%, transparent);
+  font-size: .8rem;
+}
+.zhuge-module-shell .template-management-cards { display: grid; gap: 10px; }
+.zhuge-module-shell .template-management-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-sm);
   background: var(--zhuge-surface);
 }
-.zhuge-module-shell .system-template-launcher-card > div:first-child { display: grid; gap: 5px; }
-.zhuge-module-shell .system-template-launcher-card .btn2 { align-self: flex-start; }
-.zhuge-module-shell .system-template-launcher-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-.zhuge-module-shell .system-template-launcher-actions .btn2 { flex: 1 1 110px; }
+.zhuge-module-shell .template-management-card[data-template-management-template="navigation"] { border-color: color-mix(in srgb, #60a5fa 42%, var(--zhuge-border)); }
+.zhuge-module-shell .template-management-card[data-template-management-template="workspace"] { border-color: color-mix(in srgb, #4ade80 42%, var(--zhuge-border)); }
+.zhuge-module-shell .template-management-card[data-template-management-template="board"] { border-color: color-mix(in srgb, #c084fc 42%, var(--zhuge-border)); }
+.zhuge-module-shell .template-management-card-header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto 24px;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  color: var(--zhuge-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.zhuge-module-shell .template-management-card-header:hover,
+.zhuge-module-shell .template-management-card-header:focus-visible { background: var(--zhuge-surface-raised); outline: none; }
+.zhuge-module-shell .template-management-code {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--zhuge-accent) 18%, var(--zhuge-surface-raised));
+  color: var(--zhuge-accent);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+.zhuge-module-shell .template-management-card[data-template-management-template="workspace"] .template-management-code { color: #4ade80; background: color-mix(in srgb, #4ade80 16%, var(--zhuge-surface-raised)); }
+.zhuge-module-shell .template-management-card[data-template-management-template="board"] .template-management-code { color: #c084fc; background: color-mix(in srgb, #c084fc 16%, var(--zhuge-surface-raised)); }
+.zhuge-module-shell .template-management-card-title,
+.zhuge-module-shell .template-management-card-summary { display: grid; gap: 4px; min-width: 0; }
+.zhuge-module-shell .template-management-card-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-module-shell .template-management-card-title small,
+.zhuge-module-shell .template-management-card-summary small { color: var(--zhuge-muted); font-size: .76rem; }
+.zhuge-module-shell .template-management-card-summary { justify-items: end; }
+.zhuge-module-shell .template-management-card-summary strong { color: var(--zhuge-success); font-size: .8rem; white-space: nowrap; }
+.zhuge-module-shell .template-management-card-chevron { color: var(--zhuge-accent); font-size: 1.2rem; font-weight: 900; text-align: center; }
+.zhuge-module-shell .template-management-card-body { padding: 0 13px 13px; }
+.zhuge-module-shell .template-management-table {
+  overflow: hidden;
+  border: 1px solid var(--zhuge-border);
+  border-radius: 9px;
+}
+.zhuge-module-shell .template-management-table-head,
+.zhuge-module-shell .template-management-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) minmax(110px, .85fr) minmax(155px, 1fr) 58px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+}
+.zhuge-module-shell .template-management-table-head {
+  color: var(--zhuge-muted);
+  background: color-mix(in srgb, var(--zhuge-surface-raised) 80%, transparent);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.zhuge-module-shell .template-management-row { border-top: 1px solid var(--zhuge-border); font-size: .82rem; }
+.zhuge-module-shell .template-management-consumer { font-weight: 700; }
+.zhuge-module-shell .template-management-capability { color: var(--zhuge-success); font-size: .76rem; }
+.zhuge-module-shell .template-management-adoption { color: var(--zhuge-muted); font-size: .76rem; }
+.zhuge-module-shell .template-management-adoption.is-on { color: var(--zhuge-success); }
+.zhuge-module-shell .template-management-switch { display: inline-flex; justify-content: flex-end; cursor: pointer; }
+.zhuge-module-shell .template-management-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.zhuge-module-shell .template-management-switch-track {
+  position: relative;
+  display: block;
+  width: 36px;
+  height: 21px;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  background: #334155;
+  transition: background .16s ease, border-color .16s ease;
+}
+.zhuge-module-shell .template-management-switch-track::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #f8fafc;
+  content: "";
+  transition: transform .16s ease;
+}
+.zhuge-module-shell .template-management-switch input:checked + .template-management-switch-track { border-color: #34d399; background: #059669; }
+.zhuge-module-shell .template-management-switch input:checked + .template-management-switch-track::after { transform: translateX(15px); }
+.zhuge-module-shell .template-management-switch input:disabled + .template-management-switch-track { cursor: not-allowed; opacity: .5; }
+.zhuge-module-shell .template-management-empty { padding: 14px; color: var(--zhuge-muted); font-size: .82rem; }
 
 @media (max-width: 767px) {
   .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .zhuge-module-shell .system-template-launcher-grid { grid-template-columns: 1fr; }
-  .zhuge-module-shell .system-template-launcher-intro { display: grid; gap: 4px; }
+  .zhuge-module-shell .template-management-heading { display: grid; gap: 5px; }
+  .zhuge-module-shell .template-management-source { white-space: normal; }
+  .zhuge-module-shell .template-management-card-header { grid-template-columns: 34px minmax(0, 1fr) 22px; }
+  .zhuge-module-shell .template-management-card-summary { grid-column: 2 / 3; justify-items: start; }
+  .zhuge-module-shell .template-management-card-chevron { grid-column: 3; grid-row: 1 / span 2; }
+  .zhuge-module-shell .template-management-table-head { display: none; }
+  .zhuge-module-shell .template-management-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; }
+  .zhuge-module-shell .template-management-row > span:nth-child(2),
+  .zhuge-module-shell .template-management-row > span:nth-child(3) { grid-column: 1 / 2; }
+  .zhuge-module-shell .template-management-row > span:nth-child(4) { grid-column: 2; grid-row: 1 / span 3; }
 }
 
 /* Investment keeps its finance-specific content, but inherits the same

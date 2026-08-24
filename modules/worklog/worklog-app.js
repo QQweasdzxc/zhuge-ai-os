@@ -3141,6 +3141,12 @@ function workspaceDef(id) {
 }
 
 function normalizeWorkspaceState() {
+  // The former hidden system-templates route is now a compatibility alias
+  // for the single Control Center management surface.  Do not restore a
+  // second Template Management UI from persisted browser state.
+  if (activeWorkspace === "system-templates") activeWorkspace = "sync";
+  openTabs = openTabs.map(id => id === "system-templates" ? "sync" : id);
+  recentWorkspaces = recentWorkspaces.map(id => id === "system-templates" ? "sync" : id);
   openTabs = openTabs.filter(id => workspaceRegistry[id]);
   recentWorkspaces = recentWorkspaces.filter(id => openTabs.includes(id));
   if (!hasOsShellState && session) { openTabs = []; activeWorkspace = "dashboard"; recentWorkspaces = []; hasOsShellState = true; }
@@ -3153,6 +3159,7 @@ function rememberWorkspace(id) {
 }
 
 function openWorkspace(id) {
+  if (id === "system-templates") id = "sync";
   if (!workspaceRegistry[id]) return;
   if (workspaceRegistry[id].externalHref) { location.href = workspaceRegistry[id].externalHref; return; }
   if (workspaceRegistry[id].comingSoon) return;
@@ -3171,7 +3178,7 @@ function openWorkspace(id) {
   rememberWorkspace(id);
   if (id === "worklog") view = "center";
   if (id === "library") { view = "library"; editingLibraryId = null; }
-  if (id === "sync" || id === "system-templates" || id === "settings") view = "center";
+  if (id === "sync" || id === "settings") view = "center";
   saveAll();
   render("workspace-change");
 }
@@ -3705,7 +3712,6 @@ function workspaceContent() {
   }
   if (activeWorkspace === "aiSuggestions") return aiSuggestionWorkspace();
   if (activeWorkspace === "sync") return sync();
-  if (activeWorkspace === "system-templates") return systemTemplates();
   if (activeWorkspace === "settings") return settings();
   return comingSoonWorkspace(activeWorkspace);
 }
@@ -4269,66 +4275,13 @@ function sync() {
   const controlCards = [
     ["ai-board-board", "✅", "工作看板", "查看工程工作與執行狀態"],
     ["ai-board-principles", "📚", "工程準則", "閱讀開發規則與治理原則"],
-    ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"],
-    ["system-templates", "🧩", "系統模板", "管理唯一 Golden Master 與未來模板套用"]
+    ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"]
   ];
-  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => {
-    if (id !== "system-templates") return `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`;
-    return `<section class="control-center-entry-group" data-system-template-entry><button class="control-center-entry control-center-entry-toggle" type="button" data-toggle-system-template-launcher="systemTemplateLauncher" aria-expanded="false" aria-controls="systemTemplateLauncher"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>展開 A／B／C 區域檢視並另開視窗</small></span><span class="control-center-entry-chevron" aria-hidden="true">⌄</span></button><div class="system-template-launcher" id="systemTemplateLauncher" data-system-template-launcher hidden><div class="system-template-launcher-intro"><strong>系統模板區域檢視</strong><span>沿用正式 Runtime；每個區域會在獨立視窗開啟。</span></div><div class="system-template-launcher-grid"><article class="system-template-launcher-card"><div><b>A 區｜導航欄</b><span>只顯示共用導航欄</span></div><button class="btn2" type="button" data-open-system-template-window="navigation">開啟 A 區</button></article><article class="system-template-launcher-card"><div><b>B 區｜工作區</b><span>只顯示 WorkLog 工作區</span></div><button class="btn2" type="button" data-open-system-template-window="workspace">開啟 B 區</button></article><article class="system-template-launcher-card system-template-launcher-card-board"><div><b>C 區｜看板區</b><span>只顯示正式看板區（目前兩個 Consumer）</span></div><div class="system-template-launcher-actions"><button class="btn2" type="button" data-open-system-template-window="ai-board">AI Board</button><button class="btn2" type="button" data-open-system-template-window="worktodo">工作待辦</button></div></article></div></div></section>`;
-  }).join("");
-  return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}</div></section></section>`;
-}
-
-function systemTemplates() {
-  const catalog = typeof ZhugeSystemTemplateCatalog !== "undefined" ? ZhugeSystemTemplateCatalog : null;
-  const template = catalog?.get?.();
-  if (!template) {
-    return `<section class="panel system-template-manager"><div class="panel-head"><div><h2>🧩 系統模板</h2><div class="muted">模板目錄尚未載入。</div></div><button class="btn2" type="button" data-open-workspace="sync">返回控制台</button></div><div class="empty">目前無法讀取系統模板目錄，未進行任何資料操作。</div></section>`;
-  }
-
-  const adapters = template.adapters.map(adapter => `<span class="system-template-chip">${escapeHtml(adapter.label)}</span>`).join("");
-  const domainData = template.domainData.map(data => `<span class="system-template-chip">${escapeHtml(data.label)}</span>`).join("");
-  const surfaces = template.sharedSurfaces.map(surface => `<span class="system-template-chip">${escapeHtml(surface)}</span>`).join("");
-  const actions = [template.capabilities.clone, template.capabilities.apply]
-    .map(action => `<button class="btn2 system-template-action" type="button" data-template-action="${escapeHtml(action.key)}" disabled aria-disabled="true" title="${escapeHtml(action.reason)}">${escapeHtml(action.label)}<small>預留</small></button>`)
-    .join("");
-  const goldenMaster = typeof ZhugeGoldenMaster !== "undefined" ? ZhugeGoldenMaster : null;
-  const emptySurface = goldenMaster?.render
-    ? goldenMaster.render({
-      header: {
-        title: "AI Board",
-        description: "Empty Golden Master · Shared Board Framework",
-        identityHint: "No Domain Data"
-      },
-      toolbar: {
-        searchId: "systemTemplateSearch",
-        searchLabel: "Golden Master 搜尋",
-        searchPlaceholder: "Empty Framework 不載入正式資料",
-        disabled: true,
-        filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
-        status: "Empty · No Domain Data",
-        legend: "僅呈現共享版型與互動框架，不連線正式資料。"
-      },
-      columns: []
-    })
-    : `<div class="empty">Empty Golden Master foundation 尚未載入。</div>`;
-
-  return `<section class="panel system-template-manager" data-system-template-manager data-system-template-id="${escapeHtml(template.id)}">
-    <div class="panel-head system-template-manager-head"><div><span class="system-template-kicker">管理功能／系統模板</span><h2>🧩 系統模板</h2><div class="muted">以唯一 Golden Master 管理共享工作表面，並保留未來多模板生命週期的受控入口。</div></div><button class="btn2" type="button" data-open-workspace="sync">返回控制台</button></div>
-    <div class="system-template-layout">
-      <article class="system-template-card" data-system-template-card>
-        <div class="system-template-card-head"><div><span class="system-template-status">${escapeHtml(template.status)}</span><h3>${escapeHtml(template.label)}</h3><p>${escapeHtml(template.name)}是目前唯一受控模板來源。</p></div><span class="system-template-icon" aria-hidden="true">🪶</span></div>
-        <dl class="system-template-facts"><div><dt>Template ID</dt><dd>${escapeHtml(template.id)}</dd></div><div><dt>來源</dt><dd>${escapeHtml(template.source)}</dd></div><div><dt>模板模型</dt><dd>一套模板 · 兩個 Adapter · 兩套 Domain Data</dd></div></dl>
-        <section class="system-template-contract"><h4>兩個 Adapter</h4><div class="system-template-chip-list">${adapters}</div></section>
-        <section class="system-template-contract"><h4>兩套 Domain Data（分離維持）</h4><div class="system-template-chip-list">${domainData}</div></section>
-        <section class="system-template-contract"><h4>共享表面</h4><div class="system-template-chip-list">${surfaces}</div></section>
-        <div class="system-template-actions" aria-describedby="system-template-action-note">${actions}</div>
-        <p id="system-template-action-note" class="system-template-action-note">複製／套用目前僅保留操作契約；未核准前不建立第二份模板、不改變任何 Domain Data，也不執行 Cloud 寫入。</p>
-      </article>
-      <aside class="system-template-catalog" aria-label="模板目錄"><div class="system-template-catalog-head"><div><span class="system-template-kicker">可擴充目錄</span><h3>模板目錄</h3></div><span class="system-template-count">${catalog.list().length} / 1</span></div><div class="system-template-catalog-item"><strong>🪶 ${escapeHtml(template.label)}</strong><span>目前唯一 Golden Master</span></div><div class="system-template-catalog-empty"><b>未新增其他模板</b><span>待 PM 核准模板生命週期後，才可加入第二個模板。</span></div></aside>
-    </div>
-    <section class="system-template-surface"><div class="system-template-surface-head"><div><span class="system-template-kicker">Shared Golden Master</span><h3>AI Board Empty Golden Master</h3></div><span class="system-template-surface-note">Empty Framework · Read-only · No Domain Data</span></div>${emptySurface}</section>
-  </section>`;
+  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
+  const templateManagementMarkup = typeof ZhugeTemplateManagementCenter !== "undefined"
+    ? ZhugeTemplateManagementCenter.render()
+    : `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-status">Template Management Center 尚未載入。</div></section>`;
+  return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}${templateManagementMarkup}</div></section></section>`;
 }
 
 function nextKnowledgeId() {
@@ -5723,15 +5676,10 @@ function bindOnboarding() {
 
 function bind() {
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
-  document.querySelectorAll("[data-toggle-system-template-launcher]").forEach(button => button.onclick = () => {
-    const launcher = document.getElementById(button.dataset.toggleSystemTemplateLauncher);
-    if (!launcher) return;
-    const expanded = button.getAttribute("aria-expanded") === "true";
-    button.setAttribute("aria-expanded", expanded ? "false" : "true");
-    launcher.hidden = expanded;
-    button.querySelector(".control-center-entry-chevron")?.replaceChildren(document.createTextNode(expanded ? "⌄" : "⌃"));
-  });
-  document.querySelectorAll("[data-open-system-template-window]").forEach(button => button.onclick = () => openSystemTemplateWindow(button.dataset.openSystemTemplateWindow));
+  const templateManagementCenter = document.querySelector("[data-template-management-center]");
+  if (templateManagementCenter && typeof ZhugeTemplateManagementCenter !== "undefined") {
+    ZhugeTemplateManagementCenter.bind(templateManagementCenter, { onUpdated: () => render("template-management-updated") });
+  }
   document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {
     event.stopPropagation();
     openDashboardTask(button.dataset.dashboardTaskId || "");

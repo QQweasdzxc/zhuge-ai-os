@@ -59,23 +59,27 @@ test("Empty Golden Master catalog reserves lifecycle actions without writes", ()
   assert.doesNotMatch(source, /GM-FIX|golden-master-preview|fixtureKey/i);
 });
 
-test("System Template Manager mounts the same Empty Golden Master source", () => {
+test("Template Management Center is the single adoption presentation", () => {
   const config = read("shared/app-config.js");
   const router = read("shared/app-router.js");
   const index = read("modules/worklog/index.html");
   const runtime = read("modules/worklog/worklog-app.js");
-  assert.match(config, /"system-templates": \{ icon: "🧩", label: "系統模板"/);
-  assert.match(router, /"system-templates"/);
+  const management = read("shared/components/template-management-center.js");
+  assert.doesNotMatch(config, /system-templates/);
+  assert.doesNotMatch(router, /system-templates/);
   assert.match(index, /shared\/components\/system-template-catalog\.js/);
+  assert.match(index, /shared\/components\/template-management-center\.js/);
   assert.match(index, /shared\/components\/golden-master\.js/);
   assert.match(index, /shared\/theme\/golden-master\.css/);
   assert.doesNotMatch(index, /golden-master-fixture|golden-master-preview|golden-master-preview\.css/);
-  assert.match(index, /allowedWorkspaces = new Set\(\["dashboard"[\s\S]*"system-templates"/);
-  assert.match(runtime, /\["system-templates", "🧩", "系統模板"/);
-  assert.match(runtime, /if \(activeWorkspace === "system-templates"\) return systemTemplates\(\);/);
-  assert.match(runtime, /goldenMaster\.render\(/);
+  assert.match(index, /allowedWorkspaces = new Set\(\["dashboard"[\s\S]*"settings"/);
+  assert.match(runtime, /ZhugeTemplateManagementCenter\.render\(\)/);
+  assert.match(runtime, /data-template-management-center/);
+  assert.doesNotMatch(runtime, /function systemTemplates\(|system-template-manager/);
+  assert.match(management, /Template Registry/);
+  assert.match(management, /Cloud Adoption State/);
+  assert.match(management, /data-template-management-switch/);
   assert.doesNotMatch(runtime, /ZhugeGoldenMasterPreview|template\.preview|GM-FIX/);
-  assert.match(runtime, /data-open-workspace="sync">返回控制台/);
 });
 
 test("Empty Golden Master renders only the shared empty framework", () => {
