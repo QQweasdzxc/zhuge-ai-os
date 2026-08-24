@@ -296,6 +296,9 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell .sidebar-sync-summary,
 .zhuge-module-shell .sidebar-version-summary,
 .zhuge-module-shell .sidebar-build-summary { padding: 4px 2px; }
+.zhuge-module-shell > .os-sidebar .developer-build-info .sidebar-build-summary {
+  margin: 0;
+}
 
 /* Formal Runtime pages keep the canonical navigation component available for
  * System Template A, but the global rail itself belongs only to that template
