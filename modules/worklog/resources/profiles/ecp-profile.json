@@ -1,0 +1,26 @@
+{
+  "id": "ecp",
+  "name": "ECP",
+  "template": "resources/templates/ecp-export-template.xlsx",
+  "sheet": "謄寫區",
+  "headerRow": 1,
+  "dataStartRow": 2,
+  "filename": "ECP_WorkLog_{YYYYMM}.xlsx",
+  "fieldMapping": {
+    "編號": { "type": "blank" },
+    "名稱": { "type": "field", "field": "title" },
+    "狀態": { "type": "literal", "value": "新增" },
+    "負責人": { "type": "field", "field": "ecpOwner" },
+    "負責部門": { "type": "field", "field": "ecpDepartment" },
+    "活動類型": { "type": "blank" },
+    "活動描述": { "type": "blank" },
+    "開始時間": { "type": "field", "field": "startAt" },
+    "結束時間": { "type": "field", "field": "endAt" },
+    "時數": { "type": "field", "field": "hours" },
+    "任務": { "type": "field", "field": "ecpTask" },
+    "線索": { "type": "blank" },
+    "商機": { "type": "blank" },
+    "專案": { "type": "blank" },
+    "服務請求": { "type": "blank" }
+  }
+}
