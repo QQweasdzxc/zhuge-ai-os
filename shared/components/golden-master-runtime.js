@@ -1777,13 +1777,6 @@
   }
   function startBoardRuntime(options = {}) {
     state.applicationScope = options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
-    const shell = document.querySelector(".zhuge-module-shell");
-    document.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
-      button.onclick = () => shell?.classList.toggle("sidebar-open");
-    });
-    document.querySelectorAll("[data-close-sidebar]").forEach(button => {
-      button.onclick = () => shell?.classList.remove("sidebar-open");
-    });
     if (state.applicationScope !== "worktodo") {
       mountCreatorMfaSettings(accessContext);
       mountTemplateAdoptionSettings(accessContext);

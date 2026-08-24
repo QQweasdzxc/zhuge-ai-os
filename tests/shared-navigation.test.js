@@ -30,6 +30,13 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(investmentShell, /investment-local-nav/);
   for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /data-zhuge-shared-navigation/);
+  assert.match(nav, /function wireSidebar\(\)/);
+  assert.match(nav, /zhugeSharedNavSidebarWired/);
+  assert.match(nav, /function ensureMobileLauncher\(shell\)/);
+  assert.doesNotMatch(read("app/dashboard/index.html"), /data-toggle-sidebar\].*shell\.classList/);
+  assert.doesNotMatch(read("shared/components/golden-master-runtime.js"), /document\.querySelectorAll\("\[data-toggle-sidebar\]"\)/);
+  assert.doesNotMatch(investmentModule, /root\.querySelector\("\.zhuge-module-shell"\).*sidebar-open/);
+  assert.doesNotMatch(worklog, /document\.querySelectorAll\("\[data-toggle-sidebar\]"\)/);
   assert.doesNotMatch(nav, /investment:[^\n]*status:\s*["']SIT["']/);
   assert.doesNotMatch(read("shared/app-config.js"), /investment:[^\n]*status:\s*["']SIT["']/);
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);

@@ -5722,8 +5722,6 @@ function bindOnboarding() {
 }
 
 function bind() {
-  document.querySelectorAll("[data-toggle-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = !sidebarOpen; render(); });
-  document.querySelectorAll("[data-close-sidebar]").forEach(b => b.onclick = () => { sidebarOpen = false; render(); });
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
   document.querySelectorAll("[data-toggle-system-template-launcher]").forEach(button => button.onclick = () => {
     const launcher = document.getElementById(button.dataset.toggleSystemTemplateLauncher);

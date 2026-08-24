@@ -214,14 +214,6 @@
     }
 
     root.addEventListener("click", event => {
-      if (event.target.closest("[data-toggle-sidebar]")) {
-        root.querySelector(".zhuge-module-shell")?.classList.toggle("sidebar-open");
-        return;
-      }
-      if (event.target.closest("[data-close-sidebar]")) {
-        root.querySelector(".zhuge-module-shell")?.classList.remove("sidebar-open");
-        return;
-      }
       const route = event.target.closest("[data-investment-route]");
       if (route) navigate(route.dataset.investmentRoute);
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);

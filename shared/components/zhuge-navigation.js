@@ -129,6 +129,17 @@
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
+  function ensureMobileLauncher(shell) {
+    const host = shell?.querySelector(".zhuge-shared-header-main, .workspace-context-inner");
+    if (!host || host.querySelector("[data-toggle-sidebar]")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mini adaptive-menu zhuge-shared-menu";
+    button.dataset.toggleSidebar = "1";
+    button.setAttribute("aria-label", "開啟 Zhuge AI OS 導覽");
+    button.textContent = "☰";
+    host.insertBefore(button, host.firstChild);
+  }
   function placeholderFromMountedNode(node) {
     const target = document.createElement("div");
     target.id = "zhugeSharedNavigation";
@@ -167,7 +178,21 @@
     else delete summary.dataset.syncState;
     return true;
   }
+  function wireSidebar() {
+    if (document.documentElement.dataset.zhugeSharedNavSidebarWired) return;
+    document.documentElement.dataset.zhugeSharedNavSidebarWired = "1";
+    document.addEventListener("click", event => {
+      const toggle = event.target?.closest?.("[data-toggle-sidebar]");
+      const close = event.target?.closest?.("[data-close-sidebar]");
+      if (!toggle && !close) return;
+      const shell = shellFor(toggle || close);
+      if (!shell) return;
+      event.preventDefault();
+      shell.classList.toggle("sidebar-open", Boolean(toggle) && !shell.classList.contains("sidebar-open"));
+    });
+  }
   function wireCollapse() {
+    wireSidebar();
     if (document.documentElement.dataset.zhugeSharedNavWired) return;
     document.documentElement.dataset.zhugeSharedNavWired = "1";
     document.addEventListener("click", event => {
@@ -216,6 +241,7 @@
       const tabletViewport = Boolean(global.matchMedia?.("(min-width: 768px) and (max-width: 1180px)")?.matches);
       const shouldCollapse = shell.classList.contains("zhuge-nav-collapsed") || stored === "1" || (stored == null && tabletViewport);
       setCollapsed(shell, shouldCollapse);
+      ensureMobileLauncher(shell);
     }
     wireCollapse();
     return node;

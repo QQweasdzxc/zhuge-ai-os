@@ -68,13 +68,5 @@
     <script src="../../shared/components/zhuge-shell.js?v=20260822-2325"></script>
     <script src="../../shared/theme/zhuge-appearance.js?v=20260811-dashboard-1"></script>
     <script src="../router/index.js"></script>
-    <script>
-      document.addEventListener("click", event => {
-        const shell = document.querySelector(".zhuge-dashboard-shell");
-        if (!shell) return;
-        if (event.target.closest("[data-toggle-sidebar]")) shell.classList.toggle("sidebar-open");
-        if (event.target.closest("[data-close-sidebar]")) shell.classList.remove("sidebar-open");
-      });
-    </script>
   </body>
 </html>
