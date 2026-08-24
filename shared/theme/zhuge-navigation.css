@@ -213,6 +213,26 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
   display: flex;
   flex-direction: column;
 }
+/* The rail is a presentation boundary, not a child of the Consumer's body
+ * typography.  Keep its font metrics and box model canonical even when a
+ * Consumer defines a different global reset or framework stylesheet. */
+.zhuge-module-shell > .os-sidebar {
+  font-family: -apple-system, "system-ui", "Segoe UI", "Noto Sans TC", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.zhuge-module-shell > .os-sidebar,
+.zhuge-module-shell > .os-sidebar *,
+.zhuge-module-shell > .os-sidebar *::before,
+.zhuge-module-shell > .os-sidebar *::after {
+  box-sizing: border-box;
+}
+.zhuge-module-shell > .os-sidebar button {
+  font-family: inherit;
+}
+.zhuge-module-shell > .os-sidebar .shared-nav-collapse {
+  font: inherit;
+}
 .zhuge-module-shell .sidebar-brand {
   align-items: center;
   padding: 10px 6px 18px;
