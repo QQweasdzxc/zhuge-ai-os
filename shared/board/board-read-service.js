@@ -675,7 +675,8 @@
       p_usage_scenario: input.usageScenario || null,
       p_priority: input.priority || null,
       p_actor_type: "human",
-      p_actor_label: "QJC"
+      p_actor_label: "QJC",
+      p_workspace_id: input.workspaceId || null
     }).then(normalizeTask);
   }
 
