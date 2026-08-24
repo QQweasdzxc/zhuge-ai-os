@@ -282,3 +282,7 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
   grid-column: 1;
   width: 100%;
 }
+.zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"] > .workspace-app,
+.zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"] > .app {
+  grid-column: 2;
+}
