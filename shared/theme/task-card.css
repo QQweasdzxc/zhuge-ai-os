@@ -1,8 +1,0 @@
-/* Shared Task Card presentation tokens. Domain modules may add only their
- * data-specific adornments and actions; card structure remains shared. */
-.shared-task-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
-.shared-task-card-code{min-width:0;color:#718096;font-size:.72rem;letter-spacing:.03em;overflow-wrap:anywhere}
-.shared-task-card-title{min-width:0;overflow-wrap:anywhere}
-.shared-task-card-summary{min-width:0;overflow-wrap:anywhere}
-.shared-task-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;position:relative;z-index:1}
-.shared-task-card-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px}
