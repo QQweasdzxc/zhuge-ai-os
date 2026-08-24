@@ -326,6 +326,7 @@
     wireCollapse();
     const mounted = document.querySelector("[data-zhuge-shared-navigation='true']");
     if (mounted) {
+      ensureMobileLauncher(shellFor(mounted));
       const mountedPageTarget = Boolean(pageIdForTarget(mounted));
       if (mountedPageTarget && policyRuntime() && !isNavigationAdopted(mounted)) unmount(mounted);
       return;
@@ -354,6 +355,8 @@
     const observer = new MutationObserver(() => {
       const target = document.getElementById("zhugeSharedNavigation");
       if (target && !target.dataset.zhugeNavigationMounted) autoMount();
+      const mounted = document.querySelector("[data-zhuge-shared-navigation='true']");
+      if (mounted) ensureMobileLauncher(shellFor(mounted));
       if (!policyRuntime() && document.querySelector("[data-template-page-id]")) bootstrapTemplatePolicy();
     });
     observer.observe(document.body, { childList: true, subtree: true });
