@@ -142,6 +142,7 @@ test("collapsed rail geometry is owned by shared navigation, not WorkLog CSS", (
   assert.match(nav, /--zhuge-sidebar-collapsed-item-padding-block:\s*9px/);
   assert.match(nav, /\.zhuge-module-shell\.zhuge-nav-collapsed\s*>\s*\.os-sidebar/);
   assert.match(nav, /\.zhuge-module-shell\[data-shared-navigation-mode="template-only"\]\[data-shared-navigation-active="true"\]\.zhuge-nav-collapsed\s*\{\s*grid-template-columns:\s*var\(--zhuge-sidebar-collapsed-width\)\s+minmax\(0,1fr\)\s*!important/);
+  assert.match(nav, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.zhuge-module-shell\.zhuge-nav-collapsed\s*>\s*\.os-sidebar\s*\{\s*width:\s*min\(86vw,\s*320px\)/);
   assert.match(nav, /\.zhuge-module-shell\.zhuge-nav-collapsed \.side-section > h3\s*\{\s*display:\s*none/);
   assert.doesNotMatch(worklog, /workspace-worklog\.zhuge-nav-collapsed/);
 });

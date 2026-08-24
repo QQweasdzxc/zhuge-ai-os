@@ -87,6 +87,11 @@ body:has(.zhuge-module-shell) { margin: 0; }
   width: 100%;
   padding: var(--zhuge-sidebar-collapsed-padding-block) var(--zhuge-sidebar-collapsed-padding-inline);
 }
+@media (max-width: 767px) {
+  .zhuge-module-shell.zhuge-nav-collapsed > .os-sidebar {
+    width: min(86vw, 320px);
+  }
+}
 .zhuge-module-shell.zhuge-nav-collapsed .os-sidebar,
 .zhuge-module-shell.zhuge-nav-collapsed .sidebar-brand,
 .zhuge-module-shell.zhuge-nav-collapsed .sidebar-scroll,
