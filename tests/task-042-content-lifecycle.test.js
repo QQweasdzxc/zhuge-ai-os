@@ -95,10 +95,10 @@ test("Shared progress actions use the same Cloud lifecycle in AI Board and WorkT
   assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\]/);
   assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly \}\)/);
   assert.doesNotMatch(runtime, /function wireHumanProgressNoteActions\(task, activity, archiveOnly\) \{\s*if \(archiveOnly \|\| isWorkTodoTask\(task\)\)/);
-  assert.match(css, /data-shared-task-timeline\].*gap:12px/);
+  assert.match(css, /data-shared-task-timeline\].*gap:16px/);
   assert.match(css, /shared-task-progress-attachment-row\{display:grid;grid-template-columns:34px minmax\(0,1fr\) auto/);
-  assert.match(aiBoard, /task-drawer\.css\?v=20260824-shared-task-drawer-actions/);
-  assert.match(worktodo, /task-drawer\.css\?v=20260824-shared-task-drawer-actions/);
-  assert.match(aiBoard, /golden-master-runtime\.js\?v=20260824-shared-task-drawer-actions/);
-  assert.match(worktodo, /golden-master-runtime\.js\?v=20260824-shared-task-drawer-actions/);
+  assert.match(aiBoard, /task-drawer\.css\?v=20260824-template-operation-parity/);
+  assert.match(worktodo, /task-drawer\.css\?v=20260824-template-operation-parity/);
+  assert.match(aiBoard, /golden-master-runtime\.js\?v=20260824-template-operation-parity/);
+  assert.match(worktodo, /golden-master-runtime\.js\?v=20260824-template-operation-parity/);
 });
