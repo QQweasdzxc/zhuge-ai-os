@@ -210,13 +210,11 @@
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: state.applicationScope !== "worktodo" && !completion,
+        reorderable: !completion,
         addHtml: workspace.key === "todo" || workspace.key === "worktodo-todo"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
           : "",
-        controlsHtml: state.applicationScope === "worktodo"
-          ? ""
-          : completion
+        controlsHtml: completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
           : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button>"
       };
@@ -472,10 +470,6 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   async function reorderWorkspace(draggedId, targetId) {
-    if (isWorkTodoMode()) {
-      setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序。", "info");
-      return;
-    }
     if (!draggedId || !targetId || draggedId === targetId) return;
     const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
     const visible = ordered.filter(isMainBoardWorkspace);
@@ -488,7 +482,9 @@
     const fullOrder = ordered.map(workspace => isMainBoardWorkspace(workspace) ? visible[visibleIndex++] : workspace);
     try {
       setBanner("正在保存工作區排序…", "loading");
-      await service.reorderWorkspaces(fullOrder.map(workspace => workspace.id));
+      const workspaceIds = fullOrder.map(workspace => workspace.id);
+      if (isWorkTodoMode()) await service.worktodoReorderWorkspaces(workspaceIds);
+      else await service.reorderWorkspaces(fullOrder.map(workspace => workspace.id));
       await refreshBoard({ quiet: true });
       setBanner("工作區排序已保存至 Cloud。", "success");
     } catch (error) {
@@ -502,15 +498,12 @@
     document.querySelectorAll("[data-workspace-rename]").forEach(button => {
       button.onclick = event => {
         event.stopPropagation();
-        if (isWorkTodoMode()) {
-          setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能重新命名。", "info");
-          return;
-        }
         const workspace = state.workspaceById.get(button.dataset.workspaceRename);
         if (!workspace) return;
         const nextName = window.prompt("請輸入新的工作區名稱", workspace.name);
         if (nextName === null || !nextName.trim() || nextName.trim() === workspace.name) return;
-        service.renameWorkspace(workspace.id, nextName.trim())
+        const rename = isWorkTodoMode() ? service.worktodoRenameWorkspace : service.renameWorkspace;
+        rename(workspace.id, nextName.trim())
           .then(() => refreshBoard({ quiet: true }))
           .then(() => setBanner("工作區已重新命名並保存至 Cloud。", "success"))
           .catch(error => setBanner("工作區重新命名失敗：" + esc(error?.message || "正式 Cloud 未接受這次命名。"), "error"));
@@ -543,13 +536,9 @@
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return !workTodoMode && Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id }) => {
-        if (workTodoMode) {
-          setBanner("WorkTodo 六個工作區由正式 Scope 管理，不能重新排序。", "info");
-          return;
-        }
         return reorderWorkspace(sourceId, id);
       }
     };
@@ -913,6 +902,18 @@
   function activityKindLabel(kind) {
     return ({ status: "Status", workspace: "Workspace Move", evidence: "Evidence", acceptance: "PM Acceptance", system: "System Activity" })[kind] || "System Activity";
   }
+  function progressAttachmentIcon(file) {
+    const mime = String(file?.mimeType || file?.mime_type || "").toLowerCase();
+    const filename = String(file?.filename || "").toLowerCase();
+    if (mime.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(filename)) return "🖼️";
+    if (mime === "application/pdf" || filename.endsWith(".pdf")) return "📄";
+    if (/wordprocessing|msword|\.docx?$/.test(`${mime} ${filename}`)) return "📝";
+    if (/spreadsheet|excel|\.xlsx?$|\.csv$/.test(`${mime} ${filename}`)) return "📊";
+    if (/presentation|powerpoint|\.pptx?$/.test(`${mime} ${filename}`)) return "📽️";
+    if (/zip|compressed|archive|\.zip$/.test(`${mime} ${filename}`)) return "🗜️";
+    if (mime.startsWith("text/") || /\.(txt|md|rtf)$/i.test(filename)) return "📃";
+    return "📎";
+  }
   function currentActorId() {
     try {
       if (typeof currentUserUuid === "function") return String(currentUserUuid() || "");
@@ -945,13 +946,16 @@
     return humanRows.map(item => {
       const noteAttachments = attachmentsByActivity.get(item.id) || [];
       const canManage = options.readOnly !== true && currentActorId() && String(item.actorId) === currentActorId();
+      const attachmentBadge = noteAttachments.length
+        ? `<span class="shared-task-progress-note-attachment-badge" title="此筆工作進度有 ${noteAttachments.length} 個附件">📎 ${noteAttachments.length}</span>`
+        : "";
       const attachmentMarkupForNote = noteAttachments.length
-        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview>📎</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-progress-attachment-delete="${esc(file.attachmentId)}" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
+        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview title="${esc(file.filename || "附件")}">${progressAttachmentIcon(file)}</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-progress-attachment-delete="${esc(file.attachmentId)}" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
         : "";
       const controls = canManage
         ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
         : "";
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div class="shared-task-progress-note-body"><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${controls}</header><p class="shared-task-progress-content" data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div class="shared-task-progress-note-body"><header class="shared-task-progress-note-header"><div class="shared-task-progress-note-heading"><strong class="shared-task-progress-note-title">工作進度</strong>${attachmentBadge}</div>${controls}</header><p class="shared-task-progress-content" data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
@@ -1275,7 +1279,7 @@
         const createdNote = workTodo
           ? await service.worktodoAddTaskProgressNote({ taskId: task.id, note })
           : await service.addTaskProgressNote(task.id, note);
-        const files = workTodo ? [] : Array.from(attachmentInput?.files || []);
+        const files = Array.from(attachmentInput?.files || []);
         if (files.length) {
           if (attachmentHint) attachmentHint.textContent = `正在保存 ${files.length} 個進度附件…`;
           await uploadAttachmentFiles(task, files, { progressNote: true, activityId: createdNote.id });
