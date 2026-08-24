@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled Cloud path", () => {
-  const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql");
+  const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql") + read("docs/supabase/20260824_canonical_template_workspace_add.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
 
@@ -27,12 +27,18 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /worktodoRenameWorkspace,/);
   assert.match(service, /worktodoReorderWorkspaces,/);
   assert.match(service, /gateway\.rpc\("worktodo_create_workspace"/);
+  assert.match(service, /p_workspace_id: input\.workspaceId \|\| null/);
   assert.match(service, /worktodoCreateWorkspace,/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
   assert.match(runtime, /if \(isWorkTodoMode\(\)\) await service\.worktodoReorderWorkspaces\(workspaceIds\)/);
   assert.match(runtime, /else await service\.reorderWorkspaces\(fullOrder\.map\(workspace => workspace\.id\)\)/);
   assert.match(runtime, /const rename = isWorkTodoMode\(\) \? service\.worktodoRenameWorkspace/);
+  assert.match(runtime, /addHtml: !completion/);
+  assert.match(runtime, /service\.createTask\(\{ title: title, summary: summary, usageScenario: usageScenario, workspaceId \}/);
+  assert.match(sql, /create or replace function public\.board_create_task\(/);
+  assert.match(sql, /p_workspace_id uuid default null/);
+  assert.match(sql, /application_scope = 'ai_board'/);
 });
 
 test("TASK-011 shares spacing and attachment presentation across AI Board and WorkTodo", () => {

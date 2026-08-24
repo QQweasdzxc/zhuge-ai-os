@@ -215,7 +215,7 @@
         name: workspace.name,
         completion,
         reorderable: !completion,
-        addHtml: (state.applicationScope === "worktodo" ? !completion : workspace.key === "todo" || workspace.key === "worktodo-todo")
+        addHtml: !completion
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
         controlsHtml: completion
@@ -1709,7 +1709,7 @@
       if (state.applicationScope === "worktodo") {
         await service.worktodoCreateTask({ title, summary, status: "not_started", usageScenario, workspaceId });
       } else {
-        await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
+        await service.createTask({ title: title, summary: summary, usageScenario: usageScenario, workspaceId });
       }
       closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
