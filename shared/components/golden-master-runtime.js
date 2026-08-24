@@ -5,7 +5,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", taskChecklistWrites: new Set() };
+  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set() };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -59,6 +59,9 @@
   }
   function isWorkTodoTask(task) {
     return state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo";
+  }
+  function workItemLabel(task) {
+    return isWorkTodoTask(task) ? "WLTK" : "TASK";
   }
   function workTodoStatus(task) {
     const raw = String(task?.rawStatus || task?.status || "not_started").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -143,7 +146,7 @@
     const archiveClass = archiveOnly ? " archive-taskcard" : "";
     const cardOptions = {
       className: "card taskcard shared-task-board-card board-cloud-card" + archiveClass,
-      code: task.workCode || task.id || "TASK",
+      code: task.workCode || task.id || workItemLabel(task),
       title: task.title,
       summary: task.summary,
       bodyHtml: governance,
@@ -184,7 +187,7 @@
   }
   function taskCodeNumber(task) {
     const code = String(task?.workCode || task?.work_code || "").trim();
-    const match = code.match(/^TASK[-_ ]?(\d+)$/i);
+    const match = code.match(/^(?:TASK|WLTK)[-_ ]?(\d+)$/i);
     return match ? Number(match[1]) : null;
   }
   function sortTasksByCode(tasks) {
@@ -203,6 +206,7 @@
     const legacyBoard = document.getElementById("boardColumns") || document.querySelector(".board");
     if (!boardMount && !legacyBoard) return;
     const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
+    const itemLabel = workItemLabel();
     const columns = workspaces.map(workspace => {
       const completion = isCompletionWorkspace(workspace);
       return {
@@ -211,8 +215,8 @@
         name: workspace.name,
         completion,
         reorderable: !completion,
-        addHtml: workspace.key === "todo" || workspace.key === "worktodo-todo"
-          ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 TASK</button>"
+        addHtml: (state.applicationScope === "worktodo" ? !completion : workspace.key === "todo" || workspace.key === "worktodo-todo")
+          ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
         controlsHtml: completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
@@ -273,18 +277,20 @@
     renderTasks(visibleTasks());
     const count = visibleTasks().length;
     const result = document.getElementById("boardSearchCount");
-    if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 TASK" : "顯示目前工作中的正式 TASK";
+    const itemLabel = workItemLabel();
+    if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 " + itemLabel : "顯示目前工作中的正式 " + itemLabel;
   }
   function renderGoldenMasterToolbar() {
     if (!root.ZhugeGoldenMaster?.renderToolbar) return;
+    const itemLabel = workItemLabel();
     const toolbarMarkup = root.ZhugeGoldenMaster.renderToolbar({
       id: "goldenMasterToolbar",
       searchId: "boardSearch",
-      searchLabel: "搜尋 TASK、使用情境或工作區",
-      searchPlaceholder: "⌕ 搜尋目前工作中的 TASK、使用情境或工作區",
+      searchLabel: "搜尋 " + itemLabel + "、使用情境或工作區",
+      searchPlaceholder: "⌕ 搜尋目前工作中的 " + itemLabel + "、使用情境或工作區",
       filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
       actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
-      statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 TASK</span>',
+      statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
@@ -321,10 +327,11 @@
     if (!list) return;
     const all = state.tasks.filter(task => isArchiveTask(task));
     const rows = archiveTasks();
-    if (count) count.textContent = `顯示 ${rows.length} / ${all.length} 筆封存 TASK（唯讀）`;
+    const itemLabel = workItemLabel();
+    if (count) count.textContent = `顯示 ${rows.length} / ${all.length} 筆封存 ${itemLabel}（唯讀）`;
     list.innerHTML = rows.length
       ? rows.map(task => taskMarkup(task, { readOnly: true })).join("")
-      : `<div class="board-empty">${all.length ? "找不到符合條件的封存 TASK。" : "目前沒有封存 TASK。"}</div>`;
+      : `<div class="board-empty">${all.length ? `找不到符合條件的封存 ${itemLabel}。` : `目前沒有封存 ${itemLabel}。`}</div>`;
     wireTaskCards();
   }
   function openArchiveDrawer() {
@@ -423,18 +430,16 @@
   }
 
   async function moveWorkTodoTask(task, target) {
+    if (!target) return;
     const nextStatus = workTodoStatusForWorkspace(target);
-    if (!nextStatus) {
-      setBanner("WorkTodo 只能移動至既定六個工作區。", "error");
-      return;
-    }
     if (String(task.workspaceId) === String(target.id)) {
       setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
     }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
     try {
-      await service.worktodoUpdateTask({ taskId: task.id, patch: { status: nextStatus } });
+      const patch = nextStatus ? { status: nextStatus } : { workspace_id: target.id };
+      await service.worktodoUpdateTask({ taskId: task.id, patch });
       await refreshBoard({ quiet: true });
       setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。", "success");
     } catch (error) {
@@ -451,10 +456,11 @@
     const labels = { merged: "合併", cancelled: "取消", linked: "關聯", ignored: "忽略" };
     const label = labels[action] || action;
     const needsTarget = action === "merged" || action === "linked";
-    const reference = needsTarget ? window.prompt(`請輸入要${label}到哪一張 TASK（TASK 編號或 ID）`, "") : "";
+    const itemLabel = workItemLabel(task);
+    const reference = needsTarget ? window.prompt(`請輸入要${label}到哪一張 ${itemLabel}（${itemLabel} 編號或 ID）`, "") : "";
     if (needsTarget && !reference) return;
     const target = needsTarget ? governanceTarget(task, reference) : null;
-    if (needsTarget && !target) { setBanner("找不到指定的目標 TASK，治理動作未執行。", "error"); return; }
+    if (needsTarget && !target) { setBanner(`找不到指定的目標 ${itemLabel}，治理動作未執行。`, "error"); return; }
     const reason = window.prompt(`請說明這次${label}決策的原因（至少 3 個字）`, "") || "";
     if (reason.trim().length < 3) { setBanner("治理決策必須留下清楚原因，未執行。", "error"); return; }
     try {
@@ -722,14 +728,14 @@
     ensureHealthModal();
     const body = document.getElementById("healthCheckBody");
     const rows = report.findings.map(item => `<article class="health-finding health-${esc(item.severity)}"><div class="meta"><span class="tag">${esc(healthSeverity[item.severity] || item.severity)}</span><span class="tag">${esc(item.type)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>${item.records.length ? `<small>涉及資料：${esc(item.records.join("、"))}</small>` : ""}</article>`).join("");
-    body.innerHTML = `<div class="health-summary"><strong>已掃描 ${report.taskCount} 張正式 Cloud TASK，發現 ${report.findingCount} 項 Finding。</strong><p>本次只讀取資料，不會自動 Merge、Cancel、刪除或修改任何正式紀錄。</p></div>${rows || "<div class=\"board-empty\">目前沒有發現需要提示的資料問題。</div>"}<div class="health-boundary">Merge／Link／Cancel／Ignore 等整理動作需要既有 Schema、權限與 Audit 能力；目前先保留 Finding，交由 PM／GPT 決定。</div>`;
+    body.innerHTML = `<div class="health-summary"><strong>已掃描 ${report.taskCount} 張正式 Cloud ${workItemLabel()}，發現 ${report.findingCount} 項 Finding。</strong><p>本次只讀取資料，不會自動 Merge、Cancel、刪除或修改任何正式紀錄。</p></div>${rows || "<div class=\"board-empty\">目前沒有發現需要提示的資料問題。</div>"}<div class="health-boundary">Merge／Link／Cancel／Ignore 等整理動作需要既有 Schema、權限與 Audit 能力；目前先保留 Finding，交由 PM／GPT 決定。</div>`;
     document.getElementById("healthCheckModal").style.display = "grid";
     document.getElementById("healthCheckModal").setAttribute("aria-hidden", "false");
   }
   async function runHealthCheck() {
     const button = document.getElementById("healthCheckBtn");
     if (button) { button.disabled = true; button.textContent = "檢查中…"; }
-    setBanner("正在檢查 TASK、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
+    setBanner("正在檢查 " + workItemLabel() + "、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
     try {
       const report = await service.runHealthCheck();
       renderHealthReport(report);
@@ -1486,8 +1492,9 @@
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
     const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
-    const title = task.title || "未命名 TASK";
-    const titleCode = task.workCode || "TASK";
+    const itemLabel = workItemLabel(task);
+    const title = task.title || "未命名 " + itemLabel;
+    const titleCode = task.workCode || itemLabel;
     const progressComposer = workTodo
       ? progressNoteComposerMarkup(archiveOnly, { workTodo: true })
       : progressNoteComposerMarkup(archiveOnly);
@@ -1506,6 +1513,7 @@
       const drawerOptions = {
         title,
         titleCode,
+        itemLabel,
         titleEditable: !archiveOnly,
           subtitle: workTodo
             ? (archiveOnly ? "工作待辦 · 📦 Archive Read-only" : "工作待辦 · Shared Task Drawer")
@@ -1618,6 +1626,7 @@
     } catch (error) { setBanner("Checklist Evidence 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   function openQuickAdd(workspace) {
+    state.pendingCreateWorkspaceId = String(workspace || "");
     const modal = document.getElementById("addCardModal");
     if (!modal) return;
     const drawer = modal.querySelector(".board-create-drawer");
@@ -1627,6 +1636,7 @@
     drawer?.classList.add("is-open");
   }
   function closeQuickAdd() {
+    state.pendingCreateWorkspaceId = "";
     const modal = document.getElementById("addCardModal");
     if (!modal) return;
     const drawer = modal.querySelector(".board-create-drawer");
@@ -1656,11 +1666,6 @@
     drawer?.setAttribute("aria-hidden", "true");
   }
   async function createWorkspace() {
-    if (isWorkTodoMode()) {
-      closeWorkspaceDrawer();
-      setBanner("新版工作待辦使用固定六個工作區；本次沒有建立自訂工作區。", "info");
-      return;
-    }
     const input = document.getElementById("workspaceName");
     const name = input?.value?.trim() || "";
     if (!name) {
@@ -1671,7 +1676,8 @@
     const button = document.querySelector("[data-workspace-create]");
     if (button) button.disabled = true;
     try {
-      await service.createWorkspace(name);
+      const create = isWorkTodoMode() ? service.worktodoCreateWorkspace : service.createWorkspace;
+      await create(name);
       closeWorkspaceDrawer();
       await refreshBoard({ quiet: true });
       setBanner("工作區「" + esc(name) + "」已建立並保存至 Cloud。", "success");
@@ -1695,18 +1701,21 @@
     const summary = modal?.querySelector("#taskSummary")?.value?.trim() || "";
     const usageScenario = modal?.querySelector("#taskUsageScenario")?.value?.trim() || "";
     const title = modal?.querySelector("#taskTitle")?.value?.trim() || summary.slice(0, 80);
-    if (!title) { setBanner("請輸入 Task 標題或內容。", "error"); return; }
+    const itemLabel = workItemLabel();
+    const workspace = state.workspaces.find(row => String(row.id) === state.pendingCreateWorkspaceId || String(row.key) === state.pendingCreateWorkspaceId);
+    const workspaceId = workspace?.id || null;
+    if (!title) { setBanner("請輸入 " + itemLabel + " 標題或內容。", "error"); return; }
     try {
       if (state.applicationScope === "worktodo") {
-        await service.worktodoCreateTask({ title, summary, status: "not_started", usageScenario });
+        await service.worktodoCreateTask({ title, summary, status: "not_started", usageScenario, workspaceId });
       } else {
         await service.createTask({ title: title, summary: summary, usageScenario: usageScenario });
       }
       closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
       await refreshBoard({ quiet: true });
-      setBanner(state.applicationScope === "worktodo" ? "工作待辦已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
-    } catch (error) { setBanner("TASK 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
+      setBanner(state.applicationScope === "worktodo" ? "WLTK 已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
+    } catch (error) { setBanner(itemLabel + " 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   async function refreshBoard(options) {
     options = options || {};

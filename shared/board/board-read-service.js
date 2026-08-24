@@ -643,6 +643,11 @@
     return gateway.rpc("worktodo_reorder_workspaces", { p_workspace_ids: workspaceIds });
   }
 
+  async function worktodoCreateWorkspace(name, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_create_workspace", { p_name: name }).then(normalizeWorkspace);
+  }
+
   async function moveTaskWorkspace(taskId, targetWorkspaceId, note = "", options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_move_task_workspace", {
@@ -680,7 +685,8 @@
       p_title: input.title,
       p_summary: input.summary || null,
       p_status: input.status || "not_started",
-      p_usage_scenario: input.usageScenario || null
+      p_usage_scenario: input.usageScenario || null,
+      p_workspace_id: input.workspaceId || null
     }).then(normalizeTask);
   }
 
@@ -962,6 +968,7 @@
     reorderWorkspaces,
     worktodoRenameWorkspace,
     worktodoReorderWorkspaces,
+    worktodoCreateWorkspace,
     moveTaskWorkspace,
     governanceAction,
     createTask,

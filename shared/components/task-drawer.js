@@ -55,8 +55,9 @@
 
   function render(options) {
     const config = options || {};
-    const title = escapeHtml(config.title || "TASK");
-    const titleCode = escapeHtml(config.titleCode || "");
+    const itemLabel = escapeHtml(config.itemLabel || "TASK");
+    const title = escapeHtml(config.title || itemLabel);
+    const titleCode = escapeHtml(config.titleCode || itemLabel);
     const subtitle = escapeHtml(config.subtitle || "Task Detail");
     const sections = Array.isArray(config.sections) ? config.sections : [];
     const activity = config.activity || {};
@@ -74,7 +75,7 @@
     const footer = config.footerHtml ? `<footer class="shared-task-drawer-footer">${config.footerHtml}</footer>` : "";
     const readOnly = config.readOnly === true ? " data-read-only=\"true\"" : "";
     const titleEditor = config.titleEditable === true && config.readOnly !== true
-      ? `<button class="shared-task-drawer-title-edit" type="button" data-task-title-edit aria-label="編輯 TASK 主旨" title="編輯 TASK 主旨">✏️</button>`
+      ? `<button class="shared-task-drawer-title-edit" type="button" data-task-title-edit aria-label="編輯 ${itemLabel} 主旨" title="編輯 ${itemLabel} 主旨">✏️</button>`
       : "";
     const heading = titleCode
       ? `<span class="shared-task-drawer-title-code" data-shared-task-title-code>${titleCode}</span><span class="shared-task-drawer-title-separator" aria-hidden="true">｜</span><span id="taskDetailTitle" data-shared-task-title>${title}</span>`
