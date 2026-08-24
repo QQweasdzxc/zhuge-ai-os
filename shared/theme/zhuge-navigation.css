@@ -234,8 +234,11 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
   font: inherit;
 }
 .zhuge-module-shell > .os-sidebar .brand-mark {
+  display: inline-block;
   width: 20px;
-  height: auto;
+  height: 18.4px;
+  line-height: 18.4px;
+  overflow: hidden;
 }
 .zhuge-module-shell .sidebar-brand {
   align-items: center;
