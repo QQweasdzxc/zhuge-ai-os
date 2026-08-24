@@ -95,6 +95,33 @@ test("Template Management Center derives consumers and counts from the canonical
   assert.equal(models.find(model => model.template.id === "board").enabledCount, 1);
 });
 
+test("Template Management Center bind waits for a policy event instead of scheduling a render loop", async () => {
+  const previousDocument = global.document;
+  const previousRuntime = global.ZhugeTemplateAdoptionRuntime;
+  const listeners = new Map();
+  let refreshes = 0;
+
+  global.document = {
+    addEventListener(name, callback) {
+      listeners.set(name, callback);
+    }
+  };
+  global.ZhugeTemplateAdoptionRuntime = { policy: { status: "resolved" } };
+
+  try {
+    ManagementCenter.bind({ querySelectorAll: () => [] }, { onUpdated: () => { refreshes += 1; } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(refreshes, 0);
+    listeners.get("zhuge-template-adoption-ready")?.();
+    assert.equal(refreshes, 1);
+  } finally {
+    if (previousDocument === undefined) delete global.document;
+    else global.document = previousDocument;
+    if (previousRuntime === undefined) delete global.ZhugeTemplateAdoptionRuntime;
+    else global.ZhugeTemplateAdoptionRuntime = previousRuntime;
+  }
+});
+
 test("template adoption is separate from MFA and attaches to the existing Shared Runtime", () => {
   const migration = read("docs/supabase/20260823_creator_template_adoption_control.sql");
   assert.match(migration, /get_creator_template_adoption_preferences/);
@@ -110,6 +137,7 @@ test("template adoption is separate from MFA and attaches to the existing Shared
   assert.match(management, /supportedTemplates/);
   assert.match(management, /setEnabled\(\{ pageId, templateId, userId:/);
   assert.match(management, /bootstrapTemplatePolicy\(\{ force: true \}\)/);
+  assert.doesNotMatch(management, /queueMicrotask\(\(\) => options\.onUpdated\(\)\)/);
 
   const context = read("shared/services/module-context.js");
   const provider = read("shared/auth/runtime-session-provider.js");

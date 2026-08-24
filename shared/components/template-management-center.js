@@ -136,10 +136,6 @@
   function bind(container, options = {}) {
     if (!container) return;
     ensurePolicyEvents(options.onUpdated);
-    const currentStatus = String(root?.ZhugeTemplateAdoptionRuntime?.policy?.status || "");
-    if (typeof options.onUpdated === "function" && ["resolved", "error", "non_creator"].includes(currentStatus)) {
-      queueMicrotask(() => options.onUpdated());
-    }
     container.querySelectorAll("[data-template-management-toggle]").forEach(button => {
       button.addEventListener("click", () => {
         const panel = root.document?.getElementById(button.getAttribute("aria-controls"));
