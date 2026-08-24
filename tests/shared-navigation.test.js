@@ -57,6 +57,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /\.zhuge-module-shell > \.os-sidebar\s*\{[\s\S]*font-family:\s*-apple-system/);
   assert.match(css, /\.zhuge-module-shell > \.os-sidebar \*,\s*[\s\S]*box-sizing:\s*border-box/);
   assert.match(css, /\.zhuge-module-shell > \.os-sidebar \.shared-nav-collapse\s*\{[\s\S]*font:\s*inherit/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar \.brand-mark\s*\{[\s\S]*width:\s*20px[\s\S]*height:\s*auto/);
   assert.match(css, /canonical Sidebar geometry/i);
   assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
   assert.doesNotMatch(worklogCss, /workspace-worklog \.side-item\{min-height:46px/);
@@ -70,6 +71,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
   assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "investment"\]/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
+  assert.ok(worklogIndex.indexOf("shared/config/version.js") < worklogIndex.indexOf("shared/components/zhuge-navigation.js"), "WorkLog must load the shared release identity before mounting canonical navigation");
   const stylesheetOrder = [
     [index, "shared/theme/zhuge-workspace.css"],
     [read("app/Board/worktodo/index.html"), "shared/theme/zhuge-workspace.css"],

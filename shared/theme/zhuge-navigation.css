@@ -233,6 +233,10 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell > .os-sidebar .shared-nav-collapse {
   font: inherit;
 }
+.zhuge-module-shell > .os-sidebar .brand-mark {
+  width: 20px;
+  height: auto;
+}
 .zhuge-module-shell .sidebar-brand {
   align-items: center;
   padding: 10px 6px 18px;
