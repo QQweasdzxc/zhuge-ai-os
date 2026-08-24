@@ -5,6 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-24 07:48'
+updated_date: '2026-08-24 16:32'
 labels:
   - golden-master
   - template
@@ -38,3 +39,9 @@ PM confirmed that AI Board is the sole canonical C template. WorkTodo must consu
 <!-- SECTION:PLAN:BEGIN -->
 1. Audit the shared Golden Master, WorkTodo adapter, existing progress attachment Storage/Repository path, and workspace operation RPC/capability contract. 2. Implement the shared 48px spacing and progress attachment lifecycle using the existing controlled path. 3. Align WorkTodo workspace create/reorder/rename capabilities with the canonical operation contract without duplicating the C template or bypassing authorization. 4. Keep TASK/WLTK labels scoped to their domain, add focused regression coverage, and run desktop/mobile runtime QA. 5. Commit the approved source change and report Cloud, domain-data, Git, and QA boundaries.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PM 最新附件規格已取代先前 48px 的舊間距方向：共用 Shared Task Drawer 工作進度列表改為卡片間距 20px、卡片內距 16px，並補上統一邊界；保留附件、編輯、刪除與雙 Consumer 共用呈現。已更新 shared/theme/task-drawer.css 與 TASK-011/TASK-042 regression assertions。驗證：targeted 59 passed / 0 failed；full regression 222 passed / 0 failed / 4 browser skips（環境未設定瀏覽器執行檔）。
+<!-- SECTION:NOTES:END -->

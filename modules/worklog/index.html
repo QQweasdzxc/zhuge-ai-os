@@ -18,7 +18,7 @@
       .app-boot-main{background:#0f1827;padding:22px;display:grid;align-content:start;gap:18px}.app-boot-header{min-height:78px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:#141e2d;padding:16px 18px;display:grid;gap:7px}.app-boot-header span{font-size:11px;letter-spacing:.12em;color:#73b5ff;font-weight:800}.app-boot-header strong{font-size:20px}.app-boot-content{display:grid;gap:12px}.app-boot-row{height:76px;background:#142237}.app-boot-row.short{height:44px;width:62%}.app-boot-status{display:flex;align-items:center;gap:9px;color:#aebbd0;font-size:13px}.app-boot-status:before{content:"";width:8px;height:8px;border-radius:50%;background:#f0bb55;box-shadow:0 0 0 5px rgba(240,187,85,.12)}
       @media(max-width:800px){.app-boot-shell{grid-template-columns:1fr;padding:10px}.app-boot-sidebar{min-height:64px;padding:14px;display:block}.app-boot-brand{border:0}.app-boot-nav{display:none}.app-boot-main{padding:14px}.app-boot-row.short{width:100%}}
     </style>
-    <script src="../../shared/config/version.js?v=20260825-0004"></script>
+    <script src="../../shared/config/version.js?v=20260825-0634"></script>
     <script>
       (() => {
         const view = new URLSearchParams(window.location.search).get("templateView");
@@ -120,12 +120,12 @@
           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worklog-app.js"
         ];
         const appStyles = [
-          "../../shared/theme/zhuge-shell.css?v=20260825-0004",
-          "../../shared/theme/task-card.css?v=20260825-0004",
+          "../../shared/theme/zhuge-shell.css?v=20260825-0634",
+          "../../shared/theme/task-card.css?v=20260825-0634",
           "../../shared/theme/task-drawer.css?v=20260824-worktodo-qa-fixes",
           "../../shared/theme/task-board.css?v=20260824-worktodo-qa-fixes",
-          "./worklog.css?v=20260825-0004",
-          "../../shared/theme/golden-master.css?v=20260825-0004",
+          "./worklog.css?v=20260825-0634",
+          "../../shared/theme/golden-master.css?v=20260825-0634",
           "../../shared/theme/zhuge-os.css?v=20260729-2158",
           "../../shared/theme/ai-product.css?v=20260729-2158",
           "../../shared/theme/zhuge-workspace.css?v=20260811-workspace-1",
@@ -182,7 +182,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260825-0004`;
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260825-0634`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true); };
