@@ -30,14 +30,6 @@
   }
 
   function mountAccessShell(root, options = {}) {
-    const nav = root?.querySelector("#zhugeSharedNavigation");
-    const policy = global.ZhugeTemplateAdoptionRuntime;
-    const navigationEnabled = policy?.service?.isTemplateEnabled?.({ pageId: "investment", templateId: "navigation", userId: policy.policy?.userId || "" }) === true;
-    if (nav && global.ZhugeSharedNavigation && navigationEnabled) {
-      const foundation = global.ZhugeFoundationConfig || {};
-      const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
-      global.ZhugeSharedNavigation.mount(nav, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
-    }
     const header = root?.querySelector("#zhugeSharedHeader");
     if (header && global.ZhugeSharedShell) {
       const foundation = global.ZhugeFoundationConfig || {};
@@ -151,14 +143,6 @@
     const dependencies = dependencyBundle();
 
     global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
-    const sharedNavTarget = root.querySelector("#zhugeSharedNavigation");
-    const policy = global.ZhugeTemplateAdoptionRuntime;
-    const navigationEnabled = policy?.service?.isTemplateEnabled?.({ pageId: "investment", templateId: "navigation", userId: policy.policy?.userId || "" }) === true;
-    if (sharedNavTarget && global.ZhugeSharedNavigation && navigationEnabled) {
-      const foundation = global.ZhugeFoundationConfig || {};
-      const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
-      global.ZhugeSharedNavigation.mount(sharedNavTarget, { activeWorkspace: "investment", externalRoot: "../../", version: release.version, build: release.build });
-    }
     function renderSharedHeader(pageId) {
       const sharedHeaderTarget = root.querySelector("#zhugeSharedHeader");
       if (!sharedHeaderTarget || !global.ZhugeSharedShell) return;
@@ -192,6 +176,7 @@
         : page.render(state, dependencies));
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
+        button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
       });
     }
 

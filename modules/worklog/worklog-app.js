@@ -3210,31 +3210,12 @@ function worklogTemplatePageId(workspaceId = activeWorkspace) {
   return ["dashboard", "worklog", "library", "sync", "settings"].includes(id) ? id : "";
 }
 
-function worklogNavigationAdopted(pageId = worklogTemplatePageId()) {
-  const runtime = window.ZhugeTemplateAdoptionRuntime;
-  return Boolean(runtime?.service?.isTemplateEnabled?.({
-    pageId,
-    templateId: "navigation",
-    userId: runtime.policy?.userId || ""
-  }));
-}
-
-function osSidebar() {
-  // Legacy contract: if (SYSTEM_TEMPLATE_VIEW !== "navigation") return "";
-  if (SYSTEM_TEMPLATE_VIEW !== "navigation" && !worklogNavigationAdopted()) return "";
-  const checked = new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
-  const syncTime = cloudSync.lastSyncedAt ? fmt(cloudSync.lastSyncedAt) : "尚未同步";
-  if (typeof ZhugeSharedNavigation === "undefined") return "";
-  return ZhugeSharedNavigation.render({
-    workspaceRegistry,
-    activeWorkspace,
-    agentStatuses,
-    escapeHtml,
-    sidebarSyncStatusLabel,
-    syncTime,
-    version: VERSION,
-    build: BUILD_TIME
-  });
+function sharedNavigationTargetMarkup() {
+  const pageId = IS_SYSTEM_TEMPLATE_VIEW ? "" : worklogTemplatePageId(activeWorkspace);
+  const isNavigationTemplate = SYSTEM_TEMPLATE_VIEW === "navigation";
+  const pageAttribute = pageId ? ` data-template-page-id="${escapeHtml(pageId)}"` : "";
+  const disabledAttribute = isNavigationTemplate ? "" : ' data-shared-navigation-disabled="true"';
+  return `<div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="${escapeHtml(activeWorkspace)}"${pageAttribute}${disabledAttribute}></div>`;
 }
 
 function workspaceTabs() {
@@ -3740,8 +3721,7 @@ function osShell() {
   const globalNavAttribute = SYSTEM_TEMPLATE_VIEW === "navigation" ? "" : ' data-shared-navigation-mode="template-only"';
   const templatePageId = IS_SYSTEM_TEMPLATE_VIEW ? "" : worklogTemplatePageId(activeWorkspace);
   const templatePageAttribute = templatePageId ? ` data-template-page-id="${escapeHtml(templatePageId)}"` : "";
-  const navigationActiveAttribute = SYSTEM_TEMPLATE_VIEW === "navigation" || worklogNavigationAdopted(templatePageId) ? ' data-shared-navigation-active="true"' : "";
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}${navigationActiveAttribute}>${osSidebar()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}>${sharedNavigationTargetMarkup()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
 }
 
 function onboardingWorkspace() {
@@ -7371,13 +7351,6 @@ async function boot() {
 }
 
 boot();
-
-document.addEventListener("zhuge-template-adoption-ready", event => {
-  if (SYSTEM_TEMPLATE_VIEW) return;
-  const pageId = worklogTemplatePageId(activeWorkspace);
-  if (event.detail?.pageId !== pageId || !document.querySelector(".os-shell[data-template-page-id]")) return;
-  render("template-adoption-ready");
-});
 
 window.addEventListener("focus", () => refreshConversationFromCloud(true));
 document.addEventListener("visibilitychange", () => {

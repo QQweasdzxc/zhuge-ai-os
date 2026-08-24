@@ -19,11 +19,15 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(index, /id="zhugeSharedNavigation"/);
   assert.match(index, /shared\/components\/zhuge-navigation\.js/);
   assert.match(index, /shared\/theme\/zhuge-navigation\.css/);
-  assert.match(worklog, /ZhugeSharedNavigation\.render/);
+  assert.match(worklog, /sharedNavigationTargetMarkup/);
+  assert.match(worklog, /id="zhugeSharedNavigation"/);
+  assert.doesNotMatch(worklog, /function osSidebar|worklogNavigationAdopted|ZhugeSharedNavigation\.render/);
   assert.match(worklogIndex, /shared\/components\/zhuge-navigation\.js/);
-  assert.match(worklog, /version: VERSION,\s*build: BUILD_TIME/);
+  assert.match(worklogIndex, /shared\/identity\/creator-resolver\.js/);
   assert.match(investmentIndex, /shared\/config\/version\.js/);
-  assert.match(investmentModule, /version: release\.version, build: release\.build/);
+  assert.doesNotMatch(investmentModule, /ZhugeSharedNavigation\.mount/);
+  assert.match(investmentShell, /investment-content-tabs/);
+  assert.doesNotMatch(investmentShell, /investment-local-nav/);
   for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /data-zhuge-shared-navigation/);
   assert.doesNotMatch(nav, /investment:[^\n]*status:\s*["']SIT["']/);
@@ -47,6 +51,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /\.workspace-content-container/);
   assert.match(css, /--zhuge-sidebar-item-height: 46px/);
   assert.match(css, /--zhuge-sidebar-child-height: 42px/);
+  assert.match(css, /height:\s*calc\(100vh - 36px\)/);
+  assert.match(css, /max-height:\s*calc\(100vh - 36px\)/);
   assert.match(css, /canonical Sidebar geometry/i);
   assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
   assert.doesNotMatch(worklogCss, /workspace-worklog \.side-item\{min-height:46px/);

@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-21 05:35'
-updated_date: '2026-08-21 08:26'
+updated_date: '2026-08-24 02:33'
 labels:
   - system-template
   - shared-ux
@@ -38,6 +38,8 @@ ordinal: 8000
 1. 將現有 AI Board Presentation 原樣去資料化，升格為唯一 Empty Golden Master。 2. 保留 AI Board / WorkTodo 各自 Adapter、Domain Data、Repository、Cloud path 與 Business Rule。 3. 讓 System Template 只 mount 同一份空白母版，不使用 Fixture、GM-FIX 或 Preview renderer。 4. 完成 static QA、automated regression 與本機 Runtime smoke test；不做 migration、schema、RPC、RLS、Cloud write、Template Editor 或新功能。
 
 5. Under the PM's revised Phase 1 decision, keep the existing AI Board page untouched, add a source-equivalent new WorkTodo entry that loads the same AI Board runtime in an empty-data mode, and split navigation from the new entry to the unchanged legacy WorkTodo route.
+
+PM 2026-08-24 Shared Navigation conformance fix: centralize A mount lifecycle for all consumers, remove Investment local navigation while preserving internal tabs, enforce one shared shell geometry including fixed desktop rail height and responsive overrides, then run eight-page Desktop/Mobile QA against canonical A with no Cloud/Auth/Domain/Golden Master changes.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

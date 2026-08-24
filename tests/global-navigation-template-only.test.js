@@ -6,7 +6,7 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-test("formal pages do not mount the global navigation outside System Template A", () => {
+test("formal pages defer navigation mounting to the shared adoption lifecycle", () => {
   const navigation = read("shared/components/zhuge-navigation.js");
   const shell = read("shared/components/zhuge-shell.js");
   const navigationCss = read("shared/theme/zhuge-navigation.css");
@@ -15,7 +15,8 @@ test("formal pages do not mount the global navigation outside System Template A"
   assert.match(navigation, /sharedNavigationDisabled !== "true"/);
   assert.match(shell, /showNavigationMenu: !target\.closest\('\[data-shared-navigation-mode="template-only"\]'\)/);
   assert.match(navigationCss, /data-shared-navigation-mode="template-only"/);
-  assert.match(worklog, /if \(SYSTEM_TEMPLATE_VIEW !== "navigation"\) return "";/);
+  assert.match(worklog, /function sharedNavigationTargetMarkup/);
+  assert.match(worklog, /isNavigationTemplate \? "" : ' data-shared-navigation-disabled="true"'/);
   assert.match(worklog, /SYSTEM_TEMPLATE_VIEW === "navigation" \? "" : ' data-shared-navigation-mode="template-only"'/);
 
   for (const file of ["app/dashboard/index.html", "app/Board/ai/index.html", "app/Board/worktodo/index.html"]) {

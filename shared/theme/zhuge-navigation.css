@@ -20,7 +20,7 @@
   --zhuge-sidebar-collapsed-item-gap: 4px;
 }
 .zhuge-module-shell{box-sizing:border-box;width:100%;max-width:none;min-height:100vh;margin:0;padding:18px;display:grid;grid-template-columns:minmax(232px,var(--shell-sidebar-width)) minmax(0,1fr);gap:var(--shell-main-gap);transition:grid-template-columns .2s ease}.zhuge-module-shell>.app{min-width:0;width:100%}
-.os-sidebar{background:#1e293b;border:1px solid #334155;border-radius:22px;padding:14px;align-self:start;position:sticky;top:18px;min-height:calc(100vh - 36px);z-index:20;transition:width .2s ease,padding .2s ease}.os-shell.zhuge-nav-collapsed .os-body,.zhuge-module-shell.zhuge-nav-collapsed{grid-template-columns:var(--zhuge-sidebar-collapsed-width) minmax(0,1fr)}
+.os-sidebar{box-sizing:border-box;width:100%;background:#1e293b;border:1px solid #334155;border-radius:22px;padding:14px;align-self:start;position:sticky;top:18px;min-height:calc(100vh - 36px);z-index:20;transition:width .2s ease,padding .2s ease}.os-shell.zhuge-nav-collapsed .os-body,.zhuge-module-shell.zhuge-nav-collapsed{grid-template-columns:var(--zhuge-sidebar-collapsed-width) minmax(0,1fr)}
 .sidebar-brand{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px}.brand-row{display:flex;align-items:center;gap:10px;min-width:0}.brand-stack{display:flex;flex-direction:column;align-items:flex-start;gap:2px;color:#f8fafc;text-decoration:none;cursor:pointer;min-width:0}.brand-stack h1{font-size:1.25rem;margin:0;white-space:nowrap}.brand-mark{font-size:1rem}.brand-companion{display:block;margin-left:34px;color:#93c5fd;font-size:.75rem;font-weight:850;letter-spacing:.02em}
 .agent-panel,.side-section{border:1px solid #334155;border-radius:18px;background:#111827;padding:12px;margin-bottom:12px}.agent-panel h3,.side-section h3,.side-section-heading{display:flex;align-items:center;gap:7px;font-size:.9375rem;margin:0 0 10px;color:#e2e8f0}.side-section-heading{padding:5px 6px;border:1px solid transparent;border-radius:12px;text-decoration:none}.side-section-heading:hover,.side-section-heading.on{border-color:#60a5fa;background:#172554}.nav-section-icon{flex:0 0 auto}.nav-section-label{min-width:0}.agent-row{display:flex;justify-content:space-between;gap:8px;color:#cbd5e1;font-size:.8125rem;padding:7px 0;border-top:1px solid rgba(51,65,85,.65)}.agent-row:first-of-type{border-top:0}.agent-row b{color:#93c5fd}.agent-name{display:inline-flex;align-items:center;gap:5px;min-width:0}.agent-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid transparent;background:transparent;color:#f8fafc;border-radius:14px;padding:10px 9px;margin-top:6px;text-align:left;font-weight:850;cursor:pointer;text-decoration:none;min-width:0}.side-item:hover,.side-item.on{border-color:#60a5fa;background:#172554}.side-item small{color:#cbd5e1;font-size:.6875rem}.side-item.disabled{cursor:default;opacity:.72}.side-item.disabled:hover{border-color:transparent;background:transparent}.side-item-child{margin-left:12px;width:calc(100% - 12px);font-weight:750}.side-item-icon{flex:0 0 1.25rem;text-align:center;font-size:1rem}.side-item-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
@@ -33,6 +33,15 @@
 @media(max-width:767px){.zhuge-module-shell{display:block;padding:8px}.zhuge-module-shell>.os-sidebar{position:fixed;top:0;left:0;bottom:0;width:min(86vw,320px);z-index:120;transform:translateX(-105%);transition:transform .22s ease;overflow-y:auto;border-radius:0 22px 22px 0}.zhuge-module-shell.sidebar-open>.os-sidebar{transform:translateX(0)}.sidebar-close{display:inline-flex}.sidebar-menu-mark{display:inline-flex}.zhuge-module-shell>.app{width:100%}.zhuge-module-shell.zhuge-nav-collapsed{display:block}.zhuge-module-shell.zhuge-nav-collapsed>.os-sidebar{width:min(86vw,320px)}}
 
 .zhuge-module-shell > .sidebar-backdrop { display: none; }
+/* The A Golden Master has a viewport-anchored desktop rail.  Its outer
+ * geometry must not grow when a Consumer's B/C content becomes taller. */
+@media (min-width: 768px) {
+  .zhuge-module-shell > .os-sidebar {
+    height: calc(100vh - 36px);
+    min-height: calc(100vh - 36px);
+    max-height: calc(100vh - 36px);
+  }
+}
 @media(max-width:767px) {
   .zhuge-module-shell.sidebar-open > .sidebar-backdrop {
     display: block;

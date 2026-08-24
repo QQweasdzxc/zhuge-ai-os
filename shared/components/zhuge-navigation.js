@@ -129,6 +129,22 @@
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
+  function placeholderFromMountedNode(node) {
+    const target = document.createElement("div");
+    target.id = "zhugeSharedNavigation";
+    ["externalRoot", "activeWorkspace", "templatePageId", "sharedNavigationDisabled", "version", "build", "syncTime"].forEach(key => {
+      const value = node?.dataset?.[key];
+      if (value != null && value !== "") target.dataset[key] = value;
+    });
+    node?.replaceWith(target);
+    return target;
+  }
+  function unmount(node) {
+    if (!node) return null;
+    const shell = shellFor(node);
+    if (shell?.dataset.sharedNavigationMode === "template-only") delete shell.dataset.sharedNavigationActive;
+    return placeholderFromMountedNode(node);
+  }
   function setCollapsed(shell, collapsed) {
     if (!shell) return;
     shell.classList.toggle("zhuge-nav-collapsed", collapsed);
@@ -183,10 +199,16 @@
     if (shellTarget?.dataset.sharedNavigationMode === "template-only") {
       shellTarget.dataset.sharedNavigationActive = "true";
     }
+    const targetDataset = {};
+    ["externalRoot", "activeWorkspace", "templatePageId", "sharedNavigationDisabled", "version", "build", "syncTime"].forEach(key => {
+      const value = target.dataset?.[key];
+      if (value != null && value !== "") targetDataset[key] = value;
+    });
     const targetVersion = target.dataset.version || "";
     const targetBuild = target.dataset.build || "";
     target.outerHTML = render({ ...options, version: options.version || targetVersion, build: options.build || targetBuild, activeWorkspace: options.activeWorkspace || target.dataset.activeWorkspace || "", externalRoot: target.dataset.externalRoot || options.externalRoot || "" });
-    const node = document.querySelector("[data-zhuge-shared-navigation='true']");
+    const node = shellTarget?.querySelector("[data-zhuge-shared-navigation='true']") || document.querySelector("[data-zhuge-shared-navigation='true']");
+    Object.entries(targetDataset).forEach(([key, value]) => { node.dataset[key] = value; });
     const shell = shellFor(node);
     if (shell) {
       let stored = null;
@@ -202,6 +224,24 @@
   let policyBootstrapGeneration = 0;
   function policyRuntime() {
     return global.ZhugeTemplateAdoptionRuntime || null;
+  }
+  function policyDependenciesReady() {
+    return Boolean(
+      global.ZhugeTemplateAdoptionPolicy?.createService
+      && global.ZhugeSupabaseGateway?.createDataGateway
+      && global.ZhugeCreatorResolver?.create
+    );
+  }
+  function sharedNavigationMountOptions(target) {
+    const foundation = global.ZhugeFoundationConfig || {};
+    const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
+    return {
+      activeWorkspace: target?.dataset.activeWorkspace || "",
+      externalRoot: target?.dataset.externalRoot || "",
+      version: target?.dataset.version || release.version || "",
+      build: target?.dataset.build || release.build || "",
+      syncTime: target?.dataset.syncTime || ""
+    };
   }
   function readTemplatePolicyUserId() {
     try {
@@ -220,7 +260,7 @@
     if (policyBootstrapPromise && !force) return policyBootstrapPromise;
     const marker = document.querySelector("[data-template-page-id]");
     const pageId = String(marker?.dataset.templatePageId || "").trim().toLowerCase();
-    if (!pageId || !global.ZhugeTemplateAdoptionPolicy?.createService) return null;
+    if (!pageId || !policyDependenciesReady()) return null;
     const generation = ++policyBootstrapGeneration;
     const run = (async () => {
       const dataGateway = global.ZhugeSupabaseGateway?.createDataGateway?.() || null;
@@ -250,15 +290,35 @@
       userId: runtime.policy?.userId || ""
     }));
   }
+  function bootstrapAndMount() {
+    if (policyRuntime() || !policyDependenciesReady()) return;
+    bootstrapTemplatePolicy().then(() => autoMount()).catch(() => {
+      // Cloud errors remain fail-closed; the page keeps the safe default.
+    });
+  }
   function autoMount() {
     wireCollapse();
+    const mounted = document.querySelector("[data-zhuge-shared-navigation='true']");
+    if (mounted) {
+      const mountedPageTarget = Boolean(pageIdForTarget(mounted));
+      if (mountedPageTarget && policyRuntime() && !isNavigationAdopted(mounted)) unmount(mounted);
+      return;
+    }
     const target = document.getElementById("zhugeSharedNavigation");
+    if (!target || target.dataset.zhugeNavigationMounting === "true") return;
     const pageTarget = Boolean(target?.dataset.templatePageId || target?.closest?.("[data-template-page-id]"));
     const legacyTargetEnabled = target && target.dataset.sharedNavigationDisabled !== "true";
-    if (target && (legacyTargetEnabled || pageTarget) && !target.dataset.worklogManaged && isNavigationAdopted(target)) mount(target);
+    if (!(legacyTargetEnabled || pageTarget) || target.dataset.worklogManaged) return;
+    if (pageTarget && !policyRuntime()) {
+      bootstrapAndMount();
+      return;
+    }
+    if (!isNavigationAdopted(target)) return;
+    target.dataset.zhugeNavigationMounting = "true";
+    mount(target, sharedNavigationMountOptions(target));
   }
   function refresh() { autoMount(); }
-  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, autoMount, refresh, bootstrapTemplatePolicy, setCollapsed, setSyncStatus });
+  global.ZhugeSharedNavigation = Object.freeze({ DEFAULT_REGISTRY, destination, render, mount, unmount, autoMount, refresh, bootstrapTemplatePolicy, setCollapsed, setSyncStatus });
   document.addEventListener("zhuge-template-adoption-ready", autoMount);
   document.addEventListener("zhuge-template-adoption-updated", autoMount);
   document.addEventListener("zhuge-template-adoption-updated", () => bootstrapTemplatePolicy({ force: true }));
