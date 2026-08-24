@@ -7,12 +7,16 @@ const root = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled Cloud path", () => {
-  const sql = read("docs/supabase/20260824_template_operation_parity.sql");
+  const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
 
   assert.match(sql, /worktodo_rename_workspace/);
   assert.match(sql, /worktodo_reorder_workspaces/);
+  assert.match(sql, /worktodo_create_workspace/);
+  assert.match(sql, /worktodo_create_task/);
+  assert.match(sql, /v_user, 'human', 'QJC', 'system_activity'/);
+  assert.match(sql, /workspace_id/);
   assert.match(sql, /is_engineering_member\(array\['owner'\]\)/);
   assert.match(sql, /zhuge\.worktodo_workspace_write/);
   assert.match(sql, /workspace\.application_scope = 'worktodo'/);
@@ -22,6 +26,8 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /gateway\.rpc\("worktodo_reorder_workspaces"/);
   assert.match(service, /worktodoRenameWorkspace,/);
   assert.match(service, /worktodoReorderWorkspaces,/);
+  assert.match(service, /gateway\.rpc\("worktodo_create_workspace"/);
+  assert.match(service, /worktodoCreateWorkspace,/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
   assert.match(runtime, /if \(isWorkTodoMode\(\)\) await service\.worktodoReorderWorkspaces\(workspaceIds\)/);
@@ -36,7 +42,7 @@ test("TASK-011 shares spacing and attachment presentation across AI Board and Wo
 
   assert.match(boardCss, /shared-task-board-column>\.add\{[^}]*margin:16px 10px 10px/);
   assert.match(boardCss, /shared-task-board-add-card\{[^}]*margin:16px 10px 10px/);
-  assert.match(drawerCss, /data-shared-task-timeline\].*gap:16px/);
+  assert.match(drawerCss, /data-shared-task-timeline\].*gap:48px/);
   assert.match(runtime, /const files = Array\.from\(attachmentInput\?\.files \|\| \[\]\)/);
   assert.doesNotMatch(runtime, /const files = workTodo \? \[\] : Array\.from/);
   assert.match(runtime, /progressAttachmentIcon/);

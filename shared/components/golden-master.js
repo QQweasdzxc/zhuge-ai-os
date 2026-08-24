@@ -107,14 +107,15 @@
 
   function renderOperations(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
+    const itemLabel = options.applicationScope === "worktodo" ? "WLTK" : "TASK";
     return `<div class="golden-master-operations" data-golden-master-operations="true"${scope ? ` data-application-scope="${scope}"` : ""}>
 <div id="addCardModal" class="modalback" aria-hidden="true">
  <div class="modal board-create-drawer">
-  <div class="modalhead"><h2>新增 TASK</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 TASK">×</button></div>
+  <div class="modalhead"><h2>新增 ${itemLabel}</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 ${itemLabel}">×</button></div>
   <div class="modalbody">
    <div class="field"><label for="taskSummary">需求內容</label><textarea id="taskSummary" placeholder="要完成什麼？"></textarea></div>
    <div class="field"><label for="taskUsageScenario">使用情境</label><textarea id="taskUsageScenario" placeholder="使用者為什麼需要？實際會怎麼使用？"></textarea><div class="hint">使用情境是正式內容；沒有資料時不自行猜測。</div></div>
-   <div class="field"><label for="taskTitle">TASK 標題</label><input id="taskTitle" placeholder="例如：AI Board Checklist 驗收"></div>
+   <div class="field"><label for="taskTitle">${itemLabel} 標題</label><input id="taskTitle" placeholder="例如：AI Board Checklist 驗收"></div>
   </div>
   <div class="modalfoot"><button class="btn" type="button" data-golden-master-close="add-card">取消</button><button class="btn primary" type="button" data-golden-master-create-card>建立卡片</button></div>
  </div>
@@ -131,9 +132,9 @@
 <aside id="archiveDrawer" class="board-create-drawer board-archive-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="封存">
  <div class="modalhead"><h2>📦 封存</h2><button class="x" type="button" data-archive-close aria-label="關閉封存">×</button></div>
  <div class="modalbody">
-  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 TASK、治理原因或工作區" aria-label="搜尋封存 TASK"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
+  <div class="board-archive-toolbar"><input id="archiveSearch" type="search" placeholder="搜尋封存 ${itemLabel}、治理原因或工作區" aria-label="搜尋封存 ${itemLabel}"><select id="archiveFilter" aria-label="封存狀態篩選"><option value="all">全部狀態</option><option value="done">已完成</option><option value="merged">已合併</option><option value="cancelled">已取消</option></select></div>
   <div id="archiveCount" class="board-archive-count" aria-live="polite"></div>
-  <div id="archiveTaskList" class="board-archive-list"><div class="board-empty">目前沒有封存 TASK。</div></div>
+  <div id="archiveTaskList" class="board-archive-list"><div class="board-empty">目前沒有封存 ${itemLabel}。</div></div>
  </div>
 </aside>
 

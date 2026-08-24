@@ -72,7 +72,7 @@
 .shared-task-drawer-checklist-panel[open]>summary::after{content:"⌃"}
 .shared-task-drawer-checklist-count{color:#9fb0c5;font-size:11px;font-weight:600;margin-left:auto}
 .shared-task-drawer-checklist-body{border-top:1px solid #293241;padding:10px 11px}
-.shared-task-drawer-activity-list[data-shared-task-timeline]{position:relative;display:grid;gap:16px;padding:2px 0 8px 3px}
+.shared-task-drawer-activity-list[data-shared-task-timeline]{position:relative;display:grid;gap:48px;padding:2px 0 8px 3px}
 .shared-task-drawer-activity-list[data-shared-task-timeline]::before{content:"";position:absolute;left:12px;top:11px;bottom:11px;width:1px;background:#344052}
 .shared-task-drawer-activity-list[data-shared-task-timeline] .shared-task-drawer-activity-row{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr);gap:9px;min-height:118px;box-sizing:border-box;border:0;border-bottom:1px solid #293241;border-radius:9px;padding:16px 10px 14px 0;background:transparent}
 .shared-task-drawer-activity-list[data-shared-task-timeline] .shared-task-drawer-activity-row:last-child{border-bottom:0}
