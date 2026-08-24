@@ -320,9 +320,6 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"] {
   grid-template-columns: minmax(232px,var(--shell-sidebar-width)) minmax(0,1fr) !important;
 }
-.zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"].zhuge-nav-collapsed {
-  grid-template-columns: var(--zhuge-sidebar-collapsed-width) minmax(0,1fr) !important;
-}
 .zhuge-module-shell[data-shared-navigation-mode="template-only"] > .workspace-app,
 .zhuge-module-shell[data-shared-navigation-mode="template-only"] > .app {
   grid-column: 1;
