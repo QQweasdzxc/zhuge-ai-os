@@ -19,6 +19,10 @@
   --zhuge-sidebar-collapsed-item-padding-inline: 4px;
   --zhuge-sidebar-collapsed-item-gap: 4px;
 }
+/* The Shared Shell owns the page boundary.  Consumers such as AI Board and
+ * WorkTodo must not inherit the browser's default body margin, otherwise the
+ * canonical A rail shifts by 8px while its internal geometry remains equal. */
+body:has(.zhuge-module-shell) { margin: 0; }
 .zhuge-module-shell{box-sizing:border-box;width:100%;max-width:none;min-height:100vh;margin:0;padding:18px;display:grid;grid-template-columns:minmax(232px,var(--shell-sidebar-width)) minmax(0,1fr);gap:var(--shell-main-gap);transition:grid-template-columns .2s ease}.zhuge-module-shell>.app{min-width:0;width:100%}
 .os-sidebar{box-sizing:border-box;width:100%;background:#1e293b;border:1px solid #334155;border-radius:22px;padding:14px;align-self:start;position:sticky;top:18px;min-height:calc(100vh - 36px);z-index:20;transition:width .2s ease,padding .2s ease}.os-shell.zhuge-nav-collapsed .os-body,.zhuge-module-shell.zhuge-nav-collapsed{grid-template-columns:var(--zhuge-sidebar-collapsed-width) minmax(0,1fr)}
 .sidebar-brand{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px}.brand-row{display:flex;align-items:center;gap:10px;min-width:0}.brand-stack{display:flex;flex-direction:column;align-items:flex-start;gap:2px;color:#f8fafc;text-decoration:none;cursor:pointer;min-width:0}.brand-stack h1{font-size:1.25rem;margin:0;white-space:nowrap}.brand-mark{font-size:1rem}.brand-companion{display:block;margin-left:34px;color:#93c5fd;font-size:.75rem;font-weight:850;letter-spacing:.02em}
