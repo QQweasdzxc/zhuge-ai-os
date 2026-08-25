@@ -1555,16 +1555,20 @@
     const mode = String(viewModel?.agreementMode || task.agreementMode || task.agreement_mode || "").trim().toLowerCase();
     const start = String(viewModel?.agreementStartDate || viewModel?.agreedDateStart || task.agreementStartDate || task.agreement_start_date || "").slice(0, 10);
     const end = String(viewModel?.agreementEndDate || viewModel?.agreedDateEnd || task.agreementEndDate || task.agreement_end_date || "").slice(0, 10);
-    return { mode: mode === "period" ? "period" : (mode === "single" ? "single" : ""), start, end };
+    // A period is only a period when both dates are present. This keeps an
+    // empty or incomplete record in the compact single-date editor without
+    // inferring meaning from due_date or from an activity note.
+    const normalizedMode = mode === "period" && start && end ? "period" : (mode === "single" && start ? "single" : "");
+    return { mode: normalizedMode, start, end };
   }
   function agreedDateLabel(task = {}, viewModel = null) {
     const { mode, start, end } = agreedDateParts(task, viewModel);
     if (!start) return "尚未設定";
-    const format = value => {
-      const date = new Date(`${value}T00:00:00`);
-      return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "numeric", day: "numeric" }).format(date);
-    };
-    return mode === "period" && end ? `${format(start)} – ${format(end)}` : format(start);
+    return mode === "period" && end ? `${formatAgreedDate(start)} → ${formatAgreedDate(end)}` : formatAgreedDate(start);
+  }
+  function formatAgreedDate(value) {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" }).format(date);
   }
   function wireAgreedDateProperty(task, viewModel, archiveOnly) {
     const property = document.querySelector('[data-task-property-action="agreement-schedule"]');
@@ -1581,31 +1585,89 @@
       editor.className = "shared-agreed-date-editor";
       editor.dataset.sharedAgreedDateEditor = "true";
       editor.dataset.agreementMode = mode === "period" ? "period" : "single";
-      editor.innerHTML = `<div class="shared-agreement-date-editor-mode" data-agreement-single-fields${mode === "period" ? " hidden" : ""}><label>約定日期<input type="date" data-agreed-date-start value="${esc(start)}"></label><button class="btn2 shared-agreement-period-trigger" type="button" data-agreement-period>＋ 多日</button></div><div class="shared-agreement-date-period-fields" data-agreement-period-fields${mode === "period" ? "" : " hidden"}><label>開始日期<input type="date" data-agreed-date-start-period value="${esc(start)}"></label><label>結束日期<input type="date" data-agreed-date-end value="${esc(end)}"></label></div><small>預設為單日約定；只有選擇「＋ 多日」才會建立約定期間。</small><div class="shared-agreed-date-editor-actions"><button class="btn2" type="button" data-agreed-date-clear>清除日期</button><span></span><button class="btn2" type="button" data-agreed-date-cancel>取消</button><button class="btn2 primary" type="button" data-agreed-date-save>套用</button></div>`;
-      property.after(editor);
+      editor.setAttribute("role", "group");
+      editor.setAttribute("aria-label", mode === "period" ? "編輯約定期間" : "編輯約定日期");
+      const periodStartEditVisible = mode === "period" || !start;
+      editor.innerHTML = `<div class="shared-agreement-date-editor-mode" data-agreement-single-fields${mode === "period" ? " hidden" : ""}><span class="shared-agreement-date-editor-label">約定日期</span><label class="shared-agreement-date-control"><input type="date" data-agreed-date-start value="${esc(start)}" aria-label="約定日期"></label><button class="btn2 shared-agreement-period-trigger" type="button" data-agreement-period>＋ 多日</button></div><div class="shared-agreement-date-period-fields" data-agreement-period-fields${mode === "period" ? "" : " hidden"}><div class="shared-agreement-period-control" data-agreement-period-start-control><span class="shared-agreement-date-editor-label">起日</span><div class="shared-agreement-period-start-summary" data-agreement-period-start-summary${periodStartEditVisible ? " hidden" : ""}><strong data-agreement-period-start-value>${start ? formatAgreedDate(start) : "尚未選擇"}</strong><button class="btn2" type="button" data-agreement-period-start-edit${periodStartEditVisible ? " hidden" : ""}>修改起日</button></div><label class="shared-agreement-date-control" data-agreement-period-start-input${periodStartEditVisible ? "" : " hidden"}><input type="date" data-agreed-date-start-period value="${esc(start)}" aria-label="約定期間開始日期"></label></div><span class="shared-agreement-date-range-arrow" aria-hidden="true">→</span><label class="shared-agreement-date-control"><span class="shared-agreement-date-editor-label">迄日</span><input type="date" data-agreed-date-end value="${esc(end)}" aria-label="約定期間結束日期"></label></div><small>選好日期後會收合；需要區間時再選擇「＋ 多日」。</small><div class="shared-agreed-date-editor-actions"><button class="btn2 shared-agreement-clear" type="button" data-agreed-date-clear>清除日期</button><span></span><button class="btn2" type="button" data-agreed-date-cancel>取消</button><button class="btn2 primary" type="button" data-agreed-date-save>套用</button></div>`;
+      // Keep the metadata grid intact; the compact editor belongs below the
+      // complete row instead of becoming a new grid item between properties.
+      const propertiesGrid = property.closest(".shared-task-drawer-properties");
+      const syncEditorPosition = () => {
+        const offset = propertiesGrid
+          ? Math.max(0, property.getBoundingClientRect().left - propertiesGrid.getBoundingClientRect().left)
+          : 0;
+        editor.style.setProperty("--shared-agreement-editor-offset", `${offset}px`);
+      };
+      if (propertiesGrid) propertiesGrid.after(editor);
+      else property.after(editor);
+      syncEditorPosition();
+      if (propertiesGrid) window.addEventListener("resize", syncEditorPosition);
       property.classList.add("is-editing");
       const close = () => {
+        if (propertiesGrid) window.removeEventListener("resize", syncEditorPosition);
         editor.remove();
         property.classList.remove("is-editing");
       };
       const singleFields = editor.querySelector("[data-agreement-single-fields]");
       const periodFields = editor.querySelector("[data-agreement-period-fields]");
       const periodTrigger = editor.querySelector("[data-agreement-period]");
+      const singleStartInput = editor.querySelector("[data-agreed-date-start]");
+      const periodStartInput = editor.querySelector("[data-agreed-date-start-period]");
+      const periodEndInput = editor.querySelector("[data-agreed-date-end]");
+      const periodStartSummary = editor.querySelector("[data-agreement-period-start-summary]");
+      const periodStartSummaryValue = editor.querySelector("[data-agreement-period-start-value]");
+      const periodStartInputWrap = editor.querySelector("[data-agreement-period-start-input]");
+      const periodStartEdit = editor.querySelector("[data-agreement-period-start-edit]");
+      const showPeriodStartInput = show => {
+        if (!periodStartInputWrap || !periodStartSummary || !periodStartEdit) return;
+        periodStartInputWrap.hidden = !show;
+        periodStartSummary.hidden = show;
+        periodStartEdit.hidden = show;
+      };
+      const syncPeriodStartSummary = () => {
+        if (periodStartSummaryValue) periodStartSummaryValue.textContent = periodStartInput?.value ? formatAgreedDate(periodStartInput.value) : "尚未選擇";
+      };
+      const syncPeriodEndMin = () => {
+        if (!periodEndInput) return;
+        if (periodStartInput?.value) periodEndInput.min = periodStartInput.value;
+        else periodEndInput.removeAttribute("min");
+      };
+      const focusActiveDateInput = () => {
+        const input = editor.dataset.agreementMode === "period" ? periodStartInput : singleStartInput;
+        input?.focus();
+      };
       periodTrigger?.addEventListener("click", () => {
         editor.dataset.agreementMode = "period";
+        editor.setAttribute("aria-label", "編輯約定期間");
         singleFields?.setAttribute("hidden", "true");
         periodFields?.removeAttribute("hidden");
-        const periodStart = editor.querySelector("[data-agreed-date-start-period]");
-        if (periodStart && !periodStart.value) periodStart.value = editor.querySelector("[data-agreed-date-start]")?.value || "";
-        periodStart?.focus();
+        if (periodStartInput && !periodStartInput.value) periodStartInput.value = singleStartInput?.value || "";
+        syncPeriodStartSummary();
+        showPeriodStartInput(!periodStartInput?.value || !singleStartInput?.value);
+        syncPeriodEndMin();
+        (periodStartInput?.value && singleStartInput?.value ? periodEndInput : periodStartInput)?.focus();
+      });
+      periodStartEdit?.addEventListener("click", () => {
+        showPeriodStartInput(true);
+        periodStartInput?.focus();
       });
       editor.querySelector("[data-agreed-date-clear]")?.addEventListener("click", () => {
         editor.dataset.agreementMode = "single";
+        editor.setAttribute("aria-label", "編輯約定日期");
         editor.querySelectorAll("input[type=date]").forEach(input => { input.value = ""; });
         periodFields?.setAttribute("hidden", "true");
         singleFields?.removeAttribute("hidden");
-        singleFields?.querySelector("[data-agreed-date-start]")?.focus();
+        syncPeriodStartSummary();
+        showPeriodStartInput(true);
+        syncPeriodEndMin();
+        focusActiveDateInput();
       });
+      periodStartInput?.addEventListener("input", syncPeriodEndMin);
+      periodStartInput?.addEventListener("change", syncPeriodEndMin);
+      periodStartInput?.addEventListener("input", syncPeriodStartSummary);
+      periodStartInput?.addEventListener("change", syncPeriodStartSummary);
+      syncPeriodStartSummary();
+      syncPeriodEndMin();
       editor.querySelector("[data-agreed-date-cancel]")?.addEventListener("click", close);
       editor.querySelector("[data-agreed-date-save]")?.addEventListener("click", async event => {
         const save = event.currentTarget;
@@ -1643,7 +1705,7 @@
           setBanner("約定日期保存失敗：" + esc(error?.message || "正式 WorkTodo controlled write 未接受這次更新。"), "error");
         }
       });
-      editor.querySelector("[data-agreed-date-start]")?.focus();
+      focusActiveDateInput();
     };
   }
   async function openTaskDetail(task, options = {}) {

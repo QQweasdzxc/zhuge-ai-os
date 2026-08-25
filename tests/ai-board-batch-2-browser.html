@@ -108,6 +108,8 @@
     subscribe: async () => async () => {}
   };
 </script>
+<script src="../shared/components/task-action-contract.js"></script>
+<script src="../shared/components/task-action-adapters.js"></script>
 <script src="../app/Board/ai/board-runtime.js"></script>
 <script>
   (function recordTaskOrder(attempt) { const codes = Array.from(document.querySelectorAll('.process[data-workspace-key="gpt"] .taskcard .code')).map(code => code.textContent.trim()); if (codes.length === 4 || attempt >= 100) { const audit = document.createElement("pre"); audit.id = "task-order-audit"; audit.textContent = codes.join(","); document.body.appendChild(audit); return; } setTimeout(() => recordTaskOrder(attempt + 1), 50); })(0);

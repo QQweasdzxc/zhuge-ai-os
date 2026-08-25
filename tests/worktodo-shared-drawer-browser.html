@@ -6,11 +6,20 @@
   <title>WorkTodo Shared Drawer Conformance Fixture</title>
   <link rel="stylesheet" href="../shared/theme/zhuge-shell.css">
   <link rel="stylesheet" href="../shared/theme/task-card.css">
-  <link rel="stylesheet" href="../shared/theme/task-drawer.css">
+  <link rel="stylesheet" href="../shared/theme/task-drawer.css?qa=agreement-ux-v2">
   <link rel="stylesheet" href="../shared/theme/task-board.css">
   <link rel="stylesheet" href="../shared/theme/golden-master.css">
 </head>
 <body>
+  <section id="agreementQaControls" hidden aria-label="Agreement Schedule PM QA controls" style="margin:12px auto;max-width:1120px;padding:12px 16px;border:1px solid #385b82;border-radius:10px;background:#111d2d;color:#d7e2f2;font:14px/1.5 system-ui,sans-serif">
+    <strong>PM QA｜Agreement Schedule（local fixture only）</strong>
+    <span style="display:block;color:#9fb0c5;font-size:12px">Preset 只更新本機 fixture 記憶體，不寫入 Cloud。</span>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      <button class="btn2" type="button" data-agreement-qa-preset="empty">未設定</button>
+      <button class="btn2" type="button" data-agreement-qa-preset="single">單日 9/3</button>
+      <button class="btn2" type="button" data-agreement-qa-preset="period">期間 9/2 → 9/3</button>
+    </div>
+  </section>
   <div class="zhuge-module-shell workspace-shell">
     <div class="app workspace-app">
       <main class="main">
@@ -126,9 +135,32 @@
       }),
       subscribe: async () => async () => {}
     };
+    const agreementQaMode = new URLSearchParams(window.location.search).has("pm-qa");
+    if (agreementQaMode) {
+      document.getElementById("agreementQaControls").hidden = false;
+      window.ZhugeBoardReadService.worktodoSetAgreementSchedule = async input => {
+        window.__agreementQaLastWrite = { ...input };
+        window.__fixtureTask.agreement_mode = input.mode || null;
+        window.__fixtureTask.agreement_start_date = input.startDate || null;
+        window.__fixtureTask.agreement_end_date = input.endDate || null;
+        return { ...window.__fixtureTask };
+      };
+    }
   </script>
   <script src="../shared/components/golden-master-runtime.js"></script>
   <script>
+    function applyAgreementQaPreset(mode) {
+      const values = mode === "period"
+        ? { agreement_mode: "period", agreement_start_date: "2026-09-02", agreement_end_date: "2026-09-03" }
+        : mode === "single"
+          ? { agreement_mode: "single", agreement_start_date: "2026-09-03", agreement_end_date: null }
+          : { agreement_mode: null, agreement_start_date: null, agreement_end_date: null };
+      Object.assign(window.__fixtureTask, values);
+      window.ZhugeBoardRuntime?.openTaskDetail({ ...window.__fixtureTask });
+    }
+    document.querySelectorAll("[data-agreement-qa-preset]").forEach(button => {
+      button.addEventListener("click", () => applyAgreementQaPreset(button.dataset.agreementQaPreset));
+    });
     function writeFixtureAudit() {
       const drawer = document.querySelector("[data-shared-task-drawer]");
       const list = document.getElementById("taskActivityList");
@@ -150,10 +182,34 @@
         checklistDisabled: document.querySelector("[data-task-checklist-toggle]")?.disabled === true,
         urlLink: Boolean(document.querySelector('a[href="https://example.com/reference"]'))
       };
-      document.querySelector('[data-task-property-action="agreement-schedule"]')?.click();
-      audit.hasAgreedDateEditor = Boolean(document.querySelector("[data-shared-agreed-date-editor]"));
-      audit.agreedDateInputs = [...document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]')]
-        .filter(input => !input.closest("[hidden]")).length;
+      if (!agreementQaMode) {
+        const agreementProperty = document.querySelector('[data-task-property-action="agreement-schedule"]');
+        agreementProperty?.click();
+        audit.hasAgreedDateEditor = Boolean(document.querySelector("[data-shared-agreed-date-editor]"));
+        const agreementEditor = document.querySelector("[data-shared-agreed-date-editor]");
+        const propertiesGrid = document.querySelector(".shared-task-drawer-properties");
+        const gptProperty = document.querySelector('[data-task-property-action="gpt-analysis"]');
+        audit.agreementMode = agreementEditor?.dataset.agreementMode || "";
+        audit.agreementValue = agreementProperty?.querySelector("[data-task-property-value]")?.textContent || "";
+        audit.agreementEditorAfterMetadataRow = Boolean(agreementEditor && propertiesGrid && agreementEditor.previousElementSibling === propertiesGrid);
+        audit.agreementEditorWidth = agreementEditor ? Math.round(agreementEditor.getBoundingClientRect().width) : 0;
+        audit.agreementEditorAlignmentDelta = agreementEditor && agreementProperty
+          ? Math.round(agreementEditor.getBoundingClientRect().left - agreementProperty.getBoundingClientRect().left)
+          : null;
+        audit.metadataGridChildren = propertiesGrid?.children.length || 0;
+        audit.gptRemainsInMetadataRow = Boolean(propertiesGrid && gptProperty && gptProperty.parentElement === propertiesGrid);
+        audit.agreedDateInputs = [...document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]')]
+          .filter(input => !input.closest("[hidden]")).length;
+        audit.agreementPeriodHidden = agreementEditor?.querySelector("[data-agreement-period-fields]")?.hasAttribute("hidden") === true;
+        agreementEditor?.querySelector("[data-agreement-period]")?.click();
+        audit.periodMode = agreementEditor?.dataset.agreementMode || "";
+        audit.periodDateInputs = [...agreementEditor?.querySelectorAll('input[type="date"]') || []]
+          .filter(input => !input.closest("[hidden]")).length;
+        agreementEditor?.querySelector("[data-agreed-date-clear]")?.click();
+        audit.clearMode = agreementEditor?.dataset.agreementMode || "";
+        audit.clearDateInputs = [...agreementEditor?.querySelectorAll('input[type="date"]') || []]
+          .filter(input => !input.closest("[hidden]")).length;
+      }
       let node = document.getElementById("worktodo-shared-drawer-audit");
       if (!node) { node = document.createElement("pre"); node.id = "worktodo-shared-drawer-audit"; document.body.appendChild(node); }
       node.textContent = JSON.stringify(audit);

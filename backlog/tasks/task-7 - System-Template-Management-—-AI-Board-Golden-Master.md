@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-21 05:35'
-updated_date: '2026-08-24 02:33'
+updated_date: '2026-08-25 14:33'
 labels:
   - system-template
   - shared-ux
@@ -40,6 +40,8 @@ ordinal: 8000
 5. Under the PM's revised Phase 1 decision, keep the existing AI Board page untouched, add a source-equivalent new WorkTodo entry that loads the same AI Board runtime in an empty-data mode, and split navigation from the new entry to the unchanged legacy WorkTodo route.
 
 PM 2026-08-24 Shared Navigation conformance fix: centralize A mount lifecycle for all consumers, remove Investment local navigation while preserving internal tabs, enforce one shared shell geometry including fixed desktop rail height and responsive overrides, then run eight-page Desktop/Mobile QA against canonical A with no Cloud/Auth/Domain/Golden Master changes.
+
+PM Agreement UX-only remediation: keep Shared Action/Delete Contract/RPC/Schema/Storage/RLS unchanged; refine the Shared Task Drawer progressive disclosure, empty-state default single-date editor, compact date labels, and visible-field focus; verify with targeted browser fixture and source regression.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -50,6 +52,10 @@ Corrective implementation complete. Promoted the current AI Board presentation c
 PM Scope Confirmed PASS：Golden Master 定義為目前正式 AI Board UX/UI/Interaction 的空白框架；前一版 Fixture/Preview 路線不再延伸。
 
 PM revised Phase 1 on 2026-08-21: stop legacy WorkTodo presentation conformance. New 工作待辦 is a source-equivalent AI Board consumer with no WorkTodo Domain Data; old modules/worklog remains unchanged and reachable as 工作待辦（舊）. No Cloud/schema/RPC/RLS/data migration or Preview/Fixture was added.
+
+Current request scope is limited to Agreement Schedule presentation/runtime UX. No Cloud, schema, RPC, storage, RLS, main, or deployment changes are authorized.
+
+Agreement UX-only validation: Chrome fixture PASS for empty-state single mode (1 visible date input), period toggle (2 visible inputs), clear back to single; full Node regression 234 passed / 0 failed / 5 existing browser skips; git diff --check PASS. No Cloud/schema/RPC/storage/RLS/main/deployment changes.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

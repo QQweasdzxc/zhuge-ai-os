@@ -72,6 +72,8 @@
   window.__gateCalls = calls;
 </script>
 <script>window.__gateErrors = []; window.addEventListener('error', event => window.__gateErrors.push(`${event.message} @${event.filename}:${event.lineno}:${event.colno} ${(event.error?.stack || '')}`));</script>
+<script src="../shared/components/task-action-contract.js"></script>
+<script src="../shared/components/task-action-adapters.js"></script>
 <script src="../app/Board/ai/board-runtime.js"></script>
 <script>
   window.__runtimeLoaded = Boolean(window.ZhugeBoardRuntime);
