@@ -1513,19 +1513,51 @@
   function workTodoDataService() {
     return typeof DataService !== "undefined" ? DataService : root.DataService;
   }
+  function hasHumanProgressActivity(rows = []) {
+    return (Array.isArray(rows) ? rows : []).some(item => {
+      const activityType = String(item?.activityType || item?.activity_type || "");
+      const action = String(item?.action || "");
+      return activityType === "human_progress_note" || action === "progress_note_created";
+    });
+  }
   async function loadWorkTodoDrawerData(task) {
     const adapter = root.ZhugeWorkTodoTaskAdapter;
     const dataService = workTodoDataService();
     let journal = workTodoJournalForTask(task);
     let journalError = null;
     let capabilityError = null;
-    if (!journal.length && typeof dataService?.loadWorkJournal === "function" && task?.id) {
+    let canonicalActivity = null;
+    if (typeof service.loadActivity === "function" && task?.id) {
       try {
-        journal = await dataService.loadWorkJournal(task.id);
-        state.workTodoJournalByTask.set(String(task.id), Array.isArray(journal) ? journal : []);
+        // WorkTodo progress is written by the current controlled domain RPC
+        // into engineering_activity_log. Keep the Shared Activity read path
+        // canonical so the adapter maps domain data into the Shared Drawer;
+        // it must not silently fall back to the legacy Work Journal table.
+        canonicalActivity = await service.loadActivity(task.id, { checklistItems: [] });
+        if (hasHumanProgressActivity(canonicalActivity) || !journal.length) {
+          journal = Array.isArray(canonicalActivity) ? canonicalActivity : [];
+          state.workTodoJournalByTask.set(String(task.id), journal);
+        }
       } catch (error) {
         journalError = error;
-        journal = [];
+      }
+    }
+    // Preserve compatibility with older WorkTodo Journal rows only when the
+    // canonical Activity source has no human progress to show, or was
+    // unavailable. This is a read fallback, never a second presentation or
+    // write path, and avoids losing legacy records during the transition.
+    if (!hasHumanProgressActivity(journal) && typeof dataService?.loadWorkJournal === "function" && task?.id) {
+      try {
+        const legacyJournal = await dataService.loadWorkJournal(task.id);
+        if (Array.isArray(legacyJournal) && legacyJournal.length) {
+          journal = legacyJournal;
+          state.workTodoJournalByTask.set(String(task.id), legacyJournal);
+        } else if (!Array.isArray(canonicalActivity)) {
+          journal = [];
+          state.workTodoJournalByTask.set(String(task.id), journal);
+        }
+      } catch (error) {
+        if (!journalError) journalError = error;
       }
     }
     let capabilityData = { checklist: [], attachments: [] };

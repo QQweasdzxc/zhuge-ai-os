@@ -79,7 +79,10 @@
     });
     window.persistAiOsSessionOnly = () => {};
     window.DataService = {
-      loadWorkJournal: async taskId => taskId ? fixtureJournal.filter(row => row.task_uuid === taskId) : fixtureJournal,
+      loadWorkJournal: async taskId => {
+        if (taskId) window.__legacyWorkJournalFallbackCalled = true;
+        return taskId ? fixtureJournal.filter(row => row.task_uuid === taskId) : fixtureJournal;
+      },
       loadWorkTodoTaskCapabilities: async () => ({
         checklist: [{ id: "check-1", label: "確認 Shared Drawer", completed: false }],
         attachments: []
@@ -90,6 +93,23 @@
       normalizeStatus: status => String(status || "not_started"),
       isGovernanceTerminal: () => false,
       isArchiveTask: () => false,
+      loadActivity: async taskId => {
+        window.__worktodoActivityReadPath = "engineering_activity_log";
+        return fixtureJournal
+          .filter(row => row.task_uuid === taskId)
+          .map(row => ({
+            id: row.id,
+            entity_type: "board_task",
+            entity_id: taskId,
+            action: "progress_note_created",
+            activity_type: "human_progress_note",
+            note: row.content,
+            actor_id: "fixture-qjc",
+            actor_type: "human",
+            actor_label: row.actor_label,
+            created_at: row.created_at
+          }));
+      },
       load: async () => ({
         workspaces: [
           { id: "workspace-todo", key: "worktodo-todo", name: "待開始", sortOrder: 10, active: true, applicationScope: "worktodo" },
@@ -116,6 +136,8 @@
         rowGap: style?.rowGap || "",
         cardPadding: firstRow ? getComputedStyle(firstRow).padding : "",
         activityRows: list?.querySelectorAll("article").length || 0,
+        activityReadPath: window.__worktodoActivityReadPath || "",
+        legacyFallbackCalled: window.__legacyWorkJournalFallbackCalled === true,
         hasSharedDrawer: Boolean(drawer),
         hasWorkTodoOwnedDrawer: Boolean(document.querySelector("[data-worktodo-shared-drawer]")),
         hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),

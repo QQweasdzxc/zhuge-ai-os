@@ -62,6 +62,8 @@ test("WorkTodo uses the Shared Task Drawer presentation contract at runtime", as
   assert.equal(audit.rowGap, "8px");
   assert.match(audit.cardPadding, /16px/);
   assert.equal(audit.activityRows, 2);
+  assert.equal(audit.activityReadPath, "engineering_activity_log");
+  assert.equal(audit.legacyFallbackCalled, false);
   assert.equal(audit.hasSharedDrawer, true);
   assert.equal(audit.hasWorkTodoOwnedDrawer, false);
   assert.equal(audit.hasLegacyProperties, false);
