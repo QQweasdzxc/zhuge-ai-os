@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Zhuge AI OS｜AI Board</title>
+<link rel="stylesheet" href="../../../shared/theme/zhuge-shell.css?v=20260825-0634">
+<link rel="stylesheet" href="../../../shared/theme/task-card.css?v=20260825-0634">
+<link rel="stylesheet" href="../../../shared/theme/task-drawer.css?v=20260824-worktodo-qa-fixes">
+<link rel="stylesheet" href="../../../shared/theme/task-board.css?v=20260824-worktodo-qa-fixes">
+<link rel="stylesheet" href="../../../shared/theme/golden-master.css?v=20260825-0634">
+
+<link rel="stylesheet" href="../../../shared/theme/zhuge-workspace.css?v=20260811-workspace-2">
+<link rel="stylesheet" href="../../../shared/theme/zhuge-navigation.css?v=20260824-shared-navigation-collapse-compact-v2">
+<script>
+  if (new URLSearchParams(window.location.search).get("templateView") === "board") document.documentElement.dataset.templateView = "board";
+</script>
+</head>
+<body>
+<div class="zhuge-module-shell workspace-shell" data-shared-navigation-mode="template-only" data-template-page-id="ai-board">
+<div id="zhugeSharedNavigation" data-external-root="../../../" data-active-workspace="ai-board" data-template-page-id="ai-board" data-shared-navigation-disabled="true"></div>
+<div class="app workspace-app">
+<main class="main">
+ <div id="zhugeSharedHeader" class="top workspace-shell-header" data-zhuge-shared-header data-title="AI Board" data-description="工程協作工作平台｜查看正式工作、驗收清單與目前交接狀態" data-action-label="↻" data-action-id="refreshBoardBtn"></div>
+ <div class="workspace-tabs workspace-subnav" aria-label="AI Board 子功能導覽">
+   <button class="workspace-tab active" title="工作看板" data-board-nav="board" type="button">📋 工作看板</button>
+   <button class="workspace-tab" title="工程準則" data-board-nav="principles" type="button">📘 工程準則</button>
+   <button class="workspace-tab" title="系統藍圖" data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
+ </div>
+ <div class="workspace-canvas">
+  <div data-board-main-view data-golden-master-surface></div>
+  <section class="board-subview principles-view" data-board-view="principles" hidden>
+   <header class="subview-header"><div><span class="subview-kicker">AI Board／工程準則</span><h2>📘 最高原則</h2><p>工程協作必須遵守的正式原則；固定區不參與 TASK Status 流轉。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
+   <div id="principlesCards" class="principles-card-grid"></div>
+  </section>
+  <section class="board-subview system-map-view" data-board-view="system-map" hidden>
+   <header class="subview-header"><div><span class="subview-kicker">AI Board／系統藍圖</span><h2>🗺️ 系統藍圖</h2><p>目前 Zhuge AI OS 的組成、模組關係與資料流。</p></div><span class="subview-source">來源：Supabase engineering_knowledge</span></header>
+   <div id="systemMapCards" class="system-map-grid"></div>
+  </section>
+ </div>
+</main>
+</div>
+</div>
+
+
+<script src="../../../shared/config/version.js?v=20260825-0634"></script>
+<script src="../../../shared/services/template-adoption-policy.js?v=20260823-template-adoption"></script>
+<script src="../../../shared/components/zhuge-navigation.js?v=20260825-0634"></script>
+<script src="../../../shared/components/zhuge-shell.js?v=20260825-0634"></script>
+<script src="../../../shared/components/task-card.js?v=20260820-1555"></script>
+    <script src="../../../shared/components/task-drawer.js?v=20260825-0634"></script>
+    <script src="../../../shared/components/task-board.js?v=20260825-0634"></script>
+<script src="../../../shared/components/golden-master.js?v=20260825-0634"></script>
+<script src="../../../shared/theme/zhuge-appearance.js?v=20260811-workspace-1"></script>
+ <script src="../../../shared/app-config.js?v=20260825-0634"></script>
+ <script src="../../../shared/utils/shared-utils.js?v=20260825-0634"></script>
+ <script src="../../../shared/storage/storage-migration.js?v=20260825-0634"></script>
+ <script src="../../../shared/api/data-result.js?v=20260825-0634"></script>
+ <script src="../../../shared/identity/identity-health.js?v=20260825-0634"></script>
+ <script src="../../../shared/auth/session-lifecycle.js?v=20260825-0634"></script>
+ <script src="../../../shared/core/repository-bootstrap.js?v=20260825-0634"></script>
+ <script src="../../../shared/app-state.js?v=20260825-0634"></script>
+ <script src="../../../shared/auth/auth-service.js?v=20260825-0634"></script>
+ <script src="../../../shared/identity/identity-service.js?v=20260825-0634"></script>
+ <script src="../../../shared/supabase/supabase-gateway.js?v=20260825-0634"></script>
+ <script src="../../../shared/engineering-memory/engineering-memory-resolver.js?v=20260814-engineering-memory"></script>
+ <script src="../../../shared/auth/session-service.js?v=20260825-0634"></script>
+ <script src="../../../shared/identity/creator-resolver.js?v=20260814-creator-mfa"></script>
+ <script src="../../../shared/security/permission-service.js?v=20260825-0634"></script>
+ <script src="../../../shared/security/mfa-service.js?v=20260814-creator-mfa"></script>
+ <script src="../../../shared/security/security-gate.js?v=20260814-creator-mfa"></script>
+ <script src="../../../shared/services/module-context.js?v=20260814-creator-mfa"></script>
+ <script src="../../../shared/services/shared-platform.js?v=20260814-creator-mfa"></script>
+ <script src="../../../shared/security/platform-policy.js?v=20260825-0634"></script>
+ <script src="../../../shared/auth/runtime-session-provider.js?v=20260814-creator-mfa"></script>
+<script src="../../../shared/board/board-read-service.js?v=20260825-0634"></script>
+<script src="../../../shared/components/golden-master-runtime.js?v=20260824-worktodo-qa-fixes"></script>
+</body></html>
