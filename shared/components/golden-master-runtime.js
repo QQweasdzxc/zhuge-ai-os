@@ -5,7 +5,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set() };
+  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set() };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -140,9 +140,23 @@
       && key !== "done" && name !== "已完工"
       && key !== "gpt" && name !== "GPT區";
   }
+  function workTodoJournalForTask(task) {
+    if (!isWorkTodoTask(task)) return [];
+    return state.workTodoJournalByTask.get(String(task?.id || "")) || [];
+  }
+  function workTodoCardViewModel(task) {
+    const adapter = root.ZhugeWorkTodoTaskAdapter;
+    if (!adapter?.normalize) return task;
+    return adapter.normalize({
+      ...task,
+      note: task.note || task.summary || "",
+      workContent: task.workContent || task.work_content || task.summary || task.note || ""
+    }, workTodoJournalForTask(task));
+  }
   function taskMarkup(task, options = {}) {
     const terminal = service.isGovernanceTerminal?.(task) || false;
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    const viewModel = workTodoCardViewModel(task);
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
       : "";
@@ -153,8 +167,8 @@
       code: task.workCode || task.id || workItemLabel(task),
       title: task.title,
       summaryHtml: root.ZhugeSharedTaskCardSummary?.render({
-        latestProgress: task.latestProgress || task.latest_progress || task.progressNote || task.progress_note,
-        workContent: task.workContent || task.work_content || task.summary || task.note
+        latestProgress: viewModel.latestProgress || task.latestProgress || task.latest_progress || task.progressNote || task.progress_note,
+        workContent: viewModel.workContent || task.workContent || task.work_content || task.summary || task.note
       }) || "",
       bodyHtml: governance,
       attributes: {
@@ -1439,12 +1453,87 @@
     if (!property) return;
     property.onclick = () => showTaskAnalysisView(task);
   }
+  function workTodoDataService() {
+    return typeof DataService !== "undefined" ? DataService : root.DataService;
+  }
+  async function openWorkTodoAttachment(item) {
+    const path = item?.storage_path || item?.storagePath || "";
+    if (!path) throw new Error("WorkTodo 附件尚無正式 Storage Path");
+    const repository = typeof SupabaseRepository !== "undefined" ? SupabaseRepository : root.SupabaseRepository;
+    if (typeof repository?.signedWorkTodoAttachmentUrl !== "function") throw new Error("WorkTodo 附件預覽服務尚未載入");
+    const url = await repository.signedWorkTodoAttachmentUrl(path, 300);
+    root.open?.(url, "_blank", "noopener,noreferrer");
+  }
+  async function openWorkTodoTaskDetail(task, options = {}) {
+    const adapter = root.ZhugeWorkTodoTaskAdapter;
+    if (!adapter?.render) return false;
+    ensureTaskDetailModal();
+    const modal = document.getElementById("taskDetailModal");
+    const body = document.getElementById("taskDetailBody");
+    if (!modal || !body) return false;
+    const dataService = workTodoDataService();
+    state.activeTaskId = String(task?.id || "");
+    let journal = workTodoJournalForTask(task);
+    if (!journal.length && typeof dataService?.loadWorkJournal === "function" && task?.id) {
+      try {
+        journal = await dataService.loadWorkJournal(task.id);
+        state.workTodoJournalByTask.set(String(task.id), Array.isArray(journal) ? journal : []);
+      } catch (error) {
+        console.warn("WorkTodo Journal read failed", error);
+      }
+    }
+    let capabilityData = { checklist: [], attachments: [] };
+    if (typeof dataService?.loadWorkTodoTaskCapabilities === "function" && task?.id) {
+      try { capabilityData = await dataService.loadWorkTodoTaskCapabilities(task.id) || capabilityData; }
+      catch (error) { console.warn("WorkTodo capability read failed", error); }
+    }
+    const readOnly = options.readOnly === true || Boolean(task?.archivedAt);
+    body.innerHTML = adapter.render(task, {
+      goldenMaster: root.ZhugeGoldenMaster,
+      drawer: root.ZhugeSharedTaskDrawer,
+      journal,
+      capabilityData,
+      readOnly,
+      actorLabel: "目前使用者",
+      formatTimestamp: shortTimestampLabel,
+      renderContent: renderActivityText
+    });
+    modal.style.display = "block";
+    modal.setAttribute("aria-hidden", "false");
+    body.querySelectorAll("[data-shared-task-drawer-close]").forEach(button => {
+      button.onclick = event => {
+        event.preventDefault();
+        modal.style.display = "none";
+        modal.setAttribute("aria-hidden", "true");
+        state.activeTaskId = "";
+      };
+    });
+    if (!readOnly) {
+      adapter.bindAttachmentActions?.(body, {
+        attachments: capabilityData.attachments || [],
+        dataService,
+        confirm: root.confirm,
+        onOpen: openWorkTodoAttachment,
+        onDeleted: async () => {
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || task;
+          await openWorkTodoTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+        },
+        onError: error => setBanner("附件刪除失敗：" + esc(error?.message || "WorkTodo 受控刪除未接受這次操作。"), "error")
+      });
+    }
+    return true;
+  }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
     const workTodo = isWorkTodoTask(task);
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    if (workTodo && root.ZhugeWorkTodoTaskAdapter?.render) {
+      await openWorkTodoTaskDetail(task, { readOnly: archiveOnly });
+      return;
+    }
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
     const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
@@ -1673,17 +1762,36 @@
       setBanner(state.applicationScope === "worktodo" ? "WLTK 已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
     } catch (error) { setBanner(itemLabel + " 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
+  async function loadWorkTodoJournalSnapshot() {
+    if (state.applicationScope !== "worktodo") return;
+    const dataService = workTodoDataService();
+    if (typeof dataService?.loadWorkJournal !== "function") return;
+    try {
+      const rows = await dataService.loadWorkJournal();
+      const grouped = new Map();
+      (Array.isArray(rows) ? rows : []).forEach(row => {
+        const taskId = String(row?.task_uuid || row?.taskUuid || "");
+        if (!taskId) return;
+        grouped.set(taskId, [...(grouped.get(taskId) || []), row]);
+      });
+      state.workTodoJournalByTask = grouped;
+    } catch (error) {
+      state.workTodoJournalByTask = new Map();
+      console.warn("WorkTodo Journal snapshot read failed", error);
+    }
+  }
   async function refreshBoard(options) {
     options = options || {};
     if (state.refreshPromise) return state.refreshPromise;
     if (!options.quiet) clearBanner();
-    state.refreshPromise = service.load({ applicationScope: state.applicationScope }).then(result => {
+    state.refreshPromise = service.load({ applicationScope: state.applicationScope }).then(async result => {
       state.workspaces = result.workspaces || [];
       state.tasks = result.tasks;
       state.principles = result.principles;
       state.systemMaps = result.systemMaps || [];
       state.taskById = new Map(result.tasks.map(task => [task.id, task]));
       state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
+      await loadWorkTodoJournalSnapshot();
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
       renderTasks(visibleTasks());

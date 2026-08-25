@@ -57,12 +57,13 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /\.workspace-shell-header/);
   assert.match(css, /\.workspace-subnav/);
   assert.match(css, /\.workspace-content-container/);
-  assert.match(css, /--zhuge-sidebar-item-height: 42px/);
-  assert.match(css, /--zhuge-sidebar-child-height: 38px/);
-  assert.match(shellCss, /--shell-sidebar-width:\s*240px/);
+  assert.match(css, /--zhuge-sidebar-item-height: 40px/);
+  assert.match(css, /--zhuge-sidebar-child-height: 36px/);
+  assert.match(shellCss, /--shell-sidebar-width:\s*232px/);
   assert.match(css, /\.agent-panel,\.side-section\{[^}]*padding:10px 8px[^}]*margin-bottom:8px/);
-  assert.match(css, /\.side-item\{[^}]*min-height:42px[^}]*padding:8px 9px[^}]*margin-top:4px/);
-  assert.match(css, /\.side-item-child\{[^}]*min-height:38px[^}]*padding:7px 9px/);
+  assert.match(css, /\.side-item\{[^}]*min-height:40px[^}]*padding:7px 9px[^}]*margin-top:4px/);
+  assert.match(css, /\.side-item-child\{[^}]*min-height:36px[^}]*padding:6px 9px/);
+  assert.match(css, /\.zhuge-module-shell \.agent-panel,\s*\.zhuge-module-shell \.side-section[\s\S]*padding:\s*8px[\s\S]*margin-bottom:\s*var\(--zhuge-sidebar-section-gap\)/);
   assert.match(css, /height:\s*calc\(100vh - 36px\)/);
   assert.match(css, /max-height:\s*calc\(100vh - 36px\)/);
   assert.match(css, /body:has\(\.zhuge-module-shell\)\s*\{\s*margin:\s*0/);

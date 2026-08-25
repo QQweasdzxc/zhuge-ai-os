@@ -44,7 +44,9 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.doesNotMatch(worktodo, /id="addCardModal"|id="workspaceCreateDrawer"|id="archiveDrawer"/);
   assert.doesNotMatch(aiBoard, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /class="(?:board-shell|board-toolbar|board)"/);
-  assert.doesNotMatch(worktodo, /worktodo-task-adapter\.js|GM-FIX-|golden-master-preview/i);
+  assert.match(worktodo, /worktodo-task-adapter\.js/);
+  assert.match(worktodo, /shared\/api\/data-service\.js/);
+  assert.doesNotMatch(worktodo, /GM-FIX-|golden-master-preview/i);
   assert.match(aiBoard, /title="工程準則" data-board-nav="principles"/);
   assert.match(aiBoard, /title="系統藍圖" data-board-nav="system-map"/);
   assert.doesNotMatch(worktodo, /工程準則|系統藍圖|data-board-nav="principles"|data-board-nav="system-map"/);

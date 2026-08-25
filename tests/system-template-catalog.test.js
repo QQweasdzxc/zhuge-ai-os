@@ -41,7 +41,13 @@ test("System Template Catalog keeps one empty AI Board Golden Master", () => {
     fixture: false,
     cloudWrites: false
   });
-  assert.equal(Object.hasOwn(template, "preview"), false);
+  assert.deepEqual(template.preview, {
+    renderer: "canonical-c-template-preview",
+    mode: "neutral-view-model",
+    domainData: false,
+    fixture: false,
+    cloudWrites: false
+  });
 });
 
 test("Empty Golden Master catalog reserves lifecycle actions without writes", () => {
@@ -57,6 +63,8 @@ test("Empty Golden Master catalog reserves lifecycle actions without writes", ()
   const forbiddenWriteApi = /DataService\s*[.(]|Supabase(?:Repository)?\s*[.(]|localStorage\s*[.(]|sessionStorage\s*[.(]|fetch\s*\(|rpc\s*\(/i;
   assert.doesNotMatch(source, forbiddenWriteApi);
   assert.doesNotMatch(source, /GM-FIX|golden-master-preview|fixtureKey/i);
+  assert.match(read("shared/components/c-template-preview.js"), /neutralViewModel/);
+  assert.match(read("app/Board/template-preview/index.html"), /canonicalCTemplatePreview/);
 });
 
 test("Template Management Center is the single adoption presentation", () => {

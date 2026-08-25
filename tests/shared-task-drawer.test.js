@@ -43,6 +43,14 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   assert.match(html, /hidden data-shared-task-drawer-section="optional-checklist"/);
 });
 
+test("Shared Task Drawer applies the approved activity gap to the real card container", () => {
+  const css = read("shared/theme/task-drawer.css");
+  assert.match(css, /\.shared-task-drawer-activity-list\{[^}]*display:grid;gap:8px/);
+  assert.match(css, /\.shared-task-drawer-activity-row\[data-activity-kind="human"\]\{[^}]*padding:10px 11px/);
+  assert.match(css, /\.shared-task-drawer-activity-row\[data-activity-kind="system"\]\{[^}]*padding:8px 10px/);
+  assert.doesNotMatch(css, /\.shared-task-drawer-activity-row\{[^}]*margin-(?:top|bottom):/);
+});
+
 test("Shared Task Drawer has no domain, Cloud, authorization, or WorkLog ownership", () => {
   const source = read("shared/components/task-drawer.js");
   assert.doesNotMatch(source, /supabase|rpc|worklog|engineering_checklist|engineering_activity/i);

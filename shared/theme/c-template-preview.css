@@ -1,0 +1,13 @@
+/* Canonical C Template Preview is a read-only capability surface. */
+body.c-template-preview-page{margin:0;min-height:100vh;background:#07111f;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
+.c-template-preview-page .canonical-c-template-preview{max-width:1480px;margin:0 auto;padding:28px;box-sizing:border-box}
+.canonical-c-template-preview-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;padding:14px 18px;border:1px solid #334155;border-radius:14px;background:#111b2a;color:#d7e2f2}
+.canonical-c-template-preview-banner strong{color:#8fd6b0;font-size:12px}
+.canonical-c-template-preview .empty-golden-master{gap:14px}
+.canonical-c-template-preview .golden-master-board-shell{min-height:420px}
+.canonical-c-template-preview .golden-master-drawer-host{margin-top:16px}
+.canonical-c-template-preview .shared-task-drawer{position:relative;inset:auto;z-index:auto;min-height:640px}
+.canonical-c-template-preview .shared-task-drawer-backdrop{display:none}
+.canonical-c-template-preview .shared-task-drawer-panel{position:relative;inset:auto;width:100%;max-width:none;max-height:none;min-height:640px;transform:none;box-shadow:none}
+.canonical-c-template-preview .shared-task-drawer-header{position:sticky;top:0}
+@media(max-width:900px){.c-template-preview-page .canonical-c-template-preview{padding:14px}.canonical-c-template-preview-banner{align-items:flex-start;flex-direction:column}.canonical-c-template-preview .shared-task-drawer{min-height:0}.canonical-c-template-preview .shared-task-drawer-panel{min-height:0}}

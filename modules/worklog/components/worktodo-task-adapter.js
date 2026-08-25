@@ -143,6 +143,7 @@
       sortOrder: Number(item.sort_order ?? item.sortOrder ?? 0) || 0
     })).filter(item => item.id && item.label);
     const attachments = (Array.isArray(capabilityData.attachments) ? capabilityData.attachments : []).map(normalizeAttachment).filter(item => item.id && item.storagePath);
+    const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || entries[0]?.content || "").trim();
     return {
       id: String(task.id || task.workCode || ""),
       workCode: String(task.workCode || task.work_code || task.id || ""),
@@ -151,7 +152,7 @@
       title: String(task.title || "未命名待辦").trim(),
       note: String(task.note || "").trim(),
       workContent: String(task.workContent || task.work_content || task.note || "").trim(),
-      latestProgress: String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || "").trim(),
+      latestProgress,
       usageScenario: String(task.usageScenario || task.usage_scenario || "").trim(),
       status, statusLabel: STATUS_LABELS[status],
       progress: status === "completed" ? 100 : clampProgress(task.progress),
@@ -292,5 +293,45 @@
       : card.render(cardOptions);
   }
 
-  return Object.freeze({ CAPABILITIES, normalize, render, renderCard, renderJournal, journalComposer, analysisMarkup });
+  /*
+   * Shared Attachment UI delegates the mutation to the active Consumer
+   * adapter.  The raw row is intentionally preserved for DataService because
+   * the controlled WorkTodo delete path requires storage_path, while the
+   * renderer uses the normalized storagePath field.
+   */
+  function bindAttachmentActions(container, options = {}) {
+    if (!container?.querySelectorAll) return false;
+    const rows = Array.isArray(options.attachments) ? options.attachments : [];
+    const domainService = options.dataService || root?.DataService;
+    const confirmDelete = options.confirm || root?.confirm;
+    const openAttachment = typeof options.onOpen === "function" ? options.onOpen : null;
+    const onDeleted = typeof options.onDeleted === "function" ? options.onDeleted : null;
+    container.querySelectorAll("[data-worktodo-attachment-open]").forEach(button => {
+      button.onclick = () => {
+        const item = rows.find(row => String(row.id || row.attachmentId) === String(button.dataset.worktodoAttachmentOpen));
+        return openAttachment?.(item);
+      };
+    });
+    container.querySelectorAll("[data-worktodo-attachment-delete]").forEach(button => {
+      button.onclick = async () => {
+        const item = rows.find(row => String(row.id || row.attachmentId) === String(button.dataset.worktodoAttachmentDelete));
+        if (!item || (typeof confirmDelete === "function" && !confirmDelete(`確定刪除附件「${item.filename || "未命名附件"}」？`))) return;
+        if (typeof domainService?.deleteWorkTodoAttachment !== "function") {
+          options.onError?.(new Error("WorkTodo Adapter 尚未取得正式附件刪除服務。"), item, button);
+          return;
+        }
+        button.disabled = true;
+        try {
+          await domainService.deleteWorkTodoAttachment(item);
+          await onDeleted?.(item);
+        } catch (error) {
+          button.disabled = false;
+          options.onError?.(error, item, button);
+        }
+      };
+    });
+    return true;
+  }
+
+  return Object.freeze({ CAPABILITIES, normalize, render, renderCard, renderJournal, journalComposer, analysisMarkup, bindAttachmentActions });
 });

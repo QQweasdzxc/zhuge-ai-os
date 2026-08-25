@@ -113,6 +113,39 @@ test("WorkTodo progress attachments expose the existing controlled delete hook",
   assert.match(html, /data-worktodo-attachment-delete="attachment-3"/);
 });
 
+test("WorkTodo attachment UI routes the raw row through the WorkTodo domain delete path", async () => {
+  const deleteCalls = [];
+  const button = { dataset: { worktodoAttachmentDelete: "attachment-raw" }, disabled: false, onclick: null };
+  const container = {
+    querySelectorAll(selector) {
+      return selector === "[data-worktodo-attachment-delete]" ? [button] : [];
+    }
+  };
+  const rawAttachment = {
+    id: "attachment-raw",
+    filename: "進度照片.png",
+    attachment_scope: "progress_note",
+    storage_path: "worktodo/task-1/attachment-raw.png"
+  };
+  const dataService = {
+    async deleteWorkTodoAttachment(item) {
+      deleteCalls.push(item);
+    }
+  };
+
+  Adapter.bindAttachmentActions(container, {
+    attachments: [rawAttachment],
+    dataService,
+    confirm: () => true
+  });
+  await button.onclick();
+
+  assert.equal(deleteCalls.length, 1);
+  assert.equal(deleteCalls[0], rawAttachment);
+  assert.equal(deleteCalls[0].storage_path, "worktodo/task-1/attachment-raw.png");
+  assert.equal(button.disabled, true);
+});
+
 test("WorkTodo shared card summary prefers latest progress then work content", () => {
   const html = Adapter.renderCard({ id: "task-4", title: "摘要順序", note: "工作內容", latestProgress: "最新進度" }, { card: Card });
   assert.match(html, /最新進度/);

@@ -71,6 +71,13 @@
       fixture: false,
       cloudWrites: false
     }),
+    preview: Object.freeze({
+      renderer: "canonical-c-template-preview",
+      mode: "neutral-view-model",
+      domainData: false,
+      fixture: false,
+      cloudWrites: false
+    }),
     capabilities: Object.freeze({
       catalog: "multi-template-ready",
       empty: Object.freeze({ domainData: false, fixture: false, cloudWrites: false }),

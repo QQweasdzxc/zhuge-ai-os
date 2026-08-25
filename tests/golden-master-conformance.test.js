@@ -49,5 +49,7 @@ test("EP-039 has one Golden Master presentation runtime for formal Board consume
   const stat = fs.lstatSync(runtimeLink);
   assert.equal(stat.isSymbolicLink(), true, "AI Board compatibility path must not contain a second runtime implementation");
   assert.match(fs.readlinkSync(runtimeLink), /golden-master-runtime\.js/);
-  assert.doesNotMatch(worktodo, /modules\/worklog/);
+  assert.match(worktodo, /modules\/worklog\/components\/worktodo-task-adapter\.js/);
+  assert.match(worktodo, /shared\/api\/data-service\.js/);
+  assert.doesNotMatch(worktodo, /modules\/worklog\/worklog-app\.js/);
 });

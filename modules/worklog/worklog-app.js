@@ -859,9 +859,10 @@ function bindWorkTodoChecklist(root, task) {
 }
 
 async function workTodoOpenAttachment(attachment) {
-  if (!attachment?.storagePath) return toast("附件尚無正式 Storage Path");
+  const storagePath = attachment?.storagePath || attachment?.storage_path || "";
+  if (!storagePath) return toast("附件尚無正式 Storage Path");
   try {
-    const url = await SupabaseRepository.signedWorkTodoAttachmentUrl(attachment.storagePath, 300);
+    const url = await SupabaseRepository.signedWorkTodoAttachmentUrl(storagePath, 300);
     window.open(url, "_blank", "noopener,noreferrer");
   } catch (error) {
     toast(error.message || "附件開啟失敗");
@@ -879,24 +880,17 @@ function bindWorkTodoAttachments(root, task) {
       }).catch(() => {});
     }
   });
-  root.querySelectorAll("[data-worktodo-attachment-open]").forEach(button => {
-    button.onclick = () => workTodoOpenAttachment(attachments.find(item => String(item.id) === String(button.dataset.worktodoAttachmentOpen)));
-  });
   if (root.dataset.readOnly === "true") return;
-  root.querySelectorAll("[data-worktodo-attachment-delete]").forEach(button => {
-    button.onclick = async () => {
-      const item = attachments.find(row => String(row.id) === String(button.dataset.worktodoAttachmentDelete));
-      if (!item || !confirm(`確定刪除附件「${item.filename}」？`)) return;
-      button.disabled = true;
-      try {
-        await DataService.deleteWorkTodoAttachment(item);
-        await refreshWorkTodoDrawerCapabilities();
-        toast("附件已透過正式刪除流程移除");
-      } catch (error) {
-        button.disabled = false;
-        toast(error.message || "附件刪除失敗");
-      }
-    };
+  ZhugeWorkTodoTaskAdapter.bindAttachmentActions?.(root, {
+    attachments,
+    dataService: DataService,
+    confirm,
+    onOpen: workTodoOpenAttachment,
+    onDeleted: async () => {
+      await refreshWorkTodoDrawerCapabilities();
+      toast("附件已透過正式刪除流程移除");
+    },
+    onError: error => toast(error.message || "附件刪除失敗")
   });
   root.querySelector("#worktodoTaskAttachmentInput")?.addEventListener("change", async event => {
     const files = [...(event.target.files || [])];
@@ -1106,6 +1100,7 @@ function workTodoBoardItems() {
 
 function workTodoBoardCard(task, readOnly = false) {
   return ZhugeWorkTodoTaskAdapter.renderCard(task, {
+    journal: workJournalForTask(task),
     attributes: {
       draggable: readOnly ? "false" : "true"
     }
@@ -4237,9 +4232,10 @@ function capture(editId = null, seed = null) {
 
 function systemTemplateWindowUrl(target) {
   const worklog = target === "navigation" || target === "workspace";
+  const canonicalBoardPreview = target === "board";
   const url = worklog
     ? new URL("./", window.location.href)
-    : new URL(target === "worktodo" ? "../../app/Board/worktodo/" : "../../app/Board/ai/", window.location.href);
+    : new URL(canonicalBoardPreview ? "../../app/Board/template-preview/" : target === "worktodo" ? "../../app/Board/worktodo/" : "../../app/Board/ai/", window.location.href);
   url.search = new URLSearchParams(worklog
     ? { app: "1", templateView: target, ...(target === "workspace" ? { workspace: "worklog" } : {}) }
     : { templateView: "board" }).toString();
@@ -4247,7 +4243,7 @@ function systemTemplateWindowUrl(target) {
 }
 
 function openSystemTemplateWindow(target) {
-  const allowed = ["navigation", "workspace", "ai-board", "worktodo"];
+  const allowed = ["navigation", "workspace", "board", "ai-board", "worktodo"];
   if (!allowed.includes(target)) return;
   const opened = window.open(systemTemplateWindowUrl(target), "_blank", "noopener,noreferrer");
   if (!opened) toast("瀏覽器阻擋了新視窗，請允許此網站開啟彈出視窗後再試。");
@@ -5673,7 +5669,7 @@ function bind() {
   if (templateManagementCenter && typeof ZhugeTemplateManagementCenter !== "undefined") {
     ZhugeTemplateManagementCenter.bind(templateManagementCenter, {
       onUpdated: () => render("template-management-updated"),
-      onPreview: templateId => openSystemTemplateWindow(templateId === "board" ? "ai-board" : templateId)
+      onPreview: templateId => openSystemTemplateWindow(templateId === "board" || templateId === "ai-board-empty-golden-master" ? "board" : templateId)
     });
   }
   document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {

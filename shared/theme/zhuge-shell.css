@@ -19,7 +19,7 @@
   --zhuge-radius-sm: 12px;
   /* Canonical Shared App Shell geometry.  Modules may shape their content,
    * but the outer frame, header rhythm and main gutter use these tokens. */
-  --shell-sidebar-width: 240px;
+  --shell-sidebar-width: 232px;
   --shell-main-gap: 14px;
   --shell-page-padding-x: 24px;
   --shell-page-padding-y: 24px;
