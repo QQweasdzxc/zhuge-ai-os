@@ -111,6 +111,34 @@
   }
   function isImage(mime) { return String(mime || "").toLowerCase().startsWith("image/"); }
 
+  function canonicalActivityValue(entry, camelCaseKey, snakeCaseKey) {
+    const camelValue = entry?.[camelCaseKey];
+    if (camelValue !== undefined && camelValue !== null) return camelValue;
+    return entry?.[snakeCaseKey];
+  }
+
+  function isHumanProgressEntry(entry = {}) {
+    const activityType = String(entry.activityType || entry.activity_type || "").trim();
+    const action = String(entry.action || "").trim();
+    return activityType === "human_progress_note"
+      && ["progress_note_created", "progress_note_edited"].includes(action);
+  }
+
+  function visibleHumanProgressEntries(entries = []) {
+    const rows = Array.isArray(entries) ? entries : [];
+    const superseded = new Set(rows
+      .filter(entry => entry?.revisionOf != null)
+      .map(entry => String(entry.revisionOf)));
+    const tombstoned = new Set(rows
+      .filter(entry => entry?.tombstoneOf != null)
+      .map(entry => String(entry.tombstoneOf)));
+    return rows.filter(entry => isHumanProgressEntry(entry)
+      && !superseded.has(String(entry.id))
+      && !tombstoned.has(String(entry.id))
+      && entry.action !== "progress_note_deleted"
+      && !["superseded", "tombstoned", "tombstone"].includes(String(entry.lifecycleStatus || "")));
+  }
+
   function normalizeAttachment(item = {}) {
     const id = String(item.id || item.attachmentId || "");
     const activityId = String(item.activityId || item.activity_id || item.journalEntryUuid || item.journal_entry_uuid || "");
@@ -136,28 +164,31 @@
   function normalize(task = {}, journal = [], capabilityData = {}) {
     const status = normalizeStatus(task.status);
     const entries = (Array.isArray(journal) ? journal : [])
-      .filter(entry => {
-        const entryType = String(entry?.entryType || entry?.entry_type || "progress");
-        const lifecycleStatus = String(entry?.lifecycleStatus || entry?.lifecycle_status || "active");
-        return entry && String(entry.content || entry.note || "").trim()
-          && entryType !== "system_activity"
-          && !["superseded", "tombstoned", "tombstone"].includes(lifecycleStatus);
-      })
+      .filter(entry => entry && String(entry.content || entry.note || "").trim())
       .map(entry => {
         const content = String(entry.content || entry.note || "").trim();
         const id = String(entry.cloudId || entry.cloud_id || entry.id || entry.clientId || entry.client_id || "");
-        const createdAt = entry.createdAt || entry.created_at || "";
+        const actionValue = String(entry.action || "").trim();
+        const rawActivityType = String(canonicalActivityValue(entry, "activityType", "activity_type") || "").trim();
+        const rawEntryType = String(canonicalActivityValue(entry, "entryType", "entry_type") || "").trim();
+        const activityType = rawActivityType
+          || (rawEntryType === "system_activity" ? "system_activity" : "human_progress_note");
+        const action = actionValue
+          || (activityType === "human_progress_note" ? "progress_note_created" : "system_activity");
+        const createdAt = entry.createdAt || entry.created_at || entry.timestamp || "";
         const actorId = String(entry.actorId || entry.actor_id || entry.createdBy || entry.created_by || "");
         const actorLabel = String(entry.actorLabel || entry.actor_label || entry.createdByLabel || entry.created_by_label || "QJC");
+        const revisionOf = canonicalActivityValue(entry, "revisionOf", "revision_of");
+        const tombstoneOf = canonicalActivityValue(entry, "tombstoneOf", "tombstone_of");
         return {
           id,
           content,
           note: content,
-          entryType: String(entry.entryType || entry.entry_type || "progress"),
-          action: String(entry.action || "progress_note_created"),
-          activityType: "human_progress_note",
-          entityType: "worktodo_progress_note",
-          entityId: String(entry.taskUuid || entry.task_uuid || task.id || ""),
+          entryType: rawEntryType || activityType,
+          action,
+          activityType,
+          entityType: String(canonicalActivityValue(entry, "entityType", "entity_type") || (activityType === "human_progress_note" ? "worktodo_progress_note" : "")),
+          entityId: String(canonicalActivityValue(entry, "entityId", "entity_id") || entry.taskUuid || entry.task_uuid || task.id || ""),
           status: normalizeStatus(entry.status || entry.entry_status || status),
           progress: clampProgress(entry.progress),
           createdBy: actorId,
@@ -166,8 +197,9 @@
           createdAt,
           timestamp: createdAt,
           updatedAt: entry.updatedAt || entry.updated_at || createdAt,
-          revisionOf: entry.revisionOf || entry.revision_of || null,
-          tombstoneOf: entry.tombstoneOf || entry.tombstone_of || null
+          lifecycleStatus: String(canonicalActivityValue(entry, "lifecycleStatus", "lifecycle_status") || "active"),
+          revisionOf: revisionOf == null ? null : String(revisionOf),
+          tombstoneOf: tombstoneOf == null ? null : String(tombstoneOf)
         };
       })
       .sort((a, b) => (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0));
@@ -181,7 +213,7 @@
     const agreementMode = agreementModeRaw === "single" || agreementModeRaw === "period" ? agreementModeRaw : "";
     const agreementStartDate = String(task.agreementStartDate || task.agreement_start_date || "").slice(0, 10);
     const agreementEndDate = agreementMode === "period" ? String(task.agreementEndDate || task.agreement_end_date || "").slice(0, 10) : "";
-    const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || entries[0]?.content || "").trim();
+    const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || visibleHumanProgressEntries(entries)[0]?.content || "").trim();
     return {
       id: String(task.id || task.workCode || ""),
       workCode: String(task.workCode || task.work_code || task.id || ""),
@@ -267,8 +299,9 @@
   }
   function renderJournal(entries, vm, options = {}) {
     if (options.loading) return `<div class="shared-task-drawer-empty">🌀 正在從 Cloud 載入工作進度…</div>`;
-    if (!entries.length) return `<div class="shared-task-drawer-empty">尚無工作進度紀錄。</div>`;
-    return entries.map(entry => journalRow(entry, vm, options)).join("");
+    const humanEntries = visibleHumanProgressEntries(entries);
+    if (!humanEntries.length) return `<div class="shared-task-drawer-empty">尚無工作進度紀錄。</div>`;
+    return humanEntries.map(entry => journalRow(entry, vm, options)).join("");
   }
   function journalComposer(options = {}) {
     if (options.readOnly) return `<div class="worktodo-shared-journal-readonly">此待辦已封存，工作進度僅供查閱。</div>`;

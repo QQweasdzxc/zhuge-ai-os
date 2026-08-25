@@ -54,6 +54,102 @@ test("WorkTodo adapter normalizes domain fields and newest-first journal", () =>
   assert.equal(view.journal[0].entryType, "completion");
 });
 
+test("WorkTodo adapter preserves canonical activity classification and lifecycle metadata", () => {
+  const view = Adapter.normalize({ id: "task-activity-1", status: "in_progress" }, [
+    {
+      id: "system-agreement",
+      entity_type: "board_task",
+      entity_id: "task-activity-1",
+      action: "worktodo_agreement_schedule_updated",
+      activity_type: "system_activity",
+      note: "Agreement updated",
+      actor_id: "owner-1",
+      actor_label: "QJC",
+      created_at: "2026-08-25T03:00:00.000Z"
+    },
+    {
+      id: "system-task-update",
+      entity_type: "board_task",
+      entity_id: "task-activity-1",
+      action: "worktodo_task_updated",
+      activity_type: "system_activity",
+      note: "Task updated",
+      actor_id: "owner-1",
+      actor_label: "QJC",
+      created_at: "2026-08-25T02:45:00.000Z"
+    },
+    {
+      id: "human-original",
+      entity_type: "board_task",
+      entity_id: "task-activity-1",
+      action: "progress_note_created",
+      activity_type: "human_progress_note",
+      note: "原始進度",
+      actor_id: "owner-1",
+      actor_label: "QJC",
+      created_at: "2026-08-25T02:00:00.000Z"
+    },
+    {
+      id: "human-revision",
+      entity_type: "board_task",
+      entity_id: "task-activity-1",
+      action: "progress_note_edited",
+      activity_type: "human_progress_note",
+      note: "最新進度",
+      actor_id: "owner-1",
+      actor_label: "QJC",
+      revision_of: "human-original",
+      created_at: "2026-08-25T02:30:00.000Z"
+    }
+  ]);
+
+  const system = view.journal.find(entry => entry.id === "system-agreement");
+  const revision = view.journal.find(entry => entry.id === "human-revision");
+  assert.equal(system.activityType, "system_activity");
+  assert.equal(system.action, "worktodo_agreement_schedule_updated");
+  assert.equal(system.entityType, "board_task");
+  assert.equal(system.entityId, "task-activity-1");
+  assert.equal(system.createdAt, "2026-08-25T03:00:00.000Z");
+  const systemTaskUpdate = view.journal.find(entry => entry.id === "system-task-update");
+  assert.equal(systemTaskUpdate.activityType, "system_activity");
+  assert.equal(systemTaskUpdate.action, "worktodo_task_updated");
+  assert.equal(revision.activityType, "human_progress_note");
+  assert.equal(revision.action, "progress_note_edited");
+  assert.equal(revision.revisionOf, "human-original");
+  assert.equal(view.latestProgress, "最新進度");
+
+  const html = Adapter.render({ id: "task-activity-1", title: "Activity mapping" }, {
+    drawer: Drawer,
+    journal: view.journal
+  });
+  assert.match(html, /最新進度/);
+  assert.doesNotMatch(html, /Agreement updated/);
+  assert.doesNotMatch(html, /worktodo_agreement_schedule_updated/);
+  assert.doesNotMatch(html, /Task updated/);
+  assert.doesNotMatch(html, /worktodo_task_updated/);
+
+  const tombstoneView = Adapter.normalize({ id: "task-activity-1", status: "in_progress" }, [
+    ...view.journal,
+    {
+      id: "human-tombstone",
+      entity_type: "board_task",
+      entity_id: "task-activity-1",
+      action: "progress_note_deleted",
+      activity_type: "human_progress_note",
+      note: "最新進度已撤回",
+      tombstone_of: "human-revision",
+      created_at: "2026-08-25T03:30:00.000Z"
+    }
+  ]);
+  const tombstoneHtml = Adapter.render({ id: "task-activity-1", title: "Activity mapping" }, {
+    drawer: Drawer,
+    journal: tombstoneView.journal
+  });
+  assert.equal(tombstoneView.journal.find(entry => entry.id === "human-tombstone").tombstoneOf, "human-revision");
+  assert.doesNotMatch(tombstoneHtml, /最新進度/);
+  assert.doesNotMatch(tombstoneHtml, /最新進度已撤回/);
+});
+
 test("WorkTodo adapter renders the shared Drawer without owning Cloud access", () => {
   const html = Adapter.render({ id: "task-1", title: "補充採購資料", note: "整理供應商回覆", status: "in_progress", progress: 25, priority: "p2" }, {
     drawer: Drawer,

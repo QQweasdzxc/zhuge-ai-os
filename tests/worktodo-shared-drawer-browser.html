@@ -76,6 +76,94 @@
         actor_label: "QJC"
       }
     ];
+    const fixtureActivity = window.__fixtureActivity = [
+      {
+        id: "system-agreement",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "worktodo_agreement_schedule_updated",
+        activity_type: "system_activity",
+        note: "WorkTodo Agreement Schedule updated through the Shared Task Drawer Contract",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T02:00:00.000Z"
+      },
+      {
+        id: "system-task",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "worktodo_task_updated",
+        activity_type: "system_activity",
+        note: "WorkTodo task updated through the authenticated owner path",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T01:50:00.000Z"
+      },
+      {
+        id: "journal-1-original",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "human_progress_note",
+        note: "原始進度，已被修改",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T01:30:00.000Z"
+      },
+      {
+        id: "journal-1-revision",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_edited",
+        activity_type: "human_progress_note",
+        note: "已確認現場有留電源線。",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        revision_of: "journal-1-original",
+        created_at: "2026-08-25T01:40:00.000Z"
+      },
+      {
+        id: "journal-2",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "human_progress_note",
+        note: "資料已回覆 https://example.com/reference",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-24T06:00:00.000Z"
+      },
+      {
+        id: "journal-deleted",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "human_progress_note",
+        note: "這筆進度已撤回",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-23T06:00:00.000Z"
+      },
+      {
+        id: "journal-deleted-tombstone",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_deleted",
+        activity_type: "human_progress_note",
+        note: "WorkTodo Progress Note withdrawn through the Shared Action Contract",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        tombstone_of: "journal-deleted",
+        created_at: "2026-08-23T06:01:00.000Z"
+      }
+    ];
     window.getSupabaseAuthUser = async () => ({
       user: { id: "fixture-qjc", email: "qjc@example.test", user_metadata: { full_name: "QJC" } },
       authSession: { access_token: "fixture-token", refresh_token: "fixture-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600 },
@@ -109,20 +197,7 @@
       isArchiveTask: () => false,
       loadActivity: async taskId => {
         window.__worktodoActivityReadPath = "engineering_activity_log";
-        return fixtureJournal
-          .filter(row => row.task_uuid === taskId)
-          .map(row => ({
-            id: row.id,
-            entity_type: "board_task",
-            entity_id: taskId,
-            action: "progress_note_created",
-            activity_type: "human_progress_note",
-            note: row.content,
-            actor_id: "fixture-qjc",
-            actor_type: "human",
-            actor_label: row.actor_label,
-            created_at: row.created_at
-          }));
+        return fixtureActivity.filter(row => row.task_uuid === taskId);
       },
       load: async () => ({
         workspaces: [
@@ -173,6 +248,11 @@
         rowGap: style?.rowGap || "",
         cardPadding: firstRow ? getComputedStyle(firstRow).padding : "",
         activityRows: list?.querySelectorAll("article").length || 0,
+        systemActivityRendered: Boolean(list?.querySelector('[data-activity-id="system-agreement"], [data-activity-id="system-task"]')),
+        systemActivityControls: Boolean(list?.querySelector('[data-activity-id="system-agreement"] [data-progress-note-edit], [data-activity-id="system-agreement"] [data-progress-note-delete], [data-activity-id="system-task"] [data-progress-note-edit], [data-activity-id="system-task"] [data-progress-note-delete]')),
+        revisionOriginalRendered: Boolean(list?.querySelector('[data-activity-id="journal-1-original"]')),
+        revisionLatestRendered: Boolean(list?.querySelector('[data-activity-id="journal-1-revision"]')),
+        tombstonedOriginalRendered: Boolean(list?.querySelector('[data-activity-id="journal-deleted"]')),
         activityReadPath: window.__worktodoActivityReadPath || "",
         legacyFallbackCalled: window.__legacyWorkJournalFallbackCalled === true,
         hasSharedDrawer: Boolean(drawer),

@@ -881,7 +881,7 @@
     return `<div class="pm-acceptance-panel" data-pm-action="acceptance"><div class="pm-acceptance-context"><strong>現在需要你操作 PM QA</strong><span>工程驗證已完成；請依下列項目完成實機驗證，再做最後決定。</span></div>${acceptanceCriteriaMarkup(task)}<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><span class="pm-acceptance-state">目前 Acceptance 狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn primary" type="button" data-pm-accept="${esc(item.id)}">驗收通過</button><button class="btn" type="button" data-pm-reject="${esc(item.id)}">退回修改</button></div></div></div>`;
   }
   function activityActionLabel(item) {
-    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "工作進度";
+    if (isHumanProgressActivity(item)) return "工作進度";
     const labels = {
       task_created: "建立 TASK",
       workflow_transition: "工程狀態交接",
@@ -895,7 +895,7 @@
     return labels[item.action] || item.action || "系統活動";
   }
   function activityDetail(item) {
-    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") {
+    if (isHumanProgressActivity(item)) {
       return item.note || "（未提供進度內容）";
     }
     if (item.action === "workspace_moved") {
@@ -910,8 +910,14 @@
     }
     return item.note || "保留於正式 Audit Trail。";
   }
+  function isHumanProgressActivity(item) {
+    const activityType = String(item?.activityType || item?.activity_type || "").trim();
+    const action = String(item?.action || "").trim();
+    return activityType === "human_progress_note"
+      && ["progress_note_created", "progress_note_edited"].includes(action);
+  }
   function activityKind(item) {
-    if (item?.activityType === "human_progress_note" || item?.action === "progress_note_created") return "human";
+    if (isHumanProgressActivity(item)) return "human";
     const identity = `${item?.action || ""} ${item?.note || ""}`.toLowerCase();
     if (/acceptance|accepted|驗收/.test(identity)) return "acceptance";
     if (item?.action === "workflow_transition") return "status";
@@ -1514,9 +1520,7 @@
   }
   function hasHumanProgressActivity(rows = []) {
     return (Array.isArray(rows) ? rows : []).some(item => {
-      const activityType = String(item?.activityType || item?.activity_type || "");
-      const action = String(item?.action || "");
-      return activityType === "human_progress_note" || action === "progress_note_created";
+      return isHumanProgressActivity(item);
     });
   }
   async function loadWorkTodoDrawerData(task) {

@@ -31,6 +31,9 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   assert.doesNotMatch(runtime, /openWorkTodoTaskDetail|adapter\.render\(task/);
   assert.match(runtime, /querySelectorAll\("\[data-shared-attachment-delete\]"\)/);
   assert.doesNotMatch(runtime, /data-task-attachment-delete|data-progress-attachment-delete/);
+  assert.match(runtime, /function isHumanProgressActivity\(item\)/);
+  assert.match(runtime, /activityType === "human_progress_note"[\s\S]*\["progress_note_created", "progress_note_edited"\]/);
+  assert.match(runtime, /function visibleHumanProgressRows\(activity\)/);
 
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "deleteTaskProgressNote"\)/);
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "worktodoDeleteTaskProgressNote"\)/);
