@@ -1,0 +1,130 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AI Board Batch 2 browser regression fixture</title>
+<link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
+<link rel="stylesheet" href="../shared/theme/task-drawer.css">
+<link rel="stylesheet" href="../shared/theme/task-board.css">
+<link rel="stylesheet" href="../shared/theme/golden-master.css">
+<div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-external-root="../" data-active-workspace="ai-board" data-version="0.9.0-alpha.9.13" data-build="__RUNTIME_BUILD__"></div>
+<div class="main">
+  <aside>
+    <button data-board-nav="board" type="button">📋 工作看板</button>
+    <button data-board-nav="principles" type="button">📘 工程準則</button>
+    <button data-board-nav="system-map" type="button">🗺️ 系統藍圖</button>
+  </aside>
+  <div class="actions"><button class="btn">重新整理</button></div>
+  <div class="toolbar"><input id="boardSearch" type="search" aria-label="搜尋 TASK"></div>
+  <div class="note"></div>
+  <section class="board-shell">
+    <div class="board" id="boardColumns" data-shared-task-board="ai-board"></div>
+  </section>
+  <section class="board-subview principles-view" data-board-view="principles" hidden><div id="principlesCards"></div></section>
+  <section class="board-subview system-map-view" data-board-view="system-map" hidden><div id="systemMapCards"></div></section>
+  <div class="sidefoot"></div>
+</div></div>
+<script src="../shared/config/version.js"></script>
+<script src="../shared/components/zhuge-navigation.js"></script>
+<script src="../shared/components/task-card.js"></script>
+<script src="../shared/components/task-drawer.js"></script>
+<script src="../shared/components/task-board.js"></script>
+<script src="../shared/components/golden-master.js"></script>
+<script>
+  let session = null;
+  window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
+  // Fixture-only implementation of the canonical AI Board session hydration seam.
+  const fixtureAuthUser = { id: "qjc-test", email: "qjc@example.test", user_metadata: { full_name: "QJC" } };
+  const fixtureAuthSession = { access_token: "fixture-access-token", refresh_token: "fixture-refresh-token", expires_at: Math.floor(Date.now() / 1000) + 3600 };
+  window.getSupabaseAuthUser = async () => ({ user: fixtureAuthUser, authSession: fixtureAuthSession, provider: "fixture" });
+  window.supabaseSessionFromUser = (authUser, authSession, provider) => ({
+    provider,
+    user_uuid: authUser.id,
+    uuid: authUser.id,
+    name: authUser.user_metadata.full_name,
+    email: authUser.email,
+    access_token: authSession.access_token,
+    refresh_token: authSession.refresh_token,
+    expires_at: authSession.expires_at,
+    token_type: "bearer",
+    loginAt: new Date().toISOString()
+  });
+  window.persistAiOsSessionOnly = () => {};
+  window.ZhugeRuntimeSessionProvider = {
+    createPlatform: () => ({
+      forModule: () => ({
+        security: { evaluate: () => ({ allowed: true }) },
+        session: { getSnapshot: () => ({ user_id: "qjc-test", isAuthenticated: true }) }
+      })
+    })
+  };
+  const mockWorkspaces = [
+    { id: "ws-todo", key: "todo", name: "待辦", sortOrder: 10, active: true },
+    { id: "ws-co", key: "co", name: "Co區", sortOrder: 20, active: true },
+    { id: "ws-gpt", key: "gpt", name: "GPT區", sortOrder: 30, active: true },
+    { id: "ws-qjc", key: "qjc", name: "QJC驗證", sortOrder: 40, active: true },
+    { id: "ws-done", key: "done", name: "已完工", sortOrder: 50, active: true }
+  ];
+  const mockTasks = [
+    { id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "QJC", summary: "確認三方傳接球。", acceptanceCriteria: "打開 TASK Drawer，確認工作進度紀錄可正常新增。\n重新整理頁面，確認紀錄仍存在。\n確認 Drawer Desktop / Mobile 顯示正常。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。", developerNotes: "Co 已完成 Shared Drawer Presentation Layer 修正。", pmNotes: "PM QA 檢查 Drawer 的 Evidence presentation。" },
+    { id: "task-010", workCode: "TASK-010", title: "排序測試 10", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" },
+    { id: "task-002", workCode: "TASK-002", title: "排序測試 2", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" },
+    { id: "task-003", workCode: "TASK-003", title: "排序測試 3", status: "qa", workspaceId: "ws-gpt", workspaceKey: "gpt", workspaceName: "GPT區", assignee: "GPT", summary: "驗證 TASK 數字排序。", usageScenario: "QJC 需要依編號閱讀工作卡。" }
+  ];
+  const workspaceFor = id => mockWorkspaces.find(workspace => workspace.id === id);
+  const taskFor = id => mockTasks.find(task => task.id === id);
+  window.ZhugeBoardReadService = {
+    statusDescriptorFor: status => ({ ready: { label: "Ready" }, inprogress: { label: "推進中" }, qa: { label: "驗證中" }, done: { label: "已完成" } }[status] || { label: "未知工程狀態" }),
+    normalizeStatus: status => String(status || "ready"),
+    isGovernanceTerminal: task => ["merged", "cancelled"].includes(String(task?.status || "")),
+    load: async () => ({ workspaces: mockWorkspaces, tasks: mockTasks, principles: [{ code: "PRINCIPLE-001", title: "不得偽造 Evidence", summary: "正式證據必須可追溯。" }], systemMaps: [{ code: "TASK-026-SYSTEM-MAP", title: "Current System Map", summary: "Shared Shell → AI Board → Supabase" }] }),
+    loadChecklist: taskId => taskId === "history" ? [] : [
+      { id: "check-1", stage: "co", state: "pass", required: true, label: "Co Developer QA 已完成", evidenceNote: "source evidence", evidenceRef: "qa://co" },
+      { id: "check-2", stage: "gpt", state: "pass", required: true, label: "GPT Review 已完成", evidenceNote: "shared presentation review", evidenceRef: "qa://gpt" },
+      { id: "check-regression", stage: "co", checklistType: "batch_regression", state: "pass", required: true, label: "Full Regression 已完成", evidenceNote: "targeted regression pass", evidenceRef: "qa://regression" },
+      { id: "check-3", stage: "qjc", itemKey: "pm-acceptance", state: "not_verified", required: true, label: "QJC PM Acceptance 尚待確認", evidenceNote: "" }
+    ],
+    loadTaskChecklist: async taskId => taskId === "task-026" ? [
+      { id: "task-check-1", label: "確認 Shared Task Drawer layout", completed: true },
+      { id: "task-check-2", label: "完成 PM Runtime QA", completed: false }
+    ] : [],
+    loadActivity: async () => [
+      { id: "activity-status", entityType: "board_task", action: "workflow_transition", beforeData: { status: "ready" }, afterData: { status: "inprogress" }, actorLabel: "Co", timestamp: "2026-08-16T02:00:00Z" },
+      { id: "activity-workspace", entityType: "board_task", action: "workspace_moved", beforeData: { workspace_name: "待辦" }, afterData: { workspace_name: "Co區" }, actorLabel: "QJC", timestamp: "2026-08-16T02:01:00Z" },
+      { id: "activity-evidence", entityType: "engineering_checklist_item", action: "checklist_item_updated", note: "Co Developer QA completed", actorLabel: "Co", timestamp: "2026-08-16T02:02:00Z" },
+      { id: "activity-human", entityType: "board_task", action: "progress_note_created", activityType: "human_progress_note", note: "已完成 Shared Task Drawer Presentation Layer 修正。", actorLabel: "QJC", timestamp: "2026-08-16T02:03:00Z" }
+    ],
+    loadMovementHistory: async () => [],
+    loadArtifacts: async () => [{ artifactId: "artifact-026", relatedTask: "TASK-026", filename: "TASK-026-FullCandidate.zip", productVersion: "v0.9.0-alpha.9.13", runtimeBuild: "20260817-1200", artifactType: "candidate", qaStatus: "pass", pmAcceptanceStatus: "pending", sha256: "abc123" }],
+    moveTaskWorkspace: async (taskId, targetWorkspaceId) => {
+      const task = taskFor(taskId);
+      const workspace = workspaceFor(targetWorkspaceId);
+      if (task && workspace) Object.assign(task, { workspaceId: workspace.id, workspaceKey: workspace.key, workspaceName: workspace.name });
+      return task;
+    },
+    createWorkspace: async name => { const workspace = { id: "ws-test", key: "", name, sortOrder: 60, active: true }; mockWorkspaces.push(workspace); return workspace; },
+    renameWorkspace: async () => ({}),
+    reorderWorkspaces: async () => ({ success: true }),
+    updateChecklistItem: async () => ({}),
+    createTask: async () => ({}),
+    subscribe: async () => async () => {}
+  };
+</script>
+<script src="../app/Board/ai/board-runtime.js"></script>
+<script>
+  (function recordTaskOrder(attempt) { const codes = Array.from(document.querySelectorAll('.process[data-workspace-key="gpt"] .taskcard .code')).map(code => code.textContent.trim()); if (codes.length === 4 || attempt >= 100) { const audit = document.createElement("pre"); audit.id = "task-order-audit"; audit.textContent = codes.join(","); document.body.appendChild(audit); return; } setTimeout(() => recordTaskOrder(attempt + 1), 50); })(0);
+  setTimeout(() => { const card = document.querySelector(".taskcard"); card?.click(); window.ZhugeBoardRuntime?.openTaskDetail({ id: "task-026", workCode: "TASK-026", title: "System Map 驗證", status: "qa", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "QJC", summary: "確認三方傳接球。", acceptanceCriteria: "打開 TASK Drawer，確認工作進度紀錄可正常新增。\n重新整理頁面，確認紀錄仍存在。\n確認 Drawer Desktop / Mobile 顯示正常。", usageScenario: "GPT 先讀取正式來源，再由 QJC 驗收。", developerNotes: "Co 已完成 Shared Drawer Presentation Layer 修正。", pmNotes: "PM QA 檢查 Drawer 的 Evidence presentation。" }); }, 1400);
+  setTimeout(() => { const audit = document.createElement("pre"); audit.id = "checklist-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 1650);
+  setTimeout(() => { const audit = document.createElement("div"); audit.id = "drawer-markup-audit"; audit.innerHTML = document.getElementById("taskDetailBody")?.innerHTML || ""; document.body.appendChild(audit); }, 1650);
+  setTimeout(() => document.getElementById("refreshBoardBtn")?.click(), 1700);
+  setTimeout(() => { const task = window.ZhugeBoardReadService.load ? window.ZhugeBoardReadService.load().then(result => result.tasks[0]) : null; Promise.resolve(task).then(row => row && window.ZhugeBoardRuntime?.moveTaskToWorkspace(row, "ws-co")); }, 1900);
+  setTimeout(() => { document.querySelector('[data-board-nav="board"]')?.click(); const audit = document.createElement("pre"); audit.id = "board-nav-audit"; audit.textContent = document.getElementById("boardReadStatus")?.textContent || ""; document.body.appendChild(audit); }, 2200);
+  setTimeout(() => { document.querySelector('[data-board-nav="principles"]')?.click(); const audit = document.createElement("pre"); audit.id = "principles-nav-audit"; audit.textContent = document.getElementById("boardReadStatus")?.textContent || ""; document.body.appendChild(audit); }, 2500);
+  setTimeout(() => { document.querySelector('[data-board-nav="system-map"]')?.click(); const audit = document.createElement("pre"); audit.id = "system-map-nav-audit"; audit.textContent = document.getElementById("boardReadStatus")?.textContent || ""; document.body.appendChild(audit); }, 2800);
+  setTimeout(() => { const input = document.getElementById("boardSearch"); input.value = "TASK-026"; input.dispatchEvent(new Event("input", { bubbles: true })); const audit = document.createElement("pre"); audit.id = "search-audit"; audit.textContent = document.getElementById("boardSearchCount")?.textContent || ""; document.body.appendChild(audit); }, 3100);
+  setTimeout(() => document.querySelector(".add")?.click(), 3400);
+  setTimeout(() => { document.getElementById("taskSummary").value = "建立正式工作平台"; document.getElementById("taskUsageScenario").value = "QJC、GPT、Co 需要共同驗證工程工作。"; document.getElementById("taskTitle").value = "AI Board 共同工作"; window.createCard(); }, 3900);
+  setTimeout(() => { window.ZhugeBoardRuntime?.openTaskDetail({ id: "history", workCode: "TASK-HISTORY", title: "歷史完成工作", status: "done", assignee: "QJC", summary: "Checklist 制度導入前完成。", usageScenario: "保留歷史狀態供查閱。" }); }, 3500);
+  setTimeout(() => { const audit = document.createElement("pre"); audit.id = "history-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 4100);
+  setTimeout(() => { const btn = document.querySelector('[data-shared-nav-collapse]'); btn?.click(); const collapsed = document.createElement("pre"); collapsed.id = "nav-collapse-audit"; const visible = Array.from(document.querySelectorAll('.sidebar-scroll [data-shared-nav-item]')).filter(node => getComputedStyle(node).display !== "none"); const task = document.querySelector('.sidebar-scroll [data-shared-nav-item="tasks-new"]'); collapsed.textContent = `${document.querySelector(".zhuge-module-shell")?.className || ""};collapsed-visible=${visible.map(node => node.dataset.sharedNavItem).join(",")};collapsed-new-tasks-tag=${task?.tagName || ""};collapsed-new-tasks-title=${task?.getAttribute("title") || ""};collapsed-new-tasks-href=${task?.getAttribute("href") || ""}`; document.body.appendChild(collapsed); btn?.click(); }, 4500);
+  setTimeout(() => { document.querySelectorAll('[data-shared-nav-item]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); })); const audit = document.createElement("pre"); audit.id = "cross-workspace-audit"; audit.textContent = Array.from(document.querySelectorAll('[data-shared-nav-item]')).map(link => link.dataset.sharedNavItem).join(","); document.body.appendChild(audit); const ia = document.createElement("pre"); ia.id = "ai-board-ia-audit"; ia.textContent = `heading=${document.querySelectorAll('.side-section-heading[data-shared-nav-item="ai-board"]').length};duplicateMenu=${document.querySelectorAll('.side-section .side-item[data-shared-nav-item="ai-board"]').length};children=${document.querySelectorAll('.side-section[data-nav-group="ai-board"] .side-item-child').length}`; document.body.appendChild(ia); }, 4700);
+  setTimeout(() => { const column = document.querySelector("[data-shared-task-board-column]"); const header = column?.querySelector(".shared-task-board-column-header"); const audit = document.createElement("pre"); audit.id = "golden-master-column-audit"; audit.textContent = `class=${column?.className || ""};background=${header ? getComputedStyle(header).backgroundColor : ""};border=${header ? getComputedStyle(header).borderBottomColor : ""}`; document.body.appendChild(audit); }, 1200);
+</script>
