@@ -110,7 +110,7 @@
       const count = model.enabledCount == null ? "—" : `${model.enabledCount} 頁`;
       const supportCount = model.consumers.length;
       const panelId = `template-management-panel-${template.id}`;
-      return `<section class="template-management-card" data-template-management-template="${escapeHtml(template.id)}"><button class="template-management-card-header" type="button" data-template-management-toggle aria-expanded="false" aria-controls="${escapeHtml(panelId)}"><span class="template-management-code" aria-hidden="true">${escapeHtml(template.code)}</span><span class="template-management-card-title"><strong>${escapeHtml(template.code)} 區｜${escapeHtml(template.label)}</strong><small>${escapeHtml(template.description)}</small></span><span class="template-management-card-summary"><strong>已套用 ${escapeHtml(count)}</strong><small>正式支援 ${supportCount} 頁</small></span><span class="template-management-card-chevron" aria-hidden="true">⌄</span></button><div class="template-management-card-body" id="${escapeHtml(panelId)}" data-template-management-panel hidden>${renderConsumerRows(model, snapshot)}</div></section>`;
+      return `<section class="template-management-card" data-template-management-template="${escapeHtml(template.id)}"><button class="template-management-card-header" type="button" data-template-management-toggle aria-expanded="false" aria-controls="${escapeHtml(panelId)}"><span class="template-management-code" aria-hidden="true">${escapeHtml(template.code)}</span><span class="template-management-card-title"><strong>${escapeHtml(template.code)} 區｜${escapeHtml(template.label)}</strong><small>${escapeHtml(template.description)}</small></span><span class="template-management-card-summary"><strong>已套用 ${escapeHtml(count)}</strong><small>正式支援 ${supportCount} 頁</small></span><span class="template-management-card-chevron" aria-hidden="true">⌄</span></button><div class="template-management-card-body" id="${escapeHtml(panelId)}" data-template-management-panel hidden><div class="template-management-card-actions"><button class="btn2" type="button" data-template-management-preview data-template-id="${escapeHtml(template.id)}">查看模板</button></div>${renderConsumerRows(model, snapshot)}</div></section>`;
     }).join("");
     return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">Creator Control／Template Adoption</span><h3>🧩 系統模板管理中心</h3><p class="muted">集中管理 A／B／C Template、正式 Consumer Capability 與 Cloud Adoption State。</p></div><span class="template-management-source">來源：Supabase Cloud Settings</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div><div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
   }
@@ -144,6 +144,12 @@
         button.setAttribute("aria-expanded", expanded ? "false" : "true");
         panel.hidden = expanded;
         button.querySelector(".template-management-card-chevron")?.replaceChildren(root.document.createTextNode(expanded ? "⌄" : "⌃"));
+      });
+    });
+    container.querySelectorAll("[data-template-management-preview]").forEach(button => {
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        options.onPreview?.(button.dataset.templateId || "");
       });
     });
     container.querySelectorAll("[data-template-management-switch]").forEach(input => {

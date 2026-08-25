@@ -79,6 +79,8 @@ test("Template Management Center is the single adoption presentation", () => {
   assert.match(management, /Template Registry/);
   assert.match(management, /Cloud Adoption State/);
   assert.match(management, /data-template-management-switch/);
+  assert.match(management, /data-template-management-preview/);
+  assert.match(runtime, /onPreview: templateId => openSystemTemplateWindow/);
   assert.doesNotMatch(runtime, /ZhugeGoldenMasterPreview|template\.preview|GM-FIX/);
 });
 

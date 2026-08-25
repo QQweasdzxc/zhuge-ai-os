@@ -137,6 +137,7 @@ test("template adoption is separate from MFA and attaches to the existing Shared
   assert.match(management, /supportedTemplates/);
   assert.match(management, /setEnabled\(\{ pageId, templateId, userId:/);
   assert.match(management, /bootstrapTemplatePolicy\(\{ force: true \}\)/);
+  assert.match(management, /data-template-management-preview/);
   assert.doesNotMatch(management, /queueMicrotask\(\(\) => options\.onUpdated\(\)\)/);
 
   const context = read("shared/services/module-context.js");

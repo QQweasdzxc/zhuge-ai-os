@@ -13,6 +13,8 @@
 
   const sharedActivityTextRenderer = root?.ZhugeSharedActivityTextRenderer
     || (typeof require === "function" ? require("../../../shared/components/activity-text-renderer.js") : null);
+  const sharedTaskCardSummary = root?.ZhugeSharedTaskCardSummary
+    || (typeof require === "function" ? require("../../../shared/components/task-card-summary.js") : null);
 
   const CAPABILITIES = Object.freeze({
     title: true,
@@ -148,6 +150,8 @@
       cloudId: String(task.cloudId || task.cloud_id || ""),
       title: String(task.title || "未命名待辦").trim(),
       note: String(task.note || "").trim(),
+      workContent: String(task.workContent || task.work_content || task.note || "").trim(),
+      latestProgress: String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || "").trim(),
       usageScenario: String(task.usageScenario || task.usage_scenario || "").trim(),
       status, statusLabel: STATUS_LABELS[status],
       progress: status === "completed" ? 100 : clampProgress(task.progress),
@@ -185,8 +189,8 @@
   }
   function journalRow(entry, vm, options = {}) {
     const attachments = vm.attachments.filter(item => item.attachmentScope === "progress_note" && item.journalEntryUuid === entry.id);
-    const attachmentMarkupForNote = attachments.length ? `<div class="worktodo-shared-journal-attachments">${attachments.map(item => `<button class="btn2" type="button" data-worktodo-attachment-open="${escapeHtml(item.id)}">📎 ${escapeHtml(item.filename)}</button>`).join("")}</div>` : "";
     const canManage = options.readOnly !== true;
+    const attachmentMarkupForNote = attachments.length ? `<div class="worktodo-shared-journal-attachments">${attachments.map(item => `<div class="worktodo-shared-journal-attachment" data-worktodo-journal-attachment="${escapeHtml(item.id)}"><button class="btn2" type="button" data-worktodo-attachment-open="${escapeHtml(item.id)}">📎 ${escapeHtml(item.filename)}</button>${canManage ? `<button class="shared-task-icon-button" type="button" data-worktodo-attachment-delete="${escapeHtml(item.id)}" aria-label="刪除附件：${escapeHtml(item.filename)}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>` : "";
     const actions = canManage ? `<span class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-worktodo-journal-edit="${escapeHtml(entry.id)}" aria-label="編輯工作進度" title="編輯工作進度">✎</button><button class="shared-task-icon-button" type="button" data-worktodo-journal-delete="${escapeHtml(entry.id)}" aria-label="撤回工作進度" title="撤回工作進度">🗑️</button></span>` : "";
     return `<article class="shared-task-drawer-activity-row worktodo-shared-journal-row" data-worktodo-journal-entry="${escapeHtml(entry.id)}"><div class="task-activity-dot" aria-hidden="true"></div><div class="worktodo-shared-journal-body"><header class="shared-task-progress-note-header"><strong class="shared-task-progress-note-title">工作進度</strong>${actions}</header><div class="shared-task-progress-content">${contentMarkup(entry.content, options.renderContent)}</div>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${escapeHtml(options.actorLabel || entry.createdBy || "目前使用者")} · ${escapeHtml(formatTimestamp(entry.createdAt, options.formatTimestamp))}</small></div></article>`;
   }
@@ -261,7 +265,12 @@
     const card = options.card || root?.ZhugeSharedTaskCard;
     if (!card?.render) return `<div class="empty">Shared Task Card foundation 尚未載入。</div>`;
     const vm = normalize(task, options.journal || [], options.capabilityData || {});
-    const summary = options.summaryHtml != null ? options.summaryHtml : (vm.note || "目前尚未補充工作內容。");
+    const latestProgress = options.latestProgress || vm.latestProgress || vm.journal[0]?.content || "";
+    const summary = options.summaryHtml != null
+      ? options.summaryHtml
+      : (sharedTaskCardSummary?.render
+        ? sharedTaskCardSummary.render({ latestProgress, workContent: vm.workContent })
+        : "");
     const cardOptions = {
       className: ["shared-task-board-card", "shared-task-card", vm.status === "completed" ? "task-completed" : ""].filter(Boolean).join(" "),
       code: vm.workCode || vm.id,

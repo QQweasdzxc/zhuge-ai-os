@@ -267,6 +267,7 @@
 .zhuge-module-shell .template-management-card-summary strong { color: var(--zhuge-success); font-size: .8rem; white-space: nowrap; }
 .zhuge-module-shell .template-management-card-chevron { color: var(--zhuge-accent); font-size: 1.2rem; font-weight: 900; text-align: center; }
 .zhuge-module-shell .template-management-card-body { padding: 0 13px 13px; }
+.zhuge-module-shell .template-management-card-actions { display: flex; justify-content: flex-end; padding: 0 0 10px; }
 .zhuge-module-shell .template-management-table {
   overflow: hidden;
   border: 1px solid var(--zhuge-border);

@@ -79,7 +79,7 @@ test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
   assert.match(css, /\.shared-task-drawer\[data-progress-note-composer-open="true"\]/);
   assert.match(css, /\.shared-task-progress-note-header\{display:flex/);
   assert.match(css, /\.shared-task-progress-note-actions\{display:inline-flex/);
-  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\]\{[^}]*gap:28px/);
+  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\]\{[^}]*gap:16px/);
   assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\] \.shared-task-drawer-activity-row\{[^}]*border:1px solid #344052[^}]*padding:16px 16px 16px 0/);
   assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:118px/);
   assert.match(css, /\.shared-task-icon-button\{display:grid/);
@@ -97,6 +97,6 @@ test("Shared progress actions use the same Cloud lifecycle in AI Board and WorkT
   assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\]/);
   assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly \}\)/);
   assert.doesNotMatch(runtime, /function wireHumanProgressNoteActions\(task, activity, archiveOnly\) \{\s*if \(archiveOnly \|\| isWorkTodoTask\(task\)\)/);
-  assert.match(css, /data-shared-task-timeline\].*gap:28px/);
+  assert.match(css, /data-shared-task-timeline\].*gap:16px/);
   assert.match(css, /shared-task-progress-attachment-row\{display:grid;grid-template-columns:34px minmax\(0,1fr\) auto/);
 });

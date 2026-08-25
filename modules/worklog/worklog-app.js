@@ -1106,9 +1106,6 @@ function workTodoBoardItems() {
 
 function workTodoBoardCard(task, readOnly = false) {
   return ZhugeWorkTodoTaskAdapter.renderCard(task, {
-    summaryHtml: task.note
-      ? `<p class="shared-task-card-summary">${escapeHtml(task.note)}</p>`
-      : '<p class="shared-task-card-summary"><small>尚未補充工作內容。</small></p>',
     attributes: {
       draggable: readOnly ? "false" : "true"
     }
@@ -5674,7 +5671,10 @@ function bind() {
   document.querySelectorAll("[data-open-workspace]").forEach(b => b.onclick = () => { sidebarOpen = false; openWorkspace(b.dataset.openWorkspace); });
   const templateManagementCenter = document.querySelector("[data-template-management-center]");
   if (templateManagementCenter && typeof ZhugeTemplateManagementCenter !== "undefined") {
-    ZhugeTemplateManagementCenter.bind(templateManagementCenter, { onUpdated: () => render("template-management-updated") });
+    ZhugeTemplateManagementCenter.bind(templateManagementCenter, {
+      onUpdated: () => render("template-management-updated"),
+      onPreview: templateId => openSystemTemplateWindow(templateId === "board" ? "ai-board" : templateId)
+    });
   }
   document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {
     event.stopPropagation();

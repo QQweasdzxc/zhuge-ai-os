@@ -93,6 +93,32 @@ test("WorkTodo adapter renders cards through the shared Task Card shell", () => 
   assert.doesNotMatch(html, /data-progress/);
 });
 
+test("WorkTodo progress attachments expose the existing controlled delete hook", () => {
+  const html = Adapter.render({ id: "task-3", title: "有進度附件的待辦", note: "工作內容" }, {
+    drawer: Drawer,
+    journal: [{ id: "journal-3", content: "已附上現場照片", created_at: "2026-08-25T01:00:00.000Z" }],
+    capabilityData: {
+      attachments: [{
+        id: "attachment-3",
+        attachment_scope: "progress_note",
+        journal_entry_uuid: "journal-3",
+        filename: "現場照片.png",
+        mime_type: "image/png",
+        storage_path: "tasks/task-3/attachment-3.png"
+      }]
+    }
+  });
+  assert.match(html, /data-worktodo-journal-attachment="attachment-3"/);
+  assert.match(html, /data-worktodo-attachment-open="attachment-3"/);
+  assert.match(html, /data-worktodo-attachment-delete="attachment-3"/);
+});
+
+test("WorkTodo shared card summary prefers latest progress then work content", () => {
+  const html = Adapter.renderCard({ id: "task-4", title: "摘要順序", note: "工作內容", latestProgress: "最新進度" }, { card: Card });
+  assert.match(html, /最新進度/);
+  assert.doesNotMatch(html, /工作內容/);
+});
+
 test("WorkTodo adapter exposes the approved shared capability contract", () => {
   assert.equal(Adapter.CAPABILITIES.title, true);
   assert.equal(Adapter.CAPABILITIES.note, true);

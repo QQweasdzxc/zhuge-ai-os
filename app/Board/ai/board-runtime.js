@@ -152,7 +152,10 @@
       className: "card taskcard shared-task-board-card board-cloud-card" + archiveClass,
       code: task.workCode || task.id || workItemLabel(task),
       title: task.title,
-      summary: task.summary,
+      summaryHtml: root.ZhugeSharedTaskCardSummary?.render({
+        latestProgress: task.latestProgress || task.latest_progress || task.progressNote || task.progress_note,
+        workContent: task.workContent || task.work_content || task.summary || task.note
+      }) || "",
       bodyHtml: governance,
       attributes: {
         "data-task-id": task.id,
