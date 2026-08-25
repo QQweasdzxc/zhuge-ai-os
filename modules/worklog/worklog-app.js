@@ -471,17 +471,13 @@ function journalEntryKey(entry = {}) {
   return String(entry.cloudId || entry.id || entry.clientId || "");
 }
 
-// Keep long URLs and pasted notes readable in the drawer without changing
-// the stored journal content.  Links become a compact, explicit action while
-// the surrounding note keeps its original line breaks.
+// Keep journal rendering on the shared activity-text presentation path
+// without changing the stored journal content.
 function renderJournalContent(value = "") {
-  const safe = escapeHtml(value);
-  return safe.replace(/(https?:\/\/[^\s<]+)/gi, (match) => {
-    const trailingMatch = match.match(/[),.;!?]+$/);
-    const trailing = trailingMatch ? trailingMatch[0] : "";
-    const url = trailing ? match.slice(0, -trailing.length) : match;
-    return `<a class="task-journal-link" href="${url}" target="_blank" rel="noopener noreferrer" title="開啟連結">查看連結</a>${trailing}`;
-  });
+  const renderer = typeof ZhugeSharedActivityTextRenderer !== "undefined" ? ZhugeSharedActivityTextRenderer : null;
+  return renderer && typeof renderer.render === "function"
+    ? renderer.render(value)
+    : escapeHtml(value).replace(/\r?\n/g, "<br>");
 }
 
 async function openTaskJournal(taskId = "") {

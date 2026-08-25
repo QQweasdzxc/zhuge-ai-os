@@ -9,6 +9,10 @@
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
+  const sharedActivityTextRenderer = root.ZhugeSharedActivityTextRenderer;
+  const renderActivityText = value => sharedActivityTextRenderer && typeof sharedActivityTextRenderer.render === "function"
+    ? sharedActivityTextRenderer.render(value)
+    : esc(value).replace(/\r?\n/g, "<br>");
   function dateLabel(value) {
     if (!value) return "";
     try {
@@ -910,7 +914,7 @@
       const controls = canManage
         ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
         : "";
-      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div class="shared-task-progress-note-body"><header class="shared-task-progress-note-header"><div class="shared-task-progress-note-heading"><strong class="shared-task-progress-note-title">工作進度</strong>${attachmentBadge}</div>${controls}</header><p class="shared-task-progress-content" data-progress-note-content>${esc(activityDetail(item)).replace(/\n/g, "<br>")}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
+      return `<article class="task-activity-row shared-task-drawer-activity-row" data-activity-id="${esc(item.id)}" data-activity-kind="human" data-activity-type="human_progress_note"><div class="task-activity-dot" aria-hidden="true"></div><div class="shared-task-progress-note-body"><header class="shared-task-progress-note-header"><div class="shared-task-progress-note-heading"><strong class="shared-task-progress-note-title">工作進度</strong>${attachmentBadge}</div>${controls}</header><p class="shared-task-progress-content" data-progress-note-content>${renderActivityText(activityDetail(item))}</p>${attachmentMarkupForNote}<small class="shared-task-progress-note-meta">${esc(progressNoteMetaLabel(item))}</small></div></article>`;
     }).join("");
   }
   function humanNotesMarkup(task) {
@@ -921,7 +925,7 @@
     const note = String(task.pmNotes || "").trim();
     void developerNote;
     if (!note) return "";
-    return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${esc(note).replace(/\n/g, "<br>")}</p><small>來源：工作資料</small></article></section>`;
+    return `<section class="task-legacy-notes"><article class="task-human-note shared-task-drawer-activity-row" data-activity-kind="legacy-note"><strong>工作補充</strong><p>${renderActivityText(note)}</p><small>來源：工作資料</small></article></section>`;
   }
   function progressNoteComposerMarkup(archiveOnly, options = {}) {
     if (archiveOnly) return "";
@@ -1478,7 +1482,7 @@
           bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",
           floatingHtml: progressComposer,
           notesHtml: `<div id="taskHumanNotes"><div class="board-empty">讀取中…</div></div>`,
-          html: "<div id=\"taskActivityList\"><div class=\"board-empty\">讀取中…</div></div>"
+          html: "<div class=\"board-empty\">讀取中…</div>"
         },
         footerHtml: ""
       };

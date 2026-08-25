@@ -11,6 +11,9 @@
 })(typeof window !== "undefined" ? window : globalThis, function (root) {
   "use strict";
 
+  const sharedActivityTextRenderer = root?.ZhugeSharedActivityTextRenderer
+    || (typeof require === "function" ? require("../../../shared/components/activity-text-renderer.js") : null);
+
   const CAPABILITIES = Object.freeze({
     title: true,
     note: true,
@@ -88,7 +91,9 @@
   }
   function contentMarkup(value, renderContent) {
     if (typeof renderContent === "function") return renderContent(value);
-    return escapeHtml(value).replace(/\n/g, "<br>");
+    return sharedActivityTextRenderer && typeof sharedActivityTextRenderer.render === "function"
+      ? sharedActivityTextRenderer.render(value)
+      : escapeHtml(value).replace(/\r?\n/g, "<br>");
   }
   function byteSize(value) {
     const number = Number(value || 0);

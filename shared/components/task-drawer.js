@@ -88,7 +88,7 @@
         <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
         <div class="shared-task-drawer-grid">
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
-          <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}${activityNotesMarkup}<div class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div>${activityBottom}</aside>
+          <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}${activityNotesMarkup}<div id="taskActivityList" class="shared-task-drawer-activity-list" data-shared-task-timeline>${activityRows}</div>${activityBottom}</aside>
         </div>
         ${activityFloating}
         ${footer}

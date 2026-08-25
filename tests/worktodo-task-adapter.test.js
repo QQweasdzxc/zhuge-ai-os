@@ -57,7 +57,7 @@ test("WorkTodo adapter normalizes domain fields and newest-first journal", () =>
 test("WorkTodo adapter renders the shared Drawer without owning Cloud access", () => {
   const html = Adapter.render({ id: "task-1", title: "補充採購資料", note: "整理供應商回覆", status: "in_progress", progress: 25, priority: "p2" }, {
     drawer: Drawer,
-    journal: [{ id: "journal-1", content: "已開始整理", created_at: "2026-08-20T01:00:00.000Z" }],
+    journal: [{ id: "journal-1", content: "已開始整理 https://example.com/a\n以及 http://example.com/b", created_at: "2026-08-20T01:00:00.000Z" }],
     actorLabel: "QJC"
   });
 
@@ -67,6 +67,9 @@ test("WorkTodo adapter renders the shared Drawer without owning Cloud access", (
   assert.match(html, /data-worktodo-shared-drawer/);
   assert.match(html, /工作進度/);
   assert.match(html, /已開始整理/);
+  assert.match(html, /href="https:\/\/example\.com\/a"/);
+  assert.match(html, /href="http:\/\/example\.com\/b"/);
+  assert.match(html, /<br>以及/);
   assert.match(html, /data-worktodo-journal-entry="journal-1"/);
   assert.match(html, /工作 Checklist/);
   assert.match(html, /GPT 分析與建議/);

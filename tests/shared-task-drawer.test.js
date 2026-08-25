@@ -30,6 +30,7 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   assert.match(html, /data-shared-task-region="work-body"/);
   assert.match(html, /data-shared-task-region="activity"/);
   assert.match(html, /data-shared-task-timeline/);
+  assert.match(html, /id="taskActivityList" class="shared-task-drawer-activity-list" data-shared-task-timeline/);
   assert.match(html, /shared-task-drawer-activity-top/);
   assert.match(html, /data-task-checklist-panel/);
   assert.match(html, /shared-task-drawer-grid/);
