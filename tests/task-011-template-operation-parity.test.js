@@ -31,11 +31,10 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /worktodoCreateWorkspace,/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
-  assert.match(runtime, /if \(isWorkTodoMode\(\)\) await service\.worktodoReorderWorkspaces\(workspaceIds\)/);
-  assert.match(runtime, /else await service\.reorderWorkspaces\(fullOrder\.map\(workspace => workspace\.id\)\)/);
-  assert.match(runtime, /const rename = isWorkTodoMode\(\) \? service\.worktodoRenameWorkspace/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "renameWorkspace"/);
   assert.match(runtime, /addHtml: !completion/);
-  assert.match(runtime, /service\.createTask\(\{ title: title, summary: summary, usageScenario: usageScenario, workspaceId \}/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
   assert.match(sql, /create or replace function public\.board_create_task\(/);
   assert.match(sql, /p_workspace_id uuid default null/);
   assert.match(sql, /application_scope = 'ai_board'/);
@@ -54,6 +53,7 @@ test("TASK-011 shares spacing and attachment presentation across AI Board and Wo
   assert.doesNotMatch(runtime, /const files = workTodo \? \[\] : Array\.from/);
   assert.match(runtime, /progressAttachmentIcon/);
   assert.match(runtime, /shared-task-progress-note-attachment-badge/);
-  assert.match(runtime, /data-progress-attachment-delete/);
+  assert.match(runtime, /data-shared-attachment-delete/);
+  assert.match(runtime, /data-shared-attachment-scope="progress_note"/);
   assert.match(runtime, /shared-task-progress-note-heading/);
 });

@@ -228,11 +228,15 @@
       priority: String(row.priority || ""),
       assignee: String(row.assignee || ""),
       dueDate: row.due_date || row.dueDate || null,
+      agreementMode: row.agreement_mode || row.agreementMode || null,
+      agreementStartDate: row.agreement_start_date || row.agreementStartDate || null,
+      agreementEndDate: row.agreement_end_date || row.agreementEndDate || null,
       source: String(row.source_workspace || row.source || ""),
       // Keep the PM-readable contract fields separate.  The Board can present
       // a clear narrative without asking a reviewer to infer it from internal
       // engineering columns.
       summary: String(row.summary || row.objective || row.problem || row.description || ""),
+      latestProgress: String(row.latest_progress || row.latestProgress || ""),
       problem: String(row.problem || ""),
       objective: String(row.objective || ""),
       proposedSolution: String(row.proposed_solution || row.proposedSolution || ""),
@@ -426,17 +430,42 @@
     }
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
       gateway.select("board_workspaces", `?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&application_scope=eq.${applicationScope}&active=eq.true&order=sort_order.asc`),
-      gateway.select("board_tasks", `?select=id,title,status,priority,assignee,due_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&application_scope=eq.${applicationScope}&order=created_at.asc`),
+      gateway.select("board_tasks", `?select=id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&application_scope=eq.${applicationScope}&order=created_at.asc`),
       options.engineeringMemory || (isWorkTodo ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
     ]);
     const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(normalizeWorkspace);
     const workspaceById = new Map(workspaces.map(workspace => [workspace.id, workspace]));
+    let latestProgressByTask = new Map();
+    if (isWorkTodo && typeof gateway.select === "function") {
+      try {
+        const workTodoTaskIds = (Array.isArray(taskRows) ? taskRows : [])
+          .map(row => String(row?.id || "").trim())
+          .filter(Boolean);
+        const activityRows = workTodoTaskIds.length
+          ? await gateway.select(
+            "engineering_activity_log",
+            `?select=id,entity_id,action,activity_type,note,revision_of,tombstone_of,created_at&entity_type=eq.board_task&activity_type=eq.human_progress_note&entity_id=in.(${workTodoTaskIds.map(encodeURIComponent).join(",")})&order=created_at.desc`
+          )
+          : [];
+        const superseded = new Set((Array.isArray(activityRows) ? activityRows : []).filter(row => row.revision_of != null).map(row => String(row.revision_of)));
+        const tombstoned = new Set((Array.isArray(activityRows) ? activityRows : []).filter(row => row.tombstone_of != null).map(row => String(row.tombstone_of)));
+        (Array.isArray(activityRows) ? activityRows : []).forEach(row => {
+          const id = String(row.id || "");
+          const taskId = String(row.entity_id || "");
+          if (!taskId || !id || row.action === "progress_note_deleted" || superseded.has(id) || tombstoned.has(id) || latestProgressByTask.has(taskId)) return;
+          latestProgressByTask.set(taskId, String(row.note || "").trim());
+        });
+      } catch {
+        latestProgressByTask = new Map();
+      }
+    }
     const tasks = (Array.isArray(taskRows) ? taskRows : []).map(row => {
       const workspace = workspaceById.get(String(row.workspace_id || ""));
       return normalizeTask({
         ...row,
         workspace_key: workspace?.key || "",
-        workspace_name: workspace?.name || ""
+        workspace_name: workspace?.name || "",
+        latest_progress: latestProgressByTask.get(String(row.id || "")) || ""
       });
     });
     const knowledge = (engineeringMemory?.records || []).map(row => ({
@@ -712,6 +741,32 @@
     }).then(normalizeActivity);
   }
 
+  async function worktodoEditTaskProgressNote(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_edit_task_progress_note", {
+      p_activity_id: Number(input.activityId),
+      p_note: String(input.note || "")
+    }).then(normalizeActivity);
+  }
+
+  async function worktodoDeleteTaskProgressNote(activityId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("worktodo_delete_task_progress_note", {
+      p_activity_id: Number(activityId)
+    }).then(normalizeActivity);
+  }
+
+  async function worktodoSetAgreementSchedule(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const mode = input.mode == null || input.mode === "" ? null : String(input.mode);
+    return gateway.rpc("worktodo_set_agreement_schedule", {
+      p_task_id: input.taskId,
+      p_agreement_mode: mode,
+      p_agreement_start_date: input.startDate || null,
+      p_agreement_end_date: input.endDate || null
+    }).then(normalizeTask);
+  }
+
   async function worktodoMigrateTask(workCode, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("worktodo_migrate_task", { p_work_code: String(workCode || "") }).then(normalizeTask);
@@ -876,6 +931,26 @@
     }
   }
 
+  async function deleteProgressNoteAttachment(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const attachmentId = input.attachmentId || input.id;
+    const requested = await gateway.rpc("board_request_delete_progress_attachment", {
+      p_attachment_id: attachmentId
+    }).then(normalizeTaskAttachment);
+    try {
+      if (typeof gateway.removeStorageObject !== "function") {
+        throw new Error("Shared Supabase Gateway 尚未支援受控附件刪除。");
+      }
+      await gateway.removeStorageObject(requested.storageBucket, requested.storagePath);
+      return gateway.rpc("board_finalize_delete_progress_attachment", {
+        p_attachment_id: attachmentId
+      }).then(normalizeTaskAttachment);
+    } catch (error) {
+      await gateway.rpc("board_cancel_delete_progress_attachment", { p_attachment_id: attachmentId }).catch(() => {});
+      throw error;
+    }
+  }
+
   async function taskAttachmentUrl(attachment, options = {}) {
     const gateway = options.gateway || requireGateway();
     if (!attachment?.storageBucket || !attachment?.storagePath || typeof gateway.createStorageSignedUrl !== "function") return "";
@@ -977,6 +1052,9 @@
     worktodoUpdateTask,
     worktodoDeleteTask,
     worktodoAddTaskProgressNote,
+    worktodoEditTaskProgressNote,
+    worktodoDeleteTaskProgressNote,
+    worktodoSetAgreementSchedule,
     worktodoMigrateTask,
     updateTaskContent,
     updateTaskTitle,
@@ -994,6 +1072,7 @@
     uploadTaskAttachment,
     completeTaskAttachment,
     deleteTaskAttachment,
+    deleteProgressNoteAttachment,
     taskAttachmentUrl,
     requestTaskContractUpdate,
     taskContractUpdateStatus,

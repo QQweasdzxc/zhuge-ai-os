@@ -26,6 +26,8 @@
   <script src="../shared/components/task-board.js"></script>
   <script src="../shared/components/activity-text-renderer.js"></script>
   <script src="../shared/components/task-card-summary.js"></script>
+  <script src="../shared/components/task-action-contract.js"></script>
+  <script src="../shared/components/task-action-adapters.js"></script>
   <script src="../shared/components/golden-master.js"></script>
   <script src="../modules/worklog/components/worktodo-task-adapter.js"></script>
   <script>
@@ -42,7 +44,10 @@
       workspaceName: "進行中",
       summary: "確認招牌牆的部分，是否有留電源孔。",
       usageScenario: "現場確認招牌施工條件。",
-      dueDate: "2026-08-25"
+        dueDate: "2026-08-25",
+        agreement_mode: null,
+        agreement_start_date: null,
+        agreement_end_date: null
     };
     const fixtureJournal = window.__fixtureJournal = [
       {
@@ -141,13 +146,14 @@
         hasSharedDrawer: Boolean(drawer),
         hasWorkTodoOwnedDrawer: Boolean(document.querySelector("[data-worktodo-shared-drawer]")),
         hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),
-        hasAgreedDateProperty: Boolean(document.querySelector('[data-task-property-action="due-date"]')),
+        hasAgreedDateProperty: Boolean(document.querySelector('[data-task-property-action="agreement-schedule"]')),
         checklistDisabled: document.querySelector("[data-task-checklist-toggle]")?.disabled === true,
         urlLink: Boolean(document.querySelector('a[href="https://example.com/reference"]'))
       };
-      document.querySelector('[data-task-property-action="due-date"]')?.click();
+      document.querySelector('[data-task-property-action="agreement-schedule"]')?.click();
       audit.hasAgreedDateEditor = Boolean(document.querySelector("[data-shared-agreed-date-editor]"));
-      audit.agreedDateInputs = document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]').length;
+      audit.agreedDateInputs = [...document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]')]
+        .filter(input => !input.closest("[hidden]")).length;
       let node = document.getElementById("worktodo-shared-drawer-audit");
       if (!node) { node = document.createElement("pre"); node.id = "worktodo-shared-drawer-audit"; document.body.appendChild(node); }
       node.textContent = JSON.stringify(audit);

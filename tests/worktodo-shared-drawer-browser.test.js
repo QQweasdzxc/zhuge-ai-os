@@ -69,7 +69,7 @@ test("WorkTodo uses the Shared Task Drawer presentation contract at runtime", as
   assert.equal(audit.hasLegacyProperties, false);
   assert.equal(audit.hasAgreedDateProperty, true);
   assert.equal(audit.hasAgreedDateEditor, true);
-  assert.equal(audit.agreedDateInputs, 2);
+  assert.equal(audit.agreedDateInputs, 1);
   assert.equal(audit.checklistDisabled, false);
   assert.equal(audit.urlLink, true);
 });

@@ -62,7 +62,7 @@ test("TASK-039 final closing presentation keeps cards compact and progress cards
   assert.doesNotMatch(runtime, /lifecycleLocked/);
   assert.doesNotMatch(runtime, /只能由 PM Acceptance PASS 的正式 lifecycle/);
   assert.doesNotMatch(runtime, /點擊查看工作內容與進度|可拖曳至任意工作區|48 小時後由正式 Cloud lifecycle/);
-  assert.match(runtime, /data-task-attachment-delete/);
+  assert.match(runtime, /data-shared-attachment-delete/);
   assert.match(runtime, /shared-task-attachment-meta/);
   assert.match(runtime, /shared-task-progress-note-title\">工作進度/);
   assert.match(board, /\.shared-task-board-column \.shared-task-card\{height:104px;min-height:104px/);

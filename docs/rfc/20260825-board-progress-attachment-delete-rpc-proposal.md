@@ -1,10 +1,14 @@
 # AI Board Progress Attachment Delete RPC Proposal
 
-**Status: PM REVIEW REQUIRED — proposal only**
+**Status: PM-approved Candidate source — Cloud apply still requires the normal
+Supabase migration/release gate**
 
-This document records the design needed to repair deletion of an AI Board
-progress-note attachment. It is not a migration, SQL deployment, RPC change,
-or runtime authorization change. No Cloud state is modified by this proposal.
+This document records the design and controlled path implemented in the
+Candidate source for deletion of an AI Board progress-note attachment. The
+corresponding SQL is in
+`docs/supabase/20260825_template_c_shared_action_agreement_schedule.sql`.
+It is not executed against Cloud by Candidate packaging; PM must apply it
+through the normal Supabase migration/release gate.
 
 ## 1. Domain and scope
 
@@ -26,10 +30,11 @@ existing general attachment authorization.
 
 ## 3. Proposed RPC boundary
 
-After PM approval, add a dedicated controlled function with a name such as
-`board_request_delete_progress_attachment`. The exact name remains subject to
-the normal RPC naming review and must not be introduced from this proposal
-alone.
+The Candidate uses the dedicated controlled function
+`board_request_delete_progress_attachment`, followed by
+`board_finalize_delete_progress_attachment` or
+`board_cancel_delete_progress_attachment`. The existing general TASK RPC
+remains strict and unchanged.
 
 ## 4. Proposed payload
 
@@ -79,6 +84,6 @@ The runtime should perform a controlled read-back after success, map server
 errors without hiding them, and remain safe on repeated clicks or already
 deleted rows. Regression must cover task-vs-progress scope routing, owner
 authorization, RLS denial, storage cleanup, audit retention, AI Board and
-WorkTodo separation, and UI refresh. PM approval is required before any SQL,
-RPC, migration, or Cloud deployment is written.
-
+WorkTodo separation, and UI refresh. PM approval has been granted for the
+Candidate source; Cloud application still requires the normal SQL/RPC
+migration and deployment gate, which is outside this task.

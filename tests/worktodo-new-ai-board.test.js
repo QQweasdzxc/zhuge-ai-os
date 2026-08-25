@@ -12,6 +12,7 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   const aiBoard = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
   const runtime = read("app/Board/ai/board-runtime.js");
+  const actionAdapters = read("shared/components/task-action-adapters.js");
   const navigation = read("shared/components/zhuge-navigation.js");
   const appConfig = read("shared/app-config.js");
   const dashboard = read("app/dashboard/index.html");
@@ -63,8 +64,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
 
   assert.match(runtime, /function isWorkTodoMode\(\)/);
   assert.match(runtime, /service\.load\(\{ applicationScope: state\.applicationScope \}\)/);
-  assert.match(runtime, /service\.worktodoCreateTask/);
-  assert.match(runtime, /service\.worktodoUpdateTask/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
+  assert.match(runtime, /executeSharedTaskAction\(task, "updateContent"/);
+  assert.match(actionAdapters, /worktodoCreateTask/);
+  assert.match(actionAdapters, /worktodoUpdateTask/);
   assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo" \}\)/);
   assert.doesNotMatch(runtime, /emptyWorkTodo|GM-FIX-|golden-master-preview/i);
   for (const workspace of ["待開始", "進行中", "等待回覆", "等待驗收", "阻塞", "完成"]) {

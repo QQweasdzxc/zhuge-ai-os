@@ -214,7 +214,10 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
     assert.equal(result.tasks[0].rawStatus, "blocked");
     assert.equal(result.tasks[0].applicationScope, "worktodo");
     assert.equal(result.tasks[0].ownerUuid, USER_ID);
-    assert.ok(calls.filter(call => call.type === "select").every(call => /application_scope=eq\.worktodo/.test(call.query)));
+    const scopedReads = calls.filter(call => call.type === "select" && ["board_workspaces", "board_tasks"].includes(call.table));
+    assert.ok(scopedReads.every(call => /application_scope=eq\.worktodo/.test(call.query)));
+    const progressRead = calls.find(call => call.type === "select" && call.table === "engineering_activity_log");
+    assert.match(progressRead?.query || "", /entity_id=in\.\(/);
 
     await BoardRead.worktodoCreateTask({ title: "New", summary: "Body", status: "not_started", usageScenario: "Scenario" }, { gateway });
     await BoardRead.worktodoUpdateTask({ taskId: taskRow.id, patch: { status: "waiting_reply" } }, { gateway });
@@ -372,7 +375,8 @@ test("Board entry loads Shared runtime and read adapter, not legacy prototype ru
 test("Board runtime uses controlled workflow RPCs and clears prototype fixtures before Cloud Read", () => {
   const runtime = read("app/Board/ai/board-runtime.js");
   const index = read("app/Board/ai/index.html");
-  assert.match(runtime, /service\.(?:createTask|worktodoCreateTask|updateTaskContent)/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
+  assert.match(index, /shared\/components\/task-action-contract\.js/);
   assert.match(runtime, /Realtime/);
   assert.match(runtime, /renderPrinciples\(\[\]\)/);
   assert.match(runtime, /renderTasks\(\[\]\)/);

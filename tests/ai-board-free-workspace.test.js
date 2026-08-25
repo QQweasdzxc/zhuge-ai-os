@@ -87,7 +87,7 @@ test("Main Board hides the legacy done workspace while retaining canonical å·²å®
   assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /state\.workspaces\.filter\(isMainBoardWorkspace\)/);
   assert.match(runtime, /const fullOrder = ordered\.map/);
-  assert.match(runtime, /service\.reorderWorkspaces\(fullOrder\.map/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.match(runtime, /state\.tasks\.filter\(task => !isArchiveTask\(task\)\)/);
   assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace|board_restore_workspace|board_reopen_workspace/i);
 });

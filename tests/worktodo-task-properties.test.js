@@ -32,7 +32,8 @@ test("WorkTodo keeps canonical property data while omitting legacy properties fr
   assert.equal(vm.workProperty, "產品規劃");
   assert.equal(vm.estimatedMinutes, 90);
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /label: "約定日期"/);
+  assert.match(runtime, /key: "agreement-schedule"/);
+  assert.match(runtime, /約定日期/);
   assert.doesNotMatch(runtime, /label: "進度"|label: "置頂"|label: "預估時間"|key: "estimated-minutes"/);
   assert.doesNotMatch(runtime, /openWorkTodoTaskDetail|adapter\.render\(task/);
 });

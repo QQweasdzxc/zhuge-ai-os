@@ -63,8 +63,15 @@
 .shared-agreed-date-editor{display:grid;gap:7px;grid-column:1/-1;margin-top:-2px;padding:10px;border:1px solid #4b6691;border-radius:9px;background:#111720;color:#cbd6e5;font-size:11px}
 .shared-agreed-date-editor label{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:8px;color:#9fb0c5;font-size:10px}
 .shared-agreed-date-editor input{min-width:0;border:1px solid #344052;border-radius:6px;background:#151c26;color:#d7e2f2;padding:6px 7px;font:inherit;font-size:11px}
+.shared-agreement-date-editor-mode{display:flex;align-items:end;gap:8px;min-width:0}
+.shared-agreement-date-editor-mode[hidden]{display:none}
+.shared-agreement-date-editor-mode label{flex:1 1 auto}
+.shared-agreement-period-trigger{flex:0 0 auto;white-space:nowrap}
+.shared-agreement-date-period-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.shared-agreement-date-period-fields[hidden]{display:none}
 .shared-agreed-date-editor small{color:#8493a7;font-size:10px;line-height:1.45}
 .shared-agreed-date-editor-actions{display:flex;justify-content:flex-end;gap:6px}
+@media(max-width:560px){.shared-agreement-date-editor-mode{align-items:stretch;flex-direction:column}.shared-agreement-date-period-fields{grid-template-columns:1fr}}
 .shared-task-drawer-content[data-shared-task-region="work-body"]{background:#151c26}
 .shared-task-drawer-activity[data-shared-task-region="activity"]{background:#101720}
 .shared-task-drawer-activity[data-shared-task-region="activity"]>.shared-task-drawer-section-heading h3{color:#d7e2f2;font-size:15px}

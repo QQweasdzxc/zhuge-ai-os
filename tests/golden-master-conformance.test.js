@@ -44,13 +44,16 @@ test("EP-039 has one Golden Master presentation runtime for formal Board consume
   // WorkTodo uses the Shared Drawer property contract for an agreed date.
   // Legacy progress/pin/estimated-time properties must not return through a
   // consumer-owned Drawer renderer.
-  assert.match(runtime, /key: "due-date"/);
-  assert.match(runtime, /label: "約定日期"/);
+  assert.match(runtime, /key: "agreement-schedule"/);
+  assert.match(runtime, /label: agreedDateParts\(task, workTodoViewModel\)\.mode === "period" \? "約定期間" : "約定日期"/);
   assert.match(taskDrawerCss, /shared-agreed-date-editor/);
   assert.match(goldenMaster, /filter\(item => !\["priority"\]/);
   assert.doesNotMatch(runtime, /openWorkTodoTaskDetail|adapter\.render\(task/);
   assert.match(runtime, /assertSharedDrawerContract/);
   assert.doesNotMatch(runtime, /label: "進度"|label: "置頂"|label: "預估時間"|key: "estimated-minutes"/);
+  assert.match(runtime, /data-shared-attachment-scope="progress_note"/);
+  assert.match(runtime, /data-shared-attachment-scope="task"/);
+  assert.doesNotMatch(runtime, /data-task-attachment-delete|data-progress-attachment-delete/);
   assert.match(css, /Golden Master surface styles/);
 
   const runtimeLink = path.join(ROOT, "app/Board/ai/board-runtime.js");

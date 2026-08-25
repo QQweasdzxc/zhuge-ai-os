@@ -177,8 +177,10 @@
     })).filter(item => item.id && item.label);
     const attachments = (Array.isArray(capabilityData.attachments) ? capabilityData.attachments : []).map(normalizeAttachment).filter(item => item.id && item.storagePath);
     const dueDate = String(task.dueDate || task.due_date || "").slice(0, 10);
-    const agreedDateStart = String(task.agreedDateStart || task.agreed_date_start || task.dueDateStart || task.due_date_start || dueDate).slice(0, 10);
-    const agreedDateEnd = String(task.agreedDateEnd || task.agreed_date_end || task.dueDateEnd || task.due_date_end || agreedDateStart).slice(0, 10);
+    const agreementModeRaw = String(task.agreementMode || task.agreement_mode || "").trim().toLowerCase();
+    const agreementMode = agreementModeRaw === "single" || agreementModeRaw === "period" ? agreementModeRaw : "";
+    const agreementStartDate = String(task.agreementStartDate || task.agreement_start_date || "").slice(0, 10);
+    const agreementEndDate = agreementMode === "period" ? String(task.agreementEndDate || task.agreement_end_date || "").slice(0, 10) : "";
     const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || entries[0]?.content || "").trim();
     return {
       id: String(task.id || task.workCode || ""),
@@ -195,8 +197,11 @@
       priority: normalizePriority(task.priority), priorityLabel: PRIORITY_LABELS[normalizePriority(task.priority)],
       userPinned: task.userPinned === true,
       dueDate,
-      agreedDateStart,
-      agreedDateEnd,
+      agreementMode,
+      agreementStartDate,
+      agreementEndDate,
+      agreedDateStart: agreementStartDate,
+      agreedDateEnd: agreementEndDate,
       workProperty: String(task.workProperty || task.work_property || "").trim(),
       estimatedMinutes: Number(task.estimatedMinutes ?? task.estimated_minutes ?? 0) || 0,
       startedAt: task.startedAt || "", completedAt: task.completedAt || "", completedNote: String(task.completedNote || "").trim(),
@@ -218,16 +223,22 @@
         summary: task.summary || vm.workContent,
         usageScenario: task.usageScenario || vm.usageScenario,
         dueDate: vm.dueDate,
-        agreedDateStart: vm.agreedDateStart,
-        agreedDateEnd: vm.agreedDateEnd
+        agreementMode: vm.agreementMode,
+        agreementStartDate: vm.agreementStartDate,
+        agreementEndDate: vm.agreementEndDate,
+        agreedDateStart: vm.agreementStartDate,
+        agreedDateEnd: vm.agreementEndDate
       }),
       activity: vm.journal,
       checklist: vm.checklist,
       attachments: vm.attachments,
       latestProgress: vm.latestProgress,
       workContent: vm.workContent,
-      agreedDateStart: vm.agreedDateStart,
-      agreedDateEnd: vm.agreedDateEnd
+      agreementMode: vm.agreementMode,
+      agreementStartDate: vm.agreementStartDate,
+      agreementEndDate: vm.agreementEndDate,
+      agreedDateStart: vm.agreementStartDate,
+      agreedDateEnd: vm.agreementEndDate
     });
   }
 

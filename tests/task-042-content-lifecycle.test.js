@@ -54,7 +54,7 @@ test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecy
   assert.match(runtime, /setAttribute\("data-progress-note-composer-open", "true"\)/);
   assert.match(runtime, /aria-label="新增工作進度" title="新增工作進度">新增<\/button>/);
   assert.doesNotMatch(runtime, />➤<\/button>/);
-  assert.match(runtime, /data-task-attachment-delete/);
+  assert.match(runtime, /data-shared-attachment-delete/);
   assert.match(runtime, /shared-task-attachment-meta/);
   assert.match(runtime, /附件 · \$\{esc\(shortTimestampLabel\(item\.createdAt\)\)\}/);
   assert.match(runtime, /data-progress-note-edit/);
@@ -93,8 +93,10 @@ test("Shared progress actions use the same Cloud lifecycle in AI Board and WorkT
 
   assert.match(runtime, /data-progress-note-edit/);
   assert.match(runtime, /data-progress-note-delete/);
-  assert.match(runtime, /data-progress-attachment-delete/);
-  assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\], \[data-shared-attachment-delete\]/);
+  assert.match(runtime, /data-shared-attachment-scope="progress_note"/);
+  assert.match(runtime, /data-shared-attachment-scope="task"/);
+  assert.match(runtime, /querySelectorAll\("\[data-shared-attachment-delete\]"\)/);
+  assert.doesNotMatch(runtime, /data-task-attachment-delete|data-progress-attachment-delete/);
   assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly, workTodo \}\)/);
   assert.doesNotMatch(runtime, /function wireHumanProgressNoteActions\(task, activity, archiveOnly\) \{\s*if \(archiveOnly \|\| isWorkTodoTask\(task\)\)/);
   assert.match(css, /data-shared-task-timeline\].*gap:8px/);
