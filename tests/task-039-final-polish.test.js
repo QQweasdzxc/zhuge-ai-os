@@ -42,7 +42,8 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.match(runtime, /noopener noreferrer/);
   assert.match(runtime, /shared-task-progress-attachment-icon/);
   assert.match(runtime, /附加圖片或文件.*aria-label/);
-  assert.doesNotMatch(runtime, /key: "due-date"|action: "due-date"|label: "日期"/);
+  assert.doesNotMatch(runtime, /label: "進度"|label: "置頂"|label: "預估時間"|key: "estimated-minutes"/);
+  assert.match(runtime, /label: "約定日期"/);
   assert.match(runtime, /topHtml: taskChecklistPanelMarkup\(\)/);
   assert.match(runtime, /function taskChecklistPanelMarkup\(\)/);
   assert.match(runtime, /data-task-checklist-panel/);
@@ -50,7 +51,7 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.doesNotMatch(runtime, /id: "task-checklist"/);
   assert.doesNotMatch(runtime, /data-task-due-date-edit/);
   assert.match(css, /shared-task-drawer-checklist-panel/);
-  assert.doesNotMatch(css, /shared-task-due-date-picker|task-due-date/);
+  assert.match(css, /shared-agreed-date-editor/);
   assert.match(runtime, /if \(!note\) return ""/);
   assert.match(runtime, /<strong>工作補充<\/strong>/);
   assert.doesNotMatch(runtime, /目前沒有既有 TASK Contract Note/);

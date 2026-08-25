@@ -38,6 +38,11 @@
     completionArchiveLifecycle: true,
     engineeringEvidence: false
   });
+  const sharedDrawerContract = Object.freeze({
+    viewModel: "toSharedViewModel",
+    renderer: "ZhugeGoldenMaster.renderDrawer",
+    ownsDrawer: false
+  });
 
   const STATUS_LABELS = Object.freeze({
     not_started: "待開始",
@@ -107,16 +112,21 @@
   function isImage(mime) { return String(mime || "").toLowerCase().startsWith("image/"); }
 
   function normalizeAttachment(item = {}) {
+    const id = String(item.id || item.attachmentId || "");
+    const activityId = String(item.activityId || item.activity_id || item.journalEntryUuid || item.journal_entry_uuid || "");
+    const storagePath = String(item.storagePath || item.storage_path || "");
     return {
-      id: String(item.id || item.attachmentId || ""),
+      id,
+      attachmentId: id,
       taskUuid: String(item.taskUuid || item.task_uuid || ""),
       journalEntryUuid: String(item.journalEntryUuid || item.journal_entry_uuid || ""),
+      activityId,
       attachmentScope: String(item.attachmentScope || item.attachment_scope || "task"),
       filename: String(item.filename || "未命名附件"),
       mimeType: String(item.mimeType || item.mime_type || "application/octet-stream"),
       byteSize: Number(item.byteSize ?? item.byte_size ?? 0) || 0,
       storageBucket: String(item.storageBucket || item.storage_bucket || "worktodo-attachments"),
-      storagePath: String(item.storagePath || item.storage_path || ""),
+      storagePath,
       uploadStatus: String(item.uploadStatus || item.upload_status || "ready"),
       createdAt: item.createdAt || item.created_at || "",
       signedUrl: String(item.signedUrl || "")
@@ -126,23 +136,49 @@
   function normalize(task = {}, journal = [], capabilityData = {}) {
     const status = normalizeStatus(task.status);
     const entries = (Array.isArray(journal) ? journal : [])
-      .filter(entry => entry && String(entry.content || "").trim() && entry.entryType !== "system_activity" && entry.lifecycleStatus !== "superseded" && entry.lifecycleStatus !== "tombstoned" && entry.lifecycleStatus !== "tombstone")
-      .map(entry => ({
-        id: String(entry.cloudId || entry.id || entry.clientId || ""),
-        content: String(entry.content || "").trim(),
-        entryType: String(entry.entryType || entry.entry_type || "progress"),
-        status: normalizeStatus(entry.status || entry.entry_status || status),
-        progress: clampProgress(entry.progress),
-        createdBy: String(entry.createdBy || entry.created_by || ""),
-        createdAt: entry.createdAt || entry.created_at || "",
-        updatedAt: entry.updatedAt || entry.updated_at || entry.createdAt || entry.created_at || ""
-      }))
+      .filter(entry => {
+        const entryType = String(entry?.entryType || entry?.entry_type || "progress");
+        const lifecycleStatus = String(entry?.lifecycleStatus || entry?.lifecycle_status || "active");
+        return entry && String(entry.content || entry.note || "").trim()
+          && entryType !== "system_activity"
+          && !["superseded", "tombstoned", "tombstone"].includes(lifecycleStatus);
+      })
+      .map(entry => {
+        const content = String(entry.content || entry.note || "").trim();
+        const id = String(entry.cloudId || entry.cloud_id || entry.id || entry.clientId || entry.client_id || "");
+        const createdAt = entry.createdAt || entry.created_at || "";
+        const actorId = String(entry.actorId || entry.actor_id || entry.createdBy || entry.created_by || "");
+        const actorLabel = String(entry.actorLabel || entry.actor_label || entry.createdByLabel || entry.created_by_label || "QJC");
+        return {
+          id,
+          content,
+          note: content,
+          entryType: String(entry.entryType || entry.entry_type || "progress"),
+          action: String(entry.action || "progress_note_created"),
+          activityType: "human_progress_note",
+          entityType: "worktodo_progress_note",
+          entityId: String(entry.taskUuid || entry.task_uuid || task.id || ""),
+          status: normalizeStatus(entry.status || entry.entry_status || status),
+          progress: clampProgress(entry.progress),
+          createdBy: actorId,
+          actorId,
+          actorLabel,
+          createdAt,
+          timestamp: createdAt,
+          updatedAt: entry.updatedAt || entry.updated_at || createdAt,
+          revisionOf: entry.revisionOf || entry.revision_of || null,
+          tombstoneOf: entry.tombstoneOf || entry.tombstone_of || null
+        };
+      })
       .sort((a, b) => (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0));
     const checklist = (Array.isArray(capabilityData.checklist) ? capabilityData.checklist : []).map(item => ({
       id: String(item.id || ""), label: String(item.label || ""), completed: item.completed === true || item.completed === 1,
       sortOrder: Number(item.sort_order ?? item.sortOrder ?? 0) || 0
     })).filter(item => item.id && item.label);
     const attachments = (Array.isArray(capabilityData.attachments) ? capabilityData.attachments : []).map(normalizeAttachment).filter(item => item.id && item.storagePath);
+    const dueDate = String(task.dueDate || task.due_date || "").slice(0, 10);
+    const agreedDateStart = String(task.agreedDateStart || task.agreed_date_start || task.dueDateStart || task.due_date_start || dueDate).slice(0, 10);
+    const agreedDateEnd = String(task.agreedDateEnd || task.agreed_date_end || task.dueDateEnd || task.due_date_end || agreedDateStart).slice(0, 10);
     const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || entries[0]?.content || "").trim();
     return {
       id: String(task.id || task.workCode || ""),
@@ -158,7 +194,9 @@
       progress: status === "completed" ? 100 : clampProgress(task.progress),
       priority: normalizePriority(task.priority), priorityLabel: PRIORITY_LABELS[normalizePriority(task.priority)],
       userPinned: task.userPinned === true,
-      dueDate: String(task.dueDate || "").slice(0, 10),
+      dueDate,
+      agreedDateStart,
+      agreedDateEnd,
       workProperty: String(task.workProperty || task.work_property || "").trim(),
       estimatedMinutes: Number(task.estimatedMinutes ?? task.estimated_minutes ?? 0) || 0,
       startedAt: task.startedAt || "", completedAt: task.completedAt || "", completedNote: String(task.completedNote || "").trim(),
@@ -170,6 +208,27 @@
       gptHandoffSummary: String(task.gptHandoffSummary || task.gpt_handoff_summary || "").trim(),
       journal: entries, checklist, attachments
     };
+  }
+
+  function toSharedViewModel(task = {}, journal = [], capabilityData = {}) {
+    const vm = normalize(task, journal, capabilityData);
+    return Object.freeze({
+      task: Object.freeze({
+        ...task,
+        summary: task.summary || vm.workContent,
+        usageScenario: task.usageScenario || vm.usageScenario,
+        dueDate: vm.dueDate,
+        agreedDateStart: vm.agreedDateStart,
+        agreedDateEnd: vm.agreedDateEnd
+      }),
+      activity: vm.journal,
+      checklist: vm.checklist,
+      attachments: vm.attachments,
+      latestProgress: vm.latestProgress,
+      workContent: vm.workContent,
+      agreedDateStart: vm.agreedDateStart,
+      agreedDateEnd: vm.agreedDateEnd
+    });
   }
 
   function editableFieldMarkup(vm, field, label, readOnly) {
@@ -306,15 +365,29 @@
     const confirmDelete = options.confirm || root?.confirm;
     const openAttachment = typeof options.onOpen === "function" ? options.onOpen : null;
     const onDeleted = typeof options.onDeleted === "function" ? options.onDeleted : null;
-    container.querySelectorAll("[data-worktodo-attachment-open]").forEach(button => {
+    // Keep the two selectors separate.  The formal Shared Drawer emits the
+    // shared attribute, while older isolated WorkTodo fixtures still expose
+    // the adapter attribute only; querying them independently keeps the
+    // adapter contract compatible without creating another renderer.
+    const openButtons = [
+      ...container.querySelectorAll("[data-shared-attachment-open]"),
+      ...container.querySelectorAll("[data-worktodo-attachment-open]")
+    ];
+    [...new Set(openButtons)].forEach(button => {
       button.onclick = () => {
-        const item = rows.find(row => String(row.id || row.attachmentId) === String(button.dataset.worktodoAttachmentOpen));
+        const attachmentId = button.dataset.sharedAttachmentOpen || button.dataset.worktodoAttachmentOpen;
+        const item = rows.find(row => String(row.id || row.attachmentId) === String(attachmentId));
         return openAttachment?.(item);
       };
     });
-    container.querySelectorAll("[data-worktodo-attachment-delete]").forEach(button => {
+    const deleteButtons = [
+      ...container.querySelectorAll("[data-shared-attachment-delete]"),
+      ...container.querySelectorAll("[data-worktodo-attachment-delete]")
+    ];
+    [...new Set(deleteButtons)].forEach(button => {
       button.onclick = async () => {
-        const item = rows.find(row => String(row.id || row.attachmentId) === String(button.dataset.worktodoAttachmentDelete));
+        const attachmentId = button.dataset.sharedAttachmentDelete || button.dataset.worktodoAttachmentDelete;
+        const item = rows.find(row => String(row.id || row.attachmentId) === String(attachmentId));
         if (!item || (typeof confirmDelete === "function" && !confirmDelete(`確定刪除附件「${item.filename || "未命名附件"}」？`))) return;
         if (typeof domainService?.deleteWorkTodoAttachment !== "function") {
           options.onError?.(new Error("WorkTodo Adapter 尚未取得正式附件刪除服務。"), item, button);
@@ -333,5 +406,5 @@
     return true;
   }
 
-  return Object.freeze({ CAPABILITIES, normalize, render, renderCard, renderJournal, journalComposer, analysisMarkup, bindAttachmentActions });
+  return Object.freeze({ sharedDrawerContract, CAPABILITIES, normalize, toSharedViewModel, render, renderCard, renderJournal, journalComposer, analysisMarkup, bindAttachmentActions });
 });

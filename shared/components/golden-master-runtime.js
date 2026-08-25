@@ -926,7 +926,7 @@
         ? `<span class="shared-task-progress-note-attachment-badge" title="此筆工作進度有 ${noteAttachments.length} 個附件">📎 ${noteAttachments.length}</span>`
         : "";
       const attachmentMarkupForNote = noteAttachments.length
-        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview title="${esc(file.filename || "附件")}">${progressAttachmentIcon(file)}</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-progress-attachment-delete="${esc(file.attachmentId)}" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
+        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview title="${esc(file.filename || "附件")}">${progressAttachmentIcon(file)}</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-shared-attachment-delete="${esc(file.attachmentId)}" data-progress-attachment-delete="${esc(file.attachmentId)}" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
         : "";
       const controls = canManage
         ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
@@ -957,7 +957,7 @@
   function taskChecklistPanelMarkup() {
     return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
   }
-  function attachmentMarkup(attachments, artifacts, error, archiveOnly) {
+  function attachmentMarkup(attachments, artifacts, error, archiveOnly, options = {}) {
     // Progress-note attachments belong beside their Human Progress Note in
     // the right-hand timeline.  Only general TASK attachments belong in the
     // left-hand work-content section.
@@ -966,9 +966,10 @@
     const errorMarkup = error ? `<div class="task-read-warning">工作附件讀取失敗：${esc(error.message || "未知錯誤")}。</div>` : "";
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
-      const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-task-attachment-delete="${esc(item.attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
+      const attachmentId = item.attachmentId || item.id || "";
+      const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-task-attachment-delete="${esc(attachmentId)}" data-worktodo-attachment-delete="${esc(attachmentId)}" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
       const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(item.attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
@@ -1076,6 +1077,8 @@
   function wireTaskChecklist(task, items, archiveOnly) {
     const zone = document.querySelector("[data-task-checklist]");
     if (!zone) return;
+    const workTodo = isWorkTodoTask(task);
+    const workTodoService = workTodoDataService();
     if (!archiveOnly) {
       const addForm = zone.querySelector("[data-task-checklist-add]");
       if (addForm) addForm.onsubmit = async event => {
@@ -1091,7 +1094,8 @@
         form.dataset.taskChecklistSubmitting = "true";
         if (button) button.disabled = true;
         try {
-          await service.addTaskChecklistItem({ taskId: task.id, label, sortOrder: items.length * 10 });
+          if (workTodo) await workTodoService.addWorkTodoChecklistItem(task.id, label, items.length * 10);
+          else await service.addTaskChecklistItem({ taskId: task.id, label, sortOrder: items.length * 10 });
           await openTaskDetail(task, { readOnly: archiveOnly });
           setBanner("工作 Checklist 已新增並保存至正式 Cloud。", "success");
         } catch (error) {
@@ -1108,7 +1112,8 @@
           if (!item) return;
           button.disabled = true;
           try {
-            await service.updateTaskChecklistItem({ id: item.id, completed: !item.completed });
+            if (workTodo) await workTodoService.updateWorkTodoChecklistItem(item.id, { completed: !item.completed });
+            else await service.updateTaskChecklistItem({ id: item.id, completed: !item.completed });
             await openTaskDetail(task, { readOnly: archiveOnly });
           } catch (error) {
             button.disabled = false;
@@ -1122,7 +1127,8 @@
           if (!item || !window.confirm?.(`刪除工作 Checklist「${item.label}」？`)) return;
           button.disabled = true;
           try {
-            await service.deleteTaskChecklistItem(item.id);
+            if (workTodo) await workTodoService.deleteWorkTodoChecklistItem(item.id);
+            else await service.deleteTaskChecklistItem(item.id);
             await openTaskDetail(task, { readOnly: archiveOnly });
           } catch (error) {
             button.disabled = false;
@@ -1134,7 +1140,17 @@
   }
   async function uploadAttachmentFiles(task, files, options = {}) {
     const selected = Array.from(files || []).filter(file => file && file.size > 0);
+    const workTodo = isWorkTodoTask(task);
+    const workTodoService = workTodoDataService();
     for (const file of selected) {
+      if (workTodo) {
+        if (options.progressNote) {
+          await workTodoService.uploadWorkTodoProgressAttachment(task.id, options.activityId, file);
+        } else {
+          await workTodoService.uploadWorkTodoAttachment(task.id, file, { scope: "task" });
+        }
+        continue;
+      }
       const prepared = options.progressNote
         ? await service.prepareProgressNoteAttachment({ activityId: options.activityId, file })
         : await service.prepareTaskAttachment({ taskId: task.id, file });
@@ -1144,14 +1160,17 @@
   }
   async function hydrateTaskAttachmentPreviews() {
     const rows = document.querySelectorAll("[data-task-attachment-preview], [data-progress-attachment-preview]");
+    const activeTask = state.taskById.get(String(state.activeTaskId || ""));
+    const workTodo = isWorkTodoTask(activeTask);
+    const workTodoRepository = typeof SupabaseRepository !== "undefined" ? SupabaseRepository : root.SupabaseRepository;
     await Promise.all(Array.from(rows).map(async preview => {
       const article = preview.closest("[data-task-attachment-path], [data-progress-attachment-path]");
       if (!article) return;
       try {
-        const url = await service.taskAttachmentUrl({
-          storageBucket: "board-task-attachments",
-          storagePath: article.dataset.taskAttachmentPath || article.dataset.progressAttachmentPath
-        });
+        const storagePath = article.dataset.taskAttachmentPath || article.dataset.progressAttachmentPath;
+        const url = workTodo
+          ? await workTodoRepository?.signedWorkTodoAttachmentUrl?.(storagePath, 300)
+          : await service.taskAttachmentUrl({ storageBucket: "board-task-attachments", storagePath });
         if (!url) return;
         const mime = article.dataset.taskAttachmentMime || article.dataset.progressAttachmentMime || "";
         const openLink = document.createElement("a");
@@ -1176,9 +1195,11 @@
       }
     }));
   }
-  function wireTaskAttachments(task, archiveOnly) {
+  function wireTaskAttachments(task, archiveOnly, options = {}) {
     hydrateTaskAttachmentPreviews();
     if (archiveOnly) return;
+    const workTodo = isWorkTodoTask(task);
+    const workTodoService = workTodoDataService();
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
     if (input) input.onchange = async () => {
@@ -1197,9 +1218,32 @@
         input.disabled = false;
       }
     };
-    document.querySelectorAll("[data-task-attachment-delete], [data-progress-attachment-delete]").forEach(button => {
+    if (workTodo) {
+      root.ZhugeWorkTodoTaskAdapter?.bindAttachmentActions?.(document.getElementById("taskDetailBody"), {
+        attachments: options.rawAttachments || [],
+        dataService: workTodoService,
+        confirm: root.confirm,
+        onOpen: async item => {
+          const path = item?.storage_path || item?.storagePath || "";
+          if (!path) throw new Error("WorkTodo 附件尚無正式 Storage Path");
+          const repository = typeof SupabaseRepository !== "undefined" ? SupabaseRepository : root.SupabaseRepository;
+          const url = await repository?.signedWorkTodoAttachmentUrl?.(path, 300);
+          if (!url) throw new Error("WorkTodo 附件預覽服務尚未載入");
+          root.open?.(url, "_blank", "noopener,noreferrer");
+        },
+        onDeleted: async () => {
+          await refreshBoard({ quiet: true });
+          const freshTask = state.taskById.get(String(task.id)) || task;
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("附件已透過 WorkTodo 受控刪除流程移除。", "success");
+        },
+        onError: error => setBanner("附件刪除失敗：" + esc(error?.message || "WorkTodo 受控刪除未接受這次操作。"), "error")
+      });
+      return;
+    }
+    document.querySelectorAll("[data-task-attachment-delete], [data-progress-attachment-delete], [data-shared-attachment-delete]").forEach(button => {
       button.onclick = async () => {
-        const attachmentId = button.dataset.taskAttachmentDelete || button.dataset.progressAttachmentDelete;
+        const attachmentId = button.dataset.sharedAttachmentDelete || button.dataset.taskAttachmentDelete || button.dataset.progressAttachmentDelete;
         const row = button.closest("[data-task-attachment-id], [data-progress-attachment-id]");
         const filename = row?.querySelector(".shared-task-attachment-copy strong, strong")?.textContent || "這個附件";
         if (!attachmentId || !window.confirm?.(`刪除附件「${filename}」？刪除後會保留 Audit 紀錄，但檔案不再可查閱。`)) return;
@@ -1340,6 +1384,8 @@
   }
   function wireHumanProgressNoteActions(task, activity, archiveOnly) {
     if (archiveOnly) return;
+    const workTodo = isWorkTodoTask(task);
+    const workTodoService = workTodoDataService();
     const rows = Array.isArray(activity) ? activity : [];
     document.querySelectorAll("[data-progress-note-edit], [data-progress-note-delete]").forEach(button => {
       const activityId = String(button.dataset.progressNoteEdit || button.dataset.progressNoteDelete || "");
@@ -1375,7 +1421,17 @@
             }
             save.disabled = true;
             try {
-              await service.editTaskProgressNote(source.id, note);
+              if (workTodo) {
+                await workTodoService.saveWorkJournalEntry({
+                  cloudId: source.id,
+                  taskUuid: task.id,
+                  content: note,
+                  entryType: source.entryType || "progress",
+                  status: source.status,
+                  progress: source.progress,
+                  metadata: { source: "shared-task-drawer", revisionOf: source.revisionOf || null }
+                });
+              } else await service.editTaskProgressNote(source.id, note);
               await openTaskDetail(task, { readOnly: archiveOnly });
               setBanner("工作進度已以 revision 保存，歷史 Audit 已保留。", "success");
             } catch (error) {
@@ -1389,7 +1445,8 @@
           if (!window.confirm?.("撤回這筆工作進度？原始紀錄會保留於 Audit，但一般 Timeline 將不再顯示。")) return;
           button.disabled = true;
           try {
-            await service.deleteTaskProgressNote(source.id);
+            if (workTodo) await workTodoService.deleteWorkJournalEntry({ cloudId: source.id });
+            else await service.deleteTaskProgressNote(source.id);
             await openTaskDetail(task, { readOnly: archiveOnly });
             setBanner("工作進度已透過 tombstone 撤回，歷史 Audit 已保留。", "success");
           } catch (error) {
@@ -1456,73 +1513,99 @@
   function workTodoDataService() {
     return typeof DataService !== "undefined" ? DataService : root.DataService;
   }
-  async function openWorkTodoAttachment(item) {
-    const path = item?.storage_path || item?.storagePath || "";
-    if (!path) throw new Error("WorkTodo 附件尚無正式 Storage Path");
-    const repository = typeof SupabaseRepository !== "undefined" ? SupabaseRepository : root.SupabaseRepository;
-    if (typeof repository?.signedWorkTodoAttachmentUrl !== "function") throw new Error("WorkTodo 附件預覽服務尚未載入");
-    const url = await repository.signedWorkTodoAttachmentUrl(path, 300);
-    root.open?.(url, "_blank", "noopener,noreferrer");
-  }
-  async function openWorkTodoTaskDetail(task, options = {}) {
+  async function loadWorkTodoDrawerData(task) {
     const adapter = root.ZhugeWorkTodoTaskAdapter;
-    if (!adapter?.render) return false;
-    ensureTaskDetailModal();
-    const modal = document.getElementById("taskDetailModal");
-    const body = document.getElementById("taskDetailBody");
-    if (!modal || !body) return false;
     const dataService = workTodoDataService();
-    state.activeTaskId = String(task?.id || "");
     let journal = workTodoJournalForTask(task);
+    let journalError = null;
+    let capabilityError = null;
     if (!journal.length && typeof dataService?.loadWorkJournal === "function" && task?.id) {
       try {
         journal = await dataService.loadWorkJournal(task.id);
         state.workTodoJournalByTask.set(String(task.id), Array.isArray(journal) ? journal : []);
       } catch (error) {
-        console.warn("WorkTodo Journal read failed", error);
+        journalError = error;
+        journal = [];
       }
     }
     let capabilityData = { checklist: [], attachments: [] };
     if (typeof dataService?.loadWorkTodoTaskCapabilities === "function" && task?.id) {
-      try { capabilityData = await dataService.loadWorkTodoTaskCapabilities(task.id) || capabilityData; }
-      catch (error) { console.warn("WorkTodo capability read failed", error); }
+      try {
+        capabilityData = await dataService.loadWorkTodoTaskCapabilities(task.id) || capabilityData;
+      } catch (error) {
+        capabilityError = error;
+      }
     }
-    const readOnly = options.readOnly === true || Boolean(task?.archivedAt);
-    body.innerHTML = adapter.render(task, {
-      goldenMaster: root.ZhugeGoldenMaster,
-      drawer: root.ZhugeSharedTaskDrawer,
-      journal,
-      capabilityData,
-      readOnly,
-      actorLabel: "目前使用者",
-      formatTimestamp: shortTimestampLabel,
-      renderContent: renderActivityText
-    });
-    modal.style.display = "block";
-    modal.setAttribute("aria-hidden", "false");
-    body.querySelectorAll("[data-shared-task-drawer-close]").forEach(button => {
-      button.onclick = event => {
-        event.preventDefault();
-        modal.style.display = "none";
-        modal.setAttribute("aria-hidden", "true");
-        state.activeTaskId = "";
+    const viewModel = adapter?.toSharedViewModel
+      ? adapter.toSharedViewModel(task, journal, capabilityData)
+      : adapter?.normalize?.(task, journal, capabilityData);
+    return { dataService, journal, capabilityData, viewModel, journalError, capabilityError };
+  }
+  function agreedDateParts(task = {}, viewModel = null) {
+    const start = String(viewModel?.agreedDateStart || task.agreedDateStart || task.agreed_date_start || task.dueDate || task.due_date || "").slice(0, 10);
+    const end = String(viewModel?.agreedDateEnd || task.agreedDateEnd || task.agreed_date_end || task.dueDateEnd || task.due_date_end || start).slice(0, 10);
+    return { start, end: end || start };
+  }
+  function agreedDateLabel(task = {}, viewModel = null) {
+    const { start, end } = agreedDateParts(task, viewModel);
+    if (!start) return "尚未設定";
+    const format = value => {
+      const date = new Date(`${value}T00:00:00`);
+      return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "numeric", day: "numeric" }).format(date);
+    };
+    return end && end !== start ? `${format(start)} – ${format(end)}` : format(start);
+  }
+  function wireAgreedDateProperty(task, viewModel, archiveOnly) {
+    const property = document.querySelector('[data-task-property-action="due-date"]');
+    if (!property || archiveOnly) return;
+    property.onclick = () => {
+      const existing = document.querySelector("[data-shared-agreed-date-editor]");
+      if (existing) {
+        existing.remove();
+        property.classList.remove("is-editing");
+        return;
+      }
+      const { start, end } = agreedDateParts(task, viewModel);
+      const editor = document.createElement("div");
+      editor.className = "shared-agreed-date-editor";
+      editor.dataset.sharedAgreedDateEditor = "true";
+      editor.innerHTML = `<label>約定日期（起）<input type="date" data-agreed-date-start value="${esc(start)}"></label><label>約定日期（迄）<input type="date" data-agreed-date-end value="${esc(end || start)}"></label><small>可選單日或日期區間。此畫面只會走 WorkTodo 正式受控寫入路徑。</small><div class="shared-agreed-date-editor-actions"><button class="btn2" type="button" data-agreed-date-cancel>取消</button><button class="btn2 primary" type="button" data-agreed-date-save>套用</button></div>`;
+      property.after(editor);
+      property.classList.add("is-editing");
+      const close = () => {
+        editor.remove();
+        property.classList.remove("is-editing");
       };
-    });
-    if (!readOnly) {
-      adapter.bindAttachmentActions?.(body, {
-        attachments: capabilityData.attachments || [],
-        dataService,
-        confirm: root.confirm,
-        onOpen: openWorkTodoAttachment,
-        onDeleted: async () => {
+      editor.querySelector("[data-agreed-date-cancel]")?.addEventListener("click", close);
+      editor.querySelector("[data-agreed-date-save]")?.addEventListener("click", async event => {
+        const save = event.currentTarget;
+        const nextStart = editor.querySelector("[data-agreed-date-start]")?.value || "";
+        const nextEnd = editor.querySelector("[data-agreed-date-end]")?.value || nextStart;
+        if (nextStart && nextEnd && nextEnd < nextStart) {
+          setBanner("約定日期區間的結束日期不可早於開始日期。", "error");
+          return;
+        }
+        const workTodoService = workTodoDataService();
+        const writer = workTodoService?.worktodoUpdateTaskDueDate;
+        if (typeof writer !== "function") {
+          setBanner("目前 WorkTodo 正式受控路徑尚未提供約定日期寫入；未修改 Cloud 資料。", "error");
+          return;
+        }
+        save.disabled = true;
+        try {
+          await writer({ taskId: task.id, dueDate: nextStart, dueDateEnd: nextEnd });
+          close();
           await refreshBoard({ quiet: true });
           const freshTask = state.taskById.get(String(task.id)) || task;
-          await openWorkTodoTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
-        },
-        onError: error => setBanner("附件刪除失敗：" + esc(error?.message || "WorkTodo 受控刪除未接受這次操作。"), "error")
+          await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+          setBanner("約定日期已保存至正式 Cloud。", "success");
+        } catch (error) {
+          save.disabled = false;
+          setBanner("約定日期保存失敗：" + esc(error?.message || "正式 WorkTodo controlled write 未接受這次更新。"), "error");
+        }
       });
-    }
-    return true;
+      editor.querySelector("[data-agreed-date-start]")?.focus();
+    };
   }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
@@ -1530,13 +1613,25 @@
     const body = document.getElementById("taskDetailBody");
     const workTodo = isWorkTodoTask(task);
     const archiveOnly = options.readOnly === true || isArchiveTask(task);
-    if (workTodo && root.ZhugeWorkTodoTaskAdapter?.render) {
-      await openWorkTodoTaskDetail(task, { readOnly: archiveOnly });
-      return;
-    }
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
     const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
+    const drawerContract = root.ZhugeGoldenMaster?.assertSharedDrawerContract?.({
+      consumer: workTodo ? "worktodo" : "ai-board",
+      adapter: workTodo ? root.ZhugeWorkTodoTaskAdapter : null,
+      drawer
+    });
+    if (drawerContract && !drawerContract.ok) {
+      body.innerHTML = `<div class="board-empty" data-shared-drawer-contract-error="${esc(drawerContract.code)}">Shared Task Drawer contract 未通過；未執行任何 Cloud 寫入。</div>`;
+      modal.style.display = "block";
+      modal.setAttribute("aria-hidden", "false");
+      return;
+    }
+    const workTodoDomain = workTodo ? await loadWorkTodoDrawerData(task) : null;
+    const workTodoViewModel = workTodoDomain?.viewModel || null;
+    const drawerTask = workTodoViewModel
+      ? { ...task, summary: task.summary || workTodoViewModel.workContent || "", usageScenario: task.usageScenario || workTodoViewModel.task?.usageScenario || "" }
+      : task;
     const itemLabel = workItemLabel(task);
     const title = task.title || "未命名 " + itemLabel;
     const titleCode = task.workCode || itemLabel;
@@ -1546,11 +1641,12 @@
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
+      ...(workTodo ? [{ key: "due-date", action: "due-date", interactive: !archiveOnly, icon: "📅", label: "約定日期", value: agreedDateLabel(task, workTodoViewModel) }] : []),
       { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" }
     ];
     const sections = [
-      { id: "requirements", title: "工作內容", className: "task-content-section", html: editableTaskFieldMarkup(task, "summary", { readOnly: archiveOnly }) },
-      { id: "usage", title: "使用情境", className: "task-content-section", html: editableTaskFieldMarkup(task, "usage_scenario", { readOnly: archiveOnly }) },
+      { id: "requirements", title: "工作內容", className: "task-content-section", html: editableTaskFieldMarkup(drawerTask, "summary", { readOnly: archiveOnly }) },
+      { id: "usage", title: "使用情境", className: "task-content-section", html: editableTaskFieldMarkup(drawerTask, "usage_scenario", { readOnly: archiveOnly }) },
       { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` },
       { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
     ];
@@ -1586,12 +1682,17 @@
     modal.setAttribute("aria-hidden", "false");
     body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
-      const [items, taskChecklistItems] = await Promise.all([
-        workTodo ? Promise.resolve([]) : service.loadChecklist(task.id),
-        typeof service.loadTaskChecklist === "function" ? service.loadTaskChecklist(task.id) : Promise.resolve([])
-      ]);
+      const [items, taskChecklistItems] = workTodo
+        ? [[], workTodoViewModel?.checklist || []]
+        : await Promise.all([
+          service.loadChecklist(task.id),
+          typeof service.loadTaskChecklist === "function" ? service.loadTaskChecklist(task.id) : Promise.resolve([])
+        ]);
       const taskChecklistRows = document.getElementById("taskChecklistRows");
-      if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly || workTodo);
+      // WorkTodo and AI Board both use the same Checklist presentation.  The
+      // domain branch lives in wireTaskChecklist(), so WorkTodo must not be
+      // made read-only merely because it uses its own controlled writer.
+      if (taskChecklistRows) taskChecklistRows.innerHTML = taskChecklistMarkup(taskChecklistItems, archiveOnly);
       const taskChecklistPanel = body.querySelector("[data-task-checklist-panel]");
       const taskChecklistCount = taskChecklistPanel?.querySelector("[data-task-checklist-count]");
       if (taskChecklistCount) taskChecklistCount.textContent = taskChecklistCountMarkup(taskChecklistItems);
@@ -1605,32 +1706,44 @@
       const pmAcceptanceSection = body.querySelector('[data-shared-task-drawer-section="pm-acceptance"]');
       if (pmAcceptanceSection) pmAcceptanceSection.hidden = !pmMarkup;
       if (pmAcceptanceAction) pmAcceptanceAction.innerHTML = pmMarkup;
-      const [activityResult, artifactResult, attachmentResult] = await Promise.allSettled([
-        typeof service.loadActivity === "function" ? service.loadActivity(task.id, { checklistItems: items }) : Promise.resolve([]),
-        typeof service.loadArtifacts === "function" ? service.loadArtifacts(task) : Promise.resolve([]),
-        typeof service.loadTaskAttachments === "function" ? service.loadTaskAttachments(task.id) : Promise.resolve([])
-      ]);
-      const activity = activityResult.status === "fulfilled" ? activityResult.value : [];
-      const artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
-      const attachments = attachmentResult.status === "fulfilled" ? attachmentResult.value : [];
+      let activity = [];
+      let artifacts = [];
+      let attachments = [];
+      let attachmentError = null;
+      if (workTodo) {
+        activity = workTodoViewModel?.activity || [];
+        attachments = workTodoViewModel?.attachments || [];
+        attachmentError = workTodoDomain?.capabilityError || null;
+      } else {
+        const [activityResult, artifactResult, attachmentResult] = await Promise.allSettled([
+          typeof service.loadActivity === "function" ? service.loadActivity(task.id, { checklistItems: items }) : Promise.resolve([]),
+          typeof service.loadArtifacts === "function" ? service.loadArtifacts(task) : Promise.resolve([]),
+          typeof service.loadTaskAttachments === "function" ? service.loadTaskAttachments(task.id) : Promise.resolve([])
+        ]);
+        activity = activityResult.status === "fulfilled" ? activityResult.value : [];
+        artifacts = artifactResult.status === "fulfilled" ? artifactResult.value : [];
+        attachments = attachmentResult.status === "fulfilled" ? attachmentResult.value : [];
+        attachmentError = attachmentResult.status === "rejected" ? attachmentResult.reason : null;
+      }
       const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
       const attachmentZone = document.getElementById("taskAttachments");
-      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentResult.status === "rejected" ? attachmentResult.reason : null, archiveOnly);
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentError, archiveOnly, { workTodo });
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = false;
-      const humanNotes = humanNotesMarkup(task);
+      const humanNotes = humanNotesMarkup(drawerTask);
       const humanNotesZone = document.getElementById("taskHumanNotes");
       if (humanNotesZone) {
         humanNotesZone.innerHTML = humanNotes;
         humanNotesZone.hidden = !humanNotes;
       }
-      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly });
+      document.getElementById("taskActivityList").innerHTML = activityMarkup(activity, attachments, { readOnly: archiveOnly, workTodo });
       wireTaskInlineEditors(task, archiveOnly);
       wireTaskTitleEditor(task, archiveOnly);
-      wireTaskChecklist(task, taskChecklistItems, archiveOnly || workTodo);
-      wireTaskAttachments(task, archiveOnly);
+      wireTaskChecklist(task, taskChecklistItems, archiveOnly);
+      wireTaskAttachments(task, archiveOnly, { rawAttachments: workTodoDomain?.capabilityData?.attachments || [] });
       wireProgressNoteComposer(task, archiveOnly);
       wireHumanProgressNoteActions(task, activity, archiveOnly);
+      wireAgreedDateProperty(task, workTodoViewModel, archiveOnly);
       wireTaskAnalysisView(task);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {

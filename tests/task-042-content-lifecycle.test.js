@@ -94,8 +94,8 @@ test("Shared progress actions use the same Cloud lifecycle in AI Board and WorkT
   assert.match(runtime, /data-progress-note-edit/);
   assert.match(runtime, /data-progress-note-delete/);
   assert.match(runtime, /data-progress-attachment-delete/);
-  assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\]/);
-  assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly \}\)/);
+  assert.match(runtime, /data-task-attachment-delete\], \[data-progress-attachment-delete\], \[data-shared-attachment-delete\]/);
+  assert.match(runtime, /activityMarkup\(activity, attachments, \{ readOnly: archiveOnly, workTodo \}\)/);
   assert.doesNotMatch(runtime, /function wireHumanProgressNoteActions\(task, activity, archiveOnly\) \{\s*if \(archiveOnly \|\| isWorkTodoTask\(task\)\)/);
   assert.match(css, /data-shared-task-timeline\].*gap:8px/);
   assert.match(css, /shared-task-progress-attachment-row\{display:grid;grid-template-columns:34px minmax\(0,1fr\) auto/);

@@ -2,7 +2,7 @@
 
 Candidate: `20260810_1501_Candidate.zip`
 Product Version: `v0.9.0-alpha.9.12`
-Runtime / Source Build: `20260825-1356`
+Runtime / Source Build: `20260825-1455`
 Source Commit: `9049f30626ea443956f7323302bccc0d606fdf3d`
 
 ## Included scope
@@ -29,4 +29,4 @@ Source Commit: `9049f30626ea443956f7323302bccc0d606fdf3d`
 
 The ZIP is the single handoff artifact. Its filename timestamp, `version.json`
 build, runtime cache-busting token and visible Build metadata all use the same
-`20260825-1356` identity.
+`20260825-1455` identity.

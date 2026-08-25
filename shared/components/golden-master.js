@@ -204,7 +204,10 @@
   function renderDrawer(options = {}, deps = dependencies(options)) {
     const drawerOptions = options.drawer || options;
     const properties = Array.isArray(drawerOptions.properties)
-      ? drawerOptions.properties.filter(item => !["priority", "due-date"].includes(item?.key))
+      // Priority is not part of the canonical Shared Drawer contract.  A
+      // consumer's agreed-date property is presentation data, however, and
+      // must remain available to the shared interaction binder.
+      ? drawerOptions.properties.filter(item => !["priority"].includes(item?.key))
       : drawerOptions.properties;
     const presentationOptions = properties === drawerOptions.properties
       ? drawerOptions
@@ -234,6 +237,25 @@
     return deps.board?.bind?.(target, handlers) || false;
   }
 
+  /*
+   * Runtime conformance guard for the single Drawer contract.  A Consumer
+   * adapter may expose domain capability helpers, but it must explicitly
+   * declare that it does not own Drawer presentation.  This keeps a future
+   * WorkTodo bootstrap from silently reintroducing a second detail renderer.
+   */
+  function assertSharedDrawerContract({ consumer = "", adapter = null, drawer = null } = {}) {
+    if (typeof renderDrawer !== "function" || typeof drawer?.render !== "function") {
+      return { ok: false, code: "SHARED_DRAWER_UNAVAILABLE" };
+    }
+    if (String(consumer).toLowerCase() === "worktodo") {
+      const contract = adapter?.sharedDrawerContract;
+      if (!contract || contract.ownsDrawer !== false || contract.viewModel !== "toSharedViewModel") {
+        return { ok: false, code: "WORKTODO_DRAWER_CONTRACT_INVALID" };
+      }
+    }
+    return { ok: true, code: "SHARED_DRAWER_CONTRACT_OK" };
+  }
+
   return Object.freeze({
     EMPTY_MODEL,
     escapeHtml,
@@ -248,6 +270,7 @@
     renderDrawer,
     render,
     mount,
-    bindBoard
+    bindBoard,
+    assertSharedDrawerContract
   });
 });

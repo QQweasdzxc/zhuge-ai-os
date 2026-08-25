@@ -123,7 +123,7 @@ test("Golden Master owns the shared priority presentation decision", () => {
     properties: [
       { key: "workspace", label: "工作區", value: "進行中" },
       { key: "priority", label: "優先度", value: "P1" },
-      { key: "due-date", label: "日期", value: "2026/08/21" },
+      { key: "due-date", label: "約定日期", value: "2026/08/21" },
       { key: "status", label: "目前狀態", value: "進行中" }
     ]
   }, { drawer });
@@ -131,7 +131,7 @@ test("Golden Master owns the shared priority presentation decision", () => {
   assert.match(html, /工作區/);
   assert.match(html, /目前狀態/);
   assert.doesNotMatch(html, /優先度/);
-  assert.doesNotMatch(html, /日期|2026\/08\/21/);
+  assert.match(html, /約定日期|2026\/08\/21/);
 });
 
 test("AI Board and WorkTodo route Card, Board, Drawer, and binding through the same source", () => {

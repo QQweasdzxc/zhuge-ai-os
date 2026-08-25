@@ -125,7 +125,8 @@ body:has(.zhuge-module-shell) { margin: 0; }
   margin-bottom: 6px;
 }
 .zhuge-module-shell.zhuge-nav-collapsed .side-item {
-  min-height: var(--zhuge-sidebar-item-height);
+  height: 46px;
+  min-height: 46px;
   justify-content: center;
   margin-top: var(--zhuge-sidebar-collapsed-item-gap);
   margin-left: 0;

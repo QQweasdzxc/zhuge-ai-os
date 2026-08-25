@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WorkTodo Shared Drawer Conformance Fixture</title>
+  <link rel="stylesheet" href="../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../shared/theme/task-card.css">
+  <link rel="stylesheet" href="../shared/theme/task-drawer.css">
+  <link rel="stylesheet" href="../shared/theme/task-board.css">
+  <link rel="stylesheet" href="../shared/theme/golden-master.css">
+</head>
+<body>
+  <div class="zhuge-module-shell workspace-shell">
+    <div class="app workspace-app">
+      <main class="main">
+        <div data-zhuge-shared-header data-title="工作待辦" data-description="Runtime Conformance Fixture"></div>
+        <div class="workspace-canvas">
+          <div data-board-main-view data-golden-master-surface></div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="../shared/components/task-card.js"></script>
+  <script src="../shared/components/task-drawer.js"></script>
+  <script src="../shared/components/task-board.js"></script>
+  <script src="../shared/components/activity-text-renderer.js"></script>
+  <script src="../shared/components/task-card-summary.js"></script>
+  <script src="../shared/components/golden-master.js"></script>
+  <script src="../modules/worklog/components/worktodo-task-adapter.js"></script>
+  <script>
+    var session = null;
+    const fixtureTask = window.__fixtureTask = {
+      id: "wltk-005",
+      cloudId: "wltk-005",
+      workCode: "WLTK-005",
+      title: "點鎖(台中)－壓克力招牌",
+      applicationScope: "worktodo",
+      status: "in_progress",
+      workspaceId: "workspace-progress",
+      workspaceKey: "worktodo-inprogress",
+      workspaceName: "進行中",
+      summary: "確認招牌牆的部分，是否有留電源孔。",
+      usageScenario: "現場確認招牌施工條件。",
+      dueDate: "2026-08-25"
+    };
+    const fixtureJournal = window.__fixtureJournal = [
+      {
+        id: "journal-1",
+        task_uuid: "wltk-005",
+        entry_type: "progress",
+        content: "已確認現場有留電源線。",
+        created_at: "2026-08-25T01:24:00.000Z",
+        actor_label: "QJC"
+      },
+      {
+        id: "journal-2",
+        task_uuid: "wltk-005",
+        entry_type: "progress",
+        content: "資料已回覆 https://example.com/reference",
+        created_at: "2026-08-24T06:00:00.000Z",
+        actor_label: "QJC"
+      }
+    ];
+    window.getSupabaseAuthUser = async () => ({
+      user: { id: "fixture-qjc", email: "qjc@example.test", user_metadata: { full_name: "QJC" } },
+      authSession: { access_token: "fixture-token", refresh_token: "fixture-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      provider: "fixture"
+    });
+    window.supabaseSessionFromUser = (user, authSession, provider) => ({
+      provider,
+      user_uuid: user.id,
+      uuid: user.id,
+      email: user.email,
+      name: user.user_metadata.full_name,
+      access_token: authSession.access_token,
+      refresh_token: authSession.refresh_token,
+      expires_at: authSession.expires_at
+    });
+    window.persistAiOsSessionOnly = () => {};
+    window.DataService = {
+      loadWorkJournal: async taskId => taskId ? fixtureJournal.filter(row => row.task_uuid === taskId) : fixtureJournal,
+      loadWorkTodoTaskCapabilities: async () => ({
+        checklist: [{ id: "check-1", label: "確認 Shared Drawer", completed: false }],
+        attachments: []
+      })
+    };
+    window.ZhugeBoardReadService = {
+      statusDescriptorFor: status => ({ label: String(status || "未知") }),
+      normalizeStatus: status => String(status || "not_started"),
+      isGovernanceTerminal: () => false,
+      isArchiveTask: () => false,
+      load: async () => ({
+        workspaces: [
+          { id: "workspace-todo", key: "worktodo-todo", name: "待開始", sortOrder: 10, active: true, applicationScope: "worktodo" },
+          { id: "workspace-progress", key: "worktodo-inprogress", name: "進行中", sortOrder: 20, active: true, applicationScope: "worktodo" }
+        ],
+        tasks: [fixtureTask],
+        principles: [],
+        systemMaps: []
+      }),
+      subscribe: async () => async () => {}
+    };
+  </script>
+  <script src="../shared/components/golden-master-runtime.js"></script>
+  <script>
+    function writeFixtureAudit() {
+      const drawer = document.querySelector("[data-shared-task-drawer]");
+      const list = document.getElementById("taskActivityList");
+      const firstRow = list?.querySelector("article");
+      const text = drawer?.textContent || "";
+      const style = list ? getComputedStyle(list) : null;
+      const audit = {
+        framework: drawer?.dataset.sharedTaskFramework || "",
+        gap: style?.gap || "",
+        rowGap: style?.rowGap || "",
+        cardPadding: firstRow ? getComputedStyle(firstRow).padding : "",
+        activityRows: list?.querySelectorAll("article").length || 0,
+        hasSharedDrawer: Boolean(drawer),
+        hasWorkTodoOwnedDrawer: Boolean(document.querySelector("[data-worktodo-shared-drawer]")),
+        hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),
+        hasAgreedDateProperty: Boolean(document.querySelector('[data-task-property-action="due-date"]')),
+        checklistDisabled: document.querySelector("[data-task-checklist-toggle]")?.disabled === true,
+        urlLink: Boolean(document.querySelector('a[href="https://example.com/reference"]'))
+      };
+      document.querySelector('[data-task-property-action="due-date"]')?.click();
+      audit.hasAgreedDateEditor = Boolean(document.querySelector("[data-shared-agreed-date-editor]"));
+      audit.agreedDateInputs = document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]').length;
+      let node = document.getElementById("worktodo-shared-drawer-audit");
+      if (!node) { node = document.createElement("pre"); node.id = "worktodo-shared-drawer-audit"; document.body.appendChild(node); }
+      node.textContent = JSON.stringify(audit);
+      node.dataset.audit = JSON.stringify(audit);
+    }
+    setTimeout(() => {
+      window.ZhugeBoardRuntime?.openTaskDetail(window.__fixtureTask);
+      setTimeout(writeFixtureAudit, 450);
+    }, 450);
+  </script>
+</body>
+</html>

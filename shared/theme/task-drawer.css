@@ -60,6 +60,11 @@
 .shared-task-drawer-property.is-interactive:hover,.shared-task-drawer-property.is-interactive:focus-visible{border-color:#5d9cff;background:#151f2d;outline:none}
 .shared-task-drawer-property.is-editing{border-color:#5d9cff;background:#151f2d}
 .shared-task-property-editor{grid-column:2;min-width:0;width:100%;box-sizing:border-box;border:1px solid #4b6691;border-radius:6px;background:#111720;color:#d7e2f2;padding:5px;font:inherit;font-size:11px}
+.shared-agreed-date-editor{display:grid;gap:7px;grid-column:1/-1;margin-top:-2px;padding:10px;border:1px solid #4b6691;border-radius:9px;background:#111720;color:#cbd6e5;font-size:11px}
+.shared-agreed-date-editor label{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:8px;color:#9fb0c5;font-size:10px}
+.shared-agreed-date-editor input{min-width:0;border:1px solid #344052;border-radius:6px;background:#151c26;color:#d7e2f2;padding:6px 7px;font:inherit;font-size:11px}
+.shared-agreed-date-editor small{color:#8493a7;font-size:10px;line-height:1.45}
+.shared-agreed-date-editor-actions{display:flex;justify-content:flex-end;gap:6px}
 .shared-task-drawer-content[data-shared-task-region="work-body"]{background:#151c26}
 .shared-task-drawer-activity[data-shared-task-region="activity"]{background:#101720}
 .shared-task-drawer-activity[data-shared-task-region="activity"]>.shared-task-drawer-section-heading h3{color:#d7e2f2;font-size:15px}

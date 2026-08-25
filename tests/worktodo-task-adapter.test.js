@@ -153,6 +153,11 @@ test("WorkTodo shared card summary prefers latest progress then work content", (
 });
 
 test("WorkTodo adapter exposes the approved shared capability contract", () => {
+  assert.deepEqual(Adapter.sharedDrawerContract, {
+    viewModel: "toSharedViewModel",
+    renderer: "ZhugeGoldenMaster.renderDrawer",
+    ownsDrawer: false
+  });
   assert.equal(Adapter.CAPABILITIES.title, true);
   assert.equal(Adapter.CAPABILITIES.note, true);
   assert.equal(Adapter.CAPABILITIES.status, true);

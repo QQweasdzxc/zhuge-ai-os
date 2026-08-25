@@ -19,7 +19,7 @@ function sharedDrawer() {
   };
 }
 
-test("WorkTodo keeps canonical property data while omitting it from the Card/Drawer UX", () => {
+test("WorkTodo keeps canonical property data while omitting legacy properties from the formal Shared Drawer", () => {
   const vm = Adapter.normalize({
     id: "cloud-task-1",
     work_code: "WLTK-001",
@@ -31,13 +31,10 @@ test("WorkTodo keeps canonical property data while omitting it from the Card/Dra
   });
   assert.equal(vm.workProperty, "產品規劃");
   assert.equal(vm.estimatedMinutes, 90);
-  const html = Adapter.render(vm, { drawer: sharedDrawer(), readOnly: false });
-  assert.doesNotMatch(html, /工作屬性/);
-  assert.doesNotMatch(html, /產品規劃/);
-  assert.match(html, /預估時間/);
-  assert.match(html, /1 小時 30 分鐘/);
-  assert.doesNotMatch(html, /data-task-property-action="work-property"/);
-  assert.match(html, /data-task-property-action="estimated-minutes"/);
+  const runtime = read("shared/components/golden-master-runtime.js");
+  assert.match(runtime, /label: "約定日期"/);
+  assert.doesNotMatch(runtime, /label: "進度"|label: "置頂"|label: "預估時間"|key: "estimated-minutes"/);
+  assert.doesNotMatch(runtime, /openWorkTodoTaskDetail|adapter\.render\(task/);
 });
 
 test("WorkTodo property capability uses the canonical controlled path", () => {
@@ -60,7 +57,7 @@ test("WorkTodo property capability uses the canonical controlled path", () => {
 
 test("WorkTodo property mapping does not create a second task presentation", () => {
   const adapter = read("modules/worklog/components/worktodo-task-adapter.js");
-  assert.match(adapter, /ZhugeSharedTaskDrawer/);
+  assert.match(adapter, /toSharedViewModel/);
   assert.match(adapter, /ZhugeSharedTaskCard/);
   assert.match(adapter, /workProperty/);
   assert.match(adapter, /預估時間/);
