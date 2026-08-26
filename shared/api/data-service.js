@@ -625,6 +625,15 @@ const DataService = {
       attachments: Array.isArray(attachments) ? attachments : []
     };
   },
+  // Formal Template C WorkTodo reads the general Checklist through the
+  // shared BoardReadService.  This attachment-only reader keeps the legacy
+  // WorkLog capability aggregate available without allowing the formal
+  // WorkTodo Adapter to touch user_tasks/worktodo_checklist_items.
+  async loadWorkTodoTaskAttachments(taskUuid = "") {
+    if (!taskUuid || !hasGoogleOAuthSession() || dataServiceHydrating || migrationRunning) return [];
+    const rows = await SupabaseRepository.loadWorkTodoAttachments(taskUuid);
+    return Array.isArray(rows) ? rows : [];
+  },
   async saveWorkJournalEntry(entry = {}) {
     if (!dataServiceReady || !hasGoogleOAuthSession()) throw new Error("Cloud Sync 尚未就緒");
     if (dataServiceHydrating || migrationRequired || migrationRunning) throw new Error("Cloud Sync 正在初始化");

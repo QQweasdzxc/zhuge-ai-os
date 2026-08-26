@@ -180,15 +180,22 @@
       expires_at: authSession.expires_at
     });
     window.persistAiOsSessionOnly = () => {};
+    const fixtureChecklist = window.__fixtureChecklist = [];
+    window.__worktodoChecklistCalls = [];
+    window.__legacyChecklistPathCalled = false;
     window.DataService = {
       loadWorkJournal: async taskId => {
         if (taskId) window.__legacyWorkJournalFallbackCalled = true;
         return taskId ? fixtureJournal.filter(row => row.task_uuid === taskId) : fixtureJournal;
       },
-      loadWorkTodoTaskCapabilities: async () => ({
-        checklist: [{ id: "check-1", label: "確認 Shared Drawer", completed: false }],
-        attachments: []
-      })
+      loadWorkTodoTaskCapabilities: async () => {
+        window.__legacyChecklistPathCalled = true;
+        return {
+          checklist: [{ id: "legacy-check-1", label: "Legacy Checklist Path", completed: false }],
+          attachments: []
+        };
+      },
+      loadWorkTodoTaskAttachments: async () => []
     };
     window.ZhugeBoardReadService = {
       statusDescriptorFor: status => ({ label: String(status || "未知") }),
@@ -198,6 +205,38 @@
       loadActivity: async taskId => {
         window.__worktodoActivityReadPath = "engineering_activity_log";
         return fixtureActivity.filter(row => row.task_uuid === taskId);
+      },
+      loadTaskChecklist: async taskId => {
+        window.__worktodoChecklistCalls.push({ name: "loadTaskChecklist", taskId });
+        return fixtureChecklist.filter(row => row.task_id === taskId).map(row => ({ ...row }));
+      },
+      addTaskChecklistItem: async input => {
+        window.__worktodoChecklistCalls.push({ name: "board_add_task_checklist_item", input: { ...input } });
+        const item = {
+          id: `check-${fixtureChecklist.length + 1}`,
+          task_id: input.taskId,
+          label: input.label,
+          completed: false,
+          sort_order: Number(input.sortOrder || 0)
+        };
+        fixtureChecklist.push(item);
+        return { ...item };
+      },
+      updateTaskChecklistItem: async input => {
+        window.__worktodoChecklistCalls.push({ name: "board_update_task_checklist_item", input: { ...input } });
+        const item = fixtureChecklist.find(row => row.id === input.id);
+        if (!item) throw new Error("Checklist item not found");
+        if (Object.prototype.hasOwnProperty.call(input, "label") && input.label != null) item.label = input.label;
+        if (Object.prototype.hasOwnProperty.call(input, "completed") && input.completed != null) item.completed = Boolean(input.completed);
+        if (Object.prototype.hasOwnProperty.call(input, "sortOrder") && input.sortOrder != null) item.sort_order = Number(input.sortOrder);
+        return { ...item };
+      },
+      deleteTaskChecklistItem: async itemId => {
+        window.__worktodoChecklistCalls.push({ name: "board_delete_task_checklist_item", itemId });
+        const index = fixtureChecklist.findIndex(row => row.id === itemId);
+        if (index < 0) throw new Error("Checklist item not found");
+        fixtureChecklist.splice(index, 1);
+        return { success: true, item_id: itemId };
       },
       load: async () => ({
         workspaces: [
@@ -255,6 +294,8 @@
         tombstonedOriginalRendered: Boolean(list?.querySelector('[data-activity-id="journal-deleted"]')),
         activityReadPath: window.__worktodoActivityReadPath || "",
         legacyFallbackCalled: window.__legacyWorkJournalFallbackCalled === true,
+        legacyChecklistPathCalled: window.__legacyChecklistPathCalled === true,
+        canonicalChecklistReads: window.__worktodoChecklistCalls.filter(call => call.name === "loadTaskChecklist").length,
         hasSharedDrawer: Boolean(drawer),
         hasWorkTodoOwnedDrawer: Boolean(document.querySelector("[data-worktodo-shared-drawer]")),
         hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),

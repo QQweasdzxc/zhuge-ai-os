@@ -41,6 +41,12 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   assert.match(adapters, /deleteWorkspace: payload => required\(service, "worktodoDeleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId\)/);
   assert.match(adapters, /payload\.scope === "progress_note"[\s\S]*deleteProgressNoteAttachment/);
   assert.match(adapters, /deleteAttachment: payload => callDomain\("deleteWorkTodoAttachment"/);
+  const worktodoAdapter = adapters.match(/function createWorkTodoAdapter[\s\S]*?\n  function create\(/)?.[0] || "";
+  assert.match(worktodoAdapter, /addChecklist: payload => required\(service, "addTaskChecklistItem"\)/);
+  assert.match(worktodoAdapter, /updateChecklist: payload => required\(service, "updateTaskChecklistItem"\)/);
+  assert.match(worktodoAdapter, /deleteChecklist: payload => required\(service, "deleteTaskChecklistItem"\)/);
+  assert.match(worktodoAdapter, /required\(service, "loadTaskChecklist"\)/);
+  assert.doesNotMatch(worktodoAdapter, /addWorkTodoChecklistItem|updateWorkTodoChecklistItem|deleteWorkTodoChecklistItem|loadWorkTodoTaskCapabilities/);
 });
 
 test("Shared Action Contract de-duplicates one in-flight operation and preserves read-back hooks", async () => {

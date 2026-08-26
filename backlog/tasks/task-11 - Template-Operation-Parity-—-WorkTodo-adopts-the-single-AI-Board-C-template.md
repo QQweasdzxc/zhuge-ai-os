@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-24 07:48'
-updated_date: '2026-08-25 07:24'
+updated_date: '2026-08-26 03:39'
 labels:
   - golden-master
   - template
@@ -38,6 +38,8 @@ PM confirmed that AI Board is the sole canonical C template. WorkTodo must consu
 
 <!-- SECTION:PLAN:BEGIN -->
 1. Audit the shared Golden Master, WorkTodo adapter, existing progress attachment Storage/Repository path, and workspace operation RPC/capability contract. 2. Implement the shared 48px spacing and progress attachment lifecycle using the existing controlled path. 3. Align WorkTodo workspace create/reorder/rename capabilities with the canonical operation contract without duplicating the C template or bypassing authorization. 4. Keep TASK/WLTK labels scoped to their domain, add focused regression coverage, and run desktop/mobile runtime QA. 5. Commit the approved source change and report Cloud, domain-data, Git, and QA boundaries.
+
+Checklist Contract repair: route formal WorkTodo general Checklist read/add/toggle/delete through shared board_task_checklist_items and board_*_task_checklist_item RPCs; preserve legacy WorkLog routes and other domains; add read-only Cloud RPC authorization migration artifact without applying it; run targeted and AI Board regression.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -46,4 +48,8 @@ PM confirmed that AI Board is the sole canonical C template. WorkTodo must consu
 PM 最新視覺試用將共用 Shared Task Drawer 工作進度列表卡片間距由 20px 調整為 28px，卡片內距維持 16px，並保留統一邊界、附件、編輯、刪除與雙 Consumer 共用呈現。已同步更新 shared/theme/task-drawer.css 與 TASK-011/TASK-042 regression assertions；本輪待重新執行 targeted / full regression。
 
 2026-08-25 RCA: Build 1455 WorkTodo Shared Drawer read path queried legacy work_journal_entries, while existing worktodo_add_task_progress_note writes engineering_activity_log; live Network evidence showed work_journal_entries 200 and no engineering_activity_log request. Minimal source fix keeps Shared Drawer renderer and makes WorkTodo load existing shared service.loadActivity(task.id) canonical, with legacy Work Journal read only as fallback; no Cloud/schema/RPC/migration changes. Added browser regression asserting engineering_activity_log path and no task-scoped fallback.
+
+PM approved Checklist Contract minimal repair on 2026-08-26. Scope excludes Workspace Delete, Agreement, Progress, Attachment, Storage, unrelated user_tasks RPCs, and legacy route removal.
+
+2026-08-26 Checklist Contract coding complete: formal Template C WorkTodo Adapter now uses shared BoardReadService loadTaskChecklist plus board_add_task_checklist_item / board_update_task_checklist_item / board_delete_task_checklist_item through the existing Shared Action Contract. Legacy WorkTodo checklist aggregate/repository/RPCs remain unchanged for legacy routes. Added not-applied docs/supabase/20260826_worktodo_task_checklist_canonical.sql; read-only Cloud preflight PASS and live migration history confirms it is not applied. Targeted sequence and AI Board parity tests PASS; full automated regression 251/251 PASS. Cloud Runtime QA is pending PM-approved migration application; no Cloud write performed.
 <!-- SECTION:NOTES:END -->

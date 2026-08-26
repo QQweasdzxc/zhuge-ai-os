@@ -120,9 +120,12 @@
         addGeneralAttachment: payload => callDomain("uploadWorkTodoAttachment", payload.taskId || taskId, payload.file, { scope: "task" }),
         addProgressAttachment: payload => callDomain("uploadWorkTodoProgressAttachment", payload.taskId || taskId, payload.activityId, payload.file),
         deleteAttachment: payload => callDomain("deleteWorkTodoAttachment", rawWorkTodoAttachment(payload.item || payload)),
-        addChecklist: payload => callDomain("addWorkTodoChecklistItem", payload.taskId || taskId, payload.label, payload.sortOrder),
-        updateChecklist: payload => callDomain("updateWorkTodoChecklistItem", payload.id, { completed: payload.completed, label: payload.label, sortOrder: payload.sortOrder }),
-        deleteChecklist: payload => callDomain("deleteWorkTodoChecklistItem", payload.id),
+        // General Task Checklist is shared canonical data for both consumers.
+        // WorkTodo must not route this capability through the legacy
+        // user_tasks/worktodo_checklist_items contract.
+        addChecklist: payload => required(service, "addTaskChecklistItem")({ taskId: payload.taskId || taskId, label: payload.label, sortOrder: payload.sortOrder }),
+        updateChecklist: payload => required(service, "updateTaskChecklistItem")({ id: payload.id, completed: payload.completed, label: payload.label, sortOrder: payload.sortOrder }),
+        deleteChecklist: payload => required(service, "deleteTaskChecklistItem")(payload.id),
         setAgreementSchedule: payload => required(service, "worktodoSetAgreementSchedule")({
           taskId: payload.taskId || taskId,
           mode: payload.mode,
@@ -138,8 +141,15 @@
       read: {
         activity: payload => required(service, "loadActivity")(payload.taskId || taskId, payload.options || {}),
         capabilities: async payload => {
-          if (typeof domain?.loadWorkTodoTaskCapabilities !== "function") return { checklist: [], attachments: [] };
-          return domain.loadWorkTodoTaskCapabilities(payload.taskId || taskId);
+          const currentTaskId = payload.taskId || taskId;
+          const [checklist, attachments] = await Promise.all([
+            required(service, "loadTaskChecklist")(currentTaskId),
+            required(domain, "loadWorkTodoTaskAttachments")(currentTaskId)
+          ]);
+          return {
+            checklist: Array.isArray(checklist) ? checklist : [],
+            attachments: Array.isArray(attachments) ? attachments : []
+          };
         },
         attachmentUrl: async payload => {
           const item = rawWorkTodoAttachment(payload.attachment);
