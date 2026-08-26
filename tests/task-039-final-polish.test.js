@@ -97,14 +97,16 @@ test("General Task Drawer renders Human Progress only while preserving canonical
   assert.doesNotMatch(runtime, /return rows\.map\(item => \{[\s\S]*System Activity ·/);
 });
 
-test("Workspace delete remains blocked while task content editing uses the authenticated controlled path", () => {
-  const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql");
+test("Workspace delete is custom-only and controlled while task content editing stays on its existing path", () => {
+  const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("app/Board/ai/board-runtime.js");
   const inlineMigration = read("docs/supabase/20260818_task_039_inline_content_write.sql");
-  assert.doesNotMatch(migration, /board_delete_workspace/i);
-  assert.doesNotMatch(service, /deleteWorkspace|board_delete_workspace/i);
-  assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace/i);
+  assert.match(migration, /board_request_delete_workspace/i);
+  assert.match(migration, /board_finalize_delete_workspace/i);
+  assert.match(migration, /workspace_key is not null/i);
+  assert.match(service, /deleteWorkspaceWithContract/);
+  assert.match(runtime, /function deleteWorkspace\(workspace\)/);
   assert.match(service, /updateTaskContent/);
   assert.match(service, /board_update_task_content/);
   assert.match(runtime, /data-task-inline-edit/);
@@ -117,6 +119,7 @@ test("Workspace delete remains blocked while task content editing uses the authe
   assert.doesNotMatch(service, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.match(migration, /on delete restrict/i);
+  assert.match(migration, /delete from public\.board_tasks/i);
 });
 
 test("Task content fields start in read mode and switch in place to one editor", () => {

@@ -14,7 +14,7 @@
   "use strict";
 
   const ACTIONS = Object.freeze([
-    "createTask", "createWorkspace", "renameWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
+    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
     "addProgressNote", "editProgressNote", "deleteProgressNote",
     "addGeneralAttachment", "addProgressAttachment", "deleteAttachment",
     "addChecklist", "updateChecklist", "deleteChecklist", "updateGovernanceChecklist",

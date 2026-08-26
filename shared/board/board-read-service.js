@@ -657,6 +657,29 @@
     return gateway.rpc("board_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeWorkspace);
   }
 
+  async function deleteWorkspaceWithContract(workspaceId, requestRpc, finalizeRpc, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const manifest = await gateway.rpc(requestRpc, { p_workspace_id: workspaceId });
+    const attachments = Array.isArray(manifest?.attachments) ? manifest.attachments : [];
+    if (attachments.length && typeof gateway.removeStorageObject !== "function") {
+      const error = new Error("Shared Supabase Gateway 尚未支援受控 Workspace Storage 刪除。");
+      error.code = "WORKSPACE_STORAGE_DELETE_UNAVAILABLE";
+      throw error;
+    }
+    for (const attachment of attachments) {
+      await gateway.removeStorageObject(attachment.storage_bucket || attachment.storageBucket, attachment.storage_path || attachment.storagePath);
+    }
+    return gateway.rpc(finalizeRpc, {
+      p_workspace_id: workspaceId,
+      p_task_ids: Array.isArray(manifest?.task_ids) ? manifest.task_ids : [],
+      p_attachment_ids: attachments.map(attachment => attachment.id || attachment.attachment_id).filter(Boolean)
+    });
+  }
+
+  async function deleteWorkspace(workspaceId, options = {}) {
+    return deleteWorkspaceWithContract(workspaceId, "board_request_delete_workspace", "board_finalize_delete_workspace", options);
+  }
+
   async function reorderWorkspaces(workspaceIds, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_reorder_workspaces", { p_workspace_ids: workspaceIds });
@@ -665,6 +688,10 @@
   async function worktodoRenameWorkspace(workspaceId, name, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("worktodo_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeWorkspace);
+  }
+
+  async function worktodoDeleteWorkspace(workspaceId, options = {}) {
+    return deleteWorkspaceWithContract(workspaceId, "worktodo_request_delete_workspace", "worktodo_finalize_delete_workspace", options);
   }
 
   async function worktodoReorderWorkspaces(workspaceIds, options = {}) {
@@ -1041,8 +1068,10 @@
     transitionTask,
     createWorkspace,
     renameWorkspace,
+    deleteWorkspace,
     reorderWorkspaces,
     worktodoRenameWorkspace,
+    worktodoDeleteWorkspace,
     worktodoReorderWorkspaces,
     worktodoCreateWorkspace,
     moveTaskWorkspace,

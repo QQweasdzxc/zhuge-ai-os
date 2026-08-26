@@ -5,7 +5,7 @@
   "use strict";
   const service = root.ZhugeBoardReadService;
   if (!service) return;
-  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set() };
+  const state = { applicationScope: "ai_board", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false };
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
@@ -174,6 +174,19 @@
     const name = String(workspace?.name || "").trim();
     return key === "completed" || key === "worktodo-completed" || name === "已完成" || name === "完成";
   }
+  function isCustomWorkspace(workspace) {
+    const key = String(workspace?.key || "").trim().toLowerCase();
+    if (state.applicationScope === "worktodo") return key.startsWith("worktodo-custom-");
+    return key === "";
+  }
+  function workspaceTaskCount(workspace) {
+    const workspaceId = String(workspace?.id || "");
+    return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
+  }
+  function closeWorkspaceMenus() {
+    document.querySelectorAll(".workspace-action-menu").forEach(menu => menu.remove());
+    document.querySelectorAll("[data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", "false"));
+  }
   function isMainBoardWorkspace(workspace) {
     const key = String(workspace?.key || "").toLowerCase();
     const name = String(workspace?.name || "").trim();
@@ -279,6 +292,7 @@
     const boardMount = document.querySelector("[data-golden-master-board-mount]");
     const legacyBoard = document.getElementById("boardColumns") || document.querySelector(".board");
     if (!boardMount && !legacyBoard) return;
+    closeWorkspaceMenus();
     const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
     const itemLabel = workItemLabel();
     const columns = workspaces.map(workspace => {
@@ -294,7 +308,7 @@
           : "",
         controlsHtml: completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
-          : "<button class=\"workspace-rename\" type=\"button\" data-workspace-rename=\"" + esc(workspace.id) + "\" title=\"重新命名工作區\" aria-label=\"重新命名工作區\">✎</button>"
+          : "<button class=\"workspace-menu\" type=\"button\" data-workspace-menu=\"" + esc(workspace.id) + "\" title=\"工作區操作\" aria-label=\"工作區操作\" aria-haspopup=\"menu\" aria-expanded=\"false\">⋮</button>"
       };
     });
     if (boardMount && root.ZhugeGoldenMaster?.renderBoard) {
@@ -569,6 +583,67 @@
       setBanner("工作區排序失敗：" + esc(error?.message || "正式 Cloud 未接受這次排序；原順序未變更。"), "error");
     }
   }
+  async function deleteWorkspace(workspace) {
+    if (!workspace || !isCustomWorkspace(workspace)) {
+      setBanner("系統／Canonical 工作區不可刪除。", "error");
+      return;
+    }
+    const taskCount = workspaceTaskCount(workspace);
+    closeWorkspaceMenus();
+    if (taskCount === 0) {
+      if (!window.confirm(`確定刪除「${workspace.name}」工作區？此工作區目前沒有工作卡片，刪除後無法復原。`)) return;
+    } else {
+      const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除工作區將同時刪除其中的工作資料。\n\n第一次確認：取消／繼續刪除`);
+      if (!firstConfirmed) return;
+      const secondConfirmed = window.confirm(`高風險操作：即將永久刪除「${workspace.name}」工作區與其中 ${taskCount} 張工作卡片，且無法復原。\n\n第二次確認：取消／確認刪除`);
+      if (!secondConfirmed) return;
+    }
+    setBanner("正在刪除工作區與受控工作資料…", "loading");
+    try {
+      await executeSharedTaskAction(null, "deleteWorkspace", { workspaceId: workspace.id }, { refresh: true, reopen: false });
+      setBanner(`工作區「${esc(workspace.name)}」及其工作資料已由正式 Cloud Delete Contract 刪除。`, "success");
+    } catch (error) {
+      setBanner("工作區刪除失敗：" + esc(error?.message || "正式 Cloud 未接受這次刪除；原資料未變更。"), "error");
+    }
+  }
+  function openWorkspaceMenu(button, workspace) {
+    const header = button.closest("[data-workspace-header]");
+    if (!header || !workspace) return;
+    closeWorkspaceMenus();
+    const menu = document.createElement("div");
+    menu.className = "workspace-action-menu";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\">重新命名</button>"
+      + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"delete\">刪除工作區</button>";
+    header.appendChild(menu);
+    button.setAttribute("aria-expanded", "true");
+    const renameButton = menu.querySelector("[data-workspace-action=rename]");
+    const deleteButton = menu.querySelector("[data-workspace-action=delete]");
+    renameButton.onclick = event => {
+      event.stopPropagation();
+      closeWorkspaceMenus();
+      beginWorkspaceRename(button, workspace);
+    };
+    if (!isCustomWorkspace(workspace)) {
+      deleteButton.disabled = true;
+      deleteButton.title = "系統／Canonical 工作區不可刪除";
+      deleteButton.setAttribute("aria-disabled", "true");
+    } else {
+      deleteButton.onclick = event => {
+        event.stopPropagation();
+        deleteWorkspace(workspace);
+      };
+    }
+    menu.onclick = event => event.stopPropagation();
+    menu.onkeydown = event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeWorkspaceMenus();
+        button.focus();
+      }
+    };
+    renameButton.focus();
+  }
   function restoreWorkspaceTitle(title, name) {
     if (!title) return;
     title.classList.remove("is-renaming");
@@ -655,14 +730,20 @@
     document.querySelectorAll("[data-workspace-add]").forEach(button => {
       button.onclick = () => openQuickAdd(button.dataset.workspaceAdd);
     });
-    document.querySelectorAll("[data-workspace-rename]").forEach(button => {
+    document.querySelectorAll("[data-workspace-menu]").forEach(button => {
       button.onclick = event => {
         event.stopPropagation();
-        const workspace = state.workspaceById.get(button.dataset.workspaceRename);
+        const workspace = state.workspaceById.get(button.dataset.workspaceMenu);
         if (!workspace) return;
-        beginWorkspaceRename(button, workspace);
+        openWorkspaceMenu(button, workspace);
       };
     });
+    if (!state.workspaceMenuDocumentBound) {
+      document.addEventListener("click", event => {
+        if (!event.target?.closest?.("[data-workspace-menu], .workspace-action-menu")) closeWorkspaceMenus();
+      });
+      state.workspaceMenuDocumentBound = true;
+    }
   }
   function wireTaskCards() {
     wireWorkspaceControls();

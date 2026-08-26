@@ -32,7 +32,7 @@ test("Free Workspace runtime does not derive card position from status or assign
   assert.match(service, /workspace_id/);
   assert.match(service, /moveTaskWorkspace/);
 assert.match(runtime, /renderColumns/);
-  assert.match(runtime, /data-workspace-rename/);
+  assert.match(runtime, /data-workspace-menu/);
   assert.match(runtime, /board-workspace-count/);
   assert.match(runtime, /ZhugeSharedTaskBoard/);
   assert.match(runtime, /onColumnDrop/);
@@ -81,6 +81,20 @@ test("Shared workspace rename uses an inline editor and the existing controlled 
   assert.match(css, /workspace-rename-input/);
 });
 
+test("Shared workspace menu exposes rename/delete with custom and canonical guards", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const css = read("shared/theme/golden-master.css");
+  assert.match(runtime, /function isCustomWorkspace\(workspace\)/);
+  assert.match(runtime, /function workspaceTaskCount\(workspace\)/);
+  assert.match(runtime, /function openWorkspaceMenu\(button, workspace\)/);
+  assert.match(runtime, /data-workspace-action=\\"rename\\"/);
+  assert.match(runtime, /data-workspace-action=\\"delete\\"/);
+  assert.match(runtime, /系統／Canonical 工作區不可刪除/);
+  assert.match(runtime, /刪除工作區將同時刪除其中的工作資料/);
+  assert.match(runtime, /deleteButton\.disabled = true/);
+  assert.match(css, /workspace-action-menu/);
+});
+
 test("Archive derives read-only records from canonical task status and governance state", () => {
   const service = read("shared/board/board-read-service.js");
   const runtime = read("app/Board/ai/board-runtime.js");
@@ -103,5 +117,5 @@ test("Main Board hides the legacy done workspace while retaining canonical 已�
   assert.match(runtime, /const fullOrder = ordered\.map/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.match(runtime, /state\.tasks\.filter\(task => !isArchiveTask\(task\)\)/);
-  assert.doesNotMatch(runtime, /deleteWorkspace|board_delete_workspace|board_restore_workspace|board_reopen_workspace/i);
+  assert.doesNotMatch(runtime, /board_restore_workspace|board_reopen_workspace/i);
 });

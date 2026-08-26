@@ -19,7 +19,7 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
     assert.doesNotMatch(html, /modules\/worklog\/worklog-app\.js/);
   }
   for (const action of [
-    "createTask", "createWorkspace", "renameWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
+    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
     "addProgressNote", "editProgressNote", "deleteProgressNote", "addGeneralAttachment", "addProgressAttachment", "deleteAttachment",
     "addChecklist", "updateChecklist", "deleteChecklist", "updateGovernanceChecklist", "setAgreementSchedule", "moveWorkspace", "confirm"
   ]) assert.match(contract, new RegExp(`"${action}"`));
@@ -37,6 +37,8 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
 
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "deleteTaskProgressNote"\)/);
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "worktodoDeleteTaskProgressNote"\)/);
+  assert.match(adapters, /deleteWorkspace: payload => required\(service, "deleteWorkspace"\)/);
+  assert.match(adapters, /deleteWorkspace: payload => required\(service, "worktodoDeleteWorkspace"\)/);
   assert.match(adapters, /payload\.scope === "progress_note"[\s\S]*deleteProgressNoteAttachment/);
   assert.match(adapters, /deleteAttachment: payload => callDomain\("deleteWorkTodoAttachment"/);
 });
@@ -88,4 +90,32 @@ test("Approved Agreement Schedule and controlled progress lifecycle stay in sepa
     "Progress Attachment Add / Delete", "Checklist", "Drawer Action / Confirm", "Error Handling",
     "Read-back / Refresh", "Workspace interaction"
   ]) assert.match(audit, new RegExp(action.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("Workspace Delete uses one Shared Action and explicit domain-controlled delete contracts", () => {
+  const service = read("shared/board/board-read-service.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const sql = read("docs/supabase/20260826_custom_workspace_delete.sql");
+
+  assert.match(runtime, /data-workspace-menu/);
+  assert.match(runtime, /function openWorkspaceMenu\(button, workspace\)/);
+  assert.match(runtime, /function deleteWorkspace\(workspace\)/);
+  assert.match(runtime, /第一次確認/);
+  assert.match(runtime, /第二次確認/);
+  assert.match(runtime, /isCustomWorkspace/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "deleteWorkspace"/);
+  assert.match(service, /board_request_delete_workspace/);
+  assert.match(service, /board_finalize_delete_workspace/);
+  assert.match(service, /worktodo_request_delete_workspace/);
+  assert.match(service, /worktodo_finalize_delete_workspace/);
+  assert.match(sql, /board_workspace/);
+  assert.match(sql, /workspace_deleted/);
+  assert.match(sql, /delete from public\.board_task_attachments/);
+  assert.match(sql, /delete from public\.engineering_checklist_items/);
+  assert.match(sql, /delete from public\.board_tasks/);
+  assert.match(sql, /delete from public\.board_workspaces/);
+  assert.match(sql, /storage\.objects/);
+  assert.match(sql, /System\/Canonical AI Board workspaces are not deletable/);
+  assert.match(sql, /System\/Canonical WorkTodo workspaces are not deletable/);
+  assert.doesNotMatch(sql, /board_restore_workspace|board_reopen_workspace|archive_workspace/i);
 });

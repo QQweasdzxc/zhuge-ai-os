@@ -48,6 +48,7 @@
         createTask: payload => required(service, "createTask")(payload),
         createWorkspace: payload => required(service, "createWorkspace")(payload.name),
         renameWorkspace: payload => required(service, "renameWorkspace")(payload.workspaceId, payload.name),
+        deleteWorkspace: payload => required(service, "deleteWorkspace")(payload.workspaceId),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "updateTaskTitle")({ taskId: payload.taskId || taskId, title: payload.title }),
         updateContent: payload => required(service, "updateTaskContent")({
@@ -105,6 +106,7 @@
         createTask: payload => required(service, "worktodoCreateTask")(payload),
         createWorkspace: payload => required(service, "worktodoCreateWorkspace")(payload.name),
         renameWorkspace: payload => required(service, "worktodoRenameWorkspace")(payload.workspaceId, payload.name),
+        deleteWorkspace: payload => required(service, "worktodoDeleteWorkspace")(payload.workspaceId),
         reorderWorkspace: payload => required(service, "worktodoReorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "worktodoUpdateTask")({ taskId: payload.taskId || taskId, patch: { title: payload.title } }),
         updateContent: payload => required(service, "worktodoUpdateTask")({

@@ -277,6 +277,46 @@ test("Board workspace mutations and movement history stay behind controlled RPC/
   assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
 });
 
+test("Workspace Delete service removes the controlled Storage manifest before domain finalization", async () => {
+  const calls = [];
+  const gateway = {
+    rpc: async (name, params) => {
+      calls.push({ type: "rpc", name, params });
+      if (name === "board_request_delete_workspace") {
+        return {
+          workspace_id: "workspace-1",
+          task_ids: ["task-1"],
+          attachments: [{ id: "attachment-1", storage_bucket: "board-task-attachments", storage_path: "task-1/attachment-1/file.txt" }]
+        };
+      }
+      if (name === "worktodo_request_delete_workspace") return { workspace_id: "workspace-2", task_ids: [], attachments: [] };
+      return { deleted: true, workspace_id: params.p_workspace_id };
+    },
+    removeStorageObject: async (bucket, path) => calls.push({ type: "storage", bucket, path })
+  };
+
+  await BoardRead.deleteWorkspace("workspace-1", { gateway });
+  await BoardRead.worktodoDeleteWorkspace("workspace-2", { gateway });
+
+  assert.deepEqual(calls.map(call => call.type === "rpc" ? call.name : call.type), [
+    "board_request_delete_workspace",
+    "storage",
+    "board_finalize_delete_workspace",
+    "worktodo_request_delete_workspace",
+    "worktodo_finalize_delete_workspace"
+  ]);
+  assert.deepEqual(calls.find(call => call.type === "storage"), {
+    type: "storage",
+    bucket: "board-task-attachments",
+    path: "task-1/attachment-1/file.txt"
+  });
+  assert.deepEqual(calls.find(call => call.name === "board_finalize_delete_workspace").params, {
+    p_workspace_id: "workspace-1",
+    p_task_ids: ["task-1"],
+    p_attachment_ids: ["attachment-1"]
+  });
+});
+
 test("TASK Drawer v2 reads canonical Activity and Artifact sources without browser DML", async () => {
   const activityRow = {
     id: "activity-1",

@@ -7,13 +7,15 @@ const root = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled Cloud path", () => {
-  const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql") + read("docs/supabase/20260824_canonical_template_workspace_add.sql");
+  const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql") + read("docs/supabase/20260824_canonical_template_workspace_add.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
 
   assert.match(sql, /worktodo_rename_workspace/);
   assert.match(sql, /worktodo_reorder_workspaces/);
   assert.match(sql, /worktodo_create_workspace/);
+  assert.match(sql, /worktodo_request_delete_workspace/);
+  assert.match(sql, /worktodo_finalize_delete_workspace/);
   assert.match(sql, /worktodo_create_task/);
   assert.match(sql, /v_user, 'human', 'QJC', 'system_activity'/);
   assert.match(sql, /workspace_id/);
@@ -29,6 +31,8 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /gateway\.rpc\("worktodo_create_workspace"/);
   assert.match(service, /p_workspace_id: input\.workspaceId \|\| null/);
   assert.match(service, /worktodoCreateWorkspace,/);
+  assert.match(service, /worktodoDeleteWorkspace,/);
+  assert.match(service, /deleteWorkspaceWithContract/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
