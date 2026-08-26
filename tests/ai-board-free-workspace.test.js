@@ -67,6 +67,20 @@ test("Free Workspace Board keeps Trello-style fixed desktop columns and header c
   assert.doesNotMatch(runtime, /historyTaskCards/);
 });
 
+test("Shared workspace rename uses an inline editor and the existing controlled action", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const css = read("shared/theme/golden-master.css");
+  assert.match(runtime, /function beginWorkspaceRename\(button, workspace\)/);
+  assert.match(runtime, /workspace-rename-input/);
+  assert.match(runtime, /event\.key === "Enter"/);
+  assert.match(runtime, /event\.key === "Escape"/);
+  assert.match(runtime, /input\.addEventListener\("blur"/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "renameWorkspace"/);
+  assert.doesNotMatch(runtime, /prompt\("請輸入新的工作區名稱"/);
+  assert.match(css, /workspace-title\.is-renaming/);
+  assert.match(css, /workspace-rename-input/);
+});
+
 test("Archive derives read-only records from canonical task status and governance state", () => {
   const service = read("shared/board/board-read-service.js");
   const runtime = read("app/Board/ai/board-runtime.js");

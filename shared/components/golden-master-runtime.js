@@ -569,6 +569,88 @@
       setBanner("工作區排序失敗：" + esc(error?.message || "正式 Cloud 未接受這次排序；原順序未變更。"), "error");
     }
   }
+  function restoreWorkspaceTitle(title, name) {
+    if (!title) return;
+    title.classList.remove("is-renaming");
+    title.replaceChildren(document.createTextNode(String(name || "")));
+  }
+  function beginWorkspaceRename(button, workspace) {
+    const title = button.closest("[data-workspace-header]")?.querySelector(".workspace-title");
+    const originalName = String(workspace?.name || "").trim();
+    if (!title || !originalName || title.querySelector(".workspace-rename-input")) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "workspace-rename-input";
+    input.value = originalName;
+    input.maxLength = 80;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", "重新命名工作區");
+    input.dataset.workspaceRenameInput = workspace.id;
+    title.classList.add("is-renaming");
+    title.replaceChildren(input);
+    let phase = "editing";
+    const cancel = () => {
+      if (phase !== "editing") return;
+      phase = "cancelled";
+      restoreWorkspaceTitle(title, originalName);
+    };
+    const commit = async () => {
+      if (phase !== "editing") return;
+      const nextName = String(input.value || "").trim();
+      if (!nextName) {
+        input.classList.add("has-error");
+        input.setAttribute("aria-invalid", "true");
+        setBanner("請輸入工作區名稱。", "error");
+        input.focus();
+        return;
+      }
+      if (nextName === originalName) {
+        cancel();
+        return;
+      }
+      phase = "saving";
+      input.disabled = true;
+      button.disabled = true;
+      setBanner("正在保存工作區名稱…", "loading");
+      try {
+        await executeSharedTaskAction(null, "renameWorkspace", { workspaceId: workspace.id, name: nextName }, { refresh: true, reopen: false });
+        setBanner("工作區已重新命名並保存至 Cloud。", "success");
+      } catch (error) {
+        phase = "editing";
+        input.disabled = false;
+        button.disabled = false;
+        input.classList.add("has-error");
+        input.setAttribute("aria-invalid", "true");
+        setBanner("工作區重新命名失敗：" + esc(error?.message || "正式 Cloud 未接受這次命名。"), "error");
+        input.focus();
+        input.select();
+      }
+    };
+    input.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancel();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        commit();
+      }
+    });
+    input.addEventListener("input", () => {
+      input.classList.remove("has-error");
+      input.removeAttribute("aria-invalid");
+    });
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (phase === "editing" && input.isConnected) commit();
+      }, 0);
+    });
+    window.setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 0);
+  }
   function wireWorkspaceControls() {
     document.querySelectorAll("[data-workspace-add]").forEach(button => {
       button.onclick = () => openQuickAdd(button.dataset.workspaceAdd);
@@ -578,11 +660,7 @@
         event.stopPropagation();
         const workspace = state.workspaceById.get(button.dataset.workspaceRename);
         if (!workspace) return;
-        const nextName = window.prompt("請輸入新的工作區名稱", workspace.name);
-        if (nextName === null || !nextName.trim() || nextName.trim() === workspace.name) return;
-        executeSharedTaskAction(null, "renameWorkspace", { workspaceId: workspace.id, name: nextName.trim() }, { refresh: true, reopen: false })
-          .then(() => setBanner("工作區已重新命名並保存至 Cloud。", "success"))
-          .catch(error => setBanner("工作區重新命名失敗：" + esc(error?.message || "正式 Cloud 未接受這次命名。"), "error"));
+        beginWorkspaceRename(button, workspace);
       };
     });
   }
