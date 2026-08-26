@@ -248,6 +248,31 @@ test("WorkTodo shared card summary prefers latest progress then work content", (
   assert.doesNotMatch(html, /工作內容/);
 });
 
+test("WorkTodo maps Agreement Schedule data into the shared card badge", () => {
+  const single = Adapter.renderCard({
+    id: "task-agreement-single",
+    title: "單日約定",
+    agreement_mode: "single",
+    agreement_start_date: "2026-09-03",
+    agreement_end_date: null
+  }, { card: Card });
+  assert.match(single, /shared-task-card-agreement/);
+  assert.match(single, /9\/3/);
+  assert.match(single, /約定日期：2026\/09\/03/);
+
+  const period = Adapter.renderCard({
+    id: "task-agreement-period",
+    title: "期間約定",
+    agreement_mode: "period",
+    agreement_start_date: "2026-09-02",
+    agreement_end_date: "2026-09-03"
+  }, { card: Card });
+  assert.match(period, /9\/2 → 9\/3/);
+
+  const empty = Adapter.renderCard({ id: "task-agreement-empty", title: "未設定" }, { card: Card });
+  assert.doesNotMatch(empty, /shared-task-card-agreement/);
+});
+
 test("WorkTodo adapter exposes the approved shared capability contract", () => {
   assert.deepEqual(Adapter.sharedDrawerContract, {
     viewModel: "toSharedViewModel",

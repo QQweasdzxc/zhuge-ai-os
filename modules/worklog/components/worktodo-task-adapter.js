@@ -380,6 +380,11 @@
       code: vm.workCode || vm.id,
       titleHtml: options.titleHtml != null ? String(options.titleHtml) : escapeHtml(vm.title),
       summaryHtml: summary,
+      agreementSchedule: options.agreementSchedule || (vm.agreementMode ? {
+        mode: vm.agreementMode,
+        startDate: vm.agreementStartDate,
+        endDate: vm.agreementEndDate
+      } : null),
       actionsHtml: options.actionsHtml,
       bodyHtml: "",
       attributes: Object.assign({

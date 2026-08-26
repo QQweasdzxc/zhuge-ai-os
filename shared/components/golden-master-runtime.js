@@ -218,6 +218,11 @@
         latestProgress: viewModel.latestProgress || task.latestProgress || task.latest_progress || task.progressNote || task.progress_note,
         workContent: viewModel.workContent || task.workContent || task.work_content || task.summary || task.note
       }) || "",
+      agreementSchedule: isWorkTodoTask(task) && viewModel?.agreementMode ? {
+        mode: viewModel.agreementMode,
+        startDate: viewModel.agreementStartDate,
+        endDate: viewModel.agreementEndDate
+      } : null,
       bodyHtml: governance,
       attributes: {
         "data-task-id": task.id,

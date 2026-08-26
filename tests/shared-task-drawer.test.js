@@ -79,6 +79,45 @@ test("Shared Task Card is the domain-neutral card shell for both consumers", () 
   assert.doesNotMatch(source, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
 });
 
+test("Shared Task Card renders an optional Agreement Schedule badge without creating card interaction", () => {
+  const single = Card.render({
+    code: "WLTK-005",
+    title: "工作待辦",
+    agreementSchedule: { mode: "single", startDate: "2026-09-03", endDate: null },
+    attributes: { "data-task-id": "task-5" }
+  });
+  assert.match(single, /class="shared-task-card-agreement"/);
+  assert.match(single, /📅<\/span><span class="shared-task-card-agreement-value">9\/3<\/span>/);
+  assert.match(single, /aria-label="約定日期：2026\/09\/03"/);
+  assert.doesNotMatch(single, /data-agreement|data-task-property-action/);
+
+  const period = Card.render({
+    code: "WLTK-006",
+    title: "多日工作",
+    agreementSchedule: { mode: "period", startDate: "2026-09-02", endDate: "2026-09-03" }
+  });
+  assert.match(period, /9\/2 → 9\/3/);
+  assert.match(period, /aria-label="約定期間：2026\/09\/02 至 2026\/09\/03"/);
+
+  const singleWithIgnoredEnd = Card.render({
+    code: "WLTK-008",
+    title: "單日語意",
+    agreementSchedule: { mode: "single", startDate: "2026-09-03", endDate: "2026-09-04" }
+  });
+  assert.match(singleWithIgnoredEnd, /9\/3/);
+  assert.doesNotMatch(singleWithIgnoredEnd, /9\/4/);
+
+  const incompletePeriod = Card.render({
+    code: "WLTK-009",
+    title: "不完整期間",
+    agreementSchedule: { mode: "period", startDate: "2026-09-02", endDate: null }
+  });
+  assert.doesNotMatch(incompletePeriod, /shared-task-card-agreement/);
+
+  const empty = Card.render({ code: "WLTK-007", title: "未設定" });
+  assert.doesNotMatch(empty, /shared-task-card-agreement/);
+});
+
 test("AI Board is the first consumer and loads the shared Drawer assets", () => {
   const index = read("app/Board/ai/index.html");
   const runtime = read("app/Board/ai/board-runtime.js");

@@ -1,8 +1,14 @@
 /* Shared Task Card presentation tokens. Domain modules may add only their
  * data-specific adornments and actions; card structure remains shared. */
 .shared-task-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+.shared-task-card-header-main{min-width:0;flex:1 1 auto}
+.shared-task-card-header-side{display:flex;align-items:flex-start;justify-content:flex-end;gap:6px;min-width:0;flex:0 0 auto}
 .shared-task-card-code{min-width:0;color:#718096;font-size:.72rem;letter-spacing:.03em;overflow-wrap:anywhere}
+.shared-task-card-agreement{display:inline-flex;align-items:center;gap:3px;max-width:150px;min-width:0;color:#9eb6d4;font-size:.68rem;line-height:1.25;white-space:nowrap}
+.shared-task-card-agreement-icon{flex:0 0 auto;font-size:.78rem;line-height:1}
+.shared-task-card-agreement-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shared-task-card-title{min-width:0;overflow-wrap:anywhere}
 .shared-task-card-summary{min-width:0;overflow-wrap:anywhere}
 .shared-task-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;position:relative;z-index:1}
 .shared-task-card-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px}
+@media(max-width:767px){.shared-task-card-agreement{max-width:125px}}
