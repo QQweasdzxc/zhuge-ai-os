@@ -210,6 +210,37 @@ the runner process; reject/cancel and a second approval attempt do not execute
 a write. Capability values exist only in the local process memory and are
 cleared after the attempt. The runner does not log request bodies or secrets.
 
+## Controlled Candidate packaging
+
+`release-governance.js` is the single packaging path for formal FullSource
+Candidates. It is separate from product Runtime code and does not write Cloud
+data. The root `version.json.build` is the only Build Identity source; the ZIP
+filename never uses packaging time. Package time is recorded separately in the
+sidecar Candidate Manifest.
+
+Run the identity gate before packaging:
+
+```bash
+node tools/release-governance.js preflight
+```
+
+After Governance, Checklist, and Full Regression have independently passed,
+provide their PASS evidence and package a new Candidate:
+
+```bash
+node tools/release-governance.js package \
+  --description Checklist-Canonical-Final \
+  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS"}' \
+  --output-dir dist \
+  --deliver
+```
+
+The tool fails closed on identity mismatch, forbidden archive entries,
+overwrites, Source ↔ ZIP differences, invalid Manifest data, or an output path
+other than the formal PM `版控` directory. `dist/` is temporary packaging
+output only. The ZIP and its `<candidate>.zip.manifest.json` sidecar are
+delivered to the formal PM directory only after the Post-Packaging Gate passes.
+
 ### AI Board inline task-content update mode
 
 AI Board `工作內容` and `使用情境` inline edit use the same controlled
