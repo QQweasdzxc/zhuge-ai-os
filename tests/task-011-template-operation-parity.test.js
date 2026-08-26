@@ -33,6 +33,8 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /worktodoCreateWorkspace,/);
   assert.match(service, /worktodoDeleteWorkspace,/);
   assert.match(service, /deleteWorkspaceWithContract/);
+  assert.match(service, /gateway\.rpc\("worktodo_update_task"/);
+  assert.match(service, /p_patch: \{ workspace_id: targetId \}/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);

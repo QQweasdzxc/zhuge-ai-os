@@ -277,7 +277,7 @@ test("Board workspace mutations and movement history stay behind controlled RPC/
   assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
 });
 
-test("Workspace Delete service removes the controlled Storage manifest before domain finalization", async () => {
+test("Workspace Delete service moves tasks before deleting only the workspace", async () => {
   const calls = [];
   const gateway = {
     rpc: async (name, params) => {
@@ -285,36 +285,64 @@ test("Workspace Delete service removes the controlled Storage manifest before do
       if (name === "board_request_delete_workspace") {
         return {
           workspace_id: "workspace-1",
-          task_ids: ["task-1"],
-          attachments: [{ id: "attachment-1", storage_bucket: "board-task-attachments", storage_path: "task-1/attachment-1/file.txt" }]
+          task_ids: ["task-1", "task-2"],
+          tasks_preserved: true
         };
       }
-      if (name === "worktodo_request_delete_workspace") return { workspace_id: "workspace-2", task_ids: [], attachments: [] };
-      return { deleted: true, workspace_id: params.p_workspace_id };
-    },
-    removeStorageObject: async (bucket, path) => calls.push({ type: "storage", bucket, path })
+      if (name === "worktodo_request_delete_workspace") {
+        return { workspace_id: "workspace-2", task_ids: ["task-3"], tasks_preserved: true };
+      }
+      return { deleted: true, workspace_id: params.p_workspace_id, tasks_preserved: true };
+    }
   };
 
-  await BoardRead.deleteWorkspace("workspace-1", { gateway });
-  await BoardRead.worktodoDeleteWorkspace("workspace-2", { gateway });
+  await BoardRead.deleteWorkspace("workspace-1", "todo-1", { gateway });
+  await BoardRead.worktodoDeleteWorkspace("workspace-2", "worktodo-todo-1", { gateway });
 
-  assert.deepEqual(calls.map(call => call.type === "rpc" ? call.name : call.type), [
+  assert.deepEqual(calls.map(call => call.name), [
     "board_request_delete_workspace",
-    "storage",
+    "board_move_task_workspace",
+    "board_move_task_workspace",
     "board_finalize_delete_workspace",
     "worktodo_request_delete_workspace",
+    "worktodo_update_task",
     "worktodo_finalize_delete_workspace"
   ]);
-  assert.deepEqual(calls.find(call => call.type === "storage"), {
-    type: "storage",
-    bucket: "board-task-attachments",
-    path: "task-1/attachment-1/file.txt"
-  });
   assert.deepEqual(calls.find(call => call.name === "board_finalize_delete_workspace").params, {
     p_workspace_id: "workspace-1",
-    p_task_ids: ["task-1"],
-    p_attachment_ids: ["attachment-1"]
+    p_target_workspace_id: "todo-1",
+    p_task_ids: ["task-1", "task-2"]
   });
+  assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params, {
+    p_task_id: "task-3",
+    p_patch: { workspace_id: "worktodo-todo-1" }
+  });
+});
+
+test("Workspace Delete service keeps the empty-workspace path free of task or Storage operations", async () => {
+  const calls = [];
+  const gateway = {
+    rpc: async (name, params) => {
+      calls.push({ type: "rpc", name, params });
+      if (name === "board_request_delete_workspace") return {
+        workspace_id: "workspace-empty",
+        task_ids: [],
+        tasks_preserved: true
+      };
+      return { deleted: true, workspace_id: params.p_workspace_id, tasks_preserved: true };
+    }
+  };
+
+  await BoardRead.deleteWorkspace("workspace-empty", null, { gateway });
+
+  assert.deepEqual(calls, [
+    { type: "rpc", name: "board_request_delete_workspace", params: { p_workspace_id: "workspace-empty" } },
+    {
+      type: "rpc",
+      name: "board_finalize_delete_workspace",
+      params: { p_workspace_id: "workspace-empty", p_target_workspace_id: null, p_task_ids: [] }
+    }
+  ]);
 });
 
 test("TASK Drawer v2 reads canonical Activity and Artifact sources without browser DML", async () => {

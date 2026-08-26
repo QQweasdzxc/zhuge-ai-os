@@ -183,6 +183,10 @@
     const workspaceId = String(workspace?.id || "");
     return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
   }
+  function workspaceDeleteTarget() {
+    const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : "todo";
+    return state.workspaces.find(workspace => workspace.active === true && String(workspace.key || "") === targetKey) || null;
+  }
   function closeWorkspaceMenus() {
     document.querySelectorAll(".workspace-action-menu").forEach(menu => menu.remove());
     document.querySelectorAll("[data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", "false"));
@@ -589,19 +593,29 @@
       return;
     }
     const taskCount = workspaceTaskCount(workspace);
+    const targetWorkspace = workspaceDeleteTarget();
+    if (taskCount > 0 && !targetWorkspace) {
+      setBanner("找不到既有「待開始」工作區，未執行刪除；原資料未變更。", "error");
+      return;
+    }
     closeWorkspaceMenus();
     if (taskCount === 0) {
       if (!window.confirm(`確定刪除「${workspace.name}」工作區？此工作區目前沒有工作卡片，刪除後無法復原。`)) return;
     } else {
-      const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除工作區將同時刪除其中的工作資料。\n\n第一次確認：取消／繼續刪除`);
+      const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除前會先將全部工作卡片移至「待開始」，工作資料會保留。\n\n第一次確認：取消／繼續刪除`);
       if (!firstConfirmed) return;
-      const secondConfirmed = window.confirm(`高風險操作：即將永久刪除「${workspace.name}」工作區與其中 ${taskCount} 張工作卡片，且無法復原。\n\n第二次確認：取消／確認刪除`);
+      const secondConfirmed = window.confirm(`高風險操作：即將把「${workspace.name}」中的 ${taskCount} 張工作卡片移至「待開始」，再刪除工作區。Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留。\n\n第二次確認：取消／確認刪除`);
       if (!secondConfirmed) return;
     }
-    setBanner("正在刪除工作區與受控工作資料…", "loading");
+    setBanner(taskCount > 0 ? "正在將工作卡片移至「待開始」，再刪除工作區…" : "正在刪除空工作區…", "loading");
     try {
-      await executeSharedTaskAction(null, "deleteWorkspace", { workspaceId: workspace.id }, { refresh: true, reopen: false });
-      setBanner(`工作區「${esc(workspace.name)}」及其工作資料已由正式 Cloud Delete Contract 刪除。`, "success");
+      await executeSharedTaskAction(null, "deleteWorkspace", {
+        workspaceId: workspace.id,
+        targetWorkspaceId: targetWorkspace?.id || null
+      }, { refresh: true, reopen: false });
+      setBanner(taskCount > 0
+        ? `工作區「${esc(workspace.name)}」已刪除；${taskCount} 張工作卡片已保留於「待開始」。`
+        : `空工作區「${esc(workspace.name)}」已刪除。`, "success");
     } catch (error) {
       setBanner("工作區刪除失敗：" + esc(error?.message || "正式 Cloud 未接受這次刪除；原資料未變更。"), "error");
     }

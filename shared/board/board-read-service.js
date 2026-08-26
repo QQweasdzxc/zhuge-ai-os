@@ -657,27 +657,38 @@
     return gateway.rpc("board_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeWorkspace);
   }
 
-  async function deleteWorkspaceWithContract(workspaceId, requestRpc, finalizeRpc, options = {}) {
+  async function deleteWorkspaceWithContract(workspaceId, targetWorkspaceId, requestRpc, finalizeRpc, moveTask, options = {}) {
     const gateway = options.gateway || requireGateway();
     const manifest = await gateway.rpc(requestRpc, { p_workspace_id: workspaceId });
-    const attachments = Array.isArray(manifest?.attachments) ? manifest.attachments : [];
-    if (attachments.length && typeof gateway.removeStorageObject !== "function") {
-      const error = new Error("Shared Supabase Gateway 尚未支援受控 Workspace Storage 刪除。");
-      error.code = "WORKSPACE_STORAGE_DELETE_UNAVAILABLE";
+    const taskIds = Array.isArray(manifest?.task_ids) ? manifest.task_ids.filter(Boolean) : [];
+    if (taskIds.length && !targetWorkspaceId) {
+      const error = new Error("Workspace Delete Contract 缺少既有待開始 Workspace。");
+      error.code = "WORKSPACE_DELETE_TARGET_UNAVAILABLE";
       throw error;
     }
-    for (const attachment of attachments) {
-      await gateway.removeStorageObject(attachment.storage_bucket || attachment.storageBucket, attachment.storage_path || attachment.storagePath);
+    for (const taskId of taskIds) {
+      await moveTask(taskId, targetWorkspaceId, gateway);
     }
     return gateway.rpc(finalizeRpc, {
       p_workspace_id: workspaceId,
-      p_task_ids: Array.isArray(manifest?.task_ids) ? manifest.task_ids : [],
-      p_attachment_ids: attachments.map(attachment => attachment.id || attachment.attachment_id).filter(Boolean)
+      p_target_workspace_id: targetWorkspaceId || null,
+      p_task_ids: taskIds
     });
   }
 
-  async function deleteWorkspace(workspaceId, options = {}) {
-    return deleteWorkspaceWithContract(workspaceId, "board_request_delete_workspace", "board_finalize_delete_workspace", options);
+  async function deleteWorkspace(workspaceId, targetWorkspaceId, options = {}) {
+    return deleteWorkspaceWithContract(
+      workspaceId,
+      targetWorkspaceId,
+      "board_request_delete_workspace",
+      "board_finalize_delete_workspace",
+      (taskId, targetId, gateway) => gateway.rpc("board_move_task_workspace", {
+        p_task_id: taskId,
+        p_target_workspace_id: targetId,
+        p_note: "Custom Workspace deleted; task preserved in canonical 待開始 workspace"
+      }),
+      options
+    );
   }
 
   async function reorderWorkspaces(workspaceIds, options = {}) {
@@ -690,8 +701,18 @@
     return gateway.rpc("worktodo_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeWorkspace);
   }
 
-  async function worktodoDeleteWorkspace(workspaceId, options = {}) {
-    return deleteWorkspaceWithContract(workspaceId, "worktodo_request_delete_workspace", "worktodo_finalize_delete_workspace", options);
+  async function worktodoDeleteWorkspace(workspaceId, targetWorkspaceId, options = {}) {
+    return deleteWorkspaceWithContract(
+      workspaceId,
+      targetWorkspaceId,
+      "worktodo_request_delete_workspace",
+      "worktodo_finalize_delete_workspace",
+      (taskId, targetId, gateway) => gateway.rpc("worktodo_update_task", {
+        p_task_id: taskId,
+        p_patch: { workspace_id: targetId }
+      }),
+      options
+    );
   }
 
   async function worktodoReorderWorkspaces(workspaceIds, options = {}) {

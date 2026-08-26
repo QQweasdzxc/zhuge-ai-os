@@ -106,6 +106,8 @@ test("Workspace delete is custom-only and controlled while task content editing 
   assert.match(migration, /board_finalize_delete_workspace/i);
   assert.match(migration, /workspace_key is not null/i);
   assert.match(service, /deleteWorkspaceWithContract/);
+  assert.match(service, /board_move_task_workspace/);
+  assert.match(service, /worktodo_update_task/);
   assert.match(runtime, /function deleteWorkspace\(workspace\)/);
   assert.match(service, /updateTaskContent/);
   assert.match(service, /board_update_task_content/);
@@ -119,7 +121,12 @@ test("Workspace delete is custom-only and controlled while task content editing 
   assert.doesNotMatch(service, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|\.from\([^)]*board_tasks/i);
   assert.match(migration, /on delete restrict/i);
-  assert.match(migration, /delete from public\.board_tasks/i);
+  assert.match(migration, /tasks_preserved/i);
+  assert.match(migration, /待開始/);
+  assert.doesNotMatch(migration, /delete from public\.board_tasks/i);
+  assert.doesNotMatch(migration, /delete from public\.board_task_attachments/i);
+  assert.doesNotMatch(migration, /delete from public\.engineering_checklist_items/i);
+  assert.doesNotMatch(migration, /storage\.objects/i);
 });
 
 test("Task content fields start in read mode and switch in place to one editor", () => {

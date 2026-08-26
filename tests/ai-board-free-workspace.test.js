@@ -90,7 +90,9 @@ test("Shared workspace menu exposes rename/delete with custom and canonical guar
   assert.match(runtime, /data-workspace-action=\\"rename\\"/);
   assert.match(runtime, /data-workspace-action=\\"delete\\"/);
   assert.match(runtime, /系統／Canonical 工作區不可刪除/);
-  assert.match(runtime, /刪除工作區將同時刪除其中的工作資料/);
+  assert.match(runtime, /刪除前會先將全部工作卡片移至「待開始」，工作資料會保留/);
+  assert.match(runtime, /Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留/);
+  assert.match(runtime, /workspaceDeleteTarget/);
   assert.match(runtime, /deleteButton\.disabled = true/);
   assert.match(css, /workspace-action-menu/);
 });
