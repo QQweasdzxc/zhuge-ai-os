@@ -44,9 +44,7 @@
     });
     await client.realtime.setAuth(token);
     channel = client.channel(`zhuge-work-lifecycle-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_tasks", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("user_tasks"))
       .on("postgres_changes", { event: "*", schema: "public", table: "work_entries", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("work_entries"))
-      .on("postgres_changes", { event: "*", schema: "public", table: "work_journal_entries", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("work_journal_entries"))
       .on("postgres_changes", { event: "*", schema: "public", table: "worktodo_checklist_items", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("worktodo_checklist_items"))
       .on("postgres_changes", { event: "*", schema: "public", table: "worktodo_attachments", filter: `user_uuid=eq.${userId}` }, () => scheduleRefresh("worktodo_attachments"));
     const status = await new Promise(resolve => {

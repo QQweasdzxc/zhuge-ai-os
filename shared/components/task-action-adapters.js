@@ -89,11 +89,8 @@
     };
   }
 
-  function createWorkTodoAdapter({ task, service, dataService, repository } = {}) {
+  function createWorkTodoAdapter({ task, service } = {}) {
     const taskId = task?.id;
-    const domain = dataService || root?.DataService;
-    const repo = repository || root?.SupabaseRepository;
-    const callDomain = (name, ...args) => required(domain, name)(...args);
     return {
       consumer: "worktodo",
       capabilities: Object.freeze({
@@ -117,9 +114,19 @@
         addProgressNote: payload => required(service, "worktodoAddTaskProgressNote")({ taskId: payload.taskId || taskId, note: payload.note }),
         editProgressNote: payload => required(service, "worktodoEditTaskProgressNote")({ activityId: payload.activityId, note: payload.note }),
         deleteProgressNote: payload => required(service, "worktodoDeleteTaskProgressNote")(payload.activityId),
-        addGeneralAttachment: payload => callDomain("uploadWorkTodoAttachment", payload.taskId || taskId, payload.file, { scope: "task" }),
-        addProgressAttachment: payload => callDomain("uploadWorkTodoProgressAttachment", payload.taskId || taskId, payload.activityId, payload.file),
-        deleteAttachment: payload => callDomain("deleteWorkTodoAttachment", rawWorkTodoAttachment(payload.item || payload)),
+        addGeneralAttachment: async payload => {
+          const prepared = await required(service, "prepareTaskAttachment")({ taskId: payload.taskId || taskId, file: payload.file });
+          await required(service, "uploadTaskAttachment")(prepared, payload.file);
+          return required(service, "completeTaskAttachment")(prepared.attachmentId);
+        },
+        addProgressAttachment: async payload => {
+          const prepared = await required(service, "prepareProgressNoteAttachment")({ activityId: payload.activityId, file: payload.file });
+          await required(service, "uploadTaskAttachment")(prepared, payload.file);
+          return required(service, "completeTaskAttachment")(prepared.attachmentId);
+        },
+        deleteAttachment: payload => payload.scope === "progress_note"
+          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
+          : required(service, "deleteTaskAttachment")(payload.attachmentId),
         // General Task Checklist is shared canonical data for both consumers.
         // WorkTodo must not route this capability through the legacy
         // user_tasks/worktodo_checklist_items contract.
@@ -144,18 +151,14 @@
           const currentTaskId = payload.taskId || taskId;
           const [checklist, attachments] = await Promise.all([
             required(service, "loadTaskChecklist")(currentTaskId),
-            required(domain, "loadWorkTodoTaskAttachments")(currentTaskId)
+            required(service, "loadTaskAttachments")(currentTaskId)
           ]);
           return {
             checklist: Array.isArray(checklist) ? checklist : [],
             attachments: Array.isArray(attachments) ? attachments : []
           };
         },
-        attachmentUrl: async payload => {
-          const item = rawWorkTodoAttachment(payload.attachment);
-          if (typeof repo?.signedWorkTodoAttachmentUrl !== "function") return "";
-          return repo.signedWorkTodoAttachmentUrl(item.storage_path, 300);
-        }
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment)
       }
     };
   }

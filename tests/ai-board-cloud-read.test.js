@@ -107,7 +107,7 @@ test("Case F: historical GPT evidence is retained without becoming a completion 
 });
 
 test("AI Board workspace movement uses an independent controlled Cloud path", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const sharedBoard = read("shared/components/task-board.js");
   assert.match(runtime, /moveTaskToWorkspace/);
   assert.match(sharedBoard, /application\/x-zhuge-shared-task-card/);
@@ -231,6 +231,45 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
     ]);
     assert.equal(calls.find(call => call.name === "worktodo_create_task").params.p_status, "not_started");
     assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params.p_patch, { status: "waiting_reply" });
+  } finally {
+    if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
+    else delete global.getSharedSessionSnapshot;
+  }
+});
+
+test("WorkTodo card summary honors both new system and historical human Progress tombstones", async () => {
+  const previousSnapshot = global.getSharedSessionSnapshot;
+  global.getSharedSessionSnapshot = () => ({ user_id: USER_ID, email: "owner@example.com", isAuthenticated: true });
+  const calls = [];
+  const taskRows = [
+    { id: "task-system-tombstone", work_code: "WLTK-101", title: "System tombstone", status: "not_started", application_scope: "worktodo", owner_uuid: USER_ID },
+    { id: "task-human-tombstone", work_code: "WLTK-102", title: "Historical tombstone", status: "not_started", application_scope: "worktodo", owner_uuid: USER_ID },
+    { id: "task-current", work_code: "WLTK-103", title: "Current progress", status: "not_started", application_scope: "worktodo", owner_uuid: USER_ID }
+  ];
+  const activityRows = [
+    { id: "current", entity_id: "task-current", action: "progress_note_created", activity_type: "human_progress_note", note: "Current note", created_at: "2026-08-26T08:00:00Z" },
+    { id: "system-tombstone", entity_id: "task-system-tombstone", action: "progress_note_deleted", activity_type: "system_activity", tombstone_of: "system-original", created_at: "2026-08-26T07:00:00Z" },
+    { id: "system-original", entity_id: "task-system-tombstone", action: "progress_note_created", activity_type: "human_progress_note", note: "Deleted by new system tombstone", created_at: "2026-08-26T06:00:00Z" },
+    { id: "human-tombstone", entity_id: "task-human-tombstone", action: "progress_note_deleted", activity_type: "human_progress_note", tombstone_of: "human-original", created_at: "2026-08-26T05:00:00Z" },
+    { id: "human-original", entity_id: "task-human-tombstone", action: "progress_note_created", activity_type: "human_progress_note", note: "Deleted by historical human tombstone", created_at: "2026-08-26T04:00:00Z" }
+  ];
+  const gateway = {
+    select: async (table, query) => {
+      calls.push({ table, query });
+      if (table === "board_workspaces") return [];
+      if (table === "board_tasks") return taskRows;
+      if (table === "engineering_activity_log") return activityRows;
+      return [];
+    }
+  };
+  try {
+    const result = await BoardRead.load({ gateway, applicationScope: "worktodo" });
+    const progressByTask = new Map(result.tasks.map(task => [task.id, task.latestProgress]));
+    assert.equal(progressByTask.get("task-system-tombstone"), "");
+    assert.equal(progressByTask.get("task-human-tombstone"), "");
+    assert.equal(progressByTask.get("task-current"), "Current note");
+    const progressRead = calls.find(call => call.table === "engineering_activity_log");
+    assert.doesNotMatch(progressRead?.query || "", /activity_type=eq\.human_progress_note/);
   } finally {
     if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
     else delete global.getSharedSessionSnapshot;
@@ -400,7 +439,7 @@ test("TASK Drawer v2 reads canonical Activity and Artifact sources without brows
 });
 
 test("TASK Drawer keeps PM summary, canonical notes, audit, and governance in existing boundaries", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.doesNotMatch(runtime, /工程驗證狀態/);
   assert.match(runtime, /⚠️ 需要你的確認/);
   assert.match(runtime, /isPmTurn/);
@@ -441,7 +480,7 @@ test("Board entry loads Shared runtime and read adapter, not legacy prototype ru
 });
 
 test("Board runtime uses controlled workflow RPCs and clears prototype fixtures before Cloud Read", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const index = read("app/Board/ai/index.html");
   assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
   assert.match(index, /shared\/components\/task-action-contract\.js/);
@@ -462,7 +501,7 @@ test("Board runtime uses controlled workflow RPCs and clears prototype fixtures 
 });
 
 test("AI Board Task Drawer uses Need-to-Act presentation and progressive engineering disclosure", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const index = read("app/Board/ai/index.html");
   assert.match(index, /shared\/components\/task-drawer\.js/);
   assert.match(index, /shared\/theme\/task-drawer\.css/);
@@ -492,7 +531,7 @@ test("AI Board Task Drawer uses Need-to-Act presentation and progressive enginee
 });
 
 test("AI Board writes Human Progress Note through the canonical controlled RPC", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const adapter = read("shared/board/board-read-service.js");
   const governance = read("docs/supabase/20260814_pm_authorized_governance_write.sql");
   const progressMigration = read("docs/supabase/20260816_ai_board_human_progress_note.sql");
@@ -513,13 +552,13 @@ test("AI Board writes Human Progress Note through the canonical controlled RPC",
 });
 
 test("AI Board sorts valid TASK codes numerically and keeps invalid codes in stable fallback order", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const context = {
     ZhugeBoardReadService: {},
     document: { readyState: "loading", addEventListener() {} }
   };
   context.window = context;
-  vm.runInNewContext(runtime, context, { filename: "board-runtime.js" });
+  vm.runInNewContext(runtime, context, { filename: "golden-master-runtime.js" });
   const sorted = context.ZhugeBoardRuntime.sortTasksByCode([
     { workCode: "TASK-002", id: "two" },
     { workCode: "TASK-010", id: "ten" },

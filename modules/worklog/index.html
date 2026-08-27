@@ -10,7 +10,7 @@
     <meta property="og:description" content="Zhuge AI OS 是一套 AI 工作管理平台，提供文件管理與 AI 知識整理。">
     <title>Zhuge AI OS</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='30' fill='%23071526'/%3E%3Cpath d='M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z' fill='%2354d7ff'/%3E%3Cpath d='M29 100c17-20 34-37 57-55' fill='none' stroke='%23e9f7ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
-    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20260826-1524">
+    <link id="public-home-styles" rel="stylesheet" href="../../shared/theme/public-home.css?v=20260827-2052">
     <style id="runtime-boot-shell-style">
       .app-boot-shell{min-height:100vh;display:grid;grid-template-columns:minmax(220px,264px) minmax(0,1fr);gap:16px;padding:16px;background:#07111f;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
       .app-boot-sidebar,.app-boot-main{border:1px solid rgba(148,163,184,.22);background:linear-gradient(160deg,#1c2b42,#142035);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.18)}
@@ -18,7 +18,7 @@
       .app-boot-main{background:#0f1827;padding:22px;display:grid;align-content:start;gap:18px}.app-boot-header{min-height:78px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:#141e2d;padding:16px 18px;display:grid;gap:7px}.app-boot-header span{font-size:11px;letter-spacing:.12em;color:#73b5ff;font-weight:800}.app-boot-header strong{font-size:20px}.app-boot-content{display:grid;gap:12px}.app-boot-row{height:76px;background:#142237}.app-boot-row.short{height:44px;width:62%}.app-boot-status{display:flex;align-items:center;gap:9px;color:#aebbd0;font-size:13px}.app-boot-status:before{content:"";width:8px;height:8px;border-radius:50%;background:#f0bb55;box-shadow:0 0 0 5px rgba(240,187,85,.12)}
       @media(max-width:800px){.app-boot-shell{grid-template-columns:1fr;padding:10px}.app-boot-sidebar{min-height:64px;padding:14px;display:block}.app-boot-brand{border:0}.app-boot-nav{display:none}.app-boot-main{padding:14px}.app-boot-row.short{width:100%}}
     </style>
-    <script src="../../shared/config/version.js?v=20260826-1524"></script>
+    <script src="../../shared/config/version.js?v=20260827-2052"></script>
     <script>
       (() => {
         const view = new URLSearchParams(window.location.search).get("templateView");
@@ -113,26 +113,26 @@
           "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/activity-text-renderer.js", "../../shared/components/task-card-summary.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "../../shared/components/template-management-center.js", "components/worktodo-task-adapter.js",
           "../../shared/components/workspaces.js", "../../shared/identity/creator-resolver.js", "../../shared/services/template-adoption-policy.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
           "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
-          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js",
+          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/board/board-read-service.js",
           "../../shared/api/realtime-service.js", "../../shared/api/services.js", "work-intelligence.js",
           "suggestion-intelligence.js", "knowledge-intelligence.js", "knowledge-engine.js",
           "knowledge-repository-service.js", "../../shared/api/knowledge-api.js",
           "../../shared/google/google-drive-service.js", "knowledge-ingestion-service.js", "worklog-app.js"
         ];
         const appStyles = [
-          "../../shared/theme/zhuge-shell.css?v=20260826-1524",
-          "../../shared/theme/task-card.css?v=20260826-1524",
-          "../../shared/theme/task-drawer.css?v=20260826-1524",
-          "../../shared/theme/task-board.css?v=20260826-1524",
-          "./worklog.css?v=20260826-1524",
-          "../../shared/theme/golden-master.css?v=20260826-1524",
-          "../../shared/theme/zhuge-os.css?v=20260826-1524",
-          "../../shared/theme/ai-product.css?v=20260826-1524",
-          "../../shared/theme/zhuge-workspace.css?v=20260826-1524",
-          "../../shared/theme/zhuge-navigation.css?v=20260826-1524"
+          "../../shared/theme/zhuge-shell.css?v=20260827-2052",
+          "../../shared/theme/task-card.css?v=20260827-2052",
+          "../../shared/theme/task-drawer.css?v=20260827-2052",
+          "../../shared/theme/task-board.css?v=20260827-2052",
+          "./worklog.css?v=20260827-2052",
+          "../../shared/theme/golden-master.css?v=20260827-2052",
+          "../../shared/theme/zhuge-os.css?v=20260827-2052",
+          "../../shared/theme/ai-product.css?v=20260827-2052",
+          "../../shared/theme/zhuge-workspace.css?v=20260827-2052",
+          "../../shared/theme/zhuge-navigation.css?v=20260827-2052"
         ];
         const appearanceScript = document.createElement("script");
-        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20260826-1524";
+        appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20260827-2052";
         appearanceScript.onload = () => window.ZhugeAppearance?.apply(window.ZhugeAppearance.read());
         document.body.appendChild(appearanceScript);
         const params = new URLSearchParams(window.location.search);
@@ -182,7 +182,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260826-1524`;
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260827-2052`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true); };

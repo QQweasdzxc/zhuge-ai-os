@@ -10,6 +10,7 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[char]));
   const sharedActivityTextRenderer = root.ZhugeSharedActivityTextRenderer;
+  const sharedActivityClassifier = root.ZhugeSharedActivityClassifier;
   const sharedActionContractFactory = root.ZhugeSharedTaskActionContract;
   const sharedActionAdapters = root.ZhugeSharedTaskActionAdapters;
   const renderActivityText = value => sharedActivityTextRenderer && typeof sharedActivityTextRenderer.render === "function"
@@ -211,8 +212,8 @@
   }
   function workTodoCardViewModel(task) {
     const adapter = root.ZhugeWorkTodoTaskAdapter;
-    if (!adapter?.normalize) return task;
-    return adapter.normalize({
+    if (!adapter?.normalizeCanonical) return task;
+    return adapter.normalizeCanonical({
       ...task,
       note: task.note || task.summary || "",
       workContent: task.workContent || task.work_content || task.summary || task.note || ""
@@ -1089,10 +1090,7 @@
     return item.note || "保留於正式 Audit Trail。";
   }
   function isHumanProgressActivity(item) {
-    const activityType = String(item?.activityType || item?.activity_type || "").trim();
-    const action = String(item?.action || "").trim();
-    return activityType === "human_progress_note"
-      && ["progress_note_created", "progress_note_edited"].includes(action);
+    return sharedActivityClassifier?.isHumanProgressActivity?.(item) === true;
   }
   function activityKind(item) {
     if (isHumanProgressActivity(item)) return "human";

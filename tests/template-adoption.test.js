@@ -130,7 +130,7 @@ test("template adoption is separate from MFA and attaches to the existing Shared
   assert.match(migration, /p_template_id/);
   assert.doesNotMatch(migration, /service_role/i);
 
-  const board = read("app/Board/ai/board-runtime.js");
+  const board = read("shared/components/golden-master-runtime.js");
   const management = read("shared/components/template-management-center.js");
   assert.doesNotMatch(board, /mountTemplateAdoptionSettings|模板套用設定|data-template-adoption-settings/);
   assert.match(management, /data-template-management-center/);

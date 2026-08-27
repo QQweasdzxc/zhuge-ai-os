@@ -22,7 +22,7 @@ test("WorkLog onboarding is gated by resolved Auth/Profile/Settings initializati
 });
 
 test("AI Board Drawer keeps PM-facing content concise and removes engineering-only entry points", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const css = read("shared/theme/task-drawer.css");
   assert.doesNotMatch(runtime, /下一步：由 Co 接球/);
   assert.doesNotMatch(runtime, /工程驗證狀態/);
@@ -64,7 +64,7 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
 });
 
 test("General Task Checklist uses one listener and single-flight controlled create", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const start = runtime.indexOf("function wireTaskChecklist");
   const end = runtime.indexOf("async function uploadAttachmentFiles", start);
   const checklist = runtime.slice(start, end);
@@ -87,7 +87,7 @@ test("Human Progress Note stays controlled and append-only", () => {
 });
 
 test("General Task Drawer renders Human Progress only while preserving canonical activity read", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const service = read("shared/board/board-read-service.js");
   assert.match(service, /engineering_activity_log/);
   assert.match(service, /loadActivity/);
@@ -100,7 +100,7 @@ test("General Task Drawer renders Human Progress only while preserving canonical
 test("Workspace delete is custom-only and controlled while task content editing stays on its existing path", () => {
   const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql");
   const service = read("shared/board/board-read-service.js");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const inlineMigration = read("docs/supabase/20260818_task_039_inline_content_write.sql");
   assert.match(migration, /board_request_delete_workspace/i);
   assert.match(migration, /board_finalize_delete_workspace/i);
@@ -130,7 +130,7 @@ test("Workspace delete is custom-only and controlled while task content editing 
 });
 
 test("Task content fields start in read mode and switch in place to one editor", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const markupStart = runtime.indexOf("function editableTaskFieldMarkup");
   const markupEnd = runtime.indexOf("function wireTaskInlineEditors");
   const markup = runtime.slice(markupStart, markupEnd);

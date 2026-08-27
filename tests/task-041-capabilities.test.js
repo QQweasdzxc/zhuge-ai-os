@@ -10,7 +10,7 @@ const BoardRead = require("../shared/board/board-read-service.js");
 test("TASK-039 inline content path is authenticated, allowlisted, audited, and not PM Governance", () => {
   const sql = read("docs/supabase/20260818_task_039_inline_content_write.sql");
   const service = read("shared/board/board-read-service.js");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(sql, /create or replace function public\.board_update_task_content/);
   assert.match(sql, /is_engineering_member\(array\['owner'\]\)/);
   assert.match(sql, /auth\.uid\(\)/);
@@ -40,7 +40,7 @@ test("TASK-041 Phase 2 uses private Storage plus controlled attachment metadata 
   const sql = read("docs/supabase/20260818_task_041_phase2_task_attachments.sql");
   const service = read("shared/board/board-read-service.js");
   const gateway = read("shared/supabase/supabase-gateway.js");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(sql, /create table if not exists public\.board_task_attachments/i);
   assert.match(sql, /storage\.buckets[\s\S]*?values[\s\S]*?false/i);
   assert.match(sql, /board-task-attachments/);

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const runtimePath = path.join(__dirname, "..", "app", "Board", "ai", "board-runtime.js");
+const runtimePath = path.join(__dirname, "..", "shared", "components", "golden-master-runtime.js");
 const runtime = fs.readFileSync(runtimePath, "utf8");
 
 test("AI Board hydrates the canonical Auth session before creating the Shared Platform", () => {

@@ -6,10 +6,14 @@
  * to approved controlled RPCs or the existing PM Governance Runner boundary.
  */
 (function (root, factory) {
-  const api = factory(root);
+  const activityClassifier = root?.ZhugeSharedActivityClassifier
+    || (typeof module === "object" && module.exports && typeof require === "function"
+      ? require("../components/activity-classifier.js")
+      : null);
+  const api = factory(root, activityClassifier);
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.ZhugeBoardReadService = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (root, activityClassifier) {
   "use strict";
 
   const ENGINEERING_STATUS_DESCRIPTORS = Object.freeze([
@@ -171,9 +175,22 @@
     });
   }
 
+  function classifyActivity(row = {}) {
+    if (typeof activityClassifier?.classify === "function") return activityClassifier.classify(row);
+    const activityType = String(row.activity_type || row.activityType || "").trim();
+    const action = String(row.action || "").trim();
+    return Object.freeze({
+      activityType,
+      action,
+      classification: activityType === "system_activity" ? "system_activity" : "unknown",
+      isHumanProgress: false
+    });
+  }
+
   function normalizeActivity(row = {}) {
-    const action = String(row.action || "");
-    const activityType = String(row.activity_type || row.activityType || (action === "progress_note_created" ? "human_progress_note" : "system_activity"));
+    const classification = classifyActivity(row);
+    const action = classification.action;
+    const activityType = classification.activityType;
     return Object.freeze({
       id: String(row.id || ""),
       entityType: String(row.entity_type || ""),
@@ -444,15 +461,16 @@
         const activityRows = workTodoTaskIds.length
           ? await gateway.select(
             "engineering_activity_log",
-            `?select=id,entity_id,action,activity_type,note,revision_of,tombstone_of,created_at&entity_type=eq.board_task&activity_type=eq.human_progress_note&entity_id=in.(${workTodoTaskIds.map(encodeURIComponent).join(",")})&order=created_at.desc`
+            `?select=id,entity_id,action,activity_type,note,revision_of,tombstone_of,created_at&entity_type=eq.board_task&entity_id=in.(${workTodoTaskIds.map(encodeURIComponent).join(",")})&order=created_at.desc`
           )
           : [];
-        const superseded = new Set((Array.isArray(activityRows) ? activityRows : []).filter(row => row.revision_of != null).map(row => String(row.revision_of)));
-        const tombstoned = new Set((Array.isArray(activityRows) ? activityRows : []).filter(row => row.tombstone_of != null).map(row => String(row.tombstone_of)));
-        (Array.isArray(activityRows) ? activityRows : []).forEach(row => {
+        const allActivityRows = Array.isArray(activityRows) ? activityRows : [];
+        const superseded = new Set(allActivityRows.filter(row => row.revision_of != null).map(row => String(row.revision_of)));
+        const tombstoned = new Set(allActivityRows.filter(row => row.tombstone_of != null).map(row => String(row.tombstone_of)));
+        allActivityRows.forEach(row => {
           const id = String(row.id || "");
           const taskId = String(row.entity_id || "");
-          if (!taskId || !id || row.action === "progress_note_deleted" || superseded.has(id) || tombstoned.has(id) || latestProgressByTask.has(taskId)) return;
+          if (!classifyActivity(row).isHumanProgress || !taskId || !id || superseded.has(id) || tombstoned.has(id) || latestProgressByTask.has(taskId)) return;
           latestProgressByTask.set(taskId, String(row.note || "").trim());
         });
       } catch {
@@ -1065,6 +1083,7 @@
     statusDescriptorFor,
     normalizeWorkspace,
     normalizeMovement,
+    classifyActivity,
     normalizeActivity,
     normalizeArtifact,
     normalizeTask,

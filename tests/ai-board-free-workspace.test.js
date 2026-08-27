@@ -27,7 +27,7 @@ test("Free Workspace migration extends the existing Board TASK and audit model",
 
 test("Free Workspace runtime does not derive card position from status or assignee", () => {
   const service = read("shared/board/board-read-service.js");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(service, /gateway\.select\("board_workspaces"/);
   assert.match(service, /workspace_id/);
   assert.match(service, /moveTaskWorkspace/);
@@ -41,7 +41,7 @@ assert.match(runtime, /renderColumns/);
 });
 
 test("Free Workspace scope leaves WorkLog and existing workflow RPC untouched", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const service = read("shared/board/board-read-service.js");
   assert.doesNotMatch(runtime, /modules\/worklog\/.*(?:insert|update|delete)/i);
   assert.match(service, /board_transition_task/);
@@ -50,7 +50,7 @@ test("Free Workspace scope leaves WorkLog and existing workflow RPC untouched", 
 
 test("Free Workspace Board keeps Trello-style fixed desktop columns and header controls", () => {
   const html = read("app/Board/ai/index.html");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const goldenMasterCss = read("shared/theme/golden-master.css");
   const goldenMaster = read("shared/components/golden-master.js");
   assert.match(goldenMasterCss, /\.zhuge-module-shell \.board\{display:flex;gap:14px;align-items:flex-start;min-width:max-content/);
@@ -99,7 +99,7 @@ test("Shared workspace menu exposes rename/delete with custom and canonical guar
 
 test("Archive derives read-only records from canonical task status and governance state", () => {
   const service = read("shared/board/board-read-service.js");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(service, /function isArchiveTask\(taskOrStatus\)/);
   assert.match(service, /status === "done"/);
   assert.match(service, /isGovernanceTerminal\(value\)/);
@@ -110,7 +110,7 @@ test("Archive derives read-only records from canonical task status and governanc
 });
 
 test("Main Board hides the legacy done workspace while retaining canonical 已完成 and Archive", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(runtime, /function isMainBoardWorkspace\(workspace\)/);
   assert.match(runtime, /key !== "done"/);
   assert.match(runtime, /name !== "已完工"/);

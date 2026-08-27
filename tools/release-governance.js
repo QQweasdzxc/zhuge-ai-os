@@ -399,11 +399,14 @@ function assertFormalDeliveryRoot(deliveryRoot) {
   return resolved;
 }
 
-function validateManifest(manifest, zipFile, identity, archiveValidation) {
+function validateManifest(manifest, zipFile, identity, archiveValidation, expectedGitBaselineCommit = null) {
   const expectedFilename = path.basename(zipFile);
   const mismatches = [];
   if (manifest.build !== identity.build) mismatches.push(`manifest.build=${manifest.build} != ${identity.build}`);
   if (manifest.version !== identity.version) mismatches.push(`manifest.version=${manifest.version} != ${identity.version}`);
+  if (expectedGitBaselineCommit && manifest.gitBaselineCommit !== expectedGitBaselineCommit) {
+    mismatches.push(`manifest.gitBaselineCommit=${manifest.gitBaselineCommit} != ${expectedGitBaselineCommit}`);
+  }
   if (manifest.candidateFilename !== expectedFilename) mismatches.push("manifest candidateFilename differs from ZIP filename");
   if (manifest.sha256 !== sha256File(zipFile)) mismatches.push("manifest SHA-256 differs from ZIP");
   if (manifest.fileCount !== archiveValidation.fileCount) mismatches.push("manifest fileCount differs from ZIP");
@@ -433,8 +436,83 @@ function validateCandidate({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const archiveValidation = validateArchive(resolvedRoot, zipFile, expectedManifest, preGate);
   if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest is missing", { manifestFile });
   const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
-  const manifestValidation = validateManifest(manifest, zipFile, preGate, archiveValidation);
+  const expectedGitBaselineCommit = runGit(resolvedRoot, ["rev-parse", "HEAD"]);
+  const manifestValidation = validateManifest(manifest, zipFile, preGate, archiveValidation, expectedGitBaselineCommit);
   return Object.freeze({ prePackagingGate: preGate, postPackagingGate: { ...archiveValidation, ...manifestValidation } });
+}
+
+function candidatePairPaths(deliveryRoot, zipFilename) {
+  const resolvedDeliveryRoot = path.resolve(deliveryRoot);
+  const normalizedFilename = String(zipFilename || "");
+  if (!normalizedFilename || path.basename(normalizedFilename) !== normalizedFilename) {
+    fail("FORMAL DELIVERY GATE = FAIL: invalid Candidate filename", {
+      deliveryRoot: resolvedDeliveryRoot,
+      zipFilename
+    });
+  }
+  return Object.freeze({
+    deliveryRoot: resolvedDeliveryRoot,
+    zipFile: path.join(resolvedDeliveryRoot, normalizedFilename),
+    manifestFile: path.join(resolvedDeliveryRoot, manifestFilename(normalizedFilename))
+  });
+}
+
+function validateCandidatePairAtRoot({ root = PROJECT_ROOT, deliveryRoot, zipFilename } = {}) {
+  const pair = candidatePairPaths(deliveryRoot, zipFilename);
+  const missing = [];
+  if (!fs.existsSync(pair.zipFile)) missing.push("Candidate ZIP");
+  if (!fs.existsSync(pair.manifestFile)) missing.push("Candidate Manifest");
+  if (missing.length) {
+    fail("FORMAL DELIVERY GATE = FAIL: Candidate delivery pair incomplete", {
+      deliveryRoot: pair.deliveryRoot,
+      zipFile: pair.zipFile,
+      manifestFile: pair.manifestFile,
+      missing
+    });
+  }
+  const validation = validateCandidate({ root, zipFile: pair.zipFile, manifestFile: pair.manifestFile });
+  return Object.freeze({
+    status: "PASS",
+    ...pair,
+    validation
+  });
+}
+
+function verifyFormalDeliveryPair({ root = PROJECT_ROOT, deliveryRoot = FORMAL_DELIVERY_ROOT, zipFilename } = {}) {
+  const formalRoot = assertFormalDeliveryRoot(deliveryRoot);
+  return validateCandidatePairAtRoot({ root, deliveryRoot: formalRoot, zipFilename });
+}
+
+function copyCandidatePair({ sourceZip, sourceManifest, deliveryRoot, zipFilename } = {}) {
+  const pair = candidatePairPaths(deliveryRoot, zipFilename);
+  if (fs.existsSync(pair.zipFile) || fs.existsSync(pair.manifestFile)) {
+    fail("FORMAL DELIVERY GATE = FAIL: target already exists; overwrite is forbidden", {
+      zipFile: pair.zipFile,
+      manifestFile: pair.manifestFile
+    });
+  }
+
+  const created = [pair.zipFile, pair.manifestFile];
+  try {
+    fs.copyFileSync(sourceZip, pair.zipFile);
+    fs.copyFileSync(sourceManifest, pair.manifestFile);
+    return Object.freeze({ ...pair, created });
+  } catch (error) {
+    for (const file of created.reverse()) {
+      try { fs.rmSync(file, { force: true }); } catch { /* best-effort rollback of this invocation */ }
+    }
+    fail("FORMAL DELIVERY GATE = FAIL: paired delivery write failed", {
+      zipFile: pair.zipFile,
+      manifestFile: pair.manifestFile,
+      cause: error.message
+    });
+  }
+}
+
+function removeCreatedPair(pair) {
+  for (const file of [...(pair?.created || [])].reverse()) {
+    try { fs.rmSync(file, { force: true }); } catch { /* best-effort rollback of this invocation */ }
+  }
 }
 
 function packageCandidate({
@@ -460,12 +538,15 @@ function packageCandidate({
   }
   const formalRoot = deliver ? assertFormalDeliveryRoot(deliveryRoot) : null;
   fs.mkdirSync(resolvedOutput, { recursive: true });
-  const stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-stage-"));
+  const sourceStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-source-stage-"));
+  const artifactStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-artifact-stage-"));
+  const stagedZipFile = path.join(artifactStageRoot, filename);
+  const stagedManifestFile = path.join(artifactStageRoot, manifestFilename(filename));
   const artifactCreatedAt = formatArtifactCreatedAt(createdAt);
   try {
-    copySource(resolvedRoot, stagingRoot, sourceFiles.map(item => item.path));
-    execFileSync("zip", ["-qr", zipFile, "."], { cwd: stagingRoot, stdio: ["ignore", "pipe", "pipe"] });
-    const archiveValidation = validateArchive(resolvedRoot, zipFile, sourceFiles, preGate);
+    copySource(resolvedRoot, sourceStageRoot, sourceFiles.map(item => item.path));
+    execFileSync("zip", ["-qr", stagedZipFile, "."], { cwd: sourceStageRoot, stdio: ["ignore", "pipe", "pipe"] });
+    const archiveValidation = validateArchive(resolvedRoot, stagedZipFile, sourceFiles, preGate);
     const manifest = {
       product: snapshot.product,
       version: preGate.version,
@@ -476,7 +557,7 @@ function packageCandidate({
       artifactCreatedAt,
       artifactCreatedAtTimezone: "Asia/Taipei",
       candidateFilename: filename,
-      sha256: sha256File(zipFile),
+      sha256: sha256File(stagedZipFile),
       fileCount: archiveValidation.fileCount,
       sourceManifestSha256: archiveValidation.sourceManifestSha256,
       deliveryLocation: formalRoot || resolvedOutput,
@@ -488,25 +569,47 @@ function packageCandidate({
       sourceZipConsistency: archiveValidation.sourceZip,
       artifactType: "candidate"
     };
-    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    validateCandidate({ root: resolvedRoot, zipFile, manifestFile });
+    fs.writeFileSync(stagedManifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    validateCandidate({ root: resolvedRoot, zipFile: stagedZipFile, manifestFile: stagedManifestFile });
+
+    const temporaryPair = copyCandidatePair({
+      sourceZip: stagedZipFile,
+      sourceManifest: stagedManifestFile,
+      deliveryRoot: resolvedOutput,
+      zipFilename: filename
+    });
+    try {
+      validateCandidate({ root: resolvedRoot, zipFile: temporaryPair.zipFile, manifestFile: temporaryPair.manifestFile });
+    } catch (error) {
+      removeCreatedPair(temporaryPair);
+      throw error;
+    }
 
     let formalDelivery = null;
     if (formalRoot) {
-      const formalZip = path.join(formalRoot, filename);
-      const formalManifest = path.join(formalRoot, manifestFilename(filename));
-      if (fs.existsSync(formalZip) || fs.existsSync(formalManifest)) {
-        fail("FORMAL DELIVERY GATE = FAIL: target already exists; overwrite is forbidden", { formalZip, formalManifest });
-      }
-      fs.copyFileSync(zipFile, formalZip);
-      fs.copyFileSync(manifestFile, formalManifest);
-      validateCandidate({ root: resolvedRoot, zipFile: formalZip, manifestFile: formalManifest });
-      formalDelivery = Object.freeze({
-        status: "PASS",
-        zipFile: formalZip,
-        manifestFile: formalManifest,
-        sha256: sha256File(formalZip)
+      const formalPair = copyCandidatePair({
+        sourceZip: temporaryPair.zipFile,
+        sourceManifest: temporaryPair.manifestFile,
+        deliveryRoot: formalRoot,
+        zipFilename: filename
       });
+      try {
+        const formalVerification = verifyFormalDeliveryPair({
+          root: resolvedRoot,
+          deliveryRoot: formalRoot,
+          zipFilename: filename
+        });
+        formalDelivery = Object.freeze({
+          status: "PASS",
+          zipFile: formalPair.zipFile,
+          manifestFile: formalPair.manifestFile,
+          sha256: sha256File(formalPair.zipFile),
+          pairVerification: formalVerification.status
+        });
+      } catch (error) {
+        removeCreatedPair(formalPair);
+        throw error;
+      }
     }
 
     return Object.freeze({
@@ -514,8 +617,8 @@ function packageCandidate({
       zipFile,
       manifestFile,
       artifactCreatedAt,
-      sha256: sha256File(zipFile),
-      size: fs.statSync(zipFile).size,
+      sha256: sha256File(temporaryPair.zipFile),
+      size: fs.statSync(temporaryPair.zipFile).size,
       fileCount: archiveValidation.fileCount,
       prePackagingGate: "PASS",
       postPackagingGate: "PASS",
@@ -523,7 +626,8 @@ function packageCandidate({
       formalDelivery
     });
   } finally {
-    fs.rmSync(stagingRoot, { recursive: true, force: true });
+    fs.rmSync(sourceStageRoot, { recursive: true, force: true });
+    fs.rmSync(artifactStageRoot, { recursive: true, force: true });
   }
 }
 
@@ -607,10 +711,14 @@ module.exports = {
   candidateFilename,
   candidateFilenameParts,
   manifestFilename,
+  validateManifest,
   assertRegressionEvidence,
   formatArtifactCreatedAt,
   validateArchive,
   validateCandidate,
+  validateCandidatePairAtRoot,
+  verifyFormalDeliveryPair,
+  copyCandidatePair,
   assertFormalDeliveryRoot,
   packageCandidate
 };

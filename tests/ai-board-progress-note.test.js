@@ -22,7 +22,7 @@ test("Human Progress Note migration types history and closes direct table writes
   assert.match(sql, /grant execute on function public\.board_add_task_progress_note.*to authenticated/i);
 });
 
-test("Activity normalization keeps Human Progress Note distinct from System Activity", () => {
+test("Activity normalization preserves explicit type and fails closed for missing type", () => {
   const human = BoardRead.normalizeActivity({
     action: "progress_note_created",
     activity_type: "human_progress_note",
@@ -30,10 +30,13 @@ test("Activity normalization keeps Human Progress Note distinct from System Acti
     actor_label: "QJC",
     note: "已完成同步測試。"
   });
-  const system = BoardRead.normalizeActivity({ action: "workspace_moved" });
+  const system = BoardRead.normalizeActivity({ action: "workspace_moved", activity_type: "system_activity" });
+  const missingType = BoardRead.normalizeActivity({ action: "progress_note_created" });
   assert.equal(human.activityType, "human_progress_note");
   assert.equal(human.actorLabel, "QJC");
   assert.equal(system.activityType, "system_activity");
+  assert.equal(missingType.activityType, "");
+  assert.equal(BoardRead.classifyActivity(missingType).isHumanProgress, false);
 });
 
 test("Activity read path sorts Human Progress Note and System Activity together", async () => {
@@ -69,12 +72,13 @@ test("Progress Note adapter uses the controlled RPC and never direct DML", async
 });
 
 test("General Task Drawer does not mount engineering-only evidence UI", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.doesNotMatch(runtime, /engineeringEvidenceDetailMarkup/);
   assert.doesNotMatch(runtime, /Engineering Evidence Detail/);
   assert.doesNotMatch(runtime, /items\.length \? items\.map\(item => checklistMarkup/);
   assert.match(runtime, /data-progress-note-write="available"/);
-  assert.match(runtime, /activityType === "human_progress_note"/);
+  assert.match(read("shared/components/activity-classifier.js"), /HUMAN_PROGRESS_ACTIONS/);
+  assert.match(read("app\/Board\/ai\/index.html"), /activity-classifier\.js/);
   assert.match(runtime, /footerHtml: ""/);
   assert.doesNotMatch(runtime, /data-engineering-records|taskMoreMarkup/);
 });

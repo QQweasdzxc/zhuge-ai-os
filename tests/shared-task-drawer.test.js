@@ -120,7 +120,7 @@ test("Shared Task Card renders an optional Agreement Schedule badge without crea
 
 test("AI Board is the first consumer and loads the shared Drawer assets", () => {
   const index = read("app/Board/ai/index.html");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(index, /shared\/components\/task-card\.js/);
   assert.match(index, /shared\/theme\/task-card\.css/);
   assert.match(index, /shared\/components\/task-drawer\.js/);

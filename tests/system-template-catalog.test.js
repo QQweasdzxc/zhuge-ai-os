@@ -135,7 +135,7 @@ test("Golden Master owns the shared priority presentation decision", () => {
 });
 
 test("AI Board and WorkTodo route Card, Board, Drawer, and binding through the same source", () => {
-  const aiRuntime = read("app/Board/ai/board-runtime.js");
+  const aiRuntime = read("shared/components/golden-master-runtime.js");
   const worktodoRuntime = read("modules/worklog/worklog-app.js");
   const worktodoAdapter = read("modules/worklog/components/worktodo-task-adapter.js");
   assert.match(aiRuntime, /ZhugeGoldenMaster\.renderCard/);

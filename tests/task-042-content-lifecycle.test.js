@@ -39,7 +39,7 @@ test("TASK-042 adapters use the shared gateway and canonical Storage API", () =>
 });
 
 test("TASK-042 AI Board presentation keeps identity immutable and exposes lifecycle controls", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const drawer = read("shared/components/task-drawer.js");
   const board = read("shared/theme/task-board.css");
   assert.match(drawer, /data-shared-task-title-code/);

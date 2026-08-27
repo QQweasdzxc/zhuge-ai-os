@@ -54,8 +54,8 @@ test("WorkTodo adapter normalizes domain fields and newest-first journal", () =>
   assert.equal(view.journal[0].entryType, "completion");
 });
 
-test("WorkTodo adapter preserves canonical activity classification and lifecycle metadata", () => {
-  const view = Adapter.normalize({ id: "task-activity-1", status: "in_progress" }, [
+test("WorkTodo formal view model uses the canonical activity classifier and lifecycle metadata", () => {
+  const view = Adapter.normalizeCanonical({ id: "task-activity-1", status: "in_progress" }, [
     {
       id: "system-agreement",
       entity_type: "board_task",
@@ -128,14 +128,14 @@ test("WorkTodo adapter preserves canonical activity classification and lifecycle
   assert.doesNotMatch(html, /Task updated/);
   assert.doesNotMatch(html, /worktodo_task_updated/);
 
-  const tombstoneView = Adapter.normalize({ id: "task-activity-1", status: "in_progress" }, [
+  const tombstoneView = Adapter.normalizeCanonical({ id: "task-activity-1", status: "in_progress" }, [
     ...view.journal,
     {
       id: "human-tombstone",
       entity_type: "board_task",
       entity_id: "task-activity-1",
       action: "progress_note_deleted",
-      activity_type: "human_progress_note",
+      activity_type: "system_activity",
       note: "最新進度已撤回",
       tombstone_of: "human-revision",
       created_at: "2026-08-25T03:30:00.000Z"
@@ -146,8 +146,43 @@ test("WorkTodo adapter preserves canonical activity classification and lifecycle
     journal: tombstoneView.journal
   });
   assert.equal(tombstoneView.journal.find(entry => entry.id === "human-tombstone").tombstoneOf, "human-revision");
+  assert.equal(tombstoneView.latestProgress, "");
   assert.doesNotMatch(tombstoneHtml, /最新進度/);
   assert.doesNotMatch(tombstoneHtml, /最新進度已撤回/);
+
+  const unknownView = Adapter.normalizeCanonical({ id: "task-unknown", status: "in_progress" }, [{
+    id: "unknown-created",
+    action: "progress_note_created",
+    note: "Missing type must not be editable",
+    created_at: "2026-08-25T04:00:00.000Z"
+  }]);
+  assert.equal(unknownView.journal[0].activityType, "");
+  assert.equal(unknownView.latestProgress, "");
+});
+
+test("WorkTodo canonical view model accepts historical human tombstones without reviving deleted progress", () => {
+  const view = Adapter.normalizeCanonical({ id: "task-historical", status: "in_progress" }, [
+    {
+      id: "historical-note",
+      entity_type: "board_task",
+      entity_id: "task-historical",
+      action: "progress_note_created",
+      activity_type: "human_progress_note",
+      note: "Historical note",
+      created_at: "2026-08-25T01:00:00.000Z"
+    },
+    {
+      id: "historical-tombstone",
+      entity_type: "board_task",
+      entity_id: "task-historical",
+      action: "progress_note_deleted",
+      activity_type: "human_progress_note",
+      note: "Historical tombstone",
+      tombstone_of: "historical-note",
+      created_at: "2026-08-25T02:00:00.000Z"
+    }
+  ]);
+  assert.equal(view.latestProgress, "");
 });
 
 test("WorkTodo adapter renders the shared Drawer without owning Cloud access", () => {

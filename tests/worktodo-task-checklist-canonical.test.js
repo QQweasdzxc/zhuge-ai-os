@@ -44,6 +44,10 @@ function createChecklistHarness() {
       assert.notEqual(index, -1, "canonical delete must find the checklist item");
       rows.splice(index, 1);
       return { success: true, item_id: itemId };
+    },
+    async loadTaskAttachments(taskId) {
+      calls.push({ name: "loadTaskAttachments", taskId });
+      return [];
     }
   };
   const dataService = {
@@ -106,13 +110,13 @@ test("WorkTodo formal Checklist uses canonical Board path for Add → Reload →
   await exerciseChecklist(adapter);
 
   assert.deepEqual(harness.calls.map(call => call.name), [
-    "loadTaskChecklist", "loadWorkTodoTaskAttachments",
+    "loadTaskChecklist", "loadTaskAttachments",
     "board_add_task_checklist_item",
-    "loadTaskChecklist", "loadWorkTodoTaskAttachments",
+    "loadTaskChecklist", "loadTaskAttachments",
     "board_update_task_checklist_item",
-    "loadTaskChecklist", "loadWorkTodoTaskAttachments",
+    "loadTaskChecklist", "loadTaskAttachments",
     "board_delete_task_checklist_item",
-    "loadTaskChecklist", "loadWorkTodoTaskAttachments"
+    "loadTaskChecklist", "loadTaskAttachments"
   ]);
   assert.deepEqual(harness.legacyCalls, []);
 });

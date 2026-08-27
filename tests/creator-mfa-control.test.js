@@ -99,7 +99,7 @@ test("Creator MFA control remains on the controlled Cloud path", () => {
   assert.match(mfa, /dataGateway\.rpc\("get_creator_mfa_preferences"/);
   assert.match(mfa, /dataGateway\.rpc\("set_creator_mfa_preference"/);
 
-  const board = read("app/Board/ai/board-runtime.js");
+  const board = read("shared/components/golden-master-runtime.js");
   assert.match(board, /is_creator/);
   assert.match(board, /investment:\s*"Investment"/);
   assert.match(board, /"ai-board":\s*"AI Board"/);

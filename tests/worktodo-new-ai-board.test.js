@@ -11,7 +11,7 @@ const SharedTaskBoard = require("../shared/components/task-board.js");
 test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data boundary", () => {
   const aiBoard = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const actionAdapters = read("shared/components/task-action-adapters.js");
   const navigation = read("shared/components/zhuge-navigation.js");
   const appConfig = read("shared/app-config.js");
@@ -46,7 +46,8 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.doesNotMatch(aiBoard, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /class="(?:board-shell|board-toolbar|board)"/);
   assert.match(worktodo, /worktodo-task-adapter\.js/);
-  assert.match(worktodo, /shared\/api\/data-service\.js/);
+  assert.doesNotMatch(worktodo, /shared\/api\/repositories\.js/);
+  assert.doesNotMatch(worktodo, /shared\/api\/data-service\.js/);
   assert.doesNotMatch(worktodo, /GM-FIX-|golden-master-preview/i);
   assert.match(aiBoard, /title="工程準則" data-board-nav="principles"/);
   assert.match(aiBoard, /title="系統藍圖" data-board-nav="system-map"/);
@@ -82,7 +83,7 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
 test("AI Board and new WorkTodo receive the same Golden Master column UI change", () => {
   const aiBoard = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const boardCss = read("shared/theme/task-board.css");
   const html = GoldenMaster.renderColumns([{ id: "shared-column", key: "shared", name: "共用欄位" }], {}, { board: SharedTaskBoard });
 

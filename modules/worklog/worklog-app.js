@@ -510,42 +510,20 @@ async function openTaskJournal(taskId = "") {
 
 function openDashboardTask(taskId = "") {
   const task = tasks.find(item => String(item.id) === String(taskId));
-  if (!task) return openWorkspace("tasks");
-  sidebarOpen = false;
-  activeWorkspace = "tasks";
-  if (!openTabs.includes("tasks")) openTabs.push("tasks");
-  rememberWorkspace("tasks");
-  taskFilter = task.archivedAt ? "archived" : "all";
-  taskSearch = "";
-  editingTaskId = null;
-  taskDrawerOpen = false;
-  taskJournalTaskId = null;
-  taskJournalDraft = null;
-  taskJournalEditingEntryId = null;
-  taskJournalLoading = false;
-  saveAll();
-  render("dashboard-task-open");
-  // Let the task workspace paint first, then open the existing Cloud journal
-  // drawer and bring the exact row into view.
-  setTimeout(() => {
-    const row = [...document.querySelectorAll("[data-task-card]")].find(item => item.dataset.taskCard === String(task.id));
-    row?.scrollIntoView({ behavior: "smooth", block: "center" });
-    openTaskJournal(task.id);
-  }, 0);
+  // Dashboard rows still represent historical user_tasks records.  This
+  // runtime does not carry an explicit board_tasks identity for them, so do
+  // not guess by title, work code, or legacy UUID and reopen the retired
+  // Task/Journal workspace.  A future explicit canonical mapping may route
+  // to WorkTodo; until then this entry is intentionally fail-closed.
+  toast(task
+    ? `「${task.title || "此待辦"}」目前僅保留為歷史待辦，請從正式工作待辦查看可用的工作。`
+    : "此舊待辦入口已停用，請從正式工作待辦查看可用的工作。");
 }
 
 function openDashboardNewTask() {
-  sidebarOpen = false;
-  activeWorkspace = "tasks";
-  if (!openTabs.includes("tasks")) openTabs.push("tasks");
-  rememberWorkspace("tasks");
-  taskFilter = "all";
-  taskSearch = "";
-  editingTaskId = null;
-  taskDraft = loadTaskDraft("new") || null;
-  taskDrawerOpen = true;
-  saveAll();
-  render("dashboard-task-new");
+  // New tasks use the canonical WorkTodo runtime.  Historical Legacy Task
+  // cards no longer reopen the retired Task/Journal workspace.
+  openWorkspace("tasks-new");
 }
 
 async function saveTaskJournal(taskId = "") {
@@ -3135,6 +3113,12 @@ function normalizeWorkspaceState() {
   if (activeWorkspace === "system-templates") activeWorkspace = "sync";
   openTabs = openTabs.map(id => id === "system-templates" ? "sync" : id);
   recentWorkspaces = recentWorkspaces.map(id => id === "system-templates" ? "sync" : id);
+  // The Legacy Task workspace is retired as an operational entry point.  Do
+  // not resurrect it from a browser saved state; historical records remain
+  // untouched in Cloud for compatibility/read-only review.
+  if (activeWorkspace === "tasks") activeWorkspace = "dashboard";
+  openTabs = openTabs.filter(id => id !== "tasks");
+  recentWorkspaces = recentWorkspaces.filter(id => id !== "tasks");
   openTabs = openTabs.filter(id => workspaceRegistry[id]);
   recentWorkspaces = recentWorkspaces.filter(id => openTabs.includes(id));
   if (!hasOsShellState && session) { openTabs = []; activeWorkspace = "dashboard"; recentWorkspaces = []; hasOsShellState = true; }
@@ -5232,22 +5216,34 @@ function bindWorklogAssistant() {
     addConversationMessage("assistant", "日期已確認，請確認這筆工時：", { card: { type: "confirm_entry", payload: assistantConfirmationPayload(command) } });
     render();
   });
-  document.querySelectorAll("[data-assistant-create-task]").forEach(button => button.onclick = () => {
+  document.querySelectorAll("[data-assistant-create-task]").forEach(button => button.onclick = async () => {
     const message = button.closest(".assistant-command-card");
     const title = message?.querySelector(".assistant-card-grid b")?.textContent?.trim() || "待辦";
-    createTask(title);
-    addConversationMessage("assistant", `已建立待辦：「${title}」。`);
-    activeWorkspace = "tasks";
-    if (!openTabs.includes("tasks")) openTabs.push("tasks");
-    rememberWorkspace("tasks");
-    saveAll();
-    render();
+    const createService = globalThis.ZhugeBoardReadService;
+    if (typeof createService?.worktodoCreateTask !== "function") {
+      toast("正式工作待辦建立服務尚未載入，請重新整理後再試。");
+      return;
+    }
+    button.disabled = true;
+    try {
+      await createService.worktodoCreateTask({
+        title,
+        status: "not_started",
+        usageScenario: "AI Assistant"
+      });
+      addConversationMessage("assistant", `已建立待辦：「${title}」。`);
+      openWorkspace("tasks-new");
+    } catch (error) {
+      button.disabled = false;
+      console.error("AI Assistant WorkTodo task creation failed", error);
+      toast(`建立待辦失敗：${error?.message || "請稍後再試"}`);
+    }
   });
   document.querySelectorAll("[data-assistant-edit-task]").forEach(button => button.onclick = () => {
-    activeWorkspace = "tasks";
-    if (!openTabs.includes("tasks")) openTabs.push("tasks");
-    rememberWorkspace("tasks");
-    render();
+    // A task draft has no canonical board_tasks identity yet.  Do not route
+    // it into the retired Legacy Task workspace or silently discard it by
+    // navigating to a new-task page without draft transfer support.
+    toast("請先建立待辦，再到正式工作待辦調整。");
   });
   document.querySelectorAll("[data-assistant-confirm-entry]").forEach(button => button.onclick = async () => {
     const pending = getAssistantPendingCommand();
@@ -5396,7 +5392,9 @@ function createTask(title = "", note = "", dueDate = "", options = {}) {
 // Sprint 7 task lifecycle bindings. Search and drafts update locally without
 // writing task records; only explicit save/start/complete actions sync Cloud.
 function bindTasks() {
-  document.querySelectorAll("[data-task-new]").forEach(button => button.onclick = () => { editingTaskId = null; taskDraft = loadTaskDraft("new") || null; taskDrawerOpen = true; render("task-drawer-open"); });
+  // A1 boundary: the Legacy workspace may expose the entry, but creation is
+  // handled by the canonical WorkTodo route rather than this Legacy drawer.
+  document.querySelectorAll("[data-task-new]").forEach(button => button.onclick = () => openWorkspace("tasks-new"));
   document.querySelectorAll("[data-task-drawer-close]").forEach(button => button.onclick = event => {
     if (event.target.closest(".task-drawer-backdrop") || event.target.closest(".task-drawer-close")) {
       clearTaskDraft(editingTaskId || "new");

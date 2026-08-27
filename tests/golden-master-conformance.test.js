@@ -6,7 +6,7 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-test("EP-039 has one Golden Master presentation runtime for formal Board consumers", () => {
+test("EP-039 enforces direct Shared Golden Master runtime use for formal Board consumers", () => {
   const aiBoard = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
   const goldenMaster = read("shared/components/golden-master.js");
@@ -56,11 +56,12 @@ test("EP-039 has one Golden Master presentation runtime for formal Board consume
   assert.doesNotMatch(runtime, /data-task-attachment-delete|data-progress-attachment-delete/);
   assert.match(css, /Golden Master surface styles/);
 
-  const runtimeLink = path.join(ROOT, "app/Board/ai/board-runtime.js");
-  const stat = fs.lstatSync(runtimeLink);
-  assert.equal(stat.isSymbolicLink(), true, "AI Board compatibility path must not contain a second runtime implementation");
-  assert.match(fs.readlinkSync(runtimeLink), /golden-master-runtime\.js/);
+  const retiredRuntimeAlias = path.join(ROOT, "app/Board/ai/board-runtime.js");
+  assert.equal(fs.existsSync(retiredRuntimeAlias), false, "AI Board must not retain a retired compatibility runtime alias");
   assert.match(worktodo, /modules\/worklog\/components\/worktodo-task-adapter\.js/);
-  assert.match(worktodo, /shared\/api\/data-service\.js/);
+  assert.doesNotMatch(worktodo, /shared\/api\/repositories\.js/);
+  assert.doesNotMatch(worktodo, /shared\/api\/data-service\.js/);
+  assert.match(read("modules/worklog/index.html"), /shared\/api\/repositories\.js/);
+  assert.match(read("modules/worklog/index.html"), /shared\/api\/data-service\.js/);
   assert.doesNotMatch(worktodo, /modules\/worklog\/worklog-app\.js/);
 });

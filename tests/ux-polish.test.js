@@ -84,7 +84,7 @@ test("Control Console owns engineering destinations instead of global sidebar ch
 
 test("Batch 4 moves work journal into a shared dynamic drawer and keeps Board actions available", () => {
   const worklog = read("modules/worklog/worklog-app.js");
-  const board = read("app/Board/ai/board-runtime.js");
+  const board = read("shared/components/golden-master-runtime.js");
   const boardHtml = read("app/Board/ai/index.html");
   assert.match(worklog, /ZhugeWorkTodoTaskAdapter/);
   assert.match(worklog, /data-worktodo-open-task/);
@@ -110,7 +110,7 @@ test("Work journal entries stay readable and can be edited through the existing 
   assert.doesNotMatch(worklog, /＋ 新增待辦事項/);
 });
 
-test("Tasks default to active items and open the existing form in a drawer", () => {
+test("Tasks keep the Legacy editor surface while new-task entries route to WorkTodo", () => {
   const state = read("shared/app-state.js");
   const source = read("modules/worklog/worklog-app.js");
   const css = read("modules/worklog/worklog.css");
@@ -118,7 +118,7 @@ test("Tasks default to active items and open the existing form in a drawer", () 
   assert.match(state, /let taskDrawerOpen = false/);
   assert.match(source, /data-task-new/);
   assert.match(source, /data-task-drawer-close/);
-  assert.match(source, /taskDrawerOpen = true/);
+  assert.match(source, /openWorkspace\("tasks-new"\)/);
   assert.match(source, /taskDrawerOpen = false/);
   assert.match(css, /\.task-drawer-backdrop/);
   assert.match(css, /\.task-drawer\.is-open/);

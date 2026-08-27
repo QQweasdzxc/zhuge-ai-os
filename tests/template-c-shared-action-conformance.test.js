@@ -10,12 +10,14 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   const ai = read("app/Board/ai/index.html");
   const worktodo = read("app/Board/worktodo/index.html");
   const runtime = read("shared/components/golden-master-runtime.js");
+  const classifier = read("shared/components/activity-classifier.js");
   const contract = read("shared/components/task-action-contract.js");
   const adapters = read("shared/components/task-action-adapters.js");
 
   for (const html of [ai, worktodo]) {
     assert.match(html, /shared\/components\/task-action-contract\.js\?v=/);
     assert.match(html, /shared\/components\/task-action-adapters\.js\?v=/);
+    assert.match(html, /shared\/components\/activity-classifier\.js\?v=/);
     assert.doesNotMatch(html, /modules\/worklog\/worklog-app\.js/);
   }
   for (const action of [
@@ -32,7 +34,8 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   assert.match(runtime, /querySelectorAll\("\[data-shared-attachment-delete\]"\)/);
   assert.doesNotMatch(runtime, /data-task-attachment-delete|data-progress-attachment-delete/);
   assert.match(runtime, /function isHumanProgressActivity\(item\)/);
-  assert.match(runtime, /activityType === "human_progress_note"[\s\S]*\["progress_note_created", "progress_note_edited"\]/);
+  assert.match(runtime, /sharedActivityClassifier\?\.isHumanProgressActivity\?\.\(item\) === true/);
+  assert.match(classifier, /activityType === "human_progress_note"[\s\S]*HUMAN_PROGRESS_ACTIONS\.includes\(action\)/);
   assert.match(runtime, /function visibleHumanProgressRows\(activity\)/);
 
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "deleteTaskProgressNote"\)/);
@@ -40,8 +43,13 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   assert.match(adapters, /deleteWorkspace: payload => required\(service, "deleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId\)/);
   assert.match(adapters, /deleteWorkspace: payload => required\(service, "worktodoDeleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId\)/);
   assert.match(adapters, /payload\.scope === "progress_note"[\s\S]*deleteProgressNoteAttachment/);
-  assert.match(adapters, /deleteAttachment: payload => callDomain\("deleteWorkTodoAttachment"/);
   const worktodoAdapter = adapters.match(/function createWorkTodoAdapter[\s\S]*?\n  function create\(/)?.[0] || "";
+  assert.match(worktodoAdapter, /prepareTaskAttachment/);
+  assert.match(worktodoAdapter, /prepareProgressNoteAttachment/);
+  assert.match(worktodoAdapter, /loadTaskAttachments/);
+  assert.match(worktodoAdapter, /taskAttachmentUrl/);
+  assert.match(worktodoAdapter, /deleteProgressNoteAttachment/);
+  assert.doesNotMatch(worktodoAdapter, /uploadWorkTodoAttachment|uploadWorkTodoProgressAttachment|deleteWorkTodoAttachment|loadWorkTodoTaskAttachments|signedWorkTodoAttachmentUrl/);
   assert.match(worktodoAdapter, /addChecklist: payload => required\(service, "addTaskChecklistItem"\)/);
   assert.match(worktodoAdapter, /updateChecklist: payload => required\(service, "updateTaskChecklistItem"\)/);
   assert.match(worktodoAdapter, /deleteChecklist: payload => required\(service, "deleteTaskChecklistItem"\)/);

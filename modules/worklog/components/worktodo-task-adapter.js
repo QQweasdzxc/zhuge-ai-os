@@ -15,6 +15,8 @@
     || (typeof require === "function" ? require("../../../shared/components/activity-text-renderer.js") : null);
   const sharedTaskCardSummary = root?.ZhugeSharedTaskCardSummary
     || (typeof require === "function" ? require("../../../shared/components/task-card-summary.js") : null);
+  const sharedActivityClassifier = root?.ZhugeSharedActivityClassifier
+    || (typeof require === "function" ? require("../../../shared/components/activity-classifier.js") : null);
 
   const CAPABILITIES = Object.freeze({
     title: true,
@@ -117,14 +119,26 @@
     return entry?.[snakeCaseKey];
   }
 
-  function isHumanProgressEntry(entry = {}) {
+  // Legacy WorkLog still accepts its historical journal-shaped rows. Formal
+  // Template C mapping uses classifyCanonicalActivity below instead.
+  function isLegacyHumanProgressEntry(entry = {}) {
     const activityType = String(entry.activityType || entry.activity_type || "").trim();
     const action = String(entry.action || "").trim();
     return activityType === "human_progress_note"
       && ["progress_note_created", "progress_note_edited"].includes(action);
   }
 
-  function visibleHumanProgressEntries(entries = []) {
+  function classifyCanonicalActivity(entry = {}) {
+    if (typeof sharedActivityClassifier?.classify === "function") return sharedActivityClassifier.classify(entry);
+    return Object.freeze({
+      activityType: String(canonicalActivityValue(entry, "activityType", "activity_type") || "").trim(),
+      action: String(entry?.action || "").trim(),
+      classification: "unknown",
+      isHumanProgress: false
+    });
+  }
+
+  function visibleHumanProgressEntries(entries = [], isHumanProgress = isLegacyHumanProgressEntry) {
     const rows = Array.isArray(entries) ? entries : [];
     const superseded = new Set(rows
       .filter(entry => entry?.revisionOf != null)
@@ -132,7 +146,7 @@
     const tombstoned = new Set(rows
       .filter(entry => entry?.tombstoneOf != null)
       .map(entry => String(entry.tombstoneOf)));
-    return rows.filter(entry => isHumanProgressEntry(entry)
+    return rows.filter(entry => isHumanProgress(entry)
       && !superseded.has(String(entry.id))
       && !tombstoned.has(String(entry.id))
       && entry.action !== "progress_note_deleted"
@@ -141,7 +155,7 @@
 
   function normalizeAttachment(item = {}) {
     const id = String(item.id || item.attachmentId || "");
-    const activityId = String(item.activityId || item.activity_id || item.journalEntryUuid || item.journal_entry_uuid || "");
+    const activityId = String(item.activityId || item.activity_id || "");
     const storagePath = String(item.storagePath || item.storage_path || "");
     return {
       id,
@@ -161,7 +175,8 @@
     };
   }
 
-  function normalize(task = {}, journal = [], capabilityData = {}) {
+  function normalize(task = {}, journal = [], capabilityData = {}, options = {}) {
+    const useCanonicalActivityClassifier = options.canonicalActivity === true;
     const status = normalizeStatus(task.status);
     const entries = (Array.isArray(journal) ? journal : [])
       .filter(entry => entry && String(entry.content || entry.note || "").trim())
@@ -169,12 +184,15 @@
         const content = String(entry.content || entry.note || "").trim();
         const id = String(entry.cloudId || entry.cloud_id || entry.id || entry.clientId || entry.client_id || "");
         const actionValue = String(entry.action || "").trim();
+        const canonicalClassification = useCanonicalActivityClassifier ? classifyCanonicalActivity(entry) : null;
         const rawActivityType = String(canonicalActivityValue(entry, "activityType", "activity_type") || "").trim();
         const rawEntryType = String(canonicalActivityValue(entry, "entryType", "entry_type") || "").trim();
-        const activityType = rawActivityType
-          || (rawEntryType === "system_activity" ? "system_activity" : "human_progress_note");
-        const action = actionValue
-          || (activityType === "human_progress_note" ? "progress_note_created" : "system_activity");
+        const activityType = useCanonicalActivityClassifier
+          ? canonicalClassification.activityType
+          : rawActivityType || (rawEntryType === "system_activity" ? "system_activity" : "human_progress_note");
+        const action = useCanonicalActivityClassifier
+          ? canonicalClassification.action
+          : actionValue || (activityType === "human_progress_note" ? "progress_note_created" : "system_activity");
         const createdAt = entry.createdAt || entry.created_at || entry.timestamp || "";
         const actorId = String(entry.actorId || entry.actor_id || entry.createdBy || entry.created_by || "");
         const actorLabel = String(entry.actorLabel || entry.actor_label || entry.createdByLabel || entry.created_by_label || "QJC");
@@ -187,7 +205,7 @@
           entryType: rawEntryType || activityType,
           action,
           activityType,
-          entityType: String(canonicalActivityValue(entry, "entityType", "entity_type") || (activityType === "human_progress_note" ? "worktodo_progress_note" : "")),
+          entityType: String(canonicalActivityValue(entry, "entityType", "entity_type") || (!useCanonicalActivityClassifier && activityType === "human_progress_note" ? "worktodo_progress_note" : "")),
           entityId: String(canonicalActivityValue(entry, "entityId", "entity_id") || entry.taskUuid || entry.task_uuid || task.id || ""),
           status: normalizeStatus(entry.status || entry.entry_status || status),
           progress: clampProgress(entry.progress),
@@ -213,7 +231,10 @@
     const agreementMode = agreementModeRaw === "single" || agreementModeRaw === "period" ? agreementModeRaw : "";
     const agreementStartDate = String(task.agreementStartDate || task.agreement_start_date || "").slice(0, 10);
     const agreementEndDate = agreementMode === "period" ? String(task.agreementEndDate || task.agreement_end_date || "").slice(0, 10) : "";
-    const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || visibleHumanProgressEntries(entries)[0]?.content || "").trim();
+    const progressPredicate = useCanonicalActivityClassifier
+      ? entry => classifyCanonicalActivity(entry).isHumanProgress
+      : isLegacyHumanProgressEntry;
+    const latestProgress = String(task.latestProgress || task.latest_progress || task.progressNote || task.progress_note || visibleHumanProgressEntries(entries, progressPredicate)[0]?.content || "").trim();
     return {
       id: String(task.id || task.workCode || ""),
       workCode: String(task.workCode || task.work_code || task.id || ""),
@@ -247,8 +268,12 @@
     };
   }
 
+  function normalizeCanonical(task = {}, journal = [], capabilityData = {}) {
+    return normalize(task, journal, capabilityData, { canonicalActivity: true });
+  }
+
   function toSharedViewModel(task = {}, journal = [], capabilityData = {}) {
-    const vm = normalize(task, journal, capabilityData);
+    const vm = normalizeCanonical(task, journal, capabilityData);
     return Object.freeze({
       task: Object.freeze({
         ...task,
@@ -291,7 +316,7 @@
     return `<div class="worktodo-shared-attachments" data-worktodo-attachments-zone>${rows || `<div class="worktodo-shared-attachment-empty">目前沒有附件</div>`}${readOnly ? "" : `<label class="btn2 worktodo-shared-attachment-add" for="worktodoTaskAttachmentInput">＋新增附件<input id="worktodoTaskAttachmentInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label>`}</div>`;
   }
   function journalRow(entry, vm, options = {}) {
-    const attachments = vm.attachments.filter(item => item.attachmentScope === "progress_note" && item.journalEntryUuid === entry.id);
+    const attachments = vm.attachments.filter(item => item.attachmentScope === "progress_note" && (item.activityId === entry.id || item.journalEntryUuid === entry.id));
     const canManage = options.readOnly !== true;
     const attachmentMarkupForNote = attachments.length ? `<div class="worktodo-shared-journal-attachments">${attachments.map(item => `<div class="worktodo-shared-journal-attachment" data-worktodo-journal-attachment="${escapeHtml(item.id)}"><button class="btn2" type="button" data-worktodo-attachment-open="${escapeHtml(item.id)}">📎 ${escapeHtml(item.filename)}</button>${canManage ? `<button class="shared-task-icon-button" type="button" data-worktodo-attachment-delete="${escapeHtml(item.id)}" aria-label="刪除附件：${escapeHtml(item.filename)}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>` : "";
     const actions = canManage ? `<span class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-worktodo-journal-edit="${escapeHtml(entry.id)}" aria-label="編輯工作進度" title="編輯工作進度">✎</button><button class="shared-task-icon-button" type="button" data-worktodo-journal-delete="${escapeHtml(entry.id)}" aria-label="撤回工作進度" title="撤回工作進度">🗑️</button></span>` : "";
@@ -455,5 +480,5 @@
     return true;
   }
 
-  return Object.freeze({ sharedDrawerContract, CAPABILITIES, normalize, toSharedViewModel, render, renderCard, renderJournal, journalComposer, analysisMarkup, bindAttachmentActions });
+  return Object.freeze({ sharedDrawerContract, CAPABILITIES, normalize, normalizeCanonical, toSharedViewModel, render, renderCard, renderJournal, journalComposer, analysisMarkup, bindAttachmentActions });
 });

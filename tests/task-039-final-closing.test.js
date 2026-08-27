@@ -56,7 +56,7 @@ test("completion drag leaves a cancelled timer active and archives only by due t
 });
 
 test("TASK-039 final closing presentation keeps cards compact and progress cards readable", () => {
-  const runtime = read("app/Board/ai/board-runtime.js");
+  const runtime = read("shared/components/golden-master-runtime.js");
   const board = read("shared/theme/task-board.css");
   const drawerCss = read("shared/theme/task-drawer.css");
   assert.doesNotMatch(runtime, /lifecycleLocked/);
