@@ -11,6 +11,23 @@ Version + Build + Git Commit + Package Time
 The Build identifies the formal release, not only a runtime compile. A public
 page-only change still receives a new Build.
 
+## Current formal publish identity
+
+This Phase 3 publish uses the following synchronized release identity:
+
+```text
+Version: 0.9.0-alpha.9.13
+Build: 20260829-0536
+Git Commit: bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6
+Package Time: 2026-08-29T05:36:53+08:00 (Asia/Taipei)
+```
+
+For a new formal Publish/Candidate package, capture one Package Time in
+`Asia/Taipei` and derive the new `YYYYMMDD-HHmm` Build before packaging. Once
+written, the root `version.json.build` remains the single Build Identity
+source for Runtime, metadata, cache-busters, manifests, and the Candidate
+filename. The full-precision Package Time remains release provenance metadata.
+
 ## Release gate
 
 - `git diff` contains only intended files.
@@ -23,10 +40,12 @@ page-only change still receives a new Build.
 
 ## Candidate packaging governance
 
-The root `version.json.build` is the only Candidate Build Identity source.
-Runtime configuration, module manifests, Runtime UI identity, and literal
-HTML/JS/CSS cache-busters must match it exactly. Package time is metadata only;
-it must never be used as the Build Identity or ZIP filename prefix.
+The root `version.json.build` is the only Candidate Build Identity source after
+the new Package Time has been recorded. Runtime configuration, module
+manifests, Runtime UI identity, and literal HTML/JS/CSS cache-busters must
+match it exactly. The `YYYYMMDD-HHmm` Build is derived from the captured
+Asia/Taipei Package Time; the full-precision time is retained as provenance
+metadata and is never independently substituted for the Build.
 
 Use the controlled tool path for Candidate packaging:
 

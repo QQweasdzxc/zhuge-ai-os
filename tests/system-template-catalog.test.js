@@ -12,54 +12,73 @@ const Board = require("../shared/components/task-board.js");
 const Card = require("../shared/components/task-card.js");
 const Drawer = require("../shared/components/task-drawer.js");
 
-test("System Template Catalog keeps one empty AI Board Golden Master", () => {
+test("System Template Catalog keeps one operational C Golden Master", () => {
   const templates = Catalog.list();
   assert.equal(templates.length, 1);
   const template = Catalog.get(Catalog.GOLDEN_MASTER_ID);
   assert.equal(template.id, "ai-board-empty-golden-master");
-  assert.equal(template.name, "空白 AI Board");
-  assert.equal(template.status, "唯一正式模板");
-  assert.deepEqual(template.adapters.map(adapter => adapter.label), ["AI Board Adapter", "WorkTodo Adapter"]);
-  assert.deepEqual(template.domainData.map(data => data.label), ["AI Board Domain Data", "WorkTodo Domain Data"]);
+  assert.equal(template.name, "C 唯一看板母版");
+  assert.equal(template.label, "C Operational Motherboard");
+  assert.equal(template.type, "canonical-motherboard");
+  assert.equal(template.status, "唯一正式母版");
+  assert.equal(template.operational, true);
+  assert.equal(template.moduleTaskPrefix, "MDTK");
+  assert.deepEqual(template.adapters.map(adapter => adapter.label), ["AI Board Adapter", "WorkTodo Adapter", "C Operational Motherboard / MDTK"]);
+  assert.deepEqual(template.domainData.map(data => data.label), ["AI Board Domain Data", "WorkTodo Domain Data", "C MDTK Canonical Cloud Data"]);
+  assert.equal(template.publishedRelease, "shared/config/template-release.js");
+  assert.equal(template.boardInstanceRegistry, "board_instances");
   assert.deepEqual(template.sharedSurfaces, [
     "Shared Navigation / Shell",
     "Shared Header",
-    "Shared Toolbar / Search / Filter",
-    "Shared Workspace / Column",
+    "Shared Toolbar / Search / Filter / Sort",
+    "Shared Workspace / Column / Move",
     "Shared Task Card",
     "Shared Task Drawer / Properties",
     "Shared Work Content / Usage Scenario",
-    "Shared Attachment / Checklist / Timeline",
+    "Shared Checklist / Progress / Activity",
+    "Shared General / Progress Attachment",
+    "Shared Agreement / Schedule",
     "Shared GPT Analysis",
+    "Shared Loading / Busy / Error / Confirm / Refresh",
     "Shared Responsive / Interaction"
   ]);
   assert.deepEqual(template.emptySurface, {
-    id: "empty-golden-master-surface",
+    id: "c-motherboard-surface",
     renderer: "shared-golden-master",
-    mode: "empty",
-    domainData: false,
+    mode: "operational-motherboard",
+    domainData: true,
     fixture: false,
-    cloudWrites: false
+    cloudWrites: true
   });
   assert.deepEqual(template.preview, {
-    renderer: "canonical-c-template-preview",
-    mode: "neutral-view-model",
-    domainData: false,
+    renderer: "shared-golden-master",
+    mode: "operational-motherboard",
+    domainData: true,
     fixture: false,
-    cloudWrites: false
+    cloudWrites: true
   });
 });
 
-test("Empty Golden Master catalog reserves lifecycle actions without writes", () => {
+test("C Golden Master catalog describes the published canonical Cloud lifecycle", () => {
   const source = read("shared/components/system-template-catalog.js");
   const template = Catalog.get();
-  assert.equal(template.capabilities.catalog, "multi-template-ready");
-  assert.deepEqual(template.capabilities.empty, { domainData: false, fixture: false, cloudWrites: false });
+  assert.equal(template.capabilities.catalog, "c-operational-motherboard");
+  assert.deepEqual(template.capabilities.empty, { domainData: true, fixture: false, cloudWrites: true });
   assert.equal(template.capabilities.workspace.fixedColumns, false);
+  assert.equal(template.capabilities.workspace.source, "board_instances + board_workspaces");
   assert.deepEqual(template.capabilities.workspace.operations, ["add", "edit", "delete", "reorder", "move-task"]);
+  assert.deepEqual(template.capabilities.adoptionSwitch, {
+    enabled: true,
+    state: "published",
+    off: "尚未採用已發布 C 母版",
+    on: "使用已發布 C 母版與自身資料",
+    phase: "Phase 3"
+  });
   assert.equal(template.capabilities.clone.enabled, false);
-  assert.equal(template.capabilities.apply.enabled, false);
-  assert.equal(template.persistence.cloudWrites, false);
+  assert.equal(template.capabilities.apply.enabled, true);
+  assert.equal(template.capabilities.apply.state, "published");
+  assert.equal(template.persistence.mode, "canonical-supabase-board-instance");
+  assert.equal(template.persistence.cloudWrites, true);
   const forbiddenWriteApi = /DataService\s*[.(]|Supabase(?:Repository)?\s*[.(]|localStorage\s*[.(]|sessionStorage\s*[.(]|fetch\s*\(|rpc\s*\(/i;
   assert.doesNotMatch(source, forbiddenWriteApi);
   assert.doesNotMatch(source, /GM-FIX|golden-master-preview|fixtureKey/i);

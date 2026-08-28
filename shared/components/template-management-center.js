@@ -96,6 +96,29 @@
     return enabled ? "🟢 已套用 (ON)" : "⚪ 未套用 (OFF)";
   }
 
+  function publishedMotherRelease() {
+    return root?.ZhugeMotherTemplateRelease?.getSnapshot?.() || null;
+  }
+
+  function releaseStatusMarkup() {
+    const release = publishedMotherRelease();
+    if (!release) {
+      return `<div class="template-management-release" data-template-release-summary role="status"><strong>C 母版發布身份尚未載入</strong><span>請先載入 Published Template metadata，才能核對 Consumer 採用版本。</span></div>`;
+    }
+    const consumers = [
+      ["c", "C 母版"],
+      ["worktodo", "工作待辦"],
+      ["ai-board", "AI Board"]
+    ].map(([id, label]) => {
+      const adoption = release.consumers?.[id];
+      const version = adoption?.templateVersion || "—";
+      const build = adoption?.build || "—";
+      const state = adoption?.status === "adopted" && version === release.publishedVersion && build === release.publishedBuild ? "🟢 已採用" : "🟡 待核對";
+      return `<span class="template-management-release-consumer"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(state)} · ${escapeHtml(version)} / ${escapeHtml(build)}</span></span>`;
+    }).join("");
+    return `<div class="template-management-release" data-template-release-summary role="status"><div><strong>C 母版已發布</strong><span>開發版：${escapeHtml(release.developmentVersion)} / ${escapeHtml(release.developmentBuild)} · 已發布版：${escapeHtml(release.publishedVersion)} / ${escapeHtml(release.publishedBuild)}</span></div><div class="template-management-release-consumers">${consumers}</div></div>`;
+  }
+
   function renderConsumerRows(model, snapshot) {
     if (!model.rows.length) return `<div class="template-management-empty">目前沒有正式支援此 Template 的 Consumer。</div>`;
     const canModify = isReady(snapshot) && snapshot.isCreator;
@@ -112,7 +135,7 @@
       const panelId = `template-management-panel-${template.id}`;
       return `<section class="template-management-card" data-template-management-template="${escapeHtml(template.id)}"><button class="template-management-card-header" type="button" data-template-management-toggle aria-expanded="false" aria-controls="${escapeHtml(panelId)}"><span class="template-management-code" aria-hidden="true">${escapeHtml(template.code)}</span><span class="template-management-card-title"><strong>${escapeHtml(template.code)} 區｜${escapeHtml(template.label)}</strong><small>${escapeHtml(template.description)}</small></span><span class="template-management-card-summary"><strong>已套用 ${escapeHtml(count)}</strong><small>正式支援 ${supportCount} 頁</small></span><span class="template-management-card-chevron" aria-hidden="true">⌄</span></button><div class="template-management-card-body" id="${escapeHtml(panelId)}" data-template-management-panel hidden><div class="template-management-card-actions"><button class="btn2" type="button" data-template-management-preview data-template-id="${escapeHtml(template.id)}">查看模板</button></div>${renderConsumerRows(model, snapshot)}</div></section>`;
     }).join("");
-    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">Creator Control／Template Adoption</span><h3>🧩 系統模板管理中心</h3><p class="muted">集中管理 A／B／C Template、正式 Consumer Capability 與 Cloud Adoption State。</p></div><span class="template-management-source">來源：Supabase Cloud Settings</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div><div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
+    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">Creator Control／Template Adoption</span><h3>🧩 系統模板管理中心</h3><p class="muted">集中管理 A／B／C Template、正式 Consumer Capability 與 Cloud Adoption State。</p></div><span class="template-management-source">來源：Supabase Cloud Settings</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div>${releaseStatusMarkup()}<div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
   }
 
   async function reloadPolicy() {

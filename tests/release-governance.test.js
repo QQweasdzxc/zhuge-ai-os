@@ -8,7 +8,7 @@ const Governance = require("../tools/release-governance.js");
 
 const ROOT = path.join(__dirname, "..");
 const VERSION = "0.9.0-alpha.9.13";
-const BUILD = "20260826-1524";
+const BUILD = JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).build;
 
 function write(root, relative, content) {
   const file = path.join(root, relative);

@@ -148,6 +148,7 @@
       id: String(row.id || ""),
       key: String(row.workspace_key || row.key || ""),
       name: String(row.name || "未命名工作區"),
+      boardInstanceId: String(row.board_instance_id || row.boardInstanceId || ""),
       applicationScope: String(row.application_scope || row.applicationScope || "ai_board"),
       ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
       sortOrder: Number(row.sort_order || 0),
@@ -234,6 +235,7 @@
       id: String(row.id || ""),
       workCode: String(row.work_code || row.workCode || ""),
       title: String(row.title || "未命名工作"),
+      boardInstanceId: String(row.board_instance_id || row.boardInstanceId || ""),
       status,
       rawStatus,
       applicationScope: String(row.application_scope || row.applicationScope || "ai_board"),
@@ -436,24 +438,33 @@
       throw error;
     }
     const gateway = options.gateway || requireGateway();
-    const applicationScope = options.applicationScope === "worktodo" ? "worktodo" : "ai_board";
+    const requestedInstanceId = String(options.boardInstanceId || "").trim() || null;
+    const applicationScope = requestedInstanceId ? null : options.applicationScope === "worktodo" ? "worktodo" : "ai_board";
     const isWorkTodo = applicationScope === "worktodo";
-    const resolver = options.engineeringMemory || isWorkTodo ? null : requireEngineeringMemoryResolver(options);
+    const isBoardInstance = Boolean(requestedInstanceId);
+    const resolver = options.engineeringMemory || isWorkTodo || isBoardInstance ? null : requireEngineeringMemoryResolver(options);
     // Reconciliation is a server-side, authenticated RPC. It uses canonical
     // timestamps and makes refresh/realtime reads converge without a browser
     // timer or local state pretending that 48 hours have elapsed.
-    if (!isWorkTodo && typeof gateway.rpc === "function") {
+    if (!isWorkTodo && !isBoardInstance && typeof gateway.rpc === "function") {
       await gateway.rpc("board_reconcile_completion_lifecycle", {});
     }
+    const scopeQuery = isBoardInstance
+      ? `board_instance_id=eq.${encodeURIComponent(requestedInstanceId)}`
+      : `application_scope=eq.${applicationScope}`;
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
-      gateway.select("board_workspaces", `?select=id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&application_scope=eq.${applicationScope}&active=eq.true&order=sort_order.asc`),
-      gateway.select("board_tasks", `?select=id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&application_scope=eq.${applicationScope}&order=created_at.asc`),
-      options.engineeringMemory || (isWorkTodo ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
+      gateway.select("board_workspaces", `?select=id,board_instance_id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&${scopeQuery}&active=eq.true&order=sort_order.asc`),
+      gateway.select("board_tasks", `?select=id,board_instance_id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&${scopeQuery}&order=created_at.asc`),
+      options.engineeringMemory || (isWorkTodo || isBoardInstance ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
     ]);
-    const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(normalizeWorkspace);
+    const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(row => normalizeWorkspace(
+      isBoardInstance && !row.application_scope && !row.applicationScope
+        ? { ...row, application_scope: "c" }
+        : row
+    ));
     const workspaceById = new Map(workspaces.map(workspace => [workspace.id, workspace]));
     let latestProgressByTask = new Map();
-    if (isWorkTodo && typeof gateway.select === "function") {
+    if ((isWorkTodo || isBoardInstance) && typeof gateway.select === "function") {
       try {
         const workTodoTaskIds = (Array.isArray(taskRows) ? taskRows : [])
           .map(row => String(row?.id || "").trim())
@@ -481,6 +492,7 @@
       const workspace = workspaceById.get(String(row.workspace_id || ""));
       return normalizeTask({
         ...row,
+        ...(isBoardInstance && !row.application_scope && !row.applicationScope ? { application_scope: "c" } : {}),
         workspace_key: workspace?.key || "",
         workspace_name: workspace?.name || "",
         latest_progress: latestProgressByTask.get(String(row.id || "")) || ""
@@ -498,7 +510,9 @@
     }));
     const principles = knowledge.filter(row => String(row.status || "").toLowerCase() === "approved").filter(isPrinciple).map(normalizePrinciple);
     const systemMaps = knowledge.filter(isSystemMap).map(normalizeSystemMap);
-    return Object.freeze({ identity, workspaces, tasks, principles, systemMaps, engineeringMemory, engineeringMemoryFailures: engineeringMemory?.failures || [], governanceMetadataAvailable: true, readOnly: false, source: isWorkTodo ? "Supabase Shared Data Gateway → WorkTodo Application Scope" : "Supabase Shared Data Gateway → Canonical Engineering Memory Resolver" });
+    const resolvedBoardInstanceId = requestedInstanceId
+      || String((taskRows || [])[0]?.board_instance_id || (workspaceRows || [])[0]?.board_instance_id || "");
+    return Object.freeze({ identity, boardInstanceId: resolvedBoardInstanceId, workspaces, tasks, principles, systemMaps, engineeringMemory, engineeringMemoryFailures: engineeringMemory?.failures || [], governanceMetadataAvailable: true, readOnly: false, source: isBoardInstance ? "Supabase Shared Data Gateway → Board Instance" : isWorkTodo ? "Supabase Shared Data Gateway → WorkTodo Application Scope" : "Supabase Shared Data Gateway → Canonical Engineering Memory Resolver" });
   }
 
   async function loadChecklist(taskId, options = {}) {
@@ -1023,6 +1037,257 @@
     return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 3600);
   }
 
+  // Template C is a registered board instance.  Keep its data wiring in this
+  // service so the shared drawer can reuse the same action/read surface while
+  // the consumer supplies only an immutable board-instance context.
+  function createInstanceService(instanceOptions = {}) {
+    const gateway = instanceOptions.gateway || requireGateway();
+    const templateKey = String(instanceOptions.templateKey || "c").trim().toLowerCase();
+    let instancePromise;
+    const resolveInstance = async () => {
+      if (!instancePromise) {
+        instancePromise = gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey }).then(value => {
+          const instance = Array.isArray(value) ? value[0] : value;
+          if (!instance?.id) {
+            const error = new Error("Canonical board instance 尚未建立。");
+            error.code = "BOARD_INSTANCE_NOT_FOUND";
+            throw error;
+          }
+          return instance;
+        });
+      }
+      return instancePromise;
+    };
+    const withGateway = options => ({ ...(options || {}), gateway });
+    const normalizeInstanceWorkspace = row => normalizeWorkspace({ ...row, application_scope: "c", applicationScope: "c" });
+    const normalizeInstanceTask = row => normalizeTask({ ...row, application_scope: "c", applicationScope: "c" });
+    const normalizeInstanceActivity = row => normalizeActivity(row);
+    const normalizeInstanceAttachment = row => normalizeTaskAttachment(row);
+
+    async function instanceLoad(options = {}) {
+      const instance = await resolveInstance();
+      return load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
+    }
+    async function instanceCreateWorkspace(name) {
+      const instance = await resolveInstance();
+      const token = typeof root.crypto?.randomUUID === "function"
+        ? root.crypto.randomUUID().replace(/-/g, "")
+        : `${Date.now()}${Math.random().toString(16).slice(2)}`;
+      const prefix = String(instance.task_code_prefix || "board").trim().toLowerCase();
+      return gateway.rpc("board_instance_create_workspace", {
+        p_board_instance_id: instance.id,
+        p_name: name,
+        p_workspace_key: `${prefix}-custom-${token}`
+      }).then(normalizeInstanceWorkspace);
+    }
+    async function instanceRenameWorkspace(workspaceId, name) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeInstanceWorkspace);
+    }
+    async function instanceDeleteWorkspace(workspaceId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_delete_workspace", { p_workspace_id: workspaceId });
+    }
+    async function instanceReorderWorkspaces(workspaceIds) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_reorder_workspaces", { p_workspace_ids: workspaceIds });
+    }
+    async function instanceMoveTaskWorkspace(taskId, workspaceId, reason = "") {
+      await resolveInstance();
+      return gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null }).then(normalizeInstanceTask);
+    }
+    async function instanceCreateTask(input = {}) {
+      const instance = await resolveInstance();
+      return gateway.rpc("board_instance_create_task", {
+        p_board_instance_id: instance.id,
+        p_title: input.title,
+        p_summary: input.summary || null,
+        p_status: input.status || "not_started",
+        p_usage_scenario: input.usageScenario || null,
+        p_workspace_id: input.workspaceId || null
+      }).then(normalizeInstanceTask);
+    }
+    async function instanceUpdateTitle(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_update_task_title", { p_task_id: input.taskId, p_title: String(input.title || "") }).then(normalizeInstanceTask);
+    }
+    async function instanceUpdateContent(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_update_task_content", {
+        p_task_id: input.taskId,
+        p_summary: input.summary == null ? null : String(input.summary),
+        p_usage_scenario: input.usageScenario == null ? null : String(input.usageScenario)
+      }).then(normalizeInstanceTask);
+    }
+    async function instanceUpdateDueDate(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_update_task_due_date", { p_task_id: input.taskId, p_due_date: input.dueDate || null }).then(normalizeInstanceTask);
+    }
+    async function instanceDeleteTask(taskId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_delete_task", { p_task_id: taskId });
+    }
+    async function instanceAddChecklist(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_add_task_checklist_item", {
+        p_task_id: input.taskId,
+        p_label: input.label,
+        p_sort_order: Number(input.sortOrder || 0)
+      }).then(normalizeTaskChecklistItem);
+    }
+    async function instanceUpdateChecklist(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_update_task_checklist_item", {
+        p_item_id: input.id,
+        p_label: input.label == null ? "" : String(input.label),
+        p_completed: Boolean(input.completed),
+        p_sort_order: Number(input.sortOrder || 0)
+      }).then(normalizeTaskChecklistItem);
+    }
+    async function instanceDeleteChecklist(itemId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_delete_task_checklist_item", { p_item_id: itemId });
+    }
+    async function instanceCreateGovernanceChecklist(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_create_governance_checklist_item", {
+        p_task_id: input.taskId,
+        p_checklist_type: input.checklistType || "task_acceptance",
+        p_stage: input.stage || "qjc",
+        p_item_key: input.itemKey,
+        p_label: input.label,
+        p_required: input.required !== false,
+        p_sort_order: Number(input.sortOrder || 0)
+      }).then(normalizeChecklistItem);
+    }
+    async function instanceUpdateGovernanceChecklist(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_update_governance_checklist_item", {
+        p_item_id: input.id,
+        p_state: input.state || "not_verified",
+        p_evidence_note: input.evidenceNote || null,
+        p_evidence_ref: input.evidenceRef || null
+      }).then(normalizeChecklistItem);
+    }
+    async function instanceAddProgress(taskId, note) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_add_progress_note", { p_task_id: taskId, p_note: note }).then(normalizeInstanceActivity);
+    }
+    async function instanceEditProgress(activityId, note) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_edit_progress_note", { p_activity_id: Number(activityId), p_note: String(note || "") }).then(normalizeInstanceActivity);
+    }
+    async function instanceDeleteProgress(activityId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_delete_progress_note", { p_activity_id: Number(activityId) }).then(normalizeInstanceActivity);
+    }
+    async function instanceSetAgreement(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_set_agreement_schedule", {
+        p_task_id: input.taskId,
+        p_mode: input.mode == null || input.mode === "" ? null : String(input.mode),
+        p_start_date: input.startDate || null,
+        p_end_date: input.endDate || null
+      }).then(normalizeInstanceTask);
+    }
+    async function instancePrepareTaskAttachment(input = {}) {
+      await resolveInstance();
+      const file = input.file;
+      if (!file || !file.name || !Number.isFinite(Number(file.size))) throw new Error("請先選擇有效附件。");
+      return gateway.rpc("board_instance_prepare_task_attachment", {
+        p_task_id: input.taskId,
+        p_filename: file.name,
+        p_mime_type: file.type || "application/octet-stream",
+        p_byte_size: Number(file.size),
+        p_activity_id: input.activityId || null
+      }).then(normalizeInstanceAttachment);
+    }
+    async function instancePrepareProgressAttachment(input = {}) {
+      await resolveInstance();
+      const file = input.file;
+      if (!file || !file.name || !Number.isFinite(Number(file.size))) throw new Error("請先選擇有效進度附件。");
+      return gateway.rpc("board_instance_prepare_progress_attachment", {
+        p_activity_id: input.activityId,
+        p_filename: file.name,
+        p_mime_type: file.type || "application/octet-stream",
+        p_byte_size: Number(file.size)
+      }).then(normalizeInstanceAttachment);
+    }
+    async function instanceCompleteAttachment(attachmentId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_complete_attachment", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
+    }
+    async function instanceDeleteAttachment(attachmentId) {
+      await resolveInstance();
+      const requested = await gateway.rpc("board_instance_request_attachment_delete", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
+      try {
+        if (typeof gateway.removeStorageObject !== "function") throw new Error("Shared Supabase Gateway 尚未支援受控附件刪除。");
+        await gateway.removeStorageObject(requested.storageBucket, requested.storagePath);
+        return gateway.rpc("board_instance_finalize_attachment_delete", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
+      } catch (error) {
+        await gateway.rpc("board_instance_cancel_attachment_delete", { p_attachment_id: attachmentId }).catch(() => {});
+        throw error;
+      }
+    }
+    async function instanceUploadAttachment(attachment, file) {
+      return uploadTaskAttachment(attachment, file, withGateway());
+    }
+    async function instanceTaskAttachmentUrl(attachment) {
+      return taskAttachmentUrl(attachment, withGateway());
+    }
+    async function instanceGovernanceAction() {
+      const error = new Error("C 母版不支援未定義的跨網域治理動作。");
+      error.code = "BOARD_INSTANCE_GOVERNANCE_ACTION_UNAVAILABLE";
+      throw error;
+    }
+    return Object.freeze({
+      applicationScope: "c",
+      templateKey,
+      resolveInstance,
+      load: instanceLoad,
+      loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),
+      loadTaskChecklist: (taskId, options) => loadTaskChecklist(taskId, withGateway(options)),
+      loadMovementHistory: (taskId, options) => loadMovementHistory(taskId, withGateway(options)),
+      loadActivity: (taskId, options) => loadActivity(taskId, withGateway(options)),
+      loadArtifacts: (task, options) => loadArtifacts(task, withGateway(options)),
+      loadTaskAttachments: (taskId, options) => loadTaskAttachments(taskId, withGateway(options)),
+      runHealthCheck: options => runHealthCheck(withGateway(options)),
+      subscribe: (callback, options) => resolveInstance().then(instance => subscribe(callback, { ...(options || {}), gateway, boardInstanceId: instance.id })),
+      normalizeStatus,
+      statusDescriptorFor,
+      completionGateStatus,
+      isArchiveTask,
+      isGovernanceTerminal,
+      createWorkspace: instanceCreateWorkspace,
+      renameWorkspace: instanceRenameWorkspace,
+      deleteWorkspace: instanceDeleteWorkspace,
+      reorderWorkspaces: instanceReorderWorkspaces,
+      moveTaskWorkspace: instanceMoveTaskWorkspace,
+      createTask: instanceCreateTask,
+      updateTaskTitle: instanceUpdateTitle,
+      updateTaskContent: instanceUpdateContent,
+      updateTaskDueDate: instanceUpdateDueDate,
+      deleteTask: instanceDeleteTask,
+      addTaskChecklistItem: instanceAddChecklist,
+      updateTaskChecklistItem: instanceUpdateChecklist,
+      deleteTaskChecklistItem: instanceDeleteChecklist,
+      createChecklistItem: instanceCreateGovernanceChecklist,
+      updateChecklistItem: instanceUpdateGovernanceChecklist,
+      addTaskProgressNote: instanceAddProgress,
+      editTaskProgressNote: instanceEditProgress,
+      deleteTaskProgressNote: instanceDeleteProgress,
+      setAgreementSchedule: instanceSetAgreement,
+      prepareTaskAttachment: instancePrepareTaskAttachment,
+      prepareProgressNoteAttachment: instancePrepareProgressAttachment,
+      uploadTaskAttachment: instanceUploadAttachment,
+      completeTaskAttachment: instanceCompleteAttachment,
+      deleteTaskAttachment: instanceDeleteAttachment,
+      deleteProgressNoteAttachment: input => instanceDeleteAttachment(input?.attachmentId || input?.id),
+      taskAttachmentUrl: instanceTaskAttachmentUrl,
+      governanceAction: instanceGovernanceAction
+    });
+  }
+
   function governanceRunnerUrl(options = {}) {
     return String(options.runnerUrl || root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765").replace(/\/$/, "");
   }
@@ -1064,11 +1329,14 @@
       error.code = "BOARD_REALTIME_UNAVAILABLE";
       throw error;
     }
-    const stopTask = await gateway.subscribe("board_tasks", callback);
+    const boardFilter = options.boardInstanceId
+      ? `board_instance_id=eq.${encodeURIComponent(String(options.boardInstanceId))}`
+      : null;
+    const stopTask = await gateway.subscribe("board_tasks", callback, boardFilter);
     const stopTaskChecklist = await gateway.subscribe("board_task_checklist_items", callback);
     const stopTaskAttachments = await gateway.subscribe("board_task_attachments", callback);
     const stopChecklist = await gateway.subscribe("engineering_checklist_items", callback);
-    const stopWorkspaces = await gateway.subscribe("board_workspaces", callback);
+    const stopWorkspaces = await gateway.subscribe("board_workspaces", callback, boardFilter);
     const stopActivity = await gateway.subscribe("engineering_activity_log", callback);
     return async () => {
       await Promise.allSettled([stopTask?.(), stopTaskChecklist?.(), stopTaskAttachments?.(), stopChecklist?.(), stopWorkspaces?.(), stopActivity?.()]);
@@ -1143,6 +1411,7 @@
     deleteTaskAttachment,
     deleteProgressNoteAttachment,
     taskAttachmentUrl,
+    createInstanceService,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     runHealthCheck,

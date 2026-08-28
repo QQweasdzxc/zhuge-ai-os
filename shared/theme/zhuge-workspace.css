@@ -219,6 +219,20 @@
   background: color-mix(in srgb, var(--zhuge-surface-raised) 70%, transparent);
   font-size: .8rem;
 }
+.zhuge-module-shell .template-management-release {
+  display: grid;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, #4ade80 34%, var(--zhuge-border));
+  border-radius: 9px;
+  color: var(--zhuge-muted);
+  background: color-mix(in srgb, #4ade80 5%, var(--zhuge-surface-raised));
+  font-size: .8rem;
+}
+.zhuge-module-shell .template-management-release > div,
+.zhuge-module-shell .template-management-release-consumer { display: grid; gap: 3px; }
+.zhuge-module-shell .template-management-release strong { color: var(--zhuge-text); }
+.zhuge-module-shell .template-management-release-consumers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .zhuge-module-shell .template-management-cards { display: grid; gap: 10px; }
 .zhuge-module-shell .template-management-card {
   min-width: 0;

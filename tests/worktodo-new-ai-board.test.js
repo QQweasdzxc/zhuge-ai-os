@@ -64,7 +64,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);
 
   assert.match(runtime, /function isWorkTodoMode\(\)/);
-  assert.match(runtime, /service\.load\(\{ applicationScope: state\.applicationScope \}\)/);
+  assert.match(runtime, /const service = activeService\(\);/);
+  assert.match(runtime, /const loadOptions = \{ applicationScope: state\.applicationScope \};/);
+  assert.match(runtime, /state\.refreshPromise = service\.load\(loadOptions\)/);
+  assert.match(runtime, /state\.applicationScope === "c" && state\.boardInstanceId/);
   assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
   assert.match(runtime, /executeSharedTaskAction\(task, "updateContent"/);
   assert.match(actionAdapters, /worktodoCreateTask/);

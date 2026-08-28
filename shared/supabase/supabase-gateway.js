@@ -196,14 +196,19 @@
       uploadStorageObject,
       createStorageSignedUrl,
       removeStorageObject,
-      subscribe: async (table, callback) => {
-        const name = `zhuge-board-${String(table || "table")}`;
+      subscribe: async (table, callback, filter = null) => {
+        const tableName = String(table || "table");
+        const normalizedFilter = typeof filter === "string" ? filter.trim() : "";
+        const filterKey = normalizedFilter.replace(/[^a-zA-Z0-9_.=-]+/g, "_");
+        const name = normalizedFilter
+          ? `zhuge-board-${tableName}-${filterKey}`
+          : `zhuge-board-${tableName}`;
         if (realtimeChannels.has(name)) return () => {};
         const client = await initializeAuthClient();
         await client.realtime.setAuth(currentAccessToken());
         const channel = client.channel(name).on(
           "postgres_changes",
-          { event: "*", schema: "public", table: String(table || "") },
+          { event: "*", schema: "public", table: tableName, ...(normalizedFilter ? { filter: normalizedFilter } : {}) },
           payload => callback?.(payload)
         );
         const status = await new Promise(resolve => {

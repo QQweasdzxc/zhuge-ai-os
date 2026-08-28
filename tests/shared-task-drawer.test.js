@@ -55,7 +55,7 @@ test("Shared Task Drawer has no domain, Cloud, authorization, or WorkLog ownersh
   const source = read("shared/components/task-drawer.js");
   assert.doesNotMatch(source, /supabase|rpc|worklog|engineering_checklist|engineering_activity/i);
   assert.match(read("shared/components/README.md"), /does not read Cloud data|不會讀取 Cloud/i);
-  assert.match(read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md"), /second consumer of the Golden Master/);
+  assert.match(read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md"), /Formal Template C AI Board and\s+WorkTodo Checklist operations use the Shared Action Contract and the Board\s+canonical data path\./);
   assert.match(source, /renderProperties/);
   assert.match(read("shared/components/README.md"), /Shared Task UX Framework v1/);
 });

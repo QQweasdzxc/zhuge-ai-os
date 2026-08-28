@@ -107,7 +107,7 @@
 
   function renderOperations(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
-    const itemLabel = options.applicationScope === "worktodo" ? "WLTK" : "TASK";
+    const itemLabel = options.applicationScope === "worktodo" ? "WLTK" : options.applicationScope === "c" ? "MDTK" : "TASK";
     return `<div class="golden-master-operations" data-golden-master-operations="true"${scope ? ` data-application-scope="${scope}"` : ""}>
 <div id="addCardModal" class="modalback" aria-hidden="true">
  <div class="modal board-create-drawer">
@@ -223,7 +223,10 @@
     const toolbar = options.toolbar || model.toolbar || {};
     const columns = Array.isArray(options.columns) ? options.columns : (Array.isArray(model.columns) ? model.columns : []);
     const drawer = options.drawer ? renderDrawer({ drawer: options.drawer, components: options.components }, deps) : "";
-    return `<section class="empty-golden-master" data-golden-master="empty" data-golden-master-data="none">${renderHeader({ ...header, components: options.components }, deps)}${renderToolbar({ ...toolbar, components: options.components })}${renderBoard({ ...options, columns, components: options.components }, deps)}${drawer ? `<div class="golden-master-drawer-host" data-golden-master-drawer-host>${drawer}</div>` : ""}</section>`;
+    const masterMode = options.mode || "empty";
+    const masterData = options.data || "none";
+    const masterClass = ["empty-golden-master", options.className || ""].filter(Boolean).join(" ");
+    return `<section class="${escapeHtml(masterClass)}" data-golden-master="${escapeHtml(masterMode)}" data-golden-master-data="${escapeHtml(masterData)}">${renderHeader({ ...header, components: options.components }, deps)}${renderToolbar({ ...toolbar, components: options.components })}${renderBoard({ ...options, columns, components: options.components }, deps)}${drawer ? `<div class="golden-master-drawer-host" data-golden-master-drawer-host>${drawer}</div>` : ""}</section>`;
   }
 
   function mount(target, options = {}) {
@@ -247,10 +250,10 @@
     if (typeof renderDrawer !== "function" || typeof drawer?.render !== "function") {
       return { ok: false, code: "SHARED_DRAWER_UNAVAILABLE" };
     }
-    if (String(consumer).toLowerCase() === "worktodo") {
+    if (["worktodo", "c_mdtk"].includes(String(consumer).toLowerCase())) {
       const contract = adapter?.sharedDrawerContract;
       if (!contract || contract.ownsDrawer !== false || contract.viewModel !== "toSharedViewModel") {
-        return { ok: false, code: "WORKTODO_DRAWER_CONTRACT_INVALID" };
+        return { ok: false, code: String(consumer).toLowerCase() === "worktodo" ? "WORKTODO_DRAWER_CONTRACT_INVALID" : "C_TEMPLATE_DRAWER_CONTRACT_INVALID" };
       }
     }
     return { ok: true, code: "SHARED_DRAWER_CONTRACT_OK" };
