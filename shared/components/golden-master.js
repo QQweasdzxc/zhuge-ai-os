@@ -102,13 +102,30 @@
   function renderHeaderActions(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
     const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
-    return `<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scope ? ` data-application-scope="${scope}"` : ""}>↻</button>`;
+    const createConsumer = options.canCreateConsumer === true
+      ? `<button class="btn board-header-action" type="button" data-golden-master-action="create-consumer" data-board-create-consumer>＋ 建立看板</button>`
+      : "";
+    return `${createConsumer}<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scope ? ` data-application-scope="${scope}"` : ""}>↻</button>`;
   }
 
   function renderOperations(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
-    const itemLabel = options.applicationScope === "worktodo" ? "WLTK" : options.applicationScope === "c" ? "MDTK" : "TASK";
+    const itemLabel = escapeHtml(options.itemLabel || (options.applicationScope === "worktodo" ? "WLTK" : options.applicationScope === "c" ? "MDTK" : "TASK"));
+    const consumerCreate = options.canCreateConsumer === true ? `
+<div id="consumerCreateModal" class="modalback" aria-hidden="true">
+ <div class="modal board-create-drawer" role="dialog" aria-modal="true" aria-labelledby="consumerCreateTitle">
+  <div class="modalhead"><h2 id="consumerCreateTitle">＋ 建立套用 C 的看板</h2><button class="x" type="button" data-consumer-create-close aria-label="關閉建立看板">×</button></div>
+  <div class="modalbody">
+   <p class="board-create-description">輸入看板名稱與看板代號，系統會建立獨立資料範圍、四個預設工作區，並自動採用目前已發布的 C 母版。</p>
+   <div class="field"><label for="consumerBoardName">看板名稱</label><input id="consumerBoardName" type="text" maxlength="80" placeholder="例如：人資工作看板" autocomplete="off"></div>
+   <div class="field"><label for="consumerBoardPrefix">看板代號</label><input id="consumerBoardPrefix" type="text" maxlength="16" placeholder="例如：HR" autocomplete="off" autocapitalize="characters"><div class="hint">請使用 2–16 碼英文字母／數字，第一碼必須是英文字母。</div></div>
+   <div id="consumerCreateStatus" class="board-create-status" role="status" aria-live="polite"></div>
+  </div>
+  <div class="modalfoot"><button class="btn" type="button" data-consumer-create-close>取消</button><button class="btn primary" type="button" data-consumer-create>建立並套用 C 母版</button><a class="btn primary" data-consumer-create-open hidden href="#">前往新看板</a></div>
+ </div>
+</div>` : "";
     return `<div class="golden-master-operations" data-golden-master-operations="true"${scope ? ` data-application-scope="${scope}"` : ""}>
+${consumerCreate}
 <div id="addCardModal" class="modalback" aria-hidden="true">
  <div class="modal board-create-drawer">
   <div class="modalhead"><h2>新增 ${itemLabel}</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 ${itemLabel}">×</button></div>

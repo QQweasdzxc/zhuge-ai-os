@@ -237,3 +237,51 @@ Unknown Product Value → STOP — ASK PM
 ```
 
 任何未經 PM 核准的 Cleanup 均不得執行。
+
+## Approved Architecture Decision Record — Post-QA Cleanup Audit
+
+本節記錄 PM 對目前 Cleanup Audit 結果的正式決策。此決策記錄不授權修改
+Frozen Runtime Candidate，也不授權重新開啟已結案 Finding。
+
+### Frozen Baseline
+
+```text
+Version: 0.9.0-alpha.9.13
+Build: 20260829-1024
+Runtime QA: DEFERRED — PM MANUAL QA
+Candidate Packaging: NOT AUTHORIZED
+```
+
+### Approved Cleanup Decisions
+
+- C Local Store：`KEEP / TEST-ONLY LEGACY FIXTURE`。它不是正式 Runtime 或
+  Source of Truth；正式 C Runtime 不得依賴它。
+- WorkLog Legacy Runtime：`KEEP / HOLD`。目前尚未證明可以安全退休；後續如
+  需處理，必須另案執行 Retirement Audit。Legacy historical data 不因本決策
+  被刪除或搬移。
+- Prototype／Alias historical references：`HOLD`。歷史引用不等於現行 Runtime
+  consumer，也不因本決策建立新的 Compatibility Layer。
+- Golden Master Consumer-specific coupling：`KEEP`。目前沒有 defect evidence，
+  不因整理目的進行重構。
+- AI Board「工程準則／系統藍圖」：`KEEP`。這是 AI Board 的 Domain 功能，與
+  Shared Board Template 分離，不視為第二套 Board Template。
+- Dashboard 過期文案：列為 `POST-QA SMALL CLEANUP`。在 PM Manual Runtime QA
+  完成前不修改 Frozen Candidate。
+- Template Publish 與 Formal Product Release：視為不同責任層，不得再次混用。
+  Module Publish／Consumer Adoption 不等同於 Product Candidate ZIP／Manifest
+  Delivery。
+
+### Source-of-Truth Boundary
+
+| Surface | Canonical source |
+| --- | --- |
+| Board UI Template | Shared Golden Master／Published C |
+| Runtime Published State | Cloud |
+| Consumer Data | 各 Consumer 的 Adapter／Domain Data |
+| `template-release.js` | Generated Release Identity Snapshot |
+| Git | Source Code Source of Truth |
+| ZIP／Manifest | Delivery Artifact |
+
+本邊界表示各層責任不同，不表示可以建立平行 Runtime、平行 Publish Architecture
+或第二套 Consumer Template。任何後續調整仍須依本文件的 Fact Check、Canonical
+Check 與 PM Value Decision 流程進行。

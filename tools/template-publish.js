@@ -33,6 +33,8 @@ const CANONICAL_TEMPLATE_FILES = [
   "shared/components/activity-classifier.js",
   "shared/components/activity-text-renderer.js",
   "shared/components/task-card-summary.js",
+  "shared/components/c-template-preview.js",
+  "shared/services/template-release-service.js",
   "shared/config/version.js"
 ];
 

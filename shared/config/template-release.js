@@ -15,29 +15,29 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260829-0536",
+  "developmentBuild": "20260830-2003",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260829-0536",
+  "publishedBuild": "20260830-2003",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260829-0536",
+  "build": "20260830-2003",
   "sourceCommit": "bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6",
   "sourceDirty": true,
-  "sourceFingerprint": "f525154203c5764159bf29dbe7c09482ef737f7b7fffc323ffbf30e381a33787",
-  "publishedAt": "2026-08-28T21:37:37.635Z",
+  "sourceFingerprint": "671721b46267abcadc353f3e55fcd1fded0f9209e21fb6b7537f23447af304a2",
+  "publishedAt": "2026-08-30T12:03:53.756Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260829-0536",
+      "build": "20260830-2003",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260829-0536",
+      "build": "20260830-2003",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260829-0536",
+      "build": "20260830-2003",
       "status": "adopted"
     }
   }

@@ -5,35 +5,134 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", boardInstanceId: "", service: defaultService, templateRelease: null, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false };
-  function templateConsumerId(scope) {
-    if (scope === "c") return "c";
+  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  function moduleConsumerId(scope) {
+    if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
     return "ai-board";
   }
-  function applyTemplateReleaseIdentity() {
-    const consumerId = templateConsumerId(state.applicationScope);
+  function unpublishedModuleRelease(consumerId) {
     const releaseApi = root.ZhugeMotherTemplateRelease;
-    const release = releaseApi?.forConsumer
-      ? releaseApi.forConsumer(consumerId)
-      : { consumerId, status: "unavailable", identityMatches: false, publishedVersion: "", publishedBuild: "" };
+    const snapshot = releaseApi?.getSnapshot?.() || {};
+    const product = releaseApi?.currentProductIdentity?.() || root.ZhugeFoundationConfig?.version || {};
+    return {
+      moduleId: state.moduleId,
+      templateId: "c",
+      consumerId,
+      status: "unpublished",
+      identityMatches: false,
+      developmentVersion: String(snapshot.developmentVersion || product.version || ""),
+      developmentBuild: String(snapshot.developmentBuild || product.build || ""),
+      publishedVersion: "",
+      publishedBuild: "",
+      templateVersion: "",
+      build: "",
+    };
+  }
+  function loadedModuleSourceIdentity() {
+    const snapshot = root.ZhugeMotherTemplateRelease?.getSnapshot?.() || {};
+    return {
+      sourceCommit: String(snapshot.sourceCommit || ""),
+      sourceFingerprint: String(snapshot.sourceFingerprint || "")
+    };
+  }
+  function applyModuleReleaseIdentity(releaseOverride, options = {}) {
+    const consumerId = moduleConsumerId(state.applicationScope);
+    const releaseApi = root.ZhugeMotherTemplateRelease;
+    const remote = options.remote === true;
+    const release = remote
+      ? (root.ZhugeModulePublishService?.forConsumer
+        ? root.ZhugeModulePublishService.forConsumer(releaseOverride, consumerId)
+        : { consumerId, status: "unavailable", identityMatches: false, publishedVersion: "", publishedBuild: "" })
+      : releaseApi?.forConsumer
+        ? releaseApi.forConsumer(consumerId)
+        : unpublishedModuleRelease(consumerId);
     state.templateRelease = release;
     const body = document.body;
     if (!body) return release;
-    body.dataset.templateId = "c";
+    const loadedSource = loadedModuleSourceIdentity();
+    const publishedSource = {
+      sourceCommit: String(release.sourceCommit || release.developmentSourceCommit || ""),
+      sourceFingerprint: String(release.sourceFingerprint || release.developmentSourceFingerprint || "")
+    };
+    const sourceComparison = remote && root.ZhugeModulePublishService?.compareSourceIdentity
+      ? root.ZhugeModulePublishService.compareSourceIdentity(loadedSource, publishedSource)
+      : { status: remote ? "unknown" : "unverified", matches: false };
+    body.dataset.moduleId = state.moduleId;
+    body.dataset.templateId = state.moduleId;
     body.dataset.templateConsumer = consumerId;
     body.dataset.templateVersion = String(release.publishedVersion || release.templateVersion || "");
     body.dataset.templateBuild = String(release.publishedBuild || release.build || "");
+    body.dataset.templateSourceCommit = publishedSource.sourceCommit;
+    body.dataset.templateSourceFingerprint = publishedSource.sourceFingerprint;
+    body.dataset.templateLoadedSourceCommit = loadedSource.sourceCommit;
+    body.dataset.templateLoadedSourceFingerprint = loadedSource.sourceFingerprint;
+    body.dataset.templatePublishedSourceCommit = publishedSource.sourceCommit;
+    body.dataset.templatePublishedSourceFingerprint = publishedSource.sourceFingerprint;
+    body.dataset.templateSourceIntegrity = sourceComparison.status;
+    body.dataset.templateIdentitySource = remote ? "cloud" : "static-development";
     body.dataset.templateAdoption = String(release.status || "unavailable");
     body.dataset.templateReleaseState = String(release.status || "unavailable");
     document.querySelectorAll("[data-golden-master], [data-golden-master-surface], [data-c-operational-motherboard]").forEach(node => {
-      node.dataset.templateId = "c";
+      node.dataset.moduleId = state.moduleId;
+      node.dataset.templateId = state.moduleId;
       node.dataset.templateConsumer = consumerId;
       node.dataset.templateVersion = body.dataset.templateVersion;
       node.dataset.templateBuild = body.dataset.templateBuild;
+      node.dataset.templateSourceCommit = body.dataset.templateSourceCommit;
+      node.dataset.templateSourceFingerprint = body.dataset.templateSourceFingerprint;
+      node.dataset.templateLoadedSourceCommit = body.dataset.templateLoadedSourceCommit;
+      node.dataset.templateLoadedSourceFingerprint = body.dataset.templateLoadedSourceFingerprint;
+      node.dataset.templatePublishedSourceCommit = body.dataset.templatePublishedSourceCommit;
+      node.dataset.templatePublishedSourceFingerprint = body.dataset.templatePublishedSourceFingerprint;
+      node.dataset.templateSourceIntegrity = body.dataset.templateSourceIntegrity;
+      node.dataset.templateIdentitySource = body.dataset.templateIdentitySource;
       node.dataset.templateAdoption = body.dataset.templateAdoption;
     });
     return release;
+  }
+  async function hydrateModuleRelease() {
+    const releaseService = root.ZhugeModulePublishService;
+    if (!releaseService?.read) return null;
+    try {
+      const persisted = await releaseService.read(state.moduleId);
+      applyModuleReleaseIdentity(persisted, { remote: true });
+      const consumerId = moduleConsumerId(state.applicationScope);
+      if (persisted && typeof releaseService.adopt === "function") {
+        try {
+          const adopted = await releaseService.adopt({ moduleId: state.moduleId, consumerId, release: persisted });
+          if (adopted) applyModuleReleaseIdentity(adopted, { remote: true });
+        } catch (_) {
+          // Adoption is a separate persistent acknowledgement. A consumer
+          // remains usable when the acknowledgement is temporarily blocked.
+        }
+      }
+      return persisted;
+    } catch (error) {
+      // The C release panel reports the user-facing error. Board boot remains
+      // available so an authenticated session can recover on the next retry.
+      return null;
+    }
+  }
+  function bindModuleReleaseUpdates() {
+    if (state.templateReleaseEventsBound || !document) return;
+    state.templateReleaseEventsBound = true;
+    document.addEventListener("zhuge-module-release-updated", event => {
+      if (event.detail?.moduleId && event.detail.moduleId !== state.moduleId) return;
+      if (event.detail?.release) applyModuleReleaseIdentity(event.detail.release, { remote: true });
+    });
+  }
+  function mountCTemplateReleasePanel() {
+    if (state.applicationScope !== "c") return;
+    root.ZhugeCanonicalCTemplatePreview?.mountBanner?.(document.getElementById("canonicalCTemplatePreview"), {
+      title: state.boardIsTemplate ? "C 唯一看板母版" : (state.boardName || "C Consumer 看板"),
+      description: state.boardIsTemplate
+        ? "MDTK canonical Cloud · 完整套用 Shared Board / Card / Drawer 操作"
+        : `${state.taskCodePrefix || "C"} canonical Cloud · 採用 Published C Shared Board / Card / Drawer 操作`,
+      consumerId: moduleConsumerId("c"),
+      consumerOnly: !state.boardIsTemplate,
+      consumerLabel: state.boardIsTemplate ? "C 母版" : (state.boardName || state.taskCodePrefix || "本看板")
+    });
   }
   function activeService() {
     return state.service || defaultService;
@@ -159,7 +258,15 @@
     return state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
   }
   function workItemLabel(task) {
-    return state.applicationScope === "c" ? "MDTK" : isWorkTodoTask(task) ? "WLTK" : "TASK";
+    return state.applicationScope === "c" ? String(state.taskCodePrefix || (state.boardIsTemplate ? "MDTK" : "C")).toUpperCase() : isWorkTodoTask(task) ? "WLTK" : "TASK";
+  }
+  function boardTaskPrefix() {
+    return workItemLabel().toLowerCase();
+  }
+  function defaultBoardWorkspaceKey() {
+    if (state.applicationScope === "worktodo") return "worktodo-todo";
+    if (state.applicationScope === "c") return `${boardTaskPrefix()}-todo`;
+    return "todo";
   }
   function workTodoStatus(task) {
     const raw = String(task?.rawStatus || task?.status || "not_started").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -218,12 +325,14 @@
   function isCompletionWorkspace(workspace) {
     const key = String(workspace?.key || "").toLowerCase();
     const name = String(workspace?.name || "").trim();
-    return key === "completed" || key === "worktodo-completed" || key === "mdtk-completed" || name === "已完成" || name === "完成";
+    return key === "completed" || key === "worktodo-completed" || key === "mdtk-completed"
+      || (state.applicationScope === "c" && key === `${boardTaskPrefix()}-completed`)
+      || name === "已完成" || name === "完成";
   }
   function isCustomWorkspace(workspace) {
     const key = String(workspace?.key || "").trim().toLowerCase();
     if (state.applicationScope === "worktodo") return key.startsWith("worktodo-custom-");
-    if (state.applicationScope === "c") return key.startsWith("mdtk-custom-");
+    if (state.applicationScope === "c") return key.startsWith(`${boardTaskPrefix()}-custom-`);
     return key === "";
   }
   function workspaceTaskCount(workspace) {
@@ -231,7 +340,7 @@
     return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
   }
   function workspaceDeleteTarget() {
-    const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "c" ? "mdtk-todo" : "todo";
+    const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "c" ? defaultBoardWorkspaceKey() : "todo";
     return state.workspaces.find(workspace => workspace.active === true && String(workspace.key || "") === targetKey) || null;
   }
   function closeWorkspaceMenus() {
@@ -247,7 +356,7 @@
     if (state.applicationScope === "c") {
       return workspace?.active === true && (
         (state.boardInstanceId && workspace?.boardInstanceId === state.boardInstanceId)
-        || String(workspace?.key || "").toLowerCase().startsWith("mdtk-")
+        || (!state.boardInstanceId && String(workspace?.key || "").toLowerCase().startsWith(`${boardTaskPrefix()}-`))
       );
     }
     // Keep the historical done/已完工 Cloud row intact but out of the active
@@ -331,7 +440,7 @@
   }
   function taskCodeNumber(task) {
     const code = String(task?.workCode || task?.work_code || "").trim();
-    const match = code.match(/^(?:TASK|WLTK|MDTK)[-_ ]?(\d+)$/i);
+    const match = code.match(/^[A-Z][A-Z0-9]{1,15}[-_ ]?(\d+)$/i);
     return match ? Number(match[1]) : null;
   }
   function sortTasksByCode(tasks) {
@@ -374,7 +483,7 @@
         boardKey: state.applicationScope === "c" ? "c-motherboard" : "ai-board",
         className: "golden-master-board",
         ariaLabel: state.applicationScope === "c"
-          ? "C 母版 MDTK 工作看板"
+          ? `${workItemLabel()} 工作看板`
           : state.applicationScope === "worktodo" ? "工作待辦工作看板" : "AI Board 工作看板",
         columns
       });
@@ -393,9 +502,7 @@
     const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
     const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
     sortTasksByCode(activeTasks).forEach(task => {
-      const fallbackKey = state.applicationScope === "c"
-        ? "mdtk-todo"
-        : state.applicationScope === "worktodo" ? "worktodo-todo" : "todo";
+      const fallbackKey = defaultBoardWorkspaceKey();
       const fallback = state.workspaces.find(workspace => workspace.key === fallbackKey);
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
       if (bucket && groups[bucket]) groups[bucket].push(task);
@@ -436,7 +543,11 @@
       searchId: "boardSearch",
       searchLabel: "搜尋 " + itemLabel + "、使用情境或工作區",
       searchPlaceholder: "⌕ 搜尋目前工作中的 " + itemLabel + "、使用情境或工作區",
-      filters: ["全部來源", "所有優先度", "所有工作區"].map(label => ({ label, disabled: true })),
+      // These controls were visible but intentionally disabled.  A formal
+      // Product control must be usable; until the generic filter contract is
+      // implemented, omit the unfinished controls rather than advertise a
+      // dead-end interaction.
+      filters: [],
       actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
       statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
@@ -456,6 +567,37 @@
     input.onkeydown = event => {
       if (event.key === "Escape") { input.value = ""; applySearch(""); }
     };
+  }
+  function syncRuntimeIdentityLabels() {
+    if (state.applicationScope !== "c") return;
+    const label = workItemLabel();
+    const addModal = document.getElementById("addCardModal");
+    const addTitle = addModal?.querySelector(".modalhead h2");
+    const addFieldLabel = addModal?.querySelector("label[for='taskTitle']");
+    const addClose = addModal?.querySelector("[data-golden-master-close='add-card']");
+    if (addTitle) addTitle.textContent = `新增 ${label}`;
+    if (addFieldLabel) addFieldLabel.textContent = `${label} 標題`;
+    if (addClose) addClose.setAttribute("aria-label", `關閉新增 ${label}`);
+    const archive = document.getElementById("archiveDrawer");
+    const archiveSearch = archive?.querySelector("#archiveSearch");
+    const archiveCount = archive?.querySelector("#archiveCount");
+    const archiveList = archive?.querySelector("#archiveTaskList");
+    if (archiveSearch) {
+      archiveSearch.placeholder = `搜尋封存 ${label}、治理原因或工作區`;
+      archiveSearch.setAttribute("aria-label", `搜尋封存 ${label}`);
+    }
+    if (archiveCount && !archive.classList.contains("is-open")) archiveCount.textContent = "";
+    if (archiveList && !archiveList.dataset.runtimeIdentitySynced) {
+      archiveList.dataset.runtimeIdentitySynced = "true";
+      archiveList.innerHTML = `<div class="board-empty">目前沒有封存 ${esc(label)}。</div>`;
+    }
+    const header = document.querySelector("[data-zhuge-shared-header='true']");
+    if (header && !state.boardIsTemplate && state.boardName) {
+      const title = header.querySelector(".zhuge-shared-header-copy h1");
+      const description = header.querySelector(".zhuge-shared-header-copy > p:last-child");
+      if (title) title.textContent = state.boardName;
+      if (description) description.textContent = `${label} · 採用 Published C 的共用看板`;
+    }
   }
   function archiveTasks() {
     const filter = String(state.archiveFilter || "all").toLowerCase();
@@ -2206,13 +2348,83 @@
       if (button) button.disabled = false;
     }
   }
+  function closeConsumerCreate() {
+    const modal = document.getElementById("consumerCreateModal");
+    if (!modal) return;
+    const drawer = modal.querySelector(".board-create-drawer");
+    modal.classList.remove("is-open");
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+    drawer?.classList.remove("is-open");
+  }
+  function openConsumerCreate() {
+    if (state.applicationScope !== "c" || !state.boardIsTemplate) return;
+    const modal = document.getElementById("consumerCreateModal");
+    if (!modal) return;
+    const drawer = modal.querySelector(".board-create-drawer");
+    modal.style.display = "grid";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    drawer?.classList.add("is-open");
+    const status = document.getElementById("consumerCreateStatus");
+    if (status) { status.textContent = ""; status.removeAttribute("data-state"); }
+    const open = document.querySelector("[data-consumer-create-open]");
+    if (open) { open.hidden = true; open.removeAttribute("href"); }
+    const button = document.querySelector("[data-consumer-create]");
+    if (button) { button.hidden = false; button.disabled = false; button.textContent = "建立並套用 C 母版"; }
+    window.setTimeout(() => document.getElementById("consumerBoardName")?.focus(), 0);
+  }
+  function consumerRuntimeHref(boardInstanceId) {
+    const current = String(root.location?.pathname || "/app/Board/template-preview/") || "/app/Board/template-preview/";
+    const url = new URL(current, root.location?.href || "http://127.0.0.1/");
+    url.search = `?templateView=board&boardInstanceId=${encodeURIComponent(String(boardInstanceId || ""))}`;
+    return `${url.pathname}${url.search}`;
+  }
+  async function createConsumer() {
+    if (state.applicationScope !== "c" || !state.boardIsTemplate) return;
+    const nameInput = document.getElementById("consumerBoardName");
+    const prefixInput = document.getElementById("consumerBoardPrefix");
+    const name = String(nameInput?.value || "").trim();
+    const prefix = String(prefixInput?.value || "").trim().toUpperCase();
+    const status = document.getElementById("consumerCreateStatus");
+    const button = document.querySelector("[data-consumer-create]");
+    if (!name) {
+      if (status) { status.textContent = "請輸入看板名稱。"; status.dataset.state = "error"; }
+      nameInput?.focus();
+      return;
+    }
+    if (!/^[A-Z][A-Z0-9]{1,15}$/.test(prefix)) {
+      if (status) { status.textContent = "看板代號需為 2–16 碼英文字母／數字，第一碼必須是英文字母。"; status.dataset.state = "error"; }
+      prefixInput?.focus();
+      return;
+    }
+    const confirmation = `建立並套用 C 母版？\n\n看板名稱：${name}\n看板代號：${prefix}\n\n系統將建立獨立資料範圍、四個預設工作區，並採用目前已發布的 C。\n不會搬移或修改 C、WorkTodo、AI Board 的資料。`;
+    if (typeof root.confirm === "function" && !root.confirm(confirmation)) return;
+    if (button) button.disabled = true;
+    if (status) { status.textContent = "正在建立看板：Cloud Provisioning 處理中…"; status.dataset.state = "loading"; }
+    try {
+      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c" });
+      const instance = result?.board_instance || result?.boardInstance || result?.instance;
+      const instanceId = String(instance?.id || result?.board_instance_id || "").trim();
+      if (!instanceId) throw new Error("Provisioning 未回傳可用的 Board Identity；未顯示成功。" );
+      if (status) { status.textContent = `已建立「${name}」；預設工作區與 Published C 已完成套用。`; status.dataset.state = "success"; }
+      const open = document.querySelector("[data-consumer-create-open]");
+      if (open) { open.href = consumerRuntimeHref(instanceId); open.hidden = false; }
+      if (button) { button.hidden = true; button.disabled = false; }
+      root.ZhugeSharedNavigation?.refresh?.({ activeBoardInstanceId: instanceId });
+    } catch (error) {
+      if (status) { status.textContent = `建立看板失敗：${error?.message || "Cloud Provisioning 未完成；未建立可用 Consumer。"}`; status.dataset.state = "error"; }
+      if (button) button.disabled = false;
+    }
+  }
   function renderBoardHeaderActions() {
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
-    actions.innerHTML = root.ZhugeGoldenMaster?.renderHeaderActions?.({ applicationScope: state.applicationScope }) || "";
+    actions.innerHTML = root.ZhugeGoldenMaster?.renderHeaderActions?.({ applicationScope: state.applicationScope, canCreateConsumer: state.boardIsTemplate }) || "";
     const defaultWorkspaceKey = state.applicationScope === "c"
-      ? "mdtk-todo"
+      ? defaultBoardWorkspaceKey()
       : state.applicationScope === "worktodo" ? "worktodo-todo" : "todo";
+    actions.querySelector("[data-board-create-consumer]")?.addEventListener("click", openConsumerCreate);
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd(defaultWorkspaceKey));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
     actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
@@ -2236,7 +2448,7 @@
       closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
       await refreshBoard({ quiet: true });
-      setBanner(state.applicationScope === "c" ? "MDTK 已建立並進入「待開始」。" : state.applicationScope === "worktodo" ? "WLTK 已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
+      setBanner(state.applicationScope === "c" ? `${esc(workItemLabel())} 已建立並進入「待開始」。` : state.applicationScope === "worktodo" ? "WLTK 已建立並進入「待開始」。" : "TASK 已建立並進入待辦，由 Co 接球。", "success");
     } catch (error) { setBanner(itemLabel + " 建立失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   async function refreshBoard(options) {
@@ -2247,7 +2459,12 @@
     const loadOptions = { applicationScope: state.applicationScope };
     if (state.applicationScope === "c" && state.boardInstanceId) loadOptions.boardInstanceId = state.boardInstanceId;
     state.refreshPromise = service.load(loadOptions).then(async result => {
+      const previousIdentity = `${state.boardName}|${state.taskCodePrefix}|${state.boardIsTemplate}|${state.consumerId}`;
       state.boardInstanceId = result.boardInstanceId || state.boardInstanceId;
+      state.boardName = String(result.boardName || state.boardName || "");
+      state.taskCodePrefix = String(result.taskCodePrefix || state.taskCodePrefix || (state.applicationScope === "c" ? "MDTK" : "")).toUpperCase();
+      state.boardIsTemplate = state.applicationScope === "c" && (result.isTemplateInstance === true || (!state.boardInstanceId && !result.consumerId));
+      state.consumerId = String(result.consumerId || state.consumerId || moduleConsumerId(state.applicationScope));
       state.workspaces = result.workspaces || [];
       state.tasks = result.tasks;
       state.principles = result.principles;
@@ -2256,9 +2473,17 @@
       state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
+      if (state.applicationScope === "c" && previousIdentity !== `${state.boardName}|${state.taskCodePrefix}|${state.boardIsTemplate}|${state.consumerId}`) {
+        renderGoldenMasterToolbar();
+        wireSearch();
+        renderBoardHeaderActions();
+        mountCTemplateReleasePanel();
+      }
+      syncRuntimeIdentityLabels();
       renderTasks(visibleTasks());
       if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
       setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
+      root.ZhugeSharedNavigation?.refresh?.({ activeBoardInstanceId: state.boardInstanceId });
       if (result.engineeringMemoryFailures?.length) {
         const failures = result.engineeringMemoryFailures.map(item => `${esc(item.knowledgeCode || "Engineering Principle")} | ${esc(item.reason)}`).join("；");
         setBanner("Canonical Retrieval Failed：" + failures + "。未使用舊文件或舊 Context fallback。", "error");
@@ -2294,7 +2519,7 @@
     }).catch(error => setBanner("Realtime 尚未連線：" + esc(error && error.message || "未知錯誤") + "。Refresh 可作為暫時 Recovery。", "error"));
   }
   function enableBoardActions() {
-    root.ZhugeGoldenMaster?.mountOperations?.(document.body, { applicationScope: state.applicationScope });
+    root.ZhugeGoldenMaster?.mountOperations?.(document.body, { applicationScope: state.applicationScope, itemLabel: workItemLabel(), canCreateConsumer: state.boardIsTemplate });
     renderBoardHeaderActions();
     wireArchiveControls();
     document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
@@ -2305,6 +2530,17 @@
     document.querySelector("#addCardModal .x")?.addEventListener("click", closeQuickAdd);
     document.querySelector("#addCardModal .modalfoot .btn:not(.primary)")?.addEventListener("click", closeQuickAdd);
     document.querySelector("[data-golden-master-create-card]")?.addEventListener("click", createCard);
+    document.querySelectorAll("[data-consumer-create-close]").forEach(button => button.addEventListener("click", closeConsumerCreate));
+    document.querySelector("[data-consumer-create]")?.addEventListener("click", createConsumer);
+    document.getElementById("consumerBoardPrefix")?.addEventListener("input", event => {
+      event.target.value = String(event.target.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    });
+    document.getElementById("consumerBoardName")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); document.getElementById("consumerBoardPrefix")?.focus(); }
+    });
+    document.getElementById("consumerBoardPrefix")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); createConsumer(); }
+    });
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
   }
   function queryParameter(name) {
@@ -2319,14 +2555,25 @@
     state.applicationScope = cTemplate
       ? "c"
       : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
+    state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
+    const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
+    state.boardInstanceId = requestedBoardInstanceId;
+    state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
+    state.consumerId = state.applicationScope === "c"
+      ? (state.boardIsTemplate ? "c" : requestedBoardInstanceId)
+      : moduleConsumerId(state.applicationScope);
+    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : "";
+    state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : "";
     state.service = options.service || (state.applicationScope === "c"
-      ? defaultService.createInstanceService({ templateKey: "c" })
+      ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId })
       : defaultService);
     if (state.applicationScope !== "worktodo" && state.applicationScope !== "c") {
       mountCreatorMfaSettings(accessContext);
     }
     renderGoldenMasterToolbar();
-    applyTemplateReleaseIdentity();
+    applyModuleReleaseIdentity();
+    bindModuleReleaseUpdates();
+    mountCTemplateReleasePanel();
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
@@ -2345,6 +2592,7 @@
       const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
       nav?.click();
     } else showBoardView("board");
+    hydrateModuleRelease();
     refreshBoard().then(initRealtime).catch(() => {});
   }
 

@@ -420,6 +420,68 @@
     return gateway;
   }
 
+  function normalizeBoardInstance(row = {}) {
+    return Object.freeze({
+      id: String(row.id || ""),
+      name: String(row.name || ""),
+      taskCodePrefix: String(row.task_code_prefix || row.taskCodePrefix || ""),
+      templateKey: String(row.template_key || row.templateKey || ""),
+      authorizationMode: String(row.authorization_mode || row.authorizationMode || ""),
+      ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
+      legacyApplicationScope: String(row.legacy_application_scope || row.legacyApplicationScope || ""),
+      isTemplateInstance: row.is_template_instance === true || row.isTemplateInstance === true,
+      active: row.active !== false,
+      createdAt: row.created_at || row.createdAt || null,
+      updatedAt: row.updated_at || row.updatedAt || null
+    });
+  }
+
+  async function listBoardInstances(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const rows = await gateway.select(
+      "board_instances",
+      "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
+    );
+    return (Array.isArray(rows) ? rows : [])
+      .map(normalizeBoardInstance)
+      .filter(instance => (
+        instance.id &&
+        instance.active !== false &&
+        instance.isTemplateInstance !== true &&
+        !instance.legacyApplicationScope &&
+        instance.templateKey === "c"
+      ));
+  }
+
+  async function listModuleConsumers(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const requestedTemplateKey = String(options.templateKey || "c").trim() || "c";
+    const templateKey = encodeURIComponent(requestedTemplateKey);
+    const rows = await gateway.select(
+      "board_instances",
+      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
+    );
+    return (Array.isArray(rows) ? rows : [])
+      .map(row => {
+        const instance = normalizeBoardInstance(row);
+        const legacyScope = instance.legacyApplicationScope.replace(/_/g, "-");
+        const consumerId = instance.isTemplateInstance ? "c" : legacyScope || instance.id;
+        return Object.freeze({
+          ...instance,
+          consumerId,
+          consumerLabel: instance.isTemplateInstance
+            ? "C 母版"
+            : instance.name || instance.taskCodePrefix || consumerId,
+        });
+      })
+      .filter(instance => (
+        instance.id &&
+        instance.active !== false &&
+        instance.templateKey === requestedTemplateKey &&
+        instance.consumerId
+      ));
+  }
+
   function requireEngineeringMemoryResolver(options = {}) {
     const resolver = options.memoryResolver || root.ZhugeEngineeringMemory;
     if (!resolver || typeof resolver.resolveCurrentCanonical !== "function") {
@@ -1043,11 +1105,18 @@
   function createInstanceService(instanceOptions = {}) {
     const gateway = instanceOptions.gateway || requireGateway();
     const templateKey = String(instanceOptions.templateKey || "c").trim().toLowerCase();
+    const requestedBoardInstanceId = String(instanceOptions.boardInstanceId || "").trim();
+    const requestedConsumerId = String(instanceOptions.consumerId || requestedBoardInstanceId || "c").trim();
     let instancePromise;
     const resolveInstance = async () => {
       if (!instancePromise) {
-        instancePromise = gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey }).then(value => {
-          const instance = Array.isArray(value) ? value[0] : value;
+        instancePromise = (requestedBoardInstanceId
+          ? gateway.select("board_instances", `?select=*&id=eq.${encodeURIComponent(requestedBoardInstanceId)}&active=eq.true`)
+          : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
+        ).then(value => {
+          const instance = requestedBoardInstanceId
+            ? (Array.isArray(value) ? value[0] : value)
+            : (Array.isArray(value) ? value[0] : value);
           if (!instance?.id) {
             const error = new Error("Canonical board instance 尚未建立。");
             error.code = "BOARD_INSTANCE_NOT_FOUND";
@@ -1066,7 +1135,16 @@
 
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
-      return load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
+      const result = await load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
+      return Object.freeze({
+        ...result,
+        boardName: String(instance.name || ""),
+        taskCodePrefix: String(instance.task_code_prefix || ""),
+        templateKey: String(instance.template_key || templateKey),
+        authorizationMode: String(instance.authorization_mode || ""),
+        isTemplateInstance: instance.is_template_instance === true,
+        consumerId: requestedConsumerId
+      });
     }
     async function instanceCreateWorkspace(name) {
       const instance = await resolveInstance();
@@ -1243,6 +1321,8 @@
     return Object.freeze({
       applicationScope: "c",
       templateKey,
+      consumerId: requestedConsumerId,
+      boardInstanceId: requestedBoardInstanceId,
       resolveInstance,
       load: instanceLoad,
       loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),
@@ -1285,6 +1365,15 @@
       deleteProgressNoteAttachment: input => instanceDeleteAttachment(input?.attachmentId || input?.id),
       taskAttachmentUrl: instanceTaskAttachmentUrl,
       governanceAction: instanceGovernanceAction
+    });
+  }
+
+  async function provisionConsumer(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_provision_consumer", {
+      p_name: String(input.name || "").trim(),
+      p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
+      p_template_key: String(input.templateKey || "c").trim().toLowerCase()
     });
   }
 
@@ -1365,7 +1454,10 @@
     isSystemMap,
     normalizePrinciple,
     normalizeSystemMap,
+    normalizeBoardInstance,
     load,
+    listBoardInstances,
+    listModuleConsumers,
     reconcileCompletionLifecycle,
     loadChecklist,
     loadTaskChecklist,
@@ -1412,6 +1504,7 @@
     deleteProgressNoteAttachment,
     taskAttachmentUrl,
     createInstanceService,
+    provisionConsumer,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     runHealthCheck,

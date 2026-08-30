@@ -17,9 +17,9 @@ This Phase 3 publish uses the following synchronized release identity:
 
 ```text
 Version: 0.9.0-alpha.9.13
-Build: 20260829-0536
+Build: 20260829-1024
 Git Commit: bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6
-Package Time: 2026-08-29T05:36:53+08:00 (Asia/Taipei)
+Package Time: 2026-08-29T10:24:53+08:00 (Asia/Taipei)
 ```
 
 For a new formal Publish/Candidate package, capture one Package Time in
