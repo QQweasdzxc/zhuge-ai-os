@@ -125,3 +125,21 @@ test("Specific Task Claim rejects non-Co actors before any Cloud request", async
     /actor Co/
   );
 });
+
+test("QJC reconciliation requires the GPT actor and is dry-run by default", async () => {
+  const result = await Tool.reconcileQjcToCoReady({
+    functionUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+  }, {
+    task: "TASK-055",
+    actor: "GPT",
+    "idempotency-key": "qjc-reconcile-001"
+  });
+  assert.deepEqual(result, {
+    dryRun: true,
+    service: "https://example.supabase.co/functions/v1/engineering-transition",
+    operation: "reconcile_qjc_to_co_ready",
+    actor: "GPT",
+    task: "TASK-055",
+    idempotencyKey: "qjc-reconcile-001"
+  });
+});
