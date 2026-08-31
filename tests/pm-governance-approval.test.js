@@ -69,6 +69,13 @@ test("action manifest is immutable and mirrors the existing governance operation
   const parsed = action();
   assert.equal(Object.isFrozen(parsed), true);
   assert.equal(parsed.operation, "create_task_contract");
+  const completeCreate = action({
+    payload: {
+      ...action().payload,
+      acceptance_criteria: "C Mother Template 與 Consumer 1 對 1 比對後顯示 100% MATCH。"
+    }
+  });
+  assert.equal(completeCreate.payload.acceptance_criteria, "C Mother Template 與 Consumer 1 對 1 比對後顯示 100% MATCH。");
   assert.throws(() => Runner.normalizeActionManifest({ operation: "set_pm_baseline", payload: {} }), /allowlisted/);
   assert.throws(() => Runner.normalizeActionManifest({ operation: "create_task_contract", payload: { title: "x", unknown: true } }), /not allowlisted/);
   assert.throws(() => Runner.normalizeActionManifest({ operation: "create_task_contract", payload: { title: "x", authorization_token: "bad" } }), /not an allowed action field/);

@@ -47,7 +47,7 @@ const OPERATION_LABELS = Object.freeze({
   set_pm_accepted_baseline: "登記 PM Accepted Baseline"
 });
 const PAYLOAD_FIELDS = Object.freeze({
-  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority"]),
+  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria"]),
   update_task_contract: new Set([
     "task_id", "title", "summary", "usage_scenario", "priority", "domain", "category",
     "problem", "objective", "proposed_solution", "related_work", "acceptance_criteria",

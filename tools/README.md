@@ -132,7 +132,7 @@ Governance writes require two separate capabilities:
    `governance-write` actor token from the protected broker.
 
 The Edge Function accepts only `governance_write`, and the database executor
-allowlists `create_task_contract`, `update_task_contract`, `update_checkpoint`,
+allowlists `create_task_contract` (including its complete `acceptance_criteria`), `update_task_contract`, `update_checkpoint`,
 `register_artifact`, and the bounded `create_engineering_principle` operation.
 The executor rechecks
 the PM authorization, payload binding, expiry, single-use state, actor label,

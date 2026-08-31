@@ -72,3 +72,15 @@ test("governance broker token has no privileged database claims", () => {
   assert.equal(payload.role, undefined);
   assert.equal(payload.service_role, undefined);
 });
+
+test("the task create acceptance-criteria migration extends only the governed create contract", () => {
+  const migration = fs.readFileSync(path.join(root, "docs/supabase/20260831_create_task_acceptance_criteria.sql"), "utf8");
+  assert.match(migration, /board_create_task\(\s*text,\s*text,\s*text,\s*text,\s*text,\s*text,\s*uuid,\s*text\s*\)/i);
+  assert.match(migration, /acceptance_criteria/);
+  assert.match(migration, /where name not in \('title', 'summary', 'usage_scenario', 'priority', 'acceptance_criteria'\)/i);
+  assert.match(migration, /p_acceptance_criteria\s*=>\s*payload->>'acceptance_criteria'/i);
+  assert.match(migration, /revoke all on function public\.board_create_task\(text, text, text, text, text, text, uuid, text\) from public, anon/i);
+  assert.match(migration, /grant execute on function public\.board_create_task\(text, text, text, text, text, text, uuid, text\) to authenticated, service_role/i);
+  assert.doesNotMatch(migration, /alter table public\.board_tasks/i);
+  assert.doesNotMatch(migration, /drop policy|create policy|enable row level security/i);
+});
