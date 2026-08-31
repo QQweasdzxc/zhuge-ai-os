@@ -65,3 +65,36 @@ test("EP-039 enforces direct Shared Golden Master runtime use for formal Board c
   assert.match(read("modules/worklog/index.html"), /shared\/api\/data-service\.js/);
   assert.doesNotMatch(worktodo, /modules\/worklog\/worklog-app\.js/);
 });
+
+test("C Mother Template, AI Board, and WorkTodo share one Board/Card/Drawer runtime contract", () => {
+  const pages = [
+    read("app/Board/template-preview/index.html"),
+    read("app/Board/ai/index.html"),
+    read("app/Board/worktodo/index.html")
+  ];
+  const sharedAssets = [
+    "shared/components/task-card.js",
+    "shared/components/task-drawer.js",
+    "shared/components/task-board.js",
+    "shared/components/golden-master.js",
+    "shared/components/golden-master-runtime.js"
+  ];
+  for (const page of pages) {
+    assert.match(page, /data-golden-master-surface/);
+    assert.doesNotMatch(page, /<style[\s>]/i);
+    assert.doesNotMatch(page, /onclick\s*=/i);
+    for (const asset of sharedAssets) assert.match(page, new RegExp(asset.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const board = read("shared/components/task-board.js");
+  const card = read("shared/components/task-card.js");
+  const drawer = read("shared/components/task-drawer.js");
+  assert.match(runtime, /acceptTaskByCardDrop/);
+  assert.match(runtime, /executeSharedTaskAction\(task, "updateGovernanceChecklist"/);
+  assert.match(runtime, /state\.applicationScope === "ai_board" && isPmTurn\(task\) && isCompletionWorkspace\(target\)/);
+  assert.doesNotMatch(board, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
+  assert.doesNotMatch(card, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
+  assert.doesNotMatch(drawer, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
+  assert.doesNotMatch(read("app/Board/template-preview/index.html"), /c-mtdk-store\.js/);
+});

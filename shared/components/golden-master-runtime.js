@@ -825,6 +825,10 @@
       return;
     }
     const current = state.workspaceById.get(String(task.workspaceId || ""));
+    if (state.applicationScope === "ai_board" && isPmTurn(task) && isCompletionWorkspace(target)) {
+      await acceptTaskByCardDrop(task, current, target);
+      return;
+    }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
     try {
       await executeSharedTaskAction(task, "moveWorkspace", { workspaceId: target.id, reason: "QJC workspace movement" }, { refresh: false, reopen: false });
@@ -837,6 +841,26 @@
       setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。" + lifecycleMessage + "工作區現在代表這張 TASK 的責任階段；治理紀錄已保留。", "success");
     } catch (error) {
       setBanner("工作區移動失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次移動；原資料未變更。" : "正式 Cloud 未接受這次移動；原資料未變更。")), "error");
+    }
+  }
+
+  async function acceptTaskByCardDrop(task, current, target) {
+    const fromLabel = current?.name || task.workspaceName || "QJC驗證";
+    const targetLabel = target?.name || "已完成";
+    setBanner("正在以卡片拖曳執行 PM Acceptance PASS…", "loading");
+    try {
+      const items = await activeService().loadChecklist(task.id);
+      const item = (Array.isArray(items) ? items : []).find(isPmAcceptanceItem);
+      if (!item) throw new Error("正式 PM Acceptance Record 尚未建立，未執行完成。");
+      await executeSharedTaskAction(task, "updateGovernanceChecklist", {
+        id: item.id,
+        state: "pass",
+        evidenceNote: `PM Acceptance PASS（卡片拖曳：${fromLabel} → ${targetLabel}）`
+      }, { refresh: false, reopen: false });
+      await refreshBoard({ quiet: true });
+      setBanner("已透過卡片拖曳完成 PM Acceptance PASS；Cloud Lifecycle／Audit 已同步。", "success");
+    } catch (error) {
+      setBanner("PM Acceptance 拖曳驗收失敗：" + esc(error?.message || "正式 Cloud 未接受；原資料未變更。"), "error");
     }
   }
 
