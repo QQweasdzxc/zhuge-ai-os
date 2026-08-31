@@ -1313,7 +1313,10 @@
     return `<div class="shared-task-checklist-list" data-task-checklist>${list}<small class="shared-task-checklist-note">這是一般工作 Checklist，用來記錄還剩什麼要做；不會改變工程狀態或 PM Acceptance。</small>${add}</div>`;
   }
   function isRegressionEvidence(item) {
-    const identity = `${item?.checklistType || ""} ${item?.itemKey || ""} ${item?.label || ""} ${item?.evidenceNote || ""} ${item?.evidenceRef || ""}`.toLowerCase();
+    // Classify by the checklist record itself. Evidence text may mention
+    // regression while documenting a GPT Review, but that must not move the
+    // review record into the separate Regression gate.
+    const identity = `${item?.checklistType || ""} ${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
     return String(item?.checklistType || "").toLowerCase() === "batch_regression"
       || /regression|回歸|回归/.test(identity);
   }
