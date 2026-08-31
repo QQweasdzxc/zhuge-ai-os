@@ -40,12 +40,12 @@ filename. The full-precision Package Time remains release provenance metadata.
 
 ## Candidate packaging governance
 
-The root `version.json.build` is the only Candidate Build Identity source after
+The root `version.json.build` is the only Runtime Build Identity source after
 the new Package Time has been recorded. Runtime configuration, module
 manifests, Runtime UI identity, and literal HTML/JS/CSS cache-busters must
-match it exactly. The `YYYYMMDD-HHmm` Build is derived from the captured
-Asia/Taipei Package Time; the full-precision time is retained as provenance
-metadata and is never independently substituted for the Build.
+match it exactly. Candidate filenames use the actual Artifact Created At in
+`Asia/Taipei`, formatted as `YYYYMMDD-HHmm`; that timestamp is separate from
+the Runtime Build and is retained in the Candidate Manifest.
 
 Use the controlled tool path for Candidate packaging:
 
@@ -59,7 +59,7 @@ node tools/release-governance.js package \
 ```
 
 The tool creates a temporary ZIP under `dist/`, derives its filename from the
-root Build Identity, creates a sidecar Candidate Manifest, runs the
+actual Artifact Created At, creates a sidecar Candidate Manifest, runs the
 Post-Packaging Gate from the ZIP itself, and only then copies the ZIP and
 Manifest to the formal PM delivery directory:
 

@@ -67,16 +67,16 @@ test("normal identity passes the Pre-Packaging Gate", () => {
   assert.equal(gate.version, VERSION);
 });
 
-test("ZIP Build different from Source Build fails the Post-Packaging Gate", () => {
+test("ZIP Artifact Created At different from Manifest fails the Post-Packaging Gate", () => {
   const root = fixture();
   try {
     const outputDir = path.join(root, "dist");
     const result = Governance.packageCandidate({ root, outputDir, description: "Identity-Test", regression: passRegression() });
-    const wrongZip = path.join(outputDir, `20260826-1443_Zhuge_AI_OS-v${VERSION}-Identity-Test-FullSource-Candidate.zip`);
+    const wrongZip = path.join(outputDir, `20260101-0000_Zhuge_AI_OS-v${VERSION}-Identity-Test-FullSource-Candidate.zip`);
     fs.copyFileSync(result.zipFile, wrongZip);
     assert.throws(
       () => Governance.validateCandidate({ root, zipFile: wrongZip, manifestFile: result.manifestFile }),
-      error => /ZIP filename Build\/Version contract mismatch/.test(error.message)
+      error => /ZIP filename Artifact Created At\/Version contract mismatch/.test(error.message)
     );
   } finally {
     cleanup(root);
@@ -107,10 +107,16 @@ test("module Build different from root Build fails the Pre-Packaging Gate", () =
   }
 });
 
-test("packaging timestamp never becomes the Candidate filename identity", () => {
-  const filename = Governance.candidateFilename({ build: BUILD, version: VERSION, description: "Timestamp-Test" });
-  assert.match(filename, new RegExp(`^${BUILD}_Zhuge_AI_OS-v`));
-  assert.doesNotMatch(filename, /20260826-1443/);
+test("Artifact Created At, not Runtime Build, is the Candidate filename identity", () => {
+  const createdAt = new Date("2026-08-26T06:43:00.000Z");
+  const filename = Governance.candidateFilename({
+    build: BUILD,
+    version: VERSION,
+    description: "Timestamp-Test",
+    artifactCreatedAt: createdAt
+  });
+  assert.match(filename, /^20260826-1443_Zhuge_AI_OS-v/);
+  assert.doesNotMatch(filename, new RegExp(`^${BUILD}_`));
 });
 
 test("temporary dist output is not a formal PM delivery", () => {

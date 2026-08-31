@@ -284,7 +284,11 @@ function runGit(root, args) {
   }
 }
 
-function formatArtifactCreatedAt(date = new Date()) {
+function artifactTaipeiParts(date = new Date()) {
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    fail("Invalid Artifact Created At", { artifactCreatedAt: date });
+  }
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei",
     year: "numeric",
@@ -294,27 +298,42 @@ function formatArtifactCreatedAt(date = new Date()) {
     minute: "2-digit",
     second: "2-digit",
     hourCycle: "h23"
-  }).formatToParts(date).map(part => [part.type, part.value]));
+  }).formatToParts(parsedDate).map(part => [part.type, part.value]));
+  return parts;
+}
+
+function formatArtifactCreatedAt(date = new Date()) {
+  const parts = artifactTaipeiParts(date);
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}+08:00`;
 }
 
-function candidateFilename({ build, version, description }) {
-  if (!BUILD_PATTERN.test(build)) fail(`Invalid Build ID for Candidate filename: ${build}`);
+function formatArtifactFilenameTimestamp(date = new Date()) {
+  const parts = artifactTaipeiParts(date);
+  return `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`;
+}
+
+function candidateFilename({ build, version, description, artifactCreatedAt }) {
+  if (!BUILD_PATTERN.test(build)) fail(`Invalid Runtime Build ID for Candidate manifest: ${build}`);
   if (!VERSION_PATTERN.test(version)) fail(`Invalid Version for Candidate filename: ${version}`);
+  if (artifactCreatedAt === undefined || artifactCreatedAt === null) {
+    fail("Artifact Created At is required for Candidate filename.");
+  }
   const cleanDescription = String(description || "").trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(cleanDescription)) {
     fail("Candidate description must contain only ASCII letters, numbers, and hyphens.", { description });
   }
-  return `${build}_Zhuge_AI_OS-v${version}-${cleanDescription}-FullSource-Candidate.zip`;
+  const artifactTimestamp = formatArtifactFilenameTimestamp(artifactCreatedAt);
+  return `${artifactTimestamp}_Zhuge_AI_OS-v${version}-${cleanDescription}-FullSource-Candidate.zip`;
 }
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function candidateFilenameParts(filename, { build, version }) {
+function candidateFilenameParts(filename, { version, artifactCreatedAt }) {
+  const artifactTimestamp = formatArtifactFilenameTimestamp(artifactCreatedAt);
   const pattern = new RegExp(
-    `^${escapeRegExp(build)}_Zhuge_AI_OS-v${escapeRegExp(version)}-([A-Za-z0-9][A-Za-z0-9-]*)-FullSource-Candidate\\.zip$`
+    `^${escapeRegExp(artifactTimestamp)}_Zhuge_AI_OS-v${escapeRegExp(version)}-([A-Za-z0-9][A-Za-z0-9-]*)-FullSource-Candidate\\.zip$`
   );
   return path.basename(filename).match(pattern);
 }
@@ -414,6 +433,19 @@ function validateManifest(manifest, zipFile, identity, archiveValidation, expect
   if (manifest.prePackagingGate !== "PASS") mismatches.push("manifest prePackagingGate is not PASS");
   if (manifest.postPackagingGate !== "PASS") mismatches.push("manifest postPackagingGate is not PASS");
   if (!manifest.artifactCreatedAt) mismatches.push("manifest artifactCreatedAt is missing");
+  if (manifest.artifactCreatedAtTimezone !== "Asia/Taipei") {
+    mismatches.push("manifest artifactCreatedAtTimezone must be Asia/Taipei");
+  }
+  if (manifest.artifactCreatedAt) {
+    try {
+      const expectedTimestamp = formatArtifactFilenameTimestamp(manifest.artifactCreatedAt);
+      if (!expectedFilename.startsWith(`${expectedTimestamp}_`)) {
+        mismatches.push("manifest artifactCreatedAt timestamp differs from ZIP filename");
+      }
+    } catch (error) {
+      mismatches.push(`manifest artifactCreatedAt is invalid: ${error.message}`);
+    }
+  }
   if (mismatches.length) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest mismatch", { mismatches });
   return Object.freeze({ status: "PASS", manifest: manifestFilename(expectedFilename) });
 }
@@ -422,20 +454,28 @@ function validateCandidate({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const resolvedRoot = path.resolve(root);
   const identitySnapshot = readIdentitySnapshot(resolvedRoot);
   const preGate = assertSourceIdentity(identitySnapshot);
-  const filenameParts = candidateFilenameParts(path.basename(zipFile), preGate);
+  if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest is missing", { manifestFile });
+  const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
+  const filenameParts = candidateFilenameParts(path.basename(zipFile), {
+    version: preGate.version,
+    artifactCreatedAt: manifest.artifactCreatedAt
+  });
   const expectedName = filenameParts
-    ? candidateFilename({ build: preGate.build, version: preGate.version, description: filenameParts[1] })
+    ? candidateFilename({
+      build: preGate.build,
+      version: preGate.version,
+      description: filenameParts[1],
+      artifactCreatedAt: manifest.artifactCreatedAt
+    })
     : null;
   if (path.basename(zipFile) !== expectedName) {
-    fail("POST-PACKAGING GATE = FAIL: ZIP filename Build/Version contract mismatch", {
-      expectedPrefix: `${preGate.build}_Zhuge_AI_OS-v${preGate.version}-`,
+    fail("POST-PACKAGING GATE = FAIL: ZIP filename Artifact Created At/Version contract mismatch", {
+      expectedPrefix: `${formatArtifactFilenameTimestamp(manifest.artifactCreatedAt)}_Zhuge_AI_OS-v${preGate.version}-`,
       actual: path.basename(zipFile)
     });
   }
   const expectedManifest = sourceManifest(resolvedRoot);
   const archiveValidation = validateArchive(resolvedRoot, zipFile, expectedManifest, preGate);
-  if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest is missing", { manifestFile });
-  const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
   const expectedGitBaselineCommit = runGit(resolvedRoot, ["rev-parse", "HEAD"]);
   const manifestValidation = validateManifest(manifest, zipFile, preGate, archiveValidation, expectedGitBaselineCommit);
   return Object.freeze({ prePackagingGate: preGate, postPackagingGate: { ...archiveValidation, ...manifestValidation } });
@@ -530,7 +570,13 @@ function packageCandidate({
   const snapshot = readIdentitySnapshot(resolvedRoot);
   const preGate = assertSourceIdentity(snapshot);
   const sourceFiles = sourceManifest(resolvedRoot);
-  const filename = candidateFilename({ build: preGate.build, version: preGate.version, description });
+  const artifactCreatedAt = formatArtifactCreatedAt(createdAt);
+  const filename = candidateFilename({
+    build: preGate.build,
+    version: preGate.version,
+    description,
+    artifactCreatedAt
+  });
   const zipFile = path.join(resolvedOutput, filename);
   const manifestFile = path.join(resolvedOutput, manifestFilename(filename));
   if (fs.existsSync(zipFile) || fs.existsSync(manifestFile)) {
@@ -542,7 +588,6 @@ function packageCandidate({
   const artifactStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-artifact-stage-"));
   const stagedZipFile = path.join(artifactStageRoot, filename);
   const stagedManifestFile = path.join(artifactStageRoot, manifestFilename(filename));
-  const artifactCreatedAt = formatArtifactCreatedAt(createdAt);
   try {
     copySource(resolvedRoot, sourceStageRoot, sourceFiles.map(item => item.path));
     execFileSync("zip", ["-qr", stagedZipFile, "."], { cwd: sourceStageRoot, stdio: ["ignore", "pipe", "pipe"] });
@@ -710,6 +755,7 @@ module.exports = {
   sourceManifestDigest,
   candidateFilename,
   candidateFilenameParts,
+  formatArtifactFilenameTimestamp,
   manifestFilename,
   validateManifest,
   assertRegressionEvidence,
