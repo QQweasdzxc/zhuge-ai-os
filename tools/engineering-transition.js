@@ -32,6 +32,8 @@ function usage(message = "") {
     "    --task TASK-001 --actor Co --idempotency-key co-specific-20260901-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reconcile-qjc-to-co-ready \\",
     "    --task TASK-001 --actor GPT --idempotency-key qjc-reconcile-20260901-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js engineering-review \\",
+    "    --task TASK-001 --actor GPT --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reclaim-expired-claim \\",
     "    --task TASK-001 --expired-claim-token <EXPIRED_CLAIM_TOKEN> --actor Co \\",
     "    --idempotency-key co-reclaim-20260831-001 --lease-seconds 900 --confirm",
@@ -194,6 +196,19 @@ async function reconcileQjcToCoReady(config, args) {
   return requestTool(config, payload);
 }
 
+async function engineeringReview(config, args) {
+  if (!args.task || args.actor !== "GPT") {
+    throw new Error("--task and --actor GPT are required for engineering-review.");
+  }
+  const payload = {
+    operation: "engineering_review",
+    actor: "GPT",
+    task: args.task
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
 async function reclaimExpiredClaim(config, args) {
   if (!args.task || !args["expired-claim-token"] || args.actor !== "Co" || !args["idempotency-key"]) {
     throw new Error("--task, --expired-claim-token, --idempotency-key and --actor Co are required for reclaim-expired-claim.");
@@ -297,7 +312,7 @@ async function checklist(config, args) {
 
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition", "checklist", "claim", "claim-specific-task", "reconcile-qjc-to-co-ready", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-specific-task, reconcile-qjc-to-co-ready, reclaim-expired-claim, renew-claim or release-claim.");
+  if (!["inspect", "transition", "checklist", "claim", "claim-specific-task", "reconcile-qjc-to-co-ready", "engineering-review", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-specific-task, reconcile-qjc-to-co-ready, engineering-review, reclaim-expired-claim, renew-claim or release-claim.");
   const config = configFromEnvironment();
   const result = args.command === "inspect"
     ? await inspect(config, args)
@@ -311,6 +326,8 @@ async function main(argv = process.argv.slice(2)) {
           ? await claimSpecificTask(config, args)
           : args.command === "reconcile-qjc-to-co-ready"
             ? await reconcileQjcToCoReady(config, args)
+          : args.command === "engineering-review"
+            ? await engineeringReview(config, args)
           : args.command === "reclaim-expired-claim"
             ? await reclaimExpiredClaim(config, args)
           : args.command === "renew-claim"
@@ -323,4 +340,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, reconcileQjcToCoReady, reclaimExpiredClaim };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, reconcileQjcToCoReady, engineeringReview, reclaimExpiredClaim };

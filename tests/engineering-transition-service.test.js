@@ -143,3 +143,19 @@ test("QJC reconciliation requires the GPT actor and is dry-run by default", asyn
     idempotencyKey: "qjc-reconcile-001"
   });
 });
+
+test("Engineering Review requires the GPT actor and is dry-run by default", async () => {
+  const result = await Tool.engineeringReview({
+    functionUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+  }, {
+    task: "TASK-055",
+    actor: "GPT"
+  });
+  assert.deepEqual(result, {
+    dryRun: true,
+    service: "https://example.supabase.co/functions/v1/engineering-transition",
+    operation: "engineering_review",
+    actor: "GPT",
+    task: "TASK-055"
+  });
+});

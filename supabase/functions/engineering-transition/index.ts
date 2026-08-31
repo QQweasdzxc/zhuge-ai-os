@@ -321,6 +321,25 @@ Deno.serve(async (requestValue) => {
       return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
     }
 
+    if (operation === "engineering_review") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may complete Engineering Review.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const task = await findTask(cfg, String(body.task || ""));
+      const result = await request(cfg, "rpc/board_orchestrate_engineering_review", {
+        method: "POST",
+        body: JSON.stringify({
+          p_task_id: task.id,
+          p_actor_label: "GPT"
+        })
+      });
+      const updatedTask = await findTask(cfg, String(body.task));
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
     if (operation === "reclaim_expired_claim") {
       if (actorToken.profile !== "transition" || actorToken.actor !== "Co") {
         throw new AuthenticationError("Only the signed Co actor may reclaim an expired TASK Claim.", 403);
@@ -460,7 +479,7 @@ Deno.serve(async (requestValue) => {
       const updated = await findChecklistItem(cfg, task.id, itemKey);
       return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
     }
-    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_specific_task, reconcile_qjc_to_co_ready, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_specific_task, reconcile_qjc_to_co_ready, engineering_review, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;
