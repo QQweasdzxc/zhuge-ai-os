@@ -47,7 +47,8 @@
     const release = state.templateRelease;
     const status = String(release?.status || "unavailable").trim().toLowerCase();
     const sourceIntegrity = String(document.body?.dataset?.templateSourceIntegrity || "unknown").trim().toLowerCase();
-    if (state.applicationScope === "c" || !release?.publishedVersion || !release?.publishedBuild || status === "unpublished") {
+    const isMotherTemplate = state.applicationScope === "c" && state.boardIsTemplate;
+    if (isMotherTemplate || !release?.publishedVersion || !release?.publishedBuild || status === "unpublished") {
       return { hidden: true };
     }
     const adoption = release.adoption || null;
@@ -56,12 +57,23 @@
     const integrityBlocked = sourceIntegrity === "mismatch";
     const adoptionFailed = Boolean(state.templateAdoptionError);
     const failed = status === "failed" || status === "error" || integrityBlocked || adoptionFailed;
-    const adopted = status === "adopted" && release.identityMatches !== false && !integrityBlocked;
-    if (adopted) return { hidden: true };
+    const adopted = status === "adopted" && release.identityMatches !== false && !integrityBlocked && !adoptionFailed;
+    if (adopted) {
+      return {
+        hidden: false,
+        state: "synced",
+        title: "C 母版已同步",
+        current: releaseVersionLabel(currentVersion, currentBuild),
+        latest: releaseVersionLabel(release.publishedVersion, release.publishedBuild),
+        detail: "目前採用版本與 Published C 相同，已完成 Cloud Read-back。",
+        showAdoptAction: false,
+        actionLabel: "已同步",
+      };
+    }
     return {
       hidden: false,
       state: failed ? "error" : "update",
-      title: failed ? "C 母版更新暫停" : "C 母版有新版可採用",
+      title: failed ? "C 母版更新暫停" : "有新版 C 母版可採用",
       current: releaseVersionLabel(currentVersion, currentBuild),
       latest: releaseVersionLabel(release.publishedVersion, release.publishedBuild),
       detail: integrityBlocked
@@ -90,7 +102,7 @@
     const releaseService = root.ZhugeModulePublishService;
     const release = state.templateRelease;
     const consumerId = moduleConsumerId(state.applicationScope);
-    if (state.applicationScope === "c" || !releaseService?.adopt || !release || state.templateAdoptionBusy) return;
+    if (state.boardIsTemplate || !releaseService?.adopt || !release || state.templateAdoptionBusy) return;
     if (document.body?.dataset?.templateSourceIntegrity === "mismatch") {
       state.templateAdoptionError = "程式碼來源與 Published C 不一致，未執行採用。";
       renderModuleReleaseNotice();
@@ -127,13 +139,22 @@
     if (model.hidden) {
       host.hidden = true;
       host.replaceChildren();
+      host.removeAttribute("data-template-release-state");
+      host.removeAttribute("data-template-current-version");
+      host.removeAttribute("data-template-latest-version");
       return;
     }
     host.hidden = false;
+    host.dataset.templateReleaseState = model.state;
+    host.dataset.templateCurrentVersion = model.current;
+    host.dataset.templateLatestVersion = model.latest;
+    const action = model.showAdoptAction === false
+      ? `<span class="template-release-notice-state" data-template-release-synced>${esc(model.actionLabel || "已同步")}</span>`
+      : `<button class="btn template-release-notice-action" type="button" data-template-adopt${model.buttonDisabled ? " disabled aria-disabled=\"true\"" : ""}>${esc(model.buttonLabel)}</button>`;
     host.innerHTML = `<section class="template-release-notice is-${esc(model.state)}" data-module-release-notice data-state="${esc(model.state)}" role="status" aria-live="polite">
       <span class="template-release-notice-icon" aria-hidden="true">${model.state === "error" ? "!" : "↻"}</span>
       <div class="template-release-notice-copy"><strong>${esc(model.title)}</strong><span>目前採用：${esc(model.current)}　·　最新 Published C：${esc(model.latest)}</span><small>${esc(model.detail)}${errorMessage}</small></div>
-      <button class="btn template-release-notice-action" type="button" data-template-adopt${model.buttonDisabled ? " disabled aria-disabled=\"true\"" : ""}>${esc(model.buttonLabel)}</button>
+      ${action}
     </section>`;
     host.querySelector("[data-template-adopt]")?.addEventListener("click", adoptCurrentModuleRelease, { once: true });
   }
@@ -173,6 +194,10 @@
     body.dataset.templatePublishedSourceFingerprint = publishedSource.sourceFingerprint;
     body.dataset.templateSourceIntegrity = sourceComparison.status;
     body.dataset.templateIdentitySource = remote ? "cloud" : "static-development";
+    body.dataset.templateAdoptedVersion = String(release.adoption?.moduleVersion || release.adoption?.templateVersion || "");
+    body.dataset.templateAdoptedBuild = String(release.adoption?.build || "");
+    body.dataset.templatePublishedVersion = String(release.publishedVersion || "");
+    body.dataset.templatePublishedBuild = String(release.publishedBuild || "");
     body.dataset.templateAdoption = String(release.status || "unavailable");
     body.dataset.templateReleaseState = String(release.status || "unavailable");
     document.querySelectorAll("[data-golden-master], [data-golden-master-surface], [data-c-operational-motherboard]").forEach(node => {
@@ -189,6 +214,10 @@
       node.dataset.templatePublishedSourceFingerprint = body.dataset.templatePublishedSourceFingerprint;
       node.dataset.templateSourceIntegrity = body.dataset.templateSourceIntegrity;
       node.dataset.templateIdentitySource = body.dataset.templateIdentitySource;
+      node.dataset.templateAdoptedVersion = body.dataset.templateAdoptedVersion;
+      node.dataset.templateAdoptedBuild = body.dataset.templateAdoptedBuild;
+      node.dataset.templatePublishedVersion = body.dataset.templatePublishedVersion;
+      node.dataset.templatePublishedBuild = body.dataset.templatePublishedBuild;
       node.dataset.templateAdoption = body.dataset.templateAdoption;
       node.dataset.templateReleaseState = body.dataset.templateReleaseState;
     });

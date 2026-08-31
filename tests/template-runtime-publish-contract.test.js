@@ -120,7 +120,13 @@ test("formal consumers load the same shared module publish service", () => {
   assert.match(runtime, /templateReleaseEventsBound/);
   assert.match(runtime, /releaseService\.adopt/);
   assert.match(runtime, /data-template-adopt/);
-  assert.match(runtime, /C 母版有新版可採用/);
+  assert.match(runtime, /有新版 C 母版可採用/);
+  assert.match(runtime, /C 母版已同步/);
+  assert.match(runtime, /data-template-release-synced/);
+  assert.match(runtime, /data-template-current-version/);
+  assert.match(runtime, /data-template-latest-version/);
+  assert.match(runtime, /state\.applicationScope === "c" && state\.boardIsTemplate/);
+  assert.match(runtime, /if \(state\.boardIsTemplate \|\| !releaseService\?\.adopt/);
   assert.match(runtime, /visibilitychange/);
   assert.match(read("shared/services/template-release-service.js"), /BroadcastChannel/);
   assert.match(runtime, /templateSourceFingerprint/);
