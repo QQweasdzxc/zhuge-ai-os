@@ -1345,7 +1345,7 @@
 
   function acceptanceCriteriaMarkup(task) {
     const criteria = acceptanceCriteriaItems(task);
-    if (!criteria.length) return `<div class="pm-acceptance-criteria-missing"><strong>尚未提供正式 Acceptance Criteria</strong><span>目前没有可供 PM 逐项操作驗證的 Canonical 驗收項目；因此不可盲勾 PM Acceptance。</span></div>`;
+    if (!criteria.length) return `<div class="pm-acceptance-criteria-missing" data-pm-acceptance-criteria-state="missing"><strong>正式 Acceptance Criteria 尚未提供</strong><span>Cloud 尚未提供逐項驗收標準；此處不會建立第二套驗收機制。PM 仍透過既有 PM Acceptance 入口輸入實際驗收 Evidence，由既有 Cloud Gate 決定是否接受。</span></div>`;
     return `<div class="pm-acceptance-criteria"><strong>PM Acceptance Criteria（PM 實際要驗證）</strong><ol>${criteria.map(item => `<li>${esc(item)}</li>`).join("")}</ol></div>`;
   }
 
@@ -1366,15 +1366,9 @@
 
   function pmAcceptanceMarkup(item, archiveOnly, task, verification) {
     if (archiveOnly || !isPmTurn(task)) return "";
-    const criteria = acceptanceCriteriaItems(task);
     if (verification?.failed?.length) return pmAttentionMarkup(item, task, verification);
     if (!verification?.ready) return "";
-    if (!item || !criteria.length) {
-      return pmAttentionMarkup(item, task, verification, !item
-        ? "正式 PM Acceptance Record 尚未建立。"
-        : "這張 TASK 尚未提供正式 Acceptance Criteria。"
-      );
-    }
+    if (!item) return pmAttentionMarkup(item, task, verification, "正式 PM Acceptance Record 尚未建立。");
     if (item.state === "pass") return "";
     const state = stateLabels[item.state] || item.state || "尚未驗證";
     return `<div class="pm-acceptance-panel" data-pm-action="acceptance"><div class="pm-acceptance-context"><strong>現在需要你操作 PM QA</strong><span>工程驗證已完成；請依下列項目完成實機驗證，再做最後決定。</span></div>${acceptanceCriteriaMarkup(task)}<div class="pm-acceptance-action" data-pm-acceptance-id="${esc(item.id)}"><span class="pm-acceptance-state">目前 Acceptance 狀態：${esc(state)}</span><div class="pm-acceptance-support"><button class="btn primary" type="button" data-pm-accept="${esc(item.id)}">驗收通過</button><button class="btn" type="button" data-pm-reject="${esc(item.id)}">退回修改</button></div></div></div>`;
@@ -1504,7 +1498,7 @@
     return `${completed} / ${rows.length}`;
   }
   function taskChecklistPanelMarkup() {
-    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
+    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 一般工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
   }
   function attachmentMarkup(attachments, artifacts, error, archiveOnly, options = {}) {
     // Progress-note attachments belong beside their Human Progress Note in
