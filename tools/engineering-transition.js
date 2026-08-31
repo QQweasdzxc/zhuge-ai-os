@@ -28,6 +28,8 @@ function usage(message = "") {
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim \\",
     "    --board-instance-id <AI_BOARD_INSTANCE_ID> --actor Co \\",
     "    --idempotency-key co-claim-20260831-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-specific-task \\",
+    "    --task TASK-001 --actor Co --idempotency-key co-specific-20260901-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reclaim-expired-claim \\",
     "    --task TASK-001 --expired-claim-token <EXPIRED_CLAIM_TOKEN> --actor Co \\",
     "    --idempotency-key co-reclaim-20260831-001 --lease-seconds 900 --confirm",
@@ -159,6 +161,22 @@ async function claim(config, args) {
   return requestTool(config, payload);
 }
 
+async function claimSpecificTask(config, args) {
+  if (!args.task || args.actor !== "Co") {
+    throw new Error("--task and --actor Co are required for claim-specific-task.");
+  }
+  const payload = {
+    operation: "claim_specific_task",
+    actor: "Co",
+    task: args.task,
+    idempotencyKey: args["idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
 async function reclaimExpiredClaim(config, args) {
   if (!args.task || !args["expired-claim-token"] || args.actor !== "Co" || !args["idempotency-key"]) {
     throw new Error("--task, --expired-claim-token, --idempotency-key and --actor Co are required for reclaim-expired-claim.");
@@ -262,7 +280,7 @@ async function checklist(config, args) {
 
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition", "checklist", "claim", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, reclaim-expired-claim, renew-claim or release-claim.");
+  if (!["inspect", "transition", "checklist", "claim", "claim-specific-task", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-specific-task, reclaim-expired-claim, renew-claim or release-claim.");
   const config = configFromEnvironment();
   const result = args.command === "inspect"
     ? await inspect(config, args)
@@ -272,6 +290,8 @@ async function main(argv = process.argv.slice(2)) {
         ? await checklist(config, args)
         : args.command === "claim"
           ? await claim(config, args)
+          : args.command === "claim-specific-task"
+            ? await claimSpecificTask(config, args)
           : args.command === "reclaim-expired-claim"
             ? await reclaimExpiredClaim(config, args)
           : args.command === "renew-claim"
@@ -284,4 +304,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, reclaimExpiredClaim };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, reclaimExpiredClaim };

@@ -278,6 +278,28 @@ Deno.serve(async (requestValue) => {
       return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
     }
 
+    if (operation === "claim_specific_task") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "Co") {
+        throw new AuthenticationError("Only the signed Co actor may use Specific Task Claim.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const task = await findTask(cfg, String(body.task || ""));
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+      const result = await request(cfg, "rpc/board_claim_specific_task", {
+        method: "POST",
+        body: JSON.stringify({
+          p_task_id: task.id,
+          p_idempotency_key: idempotencyKey,
+          p_actor_label: "Co",
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      const updatedTask = await findTask(cfg, String(body.task));
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
     if (operation === "reclaim_expired_claim") {
       if (actorToken.profile !== "transition" || actorToken.actor !== "Co") {
         throw new AuthenticationError("Only the signed Co actor may reclaim an expired TASK Claim.", 403);
@@ -417,7 +439,7 @@ Deno.serve(async (requestValue) => {
       const updated = await findChecklistItem(cfg, task.id, itemKey);
       return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
     }
-    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_specific_task, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;

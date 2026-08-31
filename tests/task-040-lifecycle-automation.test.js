@@ -6,6 +6,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const migration = fs.readFileSync(path.join(root, "docs/supabase/20260831_task_040_minimal_lifecycle_orchestration.sql"), "utf8");
 const reclaimMigration = fs.readFileSync(path.join(root, "docs/supabase/20260831_task_040_expired_claim_reclaim.sql"), "utf8");
+const specificClaimMigration = fs.readFileSync(path.join(root, "docs/supabase/20260901_task_040_specific_task_claim.sql"), "utf8");
 const edgeFunction = fs.readFileSync(path.join(root, "supabase/functions/engineering-transition/index.ts"), "utf8");
 const tool = fs.readFileSync(path.join(root, "tools/engineering-transition.js"), "utf8");
 
@@ -50,13 +51,38 @@ test("TASK-040 expired Claim reclaim is targeted, generic and auditable", () => 
   assert.match(reclaimMigration, /after_data\s*->>\s*'claim_id'/i);
 });
 
+test("TASK-040 Specific Task Claim is additive, guarded, idempotent and auditable", () => {
+  for (const fragment of [
+    "board_claim_specific_task",
+    "p_task_id",
+    "p_idempotency_key",
+    "p_actor_label text default 'Co'",
+    "p_lease_seconds integer default 900",
+    "auth.role()",
+    "v_task.status <> 'ready'",
+    "v_task.assignee <> 'Co'",
+    "v_task.workspace_id is distinct from v_co_workspace.id",
+    "TASK already has an active Cloud Claim",
+    "pg_advisory_xact_lock",
+    "task_claimed_specific",
+    "co_specific_claim",
+    "revoke all on function public.board_claim_specific_task",
+    "grant execute on function public.board_claim_specific_task"
+  ]) assert.match(specificClaimMigration, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(specificClaimMigration, /insert\s+into\s+public\.board_tasks/i);
+  assert.doesNotMatch(specificClaimMigration, /delete\s+from\s+public\./i);
+  assert.match(specificClaimMigration, /for update[\s\S]*active Cloud Claim/i);
+});
+
 test("TASK-040 Edge Function exposes controlled claim and truthful handoff operations", () => {
   for (const fragment of [
     'operation === "claim"',
+    'operation === "claim_specific_task"',
     'operation === "reclaim_expired_claim"',
     'operation === "renew_claim"',
     'operation === "release_claim"',
     'rpc/board_claim_next_task',
+    'rpc/board_claim_specific_task',
     'rpc/board_reclaim_expired_task',
     'rpc/board_orchestrate_developer_qa',
     'expiredClaimToken',
@@ -68,6 +94,7 @@ test("TASK-040 Edge Function exposes controlled claim and truthful handoff opera
 
 test("TASK-040 tool routes Co ready work through Claim", () => {
   assert.match(tool, /claim|reclaim-expired-claim|renew-claim|release-claim/);
+  assert.match(tool, /claim-specific-task|claim_specific_task/);
   assert.match(tool, /reclaim_expired_claim/);
   assert.match(tool, /Co ready -> inprogress requires board_claim_next_task/);
   assert.doesNotMatch(tool, /ready:\s*Object\.freeze\(\{\s*inprogress:\s*"Co"/);

@@ -94,3 +94,34 @@ test("expired Claim reclaim requires an explicit target and is dry-run by defaul
     leaseSeconds: 900
   });
 });
+
+test("Specific Task Claim requires an explicit Co target and is dry-run by default", async () => {
+  const result = await Tool.claimSpecificTask({
+    functionUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+  }, {
+    task: "TASK-058",
+    actor: "Co",
+    "idempotency-key": "co-specific-001",
+    "lease-seconds": "900"
+  });
+  assert.deepEqual(result, {
+    dryRun: true,
+    service: "https://example.supabase.co/functions/v1/engineering-transition",
+    operation: "claim_specific_task",
+    actor: "Co",
+    task: "TASK-058",
+    idempotencyKey: "co-specific-001",
+    leaseSeconds: 900
+  });
+});
+
+test("Specific Task Claim rejects non-Co actors before any Cloud request", async () => {
+  await assert.rejects(
+    Tool.claimSpecificTask({ functionUrl: "https://example.supabase.co/functions/v1/engineering-transition" }, {
+      task: "TASK-058",
+      actor: "GPT",
+      "idempotency-key": "gpt-specific-001"
+    }),
+    /actor Co/
+  );
+});
