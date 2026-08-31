@@ -13,6 +13,9 @@ test("C runtime exposes the shared persistent module publish action", () => {
   assert.match(cComponent, /data-module-publish/);
   assert.match(cComponent, /ZhugeModulePublishService/);
   assert.match(cComponent, /service\.publish\(/);
+  assert.match(cComponent, /data-module-adopt/);
+  assert.match(cComponent, /service\.adopt\(/);
+  assert.match(cComponent, /Cloud Read-back PASS/);
   assert.match(cComponent, /zhuge-module-release-updated/);
   assert.match(cComponent, /WorkTodo \/ AI Board 等待重新載入新版/);
   assert.match(cComponent, /data-module-publish-progress/);
@@ -116,6 +119,10 @@ test("formal consumers load the same shared module publish service", () => {
   assert.match(runtime, /hydrateModuleRelease/);
   assert.match(runtime, /templateReleaseEventsBound/);
   assert.match(runtime, /releaseService\.adopt/);
+  assert.match(runtime, /data-template-adopt/);
+  assert.match(runtime, /C 母版有新版可採用/);
+  assert.match(runtime, /visibilitychange/);
+  assert.match(read("shared/services/template-release-service.js"), /BroadcastChannel/);
   assert.match(runtime, /templateSourceFingerprint/);
   assert.match(runtime, /templateSourceCommit/);
   assert.match(runtime, /templateLoadedSourceFingerprint/);

@@ -357,6 +357,8 @@ function normalizeTask(item = {}) {
     gptExecutionPrinciples: String(item.gptExecutionPrinciples || item.gpt_execution_principles || "").trim(),
     gptHandoffSummary: String(item.gptHandoffSummary || item.gpt_handoff_summary || "").trim(),
     dueDate: String(item.dueDate || item.deadline || item.due_date || "").slice(0, 10),
+    agreementStartDate: String(item.agreementStartDate || item.agreement_start_date || "").slice(0, 10),
+    agreementEndDate: String(item.agreementEndDate || item.agreement_end_date || "").slice(0, 10),
     status,
     progress: status === "completed" ? 100 : taskProgressValue(item.progress),
     priority,
@@ -1067,13 +1069,20 @@ const WORKTODO_BOARD_COLUMNS = Object.freeze([
 
 function workTodoBoardItems() {
   const search = taskSearch.trim().toLowerCase();
-  return tasks
+  const filtered = tasks
     .filter(task => taskFilter === "archived" ? Boolean(task.archivedAt) : !task.archivedAt)
-    .filter(task => !search || `${task.workCode} ${task.title} ${task.note} ${task.usageScenario}`.toLowerCase().includes(search))
-    .sort((a, b) => {
-      const statusOrder = TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(a.status, a)) - TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(b.status, b));
-      return statusOrder || String(a.workCode || a.id).localeCompare(String(b.workCode || b.id), "en", { numeric: true });
+    .filter(task => !search || `${task.workCode} ${task.title} ${task.note} ${task.usageScenario}`.toLowerCase().includes(search));
+  const ordering = typeof ZhugeWorkTodoOrdering !== "undefined" ? ZhugeWorkTodoOrdering : null;
+  if (ordering?.sortTasks) {
+    return ordering.sortTasks(filtered, {
+      workspaceForTask: task => normalizeTaskStatus(task.status, task),
+      journalsForTask: task => workJournalForTask(task)
     });
+  }
+  return filtered.sort((a, b) => {
+    const statusOrder = TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(a.status, a)) - TASK_WORKFLOW_STATUSES.indexOf(normalizeTaskStatus(b.status, b));
+    return statusOrder || String(a.workCode || a.id).localeCompare(String(b.workCode || b.id), "en", { numeric: true });
+  });
 }
 
 function workTodoBoardCard(task, readOnly = false) {
@@ -4254,7 +4263,7 @@ function sync() {
   const templateManagementMarkup = typeof ZhugeTemplateManagementCenter !== "undefined"
     ? ZhugeTemplateManagementCenter.render()
     : `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-status">Template Management Center 尚未載入。</div></section>`;
-  return `<section class="panel control-center"><div class="panel-head"><div><h2>🔗 控制台</h2><div class="muted">集中查看系統狀態，並進入工程管理功能。</div></div></div><h3 class="dashboard-section-label">系統狀態</h3><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}<section class="control-center-entries" aria-labelledby="control-center-entry-title"><div class="control-center-entry-heading"><div><h3 id="control-center-entry-title">管理功能</h3><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}${templateManagementMarkup}</div></section></section>`;
+  return `<section class="panel control-center" aria-label="控制台內容"><div class="control-center-layout"><section class="control-center-status-column" aria-labelledby="control-center-status-title"><h2 id="control-center-status-title" class="dashboard-section-label">系統狀態</h2><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section><section class="control-center-management-column" aria-labelledby="control-center-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="control-center-entry-title">管理功能</h2><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}${templateManagementMarkup}</div></div></section></div></section>`;
 }
 
 function nextKnowledgeId() {

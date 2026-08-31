@@ -2,10 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Tool = require("../tools/engineering-transition.js");
 
-test("controlled transition permits the approved Co handoff", () => {
-  assert.doesNotThrow(() => Tool.validateTransition({
+test("controlled transition requires Cloud Claim for Co ready handoff", () => {
+  assert.throws(() => Tool.validateTransition({
     actor: "Co", currentStatus: "ready", targetStatus: "inprogress", targetAssignee: "Co"
-  }));
+  }), /board_claim_next_task/);
 });
 
 test("controlled transition permits Co to hand GPT", () => {
@@ -64,4 +64,33 @@ test("actor token is required and service key is not read by the tool", () => {
 test("argument parser requires explicit confirmation for writes", () => {
   assert.equal(Tool.parseArgs(["transition", "--task", "TASK-001", "--actor", "Co"]).confirm, undefined);
   assert.equal(Tool.parseArgs(["transition", "--confirm"]).confirm, true);
+});
+
+test("claim contract validates bounded idempotency and lease values", () => {
+  assert.equal(Tool.boundedIdempotencyKey("co-claim-001"), "co-claim-001");
+  assert.equal(Tool.boundedLeaseSeconds("900"), 900);
+  assert.throws(() => Tool.boundedIdempotencyKey("short"), /idempotency-key/);
+  assert.throws(() => Tool.boundedLeaseSeconds("30"), /lease-seconds/);
+});
+
+test("expired Claim reclaim requires an explicit target and is dry-run by default", async () => {
+  const result = await Tool.reclaimExpiredClaim({
+    functionUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+  }, {
+    task: "TASK-055",
+    actor: "Co",
+    "expired-claim-token": "00000000-0000-0000-0000-000000000001",
+    "idempotency-key": "co-reclaim-001",
+    "lease-seconds": "900"
+  });
+  assert.deepEqual(result, {
+    dryRun: true,
+    service: "https://example.supabase.co/functions/v1/engineering-transition",
+    operation: "reclaim_expired_claim",
+    actor: "Co",
+    task: "TASK-055",
+    expiredClaimTokenProvided: true,
+    idempotencyKey: "co-reclaim-001",
+    leaseSeconds: 900
+  });
 });

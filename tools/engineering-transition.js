@@ -13,7 +13,6 @@ const ALLOWED_STATUSES = new Set(["ready", "inprogress", "qa", "done"]);
 const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS = Object.freeze({
   Co: Object.freeze({
-    ready: Object.freeze({ inprogress: "Co" }),
     inprogress: Object.freeze({ ready: "Co", qa: "GPT" }),
     qa: Object.freeze({ inprogress: "Co" })
   }),
@@ -26,17 +25,29 @@ function usage(message = "") {
   if (message) console.error(`Error: ${message}`);
   console.error([
     "Usage:",
-    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js transition \\",
-    "    --task TASK-001 --target-status inprogress --target-assignee Co \\",
-    "    --actor Co --expected-status ready --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim \\",
+    "    --board-instance-id <AI_BOARD_INSTANCE_ID> --actor Co \\",
+    "    --idempotency-key co-claim-20260831-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reclaim-expired-claim \\",
+    "    --task TASK-001 --expired-claim-token <EXPIRED_CLAIM_TOKEN> --actor Co \\",
+    "    --idempotency-key co-reclaim-20260831-001 --lease-seconds 900 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js renew-claim \\",
+    "    --claim-token <CLAIM_TOKEN> --lease-seconds 900 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js release-claim \\",
+    "    --claim-token <CLAIM_TOKEN> --reason 'blocked by external dependency' --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js inspect --task TASK-001",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js transition \\",
+    "    --task TASK-001 --target-status qa --target-assignee GPT \\",
+    "    --actor Co --expected-status inprogress --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js checklist \\",
     "    --task TASK-001 --item-key developer-qa --state pass --actor Co \\",
-    "    --evidence-note 'Developer QA evidence' --evidence-ref 'commit:...' --confirm",
+    "    --evidence-note 'Developer QA evidence' --evidence-ref 'commit:...' \\",
+    "    --claim-token <CLAIM_TOKEN> --idempotency-key dev-qa-20260831-001 --confirm",
     "",
     "Actors: Co, GPT (QJC uses the authenticated UI path).",
     "Status: ready, inprogress, qa, done.",
-    "--confirm is required for a write; without it transition is dry-run only."
+    "Co ready -> inprogress must use claim; --confirm is required for a write.",
+    "Without --confirm, write commands are dry-run only."
   ].join("\n"));
   process.exitCode = message ? 1 : 0;
 }
@@ -72,6 +83,9 @@ function validateTransition({ actor, currentStatus, targetStatus, targetAssignee
   if (!ALLOWED_ACTORS.has(actor)) throw new Error(`Unsupported AI actor: ${actor || "(empty)"}`);
   if (!ALLOWED_STATUSES.has(currentStatus)) throw new Error(`Unsupported current status: ${currentStatus || "(empty)"}`);
   if (!ALLOWED_STATUSES.has(targetStatus)) throw new Error(`Unsupported target status: ${targetStatus || "(empty)"}`);
+  if (actor === "Co" && currentStatus === "ready" && targetStatus === "inprogress" && targetAssignee === "Co") {
+    throw new Error("Co ready -> inprogress requires board_claim_next_task");
+  }
   const allowedAssignee = TRANSITIONS[actor]?.[currentStatus]?.[targetStatus];
   if (!allowedAssignee || allowedAssignee !== targetAssignee) {
     throw new Error(`Transition is not allowed for ${actor}: ${currentStatus} -> ${targetStatus} / ${targetAssignee}`);
@@ -113,6 +127,93 @@ async function inspect(config, args) {
   return requestTool(config, { operation: "inspect", task: args.task });
 }
 
+function boundedIdempotencyKey(value) {
+  const key = String(value || "").trim();
+  if (key.length < 8 || key.length > 200) {
+    throw new Error("--idempotency-key must be between 8 and 200 characters.");
+  }
+  return key;
+}
+
+function boundedLeaseSeconds(value = 900) {
+  const lease = Number(value);
+  if (!Number.isInteger(lease) || lease < 60 || lease > 86400) {
+    throw new Error("--lease-seconds must be an integer between 60 and 86400.");
+  }
+  return lease;
+}
+
+async function claim(config, args) {
+  if (!args["board-instance-id"] || args.actor !== "Co") {
+    throw new Error("--board-instance-id and --actor Co are required for claim.");
+  }
+  const payload = {
+    operation: "claim",
+    actor: "Co",
+    boardInstanceId: args["board-instance-id"],
+    idempotencyKey: args["idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
+async function reclaimExpiredClaim(config, args) {
+  if (!args.task || !args["expired-claim-token"] || args.actor !== "Co" || !args["idempotency-key"]) {
+    throw new Error("--task, --expired-claim-token, --idempotency-key and --actor Co are required for reclaim-expired-claim.");
+  }
+  const payload = {
+    operation: "reclaim_expired_claim",
+    actor: "Co",
+    task: args.task,
+    expiredClaimToken: args["expired-claim-token"],
+    idempotencyKey: boundedIdempotencyKey(args["idempotency-key"]),
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) {
+    return {
+      dryRun: true,
+      service: config.functionUrl,
+      operation: payload.operation,
+      actor: payload.actor,
+      task: payload.task,
+      expiredClaimTokenProvided: true,
+      idempotencyKey: payload.idempotencyKey,
+      leaseSeconds: payload.leaseSeconds
+    };
+  }
+  return requestTool(config, payload);
+}
+
+async function renewClaim(config, args) {
+  if (!args["claim-token"] || args.actor !== "Co") {
+    throw new Error("--claim-token and --actor Co are required for renew-claim.");
+  }
+  const payload = {
+    operation: "renew_claim",
+    actor: "Co",
+    claimToken: args["claim-token"],
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
+async function releaseClaim(config, args) {
+  if (!args["claim-token"] || args.actor !== "Co") {
+    throw new Error("--claim-token and --actor Co are required for release-claim.");
+  }
+  const payload = {
+    operation: "release_claim",
+    actor: "Co",
+    claimToken: args["claim-token"],
+    reason: args.reason || null
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
 async function transition(config, args) {
   if (!args.task || !args.actor || !args["target-status"] || !args["target-assignee"]) {
     throw new Error("--task, --actor, --target-status and --target-assignee are required.");
@@ -148,7 +249,12 @@ async function checklist(config, args) {
     state: args.state,
     expectedState: args["expected-state"] || null,
     evidenceNote: args["evidence-note"] || "",
-    evidenceRef: args["evidence-ref"] || ""
+    evidenceRef: args["evidence-ref"] || "",
+    idempotencyKey: args["idempotency-key"] || null,
+    claimToken: args["claim-token"] || null,
+    nextClaimIdempotencyKey: args["next-claim-idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"]),
+    autoClaimNext: args["auto-claim-next"] !== "false"
   };
   if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
   return requestTool(config, payload);
@@ -156,9 +262,21 @@ async function checklist(config, args) {
 
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition", "checklist"].includes(args.command)) return usage("Command must be inspect, transition or checklist.");
+  if (!["inspect", "transition", "checklist", "claim", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, reclaim-expired-claim, renew-claim or release-claim.");
   const config = configFromEnvironment();
-  const result = args.command === "inspect" ? await inspect(config, args) : args.command === "transition" ? await transition(config, args) : await checklist(config, args);
+  const result = args.command === "inspect"
+    ? await inspect(config, args)
+    : args.command === "transition"
+      ? await transition(config, args)
+      : args.command === "checklist"
+        ? await checklist(config, args)
+        : args.command === "claim"
+          ? await claim(config, args)
+          : args.command === "reclaim-expired-claim"
+            ? await reclaimExpiredClaim(config, args)
+          : args.command === "renew-claim"
+            ? await renewClaim(config, args)
+            : await releaseClaim(config, args);
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -166,4 +284,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, parseArgs };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, reclaimExpiredClaim };

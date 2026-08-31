@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -36,6 +36,106 @@
       sourceFingerprint: String(snapshot.sourceFingerprint || "")
     };
   }
+
+  function releaseVersionLabel(version, build) {
+    const normalizedVersion = String(version || "").trim();
+    const normalizedBuild = String(build || "").trim();
+    return normalizedVersion && normalizedBuild ? `${normalizedVersion} · Build ${normalizedBuild}` : "尚未記錄";
+  }
+
+  function moduleReleaseNoticeModel() {
+    const release = state.templateRelease;
+    const status = String(release?.status || "unavailable").trim().toLowerCase();
+    const sourceIntegrity = String(document.body?.dataset?.templateSourceIntegrity || "unknown").trim().toLowerCase();
+    if (state.applicationScope === "c" || !release?.publishedVersion || !release?.publishedBuild || status === "unpublished") {
+      return { hidden: true };
+    }
+    const adoption = release.adoption || null;
+    const currentVersion = adoption?.moduleVersion || adoption?.templateVersion || "";
+    const currentBuild = adoption?.build || "";
+    const integrityBlocked = sourceIntegrity === "mismatch";
+    const adoptionFailed = Boolean(state.templateAdoptionError);
+    const failed = status === "failed" || status === "error" || integrityBlocked || adoptionFailed;
+    const adopted = status === "adopted" && release.identityMatches !== false && !integrityBlocked;
+    if (adopted) return { hidden: true };
+    return {
+      hidden: false,
+      state: failed ? "error" : "update",
+      title: failed ? "C 母版更新暫停" : "C 母版有新版可採用",
+      current: releaseVersionLabel(currentVersion, currentBuild),
+      latest: releaseVersionLabel(release.publishedVersion, release.publishedBuild),
+      detail: integrityBlocked
+        ? "目前載入的程式碼來源與 Published C 不一致，先載入相符版本後才能採用。"
+        : adoptionFailed || failed
+          ? "Cloud Adoption 回報失敗；未顯示已套用，請重新整理後再試。"
+          : "按下「採用新版 C 母版」後，系統會寫入 Cloud 並重新 Read-back。",
+      buttonLabel: failed ? "目前無法採用" : state.templateAdoptionBusy ? "正在採用…" : "採用新版 C 母版",
+      buttonDisabled: failed || state.templateAdoptionBusy,
+    };
+  }
+
+  function ensureModuleReleaseNoticeHost() {
+    const surface = document.querySelector("[data-golden-master-surface]");
+    if (!surface) return null;
+    let host = surface.querySelector("[data-module-release-notice-host]");
+    if (!host) {
+      host = document.createElement("div");
+      host.dataset.moduleReleaseNoticeHost = "true";
+      surface.insertBefore(host, surface.firstElementChild || null);
+    }
+    return host;
+  }
+
+  async function adoptCurrentModuleRelease() {
+    const releaseService = root.ZhugeModulePublishService;
+    const release = state.templateRelease;
+    const consumerId = moduleConsumerId(state.applicationScope);
+    if (state.applicationScope === "c" || !releaseService?.adopt || !release || state.templateAdoptionBusy) return;
+    if (document.body?.dataset?.templateSourceIntegrity === "mismatch") {
+      state.templateAdoptionError = "程式碼來源與 Published C 不一致，未執行採用。";
+      renderModuleReleaseNotice();
+      return;
+    }
+    state.templateAdoptionBusy = true;
+    state.templateAdoptionError = "";
+    renderModuleReleaseNotice();
+    setBanner("正在採用新版 C 母版；等待 Cloud Read-back…", "loading");
+    try {
+      const adopted = await releaseService.adopt({ moduleId: state.moduleId, consumerId, release });
+      if (!adopted) throw new Error("Cloud Read-back 未回傳 Adoption Record；未顯示成功。");
+      applyModuleReleaseIdentity(adopted, { remote: true });
+      if (state.templateRelease?.status !== "adopted" || state.templateRelease.identityMatches === false) {
+        throw new Error("Cloud Read-back 未確認目前 Consumer 已採用 Published C；未顯示成功。");
+      }
+      setBanner(`${esc(workItemLabel())} 已採用 C 母版 ${esc(releaseVersionLabel(state.templateRelease.publishedVersion, state.templateRelease.publishedBuild))}；Cloud Read-back PASS。`, "success");
+    } catch (error) {
+      state.templateAdoptionError = error?.message || "C 母版採用失敗；未顯示成功。";
+      setBanner("C 母版採用失敗：" + esc(state.templateAdoptionError), "error");
+    } finally {
+      state.templateAdoptionBusy = false;
+      renderModuleReleaseNotice();
+    }
+  }
+
+  function renderModuleReleaseNotice() {
+    const host = ensureModuleReleaseNoticeHost();
+    if (!host) return;
+    const model = moduleReleaseNoticeModel();
+    const errorMessage = state.templateAdoptionError ? ` ${esc(state.templateAdoptionError)}` : "";
+    if (model.hidden) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = `<section class="template-release-notice is-${esc(model.state)}" data-module-release-notice data-state="${esc(model.state)}" role="status" aria-live="polite">
+      <span class="template-release-notice-icon" aria-hidden="true">${model.state === "error" ? "!" : "↻"}</span>
+      <div class="template-release-notice-copy"><strong>${esc(model.title)}</strong><span>目前採用：${esc(model.current)}　·　最新 Published C：${esc(model.latest)}</span><small>${esc(model.detail)}${errorMessage}</small></div>
+      <button class="btn template-release-notice-action" type="button" data-template-adopt${model.buttonDisabled ? " disabled aria-disabled=\"true\"" : ""}>${esc(model.buttonLabel)}</button>
+    </section>`;
+    host.querySelector("[data-template-adopt]")?.addEventListener("click", adoptCurrentModuleRelease, { once: true });
+  }
+
   function applyModuleReleaseIdentity(releaseOverride, options = {}) {
     const consumerId = moduleConsumerId(state.applicationScope);
     const releaseApi = root.ZhugeMotherTemplateRelease;
@@ -88,25 +188,19 @@
       node.dataset.templateSourceIntegrity = body.dataset.templateSourceIntegrity;
       node.dataset.templateIdentitySource = body.dataset.templateIdentitySource;
       node.dataset.templateAdoption = body.dataset.templateAdoption;
+      node.dataset.templateReleaseState = body.dataset.templateReleaseState;
     });
+    renderModuleReleaseNotice();
     return release;
   }
-  async function hydrateModuleRelease() {
+  async function hydrateModuleRelease(options = {}) {
     const releaseService = root.ZhugeModulePublishService;
     if (!releaseService?.read) return null;
     try {
-      const persisted = await releaseService.read(state.moduleId);
+      const persisted = await releaseService.read(state.moduleId, { force: options.force === true });
       applyModuleReleaseIdentity(persisted, { remote: true });
-      const consumerId = moduleConsumerId(state.applicationScope);
-      if (persisted && typeof releaseService.adopt === "function") {
-        try {
-          const adopted = await releaseService.adopt({ moduleId: state.moduleId, consumerId, release: persisted });
-          if (adopted) applyModuleReleaseIdentity(adopted, { remote: true });
-        } catch (_) {
-          // Adoption is a separate persistent acknowledgement. A consumer
-          // remains usable when the acknowledgement is temporarily blocked.
-        }
-      }
+      state.templateAdoptionError = "";
+      renderModuleReleaseNotice();
       return persisted;
     } catch (error) {
       // The C release panel reports the user-facing error. Board boot remains
@@ -119,8 +213,23 @@
     state.templateReleaseEventsBound = true;
     document.addEventListener("zhuge-module-release-updated", event => {
       if (event.detail?.moduleId && event.detail.moduleId !== state.moduleId) return;
-      if (event.detail?.release) applyModuleReleaseIdentity(event.detail.release, { remote: true });
+      if (event.detail?.release) {
+        applyModuleReleaseIdentity(event.detail.release, { remote: true });
+        hydrateModuleRelease({ force: true }).catch(() => {});
+      }
     });
+    if (!state.templateReleaseRefreshBound) {
+      state.templateReleaseRefreshBound = true;
+      const refreshRelease = () => {
+        if (document.visibilityState === "hidden") return;
+        hydrateModuleRelease({ force: true }).catch(() => {});
+      };
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") refreshRelease();
+      });
+      root.addEventListener?.("focus", refreshRelease);
+      state.templateReleaseTimer = root.setInterval?.(refreshRelease, 30000) || null;
+    }
   }
   function mountCTemplateReleasePanel() {
     if (state.applicationScope !== "c") return;
@@ -454,6 +563,13 @@
       })
       .map(item => item.task);
   }
+  function sortTasksForDisplay(tasks) {
+    if (state.applicationScope !== "worktodo" || !root.ZhugeWorkTodoOrdering?.sortTasks) return sortTasksByCode(tasks);
+    return root.ZhugeWorkTodoOrdering.sortTasks(tasks, {
+      workspaceForTask: task => workTodoStatus(task),
+      journalsForTask: task => workTodoJournalForTask(task)
+    });
+  }
   function renderWorkspaceColumns() {
     const boardMount = document.querySelector("[data-golden-master-board-mount]");
     const legacyBoard = document.getElementById("boardColumns") || document.querySelector(".board");
@@ -501,7 +617,7 @@
     renderWorkspaceColumns();
     const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
     const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
-    sortTasksByCode(activeTasks).forEach(task => {
+    sortTasksForDisplay(activeTasks).forEach(task => {
       const fallbackKey = defaultBoardWorkspaceKey();
       const fallback = state.workspaces.find(workspace => workspace.key === fallbackKey);
       const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
@@ -554,7 +670,7 @@
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
-      surface.innerHTML = `${toolbarMarkup}<div data-golden-master-board-mount></div>`;
+      surface.innerHTML = `<div data-module-release-notice-host hidden></div>${toolbarMarkup}<div data-golden-master-board-mount></div>`;
       return;
     }
     const mount = document.getElementById("goldenMasterToolbar");

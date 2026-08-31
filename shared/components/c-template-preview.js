@@ -244,6 +244,7 @@
       release: null,
       hydrating: false,
       publishing: false,
+      adopting: false,
       feedback: "",
       error: "",
       adoptionError: "",
@@ -285,6 +286,9 @@
       const feedback = state.error || state.adoptionError || state.registryError || state.feedback || (state.hydrating ? "正在讀取 Published C…" : "");
       const feedbackClass = state.error || state.adoptionError || state.registryError ? "is-error" : state.feedback ? "is-success" : "";
       const disabled = state.publishing || !service || (!consumerOnly && !state.consumerEntries.length) ? " disabled" : "";
+      const currentConsumer = published?.consumers?.[consumerId];
+      const consumerAdopted = currentConsumer?.status === "adopted" && currentConsumer.identityMatches !== false;
+      const consumerAdoptionDisabled = !published || state.hydrating || state.adopting || consumerAdopted || !service ? " disabled" : "";
       const progress = publishProgressModel(published, development, service, state.publishing || state.hydrating, {
         consumerOnly,
         consumerId,
@@ -321,7 +325,9 @@
         </div>
         <div class="c-template-release-progress${progress.indeterminate ? " is-indeterminate" : ""}" ${progressAttributes} aria-label="模組發布進度">${consumerProgressMarkup(progress)}</div>
         <div class="c-template-release-actions">
-          ${consumerOnly ? "" : `<button type="button" class="c-template-publish-button" data-module-publish${disabled}>🚀 發布更新</button>`}
+          ${consumerOnly
+            ? `<button type="button" class="c-template-publish-button c-template-adopt-button" data-module-adopt${consumerAdoptionDisabled}>${state.adopting ? "正在採用…" : consumerAdopted ? "已採用" : "採用新版 C 母版"}</button>`
+            : `<button type="button" class="c-template-publish-button" data-module-publish${disabled}>🚀 發布更新</button>`}
           <span class="c-template-release-feedback ${feedbackClass}" data-c-template-release-feedback aria-live="polite">${escapeHtml(feedback)}</span>
         </div>
       </section>`;
@@ -341,7 +347,7 @@
       try {
         await hydrateConsumerRegistry();
         state.release = await service.read(MODULE_ID);
-        if (state.release && typeof service.adopt === "function") {
+        if (!consumerOnly && state.release && typeof service.adopt === "function") {
           try {
             state.release = await service.adopt({ moduleId: MODULE_ID, consumerId, release: state.release }) || state.release;
           } catch (error) {
@@ -353,6 +359,29 @@
         state.error = error?.message || "Published C 讀取失敗";
       } finally {
         state.hydrating = false;
+        paint();
+      }
+    }
+
+    async function adoptConsumerRelease() {
+      if (!consumerOnly || !service || state.adopting || !state.release) return;
+      state.adopting = true;
+      state.adoptionError = "";
+      state.feedback = "正在採用新版 C 母版；等待 Cloud Read-back…";
+      paint();
+      try {
+        const adopted = await service.adopt({ moduleId: MODULE_ID, consumerId, release: state.release });
+        const current = service.forConsumer?.(adopted, consumerId);
+        if (!adopted || (current && (current.status !== "adopted" || current.identityMatches === false))) {
+          throw new Error("Cloud Read-back 未確認 Adoption Record；未顯示成功。");
+        }
+        state.release = adopted;
+        state.feedback = `${consumerLabel} 已採用新版 C；Cloud Read-back PASS。`;
+      } catch (error) {
+        state.adoptionError = error?.message || `${consumerLabel} 採用失敗；未顯示成功。`;
+        state.feedback = "";
+      } finally {
+        state.adopting = false;
         paint();
       }
     }
@@ -396,6 +425,7 @@
 
     function onClick(event) {
       if (event.target.closest("[data-module-publish]")) publish();
+      if (event.target.closest("[data-module-adopt]")) adoptConsumerRelease();
     }
 
     function onReleaseUpdated(event) {

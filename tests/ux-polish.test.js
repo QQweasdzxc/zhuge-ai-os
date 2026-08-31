@@ -77,6 +77,9 @@ test("Control Console owns engineering destinations instead of global sidebar ch
   const worklog = read("modules/worklog/worklog-app.js");
   for (const label of ["系統狀態", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));
   assert.match(worklog, /control-center-entry/);
+  assert.match(worklog, /class="control-center-layout"/);
+  assert.match(worklog, /aria-label="控制台內容"/);
+  assert.doesNotMatch(worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()")), /<h2>🔗 控制台<\/h2>/);
   const syncBlock = worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()"));
   assert.doesNotMatch(syncBlock, /\["ai-board",/);
   assert.doesNotMatch(syncBlock, /console-tabs/);

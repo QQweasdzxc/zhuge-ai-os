@@ -2,8 +2,8 @@
  *
  * This Edge Function is the server-side bridge for Co/GPT workflow actors.
  * It authenticates a short-lived signed Engineering Actor Token, validates the
- * requested transition again, then calls the existing board_transition_task
- * RPC with the server-only Service Role secret. Co/GPT never receive that key.
+ * requested transition again, then calls the canonical Board RPC with the
+ * server-only Service Role secret. Co/GPT never receive that key.
  * The public verification key is not a credential; the private signing key is
  * held only by the protected Engineering Actor Broker runtime.
  */
@@ -32,7 +32,6 @@ const ACTOR_MAX_TTL_SECONDS = 300;
 const CHECKLIST_STATES = new Set(["not_verified", "pass", "fail", "na"]);
 const TRANSITIONS: Record<string, Record<string, Record<string, string>>> = {
   Co: {
-    ready: { inprogress: "Co" },
     inprogress: { ready: "Co", qa: "GPT" },
     qa: { inprogress: "Co" }
   },
@@ -131,7 +130,7 @@ async function request(configValue: ReturnType<typeof config>, path: string, opt
 }
 
 async function findTask(cfg: ReturnType<typeof config>, workCode: string) {
-  const query = `board_tasks?select=id,work_code,title,status,assignee,updated_at&work_code=eq.${encodeURIComponent(workCode)}&limit=1`;
+  const query = `board_tasks?select=id,work_code,title,status,assignee,workspace_id,board_instance_id,updated_at&work_code=eq.${encodeURIComponent(workCode)}&limit=1`;
   const rows = await request(cfg, query);
   const task = Array.isArray(rows) ? rows[0] : null;
   if (!task) throw new Error(`TASK not found: ${workCode}`);
@@ -164,6 +163,22 @@ async function checklistAudit(cfg: ReturnType<typeof config>, itemId: string) {
   const query = `engineering_activity_log?select=id,entity_id,action,actor_type,actor_label,before_data,after_data,note,created_at&entity_type=eq.engineering_checklist_item&entity_id=eq.${encodeURIComponent(itemId)}&order=created_at.desc&limit=10`;
   const rows = await request(cfg, query);
   return Array.isArray(rows) ? rows : [];
+}
+
+function boundedIdempotencyKey(value: unknown, fallback = "") {
+  const key = String(value || fallback).trim();
+  if (key.length < 8 || key.length > 200) {
+    throw new Error("A bounded idempotency key is required for the Cloud lifecycle operation.");
+  }
+  return key;
+}
+
+function boundedLeaseSeconds(value: unknown, fallback = 900) {
+  const lease = value === undefined || value === null || value === "" ? fallback : Number(value);
+  if (!Number.isInteger(lease) || lease < 60 || lease > 86400) {
+    throw new Error("Claim lease must be an integer between 60 and 86400 seconds.");
+  }
+  return lease;
 }
 
 function validateChecklistUpdate(actor: string, item: any, state: string, evidenceNote: string, evidenceRef: string) {
@@ -240,6 +255,85 @@ Deno.serve(async (requestValue) => {
     if (operation === "startup_gate") {
       throw new AuthenticationError("Engineering transition capability cannot read engineering memory.", 403);
     }
+
+    if (operation === "claim") {
+      if (actorToken.actor !== "Co") {
+        throw new AuthenticationError("Only the signed Co actor may claim a TASK.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const boardInstanceId = String(body.boardInstanceId || "").trim();
+      if (!boardInstanceId) throw new Error("boardInstanceId is required for Co Claim.");
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+      const result = await request(cfg, "rpc/board_claim_next_task", {
+        method: "POST",
+        body: JSON.stringify({
+          p_board_instance_id: boardInstanceId,
+          p_idempotency_key: idempotencyKey,
+          p_actor_label: "Co",
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
+    }
+
+    if (operation === "reclaim_expired_claim") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "Co") {
+        throw new AuthenticationError("Only the signed Co actor may reclaim an expired TASK Claim.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const task = await findTask(cfg, String(body.task || ""));
+      const expiredClaimToken = String(body.expiredClaimToken || "").trim();
+      if (!expiredClaimToken) throw new Error("expiredClaimToken is required for targeted Claim reclaim.");
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey);
+      const result = await request(cfg, "rpc/board_reclaim_expired_task", {
+        method: "POST",
+        body: JSON.stringify({
+          p_task_id: task.id,
+          p_expired_claim_token: expiredClaimToken,
+          p_idempotency_key: idempotencyKey,
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      const updatedTask = await findTask(cfg, String(body.task));
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
+    if (operation === "renew_claim") {
+      if (actorToken.actor !== "Co") {
+        throw new AuthenticationError("Only the signed Co actor may renew a TASK claim.", 403);
+      }
+      const claimToken = String(body.claimToken || "").trim();
+      if (!claimToken) throw new Error("claimToken is required for claim renewal.");
+      const result = await request(cfg, "rpc/board_renew_task_claim", {
+        method: "POST",
+        body: JSON.stringify({
+          p_claim_token: claimToken,
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
+    }
+
+    if (operation === "release_claim") {
+      if (actorToken.actor !== "Co") {
+        throw new AuthenticationError("Only the signed Co actor may release a TASK claim.", 403);
+      }
+      const claimToken = String(body.claimToken || "").trim();
+      if (!claimToken) throw new Error("claimToken is required for claim release.");
+      const result = await request(cfg, "rpc/board_release_task_claim", {
+        method: "POST",
+        body: JSON.stringify({
+          p_claim_token: claimToken,
+          p_reason: body.reason ? String(body.reason).trim() : null
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
+    }
+
     const task = await findTask(cfg, String(body.task || ""));
 
     if (operation === "inspect") return json({ task, audit: await audit(cfg, task.id) });
@@ -253,6 +347,62 @@ Deno.serve(async (requestValue) => {
       if (body.expectedState && item.state !== body.expectedState) {
         return json({ error: `Expected ${body.task}/${itemKey} to be ${body.expectedState}, found ${item.state}.` }, 409);
       }
+
+      const isDeveloperQaHandoff = actorToken.actor === "Co"
+        && String(item.stage || "").toLowerCase() === "co"
+        && itemKey.toLowerCase() === "developer-qa"
+        && state === "pass";
+      if (isDeveloperQaHandoff) {
+        const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+        const handoff = await request(cfg, "rpc/board_orchestrate_developer_qa", {
+          method: "POST",
+          body: JSON.stringify({
+            p_task_id: task.id,
+            p_item_id: item.id,
+            p_evidence_note: evidenceNote || null,
+            p_evidence_ref: evidenceRef || null,
+            p_actor_label: "Co",
+            p_claim_token: body.claimToken ? String(body.claimToken).trim() : null
+          })
+        });
+        const updatedTask = await findTask(cfg, String(body.task));
+        const updated = await findChecklistItem(cfg, task.id, itemKey);
+        let nextClaim: unknown = null;
+        let nextClaimError: string | null = null;
+        if (body.autoClaimNext !== false) {
+          try {
+            nextClaim = await request(cfg, "rpc/board_claim_next_task", {
+              method: "POST",
+              body: JSON.stringify({
+                p_board_instance_id: task.board_instance_id,
+                p_idempotency_key: boundedIdempotencyKey(body.nextClaimIdempotencyKey, `${idempotencyKey}:next`),
+                p_actor_label: "Co",
+                p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+              })
+            });
+          } catch (error) {
+            nextClaimError = error instanceof Error ? error.message : "Next Co Claim failed.";
+          }
+        }
+        const response = {
+          task: updatedTask,
+          checklist: updated,
+          orchestration: handoff,
+          nextClaim,
+          nextClaimError,
+          audit: await audit(cfg, updatedTask.id)
+        };
+        if (nextClaimError) {
+          return json({
+            success: false,
+            code: "NEXT_CLAIM_FAILED_AFTER_HANDOFF",
+            error: nextClaimError,
+            ...response
+          }, 503);
+        }
+        return json({ success: true, ...response });
+      }
+
       const result = await request(cfg, "rpc/board_update_checklist_item", {
         method: "POST",
         body: JSON.stringify({
@@ -267,7 +417,7 @@ Deno.serve(async (requestValue) => {
       const updated = await findChecklistItem(cfg, task.id, itemKey);
       return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
     }
-    if (operation !== "transition") return json({ error: "operation must be inspect, checklist or transition" }, 400);
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;

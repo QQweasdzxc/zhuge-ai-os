@@ -17,6 +17,8 @@
   const cache = new Map();
   const pendingReads = new Map();
   const pendingAdoptions = new Map();
+  const RELEASE_CHANNEL_NAME = "zhuge-module-release-updates";
+  let releaseChannel = null;
 
   function text(value) {
     return value == null ? "" : String(value);
@@ -152,6 +154,32 @@
     root.document.dispatchEvent(event);
   }
 
+  function ensureReleaseChannel() {
+    if (releaseChannel || !root || !root.document || typeof root.BroadcastChannel !== "function") return releaseChannel;
+    try {
+      releaseChannel = new root.BroadcastChannel(RELEASE_CHANNEL_NAME);
+      releaseChannel.onmessage = function (event) {
+        const message = event && event.data;
+        if (!message || message.channel !== RELEASE_CHANNEL_NAME || !message.name) return;
+        dispatch(message.name, message.detail);
+      };
+    } catch (_) {
+      releaseChannel = null;
+    }
+    return releaseChannel;
+  }
+
+  function broadcast(name, detail) {
+    const channel = ensureReleaseChannel();
+    if (!channel || typeof channel.postMessage !== "function") return;
+    try {
+      channel.postMessage({ channel: RELEASE_CHANNEL_NAME, name, detail });
+    } catch (_) {
+      // Cross-tab invalidation is an enhancement; every consumer still has
+      // visibility/focus and explicit refresh read-backs as recovery paths.
+    }
+  }
+
   async function read(moduleId, options) {
     const id = normalizeModuleId(moduleId);
     const force = Boolean(options && options.force);
@@ -193,7 +221,9 @@
     const release = normalize(payload, moduleId);
     if (!release) throw new Error("Publish RPC returned no persistent module release state.");
     cache.set(moduleId, release);
-    dispatch("zhuge-module-release-updated", { moduleId, release });
+    const detail = { moduleId, release };
+    dispatch("zhuge-module-release-updated", detail);
+    broadcast("zhuge-module-release-updated", detail);
     return release;
   }
 
@@ -214,13 +244,27 @@
         p_published_version: version,
         p_published_build: build,
       })
-      .then(function (payload) {
-        const updated = normalize(payload, moduleId);
-        if (updated) {
-          cache.set(moduleId, updated);
-          dispatch("zhuge-module-adoption-updated", { moduleId, consumerId, release: updated });
-          dispatch("zhuge-module-release-updated", { moduleId, release: updated });
+      .then(function () {
+        // The mutation response is not treated as proof of adoption. Read the
+        // canonical release row again and validate the exact consumer/version
+        // tuple before any UI is allowed to report success.
+        return read(moduleId, { force: true });
+      })
+      .then(function (updated) {
+        const consumer = forConsumer(updated, consumerId);
+        const adoptedVersion = text(consumer.adoption?.moduleVersion || consumer.adoption?.templateVersion);
+        const adoptedBuild = text(consumer.adoption?.build);
+        if (!updated || consumer.status !== "adopted" || !consumer.identityMatches || adoptedVersion !== version || adoptedBuild !== build) {
+          const error = new Error(`Cloud Read-back 未確認 ${consumerId} 已採用 Published C ${version} · Build ${build}。`);
+          error.code = "ADOPTION_READBACK_MISMATCH";
+          throw error;
         }
+        cache.set(moduleId, updated);
+        const detail = { moduleId, consumerId, release: updated };
+        dispatch("zhuge-module-adoption-updated", detail);
+        dispatch("zhuge-module-release-updated", { moduleId, release: updated });
+        broadcast("zhuge-module-adoption-updated", detail);
+        broadcast("zhuge-module-release-updated", { moduleId, release: updated });
         return updated;
       })
       .finally(function () {
@@ -287,6 +331,8 @@
       adoption,
     });
   }
+
+  if (root && root.document) ensureReleaseChannel();
 
   return Object.freeze({
     read,

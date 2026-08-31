@@ -63,7 +63,7 @@ test("runtime release service publishes one identity for a dynamic consumer set"
   const calls = [];
   const service = loadService(async (name, args) => {
     calls.push({ name, args });
-    if (name === "record_module_adoption") return releasePayload(args, "adopted");
+    if (name === "record_module_adoption" || name === "get_published_module_release") return releasePayload(args, "adopted");
     return releasePayload(args);
   });
 
@@ -103,7 +103,25 @@ test("runtime release service publishes one identity for a dynamic consumer set"
     p_published_version: IDENTITY.version,
     p_published_build: IDENTITY.build,
   });
+  assert.equal(calls[2].name, "get_published_module_release");
+  assert.deepEqual(calls[2].args, { p_module_id: "c" });
   assert.equal(service.forConsumer(adopted, "worktodo").status, "adopted");
+});
+
+test("runtime release service never reports adoption success when Cloud read-back disagrees", async () => {
+  const calls = [];
+  const service = loadService(async (name, args) => {
+    calls.push({ name, args });
+    if (name === "record_module_adoption") return releasePayload(args, "adopted");
+    return releasePayload(args, "published_pending_reload");
+  });
+  const release = await service.read("c");
+
+  await assert.rejects(
+    service.adopt({ moduleId: "c", consumerId: "worktodo", release }),
+    error => error && error.code === "ADOPTION_READBACK_MISMATCH",
+  );
+  assert.deepEqual(calls.map(call => call.name), ["get_published_module_release", "record_module_adoption", "get_published_module_release"]);
 });
 
 test("runtime release service is module-agnostic and does not encode a C-only consumer list", async () => {

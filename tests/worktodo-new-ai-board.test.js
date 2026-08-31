@@ -46,6 +46,8 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.doesNotMatch(aiBoard, /class="(?:board-shell|board-toolbar|board)"/);
   assert.doesNotMatch(worktodo, /class="(?:board-shell|board-toolbar|board)"/);
   assert.match(worktodo, /worktodo-task-adapter\.js/);
+  assert.match(worktodo, /worktodo-ordering\.js/);
+  assert.ok(worktodo.indexOf("worktodo-ordering.js") < worktodo.indexOf("golden-master-runtime.js"));
   assert.doesNotMatch(worktodo, /shared\/api\/repositories\.js/);
   assert.doesNotMatch(worktodo, /shared\/api\/data-service\.js/);
   assert.doesNotMatch(worktodo, /GM-FIX-|golden-master-preview/i);
@@ -73,6 +75,8 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(actionAdapters, /worktodoCreateTask/);
   assert.match(actionAdapters, /worktodoUpdateTask/);
   assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo" \}\)/);
+  assert.match(runtime, /function sortTasksForDisplay\(tasks\)/);
+  assert.match(runtime, /root\.ZhugeWorkTodoOrdering\?\.sortTasks/);
   assert.doesNotMatch(runtime, /emptyWorkTodo|GM-FIX-|golden-master-preview/i);
   for (const workspace of ["待開始", "進行中", "等待回覆", "等待驗收", "阻塞", "完成"]) {
     assert.match(scopeMigration, new RegExp(`'[^']+', '${workspace}',`));

@@ -256,6 +256,7 @@
       // engineering columns.
       summary: String(row.summary || row.objective || row.problem || row.description || ""),
       latestProgress: String(row.latest_progress || row.latestProgress || ""),
+      latestProgressAt: row.latest_progress_at || row.latestProgressAt || null,
       problem: String(row.problem || ""),
       objective: String(row.objective || ""),
       proposedSolution: String(row.proposed_solution || row.proposedSolution || ""),
@@ -544,7 +545,10 @@
           const id = String(row.id || "");
           const taskId = String(row.entity_id || "");
           if (!classifyActivity(row).isHumanProgress || !taskId || !id || superseded.has(id) || tombstoned.has(id) || latestProgressByTask.has(taskId)) return;
-          latestProgressByTask.set(taskId, String(row.note || "").trim());
+          latestProgressByTask.set(taskId, {
+            content: String(row.note || "").trim(),
+            createdAt: row.created_at || row.createdAt || null
+          });
         });
       } catch {
         latestProgressByTask = new Map();
@@ -557,7 +561,8 @@
         ...(isBoardInstance && !row.application_scope && !row.applicationScope ? { application_scope: "c" } : {}),
         workspace_key: workspace?.key || "",
         workspace_name: workspace?.name || "",
-        latest_progress: latestProgressByTask.get(String(row.id || "")) || ""
+        latest_progress: latestProgressByTask.get(String(row.id || ""))?.content || "",
+        latest_progress_at: latestProgressByTask.get(String(row.id || ""))?.createdAt || null
       });
     });
     const knowledge = (engineeringMemory?.records || []).map(row => ({
