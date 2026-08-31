@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -107,6 +107,8 @@
       if (state.templateRelease?.status !== "adopted" || state.templateRelease.identityMatches === false) {
         throw new Error("Cloud Read-back 未確認目前 Consumer 已採用 Published C；未顯示成功。");
       }
+      await refreshBoard({ quiet: true });
+      runTemplateParityCheck("adopt", { silent: true });
       setBanner(`${esc(workItemLabel())} 已採用 C 母版 ${esc(releaseVersionLabel(state.templateRelease.publishedVersion, state.templateRelease.publishedBuild))}；Cloud Read-back PASS。`, "success");
     } catch (error) {
       state.templateAdoptionError = error?.message || "C 母版採用失敗；未顯示成功。";
@@ -215,7 +217,10 @@
       if (event.detail?.moduleId && event.detail.moduleId !== state.moduleId) return;
       if (event.detail?.release) {
         applyModuleReleaseIdentity(event.detail.release, { remote: true });
-        hydrateModuleRelease({ force: true }).catch(() => {});
+        hydrateModuleRelease({ force: true })
+          .then(() => refreshBoard({ quiet: true }))
+          .then(() => runTemplateParityCheck("publish", { silent: true }))
+          .catch(() => {});
       }
     });
     if (!state.templateReleaseRefreshBound) {
@@ -664,17 +669,24 @@
       // implemented, omit the unfinished controls rather than advertise a
       // dead-end interaction.
       filters: [],
-      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
+      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }, { id: "templateParityBtn", label: "與母版比對" }],
       statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
-      surface.innerHTML = `<div data-module-release-notice-host hidden></div>${toolbarMarkup}<div data-golden-master-board-mount></div>`;
+      surface.innerHTML = `<div data-module-release-notice-host hidden></div>${toolbarMarkup}<div data-template-parity-result-host hidden></div><div data-golden-master-board-mount></div>`;
       return;
     }
     const mount = document.getElementById("goldenMasterToolbar");
     if (mount) mount.outerHTML = toolbarMarkup;
+    const host = surface?.querySelector("[data-template-parity-result-host]");
+    if (surface && !host) {
+      const resultHost = document.createElement("div");
+      resultHost.dataset.templateParityResultHost = "true";
+      resultHost.hidden = true;
+      surface.insertBefore(resultHost, surface.querySelector("[data-golden-master-board-mount]") || null);
+    }
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");
@@ -1279,6 +1291,60 @@
       setBanner(`資料健康度檢查完成：${report.findingCount} 項 Finding。結果為唯讀，未修改 Cloud。`, "success");
     } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
     finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
+  }
+  function ensureTemplateParityResultHost() {
+    const surface = document.querySelector("[data-golden-master-surface]");
+    if (!surface) return null;
+    let host = surface.querySelector("[data-template-parity-result-host]");
+    if (!host) {
+      host = document.createElement("div");
+      host.dataset.templateParityResultHost = "true";
+      host.hidden = true;
+      surface.insertBefore(host, surface.querySelector("[data-golden-master-board-mount]") || null);
+    }
+    return host;
+  }
+  function parityTriggerLabel(trigger) {
+    return ({ manual: "手動檢查", publish: "C Publish 後自動守門", adopt: "Consumer Adopt 後自動守門", regression: "Regression 自動守門", runtime: "Runtime 自動守門" }[trigger]) || "自動守門";
+  }
+  function renderTemplateParityReport(report) {
+    const host = ensureTemplateParityResultHost();
+    if (!host || !report) return;
+    const engine = root.ZhugeTemplateParityEngine;
+    const differences = Array.isArray(report.differences) ? report.differences : [];
+    const details = differences.length
+      ? `<div class="template-parity-differences"><strong>實際差異</strong>${differences.map(item => `<div class="template-parity-difference"><span>${esc(item.type || "gap")}｜${esc(item.label || item.id || "未命名能力")}</span><small>${esc(item.detail || "請依正式 Governance 決定修正方式。")}</small></div>`).join("")}</div>`
+      : `<div class="template-parity-no-difference">目前沒有模板差異；資料、工作區、卡片內容與識別資料不列入 Gap。</div>`;
+    const summary = engine?.summary?.(report) || (report.gapCount === 0 ? "🟢 C 母版一致" : "🔴 C 母版不一致");
+    host.hidden = false;
+    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong><span>${esc(parityTriggerLabel(report.trigger))}</span></div><div class="template-parity-counts"><span>C Mother Template：${Number(report.motherCount || 0)}</span><span>目前 Consumer：${Number(report.consumerCount || 0)}</span><span>MATCH：${Number(report.matchCount || 0)} / ${Number(report.motherCount || 0)}</span><span>Template Gap：${Number(report.gapCount || 0)}</span><span>Fingerprint：${esc(report.fingerprint || "MISMATCH")}</span></div>${details}</section>`;
+  }
+  function runTemplateParityCheck(trigger = "manual", options = {}) {
+    const engine = root.ZhugeTemplateParityEngine;
+    if (!engine?.run) {
+      if (!options.silent) setBanner("C 母版 Parity Engine 尚未載入；未判定一致性。", "error");
+      return null;
+    }
+    if (state.templateParityBusy) return state.templateParityReport;
+    state.templateParityBusy = true;
+    try {
+      const engineOptions = { root, document, consumerId: moduleConsumerId(state.applicationScope), consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : "AI Board", trigger };
+      const report = trigger === "manual"
+        ? engine.runManual(engineOptions)
+        : engine.runAutoGuard(engineOptions);
+      state.templateParityReport = report;
+      renderTemplateParityReport(report);
+      if (!options.silent) setBanner(`${esc(engine.summary?.(report) || "C 母版一致性檢查完成")}；Parity Check 僅 Compare／Detect／Report，未修改 Cloud。`, report.gapCount === 0 ? "success" : "error");
+      return report;
+    } finally {
+      state.templateParityBusy = false;
+    }
+  }
+  function wireTemplateParityCheck() {
+    const button = document.getElementById("templateParityBtn");
+    if (!button || button.dataset.templateParityWired === "true") return;
+    button.dataset.templateParityWired = "true";
+    button.addEventListener("click", () => runTemplateParityCheck("manual"));
   }
   function isPmAcceptanceItem(item) {
     const identity = `${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
@@ -2717,6 +2783,7 @@
     enableBoardActions();
     ensureHealthModal();
     document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
+    wireTemplateParityCheck();
     ensureTaskDetailModal();
     wireNavigation();
     wireSearch();
@@ -2985,12 +3052,14 @@
     sortTasksByCode: sortTasksByCode,
     completionGateStatus: completionGateStatus,
     completionGateMessage: completionGateMessage,
+    runParityGuard: options => runTemplateParityCheck(options?.trigger || "regression", { silent: options?.silent === true }),
     start: startBoardRuntime,
     getSnapshot: () => ({
       applicationScope: state.applicationScope,
       templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
       workspaces: state.workspaces.slice(),
-      tasks: state.tasks.slice()
+      tasks: state.tasks.slice(),
+      templateParityReport: state.templateParityReport ? JSON.parse(JSON.stringify(state.templateParityReport)) : null
     })
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
