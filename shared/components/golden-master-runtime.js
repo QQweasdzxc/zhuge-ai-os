@@ -1316,9 +1316,12 @@
     // Classify by the checklist record itself. Evidence text may mention
     // regression while documenting a GPT Review, but that must not move the
     // review record into the separate Regression gate.
-    const identity = `${item?.checklistType || ""} ${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
-    return String(item?.checklistType || "").toLowerCase() === "batch_regression"
-      || /regression|回歸|回归/.test(identity);
+    const checklistType = String(item?.checklistType || "").toLowerCase();
+    const itemKey = String(item?.itemKey || "").toLowerCase();
+    const label = String(item?.label || "").trim().toLowerCase();
+    return checklistType === "batch_regression"
+      || itemKey === "regression-evidence"
+      || /^(?:full\s+)?regression(?:\s+evidence)?\b|^回歸|^回归/.test(label);
   }
 
   function engineeringVerificationState(items) {
