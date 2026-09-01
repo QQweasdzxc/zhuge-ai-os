@@ -570,6 +570,8 @@ html[data-theme="light"] .zhuge-module-shell .column.principles {
 html[data-theme="light"] .zhuge-module-shell .colhead,
 html[data-theme="light"] .zhuge-module-shell .card,
 html[data-theme="light"] .zhuge-module-shell .rule,
+html[data-theme="light"] .zhuge-module-shell .health-finding,
+html[data-theme="light"] .zhuge-module-shell .health-summary,
 html[data-theme="light"] .zhuge-module-shell .task-next-step,
 html[data-theme="light"] .zhuge-module-shell .checklist-item {
   background: var(--zhuge-surface-raised) !important;
@@ -669,6 +671,8 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   html[data-theme="system"] .zhuge-module-shell .column.principles,
   html[data-theme="system"] .zhuge-module-shell .card,
   html[data-theme="system"] .zhuge-module-shell .rule,
+  html[data-theme="system"] .zhuge-module-shell .health-finding,
+  html[data-theme="system"] .zhuge-module-shell .health-summary,
   html[data-theme="system"] .zhuge-module-shell .task-next-step,
   html[data-theme="system"] .zhuge-module-shell .checklist-item { background: var(--zhuge-surface) !important; border-color: var(--zhuge-border) !important; color: var(--zhuge-text) !important; }
   html[data-theme="system"] .zhuge-module-shell .toolbar .chip,

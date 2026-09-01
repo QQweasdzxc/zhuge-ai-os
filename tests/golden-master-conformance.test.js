@@ -99,11 +99,15 @@ test("C Mother Template, AI Board, and WorkTodo share one Board/Card/Drawer runt
   assert.doesNotMatch(read("app/Board/template-preview/index.html"), /c-mtdk-store\.js/);
 });
 
-test("the shared Golden Master no longer exposes the low-use data health feature", () => {
+test("the shared Golden Master stages the legacy data health feature until Consumer adoption", () => {
   const goldenMaster = require(path.join(ROOT, "shared/components/golden-master.js"));
-  const operations = goldenMaster.renderOperations({ applicationScope: "c", itemLabel: "MDTK" });
-  assert.doesNotMatch(operations, /healthCheckModal|資料健康度檢查|資料健康檢查/);
+  const operations = goldenMaster.renderOperations({ applicationScope: "worktodo", itemLabel: "WLTK", includeHealthCheck: true });
+  assert.match(operations, /healthCheckModal|資料健康度檢查/);
+  assert.doesNotMatch(goldenMaster.renderOperations({ applicationScope: "c", itemLabel: "MDTK", includeHealthCheck: false }), /healthCheckModal|資料健康度檢查/);
 
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.doesNotMatch(runtime, /healthCheckBtn|healthCheckModal|runHealthCheck\(|資料健康檢查/);
+  assert.match(runtime, /legacyHealthCheckVisible/);
+  assert.match(runtime, /syncLegacyHealthCheckUi/);
+  assert.match(runtime, /runHealthCheck\(/);
+  assert.match(runtime, /includeHealthCheck/);
 });

@@ -70,6 +70,38 @@
     className: "golden-master-parity-action"
   });
 
+  /*
+   * Data health is a legacy shared capability that is removed from the new C
+   * Mother Template source, but it must remain visible in an existing
+   * Consumer until that Consumer has actually adopted the new Published C.
+   * The source of truth is the Cloud release/adoption tuple, not the fact
+   * that a newer development bundle has been loaded locally.
+   */
+  function shouldShowLegacyHealthCheck(options = {}) {
+    const scope = String(options.applicationScope || "").trim().toLowerCase();
+    if (scope === "c" && options.isMotherTemplate === true) return false;
+    if (String(options.identitySource || "").trim().toLowerCase() !== "cloud") return true;
+    const release = options.release && typeof options.release === "object" ? options.release : {};
+    const adoption = release.adoption && typeof release.adoption === "object" ? release.adoption : {};
+    const currentBuild = String(options.currentBuild || "").trim();
+    const publishedBuild = String(release.publishedBuild || release.build || "").trim();
+    const adoptedBuild = String(adoption.build || "").trim();
+    const sourceIntegrity = String(options.sourceIntegrity || "").trim().toLowerCase();
+    const adoptedCurrentPublishedC = release.status === "adopted"
+      && release.identityMatches !== false
+      && Boolean(currentBuild)
+      && publishedBuild === currentBuild
+      && adoptedBuild === currentBuild
+      && sourceIntegrity === "matched";
+    return !adoptedCurrentPublishedC;
+  }
+
+  function renderHealthCheckModal(itemLabel) {
+    return `<div id="healthCheckModal" class="modalback" aria-hidden="true">
+ <div class="modal board-task-modal" role="dialog" aria-modal="true"><div class="modalhead"><h2>資料健康度檢查（唯讀）</h2><button class="x" id="closeHealthCheck" type="button" aria-label="關閉">×</button></div><div class="modalbody" id="healthCheckBody"><div class="board-empty">尚未執行檢查。</div></div></div>
+</div>`;
+  }
+
   function renderHeader(options = {}, deps = dependencies(options)) {
     const shell = deps.shell;
     const headerOptions = {
@@ -118,16 +150,28 @@
     const scope = escapeHtml(options.applicationScope || "");
     const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
     const scopeAttribute = scope ? ` data-application-scope="${scope}"` : "";
+    const includeHealthCheck = options.includeHealthCheck === true
+      && !(String(options.applicationScope || "").trim().toLowerCase() === "c" && options.isMotherTemplate === true);
     const createConsumer = options.canCreateConsumer === true
       ? `<button class="btn board-header-action" type="button" data-golden-master-action="create-consumer" data-board-create-consumer>＋ 建立看板</button>`
       : "";
-    const statusMenu = `<details class="board-header-status-menu" data-golden-master-status-menu data-template-release-menu${scopeAttribute}><summary class="btn board-header-refresh board-header-status-trigger" aria-label="開啟同步狀態與工具" title="同步狀態與工具"><span class="board-header-status-indicator is-unknown" data-template-release-indicator aria-hidden="true">●</span><span aria-hidden="true">↻</span><span class="board-header-status-chevron" aria-hidden="true">▾</span></summary><div class="board-header-status-popover" data-template-release-popover><div class="board-header-status-heading"><strong>同步狀態與工具</strong><span data-template-release-summary>尚未讀取</span></div><div data-module-release-notice-host hidden></div><div class="board-header-status-actions"><button class="btn board-header-status-action" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scopeAttribute}>↻ 重新整理</button><button class="btn board-header-status-action ${escapeHtml(TEMPLATE_PARITY_ACTION.className)}" id="${escapeHtml(TEMPLATE_PARITY_ACTION.id)}" type="button" data-golden-master-action="${escapeHtml(TEMPLATE_PARITY_ACTION.dataAction)}"${scopeAttribute}>⇄ ${escapeHtml(TEMPLATE_PARITY_ACTION.label)}</button></div><p class="board-header-status-help">狀態顯示目前採用版本與 Published C；「與母版比對」只 Compare／Detect／Report。</p><div data-template-parity-result-host hidden></div></div></details>`;
+    const healthAction = includeHealthCheck
+      ? `<button class="btn board-header-status-action golden-master-health-action" id="healthCheckBtn" type="button" data-golden-master-action="health-check"${scopeAttribute}>⌁ 資料健康檢查（唯讀）</button>`
+      : "";
+    const statusHelp = includeHealthCheck
+      ? "狀態顯示目前採用版本與 Published C；「與母版比對」只 Compare／Detect／Report；資料健康檢查只讀取，不修改 Cloud。"
+      : "狀態顯示目前採用版本與 Published C；「與母版比對」只 Compare／Detect／Report。";
+    const statusMenu = `<details class="board-header-status-menu" data-golden-master-status-menu data-template-release-menu${scopeAttribute}><summary class="btn board-header-refresh board-header-status-trigger" aria-label="開啟同步狀態與工具" title="同步狀態與工具"><span class="board-header-status-indicator is-unknown" data-template-release-indicator aria-hidden="true">●</span><span aria-hidden="true">↻</span><span class="board-header-status-chevron" aria-hidden="true">▾</span></summary><div class="board-header-status-popover" data-template-release-popover><div class="board-header-status-heading"><strong>同步狀態與工具</strong><span data-template-release-summary>尚未讀取</span></div><div data-module-release-notice-host hidden></div><div class="board-header-status-actions"><button class="btn board-header-status-action" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scopeAttribute}>↻ 重新整理</button><button class="btn board-header-status-action ${escapeHtml(TEMPLATE_PARITY_ACTION.className)}" id="${escapeHtml(TEMPLATE_PARITY_ACTION.id)}" type="button" data-golden-master-action="${escapeHtml(TEMPLATE_PARITY_ACTION.dataAction)}"${scopeAttribute}>⇄ ${escapeHtml(TEMPLATE_PARITY_ACTION.label)}</button>${healthAction}</div><p class="board-header-status-help">${statusHelp}</p><div data-template-parity-result-host hidden></div></div></details>`;
     return `${createConsumer}<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button>${statusMenu}`;
   }
 
   function renderOperations(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
     const itemLabel = escapeHtml(options.itemLabel || (options.applicationScope === "worktodo" ? "WLTK" : options.applicationScope === "c" ? "MDTK" : "TASK"));
+    const healthCheckModal = options.includeHealthCheck === true
+      && !(String(options.applicationScope || "").trim().toLowerCase() === "c" && options.isMotherTemplate === true)
+      ? renderHealthCheckModal(itemLabel)
+      : "";
     const consumerCreate = options.canCreateConsumer === true ? `
 <div id="consumerCreateModal" class="modalback" aria-hidden="true">
  <div class="modal board-create-drawer" role="dialog" aria-modal="true" aria-labelledby="consumerCreateTitle">
@@ -172,8 +216,24 @@ ${consumerCreate}
  </div>
 </aside>
 
+${healthCheckModal}
 <div id="taskDetailModal" class="task-detail-modal-host" aria-hidden="true"><div id="taskDetailBody"></div></div>
 </div>`;
+  }
+
+  function syncHealthCheckOperation(existing, options = {}) {
+    if (!existing || typeof document === "undefined") return existing;
+    const shouldInclude = options.includeHealthCheck === true;
+    const current = existing.querySelector?.("#healthCheckModal");
+    if (shouldInclude && !current) {
+      const template = document.createElement("template");
+      template.innerHTML = renderHealthCheckModal(options.itemLabel || "TASK").trim();
+      const modal = template.content.firstElementChild;
+      if (modal) existing.insertBefore(modal, existing.querySelector("#taskDetailModal") || null);
+    } else if (!shouldInclude && current) {
+      current.remove();
+    }
+    return existing;
   }
 
   function mountOperations(target, options = {}) {
@@ -186,7 +246,7 @@ ${consumerCreate}
       || document.querySelector?.(".zhuge-module-shell")
       || target;
     const existing = mountTarget.querySelector?.("[data-golden-master-operations]") || document.querySelector("[data-golden-master-operations]");
-    if (existing) return existing;
+    if (existing) return syncHealthCheckOperation(existing, options);
     const template = document.createElement("template");
     template.innerHTML = renderOperations(options).trim();
     const operations = template.content.firstElementChild;
@@ -305,6 +365,7 @@ ${consumerCreate}
     render,
     mount,
     bindBoard,
-    assertSharedDrawerContract
+    assertSharedDrawerContract,
+    shouldShowLegacyHealthCheck
   });
 });
