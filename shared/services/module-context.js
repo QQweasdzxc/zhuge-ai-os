@@ -83,6 +83,10 @@
       select: (resource, query = "") => {
         if (!dataGateway || typeof dataGateway.select !== "function") throw new Error("Shared Data Gateway 尚未載入。" );
         return dataGateway.select(resource, query);
+      },
+      invokeFunction: (functionName, payload = {}, options = {}) => {
+        if (!dataGateway || typeof dataGateway.invokeFunction !== "function") throw new Error("Shared Data Gateway 尚未載入。" );
+        return dataGateway.invokeFunction(functionName, payload, options);
       }
     });
 

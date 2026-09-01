@@ -13,6 +13,6 @@
     dataMode: "cloud",
     locale: "zh-TW",
     timezone: "Asia/Taipei",
-    pages: Object.freeze(["overview", "portfolio", "watchlist", "strategy", "settings"])
+    pages: Object.freeze(["overview", "portfolio", "watchlist", "strategy", "settings", "import"])
   });
 });

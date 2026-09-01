@@ -6,7 +6,8 @@
     portfolio: global.InvestmentPortfolioPage,
     watchlist: global.InvestmentWatchlistPage,
     strategy: global.InvestmentStrategyPage,
-    settings: global.InvestmentSettingsPage
+    settings: global.InvestmentSettingsPage,
+    import: global.InvestmentScreenshotImportPage
   });
 
   function dependencyBundle() {
@@ -15,6 +16,8 @@
       format: global.InvestmentFormatters,
       calculation: global.PortfolioCalculationService,
       positionCard: global.InvestmentPositionCard,
+      importEngine: global.InvestmentScreenshotImportEngine,
+      recognitionProvider: global.InvestmentRecognitionProvider,
       version: global.InvestmentConfig.version
     };
   }
@@ -115,7 +118,34 @@
   }
 
   function errorScreen(error) {
-    return accessShell(`<div class="investment-access-panel"><p class="investment-eyebrow">投資模組</p><h1>投資模組初始化失敗</h1><p>${global.InvestmentSafeHtml.escape(error?.message || "發生未知錯誤")}</p><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div>`, { title: "Investment", description: "投資模組｜初始化狀態" });
+    const code = String(error?.code || "");
+    const copy = {
+      INVESTMENT_OWNER_MAPPING_REQUIRED: {
+        title: "需要完成 Investment 身分對應",
+        message: "目前登入身份尚未取得 Investment Legacy Owner 對應，請聯絡系統管理員。"
+      },
+      INVESTMENT_ASSURANCE_REQUIRED: {
+        title: "需要完成安全驗證",
+        message: "投資資料受到額外安全保護，請完成安全驗證後繼續。"
+      },
+      INVESTMENT_SESSION_EXPIRED: {
+        title: "登入工作階段已過期",
+        message: "請重新登入後再讀取投資資料。"
+      },
+      INVESTMENT_SESSION_REQUIRED: {
+        title: "需要登入",
+        message: "請先使用 Google 帳號登入 Zhuge AI OS，再開啟投資模組。"
+      },
+      INVESTMENT_DATA_QUERY_ERROR: {
+        title: "投資資料讀取失敗",
+        message: "目前無法讀取正式 Investment Cloud 資料，請稍後再試。"
+      },
+      INVESTMENT_DATA_EMPTY: {
+        title: "目前尚無投資資料",
+        message: "目前登入身份沒有可呈現的 Investment 資料。"
+      }
+    }[code] || { title: "投資模組初始化失敗", message: "投資資料初始化時發生問題，請稍後再試。" };
+    return accessShell(`<div class="investment-access-panel"><p class="investment-eyebrow">投資模組</p><h1>${global.InvestmentSafeHtml.escape(copy.title)}</h1><p>${global.InvestmentSafeHtml.escape(copy.message)}</p><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div>`, { title: "Investment", description: "投資模組｜初始化狀態" });
   }
 
   async function createRuntime(root) {
@@ -135,12 +165,19 @@
 
     const identity = context.identity.getCurrent();
     const repository = global.InvestmentRepositoryContract.assertRepository(
-      global.SupabaseInvestmentRepository.create({ userId: context.identity.getUserId(), data: context.data })
+      global.SupabaseInvestmentRepository.create({
+        userId: context.identity.getUserId(),
+        data: context.data,
+        sessionSnapshot: context.session.getSnapshot()
+      })
     );
     const initialHash = String(global.location.hash || "").replace(/^#/, "");
     const activePage = global.InvestmentConfig.pages.includes(initialHash) ? initialHash : "overview";
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
+    const recognitionProvider = dependencies.recognitionProvider?.create?.({
+      invokeFunction: context.data.invokeFunction
+    }) || null;
 
     global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
     function renderSharedHeader(pageId) {
@@ -153,7 +190,8 @@
         portfolio: "投資組合｜查看目前持倉、成本與損益",
         watchlist: "觀察清單｜追蹤關注中的市場標的",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
-        settings: "偏好設定｜管理投資模組的顯示與計算偏好"
+        settings: "偏好設定｜管理投資模組的顯示與計算偏好",
+        import: "截圖匯入｜先預覽持股截圖，不直接改動正式資料"
       };
       const release = global.ZhugeFoundationConfig?.version || {};
       global.ZhugeSharedShell.mountHeader(sharedHeaderTarget, {
@@ -167,13 +205,31 @@
     }
     renderSharedHeader(activePage);
     const pageRoot = root.querySelector("#investmentPage");
+    const importSession = global.InvestmentScreenshotImportEngine.createSession({
+      createPreviewUrl: file => typeof global.URL?.createObjectURL === "function" ? global.URL.createObjectURL(file) : "",
+      revokePreviewUrl: url => typeof global.URL?.revokeObjectURL === "function" ? global.URL.revokeObjectURL(url) : undefined
+    });
 
     function renderPage() {
       const state = store.getState();
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
+      const importSnapshot = importSession.getSnapshot();
+      const recognizedRows = importSnapshot.recognition?.status === "recognized"
+        ? importSnapshot.recognition.rows
+        : null;
+      const scope = importSnapshot.recognition?.completeness === "full"
+        ? "full"
+        : importSnapshot.recognition?.completeness === "partial"
+          ? "partial"
+          : "unknown";
+      const pageDependencies = {
+        ...dependencies,
+        importSession: importSnapshot,
+        reconciliation: dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope })
+      };
       global.ZhugeComponents.Summary.update(pageRoot, state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
-        : page.render(state, dependencies));
+        : page.render(state, pageDependencies));
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
@@ -185,6 +241,13 @@
       if (updateHash && global.location.hash !== `#${page}`) global.location.hash = page;
       store.setActivePage(page);
       renderSharedHeader(page);
+      renderPage();
+    }
+
+    async function runRecognition() {
+      await importSession.startRecognition(recognitionProvider?.recognize
+        ? (files, metadata) => recognitionProvider.recognize(files, metadata)
+        : null);
       renderPage();
     }
 
@@ -217,7 +280,77 @@
       const route = event.target.closest("[data-investment-route]");
       if (route) navigate(route.dataset.investmentRoute);
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
+      const importAction = event.target.closest("[data-investment-import-action]");
+      if (!importAction) return;
+      const action = importAction.dataset.investmentImportAction;
+      if (action === "choose") {
+        root.querySelector("[data-investment-import-files]")?.click();
+      } else if (action === "remove") {
+        importSession.removeFile(importAction.dataset.investmentImportFileId);
+        renderPage();
+      } else if (action === "clear") {
+        importSession.clear();
+        renderPage();
+      } else if (action === "start-recognition") {
+        runRecognition().catch(handleError);
+      } else if (action === "ignore-row") {
+        importSession.ignoreRecognitionRow(importAction.dataset.investmentImportRowId);
+        renderPage();
+      } else if (action === "restore-recognition") {
+        importSession.restoreRecognitionResult();
+        renderPage();
+      } else if (action === "confirm-preview") {
+        importSession.confirmPreview();
+        renderPage();
+      }
     });
+    root.addEventListener("submit", event => {
+      const form = event.target.closest("[data-investment-import-edit]");
+      if (!form) return;
+      event.preventDefault();
+      const values = new FormData(form);
+      importSession.updateRecognitionRow(form.dataset.investmentImportRowId, {
+        symbol: values.get("symbol"),
+        name: values.get("name"),
+        quantity: values.get("quantity"),
+        averageCost: values.get("averageCost"),
+        investedCost: values.get("investedCost"),
+        currency: values.get("currency")
+      });
+      renderPage();
+    });
+    root.addEventListener("change", event => {
+      const input = event.target.closest("[data-investment-import-files]");
+      if (!input) return;
+      importSession.addFiles(input.files);
+      input.value = "";
+      renderPage();
+    });
+    root.addEventListener("dragover", event => {
+      const dropzone = event.target.closest("[data-investment-import-dropzone]");
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.classList.add("is-dragging");
+    });
+    root.addEventListener("dragleave", event => {
+      const dropzone = event.target.closest("[data-investment-import-dropzone]");
+      if (dropzone && !dropzone.contains(event.relatedTarget)) dropzone.classList.remove("is-dragging");
+    });
+    root.addEventListener("drop", event => {
+      const dropzone = event.target.closest("[data-investment-import-dropzone]");
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.classList.remove("is-dragging");
+      importSession.addFiles(event.dataTransfer?.files);
+      renderPage();
+    });
+    root.addEventListener("keydown", event => {
+      const dropzone = event.target.closest("[data-investment-import-dropzone]");
+      if (!dropzone || !["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      root.querySelector("[data-investment-import-files]")?.click();
+    });
+    global.addEventListener("pagehide", () => importSession.dispose(), { once: true });
     global.addEventListener("hashchange", () => navigate(String(global.location.hash || "#overview").slice(1), false));
 
     function handleError(error) {
@@ -228,10 +361,10 @@
 
     try {
       await load();
-      return Object.freeze({ status: "ready", context, repository, store, reload: load, navigate });
+      return Object.freeze({ status: "ready", context, repository, store, importSession, reload: load, navigate });
     } catch (error) {
       handleError(error);
-      return Object.freeze({ status: "error", context, repository, store, reload: load, navigate });
+      return Object.freeze({ status: "error", context, repository, store, importSession, reload: load, navigate });
     }
   }
 

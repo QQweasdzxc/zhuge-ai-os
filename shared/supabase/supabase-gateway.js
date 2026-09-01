@@ -186,6 +186,77 @@
     return text ? JSON.parse(text) : null;
   }
 
+  // Edge Functions are another authenticated capability of the same narrow
+  // gateway.  Consumers may provide a request body and AbortSignal, but never
+  // their own Authorization/apikey headers.  This keeps the Shared Session
+  // lifecycle and its single refresh/retry rule in one place.
+  async function invokeFunction(functionName, body = {}, options = {}) {
+    const config = requireConfig();
+    const name = String(functionName || "").trim().toLowerCase();
+    if (!/^[a-z0-9-]{1,80}$/.test(name)) throw new TypeError("Shared Function 名稱格式不正確。" );
+    const signal = options && typeof options === "object" ? options.signal : undefined;
+    let serialized;
+    try {
+      serialized = JSON.stringify(body === undefined ? {} : body);
+    } catch {
+      const error = new Error("受控服務請求內容無法序列化。" );
+      error.code = "FUNCTION_PAYLOAD_INVALID";
+      throw error;
+    }
+    const run = () => fetch(`${config.supabaseUrl}/functions/v1/${encodeURIComponent(name)}`, {
+      method: "POST",
+      headers: typeof cloudHeaders === "function"
+        ? cloudHeaders({ "Content-Type": "application/json" })
+        : {
+            apikey: config.supabaseAnonKey,
+            Authorization: `Bearer ${typeof currentAccessToken === "function" && currentAccessToken() ? currentAccessToken() : config.supabaseAnonKey}`,
+            "Content-Type": "application/json"
+          },
+      body: serialized,
+      ...(signal ? { signal } : {})
+    });
+    let response;
+    const lifecycle = getSessionLifecycle();
+    if (lifecycle) response = await lifecycle.request(run);
+    else {
+      if (typeof ensureFreshAuthSession === "function") await ensureFreshAuthSession(false);
+      response = await run();
+    }
+    if (response.status === 401 && typeof refreshAuthSession === "function") {
+      if (lifecycle) {
+        const error = new Error("登入工作階段已逾時，請重新登入。" );
+        error.code = "AUTH_SESSION_EXPIRED";
+        error.status = 401;
+        throw error;
+      }
+      const refreshed = await refreshAuthSession(true);
+      if (!refreshed?.access_token || (typeof accessTokenNeedsRefresh === "function" && accessTokenNeedsRefresh(0))) {
+        const error = new Error("登入工作階段已逾時，請重新整理頁面後重新登入。" );
+        error.code = "AUTH_SESSION_EXPIRED";
+        error.status = 401;
+        throw error;
+      }
+      response = await run();
+    }
+    const responseText = await response.text().catch(() => "");
+    let parsed = null;
+    try { parsed = responseText ? JSON.parse(responseText) : null; } catch { parsed = null; }
+    if (!response.ok) {
+      const error = new Error(String(parsed?.message || `受控服務無法完成（${response.status}）。`).slice(0, 240));
+      error.code = String(parsed?.code || (response.status === 401 ? "AUTH_SESSION_EXPIRED" : "FUNCTION_REQUEST_FAILED")).slice(0, 80);
+      error.status = response.status;
+      throw error;
+    }
+    if (response.status === 204) return null;
+    if (parsed === null) {
+      const error = new Error("受控服務回傳格式無法驗證。" );
+      error.code = "INVALID_FUNCTION_RESPONSE";
+      error.status = response.status;
+      throw error;
+    }
+    return parsed;
+  }
+
   function createDataGateway() {
     return Object.freeze({
       select: (table, query = "") => request(`${encodeURIComponent(String(table || ""))}${encodedQuery(query)}`, { method: "GET" }),
@@ -193,6 +264,7 @@
         method: "POST",
         body: JSON.stringify(args || {})
       }),
+      invokeFunction,
       uploadStorageObject,
       createStorageSignedUrl,
       removeStorageObject,

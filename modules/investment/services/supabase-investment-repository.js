@@ -29,36 +29,106 @@
     return `P${Math.min(4, Math.max(1, numeric))}`;
   }
 
+  function normalizeAal(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "aal2") return "aal2";
+    if (normalized === "aal1") return "aal1";
+    return "unknown";
+  }
+
+  function investmentError(code, message, detail = {}, cause = null) {
+    const error = new Error(message);
+    error.code = code;
+    Object.assign(error, detail);
+    if (cause) error.cause = cause;
+    return error;
+  }
+
+  function classifyDataError(error, { assuranceLevel = "unknown", resource = "Investment data" } = {}) {
+    if (error?.code && String(error.code).startsWith("INVESTMENT_")) return error;
+    if (error?.code === "AUTH_SESSION_EXPIRED" || Number(error?.status) === 401) {
+      return investmentError("INVESTMENT_SESSION_EXPIRED", "登入工作階段已過期，請重新登入後再讀取投資資料。", { resource }, error);
+    }
+    if (Number(error?.status) === 403 && normalizeAal(assuranceLevel) !== "aal2") {
+      return investmentError("INVESTMENT_ASSURANCE_REQUIRED", "投資資料受到額外安全保護，請完成安全驗證後繼續。", { resource, requiredAal: "aal2", currentAal: normalizeAal(assuranceLevel) }, error);
+    }
+    return investmentError("INVESTMENT_DATA_QUERY_ERROR", `無法讀取${resource}，請稍後再試。`, { resource }, error);
+  }
+
   function create(options = {}) {
     const data = options.data;
     const authUserId = String(options.userId || "");
+    const sessionSnapshot = options.sessionSnapshot || {};
+    const assuranceLevel = normalizeAal(options.assuranceLevel || sessionSnapshot.aal);
+    const authenticated = options.isAuthenticated === undefined
+      ? sessionSnapshot.isAuthenticated !== false
+      : options.isAuthenticated === true;
     if (!data || typeof data.select !== "function") throw new TypeError("SupabaseInvestmentRepository requires Shared Data API.");
     if (!authUserId) throw new TypeError("SupabaseInvestmentRepository requires Shared Identity UUID.");
     let legacyUserPromise = null;
+    const emptyResources = new Set();
+    let lastError = null;
+
+    function recordEmpty(resource, rows) {
+      if (!Array.isArray(rows) || rows.length === 0) emptyResources.add(resource);
+      return rows;
+    }
+
+    function recordError(error) {
+      lastError = error;
+      return error;
+    }
+
+    function assertSession() {
+      if (!authenticated) {
+        const code = sessionSnapshot.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED";
+        throw recordError(investmentError(
+          code,
+          code === "INVESTMENT_SESSION_EXPIRED" ? "登入工作階段已過期，請重新登入後再讀取投資資料。" : "請先登入後再讀取投資資料。"
+        ));
+      }
+      if (assuranceLevel === "aal1") {
+        throw recordError(investmentError(
+          "INVESTMENT_ASSURANCE_REQUIRED",
+          "投資資料受到額外安全保護，請完成安全驗證後繼續。",
+          { requiredAal: "aal2", currentAal: assuranceLevel }
+        ));
+      }
+    }
 
     async function legacyUser() {
       if (!legacyUserPromise) {
-        legacyUserPromise = data.select("app_users", `select=id,display_name,email&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`)
-          .then(rows => {
+        legacyUserPromise = Promise.resolve().then(() => {
+          assertSession();
+          return data.select("app_users", `select=id,display_name,email&auth_user_id=eq.${encodeURIComponent(authUserId)}&limit=1`);
+        }).then(rows => {
+            recordEmpty("app_users", rows);
             const row = first(rows);
             if (!row?.id) {
-              const error = new Error("目前帳號尚未完成 Investment Legacy Mapping，請聯絡系統管理員。" );
-              error.code = "INVESTMENT_OWNER_MAPPING_REQUIRED";
-              throw error;
+              throw recordError(investmentError(
+                "INVESTMENT_OWNER_MAPPING_REQUIRED",
+                "目前帳號尚未完成 Investment Legacy Mapping，請聯絡系統管理員。"
+              ));
             }
             return Object.freeze(row);
           })
           .catch(error => {
+            const classified = classifyDataError(error, { assuranceLevel, resource: "Investment Owner Mapping" });
             legacyUserPromise = null;
-            throw error;
-          });
+            throw recordError(classified);
+          })
       }
       return legacyUserPromise;
     }
 
     async function ownerSelect(table, select = "*", suffix = "") {
       const owner = await legacyUser();
-      return data.select(table, `select=${select}&user_id=eq.${encodeURIComponent(owner.id)}${suffix}`);
+      try {
+        const rows = await data.select(table, `select=${select}&user_id=eq.${encodeURIComponent(owner.id)}${suffix}`);
+        return recordEmpty(table, rows);
+      } catch (error) {
+        throw recordError(classifyDataError(error, { assuranceLevel, resource: table }));
+      }
     }
 
     async function loadPortfolio() {
@@ -126,6 +196,14 @@
       }));
     }
 
+    function getStatus() {
+      return Object.freeze({
+        code: lastError?.code || (emptyResources.size ? "INVESTMENT_DATA_EMPTY" : "READY"),
+        emptyResources: Object.freeze([...emptyResources]),
+        lastError
+      });
+    }
+
     async function loadSettings() {
       const rows = await ownerSelect("user_settings", "setting_key,setting_value,updated_at", "&order=updated_at.desc");
       const values = Object.fromEntries((rows || []).map(row => [row.setting_key, row.setting_value]));
@@ -144,7 +222,8 @@
       loadTransactions,
       loadWatchlist,
       loadStrategies,
-      loadSettings
+      loadSettings,
+      getStatus
     });
   }
 

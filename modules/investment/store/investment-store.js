@@ -16,6 +16,9 @@
       transactions: [],
       watchlist: [],
       strategies: [],
+      performance: null,
+      todayFocus: [],
+      marketEvents: [],
       settings: null,
       error: null,
       loadedAt: null
