@@ -76,6 +76,74 @@ test("a missing C Drawer agreement-date frame is a real template Gap", () => {
   assert.match(engine.formatReport(report), /DIFFERENT｜Drawer/);
 });
 
+test("the 15 categories expand into a complete recursive machine inventory", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const report = engine.runManual({ contracts, consumerId: "ai-board", consumerLabel: "AI Board" });
+  const drawer = report.inventory.find(item => item.id === "drawer");
+  const agreement = drawer.children.find(item => item.id === "drawer.agreementScheduleFrame");
+  assert.equal(report.motherCount, 15);
+  assert.ok(report.machineMotherCount > report.motherCount);
+  assert.equal(report.machineGapCount, 0);
+  assert.equal(report.machineMatchCount, report.machineMotherCount);
+  assert.equal(agreement.status, "MATCH");
+  assert.ok(agreement.children.some(item => item.id === "drawer.agreementScheduleFrame.key"));
+  assert.match(engine.formatReport(report), /完整機器比對/);
+  assert.match(engine.formatReport(report), /drawer\.agreementScheduleFrame/);
+});
+
+test("recursive machine comparison reports child MISSING, EXTRA, and DIFFERENT", () => {
+  const baseline = engine.canonicalInventory();
+  const baseContracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+
+  const missingContracts = JSON.parse(JSON.stringify(baseContracts));
+  delete missingContracts.drawer.agreementScheduleFrame;
+  const missing = engine.compare(baseline, engine.collectConsumerInventory({ contracts: missingContracts, baseline: "AI Board" }));
+  assert.ok(missing.differenceDetails.some(item => item.status === "MISSING" && item.path === "agreementScheduleFrame"));
+  assert.equal(missing.gapCount, 1);
+
+  const extraContracts = JSON.parse(JSON.stringify(baseContracts));
+  extraContracts.card.consumerOnlyTemplateChild = { renderer: "consumer-private" };
+  const extra = engine.compare(baseline, engine.collectConsumerInventory({ contracts: extraContracts, baseline: "WorkTodo" }));
+  assert.ok(extra.differenceDetails.some(item => item.status === "EXTRA" && item.path === "consumerOnlyTemplateChild"));
+  assert.equal(extra.gapCount, 1);
+
+  const differentContracts = JSON.parse(JSON.stringify(baseContracts));
+  differentContracts.drawer.agreementScheduleFrame.editor = "different-editor";
+  const different = engine.compare(baseline, engine.collectConsumerInventory({ contracts: differentContracts, baseline: "QAT" }));
+  assert.ok(different.differenceDetails.some(item => item.status === "DIFFERENT" && item.path === "agreementScheduleFrame.editor"));
+  assert.equal(different.gapCount, 1);
+});
+
+test("same top-level count with different child content is not a false 100% match", () => {
+  const baseContracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const consumerContracts = JSON.parse(JSON.stringify(baseContracts));
+  consumerContracts.card.renderer = "ConsumerCard.render";
+  const report = engine.compare(engine.canonicalInventory(), engine.collectConsumerInventory({ contracts: consumerContracts, baseline: "AI Board" }));
+  assert.equal(report.motherCount, 15);
+  assert.equal(report.consumerCount, 15);
+  assert.equal(report.inventory.find(item => item.id === "card").status, "DIFFERENT");
+  assert.ok(report.differenceDetails.some(item => item.status === "DIFFERENT" && item.path === "renderer"));
+  assert.equal(report.fingerprint, "MISMATCH");
+});
+
+test("the runtime probe independently detects a Drawer agreement-date frame that is not rendered", () => {
+  const root = {
+    ZhugeGoldenMaster: {},
+    ZhugeSharedTaskBoard: {},
+    ZhugeSharedTaskCard: { render: () => '<div class="shared-task-card-title"></div>' },
+    ZhugeSharedTaskDrawer: { render: () => '<div data-shared-task-region="activity"></div>' },
+    ZhugeSharedTaskActionContract: { ACTIONS: [] },
+    ZhugeBoardRuntime: {}
+  };
+  const document = { querySelector: () => null };
+  const consumer = engine.collectConsumerInventory({ root, document, baseline: "AI Board" });
+  const report = engine.compare(engine.canonicalInventory(), consumer);
+  const drawer = report.inventory.find(item => item.id === "drawer");
+  assert.equal(drawer.children.find(item => item.id === "drawer.agreementScheduleFrame").status, "MISSING");
+  assert.ok(report.differenceDetails.some(item => item.status === "MISSING" && item.path === "agreementScheduleFrame"));
+  assert.notEqual(report.fingerprint, "MATCH");
+});
+
 test("a complete report exposes every capability with an explicit status", () => {
   const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
   const report = engine.runManual({ contracts, consumerId: "q-at", consumerLabel: "QAT" });
