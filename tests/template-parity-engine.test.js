@@ -20,7 +20,7 @@ test("C is the only parity baseline and exposes the full semantic capability inv
     framework: "shared-task-drawer-property",
     label: "約定日期／約定期間",
     editor: "controlled-shared-agreement-date-editor",
-    dataOnly: true
+    dataIndependent: true
   });
 });
 
