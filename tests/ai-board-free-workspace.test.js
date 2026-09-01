@@ -97,6 +97,24 @@ test("Shared workspace menu exposes rename/delete with custom and canonical guar
   assert.match(css, /workspace-action-menu/);
 });
 
+test("Canonical completion workspace keeps rename while preserving lifecycle guards", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  const css = read("shared/theme/golden-master.css");
+  assert.match(runtime, /function isCanonicalCompletionKey\(value\)/);
+  assert.match(runtime, /return key \? isCanonicalCompletionKey\(key\) : name === "已完成" \|\| name === "完成"/);
+  assert.match(runtime, /workspace-lifecycle-label[\s\S]*data-workspace-menu/);
+  assert.match(runtime, /title=\\"工作區操作（可重新命名顯示名稱）\\"/);
+  assert.match(runtime, /deleteButton\.disabled = true/);
+  assert.match(css, /workspace-completion-column \.workspace-action-menu\{right:8px\}/);
+});
+
+test("Workspace display names cannot change canonical Board classification", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  assert.match(runtime, /const completionWorkspace = workspaceKey[\s\S]*isCanonicalCompletionKey\(workspaceKey\)/);
+  assert.match(runtime, /key \? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區"/);
+  assert.match(runtime, /return workspaceKey \? workspaceKey === "qjc" : workspaceName === "QJC驗證"/);
+});
+
 test("Archive derives read-only records from canonical task status and governance state", () => {
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");

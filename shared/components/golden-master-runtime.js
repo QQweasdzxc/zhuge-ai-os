@@ -424,7 +424,10 @@
     const status = activeService().normalizeStatus ? activeService().normalizeStatus(task?.status) : String(task?.status || "").trim().toLowerCase();
     const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
     const workspaceName = String(task?.workspaceName || "").trim();
-    if ((workspaceKey === "completed" || workspaceName === "已完成") && task?.completionAt && !task?.archivedAt) return "已完成";
+    const completionWorkspace = workspaceKey
+      ? isCanonicalCompletionKey(workspaceKey)
+      : workspaceName === "已完成";
+    if (completionWorkspace && task?.completionAt && !task?.archivedAt) return "已完成";
     if (status === "ready") return "待開始";
     if (status === "inprogress") return "進行中";
     if (status === "qa") return "等待驗證";
@@ -465,12 +468,15 @@
     const status = activeService().normalizeStatus ? activeService().normalizeStatus(task?.status) : String(task?.status || "").toLowerCase();
     return status === "done" || activeService().isGovernanceTerminal?.(task) === true;
   }
-  function isCompletionWorkspace(workspace) {
-    const key = String(workspace?.key || "").toLowerCase();
-    const name = String(workspace?.name || "").trim();
+  function isCanonicalCompletionKey(value) {
+    const key = String(value || "").trim().toLowerCase();
     return key === "completed" || key === "worktodo-completed" || key === "mdtk-completed"
-      || (state.applicationScope === "c" && key === `${boardTaskPrefix()}-completed`)
-      || name === "已完成" || name === "完成";
+      || (state.applicationScope === "c" && key === `${boardTaskPrefix()}-completed`);
+  }
+  function isCompletionWorkspace(workspace) {
+    const key = String(workspace?.key || "").trim().toLowerCase();
+    const name = String(workspace?.name || "").trim();
+    return key ? isCanonicalCompletionKey(key) : name === "已完成" || name === "完成";
   }
   function isCustomWorkspace(workspace) {
     const key = String(workspace?.key || "").trim().toLowerCase();
@@ -507,8 +513,7 @@
     // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
     // column; the current workflow uses workspace position itself as the stage.
     return workspace?.active === true
-      && key !== "done" && name !== "已完工"
-      && key !== "gpt" && name !== "GPT區";
+      && (key ? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區");
   }
   function workTodoJournalForTask(task) {
     if (!isWorkTodoTask(task)) return [];
@@ -613,6 +618,7 @@
     const itemLabel = workItemLabel();
     const columns = workspaces.map(workspace => {
       const completion = isCompletionWorkspace(workspace);
+      const menuButton = "<button class=\"workspace-menu\" type=\"button\" data-workspace-menu=\"" + esc(workspace.id) + "\" title=\"工作區操作（可重新命名顯示名稱）\" aria-label=\"工作區操作（可重新命名顯示名稱）\" aria-haspopup=\"menu\" aria-expanded=\"false\">⋮</button>";
       return {
         id: workspace.id,
         key: workspace.key,
@@ -622,9 +628,12 @@
         addHtml: !completion
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
-        controlsHtml: completion
-          ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\">✓</span>"
-          : "<button class=\"workspace-menu\" type=\"button\" data-workspace-menu=\"" + esc(workspace.id) + "\" title=\"工作區操作\" aria-label=\"工作區操作\" aria-haspopup=\"menu\" aria-expanded=\"false\">⋮</button>"
+        // Completion remains lifecycle-controlled for move/delete, but its
+        // display label is still user-customizable through the same menu as
+        // every other workspace. The canonical key is never editable here.
+        controlsHtml: (completion
+          ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\" aria-hidden=\"true\">✓</span>"
+          : "") + menuButton
       };
     });
     if (boardMount && root.ZhugeGoldenMaster?.renderBoard) {
@@ -1016,7 +1025,7 @@
     const menu = document.createElement("div");
     menu.className = "workspace-action-menu";
     menu.setAttribute("role", "menu");
-    menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\">重新命名</button>"
+    menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\" title=\"只修改顯示名稱，不改 Canonical workspace key\">重新命名</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"delete\">刪除工作區</button>";
     header.appendChild(menu);
     button.setAttribute("aria-expanded", "true");
@@ -1062,7 +1071,7 @@
     input.value = originalName;
     input.maxLength = 80;
     input.autocomplete = "off";
-    input.setAttribute("aria-label", "重新命名工作區");
+    input.setAttribute("aria-label", "重新命名工作區顯示名稱");
     input.dataset.workspaceRenameInput = workspace.id;
     title.classList.add("is-renaming");
     title.replaceChildren(input);
@@ -1521,7 +1530,7 @@
   function isPmTurn(task) {
     const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
     const workspaceName = String(task?.workspaceName || "").trim();
-    return workspaceKey === "qjc" || workspaceName === "QJC驗證";
+    return workspaceKey ? workspaceKey === "qjc" : workspaceName === "QJC驗證";
   }
 
   function pmAttentionMarkup(item, task, verification, reason) {
