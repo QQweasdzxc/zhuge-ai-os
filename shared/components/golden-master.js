@@ -55,9 +55,20 @@
       label: item?.label || item?.name || "",
       id: item?.id || "",
       className: item?.className || "",
+      dataAction: item?.dataAction || "",
       disabled: item?.disabled === true
     };
   }
+
+  // Template-level comparison is a Golden Master capability.  Keeping this
+  // action here makes the entry available to every C Consumer without asking
+  // AI Board, WorkTodo, or QAT to grow a private toolbar implementation.
+  const TEMPLATE_PARITY_ACTION = Object.freeze({
+    id: "templateParityBtn",
+    label: "與母版比對",
+    dataAction: "template-parity",
+    className: "golden-master-parity-action"
+  });
 
   function renderHeader(options = {}, deps = dependencies(options)) {
     const shell = deps.shell;
@@ -76,6 +87,7 @@
 
   function renderToolbar(options = {}) {
     const toolbar = options.toolbar || options;
+    const enableTemplateParity = toolbar.enableTemplateParity === true;
     const className = ["toolbar", "board-toolbar", "golden-master-toolbar", toolbar.className || ""].filter(Boolean).join(" ");
     const toolbarId = toolbar.id ? ` id="${escapeHtml(toolbar.id)}"` : "";
     const searchId = escapeHtml(toolbar.searchId || "goldenMasterSearch");
@@ -88,10 +100,13 @@
       .filter(item => item.label)
       .map(item => `<button class="chip golden-master-toolbar-control" type="button"${item.disabled ? " disabled aria-disabled=\"true\"" : ""}>${escapeHtml(item.label)}</button>`)
       .join("");
-    const actions = (Array.isArray(toolbar.actions) ? toolbar.actions : [])
+    const suppliedActions = (Array.isArray(toolbar.actions) ? toolbar.actions : [])
       .map(normalizeAction)
       .filter(item => item.label)
-      .map(item => `<button class="btn golden-master-toolbar-control ${escapeHtml(item.className)}" type="button"${item.id ? ` id="${escapeHtml(item.id)}"` : ""}${item.disabled ? " disabled aria-disabled=\"true\"" : ""}>${escapeHtml(item.label)}</button>`)
+      .filter(item => !enableTemplateParity || item.id !== TEMPLATE_PARITY_ACTION.id);
+    const toolbarActions = enableTemplateParity ? [...suppliedActions, TEMPLATE_PARITY_ACTION] : suppliedActions;
+    const actions = toolbarActions
+      .map(item => `<button class="btn golden-master-toolbar-control ${escapeHtml(item.className)}" type="button"${item.id ? ` id="${escapeHtml(item.id)}"` : ""}${item.dataAction ? ` data-golden-master-action="${escapeHtml(item.dataAction)}"` : ""}${item.disabled ? " disabled aria-disabled=\"true\"" : ""}>${escapeHtml(item.label)}</button>`)
       .join("");
     const customActions = markup(toolbar.actionsHtml);
     const status = markup(toolbar.statusHtml || (toolbar.status ? `<span class="golden-master-toolbar-status">${escapeHtml(toolbar.status)}</span>` : ""));

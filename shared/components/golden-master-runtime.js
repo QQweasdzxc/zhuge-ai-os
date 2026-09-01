@@ -698,13 +698,17 @@
       // implemented, omit the unfinished controls rather than advertise a
       // dead-end interaction.
       filters: [],
-      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }, { id: "templateParityBtn", label: "與母版比對" }],
+      // The Golden Master owns the shared parity action.  Consumer runtimes
+      // only provide domain-specific controls and never render a duplicate.
+      enableTemplateParity: true,
+      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
       statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
       surface.innerHTML = `<div data-module-release-notice-host hidden></div>${toolbarMarkup}<div data-template-parity-result-host hidden></div><div data-golden-master-board-mount></div>`;
+      wireTemplateParityCheck();
       return;
     }
     const mount = document.getElementById("goldenMasterToolbar");
@@ -716,6 +720,7 @@
       resultHost.hidden = true;
       surface.insertBefore(resultHost, surface.querySelector("[data-golden-master-board-mount]") || null);
     }
+    wireTemplateParityCheck();
   }
   function wireSearch() {
     const input = document.getElementById("boardSearch");

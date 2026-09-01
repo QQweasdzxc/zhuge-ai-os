@@ -86,10 +86,30 @@ test("the three formal Board pages load one shared Parity Engine before the shar
     assert.ok(parityIndex >= 0, `${file} must load the shared parity engine`);
     assert.ok(runtimeIndex > parityIndex, `${file} must load the parity engine before the runtime`);
   }
+  const goldenMaster = read("shared/components/golden-master.js");
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /id: "templateParityBtn"/);
+  assert.match(goldenMaster, /id: "templateParityBtn"/);
+  assert.match(goldenMaster, /data-golden-master-action/);
+  assert.match(goldenMaster, /enableTemplateParity/);
+  assert.match(goldenMaster, /filter\(item => !enableTemplateParity \|\| item\.id !== TEMPLATE_PARITY_ACTION\.id\)/);
   assert.match(runtime, /runTemplateParityCheck\("publish"/);
   assert.match(runtime, /runTemplateParityCheck\("adopt"/);
   assert.match(runtime, /runParityGuard: options/);
   assert.match(runtime, /Parity Check 僅 Compare／Detect／Report/);
+});
+
+test("the Golden Master owns one parity toolbar action for every consumer", () => {
+  const goldenMaster = require(path.join(ROOT, "shared/components/golden-master.js"));
+  const markup = goldenMaster.renderToolbar({
+    enableTemplateParity: true,
+    actions: [
+      { id: "healthCheckBtn", label: "檢查資料健康度" },
+      { id: "templateParityBtn", label: "Consumer duplicate" }
+    ]
+  });
+  assert.equal((markup.match(/id="templateParityBtn"/g) || []).length, 1);
+  assert.match(markup, /data-golden-master-action="template-parity"/);
+  assert.match(markup, />與母版比對<\/button>/);
+  const legacyMarkup = goldenMaster.renderToolbar({ actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }] });
+  assert.doesNotMatch(legacyMarkup, /templateParityBtn/);
 });
