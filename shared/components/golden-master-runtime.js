@@ -495,7 +495,13 @@
     qjc: "瀏覽器實際操作結果、截圖／錄影或 PM 驗收說明"
   });
   const stateLabels = Object.freeze({ not_verified: "尚未驗證", pass: "已通過", fail: "需要修正", na: "不適用" });
+  let bannerDismissTimer = null;
   function setBanner(message, kind) {
+    const stateName = String(kind || "info").trim().toLowerCase() || "info";
+    if (bannerDismissTimer) {
+      clearTimeout(bannerDismissTimer);
+      bannerDismissTimer = null;
+    }
     let banner = document.getElementById("boardReadStatus");
     if (!banner) {
       banner = document.createElement("div");
@@ -505,10 +511,22 @@
       const parent = toolbar?.parentElement || document.querySelector(".main");
       if (parent) parent.insertBefore(banner, toolbar || parent.firstChild);
     }
-    banner.dataset.state = kind || "info";
+    banner.dataset.state = stateName;
+    if (stateName === "success") banner.dataset.ephemeral = "true";
+    else banner.removeAttribute("data-ephemeral");
+    banner.setAttribute("role", stateName === "error" ? "alert" : "status");
+    banner.setAttribute("aria-live", stateName === "error" ? "assertive" : "polite");
     banner.innerHTML = message;
+    if (stateName === "success") {
+      bannerDismissTimer = setTimeout(() => {
+        if (document.getElementById("boardReadStatus") === banner) banner.remove();
+        bannerDismissTimer = null;
+      }, 3500);
+    }
   }
   function clearBanner() {
+    if (bannerDismissTimer) clearTimeout(bannerDismissTimer);
+    bannerDismissTimer = null;
     document.getElementById("boardReadStatus")?.remove();
   }
   function isArchiveTask(task) {
@@ -743,6 +761,89 @@
     const itemLabel = workItemLabel();
     if (result) result.textContent = state.searchQuery.trim() ? "搜尋「" + state.searchQuery.trim() + "」：找到 " + count + " 筆 " + itemLabel : "顯示目前工作中的正式 " + itemLabel;
   }
+  function setSearchPanelOpen(open, options = {}) {
+    const tools = document.querySelector("[data-golden-master-tab-tools]");
+    const trigger = tools?.querySelector("[data-golden-master-search-toggle]");
+    const panel = tools?.querySelector("[data-golden-master-search-panel]");
+    if (!tools || !trigger || !panel) return;
+    const expanded = Boolean(open);
+    panel.hidden = !expanded;
+    trigger.setAttribute("aria-expanded", String(expanded));
+    if (expanded && options.focus === true) panel.querySelector("#boardSearch")?.focus();
+  }
+  function ensureSearchControl() {
+    const tabs = document.querySelector(".workspace-subnav");
+    if (!tabs) return null;
+    let tools = tabs.querySelector("[data-golden-master-tab-tools]");
+    if (!tools) {
+      tools = document.createElement("div");
+      tools.className = "golden-master-tab-tools";
+      tools.dataset.goldenMasterTabTools = "true";
+      tools.setAttribute("role", "presentation");
+      tabs.appendChild(tools);
+    }
+    let trigger = tools.querySelector("[data-golden-master-search-toggle]");
+    if (!trigger) {
+      trigger = document.createElement("button");
+      trigger.className = "workspace-tab-search-trigger";
+      trigger.type = "button";
+      trigger.dataset.goldenMasterSearchToggle = "true";
+      tools.appendChild(trigger);
+    }
+    const itemLabel = workItemLabel();
+    trigger.textContent = "⌕";
+    trigger.setAttribute("aria-label", `搜尋${itemLabel}`);
+    trigger.title = `搜尋${itemLabel}`;
+    trigger.setAttribute("aria-controls", "boardSearchPanel");
+    trigger.onclick = () => {
+      const expanded = trigger.getAttribute("aria-expanded") === "true";
+      setSearchPanelOpen(!expanded, { focus: !expanded });
+    };
+
+    let panel = tools.querySelector("[data-golden-master-search-panel]");
+    if (!panel) {
+      panel = document.createElement("label");
+      panel.className = "golden-master-tab-search";
+      panel.dataset.goldenMasterSearchPanel = "true";
+      panel.id = "boardSearchPanel";
+      const accessibleLabel = document.createElement("span");
+      accessibleLabel.className = "golden-master-visually-hidden";
+      const input = document.createElement("input");
+      input.id = "boardSearch";
+      input.type = "search";
+      const clear = document.createElement("button");
+      clear.className = "golden-master-tab-search-clear";
+      clear.type = "button";
+      clear.dataset.goldenMasterSearchClear = "true";
+      clear.textContent = "×";
+      panel.append(accessibleLabel, input, clear);
+      tools.appendChild(panel);
+    }
+    const input = panel.querySelector("#boardSearch");
+    if (!input) return null;
+    const searchLabel = `搜尋${itemLabel}、使用情境或工作區`;
+    panel.querySelector(".golden-master-visually-hidden").textContent = searchLabel;
+    input.placeholder = `⌕ 搜尋目前工作中的 ${itemLabel}、使用情境或工作區`;
+    input.setAttribute("aria-label", searchLabel);
+    input.title = searchLabel;
+    if (input.value !== state.searchQuery) input.value = state.searchQuery;
+    const clear = panel.querySelector("[data-golden-master-search-clear]");
+    if (clear) {
+      clear.setAttribute("aria-label", "清除搜尋");
+      clear.title = "清除搜尋";
+      clear.onclick = () => {
+        input.value = "";
+        applySearch("");
+        setSearchPanelOpen(false);
+        trigger.focus();
+      };
+    }
+    const expanded = trigger.getAttribute("aria-expanded") === "true" || Boolean(state.searchQuery.trim());
+    trigger.setAttribute("aria-expanded", String(expanded));
+    panel.hidden = !expanded;
+    tools.hidden = state.boardView !== "board";
+    return input;
+  }
   function renderGoldenMasterToolbar() {
     if (!root.ZhugeGoldenMaster?.renderToolbar) return;
     const itemLabel = workItemLabel();
@@ -756,25 +857,41 @@
       // implemented, omit the unfinished controls rather than advertise a
       // dead-end interaction.
       filters: [],
+      includeSearch: false,
       statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
       surface.innerHTML = `${toolbarMarkup}<div data-golden-master-board-mount></div>`;
+      ensureSearchControl();
       wireTemplateParityCheck();
       return;
     }
     const mount = document.getElementById("goldenMasterToolbar");
     if (mount) mount.outerHTML = toolbarMarkup;
+    ensureSearchControl();
     wireTemplateParityCheck();
   }
   function wireSearch() {
-    const input = document.getElementById("boardSearch");
+    const input = ensureSearchControl();
     if (!input) return;
     input.oninput = event => applySearch(event.target.value);
     input.onkeydown = event => {
-      if (event.key === "Escape") { input.value = ""; applySearch(""); }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (input.value) {
+          input.value = "";
+          applySearch("");
+        } else {
+          setSearchPanelOpen(false);
+          document.querySelector("[data-golden-master-search-toggle]")?.focus();
+        }
+      }
+    };
+    const count = document.getElementById("boardSearchCount");
+    if (count && state.searchQuery.trim()) {
+      count.textContent = "搜尋「" + state.searchQuery.trim() + "」：找到 " + visibleTasks().length + " 筆 " + workItemLabel();
     };
   }
   function syncRuntimeIdentityLabels() {
@@ -1253,6 +1370,8 @@
   }
   function showBoardView(view) {
     state.boardView = view;
+    const searchTools = document.querySelector("[data-golden-master-tab-tools]");
+    if (searchTools) searchTools.hidden = view !== "board";
     document.querySelectorAll("[data-board-view]").forEach(node => { node.hidden = node.dataset.boardView !== view; });
     const canvas = document.querySelector(".workspace-canvas");
     const boardMain = document.querySelector("[data-board-main-view]");

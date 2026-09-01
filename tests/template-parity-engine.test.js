@@ -199,6 +199,15 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   assert.match(runtime, /runTemplateParityCheck\("adopt"/);
   assert.match(runtime, /runParityGuard: options/);
   assert.match(runtime, /Parity Check 僅 Compare／Detect／Report/);
+  assert.match(runtime, /includeSearch: false/);
+  assert.match(runtime, /data-golden-master-search-toggle/);
+  assert.match(runtime, /data-golden-master-search-clear/);
+  assert.match(runtime, /boardSearchPanel/);
+  assert.match(runtime, /bannerDismissTimer/);
+  assert.match(runtime, /setTimeout\(\(\) =>/);
+  const css = read("shared/theme/golden-master.css");
+  assert.match(css, /golden-master-tab-tools/);
+  assert.match(css, /board-read-status\[data-state="success"\]\{position:fixed/);
 });
 
 test("the Golden Master owns one shared status-menu action set for every consumer", () => {
@@ -214,4 +223,5 @@ test("the Golden Master owns one shared status-menu action set for every consume
   const toolbarMarkup = goldenMaster.renderToolbar({ actions: [{ id: "templateParityBtn", label: "Consumer duplicate" }] });
   assert.doesNotMatch(toolbarMarkup, /templateParityBtn/);
   assert.doesNotMatch(toolbarMarkup, /data-template-release-popover/);
+  assert.doesNotMatch(goldenMaster.renderToolbar({ includeSearch: false, searchId: "boardSearch" }), /id="boardSearch"/);
 });

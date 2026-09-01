@@ -110,7 +110,8 @@
     const customActions = markup(toolbar.actionsHtml);
     const status = markup(toolbar.statusHtml || (toolbar.status ? `<span class="golden-master-toolbar-status">${escapeHtml(toolbar.status)}</span>` : ""));
     const legend = markup(toolbar.legendHtml || (toolbar.legend ? `<span class="golden-master-toolbar-legend">${escapeHtml(toolbar.legend)}</span>` : ""));
-    return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}<label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label></div>`;
+    const search = toolbar.includeSearch === false ? "" : `<label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label>`;
+    return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}${search}</div>`;
   }
 
   function renderHeaderActions(options = {}) {
