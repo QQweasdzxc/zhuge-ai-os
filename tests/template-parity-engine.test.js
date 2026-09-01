@@ -214,12 +214,12 @@ test("the Golden Master owns one shared status-menu action set for every consume
   const goldenMaster = require(path.join(ROOT, "shared/components/golden-master.js"));
   const markup = goldenMaster.renderHeaderActions({ applicationScope: "worktodo" });
   assert.equal((markup.match(/id="templateParityBtn"/g) || []).length, 1);
-  assert.equal((markup.match(/id="healthCheckBtn"/g) || []).length, 1);
+  assert.equal((markup.match(/id="healthCheckBtn"/g) || []).length, 0);
   assert.equal((markup.match(/id="refreshBoardBtn"/g) || []).length, 1);
   assert.equal((markup.match(/data-golden-master-status-menu/g) || []).length, 1);
   assert.match(markup, /data-golden-master-action="template-parity"/);
   assert.match(markup, /⇄ 與母版比對<\/button>/);
-  assert.match(markup, /資料健康檢查（唯讀）<\/button>/);
+  assert.doesNotMatch(markup, /資料健康檢查|healthCheckBtn|health-check/);
   const toolbarMarkup = goldenMaster.renderToolbar({ actions: [{ id: "templateParityBtn", label: "Consumer duplicate" }] });
   assert.doesNotMatch(toolbarMarkup, /templateParityBtn/);
   assert.doesNotMatch(toolbarMarkup, /data-template-release-popover/);
