@@ -193,26 +193,25 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(goldenMaster, /id: "templateParityBtn"/);
   assert.match(goldenMaster, /data-golden-master-action/);
-  assert.match(goldenMaster, /enableTemplateParity/);
-  assert.match(goldenMaster, /filter\(item => !enableTemplateParity \|\| item\.id !== TEMPLATE_PARITY_ACTION\.id\)/);
+  assert.match(goldenMaster, /data-golden-master-status-menu/);
+  assert.match(goldenMaster, /data-template-release-popover/);
   assert.match(runtime, /runTemplateParityCheck\("publish"/);
   assert.match(runtime, /runTemplateParityCheck\("adopt"/);
   assert.match(runtime, /runParityGuard: options/);
   assert.match(runtime, /Parity Check 僅 Compare／Detect／Report/);
 });
 
-test("the Golden Master owns one parity toolbar action for every consumer", () => {
+test("the Golden Master owns one shared status-menu action set for every consumer", () => {
   const goldenMaster = require(path.join(ROOT, "shared/components/golden-master.js"));
-  const markup = goldenMaster.renderToolbar({
-    enableTemplateParity: true,
-    actions: [
-      { id: "healthCheckBtn", label: "檢查資料健康度" },
-      { id: "templateParityBtn", label: "Consumer duplicate" }
-    ]
-  });
+  const markup = goldenMaster.renderHeaderActions({ applicationScope: "worktodo" });
   assert.equal((markup.match(/id="templateParityBtn"/g) || []).length, 1);
+  assert.equal((markup.match(/id="healthCheckBtn"/g) || []).length, 1);
+  assert.equal((markup.match(/id="refreshBoardBtn"/g) || []).length, 1);
+  assert.equal((markup.match(/data-golden-master-status-menu/g) || []).length, 1);
   assert.match(markup, /data-golden-master-action="template-parity"/);
-  assert.match(markup, />與母版比對<\/button>/);
-  const legacyMarkup = goldenMaster.renderToolbar({ actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }] });
-  assert.doesNotMatch(legacyMarkup, /templateParityBtn/);
+  assert.match(markup, /⇄ 與母版比對<\/button>/);
+  assert.match(markup, /資料健康檢查（唯讀）<\/button>/);
+  const toolbarMarkup = goldenMaster.renderToolbar({ actions: [{ id: "templateParityBtn", label: "Consumer duplicate" }] });
+  assert.doesNotMatch(toolbarMarkup, /templateParityBtn/);
+  assert.doesNotMatch(toolbarMarkup, /data-template-release-popover/);
 });

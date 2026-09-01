@@ -87,7 +87,6 @@
 
   function renderToolbar(options = {}) {
     const toolbar = options.toolbar || options;
-    const enableTemplateParity = toolbar.enableTemplateParity === true;
     const className = ["toolbar", "board-toolbar", "golden-master-toolbar", toolbar.className || ""].filter(Boolean).join(" ");
     const toolbarId = toolbar.id ? ` id="${escapeHtml(toolbar.id)}"` : "";
     const searchId = escapeHtml(toolbar.searchId || "goldenMasterSearch");
@@ -103,24 +102,26 @@
     const suppliedActions = (Array.isArray(toolbar.actions) ? toolbar.actions : [])
       .map(normalizeAction)
       .filter(item => item.label)
-      .filter(item => !enableTemplateParity || item.id !== TEMPLATE_PARITY_ACTION.id);
-    const toolbarActions = enableTemplateParity ? [...suppliedActions, TEMPLATE_PARITY_ACTION] : suppliedActions;
-    const actions = toolbarActions
+      // Parity is a shared Header capability, never a Consumer toolbar copy.
+      .filter(item => item.id !== TEMPLATE_PARITY_ACTION.id);
+    const actions = suppliedActions
       .map(item => `<button class="btn golden-master-toolbar-control ${escapeHtml(item.className)}" type="button"${item.id ? ` id="${escapeHtml(item.id)}"` : ""}${item.dataAction ? ` data-golden-master-action="${escapeHtml(item.dataAction)}"` : ""}${item.disabled ? " disabled aria-disabled=\"true\"" : ""}>${escapeHtml(item.label)}</button>`)
       .join("");
     const customActions = markup(toolbar.actionsHtml);
     const status = markup(toolbar.statusHtml || (toolbar.status ? `<span class="golden-master-toolbar-status">${escapeHtml(toolbar.status)}</span>` : ""));
     const legend = markup(toolbar.legendHtml || (toolbar.legend ? `<span class="golden-master-toolbar-legend">${escapeHtml(toolbar.legend)}</span>` : ""));
-    return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}</div>`;
+    return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}<label class="search golden-master-toolbar-search" for="${searchId}"><span class="golden-master-visually-hidden">${searchLabel}</span><input id="${searchId}" type="search" value="${searchValue}" placeholder="${placeholder}" aria-label="${searchLabel}"${disabled}></label></div>`;
   }
 
   function renderHeaderActions(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
     const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
+    const scopeAttribute = scope ? ` data-application-scope="${scope}"` : "";
     const createConsumer = options.canCreateConsumer === true
       ? `<button class="btn board-header-action" type="button" data-golden-master-action="create-consumer" data-board-create-consumer>＋ 建立看板</button>`
       : "";
-    return `${createConsumer}<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button><button class="btn board-header-refresh" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scope ? ` data-application-scope="${scope}"` : ""}>↻</button>`;
+    const statusMenu = `<details class="board-header-status-menu" data-golden-master-status-menu data-template-release-menu${scopeAttribute}><summary class="btn board-header-refresh board-header-status-trigger" aria-label="開啟同步狀態與工具" title="同步狀態與工具"><span class="board-header-status-indicator is-unknown" data-template-release-indicator aria-hidden="true">●</span><span aria-hidden="true">↻</span><span class="board-header-status-chevron" aria-hidden="true">▾</span></summary><div class="board-header-status-popover" data-template-release-popover><div class="board-header-status-heading"><strong>同步狀態與工具</strong><span data-template-release-summary>尚未讀取</span></div><div data-module-release-notice-host hidden></div><div class="board-header-status-actions"><button class="btn board-header-status-action" id="${refreshId}" type="button" data-golden-master-action="refresh" aria-label="重新整理" title="重新整理"${scopeAttribute}>↻ 重新整理</button><button class="btn board-header-status-action ${escapeHtml(TEMPLATE_PARITY_ACTION.className)}" id="${escapeHtml(TEMPLATE_PARITY_ACTION.id)}" type="button" data-golden-master-action="${escapeHtml(TEMPLATE_PARITY_ACTION.dataAction)}"${scopeAttribute}>⇄ ${escapeHtml(TEMPLATE_PARITY_ACTION.label)}</button><button class="btn board-header-status-action golden-master-health-action" id="healthCheckBtn" type="button" data-golden-master-action="health-check"${scopeAttribute}>⌁ 資料健康檢查（唯讀）</button></div><p class="board-header-status-help">狀態顯示目前採用版本與 Published C；「與母版比對」只 Compare／Detect／Report；資料健康檢查只讀取，不修改 Cloud。</p><div data-template-parity-result-host hidden></div></div></details>`;
+    return `${createConsumer}<button class="btn primary board-header-action" type="button" data-golden-master-action="create-card" data-board-create-card>＋ 卡片</button><button class="btn board-header-action" type="button" data-golden-master-action="create-workspace" data-board-create-workspace>＋ 工作區</button><button class="btn board-header-action" type="button" data-golden-master-action="open-archive" data-board-open-archive>📦 封存</button>${statusMenu}`;
   }
 
   function renderOperations(options = {}) {

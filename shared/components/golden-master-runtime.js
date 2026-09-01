@@ -43,17 +43,64 @@
     return normalizedVersion && normalizedBuild ? `${normalizedVersion} · Build ${normalizedBuild}` : "尚未記錄";
   }
 
+  function statusMenu() {
+    return document.querySelector("[data-golden-master-status-menu]");
+  }
+
+  function openStatusMenu() {
+    const menu = statusMenu();
+    if (menu) menu.open = true;
+  }
+
+  function closeStatusMenu() {
+    const menu = statusMenu();
+    if (menu) menu.open = false;
+  }
+
+  function updateStatusMenuIndicator(model) {
+    const indicator = document.querySelector("[data-template-release-indicator]");
+    const summary = document.querySelector("[data-template-release-summary]");
+    const stateName = String(model?.state || "unknown").trim().toLowerCase() || "unknown";
+    if (indicator) {
+      indicator.className = `board-header-status-indicator is-${stateName}`;
+      indicator.textContent = stateName === "error" ? "!" : "●";
+      indicator.title = String(model?.title || "同步狀態尚未讀取");
+    }
+    if (summary) summary.textContent = String(model?.title || "尚未讀取");
+  }
+
   function moduleReleaseNoticeModel() {
-    const release = state.templateRelease;
+    const release = state.templateRelease || {};
     const status = String(release?.status || "unavailable").trim().toLowerCase();
     const sourceIntegrity = String(document.body?.dataset?.templateSourceIntegrity || "unknown").trim().toLowerCase();
     const isMotherTemplate = state.applicationScope === "c" && state.boardIsTemplate;
-    if (isMotherTemplate || !release?.publishedVersion || !release?.publishedBuild || status === "unpublished") {
-      return { hidden: true };
-    }
     const adoption = release.adoption || null;
     const currentVersion = adoption?.moduleVersion || adoption?.templateVersion || "";
     const currentBuild = adoption?.build || "";
+    if (isMotherTemplate) {
+      return {
+        hidden: false,
+        state: "mother",
+        title: "C 母版比較基準",
+        current: releaseVersionLabel(currentVersion || release.templateVersion || release.developmentVersion, currentBuild || release.build || release.developmentBuild),
+        latest: releaseVersionLabel(release.publishedVersion, release.publishedBuild),
+        detail: "C 是唯一模板比較基準；發布更新仍由 C Publish Pipeline 處理。",
+        showAdoptAction: false,
+        actionLabel: "Golden Master",
+      };
+    }
+    if (!release.publishedVersion || !release.publishedBuild || status === "unpublished") {
+      return {
+        hidden: false,
+        state: "unknown",
+        title: "C 母版狀態尚未讀取",
+        current: releaseVersionLabel(currentVersion, currentBuild),
+        latest: releaseVersionLabel(release.publishedVersion, release.publishedBuild),
+        detail: "尚未取得 Published C／Adoption 狀態；可按「重新整理」重試，未判定為已同步。",
+        showAdoptAction: false,
+        actionLabel: "尚未讀取",
+      };
+    }
     const integrityBlocked = sourceIntegrity === "mismatch";
     const adoptionFailed = Boolean(state.templateAdoptionError);
     const failed = status === "failed" || status === "error" || integrityBlocked || adoptionFailed;
@@ -87,13 +134,13 @@
   }
 
   function ensureModuleReleaseNoticeHost() {
-    const surface = document.querySelector("[data-golden-master-surface]");
-    if (!surface) return null;
-    let host = surface.querySelector("[data-module-release-notice-host]");
+    const popover = document.querySelector("[data-template-release-popover]");
+    if (!popover) return null;
+    let host = popover.querySelector("[data-module-release-notice-host]");
     if (!host) {
       host = document.createElement("div");
       host.dataset.moduleReleaseNoticeHost = "true";
-      surface.insertBefore(host, surface.firstElementChild || null);
+      popover.insertBefore(host, popover.querySelector("[data-template-parity-result-host]") || null);
     }
     return host;
   }
@@ -135,6 +182,7 @@
     const host = ensureModuleReleaseNoticeHost();
     if (!host) return;
     const model = moduleReleaseNoticeModel();
+    updateStatusMenuIndicator(model);
     const errorMessage = state.templateAdoptionError ? ` ${esc(state.templateAdoptionError)}` : "";
     if (model.hidden) {
       host.hidden = true;
@@ -151,8 +199,9 @@
     const action = model.showAdoptAction === false
       ? `<span class="template-release-notice-state" data-template-release-synced>${esc(model.actionLabel || "已同步")}</span>`
       : `<button class="btn template-release-notice-action" type="button" data-template-adopt${model.buttonDisabled ? " disabled aria-disabled=\"true\"" : ""}>${esc(model.buttonLabel)}</button>`;
+    const icon = model.state === "error" ? "!" : model.state === "mother" ? "◆" : model.state === "unknown" ? "?" : model.state === "synced" ? "●" : "↻";
     host.innerHTML = `<section class="template-release-notice is-${esc(model.state)}" data-module-release-notice data-state="${esc(model.state)}" role="status" aria-live="polite">
-      <span class="template-release-notice-icon" aria-hidden="true">${model.state === "error" ? "!" : "↻"}</span>
+      <span class="template-release-notice-icon" aria-hidden="true">${icon}</span>
       <div class="template-release-notice-copy"><strong>${esc(model.title)}</strong><span>目前採用：${esc(model.current)}　·　最新 Published C：${esc(model.latest)}</span><small>${esc(model.detail)}${errorMessage}</small></div>
       ${action}
     </section>`;
@@ -707,28 +756,17 @@
       // implemented, omit the unfinished controls rather than advertise a
       // dead-end interaction.
       filters: [],
-      // The Golden Master owns the shared parity action.  Consumer runtimes
-      // only provide domain-specific controls and never render a duplicate.
-      enableTemplateParity: true,
-      actions: [{ id: "healthCheckBtn", label: "檢查資料健康度" }],
       statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
       legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
-      surface.innerHTML = `<div data-module-release-notice-host hidden></div>${toolbarMarkup}<div data-template-parity-result-host hidden></div><div data-golden-master-board-mount></div>`;
+      surface.innerHTML = `${toolbarMarkup}<div data-golden-master-board-mount></div>`;
       wireTemplateParityCheck();
       return;
     }
     const mount = document.getElementById("goldenMasterToolbar");
     if (mount) mount.outerHTML = toolbarMarkup;
-    const host = surface?.querySelector("[data-template-parity-result-host]");
-    if (surface && !host) {
-      const resultHost = document.createElement("div");
-      resultHost.dataset.templateParityResultHost = "true";
-      resultHost.hidden = true;
-      surface.insertBefore(resultHost, surface.querySelector("[data-golden-master-board-mount]") || null);
-    }
     wireTemplateParityCheck();
   }
   function wireSearch() {
@@ -1327,23 +1365,24 @@
   async function runHealthCheck() {
     const button = document.getElementById("healthCheckBtn");
     if (button) { button.disabled = true; button.textContent = "檢查中…"; }
-    setBanner("正在檢查 " + workItemLabel() + "、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
+    closeStatusMenu();
+    setBanner("正在唯讀檢查 " + workItemLabel() + "、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
     try {
       const report = await activeService().runHealthCheck();
       renderHealthReport(report);
       setBanner(`資料健康度檢查完成：${report.findingCount} 項 Finding。結果為唯讀，未修改 Cloud。`, "success");
     } catch (error) { setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error"); }
-    finally { if (button) { button.disabled = false; button.textContent = "檢查資料健康度"; } }
+    finally { if (button) { button.disabled = false; button.textContent = "⌁ 資料健康檢查（唯讀）"; } }
   }
   function ensureTemplateParityResultHost() {
-    const surface = document.querySelector("[data-golden-master-surface]");
-    if (!surface) return null;
-    let host = surface.querySelector("[data-template-parity-result-host]");
+    const popover = document.querySelector("[data-template-release-popover]");
+    if (!popover) return null;
+    let host = popover.querySelector("[data-template-parity-result-host]");
     if (!host) {
       host = document.createElement("div");
       host.dataset.templateParityResultHost = "true";
       host.hidden = true;
-      surface.insertBefore(host, surface.querySelector("[data-golden-master-board-mount]") || null);
+      popover.appendChild(host);
     }
     return host;
   }
@@ -1416,6 +1455,7 @@
         : engine.runAutoGuard(engineOptions);
       state.templateParityReport = report;
       renderTemplateParityReport(report);
+      if (!options.silent) openStatusMenu();
       if (!options.silent) setBanner(`${esc(engine.summary?.(report) || "C 母版一致性檢查完成")}；Parity Check 僅 Compare／Detect／Report，未修改 Cloud。`, report.gapCount === 0 ? "success" : "error");
       return report;
     } finally {
@@ -2716,7 +2756,10 @@
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd(defaultWorkspaceKey));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
     actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
-    actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => refreshBoard());
+    actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => { closeStatusMenu(); refreshBoard(); });
+    actions.querySelector("#healthCheckBtn")?.addEventListener("click", runHealthCheck);
+    wireTemplateParityCheck();
+    renderModuleReleaseNotice();
   }
   async function createCard() {
     const modal = document.getElementById("addCardModal");
@@ -2864,8 +2907,6 @@
     mountCTemplateReleasePanel();
     enableBoardActions();
     ensureHealthModal();
-    document.getElementById("healthCheckBtn")?.addEventListener("click", runHealthCheck);
-    wireTemplateParityCheck();
     ensureTaskDetailModal();
     wireNavigation();
     wireSearch();

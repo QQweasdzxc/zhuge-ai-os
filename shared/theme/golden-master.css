@@ -60,3 +60,50 @@
 @media(max-width:767px){.zhuge-module-shell .board-create-drawer{top:auto;bottom:0;width:100%;max-height:88svh;border-left:0;border-top:1px solid #344052;border-radius:18px 18px 0 0;transform:translateY(104%)}.zhuge-module-shell .board-create-drawer.is-open{transform:translateY(0)}.zhuge-module-shell .board-create-drawer .modalbody,.zhuge-module-shell .board-workspace-drawer{padding:18px}.zhuge-module-shell .board-create-drawer .modalfoot{padding:12px 18px 18px}.zhuge-module-shell .board-archive-toolbar{grid-template-columns:1fr}.zhuge-module-shell .board-archive-drawer{max-height:92svh}.zhuge-module-shell .principles-card-grid,.zhuge-module-shell .system-map-grid{grid-template-columns:1fr}.zhuge-module-shell .subview-header{display:grid}.zhuge-module-shell .subview-source{text-align:left}}
 .zhuge-module-shell .template-release-notice-copy small{white-space:normal}
 @media(max-width:767px){.zhuge-module-shell .template-release-notice{grid-template-columns:auto minmax(0,1fr);align-items:start}.zhuge-module-shell .template-release-notice-action{grid-column:2;justify-self:start}.zhuge-module-shell .template-release-notice-copy span{white-space:normal}}
+
+/* Compact shared Header status menu.  Release state, parity, and the
+ * read-only health check stay discoverable without stretching the Board. */
+.empty-golden-master .golden-master-toolbar{align-items:center}
+.empty-golden-master .golden-master-toolbar-filters{order:1}
+.empty-golden-master .golden-master-toolbar-actions{order:2}
+.empty-golden-master .golden-master-toolbar-status{order:3}
+.empty-golden-master .golden-master-toolbar-legend{order:4}
+.empty-golden-master .golden-master-toolbar-search{order:5;flex:0 1 360px;min-width:240px;margin-left:auto}
+.zhuge-module-shell .zhuge-shared-header-actions{position:relative}
+.zhuge-module-shell .board-header-status-menu{position:relative;display:inline-block;flex:0 0 auto}
+.zhuge-module-shell .board-header-status-menu>summary{list-style:none}
+.zhuge-module-shell .board-header-status-menu>summary::-webkit-details-marker{display:none}
+.zhuge-module-shell .board-header-status-trigger{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:36px;padding:8px 10px;cursor:pointer;user-select:none}
+.zhuge-module-shell .board-header-status-trigger:focus-visible{outline:2px solid #78a9ff;outline-offset:2px}
+.zhuge-module-shell .board-header-status-indicator{font-size:8px;line-height:1;color:#94a3b8}
+.zhuge-module-shell .board-header-status-indicator.is-synced,.zhuge-module-shell .board-header-status-indicator.is-mother{color:#42c98b}
+.zhuge-module-shell .board-header-status-indicator.is-update{color:#e5b94f}
+.zhuge-module-shell .board-header-status-indicator.is-error{color:#ee6b6e;font-size:12px;font-weight:800}
+.zhuge-module-shell .board-header-status-indicator.is-unknown{color:#94a3b8}
+.zhuge-module-shell .board-header-status-chevron{font-size:11px;color:#8ea2bf}
+.zhuge-module-shell .board-header-status-popover{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:min(520px,calc(100vw - 24px));box-sizing:border-box;padding:12px;border:1px solid #344052;border-radius:12px;background:#111923;box-shadow:0 18px 48px #0009;color:#d8e0ea}
+.zhuge-module-shell .board-header-status-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 2px 10px;border-bottom:1px solid #293241}
+.zhuge-module-shell .board-header-status-heading strong{font-size:13px;color:#f2f6fb}
+.zhuge-module-shell .board-header-status-heading span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8ea2bf;font-size:11px}
+.zhuge-module-shell .board-header-status-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px}
+.zhuge-module-shell .board-header-status-actions .btn{min-width:0;min-height:34px;padding:7px 8px;font-size:11px;white-space:nowrap}
+.zhuge-module-shell .board-header-status-help{margin:9px 2px 0;color:#8493a7;font-size:10px;line-height:1.5}
+.zhuge-module-shell .board-header-status-popover .template-release-notice{grid-template-columns:auto minmax(0,1fr);gap:8px;margin:10px 0 0;padding:9px 10px;box-shadow:none}
+.zhuge-module-shell .board-header-status-popover .template-release-notice-copy strong{font-size:12px}
+.zhuge-module-shell .board-header-status-popover .template-release-notice-copy span,.zhuge-module-shell .board-header-status-popover .template-release-notice-copy small{white-space:normal;overflow:visible;text-overflow:clip;font-size:10px;line-height:1.4}
+.zhuge-module-shell .board-header-status-popover .template-release-notice-icon{width:22px;height:22px;font-size:13px}
+.zhuge-module-shell .board-header-status-popover .template-release-notice-state,.zhuge-module-shell .board-header-status-popover .template-release-notice-action{grid-column:2;justify-self:start;padding:5px 8px;font-size:10px}
+.zhuge-module-shell .template-release-notice.is-mother{border-color:#385b7d;background:linear-gradient(105deg,#132237,#171d27);color:#c7dcf5}
+.zhuge-module-shell .template-release-notice.is-mother .template-release-notice-icon{background:#234568;color:#b9d6ff}
+.zhuge-module-shell .template-release-notice.is-mother .template-release-notice-copy strong,.zhuge-module-shell .template-release-notice.is-mother .template-release-notice-copy span,.zhuge-module-shell .template-release-notice.is-mother .template-release-notice-copy small{color:#c7dcf5}
+.zhuge-module-shell .template-release-notice.is-unknown{border-color:#3d5067;background:linear-gradient(105deg,#172331,#171d27);color:#c0cad8}
+.zhuge-module-shell .template-release-notice.is-unknown .template-release-notice-icon{background:#33465d;color:#cbd8e8}
+.zhuge-module-shell .board-header-status-popover>[data-template-parity-result-host]{margin-top:10px;max-height:min(70vh,620px);overflow:auto;border-top:1px solid #293241;padding-top:8px}
+.zhuge-module-shell .board-header-status-popover .template-parity-report{margin:0;padding:10px;gap:7px}
+.zhuge-module-shell .board-header-status-popover .template-parity-inventory-list{max-height:360px}
+
+@media(max-width:767px){
+  .empty-golden-master .golden-master-toolbar-search{order:5;flex:1 1 100%;width:100%;min-width:0;margin-left:0}
+  .zhuge-module-shell .board-header-status-popover{position:fixed;right:12px;top:74px;width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 88px);overflow:auto}
+  .zhuge-module-shell .board-header-status-actions{grid-template-columns:1fr}
+}
