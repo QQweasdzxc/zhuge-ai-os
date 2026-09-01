@@ -15,29 +15,29 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260830-2003",
+  "developmentBuild": "20260901-1340",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260830-2003",
+  "publishedBuild": "20260901-1340",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260830-2003",
-  "sourceCommit": "bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6",
+  "build": "20260901-1340",
+  "sourceCommit": "cd460e70b3ea745f1db0e8f24af6e86a15587307",
   "sourceDirty": true,
-  "sourceFingerprint": "671721b46267abcadc353f3e55fcd1fded0f9209e21fb6b7537f23447af304a2",
-  "publishedAt": "2026-08-30T12:03:53.756Z",
+  "sourceFingerprint": "8fe42f587cb669ec700306f0ed778571342c613e68b06e7bb0b6c470d631ed6f",
+  "publishedAt": "2026-09-01T05:41:11.029Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260830-2003",
+      "build": "20260901-1340",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260830-2003",
+      "build": "20260901-1340",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260830-2003",
+      "build": "20260901-1340",
       "status": "adopted"
     }
   }
