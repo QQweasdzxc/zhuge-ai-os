@@ -53,7 +53,7 @@
       { id: "ui-layout", label: "UI／版面", contract: { surface: "golden-master", markers: ["data-golden-master-surface", "data-golden-master-toolbar", "data-golden-master-board-mount", "data-shared-task-board"] } },
       { id: "shared-components", label: "共用元件", contract: SHARED_COMPONENT_APIS },
       { id: "card", label: "Card", contract: { renderer: "ZhugeSharedTaskCard.render", framework: "shared-task-card" } },
-      { id: "drawer", label: "Drawer", contract: { renderer: "ZhugeSharedTaskDrawer.render", framework: "shared-task-drawer", regions: ["header", "work-body", "activity"] } },
+      { id: "drawer", label: "Drawer", contract: { renderer: "ZhugeSharedTaskDrawer.render", framework: "shared-task-drawer", regions: ["header", "work-body", "activity"], agreementScheduleFrame: { key: "agreement-schedule", framework: "shared-task-drawer-property", label: "約定日期／約定期間", editor: "controlled-shared-agreement-date-editor", dataOnly: true } } },
       { id: "checklist", label: "Checklist", contract: { formalGate: "pm-acceptance", engineeringEvidence: ["developer-qa", "gpt-review", "regression-evidence"], runtimeGate: "completionGateStatus" } },
       { id: "attachment", label: "Attachment", contract: { scopes: ["task", "progress_note"], actions: ["addGeneralAttachment", "addProgressAttachment", "deleteAttachment"] } },
       { id: "progress", label: "Progress", contract: { timeline: "shared-task-timeline", source: "engineering_activity_log", classifier: "ZhugeSharedActivityClassifier" } },
@@ -136,6 +136,7 @@
     const markers = domMarkers(document);
     const cardProbe = htmlProbe(card, { code: "PARITY", title: "Parity", summary: "Parity" }, "shared-task-card-title");
     const drawerProbe = htmlProbe(drawer, { title: "Parity", titleCode: "PARITY", sections: [], activity: { html: "" } }, "data-shared-task-region=\"activity\"");
+    const agreementScheduleProbe = htmlProbe(drawer, { title: "Parity", titleCode: "PARITY", properties: [{ key: "agreement-schedule", action: "agreement-schedule", interactive: true, icon: "📅", label: "約定日期", value: "尚未設定" }], sections: [], activity: { html: "" } }, "data-task-property=\"agreement-schedule\"");
     const goldenMasterMethods = functionMap(goldenMaster, SHARED_COMPONENT_APIS.goldenMaster);
     const boardMethods = functionMap(board, SHARED_COMPONENT_APIS.board);
     const cardMethods = functionMap(card, SHARED_COMPONENT_APIS.card);
@@ -149,7 +150,7 @@
       "ui-layout": { surface: "golden-master", markers },
       "shared-components": sharedApiNames,
       "card": { renderer: "ZhugeSharedTaskCard.render", framework: "shared-task-card", renderPresent: Boolean(card?.render), probe: cardProbe },
-      "drawer": { renderer: "ZhugeSharedTaskDrawer.render", framework: "shared-task-drawer", regions: ["header", "work-body", "activity"], renderPresent: Boolean(drawer?.render), probe: drawerProbe },
+      "drawer": { renderer: "ZhugeSharedTaskDrawer.render", framework: "shared-task-drawer", regions: ["header", "work-body", "activity"], agreementScheduleFrame: { key: "agreement-schedule", framework: "shared-task-drawer-property", label: "約定日期／約定期間", editor: "controlled-shared-agreement-date-editor", dataOnly: true, renderPresent: Boolean(drawer?.render), probe: agreementScheduleProbe }, renderPresent: Boolean(drawer?.render), probe: drawerProbe },
       "checklist": { formalGate: "pm-acceptance", engineeringEvidence: ["developer-qa", "gpt-review", "regression-evidence"], runtimeGate: "completionGateStatus", gatePresent: typeof runtime?.completionGateStatus === "function" },
       "attachment": { scopes: ["task", "progress_note"], actions: actionNames.filter(name => ["addGeneralAttachment", "addProgressAttachment", "deleteAttachment"].includes(name)), contractPresent: Boolean(actionContract) },
       "progress": { timeline: "shared-task-timeline", source: "engineering_activity_log", classifier: "ZhugeSharedActivityClassifier", classifierPresent: Boolean(root.ZhugeSharedActivityClassifier) },
@@ -213,14 +214,21 @@
     const currentRows = Array.isArray(current.capabilities) ? current.capabilities : [];
     const motherMap = new Map(motherRows.map(row => [row.id, row]));
     const currentMap = new Map(currentRows.map(row => [row.id, row]));
-    const missing = motherRows.filter(row => !currentMap.has(row.id) || currentMap.get(row.id)?.present === false)
-      .map(row => ({ id: row.id, label: row.label, type: "missing", detail: "C 母版存在，但目前 Consumer 缺少此模板能力。" }));
-    const extra = currentRows.filter(row => !motherMap.has(row.id) && row.present !== false)
-      .map(row => ({ id: row.id, label: row.label, type: "extra", detail: "目前 Consumer 存在，但 C 母版沒有此模板能力。" }));
-    const mismatch = motherRows.filter(row => currentMap.has(row.id) && currentMap.get(row.id)?.present !== false && currentMap.get(row.id).fingerprint !== row.fingerprint)
-      .map(row => ({ id: row.id, label: row.label, type: "mismatch", detail: "能力名稱相同，但 Fingerprint／Behavior 不一致。", motherFingerprint: row.fingerprint, consumerFingerprint: currentMap.get(row.id).fingerprint }));
-    const differences = [...missing, ...extra, ...mismatch];
-    const matched = motherRows.filter(row => currentMap.has(row.id) && currentMap.get(row.id)?.present !== false && currentMap.get(row.id).fingerprint === row.fingerprint);
+    const inventory = motherRows.map(row => {
+      const currentRow = currentMap.get(row.id);
+      if (!currentRow || currentRow.present === false) {
+        return { id: row.id, label: row.label, status: "MISSING", type: "missing", motherPresent: true, consumerPresent: false, motherFingerprint: row.fingerprint, consumerFingerprint: null, motherContract: row.contract, consumerContract: null, detail: "C 母版存在，但目前 Consumer 缺少此模板能力。" };
+      }
+      if (currentRow.fingerprint !== row.fingerprint) {
+        return { id: row.id, label: row.label, status: "DIFFERENT", type: "mismatch", motherPresent: true, consumerPresent: true, motherFingerprint: row.fingerprint, consumerFingerprint: currentRow.fingerprint, motherContract: row.contract, consumerContract: currentRow.contract, detail: "能力名稱相同，但 Fingerprint／Behavior 不一致。" };
+      }
+      return { id: row.id, label: row.label, status: "MATCH", type: "match", motherPresent: true, consumerPresent: true, motherFingerprint: row.fingerprint, consumerFingerprint: currentRow.fingerprint, motherContract: row.contract, consumerContract: currentRow.contract, detail: "C 母版與目前 Consumer 的模板能力一致。" };
+    });
+    currentRows.filter(row => !motherMap.has(row.id) && row.present !== false).forEach(row => {
+      inventory.push({ id: row.id, label: row.label, status: "EXTRA", type: "extra", motherPresent: false, consumerPresent: true, motherFingerprint: null, consumerFingerprint: row.fingerprint, motherContract: null, consumerContract: row.contract, detail: "目前 Consumer 存在，但 C 母版沒有此模板能力。" });
+    });
+    const differences = inventory.filter(row => row.status !== "MATCH").map(row => ({ ...row }));
+    const matched = inventory.filter(row => row.status === "MATCH");
     const gapCount = differences.length;
     return {
       engineVersion: ENGINE_VERSION,
@@ -234,6 +242,7 @@
       templateGap: gapCount,
       fingerprint: gapCount === 0 ? "MATCH" : "MISMATCH",
       status: gapCount === 0 ? "match" : "gap",
+      inventory,
       differences,
       ignoredData: ["data", "workspace", "card-content", "identity"],
       direction: "consumer-to-c",
@@ -272,6 +281,10 @@
       `Template Gap：${Number(item.gapCount || 0)}`,
       `Fingerprint：${item.fingerprint || "MISMATCH"}`
     ];
+    if (Array.isArray(item.inventory)) {
+      lines.push("Capability Inventory：");
+      item.inventory.forEach(capability => lines.push(`- ${capability.status || "UNKNOWN"}｜${capability.label || capability.id || "未命名能力"}｜C Fingerprint ${capability.motherFingerprint || "—"}｜Consumer Fingerprint ${capability.consumerFingerprint || "—"}`));
+    }
     if (Array.isArray(item.differences) && item.differences.length) {
       lines.push("差異：");
       item.differences.forEach(diff => lines.push(`- ${diff.type}｜${diff.label || diff.id}｜${diff.detail || ""}`));

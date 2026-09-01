@@ -1341,17 +1341,45 @@
   function parityTriggerLabel(trigger) {
     return ({ manual: "手動檢查", publish: "C Publish 後自動守門", adopt: "Consumer Adopt 後自動守門", regression: "Regression 自動守門", runtime: "Runtime 自動守門" }[trigger]) || "自動守門";
   }
+  function parityContractSummary(contract) {
+    if (!contract) return "未提供此能力";
+    if (typeof contract !== "object") return String(contract);
+    const parts = [];
+    if (contract.framework) parts.push(`框架：${contract.framework}`);
+    if (contract.renderer) parts.push(`Renderer：${contract.renderer}`);
+    if (Array.isArray(contract.regions) && contract.regions.length) parts.push(`區域：${contract.regions.join("、")}`);
+    if (contract.agreementScheduleFrame) parts.push("約定日期框架：已納入 Drawer Capability");
+    if (contract.key === "agreement-schedule") parts.push("操作入口：約定日期／約定期間");
+    if (contract.editor) parts.push(`編輯器：${contract.editor}`);
+    if (contract.owner) parts.push(`Owner：${contract.owner}`);
+    if (contract.surface) parts.push(`Surface：${contract.surface}`);
+    if (contract.behavior) parts.push(`Behavior：${contract.behavior}`);
+    if (contract.compareDirection) parts.push(`比較方向：${contract.compareDirection}`);
+    if (Array.isArray(contract.actions) && contract.actions.length) parts.push(`Actions：${contract.actions.length} 項`);
+    if (Array.isArray(contract.methods) && contract.methods.length) parts.push(`Methods：${contract.methods.length} 項`);
+    return parts.length ? parts.join("；") : "已提供模板契約";
+  }
+  function parityStatusLabel(status) {
+    return ({ MATCH: "MATCH", MISSING: "MISSING", EXTRA: "EXTRA", DIFFERENT: "DIFFERENT" }[status]) || "UNKNOWN";
+  }
   function renderTemplateParityReport(report) {
     const host = ensureTemplateParityResultHost();
     if (!host || !report) return;
     const engine = root.ZhugeTemplateParityEngine;
+    const inventory = Array.isArray(report.inventory) ? report.inventory : [];
     const differences = Array.isArray(report.differences) ? report.differences : [];
     const details = differences.length
-      ? `<div class="template-parity-differences"><strong>實際差異</strong>${differences.map(item => `<div class="template-parity-difference"><span>${esc(item.type || "gap")}｜${esc(item.label || item.id || "未命名能力")}</span><small>${esc(item.detail || "請依正式 Governance 決定修正方式。")}</small></div>`).join("")}</div>`
+      ? `<div class="template-parity-differences"><strong>實際差異</strong>${differences.map(item => `<div class="template-parity-difference"><span>${esc(parityStatusLabel(item.status))}｜${esc(item.label || item.id || "未命名能力")}</span><small>${esc(item.detail || "請依正式 Governance 決定修正方式。")}</small></div>`).join("")}</div>`
       : `<div class="template-parity-no-difference">目前沒有模板差異；資料、工作區、卡片內容與識別資料不列入 Gap。</div>`;
+    const inventoryDetails = `<details class="template-parity-inventory" data-template-parity-inventory open><summary>Capability Inventory（${inventory.length} 項，逐項比對）</summary><div class="template-parity-inventory-list">${inventory.map(item => {
+      const status = parityStatusLabel(item.status);
+      const motherContract = parityContractSummary(item.motherContract);
+      const consumerContract = parityContractSummary(item.consumerContract);
+      return `<article class="template-parity-capability is-${status.toLowerCase()}" data-template-parity-capability data-template-parity-capability-id="${esc(item.id || "")}"><div class="template-parity-capability-heading"><span class="template-parity-capability-status status-${status.toLowerCase()}">${status}</span><strong>${esc(item.label || item.id || "未命名能力")}</strong><code>${esc(item.id || "")}</code></div><div class="template-parity-capability-contracts"><div><span>C Mother Template</span><small>${esc(motherContract)}</small><code>${esc(item.motherFingerprint || "—")}</code></div><div><span>Current Consumer</span><small>${esc(consumerContract)}</small><code>${esc(item.consumerFingerprint || "—")}</code></div></div><p>${esc(item.detail || "")}</p></article>`;
+    }).join("")}</div></details>`;
     const summary = engine?.summary?.(report) || (report.gapCount === 0 ? "🟢 C 母版一致" : "🔴 C 母版不一致");
     host.hidden = false;
-    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong><span>${esc(parityTriggerLabel(report.trigger))}</span></div><div class="template-parity-counts"><span>C Mother Template：${Number(report.motherCount || 0)}</span><span>目前 Consumer：${Number(report.consumerCount || 0)}</span><span>MATCH：${Number(report.matchCount || 0)} / ${Number(report.motherCount || 0)}</span><span>Template Gap：${Number(report.gapCount || 0)}</span><span>Fingerprint：${esc(report.fingerprint || "MISMATCH")}</span></div>${details}</section>`;
+    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong><span>${esc(parityTriggerLabel(report.trigger))}</span></div><div class="template-parity-counts"><span>C Mother Template：${Number(report.motherCount || 0)}</span><span>目前 Consumer：${Number(report.consumerCount || 0)}</span><span>MATCH：${Number(report.matchCount || 0)} / ${Number(report.motherCount || 0)}</span><span>Template Gap：${Number(report.gapCount || 0)}</span><span>Fingerprint：${esc(report.fingerprint || "MISMATCH")}</span></div>${inventoryDetails}${details}</section>`;
   }
   function runTemplateParityCheck(trigger = "manual", options = {}) {
     const engine = root.ZhugeTemplateParityEngine;
@@ -2381,7 +2409,7 @@
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
-      ...((workTodo || cTemplate) ? [{ key: "agreement-schedule", action: "agreement-schedule", interactive: !archiveOnly, icon: "📅", label: agreedDateParts(task, workTodoViewModel).mode === "period" ? "約定期間" : "約定日期", value: agreedDateLabel(task, workTodoViewModel) }] : []),
+      { key: "agreement-schedule", action: "agreement-schedule", interactive: !archiveOnly, icon: "📅", label: agreedDateParts(task, workTodoViewModel).mode === "period" ? "約定期間" : "約定日期", value: agreedDateLabel(task, workTodoViewModel) },
       { key: "gpt-analysis", action: "gpt-analysis", interactive: true, icon: "🤖", label: "GPT 分析與建議", value: "開啟" }
     ];
     const sections = [

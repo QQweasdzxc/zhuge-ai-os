@@ -19,5 +19,8 @@ test("the current browser fixture mounts one shared Golden Master parity entry f
   assert.equal((fixture.match(/\["c", "QAT"/g) || []).length, 1);
   assert.match(fixture, /id = "template-parity-entry-audit"/);
   assert.match(fixture, /templateParityBtn/);
+  assert.match(fixture, /inventoryCount/);
+  assert.match(fixture, /inventoryStatuses/);
+  assert.match(fixture, /drawerInventory/);
   assert.doesNotMatch(fixture, /Consumer-specific.*templateParityBtn/i);
 });
