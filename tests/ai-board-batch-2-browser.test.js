@@ -100,8 +100,7 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /data-shared-nav-item="settings"/);
   assert.match(output, /工作空間/);
   assert.match(output, /AI Board/);
-  assert.match(output, /Version/);
-  assert.match(output, /v0\.9\.0-alpha\.9\.13/);
+  assert.doesNotMatch(output, /class="sidebar-version-summary"/);
   assert.match(output, /Build/);
   assert.match(output, new RegExp(build));
   assert.match(output, /工作看板/);
