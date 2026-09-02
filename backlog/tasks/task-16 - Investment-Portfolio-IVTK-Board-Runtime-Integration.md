@@ -1,10 +1,10 @@
 ---
 id: TASK-16
 title: Investment Portfolio IVTK Board Runtime Integration
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-02 17:29'
-updated_date: '2026-09-02 17:31'
+updated_date: '2026-09-02 22:07'
 labels: []
 dependencies: []
 priority: high
@@ -20,11 +20,11 @@ ordinal: 16000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 投資組合 route 直接呈現共用 IVTK C Board，且不新增第二個投資戰情板入口。
-- [ ] #2 IVTK active 工作區只有 股票投資 與 觀察名單；QAT-001 不出現在兩者且保留原 QAT identity。
-- [ ] #3 金融數值由 Investment Cloud 讀取，association 只使用穩定 source identity，不把金融欄位寫入 board_tasks。
-- [ ] #4 目前 Cloud read-back 維持 current position 8、watchlist 0、opening position 8、transaction 3、snapshot 0，且不產生假資料。
-- [ ] #5 Investment 與共用 C Board 相關測試通過，且不修改 WorkLog、Identity、OAuth 或其他非本輪功能。
+- [x] #1 投資組合 route 直接呈現共用 IVTK C Board，且不新增第二個投資戰情板入口。
+- [x] #2 IVTK active 工作區只有 股票投資 與 觀察名單；QAT-001 不出現在兩者且保留原 QAT identity。
+- [x] #3 金融數值由 Investment Cloud 讀取，association 只使用穩定 source identity，不把金融欄位寫入 board_tasks。
+- [x] #4 目前 Cloud read-back 維持 current position 8、watchlist 0、opening position 8、transaction 3、snapshot 0，且不產生假資料。
+- [x] #5 Investment 與共用 C Board 相關測試通過，且不修改 WorkLog、Identity、OAuth 或其他非本輪功能。
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -40,3 +40,9 @@ ordinal: 16000
 
 驗證進度：Investment 相關 47/47 PASS；全站 Node 回歸 403 tests、397 PASS、0 FAIL、6 skipped（僅瀏覽器測試因未設定 CHROME_PATH 跳過）。Cloud read-back：IVTK instance 已啟用，active workspace 為 股票投資／觀察名單，active links 0，current positions 8，opening_positions 8，transactions 3，watchlists 0，broker snapshots 0；QAT-001 仍在 archived qat-todo。正式 authenticated Runtime 尚待將本分支發布後驗證。
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Formal Runtime PASS. Merged the approved IVTK integration to main through ce2c05c, with required follow-up fixes 6a66a70 and f49439f. GitHub Pages deployment 33688450586 succeeded. Authenticated #portfolio now projects 8 Investment Cloud current positions into the shared IVTK C Board as IVTK-001 through IVTK-008; Cloud Projection reports synced positions 8 and watchlist 0. #watchlist is the same IVTK 觀察名單 workspace and renders the truthful empty state. QAT-001 remains QAT-001 in the archived qat-todo workspace and is absent from active IVTK workspaces. Cloud read-back remains opening_positions 8, transactions 3, watchlists 0, broker snapshots 0, current positions 8, active links 8, active IVTK tasks 8, next_task_number 8. Reload and repeated controlled RPC calls are idempotent. Focused integration 4/4, relevant regression 74/74, full Node regression 398 passed, 0 failed, 6 browser-only skipped. No Investment financial data mutation, fake position, transaction mutation, WorkLog, Identity, OAuth, or unrelated AI Board change.
+<!-- SECTION:FINAL_SUMMARY:END -->
