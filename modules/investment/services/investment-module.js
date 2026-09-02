@@ -612,7 +612,14 @@
 
       let projection = null;
       let projectionError = null;
-      if (typeof repository.syncIvtkProjection === "function") {
+      if (typeof repository.repairIvtkIdentity === "function") {
+        try {
+          await repository.repairIvtkIdentity();
+        } catch (error) {
+          projectionError = error;
+        }
+      }
+      if (!projectionError && typeof repository.syncIvtkProjection === "function") {
         try {
           projection = await repository.syncIvtkProjection();
         } catch (error) {

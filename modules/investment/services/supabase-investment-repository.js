@@ -418,6 +418,15 @@
       return gateway.rpc("sync_investment_ivtk_projection", {});
     }
 
+    async function repairIvtkIdentity() {
+      if (!gateway || typeof gateway.rpc !== "function") {
+        const error = new Error("Investment IVTK Identity Repair Gateway 尚未就緒。");
+        error.code = "INVESTMENT_IVTK_RPC_REQUIRED";
+        throw error;
+      }
+      return gateway.rpc("repair_investment_ivtk_identity", {});
+    }
+
     async function createBrokerPositionSnapshot(input = {}) {
       assertSession({ write: true });
       if (typeof data.rpc !== "function") {
@@ -473,6 +482,7 @@
       createBrokerPositionSnapshot,
       loadIvtkBoard,
       syncIvtkProjection,
+      repairIvtkIdentity,
       getStatus
     });
   }

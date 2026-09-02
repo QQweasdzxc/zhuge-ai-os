@@ -108,7 +108,9 @@ begin
   update public.board_instances
   set name = '投資戰情板',
       task_code_prefix = 'IVTK',
-      next_task_number = 1,
+      -- The shared allocator increments before assigning the candidate.
+      -- Zero therefore makes the first Investment projection IVTK-001.
+      next_task_number = 0,
       updated_at = now()
   where id = v_instance.id;
 end;

@@ -100,3 +100,30 @@ test("IVTK migration keeps financial values out of board_tasks and documents the
   assert.match(sql, /broker_position_snapshot_item.*opening_position|latest_snapshot/i);
   assert.doesNotMatch(sql, /insert\s+into\s+public\.board_tasks[\s\S]*?(quantity|market_value|unrealized_pnl)/i);
 });
+
+test("IVTK transform and repair preserve the canonical first-card identity", () => {
+  const transform = fs.readFileSync(
+    path.join(__dirname, "../../docs/supabase/20260903_investment_ivtk_board_transform.sql"),
+    "utf8"
+  );
+  const repair = fs.readFileSync(
+    path.join(__dirname, "../../docs/supabase/20260903_investment_ivtk_identity_repair.sql"),
+    "utf8"
+  );
+  assert.match(transform, /next_task_number\s*=\s*0/i);
+  assert.match(repair, /IVTK-001/);
+  assert.match(repair, /source_kind\s*=\s*'opening_position'/i);
+  assert.match(repair, /QAT-001 remains unchanged/i);
+  assert.match(repair, /next_task_number\s*=\s*8/i);
+
+  const moduleSource = fs.readFileSync(
+    path.join(__dirname, "../../modules/investment/services/investment-module.js"),
+    "utf8"
+  );
+  const repositorySource = fs.readFileSync(
+    path.join(__dirname, "../../modules/investment/services/supabase-investment-repository.js"),
+    "utf8"
+  );
+  assert.match(repositorySource, /repair_investment_ivtk_identity/);
+  assert.match(moduleSource, /repairIvtkIdentity/);
+});
