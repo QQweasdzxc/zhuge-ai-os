@@ -26,6 +26,10 @@
   ]);
 
   const REQUIRED_FIELDS = RECOGNITION_FIELDS;
+  // Broker Snapshot PM Confirmed input follows the formal Snapshot contract;
+  // `unit` is an OCR convenience field and is not part of the persisted
+  // Position evidence contract.
+  const PM_CONFIRMED_REQUIRED_FIELDS = Object.freeze(RECOGNITION_FIELDS.filter(field => field !== "unit"));
   const COMPARE_FIELDS = Object.freeze([
     "market",
     "symbol",
@@ -202,7 +206,9 @@
     const source = input.values && typeof input.values === "object" ? { ...input.values, ...input } : input;
     const values = sourceValues(source);
     const known = Object.freeze(Object.fromEntries(RECOGNITION_FIELDS.map(field => [field, values[field] !== null])));
-    const missingFields = Object.freeze(REQUIRED_FIELDS.filter(field => !known[field]));
+    const sourceType = text(firstValue(source, ["sourceType", "source_type"]) || metadata.sourceType, 40)?.toLowerCase();
+    const requiredFields = sourceType === "pm_confirmed" ? PM_CONFIRMED_REQUIRED_FIELDS : REQUIRED_FIELDS;
+    const missingFields = Object.freeze(requiredFields.filter(field => !known[field]));
     const recognitionConfidence = number(firstValue(source, ["recognitionConfidence", "confidence", "confidenceScore"]));
     const level = confidenceLevel(recognitionConfidence, firstValue(source, ["confidenceLevel", "confidence_level"]));
     const imageId = text(metadata.imageId || firstValue(source, ["imageId", "image_id"]), 120);
@@ -942,6 +948,7 @@
   return Object.freeze({
     RECOGNITION_FIELDS,
     REQUIRED_FIELDS,
+    PM_CONFIRMED_REQUIRED_FIELDS,
     COMPARE_FIELDS,
     STATUS,
     CONFIDENCE_LEVELS,
