@@ -597,8 +597,47 @@ test("Preview Confirmed exposes only the controlled Snapshot Write contract for 
   assert.match(html, /data-investment-snapshot-write-form/);
   assert.match(html, /name="snapshotAt"/);
   assert.match(html, /確認並寫入 1 筆 Snapshot/);
-  assert.match(html, /AAL2 受控/);
+  assert.match(html, /受控安全驗證/);
   assert.doesNotMatch(html, /data-investment-import-action="import-to-cloud"|\.insert\s*\(|\.update\s*\(|\.delete\s*\(/);
+});
+
+test("Snapshot write Step-up keeps the confirmed form and exposes an in-place verification action", () => {
+  const session = Engine.createSession({ sessionId: "session-step-up-page-test" });
+  session.loadConfirmedRows([recognized()], {
+    broker: "Fubon AI PRO",
+    snapshotAt: "2026-09-02T08:29",
+    source: "fubon_ai_pro_position_screenshot_pm_confirmed",
+    idempotencyKey: "pm-confirmed-step-up-test"
+  });
+  session.confirmPreview();
+  const snapshot = session.getSnapshot();
+  const comparison = Engine.reconcile([cloudPosition()], snapshot.recognition.rows, { scope: "full" });
+  const html = Page.render(
+    { positions: [cloudPosition()] },
+    {
+      escape: SafeHtml.escape,
+      importEngine: Engine,
+      importSession: snapshot,
+      reconciliation: comparison,
+      snapshotWrite: {
+        status: "step-up-required",
+        form: {
+          broker: "Fubon AI PRO",
+          snapshotAt: "2026-09-02T08:29",
+          source: "fubon_ai_pro_position_screenshot_pm_confirmed",
+          idempotencyKey: "pm-confirmed-step-up-test"
+        },
+        stepUp: { status: "ready", mode: "challenge", factorId: "factor-1" }
+      },
+      onSnapshotWrite: () => {}
+    }
+  );
+
+  assert.match(html, /需要安全驗證/);
+  assert.match(html, /data-investment-sensitive-write-step-up/);
+  assert.match(html, /驗證並繼續/);
+  assert.match(html, /value="2026-09-02T08:29"/);
+  assert.match(html, /pm-confirmed-step-up-test/);
 });
 
 test("Snapshot Write eligibility blocks partial or incomplete recognition before the RPC", () => {

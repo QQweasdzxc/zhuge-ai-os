@@ -29,6 +29,25 @@
     return error;
   }
 
+  function snapshotWriteFormValues(formOrValues) {
+    if (formOrValues && typeof formOrValues === "object" &&
+      ["broker", "snapshotAt", "source", "idempotencyKey"].some(key => key in formOrValues)) {
+      return Object.freeze({
+        broker: String(formOrValues.broker || "").trim(),
+        snapshotAt: String(formOrValues.snapshotAt || "").trim(),
+        source: String(formOrValues.source || "").trim(),
+        idempotencyKey: String(formOrValues.idempotencyKey || "").trim()
+      });
+    }
+    const formData = new FormData(formOrValues);
+    return Object.freeze({
+      broker: String(formData.get("broker") || "").trim(),
+      snapshotAt: String(formData.get("snapshotAt") || "").trim(),
+      source: String(formData.get("source") || "").trim(),
+      idempotencyKey: String(formData.get("idempotencyKey") || "").trim()
+    });
+  }
+
   function taipeiTimestamp(value) {
     const raw = String(value || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
@@ -253,6 +272,7 @@
         userId: context.identity.getUserId(),
         data: context.data,
         sessionSnapshot: context.session.getSnapshot(),
+        getSessionSnapshot: () => context.session.getSnapshot(),
         allowAal1Read: access.bypassedMfa === true
       })
     );
@@ -294,10 +314,29 @@
       createPreviewUrl: file => typeof global.URL?.createObjectURL === "function" ? global.URL.createObjectURL(file) : "",
       revokePreviewUrl: url => typeof global.URL?.revokeObjectURL === "function" ? global.URL.revokeObjectURL(url) : undefined
     });
-    let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "" });
+    let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
+    let lastRenderedPageMarkup = "";
 
     function resetSnapshotWrite() {
-      snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "" });
+      snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
+    }
+
+    function captureSnapshotWriteForm() {
+      if (snapshotWrite.form && Object.keys(snapshotWrite.form).length) return;
+      const form = pageRoot?.querySelector?.("[data-investment-snapshot-write-form]");
+      if (!form) return;
+      const values = snapshotWriteFormValues(form);
+      if (!values.broker && !values.snapshotAt && !values.source && !values.idempotencyKey) return;
+      snapshotWrite = Object.freeze({ ...snapshotWrite, form: values });
+    }
+
+    function currentSessionHasAal2() {
+      return String(context.session.getSnapshot()?.aal || "").trim().toLowerCase() === "aal2";
+    }
+
+    function sensitiveWriteRequiresStepUp() {
+      const policy = context.security.getMfaPolicy?.() || {};
+      return policy.investment_sensitive_write_mfa_required !== false;
     }
 
     function loadConfirmedInput(form) {
@@ -312,6 +351,7 @@
     }
 
     function renderPage() {
+      captureSnapshotWriteForm();
       const state = store.getState();
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
       const importSnapshot = importSession.getSnapshot();
@@ -330,23 +370,111 @@
         snapshotWrite,
         onSnapshotWrite: writeBrokerSnapshot
       };
-      global.ZhugeComponents.Summary.update(pageRoot, state.status === "loading"
+      const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
-        : page.render(state, pageDependencies));
+        : page.render(state, pageDependencies);
+      if (markup !== lastRenderedPageMarkup || !pageRoot?.firstElementChild) {
+        global.ZhugeComponents.Summary.update(pageRoot, markup);
+        lastRenderedPageMarkup = markup;
+      }
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
       });
     }
 
-    async function writeBrokerSnapshot(form) {
-      const formData = new FormData(form);
-      const formValues = Object.freeze({
-        broker: String(formData.get("broker") || "").trim(),
-        snapshotAt: String(formData.get("snapshotAt") || "").trim(),
-        source: String(formData.get("source") || "").trim(),
-        idempotencyKey: String(formData.get("idempotencyKey") || "").trim()
+    async function beginSensitiveWriteStepUp(formValues) {
+      snapshotWrite = Object.freeze({
+        status: "step-up-required",
+        form: formValues,
+        result: null,
+        error: "",
+        stepUp: Object.freeze({ status: "preparing", mode: "preparing", error: "" })
       });
+      renderPage();
+      try {
+        const prepared = await context.security.prepareUnlock();
+        snapshotWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "ready", error: "", ...prepared })
+        });
+      } catch (error) {
+        snapshotWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法準備安全驗證。" })
+        });
+      }
+      renderPage();
+    }
+
+    async function enrollSensitiveWriteTotp() {
+      const formValues = snapshotWrite.form || Object.freeze({});
+      snapshotWrite = Object.freeze({
+        ...snapshotWrite,
+        status: "step-up-required",
+        stepUp: Object.freeze({ ...(snapshotWrite.stepUp || {}), status: "enrolling", error: "" })
+      });
+      renderPage();
+      try {
+        const enrolled = await context.security.enrollTotp();
+        snapshotWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "ready", error: "", ...enrolled })
+        });
+      } catch (error) {
+        snapshotWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法設定安全驗證。" })
+        });
+      }
+      renderPage();
+    }
+
+    async function verifySensitiveWrite(form) {
+      const formValues = snapshotWrite.form || Object.freeze({});
+      const formData = new FormData(form);
+      const code = formData.get("code");
+      const factorId = formData.get("factorId");
+      const previousStepUp = snapshotWrite.stepUp || {};
+      snapshotWrite = Object.freeze({
+        ...snapshotWrite,
+        status: "step-up-required",
+        stepUp: Object.freeze({ ...previousStepUp, status: "verifying", error: "" })
+      });
+      renderPage();
+      try {
+        await context.security.verifyUnlock({ moduleId: "investment-sensitive-write", factorId, code });
+        if (!currentSessionHasAal2()) {
+          throw snapshotWriteError("INVESTMENT_ASSURANCE_REQUIRED", "安全驗證尚未完成，請再試一次。");
+        }
+        await writeBrokerSnapshot(formValues, { skipStepUp: true });
+      } catch (error) {
+        snapshotWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ ...previousStepUp, status: "ready", error: error?.message || "驗證碼不正確，請重新輸入。" })
+        });
+        renderPage();
+        root.querySelector('[data-investment-sensitive-write-step-up] input[name="code"]')?.focus();
+      }
+    }
+
+    async function writeBrokerSnapshot(formOrValues, { skipStepUp = false } = {}) {
+      const formValues = snapshotWriteFormValues(formOrValues);
       const importSnapshot = importSession.getSnapshot();
       const state = store.getState();
       const recognizedRows = importSnapshot.recognition?.status === "recognized"
@@ -369,6 +497,10 @@
         renderPage();
         return;
       }
+      if (!skipStepUp && sensitiveWriteRequiresStepUp() && !currentSessionHasAal2()) {
+        await beginSensitiveWriteStepUp(formValues);
+        return;
+      }
       let snapshotAt;
       try {
         snapshotAt = taipeiTimestamp(formValues.snapshotAt);
@@ -377,7 +509,7 @@
         renderPage();
         return;
       }
-      snapshotWrite = Object.freeze({ status: "submitting", form: formValues, result: null, error: "" });
+      snapshotWrite = Object.freeze({ status: "submitting", form: formValues, result: null, error: "", stepUp: null });
       renderPage();
       try {
         const result = await repository.createBrokerPositionSnapshot({
@@ -400,6 +532,7 @@
           status: "success",
           form: formValues,
           error: "",
+          stepUp: null,
           result: Object.freeze({
             ...result,
             readBack: Object.freeze({
@@ -420,7 +553,7 @@
         });
         await load();
       } catch (error) {
-        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控 Snapshot 寫入失敗。" });
+        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控 Snapshot 寫入失敗。", stepUp: null });
         renderPage();
       }
     }
@@ -469,6 +602,14 @@
       const route = event.target.closest("[data-investment-route]");
       if (route) navigate(route.dataset.investmentRoute);
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
+      if (event.target.closest("[data-investment-sensitive-write-enroll]")) {
+        enrollSensitiveWriteTotp().catch(handleError);
+        return;
+      }
+      if (event.target.closest("[data-investment-sensitive-write-retry]")) {
+        beginSensitiveWriteStepUp(snapshotWrite.form || Object.freeze({})).catch(handleError);
+        return;
+      }
       const importAction = event.target.closest("[data-investment-import-action]");
       if (!importAction) return;
       const action = importAction.dataset.investmentImportAction;
@@ -508,6 +649,12 @@
       if (confirmedInputForm) {
         event.preventDefault();
         loadConfirmedInput(confirmedInputForm);
+        return;
+      }
+      const sensitiveWriteStepUpForm = event.target.closest("[data-investment-sensitive-write-step-up]");
+      if (sensitiveWriteStepUpForm) {
+        event.preventDefault();
+        verifySensitiveWrite(sensitiveWriteStepUpForm).catch(handleError);
         return;
       }
       const snapshotForm = event.target.closest("[data-investment-snapshot-write-form]");

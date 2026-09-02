@@ -41,14 +41,14 @@
       evaluate: (action = "view", detail = {}) => securityGate.evaluate({ moduleId, action, ...detail }),
       require: (action = "view", detail = {}) => securityGate.requireAccess({ moduleId, action, ...detail }),
       providers: () => mfaService?.providers?.() || Object.freeze({}),
-      getUnlockState: () => mfaService?.getUnlockState?.(moduleId, sessionService.getCurrentUserId()) || Object.freeze({ unlocked: false, expiresAt: null, remainingMs: 0 }),
-      getMfaPolicy: () => mfaService?.getPolicy?.(sessionService.getCurrentUserId()) || Object.freeze({ userId: "", is_creator: false, investment_mfa_required: true, ai_board_mfa_required: true, status: "default", error: null }),
+      getUnlockState: (targetModuleId = moduleId) => mfaService?.getUnlockState?.(String(targetModuleId || moduleId).trim().toLowerCase(), sessionService.getCurrentUserId()) || Object.freeze({ unlocked: false, expiresAt: null, remainingMs: 0 }),
+      getMfaPolicy: () => mfaService?.getPolicy?.(sessionService.getCurrentUserId()) || Object.freeze({ userId: "", is_creator: false, investment_mfa_required: true, investment_entry_mfa_required: true, investment_sensitive_write_mfa_required: true, ai_board_mfa_required: true, status: "default", error: null }),
       loadMfaPolicy: async ({ force = false } = {}) => {
         let userId = "";
-        try { userId = sessionService.getCurrentUserId(); } catch { return Object.freeze({ userId, is_creator: false, investment_mfa_required: true, ai_board_mfa_required: true, status: "unknown", error: null }); }
+        try { userId = sessionService.getCurrentUserId(); } catch { return Object.freeze({ userId, is_creator: false, investment_mfa_required: true, investment_entry_mfa_required: true, investment_sensitive_write_mfa_required: true, ai_board_mfa_required: true, status: "unknown", error: null }); }
         const creatorState = await creator.resolve();
         return mfaService?.loadPolicy?.({ userId, isCreator: creatorState.is_creator === true, force })
-          || Object.freeze({ userId, is_creator: false, investment_mfa_required: true, ai_board_mfa_required: true, status: "default", error: null });
+          || Object.freeze({ userId, is_creator: false, investment_mfa_required: true, investment_entry_mfa_required: true, investment_sensitive_write_mfa_required: true, ai_board_mfa_required: true, status: "default", error: null });
       },
       setMfaRequired: async (requiredOrDetail, maybeRequired) => {
         const userId = sessionService.getCurrentUserId();
@@ -76,7 +76,7 @@
         if (!mfaService?.verify) throw new Error("Shared MFA Service 尚未載入。" );
         return mfaService.verify({ moduleId, userId: sessionService.getCurrentUserId(), ...(detail || {}) });
       },
-      lock: () => mfaService?.lock?.(moduleId, sessionService.getCurrentUserId())
+      lock: (targetModuleId = moduleId) => mfaService?.lock?.(String(targetModuleId || moduleId).trim().toLowerCase(), sessionService.getCurrentUserId())
     });
 
     const data = Object.freeze({

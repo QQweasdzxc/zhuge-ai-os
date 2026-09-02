@@ -16,7 +16,12 @@
   });
 
   const MODULES = Object.freeze({
-    investment: Object.freeze({ settingKey: "investment_mfa_required" }),
+    // `investment` remains the canonical module alias used by the Shared
+    // Security Gate. Entry protection now has its own Cloud setting while the
+    // old key remains a compatibility alias for older runtimes.
+    investment: Object.freeze({ settingKey: "investment_entry_mfa_required", legacySettingKey: "investment_mfa_required" }),
+    "investment-entry": Object.freeze({ settingKey: "investment_entry_mfa_required", legacySettingKey: "investment_mfa_required" }),
+    "investment-sensitive-write": Object.freeze({ settingKey: "investment_sensitive_write_mfa_required" }),
     "ai-board": Object.freeze({ settingKey: "ai_board_mfa_required" })
   });
 
@@ -68,6 +73,8 @@
         userId: String(userId || ""),
         is_creator: isCreator === true,
         investment_mfa_required: true,
+        investment_entry_mfa_required: true,
+        investment_sensitive_write_mfa_required: true,
         ai_board_mfa_required: true,
         status,
         error: error ? String(error?.message || error) : null
@@ -80,10 +87,18 @@
 
     function normalizePolicy(payload, userId) {
       const row = Array.isArray(payload) ? payload[0] : payload;
+      const entryRequired = boolPreference(
+        row?.investment_entry_mfa_required,
+        boolPreference(row?.investment_mfa_required, true)
+      );
       return Object.freeze({
         userId: String(userId || ""),
         is_creator: true,
-        investment_mfa_required: boolPreference(row?.investment_mfa_required),
+        // Keep the legacy field as a read-compatible alias. New callers must
+        // use the explicit entry/write fields below.
+        investment_mfa_required: entryRequired,
+        investment_entry_mfa_required: entryRequired,
+        investment_sensitive_write_mfa_required: boolPreference(row?.investment_sensitive_write_mfa_required, true),
         ai_board_mfa_required: boolPreference(row?.ai_board_mfa_required),
         status: "resolved",
         error: null
@@ -131,16 +146,18 @@
         p_required: required !== false
       });
       const previous = getPolicy(normalizedUserId);
-      const next = Object.freeze({
+      const next = {
         ...previous,
         userId: normalizedUserId,
         is_creator: true,
         [config.settingKey]: required !== false,
         status: "resolved",
         error: null
-      });
-      policyCache.set(normalizedUserId, next);
-      return next;
+      };
+      if (config.legacySettingKey) next.investment_mfa_required = required !== false;
+      const frozenNext = Object.freeze(next);
+      policyCache.set(normalizedUserId, frozenNext);
+      return frozenNext;
     }
 
     function isModuleRequired(moduleId, userId) {

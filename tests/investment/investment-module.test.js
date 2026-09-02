@@ -176,6 +176,8 @@ test("Investment UI is Traditional Chinese and no longer exposes engineering or 
   for (const forbidden of ["Shared Session", "Security Gate", "Mock Data", "Module Version", "INVESTMENT SIT", "Unknown error"]) {
     assert.equal(uiSources.includes(forbidden), false);
   }
+  assert.equal(uiSources.includes("AAL1"), false);
+  assert.equal(uiSources.includes("AAL2"), false);
   for (const expected of ["投資首頁", "投資組合", "觀察清單", "投資策略", "偏好設定", "解鎖投資模組"]) {
     assert.equal(uiSources.includes(expected), true);
   }

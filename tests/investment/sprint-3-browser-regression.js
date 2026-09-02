@@ -17,10 +17,9 @@ const { resolveBrowserExecutable } = require("../browser-executable");
   await page.goto(`file://${fixture}`);
   await page.waitForSelector("[data-investment-module-shell]");
 
-  assert.equal(await page.locator(".investment-identity strong").textContent(), "PM 驗收者");
-  assert.equal(await page.locator(".investment-identity small").textContent(), "pm@example.test");
+  assert.equal(await page.locator(".investment-command-center").count(), 1);
   assert.equal(await page.locator(".investment-page-heading h1").textContent(), "投資首頁");
-  assert.equal(await page.getByText("投資組合預覽").count(), 1);
+  assert.equal(await page.getByText("投資核心 KPI").count(), 1);
   assert.equal(await page.getByText(/Shared Session|Security Gate|Mock Data|Module Version|UUID/).count(), 0);
   assert.equal(errors.length, 0, errors.join("\n"));
 

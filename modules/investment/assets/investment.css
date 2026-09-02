@@ -340,6 +340,23 @@ button { color: inherit; }
 .investment-import-confirmed strong { color: var(--investment-loss); font-size: .72rem; }
 .investment-import-confirmed span { color: var(--investment-muted); font-size: .67rem; line-height: 1.5; }
 .investment-import-write-panel { margin-top: 14px; border-color: rgba(109, 184, 255, .34); background: linear-gradient(145deg, rgba(16, 38, 65, .88), rgba(8, 21, 38, .9)); }
+.investment-import-step-up { display: grid; gap: 10px; margin: 0 0 14px; border: 1px solid rgba(245, 185, 66, .42); border-radius: 11px; background: rgba(111, 79, 19, .15); padding: 13px; }
+.investment-import-step-up-heading { display: grid; gap: 4px; }
+.investment-import-step-up-heading strong { color: #ffd481; font-size: .82rem; }
+.investment-import-step-up-heading span, .investment-import-step-up p, .investment-import-step-up-progress { margin: 0; color: var(--investment-muted); font-size: .7rem; line-height: 1.5; }
+.investment-import-step-up-error { border: 1px solid rgba(255, 120, 133, .4); border-radius: 8px; background: rgba(255, 120, 133, .08); padding: 8px; color: #ffb0b7; font-size: .68rem; line-height: 1.5; }
+.investment-import-step-up-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 9px; }
+.investment-import-step-up-form label { display: grid; flex: 1 1 260px; gap: 4px; }
+.investment-import-step-up-form label span { color: var(--investment-muted); font-size: .64rem; }
+.investment-import-step-up-form input:not([type="hidden"]) { width: 100%; border: 1px solid rgba(83, 127, 171, .4); border-radius: 8px; background: rgba(6, 16, 30, .6); padding: 8px 9px; color: var(--investment-text); font: inherit; font-size: .78rem; letter-spacing: .16em; }
+.investment-import-step-up-form input:focus { border-color: var(--investment-accent); outline: 2px solid rgba(109, 184, 255, .18); }
+.investment-import-step-up-form button { white-space: nowrap; }
+.investment-import-step-up-enroll { display: grid; grid-template-columns: minmax(150px, .5fr) minmax(0, 1fr); align-items: center; gap: 16px; }
+.investment-import-step-up-enroll > div:first-child { display: grid; justify-items: start; gap: 7px; }
+.investment-import-step-up-qr { width: min(168px, 100%); aspect-ratio: 1; border-radius: 8px; background: #fff; padding: 7px; }
+.investment-import-step-up-enroll p { margin: 0; }
+.investment-import-step-up-enroll details { color: var(--investment-muted); font-size: .68rem; }
+.investment-import-step-up-enroll code { display: block; margin-top: 6px; color: var(--investment-text); overflow-wrap: anywhere; }
 .investment-import-write-contract { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 13px; }
 .investment-import-write-contract span { border: 1px solid rgba(83, 127, 171, .3); border-radius: 999px; padding: 4px 7px; color: var(--investment-muted); font-size: .62rem; }
 .investment-import-write-form { display: grid; gap: 12px; }
@@ -387,6 +404,7 @@ button { color: inherit; }
   .investment-import-session-actions { align-items: flex-start; flex-direction: column; }
   .investment-import-edit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-import-write-grid { grid-template-columns: 1fr; }
+  .investment-import-step-up-enroll { grid-template-columns: 1fr; }
 }
 
 @keyframes investment-import-pulse {

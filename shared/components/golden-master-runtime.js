@@ -1429,7 +1429,7 @@
     const tab = document.createElement("button");
     tab.className = "workspace-tab";
     tab.type = "button";
-    tab.title = "敏感模組二次驗證";
+    tab.title = "安全設定";
     tab.dataset.boardNav = "security";
     tab.textContent = "🔐 安全設定";
     tabs.appendChild(tab);
@@ -1438,28 +1438,52 @@
     section.className = "board-subview creator-mfa-settings-view";
     section.dataset.boardView = "security";
     section.hidden = true;
-    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／Creator Control</span><h2>🔐 敏感模組二次驗證</h2><p>Google Login、Supabase Session、User UUID、RLS 與 Cloud Data 維持開啟；以下只控制指定模組是否略過 TOTP Challenge。</p></div><span class="subview-source">來源：Supabase Cloud Settings</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於 Supabase Cloud。</p></div>`;
+    section.innerHTML = `<header class="subview-header"><div><span class="subview-kicker">AI Board／安全設定</span><h2>🔐 安全設定</h2><p>管理 Investment 與 AI Board 需要額外確認的操作。</p></div><span class="subview-source">來源：Zhuge AI OS 安全設定</span></header><div class="creator-mfa-settings-card"><div class="creator-mfa-settings-list" data-creator-mfa-list></div><p class="creator-mfa-settings-note" data-creator-mfa-note>設定只會保存於系統安全設定。</p></div>`;
     content.appendChild(section);
 
-    const moduleLabels = Object.freeze({
-      investment: "Investment",
-      "ai-board": "AI Board"
-    });
-    const requiredKey = moduleId => moduleId === "investment" ? "investment_mfa_required" : "ai_board_mfa_required";
+    const settingGroups = Object.freeze([
+      Object.freeze({
+        title: "Investment 安全性",
+        settings: Object.freeze([
+          Object.freeze({
+            moduleId: "investment-entry",
+            settingKey: "investment_entry_mfa_required",
+            title: "進入 Investment 時要求二次驗證",
+            description: "開啟後，每次進入 Investment 時需完成 Google Authenticator 驗證。"
+          }),
+          Object.freeze({
+            moduleId: "investment-sensitive-write",
+            settingKey: "investment_sensitive_write_mfa_required",
+            title: "修改重要投資資料時要求二次驗證",
+            description: "開啟後，修改持股、交易等重要投資資料前需完成 Google Authenticator 驗證。"
+          })
+        ])
+      }),
+      Object.freeze({
+        title: "AI Board 安全性",
+        settings: Object.freeze([
+          Object.freeze({
+            moduleId: "ai-board",
+            settingKey: "ai_board_mfa_required",
+            title: "進入 AI Board 時要求二次驗證",
+            description: "開啟後，每次進入 AI Board 時需完成 Google Authenticator 驗證。"
+          })
+        ])
+      })
+    ]);
     const render = () => {
       const policy = context.security.getMfaPolicy?.() || {};
       const list = section.querySelector("[data-creator-mfa-list]");
       const note = section.querySelector("[data-creator-mfa-note]");
       if (!list) return;
-      list.innerHTML = ["investment", "ai-board"].map(moduleId => {
-        const required = policy[requiredKey(moduleId)] !== false;
-        const label = moduleLabels[moduleId];
-        return `<div class="creator-mfa-row" data-mfa-row="${moduleId}"><div><strong>${label}｜Google Authenticator</strong><span class="creator-mfa-status ${required ? "is-on" : "is-off"}" data-mfa-status>${required ? "🟢 二次驗證 ON" : "🟡 二次驗證暫停"}</span></div><label class="creator-mfa-switch"><span class="sr-only">${label} Google Authenticator 二次驗證</span><input type="checkbox" data-mfa-module="${moduleId}" ${required ? "checked" : ""}><span class="creator-mfa-switch-track" aria-hidden="true"></span></label></div>`;
-      }).join("");
+      list.innerHTML = settingGroups.map(group => `<section class="creator-mfa-settings-group"><h3>${group.title}</h3>${group.settings.map(setting => {
+        const required = policy[setting.settingKey] !== false;
+        return `<div class="creator-mfa-row" data-mfa-row="${setting.moduleId}"><div><strong>${setting.title}</strong><span class="creator-mfa-description">${setting.description}</span><span class="creator-mfa-status ${required ? "is-on" : "is-off"}" data-mfa-status>${required ? "🟢 已開啟" : "⚪ 已關閉"}</span></div><label class="creator-mfa-switch"><span class="sr-only">${setting.title}</span><input type="checkbox" data-mfa-module="${setting.moduleId}" aria-label="${setting.title}" ${required ? "checked" : ""}><span class="creator-mfa-switch-track" aria-hidden="true"></span></label></div>`;
+      }).join("")}</section>`).join("");
       if (note) {
         note.textContent = policy.status === "error"
-          ? "設定讀取失敗，已依安全預設保持兩個模組 ON。"
-          : "設定只會保存於 Supabase Cloud。兩個開關互不連動。";
+          ? "設定讀取失敗，已依安全預設保持保護。"
+          : "Investment 的兩個設定互不連動；變更只會保存於系統安全設定。";
       }
       list.querySelectorAll("[data-mfa-module]").forEach(input => {
         input.addEventListener("change", async event => {

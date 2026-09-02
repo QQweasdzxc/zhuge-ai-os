@@ -180,6 +180,40 @@ test("controlled Snapshot write uses only the RPC boundary and forces PM confirm
   assert.equal(rpcCall.payload.p_positions[0].market_value, 209.86);
 });
 
+test("controlled Snapshot write re-reads the current session after an in-place MFA step-up", async () => {
+  let currentSession = { isAuthenticated: true, aal: "aal1" };
+  const data = snapshotGateway({ rpcResult: [{ snapshot_id: "snapshot-after-step-up", position_count: 1 }] });
+  const repository = Repository.create({
+    userId: USER_ID,
+    data,
+    sessionSnapshot: currentSession,
+    getSessionSnapshot: () => currentSession,
+    allowAal1Read: true
+  });
+  const input = {
+    broker: "Fubon AI PRO",
+    snapshotAt: "2026-09-02T00:29:00.000Z",
+    source: "fubon_ai_pro_position_snapshot",
+    idempotencyKey: "fubon-step-up-test",
+    positions: [{
+      symbol: "MRVL", name: "Marvell Technology", market: "US", currency: "USD", quantity: 1,
+      averageCost: 253.71, investedCost: 253.71, lastPrice: 210.39, marketValue: 209.86,
+      unrealizedPnl: -43.85, unrealizedPercent: -17.28
+    }]
+  };
+
+  await assert.rejects(repository.createBrokerPositionSnapshot(input), error => {
+    assert.equal(error.code, "INVESTMENT_ASSURANCE_REQUIRED");
+    return true;
+  });
+  assert.equal(data.calls.filter(call => call.type === "rpc").length, 0);
+
+  currentSession = { isAuthenticated: true, aal: "aal2" };
+  const result = await repository.createBrokerPositionSnapshot(input);
+  assert.equal(result.snapshot_id, "snapshot-after-step-up");
+  assert.equal(data.calls.filter(call => call.type === "rpc").length, 1);
+});
+
 test("Position normalization preserves explicit zero evidence values", () => {
   const position = Position.normalize({
     symbol: "ZERO",

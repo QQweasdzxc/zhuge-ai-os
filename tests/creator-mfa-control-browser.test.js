@@ -50,9 +50,11 @@ test("Creator sees both independent MFA controls and Non-Creator sees none", asy
   assert.match(creatorOutput, /"creator":true/);
   assert.match(creatorOutput, /"tab":true/);
   assert.match(creatorOutput, /"section":true/);
-  assert.match(creatorOutput, /Investment｜Google Authenticator/);
-  assert.match(creatorOutput, /AI Board｜Google Authenticator/);
-  assert.match(creatorOutput, /🟢 二次驗證 ON/);
+  assert.match(creatorOutput, /進入 Investment 時要求二次驗證/);
+  assert.match(creatorOutput, /修改重要投資資料時要求二次驗證/);
+  assert.match(creatorOutput, /進入 AI Board 時要求二次驗證/);
+  assert.match(creatorOutput, /⚪ 已關閉/);
+  assert.match(creatorOutput, /🟢 已開啟/);
   assert.match(creatorOutput, /"localStorageKeys":\[\]/);
   assert.match(creatorOutput, /"sessionStorageKeys":\[\]/);
 
@@ -60,6 +62,6 @@ test("Creator sees both independent MFA controls and Non-Creator sees none", asy
   assert.match(nonCreatorOutput, /"creator":false/);
   assert.match(nonCreatorOutput, /"tab":false/);
   assert.match(nonCreatorOutput, /"section":false/);
-  assert.doesNotMatch(nonCreatorOutput, /Investment｜Google Authenticator/);
-  assert.doesNotMatch(nonCreatorOutput, /AI Board｜Google Authenticator/);
+  assert.doesNotMatch(nonCreatorOutput, /進入 Investment 時要求二次驗證/);
+  assert.doesNotMatch(nonCreatorOutput, /進入 AI Board 時要求二次驗證/);
 });

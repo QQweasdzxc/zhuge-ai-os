@@ -50,7 +50,12 @@ test("Creator MFA preferences are independent Cloud settings with ON fail-safe",
     dataGateway: {
       rpc: async (name, args) => {
         calls.push({ name, args });
-        if (name === "get_creator_mfa_preferences") return { investment_mfa_required: false, ai_board_mfa_required: true };
+        if (name === "get_creator_mfa_preferences") return {
+          investment_mfa_required: false,
+          investment_entry_mfa_required: false,
+          investment_sensitive_write_mfa_required: true,
+          ai_board_mfa_required: true
+        };
         return { required: args.p_required };
       }
     },
@@ -59,12 +64,23 @@ test("Creator MFA preferences are independent Cloud settings with ON fail-safe",
 
   const loaded = await service.loadPolicy({ userId: USER_ID, isCreator: true });
   assert.equal(loaded.investment_mfa_required, false);
+  assert.equal(loaded.investment_entry_mfa_required, false);
+  assert.equal(loaded.investment_sensitive_write_mfa_required, true);
   assert.equal(loaded.ai_board_mfa_required, true);
   assert.equal(service.isModuleRequired("investment", USER_ID), false);
+  assert.equal(service.isModuleRequired("investment-entry", USER_ID), false);
+  assert.equal(service.isModuleRequired("investment-sensitive-write", USER_ID), true);
   assert.equal(service.isModuleRequired("ai-board", USER_ID), true);
 
-  await service.setRequired({ moduleId: "ai-board", userId: USER_ID, isCreator: true, required: false });
+  await service.setRequired({ moduleId: "investment-sensitive-write", userId: USER_ID, isCreator: true, required: false });
   assert.deepEqual(calls[1], {
+    name: "set_creator_mfa_preference",
+    args: { p_module_id: "investment-sensitive-write", p_required: false }
+  });
+  assert.equal(service.isModuleRequired("investment-sensitive-write", USER_ID), false);
+
+  await service.setRequired({ moduleId: "ai-board", userId: USER_ID, isCreator: true, required: false });
+  assert.deepEqual(calls[2], {
     name: "set_creator_mfa_preference",
     args: { p_module_id: "ai-board", p_required: false }
   });
@@ -72,6 +88,8 @@ test("Creator MFA preferences are independent Cloud settings with ON fail-safe",
 
   const nonCreator = await service.loadPolicy({ userId: "other-user", isCreator: false });
   assert.equal(nonCreator.investment_mfa_required, true);
+  assert.equal(nonCreator.investment_entry_mfa_required, true);
+  assert.equal(nonCreator.investment_sensitive_write_mfa_required, true);
   assert.equal(nonCreator.ai_board_mfa_required, true);
 
   const errorService = Mfa.createMfaService({
@@ -82,6 +100,8 @@ test("Creator MFA preferences are independent Cloud settings with ON fail-safe",
   const failed = await errorService.loadPolicy({ userId: USER_ID, isCreator: true });
   assert.equal(failed.status, "error");
   assert.equal(failed.investment_mfa_required, true);
+  assert.equal(failed.investment_entry_mfa_required, true);
+  assert.equal(failed.investment_sensitive_write_mfa_required, true);
   assert.equal(failed.ai_board_mfa_required, true);
 });
 
@@ -94,6 +114,12 @@ test("Creator MFA control remains on the controlled Cloud path", () => {
   assert.match(migration, /investment_mfa_required/);
   assert.match(migration, /ai_board_mfa_required/);
 
+  const twoLayerMigration = read("docs/supabase/20260902173901_investment_two_layer_mfa_contract.sql");
+  assert.match(twoLayerMigration, /investment_entry_mfa_required/);
+  assert.match(twoLayerMigration, /investment_sensitive_write_mfa_required/);
+  assert.match(twoLayerMigration, /create or replace function private\.investment_mfa_bypassed/);
+  assert.match(twoLayerMigration, /Snapshot RPC intentionally remains independently AAL2-gated/);
+
   const mfa = read("shared/security/mfa-service.js");
   assert.doesNotMatch(mfa, /localStorage/);
   assert.match(mfa, /dataGateway\.rpc\("get_creator_mfa_preferences"/);
@@ -101,10 +127,12 @@ test("Creator MFA control remains on the controlled Cloud path", () => {
 
   const board = read("shared/components/golden-master-runtime.js");
   assert.match(board, /is_creator/);
-  assert.match(board, /investment:\s*"Investment"/);
-  assert.match(board, /"ai-board":\s*"AI Board"/);
+  assert.match(board, /investment-entry/);
+  assert.match(board, /investment-sensitive-write/);
+  assert.match(board, /進入 Investment 時要求二次驗證/);
+  assert.match(board, /修改重要投資資料時要求二次驗證/);
   assert.match(board, /Google Authenticator/);
-  assert.match(board, /🟡 二次驗證暫停/);
+  assert.match(board, /⚪ 已關閉/);
   assert.match(board, /setMfaRequired/);
   assert.match(board, /loadMfaPolicy/);
 });

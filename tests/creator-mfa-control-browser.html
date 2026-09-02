@@ -27,7 +27,7 @@
       loginAt: new Date().toISOString()
     });
     window.persistAiOsSessionOnly = () => {};
-    let policy = { investment_mfa_required: true, ai_board_mfa_required: true, status: "resolved" };
+    let policy = { investment_mfa_required: false, investment_entry_mfa_required: false, investment_sensitive_write_mfa_required: true, ai_board_mfa_required: true, status: "resolved" };
     window.ZhugeRuntimeSessionProvider = {
       createPlatform: () => ({
         forModule: () => ({
@@ -36,7 +36,12 @@
             loadMfaPolicy: async () => policy,
             getMfaPolicy: () => policy,
             setMfaRequired: async ({ moduleId, required }) => {
-              policy = { ...policy, [moduleId === "investment" ? "investment_mfa_required" : "ai_board_mfa_required"]: required };
+              const settingKey = moduleId === "ai-board"
+                ? "ai_board_mfa_required"
+                : moduleId === "investment-sensitive-write"
+                  ? "investment_sensitive_write_mfa_required"
+                  : "investment_entry_mfa_required";
+              policy = { ...policy, [settingKey]: required, ...(moduleId === "investment-entry" ? { investment_mfa_required: required } : {}) };
               return policy;
             },
             evaluate: () => ({ allowed: true })

@@ -39,7 +39,7 @@ const { resolveBrowserExecutable } = require("../browser-executable");
   await page.getByRole("button", { name: "確認預覽" }).click();
   await page.waitForSelector(".investment-import-confirmed");
   assert.equal(await page.locator(".investment-import-confirmed").count(), 1);
-  assert.match(await page.locator(".investment-import-confirmed").innerText(), /受控 Snapshot RPC|不會直接修改/);
+  assert.match(await page.locator(".investment-import-confirmed").innerText(), /受控安全流程|不會直接修改/);
   await page.waitForSelector(".investment-import-write-panel");
   assert.equal(await page.locator(".investment-import-write-panel").count(), 1);
   assert.equal(await page.getByRole("button", { name: "確認並寫入 1 筆 Snapshot" }).count(), 1);

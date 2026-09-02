@@ -59,7 +59,10 @@
     const data = options.data;
     const authUserId = String(options.userId || "");
     const sessionSnapshot = options.sessionSnapshot || {};
-    const assuranceLevel = normalizeAal(options.assuranceLevel || sessionSnapshot.aal);
+    const readSessionSnapshot = typeof options.getSessionSnapshot === "function"
+      ? options.getSessionSnapshot
+      : () => sessionSnapshot;
+    const initialAssuranceLevel = normalizeAal(options.assuranceLevel || sessionSnapshot.aal);
     // The Creator-controlled MFA preference can permit AAL1 for Investment
     // read-only access during development. It must never relax the controlled
     // Snapshot write path below, which always calls assertSession({ write: true })
@@ -75,6 +78,24 @@
     const emptyResources = new Set();
     let lastError = null;
 
+    function currentSessionSnapshot() {
+      try {
+        return readSessionSnapshot() || sessionSnapshot;
+      } catch {
+        return sessionSnapshot;
+      }
+    }
+
+    function currentAssuranceLevel() {
+      return normalizeAal(currentSessionSnapshot().aal || initialAssuranceLevel);
+    }
+
+    function currentIsAuthenticated() {
+      return options.isAuthenticated === undefined
+        ? currentSessionSnapshot().isAuthenticated !== false
+        : authenticated;
+    }
+
     function recordEmpty(resource, rows) {
       if (!Array.isArray(rows) || rows.length === 0) emptyResources.add(resource);
       return rows;
@@ -86,8 +107,10 @@
     }
 
     function assertSession({ write = false } = {}) {
-      if (!authenticated) {
-        const code = sessionSnapshot.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED";
+      const current = currentSessionSnapshot();
+      const assuranceLevel = currentAssuranceLevel();
+      if (!currentIsAuthenticated()) {
+        const code = current.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED";
         throw recordError(investmentError(
           code,
           code === "INVESTMENT_SESSION_EXPIRED" ? "登入工作階段已過期，請重新登入後再讀取投資資料。" : "請先登入後再讀取投資資料。"
@@ -119,7 +142,7 @@
             return Object.freeze(row);
           })
           .catch(error => {
-            const classified = classifyDataError(error, { assuranceLevel, resource: "Investment Owner Mapping" });
+            const classified = classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Investment Owner Mapping" });
             legacyUserPromise = null;
             throw recordError(classified);
           })
@@ -133,7 +156,7 @@
         const rows = await data.select(table, `select=${select}&user_id=eq.${encodeURIComponent(owner.id)}${suffix}`);
         return recordEmpty(table, rows);
       } catch (error) {
-        throw recordError(classifyDataError(error, { assuranceLevel, resource: table }));
+        throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: table }));
       }
     }
 
@@ -172,7 +195,7 @@
           `select=snapshot_id,item_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,market_value_source,raw_broker_values&snapshot_id=eq.${encodeURIComponent(header.id)}&portfolio_id=eq.${encodeURIComponent(header.portfolio_id)}&order=market.asc,symbol.asc`
         );
       } catch (error) {
-        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Current Broker Positions" }));
+        throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Current Broker Positions" }));
       }
       if (!Array.isArray(items) || items.length !== Number(header.position_count)) {
         throw recordError(investmentError(
@@ -217,7 +240,7 @@
           `select=id,reconciliation_id,market,symbol,status,quantity_delta,invested_cost_delta,differences,reason&reconciliation_id=eq.${encodeURIComponent(reconciliation.id)}&order=market.asc,symbol.asc`
         );
       } catch (error) {
-        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Broker Snapshot Reconciliation" }));
+        throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Broker Snapshot Reconciliation" }));
       }
       if (!Array.isArray(items) || items.length !== Number(reconciliation.item_count)) {
         throw recordError(investmentError(
@@ -346,7 +369,7 @@
         return Object.freeze({ ...row });
       } catch (error) {
         if (String(error?.code || "").startsWith("INVESTMENT_") || String(error?.message || "").startsWith("BROKER_SNAPSHOT_")) throw error;
-        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Broker Snapshot Write" }));
+        throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Broker Snapshot Write" }));
       }
     }
 
