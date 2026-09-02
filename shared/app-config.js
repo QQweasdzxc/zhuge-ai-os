@@ -108,6 +108,7 @@ const workspaceRegistry = {
   worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true },
   "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, externalHref: "../../app/Board/worktodo/" },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, externalHref: "../investment/" },
+  leisure: { icon: "🎮", label: "休閒小站", group: "leisure", enabled: true, externalHref: "../leisure/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },

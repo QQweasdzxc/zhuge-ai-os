@@ -1,0 +1,307 @@
+/* Leisure Station presentation. Shared shell geometry stays owned by the
+ * Foundation; these rules shape only the module content and game surface. */
+:root {
+  --leisure-ink: var(--zhuge-text, #f5f7fb);
+  --leisure-muted: var(--zhuge-muted, #a5afbf);
+  --leisure-surface: var(--zhuge-surface, #141a23);
+  --leisure-surface-raised: var(--zhuge-surface-raised, #1b2330);
+  --leisure-border: var(--zhuge-border, rgba(148, 163, 184, .18));
+  --leisure-blue: var(--zhuge-accent, #79aefc);
+  --leisure-green: var(--zhuge-success, #55d39a);
+  --leisure-gold: #f5c26b;
+}
+* { box-sizing: border-box; }
+html { min-height: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavior-x: none; }
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--zhuge-page-bg, #0b0f16);
+  color: var(--leisure-ink);
+  font-family: var(--zhuge-font-family, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif);
+}
+button { font: inherit; }
+.leisure-loading { min-height: 60vh; display: grid; place-items: center; color: var(--leisure-muted); }
+.leisure-module-shell > .workspace-app { min-width: 0; padding: var(--shell-page-padding-y, 24px) var(--shell-page-padding-x, 24px); }
+.leisure-content-container { width: 100%; min-width: 0; padding: 0 0 30px; }
+.leisure-home { width: min(1120px, 100%); margin: 0 auto; }
+.leisure-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 168px;
+  padding: 28px 32px;
+  border: 1px solid var(--leisure-border);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 84% 18%, rgba(121, 174, 252, .2), transparent 14rem),
+    linear-gradient(135deg, rgba(20, 42, 64, .92), rgba(20, 26, 35, .94));
+  box-shadow: var(--zhuge-shadow, 0 18px 45px rgba(0, 0, 0, .16));
+}
+.leisure-eyebrow {
+  margin: 0 0 7px;
+  color: var(--leisure-blue);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .1em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.leisure-intro h2, .leisure-section-heading h3, .leisure-game-card h2, .silkworm-game-toolbar h2 { margin: 0; line-height: 1.2; }
+.leisure-intro h2 { font-size: clamp(1.8rem, 3vw, 2.7rem); }
+.leisure-intro p:not(.leisure-eyebrow) { max-width: 620px; margin: 12px 0 0; color: var(--leisure-muted); line-height: 1.65; }
+.leisure-intro-mark {
+  display: grid;
+  flex: 0 0 104px;
+  width: 104px;
+  height: 104px;
+  place-items: center;
+  border: 1px solid rgba(245, 194, 107, .38);
+  border-radius: 30px;
+  background: rgba(245, 194, 107, .12);
+  font-size: 3.6rem;
+  transform: rotate(4deg);
+}
+.leisure-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 30px 0 14px;
+}
+.leisure-section-heading h3 { font-size: 1.3rem; }
+.leisure-local-note { color: var(--leisure-muted); font-size: .8rem; }
+.leisure-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.leisure-game-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+  min-height: 172px;
+  padding: 22px;
+  border: 1px solid var(--leisure-border);
+  border-radius: 18px;
+  background: var(--leisure-surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .1);
+}
+.leisure-game-card.is-featured {
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 190px;
+  border-color: rgba(121, 174, 252, .4);
+  background:
+    linear-gradient(120deg, rgba(41, 77, 104, .7), rgba(20, 26, 35, .94) 58%),
+    var(--leisure-surface);
+}
+.leisure-game-card.is-coming-soon { opacity: .72; }
+.leisure-game-card-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(121, 174, 252, .3);
+  border-radius: 18px;
+  background: rgba(121, 174, 252, .1);
+  font-size: 2rem;
+}
+.leisure-card-topline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 22px; }
+.leisure-card-index { color: var(--leisure-muted); font-size: .7rem; font-weight: 850; letter-spacing: .08em; }
+.leisure-card-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 9px;
+  border: 1px solid var(--leisure-border);
+  border-radius: 999px;
+  color: var(--leisure-muted);
+  font-size: .68rem;
+  font-weight: 800;
+}
+.leisure-card-status.is-live { border-color: rgba(85, 211, 154, .45); color: var(--leisure-green); }
+.leisure-game-card h2 { margin-top: 9px; font-size: 1.35rem; }
+.leisure-game-card p { margin: 7px 0 0; color: var(--leisure-muted); font-size: .9rem; line-height: 1.55; }
+.leisure-card-action {
+  align-self: center;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 1px solid rgba(121, 174, 252, .56);
+  border-radius: 13px;
+  background: var(--leisure-blue);
+  color: #071321;
+  font-size: .86rem;
+  font-weight: 850;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.leisure-card-action:hover, .leisure-card-action:focus-visible { background: #a7d0ff; outline: 3px solid rgba(121, 174, 252, .22); outline-offset: 2px; }
+.leisure-card-action.is-disabled { display: inline-flex; align-items: center; justify-content: center; border-color: var(--leisure-border); background: transparent; color: var(--leisure-muted); cursor: default; }
+.leisure-boundary-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 20px;
+  padding: 15px 18px;
+  border-left: 3px solid var(--leisure-blue);
+  border-radius: 10px;
+  background: rgba(121, 174, 252, .07);
+}
+.leisure-boundary-note > span { color: var(--leisure-blue); font-size: 1.1rem; line-height: 1.4; }
+.leisure-boundary-note strong { font-size: .9rem; }
+.leisure-boundary-note p { margin: 3px 0 0; color: var(--leisure-muted); font-size: .8rem; line-height: 1.5; }
+
+.silkworm-runtime { width: min(1180px, 100%); margin: 0 auto; }
+.leisure-game-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.leisure-game-toolbar h2 { font-size: clamp(1.45rem, 3vw, 2rem); }
+.leisure-back-button, .leisure-secondary-button {
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 1px solid var(--leisure-border);
+  border-radius: 12px;
+  background: var(--leisure-surface);
+  color: var(--leisure-ink);
+  font-size: .84rem;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.leisure-back-button:hover, .leisure-back-button:focus-visible, .leisure-secondary-button:hover, .leisure-secondary-button:focus-visible { border-color: var(--leisure-blue); outline: 3px solid rgba(121, 174, 252, .18); outline-offset: 2px; }
+.silkworm-game-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); align-items: start; gap: 16px; }
+.silkworm-board-card, .silkworm-control-card {
+  min-width: 0;
+  border: 1px solid var(--leisure-border);
+  border-radius: 20px;
+  background: var(--leisure-surface);
+  box-shadow: var(--zhuge-shadow, 0 18px 45px rgba(0, 0, 0, .16));
+}
+.silkworm-board-card { padding: 18px; }
+.silkworm-board-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.silkworm-board-head > div { display: grid; gap: 3px; }
+.silkworm-board-label { color: var(--leisure-muted); font-size: .68rem; font-weight: 850; letter-spacing: .1em; }
+.silkworm-board-head strong { font-size: .95rem; }
+.silkworm-live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--leisure-green); box-shadow: 0 0 0 5px rgba(85, 211, 154, .12); }
+[data-game-state="ready"] .silkworm-live-dot { background: var(--leisure-gold); box-shadow: 0 0 0 5px rgba(245, 194, 107, .12); }
+[data-game-state="lost"] .silkworm-live-dot { background: #ef8d98; box-shadow: 0 0 0 5px rgba(239, 141, 152, .12); }
+.silkworm-board-frame {
+  display: grid;
+  width: min(100%, 432px);
+  aspect-ratio: 3 / 4;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(156, 207, 255, .35);
+  border-radius: 16px;
+  background: #071422;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, .22);
+}
+.silkworm-board-frame canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  user-select: none;
+  touch-action: none;
+}
+.silkworm-result { min-height: 2.8em; margin: 12px 2px 0; color: var(--leisure-muted); font-size: .84rem; line-height: 1.55; }
+.silkworm-control-card { display: grid; gap: 16px; padding: 18px; }
+.silkworm-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.silkworm-stat-grid > div { min-width: 0; padding: 11px 8px; border: 1px solid var(--leisure-border); border-radius: 12px; background: var(--leisure-surface-raised); text-align: center; }
+.silkworm-stat-grid span, .silkworm-stat-grid strong { display: block; }
+.silkworm-stat-grid span { color: var(--leisure-muted); font-size: .68rem; }
+.silkworm-stat-grid strong { margin-top: 4px; font-size: 1.05rem; }
+.silkworm-progress { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(148, 163, 184, .16); }
+.silkworm-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--leisure-blue), var(--leisure-green)); transition: width .16s ease; }
+.silkworm-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.leisure-primary-button {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid rgba(121, 174, 252, .56);
+  border-radius: 13px;
+  background: var(--leisure-blue);
+  color: #071321;
+  font-size: .87rem;
+  font-weight: 850;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.leisure-primary-button:hover, .leisure-primary-button:focus-visible { background: #a7d0ff; outline: 3px solid rgba(121, 174, 252, .2); outline-offset: 2px; }
+.leisure-primary-button:disabled { cursor: wait; opacity: .65; }
+.silkworm-touch-section { padding-top: 2px; border-top: 1px solid var(--leisure-border); }
+.silkworm-control-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 14px 0 10px; }
+.silkworm-control-heading strong { font-size: .9rem; }
+.silkworm-control-heading span { color: var(--leisure-muted); font-size: .72rem; }
+.silkworm-touch-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(56px, 68px));
+  grid-template-rows: repeat(3, minmax(56px, 68px));
+  gap: 7px;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+.silkworm-touch-pad button {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(121, 174, 252, .42);
+  border-radius: 16px;
+  background: rgba(121, 174, 252, .12);
+  color: var(--leisure-ink);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.silkworm-touch-pad button:hover, .silkworm-touch-pad button:focus-visible, .silkworm-touch-pad button:active { border-color: var(--leisure-blue); background: rgba(121, 174, 252, .28); outline: none; }
+.silkworm-touch-center { display: grid; place-items: center; border: 1px dashed var(--leisure-border); border-radius: 16px; background: rgba(245, 194, 107, .06); font-size: 1.4rem; }
+.silkworm-help { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 9px; padding-top: 2px; color: var(--leisure-muted); font-size: .74rem; line-height: 1.45; }
+.silkworm-help strong { color: var(--leisure-ink); }
+
+html[data-theme="light"] .leisure-intro {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(40, 120, 232, .13), transparent 14rem),
+    linear-gradient(135deg, rgba(226, 239, 255, .96), rgba(248, 250, 252, .96));
+}
+html[data-theme="light"] .leisure-game-card.is-featured { background: linear-gradient(120deg, rgba(226, 239, 255, .9), rgba(248, 250, 252, .96) 62%); }
+
+@media (max-width: 900px) {
+  .silkworm-game-layout { grid-template-columns: 1fr; }
+  .silkworm-control-card { grid-template-columns: minmax(0, 1fr) minmax(220px, .72fr); align-items: start; }
+  .silkworm-stat-grid, .silkworm-progress, .silkworm-action-row, .silkworm-help { grid-column: 1 / -1; }
+  .silkworm-touch-section { grid-column: 2; grid-row: 1 / span 2; border-top: 0; padding-top: 0; }
+  .silkworm-control-heading { margin-top: 0; }
+}
+@media (max-width: 767px) {
+  .leisure-module-shell > .workspace-app { padding: 14px; }
+  .leisure-content-container { padding-bottom: 22px; }
+}
+@media (max-width: 600px) {
+  .leisure-module-shell > .workspace-app { padding: 10px; }
+  .leisure-intro { min-height: 0; padding: 22px 18px; }
+  .leisure-intro-mark { flex-basis: 70px; width: 70px; height: 70px; border-radius: 22px; font-size: 2.5rem; }
+  .leisure-section-heading { align-items: flex-start; flex-direction: column; gap: 5px; margin-top: 22px; }
+  .leisure-game-grid { grid-template-columns: 1fr; }
+  .leisure-game-card, .leisure-game-card.is-featured { grid-column: auto; grid-template-columns: auto minmax(0, 1fr); min-height: 0; padding: 16px; }
+  .leisure-game-card.is-featured .leisure-card-action { grid-column: 1 / -1; width: 100%; }
+  .leisure-game-card-icon { width: 48px; height: 48px; border-radius: 15px; font-size: 1.65rem; }
+  .leisure-game-card h2 { font-size: 1.15rem; }
+  .leisure-card-action { grid-column: 1 / -1; width: 100%; }
+  .leisure-boundary-note { padding: 13px 14px; }
+  .leisure-game-toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .leisure-back-button { width: 100%; }
+  .silkworm-board-card { padding: 12px; border-radius: 16px; }
+  .silkworm-control-card { display: grid; grid-template-columns: 1fr; padding: 14px; border-radius: 16px; }
+  .silkworm-touch-section { grid-column: auto; grid-row: auto; border-top: 1px solid var(--leisure-border); padding-top: 2px; }
+  .silkworm-control-heading { margin-top: 14px; }
+  .silkworm-touch-pad { grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 7px; }
+  .silkworm-touch-pad button { border-radius: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .silkworm-progress span, .leisure-card-action, .leisure-primary-button { transition: none; }
+}
