@@ -66,6 +66,7 @@
     if (!data || typeof data.select !== "function") throw new TypeError("SupabaseInvestmentRepository requires Shared Data API.");
     if (!authUserId) throw new TypeError("SupabaseInvestmentRepository requires Shared Identity UUID.");
     let legacyUserPromise = null;
+    let portfolioPromise = null;
     const emptyResources = new Set();
     let lastError = null;
 
@@ -132,22 +133,110 @@
     }
 
     async function loadPortfolio() {
-      const row = first(await ownerSelect("portfolios", "id,name,base_currency,is_default,created_at,updated_at", "&order=is_default.desc,updated_at.desc&limit=1"));
-      return row ? Models.Portfolio.normalize({
-        id: row.id,
-        userId: authUserId,
-        name: row.name,
-        baseCurrency: row.base_currency,
-        isDefault: row.is_default
-      }) : Models.Portfolio.normalize({ userId: authUserId, name: "尚未建立投資組合", baseCurrency: "TWD" });
+      if (!portfolioPromise) {
+        portfolioPromise = Promise.resolve().then(async () => {
+          const row = first(await ownerSelect("portfolios", "id,name,base_currency,is_default,created_at,updated_at", "&order=is_default.desc,updated_at.desc&limit=1"));
+          return row ? Models.Portfolio.normalize({
+            id: row.id,
+            userId: authUserId,
+            name: row.name,
+            baseCurrency: row.base_currency,
+            isDefault: row.is_default
+          }) : Models.Portfolio.normalize({ userId: authUserId, name: "尚未建立投資組合", baseCurrency: "TWD" });
+        }).catch(error => {
+          portfolioPromise = null;
+          throw error;
+        });
+      }
+      return portfolioPromise;
+    }
+
+    async function loadLatestBrokerSnapshot(portfolioId = "") {
+      if (!portfolioId) return null;
+      const headers = await ownerSelect(
+        "broker_position_snapshots",
+        "id,portfolio_id,broker,snapshot_at,verification,position_count,source,content_hash,idempotency_key,created_at",
+        `&portfolio_id=eq.${encodeURIComponent(portfolioId)}&verification=eq.pm_confirmed&order=snapshot_at.desc,created_at.desc,id.desc&limit=1`
+      );
+      const header = first(headers);
+      if (!header) return null;
+      let items;
+      try {
+        items = await data.select(
+          "current_broker_positions_view",
+          `select=snapshot_id,item_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,market_value_source,raw_broker_values&snapshot_id=eq.${encodeURIComponent(header.id)}&portfolio_id=eq.${encodeURIComponent(header.portfolio_id)}&order=market.asc,symbol.asc`
+        );
+      } catch (error) {
+        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Current Broker Positions" }));
+      }
+      if (!Array.isArray(items) || items.length !== Number(header.position_count)) {
+        throw recordError(investmentError(
+          "INVESTMENT_SNAPSHOT_INCOMPLETE",
+          "最新 Broker Snapshot 的 Header 與 Items 數量不一致，已停止投影，未回退到舊資料。",
+          { snapshotId: header.id, expected: Number(header.position_count), actual: Array.isArray(items) ? items.length : 0 }
+        ));
+      }
+      return Object.freeze({
+        header: Object.freeze(header),
+        items: Object.freeze(items.map(row => Models.Position.normalize({
+          ...row,
+          id: row.item_id,
+          userId: authUserId,
+          portfolioId: header.portfolio_id,
+          snapshotId: header.id,
+          snapshotAt: header.snapshot_at,
+          source: header.source,
+          marketValueSource: row.market_value_source,
+          rawBrokerValues: row.raw_broker_values
+        })))
+      });
+    }
+
+    async function loadBrokerSnapshotReconciliation(snapshotId = "", portfolioId = "") {
+      if (!snapshotId || !portfolioId) return null;
+      const rows = await ownerSelect(
+        "broker_position_reconciliations",
+        "id,portfolio_id,previous_snapshot_id,previous_source,previous_snapshot_at,current_snapshot_id,item_count,unchanged_count,changed_count,new_count,missing_count,unknown_count,created_at",
+        `&portfolio_id=eq.${encodeURIComponent(portfolioId)}&current_snapshot_id=eq.${encodeURIComponent(snapshotId)}&limit=1`
+      );
+      const reconciliation = first(rows);
+      if (!reconciliation) return null;
+      let items;
+      try {
+        // This child table is owner-scoped through its reconciliation parent;
+        // RLS performs the final owner check. Do not add a guessed user_id
+        // filter because the child table intentionally has no duplicate owner
+        // column.
+        items = await data.select(
+          "broker_position_reconciliation_items",
+          `select=id,reconciliation_id,market,symbol,status,quantity_delta,invested_cost_delta,differences,reason&reconciliation_id=eq.${encodeURIComponent(reconciliation.id)}&order=market.asc,symbol.asc`
+        );
+      } catch (error) {
+        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Broker Snapshot Reconciliation" }));
+      }
+      if (!Array.isArray(items) || items.length !== Number(reconciliation.item_count)) {
+        throw recordError(investmentError(
+          "INVESTMENT_RECONCILIATION_INCOMPLETE",
+          "Snapshot Reconciliation 的 Header 與 Items 數量不一致，已停止回報。",
+          { reconciliationId: reconciliation.id, expected: Number(reconciliation.item_count), actual: Array.isArray(items) ? items.length : 0 }
+        ));
+      }
+      return Object.freeze({
+        reconciliation: Object.freeze(reconciliation),
+        items: Object.freeze(items.map(item => Object.freeze(item)))
+      });
     }
 
     async function loadPositions() {
-      const rows = await ownerSelect("opening_positions", "id,portfolio_id,symbol,name,market,asset_type,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,currency,account,note,updated_at", "&order=market.asc,symbol.asc");
+      const portfolio = await loadPortfolio();
+      const brokerSnapshot = await loadLatestBrokerSnapshot(portfolio.id);
+      if (brokerSnapshot) return brokerSnapshot.items;
+      const rows = await ownerSelect("opening_positions", "id,portfolio_id,symbol,name,market,asset_type,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,currency,account,note,updated_at", `&portfolio_id=eq.${encodeURIComponent(portfolio.id)}&order=market.asc,symbol.asc`);
       return (rows || []).map(row => Models.Position.normalize({
         ...row,
         userId: authUserId,
-        portfolioId: row.portfolio_id
+        portfolioId: row.portfolio_id,
+        source: row.source
       }));
     }
 
@@ -215,6 +304,47 @@
       });
     }
 
+    async function createBrokerPositionSnapshot(input = {}) {
+      assertSession();
+      if (typeof data.rpc !== "function") {
+        throw recordError(investmentError("INVESTMENT_SNAPSHOT_WRITE_UNAVAILABLE", "目前資料閘道不支援受控 Snapshot 寫入。"));
+      }
+      const portfolio = await loadPortfolio();
+      const portfolioId = String(input.portfolioId || portfolio.id || "");
+      const positions = Array.isArray(input.positions) ? input.positions : [];
+      const payload = positions.map(position => ({
+        symbol: position.symbol,
+        name: position.name,
+        market: position.market,
+        currency: position.currency,
+        quantity: position.quantity,
+        avg_cost: position.averageCost ?? position.avg_cost,
+        invested_cost: position.investedCost ?? position.invested_cost ?? position.totalCost ?? position.total_cost,
+        last_price: position.lastPrice ?? position.last_price ?? position.currentPrice ?? position.current_price,
+        market_value: position.marketValue ?? position.market_value,
+        unrealized_pnl: position.unrealizedPnl ?? position.unrealized_pnl,
+        unrealized_pct: position.unrealizedPercent ?? position.unrealized_pct ?? position.returnRate ?? position.return_rate,
+        raw_broker_values: position.rawBrokerValues ?? position.raw_broker_values
+      }));
+      try {
+        const result = await data.rpc("create_broker_position_snapshot", {
+          p_portfolio_id: portfolioId,
+          p_broker: input.broker,
+          p_snapshot_at: input.snapshotAt,
+          p_verification: "pm_confirmed",
+          p_source: input.source || "broker_position_snapshot",
+          p_idempotency_key: input.idempotencyKey,
+          p_positions: payload
+        });
+        const row = first(result) || (result && !Array.isArray(result) ? result : null);
+        if (!row?.snapshot_id) throw investmentError("INVESTMENT_SNAPSHOT_WRITE_INVALID", "受控 Snapshot 寫入回傳格式無法驗證。", { resource: "Broker Snapshot Write" });
+        return Object.freeze({ ...row });
+      } catch (error) {
+        if (String(error?.code || "").startsWith("INVESTMENT_") || String(error?.message || "").startsWith("BROKER_SNAPSHOT_")) throw error;
+        throw recordError(classifyDataError(error, { assuranceLevel, resource: "Broker Snapshot Write" }));
+      }
+    }
+
     return Object.freeze({
       mode: "cloud",
       loadPortfolio,
@@ -223,6 +353,9 @@
       loadWatchlist,
       loadStrategies,
       loadSettings,
+      loadLatestBrokerSnapshot,
+      loadBrokerSnapshotReconciliation,
+      createBrokerPositionSnapshot,
       getStatus
     });
   }

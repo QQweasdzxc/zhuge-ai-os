@@ -151,6 +151,48 @@
     }).join("") + '</div>';
   }
 
+  function snapshotWriteEligibility(session, comparison) {
+    const recognition = session?.recognition || {};
+    const rows = Array.isArray(recognition.rows) ? recognition.rows.filter(row => !row.ignored) : [];
+    if (session?.preview?.status !== "confirmed") return Object.freeze({ ok: false, reason: "請先確認完整的辨識預覽。", rows });
+    if (recognition.status !== "recognized") return Object.freeze({ ok: false, reason: "尚未取得可驗證的辨識結果。", rows });
+    if (recognition.completeness !== "full" || comparison?.scope !== "full") return Object.freeze({ ok: false, reason: "只有已證明為完整持倉範圍的結果才能寫入 Snapshot。", rows });
+    if (!rows.length) return Object.freeze({ ok: false, reason: "目前沒有可寫入的持倉列。", rows });
+    if (rows.some(row => !row.hasIdentity || !row.isComplete)) return Object.freeze({ ok: false, reason: "仍有缺少欄位、低信心度或衝突的辨識列。", rows });
+    const comparisonItems = Array.isArray(comparison?.items) ? comparison.items : [];
+    if (comparisonItems.length !== rows.length || comparisonItems.some(item => !item.screenshot || item.status === "UNKNOWN")) {
+      return Object.freeze({ ok: false, reason: "比較結果尚未形成完整且無歧義的 Snapshot 清單。", rows });
+    }
+    return Object.freeze({ ok: true, reason: "已完成完整範圍與逐筆可驗證檢查。", rows });
+  }
+
+  function inferredBroker(session) {
+    const images = Array.isArray(session?.recognition?.images) ? session.recognition.images : [];
+    return images.find(image => image?.brokerOrApp)?.brokerOrApp || "";
+  }
+
+  function renderSnapshotWrite(session, comparison, dependencies, escape) {
+    if (session?.preview?.status !== "confirmed" || typeof dependencies.onSnapshotWrite !== "function") return "";
+    const write = dependencies.snapshotWrite || {};
+    const eligibility = snapshotWriteEligibility(session, comparison);
+    const form = write.form || {};
+    const status = write.status || "idle";
+    const busy = status === "submitting";
+    const broker = form.broker ?? inferredBroker(session);
+    const source = form.source ?? "fubon_ai_pro_position_screenshot";
+    const idempotencyKey = form.idempotencyKey ?? (session.sessionId ? `broker-snapshot-${session.sessionId}` : "");
+    const result = write.result || {};
+    const readBack = result.readBack || {};
+    const statusMessage = status === "error"
+      ? '<div class="investment-import-write-message is-error" role="alert"><strong>Snapshot 尚未寫入</strong><span>' + escapeText(write.error || "受控寫入失敗。", escape) + '</span></div>'
+      : status === "success"
+        ? '<div class="investment-import-write-message is-success" role="status"><strong>Snapshot 已寫入並完成 Read-back</strong><span>Header 1 · Items ' + Number(readBack.positionCount || result.position_count || 0) + ' · Reconciliation ' + Number(readBack.reconciliationItemCount || 0) + ' 筆。</span></div>'
+        : "";
+    const blocked = !eligibility.ok;
+    const disabled = busy || blocked;
+    return '<article class="investment-import-panel investment-import-write-panel" data-investment-snapshot-write><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">04 · Controlled Snapshot Write</p><h2>寫入 Broker Position Snapshot</h2><p>只有 Preview Confirmed、完整範圍且每筆欄位可驗證時，才會透過 AAL2、Owner／Portfolio scoped RPC 寫入；不會改寫 Transaction 或 Legacy Opening Position。</p></div><span class="investment-import-badge ' + (blocked ? 'is-pending' : '') + '">' + (blocked ? "等待完整資料" : busy ? "寫入中…" : "AAL2 受控") + '</span></header><div class="investment-import-write-contract"><span>Snapshot：append-only evidence</span><span>Transaction mutation：0</span><span>Legacy data：保留</span></div><form class="investment-import-write-form" data-investment-snapshot-write-form><div class="investment-import-write-grid"><label><span>Broker</span><input name="broker" value="' + escapeText(broker, escape) + '" maxlength="120" required ' + (busy ? 'disabled' : '') + '></label><label><span>Snapshot 時間（Asia/Taipei）</span><input type="datetime-local" name="snapshotAt" value="' + escapeText(form.snapshotAt || "", escape) + '" required ' + (busy ? 'disabled' : '') + '></label><label><span>Source</span><input name="source" value="' + escapeText(source, escape) + '" maxlength="160" required ' + (busy ? 'disabled' : '') + '></label><label><span>Idempotency Key</span><input name="idempotencyKey" value="' + escapeText(idempotencyKey, escape) + '" minlength="8" maxlength="240" required ' + (busy ? 'disabled' : '') + '></label></div><div class="investment-import-write-actions"><button type="submit" class="investment-import-write-button" ' + (disabled ? 'disabled' : '') + '>確認並寫入 ' + eligibility.rows.length + ' 筆 Snapshot</button><span class="investment-import-write-hint">' + escapeText(blocked ? eligibility.reason : "時間會以 Asia/Taipei 轉換後送交受控 RPC。", escape) + '</span></div></form>' + statusMessage + '</article>';
+  }
+
   function renderReconciliation(state, dependencies) {
     const escape = dependencies.escape;
     const engine = dependencies.importEngine;
@@ -163,8 +205,8 @@
     const scopeLabel = comparison.scope === "full" ? "完整範圍" : comparison.scope === "partial" ? "部分範圍" : "範圍未知";
     const restore = session.recognition?.status === "recognized" ? '<button type="button" class="investment-import-restore" data-investment-import-action="restore-recognition">還原辨識結果</button>' : "";
     const confirm = ready && session.recognition?.status === "recognized" ? '<button type="button" class="investment-primary-link investment-import-confirm" data-investment-import-action="confirm-preview">確認預覽</button>' : "";
-    const confirmed = session.preview?.status === "confirmed" ? '<div class="investment-import-confirmed" role="status"><strong>Preview Confirmed／Ready for Import</strong><span>這只代表本次辨識預覽已確認；本階段不會寫入 Investment Cloud。</span></div>' : "";
-    return '<article class="investment-import-panel investment-import-reconciliation" data-investment-import-reconciliation><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">03 · Reconciliation Preview</p><h2>Cloud 持倉與截圖差異</h2><p>以目前已通過 Investment 安全驗證的 Cloud 持倉作唯讀比較；截圖範圍未證明完整前，不把未出現視為已賣出。</p></div><span class="investment-import-badge is-pending">' + escapeText(phaseLabel, escape) + '</span></header><div class="investment-import-counts"><span><b>' + positions.length + '</b><small>目前 Cloud 持倉</small></span><span><b>' + (Array.isArray(comparison.items) ? comparison.items.filter(item => item.screenshot).length : 0) + '</b><small>截圖辨識列</small></span><span><b>' + Number(counts.CHANGED || 0) + '</b><small>內容變更</small></span><span><b>' + Number(counts.UNKNOWN || 0) + '</b><small>待確認</small></span></div><div class="investment-import-scope"><span>比較範圍：' + escapeText(scopeLabel, escape) + '</span><span>Cloud：唯讀</span></div><div class="investment-import-status-legend"><span class="is-unchanged">未變更</span><span class="is-new">截圖新增</span><span class="is-changed">內容變更</span><span class="is-missing">Cloud 未出現</span><span class="is-unknown">待確認</span></div>' + renderComparisonItems(comparison, escape) + '<div class="investment-import-preview-actions">' + restore + confirm + '</div>' + confirmed + '</article>';
+    const confirmed = session.preview?.status === "confirmed" ? '<div class="investment-import-confirmed" role="status"><strong>Preview Confirmed／Ready for Controlled Write</strong><span>預覽已確認；正式資料只會由下方 AAL2 受控 Snapshot RPC 寫入，不會直接修改 Transaction 或 Legacy Opening Position。</span></div>' : "";
+    return '<article class="investment-import-panel investment-import-reconciliation" data-investment-import-reconciliation><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">03 · Reconciliation Preview</p><h2>Cloud 持倉與截圖差異</h2><p>以目前已通過 Investment 安全驗證的 Cloud 持倉作唯讀比較；截圖範圍未證明完整前，不把未出現視為已賣出。</p></div><span class="investment-import-badge is-pending">' + escapeText(phaseLabel, escape) + '</span></header><div class="investment-import-counts"><span><b>' + positions.length + '</b><small>目前 Cloud 持倉</small></span><span><b>' + (Array.isArray(comparison.items) ? comparison.items.filter(item => item.screenshot).length : 0) + '</b><small>截圖辨識列</small></span><span><b>' + Number(counts.CHANGED || 0) + '</b><small>內容變更</small></span><span><b>' + Number(counts.UNKNOWN || 0) + '</b><small>待確認</small></span></div><div class="investment-import-scope"><span>比較範圍：' + escapeText(scopeLabel, escape) + '</span><span>Cloud：唯讀</span></div><div class="investment-import-status-legend"><span class="is-unchanged">未變更</span><span class="is-new">截圖新增</span><span class="is-changed">內容變更</span><span class="is-missing">Cloud 未出現</span><span class="is-unknown">待確認</span></div>' + renderComparisonItems(comparison, escape) + '<div class="investment-import-preview-actions">' + restore + confirm + '</div>' + confirmed + renderSnapshotWrite(session, comparison, dependencies, escape) + '</article>';
   }
 
   function render(state, dependencies = {}) {
@@ -175,13 +217,13 @@
     const notice = session.notice ? '<div class="investment-import-notice" role="status">' + escapeText(session.notice, escape) + '</div>' : "";
     const recognition = session.recognition || {};
     const startLabel = recognition.status === "recognizing" ? "辨識中…" : "開始辨識";
-    return '<section class="investment-screenshot-import" data-investment-import-page><div class="investment-page-heading"><div><p class="investment-eyebrow">Screenshot Investment Import · Recognition Prototype</p><h1>持股截圖匯入</h1><p>把最新持股畫面帶進可追溯的辨識與唯讀預覽流程；確認前與確認後都不會改動正式 Investment Cloud。</p></div><span class="investment-pill">PNG · JPG · WebP</span></div>' +
-      '<div class="investment-import-contract" data-investment-import-contract><div><strong>安全邊界</strong><p>原圖只在目前瀏覽器記憶體與受控辨識請求中存在；不建立 Storage、不把原圖寫入 Cloud、不在瀏覽器保存 API Key。回傳的是可驗證的結構化結果。</p></div><span>Cloud：唯讀</span></div>' +
+    return '<section class="investment-screenshot-import" data-investment-import-page><div class="investment-page-heading"><div><p class="investment-eyebrow">Screenshot Investment Import · Recognition + Snapshot</p><h1>持股截圖匯入</h1><p>把最新持股畫面帶進可追溯的辨識、Reconciliation 與 AAL2 受控 Snapshot 流程；不會用截圖差異偽造交易。</p></div><span class="investment-pill">PNG · JPG · WebP</span></div>' +
+      '<div class="investment-import-contract" data-investment-import-contract><div><strong>安全邊界</strong><p>原圖只在目前瀏覽器記憶體與受控辨識請求中存在；不建立 Storage、不把原圖寫入 Cloud、不在瀏覽器保存 API Key。只有確認後的結構化 Position Evidence 才能經 AAL2 受控 RPC 寫入 Snapshot。</p></div><span>Cloud：受控 Snapshot</span></div>' +
       '<div class="investment-import-layout"><article class="investment-import-panel investment-import-upload-panel" data-investment-import-upload><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">01 · Upload</p><h2>加入持股截圖</h2><p>可一次選取多張圖片；每張最多 8 MB，本次最多 5 張／總計 20 MB。</p></div><span class="investment-import-badge">瀏覽器記憶體</span></header><input class="investment-import-file-input" id="investmentScreenshotFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple data-investment-import-files aria-label="選擇持股截圖"><button type="button" class="investment-import-dropzone" data-investment-import-dropzone data-investment-import-action="choose"><span class="investment-import-drop-icon" aria-hidden="true">▧</span><strong>拖放圖片到這裡，或選擇圖片</strong><small>支援 PNG、JPG、WebP；不會建立永久檔案。</small></button><div class="investment-import-upload-rule"><span>目前工作階段</span><b>' + files.length + '／5 張圖片</b></div>' + notice + '</article>' +
       '<article class="investment-import-panel investment-import-session-panel" data-investment-import-session><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">02 · Import Session</p><h2>本次圖片清單</h2><p>移除圖片會立即釋放本地預覽；重新整理或關閉頁面會清除本次工作階段。</p></div><button type="button" class="investment-import-clear" data-investment-import-action="clear" ' + (files.length ? "" : "disabled") + '>清除本次</button></header>' + renderFiles(files, escape) + '<div class="investment-import-session-actions"><button type="button" class="investment-primary-link investment-import-start" data-investment-import-action="start-recognition" ' + (canStart ? "" : "disabled") + '>' + startLabel + '</button><small>辨識結果會先停在唯讀 Preview，不會直接匯入。</small></div>' + renderRecognitionState(session, escape) + '</article></div>' +
       renderReconciliation(state, dependencies) +
-      '<article class="investment-import-panel investment-import-next-gate"><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">04 · Next Gate</p><h2>預覽後的正式 Gate</h2><p>本 prototype 只做到辨識、Reconciliation、人工修正與 Preview Confirmed；Cloud Write 仍是下一個需另行核准的 Gate。</p></div><span class="investment-import-badge is-pending">Preview Only</span></header><ol><li><strong>OCR／Vision Recognition</strong><span>固定 OpenAI GPT-5.6 Luna；每張圖片產生結構化持股結果。</span></li><li><strong>Review</strong><span>逐筆查看 Cloud／截圖值、差異、confidence，可修正、忽略或還原。</span></li><li><strong>Confirm</strong><span>確認後只進入 Ready for Import，不呼叫 INSERT、UPDATE、RPC 或 Storage。</span></li></ol><p class="investment-import-warning">任何 Missing、Extra、Different、LOW confidence 或多圖衝突，都會留在待確認狀態；不會用假資料補齊。</p></article></section>';
+      '<article class="investment-import-panel investment-import-next-gate"><header class="investment-import-panel-heading"><div><p class="investment-eyebrow">05 · Safety Contract</p><h2>受控寫入邊界</h2><p>Preview Confirmed 後仍只能透過 AAL2、Owner／Portfolio scoped、atomic、idempotent RPC；瀏覽器沒有直接 Table 寫入權限。</p></div><span class="investment-import-badge is-pending">Controlled Write</span></header><ol><li><strong>Recognition</strong><span>固定 OpenAI GPT-5.6 Luna；每張圖片產生結構化持股結果。</span></li><li><strong>Review</strong><span>逐筆查看 Cloud／截圖值、差異、confidence，可修正、忽略或還原。</span></li><li><strong>Snapshot</strong><span>只保存 Broker Position State；不從 Quantity Delta 推導交易，不改寫 Legacy Evidence。</span></li></ol><p class="investment-import-warning">任何 Missing、Extra、Different、LOW confidence 或多圖衝突，都會留在待確認狀態；不會用假資料補齊。</p></article></section>';
   }
 
-  return Object.freeze({ render, statusLabels, fieldLabels });
+  return Object.freeze({ render, statusLabels, fieldLabels, snapshotWriteEligibility });
 });

@@ -131,7 +131,7 @@ test("Portfolio calculation keeps TWD and USD totals independent", async () => {
 });
 
 test("Investment exposes the required SIT pages and standard folders", () => {
-  assert.deepEqual(Config.pages, ["overview", "portfolio", "watchlist", "strategy", "settings"]);
+  assert.deepEqual(Config.pages, ["overview", "portfolio", "watchlist", "strategy", "settings", "import"]);
   for (const folder of ["pages", "components", "services", "models", "store", "config", "assets", "utils"]) {
     assert.equal(fs.statSync(path.join(ROOT, "modules", "investment", folder)).isDirectory(), true);
   }

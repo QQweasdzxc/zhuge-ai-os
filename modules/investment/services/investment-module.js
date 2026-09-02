@@ -22,6 +22,60 @@
     };
   }
 
+  function snapshotWriteError(code, message, detail = {}) {
+    const error = new Error(message);
+    error.code = code;
+    Object.assign(error, detail);
+    return error;
+  }
+
+  function taipeiTimestamp(value) {
+    const raw = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
+      throw snapshotWriteError("INVESTMENT_SNAPSHOT_TIME_INVALID", "請輸入有效的 Asia/Taipei Snapshot 時間。");
+    }
+    const local = raw.length === 16 ? `${raw}:00` : raw;
+    const parsed = new Date(`${local}+08:00`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw snapshotWriteError("INVESTMENT_SNAPSHOT_TIME_INVALID", "請輸入有效的 Asia/Taipei Snapshot 時間。");
+    }
+    return parsed.toISOString();
+  }
+
+  function snapshotPosition(row) {
+    const values = row?.values || {};
+    return {
+      symbol: values.symbol,
+      name: values.name,
+      market: values.market,
+      currency: values.currency,
+      quantity: values.quantity,
+      avg_cost: values.averageCost,
+      invested_cost: values.investedCost,
+      last_price: values.currentPrice,
+      market_value: values.marketValue,
+      unrealized_pnl: values.unrealizedPnl,
+      unrealized_pct: values.returnRate,
+      raw_broker_values: {
+        market: values.market,
+        symbol: values.symbol,
+        name: values.name,
+        currency: values.currency,
+        quantity: values.quantity,
+        average_cost: values.averageCost,
+        total_cost: values.investedCost,
+        current_price: values.currentPrice,
+        market_value: values.marketValue,
+        unrealized_pnl: values.unrealizedPnl,
+        return_rate: values.returnRate,
+        recognition_confidence: row.recognitionConfidence,
+        confidence_level: row.confidenceLevel,
+        source_images: row.sourceImages,
+        source_fields: row.sourceFields
+      }
+    };
+  }
+
   // Locked/error states still belong to the Investment Workspace. Keep the
   // protected message inside the canonical OS Shell so a security gate never
   // makes the product look like a separate application. This is presentation
@@ -191,7 +245,7 @@
         watchlist: "觀察清單｜追蹤關注中的市場標的",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
         settings: "偏好設定｜管理投資模組的顯示與計算偏好",
-        import: "截圖匯入｜先預覽持股截圖，不直接改動正式資料"
+        import: "截圖匯入｜辨識、Reconciliation 與受控 Snapshot"
       };
       const release = global.ZhugeFoundationConfig?.version || {};
       global.ZhugeSharedShell.mountHeader(sharedHeaderTarget, {
@@ -209,6 +263,11 @@
       createPreviewUrl: file => typeof global.URL?.createObjectURL === "function" ? global.URL.createObjectURL(file) : "",
       revokePreviewUrl: url => typeof global.URL?.revokeObjectURL === "function" ? global.URL.revokeObjectURL(url) : undefined
     });
+    let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "" });
+
+    function resetSnapshotWrite() {
+      snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "" });
+    }
 
     function renderPage() {
       const state = store.getState();
@@ -225,7 +284,9 @@
       const pageDependencies = {
         ...dependencies,
         importSession: importSnapshot,
-        reconciliation: dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope })
+        reconciliation: dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope }),
+        snapshotWrite,
+        onSnapshotWrite: writeBrokerSnapshot
       };
       global.ZhugeComponents.Summary.update(pageRoot, state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
@@ -234,6 +295,92 @@
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
       });
+    }
+
+    async function writeBrokerSnapshot(form) {
+      const formData = new FormData(form);
+      const formValues = Object.freeze({
+        broker: String(formData.get("broker") || "").trim(),
+        snapshotAt: String(formData.get("snapshotAt") || "").trim(),
+        source: String(formData.get("source") || "").trim(),
+        idempotencyKey: String(formData.get("idempotencyKey") || "").trim()
+      });
+      const importSnapshot = importSession.getSnapshot();
+      const state = store.getState();
+      const recognizedRows = importSnapshot.recognition?.status === "recognized"
+        ? importSnapshot.recognition.rows
+        : null;
+      const scope = importSnapshot.recognition?.completeness === "full"
+        ? "full"
+        : importSnapshot.recognition?.completeness === "partial"
+          ? "partial"
+          : "unknown";
+      const comparison = dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope });
+      const eligibility = global.InvestmentScreenshotImportPage.snapshotWriteEligibility(importSnapshot, comparison);
+      if (!eligibility.ok) {
+        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: eligibility.reason });
+        renderPage();
+        return;
+      }
+      if (!formValues.broker || !formValues.source || formValues.idempotencyKey.length < 8) {
+        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: "請完整填寫 Broker、Source 與至少 8 碼 Idempotency Key。" });
+        renderPage();
+        return;
+      }
+      let snapshotAt;
+      try {
+        snapshotAt = taipeiTimestamp(formValues.snapshotAt);
+      } catch (error) {
+        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error.message });
+        renderPage();
+        return;
+      }
+      snapshotWrite = Object.freeze({ status: "submitting", form: formValues, result: null, error: "" });
+      renderPage();
+      try {
+        const result = await repository.createBrokerPositionSnapshot({
+          broker: formValues.broker,
+          snapshotAt,
+          source: formValues.source,
+          idempotencyKey: formValues.idempotencyKey,
+          positions: eligibility.rows.map(snapshotPosition)
+        });
+        const portfolio = await repository.loadPortfolio();
+        const readBack = await repository.loadLatestBrokerSnapshot(portfolio.id);
+        if (!readBack || readBack.header.id !== result.snapshot_id || readBack.items.length !== Number(result.position_count)) {
+          throw snapshotWriteError("INVESTMENT_SNAPSHOT_READBACK_FAILED", "Snapshot 寫入後的 Header／Items Read-back 無法驗證。", { snapshotId: result.snapshot_id });
+        }
+        const reconciliation = await repository.loadBrokerSnapshotReconciliation(result.snapshot_id, portfolio.id);
+        if (!reconciliation || reconciliation.items.length !== Number(reconciliation.reconciliation.item_count)) {
+          throw snapshotWriteError("INVESTMENT_RECONCILIATION_READBACK_FAILED", "Snapshot Reconciliation 寫入後的 Read-back 無法驗證。", { snapshotId: result.snapshot_id });
+        }
+        snapshotWrite = Object.freeze({
+          status: "success",
+          form: formValues,
+          error: "",
+          result: Object.freeze({
+            ...result,
+            readBack: Object.freeze({
+              snapshotId: readBack.header.id,
+              positionCount: readBack.items.length,
+              symbols: Object.freeze(readBack.items.map(item => `${item.market}:${item.symbol}`)),
+              reconciliationId: reconciliation.reconciliation.id,
+              reconciliationItemCount: reconciliation.items.length,
+              reconciliationCounts: Object.freeze({
+                unchanged: Number(reconciliation.reconciliation.unchanged_count || 0),
+                changed: Number(reconciliation.reconciliation.changed_count || 0),
+                new: Number(reconciliation.reconciliation.new_count || 0),
+                missing: Number(reconciliation.reconciliation.missing_count || 0),
+                unknown: Number(reconciliation.reconciliation.unknown_count || 0)
+              })
+            })
+          })
+        });
+        await load();
+      } catch (error) {
+        snapshotWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控 Snapshot 寫入失敗。" });
+        renderPage();
+      }
     }
 
     function navigate(page, updateHash = true) {
@@ -286,28 +433,41 @@
       if (action === "choose") {
         root.querySelector("[data-investment-import-files]")?.click();
       } else if (action === "remove") {
+        resetSnapshotWrite();
         importSession.removeFile(importAction.dataset.investmentImportFileId);
         renderPage();
       } else if (action === "clear") {
+        resetSnapshotWrite();
         importSession.clear();
         renderPage();
       } else if (action === "start-recognition") {
+        resetSnapshotWrite();
         runRecognition().catch(handleError);
       } else if (action === "ignore-row") {
+        resetSnapshotWrite();
         importSession.ignoreRecognitionRow(importAction.dataset.investmentImportRowId);
         renderPage();
       } else if (action === "restore-recognition") {
+        resetSnapshotWrite();
         importSession.restoreRecognitionResult();
         renderPage();
       } else if (action === "confirm-preview") {
+        resetSnapshotWrite();
         importSession.confirmPreview();
         renderPage();
       }
     });
     root.addEventListener("submit", event => {
+      const snapshotForm = event.target.closest("[data-investment-snapshot-write-form]");
+      if (snapshotForm) {
+        event.preventDefault();
+        writeBrokerSnapshot(snapshotForm).catch(handleError);
+        return;
+      }
       const form = event.target.closest("[data-investment-import-edit]");
       if (!form) return;
       event.preventDefault();
+      resetSnapshotWrite();
       const values = new FormData(form);
       importSession.updateRecognitionRow(form.dataset.investmentImportRowId, {
         symbol: values.get("symbol"),
@@ -322,6 +482,7 @@
     root.addEventListener("change", event => {
       const input = event.target.closest("[data-investment-import-files]");
       if (!input) return;
+      resetSnapshotWrite();
       importSession.addFiles(input.files);
       input.value = "";
       renderPage();
