@@ -72,8 +72,7 @@ function zhugeRootWorkspaceCards() {
   const worklogEntry = zhugeRootWorkspaceEnabled("worklog") ? zhugeRootWorklogEntryMarkup() : "";
   const definitions = [
     ["tasks-new", "✅", "工作待辦", "AI Board 架構的新版工作待辦"],
-    ["investment", "📈", "Investment", "投資組合與觀察清單"],
-    ["leisure", "🎮", "休閒小站", "工作之間，玩一小局天蠶變"]
+    ["investment", "📈", "Investment", "投資組合與觀察清單"]
   ];
   const cards = definitions.filter(([id]) => zhugeRootWorkspaceEnabled(id)).map(([id, icon, title, description, metaMarkup]) => zhugeRootModuleCard({ id, icon, title, description, metaMarkup, enabled: true }));
   return [worklogEntry, ...cards].join("");
