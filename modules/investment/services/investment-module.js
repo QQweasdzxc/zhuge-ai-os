@@ -76,6 +76,36 @@
     };
   }
 
+  function parseConfirmedSnapshotInput(raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(String(raw || ""));
+    } catch {
+      throw snapshotWriteError("INVESTMENT_CONFIRMED_INPUT_INVALID", "PM Confirmed 結構化輸入不是有效 JSON。");
+    }
+    const container = Array.isArray(parsed) ? {} : parsed && typeof parsed === "object" ? parsed : {};
+    const metadata = container.metadata && typeof container.metadata === "object" ? container.metadata : container;
+    const positions = Array.isArray(parsed) ? parsed : container.positions;
+    if (!Array.isArray(positions) || !positions.length) {
+      throw snapshotWriteError("INVESTMENT_CONFIRMED_INPUT_INVALID", "PM Confirmed 結構化輸入缺少 positions 陣列。");
+    }
+    const requiredMetadata = ["broker", "snapshotAt", "source", "idempotencyKey"];
+    if (requiredMetadata.some(key => !String(metadata[key] || "").trim())) {
+      throw snapshotWriteError("INVESTMENT_CONFIRMED_INPUT_INVALID", "PM Confirmed 輸入必須包含 Broker、Snapshot 時間、Source 與 Idempotency Key。");
+    }
+    return Object.freeze({
+      positions: Object.freeze(positions.slice(0, 100)),
+      metadata: Object.freeze({
+        broker: String(metadata.broker).trim(),
+        snapshotAt: String(metadata.snapshotAt).trim(),
+        source: String(metadata.source).trim(),
+        idempotencyKey: String(metadata.idempotencyKey).trim(),
+        provider: String(metadata.provider || "gpt-5.6-luna").trim(),
+        model: String(metadata.model || "gpt-5.6-luna").trim()
+      })
+    });
+  }
+
   // Locked/error states still belong to the Investment Workspace. Keep the
   // protected message inside the canonical OS Shell so a security gate never
   // makes the product look like a separate application. This is presentation
@@ -269,6 +299,17 @@
       snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "" });
     }
 
+    function loadConfirmedInput(form) {
+      resetSnapshotWrite();
+      try {
+        const input = parseConfirmedSnapshotInput(new FormData(form).get("positionsJson"));
+        importSession.loadConfirmedRows(input.positions, input.metadata);
+      } catch (error) {
+        importSession.setNotice(error?.message || "PM Confirmed 結構化輸入無法載入。");
+      }
+      renderPage();
+    }
+
     function renderPage() {
       const state = store.getState();
       const page = pageRegistry[state.activePage] || pageRegistry.overview;
@@ -432,6 +473,10 @@
       const action = importAction.dataset.investmentImportAction;
       if (action === "choose") {
         root.querySelector("[data-investment-import-files]")?.click();
+      } else if (action === "open-confirmed-input") {
+        resetSnapshotWrite();
+        importSession.openConfirmedInput();
+        renderPage();
       } else if (action === "remove") {
         resetSnapshotWrite();
         importSession.removeFile(importAction.dataset.investmentImportFileId);
@@ -458,6 +503,12 @@
       }
     });
     root.addEventListener("submit", event => {
+      const confirmedInputForm = event.target.closest("[data-investment-confirmed-input-form]");
+      if (confirmedInputForm) {
+        event.preventDefault();
+        loadConfirmedInput(confirmedInputForm);
+        return;
+      }
       const snapshotForm = event.target.closest("[data-investment-snapshot-write-form]");
       if (snapshotForm) {
         event.preventDefault();

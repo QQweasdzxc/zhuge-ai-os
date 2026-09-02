@@ -151,6 +151,45 @@ test("Import Session is transient, image-only, deduplicated, and has an explicit
   assert.equal(session.getSnapshot().files.length, 0);
 });
 
+test("Import session loads PM Confirmed structured rows without re-recognition or image persistence", () => {
+  const session = Engine.createSession({ sessionId: "session-pm-confirmed-test" });
+  session.openConfirmedInput();
+  const snapshot = session.loadConfirmedRows([
+    recognized({
+      symbol: "0050",
+      name: "元大台灣50",
+      quantity: 709,
+      averageCost: 65.45,
+      investedCost: 46404,
+      currentPrice: 108.45,
+      marketValue: 76891,
+      unrealizedPnl: 30302,
+      returnRate: 65.3
+    })
+  ], {
+    broker: "Fubon AI PRO",
+    snapshotAt: "2026-09-02T08:29",
+    source: "fubon_ai_pro_position_screenshot_pm_confirmed",
+    idempotencyKey: "pm-confirmed-test-0050",
+    provider: "gpt-5.6-luna",
+    model: "gpt-5.6-luna"
+  });
+
+  assert.equal(snapshot.files.length, 0);
+  assert.equal(snapshot.confirmedInputOpen, false);
+  assert.equal(snapshot.recognition.status, "recognized");
+  assert.equal(snapshot.recognition.sourceType, "pm_confirmed");
+  assert.equal(snapshot.recognition.completeness, "full");
+  assert.equal(snapshot.recognition.rows.length, 1);
+  assert.equal(snapshot.recognition.rows[0].sourceType, "pm_confirmed");
+  assert.equal(snapshot.recognition.rows[0].values.symbol, "0050");
+  assert.equal(snapshot.recognition.rows[0].isComplete, true);
+  assert.equal(snapshot.preview.status, "draft");
+  assert.equal(snapshot.confirmedInputMetadata.broker, "Fubon AI PRO");
+  assert.match(snapshot.notice, /尚未寫入 Cloud/);
+  assert.doesNotMatch(JSON.stringify(snapshot), /data:image|sourceFile/);
+});
+
 test("Screenshot Import Runtime entry is honest and contains no Cloud write control", () => {
   const html = Page.render(
     { positions: [cloudPosition()] },
@@ -481,12 +520,58 @@ test("Runtime preview exposes Cloud values, screenshot values, edit controls, an
   );
 
   assert.match(html, /目前 Cloud/);
-  assert.match(html, /截圖辨識/);
+  assert.match(html, /本次確認輸入/);
   assert.match(html, /name="quantity"/);
   assert.match(html, /data-investment-import-action="ignore-row"/);
   assert.match(html, /data-investment-import-action="confirm-preview"/);
   assert.match(html, /Controlled Write/);
   assert.doesNotMatch(html, /confirm-write|import-to-cloud|data-investment-import-action="write/);
+});
+
+test("PM Confirmed input renders a generic local loader and only exposes write after Preview Confirmed", () => {
+  const session = Engine.createSession({ sessionId: "session-pm-confirmed-page-test" });
+  session.openConfirmedInput();
+  let snapshot = session.getSnapshot();
+  let html = Page.render(
+    { positions: [cloudPosition()] },
+    {
+      escape: SafeHtml.escape,
+      importEngine: Engine,
+      importSession: snapshot,
+      reconciliation: Engine.reconcile([cloudPosition()], null, { scope: "unknown" })
+    }
+  );
+
+  assert.match(html, /data-investment-confirmed-input-form/);
+  assert.match(html, /PM Confirmed Snapshot JSON/);
+  assert.match(html, /載入並產生 Reconciliation/);
+  assert.doesNotMatch(html, /data-investment-snapshot-write-form/);
+
+  snapshot = session.loadConfirmedRows([recognized()], {
+    broker: "Fubon AI PRO",
+    snapshotAt: "2026-09-02T08:29",
+    source: "fubon_ai_pro_position_screenshot_pm_confirmed",
+    idempotencyKey: "pm-confirmed-page-test"
+  });
+  session.confirmPreview();
+  snapshot = session.getSnapshot();
+  const comparison = Engine.reconcile([cloudPosition()], snapshot.recognition.rows, { scope: "full" });
+  html = Page.render(
+    { positions: [cloudPosition()] },
+    {
+      escape: SafeHtml.escape,
+      importEngine: Engine,
+      importSession: snapshot,
+      reconciliation: comparison,
+      snapshotWrite: { status: "idle", form: {} },
+      onSnapshotWrite: () => {}
+    }
+  );
+
+  assert.match(html, /data-investment-snapshot-write-form/);
+  assert.match(html, /value="Fubon AI PRO"/);
+  assert.match(html, /pm-confirmed-page-test/);
+  assert.match(html, /確認並寫入 1 筆 Snapshot/);
 });
 
 test("Preview Confirmed exposes only the controlled Snapshot Write contract for a complete result", async () => {

@@ -257,6 +257,13 @@ button { color: inherit; }
 .investment-import-dropzone small, .investment-import-session-actions small { color: var(--investment-muted); font-size: .7rem; }
 .investment-import-upload-rule { display: flex; justify-content: space-between; gap: 12px; margin-top: 13px; color: var(--investment-muted); font-size: .72rem; }
 .investment-import-upload-rule b { color: var(--investment-text); }
+.investment-import-confirmed-input-trigger { width: 100%; margin-top: 12px; border: 1px solid rgba(109, 184, 255, .36); border-radius: 9px; background: rgba(109, 184, 255, .08); padding: 9px 11px; color: var(--investment-accent); cursor: pointer; font: inherit; font-size: .7rem; font-weight: 800; text-align: left; }
+.investment-import-confirmed-input-trigger:hover { border-color: var(--investment-accent); background: rgba(109, 184, 255, .14); }
+.investment-import-confirmed-input { grid-column: 1 / -1; }
+.investment-import-confirmed-input-label { display: grid; gap: 6px; }
+.investment-import-confirmed-input-label > span { color: var(--investment-muted); font-size: .68rem; }
+.investment-import-confirmed-input textarea { width: 100%; min-height: 210px; resize: vertical; border: 1px solid rgba(83, 127, 171, .4); border-radius: 9px; background: rgba(6, 16, 30, .6); padding: 10px; color: var(--investment-text); font: 500 .7rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.investment-import-confirmed-input textarea:focus { border-color: var(--investment-accent); outline: 2px solid rgba(109, 184, 255, .18); }
 .investment-import-notice { margin-top: 12px; border: 1px solid rgba(245, 185, 66, .32); border-radius: 10px; padding: 9px 11px; color: #ffd481; background: rgba(111, 79, 19, .15); font-size: .72rem; }
 .investment-import-empty { display: grid; align-content: center; gap: 6px; min-height: 114px; border: 1px dashed rgba(83, 127, 171, .42); border-radius: var(--zhuge-radius-md); padding: 17px; color: var(--investment-muted); text-align: center; }
 .investment-import-empty strong { color: var(--investment-text); font-size: .82rem; }

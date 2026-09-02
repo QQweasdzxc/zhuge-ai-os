@@ -241,7 +241,7 @@
       missingFields,
       recognitionConfidence,
       confidenceLevel: level,
-      sourceType: "screenshot",
+      sourceType: text(firstValue(source, ["sourceType", "source_type"]) || metadata.sourceType, 40) || "screenshot",
       sourceFields: sourceFields(source),
       sourceImages,
       imageId,
@@ -575,6 +575,7 @@
     return Object.freeze({
       status,
       code: detail.code || "",
+      sourceType: detail.sourceType || "",
       message,
       provider: detail.provider || "",
       model: detail.model || "",
@@ -611,6 +612,8 @@
     let recognition = emptyRecognition("idle", "尚未開始辨識。", { sessionId });
     let originalRows = Object.freeze([]);
     let preview = Object.freeze({ status: "draft", confirmedAt: null });
+    let confirmedInputOpen = false;
+    let confirmedInputMetadata = Object.freeze({});
     let sequence = 0;
     let runToken = 0;
     let notice = "";
@@ -633,6 +636,8 @@
         }))),
         recognition: publicRecognition(),
         preview,
+        confirmedInputOpen,
+        confirmedInputMetadata,
         notice
       });
     }
@@ -641,6 +646,7 @@
       recognition = emptyRecognition(files.length ? "ready" : "idle", message, { sessionId, imageCount: files.length });
       originalRows = Object.freeze([]);
       preview = Object.freeze({ status: "draft", confirmedAt: null });
+      confirmedInputMetadata = Object.freeze({});
     }
 
     function addFiles(fileList) {
@@ -706,8 +712,73 @@
         try { revokePreviewUrl(file.previewUrl); } catch { /* release is best effort */ }
       });
       files = [];
+      confirmedInputOpen = false;
       resetRecognition();
       notice = "";
+      return snapshot();
+    }
+
+    function openConfirmedInput() {
+      confirmedInputOpen = true;
+      notice = "可載入已完成 GPT Assisted Recognition 且經 PM Confirmed 的結構化結果；不會重新辨識。";
+      return snapshot();
+    }
+
+    function setNotice(message) {
+      notice = text(message, 240) || "";
+      return snapshot();
+    }
+
+    function loadConfirmedRows(rows, metadata = {}) {
+      const sourceRows = Array.isArray(rows) ? rows.slice(0, 100) : [];
+      if (!sourceRows.length) {
+        notice = "PM Confirmed 結構化輸入沒有可用持倉列。";
+        return snapshot();
+      }
+      const normalizedRows = sourceRows.map((row, index) => normalizeRecognitionRow({
+        ...(row && typeof row === "object" ? row : {}),
+        sourceType: "pm_confirmed",
+        confidence: row?.confidence ?? row?.recognitionConfidence ?? 1,
+        confidence_level: row?.confidence_level ?? row?.confidenceLevel ?? "HIGH"
+      }, {
+        ...metadata,
+        sourceType: "pm_confirmed",
+        index,
+        id: row?.id || `pm-confirmed-row-${index + 1}`,
+        sourceImages: [],
+        sourceFields: RECOGNITION_FIELDS
+      }));
+      const loadedAt = new Date().toISOString();
+      files.forEach(file => {
+        if (!file.previewUrl) return;
+        try { revokePreviewUrl(file.previewUrl); } catch { /* release is best effort */ }
+      });
+      files = [];
+      confirmedInputOpen = false;
+      confirmedInputMetadata = Object.freeze({
+        broker: text(metadata.broker, 120) || "",
+        snapshotAt: text(metadata.snapshotAt, 40) || "",
+        source: text(metadata.source, 160) || "",
+        idempotencyKey: text(metadata.idempotencyKey, 240) || ""
+      });
+      runToken += 1;
+      originalRows = Object.freeze(normalizedRows);
+      recognition = emptyRecognition("recognized", "已載入 PM Confirmed 結構化結果；不會重新辨識，請逐筆檢查 Reconciliation。", {
+        sessionId,
+        imageCount: 0,
+        startedAt: loadedAt,
+        completedAt: loadedAt,
+        provider: metadata.provider || "gpt-5.6-luna",
+        model: metadata.model || "gpt-5.6-luna",
+        sourceType: "pm_confirmed",
+        resultStatus: "ready",
+        completeness: COMPLETENESS.FULL,
+        rows: normalizedRows,
+        images: [],
+        warnings: []
+      });
+      preview = Object.freeze({ status: "draft", confirmedAt: null });
+      notice = "PM Confirmed 結構化結果已載入目前瀏覽器記憶體；尚未寫入 Cloud。";
       return snapshot();
     }
 
@@ -853,6 +924,9 @@
 
     return Object.freeze({
       addFiles,
+      openConfirmedInput,
+      loadConfirmedRows,
+      setNotice,
       removeFile,
       clear,
       startRecognition,
