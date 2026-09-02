@@ -18,6 +18,8 @@ declare
   v_owner_id uuid;
   v_instance_id uuid;
   v_projection_count integer;
+  v_canonical_count integer;
+  v_legacy_projection_count integer;
   v_ivtk_one_count integer;
   v_task record;
   v_old_code text;
@@ -77,7 +79,41 @@ begin
     and link.source_kind = 'opening_position'
     and task.board_instance_id = v_instance_id
     and task.archived_at is null
+  ;
+
+  select count(*)
+    into v_canonical_count
+  from public.investment_ivtk_card_links link
+  join public.board_tasks task on task.id = link.board_task_id
+  where link.board_instance_id = v_instance_id
+    and link.active = true
+    and link.user_id = v_owner_id
+    and link.card_kind = 'position'
+    and link.source_kind = 'opening_position'
+    and task.board_instance_id = v_instance_id
+    and task.archived_at is null
+    and task.work_code ~ '^IVTK-00[1-8]$';
+
+  select count(*)
+    into v_legacy_projection_count
+  from public.investment_ivtk_card_links link
+  join public.board_tasks task on task.id = link.board_task_id
+  where link.board_instance_id = v_instance_id
+    and link.active = true
+    and link.user_id = v_owner_id
+    and link.card_kind = 'position'
+    and link.source_kind = 'opening_position'
+    and task.board_instance_id = v_instance_id
+    and task.archived_at is null
     and task.work_code ~ '^IVTK-00[2-9]$';
+
+  if v_projection_count = 8 and v_canonical_count = 8 then
+    return jsonb_build_object(
+      'status', 'already_canonical',
+      'repaired_count', 0,
+      'board_instance_id', v_instance_id
+    );
+  end if;
 
   if v_projection_count = 0 then
     return jsonb_build_object(
@@ -87,7 +123,7 @@ begin
     );
   end if;
 
-  if v_projection_count <> 8 then
+  if v_projection_count <> 8 or v_legacy_projection_count <> 8 then
     raise exception using
       errcode = '23514',
       message = 'IVTK identity repair requires exactly eight IVTK-002..009 projection tasks';
@@ -139,7 +175,7 @@ begin
       jsonb_build_object('work_code', v_old_code),
       jsonb_build_object('work_code', v_final_code),
       'Temporary namespace stage for the approved IVTK-001 identity correction',
-      v_auth_user_id, 'system', 'IVTK Projection Repair', 'system_activity'
+      v_auth_user_id, 'system', 'System', 'system_activity'
     );
   end loop;
 
@@ -172,7 +208,7 @@ begin
       jsonb_build_object('work_code', v_old_code),
       jsonb_build_object('work_code', v_final_code),
       'Final canonical IVTK identity; QAT-001 remains unchanged',
-      v_auth_user_id, 'system', 'IVTK Projection Repair', 'system_activity'
+      v_auth_user_id, 'system', 'System', 'system_activity'
     );
   end loop;
 
