@@ -68,5 +68,24 @@
     <script src="../../shared/components/zhuge-shell.js?v=20260901-1709"></script>
     <script src="../../shared/theme/zhuge-appearance.js?v=20260901-1709"></script>
     <script src="../router/index.js"></script>
+    <script>
+      // Keep the public landing page available to anonymous visitors, but
+      // hand an existing authenticated session to the canonical WorkLog
+      // dashboard.  WorkLog remains the single owner of session hydration and
+      // authenticated dashboard rendering.
+      (async function redirectAuthenticatedDashboard() {
+        try {
+          const stored = typeof getStoredAuthSession === "function" ? getStoredAuthSession() : null;
+          if (!stored?.access_token && !stored?.refresh_token) return;
+          if (typeof getSupabaseAuthUser !== "function") return;
+          const result = await getSupabaseAuthUser();
+          if (result?.user) location.replace("../../modules/worklog/?app=1&workspace=dashboard");
+        } catch {
+          // The public landing page is still usable when a stale/offline
+          // session cannot be hydrated; WorkLog will show its normal auth
+          // state after the next explicit workspace visit.
+        }
+      })();
+    </script>
   </body>
 </html>

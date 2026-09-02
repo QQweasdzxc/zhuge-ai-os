@@ -81,19 +81,21 @@ test("Shared workspace rename uses an inline editor and the existing controlled 
   assert.match(css, /workspace-rename-input/);
 });
 
-test("Shared workspace menu exposes rename/delete with custom and canonical guards", () => {
+test("Shared workspace menu exposes rename/delete with completion-only deletion guard", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
   const css = read("shared/theme/golden-master.css");
-  assert.match(runtime, /function isCustomWorkspace\(workspace\)/);
+  assert.match(runtime, /function isWorkspaceDeletable\(workspace\)/);
+  assert.match(runtime, /function isCompletionWorkspace\(workspace\)/);
   assert.match(runtime, /function workspaceTaskCount\(workspace\)/);
   assert.match(runtime, /function openWorkspaceMenu\(button, workspace\)/);
   assert.match(runtime, /data-workspace-action=\\"rename\\"/);
   assert.match(runtime, /data-workspace-action=\\"delete\\"/);
-  assert.match(runtime, /系統／Canonical 工作區不可刪除/);
-  assert.match(runtime, /刪除前會先將全部工作卡片移至「待開始」，工作資料會保留/);
+  assert.match(runtime, /「完成」工作區不可刪除/);
+  assert.match(runtime, /刪除前會先將全部工作卡片移至「\$\{targetLabel\}」，工作資料會保留/);
   assert.match(runtime, /Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留/);
   assert.match(runtime, /workspaceDeleteTarget/);
   assert.match(runtime, /deleteButton\.disabled = true/);
+  assert.match(runtime, /完成工作區不可刪除/);
   assert.match(css, /workspace-action-menu/);
 });
 

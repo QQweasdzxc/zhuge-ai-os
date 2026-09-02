@@ -114,7 +114,7 @@
           "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/activity-text-renderer.js", "../../shared/components/task-card-summary.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "../../shared/components/template-management-center.js", "components/worktodo-task-adapter.js",
           "../../shared/components/workspaces.js", "../../shared/identity/creator-resolver.js", "../../shared/services/template-adoption-policy.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
           "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
-          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/board/board-read-service.js",
+          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/board/board-read-service.js", "components/worktodo-dashboard-adapter.js",
           "../../shared/api/realtime-service.js", "../../shared/api/services.js", "work-intelligence.js",
           "suggestion-intelligence.js", "knowledge-intelligence.js", "knowledge-engine.js",
           "knowledge-repository-service.js", "../../shared/api/knowledge-api.js",
@@ -159,7 +159,12 @@
             // no child workspace tab. Other destinations open one tab.
             localStorage.setItem("zhuge_os_open_tabs_v1", JSON.stringify(requestedWorkspace === "dashboard" ? [] : [requestedWorkspace]));
             localStorage.setItem("zhuge_os_active_workspace_v1", requestedWorkspace);
-            localStorage.setItem("zhuge_os_recent_workspaces_v1", JSON.stringify(requestedWorkspace === "dashboard" ? [] : [requestedWorkspace]));
+            // Opening the shell dashboard must not erase the user's recent
+            // workspace history.  An explicit child destination is still
+            // recorded as the most recent workspace.
+            if (requestedWorkspace !== "dashboard") {
+              localStorage.setItem("zhuge_os_recent_workspaces_v1", JSON.stringify([requestedWorkspace]));
+            }
           } catch {}
         }
 

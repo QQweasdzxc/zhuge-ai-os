@@ -579,6 +579,9 @@
     return key ? isCanonicalCompletionKey(key) : name === "已完成" || name === "完成";
   }
   function isCustomWorkspace(workspace) {
+    // Kept as a classification helper for older consumers and diagnostics.
+    // Deletion policy is intentionally no longer custom-only; see
+    // isWorkspaceDeletable below.
     const key = String(workspace?.key || "").trim().toLowerCase();
     if (state.applicationScope === "worktodo") return key.startsWith("worktodo-custom-");
     if (state.applicationScope === "c") return key.startsWith(`${boardTaskPrefix()}-custom-`);
@@ -588,9 +591,15 @@
     const workspaceId = String(workspace?.id || "");
     return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
   }
-  function workspaceDeleteTarget() {
+  function workspaceDeleteTarget(sourceWorkspace = null) {
     const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "c" ? defaultBoardWorkspaceKey() : "todo";
-    return state.workspaces.find(workspace => workspace.active === true && String(workspace.key || "") === targetKey) || null;
+    const sourceId = String(sourceWorkspace?.id || "");
+    const preferred = state.workspaces.find(workspace => workspace.active === true
+      && workspace.id !== sourceId
+      && String(workspace.key || "").toLowerCase() === targetKey
+      && !isCompletionWorkspace(workspace));
+    if (preferred) return preferred;
+    return state.workspaces.find(workspace => workspace.id !== sourceId && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace)) || null;
   }
   function closeWorkspaceMenus() {
     document.querySelectorAll(".workspace-action-menu").forEach(menu => menu.remove());
@@ -614,6 +623,9 @@
     // column; the current workflow uses workspace position itself as the stage.
     return workspace?.active === true
       && (key ? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區");
+  }
+  function isWorkspaceDeletable(workspace) {
+    return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
   }
   function workTodoJournalForTask(task) {
     if (!isWorkTodoTask(task)) return [];
@@ -1174,33 +1186,36 @@
     }
   }
   async function deleteWorkspace(workspace) {
-    if (!workspace || !isCustomWorkspace(workspace)) {
-      setBanner("系統／Canonical 工作區不可刪除。", "error");
+    if (!workspace || !isWorkspaceDeletable(workspace)) {
+      setBanner(isCompletionWorkspace(workspace)
+        ? "「完成」工作區不可刪除；請保留已完成工作與其封存生命週期。"
+        : "這個工作區目前不在可刪除的正式看板範圍內。", "error");
       return;
     }
     const taskCount = workspaceTaskCount(workspace);
-    const targetWorkspace = workspaceDeleteTarget();
+    const targetWorkspace = workspaceDeleteTarget(workspace);
+    const targetLabel = targetWorkspace?.name || "其他可保留工作區";
     if (taskCount > 0 && !targetWorkspace) {
-      setBanner("找不到既有「待開始」工作區，未執行刪除；原資料未變更。", "error");
+      setBanner("找不到可承接工作卡片的其他正式工作區，未執行刪除；原資料未變更。", "error");
       return;
     }
     closeWorkspaceMenus();
     if (taskCount === 0) {
       if (!window.confirm(`確定刪除「${workspace.name}」工作區？此工作區目前沒有工作卡片，刪除後無法復原。`)) return;
     } else {
-      const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除前會先將全部工作卡片移至「待開始」，工作資料會保留。\n\n第一次確認：取消／繼續刪除`);
+      const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除前會先將全部工作卡片移至「${targetLabel}」，工作資料會保留。\n\n第一次確認：取消／繼續刪除`);
       if (!firstConfirmed) return;
-      const secondConfirmed = window.confirm(`高風險操作：即將把「${workspace.name}」中的 ${taskCount} 張工作卡片移至「待開始」，再刪除工作區。Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留。\n\n第二次確認：取消／確認刪除`);
+      const secondConfirmed = window.confirm(`高風險操作：即將把「${workspace.name}」中的 ${taskCount} 張工作卡片移至「${targetLabel}」，再刪除工作區。Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留。\n\n第二次確認：取消／確認刪除`);
       if (!secondConfirmed) return;
     }
-    setBanner(taskCount > 0 ? "正在將工作卡片移至「待開始」，再刪除工作區…" : "正在刪除空工作區…", "loading");
+    setBanner(taskCount > 0 ? `正在將工作卡片移至「${esc(targetLabel)}」，再刪除工作區…` : "正在刪除空工作區…", "loading");
     try {
       await executeSharedTaskAction(null, "deleteWorkspace", {
         workspaceId: workspace.id,
         targetWorkspaceId: targetWorkspace?.id || null
       }, { refresh: true, reopen: false });
       setBanner(taskCount > 0
-        ? `工作區「${esc(workspace.name)}」已刪除；${taskCount} 張工作卡片已保留於「待開始」。`
+        ? `工作區「${esc(workspace.name)}」已刪除；${taskCount} 張工作卡片已保留於「${esc(targetLabel)}」。`
         : `空工作區「${esc(workspace.name)}」已刪除。`, "success");
     } catch (error) {
       setBanner("工作區刪除失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次刪除；原資料未變更。" : "正式 Cloud 未接受這次刪除；原資料未變更。")), "error");
@@ -1224,9 +1239,9 @@
       closeWorkspaceMenus();
       beginWorkspaceRename(button, workspace);
     };
-    if (!isCustomWorkspace(workspace)) {
+    if (!isWorkspaceDeletable(workspace)) {
       deleteButton.disabled = true;
-      deleteButton.title = "系統／Canonical 工作區不可刪除";
+      deleteButton.title = isCompletionWorkspace(workspace) ? "完成工作區不可刪除" : "此工作區目前不可刪除";
       deleteButton.setAttribute("aria-disabled", "true");
     } else {
       deleteButton.onclick = event => {

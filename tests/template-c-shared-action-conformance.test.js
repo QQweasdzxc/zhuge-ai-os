@@ -110,15 +110,17 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
   const sql = read("docs/supabase/20260826_custom_workspace_delete.sql");
+  const completionOnlySql = read("docs/supabase/20260902_workspace_delete_non_completion.sql");
 
   assert.match(runtime, /data-workspace-menu/);
   assert.match(runtime, /function openWorkspaceMenu\(button, workspace\)/);
   assert.match(runtime, /function deleteWorkspace\(workspace\)/);
   assert.match(runtime, /第一次確認/);
   assert.match(runtime, /第二次確認/);
-  assert.match(runtime, /移至「待開始」/);
+  assert.match(runtime, /targetLabel/);
   assert.match(runtime, /Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留/);
-  assert.match(runtime, /isCustomWorkspace/);
+  assert.match(runtime, /isWorkspaceDeletable/);
+  assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /executeSharedTaskAction\(null, "deleteWorkspace"/);
   assert.match(service, /board_request_delete_workspace/);
   assert.match(service, /board_finalize_delete_workspace/);
@@ -137,7 +139,9 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   assert.doesNotMatch(sql, /delete from public\.board_tasks/i);
   assert.doesNotMatch(sql, /storage\.objects/i);
   assert.doesNotMatch(sql, /p_attachment_ids/i);
-  assert.match(sql, /System\/Canonical AI Board workspaces are not deletable/);
-  assert.match(sql, /System\/Canonical WorkTodo workspaces are not deletable/);
+  assert.match(completionOnlySql, /Completion workspace is not deletable/);
+  assert.match(completionOnlySql, /selected target workspace/);
+  assert.doesNotMatch(completionOnlySql, /System\/Canonical AI Board workspaces are not deletable/);
+  assert.doesNotMatch(completionOnlySql, /System\/Canonical WorkTodo workspaces are not deletable/);
   assert.doesNotMatch(sql, /board_restore_workspace|board_reopen_workspace|archive_workspace/i);
 });

@@ -97,8 +97,8 @@ test("General Task Drawer renders Human Progress only while preserving canonical
   assert.doesNotMatch(runtime, /return rows\.map\(item => \{[\s\S]*System Activity ·/);
 });
 
-test("Workspace delete is custom-only and controlled while task content editing stays on its existing path", () => {
-  const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql");
+test("Workspace delete is completion-protected and controlled while task content editing stays on its existing path", () => {
+  const migration = read("docs/supabase/20260815_ai_board_free_workspace.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql") + read("docs/supabase/20260902_workspace_delete_non_completion.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
   const inlineMigration = read("docs/supabase/20260818_task_039_inline_content_write.sql");
@@ -109,6 +109,7 @@ test("Workspace delete is custom-only and controlled while task content editing 
   assert.match(service, /board_move_task_workspace/);
   assert.match(service, /worktodo_update_task/);
   assert.match(runtime, /function deleteWorkspace\(workspace\)/);
+  assert.match(runtime, /function isWorkspaceDeletable\(workspace\)/);
   assert.match(service, /updateTaskContent/);
   assert.match(service, /board_update_task_content/);
   assert.match(runtime, /data-task-inline-edit/);
@@ -123,6 +124,7 @@ test("Workspace delete is custom-only and controlled while task content editing 
   assert.match(migration, /on delete restrict/i);
   assert.match(migration, /tasks_preserved/i);
   assert.match(migration, /待開始/);
+  assert.match(migration, /Completion workspace is not deletable/);
   assert.doesNotMatch(migration, /delete from public\.board_tasks/i);
   assert.doesNotMatch(migration, /delete from public\.board_task_attachments/i);
   assert.doesNotMatch(migration, /delete from public\.engineering_checklist_items/i);

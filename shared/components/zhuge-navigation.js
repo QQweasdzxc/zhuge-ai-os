@@ -37,7 +37,10 @@
   function destination(id, root = "") {
     const base = String(root || "").replace(/\/?$/, "/");
     const paths = {
-      dashboard: "app/dashboard/",
+      // The authenticated dashboard is owned by the WorkLog runtime.  The
+      // static app/dashboard page remains the anonymous landing surface, but
+      // shared navigation must never discard an already hydrated session.
+      dashboard: "modules/worklog/?app=1&workspace=dashboard",
       worklog: "modules/worklog/?app=1&workspace=worklog",
       "tasks-new": "app/Board/worktodo/",
       investment: "modules/investment/",

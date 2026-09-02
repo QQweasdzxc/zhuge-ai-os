@@ -1,6 +1,15 @@
 // P5.2A-1 Foundation Split: app startup, routing, rendering, and module coordination.
 // WorkTodo capability data is a short-lived Cloud projection for the open
 // drawer. It is never a source of truth and is refreshed from Repository/RPC.
+let workTodoDashboardSummary = {
+  state: "idle",
+  readOnly: true,
+  source: "Supabase Shared Data Gateway → WorkTodo Application Scope",
+  counts: null,
+  workspaceCounts: [],
+  tasks: []
+};
+
 const SYSTEM_TEMPLATE_VIEW = (() => {
   try {
     const value = new URLSearchParams(window.location.search).get("templateView");
@@ -3043,6 +3052,48 @@ function worklogInitializationState() {
   return state?.state === "idle" ? { ...state, state: "loading", error: "正在確認登入、設定與工作身分" } : state;
 }
 
+function formalWorkSummaryIdleState() {
+  return {
+    state: "idle",
+    readOnly: true,
+    source: "Supabase Shared Data Gateway → WorkTodo Application Scope",
+    counts: null,
+    workspaceCounts: [],
+    tasks: []
+  };
+}
+
+async function refreshFormalWorkSummary() {
+  if (!session || !hasGoogleOAuthSession()) {
+    workTodoDashboardSummary = formalWorkSummaryIdleState();
+    return workTodoDashboardSummary;
+  }
+  const adapter = globalThis.ZhugeWorkTodoDashboardAdapter;
+  if (!adapter || typeof adapter.load !== "function") {
+    workTodoDashboardSummary = {
+      ...formalWorkSummaryIdleState(),
+      state: "error",
+      code: "WORKTODO_DASHBOARD_ADAPTER_UNAVAILABLE",
+      message: "正式工作摘要暫時無法取得"
+    };
+    return workTodoDashboardSummary;
+  }
+  workTodoDashboardSummary = typeof adapter.loadingState === "function"
+    ? adapter.loadingState()
+    : { ...formalWorkSummaryIdleState(), state: "loading" };
+  try {
+    workTodoDashboardSummary = await adapter.load();
+  } catch (error) {
+    workTodoDashboardSummary = {
+      ...formalWorkSummaryIdleState(),
+      state: "error",
+      code: String(error?.code || "WORKTODO_SUMMARY_READ_FAILED"),
+      message: "正式工作摘要暫時無法取得"
+    };
+  }
+  return workTodoDashboardSummary;
+}
+
 function worklogInitializationLoadingScreen() {
   return `<div class="wrap" data-worklog-init-state="loading"><div class="card"><section class="panel" style="margin-top:18px"><h1>正在準備工作空間…</h1><p class="muted">正在確認登入、雲端設定與工作身分。確認完成前不會開啟初次認識工時簿。</p><div class="worklog-init-skeleton" aria-hidden="true"><div></div><div></div><div></div></div></section></div></div>`;
 }
@@ -3060,6 +3111,7 @@ function bindWorklogInitialization() {
     button.textContent = "讀取中…";
     try {
       await DataService.init();
+      await refreshFormalWorkSummary();
       if (typeof RealtimeService !== "undefined" && hasGoogleOAuthSession()) await RealtimeService.start();
     } catch (error) {
       console.error("WorkLog initialization retry failed", { error, supabase: error?.supabase || null });
@@ -3129,26 +3181,35 @@ function normalizeWorkspaceState() {
   openTabs = openTabs.filter(id => id !== "tasks");
   recentWorkspaces = recentWorkspaces.filter(id => id !== "tasks");
   openTabs = openTabs.filter(id => workspaceRegistry[id]);
-  recentWorkspaces = recentWorkspaces.filter(id => openTabs.includes(id));
+  // Recent workspaces are history, not open tabs. Closing a tab or returning
+  // to Dashboard must not erase the last places the user worked in.
+  recentWorkspaces = recentWorkspaces.filter(id => workspaceRegistry[id]);
   if (!hasOsShellState && session) { openTabs = []; activeWorkspace = "dashboard"; recentWorkspaces = []; hasOsShellState = true; }
   if (activeWorkspace !== "dashboard" && !openTabs.includes(activeWorkspace)) activeWorkspace = recentWorkspaces[0] || "dashboard";
   if (!openTabs.length) activeWorkspace = "dashboard";
 }
 
 function rememberWorkspace(id) {
-  recentWorkspaces = [id, ...recentWorkspaces.filter(x => x !== id)].filter(x => openTabs.includes(x));
+  if (!workspaceRegistry[id] || id === "dashboard") return;
+  recentWorkspaces = [id, ...recentWorkspaces.filter(x => x !== id && x !== "dashboard")]
+    .filter(x => workspaceRegistry[x])
+    .slice(0, 6);
 }
 
 function openWorkspace(id) {
   if (id === "system-templates") id = "sync";
   if (!workspaceRegistry[id]) return;
-  if (workspaceRegistry[id].externalHref) { location.href = workspaceRegistry[id].externalHref; return; }
+  if (workspaceRegistry[id].externalHref) {
+    rememberWorkspace(id);
+    saveAll();
+    location.href = workspaceRegistry[id].externalHref;
+    return;
+  }
   if (workspaceRegistry[id].comingSoon) return;
   const route = typeof AppRouter !== "undefined" ? AppRouter.resolve(id, view) : { workspace: id, view };
   if (id === "dashboard") {
     activeWorkspace = route.workspace;
     openTabs = [];
-    recentWorkspaces = [];
     view = "center";
     saveAll();
     render("workspace-change");
@@ -3175,7 +3236,6 @@ function activateWorkspace(id) {
 function closeWorkspace(id) {
   const wasActive = activeWorkspace === id;
   openTabs = openTabs.filter(x => x !== id);
-  recentWorkspaces = recentWorkspaces.filter(x => x !== id);
   if (wasActive) activeWorkspace = recentWorkspaces.find(x => openTabs.includes(x)) || openTabs[openTabs.length - 1] || "dashboard";
   saveAll();
   render("workspace-change");
@@ -4745,9 +4805,10 @@ function settings() {
   const wp = normalizeWorkProfile(workProfile || {}, profile);
   const profileStatus = isWorkProfileReady(wp) ? "✓ 已完成" : `⚠ 尚未完成：${workProfileMissingFields(wp).join("、")}`;
   const identitySetup = session.provider === "google-oauth"
-    ? `<div class="work-model-section"><h3>登入方式</h3><div class="muted">目前使用 Google 登入。同一個 Zhuge AI OS 身分可以設定 Email 密碼，仍會沿用同一個 User UUID。</div><label for="accountPassword">設定 Email 密碼</label><input id="accountPassword" class="input" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 個字元"><button class="btn2" type="button" data-set-account-password="1">儲存密碼</button><div id="accountPasswordMessage" class="muted" role="status"></div></div>`
-    : `<div class="work-model-section"><h3>登入方式</h3><div class="muted">目前使用 Email 登入。Google 可作為同一個帳號的其他登入方式（完成連結前不會建立第二個 User）。</div><button class="btn2" type="button" data-link-google-identity="1">連結 Google 登入</button><div id="accountIdentityMessage" class="muted" role="status">連結會先開啟 Google 授權頁。</div></div>`;
-  return `<section class="panel" style="margin-top:18px"><h2>⚙️ 設定</h2><div class="entry"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div>${identitySetup}<div class="entry"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label>角色</label><select id="roleSet" class="input">${roles.map(r => `<option ${profile && profile.role === r ? "selected" : ""}>${r}</option>`).join("")}</select><div class="work-model-section">${workMemoryPage({ compact: true })}</div><div class="work-model-section"><label>ECP 設定</label><label>ECP 負責人</label><input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"><label>ECP 負責部門</label><input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"><label>目前工作任務（Current Active Task）</label>${ecpTaskList(tasks)}<div class="work-model-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源；快速紀錄仍可選「不指定 ECP 任務」。</div></div><button class="btn2 settings-reset-action full" id="resetProfile">重新初次認識</button><button class="btn settings-logout-action full" id="logoutBtn">登出</button><div class="entry"><b>版本</b><div class="muted">${VERSION}</div></div></section>`;
+    ? `<div class="work-model-section settings-identity-section"><h3>登入方式</h3><div class="muted">目前使用 Google 登入。同一個 Zhuge AI OS 身分可以設定 Email 密碼，仍會沿用同一個 User UUID。</div><label for="accountPassword">設定 Email 密碼</label><input id="accountPassword" class="input" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 個字元"><button class="btn2" type="button" data-set-account-password="1">儲存密碼</button><div id="accountPasswordMessage" class="muted" role="status"></div></div>`
+    : `<div class="work-model-section settings-identity-section"><h3>登入方式</h3><div class="muted">目前使用 Email 登入。Google 可作為同一個帳號的其他登入方式（完成連結前不會建立第二個 User）。</div><button class="btn2" type="button" data-link-google-identity="1">連結 Google 登入</button><div id="accountIdentityMessage" class="muted" role="status">連結會先開啟 Google 授權頁。</div></div>`;
+  const roleOptions = roles.map(r => `<option ${profile && profile.role === r ? "selected" : ""}>${r}</option>`).join("");
+  return `<section class="panel settings-page" style="margin-top:18px"><div class="settings-page-heading"><div><h2>⚙️ 設定</h2><div class="muted">管理個人工作身分與 Zhuge AI OS 偏好</div></div></div><div class="settings-summary-grid"><div class="entry settings-summary-card"><b>目前使用者</b><div class="muted">${escapeHtml(session.name)}｜${escapeHtml(session.status || session.email || "")}</div></div><div class="entry settings-summary-card"><b>工作身分</b><div class="muted">${escapeHtml(profileStatus)}</div><div class="source-path">目前工作任務：${escapeHtml(wp.defaultTask || "尚未設定")}｜有效月份：${escapeHtml(wp.taskEffectiveMonth || "尚未設定")}</div></div></div>${identitySetup}<div class="settings-preferences"><div class="entry settings-preference-card"><b>Smart Auto Save</b><div class="muted">設定一修改即更新本機狀態，約 2 秒後自動同步 Cloud。</div></div><label class="settings-role-field" for="roleSet"><span>角色</span><select id="roleSet" class="input">${roleOptions}</select></label></div><div class="work-model-section settings-work-section">${workMemoryPage({ compact: true })}</div><section class="work-model-section settings-ecp-section"><div class="settings-section-heading"><div><h3>ECP 設定</h3><div class="muted">目前工作任務會作為 ECP 匯出的任務欄位來源。</div></div></div><div class="settings-form-grid"><label class="settings-form-field">ECP 負責人<input class="input" id="ecpOwner" value="${escapeHtml(profile?.ecpOwner || "")}" placeholder="例如：陳彥達-UU"></label><label class="settings-form-field">ECP 負責部門<input class="input" id="ecpDepartment" value="${escapeHtml(profile?.ecpDepartment || "")}" placeholder="例如：UU管理部"></label><div class="settings-form-field settings-field-wide"><span>目前工作任務（Current Active Task）</span>${ecpTaskList(tasks)}</div><div class="work-model-add settings-ecp-add"><input class="input" id="newEcpTask" placeholder="新增 ECP 任務，例如：採購案件處理"><button class="btn2" id="addEcpTask" type="button">＋ 新增 ECP 任務</button></div></div><div class="muted settings-help">快速紀錄仍可選「不指定 ECP 任務」。</div></section><div class="settings-actions"><button class="btn2 settings-reset-action" id="resetProfile">重新初次認識</button><button class="btn settings-logout-action" id="logoutBtn">登出</button></div><div class="settings-version"><span>版本</span><strong>${VERSION}</strong></div></section>`;
 }
 
 function currentViewHtml() {
@@ -4852,6 +4913,7 @@ function bindAuth() {
     loadTasksForSession();
     saveAll();
     await DataService.init();
+    await refreshFormalWorkSummary();
     if (typeof RealtimeService !== "undefined") await RealtimeService.start();
     render("email-auth-success");
   };
@@ -5426,6 +5488,7 @@ function bindTasks() {
     try {
       if (typeof DataService !== "undefined" && typeof DataService.loadCriticalData === "function") await DataService.loadCriticalData();
       else if (typeof DataService !== "undefined" && typeof DataService.init === "function") await DataService.init();
+      await refreshFormalWorkSummary();
       toast("工作待辦已重新整理");
     } catch (error) {
       console.error("WorkTodo refresh failed", error);
@@ -5645,7 +5708,7 @@ function taskWorkspace() {
   return `<section class="tasks-workspace lifecycle-task-workspace">${taskToolbar}<section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
-function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
+function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workTodoDashboardSummary = formalWorkSummaryIdleState(); workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
 
 function bindOnboarding() {
   let tags = [], src = [];
@@ -7279,10 +7342,12 @@ async function boot() {
       if (authCallbackCaptured) { activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; hasOsShellState = true; }
       saveAll();
       await DataService.init();
+      await refreshFormalWorkSummary();
       if (typeof RealtimeService !== "undefined") await RealtimeService.start();
     } else if (hasGoogleOAuthSession()) {
       loadTasksForSession();
       await DataService.init();
+      await refreshFormalWorkSummary();
       if (typeof RealtimeService !== "undefined") await RealtimeService.start();
     }
   } catch {

@@ -476,3 +476,49 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .tasks-workspace .worktodo-create-properties legend{padding:0 5px;color:#b9c9df;font-size:12px;font-weight:800}
 .tasks-workspace .worktodo-create-properties>label:not(.task-pin-option){display:grid;gap:5px;color:#b9c9df;font-size:11px;font-weight:700}
 @media(max-width:767px){.workspace-worklog .worktodo-header-actions{width:100%;justify-content:flex-start}.workspace-worklog .worktodo-header-actions .btn,.workspace-worklog .worktodo-header-actions .btn2{flex:1 1 auto}}
+
+/* Settings keeps the existing controls and IDs, but uses a denser information
+   layout so the page is scannable without turning every field into a full
+   viewport-width block. */
+.workspace-worklog .settings-page{padding:14px;margin-top:12px!important}
+.workspace-worklog .settings-page-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.workspace-worklog .settings-page-heading h2{margin:0}
+.workspace-worklog .settings-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.workspace-worklog .settings-summary-card{display:grid;gap:3px;align-content:center;margin:0;padding:10px 12px;border-radius:12px;background:#0f172a}
+.workspace-worklog .settings-summary-card .source-path{margin-top:2px}
+.workspace-worklog .settings-identity-section{margin:8px 0 10px;padding:12px;border-radius:14px}
+.workspace-worklog .settings-identity-section h3{margin:0 0 5px}
+.workspace-worklog .settings-identity-section .input{margin:3px 0 8px;padding:9px 10px;min-height:38px}
+.workspace-worklog .settings-preferences{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,250px);gap:8px;align-items:stretch;margin:8px 0 10px}
+.workspace-worklog .settings-preference-card{display:grid;gap:3px;align-content:center;margin:0;padding:10px 12px;border-radius:12px;background:#0f172a}
+.workspace-worklog .settings-role-field{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px;border:1px solid #334155;border-radius:12px;background:#0f172a;color:#cbd5e1;font-weight:850}
+.workspace-worklog .settings-role-field .input{margin:0;min-height:38px;padding:8px 10px}
+.workspace-worklog .settings-work-section,.workspace-worklog .settings-ecp-section{margin:8px 0 10px;padding:12px;border-radius:14px}
+.workspace-worklog .settings-work-section .panel-head{margin-bottom:8px}
+.workspace-worklog .settings-work-section .work-memory-toolbar{margin:8px 0}
+.workspace-worklog .settings-work-section .work-memory-list-row{padding:9px 11px}
+.workspace-worklog .settings-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.workspace-worklog .settings-section-heading h3{margin:0}
+.workspace-worklog .settings-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.workspace-worklog .settings-form-field{display:grid;gap:3px;min-width:0;color:#cbd5e1;font-size:.8125rem;font-weight:800}
+.workspace-worklog .settings-form-field .input{margin:0;min-height:38px;padding:9px 10px}
+.workspace-worklog .settings-field-wide,.workspace-worklog .settings-ecp-add{grid-column:1/-1}
+.workspace-worklog .settings-form-grid .ecp-task-list{gap:6px;margin:3px 0 0}
+.workspace-worklog .settings-form-grid .ecp-task-item{padding:8px 10px;border-radius:10px}
+.workspace-worklog .settings-ecp-add{margin:0}
+.workspace-worklog .settings-ecp-add .input{margin:0;min-height:38px;padding:9px 10px}
+.workspace-worklog .settings-help{margin-top:8px}
+.workspace-worklog .settings-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #334155}
+.workspace-worklog .settings-actions .settings-reset-action,.workspace-worklog .settings-actions .settings-logout-action{width:auto;margin:0;min-height:38px;padding:9px 13px}
+.workspace-worklog .settings-version{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;color:#94a3b8;font-size:.75rem}
+.workspace-worklog .settings-version strong{color:#cbd5e1;font-weight:800}
+@media(max-width:767px){
+  .workspace-worklog .settings-summary-grid,
+  .workspace-worklog .settings-preferences,
+  .workspace-worklog .settings-form-grid{grid-template-columns:1fr}
+  .workspace-worklog .settings-field-wide,
+  .workspace-worklog .settings-ecp-add{grid-column:auto}
+  .workspace-worklog .settings-role-field{grid-template-columns:1fr;gap:4px}
+  .workspace-worklog .settings-actions{display:grid;grid-template-columns:1fr 1fr}
+  .workspace-worklog .settings-actions button{width:100%}
+}
