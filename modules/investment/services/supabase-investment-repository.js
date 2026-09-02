@@ -60,6 +60,11 @@
     const authUserId = String(options.userId || "");
     const sessionSnapshot = options.sessionSnapshot || {};
     const assuranceLevel = normalizeAal(options.assuranceLevel || sessionSnapshot.aal);
+    // The Creator-controlled MFA preference can permit AAL1 for Investment
+    // read-only access during development. It must never relax the controlled
+    // Snapshot write path below, which always calls assertSession({ write: true })
+    // and remains AAL2-gated by the Cloud RPC.
+    const allowAal1Read = options.allowAal1Read === true;
     const authenticated = options.isAuthenticated === undefined
       ? sessionSnapshot.isAuthenticated !== false
       : options.isAuthenticated === true;
@@ -80,7 +85,7 @@
       return error;
     }
 
-    function assertSession() {
+    function assertSession({ write = false } = {}) {
       if (!authenticated) {
         const code = sessionSnapshot.isExpired ? "INVESTMENT_SESSION_EXPIRED" : "INVESTMENT_SESSION_REQUIRED";
         throw recordError(investmentError(
@@ -88,7 +93,7 @@
           code === "INVESTMENT_SESSION_EXPIRED" ? "登入工作階段已過期，請重新登入後再讀取投資資料。" : "請先登入後再讀取投資資料。"
         ));
       }
-      if (assuranceLevel === "aal1") {
+      if (assuranceLevel === "aal1" && (write || !allowAal1Read)) {
         throw recordError(investmentError(
           "INVESTMENT_ASSURANCE_REQUIRED",
           "投資資料受到額外安全保護，請完成安全驗證後繼續。",
@@ -305,7 +310,7 @@
     }
 
     async function createBrokerPositionSnapshot(input = {}) {
-      assertSession();
+      assertSession({ write: true });
       if (typeof data.rpc !== "function") {
         throw recordError(investmentError("INVESTMENT_SNAPSHOT_WRITE_UNAVAILABLE", "目前資料閘道不支援受控 Snapshot 寫入。"));
       }

@@ -252,7 +252,8 @@
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
         data: context.data,
-        sessionSnapshot: context.session.getSnapshot()
+        sessionSnapshot: context.session.getSnapshot(),
+        allowAal1Read: access.bypassedMfa === true
       })
     );
     const initialHash = String(global.location.hash || "").replace(/^#/, "");
