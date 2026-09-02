@@ -109,14 +109,14 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   assert.match(output, /系統藍圖/);
   assert.match(output, /nav-collapse-audit/);
   assert.match(output, /zhuge-nav-collapsed/);
-  assert.match(output, /collapsed-visible=worklog,tasks-new,investment,library,sync,settings,leisure/);
+  assert.match(output, /collapsed-visible=worklog,tasks-new,investment,leisure,library,sync,settings/);
   assert.match(output, /collapsed-new-tasks-tag=A/);
   assert.match(output, /collapsed-new-tasks-title=工作待辦/);
   assert.match(output, /collapsed-new-tasks-href=.*app\/Board\/worktodo\//);
   assert.match(output, /cross-workspace-audit/);
   // Engineering destinations live inside 控制台; the global rail keeps only
   // the canonical user-facing workspaces and system entry points.
-  assert.match(output, /dashboard,worklog,tasks-new,investment,library,sync,settings,leisure/);
+  assert.match(output, /dashboard,worklog,tasks-new,investment,leisure,library,sync,settings/);
   assert.match(output, /heading=0;duplicateMenu=0;children=0/);
   assert.ok(args.includes("--window-size=1600,1000"), "Browser QA must execute with a desktop viewport");
   assert.match(output, /history-audit/);
