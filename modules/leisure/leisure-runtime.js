@@ -9,7 +9,10 @@
 
   const gameRegistry = global.LeisureGameRegistry;
   const gameModules = Object.freeze({
-    silkworm: () => global.LeisureSilkwormGame
+    territory: () => global.LeisureTerritoryGame,
+    snake: () => global.LeisureSnakeGame,
+    gomoku: () => global.LeisureGomokuGame,
+    sudoku: () => global.LeisureSudokuGame
   });
   let appRoot = null;
   let activeGame = null;
@@ -71,21 +74,19 @@
     const games = gameRegistry?.list?.() || [];
     const cards = games.map(game => {
       const available = game.available === true;
-      const status = available ? '<span class="leisure-card-status is-live">現在可玩</span>' : '<span class="leisure-card-status">敬請期待</span>';
+      const status = '<span class="leisure-card-status is-live">' + (available ? "現在可玩" : "暫停") + '</span>';
       const action = available
         ? '<button class="leisure-card-action" type="button" data-leisure-open-game="' + escapeHtml(game.id) + '">開始遊戲 <span aria-hidden="true">→</span></button>'
-        : '<span class="leisure-card-action is-disabled" aria-disabled="true">即將加入</span>';
-      return '<article class="leisure-game-card ' + (available ? "is-featured" : "is-coming-soon") + '" data-leisure-game-card="' + escapeHtml(game.id) + '">' +
+        : '<span class="leisure-card-action is-disabled" aria-disabled="true">暫停</span>';
+      return '<article class="leisure-game-card ' + (available ? "is-live" : "is-disabled") + '" data-leisure-game-card="' + escapeHtml(game.id) + '">' +
         '<div class="leisure-game-card-icon" aria-hidden="true">' + escapeHtml(game.icon) + '</div>' +
         '<div class="leisure-game-card-copy"><div class="leisure-card-topline"><span class="leisure-card-index">GAME ' + String(games.indexOf(game) + 1).padStart(2, "0") + '</span>' + status + '</div><h2>' + escapeHtml(game.label) + '</h2><p>' + escapeHtml(game.description) + '</p></div>' +
         action +
       '</article>';
     }).join("");
     return '<section class="leisure-home" data-leisure-screen="home" aria-labelledby="leisure-title">' +
-      '<div class="leisure-intro"><div><p class="leisure-eyebrow">Zhuge AI OS · BREAK TIME</p><h2 id="leisure-title">休閒小站</h2><p>工作一段時間，就玩一小局。這裡是 Zhuge AI OS 裡的獨立休閒空間。</p></div><div class="leisure-intro-mark" aria-hidden="true">🎮</div></div>' +
-      '<div class="leisure-section-heading"><div><p class="leisure-eyebrow">GAME REGISTRY</p><h3>選一款遊戲</h3></div><span class="leisure-local-note">低負擔 · 不需雲端存檔</span></div>' +
+      '<div class="leisure-section-heading"><div><p class="leisure-eyebrow">GAME REGISTRY</p><h2 id="leisure-title">選一款遊戲</h2></div><span class="leisure-local-note">低負擔 · 不需雲端存檔</span></div>' +
       '<div class="leisure-game-grid">' + cards + '</div>' +
-      '<aside class="leisure-boundary-note"><span aria-hidden="true">✦</span><div><strong>休息一下，再回到工作。</strong><p>遊戲 Runtime 獨立運作，不讀取 Investment、WorkLog 或 AI Board 資料。</p></div></aside>' +
     '</section>';
   }
 
