@@ -20,10 +20,10 @@
   "publishedBuild": "20260903-1026",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260903-1026",
-  "sourceCommit": "8b3274d278518b20a27fc320f8930fa19ed7a9b0",
-  "sourceDirty": true,
+  "sourceCommit": "854f1b40e66ec59d93fbbfa4cdd1a697d0f2b2db",
+  "sourceDirty": false,
   "sourceFingerprint": "cc7d77389d63c71a1b679088cfc181500a00cbb54a090b4aef73226897bf24cd",
-  "publishedAt": "2026-09-03T02:26:26.505Z",
+  "publishedAt": "2026-09-03T02:28:45.108Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
