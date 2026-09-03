@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Investment IVTK C Mother Template parity browser regression</title>
+    <link rel="stylesheet" href="../../shared/theme/golden-master.css">
     <link rel="stylesheet" href="../../shared/theme/task-board.css">
     <link rel="stylesheet" href="../../shared/theme/task-card.css">
     <link rel="stylesheet" href="../../shared/theme/task-drawer.css">
@@ -92,6 +93,17 @@
         drawer: Boolean(opened?.drawer?.matches?.("[data-shared-task-drawer]")),
         drawerContract: ZhugeGoldenMaster.assertSharedDrawerContract({ consumer: "investment-ivtk", adapter: { sharedDrawerContract: { ownsDrawer: false, viewModel: "toSharedViewModel" } }, drawer: ZhugeSharedTaskDrawer }).ok,
         documentOverflowFree: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        documentWidth: document.documentElement.scrollWidth,
+        documentClientWidth: document.documentElement.clientWidth,
+        overflowOffenders: Array.from(document.querySelectorAll("body *"))
+          .map(node => ({ node, rect: node.getBoundingClientRect() }))
+          .filter(({ node, rect }) => rect.right > window.innerWidth + 1 && node.scrollWidth > node.clientWidth + 1)
+          .slice(0, 8)
+          .map(({ node, rect }) => ({ tag: node.tagName, id: node.id, className: node.className, right: Math.round(rect.right), width: node.scrollWidth, clientWidth: node.clientWidth })),
+        wideElements: Array.from(document.querySelectorAll("body *"))
+          .filter(node => node.scrollWidth > node.clientWidth + 1)
+          .slice(0, 8)
+          .map(node => ({ tag: node.tagName, id: node.id, className: node.className, width: node.scrollWidth, clientWidth: node.clientWidth })),
         boardScrollContained: Boolean(mount.querySelector(".golden-master-board-shell")),
         runtimeMethods: ["refresh", "openTaskDetail", "moveTaskToWorkspace", "completionGateStatus", "completionGateMessage", "runParityGuard"].every(name => typeof window.ZhugeBoardRuntime[name] === "function")
       };
