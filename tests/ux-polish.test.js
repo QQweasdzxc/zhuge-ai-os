@@ -73,12 +73,14 @@ test("Workspace Tabs use one canonical geometry and token source across routes",
   assert.match(worklog, /function workspaceTabs\(\)/);
 });
 
-test("Control Console owns engineering destinations instead of global sidebar children", () => {
+test("Control Console and Management are separate Module A destinations", () => {
   const worklog = read("modules/worklog/worklog-app.js");
   for (const label of ["系統狀態", "工作看板", "工程準則", "系統藍圖"]) assert.match(worklog, new RegExp(label));
   assert.match(worklog, /control-center-entry/);
-  assert.match(worklog, /class="control-center-layout"/);
+  assert.match(worklog, /function management\(\)/);
+  assert.match(worklog, /aria-label="管理功能內容"/);
   assert.match(worklog, /aria-label="控制台內容"/);
+  assert.doesNotMatch(worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()")), /control-center-entry|template-management-center/);
   assert.doesNotMatch(worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()")), /<h2>🔗 控制台<\/h2>/);
   const syncBlock = worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()"));
   assert.doesNotMatch(syncBlock, /\["ai-board",/);

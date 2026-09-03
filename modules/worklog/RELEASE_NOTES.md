@@ -1,5 +1,21 @@
 # Zhuge AI OS v0.9.0-alpha.9.13
 
+## A/C Shared Composition — 庶務行政/GAS and Investment IVTK Candidate
+
+- Version: `0.9.0-alpha.9.13`
+- Build: `20260903-1221`
+- Artifact type: Full Source Candidate; PM QA remains required.
+- Module A exposes 庶務行政 as a peer of 工作待辦, with GAS and 廠商清單
+  tabs. Its GAS surface is a truthful empty state until a formal GAS data source
+  exists; it does not borrow WorkLog, Investment, or test records.
+- Investment `#portfolio` and the consolidated `觀察名單` use the canonical C
+  Board/Card/Drawer runtime with Investment-owned data slots and stable source
+  identity. The legacy `#watchlist` route remains only as a compatibility
+  redirect.
+- The retired 資料健康檢查（唯讀） capability is no longer reintroduced by C
+  consumers. WorkLog, AI Board, and Investment remain on their existing data and
+  controlled service boundaries.
+
 ## Shared Board Layout Restoration Candidate — 20260822-0957
 
 - Restored the 20260821-1456 AI Board reference geometry in the shared Golden Master board presentation.

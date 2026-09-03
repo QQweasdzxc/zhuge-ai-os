@@ -77,14 +77,14 @@ test("ordering rejects invalid dates and preserves deterministic code order", ()
   assert.deepEqual(sorted.map(row => row.workCode), ["WLTK-002", "WLTK-010"]);
 });
 
-test("WorkLog loads the ordering contract before the app runtime and renders the two-column control center", () => {
+test("WorkLog loads the ordering contract and renders separate status/management views", () => {
   const entry = fs.readFileSync(path.join(root, "modules/worklog/index.html"), "utf8");
   const app = fs.readFileSync(path.join(root, "modules/worklog/worklog-app.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "modules/worklog/worklog.css"), "utf8");
   assert.ok(entry.indexOf('"worktodo-ordering.js"') < entry.indexOf('"worklog-app.js"'));
-  assert.match(app, /class="control-center-layout"/);
   assert.match(app, /class="control-center-status-column"/);
   assert.match(app, /class="control-center-management-column"/);
-  assert.match(css, /\.control-center-layout\{[^}]*grid-template-columns:minmax\(280px,2fr\) minmax\(0,3fr\)/);
-  assert.match(css, /@media\(max-width:1023px\)\{\.control-center-layout\{grid-template-columns:1fr\}/);
+  assert.match(app, /function management\(\)/);
+  assert.match(css, /\.control-center-status-column/);
+  assert.doesNotMatch(css, /\.control-center-layout\{/);
 });

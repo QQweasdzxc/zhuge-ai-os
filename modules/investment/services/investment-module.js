@@ -4,7 +4,6 @@
   const pageRegistry = Object.freeze({
     overview: global.InvestmentOverviewPage,
     portfolio: global.InvestmentPortfolioPage,
-    watchlist: global.InvestmentWatchlistPage,
     strategy: global.InvestmentStrategyPage,
     settings: global.InvestmentSettingsPage,
     import: global.InvestmentScreenshotImportPage
@@ -285,7 +284,12 @@
       })
     );
     const initialHash = String(global.location.hash || "").replace(/^#/, "");
-    const activePage = global.InvestmentConfig.pages.includes(initialHash) ? initialHash : "overview";
+    const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
+    const requestedPage = canonicalPage(initialHash);
+    const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
+    if (initialHash === "watchlist" && global.history?.replaceState) {
+      global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
+    }
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
     const recognitionProvider = dependencies.recognitionProvider?.create?.({
@@ -301,7 +305,6 @@
       const descriptions = {
         overview: "投資模組｜查看投資組合、近期變化與今日重點",
         portfolio: "投資組合｜查看目前持倉、成本與損益",
-        watchlist: "觀察清單｜追蹤關注中的市場標的",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
         settings: "偏好設定｜管理投資模組的顯示與計算偏好",
         import: "截圖匯入｜辨識、Reconciliation 與受控 Snapshot"
@@ -385,7 +388,7 @@
         global.ZhugeComponents.Summary.update(pageRoot, markup);
         lastRenderedPageMarkup = markup;
       }
-      if (["portfolio", "watchlist"].includes(state.activePage)) {
+      if (state.activePage === "portfolio") {
         const surface = pageRoot?.querySelector?.("[data-golden-master-surface]");
         if (surface && typeof dependencies.ivtk?.createRuntimeBridge === "function") {
           global.ZhugeBoardRuntime = dependencies.ivtk.createRuntimeBridge(state, pageDependencies, { root: global, boardRoot: surface, refresh: load });
@@ -577,10 +580,14 @@
     }
 
     function navigate(page, updateHash = true) {
-      if (!global.InvestmentConfig.pages.includes(page)) return;
-      if (updateHash && global.location.hash !== `#${page}`) global.location.hash = page;
-      store.setActivePage(page);
-      renderSharedHeader(page);
+      const canonical = canonicalPage(page);
+      if (!global.InvestmentConfig.pages.includes(canonical)) return;
+      if (updateHash && global.location.hash !== `#${canonical}`) global.location.hash = canonical;
+      if (!updateHash && page === "watchlist" && global.history?.replaceState) {
+        global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
+      }
+      store.setActivePage(canonical);
+      renderSharedHeader(canonical);
       renderPage();
     }
 

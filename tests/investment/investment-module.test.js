@@ -131,7 +131,7 @@ test("Portfolio calculation keeps TWD and USD totals independent", async () => {
 });
 
 test("Investment exposes the required SIT pages and standard folders", () => {
-  assert.deepEqual(Config.pages, ["overview", "portfolio", "watchlist", "strategy", "settings", "import"]);
+  assert.deepEqual(Config.pages, ["overview", "portfolio", "strategy", "settings", "import"]);
   for (const folder of ["pages", "components", "services", "models", "store", "config", "assets", "utils"]) {
     assert.equal(fs.statSync(path.join(ROOT, "modules", "investment", folder)).isDirectory(), true);
   }
@@ -178,9 +178,14 @@ test("Investment UI is Traditional Chinese and no longer exposes engineering or 
   }
   assert.equal(uiSources.includes("AAL1"), false);
   assert.equal(uiSources.includes("AAL2"), false);
-  for (const expected of ["投資首頁", "投資組合", "觀察清單", "投資策略", "偏好設定", "解鎖投資模組"]) {
+  for (const expected of ["投資首頁", "投資組合", "投資策略", "偏好設定", "解鎖投資模組"]) {
     assert.equal(uiSources.includes(expected), true);
   }
+  assert.equal(uiSources.includes("觀察清單｜追蹤關注中的市場標的"), false);
+  const ivtkAdapter = fs.readFileSync(path.join(directory, "services", "ivtk-board-adapter.js"), "utf8");
+  assert.equal(ivtkAdapter.includes("觀察名單"), true);
+  const entry = fs.readFileSync(path.join(directory, "index.html"), "utf8");
+  assert.doesNotMatch(entry, /pages\/watchlist-page\.js/);
 });
 
 test("both Dashboard presentations link to the Investment module without router changes", () => {

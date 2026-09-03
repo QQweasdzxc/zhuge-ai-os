@@ -43,7 +43,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
   assert.match(nav, /sectionHeadingMarkup/);
   assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
-  assert.match(nav, /procurement: \{ icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false/);
+  assert.match(nav, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true/);
+  assert.match(nav, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true/);
   assert.match(nav, /function isVisible\(item\)/);
   assert.match(nav, /ids\.filter\(id => isVisible\(registry\[id\]\)\)/);
   assert.doesNotMatch(nav, /const construction =/);
@@ -85,7 +86,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "investment"\]/);
+  assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "procurement", "investment"\]/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;
   assert.match(worklogIndex, new RegExp(`<script src="\\.\\.\\/\\.\\.\\/shared/config/version\\.js\\?v=${rootBuild}"><\\/script>`));
@@ -121,6 +122,7 @@ test("Shared Navigation opens WorkLog internal destinations without a private Bo
   assert.doesNotMatch(nav, /modules\/worklog\/\?app=1&workspace=tasks/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=library/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=sync/);
+  assert.match(nav, /modules\/worklog\/\?app=1&workspace=management/);
   assert.match(nav, /modules\/worklog\/\?app=1&workspace=settings/);
   assert.match(worklog, /allowedWorkspaces = new Set/);
   assert.match(worklog, /zhuge_os_open_tabs_v1/);

@@ -211,48 +211,24 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   assert.match(css, /board-header-status-actions\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(0,1fr\)\)/);
 });
 
-test("the Golden Master owns one shared status-menu action set and stages legacy health by release state", () => {
+test("the Golden Master owns one shared status-menu action set without the retired health action", () => {
   const goldenMaster = require(path.join(ROOT, "shared/components/golden-master.js"));
-  const markup = goldenMaster.renderHeaderActions({ applicationScope: "worktodo", includeHealthCheck: true });
+  const markup = goldenMaster.renderHeaderActions({ applicationScope: "worktodo" });
   assert.equal((markup.match(/id="templateParityBtn"/g) || []).length, 1);
-  assert.equal((markup.match(/id="healthCheckBtn"/g) || []).length, 1);
+  assert.equal((markup.match(/id="healthCheckBtn"/g) || []).length, 0);
   assert.equal((markup.match(/id="refreshBoardBtn"/g) || []).length, 1);
   assert.equal((markup.match(/data-golden-master-status-menu/g) || []).length, 1);
   assert.match(markup, /data-golden-master-action="template-parity"/);
   assert.match(markup, /⇄ 與母版比對<\/button>/);
-  assert.match(markup, /資料健康檢查（唯讀）<\/button>/);
-  assert.match(goldenMaster.renderOperations({ applicationScope: "worktodo", includeHealthCheck: true }), /id="healthCheckModal"/);
-  assert.doesNotMatch(goldenMaster.renderHeaderActions({ applicationScope: "c", includeHealthCheck: false }), /healthCheckBtn|資料健康檢查/);
+  assert.doesNotMatch(markup, /healthCheckBtn|資料健康檢查|資料健康度檢查/);
+  assert.doesNotMatch(goldenMaster.renderOperations({ applicationScope: "worktodo" }), /healthCheckModal|資料健康檢查|資料健康度檢查/);
+  assert.doesNotMatch(goldenMaster.renderHeaderActions({ applicationScope: "c" }), /healthCheckBtn|資料健康檢查/);
+  const readOnly = goldenMaster.renderHeaderActions({ applicationScope: "procurement", readOnly: true });
+  assert.doesNotMatch(readOnly, /data-board-create-card|data-board-create-workspace|data-board-open-archive/);
   const toolbarMarkup = goldenMaster.renderToolbar({ actions: [{ id: "templateParityBtn", label: "Consumer duplicate" }] });
   assert.doesNotMatch(toolbarMarkup, /templateParityBtn/);
   assert.doesNotMatch(toolbarMarkup, /data-template-release-popover/);
   assert.doesNotMatch(goldenMaster.renderToolbar({ includeSearch: false, searchId: "boardSearch" }), /id="boardSearch"/);
 
-  const oldPublished = {
-    status: "adopted",
-    identityMatches: true,
-    publishedBuild: "20260901-1412",
-    adoption: { build: "20260901-1412" }
-  };
-  assert.equal(goldenMaster.shouldShowLegacyHealthCheck({
-    applicationScope: "worktodo",
-    identitySource: "cloud",
-    currentBuild: "20260901-1610",
-    sourceIntegrity: "mismatch",
-    release: oldPublished
-  }), true);
-  assert.equal(goldenMaster.shouldShowLegacyHealthCheck({
-    applicationScope: "worktodo",
-    identitySource: "cloud",
-    currentBuild: "20260901-1610",
-    sourceIntegrity: "matched",
-    release: {
-      status: "adopted",
-      identityMatches: true,
-      publishedBuild: "20260901-1610",
-      adoption: { build: "20260901-1610" }
-    }
-  }), false);
-  assert.equal(goldenMaster.shouldShowLegacyHealthCheck({ applicationScope: "c", isMotherTemplate: true }), false);
-  assert.equal(goldenMaster.shouldShowLegacyHealthCheck({ applicationScope: "c", isMotherTemplate: false }), true);
+  assert.equal("shouldShowLegacyHealthCheck" in goldenMaster, false);
 });

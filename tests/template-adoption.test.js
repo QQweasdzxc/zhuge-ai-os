@@ -86,7 +86,7 @@ test("Template Management Center derives consumers and counts from the canonical
   });
 
   assert.deepEqual(models.map(model => model.template.id), ["navigation", "workspace", "board"]);
-  assert.equal(models.find(model => model.template.id === "navigation").consumers.length, 8);
+  assert.equal(models.find(model => model.template.id === "navigation").consumers.length, 9);
   assert.equal(models.find(model => model.template.id === "workspace").consumers.length, 1);
   assert.deepEqual(models.find(model => model.template.id === "workspace").consumers.map(page => page.id), ["worklog"]);
   assert.deepEqual(models.find(model => model.template.id === "board").consumers.map(page => page.id), ["ai-board", "tasks-new"]);

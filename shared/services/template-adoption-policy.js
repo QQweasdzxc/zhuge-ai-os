@@ -25,6 +25,7 @@
     worklog: Object.freeze({ id: "worklog", label: "WorkLog", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
     library: Object.freeze({ id: "library", label: "Knowledge", supportedTemplates: Object.freeze(["navigation"]) }),
     sync: Object.freeze({ id: "sync", label: "控制台", supportedTemplates: Object.freeze(["navigation"]) }),
+    management: Object.freeze({ id: "management", label: "管理功能", supportedTemplates: Object.freeze(["navigation"]) }),
     settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
     investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation"]) }),
     "ai-board": Object.freeze({ id: "ai-board", label: "AI Board", supportedTemplates: Object.freeze(["navigation", "board"]) }),

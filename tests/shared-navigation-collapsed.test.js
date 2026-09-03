@@ -54,7 +54,10 @@ function fixture(files, activeWorkspace) {
     const shell = document.querySelector('.zhuge-module-shell');
     const target = document.getElementById('zhugeSharedNavigation');
     target.outerHTML = window.ZhugeSharedNavigation.render({ activeWorkspace: ${JSON.stringify(activeWorkspace)}, version: '0.9.0-alpha.9.13', build: '20260818-1549' });
-    requestAnimationFrame(() => {
+    // Chrome 152 macOS headless may not advance a compositor frame before
+    // --dump-dom. A zero-delay timer still lets styles/layout settle while
+    // keeping this geometry probe independent of the compositor.
+    setTimeout(() => {
       const sidebar = shell.querySelector('.os-sidebar');
       const css = element => {
         const style = getComputedStyle(element);
@@ -70,7 +73,7 @@ function fixture(files, activeWorkspace) {
       };
       document.body.dataset.collapsedMetrics = JSON.stringify(metrics);
       document.body.textContent = document.body.dataset.collapsedMetrics;
-    });
+    }, 0);
   </script></body></html>`;
 }
 

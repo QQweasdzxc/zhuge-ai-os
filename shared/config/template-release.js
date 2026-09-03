@@ -15,11 +15,11 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260903-1026",
+  "developmentBuild": "20260903-1221",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260903-1026",
+  "publishedBuild": "20260903-1221",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260903-1026",
+  "build": "20260903-1221",
   "sourceCommit": "854f1b40e66ec59d93fbbfa4cdd1a697d0f2b2db",
   "sourceDirty": false,
   "sourceFingerprint": "cc7d77389d63c71a1b679088cfc181500a00cbb54a090b4aef73226897bf24cd",
@@ -27,22 +27,22 @@
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260903-1026",
+      "build": "20260903-1221",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260903-1026",
+      "build": "20260903-1221",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260903-1026",
+      "build": "20260903-1221",
       "status": "adopted"
     },
     "investment-ivtk": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260903-1026",
+      "build": "20260903-1221",
       "status": "adopted"
     }
   }

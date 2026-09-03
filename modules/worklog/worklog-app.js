@@ -3015,7 +3015,8 @@ function workspaceContextBar() {
     worklog: "工作管理｜工時與每日進度",
     tasks: "工作待辦｜管理現實工作上的待辦事項與推進紀錄",
     library: "Knowledge｜整理文件、工作知識與 AI 分析結果",
-    sync: "控制台｜查看同步狀態、資料健康度與系統連線",
+    sync: "控制台｜查看同步狀態與系統連線",
+    management: "管理功能｜進入工作看板、工程準則與系統管理中心",
     settings: "設定｜管理個人工作身分與 Zhuge AI OS 偏好"
   };
   if (typeof ZhugeSharedShell !== "undefined") {
@@ -3220,7 +3221,7 @@ function openWorkspace(id) {
   rememberWorkspace(id);
   if (id === "worklog") view = "center";
   if (id === "library") { view = "library"; editingLibraryId = null; }
-  if (id === "sync" || id === "settings") view = "center";
+  if (id === "sync" || id === "management" || id === "settings") view = "center";
   saveAll();
   render("workspace-change");
 }
@@ -3255,7 +3256,7 @@ function developerConsoleMarkup() {
 
 function worklogTemplatePageId(workspaceId = activeWorkspace) {
   const id = String(workspaceId || "").trim().toLowerCase();
-  return ["dashboard", "worklog", "library", "sync", "settings"].includes(id) ? id : "";
+  return ["dashboard", "worklog", "library", "sync", "management", "settings"].includes(id) ? id : "";
 }
 
 function sharedNavigationTargetMarkup() {
@@ -3753,6 +3754,7 @@ function workspaceContent() {
   }
   if (activeWorkspace === "aiSuggestions") return aiSuggestionWorkspace();
   if (activeWorkspace === "sync") return sync();
+  if (activeWorkspace === "management") return management();
   if (activeWorkspace === "settings") return settings();
   return comingSoonWorkspace(activeWorkspace);
 }
@@ -4302,6 +4304,25 @@ function openSystemTemplateWindow(target) {
   if (!opened) toast("瀏覽器阻擋了新視窗，請允許此網站開啟彈出視窗後再試。");
 }
 
+function controlCenterEntryMarkup() {
+  const controlCards = [
+    ["ai-board-board", "✅", "工作看板", "查看工程工作與執行狀態"],
+    ["ai-board-principles", "📚", "工程準則", "閱讀開發規則與治理原則"],
+    ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"]
+  ];
+  return controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
+}
+
+function templateManagementMarkup() {
+  return typeof ZhugeTemplateManagementCenter !== "undefined"
+    ? ZhugeTemplateManagementCenter.render()
+    : `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-status">Template Management Center 尚未載入。</div></section>`;
+}
+
+function management() {
+  return `<section class="panel control-center management-center" aria-label="管理功能內容"><section class="control-center-management-column" aria-labelledby="management-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="management-entry-title">管理功能</h2><p class="muted">集中進入工程管理區域與系統模板管理中心。</p></div></div><div class="control-center-entry-grid">${controlCenterEntryMarkup()}${templateManagementMarkup()}</div></div></section></section>`;
+}
+
 function sync() {
   const googleState = googleConnectionLabel();
   const driveAuthorized = googleState.includes("🟢");
@@ -4314,16 +4335,7 @@ function sync() {
     ["Supabase", session ? "🟢 已連線" : "⚪ 尚未登入", ""],
     ["本機資料", "🟢 正常", ""]
   ];
-  const controlCards = [
-    ["ai-board-board", "✅", "工作看板", "查看工程工作與執行狀態"],
-    ["ai-board-principles", "📚", "工程準則", "閱讀開發規則與治理原則"],
-    ["ai-board-system-map", "🗺️", "系統藍圖", "理解模組、架構與資料流"]
-  ];
-  const controlEntryMarkup = controlCards.map(([id, icon, title, description]) => `<button class="control-center-entry" type="button" data-open-workspace="${id}"><span class="control-center-entry-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${description}</small></span><span aria-hidden="true">→</span></button>`).join("");
-  const templateManagementMarkup = typeof ZhugeTemplateManagementCenter !== "undefined"
-    ? ZhugeTemplateManagementCenter.render()
-    : `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-status">Template Management Center 尚未載入。</div></section>`;
-  return `<section class="panel control-center" aria-label="控制台內容"><div class="control-center-layout"><section class="control-center-status-column" aria-labelledby="control-center-status-title"><h2 id="control-center-status-title" class="dashboard-section-label">系統狀態</h2><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section><section class="control-center-management-column" aria-labelledby="control-center-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="control-center-entry-title">管理功能</h2><p class="muted">選擇要進入的工程管理區域。</p></div></div><div class="control-center-entry-grid">${controlEntryMarkup}${templateManagementMarkup}</div></div></section></div></section>`;
+  return `<section class="panel control-center" aria-label="控制台內容"><section class="control-center-status-column" aria-labelledby="control-center-status-title"><h2 id="control-center-status-title" class="dashboard-section-label">系統狀態</h2><div class="control-grid">${services.map(([name, state, action]) => `<div class="service-card"><div><h3>${escapeHtml(name)}</h3><b>${escapeHtml(state)}</b></div>${action}</div>`).join("")}</div>${developerConsoleMarkup()}</section></section>`;
 }
 
 function nextKnowledgeId() {
@@ -4817,6 +4829,7 @@ function currentViewHtml() {
   if (view === "library") return libraryView();
   if (view === "libraryIntelligence") return libraryIntelligenceView(viewingKnowledgeId);
   if (view === "sync") return sync();
+  if (view === "management") return management();
   return settings();
 }
 

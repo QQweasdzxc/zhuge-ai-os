@@ -1,14 +1,15 @@
 /* Golden Master shared Board runtime: one Presentation/Interaction runtime for
- * AI Board and WorkTodo. Consumers inject scope data, permission, capability,
+ * AI Board, WorkTodo, and other C consumers. Consumers inject scope data, permission,
  * and callbacks; Cloud access remains behind the existing service boundary. */
 (function (root) {
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
+    if (scope === "procurement") return "worklog-procurement";
     return "ai-board";
   }
   function unpublishedModuleRelease(consumerId) {
@@ -35,38 +36,6 @@
       sourceCommit: String(snapshot.sourceCommit || ""),
       sourceFingerprint: String(snapshot.sourceFingerprint || "")
     };
-  }
-
-  function legacyHealthCheckVisible() {
-    const releaseApi = root.ZhugeMotherTemplateRelease;
-    const current = releaseApi?.currentProductIdentity?.() || root.ZhugeFoundationConfig?.version || {};
-    const sharedPolicy = root.ZhugeGoldenMaster?.shouldShowLegacyHealthCheck;
-    if (typeof sharedPolicy === "function") {
-      return sharedPolicy({
-        applicationScope: state.applicationScope,
-        isMotherTemplate: state.boardIsTemplate,
-        release: state.templateRelease,
-        identitySource: document.body?.dataset?.templateIdentitySource,
-        currentBuild: current.build,
-        sourceIntegrity: document.body?.dataset?.templateSourceIntegrity
-      });
-    }
-    return !(state.applicationScope === "c" && state.boardIsTemplate);
-  }
-
-  function syncLegacyHealthCheckUi() {
-    const includeHealthCheck = legacyHealthCheckVisible();
-    root.ZhugeGoldenMaster?.mountOperations?.(document.body, {
-      applicationScope: state.applicationScope,
-      isMotherTemplate: state.boardIsTemplate,
-      itemLabel: workItemLabel(),
-      canCreateConsumer: state.boardIsTemplate,
-      includeHealthCheck
-    });
-    if (document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions")) {
-      renderBoardHeaderActions();
-    }
-    if (includeHealthCheck) ensureHealthModal();
   }
 
   function releaseVersionLabel(version, build) {
@@ -303,7 +272,6 @@
       node.dataset.templateReleaseState = body.dataset.templateReleaseState;
     });
     renderModuleReleaseNotice();
-    syncLegacyHealthCheckUi();
     return release;
   }
   async function hydrateModuleRelease(options = {}) {
@@ -474,6 +442,11 @@
     const consumer = queryParameter("consumer");
     return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
   }
+  function isProcurementMode() {
+    const path = String(root.location?.pathname || "");
+    const consumer = queryParameter("consumer");
+    return consumer === "worklog-procurement" || /\/app\/Board\/procurement\/(?:index\.html)?$/i.test(path);
+  }
   function isCTemplateMode() {
     const path = String(root.location?.pathname || "");
     return String(document.body?.dataset?.templatePageId || "") === "template-c"
@@ -483,13 +456,14 @@
     return state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
   }
   function workItemLabel(task) {
-    return state.applicationScope === "c" ? String(state.taskCodePrefix || (state.boardIsTemplate ? "MDTK" : "C")).toUpperCase() : isWorkTodoTask(task) ? "WLTK" : "TASK";
+    return state.applicationScope === "c" ? String(state.taskCodePrefix || (state.boardIsTemplate ? "MDTK" : "C")).toUpperCase() : state.applicationScope === "procurement" ? "GAS" : isWorkTodoTask(task) ? "WLTK" : "TASK";
   }
   function boardTaskPrefix() {
     return workItemLabel().toLowerCase();
   }
   function defaultBoardWorkspaceKey() {
     if (state.applicationScope === "worktodo") return "worktodo-todo";
+    if (state.applicationScope === "procurement") return "procurement-gas";
     if (state.applicationScope === "c") return `${boardTaskPrefix()}-todo`;
     return "todo";
   }
@@ -584,6 +558,7 @@
     // isWorkspaceDeletable below.
     const key = String(workspace?.key || "").trim().toLowerCase();
     if (state.applicationScope === "worktodo") return key.startsWith("worktodo-custom-");
+    if (state.applicationScope === "procurement") return false;
     if (state.applicationScope === "c") return key.startsWith(`${boardTaskPrefix()}-custom-`);
     return key === "";
   }
@@ -592,7 +567,7 @@
     return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
   }
   function workspaceDeleteTarget(sourceWorkspace = null) {
-    const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "c" ? defaultBoardWorkspaceKey() : "todo";
+    const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "procurement" ? defaultBoardWorkspaceKey() : state.applicationScope === "c" ? defaultBoardWorkspaceKey() : "todo";
     const sourceId = String(sourceWorkspace?.id || "");
     const preferred = state.workspaces.find(workspace => workspace.active === true
       && workspace.id !== sourceId
@@ -610,6 +585,9 @@
     const name = String(workspace?.name || "").trim();
     if (state.applicationScope === "worktodo") {
       return workspace?.active === true && workspace?.applicationScope === "worktodo";
+    }
+    if (state.applicationScope === "procurement") {
+      return workspace?.active === true && workspace?.applicationScope === "procurement";
     }
     if (state.applicationScope === "c") {
       return workspace?.active === true && (
@@ -736,14 +714,14 @@
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: !completion,
-        addHtml: !completion
+        reorderable: !completion && state.applicationScope !== "procurement",
+        addHtml: !completion && state.applicationScope !== "procurement"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
         // Completion remains lifecycle-controlled for move/delete, but its
         // display label is still user-customizable through the same menu as
         // every other workspace. The canonical key is never editable here.
-        controlsHtml: (completion
+        controlsHtml: state.applicationScope === "procurement" ? "" : (completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\" aria-hidden=\"true\">✓</span>"
           : "") + menuButton
       };
@@ -751,11 +729,12 @@
     if (boardMount && root.ZhugeGoldenMaster?.renderBoard) {
       boardMount.innerHTML = root.ZhugeGoldenMaster.renderBoard({
         id: "boardColumns",
-        boardKey: state.applicationScope === "c" ? "c-motherboard" : "ai-board",
+        boardKey: state.applicationScope === "c" ? "c-motherboard" : state.applicationScope === "procurement" ? "gas-board" : "ai-board",
         className: "golden-master-board",
         ariaLabel: state.applicationScope === "c"
           ? `${workItemLabel()} 工作看板`
-          : state.applicationScope === "worktodo" ? "工作待辦工作看板" : "AI Board 工作看板",
+          : state.applicationScope === "procurement" ? "庶務行政 GAS 工作看板"
+            : state.applicationScope === "worktodo" ? "工作待辦工作看板" : "AI Board 工作看板",
         columns
       });
     } else {
@@ -786,7 +765,7 @@
       if (!cards) return;
       cards.replaceChildren();
       const rows = groups[workspace.id] || [];
-      cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : "<div class=\"board-empty\">目前沒有工作</div>";
+      cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : `<div class="board-empty">${state.applicationScope === "procurement" ? "目前沒有正式 GAS 資料" : "目前沒有工作"}</div>`;
       if (count) count.textContent = String(rows.length);
     });
     wireTaskCards();
@@ -903,8 +882,8 @@
       // dead-end interaction.
       filters: [],
       includeSearch: false,
-      statusHtml: '<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">顯示目前工作中的正式 ' + itemLabel + '</span>',
-      legend: "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
+      statusHtml: `<span id="boardSearchCount" class="board-search-count golden-master-toolbar-status" aria-live="polite">${state.applicationScope === "procurement" ? "GAS 正式資料待接入" : "顯示目前工作中的正式 " + itemLabel}</span>`,
+      legend: state.applicationScope === "procurement" ? "庶務行政只呈現自己的正式 GAS 資料；資料來源尚未建立時不顯示其他模組或測試資料。" : "工作區位置代表目前責任階段；工程狀態與治理紀錄仍保留"
     });
     const surface = document.querySelector("[data-golden-master-surface]");
     if (surface && !surface.querySelector("[data-golden-master-toolbar=\"true\"]")) {
@@ -1026,12 +1005,17 @@
     const filter = document.getElementById("archiveFilter");
     if (filter) filter.onchange = event => { state.archiveFilter = String(event.target.value || "all"); renderArchive(); };
   }
-  function setConnection(taskCount, principleCount, realtime) {
+  function setConnection(taskCount, principleCount, realtime, dataStatus = state.dataStatus) {
     const cTemplate = state.applicationScope === "c";
-    const label = cTemplate
+    const procurement = state.applicationScope === "procurement";
+    const label = procurement
+      ? (dataStatus === "not-configured" ? "🟡 GAS 資料待接入" : realtime ? "🟢 GAS 已同步" : "🟡 GAS 載入中")
+      : cTemplate
       ? (realtime ? "🟢 C 母版就緒" : "🟡 C 母版載入中")
       : (realtime ? "🟢 已同步" : "🟡 同步中");
-    const time = cTemplate
+    const time = procurement
+      ? (state.dataSource || "正式庶務行政資料來源尚未建立")
+      : cTemplate
       ? (realtime ? "MDTK canonical Cloud" : "Cloud 資料載入中")
       : (realtime ? dateLabel(new Date()) : "Cloud Read 完成，等待 Realtime");
     const updated = root.ZhugeSharedNavigation?.setSyncStatus?.({
@@ -1373,11 +1357,12 @@
     });
     const board = document.querySelector("[data-shared-task-board]");
     const workTodoMode = isWorkTodoMode();
+    const procurementMode = state.applicationScope === "procurement";
     const cTemplateMode = state.applicationScope === "c";
     const boardHandlers = {
       canDragCard: id => {
         const task = state.taskById.get(String(id));
-        return Boolean(task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
+        return !procurementMode && Boolean(task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
         const task = state.taskById.get(String(cardId));
@@ -1388,7 +1373,7 @@
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return !procurementMode && Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id }) => {
         return reorderWorkspace(sourceId, id);
@@ -1527,7 +1512,7 @@
       isMotherTemplate: state.boardIsTemplate,
       itemLabel: workItemLabel(),
       canCreateConsumer: state.boardIsTemplate,
-      includeHealthCheck: legacyHealthCheckVisible()
+      readOnly: state.applicationScope === "procurement"
     });
     const modal = document.getElementById("taskDetailModal");
     if (!modal || modal.dataset.goldenMasterWired === "true") return;
@@ -1540,60 +1525,6 @@
         state.activeTaskId = "";
       }
     });
-  }
-  function ensureHealthModal() {
-    root.ZhugeGoldenMaster?.mountOperations?.(document.body, {
-      applicationScope: state.applicationScope,
-      isMotherTemplate: state.boardIsTemplate,
-      itemLabel: workItemLabel(),
-      canCreateConsumer: state.boardIsTemplate,
-      includeHealthCheck: true
-    });
-    const modal = document.getElementById("healthCheckModal");
-    if (!modal || modal.dataset.goldenMasterWired === "true") return;
-    modal.dataset.goldenMasterWired = "true";
-    modal.setAttribute("aria-hidden", "true");
-    modal.addEventListener("click", event => {
-      if (event.target === modal) {
-        modal.style.display = "none";
-        modal.setAttribute("aria-hidden", "true");
-      }
-    });
-    document.getElementById("closeHealthCheck")?.addEventListener("click", () => {
-      modal.style.display = "none";
-      modal.setAttribute("aria-hidden", "true");
-    });
-  }
-  const healthSeverity = Object.freeze({ error: "需要處理", warning: "請檢查", info: "資訊" });
-  function renderHealthReport(report) {
-    ensureHealthModal();
-    const body = document.getElementById("healthCheckBody");
-    if (!body) return;
-    const rows = (Array.isArray(report?.findings) ? report.findings : []).map(item => {
-      const records = Array.isArray(item.records) ? item.records : [];
-      return `<article class="health-finding health-${esc(item.severity)}"><div class="meta"><span class="tag">${esc(healthSeverity[item.severity] || item.severity)}</span><span class="tag">${esc(item.type)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>${records.length ? `<small>涉及資料：${esc(records.join("、"))}</small>` : ""}</article>`;
-    }).join("");
-    body.innerHTML = `<div class="health-summary"><strong>已掃描 ${report.taskCount} 張正式 Cloud ${workItemLabel()}，發現 ${report.findingCount} 項 Finding。</strong><p>本次只讀取資料，不會自動 Merge、Cancel、刪除或修改任何正式紀錄。</p></div>${rows || "<div class=\"board-empty\">目前沒有發現需要提示的資料問題。</div>"}<div class="health-boundary">Merge／Link／Cancel／Ignore 等整理動作需要既有 Schema、權限與 Audit 能力；目前先保留 Finding，交由 PM／GPT 決定。</div>`;
-    const modal = document.getElementById("healthCheckModal");
-    if (modal) {
-      modal.style.display = "grid";
-      modal.setAttribute("aria-hidden", "false");
-    }
-  }
-  async function runHealthCheck() {
-    const button = document.getElementById("healthCheckBtn");
-    if (button) { button.disabled = true; button.textContent = "檢查中…"; }
-    closeStatusMenu();
-    setBanner("正在唯讀檢查 " + workItemLabel() + "、Checklist、Knowledge 與系統藍圖的一致性…", "loading");
-    try {
-      const report = await activeService().runHealthCheck();
-      renderHealthReport(report);
-      setBanner(`資料健康度檢查完成：${report.findingCount} 項 Finding。結果為唯讀，未修改 Cloud。`, "success");
-    } catch (error) {
-      setBanner("資料健康度檢查失敗：" + esc(error?.message || "未知錯誤"), "error");
-    } finally {
-      if (button) { button.disabled = false; button.textContent = "⌁ 資料健康檢查（唯讀）"; }
-    }
   }
   function ensureTemplateParityResultHost() {
     const popover = document.querySelector("[data-template-release-popover]");
@@ -1670,7 +1601,7 @@
     if (state.templateParityBusy) return state.templateParityReport;
     state.templateParityBusy = true;
     try {
-      const engineOptions = { root, document, consumerId: moduleConsumerId(state.applicationScope), consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : "AI Board", trigger };
+      const engineOptions = { root, document, consumerId: moduleConsumerId(state.applicationScope), consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board", trigger };
       const report = trigger === "manual"
         ? engine.runManual(engineOptions)
         : engine.runAutoGuard(engineOptions);
@@ -2978,17 +2909,16 @@
       applicationScope: state.applicationScope,
       isMotherTemplate: state.boardIsTemplate,
       canCreateConsumer: state.boardIsTemplate,
-      includeHealthCheck: legacyHealthCheckVisible()
+      readOnly: state.applicationScope === "procurement"
     }) || "";
     const defaultWorkspaceKey = state.applicationScope === "c"
       ? defaultBoardWorkspaceKey()
-      : state.applicationScope === "worktodo" ? "worktodo-todo" : "todo";
+      : state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "procurement" ? defaultBoardWorkspaceKey() : "todo";
     actions.querySelector("[data-board-create-consumer]")?.addEventListener("click", openConsumerCreate);
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd(defaultWorkspaceKey));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
     actions.querySelector("[data-board-open-archive]")?.addEventListener("click", openArchiveDrawer);
     actions.querySelector("#refreshBoardBtn")?.addEventListener("click", () => { closeStatusMenu(); refreshBoard(); });
-    actions.querySelector("#healthCheckBtn")?.addEventListener("click", runHealthCheck);
     wireTemplateParityCheck();
     renderModuleReleaseNotice();
   }
@@ -3028,10 +2958,12 @@
       state.boardIsTemplate = state.applicationScope === "c" && (result.isTemplateInstance === true || (!state.boardInstanceId && !result.consumerId));
       state.consumerId = String(result.consumerId || state.consumerId || moduleConsumerId(state.applicationScope));
       state.workspaces = result.workspaces || [];
-      state.tasks = result.tasks;
-      state.principles = result.principles;
+      state.dataStatus = String(result.dataStatus || "available");
+      state.dataSource = String(result.dataSource || "");
+      state.tasks = Array.isArray(result.tasks) ? result.tasks : [];
+      state.principles = Array.isArray(result.principles) ? result.principles : [];
       state.systemMaps = result.systemMaps || [];
-      state.taskById = new Map(result.tasks.map(task => [task.id, task]));
+      state.taskById = new Map(state.tasks.map(task => [task.id, task]));
       state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
@@ -3044,7 +2976,7 @@
       syncRuntimeIdentityLabels();
       renderTasks(visibleTasks());
       if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
-      setConnection(result.tasks.length, result.principles.length, !!state.stopRealtime);
+      setConnection(state.tasks.length, state.principles.length, !!state.stopRealtime, state.dataStatus);
       root.ZhugeSharedNavigation?.refresh?.({ activeBoardInstanceId: state.boardInstanceId });
       if (result.engineeringMemoryFailures?.length) {
         const failures = result.engineeringMemoryFailures.map(item => `${esc(item.knowledgeCode || "Engineering Principle")} | ${esc(item.reason)}`).join("；");
@@ -3086,9 +3018,8 @@
       isMotherTemplate: state.boardIsTemplate,
       itemLabel: workItemLabel(),
       canCreateConsumer: state.boardIsTemplate,
-      includeHealthCheck: legacyHealthCheckVisible()
+      readOnly: state.applicationScope === "procurement"
     });
-    if (legacyHealthCheckVisible()) ensureHealthModal();
     renderBoardHeaderActions();
     wireArchiveControls();
     document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
@@ -3121,9 +3052,11 @@
   }
   function startBoardRuntime(options = {}) {
     const cTemplate = options.applicationScope === "c" || isCTemplateMode();
+    const procurement = options.applicationScope === "procurement" || isProcurementMode();
     state.applicationScope = cTemplate
       ? "c"
-      : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
+      : procurement ? "procurement"
+        : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
     state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
@@ -3131,12 +3064,14 @@
     state.consumerId = state.applicationScope === "c"
       ? (state.boardIsTemplate ? "c" : requestedBoardInstanceId)
       : moduleConsumerId(state.applicationScope);
-    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : "";
-    state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : "";
+    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : state.applicationScope === "procurement" ? "庶務行政" : "";
+    state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : state.applicationScope === "procurement" ? "GAS" : "";
+    state.dataStatus = "available";
+    state.dataSource = "";
     state.service = options.service || (state.applicationScope === "c"
       ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId })
-      : defaultService);
-    if (state.applicationScope !== "worktodo" && state.applicationScope !== "c") {
+      : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
+    if (state.applicationScope !== "worktodo" && state.applicationScope !== "c" && state.applicationScope !== "procurement") {
       mountCreatorMfaSettings(accessContext);
     }
     renderGoldenMasterToolbar();
@@ -3191,10 +3126,11 @@
     const main = document.querySelector(".main");
     if (!main) return;
     const workTodo = isWorkTodoMode();
+    const procurement = isProcurementMode();
     main.innerHTML = `${sharedHeaderMarkup()}<section class="board-access-state" data-state="${esc(kind)}">
       <div class="board-access-panel ${esc(panelClass)}">
-        <div class="board-access-eyebrow">${workTodo ? "WORKTODO · 工作待辦" : "AI BOARD · 工程治理工作區"}</div>
-        <h2>${esc(title || (workTodo ? "工作待辦" : "AI Board"))}</h2>
+        <div class="board-access-eyebrow">${procurement ? "GAS · 庶務行政" : workTodo ? "WORKTODO · 工作待辦" : "AI BOARD · 工程治理工作區"}</div>
+        <h2>${esc(title || (procurement ? "庶務行政" : workTodo ? "工作待辦" : "AI Board"))}</h2>
         <p class="board-access-message">${esc(message || "")}</p>
         ${body}
       </div>
@@ -3203,9 +3139,10 @@
 
   function renderLoginState() {
     const workTodo = isWorkTodoMode();
+    const procurement = isProcurementMode();
     renderAccessState({
-      title: workTodo ? "請先登入工作待辦" : "請先登入 AI Board",
-      message: workTodo ? "工作待辦需要目前登入的 UUID，才能只讀寫自己的正式資料。" : "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
+      title: procurement ? "請先登入庶務行政" : workTodo ? "請先登入工作待辦" : "請先登入 AI Board",
+      message: procurement ? "庶務行政需要目前登入的 UUID，才能只呈現自己的正式 GAS 資料。" : workTodo ? "工作待辦需要目前登入的 UUID，才能只讀寫自己的正式資料。" : "AI Board 包含工程治理、GPT 審查與 Co 協作資料，請先登入 Zhuge AI OS。",
       kind: "login",
       body: `<div class="board-access-actions"><a class="btn primary" href="../../../?app=1">前往登入</a><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a></div>`
     });
@@ -3213,8 +3150,9 @@
 
   function renderSessionHydrationState() {
     const workTodo = isWorkTodoMode();
+    const procurement = isProcurementMode();
     renderAccessState({
-      title: workTodo ? "正在恢復工作待辦" : "正在恢復 AI Board",
+      title: procurement ? "正在恢復庶務行政" : workTodo ? "正在恢復工作待辦" : "正在恢復 AI Board",
       message: "正在檢查登入工作階段，完成前不會判定為未登入。",
       kind: "loading",
       body: `<div class="board-access-progress" role="status">正在同步 Shared Session…</div>`
@@ -3223,7 +3161,7 @@
 
   function renderAccessError(message) {
     renderAccessState({
-      title: isWorkTodoMode() ? "目前無法開啟工作待辦" : "目前無法開啟 AI Board",
+      title: isProcurementMode() ? "目前無法開啟庶務行政" : isWorkTodoMode() ? "目前無法開啟工作待辦" : "目前無法開啟 AI Board",
       message,
       kind: "error",
       body: `<div class="board-access-actions"><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a><button class="btn" type="button" id="boardAccessRetry">重新檢查</button></div>`
@@ -3318,6 +3256,7 @@
 
   async function init() {
     const workTodo = isWorkTodoMode();
+    const procurement = isProcurementMode();
     const cTemplate = isCTemplateMode();
     captureBoardMarkup();
     if (cTemplate) {
@@ -3340,6 +3279,24 @@
       return;
     }
     renderSessionHydrationState();
+    if (procurement) {
+      let hydrated = false;
+      try {
+        hydrated = await hydrateBoardSession();
+      } catch (error) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
+        return;
+      }
+      if (!hydrated) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderLoginState();
+        return;
+      }
+      restoreCapturedBoardMarkup();
+      startBoardRuntime({ applicationScope: "procurement" });
+      return;
+    }
     if (workTodo) {
       let hydrated = false;
       try {

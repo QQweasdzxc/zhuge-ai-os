@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.9.13";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260903-1026";
+const BUILD_TIME = "20260903-1221";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -112,12 +112,13 @@ const workspaceRegistry = {
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },
   "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=system-map" },
-  procurement: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
+  procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, externalHref: "../../app/Board/procurement/" },
   hr: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   travel: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
   aiSuggestions: { icon: "🪶", label: "AI 建議", group: "system", enabled: true, hidden: true },
   sync: { icon: "🔗", label: "控制台", group: "system", enabled: true },
+  management: { icon: "🛠️", label: "管理功能", group: "system", enabled: true },
   settings: { icon: "⚙️", label: "設定", group: "system", enabled: true }
 };
 const agentStatuses = [

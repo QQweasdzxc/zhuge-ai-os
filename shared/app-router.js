@@ -1,6 +1,6 @@
 /* Sprint 5.5 Foundation Freeze: pure route contract. */
 (function (global) {
-  const validWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "settings"]);
+  const validWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "management", "settings"]);
   const validViews = new Set(["center", "capture", "library", "libraryIntelligence", "sync", "settings"]);
 
   function normalize(workspace = "dashboard", view = "center") {

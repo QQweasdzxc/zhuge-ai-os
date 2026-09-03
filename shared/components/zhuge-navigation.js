@@ -22,11 +22,14 @@
     "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, visible: true },
     "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, visible: true },
     "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true, visible: true },
-    procurement: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
+    // WorkLog's administrative consumer uses the canonical A/C composition.
+    // Keep the route key stable while exposing the PM-approved product name.
+    procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true },
     hr: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     travel: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     library: { icon: "📚", label: "Knowledge", group: "system", enabled: true, visible: true },
     sync: { icon: "🔗", label: "控制台", group: "system", enabled: true, visible: true },
+    management: { icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true },
     settings: { icon: "⚙️", label: "設定", group: "system", enabled: true, visible: true }
   });
 
@@ -48,8 +51,10 @@
       "ai-board-board": "app/Board/ai/?view=board",
       "ai-board-principles": "app/Board/ai/?view=principles",
       "ai-board-system-map": "app/Board/ai/?view=system-map",
+      procurement: "app/Board/procurement/",
       library: "modules/worklog/?app=1&workspace=library",
       sync: "modules/worklog/?app=1&workspace=sync",
+      management: "modules/worklog/?app=1&workspace=management",
       settings: "modules/worklog/?app=1&workspace=settings"
     };
     return paths[id] ? `${base}${paths[id]}` : "#";
@@ -150,7 +155,7 @@
     const brand = root
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
-    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1]);
+    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "procurement", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1, 2]);
     const consumerBoards = sectionMarkup("套用的看板", "▦", consumerItems.map(item => item.id), registry, { ...options, externalRoot: root }, esc, "consumer-boards");
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
     // The sidebar structure must be identical for every Workspace. Governance
@@ -158,8 +163,10 @@
     // keeping the source definition here preserves one canonical registry.
     const showGovernance = options.adminVisible !== false;
     const control = showGovernance ? controlGroupMarkup(registry, options, esc, root, board) : itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
-    const systemItems = ["library", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
-    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}</div>`;
+    const systemItems = ["library", "management", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
+    // Module A owns this ordering: Control Console → Management → Settings.
+    // Management is a peer of the Console, not content embedded inside it.
+    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}${systemItems[2]}</div>`;
     return `<aside class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div><div class="sidebar-scroll">${camp}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
