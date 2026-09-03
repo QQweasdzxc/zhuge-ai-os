@@ -3070,7 +3070,9 @@
     state.dataSource = "";
     state.service = options.service || (state.applicationScope === "c"
       ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId })
-      : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
+      : state.applicationScope === "procurement"
+        ? defaultService.createInstanceService({ templateKey: "c", applicationScope: "procurement", boardInstanceId: requestedBoardInstanceId, consumerId: "worklog-procurement" })
+        : defaultService);
     if (state.applicationScope !== "worktodo" && state.applicationScope !== "c" && state.applicationScope !== "procurement") {
       mountCreatorMfaSettings(accessContext);
     }
@@ -3294,7 +3296,8 @@
         return;
       }
       restoreCapturedBoardMarkup();
-      startBoardRuntime({ applicationScope: "procurement" });
+      const boardInstanceId = String(document.querySelector("[data-procurement-board-instance-id]")?.dataset.procurementBoardInstanceId || "").trim();
+      startBoardRuntime({ applicationScope: "procurement", boardInstanceId });
       return;
     }
     if (workTodo) {
