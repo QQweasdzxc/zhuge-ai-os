@@ -45,10 +45,15 @@ test("AI Board Drawer keeps PM-facing content concise and removes engineering-on
   assert.doesNotMatch(runtime, /label: "進度"|label: "置頂"|label: "預估時間"|key: "estimated-minutes"/);
   assert.match(runtime, /key: "agreement-schedule"/);
   assert.match(runtime, /約定日期/);
-  assert.match(runtime, /topHtml: taskChecklistPanelMarkup\(\)/);
-  assert.match(runtime, /function taskChecklistPanelMarkup\(\)/);
+  assert.match(runtime, /topHtml: taskChecklistPanelMarkup\(checklistOpen\)/);
+  assert.match(runtime, /function taskChecklistPanelMarkup\(isOpen = true\)/);
   assert.match(runtime, /data-task-checklist-panel/);
-  assert.match(runtime, /taskChecklistPanel\.open = false/);
+  assert.match(runtime, /data-task-checklist-panel\$\{openAttribute\}/);
+  assert.match(runtime, /taskChecklistPanelMarkup\(checklistOpen\)/);
+  assert.match(runtime, /previousChecklistPanel = body\?\.querySelector\("\[data-task-checklist-panel\]"\)/);
+  assert.doesNotMatch(runtime, /taskChecklistPanel\.open = false/);
+  assert.match(runtime, /placeholder="新增 Checklist 項目…"/);
+  assert.match(runtime, /autocomplete="off"/);
   assert.doesNotMatch(runtime, /id: "task-checklist"/);
   assert.doesNotMatch(runtime, /data-task-due-date-edit/);
   assert.match(css, /shared-task-drawer-checklist-panel/);

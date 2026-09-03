@@ -40,7 +40,10 @@ test("EP-039 enforces direct Shared Golden Master runtime use for formal Board c
   assert.match(goldenMaster, /const mountTarget = target\.closest\?\.\("\.zhuge-module-shell"\)/);
   assert.match(goldenMaster, /mountTarget\.appendChild\(operations\)/);
   assert.match(goldenMaster, /function assertSharedDrawerContract\(/);
-  assert.match(runtime, /taskChecklistPanel\.open = false/);
+  assert.match(runtime, /function taskChecklistPanelMarkup\(isOpen = true\)/);
+  assert.match(runtime, /taskChecklistPanelMarkup\(checklistOpen\)/);
+  assert.match(runtime, /previousChecklistPanel = body\?\.querySelector\("\[data-task-checklist-panel\]"\)/);
+  assert.doesNotMatch(runtime, /taskChecklistPanel\.open = false/);
   // WorkTodo uses the Shared Drawer property contract for an agreed date.
   // Legacy progress/pin/estimated-time properties must not return through a
   // consumer-owned Drawer renderer.

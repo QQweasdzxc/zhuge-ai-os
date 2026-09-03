@@ -1742,7 +1742,7 @@
     const list = rows.length
       ? rows.map(item => `<div class="shared-task-checklist-item${item.completed ? " is-complete" : ""}" data-task-checklist-id="${esc(item.id)}"><button class="shared-task-checklist-toggle" type="button" data-task-checklist-toggle="${esc(item.id)}" aria-label="${item.completed ? "標記未完成" : "標記完成"}"${archiveOnly ? " disabled" : ""}>${item.completed ? "☑" : "☐"}</button><strong>${esc(item.label || "未命名項目")}</strong>${archiveOnly ? "" : `<button class="shared-task-checklist-delete" type="button" data-task-checklist-delete="${esc(item.id)}" aria-label="刪除${esc(item.label || "項目")}">×</button>`}</div>`).join("")
       : `<div class="shared-task-checklist-empty">目前沒有工作清單項目。</div>`;
-    const add = archiveOnly ? "" : `<form class="shared-task-checklist-add" data-task-checklist-add><input type="text" name="label" placeholder="新增待辦項目…" maxlength="300" aria-label="新增待辦項目"><button class="btn2" type="submit">新增</button></form>`;
+    const add = archiveOnly ? "" : `<form class="shared-task-checklist-add" data-task-checklist-add autocomplete="off" aria-label="新增 Checklist"><input type="text" name="label" placeholder="新增 Checklist 項目…" maxlength="300" autocomplete="off" spellcheck="false" aria-label="新增 Checklist 項目"><button class="btn2" type="submit">新增 Checklist</button></form>`;
     return `<div class="shared-task-checklist-list" data-task-checklist>${list}<small class="shared-task-checklist-note">這是一般工作 Checklist，用來記錄還剩什麼要做；不會改變工程狀態或 PM Acceptance。</small>${add}</div>`;
   }
   function isRegressionEvidence(item) {
@@ -1936,8 +1936,9 @@
     const completed = rows.filter(item => item && (item.completed === true || item.completed === 1)).length;
     return `${completed} / ${rows.length}`;
   }
-  function taskChecklistPanelMarkup() {
-    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel><summary><span class="shared-task-drawer-checklist-title">☑ 一般工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
+  function taskChecklistPanelMarkup(isOpen = true) {
+    const openAttribute = isOpen !== false ? " open" : "";
+    return `<details class="shared-task-drawer-checklist-panel" data-task-checklist-panel${openAttribute}><summary><span class="shared-task-drawer-checklist-title">☑ 一般工作 Checklist</span><span class="shared-task-drawer-checklist-count" data-task-checklist-count>0 / 0</span></summary><div class="shared-task-drawer-checklist-body"><div id="taskChecklistRows"><div class="board-empty">讀取中…</div></div></div></details>`;
   }
   function attachmentMarkup(attachments, artifacts, error, archiveOnly, options = {}) {
     // Progress-note attachments belong beside their Human Progress Note in
@@ -2656,6 +2657,10 @@
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
     const body = document.getElementById("taskDetailBody");
+    const previousTaskId = state.activeTaskId;
+    const previousChecklistPanel = body?.querySelector("[data-task-checklist-panel]");
+    const sameTaskRefresh = previousChecklistPanel && String(previousTaskId || "") === String(task?.id || "");
+    const checklistOpen = sameTaskRefresh ? previousChecklistPanel.open : true;
     const cTemplate = state.applicationScope === "c";
     const workTodoDomainMode = !cTemplate && isWorkTodoTask(task);
     const workTodo = workTodoDomainMode || cTemplate;
@@ -2716,7 +2721,7 @@
         activity: {
           title: "💬 工作進度",
           hint: "只顯示工作進度；System Activity 與 Workspace Audit 保留於正式紀錄",
-          topHtml: taskChecklistPanelMarkup(),
+          topHtml: taskChecklistPanelMarkup(checklistOpen),
           composerHtml: "",
           bottomHtml: archiveOnly ? `<div class="shared-task-progress-readonly" data-progress-note-write="readonly">封存資料僅供查閱；工作進度不可新增、修改或刪除。</div>` : "",
           floatingHtml: progressComposer,
@@ -2749,9 +2754,9 @@
       const taskChecklistPanel = body.querySelector("[data-task-checklist-panel]");
       const taskChecklistCount = taskChecklistPanel?.querySelector("[data-task-checklist-count]");
       if (taskChecklistCount) taskChecklistCount.textContent = taskChecklistCountMarkup(taskChecklistItems);
-      // EP-039 / GM-D009: the Golden Master owns the initial interaction
-      // state. Data presence must never auto-expand the shared Checklist.
-      if (taskChecklistPanel) taskChecklistPanel.open = false;
+      // The shared Checklist starts expanded for a newly opened Drawer. When
+      // the same Drawer is refreshed after a controlled action, retain the
+      // user's current open/closed choice; data loading must not change it.
       const verification = engineeringVerificationState(items);
       const pmAcceptanceItem = cTemplate ? null : items.find(isPmAcceptanceItem);
       const pmAcceptanceAction = document.getElementById("pmAcceptanceAction");

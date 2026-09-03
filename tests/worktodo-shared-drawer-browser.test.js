@@ -16,7 +16,7 @@ function runBrowser(browserExecutable) {
     "--disable-sync", "--window-size=1600,1000",
     `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-worktodo-drawer-"))}`,
     "--virtual-time-budget=2200", "--dump-dom",
-    `${pathToFileURL(FIXTURE).href}?consumer=worktodo-new`
+      `${pathToFileURL(FIXTURE).href}?consumer=worktodo-new&checklist-qa=1`
   ];
   return new Promise((resolve, reject) => {
     const child = spawn(browserExecutable, args, { encoding: "utf8" });
@@ -90,5 +90,11 @@ test("WorkTodo uses the Shared Task Drawer presentation contract at runtime", as
   assert.equal(audit.clearMode, "single");
   assert.equal(audit.clearDateInputs, 1);
   assert.equal(audit.checklistDisabled, false);
+  assert.equal(audit.checklistPanelOpen, true);
+  assert.equal(audit.checklistAddLabel, "新增 Checklist 項目");
+  assert.equal(audit.checklistAddPlaceholder, "新增 Checklist 項目…");
+  assert.equal(audit.checklistAutocomplete, "off");
+  assert.equal(audit.checklistPanelOpenAfterAdd, false, "新增 Checklist 後應保留使用者手動收合選擇");
+  assert.equal(audit.checklistAddSubmitCalls, 1);
   assert.equal(audit.urlLink, true);
 });

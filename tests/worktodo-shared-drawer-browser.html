@@ -251,6 +251,7 @@
       subscribe: async () => async () => {}
     };
     const agreementQaMode = new URLSearchParams(window.location.search).has("pm-qa");
+    const checklistQaMode = new URLSearchParams(window.location.search).has("checklist-qa");
     if (agreementQaMode) {
       document.getElementById("agreementQaControls").hidden = false;
       window.ZhugeBoardReadService.worktodoSetAgreementSchedule = async input => {
@@ -302,6 +303,10 @@
         hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),
         hasAgreedDateProperty: Boolean(document.querySelector('[data-task-property-action="agreement-schedule"]')),
         checklistDisabled: document.querySelector("[data-task-checklist-toggle]")?.disabled === true,
+        checklistPanelOpen: document.querySelector("[data-task-checklist-panel]")?.open === true,
+        checklistAddLabel: document.querySelector("[data-task-checklist-add] input")?.getAttribute("aria-label") || "",
+        checklistAddPlaceholder: document.querySelector("[data-task-checklist-add] input")?.getAttribute("placeholder") || "",
+        checklistAutocomplete: document.querySelector("[data-task-checklist-add] input")?.getAttribute("autocomplete") || "",
         urlLink: Boolean(document.querySelector('a[href="https://example.com/reference"]'))
       };
       if (!agreementQaMode) {
@@ -336,6 +341,25 @@
       if (!node) { node = document.createElement("pre"); node.id = "worktodo-shared-drawer-audit"; document.body.appendChild(node); }
       node.textContent = JSON.stringify(audit);
       node.dataset.audit = JSON.stringify(audit);
+      if (checklistQaMode && !window.__checklistQaScheduled) {
+        window.__checklistQaScheduled = true;
+        window.setTimeout(() => {
+          const panel = document.querySelector("[data-task-checklist-panel]");
+          const form = document.querySelector("[data-task-checklist-add]");
+          const input = form?.querySelector("input[name=label]");
+          if (!panel || !form || !input) return;
+          panel.open = false;
+          input.value = "新增後仍維持使用者選擇";
+          form.requestSubmit(form.querySelector("button[type=submit]"));
+          window.setTimeout(() => {
+            const nextAudit = JSON.parse(node.dataset.audit || "{}");
+            nextAudit.checklistPanelOpenAfterAdd = document.querySelector("[data-task-checklist-panel]")?.open === true;
+            nextAudit.checklistAddSubmitCalls = window.__worktodoChecklistCalls.filter(call => call.name === "board_add_task_checklist_item").length;
+            node.textContent = JSON.stringify(nextAudit);
+            node.dataset.audit = JSON.stringify(nextAudit);
+          }, 600);
+        }, 120);
+      }
     }
     setTimeout(() => {
       window.ZhugeBoardRuntime?.openTaskDetail(window.__fixtureTask);
