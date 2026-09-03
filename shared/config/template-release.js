@@ -20,10 +20,10 @@
   "publishedBuild": "20260903-0853",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260903-0853",
-  "sourceCommit": "cdef3640684adc621147286570f6f71de96a5dbb",
-  "sourceDirty": true,
-  "sourceFingerprint": "aa8a8e985596943290cfa1cbda10c381c022461a5e5fbeb40cac15177b7f1baf",
-  "publishedAt": "2026-09-01T09:10:43.712Z",
+  "sourceCommit": "749f2a91d313e7e92c0c44246a7918a5eea222c2",
+  "sourceDirty": false,
+  "sourceFingerprint": "a51781ab0b412b776a7b7dc5067f9f97928bbae94eeae3c9cc246e62d59e363e",
+  "publishedAt": "2026-09-03T00:59:51.736Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
@@ -36,6 +36,11 @@
       "status": "adopted"
     },
     "ai-board": {
+      "templateVersion": "0.9.0-alpha.9.13",
+      "build": "20260903-0853",
+      "status": "adopted"
+    },
+    "investment-ivtk": {
       "templateVersion": "0.9.0-alpha.9.13",
       "build": "20260903-0853",
       "status": "adopted"
@@ -108,7 +113,7 @@
     const identity = currentProductIdentity();
     if (identity.version !== RELEASE.publishedVersion) errors.push("product version does not match published template");
     if (identity.build !== RELEASE.publishedBuild) errors.push("product build does not match published template");
-    ["c", "worktodo", "ai-board"].forEach(consumerId => {
+    ["c", "worktodo", "ai-board", "investment-ivtk"].forEach(consumerId => {
       const adoption = RELEASE.consumers[consumerId];
       if (!adoption) errors.push(consumerId + " has no adoption record");
       else if (adoption.templateVersion !== RELEASE.publishedVersion || adoption.build !== RELEASE.publishedBuild) errors.push(consumerId + " adoption identity does not match published template");
