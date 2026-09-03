@@ -55,14 +55,14 @@ test("C publish UI sends the current identity and keeps legacy health check out 
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the C publish browser regression");
 
   const audit = await runBrowser(browserExecutable);
-  assert.equal(audit.build, "20260901-1709");
+  assert.equal(audit.build, "20260903-0853");
   assert.equal(audit.buttonBeforeClick, true);
   assert.equal(audit.buttonDisabledAfter, false);
   assert.equal(audit.publishCalls, 1);
   assert.deepEqual(audit.publishConsumerIds, ["c", "worktodo", "ai-board"]);
-  assert.equal(audit.publishBuild, "20260901-1709");
-  assert.deepEqual(audit.adoptCalls, ["c:20260901-1550", "c:20260901-1709"]);
-  assert.equal(audit.publishedBuild, "20260901-1709");
+  assert.equal(audit.publishBuild, "20260903-0853");
+  assert.deepEqual(audit.adoptCalls, ["c:20260901-1550", "c:20260903-0853"]);
+  assert.equal(audit.publishedBuild, "20260903-0853");
   assert.match(audit.feedback, /Published C 已更新/);
   assert.equal(audit.healthEntry, false);
 });

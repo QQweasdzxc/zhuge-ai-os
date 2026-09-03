@@ -341,10 +341,11 @@ ${healthCheckModal}
     if (typeof renderDrawer !== "function" || typeof drawer?.render !== "function") {
       return { ok: false, code: "SHARED_DRAWER_UNAVAILABLE" };
     }
-    if (["worktodo", "c_mdtk"].includes(String(consumer).toLowerCase())) {
+    if (["worktodo", "c_mdtk", "investment-ivtk"].includes(String(consumer).toLowerCase())) {
       const contract = adapter?.sharedDrawerContract;
       if (!contract || contract.ownsDrawer !== false || contract.viewModel !== "toSharedViewModel") {
-        return { ok: false, code: String(consumer).toLowerCase() === "worktodo" ? "WORKTODO_DRAWER_CONTRACT_INVALID" : "C_TEMPLATE_DRAWER_CONTRACT_INVALID" };
+        const normalizedConsumer = String(consumer).toLowerCase();
+        return { ok: false, code: normalizedConsumer === "worktodo" ? "WORKTODO_DRAWER_CONTRACT_INVALID" : normalizedConsumer === "investment-ivtk" ? "INVESTMENT_IVTK_DRAWER_CONTRACT_INVALID" : "C_TEMPLATE_DRAWER_CONTRACT_INVALID" };
       }
     }
     return { ok: true, code: "SHARED_DRAWER_CONTRACT_OK" };

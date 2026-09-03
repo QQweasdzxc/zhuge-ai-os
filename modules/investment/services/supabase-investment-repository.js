@@ -58,6 +58,9 @@
   function create(options = {}) {
     const data = options.data;
     const authUserId = String(options.userId || "");
+    // Board projection uses the same Shared Gateway facade as the module
+    // context.  It never receives or creates a Supabase client of its own.
+    const gateway = options.gateway || globalThis.ZhugeSupabaseGateway?.createDataGateway?.() || null;
     const sessionSnapshot = options.sessionSnapshot || {};
     const readSessionSnapshot = typeof options.getSessionSnapshot === "function"
       ? options.getSessionSnapshot
@@ -211,6 +214,10 @@
           id: row.item_id,
           userId: authUserId,
           portfolioId: header.portfolio_id,
+          sourceKind: "broker_snapshot_item",
+          sourceId: row.item_id,
+          sourceSnapshotId: header.id,
+          effectiveAt: header.snapshot_at,
           snapshotId: header.id,
           snapshotAt: header.snapshot_at,
           source: header.source,
@@ -264,8 +271,19 @@
         ...row,
         userId: authUserId,
         portfolioId: row.portfolio_id,
+        sourceKind: "opening_position",
+        sourceId: row.id,
+        effectiveAt: row.updated_at,
         source: row.source
       }));
+    }
+
+    // Keep one canonical current-position read path.  The repository's
+    // existing deterministic rule is latest PM-confirmed Broker Snapshot,
+    // otherwise legacy opening_positions; this alias makes the source
+    // explicit to the Investment module without duplicating a second query.
+    async function loadCurrentPositions() {
+      return loadPositions();
     }
 
     async function loadTransactions() {
@@ -332,6 +350,83 @@
       });
     }
 
+    async function loadIvtkBoard() {
+      if (!gateway || typeof gateway.select !== "function") {
+        const error = new Error("Shared Board Data Gateway 尚未就緒。");
+        error.code = "INVESTMENT_IVTK_GATEWAY_REQUIRED";
+        throw error;
+      }
+      const instances = await gateway.select(
+        "board_instances",
+        "?select=id,name,task_code_prefix,template_key,authorization_mode,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.c&task_code_prefix=eq.IVTK&is_template_instance=eq.false&legacy_application_scope=is.null&order=created_at.asc&limit=1"
+      );
+      const instance = first(instances);
+      if (!instance?.id) {
+        const error = new Error("Investment IVTK Board 尚未建立。");
+        error.code = "INVESTMENT_IVTK_BOARD_REQUIRED";
+        throw error;
+      }
+      const boardService = globalThis.ZhugeBoardReadService?.createInstanceService;
+      if (typeof boardService !== "function") {
+        const error = new Error("Shared C Board Read Service 尚未載入。");
+        error.code = "INVESTMENT_IVTK_BOARD_SERVICE_REQUIRED";
+        throw error;
+      }
+      const board = await boardService({
+        gateway,
+        boardInstanceId: instance.id,
+        consumerId: "investment-ivtk",
+        templateKey: "c"
+      }).load();
+      const owner = await legacyUser();
+      const links = await data.select(
+        "investment_ivtk_card_links",
+        `select=id,board_instance_id,board_task_id,user_id,portfolio_id,source_kind,source_id,card_kind,active,created_at,updated_at&user_id=eq.${encodeURIComponent(owner.id)}&board_instance_id=eq.${encodeURIComponent(instance.id)}&active=eq.true&order=created_at.asc`
+      );
+      return Object.freeze({
+        status: "ready",
+        instance: Object.freeze({
+          id: String(instance.id),
+          name: String(instance.name || "投資戰情板"),
+          taskCodePrefix: String(instance.task_code_prefix || "IVTK"),
+          templateKey: String(instance.template_key || "c"),
+          active: instance.active !== false
+        }),
+        ...board,
+        links: (Array.isArray(links) ? links : []).map(link => Object.freeze({
+          id: String(link.id || ""),
+          boardInstanceId: String(link.board_instance_id || ""),
+          boardTaskId: String(link.board_task_id || ""),
+          userId: String(link.user_id || ""),
+          portfolioId: String(link.portfolio_id || ""),
+          sourceKind: String(link.source_kind || ""),
+          sourceId: String(link.source_id || ""),
+          cardKind: String(link.card_kind || ""),
+          active: link.active !== false,
+          createdAt: link.created_at || null,
+          updatedAt: link.updated_at || null
+        }))
+      });
+    }
+
+    async function syncIvtkProjection() {
+      if (!gateway || typeof gateway.rpc !== "function") {
+        const error = new Error("Investment IVTK Controlled Write Gateway 尚未就緒。");
+        error.code = "INVESTMENT_IVTK_RPC_REQUIRED";
+        throw error;
+      }
+      return gateway.rpc("sync_investment_ivtk_projection", {});
+    }
+
+    async function repairIvtkIdentity() {
+      if (!gateway || typeof gateway.rpc !== "function") {
+        const error = new Error("Investment IVTK Identity Repair Gateway 尚未就緒。");
+        error.code = "INVESTMENT_IVTK_RPC_REQUIRED";
+        throw error;
+      }
+      return gateway.rpc("repair_investment_ivtk_identity", {});
+    }
+
     async function createBrokerPositionSnapshot(input = {}) {
       assertSession({ write: true });
       if (typeof data.rpc !== "function") {
@@ -377,6 +472,7 @@
       mode: "cloud",
       loadPortfolio,
       loadPositions,
+      loadCurrentPositions,
       loadTransactions,
       loadWatchlist,
       loadStrategies,
@@ -384,6 +480,9 @@
       loadLatestBrokerSnapshot,
       loadBrokerSnapshotReconciliation,
       createBrokerPositionSnapshot,
+      loadIvtkBoard,
+      syncIvtkProjection,
+      repairIvtkIdentity,
       getStatus
     });
   }

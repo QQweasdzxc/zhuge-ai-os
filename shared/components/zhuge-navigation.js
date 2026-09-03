@@ -62,8 +62,11 @@
     }, {});
   }
 
-  function consumerBoardItems(boardInstances, root) {
+  function consumerBoardItems(boardInstances, root, options = {}) {
     const base = String(root || "").replace(/\/?$/, "/");
+    // IVTK is the official Investment #portfolio runtime. It remains a C
+    // Board instance, but it must not become a second global navigation entry.
+    const excludedPrefixes = new Set(["IVTK", ...String(options.excludeBoardPrefixes || "").split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)]);
     return (Array.isArray(boardInstances) ? boardInstances : [])
       .filter(instance => instance?.id && instance.active !== false)
       .map(instance => {
@@ -73,6 +76,7 @@
         return {
           id,
           boardInstanceId: String(instance.id),
+          taskCodePrefix: prefix,
           icon: "▦",
           label: name,
           navLabel: prefix ? `${name}（${prefix}）` : name,
@@ -82,7 +86,8 @@
           visible: true,
           externalHref: `${base}app/Board/template-preview/?templateView=board&boardInstanceId=${encodeURIComponent(String(instance.id))}`
         };
-      });
+      })
+      .filter(item => !excludedPrefixes.has(String(item.taskCodePrefix || "").toUpperCase()));
   }
 
   function isVisible(item) {
@@ -139,7 +144,7 @@
     const syncTime = options.syncTime || "尚未同步";
     const build = options.build || release.build || "";
     const root = options.externalRoot || "";
-    const consumerItems = consumerBoardItems(options.boardInstances, root);
+    const consumerItems = consumerBoardItems(options.boardInstances, root, options);
     consumerItems.forEach(item => { registry[item.id] = item; });
     const collapsed = (() => { try { return global.localStorage?.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } })();
     const brand = root
@@ -173,7 +178,7 @@
   function placeholderFromMountedNode(node) {
     const target = document.createElement("div");
     target.id = "zhugeSharedNavigation";
-    ["externalRoot", "activeWorkspace", "activeBoardInstanceId", "templatePageId", "sharedNavigationDisabled", "version", "build", "syncTime"].forEach(key => {
+    ["externalRoot", "activeWorkspace", "activeBoardInstanceId", "templatePageId", "sharedNavigationDisabled", "excludeBoardPrefix", "version", "build", "syncTime"].forEach(key => {
       const value = node?.dataset?.[key];
       if (value != null && value !== "") target.dataset[key] = value;
     });
@@ -255,7 +260,7 @@
       shellTarget.dataset.sharedNavigationActive = "true";
     }
     const targetDataset = {};
-    ["externalRoot", "activeWorkspace", "activeBoardInstanceId", "templatePageId", "sharedNavigationDisabled", "version", "build", "syncTime"].forEach(key => {
+    ["externalRoot", "activeWorkspace", "activeBoardInstanceId", "templatePageId", "sharedNavigationDisabled", "excludeBoardPrefix", "version", "build", "syncTime"].forEach(key => {
       const value = target.dataset?.[key];
       if (value != null && value !== "") targetDataset[key] = value;
     });
@@ -294,6 +299,7 @@
     return {
       activeWorkspace: target?.dataset.activeWorkspace || "",
       activeBoardInstanceId: target?.dataset.activeBoardInstanceId || "",
+      excludeBoardPrefixes: target?.dataset.excludeBoardPrefix || "",
       externalRoot: target?.dataset.externalRoot || "",
       version: target?.dataset.version || release.version || "",
       build: target?.dataset.build || release.build || "",

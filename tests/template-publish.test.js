@@ -17,7 +17,7 @@ test("C publish metadata is generated and internally consistent", () => {
   assert.match(release.sourceCommit, /^[0-9a-f]{40}$/);
   assert.match(release.sourceFingerprint, /^[0-9a-f]{64}$/);
   assert.ok(release.publishedAt);
-  for (const consumerId of ["c", "worktodo", "ai-board"]) {
+  for (const consumerId of ["c", "worktodo", "ai-board", "investment-ivtk"]) {
     assert.deepEqual(release.consumers[consumerId], {
       templateVersion: release.publishedVersion,
       build: release.publishedBuild,
@@ -51,6 +51,10 @@ test("C, WorkTodo, and AI Board load one published template identity", () => {
     assert.match(html, /shared\/components\/golden-master-runtime\.js/);
   }
   assert.doesNotMatch(read("app/Board/template-preview/index.html"), /c-mtdk-store/);
+  const investment = read("modules/investment/index.html");
+  assert.ok(investment.includes(cacheBuster), `modules/investment/index.html is missing ${cacheBuster}`);
+  assert.match(read("modules/investment/index.html"), /template-parity-engine\.js/);
+  assert.doesNotMatch(read("modules/investment/index.html"), /golden-master-runtime\.js/);
 });
 
 test("Template Management Center exposes the published mother-template identity", () => {
@@ -69,4 +73,5 @@ test("Shared runtime exposes published adoption identity for every consumer", ()
   assert.equal(api.forConsumer("c").status, "stale");
   assert.equal(api.forConsumer("worktodo").consumerId, "worktodo");
   assert.equal(api.forConsumer("ai_board").consumerId, "ai-board");
+  assert.equal(api.forConsumer("investment-ivtk").consumerId, "investment-ivtk");
 });

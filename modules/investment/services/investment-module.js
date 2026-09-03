@@ -18,6 +18,13 @@
       positionCard: global.InvestmentPositionCard,
       importEngine: global.InvestmentScreenshotImportEngine,
       recognitionProvider: global.InvestmentRecognitionProvider,
+      goldenMaster: global.ZhugeGoldenMaster,
+      drawer: global.ZhugeSharedTaskDrawer,
+      parity: global.ZhugeTemplateParityEngine,
+      actionContract: global.ZhugeSharedTaskActionContract,
+      actionAdapters: global.ZhugeSharedTaskActionAdapters,
+      releaseService: global.ZhugeModulePublishService,
+      ivtk: global.InvestmentIVTKBoardAdapter,
       version: global.InvestmentConfig.version
     };
   }
@@ -132,7 +139,7 @@
   function accessShell(content, options = {}) {
     const title = global.InvestmentSafeHtml.escape(options.title || "Investment");
     const description = global.InvestmentSafeHtml.escape(options.description || "投資模組｜受保護的工作空間");
-    return `<div class="zhuge-module-shell workspace-shell investment-module-shell investment-access-shell" data-shared-navigation-mode="template-only" data-template-page-id="investment"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-template-page-id="investment" data-shared-navigation-disabled="true"></div><div class="app workspace-app investment-app"><div id="zhugeSharedHeader" data-zhuge-shared-header data-title="${title}" data-description="${description}"></div><main class="investment-access-content">${content}</main></div></div>`;
+    return `<div class="zhuge-module-shell workspace-shell investment-module-shell investment-access-shell" data-shared-navigation-mode="template-only" data-template-page-id="investment"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-template-page-id="investment" data-shared-navigation-disabled="true" data-exclude-board-prefix="IVTK"></div><div class="app workspace-app investment-app"><div id="zhugeSharedHeader" data-zhuge-shared-header data-title="${title}" data-description="${description}"></div><main class="investment-access-content">${content}</main></div></div>`;
   }
 
   function mountAccessShell(root, options = {}) {
@@ -271,6 +278,7 @@
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
         data: context.data,
+        gateway: global.ZhugeSupabaseGateway?.createDataGateway?.(),
         sessionSnapshot: context.session.getSnapshot(),
         getSessionSnapshot: () => context.session.getSnapshot(),
         allowAal1Read: access.bypassedMfa === true
@@ -377,6 +385,16 @@
         global.ZhugeComponents.Summary.update(pageRoot, markup);
         lastRenderedPageMarkup = markup;
       }
+      if (["portfolio", "watchlist"].includes(state.activePage)) {
+        const surface = pageRoot?.querySelector?.("[data-golden-master-surface]");
+        if (surface && typeof dependencies.ivtk?.createRuntimeBridge === "function") {
+          global.ZhugeBoardRuntime = dependencies.ivtk.createRuntimeBridge(state, pageDependencies, { root: global, boardRoot: surface, refresh: load });
+          const parity = global.ZhugeBoardRuntime.runParityGuard({ trigger: "runtime", silent: true });
+        }
+      } else if (global.ZhugeBoardRuntime?.consumer === "investment-ivtk") {
+        delete global.ZhugeBoardRuntime;
+      }
+      global.ZhugeMotherTemplateRelease?.applyToDocument?.("investment-ivtk");
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
@@ -574,11 +592,19 @@
     }
 
     async function load() {
-      store.update({ status: "loading", identity, error: null });
+      store.update({
+        status: "loading",
+        identity,
+        error: null,
+        ivtk: Object.freeze({ status: "loading", board: null, projection: null, projectionStatus: "loading", error: null })
+      });
       renderPage();
+      const loadCurrentPositions = typeof repository.loadCurrentPositions === "function"
+        ? repository.loadCurrentPositions
+        : repository.loadPositions;
       const [portfolio, positions, transactions, watchlist, strategies, settings] = await Promise.all([
         repository.loadPortfolio(),
-        repository.loadPositions(),
+        loadCurrentPositions(),
         repository.loadTransactions(),
         repository.loadWatchlist(),
         repository.loadStrategies(),
@@ -593,7 +619,46 @@
         watchlist,
         strategies,
         settings,
+        currentPositionSource: positions.some(position => position.sourceKind === "broker_snapshot_item")
+          ? "broker_snapshot"
+          : "opening_positions",
         loadedAt: new Date().toISOString()
+      });
+
+      let projection = null;
+      let projectionError = null;
+      if (typeof repository.repairIvtkIdentity === "function") {
+        try {
+          await repository.repairIvtkIdentity();
+        } catch (error) {
+          projectionError = error;
+        }
+      }
+      if (!projectionError && typeof repository.syncIvtkProjection === "function") {
+        try {
+          projection = await repository.syncIvtkProjection();
+        } catch (error) {
+          projectionError = error;
+        }
+      }
+
+      let board = null;
+      let boardError = null;
+      if (typeof repository.loadIvtkBoard === "function") {
+        try {
+          board = await repository.loadIvtkBoard();
+        } catch (error) {
+          boardError = error;
+        }
+      }
+      store.update({
+        ivtk: Object.freeze({
+          status: board ? "ready" : "error",
+          board,
+          projection,
+          projectionStatus: projectionError ? "blocked" : "ready",
+          error: boardError || projectionError
+        })
       });
       renderPage();
     }

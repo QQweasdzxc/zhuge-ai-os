@@ -19,6 +19,14 @@
       performance: null,
       todayFocus: [],
       marketEvents: [],
+      currentPositionSource: "unknown",
+      ivtk: Object.freeze({
+        status: "idle",
+        board: null,
+        projection: null,
+        projectionStatus: "idle",
+        error: null
+      }),
       settings: null,
       error: null,
       loadedAt: null
