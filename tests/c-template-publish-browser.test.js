@@ -8,6 +8,7 @@ const { spawn } = require("node:child_process");
 const { resolveBrowserExecutable } = require("./browser-executable");
 
 const FIXTURE = path.join(__dirname, "c-template-publish-browser.html");
+const RELEASE_IDENTITY = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "version.json"), "utf8"));
 
 function runBrowser(browserExecutable) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-c-publish-"));
@@ -55,14 +56,14 @@ test("C publish UI sends the current identity and keeps legacy health check out 
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the C publish browser regression");
 
   const audit = await runBrowser(browserExecutable);
-  assert.equal(audit.build, "20260903-0853");
+  assert.equal(audit.build, RELEASE_IDENTITY.build);
   assert.equal(audit.buttonBeforeClick, true);
   assert.equal(audit.buttonDisabledAfter, false);
   assert.equal(audit.publishCalls, 1);
   assert.deepEqual(audit.publishConsumerIds, ["c", "worktodo", "ai-board"]);
-  assert.equal(audit.publishBuild, "20260903-0853");
-  assert.deepEqual(audit.adoptCalls, ["c:20260901-1550", "c:20260903-0853"]);
-  assert.equal(audit.publishedBuild, "20260903-0853");
+  assert.equal(audit.publishBuild, RELEASE_IDENTITY.build);
+  assert.deepEqual(audit.adoptCalls, ["c:20260901-1550", `c:${RELEASE_IDENTITY.build}`]);
+  assert.equal(audit.publishedBuild, RELEASE_IDENTITY.build);
   assert.match(audit.feedback, /Published C 已更新/);
   assert.equal(audit.healthEntry, false);
 });
