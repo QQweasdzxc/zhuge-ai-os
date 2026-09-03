@@ -19,6 +19,11 @@
       importEngine: global.InvestmentScreenshotImportEngine,
       recognitionProvider: global.InvestmentRecognitionProvider,
       goldenMaster: global.ZhugeGoldenMaster,
+      drawer: global.ZhugeSharedTaskDrawer,
+      parity: global.ZhugeTemplateParityEngine,
+      actionContract: global.ZhugeSharedTaskActionContract,
+      actionAdapters: global.ZhugeSharedTaskActionAdapters,
+      releaseService: global.ZhugeModulePublishService,
       ivtk: global.InvestmentIVTKBoardAdapter,
       version: global.InvestmentConfig.version
     };
@@ -380,6 +385,16 @@
         global.ZhugeComponents.Summary.update(pageRoot, markup);
         lastRenderedPageMarkup = markup;
       }
+      if (["portfolio", "watchlist"].includes(state.activePage)) {
+        const surface = pageRoot?.querySelector?.("[data-golden-master-surface]");
+        if (surface && typeof dependencies.ivtk?.createRuntimeBridge === "function") {
+          global.ZhugeBoardRuntime = dependencies.ivtk.createRuntimeBridge(state, pageDependencies, { root: global, boardRoot: surface, refresh: load });
+          const parity = global.ZhugeBoardRuntime.runParityGuard({ trigger: "runtime", silent: true });
+        }
+      } else if (global.ZhugeBoardRuntime?.consumer === "investment-ivtk") {
+        delete global.ZhugeBoardRuntime;
+      }
+      global.ZhugeMotherTemplateRelease?.applyToDocument?.("investment-ivtk");
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");

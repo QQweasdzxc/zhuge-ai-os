@@ -1,10 +1,10 @@
 ---
 id: TASK-16
 title: Investment Portfolio IVTK Board Runtime Integration
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-09-02 17:29'
-updated_date: '2026-09-02 22:07'
+updated_date: '2026-09-02 22:42'
 labels: []
 dependencies: []
 priority: high
@@ -40,6 +40,16 @@ ordinal: 16000
 
 驗證進度：Investment 相關 47/47 PASS；全站 Node 回歸 403 tests、397 PASS、0 FAIL、6 skipped（僅瀏覽器測試因未設定 CHROME_PATH 跳過）。Cloud read-back：IVTK instance 已啟用，active workspace 為 股票投資／觀察名單，active links 0，current positions 8，opening_positions 8，transactions 3，watchlists 0，broker snapshots 0；QAT-001 仍在 archived qat-todo。正式 authenticated Runtime 尚待將本分支發布後驗證。
 <!-- SECTION:NOTES:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @Co
+created: 2026-09-02 22:42
+---
+PM Runtime Review 判定先前的 Deployment/Runtime PASS 不等於 Formal Delivery；目前重新開啟，待 TASK-16.1 完成 C Mother Template Parity、Release Identity 與 Candidate ZIP 後交 PM QA。
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 

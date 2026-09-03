@@ -410,47 +410,22 @@ button { color: inherit; }
 @keyframes investment-import-pulse {
   50% { opacity: .38; transform: scale(.78); }
 }
-/* IVTK is the Investment product's data adapter over the shared C board
- * presentation.  These rules add financial-data density only; the board,
- * card and column structure continues to come from the shared Golden Master. */
-.investment-ivtk-runtime { min-width: 0; margin-top: 6px; }
-.investment-ivtk-runtime-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin: 6px 0 2px; padding: 16px 0 0; }
-.investment-ivtk-runtime-heading h2 { margin: 4px 0 6px; font-size: clamp(1.2rem, 2vw, 1.55rem); }
-.investment-ivtk-runtime-heading p { margin: 0; color: var(--investment-muted); line-height: 1.55; }
-.investment-ivtk-runtime-meta { display: grid; justify-items: end; gap: 6px; flex: 0 0 auto; }
-.investment-ivtk-runtime-meta small { color: var(--investment-muted); }
-.investment-ivtk-status-chip { display: inline-flex; align-items: center; border: 1px solid rgba(67, 211, 146, .42); border-radius: 999px; padding: 5px 9px; color: var(--investment-loss); background: rgba(67, 211, 146, .09); font-size: .72rem; font-weight: 700; }
-.investment-ivtk-status-chip.is-pending { border-color: rgba(245, 185, 66, .42); color: #ffd481; background: rgba(245, 185, 66, .08); }
+/* IVTK is only an Investment data adapter over the C Mother Template.
+ * These selectors are data-slot treatments; they intentionally do not
+ * override the shared board, workspace, card, drawer, or responsive rules. */
+.investment-ivtk-runtime { min-width: 0; }
 .investment-ivtk-status { display: grid; gap: 7px; margin: 16px 0; border: 1px solid var(--investment-line); border-radius: var(--zhuge-radius-md); padding: 18px; background: var(--investment-panel); }
 .investment-ivtk-status strong { font-size: 1rem; }
 .investment-ivtk-status span, .investment-ivtk-status small { color: var(--investment-muted); line-height: 1.55; }
 .investment-ivtk-status-pending { border-color: rgba(245, 185, 66, .38); }
-.investment-ivtk-board { padding-top: 4px; }
-.investment-ivtk-board .shared-task-board-column { background: color-mix(in srgb, var(--investment-panel) 88%, #06101e 12%); border-color: var(--investment-line); }
-.investment-ivtk-board .shared-task-board-column-header { min-height: 52px; height: auto; padding: 10px 14px; background: rgba(16, 38, 65, .72); border-bottom-color: var(--investment-line); }
-.investment-ivtk-board .shared-task-board-cards { min-height: 360px; padding: 10px; }
-.investment-module-shell .investment-ivtk-board .shared-task-board-column .shared-task-card { height: auto; min-height: 184px; padding: 13px; border-color: rgba(83, 127, 171, .42); background: var(--investment-panel-soft); cursor: default; }
-.investment-module-shell .investment-ivtk-board .shared-task-board-column .shared-task-card:hover { transform: none; border-color: rgba(109, 184, 255, .65); box-shadow: 0 8px 24px rgba(0, 0, 0, .24); }
-.investment-module-shell .investment-ivtk-board .shared-task-card-title { margin: 0 0 2px; font-size: 1rem; }
-.investment-module-shell .investment-ivtk-board .shared-task-card-summary { margin: 0 0 10px; color: var(--investment-muted); }
-.investment-ivtk-card.gain { border-color: rgba(255, 107, 120, .42) !important; }
-.investment-ivtk-card.loss { border-color: rgba(67, 211, 146, .42) !important; }
-.investment-ivtk-card-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 0 9px; }
-.investment-ivtk-card-metrics div, .investment-ivtk-watchlist-metrics div { display: grid; gap: 3px; min-width: 0; border: 1px solid rgba(83, 127, 171, .24); border-radius: 8px; padding: 7px; background: rgba(6, 16, 30, .34); }
-.investment-ivtk-card-metrics dt, .investment-ivtk-watchlist-metrics dt { color: var(--investment-muted); font-size: .65rem; }
-.investment-ivtk-card-metrics dd, .investment-ivtk-watchlist-metrics dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; font-weight: 700; }
-.investment-ivtk-card-pnl { display: flex; justify-content: space-between; gap: 8px; align-items: center; border-radius: 8px; padding: 8px 9px; font-size: .76rem; }
-.investment-ivtk-card-pnl.gain { color: var(--investment-gain); background: rgba(255, 107, 120, .11); }
-.investment-ivtk-card-pnl.loss { color: var(--investment-loss); background: rgba(67, 211, 146, .11); }
-.investment-ivtk-card-pnl strong { text-align: right; }
-.investment-ivtk-card-source { color: var(--investment-muted); font-size: .68rem; }
-.investment-ivtk-watchlist-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 9px; }
-.investment-ivtk-watchlist-reason { margin: 0; color: var(--investment-muted); font-size: .76rem; line-height: 1.45; }
+.investment-ivtk-card-indicator { display: inline-flex; align-items: center; max-width: 100%; border-radius: 999px; padding: 3px 7px; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.investment-ivtk-card-indicator.gain { color: var(--investment-gain); background: rgba(255, 107, 120, .11); }
+.investment-ivtk-card-indicator.loss { color: var(--investment-loss); background: rgba(67, 211, 146, .11); }
+.investment-ivtk-card-indicator.watchlist { color: #9dc8ff; background: rgba(109, 184, 255, .11); }
+.investment-ivtk-card-data-slot { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; color: var(--investment-muted); font-size: .72rem; line-height: 1.45; }
+.investment-ivtk-card-data-slot span { min-width: 0; }
 .investment-ivtk-pending-note { margin: 0; border: 1px dashed rgba(245, 185, 66, .45); border-radius: 8px; padding: 10px; color: #ffd481; background: rgba(245, 185, 66, .06); font-size: .72rem; line-height: 1.45; }
-.investment-ivtk-source-note { margin: 0; color: var(--investment-muted); font-size: .72rem; line-height: 1.5; }
-
-@media (max-width: 700px) {
-  .investment-ivtk-runtime-heading { display: grid; gap: 8px; }
-  .investment-ivtk-runtime-meta { justify-items: start; }
-  .investment-ivtk-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.investment-ivtk-drawer-data { display: grid; gap: 8px; margin: 12px 0 0; }
+.investment-ivtk-drawer-data div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(83, 127, 171, .2); padding-bottom: 6px; }
+.investment-ivtk-drawer-data dt { color: var(--investment-muted); }
+.investment-ivtk-drawer-data dd { margin: 0; text-align: right; }

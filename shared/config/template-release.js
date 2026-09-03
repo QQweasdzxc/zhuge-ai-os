@@ -15,11 +15,11 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260901-1709",
+  "developmentBuild": "20260903-0853",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260901-1709",
+  "publishedBuild": "20260903-0853",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260901-1709",
+  "build": "20260903-0853",
   "sourceCommit": "cdef3640684adc621147286570f6f71de96a5dbb",
   "sourceDirty": true,
   "sourceFingerprint": "aa8a8e985596943290cfa1cbda10c381c022461a5e5fbeb40cac15177b7f1baf",
@@ -27,17 +27,17 @@
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260901-1709",
+      "build": "20260903-0853",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260901-1709",
+      "build": "20260903-0853",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260901-1709",
+      "build": "20260903-0853",
       "status": "adopted"
     }
   }
