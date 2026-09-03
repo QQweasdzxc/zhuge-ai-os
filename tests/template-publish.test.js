@@ -17,7 +17,7 @@ test("C publish metadata is generated and internally consistent", () => {
   assert.match(release.sourceCommit, /^[0-9a-f]{40}$/);
   assert.match(release.sourceFingerprint, /^[0-9a-f]{64}$/);
   assert.ok(release.publishedAt);
-  for (const consumerId of ["c", "worktodo", "ai-board", "investment-ivtk"]) {
+  for (const consumerId of ["c", "worktodo", "ai-board", "investment-ivtk", "worklog-procurement"]) {
     assert.deepEqual(release.consumers[consumerId], {
       templateVersion: release.publishedVersion,
       build: release.publishedBuild,
@@ -44,7 +44,8 @@ test("C, WorkTodo, and AI Board load one published template identity", () => {
   for (const file of [
     "app/Board/template-preview/index.html",
     "app/Board/worktodo/index.html",
-    "app/Board/ai/index.html"
+    "app/Board/ai/index.html",
+    "app/Board/procurement/index.html"
   ]) {
     const html = read(file);
     assert.ok(html.includes(cacheBuster), `${file} is missing ${cacheBuster}`);
@@ -74,4 +75,5 @@ test("Shared runtime exposes published adoption identity for every consumer", ()
   assert.equal(api.forConsumer("worktodo").consumerId, "worktodo");
   assert.equal(api.forConsumer("ai_board").consumerId, "ai-board");
   assert.equal(api.forConsumer("investment-ivtk").consumerId, "investment-ivtk");
+  assert.equal(api.forConsumer("worklog-procurement").consumerId, "worklog-procurement");
 });

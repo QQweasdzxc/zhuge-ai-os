@@ -19,6 +19,13 @@ test("A/B/C are one canonical template registry and page adoption defaults off",
   assert.equal(service.isTemplateEnabled({ pageId: "ai-board", templateId: "navigation", userId: USER_ID }), false);
   assert.equal(service.isTemplateEnabled({ pageId: "ai-board", templateId: "not-a-template", userId: USER_ID }), false);
   assert.equal(Policy.PAGE_REGISTRY["tasks-new"].supportedTemplates.includes("board"), true);
+  assert.deepEqual(Policy.PAGE_REGISTRY.management.requiredTemplates, ["navigation"]);
+  assert.deepEqual(Policy.PAGE_REGISTRY.procurement.requiredTemplates, ["navigation", "board"]);
+  assert.deepEqual(Policy.PAGE_REGISTRY.investment.requiredTemplates, ["board"]);
+  assert.equal(service.isTemplateEnabled({ pageId: "management", templateId: "navigation", userId: USER_ID }), true);
+  assert.equal(service.isTemplateEnabled({ pageId: "procurement", templateId: "navigation", userId: USER_ID }), true);
+  assert.equal(service.isTemplateEnabled({ pageId: "procurement", templateId: "board", userId: USER_ID }), true);
+  assert.equal(service.isTemplateEnabled({ pageId: "investment", templateId: "board", userId: USER_ID }), true);
   assert.deepEqual(
     Object.values(Policy.PAGE_REGISTRY)
       .filter(page => page.supportedTemplates.includes("workspace"))
@@ -55,6 +62,17 @@ test("template adoption uses guarded Cloud RPCs and never local storage", async 
   await assert.rejects(service.setEnabled({ pageId: "ai-board", templateId: "navigation", userId: "other-user", isCreator: false, enabled: true }), /Creator/);
 });
 
+test("required A consumers cannot be disabled by adoption settings", async () => {
+  const calls = [];
+  const service = Policy.createService({ dataGateway: { rpc: async (name, args) => { calls.push({ name, args }); } } });
+  await service.load({ userId: USER_ID, isCreator: true });
+  await assert.rejects(
+    service.setEnabled({ pageId: "management", templateId: "navigation", userId: USER_ID, isCreator: true, enabled: false }),
+    error => error?.code === "REQUIRED_TEMPLATE_CANNOT_DISABLE"
+  );
+  assert.deepEqual(calls, [{ name: "get_creator_template_adoption_preferences", args: {} }]);
+});
+
 test("Template Management Center derives consumers and counts from the canonical Registry", async () => {
   const service = Policy.createService({
     dataGateway: {
@@ -86,13 +104,13 @@ test("Template Management Center derives consumers and counts from the canonical
   });
 
   assert.deepEqual(models.map(model => model.template.id), ["navigation", "workspace", "board"]);
-  assert.equal(models.find(model => model.template.id === "navigation").consumers.length, 9);
+  assert.equal(models.find(model => model.template.id === "navigation").consumers.length, 10);
   assert.equal(models.find(model => model.template.id === "workspace").consumers.length, 1);
   assert.deepEqual(models.find(model => model.template.id === "workspace").consumers.map(page => page.id), ["worklog"]);
-  assert.deepEqual(models.find(model => model.template.id === "board").consumers.map(page => page.id), ["ai-board", "tasks-new"]);
-  assert.equal(models.find(model => model.template.id === "navigation").enabledCount, 1);
+  assert.deepEqual(models.find(model => model.template.id === "board").consumers.map(page => page.id), ["procurement", "investment", "ai-board", "tasks-new"]);
+  assert.equal(models.find(model => model.template.id === "navigation").enabledCount, 3);
   assert.equal(models.find(model => model.template.id === "workspace").enabledCount, 1);
-  assert.equal(models.find(model => model.template.id === "board").enabledCount, 1);
+  assert.equal(models.find(model => model.template.id === "board").enabledCount, 3);
 });
 
 test("Template Management Center bind waits for a policy event instead of scheduling a render loop", async () => {

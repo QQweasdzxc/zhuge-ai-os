@@ -50,6 +50,29 @@ Consumer 不得自行持有、複製、Override 或 Fork：
 - Empty State、Loading State、Modal
 - Responsive Rules、Interaction Rules、Default Interaction State
 
+## One Module, Separate Data
+
+Zhuge AI OS 的組合原則是「一個模組、各自資料」：
+
+```text
+Module A (Navigation) = one canonical source
+Module C (Board)      = one canonical source
+
+Management       = A + management data
+GAS              = A + C + GAS data + WorkLog ownership
+Investment IVTK  = A + C + Investment data + Investment ownership
+```
+
+Consumer 直接 mount／compose 正式 Module Source；Consumer 只提供自己的
+Data、Ownership、Identity、Permission、Capability 與 Business Data Slots。
+Data Content 可以不同，但不得建立 Consumer-specific Navigation、Board、
+Workspace、Card、Drawer 或以複製 CSS 取得的相似實作。若 PM 修改 A 或 C，
+所有正式 Consumer 應透過同一份 Source 自然取得變更。
+
+已從 A／C 正式移除的 Capability，不得透過 Consumer、Legacy Runtime、
+Adopt／Merge 或 Deployment 再次出現。Machine Parity 用來偵測 Source
+Identity 與 Drift，不能作為維護多份 Module Copy 的替代方案。
+
 ## Zero Consumer Presentation Rule
 
 ```text

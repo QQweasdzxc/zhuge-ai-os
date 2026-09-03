@@ -14,6 +14,7 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   const config = read("shared/app-config.js");
   const worklog = read("modules/worklog/worklog-app.js");
   const procurement = read("app/Board/procurement/index.html");
+  const policy = read("shared/services/template-adoption-policy.js");
 
   assert.match(navigation, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true/);
   assert.match(navigation, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true/);
@@ -21,6 +22,9 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   assert.match(navigation, /\["worklog", "tasks-new", "procurement", "investment"\]/);
   assert.match(config, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true/);
   assert.match(config, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true/);
+  assert.match(policy, /management: Object\.freeze\(\{[\s\S]*requiredTemplates: Object\.freeze\(\["navigation"\]\)/);
+  assert.match(policy, /procurement: Object\.freeze\(\{[\s\S]*supportedTemplates: Object\.freeze\(\["navigation", "board"\]\), requiredTemplates: Object\.freeze\(\["navigation", "board"\]\)/);
+  assert.match(policy, /investment: Object\.freeze\(\{[\s\S]*supportedTemplates: Object\.freeze\(\["navigation", "board"\]\), requiredTemplates: Object\.freeze\(\["board"\]\)/);
 
   const sync = worklog.slice(worklog.indexOf("function sync()"), worklog.indexOf("function nextKnowledgeId()"));
   assert.match(worklog, /function management\(\)/);
@@ -66,6 +70,8 @@ test("Investment keeps one portfolio C view and consolidates Watchlist as a work
   assert.match(moduleSource, /if \(state\.activePage === "portfolio"\)/);
   assert.doesNotMatch(entry, /pages\/watchlist-page\.js/);
   assert.match(adapter, /renderBoard\(\{/);
+  assert.doesNotMatch(adapter, /investment-ivtk-fallback-board/);
+  assert.doesNotMatch(adapter, /<article class=\"\$\{escape\(options\.className/);
   assert.match(adapter, /data-investment-source-kind/);
   assert.match(adapter, /readOnly: true/);
   assert.doesNotMatch(adapter, /board_tasks[\s\S]{0,240}(quantity|market_value|unrealized_pnl)/i);

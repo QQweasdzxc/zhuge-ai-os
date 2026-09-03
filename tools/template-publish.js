@@ -19,6 +19,7 @@ const HTML_FILES = [
   "app/Board/template-preview/index.html",
   "app/Board/worktodo/index.html",
   "app/Board/ai/index.html",
+  "app/Board/procurement/index.html",
   "modules/worklog/index.html",
   "modules/investment/index.html"
 ];
@@ -92,7 +93,8 @@ function createRecord() {
       c: adoption("c"),
       worktodo: adoption("worktodo"),
       "ai-board": adoption("ai-board"),
-      "investment-ivtk": adoption("investment-ivtk")
+      "investment-ivtk": adoption("investment-ivtk"),
+      "worklog-procurement": adoption("worklog-procurement")
     }
   };
 }
@@ -117,7 +119,7 @@ function check() {
   expect(record.build === record.publishedBuild, "build must match publishedBuild");
   expect(record.sourceCommit && record.sourceCommit !== "PENDING_GENERATION", "sourceCommit must be generated");
   expect(record.sourceFingerprint && record.sourceFingerprint === sourceFingerprint(), "sourceFingerprint must match canonical source");
-  ["c", "worktodo", "ai-board", "investment-ivtk"].forEach(consumer => {
+  ["c", "worktodo", "ai-board", "investment-ivtk", "worklog-procurement"].forEach(consumer => {
     const adoption = record.consumers?.[consumer];
     expect(adoption, `${consumer} adoption record is missing`);
     if (adoption) {

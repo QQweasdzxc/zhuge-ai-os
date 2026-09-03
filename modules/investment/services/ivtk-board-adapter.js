@@ -103,7 +103,7 @@
     const card = dependencies.card || (typeof globalThis !== "undefined" ? globalThis.ZhugeSharedTaskCard : null);
     if (typeof card?.render === "function") return card.render(options);
     const escape = dependencies.escape || (value => String(value == null ? "" : value));
-    return `<article class="${escape(options.className || "investment-ivtk-card")}"><div class="shared-task-card-code">${escape(options.code || "")}</div><h3>${escape(options.title || "")}</h3>${options.bodyHtml || ""}</article>`;
+    return `<div class="shared-capability-unavailable" data-shared-capability="c-card" role="status"><strong>模組 C 卡片尚未載入</strong><span>${escape(options.title || "Investment Card")}</span></div>`;
   }
 
   function buildColumn(workspace, state, dependencies, options = {}) {
@@ -188,7 +188,7 @@
         emptyText: "目前沒有可顯示的 Investment Cloud 資料。",
         columns
       })
-      : `<div class="investment-ivtk-fallback-board">${columns.map(column => `<section><h3>${escape(column.name)}</h3>${column.cardsHtml || `<p>${escape(column.emptyText)}</p>`}</section>`).join("")}</div>`;
+      : `<div class="shared-capability-unavailable" data-shared-capability="c-board" role="status"><strong>模組 C 看板尚未載入</strong><span>Investment 不會建立另一套看板呈現。</span></div>`;
     const projectionDetail = [
       Number.isFinite(Number(projection.position_count)) ? `持倉 ${projection.position_count}` : "",
       Number.isFinite(Number(projection.watchlist_count)) ? `觀察 ${projection.watchlist_count}` : ""
@@ -202,7 +202,7 @@
         statusHtml: `${statusHtml}<span class="golden-master-toolbar-status" data-investment-ivtk-count>${escape(projectionDetail || "Investment Cloud")}</span>`,
         legend: "Investment Cloud 是金融資料來源；卡片只呈現目前投影，不由卡片推導交易。"
       })
-      : `<div class="golden-master-toolbar" data-golden-master-toolbar="true">${statusHtml}</div>`;
+      : `<div class="shared-capability-unavailable" data-shared-capability="c-toolbar" role="status"><strong>模組 C 工具列尚未載入</strong><span>${statusHtml}</span></div>`;
     return `<section class="empty-golden-master investment-ivtk-runtime" data-golden-master="investment-ivtk" data-golden-master-data="cloud" data-golden-master-surface data-template-consumer="investment-ivtk">${toolbarHtml}<div data-golden-master-board-mount>${boardHtml}</div><div class="golden-master-drawer-host" data-golden-master-drawer-host></div></section>`;
   }
 

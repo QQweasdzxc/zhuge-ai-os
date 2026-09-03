@@ -108,7 +108,9 @@
     const consumers = [
       ["c", "C 母版"],
       ["worktodo", "工作待辦"],
-      ["ai-board", "AI Board"]
+      ["ai-board", "AI Board"],
+      ["investment-ivtk", "Investment／投資組合"],
+      ["worklog-procurement", "庶務行政／GAS"]
     ].map(([id, label]) => {
       const adoption = release.consumers?.[id];
       const version = adoption?.templateVersion || "—";
@@ -122,7 +124,7 @@
   function renderConsumerRows(model, snapshot) {
     if (!model.rows.length) return `<div class="template-management-empty">目前沒有正式支援此 Template 的 Consumer。</div>`;
     const canModify = isReady(snapshot) && snapshot.isCreator;
-    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">Capability</span><span role="columnheader">Adoption State</span><span role="columnheader">操作</span></div>${model.rows.map(({ page, enabled }) => `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">🟢 正式支援</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${adoptionLabel(snapshot, enabled)}</span></span><span role="cell"><label class="template-management-switch"><span class="sr-only">${escapeHtml(page.label)} 套用 ${escapeHtml(model.template.code)}｜${escapeHtml(model.template.label)}</span><input type="checkbox" data-template-management-switch data-page-id="${escapeHtml(page.id)}" data-template-id="${escapeHtml(model.template.id)}" ${enabled ? "checked" : ""} ${canModify ? "" : "disabled"}><span class="template-management-switch-track" aria-hidden="true"></span></label></span></div>`).join("")}</div>`;
+    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">Capability</span><span role="columnheader">Adoption State</span><span role="columnheader">操作</span></div>${model.rows.map(({ page, enabled }) => { const required = page.requiredTemplates?.includes(model.template.id); const switchDisabled = required || !canModify; return `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">${required ? "🔒 核心必用" : "🟢 正式支援"}</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${adoptionLabel(snapshot, enabled)}</span></span><span role="cell"><label class="template-management-switch"><span class="sr-only">${escapeHtml(page.label)} 套用 ${escapeHtml(model.template.code)}｜${escapeHtml(model.template.label)}</span><input type="checkbox" data-template-management-switch data-page-id="${escapeHtml(page.id)}" data-template-id="${escapeHtml(model.template.id)}" ${enabled ? "checked" : ""} ${switchDisabled ? "disabled" : ""}><span class="template-management-switch-track" aria-hidden="true"></span></label></span></div>`; }).join("")}</div>`;
   }
 
   function render(options = {}) {

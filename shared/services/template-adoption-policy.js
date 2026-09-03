@@ -25,9 +25,16 @@
     worklog: Object.freeze({ id: "worklog", label: "WorkLog", supportedTemplates: Object.freeze(["navigation", "workspace"]) }),
     library: Object.freeze({ id: "library", label: "Knowledge", supportedTemplates: Object.freeze(["navigation"]) }),
     sync: Object.freeze({ id: "sync", label: "控制台", supportedTemplates: Object.freeze(["navigation"]) }),
-    management: Object.freeze({ id: "management", label: "管理功能", supportedTemplates: Object.freeze(["navigation"]) }),
+    // Management is a first-class system destination.  Its existing content
+    // is independent from A, but its navigation is not optional: hiding it
+    // would make the page lose the canonical shell composition.
+    management: Object.freeze({ id: "management", label: "管理功能", supportedTemplates: Object.freeze(["navigation"]), requiredTemplates: Object.freeze(["navigation"]) }),
+    // WorkLog's administrative consumer composes the same A as every other
+    // workspace.  The page registry owns this capability declaration; the
+    // page itself must not grow a second navigation implementation.
+    procurement: Object.freeze({ id: "procurement", label: "庶務行政", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["navigation", "board"]) }),
     settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
-    investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation"]) }),
+    investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["board"]) }),
     "ai-board": Object.freeze({ id: "ai-board", label: "AI Board", supportedTemplates: Object.freeze(["navigation", "board"]) }),
     "tasks-new": Object.freeze({ id: "tasks-new", label: "工作待辦", supportedTemplates: Object.freeze(["navigation", "board"]) })
   });
@@ -101,6 +108,7 @@
       const page = pageDefinition(pageId);
       const template = templateDefinition(templateId);
       if (!page || !template || !page.supportedTemplates.includes(template.id)) return false;
+      if (page.requiredTemplates?.includes(template.id)) return true;
       return getPolicy(userId).pages?.[page.id]?.[template.id] === true;
     }
 
@@ -139,6 +147,11 @@
       if (!isCreator) {
         const error = new Error("只有 Creator 可以變更系統模板套用設定。");
         error.code = "CREATOR_CAPABILITY_REQUIRED";
+        throw error;
+      }
+      if (page.requiredTemplates?.includes(template.id) && enabled !== true) {
+        const error = new Error(`${page.label} 必須使用正式 ${template.code}｜${template.label}，不能停用。`);
+        error.code = "REQUIRED_TEMPLATE_CANNOT_DISABLE";
         throw error;
       }
       if (!dataGateway || typeof dataGateway.rpc !== "function") throw new Error("Template Adoption Cloud RPC 尚未載入。");

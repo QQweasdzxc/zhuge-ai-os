@@ -1,5 +1,14 @@
 # Zhuge AI OS v0.9.0-alpha.9.13
 
+## A/C Canonical Composition Repair — 20260903-1359
+
+- Version: `0.9.0-alpha.9.13`
+- Build: `20260903-1359`
+- Restored direct Module A composition for 管理功能 and 庶務行政.
+- Registered 庶務行政/GAS and Investment IVTK as consumers of the canonical C
+  runtime; no consumer-specific board/card fallback remains.
+- Formal Candidate and PM QA are required; deployment is not acceptance.
+
 ## A/C Shared Composition — 庶務行政/GAS and Investment IVTK Candidate
 
 - Version: `0.9.0-alpha.9.13`
