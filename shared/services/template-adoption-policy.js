@@ -32,12 +32,11 @@
     // WorkLog's administrative consumer composes the same A as every other
     // workspace.  The page registry owns this capability declaration; the
     // page itself must not grow a second navigation implementation.
-    settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
     procurement: Object.freeze({ id: "procurement", label: "庶務行政", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["navigation", "board"]) }),
+    settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
     investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["board"]) }),
     "ai-board": Object.freeze({ id: "ai-board", label: "AI Board", supportedTemplates: Object.freeze(["navigation", "board"]) }),
-    "tasks-new": Object.freeze({ id: "tasks-new", label: "工作待辦", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["navigation", "board"]) }),
-    procurement: Object.freeze({ id: "procurement", label: "庶務行政", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["navigation", "board"]) })
+    "tasks-new": Object.freeze({ id: "tasks-new", label: "工作待辦", supportedTemplates: Object.freeze(["navigation", "board"]) })
   });
 
   const DEFAULT_POLICY = Object.freeze({

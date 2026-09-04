@@ -124,6 +124,7 @@ test("IVTK transform and repair preserve the canonical first-card identity", () 
     path.join(__dirname, "../../modules/investment/services/supabase-investment-repository.js"),
     "utf8"
   );
-  assert.match(repositorySource, /repair_investment_ivtk_identity/);
-  assert.match(moduleSource, /repairIvtkIdentity/);
+  assert.match(repositorySource, /board_resolve_consumer_instance/);
+  assert.match(moduleSource, /loadIvtkBoard/);
+  assert.doesNotMatch(moduleSource, /await repository\.repairIvtkIdentity\(\)/);
 });

@@ -124,3 +124,21 @@
   .zhuge-module-shell .board-header-status-popover{position:fixed;right:12px;top:74px;width:min(520px,calc(100vw - 24px));max-height:calc(100vh - 88px);overflow:auto}
   .zhuge-module-shell .board-header-status-actions{grid-template-columns:1fr}
 }
+
+/* Module C Workspace Settings — Cloud-only notification configuration */
+.workspace-settings-backdrop{position:fixed;inset:0;z-index:100;background:#07101acc;display:grid;place-items:center;padding:20px}
+.workspace-settings-dialog{box-sizing:border-box;width:min(560px,100%);max-height:min(760px,calc(100vh - 40px));overflow:auto;background:#151c26;border:1px solid #3c4b61;border-radius:10px;box-shadow:0 20px 50px #000b;color:#e8edf5;padding:20px}
+.workspace-settings-dialog header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid #344052;padding-bottom:14px}
+.workspace-settings-dialog header strong{display:block;font-size:16px}
+.workspace-settings-dialog header small{display:block;margin-top:5px;color:#8ea0b8;font-size:11px}
+.workspace-settings-dialog header button{border:0;background:transparent;color:#aebbd0;font-size:22px;cursor:pointer}
+.workspace-settings-dialog .ws-field{display:flex;flex-direction:column;gap:7px;margin:13px 0}
+.workspace-settings-dialog .ws-field>span{font-size:12px;color:#aebbd0}
+.workspace-settings-dialog input[type=text],.workspace-settings-dialog textarea{box-sizing:border-box;width:100%;border:1px solid #344052;border-radius:7px;background:#0e141d;color:#eef3f9;padding:9px 10px;font:inherit}
+.workspace-settings-dialog input:disabled{opacity:.7}
+.workspace-settings-dialog .ws-check{display:block;margin:7px 0;font-size:13px}
+.workspace-settings-dialog .ws-divider{margin:18px 0 10px;padding-top:14px;border-top:1px solid #344052;color:#8ea0b8;font-size:12px;text-align:center}
+.workspace-settings-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.workspace-settings-dialog footer button{border:1px solid #3a4658;border-radius:7px;background:#202a39;color:#e8edf5;padding:8px 14px;cursor:pointer}
+.workspace-settings-dialog footer button.primary{background:#285f4d;border-color:#34765f}
+.workspace-settings-dialog footer button:disabled{opacity:.55;cursor:not-allowed}

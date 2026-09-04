@@ -37,11 +37,11 @@ test("Generic C provisioning is a single authenticated Cloud contract", async ()
       return { board_instance_id: "qa-instance" };
     }
   };
-  const result = await BoardReadService.provisionConsumer({ name: "QA Template Board", prefix: "QAT", templateKey: "c" }, { gateway });
+  const result = await BoardReadService.provisionConsumer({ name: "QA Template Board", prefix: "QAT", templateKey: "c", applicationScope: "qa" }, { gateway });
   assert.deepEqual(result, { board_instance_id: "qa-instance" });
   assert.deepEqual(calls, [{
     name: "board_provision_consumer",
-    args: { p_name: "QA Template Board", p_task_code_prefix: "QAT", p_template_key: "c" }
+    args: { p_name: "QA Template Board", p_task_code_prefix: "QAT", p_template_key: "c", p_application_scope: "qa" }
   }]);
 });
 
@@ -89,6 +89,7 @@ test("C Runtime exposes name/prefix provisioning without a consumer-specific sou
   assert.match(header, /建立看板/);
   assert.match(operations, /id="consumerBoardName"/);
   assert.match(operations, /id="consumerBoardPrefix"/);
+  assert.match(operations, /id="consumerBoardScope"/);
   assert.match(operations, /建立並套用 C 母版/);
   assert.match(operations, /data-consumer-create-status|id="consumerCreateStatus"/);
   assert.doesNotMatch(operations, /c-mtdk-store|localStorage/);
@@ -109,10 +110,54 @@ test("Shared Navigation renders registry-driven C consumer routes", () => {
   assert.match(rendered, /class="side-item on/);
 });
 
+test("PM GAS route is named under WorkLog while the applied-board registry remains Cloud-owned", () => {
+  const navigation = navigationApi();
+  const rendered = navigation.render({
+    externalRoot: "/",
+    boardInstances: [
+      { id: "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9", name: "庶務行政", taskCodePrefix: "GAS", templateKey: "c", active: true },
+      { id: "qa-instance", name: "QA Template Board", taskCodePrefix: "QAT", templateKey: "c", active: true }
+    ]
+  });
+  assert.match(rendered, /庶務行政（GAS）/);
+  assert.match(rendered, /app\/Board\/procurement\//);
+  assert.equal((rendered.match(/data-shared-nav-item="procurement"/g) || []).length, 1);
+  assert.doesNotMatch(rendered, /consumer-board:38d8d4b1-6d01-4d58-835b-b2beb61fc6b9/);
+  assert.match(rendered, /QA Template Board（QAT）/);
+});
+
+test("GAS runtime resolves the PM Board Instance directly without route RPC", async () => {
+  const calls = [];
+  const boardInstanceId = "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9";
+  const gateway = {
+    async select(table, query) {
+      calls.push({ type: "select", table, query });
+      return [{ id: boardInstanceId, name: "庶務行政（GAS）", task_code_prefix: "GAS", template_key: "c", active: true }];
+    },
+    async rpc(name, args) {
+      calls.push({ type: "rpc", name, args });
+      throw new Error(`unexpected RPC: ${name}`);
+    }
+  };
+  const service = BoardReadService.createInstanceService({
+    templateKey: "c",
+    applicationScope: "procurement",
+    boardInstanceId,
+    consumerId: "worklog-procurement",
+    gateway
+  });
+  const instance = await service.resolveInstance();
+  assert.equal(instance.id, boardInstanceId);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].type, "select");
+  assert.match(calls[0].query, /id=eq\.38d8d4b1-6d01-4d58-835b-b2beb61fc6b9/);
+});
+
 test("Provisioning migration is atomic, generic, and initializes the C default workspace set", () => {
-  const migration = read("docs/supabase/20260829_generic_c_consumer_provisioning.sql");
+  const migration = read("docs/supabase/20260903_board_consumer_route_lifecycle.sql");
   assert.match(migration, /create or replace function public\.board_provision_consumer/);
-  assert.match(migration, /grant execute on function public\.board_provision_consumer\(text, text, text\) to authenticated/);
+  assert.match(migration, /grant execute on function public\.board_provision_consumer\(text, text, text, text\) to authenticated/);
+  assert.match(migration, /legacy_application_scope = v_scope/);
   assert.match(migration, /'待辦'/);
   assert.match(migration, /'進行中'/);
   assert.match(migration, /'待驗收'/);
@@ -121,6 +166,7 @@ test("Provisioning migration is atomic, generic, and initializes the C default w
   assert.match(migration, /v_instance\.id::text/);
   assert.match(migration, /commit;/i);
   assert.doesNotMatch(migration, /insert into public\.board_tasks/);
+  assert.doesNotMatch(migration, /prefix does not match the requested route/);
 });
 
 test("Generic consumer creation closes the anonymous low-level instance ACL", () => {

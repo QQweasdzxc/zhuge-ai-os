@@ -43,7 +43,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
   assert.match(nav, /sectionHeadingMarkup/);
   assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
-  assert.match(nav, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true/);
+  assert.match(nav, /procurement: \{ icon: "🧾", label: "庶務行政（GAS）", group: "camp-child", enabled: true, visible: true/);
   assert.match(nav, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true/);
   assert.match(nav, /function isVisible\(item\)/);
   assert.match(nav, /ids\.filter\(id => isVisible\(registry\[id\]\)\)/);

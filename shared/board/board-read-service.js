@@ -421,6 +421,24 @@
     return gateway;
   }
 
+  async function invokeWorkspaceNotification(gateway, taskId, workspaceId) {
+    if (!gateway || typeof gateway.invokeFunction !== "function" || !taskId || !workspaceId) return null;
+    try {
+      return await gateway.invokeFunction("workspace-email-notification", {
+        task_id: String(taskId),
+        workspace_id: String(workspaceId)
+      });
+    } catch (error) {
+      // Card movement is authoritative. Email is a best-effort Cloud side
+      // effect and must never roll back a successful move or make the shared
+      // Board unusable when the Function is not deployed yet.
+      if (typeof root.console?.warn === "function") {
+        root.console.warn("Workspace Email notification failed after Cloud move", error);
+      }
+      return null;
+    }
+  }
+
   function normalizeBoardInstance(row = {}) {
     return Object.freeze({
       id: String(row.id || ""),
@@ -432,6 +450,8 @@
       legacyApplicationScope: String(row.legacy_application_scope || row.legacyApplicationScope || ""),
       isTemplateInstance: row.is_template_instance === true || row.isTemplateInstance === true,
       active: row.active !== false,
+      archivedAt: row.archived_at || row.archivedAt || null,
+      archivedBy: String(row.archived_by || row.archivedBy || ""),
       createdAt: row.created_at || row.createdAt || null,
       updatedAt: row.updated_at || row.updatedAt || null
     });
@@ -756,6 +776,24 @@
     return gateway.rpc("board_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeWorkspace);
   }
 
+  async function getWorkspaceNotificationSettings(workspaceId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_get_workspace_notification_settings", { p_workspace_id: workspaceId });
+  }
+
+  async function saveWorkspaceNotificationSettings(workspaceId, settings = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_save_workspace_notification_settings", {
+      p_workspace_id: workspaceId,
+      p_enabled: Boolean(settings.enabled),
+      p_notify_assignee: Boolean(settings.notifyAssignee),
+      p_notify_reporter: Boolean(settings.notifyReporter),
+      p_custom_emails: Array.isArray(settings.customEmails) ? settings.customEmails : [],
+      p_subject_template: String(settings.subjectTemplate || ""),
+      p_body_template: String(settings.bodyTemplate || "")
+    });
+  }
+
   async function deleteWorkspaceWithContract(workspaceId, targetWorkspaceId, requestRpc, finalizeRpc, moveTask, options = {}) {
     const gateway = options.gateway || requireGateway();
     const manifest = await gateway.rpc(requestRpc, { p_workspace_id: workspaceId });
@@ -826,11 +864,14 @@
 
   async function moveTaskWorkspace(taskId, targetWorkspaceId, note = "", options = {}) {
     const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_move_task_workspace", {
+    const moved = await gateway.rpc("board_move_task_workspace", {
       p_task_id: taskId,
       p_target_workspace_id: targetWorkspaceId,
       p_note: note || null
-    }).then(normalizeTask);
+    });
+    const normalized = normalizeTask(moved);
+    await invokeWorkspaceNotification(gateway, normalized.id || taskId, normalized.workspaceId || targetWorkspaceId);
+    return normalized;
   }
 
   async function governanceAction(taskId, action, targetTaskId = null, reason = "", options = {}) {
@@ -869,10 +910,20 @@
 
   async function worktodoUpdateTask(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
-    return gateway.rpc("worktodo_update_task", {
+    const patch = input.patch && typeof input.patch === "object" ? input.patch : {};
+    const updated = await gateway.rpc("worktodo_update_task", {
       p_task_id: input.taskId,
-      p_patch: input.patch && typeof input.patch === "object" ? input.patch : {}
-    }).then(normalizeTask);
+      p_patch: patch
+    });
+    const normalized = normalizeTask(updated);
+    // WorkTodo uses its own controlled update RPC for status/workspace
+    // changes. The Edge Function verifies the authoritative movement audit;
+    // content-only edits therefore do not trigger a notification.
+    if (Object.prototype.hasOwnProperty.call(patch, "workspace_id")
+      || Object.prototype.hasOwnProperty.call(patch, "status")) {
+      await invokeWorkspaceNotification(gateway, normalized.id || input.taskId, normalized.workspaceId);
+    }
+    return normalized;
   }
 
   async function worktodoDeleteTask(taskId, options = {}) {
@@ -1110,6 +1161,7 @@
   function createInstanceService(instanceOptions = {}) {
     const gateway = instanceOptions.gateway || requireGateway();
     const templateKey = String(instanceOptions.templateKey || "c").trim().toLowerCase();
+    const applicationScope = String(instanceOptions.applicationScope || instanceOptions.routeScope || "").trim().toLowerCase();
     const requestedBoardInstanceId = String(instanceOptions.boardInstanceId || "").trim();
     const requestedConsumerId = String(instanceOptions.consumerId || requestedBoardInstanceId || "c").trim();
     let instancePromise;
@@ -1117,7 +1169,9 @@
       if (!instancePromise) {
         instancePromise = (requestedBoardInstanceId
           ? gateway.select("board_instances", `?select=*&id=eq.${encodeURIComponent(requestedBoardInstanceId)}&active=eq.true`)
-          : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
+          : applicationScope
+            ? gateway.rpc("board_resolve_consumer_instance", { p_application_scope: applicationScope })
+            : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
         ).then(value => {
           const instance = requestedBoardInstanceId
             ? (Array.isArray(value) ? value[0] : value)
@@ -1141,8 +1195,11 @@
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
       const result = await load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
+      const consumerScope = applicationScope || "c";
       return Object.freeze({
         ...result,
+        workspaces: result.workspaces.map(workspace => Object.freeze({ ...workspace, applicationScope: consumerScope })),
+        tasks: result.tasks.map(task => Object.freeze({ ...task, applicationScope: consumerScope })),
         boardName: String(instance.name || ""),
         taskCodePrefix: String(instance.task_code_prefix || ""),
         templateKey: String(instance.template_key || templateKey),
@@ -1167,6 +1224,22 @@
       await resolveInstance();
       return gateway.rpc("board_instance_rename_workspace", { p_workspace_id: workspaceId, p_name: name }).then(normalizeInstanceWorkspace);
     }
+    async function instanceGetWorkspaceNotificationSettings(workspaceId) {
+      await resolveInstance();
+      return gateway.rpc("board_get_workspace_notification_settings", { p_workspace_id: workspaceId });
+    }
+    async function instanceSaveWorkspaceNotificationSettings(workspaceId, settings = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_save_workspace_notification_settings", {
+        p_workspace_id: workspaceId,
+        p_enabled: Boolean(settings.enabled),
+        p_notify_assignee: Boolean(settings.notifyAssignee),
+        p_notify_reporter: Boolean(settings.notifyReporter),
+        p_custom_emails: Array.isArray(settings.customEmails) ? settings.customEmails : [],
+        p_subject_template: String(settings.subjectTemplate || ""),
+        p_body_template: String(settings.bodyTemplate || "")
+      });
+    }
     async function instanceDeleteWorkspace(workspaceId) {
       await resolveInstance();
       return gateway.rpc("board_instance_delete_workspace", { p_workspace_id: workspaceId });
@@ -1177,7 +1250,10 @@
     }
     async function instanceMoveTaskWorkspace(taskId, workspaceId, reason = "") {
       await resolveInstance();
-      return gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null }).then(normalizeInstanceTask);
+      const moved = await gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null });
+      const normalized = normalizeInstanceTask(moved);
+      await invokeWorkspaceNotification(gateway, normalized.id || taskId, normalized.workspaceId || workspaceId);
+      return normalized;
     }
     async function instanceCreateTask(input = {}) {
       const instance = await resolveInstance();
@@ -1324,7 +1400,7 @@
       throw error;
     }
     return Object.freeze({
-      applicationScope: "c",
+      applicationScope: applicationScope || "c",
       templateKey,
       consumerId: requestedConsumerId,
       boardInstanceId: requestedBoardInstanceId,
@@ -1345,6 +1421,8 @@
       isGovernanceTerminal,
       createWorkspace: instanceCreateWorkspace,
       renameWorkspace: instanceRenameWorkspace,
+      getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
+      saveWorkspaceNotificationSettings: instanceSaveWorkspaceNotificationSettings,
       deleteWorkspace: instanceDeleteWorkspace,
       reorderWorkspaces: instanceReorderWorkspaces,
       moveTaskWorkspace: instanceMoveTaskWorkspace,
@@ -1375,14 +1453,66 @@
 
   async function provisionConsumer(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
-    const args = {
+    return gateway.rpc("board_provision_consumer", {
       p_name: String(input.name || "").trim(),
       p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
-      p_template_key: String(input.templateKey || "c").trim().toLowerCase()
-    };
-    const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
-    if (applicationScope) args.p_application_scope = applicationScope;
-    return gateway.rpc("board_provision_consumer", args);
+      p_template_key: String(input.templateKey || "c").trim().toLowerCase(),
+      p_application_scope: String(input.applicationScope || input.routeScope || "").trim().toLowerCase()
+    });
+  }
+
+  async function resolveConsumerInstance(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const applicationScope = String(input.applicationScope || input.routeScope || "").trim().toLowerCase();
+    if (!applicationScope) {
+      const error = new Error("Board consumer route scope is required.");
+      error.code = "BOARD_CONSUMER_SCOPE_REQUIRED";
+      throw error;
+    }
+    const value = await gateway.rpc("board_resolve_consumer_instance", {
+      p_application_scope: applicationScope
+    });
+    const row = Array.isArray(value) ? value[0] : value;
+    if (!row?.id) {
+      const error = new Error("指定的 Board Consumer 尚未建立或尚未完成路由掛載。");
+      error.code = "BOARD_CONSUMER_INSTANCE_NOT_FOUND";
+      throw error;
+    }
+    return normalizeBoardInstance(row);
+  }
+
+  async function assignConsumerScope(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = await gateway.rpc("board_assign_consumer_scope", {
+      p_board_instance_id: input.boardInstanceId || input.id,
+      p_application_scope: String(input.applicationScope || input.routeScope || "").trim().toLowerCase()
+    });
+    const row = Array.isArray(value) ? value[0] : value;
+    return normalizeBoardInstance(row);
+  }
+
+  async function renameBoardInstance(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = await gateway.rpc("board_rename_instance", {
+      p_board_instance_id: input.boardInstanceId || input.id,
+      p_name: String(input.name || "").trim()
+    });
+    const row = Array.isArray(value) ? value[0] : value;
+    return normalizeBoardInstance(row);
+  }
+
+  async function archiveBoardInstance(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_archive_instance", {
+      p_board_instance_id: input.boardInstanceId || input.id
+    });
+  }
+
+  async function deleteBoardInstance(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_delete_instance", {
+      p_board_instance_id: input.boardInstanceId || input.id
+    });
   }
 
   function governanceRunnerUrl(options = {}) {
@@ -1476,6 +1606,8 @@
     transitionTask,
     createWorkspace,
     renameWorkspace,
+    getWorkspaceNotificationSettings,
+    saveWorkspaceNotificationSettings,
     deleteWorkspace,
     reorderWorkspaces,
     worktodoRenameWorkspace,
@@ -1513,6 +1645,11 @@
     taskAttachmentUrl,
     createInstanceService,
     provisionConsumer,
+    resolveConsumerInstance,
+    assignConsumerScope,
+    renameBoardInstance,
+    archiveBoardInstance,
+    deleteBoardInstance,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     runHealthCheck,

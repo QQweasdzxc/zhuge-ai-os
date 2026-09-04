@@ -142,6 +142,7 @@
     const pendingHtml = pendingCount
       ? `<p class="investment-ivtk-pending-note">${pendingCount} 筆 Investment 資料尚在等待 IVTK 關聯同步。</p>`
       : "";
+    const menuButton = `<button class="workspace-menu" type="button" data-workspace-menu="${String(workspace.id || "").replace(/&/g, "&amp;").replace(/\"/g, "&quot;")}" title="工作區操作" aria-label="工作區操作" aria-haspopup="menu" aria-expanded="false">⋮</button>`;
     return {
       id: workspace.id,
       key: workspace.key,
@@ -157,7 +158,7 @@
       className: "",
       readOnly: true,
       reorderable: false,
-      controlsHtml: ""
+      controlsHtml: menuButton
     };
   }
 
@@ -357,6 +358,9 @@
       if (typeof goldenMaster?.bindBoard === "function") {
         goldenMaster.bindBoard(boardRoot, { canDragCard: () => false, canReorderColumn: () => false, onCardDrop: () => moveTaskToWorkspace(), onColumnDrop: () => moveTaskToWorkspace() });
       }
+      root?.ZhugeGoldenMasterWorkspaceSettings?.bind?.(boardRoot, state.ivtk?.board?.workspaces || [], {
+        service: dependencies.workspaceNotificationService || null
+      });
       if (!boardRoot.dataset.investmentIvtkRuntimeBound) {
         boardRoot.addEventListener("click", event => {
           const current = boardRoot.__investmentIvtkRuntime;

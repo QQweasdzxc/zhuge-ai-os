@@ -428,10 +428,13 @@ html[data-template-view="navigation"] .template-view-navigation > .workspace-app
 html[data-template-view="navigation"] .template-view-navigation > .sidebar-backdrop,
 html[data-template-view="navigation"] .template-view-navigation > .floating-assistant-widget { display: none !important; }
 html[data-template-view="workspace"] .zhuge-module-shell {
-  /* Module B is canonically consumed as A + B. Keep the shared Module A
-   * navigation mounted; B remains the existing WorkLog workspace content. */
+  display: block;
+  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
 }
-html[data-template-view="workspace"] .template-view-workspace > .workspace-app { min-width: 0; }
+html[data-template-view="workspace"] .template-view-workspace > .os-sidebar,
+html[data-template-view="workspace"] .template-view-workspace > .sidebar-backdrop,
+html[data-template-view="workspace"] .template-view-workspace > .floating-assistant-widget { display: none !important; }
+html[data-template-view="workspace"] .template-view-workspace > .workspace-app { width: 100%; padding: 0; }
 html[data-template-view="board"] .zhuge-module-shell {
   grid-template-columns: minmax(0, 1fr);
 }

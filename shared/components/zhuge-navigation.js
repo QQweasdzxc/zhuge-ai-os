@@ -9,6 +9,9 @@
 
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
   const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
+  // This existing C consumer is routed through WorkLog's canonical GAS page;
+  // keep the same Board Instance out of the generic Applied Boards list.
+  const ROUTED_CONSUMER_INSTANCE_IDS = new Set(["38d8d4b1-6d01-4d58-835b-b2beb61fc6b9"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
@@ -24,7 +27,7 @@
     "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true, visible: true },
     // WorkLog's administrative consumer uses the canonical A/C composition.
     // Keep the route key stable while exposing the PM-approved product name.
-    procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true },
+    procurement: { icon: "🧾", label: "庶務行政（GAS）", group: "camp-child", enabled: true, visible: true },
     hr: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     travel: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     library: { icon: "📚", label: "Knowledge", group: "system", enabled: true, visible: true },
@@ -71,9 +74,9 @@
     const base = String(root || "").replace(/\/?$/, "/");
     // IVTK is the official Investment #portfolio runtime. It remains a C
     // Board instance, but it must not become a second global navigation entry.
-    const excludedPrefixes = new Set(["IVTK", "GAS", ...String(options.excludeBoardPrefixes || "").split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)]);
+    const excludedPrefixes = new Set(["IVTK", ...String(options.excludeBoardPrefixes || "").split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)]);
     return (Array.isArray(boardInstances) ? boardInstances : [])
-      .filter(instance => instance?.id && instance.active !== false)
+      .filter(instance => instance?.id && instance.active !== false && !ROUTED_CONSUMER_INSTANCE_IDS.has(String(instance.id)))
       .map(instance => {
         const id = `consumer-board:${instance.id}`;
         const prefix = String(instance.taskCodePrefix || "").trim().toUpperCase();

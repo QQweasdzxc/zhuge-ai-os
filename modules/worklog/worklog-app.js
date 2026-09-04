@@ -3262,11 +3262,8 @@ function worklogTemplatePageId(workspaceId = activeWorkspace) {
 function sharedNavigationTargetMarkup() {
   const pageId = IS_SYSTEM_TEMPLATE_VIEW ? "" : worklogTemplatePageId(activeWorkspace);
   const isNavigationTemplate = SYSTEM_TEMPLATE_VIEW === "navigation";
-  const isWorkspaceTemplate = SYSTEM_TEMPLATE_VIEW === "workspace";
   const pageAttribute = pageId ? ` data-template-page-id="${escapeHtml(pageId)}"` : "";
-  // Canonical Module B is A + B: keep the existing shared Module A mounted
-  // when viewing the B/workspace template. No duplicate navigation is created.
-  const disabledAttribute = (isNavigationTemplate || isWorkspaceTemplate) ? "" : ' data-shared-navigation-disabled="true"';
+  const disabledAttribute = isNavigationTemplate ? "" : ' data-shared-navigation-disabled="true"';
   return `<div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="${escapeHtml(activeWorkspace)}"${pageAttribute}${disabledAttribute}></div>`;
 }
 

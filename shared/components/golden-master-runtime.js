@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -78,6 +78,18 @@
     const adoption = release.adoption || null;
     const currentVersion = adoption?.moduleVersion || adoption?.templateVersion || "";
     const currentBuild = adoption?.build || "";
+    if (!isMotherTemplate) {
+      return {
+        hidden: true,
+        state: "shared",
+        title: "同步狀態與工具",
+        current: "",
+        latest: "",
+        detail: "Consumer 直接使用唯一 C；母版發布與採用管理只在 C 母版管理端提供。",
+        showAdoptAction: false,
+        actionLabel: "共用狀態",
+      };
+    }
     if (isMotherTemplate) {
       return {
         hidden: false,
@@ -316,19 +328,13 @@
     }
   }
   function mountCTemplateReleasePanel() {
-    if (state.applicationScope !== "c" || state.showTemplateReleasePanel === false) {
-      const host = document.getElementById("canonicalCTemplatePreview");
-      if (host) host.hidden = true;
-      return;
-    }
+    if (state.applicationScope !== "c" || !state.boardIsTemplate) return;
     root.ZhugeCanonicalCTemplatePreview?.mountBanner?.(document.getElementById("canonicalCTemplatePreview"), {
-      title: state.boardIsTemplate ? "C 唯一看板母版" : (state.boardName || "C Consumer 看板"),
-      description: state.boardIsTemplate
-        ? "MDTK canonical Cloud · 完整套用 Shared Board / Card / Drawer 操作"
-        : `${state.taskCodePrefix || "C"} canonical Cloud · 採用 Published C Shared Board / Card / Drawer 操作`,
+      title: "C 唯一看板母版",
+      description: "MDTK canonical Cloud · 完整套用 Shared Board / Card / Drawer 操作",
       consumerId: moduleConsumerId("c"),
-      consumerOnly: !state.boardIsTemplate,
-      consumerLabel: state.boardIsTemplate ? "C 母版" : (state.boardName || state.taskCodePrefix || "本看板")
+      consumerOnly: false,
+      consumerLabel: "C 母版"
     });
   }
   function activeService() {
@@ -451,6 +457,10 @@
     const consumer = queryParameter("consumer");
     return consumer === "worklog-procurement" || /\/app\/Board\/procurement\/(?:index\.html)?$/i.test(path);
   }
+  function isInvestmentMode() {
+    const path = String(root.location?.pathname || "");
+    return /\/modules\/investment\/(?:index\.html)?\/?$/i.test(path);
+  }
   function isCTemplateMode() {
     const path = String(root.location?.pathname || "");
     return String(document.body?.dataset?.templatePageId || "") === "template-c"
@@ -467,7 +477,7 @@
   }
   function defaultBoardWorkspaceKey() {
     if (state.applicationScope === "worktodo") return "worktodo-todo";
-    if (state.applicationScope === "procurement") return "procurement-gas";
+    if (state.applicationScope === "procurement") return `${boardTaskPrefix()}-todo`;
     if (state.applicationScope === "c") return `${boardTaskPrefix()}-todo`;
     return "todo";
   }
@@ -549,7 +559,7 @@
   function isCanonicalCompletionKey(value) {
     const key = String(value || "").trim().toLowerCase();
     return key === "completed" || key === "worktodo-completed" || key === "mdtk-completed"
-      || (state.applicationScope === "c" && key === `${boardTaskPrefix()}-completed`);
+      || ((state.applicationScope === "c" || state.applicationScope === "procurement") && key === `${boardTaskPrefix()}-completed`);
   }
   function isCompletionWorkspace(workspace) {
     const key = String(workspace?.key || "").trim().toLowerCase();
@@ -1217,15 +1227,22 @@
     menu.className = "workspace-action-menu";
     menu.setAttribute("role", "menu");
     menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\" title=\"只修改顯示名稱，不改 Canonical workspace key\">重新命名</button>"
+      + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"settings\">⚙️ 工作區設定</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"delete\">刪除工作區</button>";
     header.appendChild(menu);
     button.setAttribute("aria-expanded", "true");
     const renameButton = menu.querySelector("[data-workspace-action=rename]");
+    const settingsButton = menu.querySelector("[data-workspace-action=settings]");
     const deleteButton = menu.querySelector("[data-workspace-action=delete]");
     renameButton.onclick = event => {
       event.stopPropagation();
       closeWorkspaceMenus();
       beginWorkspaceRename(button, workspace);
+    };
+    settingsButton.onclick = event => {
+      event.stopPropagation();
+      closeWorkspaceMenus();
+      openWorkspaceSettings(workspace);
     };
     if (!isWorkspaceDeletable(workspace)) {
       deleteButton.disabled = true;
@@ -1247,6 +1264,118 @@
     };
     renameButton.focus();
   }
+  async function openWorkspaceSettings(workspace, options = {}) {
+    if (!workspace?.id) return;
+    const service = options.service || activeService();
+    const notify = typeof options.setBanner === "function" ? options.setBanner : setBanner;
+    if (typeof service?.getWorkspaceNotificationSettings !== "function"
+      || typeof service?.saveWorkspaceNotificationSettings !== "function") {
+      notify("工作區通知設定尚未部署至 Cloud。", "error");
+      return;
+    }
+    notify("正在讀取工作區 Cloud 設定…", "loading");
+    let settings = {};
+    try {
+      settings = await service.getWorkspaceNotificationSettings(workspace.id) || {};
+    } catch (error) {
+      notify("工作區設定讀取失敗：" + esc(error?.message || "Cloud 無法讀取設定。"), "error");
+      return;
+    }
+    document.querySelector("[data-workspace-settings-modal]")?.remove();
+    const modal = document.createElement("div");
+    modal.className = "workspace-settings-backdrop";
+    modal.dataset.workspaceSettingsModal = workspace.id;
+    const custom = Array.isArray(settings.custom_emails) ? settings.custom_emails.join(", ") : "";
+    const subject = settings.subject_template || "{{卡片編號}} 已進入{{工作區名稱}}";
+    const body = settings.body_template || "您的案件 {{卡片編號}}「{{卡片名稱}}」目前已進入「{{工作區名稱}}」。";
+    modal.innerHTML = `<section class="workspace-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workspaceSettingsTitle">
+      <header><div><strong id="workspaceSettingsTitle">工作區設定｜${esc(workspace.name)}</strong><small>設定只保存於此 Board 的 Cloud Workspace，不使用本地儲存。</small></div><button type="button" data-ws-close aria-label="關閉">×</button></header>
+      <label class="ws-field"><span>工作區名稱</span><input type="text" value="${esc(workspace.name)}" disabled></label>
+      <div class="ws-divider">進入此工作區時</div>
+      <label class="ws-check"><input type="checkbox" data-ws-enabled ${settings.enabled ? "checked" : ""}> 寄送 Email 通知</label>
+      <div class="ws-field"><span>通知對象</span>
+        <label class="ws-check"><input type="checkbox" data-ws-assignee ${settings.notify_assignee ? "checked" : ""}> 卡片負責人</label>
+        <label class="ws-check"><input type="checkbox" data-ws-reporter ${settings.notify_reporter ? "checked" : ""}> 原始通報人</label>
+      </div>
+      <label class="ws-field"><span>指定 Email <small>多個 Email 請用逗號分隔</small></span><input type="text" data-ws-emails value="${esc(custom)}" placeholder="abc@company.com"></label>
+      <label class="ws-field"><span>Email 主旨</span><input type="text" data-ws-subject value="${esc(subject)}"></label>
+      <label class="ws-field"><span>Email 內容</span><textarea data-ws-body rows="6">${esc(body)}</textarea></label>
+      <footer><button type="button" data-ws-cancel>取消</button><button type="button" class="primary" data-ws-save>儲存設定</button></footer>
+    </section>`;
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    modal.querySelector("[data-ws-close]").onclick = close;
+    modal.querySelector("[data-ws-cancel]").onclick = close;
+    modal.addEventListener("click", event => { if (event.target === modal) close(); });
+    modal.querySelector("[data-ws-save]").onclick = async () => {
+      const save = modal.querySelector("[data-ws-save]");
+      const emails = modal.querySelector("[data-ws-emails]").value.split(/[;,\s]+/).map(v => v.trim()).filter(Boolean);
+      const invalid = emails.find(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+      if (invalid) { notify(`Email 格式不正確：${esc(invalid)}`, "error"); return; }
+      save.disabled = true;
+      notify("正在將工作區設定保存至 Cloud…", "loading");
+      try {
+        await service.saveWorkspaceNotificationSettings(workspace.id, {
+          enabled: modal.querySelector("[data-ws-enabled]").checked,
+          notifyAssignee: modal.querySelector("[data-ws-assignee]").checked,
+          notifyReporter: modal.querySelector("[data-ws-reporter]").checked,
+          customEmails: emails,
+          subjectTemplate: modal.querySelector("[data-ws-subject]").value.trim(),
+          bodyTemplate: modal.querySelector("[data-ws-body]").value.trim()
+        });
+        close();
+        notify(`「${esc(workspace.name)}」通知設定已保存至 Cloud。`, "success");
+      } catch (error) {
+        save.disabled = false;
+        notify("工作區設定保存失敗：" + esc(error?.message || "Cloud 未接受設定。"), "error");
+      }
+    };
+    notify("工作區 Cloud 設定已載入。", "success");
+  }
+  function bindWorkspaceSettingsMenus(target, workspaces = [], options = {}) {
+    const scope = target || document;
+    const workspaceById = new Map((Array.isArray(workspaces) ? workspaces : [])
+      .filter(workspace => workspace?.id)
+      .map(workspace => [String(workspace.id), workspace]));
+    scope.querySelectorAll?.("[data-workspace-menu]").forEach(button => {
+      button.onclick = event => {
+        event.stopPropagation();
+        const workspace = workspaceById.get(String(button.dataset.workspaceMenu || ""));
+        const header = button.closest("[data-workspace-header]");
+        if (!workspace || !header) return;
+        closeWorkspaceMenus();
+        const menu = document.createElement("div");
+        menu.className = "workspace-action-menu";
+        menu.setAttribute("role", "menu");
+        menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"settings\">⚙️ 工作區設定</button>";
+        header.appendChild(menu);
+        button.setAttribute("aria-expanded", "true");
+        const settingsButton = menu.querySelector("[data-workspace-action=settings]");
+        settingsButton.onclick = actionEvent => {
+          actionEvent.stopPropagation();
+          closeWorkspaceMenus();
+          openWorkspaceSettings(workspace, options);
+        };
+        menu.onclick = actionEvent => actionEvent.stopPropagation();
+        menu.onkeydown = actionEvent => {
+          if (actionEvent.key === "Escape") {
+            actionEvent.preventDefault();
+            closeWorkspaceMenus();
+            button.focus();
+          }
+        };
+        settingsButton.focus();
+      };
+    });
+    if (!state.workspaceMenuDocumentBound) {
+      document.addEventListener("click", event => {
+        if (!event.target?.closest?.("[data-workspace-menu], .workspace-action-menu")) closeWorkspaceMenus();
+      });
+      state.workspaceMenuDocumentBound = true;
+    }
+    return true;
+  }
+
   function restoreWorkspaceTitle(title, name) {
     if (!title) return;
     title.classList.remove("is-renaming");
@@ -2861,22 +2990,22 @@
     if (open) { open.hidden = true; open.removeAttribute("href"); }
     const button = document.querySelector("[data-consumer-create]");
     if (button) { button.hidden = false; button.disabled = false; button.textContent = "建立並套用 C 母版"; }
-    window.setTimeout(() => document.getElementById("consumerBoardProject")?.focus(), 0);
+    window.setTimeout(() => document.getElementById("consumerBoardName")?.focus(), 0);
   }
   function consumerRuntimeHref(boardInstanceId) {
     const current = String(root.location?.pathname || "/app/Board/template-preview/") || "/app/Board/template-preview/";
     const url = new URL(current, root.location?.href || "http://127.0.0.1/");
-    url.search = `?boardInstanceId=${encodeURIComponent(String(boardInstanceId || ""))}`;
+    url.search = `?templateView=board&boardInstanceId=${encodeURIComponent(String(boardInstanceId || ""))}`;
     return `${url.pathname}${url.search}`;
   }
   async function createConsumer() {
     if (state.applicationScope !== "c" || !state.boardIsTemplate) return;
-    const projectInput = document.getElementById("consumerBoardProject");
     const nameInput = document.getElementById("consumerBoardName");
     const prefixInput = document.getElementById("consumerBoardPrefix");
-    const project = String(projectInput?.value || "").trim().toLowerCase();
+    const scopeInput = document.getElementById("consumerBoardScope");
     const name = String(nameInput?.value || "").trim();
     const prefix = String(prefixInput?.value || "").trim().toUpperCase();
+    const applicationScope = String(scopeInput?.value || "").trim().toLowerCase();
     const status = document.getElementById("consumerCreateStatus");
     const button = document.querySelector("[data-consumer-create]");
     if (!name) {
@@ -2889,17 +3018,21 @@
       prefixInput?.focus();
       return;
     }
-    const projectLabel = project === "worklog" ? "WorkLog" : project === "investment" ? "Investment" : "暫不歸屬";
-    const confirmation = `建立 A + C 看板？\n\n歸屬專案：${projectLabel}\n看板名稱：${name}\n看板代號：${prefix}\n\n系統將建立新的 Board UUID／獨立資料範圍、四個預設工作區，並採用共用 A + Published C。`;
+    if (!/^[a-z][a-z0-9_-]{1,63}$/.test(applicationScope) || ["ai_board", "worktodo"].includes(applicationScope)) {
+      if (status) { status.textContent = "請輸入有效的正式歸屬（2–64 碼小寫英數、底線或連字號），不能使用系統保留歸屬。"; status.dataset.state = "error"; }
+      scopeInput?.focus();
+      return;
+    }
+    const confirmation = `建立並套用 C 母版？\n\n看板名稱：${name}\n看板代號：${prefix}\n正式歸屬：${applicationScope}\n\n系統將以同一個受控交易建立獨立資料範圍、四個預設工作區，並採用目前已發布的 C。\n不會搬移或修改 C、WorkTodo、AI Board 的資料。`;
     if (typeof root.confirm === "function" && !root.confirm(confirmation)) return;
     if (button) button.disabled = true;
     if (status) { status.textContent = "正在建立看板：Cloud Provisioning 處理中…"; status.dataset.state = "loading"; }
     try {
-      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c", applicationScope: project });
+      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c", applicationScope });
       const instance = result?.board_instance || result?.boardInstance || result?.instance;
       const instanceId = String(instance?.id || result?.board_instance_id || "").trim();
       if (!instanceId) throw new Error("Provisioning 未回傳可用的 Board Identity；未顯示成功。" );
-      if (status) { status.textContent = `已建立「${name}」；A + C、專案歸屬與預設工作區已完成。`; status.dataset.state = "success"; }
+      if (status) { status.textContent = `已建立「${name}」；預設工作區與 Published C 已完成套用。`; status.dataset.state = "success"; }
       const open = document.querySelector("[data-consumer-create-open]");
       if (open) { open.href = consumerRuntimeHref(instanceId); open.hidden = false; }
       if (button) { button.hidden = true; button.disabled = false; }
@@ -3046,6 +3179,12 @@
       if (event.key === "Enter") { event.preventDefault(); document.getElementById("consumerBoardPrefix")?.focus(); }
     });
     document.getElementById("consumerBoardPrefix")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); document.getElementById("consumerBoardScope")?.focus(); }
+    });
+    document.getElementById("consumerBoardScope")?.addEventListener("input", event => {
+      event.target.value = String(event.target.value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    });
+    document.getElementById("consumerBoardScope")?.addEventListener("keydown", event => {
       if (event.key === "Enter") { event.preventDefault(); createConsumer(); }
     });
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
@@ -3065,7 +3204,6 @@
       : procurement ? "procurement"
         : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
     state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
-    state.showTemplateReleasePanel = options.showTemplateReleasePanel !== false;
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
     state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
@@ -3078,7 +3216,9 @@
     state.dataSource = "";
     state.service = options.service || (state.applicationScope === "c"
       ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId })
-      : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
+      : state.applicationScope === "procurement"
+        ? defaultService.createInstanceService({ templateKey: "c", applicationScope: "procurement", boardInstanceId: requestedBoardInstanceId, consumerId: "worklog-procurement" })
+        : defaultService);
     if (state.applicationScope !== "worktodo" && state.applicationScope !== "c" && state.applicationScope !== "procurement") {
       mountCreatorMfaSettings(accessContext);
     }
@@ -3263,6 +3403,7 @@
   }
 
   async function init() {
+    if (isInvestmentMode()) return;
     const workTodo = isWorkTodoMode();
     const procurement = isProcurementMode();
     const cTemplate = isCTemplateMode();
@@ -3302,11 +3443,8 @@
         return;
       }
       restoreCapturedBoardMarkup();
-      startBoardRuntime({
-        applicationScope: "c",
-        boardInstanceId: "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9",
-        showTemplateReleasePanel: false
-      });
+      const boardInstanceId = String(document.querySelector("[data-procurement-board-instance-id]")?.dataset.procurementBoardInstanceId || "").trim();
+      startBoardRuntime({ applicationScope: "c", boardInstanceId });
       return;
     }
     if (workTodo) {
@@ -3390,6 +3528,10 @@
       tasks: state.tasks.slice(),
       templateParityReport: state.templateParityReport ? JSON.parse(JSON.stringify(state.templateParityReport)) : null
     })
+  });
+  root.ZhugeGoldenMasterWorkspaceSettings = Object.freeze({
+    open: openWorkspaceSettings,
+    bind: bindWorkspaceSettingsMenus
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();
