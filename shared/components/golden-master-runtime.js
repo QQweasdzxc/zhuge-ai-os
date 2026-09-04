@@ -2861,7 +2861,7 @@
     if (open) { open.hidden = true; open.removeAttribute("href"); }
     const button = document.querySelector("[data-consumer-create]");
     if (button) { button.hidden = false; button.disabled = false; button.textContent = "建立並套用 C 母版"; }
-    window.setTimeout(() => document.getElementById("consumerBoardName")?.focus(), 0);
+    window.setTimeout(() => document.getElementById("consumerBoardProject")?.focus(), 0);
   }
   function consumerRuntimeHref(boardInstanceId) {
     const current = String(root.location?.pathname || "/app/Board/template-preview/") || "/app/Board/template-preview/";
@@ -2871,8 +2871,10 @@
   }
   async function createConsumer() {
     if (state.applicationScope !== "c" || !state.boardIsTemplate) return;
+    const projectInput = document.getElementById("consumerBoardProject");
     const nameInput = document.getElementById("consumerBoardName");
     const prefixInput = document.getElementById("consumerBoardPrefix");
+    const project = String(projectInput?.value || "").trim().toLowerCase();
     const name = String(nameInput?.value || "").trim();
     const prefix = String(prefixInput?.value || "").trim().toUpperCase();
     const status = document.getElementById("consumerCreateStatus");
@@ -2887,16 +2889,17 @@
       prefixInput?.focus();
       return;
     }
-    const confirmation = `建立並套用 C 母版？\n\n看板名稱：${name}\n看板代號：${prefix}\n\n系統將建立獨立資料範圍、四個預設工作區，並採用目前已發布的 C。\n不會搬移或修改 C、WorkTodo、AI Board 的資料。`;
+    const projectLabel = project === "worklog" ? "WorkLog" : project === "investment" ? "Investment" : "暫不歸屬";
+    const confirmation = `建立 A + C 看板？\n\n歸屬專案：${projectLabel}\n看板名稱：${name}\n看板代號：${prefix}\n\n系統將建立新的 Board UUID／獨立資料範圍、四個預設工作區，並採用共用 A + Published C。`;
     if (typeof root.confirm === "function" && !root.confirm(confirmation)) return;
     if (button) button.disabled = true;
     if (status) { status.textContent = "正在建立看板：Cloud Provisioning 處理中…"; status.dataset.state = "loading"; }
     try {
-      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c" });
+      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c", applicationScope: project });
       const instance = result?.board_instance || result?.boardInstance || result?.instance;
       const instanceId = String(instance?.id || result?.board_instance_id || "").trim();
       if (!instanceId) throw new Error("Provisioning 未回傳可用的 Board Identity；未顯示成功。" );
-      if (status) { status.textContent = `已建立「${name}」；預設工作區與 Published C 已完成套用。`; status.dataset.state = "success"; }
+      if (status) { status.textContent = `已建立「${name}」；A + C、專案歸屬與預設工作區已完成。`; status.dataset.state = "success"; }
       const open = document.querySelector("[data-consumer-create-open]");
       if (open) { open.href = consumerRuntimeHref(instanceId); open.hidden = false; }
       if (button) { button.hidden = true; button.disabled = false; }

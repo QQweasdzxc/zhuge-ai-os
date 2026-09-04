@@ -1375,11 +1375,14 @@
 
   async function provisionConsumer(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_provision_consumer", {
+    const args = {
       p_name: String(input.name || "").trim(),
       p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
       p_template_key: String(input.templateKey || "c").trim().toLowerCase()
-    });
+    };
+    const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
+    if (applicationScope) args.p_application_scope = applicationScope;
+    return gateway.rpc("board_provision_consumer", args);
   }
 
   function governanceRunnerUrl(options = {}) {

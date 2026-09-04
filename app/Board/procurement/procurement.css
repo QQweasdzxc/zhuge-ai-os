@@ -4,7 +4,7 @@
   align-items:center;
   gap:8px;
   flex-wrap:wrap;
-  margin:0 0 16px;
+  margin:clamp(18px, 3vw, 36px) 0 16px;
   padding:0;
   border-bottom:1px solid var(--zhuge-border, rgba(83,127,171,.28));
 }
