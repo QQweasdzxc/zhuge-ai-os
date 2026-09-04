@@ -2862,7 +2862,7 @@
   function consumerRuntimeHref(boardInstanceId) {
     const current = String(root.location?.pathname || "/app/Board/template-preview/") || "/app/Board/template-preview/";
     const url = new URL(current, root.location?.href || "http://127.0.0.1/");
-    url.search = `?templateView=board&boardInstanceId=${encodeURIComponent(String(boardInstanceId || ""))}`;
+    url.search = `?boardInstanceId=${encodeURIComponent(String(boardInstanceId || ""))}`;
     return `${url.pathname}${url.search}`;
   }
   async function createConsumer() {
