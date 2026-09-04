@@ -44,11 +44,6 @@
       "templateVersion": "0.9.0-alpha.9.13",
       "build": "20260903-1359",
       "status": "adopted"
-    },
-    "worklog-procurement": {
-      "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260903-1359",
-      "status": "adopted"
     }
   }
 });

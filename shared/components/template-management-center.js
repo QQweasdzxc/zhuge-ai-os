@@ -109,8 +109,7 @@
       ["c", "C 母版"],
       ["worktodo", "工作待辦"],
       ["ai-board", "AI Board"],
-      ["investment-ivtk", "Investment／投資組合"],
-      ["worklog-procurement", "庶務行政／GAS"]
+      ["investment-ivtk", "Investment／投資組合"]
     ].map(([id, label]) => {
       const adoption = release.consumers?.[id];
       const version = adoption?.templateVersion || "—";

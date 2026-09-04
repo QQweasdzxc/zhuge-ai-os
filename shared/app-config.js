@@ -112,7 +112,6 @@ const workspaceRegistry = {
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },
   "ai-board-system-map": { icon: "🗺️", label: "系統藍圖", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=system-map" },
-  procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, externalHref: "../../app/Board/procurement/" },
   hr: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   travel: { icon: "🚧", label: "施工中", group: "construction", comingSoon: true },
   library: { icon: "📚", label: "Knowledge", group: "system", enabled: true },
