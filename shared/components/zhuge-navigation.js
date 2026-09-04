@@ -51,7 +51,7 @@
       "ai-board-board": "app/Board/ai/?view=board",
       "ai-board-principles": "app/Board/ai/?view=principles",
       "ai-board-system-map": "app/Board/ai/?view=system-map",
-      procurement: "app/Board/procurement/",
+      procurement: "app/Board/template-preview/?templateView=board&boardInstanceId=38d8d4b1-6d01-4d58-835b-b2beb61fc6b9",
       library: "modules/worklog/?app=1&workspace=library",
       sync: "modules/worklog/?app=1&workspace=sync",
       management: "modules/worklog/?app=1&workspace=management",
@@ -71,7 +71,7 @@
     const base = String(root || "").replace(/\/?$/, "/");
     // IVTK is the official Investment #portfolio runtime. It remains a C
     // Board instance, but it must not become a second global navigation entry.
-    const excludedPrefixes = new Set(["IVTK", ...String(options.excludeBoardPrefixes || "").split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)]);
+    const excludedPrefixes = new Set(["IVTK", "GAS", ...String(options.excludeBoardPrefixes || "").split(/[\s,]+/).map(value => value.trim().toUpperCase()).filter(Boolean)]);
     return (Array.isArray(boardInstances) ? boardInstances : [])
       .filter(instance => instance?.id && instance.active !== false)
       .map(instance => {
