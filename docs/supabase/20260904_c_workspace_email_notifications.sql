@@ -24,6 +24,14 @@ create table if not exists public.board_workspace_notification_settings (
 create index if not exists board_workspace_notification_board_idx
   on public.board_workspace_notification_settings(board_instance_id, workspace_id);
 
+-- One notification attempt is keyed by the immutable movement audit identity.
+-- This is additive: it does not rewrite or delete any existing board data.
+create unique index if not exists engineering_activity_log_workspace_email_idempotency_idx
+  on public.engineering_activity_log ((after_data->>'idempotency_key'))
+  where entity_type = 'board_workspace'
+    and action = 'workspace_email_notification'
+    and nullif(after_data->>'idempotency_key', '') is not null;
+
 alter table public.board_workspace_notification_settings enable row level security;
 revoke all on public.board_workspace_notification_settings from public, anon, authenticated;
 

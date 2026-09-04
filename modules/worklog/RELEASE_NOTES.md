@@ -1,5 +1,18 @@
 # Zhuge AI OS v0.9.0-alpha.9.13
 
+## Module C Workspace Email Notification v1 — 20260905-0625
+
+- Version: `0.9.0-alpha.9.13`
+- Build: `20260905-0625`
+- Package time: 2026-09-05 06:25 (Asia/Taipei)
+- TASK-18 Cloud Developer QA: PASS for Workspace Settings Cloud Save/Read-back,
+  Reload/Re-login, workspace-entry email, audit, and idempotency.
+- Cloud change is additive only: the workspace-email notification migration and
+  Edge Function are included; existing Board, Workspace, Card, and financial
+  data are unchanged. Production deployment remains out of scope.
+- Candidate status: PM QA required; this is not PM Acceptance or a Production
+  Release.
+
 ## A/C Canonical Composition Repair — 20260903-1359
 
 - Version: `0.9.0-alpha.9.13`
