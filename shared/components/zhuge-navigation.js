@@ -51,7 +51,7 @@
       "ai-board-board": "app/Board/ai/?view=board",
       "ai-board-principles": "app/Board/ai/?view=principles",
       "ai-board-system-map": "app/Board/ai/?view=system-map",
-      procurement: "app/Board/template-preview/?templateView=board&boardInstanceId=38d8d4b1-6d01-4d58-835b-b2beb61fc6b9",
+      procurement: "app/Board/procurement/",
       library: "modules/worklog/?app=1&workspace=library",
       sync: "modules/worklog/?app=1&workspace=sync",
       management: "modules/worklog/?app=1&workspace=management",
