@@ -33,7 +33,7 @@ Investment-specific board/card/toolbar fallback。這會讓 Consumer 在錯誤�
 | Consumer | Module A | Module C | Data / ownership |
 | --- | --- | --- | --- |
 | 管理功能 | `shared/components/zhuge-navigation.js` | 不使用 | `modules/worklog/worklog-app.js` 的既有管理內容 |
-| 庶務行政 / GAS | `shared/components/zhuge-navigation.js` | `shared/components/golden-master-runtime.js` → `shared/components/golden-master.js` → `task-board.js` / `task-card.js` / `task-drawer.js` | PM-created C Consumer through `board_resolve_consumer_instance`; WorkLog / 庶務行政 |
+| 庶務行政 / GAS | `shared/components/zhuge-navigation.js` | `shared/components/golden-master-runtime.js` → `shared/components/golden-master.js` → `task-board.js` / `task-card.js` / `task-drawer.js` | `modules/worklog/services/gas-board-service.js`; WorkLog / 庶務行政 |
 | Investment / 投資組合 | `shared/components/zhuge-navigation.js` | `shared/components/golden-master.js` → `task-board.js` / `task-card.js` / `task-drawer.js` | `modules/investment/services/ivtk-board-adapter.js`；Investment / 投資組合 |
 
 Consumer-specific code supplies only route mounting, data adapter, ownership and
@@ -57,3 +57,4 @@ Focused tests cover A/C registry composition, GAS/Investment source wiring,
 retired-capability absence, Investment source identity, template publication and
 machine parity. Final release identity, Candidate checksum and PM QA status are
 recorded in the delivery response after the final build/package step.
+

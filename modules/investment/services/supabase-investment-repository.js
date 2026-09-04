@@ -356,10 +356,11 @@
         error.code = "INVESTMENT_IVTK_GATEWAY_REQUIRED";
         throw error;
       }
-      const resolved = typeof gateway.rpc === "function"
-        ? await gateway.rpc("board_resolve_consumer_instance", { p_application_scope: "investment" })
-        : null;
-      const instance = first(Array.isArray(resolved) ? resolved : [resolved]);
+      const instances = await gateway.select(
+        "board_instances",
+        "?select=id,name,task_code_prefix,template_key,authorization_mode,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.c&task_code_prefix=eq.IVTK&is_template_instance=eq.false&legacy_application_scope=is.null&order=created_at.asc&limit=1"
+      );
+      const instance = first(instances);
       if (!instance?.id) {
         const error = new Error("Investment IVTK Board 尚未建立。");
         error.code = "INVESTMENT_IVTK_BOARD_REQUIRED";
@@ -375,8 +376,7 @@
         gateway,
         boardInstanceId: instance.id,
         consumerId: "investment-ivtk",
-        templateKey: "c",
-        applicationScope: "investment"
+        templateKey: "c"
       }).load();
       const owner = await legacyUser();
       const links = await data.select(

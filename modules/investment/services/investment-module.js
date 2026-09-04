@@ -273,12 +273,11 @@
     }
 
     const identity = context.identity.getCurrent();
-    const boardGateway = global.ZhugeSupabaseGateway?.createDataGateway?.();
     const repository = global.InvestmentRepositoryContract.assertRepository(
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
         data: context.data,
-        gateway: boardGateway,
+        gateway: global.ZhugeSupabaseGateway?.createDataGateway?.(),
         sessionSnapshot: context.session.getSnapshot(),
         getSessionSnapshot: () => context.session.getSnapshot(),
         allowAal1Read: access.bypassedMfa === true
@@ -328,19 +327,6 @@
     });
     let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
     let lastRenderedPageMarkup = "";
-
-    function workspaceNotificationServiceFor(state) {
-      const boardInstanceId = String(state?.ivtk?.board?.instance?.id || "").trim();
-      const factory = global.ZhugeBoardReadService?.createInstanceService;
-      if (!boardInstanceId || typeof factory !== "function" || !boardGateway) return null;
-      return factory({
-        gateway: boardGateway,
-        boardInstanceId,
-        consumerId: "investment-ivtk",
-        templateKey: "c",
-        applicationScope: "investment"
-      });
-    }
 
     function resetSnapshotWrite() {
       snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
@@ -392,7 +378,6 @@
         ...dependencies,
         importSession: importSnapshot,
         reconciliation: dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope }),
-        workspaceNotificationService: workspaceNotificationServiceFor(state),
         snapshotWrite,
         onSnapshotWrite: writeBrokerSnapshot
       };
@@ -647,6 +632,23 @@
         loadedAt: new Date().toISOString()
       });
 
+      let projection = null;
+      let projectionError = null;
+      if (typeof repository.repairIvtkIdentity === "function") {
+        try {
+          await repository.repairIvtkIdentity();
+        } catch (error) {
+          projectionError = error;
+        }
+      }
+      if (!projectionError && typeof repository.syncIvtkProjection === "function") {
+        try {
+          projection = await repository.syncIvtkProjection();
+        } catch (error) {
+          projectionError = error;
+        }
+      }
+
       let board = null;
       let boardError = null;
       if (typeof repository.loadIvtkBoard === "function") {
@@ -656,24 +658,12 @@
           boardError = error;
         }
       }
-      let projection = null;
-      let projectionError = null;
-      // Never mutate the projection until the routed Investment C Consumer is
-      // resolved. This prevents the legacy unmounted IVTK board from being
-      // selected or changed while PM is preparing the real Consumer.
-      if (board && typeof repository.syncIvtkProjection === "function") {
-        try {
-          projection = await repository.syncIvtkProjection();
-        } catch (error) {
-          projectionError = error;
-        }
-      }
       store.update({
         ivtk: Object.freeze({
           status: board ? "ready" : "error",
           board,
           projection,
-          projectionStatus: board ? (projectionError ? "blocked" : "ready") : "awaiting-consumer",
+          projectionStatus: projectionError ? "blocked" : "ready",
           error: boardError || projectionError
         })
       });

@@ -55,7 +55,7 @@ test("C, WorkTodo, and AI Board load one published template identity", () => {
   const investment = read("modules/investment/index.html");
   assert.ok(investment.includes(cacheBuster), `modules/investment/index.html is missing ${cacheBuster}`);
   assert.match(read("modules/investment/index.html"), /template-parity-engine\.js/);
-  assert.match(read("modules/investment/index.html"), /shared\/components\/golden-master-runtime\.js/);
+  assert.doesNotMatch(read("modules/investment/index.html"), /golden-master-runtime\.js/);
 });
 
 test("Template Management Center exposes the published mother-template identity", () => {

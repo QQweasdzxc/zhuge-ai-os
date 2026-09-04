@@ -1,15 +1,5 @@
 # Zhuge AI OS v0.9.0-alpha.9.13
 
-## Module C Workspace Email Notification v1 — 20260904-2351
-
-- Version: `0.9.0-alpha.9.13`
-- Build: `20260904-2351`
-- TASK-18 Developer QA: PASS for Cloud Settings persistence/read-back, reload and
-  re-login, GAS-001 workspace movement, Resend delivery, audit linkage, and
-  idempotency.
-- Candidate package time and SHA-256 are recorded in the controlled Candidate
-  Manifest; PM QA remains required.
-
 ## A/C Canonical Composition Repair — 20260903-1359
 
 - Version: `0.9.0-alpha.9.13`
