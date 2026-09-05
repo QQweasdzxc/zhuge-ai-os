@@ -287,6 +287,10 @@
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
     const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
+    if (activePage === "portfolio") {
+      global.location.replace("../../app/Board/investment/");
+      return;
+    }
     if (initialHash === "watchlist" && global.history?.replaceState) {
       global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);
     }
@@ -672,7 +676,13 @@
 
     root.addEventListener("click", event => {
       const route = event.target.closest("[data-investment-route]");
-      if (route) navigate(route.dataset.investmentRoute);
+      if (route) {
+        if (route.dataset.investmentRoute === "portfolio") {
+          global.location.href = "../../app/Board/investment/";
+          return;
+        }
+        navigate(route.dataset.investmentRoute);
+      }
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
       if (event.target.closest("[data-investment-sensitive-write-enroll]")) {
         enrollSensitiveWriteTotp().catch(handleError);

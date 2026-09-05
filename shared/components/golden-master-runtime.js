@@ -456,6 +456,11 @@
     return String(document.body?.dataset?.templatePageId || "") === "template-c"
       || /\/app\/Board\/template-preview\/(?:index\.html)?$/i.test(path);
   }
+  function isInvestmentCMode() {
+    const path = String(root.location?.pathname || "");
+    return String(document.body?.dataset?.templatePageId || "") === "investment-c"
+      || /\/app\/Board\/investment\/(?:index\.html)?$/i.test(path);
+  }
   function isWorkTodoTask(task) {
     return state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
   }
@@ -3341,6 +3346,7 @@
     const workTodo = isWorkTodoMode();
     const procurement = isProcurementMode();
     const cTemplate = isCTemplateMode();
+    const investmentC = isInvestmentCMode();
     captureBoardMarkup();
     if (cTemplate) {
       renderSessionHydrationState();
@@ -3362,6 +3368,32 @@
       return;
     }
     renderSessionHydrationState();
+    if (investmentC) {
+      let hydrated = false;
+      try {
+        hydrated = await hydrateBoardSession();
+      } catch (error) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
+        return;
+      }
+      if (!hydrated) {
+        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        renderLoginState();
+        return;
+      }
+      try {
+        const gateway = root.ZhugeSupabaseGateway?.createDataGateway?.();
+        const rows = await gateway?.select?.("board_instances", "?select=id&active=eq.true&template_key=eq.c&task_code_prefix=eq.IVTK&is_template_instance=eq.false&legacy_application_scope=is.null&order=created_at.asc&limit=1");
+        const boardInstanceId = String((Array.isArray(rows) ? rows[0] : rows)?.id || "").trim();
+        if (!boardInstanceId) throw new Error("投資組合的 C Board 尚未建立。");
+        restoreCapturedBoardMarkup();
+        startBoardRuntime({ applicationScope: "c", boardInstanceId, showTemplateReleasePanel: false });
+      } catch (error) {
+        renderAccessError(error?.message || "投資組合的 C Board 無法載入。\n");
+      }
+      return;
+    }
     if (procurement) {
       let hydrated = false;
       try {
