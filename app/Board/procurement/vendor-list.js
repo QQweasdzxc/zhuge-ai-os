@@ -25,4 +25,8 @@
   async function save(){if(!selected)return;const btn=$('[data-vendor-save]'),state=$('[data-vendor-save-state]');btn.disabled=true;state.textContent="同步中…";const patch={};["vendorName","company","taxId","contactName","phone","mobile","email","paymentTerms","products","project"].forEach(k=>patch[k]=dialog.elements[k].value.trim());try{rows=await service.update(selected.rowNumber,patch);fillCompanies();render();setSync(`已同步 · ${new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}`,"ok");state.textContent="已寫回 Google Sheet";setTimeout(()=>dialog.close(),450);}catch(e){console.error(e);state.textContent=e.message||"同步失敗";}finally{btn.disabled=false;}}
   [search,company,product].forEach(el=>el.addEventListener("input",render));$('[data-vendor-refresh]').addEventListener("click",load);body.addEventListener("click",e=>{const btn=e.target.closest('[data-row]');if(btn)openEditor(btn.dataset.row);});$('[data-vendor-save]').addEventListener("click",save);
   window.addEventListener("zhuge:procurement-tab-change",event=>{if(event.detail?.key==="vendors"&&!rows.length)load();});
+  // Vendor directory is a live view of the Google Sheet. Start the first read as soon as
+  // the page runtime is ready so the tab never sits at a misleading “尚未同步” state.
+  // A later tab activation/refresh can safely retry if Google authorization is not ready yet.
+  queueMicrotask(()=>load());
 })();
