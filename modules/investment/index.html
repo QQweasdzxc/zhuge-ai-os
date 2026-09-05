@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Zhuge AI OS 投資模組：集中查看投資組合、觀察清單與個人投資策略。">
+    <meta name="theme-color" content="#06101e">
+    <title>投資｜Zhuge AI OS</title>
+    <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/variables.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/typography.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/dark.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20260905-2047">
+    <link rel="stylesheet" href="./assets/investment.css?v=20260905-0625&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260902-213635">
+    <link rel="stylesheet" href="../../shared/theme/golden-master.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/task-board.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/task-card.css?v=20260905-0625">
+    <link rel="stylesheet" href="../../shared/theme/task-drawer.css?v=20260905-2047">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-workspace.css?v=20260905-2047">
+    <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20260905-0625">
+  </head>
+  <body>
+    <div id="investmentApp"><main class="investment-loading"><span></span><p>正在載入投資模組…</p></main></div>
+
+    <!-- Existing root session binding. No Investment OAuth or Supabase client. -->
+    <script src="../../shared/app-config.js?v=20260905-0625"></script>
+    <script src="../../shared/utils/shared-utils.js?v=20260905-0625"></script>
+    <script src="../../shared/storage/storage-migration.js?v=20260905-0625"></script>
+    <script src="../../shared/api/data-result.js?v=20260905-0625"></script>
+    <script src="../../shared/identity/identity-health.js?v=20260905-0625"></script>
+    <script src="../../shared/auth/session-lifecycle.js?v=20260905-0625"></script>
+    <script src="../../shared/core/repository-bootstrap.js?v=20260905-0625"></script>
+    <script src="../../shared/api/sync-queue.js?v=20260905-0625"></script>
+    <script src="../../shared/foundation/index.js?v=20260905-0625"></script>
+    <script src="../../shared/app-state.js?v=20260905-0625"></script>
+    <script src="../../shared/auth/auth-service.js?v=20260905-0625"></script>
+    <script src="../../shared/identity/identity-service.js?v=20260905-0625"></script>
+    <script src="../../shared/auth/session-service.js?v=20260905-0625"></script>
+    <script src="../../shared/identity/creator-resolver.js?v=20260905-0625"></script>
+    <script src="../../shared/supabase/supabase-gateway.js?v=20260905-0625"></script>
+    <script src="../../shared/security/permission-service.js?v=20260905-0625"></script>
+    <script src="../../shared/security/mfa-service.js?v=20260905-0625&security-contract=20260902-213635"></script>
+    <script src="../../shared/security/security-gate.js?v=20260905-0625"></script>
+    <script src="../../shared/services/module-context.js?v=20260905-0625&security-contract=20260902-213635"></script>
+    <script src="../../shared/services/shared-platform.js?v=20260905-0625"></script>
+    <script src="../../shared/security/platform-policy.js?v=20260905-0625"></script>
+    <script src="../../shared/auth/runtime-session-provider.js?v=20260905-0625"></script>
+    <script src="../../shared/components/index.js?v=20260905-0625"></script>
+    <script src="../../shared/config/version.js?v=20260905-0830"></script>
+    <script src="../../shared/config/template-release.js?v=20260905-0625"></script>
+    <script src="../../shared/services/template-adoption-policy.js?v=20260905-0625"></script>
+    <script src="../../shared/components/zhuge-navigation.js?v=20260905-0625"></script>
+    <script src="../../shared/components/zhuge-shell.js?v=20260905-0625"></script>
+    <script src="../../shared/theme/zhuge-appearance.js?v=20260905-0625"></script>
+    <script src="../../shared/components/task-card.js?v=20260905-0625"></script>
+    <script src="../../shared/components/task-drawer.js?v=20260905-2047"></script>
+    <script src="../../shared/components/task-board.js?v=20260905-0625"></script>
+    <script src="../../shared/components/golden-master.js?v=20260905-0625"></script>
+    <script src="../../shared/components/activity-classifier.js?v=20260905-0625"></script>
+    <script src="../../shared/components/activity-text-renderer.js?v=20260905-0625"></script>
+    <script src="../../shared/components/task-card-summary.js?v=20260905-0625"></script>
+    <script src="../../shared/components/task-action-contract.js?v=20260905-0625"></script>
+    <script src="../../shared/components/task-action-adapters.js?v=20260905-0625"></script>
+    <script src="../../shared/components/template-parity-engine.js?v=20260905-0625"></script>
+    <script src="../../shared/board/board-read-service.js?v=20260905-0625"></script>
+    <script src="../../shared/services/template-release-service.js?v=20260905-0625"></script>
+
+    <script src="./config/module-config.js?v=20260905-0625"></script>
+    <script src="./utils/safe-html.js?v=20260905-0625"></script>
+    <script src="./utils/formatters.js?v=20260905-0625"></script>
+    <script src="./models/portfolio.js?v=20260905-0625"></script>
+    <script src="./models/position.js?v=20260905-0625&feature=broker-snapshot-20260902"></script>
+    <script src="./models/transaction.js?v=20260905-0625"></script>
+    <script src="./models/watchlist-item.js?v=20260905-0625"></script>
+    <script src="./models/strategy.js?v=20260905-0625"></script>
+    <script src="./models/settings.js?v=20260905-0625"></script>
+    <script src="./services/portfolio-calculation-service.js?v=20260905-0625"></script>
+    <script src="./services/investment-repository.js?v=20260905-0625"></script>
+    <script src="./services/supabase-investment-repository.js?v=20260905-0625-identity-repair&feature=broker-snapshot-20260902&mfa-pause=20260902_1328&security-contract=20260902-213635"></script>
+    <script src="./services/screenshot-import-engine.js?v=20260905-0625&feature=broker-snapshot-pm-confirmed-20260902&pm-contract=required-fields-v2"></script>
+    <script src="./services/investment-recognition-provider.js?v=20260905-0625"></script>
+    <script src="./store/investment-store.js?v=20260905-0625"></script>
+    <script src="./components/position-card.js?v=20260905-0625"></script>
+    <script src="./components/module-shell.js?v=20260905-0625"></script>
+    <script src="./pages/overview-page.js?v=20260905-0625"></script>
+    <script src="./pages/screenshot-import-page.js?v=20260905-0625&feature=broker-snapshot-pm-confirmed-20260902&security-contract=20260902-213635"></script>
+    <script src="./pages/portfolio-page.js?v=20260905-0625"></script>
+    <script src="./pages/strategy-page.js?v=20260905-0625"></script>
+    <script src="./pages/settings-page.js?v=20260905-0625"></script>
+    <script src="./services/ivtk-board-adapter.js?v=20260905-0625"></script>
+    <script src="./services/investment-module.js?v=20260905-0830-c-restore&feature=broker-snapshot-pm-confirmed-20260902&mfa-pause=20260902_1328&security-contract=20260902-213635"></script>
+  </body>
+</html>

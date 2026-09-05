@@ -1,0 +1,33 @@
+/* Procurement section navigation follows the same visual grammar as Investment tabs. */
+.procurement-content-tabs{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:clamp(18px, 3vw, 36px) 0 16px;
+  padding:0;
+  border-bottom:1px solid var(--zhuge-border, rgba(83,127,171,.28));
+}
+.procurement-content-tab{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border:1px solid transparent;
+  border-radius:10px 10px 0 0;
+  background:transparent;
+  color:var(--zhuge-text-muted, #9aa8bb);
+  padding:9px 12px;
+  cursor:pointer;
+  font:inherit;
+}
+.procurement-content-tab:hover,
+.procurement-content-tab.active{
+  border-color:var(--zhuge-border, rgba(83,127,171,.28));
+  border-bottom-color:var(--zhuge-accent, #4b8cff);
+  background:var(--zhuge-surface-raised, #151f2c);
+  color:var(--zhuge-text, #f4f7fb);
+}
+.procurement-content-tab:focus-visible{
+  outline:2px solid var(--zhuge-accent, #4b8cff);
+  outline-offset:2px;
+}

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WorkTodo Shared Drawer Conformance Fixture</title>
+  <link rel="stylesheet" href="../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../shared/theme/task-card.css">
+  <link rel="stylesheet" href="../shared/theme/task-drawer.css?qa=agreement-ux-v2">
+  <link rel="stylesheet" href="../shared/theme/task-board.css">
+  <link rel="stylesheet" href="../shared/theme/golden-master.css">
+</head>
+<body>
+  <section id="agreementQaControls" hidden aria-label="Agreement Schedule PM QA controls" style="margin:12px auto;max-width:1120px;padding:12px 16px;border:1px solid #385b82;border-radius:10px;background:#111d2d;color:#d7e2f2;font:14px/1.5 system-ui,sans-serif">
+    <strong>PM QA｜Agreement Schedule（local fixture only）</strong>
+    <span style="display:block;color:#9fb0c5;font-size:12px">Preset 只更新本機 fixture 記憶體，不寫入 Cloud。</span>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      <button class="btn2" type="button" data-agreement-qa-preset="empty">未設定</button>
+      <button class="btn2" type="button" data-agreement-qa-preset="single">單日 9/3</button>
+      <button class="btn2" type="button" data-agreement-qa-preset="period">期間 9/2 → 9/3</button>
+    </div>
+  </section>
+  <div class="zhuge-module-shell workspace-shell">
+    <div class="app workspace-app">
+      <main class="main">
+        <div data-zhuge-shared-header data-title="工作待辦" data-description="Runtime Conformance Fixture"></div>
+        <div class="workspace-canvas">
+          <div data-board-main-view data-golden-master-surface></div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="../shared/components/task-card.js"></script>
+  <script src="../shared/components/task-drawer.js"></script>
+  <script src="../shared/components/task-board.js"></script>
+  <script src="../shared/components/activity-text-renderer.js"></script>
+  <script src="../shared/components/activity-classifier.js"></script>
+  <script src="../shared/components/task-card-summary.js"></script>
+  <script src="../shared/components/task-action-contract.js"></script>
+  <script src="../shared/components/task-action-adapters.js"></script>
+  <script src="../shared/components/golden-master.js"></script>
+  <script src="../modules/worklog/components/worktodo-task-adapter.js"></script>
+  <script>
+    var session = null;
+    const fixtureTask = window.__fixtureTask = {
+      id: "wltk-005",
+      cloudId: "wltk-005",
+      workCode: "WLTK-005",
+      title: "點鎖(台中)－壓克力招牌",
+      applicationScope: "worktodo",
+      status: "in_progress",
+      workspaceId: "workspace-progress",
+      workspaceKey: "worktodo-inprogress",
+      workspaceName: "進行中",
+      summary: "確認招牌牆的部分，是否有留電源孔。",
+      usageScenario: "現場確認招牌施工條件。",
+        dueDate: "2026-08-25",
+        agreement_mode: null,
+        agreement_start_date: null,
+        agreement_end_date: null
+    };
+    const fixtureJournal = window.__fixtureJournal = [
+      {
+        id: "journal-1",
+        task_uuid: "wltk-005",
+        entry_type: "progress",
+        content: "已確認現場有留電源線。",
+        created_at: "2026-08-25T01:24:00.000Z",
+        actor_label: "QJC"
+      },
+      {
+        id: "journal-2",
+        task_uuid: "wltk-005",
+        entry_type: "progress",
+        content: "資料已回覆 https://example.com/reference",
+        created_at: "2026-08-24T06:00:00.000Z",
+        actor_label: "QJC"
+      }
+    ];
+    const fixtureActivity = window.__fixtureActivity = [
+      {
+        id: "system-agreement",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "worktodo_agreement_schedule_updated",
+        activity_type: "system_activity",
+        note: "WorkTodo Agreement Schedule updated through the Shared Task Drawer Contract",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T02:00:00.000Z"
+      },
+      {
+        id: "system-task",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "worktodo_task_updated",
+        activity_type: "system_activity",
+        note: "WorkTodo task updated through the authenticated owner path",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T01:50:00.000Z"
+      },
+      {
+        id: "journal-1-original",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "system_activity",
+        note: "原始進度，已被修改",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-25T01:30:00.000Z"
+      },
+      {
+        id: "journal-1-revision",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_edited",
+        activity_type: "human_progress_note",
+        note: "已確認現場有留電源線。",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        revision_of: "journal-1-original",
+        created_at: "2026-08-25T01:40:00.000Z"
+      },
+      {
+        id: "journal-2",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "human_progress_note",
+        note: "資料已回覆 https://example.com/reference",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-24T06:00:00.000Z"
+      },
+      {
+        id: "journal-deleted",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_created",
+        activity_type: "human_progress_note",
+        note: "這筆進度已撤回",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        created_at: "2026-08-23T06:00:00.000Z"
+      },
+      {
+        id: "journal-deleted-tombstone",
+        task_uuid: "wltk-005",
+        entity_type: "board_task",
+        entity_id: "wltk-005",
+        action: "progress_note_deleted",
+        activity_type: "human_progress_note",
+        note: "WorkTodo Progress Note withdrawn through the Shared Action Contract",
+        actor_id: "fixture-qjc",
+        actor_label: "QJC",
+        tombstone_of: "journal-deleted",
+        created_at: "2026-08-23T06:01:00.000Z"
+      }
+    ];
+    window.getSupabaseAuthUser = async () => ({
+      user: { id: "fixture-qjc", email: "qjc@example.test", user_metadata: { full_name: "QJC" } },
+      authSession: { access_token: "fixture-token", refresh_token: "fixture-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      provider: "fixture"
+    });
+    window.supabaseSessionFromUser = (user, authSession, provider) => ({
+      provider,
+      user_uuid: user.id,
+      uuid: user.id,
+      email: user.email,
+      name: user.user_metadata.full_name,
+      access_token: authSession.access_token,
+      refresh_token: authSession.refresh_token,
+      expires_at: authSession.expires_at
+    });
+    window.persistAiOsSessionOnly = () => {};
+    const fixtureChecklist = window.__fixtureChecklist = [];
+    window.__worktodoChecklistCalls = [];
+    window.__legacyChecklistPathCalled = false;
+    window.DataService = {
+      loadWorkJournal: async taskId => {
+        if (taskId) window.__legacyWorkJournalFallbackCalled = true;
+        return taskId ? fixtureJournal.filter(row => row.task_uuid === taskId) : fixtureJournal;
+      },
+      loadWorkTodoTaskCapabilities: async () => {
+        window.__legacyChecklistPathCalled = true;
+        return {
+          checklist: [{ id: "legacy-check-1", label: "Legacy Checklist Path", completed: false }],
+          attachments: []
+        };
+      },
+      loadWorkTodoTaskAttachments: async () => []
+    };
+    window.ZhugeBoardReadService = {
+      statusDescriptorFor: status => ({ label: String(status || "未知") }),
+      normalizeStatus: status => String(status || "not_started"),
+      isGovernanceTerminal: () => false,
+      isArchiveTask: () => false,
+      loadActivity: async taskId => {
+        window.__worktodoActivityReadPath = "engineering_activity_log";
+        return fixtureActivity.filter(row => row.task_uuid === taskId);
+      },
+      loadTaskChecklist: async taskId => {
+        window.__worktodoChecklistCalls.push({ name: "loadTaskChecklist", taskId });
+        return fixtureChecklist.filter(row => row.task_id === taskId).map(row => ({ ...row }));
+      },
+      addTaskChecklistItem: async input => {
+        window.__worktodoChecklistCalls.push({ name: "board_add_task_checklist_item", input: { ...input } });
+        const item = {
+          id: `check-${fixtureChecklist.length + 1}`,
+          task_id: input.taskId,
+          label: input.label,
+          completed: false,
+          sort_order: Number(input.sortOrder || 0)
+        };
+        fixtureChecklist.push(item);
+        return { ...item };
+      },
+      updateTaskChecklistItem: async input => {
+        window.__worktodoChecklistCalls.push({ name: "board_update_task_checklist_item", input: { ...input } });
+        const item = fixtureChecklist.find(row => row.id === input.id);
+        if (!item) throw new Error("Checklist item not found");
+        if (Object.prototype.hasOwnProperty.call(input, "label") && input.label != null) item.label = input.label;
+        if (Object.prototype.hasOwnProperty.call(input, "completed") && input.completed != null) item.completed = Boolean(input.completed);
+        if (Object.prototype.hasOwnProperty.call(input, "sortOrder") && input.sortOrder != null) item.sort_order = Number(input.sortOrder);
+        return { ...item };
+      },
+      deleteTaskChecklistItem: async itemId => {
+        window.__worktodoChecklistCalls.push({ name: "board_delete_task_checklist_item", itemId });
+        const index = fixtureChecklist.findIndex(row => row.id === itemId);
+        if (index < 0) throw new Error("Checklist item not found");
+        fixtureChecklist.splice(index, 1);
+        return { success: true, item_id: itemId };
+      },
+      load: async () => ({
+        workspaces: [
+          { id: "workspace-todo", key: "worktodo-todo", name: "待開始", sortOrder: 10, active: true, applicationScope: "worktodo" },
+          { id: "workspace-progress", key: "worktodo-inprogress", name: "進行中", sortOrder: 20, active: true, applicationScope: "worktodo" }
+        ],
+        tasks: [fixtureTask],
+        principles: [],
+        systemMaps: []
+      }),
+      subscribe: async () => async () => {}
+    };
+    const agreementQaMode = new URLSearchParams(window.location.search).has("pm-qa");
+    const checklistQaMode = new URLSearchParams(window.location.search).has("checklist-qa");
+    if (agreementQaMode) {
+      document.getElementById("agreementQaControls").hidden = false;
+      window.ZhugeBoardReadService.worktodoSetAgreementSchedule = async input => {
+        window.__agreementQaLastWrite = { ...input };
+        window.__fixtureTask.agreement_mode = input.mode || null;
+        window.__fixtureTask.agreement_start_date = input.startDate || null;
+        window.__fixtureTask.agreement_end_date = input.endDate || null;
+        return { ...window.__fixtureTask };
+      };
+    }
+  </script>
+  <script src="../shared/components/golden-master-runtime.js"></script>
+  <script>
+    function applyAgreementQaPreset(mode) {
+      const values = mode === "period"
+        ? { agreement_mode: "period", agreement_start_date: "2026-09-02", agreement_end_date: "2026-09-03" }
+        : mode === "single"
+          ? { agreement_mode: "single", agreement_start_date: "2026-09-03", agreement_end_date: null }
+          : { agreement_mode: null, agreement_start_date: null, agreement_end_date: null };
+      Object.assign(window.__fixtureTask, values);
+      window.ZhugeBoardRuntime?.openTaskDetail({ ...window.__fixtureTask });
+    }
+    document.querySelectorAll("[data-agreement-qa-preset]").forEach(button => {
+      button.addEventListener("click", () => applyAgreementQaPreset(button.dataset.agreementQaPreset));
+    });
+    function writeFixtureAudit() {
+      const drawer = document.querySelector("[data-shared-task-drawer]");
+      const list = document.getElementById("taskActivityList");
+      const firstRow = list?.querySelector("article");
+      const text = drawer?.textContent || "";
+      const style = list ? getComputedStyle(list) : null;
+      const audit = {
+        framework: drawer?.dataset.sharedTaskFramework || "",
+        gap: style?.gap || "",
+        rowGap: style?.rowGap || "",
+        cardPadding: firstRow ? getComputedStyle(firstRow).padding : "",
+        activityRows: list?.querySelectorAll("article").length || 0,
+        systemActivityRendered: Boolean(list?.querySelector('[data-activity-id="system-agreement"], [data-activity-id="system-task"]')),
+        systemActivityControls: Boolean(list?.querySelector('[data-activity-id="system-agreement"] [data-progress-note-edit], [data-activity-id="system-agreement"] [data-progress-note-delete], [data-activity-id="system-task"] [data-progress-note-edit], [data-activity-id="system-task"] [data-progress-note-delete]')),
+        revisionOriginalRendered: Boolean(list?.querySelector('[data-activity-id="journal-1-original"]')),
+        revisionLatestRendered: Boolean(list?.querySelector('[data-activity-id="journal-1-revision"]')),
+        tombstonedOriginalRendered: Boolean(list?.querySelector('[data-activity-id="journal-deleted"]')),
+        activityReadPath: window.__worktodoActivityReadPath || "",
+        legacyFallbackCalled: window.__legacyWorkJournalFallbackCalled === true,
+        legacyChecklistPathCalled: window.__legacyChecklistPathCalled === true,
+        canonicalChecklistReads: window.__worktodoChecklistCalls.filter(call => call.name === "loadTaskChecklist").length,
+        hasSharedDrawer: Boolean(drawer),
+        hasWorkTodoOwnedDrawer: Boolean(document.querySelector("[data-worktodo-shared-drawer]")),
+        hasLegacyProperties: /置頂|預估時間|標記完成|進度\s*0%/.test(text),
+        hasAgreedDateProperty: Boolean(document.querySelector('[data-task-property-action="agreement-schedule"]')),
+        checklistDisabled: document.querySelector("[data-task-checklist-toggle]")?.disabled === true,
+        checklistPanelOpen: document.querySelector("[data-task-checklist-panel]")?.open === true,
+        checklistAddLabel: document.querySelector("[data-task-checklist-add] input")?.getAttribute("aria-label") || "",
+        checklistAddPlaceholder: document.querySelector("[data-task-checklist-add] input")?.getAttribute("placeholder") || "",
+        checklistAutocomplete: document.querySelector("[data-task-checklist-add] input")?.getAttribute("autocomplete") || "",
+        urlLink: Boolean(document.querySelector('a[href="https://example.com/reference"]'))
+      };
+      if (!agreementQaMode) {
+        const agreementProperty = document.querySelector('[data-task-property-action="agreement-schedule"]');
+        agreementProperty?.click();
+        audit.hasAgreedDateEditor = Boolean(document.querySelector("[data-shared-agreed-date-editor]"));
+        const agreementEditor = document.querySelector("[data-shared-agreed-date-editor]");
+        const propertiesGrid = document.querySelector(".shared-task-drawer-properties");
+        const gptProperty = document.querySelector('[data-task-property-action="gpt-analysis"]');
+        audit.agreementMode = agreementEditor?.dataset.agreementMode || "";
+        audit.agreementValue = agreementProperty?.querySelector("[data-task-property-value]")?.textContent || "";
+        audit.agreementEditorAfterMetadataRow = Boolean(agreementEditor && propertiesGrid && agreementEditor.previousElementSibling === propertiesGrid);
+        audit.agreementEditorWidth = agreementEditor ? Math.round(agreementEditor.getBoundingClientRect().width) : 0;
+        audit.agreementEditorAlignmentDelta = agreementEditor && agreementProperty
+          ? Math.round(agreementEditor.getBoundingClientRect().left - agreementProperty.getBoundingClientRect().left)
+          : null;
+        audit.metadataGridChildren = propertiesGrid?.children.length || 0;
+        audit.gptRemainsInMetadataRow = Boolean(propertiesGrid && gptProperty && gptProperty.parentElement === propertiesGrid);
+        audit.agreedDateInputs = [...document.querySelectorAll('[data-shared-agreed-date-editor] input[type="date"]')]
+          .filter(input => !input.closest("[hidden]")).length;
+        audit.agreementPeriodHidden = agreementEditor?.querySelector("[data-agreement-period-fields]")?.hasAttribute("hidden") === true;
+        agreementEditor?.querySelector("[data-agreement-period]")?.click();
+        audit.periodMode = agreementEditor?.dataset.agreementMode || "";
+        audit.periodDateInputs = [...agreementEditor?.querySelectorAll('input[type="date"]') || []]
+          .filter(input => !input.closest("[hidden]")).length;
+        agreementEditor?.querySelector("[data-agreed-date-clear]")?.click();
+        audit.clearMode = agreementEditor?.dataset.agreementMode || "";
+        audit.clearDateInputs = [...agreementEditor?.querySelectorAll('input[type="date"]') || []]
+          .filter(input => !input.closest("[hidden]")).length;
+      }
+      let node = document.getElementById("worktodo-shared-drawer-audit");
+      if (!node) { node = document.createElement("pre"); node.id = "worktodo-shared-drawer-audit"; document.body.appendChild(node); }
+      node.textContent = JSON.stringify(audit);
+      node.dataset.audit = JSON.stringify(audit);
+      if (checklistQaMode && !window.__checklistQaScheduled) {
+        window.__checklistQaScheduled = true;
+        window.setTimeout(() => {
+          const panel = document.querySelector("[data-task-checklist-panel]");
+          const form = document.querySelector("[data-task-checklist-add]");
+          const input = form?.querySelector("input[name=label]");
+          if (!panel || !form || !input) return;
+          panel.open = false;
+          input.value = "新增後仍維持使用者選擇";
+          form.requestSubmit(form.querySelector("button[type=submit]"));
+          window.setTimeout(() => {
+            const nextAudit = JSON.parse(node.dataset.audit || "{}");
+            nextAudit.checklistPanelOpenAfterAdd = document.querySelector("[data-task-checklist-panel]")?.open === true;
+            nextAudit.checklistAddSubmitCalls = window.__worktodoChecklistCalls.filter(call => call.name === "board_add_task_checklist_item").length;
+            node.textContent = JSON.stringify(nextAudit);
+            node.dataset.audit = JSON.stringify(nextAudit);
+          }, 600);
+        }, 120);
+      }
+    }
+    setTimeout(() => {
+      window.ZhugeBoardRuntime?.openTaskDetail(window.__fixtureTask);
+      setTimeout(writeFixtureAudit, 450);
+    }, 450);
+  </script>
+</body>
+</html>
