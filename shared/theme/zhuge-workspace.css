@@ -447,10 +447,10 @@ html[data-theme="light"] body:has(.zhuge-module-shell) { background: var(--zhuge
  * through the same shell inset. AI Board keeps its canvas blocks on that
  * boundary; WorkLog and Investment retain their own inner content surfaces. */
 @media (max-width: 900px) {
-  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 14px; }
+  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 0; }
 }
 @media (max-width: 767px) {
-  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 10px; }
+  .zhuge-module-shell.workspace-shell > .workspace-app { padding: 0; }
 }
 
 /* The WorkLog runtime predates the shared theme and has a few explicit dark
@@ -825,7 +825,7 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell > .workspace-app,
 .zhuge-module-shell > .app.workspace-app {
   box-sizing: border-box;
-  padding: var(--shell-page-padding-y) var(--shell-page-padding-x);
+  padding: 0;
 }
 .zhuge-module-shell > .app.workspace-app > .main {
   box-sizing: border-box;
@@ -985,7 +985,7 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   }
   .zhuge-module-shell > .workspace-app,
   .zhuge-module-shell > .app.workspace-app {
-    padding: 14px;
+    padding: 0;
   }
 }
 @media (max-width: 700px) {
@@ -995,6 +995,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   }
   .zhuge-module-shell > .workspace-app,
   .zhuge-module-shell > .app.workspace-app {
-    padding: 10px;
+    padding: 0;
   }
 }
