@@ -1965,7 +1965,7 @@
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
       const attachmentId = item.attachmentId || item.id || "";
-      const remove = archiveOnly ? "" : `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task" aria-label="刪除附件：${esc(item.filename || "未命名附件")}" title="刪除附件">🗑️</button>`;
+      const remove = archiveOnly ? "" : `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover"><button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button></div></details>`;
       const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
       return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
     }).join("");
@@ -2162,6 +2162,7 @@
           } })
           : "";
         if (!url) return;
+        article.dataset.attachmentResolvedUrl = url;
         const mime = article.dataset.taskAttachmentMime || article.dataset.progressAttachmentMime || "";
         const openLink = document.createElement("a");
         openLink.className = "shared-task-attachment-open";
@@ -2207,6 +2208,23 @@
       }
     };
     const actionContract = sharedTaskActionContract(task);
+    document.querySelectorAll("[data-attachment-menu-action]").forEach(button => {
+      button.onclick = async () => {
+        const row = button.closest("[data-task-attachment-id]");
+        const action = button.dataset.attachmentMenuAction;
+        const link = row?.querySelector(".shared-task-attachment-open");
+        const url = row?.dataset.attachmentResolvedUrl || link?.href || "";
+        const filename = row?.querySelector(".shared-task-attachment-copy strong")?.textContent || "附件";
+        button.closest("details")?.removeAttribute("open");
+        if (!url) return setBanner("附件連結尚未準備完成，請稍後再試。", "error");
+        if (action === "preview") window.open(url, "_blank", "noopener,noreferrer");
+        if (action === "download") {
+          const anchor = document.createElement("a");
+          anchor.href = url; anchor.download = filename; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+          document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        }
+      };
+    });
     document.querySelectorAll("[data-shared-attachment-delete]").forEach(button => {
       button.onclick = async () => {
         const scope = button.dataset.sharedAttachmentScope || (button.closest("[data-progress-attachment-id]") ? "progress_note" : "task");
@@ -2668,6 +2686,41 @@
       focusActiveDateInput();
     };
   }
+  function wireTaskCardMenu(task, archiveOnly) {
+    if (archiveOnly) return;
+    const menu = document.querySelector(".shared-task-card-menu");
+    if (!menu) return;
+    menu.querySelector('[data-task-card-action="duplicate"]')?.addEventListener("click", async () => {
+      menu.open = false;
+      const title = `${task.title || workItemLabel(task)}（副本）`;
+      try {
+        await executeSharedTaskAction(null, "createTask", {
+          title,
+          summary: task.summary || task.problem || task.objective || "",
+          usageScenario: task.usageScenario || task.usage_scenario || "",
+          workspaceId: task.workspaceId || task.workspace_id,
+          workspaceKey: task.workspaceKey || task.workspace_key,
+          status: task.status || task.rawStatus || "not_started"
+        }, { refresh: true, reopen: false, key: `task-duplicate:${task.id}:${Date.now()}` });
+        closeTaskDetail();
+        setBanner(`已建立「${esc(title)}」。Checklist、附件與工作進度不會複製。`, "success");
+      } catch (error) {
+        setBanner("複製卡片失敗：" + esc(error?.message || "正式 Cloud 未接受這次建立。"), "error");
+      }
+    });
+    menu.querySelector('[data-task-card-action="delete"]')?.addEventListener("click", async () => {
+      menu.open = false;
+      const label = task.workCode || task.code || task.title || workItemLabel(task);
+      if (!window.confirm?.(`刪除卡片「${label}」？此操作會走既有 Cloud Delete Contract。`)) return;
+      try {
+        await executeSharedTaskAction(task, "deleteTask", {}, { refresh: true, reopen: false, key: `task-delete:${task.id}` });
+        closeTaskDetail();
+        setBanner(`卡片「${esc(label)}」已刪除。`, "success");
+      } catch (error) {
+        setBanner("刪除卡片失敗：" + esc(error?.message || "正式 Cloud 未接受這次刪除。"), "error");
+      }
+    });
+  }
   async function openTaskDetail(task, options = {}) {
     ensureTaskDetailModal();
     const modal = document.getElementById("taskDetailModal");
@@ -2725,6 +2778,7 @@
         titleCode,
         itemLabel,
         titleEditable: !archiveOnly,
+        headerMenuHtml: archiveOnly ? "" : `<details class="shared-task-card-menu"><summary aria-label="卡片操作" title="卡片操作">⋯</summary><div class="shared-task-card-menu-popover"><button type="button" data-task-card-action="duplicate">📄 複製卡片</button><button class="is-danger" type="button" data-task-card-action="delete">🗑 刪除卡片</button></div></details>`,
           subtitle: cTemplate
             ? (archiveOnly ? "C 母版 · 📦 Read-only" : "C 母版 · Shared Task Drawer")
             : workTodo
@@ -2751,6 +2805,7 @@
     }
     modal.style.display = "block";
     modal.setAttribute("aria-hidden", "false");
+    wireTaskCardMenu(task, archiveOnly);
     body.querySelectorAll("[data-governance]").forEach(button => { button.onclick = () => applyGovernanceAction(task, button.dataset.governance); });
     try {
       const [items, taskChecklistItems] = workTodoDomainMode

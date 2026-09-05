@@ -84,7 +84,7 @@
     return `<div class="shared-task-drawer" data-shared-task-drawer data-shared-task-framework="v1"${readOnly}>
       <div class="shared-task-drawer-backdrop" data-shared-task-drawer-close aria-hidden="true"></div>
       <aside class="shared-task-drawer-panel" role="dialog" aria-modal="true" aria-label="${title}">
-        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><div class="shared-task-drawer-title-row"><h2 data-shared-task-title-heading>${heading}</h2>${titleEditor}</div></div><button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></header>
+        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><div class="shared-task-drawer-title-row"><h2 data-shared-task-title-heading>${heading}</h2>${titleEditor}</div></div><div class="shared-task-drawer-header-actions">${config.headerMenuHtml ? String(config.headerMenuHtml) : ""}<button class="shared-task-drawer-close" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></div></header>
         <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
         <div class="shared-task-drawer-grid">
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
