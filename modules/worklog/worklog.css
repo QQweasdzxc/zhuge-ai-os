@@ -522,3 +522,38 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
   .workspace-worklog .settings-actions{display:grid;grid-template-columns:1fr 1fr}
   .workspace-worklog .settings-actions button{width:100%}
 }
+
+/* 2026-09-05 WorkLog mobile polish: compact AI FAB + single-layer initialization */
+.worklog-init-screen{min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.worklog-init-card{width:min(720px,100%);margin-top:clamp(48px,10vh,120px);padding:clamp(22px,4vw,34px)}
+.worklog-init-card h1{margin:0 0 12px}
+.worklog-init-skeleton{display:grid;gap:8px;margin-top:20px}
+.worklog-init-skeleton>div{height:8px;border-radius:999px;background:linear-gradient(90deg,#1e293b,#334155,#1e293b);background-size:200% 100%;animation:worklog-init-shimmer 1.4s ease-in-out infinite}
+.worklog-init-skeleton>div:nth-child(2){width:78%}.worklog-init-skeleton>div:nth-child(3){width:56%}
+@keyframes worklog-init-shimmer{to{background-position:-200% 0}}
+.floating-assistant-button.compact{position:relative;display:grid;place-items:center;width:52px;height:52px;min-width:52px;max-width:52px;padding:0;border-radius:50%;text-align:center}
+.floating-assistant-glyph{font-size:1.35rem;line-height:1}
+.floating-assistant-hours-badge{position:absolute;right:-6px;top:-8px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border:2px solid #0f172a;border-radius:999px;color:#fff;font-size:.72rem;font-weight:950;line-height:1;box-shadow:0 5px 14px rgba(2,6,23,.45)}
+.floating-assistant-hours-badge.empty{background:#ef4444}.floating-assistant-hours-badge.partial{background:#f59e0b;color:#451a03}.floating-assistant-hours-badge.complete{background:#22c55e;color:#052e16}
+@media(max-width:767px){.floating-assistant-widget.collapsed{right:max(14px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom))}.floating-assistant-button.compact{width:48px;height:48px;min-width:48px;max-width:48px}.floating-assistant-glyph{font-size:1.22rem}.worklog-init-screen{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.worklog-init-card{margin-top:clamp(36px,8vh,76px);border-radius:20px}}
+
+/* Build 20260905-2203 — branded WorkLog loading experience */
+.worklog-brand-loading{min-height:100dvh;display:grid;place-items:center;padding:max(28px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:radial-gradient(circle at 50% 42%,rgba(32,58,92,.42),transparent 38%),linear-gradient(180deg,#08111f 0%,#0a1426 58%,#07101d 100%);overflow:hidden}
+.worklog-brand-loader{width:min(430px,92vw);text-align:center;color:#f8fafc;display:flex;flex-direction:column;align-items:center}
+.worklog-brand-mark{position:relative;width:min(270px,68vw);aspect-ratio:1/1;margin:0 auto 6px;display:grid;place-items:center;filter:drop-shadow(0 16px 36px rgba(0,0,0,.34))}
+.worklog-brand-logo{position:absolute;inset:5%;width:90%;height:90%;object-fit:contain}
+.worklog-brand-logo-base{filter:grayscale(1) brightness(.48) contrast(1.12);opacity:.82}
+.worklog-brand-fill{position:absolute;inset:5%;overflow:hidden;clip-path:inset(100% 0 0 0);animation:worklog-logo-fill 2.8s cubic-bezier(.4,0,.2,1) infinite}
+.worklog-brand-fill .worklog-brand-logo{inset:0;width:100%;height:100%;filter:sepia(.15) saturate(1.15) brightness(1.08) drop-shadow(0 0 12px rgba(245,183,55,.28))}
+.worklog-brand-orbit{position:absolute;inset:4%;border-radius:50%;border:2px solid rgba(212,160,52,.13);animation:worklog-orbit-spin 1.75s linear infinite}
+.worklog-brand-orbit::before{content:"";position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 70%,rgba(255,196,72,.22) 78%,#ffd36a 91%,#fff0b2 96%,transparent 100%);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 4px));filter:drop-shadow(0 0 8px rgba(255,190,55,.7))}
+.worklog-brand-orbit span{position:absolute;width:9px;height:9px;border-radius:50%;right:12%;top:8%;background:#fff2b4;box-shadow:0 0 8px #ffd15c,0 0 20px #ffb62e,0 0 34px rgba(255,182,46,.75)}
+.worklog-brand-wordmark{margin-top:-2px;font-weight:800;font-size:clamp(1.25rem,5vw,1.7rem);letter-spacing:.18em;color:#e7edf7;text-indent:.18em}.worklog-brand-wordmark span{color:#d9a93d}
+.worklog-brand-progress{width:min(310px,76vw);height:6px;margin:20px auto 20px;border-radius:999px;background:rgba(117,138,170,.2);box-shadow:inset 0 0 0 1px rgba(145,166,197,.18);overflow:hidden}
+.worklog-brand-progress span{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#b7791f,#ffd76b,#fff0b2);transform-origin:left;animation:worklog-progress-fill 2.8s cubic-bezier(.4,0,.2,1) infinite;box-shadow:0 0 12px rgba(255,193,58,.72)}
+.worklog-brand-loader h1{font-size:clamp(1.35rem,5.5vw,1.75rem);margin:0 0 12px;letter-spacing:.02em}.worklog-brand-loader p{margin:0;color:#aebbd0;font-size:clamp(.88rem,3.5vw,1rem);line-height:1.7}
+@keyframes worklog-orbit-spin{to{transform:rotate(360deg)}}
+@keyframes worklog-logo-fill{0%{clip-path:inset(100% 0 0 0)}72%,92%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(100% 0 0 0)}}
+@keyframes worklog-progress-fill{0%{transform:scaleX(.06)}72%,92%{transform:scaleX(1)}100%{transform:scaleX(.06)}}
+@media (prefers-reduced-motion:reduce){.worklog-brand-orbit,.worklog-brand-fill,.worklog-brand-progress span{animation:none}.worklog-brand-fill{clip-path:inset(0)}.worklog-brand-progress span{transform:scaleX(.72)}}
+@media(max-width:420px){.worklog-brand-mark{width:min(238px,66vw)}.worklog-brand-progress{margin-top:16px}.worklog-brand-loader p br{display:none}}

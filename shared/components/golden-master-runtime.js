@@ -1280,6 +1280,11 @@
     modal.className = "workspace-settings-backdrop";
     modal.dataset.workspaceSettingsModal = workspace.id;
     const custom = Array.isArray(settings.custom_emails) ? settings.custom_emails.join(", ") : "";
+    const cc = Array.isArray(settings.cc_emails) ? settings.cc_emails.join(", ") : "";
+    const bcc = Array.isArray(settings.bcc_emails) ? settings.bcc_emails.join(", ") : "";
+    const progressTo = Array.isArray(settings.progress_to_emails) ? settings.progress_to_emails.join(", ") : "";
+    const progressCc = Array.isArray(settings.progress_cc_emails) ? settings.progress_cc_emails.join(", ") : "";
+    const progressBcc = Array.isArray(settings.progress_bcc_emails) ? settings.progress_bcc_emails.join(", ") : "";
     const subject = settings.subject_template || "{{卡片編號}} 已進入{{工作區名稱}}";
     const body = settings.body_template || "您的案件 {{卡片編號}}「{{卡片名稱}}」目前已進入「{{工作區名稱}}」。";
     modal.innerHTML = `<section class="workspace-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workspaceSettingsTitle">
@@ -1291,9 +1296,17 @@
         <label class="ws-check"><input type="checkbox" data-ws-assignee ${settings.notify_assignee ? "checked" : ""}> 卡片負責人</label>
         <label class="ws-check"><input type="checkbox" data-ws-reporter ${settings.notify_reporter ? "checked" : ""}> 原始通報人</label>
       </div>
-      <label class="ws-field"><span>指定 Email <small>多個 Email 請用逗號分隔</small></span><input type="text" data-ws-emails value="${esc(custom)}" placeholder="abc@company.com"></label>
+      <label class="ws-field"><span>指定 Email（To） <small>多個 Email 請用逗號分隔</small></span><input type="text" data-ws-emails value="${esc(custom)}" placeholder="owner@company.com"></label>
+      <label class="ws-field"><span>副本 CC</span><input type="text" data-ws-cc value="${esc(cc)}" placeholder="manager@company.com"></label>
+      <label class="ws-field"><span>密件副本 BCC</span><input type="text" data-ws-bcc value="${esc(bcc)}" placeholder="audit@company.com"></label>
       <label class="ws-field"><span>Email 主旨</span><input type="text" data-ws-subject value="${esc(subject)}"></label>
       <label class="ws-field"><span>Email 內容</span><textarea data-ws-body rows="6">${esc(body)}</textarea></label>
+      <div class="ws-divider">此工作區卡片新增工作進度時</div>
+      <label class="ws-check"><input type="checkbox" data-ws-progress-enabled ${settings.progress_notification_enabled ? "checked" : ""}> 寄送回報通知</label>
+      <label class="ws-field"><span>回報通知 Email（To）</span><input type="text" data-ws-progress-to value="${esc(progressTo)}" placeholder="pm@company.com"></label>
+      <label class="ws-field"><span>回報通知 CC</span><input type="text" data-ws-progress-cc value="${esc(progressCc)}" placeholder="manager@company.com"></label>
+      <label class="ws-field"><span>回報通知 BCC</span><input type="text" data-ws-progress-bcc value="${esc(progressBcc)}" placeholder="audit@company.com"></label>
+      <small class="ws-help">通知信會附上此卡片的直接連結；收件人仍須具備 Zhuge AI OS 的登入與該卡片存取權限。</small>
       <footer><button type="button" data-ws-cancel>取消</button><button type="button" class="primary" data-ws-save>儲存設定</button></footer>
     </section>`;
     document.body.appendChild(modal);
@@ -1303,8 +1316,15 @@
     modal.addEventListener("click", event => { if (event.target === modal) close(); });
     modal.querySelector("[data-ws-save]").onclick = async () => {
       const save = modal.querySelector("[data-ws-save]");
-      const emails = modal.querySelector("[data-ws-emails]").value.split(/[;,\s]+/).map(v => v.trim()).filter(Boolean);
-      const invalid = emails.find(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+      const parseEmails = selector => modal.querySelector(selector).value.split(/[;,\s]+/).map(v => v.trim()).filter(Boolean);
+      const emails = parseEmails("[data-ws-emails]");
+      const ccEmails = parseEmails("[data-ws-cc]");
+      const bccEmails = parseEmails("[data-ws-bcc]");
+      const progressToEmails = parseEmails("[data-ws-progress-to]");
+      const progressCcEmails = parseEmails("[data-ws-progress-cc]");
+      const progressBccEmails = parseEmails("[data-ws-progress-bcc]");
+      const allEmails = [...emails, ...ccEmails, ...bccEmails, ...progressToEmails, ...progressCcEmails, ...progressBccEmails];
+      const invalid = allEmails.find(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
       if (invalid) { setBanner(`Email 格式不正確：${esc(invalid)}`, "error"); return; }
       save.disabled = true;
       setBanner("正在將工作區設定保存至 Cloud…", "loading");
@@ -1314,6 +1334,12 @@
           notifyAssignee: modal.querySelector("[data-ws-assignee]").checked,
           notifyReporter: modal.querySelector("[data-ws-reporter]").checked,
           customEmails: emails,
+          ccEmails,
+          bccEmails,
+          progressNotificationEnabled: modal.querySelector("[data-ws-progress-enabled]").checked,
+          progressToEmails,
+          progressCcEmails,
+          progressBccEmails,
           subjectTemplate: modal.querySelector("[data-ws-subject]").value.trim(),
           bodyTemplate: modal.querySelector("[data-ws-body]").value.trim()
         });
@@ -1965,13 +1991,14 @@
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
       const attachmentId = item.attachmentId || item.id || "";
-      const remove = archiveOnly ? "" : `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover"><button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button></div></details>`;
+      const remove = archiveOnly ? "" : `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover"><button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button type="button" data-attachment-menu-action="rename">✏️ 重新命名</button><button type="button" data-attachment-menu-action="note">📝 附註</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button></div></details>`;
       const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}</span>${remove}</article>`;
+      const note = item.note ? `<small class="shared-task-attachment-note">📝 ${esc(item.note)}</small>` : "";
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}${note}</span>${remove}</article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
-    const add = archiveOnly ? "" : `<label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
+    const add = archiveOnly ? "" : `<div class="shared-task-attachment-dropzone" data-task-attachment-dropzone tabindex="0" aria-label="拖曳檔案到這裡上傳"><span class="shared-task-attachment-drop-icon" aria-hidden="true">📎</span><span><strong>拖曳檔案到這裡直接上傳</strong><small>或使用下方按鈕選擇檔案；支援一次多個檔案</small></span></div><label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
     return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}</div>`;
   }
   function formatByteSize(bytes) {
@@ -2191,22 +2218,60 @@
     if (archiveOnly) return;
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
-    if (input) input.onchange = async () => {
-      const files = Array.from(input.files || []);
-      if (!files.length) return;
-      input.disabled = true;
-      if (hint) hint.textContent = `正在保存 ${files.length} 個附件…`;
+    const saveGeneralAttachments = async (files, source = "picker") => {
+      const selected = Array.from(files || []).filter(file => file && file.size > 0);
+      if (!selected.length) return;
+      if (input) input.disabled = true;
+      if (hint) hint.textContent = `正在保存 ${selected.length} 個附件…`;
       try {
-        await uploadAttachmentFiles(task, files);
+        await uploadAttachmentFiles(task, selected);
         await openTaskDetail(task, { readOnly: archiveOnly });
-        setBanner(state.applicationScope === "c" ? "附件已保存至 C 母版 Cloud 資料。" : "附件已保存至正式 Cloud。", "success");
+        setBanner(state.applicationScope === "c"
+          ? (source === "drop" ? "拖曳附件已保存至 C 母版 Cloud 資料。" : "附件已保存至 C 母版 Cloud 資料。")
+          : (source === "drop" ? "拖曳附件已保存至正式 Cloud。" : "附件已保存至正式 Cloud。"), "success");
       } catch (error) {
         if (hint) hint.textContent = "附件保存失敗，請確認登入狀態與檔案大小。";
         setBanner("附件保存失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次上傳。" : "正式 Storage／controlled path 未接受這次上傳。")), "error");
       } finally {
-        input.disabled = false;
+        if (input) input.disabled = false;
       }
     };
+    if (input) input.onchange = async () => {
+      const files = Array.from(input.files || []);
+      input.value = "";
+      await saveGeneralAttachments(files, "picker");
+    };
+    const dropzone = document.querySelector("[data-task-attachment-dropzone]");
+    if (dropzone) {
+      const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes("Files");
+      const setDragging = active => dropzone.classList.toggle("is-dragging", active);
+      ["dragenter", "dragover"].forEach(type => dropzone.addEventListener(type, event => {
+        if (!hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        setDragging(true);
+      }));
+      ["dragleave", "dragend"].forEach(type => dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        setDragging(false);
+      }));
+      dropzone.addEventListener("drop", async event => {
+        if (!hasFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragging(false);
+        await saveGeneralAttachments(Array.from(event.dataTransfer?.files || []), "drop");
+      });
+      dropzone.addEventListener("click", () => input?.click());
+      dropzone.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          input?.click();
+        }
+      });
+    }
     const actionContract = sharedTaskActionContract(task);
     document.querySelectorAll("[data-attachment-menu-action]").forEach(button => {
       button.onclick = async () => {
@@ -2216,6 +2281,32 @@
         const url = row?.dataset.attachmentResolvedUrl || link?.href || "";
         const filename = row?.querySelector(".shared-task-attachment-copy strong")?.textContent || "附件";
         button.closest("details")?.removeAttribute("open");
+        const attachmentId = row?.dataset.taskAttachmentId || "";
+        const item = (options.rawAttachments || []).find(candidate => String(candidate.id || candidate.attachmentId) === String(attachmentId)) || {};
+        if (action === "rename" || action === "note") {
+          const currentNote = String(item.note || "");
+          const value = action === "rename"
+            ? window.prompt?.("重新命名附件（只修改顯示名稱，不改原始 Storage 檔案）：", filename)
+            : window.prompt?.("附件附註（說明這個檔案的內容或用途）：", currentNote);
+          if (value == null) return;
+          const trimmed = String(value).trim();
+          if (action === "rename" && !trimmed) return setBanner("附件顯示名稱不可空白。", "error");
+          await actionContract.execute("updateAttachmentMetadata", {
+            taskId: task.id, attachmentId,
+            displayName: action === "rename" ? trimmed : (item.filename || filename),
+            note: action === "note" ? trimmed : currentNote
+          }, {
+            key: `attachment-metadata:${task.id}:${attachmentId}`,
+            onSuccess: async () => {
+              await refreshBoard({ quiet: true });
+              const freshTask = state.taskById.get(String(task.id)) || task;
+              await openTaskDetail(freshTask, { readOnly: isArchiveTask(freshTask) });
+              setBanner(action === "rename" ? "附件已重新命名。" : "附件附註已保存。", "success");
+            },
+            onError: error => setBanner("附件資料保存失敗：" + esc(error?.message || "Cloud 未接受這次修改。"), "error")
+          });
+          return;
+        }
         if (!url) return setBanner("附件連結尚未準備完成，請稍後再試。", "error");
         if (action === "preview") window.open(url, "_blank", "noopener,noreferrer");
         if (action === "download") {
@@ -2297,6 +2388,11 @@
         if (files.length) {
           if (attachmentHint) attachmentHint.textContent = `正在保存 ${files.length} 個進度附件…`;
           await uploadAttachmentFiles(task, files, { progressNote: true, activityId: createdNote.id });
+        }
+        try {
+          await activeService().notifyTaskProgress?.(task.id, createdNote.id, { cardUrl: buildTaskDeepLink(task.id) });
+        } catch (notificationError) {
+          console.warn("Task progress Email notification failed after Cloud progress save", notificationError);
         }
         await refreshBoard({ quiet: true });
         const freshTask = state.taskById.get(String(task.id)) || task;
@@ -3117,6 +3213,14 @@
       }
       syncRuntimeIdentityLabels();
       renderTasks(visibleTasks());
+      const deepLinkedTaskId = queryParameter("task");
+      if (deepLinkedTaskId && !state.deepLinkOpened) {
+        const deepLinkedTask = state.taskById.get(deepLinkedTaskId);
+        if (deepLinkedTask) {
+          state.deepLinkOpened = true;
+          window.setTimeout(() => openTaskDetail(deepLinkedTask, { readOnly: isArchiveTask(deepLinkedTask) }), 0);
+        }
+      }
       if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
       setConnection(state.tasks.length, state.principles.length, !!state.stopRealtime, state.dataStatus);
       root.ZhugeSharedNavigation?.refresh?.({ activeBoardInstanceId: state.boardInstanceId });
@@ -3184,6 +3288,14 @@
       if (event.key === "Enter") { event.preventDefault(); createConsumer(); }
     });
     document.querySelectorAll(".add").forEach(button => { button.disabled = false; button.removeAttribute("aria-disabled"); });
+  }
+  function buildTaskDeepLink(taskId) {
+    try {
+      const url = new URL(root.location.href);
+      url.searchParams.set("task", String(taskId || ""));
+      if (state.boardInstanceId) url.searchParams.set("boardInstanceId", state.boardInstanceId);
+      return url.toString();
+    } catch (_error) { return ""; }
   }
   function queryParameter(name) {
     const search = String(root.location?.search || "");

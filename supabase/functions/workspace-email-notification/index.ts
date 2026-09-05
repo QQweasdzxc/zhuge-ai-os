@@ -64,6 +64,7 @@ Deno.serve(async (request) => {
   const body = asObject(requestBody);
   const taskId = asText(body.task_id);
   const workspaceId = asText(body.workspace_id);
+  const cardUrl = asText(body.card_url);
   if (!taskId || !workspaceId) {
     return json({ code: "INVALID_INPUT", message: "task_id and workspace_id are required" }, 400);
   }
@@ -201,7 +202,7 @@ Deno.serve(async (request) => {
 
   const { data: setting, error: settingError } = await admin
     .from("board_workspace_notification_settings")
-    .select("enabled,notify_assignee,notify_reporter,custom_emails,subject_template,body_template")
+    .select("enabled,notify_assignee,notify_reporter,custom_emails,cc_emails,bcc_emails,subject_template,body_template")
     .eq("workspace_id", workspaceId)
     .maybeSingle();
   if (settingError) {
@@ -229,6 +230,10 @@ Deno.serve(async (request) => {
     const reporterEmail = asText(reporter?.user?.email);
     if (emailRx.test(reporterEmail)) recipients.add(reporterEmail.toLowerCase());
   }
+  const ccRecipients = new Set<string>((Array.isArray(setting.cc_emails) ? setting.cc_emails : []).map((value: unknown) => asText(value).toLowerCase()).filter((value: string) => emailRx.test(value)));
+  const bccRecipients = new Set<string>((Array.isArray(setting.bcc_emails) ? setting.bcc_emails : []).map((value: unknown) => asText(value).toLowerCase()).filter((value: string) => emailRx.test(value)));
+  [...recipients].forEach(value => { ccRecipients.delete(value); bccRecipients.delete(value); });
+  [...ccRecipients].forEach(value => bccRecipients.delete(value));
   if (!recipients.size) {
     const auditSaved = await finalizeAudit("no_resolvable_recipients");
     if (!auditSaved) return json({ code: "AUDIT_UPDATE_FAILED", message: "Notification audit could not be finalized", audit_id: auditId }, 503);
@@ -246,14 +251,15 @@ Deno.serve(async (request) => {
     "工作區名稱": asText(workspace.name)
   };
   const subject = render(asText(setting.subject_template, "{{卡片編號}} 已進入{{工作區名稱}}"), context).slice(0, 240);
-  const emailText = render(asText(setting.body_template), context).slice(0, 12000);
+  const renderedBody = render(asText(setting.body_template), context).slice(0, 12000);
+  const emailText = cardUrl ? `${renderedBody}\n\n開啟此卡片：${cardUrl}` : renderedBody;
   let providerResponse: Response;
   let providerBody: unknown = {};
   try {
     providerResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: fromEmail, to: [...recipients], subject, text: emailText })
+      body: JSON.stringify({ from: fromEmail, to: [...recipients], cc: [...ccRecipients], bcc: [...bccRecipients], subject, text: emailText })
     });
     providerBody = await providerResponse.json().catch(() => ({}));
   } catch (_error) {

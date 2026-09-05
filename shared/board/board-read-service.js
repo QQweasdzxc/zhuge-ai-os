@@ -325,7 +325,9 @@
       taskId: String(row.task_id || ""),
       activityId: String(row.activity_id || ""),
       attachmentScope: String(row.attachment_scope || "task"),
-      filename: String(row.filename || ""),
+      filename: String(row.display_name || row.filename || ""),
+      originalFilename: String(row.filename || ""),
+      note: String(row.note || ""),
       mimeType: String(row.mime_type || "application/octet-stream"),
       byteSize: Number(row.byte_size || 0),
       storageBucket: String(row.storage_bucket || "board-task-attachments"),
@@ -769,6 +771,12 @@
       p_notify_assignee: Boolean(settings.notifyAssignee),
       p_notify_reporter: Boolean(settings.notifyReporter),
       p_custom_emails: Array.isArray(settings.customEmails) ? settings.customEmails : [],
+      p_cc_emails: Array.isArray(settings.ccEmails) ? settings.ccEmails : [],
+      p_bcc_emails: Array.isArray(settings.bccEmails) ? settings.bccEmails : [],
+      p_progress_notification_enabled: Boolean(settings.progressNotificationEnabled),
+      p_progress_to_emails: Array.isArray(settings.progressToEmails) ? settings.progressToEmails : [],
+      p_progress_cc_emails: Array.isArray(settings.progressCcEmails) ? settings.progressCcEmails : [],
+      p_progress_bcc_emails: Array.isArray(settings.progressBccEmails) ? settings.progressBccEmails : [],
       p_subject_template: String(settings.subjectTemplate || ""),
       p_body_template: String(settings.bodyTemplate || "")
     });
@@ -842,6 +850,14 @@
     return gateway.rpc("worktodo_create_workspace", { p_name: name }).then(normalizeWorkspace);
   }
 
+  function currentCardUrl(taskId) {
+    try {
+      const url = new URL(root.location.href);
+      url.searchParams.set("task", String(taskId || ""));
+      return url.toString();
+    } catch (_error) { return ""; }
+  }
+
   async function moveTaskWorkspace(taskId, targetWorkspaceId, note = "", options = {}) {
     const gateway = options.gateway || requireGateway();
     const moved = await gateway.rpc("board_move_task_workspace", {
@@ -854,7 +870,8 @@
     try {
       await gateway.invokeFunction("workspace-email-notification", {
         task_id: taskId,
-        workspace_id: targetWorkspaceId
+        workspace_id: targetWorkspaceId,
+        card_url: currentCardUrl(taskId)
       });
     } catch (error) {
       console.warn("Workspace Email notification failed after Cloud move", error);
@@ -1032,6 +1049,15 @@
     }).then(normalizeActivity);
   }
 
+  async function notifyTaskProgress(taskId, activityId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.invokeFunction("card-progress-email-notification", {
+      task_id: taskId,
+      activity_id: activityId,
+      card_url: String(options.cardUrl || "")
+    });
+  }
+
   async function editTaskProgressNote(activityId, note, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_edit_task_progress_note", {
@@ -1090,6 +1116,15 @@
   async function completeTaskAttachment(attachmentId, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_complete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
+  }
+
+  async function updateTaskAttachmentMetadata(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_update_task_attachment_metadata", {
+      p_attachment_id: input.attachmentId || input.id,
+      p_display_name: input.displayName == null ? null : String(input.displayName).trim(),
+      p_note: input.note == null ? null : String(input.note).trim()
+    }).then(normalizeTaskAttachment);
   }
 
   async function deleteTaskAttachment(attachmentId, options = {}) {
@@ -1224,7 +1259,7 @@
       await resolveInstance();
       const moved = await gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null });
       try {
-        await gateway.invokeFunction("workspace-email-notification", { task_id: taskId, workspace_id: workspaceId });
+        await gateway.invokeFunction("workspace-email-notification", { task_id: taskId, workspace_id: workspaceId, card_url: currentCardUrl(taskId) });
       } catch (error) {
         console.warn("Workspace Email notification failed after Cloud move", error);
       }
@@ -1307,6 +1342,14 @@
       await resolveInstance();
       return gateway.rpc("board_instance_add_progress_note", { p_task_id: taskId, p_note: note }).then(normalizeInstanceActivity);
     }
+    async function instanceNotifyProgress(taskId, activityId, options = {}) {
+      await resolveInstance();
+      return gateway.invokeFunction("card-progress-email-notification", {
+        task_id: taskId,
+        activity_id: activityId,
+        card_url: String(options.cardUrl || "")
+      });
+    }
     async function instanceEditProgress(activityId, note) {
       await resolveInstance();
       return gateway.rpc("board_instance_edit_progress_note", { p_activity_id: Number(activityId), p_note: String(note || "") }).then(normalizeInstanceActivity);
@@ -1350,6 +1393,14 @@
     async function instanceCompleteAttachment(attachmentId) {
       await resolveInstance();
       return gateway.rpc("board_instance_complete_attachment", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
+    }
+    async function instanceUpdateAttachmentMetadata(input = {}) {
+      await resolveInstance();
+      return gateway.rpc("board_update_task_attachment_metadata", {
+        p_attachment_id: input.attachmentId || input.id,
+        p_display_name: input.displayName == null ? null : String(input.displayName).trim(),
+        p_note: input.note == null ? null : String(input.note).trim()
+      }).then(normalizeInstanceAttachment);
     }
     async function instanceDeleteAttachment(attachmentId) {
       await resolveInstance();
@@ -1412,6 +1463,7 @@
       createChecklistItem: instanceCreateGovernanceChecklist,
       updateChecklistItem: instanceUpdateGovernanceChecklist,
       addTaskProgressNote: instanceAddProgress,
+      notifyTaskProgress: instanceNotifyProgress,
       editTaskProgressNote: instanceEditProgress,
       deleteTaskProgressNote: instanceDeleteProgress,
       setAgreementSchedule: instanceSetAgreement,
@@ -1419,6 +1471,7 @@
       prepareProgressNoteAttachment: instancePrepareProgressAttachment,
       uploadTaskAttachment: instanceUploadAttachment,
       completeTaskAttachment: instanceCompleteAttachment,
+      updateTaskAttachmentMetadata: instanceUpdateAttachmentMetadata,
       deleteTaskAttachment: instanceDeleteAttachment,
       deleteProgressNoteAttachment: input => instanceDeleteAttachment(input?.attachmentId || input?.id),
       taskAttachmentUrl: instanceTaskAttachmentUrl,
@@ -1557,12 +1610,14 @@
     createChecklistItem,
     updateChecklistItem,
     addTaskProgressNote,
+    notifyTaskProgress,
     editTaskProgressNote,
     deleteTaskProgressNote,
     prepareTaskAttachment,
     prepareProgressNoteAttachment,
     uploadTaskAttachment,
     completeTaskAttachment,
+    updateTaskAttachmentMetadata,
     deleteTaskAttachment,
     deleteProgressNoteAttachment,
     taskAttachmentUrl,

@@ -70,6 +70,7 @@
           await required(service, "uploadTaskAttachment")(prepared, payload.file);
           return required(service, "completeTaskAttachment")(prepared.attachmentId);
         },
+        updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
           ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
           : required(service, "deleteTaskAttachment")(payload.attachmentId),
@@ -124,6 +125,7 @@
           await required(service, "uploadTaskAttachment")(prepared, payload.file);
           return required(service, "completeTaskAttachment")(prepared.attachmentId);
         },
+        updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
           ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
           : required(service, "deleteTaskAttachment")(payload.attachmentId),
@@ -200,6 +202,7 @@
           await required(service, "uploadTaskAttachment")(prepared, payload.file);
           return required(service, "completeTaskAttachment")(prepared.attachmentId);
         },
+        updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
           ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
           : required(service, "deleteTaskAttachment")(payload.attachmentId),

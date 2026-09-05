@@ -3096,12 +3096,24 @@ async function refreshFormalWorkSummary() {
 }
 
 function worklogInitializationLoadingScreen() {
-  return `<div class="wrap" data-worklog-init-state="loading"><div class="card"><section class="panel" style="margin-top:18px"><h1>正在準備工作空間…</h1><p class="muted">正在確認登入、雲端設定與工作身分。確認完成前不會開啟初次認識工時簿。</p><div class="worklog-init-skeleton" aria-hidden="true"><div></div><div></div><div></div></div></section></div></div>`;
+  return `<main class="worklog-init-screen worklog-brand-loading" data-worklog-init-state="loading">
+    <section class="worklog-brand-loader" role="status" aria-live="polite">
+      <div class="worklog-brand-mark" aria-hidden="true">
+        <div class="worklog-brand-orbit"><span></span></div>
+        <img class="worklog-brand-logo worklog-brand-logo-base" src="./assets/zgkm-loading-logo.png" alt="">
+        <div class="worklog-brand-fill"><img class="worklog-brand-logo" src="./assets/zgkm-loading-logo.png" alt=""></div>
+      </div>
+      <div class="worklog-brand-wordmark">ZHU<span>GE AI OS</span></div>
+      <div class="worklog-brand-progress" aria-hidden="true"><span></span></div>
+      <h1>正在準備工作空間…</h1>
+      <p>正在確認登入、雲端設定與工作身分。<br>確認完成後即進入 WorkLog。</p>
+    </section>
+  </main>`;
 }
 
 function worklogInitializationErrorScreen(state = {}) {
   const message = state.error || "雲端設定或工作身分尚未完成讀取。";
-  return `<div class="wrap" data-worklog-init-state="error"><div class="card"><section class="panel" style="margin-top:18px"><h1>工作空間暫時無法確認</h1><p class="muted">${escapeHtml(message)}</p><p class="muted">為避免把讀取失敗誤判為 onboarding，請先重試；目前不會顯示「初次認識工時簿」。</p><div class="form-actions"><button class="btn" type="button" data-retry-worklog-initialization>重新讀取</button></div></section></div></div>`;
+  return `<main class="worklog-init-screen" data-worklog-init-state="error"><section class="panel worklog-init-card"><h1>工作空間暫時無法確認</h1><p class="muted">${escapeHtml(message)}</p><p class="muted">為避免把讀取失敗誤判為 onboarding，請先重試；目前不會顯示「初次認識工時簿」。</p><div class="form-actions"><button class="btn" type="button" data-retry-worklog-initialization>重新讀取</button></div></section></main>`;
 }
 
 function bindWorklogInitialization() {
@@ -4239,7 +4251,13 @@ function standaloneChatScreen() {
 
 function floatingAssistantWidget() {
   if (!session) return "";
-  if (!isAssistantOpen()) return `<div class="floating-assistant-widget collapsed"><button class="floating-assistant-button" type="button" data-open-assistant="1"><span>${escapeHtml(assistantNudgeText())}</span></button></div>`;
+  if (!isAssistantOpen()) {
+    const done = profile ? Math.max(0, Math.round(hours(entriesForDate(new Date())) * 10) / 10) : 0;
+    const state = done >= 8 ? "complete" : (done > 0 ? "partial" : "empty");
+    const badge = done > 8 ? "8+" : String(Number(done.toFixed(1)));
+    const label = profile ? `今日工時 ${formatHumanDuration(done)} / 8h。${assistantNudgeText().replace(/^💬\s*/, "")}` : "開啟 Mr. KM 智能互動";
+    return `<div class="floating-assistant-widget collapsed"><button class="floating-assistant-button compact" type="button" data-open-assistant="1" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="floating-assistant-glyph" aria-hidden="true">💬</span>${profile ? `<span class="floating-assistant-hours-badge ${state}" aria-hidden="true">${escapeHtml(badge)}</span>` : ""}</button></div>`;
+  }
   const body = hasSeenAssistantWelcome() ? worklogAssistantPanel("floating") : assistantWelcomePanel("floating");
   return `<div class="floating-assistant-widget open">${body}</div>`;
 }
