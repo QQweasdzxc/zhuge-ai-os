@@ -11,7 +11,7 @@ const DRIVE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugDrive") || localStorage.getItem("zhuge_debug_drive") === "1"; }
   catch { return false; }
 })();
-const GOOGLE_DRIVE_OAUTH_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+const GOOGLE_DRIVE_OAUTH_SCOPE = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets";
 const WORKLOG_DESCRIPTION_MAX_LENGTH = 50;
 // Google Picker configuration is intentionally public-client configuration. Keep secrets out of this file.
 // Set these values per deployment; an empty value keeps the Picker action disabled with a clear message.
