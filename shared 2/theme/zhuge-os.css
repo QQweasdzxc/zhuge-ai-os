@@ -1,0 +1,182 @@
+/* Sprint 5.0 root shell styles. WorkLog styles remain in worklog.css unchanged. */
+.zhuge-root-dashboard {
+  margin-top: 18px;
+  padding: clamp(20px, 3vw, 36px);
+  background: linear-gradient(145deg, rgba(22, 41, 72, .96), rgba(10, 22, 42, .98));
+  border-color: rgba(112, 169, 255, .28);
+}
+.zhuge-root-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid rgba(145, 180, 226, .18);
+}
+.zhuge-root-brand-lockup { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.zhuge-root-mark { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px; background: rgba(79, 147, 244, .18); font-size: 30px; }
+.zhuge-root-eyebrow { margin: 0 0 3px; color: #8fc2ff; font-size: .85rem; letter-spacing: .04em; }
+.zhuge-root-brand-lockup h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2.15rem); }
+.zhuge-root-brand-lockup .muted { margin-top: 6px; }
+.zhuge-root-identity { position: relative; min-width: min(330px, 100%); border: 1px solid rgba(145, 180, 226, .22); border-radius: 15px; background: rgba(4, 14, 30, .34); }
+.zhuge-root-account-button { display: flex; align-items: center; gap: 11px; width: 100%; border: 0; border-radius: inherit; padding: 10px 13px; color: inherit; text-align: left; background: transparent; cursor: pointer; }
+.zhuge-root-account-button:hover, .zhuge-root-account-button:focus-visible { background: rgba(70, 126, 205, .14); outline: 2px solid rgba(99, 169, 255, .55); outline-offset: 2px; }
+.zhuge-root-avatar { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(143, 194, 255, .7); }
+.zhuge-root-avatar-fallback { display: grid; place-items: center; color: #d9ecff; background: #2868bd; font-weight: 700; }
+.zhuge-root-identity-copy { display: grid; gap: 2px; min-width: 0; }
+.zhuge-root-identity-copy strong, .zhuge-root-identity-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-root-identity-copy span { color: #c7d7ed; font-size: .86rem; }
+.zhuge-root-account-chevron { margin-left: auto; color: #8fc2ff; }
+.zhuge-root-account-menu { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; display: grid; width: min(290px, 86vw); overflow: hidden; border: 1px solid rgba(145, 180, 226, .28); border-radius: 16px; background: #0b1728; box-shadow: 0 18px 46px rgba(0, 0, 0, .42); }
+.zhuge-root-account-menu[hidden] { display: none; }
+.zhuge-root-account-summary { display: grid; gap: 3px; padding: 14px; border-bottom: 1px solid rgba(145, 180, 226, .18); }
+.zhuge-root-account-summary span { overflow: hidden; color: #a9bed8; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-root-account-menu a, .zhuge-root-account-menu button { border: 0; padding: 11px 14px; color: #e6f0ff; text-align: left; text-decoration: none; background: transparent; cursor: pointer; }
+.zhuge-root-account-menu a:hover, .zhuge-root-account-menu button:hover, .zhuge-root-account-menu a:focus-visible, .zhuge-root-account-menu button:focus-visible { background: rgba(70, 126, 205, .18); outline: none; }
+.zhuge-module-launcher { margin-top: 28px; }
+.zhuge-module-launcher-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.zhuge-module-launcher-head h3 { margin: 0; font-size: 1.15rem; }
+.zhuge-module-launcher-head p { margin: 4px 0 0; }
+.zhuge-session-badge { padding: 7px 10px; border-radius: 999px; color: #b9d8ff; background: rgba(52, 116, 207, .18); font-size: .78rem; white-space: nowrap; }
+.zhuge-module-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.zhuge-module-card { position: relative; display: block; min-height: 108px; padding: 0; overflow: hidden; border: 1px solid rgba(145, 180, 226, .25); border-radius: 16px; color: inherit; text-align: left; background: rgba(9, 25, 49, .72); transition: border-color .16s ease, transform .16s ease, background .16s ease; }
+.zhuge-module-card:hover { border-color: #63a9ff; background: rgba(25, 65, 122, .72); transform: translateY(-2px); }
+.zhuge-module-card-main { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 108px; padding: 18px; border: 0; color: inherit; font: inherit; text-align: left; background: transparent; cursor: pointer; }
+.zhuge-module-card-main:focus-visible { outline: 2px solid #63a9ff; outline-offset: -3px; }
+.zhuge-module-card-detail { padding: 0 18px 12px; }
+.zhuge-module-card-quick-action { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; margin: 0 18px 14px; padding: 7px 11px; border: 1px solid rgba(99, 169, 255, .65); border-radius: 10px; color: #e6f0ff; font: inherit; font-size: .76rem; font-weight: 850; background: rgba(48, 105, 190, .28); cursor: pointer; }
+.zhuge-module-card-quick-action:hover, .zhuge-module-card-quick-action:focus-visible { border-color: #8fc2ff; background: rgba(48, 105, 190, .52); outline: none; }
+.zhuge-module-card.is-disabled { opacity: .62; cursor: not-allowed; }
+.zhuge-module-icon { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 13px; background: rgba(113, 166, 235, .14); font-size: 22px; }
+.zhuge-module-copy { display: grid; gap: 5px; min-width: 0; }
+.zhuge-module-copy strong { font-size: 1rem; }
+.zhuge-module-copy small { color: #b6c7dc; line-height: 1.4; }
+.zhuge-module-note { position: absolute; right: 12px; top: 11px; color: #f4c76d; font-size: .72rem; }
+.zhuge-module-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.25rem; }
+.zhuge-root-principle { display: flex; align-items: center; gap: 9px; margin-top: 24px; padding: 13px 15px; border-left: 3px solid #69aaff; color: #c8d8eb; background: rgba(11, 32, 62, .55); font-size: .86rem; line-height: 1.5; }
+.zhuge-root-principle span:first-child { color: #8fc2ff; }
+.zhuge-dashboard-workspace-layout { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+.zhuge-dashboard-section { min-width: 0; padding: 18px; border: 1px solid rgba(145, 180, 226, .18); border-radius: 16px; background: rgba(9, 25, 49, .58); }
+.zhuge-dashboard-right-column { display: grid; gap: 14px; min-width: 0; }
+.zhuge-dashboard-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.zhuge-dashboard-section-heading h3 { margin: 0; font-size: 1.05rem; }
+.zhuge-dashboard-section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 0 0 auto; }
+.zhuge-dashboard-section-actions .btn,
+.zhuge-dashboard-section-actions .btn2 { white-space: nowrap; }
+.zhuge-dashboard-workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.zhuge-dashboard-workspace-list .zhuge-module-card { min-height: 68px; padding: 0; }
+.zhuge-dashboard-workspace-list .zhuge-module-card-main { min-height: 68px; padding: 12px 14px; }
+.zhuge-dashboard-worklog-entry { display: grid; grid-column: 1 / -1; gap: 10px; min-width: 0; }
+.zhuge-dashboard-worklog-entry .zhuge-module-card-quick-action { justify-self: start; margin: 0; }
+.zhuge-mini-worklog-calendar{width:100%;margin-top:9px;padding-top:8px;border-top:1px solid rgba(145,180,226,.2)}
+.zhuge-mini-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#9fb2ca;font-size:.65rem;line-height:1.2}
+.zhuge-mini-calendar-head strong{color:#f5f8fc;font-size:.7rem}
+.zhuge-mini-calendar-weekdays,.zhuge-mini-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:5px}
+.zhuge-mini-calendar-weekdays span{text-align:center;color:#8498b3;font-size:.56rem;font-weight:800}
+.zhuge-mini-calendar-day{display:grid;place-items:center;align-content:center;gap:3px;min-height:44px;padding:5px 2px;border:1px solid transparent;border-radius:7px;background:rgba(19,43,75,.42);color:#9fb2ca;font:inherit;cursor:pointer;line-height:1.1}
+.zhuge-mini-calendar-day b{font-size:.9rem;font-weight:850;line-height:1.1}.zhuge-mini-calendar-day small{display:block;min-height:1em;color:#8fc2ff;font-size:.7rem;font-weight:750;line-height:1.1;white-space:nowrap}
+.zhuge-mini-calendar-day:hover,.zhuge-mini-calendar-day:focus-visible{border-color:#63a9ff;outline:none}.zhuge-mini-calendar-day.has-hours{background:rgba(56,126,224,.24);color:#f5f8fc}.zhuge-mini-calendar-day.is-today{box-shadow:inset 0 0 0 1px #63a9ff;background:rgba(99,169,255,.12)}.zhuge-mini-calendar-day.is-empty{cursor:default;opacity:.35}
+.zhuge-mini-calendar-note{display:block;margin-top:6px;color:#8498b3;font-size:.62rem;line-height:1.25}
+.zhuge-mini-worklog-calendar .zhuge-mini-calendar-weekdays,.zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;grid-auto-flow:row;width:100%}.zhuge-mini-worklog-calendar .zhuge-mini-calendar-grid{grid-auto-rows:minmax(44px,auto)}
+.zhuge-dashboard-task-list,.zhuge-dashboard-continue-list { display: grid; gap: 6px; }
+.zhuge-dashboard-task-row,.zhuge-dashboard-continue-row { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid rgba(145, 180, 226, .16); border-radius: 12px; color: inherit; text-align: left; background: rgba(4, 14, 30, .28); cursor: pointer; }
+.zhuge-dashboard-task-row:hover,.zhuge-dashboard-task-row:focus-visible,.zhuge-dashboard-continue-row:hover,.zhuge-dashboard-continue-row:focus-visible { border-color: #63a9ff; background: rgba(25, 65, 122, .38); outline: none; }
+.zhuge-dashboard-task-icon,.zhuge-dashboard-continue-icon { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 9px; background: rgba(113, 166, 235, .14); }
+.zhuge-dashboard-task-copy,.zhuge-dashboard-continue-row > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.zhuge-dashboard-task-copy strong,.zhuge-dashboard-continue-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-dashboard-task-copy small,.zhuge-dashboard-continue-row small { color: #b6c7dc; font-size: .76rem; }
+.zhuge-dashboard-task-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.05rem; }
+.zhuge-dashboard-empty { display: grid; gap: 4px; padding: 12px 2px 2px; color: #b6c7dc; }
+.zhuge-dashboard-empty strong { color: #e6f0ff; }
+.zhuge-dashboard-empty span { font-size: .8rem; line-height: 1.45; }
+.zhuge-formal-work-summary { display: grid; gap: 9px; min-width: 0; }
+.zhuge-formal-work-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.zhuge-formal-work-stat { display: grid; gap: 3px; min-width: 0; padding: 8px 9px; border: 1px solid rgba(145, 180, 226, .15); border-radius: 10px; background: rgba(4, 14, 30, .25); }
+.zhuge-formal-work-stat span { overflow: hidden; color: #9eb7d2; font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-formal-work-stat strong { color: #f0f6ff; font-size: 1.05rem; line-height: 1; }
+.zhuge-formal-work-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.zhuge-formal-work-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid rgba(99, 169, 255, .22); border-radius: 999px; color: #c9dcf3; background: rgba(25, 65, 122, .22); font-size: .68rem; }
+.zhuge-formal-work-pill b { color: #e8f2ff; font-weight: 750; }
+.zhuge-formal-work-pill small { color: #8fc2ff; }
+.zhuge-formal-work-list { display: grid; gap: 5px; }
+.zhuge-formal-work-row { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 8px 9px; border: 1px solid rgba(145, 180, 226, .14); border-radius: 10px; color: inherit; text-align: left; background: rgba(4, 14, 30, .25); cursor: pointer; }
+.zhuge-formal-work-row:hover, .zhuge-formal-work-row:focus-visible { border-color: #63a9ff; background: rgba(25, 65, 122, .34); outline: none; }
+.zhuge-formal-work-row-icon { display: grid; place-items: center; flex: 0 0 auto; width: 24px; height: 24px; border-radius: 7px; background: rgba(113, 166, 235, .14); font-size: .8rem; }
+.zhuge-formal-work-row-copy { display: grid; gap: 2px; min-width: 0; }
+.zhuge-formal-work-row-copy strong { overflow: hidden; color: #eaf3ff; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-formal-work-row-copy small { overflow: hidden; color: #a9bdd6; font-size: .68rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-formal-work-source { color: #839ab5; font-size: .66rem; line-height: 1.35; }
+.zhuge-formal-work-summary[data-summary-state="error"] .zhuge-dashboard-empty { padding: 9px 10px; border: 1px solid rgba(217, 120, 120, .32); border-radius: 10px; background: rgba(92, 34, 42, .16); }
+.zhuge-dashboard-continue-list.is-fallback .zhuge-dashboard-continue-row { padding-block: 8px; }
+.zhuge-dashboard-continue-list.is-fallback .zhuge-dashboard-continue-row small { color: #9fb7d3; }
+.zhuge-root-section { margin-top: 25px; padding-top: 22px; border-top: 1px solid rgba(145, 180, 226, .16); }
+.zhuge-root-section-heading { margin-bottom: 12px; }
+.zhuge-root-section-heading h3 { margin: 0; font-size: 1.12rem; }
+.zhuge-root-empty { border: 1px dashed rgba(145, 180, 226, .24); border-radius: 14px; padding: 15px; color: #b6c7dc; }
+.zhuge-recent-activity { display: block; }
+.zhuge-activity-row { width: 100%; display: flex; align-items: center; gap: 12px; border: 1px solid rgba(145, 180, 226, .25); border-radius: 15px; padding: 14px; color: inherit; text-align: left; background: rgba(9, 25, 49, .72); cursor: pointer; }
+.zhuge-activity-row:hover, .zhuge-activity-row:focus-visible { border-color: #63a9ff; outline: none; }
+.zhuge-activity-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(113, 166, 235, .14); font-size: 20px; }
+.zhuge-activity-row span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.zhuge-activity-row small { color: #b6c7dc; }
+.zhuge-activity-arrow { margin-left: auto; color: #8fc2ff; font-size: 1.2rem; }
+.zhuge-ai-notice { border-left: 3px solid #69aaff; }
+@media(max-width:767px){.zhuge-dashboard-section-heading{align-items:flex-start}.zhuge-dashboard-section-actions{align-items:stretch;flex-direction:column;width:auto}.zhuge-dashboard-section-actions .btn,.zhuge-dashboard-section-actions .btn2{min-height:38px;padding-inline:10px}}
+.zhuge-ai-notice h3 { margin: 0 0 4px; }
+.zhuge-ai-notice p { margin: 0; }
+.zhuge-root-release-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.zhuge-root-release-meta div { display: grid; gap: 2px; padding: 11px 12px; border: 1px solid rgba(145, 180, 226, .18); border-radius: 12px; background: rgba(4, 14, 30, .28); }
+.zhuge-root-release-meta span { color: #9eb7d2; font-size: .72rem; }
+.zhuge-root-release-meta strong { overflow: hidden; color: #e6f0ff; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-brand .brand-stack[data-open-workspace="dashboard"] { cursor: pointer; }
+
+/* Child workspaces never render the Root Dashboard hero.  On narrow screens
+ * this compact context bar keeps the workspace menu reachable without
+ * repeating the product-level brand block. */
+.workspace-context-bar { display: none; max-width: 1520px; margin: 0 auto 10px; }
+.workspace-context-inner { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 10px; border: 1px solid #334155; border-radius: 16px; background: linear-gradient(180deg,#0b1728,#091422); }
+.workspace-context-title { display: flex; align-items: center; gap: 7px; min-width: 0; color: #f8fafc; font-weight: 900; }
+.workspace-breadcrumb { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.workspace-breadcrumb-root { color: #8fc2ff; }
+.workspace-breadcrumb-separator { color: #6f8eae; }
+.workspace-context-title span { flex: 0 0 auto; }
+.workspace-context-inner .work-identity-header-status { margin-left: auto; }
+@media (max-width: 1279px) {
+  .workspace-context-bar { display: block; width: min(100%, 1520px); }
+  .workspace-context-inner .adaptive-menu { display: inline-flex; }
+}
+@media (max-width: 860px) {
+  .zhuge-root-hero { align-items: stretch; flex-direction: column; }
+  .zhuge-root-identity { min-width: 0; }
+  .zhuge-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zhuge-dashboard-workspace-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .zhuge-dashboard-workspace-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .zhuge-root-dashboard { padding: 18px 14px; }
+  .zhuge-module-launcher-head { align-items: flex-start; flex-direction: column; }
+  .zhuge-module-grid { grid-template-columns: 1fr; }
+  .zhuge-module-card { min-height: 86px; }
+  .zhuge-root-release-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zhuge-formal-work-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .zhuge-module-shell,
+  .zhuge-module-shell > .workspace-app,
+  .zhuge-module-shell .workspace-canvas,
+  .zhuge-root-dashboard,
+  .zhuge-root-dashboard .zhuge-dashboard-workspace-layout,
+  .zhuge-root-dashboard .zhuge-dashboard-workspaces,
+  .zhuge-root-dashboard .zhuge-dashboard-right-column,
+  .zhuge-root-dashboard .zhuge-module-card,
+  .zhuge-root-dashboard .zhuge-module-card-main,
+  .zhuge-root-dashboard .zhuge-module-card-detail,
+  .zhuge-root-dashboard .zhuge-mini-worklog-calendar { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; }
+  .zhuge-root-dashboard { width: 100%; max-width: calc(100vw - 20px); overflow-x: hidden; }
+  .zhuge-root-dashboard .zhuge-mini-calendar-head { min-width: 0; }
+  .zhuge-root-dashboard .zhuge-mini-calendar-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .zhuge-root-dashboard .zhuge-dashboard-workspace-layout { display: flex; flex-direction: column; }
+}
