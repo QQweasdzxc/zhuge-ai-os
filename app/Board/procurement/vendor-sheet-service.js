@@ -2,7 +2,7 @@
   "use strict";
   const SHEETS_API="https://sheets.googleapis.com/v4/spreadsheets";
   const BRIDGE_FUNCTION="gas-vendor-bridge";
-  const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:T",timeoutMs:15000,chunkSize:25,maxRows:1000};
+  const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:T",timeoutMs:15000,bridgeTimeoutMs:45000,chunkSize:25,maxRows:1000};
   const KEYS=["orderDate","company","purchaseNo","vendorName","taxId","contactMailLegacy","paymentTerms","products","integritySignedAt","integrityOriginal","csrSelfAssessment","csrOriginal","phone","contactName","mobile","email","project","contracted","insured","vendorId"];
   function token(){
     if(typeof global.currentGoogleProviderToken==="function") return String(global.currentGoogleProviderToken()||"");
@@ -54,7 +54,7 @@
       const gateway=global.ZhugeSupabaseGateway?.createDataGateway?.();
       if(!gateway?.invokeFunction) throw new VendorSheetError("Shared Supabase 服務尚未就緒。","BRIDGE_UNAVAILABLE");
       const controller=new AbortController();
-      const timeoutMs=Number(this.config.timeoutMs||15000);
+      const timeoutMs=Number(this.config.bridgeTimeoutMs||this.config.timeoutMs||15000);
       let timer;
       const timeoutPromise=new Promise((_,reject)=>{timer=setTimeout(()=>{
         try{controller.abort();}catch(_){ }

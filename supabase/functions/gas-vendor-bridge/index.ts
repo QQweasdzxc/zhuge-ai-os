@@ -133,7 +133,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, label: string) {
   }
 }
 async function responseBody(response: Response) {
-  const text = (await response.text()).slice(0, 20000);
+  const text = await response.text();
   if (!text) return {};
   try {
     return asObject(JSON.parse(text));
