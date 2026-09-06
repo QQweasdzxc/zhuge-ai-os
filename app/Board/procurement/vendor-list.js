@@ -1,8 +1,10 @@
 (function(){
   "use strict";
+  let mountedRoot=null;
   function mountVendorClient(){
   const root=document.querySelector('[data-procurement-panel="vendors"]');
-  if(!root||!window.VendorSheetService||root.dataset.vendorClientMounted==="true")return;
+  if(!root||!window.VendorSheetService||root===mountedRoot)return;
+  mountedRoot=root;
   root.dataset.vendorClientMounted="true";
   const service=new window.VendorSheetService.VendorSheetService();
   let rows=[]; let selected=null;
