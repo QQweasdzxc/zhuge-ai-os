@@ -1,7 +1,9 @@
 (function(){
   "use strict";
+  function mountVendorClient(){
   const root=document.querySelector('[data-procurement-panel="vendors"]');
-  if(!root||!window.VendorSheetService)return;
+  if(!root||!window.VendorSheetService||root.dataset.vendorClientMounted==="true")return;
+  root.dataset.vendorClientMounted="true";
   const service=new window.VendorSheetService.VendorSheetService();
   let rows=[]; let selected=null;
   const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -31,4 +33,12 @@
   // the page runtime is ready so the tab never sits at a misleading “尚未同步” state.
   // A later tab activation/refresh can safely retry if Google authorization is not ready yet.
   queueMicrotask(()=>load());
+  }
+  mountVendorClient();
+  const observationRoot=document.querySelector(".main")||document.body;
+  if(observationRoot&&typeof MutationObserver==="function"){
+    const observer=new MutationObserver(()=>queueMicrotask(mountVendorClient));
+    observer.observe(observationRoot,{childList:true,subtree:true});
+  }
+  window.addEventListener("zhuge-template-adoption-updated",()=>setTimeout(mountVendorClient,0));
 })();
