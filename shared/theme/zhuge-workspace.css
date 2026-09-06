@@ -998,3 +998,21 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
     padding: 0;
   }
 }
+
+/* Investment Layout Consistency — 2026-09-07
+ * Keep custom Investment pages on the same outer rhythm as the canonical
+ * Investment C-board surface: Header -> spacing -> tabs -> spacing -> content.
+ * Presentation only; no Investment data, routing, C runtime, or GAS behavior. */
+.investment-module-shell .investment-main { padding: 0 !important; }
+.investment-module-shell .investment-content-tabs {
+  margin: clamp(18px, 3vw, 36px) 0 16px;
+  padding: 0;
+}
+.investment-module-shell .investment-page-heading > div > .investment-eyebrow { margin-top: 0; }
+@media (max-width: 900px) {
+  .investment-module-shell .investment-main { padding: 0 !important; }
+}
+@media (max-width: 700px) {
+  .investment-module-shell .investment-main { padding: 0 !important; }
+  .investment-module-shell .investment-content-tabs { margin-top: 18px; }
+}
