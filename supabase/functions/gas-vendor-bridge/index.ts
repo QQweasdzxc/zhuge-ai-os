@@ -5,7 +5,7 @@ const SHEET_NAME = "廠商名冊-CS集團(CS、CK、UU)";
 const RANGE = "A:T";
 const GOOGLE_SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const GOOGLE_REQUEST_TIMEOUT_MS = 20000;
 const MAX_ROWS = 1000;
 const DEFAULT_ORIGIN = "https://qqweasdzxc.github.io";
@@ -17,6 +17,9 @@ const VENDOR_KEYS = [
   "csrOriginal", "phone", "contactName", "mobile", "email", "project", "contracted",
   "insured", "vendorId"
 ] as const;
+const VENDOR_ID_INDEX = VENDOR_KEYS.indexOf("vendorId");
+const VENDOR_KEY_INDEX = new Map<string, number>(VENDOR_KEYS.map((key, index) => [key, index]));
+const MUTABLE_VENDOR_KEYS = VENDOR_KEYS.filter(key => key !== "vendorId");
 class HttpError extends Error {
   status: number;
   code: string;
@@ -171,8 +174,8 @@ function rowToVendor(row: unknown, rowNumber: number) {
   });
   return vendor;
 }
-async function readVendors(accessToken: string) {
-  const range = encodeURIComponent(`${quoteSheetName(SHEET_NAME)}!${RANGE}`);
+async function readSheetValues(accessToken: string, requestedRange = RANGE) {
+  const range = encodeURIComponent(`${quoteSheetName(SHEET_NAME)}!${requestedRange}`);
   const url = `${GOOGLE_SHEETS_API}/${SPREADSHEET_ID}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
   const response = await fetchWithTimeout(url, {
     method: "GET",
@@ -185,11 +188,103 @@ async function readVendors(accessToken: string) {
       ...safeProviderDetails(body)
     });
   }
-  const values = Array.isArray(body.values) ? body.values : [];
-  const rows = values.slice(1, MAX_ROWS + 1)
+  return Array.isArray(body.values) ? body.values : [];
+}
+function rowsFromValues(values: unknown[]) {
+  return values.slice(1, MAX_ROWS + 1)
     .map((row, index) => rowToVendor(row, index + 2))
     .filter(row => Boolean(row.vendorName || row.vendorId || row.purchaseNo));
-  return rows;
+}
+async function readVendors(accessToken: string) {
+  return rowsFromValues(await readSheetValues(accessToken, RANGE));
+}
+function columnName(index: number) {
+  let value = index + 1;
+  let name = "";
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+async function writeVendorFields(accessToken: string, rowNumber: number, patch: JsonObject, updateKeys: string[]) {
+  const url = `${GOOGLE_SHEETS_API}/${SPREADSHEET_ID}/values:batchUpdate`;
+  const response = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      valueInputOption: "USER_ENTERED",
+      data: updateKeys.map(key => {
+        const index = VENDOR_KEY_INDEX.get(key);
+        return {
+          range: `${quoteSheetName(SHEET_NAME)}!${columnName(index ?? 0)}${rowNumber}:${columnName(index ?? 0)}${rowNumber}`,
+          majorDimension: "ROWS",
+          values: [[asText(patch[key])]]
+        };
+      })
+    })
+  }, "Google Sheet write");
+  const body = await responseBody(response);
+  if (!response.ok) {
+    throw new HttpError("Google Sheet write failed.", 502, "GOOGLE_SHEETS_WRITE_FAILED", {
+      provider_status: response.status,
+      ...safeProviderDetails(body)
+    });
+  }
+  return { status: response.status };
+}
+async function updateVendor(accessToken: string, vendorId: string, patch: JsonObject) {
+  if (Object.prototype.hasOwnProperty.call(patch, "vendorId")) {
+    throw new HttpError("Vendor ID cannot be modified.", 400, "VENDOR_ID_IMMUTABLE");
+  }
+  const invalidKeys = Object.keys(patch).filter(key => !VENDOR_KEY_INDEX.has(key));
+  if (invalidKeys.length) {
+    throw new HttpError("Vendor update contains unsupported fields.", 400, "VENDOR_UPDATE_FIELDS_INVALID", {
+      fields: invalidKeys.slice(0, 20)
+    });
+  }
+  const updateKeys = Object.keys(patch).filter(key => MUTABLE_VENDOR_KEYS.includes(key as typeof MUTABLE_VENDOR_KEYS[number]));
+  if (!updateKeys.length) {
+    throw new HttpError("Vendor update requires at least one mutable field.", 400, "VENDOR_UPDATE_EMPTY");
+  }
+  const beforeValues = await readSheetValues(accessToken, RANGE);
+  const dataRows = beforeValues.slice(1, MAX_ROWS + 1);
+  const matchIndex = dataRows.findIndex(row => Array.isArray(row) && asText(row[VENDOR_ID_INDEX]) === vendorId);
+  if (matchIndex < 0) {
+    throw new HttpError("Vendor ID was not found in Google Sheet.", 404, "VENDOR_NOT_FOUND", { vendor_id: vendorId });
+  }
+  const rowNumber = matchIndex + 2;
+  const write = await writeVendorFields(accessToken, rowNumber, patch, updateKeys);
+  const afterValues = await readSheetValues(accessToken, RANGE);
+  const afterRows = rowsFromValues(afterValues);
+  const afterDataRows = afterValues.slice(1, MAX_ROWS + 1);
+  const afterMatchIndex = afterDataRows.findIndex(row => Array.isArray(row) && asText(row[VENDOR_ID_INDEX]) === vendorId);
+  if (afterMatchIndex < 0) {
+    throw new HttpError("Vendor write read-back could not find the original Vendor ID.", 502, "VENDOR_WRITE_READBACK_MISSING", { vendor_id: vendorId, row_number: rowNumber });
+  }
+  const readBackRowNumber = afterMatchIndex + 2;
+  const readBack = rowToVendor(afterDataRows[afterMatchIndex], readBackRowNumber);
+  const mismatchedFields = updateKeys.filter(key => asText(readBack[key]) !== asText(patch[key]));
+  if (asText(readBack.vendorId) !== vendorId || mismatchedFields.length) {
+    throw new HttpError("Vendor write read-back does not match the requested update.", 502, "VENDOR_WRITE_READBACK_MISMATCH", {
+      vendor_id: vendorId,
+      row_number: readBackRowNumber,
+      mismatched_fields: mismatchedFields
+    });
+  }
+  return {
+    vendorId,
+    rowNumber: readBackRowNumber,
+    writeStatus: write.status,
+    vendor: readBack,
+    vendorCount: afterRows.length,
+    firstVendorId: asText(afterRows[0]?.vendorId) || null,
+    lastVendorId: asText(afterRows[afterRows.length - 1]?.vendorId) || null
+  };
 }
 async function requireUser(request: Request, supabaseUrl: string, anonKey: string) {
   const authorization = asText(request.headers.get("authorization"));
@@ -224,9 +319,21 @@ Deno.serve(async request => {
       throw new HttpError(`Google service account credential is not configured: ${missing.join(", ")}.`, 503, "GOOGLE_SERVICE_ACCOUNT_CONFIG_MISSING", { missing_secrets: missing });
     }
     const accessToken = await googleAccessToken(email, privateKey);
+    const requestBody = asObject(await request.json().catch(() => ({})));
+    const action = asText(requestBody.action, "read").toLowerCase();
+    if (action !== "read" && action !== "update") {
+      throw new HttpError("Unsupported bridge action.", 400, "ACTION_NOT_SUPPORTED");
+    }
+    if (action === "update") {
+      const vendorId = asText(requestBody.vendorId);
+      if (!vendorId) throw new HttpError("Vendor ID is required.", 400, "VENDOR_ID_REQUIRED");
+      const result = await updateVendor(accessToken, vendorId, asObject(requestBody.patch));
+      return json({ ok: true, action, source: "google-sheets", spreadsheetId: SPREADSHEET_ID, sheetName: SHEET_NAME, range: RANGE, ...result }, 200, origin);
+    }
     const rows = await readVendors(accessToken);
     return json({
       ok: true,
+      action,
       source: "google-sheets",
       spreadsheetId: SPREADSHEET_ID,
       sheetName: SHEET_NAME,

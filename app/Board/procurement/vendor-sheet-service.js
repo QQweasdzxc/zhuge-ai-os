@@ -50,7 +50,7 @@
       return this.request(`/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`);
     }
     rowToItem(row,rowNumber){const item={rowNumber};KEYS.forEach((key,i)=>item[key]=String(row[i]??"").trim());return item;}
-    async bridgeRead(){
+    async bridgeRequest(body){
       const gateway=global.ZhugeSupabaseGateway?.createDataGateway?.();
       if(!gateway?.invokeFunction) throw new VendorSheetError("Shared Supabase 服務尚未就緒。","BRIDGE_UNAVAILABLE");
       const controller=new AbortController();
@@ -64,7 +64,7 @@
       },timeoutMs);});
       try{
         return await Promise.race([
-          gateway.invokeFunction(BRIDGE_FUNCTION,{action:"read"},{signal:controller.signal}),
+          gateway.invokeFunction(BRIDGE_FUNCTION,body,{signal:controller.signal}),
           timeoutPromise
         ]);
       }catch(error){
@@ -72,6 +72,8 @@
         throw new VendorSheetError(error?.message||"Vendor Server Bridge 讀取失敗。",error?.code||"BRIDGE_READ_FAILED",error?.status||0);
       }finally{clearTimeout(timer);}
     }
+    async bridgeRead(){return this.bridgeRequest({action:"read"});}
+    async bridgeUpdate(vendorId,patch){return this.bridgeRequest({action:"update",vendorId,patch});}
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       onProgress({phase:"auth",percent:5,message:"確認 Zhuge AI OS 登入…",loaded:0,total:0});
@@ -90,19 +92,18 @@
       onProgress({phase:"render",percent:98,message:`正在更新廠商清單… ${rows.length} / ${rows.length} 筆`,loaded:rows.length,total:rows.length});
       return rows;
     }
-    async update(rowNumber,patch={},options={}){
+    async update(vendorId,patch={},options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
-      if(!Number.isInteger(Number(rowNumber))||Number(rowNumber)<2) throw new VendorSheetError("無效的廠商資料列。","INVALID_ROW");
-      onProgress({phase:"read",percent:15,message:"正在讀取原始資料…",loaded:0,total:1});
-      const current=await this.readRow(Number(rowNumber));
-      KEYS.forEach((key,i)=>{if(Object.prototype.hasOwnProperty.call(patch,key)) current[i]=String(patch[key]??"");});
-      onProgress({phase:"write",percent:55,message:"正在寫回 Google Sheet… 0 / 1 筆",loaded:0,total:1});
-      const range=encodeURIComponent(`${q(this.config.sheetName)}!A${rowNumber}:T${rowNumber}`);
-      await this.request(`/values/${range}?valueInputOption=USER_ENTERED`,{method:"PUT",body:{range:`${this.config.sheetName}!A${rowNumber}:T${rowNumber}`,majorDimension:"ROWS",values:[current]}});
-      onProgress({phase:"verify",percent:85,message:"正在確認寫入結果… 1 / 1 筆",loaded:1,total:1});
-      const verified=await this.readRow(Number(rowNumber));
+      if(!String(vendorId||"").trim()) throw new VendorSheetError("無效的廠商 ID。","INVALID_VENDOR_ID");
+      onProgress({phase:"write",percent:55,message:"正在透過 Server Bridge 寫回 Google Sheet…",loaded:0,total:1});
+      const data=await this.bridgeUpdate(String(vendorId).trim(),patch);
+      const raw=data?.vendor;
+      if(!raw||String(raw.vendorId||"").trim()!==String(vendorId).trim()) throw new VendorSheetError("Vendor Server Bridge 寫入回讀無法驗證。","BRIDGE_WRITE_READBACK_INVALID");
+      onProgress({phase:"verify",percent:85,message:"正在確認 Google Sheet 寫入結果…",loaded:1,total:1});
+      const item={rowNumber:Number(raw.rowNumber)||0};
+      KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
       onProgress({phase:"done",percent:100,message:"已寫回 Google Sheet · 1 / 1 筆",loaded:1,total:1});
-      return this.rowToItem(verified,Number(rowNumber));
+      return item;
     }
     async readRow(rowNumber){const data=await this.readRange(`A${rowNumber}:T${rowNumber}`);const row=[...((data?.values||[])[0]||[])];while(row.length<20)row.push("");return row.slice(0,20);}
   }
