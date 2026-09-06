@@ -1,6 +1,7 @@
 (function initializeVendorSheetService(global){
   "use strict";
   const SHEETS_API="https://sheets.googleapis.com/v4/spreadsheets";
+  const BRIDGE_FUNCTION="gas-vendor-bridge";
   const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:T",timeoutMs:15000,chunkSize:25,maxRows:1000};
   const KEYS=["orderDate","company","purchaseNo","vendorName","taxId","contactMailLegacy","paymentTerms","products","integritySignedAt","integrityOriginal","csrSelfAssessment","csrOriginal","phone","contactName","mobile","email","project","contracted","insured","vendorId"];
   function token(){
@@ -49,21 +50,33 @@
       return this.request(`/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`);
     }
     rowToItem(row,rowNumber){const item={rowNumber};KEYS.forEach((key,i)=>item[key]=String(row[i]??"").trim());return item;}
+    async bridgeRead(){
+      const gateway=global.ZhugeSupabaseGateway?.createDataGateway?.();
+      if(!gateway?.invokeFunction) throw new VendorSheetError("Shared Supabase 服務尚未就緒。","BRIDGE_UNAVAILABLE");
+      const controller=new AbortController();
+      const timeoutMs=Number(this.config.timeoutMs||15000);
+      const timer=setTimeout(()=>controller.abort(),timeoutMs);
+      try{
+        return await gateway.invokeFunction(BRIDGE_FUNCTION,{action:"read"},{signal:controller.signal});
+      }catch(error){
+        if(error?.name==="AbortError") throw new VendorSheetError(`Vendor Server Bridge 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`,`BRIDGE_TIMEOUT`);
+        throw new VendorSheetError(error?.message||"Vendor Server Bridge 讀取失敗。",error?.code||"BRIDGE_READ_FAILED",error?.status||0);
+      }finally{clearTimeout(timer);}
+    }
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
-      onProgress({phase:"auth",percent:5,message:"確認 Google 授權…",loaded:0,total:0});
-      if(!this.isAuthorized()) throw new VendorSheetError("Google Sheet 尚未授權，請重新使用 Google 登入。","GOOGLE_REAUTHORIZE_REQUIRED");
-      // One bounded values.get request. Do not make a separate count request: on iOS/Safari
-      // a pending count call previously left the UI at 10% indefinitely.
-      onProgress({phase:"read",percent:10,message:"正在讀取 Google Sheet…",loaded:0,total:0});
-      const data=await this.readRange(`A1:T${this.config.maxRows}`);
-      const values=Array.isArray(data?.values)?data.values:[];
-      const body=values.slice(1);
-      const rows=[];
-      body.forEach((row,i)=>{
-        const item=this.rowToItem(row,i+2);
-        if(item.vendorName||item.vendorId||item.purchaseNo) rows.push(item);
-      });
+      onProgress({phase:"auth",percent:5,message:"確認 Zhuge AI OS 登入…",loaded:0,total:0});
+      onProgress({phase:"read",percent:10,message:"透過 Server Bridge 讀取 Google Sheet…",loaded:0,total:0});
+      const data=await this.bridgeRead();
+      const body=Array.isArray(data?.rows)?data.rows:[];
+      const reportedCount=Number(data?.vendorCount);
+      if(!Number.isInteger(reportedCount)||reportedCount!==body.length) throw new VendorSheetError("Vendor Server Bridge 回傳筆數無法驗證。","BRIDGE_RESPONSE_INVALID");
+      const rows=body.map((row,i)=>{
+        const item={rowNumber:Number(row?.rowNumber)||i+2};
+        KEYS.forEach(key=>item[key]=String(row?.[key]??"").trim());
+        return item;
+      }).filter(item=>item.vendorName||item.vendorId||item.purchaseNo);
+      if(rows.length!==reportedCount) throw new VendorSheetError("Vendor Server Bridge 回傳資料不完整。","BRIDGE_RESPONSE_INVALID");
       onProgress({phase:"read",percent:95,message:`已讀取 ${rows.length} 筆廠商資料`,loaded:rows.length,total:rows.length});
       onProgress({phase:"render",percent:98,message:`正在更新廠商清單… ${rows.length} / ${rows.length} 筆`,loaded:rows.length,total:rows.length});
       return rows;
