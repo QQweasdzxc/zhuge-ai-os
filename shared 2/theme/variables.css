@@ -1,0 +1,8 @@
+@import url("./tokens.css");
+
+:root {
+  --zhuge-radius-sm: 10px;
+  --zhuge-radius-md: 16px;
+  --zhuge-radius-lg: 22px;
+  --zhuge-shadow-card: 0 12px 36px rgba(0, 0, 0, .16);
+}

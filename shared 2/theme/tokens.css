@@ -1,0 +1,12 @@
+/* Foundation UI tokens. Existing module styles may adopt these incrementally. */
+:root {
+  --zhuge-color-bg: #06101e;
+  --zhuge-color-panel: #0c1b2e;
+  --zhuge-color-line: #29425f;
+  --zhuge-color-text: #f5f8fc;
+  --zhuge-color-muted: #a9bbce;
+  --zhuge-color-accent: #6db8ff;
+  --zhuge-color-success: #43d392;
+  --zhuge-color-warning: #f5b942;
+  --zhuge-color-danger: #ff6b6b;
+}

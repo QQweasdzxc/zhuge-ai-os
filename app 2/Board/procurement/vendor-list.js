@@ -1,0 +1,32 @@
+(function(){
+  "use strict";
+  const root=document.querySelector('[data-procurement-panel="vendors"]');
+  if(!root||!window.VendorSheetService)return;
+  const service=new window.VendorSheetService.VendorSheetService();
+  let rows=[]; let selected=null;
+  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  root.innerHTML=`<section class="vendor-page">
+    <div class="vendor-toolbar"><div><h2>廠商清單</h2><p>與 Google Sheet 共用同一份資料；此頁不建立第二套廠商主檔。</p></div><div class="vendor-sync" data-vendor-sync>尚未同步</div></div>
+    <div class="vendor-filters"><input type="search" data-vendor-search placeholder="搜尋廠商、產品、聯絡人、電話、Email…"><select data-vendor-company><option value="">全部公司</option></select><input type="search" data-vendor-product placeholder="產品／類型"><button type="button" data-vendor-refresh>↻ 重新同步</button></div>
+    <div class="vendor-summary"><strong data-vendor-count>0</strong><span>筆資料</span><span class="vendor-source">來源：(G)採購作業明細／廠商名冊-CS集團(CS、CK、UU)</span></div>
+    <div class="vendor-table-wrap"><table class="vendor-table"><thead><tr><th>廠商名稱</th><th>公司</th><th>類型／產品</th><th>聯絡人</th><th>電話</th><th>Email</th><th>付款方式</th><th></th></tr></thead><tbody data-vendor-body></tbody></table></div>
+    <div class="vendor-empty" data-vendor-empty hidden>找不到符合條件的廠商。</div>
+  </section>
+  <dialog class="vendor-dialog" data-vendor-dialog><form method="dialog"><div class="vendor-dialog-head"><div><div class="vendor-id" data-vendor-id></div><h3 data-vendor-title>廠商資料</h3></div><button value="cancel" aria-label="關閉">×</button></div><div class="vendor-form">
+    <label>廠商名稱<input name="vendorName"></label><label>公司<input name="company"></label><label>統編<input name="taxId"></label><label>聯絡人<input name="contactName"></label><label>電話<input name="phone"></label><label>手機<input name="mobile"></label><label>Email<input name="email" type="email"></label><label>付款方式<input name="paymentTerms"></label><label class="wide">產品／類型<textarea name="products" rows="3"></textarea></label><label class="wide">專案<input name="project"></label>
+  </div><div class="vendor-dialog-actions"><span data-vendor-save-state></span><button value="cancel">取消</button><button type="button" class="primary" data-vendor-save>儲存並同步 Google Sheet</button></div></form></dialog>`;
+  const $=s=>root.querySelector(s); const body=$('[data-vendor-body]'),search=$('[data-vendor-search]'),company=$('[data-vendor-company]'),product=$('[data-vendor-product]'),sync=$('[data-vendor-sync]'),dialog=$('[data-vendor-dialog]');
+  function setSync(text,state=""){sync.textContent=text;sync.dataset.state=state;}
+  function filters(){const q=search.value.trim().toLowerCase(),p=product.value.trim().toLowerCase(),c=company.value;return rows.filter(r=>{const hay=[r.vendorName,r.products,r.contactName,r.phone,r.mobile,r.email,r.taxId,r.purchaseNo].join(" ").toLowerCase();return(!q||hay.includes(q))&&(!p||r.products.toLowerCase().includes(p))&&(!c||r.company===c);});}
+  function render(){const list=filters();$('[data-vendor-count]').textContent=list.length;$('[data-vendor-empty]').hidden=Boolean(list.length);body.innerHTML=list.map(r=>`<tr><td><strong>${esc(r.vendorName||"—")}</strong><small>${esc(r.vendorId||"尚無廠商ID")}</small></td><td>${esc(r.company||"—")}</td><td class="vendor-products">${esc(r.products||"—")}</td><td>${esc(r.contactName||"—")}</td><td>${esc(r.mobile||r.phone||"—")}</td><td>${esc(r.email||r.contactMailLegacy||"—")}</td><td>${esc(r.paymentTerms||"—")}</td><td><button type="button" class="vendor-edit" data-row="${r.rowNumber}">查看／編輯</button></td></tr>`).join("");}
+  function fillCompanies(){const current=company.value;const values=[...new Set(rows.map(r=>r.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-Hant"));company.innerHTML='<option value="">全部公司</option>'+values.map(v=>`<option>${esc(v)}</option>`).join("");if(values.includes(current))company.value=current;}
+  async function load(){setSync("正在讀取 Google Sheet…","loading");try{rows=await service.list();fillCompanies();render();setSync(`已同步 · ${new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}`,"ok");}catch(e){console.error(e);setSync(e.message||"同步失敗","error");body.innerHTML=`<tr><td colspan="8" class="vendor-error">${esc(e.message||"無法讀取 Google Sheet")}</td></tr>`;}}
+  function openEditor(rowNumber){selected=rows.find(r=>r.rowNumber===Number(rowNumber));if(!selected)return;$('[data-vendor-id]').textContent=selected.vendorId||`Sheet 第 ${selected.rowNumber} 列`;$('[data-vendor-title]').textContent=selected.vendorName||"廠商資料";["vendorName","company","taxId","contactName","phone","mobile","email","paymentTerms","products","project"].forEach(k=>{dialog.elements[k].value=selected[k]||"";});$('[data-vendor-save-state]').textContent="";dialog.showModal();}
+  async function save(){if(!selected)return;const btn=$('[data-vendor-save]'),state=$('[data-vendor-save-state]');btn.disabled=true;state.textContent="同步中…";const patch={};["vendorName","company","taxId","contactName","phone","mobile","email","paymentTerms","products","project"].forEach(k=>patch[k]=dialog.elements[k].value.trim());try{rows=await service.update(selected.rowNumber,patch);fillCompanies();render();setSync(`已同步 · ${new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}`,"ok");state.textContent="已寫回 Google Sheet";setTimeout(()=>dialog.close(),450);}catch(e){console.error(e);state.textContent=e.message||"同步失敗";}finally{btn.disabled=false;}}
+  [search,company,product].forEach(el=>el.addEventListener("input",render));$('[data-vendor-refresh]').addEventListener("click",load);body.addEventListener("click",e=>{const btn=e.target.closest('[data-row]');if(btn)openEditor(btn.dataset.row);});$('[data-vendor-save]').addEventListener("click",save);
+  window.addEventListener("zhuge:procurement-tab-change",event=>{if(event.detail?.key==="vendors"&&!rows.length)load();});
+  // Vendor directory is a live view of the Google Sheet. Start the first read as soon as
+  // the page runtime is ready so the tab never sits at a misleading “尚未同步” state.
+  // A later tab activation/refresh can safely retry if Google authorization is not ready yet.
+  queueMicrotask(()=>load());
+})();
