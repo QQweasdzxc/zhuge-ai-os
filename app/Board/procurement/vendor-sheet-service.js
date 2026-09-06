@@ -55,9 +55,18 @@
       if(!gateway?.invokeFunction) throw new VendorSheetError("Shared Supabase 服務尚未就緒。","BRIDGE_UNAVAILABLE");
       const controller=new AbortController();
       const timeoutMs=Number(this.config.timeoutMs||15000);
-      const timer=setTimeout(()=>controller.abort(),timeoutMs);
+      let timer;
+      const timeoutPromise=new Promise((_,reject)=>{timer=setTimeout(()=>{
+        try{controller.abort();}catch(_){ }
+        const error=new Error(`Vendor Server Bridge 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`);
+        error.name="AbortError";
+        reject(error);
+      },timeoutMs);});
       try{
-        return await gateway.invokeFunction(BRIDGE_FUNCTION,{action:"read"},{signal:controller.signal});
+        return await Promise.race([
+          gateway.invokeFunction(BRIDGE_FUNCTION,{action:"read"},{signal:controller.signal}),
+          timeoutPromise
+        ]);
       }catch(error){
         if(error?.name==="AbortError") throw new VendorSheetError(`Vendor Server Bridge 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`,`BRIDGE_TIMEOUT`);
         throw new VendorSheetError(error?.message||"Vendor Server Bridge 讀取失敗。",error?.code||"BRIDGE_READ_FAILED",error?.status||0);
