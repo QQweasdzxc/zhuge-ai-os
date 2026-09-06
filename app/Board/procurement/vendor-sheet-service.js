@@ -21,14 +21,20 @@
       const timeoutMs=Number(options.timeoutMs||this.config.timeoutMs||15000);
       const timer=setTimeout(()=>controller.abort(),timeoutMs);
       let response;
+      const fetchPromise=this.fetchImpl(`${SHEETS_API}/${this.config.spreadsheetId}${path}`,{
+        method:options.method||"GET",signal:controller.signal,
+        headers:{Authorization:`Bearer ${accessToken}`,...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})},
+        body:options.body?JSON.stringify(options.body):undefined
+      });
+      const hardTimeout=new Promise((_,reject)=>setTimeout(()=>{
+        try{controller.abort();}catch(_){}
+        reject(new VendorSheetError(`Google Sheet 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`,"SHEETS_TIMEOUT"));
+      },timeoutMs));
       try{
-        response=await this.fetchImpl(`${SHEETS_API}/${this.config.spreadsheetId}${path}`,{
-          method:options.method||"GET",signal:controller.signal,
-          headers:{Authorization:`Bearer ${accessToken}`,...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})},
-          body:options.body?JSON.stringify(options.body):undefined
-        });
+        response=await Promise.race([fetchPromise,hardTimeout]);
       }catch(error){
-        if(error?.name==="AbortError") throw new VendorSheetError(`Google Sheet 連線逾時（${Math.round(timeoutMs/1000)} 秒），請重新同步。`,"SHEETS_TIMEOUT");
+        if(error instanceof VendorSheetError) throw error;
+        if(error?.name==="AbortError") throw new VendorSheetError(`Google Sheet 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`,"SHEETS_TIMEOUT");
         throw new VendorSheetError(`無法連線 Google Sheet：${error?.message||"網路錯誤"}`,"SHEETS_NETWORK_ERROR");
       }finally{clearTimeout(timer);}
       if(!response.ok){
@@ -47,24 +53,19 @@
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       onProgress({phase:"auth",percent:5,message:"確認 Google 授權…",loaded:0,total:0});
       if(!this.isAuthorized()) throw new VendorSheetError("Google Sheet 尚未授權，請重新使用 Google 登入。","GOOGLE_REAUTHORIZE_REQUIRED");
-      onProgress({phase:"count",percent:10,message:"正在確認廠商筆數…",loaded:0,total:0});
-      const idData=await this.readRange(`T2:T${this.config.maxRows}`);
-      const ids=Array.isArray(idData?.values)?idData.values.map(r=>String(r?.[0]||"").trim()):[];
-      let lastIndex=-1; ids.forEach((id,i)=>{if(id)lastIndex=i;});
-      const total=lastIndex+1;
-      if(!total){onProgress({phase:"done",percent:100,message:"同步完成 · 0 筆",loaded:0,total:0});return [];}
-      const rows=[]; const chunk=Math.max(1,Number(this.config.chunkSize)||25);
-      for(let offset=0;offset<total;offset+=chunk){
-        const start=2+offset,end=Math.min(1+total,start+chunk-1);
-        const percent=Math.min(95,15+Math.round((offset/total)*80));
-        onProgress({phase:"read",percent,message:`正在讀取 Google Sheet… ${Math.min(offset,total)} / ${total} 筆`,loaded:Math.min(offset,total),total});
-        const data=await this.readRange(`A${start}:T${end}`);
-        const values=Array.isArray(data?.values)?data.values:[];
-        values.forEach((row,i)=>{const item=this.rowToItem(row,start+i);if(item.vendorName||item.vendorId||item.purchaseNo)rows.push(item);});
-        const loaded=Math.min(end-1,total);
-        onProgress({phase:"read",percent:Math.min(95,15+Math.round((loaded/total)*80)),message:`正在讀取 Google Sheet… ${loaded} / ${total} 筆`,loaded,total});
-      }
-      onProgress({phase:"render",percent:98,message:`正在更新廠商清單… ${rows.length} / ${total} 筆`,loaded:rows.length,total});
+      // One bounded values.get request. Do not make a separate count request: on iOS/Safari
+      // a pending count call previously left the UI at 10% indefinitely.
+      onProgress({phase:"read",percent:10,message:"正在讀取 Google Sheet…",loaded:0,total:0});
+      const data=await this.readRange(`A1:T${this.config.maxRows}`);
+      const values=Array.isArray(data?.values)?data.values:[];
+      const body=values.slice(1);
+      const rows=[];
+      body.forEach((row,i)=>{
+        const item=this.rowToItem(row,i+2);
+        if(item.vendorName||item.vendorId||item.purchaseNo) rows.push(item);
+      });
+      onProgress({phase:"read",percent:95,message:`已讀取 ${rows.length} 筆廠商資料`,loaded:rows.length,total:rows.length});
+      onProgress({phase:"render",percent:98,message:`正在更新廠商清單… ${rows.length} / ${rows.length} 筆`,loaded:rows.length,total:rows.length});
       return rows;
     }
     async update(rowNumber,patch={},options={}){
