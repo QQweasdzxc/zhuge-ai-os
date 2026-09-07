@@ -50,8 +50,38 @@
 .template-parity-technical-log{max-height:280px;overflow:auto;margin:0;padding:9px;border:1px solid #354052;border-radius:7px;background:#0e151f;color:#9eafc2;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
 .template-parity-report.is-match .template-parity-technical{border-top-color:#2b5e4b}
 .template-parity-report.is-match .template-parity-technical>summary{color:#b9e8c9}
+.template-parity-user-summary{display:grid;gap:10px;padding:12px 14px;border:1px solid #75404a;border-radius:10px;background:rgba(42,27,34,.58);color:#ffe3e5}
+.template-parity-user-summary.is-match{border-color:#2e6d52;background:rgba(18,40,31,.68);color:#d5f5e1}
+.template-parity-user-heading{display:grid;gap:4px}
+.template-parity-user-heading strong{font-size:14px;color:#fff7f7}
+.template-parity-user-summary.is-match .template-parity-user-heading strong{color:#b9f0cc}
+.template-parity-user-heading p{margin:0;color:#f0c7cc;font-size:12px;line-height:1.5}
+.template-parity-user-summary.is-match .template-parity-user-heading p{color:#b6ddc4}
+.template-parity-user-count{margin:0;padding:9px 10px;border-radius:8px;background:rgba(102,49,59,.45);font-size:13px;font-weight:800;color:#ffe8ea}
+.template-parity-user-summary.is-match .template-parity-user-count{background:rgba(35,91,68,.45);color:#d9f8e4}
+.template-parity-user-ai{margin:0;font-size:12px;line-height:1.5;color:#ffe1e4}
+.template-parity-user-summary.is-match .template-parity-user-ai{color:#b9e8c9}
+.template-parity-user-categories{border-top:1px solid rgba(214,167,174,.36);padding-top:9px}
+.template-parity-user-summary.is-match .template-parity-user-categories{border-top-color:rgba(129,196,153,.35)}
+.template-parity-user-categories>summary{cursor:pointer;color:#ffd7db;font-size:11px;font-weight:800}
+.template-parity-user-summary.is-match .template-parity-user-categories>summary{color:#c6f2d6}
+.template-parity-user-category-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0 0;padding:0;list-style:none}
+.template-parity-user-category-list li{display:grid;gap:3px;min-width:0;padding:8px 9px;border:1px solid rgba(117,64,74,.72);border-radius:7px;background:rgba(42,27,34,.56)}
+.template-parity-user-summary.is-match .template-parity-user-category-list li{border-color:rgba(46,109,82,.72);background:rgba(9,34,31,.48)}
+.template-parity-user-category-list strong{font-size:11px;color:#fff1f1}
+.template-parity-user-summary.is-match .template-parity-user-category-list strong{color:#e4f7eb}
+.template-parity-user-category-list span{font-size:10px;line-height:1.4;color:#e5c0c5}
+.template-parity-user-summary.is-match .template-parity-user-category-list span{color:#b5d4c0}
+.template-parity-user-anomalies{gap:8px}
+.template-parity-user-anomalies>strong{font-size:11px;color:#fff1f1}
+.template-parity-user-anomaly-facts{display:grid;gap:7px;margin:0}
+.template-parity-user-anomaly-facts>div{display:grid;gap:3px}
+.template-parity-user-anomaly-facts dt{font-size:10px;font-weight:800;color:#ffcbd0}
+.template-parity-user-anomaly-facts dd{margin:0;font-size:11px;line-height:1.45;color:#f0c7cc}
+.template-parity-technical-meta{font-size:10px;color:#8493a7}
 @media(max-width:767px){
   .template-parity-diagnosis-summary{grid-template-columns:1fr}
+  .template-parity-user-category-list{grid-template-columns:1fr}
 }
 
 /* Golden Master surface styles.  Board consumers mount this stylesheet and
