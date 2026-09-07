@@ -32,3 +32,9 @@ test("TASK-063 shared C delete adapter exposes the existing board-instance contr
   assert.match(service, /gateway\.rpc\("board_instance_delete_task", \{ p_task_id: taskId \}\)/);
   assert.match(service, /\n\s+deleteTask,\n\s+worktodoCreateTask,/);
 });
+
+test("TASK-063 shared C runtime closes the task drawer after delete", () => {
+  const runtime = read("shared/components/golden-master-runtime.js");
+  assert.match(runtime, /function closeTaskDetail\(\)/);
+  assert.match(runtime, /await executeSharedTaskAction\(task, "deleteTask"[\s\S]*?closeTaskDetail\(\)/);
+});

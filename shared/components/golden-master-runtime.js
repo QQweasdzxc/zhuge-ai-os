@@ -1657,11 +1657,16 @@
     modal.setAttribute("aria-hidden", "true");
     modal.addEventListener("click", event => {
       if (event.target.matches?.("[data-shared-task-drawer-close]")) {
-        modal.style.display = "none";
-        modal.setAttribute("aria-hidden", "true");
-        state.activeTaskId = "";
+        closeTaskDetail();
       }
     });
+  }
+  function closeTaskDetail() {
+    const modal = document.getElementById("taskDetailModal");
+    if (!modal) return;
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+    state.activeTaskId = "";
   }
   function ensureTemplateParityResultHost() {
     const popover = document.querySelector("[data-template-release-popover]");
