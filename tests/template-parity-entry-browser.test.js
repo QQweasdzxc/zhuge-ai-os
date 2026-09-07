@@ -24,6 +24,8 @@ test("the current browser fixture mounts one shared Golden Master parity entry f
   assert.match(fixture, /machineMotherCount/);
   assert.match(fixture, /machineMatchCount/);
   assert.match(fixture, /machineGapCount/);
+  assert.match(fixture, /normalSummary/);
+  assert.match(fixture, /technicalDetailsOpen/);
   assert.match(fixture, /topLevelInventoryStatuses/);
   assert.match(fixture, /inventoryStatuses/);
   assert.match(fixture, /drawerInventory/);

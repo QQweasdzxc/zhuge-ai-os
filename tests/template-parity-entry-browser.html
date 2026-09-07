@@ -80,6 +80,10 @@
           machineMotherCount: Number(document.querySelector("[data-template-parity-report]")?.dataset.templateParityMachineMother || 0),
           machineMatchCount: Number(document.querySelector("[data-template-parity-report]")?.dataset.templateParityMachineMatch || 0),
           machineGapCount: Number(document.querySelector("[data-template-parity-report]")?.dataset.templateParityMachineGap || 0),
+          normalSummary: Boolean(document.querySelector("[data-template-parity-normal-summary]")),
+          diagnosis: Boolean(document.querySelector("[data-template-parity-diagnosis]")),
+          technicalDetails: Boolean(document.querySelector("[data-template-parity-technical]")),
+          technicalDetailsOpen: Boolean(document.querySelector("[data-template-parity-technical]")?.open),
           topLevelInventoryStatuses: Array.from(document.querySelectorAll("[data-template-parity-capability]")).map(node => node.querySelector(".template-parity-capability-status")?.textContent.trim() || ""),
           inventoryStatuses: Array.from(document.querySelectorAll("[data-template-parity-capability] .template-parity-capability-status")).map(node => node.textContent.trim()),
           drawerInventory: document.querySelector('[data-template-parity-capability-id="drawer"]')?.textContent.includes("約定日期框架") || false

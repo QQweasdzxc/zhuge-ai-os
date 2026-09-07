@@ -26,6 +26,34 @@
   .template-parity-capability-contracts{grid-template-columns:1fr}
 }
 
+/* Parity presentation: show PM-facing diagnosis first and keep engineering
+   inventory/logs available without making a healthy result noisy. */
+.template-parity-diagnosis{display:grid;gap:9px;padding:10px 11px;border:1px solid #8a4b56;border-radius:9px;background:rgba(51,22,29,.58);color:#ffdfe1}
+.template-parity-diagnosis-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.template-parity-diagnosis-heading strong{font-size:11px;color:#fff1f1}
+.template-parity-diagnosis-heading span{font-size:10px;color:#e7b9bf}
+.template-parity-diagnosis-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.template-parity-diagnosis-summary>div,.template-parity-anomaly>div{display:grid;gap:3px;min-width:0}
+.template-parity-diagnosis-summary b,.template-parity-anomaly b{font-size:10px;color:#ffcbd0}
+.template-parity-diagnosis-summary p,.template-parity-anomaly p{margin:0;font-size:10px;line-height:1.45;color:#f0c7cc}
+.template-parity-anomalies{display:grid;gap:6px}
+.template-parity-anomalies>strong{font-size:10px;color:#fff1f1}
+.template-parity-anomaly{display:grid;gap:6px;padding:8px 9px;border:1px solid #75404a;border-radius:7px;background:rgba(42,27,34,.8)}
+.template-parity-anomaly h4{margin:0;font-size:11px;color:#fff1f1}
+.template-parity-anomaly[data-template-parity-anomaly-kind="array-shift"]{border-color:#8a6a43;background:rgba(57,42,27,.62)}
+.template-parity-anomaly[data-template-parity-anomaly-kind="array-shift"] b{color:#f4d59d}
+.template-parity-anomaly[data-template-parity-anomaly-kind="array-shift"] p{color:#ead8b6}
+.template-parity-report.is-gap>.template-parity-counts{margin-top:0}
+.template-parity-technical{display:grid;gap:8px;border-top:1px solid #6a3540;padding-top:8px}
+.template-parity-technical>summary{cursor:pointer;color:#f2c9ce;font-size:10px;font-weight:800}
+.template-parity-technical-body{display:grid;gap:8px}
+.template-parity-technical-log{max-height:280px;overflow:auto;margin:0;padding:9px;border:1px solid #354052;border-radius:7px;background:#0e151f;color:#9eafc2;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
+.template-parity-report.is-match .template-parity-technical{border-top-color:#2b5e4b}
+.template-parity-report.is-match .template-parity-technical>summary{color:#b9e8c9}
+@media(max-width:767px){
+  .template-parity-diagnosis-summary{grid-template-columns:1fr}
+}
+
 /* Golden Master surface styles.  Board consumers mount this stylesheet and
  * provide data/capability only; no consumer entry owns a parallel surface. */
 :root{--bg:#0d1117;--panel:#121821;--panel2:#171e29;--line:#293241;--text:#e8edf5;--muted:#8d99aa;--blue:#4d8dff;--green:#42c98b;--amber:#e5b94f;--red:#ee6b6e;--purple:#a984ff}

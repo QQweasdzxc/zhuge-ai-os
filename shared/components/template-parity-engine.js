@@ -17,7 +17,7 @@
   const REQUIRED_ACTIONS = Object.freeze([
     "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
     "addProgressNote", "editProgressNote", "deleteProgressNote",
-    "addGeneralAttachment", "addProgressAttachment", "deleteAttachment",
+    "addGeneralAttachment", "addProgressAttachment", "updateAttachmentMetadata", "deleteAttachment",
     "addChecklist", "updateChecklist", "deleteChecklist", "updateGovernanceChecklist",
     "setAgreementSchedule", "moveWorkspace", "confirm"
   ]);
@@ -425,6 +425,162 @@
     return `${prefix}｜${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)}${item.gapCount ? `｜Gap ${item.gapCount}` : ""}`;
   }
 
+  function arrayAlignment(expected, current) {
+    if (!Array.isArray(expected) || !Array.isArray(current)) return null;
+    const equal = (left, right) => stableSerialize(left) === stableSerialize(right);
+    const findInsertion = (source, target, direction) => {
+      if (target.length !== source.length + 1) return null;
+      let sourceIndex = 0;
+      let targetIndex = 0;
+      let insertedIndex = -1;
+      let insertedValue;
+      while (sourceIndex < source.length && targetIndex < target.length) {
+        if (equal(source[sourceIndex], target[targetIndex])) {
+          sourceIndex += 1;
+          targetIndex += 1;
+          continue;
+        }
+        if (insertedIndex >= 0) return null;
+        insertedIndex = targetIndex;
+        insertedValue = target[targetIndex];
+        targetIndex += 1;
+      }
+      if (insertedIndex < 0 && targetIndex < target.length) {
+        insertedIndex = targetIndex;
+        insertedValue = target[targetIndex];
+        targetIndex += 1;
+      }
+      if (sourceIndex !== source.length || targetIndex !== target.length || insertedIndex < 0) return null;
+      return { direction, index: insertedIndex, value: insertedValue };
+    };
+    const inserted = findInsertion(expected, current, "extra");
+    if (inserted) return inserted;
+    const removed = findInsertion(current, expected, "missing");
+    if (removed) return { direction: "missing", index: removed.index, value: removed.value };
+    return null;
+  }
+
+  function findArrayAlignment(expected, current, path = "") {
+    const direct = arrayAlignment(expected, current);
+    if (direct) return { ...direct, path: path || "(root)" };
+    if (!expected || !current || typeof expected !== "object" || typeof current !== "object" || Array.isArray(expected) || Array.isArray(current)) return null;
+    for (const key of Object.keys(expected)) {
+      if (!Object.prototype.hasOwnProperty.call(current, key)) continue;
+      const nested = findArrayAlignment(expected[key], current[key], path ? `${path}.${key}` : key);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  function diagnosisForRow(row, rowDifferences, alignment) {
+    const label = row?.label || row?.id || "未命名能力";
+    if (alignment) {
+      const value = typeof alignment.value === "object" ? stableSerialize(alignment.value) : String(alignment.value);
+      const rawCount = rowDifferences.length;
+      const shiftedCount = Math.max(0, rawCount - 1);
+      if (alignment.direction === "extra") {
+        return {
+          id: row.id,
+          kind: "array-shift",
+          label,
+          title: `${label}清單多出 1 項`,
+          cause: `目前 Consumer 的 ${alignment.path} 比 C 母版多出「${value}」。`,
+          impact: `這 1 個插入項讓後續 ${shiftedCount} 個位置產生連鎖位移；機器列出的 ${rawCount} 個差異，不代表 ${rawCount} 個獨立功能問題。`,
+          recommendation: "先確認插入項是否屬於正式共用 Contract；若是，應從唯一 C 共用來源同步 canonical inventory，不要逐一修改 Consumer。",
+          rawDifferenceCount: rawCount,
+          technicalDifferences: rowDifferences
+        };
+      }
+      return {
+        id: row.id,
+        kind: "array-shift",
+        label,
+        title: `${label}清單少 1 項`,
+        cause: `目前 Consumer 的 ${alignment.path} 少了 C 母版項目「${value}」。`,
+        impact: `後續 ${shiftedCount} 個位置可能因此被連鎖判定不同；目前的 ${rawCount} 個機器差異應先視為同一個清單對齊問題。`,
+        recommendation: "確認缺少項目是否仍是正式共用 Contract；若是，應從唯一 C 共用來源補齊，不要在 Consumer 建立私有能力。",
+        rawDifferenceCount: rawCount,
+        technicalDifferences: rowDifferences
+      };
+    }
+    const status = row?.status || "DIFFERENT";
+    const paths = rowDifferences.map(item => item.path || item.id).filter(Boolean);
+    if (status === "MISSING") {
+      return {
+        id: row.id,
+        kind: "missing",
+        label,
+        title: `${label}缺少`,
+        cause: `Consumer 沒有 C 母版要求的「${label}」能力。`,
+        impact: paths.length ? `機器比對指出：${paths.join("、")}。` : "Consumer 可能無法使用這項 C 共用能力。",
+        recommendation: "回到唯一 C Module 來源確認是否應由共用 Runtime 提供；不要在 Consumer 另做一份。",
+        rawDifferenceCount: rowDifferences.length || 1,
+        technicalDifferences: rowDifferences
+      };
+    }
+    if (status === "EXTRA") {
+      return {
+        id: row.id,
+        kind: "extra",
+        label,
+        title: `${label}為 Consumer 額外能力`,
+        cause: `Consumer 出現 C 母版沒有宣告的「${label}」能力。`,
+        impact: paths.length ? `機器比對指出：${paths.join("、")}；這可能造成 Consumer 與 C 逐步漂移。` : "這會讓 Consumer 不再只使用唯一 C Module。",
+        recommendation: "確認是否應回到 C canonical contract；不要以 Consumer-specific 實作繞過 Parity。",
+        rawDifferenceCount: rowDifferences.length || 1,
+        technicalDifferences: rowDifferences
+      };
+    }
+    return {
+      id: row.id,
+      kind: "different",
+      label,
+      title: `${label}的共用 Contract 不一致`,
+      cause: `C 母版與 Consumer 都有「${label}」，但 Contract、Fingerprint 或操作行為不同。`,
+      impact: paths.length ? `機器比對指出：${paths.join("、")}；這是實際模板差異，不是資料內容差異。` : "Consumer 的共用模板行為可能與 C 不一致。",
+      recommendation: "回到唯一 C Module 來源修正或重新組合；不要只在 Consumer 做視覺或行為補丁。",
+      rawDifferenceCount: rowDifferences.length || 1,
+      technicalDifferences: rowDifferences
+    };
+  }
+
+  function diagnose(report) {
+    const item = report || {};
+    const rawDifferences = Array.isArray(item.differenceDetails) && item.differenceDetails.length
+      ? item.differenceDetails
+      : Array.isArray(item.differences) ? item.differences : [];
+    if (Number(item.gapCount || 0) === 0) {
+      return {
+        status: "match",
+        headline: "C 與目前 Consumer 已一致",
+        cause: "目前 Consumer 已使用與 C 母版一致的共用模板能力。",
+        impact: "沒有需要處理的模板差異；資料、工作區、卡片內容與識別資料仍依各自來源管理。",
+        recommendation: "不需修正；完整機器比對與技術明細可在下方展開查看。",
+        rawDifferenceCount: 0,
+        anomalies: []
+      };
+    }
+    const anomalies = [];
+    const rows = Array.isArray(item.inventory) ? item.inventory.filter(row => row.status !== "MATCH") : [];
+    rows.forEach(row => {
+      const rowDifferences = rawDifferences.filter(diff => diff.parentId === row.id || (!diff.parentId && diff.id === row.id));
+      const alignment = findArrayAlignment(row.machineContract || row.motherContract, row.machineConsumerContract || row.consumerContract);
+      anomalies.push(diagnosisForRow(row, rowDifferences, alignment));
+    });
+    if (!anomalies.length && rawDifferences.length) {
+      anomalies.push(diagnosisForRow({ id: "report", label: "模板比對結果", status: "DIFFERENT" }, rawDifferences));
+    }
+    return {
+      status: "gap",
+      headline: "C 母版有需要處理的差異",
+      cause: "以下先顯示依共用能力彙整後的真正問題；完整機器差異保留在技術明細。",
+      impact: `${anomalies.length} 個差異群組，原始機器差異 ${rawDifferences.length} 項。`,
+      recommendation: "依差異群組回到唯一 C Module／正式 Contract 處理，不要在 Consumer 建立副本。",
+      rawDifferenceCount: rawDifferences.length,
+      anomalies
+    };
+  }
+
   function formatReport(report) {
     const item = report || {};
     const lines = [
@@ -468,6 +624,7 @@
     runManual,
     runAutoGuard,
     summary,
+    diagnose,
     formatReport
   });
 });

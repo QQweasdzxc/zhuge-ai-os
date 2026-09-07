@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const engine = require(path.join(ROOT, "shared/components/template-parity-engine.js"));
+const actionContract = require(path.join(ROOT, "shared/components/task-action-contract.js"));
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
 test("C is the only parity baseline and exposes the full semantic capability inventory", () => {
@@ -22,6 +23,40 @@ test("C is the only parity baseline and exposes the full semantic capability inv
     editor: "controlled-shared-agreement-date-editor",
     dataIndependent: true
   });
+});
+
+test("C canonical operation inventory follows the shared action contract", () => {
+  const operation = engine.canonicalInventory().capabilities.find(item => item.id === "operation-method");
+  assert.equal(operation.contract.actions.length, actionContract.ACTIONS.length);
+  assert.deepEqual(operation.contract.actions, actionContract.ACTIONS.slice().sort());
+  assert.ok(operation.contract.actions.includes("updateAttachmentMetadata"));
+});
+
+test("parity diagnosis groups one array insertion instead of exaggerating positional shifts", () => {
+  const baseline = engine.createInventory([
+    { id: "operation-method", label: "操作方式", contract: { actions: ["create", "update", "delete"] } }
+  ], { baseline: "C Mother Template" });
+  const consumer = engine.createInventory([
+    { id: "operation-method", label: "操作方式", contract: { actions: ["create", "inserted", "update", "delete"] } }
+  ], { baseline: "WorkTodo" });
+  const report = engine.compare(baseline, consumer);
+  const diagnosis = engine.diagnose(report);
+  assert.equal(report.gapCount, 3);
+  assert.equal(diagnosis.status, "gap");
+  assert.equal(diagnosis.rawDifferenceCount, 3);
+  assert.equal(diagnosis.anomalies.length, 1);
+  assert.equal(diagnosis.anomalies[0].kind, "array-shift");
+  assert.match(diagnosis.anomalies[0].cause, /inserted/);
+  assert.match(diagnosis.anomalies[0].impact, /位置產生連鎖位移/);
+  assert.match(diagnosis.anomalies[0].recommendation, /唯一 C 共用來源/);
+});
+
+test("a healthy parity report has a concise green diagnosis and no anomaly", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const diagnosis = engine.diagnose(engine.runManual({ contracts, consumerId: "worktodo", consumerLabel: "WorkTodo" }));
+  assert.equal(diagnosis.status, "match");
+  assert.equal(diagnosis.anomalies.length, 0);
+  assert.match(diagnosis.recommendation, /技術明細/);
 });
 
 test("same capability count with a different semantic fingerprint is a template Gap", () => {
@@ -205,8 +240,13 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   assert.match(runtime, /boardSearchPanel/);
   assert.match(runtime, /bannerDismissTimer/);
   assert.match(runtime, /setTimeout\(\(\) =>/);
+  assert.match(runtime, /data-template-parity-diagnosis/);
+  assert.match(runtime, /AI 診斷（依機器差異整理）/);
+  assert.match(runtime, /data-template-parity-technical/);
   const css = read("shared/theme/golden-master.css");
   assert.match(css, /golden-master-tab-tools/);
+  assert.match(css, /template-parity-anomaly/);
+  assert.match(css, /template-parity-technical/);
   assert.match(css, /board-read-status\[data-state="success"\]\{position:fixed/);
   assert.match(css, /board-header-status-actions\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(0,1fr\)\)/);
 });
