@@ -926,6 +926,15 @@
     return gateway.rpc("worktodo_delete_task", { p_task_id: taskId });
   }
 
+  // The shared C drawer uses this operation for AI Board cards as well as
+  // registered C consumers. The Cloud contract resolves the task's existing
+  // board_instance_id server-side and applies the owner-scoped write check;
+  // the client must not invent or copy a second board identity.
+  async function deleteTask(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_instance_delete_task", { p_task_id: taskId });
+  }
+
   async function worktodoAddTaskProgressNote(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("worktodo_add_task_progress_note", {
@@ -1593,6 +1602,7 @@
     moveTaskWorkspace,
     governanceAction,
     createTask,
+    deleteTask,
     worktodoCreateTask,
     worktodoUpdateTask,
     worktodoDeleteTask,
