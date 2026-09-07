@@ -1718,13 +1718,93 @@
       : ` data-template-parity-child data-template-parity-child-id="${esc(item.id || "")}"`;
     return `<article class="template-parity-capability ${rootNode ? "" : "template-parity-child"} is-${status.toLowerCase()}"${attributes}><div class="template-parity-capability-heading"><span class="template-parity-capability-status status-${status.toLowerCase()}">${status}</span><strong>${esc(item.label || item.id || "未命名能力")}</strong><code>${esc(item.path || item.id || "")}</code></div><div class="template-parity-capability-contracts"><div><span>C Mother Template</span><small>${esc(motherContract)}</small><code>${esc(item.motherFingerprint || "—")}</code></div><div><span>Current Consumer</span><small>${esc(consumerContract)}</small><code>${esc(item.consumerFingerprint || "—")}</code></div></div><p>${esc(item.detail || "")}</p>${childMarkup}</article>`;
   }
+  const PARITY_USER_CATEGORY_COPY = Object.freeze({
+    "feature-surface": { label: "看板功能", description: "看板提供的核心工作功能。" },
+    "ui-layout": { label: "畫面與版面", description: "不同頁面共用同一套畫面結構。" },
+    "shared-components": { label: "共用元件", description: "卡片、詳細內容與控制元件共用同一套設計。" },
+    card: { label: "工作卡片", description: "每張工作卡片的顯示與操作方式。" },
+    drawer: { label: "卡片詳細內容", description: "開啟卡片後查看與處理詳細資訊。" },
+    checklist: { label: "檢查清單", description: "用清單追蹤工作是否完成。" },
+    attachment: { label: "附件", description: "在工作或進度紀錄中查看附件。" },
+    progress: { label: "進度紀錄", description: "記錄工作進度與處理歷程。" },
+    "drag-drop": { label: "拖曳與排序", description: "拖曳卡片或工作區調整順序。" },
+    "shared-action-entry": { label: "共用操作", description: "新增、編輯、移動等操作的共同入口。" },
+    "operation-method": { label: "工作操作", description: "工作從新增、更新到完成的操作。" },
+    "lifecycle-flow": { label: "工作流程", description: "從讀取、操作到儲存的完整流程。" },
+    "runtime-behavior": { label: "執行穩定性", description: "重新整理與使用時遵循同一套規則。" },
+    "publish-adopt-boundary": { label: "版本更新", description: "版本發布與套用時使用共同規則。" },
+    "data-boundary": { label: "資料分工", description: "每個產品保留自己的資料，看板只負責呈現。" }
+  });
+  function parityUserCategory(item) {
+    const id = String(item?.id || "");
+    return PARITY_USER_CATEGORY_COPY[id] || { label: String(item?.label || "這項功能"), description: "這項共用看板功能。" };
+  }
+  function parityUserAnomaly(item = {}) {
+    const category = parityUserCategory(item);
+    const kind = String(item.kind || "different");
+    const sourceText = `${item.title || ""} ${item.cause || ""}`;
+    const extra = /多出|額外/.test(sourceText);
+    if (kind === "array-shift") {
+      return {
+        label: category.label,
+        title: `${category.label}有 1 項清單差異`,
+        cause: extra ? "目前版本多出 1 項內容，讓這個功能清單的版本對不上。" : "目前版本少了 1 項內容，讓這個功能清單的版本對不上。",
+        impact: extra ? "目前看板仍可使用；後面的項目被連帶標記為不同，但不代表每一項都壞掉。" : "目前看板仍可使用；這個清單少了 1 項內容，可能影響相關操作。",
+        canContinue: "可以繼續使用，但建議先處理這項差異。",
+        aiJudgment: "這是同一份功能清單的對齊問題，應先處理真正多出／少掉的那一項。",
+        recommendation: extra ? "確認多出的內容是否應成為共同功能，再由 C 母版統一。" : "確認缺少的內容是否仍是共同功能，再由 C 母版補齊。"
+      };
+    }
+    if (kind === "missing") {
+      return {
+        label: category.label,
+        title: `${category.label}未完整`,
+        cause: `目前版本沒有「${category.label}」這項共同功能。`,
+        impact: "其他功能不受影響；這項功能可能無法使用。",
+        canContinue: "可以繼續使用其他功能，但這項功能需要留意。",
+        aiJudgment: "這項功能沒有出現在目前版本，應優先確認是否需要由 C 母版補回。",
+        recommendation: "確認 C 母版是否應提供這項功能，再由共用看板補齊。"
+      };
+    }
+    if (kind === "extra") {
+      return {
+        label: category.label,
+        title: `${category.label}多出一項`,
+        cause: `目前版本多了 C 母版沒有的「${category.label}」功能。`,
+        impact: "目前看板仍可使用；但不同頁面可能逐漸出現不同功能。",
+        canContinue: "可以繼續使用，但這項額外功能需要確認來源。",
+        aiJudgment: "這項功能只出現在目前版本，應確認是否該回到 C 母版的共同版本。",
+        recommendation: "確認是否為正式共同功能，避免單一頁面各自發展。"
+      };
+    }
+    return {
+      label: category.label,
+      title: `${category.label}的操作方式不同`,
+      cause: `兩個版本都有「${category.label}」，但操作方式沒有對上。`,
+      impact: "看板可以繼續使用，但這項功能的操作結果可能與標準版本不同。",
+      canContinue: "可以繼續使用，但這項功能需要留意。",
+      aiJudgment: "兩邊都有這項功能，但操作方式不同，建議回到 C 母版統一。",
+      recommendation: "回到 C 母版確認並統一操作方式，不在單一頁面另做修補。"
+    };
+  }
+  function renderParityUserCategories(inventory) {
+    const categories = (Array.isArray(inventory) ? inventory : []).map(parityUserCategory);
+    if (!categories.length) return "";
+    return `<details class="template-parity-user-categories" data-template-parity-user-categories><summary>查看 ${categories.length} 項功能分類</summary><ul class="template-parity-user-category-list">${categories.map(category => `<li><strong>${esc(category.label)}</strong><span>${esc(category.description)}</span></li>`).join("")}</ul></details>`;
+  }
   function renderParityDiagnosis(diagnosis) {
     if (!diagnosis) return "";
     const anomalies = Array.isArray(diagnosis.anomalies) ? diagnosis.anomalies : [];
     const anomalyMarkup = anomalies.length
-      ? `<div class="template-parity-anomalies" data-template-parity-anomalies><strong>先看真正差異（${anomalies.length} 群）</strong>${anomalies.map(item => `<article class="template-parity-anomaly" data-template-parity-anomaly data-template-parity-anomaly-kind="${esc(item.kind || "different")}"><h4>${esc(item.title || item.label || "未命名差異")}</h4><div><b>原因</b><p>${esc(item.cause || "尚未整理原因。")}</p></div><div><b>影響</b><p>${esc(item.impact || "尚未整理影響。")}</p></div><div><b>建議處理方式</b><p>${esc(item.recommendation || "請依正式 Governance 決定處理方式。")}</p></div></article>`).join("")}</div>`
+      ? `<div class="template-parity-user-anomalies template-parity-anomalies" data-template-parity-anomalies><strong>需要留意的功能</strong>${anomalies.map(item => { const userItem = parityUserAnomaly(item); return `<article class="template-parity-anomaly" data-template-parity-anomaly data-template-parity-anomaly-kind="${esc(item.kind || "different")}"><h4>功能：${esc(userItem.label)}</h4><dl class="template-parity-user-anomaly-facts"><div><dt>哪裡需要留意</dt><dd>${esc(userItem.cause)}</dd></div><div><dt>實際影響</dt><dd>${esc(userItem.impact)}</dd></div><div><dt>目前能否繼續使用</dt><dd>${esc(userItem.canContinue)}</dd></div><div><dt>🤖 AI 判斷</dt><dd>${esc(userItem.aiJudgment)}</dd></div><div><dt>建議處理方式</dt><dd>${esc(userItem.recommendation)}</dd></div></dl></article>`; }).join("")}</div>`
       : "";
-    return `<section class="template-parity-diagnosis" data-template-parity-diagnosis><div class="template-parity-diagnosis-heading"><strong>AI 診斷（依機器差異整理）</strong><span>${esc(diagnosis.headline || "模板差異")}</span></div><div class="template-parity-diagnosis-summary"><div><b>原因</b><p>${esc(diagnosis.cause || "尚未整理原因。")}</p></div><div><b>影響</b><p>${esc(diagnosis.impact || "尚未整理影響。")}</p></div><div><b>建議處理方式</b><p>${esc(diagnosis.recommendation || "請依正式 Governance 決定處理方式。")}</p></div></div>${anomalyMarkup}</section>`;
+    const count = anomalies.length || 1;
+    return `<section class="template-parity-diagnosis template-parity-user-summary is-gap" data-template-parity-diagnosis><div class="template-parity-user-heading"><p>有 ${count} 個功能需要留意；其他功能可繼續使用。</p></div>${anomalyMarkup}</section>`;
+  }
+  function renderParityUserSummary(report, inventory) {
+    const total = inventory.length || Number(report?.motherCount || 0);
+    const matched = Math.max(0, Number(report?.matchCount || 0));
+    return `<section class="template-parity-user-summary is-match" data-template-parity-normal-summary><div class="template-parity-user-heading"><p>目前使用的功能與最新版 C 母版完全一致。</p></div><p class="template-parity-user-count">${matched} / ${total} 項功能分類正常</p><p class="template-parity-user-ai">🤖 AI 檢查：沒有發現異常，不需要處理。</p>${renderParityUserCategories(inventory)}</section>`;
   }
   function renderTemplateParityReport(report) {
     const host = ensureTemplateParityResultHost();
@@ -1740,14 +1820,16 @@
     const counts = `<div class="template-parity-counts"><span>C Mother Template：${Number(report.motherCount || 0)}</span><span>目前 Consumer：${Number(report.consumerCount || 0)}</span><span>MATCH：${Number(report.matchCount || 0)} / ${Number(report.motherCount || 0)}</span><span>Template Gap：${Number(report.gapCount || 0)}</span><span>完整機器 MATCH：${Number(report.machineMatchCount || 0)} / ${Number(report.machineMotherCount || 0)}</span><span>Machine Gap：${Number(report.machineGapCount || 0)}</span><span>Fingerprint：${esc(report.fingerprint || "MISMATCH")}</span></div>`;
     const inventoryDetails = `<details class="template-parity-inventory" data-template-parity-inventory><summary>Capability Inventory（${inventory.length} 個頂層分類；子能力 ${Number(report.childMotherCount || 0)} 個；完整機器比對）</summary><div class="template-parity-inventory-list">${inventory.map(item => renderParityInventoryNode(item)).join("")}</div></details>`;
     const technicalReport = engine?.formatReport ? engine.formatReport(report) : "";
-    const technicalDetails = `<details class="template-parity-technical" data-template-parity-technical><summary>技術明細（完整機器比對）</summary><div class="template-parity-technical-body">${counts}${inventoryDetails}${details}${technicalReport ? `<pre class="template-parity-technical-log">${esc(technicalReport)}</pre>` : ""}</div></details>`;
     const diagnosis = engine?.diagnose ? engine.diagnose(report) : null;
+    const technicalDetails = `<details class="template-parity-technical" data-template-parity-technical><summary>技術明細（工程人員）</summary><div class="template-parity-technical-body"><div class="template-parity-technical-meta">檢查來源：${esc(parityTriggerLabel(report.trigger))}</div>${counts}${inventoryDetails}${details}${technicalReport ? `<pre class="template-parity-technical-log">${esc(technicalReport)}</pre>` : ""}</div></details>`;
     const visibleSummary = report.gapCount === 0
-      ? `<div class="template-parity-no-difference" data-template-parity-normal-summary>${esc(diagnosis?.recommendation || "C 與目前 Consumer 已一致；完整技術明細可展開查看。")}</div>`
-      : `${renderParityDiagnosis(diagnosis)}${counts}`;
-    const summary = engine?.summary?.(report) || (report.gapCount === 0 ? "🟢 C 母版一致" : "🔴 C 母版不一致");
+      ? renderParityUserSummary(report, inventory)
+      : renderParityDiagnosis(diagnosis);
+    const summary = report.gapCount === 0
+      ? "🟢 C 母版功能正常"
+      : `🔴 發現 ${Array.isArray(diagnosis?.anomalies) && diagnosis.anomalies.length ? diagnosis.anomalies.length : 1} 項功能差異`;
     host.hidden = false;
-    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" data-template-parity-machine-gap="${Number(report.machineGapCount || 0)}" data-template-parity-machine-mother="${Number(report.machineMotherCount || 0)}" data-template-parity-machine-match="${Number(report.machineMatchCount || 0)}" data-template-parity-child-count="${Number(report.childMotherCount || 0)}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong><span>${esc(parityTriggerLabel(report.trigger))}</span></div>${visibleSummary}${technicalDetails}</section>`;
+    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" data-template-parity-machine-gap="${Number(report.machineGapCount || 0)}" data-template-parity-machine-mother="${Number(report.machineMotherCount || 0)}" data-template-parity-machine-match="${Number(report.machineMatchCount || 0)}" data-template-parity-child-count="${Number(report.childMotherCount || 0)}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong></div>${visibleSummary}${technicalDetails}</section>`;
   }
   function runTemplateParityCheck(trigger = "manual", options = {}) {
     const engine = root.ZhugeTemplateParityEngine;

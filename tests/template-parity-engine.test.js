@@ -241,8 +241,12 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   assert.match(runtime, /bannerDismissTimer/);
   assert.match(runtime, /setTimeout\(\(\) =>/);
   assert.match(runtime, /data-template-parity-diagnosis/);
-  assert.match(runtime, /AI 診斷（依機器差異整理）/);
+  assert.match(runtime, /C 母版功能正常/);
+  assert.match(runtime, /AI 檢查：沒有發現異常，不需要處理/);
+  assert.match(runtime, /template-parity-user-categories/);
+  assert.doesNotMatch(runtime, /AI 診斷（依機器差異整理）/);
   assert.match(runtime, /data-template-parity-technical/);
+  assert.match(runtime, /技術明細（工程人員）/);
   const css = read("shared/theme/golden-master.css");
   assert.match(css, /golden-master-tab-tools/);
   assert.match(css, /template-parity-anomaly/);
