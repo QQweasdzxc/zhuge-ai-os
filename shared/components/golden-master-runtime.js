@@ -1084,14 +1084,20 @@
       await moveWorkTodoTask(task, target);
       return;
     }
-    if (String(task.workspaceId) === String(target.id)) {
-      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
-      return;
-    }
     const current = state.workspaceById.get(String(task.workspaceId || ""));
     const lifecycleTarget = aiBoardLifecycleTarget(target);
     if (lifecycleTarget) {
+      const lifecycleMatchesTarget = String(task.status || "").toLowerCase() === lifecycleTarget.status
+        && String(task.assignee || "").trim() === lifecycleTarget.assignee;
+      if (String(task.workspaceId) === String(target.id) && lifecycleMatchesTarget) {
+        setBanner("這張卡片已在「" + esc(target.name) + "」，正式狀態與負責人也已一致。", "info");
+        return;
+      }
       await moveAiBoardLifecycleTask(task, current, target, lifecycleTarget);
+      return;
+    }
+    if (String(task.workspaceId) === String(target.id)) {
+      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
     }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");

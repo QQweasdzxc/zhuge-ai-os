@@ -16,7 +16,7 @@ test("AI Board canonical workspace targets use the formal lifecycle path", () =>
   assert.match(runtime, /co: \{ key: "co", status: "inprogress", assignee: "Co"/);
   assert.match(runtime, /qjc: \{ key: "qjc", status: "qa", assignee: "QJC"/);
   assert.match(runtime, /completed: \{ key: "completed", status: "done", assignee: "QJC"/);
-  assert.match(runtime, /if \(lifecycleTarget\) \{\s*await moveAiBoardLifecycleTask/);
+  assert.match(runtime, /if \(lifecycleTarget\) \{[\s\S]*?await moveAiBoardLifecycleTask/);
   assert.match(runtime, /await activeService\(\)\.transitionTask\(task\.id, lifecycleTarget\.status/);
   assert.match(runtime, /PM Acceptance Evidence.*必填/);
   assert.match(runtime, /PM QA 退回 Evidence.*必填/);
@@ -29,6 +29,17 @@ test("ordinary custom workspace movement remains on the existing generic path", 
   assert.ok(lifecycleBranch >= 0);
   assert.ok(genericBranch > lifecycleBranch);
   assert.match(runtime.slice(genericBranch, genericBranch + 700), /workspaceId: target\.id/);
+});
+
+test("a stale canonical workspace still runs the formal lifecycle transition", () => {
+  const lifecycleBranch = runtime.indexOf("const lifecycleTarget = aiBoardLifecycleTarget(target);");
+  const sameWorkspaceGuard = runtime.indexOf("String(task.workspaceId) === String(target.id)", lifecycleBranch);
+  const lifecycleCall = runtime.indexOf("await moveAiBoardLifecycleTask(task, current, target, lifecycleTarget);", lifecycleBranch);
+  assert.ok(lifecycleBranch >= 0);
+  assert.ok(sameWorkspaceGuard > lifecycleBranch);
+  assert.ok(lifecycleCall > sameWorkspaceGuard);
+  assert.match(runtime.slice(sameWorkspaceGuard, lifecycleCall), /lifecycleMatchesTarget/);
+  assert.match(runtime.slice(sameWorkspaceGuard, lifecycleCall), /正式狀態與負責人也已一致/);
 });
 
 test("PM QA FAIL uses the atomic checklist/task contract", () => {
