@@ -55,6 +55,20 @@ class AuthenticationError extends Error {
   }
 }
 
+class CloudRpcError extends Error {
+  status: number;
+  code: string;
+  rpc: string;
+  detail: string;
+  constructor(message: string, status: number, code: string, rpc: string, detail: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.rpc = rpc;
+    this.detail = detail;
+  }
+}
+
 function bearer(request: Request) {
   const value = request.headers.get("authorization") || "";
   return value.startsWith("Bearer ") ? value.slice(7).trim() : "";
@@ -123,8 +137,14 @@ async function request(configValue: ReturnType<typeof config>, path: string, opt
   let parsed: unknown = null;
   try { parsed = body ? JSON.parse(body) : null; } catch { parsed = body; }
   if (!response.ok) {
-    const detail = typeof parsed === "string" ? parsed : (parsed as any)?.message || (parsed as any)?.hint || response.statusText;
-    throw new Error(`Supabase ${response.status}: ${detail}`);
+    const rpc = path.split("?")[0];
+    const detail = typeof parsed === "string"
+      ? parsed.trim()
+      : [(parsed as any)?.message, (parsed as any)?.hint, (parsed as any)?.details, (parsed as any)?.error]
+        .find(value => String(value || "").trim());
+    const safeDetail = String(detail || body || response.statusText || `Cloud 未提供 ${rpc} 的錯誤明細`).trim().slice(0, 800);
+    const code = String((parsed as any)?.code || "SUPABASE_RPC_FAILED");
+    throw new CloudRpcError(`Cloud RPC ${rpc} 失敗（HTTP ${response.status}）：${safeDetail}`, response.status, code, rpc, safeDetail);
   }
   return parsed;
 }
@@ -503,10 +523,11 @@ Deno.serve(async (requestValue) => {
     const updated = await findTask(cfg, String(body.task));
     return json({ result, task: updated, audit: await audit(cfg, updated.id) });
   } catch (error) {
-    const status = error instanceof AuthenticationError ? error.status : 400;
+    const status = error instanceof AuthenticationError || error instanceof CloudRpcError ? error.status : 400;
     return json({
-      code: error instanceof AuthenticationError ? error.code : "ENGINEERING_SERVICE_FAILED",
-      error: error instanceof Error ? error.message : "Controlled Engineering Service failed"
+      code: error instanceof AuthenticationError || error instanceof CloudRpcError ? error.code : "ENGINEERING_SERVICE_FAILED",
+      error: error instanceof Error ? error.message : "Controlled Engineering Service failed",
+      ...(error instanceof CloudRpcError ? { rpc: error.rpc, detail: error.detail } : {})
     }, status);
   }
 });

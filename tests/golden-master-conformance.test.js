@@ -95,7 +95,8 @@ test("C Mother Template, AI Board, and WorkTodo share one Board/Card/Drawer runt
   const drawer = read("shared/components/task-drawer.js");
   assert.match(runtime, /acceptTaskByCardDrop/);
   assert.match(runtime, /executeSharedTaskAction\(task, "updateGovernanceChecklist"/);
-  assert.match(runtime, /state\.applicationScope === "ai_board" && isPmTurn\(task\) && isCompletionWorkspace\(target\)/);
+  assert.match(runtime, /aiBoardLifecycleTarget\(target\)/);
+  assert.match(runtime, /正式 lifecycle transition/);
   assert.doesNotMatch(board, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
   assert.doesNotMatch(card, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);
   assert.doesNotMatch(drawer, /supabase|DataService|localStorage|sessionStorage|rpc\s*\(/i);

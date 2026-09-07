@@ -176,9 +176,15 @@
       const body = await response.text().catch(() => "");
       let parsed = null;
       try { parsed = body ? JSON.parse(body) : null; } catch { parsed = null; }
-      const error = new Error(parsed?.message || body || `Supabase ${response.status}`);
+      const endpoint = String(path || "").split("?")[0] || "request";
+      const detail = typeof parsed === "string"
+        ? parsed.trim()
+        : [parsed?.message, parsed?.hint, parsed?.details, parsed?.error].find(value => String(value || "").trim());
+      const error = new Error(String(detail || body || `Supabase ${response.status} 拒絕 ${endpoint}；Cloud 未提供錯誤明細。`).trim());
       error.code = parsed?.code || "SUPABASE_REQUEST_FAILED";
       error.status = response.status;
+      error.details = parsed?.details || null;
+      error.endpoint = endpoint;
       throw error;
     }
     if (response.status === 204) return null;

@@ -1050,6 +1050,23 @@
     }).then(normalizeChecklistItem);
   }
 
+  async function pmQaFailChecklist(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_pm_qa_fail_requeue", {
+      p_item_id: input.id,
+      p_evidence_note: input.evidenceNote || null,
+      p_evidence_ref: input.evidenceRef || null
+    }).then(normalizeChecklistItem);
+  }
+
+  async function reconcilePmAcceptanceLifecycle(taskId, note = "", options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_reconcile_pm_acceptance_lifecycle", {
+      p_task_id: taskId,
+      p_note: note || null
+    });
+  }
+
   async function addTaskProgressNote(taskId, note, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_add_task_progress_note", {
@@ -1619,6 +1636,8 @@
     deleteTaskChecklistItem,
     createChecklistItem,
     updateChecklistItem,
+    pmQaFailChecklist,
+    reconcilePmAcceptanceLifecycle,
     addTaskProgressNote,
     notifyTaskProgress,
     editTaskProgressNote,

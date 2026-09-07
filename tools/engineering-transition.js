@@ -122,8 +122,15 @@ async function requestTool(config, payload) {
   let parsed = null;
   try { parsed = body ? JSON.parse(body) : null; } catch { parsed = body; }
   if (!response.ok) {
-    const detail = typeof parsed === "string" ? parsed : parsed?.message || parsed?.hint || response.statusText;
-    throw new Error(`Supabase ${response.status}: ${detail}`);
+    const detail = typeof parsed === "string"
+      ? parsed.trim()
+      : [parsed?.message, parsed?.hint, parsed?.details, parsed?.error].find(value => String(value || "").trim());
+    const safeDetail = String(detail || body || response.statusText || "Cloud 未提供受控 RPC 的錯誤明細").trim();
+    const error = new Error(`Cloud RPC 失敗（HTTP ${response.status}）：${safeDetail}`);
+    error.code = parsed?.code || "SUPABASE_RPC_FAILED";
+    error.status = response.status;
+    error.details = parsed?.details || null;
+    throw error;
   }
   return parsed;
 }

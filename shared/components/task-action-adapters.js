@@ -77,7 +77,9 @@
         addChecklist: payload => required(service, "addTaskChecklistItem")({ taskId: payload.taskId || taskId, label: payload.label, sortOrder: payload.sortOrder }),
         updateChecklist: payload => required(service, "updateTaskChecklistItem")({ id: payload.id, completed: payload.completed, label: payload.label, sortOrder: payload.sortOrder }),
         deleteChecklist: payload => required(service, "deleteTaskChecklistItem")(payload.id),
-        updateGovernanceChecklist: payload => required(service, "updateChecklistItem")({ id: payload.id, state: payload.state, evidenceNote: payload.evidenceNote, evidenceRef: payload.evidenceRef }),
+        updateGovernanceChecklist: payload => payload.pmQaFail
+          ? required(service, "pmQaFailChecklist")({ id: payload.id, evidenceNote: payload.evidenceNote, evidenceRef: payload.evidenceRef })
+          : required(service, "updateChecklistItem")({ id: payload.id, state: payload.state, evidenceNote: payload.evidenceNote, evidenceRef: payload.evidenceRef }),
         moveWorkspace: payload => required(service, "moveTaskWorkspace")(payload.taskId || taskId, payload.workspaceId, payload.reason),
         confirm: payload => payload
       },
