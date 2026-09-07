@@ -2,8 +2,8 @@
   "use strict";
   const SHEETS_API="https://sheets.googleapis.com/v4/spreadsheets";
   const BRIDGE_FUNCTION="gas-vendor-bridge";
-  const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:T",timeoutMs:15000,bridgeTimeoutMs:45000,chunkSize:25,maxRows:1000};
-  const KEYS=["orderDate","company","purchaseNo","vendorName","taxId","contactMailLegacy","paymentTerms","products","integritySignedAt","integrityOriginal","csrSelfAssessment","csrOriginal","phone","contactName","mobile","email","project","contracted","insured","vendorId"];
+  const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:U",timeoutMs:15000,bridgeTimeoutMs:45000,chunkSize:25,maxRows:1000};
+  const KEYS=["orderDate","company","purchaseNo","vendorName","taxId","contactMailLegacy","paymentTerms","products","integritySignedAt","integrityOriginal","csrSelfAssessment","csrOriginal","phone","contactName","mobile","email","project","contracted","insured","vendorId","businessCategory"];
   function token(){
     if(typeof global.currentGoogleProviderToken==="function") return String(global.currentGoogleProviderToken()||"");
     const s=typeof global.getStoredAuthSession==="function"?global.getStoredAuthSession():null;
@@ -74,6 +74,7 @@
     }
     async bridgeRead(){return this.bridgeRequest({action:"read"});}
     async bridgeUpdate(vendorId,patch){return this.bridgeRequest({action:"update",vendorId,patch});}
+    async bridgeCreate(vendor){return this.bridgeRequest({action:"create",vendor});}
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       onProgress({phase:"auth",percent:5,message:"確認 Zhuge AI OS 登入…",loaded:0,total:0});
@@ -105,7 +106,23 @@
       onProgress({phase:"done",percent:100,message:"已寫回 Google Sheet · 1 / 1 筆",loaded:1,total:1});
       return item;
     }
-    async readRow(rowNumber){const data=await this.readRange(`A${rowNumber}:T${rowNumber}`);const row=[...((data?.values||[])[0]||[])];while(row.length<20)row.push("");return row.slice(0,20);}
+    async create(vendor={},options={}){
+      const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
+      const payload={};
+      KEYS.filter(key=>key!=="vendorId").forEach(key=>{payload[key]=String(vendor[key]??"").trim();});
+      if(!payload.vendorName) throw new VendorSheetError("請填寫廠商名稱。","VENDOR_NAME_REQUIRED");
+      if(!["採購","總務"].includes(payload.businessCategory)) throw new VendorSheetError("業務分類請選擇「採購」或「總務」。","VENDOR_CATEGORY_INVALID");
+      onProgress({phase:"write",percent:55,message:"正在透過 Server Bridge 新增至 Google Sheet…",loaded:0,total:1});
+      const data=await this.bridgeCreate(payload);
+      const raw=data?.vendor;
+      if(!raw||!String(raw.vendorId||"").trim()) throw new VendorSheetError("Vendor Server Bridge 新增回讀無法驗證。","BRIDGE_CREATE_READBACK_INVALID");
+      const item={rowNumber:Number(raw.rowNumber)||0};
+      KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
+      onProgress({phase:"verify",percent:85,message:"正在確認 Google Sheet 新增結果…",loaded:1,total:1});
+      onProgress({phase:"done",percent:100,message:`已新增至 Google Sheet · ${item.vendorId}`,loaded:1,total:1});
+      return item;
+    }
+    async readRow(rowNumber){const data=await this.readRange(`A${rowNumber}:U${rowNumber}`);const row=[...((data?.values||[])[0]||[])];while(row.length<21)row.push("");return row.slice(0,21);}
   }
   global.VendorSheetService={VendorSheetService,VendorSheetError,config:DEFAULTS};
 })(window);
