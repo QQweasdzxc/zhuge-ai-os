@@ -131,7 +131,9 @@
 /* 20260907 UI/UX polish: C quick-create uses a focused center modal, while
  * existing task detail continues to use the right-side drawer. */
 .zhuge-module-shell #addCardModal{z-index:10020;background:rgba(0,0,0,.66);backdrop-filter:blur(2px)}
-.zhuge-module-shell #addCardModal .board-quick-add-modal{width:min(620px,100%);max-height:min(760px,calc(100svh - 40px));overflow:auto;border-radius:16px;box-shadow:0 26px 80px rgba(0,0,0,.62)}
+.zhuge-module-shell #addCardModal .board-quick-add-modal{box-sizing:border-box;width:min(620px,100%);max-width:100%;max-height:min(760px,calc(100svh - 40px));overflow-x:hidden;overflow-y:auto;border-radius:16px;box-shadow:0 26px 80px rgba(0,0,0,.62)}
+.zhuge-module-shell #addCardModal .board-quick-add-modal .modalbody,.zhuge-module-shell #addCardModal .board-quick-add-modal .field{box-sizing:border-box;min-width:0;max-width:100%}
+.zhuge-module-shell #addCardModal .board-quick-add-modal input,.zhuge-module-shell #addCardModal .board-quick-add-modal textarea,.zhuge-module-shell #addCardModal .board-quick-add-modal select{box-sizing:border-box;max-width:100%}
 .zhuge-module-shell #addCardModal .board-quick-add-modal .modalhead{padding:18px 20px}
 .zhuge-module-shell #addCardModal .board-quick-add-modal .modalbody{padding:20px}
 .zhuge-module-shell #addCardModal .board-quick-add-modal .field:last-child{margin-bottom:0}
