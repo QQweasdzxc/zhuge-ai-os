@@ -38,3 +38,19 @@
 @media(max-width:800px){.vendor-toolbar{display:block}.vendor-sync{display:inline-block;margin-top:10px}.vendor-filters{grid-template-columns:1fr 1fr}.vendor-filters input:first-child{grid-column:1/-1}.vendor-source{display:none}.vendor-form{grid-template-columns:1fr}.vendor-form .wide{grid-column:auto}}
 
 .vendor-progress{margin:-4px 0 14px;padding:10px 12px;border:1px solid var(--zhuge-border,rgba(83,127,171,.28));border-radius:12px;background:var(--zhuge-surface,#101824)}.vendor-progress[hidden]{display:none}.vendor-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px;font-size:12px;color:var(--zhuge-text-muted,#9aa8bb)}.vendor-progress-head strong{color:var(--zhuge-text,#f4f7fb);font-weight:600}.vendor-progress-track{height:7px;overflow:hidden;border-radius:999px;background:rgba(83,127,171,.18)}.vendor-progress-bar{height:100%;width:0;border-radius:inherit;background:var(--zhuge-accent,#4b8cff);transition:width .2s ease}.vendor-progress[data-state="error"] .vendor-progress-head strong{color:#ffb4b4}
+
+/* 20260907 vendor-list visual polish: keep the same table and data contract,
+ * only rebalance column density for faster scanning. */
+.vendor-table{table-layout:fixed;min-width:1120px}
+.vendor-table th,.vendor-table td{padding:13px 12px;line-height:1.45}
+.vendor-table th:nth-child(1),.vendor-table td:nth-child(1){width:13%}
+.vendor-table th:nth-child(2),.vendor-table td:nth-child(2){width:8%;white-space:normal;word-break:keep-all}
+.vendor-table th:nth-child(3),.vendor-table td:nth-child(3){width:18%}
+.vendor-table th:nth-child(4),.vendor-table td:nth-child(4){width:10%}
+.vendor-table th:nth-child(5),.vendor-table td:nth-child(5){width:12%;white-space:nowrap}
+.vendor-table th:nth-child(6),.vendor-table td:nth-child(6){width:17%;overflow-wrap:anywhere}
+.vendor-table th:nth-child(7),.vendor-table td:nth-child(7){width:16%;overflow-wrap:anywhere}
+.vendor-table th:nth-child(8),.vendor-table td:nth-child(8){width:94px;text-align:right;white-space:nowrap}
+.vendor-products{max-width:none;overflow-wrap:anywhere}
+.vendor-edit{min-width:78px}
+@media(max-width:900px){.vendor-table{min-width:1040px}.vendor-table th,.vendor-table td{padding:11px 10px}}

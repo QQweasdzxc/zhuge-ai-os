@@ -148,8 +148,8 @@
     return `<div class="golden-master-operations" data-golden-master-operations="true"${scope ? ` data-application-scope="${scope}"` : ""}>
 ${consumerCreate}
 <div id="addCardModal" class="modalback" aria-hidden="true">
- <div class="modal board-create-drawer">
-  <div class="modalhead"><h2>新增 ${itemLabel}</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 ${itemLabel}">×</button></div>
+ <div class="modal board-quick-add-modal" role="dialog" aria-modal="true" aria-labelledby="quickAddTitle">
+  <div class="modalhead"><h2 id="quickAddTitle">新增 ${itemLabel}</h2><button class="x" type="button" data-golden-master-close="add-card" aria-label="關閉新增 ${itemLabel}">×</button></div>
   <div class="modalbody">
    <div class="field"><label for="taskSummary">需求內容</label><textarea id="taskSummary" placeholder="要完成什麼？"></textarea></div>
    <div class="field"><label for="taskUsageScenario">使用情境</label><textarea id="taskUsageScenario" placeholder="使用者為什麼需要？實際會怎麼使用？"></textarea><div class="hint">使用情境是正式內容；沒有資料時不自行猜測。</div></div>

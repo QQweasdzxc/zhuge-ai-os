@@ -1289,30 +1289,57 @@
     const body = settings.body_template || "您的案件 {{卡片編號}}「{{卡片名稱}}」目前已進入「{{工作區名稱}}」。";
     modal.innerHTML = `<section class="workspace-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workspaceSettingsTitle">
       <header><div><strong id="workspaceSettingsTitle">工作區設定｜${esc(workspace.name)}</strong><small>設定只保存於此 Board 的 Cloud Workspace，不使用本地儲存。</small></div><button type="button" data-ws-close aria-label="關閉">×</button></header>
-      <label class="ws-field"><span>工作區名稱</span><input type="text" value="${esc(workspace.name)}" disabled></label>
-      <div class="ws-divider">進入此工作區時</div>
-      <label class="ws-check"><input type="checkbox" data-ws-enabled ${settings.enabled ? "checked" : ""}> 寄送 Email 通知</label>
-      <div class="ws-field"><span>通知對象</span>
-        <label class="ws-check"><input type="checkbox" data-ws-assignee ${settings.notify_assignee ? "checked" : ""}> 卡片負責人</label>
-        <label class="ws-check"><input type="checkbox" data-ws-reporter ${settings.notify_reporter ? "checked" : ""}> 原始通報人</label>
-      </div>
-      <label class="ws-field"><span>指定 Email（To） <small>多個 Email 請用逗號分隔</small></span><input type="text" data-ws-emails value="${esc(custom)}" placeholder="owner@company.com"></label>
-      <label class="ws-field"><span>副本 CC</span><input type="text" data-ws-cc value="${esc(cc)}" placeholder="manager@company.com"></label>
-      <label class="ws-field"><span>密件副本 BCC</span><input type="text" data-ws-bcc value="${esc(bcc)}" placeholder="audit@company.com"></label>
-      <label class="ws-field"><span>Email 主旨</span><input type="text" data-ws-subject value="${esc(subject)}"></label>
-      <label class="ws-field"><span>Email 內容</span><textarea data-ws-body rows="6">${esc(body)}</textarea></label>
-      <div class="ws-divider">此工作區卡片新增工作進度時</div>
-      <label class="ws-check"><input type="checkbox" data-ws-progress-enabled ${settings.progress_notification_enabled ? "checked" : ""}> 寄送回報通知</label>
-      <label class="ws-field"><span>回報通知 Email（To）</span><input type="text" data-ws-progress-to value="${esc(progressTo)}" placeholder="pm@company.com"></label>
-      <label class="ws-field"><span>回報通知 CC</span><input type="text" data-ws-progress-cc value="${esc(progressCc)}" placeholder="manager@company.com"></label>
-      <label class="ws-field"><span>回報通知 BCC</span><input type="text" data-ws-progress-bcc value="${esc(progressBcc)}" placeholder="audit@company.com"></label>
-      <small class="ws-help">通知信會附上此卡片的直接連結；收件人仍須具備 Zhuge AI OS 的登入與該卡片存取權限。</small>
+      <label class="ws-field ws-workspace-name"><span>工作區名稱</span><input type="text" value="${esc(workspace.name)}" disabled></label>
+
+      <section class="ws-section" data-ws-entry-section>
+        <div class="ws-section-heading"><div><strong>進入此工作區時</strong><small>卡片進入此工作區時，依設定寄送 Email 通知。</small></div></div>
+        <div class="ws-option-row">
+          <label class="ws-check ws-check-primary"><input type="checkbox" data-ws-enabled ${settings.enabled ? "checked" : ""}> 寄送 Email 通知</label>
+          <label class="ws-check"><input type="checkbox" data-ws-assignee ${settings.notify_assignee ? "checked" : ""}> 卡片負責人</label>
+          <label class="ws-check"><input type="checkbox" data-ws-reporter ${settings.notify_reporter ? "checked" : ""}> 原始通報人</label>
+        </div>
+        <label class="ws-field"><span>指定 Email（To） <small>多個 Email 請用逗號分隔</small></span><input type="text" data-ws-emails value="${esc(custom)}" placeholder="owner@company.com"></label>
+        <div class="ws-grid ws-grid-2">
+          <label class="ws-field"><span>副本 CC</span><input type="text" data-ws-cc value="${esc(cc)}" placeholder="manager@company.com"></label>
+          <label class="ws-field"><span>密件副本 BCC</span><input type="text" data-ws-bcc value="${esc(bcc)}" placeholder="audit@company.com"></label>
+        </div>
+        <label class="ws-field"><span>Email 主旨</span><input type="text" data-ws-subject value="${esc(subject)}"></label>
+        <label class="ws-field"><span>Email 內容</span><textarea data-ws-body rows="4">${esc(body)}</textarea></label>
+      </section>
+
+      <section class="ws-section ws-section-progress" data-ws-progress-section>
+        <div class="ws-section-heading"><div><strong>此工作區卡片新增工作進度時</strong><small>有新進度時，將回報通知寄給指定收件人。</small></div></div>
+        <label class="ws-check ws-check-primary"><input type="checkbox" data-ws-progress-enabled ${settings.progress_notification_enabled ? "checked" : ""}> 寄送回報通知</label>
+        <div class="ws-grid ws-grid-3">
+          <label class="ws-field"><span>回報通知 Email（To）</span><input type="text" data-ws-progress-to value="${esc(progressTo)}" placeholder="pm@company.com"></label>
+          <label class="ws-field"><span>回報通知 CC</span><input type="text" data-ws-progress-cc value="${esc(progressCc)}" placeholder="manager@company.com"></label>
+          <label class="ws-field"><span>回報通知 BCC</span><input type="text" data-ws-progress-bcc value="${esc(progressBcc)}" placeholder="audit@company.com"></label>
+        </div>
+        <small class="ws-help">通知信會附上此卡片的直接連結；收件人仍須具備 Zhuge AI OS 的登入與該卡片存取權限。</small>
+      </section>
       <footer><button type="button" data-ws-cancel>取消</button><button type="button" class="primary" data-ws-save>儲存設定</button></footer>
     </section>`;
     document.body.appendChild(modal);
     const close = () => modal.remove();
     modal.querySelector("[data-ws-close]").onclick = close;
     modal.querySelector("[data-ws-cancel]").onclick = close;
+    const syncWorkspaceSettingsState = () => {
+      const enabled = modal.querySelector("[data-ws-enabled]")?.checked === true;
+      const progressEnabled = modal.querySelector("[data-ws-progress-enabled]")?.checked === true;
+      modal.querySelector("[data-ws-entry-section]")?.classList.toggle("is-disabled", !enabled);
+      modal.querySelector("[data-ws-progress-section]")?.classList.toggle("is-disabled", !progressEnabled);
+      ["[data-ws-assignee]", "[data-ws-reporter]", "[data-ws-emails]", "[data-ws-cc]", "[data-ws-bcc]", "[data-ws-subject]", "[data-ws-body]"].forEach(selector => {
+        const field = modal.querySelector(selector);
+        if (field) field.disabled = !enabled;
+      });
+      ["[data-ws-progress-to]", "[data-ws-progress-cc]", "[data-ws-progress-bcc]"].forEach(selector => {
+        const field = modal.querySelector(selector);
+        if (field) field.disabled = !progressEnabled;
+      });
+    };
+    modal.querySelector("[data-ws-enabled]")?.addEventListener("change", syncWorkspaceSettingsState);
+    modal.querySelector("[data-ws-progress-enabled]")?.addEventListener("change", syncWorkspaceSettingsState);
+    syncWorkspaceSettingsState();
     modal.addEventListener("click", event => { if (event.target === modal) close(); });
     modal.querySelector("[data-ws-save]").onclick = async () => {
       const save = modal.querySelector("[data-ws-save]");

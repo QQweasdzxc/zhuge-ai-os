@@ -127,3 +127,49 @@
 
 /* Module C Workspace Settings — Cloud-only notification configuration */
 .zhuge-module-shell .workspace-settings-backdrop,.workspace-settings-backdrop{position:fixed;inset:0;z-index:10000;background:#000a;display:flex;align-items:center;justify-content:center;padding:18px}.workspace-settings-dialog{width:min(620px,100%);max-height:90vh;overflow:auto;background:#151c26;border:1px solid #344052;border-radius:12px;box-shadow:0 20px 60px #000b;padding:18px;color:#e8edf5}.workspace-settings-dialog header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.workspace-settings-dialog header strong{display:block;font-size:16px}.workspace-settings-dialog header small{display:block;color:#8ea0b8;margin-top:5px}.workspace-settings-dialog header button{border:0;background:transparent;color:#9badc4;font-size:24px;cursor:pointer}.workspace-settings-dialog .ws-field{display:flex;flex-direction:column;gap:7px;margin:13px 0}.workspace-settings-dialog .ws-field>span{font-size:12px;color:#aebbd0}.workspace-settings-dialog input[type=text],.workspace-settings-dialog textarea{box-sizing:border-box;width:100%;border:1px solid #344052;border-radius:7px;background:#0e141d;color:#eef3f9;padding:9px 10px;font:inherit}.workspace-settings-dialog input:disabled{opacity:.7}.workspace-settings-dialog .ws-check{display:block;margin:7px 0;font-size:13px}.workspace-settings-dialog .ws-divider{margin:18px 0 10px;padding-top:14px;border-top:1px solid #344052;color:#8ea0b8;font-size:12px;text-align:center}.workspace-settings-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.workspace-settings-dialog footer button{border:1px solid #3a4658;border-radius:7px;background:#202a39;color:#e8edf5;padding:8px 14px;cursor:pointer}.workspace-settings-dialog footer button.primary{background:#285f4d;border-color:#34765f}.workspace-settings-dialog footer button:disabled{opacity:.55;cursor:not-allowed}
+
+/* 20260907 UI/UX polish: C quick-create uses a focused center modal, while
+ * existing task detail continues to use the right-side drawer. */
+.zhuge-module-shell #addCardModal{z-index:10020;background:rgba(0,0,0,.66);backdrop-filter:blur(2px)}
+.zhuge-module-shell #addCardModal .board-quick-add-modal{width:min(620px,100%);max-height:min(760px,calc(100svh - 40px));overflow:auto;border-radius:16px;box-shadow:0 26px 80px rgba(0,0,0,.62)}
+.zhuge-module-shell #addCardModal .board-quick-add-modal .modalhead{padding:18px 20px}
+.zhuge-module-shell #addCardModal .board-quick-add-modal .modalbody{padding:20px}
+.zhuge-module-shell #addCardModal .board-quick-add-modal .field:last-child{margin-bottom:0}
+.zhuge-module-shell #addCardModal .board-quick-add-modal .modalfoot{padding:14px 20px 18px;background:#151c26}
+
+/* Workspace notification settings: compact, grouped and scan-friendly. */
+.workspace-settings-dialog{width:min(900px,100%);max-height:min(92vh,900px);padding:20px;border-radius:16px}
+.workspace-settings-dialog header{margin-bottom:14px}
+.workspace-settings-dialog .ws-workspace-name{margin:0 0 14px}
+.workspace-settings-dialog .ws-section{margin-top:14px;padding:15px 16px;border:1px solid #344052;border-radius:12px;background:rgba(12,19,28,.48)}
+.workspace-settings-dialog .ws-section-progress{border-color:#2d594d;background:rgba(20,48,43,.18)}
+.workspace-settings-dialog .ws-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:11px;margin-bottom:10px;border-bottom:1px solid #2b3544}
+.workspace-settings-dialog .ws-section-heading strong{display:block;font-size:14px;color:#e8edf5}
+.workspace-settings-dialog .ws-section-heading small{display:block;margin-top:3px;color:#8292a8;font-size:11px;line-height:1.45}
+.workspace-settings-dialog .ws-option-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 11px}
+.workspace-settings-dialog .ws-check{display:inline-flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border:1px solid #344052;border-radius:8px;background:#111923;font-size:13px;color:#dce4ef;cursor:pointer}
+.workspace-settings-dialog .ws-check-primary{border-color:#3f6ea6;background:#142238}
+.workspace-settings-dialog .ws-check input{margin:0;accent-color:#4d8dff}
+.workspace-settings-dialog .ws-grid{display:grid;gap:10px}
+.workspace-settings-dialog .ws-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.workspace-settings-dialog .ws-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.workspace-settings-dialog .ws-field{gap:6px;margin:10px 0}
+.workspace-settings-dialog .ws-grid .ws-field{margin:0}
+.workspace-settings-dialog .ws-field>span{font-size:11px}
+.workspace-settings-dialog .ws-field>span small{margin-left:5px;color:#78899f;font-size:10px}
+.workspace-settings-dialog input[type=text],.workspace-settings-dialog textarea{padding:9px 10px}
+.workspace-settings-dialog textarea{resize:vertical;min-height:78px}
+.workspace-settings-dialog .ws-help{display:block;margin-top:9px;color:#8292a8;font-size:11px;line-height:1.45}
+.workspace-settings-dialog footer{position:sticky;bottom:-20px;margin:16px -20px -20px;padding:12px 20px 16px;background:linear-gradient(180deg,rgba(21,28,38,.72),#151c26 32%);border-top:1px solid #293241}
+.workspace-settings-dialog .ws-section.is-disabled .ws-field,.workspace-settings-dialog .ws-section.is-disabled .ws-grid,.workspace-settings-dialog .ws-section.is-disabled .ws-help,.workspace-settings-dialog .ws-section.is-disabled .ws-option-row .ws-check:not(.ws-check-primary){opacity:.46}
+.workspace-settings-dialog input:disabled,.workspace-settings-dialog textarea:disabled{cursor:not-allowed}
+@media(max-width:760px){
+  .workspace-settings-backdrop{align-items:flex-start;padding:10px}
+  .workspace-settings-dialog{padding:16px;max-height:calc(100svh - 20px)}
+  .workspace-settings-dialog .ws-grid-2,.workspace-settings-dialog .ws-grid-3{grid-template-columns:1fr}
+  .workspace-settings-dialog .ws-option-row{align-items:stretch}
+  .workspace-settings-dialog .ws-check{flex:1 1 auto}
+  .workspace-settings-dialog footer{bottom:-16px;margin:14px -16px -16px;padding:12px 16px 14px}
+  .zhuge-module-shell #addCardModal{padding:12px}
+  .zhuge-module-shell #addCardModal .board-quick-add-modal{max-height:calc(100svh - 24px)}
+}
