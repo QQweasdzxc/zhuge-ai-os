@@ -1061,6 +1061,22 @@
     if (gate.missing?.length) return `尚有 ${gate.missing.length} 項 Co／QJC 必要驗收未完成；請由負責角色完成驗證。`;
     return "目前尚未完成 Co 開發驗證與 QJC PM 驗收。";
   }
+
+  function aiBoardLifecycleTarget(workspace) {
+    if (state.applicationScope !== "ai_board" || !workspace) return null;
+    const key = String(workspace.workspaceKey || workspace.key || "").trim().toLowerCase();
+    const name = String(workspace.name || "").trim();
+    const targets = {
+      todo: { key: "todo", status: "ready", assignee: "Co", label: "待辦" },
+      co: { key: "co", status: "inprogress", assignee: "Co", label: "Co" },
+      qjc: { key: "qjc", status: "qa", assignee: "QJC", label: "QJC驗證" },
+      completed: { key: "completed", status: "done", assignee: "QJC", label: "完成" }
+    };
+    if (targets[key]) return targets[key];
+    // The legacy GPT workspace has no canonical key and remains a normal
+    // workspace target; never infer a lifecycle transition from its label.
+    return null;
+  }
   async function moveTaskToWorkspace(task, targetWorkspaceId) {
     const target = state.workspaceById.get(String(targetWorkspaceId || ""));
     if (!task || !target || activeService().isGovernanceTerminal?.(task)) return;
@@ -1068,13 +1084,20 @@
       await moveWorkTodoTask(task, target);
       return;
     }
-    if (String(task.workspaceId) === String(target.id)) {
-      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
+    const current = state.workspaceById.get(String(task.workspaceId || ""));
+    const lifecycleTarget = aiBoardLifecycleTarget(target);
+    if (lifecycleTarget) {
+      const lifecycleMatchesTarget = String(task.status || "").toLowerCase() === lifecycleTarget.status
+        && String(task.assignee || "").trim() === lifecycleTarget.assignee;
+      if (String(task.workspaceId) === String(target.id) && lifecycleMatchesTarget) {
+        setBanner("這張卡片已在「" + esc(target.name) + "」，正式狀態與負責人也已一致。", "info");
+        return;
+      }
+      await moveAiBoardLifecycleTask(task, current, target, lifecycleTarget);
       return;
     }
-    const current = state.workspaceById.get(String(task.workspaceId || ""));
-    if (state.applicationScope === "ai_board" && isPmTurn(task) && isCompletionWorkspace(target)) {
-      await acceptTaskByCardDrop(task, current, target);
+    if (String(task.workspaceId) === String(target.id)) {
+      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
     }
     setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
@@ -1092,9 +1115,67 @@
     }
   }
 
+  async function moveAiBoardLifecycleTask(task, current, target, lifecycleTarget) {
+    const status = String(task?.status || "").toLowerCase();
+    const assignee = String(task?.assignee || "").trim();
+    if (lifecycleTarget.key === "completed") {
+      if (status === "qa" && assignee === "QJC") {
+        await acceptTaskByCardDrop(task, current, target);
+      } else {
+        setBanner("不能移至「完成」：目前正式狀態是 " + esc(`${status || "未知"} / ${assignee || "未指定"}`) + "。必須先完成 QJC PM Acceptance Gate；卡片未移動。", "error");
+      }
+      return;
+    }
+    if (lifecycleTarget.key === "qjc") {
+      if (status === "qa" && (assignee === "GPT" || assignee === "QJC")) {
+        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
+      } else {
+        setBanner("不能移至「QJC驗證」：請先完成正式工程交接與必要 Evidence；卡片未移動。", "error");
+      }
+      return;
+    }
+    if (lifecycleTarget.key === "co") {
+      if (status === "qa" && assignee === "QJC") {
+        await rejectTaskByCardDrop(task, current, target);
+      } else if (status === "qa" && assignee === "GPT") {
+        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
+      } else if (status === "inprogress" && assignee === "Co") {
+        setBanner("這張卡片已在 Co 的正式工作階段；沒有需要保存的變更。", "info");
+      } else {
+        setBanner("不能移至「Co」：目前正式狀態不符合退回或接手條件；卡片未移動。", "error");
+      }
+      return;
+    }
+    if (lifecycleTarget.key === "todo") {
+      if (status === "inprogress" && assignee === "Co") {
+        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
+      } else {
+        setBanner("不能移至「待辦」：請使用正式 lifecycle transition；卡片未移動。", "error");
+      }
+      return;
+    }
+    setBanner("這個工作區不是可直接變更正式狀態的 lifecycle 目標；卡片未移動。", "error");
+  }
+
+  async function runAiBoardLifecycleTransition(task, current, target, lifecycleTarget) {
+    setBanner("正在執行正式 lifecycle transition…", "loading");
+    try {
+      await activeService().transitionTask(task.id, lifecycleTarget.status, lifecycleTarget.assignee, `${current?.name || task.workspaceName || "目前工作區"} → ${target?.name || lifecycleTarget.label}`);
+      await refreshBoard({ quiet: true });
+      setBanner("已完成正式 lifecycle transition：「" + esc(target?.name || lifecycleTarget.label) + "」。工作區、狀態與負責人已同步。", "success");
+    } catch (error) {
+      setBanner("正式 lifecycle transition 失敗：" + esc(error?.message || "Cloud Gate 未接受；卡片未移動。"), "error");
+    }
+  }
+
   async function acceptTaskByCardDrop(task, current, target) {
-    const fromLabel = current?.name || task.workspaceName || "QJC驗證";
     const targetLabel = target?.name || "已完成";
+    const note = window.prompt(`請輸入 PM Acceptance Evidence（移至「${targetLabel}」；必填）`, "");
+    if (note === null) return;
+    if (!note.trim()) {
+      setBanner("PM Acceptance 必須填寫 Evidence；卡片未移動。", "error");
+      return;
+    }
     setBanner("正在以卡片拖曳執行 PM Acceptance PASS…", "loading");
     try {
       const items = await activeService().loadChecklist(task.id);
@@ -1103,12 +1184,38 @@
       await executeSharedTaskAction(task, "updateGovernanceChecklist", {
         id: item.id,
         state: "pass",
-        evidenceNote: `PM Acceptance PASS（卡片拖曳：${fromLabel} → ${targetLabel}）`
+        evidenceNote: note.trim()
       }, { refresh: false, reopen: false });
       await refreshBoard({ quiet: true });
       setBanner("已透過卡片拖曳完成 PM Acceptance PASS；Cloud Lifecycle／Audit 已同步。", "success");
     } catch (error) {
       setBanner("PM Acceptance 拖曳驗收失敗：" + esc(error?.message || "正式 Cloud 未接受；原資料未變更。"), "error");
+    }
+  }
+
+  async function rejectTaskByCardDrop(task, current, target) {
+    const targetLabel = target?.name || "Co";
+    const note = window.prompt(`請輸入 PM QA 退回 Evidence（退回「${targetLabel}」；必填）`, "");
+    if (note === null) return;
+    if (!note.trim()) {
+      setBanner("PM QA 退回必須填寫 Evidence；卡片未移動。", "error");
+      return;
+    }
+    setBanner("正在執行正式 PM QA 退回…", "loading");
+    try {
+      const items = await activeService().loadChecklist(task.id);
+      const item = (Array.isArray(items) ? items : []).find(isPmAcceptanceItem);
+      if (!item) throw new Error("正式 PM Acceptance Record 尚未建立，未執行退回。");
+      await executeSharedTaskAction(task, "updateGovernanceChecklist", {
+        id: item.id,
+        state: "fail",
+        evidenceNote: note.trim(),
+        pmQaFail: true
+      }, { refresh: false, reopen: false });
+      await refreshBoard({ quiet: true });
+      setBanner("已退回 Co；正式狀態、負責人與工作區已同步為 inprogress / Co。", "success");
+    } catch (error) {
+      setBanner("PM QA 退回失敗：" + esc(error?.message || "正式 Cloud 未接受；原資料未變更。"), "error");
     }
   }
 
@@ -1959,9 +2066,7 @@
   }
 
   function isPmTurn(task) {
-    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
-    const workspaceName = String(task?.workspaceName || "").trim();
-    return workspaceKey ? workspaceKey === "qjc" : workspaceName === "QJC驗證";
+    return String(task?.status || "").toLowerCase() === "qa" && String(task?.assignee || "").trim() === "QJC";
   }
 
   function pmAttentionMarkup(item, task, verification, reason) {
@@ -3121,7 +3226,7 @@
       if (!note || !note.trim()) { setBanner("通過或退回前必須填寫驗收說明。", "error"); await openTaskDetail(task); return; }
     }
     try {
-      await executeSharedTaskAction(task, "updateGovernanceChecklist", { id: item.id, state: nextState, evidenceNote: note || "" }, { refresh: false, reopen: false });
+      await executeSharedTaskAction(task, "updateGovernanceChecklist", { id: item.id, state: nextState, evidenceNote: note || "", pmQaFail: nextState === "fail" && isPmAcceptanceItem(item) }, { refresh: false, reopen: false });
       await openTaskDetail(task);
       setBanner("Checklist 狀態與 Evidence 已更新。", "success");
     } catch (error) { setBanner("Checklist 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
