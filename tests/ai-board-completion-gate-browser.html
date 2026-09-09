@@ -50,7 +50,9 @@
   ];
   const tasks = [
     { id: "button-task", workCode: "TASK-BUTTON", title: "Drawer 驗收", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "QJC", summary: "Co、GPT 與 Regression 證據完成。", usageScenario: "PM 由 Drawer 執行正式驗收。", acceptanceCriteria: "確認功能符合需求\n確認正式 Lifecycle 與 Audit 已同步" },
-    { id: "drag-task", workCode: "TASK-DRAG", title: "拖曳驗收", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "QJC", summary: "Co、GPT 與 Regression 證據完成。", usageScenario: "PM 由卡片拖曳執行正式驗收。", acceptanceCriteria: "確認功能符合需求\n確認正式 Lifecycle 與 Audit 已同步" }
+    { id: "drag-task", workCode: "TASK-DRAG", title: "拖曳驗收", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "QJC", summary: "Co、GPT 與 Regression 證據完成。", usageScenario: "PM 由卡片拖曳執行正式驗收。", acceptanceCriteria: "確認功能符合需求\n確認正式 Lifecycle 與 Audit 已同步" },
+    { id: "gpt-drag-task", workCode: "TASK-GPT-DRAG", title: "GPT 狀態拖曳驗收", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "GPT", summary: "卡片位於 QJC，但正式狀態仍是 qa/GPT。", usageScenario: "PM 在 QJC驗證將卡片拖至完成，觸發受控前置交接。", acceptanceCriteria: "確認 qa/GPT → qa/QJC → done/QJC 原子完成" },
+    { id: "gpt-fail-task", workCode: "TASK-GPT-FAIL", title: "GPT 證據不足拖曳驗收", status: "qa", workspaceId: "ws-qjc", workspaceKey: "qjc", workspaceName: "QJC驗證", assignee: "GPT", summary: "缺少 GPT Evidence 的失敗案例。", usageScenario: "PM Acceptance Gate 應拒絕並維持原狀。", acceptanceCriteria: "確認 Gate 失敗時卡片與正式狀態不變" }
   ];
   const calls = [];
   const audit = [];
@@ -61,22 +63,32 @@
     load: async () => ({ workspaces, tasks, principles: [], systemMaps: [] }),
     loadChecklist: async taskId => [
       { id: "co", stage: "co", state: "pass", required: true, label: "Co 開發驗證", evidenceNote: "Co Developer QA PASS" },
-      { id: "gpt", stage: "gpt", state: "pass", required: true, label: "GPT 工程審查", evidenceNote: "GPT Review PASS" },
+      { id: "gpt", stage: "gpt", state: taskId === "gpt-fail-task" ? "not_verified" : "pass", required: true, label: "GPT 工程審查", evidenceNote: taskId === "gpt-fail-task" ? "" : "GPT Review PASS" },
       { id: "regression", stage: "gpt", checklistType: "batch_regression", itemKey: "regression-evidence", state: "pass", required: true, label: "Regression Evidence", evidenceNote: "Regression PASS" },
       { id: `pm-${taskId}`, stage: "qjc", itemKey: "pm-acceptance", state: "not_verified", required: true, label: "PM Acceptance", evidenceNote: "" }
     ],
     loadMovementHistory: async () => [],
     moveTaskWorkspace: async (taskId, targetWorkspaceId) => { const task = tasks.find(item => item.id === taskId); const workspace = workspaceFor(targetWorkspaceId); if (!task || !workspace) throw new Error("workspace missing"); calls.push(`${taskId}:${targetWorkspaceId}`); Object.assign(task, { workspaceId: workspace.id, workspaceKey: workspace.key, workspaceName: workspace.name }); return task; },
-    updateChecklistItem: async ({ id, state, evidenceNote }) => {
-      const task = tasks.find(item => `pm-${item.id}` === id);
-      if (!task || state !== "pass") throw new Error("fixture only supports PM PASS");
+    pmAcceptTaskFromQjcDrop: async ({ taskId, itemId, evidenceNote }) => {
+      const task = tasks.find(item => item.id === taskId);
+      if (!task || itemId !== `pm-${task.id}`) throw new Error("fixture only supports PM Acceptance");
       const fromWorkspace = workspaceFor(task.workspaceId);
+      if (fromWorkspace?.key !== "qjc") throw new Error("PM Acceptance must start from QJC");
+      if (task.id === "gpt-fail-task") {
+        calls.push(`pm-acceptance-fail:${task.id}`);
+        throw new Error("PM Acceptance 尚缺 GPT 工程審查 Evidence；卡片未移動，正式狀態不變。");
+      }
+      if (task.assignee === "GPT") {
+        calls.push(`pretransition:${task.id}:qa/QJC`);
+        Object.assign(task, { assignee: "QJC" });
+      }
+      calls.push(`pm-acceptance:${task.id}:pass`);
       const completedWorkspace = workspaceFor("ws-done");
-      calls.push(`pm-acceptance:${task.id}:${state}`);
       audit.push({ action: "task_completed_after_pm_acceptance", lifecycle: "pm_acceptance_pass", taskId: task.id, status: "done", workspaceKey: completedWorkspace.key, assignee: "QJC", evidenceNote });
       Object.assign(task, { status: "done", workspaceId: completedWorkspace.id, workspaceKey: completedWorkspace.key, workspaceName: completedWorkspace.name, assignee: "QJC", completionAt: "2026-08-31T12:00:00.000Z" });
-      return { id, state, evidenceNote, beforeWorkspace: fromWorkspace?.key, afterWorkspace: completedWorkspace.key };
+      return { id: itemId, state: "pass", evidenceNote, beforeWorkspace: fromWorkspace?.key, afterWorkspace: completedWorkspace.key };
     },
+    updateChecklistItem: async ({ id, state, evidenceNote }) => ({ id, state, evidenceNote }),
     subscribe: async () => async () => {}
   };
   window.prompt = () => "PM Drawer Evidence";
@@ -98,5 +110,12 @@
     const data = { values: { "application/x-zhuge-shared-task-card": "drag-task" }, types: ["application/x-zhuge-shared-task-card"], setData(type, value) { this.values[type] = value; }, getData(type) { return this.values[type]; } };
     card?.ondragstart({ dataTransfer: data }); column?.ondrop({ preventDefault() {}, dataTransfer: data });
   }, 3200);
-  setTimeout(() => { const result = tasks.map(item => `${item.id}:${item.status}:${item.workspaceKey}:${item.assignee}`).join('|'); const auditNode = document.createElement('pre'); auditNode.id = 'completion-gate-audit'; auditNode.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};result=${result};sameFormalResult=${audit.length === 2 && audit.every(item => item.status === "done" && item.workspaceKey === "completed" && item.assignee === "QJC")};audit=${window.__gateAudit.map(item => `${item.taskId}:${item.action}:${item.lifecycle}:${item.workspaceKey}`).join('|')};moveCalls=${window.__gateCalls.filter(item => item.includes('ws-done') && !item.startsWith('pm-acceptance')).length};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(auditNode); }, 5000);
+  function dropToCompleted(taskId) {
+    const card = document.querySelector(`[data-task-id="${taskId}"]`); const column = document.querySelector('.process[data-workspace-key="completed"]');
+    const data = { values: { "application/x-zhuge-shared-task-card": taskId }, types: ["application/x-zhuge-shared-task-card"], setData(type, value) { this.values[type] = value; }, getData(type) { return this.values[type]; } };
+    card?.ondragstart({ dataTransfer: data }); column?.ondrop({ preventDefault() {}, dataTransfer: data });
+  }
+  setTimeout(() => dropToCompleted("gpt-drag-task"), 3600);
+  setTimeout(() => dropToCompleted("gpt-fail-task"), 4200);
+  setTimeout(() => { const result = tasks.map(item => `${item.id}:${item.status}:${item.workspaceKey}:${item.assignee}`).join('|'); const auditNode = document.createElement('pre'); auditNode.id = 'completion-gate-audit'; const completedPasses = audit.filter(item => item.status === "done" && item.workspaceKey === "completed" && item.assignee === "QJC"); const failedTask = tasks.find(item => item.id === "gpt-fail-task"); auditNode.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};result=${result};sameFormalResult=${completedPasses.length === 3 && audit.length === 3};audit=${window.__gateAudit.map(item => `${item.taskId}:${item.action}:${item.lifecycle}:${item.workspaceKey}`).join('|')};moveCalls=${window.__gateCalls.filter(item => item.includes('ws-done') && !item.startsWith('pm-acceptance')).length};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};failStayed=${failedTask?.status === "qa" && failedTask?.workspaceKey === "qjc" && failedTask?.assignee === "GPT"};failMessage=${document.body.textContent.includes('尚缺 GPT 工程審查 Evidence')};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(auditNode); }, 6000);
 </script>

@@ -358,6 +358,31 @@ test("Workspace Delete service moves tasks before deleting only the workspace", 
   });
 });
 
+test("PM QJC drop acceptance uses only the composite controlled RPC", async () => {
+  const calls = [];
+  const gateway = {
+    rpc: async (name, params) => {
+      calls.push({ name, params });
+      return { success: true, contract: "pm_acceptance_from_qjc_drop" };
+    }
+  };
+  const result = await BoardRead.pmAcceptTaskFromQjcDrop({
+    taskId: "task-066",
+    itemId: "pm-item-066",
+    evidenceNote: "PM Acceptance PASS"
+  }, { gateway });
+  assert.deepEqual(result, { success: true, contract: "pm_acceptance_from_qjc_drop" });
+  assert.deepEqual(calls, [{
+    name: "board_pm_acceptance_from_qjc_drop",
+    params: {
+      p_task_id: "task-066",
+      p_item_id: "pm-item-066",
+      p_evidence_note: "PM Acceptance PASS",
+      p_evidence_ref: null
+    }
+  }]);
+});
+
 test("Workspace Delete service keeps the empty-workspace path free of task or Storage operations", async () => {
   const calls = [];
   const gateway = {

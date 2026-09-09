@@ -1119,10 +1119,11 @@
     const status = String(task?.status || "").toLowerCase();
     const assignee = String(task?.assignee || "").trim();
     if (lifecycleTarget.key === "completed") {
-      if (status === "qa" && assignee === "QJC") {
+      const currentKey = String(current?.workspaceKey || current?.key || "").trim().toLowerCase();
+      if (currentKey === "qjc" && status === "qa" && (assignee === "GPT" || assignee === "QJC")) {
         await acceptTaskByCardDrop(task, current, target);
       } else {
-        setBanner("不能移至「完成」：目前正式狀態是 " + esc(`${status || "未知"} / ${assignee || "未指定"}`) + "。必須先完成 QJC PM Acceptance Gate；卡片未移動。", "error");
+        setBanner("不能移至「完成」：PM Acceptance 只能從「QJC驗證」工作區發起；目前正式狀態是 " + esc(`${status || "未知"} / ${assignee || "未指定"}`) + "，卡片未移動。", "error");
       }
       return;
     }
@@ -1181,11 +1182,11 @@
       const items = await activeService().loadChecklist(task.id);
       const item = (Array.isArray(items) ? items : []).find(isPmAcceptanceItem);
       if (!item) throw new Error("正式 PM Acceptance Record 尚未建立，未執行完成。");
-      await executeSharedTaskAction(task, "updateGovernanceChecklist", {
-        id: item.id,
-        state: "pass",
+      await activeService().pmAcceptTaskFromQjcDrop({
+        taskId: task.id,
+        itemId: item.id,
         evidenceNote: note.trim()
-      }, { refresh: false, reopen: false });
+      });
       await refreshBoard({ quiet: true });
       setBanner("已透過卡片拖曳完成 PM Acceptance PASS；Cloud Lifecycle／Audit 已同步。", "success");
     } catch (error) {
@@ -2066,7 +2067,9 @@
   }
 
   function isPmTurn(task) {
-    return String(task?.status || "").toLowerCase() === "qa" && String(task?.assignee || "").trim() === "QJC";
+    const workspaceKey = String(task?.workspaceKey || task?.workspace || "").trim().toLowerCase();
+    return String(task?.status || "").toLowerCase() === "qa"
+      && (String(task?.assignee || "").trim() === "QJC" || workspaceKey === "qjc");
   }
 
   function pmAttentionMarkup(item, task, verification, reason) {
@@ -3226,7 +3229,11 @@
       if (!note || !note.trim()) { setBanner("通過或退回前必須填寫驗收說明。", "error"); await openTaskDetail(task); return; }
     }
     try {
-      await executeSharedTaskAction(task, "updateGovernanceChecklist", { id: item.id, state: nextState, evidenceNote: note || "", pmQaFail: nextState === "fail" && isPmAcceptanceItem(item) }, { refresh: false, reopen: false });
+      if (nextState === "pass" && isPmAcceptanceItem(item)) {
+        await activeService().pmAcceptTaskFromQjcDrop({ taskId: task.id, itemId: item.id, evidenceNote: note || "" });
+      } else {
+        await executeSharedTaskAction(task, "updateGovernanceChecklist", { id: item.id, state: nextState, evidenceNote: note || "", pmQaFail: nextState === "fail" && isPmAcceptanceItem(item) }, { refresh: false, reopen: false });
+      }
       await openTaskDetail(task);
       setBanner("Checklist 狀態與 Evidence 已更新。", "success");
     } catch (error) { setBanner("Checklist 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
