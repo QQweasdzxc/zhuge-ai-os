@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-21 05:35'
-updated_date: '2026-08-25 14:33'
+updated_date: '2026-09-09 08:51'
 labels:
   - system-template
   - shared-ux
@@ -42,6 +42,8 @@ ordinal: 8000
 PM 2026-08-24 Shared Navigation conformance fix: centralize A mount lifecycle for all consumers, remove Investment local navigation while preserving internal tabs, enforce one shared shell geometry including fixed desktop rail height and responsive overrides, then run eight-page Desktop/Mobile QA against canonical A with no Cloud/Auth/Domain/Golden Master changes.
 
 PM Agreement UX-only remediation: keep Shared Action/Delete Contract/RPC/Schema/Storage/RLS unchanged; refine the Shared Task Drawer progressive disclosure, empty-state default single-date editor, compact date labels, and visible-field focus; verify with targeted browser fixture and source regression.
+
+Management UX Layout R1: retain the canonical worklog management renderer and shared Template Management Center; change only the management surface information hierarchy to a 25/75 desktop grid with the three existing entries stacked on the left and the existing template center on the right, with a single-column responsive collapse. Verify existing entry routes, template controls, reload, and scoped regression without changing module logic or Cloud.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -56,6 +58,10 @@ PM revised Phase 1 on 2026-08-21: stop legacy WorkTodo presentation conformance.
 Current request scope is limited to Agreement Schedule presentation/runtime UX. No Cloud, schema, RPC, storage, RLS, main, or deployment changes are authorized.
 
 Agreement UX-only validation: Chrome fixture PASS for empty-state single mode (1 visible date input), period toggle (2 visible inputs), clear back to single; full Node regression 234 passed / 0 failed / 5 existing browser skips; git diff --check PASS. No Cloud/schema/RPC/storage/RLS/main/deployment changes.
+
+2026-09-09 PM started Management UX Layout R1. Read-only RCA: the management route is rendered by modules/worklog/worklog-app.js; its three entry controls are emitted by controlCenterEntryMarkup(); the Template Management Center is the shared component shared/components/template-management-center.js; layout styling is in the management-scoped rules of modules/worklog/worklog.css plus shared shell styles. No Consumer/A-C/Cloud source is being changed.
+
+2026-09-09 Management UX Layout R1 Developer QA: node --check modules/worklog/worklog-app.js PASS; focused management/navigation/template tests 15/15 PASS; local browser fixture Desktop 224px:672px (1:3) with three entries stacked and template center in right column; Mobile 390px single column with no horizontal overflow; reload-safe static layout verified. Full repository regression: 443 passed, 6 known pre-existing baseline fixture failures, 8 skipped; no new R1 failure. Cloud mutation 0, deployment 0, Consumer/A/C/Template Management logic unchanged. Candidate remains pending PM Runtime QA.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

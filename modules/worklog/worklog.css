@@ -248,6 +248,8 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .ecp-task-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
 .ecp-task-item span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;word-break:break-word;line-height:1.5}
 .tasks-workspace .task-form{display:grid;gap:8px;padding:16px;margin:12px 0;border:1px solid #334155;border-radius:16px;background:rgba(15,23,42,.55)}
+@media(min-width:1024px){.zhuge-module-shell .management-center .control-center-entry-grid{grid-template-columns:minmax(200px,1fr) minmax(0,3fr);grid-template-rows:repeat(3,minmax(0,auto));align-items:stretch}.zhuge-module-shell .management-center .control-center-entry-grid>.control-center-entry{grid-column:1;min-height:0}.zhuge-module-shell .management-center .control-center-entry-grid>.control-center-entry:nth-child(1){grid-row:1}.zhuge-module-shell .management-center .control-center-entry-grid>.control-center-entry:nth-child(2){grid-row:2}.zhuge-module-shell .management-center .control-center-entry-grid>.control-center-entry:nth-child(3){grid-row:3}.zhuge-module-shell .management-center .control-center-entry-grid>.template-management-center{grid-column:2;grid-row:1 / span 3;height:100%}}
+@media(max-width:1023px){.zhuge-module-shell .management-center .control-center-entry-grid{grid-template-columns:1fr;grid-template-rows:none}.zhuge-module-shell .management-center .control-center-entry-grid>.control-center-entry,.zhuge-module-shell .management-center .control-center-entry-grid>.template-management-center{grid-column:1;grid-row:auto}.zhuge-module-shell .management-center .control-center-entry-grid>.template-management-center{height:auto}}
 .tasks-workspace .task-form .panel-head{margin-bottom:0}
 .task-list-section{display:grid;gap:12px}
 .task-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -537,7 +539,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .floating-assistant-hours-badge.empty{background:#ef4444}.floating-assistant-hours-badge.partial{background:#f59e0b;color:#451a03}.floating-assistant-hours-badge.complete{background:#22c55e;color:#052e16}
 @media(max-width:767px){.floating-assistant-widget.collapsed{right:max(14px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom))}.floating-assistant-button.compact{width:48px;height:48px;min-width:48px;max-width:48px}.floating-assistant-glyph{font-size:1.22rem}.worklog-init-screen{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.worklog-init-card{margin-top:clamp(36px,8vh,76px);border-radius:20px}}
 
-/* Build 20260909-1358 — branded WorkLog loading experience */
+/* Build 20260909-1651 — branded WorkLog loading experience */
 .worklog-brand-loading{min-height:100dvh;display:grid;place-items:center;padding:max(28px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:radial-gradient(circle at 50% 42%,rgba(32,58,92,.42),transparent 38%),linear-gradient(180deg,#08111f 0%,#0a1426 58%,#07101d 100%);overflow:hidden}
 .worklog-brand-loader{width:min(430px,92vw);text-align:center;color:#f8fafc;display:flex;flex-direction:column;align-items:center}
 .worklog-brand-mark{position:relative;width:min(270px,68vw);aspect-ratio:1/1;margin:0 auto 6px;display:grid;place-items:center;filter:drop-shadow(0 16px 36px rgba(0,0,0,.34))}

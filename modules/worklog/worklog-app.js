@@ -4341,7 +4341,7 @@ function templateManagementMarkup() {
 }
 
 function management() {
-  return `<section class="panel control-center management-center" aria-label="管理功能內容"><section class="control-center-management-column" aria-labelledby="management-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="management-entry-title">管理功能</h2><p class="muted">集中進入工程管理區域與系統模板管理中心。</p></div></div><div class="control-center-entry-grid">${controlCenterEntryMarkup()}${templateManagementMarkup()}</div></div></section></section>`;
+  return `<section class="panel control-center management-center" aria-label="管理功能內容"><section class="control-center-management-column" aria-labelledby="management-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="management-entry-title">管理入口</h2><p class="muted">進入工作看板、工程準則與系統藍圖。</p></div></div><div class="control-center-entry-grid">${controlCenterEntryMarkup()}${templateManagementMarkup()}</div></div></section></section>`;
 }
 
 function sync() {
