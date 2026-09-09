@@ -34,7 +34,8 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   assert.match(procurement, /data-procurement-nav="vendors"/);
   assert.match(procurement, /shared\/components\/golden-master\.js/);
   assert.match(procurement, /shared\/components\/golden-master-runtime\.js/);
-  assert.match(procurement, /modules\/worklog\/services\/gas-board-service\.js/);
+  assert.doesNotMatch(procurement, /modules\/worklog\/services\/gas-board-service\.js/);
+  assert.match(procurement, /data-golden-master-surface/);
 });
 
 test("GAS consumer returns a truthful empty state and has no cross-module write fallback", async () => {

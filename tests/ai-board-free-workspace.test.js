@@ -113,7 +113,8 @@ test("Canonical completion workspace keeps rename while preserving lifecycle gua
 test("Workspace display names cannot change canonical Board classification", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(runtime, /const completionWorkspace = workspaceKey[\s\S]*isCanonicalCompletionKey\(workspaceKey\)/);
-  assert.match(runtime, /key \? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區"/);
+  const selection = runtime.slice(runtime.indexOf("  function isMainBoardWorkspace("), runtime.indexOf("  function isWorkspaceDeletable("));
+  assert.doesNotMatch(selection, /workspace\?\.name|name !==|key !==/);
   assert.match(runtime, /function isPmTurn\(task\) \{[\s\S]*workspaceKey === "qjc"/);
 });
 
@@ -129,11 +130,11 @@ test("Archive derives read-only records from canonical task status and governanc
   assert.doesNotMatch(runtime, /data-(?:restore|reopen)|board_(?:restore|reopen)/i);
 });
 
-test("Main Board hides the legacy done workspace while retaining canonical 已完成 and Archive", () => {
+test("Main Board respects Cloud active/archive state rather than historical workspace names", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(runtime, /function isMainBoardWorkspace\(workspace\)/);
-  assert.match(runtime, /key !== "done"/);
-  assert.match(runtime, /name !== "已完工"/);
+  assert.doesNotMatch(runtime, /key !== "done"|name !== "已完工"/);
+  assert.match(runtime, /if \(workspace\?\.archivedAt\) return false;/);
   assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /state\.workspaces\.filter\(isMainBoardWorkspace\)/);
   assert.match(runtime, /const fullOrder = ordered\.map/);

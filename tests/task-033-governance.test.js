@@ -26,7 +26,8 @@ test("governance terminal statuses stay out of active Free Workspace columns", (
   assert.equal(cancelled.workspace, "");
   assert.equal(BoardRead.isGovernanceTerminal(merged), true);
   assert.equal(BoardRead.isGovernanceTerminal(cancelled), true);
-  assert.equal(BoardRead.availableTransitions(merged).length, 0);
+  assert.equal(BoardRead.isArchiveTask(merged), true);
+  assert.equal(BoardRead.isArchiveTask(cancelled), true);
 });
 
 test("governance action adapter uses the controlled RPC rather than direct DML", async () => {

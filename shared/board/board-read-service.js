@@ -45,6 +45,27 @@
     genericDoneTransition: "forbidden"
   });
 
+  // C owns one Workflow capability.  A Board Instance owns the data for its
+  // own workflow; the capability is shared by every C consumer and does not
+  // infer a workflow from a consumer name, TASK id, status, assignee, or UI
+  // workspace label.
+  const C_WORKFLOW_CANONICAL_CONTRACT = Object.freeze({
+    id: "module-c-lifecycle-acceptance-v2",
+    family: "module-c-lifecycle-acceptance",
+    source: "module-c-mother",
+    owner: "board-instance",
+    versioning: "draft-published-retired-immutable",
+    currentStepBinding: "board_tasks.workflow_version_id+current_workflow_step_id",
+    workspaceBinding: "one-operable-step-per-workspace",
+    roles: Object.freeze(["Co", "GPT", "QJC", "PM"]),
+    acceptanceAction: "pm-workspace-decision-to-completion",
+    reopenAction: "pm-workspace-decision-reopen",
+    evidenceMode: "controlled-action-context-with-declared-evidence",
+    atomicity: "single-transaction",
+    idempotency: "private.board_workflow_action_idempotency",
+    cloudSourceOfTruth: true
+  });
+
   function createLifecycleCapability(acceptFromQjcDrop, enabled = true, reconcileWorkspaceDecision = null) {
     const capability = {
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
@@ -59,28 +80,6 @@
     if (typeof reconcileWorkspaceDecision === "function") capability.reconcileWorkspaceDecision = reconcileWorkspaceDecision;
     return Object.freeze(capability);
   }
-
-  /*
-   * The server-side board_transition_task() remains the authority.  This
-   * client-side map is deliberately only a UX contract: it tells QJC which
-   * drop targets are meaningful before the controlled RPC is called and gives
-   * a PM-readable reason when a drop is rejected.  It must stay in lockstep
-   * with the approved RPC transitions, never replace them.
-   */
-  const QJC_TRANSITIONS = Object.freeze({
-    ready: Object.freeze({
-      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "開始推進（Co）" })
-    }),
-    inprogress: Object.freeze({
-      todo: Object.freeze({ status: "ready", assignee: "Co", action: "退回待辦（Co）" }),
-      qa: Object.freeze({ status: "qa", assignee: "GPT", action: "Co 完成 → 交 GPT" })
-    }),
-    qa: Object.freeze({
-      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "退回 Co 修正" }),
-      qa: Object.freeze({ status: "qa", assignee: "QJC", action: "GPT Review 通過 → 交 QJC", requiresAssignee: "GPT" })
-    }),
-    done: Object.freeze({})
-  });
 
   function normalizeStatus(value) {
     const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
@@ -133,46 +132,6 @@
     // existing read-only Archive. New completion rows are governed by the
     // workspace/timestamp branch above.
     return true;
-  }
-
-  function planTransition(task, targetUiKey) {
-    const currentStatus = normalizeStatus(task?.status);
-    const currentStatusDescriptor = statusDescriptorFor(currentStatus);
-    const target = QJC_TRANSITIONS[currentStatus]?.[String(targetUiKey || "")];
-    if (!target) {
-      return Object.freeze({
-        allowed: false,
-        currentStatus,
-        currentStatusDescriptor,
-        reason: currentStatusDescriptor.key === targetUiKey
-          ? "這張卡片已在目前工作區，不需要重複交接。"
-          : `目前工程狀態為「${currentStatusDescriptor.label}」，只能依序交給下一個工作階段；不能直接執行這個工程交接。`
-      });
-    }
-    if (target.requiresAssignee && String(task?.assignee || "") !== target.requiresAssignee) {
-      const owner = target.requiresAssignee === "GPT" ? "GPT Review" : "QJC PM QA";
-      return Object.freeze({
-        allowed: false,
-        currentStatus,
-        currentStatusDescriptor,
-        reason: `目前接球者不是${owner}，不能執行這個交接；請先由目前負責角色完成驗證。`
-      });
-    }
-    return Object.freeze({
-      allowed: true,
-      currentStatus,
-      currentStatusDescriptor,
-      targetWorkspace: String(targetUiKey),
-      status: target.status,
-      assignee: target.assignee,
-      action: target.action
-    });
-  }
-
-  function availableTransitions(task) {
-    return Object.freeze(Object.keys(QJC_TRANSITIONS[normalizeStatus(task?.status)] || {})
-      .map(target => planTransition(task, target))
-      .filter(item => item.allowed));
   }
 
   function normalizeWorkspace(row = {}) {
@@ -310,9 +269,92 @@
       archiveDueAt: row.archive_due_at || null,
       archivedAt: row.archived_at || null,
       archivedBy: String(row.archived_by || ""),
+      workflowVersionId: String(row.workflow_version_id || row.workflowVersionId || ""),
+      currentWorkflowStepId: String(row.current_workflow_step_id || row.currentWorkflowStepId || ""),
       createdBy: String(row.created_by || ""),
       updatedAt: row.updated_at || row.updatedAt || null,
       createdAt: row.created_at || row.createdAt || null
+    });
+  }
+
+  function normalizeWorkflowStep(row = {}) {
+    return Object.freeze({
+      id: String(row.id || ""),
+      workflowVersionId: String(row.workflow_version_id || row.workflowVersionId || ""),
+      stepKey: String(row.step_key || row.stepKey || ""),
+      name: String(row.name || ""),
+      sortOrder: Number(row.sort_order ?? row.sortOrder ?? 0),
+      roleKey: String(row.role_key || row.roleKey || "pm").toLowerCase(),
+      workspaceId: String(row.workspace_id || row.workspaceId || ""),
+      statusKey: String(row.status_key || row.statusKey || "inprogress").toLowerCase(),
+      isInitial: row.is_initial === true || row.isInitial === true,
+      isCompletion: row.is_completion === true || row.isCompletion === true
+    });
+  }
+
+  function normalizeWorkflowDefinition(row = {}) {
+    const source = row.workflow || row.definition || row;
+    return Object.freeze({
+      id: String(source.id || source.workflow_version_id || ""),
+      boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
+      versionNo: Number(source.version_no ?? source.versionNo ?? 0),
+      name: String(source.name || ""),
+      description: String(source.description || ""),
+      status: String(source.status || "draft").toLowerCase(),
+      basedOnWorkflowVersionId: String(source.based_on_workflow_version_id || source.basedOnWorkflowVersionId || ""),
+      steps: (Array.isArray(source.steps) ? source.steps : []).map(normalizeWorkflowStep),
+      transitions: (Array.isArray(source.transitions) ? source.transitions : []).map(item => Object.freeze({
+        id: String(item.id || ""),
+        workflowVersionId: String(item.workflow_version_id || item.workflowVersionId || source.id || ""),
+        transitionKey: String(item.transition_key || item.transitionKey || ""),
+        fromStepId: String(item.from_step_id || item.fromStepId || ""),
+        toStepId: String(item.to_step_id || item.toStepId || ""),
+        allowedRoles: Array.isArray(item.allowed_roles || item.allowedRoles) ? (item.allowed_roles || item.allowedRoles).map(String) : [],
+        requiresGate: item.requires_gate === true || item.requiresGate === true
+      })),
+      gates: (Array.isArray(source.gates) ? source.gates : []).map(item => Object.freeze({
+        id: String(item.id || ""),
+        workflowVersionId: String(item.workflow_version_id || item.workflowVersionId || source.id || ""),
+        stepId: String(item.step_id || item.stepId || ""),
+        stepKey: String(item.step_key || item.stepKey || ""),
+        gateKey: String(item.gate_key || item.gateKey || ""),
+        name: String(item.name || ""),
+        required: item.required !== false,
+        humanActionRequired: item.human_action_required === true || item.humanActionRequired === true,
+        completionRole: String(item.completion_role || item.completionRole || "pm").toLowerCase(),
+        failurePolicy: String(item.failure_policy || item.failurePolicy || "stay").toLowerCase()
+      })),
+      evidenceRequirements: (Array.isArray(source.evidence_requirements || source.evidenceRequirements) ? (source.evidence_requirements || source.evidenceRequirements) : []).map(item => Object.freeze({
+        id: String(item.id || ""),
+        gateId: String(item.gate_id || item.gateId || ""),
+        gateKey: String(item.gate_key || item.gateKey || ""),
+        evidenceKey: String(item.evidence_key || item.evidenceKey || ""),
+        label: String(item.label || ""),
+        required: item.required !== false,
+        sourceKind: String(item.source_kind || item.sourceKind || "pm_action_context").toLowerCase()
+      }))
+    });
+  }
+
+  function normalizeWorkflowResult(row = {}) {
+    const value = row && typeof row === "object" ? row : {};
+    const published = value.published ? normalizeWorkflowDefinition(value.published) : null;
+    const draft = value.draft ? normalizeWorkflowDefinition(value.draft) : null;
+    const workflow = value.workflow ? normalizeWorkflowDefinition(value.workflow) : null;
+    return Object.freeze({
+      contract: String(value.contract || C_WORKFLOW_CANONICAL_CONTRACT.id),
+      boardInstanceId: String(value.board_instance_id || value.boardInstanceId || workflow?.boardInstanceId || published?.boardInstanceId || draft?.boardInstanceId || ""),
+      boardName: String(value.board_name || value.boardName || ""),
+      state: value.state && typeof value.state === "object" ? Object.freeze({
+        draftWorkflowVersionId: String(value.state.draft_workflow_version_id || value.state.draftWorkflowVersionId || ""),
+        publishedWorkflowVersionId: String(value.state.published_workflow_version_id || value.state.publishedWorkflowVersionId || ""),
+        updatedAt: value.state.updated_at || value.state.updatedAt || null
+      }) : null,
+      published,
+      draft,
+      workflow,
+      validation: value.validation && typeof value.validation === "object" ? value.validation : null,
+      raw: value
     });
   }
 
@@ -551,7 +593,7 @@
       : `application_scope=eq.${applicationScope}`;
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
       gateway.select("board_workspaces", `?select=id,board_instance_id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&${scopeQuery}&active=eq.true&order=sort_order.asc`),
-      gateway.select("board_tasks", `?select=id,board_instance_id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&${scopeQuery}&order=created_at.asc`),
+      gateway.select("board_tasks", `?select=id,board_instance_id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,workflow_version_id,current_workflow_step_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&${scopeQuery}&order=created_at.asc`),
       options.engineeringMemory || (isWorkTodo || isBoardInstance ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
     ]);
     const workspaces = (Array.isArray(workspaceRows) ? workspaceRows : []).map(row => normalizeWorkspace(
@@ -1107,6 +1149,176 @@
     });
   }
 
+  // Canonical Module C Workflow capability.  This is deliberately a thin
+  // adapter over the v2 Cloud contract: Consumers provide only Board Instance
+  // identity and capability flags; they do not own a second workflow engine.
+  function createWorkflowCapability(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const requestedBoardInstanceId = String(options.boardInstanceId || "").trim();
+    const legacyApplicationScope = String(options.legacyApplicationScope || "").trim();
+    const templateKey = String(options.templateKey || "c").trim().toLowerCase() || "c";
+    const readOnly = options.readOnly === true;
+    let instancePromise;
+    const resolveBoardInstance = async () => {
+      if (!instancePromise) {
+        instancePromise = (requestedBoardInstanceId
+          ? gateway.select("board_instances", `?select=id,name,template_key,active&active=eq.true&id=eq.${encodeURIComponent(requestedBoardInstanceId)}`)
+          : legacyApplicationScope
+            ? gateway.select("board_instances", `?select=id,name,template_key,active,legacy_application_scope&active=eq.true&legacy_application_scope=eq.${encodeURIComponent(legacyApplicationScope)}`)
+            : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
+        ).then(value => {
+          const instance = Array.isArray(value) ? value[0] : value;
+          if (!instance?.id) {
+            const error = new Error("C Workflow 尚未找到對應的 Board Instance。");
+            error.code = "C_WORKFLOW_BOARD_INSTANCE_NOT_FOUND";
+            throw error;
+          }
+          return instance;
+        });
+      }
+      return instancePromise;
+    };
+    const boardInstanceId = async () => String((await resolveBoardInstance()).id);
+    const assertWritable = () => {
+      if (!readOnly) return;
+      const error = new Error("目前子板為唯讀，不能修改流程設定。");
+      error.code = "C_WORKFLOW_READ_ONLY";
+      throw error;
+    };
+    const rpc = async (name, args = {}) => gateway.rpc(name, { ...(args || {}), p_board_instance_id: await boardInstanceId() });
+    const get = async (options = {}) => normalizeWorkflowResult(await rpc("board_c_workflow_get", { p_include_draft: options.includeDraft === true && !readOnly }));
+    const saveDraft = async (input = {}) => {
+      assertWritable();
+      // The canonical RPC accepts its persisted snake_case contract.  Keep
+      // the browser-facing editor model readable in camelCase, but normalize
+      // the boundary here so every C consumer sends the same payload shape.
+      const steps = (Array.isArray(input.steps) ? input.steps : []).map(step => ({
+        step_key: step.step_key || step.stepKey,
+        name: step.name,
+        sort_order: step.sort_order ?? step.sortOrder,
+        role_key: step.role_key || step.roleKey,
+        workspace_id: step.workspace_id || step.workspaceId,
+        status_key: step.status_key || step.statusKey,
+        is_initial: step.is_initial ?? step.isInitial,
+        is_completion: step.is_completion ?? step.isCompletion
+      }));
+      const transitions = (Array.isArray(input.transitions) ? input.transitions : []).map(transition => ({
+        transition_key: transition.transition_key || transition.transitionKey,
+        from_step_key: transition.from_step_key || transition.fromStepKey,
+        to_step_key: transition.to_step_key || transition.toStepKey,
+        allowed_roles: transition.allowed_roles || transition.allowedRoles,
+        requires_gate: transition.requires_gate ?? transition.requiresGate
+      }));
+      const gates = (Array.isArray(input.gates) ? input.gates : []).map(gate => ({
+        step_key: gate.step_key || gate.stepKey,
+        gate_key: gate.gate_key || gate.gateKey,
+        name: gate.name,
+        required: gate.required,
+        human_action_required: gate.human_action_required ?? gate.humanActionRequired,
+        completion_role: gate.completion_role || gate.completionRole,
+        failure_policy: gate.failure_policy || gate.failurePolicy,
+        sort_order: gate.sort_order ?? gate.sortOrder
+      }));
+      const evidenceRequirements = (Array.isArray(input.evidenceRequirements)
+        ? input.evidenceRequirements
+        : (Array.isArray(input.evidence_requirements) ? input.evidence_requirements : [])).map(evidence => ({
+        gate_key: evidence.gate_key || evidence.gateKey,
+        evidence_key: evidence.evidence_key || evidence.evidenceKey,
+        label: evidence.label,
+        required: evidence.required,
+        source_kind: evidence.source_kind || evidence.sourceKind,
+        sort_order: evidence.sort_order ?? evidence.sortOrder
+      }));
+      return normalizeWorkflowResult(await rpc("board_c_workflow_save_draft", {
+        p_name: String(input.name || ""),
+        p_description: input.description == null ? null : String(input.description),
+        p_steps: steps,
+        p_transitions: transitions,
+        p_gates: gates,
+        p_evidence_requirements: evidenceRequirements,
+        p_expected_draft_version_id: input.expectedDraftVersionId || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const validateDraft = async workflowVersionId => normalizeWorkflowResult(await gateway.rpc("board_c_workflow_validate_draft", { p_workflow_version_id: workflowVersionId }));
+    const publish = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_publish", {
+        p_workflow_version_id: input.workflowVersionId,
+        p_expected_published_version_id: input.expectedPublishedVersionId || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const requestAdoption = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await rpc("board_c_workflow_request_adoption", {
+        p_to_workflow_version_id: input.toWorkflowVersionId,
+        p_note: input.note || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const approveAdoption = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_approve_adoption", {
+        p_adoption_id: input.adoptionId,
+        p_note: input.note || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const setStepMapping = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_set_step_mapping", {
+        p_adoption_id: input.adoptionId,
+        p_from_step_id: input.fromStepId,
+        p_to_step_id: input.toStepId,
+        p_mapping_status: input.mappingStatus || "mapped",
+        p_note: input.note || null
+      }));
+    };
+    const applyCardMapping = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_apply_card_mapping", {
+        p_adoption_id: input.adoptionId,
+        p_task_id: input.taskId,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const resolveTaskWorkflow = async taskId => gateway.rpc("board_c_workflow_resolve_task", { p_task_id: taskId });
+    const reconcileTaskWorkspaceDecision = async (input = {}) => {
+      assertWritable();
+      return gateway.rpc("board_c_reconcile_workspace_decision_v2", {
+        p_task_id: input.taskId,
+        p_target_workspace_id: input.targetWorkspaceId,
+        p_decision_note: input.decisionNote || null,
+        p_idempotency_key: input.idempotencyKey || null
+      });
+    };
+    return Object.freeze({
+      contract: C_WORKFLOW_CANONICAL_CONTRACT,
+      readOnly,
+      capabilities: Object.freeze({
+        settings: true,
+        resolve: true,
+        workspaceDecision: !readOnly,
+        completion: !readOnly,
+        reopen: !readOnly,
+        adoption: !readOnly
+      }),
+      resolveBoardInstance,
+      boardInstanceId,
+      get,
+      saveDraft,
+      validateDraft,
+      publish,
+      requestAdoption,
+      approveAdoption,
+      setStepMapping,
+      applyCardMapping,
+      resolveTask: resolveTaskWorkflow,
+      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision
+    });
+  }
+
   // Compatibility alias for older callers.  New shared Runtime code uses the
   // canonical C lifecycle capability above.
   async function pmAcceptTaskFromQjcDrop(input = {}, options = {}) {
@@ -1264,13 +1476,16 @@
     const gateway = instanceOptions.gateway || requireGateway();
     const templateKey = String(instanceOptions.templateKey || "c").trim().toLowerCase();
     const requestedBoardInstanceId = String(instanceOptions.boardInstanceId || "").trim();
+    const legacyApplicationScope = String(instanceOptions.legacyApplicationScope || "").trim();
     const requestedConsumerId = String(instanceOptions.consumerId || requestedBoardInstanceId || "c").trim();
     let instancePromise;
     const resolveInstance = async () => {
       if (!instancePromise) {
         instancePromise = (requestedBoardInstanceId
           ? gateway.select("board_instances", `?select=*&id=eq.${encodeURIComponent(requestedBoardInstanceId)}&active=eq.true`)
-          : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
+          : legacyApplicationScope
+            ? gateway.select("board_instances", `?select=*&legacy_application_scope=eq.${encodeURIComponent(legacyApplicationScope)}&active=eq.true`)
+            : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
         ).then(value => {
           const instance = requestedBoardInstanceId
             ? (Array.isArray(value) ? value[0] : value)
@@ -1290,6 +1505,13 @@
     const normalizeInstanceTask = row => normalizeTask({ ...row, application_scope: "c", applicationScope: "c" });
     const normalizeInstanceActivity = row => normalizeActivity(row);
     const normalizeInstanceAttachment = row => normalizeTaskAttachment(row);
+    const workflow = createWorkflowCapability({
+      gateway,
+      templateKey,
+      boardInstanceId: requestedBoardInstanceId,
+      legacyApplicationScope,
+      readOnly: instanceOptions.workflowReadOnly === true
+    });
 
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
@@ -1536,6 +1758,8 @@
       boardInstanceId: requestedBoardInstanceId,
       lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
       lifecycle,
+      workflowContract: C_WORKFLOW_CANONICAL_CONTRACT,
+      workflow,
       resolveInstance,
       load: instanceLoad,
       loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),
@@ -1657,8 +1881,6 @@
     ENGINEERING_STATUS_DESCRIPTORS,
     lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
     lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop, true, reconcileWorkspaceDecision),
-    planTransition,
-    availableTransitions,
     normalizeStatus,
     statusDescriptorFor,
     normalizeWorkspace,
@@ -1670,7 +1892,9 @@
     normalizeTaskChecklistItem,
     normalizeTaskAttachment,
     C_LIFECYCLE_ACCEPTANCE_CONTRACT,
+    C_WORKFLOW_CANONICAL_CONTRACT,
     createLifecycleCapability,
+    createWorkflowCapability,
     isGovernanceTerminal,
     isArchiveTask,
     normalizeChecklistItem,

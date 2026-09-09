@@ -30,37 +30,18 @@ test("Archive read model derives only from existing done and terminal governance
   assert.equal(BoardRead.isArchiveTask({ status: "qa" }), false);
 });
 
-test("TASK-022 QJC drag planning follows the controlled workflow and keeps the receiver explicit", () => {
-  const ready = BoardRead.normalizeTask({ status: "ready", assignee: "Co" });
-  const start = BoardRead.planTransition(ready, "progress");
-  assert.deepEqual(
-    { allowed: start.allowed, status: start.status, assignee: start.assignee, targetWorkspace: start.targetWorkspace },
-    { allowed: true, status: "inprogress", assignee: "Co", targetWorkspace: "progress" }
-  );
-
-  const inProgress = BoardRead.normalizeTask({ status: "inprogress", assignee: "Co" });
-  const rollback = BoardRead.planTransition(inProgress, "todo");
-  assert.deepEqual(
-    { allowed: rollback.allowed, status: rollback.status, assignee: rollback.assignee, targetWorkspace: rollback.targetWorkspace },
-    { allowed: true, status: "ready", assignee: "Co", targetWorkspace: "todo" }
-  );
-  assert.match(rollback.action, /退回/);
-  const handoff = BoardRead.planTransition(inProgress, "qa");
-  assert.equal(handoff.status, "qa");
-  assert.equal(handoff.assignee, "GPT");
-
-  const gptQa = BoardRead.normalizeTask({ status: "qa", assignee: "GPT" });
-  assert.equal(BoardRead.planTransition(gptQa, "qa").assignee, "QJC");
-  assert.equal(BoardRead.planTransition(gptQa, "progress").assignee, "Co");
-  assert.equal(BoardRead.planTransition(gptQa, "done").allowed, false);
-
-  const qjcQa = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
-  assert.equal(BoardRead.planTransition(qjcQa, "done").allowed, false);
-  assert.equal(BoardRead.planTransition(qjcQa, "todo").allowed, false);
-  assert.match(BoardRead.planTransition(qjcQa, "todo").reason, /只能依序/);
-
-  const completed = BoardRead.normalizeTask({ status: "done", assignee: "QJC" });
-  assert.equal(BoardRead.availableTransitions(completed).length, 0);
+test("retired sequential drag planner is absent; PM decisions use the canonical C contract", async () => {
+  assert.equal(BoardRead.planTransition, undefined);
+  assert.equal(BoardRead.availableTransitions, undefined);
+  const calls = [];
+  const gateway = { rpc: async (name, params) => { calls.push({ name, params }); return { success: true }; } };
+  for (const target of ["todo", "co", "gpt", "qjc", "completed", "custom"]) {
+    await BoardRead.lifecycle.reconcileWorkspaceDecision({ taskId: "task", targetWorkspaceId: target }, { gateway });
+  }
+  assert.equal(calls.length, 6);
+  assert.ok(calls.every(call => call.name === "board_c_reconcile_workspace_decision"));
+  assert.deepEqual(calls.map(call => call.params.p_target_workspace_id), ["todo", "co", "gpt", "qjc", "completed", "custom"]);
+  assert.ok(calls.every(call => !Object.hasOwn(call.params, "p_target_assignee")), "the renderer must not guess the receiving role");
 });
 
 test("shared completion gate requires Co and QJC evidence, not GPT checkbox", () => {
@@ -73,25 +54,22 @@ test("shared completion gate requires Co and QJC evidence, not GPT checkbox", ()
   assert.equal(gptPending.state, "not_verified", "historical/current GPT evidence must not be fabricated");
 });
 
-test("completion gate blocks failed or missing Co/QJC evidence and keeps done immutable", () => {
+test("checklist gate still reports failed or missing Co/QJC evidence", () => {
   const coPass = { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" };
   const qjcPass = { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" };
   const qjcFail = { stage: "qjc", required: true, state: "fail", evidenceNote: "QJC FAIL" };
   const coMissing = { stage: "co", required: true, state: "not_verified", evidenceNote: "" };
   assert.equal(BoardRead.completionGateStatus([coPass, qjcFail]).allowed, false);
   assert.equal(BoardRead.completionGateStatus([coMissing, qjcPass]).allowed, false);
-  assert.equal(BoardRead.planTransition(BoardRead.normalizeTask({ status: "done", assignee: "QJC" }), "done").allowed, false);
 });
 
-test("Case D/E: QJC PASS uses the controlled acceptance path; workflow transition cannot bypass it", () => {
-  const task = BoardRead.normalizeTask({ status: "qa", assignee: "QJC" });
+test("Case D/E: QJC checklist evidence remains distinct from the PM workspace decision", () => {
   const coPass = { stage: "co", required: true, state: "pass", evidenceNote: "Co PASS" };
   const qjcPass = { stage: "qjc", required: true, state: "pass", evidenceNote: "QJC PASS" };
   const gptPending = { stage: "gpt", required: true, state: "not_verified" };
   assert.equal(BoardRead.completionGateStatus([coPass, qjcPass, gptPending]).allowed, true);
-  const donePlan = BoardRead.planTransition(task, "done");
-  assert.equal(donePlan.allowed, false);
-  assert.match(donePlan.reason, /只能依序/);
+  assert.equal(BoardRead.lifecycle.contract.genericDoneTransition, "forbidden");
+  assert.equal(BoardRead.lifecycle.contract.historicalEngineeringEvidence, "preserved-not-required-for-pm-decision");
 });
 
 test("Case F: historical GPT evidence is retained without becoming a completion gate", () => {

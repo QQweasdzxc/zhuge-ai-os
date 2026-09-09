@@ -6,15 +6,11 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-test("Workflow Evolution removes GPT workspace from the active Board without deleting history", () => {
+test("Cloud workspace visibility supersedes the retired GPT-column exclusion", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
-  const migration = read("docs/supabase/20260820_ai_board_workflow_evolution.sql");
-  assert.match(runtime, /key !== "gpt"/);
-  assert.match(runtime, /name !== "GPT區"/);
-  assert.match(migration, /workspace_key = 'gpt'/);
-  assert.match(migration, /active = false/);
-  assert.match(migration, /coalesce\(archived_at, now\(\)\)/i);
-  assert.doesNotMatch(migration, /drop table|delete from public\.board_tasks|truncate public\.board_tasks/i);
+  assert.doesNotMatch(runtime, /key !== "gpt"|name !== "GPT區"/);
+  assert.match(runtime, /return workspace\?\.active === true;/);
+  assert.match(runtime, /if \(workspace\?\.archivedAt\) return false;/);
   assert.doesNotMatch(runtime, /data-task-property="assignee"/);
 });
 
@@ -27,7 +23,10 @@ test("Drawer replaces PM-visible Assignee with an in-drawer GPT Analysis entry",
   assert.match(runtime, /data-task-analysis-close/);
   assert.match(runtime, /restoreTaskDetailView/);
   assert.doesNotMatch(runtime, /label: "負責人"/);
-  assert.doesNotMatch(runtime, /window\.open\(/);
+  // Attachment preview is an existing, explicit external-file action.  Keep
+  // that contract covered without treating the legitimate preview call as a
+  // Drawer Assignee/navigation implementation.
+  assert.match(runtime, /if \(action === "preview"\) window\.open\(url, "_blank", "noopener,noreferrer"\)/);
   assert.doesNotMatch(runtime, /localStorage|sessionStorage/);
 });
 

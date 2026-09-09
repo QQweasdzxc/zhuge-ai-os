@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, workflowCapability: null, workflowData: null, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -390,6 +390,7 @@
       task,
       workTodo,
       service: activeService(),
+      workflowCapability: state.workflowCapability,
       dataService,
       repository,
       applicationScope: state.applicationScope,
@@ -456,19 +457,6 @@
     blocked: "阻塞",
     completed: "完成"
   });
-  const WORKTODO_STATUS_BY_WORKSPACE = Object.freeze({
-    "worktodo-todo": "not_started",
-    "worktodo-inprogress": "in_progress",
-    "worktodo-waiting-reply": "waiting_reply",
-    "worktodo-waiting-acceptance": "waiting_acceptance",
-    "worktodo-blocked": "blocked",
-    "worktodo-completed": "completed",
-    "mdtk-todo": "not_started",
-    "mdtk-in-progress": "in_progress",
-    "mdtk-vendor-reply": "waiting_reply",
-    "mdtk-qa": "waiting_acceptance",
-    "mdtk-completed": "completed"
-  });
   function isWorkTodoMode() {
     const path = String(root.location?.pathname || "");
     const consumer = queryParameter("consumer");
@@ -507,10 +495,6 @@
   function workTodoStatus(task) {
     const raw = String(task?.rawStatus || task?.status || "not_started").trim().toLowerCase().replace(/[\s-]+/g, "_");
     return Object.prototype.hasOwnProperty.call(WORKTODO_STATUS_LABELS, raw) ? raw : "not_started";
-  }
-  function workTodoStatusForWorkspace(workspace) {
-    const key = String(workspace?.key || "").trim().toLowerCase();
-    return WORKTODO_STATUS_BY_WORKSPACE[key] || null;
   }
   function readableWorkStatus(task) {
     if (isWorkTodoTask(task)) return WORKTODO_STATUS_LABELS[workTodoStatus(task)] || "待開始";
@@ -618,8 +602,7 @@
     document.querySelectorAll("[data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", "false"));
   }
   function isMainBoardWorkspace(workspace) {
-    const key = String(workspace?.key || "").toLowerCase();
-    const name = String(workspace?.name || "").trim();
+    if (workspace?.archivedAt) return false;
     if (state.applicationScope === "worktodo") {
       return workspace?.active === true && workspace?.applicationScope === "worktodo";
     }
@@ -632,12 +615,9 @@
         || (!state.boardInstanceId && String(workspace?.key || "").toLowerCase().startsWith(`${boardTaskPrefix()}-`))
       );
     }
-    // Keep the historical done/已完工 Cloud row intact but out of the active
-    // Board. The canonical renamed workspace 已完成 remains visible for the
-    // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
-    // column; the current workflow uses workspace position itself as the stage.
-    return workspace?.active === true
-      && (key ? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區");
+    // Cloud owns workspace visibility and placement. A workspace name or
+    // lifecycle role is not a reason for the renderer to hide an active row.
+    return workspace?.active === true;
   }
   function isWorkspaceDeletable(workspace) {
     return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
@@ -788,11 +768,13 @@
     renderWorkspaceColumns();
     const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
     const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
+    let unresolvedWorkspaceCount = 0;
     sortTasksForDisplay(activeTasks).forEach(task => {
-      const fallbackKey = defaultBoardWorkspaceKey();
-      const fallback = state.workspaces.find(workspace => workspace.key === fallbackKey);
-      const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
-      if (bucket && groups[bucket]) groups[bucket].push(task);
+      if (Object.prototype.hasOwnProperty.call(groups, task.workspaceId)) {
+        groups[task.workspaceId].push(task);
+      } else {
+        unresolvedWorkspaceCount += 1;
+      }
     });
     state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder).forEach(workspace => {
       const column = Array.from(document.querySelectorAll("[data-shared-task-board-column]")).find(item => item.dataset.workspaceId === workspace.id);
@@ -806,6 +788,9 @@
       if (count) count.textContent = String(rows.length);
     });
     wireTaskCards();
+    if (unresolvedWorkspaceCount) {
+      setBanner(`有 ${unresolvedWorkspaceCount} 張卡片的 Cloud 工作區不存在或未啟用；未將卡片移到其他工作區，請確認正式工作區設定。`, "error");
+    }
   }
   function visibleTasks() {
     const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");
@@ -1108,14 +1093,47 @@
       && typeof lifecycle.reconcileWorkspaceDecision === "function";
   }
 
+  function canUseCWorkflowAuthority(task) {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    return workflow?.capabilities?.workspaceDecision === true
+      && Boolean(task?.workflowVersionId && task?.currentWorkflowStepId)
+      && typeof workflow.reconcileWorkspaceDecision === "function";
+  }
+
+  function isCanonicalWorkflowConsumer() {
+    // Every board-backed consumer resolves the same C Workflow capability.
+    // The Board Instance owns the definition; WorkTodo still keeps its own
+    // workflow data and product semantics, but never a second movement
+    // engine that guesses status from workspace names.
+    return state.applicationScope === "c"
+      || state.applicationScope === "ai_board"
+      || state.applicationScope === "worktodo";
+  }
+
+  function workflowBindingError() {
+    const error = new Error("此卡片尚未指定這張子板的正式流程版本與目前階段；為避免 Runtime 猜測，卡片未移動。請先由 PM 在「流程設定」完成正式流程設定或判定。");
+    error.code = "C_WORKFLOW_TASK_NOT_BOUND";
+    return error;
+  }
+
+  function workflowCompletionStep() {
+    const workflow = state.workflowData?.published || state.workflowData?.workflow;
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
+    return steps.find(step => step.isCompletion === true || step.is_completion === true) || null;
+  }
+
   async function moveTaskToWorkspace(task, targetWorkspaceId) {
     const target = state.workspaceById.get(String(targetWorkspaceId || ""));
     if (!task || !target || activeService().isGovernanceTerminal?.(task)) return;
-    if (isWorkTodoTask(task)) {
-      await moveWorkTodoTask(task, target);
+    const current = state.workspaceById.get(String(task.workspaceId || ""));
+    if (canUseCWorkflowAuthority(task)) {
+      await reconcileTaskWorkspaceDecision(task, current, target);
       return;
     }
-    const current = state.workspaceById.get(String(task.workspaceId || ""));
+    if (isCanonicalWorkflowConsumer()) {
+      await reconcileTaskWorkspaceDecision(task, current, target);
+      return;
+    }
     if (canUseCWorkspaceAuthority()) {
       await reconcileTaskWorkspaceDecision(task, current, target);
       return;
@@ -1142,16 +1160,25 @@
   async function reconcileTaskWorkspaceDecision(task, current, target) {
     if (String(task.workspaceId) === String(target.id)) {
       setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
-      return;
+      return true;
     }
     const targetDecision = canonicalWorkspaceDecisionTarget(target);
     setBanner(`正在依 PM 的工作區決定同步「${esc(task.workCode || task.title)}」至「${esc(target.name)}」…`, "loading");
     try {
-      const result = await activeService().lifecycle.reconcileWorkspaceDecision({
-        taskId: task.id,
-        targetWorkspaceId: target.id,
-        decisionNote: `PM workspace decision: ${current?.name || task.workspaceName || "目前工作區"} → ${target.name}`
-      });
+      const workflow = state.workflowCapability || activeService()?.workflow;
+      if (isCanonicalWorkflowConsumer() && !canUseCWorkflowAuthority(task)) throw workflowBindingError();
+      const result = workflow
+        ? await workflow.reconcileWorkspaceDecision({
+          taskId: task.id,
+          targetWorkspaceId: target.id,
+          decisionNote: `PM workspace decision: ${current?.name || task.workspaceName || "目前工作區"} → ${target.name}`,
+          idempotencyKey: typeof root.crypto?.randomUUID === "function" ? root.crypto.randomUUID() : `workspace-${task.id}-${Date.now()}`
+        })
+        : await activeService().lifecycle.reconcileWorkspaceDecision({
+          taskId: task.id,
+          targetWorkspaceId: target.id,
+          decisionNote: `PM workspace decision: ${current?.name || task.workspaceName || "目前工作區"} → ${target.name}`
+        });
       await refreshBoard({ quiet: true });
       const decision = String(result?.decision || result?.lifecycle || "workspace").toLowerCase();
       const message = decision === "completion" || decision === "pm_acceptance_pass"
@@ -1160,24 +1187,18 @@
           ? "已依 PM 決定重新開啟；工作區、狀態、負責人與 Reopen Audit 已同步。"
           : `已依 PM 決定移至「${esc(target.name)}」；${targetDecision.key === "ordinary" ? "工作區移動" : "工作區、狀態與負責人"}已同步。`;
       setBanner(message, "success");
+      return true;
     } catch (error) {
       setBanner("工作區決定未完成：" + esc(error?.message || "正式 Cloud 未接受；卡片未移動，正式狀態不變。"), "error");
+      return false;
     }
   }
 
   async function acceptTaskByCardDrop(task, current, target) {
     setBanner("正在以卡片拖曳執行 PM Acceptance PASS…", "loading");
     try {
-      const items = await activeService().loadChecklist(task.id);
-      const item = (Array.isArray(items) ? items : []).find(isPmAcceptanceItem);
-      if (!item) throw new Error("正式 PM Acceptance Record 尚未建立，未執行完成。");
-      await acceptThroughCContract({
-        taskId: task.id,
-        itemId: item.id,
-        sourceWorkspaceId: current?.id || task.workspaceId || "",
-        targetWorkspaceId: target?.id || ""
-      });
-      await refreshBoard({ quiet: true });
+      const accepted = await reconcileTaskWorkspaceDecision(task, current, target);
+      if (!accepted) return;
       setBanner("已透過卡片拖曳完成 PM Acceptance PASS；Cloud Lifecycle／Audit 已同步。", "success");
     } catch (error) {
       setBanner("PM Acceptance 拖曳驗收失敗：" + esc(error?.message || "正式 Cloud 未接受；原資料未變更。"), "error");
@@ -1207,23 +1228,6 @@
       setBanner("已退回 Co；正式狀態、負責人與工作區已同步為 inprogress / Co。", "success");
     } catch (error) {
       setBanner("PM QA 退回失敗：" + esc(error?.message || "正式 Cloud 未接受；原資料未變更。"), "error");
-    }
-  }
-
-  async function moveWorkTodoTask(task, target) {
-    if (!target) return;
-    const nextStatus = workTodoStatusForWorkspace(target);
-    if (String(task.workspaceId) === String(target.id)) {
-      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
-      return;
-    }
-    setBanner("正在將 " + esc(task.workCode || task.title) + " 移動至「" + esc(target.name) + "」…", "loading");
-    try {
-      await executeSharedTaskAction(task, "moveWorkspace", { workspaceId: target.id, status: nextStatus }, { refresh: false, reopen: false });
-      await refreshBoard({ quiet: true });
-      setBanner("已移動「" + esc(task.workCode || task.title) + "」至「" + esc(target.name) + "」。", "success");
-    } catch (error) {
-      setBanner("工作區移動失敗：" + esc(error?.message || "WorkTodo controlled RPC 未接受這次移動；原資料未變更。"), "error");
     }
   }
 
@@ -1591,9 +1595,7 @@
       };
     });
     const board = document.querySelector("[data-shared-task-board]");
-    const workTodoMode = isWorkTodoMode();
     const procurementMode = state.applicationScope === "procurement";
-    const cTemplateMode = state.applicationScope === "c";
     const boardHandlers = {
       canDragCard: id => {
         const task = state.taskById.get(String(id));
@@ -1602,9 +1604,10 @@
       onCardDrop: async ({ cardId, id }) => {
         const task = state.taskById.get(String(cardId));
         if (!task) return;
-        if (cTemplateMode) await moveTaskToWorkspace(task, id);
-        else if (workTodoMode) await moveWorkTodoTask(task, state.workspaceById.get(String(id)));
-        else await moveTaskToWorkspace(task, id);
+        // C owns the movement contract for every board-backed consumer. The
+        // consumer contributes only its Board Instance/workflow capability;
+        // it must not translate a workspace into a guessed status locally.
+        await moveTaskToWorkspace(task, id);
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
@@ -1623,7 +1626,8 @@
       board: () => showBoardView("board"),
       principles: () => showBoardView("principles"),
       "system-map": () => showBoardView("system-map"),
-      security: () => showBoardView("security")
+      security: () => showBoardView("security"),
+      "workflow-settings": () => openWorkflowSettings()
     };
     document.querySelectorAll("[data-board-nav]").forEach(item => {
       const activate = () => {
@@ -2041,16 +2045,24 @@
     const identity = `${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
     return String(item?.stage || "").toLowerCase() === "qjc" && (item?.itemKey === "pm-acceptance" || /pm[-_ ]?acceptance|pm[-_ ]?qa|驗收/.test(identity));
   }
-  function acceptThroughCContract(input = {}) {
-    const lifecycle = activeService()?.lifecycle;
-    if (lifecycle?.contract?.id !== "module-c-lifecycle-acceptance-v1"
-      || lifecycle?.capabilities?.pmAcceptanceFromQjcDrop !== true
-      || typeof lifecycle.acceptFromQjcDrop !== "function") {
-      const error = new Error("Module C PM Acceptance Contract 尚未載入；卡片未移動，正式狀態不變。");
-      error.code = "C_LIFECYCLE_ACCEPTANCE_UNAVAILABLE";
+  async function acceptThroughCContract(input = {}) {
+    const task = state.taskById.get(String(input.taskId || ""));
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    const targetStep = workflowCompletionStep();
+    if (!task || !workflow?.reconcileWorkspaceDecision || !canUseCWorkflowAuthority(task)) {
+      throw workflowBindingError();
+    }
+    if (!targetStep?.workspaceId) {
+      const error = new Error("這張子板尚未設定正式完成階段；卡片未移動，正式狀態不變。");
+      error.code = "C_WORKFLOW_COMPLETION_STEP_UNAVAILABLE";
       throw error;
     }
-    return lifecycle.acceptFromQjcDrop(input);
+    return workflow.reconcileWorkspaceDecision({
+      taskId: task.id,
+      targetWorkspaceId: targetStep.workspaceId,
+      decisionNote: "PM acceptance action from shared C runtime",
+      idempotencyKey: typeof root.crypto?.randomUUID === "function" ? root.crypto.randomUUID() : `pm-accept-${task.id}-${Date.now()}`
+    });
   }
   function checklistMarkup(item, options = {}) {
     const readOnly = options.readOnly === true;
@@ -3463,6 +3475,356 @@
       if (button) button.disabled = false;
     }
   }
+  const WORKFLOW_ROLE_LABELS = Object.freeze({ co: "Co", gpt: "GPT", qjc: "QJC", pm: "PM" });
+  const WORKFLOW_STATUS_LABELS = Object.freeze({ ready: "待開始", inprogress: "處理中", qa: "驗證中", done: "完成" });
+
+  function workflowRoleLabel(value) {
+    return WORKFLOW_ROLE_LABELS[String(value || "pm").trim().toLowerCase()] || "PM";
+  }
+
+  function workflowWorkspaceLabel(workspaceId) {
+    const workspace = state.workspaceById.get(String(workspaceId || ""));
+    return workspace?.name || "尚未指定工作區";
+  }
+
+  function workflowWorkspaceOptions(selectedId, disabled = false) {
+    return state.workspaces.filter(workspace => workspace?.active !== false && !workspace?.archivedAt).map(workspace => {
+      const id = String(workspace.id || "");
+      return `<option value="${esc(id)}"${id === String(selectedId || "") ? " selected" : ""}${disabled ? " disabled" : ""}>${esc(workspace.name || workspace.workspaceKey || id)}</option>`;
+    }).join("");
+  }
+
+  function workflowStepKey(value, index, used = new Set()) {
+    const candidate = String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    let key = /^[a-z][a-z0-9_-]{0,63}$/.test(candidate) ? candidate : `step-${index + 1}`;
+    let suffix = 2;
+    while (used.has(key)) key = `${candidate || `step-${index + 1}`}-${suffix++}`.slice(0, 64);
+    used.add(key);
+    return key;
+  }
+
+  function workflowDefaultWorkspace(preferred = []) {
+    for (const token of preferred) {
+      const match = state.workspaces.find(workspace => {
+        const key = String(workspace.workspaceKey || workspace.key || "").toLowerCase();
+        const name = String(workspace.name || "").toLowerCase();
+        return key === token || key.endsWith(`-${token}`) || name === token;
+      });
+      if (match) return String(match.id);
+    }
+    return String(state.workspaces[0]?.id || "");
+  }
+
+  function workflowDefaultTransitions(steps) {
+    const transitions = [];
+    for (const from of steps) {
+      for (const to of steps) {
+        if (!from || !to || from.stepKey === to.stepKey) continue;
+        transitions.push({
+          transitionKey: `${from.stepKey}_to_${to.stepKey}`.slice(0, 64),
+          fromStepKey: from.stepKey,
+          toStepKey: to.stepKey,
+          allowedRoles: ["pm"],
+          requiresGate: Boolean(to.gateRequired || to.isCompletion)
+        });
+      }
+    }
+    return transitions;
+  }
+
+  function workflowEditorFromData(data) {
+    const source = data?.draft || data?.published || data?.workflow || null;
+    const sourceSteps = Array.isArray(source?.steps) ? source.steps : [];
+    const used = new Set();
+    let steps = sourceSteps.map((step, index) => {
+      const stepKey = workflowStepKey(step.stepKey, index, used);
+      const gate = (source.gates || []).find(item => String(item.stepId || item.step_id || "") === String(step.id || "") || String(item.stepKey || item.step_key || "") === stepKey);
+      const evidence = gate ? (source.evidenceRequirements || []).find(item => String(item.gateId || item.gate_id || "") === String(gate.id || "") || String(item.gateKey || item.gate_key || "") === String(gate.gateKey || "")) : null;
+      return {
+        id: String(step.id || ""),
+        stepKey,
+        name: String(step.name || "階段"),
+        sortOrder: Number(step.sortOrder ?? index),
+        roleKey: String(step.roleKey || "pm").toLowerCase(),
+        workspaceId: String(step.workspaceId || ""),
+        statusKey: String(step.statusKey || "inprogress").toLowerCase(),
+        isInitial: step.isInitial === true,
+        isCompletion: step.isCompletion === true,
+        gateRequired: Boolean(gate?.required),
+        evidenceLabel: String(evidence?.label || "")
+      };
+    });
+    if (!steps.length) {
+      steps = [
+        { stepKey: "todo", name: "待辦", sortOrder: 0, roleKey: "co", workspaceId: workflowDefaultWorkspace(["todo", "待辦", "待開始"]), statusKey: "ready", isInitial: true, isCompletion: false, gateRequired: false, evidenceLabel: "" },
+        { stepKey: "completed", name: "完成", sortOrder: 1, roleKey: "pm", workspaceId: workflowDefaultWorkspace(["completed", "完成", "已完成"]), statusKey: "done", isInitial: false, isCompletion: true, gateRequired: true, evidenceLabel: "" }
+      ];
+    }
+    steps.sort((a, b) => a.sortOrder - b.sortOrder).forEach((step, index) => { step.sortOrder = index; });
+    const stepById = new Map(steps.filter(step => step.id).map(step => [step.id, step.stepKey]));
+    const existingTransitions = Array.isArray(source?.transitions) ? source.transitions.map(item => ({
+      transitionKey: String(item.transitionKey || item.transition_key || ""),
+      fromStepKey: String(item.fromStepKey || item.from_step_key || stepById.get(String(item.fromStepId || item.from_step_id || "")) || ""),
+      toStepKey: String(item.toStepKey || item.to_step_key || stepById.get(String(item.toStepId || item.to_step_id || "")) || ""),
+      allowedRoles: Array.isArray(item.allowedRoles || item.allowed_roles) ? (item.allowedRoles || item.allowed_roles).map(String) : ["pm"],
+      requiresGate: item.requiresGate === true || item.requires_gate === true
+    })).filter(item => item.fromStepKey && item.toStepKey) : [];
+    return {
+      workflowVersionId: String(source?.id || ""),
+      name: String(source?.name || state.boardName || "本子板流程"),
+      description: String(source?.description || ""),
+      steps,
+      transitions: existingTransitions.length ? existingTransitions : workflowDefaultTransitions(steps)
+    };
+  }
+
+  function workflowModalStatus(text = "", kind = "") {
+    state.workflowEditorStatus = { text: String(text || ""), kind: String(kind || "") };
+    const host = document.querySelector("[data-workflow-status]");
+    if (host) {
+      host.textContent = state.workflowEditorStatus.text;
+      host.dataset.state = state.workflowEditorStatus.kind;
+      host.hidden = !state.workflowEditorStatus.text;
+    }
+  }
+
+  function workflowTransitionEnabled(editor, fromStepKey, toStepKey) {
+    return editor.transitions.some(item => item.fromStepKey === fromStepKey && item.toStepKey === toStepKey);
+  }
+
+  function renderWorkflowPreview(editor) {
+    const host = document.querySelector("[data-workflow-preview]");
+    if (!host) return;
+    host.innerHTML = editor.steps.map((step, index) => `<div class="workflow-preview-step"><span class="workflow-preview-index">${index + 1}</span><div><strong>${esc(step.name || "未命名階段")}</strong><small>${esc(workflowRoleLabel(step.roleKey))} · ${esc(workflowWorkspaceLabel(step.workspaceId))}${step.isCompletion ? " · 完成" : ""}</small></div></div>${index < editor.steps.length - 1 ? "<span class=\"workflow-preview-arrow\" aria-hidden=\"true\">↓</span>" : ""}`).join("");
+  }
+
+  function renderWorkflowStepEditor(step, index, editor, readOnly) {
+    const roleOptions = Object.entries(WORKFLOW_ROLE_LABELS).map(([key, label]) => `<option value="${key}"${key === step.roleKey ? " selected" : ""}>${label}</option>`).join("");
+    const statusOptions = Object.entries(WORKFLOW_STATUS_LABELS).map(([key, label]) => `<option value="${key}"${key === step.statusKey ? " selected" : ""}>${label}</option>`).join("");
+    const stepKey = esc(step.stepKey || `step-${index + 1}`);
+    return `<article class="workflow-step-editor" data-workflow-step data-index="${index}">
+      <div class="workflow-step-editor-heading"><div><span class="workflow-step-number">${index + 1}</span><strong>${esc(step.name || "未命名階段")}</strong></div><div class="workflow-step-editor-actions"><button class="btn" type="button" data-workflow-step-up="${index}" aria-label="階段上移"${readOnly || index === 0 ? " disabled" : ""}>↑</button><button class="btn" type="button" data-workflow-step-down="${index}" aria-label="階段下移"${readOnly || index === editor.steps.length - 1 ? " disabled" : ""}>↓</button><button class="btn danger" type="button" data-workflow-step-delete="${index}" aria-label="刪除階段"${readOnly || editor.steps.length <= 2 ? " disabled" : ""}>刪除</button></div></div>
+      <input type="hidden" data-workflow-field="stepKey" value="${stepKey}">
+      <div class="workflow-step-editor-grid">
+        <label><span>階段名稱</span><input type="text" data-workflow-field="name" value="${esc(step.name)}" maxlength="80" placeholder="例如：主管確認"${readOnly ? " disabled" : ""}></label>
+        <label><span>負責角色</span><select data-workflow-field="roleKey"${readOnly ? " disabled" : ""}>${roleOptions}</select></label>
+        <label><span>對應工作區</span><select data-workflow-field="workspaceId"${readOnly ? " disabled" : ""}>${workflowWorkspaceOptions(step.workspaceId, readOnly)}</select></label>
+        <label><span>工作狀態</span><select data-workflow-field="statusKey"${readOnly ? " disabled" : ""}>${statusOptions}</select></label>
+      </div>
+      <div class="workflow-step-editor-flags"><label><input type="checkbox" data-workflow-field="isInitial"${step.isInitial ? " checked" : ""}${readOnly ? " disabled" : ""}> 起始階段</label><label><input type="checkbox" data-workflow-field="isCompletion"${step.isCompletion ? " checked" : ""}${readOnly ? " disabled" : ""}> 完成階段</label><label><input type="checkbox" data-workflow-field="gateRequired"${step.gateRequired ? " checked" : ""}${readOnly ? " disabled" : ""}> 進入此階段需要確認</label></div>
+      <label class="workflow-step-evidence"><span>需要的確認資料（選填）</span><input type="text" data-workflow-field="evidenceLabel" value="${esc(step.evidenceLabel)}" maxlength="120" placeholder="例如：Runtime QA Read-back"${readOnly ? " disabled" : ""}><small>只在這張子板明確需要時設定；PM 完成操作本身會留下可稽核的操作紀錄。</small></label>
+    </article>`;
+  }
+
+  function renderWorkflowTransitionEditor(editor, readOnly) {
+    if (editor.steps.length < 2) return "<p class=\"workflow-empty-note\">至少需要兩個階段才能設定轉換。</p>";
+    const rows = [];
+    editor.steps.forEach(from => editor.steps.forEach(to => {
+      if (from.stepKey === to.stepKey) return;
+      const enabled = workflowTransitionEnabled(editor, from.stepKey, to.stepKey);
+      rows.push(`<label class="workflow-transition-row"><input type="checkbox" data-workflow-transition="true" data-from-step="${esc(from.stepKey)}" data-to-step="${esc(to.stepKey)}"${enabled ? " checked" : ""}${readOnly ? " disabled" : ""}><span>${esc(from.name)} <b>→</b> ${esc(to.name)}</span><small>${to.isCompletion ? "完成確認" : "PM 可直接決定"}</small></label>`);
+    }));
+    return rows.join("");
+  }
+
+  function workflowModalMarkup() {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    const readOnly = workflow?.readOnly === true;
+    const editor = state.workflowEditor || workflowEditorFromData(state.workflowData);
+    state.workflowEditor = editor;
+    const status = state.workflowEditorStatus || { text: "", kind: "" };
+    return `<div class="workflow-settings-backdrop" data-workflow-settings-backdrop><section class="workflow-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workflowSettingsTitle"><header><div><span class="workflow-settings-eyebrow">MODULE C · ${readOnly ? "唯讀" : "WORKFLOW CAPABILITY"}</span><h2 id="workflowSettingsTitle">流程設定</h2><p>用一眼看懂的方式設定「這張子板的工作怎麼走」。</p></div><button class="workflow-settings-close" type="button" data-workflow-close aria-label="關閉流程設定">×</button></header><div class="workflow-settings-status" data-workflow-status data-state="${esc(status.kind)}"${status.text ? "" : " hidden"}>${esc(status.text)}</div><div class="workflow-settings-layout"><aside class="workflow-settings-preview-panel"><h3>流程預覽</h3><p>每個階段對應一個工作區；卡片會依這張子板已發布的流程執行。</p><div class="workflow-preview" data-workflow-preview></div><details class="workflow-technical-details"><summary>技術詳細資料</summary><dl><dt>Canonical Contract</dt><dd>${esc(workflow?.contract?.id || "module-c-lifecycle-acceptance-v2")}</dd><dt>Board Instance</dt><dd>${esc(state.boardInstanceId || "尚未讀取")}</dd><dt>Published Version</dt><dd>${esc(state.workflowData?.state?.publishedWorkflowVersionId || state.workflowData?.published?.id || "尚未發布")}</dd></dl></details></aside><main class="workflow-settings-editor"><div class="workflow-settings-section-heading"><div><h3>工作階段</h3><p>拖曳前可先把階段名稱、負責人、工作區與完成條件設定清楚。</p></div><button class="btn" type="button" data-workflow-add-step${readOnly ? " disabled" : ""}>＋ 新增階段</button></div><div class="workflow-definition-fields"><label><span>流程名稱</span><input type="text" data-workflow-definition="name" value="${esc(editor.name)}" maxlength="80" placeholder="例如：一般工作流程"${readOnly ? " disabled" : ""}></label><label><span>流程說明（選填）</span><textarea data-workflow-definition="description" maxlength="240" placeholder="簡單說明這張子板的工作如何完成"${readOnly ? " disabled" : ""}>${esc(editor.description)}</textarea></label></div><div class="workflow-step-list" data-workflow-step-list>${editor.steps.map((step, index) => renderWorkflowStepEditor(step, index, editor, readOnly)).join("")}</div><div class="workflow-settings-section-heading workflow-transition-heading"><div><h3>合法流程轉換</h3><p>勾選 PM 可以直接做的決定；不要求先經過其他工作區。</p></div></div><div class="workflow-transition-list" data-workflow-transition-list>${renderWorkflowTransitionEditor(editor, readOnly)}</div></main></div><footer><span class="workflow-unsaved-note" data-workflow-unsaved-note></span><button class="btn" type="button" data-workflow-close>取消</button>${readOnly ? "" : "<button class=\"btn\" type=\"button\" data-workflow-save>儲存草稿</button><button class=\"btn primary\" type=\"button\" data-workflow-publish>儲存並發布</button>"}</footer></section></div>`;
+  }
+
+  function renderWorkflowSettingsModal() {
+    let host = document.querySelector("[data-workflow-settings-host]");
+    if (!host) {
+      host = document.createElement("div");
+      host.dataset.workflowSettingsHost = "true";
+      document.body.appendChild(host);
+    }
+    host.innerHTML = workflowModalMarkup();
+    host.hidden = false;
+    host.style.display = "block";
+    renderWorkflowPreview(state.workflowEditor || workflowEditorFromData(state.workflowData));
+    bindWorkflowSettingsModal(host);
+  }
+
+  function ensureWorkflowSettingsTab() {
+    let tabs = document.querySelector(".workspace-subnav");
+    if (!tabs) {
+      const boardMain = document.querySelector("[data-board-main-view]");
+      const parent = boardMain?.parentElement;
+      if (!parent) return null;
+      tabs = document.createElement("div");
+      tabs.className = "workspace-tabs workspace-subnav";
+      tabs.setAttribute("role", "tablist");
+      tabs.setAttribute("aria-label", "看板功能");
+      parent.insertBefore(tabs, boardMain);
+    }
+    if (!tabs || !state.workflowCapability?.capabilities?.settings) return null;
+    let boardTab = tabs.querySelector('[data-board-nav="board"]');
+    if (!boardTab) {
+      boardTab = document.createElement("button");
+      boardTab.className = "workspace-tab active";
+      boardTab.type = "button";
+      boardTab.title = "看板";
+      boardTab.dataset.boardNav = "board";
+      boardTab.textContent = "📋 看板";
+      tabs.insertBefore(boardTab, tabs.firstChild);
+    }
+    let tab = tabs.querySelector('[data-board-nav="workflow-settings"]');
+    if (!tab) {
+      tab = document.createElement("button");
+      tab.className = "workspace-tab";
+      tab.type = "button";
+      tab.title = state.workflowCapability.readOnly === true ? "查看流程設定" : "流程設定";
+      tab.dataset.boardNav = "workflow-settings";
+      tab.textContent = state.workflowCapability.readOnly === true ? "⚙️ 流程設定（唯讀）" : "⚙️ 流程設定";
+      tabs.appendChild(tab);
+    }
+    return tab;
+  }
+
+  function closeWorkflowSettings() {
+    const host = document.querySelector("[data-workflow-settings-host]");
+    if (host) { host.hidden = true; host.style.display = "none"; }
+    state.workflowModalOpen = false;
+    document.querySelectorAll("[data-board-nav]").forEach(node => node.classList.toggle("active", node.dataset.boardNav === "board"));
+  }
+
+  function collectWorkflowEditor() {
+    const host = document.querySelector("[data-workflow-settings-host]");
+    const editor = state.workflowEditor || workflowEditorFromData(state.workflowData);
+    if (!host) return editor;
+    const readValue = (node, field) => node.querySelector(`[data-workflow-field="${field}"]`)?.value ?? "";
+    const readChecked = (node, field) => node.querySelector(`[data-workflow-field="${field}"]`)?.checked === true;
+    const steps = Array.from(host.querySelectorAll("[data-workflow-step]")).map((node, index) => ({
+      id: String(editor.steps[index]?.id || ""),
+      stepKey: String(readValue(node, "stepKey") || editor.steps[index]?.stepKey || ""),
+      name: String(readValue(node, "name") || "").trim(),
+      sortOrder: index,
+      roleKey: String(readValue(node, "roleKey") || "pm").toLowerCase(),
+      workspaceId: String(readValue(node, "workspaceId") || ""),
+      statusKey: String(readValue(node, "statusKey") || "inprogress").toLowerCase(),
+      isInitial: readChecked(node, "isInitial"),
+      isCompletion: readChecked(node, "isCompletion"),
+      gateRequired: readChecked(node, "gateRequired"),
+      evidenceLabel: String(readValue(node, "evidenceLabel") || "").trim()
+    }));
+    const transitions = Array.from(host.querySelectorAll("[data-workflow-transition=\"true\"]:checked")).map(node => {
+      const fromStepKey = String(node.dataset.fromStep || "");
+      const toStepKey = String(node.dataset.toStep || "");
+      const to = steps.find(step => step.stepKey === toStepKey);
+      return { transitionKey: `${fromStepKey}_to_${toStepKey}`.slice(0, 64), fromStepKey, toStepKey, allowedRoles: ["pm"], requiresGate: Boolean(to?.gateRequired || to?.isCompletion) };
+    });
+    return { workflowVersionId: editor.workflowVersionId || "", name: String(host.querySelector('[data-workflow-definition="name"]')?.value || "").trim(), description: String(host.querySelector('[data-workflow-definition="description"]')?.value || "").trim(), steps, transitions };
+  }
+
+  function validateWorkflowEditor(editor) {
+    const errors = [];
+    if (!editor.name) errors.push("請先輸入流程名稱。");
+    if (editor.steps.length < 2) errors.push("流程至少需要兩個工作階段。");
+    if (editor.steps.filter(step => step.isInitial).length !== 1) errors.push("請設定且只設定一個起始階段。");
+    if (editor.steps.filter(step => step.isCompletion).length !== 1) errors.push("請設定且只設定一個完成階段。");
+    const used = new Set();
+    editor.steps.forEach((step, index) => {
+      step.stepKey = workflowStepKey(step.stepKey || step.name, index, used);
+      if (!step.name) errors.push(`第 ${index + 1} 個階段尚未命名。`);
+      if (!step.workspaceId) errors.push(`「${step.name || `第 ${index + 1} 個階段`}」尚未指定工作區。`);
+    });
+    if (!editor.transitions.length) errors.push("請至少設定一個合法流程轉換。");
+    return errors;
+  }
+
+  function workflowPayload(editor) {
+    const gates = [];
+    const evidenceRequirements = [];
+    editor.steps.forEach((step, index) => {
+      if (!step.gateRequired && !step.isCompletion) return;
+      const gateKey = `gate-${step.stepKey}`.slice(0, 64);
+      gates.push({ stepKey: step.stepKey, gateKey, name: step.isCompletion ? "完成確認" : `${step.name}確認`, required: true, humanActionRequired: step.isCompletion, completionRole: step.roleKey, failurePolicy: "stay", sortOrder: index });
+      if (step.evidenceLabel) evidenceRequirements.push({ gateKey, evidenceKey: `evidence-${step.stepKey}`.slice(0, 64), label: step.evidenceLabel, required: true, sourceKind: step.isCompletion ? "pm_action_context" : "runtime_action", sortOrder: 0 });
+    });
+    return { name: editor.name, description: editor.description || null, steps: editor.steps.map(step => ({ stepKey: step.stepKey, name: step.name, sortOrder: step.sortOrder, roleKey: step.roleKey, workspaceId: step.workspaceId, statusKey: step.statusKey, isInitial: step.isInitial, isCompletion: step.isCompletion })), transitions: editor.transitions, gates, evidenceRequirements };
+  }
+
+  async function saveWorkflowSettings({ publish = false } = {}) {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    if (!workflow || workflow.readOnly === true) return;
+    const editor = collectWorkflowEditor();
+    const errors = validateWorkflowEditor(editor);
+    if (errors.length) { state.workflowEditor = editor; renderWorkflowSettingsModal(); workflowModalStatus(errors.join(" "), "error"); return; }
+    state.workflowEditor = editor;
+    const request = workflowPayload(editor);
+    const keyBase = `${state.boardInstanceId || "board"}-${Date.now()}`;
+    try {
+      workflowModalStatus("正在儲存流程草稿…", "loading");
+      let result = await workflow.saveDraft({ ...request, expectedDraftVersionId: state.workflowData?.draft?.id || null, idempotencyKey: `workflow-save-${keyBase}` });
+      state.workflowData = result;
+      if (publish) {
+        const draft = result?.draft || result?.workflow;
+        if (!draft?.id) throw new Error("草稿已儲存，但沒有取得可發布的流程版本。");
+        workflowModalStatus("草稿已儲存，正在發布…", "loading");
+        result = await workflow.publish({ workflowVersionId: draft.id, expectedPublishedVersionId: state.workflowData?.state?.publishedWorkflowVersionId || null, idempotencyKey: `workflow-publish-${keyBase}` });
+        state.workflowData = result;
+      }
+      state.workflowEditor = workflowEditorFromData(state.workflowData);
+      workflowModalStatus(publish ? "流程已發布；新的卡片會依這個版本執行，既有卡片不會被自動改寫。" : "流程草稿已儲存；尚未影響目前已發布版本。", "success");
+      await refreshBoard({ quiet: true });
+      renderWorkflowSettingsModal();
+      workflowModalStatus(publish ? "流程已發布；新的卡片會依這個版本執行，既有卡片不會被自動改寫。" : "流程草稿已儲存；尚未影響目前已發布版本。", "success");
+    } catch (error) {
+      state.workflowEditor = editor;
+      renderWorkflowSettingsModal();
+      workflowModalStatus(error?.message || "流程設定未完成；目前雲端資料未變更。", "error");
+    }
+  }
+
+  function bindWorkflowSettingsModal(host) {
+    host.querySelectorAll("[data-workflow-close]").forEach(button => button.addEventListener("click", closeWorkflowSettings));
+    host.querySelector("[data-workflow-settings-backdrop]")?.addEventListener("click", event => { if (event.target === event.currentTarget) closeWorkflowSettings(); });
+    host.querySelector("[data-workflow-add-step]")?.addEventListener("click", () => {
+      const editor = collectWorkflowEditor();
+      editor.steps.push({ stepKey: `step-${editor.steps.length + 1}`, name: "新階段", sortOrder: editor.steps.length, roleKey: "pm", workspaceId: workflowDefaultWorkspace(), statusKey: "inprogress", isInitial: false, isCompletion: false, gateRequired: false, evidenceLabel: "" });
+      editor.transitions = workflowDefaultTransitions(editor.steps);
+      state.workflowEditor = editor;
+      renderWorkflowSettingsModal();
+    });
+    host.querySelectorAll("[data-workflow-step-up], [data-workflow-step-down], [data-workflow-step-delete]").forEach(button => button.addEventListener("click", () => {
+      const editor = collectWorkflowEditor();
+      const index = Number(button.dataset.workflowStepUp ?? button.dataset.workflowStepDown ?? button.dataset.workflowStepDelete);
+      const direction = button.dataset.workflowStepUp !== undefined ? -1 : button.dataset.workflowStepDown !== undefined ? 1 : 0;
+      if (!Number.isInteger(index) || index < 0 || index >= editor.steps.length) return;
+      if (direction) {
+        const target = index + direction;
+        if (target < 0 || target >= editor.steps.length) return;
+        [editor.steps[index], editor.steps[target]] = [editor.steps[target], editor.steps[index]];
+        editor.steps.forEach((step, order) => { step.sortOrder = order; });
+      } else if (editor.steps.length > 2) editor.steps.splice(index, 1);
+      editor.transitions = editor.transitions.filter(item => editor.steps.some(step => step.stepKey === item.fromStepKey) && editor.steps.some(step => step.stepKey === item.toStepKey));
+      state.workflowEditor = editor;
+      renderWorkflowSettingsModal();
+    }));
+    host.querySelector("[data-workflow-save]")?.addEventListener("click", () => saveWorkflowSettings({ publish: false }));
+    host.querySelector("[data-workflow-publish]")?.addEventListener("click", () => saveWorkflowSettings({ publish: true }));
+    renderWorkflowPreview(state.workflowEditor || workflowEditorFromData(state.workflowData));
+  }
+
+  async function openWorkflowSettings() {
+    state.workflowModalOpen = true;
+    state.workflowEditorStatus = { text: "", kind: "" };
+    renderWorkflowSettingsModal();
+    try {
+      const workflow = state.workflowCapability || activeService()?.workflow;
+      if (workflow?.get) state.workflowData = await workflow.get({ includeDraft: workflow.readOnly !== true });
+      state.workflowEditor = workflowEditorFromData(state.workflowData);
+      renderWorkflowSettingsModal();
+    } catch (error) {
+      workflowModalStatus(error?.message || "流程設定讀取失敗；目前未修改雲端資料。", "error");
+    }
+  }
+
   function renderBoardHeaderActions() {
     const actions = document.querySelector("[data-zhuge-shared-header='true'] .zhuge-shared-header-actions");
     if (!actions) return;
@@ -3526,6 +3888,17 @@
       state.systemMaps = result.systemMaps || [];
       state.taskById = new Map(state.tasks.map(task => [task.id, task]));
       state.workspaceById = new Map(state.workspaces.map(workspace => [workspace.id, workspace]));
+      const workflow = state.workflowCapability || activeService()?.workflow;
+      if (workflow?.get && state.boardInstanceId) {
+        try {
+          state.workflowData = await workflow.get({ includeDraft: workflow.readOnly !== true });
+        } catch (_error) {
+          // Workflow configuration is an additive C capability.  A board read
+          // must remain usable when an older Board Instance has no workflow
+          // definition or its optional read is unavailable.
+          state.workflowData = null;
+        }
+      }
       renderPrinciples(result.principles);
       renderSystemMaps(state.systemMaps);
       if (state.applicationScope === "c" && previousIdentity !== `${state.boardName}|${state.taskCodePrefix}|${state.boardIsTemplate}|${state.consumerId}`) {
@@ -3545,6 +3918,7 @@
         }
       }
       if (document.getElementById("archiveDrawer")?.classList.contains("is-open")) renderArchive();
+      if (state.workflowModalOpen) renderWorkflowSettingsModal();
       setConnection(state.tasks.length, state.principles.length, !!state.stopRealtime, state.dataStatus);
       root.ZhugeSharedNavigation?.refresh?.({ activeBoardInstanceId: state.boardInstanceId });
       if (result.engineeringMemoryFailures?.length) {
@@ -3646,9 +4020,21 @@
     state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : state.applicationScope === "procurement" ? "GAS" : "";
     state.dataStatus = "available";
     state.dataSource = "";
+    const workflowReadOnly = state.applicationScope === "c" && isInvestmentCMode();
     state.service = options.service || (state.applicationScope === "c"
-      ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId })
+      ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId, workflowReadOnly })
       : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
+    const fallbackWorkflowCapability = typeof defaultService.createWorkflowCapability === "function"
+      ? defaultService.createWorkflowCapability({
+          templateKey: "c",
+          boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
+          legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : "",
+          readOnly: workflowReadOnly
+        })
+      : null;
+    state.workflowCapability = options.workflowCapability
+      || state.service?.workflow
+      || fallbackWorkflowCapability;
     if (state.applicationScope !== "worktodo" && state.applicationScope !== "c" && state.applicationScope !== "procurement") {
       mountCreatorMfaSettings(accessContext);
     }
@@ -3658,6 +4044,7 @@
     mountCTemplateReleasePanel();
     enableBoardActions();
     ensureTaskDetailModal();
+    ensureWorkflowSettingsTab();
     wireNavigation();
     wireSearch();
     renderPrinciples([]);
@@ -3668,7 +4055,7 @@
     root.createWorkspace = createWorkspace;
     root.openArchiveDrawer = openArchiveDrawer;
     const initialView = new URLSearchParams(root.location.search).get("view");
-    if (["principles", "system-map"].includes(initialView)) {
+    if (["principles", "system-map", "workflow-settings"].includes(initialView)) {
       const nav = document.querySelector(`[data-board-nav="${initialView}"]`);
       nav?.click();
     } else showBoardView("board");
@@ -3975,6 +4362,8 @@
     refresh: refreshBoard,
     openTaskDetail: openTaskDetail,
     moveTaskToWorkspace: moveTaskToWorkspace,
+    openWorkflowSettings: openWorkflowSettings,
+    closeWorkflowSettings: closeWorkflowSettings,
     sortTasksByCode: sortTasksByCode,
     completionGateStatus: completionGateStatus,
     completionGateMessage: completionGateMessage,
@@ -3984,6 +4373,7 @@
       const service = activeService();
       const lifecycle = service?.lifecycle || {};
       const lifecycleContract = service?.lifecycleContract || lifecycle.contract || null;
+      const workflow = state.workflowCapability || service?.workflow;
       return {
         applicationScope: state.applicationScope,
         boardIsTemplate: state.boardIsTemplate,
@@ -3993,6 +4383,9 @@
         lifecycleContract: lifecycleContract ? JSON.parse(JSON.stringify(lifecycleContract)) : null,
         lifecycleCapabilities: lifecycle.capabilities ? JSON.parse(JSON.stringify(lifecycle.capabilities)) : {},
         lifecycleImplementation: String(lifecycleContract?.source || "module-c-mother"),
+        workflowContract: workflow?.contract ? JSON.parse(JSON.stringify(workflow.contract)) : null,
+        workflowCapabilities: workflow?.capabilities ? JSON.parse(JSON.stringify(workflow.capabilities)) : {},
+        workflow: state.workflowData ? JSON.parse(JSON.stringify(state.workflowData)) : null,
         templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
         workspaces: state.workspaces.slice(),
         tasks: state.tasks.slice(),
