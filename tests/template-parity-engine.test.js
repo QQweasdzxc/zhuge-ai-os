@@ -423,6 +423,31 @@ test("published parity reports an interface gap from the adopted snapshot withou
   assert.equal(report.overallStatus, "gap");
 });
 
+test("published parity fails closed when a stale adoption has no semantic snapshot", () => {
+  const latestPublishedC = {
+    version: "0.9.0-alpha.9.13",
+    build: "20260909-1228",
+    inventory: engine.canonicalInventory(),
+    behaviorContract: engine.canonicalBehaviorContract()
+  };
+  const report = engine.runManual({
+    latestPublishedC,
+    adoptionStatus: "stale",
+    adoptedIdentity: { version: "0.9.0-alpha.9.12", build: "20260909-0835" },
+    consumerId: "ai-board",
+    applicationScope: "ai_board"
+  });
+
+  assert.equal(report.compareBaseline.status, "unverified");
+  assert.equal(report.compareBaseline.evidence, "adopted-semantic-snapshot-unavailable");
+  assert.equal(report.compareBaseline.interfaceStatus, "unverified");
+  assert.equal(report.compareBaseline.behaviorStatus, "unverified");
+  assert.equal(report.sourceContract.layerStatus, "fail");
+  assert.equal(report.behaviorContract.layerStatus, "fail");
+  assert.equal(report.overallStatus, "gap");
+  assert.equal(report.fingerprint, "UNVERIFIED");
+});
+
 test("the three formal Board pages load one shared Parity Engine before the shared runtime", () => {
   for (const file of ["app/Board/template-preview/index.html", "app/Board/ai/index.html", "app/Board/worktodo/index.html"]) {
     const html = read(file);

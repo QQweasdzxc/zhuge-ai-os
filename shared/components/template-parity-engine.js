@@ -197,6 +197,27 @@
     return parts.join(" · ") || "unavailable";
   }
 
+  function unavailableBehaviorContract(expected, options = {}) {
+    const scope = normalizeBehaviorScope(options.applicationScope || "ai_board");
+    const policy = BEHAVIOR_POLICY[scope] || BEHAVIOR_POLICY.ai_board;
+    return {
+      id: BEHAVIOR_CONTRACT_ID,
+      version: BEHAVIOR_CONTRACT_ID,
+      applicationScope: scope,
+      consumer: options.consumerLabel || policy.label,
+      status: "unverified",
+      layerStatus: "fail",
+      differenceCount: 0,
+      differences: [],
+      approvedDifferences: [],
+      expected,
+      observed: null,
+      policy: policy.mode,
+      evidenceStatus: "unavailable",
+      evidenceMessage: "目前採用版本尚未提供可比對的 C 功能／流程快照。"
+    };
+  }
+
   function behaviorObservation(options = {}) {
     if (options.behaviorObserved && typeof options.behaviorObserved === "object") {
       return { ...options.behaviorObserved, applicationScope: inferBehaviorScope(options, options.behaviorObserved) };
@@ -729,6 +750,8 @@
       || options.currentAdoptedC
       || options.templateRelease?.adoption?.snapshot
     );
+    const adoptedIdentity = options.adoptedIdentity || options.templateRelease?.adoption || null;
+    const semanticBaselineUnavailable = adoptionStatusIsIdentityOnly(options.adoptionStatus) && !adoptedC;
     const mother = baseline || latestPublishedC?.inventory || canonicalInventory();
     const runtimeConsumer = consumer || createInventory();
     const current = adoptedC?.inventory
@@ -781,16 +804,24 @@
         consumerLabel: options.consumerLabel || runtimeConsumer.baseline
       })
       : options.behaviorObserved || runtimeConsumer.behaviorContractObserved || behaviorObservation(options);
-    const behavior = compareBehaviorContractAgainst(behaviorObserved, latestPublishedC?.behaviorContract || canonicalBehaviorContract(), {
-      applicationScope: options.applicationScope || behaviorObserved.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
-      consumerLabel: options.consumerLabel || runtimeConsumer.baseline
-    });
+    const expectedBehavior = latestPublishedC?.behaviorContract || canonicalBehaviorContract();
+    const behavior = semanticBaselineUnavailable
+      ? unavailableBehaviorContract(expectedBehavior, {
+        applicationScope: options.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
+        consumerLabel: options.consumerLabel || runtimeConsumer.baseline
+      })
+      : compareBehaviorContractAgainst(behaviorObserved, expectedBehavior, {
+        applicationScope: options.applicationScope || behaviorObserved.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
+        consumerLabel: options.consumerLabel || runtimeConsumer.baseline
+      });
     const semanticComparison = {
       mode: adoptedC ? "consumer-adopted-vs-latest-published" : "consumer-runtime-vs-latest-published",
+      status: semanticBaselineUnavailable ? "unverified" : "verified",
+      evidence: semanticBaselineUnavailable ? "adopted-semantic-snapshot-unavailable" : "available",
       latestPublishedC: latestPublishedC ? semanticSnapshotIdentity(latestPublishedC) : { source: "c-mother-canonical-source" },
-      consumerCurrentAdoptedC: adoptedC ? semanticSnapshotIdentity(adoptedC) : { source: "current-consumer-runtime-observation" },
-      interfaceStatus: gapCount === 0 ? "match" : "gap",
-      behaviorStatus: behavior.layerStatus === "pass" ? "match" : "gap",
+      consumerCurrentAdoptedC: adoptedC ? semanticSnapshotIdentity(adoptedC) : adoptedIdentity ? semanticSnapshotIdentity(adoptedIdentity) : { source: "adopted-semantic-snapshot-unavailable" },
+      interfaceStatus: semanticBaselineUnavailable ? "unverified" : gapCount === 0 ? "match" : "gap",
+      behaviorStatus: semanticBaselineUnavailable ? "unverified" : behavior.layerStatus === "pass" ? "match" : "gap",
       identityOnlyDifference: Boolean(
         adoptionStatusIsIdentityOnly(options.adoptionStatus)
         && gapCount === 0
@@ -800,7 +831,7 @@
     const source = sourceContract({
       sourceIntegrity: options.sourceIntegrity,
       adoptionStatus: options.adoptionStatus,
-      semanticEvidence: true,
+      semanticEvidence: !semanticBaselineUnavailable,
       semanticComparison
     });
     return {
@@ -813,8 +844,8 @@
       matchCount: matched.length,
       gapCount,
       templateGap: gapCount,
-      fingerprint: gapCount === 0 ? "MATCH" : "MISMATCH",
-      status: gapCount === 0 ? "match" : "gap",
+      fingerprint: semanticBaselineUnavailable ? "UNVERIFIED" : gapCount === 0 ? "MATCH" : "MISMATCH",
+      status: semanticBaselineUnavailable || gapCount > 0 ? "gap" : "match",
       inventory,
       differences,
       differenceDetails,
@@ -831,7 +862,7 @@
       sourceContract: source,
       behaviorContract: behavior,
       compareBaseline: semanticComparison,
-      overallStatus: gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
+      overallStatus: !semanticBaselineUnavailable && gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
     };
   }
 
