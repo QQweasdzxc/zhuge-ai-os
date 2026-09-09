@@ -537,7 +537,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .floating-assistant-hours-badge.empty{background:#ef4444}.floating-assistant-hours-badge.partial{background:#f59e0b;color:#451a03}.floating-assistant-hours-badge.complete{background:#22c55e;color:#052e16}
 @media(max-width:767px){.floating-assistant-widget.collapsed{right:max(14px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom))}.floating-assistant-button.compact{width:48px;height:48px;min-width:48px;max-width:48px}.floating-assistant-glyph{font-size:1.22rem}.worklog-init-screen{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.worklog-init-card{margin-top:clamp(36px,8vh,76px);border-radius:20px}}
 
-/* Build 20260909-1125 — branded WorkLog loading experience */
+/* Build 20260909-1228 — branded WorkLog loading experience */
 .worklog-brand-loading{min-height:100dvh;display:grid;place-items:center;padding:max(28px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));background:radial-gradient(circle at 50% 42%,rgba(32,58,92,.42),transparent 38%),linear-gradient(180deg,#08111f 0%,#0a1426 58%,#07101d 100%);overflow:hidden}
 .worklog-brand-loader{width:min(430px,92vw);text-align:center;color:#f8fafc;display:flex;flex-direction:column;align-items:center}
 .worklog-brand-mark{position:relative;width:min(270px,68vw);aspect-ratio:1/1;margin:0 auto 6px;display:grid;place-items:center;filter:drop-shadow(0 16px 36px rgba(0,0,0,.34))}
