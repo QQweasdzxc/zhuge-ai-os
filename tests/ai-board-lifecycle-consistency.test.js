@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const BoardReadService = require("../shared/board/board-read-service.js");
 
 const root = path.resolve(__dirname, "..");
 const runtime = fs.readFileSync(path.join(root, "shared/components/golden-master-runtime.js"), "utf8");
@@ -10,6 +11,7 @@ const adapter = fs.readFileSync(path.join(root, "shared/components/task-action-a
 const gateway = fs.readFileSync(path.join(root, "shared/supabase/supabase-gateway.js"), "utf8");
 const migration = fs.readFileSync(path.join(root, "docs/supabase/20260908_task_lifecycle_workspace_consistency.sql"), "utf8");
 const pmAcceptanceMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_pm_acceptance_qjc_drop.sql"), "utf8");
+const cLifecycleMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_lifecycle_acceptance_contract.sql"), "utf8");
 
 test("AI Board canonical workspace targets use the formal lifecycle path", () => {
   assert.match(runtime, /function aiBoardLifecycleTarget\(workspace\)/);
@@ -19,7 +21,7 @@ test("AI Board canonical workspace targets use the formal lifecycle path", () =>
   assert.match(runtime, /completed: \{ key: "completed", status: "done", assignee: "QJC"/);
   assert.match(runtime, /if \(lifecycleTarget\) \{[\s\S]*?await moveAiBoardLifecycleTask/);
   assert.match(runtime, /await activeService\(\)\.transitionTask\(task\.id, lifecycleTarget\.status/);
-  assert.match(runtime, /PM Acceptance Evidence.*必填/);
+  assert.doesNotMatch(runtime, /PM Acceptance Evidence.*必填/);
   assert.match(runtime, /PM QA 退回 Evidence.*必填/);
   assert.doesNotMatch(runtime, /PM Acceptance PASS（卡片拖曳：/);
 });
@@ -90,9 +92,53 @@ test("QJC completion drop composes the existing guarded lifecycle contracts atom
   assert.match(pmAcceptanceMigration, /grant execute on function public\.board_pm_acceptance_from_qjc_drop[^;]*authenticated/i);
   assert.doesNotMatch(pmAcceptanceMigration, /board_reconcile_pm_acceptance_lifecycle/);
   assert.match(runtime, /currentKey === "qjc" && status === "qa" && \(assignee === "GPT" \|\| assignee === "QJC"\)/);
-  assert.match(runtime, /activeService\(\)\.pmAcceptTaskFromQjcDrop/);
+  assert.match(runtime, /acceptThroughCContract/);
+  assert.match(runtime, /module-c-lifecycle-acceptance-v1/);
   const acceptanceStart = runtime.indexOf("async function acceptTaskByCardDrop");
   const acceptanceEnd = runtime.indexOf("async function rejectTaskByCardDrop");
   assert.ok(acceptanceStart >= 0 && acceptanceEnd > acceptanceStart);
+  assert.doesNotMatch(runtime.slice(acceptanceStart, acceptanceEnd), /window\.prompt/);
   assert.doesNotMatch(runtime.slice(acceptanceStart, acceptanceEnd), /transitionTask\([^\n]*done/);
+});
+
+test("the shared C lifecycle contract records PM action context without weakening the gate", () => {
+  assert.match(service, /C_LIFECYCLE_ACCEPTANCE_CONTRACT/);
+  assert.match(service, /acceptFromQjcDrop/);
+  assert.match(service, /lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
+  assert.match(cLifecycleMigration, /contract=module-c-lifecycle-acceptance-v1/);
+  assert.match(cLifecycleMigration, /action=qjc-drop-to-completed/);
+  assert.match(cLifecycleMigration, /source_workspace_id=%s/);
+  assert.match(cLifecycleMigration, /target_workspace_id=%s/);
+  assert.match(cLifecycleMigration, /clock_timestamp\(\)/);
+  assert.match(cLifecycleMigration, /public\.board_transition_task/);
+  assert.match(cLifecycleMigration, /public\.board_update_checklist_item/);
+  assert.doesNotMatch(cLifecycleMigration, /delete\s+from\s+public\.(board_tasks|engineering_checklist_items)/i);
+  assert.doesNotMatch(cLifecycleMigration, /insert\s+into\s+public\.(board_tasks|engineering_checklist_items)/i);
+  const acceptanceStart = cLifecycleMigration.indexOf("create or replace function public.board_pm_acceptance_from_qjc_drop");
+  const noteGuard = cLifecycleMigration.indexOf("PM Acceptance 必須填寫 Evidence", acceptanceStart);
+  assert.equal(noteGuard, -1, "the QJC drop contract must not require a user-entered PM evidence note");
+});
+
+test("consumer adoption keeps WorkTodo and Investment outside PM Acceptance", () => {
+  assert.match(adapter, /consumer: "worktodo"[\s\S]*governanceChecklist: false/);
+  assert.match(runtime, /state\.applicationScope !== "ai_board"/);
+  assert.match(runtime, /Investment/);
+  assert.match(service, /instanceOptions\.lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
+});
+
+test("createInstanceService exposes the shared contract with explicit consumer opt-in", () => {
+  const gateway = { select: async () => [] };
+  const generic = BoardReadService.createInstanceService({ gateway, boardInstanceId: "consumer-1" });
+  assert.equal(generic.lifecycleContract.id, "module-c-lifecycle-acceptance-v1");
+  assert.equal(generic.lifecycle.capabilities.pmAcceptanceFromQjcDrop, false);
+  assert.equal(typeof generic.lifecycle.acceptFromQjcDrop, "undefined");
+
+  const optedIn = BoardReadService.createInstanceService({
+    gateway,
+    boardInstanceId: "ai-board-1",
+    lifecycleCapabilities: { pmAcceptanceFromQjcDrop: true }
+  });
+  assert.equal(optedIn.lifecycleContract, generic.lifecycleContract);
+  assert.equal(optedIn.lifecycle.capabilities.pmAcceptanceFromQjcDrop, true);
+  assert.equal(typeof optedIn.lifecycle.acceptFromQjcDrop, "function");
 });

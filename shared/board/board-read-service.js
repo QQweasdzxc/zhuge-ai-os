@@ -28,6 +28,25 @@
     cancelled: Object.freeze({ key: "cancelled", label: "已取消", code: "cancelled" })
   });
 
+  // C owns the standard acceptance contract.  Consumers opt into the
+  // capability according to their product role; the contract itself is never
+  // reimplemented by a consumer runtime.
+  const C_LIFECYCLE_ACCEPTANCE_CONTRACT = Object.freeze({
+    id: "module-c-lifecycle-acceptance-v1",
+    acceptanceAction: "qjc-drop-to-completed",
+    evidenceMode: "controlled-action-context",
+    genericDoneTransition: "forbidden"
+  });
+
+  function createLifecycleCapability(acceptFromQjcDrop, enabled = true) {
+    const capability = {
+      contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
+      capabilities: Object.freeze({ pmAcceptanceFromQjcDrop: Boolean(enabled) })
+    };
+    if (enabled && typeof acceptFromQjcDrop === "function") capability.acceptFromQjcDrop = acceptFromQjcDrop;
+    return Object.freeze(capability);
+  }
+
   /*
    * The server-side board_transition_task() remains the authority.  This
    * client-side map is deliberately only a UX contract: it tells QJC which
@@ -1050,14 +1069,23 @@
     }).then(normalizeChecklistItem);
   }
 
-  async function pmAcceptTaskFromQjcDrop(input = {}, options = {}) {
+  async function acceptTaskFromQjcDrop(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_pm_acceptance_from_qjc_drop", {
       p_task_id: input.taskId,
       p_item_id: input.itemId,
+      // A QJC Drop is itself the PM Acceptance intent.  The Cloud contract
+      // creates the auditable action context; a UI prompt must not be used as
+      // a substitute for that controlled record.
       p_evidence_note: input.evidenceNote || null,
       p_evidence_ref: input.evidenceRef || null
     });
+  }
+
+  // Compatibility alias for older callers.  New shared Runtime code uses the
+  // canonical C lifecycle capability above.
+  async function pmAcceptTaskFromQjcDrop(input = {}, options = {}) {
+    return acceptTaskFromQjcDrop(input, options);
   }
 
   async function pmQaFailChecklist(input = {}, options = {}) {
@@ -1374,6 +1402,10 @@
         p_evidence_ref: input.evidenceRef || null
       }).then(normalizeChecklistItem);
     }
+    async function instanceAcceptTaskFromQjcDrop(input = {}) {
+      await resolveInstance();
+      return acceptTaskFromQjcDrop(input, withGateway());
+    }
     async function instanceAddProgress(taskId, note) {
       await resolveInstance();
       return gateway.rpc("board_instance_add_progress_note", { p_task_id: taskId, p_note: note }).then(normalizeInstanceActivity);
@@ -1461,11 +1493,17 @@
       error.code = "BOARD_INSTANCE_GOVERNANCE_ACTION_UNAVAILABLE";
       throw error;
     }
+    const lifecycle = createLifecycleCapability(
+      instanceAcceptTaskFromQjcDrop,
+      instanceOptions.lifecycleCapabilities?.pmAcceptanceFromQjcDrop === true
+    );
     return Object.freeze({
       applicationScope: "c",
       templateKey,
       consumerId: requestedConsumerId,
       boardInstanceId: requestedBoardInstanceId,
+      lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
+      lifecycle,
       resolveInstance,
       load: instanceLoad,
       loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),
@@ -1584,6 +1622,8 @@
 
   return Object.freeze({
     ENGINEERING_STATUS_DESCRIPTORS,
+    lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
+    lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop),
     planTransition,
     availableTransitions,
     normalizeStatus,
@@ -1596,6 +1636,8 @@
     normalizeTask,
     normalizeTaskChecklistItem,
     normalizeTaskAttachment,
+    C_LIFECYCLE_ACCEPTANCE_CONTRACT,
+    createLifecycleCapability,
     isGovernanceTerminal,
     isArchiveTask,
     normalizeChecklistItem,
@@ -1646,6 +1688,7 @@
     deleteTaskChecklistItem,
     createChecklistItem,
     updateChecklistItem,
+    acceptTaskFromQjcDrop,
     pmAcceptTaskFromQjcDrop,
     pmQaFailChecklist,
     reconcilePmAcceptanceLifecycle,
