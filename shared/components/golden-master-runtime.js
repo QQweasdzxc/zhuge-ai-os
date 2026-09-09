@@ -618,8 +618,7 @@
     document.querySelectorAll("[data-workspace-menu]").forEach(button => button.setAttribute("aria-expanded", "false"));
   }
   function isMainBoardWorkspace(workspace) {
-    const key = String(workspace?.key || "").toLowerCase();
-    const name = String(workspace?.name || "").trim();
+    if (workspace?.archivedAt) return false;
     if (state.applicationScope === "worktodo") {
       return workspace?.active === true && workspace?.applicationScope === "worktodo";
     }
@@ -632,12 +631,9 @@
         || (!state.boardInstanceId && String(workspace?.key || "").toLowerCase().startsWith(`${boardTaskPrefix()}-`))
       );
     }
-    // Keep the historical done/已完工 Cloud row intact but out of the active
-    // Board. The canonical renamed workspace 已完成 remains visible for the
-    // 48-hour post-acceptance lifecycle window. GPT區 is a legacy responsibility
-    // column; the current workflow uses workspace position itself as the stage.
-    return workspace?.active === true
-      && (key ? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區");
+    // Cloud owns workspace visibility and placement. A workspace name or
+    // lifecycle role is not a reason for the renderer to hide an active row.
+    return workspace?.active === true;
   }
   function isWorkspaceDeletable(workspace) {
     return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
@@ -788,11 +784,13 @@
     renderWorkspaceColumns();
     const groups = Object.fromEntries(state.workspaces.filter(isMainBoardWorkspace).map(workspace => [workspace.id, []]));
     const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(task => !isArchiveTask(task));
+    let unresolvedWorkspaceCount = 0;
     sortTasksForDisplay(activeTasks).forEach(task => {
-      const fallbackKey = defaultBoardWorkspaceKey();
-      const fallback = state.workspaces.find(workspace => workspace.key === fallbackKey);
-      const bucket = Object.prototype.hasOwnProperty.call(groups, task.workspaceId) ? task.workspaceId : fallback?.id;
-      if (bucket && groups[bucket]) groups[bucket].push(task);
+      if (Object.prototype.hasOwnProperty.call(groups, task.workspaceId)) {
+        groups[task.workspaceId].push(task);
+      } else {
+        unresolvedWorkspaceCount += 1;
+      }
     });
     state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder).forEach(workspace => {
       const column = Array.from(document.querySelectorAll("[data-shared-task-board-column]")).find(item => item.dataset.workspaceId === workspace.id);
@@ -806,6 +804,9 @@
       if (count) count.textContent = String(rows.length);
     });
     wireTaskCards();
+    if (unresolvedWorkspaceCount) {
+      setBanner(`有 ${unresolvedWorkspaceCount} 張卡片的 Cloud 工作區不存在或未啟用；未將卡片移到其他工作區，請確認正式工作區設定。`, "error");
+    }
   }
   function visibleTasks() {
     const query = state.searchQuery.trim().toLocaleLowerCase("zh-TW");

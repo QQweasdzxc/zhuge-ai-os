@@ -60,28 +60,6 @@
     return Object.freeze(capability);
   }
 
-  /*
-   * The server-side board_transition_task() remains the authority.  This
-   * client-side map is deliberately only a UX contract: it tells QJC which
-   * drop targets are meaningful before the controlled RPC is called and gives
-   * a PM-readable reason when a drop is rejected.  It must stay in lockstep
-   * with the approved RPC transitions, never replace them.
-   */
-  const QJC_TRANSITIONS = Object.freeze({
-    ready: Object.freeze({
-      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "開始推進（Co）" })
-    }),
-    inprogress: Object.freeze({
-      todo: Object.freeze({ status: "ready", assignee: "Co", action: "退回待辦（Co）" }),
-      qa: Object.freeze({ status: "qa", assignee: "GPT", action: "Co 完成 → 交 GPT" })
-    }),
-    qa: Object.freeze({
-      progress: Object.freeze({ status: "inprogress", assignee: "Co", action: "退回 Co 修正" }),
-      qa: Object.freeze({ status: "qa", assignee: "QJC", action: "GPT Review 通過 → 交 QJC", requiresAssignee: "GPT" })
-    }),
-    done: Object.freeze({})
-  });
-
   function normalizeStatus(value) {
     const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
     if (raw === "merged" || raw === "merge") return "merged";
@@ -133,46 +111,6 @@
     // existing read-only Archive. New completion rows are governed by the
     // workspace/timestamp branch above.
     return true;
-  }
-
-  function planTransition(task, targetUiKey) {
-    const currentStatus = normalizeStatus(task?.status);
-    const currentStatusDescriptor = statusDescriptorFor(currentStatus);
-    const target = QJC_TRANSITIONS[currentStatus]?.[String(targetUiKey || "")];
-    if (!target) {
-      return Object.freeze({
-        allowed: false,
-        currentStatus,
-        currentStatusDescriptor,
-        reason: currentStatusDescriptor.key === targetUiKey
-          ? "這張卡片已在目前工作區，不需要重複交接。"
-          : `目前工程狀態為「${currentStatusDescriptor.label}」，只能依序交給下一個工作階段；不能直接執行這個工程交接。`
-      });
-    }
-    if (target.requiresAssignee && String(task?.assignee || "") !== target.requiresAssignee) {
-      const owner = target.requiresAssignee === "GPT" ? "GPT Review" : "QJC PM QA";
-      return Object.freeze({
-        allowed: false,
-        currentStatus,
-        currentStatusDescriptor,
-        reason: `目前接球者不是${owner}，不能執行這個交接；請先由目前負責角色完成驗證。`
-      });
-    }
-    return Object.freeze({
-      allowed: true,
-      currentStatus,
-      currentStatusDescriptor,
-      targetWorkspace: String(targetUiKey),
-      status: target.status,
-      assignee: target.assignee,
-      action: target.action
-    });
-  }
-
-  function availableTransitions(task) {
-    return Object.freeze(Object.keys(QJC_TRANSITIONS[normalizeStatus(task?.status)] || {})
-      .map(target => planTransition(task, target))
-      .filter(item => item.allowed));
   }
 
   function normalizeWorkspace(row = {}) {
@@ -1657,8 +1595,6 @@
     ENGINEERING_STATUS_DESCRIPTORS,
     lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
     lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop, true, reconcileWorkspaceDecision),
-    planTransition,
-    availableTransitions,
     normalizeStatus,
     statusDescriptorFor,
     normalizeWorkspace,
