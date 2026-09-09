@@ -33,9 +33,15 @@
   // reimplemented by a consumer runtime.
   const C_LIFECYCLE_ACCEPTANCE_CONTRACT = Object.freeze({
     id: "module-c-lifecycle-acceptance-v1",
+    source: "module-c-mother",
     acceptanceAction: "qjc-drop-to-completed",
     workspaceDecisionAction: "pm-workspace-decision",
+    completionDecisionAction: "pm-workspace-decision-to-completed",
+    reopenAction: "pm-workspace-decision-reopen",
     evidenceMode: "controlled-action-context",
+    historicalEngineeringEvidence: "preserved-not-required-for-pm-decision",
+    audit: "engineering_activity_log",
+    atomicity: "single-transaction",
     genericDoneTransition: "forbidden"
   });
 
@@ -44,7 +50,9 @@
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
       capabilities: Object.freeze({
         pmAcceptanceFromQjcDrop: Boolean(enabled),
-        pmWorkspaceAuthority: typeof reconcileWorkspaceDecision === "function"
+        pmWorkspaceAuthority: typeof reconcileWorkspaceDecision === "function",
+        pmCompletionDecision: typeof reconcileWorkspaceDecision === "function",
+        pmReopenDecision: typeof reconcileWorkspaceDecision === "function"
       })
     };
     if (enabled && typeof acceptFromQjcDrop === "function") capability.acceptFromQjcDrop = acceptFromQjcDrop;

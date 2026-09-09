@@ -34,6 +34,23 @@
     "runtimePresent", "renderPresent", "probe", "classifierPresent", "bindPresent",
     "contractPresent", "apisPresent", "gatePresent", "methodsPresent"
   ]);
+  const BEHAVIOR_CONTRACT_ID = "module-c-lifecycle-acceptance-v1";
+  const BEHAVIOR_CONTRACT_SOURCE = "module-c-mother";
+  const BEHAVIOR_CONTRACT_CHECKS = Object.freeze([
+    "workspaceDecision",
+    "completionDecision",
+    "reopenDecision",
+    "acceptance",
+    "audit",
+    "atomicity"
+  ]);
+  const BEHAVIOR_POLICY = Object.freeze({
+    c: Object.freeze({ mode: "required", label: "C 母版" }),
+    ai_board: Object.freeze({ mode: "required", label: "AI Board" }),
+    worktodo: Object.freeze({ mode: "approved", label: "WorkTodo", reason: "WorkTodo 保留個人工作產品語意，不啟用 Engineering Acceptance。" }),
+    procurement: Object.freeze({ mode: "approved", label: "庶務行政", reason: "庶務行政依產品 Capability 使用自己的資料與操作邊界。" }),
+    investment: Object.freeze({ mode: "approved", label: "Investment", reason: "Investment 維持 read-only 產品邊界，不啟用看板 Lifecycle 操作。" })
+  });
 
   function stableSerialize(value) {
     if (value === undefined) return '"__undefined__"';
@@ -61,6 +78,260 @@
       if (!OBSERVATION_ONLY_KEYS.has(key)) result[key] = stripObservationOnly(value[key]);
       return result;
     }, {});
+  }
+
+  function normalizeBehaviorScope(value) {
+    const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (raw === "ai" || raw === "aiboard" || raw === "aiboardconsumer") return "ai_board";
+    if (raw === "worktodo" || raw === "worktodotasks" || raw === "tasksnew") return "worktodo";
+    if (raw === "procurement" || raw === "gas" || raw === "庶務行政") return "procurement";
+    if (raw === "investment" || raw === "ivtk" || raw === "portfolio") return "investment";
+    if (raw === "c" || raw === "cmother" || raw === "c母版") return "c";
+    return String(value || "").trim().toLowerCase() || "ai_board";
+  }
+
+  function inferBehaviorScope(options = {}, snapshot = {}) {
+    const rawScope = options.applicationScope || snapshot.applicationScope || options.consumerId || options.consumerLabel || "";
+    const scope = normalizeBehaviorScope(rawScope);
+    if (scope !== "c" || snapshot.boardIsTemplate === true || options.isMotherTemplate === true) return scope;
+    const prefix = String(options.taskCodePrefix || snapshot.taskCodePrefix || "").trim().toUpperCase();
+    const label = String(options.consumerLabel || snapshot.boardName || "").trim().toLowerCase();
+    if (prefix === "IVTK" || label.includes("investment") || label.includes("投資")) return "investment";
+    if (prefix === "GAS" || label.includes("gas") || label.includes("庶務")) return "procurement";
+    return scope;
+  }
+
+  function canonicalBehaviorContract() {
+    return {
+      id: BEHAVIOR_CONTRACT_ID,
+      source: BEHAVIOR_CONTRACT_SOURCE,
+      workspaceDecision: "canonical",
+      completionDecision: "canonical",
+      reopenDecision: "canonical",
+      acceptance: "canonical",
+      audit: "canonical",
+      atomicity: "single-transaction"
+    };
+  }
+
+  function behaviorObservation(options = {}) {
+    if (options.behaviorObserved && typeof options.behaviorObserved === "object") {
+      return { ...options.behaviorObserved, applicationScope: inferBehaviorScope(options, options.behaviorObserved) };
+    }
+    const root = options.root || runtimeRoot || globalThis;
+    const runtime = root?.ZhugeBoardRuntime;
+    const snapshot = typeof runtime?.getSnapshot === "function" ? (runtime.getSnapshot() || {}) : {};
+    const scope = inferBehaviorScope(options, snapshot);
+    const contract = snapshot.lifecycleContract || runtime?.lifecycleContract || root?.ZhugeBoardReadService?.lifecycleContract || {};
+    const capabilities = snapshot.lifecycleCapabilities || runtime?.lifecycleCapabilities || {};
+    const sharedRuntime = Boolean(
+      runtime
+      && typeof runtime.moveTaskToWorkspace === "function"
+      && typeof runtime.getSnapshot === "function"
+    );
+    const implementationSource = String(
+      options.implementationSource
+      || snapshot.lifecycleImplementation
+      || contract.source
+      || ""
+    ).trim().toLowerCase();
+    const contractId = String(contract.id || "").trim();
+    const isCanonicalContract = contractId === BEHAVIOR_CONTRACT_ID && implementationSource === BEHAVIOR_CONTRACT_SOURCE;
+    const privateImplementation = /consumer[-_ ]?(specific|private)|private[-_ ]?consumer/.test(implementationSource)
+      || snapshot.consumerLifecycleImplementation === "consumer-specific";
+    const canonicalMethod = typeof runtime?.moveTaskToWorkspace === "function"
+      && (
+        capabilities.pmWorkspaceAuthority === true
+        || scope === "worktodo"
+        || scope === "procurement"
+        || scope === "investment"
+        || (scope === "c" && (snapshot.boardIsTemplate === true || options.isMotherTemplate === true))
+      );
+    return {
+      applicationScope: scope,
+      consumer: String(options.consumerLabel || snapshot.boardName || scope || "Current Consumer"),
+      contractId,
+      source: String(contract.source || "").trim().toLowerCase(),
+      implementationSource: privateImplementation ? "consumer-specific" : implementationSource || "unknown",
+      sharedRuntime,
+      capabilities: { ...capabilities },
+      workspaceDecision: sharedRuntime && canonicalMethod && isCanonicalContract ? "canonical" : "unavailable",
+      completionDecision: isCanonicalContract && contract.completionDecisionAction === "pm-workspace-decision-to-completed" ? "canonical" : "unavailable",
+      reopenDecision: isCanonicalContract && contract.reopenAction === "pm-workspace-decision-reopen" ? "canonical" : "unavailable",
+      acceptance: isCanonicalContract
+        && contract.acceptanceAction === "qjc-drop-to-completed"
+        && contract.evidenceMode === "controlled-action-context" ? "canonical" : "unavailable",
+      audit: isCanonicalContract && contract.audit === "engineering_activity_log" ? "canonical" : "unavailable",
+      atomicity: isCanonicalContract && contract.atomicity === "single-transaction" ? "single-transaction" : "unverified",
+      privateImplementation
+    };
+  }
+
+  function behaviorDifference(check, expected, actual) {
+    const copy = {
+      workspaceDecision: {
+        title: "卡片移動流程與 C 母版不同",
+        cause: "目前 Consumer 沒有採用 C 母版的工作區決定流程。",
+        impact: "PM 移動卡片時，工作區與正式狀態可能無法依同一套規則收斂。",
+        recommendation: "由 Consumer 採用 C Mother 的 Workspace Decision Contract，不在頁面另做同義流程。"
+      },
+      completionDecision: {
+        title: "完成流程與 C 母版不同",
+        cause: "目前 Consumer 沒有使用 C Mother 定義的 PM Completion Decision。",
+        impact: "PM 可能需要額外理解內部工作階段，或遇到不同的完成結果。",
+        recommendation: "接回 C Mother 的受控完成流程；保留必要 Gate，但不要新增 Consumer-specific Acceptance。"
+      },
+      reopenDecision: {
+        title: "重新開啟流程與 C 母版不同",
+        cause: "目前 Consumer 沒有使用 C Mother 定義的 Reopen Decision。",
+        impact: "完成後重新交回工作時，正式狀態、負責人與 Audit 可能不同步。",
+        recommendation: "採用 C Mother 的 Reopen／Reconciliation Contract。"
+      },
+      acceptance: {
+        title: "驗收流程與 C 母版不同",
+        cause: "目前 Consumer 的 PM Acceptance 入口或操作 Context 沒有接到 C Mother。",
+        impact: "PM 的完成決定可能被錯誤轉成手動工程 Evidence 要求。",
+        recommendation: "使用 C Mother 的受控 Acceptance Context，不在 Consumer 複製驗收邏輯。"
+      },
+      audit: {
+        title: "Audit 紀錄流程與 C 母版不同",
+        cause: "目前 Consumer 沒有確認共用 Lifecycle Audit 的正式紀錄來源。",
+        impact: "工作區移動、完成或重新開啟可能缺少可追溯紀錄。",
+        recommendation: "沿用 C Mother 指定的 Cloud Audit 來源。"
+      },
+      atomicity: {
+        title: "操作的原子性與 C 母版不同",
+        cause: "目前 Consumer 沒有確認狀態、工作區與 Audit 是否在同一個受控交易中完成。",
+        impact: "畫面位置與正式狀態可能短暫或永久分裂。",
+        recommendation: "由 C Mother Contract 保持成功全寫入、失敗全不變。"
+      }
+    }[check] || {
+      title: "操作與流程與 C 母版不同",
+      cause: "目前 Consumer 尚未證明採用 C Mother 的共用流程。",
+      impact: "可能造成不同頁面操作結果不一致。",
+      recommendation: "回到 C Mother Contract 統一共用流程。"
+    };
+    return {
+      id: `behavior.${check}`,
+      check,
+      kind: "behavior-contract",
+      title: copy.title,
+      cause: copy.cause,
+      impact: copy.impact,
+      recommendation: copy.recommendation,
+      expected,
+      actual: actual || "未提供"
+    };
+  }
+
+  function compareBehaviorContract(observed, options = {}) {
+    const actual = observed || {};
+    const scope = normalizeBehaviorScope(options.applicationScope || actual.applicationScope || "ai_board");
+    const policy = BEHAVIOR_POLICY[scope] || BEHAVIOR_POLICY.ai_board;
+    const expected = canonicalBehaviorContract();
+    const differences = [];
+    const approvedDifferences = [];
+
+    if (policy.mode === "approved") {
+      const canonicalIdentity = actual.contractId === expected.id
+        && actual.implementationSource === BEHAVIOR_CONTRACT_SOURCE;
+      if (actual.privateImplementation || actual.implementationSource === "consumer-specific" || !canonicalIdentity) {
+        differences.push({
+          id: "behavior.private-implementation",
+          check: "implementationSource",
+          kind: "behavior-contract",
+          title: "Consumer 尚未證明採用 C 母版流程",
+          cause: actual.privateImplementation || actual.implementationSource === "consumer-specific"
+            ? `${policy.label} 目前回報了 Consumer-specific Lifecycle 實作，而不是採用 C Mother。`
+            : `${policy.label} 尚未回報完整的 C Canonical Contract 身分。`,
+          impact: "共用看板流程可能在不同產品中逐步漂移。",
+          recommendation: "保留產品 Capability 差異，但先由 Consumer 採用 C Mother Canonical Contract；不要在 Consumer 另做同義流程。",
+          expected: BEHAVIOR_CONTRACT_SOURCE,
+          actual: actual.implementationSource || "未提供"
+        });
+      } else {
+        approvedDifferences.push({
+          id: `behavior.approved.${scope}`,
+          kind: "approved-capability-difference",
+          title: `${policy.label} 依產品 Capability 使用不同邊界`,
+          detail: policy.reason
+        });
+      }
+      return {
+        id: BEHAVIOR_CONTRACT_ID,
+        version: BEHAVIOR_CONTRACT_ID,
+        applicationScope: scope,
+        consumer: actual.consumer || policy.label,
+        status: differences.length ? "gap" : "approved",
+        layerStatus: differences.length ? "fail" : "pass",
+        differenceCount: differences.length,
+        differences,
+        approvedDifferences,
+        expected,
+        observed: actual,
+        policy: policy.mode
+      };
+    }
+
+    if (actual.privateImplementation || actual.implementationSource === "consumer-specific") {
+      differences.push({
+        id: "behavior.private-implementation",
+        check: "implementationSource",
+        kind: "behavior-contract",
+        title: "Consumer 有自己的同義流程",
+        cause: "目前 Consumer 回報了 Consumer-specific Lifecycle 實作，而不是採用 C Mother。",
+        impact: "這會讓畫面雖然同屬 C Consumer，操作流程卻可能逐步漂移。",
+        recommendation: "回到 C Mother Canonical Contract 修正，不能以 Consumer patch 取代。",
+        expected: BEHAVIOR_CONTRACT_SOURCE,
+        actual: actual.implementationSource
+      });
+    }
+    if (actual.contractId !== expected.id) {
+      differences.push(behaviorDifference("completionDecision", expected.id, actual.contractId));
+    }
+    BEHAVIOR_CONTRACT_CHECKS.forEach(check => {
+      if (actual[check] !== expected[check]) differences.push(behaviorDifference(check, expected[check], actual[check]));
+    });
+    return {
+      id: BEHAVIOR_CONTRACT_ID,
+      version: BEHAVIOR_CONTRACT_ID,
+      applicationScope: scope,
+      consumer: actual.consumer || policy.label,
+      status: differences.length ? "gap" : "match",
+      layerStatus: differences.length ? "fail" : "pass",
+      differenceCount: differences.length,
+      differences,
+      approvedDifferences,
+      expected,
+      observed: actual,
+      policy: policy.mode
+    };
+  }
+
+  function sourceContract(options = {}) {
+    const sourceIntegrity = String(options.sourceIntegrity || "").trim().toLowerCase();
+    const adoptionStatus = String(options.adoptionStatus || "").trim().toLowerCase();
+    const status = sourceIntegrity === "mismatch"
+      ? "gap"
+      : sourceIntegrity === "match" || adoptionStatus === "adopted"
+        ? "match"
+        : "approved";
+    return {
+      id: "module-c-published-source-v1",
+      status,
+      layerStatus: status === "gap" ? "fail" : "pass",
+      sourceIntegrity: sourceIntegrity || "unverified",
+      adoptionStatus: adoptionStatus || "unverified",
+      differences: status === "gap" ? [{
+        id: "source.integrity",
+        kind: "source-integrity",
+        title: "目前載入來源與 Published C 不一致",
+        cause: "Consumer 的程式來源沒有對上目前已發布的 C 母版。",
+        impact: "即使畫面看起來相似，功能與操作流程也可能不是同一個版本。",
+        recommendation: "先採用與 Published C 相符的來源，再進行 Consumer 驗證。"
+      }] : [],
+      detail: status === "match" ? "目前來源已對上 Published C。" : status === "gap" ? "來源完整性檢查未通過。" : "目前未發現來源衝突；完整來源證據保留在技術明細。"
+    };
   }
 
   function expectedCapabilities() {
@@ -335,7 +606,7 @@
     return 0;
   }
 
-  function compare(baseline, consumer) {
+  function compare(baseline, consumer, options = {}) {
     const mother = baseline || canonicalInventory();
     const current = consumer || createInventory();
     const motherRows = Array.isArray(mother.capabilities) ? mother.capabilities : [];
@@ -375,6 +646,14 @@
     const machineConsumerCount = currentRows.reduce((count, row) => count + 1 + contractNodeCount(row.machineContract !== undefined ? row.machineContract : row.contract), 0);
     const machineMatchCount = machineInventory.filter(row => row.status === "MATCH").length;
     const gapCount = machineGapCount || differences.length;
+    const behaviorObserved = options.behaviorObserved || consumer.behaviorContractObserved || behaviorObservation(options);
+    const behavior = compareBehaviorContract(behaviorObserved, {
+      applicationScope: options.applicationScope || behaviorObserved.applicationScope || consumer.applicationScope || consumer.consumerId
+    });
+    const source = sourceContract({
+      sourceIntegrity: options.sourceIntegrity,
+      adoptionStatus: options.adoptionStatus
+    });
     return {
       engineVersion: ENGINE_VERSION,
       baseline: "C Mother Template",
@@ -399,7 +678,10 @@
       childConsumerCount: Math.max(0, machineConsumerCount - currentRows.length),
       ignoredData: ["data", "workspace", "card-content", "identity"],
       direction: "consumer-to-c",
-      trigger: current.trigger || "manual"
+      trigger: current.trigger || "manual",
+      sourceContract: source,
+      behaviorContract: behavior,
+      overallStatus: gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
     };
   }
 
@@ -408,7 +690,13 @@
     const consumer = options.consumerInventory
       ? { ...options.consumerInventory, trigger: options.trigger || options.consumerInventory.trigger || "manual" }
       : collectConsumerInventory({ ...options, consumerId: options.consumerId, baseline: options.consumerLabel || "Current Consumer" });
-    return compare(baseline, consumer);
+    return compare(baseline, consumer, {
+      ...options,
+      behaviorObserved: options.behaviorObserved,
+      applicationScope: options.applicationScope,
+      sourceIntegrity: options.sourceIntegrity,
+      adoptionStatus: options.adoptionStatus
+    });
   }
 
   function runManual(options = {}) {
@@ -421,7 +709,10 @@
 
   function summary(report) {
     const item = report || {};
-    const prefix = item.gapCount === 0 ? "🟢 C 母版一致" : "🔴 C 母版不一致";
+    const healthy = item.overallStatus
+      ? item.overallStatus === "match"
+      : item.gapCount === 0;
+    const prefix = healthy ? "🟢 C 母版一致" : "🔴 C 母版不一致";
     return `${prefix}｜${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)}${item.gapCount ? `｜Gap ${item.gapCount}` : ""}`;
   }
 
@@ -607,11 +898,21 @@
       lines.push("子能力差異（機器比對）：");
       item.differenceDetails.forEach(diff => lines.push(`- ${diff.status || "UNKNOWN"}｜${diff.label || diff.id}｜${diff.path || diff.id}｜${diff.detail || ""}`));
     }
+    if (item.sourceContract) {
+      lines.push(`Source Contract：${item.sourceContract.id || "—"}｜${item.sourceContract.status || "UNKNOWN"}｜Integrity ${item.sourceContract.sourceIntegrity || "unverified"}｜Adoption ${item.sourceContract.adoptionStatus || "unverified"}`);
+    }
+    if (item.behaviorContract) {
+      lines.push(`Behavior Contract：${item.behaviorContract.id || "—"}｜${item.behaviorContract.status || "UNKNOWN"}｜Consumer ${item.behaviorContract.consumer || "—"}`);
+      (item.behaviorContract.differences || []).forEach(diff => lines.push(`- BEHAVIOR ${diff.check || diff.id || "unknown"}｜${diff.title || "操作與流程不同"}｜expected=${diff.expected || "—"}｜actual=${diff.actual || "—"}`));
+      (item.behaviorContract.approvedDifferences || []).forEach(diff => lines.push(`- APPROVED CAPABILITY｜${diff.title || diff.id || "產品能力差異"}｜${diff.detail || ""}`));
+    }
     return lines.join("\n");
   }
 
   return Object.freeze({
     ENGINE_VERSION,
+    BEHAVIOR_CONTRACT_ID,
+    BEHAVIOR_CONTRACT_SOURCE,
     REQUIRED_ACTIONS,
     SHARED_COMPONENT_APIS,
     expectedCapabilities,
@@ -619,6 +920,10 @@
     canonicalInventory,
     collectConsumerInventory,
     createInventory,
+    canonicalBehaviorContract,
+    behaviorObservation,
+    compareBehaviorContract,
+    sourceContract,
     compare,
     run,
     runManual,
