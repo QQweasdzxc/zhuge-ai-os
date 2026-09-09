@@ -30,5 +30,6 @@ test("Drawer PM acceptance and QJC card drag share the formal completion lifecyc
   assert.match(audit, /gptLabel=true/);
   assert.match(audit, /failStayed=true/);
   assert.match(audit, /failMessage=true/);
+  assert.match(audit, /promptCalls=0/);
   assert.match(audit, /errors=$/);
 });

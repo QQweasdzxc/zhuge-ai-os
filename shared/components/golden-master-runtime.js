@@ -1170,22 +1170,16 @@
   }
 
   async function acceptTaskByCardDrop(task, current, target) {
-    const targetLabel = target?.name || "已完成";
-    const note = window.prompt(`請輸入 PM Acceptance Evidence（移至「${targetLabel}」；必填）`, "");
-    if (note === null) return;
-    if (!note.trim()) {
-      setBanner("PM Acceptance 必須填寫 Evidence；卡片未移動。", "error");
-      return;
-    }
     setBanner("正在以卡片拖曳執行 PM Acceptance PASS…", "loading");
     try {
       const items = await activeService().loadChecklist(task.id);
       const item = (Array.isArray(items) ? items : []).find(isPmAcceptanceItem);
       if (!item) throw new Error("正式 PM Acceptance Record 尚未建立，未執行完成。");
-      await activeService().pmAcceptTaskFromQjcDrop({
+      await acceptThroughCContract({
         taskId: task.id,
         itemId: item.id,
-        evidenceNote: note.trim()
+        sourceWorkspaceId: current?.id || task.workspaceId || "",
+        targetWorkspaceId: target?.id || ""
       });
       await refreshBoard({ quiet: true });
       setBanner("已透過卡片拖曳完成 PM Acceptance PASS；Cloud Lifecycle／Audit 已同步。", "success");
@@ -1970,6 +1964,17 @@
   function isPmAcceptanceItem(item) {
     const identity = `${item?.itemKey || ""} ${item?.label || ""}`.toLowerCase();
     return String(item?.stage || "").toLowerCase() === "qjc" && (item?.itemKey === "pm-acceptance" || /pm[-_ ]?acceptance|pm[-_ ]?qa|驗收/.test(identity));
+  }
+  function acceptThroughCContract(input = {}) {
+    const lifecycle = activeService()?.lifecycle;
+    if (lifecycle?.contract?.id !== "module-c-lifecycle-acceptance-v1"
+      || lifecycle?.capabilities?.pmAcceptanceFromQjcDrop !== true
+      || typeof lifecycle.acceptFromQjcDrop !== "function") {
+      const error = new Error("Module C PM Acceptance Contract 尚未載入；卡片未移動，正式狀態不變。");
+      error.code = "C_LIFECYCLE_ACCEPTANCE_UNAVAILABLE";
+      throw error;
+    }
+    return lifecycle.acceptFromQjcDrop(input);
   }
   function checklistMarkup(item, options = {}) {
     const readOnly = options.readOnly === true;
@@ -3224,13 +3229,14 @@
   async function updateChecklistItem(task, item, nextState) {
     if (!item) return;
     let note = item.evidenceNote || "";
-    if (nextState === "pass" || nextState === "fail") {
+    const pmAcceptance = nextState === "pass" && isPmAcceptanceItem(item);
+    if ((nextState === "pass" || nextState === "fail") && !pmAcceptance) {
       note = window.prompt("請輸入必要 Evidence／Note", note);
       if (!note || !note.trim()) { setBanner("通過或退回前必須填寫驗收說明。", "error"); await openTaskDetail(task); return; }
     }
     try {
-      if (nextState === "pass" && isPmAcceptanceItem(item)) {
-        await activeService().pmAcceptTaskFromQjcDrop({ taskId: task.id, itemId: item.id, evidenceNote: note || "" });
+      if (pmAcceptance) {
+        await acceptThroughCContract({ taskId: task.id, itemId: item.id, source: "drawer-pm-acceptance" });
       } else {
         await executeSharedTaskAction(task, "updateGovernanceChecklist", { id: item.id, state: nextState, evidenceNote: note || "", pmQaFail: nextState === "fail" && isPmAcceptanceItem(item) }, { refresh: false, reopen: false });
       }

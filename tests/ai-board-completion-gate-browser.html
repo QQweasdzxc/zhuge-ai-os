@@ -56,6 +56,7 @@
   ];
   const calls = [];
   const audit = [];
+  let promptCalls = 0;
   const workspaceFor = id => workspaces.find(workspace => workspace.id === id);
   window.ZhugeBoardReadService = {
     statusDescriptorFor: status => ({ ready: { label: "Ready" }, inprogress: { label: "推進中" }, qa: { label: "驗證中" }, done: { label: "已完成" } }[status] || { label: "未知工程狀態" }),
@@ -91,7 +92,12 @@
     updateChecklistItem: async ({ id, state, evidenceNote }) => ({ id, state, evidenceNote }),
     subscribe: async () => async () => {}
   };
-  window.prompt = () => "PM Drawer Evidence";
+  window.ZhugeBoardReadService.lifecycle = {
+    contract: { id: "module-c-lifecycle-acceptance-v1", acceptanceAction: "qjc-drop-to-completed" },
+    capabilities: { pmAcceptanceFromQjcDrop: true },
+    acceptFromQjcDrop: window.ZhugeBoardReadService.pmAcceptTaskFromQjcDrop
+  };
+  window.prompt = () => { promptCalls += 1; return "PM Drawer Evidence"; };
   window.confirm = () => true;
   window.__gateCalls = calls;
   window.__gateAudit = audit;
@@ -117,5 +123,5 @@
   }
   setTimeout(() => dropToCompleted("gpt-drag-task"), 3600);
   setTimeout(() => dropToCompleted("gpt-fail-task"), 4200);
-  setTimeout(() => { const result = tasks.map(item => `${item.id}:${item.status}:${item.workspaceKey}:${item.assignee}`).join('|'); const auditNode = document.createElement('pre'); auditNode.id = 'completion-gate-audit'; const completedPasses = audit.filter(item => item.status === "done" && item.workspaceKey === "completed" && item.assignee === "QJC"); const failedTask = tasks.find(item => item.id === "gpt-fail-task"); auditNode.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};result=${result};sameFormalResult=${completedPasses.length === 3 && audit.length === 3};audit=${window.__gateAudit.map(item => `${item.taskId}:${item.action}:${item.lifecycle}:${item.workspaceKey}`).join('|')};moveCalls=${window.__gateCalls.filter(item => item.includes('ws-done') && !item.startsWith('pm-acceptance')).length};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};failStayed=${failedTask?.status === "qa" && failedTask?.workspaceKey === "qjc" && failedTask?.assignee === "GPT"};failMessage=${document.body.textContent.includes('尚缺 GPT 工程審查 Evidence')};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(auditNode); }, 6000);
+  setTimeout(() => { const result = tasks.map(item => `${item.id}:${item.status}:${item.workspaceKey}:${item.assignee}`).join('|'); const auditNode = document.createElement('pre'); auditNode.id = 'completion-gate-audit'; const completedPasses = audit.filter(item => item.status === "done" && item.workspaceKey === "completed" && item.assignee === "QJC"); const failedTask = tasks.find(item => item.id === "gpt-fail-task"); auditNode.textContent = `runtime=${window.__runtimeLoaded};calls=${window.__gateCalls.join(',')};result=${result};sameFormalResult=${completedPasses.length === 3 && audit.length === 3};audit=${window.__gateAudit.map(item => `${item.taskId}:${item.action}:${item.lifecycle}:${item.workspaceKey}`).join('|')};moveCalls=${window.__gateCalls.filter(item => item.includes('ws-done') && !item.startsWith('pm-acceptance')).length};gptCheckboxes=${document.querySelectorAll('.checklist-check[data-id="gpt"]').length};gptLabel=${document.body.textContent.includes('工程紀錄（不列入 QJC 完成 Gate）')};failStayed=${failedTask?.status === "qa" && failedTask?.workspaceKey === "qjc" && failedTask?.assignee === "GPT"};failMessage=${document.body.textContent.includes('尚缺 GPT 工程審查 Evidence')};promptCalls=${promptCalls};errors=${window.__gateErrors.join('|')}`; document.body.appendChild(auditNode); }, 6000);
 </script>
