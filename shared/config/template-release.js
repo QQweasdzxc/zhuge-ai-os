@@ -20,14 +20,14 @@
   "publishedBuild": "20260909-1352",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260909-1352",
-  "sourceCommit": "f175130acb730508341e346512b7ec2e26daa18b",
-  "sourceDirty": true,
+  "sourceCommit": "21e8544dfc4159ad20db0ddba778844f4c01472a",
+  "sourceDirty": false,
   "sourceFingerprint": "1333e03b6af2639cad638bdcf3f8eb1256555c4c8c96d876264a0a1a6e474ed3",
   "publishedSnapshot": {
     "schemaVersion": 1,
     "version": "0.9.0-alpha.9.13",
     "build": "20260909-1352",
-    "sourceCommit": "f175130acb730508341e346512b7ec2e26daa18b",
+    "sourceCommit": "21e8544dfc4159ad20db0ddba778844f4c01472a",
     "sourceFingerprint": "1333e03b6af2639cad638bdcf3f8eb1256555c4c8c96d876264a0a1a6e474ed3",
     "inventory": {
       "engineVersion": "c-mother-template-parity-v2",
@@ -468,7 +468,7 @@
       "atomicity": "single-transaction"
     }
   },
-  "publishedAt": "2026-09-09T05:52:23.222Z",
+  "publishedAt": "2026-09-09T05:53:09.627Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
