@@ -176,15 +176,29 @@ function rowToVendor(row: unknown, rowNumber: number) {
   return vendor;
 }
 
-function validateBusinessCategory(value: unknown, required = false) {
-  const category = asText(value);
-  if (!category && !required) return category;
-  if (!BUSINESS_CATEGORIES.includes(category as typeof BUSINESS_CATEGORIES[number])) {
-    throw new HttpError("Business category must be 採購 or 總務.", 400, "VENDOR_CATEGORY_INVALID", {
+function normalizeBusinessCategory(value: unknown, required = false) {
+  const values = (Array.isArray(value) ? value : [value])
+    .flatMap(item => asText(item).split(/[、,，/／|;；\s]+/))
+    .map(item => item.trim())
+    .filter(Boolean);
+  const unique = [...new Set(values)];
+  if (!unique.length) {
+    if (required) throw new HttpError("Business category is required.", 400, "VENDOR_CATEGORY_REQUIRED", {
       allowed_categories: [...BUSINESS_CATEGORIES]
     });
+    return "";
   }
-  return category;
+  const invalid = unique.filter(item => !BUSINESS_CATEGORIES.includes(item as typeof BUSINESS_CATEGORIES[number]));
+  if (invalid.length) {
+    throw new HttpError("Business category must be 採購 or 總務.", 400, "VENDOR_CATEGORY_INVALID", {
+      allowed_categories: [...BUSINESS_CATEGORIES],
+      invalid_categories: invalid
+    });
+  }
+  return BUSINESS_CATEGORIES.filter(item => unique.includes(item)).join("、");
+}
+function normalizeVendorValue(key: string, value: unknown) {
+  return key === "businessCategory" ? normalizeBusinessCategory(value) : asText(value);
 }
 async function readSheetValues(accessToken: string, requestedRange = RANGE) {
   const range = encodeURIComponent(`${quoteSheetName(SHEET_NAME)}!${requestedRange}`);
@@ -235,7 +249,7 @@ async function writeVendorFields(accessToken: string, rowNumber: number, patch: 
         return {
           range: `${quoteSheetName(SHEET_NAME)}!${columnName(index ?? 0)}${rowNumber}:${columnName(index ?? 0)}${rowNumber}`,
           majorDimension: "ROWS",
-          values: [[asText(patch[key])]]
+          values: [[normalizeVendorValue(key, patch[key])]]
         };
       })
     })
@@ -291,10 +305,11 @@ async function updateVendor(accessToken: string, vendorId: string, patch: JsonOb
       fields: invalidKeys.slice(0, 20)
     });
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "businessCategory")) {
-    validateBusinessCategory(patch.businessCategory);
+  const normalizedPatch = { ...patch };
+  if (Object.prototype.hasOwnProperty.call(normalizedPatch, "businessCategory")) {
+    normalizedPatch.businessCategory = normalizeBusinessCategory(normalizedPatch.businessCategory, true);
   }
-  const updateKeys = Object.keys(patch).filter(key => MUTABLE_VENDOR_KEYS.includes(key as typeof MUTABLE_VENDOR_KEYS[number]));
+  const updateKeys = Object.keys(normalizedPatch).filter(key => MUTABLE_VENDOR_KEYS.includes(key as typeof MUTABLE_VENDOR_KEYS[number]));
   if (!updateKeys.length) {
     throw new HttpError("Vendor update requires at least one mutable field.", 400, "VENDOR_UPDATE_EMPTY");
   }
@@ -305,7 +320,7 @@ async function updateVendor(accessToken: string, vendorId: string, patch: JsonOb
     throw new HttpError("Vendor ID was not found in Google Sheet.", 404, "VENDOR_NOT_FOUND", { vendor_id: vendorId });
   }
   const rowNumber = matchIndex + 2;
-  const write = await writeVendorFields(accessToken, rowNumber, patch, updateKeys);
+  const write = await writeVendorFields(accessToken, rowNumber, normalizedPatch, updateKeys);
   const afterValues = await readSheetValues(accessToken, RANGE);
   const afterRows = rowsFromValues(afterValues);
   const afterDataRows = afterValues.slice(1, MAX_ROWS + 1);
@@ -315,7 +330,7 @@ async function updateVendor(accessToken: string, vendorId: string, patch: JsonOb
   }
   const readBackRowNumber = afterMatchIndex + 2;
   const readBack = rowToVendor(afterDataRows[afterMatchIndex], readBackRowNumber);
-  const mismatchedFields = updateKeys.filter(key => asText(readBack[key]) !== asText(patch[key]));
+  const mismatchedFields = updateKeys.filter(key => asText(readBack[key]) !== normalizeVendorValue(key, normalizedPatch[key]));
   if (asText(readBack.vendorId) !== vendorId || mismatchedFields.length) {
     throw new HttpError("Vendor write read-back does not match the requested update.", 502, "VENDOR_WRITE_READBACK_MISMATCH", {
       vendor_id: vendorId,
@@ -346,7 +361,7 @@ async function createVendor(accessToken: string, input: JsonObject) {
   }
   const vendorName = asText(input.vendorName);
   if (!vendorName) throw new HttpError("Vendor name is required.", 400, "VENDOR_NAME_REQUIRED");
-  const businessCategory = validateBusinessCategory(input.businessCategory, true);
+  const businessCategory = normalizeBusinessCategory(input.businessCategory, true);
   const beforeValues = await readSheetValues(accessToken, RANGE);
   const beforeRows = rowsFromValues(beforeValues);
   const vendorId = nextVendorId(beforeValues);
