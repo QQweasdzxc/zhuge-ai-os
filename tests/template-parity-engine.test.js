@@ -423,6 +423,48 @@ test("published parity reports an interface gap from the adopted snapshot withou
   assert.equal(report.overallStatus, "gap");
 });
 
+test("published parity detects a stale v1 behavior contract against latest v2 semantics", () => {
+  const latest = engine.canonicalBehaviorContract();
+  const adopted = {
+    ...latest,
+    id: "module-c-lifecycle-acceptance-v1",
+    family: undefined,
+    workflowOwner: undefined,
+    workflowVersioning: undefined,
+    currentStepBinding: undefined,
+    workflowResolution: undefined,
+    runtimeInference: undefined
+  };
+  const report = engine.runManual({
+    latestPublishedC: { version: "0.9.0-alpha.9.13", build: "20260910-1800", behaviorContract: latest },
+    adoptedC: { version: "0.9.0-alpha.9.12", build: "20260909-0835", behaviorContract: adopted },
+    adoptionStatus: "stale",
+    applicationScope: "ai_board",
+    consumerId: "ai-board"
+  });
+
+  assert.equal(report.compareBaseline.mode, "consumer-adopted-vs-latest-published");
+  assert.equal(report.compareBaseline.behaviorStatus, "gap");
+  assert.equal(report.behaviorContract.layerStatus, "fail");
+  assert.ok(report.behaviorContract.differences.some(item => item.check === "workflowOwner"));
+  assert.ok(report.behaviorContract.differences.some(item => item.check === "workflowResolution"));
+});
+
+test("published parity keeps a version-only change green when v1 and v2 semantics are equal", () => {
+  const latest = engine.canonicalBehaviorContract();
+  const report = engine.runManual({
+    latestPublishedC: { version: "0.9.0-alpha.9.13", build: "20260910-1800", inventory: engine.canonicalInventory(), behaviorContract: latest },
+    adoptedC: { version: "0.9.0-alpha.9.12", build: "20260909-0835", inventory: engine.canonicalInventory(), behaviorContract: { ...latest, id: "module-c-lifecycle-acceptance-v1" } },
+    adoptionStatus: "stale",
+    applicationScope: "ai_board",
+    consumerId: "ai-board"
+  });
+
+  assert.equal(report.compareBaseline.behaviorStatus, "match");
+  assert.equal(report.compareBaseline.identityOnlyDifference, true);
+  assert.equal(report.behaviorContract.layerStatus, "pass");
+});
+
 test("published parity fails closed when a stale adoption has no semantic snapshot", () => {
   const latestPublishedC = {
     version: "0.9.0-alpha.9.13",

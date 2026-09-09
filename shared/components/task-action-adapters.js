@@ -34,7 +34,23 @@
     };
   }
 
-  function createAiBoardAdapter({ task, service } = {}) {
+  function moveThroughCWorkflow(workflowCapability, taskId, payload = {}) {
+    if (typeof workflowCapability?.reconcileWorkspaceDecision !== "function") {
+      const error = new Error("這張工作卡片尚未載入正式流程；未使用舊的工作區／狀態推測路徑。");
+      error.code = "C_WORKFLOW_CAPABILITY_UNAVAILABLE";
+      throw error;
+    }
+    const selectedTaskId = payload.taskId || taskId;
+    const selectedWorkspaceId = payload.workspaceId;
+    return workflowCapability.reconcileWorkspaceDecision({
+      taskId: selectedTaskId,
+      targetWorkspaceId: selectedWorkspaceId,
+      decisionNote: payload.reason || "PM workspace decision",
+      idempotencyKey: payload.idempotencyKey || `workspace-${selectedTaskId}-${selectedWorkspaceId}`
+    });
+  }
+
+  function createAiBoardAdapter({ task, service, workflowCapability } = {}) {
     const taskId = task?.id;
     return {
       consumer: "ai_board",
@@ -80,7 +96,10 @@
         updateGovernanceChecklist: payload => payload.pmQaFail
           ? required(service, "pmQaFailChecklist")({ id: payload.id, evidenceNote: payload.evidenceNote, evidenceRef: payload.evidenceRef })
           : required(service, "updateChecklistItem")({ id: payload.id, state: payload.state, evidenceNote: payload.evidenceNote, evidenceRef: payload.evidenceRef }),
-        moveWorkspace: payload => required(service, "moveTaskWorkspace")(payload.taskId || taskId, payload.workspaceId, payload.reason),
+        // AI Board adopts the canonical C Workflow decision contract.  The
+        // consumer owns its data and workflow definition, never a second
+        // workspace/status transition engine.
+        moveWorkspace: payload => moveThroughCWorkflow(workflowCapability, taskId, payload),
         confirm: payload => payload
       },
       read: {
@@ -92,7 +111,7 @@
     };
   }
 
-  function createWorkTodoAdapter({ task, service } = {}) {
+  function createWorkTodoAdapter({ task, service, workflowCapability } = {}) {
     const taskId = task?.id;
     return {
       consumer: "worktodo",
@@ -143,10 +162,10 @@
           startDate: payload.startDate,
           endDate: payload.endDate
         }),
-        moveWorkspace: payload => required(service, "worktodoUpdateTask")({
-          taskId: payload.taskId || taskId,
-          patch: payload.status ? { status: payload.status } : { workspace_id: payload.workspaceId }
-        }),
+        // Workspace movement is a C Workflow decision.  WorkTodo owns its
+        // data and workflow definition, but must not maintain a second
+        // workspace-to-status translation engine.
+        moveWorkspace: payload => moveThroughCWorkflow(workflowCapability, taskId, payload),
         confirm: payload => payload
       },
       read: {
@@ -167,7 +186,7 @@
     };
   }
 
-  function createCTemplateAdapter({ task, service } = {}) {
+  function createCTemplateAdapter({ task, service, workflowCapability } = {}) {
     const taskId = task?.id;
     return {
       consumer: "c_mdtk",
@@ -218,7 +237,7 @@
           startDate: payload.startDate,
           endDate: payload.endDate
         }),
-        moveWorkspace: payload => required(service, "moveTaskWorkspace")(payload.taskId || taskId, payload.workspaceId, payload.reason),
+        moveWorkspace: payload => moveThroughCWorkflow(workflowCapability, taskId, payload),
         confirm: payload => payload
       },
       read: {

@@ -160,7 +160,9 @@ test("the shared C service exposes PM completion and reopen as one canonical con
 
 test("consumer adoption keeps WorkTodo and Investment outside PM Acceptance", () => {
   assert.match(adapter, /consumer: "worktodo"[\s\S]*governanceChecklist: false/);
-  assert.match(runtime, /if \(isWorkTodoTask\(task\)\) \{/);
+  assert.match(runtime, /function isCanonicalWorkflowConsumer\(\)/);
+  assert.match(runtime, /state\.applicationScope === "worktodo"/);
+  assert.doesNotMatch(runtime, /function moveWorkTodoTask\(/);
   assert.match(runtime, /state\.applicationScope === "procurement"/);
   assert.match(runtime, /Investment/);
   assert.match(service, /instanceOptions\.lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);

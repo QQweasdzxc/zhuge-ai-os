@@ -108,9 +108,9 @@ test("Template Management Center derives consumers and counts from the canonical
   assert.equal(models.find(model => model.template.id === "workspace").consumers.length, 1);
   assert.deepEqual(models.find(model => model.template.id === "workspace").consumers.map(page => page.id), ["worklog"]);
   assert.deepEqual(models.find(model => model.template.id === "board").consumers.map(page => page.id), ["procurement", "investment", "ai-board", "tasks-new"]);
-  assert.equal(models.find(model => model.template.id === "navigation").enabledCount, 3);
+  assert.equal(models.find(model => model.template.id === "navigation").enabledCount, 4);
   assert.equal(models.find(model => model.template.id === "workspace").enabledCount, 1);
-  assert.equal(models.find(model => model.template.id === "board").enabledCount, 3);
+  assert.equal(models.find(model => model.template.id === "board").enabledCount, 4);
 });
 
 test("Template Management Center bind waits for a policy event instead of scheduling a render loop", async () => {

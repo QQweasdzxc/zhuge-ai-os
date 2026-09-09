@@ -43,7 +43,13 @@ test("C operational motherboard owns an independent, complete MDTK action surfac
   assert.equal(task.ownerUuid, "mdtk");
   assert.doesNotMatch(task.code, /WLTK|TASK/);
 
-  const adapter = Adapters.createCTemplateAdapter({ task, service: store });
+  const adapter = Adapters.createCTemplateAdapter({
+    task,
+    service: store,
+    workflowCapability: {
+      reconcileWorkspaceDecision: ({ taskId, targetWorkspaceId }) => store.moveTaskWorkspace(taskId, targetWorkspaceId)
+    }
+  });
   const contract = ActionContract.create({ consumer: "c_mdtk", adapter });
   assert.deepEqual(ActionContract.assert(contract).missing, []);
   assert.equal(GoldenMaster.assertSharedDrawerContract({ consumer: "c_mdtk", adapter, drawer: Drawer }).ok, true);

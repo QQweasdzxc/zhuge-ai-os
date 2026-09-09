@@ -1,121 +1,137 @@
-# Cleanup implementation checkpoint — 2026-09-09
+# Cleanup implementation checkpoint — 2026-09-10
 
-Status: PARTIAL IMPLEMENTATION; NOT A FINAL CLEANUP CANDIDATE.
+Status: WORKFLOW CAPABILITY V2 IMPLEMENTED; FINAL QA / CANDIDATE PACKAGING
+CHECKPOINT.
 
-## Authority and scope
+## Current implementation authority and scope
 
-PM confirmed `50fc9ed7aba8f688dce1d909258da7d13bfd060a` as the implementation
-baseline. This checkpoint implements only the explicitly confirmed workspace
-rendering defects and retires the uncalled client-side sequential planner.
-It does not invent a work-type routing policy, develop another TASK, change
-Consumer pages, mutate Cloud records, or claim PM Acceptance.
+The approved implementation baseline is
+`65044cf9101c9096ffea7d3084831314583f9e09`. This checkpoint records the
+approved Module C Workflow Capability v2 implementation and the earlier
+workspace-placement cleanup it supersedes. The canonical source is the shared
+C Mother runtime and service; Consumers provide Board Instance identity and
+capability flags only.
+
+The implementation does not infer or batch-reconcile historical TASKs. Existing
+cards remain untouched until a future explicit Adoption / Step Mapping / PM
+classification flow is run. No Board Instance or Card identity was changed.
 
 ## Implemented in the C canonical sources
 
-- `shared/components/golden-master-runtime.js`: active Cloud workspaces are no
-  longer excluded by the `gpt` role or historical display names. Archived
-  workspaces stay excluded and existing Consumer scope/instance filters remain.
-- Task grouping uses the original Cloud `workspace_id` only. Unknown or
-  inactive workspace references produce an error in the existing banner;
-  they are not silently placed in `todo`.
-- `shared/board/board-read-service.js`: removed `QJC_TRANSITIONS`,
-  `planTransition`, and `availableTransitions`. Repository call-site search
-  found no production callers; only obsolete tests referenced these exports.
-  The existing `module-c-lifecycle-acceptance-v1` capability and controlled
-  workspace-decision RPC remain the canonical PM movement path.
-- Updated only tests that asserted the retired exclusion/sequential mechanism.
-  Checklist evidence assertions and canonical acceptance/atomicity regression
-  remain. Added six executable production-function tests for placement,
-  fail-visible handling, archive boundaries, scope/instance isolation and
-  retirement of the unused planner.
+- `shared/board/board-read-service.js` exposes the single
+  `module-c-lifecycle-acceptance-v2` capability. It resolves a Board
+  Instance-owned Cloud Workflow, normalizes the editor/runtime boundary, and
+  routes Draft, Validate, Publish, Adoption, Step Mapping, Card Resolution,
+  Workspace Decision, Completion, and Reopen through the controlled RPCs.
+- `shared/components/golden-master-runtime.js` mounts the shared `流程設定`
+  capability for C Consumers, uses explicit Card Workflow Version / Current
+  Step bindings, and fails visibly instead of guessing a Workspace or falling
+  back to `待辦`.
+- `shared/components/task-action-adapters.js` routes AI Board, WorkTodo, and C
+  Template movement through the shared C Workflow capability. Investment keeps
+  its read-only capability boundary.
+- `shared/components/template-parity-engine.js` compares the v2 canonical
+  behavior contract and reports the workflow-owner, version, current-step,
+  Cloud-resolution, and no-runtime-inference checks without weakening the
+  underlying parity rules.
+- The shared Workflow Settings UI supports readable Step preview, Step
+  editing/reordering, role and Workspace assignment, optional Gates/Evidence,
+  legal transitions, draft save, immutable publish, read-only mode, and
+  reload-backed Cloud state.
 
-No source file was deleted. Removed code remains recoverable in Git.
-Historical migration files and audit documents were not rewritten or deleted.
+## Cloud implementation and safety boundary
 
-## Verification so far
+Applied additive migrations:
+
+- `20260910_c_workflow_capability_v2`
+- `20260910_c_workflow_capability_v2_security`
+- `20260910_c_workflow_card_binding_v2`
+- `20260910_c_workflow_capability_v2_hardening`
+- `c_workflow_publish_state_fix`
+- `c_workflow_draft_lineage`
+- `c_workflow_private_helper_security`
+
+The eight public Workflow tables and private idempotency table exist with RLS
+enabled. Browser roles have read-only table access; writes go through the
+authenticated canonical RPCs. Private helper execution is revoked from
+public/anon/authenticated. The insert trigger binds only newly created cards
+when an explicit published workflow is available; it never backfills or
+rewrites historical cards.
+
+The latest Cloud read-back recorded zero Workflow definitions, zero published
+versions, zero adoptions, zero mappings, and zero bound historical cards out
+of 118 total cards. This is an intentional safe state under the approved
+no-guess/no-batch-mutation rule, not a hidden runtime fallback.
+
+## Current verification
 
 Commands run from the formal worktree:
 
 ```sh
-node --check shared/components/golden-master-runtime.js
 node --check shared/board/board-read-service.js
+node --check shared/components/golden-master-runtime.js
+node --check shared/components/task-action-adapters.js
+node --check shared/components/template-parity-engine.js
+node --check shared/services/template-adoption-policy.js
 git diff --check
-node --test tests/cleanup-workspace-placement.test.js tests/ai-board-cloud-read.test.js tests/task-033-governance.test.js tests/ai-board-free-workspace.test.js tests/ai-board-lifecycle-consistency.test.js
-node --test tests/template-parity-engine.test.js tests/investment/ivtk-board-adapter.test.js tests/ai-board-lifecycle-consistency.test.js tests/task-067-workspace-reorder.test.js
-node --test --test-concurrency=4 tests/*.test.js tests/investment/*.test.js
+CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  node --test --test-concurrency=4 tests/*.test.js tests/investment/*.test.js
+node tools/release-governance.js preflight
 ```
 
-- Syntax and whitespace: PASS.
-- Focused tests: 58/58 PASS.
-- Scoped parity/lifecycle/Investment read-only/reorder: 46/46 PASS.
-- Baseline suite: 459 tests, 445 PASS, 6 FAIL, 8 SKIP.
-- Modified suite: 465 tests, 451 PASS, the same 6 FAIL, 8 SKIP.
-- New failures in this comparison: 0. Full Regression is NOT PASS.
-- Browser discovery did not find Chrome on PATH, so eight browser tests were
-  skipped. A macOS Chrome executable exists; explicit browser execution,
-  Desktop/Mobile visual QA and New Session QA remain outstanding.
-- TAP evidence for this run: `/tmp/zhuge-cleanup-qa.xuf1aZ/` (not packaged).
+- Syntax, whitespace, and Release Preflight: PASS.
+- Full automated suite: 471/471 PASS, 0 FAIL, 0 SKIP.
+- Explicit Chrome browser suite: 6/6 PASS, including desktop and mobile
+  viewport contracts.
+- Build Identity is synchronized to `20260910-0148` across runtime literals,
+  cache-busters, module manifests, and release metadata.
+- No new test failure was introduced by the cleanup implementation.
 
-Unchanged baseline failure names:
+### Current Cloud read-back
 
-1. Drawer replaces PM-visible Assignee with an in-drawer GPT Analysis entry
-2. C route loads the canonical Cloud MDTK host and shared runtime
-3. formal pages defer navigation mounting to the shared adoption lifecycle
-4. C Mother Template, AI Board, and WorkTodo share one Board/Card/Drawer runtime contract
-5. Module A exposes Management as a peer of Control Console and keeps GAS isolated
-6. Template Management Center derives consumers and counts from the canonical Registry
+Project: `lenpbbhwxyyfwgvjcozf` (`lenpbbhwxyyfwgvjcozf`). The eight public
+Workflow tables exist with RLS enabled and authenticated SELECT-only table
+grants. Controlled authenticated RPCs expose the approved write boundary;
+anonymous execute is revoked. The private idempotency table has no browser
+grants or policies, and private Workflow helpers have public/anon/authenticated
+EXECUTE revoked.
 
-### Live Cloud read-back through production rendering functions
+Counts: definitions 0, workflow states 0, steps 0, transitions 0, gates 0,
+evidence requirements 0, adoptions 0, step mappings 0, bound historical cards
+0, total cards 118. Existing Board/Card data and identities were not mutated.
+This is intentional: no historical Workflow Version / Current Step is guessed
+or batch-filled. New workflows are created through the shared C Settings
+contract and cards bind only when an explicit published workflow exists.
 
-Read-only snapshot: `2026-09-09T15:43:00.663129Z`, project
-`lenpbbhwxyyfwgvjcozf`, AI Board instance
-`74ff1127-ab98-4543-8f69-872e5d92fd33`.
+Supabase advisor notices are pre-existing project-wide findings (including the
+intentional private idempotency RLS-without-policy notice and existing legacy
+security-definer/performance notices); no new workflow-specific privilege
+exposure was found. They are not silently represented as a clean project-wide
+security audit.
 
-73 Cloud task rows were normalized by the existing adapter and passed through
-the production workspace selection/task rendering functions in an isolated
-DOM harness. 16 cards were active according to the unchanged archive model;
-all 16 rendered into their exact Cloud workspace UUID. Placement mismatch = 0.
-TASK-063/064/065 rendered in GPT區; TASK-057/068 in QJC驗證. Their Cloud
-status, assignee and workspace were not changed. This is Cloud-backed
-production-function QA, NOT a deployed-browser or end-to-end handoff PASS.
+### Cloud-backed placement verification
 
-Cloud also still marks the separate `GPT` and historical `已完工` workspaces
-active. Both are empty in this read-back. The renderer no longer conceals
-active rows; deciding whether to retire these Cloud workspaces is a separate
-metadata decision, not something to mask by a new fallback or name filter.
+The existing production read path was exercised against the Cloud task rows in
+an isolated DOM harness. Active cards rendered to their exact Cloud
+`workspace_id`; unknown/inactive references fail visibly rather than falling
+back to `待辦`. No TASK, Workspace, Board, or Card rows were changed.
 
-## Remaining workflow gate — do not guess
+## Historical pre-v2 audit (superseded, retained as evidence)
 
-The live `board_orchestrate_developer_qa` definition still:
+The earlier Phase 1 audit found the old `board_orchestrate_developer_qa` and
+`board_transition_task` sequential paths, including the TASK-040-specific
+legacy behavior. They remain historical migration definitions and are not the
+canonical v2 runtime path. Their retirement is gated by the v2 caller/adoption
+and reconciliation checks; removing them before safe adoption would leave
+existing unbound cards without a recoverable path, so no destructive retirement
+or historical data rewrite is claimed in this Candidate.
 
-- unconditionally resolves a `gpt` workspace;
-- creates required GPT review/regression checklist records;
-- writes `qa / GPT / gpt-workspace` on every Developer QA handoff;
-- includes a `TASK-040` grandfathered special case.
-
-`board_transition_task` also retains the sequential engineering review gates.
-These Cloud definitions were read, not invoked or modified. Changing only
-the Renderer cannot retire that server-side workflow.
-
-No current work-type-to-handoff Workflow Definition, Current-State Map or
-Gap Report was found in this baseline, the workspace audit/document folders,
-or the queried canonical Cloud knowledge/settings records. The older
-`TASK_022_WORKFLOW_ENHANCEMENT.md` specifies mandatory GPT review, while the
-TASK-040 migration header describes Co -> QJC. Neither resolves the newly
-requested work-type-dependent policy. Task category/domain are also often
-null, so inferring a policy from those fields would be guessing.
-
-Needed before continuing this part: the PM-approved work-type -> receiving
-role/workspace -> required evidence definition, plus the current retirement
-inventory for any additional file deletion. Do not implement TASK-074's
-workflow editor, add task-ID exceptions, default every QA task to GPT or QJC,
-rewrite historical migrations, or repair real TASK rows to bypass this gap.
+The renderer no longer excludes active GPT workspaces or silently places
+unknown references in `待辦`. The current C runtime instead uses explicit
+Board Instance Workflow bindings and fails closed when a card has no binding.
 
 ## Delivery gate
 
-Cleanup remains incomplete. No new release Build, FullSource ZIP, manifest,
-Pages deployment, Cloud migration, TASK transition or PM Acceptance has been
-performed. Source-declared Build remains `20260909-2158`; it is NOT a new
-Cleanup Candidate identity. After the workflow gate is resolved, finish the
-approved cleanup, run full Final QA, align a fresh delivery Build and package
-only after the requested gates pass.
+Source is ready for the final commit, clean-tree verification, and the
+FullSource Cleanup Candidate packaging step. GitHub Pages, Production Release,
+TASK/Card transitions, and PM Acceptance remain intentionally unperformed.

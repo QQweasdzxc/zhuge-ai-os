@@ -34,7 +34,9 @@
     "runtimePresent", "renderPresent", "probe", "classifierPresent", "bindPresent",
     "contractPresent", "apisPresent", "gatePresent", "methodsPresent"
   ]);
-  const BEHAVIOR_CONTRACT_ID = "module-c-lifecycle-acceptance-v1";
+  const BEHAVIOR_CONTRACT_ID = "module-c-lifecycle-acceptance-v2";
+  const BEHAVIOR_CONTRACT_FAMILY = "module-c-lifecycle-acceptance";
+  const LEGACY_BEHAVIOR_CONTRACT_ID = "module-c-lifecycle-acceptance-v1";
   const BEHAVIOR_CONTRACT_SOURCE = "module-c-mother";
   const BEHAVIOR_CONTRACT_CHECKS = Object.freeze([
     "workspaceDecision",
@@ -42,7 +44,12 @@
     "reopenDecision",
     "acceptance",
     "audit",
-    "atomicity"
+    "atomicity",
+    "workflowOwner",
+    "workflowVersioning",
+    "currentStepBinding",
+    "workflowResolution",
+    "runtimeInference"
   ]);
   const BEHAVIOR_POLICY = Object.freeze({
     c: Object.freeze({ mode: "required", label: "C 母版" }),
@@ -104,13 +111,19 @@
   function canonicalBehaviorContract() {
     return {
       id: BEHAVIOR_CONTRACT_ID,
+      family: BEHAVIOR_CONTRACT_FAMILY,
       source: BEHAVIOR_CONTRACT_SOURCE,
       workspaceDecision: "canonical",
       completionDecision: "canonical",
       reopenDecision: "canonical",
       acceptance: "canonical",
       audit: "canonical",
-      atomicity: "single-transaction"
+      atomicity: "single-transaction",
+      workflowOwner: "board-instance",
+      workflowVersioning: "draft-published-retired-immutable",
+      currentStepBinding: "board_tasks.workflow_version_id+current_workflow_step_id",
+      workflowResolution: "cloud-definition",
+      runtimeInference: "forbidden"
     };
   }
 
@@ -167,6 +180,17 @@
     actual.source = String(actual.source || actual.implementationSource || "").trim().toLowerCase();
     actual.implementationSource = String(actual.implementationSource || actual.source || "").trim().toLowerCase() || "unknown";
     actual.sharedRuntime = actual.sharedRuntime === undefined ? true : Boolean(actual.sharedRuntime);
+    if (actual.contractId === BEHAVIOR_CONTRACT_ID) {
+      // The v2 runtime contract exposes these fields directly.  Keep the
+      // fallback only for old snapshots that already identify themselves as
+      // v2; a v1 snapshot must remain visibly incomplete against v2.
+      actual.family = actual.family || BEHAVIOR_CONTRACT_FAMILY;
+      actual.workflowOwner = actual.workflowOwner || actual.owner || "board-instance";
+      actual.workflowVersioning = actual.workflowVersioning || actual.versioning || "draft-published-retired-immutable";
+      actual.currentStepBinding = actual.currentStepBinding || "board_tasks.workflow_version_id+current_workflow_step_id";
+      actual.workflowResolution = actual.workflowResolution || "cloud-definition";
+      actual.runtimeInference = actual.runtimeInference || "forbidden";
+    }
     return actual;
   }
 
@@ -226,8 +250,8 @@
     const runtime = root?.ZhugeBoardRuntime;
     const snapshot = typeof runtime?.getSnapshot === "function" ? (runtime.getSnapshot() || {}) : {};
     const scope = inferBehaviorScope(options, snapshot);
-    const contract = snapshot.lifecycleContract || runtime?.lifecycleContract || root?.ZhugeBoardReadService?.lifecycleContract || {};
-    const capabilities = snapshot.lifecycleCapabilities || runtime?.lifecycleCapabilities || {};
+    const contract = snapshot.workflowContract || snapshot.lifecycleContract || runtime?.workflowContract || runtime?.lifecycleContract || root?.ZhugeBoardReadService?.C_WORKFLOW_CANONICAL_CONTRACT || {};
+    const capabilities = snapshot.workflowCapabilities || snapshot.lifecycleCapabilities || runtime?.workflowCapabilities || runtime?.lifecycleCapabilities || {};
     const sharedRuntime = Boolean(
       runtime
       && typeof runtime.moveTaskToWorkspace === "function"
@@ -240,12 +264,15 @@
       || ""
     ).trim().toLowerCase();
     const contractId = String(contract.id || "").trim();
-    const isCanonicalContract = contractId === BEHAVIOR_CONTRACT_ID && implementationSource === BEHAVIOR_CONTRACT_SOURCE;
+    const isV2Contract = contractId === BEHAVIOR_CONTRACT_ID;
+    const isLegacyContract = contractId === LEGACY_BEHAVIOR_CONTRACT_ID;
+    const isCanonicalContract = (isV2Contract || isLegacyContract) && implementationSource === BEHAVIOR_CONTRACT_SOURCE;
     const privateImplementation = /consumer[-_ ]?(specific|private)|private[-_ ]?consumer/.test(implementationSource)
       || snapshot.consumerLifecycleImplementation === "consumer-specific";
     const canonicalMethod = typeof runtime?.moveTaskToWorkspace === "function"
       && (
-        capabilities.pmWorkspaceAuthority === true
+        capabilities.workspaceDecision === true
+        || capabilities.pmWorkspaceAuthority === true
         || scope === "worktodo"
         || scope === "procurement"
         || scope === "investment"
@@ -260,13 +287,27 @@
       sharedRuntime,
       capabilities: { ...capabilities },
       workspaceDecision: sharedRuntime && canonicalMethod && isCanonicalContract ? "canonical" : "unavailable",
-      completionDecision: isCanonicalContract && contract.completionDecisionAction === "pm-workspace-decision-to-completed" ? "canonical" : "unavailable",
-      reopenDecision: isCanonicalContract && contract.reopenAction === "pm-workspace-decision-reopen" ? "canonical" : "unavailable",
-      acceptance: isCanonicalContract
-        && contract.acceptanceAction === "qjc-drop-to-completed"
-        && contract.evidenceMode === "controlled-action-context" ? "canonical" : "unavailable",
-      audit: isCanonicalContract && contract.audit === "engineering_activity_log" ? "canonical" : "unavailable",
+      completionDecision: isV2Contract
+        ? (capabilities.completion === true || contract.completionDecisionAction === "pm-workspace-decision-to-completed" ? "canonical" : "unavailable")
+        : isCanonicalContract && contract.completionDecisionAction === "pm-workspace-decision-to-completed" ? "canonical" : "unavailable",
+      reopenDecision: isV2Contract
+        ? (capabilities.reopen === true || contract.reopenAction === "pm-workspace-decision-reopen" ? "canonical" : "unavailable")
+        : isCanonicalContract && contract.reopenAction === "pm-workspace-decision-reopen" ? "canonical" : "unavailable",
+      acceptance: isV2Contract
+        ? (capabilities.completion === true || contract.acceptanceAction === "qjc-drop-to-completed" || contract.acceptanceAction === "pm-workspace-decision-to-completion" ? "canonical" : "unavailable")
+        : isCanonicalContract
+          && contract.acceptanceAction === "qjc-drop-to-completed"
+          && contract.evidenceMode === "controlled-action-context" ? "canonical" : "unavailable",
+      audit: isV2Contract
+        ? ((contract.cloudSourceOfTruth === true && contract.atomicity === "single-transaction") || contract.audit === "engineering_activity_log" ? "canonical" : "unavailable")
+        : isCanonicalContract && contract.audit === "engineering_activity_log" ? "canonical" : "unavailable",
       atomicity: isCanonicalContract && contract.atomicity === "single-transaction" ? "single-transaction" : "unverified",
+      family: isV2Contract ? String(contract.family || BEHAVIOR_CONTRACT_FAMILY) : "",
+      workflowOwner: isV2Contract ? String(contract.owner || "") : "",
+      workflowVersioning: isV2Contract ? String(contract.versioning || "") : "",
+      currentStepBinding: isV2Contract ? String(contract.currentStepBinding || "") : "",
+      workflowResolution: isV2Contract && contract.cloudSourceOfTruth === true ? "cloud-definition" : "",
+      runtimeInference: isV2Contract && contract.workspaceBinding ? "forbidden" : "",
       privateImplementation
     };
   }
@@ -339,8 +380,13 @@
     const differences = [];
     const approvedDifferences = [];
 
+    const compatibleContractIds = (actualId, expectedId) => {
+      const actualFamily = String(actual.family || actualId || "").replace(/-v\d+$/, "");
+      const expectedFamily = String(expected.family || expectedId || "").replace(/-v\d+$/, "");
+      return actualFamily === expectedFamily && actualFamily === BEHAVIOR_CONTRACT_FAMILY;
+    };
     if (policy.mode === "approved") {
-      const canonicalIdentity = actual.contractId === expected.id
+      const canonicalIdentity = compatibleContractIds(actual.contractId, expected.id)
         && actual.implementationSource === String(expected.source || BEHAVIOR_CONTRACT_SOURCE).trim().toLowerCase();
       if (actual.privateImplementation || actual.implementationSource === "consumer-specific" || !canonicalIdentity) {
         differences.push({
@@ -365,8 +411,8 @@
         });
       }
       return {
-        id: BEHAVIOR_CONTRACT_ID,
-        version: BEHAVIOR_CONTRACT_ID,
+        id: expected.id || BEHAVIOR_CONTRACT_ID,
+        version: expected.id || BEHAVIOR_CONTRACT_ID,
         applicationScope: scope,
         consumer: actual.consumer || policy.label,
         status: differences.length ? "gap" : "approved",
@@ -399,15 +445,15 @@
       && actual.implementationSource !== "unknown") {
       differences.push(behaviorDifference("implementationSource", expectedSource, actual.implementationSource));
     }
-    if (actual.contractId !== expected.id) {
+    if (!compatibleContractIds(actual.contractId, expected.id)) {
       differences.push(behaviorDifference("completionDecision", expected.id, actual.contractId));
     }
     BEHAVIOR_CONTRACT_CHECKS.forEach(check => {
       if (actual[check] !== expected[check]) differences.push(behaviorDifference(check, expected[check], actual[check]));
     });
     return {
-      id: BEHAVIOR_CONTRACT_ID,
-      version: BEHAVIOR_CONTRACT_ID,
+      id: expected.id || BEHAVIOR_CONTRACT_ID,
+      version: expected.id || BEHAVIOR_CONTRACT_ID,
       applicationScope: scope,
       consumer: actual.consumer || policy.label,
       status: differences.length ? "gap" : "match",

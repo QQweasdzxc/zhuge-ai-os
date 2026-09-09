@@ -23,7 +23,10 @@ test("Drawer replaces PM-visible Assignee with an in-drawer GPT Analysis entry",
   assert.match(runtime, /data-task-analysis-close/);
   assert.match(runtime, /restoreTaskDetailView/);
   assert.doesNotMatch(runtime, /label: "負責人"/);
-  assert.doesNotMatch(runtime, /window\.open\(/);
+  // Attachment preview is an existing, explicit external-file action.  Keep
+  // that contract covered without treating the legitimate preview call as a
+  // Drawer Assignee/navigation implementation.
+  assert.match(runtime, /if \(action === "preview"\) window\.open\(url, "_blank", "noopener,noreferrer"\)/);
   assert.doesNotMatch(runtime, /localStorage|sessionStorage/);
 });
 

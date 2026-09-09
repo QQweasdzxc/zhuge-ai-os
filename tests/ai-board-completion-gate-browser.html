@@ -56,12 +56,16 @@
   ];
   const calls = [];
   const audit = [];
+  tasks.forEach(task => {
+    task.workflowVersionId = "fixture-workflow-v2";
+    task.currentWorkflowStepId = "step-qjc";
+  });
   let promptCalls = 0;
   const workspaceFor = id => workspaces.find(workspace => workspace.id === id);
   window.ZhugeBoardReadService = {
     statusDescriptorFor: status => ({ ready: { label: "Ready" }, inprogress: { label: "推進中" }, qa: { label: "驗證中" }, done: { label: "已完成" } }[status] || { label: "未知工程狀態" }),
     isGovernanceTerminal: task => ["merged", "cancelled"].includes(String(task?.status || "")),
-    load: async () => ({ workspaces, tasks, principles: [], systemMaps: [] }),
+    load: async () => ({ boardInstanceId: "fixture-board", workspaces, tasks, principles: [], systemMaps: [] }),
     loadChecklist: async taskId => [
       { id: "co", stage: "co", state: "pass", required: true, label: "Co 開發驗證", evidenceNote: "Co Developer QA PASS" },
       { id: "gpt", stage: "gpt", state: taskId === "gpt-fail-task" ? "not_verified" : "pass", required: true, label: "GPT 工程審查", evidenceNote: taskId === "gpt-fail-task" ? "" : "GPT Review PASS" },
@@ -96,6 +100,30 @@
     contract: { id: "module-c-lifecycle-acceptance-v1", acceptanceAction: "qjc-drop-to-completed" },
     capabilities: { pmAcceptanceFromQjcDrop: true },
     acceptFromQjcDrop: window.ZhugeBoardReadService.pmAcceptTaskFromQjcDrop
+  };
+  window.ZhugeBoardReadService.workflow = {
+    contract: { id: "module-c-lifecycle-acceptance-v2", source: "module-c-mother", owner: "board-instance" },
+    capabilities: { workspaceDecision: true, completion: true, reopen: true },
+    readOnly: false,
+    get: async () => ({
+      published: {
+        id: "fixture-workflow-v2",
+        steps: [
+          { id: "step-todo", key: "todo", name: "待辦", workspaceId: "ws-todo", isCompletion: false },
+          { id: "step-co", key: "co", name: "Co區", workspaceId: "ws-co", isCompletion: false },
+          { id: "step-gpt", key: "gpt", name: "GPT區", workspaceId: "ws-gpt", isCompletion: false },
+          { id: "step-qjc", key: "qjc", name: "QJC驗證", workspaceId: "ws-qjc", isCompletion: false },
+          { id: "step-completed", key: "completed", name: "已完成", workspaceId: "ws-done", isCompletion: true }
+        ]
+      },
+      state: { publishedWorkflowVersionId: "fixture-workflow-v2" }
+    }),
+    reconcileWorkspaceDecision: async input => {
+      if (input.targetWorkspaceId === "ws-done") {
+        return window.ZhugeBoardReadService.pmAcceptTaskFromQjcDrop({ taskId: input.taskId, itemId: `pm-${input.taskId}`, evidenceNote: input.decisionNote });
+      }
+      return window.ZhugeBoardReadService.moveTaskWorkspace(input.taskId, input.targetWorkspaceId);
+    }
   };
   window.prompt = () => { promptCalls += 1; return "PM Drawer Evidence"; };
   window.confirm = () => true;

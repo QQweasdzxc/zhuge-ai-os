@@ -16,7 +16,7 @@ test("formal pages defer navigation mounting to the shared adoption lifecycle", 
   assert.match(shell, /showNavigationMenu: !target\.closest\('\[data-shared-navigation-mode="template-only"\]'\)/);
   assert.match(navigationCss, /data-shared-navigation-mode="template-only"/);
   assert.match(worklog, /function sharedNavigationTargetMarkup/);
-  assert.match(worklog, /isNavigationTemplate \? "" : ' data-shared-navigation-disabled="true"'/);
+  assert.match(worklog, /const disabledAttribute = \(isNavigationTemplate \|\| isWorkspaceTemplate\) \? "" : ' data-shared-navigation-disabled="true"'/);
   assert.match(worklog, /SYSTEM_TEMPLATE_VIEW === "navigation" \? "" : ' data-shared-navigation-mode="template-only"'/);
 
   for (const file of ["app/dashboard/index.html", "app/Board/ai/index.html", "app/Board/worktodo/index.html"]) {
