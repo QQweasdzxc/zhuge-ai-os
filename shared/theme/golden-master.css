@@ -72,6 +72,26 @@
 .template-parity-user-summary.is-match .template-parity-user-category-list strong{color:#e4f7eb}
 .template-parity-user-category-list span{font-size:10px;line-height:1.4;color:#e5c0c5}
 .template-parity-user-summary.is-match .template-parity-user-category-list span{color:#b5d4c0}
+.template-parity-layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.template-parity-layer{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:6px;min-width:0;padding:8px 9px;border:1px solid rgba(46,109,82,.72);border-radius:8px;background:rgba(9,34,31,.48)}
+.template-parity-layer.is-fail{border-color:#75404a;background:rgba(42,27,34,.62)}
+.template-parity-layer-icon{font-size:12px;line-height:1.3}
+.template-parity-layer>div{display:grid;gap:3px;min-width:0}
+.template-parity-layer strong{font-size:10px;color:#e4f7eb;line-height:1.35}
+.template-parity-layer.is-fail strong{color:#fff1f1}
+.template-parity-layer span:not(.template-parity-layer-icon){font-size:10px;line-height:1.35;color:#b5d4c0}
+.template-parity-layer.is-fail span:not(.template-parity-layer-icon){color:#e5c0c5}
+.template-parity-behavior-diagnosis{display:grid;gap:8px;padding:9px 10px;border:1px solid #75404a;border-radius:9px;background:rgba(42,27,34,.62);color:#ffe3e5}
+.template-parity-behavior-heading{display:grid;gap:3px}
+.template-parity-behavior-heading strong{font-size:11px;color:#fff1f1}
+.template-parity-behavior-heading span{font-size:10px;line-height:1.4;color:#e5c0c5}
+.template-parity-behavior-differences{border-top:1px solid rgba(214,167,174,.32);padding-top:7px}
+.template-parity-behavior-differences>summary{cursor:pointer;color:#ffd7db;font-size:11px;font-weight:800}
+.template-parity-behavior-differences>div{display:grid;gap:7px;margin-top:8px}
+.template-parity-behavior-difference{display:grid;gap:4px;padding:8px 9px;border:1px solid rgba(117,64,74,.72);border-radius:7px;background:rgba(42,27,34,.56)}
+.template-parity-behavior-difference h4{margin:0;font-size:11px;color:#fff1f1}
+.template-parity-behavior-difference p{margin:0;font-size:10px;line-height:1.45;color:#f0c7cc}
+.template-parity-behavior-difference p b{display:inline-block;margin-right:4px;color:#ffcbd0}
 .template-parity-user-anomalies{gap:8px}
 .template-parity-user-anomalies>strong{font-size:11px;color:#fff1f1}
 .template-parity-user-anomaly-facts{display:grid;gap:7px;margin:0}
@@ -82,6 +102,7 @@
 @media(max-width:767px){
   .template-parity-diagnosis-summary{grid-template-columns:1fr}
   .template-parity-user-category-list{grid-template-columns:1fr}
+  .template-parity-layers{grid-template-columns:1fr}
 }
 
 /* Golden Master surface styles.  Board consumers mount this stylesheet and

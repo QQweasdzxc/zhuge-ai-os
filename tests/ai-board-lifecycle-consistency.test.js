@@ -13,6 +13,7 @@ const migration = fs.readFileSync(path.join(root, "docs/supabase/20260908_task_l
 const pmAcceptanceMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_pm_acceptance_qjc_drop.sql"), "utf8");
 const cLifecycleMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_lifecycle_acceptance_contract.sql"), "utf8");
 const workspaceAuthorityMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_workspace_authority_reconciliation.sql"), "utf8");
+const pmCompletionMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_pm_completion_decision_reconciliation.sql"), "utf8");
 
 test("AI Board workspace decisions use the shared C authority contract", () => {
   assert.match(runtime, /function canonicalWorkspaceDecisionTarget\(workspace\)/);
@@ -116,6 +117,45 @@ test("the shared C lifecycle contract records PM action context without weakenin
   const acceptanceStart = cLifecycleMigration.indexOf("create or replace function public.board_pm_acceptance_from_qjc_drop");
   const noteGuard = cLifecycleMigration.indexOf("PM Acceptance 必須填寫 Evidence", acceptanceStart);
   assert.equal(noteGuard, -1, "the QJC drop contract must not require a user-entered PM evidence note");
+});
+
+test("the canonical C completion decision accepts any active source workspace without replaying engineering stages", () => {
+  const completionStart = pmCompletionMigration.indexOf("create or replace function public.board_c_reconcile_workspace_decision");
+  const completionEnd = pmCompletionMigration.indexOf("if v_target_kind = 'todo'", completionStart);
+  assert.ok(completionStart >= 0 && completionEnd > completionStart);
+  const completionBranch = pmCompletionMigration.slice(completionStart, completionEnd);
+  assert.match(pmCompletionMigration, /completionDecisionAction:|action=pm-workspace-decision-to-completed/);
+  assert.match(pmCompletionMigration, /historical_engineering_evidence_preserved/);
+  assert.match(pmCompletionMigration, /acceptance_context_recorded/);
+  assert.match(pmCompletionMigration, /task_completed_after_pm_workspace_decision/);
+  assert.match(completionBranch, /set state = 'pass'/i);
+  assert.match(completionBranch, /set status = 'done'/i);
+  assert.match(completionBranch, /assignee = 'QJC'/i);
+  assert.match(completionBranch, /failure_atomicity/);
+  assert.doesNotMatch(completionBranch, /board_pm_acceptance_from_qjc_drop/);
+  assert.doesNotMatch(completionBranch, /board_update_checklist_item/);
+  assert.doesNotMatch(completionBranch, /board_transition_task/);
+  assert.doesNotMatch(completionBranch, /workspace_key\s*=\s*'qjc'/i);
+});
+
+test("the legacy QJC entry delegates to the single C completion decision contract", () => {
+  const wrapperStart = pmCompletionMigration.indexOf("create or replace function public.board_pm_acceptance_from_qjc_drop");
+  assert.ok(wrapperStart >= 0);
+  const wrapper = pmCompletionMigration.slice(wrapperStart);
+  assert.match(wrapper, /return public\.board_c_reconcile_workspace_decision/);
+  assert.doesNotMatch(wrapper, /public\.board_update_checklist_item/);
+  assert.match(wrapper, /revoke all on function public\.board_pm_acceptance_from_qjc_drop/);
+  assert.match(wrapper, /grant execute on function public\.board_pm_acceptance_from_qjc_drop[^;]*authenticated/i);
+});
+
+test("the shared C service exposes PM completion and reopen as one canonical contract", () => {
+  assert.match(service, /source: "module-c-mother"/);
+  assert.match(service, /completionDecisionAction: "pm-workspace-decision-to-completed"/);
+  assert.match(service, /reopenAction: "pm-workspace-decision-reopen"/);
+  assert.match(service, /historicalEngineeringEvidence: "preserved-not-required-for-pm-decision"/);
+  assert.match(service, /atomicity: "single-transaction"/);
+  assert.match(service, /pmCompletionDecision:/);
+  assert.match(service, /pmReopenDecision:/);
 });
 
 test("consumer adoption keeps WorkTodo and Investment outside PM Acceptance", () => {

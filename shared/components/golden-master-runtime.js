@@ -1871,10 +1871,62 @@
     const count = anomalies.length || 1;
     return `<section class="template-parity-diagnosis template-parity-user-summary is-gap" data-template-parity-diagnosis><div class="template-parity-user-heading"><p>有 ${count} 個功能需要留意；其他功能可繼續使用。</p></div>${anomalyMarkup}</section>`;
   }
-  function renderParityUserSummary(report, inventory) {
+  function parityLayerState(report) {
+    const item = report || {};
+    const interfacePass = Number(item.gapCount || 0) === 0;
+    const sourcePass = item.sourceContract?.layerStatus !== "fail";
+    const behaviorPass = item.behaviorContract?.layerStatus === "pass";
+    return [
+      {
+        id: "interface",
+        label: "第一層｜介面與功能",
+        pass: interfacePass,
+        detail: interfacePass ? `${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)} 項功能分類正常` : `發現 ${Number(item.gapCount || 0)} 項功能差異`
+      },
+      {
+        id: "source",
+        label: "第二層｜母版與來源",
+        pass: sourcePass,
+        detail: sourcePass ? (item.sourceContract?.status === "match" ? "目前來源已對上 Published C" : "目前未發現來源衝突") : "目前載入來源與 Published C 不一致"
+      },
+      {
+        id: "behavior",
+        label: "第三層｜操作與流程",
+        pass: behaviorPass,
+        detail: behaviorPass
+          ? item.behaviorContract?.status === "approved" ? "已依產品 Capability 正常套用" : "C 共用流程正常"
+          : `發現 ${Number(item.behaviorContract?.differenceCount || 1)} 項操作差異`
+      }
+    ];
+  }
+  function renderParityLayers(report) {
+    return `<div class="template-parity-layers" data-template-parity-layers>${parityLayerState(report).map(layer => `<div class="template-parity-layer ${layer.pass ? "is-pass" : "is-fail"}" data-template-parity-layer="${esc(layer.id)}"><span class="template-parity-layer-icon" aria-hidden="true">${layer.pass ? "🟢" : "🔴"}</span><div><strong>${esc(layer.label)}</strong><span>${esc(layer.detail)}</span></div></div>`).join("")}</div>`;
+  }
+  function renderParityBehaviorDiagnosis(report) {
+    const behavior = report?.behaviorContract;
+    const differences = Array.isArray(behavior?.differences) ? behavior.differences : [];
+    if (!differences.length) return "";
+    return `<section class="template-parity-behavior-diagnosis" data-template-parity-behavior-diagnosis><div class="template-parity-behavior-heading"><strong>🔴 操作與流程｜發現 ${differences.length} 項差異</strong><span>這表示目前 Consumer 的操作結果可能與 C 母版不同。</span></div><details class="template-parity-behavior-differences" data-template-parity-behavior-details><summary>查看差異</summary><div>${differences.map(item => `<article class="template-parity-behavior-difference"><h4>${esc(item.title || "操作與流程不同")}</h4><p><b>原因</b>${esc(item.cause || "目前 Consumer 尚未證明採用 C Mother 的共用流程。")}</p><p><b>影響</b>${esc(item.impact || "可能造成不同頁面的操作結果不一致。")}</p><p><b>建議</b>${esc(item.recommendation || "回到 C Mother Canonical Contract 處理，不在 Consumer 另做同義流程。")}</p></article>`).join("")}</div></details></section>`;
+  }
+  function renderParityUserSummary(report, inventory, diagnosis) {
     const total = inventory.length || Number(report?.motherCount || 0);
     const matched = Math.max(0, Number(report?.matchCount || 0));
-    return `<section class="template-parity-user-summary is-match" data-template-parity-normal-summary><div class="template-parity-user-heading"><p>目前使用的功能與最新版 C 母版完全一致。</p></div><p class="template-parity-user-count">${matched} / ${total} 項功能分類正常</p><p class="template-parity-user-ai">🤖 AI 檢查：沒有發現異常，不需要處理。</p>${renderParityUserCategories(inventory)}</section>`;
+    const layers = parityLayerState(report);
+    const overallPass = layers.every(layer => layer.pass);
+    const behaviorGap = report?.behaviorContract?.layerStatus === "fail";
+    const hasTemplateGap = Number(report?.gapCount || 0) > 0;
+    const statusClass = overallPass ? "is-match" : "is-gap";
+    const headline = overallPass
+      ? "目前使用的功能與最新版 C 母版一致。"
+      : behaviorGap && !hasTemplateGap
+        ? "目前畫面可以使用，但操作與流程需要留意。"
+        : "有共用功能需要留意；其他功能仍可繼續使用。";
+    const aiText = overallPass
+      ? "🤖 AI 檢查：沒有發現異常，不需要處理。"
+      : behaviorGap
+        ? "🤖 AI 判斷：目前差異在操作與流程，請先查看差異；完整工程資料保留在技術明細。"
+        : "🤖 AI 判斷：先處理畫面與功能差異，完整工程資料保留在技術明細。";
+    return `<section class="template-parity-user-summary ${statusClass}" data-template-parity-normal-summary><div class="template-parity-user-heading"><p>${esc(headline)}</p></div><p class="template-parity-user-count">${matched} / ${total} 項功能分類正常</p>${renderParityLayers(report)}<p class="template-parity-user-ai">${esc(aiText)}</p>${hasTemplateGap ? renderParityDiagnosis(diagnosis) : ""}${behaviorGap ? renderParityBehaviorDiagnosis(report) : ""}${overallPass ? renderParityUserCategories(inventory) : ""}</section>`;
   }
   function renderTemplateParityReport(report) {
     const host = ensureTemplateParityResultHost();
@@ -1892,14 +1944,17 @@
     const technicalReport = engine?.formatReport ? engine.formatReport(report) : "";
     const diagnosis = engine?.diagnose ? engine.diagnose(report) : null;
     const technicalDetails = `<details class="template-parity-technical" data-template-parity-technical><summary>技術明細（工程人員）</summary><div class="template-parity-technical-body"><div class="template-parity-technical-meta">檢查來源：${esc(parityTriggerLabel(report.trigger))}</div>${counts}${inventoryDetails}${details}${technicalReport ? `<pre class="template-parity-technical-log">${esc(technicalReport)}</pre>` : ""}</div></details>`;
-    const visibleSummary = report.gapCount === 0
-      ? renderParityUserSummary(report, inventory)
-      : renderParityDiagnosis(diagnosis);
-    const summary = report.gapCount === 0
+    const visibleSummary = renderParityUserSummary(report, inventory, diagnosis);
+    const layers = parityLayerState(report);
+    const overallPass = layers.every(layer => layer.pass);
+    const behaviorDifferences = Number(report.behaviorContract?.differenceCount || 0);
+    const summary = overallPass
       ? "🟢 C 母版功能正常"
-      : `🔴 發現 ${Array.isArray(diagnosis?.anomalies) && diagnosis.anomalies.length ? diagnosis.anomalies.length : 1} 項功能差異`;
+      : behaviorDifferences && Number(report.gapCount || 0) === 0
+        ? `🔴 操作與流程｜發現 ${behaviorDifferences} 項差異`
+        : `🔴 發現 ${Array.isArray(diagnosis?.anomalies) && diagnosis.anomalies.length ? diagnosis.anomalies.length : 1} 項功能差異`;
     host.hidden = false;
-    host.innerHTML = `<section class="template-parity-report is-${report.gapCount === 0 ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(report.status || "gap")}" data-template-parity-machine-gap="${Number(report.machineGapCount || 0)}" data-template-parity-machine-mother="${Number(report.machineMotherCount || 0)}" data-template-parity-machine-match="${Number(report.machineMatchCount || 0)}" data-template-parity-child-count="${Number(report.childMotherCount || 0)}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong></div>${visibleSummary}${technicalDetails}</section>`;
+    host.innerHTML = `<section class="template-parity-report is-${overallPass ? "match" : "gap"}" data-template-parity-report data-template-parity-status="${esc(overallPass ? "match" : "gap")}" data-template-parity-template-status="${esc(report.status || "gap")}" data-template-parity-source-status="${esc(report.sourceContract?.status || "unknown")}" data-template-parity-behavior-status="${esc(report.behaviorContract?.status || "unknown")}" data-template-parity-behavior-gap="${behaviorDifferences}" data-template-parity-machine-gap="${Number(report.machineGapCount || 0)}" data-template-parity-machine-mother="${Number(report.machineMotherCount || 0)}" data-template-parity-machine-match="${Number(report.machineMatchCount || 0)}" data-template-parity-child-count="${Number(report.childMotherCount || 0)}" role="status" aria-live="polite"><div class="template-parity-heading"><strong>${esc(summary)}</strong></div>${visibleSummary}${technicalDetails}</section>`;
   }
   function runTemplateParityCheck(trigger = "manual", options = {}) {
     const engine = root.ZhugeTemplateParityEngine;
@@ -1910,14 +1965,25 @@
     if (state.templateParityBusy) return state.templateParityReport;
     state.templateParityBusy = true;
     try {
-      const engineOptions = { root, document, consumerId: moduleConsumerId(state.applicationScope), consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board", trigger };
+      const engineOptions = {
+        root,
+        document,
+        applicationScope: state.applicationScope,
+        isMotherTemplate: state.boardIsTemplate,
+        taskCodePrefix: state.taskCodePrefix,
+        consumerId: moduleConsumerId(state.applicationScope),
+        consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board",
+        sourceIntegrity: document.body?.dataset?.templateSourceIntegrity || "",
+        adoptionStatus: document.body?.dataset?.templateAdoption || "",
+        trigger
+      };
       const report = trigger === "manual"
         ? engine.runManual(engineOptions)
         : engine.runAutoGuard(engineOptions);
       state.templateParityReport = report;
       renderTemplateParityReport(report);
       if (!options.silent) openStatusMenu();
-      if (!options.silent) setBanner(`${esc(engine.summary?.(report) || "C 母版一致性檢查完成")}；Parity Check 僅 Compare／Detect／Report，未修改 Cloud。`, report.gapCount === 0 ? "success" : "error");
+      if (!options.silent) setBanner(`${esc(engine.summary?.(report) || "C 母版一致性檢查完成")}；Parity Check 僅 Compare／Detect／Report，未修改 Cloud。`, report.overallStatus === "match" ? "success" : "error");
       return report;
     } finally {
       state.templateParityBusy = false;
@@ -3872,13 +3938,25 @@
     completionGateMessage: completionGateMessage,
     runParityGuard: options => runTemplateParityCheck(options?.trigger || "regression", { silent: options?.silent === true }),
     start: startBoardRuntime,
-    getSnapshot: () => ({
-      applicationScope: state.applicationScope,
-      templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
-      workspaces: state.workspaces.slice(),
-      tasks: state.tasks.slice(),
-      templateParityReport: state.templateParityReport ? JSON.parse(JSON.stringify(state.templateParityReport)) : null
-    })
+    getSnapshot: () => {
+      const service = activeService();
+      const lifecycle = service?.lifecycle || {};
+      const lifecycleContract = service?.lifecycleContract || lifecycle.contract || null;
+      return {
+        applicationScope: state.applicationScope,
+        boardIsTemplate: state.boardIsTemplate,
+        boardInstanceId: state.boardInstanceId,
+        boardName: state.boardName,
+        taskCodePrefix: state.taskCodePrefix,
+        lifecycleContract: lifecycleContract ? JSON.parse(JSON.stringify(lifecycleContract)) : null,
+        lifecycleCapabilities: lifecycle.capabilities ? JSON.parse(JSON.stringify(lifecycle.capabilities)) : {},
+        lifecycleImplementation: String(lifecycleContract?.source || "module-c-mother"),
+        templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
+        workspaces: state.workspaces.slice(),
+        tasks: state.tasks.slice(),
+        templateParityReport: state.templateParityReport ? JSON.parse(JSON.stringify(state.templateParityReport)) : null
+      };
+    }
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
   else init();

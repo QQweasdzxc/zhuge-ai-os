@@ -216,6 +216,120 @@ test("manual and automatic guards use the same Compare path and never repair", (
   assert.equal(typeof engine.repair, "undefined");
 });
 
+test("behavior parity reports canonical C adoption independently of the 15 template capabilities", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const report = engine.runManual({
+    contracts,
+    consumerId: "ai-board",
+    consumerLabel: "AI Board",
+    applicationScope: "ai_board",
+    behaviorObserved: {
+      applicationScope: "ai_board",
+      consumer: "AI Board",
+      contractId: engine.BEHAVIOR_CONTRACT_ID,
+      source: engine.BEHAVIOR_CONTRACT_SOURCE,
+      implementationSource: engine.BEHAVIOR_CONTRACT_SOURCE,
+      sharedRuntime: true,
+      workspaceDecision: "canonical",
+      completionDecision: "canonical",
+      reopenDecision: "canonical",
+      acceptance: "canonical",
+      audit: "canonical",
+      atomicity: "single-transaction"
+    }
+  });
+  assert.equal(report.motherCount, 15);
+  assert.equal(report.gapCount, 0);
+  assert.equal(report.behaviorContract.layerStatus, "pass");
+  assert.equal(report.behaviorContract.status, "match");
+  assert.equal(report.overallStatus, "match");
+});
+
+test("the C Mother itself is the canonical behavior source even before consumer capability opt-in", () => {
+  const contract = {
+    ...engine.canonicalBehaviorContract(),
+    acceptanceAction: "qjc-drop-to-completed",
+    completionDecisionAction: "pm-workspace-decision-to-completed",
+    reopenAction: "pm-workspace-decision-reopen",
+    evidenceMode: "controlled-action-context",
+    audit: "engineering_activity_log",
+    atomicity: "single-transaction"
+  };
+  const root = {
+    ZhugeBoardRuntime: {
+      moveTaskToWorkspace() {},
+      getSnapshot() {
+        return {
+          applicationScope: "c",
+          boardIsTemplate: true,
+          lifecycleContract: contract,
+          lifecycleCapabilities: {},
+          lifecycleImplementation: engine.BEHAVIOR_CONTRACT_SOURCE
+        };
+      }
+    }
+  };
+  const observed = engine.behaviorObservation({ root, applicationScope: "c", isMotherTemplate: true });
+  assert.equal(observed.applicationScope, "c");
+  assert.equal(observed.workspaceDecision, "canonical");
+  assert.equal(observed.completionDecision, "canonical");
+  assert.equal(observed.reopenDecision, "canonical");
+  assert.equal(observed.acceptance, "canonical");
+  assert.equal(observed.audit, "canonical");
+  assert.equal(observed.atomicity, "single-transaction");
+});
+
+test("behavior parity preserves approved capability differences but flags a private consumer flow", () => {
+  const approved = engine.compareBehaviorContract({
+    applicationScope: "investment",
+    consumer: "Investment",
+    contractId: engine.BEHAVIOR_CONTRACT_ID,
+    implementationSource: engine.BEHAVIOR_CONTRACT_SOURCE
+  }, { applicationScope: "investment" });
+  assert.equal(approved.layerStatus, "pass");
+  assert.equal(approved.status, "approved");
+  assert.equal(approved.differenceCount, 0);
+  assert.equal(approved.approvedDifferences.length, 1);
+
+  const drift = engine.compareBehaviorContract({
+    applicationScope: "ai_board",
+    consumer: "AI Board",
+    contractId: engine.BEHAVIOR_CONTRACT_ID,
+    implementationSource: "consumer-specific",
+    privateImplementation: true,
+    workspaceDecision: "canonical",
+    completionDecision: "canonical",
+    reopenDecision: "canonical",
+    acceptance: "canonical",
+    audit: "canonical",
+    atomicity: "single-transaction"
+  }, { applicationScope: "ai_board" });
+  assert.equal(drift.layerStatus, "fail");
+  assert.equal(drift.status, "gap");
+  assert.ok(drift.differences.some(item => item.id === "behavior.private-implementation"));
+});
+
+test("behavior parity keeps the third layer distinct from template gap counting", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const report = engine.runManual({
+    contracts,
+    consumerId: "ai-board",
+    consumerLabel: "AI Board",
+    applicationScope: "ai_board",
+    behaviorObserved: {
+      applicationScope: "ai_board",
+      consumer: "AI Board",
+      contractId: "legacy-contract",
+      implementationSource: "consumer-specific"
+    }
+  });
+  assert.equal(report.motherCount, 15);
+  assert.equal(report.gapCount, 0);
+  assert.equal(report.behaviorContract.layerStatus, "fail");
+  assert.equal(report.overallStatus, "gap");
+  assert.equal(report.behaviorContract.differenceCount >= 1, true);
+});
+
 test("the three formal Board pages load one shared Parity Engine before the shared runtime", () => {
   for (const file of ["app/Board/template-preview/index.html", "app/Board/ai/index.html", "app/Board/worktodo/index.html"]) {
     const html = read(file);
