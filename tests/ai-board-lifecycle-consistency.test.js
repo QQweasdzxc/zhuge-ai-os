@@ -12,37 +12,33 @@ const gateway = fs.readFileSync(path.join(root, "shared/supabase/supabase-gatewa
 const migration = fs.readFileSync(path.join(root, "docs/supabase/20260908_task_lifecycle_workspace_consistency.sql"), "utf8");
 const pmAcceptanceMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_pm_acceptance_qjc_drop.sql"), "utf8");
 const cLifecycleMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_lifecycle_acceptance_contract.sql"), "utf8");
+const workspaceAuthorityMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_c_workspace_authority_reconciliation.sql"), "utf8");
 
-test("AI Board canonical workspace targets use the formal lifecycle path", () => {
-  assert.match(runtime, /function aiBoardLifecycleTarget\(workspace\)/);
-  assert.match(runtime, /todo: \{ key: "todo", status: "ready", assignee: "Co"/);
-  assert.match(runtime, /co: \{ key: "co", status: "inprogress", assignee: "Co"/);
-  assert.match(runtime, /qjc: \{ key: "qjc", status: "qa", assignee: "QJC"/);
-  assert.match(runtime, /completed: \{ key: "completed", status: "done", assignee: "QJC"/);
-  assert.match(runtime, /if \(lifecycleTarget\) \{[\s\S]*?await moveAiBoardLifecycleTask/);
-  assert.match(runtime, /await activeService\(\)\.transitionTask\(task\.id, lifecycleTarget\.status/);
+test("AI Board workspace decisions use the shared C authority contract", () => {
+  assert.match(runtime, /function canonicalWorkspaceDecisionTarget\(workspace\)/);
+  assert.match(runtime, /function canUseCWorkspaceAuthority\(\)/);
+  assert.match(runtime, /activeService\(\)\.lifecycle\.reconcileWorkspaceDecision/);
+  assert.match(service, /board_c_reconcile_workspace_decision/);
+  assert.doesNotMatch(runtime, /function moveAiBoardLifecycleTask/);
+  assert.doesNotMatch(runtime, /只能從「QJC驗證」工作區發起/);
   assert.doesNotMatch(runtime, /PM Acceptance Evidence.*必填/);
   assert.match(runtime, /PM QA 退回 Evidence.*必填/);
   assert.doesNotMatch(runtime, /PM Acceptance PASS（卡片拖曳：/);
 });
 
 test("ordinary custom workspace movement remains on the existing generic path", () => {
-  const lifecycleBranch = runtime.indexOf("const lifecycleTarget = aiBoardLifecycleTarget(target);");
+  const lifecycleBranch = runtime.indexOf("if (canUseCWorkspaceAuthority())");
   const genericBranch = runtime.indexOf('executeSharedTaskAction(task, "moveWorkspace"', lifecycleBranch);
   assert.ok(lifecycleBranch >= 0);
   assert.ok(genericBranch > lifecycleBranch);
   assert.match(runtime.slice(genericBranch, genericBranch + 700), /workspaceId: target\.id/);
 });
 
-test("a stale canonical workspace still runs the formal lifecycle transition", () => {
-  const lifecycleBranch = runtime.indexOf("const lifecycleTarget = aiBoardLifecycleTarget(target);");
-  const sameWorkspaceGuard = runtime.indexOf("String(task.workspaceId) === String(target.id)", lifecycleBranch);
-  const lifecycleCall = runtime.indexOf("await moveAiBoardLifecycleTask(task, current, target, lifecycleTarget);", lifecycleBranch);
-  assert.ok(lifecycleBranch >= 0);
-  assert.ok(sameWorkspaceGuard > lifecycleBranch);
-  assert.ok(lifecycleCall > sameWorkspaceGuard);
-  assert.match(runtime.slice(sameWorkspaceGuard, lifecycleCall), /lifecycleMatchesTarget/);
-  assert.match(runtime.slice(sameWorkspaceGuard, lifecycleCall), /正式狀態與負責人也已一致/);
+test("the shared runtime recognizes every PM workspace decision target", () => {
+  assert.match(runtime, /key === "gpt" \|\| name === "gpt"/);
+  assert.match(runtime, /key === "completed" \|\| \/\(\^\|\-\)completed\$\//);
+  assert.match(runtime, /async function reconcileTaskWorkspaceDecision\(task, current, target\)/);
+  assert.match(runtime, /decisionNote: `PM workspace decision:/);
 });
 
 test("PM QA FAIL uses the atomic checklist/task contract", () => {
@@ -91,9 +87,12 @@ test("QJC completion drop composes the existing guarded lifecycle contracts atom
   assert.match(pmAcceptanceMigration, /revoke all on function public\.board_pm_acceptance_from_qjc_drop/);
   assert.match(pmAcceptanceMigration, /grant execute on function public\.board_pm_acceptance_from_qjc_drop[^;]*authenticated/i);
   assert.doesNotMatch(pmAcceptanceMigration, /board_reconcile_pm_acceptance_lifecycle/);
-  assert.match(runtime, /currentKey === "qjc" && status === "qa" && \(assignee === "GPT" \|\| assignee === "QJC"\)/);
-  assert.match(runtime, /acceptThroughCContract/);
-  assert.match(runtime, /module-c-lifecycle-acceptance-v1/);
+  assert.match(workspaceAuthorityMigration, /create or replace function public\.board_c_reconcile_workspace_decision/i);
+  assert.match(workspaceAuthorityMigration, /source_workspace_id/);
+  assert.match(workspaceAuthorityMigration, /failure_atomicity/);
+  assert.match(workspaceAuthorityMigration, /public\.board_pm_acceptance_from_qjc_drop/);
+  assert.match(runtime, /canUseCWorkspaceAuthority/);
+  assert.match(runtime, /reconcileWorkspaceDecision/);
   const acceptanceStart = runtime.indexOf("async function acceptTaskByCardDrop");
   const acceptanceEnd = runtime.indexOf("async function rejectTaskByCardDrop");
   assert.ok(acceptanceStart >= 0 && acceptanceEnd > acceptanceStart);
@@ -121,7 +120,8 @@ test("the shared C lifecycle contract records PM action context without weakenin
 
 test("consumer adoption keeps WorkTodo and Investment outside PM Acceptance", () => {
   assert.match(adapter, /consumer: "worktodo"[\s\S]*governanceChecklist: false/);
-  assert.match(runtime, /state\.applicationScope !== "ai_board"/);
+  assert.match(runtime, /if \(isWorkTodoTask\(task\)\) \{/);
+  assert.match(runtime, /state\.applicationScope === "procurement"/);
   assert.match(runtime, /Investment/);
   assert.match(service, /instanceOptions\.lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
 });
@@ -141,4 +141,50 @@ test("createInstanceService exposes the shared contract with explicit consumer o
   assert.equal(optedIn.lifecycleContract, generic.lifecycleContract);
   assert.equal(optedIn.lifecycle.capabilities.pmAcceptanceFromQjcDrop, true);
   assert.equal(typeof optedIn.lifecycle.acceptFromQjcDrop, "function");
+
+  const authority = BoardReadService.createInstanceService({
+    gateway,
+    boardInstanceId: "c-consumer-1",
+    lifecycleCapabilities: { pmWorkspaceAuthority: true }
+  });
+  assert.equal(authority.lifecycle.capabilities.pmWorkspaceAuthority, true);
+  assert.equal(typeof authority.lifecycle.reconcileWorkspaceDecision, "function");
+});
+
+test("the canonical C service sends the PM-selected workspace to Cloud", async () => {
+  const calls = [];
+  const result = await BoardReadService.reconcileWorkspaceDecision({
+    taskId: "task-1",
+    targetWorkspaceId: "workspace-2",
+    decisionNote: "PM selected workspace"
+  }, {
+    gateway: {
+      rpc: async (name, payload) => {
+        calls.push({ name, payload });
+        return { success: true, decision: "workspace" };
+      }
+    }
+  });
+  assert.deepEqual(result, { success: true, decision: "workspace" });
+  assert.deepEqual(calls, [{
+    name: "board_c_reconcile_workspace_decision",
+    payload: {
+      p_task_id: "task-1",
+      p_target_workspace_id: "workspace-2",
+      p_decision_note: "PM selected workspace"
+    }
+  }]);
+});
+
+test("C workspace authority keeps PM gates and audit atomic", () => {
+  assert.match(workspaceAuthorityMigration, /active = true/);
+  assert.match(workspaceAuthorityMigration, /archived_at is null/);
+  assert.match(workspaceAuthorityMigration, /status = 'qa'/);
+  assert.match(workspaceAuthorityMigration, /assignee = 'QJC'/);
+  assert.match(workspaceAuthorityMigration, /task_pm_workspace_acceptance_pretransition/);
+  assert.match(workspaceAuthorityMigration, /task_reopened_by_pm_workspace_decision/);
+  assert.match(workspaceAuthorityMigration, /failure_atomicity/);
+  assert.match(workspaceAuthorityMigration, /grant execute on function public\.board_c_reconcile_workspace_decision[^;]*authenticated/i);
+  assert.doesNotMatch(workspaceAuthorityMigration, /insert into public\.board_tasks/i);
+  assert.doesNotMatch(workspaceAuthorityMigration, /delete from public\.(board_tasks|engineering_checklist_items)/i);
 });

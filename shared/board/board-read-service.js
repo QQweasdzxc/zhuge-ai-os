@@ -34,16 +34,21 @@
   const C_LIFECYCLE_ACCEPTANCE_CONTRACT = Object.freeze({
     id: "module-c-lifecycle-acceptance-v1",
     acceptanceAction: "qjc-drop-to-completed",
+    workspaceDecisionAction: "pm-workspace-decision",
     evidenceMode: "controlled-action-context",
     genericDoneTransition: "forbidden"
   });
 
-  function createLifecycleCapability(acceptFromQjcDrop, enabled = true) {
+  function createLifecycleCapability(acceptFromQjcDrop, enabled = true, reconcileWorkspaceDecision = null) {
     const capability = {
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
-      capabilities: Object.freeze({ pmAcceptanceFromQjcDrop: Boolean(enabled) })
+      capabilities: Object.freeze({
+        pmAcceptanceFromQjcDrop: Boolean(enabled),
+        pmWorkspaceAuthority: typeof reconcileWorkspaceDecision === "function"
+      })
     };
     if (enabled && typeof acceptFromQjcDrop === "function") capability.acceptFromQjcDrop = acceptFromQjcDrop;
+    if (typeof reconcileWorkspaceDecision === "function") capability.reconcileWorkspaceDecision = reconcileWorkspaceDecision;
     return Object.freeze(capability);
   }
 
@@ -1082,6 +1087,18 @@
     });
   }
 
+  // C owns PM workspace decisions.  This operation is deliberately separate
+  // from the legacy sequential transition RPC: the PM-selected workspace is
+  // the intent, while Cloud reconciles the formal lifecycle atomically.
+  async function reconcileWorkspaceDecision(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_c_reconcile_workspace_decision", {
+      p_task_id: input.taskId,
+      p_target_workspace_id: input.targetWorkspaceId,
+      p_decision_note: input.decisionNote || null
+    });
+  }
+
   // Compatibility alias for older callers.  New shared Runtime code uses the
   // canonical C lifecycle capability above.
   async function pmAcceptTaskFromQjcDrop(input = {}, options = {}) {
@@ -1406,6 +1423,10 @@
       await resolveInstance();
       return acceptTaskFromQjcDrop(input, withGateway());
     }
+    async function instanceReconcileWorkspaceDecision(input = {}) {
+      await resolveInstance();
+      return reconcileWorkspaceDecision(input, withGateway());
+    }
     async function instanceAddProgress(taskId, note) {
       await resolveInstance();
       return gateway.rpc("board_instance_add_progress_note", { p_task_id: taskId, p_note: note }).then(normalizeInstanceActivity);
@@ -1495,7 +1516,10 @@
     }
     const lifecycle = createLifecycleCapability(
       instanceAcceptTaskFromQjcDrop,
-      instanceOptions.lifecycleCapabilities?.pmAcceptanceFromQjcDrop === true
+      instanceOptions.lifecycleCapabilities?.pmAcceptanceFromQjcDrop === true,
+      instanceOptions.lifecycleCapabilities?.pmWorkspaceAuthority === true
+        ? instanceReconcileWorkspaceDecision
+        : null
     );
     return Object.freeze({
       applicationScope: "c",
@@ -1536,6 +1560,7 @@
       deleteTaskChecklistItem: instanceDeleteChecklist,
       createChecklistItem: instanceCreateGovernanceChecklist,
       updateChecklistItem: instanceUpdateGovernanceChecklist,
+      reconcileWorkspaceDecision: instanceReconcileWorkspaceDecision,
       addTaskProgressNote: instanceAddProgress,
       notifyTaskProgress: instanceNotifyProgress,
       editTaskProgressNote: instanceEditProgress,
@@ -1623,7 +1648,7 @@
   return Object.freeze({
     ENGINEERING_STATUS_DESCRIPTORS,
     lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
-    lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop),
+    lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop, true, reconcileWorkspaceDecision),
     planTransition,
     availableTransitions,
     normalizeStatus,
@@ -1689,6 +1714,7 @@
     createChecklistItem,
     updateChecklistItem,
     acceptTaskFromQjcDrop,
+    reconcileWorkspaceDecision,
     pmAcceptTaskFromQjcDrop,
     pmQaFailChecklist,
     reconcilePmAcceptanceLifecycle,
