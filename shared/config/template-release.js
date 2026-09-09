@@ -20,10 +20,10 @@
   "publishedBuild": "20260909-1228",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260909-1228",
-  "sourceCommit": "1d00f9543c6715dd29b942f2921e82e0537601f9",
+  "sourceCommit": "b74187c53830f89b74f4ea3f911858dafe4cb43d",
   "sourceDirty": false,
-  "sourceFingerprint": "3381138257e4be20a9c2c3530e4d4551ef4fc0b13129123b71a88ef7b96aedd9",
-  "publishedAt": "2026-09-03T06:00:39.426Z",
+  "sourceFingerprint": "c06d40dac9d6bd2af9165126a28c7c0703e421a20cc8977bfd414873059bb8ad",
+  "publishedAt": "2026-09-09T04:30:18.547Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
@@ -41,6 +41,11 @@
       "status": "adopted"
     },
     "investment-ivtk": {
+      "templateVersion": "0.9.0-alpha.9.13",
+      "build": "20260909-1228",
+      "status": "adopted"
+    },
+    "worklog-procurement": {
       "templateVersion": "0.9.0-alpha.9.13",
       "build": "20260909-1228",
       "status": "adopted"
