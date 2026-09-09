@@ -114,6 +114,110 @@
     };
   }
 
+  function cloneSerializable(value) {
+    if (value === undefined) return undefined;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_error) {
+      return undefined;
+    }
+  }
+
+  /*
+   * A Published C semantic snapshot is intentionally separate from release
+   * identity.  Version/build/commit tell us which artifact is in play; the
+   * snapshot tells parity what actually changed.  This keeps a harmless
+   * identity-only difference from becoming a false red layer.
+   */
+  function normalizeSemanticSnapshot(value) {
+    if (!value || typeof value !== "object") return null;
+    const raw = value.publishedSnapshot || value.semanticSnapshot || value.snapshot || value;
+    if (!raw || typeof raw !== "object") return null;
+    const rawInventory = raw.inventory || raw.capabilityInventory || (Array.isArray(raw.capabilities) ? raw : null);
+    const inventory = rawInventory && Array.isArray(rawInventory.capabilities)
+      ? createInventory(rawInventory.capabilities, {
+        baseline: rawInventory.baseline || "C Mother Template",
+        consumerId: rawInventory.consumerId || "",
+        trigger: rawInventory.trigger || "published"
+      })
+      : null;
+    const behaviorValue = raw.behaviorContract || raw.behavior || raw.lifecycleContract;
+    const behaviorContract = behaviorValue && typeof behaviorValue === "object"
+      ? cloneSerializable(behaviorValue)
+      : null;
+    if (!inventory && !behaviorContract) return null;
+    return {
+      schemaVersion: Number(raw.schemaVersion || raw.schema_version || 1),
+      version: String(raw.version || raw.templateVersion || raw.publishedVersion || ""),
+      build: String(raw.build || raw.publishedBuild || ""),
+      sourceCommit: String(raw.sourceCommit || raw.source_commit || "").trim().toLowerCase(),
+      sourceFingerprint: String(raw.sourceFingerprint || raw.source_fingerprint || "").trim().toLowerCase(),
+      inventory,
+      behaviorContract
+    };
+  }
+
+  function behaviorObservationFromContract(value, options = {}) {
+    const raw = value?.behaviorContract || value?.behavior || value?.lifecycleContract || value || {};
+    const actual = cloneSerializable(raw) || {};
+    const scope = inferBehaviorScope(options, actual);
+    actual.applicationScope = scope;
+    actual.consumer = String(options.consumerLabel || actual.consumer || scope || "Current Consumer");
+    actual.contractId = String(actual.contractId || actual.id || "").trim();
+    actual.source = String(actual.source || actual.implementationSource || "").trim().toLowerCase();
+    actual.implementationSource = String(actual.implementationSource || actual.source || "").trim().toLowerCase() || "unknown";
+    actual.sharedRuntime = actual.sharedRuntime === undefined ? true : Boolean(actual.sharedRuntime);
+    return actual;
+  }
+
+  function semanticSnapshotIdentity(snapshot) {
+    const item = snapshot || {};
+    return {
+      version: String(item.version || ""),
+      build: String(item.build || ""),
+      sourceCommit: String(item.sourceCommit || ""),
+      sourceFingerprint: String(item.sourceFingerprint || "")
+    };
+  }
+
+  function adoptionStatusIsIdentityOnly(value) {
+    const status = String(value || "").trim().toLowerCase();
+    return status === "stale" || status === "published_pending_reload" || status === "not_adopted";
+  }
+
+  function formatSnapshotIdentity(value) {
+    const identity = value || {};
+    const version = String(identity.version || "").trim();
+    const build = String(identity.build || "").trim();
+    const fingerprint = String(identity.sourceFingerprint || "").trim();
+    const parts = [];
+    if (version) parts.push(version);
+    if (build) parts.push(`Build ${build}`);
+    if (fingerprint) parts.push(`Fingerprint ${fingerprint}`);
+    return parts.join(" · ") || "unavailable";
+  }
+
+  function unavailableBehaviorContract(expected, options = {}) {
+    const scope = normalizeBehaviorScope(options.applicationScope || "ai_board");
+    const policy = BEHAVIOR_POLICY[scope] || BEHAVIOR_POLICY.ai_board;
+    return {
+      id: BEHAVIOR_CONTRACT_ID,
+      version: BEHAVIOR_CONTRACT_ID,
+      applicationScope: scope,
+      consumer: options.consumerLabel || policy.label,
+      status: "unverified",
+      layerStatus: "fail",
+      differenceCount: 0,
+      differences: [],
+      approvedDifferences: [],
+      expected,
+      observed: null,
+      policy: policy.mode,
+      evidenceStatus: "unavailable",
+      evidenceMessage: "目前採用版本尚未提供可比對的 C 功能／流程快照。"
+    };
+  }
+
   function behaviorObservation(options = {}) {
     if (options.behaviorObserved && typeof options.behaviorObserved === "object") {
       return { ...options.behaviorObserved, applicationScope: inferBehaviorScope(options, options.behaviorObserved) };
@@ -224,17 +328,20 @@
     };
   }
 
-  function compareBehaviorContract(observed, options = {}) {
-    const actual = observed || {};
+  function compareBehaviorContractAgainst(observed, expectedContract, options = {}) {
+    const actual = behaviorObservationFromContract(observed || {}, options);
     const scope = normalizeBehaviorScope(options.applicationScope || actual.applicationScope || "ai_board");
     const policy = BEHAVIOR_POLICY[scope] || BEHAVIOR_POLICY.ai_board;
-    const expected = canonicalBehaviorContract();
+    const expected = {
+      ...canonicalBehaviorContract(),
+      ...(expectedContract && typeof expectedContract === "object" ? expectedContract : {})
+    };
     const differences = [];
     const approvedDifferences = [];
 
     if (policy.mode === "approved") {
       const canonicalIdentity = actual.contractId === expected.id
-        && actual.implementationSource === BEHAVIOR_CONTRACT_SOURCE;
+        && actual.implementationSource === String(expected.source || BEHAVIOR_CONTRACT_SOURCE).trim().toLowerCase();
       if (actual.privateImplementation || actual.implementationSource === "consumer-specific" || !canonicalIdentity) {
         differences.push({
           id: "behavior.private-implementation",
@@ -246,7 +353,7 @@
             : `${policy.label} 尚未回報完整的 C Canonical Contract 身分。`,
           impact: "共用看板流程可能在不同產品中逐步漂移。",
           recommendation: "保留產品 Capability 差異，但先由 Consumer 採用 C Mother Canonical Contract；不要在 Consumer 另做同義流程。",
-          expected: BEHAVIOR_CONTRACT_SOURCE,
+          expected: expected.source || BEHAVIOR_CONTRACT_SOURCE,
           actual: actual.implementationSource || "未提供"
         });
       } else {
@@ -286,6 +393,12 @@
         actual: actual.implementationSource
       });
     }
+    const expectedSource = String(expected.source || BEHAVIOR_CONTRACT_SOURCE).trim().toLowerCase();
+    if (!actual.privateImplementation
+      && actual.implementationSource !== expectedSource
+      && actual.implementationSource !== "unknown") {
+      differences.push(behaviorDifference("implementationSource", expectedSource, actual.implementationSource));
+    }
     if (actual.contractId !== expected.id) {
       differences.push(behaviorDifference("completionDecision", expected.id, actual.contractId));
     }
@@ -308,29 +421,49 @@
     };
   }
 
+  function compareBehaviorContract(observed, options = {}) {
+    return compareBehaviorContractAgainst(observed, canonicalBehaviorContract(), options);
+  }
+
   function sourceContract(options = {}) {
     const sourceIntegrity = String(options.sourceIntegrity || "").trim().toLowerCase();
     const adoptionStatus = String(options.adoptionStatus || "").trim().toLowerCase();
+    const semanticEvidence = options.semanticEvidence === true;
     const status = sourceIntegrity === "mismatch"
       ? "gap"
-      : sourceIntegrity === "match" || adoptionStatus === "adopted"
+      : semanticEvidence || sourceIntegrity === "match" || adoptionStatus === "adopted"
         ? "match"
+        : adoptionStatus === "stale"
+          ? "gap"
         : "approved";
+    const semanticComparison = options.semanticComparison || null;
     return {
       id: "module-c-published-source-v1",
       status,
       layerStatus: status === "gap" ? "fail" : "pass",
       sourceIntegrity: sourceIntegrity || "unverified",
       adoptionStatus: adoptionStatus || "unverified",
+      semanticEvidence: semanticEvidence ? "available" : "unavailable",
+      semanticComparison,
       differences: status === "gap" ? [{
         id: "source.integrity",
         kind: "source-integrity",
-        title: "目前載入來源與 Published C 不一致",
-        cause: "Consumer 的程式來源沒有對上目前已發布的 C 母版。",
-        impact: "即使畫面看起來相似，功能與操作流程也可能不是同一個版本。",
-        recommendation: "先採用與 Published C 相符的來源，再進行 Consumer 驗證。"
+        title: adoptionStatus === "stale" && !semanticEvidence ? "目前採用版本尚未取得可比對的語意資料" : "目前載入來源與 Published C 不一致",
+        cause: adoptionStatus === "stale" && !semanticEvidence
+          ? "目前只知道 Consumer 尚未採用最新版本，但沒有足夠的能力／流程快照可以確認實際差異。"
+          : "Consumer 的程式來源沒有對上目前已發布的 C 母版。",
+        impact: "在沒有語意比對證據前，不能把目前狀態視為與最新版 C 母版一致。",
+        recommendation: "先取得 Consumer 目前採用版本的語意快照，再由 C Mother Compare／Detect／Report。"
       }] : [],
-      detail: status === "match" ? "目前來源已對上 Published C。" : status === "gap" ? "來源完整性檢查未通過。" : "目前未發現來源衝突；完整來源證據保留在技術明細。"
+      detail: status === "match"
+        ? semanticComparison?.identityOnlyDifference
+          ? "版本身份不同，但目前比對到的功能與流程內容一致。"
+          : semanticEvidence
+            ? "已以 Latest Published C 與目前採用內容完成語意比對。"
+            : "目前來源已對上 Published C。"
+        : status === "gap"
+          ? "來源完整性檢查未通過。"
+          : "目前未發現來源衝突；完整來源證據保留在技術明細。"
     };
   }
 
@@ -607,8 +740,27 @@
   }
 
   function compare(baseline, consumer, options = {}) {
-    const mother = baseline || canonicalInventory();
-    const current = consumer || createInventory();
+    const latestPublishedC = normalizeSemanticSnapshot(
+      options.latestPublishedC
+      || options.publishedC
+      || options.templateRelease?.publishedSnapshot
+    );
+    const adoptedC = normalizeSemanticSnapshot(
+      options.adoptedC
+      || options.currentAdoptedC
+      || options.templateRelease?.adoption?.snapshot
+    );
+    const adoptedIdentity = options.adoptedIdentity || options.templateRelease?.adoption || null;
+    const semanticBaselineUnavailable = adoptionStatusIsIdentityOnly(options.adoptionStatus) && !adoptedC;
+    const mother = baseline || latestPublishedC?.inventory || canonicalInventory();
+    const runtimeConsumer = consumer || createInventory();
+    const current = adoptedC?.inventory
+      ? {
+        ...adoptedC.inventory,
+        baseline: "Consumer Current Adopted C",
+        consumerId: runtimeConsumer.consumerId || adoptedC.inventory.consumerId || ""
+      }
+      : runtimeConsumer;
     const motherRows = Array.isArray(mother.capabilities) ? mother.capabilities : [];
     const currentRows = Array.isArray(current.capabilities) ? current.capabilities : [];
     const motherMap = new Map(motherRows.map(row => [row.id, row]));
@@ -646,13 +798,41 @@
     const machineConsumerCount = currentRows.reduce((count, row) => count + 1 + contractNodeCount(row.machineContract !== undefined ? row.machineContract : row.contract), 0);
     const machineMatchCount = machineInventory.filter(row => row.status === "MATCH").length;
     const gapCount = machineGapCount || differences.length;
-    const behaviorObserved = options.behaviorObserved || consumer.behaviorContractObserved || behaviorObservation(options);
-    const behavior = compareBehaviorContract(behaviorObserved, {
-      applicationScope: options.applicationScope || behaviorObserved.applicationScope || consumer.applicationScope || consumer.consumerId
-    });
+    const behaviorObserved = adoptedC?.behaviorContract
+      ? behaviorObservationFromContract(adoptedC.behaviorContract, {
+        applicationScope: options.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
+        consumerLabel: options.consumerLabel || runtimeConsumer.baseline
+      })
+      : options.behaviorObserved || runtimeConsumer.behaviorContractObserved || behaviorObservation(options);
+    const expectedBehavior = latestPublishedC?.behaviorContract || canonicalBehaviorContract();
+    const behavior = semanticBaselineUnavailable
+      ? unavailableBehaviorContract(expectedBehavior, {
+        applicationScope: options.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
+        consumerLabel: options.consumerLabel || runtimeConsumer.baseline
+      })
+      : compareBehaviorContractAgainst(behaviorObserved, expectedBehavior, {
+        applicationScope: options.applicationScope || behaviorObserved.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId,
+        consumerLabel: options.consumerLabel || runtimeConsumer.baseline
+      });
+    const semanticComparison = {
+      mode: adoptedC ? "consumer-adopted-vs-latest-published" : "consumer-runtime-vs-latest-published",
+      status: semanticBaselineUnavailable ? "unverified" : "verified",
+      evidence: semanticBaselineUnavailable ? "adopted-semantic-snapshot-unavailable" : "available",
+      latestPublishedC: latestPublishedC ? semanticSnapshotIdentity(latestPublishedC) : { source: "c-mother-canonical-source" },
+      consumerCurrentAdoptedC: adoptedC ? semanticSnapshotIdentity(adoptedC) : adoptedIdentity ? semanticSnapshotIdentity(adoptedIdentity) : { source: "adopted-semantic-snapshot-unavailable" },
+      interfaceStatus: semanticBaselineUnavailable ? "unverified" : gapCount === 0 ? "match" : "gap",
+      behaviorStatus: semanticBaselineUnavailable ? "unverified" : behavior.layerStatus === "pass" ? "match" : "gap",
+      identityOnlyDifference: Boolean(
+        adoptionStatusIsIdentityOnly(options.adoptionStatus)
+        && gapCount === 0
+        && behavior.layerStatus === "pass"
+      )
+    };
     const source = sourceContract({
       sourceIntegrity: options.sourceIntegrity,
-      adoptionStatus: options.adoptionStatus
+      adoptionStatus: options.adoptionStatus,
+      semanticEvidence: !semanticBaselineUnavailable,
+      semanticComparison
     });
     return {
       engineVersion: ENGINE_VERSION,
@@ -664,8 +844,8 @@
       matchCount: matched.length,
       gapCount,
       templateGap: gapCount,
-      fingerprint: gapCount === 0 ? "MATCH" : "MISMATCH",
-      status: gapCount === 0 ? "match" : "gap",
+      fingerprint: semanticBaselineUnavailable ? "UNVERIFIED" : gapCount === 0 ? "MATCH" : "MISMATCH",
+      status: semanticBaselineUnavailable || gapCount > 0 ? "gap" : "match",
       inventory,
       differences,
       differenceDetails,
@@ -681,7 +861,8 @@
       trigger: current.trigger || "manual",
       sourceContract: source,
       behaviorContract: behavior,
-      overallStatus: gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
+      compareBaseline: semanticComparison,
+      overallStatus: !semanticBaselineUnavailable && gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
     };
   }
 
@@ -875,6 +1056,14 @@
   function formatReport(report) {
     const item = report || {};
     const lines = [
+      `Engine：${item.engineVersion || ENGINE_VERSION}`,
+      `Baseline：${item.baseline || "C Mother Template"}`,
+      ...(item.compareBaseline ? [
+        `Compare Baseline：${item.compareBaseline.mode || "consumer-to-c"}`,
+        `Latest Published C：${formatSnapshotIdentity(item.compareBaseline.latestPublishedC)}`,
+        `Consumer Current Adopted C：${formatSnapshotIdentity(item.compareBaseline.consumerCurrentAdoptedC)}`,
+        `Semantic Layers：Interface ${item.compareBaseline.interfaceStatus || "unverified"}｜Behavior ${item.compareBaseline.behaviorStatus || "unverified"}`
+      ] : []),
       `C Mother Template：${Number(item.motherCount || 0)}`,
       `目前 Consumer：${Number(item.consumerCount || 0)}`,
       `MATCH：${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)}`,
@@ -921,7 +1110,9 @@
     collectConsumerInventory,
     createInventory,
     canonicalBehaviorContract,
+    normalizeSemanticSnapshot,
     behaviorObservation,
+    compareBehaviorContractAgainst,
     compareBehaviorContract,
     sourceContract,
     compare,

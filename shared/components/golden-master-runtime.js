@@ -37,6 +37,34 @@
       sourceFingerprint: String(snapshot.sourceFingerprint || "")
     };
   }
+  function paritySemanticSnapshots() {
+    const loadedRelease = root.ZhugeMotherTemplateRelease?.getSnapshot?.() || {};
+    const engine = root.ZhugeTemplateParityEngine;
+    const adoption = state.templateRelease?.adoption || {};
+    const canonicalFallback = engine?.canonicalInventory && engine?.canonicalBehaviorContract
+      ? {
+        schemaVersion: 1,
+        version: String(state.templateRelease?.publishedVersion || loadedRelease.publishedVersion || ""),
+        build: String(state.templateRelease?.publishedBuild || loadedRelease.publishedBuild || ""),
+        sourceCommit: String(state.templateRelease?.sourceCommit || loadedRelease.sourceCommit || ""),
+        sourceFingerprint: String(state.templateRelease?.sourceFingerprint || loadedRelease.sourceFingerprint || ""),
+        inventory: engine.canonicalInventory(),
+        behaviorContract: engine.canonicalBehaviorContract()
+      }
+      : null;
+    const published = state.templateRelease?.publishedSnapshot || loadedRelease.publishedSnapshot || canonicalFallback;
+    const adopted = adoption.snapshot
+      || adoption.semanticSnapshot
+      || loadedRelease.adoptedSnapshot
+      || null;
+    const adoptedIdentity = {
+      version: String(adoption.moduleVersion || adoption.templateVersion || ""),
+      build: String(adoption.build || ""),
+      sourceCommit: String(adoption.sourceCommit || ""),
+      sourceFingerprint: String(adoption.sourceFingerprint || "")
+    };
+    return { latestPublishedC: published, adoptedC: adopted, adoptedIdentity };
+  }
 
   function releaseVersionLabel(version, build) {
     const normalizedVersion = String(version || "").trim();
@@ -1873,21 +1901,26 @@
   }
   function parityLayerState(report) {
     const item = report || {};
-    const interfacePass = Number(item.gapCount || 0) === 0;
+    const interfaceStatus = item.compareBaseline?.interfaceStatus || (Number(item.gapCount || 0) === 0 ? "match" : "gap");
+    const behaviorStatus = item.compareBaseline?.behaviorStatus || (item.behaviorContract?.layerStatus === "pass" ? "match" : "gap");
+    const interfacePass = interfaceStatus === "match";
     const sourcePass = item.sourceContract?.layerStatus !== "fail";
-    const behaviorPass = item.behaviorContract?.layerStatus === "pass";
+    const behaviorPass = behaviorStatus === "match" && item.behaviorContract?.layerStatus === "pass";
+    const unavailableDetail = "尚未取得目前採用版本的語意快照，無法確認與最新版 C 母版一致。";
     return [
       {
         id: "interface",
         label: "第一層｜介面與功能",
         pass: interfacePass,
-        detail: interfacePass ? `${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)} 項功能分類正常` : `發現 ${Number(item.gapCount || 0)} 項功能差異`
+        detail: interfacePass ? `${Number(item.matchCount || 0)} / ${Number(item.motherCount || 0)} 項功能分類正常` : interfaceStatus === "unverified" ? unavailableDetail : `發現 ${Number(item.gapCount || 0)} 項功能差異`
       },
       {
         id: "source",
         label: "第二層｜母版與來源",
         pass: sourcePass,
-        detail: sourcePass ? (item.sourceContract?.status === "match" ? "目前來源已對上 Published C" : "目前未發現來源衝突") : "目前載入來源與 Published C 不一致"
+        detail: sourcePass
+          ? item.sourceContract?.detail || (item.sourceContract?.status === "match" ? "目前來源已對上 Published C" : "目前未發現來源衝突")
+          : "目前載入來源與 Published C 不一致"
       },
       {
         id: "behavior",
@@ -1895,7 +1928,7 @@
         pass: behaviorPass,
         detail: behaviorPass
           ? item.behaviorContract?.status === "approved" ? "已依產品 Capability 正常套用" : "C 共用流程正常"
-          : `發現 ${Number(item.behaviorContract?.differenceCount || 1)} 項操作差異`
+          : behaviorStatus === "unverified" ? unavailableDetail : `發現 ${Number(item.behaviorContract?.differenceCount || 1)} 項操作差異`
       }
     ];
   }
@@ -1914,15 +1947,20 @@
     const layers = parityLayerState(report);
     const overallPass = layers.every(layer => layer.pass);
     const behaviorGap = report?.behaviorContract?.layerStatus === "fail";
+    const semanticBaselineUnavailable = report?.compareBaseline?.status === "unverified";
     const hasTemplateGap = Number(report?.gapCount || 0) > 0;
     const statusClass = overallPass ? "is-match" : "is-gap";
     const headline = overallPass
       ? "目前使用的功能與最新版 C 母版一致。"
+      : semanticBaselineUnavailable
+        ? "目前無法確認與最新版 C 母版一致。"
       : behaviorGap && !hasTemplateGap
         ? "目前畫面可以使用，但操作與流程需要留意。"
         : "有共用功能需要留意；其他功能仍可繼續使用。";
     const aiText = overallPass
       ? "🤖 AI 檢查：沒有發現異常，不需要處理。"
+      : semanticBaselineUnavailable
+        ? "🤖 AI 判斷：尚缺目前採用版本的功能／流程快照，未將狀態視為正常；請重新整理或完成採用後再比對。"
       : behaviorGap
         ? "🤖 AI 判斷：目前差異在操作與流程，請先查看差異；完整工程資料保留在技術明細。"
         : "🤖 AI 判斷：先處理畫面與功能差異，完整工程資料保留在技術明細。";
@@ -1948,8 +1986,11 @@
     const layers = parityLayerState(report);
     const overallPass = layers.every(layer => layer.pass);
     const behaviorDifferences = Number(report.behaviorContract?.differenceCount || 0);
+    const semanticBaselineUnavailable = report?.compareBaseline?.status === "unverified";
     const summary = overallPass
       ? "🟢 C 母版功能正常"
+      : semanticBaselineUnavailable
+        ? "🔴 尚無足夠資料確認與最新版 C 母版一致"
       : behaviorDifferences && Number(report.gapCount || 0) === 0
         ? `🔴 操作與流程｜發現 ${behaviorDifferences} 項差異`
         : `🔴 發現 ${Array.isArray(diagnosis?.anomalies) && diagnosis.anomalies.length ? diagnosis.anomalies.length : 1} 項功能差異`;
@@ -1975,6 +2016,7 @@
         consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board",
         sourceIntegrity: document.body?.dataset?.templateSourceIntegrity || "",
         adoptionStatus: document.body?.dataset?.templateAdoption || "",
+        ...paritySemanticSnapshots(),
         trigger
       };
       const report = trigger === "manual"

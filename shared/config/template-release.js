@@ -15,39 +15,484 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260909-1228",
+  "developmentBuild": "20260909-1358",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260909-1228",
+  "publishedBuild": "20260909-1358",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260909-1228",
-  "sourceCommit": "b74187c53830f89b74f4ea3f911858dafe4cb43d",
+  "build": "20260909-1358",
+  "sourceCommit": "1f80932fa26189f58a256d59ad111567c23787bc",
   "sourceDirty": false,
-  "sourceFingerprint": "c06d40dac9d6bd2af9165126a28c7c0703e421a20cc8977bfd414873059bb8ad",
-  "publishedAt": "2026-09-09T04:30:18.547Z",
+  "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
+  "publishedSnapshot": {
+    "schemaVersion": 1,
+    "version": "0.9.0-alpha.9.13",
+    "build": "20260909-1358",
+    "sourceCommit": "1f80932fa26189f58a256d59ad111567c23787bc",
+    "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
+    "inventory": {
+      "engineVersion": "c-mother-template-parity-v2",
+      "baseline": "C Mother Template",
+      "capabilities": [
+        {
+          "id": "feature-surface",
+          "label": "功能",
+          "fingerprint": "fnv1a-0473aa99",
+          "present": true,
+          "contract": {
+            "owner": "C",
+            "surface": "shared-board-runtime",
+            "consumerBusinessRules": "adapter-only"
+          },
+          "machineContract": {
+            "owner": "C",
+            "surface": "shared-board-runtime",
+            "consumerBusinessRules": "adapter-only"
+          }
+        },
+        {
+          "id": "ui-layout",
+          "label": "UI／版面",
+          "fingerprint": "fnv1a-8af77474",
+          "present": true,
+          "contract": {
+            "surface": "golden-master",
+            "markers": [
+              "data-golden-master-surface",
+              "data-golden-master-toolbar",
+              "data-golden-master-board-mount",
+              "data-shared-task-board"
+            ]
+          },
+          "machineContract": {
+            "surface": "golden-master",
+            "markers": [
+              "data-golden-master-surface",
+              "data-golden-master-toolbar",
+              "data-golden-master-board-mount",
+              "data-shared-task-board"
+            ]
+          }
+        },
+        {
+          "id": "shared-components",
+          "label": "共用元件",
+          "fingerprint": "fnv1a-93253ecb",
+          "present": true,
+          "contract": {
+            "goldenMaster": [
+              "renderHeader",
+              "renderHeaderActions",
+              "renderToolbar",
+              "renderOperations",
+              "mountOperations",
+              "renderCard",
+              "renderColumns",
+              "renderBoard",
+              "renderDrawer",
+              "render",
+              "mount",
+              "bindBoard"
+            ],
+            "board": [
+              "CARD_DRAG_TYPE",
+              "COLUMN_DRAG_TYPE",
+              "renderColumns",
+              "render",
+              "bind"
+            ],
+            "card": [
+              "render"
+            ],
+            "drawer": [
+              "renderProperties",
+              "render",
+              "mount"
+            ]
+          },
+          "machineContract": {
+            "goldenMaster": [
+              "renderHeader",
+              "renderHeaderActions",
+              "renderToolbar",
+              "renderOperations",
+              "mountOperations",
+              "renderCard",
+              "renderColumns",
+              "renderBoard",
+              "renderDrawer",
+              "render",
+              "mount",
+              "bindBoard"
+            ],
+            "board": [
+              "CARD_DRAG_TYPE",
+              "COLUMN_DRAG_TYPE",
+              "renderColumns",
+              "render",
+              "bind"
+            ],
+            "card": [
+              "render"
+            ],
+            "drawer": [
+              "renderProperties",
+              "render",
+              "mount"
+            ]
+          }
+        },
+        {
+          "id": "card",
+          "label": "Card",
+          "fingerprint": "fnv1a-485684a2",
+          "present": true,
+          "contract": {
+            "renderer": "ZhugeSharedTaskCard.render",
+            "framework": "shared-task-card"
+          },
+          "machineContract": {
+            "renderer": "ZhugeSharedTaskCard.render",
+            "framework": "shared-task-card"
+          }
+        },
+        {
+          "id": "drawer",
+          "label": "Drawer",
+          "fingerprint": "fnv1a-77b546ca",
+          "present": true,
+          "contract": {
+            "renderer": "ZhugeSharedTaskDrawer.render",
+            "framework": "shared-task-drawer",
+            "regions": [
+              "header",
+              "work-body",
+              "activity"
+            ],
+            "agreementScheduleFrame": {
+              "key": "agreement-schedule",
+              "framework": "shared-task-drawer-property",
+              "label": "約定日期／約定期間",
+              "editor": "controlled-shared-agreement-date-editor",
+              "dataIndependent": true
+            }
+          },
+          "machineContract": {
+            "renderer": "ZhugeSharedTaskDrawer.render",
+            "framework": "shared-task-drawer",
+            "regions": [
+              "header",
+              "work-body",
+              "activity"
+            ],
+            "agreementScheduleFrame": {
+              "key": "agreement-schedule",
+              "framework": "shared-task-drawer-property",
+              "label": "約定日期／約定期間",
+              "editor": "controlled-shared-agreement-date-editor",
+              "dataIndependent": true
+            }
+          }
+        },
+        {
+          "id": "checklist",
+          "label": "Checklist",
+          "fingerprint": "fnv1a-17dced0b",
+          "present": true,
+          "contract": {
+            "formalGate": "pm-acceptance",
+            "engineeringEvidence": [
+              "developer-qa",
+              "gpt-review",
+              "regression-evidence"
+            ],
+            "runtimeGate": "completionGateStatus"
+          },
+          "machineContract": {
+            "formalGate": "pm-acceptance",
+            "engineeringEvidence": [
+              "developer-qa",
+              "gpt-review",
+              "regression-evidence"
+            ],
+            "runtimeGate": "completionGateStatus"
+          }
+        },
+        {
+          "id": "attachment",
+          "label": "Attachment",
+          "fingerprint": "fnv1a-3e54d8fd",
+          "present": true,
+          "contract": {
+            "scopes": [
+              "task",
+              "progress_note"
+            ],
+            "actions": [
+              "addGeneralAttachment",
+              "addProgressAttachment",
+              "deleteAttachment"
+            ]
+          },
+          "machineContract": {
+            "scopes": [
+              "task",
+              "progress_note"
+            ],
+            "actions": [
+              "addGeneralAttachment",
+              "addProgressAttachment",
+              "deleteAttachment"
+            ]
+          }
+        },
+        {
+          "id": "progress",
+          "label": "Progress",
+          "fingerprint": "fnv1a-c448ef61",
+          "present": true,
+          "contract": {
+            "timeline": "shared-task-timeline",
+            "source": "engineering_activity_log",
+            "classifier": "ZhugeSharedActivityClassifier"
+          },
+          "machineContract": {
+            "timeline": "shared-task-timeline",
+            "source": "engineering_activity_log",
+            "classifier": "ZhugeSharedActivityClassifier"
+          }
+        },
+        {
+          "id": "drag-drop",
+          "label": "Drag & Drop",
+          "fingerprint": "fnv1a-b76ffef2",
+          "present": true,
+          "contract": {
+            "cardType": "application/x-zhuge-shared-task-card",
+            "columnType": "application/x-zhuge-shared-task-column",
+            "handler": "ZhugeSharedTaskBoard.bind"
+          },
+          "machineContract": {
+            "cardType": "application/x-zhuge-shared-task-card",
+            "columnType": "application/x-zhuge-shared-task-column",
+            "handler": "ZhugeSharedTaskBoard.bind"
+          }
+        },
+        {
+          "id": "shared-action-entry",
+          "label": "共用操作入口",
+          "fingerprint": "fnv1a-6d17f5ed",
+          "present": true,
+          "contract": {
+            "contract": "ZhugeSharedTaskActionContract",
+            "adapters": "ZhugeSharedTaskActionAdapters",
+            "singleRuntime": true
+          },
+          "machineContract": {
+            "contract": "ZhugeSharedTaskActionContract",
+            "adapters": "ZhugeSharedTaskActionAdapters",
+            "singleRuntime": true
+          }
+        },
+        {
+          "id": "operation-method",
+          "label": "操作方式",
+          "fingerprint": "fnv1a-4b2f0722",
+          "present": true,
+          "contract": {
+            "actions": [
+              "addChecklist",
+              "addGeneralAttachment",
+              "addProgressAttachment",
+              "addProgressNote",
+              "confirm",
+              "createTask",
+              "createWorkspace",
+              "deleteAttachment",
+              "deleteChecklist",
+              "deleteProgressNote",
+              "deleteTask",
+              "deleteWorkspace",
+              "editProgressNote",
+              "moveWorkspace",
+              "renameWorkspace",
+              "reorderWorkspace",
+              "setAgreementSchedule",
+              "updateAttachmentMetadata",
+              "updateChecklist",
+              "updateContent",
+              "updateGovernanceChecklist",
+              "updateTitle"
+            ],
+            "readBack": "consumer-adapter",
+            "duplicateConsumerRenderer": false
+          },
+          "machineContract": {
+            "actions": [
+              "addChecklist",
+              "addGeneralAttachment",
+              "addProgressAttachment",
+              "addProgressNote",
+              "confirm",
+              "createTask",
+              "createWorkspace",
+              "deleteAttachment",
+              "deleteChecklist",
+              "deleteProgressNote",
+              "deleteTask",
+              "deleteWorkspace",
+              "editProgressNote",
+              "moveWorkspace",
+              "renameWorkspace",
+              "reorderWorkspace",
+              "setAgreementSchedule",
+              "updateAttachmentMetadata",
+              "updateChecklist",
+              "updateContent",
+              "updateGovernanceChecklist",
+              "updateTitle"
+            ],
+            "readBack": "consumer-adapter",
+            "duplicateConsumerRenderer": false
+          }
+        },
+        {
+          "id": "lifecycle-flow",
+          "label": "操作流程",
+          "fingerprint": "fnv1a-7ab13688",
+          "present": true,
+          "contract": {
+            "flow": [
+              "read",
+              "render",
+              "shared-action",
+              "cloud-read-back"
+            ],
+            "pmCompletion": "formal-pm-acceptance",
+            "dragAndDrawer": "same-contract"
+          },
+          "machineContract": {
+            "flow": [
+              "read",
+              "render",
+              "shared-action",
+              "cloud-read-back"
+            ],
+            "pmCompletion": "formal-pm-acceptance",
+            "dragAndDrawer": "same-contract"
+          }
+        },
+        {
+          "id": "runtime-behavior",
+          "label": "Runtime Behavior",
+          "fingerprint": "fnv1a-e4033fcd",
+          "present": true,
+          "contract": {
+            "runtime": "ZhugeBoardRuntime",
+            "methods": [
+              "refresh",
+              "openTaskDetail",
+              "moveTaskToWorkspace",
+              "completionGateStatus",
+              "completionGateMessage",
+              "runParityGuard"
+            ],
+            "behavior": "shared-canonical"
+          },
+          "machineContract": {
+            "runtime": "ZhugeBoardRuntime",
+            "methods": [
+              "refresh",
+              "openTaskDetail",
+              "moveTaskToWorkspace",
+              "completionGateStatus",
+              "completionGateMessage",
+              "runParityGuard"
+            ],
+            "behavior": "shared-canonical"
+          }
+        },
+        {
+          "id": "publish-adopt-boundary",
+          "label": "Publish／Adopt 邊界",
+          "fingerprint": "fnv1a-8d5d8bb8",
+          "present": true,
+          "contract": {
+            "publish": "update",
+            "adopt": "update",
+            "parity": "compare-detect-report-only",
+            "parityDoesNotRepair": true
+          },
+          "machineContract": {
+            "publish": "update",
+            "adopt": "update",
+            "parity": "compare-detect-report-only",
+            "parityDoesNotRepair": true
+          }
+        },
+        {
+          "id": "data-boundary",
+          "label": "資料邊界",
+          "fingerprint": "fnv1a-02a42424",
+          "present": true,
+          "contract": {
+            "baseline": "C",
+            "compareDirection": "consumer-to-c",
+            "ignored": [
+              "data",
+              "workspace",
+              "card-content",
+              "identity"
+            ]
+          },
+          "machineContract": {
+            "baseline": "C",
+            "compareDirection": "consumer-to-c",
+            "ignored": [
+              "data",
+              "workspace",
+              "card-content",
+              "identity"
+            ]
+          }
+        }
+      ]
+    },
+    "behaviorContract": {
+      "id": "module-c-lifecycle-acceptance-v1",
+      "source": "module-c-mother",
+      "workspaceDecision": "canonical",
+      "completionDecision": "canonical",
+      "reopenDecision": "canonical",
+      "acceptance": "canonical",
+      "audit": "canonical",
+      "atomicity": "single-transaction"
+    }
+  },
+  "publishedAt": "2026-09-09T05:58:40.714Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1228",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1228",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1228",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "investment-ivtk": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1228",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "worklog-procurement": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1228",
+      "build": "20260909-1358",
       "status": "adopted"
     }
   }
