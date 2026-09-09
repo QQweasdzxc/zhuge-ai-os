@@ -1062,21 +1062,24 @@
     return "目前尚未完成 Co 開發驗證與 QJC PM 驗收。";
   }
 
-  function aiBoardLifecycleTarget(workspace) {
-    if (state.applicationScope !== "ai_board" || !workspace) return null;
+  function canonicalWorkspaceDecisionTarget(workspace) {
+    if (!workspace) return { key: "ordinary", label: "工作區" };
     const key = String(workspace.workspaceKey || workspace.key || "").trim().toLowerCase();
-    const name = String(workspace.name || "").trim();
-    const targets = {
-      todo: { key: "todo", status: "ready", assignee: "Co", label: "待辦" },
-      co: { key: "co", status: "inprogress", assignee: "Co", label: "Co" },
-      qjc: { key: "qjc", status: "qa", assignee: "QJC", label: "QJC驗證" },
-      completed: { key: "completed", status: "done", assignee: "QJC", label: "完成" }
-    };
-    if (targets[key]) return targets[key];
-    // The legacy GPT workspace has no canonical key and remains a normal
-    // workspace target; never infer a lifecycle transition from its label.
-    return null;
+    const name = String(workspace.name || "").trim().toLowerCase();
+    if (key === "todo" || /(^|-)todo$/.test(key) || name === "待辦" || name === "待開始") return { key: "todo", label: "待辦" };
+    if (key === "co" || /(^|-)in-progress$/.test(key) || /(^|-)inprogress$/.test(key) || name === "co" || name === "進行中") return { key: "co", label: "Co" };
+    if (key === "gpt" || name === "gpt") return { key: "gpt", label: "GPT" };
+    if (key === "qjc" || /(^|-)qa$/.test(key) || /(^|-)acceptance$/.test(key) || name === "qjc驗證" || name === "待驗收") return { key: "qjc", label: "QJC驗證" };
+    if (key === "completed" || /(^|-)completed$/.test(key) || name === "完成" || name === "已完成") return { key: "completed", label: "完成" };
+    return { key: "ordinary", label: String(workspace.name || "工作區") };
   }
+
+  function canUseCWorkspaceAuthority() {
+    const lifecycle = activeService()?.lifecycle;
+    return lifecycle?.capabilities?.pmWorkspaceAuthority === true
+      && typeof lifecycle.reconcileWorkspaceDecision === "function";
+  }
+
   async function moveTaskToWorkspace(task, targetWorkspaceId) {
     const target = state.workspaceById.get(String(targetWorkspaceId || ""));
     if (!task || !target || activeService().isGovernanceTerminal?.(task)) return;
@@ -1085,15 +1088,8 @@
       return;
     }
     const current = state.workspaceById.get(String(task.workspaceId || ""));
-    const lifecycleTarget = aiBoardLifecycleTarget(target);
-    if (lifecycleTarget) {
-      const lifecycleMatchesTarget = String(task.status || "").toLowerCase() === lifecycleTarget.status
-        && String(task.assignee || "").trim() === lifecycleTarget.assignee;
-      if (String(task.workspaceId) === String(target.id) && lifecycleMatchesTarget) {
-        setBanner("這張卡片已在「" + esc(target.name) + "」，正式狀態與負責人也已一致。", "info");
-        return;
-      }
-      await moveAiBoardLifecycleTask(task, current, target, lifecycleTarget);
+    if (canUseCWorkspaceAuthority()) {
+      await reconcileTaskWorkspaceDecision(task, current, target);
       return;
     }
     if (String(task.workspaceId) === String(target.id)) {
@@ -1115,57 +1111,29 @@
     }
   }
 
-  async function moveAiBoardLifecycleTask(task, current, target, lifecycleTarget) {
-    const status = String(task?.status || "").toLowerCase();
-    const assignee = String(task?.assignee || "").trim();
-    if (lifecycleTarget.key === "completed") {
-      const currentKey = String(current?.workspaceKey || current?.key || "").trim().toLowerCase();
-      if (currentKey === "qjc" && status === "qa" && (assignee === "GPT" || assignee === "QJC")) {
-        await acceptTaskByCardDrop(task, current, target);
-      } else {
-        setBanner("不能移至「完成」：PM Acceptance 只能從「QJC驗證」工作區發起；目前正式狀態是 " + esc(`${status || "未知"} / ${assignee || "未指定"}`) + "，卡片未移動。", "error");
-      }
+  async function reconcileTaskWorkspaceDecision(task, current, target) {
+    if (String(task.workspaceId) === String(target.id)) {
+      setBanner("這張卡片已在「" + esc(target.name) + "」，沒有需要保存的變更。", "info");
       return;
     }
-    if (lifecycleTarget.key === "qjc") {
-      if (status === "qa" && (assignee === "GPT" || assignee === "QJC")) {
-        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
-      } else {
-        setBanner("不能移至「QJC驗證」：請先完成正式工程交接與必要 Evidence；卡片未移動。", "error");
-      }
-      return;
-    }
-    if (lifecycleTarget.key === "co") {
-      if (status === "qa" && assignee === "QJC") {
-        await rejectTaskByCardDrop(task, current, target);
-      } else if (status === "qa" && assignee === "GPT") {
-        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
-      } else if (status === "inprogress" && assignee === "Co") {
-        setBanner("這張卡片已在 Co 的正式工作階段；沒有需要保存的變更。", "info");
-      } else {
-        setBanner("不能移至「Co」：目前正式狀態不符合退回或接手條件；卡片未移動。", "error");
-      }
-      return;
-    }
-    if (lifecycleTarget.key === "todo") {
-      if (status === "inprogress" && assignee === "Co") {
-        await runAiBoardLifecycleTransition(task, current, target, lifecycleTarget);
-      } else {
-        setBanner("不能移至「待辦」：請使用正式 lifecycle transition；卡片未移動。", "error");
-      }
-      return;
-    }
-    setBanner("這個工作區不是可直接變更正式狀態的 lifecycle 目標；卡片未移動。", "error");
-  }
-
-  async function runAiBoardLifecycleTransition(task, current, target, lifecycleTarget) {
-    setBanner("正在執行正式 lifecycle transition…", "loading");
+    const targetDecision = canonicalWorkspaceDecisionTarget(target);
+    setBanner(`正在依 PM 的工作區決定同步「${esc(task.workCode || task.title)}」至「${esc(target.name)}」…`, "loading");
     try {
-      await activeService().transitionTask(task.id, lifecycleTarget.status, lifecycleTarget.assignee, `${current?.name || task.workspaceName || "目前工作區"} → ${target?.name || lifecycleTarget.label}`);
+      const result = await activeService().lifecycle.reconcileWorkspaceDecision({
+        taskId: task.id,
+        targetWorkspaceId: target.id,
+        decisionNote: `PM workspace decision: ${current?.name || task.workspaceName || "目前工作區"} → ${target.name}`
+      });
       await refreshBoard({ quiet: true });
-      setBanner("已完成正式 lifecycle transition：「" + esc(target?.name || lifecycleTarget.label) + "」。工作區、狀態與負責人已同步。", "success");
+      const decision = String(result?.decision || result?.lifecycle || "workspace").toLowerCase();
+      const message = decision === "completion" || decision === "pm_acceptance_pass"
+        ? "已完成 PM Acceptance；工作區、狀態、負責人與 Audit 已原子同步。"
+        : decision === "reopen"
+          ? "已依 PM 決定重新開啟；工作區、狀態、負責人與 Reopen Audit 已同步。"
+          : `已依 PM 決定移至「${esc(target.name)}」；${targetDecision.key === "ordinary" ? "工作區移動" : "工作區、狀態與負責人"}已同步。`;
+      setBanner(message, "success");
     } catch (error) {
-      setBanner("正式 lifecycle transition 失敗：" + esc(error?.message || "Cloud Gate 未接受；卡片未移動。"), "error");
+      setBanner("工作區決定未完成：" + esc(error?.message || "正式 Cloud 未接受；卡片未移動，正式狀態不變。"), "error");
     }
   }
 
