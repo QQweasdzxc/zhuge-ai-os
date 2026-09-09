@@ -4,6 +4,15 @@
   const BRIDGE_FUNCTION="gas-vendor-bridge";
   const DEFAULTS={spreadsheetId:"1RO6idAURJi40wnzH7LBeTzkJpSGQ2yZbfSJ7hMde1jY",sheetName:"廠商名冊-CS集團(CS、CK、UU)",range:"A:U",timeoutMs:15000,bridgeTimeoutMs:45000,chunkSize:25,maxRows:1000};
   const KEYS=["orderDate","company","purchaseNo","vendorName","taxId","contactMailLegacy","paymentTerms","products","integritySignedAt","integrityOriginal","csrSelfAssessment","csrOriginal","phone","contactName","mobile","email","project","contracted","insured","vendorId","businessCategory"];
+  const BUSINESS_CATEGORIES=["採購","總務"];
+  function normalizeBusinessCategories(value,required=false){
+    const values=(Array.isArray(value)?value:[value]).flatMap(item=>String(item??"").split(/[、,，/／|;；\s]+/)).map(item=>item.trim()).filter(Boolean);
+    const unique=[...new Set(values)];
+    if(!unique.length){if(required) throw new VendorSheetError("業務分類至少選擇一項。","VENDOR_CATEGORY_REQUIRED");return "";}
+    const invalid=unique.filter(item=>!BUSINESS_CATEGORIES.includes(item));
+    if(invalid.length) throw new VendorSheetError("業務分類只能選擇「採購」或「總務」。","VENDOR_CATEGORY_INVALID");
+    return BUSINESS_CATEGORIES.filter(item=>unique.includes(item)).join("、");
+  }
   function token(){
     if(typeof global.currentGoogleProviderToken==="function") return String(global.currentGoogleProviderToken()||"");
     const s=typeof global.getStoredAuthSession==="function"?global.getStoredAuthSession():null;
@@ -68,8 +77,8 @@
           timeoutPromise
         ]);
       }catch(error){
-        if(error?.name==="AbortError") throw new VendorSheetError(`Vendor Server Bridge 連線逾時（${Math.round(timeoutMs/1000)} 秒）。`,`BRIDGE_TIMEOUT`);
-        throw new VendorSheetError(error?.message||"Vendor Server Bridge 讀取失敗。",error?.code||"BRIDGE_READ_FAILED",error?.status||0);
+        if(error?.name==="AbortError") throw new VendorSheetError(`廠商資料服務逾時（${Math.round(timeoutMs/1000)} 秒）。`,`BRIDGE_TIMEOUT`);
+        throw new VendorSheetError(error?.message||"廠商資料讀取失敗。",error?.code||"BRIDGE_READ_FAILED",error?.status||0);
       }finally{clearTimeout(timer);}
     }
     async bridgeRead(){return this.bridgeRequest({action:"read"});}
@@ -78,7 +87,7 @@
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       onProgress({phase:"auth",percent:5,message:"確認 Zhuge AI OS 登入…",loaded:0,total:0});
-      onProgress({phase:"read",percent:10,message:"透過 Server Bridge 讀取 Google Sheet…",loaded:0,total:0});
+      onProgress({phase:"read",percent:10,message:"正在取得廠商資料…",loaded:0,total:0});
       const data=await this.bridgeRead();
       const body=Array.isArray(data?.rows)?data.rows:[];
       const reportedCount=Number(data?.vendorCount);
@@ -96,30 +105,31 @@
     async update(vendorId,patch={},options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       if(!String(vendorId||"").trim()) throw new VendorSheetError("無效的廠商 ID。","INVALID_VENDOR_ID");
-      onProgress({phase:"write",percent:55,message:"正在透過 Server Bridge 寫回 Google Sheet…",loaded:0,total:1});
-      const data=await this.bridgeUpdate(String(vendorId).trim(),patch);
+      onProgress({phase:"write",percent:55,message:"正在更新廠商資料…",loaded:0,total:1});
+      const payload={...patch};
+      if(Object.prototype.hasOwnProperty.call(payload,"businessCategory")) payload.businessCategory=normalizeBusinessCategories(payload.businessCategory,true);
+      const data=await this.bridgeUpdate(String(vendorId).trim(),payload);
       const raw=data?.vendor;
-      if(!raw||String(raw.vendorId||"").trim()!==String(vendorId).trim()) throw new VendorSheetError("Vendor Server Bridge 寫入回讀無法驗證。","BRIDGE_WRITE_READBACK_INVALID");
-      onProgress({phase:"verify",percent:85,message:"正在確認 Google Sheet 寫入結果…",loaded:1,total:1});
+      if(!raw||String(raw.vendorId||"").trim()!==String(vendorId).trim()) throw new VendorSheetError("廠商資料更新結果無法確認。","BRIDGE_WRITE_READBACK_INVALID");
+      onProgress({phase:"verify",percent:85,message:"正在確認更新結果…",loaded:1,total:1});
       const item={rowNumber:Number(raw.rowNumber)||0};
       KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
-      onProgress({phase:"done",percent:100,message:"已寫回 Google Sheet · 1 / 1 筆",loaded:1,total:1});
+      onProgress({phase:"done",percent:100,message:"廠商資料已更新",loaded:1,total:1});
       return item;
     }
     async create(vendor={},options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       const payload={};
-      KEYS.filter(key=>key!=="vendorId").forEach(key=>{payload[key]=String(vendor[key]??"").trim();});
+      KEYS.filter(key=>key!=="vendorId").forEach(key=>{payload[key]=key==="businessCategory"?normalizeBusinessCategories(vendor[key],true):String(vendor[key]??"").trim();});
       if(!payload.vendorName) throw new VendorSheetError("請填寫廠商名稱。","VENDOR_NAME_REQUIRED");
-      if(!["採購","總務"].includes(payload.businessCategory)) throw new VendorSheetError("業務分類請選擇「採購」或「總務」。","VENDOR_CATEGORY_INVALID");
-      onProgress({phase:"write",percent:55,message:"正在透過 Server Bridge 新增至 Google Sheet…",loaded:0,total:1});
+      onProgress({phase:"write",percent:55,message:"正在新增廠商資料…",loaded:0,total:1});
       const data=await this.bridgeCreate(payload);
       const raw=data?.vendor;
-      if(!raw||!String(raw.vendorId||"").trim()) throw new VendorSheetError("Vendor Server Bridge 新增回讀無法驗證。","BRIDGE_CREATE_READBACK_INVALID");
+      if(!raw||!String(raw.vendorId||"").trim()) throw new VendorSheetError("廠商新增結果無法確認。","BRIDGE_CREATE_READBACK_INVALID");
       const item={rowNumber:Number(raw.rowNumber)||0};
       KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
-      onProgress({phase:"verify",percent:85,message:"正在確認 Google Sheet 新增結果…",loaded:1,total:1});
-      onProgress({phase:"done",percent:100,message:`已新增至 Google Sheet · ${item.vendorId}`,loaded:1,total:1});
+      onProgress({phase:"verify",percent:85,message:"正在確認新增結果…",loaded:1,total:1});
+      onProgress({phase:"done",percent:100,message:"廠商資料已新增",loaded:1,total:1});
       return item;
     }
     async readRow(rowNumber){const data=await this.readRange(`A${rowNumber}:U${rowNumber}`);const row=[...((data?.values||[])[0]||[])];while(row.length<21)row.push("");return row.slice(0,21);}

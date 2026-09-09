@@ -54,6 +54,19 @@ test("vendor create sends only Sheet-owned fields and accepts a server-assigned 
   assert.equal(row.vendorId, "GAS-V0205");
 });
 
+test("vendor create serializes multiple business categories in canonical order", async () => {
+  let request;
+  const VendorSheetService = loadVendorService(async (_name, body) => {
+    request = body;
+    return {
+      vendor: { rowNumber: 206, vendorName: "QA Vendor", vendorId: "GAS-V0205", businessCategory: "採購、總務" }
+    };
+  });
+  const row = await new VendorSheetService().create({ vendorName: "QA Vendor", businessCategory: ["總務", "採購"] });
+  assert.equal(request.vendor.businessCategory, "採購、總務");
+  assert.equal(row.businessCategory, "採購、總務");
+});
+
 test("vendor create rejects unsupported classification before the bridge call", async () => {
   let called = false;
   const VendorSheetService = loadVendorService(async () => {
@@ -82,6 +95,19 @@ test("vendor update can write business category while the Vendor ID remains outs
   assert.equal(row.businessCategory, "總務");
 });
 
+test("vendor update keeps multi-select categories in one Sheet field", async () => {
+  let request;
+  const VendorSheetService = loadVendorService(async (_name, body) => {
+    request = body;
+    return {
+      vendor: { rowNumber: 2, vendorName: "人工智能", vendorId: "GAS-V0001", businessCategory: "採購、總務" }
+    };
+  });
+  const row = await new VendorSheetService().update("GAS-V0001", { businessCategory: ["總務", "採購"] });
+  assert.equal(request.patch.businessCategory, "採購、總務");
+  assert.equal(row.businessCategory, "採購、總務");
+});
+
 test("vendor source and runtime expose the additive category/create contract", () => {
   const bridge = read("supabase/functions/gas-vendor-bridge/index.ts");
   const service = read("app/Board/procurement/vendor-sheet-service.js");
@@ -93,6 +119,12 @@ test("vendor source and runtime expose the additive category/create contract", (
   assert.match(service, /range:"A:U"/);
   assert.match(service, /async bridgeCreate\(vendor\)/);
   assert.match(client, /data-vendor-category/);
+  assert.match(client, /data-vendor-column-options/);
+  assert.match(client, /顯示欄位/);
+  assert.match(client, /更多資料（選填）/);
+  assert.match(client, /vendor-mobile-list/);
+  assert.match(client, /name="businessCategory"/);
   assert.match(client, /data-vendor-add/);
   assert.match(client, /service\.create\(patch/);
+  assert.doesNotMatch(client, /Vendor ID 將由/);
 });
