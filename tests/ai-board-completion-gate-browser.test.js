@@ -21,12 +21,14 @@ test("Drawer PM acceptance and QJC card drag share the formal completion lifecyc
     child.stderr.on("data", chunk => { stderr += chunk; }); child.on("error", error => finish(error)); child.on("close", code => stdout ? finish(null, stdout) : finish(new Error(stderr || `Chrome exited with code ${code}`)));
   });
   const audit = output.match(/id="completion-gate-audit"[^>]*>([^<]*)/)?.[1] || "";
-  assert.match(audit, /calls=pm-acceptance:button-task:pass,pm-acceptance:drag-task:pass/);
-  assert.match(audit, /result=button-task:done:completed:QJC\|drag-task:done:completed:QJC/);
+  assert.match(audit, /calls=pm-acceptance:button-task:pass,pm-acceptance:drag-task:pass,pretransition:gpt-drag-task:qa\/QJC,pm-acceptance:gpt-drag-task:pass,pm-acceptance-fail:gpt-fail-task/);
+  assert.match(audit, /result=button-task:done:completed:QJC\|drag-task:done:completed:QJC\|gpt-drag-task:done:completed:QJC\|gpt-fail-task:qa:qjc:GPT/);
   assert.match(audit, /sameFormalResult=true/);
-  assert.match(audit, /audit=button-task:task_completed_after_pm_acceptance:pm_acceptance_pass:completed\|drag-task:task_completed_after_pm_acceptance:pm_acceptance_pass:completed/);
+  assert.match(audit, /audit=button-task:task_completed_after_pm_acceptance:pm_acceptance_pass:completed\|drag-task:task_completed_after_pm_acceptance:pm_acceptance_pass:completed\|gpt-drag-task:task_completed_after_pm_acceptance:pm_acceptance_pass:completed/);
   assert.match(audit, /moveCalls=0/);
   assert.match(audit, /gptCheckboxes=0/);
   assert.match(audit, /gptLabel=true/);
+  assert.match(audit, /failStayed=true/);
+  assert.match(audit, /failMessage=true/);
   assert.match(audit, /errors=$/);
 });

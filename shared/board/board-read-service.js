@@ -1050,6 +1050,16 @@
     }).then(normalizeChecklistItem);
   }
 
+  async function pmAcceptTaskFromQjcDrop(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    return gateway.rpc("board_pm_acceptance_from_qjc_drop", {
+      p_task_id: input.taskId,
+      p_item_id: input.itemId,
+      p_evidence_note: input.evidenceNote || null,
+      p_evidence_ref: input.evidenceRef || null
+    });
+  }
+
   async function pmQaFailChecklist(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_pm_qa_fail_requeue", {
@@ -1636,6 +1646,7 @@
     deleteTaskChecklistItem,
     createChecklistItem,
     updateChecklistItem,
+    pmAcceptTaskFromQjcDrop,
     pmQaFailChecklist,
     reconcilePmAcceptanceLifecycle,
     addTaskProgressNote,

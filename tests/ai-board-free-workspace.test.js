@@ -114,7 +114,7 @@ test("Workspace display names cannot change canonical Board classification", () 
   const runtime = read("shared/components/golden-master-runtime.js");
   assert.match(runtime, /const completionWorkspace = workspaceKey[\s\S]*isCanonicalCompletionKey\(workspaceKey\)/);
   assert.match(runtime, /key \? key !== "done" && key !== "gpt" : name !== "已完工" && name !== "GPT區"/);
-  assert.match(runtime, /return String\(task\?\.status \|\| ""\)\.toLowerCase\(\) === "qa" && String\(task\?\.assignee \|\| ""\)\.trim\(\) === "QJC"/);
+  assert.match(runtime, /function isPmTurn\(task\) \{[\s\S]*workspaceKey === "qjc"/);
 });
 
 test("Archive derives read-only records from canonical task status and governance state", () => {

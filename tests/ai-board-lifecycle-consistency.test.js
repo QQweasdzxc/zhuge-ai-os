@@ -9,6 +9,7 @@ const service = fs.readFileSync(path.join(root, "shared/board/board-read-service
 const adapter = fs.readFileSync(path.join(root, "shared/components/task-action-adapters.js"), "utf8");
 const gateway = fs.readFileSync(path.join(root, "shared/supabase/supabase-gateway.js"), "utf8");
 const migration = fs.readFileSync(path.join(root, "docs/supabase/20260908_task_lifecycle_workspace_consistency.sql"), "utf8");
+const pmAcceptanceMigration = fs.readFileSync(path.join(root, "docs/supabase/20260909_pm_acceptance_qjc_drop.sql"), "utf8");
 
 test("AI Board canonical workspace targets use the formal lifecycle path", () => {
   assert.match(runtime, /function aiBoardLifecycleTarget\(workspace\)/);
@@ -76,4 +77,22 @@ test("Cloud non-2xx responses expose a bounded actionable fallback", () => {
   assert.match(gateway, /const endpoint = String\(path \|\| ""\)\.split\("\?"\)\[0\] \|\| "request"/);
   assert.match(gateway, /Cloud 未提供錯誤明細/);
   assert.match(gateway, /error\.endpoint = endpoint/);
+});
+
+test("QJC completion drop composes the existing guarded lifecycle contracts atomically", () => {
+  assert.match(pmAcceptanceMigration, /create or replace function public\.board_pm_acceptance_from_qjc_drop/i);
+  assert.match(pmAcceptanceMigration, /workspace_key = 'qjc'/i);
+  assert.match(pmAcceptanceMigration, /public\.board_transition_task/);
+  assert.match(pmAcceptanceMigration, /public\.board_update_checklist_item/);
+  assert.match(pmAcceptanceMigration, /qa\/GPT/);
+  assert.match(pmAcceptanceMigration, /卡片未移動，正式狀態不變/);
+  assert.match(pmAcceptanceMigration, /revoke all on function public\.board_pm_acceptance_from_qjc_drop/);
+  assert.match(pmAcceptanceMigration, /grant execute on function public\.board_pm_acceptance_from_qjc_drop[^;]*authenticated/i);
+  assert.doesNotMatch(pmAcceptanceMigration, /board_reconcile_pm_acceptance_lifecycle/);
+  assert.match(runtime, /currentKey === "qjc" && status === "qa" && \(assignee === "GPT" \|\| assignee === "QJC"\)/);
+  assert.match(runtime, /activeService\(\)\.pmAcceptTaskFromQjcDrop/);
+  const acceptanceStart = runtime.indexOf("async function acceptTaskByCardDrop");
+  const acceptanceEnd = runtime.indexOf("async function rejectTaskByCardDrop");
+  assert.ok(acceptanceStart >= 0 && acceptanceEnd > acceptanceStart);
+  assert.doesNotMatch(runtime.slice(acceptanceStart, acceptanceEnd), /transitionTask\([^\n]*done/);
 });
