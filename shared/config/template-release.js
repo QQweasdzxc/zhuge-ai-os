@@ -15,20 +15,20 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260909-1352",
+  "developmentBuild": "20260909-1358",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260909-1352",
+  "publishedBuild": "20260909-1358",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260909-1352",
-  "sourceCommit": "21e8544dfc4159ad20db0ddba778844f4c01472a",
-  "sourceDirty": false,
-  "sourceFingerprint": "1333e03b6af2639cad638bdcf3f8eb1256555c4c8c96d876264a0a1a6e474ed3",
+  "build": "20260909-1358",
+  "sourceCommit": "f4499d3044ef453a5bc0f48c566b6a06dde08f3b",
+  "sourceDirty": true,
+  "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
   "publishedSnapshot": {
     "schemaVersion": 1,
     "version": "0.9.0-alpha.9.13",
-    "build": "20260909-1352",
-    "sourceCommit": "21e8544dfc4159ad20db0ddba778844f4c01472a",
-    "sourceFingerprint": "1333e03b6af2639cad638bdcf3f8eb1256555c4c8c96d876264a0a1a6e474ed3",
+    "build": "20260909-1358",
+    "sourceCommit": "f4499d3044ef453a5bc0f48c566b6a06dde08f3b",
+    "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
     "inventory": {
       "engineVersion": "c-mother-template-parity-v2",
       "baseline": "C Mother Template",
@@ -468,31 +468,31 @@
       "atomicity": "single-transaction"
     }
   },
-  "publishedAt": "2026-09-09T05:53:09.627Z",
+  "publishedAt": "2026-09-09T05:58:21.613Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1352",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1352",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1352",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "investment-ivtk": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1352",
+      "build": "20260909-1358",
       "status": "adopted"
     },
     "worklog-procurement": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260909-1352",
+      "build": "20260909-1358",
       "status": "adopted"
     }
   }
