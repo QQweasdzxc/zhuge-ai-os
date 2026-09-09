@@ -330,6 +330,99 @@ test("behavior parity keeps the third layer distinct from template gap counting"
   assert.equal(report.behaviorContract.differenceCount >= 1, true);
 });
 
+test("published parity compares the current adopted semantic contract with Latest Published C", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const latestPublishedC = {
+    version: "0.9.0-alpha.9.13",
+    build: "20260909-1228",
+    inventory: engine.canonicalInventory(),
+    behaviorContract: engine.canonicalBehaviorContract()
+  };
+  const adoptedC = JSON.parse(JSON.stringify(latestPublishedC));
+  adoptedC.version = "0.9.0-alpha.9.12";
+  adoptedC.build = "20260909-0835";
+  adoptedC.behaviorContract.completionDecision = "legacy-workspace-order";
+
+  const report = engine.runManual({
+    contracts,
+    consumerId: "ai-board",
+    consumerLabel: "AI Board",
+    applicationScope: "ai_board",
+    adoptionStatus: "stale",
+    latestPublishedC,
+    adoptedC
+  });
+
+  assert.equal(report.compareBaseline.mode, "consumer-adopted-vs-latest-published");
+  assert.equal(report.compareBaseline.interfaceStatus, "match");
+  assert.equal(report.compareBaseline.behaviorStatus, "gap");
+  assert.equal(report.gapCount, 0);
+  assert.equal(report.sourceContract.layerStatus, "pass");
+  assert.equal(report.behaviorContract.layerStatus, "fail");
+  assert.ok(report.behaviorContract.differences.some(item => item.check === "completionDecision"));
+  assert.match(engine.formatReport(report), /Compare Baseline：consumer-adopted-vs-latest-published/);
+  assert.match(engine.formatReport(report), /Latest Published C：0\.9\.0-alpha\.9\.13 · Build 20260909-1228/);
+  assert.equal(report.overallStatus, "gap");
+});
+
+test("published parity does not turn an identity-only version difference into a semantic gap", () => {
+  const contracts = Object.fromEntries(engine.expectedCapabilities().map(item => [item.id, item.contract]));
+  const latestPublishedC = {
+    version: "0.9.0-alpha.9.13",
+    build: "20260909-1228",
+    inventory: engine.canonicalInventory(),
+    behaviorContract: engine.canonicalBehaviorContract()
+  };
+  const adoptedC = JSON.parse(JSON.stringify(latestPublishedC));
+  adoptedC.version = "0.9.0-alpha.9.12";
+  adoptedC.build = "20260909-0835";
+
+  const report = engine.runManual({
+    contracts,
+    consumerId: "ai-board",
+    consumerLabel: "AI Board",
+    applicationScope: "ai_board",
+    adoptionStatus: "stale",
+    latestPublishedC,
+    adoptedC
+  });
+
+  assert.equal(report.compareBaseline.interfaceStatus, "match");
+  assert.equal(report.compareBaseline.behaviorStatus, "match");
+  assert.equal(report.compareBaseline.identityOnlyDifference, true);
+  assert.equal(report.sourceContract.layerStatus, "pass");
+  assert.match(report.sourceContract.detail, /版本身份不同/);
+  assert.equal(report.overallStatus, "match");
+});
+
+test("published parity reports an interface gap from the adopted snapshot without using version alone", () => {
+  const latestPublishedC = {
+    version: "0.9.0-alpha.9.13",
+    build: "20260909-1228",
+    inventory: engine.canonicalInventory(),
+    behaviorContract: engine.canonicalBehaviorContract()
+  };
+  const adoptedC = JSON.parse(JSON.stringify(latestPublishedC));
+  adoptedC.version = "0.9.0-alpha.9.12";
+  adoptedC.build = "20260909-0835";
+  adoptedC.inventory.capabilities = adoptedC.inventory.capabilities.filter(item => item.id !== "runtime-behavior");
+
+  const report = engine.runManual({
+    latestPublishedC,
+    adoptedC,
+    consumerId: "ai-board",
+    consumerLabel: "AI Board",
+    applicationScope: "ai_board",
+    adoptionStatus: "stale"
+  });
+
+  assert.equal(report.compareBaseline.interfaceStatus, "gap");
+  assert.equal(report.compareBaseline.behaviorStatus, "match");
+  assert.equal(report.inventory.find(item => item.id === "runtime-behavior").status, "MISSING");
+  assert.equal(report.behaviorContract.layerStatus, "pass");
+  assert.equal(report.overallStatus, "gap");
+});
+
 test("the three formal Board pages load one shared Parity Engine before the shared runtime", () => {
   for (const file of ["app/Board/template-preview/index.html", "app/Board/ai/index.html", "app/Board/worktodo/index.html"]) {
     const html = read(file);
@@ -361,6 +454,9 @@ test("the three formal Board pages load one shared Parity Engine before the shar
   assert.doesNotMatch(runtime, /AI 診斷（依機器差異整理）/);
   assert.match(runtime, /data-template-parity-technical/);
   assert.match(runtime, /技術明細（工程人員）/);
+  assert.match(runtime, /paritySemanticSnapshots/);
+  assert.match(runtime, /latestPublishedC/);
+  assert.match(runtime, /adoptedC/);
   const css = read("shared/theme/golden-master.css");
   assert.match(css, /golden-master-tab-tools/);
   assert.match(css, /template-parity-anomaly/);

@@ -164,6 +164,25 @@ test("runtime release service has no browser-local persistence path", () => {
   assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/i);
 });
 
+test("runtime release service preserves Published C and adopted semantic snapshots", async () => {
+  const semanticSnapshot = {
+    schemaVersion: 1,
+    version: IDENTITY.version,
+    build: IDENTITY.build,
+    inventory: { baseline: "C Mother Template", capabilities: [{ id: "runtime-behavior", present: true }] },
+    behaviorContract: { id: "module-c-lifecycle-acceptance-v1", source: "module-c-mother", completionDecision: "canonical" }
+  };
+  const payload = releasePayload({ p_module_id: "c", p_consumer_ids: ["ai-board"] });
+  payload.published_snapshot = semanticSnapshot;
+  payload.consumer_adoptions["ai-board"].snapshot = semanticSnapshot;
+  const service = loadService(async () => payload);
+
+  const release = await service.read("c");
+
+  assert.deepEqual(release.publishedSnapshot, semanticSnapshot);
+  assert.deepEqual(release.consumers["ai-board"].snapshot, semanticSnapshot);
+});
+
 test("runtime release service compares loaded source with persisted published source", () => {
   const service = loadService(async () => null);
   const matching = service.compareSourceIdentity(

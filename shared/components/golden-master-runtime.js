@@ -37,6 +37,28 @@
       sourceFingerprint: String(snapshot.sourceFingerprint || "")
     };
   }
+  function paritySemanticSnapshots() {
+    const loadedRelease = root.ZhugeMotherTemplateRelease?.getSnapshot?.() || {};
+    const engine = root.ZhugeTemplateParityEngine;
+    const canonicalFallback = engine?.canonicalInventory && engine?.canonicalBehaviorContract
+      ? {
+        schemaVersion: 1,
+        version: String(state.templateRelease?.publishedVersion || loadedRelease.publishedVersion || ""),
+        build: String(state.templateRelease?.publishedBuild || loadedRelease.publishedBuild || ""),
+        sourceCommit: String(state.templateRelease?.sourceCommit || loadedRelease.sourceCommit || ""),
+        sourceFingerprint: String(state.templateRelease?.sourceFingerprint || loadedRelease.sourceFingerprint || ""),
+        inventory: engine.canonicalInventory(),
+        behaviorContract: engine.canonicalBehaviorContract()
+      }
+      : null;
+    const published = state.templateRelease?.publishedSnapshot || loadedRelease.publishedSnapshot || canonicalFallback;
+    const adopted = state.templateRelease?.adoption?.snapshot
+      || state.templateRelease?.adoption?.semanticSnapshot
+      || loadedRelease.adoptedSnapshot
+      || loadedRelease.publishedSnapshot
+      || null;
+    return { latestPublishedC: published, adoptedC: adopted };
+  }
 
   function releaseVersionLabel(version, build) {
     const normalizedVersion = String(version || "").trim();
@@ -1887,7 +1909,9 @@
         id: "source",
         label: "第二層｜母版與來源",
         pass: sourcePass,
-        detail: sourcePass ? (item.sourceContract?.status === "match" ? "目前來源已對上 Published C" : "目前未發現來源衝突") : "目前載入來源與 Published C 不一致"
+        detail: sourcePass
+          ? item.sourceContract?.detail || (item.sourceContract?.status === "match" ? "目前來源已對上 Published C" : "目前未發現來源衝突")
+          : "目前載入來源與 Published C 不一致"
       },
       {
         id: "behavior",
@@ -1975,6 +1999,7 @@
         consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board",
         sourceIntegrity: document.body?.dataset?.templateSourceIntegrity || "",
         adoptionStatus: document.body?.dataset?.templateAdoption || "",
+        ...paritySemanticSnapshots(),
         trigger
       };
       const report = trigger === "manual"

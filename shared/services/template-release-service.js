@@ -24,6 +24,15 @@
     return value == null ? "" : String(value);
   }
 
+  function cloneSerializable(value) {
+    if (value === undefined || value === null) return null;
+    try {
+      return JSON.parse(typeof value === "string" ? value : JSON.stringify(value));
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function normalizeModuleId(value) {
     return text(value).trim().toLowerCase() || "c";
   }
@@ -74,6 +83,7 @@
       publishedAt: adoption.published_at || adoption.publishedAt || fallbackRelease.publishedAt || null,
       adoptedAt: adoption.adopted_at || adoption.adoptedAt || null,
       adoptedBy: text(adoption.adopted_by || adoption.adoptedBy),
+      snapshot: cloneSerializable(adoption.snapshot || adoption.semantic_snapshot || adoption.semanticSnapshot || adoption.adopted_snapshot || adoption.adoptedSnapshot),
       identityMatches: moduleVersion === fallbackRelease.publishedVersion && build === fallbackRelease.publishedBuild,
     };
   }
@@ -97,6 +107,7 @@
       build: text(row.build || row.published_build || row.publishedBuild),
       sourceCommit: text(row.source_commit || row.sourceCommit),
       sourceFingerprint: text(row.source_fingerprint || row.sourceFingerprint),
+      publishedSnapshot: cloneSerializable(row.published_snapshot || row.publishedSnapshot || row.semantic_snapshot || row.semanticSnapshot || row.published_contract_snapshot || row.publishedContractSnapshot),
       publishedAt: row.published_at || row.publishedAt || null,
       publishedBy: text(row.published_by || row.publishedBy),
       persistent: true,
