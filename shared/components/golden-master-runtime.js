@@ -573,6 +573,13 @@
     const name = String(workspace?.name || "").trim();
     return key ? isCanonicalCompletionKey(key) : name === "已完成" || name === "完成";
   }
+  function isLegacyTerminalWorkspace(workspace) {
+    // `done` is the stable Cloud key of the historical AI Board terminal
+    // workspace. Keep this identity-based guard separate from the current
+    // `completed` workspace; display names are not used to infer workflow.
+    return state.applicationScope === "ai_board"
+      && String(workspace?.key || "").trim().toLowerCase() === "done";
+  }
   function isCustomWorkspace(workspace) {
     // Kept as a classification helper for older consumers and diagnostics.
     // Deletion policy is intentionally no longer custom-only; see
@@ -620,7 +627,10 @@
     return workspace?.active === true;
   }
   function isWorkspaceDeletable(workspace) {
-    return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+    return Boolean(workspace
+      && isMainBoardWorkspace(workspace)
+      && !isCompletionWorkspace(workspace)
+      && !isLegacyTerminalWorkspace(workspace));
   }
   function workTodoJournalForTask(task) {
     if (!isWorkTodoTask(task)) return [];
@@ -725,14 +735,15 @@
     const itemLabel = workItemLabel();
     const columns = workspaces.map(workspace => {
       const completion = isCompletionWorkspace(workspace);
+      const legacyTerminal = isLegacyTerminalWorkspace(workspace);
       const menuButton = "<button class=\"workspace-menu\" type=\"button\" data-workspace-menu=\"" + esc(workspace.id) + "\" title=\"工作區操作（可重新命名顯示名稱）\" aria-label=\"工作區操作（可重新命名顯示名稱）\" aria-haspopup=\"menu\" aria-expanded=\"false\">⋮</button>";
       return {
         id: workspace.id,
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: !completion && state.applicationScope !== "procurement",
-        addHtml: !completion && state.applicationScope !== "procurement"
+        reorderable: !completion && !legacyTerminal && state.applicationScope !== "procurement",
+        addHtml: !completion && !legacyTerminal && state.applicationScope !== "procurement"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
         // Completion remains lifecycle-controlled for move/delete, but its
@@ -1281,13 +1292,25 @@
     }
   }
   async function deleteWorkspace(workspace) {
+    const taskCount = workspaceTaskCount(workspace);
+    if (isLegacyTerminalWorkspace(workspace)) {
+      setBanner(taskCount > 0
+        ? `「${esc(workspace.name || "已完工")}」是歷史保留工作區，目前仍有 ${taskCount} 張工作卡片；系統不會刪除或自動搬移。`
+        : `「${esc(workspace.name || "已完工")}」是歷史保留工作區，不能直接刪除。`, "error");
+      closeWorkspaceMenus();
+      return;
+    }
     if (!workspace || !isWorkspaceDeletable(workspace)) {
       setBanner(isCompletionWorkspace(workspace)
         ? "「完成」工作區不可刪除；請保留已完成工作與其封存生命週期。"
         : "這個工作區目前不在可刪除的正式看板範圍內。", "error");
       return;
     }
-    const taskCount = workspaceTaskCount(workspace);
+    if (taskCount > 0 && state.applicationScope === "ai_board") {
+      setBanner(`此工作區仍有 ${taskCount} 張工作卡片，需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片。`, "error");
+      closeWorkspaceMenus();
+      return;
+    }
     const targetWorkspace = workspaceDeleteTarget(workspace);
     const targetLabel = targetWorkspace?.name || "其他可保留工作區";
     if (taskCount > 0 && !targetWorkspace) {
@@ -1343,7 +1366,9 @@
     };
     if (!isWorkspaceDeletable(workspace)) {
       deleteButton.disabled = true;
-      deleteButton.title = isCompletionWorkspace(workspace) ? "完成工作區不可刪除" : "此工作區目前不可刪除";
+      deleteButton.title = isLegacyTerminalWorkspace(workspace)
+        ? "歷史保留工作區不可刪除"
+        : isCompletionWorkspace(workspace) ? "完成工作區不可刪除" : "此工作區目前不可刪除";
       deleteButton.setAttribute("aria-disabled", "true");
     } else {
       deleteButton.onclick = event => {

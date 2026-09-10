@@ -294,7 +294,7 @@ test("Board workspace mutations and movement history stay behind controlled RPC/
   assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
 });
 
-test("Workspace Delete service moves tasks before deleting only the workspace", async () => {
+test("AI Board populated Workspace Delete fails closed while WorkTodo keeps its own contract", async () => {
   const calls = [];
   const gateway = {
     rpc: async (name, params) => {
@@ -313,23 +313,26 @@ test("Workspace Delete service moves tasks before deleting only the workspace", 
     }
   };
 
-  await BoardRead.deleteWorkspace("workspace-1", "todo-1", { gateway });
+  await assert.rejects(
+    () => BoardRead.deleteWorkspace("workspace-1", "todo-1", { gateway }),
+    error => {
+      assert.equal(error.code, "WORKSPACE_DELETE_REQUIRES_RECONCILIATION");
+      assert.deepEqual(error.details, {
+        workspaceId: "workspace-1",
+        taskCount: 2,
+        tasksPreserved: true
+      });
+      return true;
+    }
+  );
   await BoardRead.worktodoDeleteWorkspace("workspace-2", "worktodo-todo-1", { gateway });
 
   assert.deepEqual(calls.map(call => call.name), [
     "board_request_delete_workspace",
-    "board_move_task_workspace",
-    "board_move_task_workspace",
-    "board_finalize_delete_workspace",
     "worktodo_request_delete_workspace",
     "worktodo_update_task",
     "worktodo_finalize_delete_workspace"
   ]);
-  assert.deepEqual(calls.find(call => call.name === "board_finalize_delete_workspace").params, {
-    p_workspace_id: "workspace-1",
-    p_target_workspace_id: "todo-1",
-    p_task_ids: ["task-1", "task-2"]
-  });
   assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params, {
     p_task_id: "task-3",
     p_patch: { workspace_id: "worktodo-todo-1" }

@@ -860,6 +860,12 @@
     const gateway = options.gateway || requireGateway();
     const manifest = await gateway.rpc(requestRpc, { p_workspace_id: workspaceId });
     const taskIds = Array.isArray(manifest?.task_ids) ? manifest.task_ids.filter(Boolean) : [];
+    if (taskIds.length && options.rejectPopulated === true) {
+      const error = new Error("此工作區仍有工作卡片，需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片。");
+      error.code = "WORKSPACE_DELETE_REQUIRES_RECONCILIATION";
+      error.details = { workspaceId, taskCount: taskIds.length, tasksPreserved: true };
+      throw error;
+    }
     if (taskIds.length && !targetWorkspaceId) {
       const error = new Error("Workspace Delete Contract 缺少既有待開始 Workspace。");
       error.code = "WORKSPACE_DELETE_TARGET_UNAVAILABLE";
@@ -886,7 +892,7 @@
         p_target_workspace_id: targetId,
         p_note: "Custom Workspace deleted; task preserved in canonical 待開始 workspace"
       }),
-      options
+      { ...options, rejectPopulated: true }
     );
   }
 
