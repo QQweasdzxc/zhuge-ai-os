@@ -3651,6 +3651,27 @@
   }
 
   function ensureWorkflowSettingsTab() {
+    if (!state.workflowCapability?.capabilities?.settings) return null;
+
+    // Consumers that already own a primary product tab row (GAS / Investment) keep
+    // Workflow Settings in that same row. Do not create a second navigation layer.
+    const productTabs = document.querySelector(".procurement-content-tabs");
+    if (productTabs) {
+      let tab = productTabs.querySelector('[data-board-nav="workflow-settings"]');
+      if (!tab) {
+        tab = document.createElement("button");
+        tab.className = "procurement-content-tab";
+        tab.type = "button";
+        tab.setAttribute("role", "tab");
+        tab.setAttribute("aria-selected", "false");
+        tab.title = state.workflowCapability.readOnly === true ? "查看流程設定" : "流程設定";
+        tab.dataset.boardNav = "workflow-settings";
+        tab.textContent = "⚙️ 流程設定";
+        productTabs.appendChild(tab);
+      }
+      return tab;
+    }
+
     let tabs = document.querySelector(".workspace-subnav");
     if (!tabs) {
       const boardMain = document.querySelector("[data-board-main-view]");
@@ -3662,7 +3683,6 @@
       tabs.setAttribute("aria-label", "看板功能");
       parent.insertBefore(tabs, boardMain);
     }
-    if (!tabs || !state.workflowCapability?.capabilities?.settings) return null;
     let boardTab = tabs.querySelector('[data-board-nav="board"]');
     if (!boardTab) {
       boardTab = document.createElement("button");
@@ -3681,8 +3701,6 @@
       tab.title = state.workflowCapability.readOnly === true ? "查看流程設定" : "流程設定";
       tab.dataset.boardNav = "workflow-settings";
       tab.textContent = "⚙️ 流程設定";
-      // Workflow Settings is a first-class board tab. Keep it directly beside the board tab
-      // instead of appending it to the far end of each consumer's existing navigation.
       boardTab.insertAdjacentElement("afterend", tab);
     }
     return tab;
