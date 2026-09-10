@@ -188,13 +188,11 @@
   }
 
   function hasPendingDevelopment(release) {
-    if (!release) return true;
     const development = developmentIdentity();
-    return (
-      release.publishedVersion !== development.version ||
-      release.publishedBuild !== development.build ||
-      (development.sourceFingerprint && release.sourceFingerprint !== development.sourceFingerprint)
-    );
+    const service = root?.ZhugeModulePublishService;
+    return typeof service?.hasPendingDevelopment === "function"
+      ? service.hasPendingDevelopment(release, development)
+      : true;
   }
 
   function neutralViewModel() {

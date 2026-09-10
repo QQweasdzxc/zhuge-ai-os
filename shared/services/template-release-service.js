@@ -315,6 +315,16 @@
     };
   }
 
+  function hasPendingDevelopment(release, development) {
+    if (!release) return true;
+    const current = development || getDevelopmentIdentity(release.moduleId || "c");
+    return Boolean(
+      text(release.publishedVersion) !== text(current.version) ||
+      text(release.publishedBuild) !== text(current.build) ||
+      (text(current.sourceFingerprint) && text(release.sourceFingerprint) !== text(current.sourceFingerprint))
+    );
+  }
+
   function forConsumer(release, consumerId) {
     const id = normalizeConsumerId(consumerId);
     if (!release) {
@@ -355,6 +365,7 @@
     normalizeConsumerIds,
     compareSourceIdentity,
     getDevelopmentIdentity,
+    hasPendingDevelopment,
     forConsumer,
   });
 });
