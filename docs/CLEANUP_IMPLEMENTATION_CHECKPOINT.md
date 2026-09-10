@@ -83,7 +83,7 @@ node tools/release-governance.js preflight
 - Full automated suite: 471/471 PASS, 0 FAIL, 0 SKIP.
 - Explicit Chrome browser suite: 6/6 PASS, including desktop and mobile
   viewport contracts.
-- Build Identity is synchronized to `20260910-0148` across runtime literals,
+- Build Identity is synchronized to `20260910-1235` across runtime literals,
   cache-busters, module manifests, and release metadata.
 - No new test failure was introduced by the cleanup implementation.
 
