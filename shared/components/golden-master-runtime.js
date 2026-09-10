@@ -1111,6 +1111,29 @@
       && typeof workflow.reconcileWorkspaceDecision === "function";
   }
 
+  // Existing cards created before the canonical C binding trigger may be
+  // unbound.  Adoption is a shared C capability, but this opt-in is enabled
+  // only for the AI Board consumer in this release.  Cloud performs the
+  // exact Published Workflow + current Workspace UUID check; the runtime
+  // never derives a step from a TASK, status, assignee, or Workspace name.
+  function canAdoptExistingCWorkflowCard(task) {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    return state.applicationScope === "ai_board"
+      && workflow?.capabilities?.existingCardAdoption === true
+      && typeof workflow.adoptUnboundCard === "function"
+      && !String(task?.workflowVersionId || "").trim()
+      && !String(task?.currentWorkflowStepId || "").trim();
+  }
+
+  async function adoptExistingCWorkflowCard(task) {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    if (!canAdoptExistingCWorkflowCard(task)) throw workflowBindingError();
+    return workflow.adoptUnboundCard({
+      taskId: task.id,
+      idempotencyKey: `workflow-adopt-${task.id}`
+    });
+  }
+
   function isCanonicalWorkflowConsumer() {
     // Every board-backed consumer resolves the same C Workflow capability.
     // The Board Instance owns the definition; WorkTodo still keeps its own
@@ -1177,7 +1200,10 @@
     setBanner(`正在依 PM 的工作區決定同步「${esc(task.workCode || task.title)}」至「${esc(target.name)}」…`, "loading");
     try {
       const workflow = state.workflowCapability || activeService()?.workflow;
-      if (isCanonicalWorkflowConsumer() && !canUseCWorkflowAuthority(task)) throw workflowBindingError();
+      if (isCanonicalWorkflowConsumer() && !canUseCWorkflowAuthority(task)) {
+        if (!canAdoptExistingCWorkflowCard(task)) throw workflowBindingError();
+        await adoptExistingCWorkflowCard(task);
+      }
       const result = workflow
         ? await workflow.reconcileWorkspaceDecision({
           taskId: task.id,
@@ -2074,8 +2100,12 @@
     const task = state.taskById.get(String(input.taskId || ""));
     const workflow = state.workflowCapability || activeService()?.workflow;
     const targetStep = workflowCompletionStep();
-    if (!task || !workflow?.reconcileWorkspaceDecision || !canUseCWorkflowAuthority(task)) {
+    if (!task || !workflow?.reconcileWorkspaceDecision) {
       throw workflowBindingError();
+    }
+    if (!canUseCWorkflowAuthority(task)) {
+      if (!canAdoptExistingCWorkflowCard(task)) throw workflowBindingError();
+      await adoptExistingCWorkflowCard(task);
     }
     if (!targetStep?.workspaceId) {
       const error = new Error("這張子板尚未設定正式完成階段；卡片未移動，正式狀態不變。");
@@ -4074,7 +4104,8 @@
           templateKey: "c",
           boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
           legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : "",
-          readOnly: workflowReadOnly
+          readOnly: workflowReadOnly,
+          allowExistingCardAdoption: state.applicationScope === "ai_board"
         })
       : null;
     state.workflowCapability = options.workflowCapability

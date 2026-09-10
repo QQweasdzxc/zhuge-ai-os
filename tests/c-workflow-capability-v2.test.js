@@ -64,8 +64,35 @@ test("read-only C capability cannot write workflow definitions or decisions", as
 
   assert.equal(workflow.capabilities.workspaceDecision, false);
   assert.equal(workflow.capabilities.completion, false);
+  assert.equal(workflow.capabilities.existingCardAdoption, false);
   await assert.rejects(() => workflow.saveDraft({ name: "不應寫入" }), /唯讀/);
   await assert.rejects(() => workflow.reconcileWorkspaceDecision({ taskId: "task-1", targetWorkspaceId: "workspace-2" }), /唯讀/);
+  await assert.rejects(() => workflow.adoptUnboundCard({ taskId: "task-1" }), /唯讀/);
+});
+
+test("C Workflow exposes one-card adoption as an explicit opt-in capability", async () => {
+  const calls = [];
+  const workflow = BoardReadService.createWorkflowCapability({
+    gateway: {
+      async select() { return [{ id: "ai-board-1", name: "AI Board", template_key: "c", active: true }]; },
+      async rpc(name, args) {
+        calls.push({ name, args });
+        return { contract: "module-c-lifecycle-acceptance-v2", action: "adopt-unbound-card", state: "adopted" };
+      }
+    },
+    boardInstanceId: "ai-board-1",
+    allowExistingCardAdoption: true
+  });
+
+  assert.equal(workflow.capabilities.existingCardAdoption, true);
+  await workflow.adoptUnboundCard({ taskId: "task-1", idempotencyKey: "workflow-adopt-task-1" });
+  assert.deepEqual(calls[0], {
+    name: "board_c_workflow_adopt_unbound_card_v2",
+    args: {
+      p_task_id: "task-1",
+      p_idempotency_key: "workflow-adopt-task-1"
+    }
+  });
 });
 
 test("C Workflow write boundary normalizes the editor model to the RPC contract", async () => {
@@ -114,6 +141,7 @@ test("C Workflow runtime is shared by the C routes and keeps card bindings expli
   const service = read("shared/board/board-read-service.js");
   const migration = read("docs/supabase/20260910_c_workflow_capability_v2.sql");
   const binding = read("docs/supabase/20260910_c_workflow_card_binding_v2.sql");
+  const existingAdoption = read("docs/supabase/20260910_c_workflow_existing_card_adoption_v2.sql");
   const publishFix = read("docs/supabase/20260910_c_workflow_publish_state_fix.sql");
   const lineage = read("docs/supabase/20260910_c_workflow_draft_lineage.sql");
   const privateHelperSecurity = read("docs/supabase/20260910_c_workflow_private_helper_security.sql");
@@ -124,6 +152,9 @@ test("C Workflow runtime is shared by the C routes and keeps card bindings expli
   assert.match(service, /module-c-lifecycle-acceptance-v2/);
   assert.match(service, /workflow_version_id,current_workflow_step_id/);
   assert.match(runtime, /workflow\.reconcileWorkspaceDecision/);
+  assert.match(runtime, /canAdoptExistingCWorkflowCard/);
+  assert.match(runtime, /workflow\.adoptUnboundCard/);
+  assert.match(runtime, /workflow-adopt-/);
   assert.match(runtime, /boardTab\.dataset\.boardNav = "board"/);
   assert.match(runtime, /if \(!accepted\) return/);
   assert.match(runtime, /tab\.dataset\.boardNav = "workflow-settings"/);
@@ -132,6 +163,14 @@ test("C Workflow runtime is shared by the C routes and keeps card bindings expli
   assert.match(binding, /before insert on public\.board_tasks/);
   assert.match(binding, /never.*historical backfill|historical backfill/i);
   assert.doesNotMatch(binding, /update public\.board_tasks/i);
+  assert.match(existingAdoption, /board_c_workflow_adopt_unbound_card_v2/);
+  assert.match(existingAdoption, /matching_step_count/);
+  assert.match(existingAdoption, /needs_pm_classification/);
+  assert.match(existingAdoption, /workflow_version_id/);
+  assert.match(existingAdoption, /current_workflow_step_id/);
+  assert.match(existingAdoption, /revoke all on function public\.board_c_workflow_adopt_unbound_card_v2\(uuid, text\) from public, anon/);
+  const adoptionBody = existingAdoption.slice(existingAdoption.indexOf("as $function$"), existingAdoption.indexOf("$function$;"));
+  assert.doesNotMatch(adoptionBody, /set\s+[^;]*(?:workspace_id|status|assignee)\s*=/i);
   assert.match(publishFix, /draft_workflow_version_id = null/);
   assert.match(publishFix, /board_c_workflow_publish/);
   assert.match(lineage, /based_on_workflow_version_id/);

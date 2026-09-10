@@ -1164,6 +1164,7 @@
     const legacyApplicationScope = String(options.legacyApplicationScope || "").trim();
     const templateKey = String(options.templateKey || "c").trim().toLowerCase() || "c";
     const readOnly = options.readOnly === true;
+    const allowExistingCardAdoption = options.allowExistingCardAdoption === true;
     let instancePromise;
     const resolveBoardInstance = async () => {
       if (!instancePromise) {
@@ -1289,6 +1290,13 @@
         p_idempotency_key: input.idempotencyKey || null
       }));
     };
+    const adoptUnboundCard = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_adopt_unbound_card_v2", {
+        p_task_id: input.taskId,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
     const resolveTaskWorkflow = async taskId => gateway.rpc("board_c_workflow_resolve_task", { p_task_id: taskId });
     const reconcileTaskWorkspaceDecision = async (input = {}) => {
       assertWritable();
@@ -1328,6 +1336,7 @@
         completion: !readOnly,
         reopen: !readOnly,
         adoption: !readOnly,
+        existingCardAdoption: allowExistingCardAdoption && !readOnly,
         legacyReconciliation: !readOnly,
         legacyWorkspaceRetirement: !readOnly
       }),
@@ -1341,6 +1350,7 @@
       approveAdoption,
       setStepMapping,
       applyCardMapping,
+      adoptUnboundCard,
       resolveTask: resolveTaskWorkflow,
       reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision,
       reconcileLegacyCard,
@@ -1539,7 +1549,8 @@
       templateKey,
       boardInstanceId: requestedBoardInstanceId,
       legacyApplicationScope,
-      readOnly: instanceOptions.workflowReadOnly === true
+      readOnly: instanceOptions.workflowReadOnly === true,
+      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true
     });
 
     async function instanceLoad(options = {}) {
