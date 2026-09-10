@@ -1299,6 +1299,25 @@
         p_idempotency_key: input.idempotencyKey || null
       });
     };
+    const reconcileLegacyCard = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_reconcile_legacy_card_v2", {
+        p_task_id: input.taskId,
+        p_classification: input.classification,
+        p_workflow_version_id: input.workflowVersionId || null,
+        p_completion_step_id: input.completionStepId || null,
+        p_reverification_evidence: input.reverificationEvidence || null,
+        p_note: input.note || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const retireLegacyWorkspace = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_retire_legacy_workspace_v2", {
+        p_workspace_id: input.workspaceId,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
     return Object.freeze({
       contract: C_WORKFLOW_CANONICAL_CONTRACT,
       readOnly,
@@ -1308,7 +1327,9 @@
         workspaceDecision: !readOnly,
         completion: !readOnly,
         reopen: !readOnly,
-        adoption: !readOnly
+        adoption: !readOnly,
+        legacyReconciliation: !readOnly,
+        legacyWorkspaceRetirement: !readOnly
       }),
       resolveBoardInstance,
       boardInstanceId,
@@ -1321,7 +1342,9 @@
       setStepMapping,
       applyCardMapping,
       resolveTask: resolveTaskWorkflow,
-      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision
+      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision,
+      reconcileLegacyCard,
+      retireLegacyWorkspace
     });
   }
 
