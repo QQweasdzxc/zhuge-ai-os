@@ -14,6 +14,8 @@
   const TEMPLATE_ORDER_FALLBACK = ["navigation", "workspace", "board"];
   let policyEventsBound = false;
   let refreshCallback = null;
+  let releaseState = { status: "idle", release: null, error: "" };
+  let releaseRequest = null;
 
   function escapeHtml(value = "") {
     return String(value).replace(/[&<>'"]/g, ch => ({
@@ -100,11 +102,69 @@
     return root?.ZhugeMotherTemplateRelease?.getSnapshot?.() || null;
   }
 
-  function releaseStatusMarkup() {
-    const release = publishedMotherRelease();
-    if (!release) {
-      return `<div class="template-management-release" data-template-release-summary role="status"><strong>C 母版發布身份尚未載入</strong><span>請先載入 Published Template metadata，才能核對 Consumer 採用版本。</span></div>`;
+  function moduleReleaseService() {
+    return root?.ZhugeModulePublishService || null;
+  }
+
+  function developmentIdentity(service = moduleReleaseService()) {
+    const staticRelease = publishedMotherRelease();
+    const product = root?.ZhugeFoundationConfig?.version || {};
+    const current = service?.getDevelopmentIdentity?.("c") || {};
+    return {
+      version: String(current.version || staticRelease?.developmentVersion || product.version || ""),
+      build: String(current.build || staticRelease?.developmentBuild || product.build || ""),
+      sourceCommit: String(current.sourceCommit || staticRelease?.developmentSourceCommit || staticRelease?.sourceCommit || product.commit || ""),
+      sourceFingerprint: String(current.sourceFingerprint || staticRelease?.developmentSourceFingerprint || staticRelease?.sourceFingerprint || product.sourceFingerprint || ""),
+    };
+  }
+
+  function refreshPublishedRelease({ force = false } = {}) {
+    const service = moduleReleaseService();
+    if (!service || typeof service.read !== "function") {
+      releaseState = { status: "unavailable", release: null, error: "C 母版 Cloud Publish State 服務尚未載入。" };
+      return Promise.resolve(null);
     }
+    if (releaseRequest) return releaseRequest;
+    if (!force && releaseState.status === "resolved") return Promise.resolve(releaseState.release);
+    releaseState = { status: "loading", release: releaseState.release, error: "" };
+    const request = Promise.resolve()
+      .then(() => service.read("c", { force }))
+      .then(release => {
+        releaseState = { status: "resolved", release, error: "" };
+        refreshCallback?.();
+        return release;
+      })
+      .catch(error => {
+        releaseState = { status: "error", release: null, error: error?.message || "C 母版 Cloud Publish State 讀取失敗。" };
+        refreshCallback?.();
+        return null;
+      })
+      .finally(() => {
+        releaseRequest = null;
+      });
+    releaseRequest = request;
+    return request;
+  }
+
+  function releaseStatusMarkup() {
+    const service = moduleReleaseService();
+    if (releaseState.status === "loading" || releaseState.status === "idle") {
+      return `<div class="template-management-release" data-template-release-summary data-template-release-pending="unknown" role="status"><strong>🟡 正在讀取 C 母版發布狀態</strong><span>正在從 Supabase Cloud 取得最新 Publish State…</span></div>`;
+    }
+    if (releaseState.status === "error" || releaseState.status === "unavailable") {
+      return `<div class="template-management-release" data-template-release-summary data-template-release-pending="unknown" role="status"><strong>🔴 C 母版發布狀態讀取失敗</strong><span>${escapeHtml(releaseState.error || "無法取得正式 Cloud Publish State。")}</span></div>`;
+    }
+    const release = releaseState.release;
+    const development = developmentIdentity(service);
+    const pendingValue = typeof service?.hasPendingDevelopment === "function"
+      ? service.hasPendingDevelopment(release, development)
+      : true;
+    const pending = pendingValue === true;
+    const pendingLabel = pending ? "🟠 有待發布變更" : "🟢 C 母版已同步";
+    const developmentVersion = development.version || release?.developmentVersion || "—";
+    const developmentBuild = development.build || release?.developmentBuild || "—";
+    const publishedVersion = release?.publishedVersion || "尚未發布";
+    const publishedBuild = release?.publishedBuild || "—";
     const snapshot = runtimeSnapshot();
     const consumers = [
       ["worktodo", "tasks-new", "工作待辦"],
@@ -112,15 +172,15 @@
       ["procurement", "procurement", "庶務行政"],
       ["investment-ivtk", "investment", "投資組合"]
     ].map(([releaseId, pageId, label]) => {
-      const adoption = release.consumers?.[releaseId];
+      const adoption = release?.consumers?.[releaseId];
       const cloudEnabled = enabledFor(snapshot, pageId, "board");
-      const version = adoption?.templateVersion || (cloudEnabled ? release.publishedVersion : "—");
-      const build = adoption?.build || (cloudEnabled ? release.publishedBuild : "—");
-      const releaseMatches = adoption?.status === "adopted" && version === release.publishedVersion && build === release.publishedBuild;
+      const version = adoption?.templateVersion || (cloudEnabled ? publishedVersion : "—");
+      const build = adoption?.build || (cloudEnabled ? publishedBuild : "—");
+      const releaseMatches = adoption?.status === "adopted" && version === publishedVersion && build === publishedBuild;
       const state = releaseMatches || cloudEnabled ? "🟢 已採用" : "🟡 待核對";
       return `<span class="template-management-release-consumer"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(state)} · ${escapeHtml(version)} / ${escapeHtml(build)}</span></span>`;
     }).join("");
-    return `<div class="template-management-release" data-template-release-summary role="status"><div><strong>C 母版已發布</strong><span>開發版：${escapeHtml(release.developmentVersion)} / ${escapeHtml(release.developmentBuild)} · 已發布版：${escapeHtml(release.publishedVersion)} / ${escapeHtml(release.publishedBuild)}</span></div><div class="template-management-release-consumers">${consumers}</div></div>`;
+    return `<div class="template-management-release" data-template-release-summary data-template-release-pending="${pending}" role="status"><div><strong>${pendingLabel}</strong><span>開發版：${escapeHtml(developmentVersion)} / ${escapeHtml(developmentBuild)} · 已發布版：${escapeHtml(publishedVersion)} / ${escapeHtml(publishedBuild)}</span></div><div class="template-management-release-consumers">${consumers}</div></div>`;
   }
 
   function renderConsumerRows(model, snapshot) {
@@ -130,6 +190,7 @@
   }
 
   function render(options = {}) {
+    if (releaseState.status === "idle") refreshPublishedRelease();
     const snapshot = runtimeSnapshot();
     const models = buildTemplateModel(snapshot);
     const cards = models.map(model => {
@@ -157,6 +218,18 @@
     policyEventsBound = true;
     ["zhuge-template-adoption-ready", "zhuge-template-management-updated"].forEach(eventName => {
       root.document.addEventListener(eventName, () => refreshCallback?.());
+    });
+    ["zhuge-module-release-updated", "zhuge-module-adoption-updated"].forEach(eventName => {
+      root.document.addEventListener(eventName, event => {
+        const detail = event?.detail || {};
+        if (detail.moduleId && String(detail.moduleId).toLowerCase() !== "c") return;
+        if (detail.release) {
+          releaseState = { status: "resolved", release: detail.release, error: "" };
+          refreshCallback?.();
+          return;
+        }
+        refreshPublishedRelease({ force: true });
+      });
     });
   }
 

@@ -121,9 +121,12 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   assert.match(runtime, /Task、Checklist、Progress、Attachment 與 Storage Object 將全部保留/);
   assert.match(runtime, /isWorkspaceDeletable/);
   assert.match(runtime, /isCompletionWorkspace/);
+  assert.match(runtime, /isLegacyTerminalWorkspace/);
+  assert.match(runtime, /需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片/);
   assert.match(runtime, /executeSharedTaskAction\(null, "deleteWorkspace"/);
   assert.match(service, /board_request_delete_workspace/);
   assert.match(service, /board_finalize_delete_workspace/);
+  assert.match(service, /WORKSPACE_DELETE_REQUIRES_RECONCILIATION/);
   assert.match(service, /worktodo_request_delete_workspace/);
   assert.match(service, /worktodo_finalize_delete_workspace/);
   assert.match(service, /board_move_task_workspace/);

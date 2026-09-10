@@ -860,6 +860,12 @@
     const gateway = options.gateway || requireGateway();
     const manifest = await gateway.rpc(requestRpc, { p_workspace_id: workspaceId });
     const taskIds = Array.isArray(manifest?.task_ids) ? manifest.task_ids.filter(Boolean) : [];
+    if (taskIds.length && options.rejectPopulated === true) {
+      const error = new Error("此工作區仍有工作卡片，需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片。");
+      error.code = "WORKSPACE_DELETE_REQUIRES_RECONCILIATION";
+      error.details = { workspaceId, taskCount: taskIds.length, tasksPreserved: true };
+      throw error;
+    }
     if (taskIds.length && !targetWorkspaceId) {
       const error = new Error("Workspace Delete Contract 缺少既有待開始 Workspace。");
       error.code = "WORKSPACE_DELETE_TARGET_UNAVAILABLE";
@@ -886,7 +892,7 @@
         p_target_workspace_id: targetId,
         p_note: "Custom Workspace deleted; task preserved in canonical 待開始 workspace"
       }),
-      options
+      { ...options, rejectPopulated: true }
     );
   }
 
@@ -1293,6 +1299,25 @@
         p_idempotency_key: input.idempotencyKey || null
       });
     };
+    const reconcileLegacyCard = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_reconcile_legacy_card_v2", {
+        p_task_id: input.taskId,
+        p_classification: input.classification,
+        p_workflow_version_id: input.workflowVersionId || null,
+        p_completion_step_id: input.completionStepId || null,
+        p_reverification_evidence: input.reverificationEvidence || null,
+        p_note: input.note || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
+    const retireLegacyWorkspace = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_retire_legacy_workspace_v2", {
+        p_workspace_id: input.workspaceId,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
     return Object.freeze({
       contract: C_WORKFLOW_CANONICAL_CONTRACT,
       readOnly,
@@ -1302,7 +1327,9 @@
         workspaceDecision: !readOnly,
         completion: !readOnly,
         reopen: !readOnly,
-        adoption: !readOnly
+        adoption: !readOnly,
+        legacyReconciliation: !readOnly,
+        legacyWorkspaceRetirement: !readOnly
       }),
       resolveBoardInstance,
       boardInstanceId,
@@ -1315,7 +1342,9 @@
       setStepMapping,
       applyCardMapping,
       resolveTask: resolveTaskWorkflow,
-      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision
+      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision,
+      reconcileLegacyCard,
+      retireLegacyWorkspace
     });
   }
 

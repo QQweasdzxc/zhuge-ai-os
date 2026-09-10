@@ -1,20 +1,23 @@
 # Cleanup implementation checkpoint — 2026-09-10
 
-Status: WORKFLOW CAPABILITY V2 IMPLEMENTED; FINAL QA / CANDIDATE PACKAGING
-CHECKPOINT.
+Status: WORKFLOW CAPABILITY V2 + LEGACY RECONCILIATION IMPLEMENTED; FINAL QA /
+CANDIDATE PACKAGING CHECKPOINT.
 
 ## Current implementation authority and scope
 
 The approved implementation baseline is
-`65044cf9101c9096ffea7d3084831314583f9e09`. This checkpoint records the
-approved Module C Workflow Capability v2 implementation and the earlier
-workspace-placement cleanup it supersedes. The canonical source is the shared
-C Mother runtime and service; Consumers provide Board Instance identity and
-capability flags only.
+`65044cf9101c9096ffea7d3084831314583f9e09`. The current source checkpoint is
+`1a6845835b59d2252883972145eca7f0254fb661` plus the explicit, PM-authorized
+legacy reconciliation bridge recorded in this worktree. The canonical source is
+the shared C Mother runtime and service; Consumers provide Board Instance
+identity, capability flags, and their own workflow data only.
 
-The implementation does not infer or batch-reconcile historical TASKs. Existing
-cards remain untouched until a future explicit Adoption / Step Mapping / PM
-classification flow is run. No Board Instance or Card identity was changed.
+Historical TASKs were not inferred from title, status, assignee, or workspace.
+The approved 33-card disposition was executed one card at a time through the
+authenticated C reconciliation contract: 28 historical completions and 3
+reverified completions were bound to the published completion step, while
+TASK-010 and TASK-020 retained cancelled terminal semantics and were archived
+in place. No Board Instance or Card identity was changed.
 
 ## Implemented in the C canonical sources
 
@@ -50,6 +53,10 @@ Applied additive migrations:
 - `c_workflow_publish_state_fix`
 - `c_workflow_draft_lineage`
 - `c_workflow_private_helper_security`
+- `20260910_c_workflow_legacy_reconciliation_v2`
+- `20260910_c_workflow_pm_actor_label_fix`
+- `20260910_c_workflow_audit_entity_types_fix`
+- `20260910_c_workflow_legacy_reconciliation_v2_cancelled_status_fix`
 
 The eight public Workflow tables and private idempotency table exist with RLS
 enabled. Browser roles have read-only table access; writes go through the
@@ -58,10 +65,9 @@ public/anon/authenticated. The insert trigger binds only newly created cards
 when an explicit published workflow is available; it never backfills or
 rewrites historical cards.
 
-The latest Cloud read-back recorded zero Workflow definitions, zero published
-versions, zero adoptions, zero mappings, and zero bound historical cards out
-of 118 total cards. This is an intentional safe state under the approved
-no-guess/no-batch-mutation rule, not a hidden runtime fallback.
+The legacy reconciliation and retirement RPCs are authenticated, owner-scoped,
+idempotent, and one-card-at-a-time. They never guess a step, create a card,
+move a card to `待辦` as a delete fallback, or rewrite existing evidence.
 
 ## Current verification
 
@@ -80,28 +86,42 @@ node tools/release-governance.js preflight
 ```
 
 - Syntax, whitespace, and Release Preflight: PASS.
-- Full automated suite: 471/471 PASS, 0 FAIL, 0 SKIP.
-- Explicit Chrome browser suite: 6/6 PASS, including desktop and mobile
-  viewport contracts.
+- Full automated suite after the checkpoint update: 471/471 PASS, 0 FAIL, 0
+  SKIP.
+- Explicit Chrome browser suite: 8/8 PASS, including desktop and mobile
+  viewport contracts; final runtime deployment remains outside this package
+  gate.
 - Build Identity is synchronized to `20260910-1235` across runtime literals,
   cache-busters, module manifests, and release metadata.
 - No new test failure was introduced by the cleanup implementation.
 
 ### Current Cloud read-back
 
-Project: `lenpbbhwxyyfwgvjcozf` (`lenpbbhwxyyfwgvjcozf`). The eight public
-Workflow tables exist with RLS enabled and authenticated SELECT-only table
-grants. Controlled authenticated RPCs expose the approved write boundary;
-anonymous execute is revoked. The private idempotency table has no browser
-grants or policies, and private Workflow helpers have public/anon/authenticated
-EXECUTE revoked.
+Project: `lenpbbhwxyyfwgvjcozf` (`QQ's Project`). The AI Board instance is
+`74ff1127-ab98-4543-8f69-872e5d92fd33`. The published Workflow V2 is
+`05557542-2f91-465a-bb14-3518105f9537`, version 1, status `published`.
 
-Counts: definitions 0, workflow states 0, steps 0, transitions 0, gates 0,
-evidence requirements 0, adoptions 0, step mappings 0, bound historical cards
-0, total cards 118. Existing Board/Card data and identities were not mutated.
-This is intentional: no historical Workflow Version / Current Step is guessed
-or batch-filled. New workflows are created through the shared C Settings
-contract and cards bind only when an explicit published workflow exists.
+The read-back reports: 1 definition, 1 published version, 1 instance workflow
+state, 5 steps, 20 transitions, 1 completion gate, 0 evidence requirements,
+0 adoptions, and 0 step mappings. The five steps are `待辦 → Co → GPT區 →
+QJC驗證 → 完成`; GPT區 is not a mandatory transition. The formal completion
+step is the `完成` step, not the retired `已完工` workspace.
+
+The AI Board has 73 total cards. Thirty-one completion-class Legacy cards are
+bound to the published completion step and appear in the formal completion
+workspace; 2 cancelled cards remain in the legacy workspace with their original
+status and are archived in place. The legacy workspace has no Published
+Workflow references and no active non-terminal cards, and is soft-retired
+(`active=false`, with `archived_at` set). The formal completion workspace has
+57 cards. Reconciliation audit count is 33, retirement audit count is 1,
+and the matching idempotency counts are 33 and 1. Card identity, original
+timestamps, terminal metadata, cancellation history, existing evidence, and
+merge history were preserved.
+
+The three `VERIFIED_COMPLETE` records carry explicit `record_type=reverification`
+evidence; the 28 historical completions retain historical-completion context;
+TASK-010 and TASK-020 retain cancelled terminal semantics. No unclassified
+historical card was guessed or batch-filled.
 
 Supabase advisor notices are pre-existing project-wide findings (including the
 intentional private idempotency RLS-without-policy notice and existing legacy
@@ -112,19 +132,24 @@ security audit.
 ### Cloud-backed placement verification
 
 The existing production read path was exercised against the Cloud task rows in
-an isolated DOM harness. Active cards rendered to their exact Cloud
+an isolated DOM harness. Active cards render to their exact Cloud
 `workspace_id`; unknown/inactive references fail visibly rather than falling
-back to `待辦`. No TASK, Workspace, Board, or Card rows were changed.
+back to `待辦`. The source runtime filters inactive/archived workspaces from
+the normal board. The currently deployed `20260910-1235` runtime was checked
+before this candidate and still showed an empty legacy column, because it
+predates the retirement read-path source; GitHub Pages deployment is not part
+of this candidate and must be performed before PM Runtime QA.
 
 ## Historical pre-v2 audit (superseded, retained as evidence)
 
 The earlier Phase 1 audit found the old `board_orchestrate_developer_qa` and
 `board_transition_task` sequential paths, including the TASK-040-specific
 legacy behavior. They remain historical migration definitions and are not the
-canonical v2 runtime path. Their retirement is gated by the v2 caller/adoption
-and reconciliation checks; removing them before safe adoption would leave
-existing unbound cards without a recoverable path, so no destructive retirement
-or historical data rewrite is claimed in this Candidate.
+canonical v2 runtime path. The current browser Runtime has no caller for the
+old transition/orchestration path; the old definitions are retained in
+migration history for recovery and audit rather than used to route the retired
+workspace. The canonical retirement result is therefore a soft workspace
+retirement with no destructive drop of historical Cloud functions.
 
 The renderer no longer excludes active GPT workspaces or silently places
 unknown references in `待辦`. The current C runtime instead uses explicit
@@ -132,6 +157,8 @@ Board Instance Workflow bindings and fails closed when a card has no binding.
 
 ## Delivery gate
 
-Source is ready for the final commit, clean-tree verification, and the
+Cloud reconciliation and workspace retirement are complete. Source has passed
+final QA and requires the final commit, clean-tree verification, and the
 FullSource Cleanup Candidate packaging step. GitHub Pages, Production Release,
-TASK/Card transitions, and PM Acceptance remain intentionally unperformed.
+further TASK/Card transitions, and PM Acceptance remain intentionally
+unperformed.
