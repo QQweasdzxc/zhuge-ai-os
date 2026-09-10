@@ -3680,8 +3680,10 @@
       tab.type = "button";
       tab.title = state.workflowCapability.readOnly === true ? "查看流程設定" : "流程設定";
       tab.dataset.boardNav = "workflow-settings";
-      tab.textContent = state.workflowCapability.readOnly === true ? "⚙️ 流程設定（唯讀）" : "⚙️ 流程設定";
-      tabs.appendChild(tab);
+      tab.textContent = "⚙️ 流程設定";
+      // Workflow Settings is a first-class board tab. Keep it directly beside the board tab
+      // instead of appending it to the far end of each consumer's existing navigation.
+      boardTab.insertAdjacentElement("afterend", tab);
     }
     return tab;
   }
