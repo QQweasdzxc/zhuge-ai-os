@@ -59,3 +59,73 @@
   .vendor-dialog-actions{margin:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--zhuge-border,rgba(83,127,171,.28));background:var(--zhuge-surface,#101824);flex-wrap:wrap}
   .vendor-dialog-actions span{width:100%;margin:0 0 4px}
 }
+
+/* TASK-065: keep the Vendor controls in place while only the data region
+   scrolls. The shared C Board / Drawer remains untouched. */
+.c-template-motherboard-page [data-procurement-panel="vendors"]:not([hidden]){
+  box-sizing:border-box;
+  height:calc(100vh - 210px);
+  max-height:calc(100vh - 210px);
+  min-height:0;
+  overflow:hidden;
+}
+.c-template-motherboard-page [data-procurement-panel="vendors"]:not([hidden]) .vendor-page{
+  display:flex;
+  flex-direction:column;
+  box-sizing:border-box;
+  height:100%;
+  min-height:0;
+  padding-bottom:12px;
+}
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-toolbar,
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-progress,
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-filters,
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-list-tools{
+  flex:0 0 auto;
+}
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-table-wrap{
+  flex:1 1 auto;
+  min-height:160px;
+  max-height:none;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.c-template-motherboard-page [data-procurement-panel="vendors"] .vendor-mobile-list{
+  flex:1 1 auto;
+  min-height:160px;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+
+/* GAS-only C Drawer extension: the shared drawer owns the frame; this
+   section owns only the Vendor association capability presentation. */
+.gas-vendor-association{display:grid;gap:10px}
+.gas-vendor-association-state{color:#9fb0c5;font-size:11px;line-height:1.45}
+.gas-vendor-association-state[data-state="ok"]{color:#9be5be}
+.gas-vendor-association-state[data-state="pending"]{color:#f0c976}
+.gas-vendor-association-state[data-state="error"]{color:#ffb4b4}
+.gas-vendor-search-label{display:grid;gap:6px;color:#9fb0c5;font-size:11px}
+.gas-vendor-search-label input{width:100%;box-sizing:border-box;border:1px solid #344052;border-radius:8px;background:#111820;color:#d7e2f2;padding:9px;font:inherit;font-size:11px}
+.gas-vendor-results{display:grid;gap:6px;max-height:190px;overflow:auto}
+.gas-vendor-result{display:grid;gap:3px;min-width:0;border:1px solid #344052;border-radius:8px;background:#111820;color:#d7e2f2;text-align:left;padding:8px 9px;cursor:pointer;font:inherit}
+.gas-vendor-result:hover,.gas-vendor-result:focus-visible{border-color:#5d9cff;background:#151f2d;outline:none}
+.gas-vendor-result strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.gas-vendor-result span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8493a7;font-size:10px}
+.gas-vendor-no-results{padding:8px;border:1px dashed #344052;border-radius:8px;color:#8493a7;font-size:11px;text-align:center}
+.gas-vendor-selected{display:grid;gap:3px;min-width:0;padding:10px;border:1px solid #385b82;border-radius:9px;background:#111d2d;color:#cbd6e5;font-size:11px;line-height:1.45}
+.gas-vendor-selected strong{color:#dcecff;font-size:12px;overflow-wrap:anywhere}
+.gas-vendor-selected span{color:#9fb0c5;overflow-wrap:anywhere}
+.gas-vendor-association-actions{display:flex;flex-wrap:wrap;gap:7px}
+.gas-vendor-association-actions .btn2{min-height:30px;padding:6px 9px;font-size:10px}
+.gas-vendor-association-actions .btn2:disabled{cursor:not-allowed;opacity:.55}
+.gas-vendor-detail{padding:10px;border:1px solid #344052;border-radius:9px;background:#111820}
+.gas-vendor-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;color:#d7e2f2;font-size:11px}
+.gas-vendor-detail-heading .btn2{min-height:25px;padding:4px 7px;font-size:10px}
+.gas-vendor-detail-list{display:grid;gap:6px;margin:0}
+.gas-vendor-detail-list>div{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;border-top:1px solid #293241;padding-top:6px}
+.gas-vendor-detail-list dt{color:#8493a7;font-size:10px}
+.gas-vendor-detail-list dd{margin:0;color:#cbd6e5;font-size:11px;line-height:1.45;overflow-wrap:anywhere;white-space:pre-wrap}
+@media(max-width:700px){
+  .c-template-motherboard-page [data-procurement-panel="vendors"]:not([hidden]){height:calc(100dvh - 160px);max-height:calc(100dvh - 160px)}
+  .gas-vendor-association-actions .btn2{flex:1 1 auto}
+}

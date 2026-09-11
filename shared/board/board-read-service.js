@@ -1726,6 +1726,19 @@
         p_end_date: input.endDate || null
       }).then(normalizeInstanceTask);
     }
+    async function instanceGetTaskVendorLink(taskId) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_get_task_vendor_link", {
+        p_task_id: taskId
+      });
+    }
+    async function instanceSetTaskVendorLink(taskId, vendorId = null) {
+      await resolveInstance();
+      return gateway.rpc("board_instance_set_task_vendor_link", {
+        p_task_id: taskId,
+        p_vendor_id: vendorId == null ? null : String(vendorId).trim()
+      });
+    }
     async function instancePrepareTaskAttachment(input = {}) {
       await resolveInstance();
       const file = input.file;
@@ -1846,6 +1859,8 @@
       deleteTaskAttachment: instanceDeleteAttachment,
       deleteProgressNoteAttachment: input => instanceDeleteAttachment(input?.attachmentId || input?.id),
       taskAttachmentUrl: instanceTaskAttachmentUrl,
+      getTaskVendorLink: instanceGetTaskVendorLink,
+      setTaskVendorLink: instanceSetTaskVendorLink,
       governanceAction: instanceGovernanceAction
     });
   }

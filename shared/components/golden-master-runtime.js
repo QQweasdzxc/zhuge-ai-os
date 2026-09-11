@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, workflowCapability: null, workflowData: null, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -361,6 +361,43 @@
   }
   function activeService() {
     return state.service || defaultService;
+  }
+  function taskDrawerExtensions() {
+    const configured = state.consumerExtensions?.taskDrawer;
+    if (Array.isArray(configured)) return configured.filter(Boolean);
+    return configured ? [configured] : [];
+  }
+  function taskDrawerExtensionSections(task, readOnly) {
+    return taskDrawerExtensions().flatMap(extension => {
+      if (typeof extension.renderSection !== "function") return [];
+      const section = extension.renderSection({
+        task,
+        readOnly,
+        applicationScope: state.applicationScope,
+        service: activeService()
+      });
+      return section ? [section] : [];
+    });
+  }
+  async function mountTaskDrawerExtensions(task, readOnly, container) {
+    await Promise.all(taskDrawerExtensions().map(async extension => {
+      if (typeof extension.mount !== "function") return;
+      try {
+        await extension.mount({
+          task,
+          readOnly,
+          applicationScope: state.applicationScope,
+          service: activeService(),
+          container,
+          escapeHtml: esc,
+          setBanner
+        });
+      } catch (error) {
+        console.warn("Task Drawer extension mount failed", extension.id || "unknown", error);
+        const errorHost = container?.querySelector?.(`[data-task-drawer-extension-error="${String(extension.id || "").replace(/[^a-z0-9_-]/gi, "")}"]`);
+        if (errorHost) errorHost.textContent = "此功能目前無法讀取，請重新整理後再試。";
+      }
+    }));
   }
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -3250,6 +3287,7 @@
     const sections = [
       { id: "requirements", title: "工作內容", className: "task-content-section", html: editableTaskFieldMarkup(drawerTask, "summary", { readOnly: archiveOnly }) },
       { id: "usage", title: "使用情境", className: "task-content-section", html: editableTaskFieldMarkup(drawerTask, "usage_scenario", { readOnly: archiveOnly }) },
+      ...taskDrawerExtensionSections(task, archiveOnly),
       { id: "attachments", title: "📎 附件", hint: "圖片、文件與正式交付物", className: "task-attachments-section", html: `<div id="taskAttachments"><div class="board-empty">讀取中…</div></div>` },
       { id: "pm-acceptance", title: "🙋 需要你的操作", hint: "只在真正輪到 PM 時顯示", className: "pm-acceptance-section", hidden: true, html: `<div id="pmAcceptanceAction"></div>` }
     ];
@@ -3354,6 +3392,7 @@
       wireHumanProgressNoteActions(task, activity, archiveOnly);
       wireAgreedDateProperty(task, workTodoViewModel, archiveOnly);
       wireTaskAnalysisView(task);
+      await mountTaskDrawerExtensions(task, archiveOnly, body);
       const acceptance = document.getElementById("pmAcceptanceAction");
       if (!archiveOnly && acceptance) {
         acceptance.querySelectorAll("[data-pm-accept]").forEach(button => {
@@ -4085,6 +4124,7 @@
         : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
     state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
     state.showTemplateReleasePanel = options.showTemplateReleasePanel !== false;
+    state.consumerExtensions = options.consumerExtensions || null;
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
     state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
@@ -4365,7 +4405,8 @@
       startBoardRuntime({
         applicationScope: "c",
         boardInstanceId: "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9",
-        showTemplateReleasePanel: false
+        showTemplateReleasePanel: false,
+        consumerExtensions: { taskDrawer: root.ZhugeGasVendorAssociation || null }
       });
       return;
     }
