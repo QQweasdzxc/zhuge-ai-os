@@ -150,6 +150,22 @@
     });
   }
 
+  function normalizeTaskVendorLink(row) {
+    const source = Array.isArray(row) ? (row[0] || {}) : (row || {});
+    const vendorId = String(source.vendor_id ?? source.vendorId ?? "").trim();
+    const linked = typeof source.linked === "boolean" ? source.linked : Boolean(vendorId);
+    return Object.freeze({
+      id: String(source.id ?? "").trim(),
+      taskId: String(source.task_id ?? source.taskId ?? "").trim(),
+      boardInstanceId: String(source.board_instance_id ?? source.boardInstanceId ?? "").trim(),
+      linked,
+      vendorId,
+      sourceOfTruth: String(source.source_of_truth ?? source.sourceOfTruth ?? "google_sheet").trim(),
+      updatedAt: source.updated_at ?? source.updatedAt ?? null,
+      idempotent: source.idempotent === true
+    });
+  }
+
   function normalizeMovement(row = {}) {
     const before = row.before_data || {};
     const after = row.after_data || {};
@@ -1835,14 +1851,14 @@
       await resolveInstance();
       return gateway.rpc("board_instance_get_task_vendor_link", {
         p_task_id: taskId
-      });
+      }).then(normalizeTaskVendorLink);
     }
     async function instanceSetTaskVendorLink(taskId, vendorId = null) {
       await resolveInstance();
       return gateway.rpc("board_instance_set_task_vendor_link", {
         p_task_id: taskId,
         p_vendor_id: vendorId == null ? null : String(vendorId).trim()
-      });
+      }).then(normalizeTaskVendorLink);
     }
     async function instancePrepareTaskAttachment(input = {}) {
       await resolveInstance();

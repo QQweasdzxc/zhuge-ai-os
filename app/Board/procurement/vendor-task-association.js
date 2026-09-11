@@ -41,17 +41,35 @@
   function sectionMarkup() {
     return `<div class="gas-vendor-association" data-gas-vendor-association-root>
       <div class="gas-vendor-association-state" data-gas-vendor-association-state data-task-drawer-extension-error="gas-vendor-association" aria-live="polite">正在讀取關聯資料…</div>
-      <div class="gas-vendor-association-picker">
-        <label class="gas-vendor-search-label"><span>搜尋廠商</span><input type="search" data-gas-vendor-search placeholder="輸入廠商名稱、公司或產品／服務" autocomplete="off"></label>
-        <div class="gas-vendor-results" data-gas-vendor-results role="listbox" aria-label="廠商搜尋結果"></div>
+      <div class="gas-vendor-association-row">
+        <div class="gas-vendor-association-label">關聯廠商</div>
+        <div class="gas-vendor-selected" data-gas-vendor-selected>尚未關聯</div>
+        <button type="button" class="gas-vendor-search-button" data-gas-vendor-open aria-label="搜尋廠商" title="搜尋廠商">🔍</button>
       </div>
-      <div class="gas-vendor-selected" data-gas-vendor-selected>尚未關聯廠商。</div>
       <div class="gas-vendor-association-actions">
         <button type="button" class="btn2" data-gas-vendor-view disabled>查看廠商資料</button>
         <button type="button" class="btn2 primary" data-gas-vendor-save disabled>儲存關聯</button>
         <button type="button" class="btn2" data-gas-vendor-clear disabled>解除關聯</button>
       </div>
       <div class="gas-vendor-detail" data-gas-vendor-detail hidden></div>
+      <div class="gas-vendor-selector-overlay" data-gas-vendor-selector hidden>
+        <div class="gas-vendor-selector-backdrop" data-gas-vendor-selector-close></div>
+        <div class="gas-vendor-selector-dialog" role="dialog" aria-modal="true" aria-label="選擇關聯廠商">
+          <div class="gas-vendor-selector-header">
+            <strong>選擇關聯廠商</strong>
+            <button type="button" class="gas-vendor-selector-close" data-gas-vendor-selector-close aria-label="關閉">×</button>
+          </div>
+          <div class="gas-vendor-selector-body">
+            <label class="gas-vendor-search-label"><span>搜尋廠商</span><input type="search" data-gas-vendor-search placeholder="輸入廠商名稱、公司或產品／服務" autocomplete="off"></label>
+            <div class="gas-vendor-results" data-gas-vendor-results role="listbox" aria-label="廠商搜尋結果"></div>
+            <div class="gas-vendor-selection-preview" data-gas-vendor-pending>請輸入關鍵字後選擇廠商。</div>
+          </div>
+          <div class="gas-vendor-selector-footer">
+            <button type="button" class="btn2" data-gas-vendor-cancel>取消</button>
+            <button type="button" class="btn2 primary" data-gas-vendor-confirm disabled>確認</button>
+          </div>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -65,11 +83,16 @@
       throw new Error("GAS 廠商關聯服務尚未就緒。");
     }
     const vendorService = new VendorSheetService();
-    const state = { vendors: [], linked: null, selected: null, busy: false, detail: null };
+    const state = { vendors: [], linked: null, selected: null, pending: null, busy: false, detail: null };
     const status = host.querySelector("[data-gas-vendor-association-state]");
     const search = host.querySelector("[data-gas-vendor-search]");
     const results = host.querySelector("[data-gas-vendor-results]");
     const selected = host.querySelector("[data-gas-vendor-selected]");
+    const open = host.querySelector("[data-gas-vendor-open]");
+    const selector = host.querySelector("[data-gas-vendor-selector]");
+    const confirm = host.querySelector("[data-gas-vendor-confirm]");
+    const cancel = host.querySelector("[data-gas-vendor-cancel]");
+    const pending = host.querySelector("[data-gas-vendor-pending]");
     const view = host.querySelector("[data-gas-vendor-view]");
     const save = host.querySelector("[data-gas-vendor-save]");
     const clear = host.querySelector("[data-gas-vendor-clear]");
@@ -91,30 +114,40 @@
     }
     function filteredVendors() {
       const query = text(search?.value).toLowerCase();
-      if (!query) return state.vendors.slice(0, 8);
+      if (!query) return [];
       return state.vendors.filter(row => [row.vendorName, row.company, row.businessCategory, row.products, row.contactName]
         .map(text).join(" ").toLowerCase().includes(query)).slice(0, 12);
     }
     function renderResults() {
       if (!results) return;
+      const query = text(search?.value);
+      if (!query) {
+        results.innerHTML = `<div class="gas-vendor-no-results">輸入關鍵字後顯示搜尋結果。</div>`;
+        if (pending) pending.textContent = "請輸入關鍵字後選擇廠商。";
+        if (confirm) confirm.disabled = readOnly || state.busy || !state.pending;
+        return;
+      }
       const rows = filteredVendors();
       results.innerHTML = rows.length
         ? rows.map(row => `<button type="button" class="gas-vendor-result" data-gas-vendor-choice="${esc(row.vendorId)}" role="option"><strong>${esc(text(row.vendorName) || "未命名廠商")}</strong><span>${esc(vendorSummary(row))}</span></button>`).join("")
         : `<div class="gas-vendor-no-results">找不到符合的廠商。</div>`;
+      if (pending) pending.textContent = state.pending
+        ? `已選擇：${text(state.pending.vendorName) || text(state.pending.company) || text(state.pending.vendorId)}`
+        : "請從搜尋結果選擇廠商。";
+      if (confirm) confirm.disabled = readOnly || state.busy || !state.pending;
     }
     function renderSelected() {
       const row = currentVendor();
       if (selected) {
         selected.innerHTML = row
           ? `<strong>${esc(text(row.vendorName) || "未命名廠商")}</strong><span>${esc(vendorSummary(row))}</span>`
-          : state.linked?.vendorId
+            : state.linked?.vendorId
             ? `<strong>目前關聯的廠商</strong><span>最新廠商名冊中暫時找不到資料。</span>`
-            : "尚未關聯廠商。";
+            : "尚未關聯";
       }
       if (view) view.disabled = readOnly || !row || state.busy;
       if (save) save.disabled = readOnly || !state.selected || state.busy;
       if (clear) clear.disabled = readOnly || !state.linked?.vendorId || state.busy;
-      renderResults();
     }
     function renderDetailPanel(row) {
       if (!detail) return;
@@ -129,6 +162,27 @@
       state.busy = value;
       if (search) search.disabled = readOnly || value;
       renderSelected();
+      renderResults();
+    }
+    function openSelector() {
+      if (!selector || readOnly || state.busy) return;
+      state.pending = null;
+      selector.hidden = false;
+      renderResults();
+      global.setTimeout?.(() => search?.focus(), 0);
+    }
+    function cancelSelector() {
+      state.pending = null;
+      if (selector) selector.hidden = true;
+      renderResults();
+    }
+    function confirmSelector() {
+      if (!state.pending || readOnly || state.busy) return;
+      state.selected = state.pending;
+      state.pending = null;
+      if (selector) selector.hidden = true;
+      renderSelected();
+      setStatus("已選擇廠商，請按「儲存關聯」完成保存。", "pending");
     }
     async function reloadLink() {
       const link = await boardService.getTaskVendorLink(task.id);
@@ -195,17 +249,23 @@
         setBusy(false);
       }
     }
+    open?.addEventListener("click", openSelector);
+    cancel?.addEventListener("click", cancelSelector);
+    confirm?.addEventListener("click", confirmSelector);
+    selector?.addEventListener("click", event => {
+      if (event.target.closest?.("[data-gas-vendor-selector-close]")) {
+        cancelSelector();
+        return;
+      }
+    });
     search?.addEventListener("input", renderResults);
     results?.addEventListener("click", event => {
       const choice = event.target.closest?.("[data-gas-vendor-choice]");
       if (!choice) return;
       const row = findVendor(choice.dataset.gasVendorChoice);
       if (!row) return;
-      state.selected = row;
-      state.detail = null;
-      renderDetailPanel(null);
-      renderSelected();
-      setStatus("已選擇廠商，請按「儲存關聯」完成保存。", "pending");
+      state.pending = row;
+      renderResults();
     });
     save?.addEventListener("click", saveLink);
     clear?.addEventListener("click", clearLink);
