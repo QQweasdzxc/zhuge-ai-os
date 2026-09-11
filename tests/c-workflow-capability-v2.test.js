@@ -20,11 +20,12 @@ test("Module C exposes one Board Instance-owned Workflow v2 capability", async (
         return {
           contract: "module-c-lifecycle-acceptance-v2",
           board_instance_id: args.p_board_instance_id,
-          state: null,
-          published: null,
+          state: { published_workflow_version_id: "workflow-1" },
+          published: { id: "workflow-1", board_instance_id: args.p_board_instance_id, steps: [] },
           draft: null
         };
       }
+      if (name === "board_c_workflow_resolve_task") return { state: "resolved" };
       return { contract: "module-c-lifecycle-acceptance-v2", action: name };
     }
   };
@@ -95,6 +96,86 @@ test("C Workflow exposes one-card adoption as an explicit opt-in capability", as
   });
 });
 
+test("C Workflow moves an unbound card through formal adoption when a Published Workflow exists", async () => {
+  const calls = [];
+  const workflow = BoardReadService.createWorkflowCapability({
+    gateway: {
+      async select() { return [{ id: "consumer-board", name: "Consumer", template_key: "c", active: true }]; },
+      async rpc(name, args) {
+        calls.push({ name, args });
+        if (name === "board_c_workflow_get") {
+          return {
+            contract: "module-c-lifecycle-acceptance-v2",
+            board_instance_id: "consumer-board",
+            state: { published_workflow_version_id: "workflow-1" },
+            published: { id: "workflow-1", board_instance_id: "consumer-board", steps: [] }
+          };
+        }
+        if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
+        if (name === "board_c_workflow_adopt_unbound_card_v2") return { state: "adopted" };
+        return { state: "resolved", action: name };
+      }
+    },
+    boardInstanceId: "consumer-board",
+    allowExistingCardAdoption: true,
+    allowWorkspaceMovement: true
+  });
+
+  await workflow.moveWorkspaceDecision({
+    taskId: "task-1",
+    targetWorkspaceId: "workspace-2",
+    idempotencyKey: "move-1"
+  });
+  assert.deepEqual(calls.map(call => call.name), [
+    "board_c_workflow_get",
+    "board_c_workflow_resolve_task",
+    "board_c_workflow_adopt_unbound_card_v2",
+    "board_c_reconcile_workspace_decision_v2"
+  ]);
+  assert.equal(calls[2].args.p_idempotency_key, "workflow-adopt-task-1");
+  assert.equal(calls[3].args.p_idempotency_key, "move-1");
+});
+
+test("C Workflow uses the same owner-scoped move contract when no Workflow is published", async () => {
+  const calls = [];
+  let workspaceId = "workspace-1";
+  const gateway = {
+    async select() { return [{ id: "consumer-board", name: "Consumer", template_key: "c", active: true }]; },
+    async rpc(name, args) {
+      calls.push({ name, args });
+      if (name === "board_c_workflow_get") {
+        return { contract: "module-c-lifecycle-acceptance-v2", board_instance_id: "consumer-board", state: null, published: null };
+      }
+      if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
+      if (name === "board_instance_move_task_workspace") {
+        workspaceId = args.p_workspace_id;
+        return { id: "task-1", board_instance_id: "consumer-board", workspace_id: workspaceId, status: "ready", assignee: "Co" };
+      }
+      throw new Error(`unexpected RPC ${name}`);
+    }
+  };
+  const firstSession = BoardReadService.createWorkflowCapability({ gateway, boardInstanceId: "consumer-board", allowWorkspaceMovement: true });
+  const firstResult = await firstSession.moveWorkspaceDecision({ taskId: "task-1", targetWorkspaceId: "workspace-2", decisionNote: "PM selected workspace" });
+  assert.equal(firstResult.state, "workspace_moved");
+  assert.equal(firstResult.card_identity_preserved, true);
+  assert.equal(workspaceId, "workspace-2");
+
+  // A new capability instance reads the same Cloud-backed state; no browser
+  // fallback or second movement authority is involved.
+  const secondSession = BoardReadService.createWorkflowCapability({ gateway, boardInstanceId: "consumer-board", allowWorkspaceMovement: true });
+  await secondSession.moveWorkspaceDecision({ taskId: "task-1", targetWorkspaceId: "workspace-3" });
+  assert.equal(workspaceId, "workspace-3");
+  assert.deepEqual(calls.map(call => call.name), [
+    "board_c_workflow_get",
+    "board_c_workflow_resolve_task",
+    "board_instance_move_task_workspace",
+    "board_c_workflow_get",
+    "board_c_workflow_resolve_task",
+    "board_instance_move_task_workspace"
+  ]);
+  assert.equal(calls.every(call => call.args.p_task_id === "task-1" || call.name === "board_c_workflow_get"), true);
+});
+
 test("C Workflow write boundary normalizes the editor model to the RPC contract", async () => {
   const calls = [];
   const workflow = BoardReadService.createWorkflowCapability({
@@ -152,6 +233,7 @@ test("C Workflow runtime is shared by the C routes and keeps card bindings expli
   assert.match(service, /module-c-lifecycle-acceptance-v2/);
   assert.match(service, /workflow_version_id,current_workflow_step_id/);
   assert.match(runtime, /workflow\.reconcileWorkspaceDecision/);
+  assert.match(runtime, /workflow\?\.moveWorkspaceDecision/);
   assert.match(runtime, /canAdoptExistingCWorkflowCard/);
   assert.match(runtime, /workflow\.adoptUnboundCard/);
   assert.match(runtime, /workflow-adopt-/);

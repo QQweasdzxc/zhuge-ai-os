@@ -1177,7 +1177,9 @@
     // engine that guesses status from workspace names.
     return state.applicationScope === "c"
       || state.applicationScope === "ai_board"
-      || state.applicationScope === "worktodo";
+      || state.applicationScope === "worktodo"
+      || state.applicationScope === "procurement"
+      || state.workflowCapability?.contract?.source === "module-c-mother";
   }
 
   function workflowBindingError() {
@@ -1196,10 +1198,6 @@
     const target = state.workspaceById.get(String(targetWorkspaceId || ""));
     if (!task || !target || activeService().isGovernanceTerminal?.(task)) return;
     const current = state.workspaceById.get(String(task.workspaceId || ""));
-    if (canUseCWorkflowAuthority(task)) {
-      await reconcileTaskWorkspaceDecision(task, current, target);
-      return;
-    }
     if (isCanonicalWorkflowConsumer()) {
       await reconcileTaskWorkspaceDecision(task, current, target);
       return;
@@ -1236,12 +1234,14 @@
     setBanner(`正在依 PM 的工作區決定同步「${esc(task.workCode || task.title)}」至「${esc(target.name)}」…`, "loading");
     try {
       const workflow = state.workflowCapability || activeService()?.workflow;
-      if (isCanonicalWorkflowConsumer() && !canUseCWorkflowAuthority(task)) {
-        if (!canAdoptExistingCWorkflowCard(task)) throw workflowBindingError();
-        await adoptExistingCWorkflowCard(task);
+      const moveWorkspace = workflow?.moveWorkspaceDecision || workflow?.reconcileWorkspaceDecision;
+      if (workflow && typeof moveWorkspace !== "function") {
+        const error = new Error("Module C 共用移動能力尚未載入；卡片未移動，正式狀態不變。");
+        error.code = "C_WORKFLOW_MOVEMENT_UNAVAILABLE";
+        throw error;
       }
-      const result = workflow
-        ? await workflow.reconcileWorkspaceDecision({
+      const result = typeof moveWorkspace === "function"
+        ? await moveWorkspace.call(workflow, {
           taskId: task.id,
           targetWorkspaceId: target.id,
           decisionNote: `PM workspace decision: ${current?.name || task.workspaceName || "目前工作區"} → ${target.name}`,
@@ -1682,11 +1682,10 @@
       };
     });
     const board = document.querySelector("[data-shared-task-board]");
-    const procurementMode = state.applicationScope === "procurement";
     const boardHandlers = {
       canDragCard: id => {
         const task = state.taskById.get(String(id));
-        return !procurementMode && Boolean(task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
+        return Boolean(task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
         const task = state.taskById.get(String(cardId));
@@ -1698,7 +1697,7 @@
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return !procurementMode && Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id }) => {
         return reorderWorkspace(sourceId, id);
@@ -4135,22 +4134,24 @@
     state.dataStatus = "available";
     state.dataSource = "";
     const workflowReadOnly = state.applicationScope === "c" && isInvestmentCMode();
-    const cWorkflowRuntime = ["c", "ai_board", "worktodo"].includes(state.applicationScope);
-    state.service = options.service || (state.applicationScope === "c"
+    const cWorkflowRuntime = ["c", "ai_board", "worktodo", "procurement"].includes(state.applicationScope);
+    const cInstanceRuntime = state.applicationScope === "c" || state.applicationScope === "procurement";
+    state.service = options.service || (cInstanceRuntime
       ? defaultService.createInstanceService({
           templateKey: "c",
           boardInstanceId: requestedBoardInstanceId,
+          legacyApplicationScope: state.applicationScope === "procurement" ? "procurement" : "",
           consumerId: state.consumerId,
           workflowReadOnly,
           allowExistingCardAdoption: cWorkflowRuntime,
           allowWorkspaceMovement: cWorkflowRuntime
         })
-      : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
+      : defaultService);
     const fallbackWorkflowCapability = typeof defaultService.createWorkflowCapability === "function"
       ? defaultService.createWorkflowCapability({
           templateKey: "c",
           boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
-          legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : "",
+          legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "procurement" ? "procurement" : "",
           readOnly: workflowReadOnly,
           allowExistingCardAdoption: cWorkflowRuntime,
           allowWorkspaceMovement: cWorkflowRuntime

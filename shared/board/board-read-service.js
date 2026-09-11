@@ -1202,6 +1202,18 @@
       error.code = "C_WORKFLOW_READ_ONLY";
       throw error;
     };
+    const capabilityFlags = Object.freeze({
+      settings: true,
+      resolve: true,
+      workspaceDecision: !readOnly || allowWorkspaceMovement,
+      completion: !readOnly || allowWorkspaceMovement,
+      reopen: !readOnly || allowWorkspaceMovement,
+      adoption: !readOnly,
+      existingCardAdoption: allowExistingCardAdoption && (!readOnly || allowWorkspaceMovement),
+      legacyReconciliation: !readOnly,
+      legacyWorkspaceRetirement: !readOnly,
+      workspaceMovement: !readOnly || allowWorkspaceMovement
+    });
     const rpc = async (name, args = {}) => gateway.rpc(name, { ...(args || {}), p_board_instance_id: await boardInstanceId() });
     const get = async (options = {}) => normalizeWorkflowResult(await rpc("board_c_workflow_get", { p_include_draft: options.includeDraft === true && !readOnly }));
     const saveDraft = async (input = {}) => {
@@ -1308,13 +1320,97 @@
       }));
     };
     const resolveTaskWorkflow = async taskId => gateway.rpc("board_c_workflow_resolve_task", { p_task_id: taskId });
-    const reconcileTaskWorkspaceDecision = async (input = {}) => {
+    const reconcileBoundWorkspaceDecision = async (input = {}) => {
       assertDecisionWritable();
       return gateway.rpc("board_c_reconcile_workspace_decision_v2", {
         p_task_id: input.taskId,
         p_target_workspace_id: input.targetWorkspaceId,
         p_decision_note: input.decisionNote || null,
         p_idempotency_key: input.idempotencyKey || null
+      });
+    };
+    const moveWorkspaceDecision = async (input = {}) => {
+      assertDecisionWritable();
+      const taskId = String(input.taskId || "").trim();
+      if (!taskId) {
+        const error = new Error("工作區決定缺少卡片識別資訊；卡片未變更。");
+        error.code = "C_WORKFLOW_TASK_REQUIRED";
+        throw error;
+      }
+
+      // These are authoritative Cloud reads. The client deliberately does not
+      // infer a workflow from a consumer, status, assignee, workspace name, or
+      // order.
+      const workflowState = await get({ includeDraft: false });
+      const publishedWorkflowId = String(
+        workflowState?.state?.publishedWorkflowVersionId || workflowState?.published?.id || ""
+      ).trim();
+      const taskResolution = await resolveTaskWorkflow(taskId);
+      const resolutionState = String(taskResolution?.state || "").trim().toLowerCase();
+
+      if (resolutionState === "workflow_binding_invalid") {
+        const error = new Error(taskResolution?.message || "卡片的正式流程綁定無法驗證；卡片未移動。");
+        error.code = "C_WORKFLOW_TASK_BINDING_INVALID";
+        throw error;
+      }
+
+      if (publishedWorkflowId && resolutionState === "workflow_not_configured") {
+        if (!capabilityFlags.existingCardAdoption || typeof adoptUnboundCard !== "function") {
+          const error = new Error("這張卡片尚未完成正式流程採用；目前沒有可安全執行的共用採用能力，卡片未移動。");
+          error.code = "C_WORKFLOW_EXISTING_CARD_ADOPTION_UNAVAILABLE";
+          throw error;
+        }
+        // Cloud validates that the current Workspace UUID maps to exactly one
+        // step in the Published Workflow. Adoption only binds the existing
+        // card; it never moves the card or changes its business data.
+        await adoptUnboundCard({
+          taskId,
+          idempotencyKey: input.adoptionIdempotencyKey || `workflow-adopt-${taskId}`
+        });
+        return reconcileBoundWorkspaceDecision(input);
+      }
+
+      if (resolutionState === "resolved") return reconcileBoundWorkspaceDecision(input);
+
+      if (resolutionState !== "workflow_not_configured") {
+        const error = new Error(taskResolution?.message || "卡片流程狀態無法安全判定；卡片未移動。");
+        error.code = "C_WORKFLOW_TASK_RESOLUTION_UNAVAILABLE";
+        throw error;
+      }
+
+      if (publishedWorkflowId) {
+        const error = new Error("這張卡片尚未完成 Published Workflow 採用；卡片未移動。");
+        error.code = "C_WORKFLOW_TASK_NOT_ADOPTED";
+        throw error;
+      }
+
+      // A Board Instance without a Published Workflow has no step/status
+      // contract to reconcile. Use the existing owner-scoped Board Instance
+      // movement RPC as the canonical C core operation. It validates that the
+      // target belongs to the same Board Instance, preserves card data and
+      // identity, and records the movement audit; it does not guess status or
+      // assignee and is never a consumer-specific fallback.
+      const moved = await gateway.rpc("board_instance_move_task_workspace", {
+        p_task_id: taskId,
+        p_workspace_id: input.targetWorkspaceId,
+        p_reason: input.decisionNote || null
+      });
+      return Object.freeze({
+        contract: C_WORKFLOW_CANONICAL_CONTRACT.id,
+        action: "workspace-decision",
+        state: "workspace_moved",
+        decision: "workspace",
+        task_id: moved?.id || taskId,
+        board_instance_id: moved?.board_instance_id || await boardInstanceId(),
+        target_workspace_id: moved?.workspace_id || input.targetWorkspaceId,
+        status: moved?.status,
+        assignee: moved?.assignee,
+        workflow: "not_configured",
+        workflow_bound: false,
+        card_identity_preserved: true,
+        card_data_moved: false,
+        audit_recorded: true,
+        raw: moved
       });
     };
     const reconcileLegacyCard = async (input = {}) => {
@@ -1339,18 +1435,7 @@
     return Object.freeze({
       contract: C_WORKFLOW_CANONICAL_CONTRACT,
       readOnly,
-      capabilities: Object.freeze({
-        settings: true,
-        resolve: true,
-        workspaceDecision: !readOnly || allowWorkspaceMovement,
-        completion: !readOnly || allowWorkspaceMovement,
-        reopen: !readOnly || allowWorkspaceMovement,
-        adoption: !readOnly,
-        existingCardAdoption: allowExistingCardAdoption && (!readOnly || allowWorkspaceMovement),
-        legacyReconciliation: !readOnly,
-        legacyWorkspaceRetirement: !readOnly,
-        workspaceMovement: !readOnly || allowWorkspaceMovement
-      }),
+      capabilities: capabilityFlags,
       resolveBoardInstance,
       boardInstanceId,
       get,
@@ -1363,7 +1448,12 @@
       applyCardMapping,
       adoptUnboundCard,
       resolveTask: resolveTaskWorkflow,
-      reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision,
+      // One public C movement authority. It resolves the Board Instance
+      // workflow state, adopts an unbound card only through the formal Cloud
+      // contract when uniquely safe, and otherwise uses the existing generic
+      // Board Instance move contract when no workflow is published.
+      moveWorkspaceDecision,
+      reconcileWorkspaceDecision: moveWorkspaceDecision,
       reconcileLegacyCard,
       retireLegacyWorkspace
     });
@@ -1710,7 +1800,7 @@
       // Keep the instance service on the same C Workflow v2 authority as the
       // direct workflow capability.  The legacy v1 helper remains exported
       // only for compatibility with older non-instance callers.
-      return workflow.reconcileWorkspaceDecision(input);
+      return (workflow.moveWorkspaceDecision || workflow.reconcileWorkspaceDecision)(input);
     }
     async function instanceAddProgress(taskId, note) {
       await resolveInstance();
