@@ -30,6 +30,10 @@ const MAX_ACTION_BYTES = 96 * 1024;
 const PRODUCT_TASK_UPDATE_PATH = "/api/request-task-update";
 const PRODUCT_TASK_UPDATE_STATUS_PATH = "/api/task-update-status";
 const PRODUCT_TASK_UPDATE_FIELDS = new Set(["task_id", "summary", "usage_scenario"]);
+const PRODUCT_TASK_CREATE_PATH = "/api/request-task-create";
+const PRODUCT_TASK_CREATE_STATUS_PATH = "/api/task-create-status";
+const PRODUCT_TASK_CREATE_FIELDS = new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id"]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALLOWED_OPERATIONS = new Set([
   "create_task_contract",
   "update_task_contract",
@@ -47,7 +51,7 @@ const OPERATION_LABELS = Object.freeze({
   set_pm_accepted_baseline: "登記 PM Accepted Baseline"
 });
 const PAYLOAD_FIELDS = Object.freeze({
-  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria"]),
+  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id"]),
   update_task_contract: new Set([
     "task_id", "title", "summary", "usage_scenario", "priority", "domain", "category",
     "problem", "objective", "proposed_solution", "related_work", "acceptance_criteria",
@@ -253,6 +257,63 @@ function normalizeProductTaskUpdateRequest(value) {
   });
 }
 
+function normalizeProductTaskCreateRequest(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RunnerError("INVALID_ACTION", "TASK Contract create request must be an object.");
+  }
+  const source = value;
+  assertNoSecretFields(source);
+  const title = stringValue(source.title, "payload.title", 240).trim();
+  if (!title) throw new RunnerError("INVALID_ACTION", "A TASK title is required.");
+  const payload = { title };
+  const fieldLimits = Object.freeze({
+    summary: 20000,
+    usage_scenario: 20000,
+    priority: 120,
+    acceptance_criteria: 30000,
+    workspace_id: 120
+  });
+  for (const field of Object.keys(fieldLimits)) {
+    if (!Object.prototype.hasOwnProperty.call(source, field)) continue;
+    const normalized = stringValue(source[field], `payload.${field}`, fieldLimits[field]).trim();
+    if (field === "workspace_id" && normalized && !UUID_PATTERN.test(normalized)) {
+      throw new RunnerError("INVALID_ACTION", "payload.workspace_id must be a valid workspace identity.");
+    }
+    if (normalized) payload[field] = normalized;
+  }
+  for (const key of Object.keys(source)) {
+    if (!PRODUCT_TASK_CREATE_FIELDS.has(key)) throw new RunnerError("INVALID_ACTION", `Field ${key} is not allowlisted for the GPT TASK create path.`);
+  }
+  const labels = Object.freeze({
+    title: "標題",
+    summary: "工作摘要",
+    usage_scenario: "使用情境",
+    priority: "優先級",
+    acceptance_criteria: "驗收條件",
+    workspace_id: "指定工作區"
+  });
+  const suppliedFields = Object.keys(payload).map(field => labels[field] || field);
+  return normalizeActionManifest({
+    operation: "create_task_contract",
+    payload,
+    display: {
+      title: `建立 AI Board TASK：${title}`,
+      purpose: "PM 核准後，透過既有受控 Governance Write 由 GPT 建立一筆正式 AI Board TASK；Cloud 會配置 work_code、Board identity、治理清單與必要 workflow binding。",
+      scope: [
+        `保存欄位：${suppliedFields.join("、")}`,
+        "未指定工作區時使用 AI Board 正式預設工作區",
+        "完成後由 board_tasks、工程 Audit、治理 Checklist 與 Workflow binding read-back 驗證"
+      ],
+      impact: [
+        "只新增一筆 PM 核准的 AI Board TASK；不修改既有 TASK、Card、Workspace 或其他 Consumer",
+        "work_code、TASK identity、actor 與 audit 由 Cloud 正式 Contract 產生",
+        "不使用 Browser Direct DML、localStorage 或 service_role credential"
+      ]
+    },
+    pm_note: "AI Board：GPT 受控建立正式 TASK"
+  });
+}
+
 function readActionManifest(filePath) {
   const absolute = path.resolve(String(filePath || ""));
   if (!absolute || !fs.existsSync(absolute)) throw new RunnerError("INVALID_ACTION", "Action manifest file was not found.");
@@ -437,7 +498,7 @@ section{padding:22px 26px}.kicker{font-size:11px;color:#8db7ef;letter-spacing:.0
   renderAction(initial.action);
   function stateMessage(data) {
     const phase = data.phase || "pending";
-    if (phase === "waiting" || !data.action) return ["warn", "等待 AI Board 提交一筆工作內容／使用情境更新請求；PM 核准前不會寫入 Cloud。"];
+    if (phase === "waiting" || !data.action) return ["warn", "等待 AI Board 提交一筆受控 TASK 建立或工作內容更新請求；PM 核准前不會寫入 Cloud。"];
     if (phase === "success") {
       const readBack = data.result?.readBack;
       const identity = readBack?.workCode || readBack?.filename || readBack?.identity || "canonical record";
@@ -535,6 +596,104 @@ function summarizeReadBack(action, rows) {
   return { table: "board_tasks", identity: row.id || null, workCode: row.work_code || null, title: row.title || null, status: row.status || null };
 }
 
+function readBackString(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+function summarizeCreatedTaskReadBack(action, taskRows, auditRows, checklistRows) {
+  const task = Array.isArray(taskRows) ? taskRows[0] : taskRows;
+  if (!task) throw new RunnerError("READ_BACK_FAILED", "GPT TASK create returned no board_tasks read-back record.");
+  const taskId = readBackString(task.id);
+  if (!taskId) throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back did not return a TASK identity.");
+  if (!/^TASK-[0-9]+$/i.test(readBackString(task.work_code))) {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back did not return a formal work_code.");
+  }
+  if (readBackString(task.title) !== readBackString(action.payload.title)) {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back title does not match the approved request.");
+  }
+  for (const field of ["summary", "usage_scenario", "priority", "acceptance_criteria"]) {
+    if (Object.prototype.hasOwnProperty.call(action.payload, field)
+      && readBackString(task[field]) !== readBackString(action.payload[field])) {
+      throw new RunnerError("READ_BACK_FAILED", `GPT TASK read-back does not match ${field}.`);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(action.payload, "workspace_id")
+    && readBackString(task.workspace_id) !== readBackString(action.payload.workspace_id)) {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back workspace does not match the approved request.");
+  }
+  if (readBackString(task.application_scope) !== "ai_board") {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back is not bound to the formal AI Board scope.");
+  }
+  if (!readBackString(task.board_instance_id) || !readBackString(task.workspace_id)) {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back is missing the formal Board or Workspace identity.");
+  }
+  if (readBackString(task.status) !== "ready" || readBackString(task.assignee) !== "Co") {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back has an unexpected initial lifecycle state.");
+  }
+  if (!readBackString(task.workflow_version_id) || !readBackString(task.current_workflow_step_id)) {
+    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back is missing the current Workflow binding.");
+  }
+
+  const audit = (Array.isArray(auditRows) ? auditRows : []).find(row => (
+    readBackString(row.entity_id) === taskId
+      && readBackString(row.action) === "task_created"
+      && readBackString(row.actor_type).toLowerCase() === "ai"
+      && readBackString(row.actor_label).toUpperCase() === "GPT"
+  ));
+  if (!audit) throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back has no matching GPT creation Audit.");
+
+  const requiredChecklistKeys = ["developer-qa", "gpt-review", "pm-acceptance"];
+  const checklist = (Array.isArray(checklistRows) ? checklistRows : []).filter(row => (
+    readBackString(row.task_id) === taskId && row.required !== false
+  ));
+  const checklistByKey = new Map(checklist.map(row => [readBackString(row.item_key), row]));
+  const missingChecklist = requiredChecklistKeys.filter(key => !checklistByKey.has(key));
+  if (missingChecklist.length) {
+    throw new RunnerError("READ_BACK_FAILED", `GPT TASK read-back is missing Governance Checklist: ${missingChecklist.join(", ")}.`);
+  }
+
+  return {
+    table: "public.board_tasks",
+    identity: taskId,
+    taskId,
+    workCode: readBackString(task.work_code),
+    title: task.title || null,
+    summary: task.summary || null,
+    usageScenario: task.usage_scenario || null,
+    priority: task.priority || null,
+    acceptanceCriteria: task.acceptance_criteria || null,
+    applicationScope: readBackString(task.application_scope),
+    boardInstanceId: readBackString(task.board_instance_id),
+    workspaceId: readBackString(task.workspace_id),
+    status: readBackString(task.status),
+    assignee: readBackString(task.assignee),
+    createdAt: task.created_at || null,
+    updatedAt: task.updated_at || null,
+    actor: { type: "ai", label: "GPT" },
+    audit: {
+      table: "public.engineering_activity_log",
+      id: audit.id || null,
+      action: audit.action,
+      actorType: audit.actor_type,
+      actorLabel: audit.actor_label,
+      createdAt: audit.created_at || null
+    },
+    governanceChecklist: {
+      table: "public.engineering_checklist_items",
+      count: checklist.length,
+      requiredItems: requiredChecklistKeys.map(key => ({
+        itemKey: key,
+        stage: checklistByKey.get(key).stage || null,
+        label: checklistByKey.get(key).label || null
+      }))
+    },
+    workflowBinding: {
+      workflowVersionId: readBackString(task.workflow_version_id),
+      currentWorkflowStepId: readBackString(task.current_workflow_step_id)
+    }
+  };
+}
+
 function objectValue(value) {
   if (Array.isArray(value) && value.length === 1 && value[0] && typeof value[0] === "object") return value[0];
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
@@ -628,9 +787,22 @@ function createRunner(options = {}) {
     return approval.requestId;
   }
 
-  function productTaskUpdateState(requestId) {
+  function queueProductTaskCreate(requestValue) {
+    if (!waitForProduct) throw new RunnerError("NOT_FOUND", "This runner is not in Product request mode.");
+    if (approval.phase !== "waiting") throw new RunnerError("RUNNER_BUSY", "This approval runner already has an active or completed action; start a new runner for another TASK request.");
+    action = normalizeProductTaskCreateRequest(requestValue);
+    approval.action = action;
+    approval.requestId = randomToken(16);
+    approval.phase = "pending";
+    approval.csrf = randomToken(24);
+    approval.error = null;
+    approval.result = null;
+    return approval.requestId;
+  }
+
+  function productRequestState(requestId, missingMessage) {
     if (!approval.requestId || String(requestId || "") !== approval.requestId) {
-      throw new RunnerError("REQUEST_NOT_FOUND", "The inline-edit request is no longer available.");
+      throw new RunnerError("REQUEST_NOT_FOUND", missingMessage);
     }
     return {
       requestId: approval.requestId,
@@ -638,6 +810,14 @@ function createRunner(options = {}) {
       readBack: approval.result?.readBack || null,
       error: approval.error
     };
+  }
+
+  function productTaskUpdateState(requestId) {
+    return productRequestState(requestId, "The inline-edit request is no longer available.");
+  }
+
+  function productTaskCreateState(requestId) {
+    return productRequestState(requestId, "The TASK create request is no longer available.");
   }
 
   function purgeEphemeral() {
@@ -840,6 +1020,24 @@ function createRunner(options = {}) {
         const readBack = summarizeReadBack(action, records);
         return { authorizationId, operation: action.operation, readBack };
       }
+      if (action.operation === "create_task_contract") {
+        const taskId = String(extractExecutionResult(execution)?.id || "").trim();
+        if (!taskId) throw new RunnerError("READ_BACK_FAILED", "GPT TASK create completed without a canonical TASK identity.");
+        const taskRows = await supabaseRequest(`/rest/v1/board_tasks?select=id,work_code,title,summary,usage_scenario,priority,acceptance_criteria,application_scope,board_instance_id,workspace_id,status,assignee,created_by,workflow_version_id,current_workflow_step_id,created_at,updated_at&id=eq.${encodeURIComponent(taskId)}&limit=1`, {
+          method: "GET",
+          headers: authHeaders(environment.supabaseAnonKey, session.accessToken)
+        });
+        const auditRows = await supabaseRequest(`/rest/v1/engineering_activity_log?select=id,entity_type,entity_id,action,after_data,note,actor_id,actor_type,actor_label,created_at&entity_type=eq.board_task&entity_id=eq.${encodeURIComponent(taskId)}&order=created_at.desc&limit=25`, {
+          method: "GET",
+          headers: authHeaders(environment.supabaseAnonKey, session.accessToken)
+        });
+        const checklistRows = await supabaseRequest(`/rest/v1/engineering_checklist_items?select=id,task_id,checklist_type,stage,item_key,label,required,state,checked_by,checked_at,evidence_note,evidence_ref,sort_order,version&task_id=eq.${encodeURIComponent(taskId)}&order=sort_order.asc&limit=50`, {
+          method: "GET",
+          headers: authHeaders(environment.supabaseAnonKey, session.accessToken)
+        });
+        const readBack = summarizeCreatedTaskReadBack(action, taskRows, auditRows, checklistRows);
+        return { authorizationId, operation: action.operation, readBack };
+      }
       const target = readBackTarget(action, execution);
       if (!target) throw new RunnerError("READ_BACK_FAILED", "Governance Write completed without a canonical read-back identity.");
       const rows = await supabaseRequest(`/rest/v1/${target.table}?select=*&${target.filter}&limit=1`, {
@@ -875,10 +1073,6 @@ function createRunner(options = {}) {
     };
   }
 
-  function currentProductStatus(requestId) {
-    return productTaskUpdateState(requestId);
-  }
-
   async function handle(request, response, port) {
     const requestUrl = new URL(request.url || "/", baseUrl(port));
     const session = await getSession(request);
@@ -902,7 +1096,12 @@ function createRunner(options = {}) {
       respondJson(response, currentState(session));
       return;
     }
-    if (requestUrl.pathname === PRODUCT_TASK_UPDATE_PATH || requestUrl.pathname === PRODUCT_TASK_UPDATE_STATUS_PATH) {
+    if ([
+      PRODUCT_TASK_UPDATE_PATH,
+      PRODUCT_TASK_UPDATE_STATUS_PATH,
+      PRODUCT_TASK_CREATE_PATH,
+      PRODUCT_TASK_CREATE_STATUS_PATH
+    ].includes(requestUrl.pathname)) {
       const origin = assertProductOrigin(request, port);
       setProductCors(response, origin);
       if (request.method === "OPTIONS") {
@@ -920,9 +1119,27 @@ function createRunner(options = {}) {
         }
         return;
       }
+      if (requestUrl.pathname === PRODUCT_TASK_CREATE_PATH && request.method === "POST") {
+        try {
+          const body = await readRequestBody(request);
+          const requestId = queueProductTaskCreate(JSON.parse(body || "{}"));
+          respondJson(response, { ok: true, requestId, phase: approval.phase, action: actionView(approval.action) }, 202);
+        } catch (error) {
+          respondJson(response, publicError(error), error?.code === "CSRF_DENIED" ? 403 : 422);
+        }
+        return;
+      }
       if (requestUrl.pathname === PRODUCT_TASK_UPDATE_STATUS_PATH && request.method === "GET") {
         try {
-          respondJson(response, currentProductStatus(requestUrl.searchParams.get("request_id")));
+          respondJson(response, productTaskUpdateState(requestUrl.searchParams.get("request_id")));
+        } catch (error) {
+          respondJson(response, publicError(error), error?.code === "CSRF_DENIED" ? 403 : 404);
+        }
+        return;
+      }
+      if (requestUrl.pathname === PRODUCT_TASK_CREATE_STATUS_PATH && request.method === "GET") {
+        try {
+          respondJson(response, productTaskCreateState(requestUrl.searchParams.get("request_id")));
         } catch (error) {
           respondJson(response, publicError(error), error?.code === "CSRF_DENIED" ? 403 : 404);
         }
@@ -987,7 +1204,7 @@ function createRunner(options = {}) {
     });
   }
 
-  return Object.freeze({ action, environment, currentState, handle, start, sessions, oauthAttempts, approval, queueProductTaskUpdate, productTaskUpdateState: currentProductStatus });
+  return Object.freeze({ action, environment, currentState, handle, start, sessions, oauthAttempts, approval, queueProductTaskUpdate, queueProductTaskCreate, productTaskUpdateState, productTaskCreateState });
 }
 
 function usage(message = "") {
@@ -998,7 +1215,7 @@ function usage(message = "") {
     "  node tools/pm-governance-approval.js start --wait-for-product [--port 8765] [--open]",
     "",
     "The action file is supplied by the protected engineering workflow. In product mode,",
-    "AI Board may submit only an allowlisted task-content update request. PM reviews",
+    "AI Board may submit only an allowlisted task-create or task-content update request. PM reviews",
     "the rendered action and clicks approve or reject; no token, JSON or SQL is entered."
   ].join("\n"));
   process.exitCode = message ? 1 : 0;
@@ -1033,6 +1250,10 @@ module.exports = {
   PRODUCT_TASK_UPDATE_PATH,
   PRODUCT_TASK_UPDATE_STATUS_PATH,
   PRODUCT_TASK_UPDATE_FIELDS,
+  PRODUCT_TASK_CREATE_PATH,
+  PRODUCT_TASK_CREATE_STATUS_PATH,
+  PRODUCT_TASK_CREATE_FIELDS,
+  UUID_PATTERN,
   OPERATION_LABELS,
   PAYLOAD_FIELDS,
   RunnerError,
@@ -1040,11 +1261,13 @@ module.exports = {
   validatePayload,
   normalizeActionManifest,
   normalizeProductTaskUpdateRequest,
+  normalizeProductTaskCreateRequest,
   readActionManifest,
   renderApprovalPage,
   createRunner,
   extractExecutionResult,
   readBackTarget,
   summarizeReadBack,
+  summarizeCreatedTaskReadBack,
   summarizeBaselineReadBack
 };

@@ -132,11 +132,20 @@ Governance writes require two separate capabilities:
    `governance-write` actor token from the protected broker.
 
 The Edge Function accepts only `governance_write`, and the database executor
-allowlists `create_task_contract` (including its complete `acceptance_criteria`), `update_task_contract`, `update_checkpoint`,
+allowlists `create_task_contract` (including its complete `acceptance_criteria`
+and optional AI Board `workspace_id`), `update_task_contract`, `update_checkpoint`,
 `register_artifact`, and the bounded `create_engineering_principle` operation.
 The executor rechecks
 the PM authorization, payload binding, expiry, single-use state, actor label,
 and service-role server path before calling the existing controlled RPCs.
+
+The shared C Board adapter exposes `requestTaskContractCreation()` for the
+ChatGPT／GPT product path. It submits only allowlisted task content to the
+localhost PM approval runner (`/api/request-task-create`); PM review is required
+before the existing governance-write path can run. After approval, the runner
+reads back the canonical task, work code, AI Board/workspace identity, initial
+lifecycle, GPT creation audit, governance checklist, and Workflow binding.
+The human `createTask()` path remains separate and unchanged.
 
 Example protected GPT invocation:
 

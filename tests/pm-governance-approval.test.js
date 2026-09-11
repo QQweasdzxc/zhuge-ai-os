@@ -87,6 +87,23 @@ test("action manifest is immutable and mirrors the existing governance operation
   assert.throws(() => Runner.normalizeActionManifest({ operation: "set_pm_accepted_baseline", payload: { pm_acceptance_status: "accepted", product_version: "v", runtime_build: "b", git_commit: "c", artifact_reference: "a", archive_sha256: "secret" } }), /not allowlisted/);
 });
 
+test("product TASK create requests are allowlisted, PM-reviewable, and accept an optional workspace identity", () => {
+  const request = Runner.normalizeProductTaskCreateRequest({
+    title: "GPT 建立的正式工作",
+    summary: "只透過既有受控 Contract 建立",
+    usage_scenario: "ChatGPT 需要建立正式 TASK",
+    priority: "P1",
+    acceptance_criteria: "Cloud read-back 完整",
+    workspace_id: "a2dae783-8ff2-489e-8966-b476d982ef80"
+  });
+  assert.equal(request.operation, "create_task_contract");
+  assert.equal(request.payload.workspace_id, "a2dae783-8ff2-489e-8966-b476d982ef80");
+  assert.match(request.display.title, /GPT 建立的正式工作/);
+  assert.throws(() => Runner.normalizeProductTaskCreateRequest({ title: "x", workspace_id: "not-a-uuid" }), /valid workspace identity/);
+  assert.throws(() => Runner.normalizeProductTaskCreateRequest({ title: "x", service_role: "bad" }), /not an allowed action field/);
+  assert.throws(() => Runner.normalizeProductTaskCreateRequest({ summary: "missing title" }), /title is required/);
+});
+
 test("Engineering Principle action is bounded to the PM-assigned EP-### payload and canonical read-back", () => {
   const principle = Runner.normalizeActionManifest({
     operation: "create_engineering_principle",
@@ -338,6 +355,128 @@ test("product inline-edit bridge queues only summary or usage_scenario and never
   }
 });
 
+test("product TASK create bridge queues the canonical create contract and performs full Cloud-shaped read-back", async () => {
+  const pmCapability = "pm-capability-only-in-process";
+  const actorCapability = "actor-capability-only-in-process";
+  let writeCount = 0;
+  const runner = Runner.createRunner({
+    waitForProduct: true,
+    productOrigins: ["https://app.example"],
+    environment: {
+      supabaseUrl: "https://example.supabase.co",
+      supabaseAnonKey: "public-key",
+      governanceWriteUrl: "https://example.supabase.co/functions/v1/engineering-transition"
+    },
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/auth/v1/user") return new Response(JSON.stringify({ id: "owner-id", email: "qjc@example.com" }), { status: 200 });
+      if (pathname === "/rest/v1/rpc/issue_engineering_governance_authorization") return new Response(JSON.stringify({ authorization_id: "authorization-id", authorization_token: pmCapability }), { status: 200 });
+      if (pathname === "/rest/v1/board_tasks") return new Response(JSON.stringify([{
+        id: "task-id",
+        work_code: "TASK-1000",
+        title: "GPT 建立的正式工作",
+        summary: "只透過既有受控 Contract 建立",
+        usage_scenario: "ChatGPT 需要建立正式 TASK",
+        priority: "P1",
+        acceptance_criteria: "Cloud read-back 完整",
+        application_scope: "ai_board",
+        board_instance_id: "74ff1127-ab98-4543-8f69-872e5d92fd33",
+        workspace_id: "a2dae783-8ff2-489e-8966-b476d982ef80",
+        status: "ready",
+        assignee: "Co",
+        created_by: null,
+        workflow_version_id: "05557542-2f91-465a-bb14-3518105f9537",
+        current_workflow_step_id: "58f2db00-8689-420b-a195-d41a5ce089a0",
+        created_at: "2026-09-11T00:00:00Z",
+        updated_at: "2026-09-11T00:00:00Z"
+      }]), { status: 200 });
+      if (pathname === "/rest/v1/engineering_activity_log") return new Response(JSON.stringify([{
+        id: 1000,
+        entity_type: "board_task",
+        entity_id: "task-id",
+        action: "task_created",
+        actor_type: "ai",
+        actor_label: "GPT",
+        created_at: "2026-09-11T00:00:00Z"
+      }]), { status: 200 });
+      if (pathname === "/rest/v1/engineering_checklist_items") return new Response(JSON.stringify([
+        { task_id: "task-id", stage: "co", item_key: "developer-qa", label: "Co QA", required: true },
+        { task_id: "task-id", stage: "gpt", item_key: "gpt-review", label: "GPT Review", required: true },
+        { task_id: "task-id", stage: "qjc", item_key: "pm-acceptance", label: "PM Acceptance", required: true }
+      ]), { status: 200 });
+      throw new Error(`Unexpected network call: ${pathname}`);
+    },
+    readPrivateJwk: () => privateJwk,
+    issueActorToken: () => actorCapability,
+    writeGovernance: async (config, operation, payload) => {
+      writeCount += 1;
+      assert.equal(operation, "create_task_contract");
+      assert.deepEqual(payload, {
+        title: "GPT 建立的正式工作",
+        summary: "只透過既有受控 Contract 建立",
+        usage_scenario: "ChatGPT 需要建立正式 TASK",
+        priority: "P1",
+        acceptance_criteria: "Cloud read-back 完整",
+        workspace_id: "a2dae783-8ff2-489e-8966-b476d982ef80"
+      });
+      assert.equal(config.pmAuthorizationToken, pmCapability);
+      assert.equal(config.actorToken, actorCapability);
+      return { result: { result: { result: { id: "task-id" } } } };
+    }
+  });
+  const sessionId = "create-session";
+  runner.sessions.set(sessionId, {
+    accessToken: "access-only-in-process",
+    refreshToken: "refresh-only-in-process",
+    expiresAt: Date.now() + 300000,
+    createdAt: Date.now(),
+    user: { id: "owner-id", email: "qjc@example.com", name: "QJC" },
+    ownerStatus: "allowed"
+  });
+  const started = await runner.start({ port: 18771 });
+  const productHeaders = { Origin: "https://app.example", "Content-Type": "application/json" };
+  try {
+    const queued = await fetch(`${started.url}api/request-task-create`, {
+      method: "POST",
+      headers: productHeaders,
+      body: JSON.stringify({
+        title: "GPT 建立的正式工作",
+        summary: "只透過既有受控 Contract 建立",
+        usage_scenario: "ChatGPT 需要建立正式 TASK",
+        priority: "P1",
+        acceptance_criteria: "Cloud read-back 完整",
+        workspace_id: "a2dae783-8ff2-489e-8966-b476d982ef80"
+      })
+    });
+    assert.equal(queued.status, 202);
+    const queuedBody = await queued.text();
+    assert.match(queuedBody, /建立 AI Board TASK/);
+    assert.doesNotMatch(queuedBody, /payload|pm-capability-only-in-process|actor-capability-only-in-process/);
+    const requestId = JSON.parse(queuedBody).requestId;
+    const beforeApproval = await fetch(`${started.url}api/task-create-status?request_id=${encodeURIComponent(requestId)}`, { headers: { Origin: "https://app.example" } });
+    assert.equal((await beforeApproval.json()).phase, "pending");
+    assert.equal(writeCount, 0);
+    const approval = await fetch(`${started.url}api/approve`, {
+      method: "POST",
+      headers: { Cookie: `pm_governance_sid=${sessionId}`, Origin: "http://127.0.0.1:18771", "X-PM-Approval-Nonce": runner.approval.csrf }
+    });
+    const approvalBody = await approval.text();
+    assert.equal(approval.status, 200);
+    assert.match(approvalBody, /"phase":"success"/);
+    assert.match(approvalBody, /TASK-1000/);
+    assert.match(approvalBody, /05557542-2f91-465a-bb14-3518105f9537/);
+    assert.equal(writeCount, 1);
+    const afterApproval = await fetch(`${started.url}api/task-create-status?request_id=${encodeURIComponent(requestId)}`, { headers: { Origin: "https://app.example" } });
+    const afterBody = await afterApproval.json();
+    assert.equal(afterBody.phase, "success");
+    assert.equal(afterBody.readBack.workCode, "TASK-1000");
+    assert.equal(afterBody.readBack.audit.actorLabel, "GPT");
+    assert.equal(afterBody.readBack.governanceChecklist.count, 3);
+  } finally {
+    await new Promise(resolve => started.server.close(resolve));
+  }
+});
+
 test("browser approval page receives only review metadata and never embeds capability labels", () => {
   const page = Runner.renderApprovalPage({
     operation: "建立 Canonical TASK Contract",
@@ -448,9 +587,37 @@ test("authenticated owner approval issues, executes, and reads back exactly once
       if (pathname === "/rest/v1/rpc/issue_engineering_governance_authorization") {
         return new Response(JSON.stringify({ authorization_id: "authorization-id", authorization_token: pmCapability }), { status: 200 });
       }
-      if (pathname === "/rest/v1/board_tasks") {
-        return new Response(JSON.stringify([{ id: "task-id", work_code: "TASK-999", title: "Governance Approval Runner QA", status: "ready" }]), { status: 200 });
-      }
+      if (pathname === "/rest/v1/board_tasks") return new Response(JSON.stringify([{
+        id: "task-id",
+        work_code: "TASK-999",
+        title: "Governance Approval Runner QA",
+        summary: "Controlled path test",
+        usage_scenario: null,
+        priority: "P1",
+        acceptance_criteria: null,
+        application_scope: "ai_board",
+        board_instance_id: "74ff1127-ab98-4543-8f69-872e5d92fd33",
+        workspace_id: "a2dae783-8ff2-489e-8966-b476d982ef80",
+        status: "ready",
+        assignee: "Co",
+        created_by: null,
+        workflow_version_id: "05557542-2f91-465a-bb14-3518105f9537",
+        current_workflow_step_id: "58f2db00-8689-420b-a195-d41a5ce089a0"
+      }]), { status: 200 });
+      if (pathname === "/rest/v1/engineering_activity_log") return new Response(JSON.stringify([{
+        id: 999,
+        entity_type: "board_task",
+        entity_id: "task-id",
+        action: "task_created",
+        actor_type: "ai",
+        actor_label: "GPT",
+        created_at: "2026-09-11T00:00:00Z"
+      }]), { status: 200 });
+      if (pathname === "/rest/v1/engineering_checklist_items") return new Response(JSON.stringify([
+        { task_id: "task-id", stage: "co", item_key: "developer-qa", label: "Co QA", required: true },
+        { task_id: "task-id", stage: "gpt", item_key: "gpt-review", label: "GPT Review", required: true },
+        { task_id: "task-id", stage: "qjc", item_key: "pm-acceptance", label: "PM Acceptance", required: true }
+      ]), { status: 200 });
       throw new Error(`Unexpected network call: ${pathname}`);
     },
     readPrivateJwk: () => privateJwk,
