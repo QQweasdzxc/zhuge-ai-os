@@ -56,7 +56,7 @@
     ai_board: Object.freeze({ mode: "required", label: "AI Board" }),
     worktodo: Object.freeze({ mode: "approved", label: "WorkTodo", reason: "WorkTodo 保留個人工作產品語意，不啟用 Engineering Acceptance。" }),
     procurement: Object.freeze({ mode: "approved", label: "庶務行政", reason: "庶務行政依產品 Capability 使用自己的資料與操作邊界。" }),
-    investment: Object.freeze({ mode: "approved", label: "Investment", reason: "Investment 維持 read-only 產品邊界，不啟用看板 Lifecycle 操作。" })
+    investment: Object.freeze({ mode: "approved", label: "Investment", reason: "Investment 金融資料與流程設定維持唯讀；看板工作區移動依 C Workflow 能力運作。" })
   });
 
   function stableSerialize(value) {

@@ -1149,14 +1149,13 @@
   }
 
   // Existing cards created before the canonical C binding trigger may be
-  // unbound.  Adoption is a shared C capability, but this opt-in is enabled
-  // only for the AI Board consumer in this release.  Cloud performs the
-  // exact Published Workflow + current Workspace UUID check; the runtime
-  // never derives a step from a TASK, status, assignee, or Workspace name.
+  // unbound.  Adoption is a shared C capability for every C board runtime.
+  // Cloud performs the exact Published Workflow + current Workspace UUID
+  // check; the runtime never derives a step from a TASK, status, assignee, or
+  // Workspace name.
   function canAdoptExistingCWorkflowCard(task) {
     const workflow = state.workflowCapability || activeService()?.workflow;
-    return state.applicationScope === "ai_board"
-      && workflow?.capabilities?.existingCardAdoption === true
+    return workflow?.capabilities?.existingCardAdoption === true
       && typeof workflow.adoptUnboundCard === "function"
       && !String(task?.workflowVersionId || "").trim()
       && !String(task?.currentWorkflowStepId || "").trim();
@@ -4136,8 +4135,16 @@
     state.dataStatus = "available";
     state.dataSource = "";
     const workflowReadOnly = state.applicationScope === "c" && isInvestmentCMode();
+    const cWorkflowRuntime = ["c", "ai_board", "worktodo"].includes(state.applicationScope);
     state.service = options.service || (state.applicationScope === "c"
-      ? defaultService.createInstanceService({ templateKey: "c", boardInstanceId: requestedBoardInstanceId, consumerId: state.consumerId, workflowReadOnly })
+      ? defaultService.createInstanceService({
+          templateKey: "c",
+          boardInstanceId: requestedBoardInstanceId,
+          consumerId: state.consumerId,
+          workflowReadOnly,
+          allowExistingCardAdoption: cWorkflowRuntime,
+          allowWorkspaceMovement: cWorkflowRuntime
+        })
       : state.applicationScope === "procurement" ? root.GasBoardService?.create?.() || defaultService : defaultService);
     const fallbackWorkflowCapability = typeof defaultService.createWorkflowCapability === "function"
       ? defaultService.createWorkflowCapability({
@@ -4145,7 +4152,8 @@
           boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
           legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : "",
           readOnly: workflowReadOnly,
-          allowExistingCardAdoption: state.applicationScope === "ai_board"
+          allowExistingCardAdoption: cWorkflowRuntime,
+          allowWorkspaceMovement: cWorkflowRuntime
         })
       : null;
     state.workflowCapability = options.workflowCapability

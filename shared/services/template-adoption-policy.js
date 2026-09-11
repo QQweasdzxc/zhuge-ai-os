@@ -33,6 +33,16 @@
     // workspace.  The page registry owns this capability declaration; the
     // page itself must not grow a second navigation implementation.
     settings: Object.freeze({ id: "settings", label: "設定", supportedTemplates: Object.freeze(["navigation"]) }),
+    // C Mother is the canonical source, not a consumer row.  It still needs
+    // an explicit registry entry so the shared Navigation policy mounts the
+    // same A shell on the Mother/preview page.
+    "template-c": Object.freeze({
+      id: "template-c",
+      label: "C 唯一看板母版",
+      isMother: true,
+      supportedTemplates: Object.freeze(["navigation", "board"]),
+      requiredTemplates: Object.freeze(["navigation", "board"])
+    }),
     procurement: Object.freeze({ id: "procurement", label: "庶務行政", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["navigation", "board"]) }),
     investment: Object.freeze({ id: "investment", label: "Investment", supportedTemplates: Object.freeze(["navigation", "board"]), requiredTemplates: Object.freeze(["board"]) }),
     "ai-board": Object.freeze({ id: "ai-board", label: "AI Board", supportedTemplates: Object.freeze(["navigation", "board"]) }),
