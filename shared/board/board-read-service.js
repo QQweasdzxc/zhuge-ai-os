@@ -1165,6 +1165,10 @@
     const templateKey = String(options.templateKey || "c").trim().toLowerCase() || "c";
     const readOnly = options.readOnly === true;
     const allowExistingCardAdoption = options.allowExistingCardAdoption === true;
+    // Workflow definition/settings can remain read-only while a product still
+    // permits PM workspace decisions.  This keeps Investment's financial
+    // surface read-only without disabling the shared C movement contract.
+    const allowWorkspaceMovement = options.allowWorkspaceMovement === true;
     let instancePromise;
     const resolveBoardInstance = async () => {
       if (!instancePromise) {
@@ -1189,6 +1193,12 @@
     const assertWritable = () => {
       if (!readOnly) return;
       const error = new Error("目前子板為唯讀，不能修改流程設定。");
+      error.code = "C_WORKFLOW_READ_ONLY";
+      throw error;
+    };
+    const assertDecisionWritable = () => {
+      if (!readOnly || allowWorkspaceMovement) return;
+      const error = new Error("目前子板為唯讀，不能修改工作區決定。");
       error.code = "C_WORKFLOW_READ_ONLY";
       throw error;
     };
@@ -1291,7 +1301,7 @@
       }));
     };
     const adoptUnboundCard = async (input = {}) => {
-      assertWritable();
+      assertDecisionWritable();
       return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_adopt_unbound_card_v2", {
         p_task_id: input.taskId,
         p_idempotency_key: input.idempotencyKey || null
@@ -1299,7 +1309,7 @@
     };
     const resolveTaskWorkflow = async taskId => gateway.rpc("board_c_workflow_resolve_task", { p_task_id: taskId });
     const reconcileTaskWorkspaceDecision = async (input = {}) => {
-      assertWritable();
+      assertDecisionWritable();
       return gateway.rpc("board_c_reconcile_workspace_decision_v2", {
         p_task_id: input.taskId,
         p_target_workspace_id: input.targetWorkspaceId,
@@ -1332,13 +1342,14 @@
       capabilities: Object.freeze({
         settings: true,
         resolve: true,
-        workspaceDecision: !readOnly,
-        completion: !readOnly,
-        reopen: !readOnly,
+        workspaceDecision: !readOnly || allowWorkspaceMovement,
+        completion: !readOnly || allowWorkspaceMovement,
+        reopen: !readOnly || allowWorkspaceMovement,
         adoption: !readOnly,
-        existingCardAdoption: allowExistingCardAdoption && !readOnly,
+        existingCardAdoption: allowExistingCardAdoption && (!readOnly || allowWorkspaceMovement),
         legacyReconciliation: !readOnly,
-        legacyWorkspaceRetirement: !readOnly
+        legacyWorkspaceRetirement: !readOnly,
+        workspaceMovement: !readOnly || allowWorkspaceMovement
       }),
       resolveBoardInstance,
       boardInstanceId,
@@ -1550,7 +1561,8 @@
       boardInstanceId: requestedBoardInstanceId,
       legacyApplicationScope,
       readOnly: instanceOptions.workflowReadOnly === true,
-      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true
+      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true,
+      allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true
     });
 
     async function instanceLoad(options = {}) {
@@ -1695,7 +1707,10 @@
     }
     async function instanceReconcileWorkspaceDecision(input = {}) {
       await resolveInstance();
-      return reconcileWorkspaceDecision(input, withGateway());
+      // Keep the instance service on the same C Workflow v2 authority as the
+      // direct workflow capability.  The legacy v1 helper remains exported
+      // only for compatibility with older non-instance callers.
+      return workflow.reconcileWorkspaceDecision(input);
     }
     async function instanceAddProgress(taskId, note) {
       await resolveInstance();

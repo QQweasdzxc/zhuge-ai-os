@@ -72,7 +72,7 @@
   function buildTemplateModel(snapshot = runtimeSnapshot()) {
     const ready = isReady(snapshot);
     return templateOrder(snapshot.templates).map(template => {
-      const consumers = Object.values(snapshot.pages).filter(page => Array.isArray(page?.supportedTemplates) && page.supportedTemplates.includes(template.id));
+      const consumers = Object.values(snapshot.pages).filter(page => page?.isMother !== true && Array.isArray(page?.supportedTemplates) && page.supportedTemplates.includes(template.id));
       const rows = consumers.map(page => ({
         page,
         enabled: enabledFor(snapshot, page.id, template.id)
