@@ -127,3 +127,40 @@ test("IVTK transform and repair preserve the canonical first-card identity", () 
   assert.match(repositorySource, /repair_investment_ivtk_identity/);
   assert.match(moduleSource, /repairIvtkIdentity/);
 });
+
+test("IVTK Board bridge activates the existing projection contract before its read-back", () => {
+  const bridge = fs.readFileSync(
+    path.join(__dirname, "../../app/Board/investment/investment-cloud-bridge.js"),
+    "utf8"
+  );
+  const projectionCall = bridge.indexOf('sync_investment_ivtk_projection');
+  const firstRead = bridge.indexOf('gateway.select("investment_current_positions_view"');
+  assert.ok(projectionCall >= 0, "Investment Board must call the formal projection contract");
+  assert.ok(firstRead > projectionCall, "Projection must run before position read-back");
+  assert.match(bridge, /created_count/);
+  assert.match(bridge, /ZhugeBoardRuntime\?\.refresh/);
+  assert.match(bridge, /investmentCloudProjection/);
+});
+
+test("IVTK projection routes TW and US positions through formal workspaces", () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, "../../docs/supabase/20260911_investment_ivtk_projection_market_route.sql"),
+    "utf8"
+  );
+  assert.match(migration, /投資-美股/);
+  assert.match(migration, /v_position_workspace/);
+  assert.match(migration, /v_moved_count/);
+  assert.match(migration, /moved_count/);
+  assert.match(migration, /idempotent'[\s\S]*v_moved_count/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.doesNotMatch(migration, /update\s+public\.(opening_positions|broker_position_snapshots|broker_position_snapshot_items)/i);
+});
+
+test("IVTK identity repair no-op does not block later projections", () => {
+  const repairActivation = fs.readFileSync(
+    path.join(__dirname, "../../docs/supabase/20260911_investment_ivtk_projection_activation.sql"),
+    "utf8"
+  );
+  assert.match(repairActivation, /v_canonical_count\s*=\s*8[\s\S]*v_legacy_projection_count\s*=\s*8[\s\S]*v_projection_count\s*>=\s*8/);
+  assert.match(repairActivation, /repair_investment_ivtk_identity/);
+});

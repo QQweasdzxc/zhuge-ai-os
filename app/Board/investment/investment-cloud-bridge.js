@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const state = { rows: [], links: [], timer: 0, observer: null };
+  const state = { rows: [], links: [], projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null };
 
   function esc(value) {
     return String(value == null ? "" : value)
@@ -28,6 +28,48 @@
     return Number.isFinite(n) ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : "—";
   }
   function sourceKey(kind, id) { return `${String(kind || "")}:${String(id || "")}`; }
+
+  function projectionChanged(result) {
+    return ["created_count", "relinked_count", "moved_count", "deactivated_count"]
+      .some(key => Number(result?.[key] || 0) > 0);
+  }
+
+  async function refreshSharedBoardAfterProjection() {
+    const refresh = root.ZhugeBoardRuntime?.refresh;
+    if (typeof refresh !== "function") return;
+    // The shared C runtime may still be completing its first read.  The first
+    // refresh waits for that read; the second guarantees a fresh Board read
+    // after the projection has created or relinked cards.
+    await refresh({ quiet: true });
+    await refresh({ quiet: true });
+  }
+
+  function syncProjection(gateway) {
+    if (state.syncPromise) return state.syncPromise;
+    if (typeof gateway?.rpc !== "function") {
+      const error = new Error("Investment IVTK Projection Contract 尚未就緒。");
+      error.code = "INVESTMENT_IVTK_RPC_REQUIRED";
+      state.projectionError = error;
+      return Promise.resolve(null);
+    }
+    state.syncPromise = gateway.rpc("sync_investment_ivtk_projection", {})
+      .then(async result => {
+        state.projection = result || null;
+        state.projectionError = null;
+        if (projectionChanged(result)) await refreshSharedBoardAfterProjection();
+        return result;
+      })
+      .catch(error => {
+        // Projection is a controlled write activation, not a reason to hide
+        // already-readable Investment cards.  Preserve the read path and
+        // expose the controlled error through the runtime dataset for QA.
+        state.projection = null;
+        state.projectionError = error;
+        return null;
+      })
+      .finally(() => { state.syncPromise = null; });
+    return state.syncPromise;
+  }
 
   function apply() {
     if (!state.rows.length || !state.links.length) return;
@@ -67,6 +109,7 @@
     const gateway = root.ZhugeSupabaseGateway?.createDataGateway?.();
     if (!gateway?.select) return;
     try {
+      await syncProjection(gateway);
       const [rows, links] = await Promise.all([
         gateway.select("investment_current_positions_view", "?select=source_kind,source_id,portfolio_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,effective_at&order=market.asc,symbol.asc"),
         gateway.select("investment_ivtk_card_links", "?select=board_task_id,source_kind,source_id,card_kind,active&active=eq.true&order=created_at.asc")
@@ -75,9 +118,11 @@
       state.links = Array.isArray(links) ? links : [];
       apply();
       document.body.dataset.investmentCloudBridge = "ready";
+      document.body.dataset.investmentCloudProjection = state.projectionError ? "error" : "ready";
     } catch (error) {
       console.error("[Investment Cloud Bridge]", error);
       document.body.dataset.investmentCloudBridge = "error";
+      document.body.dataset.investmentCloudProjection = "error";
     }
   }
 
