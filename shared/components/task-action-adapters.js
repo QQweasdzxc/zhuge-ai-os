@@ -35,14 +35,15 @@
   }
 
   function moveThroughCWorkflow(workflowCapability, taskId, payload = {}) {
-    if (typeof workflowCapability?.reconcileWorkspaceDecision !== "function") {
+    const move = workflowCapability?.moveWorkspaceDecision || workflowCapability?.reconcileWorkspaceDecision;
+    if (typeof move !== "function") {
       const error = new Error("這張工作卡片尚未載入正式流程；未使用舊的工作區／狀態推測路徑。");
       error.code = "C_WORKFLOW_CAPABILITY_UNAVAILABLE";
       throw error;
     }
     const selectedTaskId = payload.taskId || taskId;
     const selectedWorkspaceId = payload.workspaceId;
-    return workflowCapability.reconcileWorkspaceDecision({
+    return move.call(workflowCapability, {
       taskId: selectedTaskId,
       targetWorkspaceId: selectedWorkspaceId,
       decisionNote: payload.reason || "PM workspace decision",
