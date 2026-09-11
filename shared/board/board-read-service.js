@@ -1164,6 +1164,7 @@
     const legacyApplicationScope = String(options.legacyApplicationScope || "").trim();
     const templateKey = String(options.templateKey || "c").trim().toLowerCase() || "c";
     const readOnly = options.readOnly === true;
+    const allowExistingCardAdoption = options.allowExistingCardAdoption === true;
     let instancePromise;
     const resolveBoardInstance = async () => {
       if (!instancePromise) {
@@ -1289,6 +1290,13 @@
         p_idempotency_key: input.idempotencyKey || null
       }));
     };
+    const adoptUnboundCard = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_adopt_unbound_card_v2", {
+        p_task_id: input.taskId,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
     const resolveTaskWorkflow = async taskId => gateway.rpc("board_c_workflow_resolve_task", { p_task_id: taskId });
     const reconcileTaskWorkspaceDecision = async (input = {}) => {
       assertWritable();
@@ -1328,6 +1336,7 @@
         completion: !readOnly,
         reopen: !readOnly,
         adoption: !readOnly,
+        existingCardAdoption: allowExistingCardAdoption && !readOnly,
         legacyReconciliation: !readOnly,
         legacyWorkspaceRetirement: !readOnly
       }),
@@ -1341,6 +1350,7 @@
       approveAdoption,
       setStepMapping,
       applyCardMapping,
+      adoptUnboundCard,
       resolveTask: resolveTaskWorkflow,
       reconcileWorkspaceDecision: reconcileTaskWorkspaceDecision,
       reconcileLegacyCard,
@@ -1539,7 +1549,8 @@
       templateKey,
       boardInstanceId: requestedBoardInstanceId,
       legacyApplicationScope,
-      readOnly: instanceOptions.workflowReadOnly === true
+      readOnly: instanceOptions.workflowReadOnly === true,
+      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true
     });
 
     async function instanceLoad(options = {}) {
@@ -1885,6 +1896,34 @@
     return governanceRunnerJson(`/api/task-update-status${query}`, options);
   }
 
+  async function requestTaskContractCreation(input = {}, options = {}) {
+    const title = String(input.title ?? "").trim();
+    if (!title) {
+      const error = new Error("建立 TASK 需要標題。");
+      error.code = "TASK_TITLE_REQUIRED";
+      throw error;
+    }
+    const payload = { title };
+    const fields = Object.freeze([
+      ["summary", "summary"],
+      ["usageScenario", "usage_scenario"],
+      ["priority", "priority"],
+      ["acceptanceCriteria", "acceptance_criteria"],
+      ["workspaceId", "workspace_id"]
+    ]);
+    for (const [inputField, payloadField] of fields) {
+      if (!Object.prototype.hasOwnProperty.call(input, inputField)) continue;
+      const value = String(input[inputField] ?? "").trim();
+      if (value) payload[payloadField] = value;
+    }
+    return governanceRunnerJson("/api/request-task-create", { ...options, method: "POST", body: payload });
+  }
+
+  async function taskContractCreateStatus(requestId, options = {}) {
+    const query = `?request_id=${encodeURIComponent(String(requestId || ""))}`;
+    return governanceRunnerJson(`/api/task-create-status${query}`, options);
+  }
+
   async function subscribe(callback, options = {}) {
     const gateway = options.gateway || requireGateway();
     if (typeof gateway.subscribe !== "function") {
@@ -1995,6 +2034,8 @@
     provisionConsumer,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
+    requestTaskContractCreation,
+    taskContractCreateStatus,
     runHealthCheck,
     subscribe
   });

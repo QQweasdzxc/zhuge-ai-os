@@ -84,3 +84,18 @@ test("the task create acceptance-criteria migration extends only the governed cr
   assert.doesNotMatch(migration, /alter table public\.board_tasks/i);
   assert.doesNotMatch(migration, /drop policy|create policy|enable row level security/i);
 });
+
+test("TASK-071 extends the existing governed GPT create contract without widening browser privileges", () => {
+  const migration = fs.readFileSync(path.join(root, "docs/supabase/20260911_task_071_gpt_create_contract.sql"), "utf8");
+  const executable = migration.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(migration, /create or replace function public\.execute_engineering_governance_write\(/i);
+  assert.match(migration, /'workspace_id'/i);
+  assert.match(migration, /p_workspace_id\s*=>\s*nullif\(trim\(payload->>'workspace_id'\), ''\)::uuid/i);
+  assert.match(migration, /Task workspace id is invalid/i);
+  assert.match(migration, /p_actor_type\s*=>\s*'ai'/i);
+  assert.match(migration, /p_actor_label\s*=>\s*'GPT'/i);
+  assert.match(migration, /grant execute on function public\.execute_engineering_governance_write\(text, text, jsonb, text\) to service_role/i);
+  assert.match(migration, /revoke all on function public\.execute_engineering_governance_write\(text, text, jsonb, text\) from public, anon, authenticated/i);
+  assert.doesNotMatch(executable, /create table|alter table|drop table|drop function|delete from/i);
+  assert.doesNotMatch(executable, /grant execute on function public\.board_create_task[\s\S]*to authenticated/i);
+});
