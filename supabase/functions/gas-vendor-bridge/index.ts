@@ -286,13 +286,78 @@ async function appendVendorRow(accessToken: string, row: string[]) {
 }
 
 function nextVendorId(values: unknown[]) {
+  const usedIds = new Set<string>();
   let max = 0;
   values.slice(1, MAX_ROWS + 1).forEach(row => {
     if (!Array.isArray(row)) return;
-    const match = /^GAS-V(\d+)$/.exec(asText(row[VENDOR_ID_INDEX]));
+    const currentId = asText(row[VENDOR_ID_INDEX]);
+    if (currentId) usedIds.add(currentId);
+    const match = /^GAS-V(\d+)$/.exec(currentId);
     if (match) max = Math.max(max, Number(match[1]));
   });
-  return `GAS-V${String(max + 1).padStart(4, "0")}`;
+  let next = max + 1;
+  let vendorId = `GAS-V${String(next).padStart(4, "0")}`;
+  while (usedIds.has(vendorId)) {
+    next += 1;
+    vendorId = `GAS-V${String(next).padStart(4, "0")}`;
+  }
+  return vendorId;
+}
+
+async function ensureVendorId(accessToken: string, rowNumberValue: unknown) {
+  const rowNumber = Number(rowNumberValue);
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || rowNumber > MAX_ROWS + 1) {
+    throw new HttpError("Vendor Sheet row is invalid.", 400, "VENDOR_ROW_INVALID");
+  }
+  const beforeValues = await readSheetValues(accessToken, RANGE);
+  const dataRows = beforeValues.slice(1, MAX_ROWS + 1);
+  const targetRow = dataRows[rowNumber - 2];
+  const target = rowToVendor(targetRow, rowNumber);
+  if (!target.vendorName && !target.purchaseNo) {
+    throw new HttpError("Vendor Sheet row was not found.", 404, "VENDOR_ROW_NOT_FOUND", { row_number: rowNumber });
+  }
+  const existingId = asText(target.vendorId);
+  if (existingId) {
+    const existingRows = rowsFromValues(beforeValues);
+    return {
+      vendorId: existingId,
+      rowNumber,
+      backfilled: false,
+      writeStatus: null,
+      vendor: target,
+      vendorCount: existingRows.length,
+      firstVendorId: asText(existingRows[0]?.vendorId) || null,
+      lastVendorId: asText(existingRows.at(-1)?.vendorId) || null
+    };
+  }
+
+  const vendorId = nextVendorId(beforeValues);
+  const write = await writeVendorFields(accessToken, rowNumber, { vendorId }, ["vendorId"]);
+  const afterValues = await readSheetValues(accessToken, RANGE);
+  const afterDataRows = afterValues.slice(1, MAX_ROWS + 1);
+  const assignedRows = afterDataRows.filter(row => Array.isArray(row) && asText(row[VENDOR_ID_INDEX]) === vendorId);
+  const readBack = rowToVendor(afterDataRows[rowNumber - 2], rowNumber);
+  if (assignedRows.length !== 1 || asText(readBack.vendorId) !== vendorId) {
+    if (asText(readBack.vendorId) === vendorId && assignedRows.length > 1) {
+      await writeVendorFields(accessToken, rowNumber, { vendorId: "" }, ["vendorId"]).catch(() => {});
+    }
+    throw new HttpError("Vendor ID backfill read-back detected a conflict.", 502, "VENDOR_ID_BACKFILL_CONFLICT", {
+      vendor_id: vendorId,
+      row_number: rowNumber,
+      matching_rows: assignedRows.length
+    });
+  }
+  const afterRows = rowsFromValues(afterValues);
+  return {
+    vendorId,
+    rowNumber,
+    backfilled: true,
+    writeStatus: write.status,
+    vendor: readBack,
+    vendorCount: afterRows.length,
+    firstVendorId: asText(afterRows[0]?.vendorId) || null,
+    lastVendorId: asText(afterRows.at(-1)?.vendorId) || null
+  };
 }
 
 async function updateVendor(accessToken: string, vendorId: string, patch: JsonObject) {
@@ -438,8 +503,12 @@ Deno.serve(async request => {
     const accessToken = await googleAccessToken(email, privateKey);
     const requestBody = asObject(await request.json().catch(() => ({})));
     const action = asText(requestBody.action, "read").toLowerCase();
-    if (action !== "read" && action !== "update" && action !== "create") {
+    if (action !== "read" && action !== "update" && action !== "create" && action !== "ensure_vendor_id") {
       throw new HttpError("Unsupported bridge action.", 400, "ACTION_NOT_SUPPORTED");
+    }
+    if (action === "ensure_vendor_id") {
+      const result = await ensureVendorId(accessToken, requestBody.rowNumber);
+      return json({ ok: true, action, source: "google-sheets", spreadsheetId: SPREADSHEET_ID, sheetName: SHEET_NAME, range: RANGE, ...result }, 200, origin);
     }
     if (action === "update") {
       const vendorId = asText(requestBody.vendorId);

@@ -84,6 +84,7 @@
     async bridgeRead(){return this.bridgeRequest({action:"read"});}
     async bridgeUpdate(vendorId,patch){return this.bridgeRequest({action:"update",vendorId,patch});}
     async bridgeCreate(vendor){return this.bridgeRequest({action:"create",vendor});}
+    async bridgeEnsureVendorId(rowNumber){return this.bridgeRequest({action:"ensure_vendor_id",rowNumber});}
     async list(options={}){
       const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
       onProgress({phase:"auth",percent:5,message:"確認 Zhuge AI OS 登入…",loaded:0,total:0});
@@ -115,6 +116,21 @@
       const item={rowNumber:Number(raw.rowNumber)||0};
       KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
       onProgress({phase:"done",percent:100,message:"廠商資料已更新",loaded:1,total:1});
+      return item;
+    }
+    async ensureVendorId(rowNumber,options={}){
+      const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
+      const normalizedRowNumber=Number(rowNumber);
+      if(!Number.isInteger(normalizedRowNumber)||normalizedRowNumber<2) throw new VendorSheetError("無效的廠商資料列。","INVALID_VENDOR_ROW");
+      onProgress({phase:"write",percent:55,message:"正在補齊廠商識別…",loaded:0,total:1});
+      const data=await this.bridgeEnsureVendorId(normalizedRowNumber);
+      const raw=data?.vendor;
+      const vendorId=String(data?.vendorId||raw?.vendorId||"").trim();
+      if(!raw||!vendorId||Number(raw.rowNumber)!==normalizedRowNumber||String(raw.vendorId||"").trim()!==vendorId) throw new VendorSheetError("廠商識別補齊結果無法確認。","BRIDGE_ID_BACKFILL_READBACK_INVALID");
+      onProgress({phase:"verify",percent:85,message:"正在確認廠商識別…",loaded:1,total:1});
+      const item={rowNumber:normalizedRowNumber};
+      KEYS.forEach(key=>item[key]=String(raw[key]??"").trim());
+      onProgress({phase:"done",percent:100,message:"廠商識別已補齊",loaded:1,total:1});
       return item;
     }
     async create(vendor={},options={}){
