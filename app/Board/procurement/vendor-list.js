@@ -76,7 +76,7 @@
     const visibleColumns=new Set(COLUMN_DEFS.filter(column=>column.defaultVisible).map(column=>column.key));
     const coreMarkup=CORE_FIELDS.map(field=>fieldMarkup(field)).join("");
     const moreMarkup=MORE_FIELDS.map(field=>fieldMarkup(field)).join("");
-    root.innerHTML=`<section class="vendor-page">
+    root.innerHTML=`<section class="vendor-page" data-vendor-page>
       <div class="vendor-toolbar"><div><h2>廠商清單</h2><p>先看常用的廠商與聯絡資訊，需要時再顯示更多欄位。</p></div><div class="vendor-toolbar-actions"><button type="button" class="vendor-add" data-vendor-add>＋ 新增廠商</button><div class="vendor-sync" data-vendor-sync aria-live="polite">尚未更新</div></div></div>
       <div class="vendor-progress" data-vendor-progress hidden><div class="vendor-progress-head"><strong data-vendor-progress-label>準備更新…</strong><span data-vendor-progress-percent>0%</span></div><div class="vendor-progress-track"><div class="vendor-progress-bar" data-vendor-progress-bar></div></div></div>
       <div class="vendor-filters"><input type="search" data-vendor-search placeholder="搜尋廠商、產品、聯絡人、電話、Email…"><select data-vendor-company><option value="">全部公司</option></select><select data-vendor-category><option value="">全部業務分類</option><option value="採購">採購</option><option value="總務">總務</option></select><input type="search" data-vendor-product placeholder="產品／服務"><button type="button" data-vendor-refresh>↻ 重新整理</button></div>
