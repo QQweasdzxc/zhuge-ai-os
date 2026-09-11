@@ -27,6 +27,28 @@ test("GAS Vendor Association is a consumer extension over the shared C Drawer", 
   assert.doesNotMatch(extension, /\[\s*["']vendorId["']\s*,/i);
 });
 
+test("shared board adapter normalizes the vendor-link RPC response for the GAS drawer", () => {
+  const source = read("shared/board/board-read-service.js");
+
+  assert.match(source, /function normalizeTaskVendorLink\(row\)/);
+  assert.match(source, /vendor_id \?\? source\.vendorId/);
+  assert.match(source, /board_instance_get_task_vendor_link[\s\S]*?\.then\(normalizeTaskVendorLink\)/);
+  assert.match(source, /board_instance_set_task_vendor_link[\s\S]*?\.then\(normalizeTaskVendorLink\)/);
+  assert.match(source, /vendorId,/);
+});
+
+test("GAS Vendor selector R2 stays collapsed until search and confirms in the drawer", () => {
+  const source = read("app/Board/procurement/vendor-task-association.js");
+
+  assert.match(source, /data-gas-vendor-selector/);
+  assert.match(source, /data-gas-vendor-open/);
+  assert.match(source, /data-gas-vendor-confirm/);
+  assert.match(source, /if \(!query\) return \[\]/);
+  assert.doesNotMatch(source, /if \(!query\) return state\.vendors\.slice/);
+  assert.match(source, /data-gas-vendor-selector-close/);
+  assert.doesNotMatch(source, /window\.open\(/);
+});
+
 test("GAS Vendor Association Cloud contract stores only a formal Vendor ID", () => {
   const migration = read("docs/supabase/20260911_task_065_gas_vendor_task_link.sql");
   const acl = read("docs/supabase/20260911_task_065_gas_vendor_task_link_acl.sql");
