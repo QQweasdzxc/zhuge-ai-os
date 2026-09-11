@@ -108,16 +108,35 @@ test("vendor update keeps multi-select categories in one Sheet field", async () 
   assert.equal(row.businessCategory, "採購、總務");
 });
 
+test("legacy vendor ID backfill is server-owned and row-scoped", async () => {
+  let request;
+  const VendorSheetService = loadVendorService(async (_name, body) => {
+    request = body;
+    return {
+      vendorId: "GAS-V0206",
+      vendor: { rowNumber: 17, vendorName: "Legacy Vendor", vendorId: "GAS-V0206", businessCategory: "採購" }
+    };
+  });
+  const row = await new VendorSheetService().ensureVendorId(17);
+  assert.equal(request.action, "ensure_vendor_id");
+  assert.equal(request.rowNumber, 17);
+  assert.equal(request.vendorId, undefined);
+  assert.equal(row.vendorId, "GAS-V0206");
+});
+
 test("vendor source and runtime expose the additive category/create contract", () => {
   const bridge = read("supabase/functions/gas-vendor-bridge/index.ts");
   const service = read("app/Board/procurement/vendor-sheet-service.js");
   const client = read("app/Board/procurement/vendor-list.js");
   assert.match(bridge, /const RANGE = "A:U"/);
   assert.match(bridge, /businessCategory/);
-  assert.match(bridge, /action !== "read" && action !== "update" && action !== "create"/);
+  assert.match(bridge, /action !== "read" && action !== "update" && action !== "create" && action !== "ensure_vendor_id"/);
+  assert.match(bridge, /async function ensureVendorId/);
   assert.match(bridge, /function nextVendorId/);
   assert.match(service, /range:"A:U"/);
   assert.match(service, /async bridgeCreate\(vendor\)/);
+  assert.match(service, /async bridgeEnsureVendorId\(rowNumber\)/);
+  assert.match(service, /async ensureVendorId\(rowNumber/);
   assert.match(client, /data-vendor-category/);
   assert.match(client, /data-vendor-column-options/);
   assert.match(client, /顯示欄位/);
@@ -126,5 +145,8 @@ test("vendor source and runtime expose the additive category/create contract", (
   assert.match(client, /name="businessCategory"/);
   assert.match(client, /data-vendor-add/);
   assert.match(client, /service\.create\(patch/);
+  assert.match(client, /正在補齊廠商識別/);
   assert.doesNotMatch(client, /Vendor ID 將由/);
+  assert.match(client, /vendor-dialog-scroll/);
+  assert.match(read("app/Board/procurement/procurement.css"), /height:100dvh/);
 });

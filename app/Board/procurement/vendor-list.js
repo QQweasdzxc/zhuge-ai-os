@@ -72,6 +72,7 @@
     let rows=[];
     let selected=null;
     let editorMode="edit";
+    const pendingVendorBackfills=new Map();
     const visibleColumns=new Set(COLUMN_DEFS.filter(column=>column.defaultVisible).map(column=>column.key));
     const coreMarkup=CORE_FIELDS.map(field=>fieldMarkup(field)).join("");
     const moreMarkup=MORE_FIELDS.map(field=>fieldMarkup(field)).join("");
@@ -83,7 +84,7 @@
       <div class="vendor-table-wrap"><table class="vendor-table" data-vendor-table><thead data-vendor-head></thead><tbody data-vendor-body></tbody></table></div>
       <div class="vendor-mobile-list" data-vendor-mobile-list></div><div class="vendor-empty" data-vendor-empty hidden>找不到符合條件的廠商。</div>
     </section>
-    <dialog class="vendor-dialog" data-vendor-dialog><form data-vendor-form novalidate><div class="vendor-dialog-head"><div><div class="vendor-dialog-kicker">廠商資料</div><h3 data-vendor-title>廠商資料</h3></div><button type="button" data-vendor-close aria-label="關閉">×</button></div><section class="vendor-form-section"><h4>常用資料</h4><div class="vendor-form">${coreMarkup}${categoryMarkup()}</div></section><details class="vendor-more-fields"><summary>更多資料（選填）</summary><div class="vendor-form">${moreMarkup}</div></details><div class="vendor-dialog-actions"><span data-vendor-save-state aria-live="polite"></span><button type="button" data-vendor-cancel>取消</button><button type="button" class="primary" data-vendor-save>儲存資料</button></div></form></dialog>`;
+    <dialog class="vendor-dialog" data-vendor-dialog><form data-vendor-form novalidate><div class="vendor-dialog-head"><div><div class="vendor-dialog-kicker">廠商資料</div><h3 data-vendor-title>廠商資料</h3></div><button type="button" data-vendor-close aria-label="關閉">×</button></div><div class="vendor-dialog-scroll"><section class="vendor-form-section"><h4>常用資料</h4><div class="vendor-form">${coreMarkup}${categoryMarkup()}</div></section><details class="vendor-more-fields"><summary>更多資料（選填）</summary><div class="vendor-form">${moreMarkup}</div></details></div><div class="vendor-dialog-actions"><span data-vendor-save-state aria-live="polite"></span><button type="button" data-vendor-cancel>取消</button><button type="button" class="primary" data-vendor-save>儲存資料</button></div></form></dialog>`;
     const $=selector=>root.querySelector(selector);
     const body=$("[data-vendor-body]");
     const head=$("[data-vendor-head]");
@@ -178,10 +179,37 @@
       categoryError.textContent="";
       $(".vendor-more-fields").open=false;
     }
-    function openEditor(rowNumber){
-      selected=rows.find(row=>row.rowNumber===Number(rowNumber));
-      if(!selected)return;
+    async function ensureVendorId(row){
+      const key=String(Number(row.rowNumber)||0);
+      if(!pendingVendorBackfills.has(key)){
+        const pending=service.ensureVendorId(row.rowNumber,{onProgress:setProgress}).finally(()=>pendingVendorBackfills.delete(key));
+        pendingVendorBackfills.set(key,pending);
+      }
+      return pendingVendorBackfills.get(key);
+    }
+    async function openEditor(rowNumber){
+      const candidate=rows.find(row=>row.rowNumber===Number(rowNumber));
+      if(!candidate)return;
+      const candidateRowNumber=Number(candidate.rowNumber);
+      selected=candidate;
       editorMode="edit";
+      if(!String(selected.vendorId||"").trim()){
+        setSync("正在補齊廠商識別…","loading");
+        try{
+          const ensured=await ensureVendorId(candidate);
+          const index=rows.findIndex(row=>row.rowNumber===candidateRowNumber);
+          if(index>=0)rows[index]=ensured;
+          if(Number(selected?.rowNumber)===candidateRowNumber)selected=index>=0?rows[index]:ensured;
+          else return;
+          finishProgress();
+          setSync(`已更新 · ${new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})}`,"ok");
+        }catch(error){
+          console.error(error);
+          setProgress({phase:"error",percent:0,message:error.message||"廠商識別補齊失敗"});
+          setSync(error.message||"廠商識別補齊失敗","error");
+          return;
+        }
+      }
       $("[data-vendor-title]").textContent=selected.vendorName||"廠商資料";
       setEditorValues(selected);
       $("[data-vendor-save-state]").textContent="";
