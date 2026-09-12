@@ -135,11 +135,13 @@ test("D: parity treats a non-pass authority check as a real conformance gap", ()
   assert.match(Parity.formatReport({ authorityConformance: failClosed }), /Authority Conformance：fail_closed/);
 });
 
-test("C: formal runtime keeps WorkTodo outside the new C instance lifecycle until its safe replacement", () => {
+test("C: formal WorkTodo runtime adopts the shared C instance lifecycle on the existing board", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
   const boardRead = read("shared/board/board-read-service.js");
-  assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\)/);
-  assert.doesNotMatch(runtime, /const cInstanceRuntime = \[[^\]]*worktodo/);
+  assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\) \|\| state\.applicationScope === "worktodo"/);
+  assert.match(runtime, /state\.cNativeWorkTodo = state\.applicationScope === "worktodo"/);
+  assert.match(runtime, /readOnly: state\.readOnly/);
+  assert.match(runtime, /legacyApplicationScope: state\.applicationScope === "procurement"[\s\S]*state\.applicationScope === "worktodo" \? "worktodo"/);
   assert.match(boardRead, /board_c_reconcile_completion_archive_lifecycle_v2/);
 });
 

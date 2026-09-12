@@ -1923,6 +1923,7 @@
     const requestedBoardInstanceId = String(instanceOptions.boardInstanceId || "").trim();
     const legacyApplicationScope = String(instanceOptions.legacyApplicationScope || "").trim();
     const requestedConsumerId = String(instanceOptions.consumerId || requestedBoardInstanceId || "c").trim();
+    const readOnly = instanceOptions.readOnly === true;
     let instancePromise;
     const resolveInstance = async () => {
       if (!instancePromise) {
@@ -1955,9 +1956,9 @@
       templateKey,
       boardInstanceId: requestedBoardInstanceId,
       legacyApplicationScope,
-      readOnly: instanceOptions.workflowReadOnly === true,
-      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true,
-      allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true
+      readOnly: readOnly || instanceOptions.workflowReadOnly === true,
+      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true && !readOnly,
+      allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true && !readOnly
     });
     const completionArchiveLifecycleEnabled = instanceOptions.completionArchiveLifecycle === true;
 
@@ -1984,6 +1985,17 @@
     // workspace/name guess.
     async function instanceReconcileCompletionArchiveOnLoad() {
       const instance = await resolveInstance();
+      if (readOnly) {
+        return Object.freeze({
+          ...completionArchiveAdoptionState(
+            instance,
+            "read_only",
+            "C_ARCHIVE_READ_ONLY_COMPARISON",
+            "WorkTodo（舊）只讀取同一份正式資料，不執行 Completion Archive 寫入。"
+          ),
+          readOnly: true
+        });
+      }
       if (!completionArchiveLifecycleEnabled) {
         return completionArchiveAdoptionState(
           instance,
@@ -2037,6 +2049,7 @@
         templateKey: String(instance.template_key || templateKey),
         authorizationMode: String(instance.authorization_mode || ""),
         isTemplateInstance: instance.is_template_instance === true,
+        readOnly,
         consumerId: requestedConsumerId
       });
     }
@@ -2304,11 +2317,12 @@
         ? instanceReconcileWorkspaceDecision
         : null
     );
-    return Object.freeze({
+    const service = Object.freeze({
       applicationScope: "c",
       templateKey,
       consumerId: requestedConsumerId,
       boardInstanceId: requestedBoardInstanceId,
+      readOnly,
       lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
       lifecycle,
       workflowContract: C_WORKFLOW_CANONICAL_CONTRACT,
@@ -2375,6 +2389,60 @@
       getTaskVendorLink: instanceGetTaskVendorLink,
       setTaskVendorLink: instanceSetTaskVendorLink,
       governanceAction: instanceGovernanceAction
+    });
+    if (!readOnly) return service;
+
+    // The old comparison entry shares the same Board Instance data but must
+    // never become a second writer.  Keep reads and the C Workflow read model,
+    // while replacing every mutating surface with one explicit fail-closed
+    // error.  This is a service boundary, not a UI-only disable.
+    const blocked = async () => {
+      const error = new Error("WorkTodo（舊）為唯讀比較入口，不能修改正式資料。");
+      error.code = "WORKTODO_OLD_READ_ONLY";
+      throw error;
+    };
+    return Object.freeze({
+      ...service,
+      readOnly: true,
+      lifecycle: createLifecycleCapability(null, false, null),
+      completionArchiveLifecycle: Object.freeze({
+        ...service.completionArchiveLifecycle,
+        readOnly: true,
+        reconcileOnLoad: false
+      }),
+      createWorkspace: blocked,
+      saveWorkspaceNotificationSettings: blocked,
+      renameWorkspace: blocked,
+      deleteWorkspace: blocked,
+      reorderWorkspaces: blocked,
+      moveTaskWorkspace: blocked,
+      createTask: blocked,
+      updateTaskTitle: blocked,
+      updateTaskContent: blocked,
+      updateTaskDueDate: blocked,
+      deleteTask: blocked,
+      addTaskChecklistItem: blocked,
+      updateTaskChecklistItem: blocked,
+      deleteTaskChecklistItem: blocked,
+      createChecklistItem: blocked,
+      updateChecklistItem: blocked,
+      acceptTaskFromQjcDrop: blocked,
+      reconcileWorkspaceDecision: blocked,
+      reconcileCompletionArchiveLifecycle: blocked,
+      addTaskProgressNote: blocked,
+      notifyTaskProgress: blocked,
+      editTaskProgressNote: blocked,
+      deleteTaskProgressNote: blocked,
+      setAgreementSchedule: blocked,
+      prepareTaskAttachment: blocked,
+      prepareProgressNoteAttachment: blocked,
+      uploadTaskAttachment: blocked,
+      completeTaskAttachment: blocked,
+      updateTaskAttachmentMetadata: blocked,
+      deleteTaskAttachment: blocked,
+      deleteProgressNoteAttachment: blocked,
+      setTaskVendorLink: blocked,
+      governanceAction: blocked
     });
   }
 

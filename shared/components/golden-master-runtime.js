@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, authorityConformance: undefined, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", readOnly: false, cNativeWorkTodo: false, entryLabel: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, authorityConformance: undefined, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -410,15 +410,21 @@
     ? sharedActivityTextRenderer.render(value)
     : esc(value).replace(/\r?\n/g, "<br>");
 
+  function readOnlyRuntimeError() {
+    const error = new Error("WorkTodo（舊）為唯讀比較入口，不能修改正式資料。");
+    error.code = "WORKTODO_OLD_READ_ONLY";
+    return error;
+  }
+
   function sharedTaskActionContract(task) {
     if (!sharedActionContractFactory?.create || !sharedActionAdapters?.create) {
       const error = new Error("Template C Shared Action Contract 尚未載入。");
       error.code = "SHARED_ACTION_CONTRACT_UNAVAILABLE";
       throw error;
     }
-    const cTemplate = state.applicationScope === "c";
+    const cTemplate = state.applicationScope === "c" || state.cNativeWorkTodo;
     const workTodo = !cTemplate && (state.applicationScope === "worktodo" || isWorkTodoTask(task));
-    const cacheKey = `${cTemplate ? "c" : workTodo ? "worktodo" : "ai_board"}:${task?.id || "global"}`;
+    const cacheKey = `${state.cNativeWorkTodo ? "c-worktodo" : cTemplate ? "c" : workTodo ? "worktodo" : "ai_board"}:${task?.id || "global"}`;
     const cached = state.sharedActionContracts.get(cacheKey);
     if (cached) return cached;
     const dataService = typeof DataService !== "undefined" ? DataService : root.DataService;
@@ -434,7 +440,7 @@
       cTemplate
     });
     const contract = sharedActionContractFactory.create({
-      consumer: cTemplate ? "c_mdtk" : workTodo ? "worktodo" : "ai_board",
+      consumer: state.cNativeWorkTodo ? "worktodo" : cTemplate ? "c_mdtk" : workTodo ? "worktodo" : "ai_board",
       adapter
     });
     state.sharedActionContracts.set(cacheKey, contract);
@@ -442,6 +448,7 @@
   }
 
   async function executeSharedTaskAction(task, action, payload = {}, options = {}) {
+    if (state.readOnly && action !== "confirm") throw readOnlyRuntimeError();
     const contract = sharedTaskActionContract(task);
     return contract.execute(action, { taskId: task?.id, ...payload }, {
       key: options.key,
@@ -497,7 +504,10 @@
   function isWorkTodoMode() {
     const path = String(root.location?.pathname || "");
     const consumer = queryParameter("consumer");
-    return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
+    return consumer === "worktodo-new" || consumer === "worktodo-old" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
+  }
+  function isWorkTodoComparisonMode() {
+    return isWorkTodoMode() && queryParameter("consumer") === "worktodo-old";
   }
   function isProcurementMode() {
     const path = String(root.location?.pathname || "");
@@ -515,7 +525,7 @@
       || /\/app\/Board\/investment\/(?:index\.html)?$/i.test(path);
   }
   function isWorkTodoTask(task) {
-    return state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
+    return state.cNativeWorkTodo || state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
   }
   function workItemLabel(task) {
     return state.applicationScope === "c" ? String(state.taskCodePrefix || (state.boardIsTemplate ? "MDTK" : "C")).toUpperCase() : state.applicationScope === "procurement" ? "GAS" : isWorkTodoTask(task) ? "WLTK" : "TASK";
@@ -531,7 +541,21 @@
   }
   function workTodoStatus(task) {
     const raw = String(task?.rawStatus || task?.status || "not_started").trim().toLowerCase().replace(/[\s-]+/g, "_");
-    return Object.prototype.hasOwnProperty.call(WORKTODO_STATUS_LABELS, raw) ? raw : "not_started";
+    const aliases = {
+      ready: "not_started",
+      todo: "not_started",
+      backlog: "not_started",
+      inprogress: "in_progress",
+      doing: "in_progress",
+      progress: "in_progress",
+      qa: "waiting_acceptance",
+      review: "waiting_acceptance",
+      done: "completed",
+      complete: "completed",
+      completed: "completed"
+    };
+    const normalized = aliases[raw] || raw;
+    return Object.prototype.hasOwnProperty.call(WORKTODO_STATUS_LABELS, normalized) ? normalized : "not_started";
   }
   function readableWorkStatus(task) {
     if (isWorkTodoTask(task)) return WORKTODO_STATUS_LABELS[workTodoStatus(task)] || "待開始";
@@ -648,7 +672,9 @@
   function isMainBoardWorkspace(workspace) {
     if (workspace?.archivedAt) return false;
     if (state.applicationScope === "worktodo") {
-      return workspace?.active === true && workspace?.applicationScope === "worktodo";
+      return workspace?.active === true && (state.cNativeWorkTodo
+        ? String(workspace?.boardInstanceId || "") === String(state.boardInstanceId || "")
+        : workspace?.applicationScope === "worktodo");
     }
     if (state.applicationScope === "procurement") {
       return workspace?.active === true && workspace?.applicationScope === "procurement";
@@ -684,7 +710,7 @@
   }
   function taskMarkup(task, options = {}) {
     const terminal = activeService().isGovernanceTerminal?.(task) || false;
-    const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    const archiveOnly = options.readOnly === true || state.readOnly || isArchiveTask(task);
     const viewModel = workTodoCardViewModel(task);
     const governance = terminal
       ? `<div class="governance-history-note"><strong>${esc(statusLabel(task.status))}</strong>${task.resolutionReason ? `：${esc(task.resolutionReason)}` : ""}${task.mergedInto ? ` · 目標：${esc(task.mergedInto)}` : task.linkedTo ? ` · 關聯：${esc(task.linkedTo)}` : ""}</div>`
@@ -779,14 +805,14 @@
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: !completion && !legacyTerminal && state.applicationScope !== "procurement",
-        addHtml: !completion && !legacyTerminal && state.applicationScope !== "procurement"
+        reorderable: !state.readOnly && !completion && !legacyTerminal && state.applicationScope !== "procurement",
+        addHtml: !completion && !state.readOnly && !legacyTerminal && state.applicationScope !== "procurement"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
         // Completion remains lifecycle-controlled for move/delete, but its
         // display label is still user-customizable through the same menu as
         // every other workspace. The canonical key is never editable here.
-        controlsHtml: state.applicationScope === "procurement" ? "" : (completion
+        controlsHtml: state.applicationScope === "procurement" || state.readOnly ? "" : (completion
           ? "<span class=\"workspace-lifecycle-label\" title=\"由 PM Acceptance lifecycle 管理\" aria-hidden=\"true\">✓</span>"
           : "") + menuButton
       };
@@ -989,8 +1015,23 @@
     };
   }
   function syncRuntimeIdentityLabels() {
-    if (state.applicationScope !== "c") return;
+    if (state.applicationScope !== "c" && !state.cNativeWorkTodo) return;
     const label = workItemLabel();
+    const comparisonEntry = document.querySelector("[data-worktodo-old-entry]");
+    if (comparisonEntry) {
+      if (state.readOnly) {
+        comparisonEntry.textContent = "WorkTodo";
+        comparisonEntry.title = "返回 WorkTodo 正式入口";
+        comparisonEntry.setAttribute("href", String(root.location?.pathname || "./"));
+      } else {
+        comparisonEntry.textContent = "WorkTodo（舊）";
+        comparisonEntry.title = "WorkTodo（舊）唯讀比較入口";
+        comparisonEntry.setAttribute("href", "?consumer=worktodo-old");
+      }
+    }
+    if (state.cNativeWorkTodo && root.document) {
+      root.document.title = state.readOnly ? "Zhuge AI OS｜WorkTodo（舊）" : "Zhuge AI OS｜WorkTodo";
+    }
     const addModal = document.getElementById("addCardModal");
     const addTitle = addModal?.querySelector(".modalhead h2");
     const addFieldLabel = addModal?.querySelector("label[for='taskTitle']");
@@ -1015,8 +1056,10 @@
     if (header && !state.boardIsTemplate && state.boardName) {
       const title = header.querySelector(".zhuge-shared-header-copy h1");
       const description = header.querySelector(".zhuge-shared-header-copy > p:last-child");
-      if (title) title.textContent = state.boardName;
-      if (description) description.textContent = `${label} · 採用 Published C 的共用看板`;
+      if (title) title.textContent = state.entryLabel || state.boardName;
+      if (description) description.textContent = state.readOnly
+        ? `${label} · WorkTodo（舊）唯讀比較入口`
+        : `${label} · 採用 Module C Shared Runtime 的正式看板`;
     }
   }
   function archiveTasks() {
@@ -1333,6 +1376,10 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   async function reorderWorkspace(draggedId, targetId) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     if (!draggedId || !targetId || draggedId === targetId) return;
     const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
     const visible = ordered.filter(isMainBoardWorkspace);
@@ -1354,6 +1401,11 @@
     }
   }
   async function deleteWorkspace(workspace) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      closeWorkspaceMenus();
+      return;
+    }
     const taskCount = workspaceTaskCount(workspace);
     if (isLegacyTerminalWorkspace(workspace)) {
       setBanner(taskCount > 0
@@ -1402,6 +1454,10 @@
     }
   }
   function openWorkspaceMenu(button, workspace) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     const header = button.closest("[data-workspace-header]");
     if (!header || !workspace) return;
     closeWorkspaceMenus();
@@ -1450,6 +1506,10 @@
   }
 
   async function openWorkspaceSettings(workspace) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     if (!workspace?.id) return;
     const service = state.service || defaultService;
     if (typeof service?.getWorkspaceNotificationSettings !== "function" || typeof service?.saveWorkspaceNotificationSettings !== "function") {
@@ -1575,6 +1635,10 @@
     title.replaceChildren(document.createTextNode(String(name || "")));
   }
   function beginWorkspaceRename(button, workspace) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     const title = button.closest("[data-workspace-header]")?.querySelector(".workspace-title");
     const originalName = String(workspace?.name || "").trim();
     if (!title || !originalName || title.querySelector(".workspace-rename-input")) return;
@@ -1653,7 +1717,7 @@
   }
   function wireWorkspaceControls() {
     document.querySelectorAll("[data-workspace-add]").forEach(button => {
-      button.onclick = () => openQuickAdd(button.dataset.workspaceAdd);
+      button.onclick = () => { if (!state.readOnly) openQuickAdd(button.dataset.workspaceAdd); };
     });
     document.querySelectorAll("[data-workspace-menu]").forEach(button => {
       button.onclick = event => {
@@ -1675,7 +1739,7 @@
     document.querySelectorAll(".taskcard").forEach(card => {
       const task = state.taskById.get(card.dataset.taskId);
       if (!task) return;
-      const archiveOnly = isArchiveTask(task);
+      const archiveOnly = state.readOnly || isArchiveTask(task);
       card.onclick = () => openTaskDetail(task, { readOnly: archiveOnly });
       card.onkeydown = event => {
         if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTaskDetail(task, { readOnly: archiveOnly }); }
@@ -1685,7 +1749,7 @@
     const boardHandlers = {
       canDragCard: id => {
         const task = state.taskById.get(String(id));
-        return Boolean(task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
+        return Boolean(!state.readOnly && task && !isArchiveTask(task) && !activeService().isGovernanceTerminal?.(task));
       },
       onCardDrop: async ({ cardId, id }) => {
         const task = state.taskById.get(String(cardId));
@@ -1697,7 +1761,7 @@
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return Boolean(workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id }) => {
         return reorderWorkspace(sourceId, id);
@@ -1837,7 +1901,7 @@
       isMotherTemplate: state.boardIsTemplate,
       itemLabel: workItemLabel(),
       canCreateConsumer: state.boardIsTemplate,
-      readOnly: state.applicationScope === "procurement"
+      readOnly: state.readOnly || state.applicationScope === "procurement"
     });
     const modal = document.getElementById("taskDetailModal");
     if (!modal || modal.dataset.goldenMasterWired === "true") return;
@@ -2133,6 +2197,7 @@
     return String(item?.stage || "").toLowerCase() === "qjc" && (item?.itemKey === "pm-acceptance" || /pm[-_ ]?acceptance|pm[-_ ]?qa|驗收/.test(identity));
   }
   async function acceptThroughCContract(input = {}) {
+    if (state.readOnly) throw readOnlyRuntimeError();
     const task = state.taskById.get(String(input.taskId || ""));
     const workflow = state.workflowCapability || activeService()?.workflow;
     const targetStep = workflowCompletionStep();
@@ -3246,15 +3311,15 @@
     const previousChecklistPanel = body?.querySelector("[data-task-checklist-panel]");
     const sameTaskRefresh = previousChecklistPanel && String(previousTaskId || "") === String(task?.id || "");
     const checklistOpen = sameTaskRefresh ? previousChecklistPanel.open : true;
-    const cTemplate = state.applicationScope === "c";
+    const cTemplate = state.applicationScope === "c" || state.cNativeWorkTodo;
     const workTodoDomainMode = !cTemplate && isWorkTodoTask(task);
     const workTodo = workTodoDomainMode || cTemplate;
-    const archiveOnly = options.readOnly === true || isArchiveTask(task);
+    const archiveOnly = options.readOnly === true || state.readOnly || isArchiveTask(task);
     state.activeTaskId = String(task?.id || "");
     const drawer = root.ZhugeSharedTaskDrawer;
     const drawerRenderer = root.ZhugeGoldenMaster?.renderDrawer;
     const drawerContract = root.ZhugeGoldenMaster?.assertSharedDrawerContract?.({
-      consumer: cTemplate ? "c_mdtk" : workTodo ? "worktodo" : "ai-board",
+      consumer: state.cNativeWorkTodo ? "worktodo" : cTemplate ? "c_mdtk" : workTodo ? "worktodo" : "ai-board",
       adapter: cTemplate
         ? sharedActionAdapters?.create?.({ task, service: activeService(), applicationScope: "c", cTemplate: true })
         : workTodoDomainMode ? root.ZhugeWorkTodoTaskAdapter : null,
@@ -3297,7 +3362,9 @@
         itemLabel,
         titleEditable: !archiveOnly,
         headerMenuHtml: archiveOnly ? "" : `<details class="shared-task-card-menu"><summary aria-label="卡片操作" title="卡片操作">⋯</summary><div class="shared-task-card-menu-popover"><button type="button" data-task-card-action="duplicate">📄 複製卡片</button><button class="is-danger" type="button" data-task-card-action="delete">🗑 刪除卡片</button></div></details>`,
-          subtitle: cTemplate
+          subtitle: state.cNativeWorkTodo
+            ? (archiveOnly ? "WorkTodo · 📦 Read-only" : "WorkTodo · Module C Shared Task Drawer")
+            : cTemplate
             ? (archiveOnly ? "C 母版 · 📦 Read-only" : "C 母版 · Shared Task Drawer")
             : workTodo
             ? (archiveOnly ? "工作待辦 · 📦 Archive Read-only" : "工作待辦 · Shared Task Drawer")
@@ -3436,6 +3503,10 @@
     } catch (error) { setBanner("Checklist Evidence 更新失敗：" + esc(error && error.message || "未知錯誤"), "error"); }
   }
   function openQuickAdd(workspace) {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     state.pendingCreateWorkspaceId = String(workspace || "");
     const modal = document.getElementById("addCardModal");
     if (!modal) return;
@@ -3456,6 +3527,10 @@
     drawer?.classList.remove("is-open");
   }
   function openWorkspaceDrawer() {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     const backdrop = document.getElementById("workspaceCreateDrawerBackdrop");
     const drawer = document.getElementById("workspaceCreateDrawer");
     if (!backdrop || !drawer) return;
@@ -3476,6 +3551,10 @@
     drawer?.setAttribute("aria-hidden", "true");
   }
   async function createWorkspace() {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     const input = document.getElementById("workspaceName");
     const name = input?.value?.trim() || "";
     if (!name) {
@@ -3954,7 +4033,7 @@
       applicationScope: state.applicationScope,
       isMotherTemplate: state.boardIsTemplate,
       canCreateConsumer: state.boardIsTemplate,
-      readOnly: state.applicationScope === "procurement"
+      readOnly: state.readOnly || state.applicationScope === "procurement"
     }) || "";
     const defaultWorkspaceKey = state.applicationScope === "c"
       ? defaultBoardWorkspaceKey()
@@ -3968,6 +4047,10 @@
     renderModuleReleaseNotice();
   }
   async function createCard() {
+    if (state.readOnly) {
+      setBanner(readOnlyRuntimeError().message, "error");
+      return;
+    }
     const modal = document.getElementById("addCardModal");
     const summary = modal?.querySelector("#taskSummary")?.value?.trim() || "";
     const usageScenario = modal?.querySelector("#taskUsageScenario")?.value?.trim() || "";
@@ -3977,7 +4060,7 @@
     const workspaceId = workspace?.id || null;
     if (!title) { setBanner("請輸入 " + itemLabel + " 標題或內容。", "error"); return; }
     try {
-      if (state.applicationScope === "worktodo") {
+      if (state.applicationScope === "worktodo" && !state.cNativeWorkTodo) {
         await executeSharedTaskAction(null, "createTask", { title, summary, status: "not_started", usageScenario, workspaceId }, { refresh: false, reopen: false });
       } else {
         await executeSharedTaskAction(null, "createTask", { title, summary, status: state.applicationScope === "c" ? "not_started" : "ready", usageScenario, workspaceId }, { refresh: false, reopen: false });
@@ -3994,7 +4077,7 @@
     if (!options.quiet) clearBanner();
     const service = activeService();
     const loadOptions = { applicationScope: state.applicationScope };
-    if (state.applicationScope === "c" && state.boardInstanceId) loadOptions.boardInstanceId = state.boardInstanceId;
+    if ((state.applicationScope === "c" || state.cNativeWorkTodo) && state.boardInstanceId) loadOptions.boardInstanceId = state.boardInstanceId;
     state.refreshPromise = service.load(loadOptions).then(async result => {
       const previousIdentity = `${state.boardName}|${state.taskCodePrefix}|${state.boardIsTemplate}|${state.consumerId}`;
       state.boardInstanceId = result.boardInstanceId || state.boardInstanceId;
@@ -4103,7 +4186,7 @@
       isMotherTemplate: state.boardIsTemplate,
       itemLabel: workItemLabel(),
       canCreateConsumer: state.boardIsTemplate,
-      readOnly: state.applicationScope === "procurement"
+      readOnly: state.readOnly || state.applicationScope === "procurement"
     });
     renderBoardHeaderActions();
     wireArchiveControls();
@@ -4153,22 +4236,25 @@
     state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
     state.showTemplateReleasePanel = options.showTemplateReleasePanel !== false;
     state.consumerExtensions = options.consumerExtensions || null;
+    state.cNativeWorkTodo = state.applicationScope === "worktodo";
+    state.readOnly = state.cNativeWorkTodo && (options.readOnly === true || isWorkTodoComparisonMode());
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
     state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
     state.consumerId = state.applicationScope === "c"
       ? (state.boardIsTemplate ? "c" : requestedBoardInstanceId)
       : moduleConsumerId(state.applicationScope);
-    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : state.applicationScope === "procurement" ? "庶務行政" : "";
+    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : state.applicationScope === "procurement" ? "庶務行政" : state.cNativeWorkTodo && state.readOnly ? "WorkTodo（舊）" : "";
+    state.entryLabel = state.cNativeWorkTodo && state.readOnly ? "WorkTodo（舊）" : state.cNativeWorkTodo ? "WorkTodo" : "";
     state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : state.applicationScope === "procurement" ? "GAS" : "";
     state.dataStatus = "available";
     state.dataSource = "";
-    const workflowReadOnly = state.applicationScope === "c" && isInvestmentCMode();
+    const workflowReadOnly = state.readOnly || state.applicationScope === "c" && isInvestmentCMode();
     const cWorkflowRuntime = ["c", "ai_board", "worktodo", "procurement"].includes(state.applicationScope);
     // AI Board is a C Board Instance consumer too.  Keep its data context
     // on the same shared Instance Service as C Mother and GAS so its reload
     // path cannot invoke the global legacy archive reconciler.
-    const cInstanceRuntime = ["c", "ai_board", "procurement"].includes(state.applicationScope);
+    const cInstanceRuntime = ["c", "ai_board", "procurement"].includes(state.applicationScope) || state.applicationScope === "worktodo";
     const completionArchiveRuntime = cInstanceRuntime && !isInvestmentCMode();
     state.service = options.service || (cInstanceRuntime
       ? defaultService.createInstanceService({
@@ -4176,11 +4262,12 @@
           boardInstanceId: requestedBoardInstanceId,
           legacyApplicationScope: state.applicationScope === "procurement"
             ? "procurement"
-            : state.applicationScope === "ai_board" ? "ai_board" : "",
+            : state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "worktodo" ? "worktodo" : "",
           consumerId: state.consumerId,
           workflowReadOnly,
-          allowExistingCardAdoption: cWorkflowRuntime,
-          allowWorkspaceMovement: cWorkflowRuntime,
+          readOnly: state.readOnly,
+          allowExistingCardAdoption: cWorkflowRuntime && !state.readOnly,
+          allowWorkspaceMovement: cWorkflowRuntime && !state.readOnly,
           completionArchiveLifecycle: completionArchiveRuntime
         })
       : defaultService);
@@ -4190,8 +4277,8 @@
           boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
           legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "procurement" ? "procurement" : "",
           readOnly: workflowReadOnly,
-          allowExistingCardAdoption: cWorkflowRuntime,
-          allowWorkspaceMovement: cWorkflowRuntime
+          allowExistingCardAdoption: cWorkflowRuntime && !state.readOnly,
+          allowWorkspaceMovement: cWorkflowRuntime && !state.readOnly
         })
       : null;
     state.workflowCapability = options.workflowCapability
@@ -4539,9 +4626,12 @@
       const workflow = state.workflowCapability || service?.workflow;
       return {
         applicationScope: state.applicationScope,
+        cNativeWorkTodo: state.cNativeWorkTodo,
+        readOnly: state.readOnly,
         boardIsTemplate: state.boardIsTemplate,
         boardInstanceId: state.boardInstanceId,
         boardName: state.boardName,
+        entryLabel: state.entryLabel,
         taskCodePrefix: state.taskCodePrefix,
         lifecycleContract: lifecycleContract ? JSON.parse(JSON.stringify(lifecycleContract)) : null,
         lifecycleCapabilities: lifecycle.capabilities ? JSON.parse(JSON.stringify(lifecycle.capabilities)) : {},

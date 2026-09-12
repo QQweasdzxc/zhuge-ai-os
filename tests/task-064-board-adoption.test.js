@@ -204,9 +204,92 @@ test("P3 disabled capability does not resolve or reconcile a workflow", async ()
   }
 });
 
+test("same-data WorkTodo comparison service is read-only at the shared service boundary", async () => {
+  const previousSnapshot = global.getSharedSessionSnapshot;
+  global.getSharedSessionSnapshot = authenticatedSession;
+  const gateway = scopedGateway({
+    workflow: {
+      contract: "module-c-lifecycle-acceptance-v2",
+      board_instance_id: INSTANCE_ID,
+      state: null,
+      published: null,
+      draft: null
+    }
+  });
+
+  try {
+    const service = BoardRead.createInstanceService({
+      gateway,
+      boardInstanceId: INSTANCE_ID,
+      consumerId: "worktodo-old",
+      readOnly: true,
+      completionArchiveLifecycle: true
+    });
+    const result = await service.load();
+    assert.equal(result.boardInstanceId, INSTANCE_ID);
+    assert.equal(result.readOnly, true);
+    assert.equal(result.completionArchive.state, "read_only");
+    assert.equal(result.completionArchive.reasonCode, "C_ARCHIVE_READ_ONLY_COMPARISON");
+    assert.equal(service.workflow.readOnly, true);
+    await assert.rejects(
+      () => service.moveTaskWorkspace("task-066", "workspace-qjc"),
+      error => error.code === "WORKTODO_OLD_READ_ONLY"
+    );
+    await assert.rejects(
+      () => service.createTask({ title: "must not write" }),
+      error => error.code === "WORKTODO_OLD_READ_ONLY"
+    );
+    await assert.rejects(
+      () => service.acceptTaskFromQjcDrop({ taskId: "task-066" }),
+      error => error.code === "WORKTODO_OLD_READ_ONLY"
+    );
+    assert.equal(gateway.calls.some(call => call.type === "rpc" && call.name === "board_c_reconcile_completion_archive_lifecycle_v2"), false);
+    assert.equal(gateway.calls.some(call => call.type === "rpc" && call.name === "board_instance_move_task_workspace"), false);
+  } finally {
+    if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
+    else delete global.getSharedSessionSnapshot;
+  }
+});
+
+test("same-data WorkTodo formal entry resolves the existing Board Instance through C", async () => {
+  const previousSnapshot = global.getSharedSessionSnapshot;
+  global.getSharedSessionSnapshot = authenticatedSession;
+  const gateway = scopedGateway();
+
+  try {
+    const service = BoardRead.createInstanceService({
+      gateway,
+      templateKey: "c",
+      legacyApplicationScope: "worktodo",
+      consumerId: "worktodo",
+      completionArchiveLifecycle: true,
+      allowExistingCardAdoption: true,
+      allowWorkspaceMovement: true
+    });
+    const result = await service.load();
+    assert.equal(result.boardInstanceId, INSTANCE_ID);
+    assert.equal(result.readOnly, false);
+    assert.equal(result.completionArchive.state, "not_adopted");
+    assert.equal(result.completionArchive.cloudMutation, 0);
+    assert.equal(result.tasks.length, 1);
+    assert.equal(result.tasks[0].id, "task-066");
+    assert.equal(gateway.calls.some(call => call.type === "select"
+      && call.table === "board_instances"
+      && call.query.includes("legacy_application_scope=eq.worktodo")), true);
+    assert.equal(gateway.calls.some(call => call.type === "select"
+      && call.table === "board_tasks"
+      && call.query.includes(`board_instance_id=eq.${INSTANCE_ID}`)), true);
+    assert.equal(gateway.calls.some(call => call.type === "rpc"
+      && /^(board_provision|worktodo_)/.test(call.name)), false);
+  } finally {
+    if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
+    else delete global.getSharedSessionSnapshot;
+  }
+});
+
 test("P3 runtime routes AI Board through the shared C Instance Service", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\)/);
+  assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\) \|\| state\.applicationScope === "worktodo"/);
   assert.match(runtime, /completionArchiveLifecycle: completionArchiveRuntime/);
   assert.match(runtime, /legacyApplicationScope: state\.applicationScope === "procurement"[\s\S]*state\.applicationScope === "ai_board" \? "ai_board"/);
   assert.match(runtime, /AI Board is a C Board Instance consumer too/);
