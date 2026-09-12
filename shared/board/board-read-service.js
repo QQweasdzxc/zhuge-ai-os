@@ -81,6 +81,22 @@
     existingDueAtPolicy: "preserve-no-retroactive-recalculation"
   });
 
+  // P2 establishes the instance-scoped lifecycle context used by the future
+  // Consumer adoption phases.  This is a resolver contract only: it does not
+  // duplicate the policy value and it does not switch any Consumer writer.
+  const C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT = Object.freeze({
+    id: "module-c-lifecycle-acceptance-v2",
+    capability: "completion-archive-lifecycle",
+    source: "module-c-mother",
+    owner: "board-instance",
+    scope: "board-instance+published-workflow-version",
+    completionPosition: "published-workflow-step",
+    policy: C_COMPLETION_ARCHIVE_POLICY.id,
+    existingDueAtPolicy: "preserve-no-retroactive-recalculation",
+    failureMode: "fail-closed",
+    reconciliation: "instance-scoped-idempotent"
+  });
+
   function createLifecycleCapability(acceptFromQjcDrop, enabled = true, reconcileWorkspaceDecision = null) {
     const capability = {
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
@@ -408,6 +424,74 @@
       completionAt: source.completion_at || source.completionAt || null,
       archiveDueAt: source.archive_due_at || source.archiveDueAt || null,
       cloudSourceOfTruth: source.cloud_source_of_truth !== false && source.cloudSourceOfTruth !== false,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      raw: source
+    });
+  }
+
+  function normalizeCompletionArchiveContext(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    const policyVersion = Number(source.policy_version ?? source.policyVersion ?? 0);
+    const archiveDelaySeconds = Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0);
+    return Object.freeze({
+      contract: String(source.contract || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id),
+      capability: String(source.capability || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability),
+      scope: String(source.scope || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.scope),
+      boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
+      workflowVersionId: String(source.workflow_version_id || source.workflowVersionId || ""),
+      workflowStatus: String(source.workflow_status || source.workflowStatus || "").toLowerCase(),
+      workflowVersionNo: Number(source.workflow_version_no ?? source.workflowVersionNo ?? 0),
+      publishedWorkflowVersionId: String(source.published_workflow_version_id || source.publishedWorkflowVersionId || ""),
+      taskId: String(source.task_id || source.taskId || ""),
+      currentStepId: String(source.current_step_id || source.currentStepId || ""),
+      currentStepName: String(source.current_step_name || source.currentStepName || ""),
+      currentWorkspaceId: String(source.current_workspace_id || source.currentWorkspaceId || ""),
+      currentWorkspaceName: String(source.current_workspace_name || source.currentWorkspaceName || ""),
+      completionStepId: String(source.completion_step_id || source.completionStepId || ""),
+      completionStepName: String(source.completion_step_name || source.completionStepName || ""),
+      completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
+      completionWorkspaceName: String(source.completion_workspace_name || source.completionWorkspaceName || ""),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyKey: String(source.policy_key || source.policyKey || C_COMPLETION_ARCHIVE_POLICY.policyKey),
+      policyVersion,
+      archiveDelaySeconds,
+      policySource: String(source.policy_source || source.policySource || C_COMPLETION_ARCHIVE_POLICY.source),
+      completionAt: source.completion_at || source.completionAt || null,
+      archiveDueAt: source.archive_due_at || source.archiveDueAt || null,
+      archivedAt: source.archived_at || source.archivedAt || null,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      scopeVerified: source.scope_verified === true || source.scopeVerified === true,
+      cardIdentityPreserved: source.card_identity_preserved === true || source.cardIdentityPreserved === true,
+      cloudSourceOfTruth: source.cloud_source_of_truth !== false && source.cloudSourceOfTruth !== false,
+      raw: source
+    });
+  }
+
+  function normalizeCompletionArchiveReconciliation(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    return Object.freeze({
+      contract: String(source.contract || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id),
+      capability: String(source.capability || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability),
+      action: String(source.action || "reconcile-completion-archive"),
+      state: String(source.state || ""),
+      boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
+      workflowVersionId: String(source.workflow_version_id || source.workflowVersionId || ""),
+      completionStepId: String(source.completion_step_id || source.completionStepId || ""),
+      completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyVersion: Number(source.policy_version ?? source.policyVersion ?? 0),
+      archiveDelaySeconds: Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0),
+      archivedCount: Number(source.archived_count ?? source.archivedCount ?? 0),
+      taskIds: Array.isArray(source.task_ids || source.taskIds)
+        ? (source.task_ids || source.taskIds).map(String)
+        : [],
+      idempotent: source.idempotent === true,
+      atomic: source.atomic === true,
+      scopeVerified: source.scope_verified === true || source.scopeVerified === true,
       existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
       raw: source
     });
@@ -915,6 +999,92 @@
       throw error;
     }
     return policy;
+  }
+
+  async function resolveCompletionArchiveContext(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = String(taskId ?? "").trim();
+    if (!value) {
+      const error = new Error("解析 Completion Archive Context 需要卡片識別資訊；不會猜測流程。");
+      error.code = "C_ARCHIVE_TASK_REQUIRED";
+      throw error;
+    }
+
+    const args = { p_task_id: value };
+    if (Object.prototype.hasOwnProperty.call(options, "boardInstanceId")) {
+      args.p_board_instance_id = options.boardInstanceId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+      args.p_workflow_version_id = options.workflowVersionId || null;
+    }
+
+    const context = normalizeCompletionArchiveContext(await gateway.rpc(
+      "board_c_resolve_completion_archive_context",
+      args
+    ));
+    const valid = context.scopeVerified
+      && context.cardIdentityPreserved
+      && context.taskId === value
+      && Boolean(context.boardInstanceId)
+      && Boolean(context.workflowVersionId)
+      && Boolean(context.currentStepId)
+      && Boolean(context.currentWorkspaceId)
+      && Boolean(context.completionStepId)
+      && Boolean(context.completionWorkspaceId)
+      && context.policyVersion > 0
+      && Number.isFinite(context.archiveDelaySeconds)
+      && context.archiveDelaySeconds > 0;
+    if (!valid) {
+      const error = new Error("Module C Completion Archive Context 不完整；已安全停止，不會猜測 Instance／Workflow／Completion Workspace。");
+      error.code = "C_COMPLETION_ARCHIVE_CONTEXT_INVALID";
+      throw error;
+    }
+    return context;
+  }
+
+  async function reconcileCompletionArchiveLifecycle(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const boardInstanceId = String(options.boardInstanceId || "").trim();
+    if (!boardInstanceId) {
+      const error = new Error("執行 Completion Archive Reconciliation 需要 Board Instance；資料未變更。");
+      error.code = "C_ARCHIVE_INSTANCE_REQUIRED";
+      throw error;
+    }
+
+    const args = { p_board_instance_id: boardInstanceId };
+    if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+      args.p_workflow_version_id = options.workflowVersionId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "taskId")) {
+      const taskId = String(options.taskId || "").trim();
+      if (!taskId) {
+        const error = new Error("執行 Completion Archive Reconciliation 需要有效卡片識別資訊；資料未變更。");
+        error.code = "C_ARCHIVE_TASK_REQUIRED";
+        throw error;
+      }
+      args.p_task_id = taskId;
+    }
+
+    const result = normalizeCompletionArchiveReconciliation(await gateway.rpc(
+      "board_c_reconcile_completion_archive_lifecycle_v2",
+      args
+    ));
+    const valid = result.scopeVerified
+      && result.atomic
+      && result.idempotent
+      && result.boardInstanceId === boardInstanceId
+      && Boolean(result.workflowVersionId)
+      && Boolean(result.completionStepId)
+      && Boolean(result.completionWorkspaceId)
+      && result.policyVersion > 0
+      && Number.isFinite(result.archiveDelaySeconds)
+      && result.archiveDelaySeconds > 0;
+    if (!valid) {
+      const error = new Error("Module C Completion Archive Reconciliation 回傳不完整；資料狀態未由前端推測。");
+      error.code = "C_COMPLETION_ARCHIVE_RECONCILIATION_INVALID";
+      throw error;
+    }
+    return result;
   }
 
   async function createWorkspace(name, options = {}) {
@@ -1960,6 +2130,25 @@
         p_vendor_id: vendorId == null ? null : String(vendorId).trim()
       }).then(normalizeTaskVendorLink);
     }
+    async function instanceResolveCompletionArchiveContext(taskId, options = {}) {
+      const instance = await resolveInstance();
+      const contextOptions = { ...withGateway(options), boardInstanceId: instance.id };
+      if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+        contextOptions.workflowVersionId = options.workflowVersionId || null;
+      }
+      return resolveCompletionArchiveContext(taskId, contextOptions);
+    }
+    async function instanceReconcileCompletionArchiveLifecycle(options = {}) {
+      const instance = await resolveInstance();
+      const reconcileOptions = { ...withGateway(options), boardInstanceId: instance.id };
+      if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+        reconcileOptions.workflowVersionId = options.workflowVersionId || null;
+      }
+      if (Object.prototype.hasOwnProperty.call(options, "taskId")) {
+        reconcileOptions.taskId = options.taskId;
+      }
+      return reconcileCompletionArchiveLifecycle(reconcileOptions);
+    }
     async function instancePrepareTaskAttachment(input = {}) {
       await resolveInstance();
       const file = input.file;
@@ -2049,8 +2238,11 @@
       completionGateStatus,
       isArchiveTask,
       isGovernanceTerminal,
+      completionArchiveContract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
       getCompletionArchivePolicy: options => getCompletionArchivePolicy(withGateway(options)),
       calculateCompletionArchiveDueAt: (completionAt, options) => calculateCompletionArchiveDueAt(completionAt, withGateway(options)),
+      resolveCompletionArchiveContext: instanceResolveCompletionArchiveContext,
+      reconcileCompletionArchiveLifecycle: instanceReconcileCompletionArchiveLifecycle,
       createWorkspace: instanceCreateWorkspace,
       renameWorkspace: instanceRenameWorkspace,
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
@@ -2200,6 +2392,7 @@
     C_LIFECYCLE_ACCEPTANCE_CONTRACT,
     C_WORKFLOW_CANONICAL_CONTRACT,
     C_COMPLETION_ARCHIVE_POLICY,
+    C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
     createLifecycleCapability,
     createWorkflowCapability,
     isGovernanceTerminal,
@@ -2216,8 +2409,12 @@
     listModuleConsumers,
     reconcileCompletionLifecycle,
     normalizeCompletionArchivePolicy,
+    normalizeCompletionArchiveContext,
+    normalizeCompletionArchiveReconciliation,
     getCompletionArchivePolicy,
     calculateCompletionArchiveDueAt,
+    resolveCompletionArchiveContext,
+    reconcileCompletionArchiveLifecycle,
     loadChecklist,
     loadTaskChecklist,
     loadMovementHistory,
