@@ -1940,12 +1940,79 @@
       allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true,
       allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true
     });
+    const completionArchiveLifecycleEnabled = instanceOptions.completionArchiveLifecycle === true;
+
+    function completionArchiveAdoptionState(instance, state = "not_adopted", reasonCode = "C_ARCHIVE_WORKFLOW_REQUIRED", reason = "此子板尚未採用 Published Workflow；Completion Archive 維持安全停止。") {
+      return Object.freeze({
+        contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id,
+        capability: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability,
+        state,
+        boardInstanceId: String(instance?.id || ""),
+        workflowVersionId: "",
+        reasonCode,
+        reason,
+        failClosed: true,
+        cloudMutation: 0,
+        source: "module-c-mother"
+      });
+    }
+
+    // Completion Archive is a shared C capability, not a Consumer-owned
+    // policy.  On each adopted Instance read, resolve the Instance's own
+    // Published Workflow first, then invoke the P2 scoped reconciler.  A
+    // missing/invalid Published Workflow is an explicit non-adoption state;
+    // it never falls back to the global legacy lifecycle route or to a
+    // workspace/name guess.
+    async function instanceReconcileCompletionArchiveOnLoad() {
+      const instance = await resolveInstance();
+      if (!completionArchiveLifecycleEnabled) {
+        return completionArchiveAdoptionState(
+          instance,
+          "not_enabled",
+          "C_ARCHIVE_CAPABILITY_NOT_ENABLED",
+          "此子板未啟用 Completion Archive Capability；不執行封存流程。"
+        );
+      }
+
+      const workflowState = await workflow.get({ includeDraft: false });
+      const resolvedWorkflowInstanceId = String(workflowState?.boardInstanceId || "").trim();
+      if (resolvedWorkflowInstanceId && resolvedWorkflowInstanceId !== String(instance.id)) {
+        const error = new Error("Published Workflow 不屬於目前 Board Instance；Completion Archive 已安全停止。");
+        error.code = "C_ARCHIVE_WORKFLOW_INSTANCE_MISMATCH";
+        throw error;
+      }
+
+      const publishedPointerId = String(workflowState?.state?.publishedWorkflowVersionId || "").trim();
+      const publishedSnapshotId = String(workflowState?.published?.id || "").trim();
+      if (!publishedPointerId && !publishedSnapshotId) {
+        return completionArchiveAdoptionState(instance);
+      }
+
+      const publishedWorkflowId = publishedPointerId || publishedSnapshotId;
+      const publishedStatus = String(workflowState?.published?.status || "").trim().toLowerCase();
+      const publishedInstanceId = String(workflowState?.published?.boardInstanceId || "").trim();
+      if (
+        !workflowState?.published
+        || !publishedPointerId
+        || publishedPointerId !== publishedSnapshotId
+        || publishedStatus !== "published"
+        || publishedInstanceId !== String(instance.id)
+      ) {
+        const error = new Error("目前子板的 Published Workflow Scope 無法驗證；Completion Archive 已安全停止。");
+        error.code = "C_ARCHIVE_WORKFLOW_BINDING_INVALID";
+        throw error;
+      }
+
+      return instanceReconcileCompletionArchiveLifecycle({ workflowVersionId: publishedWorkflowId });
+    }
 
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
+      const completionArchive = await instanceReconcileCompletionArchiveOnLoad();
       const result = await load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
       return Object.freeze({
         ...result,
+        completionArchive,
         boardName: String(instance.name || ""),
         taskCodePrefix: String(instance.task_code_prefix || ""),
         templateKey: String(instance.template_key || templateKey),
@@ -2223,6 +2290,13 @@
       lifecycle,
       workflowContract: C_WORKFLOW_CANONICAL_CONTRACT,
       workflow,
+      completionArchiveLifecycle: Object.freeze({
+        enabled: completionArchiveLifecycleEnabled,
+        contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
+        adoption: "board-instance+published-workflow-required",
+        reconcileOnLoad: completionArchiveLifecycleEnabled,
+        failClosed: true
+      }),
       resolveInstance,
       load: instanceLoad,
       loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),

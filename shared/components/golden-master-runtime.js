@@ -4135,16 +4135,23 @@
     state.dataSource = "";
     const workflowReadOnly = state.applicationScope === "c" && isInvestmentCMode();
     const cWorkflowRuntime = ["c", "ai_board", "worktodo", "procurement"].includes(state.applicationScope);
-    const cInstanceRuntime = state.applicationScope === "c" || state.applicationScope === "procurement";
+    // AI Board is a C Board Instance consumer too.  Keep its data context
+    // on the same shared Instance Service as C Mother and GAS so its reload
+    // path cannot invoke the global legacy archive reconciler.
+    const cInstanceRuntime = ["c", "ai_board", "procurement"].includes(state.applicationScope);
+    const completionArchiveRuntime = cInstanceRuntime && !isInvestmentCMode();
     state.service = options.service || (cInstanceRuntime
       ? defaultService.createInstanceService({
           templateKey: "c",
           boardInstanceId: requestedBoardInstanceId,
-          legacyApplicationScope: state.applicationScope === "procurement" ? "procurement" : "",
+          legacyApplicationScope: state.applicationScope === "procurement"
+            ? "procurement"
+            : state.applicationScope === "ai_board" ? "ai_board" : "",
           consumerId: state.consumerId,
           workflowReadOnly,
           allowExistingCardAdoption: cWorkflowRuntime,
-          allowWorkspaceMovement: cWorkflowRuntime
+          allowWorkspaceMovement: cWorkflowRuntime,
+          completionArchiveLifecycle: completionArchiveRuntime
         })
       : defaultService);
     const fallbackWorkflowCapability = typeof defaultService.createWorkflowCapability === "function"

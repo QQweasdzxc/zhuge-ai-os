@@ -46,7 +46,7 @@ test("all C surfaces compose the canonical A+C runtime", () => {
 
 test("the formal procurement runtime cannot fall back to the legacy GAS movement service", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /const cInstanceRuntime = state\.applicationScope === "c" \|\| state\.applicationScope === "procurement"/);
+  assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\)/);
   assert.doesNotMatch(runtime, /GasBoardService/);
 });
 
