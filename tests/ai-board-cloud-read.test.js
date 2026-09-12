@@ -294,9 +294,13 @@ test("Board workspace mutations and movement history stay behind controlled RPC/
   assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
 });
 
-test("AI Board populated Workspace Delete fails closed while WorkTodo keeps its own contract", async () => {
+test("AI Board populated Workspace Delete fails closed while WorkTodo uses C Workflow reconciliation", async () => {
   const calls = [];
   const gateway = {
+    select: async (table, query) => {
+      calls.push({ type: "select", table, query });
+      return [{ id: "worktodo-board", name: "WorkTodo", template_key: "c", active: true }];
+    },
     rpc: async (name, params) => {
       calls.push({ type: "rpc", name, params });
       if (name === "board_request_delete_workspace") {
@@ -307,7 +311,27 @@ test("AI Board populated Workspace Delete fails closed while WorkTodo keeps its 
         };
       }
       if (name === "worktodo_request_delete_workspace") {
-        return { workspace_id: "workspace-2", task_ids: ["task-3"], tasks_preserved: true };
+        return { workspace_id: "workspace-2", task_ids: ["task-3", "task-4"], tasks_preserved: true };
+      }
+      if (name === "board_c_workflow_get") {
+        return {
+          contract: "module-c-lifecycle-acceptance-v2",
+          board_instance_id: "worktodo-board",
+          state: { published_workflow_version_id: "worktodo-workflow" },
+          published: { id: "worktodo-workflow", board_instance_id: "worktodo-board", steps: [] },
+          draft: null
+        };
+      }
+      if (name === "board_c_workflow_resolve_task") {
+        return { state: "resolved" };
+      }
+      if (name === "board_c_reconcile_workspace_decision_v2") {
+        return {
+          contract: "module-c-lifecycle-acceptance-v2",
+          state: "workspace_moved",
+          task_id: params.p_task_id,
+          target_workspace_id: params.p_target_workspace_id
+        };
       }
       return { deleted: true, workspace_id: params.p_workspace_id, tasks_preserved: true };
     }
@@ -325,18 +349,49 @@ test("AI Board populated Workspace Delete fails closed while WorkTodo keeps its 
       return true;
     }
   );
-  await BoardRead.worktodoDeleteWorkspace("workspace-2", "worktodo-todo-1", { gateway });
+  const workflowCapability = BoardRead.createWorkflowCapability({
+    gateway,
+    legacyApplicationScope: "worktodo",
+    allowExistingCardAdoption: true,
+    allowWorkspaceMovement: true
+  });
+  await BoardRead.worktodoDeleteWorkspace("workspace-2", "worktodo-todo-1", { gateway, workflowCapability });
 
-  assert.deepEqual(calls.map(call => call.name), [
+  assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
     "board_request_delete_workspace",
     "worktodo_request_delete_workspace",
-    "worktodo_update_task",
+    "board_c_workflow_get",
+    "board_c_workflow_resolve_task",
+    "board_c_reconcile_workspace_decision_v2",
+    "board_c_workflow_get",
+    "board_c_workflow_resolve_task",
+    "board_c_reconcile_workspace_decision_v2",
     "worktodo_finalize_delete_workspace"
   ]);
-  assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params, {
-    p_task_id: "task-3",
-    p_patch: { workspace_id: "worktodo-todo-1" }
-  });
+  assert.equal(calls.some(call => call.name === "worktodo_update_task"), false);
+  const reconciliations = calls.filter(call => call.name === "board_c_reconcile_workspace_decision_v2");
+  assert.deepEqual(reconciliations.map(call => call.params.p_task_id), ["task-3", "task-4"]);
+  assert.equal(reconciliations.every(call => call.params.p_target_workspace_id === "worktodo-todo-1"), true);
+  assert.equal(reconciliations.every(call => call.params.p_idempotency_key.startsWith("worktodo-delete-workspace-2-")), true);
+});
+
+test("WorkTodo empty Workspace Delete does not invoke a card movement route", async () => {
+  const calls = [];
+  const gateway = {
+    rpc: async (name, params) => {
+      calls.push({ name, params });
+      if (name === "worktodo_request_delete_workspace") {
+        return { workspace_id: "workspace-empty", task_ids: [], tasks_preserved: true };
+      }
+      return { deleted: true, workspace_id: params.p_workspace_id, tasks_preserved: true };
+    }
+  };
+
+  await BoardRead.worktodoDeleteWorkspace("workspace-empty", null, { gateway });
+  assert.deepEqual(calls.map(call => call.name), [
+    "worktodo_request_delete_workspace",
+    "worktodo_finalize_delete_workspace"
+  ]);
 });
 
 test("PM QJC drop acceptance uses only the composite controlled RPC", async () => {

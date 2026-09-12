@@ -923,16 +923,37 @@
   }
 
   async function worktodoDeleteWorkspace(workspaceId, targetWorkspaceId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    // Workspace deletion is a WorkTodo product action, but moving its existing
+    // cards is still a Module C workflow decision. Reuse the runtime capability
+    // when supplied so deletion and normal card drag use the same authority.
+    const workflowCapability = options.workflowCapability || createWorkflowCapability({
+      gateway,
+      legacyApplicationScope: "worktodo",
+      allowExistingCardAdoption: true,
+      allowWorkspaceMovement: true
+    });
+    const moveTaskThroughCWorkflow = async (taskId, targetId) => {
+      const move = workflowCapability?.moveWorkspaceDecision || workflowCapability?.reconcileWorkspaceDecision;
+      if (typeof move !== "function") {
+        const error = new Error("WorkTodo 工作區刪除需要透過 Module C 共用流程移動卡片；卡片未變更。");
+        error.code = "C_WORKFLOW_MOVEMENT_UNAVAILABLE";
+        throw error;
+      }
+      return move.call(workflowCapability, {
+        taskId,
+        targetWorkspaceId: targetId,
+        decisionNote: "WorkTodo workspace deletion: " + workspaceId + " -> " + targetId,
+        idempotencyKey: "worktodo-delete-" + workspaceId + "-" + taskId + "-" + targetId
+      });
+    };
     return deleteWorkspaceWithContract(
       workspaceId,
       targetWorkspaceId,
       "worktodo_request_delete_workspace",
       "worktodo_finalize_delete_workspace",
-      (taskId, targetId, gateway) => gateway.rpc("worktodo_update_task", {
-        p_task_id: taskId,
-        p_patch: { workspace_id: targetId }
-      }),
-      options
+      moveTaskThroughCWorkflow,
+      { ...options, gateway }
     );
   }
 
