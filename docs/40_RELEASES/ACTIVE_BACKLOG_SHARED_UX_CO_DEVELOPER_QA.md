@@ -40,7 +40,7 @@ Observed result for this checkpoint:
 
 The existing WorkLog live-page probe with a synthetic browser token is not considered product PASS: Supabase correctly rejected the non-JWT token (401). A real signed QJC session is required for live Cloud browser QA; no evidence is fabricated for that path.
 
-The refreshed AI Board desktop fixture screenshot (`docs/evidence/ai-board-shared-shell-desktop.png`) confirms the current `enabled && visible` navigation filter: only enabled Workspaces and their children render; unnamed `🚧 施工中` placeholders are absent. This is fixture evidence for the shared component, not a substitute for authenticated WorkLog visual QA.
+The refreshed AI Board desktop fixture screenshot (`../30_QA/evidence/ai-board-shared-shell-desktop.png`) confirms the current `enabled && visible` navigation filter: only enabled Workspaces and their children render; unnamed `🚧 施工中` placeholders are absent. This is fixture evidence for the shared component, not a substitute for authenticated WorkLog visual QA.
 
 TASK-014 and TASK-024 therefore remain `inprogress / Co` until the signed-session WorkLog shell, narrow viewport, and cross-Workspace visual path can be exercised. This is an external browser/session gate, not a fabricated Developer QA result.
 

@@ -61,8 +61,8 @@ Card/Drawer/Checklist/Attachment/Progress/GPT presentation through
 use the Board canonical path documented above. WorkTodo-specific Pin and
 Calendar remain outside the Shared UX contract. The approved capability
 migrations are
-`docs/supabase/20260820_worktodo_shared_task_capabilities.sql` and
-`docs/supabase/20260820_worktodo_task_properties.sql`; the legacy mappings in
+`../supabase/20260820_worktodo_shared_task_capabilities.sql` and
+`../supabase/20260820_worktodo_task_properties.sql`; the legacy mappings in
 this assessment remain active for WorkLog compatibility and must not be used
 as the canonical reference for new Template C or Shared Task Drawer Checklist
 work.

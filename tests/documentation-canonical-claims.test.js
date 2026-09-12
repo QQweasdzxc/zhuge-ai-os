@@ -7,7 +7,7 @@ const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
 test("Checklist compatibility documentation distinguishes formal Template C from Legacy WorkLog", () => {
-  const document = read("docs/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md");
+  const document = read("docs/20_MODULES/SHARED_TASK_DRAWER_COMPATIBILITY_ASSESSMENT.md");
 
   assert.match(
     document,

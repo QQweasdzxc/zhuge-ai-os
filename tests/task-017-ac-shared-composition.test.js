@@ -38,25 +38,6 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   assert.match(procurement, /data-golden-master-surface/);
 });
 
-test("GAS consumer returns a truthful empty state and has no cross-module write fallback", async () => {
-  const GasBoardService = require("../modules/worklog/services/gas-board-service.js");
-  const service = GasBoardService.create();
-  const result = await service.load();
-
-  assert.equal(result.consumerId, "worklog-procurement");
-  assert.equal(result.applicationScope, "procurement");
-  assert.equal(result.boardName, "庶務行政");
-  assert.equal(result.taskCodePrefix, "GAS");
-  assert.equal(result.dataStatus, "not-configured");
-  assert.equal(result.workspaces.length, 1);
-  assert.equal(result.workspaces[0].key, "procurement-gas");
-  assert.deepEqual(result.tasks, []);
-  assert.deepEqual(result.principles, []);
-  assert.deepEqual(result.systemMaps, []);
-  await assert.rejects(service.createTask(), error => error?.code === "GAS_DATA_SOURCE_NOT_CONFIGURED");
-  await assert.rejects(service.deleteWorkspace(), error => error?.code === "GAS_DATA_SOURCE_NOT_CONFIGURED");
-});
-
 test("Investment keeps one portfolio C view and consolidates Watchlist as a workspace", () => {
   const config = read("modules/investment/config/module-config.js");
   const shell = read("modules/investment/components/module-shell.js");

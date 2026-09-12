@@ -84,7 +84,7 @@ test("Shared Action Contract de-duplicates one in-flight operation and preserves
 
 test("Approved Agreement Schedule and controlled progress lifecycle stay in separate Domain paths", () => {
   const sql = read("docs/supabase/20260825_template_c_shared_action_agreement_schedule.sql");
-  const audit = read("docs/rfc/20260825-template-c-shared-action-conformance-audit.md");
+  const audit = read("docs/90_ARCHIVE/rfc/20260825-template-c-shared-action-conformance-audit.md");
 
   assert.match(sql, /agreement_mode/);
   assert.match(sql, /agreement_start_date/);

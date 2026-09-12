@@ -13,7 +13,7 @@ Source Commit: `9049f30626ea443956f7323302bccc0d606fdf3d`
 
 ## QA evidence
 
-- `docs/FOUNDATION_RUNTIME_BATCH_1_DEVELOPER_QA.md`
+- `../30_QA/FOUNDATION_RUNTIME_BATCH_1_DEVELOPER_QA.md`
 - `docs/TASK_021_ENGINEERING_WORKFLOW_CLOSURE_DEVELOPER_QA.md`
 - `tests/` automated regression suite
 - Approved TASK-021 constraint migration SQL under `docs/supabase/`

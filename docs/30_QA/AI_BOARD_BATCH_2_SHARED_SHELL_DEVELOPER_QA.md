@@ -37,7 +37,7 @@ Executed with the configurable browser executable (`CHROME_PATH`) and a desktop 
 8. Open a historical done TASK fixture; verify `歷史完成` and the no-fabricated-evidence explanation.
 9. Verify the AI Board navigation IA audit reports `heading=1;duplicateMenu=0;children=3`.
 
-The browser regression passed with all UI assertions. A 1600×1000 production-shell screenshot is included at `docs/evidence/ai-board-shared-shell-desktop.png`.
+The browser regression passed with all UI assertions. A 1600×1000 production-shell screenshot is included at `evidence/ai-board-shared-shell-desktop.png`.
 
 ## Automated evidence
 
