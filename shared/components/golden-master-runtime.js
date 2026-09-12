@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, authorityConformance: undefined, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -2106,6 +2106,7 @@
         consumerLabel: state.applicationScope === "c" ? (state.boardIsTemplate ? "C Mother Template" : state.boardName || "C Consumer") : state.applicationScope === "worktodo" ? "WorkTodo" : state.applicationScope === "procurement" ? "庶務行政" : "AI Board",
         sourceIntegrity: document.body?.dataset?.templateSourceIntegrity || "",
         adoptionStatus: document.body?.dataset?.templateAdoption || "",
+        authorityConformance: state.authorityConformance,
         ...paritySemanticSnapshots(),
         trigger
       };
@@ -3519,6 +3520,9 @@
     if (open) { open.hidden = true; open.removeAttribute("href"); }
     const button = document.querySelector("[data-consumer-create]");
     if (button) { button.hidden = false; button.disabled = false; button.textContent = "建立並套用 C 母版"; }
+    state.consumerProvisionIdempotencyKey = typeof root.crypto?.randomUUID === "function"
+      ? `c-provision-${root.crypto.randomUUID()}`
+      : `c-provision-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     window.setTimeout(() => document.getElementById("consumerBoardProject")?.focus(), 0);
   }
   function consumerRuntimeHref(boardInstanceId) {
@@ -3553,7 +3557,13 @@
     if (button) button.disabled = true;
     if (status) { status.textContent = "正在建立看板：Cloud Provisioning 處理中…"; status.dataset.state = "loading"; }
     try {
-      const result = await defaultService.provisionConsumer({ name, taskCodePrefix: prefix, templateKey: "c", applicationScope: project });
+      const result = await defaultService.provisionCConsumer({
+        name,
+        taskCodePrefix: prefix,
+        templateKey: "c",
+        applicationScope: project,
+        idempotencyKey: state.consumerProvisionIdempotencyKey
+      });
       const instance = result?.board_instance || result?.boardInstance || result?.instance;
       const instanceId = String(instance?.id || result?.board_instance_id || "").trim();
       if (!instanceId) throw new Error("Provisioning 未回傳可用的 Board Identity；未顯示成功。" );
@@ -4009,6 +4019,26 @@
           // must remain usable when an older Board Instance has no workflow
           // definition or its optional read is unavailable.
           state.workflowData = null;
+        }
+      }
+      state.authorityConformance = undefined;
+      const authorityService = activeService();
+      if (state.boardInstanceId && typeof authorityService?.getAuthorityConformance === "function") {
+        try {
+          state.authorityConformance = await authorityService.getAuthorityConformance();
+        } catch (error) {
+          // An unavailable read-only checker must never be rendered as a
+          // green conformance result.  The parity engine treats this explicit
+          // evidence failure as unverified/fail when it is requested.
+          state.authorityConformance = {
+            contract: "module-c-authority-conformance-v2",
+            status: "unverified",
+            board_instance_id: state.boardInstanceId,
+            error_code: error?.code || "C_AUTHORITY_CONFORMANCE_UNAVAILABLE",
+            read_only_check: true,
+            cloud_mutation: 0,
+            data_mutation: 0
+          };
         }
       }
       renderPrinciples(result.principles);
@@ -4520,6 +4550,7 @@
         workflowCapabilities: workflow?.capabilities ? JSON.parse(JSON.stringify(workflow.capabilities)) : {},
         workflow: state.workflowData ? JSON.parse(JSON.stringify(state.workflowData)) : null,
         templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
+        authorityConformance: state.authorityConformance ? JSON.parse(JSON.stringify(state.authorityConformance)) : null,
         workspaces: state.workspaces.slice(),
         tasks: state.tasks.slice(),
         templateParityReport: state.templateParityReport ? JSON.parse(JSON.stringify(state.templateParityReport)) : null

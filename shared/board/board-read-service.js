@@ -143,7 +143,7 @@
     if (isGovernanceTerminal(value)) return true;
     if (!task) return status === "done";
     if (task.archivedAt) return true;
-    // A task is visible in 已完成 while its Cloud-owned 48-hour window is
+    // A task is visible in 已完成 while its Cloud-owned 24-hour window is
     // active.  The same row remains active after a PM drags it out: the old
     // completion timestamp is retained as evidence, while archive_due_at is
     // cleared to cancel the current timer. Re-entering 已完成 starts a new
@@ -723,7 +723,7 @@
     const resolver = options.engineeringMemory || isWorkTodo || isBoardInstance ? null : requireEngineeringMemoryResolver(options);
     // Reconciliation is a server-side, authenticated RPC. It uses canonical
     // timestamps and makes refresh/realtime reads converge without a browser
-    // timer or local state pretending that 48 hours have elapsed.
+    // timer or local state pretending that 24 hours have elapsed.
     if (!isWorkTodo && !isBoardInstance && typeof gateway.rpc === "function") {
       await gateway.rpc("board_reconcile_completion_lifecycle", {});
     }
@@ -1082,6 +1082,25 @@
     if (!valid) {
       const error = new Error("Module C Completion Archive Reconciliation 回傳不完整；資料狀態未由前端推測。");
       error.code = "C_COMPLETION_ARCHIVE_RECONCILIATION_INVALID";
+      throw error;
+    }
+    return result;
+  }
+
+  async function getAuthorityConformance(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const boardInstanceId = String(options.boardInstanceId || "").trim();
+    if (!boardInstanceId) {
+      const error = new Error("Authority Conformance Check 需要 Board Instance；不會猜測來源。");
+      error.code = "C_AUTHORITY_INSTANCE_REQUIRED";
+      throw error;
+    }
+    const result = await gateway.rpc("board_c_authority_conformance_check", {
+      p_board_instance_id: boardInstanceId
+    });
+    if (!result || String(result.board_instance_id || result.boardInstanceId || "") !== boardInstanceId) {
+      const error = new Error("Authority Conformance Check 回傳的 Board Instance 不一致；未判定為正常。");
+      error.code = "C_AUTHORITY_CONFORMANCE_INVALID";
       throw error;
     }
     return result;
@@ -2216,6 +2235,10 @@
       }
       return reconcileCompletionArchiveLifecycle(reconcileOptions);
     }
+    async function instanceGetAuthorityConformance() {
+      const instance = await resolveInstance();
+      return getAuthorityConformance({ gateway, boardInstanceId: instance.id });
+    }
     async function instancePrepareTaskAttachment(input = {}) {
       await resolveInstance();
       const file = input.file;
@@ -2317,6 +2340,7 @@
       calculateCompletionArchiveDueAt: (completionAt, options) => calculateCompletionArchiveDueAt(completionAt, withGateway(options)),
       resolveCompletionArchiveContext: instanceResolveCompletionArchiveContext,
       reconcileCompletionArchiveLifecycle: instanceReconcileCompletionArchiveLifecycle,
+      getAuthorityConformance: instanceGetAuthorityConformance,
       createWorkspace: instanceCreateWorkspace,
       renameWorkspace: instanceRenameWorkspace,
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
@@ -2364,6 +2388,31 @@
     const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
     if (applicationScope) args.p_application_scope = applicationScope;
     return gateway.rpc("board_provision_consumer", args);
+  }
+
+  // Canonical C Consumer provisioning.  The legacy three-argument wrapper is
+  // intentionally retained for older callers, but new C creation must use the
+  // single-transaction v2 contract so Instance identity, data scope, release,
+  // workspaces, and the optional Instance-owned Workflow are provisioned by
+  // one Cloud authority.
+  async function provisionCConsumer(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const idempotencyKey = String(input.idempotencyKey || "").trim();
+    if (!idempotencyKey) {
+      const error = new Error("C Consumer 建立需要受控的 Idempotency Key。未建立看板。");
+      error.code = "C_CONSUMER_PROVISION_IDEMPOTENCY_REQUIRED";
+      throw error;
+    }
+    const args = {
+      p_name: String(input.name || "").trim(),
+      p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
+      p_template_key: String(input.templateKey || "c").trim().toLowerCase(),
+      p_application_scope: String(input.applicationScope || "").trim().toLowerCase() || null,
+      p_workspace_blueprint: Array.isArray(input.workspaceBlueprint) ? input.workspaceBlueprint : null,
+      p_workflow_blueprint: input.workflowBlueprint && typeof input.workflowBlueprint === "object" ? input.workflowBlueprint : null,
+      p_idempotency_key: idempotencyKey
+    };
+    return gateway.rpc("board_provision_c_consumer_v2", args);
   }
 
   function governanceRunnerUrl(options = {}) {
@@ -2545,6 +2594,8 @@
     taskAttachmentUrl,
     createInstanceService,
     provisionConsumer,
+    provisionCConsumer,
+    getAuthorityConformance,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     requestTaskContractCreation,

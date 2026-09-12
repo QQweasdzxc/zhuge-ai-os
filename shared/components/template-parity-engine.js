@@ -58,6 +58,29 @@
     procurement: Object.freeze({ mode: "approved", label: "庶務行政", reason: "庶務行政依產品 Capability 使用自己的資料與操作邊界。" }),
     investment: Object.freeze({ mode: "approved", label: "Investment", reason: "Investment 金融資料與流程設定維持唯讀；看板工作區移動依 C Workflow 能力運作。" })
   });
+  const AUTHORITY_CONFORMANCE_CHECKS = Object.freeze([
+    "shared_runtime",
+    "card_writer",
+    "workspace_writer",
+    "movement_authority",
+    "workspace_authority",
+    "workflow_authority",
+    "workflow_engine",
+    "workflow_binding_readiness",
+    "completion_authority",
+    "archive_authority",
+    "policy_authority",
+    "cloud_writer",
+    "trigger_conformance",
+    "legacy_fallback",
+    "global_fallback",
+    "local_fallback",
+    "release_adoption",
+    "persistence",
+    "reload",
+    "new_session"
+  ]);
+  const AUTHORITY_NON_PASS_STATES = new Set(["fail", "fail_closed", "not_configured", "unverified", "unknown"]);
 
   function stableSerialize(value) {
     if (value === undefined) return '"__undefined__"';
@@ -471,6 +494,68 @@
     return compareBehaviorContractAgainst(observed, canonicalBehaviorContract(), options);
   }
 
+  function normalizeAuthorityConformance(value, options = {}) {
+    if (value === undefined) {
+      return {
+        contract: "module-c-authority-conformance-v2",
+        status: "not-run",
+        layerStatus: "not-evaluated",
+        evidenceStatus: "not-requested",
+        checks: {},
+        differences: []
+      };
+    }
+    if (!value || typeof value !== "object") {
+      return {
+        contract: "module-c-authority-conformance-v2",
+        status: "unverified",
+        layerStatus: "fail",
+        evidenceStatus: "invalid",
+        checks: {},
+        differences: [{
+          id: "authority.invalid",
+          title: "無法確認 C 共用 Authority",
+          cause: "Cloud Authority Conformance 回傳格式無法驗證。",
+          impact: "不能把目前 Consumer 判定為 C-native。",
+          recommendation: "重新取得同一 Board Instance 的 Cloud Conformance evidence。"
+        }]
+      };
+    }
+    const checks = value.checks && typeof value.checks === "object" ? { ...value.checks } : {};
+    const failedChecks = AUTHORITY_CONFORMANCE_CHECKS.filter(key => AUTHORITY_NON_PASS_STATES.has(String(checks[key] || "").trim().toLowerCase()));
+    const rawStatus = String(value.status || "").trim().toLowerCase();
+    const status = rawStatus === "pass" && failedChecks.length === 0 ? "pass" : rawStatus || (failedChecks.length ? "unverified" : "not-evaluated");
+    const differences = failedChecks.map(check => ({
+      id: `authority.${check}`,
+      check,
+      kind: "authority-conformance",
+      title: "共用 Authority 路徑不一致",
+      cause: `Cloud Conformance 將「${check}」判定為不符合 C Canonical Authority。`,
+      impact: "Consumer 可能仍可操作，但底層決定／寫入路徑存在漂移。",
+      recommendation: "回到 Module C Canonical Contract；不要在 Consumer 增加同義 Engine 或 Writer。",
+      actual: checks[check] || "unverified"
+    }));
+    return {
+      contract: String(value.contract || "module-c-authority-conformance-v2"),
+      status,
+      layerStatus: status === "pass" ? "pass" : "fail",
+      evidenceStatus: "available",
+      boardInstanceId: String(value.board_instance_id || value.boardInstanceId || ""),
+      applicationScope: String(value.application_scope || value.applicationScope || options.applicationScope || ""),
+      checks,
+      failedChecks,
+      differences,
+      legacyRoutes: value.legacy_routes || value.legacyRoutes || {},
+      authority: value.authority || {},
+      adoption: value.adoption || {},
+      persistence: value.persistence || {},
+      readOnlyCheck: value.read_only_check === true || value.readOnlyCheck === true,
+      cloudMutation: Number(value.cloud_mutation ?? value.cloudMutation ?? 0),
+      dataMutation: Number(value.data_mutation ?? value.dataMutation ?? 0),
+      raw: cloneSerializable(value)
+    };
+  }
+
   function sourceContract(options = {}) {
     const sourceIntegrity = String(options.sourceIntegrity || "").trim().toLowerCase();
     const adoptionStatus = String(options.adoptionStatus || "").trim().toLowerCase();
@@ -880,6 +965,11 @@
       semanticEvidence: !semanticBaselineUnavailable,
       semanticComparison
     });
+    const authorityEvidenceProvided = options.authorityConformance !== undefined;
+    const authorityConformance = normalizeAuthorityConformance(options.authorityConformance, {
+      applicationScope: options.applicationScope || runtimeConsumer.applicationScope || runtimeConsumer.consumerId
+    });
+    const authorityPass = !authorityEvidenceProvided || authorityConformance.layerStatus === "pass";
     return {
       engineVersion: ENGINE_VERSION,
       baseline: "C Mother Template",
@@ -908,7 +998,8 @@
       sourceContract: source,
       behaviorContract: behavior,
       compareBaseline: semanticComparison,
-      overallStatus: !semanticBaselineUnavailable && gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" ? "match" : "gap"
+      authorityConformance,
+      overallStatus: !semanticBaselineUnavailable && gapCount === 0 && source.layerStatus === "pass" && behavior.layerStatus === "pass" && authorityPass ? "match" : "gap"
     };
   }
 
@@ -922,7 +1013,8 @@
       behaviorObserved: options.behaviorObserved,
       applicationScope: options.applicationScope,
       sourceIntegrity: options.sourceIntegrity,
-      adoptionStatus: options.adoptionStatus
+      adoptionStatus: options.adoptionStatus,
+      ...(options.authorityConformance === undefined ? {} : { authorityConformance: options.authorityConformance })
     });
   }
 
@@ -1141,6 +1233,10 @@
       (item.behaviorContract.differences || []).forEach(diff => lines.push(`- BEHAVIOR ${diff.check || diff.id || "unknown"}｜${diff.title || "操作與流程不同"}｜expected=${diff.expected || "—"}｜actual=${diff.actual || "—"}`));
       (item.behaviorContract.approvedDifferences || []).forEach(diff => lines.push(`- APPROVED CAPABILITY｜${diff.title || diff.id || "產品能力差異"}｜${diff.detail || ""}`));
     }
+    if (item.authorityConformance) {
+      lines.push(`Authority Conformance：${item.authorityConformance.status || "UNKNOWN"}｜${item.authorityConformance.contract || "—"}｜Board ${item.authorityConformance.boardInstanceId || "—"}`);
+      (item.authorityConformance.differences || []).forEach(diff => lines.push(`- AUTHORITY ${diff.check || diff.id || "unknown"}｜${diff.title || "共用 Authority 不一致"}｜actual=${diff.actual || "—"}`));
+    }
     return lines.join("\n");
   }
 
@@ -1160,6 +1256,7 @@
     behaviorObservation,
     compareBehaviorContractAgainst,
     compareBehaviorContract,
+    normalizeAuthorityConformance,
     sourceContract,
     compare,
     run,
