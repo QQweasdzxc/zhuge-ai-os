@@ -41,7 +41,7 @@ test("Template C formal consumers use one Shared Action Contract and no legacy W
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "deleteTaskProgressNote"\)/);
   assert.match(adapters, /deleteProgressNote: payload => required\(service, "worktodoDeleteTaskProgressNote"\)/);
   assert.match(adapters, /deleteWorkspace: payload => required\(service, "deleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId\)/);
-  assert.match(adapters, /deleteWorkspace: payload => required\(service, "worktodoDeleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId\)/);
+  assert.match(adapters, /deleteWorkspace: payload => required\(service, "worktodoDeleteWorkspace"\)\(payload\.workspaceId, payload\.targetWorkspaceId, \{ workflowCapability \}\)/);
   assert.match(adapters, /payload\.scope === "progress_note"[\s\S]*deleteProgressNoteAttachment/);
   const worktodoAdapter = adapters.match(/function createWorkTodoAdapter[\s\S]*?\n  function create\(/)?.[0] || "";
   assert.match(worktodoAdapter, /prepareTaskAttachment/);
@@ -84,7 +84,7 @@ test("Shared Action Contract de-duplicates one in-flight operation and preserves
 
 test("Approved Agreement Schedule and controlled progress lifecycle stay in separate Domain paths", () => {
   const sql = read("docs/supabase/20260825_template_c_shared_action_agreement_schedule.sql");
-  const audit = read("docs/rfc/20260825-template-c-shared-action-conformance-audit.md");
+  const audit = read("docs/90_ARCHIVE/rfc/20260825-template-c-shared-action-conformance-audit.md");
 
   assert.match(sql, /agreement_mode/);
   assert.match(sql, /agreement_start_date/);
@@ -130,7 +130,13 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   assert.match(service, /worktodo_request_delete_workspace/);
   assert.match(service, /worktodo_finalize_delete_workspace/);
   assert.match(service, /board_move_task_workspace/);
-  assert.match(service, /worktodo_update_task/);
+  const worktodoDeleteStart = service.indexOf("async function worktodoDeleteWorkspace");
+  const worktodoDeleteEnd = service.indexOf("async function worktodoReorderWorkspaces", worktodoDeleteStart);
+  assert.ok(worktodoDeleteStart >= 0 && worktodoDeleteEnd > worktodoDeleteStart);
+  const worktodoDelete = service.slice(worktodoDeleteStart, worktodoDeleteEnd);
+  assert.match(worktodoDelete, /createWorkflowCapability/);
+  assert.match(worktodoDelete, /moveWorkspaceDecision/);
+  assert.doesNotMatch(worktodoDelete, /worktodo_update_task/);
   assert.match(sql, /board_workspace/);
   assert.match(sql, /workspace_deleted/);
   assert.match(sql, /delete from public\.board_workspaces/);

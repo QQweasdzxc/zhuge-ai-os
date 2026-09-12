@@ -3,7 +3,7 @@
 This document is the concise baseline. The detailed contracts live in
 [`FOUNDATION.md`](./FOUNDATION.md), [`MODULE_SPEC.md`](./MODULE_SPEC.md),
 [`NAMING.md`](./NAMING.md), [`UI_GUIDELINE.md`](./UI_GUIDELINE.md),
-[`CODING_STANDARD.md`](./CODING_STANDARD.md), and [`RELEASE.md`](./RELEASE.md).
+[`CODING_STANDARD.md`](../10_GOVERNANCE/CODING_STANDARD.md), and [`RELEASE.md`](../10_GOVERNANCE/RELEASE.md).
 
 ## 永久規範
 

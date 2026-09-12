@@ -32,7 +32,7 @@ Dashboard and Investment now use the same outer page inset as AI Board and WorkL
 
 ## Browser visual evidence
 
-All screenshots were captured from the local runtime with Chrome and are stored under `docs/evidence/full-site-shell/`:
+All screenshots were captured from the local runtime with Chrome and are stored under `evidence/full-site-shell/`:
 
 - `dashboard-dark.png`
 - `dashboard-light.png`

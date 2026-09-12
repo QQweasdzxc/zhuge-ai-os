@@ -1,6 +1,6 @@
 # Zhuge AI OS Architecture
 
-The detailed Foundation contracts are documented in `docs/FOUNDATION.md` and
+The detailed Foundation contracts are documented in `FOUNDATION.md` and
 the companion module, naming, UI, coding, and release specifications.
 
 ## Foundation v1.0 decision
@@ -95,25 +95,25 @@ legacy repository is redirect-only, and the Foundation release identity is
 The following records are part of the Architecture Bible and are binding for
 all current and future modules:
 
-- [`ADR-011 — Module Independence Principle`](adr/ADR-011-module-independence.md)
-- [`ADR-012 — Shared First Principle`](adr/ADR-012-shared-first.md)
-- [`ADR-013 — Security Level Policy`](adr/ADR-013-security-level-policy.md)
+- [`ADR-011 — Module Independence Principle`](../10_GOVERNANCE/adr/ADR-011-module-independence.md)
+- [`ADR-012 — Shared First Principle`](../10_GOVERNANCE/adr/ADR-012-shared-first.md)
+- [`ADR-013 — Security Level Policy`](../10_GOVERNANCE/adr/ADR-013-security-level-policy.md)
 
 Investment Gate 1 database evidence is recorded in
-[`DATABASE_DISCOVERY.md`](DATABASE_DISCOVERY.md). No Module may bypass an ADR
+[`DATABASE_DISCOVERY.md`](../90_ARCHIVE/DATABASE_DISCOVERY.md). No Module may bypass an ADR
 through a local implementation or a compatibility copy.
 
 Investment Gate 2 design contracts are recorded in:
 
-- [`UUID_MIGRATION_STRATEGY.md`](UUID_MIGRATION_STRATEGY.md)
-- [`INVESTMENT_SECURITY_REMEDIATION.md`](INVESTMENT_SECURITY_REMEDIATION.md)
-- [`INVESTMENT_MIGRATION_RUNBOOK.md`](INVESTMENT_MIGRATION_RUNBOOK.md)
-- [`INVESTMENT_ROLLBACK_PLAN.md`](INVESTMENT_ROLLBACK_PLAN.md)
-- [`INVESTMENT_DATA_HEALTH_CHECK.md`](INVESTMENT_DATA_HEALTH_CHECK.md)
+- [`UUID_MIGRATION_STRATEGY.md`](../90_ARCHIVE/UUID_MIGRATION_STRATEGY.md)
+- [`INVESTMENT_SECURITY_REMEDIATION.md`](../90_ARCHIVE/INVESTMENT_SECURITY_REMEDIATION.md)
+- [`INVESTMENT_MIGRATION_RUNBOOK.md`](../90_ARCHIVE/INVESTMENT_MIGRATION_RUNBOOK.md)
+- [`INVESTMENT_ROLLBACK_PLAN.md`](../90_ARCHIVE/INVESTMENT_ROLLBACK_PLAN.md)
+- [`INVESTMENT_DATA_HEALTH_CHECK.md`](../30_QA/INVESTMENT_DATA_HEALTH_CHECK.md)
 
 These documents are design-only until PM explicitly authorizes Database
 Migration and Coding.
 
 Investment Gate 3 Shared Platform evidence is recorded in
-[`SHARED_PLATFORM_ARCHITECTURE_REVIEW.md`](SHARED_PLATFORM_ARCHITECTURE_REVIEW.md).
+[`SHARED_PLATFORM_ARCHITECTURE_REVIEW.md`](../90_ARCHIVE/SHARED_PLATFORM_ARCHITECTURE_REVIEW.md).
 It introduces no WorkLog load-path, OAuth, Router, or database change.

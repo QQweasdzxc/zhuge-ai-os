@@ -114,7 +114,7 @@ test("Engineering Principle action is bounded to the PM-assigned EP-### payload 
       content: "ONE GOLDEN MASTER",
       module: "architecture",
       version: "1.0",
-      source_path: "docs/principles/EP-039-one-golden-master-single-presentation-source-of-truth.md",
+      source_path: "docs/10_GOVERNANCE/principles/EP-039-one-golden-master-single-presentation-source-of-truth.md",
       source_reference: "PM / CTO Decision 2026-08-21"
     }
   });

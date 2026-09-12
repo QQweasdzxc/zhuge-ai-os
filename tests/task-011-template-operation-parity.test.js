@@ -33,8 +33,14 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(service, /worktodoCreateWorkspace,/);
   assert.match(service, /worktodoDeleteWorkspace,/);
   assert.match(service, /deleteWorkspaceWithContract/);
-  assert.match(service, /gateway\.rpc\("worktodo_update_task"/);
-  assert.match(service, /p_patch: \{ workspace_id: targetId \}/);
+  const worktodoDeleteStart = service.indexOf("async function worktodoDeleteWorkspace");
+  const worktodoDeleteEnd = service.indexOf("async function worktodoReorderWorkspaces", worktodoDeleteStart);
+  assert.ok(worktodoDeleteStart >= 0 && worktodoDeleteEnd > worktodoDeleteStart);
+  const worktodoDelete = service.slice(worktodoDeleteStart, worktodoDeleteEnd);
+  assert.match(worktodoDelete, /createWorkflowCapability/);
+  assert.match(worktodoDelete, /moveTaskThroughCWorkflow/);
+  assert.doesNotMatch(worktodoDelete, /gateway\.rpc\("worktodo_update_task"/);
+  assert.doesNotMatch(worktodoDelete, /p_patch: \{ workspace_id: targetId \}/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能在此重新排序/);
   assert.doesNotMatch(runtime, /WorkTodo 六個工作區由正式 Scope 管理，不能重新命名/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);

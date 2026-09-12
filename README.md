@@ -30,4 +30,4 @@ Serve this directory with any static file server and open `index.html`. GitHub P
 ## Version
 
 See [`version.json`](./version.json). Architecture boundaries are documented
-in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+in [`docs/00_CURRENT/ARCHITECTURE.md`](./docs/00_CURRENT/ARCHITECTURE.md).
