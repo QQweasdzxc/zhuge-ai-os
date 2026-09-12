@@ -66,6 +66,21 @@
     cloudSourceOfTruth: true
   });
 
+  // Completion/archive timing is a Module C policy capability.  The value is
+  // deliberately not duplicated in the browser: Cloud returns the published
+  // policy version and delay, while Consumers only adopt this read/calculation
+  // interface. P1 establishes the source; Consumer write-path adoption is a
+  // later, separately gated phase.
+  const C_COMPLETION_ARCHIVE_POLICY = Object.freeze({
+    id: "module-c-completion-archive-policy",
+    contractFamily: "module-c-lifecycle-acceptance",
+    contractVersion: "module-c-lifecycle-acceptance-v2",
+    source: "module-c-mother",
+    policyKey: "completion_archive",
+    delaySource: "cloud-published-policy",
+    existingDueAtPolicy: "preserve-no-retroactive-recalculation"
+  });
+
   function createLifecycleCapability(acceptFromQjcDrop, enabled = true, reconcileWorkspaceDecision = null) {
     const capability = {
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
@@ -371,6 +386,30 @@
       workflow,
       validation: value.validation && typeof value.validation === "object" ? value.validation : null,
       raw: value
+    });
+  }
+
+  function normalizeCompletionArchivePolicy(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    const archiveDelaySeconds = Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0);
+    return Object.freeze({
+      contractFamily: String(source.contract_family || source.contractFamily || C_COMPLETION_ARCHIVE_POLICY.contractFamily),
+      contractVersion: String(source.contract_version || source.contractVersion || C_COMPLETION_ARCHIVE_POLICY.contractVersion),
+      capability: String(source.capability || "completion-archive"),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyKey: String(source.policy_key || source.policyKey || C_COMPLETION_ARCHIVE_POLICY.policyKey),
+      policyVersion: Number(source.policy_version ?? source.policyVersion ?? 0),
+      archiveDelaySeconds,
+      archiveDelayHours: Number(source.archive_delay_hours ?? source.archiveDelayHours ?? (archiveDelaySeconds / 3600)),
+      policySource: String(source.policy_source || source.policySource || C_COMPLETION_ARCHIVE_POLICY.source),
+      effectiveAt: source.effective_at || source.effectiveAt || null,
+      completionAt: source.completion_at || source.completionAt || null,
+      archiveDueAt: source.archive_due_at || source.archiveDueAt || null,
+      cloudSourceOfTruth: source.cloud_source_of_truth !== false && source.cloudSourceOfTruth !== false,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      raw: source
     });
   }
 
@@ -836,6 +875,46 @@
   async function reconcileCompletionLifecycle(options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_reconcile_completion_lifecycle", {});
+  }
+
+  // P1 C Shared Policy read/calculation capability. These methods intentionally
+  // do not write Consumer completion state; they expose the Cloud-published
+  // policy so later C adoption phases can use one authority.
+  async function getCompletionArchivePolicy(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const result = await gateway.rpc("board_c_get_completion_archive_policy", {
+      p_policy_key: C_COMPLETION_ARCHIVE_POLICY.policyKey
+    });
+    const policy = normalizeCompletionArchivePolicy(result);
+    if (!policy.policyVersion || !Number.isFinite(policy.archiveDelaySeconds) || policy.archiveDelaySeconds <= 0) {
+      const error = new Error("Module C Completion Archive Policy 回傳不完整。");
+      error.code = "C_COMPLETION_ARCHIVE_POLICY_INVALID";
+      throw error;
+    }
+    return policy;
+  }
+
+  async function calculateCompletionArchiveDueAt(completionAt, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = completionAt instanceof Date
+      ? completionAt.toISOString()
+      : String(completionAt ?? "").trim();
+    if (!value) {
+      const error = new Error("計算封存時間需要 completion_at。");
+      error.code = "C_COMPLETION_AT_REQUIRED";
+      throw error;
+    }
+    const result = await gateway.rpc("board_c_calculate_completion_archive_due_at", {
+      p_completion_at: value,
+      p_policy_key: C_COMPLETION_ARCHIVE_POLICY.policyKey
+    });
+    const policy = normalizeCompletionArchivePolicy(result);
+    if (!policy.policyVersion || !policy.completionAt || !policy.archiveDueAt) {
+      const error = new Error("Module C Completion Archive 計算回傳不完整。");
+      error.code = "C_COMPLETION_ARCHIVE_CALCULATION_INVALID";
+      throw error;
+    }
+    return policy;
   }
 
   async function createWorkspace(name, options = {}) {
@@ -1970,6 +2049,8 @@
       completionGateStatus,
       isArchiveTask,
       isGovernanceTerminal,
+      getCompletionArchivePolicy: options => getCompletionArchivePolicy(withGateway(options)),
+      calculateCompletionArchiveDueAt: (completionAt, options) => calculateCompletionArchiveDueAt(completionAt, withGateway(options)),
       createWorkspace: instanceCreateWorkspace,
       renameWorkspace: instanceRenameWorkspace,
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
@@ -2118,6 +2199,7 @@
     normalizeTaskAttachment,
     C_LIFECYCLE_ACCEPTANCE_CONTRACT,
     C_WORKFLOW_CANONICAL_CONTRACT,
+    C_COMPLETION_ARCHIVE_POLICY,
     createLifecycleCapability,
     createWorkflowCapability,
     isGovernanceTerminal,
@@ -2133,6 +2215,9 @@
     listBoardInstances,
     listModuleConsumers,
     reconcileCompletionLifecycle,
+    normalizeCompletionArchivePolicy,
+    getCompletionArchivePolicy,
+    calculateCompletionArchiveDueAt,
     loadChecklist,
     loadTaskChecklist,
     loadMovementHistory,
