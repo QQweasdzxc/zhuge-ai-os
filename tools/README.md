@@ -228,6 +228,21 @@ prefix uses that value (`YYYYMMDD-HHmm`). `artifactCreatedAt` is metadata only;
 it is recorded in the sidecar Candidate Manifest and never determines filename
 identity.
 
+At the start of a Formal Build Cycle, use the read-only generator to obtain the
+current Asia/Taipei `YYYYMMDD-HHmm` value. It fails if that value would reuse the
+previous root Build; the approved value must then be written to
+`version.json.build` and synchronized across Source before the commit:
+
+```bash
+node tools/release-governance.js new-build-id
+```
+
+The controlled sequence is: generate a new Build ID, update Source identity,
+commit, verify a clean Working Tree, run the Pre-Gate and Regression/Preflight,
+package, then run the Post-Gate and Manifest/ZIP verification. Formal packaging
+fails closed if Git HEAD or the Working Tree status is unavailable, or if the
+Working Tree is not clean.
+
 Run the identity gate before packaging:
 
 ```bash

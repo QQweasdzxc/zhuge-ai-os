@@ -11,28 +11,39 @@ Version + Build + Git Commit + Package Time
 The Build identifies the formal release, not only a runtime compile. A public
 page-only change still receives a new Build.
 
-## Current formal publish identity
+## Formal Build Cycle
 
-This Phase 3 publish uses the following synchronized release identity:
+At the start of every new Formal Build Cycle, obtain the current date/time in
+`Asia/Taipei` and generate a new `BUILD_ID` in `YYYYMMDD-HHmm` format. It must
+not equal the previous Formal Build's `BUILD_ID`. Write the new value to the
+root `version.json.build`, then synchronize every Runtime, Module, UI,
+cache-buster, Manifest, and Candidate identity before committing.
+
+`version.json.build` remains the single Build Identity source. `artifactCreatedAt`
+is captured when the ZIP/artifact has actually been created and is retained as
+full-precision `Asia/Taipei` provenance metadata only.
+
+The formal sequence is:
 
 ```text
-Version: 0.9.0-alpha.9.13
-Build: 20260829-1024
-Git Commit: bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6
-Package Time: 2026-08-29T10:24:53+08:00 (Asia/Taipei)
+Start Formal Build
+→ Asia/Taipei current YYYYMMDD-HHmm
+→ generate NEW BUILD_ID
+→ update Source Build Identity
+→ Commit
+→ Working Tree clean
+→ Pre-Gate
+→ Regression / Preflight
+→ Package
+→ Post-Gate
+→ Manifest / ZIP Verification
 ```
-
-For a new formal Publish/Candidate package, set the approved `BUILD_ID` in the
-root `version.json.build` before packaging. Capture one Package Time in
-`Asia/Taipei` as release provenance metadata. Once written, the root
-`version.json.build` remains the single Build Identity source for Runtime,
-metadata, cache-busters, manifests, and the Candidate filename. The
-full-precision Package Time does not determine the Candidate filename.
 
 ## Release gate
 
 - `git diff` contains only intended files.
 - `git status` is clean after commit.
+- Formal packaging fails closed when the Git Working Tree is not clean.
 - Root Landing / Dashboard is publicly readable.
 - `?app=1` and OAuth callback remain functional.
 - WorkLog, Sidebar, and Session regressions are absent.

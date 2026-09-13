@@ -284,6 +284,25 @@ function runGit(root, args) {
   }
 }
 
+function assertWorkingTreeClean(root = PROJECT_ROOT) {
+  const resolvedRoot = path.resolve(root);
+  const commit = runGit(resolvedRoot, ["rev-parse", "HEAD"]);
+  if (!commit) {
+    fail("PACKAGING GATE = FAIL: Git HEAD is unavailable.", { root: resolvedRoot });
+  }
+  const status = runGit(resolvedRoot, ["status", "--porcelain"]);
+  if (status === null) {
+    fail("PACKAGING GATE = FAIL: Git working tree status is unavailable.", { root: resolvedRoot });
+  }
+  if (status) {
+    fail("PACKAGING GATE = FAIL: Working Tree must be clean before packaging.", {
+      root: resolvedRoot,
+      status
+    });
+  }
+  return Object.freeze({ status: "PASS", commit, workingTree: "clean" });
+}
+
 function artifactTaipeiParts(date = new Date()) {
   const parsedDate = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -305,6 +324,23 @@ function artifactTaipeiParts(date = new Date()) {
 function formatArtifactCreatedAt(date = new Date()) {
   const parts = artifactTaipeiParts(date);
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}+08:00`;
+}
+
+function buildIdFromTaipeiDate(date = new Date()) {
+  const parts = artifactTaipeiParts(date);
+  return `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`;
+}
+
+function generateNewBuildId({ now = new Date(), previousBuild = null } = {}) {
+  const build = buildIdFromTaipeiDate(now);
+  if (previousBuild && build === String(previousBuild)) {
+    fail("New Formal Build must use a new BUILD_ID; generated value matches the previous BUILD_ID.", {
+      previousBuild: String(previousBuild),
+      generatedBuild: build,
+      timezone: "Asia/Taipei"
+    });
+  }
+  return build;
 }
 
 function formatArtifactFilenameTimestamp(date = new Date()) {
@@ -556,15 +592,15 @@ function packageCandidate({
   regression = {},
   deliver = false,
   deliveryRoot = FORMAL_DELIVERY_ROOT,
-  createdAt = new Date()
+  createdAt = null
 } = {}) {
   const resolvedRoot = path.resolve(root);
   const resolvedOutput = path.resolve(outputDir);
+  const workingTree = assertWorkingTreeClean(resolvedRoot);
   assertRegressionEvidence(regression);
   const snapshot = readIdentitySnapshot(resolvedRoot);
   const preGate = assertSourceIdentity(snapshot);
   const sourceFiles = sourceManifest(resolvedRoot);
-  const artifactCreatedAt = formatArtifactCreatedAt(createdAt);
   const filename = candidateFilename({
     build: preGate.build,
     version: preGate.version,
@@ -584,14 +620,17 @@ function packageCandidate({
   try {
     copySource(resolvedRoot, sourceStageRoot, sourceFiles.map(item => item.path));
     execFileSync("zip", ["-qr", stagedZipFile, "."], { cwd: sourceStageRoot, stdio: ["ignore", "pipe", "pipe"] });
+    // Record provenance after the ZIP has been fully created. The optional
+    // createdAt override exists only for deterministic tests.
+    const artifactCreatedAt = formatArtifactCreatedAt(createdAt || new Date());
     const archiveValidation = validateArchive(resolvedRoot, stagedZipFile, sourceFiles, preGate);
     const manifest = {
       product: snapshot.product,
       version: preGate.version,
       build: preGate.build,
-      gitBaselineCommit: runGit(resolvedRoot, ["rev-parse", "HEAD"]),
+      gitBaselineCommit: workingTree.commit,
       sourceRoot: resolvedRoot,
-      sourceDirty: Boolean(runGit(resolvedRoot, ["status", "--porcelain"])),
+      sourceDirty: false,
       artifactCreatedAt,
       artifactCreatedAtTimezone: "Asia/Taipei",
       candidateFilename: filename,
@@ -690,7 +729,7 @@ function parseCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage:\n  node tools/release-governance.js package --description <slug> --regression-json '<json>' [--output-dir <dir>] [--deliver]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
+  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js package --description <slug> --regression-json '<json>' [--output-dir <dir>] [--deliver]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -700,8 +739,19 @@ function main(argv = process.argv.slice(2)) {
     return;
   }
   if (command === "preflight") {
-    const snapshot = readIdentitySnapshot(options.root || PROJECT_ROOT);
-    console.log(JSON.stringify(assertSourceIdentity(snapshot), null, 2));
+    const root = options.root || PROJECT_ROOT;
+    const workingTree = assertWorkingTreeClean(root);
+    const snapshot = readIdentitySnapshot(root);
+    console.log(JSON.stringify({ ...assertSourceIdentity(snapshot), workingTree }, null, 2));
+    return;
+  }
+  if (command === "new-build-id") {
+    const root = options.root || PROJECT_ROOT;
+    const workingTree = assertWorkingTreeClean(root);
+    const snapshot = readIdentitySnapshot(root);
+    const previousBuild = options["previous-build"] || snapshot.build;
+    const build = generateNewBuildId({ previousBuild });
+    console.log(JSON.stringify({ status: "PASS", timezone: "Asia/Taipei", build, previousBuild, workingTree }, null, 2));
     return;
   }
   if (command !== "package") fail(`Unknown command: ${command}`);
@@ -748,6 +798,8 @@ module.exports = {
   sourceManifestDigest,
   candidateFilename,
   candidateFilenameParts,
+  buildIdFromTaipeiDate,
+  generateNewBuildId,
   formatArtifactFilenameTimestamp,
   manifestFilename,
   validateManifest,
@@ -759,5 +811,6 @@ module.exports = {
   verifyFormalDeliveryPair,
   copyCandidatePair,
   assertFormalDeliveryRoot,
+  assertWorkingTreeClean,
   packageCandidate
 };
