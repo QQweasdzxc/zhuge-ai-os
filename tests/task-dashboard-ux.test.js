@@ -61,7 +61,8 @@ test("Legacy Task and Journal realtime channels are retired while Work Entry rem
 test("AI Assistant new-task action uses the canonical WorkTodo create contract", () => {
   assert.match(worklogEntry, /\.\.\/\.\.\/shared\/board\/board-read-service\.js/);
   assert.match(worklog, /data-assistant-create-task\]\"\)\.forEach\(button => button\.onclick = async/);
-  assert.match(worklog, /createService\.worktodoCreateTask\(\{[\s\S]*?status: \"not_started\"/);
+  assert.match(worklog, /createService\.createCanonicalWorkTodoTask\(\{[\s\S]*?status: \"not_started\"/);
+  assert.doesNotMatch(worklog, /createService\.worktodoCreateTask/);
   assert.match(worklog, /data-assistant-create-task[\s\S]*?openWorkspace\(\"tasks-new\"\)/);
   assert.doesNotMatch(worklog, /data-assistant-create-task[\s\S]*?createTask\(title\)/);
 });

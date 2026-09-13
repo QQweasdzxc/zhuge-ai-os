@@ -5325,13 +5325,13 @@ function bindWorklogAssistant() {
     const message = button.closest(".assistant-command-card");
     const title = message?.querySelector(".assistant-card-grid b")?.textContent?.trim() || "待辦";
     const createService = globalThis.ZhugeBoardReadService;
-    if (typeof createService?.worktodoCreateTask !== "function") {
+    if (typeof createService?.createCanonicalWorkTodoTask !== "function") {
       toast("正式工作待辦建立服務尚未載入，請重新整理後再試。");
       return;
     }
     button.disabled = true;
     try {
-      await createService.worktodoCreateTask({
+      await createService.createCanonicalWorkTodoTask({
         title,
         status: "not_started",
         usageScenario: "AI Assistant"

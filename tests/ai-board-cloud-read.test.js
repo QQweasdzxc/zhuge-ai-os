@@ -176,6 +176,7 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
   const gateway = {
     select: async (table, query) => {
       calls.push({ type: "select", table, query });
+      if (table === "board_instances") return [{ id: "worktodo-board", legacy_application_scope: "worktodo", task_code_prefix: "WLTK", active: true }];
       if (table === "board_workspaces") return [{ id: "worktodo-blocked-id", workspace_key: "worktodo-blocked", name: "阻塞", sort_order: 50, active: true, application_scope: "worktodo", owner_uuid: null }];
       if (table === "board_tasks") return [taskRow];
       return [];
@@ -197,17 +198,25 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
     const progressRead = calls.find(call => call.type === "select" && call.table === "engineering_activity_log");
     assert.match(progressRead?.query || "", /entity_id=in\.\(/);
 
-    await BoardRead.worktodoCreateTask({ title: "New", summary: "Body", status: "not_started", usageScenario: "Scenario" }, { gateway });
+    const worktodoService = BoardRead.createInstanceService({
+      gateway,
+      legacyApplicationScope: "worktodo",
+      consumerId: "worktodo",
+      allowExistingCardAdoption: true,
+      allowWorkspaceMovement: true,
+      completionArchiveLifecycle: true
+    });
+    await worktodoService.createTask({ title: "New", summary: "Body", status: "not_started", usageScenario: "Scenario", workspaceId: "worktodo-blocked-id" });
     await BoardRead.worktodoUpdateTask({ taskId: taskRow.id, patch: { status: "waiting_reply" } }, { gateway });
     await BoardRead.worktodoAddTaskProgressNote({ taskId: taskRow.id, note: "Progress" }, { gateway });
     await BoardRead.worktodoMigrateTask("WLTK-004", { gateway });
     assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
-      "worktodo_create_task",
+      "board_instance_create_task",
       "worktodo_update_task",
       "worktodo_add_task_progress_note",
       "worktodo_migrate_task"
     ]);
-    assert.equal(calls.find(call => call.name === "worktodo_create_task").params.p_status, "not_started");
+    assert.equal(calls.find(call => call.name === "board_instance_create_task").params.p_status, "not_started");
     assert.deepEqual(calls.find(call => call.name === "worktodo_update_task").params.p_patch, { status: "waiting_reply" });
   } finally {
     if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;

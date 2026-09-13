@@ -20,15 +20,15 @@
   "publishedBuild": "20260913-1545",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260913-1545",
-  "sourceCommit": "1f80932fa26189f58a256d59ad111567c23787bc",
+  "sourceCommit": "6c987fb32f2a997f122e7cab0528a1a4e9ff6a75",
   "sourceDirty": false,
-  "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
+  "sourceFingerprint": "dc7f782a6d2b606dcb76c911678fe1ec2c17a322e60a3aea0a0965ee105cb120",
   "publishedSnapshot": {
     "schemaVersion": 1,
     "version": "0.9.0-alpha.9.13",
     "build": "20260913-1545",
-    "sourceCommit": "1f80932fa26189f58a256d59ad111567c23787bc",
-    "sourceFingerprint": "57cf136f795ef9afd9796ca1630cc884ea56579ceca19d191437f7ee6737b825",
+    "sourceCommit": "6c987fb32f2a997f122e7cab0528a1a4e9ff6a75",
+    "sourceFingerprint": "dc7f782a6d2b606dcb76c911678fe1ec2c17a322e60a3aea0a0965ee105cb120",
     "inventory": {
       "engineVersion": "c-mother-template-parity-v2",
       "baseline": "C Mother Template",
@@ -458,17 +458,23 @@
       ]
     },
     "behaviorContract": {
-      "id": "module-c-lifecycle-acceptance-v1",
+      "id": "module-c-lifecycle-acceptance-v2",
+      "family": "module-c-lifecycle-acceptance",
       "source": "module-c-mother",
       "workspaceDecision": "canonical",
       "completionDecision": "canonical",
       "reopenDecision": "canonical",
       "acceptance": "canonical",
       "audit": "canonical",
-      "atomicity": "single-transaction"
+      "atomicity": "single-transaction",
+      "workflowOwner": "board-instance",
+      "workflowVersioning": "draft-published-retired-immutable",
+      "currentStepBinding": "board_tasks.workflow_version_id+current_workflow_step_id",
+      "workflowResolution": "cloud-definition",
+      "runtimeInference": "forbidden"
     }
   },
-  "publishedAt": "2026-09-09T05:58:40.714Z",
+  "publishedAt": "2026-09-13T12:45:21.352Z",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",

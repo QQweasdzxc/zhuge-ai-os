@@ -45,8 +45,8 @@ test("all formal task-create RPC paths leave automatic identity allocation to Cl
   const contract = read("docs/supabase/20260831_create_task_acceptance_criteria.sql")
     + read("docs/supabase/20260828_universal_board_contract_completion.sql");
   assert.match(service, /gateway\.rpc\("board_create_task"/);
-  assert.match(service, /gateway\.rpc\("worktodo_create_task"/);
   assert.match(service, /gateway\.rpc\("board_instance_create_task"/);
+  assert.doesNotMatch(service, /gateway\.rpc\("worktodo_create_task"/);
   assert.match(contract, /insert into public\.board_tasks \(/);
   assert.doesNotMatch(contract, /board_instance_create_task[\s\S]{0,800}next_task_number\s*=\s*next_task_number\s*\+/);
 });
