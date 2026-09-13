@@ -136,7 +136,7 @@ test("C Workflow moves an unbound card through formal adoption when a Published 
   assert.equal(calls[3].args.p_idempotency_key, "move-1");
 });
 
-test("C Workflow uses the same owner-scoped move contract when no Workflow is published", async () => {
+test("C Workflow uses the same C move contract when Workflow is optional", async () => {
   const calls = [];
   let workspaceId = "workspace-1";
   const gateway = {
@@ -147,9 +147,21 @@ test("C Workflow uses the same owner-scoped move contract when no Workflow is pu
         return { contract: "module-c-lifecycle-acceptance-v2", board_instance_id: "consumer-board", state: null, published: null };
       }
       if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
-      if (name === "board_instance_move_task_workspace") {
-        workspaceId = args.p_workspace_id;
-        return { id: "task-1", board_instance_id: "consumer-board", workspace_id: workspaceId, status: "ready", assignee: "Co" };
+      if (name === "board_c_reconcile_workspace_decision_v2") {
+        workspaceId = args.p_target_workspace_id;
+        return {
+          id: "task-1",
+          board_instance_id: "consumer-board",
+          workspace_id: workspaceId,
+          status: "ready",
+          assignee: "Co",
+          state: "workspace_moved",
+          workflow_version_id: null,
+          workflow: "not_configured",
+          workflow_optional: true,
+          workflow_bound: false,
+          card_identity_preserved: true
+        };
       }
       throw new Error(`unexpected RPC ${name}`);
     }
@@ -168,10 +180,10 @@ test("C Workflow uses the same owner-scoped move contract when no Workflow is pu
   assert.deepEqual(calls.map(call => call.name), [
     "board_c_workflow_get",
     "board_c_workflow_resolve_task",
-    "board_instance_move_task_workspace",
+    "board_c_reconcile_workspace_decision_v2",
     "board_c_workflow_get",
     "board_c_workflow_resolve_task",
-    "board_instance_move_task_workspace"
+    "board_c_reconcile_workspace_decision_v2"
   ]);
   assert.equal(calls.every(call => call.args.p_task_id === "task-1" || call.name === "board_c_workflow_get"), true);
 });

@@ -12,6 +12,7 @@ const provisioning = read("docs/supabase/20260912_c_consumer_provisioning_v2.sql
 const closure = read("docs/supabase/20260912_c_completion_archive_closure_v2.sql");
 const scheduler = read("docs/supabase/20260912_c_completion_archive_scheduler_v2.sql");
 const checker = read("docs/supabase/20260912_c_authority_conformance_v2_hardening.sql");
+const optionalWorkflow = read("docs/supabase/20260913_c_completion_archive_optional_workflow.sql");
 
 test("A: C Consumer provisioning is one atomic, idempotent, fail-closed contract", () => {
   assert.match(provisioning, /board_provision_c_consumer_v2\(/i);
@@ -96,6 +97,16 @@ test("B/C: safety net and background scheduler share one C archive writer", () =
   assert.doesNotMatch(scheduler, /interval\s+'48 hours'|interval\s+'24 hours'|86400/i);
 });
 
+test("B/C: optional Workflow uses the same C lifecycle writer and scheduler", () => {
+  assert.match(optionalWorkflow, /board_c_completion_archive_designation/i);
+  assert.match(optionalWorkflow, /workflow_optional/i);
+  assert.match(optionalWorkflow, /left\s+join\s+public\.board_instance_workflow_state/i);
+  assert.match(optionalWorkflow, /private\.board_c_reconcile_completion_archive_lifecycle_core\(/i);
+  assert.match(optionalWorkflow, /'archive_designation',\s*'task-archive-state'/i);
+  assert.doesNotMatch(optionalWorkflow, /insert\s+into\s+public\.(board_tasks|user_tasks)\b/i);
+  assert.doesNotMatch(optionalWorkflow, /delete\s+from\s+public\.(board_tasks|user_tasks)\b/i);
+});
+
 test("D: Authority Checker v2 reports route, writer, policy, adoption, and persistence conformance", () => {
   const body = checker.slice(checker.indexOf("$function$") + "$function$".length, checker.lastIndexOf("$function$"));
   assert.match(checker, /stable\s+security definer/i);
@@ -133,6 +144,26 @@ test("D: parity treats a non-pass authority check as a real conformance gap", ()
   assert.equal(failClosed.layerStatus, "fail");
   assert.deepEqual(failClosed.failedChecks, ["workflow_engine"]);
   assert.match(Parity.formatReport({ authorityConformance: failClosed }), /Authority Conformance：fail_closed/);
+});
+
+test("D: parity treats optional Workflow and lifecycle capabilities as legal N/A", () => {
+  const optional = Parity.normalizeAuthorityConformance({
+    contract: "module-c-authority-conformance-v2",
+    status: "pass",
+    board_instance_id: "instance-optional",
+    workflow: { status: "not_configured", optional: true, state: "not_applicable" },
+    completion_designation: { status: "not_configured" },
+    checks: {
+      shared_runtime: "pass",
+      workflow_authority: "not_applicable",
+      workflow_engine: "not_applicable",
+      workflow_binding_readiness: "not_applicable",
+      completion_authority: "not_applicable",
+      archive_authority: "not_applicable"
+    }
+  });
+  assert.equal(optional.layerStatus, "pass");
+  assert.deepEqual(optional.failedChecks, []);
 });
 
 test("C: formal WorkTodo runtime adopts the shared C instance lifecycle on the existing board", () => {

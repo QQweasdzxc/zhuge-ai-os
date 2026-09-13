@@ -117,7 +117,7 @@ test("all C consumers use the same v2 adoption and movement authority", async ()
   }
 });
 
-test("all C consumers keep the same owner-scoped movement path when no workflow is published", async () => {
+test("all C consumers keep the same C movement path when Workflow is optional", async () => {
   for (const page of C_PAGES) {
     const calls = [];
     let workspaceId = `${page.id}-workspace-1`;
@@ -137,14 +137,20 @@ test("all C consumers keep the same owner-scoped movement path when no workflow 
           };
         }
         if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
-        if (name === "board_instance_move_task_workspace") {
-          workspaceId = args.p_workspace_id;
+        if (name === "board_c_reconcile_workspace_decision_v2") {
+          workspaceId = args.p_target_workspace_id;
           return {
             id: `${page.id}-task`,
             board_instance_id: page.boardId,
             workspace_id: workspaceId,
             status: "ready",
-            assignee: null
+            assignee: null,
+            state: "workspace_moved",
+            workflow_version_id: null,
+            workflow: "not_configured",
+            workflow_optional: true,
+            workflow_bound: false,
+            card_identity_preserved: true
           };
         }
         throw new Error(`unexpected RPC ${name}`);
@@ -184,10 +190,10 @@ test("all C consumers keep the same owner-scoped movement path when no workflow 
     assert.deepEqual(calls.map(call => call.name), [
       "board_c_workflow_get",
       "board_c_workflow_resolve_task",
-      "board_instance_move_task_workspace",
+      "board_c_reconcile_workspace_decision_v2",
       "board_c_workflow_get",
       "board_c_workflow_resolve_task",
-      "board_instance_move_task_workspace"
+      "board_c_reconcile_workspace_decision_v2"
     ]);
     assert.equal(calls.filter(call => call.name === "board_instance_move_task_workspace")
       .every(call => call.args.p_task_id === `${page.id}-task`), true);

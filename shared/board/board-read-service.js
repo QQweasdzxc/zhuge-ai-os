@@ -81,17 +81,19 @@
     existingDueAtPolicy: "preserve-no-retroactive-recalculation"
   });
 
-  // P2 establishes the instance-scoped lifecycle context used by the future
-  // Consumer adoption phases.  This is a resolver contract only: it does not
-  // duplicate the policy value and it does not switch any Consumer writer.
+  // P2 establishes the instance-scoped lifecycle context.  Workflow is an
+  // optional capability: a Board may instead expose an explicit completion
+  // designation and still use the same C lifecycle writer.
   const C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT = Object.freeze({
     id: "module-c-lifecycle-acceptance-v2",
     capability: "completion-archive-lifecycle",
     source: "module-c-mother",
     owner: "board-instance",
-    scope: "board-instance+published-workflow-version",
-    completionPosition: "published-workflow-step",
+    scope: "board-instance+published-workflow-version-or-explicit-completion-designation",
+    completionPosition: "published-workflow-step-or-explicit-designation",
     policy: C_COMPLETION_ARCHIVE_POLICY.id,
+    workflowOptional: true,
+    archiveDesignation: "task-archive-state",
     existingDueAtPolicy: "preserve-no-retroactive-recalculation",
     failureMode: "fail-closed",
     reconciliation: "instance-scoped-idempotent"
@@ -445,6 +447,7 @@
       workflowVersionNo: Number(source.workflow_version_no ?? source.workflowVersionNo ?? 0),
       publishedWorkflowVersionId: String(source.published_workflow_version_id || source.publishedWorkflowVersionId || ""),
       taskId: String(source.task_id || source.taskId || ""),
+      state: String(source.state || "").toLowerCase(),
       currentStepId: String(source.current_step_id || source.currentStepId || ""),
       currentStepName: String(source.current_step_name || source.currentStepName || ""),
       currentWorkspaceId: String(source.current_workspace_id || source.currentWorkspaceId || ""),
@@ -453,6 +456,10 @@
       completionStepName: String(source.completion_step_name || source.completionStepName || ""),
       completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
       completionWorkspaceName: String(source.completion_workspace_name || source.completionWorkspaceName || ""),
+      completionDesignationStatus: String(source.completion_designation_status || source.completionDesignationStatus || "").toLowerCase(),
+      completionDesignationSource: String(source.completion_designation_source || source.completionDesignationSource || ""),
+      archiveDesignation: String(source.archive_designation || source.archiveDesignation || ""),
+      archiveDesignationStatus: String(source.archive_designation_status || source.archiveDesignationStatus || "").toLowerCase(),
       policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
       policyKey: String(source.policy_key || source.policyKey || C_COMPLETION_ARCHIVE_POLICY.policyKey),
       policyVersion,
@@ -480,8 +487,11 @@
       state: String(source.state || ""),
       boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
       workflowVersionId: String(source.workflow_version_id || source.workflowVersionId || ""),
+      workflowStatus: String(source.workflow_status || source.workflowStatus || "").toLowerCase(),
       completionStepId: String(source.completion_step_id || source.completionStepId || ""),
       completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
+      completionDesignationStatus: String(source.completion_designation_status || source.completionDesignationStatus || "").toLowerCase(),
+      archiveDesignationStatus: String(source.archive_designation_status || source.archiveDesignationStatus || "").toLowerCase(),
       policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
       policyVersion: Number(source.policy_version ?? source.policyVersion ?? 0),
       archiveDelaySeconds: Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0),
@@ -1022,18 +1032,30 @@
       "board_c_resolve_completion_archive_context",
       args
     ));
-    const valid = context.scopeVerified
-      && context.cardIdentityPreserved
-      && context.taskId === value
-      && Boolean(context.boardInstanceId)
-      && Boolean(context.workflowVersionId)
+    const optionalNotApplicable = context.state === "not_applicable"
+      && context.workflowStatus === "not_configured"
+      && context.completionDesignationStatus === "not_configured"
+      && context.archiveDesignationStatus === "not_applicable";
+    const optionalConfigured = context.workflowStatus === "not_configured"
+      && context.completionDesignationStatus === "configured"
+      && Boolean(context.completionWorkspaceId)
+      && context.archiveDesignationStatus === "configured"
+      && context.policyVersion > 0
+      && Number.isFinite(context.archiveDelaySeconds)
+      && context.archiveDelaySeconds > 0;
+    const workflowConfigured = Boolean(context.workflowVersionId)
       && Boolean(context.currentStepId)
-      && Boolean(context.currentWorkspaceId)
       && Boolean(context.completionStepId)
       && Boolean(context.completionWorkspaceId)
       && context.policyVersion > 0
       && Number.isFinite(context.archiveDelaySeconds)
       && context.archiveDelaySeconds > 0;
+    const valid = context.scopeVerified
+      && context.cardIdentityPreserved
+      && context.taskId === value
+      && Boolean(context.boardInstanceId)
+      && Boolean(context.currentWorkspaceId)
+      && (optionalNotApplicable || optionalConfigured || workflowConfigured);
     if (!valid) {
       const error = new Error("Module C Completion Archive Context 不完整；已安全停止，不會猜測 Instance／Workflow／Completion Workspace。");
       error.code = "C_COMPLETION_ARCHIVE_CONTEXT_INVALID";
@@ -1069,16 +1091,31 @@
       "board_c_reconcile_completion_archive_lifecycle_v2",
       args
     ));
-    const valid = result.scopeVerified
-      && result.atomic
-      && result.idempotent
-      && result.boardInstanceId === boardInstanceId
-      && Boolean(result.workflowVersionId)
+    const optionalNotApplicable = result.state === "not_applicable"
+      && !result.workflowVersionId
+      && !result.completionStepId
+      && !result.completionWorkspaceId
+      && result.completionDesignationStatus === "not_configured"
+      && result.archiveDesignationStatus === "not_applicable";
+    const optionalConfigured = result.workflowStatus === "not_configured"
+      && !result.workflowVersionId
+      && Boolean(result.completionWorkspaceId)
+      && result.completionDesignationStatus === "configured"
+      && result.archiveDesignationStatus === "configured"
+      && result.policyVersion > 0
+      && Number.isFinite(result.archiveDelaySeconds)
+      && result.archiveDelaySeconds > 0;
+    const workflowConfigured = Boolean(result.workflowVersionId)
       && Boolean(result.completionStepId)
       && Boolean(result.completionWorkspaceId)
       && result.policyVersion > 0
       && Number.isFinite(result.archiveDelaySeconds)
       && result.archiveDelaySeconds > 0;
+    const valid = result.scopeVerified
+      && result.atomic
+      && result.idempotent
+      && result.boardInstanceId === boardInstanceId
+      && (optionalNotApplicable || optionalConfigured || workflowConfigured);
     if (!valid) {
       const error = new Error("Module C Completion Archive Reconciliation 回傳不完整；資料狀態未由前端推測。");
       error.code = "C_COMPLETION_ARCHIVE_RECONCILIATION_INVALID";
@@ -1689,34 +1726,12 @@
         throw error;
       }
 
-      // A Board Instance without a Published Workflow has no step/status
-      // contract to reconcile. Use the existing owner-scoped Board Instance
-      // movement RPC as the canonical C core operation. It validates that the
-      // target belongs to the same Board Instance, preserves card data and
-      // identity, and records the movement audit; it does not guess status or
-      // assignee and is never a consumer-specific fallback.
-      const moved = await gateway.rpc("board_instance_move_task_workspace", {
-        p_task_id: taskId,
-        p_workspace_id: input.targetWorkspaceId,
-        p_reason: input.decisionNote || null
-      });
-      return Object.freeze({
-        contract: C_WORKFLOW_CANONICAL_CONTRACT.id,
-        action: "workspace-decision",
-        state: "workspace_moved",
-        decision: "workspace",
-        task_id: moved?.id || taskId,
-        board_instance_id: moved?.board_instance_id || await boardInstanceId(),
-        target_workspace_id: moved?.workspace_id || input.targetWorkspaceId,
-        status: moved?.status,
-        assignee: moved?.assignee,
-        workflow: "not_configured",
-        workflow_bound: false,
-        card_identity_preserved: true,
-        card_data_moved: false,
-        audit_recorded: true,
-        raw: moved
-      });
+      // Workflow is optional, but movement still belongs to the same C
+      // decision authority.  The v2 Cloud contract validates the Board
+      // Instance, the explicit completion designation (when present), the
+      // lifecycle policy, audit, and idempotency in one transaction.  There is
+      // no generic/global movement fallback here.
+      return reconcileBoundWorkspaceDecision(input);
     };
     const reconcileLegacyCard = async (input = {}) => {
       assertWritable();
@@ -1962,13 +1977,17 @@
     });
     const completionArchiveLifecycleEnabled = instanceOptions.completionArchiveLifecycle === true;
 
-    function completionArchiveAdoptionState(instance, state = "not_adopted", reasonCode = "C_ARCHIVE_WORKFLOW_REQUIRED", reason = "此子板尚未採用 Published Workflow；Completion Archive 維持安全停止。") {
+    function completionArchiveAdoptionState(instance, state = "not_applicable", reasonCode = "C_WORKFLOW_OPTIONAL_NOT_CONFIGURED", reason = "此子板未設定 Workflow；Workflow 為選用能力，Completion Archive 依正式 Completion designation 判定。") {
       return Object.freeze({
         contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id,
         capability: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability,
         state,
         boardInstanceId: String(instance?.id || ""),
         workflowVersionId: "",
+        workflowStatus: "not_configured",
+        workflowOptional: true,
+        completionDesignationStatus: "not_configured",
+        archiveDesignationStatus: "not_applicable",
         reasonCode,
         reason,
         failClosed: true,
@@ -1978,11 +1997,11 @@
     }
 
     // Completion Archive is a shared C capability, not a Consumer-owned
-    // policy.  On each adopted Instance read, resolve the Instance's own
-    // Published Workflow first, then invoke the P2 scoped reconciler.  A
-    // missing/invalid Published Workflow is an explicit non-adoption state;
-    // it never falls back to the global legacy lifecycle route or to a
-    // workspace/name guess.
+    // policy.  A Published Workflow is optional.  When one exists, validate
+    // its Instance scope before reconciliation; otherwise call the same C
+    // reconciler with a null Workflow so Cloud can resolve an explicit Board
+    // completion designation (or return legal N/A).  Never fall back to a
+    // global lifecycle route or a display-name guess.
     async function instanceReconcileCompletionArchiveOnLoad() {
       const instance = await resolveInstance();
       if (readOnly) {
@@ -2016,7 +2035,7 @@
       const publishedPointerId = String(workflowState?.state?.publishedWorkflowVersionId || "").trim();
       const publishedSnapshotId = String(workflowState?.published?.id || "").trim();
       if (!publishedPointerId && !publishedSnapshotId) {
-        return completionArchiveAdoptionState(instance);
+        return instanceReconcileCompletionArchiveLifecycle({ workflowVersionId: null });
       }
 
       const publishedWorkflowId = publishedPointerId || publishedSnapshotId;
@@ -2330,7 +2349,8 @@
       completionArchiveLifecycle: Object.freeze({
         enabled: completionArchiveLifecycleEnabled,
         contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
-        adoption: "board-instance+published-workflow-required",
+        adoption: "board-instance+optional-workflow-or-completion-designation",
+        workflowOptional: true,
         reconcileOnLoad: completionArchiveLifecycleEnabled,
         failClosed: true
       }),

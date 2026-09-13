@@ -6,6 +6,7 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 const migration = read("docs/supabase/20260912_c_completion_archive_instance_scope.sql");
+const optionalMigration = read("docs/supabase/20260913_c_completion_archive_optional_workflow.sql");
 const source = read("shared/board/board-read-service.js");
 const BoardRead = require("../shared/board/board-read-service.js");
 
@@ -55,15 +56,30 @@ test("TASK-064 P2 Cloud grants are authenticated-only and fail closed", () => {
   assert.doesNotMatch(code, /grant execute on function public\.[^(]+\([^)]*\) to anon/i);
 });
 
-test("P2 browser contract exposes scoped context without duplicating policy timing", () => {
+test("TASK-064 optional Workflow Cloud contract uses explicit designation or legal N/A", () => {
+  const code = optionalMigration.replace(/--.*$/gm, "");
+  assert.match(code, /private\.board_c_completion_archive_designation/i);
+  assert.match(code, /workspace_key/i);
+  assert.match(code, /workflow_optional/i);
+  assert.match(code, /'state',\s*'not_applicable'/i);
+  assert.match(code, /'state',\s*'configured'/i);
+  assert.match(code, /'archive_designation',\s*'task-archive-state'/i);
+  assert.match(code, /left\s+join\s+public\.board_instance_workflow_state/i);
+  assert.doesNotMatch(code, /insert\s+into\s+public\.(board_tasks|user_tasks)\b/i);
+  assert.doesNotMatch(code, /delete\s+from\s+public\.(board_tasks|user_tasks)\b/i);
+});
+
+test("P2 browser contract exposes optional scoped context without duplicating policy timing", () => {
   assert.deepEqual(BoardRead.C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT, {
     id: "module-c-lifecycle-acceptance-v2",
     capability: "completion-archive-lifecycle",
     source: "module-c-mother",
     owner: "board-instance",
-    scope: "board-instance+published-workflow-version",
-    completionPosition: "published-workflow-step",
+    scope: "board-instance+published-workflow-version-or-explicit-completion-designation",
+    completionPosition: "published-workflow-step-or-explicit-designation",
     policy: "module-c-completion-archive-policy",
+    workflowOptional: true,
+    archiveDesignation: "task-archive-state",
     existingDueAtPolicy: "preserve-no-retroactive-recalculation",
     failureMode: "fail-closed",
     reconciliation: "instance-scoped-idempotent"
@@ -184,6 +200,56 @@ test("scoped archive reconciliation adapter requires and preserves instance scop
       p_task_id: "task-1"
     }
   }]);
+});
+
+test("optional completion archive adapter accepts legal N/A and configured states", async () => {
+  const responses = [
+    {
+      contract: "module-c-lifecycle-acceptance-v2",
+      capability: "completion-archive-lifecycle",
+      state: "not_applicable",
+      board_instance_id: "instance-1",
+      workflow_version_id: null,
+      workflow_status: "not_configured",
+      completion_step_id: null,
+      completion_workspace_id: null,
+      completion_designation_status: "not_configured",
+      archive_designation_status: "not_applicable",
+      idempotent: true,
+      atomic: true,
+      scope_verified: true
+    },
+    {
+      contract: "module-c-lifecycle-acceptance-v2",
+      capability: "completion-archive-lifecycle",
+      state: "reconciled",
+      board_instance_id: "instance-1",
+      workflow_version_id: null,
+      workflow_status: "not_configured",
+      completion_step_id: null,
+      completion_workspace_id: "workspace-completed",
+      completion_designation_status: "configured",
+      archive_designation_status: "configured",
+      policy_identity: "module-c-completion-archive-policy",
+      policy_version: 1,
+      archive_delay_seconds: 86400,
+      idempotent: true,
+      atomic: true,
+      scope_verified: true
+    }
+  ];
+  for (const response of responses) {
+    const gateway = { rpc: async () => response };
+    const result = await BoardRead.reconcileCompletionArchiveLifecycle({
+      gateway,
+      boardInstanceId: "instance-1",
+      workflowVersionId: null
+    });
+    assert.equal(result.boardInstanceId, "instance-1");
+    assert.equal(result.workflowVersionId, "");
+    assert.equal(result.atomic, true);
+    assert.equal(result.idempotent, true);
+  }
 });
 
 test("Board Instance service pins P2 operations to its resolved instance", async () => {

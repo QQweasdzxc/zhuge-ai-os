@@ -10,11 +10,57 @@ const BoardRead = require("../shared/board/board-read-service.js");
 const INSTANCE_ID = "74ff1127-ab98-4543-8f69-872e5d92fd33";
 const WORKFLOW_ID = "05557542-2f91-465a-bb14-3518105f9537";
 
+const OPTIONAL_NOT_APPLICABLE_RECONCILIATION = {
+  contract: "module-c-lifecycle-acceptance-v2",
+  capability: "completion-archive-lifecycle",
+  action: "reconcile-completion-archive",
+  state: "not_applicable",
+  board_instance_id: INSTANCE_ID,
+  workflow_version_id: null,
+  workflow_status: "not_configured",
+  completion_step_id: null,
+  completion_workspace_id: null,
+  completion_designation_status: "not_configured",
+  archive_designation_status: "not_applicable",
+  policy_identity: null,
+  policy_version: null,
+  archive_delay_seconds: null,
+  archived_count: 0,
+  task_ids: [],
+  idempotent: true,
+  atomic: true,
+  scope_verified: true,
+  existing_due_at_retroactive: false
+};
+
+const OPTIONAL_CONFIGURED_RECONCILIATION = {
+  contract: "module-c-lifecycle-acceptance-v2",
+  capability: "completion-archive-lifecycle",
+  action: "reconcile-completion-archive",
+  state: "reconciled",
+  board_instance_id: INSTANCE_ID,
+  workflow_version_id: null,
+  workflow_status: "not_configured",
+  completion_step_id: null,
+  completion_workspace_id: "workspace-completed",
+  completion_designation_status: "configured",
+  archive_designation_status: "configured",
+  policy_identity: "module-c-completion-archive-policy",
+  policy_version: 1,
+  archive_delay_seconds: 86400,
+  archived_count: 0,
+  task_ids: [],
+  idempotent: true,
+  atomic: true,
+  scope_verified: true,
+  existing_due_at_retroactive: false
+};
+
 function authenticatedSession() {
   return { user_id: "owner-1", email: "owner@example.com", isAuthenticated: true };
 }
 
-function scopedGateway({ workflow = null, reconciliation = null } = {}) {
+function scopedGateway({ workflow = null, reconciliation = OPTIONAL_CONFIGURED_RECONCILIATION } = {}) {
   const calls = [];
   const gateway = {
     calls,
@@ -122,7 +168,7 @@ test("P3 AI Board read adopts the shared instance-scoped C archive path", async 
   }
 });
 
-test("P3 missing Published Workflow remains an explicit fail-closed non-adoption", async () => {
+test("P3 missing Published Workflow is a legal optional state when no designation exists", async () => {
   const previousSnapshot = global.getSharedSessionSnapshot;
   global.getSharedSessionSnapshot = authenticatedSession;
   const gateway = scopedGateway({
@@ -132,17 +178,19 @@ test("P3 missing Published Workflow remains an explicit fail-closed non-adoption
       state: null,
       published: null,
       draft: null
-    }
+    },
+    reconciliation: OPTIONAL_NOT_APPLICABLE_RECONCILIATION
   });
 
   try {
     const service = BoardRead.createInstanceService({ gateway, boardInstanceId: INSTANCE_ID, completionArchiveLifecycle: true });
     const result = await service.load();
-    assert.equal(result.completionArchive.state, "not_adopted");
-    assert.equal(result.completionArchive.reasonCode, "C_ARCHIVE_WORKFLOW_REQUIRED");
-    assert.equal(result.completionArchive.failClosed, true);
-    assert.equal(result.completionArchive.cloudMutation, 0);
-    assert.equal(gateway.calls.some(call => call.name === "board_c_reconcile_completion_archive_lifecycle_v2"), false);
+    assert.equal(result.completionArchive.state, "not_applicable");
+    assert.equal(result.completionArchive.workflowStatus, "not_configured");
+    assert.equal(result.completionArchive.completionDesignationStatus, "not_configured");
+    assert.equal(result.completionArchive.archiveDesignationStatus, "not_applicable");
+    assert.notEqual(result.completionArchive.failClosed, true);
+    assert.equal(gateway.calls.some(call => call.name === "board_c_reconcile_completion_archive_lifecycle_v2"), true);
     assert.equal(gateway.calls.some(call => call.name === "board_reconcile_completion_lifecycle"), false);
   } finally {
     if (previousSnapshot) global.getSharedSessionSnapshot = previousSnapshot;
@@ -269,8 +317,11 @@ test("same-data WorkTodo formal entry resolves the existing Board Instance throu
     const result = await service.load();
     assert.equal(result.boardInstanceId, INSTANCE_ID);
     assert.equal(result.readOnly, false);
-    assert.equal(result.completionArchive.state, "not_adopted");
-    assert.equal(result.completionArchive.cloudMutation, 0);
+    assert.equal(result.completionArchive.state, "reconciled");
+    assert.equal(result.completionArchive.workflowStatus, "not_configured");
+    assert.equal(result.completionArchive.completionDesignationStatus, "configured");
+    assert.equal(result.completionArchive.archiveDesignationStatus, "configured");
+    assert.equal(result.completionArchive.workflowVersionId, "");
     assert.equal(result.tasks.length, 1);
     assert.equal(result.tasks[0].id, "task-066");
     assert.equal(gateway.calls.some(call => call.type === "select"
@@ -295,7 +346,7 @@ test("P3 runtime routes AI Board through the shared C Instance Service", () => {
   assert.match(runtime, /AI Board is a C Board Instance consumer too/);
 });
 
-test("P3 consumers share the C archive contract without a Consumer policy value", () => {
+test("P3 consumers share the optional C archive contract without a Consumer policy value", () => {
   const source = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
   const currentSource = `${source}\n${runtime}`;
@@ -304,7 +355,9 @@ test("P3 consumers share the C archive contract without a Consumer policy value"
     .replace(/\/\/.*$/gm, "");
   assert.match(source, /completionArchiveLifecycleEnabled = instanceOptions\.completionArchiveLifecycle === true/);
   assert.match(source, /board_c_reconcile_completion_archive_lifecycle_v2/);
-  assert.match(source, /C_ARCHIVE_WORKFLOW_REQUIRED/);
+  assert.match(source, /workflowOptional:\s*true/);
+  assert.match(source, /board-instance\+optional-workflow-or-completion-designation/);
+  assert.match(source, /C_WORKFLOW_OPTIONAL_NOT_CONFIGURED/);
   assert.doesNotMatch(executableSource, /48\s*hours|48\s*hour|2\s*days|archive interval/i);
   assert.doesNotMatch(runtime, /board_reconcile_completion_lifecycle/);
 });
