@@ -731,12 +731,6 @@
     const isWorkTodo = applicationScope === "worktodo";
     const isBoardInstance = Boolean(requestedInstanceId);
     const resolver = options.engineeringMemory || isWorkTodo || isBoardInstance ? null : requireEngineeringMemoryResolver(options);
-    // Reconciliation is a server-side, authenticated RPC. It uses canonical
-    // timestamps and makes refresh/realtime reads converge without a browser
-    // timer or local state pretending that 24 hours have elapsed.
-    if (!isWorkTodo && !isBoardInstance && typeof gateway.rpc === "function") {
-      await gateway.rpc("board_reconcile_completion_lifecycle", {});
-    }
     const scopeQuery = isBoardInstance
       ? `board_instance_id=eq.${encodeURIComponent(requestedInstanceId)}`
       : `application_scope=eq.${applicationScope}`;
@@ -964,11 +958,6 @@
       p_actor_label: "QJC",
       p_note: note || null
     });
-  }
-
-  async function reconcileCompletionLifecycle(options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_reconcile_completion_lifecycle", {});
   }
 
   // P1 C Shared Policy read/calculation capability. These methods intentionally
@@ -1794,14 +1783,6 @@
     }).then(normalizeChecklistItem);
   }
 
-  async function reconcilePmAcceptanceLifecycle(taskId, note = "", options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_reconcile_pm_acceptance_lifecycle", {
-      p_task_id: taskId,
-      p_note: note || null
-    });
-  }
-
   async function addTaskProgressNote(taskId, note, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_add_task_progress_note", {
@@ -2412,10 +2393,9 @@
     });
     if (!readOnly) return service;
 
-    // The old comparison entry shares the same Board Instance data but must
-    // never become a second writer.  Keep reads and the C Workflow read model,
-    // while replacing every mutating surface with one explicit fail-closed
-    // error.  This is a service boundary, not a UI-only disable.
+    // Keep an explicit fail-closed read-only boundary for rollback tooling and
+    // contract tests.  The canonical navigation no longer exposes the retired
+    // comparison entry, so this cannot become a second writer by accident.
     const blocked = async () => {
       const error = new Error("WorkTodo（舊）為唯讀比較入口，不能修改正式資料。");
       error.code = "WORKTODO_OLD_READ_ONLY";
@@ -2618,7 +2598,6 @@
     load,
     listBoardInstances,
     listModuleConsumers,
-    reconcileCompletionLifecycle,
     normalizeCompletionArchivePolicy,
     normalizeCompletionArchiveContext,
     normalizeCompletionArchiveReconciliation,
@@ -2667,7 +2646,6 @@
     reconcileWorkspaceDecision,
     pmAcceptTaskFromQjcDrop,
     pmQaFailChecklist,
-    reconcilePmAcceptanceLifecycle,
     addTaskProgressNote,
     notifyTaskProgress,
     editTaskProgressNote,

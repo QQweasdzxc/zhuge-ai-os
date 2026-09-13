@@ -504,10 +504,7 @@
   function isWorkTodoMode() {
     const path = String(root.location?.pathname || "");
     const consumer = queryParameter("consumer");
-    return consumer === "worktodo-new" || consumer === "worktodo-old" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
-  }
-  function isWorkTodoComparisonMode() {
-    return isWorkTodoMode() && queryParameter("consumer") === "worktodo-old";
+    return consumer === "worktodo-new" || /\/app\/Board\/worktodo\/(?:index\.html)?$/i.test(path);
   }
   function isProcurementMode() {
     const path = String(root.location?.pathname || "");
@@ -1017,20 +1014,8 @@
   function syncRuntimeIdentityLabels() {
     if (state.applicationScope !== "c" && !state.cNativeWorkTodo) return;
     const label = workItemLabel();
-    const comparisonEntry = document.querySelector("[data-worktodo-old-entry]");
-    if (comparisonEntry) {
-      if (state.readOnly) {
-        comparisonEntry.textContent = "WorkTodo";
-        comparisonEntry.title = "返回 WorkTodo 正式入口";
-        comparisonEntry.setAttribute("href", String(root.location?.pathname || "./"));
-      } else {
-        comparisonEntry.textContent = "WorkTodo（舊）";
-        comparisonEntry.title = "WorkTodo（舊）唯讀比較入口";
-        comparisonEntry.setAttribute("href", "?consumer=worktodo-old");
-      }
-    }
     if (state.cNativeWorkTodo && root.document) {
-      root.document.title = state.readOnly ? "Zhuge AI OS｜WorkTodo（舊）" : "Zhuge AI OS｜WorkTodo";
+      root.document.title = "Zhuge AI OS｜WorkTodo";
     }
     const addModal = document.getElementById("addCardModal");
     const addTitle = addModal?.querySelector(".modalhead h2");
@@ -4237,15 +4222,15 @@
     state.showTemplateReleasePanel = options.showTemplateReleasePanel !== false;
     state.consumerExtensions = options.consumerExtensions || null;
     state.cNativeWorkTodo = state.applicationScope === "worktodo";
-    state.readOnly = state.cNativeWorkTodo && (options.readOnly === true || isWorkTodoComparisonMode());
+    state.readOnly = state.cNativeWorkTodo && options.readOnly === true;
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
     state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
     state.consumerId = state.applicationScope === "c"
       ? (state.boardIsTemplate ? "c" : requestedBoardInstanceId)
       : moduleConsumerId(state.applicationScope);
-    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : state.applicationScope === "procurement" ? "庶務行政" : state.cNativeWorkTodo && state.readOnly ? "WorkTodo（舊）" : "";
-    state.entryLabel = state.cNativeWorkTodo && state.readOnly ? "WorkTodo（舊）" : state.cNativeWorkTodo ? "WorkTodo" : "";
+    state.boardName = state.boardIsTemplate ? "C 唯一看板母版" : state.applicationScope === "procurement" ? "庶務行政" : "";
+    state.entryLabel = state.cNativeWorkTodo ? "WorkTodo" : "";
     state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : state.applicationScope === "procurement" ? "GAS" : "";
     state.dataStatus = "available";
     state.dataSource = "";

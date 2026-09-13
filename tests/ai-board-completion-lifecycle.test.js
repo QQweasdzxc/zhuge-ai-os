@@ -56,7 +56,7 @@ test("board adapter exposes lifecycle timestamps without a second status model",
   assert.equal(BoardRead.isArchiveTask(task), false);
 });
 
-test("board read path invokes server reconciliation before canonical task reads", async () => {
+test("canonical board read path does not invoke the retired global lifecycle route", async () => {
   const calls = [];
   const gateway = {
     rpc: async (name, params) => { calls.push({ name, params }); return { success: true, archived_count: 0 }; },
@@ -73,5 +73,5 @@ test("board read path invokes server reconciliation before canonical task reads"
     global.getSharedSessionSnapshot = previousIdentity;
     global.ZhugeIdentity = previousIdentityObject;
   }
-  assert.deepEqual(calls, [{ name: "board_reconcile_completion_lifecycle", params: {} }]);
+  assert.deepEqual(calls, []);
 });
