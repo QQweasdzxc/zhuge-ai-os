@@ -130,6 +130,9 @@ function check() {
   const errors = [];
   const record = loadRecord();
   const identity = rootIdentity();
+  delete require.cache[require.resolve(PARITY_ENGINE_FILE)];
+  const parity = require(PARITY_ENGINE_FILE);
+  const canonicalBehaviorContract = parity.canonicalBehaviorContract();
   const expect = (condition, message) => { if (!condition) errors.push(message); };
   expect(record.schemaVersion === 1, "release schemaVersion must be 1");
   expect(record.templateId === "c", "templateId must be c");
@@ -142,7 +145,7 @@ function check() {
   expect(record.sourceCommit && record.sourceCommit !== "PENDING_GENERATION", "sourceCommit must be generated");
   expect(record.sourceFingerprint && record.sourceFingerprint === sourceFingerprint(), "sourceFingerprint must match canonical source");
   expect(record.publishedSnapshot?.inventory?.capabilities?.length === 15, "published semantic snapshot must include the 15 C capabilities");
-  expect(record.publishedSnapshot?.behaviorContract?.id === "module-c-lifecycle-acceptance-v1", "published semantic snapshot must include the C behavior contract");
+  expect(record.publishedSnapshot?.behaviorContract?.id === canonicalBehaviorContract.id, `published semantic snapshot must include the current C behavior contract (${canonicalBehaviorContract.id})`);
   ["c", "worktodo", "ai-board", "investment-ivtk", "worklog-procurement"].forEach(consumer => {
     const adoption = record.consumers?.[consumer];
     expect(adoption, `${consumer} adoption record is missing`);
