@@ -333,6 +333,72 @@
 .zhuge-module-shell .template-management-switch input:checked + .template-management-switch-track::after { transform: translateX(15px); }
 .zhuge-module-shell .template-management-switch input:disabled + .template-management-switch-track { cursor: not-allowed; opacity: .5; }
 .zhuge-module-shell .template-management-empty { padding: 14px; color: var(--zhuge-muted); font-size: .82rem; }
+.zhuge-module-shell .template-runtime-observability {
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, #60a5fa 30%, var(--zhuge-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #60a5fa 4%, var(--zhuge-surface-raised));
+}
+.zhuge-module-shell .template-runtime-observability-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.zhuge-module-shell .template-runtime-observability-heading h4 { margin: 4px 0; color: var(--zhuge-text); }
+.zhuge-module-shell .template-runtime-observability-heading p { margin: 0; color: var(--zhuge-muted); font-size: .76rem; }
+.zhuge-module-shell .template-runtime-observability-state { color: var(--zhuge-muted); font-size: .76rem; white-space: nowrap; }
+.zhuge-module-shell .template-runtime-observability-state.is-unknown,
+.zhuge-module-shell .template-runtime-observability-error { color: #fbbf24; }
+.zhuge-module-shell .template-runtime-observability-error { margin: 0; font-size: .78rem; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-runtime-observability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.zhuge-module-shell .template-runtime-observability-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--zhuge-border);
+  border-radius: 9px;
+  background: var(--zhuge-surface);
+}
+.zhuge-module-shell .template-runtime-observability-card > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 9px;
+  min-height: 58px;
+  padding: 10px 11px;
+  color: var(--zhuge-text);
+  cursor: pointer;
+  list-style: none;
+}
+.zhuge-module-shell .template-runtime-observability-card > summary::-webkit-details-marker { display: none; }
+.zhuge-module-shell .template-runtime-observability-card > summary:hover,
+.zhuge-module-shell .template-runtime-observability-card > summary:focus-visible { background: var(--zhuge-surface-raised); outline: none; }
+.zhuge-module-shell .template-runtime-observability-name,
+.zhuge-module-shell .template-runtime-observability-summary { display: grid; gap: 3px; min-width: 0; }
+.zhuge-module-shell .template-runtime-observability-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zhuge-module-shell .template-runtime-observability-name small,
+.zhuge-module-shell .template-runtime-observability-summary small { color: var(--zhuge-muted); font-size: .7rem; }
+.zhuge-module-shell .template-runtime-observability-summary { justify-items: end; text-align: right; }
+.zhuge-module-shell .template-runtime-observability-summary strong { color: var(--zhuge-accent); font-size: .76rem; white-space: nowrap; }
+.zhuge-module-shell .template-runtime-observability-summary small.is-healthy { color: var(--zhuge-success); }
+.zhuge-module-shell .template-runtime-observability-summary small.is-fail { color: #f87171; }
+.zhuge-module-shell .template-runtime-observability-summary small.is-unknown { color: #fbbf24; }
+.zhuge-module-shell .template-runtime-observability-chevron { color: var(--zhuge-accent); font-size: 1.05rem; font-weight: 900; }
+.zhuge-module-shell .template-runtime-observability-card[open] > summary { border-bottom: 1px solid var(--zhuge-border); }
+.zhuge-module-shell .template-runtime-observability-card[open] .template-runtime-observability-chevron { transform: rotate(180deg); }
+.zhuge-module-shell .template-runtime-observability-body { padding: 10px 11px 11px; }
+.zhuge-module-shell .template-runtime-observability-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
+.zhuge-module-shell .template-runtime-observability-field { min-width: 0; }
+.zhuge-module-shell .template-runtime-observability-field dt { color: var(--zhuge-muted); font-size: .69rem; }
+.zhuge-module-shell .template-runtime-observability-field dd { margin: 2px 0 0; color: var(--zhuge-text); font-size: .77rem; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-runtime-observability-health dd { font-weight: 800; }
+.zhuge-module-shell .template-runtime-observability-health.is-healthy dd { color: var(--zhuge-success); }
+.zhuge-module-shell .template-runtime-observability-health.is-fail dd { color: #f87171; }
+.zhuge-module-shell .template-runtime-observability-health.is-unknown dd { color: #fbbf24; }
+.zhuge-module-shell .template-runtime-observability-technical { margin-top: 10px; border-top: 1px solid var(--zhuge-border); padding-top: 8px; }
+.zhuge-module-shell .template-runtime-observability-technical > summary { color: var(--zhuge-muted); cursor: pointer; font-size: .7rem; }
 
 @media (max-width: 767px) {
   .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -346,6 +412,13 @@
   .zhuge-module-shell .template-management-row > span:nth-child(2),
   .zhuge-module-shell .template-management-row > span:nth-child(3) { grid-column: 1 / 2; }
   .zhuge-module-shell .template-management-row > span:nth-child(4) { grid-column: 2; grid-row: 1 / span 3; }
+  .zhuge-module-shell .template-runtime-observability-heading { display: grid; gap: 5px; }
+  .zhuge-module-shell .template-runtime-observability-state { white-space: normal; }
+  .zhuge-module-shell .template-runtime-observability-grid { grid-template-columns: 1fr; }
+  .zhuge-module-shell .template-runtime-observability-fields { grid-template-columns: 1fr; }
+  .zhuge-module-shell .template-runtime-observability-card > summary { grid-template-columns: minmax(0, 1fr) 18px; }
+  .zhuge-module-shell .template-runtime-observability-summary { grid-column: 1 / 2; justify-items: start; text-align: left; }
+  .zhuge-module-shell .template-runtime-observability-chevron { grid-column: 2; grid-row: 1 / span 2; }
 }
 
 /* Investment keeps its finance-specific content, but inherits the same
