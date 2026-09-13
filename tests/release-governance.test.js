@@ -67,7 +67,7 @@ test("normal identity passes the Pre-Packaging Gate", () => {
   assert.equal(gate.version, VERSION);
 });
 
-test("ZIP Artifact Created At different from Manifest fails the Post-Packaging Gate", () => {
+test("ZIP filename using a packaging timestamp instead of BUILD_ID fails the Post-Packaging Gate", () => {
   const root = fixture();
   try {
     const outputDir = path.join(root, "dist");
@@ -76,7 +76,7 @@ test("ZIP Artifact Created At different from Manifest fails the Post-Packaging G
     fs.copyFileSync(result.zipFile, wrongZip);
     assert.throws(
       () => Governance.validateCandidate({ root, zipFile: wrongZip, manifestFile: result.manifestFile }),
-      error => /ZIP filename Artifact Created At\/Version contract mismatch/.test(error.message)
+      error => /ZIP filename BUILD_ID\/Version contract mismatch/.test(error.message)
     );
   } finally {
     cleanup(root);
@@ -107,7 +107,7 @@ test("module Build different from root Build fails the Pre-Packaging Gate", () =
   }
 });
 
-test("Artifact Created At, not Runtime Build, is the Candidate filename identity", () => {
+test("Runtime Build is the Candidate filename identity", () => {
   const createdAt = new Date("2026-08-26T06:43:00.000Z");
   const filename = Governance.candidateFilename({
     build: BUILD,
@@ -115,8 +115,40 @@ test("Artifact Created At, not Runtime Build, is the Candidate filename identity
     description: "Timestamp-Test",
     artifactCreatedAt: createdAt
   });
-  assert.match(filename, /^20260826-1443_Zhuge_AI_OS-v/);
-  assert.doesNotMatch(filename, new RegExp(`^${BUILD}_`));
+  assert.equal(filename, `${BUILD}_Zhuge_AI_OS-v${VERSION}-Timestamp-Test-FullSource-Candidate.zip`);
+  assert.doesNotMatch(filename, /^20260826-1443_/);
+});
+
+test("Artifact Created At may differ from BUILD_ID without changing Candidate identity", () => {
+  const createdAt = new Date("2026-08-26T06:43:00.000Z");
+  const filename = Governance.candidateFilename({
+    build: BUILD,
+    version: VERSION,
+    description: "Artifact-Metadata",
+    artifactCreatedAt: createdAt
+  });
+  assert.match(filename, new RegExp(`^${BUILD}_`));
+  assert.notEqual(Governance.formatArtifactFilenameTimestamp(createdAt), BUILD);
+});
+
+test("Artifact Created At differing from BUILD_ID remains valid Post-Packaging metadata", () => {
+  const root = fixture();
+  try {
+    const result = Governance.packageCandidate({
+      root,
+      outputDir: path.join(root, "dist"),
+      description: "Artifact-Metadata-Gate",
+      createdAt: new Date("2026-08-26T06:43:00.000Z"),
+      regression: passRegression()
+    });
+    const gate = Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile });
+    const manifest = readManifest(result.manifestFile);
+    assert.equal(gate.postPackagingGate.status, "PASS");
+    assert.match(path.basename(result.zipFile), new RegExp(`^${BUILD}_`));
+    assert.notEqual(Governance.formatArtifactFilenameTimestamp(manifest.artifactCreatedAt), BUILD);
+  } finally {
+    cleanup(root);
+  }
 });
 
 test("temporary dist output is not a formal PM delivery", () => {

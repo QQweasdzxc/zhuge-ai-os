@@ -223,10 +223,10 @@ cleared after the attempt. The runner does not log request bodies or secrets.
 
 `release-governance.js` is the single packaging path for formal FullSource
 Candidates. It is separate from product Runtime code and does not write Cloud
-data. The root `version.json.build` is the Runtime Build Identity source, while
-the ZIP filename prefix uses the actual Artifact Created At in `Asia/Taipei`
-(`YYYYMMDD-HHmm`). Package time and Runtime Build are both recorded in the
-sidecar Candidate Manifest.
+data. The root `version.json.build` is the sole `BUILD_ID` and the ZIP filename
+prefix uses that value (`YYYYMMDD-HHmm`). `artifactCreatedAt` is metadata only;
+it is recorded in the sidecar Candidate Manifest and never determines filename
+identity.
 
 Run the identity gate before packaging:
 

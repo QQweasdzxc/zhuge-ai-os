@@ -312,28 +312,23 @@ function formatArtifactFilenameTimestamp(date = new Date()) {
   return `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`;
 }
 
-function candidateFilename({ build, version, description, artifactCreatedAt }) {
+function candidateFilename({ build, version, description }) {
   if (!BUILD_PATTERN.test(build)) fail(`Invalid Runtime Build ID for Candidate manifest: ${build}`);
   if (!VERSION_PATTERN.test(version)) fail(`Invalid Version for Candidate filename: ${version}`);
-  if (artifactCreatedAt === undefined || artifactCreatedAt === null) {
-    fail("Artifact Created At is required for Candidate filename.");
-  }
   const cleanDescription = String(description || "").trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(cleanDescription)) {
     fail("Candidate description must contain only ASCII letters, numbers, and hyphens.", { description });
   }
-  const artifactTimestamp = formatArtifactFilenameTimestamp(artifactCreatedAt);
-  return `${artifactTimestamp}_Zhuge_AI_OS-v${version}-${cleanDescription}-FullSource-Candidate.zip`;
+  return `${build}_Zhuge_AI_OS-v${version}-${cleanDescription}-FullSource-Candidate.zip`;
 }
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function candidateFilenameParts(filename, { version, artifactCreatedAt }) {
-  const artifactTimestamp = formatArtifactFilenameTimestamp(artifactCreatedAt);
+function candidateFilenameParts(filename, { version, build }) {
   const pattern = new RegExp(
-    `^${escapeRegExp(artifactTimestamp)}_Zhuge_AI_OS-v${escapeRegExp(version)}-([A-Za-z0-9][A-Za-z0-9-]*)-FullSource-Candidate\\.zip$`
+    `^${escapeRegExp(build)}_Zhuge_AI_OS-v${escapeRegExp(version)}-([A-Za-z0-9][A-Za-z0-9-]*)-FullSource-Candidate\\.zip$`
   );
   return path.basename(filename).match(pattern);
 }
@@ -438,13 +433,13 @@ function validateManifest(manifest, zipFile, identity, archiveValidation, expect
   }
   if (manifest.artifactCreatedAt) {
     try {
-      const expectedTimestamp = formatArtifactFilenameTimestamp(manifest.artifactCreatedAt);
-      if (!expectedFilename.startsWith(`${expectedTimestamp}_`)) {
-        mismatches.push("manifest artifactCreatedAt timestamp differs from ZIP filename");
-      }
+      formatArtifactCreatedAt(manifest.artifactCreatedAt);
     } catch (error) {
       mismatches.push(`manifest artifactCreatedAt is invalid: ${error.message}`);
     }
+  }
+  if (!candidateFilenameParts(expectedFilename, { version: identity.version, build: identity.build })) {
+    mismatches.push(`candidateFilename must start with BUILD_ID ${identity.build} and match version ${identity.version}`);
   }
   if (mismatches.length) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest mismatch", { mismatches });
   return Object.freeze({ status: "PASS", manifest: manifestFilename(expectedFilename) });
@@ -458,19 +453,18 @@ function validateCandidate({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
   const filenameParts = candidateFilenameParts(path.basename(zipFile), {
     version: preGate.version,
-    artifactCreatedAt: manifest.artifactCreatedAt
+    build: preGate.build
   });
   const expectedName = filenameParts
     ? candidateFilename({
       build: preGate.build,
       version: preGate.version,
-      description: filenameParts[1],
-      artifactCreatedAt: manifest.artifactCreatedAt
+      description: filenameParts[1]
     })
     : null;
   if (path.basename(zipFile) !== expectedName) {
-    fail("POST-PACKAGING GATE = FAIL: ZIP filename Artifact Created At/Version contract mismatch", {
-      expectedPrefix: `${formatArtifactFilenameTimestamp(manifest.artifactCreatedAt)}_Zhuge_AI_OS-v${preGate.version}-`,
+    fail("POST-PACKAGING GATE = FAIL: ZIP filename BUILD_ID/Version contract mismatch", {
+      expectedPrefix: `${preGate.build}_Zhuge_AI_OS-v${preGate.version}-`,
       actual: path.basename(zipFile)
     });
   }
@@ -574,8 +568,7 @@ function packageCandidate({
   const filename = candidateFilename({
     build: preGate.build,
     version: preGate.version,
-    description,
-    artifactCreatedAt
+    description
   });
   const zipFile = path.join(resolvedOutput, filename);
   const manifestFile = path.join(resolvedOutput, manifestFilename(filename));
