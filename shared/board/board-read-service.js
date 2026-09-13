@@ -81,6 +81,11 @@
     existingDueAtPolicy: "preserve-no-retroactive-recalculation"
   });
 
+  // WorkTodo's default target is existing Consumer configuration.  It is
+  // only used to resolve the explicit workspace id before calling the shared
+  // C board-instance writer; it is not a second task-creation authority.
+  const WORKTODO_DEFAULT_WORKSPACE_KEY = "worktodo-todo";
+
   // P2 establishes the instance-scoped lifecycle context.  Workflow is an
   // optional capability: a Board may instead expose an explicit completion
   // designation and still use the same C lifecycle writer.
@@ -1313,15 +1318,39 @@
     }).then(normalizeTask);
   }
 
-  async function worktodoCreateTask(input = {}, options = {}) {
+  async function createCanonicalWorkTodoTask(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
-    return gateway.rpc("worktodo_create_task", {
-      p_title: input.title,
-      p_summary: input.summary || null,
-      p_status: input.status || "not_started",
-      p_usage_scenario: input.usageScenario || null,
-      p_workspace_id: input.workspaceId || null
-    }).then(normalizeTask);
+    const service = createInstanceService({
+      gateway,
+      templateKey: "c",
+      legacyApplicationScope: "worktodo",
+      consumerId: "worktodo",
+      allowExistingCardAdoption: true,
+      allowWorkspaceMovement: true,
+      completionArchiveLifecycle: true
+    });
+    let workspaceId = input.workspaceId || null;
+    if (!workspaceId) {
+      const instance = await service.resolveInstance();
+      const rows = await gateway.select(
+        "board_workspaces",
+        `?select=id,workspace_key,active,sort_order&board_instance_id=eq.${encodeURIComponent(String(instance.id))}&application_scope=eq.worktodo&active=eq.true&order=sort_order.asc`
+      );
+      const defaultWorkspace = (Array.isArray(rows) ? rows : []).find(row =>
+        row?.active !== false && String(row.workspace_key || row.workspaceKey || "") === WORKTODO_DEFAULT_WORKSPACE_KEY
+      );
+      if (!defaultWorkspace?.id) {
+        const error = new Error("正式工作待辦的預設工作區尚未設定，未建立卡片。");
+        error.code = "WORKTODO_DEFAULT_WORKSPACE_UNAVAILABLE";
+        throw error;
+      }
+      workspaceId = defaultWorkspace.id;
+    }
+    return service.createTask({
+      ...input,
+      status: input.status || "not_started",
+      workspaceId
+    });
   }
 
   async function worktodoUpdateTask(input = {}, options = {}) {
@@ -2626,7 +2655,7 @@
     governanceAction,
     createTask,
     deleteTask,
-    worktodoCreateTask,
+    createCanonicalWorkTodoTask,
     worktodoUpdateTask,
     worktodoDeleteTask,
     worktodoAddTaskProgressNote,

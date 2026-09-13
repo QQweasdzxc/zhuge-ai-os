@@ -79,7 +79,8 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(runtime, /\(state\.applicationScope === "c" \|\| state\.cNativeWorkTodo\) && state\.boardInstanceId/);
   assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
   assert.match(runtime, /executeSharedTaskAction\(task, "updateContent"/);
-  assert.match(actionAdapters, /worktodoCreateTask/);
+  assert.match(actionAdapters, /required\(service, "createTask"\)/);
+  assert.doesNotMatch(actionAdapters, /worktodoCreateTask/);
   assert.match(actionAdapters, /worktodoUpdateTask/);
   assert.match(runtime, /consumer: state\.cNativeWorkTodo \? "worktodo"/);
   assert.match(runtime, /WorkTodo（舊）為唯讀比較入口/);

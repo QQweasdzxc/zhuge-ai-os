@@ -123,7 +123,10 @@
         governanceChecklist: false
       }),
       actions: {
-        createTask: payload => required(service, "worktodoCreateTask")(payload),
+        // WorkTodo owns its data/configuration, but task creation is the
+        // shared C board-instance writer.  No WorkTodo-specific create RPC is
+        // reachable from the current adapter.
+        createTask: payload => required(service, "createTask")(payload),
         createWorkspace: payload => required(service, "worktodoCreateWorkspace")(payload.name),
         renameWorkspace: payload => required(service, "worktodoRenameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "worktodoDeleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId, { workflowCapability }),

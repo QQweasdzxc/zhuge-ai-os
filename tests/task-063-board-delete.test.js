@@ -30,7 +30,7 @@ test("TASK-063 shared C delete adapter exposes the existing board-instance contr
   const service = read("shared/board/board-read-service.js");
   assert.match(service, /async function deleteTask\(taskId, options = \{\}\)/);
   assert.match(service, /gateway\.rpc\("board_instance_delete_task", \{ p_task_id: taskId \}\)/);
-  assert.match(service, /\n\s+deleteTask,\n\s+worktodoCreateTask,/);
+  assert.match(service, /\n\s+deleteTask,\n\s+createCanonicalWorkTodoTask,/);
 });
 
 test("TASK-063 shared C runtime closes the task drawer after delete", () => {

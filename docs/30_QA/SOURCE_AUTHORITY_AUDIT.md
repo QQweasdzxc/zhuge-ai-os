@@ -209,7 +209,7 @@ An exact-content scan of current JavaScript under app, modules, and shared found
 
 | Action | Current route | Alternate/legacy route | Direct frontend write? | Assessment |
 |---|---|---|---|---|
-| Task create | Shared Board service createTask or instanceCreateTask → controlled board RPC | WorkTodo product create RPC; WorkLog repository is separate domain | No C page direct INSERT found | GREEN by domain boundary |
+| Task create | Shared Board service createTask or instanceCreateTask → controlled board RPC; WorkLog Assistant → createCanonicalWorkTodoTask → the same C instance writer | Historical WorkTodo product create RPC retained for owner-controlled rollback inspection only; WorkLog repository is a separate domain | No current C/WorkTodo direct INSERT or old-RPC caller found | GREEN; one current WorkTodo create writer |
 | Task read | Shared Board service load → board_tasks/workspaces scoped by board instance/application scope | Investment projection read model and links | No local C SoT | GREEN |
 | Task update | Shared Board service update/instance update → controlled RPC | WorkTodo update RPC; WorkLog REST repository | No C direct write found | YELLOW domain split, not C duplication |
 | Task move | Shared runtime → task-action-adapters → C Workflow V2/adoption/instance decision | v1 board/instance direct move exports; repaired WorkTodo delete route | No direct C page write | ORANGE compatibility surface; original RED WorkTodo route is repaired, deployed verification pending |
@@ -339,3 +339,20 @@ This is a recommendation only; nothing below was executed.
 - Items not to touch in this round: C Core movement, A+C composition, Workflow behavior, Investment feature logic, GAS feature logic, data, historical TASKs, and Candidate packaging.
 
 **Round 2 result: Approved RED route repaired with minimal Caller/Route changes. Product Source Mutation is limited to the approved WorkTodo route and its regression tests; Cloud/Data Mutation = 0. Full Regression passed; stop for PM/GPT interpretation.**
+
+## Post-audit TASK-18 create-authority closure
+
+The remaining WorkLog AI Assistant create action was traced as a live
+WorkTodo-specific writer split and was changed to the existing C
+`board_instance_create_task` authority. The old
+`worktodo_create_task(text, text, text, text, uuid)` application Execute
+surface was revoked by
+`20260913110621_worktodo_legacy_create_authority_closure`; the function remains
+only for owner-controlled historical/rollback inspection. Current runtime
+source contains no caller of the old RPC. Targeted source/contract QA passed
+49/49 and the full Node regression passed 469/469 with 0 failures and 6
+pre-existing browser skips.
+
+This closes the WorkTodo **create-authority** split. Existing WorkTodo
+domain-specific compatibility methods outside task creation remain unchanged
+and are not reclassified by this bounded task.
