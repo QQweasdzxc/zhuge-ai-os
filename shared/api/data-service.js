@@ -309,12 +309,6 @@ const DataService = {
     const result = { tasks: false, entries: false, errors: [] };
 
     try {
-      // Completion/archive is Cloud-time based. Reconcile before the active
-      // task read so a refresh never presents an overdue completed row as
-      // active merely because a browser timer did not run.
-      await SupabaseRepository.reconcileWorkTodoCompletionLifecycle().catch(error => {
-        console.warn("WorkTodo completion lifecycle reconciliation deferred", error);
-      });
       // Keep archived WorkTodo rows in the canonical projection so the
       // Shared Task UX can offer an explicit read-only Archive view. The
       // default board filter still excludes them from the active list.

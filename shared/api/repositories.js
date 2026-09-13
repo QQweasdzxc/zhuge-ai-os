@@ -503,9 +503,6 @@ const SupabaseRepository = {
     await this.storageRequest(`object/worktodo-attachments/${this.encodeStoragePath(path)}`, { method: "DELETE" });
     return this.rpc("worktodo_finalize_attachment_delete", { p_attachment_id: attachmentId });
   },
-  reconcileWorkTodoCompletionLifecycle() {
-    return this.rpc("worktodo_reconcile_completion_lifecycle", {});
-  },
   async ensureAssistantConversation() {
     if (!currentUserUuid() || !currentAccessToken()) throw new Error("Cloud Sync 尚未就緒");
     const payload = {

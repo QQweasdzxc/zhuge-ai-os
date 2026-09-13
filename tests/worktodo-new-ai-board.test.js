@@ -38,8 +38,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   }
   assert.match(worktodo, /<title>Zhuge AI OS｜工作待辦<\/title>/);
   assert.match(worktodo, /data-active-workspace="tasks-new"/);
-  assert.match(worktodo, /data-worktodo-old-entry/);
-  assert.match(worktodo, /href="\?consumer=worktodo-old"/);
+  assert.match(worktodo, /get\("consumer"\) === "worktodo-old"/);
+  assert.match(worktodo, /canonicalUrl\.searchParams\.delete\("consumer"\)/);
+  assert.match(worktodo, /window\.location\.replace/);
+  assert.doesNotMatch(worktodo, /data-worktodo-old-entry|href="\?consumer=worktodo-old"/);
   assert.match(worktodo, /src="\.\.\/\.\.\/\.\.\/shared\/components\/golden-master-runtime\.js\?v=/);
   assert.doesNotMatch(aiBoard, /<style[\s>]/i);
   assert.doesNotMatch(worktodo, /<style[\s>]/i);
@@ -68,9 +70,7 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);
 
   assert.match(runtime, /function isWorkTodoMode\(\)/);
-  assert.match(runtime, /function isWorkTodoComparisonMode\(\)/);
-  assert.match(runtime, /comparisonEntry\.textContent = "WorkTodo"/);
-  assert.match(runtime, /comparisonEntry\.setAttribute\("href", String\(root\.location\?\.pathname \|\| "\.\/"\)\)/);
+  assert.doesNotMatch(runtime, /function isWorkTodoComparisonMode\(\)|comparisonEntry/);
   assert.match(runtime, /state\.cNativeWorkTodo = state\.applicationScope === "worktodo"/);
   assert.match(runtime, /const cTemplate = state\.applicationScope === "c" \|\| state\.cNativeWorkTodo/);
   assert.match(runtime, /const service = activeService\(\);/);
