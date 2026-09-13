@@ -66,6 +66,39 @@
     cloudSourceOfTruth: true
   });
 
+  // Completion/archive timing is a Module C policy capability.  The value is
+  // deliberately not duplicated in the browser: Cloud returns the published
+  // policy version and delay, while Consumers only adopt this read/calculation
+  // interface. P1 establishes the source; Consumer write-path adoption is a
+  // later, separately gated phase.
+  const C_COMPLETION_ARCHIVE_POLICY = Object.freeze({
+    id: "module-c-completion-archive-policy",
+    contractFamily: "module-c-lifecycle-acceptance",
+    contractVersion: "module-c-lifecycle-acceptance-v2",
+    source: "module-c-mother",
+    policyKey: "completion_archive",
+    delaySource: "cloud-published-policy",
+    existingDueAtPolicy: "preserve-no-retroactive-recalculation"
+  });
+
+  // P2 establishes the instance-scoped lifecycle context.  Workflow is an
+  // optional capability: a Board may instead expose an explicit completion
+  // designation and still use the same C lifecycle writer.
+  const C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT = Object.freeze({
+    id: "module-c-lifecycle-acceptance-v2",
+    capability: "completion-archive-lifecycle",
+    source: "module-c-mother",
+    owner: "board-instance",
+    scope: "board-instance+published-workflow-version-or-explicit-completion-designation",
+    completionPosition: "published-workflow-step-or-explicit-designation",
+    policy: C_COMPLETION_ARCHIVE_POLICY.id,
+    workflowOptional: true,
+    archiveDesignation: "task-archive-state",
+    existingDueAtPolicy: "preserve-no-retroactive-recalculation",
+    failureMode: "fail-closed",
+    reconciliation: "instance-scoped-idempotent"
+  });
+
   function createLifecycleCapability(acceptFromQjcDrop, enabled = true, reconcileWorkspaceDecision = null) {
     const capability = {
       contract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
@@ -112,7 +145,7 @@
     if (isGovernanceTerminal(value)) return true;
     if (!task) return status === "done";
     if (task.archivedAt) return true;
-    // A task is visible in 已完成 while its Cloud-owned 48-hour window is
+    // A task is visible in 已完成 while its Cloud-owned 24-hour window is
     // active.  The same row remains active after a PM drags it out: the old
     // completion timestamp is retained as evidence, while archive_due_at is
     // cleared to cancel the current timer. Re-entering 已完成 starts a new
@@ -374,6 +407,106 @@
     });
   }
 
+  function normalizeCompletionArchivePolicy(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    const archiveDelaySeconds = Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0);
+    return Object.freeze({
+      contractFamily: String(source.contract_family || source.contractFamily || C_COMPLETION_ARCHIVE_POLICY.contractFamily),
+      contractVersion: String(source.contract_version || source.contractVersion || C_COMPLETION_ARCHIVE_POLICY.contractVersion),
+      capability: String(source.capability || "completion-archive"),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyKey: String(source.policy_key || source.policyKey || C_COMPLETION_ARCHIVE_POLICY.policyKey),
+      policyVersion: Number(source.policy_version ?? source.policyVersion ?? 0),
+      archiveDelaySeconds,
+      archiveDelayHours: Number(source.archive_delay_hours ?? source.archiveDelayHours ?? (archiveDelaySeconds / 3600)),
+      policySource: String(source.policy_source || source.policySource || C_COMPLETION_ARCHIVE_POLICY.source),
+      effectiveAt: source.effective_at || source.effectiveAt || null,
+      completionAt: source.completion_at || source.completionAt || null,
+      archiveDueAt: source.archive_due_at || source.archiveDueAt || null,
+      cloudSourceOfTruth: source.cloud_source_of_truth !== false && source.cloudSourceOfTruth !== false,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      raw: source
+    });
+  }
+
+  function normalizeCompletionArchiveContext(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    const policyVersion = Number(source.policy_version ?? source.policyVersion ?? 0);
+    const archiveDelaySeconds = Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0);
+    return Object.freeze({
+      contract: String(source.contract || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id),
+      capability: String(source.capability || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability),
+      scope: String(source.scope || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.scope),
+      boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
+      workflowVersionId: String(source.workflow_version_id || source.workflowVersionId || ""),
+      workflowStatus: String(source.workflow_status || source.workflowStatus || "").toLowerCase(),
+      workflowVersionNo: Number(source.workflow_version_no ?? source.workflowVersionNo ?? 0),
+      publishedWorkflowVersionId: String(source.published_workflow_version_id || source.publishedWorkflowVersionId || ""),
+      taskId: String(source.task_id || source.taskId || ""),
+      state: String(source.state || "").toLowerCase(),
+      currentStepId: String(source.current_step_id || source.currentStepId || ""),
+      currentStepName: String(source.current_step_name || source.currentStepName || ""),
+      currentWorkspaceId: String(source.current_workspace_id || source.currentWorkspaceId || ""),
+      currentWorkspaceName: String(source.current_workspace_name || source.currentWorkspaceName || ""),
+      completionStepId: String(source.completion_step_id || source.completionStepId || ""),
+      completionStepName: String(source.completion_step_name || source.completionStepName || ""),
+      completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
+      completionWorkspaceName: String(source.completion_workspace_name || source.completionWorkspaceName || ""),
+      completionDesignationStatus: String(source.completion_designation_status || source.completionDesignationStatus || "").toLowerCase(),
+      completionDesignationSource: String(source.completion_designation_source || source.completionDesignationSource || ""),
+      archiveDesignation: String(source.archive_designation || source.archiveDesignation || ""),
+      archiveDesignationStatus: String(source.archive_designation_status || source.archiveDesignationStatus || "").toLowerCase(),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyKey: String(source.policy_key || source.policyKey || C_COMPLETION_ARCHIVE_POLICY.policyKey),
+      policyVersion,
+      archiveDelaySeconds,
+      policySource: String(source.policy_source || source.policySource || C_COMPLETION_ARCHIVE_POLICY.source),
+      completionAt: source.completion_at || source.completionAt || null,
+      archiveDueAt: source.archive_due_at || source.archiveDueAt || null,
+      archivedAt: source.archived_at || source.archivedAt || null,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      scopeVerified: source.scope_verified === true || source.scopeVerified === true,
+      cardIdentityPreserved: source.card_identity_preserved === true || source.cardIdentityPreserved === true,
+      cloudSourceOfTruth: source.cloud_source_of_truth !== false && source.cloudSourceOfTruth !== false,
+      raw: source
+    });
+  }
+
+  function normalizeCompletionArchiveReconciliation(row = {}) {
+    const source = Array.isArray(row)
+      ? (row[0] || {})
+      : (row && typeof row === "object" ? row : {});
+    return Object.freeze({
+      contract: String(source.contract || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id),
+      capability: String(source.capability || C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability),
+      action: String(source.action || "reconcile-completion-archive"),
+      state: String(source.state || ""),
+      boardInstanceId: String(source.board_instance_id || source.boardInstanceId || ""),
+      workflowVersionId: String(source.workflow_version_id || source.workflowVersionId || ""),
+      workflowStatus: String(source.workflow_status || source.workflowStatus || "").toLowerCase(),
+      completionStepId: String(source.completion_step_id || source.completionStepId || ""),
+      completionWorkspaceId: String(source.completion_workspace_id || source.completionWorkspaceId || ""),
+      completionDesignationStatus: String(source.completion_designation_status || source.completionDesignationStatus || "").toLowerCase(),
+      archiveDesignationStatus: String(source.archive_designation_status || source.archiveDesignationStatus || "").toLowerCase(),
+      policyIdentity: String(source.policy_identity || source.policyIdentity || C_COMPLETION_ARCHIVE_POLICY.id),
+      policyVersion: Number(source.policy_version ?? source.policyVersion ?? 0),
+      archiveDelaySeconds: Number(source.archive_delay_seconds ?? source.archiveDelaySeconds ?? 0),
+      archivedCount: Number(source.archived_count ?? source.archivedCount ?? 0),
+      taskIds: Array.isArray(source.task_ids || source.taskIds)
+        ? (source.task_ids || source.taskIds).map(String)
+        : [],
+      idempotent: source.idempotent === true,
+      atomic: source.atomic === true,
+      scopeVerified: source.scope_verified === true || source.scopeVerified === true,
+      existingDueAtRetroactive: source.existing_due_at_retroactive === true || source.existingDueAtRetroactive === true,
+      raw: source
+    });
+  }
+
   function normalizeChecklistItem(row = {}) {
     return Object.freeze({
       id: String(row.id || ""),
@@ -600,7 +733,7 @@
     const resolver = options.engineeringMemory || isWorkTodo || isBoardInstance ? null : requireEngineeringMemoryResolver(options);
     // Reconciliation is a server-side, authenticated RPC. It uses canonical
     // timestamps and makes refresh/realtime reads converge without a browser
-    // timer or local state pretending that 48 hours have elapsed.
+    // timer or local state pretending that 24 hours have elapsed.
     if (!isWorkTodo && !isBoardInstance && typeof gateway.rpc === "function") {
       await gateway.rpc("board_reconcile_completion_lifecycle", {});
     }
@@ -836,6 +969,178 @@
   async function reconcileCompletionLifecycle(options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("board_reconcile_completion_lifecycle", {});
+  }
+
+  // P1 C Shared Policy read/calculation capability. These methods intentionally
+  // do not write Consumer completion state; they expose the Cloud-published
+  // policy so later C adoption phases can use one authority.
+  async function getCompletionArchivePolicy(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const result = await gateway.rpc("board_c_get_completion_archive_policy", {
+      p_policy_key: C_COMPLETION_ARCHIVE_POLICY.policyKey
+    });
+    const policy = normalizeCompletionArchivePolicy(result);
+    if (!policy.policyVersion || !Number.isFinite(policy.archiveDelaySeconds) || policy.archiveDelaySeconds <= 0) {
+      const error = new Error("Module C Completion Archive Policy 回傳不完整。");
+      error.code = "C_COMPLETION_ARCHIVE_POLICY_INVALID";
+      throw error;
+    }
+    return policy;
+  }
+
+  async function calculateCompletionArchiveDueAt(completionAt, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = completionAt instanceof Date
+      ? completionAt.toISOString()
+      : String(completionAt ?? "").trim();
+    if (!value) {
+      const error = new Error("計算封存時間需要 completion_at。");
+      error.code = "C_COMPLETION_AT_REQUIRED";
+      throw error;
+    }
+    const result = await gateway.rpc("board_c_calculate_completion_archive_due_at", {
+      p_completion_at: value,
+      p_policy_key: C_COMPLETION_ARCHIVE_POLICY.policyKey
+    });
+    const policy = normalizeCompletionArchivePolicy(result);
+    if (!policy.policyVersion || !policy.completionAt || !policy.archiveDueAt) {
+      const error = new Error("Module C Completion Archive 計算回傳不完整。");
+      error.code = "C_COMPLETION_ARCHIVE_CALCULATION_INVALID";
+      throw error;
+    }
+    return policy;
+  }
+
+  async function resolveCompletionArchiveContext(taskId, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const value = String(taskId ?? "").trim();
+    if (!value) {
+      const error = new Error("解析 Completion Archive Context 需要卡片識別資訊；不會猜測流程。");
+      error.code = "C_ARCHIVE_TASK_REQUIRED";
+      throw error;
+    }
+
+    const args = { p_task_id: value };
+    if (Object.prototype.hasOwnProperty.call(options, "boardInstanceId")) {
+      args.p_board_instance_id = options.boardInstanceId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+      args.p_workflow_version_id = options.workflowVersionId || null;
+    }
+
+    const context = normalizeCompletionArchiveContext(await gateway.rpc(
+      "board_c_resolve_completion_archive_context",
+      args
+    ));
+    const optionalNotApplicable = context.state === "not_applicable"
+      && context.workflowStatus === "not_configured"
+      && context.completionDesignationStatus === "not_configured"
+      && context.archiveDesignationStatus === "not_applicable";
+    const optionalConfigured = context.workflowStatus === "not_configured"
+      && context.completionDesignationStatus === "configured"
+      && Boolean(context.completionWorkspaceId)
+      && context.archiveDesignationStatus === "configured"
+      && context.policyVersion > 0
+      && Number.isFinite(context.archiveDelaySeconds)
+      && context.archiveDelaySeconds > 0;
+    const workflowConfigured = Boolean(context.workflowVersionId)
+      && Boolean(context.currentStepId)
+      && Boolean(context.completionStepId)
+      && Boolean(context.completionWorkspaceId)
+      && context.policyVersion > 0
+      && Number.isFinite(context.archiveDelaySeconds)
+      && context.archiveDelaySeconds > 0;
+    const valid = context.scopeVerified
+      && context.cardIdentityPreserved
+      && context.taskId === value
+      && Boolean(context.boardInstanceId)
+      && Boolean(context.currentWorkspaceId)
+      && (optionalNotApplicable || optionalConfigured || workflowConfigured);
+    if (!valid) {
+      const error = new Error("Module C Completion Archive Context 不完整；已安全停止，不會猜測 Instance／Workflow／Completion Workspace。");
+      error.code = "C_COMPLETION_ARCHIVE_CONTEXT_INVALID";
+      throw error;
+    }
+    return context;
+  }
+
+  async function reconcileCompletionArchiveLifecycle(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const boardInstanceId = String(options.boardInstanceId || "").trim();
+    if (!boardInstanceId) {
+      const error = new Error("執行 Completion Archive Reconciliation 需要 Board Instance；資料未變更。");
+      error.code = "C_ARCHIVE_INSTANCE_REQUIRED";
+      throw error;
+    }
+
+    const args = { p_board_instance_id: boardInstanceId };
+    if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+      args.p_workflow_version_id = options.workflowVersionId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "taskId")) {
+      const taskId = String(options.taskId || "").trim();
+      if (!taskId) {
+        const error = new Error("執行 Completion Archive Reconciliation 需要有效卡片識別資訊；資料未變更。");
+        error.code = "C_ARCHIVE_TASK_REQUIRED";
+        throw error;
+      }
+      args.p_task_id = taskId;
+    }
+
+    const result = normalizeCompletionArchiveReconciliation(await gateway.rpc(
+      "board_c_reconcile_completion_archive_lifecycle_v2",
+      args
+    ));
+    const optionalNotApplicable = result.state === "not_applicable"
+      && !result.workflowVersionId
+      && !result.completionStepId
+      && !result.completionWorkspaceId
+      && result.completionDesignationStatus === "not_configured"
+      && result.archiveDesignationStatus === "not_applicable";
+    const optionalConfigured = result.workflowStatus === "not_configured"
+      && !result.workflowVersionId
+      && Boolean(result.completionWorkspaceId)
+      && result.completionDesignationStatus === "configured"
+      && result.archiveDesignationStatus === "configured"
+      && result.policyVersion > 0
+      && Number.isFinite(result.archiveDelaySeconds)
+      && result.archiveDelaySeconds > 0;
+    const workflowConfigured = Boolean(result.workflowVersionId)
+      && Boolean(result.completionStepId)
+      && Boolean(result.completionWorkspaceId)
+      && result.policyVersion > 0
+      && Number.isFinite(result.archiveDelaySeconds)
+      && result.archiveDelaySeconds > 0;
+    const valid = result.scopeVerified
+      && result.atomic
+      && result.idempotent
+      && result.boardInstanceId === boardInstanceId
+      && (optionalNotApplicable || optionalConfigured || workflowConfigured);
+    if (!valid) {
+      const error = new Error("Module C Completion Archive Reconciliation 回傳不完整；資料狀態未由前端推測。");
+      error.code = "C_COMPLETION_ARCHIVE_RECONCILIATION_INVALID";
+      throw error;
+    }
+    return result;
+  }
+
+  async function getAuthorityConformance(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const boardInstanceId = String(options.boardInstanceId || "").trim();
+    if (!boardInstanceId) {
+      const error = new Error("Authority Conformance Check 需要 Board Instance；不會猜測來源。");
+      error.code = "C_AUTHORITY_INSTANCE_REQUIRED";
+      throw error;
+    }
+    const result = await gateway.rpc("board_c_authority_conformance_check", {
+      p_board_instance_id: boardInstanceId
+    });
+    if (!result || String(result.board_instance_id || result.boardInstanceId || "") !== boardInstanceId) {
+      const error = new Error("Authority Conformance Check 回傳的 Board Instance 不一致；未判定為正常。");
+      error.code = "C_AUTHORITY_CONFORMANCE_INVALID";
+      throw error;
+    }
+    return result;
   }
 
   async function createWorkspace(name, options = {}) {
@@ -1421,34 +1726,12 @@
         throw error;
       }
 
-      // A Board Instance without a Published Workflow has no step/status
-      // contract to reconcile. Use the existing owner-scoped Board Instance
-      // movement RPC as the canonical C core operation. It validates that the
-      // target belongs to the same Board Instance, preserves card data and
-      // identity, and records the movement audit; it does not guess status or
-      // assignee and is never a consumer-specific fallback.
-      const moved = await gateway.rpc("board_instance_move_task_workspace", {
-        p_task_id: taskId,
-        p_workspace_id: input.targetWorkspaceId,
-        p_reason: input.decisionNote || null
-      });
-      return Object.freeze({
-        contract: C_WORKFLOW_CANONICAL_CONTRACT.id,
-        action: "workspace-decision",
-        state: "workspace_moved",
-        decision: "workspace",
-        task_id: moved?.id || taskId,
-        board_instance_id: moved?.board_instance_id || await boardInstanceId(),
-        target_workspace_id: moved?.workspace_id || input.targetWorkspaceId,
-        status: moved?.status,
-        assignee: moved?.assignee,
-        workflow: "not_configured",
-        workflow_bound: false,
-        card_identity_preserved: true,
-        card_data_moved: false,
-        audit_recorded: true,
-        raw: moved
-      });
+      // Workflow is optional, but movement still belongs to the same C
+      // decision authority.  The v2 Cloud contract validates the Board
+      // Instance, the explicit completion designation (when present), the
+      // lifecycle policy, audit, and idempotency in one transaction.  There is
+      // no generic/global movement fallback here.
+      return reconcileBoundWorkspaceDecision(input);
     };
     const reconcileLegacyCard = async (input = {}) => {
       assertWritable();
@@ -1655,6 +1938,7 @@
     const requestedBoardInstanceId = String(instanceOptions.boardInstanceId || "").trim();
     const legacyApplicationScope = String(instanceOptions.legacyApplicationScope || "").trim();
     const requestedConsumerId = String(instanceOptions.consumerId || requestedBoardInstanceId || "c").trim();
+    const readOnly = instanceOptions.readOnly === true;
     let instancePromise;
     const resolveInstance = async () => {
       if (!instancePromise) {
@@ -1687,21 +1971,104 @@
       templateKey,
       boardInstanceId: requestedBoardInstanceId,
       legacyApplicationScope,
-      readOnly: instanceOptions.workflowReadOnly === true,
-      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true,
-      allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true
+      readOnly: readOnly || instanceOptions.workflowReadOnly === true,
+      allowExistingCardAdoption: instanceOptions.allowExistingCardAdoption === true && !readOnly,
+      allowWorkspaceMovement: instanceOptions.allowWorkspaceMovement === true && !readOnly
     });
+    const completionArchiveLifecycleEnabled = instanceOptions.completionArchiveLifecycle === true;
+
+    function completionArchiveAdoptionState(instance, state = "not_applicable", reasonCode = "C_WORKFLOW_OPTIONAL_NOT_CONFIGURED", reason = "此子板未設定 Workflow；Workflow 為選用能力，Completion Archive 依正式 Completion designation 判定。") {
+      return Object.freeze({
+        contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.id,
+        capability: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT.capability,
+        state,
+        boardInstanceId: String(instance?.id || ""),
+        workflowVersionId: "",
+        workflowStatus: "not_configured",
+        workflowOptional: true,
+        completionDesignationStatus: "not_configured",
+        archiveDesignationStatus: "not_applicable",
+        reasonCode,
+        reason,
+        failClosed: true,
+        cloudMutation: 0,
+        source: "module-c-mother"
+      });
+    }
+
+    // Completion Archive is a shared C capability, not a Consumer-owned
+    // policy.  A Published Workflow is optional.  When one exists, validate
+    // its Instance scope before reconciliation; otherwise call the same C
+    // reconciler with a null Workflow so Cloud can resolve an explicit Board
+    // completion designation (or return legal N/A).  Never fall back to a
+    // global lifecycle route or a display-name guess.
+    async function instanceReconcileCompletionArchiveOnLoad() {
+      const instance = await resolveInstance();
+      if (readOnly) {
+        return Object.freeze({
+          ...completionArchiveAdoptionState(
+            instance,
+            "read_only",
+            "C_ARCHIVE_READ_ONLY_COMPARISON",
+            "WorkTodo（舊）只讀取同一份正式資料，不執行 Completion Archive 寫入。"
+          ),
+          readOnly: true
+        });
+      }
+      if (!completionArchiveLifecycleEnabled) {
+        return completionArchiveAdoptionState(
+          instance,
+          "not_enabled",
+          "C_ARCHIVE_CAPABILITY_NOT_ENABLED",
+          "此子板未啟用 Completion Archive Capability；不執行封存流程。"
+        );
+      }
+
+      const workflowState = await workflow.get({ includeDraft: false });
+      const resolvedWorkflowInstanceId = String(workflowState?.boardInstanceId || "").trim();
+      if (resolvedWorkflowInstanceId && resolvedWorkflowInstanceId !== String(instance.id)) {
+        const error = new Error("Published Workflow 不屬於目前 Board Instance；Completion Archive 已安全停止。");
+        error.code = "C_ARCHIVE_WORKFLOW_INSTANCE_MISMATCH";
+        throw error;
+      }
+
+      const publishedPointerId = String(workflowState?.state?.publishedWorkflowVersionId || "").trim();
+      const publishedSnapshotId = String(workflowState?.published?.id || "").trim();
+      if (!publishedPointerId && !publishedSnapshotId) {
+        return instanceReconcileCompletionArchiveLifecycle({ workflowVersionId: null });
+      }
+
+      const publishedWorkflowId = publishedPointerId || publishedSnapshotId;
+      const publishedStatus = String(workflowState?.published?.status || "").trim().toLowerCase();
+      const publishedInstanceId = String(workflowState?.published?.boardInstanceId || "").trim();
+      if (
+        !workflowState?.published
+        || !publishedPointerId
+        || publishedPointerId !== publishedSnapshotId
+        || publishedStatus !== "published"
+        || publishedInstanceId !== String(instance.id)
+      ) {
+        const error = new Error("目前子板的 Published Workflow Scope 無法驗證；Completion Archive 已安全停止。");
+        error.code = "C_ARCHIVE_WORKFLOW_BINDING_INVALID";
+        throw error;
+      }
+
+      return instanceReconcileCompletionArchiveLifecycle({ workflowVersionId: publishedWorkflowId });
+    }
 
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
+      const completionArchive = await instanceReconcileCompletionArchiveOnLoad();
       const result = await load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
       return Object.freeze({
         ...result,
+        completionArchive,
         boardName: String(instance.name || ""),
         taskCodePrefix: String(instance.task_code_prefix || ""),
         templateKey: String(instance.template_key || templateKey),
         authorizationMode: String(instance.authorization_mode || ""),
         isTemplateInstance: instance.is_template_instance === true,
+        readOnly,
         consumerId: requestedConsumerId
       });
     }
@@ -1881,6 +2248,29 @@
         p_vendor_id: vendorId == null ? null : String(vendorId).trim()
       }).then(normalizeTaskVendorLink);
     }
+    async function instanceResolveCompletionArchiveContext(taskId, options = {}) {
+      const instance = await resolveInstance();
+      const contextOptions = { ...withGateway(options), boardInstanceId: instance.id };
+      if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+        contextOptions.workflowVersionId = options.workflowVersionId || null;
+      }
+      return resolveCompletionArchiveContext(taskId, contextOptions);
+    }
+    async function instanceReconcileCompletionArchiveLifecycle(options = {}) {
+      const instance = await resolveInstance();
+      const reconcileOptions = { ...withGateway(options), boardInstanceId: instance.id };
+      if (Object.prototype.hasOwnProperty.call(options, "workflowVersionId")) {
+        reconcileOptions.workflowVersionId = options.workflowVersionId || null;
+      }
+      if (Object.prototype.hasOwnProperty.call(options, "taskId")) {
+        reconcileOptions.taskId = options.taskId;
+      }
+      return reconcileCompletionArchiveLifecycle(reconcileOptions);
+    }
+    async function instanceGetAuthorityConformance() {
+      const instance = await resolveInstance();
+      return getAuthorityConformance({ gateway, boardInstanceId: instance.id });
+    }
     async function instancePrepareTaskAttachment(input = {}) {
       await resolveInstance();
       const file = input.file;
@@ -1946,15 +2336,24 @@
         ? instanceReconcileWorkspaceDecision
         : null
     );
-    return Object.freeze({
+    const service = Object.freeze({
       applicationScope: "c",
       templateKey,
       consumerId: requestedConsumerId,
       boardInstanceId: requestedBoardInstanceId,
+      readOnly,
       lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
       lifecycle,
       workflowContract: C_WORKFLOW_CANONICAL_CONTRACT,
       workflow,
+      completionArchiveLifecycle: Object.freeze({
+        enabled: completionArchiveLifecycleEnabled,
+        contract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
+        adoption: "board-instance+optional-workflow-or-completion-designation",
+        workflowOptional: true,
+        reconcileOnLoad: completionArchiveLifecycleEnabled,
+        failClosed: true
+      }),
       resolveInstance,
       load: instanceLoad,
       loadChecklist: (taskId, options) => loadChecklist(taskId, withGateway(options)),
@@ -1970,6 +2369,12 @@
       completionGateStatus,
       isArchiveTask,
       isGovernanceTerminal,
+      completionArchiveContract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
+      getCompletionArchivePolicy: options => getCompletionArchivePolicy(withGateway(options)),
+      calculateCompletionArchiveDueAt: (completionAt, options) => calculateCompletionArchiveDueAt(completionAt, withGateway(options)),
+      resolveCompletionArchiveContext: instanceResolveCompletionArchiveContext,
+      reconcileCompletionArchiveLifecycle: instanceReconcileCompletionArchiveLifecycle,
+      getAuthorityConformance: instanceGetAuthorityConformance,
       createWorkspace: instanceCreateWorkspace,
       renameWorkspace: instanceRenameWorkspace,
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
@@ -2005,6 +2410,60 @@
       setTaskVendorLink: instanceSetTaskVendorLink,
       governanceAction: instanceGovernanceAction
     });
+    if (!readOnly) return service;
+
+    // The old comparison entry shares the same Board Instance data but must
+    // never become a second writer.  Keep reads and the C Workflow read model,
+    // while replacing every mutating surface with one explicit fail-closed
+    // error.  This is a service boundary, not a UI-only disable.
+    const blocked = async () => {
+      const error = new Error("WorkTodo（舊）為唯讀比較入口，不能修改正式資料。");
+      error.code = "WORKTODO_OLD_READ_ONLY";
+      throw error;
+    };
+    return Object.freeze({
+      ...service,
+      readOnly: true,
+      lifecycle: createLifecycleCapability(null, false, null),
+      completionArchiveLifecycle: Object.freeze({
+        ...service.completionArchiveLifecycle,
+        readOnly: true,
+        reconcileOnLoad: false
+      }),
+      createWorkspace: blocked,
+      saveWorkspaceNotificationSettings: blocked,
+      renameWorkspace: blocked,
+      deleteWorkspace: blocked,
+      reorderWorkspaces: blocked,
+      moveTaskWorkspace: blocked,
+      createTask: blocked,
+      updateTaskTitle: blocked,
+      updateTaskContent: blocked,
+      updateTaskDueDate: blocked,
+      deleteTask: blocked,
+      addTaskChecklistItem: blocked,
+      updateTaskChecklistItem: blocked,
+      deleteTaskChecklistItem: blocked,
+      createChecklistItem: blocked,
+      updateChecklistItem: blocked,
+      acceptTaskFromQjcDrop: blocked,
+      reconcileWorkspaceDecision: blocked,
+      reconcileCompletionArchiveLifecycle: blocked,
+      addTaskProgressNote: blocked,
+      notifyTaskProgress: blocked,
+      editTaskProgressNote: blocked,
+      deleteTaskProgressNote: blocked,
+      setAgreementSchedule: blocked,
+      prepareTaskAttachment: blocked,
+      prepareProgressNoteAttachment: blocked,
+      uploadTaskAttachment: blocked,
+      completeTaskAttachment: blocked,
+      updateTaskAttachmentMetadata: blocked,
+      deleteTaskAttachment: blocked,
+      deleteProgressNoteAttachment: blocked,
+      setTaskVendorLink: blocked,
+      governanceAction: blocked
+    });
   }
 
   async function provisionConsumer(input = {}, options = {}) {
@@ -2017,6 +2476,31 @@
     const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
     if (applicationScope) args.p_application_scope = applicationScope;
     return gateway.rpc("board_provision_consumer", args);
+  }
+
+  // Canonical C Consumer provisioning.  The legacy three-argument wrapper is
+  // intentionally retained for older callers, but new C creation must use the
+  // single-transaction v2 contract so Instance identity, data scope, release,
+  // workspaces, and the optional Instance-owned Workflow are provisioned by
+  // one Cloud authority.
+  async function provisionCConsumer(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const idempotencyKey = String(input.idempotencyKey || "").trim();
+    if (!idempotencyKey) {
+      const error = new Error("C Consumer 建立需要受控的 Idempotency Key。未建立看板。");
+      error.code = "C_CONSUMER_PROVISION_IDEMPOTENCY_REQUIRED";
+      throw error;
+    }
+    const args = {
+      p_name: String(input.name || "").trim(),
+      p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
+      p_template_key: String(input.templateKey || "c").trim().toLowerCase(),
+      p_application_scope: String(input.applicationScope || "").trim().toLowerCase() || null,
+      p_workspace_blueprint: Array.isArray(input.workspaceBlueprint) ? input.workspaceBlueprint : null,
+      p_workflow_blueprint: input.workflowBlueprint && typeof input.workflowBlueprint === "object" ? input.workflowBlueprint : null,
+      p_idempotency_key: idempotencyKey
+    };
+    return gateway.rpc("board_provision_c_consumer_v2", args);
   }
 
   function governanceRunnerUrl(options = {}) {
@@ -2118,6 +2602,8 @@
     normalizeTaskAttachment,
     C_LIFECYCLE_ACCEPTANCE_CONTRACT,
     C_WORKFLOW_CANONICAL_CONTRACT,
+    C_COMPLETION_ARCHIVE_POLICY,
+    C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
     createLifecycleCapability,
     createWorkflowCapability,
     isGovernanceTerminal,
@@ -2133,6 +2619,13 @@
     listBoardInstances,
     listModuleConsumers,
     reconcileCompletionLifecycle,
+    normalizeCompletionArchivePolicy,
+    normalizeCompletionArchiveContext,
+    normalizeCompletionArchiveReconciliation,
+    getCompletionArchivePolicy,
+    calculateCompletionArchiveDueAt,
+    resolveCompletionArchiveContext,
+    reconcileCompletionArchiveLifecycle,
     loadChecklist,
     loadTaskChecklist,
     loadMovementHistory,
@@ -2189,6 +2682,8 @@
     taskAttachmentUrl,
     createInstanceService,
     provisionConsumer,
+    provisionCConsumer,
+    getAuthorityConformance,
     requestTaskContractUpdate,
     taskContractUpdateStatus,
     requestTaskContractCreation,

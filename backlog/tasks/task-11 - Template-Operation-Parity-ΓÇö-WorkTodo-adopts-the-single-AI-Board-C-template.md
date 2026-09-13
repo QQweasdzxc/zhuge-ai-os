@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-08-24 07:48'
-updated_date: '2026-09-01 04:19'
+updated_date: '2026-09-12 15:33'
 labels:
   - golden-master
   - template
@@ -37,11 +37,7 @@ PM confirmed that AI Board is the sole canonical C template. WorkTodo must consu
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
-1. Audit the shared Golden Master, WorkTodo adapter, existing progress attachment Storage/Repository path, and workspace operation RPC/capability contract. 2. Implement the shared 48px spacing and progress attachment lifecycle using the existing controlled path. 3. Align WorkTodo workspace create/reorder/rename capabilities with the canonical operation contract without duplicating the C template or bypassing authorization. 4. Keep TASK/WLTK labels scoped to their domain, add focused regression coverage, and run desktop/mobile runtime QA. 5. Commit the approved source change and report Cloud, domain-data, Git, and QA boundaries.
-
-Checklist Contract repair: route formal WorkTodo general Checklist read/add/toggle/delete through shared board_task_checklist_items and board_*_task_checklist_item RPCs; preserve legacy WorkLog routes and other domains; add read-only Cloud RPC authorization migration artifact without applying it; run targeted and AI Board regression.
-
-7. Harden the shared board_tasks work-code allocator and all current task-create RPC writers against stale registry/sequence counters; preserve the unique index, task IDs, auth/RLS, and existing domain data, then verify WorkTodo, AI Board, generic C consumers, and legacy WLTK compatibility.
+1. Reuse the existing formal WorkTodo Board Instance and board_tasks data; do not provision a second board or clone any cards. 2. Route the official WorkTodo entry through the shared Module C Instance Service and shared task/action adapters. 3. Add a single shared-runtime read-only comparison mode for WorkTodo（舊） so the legacy entry cannot write. 4. Preserve the existing Board/Card/WLTK/child-data identity and C lifecycle context; fail closed when the existing instance lacks a published workflow. 5. Add focused route/writer/read-only regression coverage, run the existing full suite, and record the PM Runtime QA handoff without retiring legacy data or entries.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -58,4 +54,6 @@ PM approved Checklist Contract minimal repair on 2026-08-26. Scope excludes Work
 2026-09-01：修正 Cloud authoritative work-code allocator。WorkTodo registry counter 目前 37、既有最大 WLTK-047；共用 trigger 在同一 prefix transaction lock 下會跳過已占用候選並配置下一個可用編號，board_instance_create_task 不再自行配號；保留既有唯一索引、TASK/WLTK/MDTK/QAT ID、Auth/RLS 與資料。Cloud migration 20260901_work_code_allocator_collision_guard 已套用並 read-back。正式 WorkTodo/AI Board/C 建立路徑維持共用 Cloud identity allocation。本機 346/346 regression pass（含 5 個 browser tests），登入 WorkTodo Runtime reload 後建立入口可見且目前無 duplicate-key banner；未代送 Cloud 建立表單，避免未經確認新增正式卡片。
 
 2026-09-01: 優化 C／Shared Golden Master 工作區重新命名。完成欄保留 PM Acceptance lifecycle 勾號並共用同一個工作區操作選單；所有工作區可透過既有受控 renameWorkspace 修改顯示名稱，Canonical workspace key／Lifecycle／刪除權限不變。Canonical key 優先判斷，避免顯示名稱改成 完成／已完成／QJC驗證 後誤判系統身份。Focused regression 與 full node --test 通過（343 PASS，5 個既有瀏覽器測試因缺少 Chrome executable SKIP）。
+
+2026-09-12 PM execution: same-data runtime cutover authorized from Board Instance 0b2b5c4e-6767-4792-a97a-d2ddf42e60da; old data and protected Candidate remain rollback boundaries.
 <!-- SECTION:NOTES:END -->

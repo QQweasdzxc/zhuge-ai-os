@@ -38,6 +38,8 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   }
   assert.match(worktodo, /<title>Zhuge AI OS｜工作待辦<\/title>/);
   assert.match(worktodo, /data-active-workspace="tasks-new"/);
+  assert.match(worktodo, /data-worktodo-old-entry/);
+  assert.match(worktodo, /href="\?consumer=worktodo-old"/);
   assert.match(worktodo, /src="\.\.\/\.\.\/\.\.\/shared\/components\/golden-master-runtime\.js\?v=/);
   assert.doesNotMatch(aiBoard, /<style[\s>]/i);
   assert.doesNotMatch(worktodo, /<style[\s>]/i);
@@ -66,14 +68,21 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(dashboardRuntime, /data-open-workspace="tasks-new"/);
 
   assert.match(runtime, /function isWorkTodoMode\(\)/);
+  assert.match(runtime, /function isWorkTodoComparisonMode\(\)/);
+  assert.match(runtime, /comparisonEntry\.textContent = "WorkTodo"/);
+  assert.match(runtime, /comparisonEntry\.setAttribute\("href", String\(root\.location\?\.pathname \|\| "\.\/"\)\)/);
+  assert.match(runtime, /state\.cNativeWorkTodo = state\.applicationScope === "worktodo"/);
+  assert.match(runtime, /const cTemplate = state\.applicationScope === "c" \|\| state\.cNativeWorkTodo/);
   assert.match(runtime, /const service = activeService\(\);/);
   assert.match(runtime, /const loadOptions = \{ applicationScope: state\.applicationScope \};/);
   assert.match(runtime, /state\.refreshPromise = service\.load\(loadOptions\)/);
-  assert.match(runtime, /state\.applicationScope === "c" && state\.boardInstanceId/);
+  assert.match(runtime, /\(state\.applicationScope === "c" \|\| state\.cNativeWorkTodo\) && state\.boardInstanceId/);
   assert.match(runtime, /executeSharedTaskAction\(null, "createTask"/);
   assert.match(runtime, /executeSharedTaskAction\(task, "updateContent"/);
   assert.match(actionAdapters, /worktodoCreateTask/);
   assert.match(actionAdapters, /worktodoUpdateTask/);
+  assert.match(runtime, /consumer: state\.cNativeWorkTodo \? "worktodo"/);
+  assert.match(runtime, /WorkTodo（舊）為唯讀比較入口/);
   assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo" \}\)/);
   assert.match(runtime, /function sortTasksForDisplay\(tasks\)/);
   assert.match(runtime, /root\.ZhugeWorkTodoOrdering\?\.sortTasks/);
