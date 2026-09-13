@@ -1,11 +1,11 @@
 ---
 id: TASK-18
 title: Close WorkTodo Legacy Create Authority
-status: In Progress
+status: Done
 assignee:
   - '@codex'
 created_date: '2026-09-13 11:02'
-updated_date: '2026-09-13 11:09'
+updated_date: '2026-09-13 11:10'
 labels:
   - worktodo
   - authority
@@ -37,9 +37,9 @@ Route WorkLog AI Assistant task creation through the canonical C board-instance 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The WorkLog AI Assistant create action creates a real WorkTodo board task through the canonical C board-instance writer and preserves the existing user-visible result.
-- [ ] #2 Current formal runtime source has no caller of the old worktodo_create_task RPC, and the old application Execute surface is closed without weakening the C writer boundary.
-- [ ] #3 Targeted tests, full regression, and an authority census show WorkTodo has one current create writer and no WorkTodo-class authority split.
+- [x] #1 The WorkLog AI Assistant create action creates a real WorkTodo board task through the canonical C board-instance writer and preserves the existing user-visible result.
+- [x] #2 Current formal runtime source has no caller of the old worktodo_create_task RPC, and the old application Execute surface is closed without weakening the C writer boundary.
+- [x] #3 Targeted tests, full regression, and an authority census show WorkTodo has one current create writer and no WorkTodo-class authority split.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -55,3 +55,9 @@ Current-state evidence: formal WorkTodo runtime already uses C instance service;
 
 Implementation complete: WorkLog Assistant and WorkTodo action adapter now use the C board-instance create authority. Cloud migration 20260913110621 closed application/service-role execution of worktodo_create_task while preserving the owner-only rollback surface. Targeted 49/49 PASS; full Node regression 475 total, 469 PASS, 0 FAIL, 6 pre-existing browser SKIP. Current WorkTodo create authority census found no old-RPC runtime caller or create-authority split.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Closed the WorkTodo create-authority split. WorkLog AI Assistant now resolves the existing WorkTodo Board Instance/default workspace and delegates creation to the shared C board_instance_create_task writer; the WorkTodo action adapter uses the same service. Migration 20260913110621 revoked public/anon/authenticated/service_role execution of the retired worktodo_create_task while preserving the owner-only rollback surface. Evidence: targeted 49/49 PASS, full Node regression 475 total with 469 PASS, 0 FAIL, 6 pre-existing browser SKIP, syntax and diff checks PASS, Cloud grants/RLS/read-only data read-back PASS. No existing WLTK was mutated and no Candidate was packaged.
+<!-- SECTION:FINAL_SUMMARY:END -->
