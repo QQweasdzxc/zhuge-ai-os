@@ -30,18 +30,17 @@ test("Archive read model derives only from existing done and terminal governance
   assert.equal(BoardRead.isArchiveTask({ status: "qa" }), false);
 });
 
-test("retired sequential drag planner is absent; PM decisions use the canonical C contract", async () => {
+test("retired default lifecycle writers fail closed; C consumers use the instance-scoped v2 contract", async () => {
   assert.equal(BoardRead.planTransition, undefined);
   assert.equal(BoardRead.availableTransitions, undefined);
   const calls = [];
   const gateway = { rpc: async (name, params) => { calls.push({ name, params }); return { success: true }; } };
-  for (const target of ["todo", "co", "gpt", "qjc", "completed", "custom"]) {
-    await BoardRead.lifecycle.reconcileWorkspaceDecision({ taskId: "task", targetWorkspaceId: target }, { gateway });
-  }
-  assert.equal(calls.length, 6);
-  assert.ok(calls.every(call => call.name === "board_c_reconcile_workspace_decision"));
-  assert.deepEqual(calls.map(call => call.params.p_target_workspace_id), ["todo", "co", "gpt", "qjc", "completed", "custom"]);
-  assert.ok(calls.every(call => !Object.hasOwn(call.params, "p_target_assignee")), "the renderer must not guess the receiving role");
+  await assert.rejects(
+    () => BoardRead.reconcileWorkspaceDecision({ taskId: "task", targetWorkspaceId: "completed" }, { gateway }),
+    error => error.code === "C_LEGACY_LIFECYCLE_RETIRED"
+  );
+  assert.deepEqual(calls, []);
+  assert.equal(BoardRead.lifecycle.reconcileWorkspaceDecision, undefined);
 });
 
 test("shared completion gate requires Co and QJC evidence, not GPT checkbox", () => {
@@ -403,29 +402,19 @@ test("WorkTodo empty Workspace Delete does not invoke a card movement route", as
   ]);
 });
 
-test("PM QJC drop acceptance uses only the composite controlled RPC", async () => {
+test("retired PM QJC drop acceptance fails closed without a legacy writer call", async () => {
   const calls = [];
   const gateway = {
     rpc: async (name, params) => {
       calls.push({ name, params });
-      return { success: true, contract: "pm_acceptance_from_qjc_drop" };
+      return { success: true };
     }
   };
-  const result = await BoardRead.pmAcceptTaskFromQjcDrop({
-    taskId: "task-066",
-    itemId: "pm-item-066",
-    evidenceNote: "PM Acceptance PASS"
-  }, { gateway });
-  assert.deepEqual(result, { success: true, contract: "pm_acceptance_from_qjc_drop" });
-  assert.deepEqual(calls, [{
-    name: "board_pm_acceptance_from_qjc_drop",
-    params: {
-      p_task_id: "task-066",
-      p_item_id: "pm-item-066",
-      p_evidence_note: "PM Acceptance PASS",
-      p_evidence_ref: null
-    }
-  }]);
+  await assert.rejects(
+    () => BoardRead.pmAcceptTaskFromQjcDrop({ taskId: "task-066", itemId: "pm-item-066" }, { gateway }),
+    error => error.code === "C_LEGACY_LIFECYCLE_RETIRED"
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("Workspace Delete service keeps the empty-workspace path free of task or Storage operations", async () => {

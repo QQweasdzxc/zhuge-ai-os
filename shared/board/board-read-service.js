@@ -1490,29 +1490,23 @@
     }).then(normalizeChecklistItem);
   }
 
-  async function acceptTaskFromQjcDrop(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_pm_acceptance_from_qjc_drop", {
-      p_task_id: input.taskId,
-      p_item_id: input.itemId,
-      // A QJC Drop is itself the PM Acceptance intent.  The Cloud contract
-      // creates the auditable action context; a UI prompt must not be used as
-      // a substitute for that controlled record.
-      p_evidence_note: input.evidenceNote || null,
-      p_evidence_ref: input.evidenceRef || null
-    });
+  function legacyLifecycleRetiredError(route) {
+    const error = new Error(`${route} 已退休；正式 Completion／Archive 必須使用 Module C v2 Authority。`);
+    error.code = "C_LEGACY_LIFECYCLE_RETIRED";
+    error.route = route;
+    error.authority = "board_c_reconcile_workspace_decision_v2";
+    return error;
   }
 
-  // C owns PM workspace decisions.  This operation is deliberately separate
-  // from the legacy sequential transition RPC: the PM-selected workspace is
-  // the intent, while Cloud reconciles the formal lifecycle atomically.
-  async function reconcileWorkspaceDecision(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_c_reconcile_workspace_decision", {
-      p_task_id: input.taskId,
-      p_target_workspace_id: input.targetWorkspaceId,
-      p_decision_note: input.decisionNote || null
-    });
+  // Compatibility exports remain only as explicit fail-closed sentinels.  The
+  // old application RPCs are no longer a Runtime route or a Writer; current
+  // C consumers use the instance-scoped Workflow v2 capability below.
+  async function acceptTaskFromQjcDrop() {
+    throw legacyLifecycleRetiredError("board_pm_acceptance_from_qjc_drop");
+  }
+
+  async function reconcileWorkspaceDecision() {
+    throw legacyLifecycleRetiredError("board_c_reconcile_workspace_decision");
   }
 
   // Canonical Module C Workflow capability.  This is deliberately a thin
@@ -2205,10 +2199,6 @@
         p_evidence_ref: input.evidenceRef || null
       }).then(normalizeChecklistItem);
     }
-    async function instanceAcceptTaskFromQjcDrop(input = {}) {
-      await resolveInstance();
-      return acceptTaskFromQjcDrop(input, withGateway());
-    }
     async function instanceReconcileWorkspaceDecision(input = {}) {
       await resolveInstance();
       // Keep the instance service on the same C Workflow v2 authority as the
@@ -2340,8 +2330,8 @@
       throw error;
     }
     const lifecycle = createLifecycleCapability(
-      instanceAcceptTaskFromQjcDrop,
-      instanceOptions.lifecycleCapabilities?.pmAcceptanceFromQjcDrop === true,
+      null,
+      false,
       instanceOptions.lifecycleCapabilities?.pmWorkspaceAuthority === true
         ? instanceReconcileWorkspaceDecision
         : null
@@ -2598,7 +2588,11 @@
   return Object.freeze({
     ENGINEERING_STATUS_DESCRIPTORS,
     lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
-    lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop, true, reconcileWorkspaceDecision),
+    // The default service is retained for historical consumers, but it no
+    // longer exposes an application-writable lifecycle capability.  Formal C
+    // Runtime uses createInstanceService() and the instance-scoped Workflow
+    // v2 authority.
+    lifecycle: createLifecycleCapability(null, false, null),
     normalizeStatus,
     statusDescriptorFor,
     normalizeWorkspace,
