@@ -75,6 +75,8 @@ test("Checker V2 keeps optional Workflow legal and removes optimistic runtime cl
   assert.match(checker, /runtime_route_status\s*:=\s*case/i);
   assert.match(checker, /v_persistence_status\s+text\s*:=\s*'unknown'/i);
   assert.doesNotMatch(checker, /v_legacy_current_route\s*:=\s*false/i);
+  assert.doesNotMatch(checker, /'global_reconciler_current_route',\s*false/i);
+  assert.match(checker, /'global_reconciler_current_route',\s*v_global_fallback_count\s*>\s*0/i);
   assert.doesNotMatch(checker, /'persistence',\s*'pass'/i);
   assert.doesNotMatch(checker, /'reload',\s*'pass'/i);
   assert.doesNotMatch(checker, /'new_session',\s*'pass'/i);

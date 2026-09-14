@@ -1249,7 +1249,7 @@ begin
     ),
     'legacy_routes', jsonb_build_object(
       'global_reconciler_exists', v_global_legacy_reconciler_exists,
-      'global_reconciler_current_route', false,
+      'global_reconciler_current_route', v_global_fallback_count > 0,
       'global_pm_acceptance_exists', v_global_pm_acceptance_exists,
       'worktodo_completion_trigger_exists', v_user_tasks_trigger_exists,
       'worktodo_completion_trigger_enabled', v_user_tasks_trigger_enabled,
