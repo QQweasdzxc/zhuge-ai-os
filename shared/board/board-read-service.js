@@ -1202,11 +1202,7 @@
       targetWorkspaceId,
       "board_request_delete_workspace",
       "board_finalize_delete_workspace",
-      (taskId, targetId, gateway) => gateway.rpc("board_move_task_workspace", {
-        p_task_id: taskId,
-        p_target_workspace_id: targetId,
-        p_note: "Custom Workspace deleted; task preserved in canonical 待開始 workspace"
-      }),
+      taskId => moveTaskWorkspace(taskId, targetWorkspaceId, "Custom Workspace deleted; task preserved in canonical 待開始 workspace"),
       { ...options, rejectPopulated: true }
     );
   }
@@ -1275,24 +1271,11 @@
   }
 
   async function moveTaskWorkspace(taskId, targetWorkspaceId, note = "", options = {}) {
-    const gateway = options.gateway || requireGateway();
-    const moved = await gateway.rpc("board_move_task_workspace", {
-      p_task_id: taskId,
-      p_target_workspace_id: targetWorkspaceId,
-      p_note: note || null
-    });
-    // Movement is authoritative first. Notification is a Cloud side-effect and
-    // must never roll back or duplicate the card movement if mail delivery fails.
-    try {
-      await gateway.invokeFunction("workspace-email-notification", {
-        task_id: taskId,
-        workspace_id: targetWorkspaceId,
-        card_url: currentCardUrl(taskId)
-      });
-    } catch (error) {
-      console.warn("Workspace Email notification failed after Cloud move", error);
-    }
-    return normalizeTask(moved);
+    // The former generic application writer is retired.  Keep an explicit
+    // fail-closed surface so an older caller cannot silently recreate the
+    // unscoped movement/completion authority. Formal C movement must use the
+    // instance-scoped workflow decision capability.
+    throw legacyMovementRetiredError("board_move_task_workspace");
   }
 
   async function governanceAction(taskId, action, targetTaskId = null, reason = "", options = {}) {

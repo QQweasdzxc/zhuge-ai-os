@@ -262,7 +262,7 @@ test("WorkTodo card summary honors both new system and historical human Progress
   }
 });
 
-test("Board workspace mutations and movement history stay behind controlled RPC/read adapters", async () => {
+test("Board workspace mutations stay controlled and retired generic movement fails closed", async () => {
   const calls = [];
   const gateway = {
     rpc: async (name, params) => {
@@ -281,24 +281,23 @@ test("Board workspace mutations and movement history stay behind controlled RPC/
   const created = await BoardRead.createWorkspace("測試區", { gateway });
   const renamed = await BoardRead.renameWorkspace(created.id, "測試區2", { gateway });
   await BoardRead.reorderWorkspaces(["a", "b"], { gateway });
-  const moved = await BoardRead.moveTaskWorkspace("task-1", "b", "QJC QA", { gateway });
+  await assert.rejects(
+    () => BoardRead.moveTaskWorkspace("task-1", "b", "QJC QA", { gateway }),
+    error => error.code === "C_LEGACY_MOVEMENT_RETIRED"
+      && error.route === "board_move_task_workspace"
+      && error.authority === "board_c_reconcile_workspace_decision_v2"
+  );
   const movements = await BoardRead.loadMovementHistory("task-1", { gateway });
   assert.equal(created.name, "測試區");
   assert.equal(renamed.name, "測試區2");
-  assert.equal(moved.workspaceId, "b");
   assert.equal(movements[0].fromWorkspace, "Co區");
   assert.equal(movements[0].toWorkspace, "GPT區");
   assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
     "board_create_workspace",
     "board_rename_workspace",
-    "board_reorder_workspaces",
-    "board_move_task_workspace"
+    "board_reorder_workspaces"
   ]);
-  assert.deepEqual(calls.find(call => call.name === "board_move_task_workspace").params, {
-    p_task_id: "task-1",
-    p_target_workspace_id: "b",
-    p_note: "QJC QA"
-  });
+  assert.equal(calls.some(call => call.name === "board_move_task_workspace"), false);
   assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
 });
 

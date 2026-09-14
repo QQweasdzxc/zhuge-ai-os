@@ -226,21 +226,22 @@ test("retired direct instance movement fails closed without calling its RPC", as
   assert.deepEqual(calls, []);
 });
 
-test("retiring the instance route does not change the generic board movement route", async () => {
+test("retired generic movement surface fails closed without calling its RPC", async () => {
   const calls = [];
-  await BoardReadService.moveTaskWorkspace("task-1", "workspace-2", "generic move", {
-    gateway: {
-      async rpc(name, args) {
-        calls.push({ type: "rpc", name, args });
-        return { id: "task-1", workspace_id: "workspace-2", status: "ready" };
-      },
-      async invokeFunction(name, args) {
-        calls.push({ type: "function", name, args });
+  await assert.rejects(
+    () => BoardReadService.moveTaskWorkspace("task-1", "workspace-2", "generic move", {
+      gateway: {
+        async rpc(name, args) {
+          calls.push({ type: "rpc", name, args });
+          return { id: "task-1", workspace_id: "workspace-2", status: "ready" };
+        }
       }
-    }
-  });
-  assert.equal(calls[0].name, "board_move_task_workspace");
-  assert.equal(calls[0].args.p_task_id, "task-1");
+    }),
+    error => error.code === "C_LEGACY_MOVEMENT_RETIRED"
+      && error.route === "board_move_task_workspace"
+      && error.authority === "board_c_reconcile_workspace_decision_v2"
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("read-only Investment keeps settings protected while its C movement path remains shared", async () => {
