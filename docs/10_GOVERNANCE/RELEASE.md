@@ -11,27 +11,39 @@ Version + Build + Git Commit + Package Time
 The Build identifies the formal release, not only a runtime compile. A public
 page-only change still receives a new Build.
 
-## Current formal publish identity
+## Formal Build Cycle
 
-This Phase 3 publish uses the following synchronized release identity:
+At the start of every new Formal Build Cycle, obtain the current date/time in
+`Asia/Taipei` and generate a new `BUILD_ID` in `YYYYMMDD-HHmm` format. It must
+not equal the previous Formal Build's `BUILD_ID`. Write the new value to the
+root `version.json.build`, then synchronize every Runtime, Module, UI,
+cache-buster, Manifest, and Candidate identity before committing.
+
+`version.json.build` remains the single Build Identity source. `artifactCreatedAt`
+is captured when the ZIP/artifact has actually been created and is retained as
+full-precision `Asia/Taipei` provenance metadata only.
+
+The formal sequence is:
 
 ```text
-Version: 0.9.0-alpha.9.13
-Build: 20260829-1024
-Git Commit: bf27dcb3c7f321b37daebc8d7948d8c1bfce19c6
-Package Time: 2026-08-29T10:24:53+08:00 (Asia/Taipei)
+Start Formal Build
+→ Asia/Taipei current YYYYMMDD-HHmm
+→ generate NEW BUILD_ID
+→ update Source Build Identity
+→ Commit
+→ Working Tree clean
+→ Pre-Gate
+→ Regression / Preflight
+→ Package
+→ Post-Gate
+→ Manifest / ZIP Verification
 ```
-
-For a new formal Publish/Candidate package, capture one Package Time in
-`Asia/Taipei` and derive the new `YYYYMMDD-HHmm` Build before packaging. Once
-written, the root `version.json.build` remains the single Build Identity
-source for Runtime, metadata, cache-busters, manifests, and the Candidate
-filename. The full-precision Package Time remains release provenance metadata.
 
 ## Release gate
 
 - `git diff` contains only intended files.
 - `git status` is clean after commit.
+- Formal packaging fails closed when the Git Working Tree is not clean.
 - Root Landing / Dashboard is publicly readable.
 - `?app=1` and OAuth callback remain functional.
 - WorkLog, Sidebar, and Session regressions are absent.
@@ -40,12 +52,12 @@ filename. The full-precision Package Time remains release provenance metadata.
 
 ## Candidate packaging governance
 
-The root `version.json.build` is the only Runtime Build Identity source after
-the new Package Time has been recorded. Runtime configuration, module
-manifests, Runtime UI identity, and literal HTML/JS/CSS cache-busters must
-match it exactly. Candidate filenames use the actual Artifact Created At in
-`Asia/Taipei`, formatted as `YYYYMMDD-HHmm`; that timestamp is separate from
-the Runtime Build and is retained in the Candidate Manifest.
+The root `version.json.build` is the only `BUILD_ID` and Candidate filename
+identity source. Runtime configuration, module manifests, Runtime UI identity,
+and literal HTML/JS/CSS cache-busters must match it exactly. Candidate
+filenames use that `BUILD_ID`, formatted as `YYYYMMDD-HHmm`. `artifactCreatedAt`
+is separate artifact metadata and must not participate in the Candidate
+filename prefix.
 
 Use the controlled tool path for Candidate packaging:
 
@@ -59,9 +71,9 @@ node tools/release-governance.js package \
 ```
 
 The tool creates a temporary ZIP under `dist/`, derives its filename from the
-actual Artifact Created At, creates a sidecar Candidate Manifest, runs the
-Post-Packaging Gate from the ZIP itself, and only then copies the ZIP and
-Manifest to the formal PM delivery directory:
+root `version.json.build`, records `artifactCreatedAt` as separate manifest
+metadata, runs the Post-Packaging Gate from the ZIP itself, and only then
+copies the ZIP and Manifest to the formal PM delivery directory:
 
 ```text
 /Users/qq/Library/CloudStorage/GoogleDrive-qq.1025@gmail.com/我的雲端硬碟/TOOLS-自製/ZhuGe AI OS/版控/
