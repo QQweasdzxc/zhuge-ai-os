@@ -1498,6 +1498,14 @@
     return error;
   }
 
+  function legacyMovementRetiredError(route) {
+    const error = new Error(`${route} 已退休；正式卡片移動必須使用 Module C v2 Authority。`);
+    error.code = "C_LEGACY_MOVEMENT_RETIRED";
+    error.route = route;
+    error.authority = "board_c_reconcile_workspace_decision_v2";
+    return error;
+  }
+
   // Compatibility exports remain only as explicit fail-closed sentinels.  The
   // old application RPCs are no longer a Runtime route or a Writer; current
   // C consumers use the instance-scoped Workflow v2 capability below.
@@ -2117,14 +2125,10 @@
       return gateway.rpc("board_instance_reorder_workspaces", { p_workspace_ids: workspaceIds });
     }
     async function instanceMoveTaskWorkspace(taskId, workspaceId, reason = "") {
-      await resolveInstance();
-      const moved = await gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null });
-      try {
-        await gateway.invokeFunction("workspace-email-notification", { task_id: taskId, workspace_id: workspaceId, card_url: currentCardUrl(taskId) });
-      } catch (error) {
-        console.warn("Workspace Email notification failed after Cloud move", error);
-      }
-      return normalizeInstanceTask(moved);
+      // The direct instance writer is retained only as a fail-closed
+      // compatibility surface. Formal C movement uses the v2 decision
+      // capability so it cannot bypass Workflow, lifecycle, or idempotency.
+      throw legacyMovementRetiredError("board_instance_move_task_workspace");
     }
     async function instanceCreateTask(input = {}) {
       const instance = await resolveInstance();

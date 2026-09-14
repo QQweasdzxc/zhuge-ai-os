@@ -200,6 +200,49 @@ test("all C consumers keep the same C movement path when Workflow is optional", 
   }
 });
 
+test("retired direct instance movement fails closed without calling its RPC", async () => {
+  const calls = [];
+  const service = BoardReadService.createInstanceService({
+    boardInstanceId: "c-instance",
+    gateway: {
+      async select() {
+        calls.push({ type: "select" });
+        return [{ id: "c-instance", template_key: "c", active: true }];
+      },
+      async rpc(name, args) {
+        calls.push({ type: "rpc", name, args });
+        return {};
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => service.moveTaskWorkspace("task-1", "workspace-2", "direct move"),
+    error => error.code === "C_LEGACY_MOVEMENT_RETIRED"
+      && error.route === "board_instance_move_task_workspace"
+      && error.authority === "board_c_reconcile_workspace_decision_v2"
+  );
+  assert.equal(calls.some(call => call.name === "board_instance_move_task_workspace"), false);
+  assert.deepEqual(calls, []);
+});
+
+test("retiring the instance route does not change the generic board movement route", async () => {
+  const calls = [];
+  await BoardReadService.moveTaskWorkspace("task-1", "workspace-2", "generic move", {
+    gateway: {
+      async rpc(name, args) {
+        calls.push({ type: "rpc", name, args });
+        return { id: "task-1", workspace_id: "workspace-2", status: "ready" };
+      },
+      async invokeFunction(name, args) {
+        calls.push({ type: "function", name, args });
+      }
+    }
+  });
+  assert.equal(calls[0].name, "board_move_task_workspace");
+  assert.equal(calls[0].args.p_task_id, "task-1");
+});
+
 test("read-only Investment keeps settings protected while its C movement path remains shared", async () => {
   const calls = [];
   const service = BoardReadService.createInstanceService({

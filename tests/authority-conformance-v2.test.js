@@ -8,6 +8,10 @@ const checker = fs.readFileSync(
   path.join(ROOT, "docs/supabase/20260914_c_authority_conformance_v2.sql"),
   "utf8"
 );
+const instanceMovementRetirement = fs.readFileSync(
+  path.join(ROOT, "docs/supabase/20260914_retire_board_instance_move_workspace.sql"),
+  "utf8"
+);
 
 test("Checker V2 is the existing canonical RPC with a structured contract", () => {
   assert.match(checker, /create\s+or\s+replace\s+function\s+public\.board_c_authority_conformance_check\(\s*p_board_instance_id\s+uuid/i);
@@ -92,4 +96,12 @@ test("Checker V2 preserves the authenticated read-only execute boundary", () => 
   assert.doesNotMatch(checker, /insert\s+into\s+public\.(board_tasks|user_tasks)\b/i);
   assert.doesNotMatch(checker, /update\s+public\.(board_tasks|user_tasks)\b/i);
   assert.doesNotMatch(checker, /delete\s+from\s+public\.(board_tasks|user_tasks)\b/i);
+});
+
+test("instance direct movement retirement is scoped away from generic movement", () => {
+  assert.match(instanceMovementRetirement, /revoke\s+all\s+on\s+function\s+public\.board_instance_move_task_workspace\(uuid,\s*uuid,\s*text\)/i);
+  assert.match(instanceMovementRetirement, /from\s+public,\s*anon,\s*authenticated/i);
+  assert.match(instanceMovementRetirement, /grant\s+execute\s+on\s+function\s+public\.board_instance_move_task_workspace\(uuid,\s*uuid,\s*text\)\s+to\s+service_role/i);
+  assert.doesNotMatch(instanceMovementRetirement, /board_move_task_workspace\s*\(/i);
+  assert.match(instanceMovementRetirement, /board_c_reconcile_workspace_decision_v2/i);
 });
