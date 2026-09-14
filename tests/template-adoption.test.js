@@ -153,8 +153,9 @@ test("template adoption is separate from MFA and attaches to the existing Shared
   assert.doesNotMatch(board, /mountTemplateAdoptionSettings|模板套用設定|data-template-adoption-settings/);
   assert.match(management, /data-template-management-center/);
   assert.match(management, /supportedTemplates/);
-  assert.match(management, /setEnabled\(\{ pageId, templateId, userId:/);
-  assert.match(management, /bootstrapTemplatePolicy\(\{ force: true \}\)/);
+  assert.doesNotMatch(management, /setEnabled\(\{ pageId, templateId, userId:/);
+  assert.doesNotMatch(management, /bootstrapTemplatePolicy\(\{ force: true \}\)/);
+  assert.match(management, /template-management-readonly/);
   assert.match(management, /data-template-management-preview/);
   assert.doesNotMatch(management, /queueMicrotask\(\(\) => options\.onUpdated\(\)\)/);
 

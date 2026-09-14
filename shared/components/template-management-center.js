@@ -53,6 +53,29 @@
       matches: instance => String(instance?.taskCodePrefix || "").trim().toUpperCase() === "IVTK"
     })
   ]);
+  const CONSUMER_ID_ALIASES = Object.freeze({
+    c: "c",
+    "c-mother": "c",
+    "template-c": "c",
+    ai: "ai-board",
+    aiboard: "ai-board",
+    "ai-board": "ai-board",
+    worktodo: "worktodo",
+    "tasks-new": "worktodo",
+    gas: "gas",
+    "gas-instance": "gas",
+    procurement: "gas",
+    investment: "investment",
+    ivtk: "investment",
+    "investment-ivtk": "investment"
+  });
+  const SITE_MAP_MODULES = Object.freeze([
+    Object.freeze({ key: "module-a", label: "Module A", detail: "Navigation / Shell", status: "unknown" }),
+    Object.freeze({ key: "module-b", label: "Module B", detail: "Workspace / Composition", status: "unknown" }),
+    Object.freeze({ key: "worklog", label: "WorkLog", detail: "Domain Runtime", status: "na" }),
+    Object.freeze({ key: "investment-domain", label: "Investment Domain", detail: "Position / IVTK Domain", status: "na" }),
+    Object.freeze({ key: "management-center", label: "Management Center", detail: "Observability / Navigation Surface", status: "na" })
+  ]);
   let policyEventsBound = false;
   let refreshCallback = null;
   let releaseState = { status: "idle", release: null, error: "" };
@@ -91,6 +114,90 @@
 
   function lowerValue(value) {
     return textValue(value).trim().toLowerCase().replace(/[\s_-]+/g, "_");
+  }
+
+  function normalizedIdentity(value) {
+    const normalized = textValue(value).trim().toLowerCase().replace(/[\s_]+/g, "-");
+    return CONSUMER_ID_ALIASES[normalized] || normalized;
+  }
+
+  function canonicalHealthStatus(value) {
+    const normalized = lowerValue(value);
+    if (["healthy", "pass", "passed", "ok", "current"].includes(normalized)) return "healthy";
+    if (["partial", "degraded", "warning"].includes(normalized)) return "partial";
+    if (["unhealthy", "fail", "failed", "error", "invalid"].includes(normalized)) return "unhealthy";
+    if (["na", "n_a", "not_applicable", "not_configured"].includes(normalized)) return "na";
+    return "unknown";
+  }
+
+  function healthLabel(status) {
+    return {
+      healthy: "HEALTHY",
+      partial: "PARTIAL",
+      unhealthy: "UNHEALTHY",
+      na: "N/A",
+      unknown: "UNKNOWN"
+    }[canonicalHealthStatus(status)];
+  }
+
+  function healthClass(status) {
+    return {
+      healthy: "is-healthy",
+      partial: "is-partial",
+      unhealthy: "is-fail",
+      na: "is-na",
+      unknown: "is-unknown"
+    }[canonicalHealthStatus(status)];
+  }
+
+  function objectValue(value) {
+    return value && typeof value === "object" ? value : {};
+  }
+
+  function evidenceText(value, fallback = "Unknown / Not Available") {
+    if (value === undefined || value === null || value === "") return fallback;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function evidenceItems(value) {
+    const itemText = item => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        return textValue(firstDefined(item, "message", "reason", "detail", "rule", "name"), evidenceText(item));
+      }
+      return textValue(item);
+    };
+    if (!Array.isArray(value)) return value == null ? [] : [itemText(value)].filter(Boolean);
+    return value.map(itemText).filter(Boolean);
+  }
+
+  function canonicalOverall(authority) {
+    const value = authority && typeof authority === "object" ? authority : {};
+    const overall = objectValue(value.overall);
+    const rawStatus = firstDefined(overall, "status", "state")
+      ?? firstDefined(value, "v2_status", "v2Status", "status");
+    const rawReasons = firstDefined(overall, "reasons", "reason")
+      ?? firstDefined(value, "reasons", "reason");
+    const evidence = firstDefined(overall, "evidence", "details")
+      ?? firstDefined(value, "evidence", "details");
+    const rawGapCount = firstDefined(overall, "gap_count", "gapCount")
+      ?? firstDefined(value, "gap_count", "gapCount");
+    const gapCount = rawGapCount === undefined || rawGapCount === null || rawGapCount === ""
+      ? null
+      : Number(rawGapCount);
+    return Object.freeze({
+      rawStatus: textValue(rawStatus),
+      status: canonicalHealthStatus(rawStatus),
+      label: healthLabel(rawStatus),
+      gapCount: Number.isFinite(gapCount) ? gapCount : null,
+      reasons: evidenceItems(rawReasons),
+      evidence: evidenceText(evidence)
+    });
   }
 
   function isPassish(value) {
@@ -148,13 +255,15 @@
       instance?.consumerId,
       profile?.key === "c-mother" ? "c" : "",
       profile?.key === "ai-board" ? "ai-board" : "",
-      profile?.key === "worktodo" ? "worktodo" : ""
+      profile?.key === "worktodo" ? "worktodo" : "",
+      profile?.key === "gas" ? "gas" : "",
+      profile?.key === "investment" ? "investment" : ""
     ].map(value => textValue(value).trim()).filter(Boolean);
-    const exactKey = candidateKeys.find(key => consumers[key]);
+    const exactKey = candidateKeys.find(key => Object.prototype.hasOwnProperty.call(consumers, key));
     if (exactKey) return { key: exactKey, adoption: consumers[exactKey] };
 
-    const normalized = candidateKeys.map(key => key.toLowerCase().replace(/_/g, "-"));
-    const matchingKey = Object.keys(consumers).find(key => normalized.includes(String(key).toLowerCase().replace(/_/g, "-")));
+    const normalized = candidateKeys.map(normalizedIdentity);
+    const matchingKey = Object.keys(consumers).find(key => normalized.includes(normalizedIdentity(key)));
     return matchingKey ? { key: matchingKey, adoption: consumers[matchingKey] } : { key: "", adoption: null };
   }
 
@@ -209,8 +318,29 @@
     });
   }
 
+  function capabilityStatus(section) {
+    const status = lowerValue(firstDefined(objectValue(section), "status", "state", "result"));
+    if (status === "not_configured") return "NOT_CONFIGURED / N/A";
+    if (status === "not_applicable" || status === "na" || status === "n_a") return "N/A";
+    if (["published", "configured", "pass", "passed", "active"].includes(status)) return status === "published" ? "Published" : "PASS";
+    if (["fail", "failed", "unhealthy", "invalid", "error"].includes(status)) return "FAIL";
+    return "UNKNOWN";
+  }
+
+  function persistenceStatus(authority) {
+    const value = objectValue(authority);
+    const persistence = value.persistence && typeof value.persistence === "object" ? value.persistence : {};
+    const checks = value.checks && typeof value.checks === "object" ? value.checks : {};
+    const status = firstDefined(persistence, "status", "state", "result")
+      ?? firstDefined(checks, "persistence", "reload", "new_session");
+    if (status && typeof status === "object") return capabilityStatus(status);
+    if (status !== undefined) return capabilityStatus({ status });
+    return "UNKNOWN";
+  }
+
   function authorityModel(authority, profile, adoption) {
     const evidence = normalizeAuthorityEvidence(authority);
+    const overall = canonicalOverall(evidence.value);
     const source = evidence.source;
     const feature = evidence.value?.feature && typeof evidence.value.feature === "object" ? evidence.value.feature : {};
     const sourceAdoptedField = firstDefined(source, "module_release_adopted", "moduleReleaseAdopted");
@@ -227,7 +357,7 @@
     const cloudWriter = firstDefined(evidence.authoritySection, "cloud_writer", "cloudWriter", "writer");
     const writer = profile.readOnlyExpected
       ? "C Shared Contract · Read-only"
-      : evidence.status === "pass" && isCanonicalEvidence(cardWriter) && isCanonicalEvidence(cloudWriter)
+      : isCanonicalEvidence(cardWriter) && isCanonicalEvidence(cloudWriter)
         ? "C Canonical Writer · Single Writer"
         : "Unknown / Not Available";
 
@@ -249,9 +379,7 @@
     const archiveReady = archiveStatus === "configured" || isCanonicalEvidence(firstDefined(evidence.authoritySection, "archive", "archive_lifecycle"));
     const lifecycle = profile.readOnlyExpected
       ? "N/A（Read-only）"
-      : evidence.status === "fail"
-        ? "Contract FAIL"
-        : completionStatus === "not_configured" && (archiveStatus === "not_applicable" || !archiveStatus)
+      : completionStatus === "not_configured" && (archiveStatus === "not_applicable" || !archiveStatus)
           ? "N/A"
           : completionReady && archiveReady && policyIdentity === "module-c-completion-archive-policy" && policyDelay === 86400
             ? "C Shared / 24h"
@@ -260,32 +388,34 @@
     const legacyCurrent = firstDefined(evidence.legacy, "current_route", "currentRoute", "current_route_reachable", "currentRouteReachable");
     const legacy = profile.readOnlyExpected
       ? "N/A"
-      : legacyCurrent === false
-        ? "Retired"
+        : legacyCurrent === false
+        ? "INACTIVE / Retired"
         : legacyCurrent === true
-          ? "Active"
+          ? "REACHABLE / Active"
           : "Unknown / Not Available";
-
-    const runtimeEvidence = runtime === "C Shared Runtime";
-    const releaseEvidence = sourceAdopted === null ? adoption.identityMatches : sourceAdopted === true && adoption.identityMatches;
-    const health = evidence.status === "fail"
-      ? "Contract FAIL"
-      : evidence.status === "unverified" || !evidence.value
-        ? "Unknown / Not Available"
-        : evidence.status === "pass" && runtimeEvidence && releaseEvidence === true
-          ? "Current / Healthy"
-          : "Unknown / Not Available";
+    const completion = capabilityStatus(evidence.completion);
+    const archive = capabilityStatus(evidence.archive);
+    const persistence = persistenceStatus(evidence.value);
 
     return Object.freeze({
       status: evidence.status,
       contract: textValue(evidence.value?.contract || evidence.value?.contract_id || evidence.value?.contractId),
+      overallStatus: overall.status,
+      overallRawStatus: overall.rawStatus,
+      overallLabel: overall.label,
+      gapCount: overall.gapCount,
+      reasons: overall.reasons,
+      evidenceSummary: overall.evidence,
       runtime,
       data,
       writer,
       workflow,
+      completion,
+      archive,
+      persistence,
       lifecycle,
       legacy,
-      health,
+      health: overall.label,
       policyIdentity,
       policyVersion,
       policyDelay,
@@ -304,6 +434,7 @@
       const authority = rawAuthority?.value || rawAuthority;
       const authorityError = rawAuthority?.error ? textValue(rawAuthority.error?.message || rawAuthority.error) : "";
       const adoption = adoptionModel(release, instance || {}, profile, authority);
+      const authoritySource = objectValue(authority?.source);
       const authorityState = authorityModel(
         authorityError ? { status: "unverified", error: authorityError } : authority,
         profile,
@@ -321,30 +452,231 @@
         data: authorityState.data,
         writer: authorityState.writer,
         workflow: authorityState.workflow,
+        completion: authorityState.completion,
+        archive: authorityState.archive,
+        persistence: authorityState.persistence,
         lifecycle: authorityState.lifecycle,
         legacy: authorityState.legacy,
         legacyLabel: profile.legacyLabel,
         adoption: adoption.label,
         adoptionKey: adoption.key,
+        adoptionStatus: adoption.status,
+        adoptionVersion: adoption.version,
+        adoptionBuild: adoption.build,
+        adoptionIdentityMatches: adoption.identityMatches,
+        publishedVersion: textValue(release?.publishedVersion),
+        publishedBuild: textValue(release?.publishedBuild),
+        publishedSourceCommit: textValue(release?.sourceCommit),
+        publishedSourceFingerprint: textValue(release?.sourceFingerprint),
+        runtimeIdentity: textValue(firstDefined(authoritySource, "runtime_identity", "runtimeIdentity", "source_commit", "sourceCommit")),
         health: authorityState.health,
+        overallStatus: authorityState.overallStatus,
+        overallRawStatus: authorityState.overallRawStatus,
+        overallLabel: authorityState.overallLabel,
+        gapCount: authorityState.gapCount,
+        reasons: authorityState.reasons,
+        evidenceSummary: authorityState.evidenceSummary,
         authorityStatus: authorityState.status || "unknown",
         authorityContract: authorityState.contract,
         policyIdentity: authorityState.policyIdentity,
         policyVersion: authorityState.policyVersion,
         policyDelay: authorityState.policyDelay,
         authorityError: authorityState.error,
+        checkerEvidence: authority,
         readOnlyExpected: profile.readOnlyExpected === true,
         evidenceAvailable: Boolean(authority)
       });
     };
 
     RUNTIME_VIEW_DEFINITIONS.forEach(profile => {
-      const matches = activeInstances.filter(instance => profile.matches(instance));
-      if (matches.length) matches.forEach(instance => entries.push(append(profile, instance)));
-      else entries.push(append(profile));
+      activeInstances.filter(instance => profile.matches(instance)).forEach(instance => entries.push(append(profile, instance)));
     });
     activeInstances.filter(instance => !consumedInstances.has(instance.id)).forEach(instance => entries.push(append(runtimeViewFor(instance), instance)));
     return entries;
+  }
+
+  function checkerValue(entry) {
+    return entry?.checkerEvidence && typeof entry.checkerEvidence === "object" ? entry.checkerEvidence : {};
+  }
+
+  function metricNumber(section, field) {
+    const value = Number(firstDefined(objectValue(section), field));
+    return Number.isFinite(value) ? value : null;
+  }
+
+  function deduplicatedSurfaceMetric(entries, sectionName, countField, predicate) {
+    const identities = new Set();
+    let reportedMax = 0;
+    let hadSurfaceEvidence = false;
+    (Array.isArray(entries) ? entries : []).forEach(entry => {
+      const section = objectValue(checkerValue(entry)[sectionName]);
+      const reported = metricNumber(section, countField);
+      if (reported != null) reportedMax = Math.max(reportedMax, reported);
+      const surfaces = Array.isArray(section.surfaces) ? section.surfaces : [];
+      surfaces.forEach(surface => {
+        if (typeof predicate === "function" && !predicate(surface)) return;
+        hadSurfaceEvidence = true;
+        const identity = [
+          surface?.schema,
+          surface?.name,
+          surface?.capability,
+          surface?.table,
+          surface?.trigger,
+          surface?.function
+        ].map(value => textValue(value).trim()).filter(Boolean).join(":");
+        if (identity) identities.add(identity);
+      });
+    });
+    if (identities.size) return identities.size;
+    return hadSurfaceEvidence || reportedMax ? reportedMax : null;
+  }
+
+  function deduplicatedReportedMetric(entries, sectionName, countField) {
+    let max = null;
+    (Array.isArray(entries) ? entries : []).forEach(entry => {
+      const value = metricNumber(objectValue(checkerValue(entry)[sectionName]), countField);
+      if (value != null) max = max == null ? value : Math.max(max, value);
+    });
+    return max;
+  }
+
+  function evidenceStatus(value) {
+    const normalized = lowerValue(value);
+    if (["pass", "passed", "healthy", "ok", "current"].includes(normalized)) return "PASS";
+    if (["fail", "failed", "unhealthy", "error", "invalid"].includes(normalized)) return "FAIL";
+    if (["partial", "degraded", "warning"].includes(normalized)) return "PARTIAL";
+    if (["not_applicable", "na", "n_a", "not_configured"].includes(normalized)) return "N/A";
+    return "UNKNOWN";
+  }
+
+  function evidenceStatusFromEntries(entries, selectors) {
+    const statuses = [];
+    (Array.isArray(entries) ? entries : []).forEach(entry => {
+      let value = checkerValue(entry);
+      for (const selector of selectors) {
+        value = value?.[selector];
+      }
+      if (value && typeof value === "object") value = firstDefined(value, "status", "state", "result");
+      if (typeof value === "boolean") statuses.push(value ? "FAIL" : "PASS");
+      else if (value !== undefined && value !== null && value !== "") statuses.push(evidenceStatus(value));
+    });
+    if (!statuses.length) return "UNKNOWN";
+    if (statuses.includes("FAIL")) return "FAIL";
+    if (statuses.includes("PARTIAL")) return "PARTIAL";
+    if (statuses.every(status => status === "N/A")) return "N/A";
+    if (statuses.includes("UNKNOWN")) return "UNKNOWN";
+    return "PASS";
+  }
+
+  function summarizeCheckerEvidence(entries = []) {
+    const rows = (Array.isArray(entries) ? entries : []).filter(entry => entry?.boardInstanceId);
+    const counts = { healthy: 0, partial: 0, unhealthy: 0, unknown: 0, na: 0 };
+    rows.forEach(entry => { counts[canonicalOverall(checkerValue(entry)).status] += 1; });
+    return Object.freeze({
+      totalConsumers: rows.length,
+      counts: Object.freeze(counts),
+      activeAlternateWriters: deduplicatedSurfaceMetric(
+        rows,
+        "writers",
+        "active_alternate_count",
+        surface => surface?.alternate === true || lowerValue(surface?.classification) === "alternate"
+      ),
+      activeLegacyWriters: deduplicatedReportedMetric(rows, "legacy_routes", "active_legacy_writer_count"),
+      reachableRetired48hWriters: deduplicatedReportedMetric(rows, "legacy_routes", "reachable_48h_writer_count"),
+      activeLegacyTriggers: deduplicatedReportedMetric(rows, "triggers", "active_legacy_count"),
+      crossInstanceLeakage: evidenceStatusFromEntries(rows, ["data_isolation", "cross_instance_leakage"]),
+      provisioningDrift: evidenceStatusFromEntries(rows, ["checks", "provisioning_drift"]),
+      releaseIdentityUnknown: rows.filter(entry => {
+        const release = objectValue(checkerValue(entry).release);
+        const status = lowerValue(firstDefined(release, "identity_status", "identityStatus", "status"));
+        return !status || ["unknown", "unverified", "missing"].includes(status);
+      }).length
+    });
+  }
+
+  function siteMapNodeStatus(status) {
+    return healthLabel(status || "unknown");
+  }
+
+  function buildSiteMapModel({ entries = [] } = {}) {
+    const consumers = (Array.isArray(entries) ? entries : []).filter(entry => entry?.boardInstanceId);
+    const summary = summarizeCheckerEvidence(consumers);
+    const cStatus = summary.counts.unhealthy
+      ? "unhealthy"
+      : summary.counts.partial
+        ? "partial"
+        : summary.counts.unknown
+          ? "unknown"
+          : summary.totalConsumers
+            ? "healthy"
+            : "unknown";
+    const consumerNodes = consumers.map(entry => ({
+      key: `consumer-${entry.key}-${entry.boardInstanceId}`,
+      label: entry.label,
+      detail: entry.instanceName || entry.runtimeEntry,
+      status: entry.overallStatus,
+      boardInstanceId: entry.boardInstanceId,
+      children: []
+    }));
+    const moduleNodes = SITE_MAP_MODULES.map(definition => {
+      const children = definition.key === "module-a"
+        ? [{ key: "navigation-shell", label: "Navigation / Shell", detail: "Shared Navigation", status: "unknown", children: [] }]
+        : definition.key === "module-b"
+          ? [{ key: "workspace-composition", label: "Workspace / Composition", detail: "Shared Workspace Contract", status: "unknown", children: [] }]
+          : [];
+      return { ...definition, children };
+    });
+    moduleNodes.splice(2, 0, {
+      key: "module-c",
+      label: "Module C",
+      detail: "Shared Board Capability / Authority",
+      status: cStatus,
+      children: [{
+        key: "template-c",
+        label: "Template C",
+        detail: `${summary.totalConsumers} 個 active C Consumer · Golden Master Runtime`,
+        status: cStatus,
+        children: consumerNodes
+      }]
+    });
+    return {
+      key: "system",
+      label: "System",
+      detail: "Zhuge AI OS",
+      status: "na",
+      children: moduleNodes
+    };
+  }
+
+  function renderSiteMapNode(node) {
+    const children = Array.isArray(node.children) && node.children.length
+      ? `<ul class="template-site-map-children">${node.children.map(renderSiteMapNode).join("")}</ul>`
+      : "";
+    const identity = node.boardInstanceId ? `<code>${escapeHtml(node.boardInstanceId)}</code>` : "";
+    return `<li class="template-site-map-node template-site-map-node-${escapeHtml(canonicalHealthStatus(node.status))}"><div class="template-site-map-node-row"><span class="template-site-map-node-label"><strong>${escapeHtml(node.label)}</strong><small>${escapeHtml(node.detail || "")}</small>${identity}</span><span class="template-site-map-node-status ${healthClass(node.status)}">${escapeHtml(siteMapNodeStatus(node.status))}</span></div>${children}</li>`;
+  }
+
+  function siteMapMarkup(entries = []) {
+    const status = runtimeObservabilityState.status;
+    const note = status === "resolved"
+      ? "Module、Template、Consumer、Board Instance 與 Health 分層呈現；Consumer Data / Workflow 不作 parity 判定。"
+      : "等待 Board Instance / Checker evidence；未取得的 Consumer 不建立假資料。";
+    const model = buildSiteMapModel({ entries });
+    return `<section class="template-site-map" data-template-site-map data-template-site-map-status="${escapeHtml(status)}" aria-labelledby="template-site-map-title"><div class="template-site-map-heading"><div><span class="template-management-kicker">System Map</span><h4 id="template-site-map-title">網站地圖／Template／Module／Consumer</h4><p>${escapeHtml(note)}</p></div><span class="template-site-map-state">${escapeHtml(status === "resolved" ? `${entries.length} 個 C Consumer` : "Cloud evidence pending")}</span></div><nav aria-label="System Site Map"><ul class="template-site-map-tree">${renderSiteMapNode(model)}</ul></nav></section>`;
+  }
+
+  function summaryMetric(value) {
+    return value === null || value === undefined ? "UNKNOWN" : String(value);
+  }
+
+  function siteWideSummaryMarkup(entries = []) {
+    if (runtimeObservabilityState.status !== "resolved") {
+      return `<section class="template-site-summary" data-template-site-summary data-template-site-summary-status="unknown" aria-labelledby="template-site-summary-title"><div class="template-site-summary-heading"><div><span class="template-management-kicker">Canonical Evidence Summary</span><h4 id="template-site-summary-title">全站 C Health Summary</h4><p>等待 canonical Checker evidence；未取得資料不會被當成零或 Healthy。</p></div><span class="template-site-summary-state is-unknown">UNKNOWN</span></div></section>`;
+    }
+    const summary = summarizeCheckerEvidence(entries);
+    const count = (key, label) => `<div class="template-site-summary-item"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(summary.counts[key] || 0))}</dd></div>`;
+    const metric = (value, label) => `<div class="template-site-summary-item"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(summaryMetric(value))}</dd></div>`;
+    return `<section class="template-site-summary" data-template-site-summary aria-labelledby="template-site-summary-title"><div class="template-site-summary-heading"><div><span class="template-management-kicker">Canonical Evidence Summary</span><h4 id="template-site-summary-title">全站 C Health Summary</h4><p>只彙總 Checker evidence；同一 writer identity 不因多個 Board 重複計算。</p></div><span class="template-site-summary-state">${escapeHtml(`${summary.totalConsumers} 個 C Consumer`)}</span></div><dl class="template-site-summary-grid">${count("healthy", "HEALTHY")}${count("partial", "PARTIAL")}${count("unhealthy", "UNHEALTHY")}${count("unknown", "UNKNOWN")}${count("na", "N/A")}${metric(summary.activeAlternateWriters, "Active Alternate Writers")}${metric(summary.activeLegacyWriters, "Active Legacy Writers")}${metric(summary.reachableRetired48hWriters, "Reachable Retired 48h Writers")}${metric(summary.activeLegacyTriggers, "Active Legacy Triggers")}${metric(summary.crossInstanceLeakage, "Cross-instance Leakage")}${metric(summary.provisioningDrift, "Provisioning Drift")}${metric(summary.releaseIdentityUnknown, "Release Identity Unknown")}</dl></section>`;
   }
 
   function policyApi() {
@@ -408,14 +740,13 @@
 
   function statusMessage(snapshot) {
     if (snapshot.status === "loading") return "正在讀取 Supabase Cloud Adoption State…";
-    if (snapshot.status === "error") return "設定讀取失敗；所有模板維持 OFF 安全預設。";
-    if (!snapshot.isCreator) return "此區域僅 Creator 可修改；目前為唯讀狀態。";
-    return "Capability 由 Registry 決定；Adoption 由 Supabase Cloud 決定。";
+    if (snapshot.status === "error") return "設定讀取失敗；目前僅顯示可取得的正式 Evidence。";
+    return "此頁為唯讀 Observability Surface；Capability 由 Registry 決定，Adoption 由 Supabase Cloud 提供。";
   }
 
   function adoptionLabel(snapshot, enabled) {
     if (!isReady(snapshot)) return "🟡 待讀取 Cloud 狀態";
-    return enabled ? "🟢 已套用 (ON)" : "⚪ 未套用 (OFF)";
+    return enabled ? "🟢 Cloud Preference：ON（只讀）" : "⚪ Cloud Preference：OFF（只讀）";
   }
 
   function publishedMotherRelease() {
@@ -545,18 +876,28 @@
   }
 
   function renderRuntimeIdentityEntry(entry) {
-    const statusClass = entry.health === "Current / Healthy" ? "is-healthy" : entry.health === "Contract FAIL" ? "is-fail" : "is-unknown";
+    const statusClass = healthClass(entry.overallStatus || entry.health);
+    const overallLabel = entry.overallLabel || healthLabel(entry.overallStatus || entry.health);
     const value = (label, content, className = "") => `<div class="template-runtime-observability-field ${className}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(content || "Unknown / Not Available")}</dd></div>`;
+    const reasons = Array.isArray(entry.reasons) && entry.reasons.length
+      ? `<div class="template-runtime-observability-evidence"><dt>Reasons</dt><dd><ul>${entry.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join("")}</ul></dd></div>`
+      : value("Reasons", entry.evidenceAvailable ? "Checker 未提供理由" : "Unknown / Not Available");
     const technical = [
       value("Authority Contract", entry.authorityContract || "Unknown / Not Available"),
       value("Policy", entry.policyIdentity ? `${entry.policyIdentity} · v${entry.policyVersion || "—"} · ${entry.policyDelay || "—"} sec` : "Unknown / Not Available"),
       value("Cloud Adoption Key", entry.adoptionKey || "Unknown / Not Available"),
-      value("Authority Evidence", entry.authorityError ? `讀取失敗：${entry.authorityError}` : `${entry.authorityStatus || "unknown"} · ${entry.evidenceAvailable ? "已取得" : "未取得"}`)
+      value("Published Source Commit", entry.publishedSourceCommit || "Unknown / Not Available"),
+      value("Published Fingerprint", entry.publishedSourceFingerprint || "Unknown / Not Available"),
+      value("Runtime Identity", entry.runtimeIdentity || "Unknown / Not Available"),
+      value("Checker Evidence", entry.authorityError ? `讀取失敗：${entry.authorityError}` : entry.evidenceSummary || `${entry.authorityStatus || "unknown"} · ${entry.evidenceAvailable ? "已取得" : "未取得"}`)
     ].join("");
-    const legacyValue = entry.key === "worktodo" && entry.legacy === "Retired"
+    const legacyValue = entry.key === "worktodo" && entry.legacy === "INACTIVE / Retired"
       ? "Legacy Create Authority：Retired"
       : entry.legacy;
-    return `<details class="template-runtime-observability-card" data-template-runtime-entry="${escapeHtml(entry.key)}"><summary><span class="template-runtime-observability-name"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(entry.module)}</small></span><span class="template-runtime-observability-summary"><strong>${escapeHtml(entry.runtime)}</strong><small class="${statusClass}">${escapeHtml(entry.health)}</small></span><span class="template-runtime-observability-chevron" aria-hidden="true">⌄</span></summary><div class="template-runtime-observability-body"><dl class="template-runtime-observability-fields">${value("Runtime", entry.runtime)}${value("Board Instance", entry.boardInstanceId || "Unknown / Not Available")} ${value("Runtime Entry", entry.runtimeEntry)}${value("Data", entry.data)}${value("Writer Authority", entry.writer)}${value("Workflow", entry.workflow)}${value("Lifecycle", entry.lifecycle)}${value("Legacy Authority", legacyValue)}${value("Adoption", entry.adoption)}${value("Health", entry.health, `template-runtime-observability-health ${statusClass}`)}</dl><details class="template-runtime-observability-technical"><summary>Contract 詳細</summary><dl class="template-runtime-observability-fields">${technical}</dl></details></div></details>`;
+    const releaseIdentity = entry.publishedVersion && entry.publishedBuild
+      ? `${entry.publishedVersion} / ${entry.publishedBuild}`
+      : "Unknown / Not Available";
+    return `<details class="template-runtime-observability-card" data-template-runtime-entry="${escapeHtml(entry.key)}" data-template-runtime-health="${escapeHtml(entry.overallStatus || "unknown")}"><summary><span class="template-runtime-observability-name"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(entry.module)}</small></span><span class="template-runtime-observability-summary"><strong>${escapeHtml(entry.runtime)}</strong><small class="${statusClass}">${escapeHtml(overallLabel)}</small></span><span class="template-runtime-observability-chevron" aria-hidden="true">⌄</span></summary><div class="template-runtime-observability-body"><dl class="template-runtime-observability-fields">${value("Overall Health", overallLabel, `template-runtime-observability-health ${statusClass}`)}${value("Gap Count", entry.gapCount == null ? "Unknown / Not Available" : String(entry.gapCount))}${value("Runtime", entry.runtime)}${value("Board Instance", entry.boardInstanceId || "Unknown / Not Available")}${value("Runtime Entry", entry.runtimeEntry)}${value("Data", entry.data)}${value("Writer Authority", entry.writer)}${value("Workflow", entry.workflow)}${value("Completion", entry.completion)}${value("Archive", entry.archive)}${value("Persistence", entry.persistence)}${value("Release", releaseIdentity)}${value("Adoption", entry.adoption)}${value("Legacy Authority", legacyValue)}${reasons}</dl><details class="template-runtime-observability-technical"><summary>Contract 詳細</summary><dl class="template-runtime-observability-fields">${technical}</dl></details></div></details>`;
   }
 
   function releaseStatusMarkup() {
@@ -578,28 +919,25 @@
     const developmentBuild = development.build || release?.developmentBuild || "—";
     const publishedVersion = release?.publishedVersion || "尚未發布";
     const publishedBuild = release?.publishedBuild || "—";
-    const snapshot = runtimeSnapshot();
-    const consumers = [
-      ["worktodo", "tasks-new", "工作待辦"],
-      ["ai-board", "ai-board", "AI Board"],
-      ["procurement", "procurement", "庶務行政"],
-      ["investment-ivtk", "investment", "投資組合"]
-    ].map(([releaseId, pageId, label]) => {
-      const adoption = release?.consumers?.[releaseId];
-      const cloudEnabled = enabledFor(snapshot, pageId, "board");
-      const version = adoption?.templateVersion || (cloudEnabled ? publishedVersion : "—");
-      const build = adoption?.build || (cloudEnabled ? publishedBuild : "—");
-      const releaseMatches = adoption?.status === "adopted" && version === publishedVersion && build === publishedBuild;
-      const state = releaseMatches || cloudEnabled ? "🟢 已採用" : "🟡 待核對";
-      return `<span class="template-management-release-consumer"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(state)} · ${escapeHtml(version)} / ${escapeHtml(build)}</span></span>`;
-    }).join("");
+    const runtimeEntries = runtimeObservabilityState.status === "resolved" ? runtimeObservabilityState.entries : [];
+    const consumers = runtimeEntries.length
+      ? runtimeEntries.map(entry => {
+        const state = entry.adoptionIdentityMatches
+          ? "🟢 MATCH"
+          : entry.adoptionStatus || entry.adoptionVersion || entry.adoptionBuild
+            ? "🟡 NOT MATCHED"
+            : "⚪ UNKNOWN";
+        const version = entry.adoptionVersion || "—";
+        const build = entry.adoptionBuild || "—";
+        return `<span class="template-management-release-consumer"><strong>${escapeHtml(entry.label)}</strong><span>${escapeHtml(state)} · ${escapeHtml(version)} / ${escapeHtml(build)} · key ${escapeHtml(entry.adoptionKey || "UNKNOWN")}</span></span>`;
+      }).join("")
+      : `<span class="template-management-release-consumer"><strong>Consumer Adoption</strong><span>⚪ UNKNOWN · 等待 Board Instance / Published Adoption evidence</span></span>`;
     return `<div class="template-management-release" data-template-release-summary data-template-release-pending="${pending}" role="status"><div><strong>${pendingLabel}</strong><span>開發版：${escapeHtml(developmentVersion)} / ${escapeHtml(developmentBuild)} · 已發布版：${escapeHtml(publishedVersion)} / ${escapeHtml(publishedBuild)}</span></div><div class="template-management-release-consumers">${consumers}</div></div>`;
   }
 
   function renderConsumerRows(model, snapshot) {
     if (!model.rows.length) return `<div class="template-management-empty">目前沒有此 Template 的 Consumer。</div>`;
-    const canModify = isReady(snapshot) && snapshot.isCreator;
-    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">採用狀態</span><span role="columnheader">Cloud State</span><span role="columnheader">操作</span></div>${model.rows.map(({ page, enabled }) => { const required = page.requiredTemplates?.includes(model.template.id); const switchDisabled = required || !canModify; const adoptionText = enabled ? `🟢 已採用 ${model.template.code}` : `⚪ 未採用 ${model.template.code}`; return `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">${escapeHtml(adoptionText)}</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${adoptionLabel(snapshot, enabled)}</span></span><span role="cell"><label class="template-management-switch"><span class="sr-only">${escapeHtml(page.label)} 套用 ${escapeHtml(model.template.code)}｜${escapeHtml(model.template.label)}</span><input type="checkbox" data-template-management-switch data-page-id="${escapeHtml(page.id)}" data-template-id="${escapeHtml(model.template.id)}" ${enabled ? "checked" : ""} ${switchDisabled ? "disabled" : ""}><span class="template-management-switch-track" aria-hidden="true"></span></label></span></div>`; }).join("")}</div>`;
+    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">Template Capability</span><span role="columnheader">Cloud Adoption Preference</span><span role="columnheader">Management Center</span></div>${model.rows.map(({ page, enabled }) => { const capabilityText = `Registry · ${model.template.code} capability`; return `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">${escapeHtml(capabilityText)}</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${escapeHtml(adoptionLabel(snapshot, enabled))}</span></span><span class="template-management-readonly" role="cell">READ-ONLY · 不在此寫入</span></div>`; }).join("")}</div>`;
   }
 
   function render(options = {}) {
@@ -607,6 +945,7 @@
     if (runtimeObservabilityState.status === "idle") refreshRuntimeObservability();
     const snapshot = runtimeSnapshot();
     const models = buildTemplateModel(snapshot);
+    const runtimeEntries = runtimeObservabilityState.entries || [];
     const cards = models.map(model => {
       const template = model.template;
       const count = model.enabledCount == null ? "—" : `${model.enabledCount} 頁`;
@@ -614,16 +953,7 @@
       const panelId = `template-management-panel-${template.id}`;
       return `<section class="template-management-card" data-template-management-template="${escapeHtml(template.id)}"><button class="template-management-card-header" type="button" data-template-management-toggle aria-expanded="false" aria-controls="${escapeHtml(panelId)}"><span class="template-management-code" aria-hidden="true">${escapeHtml(template.code)}</span><span class="template-management-card-title"><strong>${escapeHtml(template.code)} 區｜${escapeHtml(template.label)}</strong><small>${escapeHtml(template.description)}</small></span><span class="template-management-card-summary"><strong>已套用 ${escapeHtml(count)}</strong><small>Consumer ${supportCount} 頁</small></span><span class="template-management-card-chevron" aria-hidden="true">⌄</span></button><div class="template-management-card-body" id="${escapeHtml(panelId)}" data-template-management-panel hidden><div class="template-management-card-actions"><button class="btn2" type="button" data-template-management-preview data-template-id="${escapeHtml(template.id)}">查看模板</button></div>${renderConsumerRows(model, snapshot)}</div></section>`;
     }).join("");
-    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">Creator Control／Template Adoption</span><h3>🧩 系統模板管理中心</h3><p class="muted">集中管理 A／B／C Template、正式 Consumer Capability 與 Cloud Adoption State。</p></div><span class="template-management-source">來源：Supabase Cloud Settings</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div>${releaseStatusMarkup()}${runtimeObservabilityMarkup()}<div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
-  }
-
-  async function reloadPolicy() {
-    const runtime = root?.ZhugeTemplateAdoptionRuntime;
-    if (!runtime?.service) throw new Error("Template Adoption Runtime 尚未準備完成。");
-    if (root?.ZhugeSharedNavigation?.bootstrapTemplatePolicy) {
-      return root.ZhugeSharedNavigation.bootstrapTemplatePolicy({ force: true });
-    }
-    return runtime.service.load({ userId: runtime.policy?.userId || "", isCreator: runtime.policy?.is_creator === true, force: true });
+    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">System Observability／Navigation Surface</span><h3>🧩 系統模板管理中心</h3><p class="muted">只讀取 Template、Module、Consumer、Release、Adoption 與 C Authority Evidence；不在此重新判定 Health。</p></div><span class="template-management-source">來源：Canonical Cloud Evidence</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div>${releaseStatusMarkup()}${siteMapMarkup(runtimeEntries)}${siteWideSummaryMarkup(runtimeEntries)}${runtimeObservabilityMarkup()}<div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
   }
 
   function ensurePolicyEvents(onUpdated) {
@@ -668,30 +998,14 @@
         options.onPreview?.(button.dataset.templateId || "");
       });
     });
-    container.querySelectorAll("[data-template-management-switch]").forEach(input => {
-      input.addEventListener("change", async event => {
-        const control = event.currentTarget;
-        const pageId = control.dataset.pageId;
-        const templateId = control.dataset.templateId;
-        const enabled = control.checked;
-        const status = container.querySelector("[data-template-management-status]");
-        control.disabled = true;
-        try {
-          const runtime = root?.ZhugeTemplateAdoptionRuntime;
-          if (!runtime?.service || runtime.policy?.is_creator !== true) throw new Error("只有 Creator 可以變更系統模板套用設定。");
-          await runtime.service.setEnabled({ pageId, templateId, userId: runtime.policy.userId, isCreator: true, enabled });
-          const usesSharedPolicyBootstrap = Boolean(root?.ZhugeSharedNavigation?.bootstrapTemplatePolicy);
-          await reloadPolicy();
-          root?.ZhugeSharedNavigation?.autoMount?.();
-          if (!usesSharedPolicyBootstrap) options.onUpdated?.();
-        } catch (error) {
-          control.checked = !enabled;
-          control.disabled = false;
-          if (status) status.textContent = error?.message || "模板套用設定寫入失敗，已維持原本狀態。";
-        }
-      });
-    });
   }
 
-  return Object.freeze({ render, bind, buildTemplateModel, buildRuntimeIdentityModel });
+  return Object.freeze({
+    render,
+    bind,
+    buildTemplateModel,
+    buildRuntimeIdentityModel,
+    summarizeCheckerEvidence,
+    buildSiteMapModel
+  });
 });

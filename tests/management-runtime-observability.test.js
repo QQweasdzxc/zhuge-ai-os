@@ -32,6 +32,12 @@ function authority(instance, options = {}) {
     board_instance_id: instance.id,
     contract: "module-c-authority-conformance-v2",
     status: options.status || "pass",
+    overall: {
+      status: options.overall || options.status || "pass",
+      gap_count: options.gapCount ?? ((options.overall || options.status) === "unhealthy" ? 44 : 0),
+      reasons: options.reasons || [],
+      evidence: options.evidence || { source: "canonical-checker" }
+    },
     feature: { shared_runtime: "module-c-golden-master-runtime" },
     source: {
       module_adoption_key: instance.consumerId,
@@ -80,13 +86,35 @@ test("runtime model uses actual C Board Instances and preserves consumer differe
   assert.equal(entries.find(entry => entry.key === "worktodo").writer, "C Canonical Writer · Single Writer");
   assert.equal(entries.find(entry => entry.key === "worktodo").workflow, "NOT_CONFIGURED / N/A");
   assert.equal(entries.find(entry => entry.key === "worktodo").lifecycle, "C Shared / 24h");
-  assert.equal(entries.find(entry => entry.key === "worktodo").legacy, "Retired");
+  assert.equal(entries.find(entry => entry.key === "worktodo").legacy, "INACTIVE / Retired");
   assert.equal(entries.find(entry => entry.key === "worktodo").runtimeEntry, "/app/Board/worktodo/");
-  assert.equal(entries.find(entry => entry.key === "worktodo").health, "Current / Healthy");
+  assert.equal(entries.find(entry => entry.key === "worktodo").health, "HEALTHY");
   assert.equal(entries.find(entry => entry.key === "ai-board").workflow, "Configured / Published");
-  assert.equal(entries.find(entry => entry.key === "ai-board").health, "Current / Healthy");
+  assert.equal(entries.find(entry => entry.key === "ai-board").health, "HEALTHY");
   assert.equal(entries.find(entry => entry.key === "investment").writer, "C Shared Contract · Read-only");
   assert.equal(entries.find(entry => entry.key === "investment").lifecycle, "N/A（Read-only）");
+});
+
+test("overall health is projected directly from canonical checker evidence", () => {
+  const worktodo = instances.find(instance => instance.consumerId === "worktodo");
+  const entries = ManagementCenter.buildRuntimeIdentityModel({
+    instances: [worktodo],
+    authorities: new Map([[worktodo.id, {
+      value: authority(worktodo, {
+        overall: "unhealthy",
+        gapCount: 44,
+        reasons: [{ rule: "alternate_writer", message: "alternate writer is reachable" }]
+      })
+    }]]),
+    release: RELEASE,
+    navigation: { destination: () => "/app/Board/worktodo/" }
+  });
+  const entry = entries[0];
+  assert.equal(entry.overallStatus, "unhealthy");
+  assert.equal(entry.overallLabel, "UNHEALTHY");
+  assert.equal(entry.health, "UNHEALTHY");
+  assert.equal(entry.gapCount, 44);
+  assert.deepEqual(entry.reasons, ["alternate writer is reachable"]);
 });
 
 test("runtime model never turns missing evidence into a healthy status", () => {
@@ -98,7 +126,7 @@ test("runtime model never turns missing evidence into a healthy status", () => {
     navigation: { destination: () => "/app/Board/worktodo/" }
   });
   const entry = entries.find(item => item.key === "worktodo");
-  assert.equal(entry.health, "Unknown / Not Available");
+  assert.equal(entry.health, "UNKNOWN");
   assert.equal(entry.runtime, "Unknown / Not Available");
   assert.equal(entry.writer, "Unknown / Not Available");
   assert.match(entry.authorityError, /checker unavailable/);
@@ -123,7 +151,43 @@ test("Management Center observes existing Cloud/runtime authorities without addi
   assert.match(source, /ZhugeModulePublishService/);
   assert.match(source, /module-c-golden-master-runtime/);
   assert.match(source, /board-instance-owned/);
+  assert.match(source, /overall\.status/);
+  assert.match(source, /data-template-site-map/);
+  assert.match(source, /data-template-site-summary/);
   assert.doesNotMatch(authoritySource, /cloudEnabled/);
+  assert.doesNotMatch(authoritySource, /releaseMatches\s*\|\|\s*cloudEnabled/);
   assert.doesNotMatch(source, /localStorage/);
+  assert.doesNotMatch(source, /data-template-management-switch/);
+  assert.doesNotMatch(source, /setEnabled\(\{ pageId, templateId/);
   assert.match(source, /data-template-runtime-observability/);
+});
+
+test("global checker summary de-duplicates repeated evidence across C consumers", () => {
+  const authorities = new Map(instances.map(instance => {
+    const value = authority(instance, { overall: "unhealthy", gapCount: 44 });
+    value.writers = { active_alternate_count: 31 };
+    value.legacy_routes = { active_legacy_writer_count: 10, reachable_48h_writer_count: 3 };
+    value.triggers = { active_legacy_count: 2 };
+    return [instance.id, { value }];
+  }));
+  const entries = ManagementCenter.buildRuntimeIdentityModel({ instances, authorities, release: RELEASE });
+  const summary = ManagementCenter.summarizeCheckerEvidence(entries);
+  assert.equal(summary.totalConsumers, 5);
+  assert.equal(summary.counts.unhealthy, 5);
+  assert.equal(summary.activeAlternateWriters, 31);
+  assert.equal(summary.activeLegacyWriters, 10);
+  assert.equal(summary.reachableRetired48hWriters, 3);
+  assert.equal(summary.activeLegacyTriggers, 2);
+});
+
+test("site map keeps Module, Template and Consumer hierarchy separate", () => {
+  const authorities = new Map(instances.map(instance => [instance.id, { value: authority(instance) }]));
+  const entries = ManagementCenter.buildRuntimeIdentityModel({ instances, authorities, release: RELEASE });
+  const model = ManagementCenter.buildSiteMapModel({ entries });
+  const moduleC = model.children.find(node => node.key === "module-c");
+  const templateC = moduleC.children.find(node => node.key === "template-c");
+  assert.equal(templateC.children.length, 5);
+  assert.deepEqual(templateC.children.map(node => node.label), ["C Mother", "AI Board", "工作待辦", "庶務行政（GAS）", "投資組合（Investment）"]);
+  assert.equal(model.children.some(node => node.key === "management-center"), true);
+  assert.equal(templateC.children.some(node => node.key === "management-center"), false);
 });
