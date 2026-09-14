@@ -4048,7 +4048,7 @@
       if (state.applicationScope === "worktodo" && !state.cNativeWorkTodo) {
         await executeSharedTaskAction(null, "createTask", { title, summary, status: "not_started", usageScenario, workspaceId }, { refresh: false, reopen: false });
       } else {
-        await executeSharedTaskAction(null, "createTask", { title, summary, status: state.applicationScope === "c" ? "not_started" : "ready", usageScenario, workspaceId }, { refresh: false, reopen: false });
+        await executeSharedTaskAction(null, "createTask", { title, summary, status: "not_started", usageScenario, workspaceId }, { refresh: false, reopen: false });
       }
       closeQuickAdd();
       modal.querySelectorAll("input, textarea").forEach(field => { field.value = ""; });
