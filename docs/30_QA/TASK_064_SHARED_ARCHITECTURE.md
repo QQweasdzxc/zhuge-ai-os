@@ -324,7 +324,7 @@ A 可保留作為 Scheduler 延遲或失敗時的 Read-time safety reconciliatio
 | `board_c_workflow_reconcile_legacy_card_v2` | MIGRATION ONLY | 既有卡片正式 adoption/reconciliation | 僅完成安全 Mapping／Reverification 後使用，不能作一般 Runtime Archive path |
 | `board_move_task_workspace` | DEPRECATE AFTER ADOPTION | 舊 direct workspace/lifecycle write | 正式 C Decision adoption 完成後停用 |
 | `board_reconcile_pm_acceptance_lifecycle` | DEPRECATE AFTER ADOPTION | 舊 PM acceptance reconciliation | 由 C Completion Decision + C Audit 取代 |
-| `board_update_checklist_item` | ADAPTER | Checklist / Evidence capture；目前可能連帶寫 Completion | 保留 Evidence capture 責任，移除其 Archive Policy Authority |
+| `board_update_checklist_item` | ADAPTER | Checklist / Engineering Evidence capture only；不再寫入 `board_tasks` lifecycle | 保留 Evidence capture 責任；PM Acceptance movement、Completion、Requeue 與 Archive 一律由正式 C Contract 處理 |
 | `board_reconcile_completion_lifecycle` | DEPRECATE AFTER ADOPTION | 全域 board archive writer | 改為 instance/workflow-scoped C Reconciliation 後停用 |
 | `worktodo_apply_completion_lifecycle` | DEPRECATE AFTER ADOPTION | `user_tasks` trigger 自行計算 48h | 轉成受控 C Adapter 或移除，不得保留政策決定權 |
 | `worktodo_reconcile_completion_lifecycle` | DEPRECATE AFTER ADOPTION | WorkTodo 自有 Archive writer | 改呼叫 C Contract 後停用 |
