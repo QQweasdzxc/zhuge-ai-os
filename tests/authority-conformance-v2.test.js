@@ -5,7 +5,7 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const checker = fs.readFileSync(
-  path.join(ROOT, "docs/supabase/20260914_c_authority_conformance_v2.sql"),
+  path.join(ROOT, "docs/supabase/20260915_c_authority_conformance_workspace_delete_fail_closed.sql"),
   "utf8"
 );
 const instanceMovementRetirement = fs.readFileSync(
@@ -48,6 +48,16 @@ test("Checker V2 distinguishes writer body, grant, reachability, and authority",
   ]) assert.match(checker, new RegExp(fixture));
   assert.match(checker, /reachable-alternate-c-owned-writer/i);
   assert.match(checker, /no-reachable-legacy-48h-writer/i);
+});
+
+test("Checker V2 treats fail-closed populated delete as canonical empty-workspace authority", () => {
+  const canonicalStart = checker.indexOf("v_canonical_function_names");
+  const alternateStart = checker.indexOf("v_known_alternate_functions");
+  const alternateEnd = checker.indexOf("v_canonical_trigger_names", alternateStart);
+  assert.ok(canonicalStart >= 0 && alternateStart > canonicalStart && alternateEnd > alternateStart);
+  assert.match(checker.slice(canonicalStart, alternateStart), /'board_instance_delete_workspace'/i);
+  assert.doesNotMatch(checker.slice(alternateStart, alternateEnd), /'board_instance_delete_workspace'/i);
+  assert.match(checker, /populated branch is fail-closed/i);
 });
 
 test("Checker V2 inventories enabled and inactive trigger surfaces", () => {

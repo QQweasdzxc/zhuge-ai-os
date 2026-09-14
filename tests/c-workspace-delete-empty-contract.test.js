@@ -5,7 +5,7 @@ const test = require("node:test");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
-const migration = read("docs/supabase/20260914_c_workspace_delete_empty_contract.sql");
+const migration = read("docs/supabase/20260915_c_workspace_delete_populated_fail_closed.sql");
 const service = read("shared/board/board-read-service.js");
 const runtime = read("shared/components/golden-master-runtime.js");
 
@@ -15,7 +15,7 @@ test("C shared delete counts cards before resolving any default target", () => {
   const targetResolutionAt = migration.indexOf("select id\n    into v_target");
   assert.ok(countAt >= 0);
   assert.ok(emptyBranchAt > countAt);
-  assert.ok(targetResolutionAt > emptyBranchAt);
+  assert.equal(targetResolutionAt, -1);
   assert.match(migration, /'empty_workspace', true/);
   assert.match(migration, /'target_workspace_id', null/);
   assert.match(migration, /set active = false/);
@@ -31,14 +31,21 @@ test("empty C Workspace delete has no consumer-specific default assumption", () 
   assert.match(migration, /board_instance_can_write\(v_workspace\.board_instance_id\)/);
 });
 
-test("populated deletion remains fail-closed in the approved scope", () => {
+test("populated C Workspace deletion fails closed before any target or task update", () => {
   const populatedStart = migration.indexOf("-- Populated deletion");
   const populated = migration.slice(populatedStart);
-  assert.match(populated, /Canonical default workspace cannot be deleted/);
-  assert.match(populated, /Canonical default workspace is missing/);
-  assert.match(populated, /board_instance_id = v_workspace\.board_instance_id/);
-  assert.match(populated, /update public\.board_tasks/);
-  assert.match(populated, /Workflow reconciliation contract/);
+  assert.match(populated, /Workspace 內仍有卡片，必須先移動／清空卡片，才能刪除 Workspace/);
+  assert.doesNotMatch(populated, /select id\s+into v_target/);
+  assert.doesNotMatch(populated, /update public\.board_tasks/);
+  assert.doesNotMatch(populated, /target_workspace_id.*v_target/);
+});
+
+test("C populated deletion cannot bypass the canonical movement authority", () => {
+  assert.match(service, /gateway\.rpc\("board_instance_delete_workspace", \{ p_workspace_id: workspaceId \}\)/);
+  assert.match(service, /legacyMovementRetiredError\("board_instance_move_task_workspace"\)/);
+  assert.match(runtime, /executeSharedTaskAction\(null, "deleteWorkspace"/);
+  assert.match(migration, /canonical C movement contract/i);
+  assert.doesNotMatch(migration, /update public\.board_tasks/);
 });
 
 test("AI Board reaches the shared C instance delete contract", () => {
