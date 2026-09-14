@@ -34,6 +34,8 @@ const CANONICAL = [
   "board_instance_delete_workspace"
 ];
 
+const RETIRED_MIGRATION_ROUTE = "worktodo_migrate_task(text)";
+
 test("WorkTodo C writer closure revokes application Execute for every retired writer", () => {
   const sql = read("docs/supabase/20260914_worktodo_c_writer_authority_closure.sql");
   const normalized = sql.replace(/\s+/g, " ").toLowerCase();
@@ -58,7 +60,18 @@ test("Formal WorkTodo runtime uses C shared action wiring and not retired direct
     assert.doesNotMatch(runtime, new RegExp(`\\b${name}\\s*\\(`));
     assert.doesNotMatch(page, new RegExp(`\\b${name}\\s*\\(`));
   }
+  const migrationName = RETIRED_MIGRATION_ROUTE.slice(0, RETIRED_MIGRATION_ROUTE.indexOf("("));
+  assert.doesNotMatch(runtime, new RegExp(`\\b${migrationName}\\s*\\(`));
+  assert.doesNotMatch(page, new RegExp(`\\b${migrationName}\\s*\\(`));
   for (const name of CANONICAL) assert.ok(service.includes(name), name);
+});
+
+test("Unused legacy-to-C migration writer is closed without deleting its definition", () => {
+  const sql = read("docs/supabase/20260914_worktodo_migration_route_closure.sql");
+  const normalized = sql.replace(/\s+/g, " ").toLowerCase();
+  assert.ok(normalized.includes("revoke all on function public.worktodo_migrate_task(text) from public, anon, authenticated, service_role;"));
+  assert.doesNotMatch(sql, /\bdrop\s+(function|table|trigger)\b/i);
+  assert.doesNotMatch(sql, /\b(insert|update|delete)\s+(into\s+)?public\./i);
 });
 
 test("Legacy WorkTodo lifecycle writer remains historical and not an application authority", () => {
