@@ -29,6 +29,24 @@
   }
   function sourceKey(kind, id) { return `${String(kind || "")}:${String(id || "")}`; }
 
+  function resolveInvestmentItem(taskId) {
+    const link = state.links.find(item => String(item?.board_task_id || item?.boardTaskId || "") === String(taskId || "") && item?.active !== false);
+    if (!link) return null;
+    const cardKind = link.card_kind || link.cardKind || "";
+    const sourceKind = link.source_kind || link.sourceKind || "";
+    const sourceId = link.source_id || link.sourceId || "";
+    const item = state.rows.find(row => String(row?.source_kind || row?.sourceKind || "") === String(sourceKind) && String(row?.source_id || row?.sourceId || "") === String(sourceId));
+    return item ? { item, cardKind } : null;
+  }
+
+  function registerTaskDrawerExtension() {
+    const factory = root.InvestmentIVTKBoardAdapter?.createTaskDrawerExtension;
+    if (typeof factory !== "function") return;
+    root.InvestmentIVTKTaskDrawerExtension = factory({ resolveItem: resolveInvestmentItem, escape: esc });
+  }
+
+  registerTaskDrawerExtension();
+
   function projectionChanged(result) {
     return ["created_count", "relinked_count", "moved_count", "deactivated_count"]
       .some(key => Number(result?.[key] || 0) > 0);

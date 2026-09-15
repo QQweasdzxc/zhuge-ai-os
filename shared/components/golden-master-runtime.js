@@ -4220,7 +4220,11 @@
         : options.applicationScope === "worktodo" || isWorkTodoMode() ? "worktodo" : "ai_board";
     state.moduleId = String(options.moduleId || "c").trim().toLowerCase() || "c";
     state.showTemplateReleasePanel = options.showTemplateReleasePanel !== false;
-    state.consumerExtensions = options.consumerExtensions || null;
+    const investmentTaskDrawerExtension = isInvestmentCMode()
+      ? root.InvestmentIVTKTaskDrawerExtension
+      : null;
+    state.consumerExtensions = options.consumerExtensions
+      || (investmentTaskDrawerExtension ? { taskDrawer: investmentTaskDrawerExtension } : null);
     state.cNativeWorkTodo = state.applicationScope === "worktodo";
     state.readOnly = state.cNativeWorkTodo && options.readOnly === true;
     const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();

@@ -49,6 +49,19 @@
     };
   }
 
+  function createTaskDrawerExtension(options = {}) {
+    const resolveItem = typeof options.resolveItem === "function" ? options.resolveItem : () => null;
+    const escape = options.escape || (value => String(value == null ? "" : value));
+    return Object.freeze({
+      id: "investment-ivtk-domain",
+      renderSection({ task } = {}) {
+        const entry = resolveItem(task?.id || "");
+        if (!entry) return null;
+        return transactionEntrySection(entry.item, entry.cardKind === "watchlist", escape);
+      }
+    });
+  }
+
   function renderPositionCard(position, link, task, dependencies = {}) {
     const escape = dependencies.escape || (value => String(value == null ? "" : value));
     const format = dependencies.format || {};
@@ -433,6 +446,7 @@
     toSharedViewModel,
     renderDrawer,
     findCardEntry,
+    createTaskDrawerExtension,
     createRuntimeBridge
   });
 });

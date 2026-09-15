@@ -145,6 +145,22 @@ test("IVTK watchlist Drawer keeps transaction entry out of non-position cards", 
   assert.doesNotMatch(html, /data-investment-domain-slot="transactions"/);
 });
 
+test("IVTK domain extension exposes transaction entry through the shared C Drawer hook", () => {
+  const extension = Adapter.createTaskDrawerExtension({
+    escape,
+    resolveItem: taskId => taskId === "task-aapl"
+      ? { item: { symbol: "AAPL" }, cardKind: "position" }
+      : null
+  });
+  const section = extension.renderSection({ task: { id: "task-aapl" } });
+  assert.equal(extension.id, "investment-ivtk-domain");
+  assert.match(section.html, /data-investment-domain-slot="transactions"/);
+  assert.match(section.html, /data-investment-transaction-rpc="investment_record_transaction"/);
+  assert.match(section.html, /AAPL/);
+  assert.match(section.html, /＋新增交易/);
+  assert.equal(extension.renderSection({ task: { id: "task-watchlist" } }), null);
+});
+
 test("IVTK migration keeps financial values out of board_tasks and documents the source precedence", () => {
   const file = path.join(__dirname, "../../docs/supabase/20260903_investment_ivtk_projection.sql");
   const sql = fs.readFileSync(file, "utf8");
@@ -193,6 +209,23 @@ test("IVTK Board bridge activates the existing projection contract before its re
   assert.match(bridge, /created_count/);
   assert.match(bridge, /ZhugeBoardRuntime\?\.refresh/);
   assert.match(bridge, /investmentCloudProjection/);
+  assert.match(bridge, /createTaskDrawerExtension/);
+  assert.match(bridge, /InvestmentIVTKTaskDrawerExtension/);
+
+  const investmentBoard = fs.readFileSync(
+    path.join(__dirname, "../../app/Board/investment/index.html"),
+    "utf8"
+  );
+  const adapterScript = investmentBoard.indexOf("ivtk-board-adapter.js");
+  const runtimeScript = investmentBoard.indexOf("golden-master-runtime.js");
+  const bridgeScript = investmentBoard.indexOf("investment-cloud-bridge.js");
+  assert.ok(adapterScript >= 0 && adapterScript < runtimeScript && runtimeScript < bridgeScript, "Investment domain adapter must be registered before the shared runtime and bridge");
+
+  const runtime = fs.readFileSync(
+    path.join(__dirname, "../../shared/components/golden-master-runtime.js"),
+    "utf8"
+  );
+  assert.match(runtime, /isInvestmentCMode\(\)[\s\S]*InvestmentIVTKTaskDrawerExtension/);
 });
 
 test("IVTK projection routes TW and US positions through formal workspaces", () => {
