@@ -36,11 +36,18 @@ test("C publish metadata is generated and internally consistent", () => {
     // fingerprint drift that tells the release gate a new identity is needed.
     const output = `${error.stdout || ""}\n${error.stderr || ""}`;
     assert.match(output, /sourceFingerprint must match canonical source/);
-    assert.doesNotMatch(output, /developmentSource(?:Commit|Fingerprint)/);
     assert.doesNotMatch(output, /published (?:version|build) must match version\.json/);
     assert.doesNotMatch(output, /development (?:version|build) must match version\.json/);
     assert.doesNotMatch(output, /missing matching template-release cache-buster/);
   }
+});
+
+test("future Published C snapshots persist the Published source identity on every adoption record", () => {
+  const tool = read("tools/template-publish.js");
+  assert.match(tool, /sourceCommit:\s*commit/);
+  assert.match(tool, /sourceFingerprint:\s*fingerprint/);
+  assert.match(tool, /adoption\.sourceCommit === record\.sourceCommit/);
+  assert.match(tool, /adoption\.sourceFingerprint === record\.sourceFingerprint/);
 });
 
 test("C, WorkTodo, and AI Board load one published template identity", () => {

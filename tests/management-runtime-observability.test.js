@@ -7,15 +7,20 @@ const ManagementCenter = require("../shared/components/template-management-cente
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
+const SOURCE_COMMIT = "a".repeat(40);
+const SOURCE_FINGERPRINT = "b".repeat(64);
+
 const RELEASE = {
   publishedVersion: "0.9.0-alpha.9.13",
   publishedBuild: "20260911-1445",
+  sourceCommit: SOURCE_COMMIT,
+  sourceFingerprint: SOURCE_FINGERPRINT,
   consumers: {
-    c: { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445" },
-    "ai-board": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445" },
-    worktodo: { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445" },
-    "gas-instance": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445" },
-    "investment-instance": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445" }
+    c: { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445", sourceCommit: SOURCE_COMMIT, sourceFingerprint: SOURCE_FINGERPRINT },
+    "ai-board": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445", sourceCommit: SOURCE_COMMIT, sourceFingerprint: SOURCE_FINGERPRINT },
+    worktodo: { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445", sourceCommit: SOURCE_COMMIT, sourceFingerprint: SOURCE_FINGERPRINT },
+    "gas-instance": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445", sourceCommit: SOURCE_COMMIT, sourceFingerprint: SOURCE_FINGERPRINT },
+    "investment-instance": { status: "adopted", moduleVersion: "0.9.0-alpha.9.13", build: "20260911-1445", sourceCommit: SOURCE_COMMIT, sourceFingerprint: SOURCE_FINGERPRINT }
   }
 };
 

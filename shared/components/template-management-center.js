@@ -272,21 +272,45 @@
     const adoption = resolved.adoption || {};
     const version = textValue(adoption.moduleVersion || adoption.module_version || adoption.templateVersion || adoption.template_version);
     const build = textValue(adoption.build);
+    const sourceCommit = textValue(adoption.sourceCommit || adoption.source_commit).trim().toLowerCase();
+    const sourceFingerprint = textValue(adoption.sourceFingerprint || adoption.source_fingerprint).trim().toLowerCase();
     const publishedVersion = textValue(release?.publishedVersion);
     const publishedBuild = textValue(release?.publishedBuild);
+    const publishedSourceCommit = textValue(release?.sourceCommit).trim().toLowerCase();
+    const publishedSourceFingerprint = textValue(release?.sourceFingerprint).trim().toLowerCase();
+    const sourceFieldsMatch = Boolean(sourceCommit && sourceFingerprint && publishedSourceCommit && publishedSourceFingerprint)
+      && sourceCommit === publishedSourceCommit
+      && sourceFingerprint === publishedSourceFingerprint;
+    const sourceIdentityStatus = lowerValue(adoption.sourceIdentityStatus || adoption.source_identity_status)
+      || (sourceFieldsMatch ? "matched" : "unknown");
+    const sourceIdentityPersisted = adoption.sourceIdentityPersisted === true || Boolean(sourceCommit && sourceFingerprint);
+    const sourceIdentityMatches = adoption.sourceIdentityMatches === true || sourceFieldsMatch;
     const status = lowerValue(adoption.status);
     const identityMatches = status === "adopted"
       && Boolean(version && build && publishedVersion && publishedBuild)
       && version === publishedVersion
-      && build === publishedBuild;
+      && build === publishedBuild
+      && sourceIdentityMatches;
     let label = "Unknown / Not Available";
-    if (identityMatches) label = `已採用 · ${version} / ${build}`;
+    if (identityMatches) {
+      const sourceLabel = sourceIdentityStatus === "matched"
+        ? "Published Source matched"
+        : sourceIdentityStatus === "resolved_from_published_release"
+          ? "Published Source resolved（舊紀錄未持久化）"
+          : "Published Source verified";
+      label = `已採用 · ${version} / ${build} · ${sourceLabel}`;
+    }
     else if (adoption.status || version || build) label = `${textValue(adoption.status, "待核對")} · ${version || "—"} / ${build || "—"}`;
     return Object.freeze({
       key: resolved.key,
       status: textValue(adoption.status),
       version,
       build,
+      sourceCommit,
+      sourceFingerprint,
+      sourceIdentityStatus: sourceIdentityStatus || "unknown",
+      sourceIdentityPersisted,
+      sourceIdentityMatches,
       identityMatches,
       label
     });
@@ -463,6 +487,11 @@
         adoptionStatus: adoption.status,
         adoptionVersion: adoption.version,
         adoptionBuild: adoption.build,
+        adoptionSourceCommit: adoption.sourceCommit,
+        adoptionSourceFingerprint: adoption.sourceFingerprint,
+        adoptionSourceIdentityStatus: adoption.sourceIdentityStatus,
+        adoptionSourceIdentityPersisted: adoption.sourceIdentityPersisted,
+        adoptionSourceIdentityMatches: adoption.sourceIdentityMatches,
         adoptionIdentityMatches: adoption.identityMatches,
         publishedVersion: textValue(release?.publishedVersion),
         publishedBuild: textValue(release?.publishedBuild),
@@ -886,6 +915,13 @@
       value("Authority Contract", entry.authorityContract || "Unknown / Not Available"),
       value("Policy", entry.policyIdentity ? `${entry.policyIdentity} · v${entry.policyVersion || "—"} · ${entry.policyDelay || "—"} sec` : "Unknown / Not Available"),
       value("Cloud Adoption Key", entry.adoptionKey || "Unknown / Not Available"),
+      value("Adoption Source Commit", entry.adoptionSourceCommit || "Resolved from Published Release / Not Persisted"),
+      value("Adoption Fingerprint", entry.adoptionSourceFingerprint || "Resolved from Published Release / Not Persisted"),
+      value("Adoption Source Identity", entry.adoptionSourceIdentityStatus === "matched"
+        ? "MATCH · persisted in adoption record"
+        : entry.adoptionSourceIdentityStatus === "resolved_from_published_release"
+          ? "RESOLVED · legacy adoption record lacks fields"
+          : "UNKNOWN / Not Available"),
       value("Published Source Commit", entry.publishedSourceCommit || "Unknown / Not Available"),
       value("Published Fingerprint", entry.publishedSourceFingerprint || "Unknown / Not Available"),
       value("Runtime Identity", entry.runtimeIdentity || "Unknown / Not Available"),
@@ -923,7 +959,11 @@
     const consumers = runtimeEntries.length
       ? runtimeEntries.map(entry => {
         const state = entry.adoptionIdentityMatches
-          ? "🟢 MATCH"
+          ? entry.adoptionSourceIdentityStatus === "matched"
+            ? "🟢 MATCH"
+            : entry.adoptionSourceIdentityStatus === "resolved_from_published_release"
+              ? "🟡 RESOLVED · RECORD LEGACY"
+              : "🟡 SOURCE UNVERIFIED"
           : entry.adoptionStatus || entry.adoptionVersion || entry.adoptionBuild
             ? "🟡 NOT MATCHED"
             : "⚪ UNKNOWN";

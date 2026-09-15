@@ -122,7 +122,13 @@ function createRecord() {
   const commit = git(["rev-parse", "HEAD"]);
   const dirty = Boolean(git(["status", "--porcelain"]));
   const fingerprint = sourceFingerprint();
-  const adoption = consumer => ({ templateVersion: identity.version, build: identity.build, status: "adopted" });
+  const adoption = consumer => ({
+    templateVersion: identity.version,
+    build: identity.build,
+    sourceCommit: commit,
+    sourceFingerprint: fingerprint,
+    status: "adopted"
+  });
   const publishedSnapshot = publishedSemanticSnapshot({
     ...identity,
     sourceCommit: commit,
@@ -197,6 +203,8 @@ function check() {
     if (adoption) {
       expect(adoption.templateVersion === record.publishedVersion, `${consumer} templateVersion mismatch`);
       expect(adoption.build === record.publishedBuild, `${consumer} build mismatch`);
+      expect(adoption.sourceCommit === record.sourceCommit, `${consumer} sourceCommit mismatch`);
+      expect(adoption.sourceFingerprint === record.sourceFingerprint, `${consumer} sourceFingerprint mismatch`);
       expect(adoption.status === "adopted", `${consumer} is not marked adopted`);
     }
   });

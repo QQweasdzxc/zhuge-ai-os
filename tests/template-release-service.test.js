@@ -18,7 +18,7 @@ function loadService(rpc) {
   return require(SERVICE);
 }
 
-function releasePayload(args, status = "published_pending_reload") {
+function releasePayload(args, status = "published_pending_reload", overrides = {}) {
   const consumers = {};
   for (const consumerId of args.p_consumer_ids || ["c", "worktodo", "ai-board"]) {
     consumers[consumerId] = {
@@ -26,6 +26,10 @@ function releasePayload(args, status = "published_pending_reload") {
       module_version: args.p_published_version || IDENTITY.version,
       build: args.p_published_build || IDENTITY.build,
     };
+    if (status === "adopted" && overrides.includeAdoptionSourceIdentity !== false && args.includeAdoptionSourceIdentity !== false) {
+      consumers[consumerId].source_commit = args.p_source_commit || IDENTITY.commit;
+      consumers[consumerId].source_fingerprint = args.p_source_fingerprint || IDENTITY.fingerprint;
+    }
   }
   return {
     module_id: args.p_module_id || "c",
@@ -56,6 +60,8 @@ test("runtime release service reads the generic persistent module contract", asy
   assert.equal(release.moduleId, "c");
   assert.equal(service.forConsumer(release, "ai_board").status, "published_pending_reload");
   assert.equal(service.forConsumer(release, "worktodo").identityMatches, true);
+  assert.equal(release.consumers.worktodo.sourceIdentityStatus, "resolved_from_published_release");
+  assert.equal(release.consumers.worktodo.sourceIdentityPersisted, false);
   assert.equal(release.persistent, true);
 });
 
@@ -106,6 +112,8 @@ test("runtime release service publishes one identity for a dynamic consumer set"
   assert.equal(calls[2].name, "get_published_module_release");
   assert.deepEqual(calls[2].args, { p_module_id: "c" });
   assert.equal(service.forConsumer(adopted, "worktodo").status, "adopted");
+  assert.equal(adopted.consumers.worktodo.sourceIdentityStatus, "matched");
+  assert.equal(adopted.consumers.worktodo.sourceIdentityPersisted, true);
 });
 
 test("runtime release service never reports adoption success when Cloud read-back disagrees", async () => {
@@ -119,9 +127,60 @@ test("runtime release service never reports adoption success when Cloud read-bac
 
   await assert.rejects(
     service.adopt({ moduleId: "c", consumerId: "worktodo", release }),
-    error => error && error.code === "ADOPTION_READBACK_MISMATCH",
+    error => error && error.code === "ADOPTION_SOURCE_IDENTITY_MISMATCH",
   );
   assert.deepEqual(calls.map(call => call.name), ["get_published_module_release", "record_module_adoption", "get_published_module_release"]);
+});
+
+test("runtime release service does not treat Version/Build as a complete source identity", () => {
+  const service = loadService(async () => null);
+  const release = service.normalize({
+    module_id: "c",
+    published_version: IDENTITY.version,
+    published_build: IDENTITY.build,
+    source_commit: IDENTITY.commit,
+    source_fingerprint: IDENTITY.fingerprint,
+    consumer_adoptions: {
+      worktodo: {
+        status: "adopted",
+        module_version: IDENTITY.version,
+        build: IDENTITY.build,
+      },
+    },
+  }, "c");
+
+  const consumer = service.forConsumer(release, "worktodo");
+  assert.equal(consumer.identityMatches, true);
+  assert.equal(consumer.adoption.sourceIdentityStatus, "resolved_from_published_release");
+  assert.equal(consumer.adoption.sourceIdentityPersisted, false);
+
+  const unverifiable = service.normalize({
+    module_id: "c",
+    published_version: IDENTITY.version,
+    published_build: IDENTITY.build,
+    consumer_adoptions: {
+      worktodo: {
+        status: "adopted",
+        module_version: IDENTITY.version,
+        build: IDENTITY.build,
+      },
+    },
+  }, "c");
+  assert.equal(service.forConsumer(unverifiable, "worktodo").identityMatches, false);
+  assert.equal(unverifiable.consumers.worktodo.sourceIdentityStatus, "unknown");
+});
+
+test("adopt requires the canonical Cloud write to persist Published source identity", async () => {
+  const service = loadService(async (name, args) => {
+    if (name === "record_module_adoption") return releasePayload(args, "adopted", { includeAdoptionSourceIdentity: false });
+    return releasePayload(args, "adopted", { includeAdoptionSourceIdentity: false });
+  });
+  const release = await service.read("c");
+
+  await assert.rejects(
+    service.adopt({ moduleId: "c", consumerId: "worktodo", release }),
+    error => error && error.code === "ADOPTION_SOURCE_IDENTITY_MISMATCH",
+  );
 });
 
 test("runtime release service is module-agnostic and does not encode a C-only consumer list", async () => {

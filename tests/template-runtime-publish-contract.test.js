@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
+const adoptionSourceIdentityMigration = read("docs/supabase/20260915_c_consumer_adoption_source_identity.sql");
 
 test("C runtime exposes the shared persistent module publish action", () => {
   const cPage = read("app/Board/template-preview/index.html");
@@ -148,4 +149,14 @@ test("shared publish migration is module-generic and preserves governed adoption
   assert.match(migration, /lower\(trim\(au\.role\)\) in \('creator', 'owner'\)/);
   assert.match(migration, /p_consumer_ids jsonb/);
   assert.doesNotMatch(migration, /Only the canonical C template may be published/);
+});
+
+test("Consumer Adoption persists source identity from the Published Release", () => {
+  assert.match(adoptionSourceIdentityMigration, /'source_commit',\s*v_commit/i);
+  assert.match(adoptionSourceIdentityMigration, /'source_fingerprint',\s*v_fingerprint/i);
+  assert.match(adoptionSourceIdentityMigration, /'source_commit',\s*v_release\.source_commit/i);
+  assert.match(adoptionSourceIdentityMigration, /'source_fingerprint',\s*v_release\.source_fingerprint/i);
+  assert.match(adoptionSourceIdentityMigration, /from public\.module_releases\s+where module_id = v_module_id\s+for update/i);
+  assert.match(adoptionSourceIdentityMigration, /revoke all on function public\.record_module_adoption/i);
+  assert.doesNotMatch(adoptionSourceIdentityMigration, /update\s+public\.module_release_history/i);
 });
