@@ -50,6 +50,54 @@ test("Checker V2 distinguishes writer body, grant, reachability, and authority",
   assert.match(checker, /no-reachable-legacy-48h-writer/i);
 });
 
+test("Checker V2 aligns canonical contracts with explicit authority scope", () => {
+  const canonicalStart = checker.indexOf("v_canonical_function_names");
+  const alternateStart = checker.indexOf("v_known_alternate_functions");
+  assert.match(checker.slice(canonicalStart, alternateStart), /'board_provision_c_consumer_v2'/i);
+  assert.doesNotMatch(checker.slice(canonicalStart, alternateStart), /'board_provision_consumer'/i);
+  assert.match(checker, /v_canonical_provisioning/i);
+  assert.match(checker, /board_provision_consumer' then 'COMPATIBILITY_PROVISIONING'/i);
+  assert.match(checker, /'contract',\s*'public\.board_provision_c_consumer_v2\(text,text,text,text,jsonb,jsonb,text\)'/i);
+  assert.match(checker, /v_c_authority_relevant\s*:=/i);
+  assert.match(checker, /v_is_shared_capability/i);
+  assert.match(checker, /v_is_domain_extension/i);
+  assert.match(checker, /v_is_worklog_compatibility/i);
+  assert.match(checker, /'c_health_relevant',\s*v_c_health_relevant/i);
+});
+
+test("Checker V2 excludes legitimate shared, domain, and WorkLog surfaces without disabling C detection", () => {
+  assert.match(checker, /v_is_alternate\s*:=\s*v_application_reachable\s+and\s*v_c_authority_relevant/i);
+  assert.match(checker, /'repair_investment_ivtk_identity'/i);
+  assert.match(checker, /'sync_investment_ivtk_projection'/i);
+  assert.match(checker, /v_function\.function_name\s*~\*\s*'\^worktodo_'/i);
+  assert.match(checker, /'authority_scope',\s*case/i);
+  assert.match(checker, /'DOMAIN_EXTENSION'/i);
+  assert.match(checker, /'COMPATIBILITY_PROVISIONING'/i);
+  assert.match(checker, /'LEGACY_COMPATIBILITY_REACHABLE'/i);
+  assert.match(checker, /v_trigger_c_health_relevant/i);
+  assert.match(checker, /else 'pass'/i);
+});
+
+test("Checker V2 keeps WorkLog compatibility outside C overall health", () => {
+  const compatibilitySummary = checker.slice(
+    checker.indexOf("-- WorkLog/user_tasks compatibility writers"),
+    checker.indexOf("if v_reachable_48h_writer_count > 0 then")
+  );
+  assert.match(compatibilitySummary, /outside the\s+-- Module C Health scope/i);
+  assert.doesNotMatch(compatibilitySummary, /v_has_unhealthy\s*:=\s*true/i);
+  assert.doesNotMatch(compatibilitySummary, /v_gap_count\s*:=\s*v_gap_count\s*\+/i);
+  assert.match(checker, /'worklog_compatibility_outside_c_health',\s*true/i);
+});
+
+test("Checker V2 uses instance-first adoption evidence and fails closed on ambiguous aliases", () => {
+  assert.match(checker, /v_adoption_resolution\s*:=\s*'instance_uuid'/i);
+  assert.match(checker, /v_adoption_resolution\s*:=\s*'canonical_scope_alias'/i);
+  assert.match(checker, /v_adoption_resolution\s*:=\s*'ambiguous_scope_alias'/i);
+  assert.match(checker, /'adoption_candidate_count',\s*v_adoption_candidate_count/i);
+  assert.match(checker, /'unscoped_attachment_orphans',\s*v_unscoped_attachment_orphan_count/i);
+  assert.match(checker, /'unscoped_checklist_orphans',\s*v_unscoped_checklist_orphan_count/i);
+});
+
 test("Checker V2 treats fail-closed populated delete as canonical empty-workspace authority", () => {
   const canonicalStart = checker.indexOf("v_canonical_function_names");
   const alternateStart = checker.indexOf("v_known_alternate_functions");
