@@ -365,7 +365,12 @@
   function taskDrawerExtensions() {
     const configured = state.consumerExtensions?.taskDrawer;
     if (Array.isArray(configured)) return configured.filter(Boolean);
-    return configured ? [configured] : [];
+    if (configured) return [configured];
+    // Investment's Cloud bridge is loaded after this shared runtime. Resolve
+    // its already-registered domain adapter lazily so script-load timing cannot
+    // hide an Investment-only Drawer entry point.
+    const investmentExtension = isInvestmentCMode() ? root.InvestmentIVTKTaskDrawerExtension : null;
+    return investmentExtension ? [investmentExtension] : [];
   }
   function taskDrawerExtensionSections(task, readOnly) {
     return taskDrawerExtensions().flatMap(extension => {
