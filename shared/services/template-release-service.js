@@ -304,14 +304,14 @@
       moduleId: id,
       developmentVersion: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       developmentBuild: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
-      developmentSourceCommit: text(registered?.sourceCommit || snapshot.sourceCommit || product.commit),
-      developmentSourceFingerprint: text(registered?.sourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
+      developmentSourceCommit: text(registered?.sourceCommit || registered?.developmentSourceCommit || snapshot.developmentSourceCommit || snapshot.sourceCommit || product.commit),
+      developmentSourceFingerprint: text(registered?.sourceFingerprint || registered?.developmentSourceFingerprint || snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
       version: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       build: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
       publishedVersion: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       publishedBuild: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
-      sourceCommit: text(registered?.sourceCommit || snapshot.sourceCommit || product.commit),
-      sourceFingerprint: text(registered?.sourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
+      sourceCommit: text(registered?.sourceCommit || registered?.developmentSourceCommit || snapshot.developmentSourceCommit || snapshot.sourceCommit || product.commit),
+      sourceFingerprint: text(registered?.sourceFingerprint || registered?.developmentSourceFingerprint || snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
     };
   }
 

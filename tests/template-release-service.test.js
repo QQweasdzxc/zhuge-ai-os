@@ -197,3 +197,40 @@ test("runtime release service compares loaded source with persisted published so
   assert.deepEqual(mismatching, { status: "mismatch", matches: false });
   assert.deepEqual(service.compareSourceIdentity({}, {}), { status: "unknown", matches: false });
 });
+
+test("development identity prefers the explicit current source over the published snapshot", () => {
+  const service = loadService(async () => null);
+  const previousRelease = global.ZhugeMotherTemplateRelease;
+  const previousRegistry = global.ZhugeModuleDevelopmentIdentity;
+  const developmentCommit = "0123456789abcdef0123456789abcdef01234567";
+  const publishedCommit = "fedcba9876543210fedcba9876543210fedcba98";
+  try {
+    global.ZhugeMotherTemplateRelease = {
+      getSnapshot: () => ({
+        developmentVersion: IDENTITY.version,
+        developmentBuild: IDENTITY.build,
+        developmentSourceCommit: developmentCommit,
+        developmentSourceFingerprint: "d".repeat(64),
+        sourceCommit: publishedCommit,
+        sourceFingerprint: "p".repeat(64),
+      }),
+      currentProductIdentity: () => ({ version: IDENTITY.version, build: IDENTITY.build }),
+    };
+    delete global.ZhugeModuleDevelopmentIdentity;
+    const development = service.getDevelopmentIdentity("c");
+    assert.equal(development.sourceCommit, developmentCommit);
+    assert.equal(development.sourceFingerprint, "d".repeat(64));
+    assert.equal(
+      service.hasPendingDevelopment(
+        { publishedVersion: IDENTITY.version, publishedBuild: IDENTITY.build, sourceFingerprint: "p".repeat(64) },
+        development,
+      ),
+      true,
+    );
+  } finally {
+    if (previousRelease === undefined) delete global.ZhugeMotherTemplateRelease;
+    else global.ZhugeMotherTemplateRelease = previousRelease;
+    if (previousRegistry === undefined) delete global.ZhugeModuleDevelopmentIdentity;
+    else global.ZhugeModuleDevelopmentIdentity = previousRegistry;
+  }
+});

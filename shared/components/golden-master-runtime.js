@@ -33,8 +33,8 @@
   function loadedModuleSourceIdentity() {
     const snapshot = root.ZhugeMotherTemplateRelease?.getSnapshot?.() || {};
     return {
-      sourceCommit: String(snapshot.sourceCommit || ""),
-      sourceFingerprint: String(snapshot.sourceFingerprint || "")
+      sourceCommit: String(snapshot.developmentSourceCommit || snapshot.sourceCommit || ""),
+      sourceFingerprint: String(snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || "")
     };
   }
   function paritySemanticSnapshots() {

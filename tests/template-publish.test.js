@@ -14,8 +14,11 @@ test("C publish metadata is generated and internally consistent", () => {
   assert.equal(release.build, release.publishedBuild);
   assert.equal(release.developmentVersion, release.publishedVersion);
   assert.equal(release.developmentBuild, release.publishedBuild);
+  assert.match(release.developmentSourceCommit, /^[0-9a-f]{40}$/);
+  assert.match(release.developmentSourceFingerprint, /^[0-9a-f]{64}$/);
   assert.match(release.sourceCommit, /^[0-9a-f]{40}$/);
   assert.match(release.sourceFingerprint, /^[0-9a-f]{64}$/);
+  execFileSync("git", ["cat-file", "-e", `${release.developmentSourceCommit}^{commit}`], { cwd: ROOT, stdio: "pipe" });
   assert.ok(release.publishedAt);
   for (const consumerId of ["c", "worktodo", "ai-board", "investment-ivtk", "worklog-procurement"]) {
     assert.deepEqual(release.consumers[consumerId], {
@@ -33,6 +36,7 @@ test("C publish metadata is generated and internally consistent", () => {
     // fingerprint drift that tells the release gate a new identity is needed.
     const output = `${error.stdout || ""}\n${error.stderr || ""}`;
     assert.match(output, /sourceFingerprint must match canonical source/);
+    assert.doesNotMatch(output, /developmentSource(?:Commit|Fingerprint)/);
     assert.doesNotMatch(output, /published (?:version|build) must match version\.json/);
     assert.doesNotMatch(output, /development (?:version|build) must match version\.json/);
     assert.doesNotMatch(output, /missing matching template-release cache-buster/);
@@ -76,4 +80,19 @@ test("Shared runtime exposes published adoption identity for every consumer", ()
   assert.equal(api.forConsumer("ai_board").consumerId, "ai-board");
   assert.equal(api.forConsumer("investment-ivtk").consumerId, "investment-ivtk");
   assert.equal(api.forConsumer("worklog-procurement").consumerId, "worklog-procurement");
+});
+
+test("development source identity is kept separate from the published snapshot when present", () => {
+  const release = require("../shared/config/template-release.js").getSnapshot();
+  assert.ok(release.developmentSourceCommit);
+  assert.ok(release.developmentSourceFingerprint);
+  if (release.developmentSourceCommit !== release.sourceCommit) {
+    assert.notEqual(release.developmentSourceFingerprint, release.sourceFingerprint);
+  }
+  const serviceSource = read("shared/services/template-release-service.js");
+  const runtimeSource = read("shared/components/golden-master-runtime.js");
+  const previewSource = read("shared/components/c-template-preview.js");
+  assert.match(serviceSource, /snapshot\.developmentSourceCommit \|\| snapshot\.sourceCommit/);
+  assert.match(runtimeSource, /snapshot\.developmentSourceCommit \|\| snapshot\.sourceCommit/);
+  assert.match(previewSource, /snapshot\.developmentSourceCommit \|\| snapshot\.sourceCommit/);
 });

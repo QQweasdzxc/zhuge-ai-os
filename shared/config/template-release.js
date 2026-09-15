@@ -20,6 +20,8 @@
   "publishedBuild": "20260914-0601",
   "templateVersion": "0.9.0-alpha.9.13",
   "build": "20260914-0601",
+  "developmentSourceCommit": "c4bfceb3102f698e039d92216a12f40a08fe7de6",
+  "developmentSourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
   "sourceCommit": "e3647228030c2181f9e7d9a153e6e3ccb345da83",
   "sourceDirty": false,
   "sourceFingerprint": "5ec987520723859077b346b1368fe83c392f0a84ec6d07d0e7ff8e4e22277dcb",
@@ -522,7 +524,12 @@
 
   function currentProductIdentity() {
     const identity = root?.ZhugeFoundationConfig?.version || {};
-    return { version: String(identity.version || ""), build: String(identity.build || "") };
+    return {
+      version: String(identity.version || ""),
+      build: String(identity.build || ""),
+      sourceCommit: String(identity.sourceCommit || RELEASE.developmentSourceCommit || ""),
+      sourceFingerprint: String(identity.sourceFingerprint || RELEASE.developmentSourceFingerprint || "")
+    };
   }
 
   function normalizeConsumer(value) {
@@ -534,7 +541,15 @@
     const consumerId = normalizeConsumer(value);
     const adoption = RELEASE.consumers[consumerId] || null;
     const identity = currentProductIdentity();
-    const identityMatches = Boolean(adoption && identity.version === RELEASE.publishedVersion && identity.build === RELEASE.publishedBuild && adoption.templateVersion === RELEASE.publishedVersion && adoption.build === RELEASE.publishedBuild);
+    const sourceIdentityMatches = Boolean(
+      identity.sourceCommit
+      && identity.sourceFingerprint
+      && RELEASE.sourceCommit
+      && RELEASE.sourceFingerprint
+      && identity.sourceCommit === RELEASE.sourceCommit
+      && identity.sourceFingerprint === RELEASE.sourceFingerprint
+    );
+    const identityMatches = Boolean(adoption && identity.version === RELEASE.publishedVersion && identity.build === RELEASE.publishedBuild && adoption.templateVersion === RELEASE.publishedVersion && adoption.build === RELEASE.publishedBuild && sourceIdentityMatches);
     return Object.freeze({
       ...clone(RELEASE),
       consumerId,
