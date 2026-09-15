@@ -50,6 +50,33 @@ Start Formal Build
 - Source and UAT packages use the same Version and Build.
 - `version.json`, UI metadata, Release Notes, and Git commit agree.
 
+## Published versus Development identity
+
+The current Source and the Published C Runtime are different identity layers.
+The Source Build Identity comes from the root `version.json` and current
+Source/runtime metadata. The Published C Runtime is the Cloud record returned
+by `get_published_module_release('c')`, whose canonical fields are:
+
+- `published_version`
+- `published_build`
+- `source_commit`
+- `source_fingerprint`
+
+Published fields are immutable release evidence; the current Development HEAD
+must never substitute for them. Development may be `DEVELOPMENT_AHEAD` /
+`NOT YET PUBLISHED` while Runtime identifies a previous Published C snapshot.
+
+Consumer Adoption is a separate acknowledgement. `publish_module_release`
+seeds Published source identity and `record_module_adoption` derives
+`source_commit` / `source_fingerprint` server-side from the locked Published
+Release. Adoption cannot choose Development identity. Version/Build alone is
+not complete Source Identity.
+
+Existing adoption records from before source fields are not silently backfilled.
+If exact Version/Build resolves to a complete Published Release, Runtime may
+expose read-only `RESOLVED_FROM_PUBLISHED_RELEASE`; the record remains
+explicitly legacy/non-persisted evidence until a governed adoption write.
+
 ## Candidate packaging governance
 
 The root `version.json.build` is the only `BUILD_ID` and Candidate filename

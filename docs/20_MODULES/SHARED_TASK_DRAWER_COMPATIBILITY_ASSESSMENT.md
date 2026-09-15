@@ -50,7 +50,7 @@ Checklist source.
 | Date / deadline | `dueDate` normalized from `dueDate`, `deadline`, or `due_date` | WorkLog-specific functional field; must remain outside AI Board. |
 | Calendar capability | Existing WorkLog Calendar / Google Calendar path | Must remain WorkLog-specific; no Calendar capability is added to the AI Board consumer. |
 | GPT analysis | `user_tasks.gpt_*` fields | Canonical capability implemented as a read-only Analysis View; no chat or autonomous write path is introduced. |
-| Completion / Archive | `user_tasks.completed_at`, `archive_due_at`, `archived_at` plus reconciliation RPC | Canonical capability implemented; completion is timestamped in Cloud and the 48-hour archive is reconciled server-side on authenticated hydration. |
+| Completion / Archive | Formal Template C WorkTodo uses `board_tasks.completion_at`, `archive_due_at`, `archived_at` plus the C lifecycle contract; Legacy WorkLog fields remain compatibility data | Formal C completion/archive uses `module-c-lifecycle-acceptance-v2`, the actual Completion entry time, and the current 86400-second / 24-hour policy. Legacy WorkLog mappings remain outside C authority and are not the canonical WorkTodo source. |
 | Governance / engineering evidence | No WorkLog equivalent in this scope | Not Applicable; no engineering evidence is fabricated for WorkTodo. |
 
 ## Compatibility conclusion
