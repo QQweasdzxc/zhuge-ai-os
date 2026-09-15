@@ -1555,7 +1555,10 @@
       reopen: !readOnly || allowWorkspaceMovement,
       adoption: !readOnly,
       existingCardAdoption: allowExistingCardAdoption && (!readOnly || allowWorkspaceMovement),
-      legacyReconciliation: !readOnly,
+      // Historical legacy-card reconciliation remains available only as a
+      // fail-closed compatibility sentinel.  It is not an application
+      // capability, regardless of the consumer's write mode.
+      legacyReconciliation: false,
       legacyWorkspaceRetirement: !readOnly,
       workspaceMovement: !readOnly || allowWorkspaceMovement
     });
@@ -1736,17 +1739,8 @@
       // no generic/global movement fallback here.
       return reconcileBoundWorkspaceDecision(input);
     };
-    const reconcileLegacyCard = async (input = {}) => {
-      assertWritable();
-      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_reconcile_legacy_card_v2", {
-        p_task_id: input.taskId,
-        p_classification: input.classification,
-        p_workflow_version_id: input.workflowVersionId || null,
-        p_completion_step_id: input.completionStepId || null,
-        p_reverification_evidence: input.reverificationEvidence || null,
-        p_note: input.note || null,
-        p_idempotency_key: input.idempotencyKey || null
-      }));
+    const reconcileLegacyCard = async () => {
+      throw legacyLifecycleRetiredError("board_c_workflow_reconcile_legacy_card_v2");
     };
     const retireLegacyWorkspace = async (input = {}) => {
       assertWritable();
