@@ -69,8 +69,8 @@
     return {
       version: String(snapshot.developmentVersion || product.version || ""),
       build: String(snapshot.developmentBuild || product.build || ""),
-      sourceCommit: String(snapshot.sourceCommit || product.commit || ""),
-      sourceFingerprint: String(snapshot.sourceFingerprint || product.sourceFingerprint || ""),
+      sourceCommit: String(snapshot.developmentSourceCommit || snapshot.sourceCommit || product.commit || ""),
+      sourceFingerprint: String(snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint || ""),
     };
   }
 

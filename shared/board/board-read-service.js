@@ -1202,11 +1202,7 @@
       targetWorkspaceId,
       "board_request_delete_workspace",
       "board_finalize_delete_workspace",
-      (taskId, targetId, gateway) => gateway.rpc("board_move_task_workspace", {
-        p_task_id: taskId,
-        p_target_workspace_id: targetId,
-        p_note: "Custom Workspace deleted; task preserved in canonical 待開始 workspace"
-      }),
+      taskId => moveTaskWorkspace(taskId, targetWorkspaceId, "Custom Workspace deleted; task preserved in canonical 待開始 workspace"),
       { ...options, rejectPopulated: true }
     );
   }
@@ -1275,24 +1271,11 @@
   }
 
   async function moveTaskWorkspace(taskId, targetWorkspaceId, note = "", options = {}) {
-    const gateway = options.gateway || requireGateway();
-    const moved = await gateway.rpc("board_move_task_workspace", {
-      p_task_id: taskId,
-      p_target_workspace_id: targetWorkspaceId,
-      p_note: note || null
-    });
-    // Movement is authoritative first. Notification is a Cloud side-effect and
-    // must never roll back or duplicate the card movement if mail delivery fails.
-    try {
-      await gateway.invokeFunction("workspace-email-notification", {
-        task_id: taskId,
-        workspace_id: targetWorkspaceId,
-        card_url: currentCardUrl(taskId)
-      });
-    } catch (error) {
-      console.warn("Workspace Email notification failed after Cloud move", error);
-    }
-    return normalizeTask(moved);
+    // The former generic application writer is retired.  Keep an explicit
+    // fail-closed surface so an older caller cannot silently recreate the
+    // unscoped movement/completion authority. Formal C movement must use the
+    // instance-scoped workflow decision capability.
+    throw legacyMovementRetiredError("board_move_task_workspace");
   }
 
   async function governanceAction(taskId, action, targetTaskId = null, reason = "", options = {}) {
@@ -1490,29 +1473,31 @@
     }).then(normalizeChecklistItem);
   }
 
-  async function acceptTaskFromQjcDrop(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_pm_acceptance_from_qjc_drop", {
-      p_task_id: input.taskId,
-      p_item_id: input.itemId,
-      // A QJC Drop is itself the PM Acceptance intent.  The Cloud contract
-      // creates the auditable action context; a UI prompt must not be used as
-      // a substitute for that controlled record.
-      p_evidence_note: input.evidenceNote || null,
-      p_evidence_ref: input.evidenceRef || null
-    });
+  function legacyLifecycleRetiredError(route) {
+    const error = new Error(`${route} 已退休；正式 Completion／Archive 必須使用 Module C v2 Authority。`);
+    error.code = "C_LEGACY_LIFECYCLE_RETIRED";
+    error.route = route;
+    error.authority = "board_c_reconcile_workspace_decision_v2";
+    return error;
   }
 
-  // C owns PM workspace decisions.  This operation is deliberately separate
-  // from the legacy sequential transition RPC: the PM-selected workspace is
-  // the intent, while Cloud reconciles the formal lifecycle atomically.
-  async function reconcileWorkspaceDecision(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_c_reconcile_workspace_decision", {
-      p_task_id: input.taskId,
-      p_target_workspace_id: input.targetWorkspaceId,
-      p_decision_note: input.decisionNote || null
-    });
+  function legacyMovementRetiredError(route) {
+    const error = new Error(`${route} 已退休；正式卡片移動必須使用 Module C v2 Authority。`);
+    error.code = "C_LEGACY_MOVEMENT_RETIRED";
+    error.route = route;
+    error.authority = "board_c_reconcile_workspace_decision_v2";
+    return error;
+  }
+
+  // Compatibility exports remain only as explicit fail-closed sentinels.  The
+  // old application RPCs are no longer a Runtime route or a Writer; current
+  // C consumers use the instance-scoped Workflow v2 capability below.
+  async function acceptTaskFromQjcDrop() {
+    throw legacyLifecycleRetiredError("board_pm_acceptance_from_qjc_drop");
+  }
+
+  async function reconcileWorkspaceDecision() {
+    throw legacyLifecycleRetiredError("board_c_reconcile_workspace_decision");
   }
 
   // Canonical Module C Workflow capability.  This is deliberately a thin
@@ -1570,7 +1555,10 @@
       reopen: !readOnly || allowWorkspaceMovement,
       adoption: !readOnly,
       existingCardAdoption: allowExistingCardAdoption && (!readOnly || allowWorkspaceMovement),
-      legacyReconciliation: !readOnly,
+      // Historical legacy-card reconciliation remains available only as a
+      // fail-closed compatibility sentinel.  It is not an application
+      // capability, regardless of the consumer's write mode.
+      legacyReconciliation: false,
       legacyWorkspaceRetirement: !readOnly,
       workspaceMovement: !readOnly || allowWorkspaceMovement
     });
@@ -1751,17 +1739,8 @@
       // no generic/global movement fallback here.
       return reconcileBoundWorkspaceDecision(input);
     };
-    const reconcileLegacyCard = async (input = {}) => {
-      assertWritable();
-      return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_reconcile_legacy_card_v2", {
-        p_task_id: input.taskId,
-        p_classification: input.classification,
-        p_workflow_version_id: input.workflowVersionId || null,
-        p_completion_step_id: input.completionStepId || null,
-        p_reverification_evidence: input.reverificationEvidence || null,
-        p_note: input.note || null,
-        p_idempotency_key: input.idempotencyKey || null
-      }));
+    const reconcileLegacyCard = async () => {
+      throw legacyLifecycleRetiredError("board_c_workflow_reconcile_legacy_card_v2");
     };
     const retireLegacyWorkspace = async (input = {}) => {
       assertWritable();
@@ -2123,14 +2102,10 @@
       return gateway.rpc("board_instance_reorder_workspaces", { p_workspace_ids: workspaceIds });
     }
     async function instanceMoveTaskWorkspace(taskId, workspaceId, reason = "") {
-      await resolveInstance();
-      const moved = await gateway.rpc("board_instance_move_task_workspace", { p_task_id: taskId, p_workspace_id: workspaceId, p_reason: reason || null });
-      try {
-        await gateway.invokeFunction("workspace-email-notification", { task_id: taskId, workspace_id: workspaceId, card_url: currentCardUrl(taskId) });
-      } catch (error) {
-        console.warn("Workspace Email notification failed after Cloud move", error);
-      }
-      return normalizeInstanceTask(moved);
+      // The direct instance writer is retained only as a fail-closed
+      // compatibility surface. Formal C movement uses the v2 decision
+      // capability so it cannot bypass Workflow, lifecycle, or idempotency.
+      throw legacyMovementRetiredError("board_instance_move_task_workspace");
     }
     async function instanceCreateTask(input = {}) {
       const instance = await resolveInstance();
@@ -2204,10 +2179,6 @@
         p_evidence_note: input.evidenceNote || null,
         p_evidence_ref: input.evidenceRef || null
       }).then(normalizeChecklistItem);
-    }
-    async function instanceAcceptTaskFromQjcDrop(input = {}) {
-      await resolveInstance();
-      return acceptTaskFromQjcDrop(input, withGateway());
     }
     async function instanceReconcileWorkspaceDecision(input = {}) {
       await resolveInstance();
@@ -2340,8 +2311,8 @@
       throw error;
     }
     const lifecycle = createLifecycleCapability(
-      instanceAcceptTaskFromQjcDrop,
-      instanceOptions.lifecycleCapabilities?.pmAcceptanceFromQjcDrop === true,
+      null,
+      false,
       instanceOptions.lifecycleCapabilities?.pmWorkspaceAuthority === true
         ? instanceReconcileWorkspaceDecision
         : null
@@ -2476,22 +2447,19 @@
   }
 
   async function provisionConsumer(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    const args = {
-      p_name: String(input.name || "").trim(),
-      p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
-      p_template_key: String(input.templateKey || "c").trim().toLowerCase()
-    };
-    const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
-    if (applicationScope) args.p_application_scope = applicationScope;
-    return gateway.rpc("board_provision_consumer", args);
+    // The three-argument provisioning route is retained as a named historical
+    // surface, but it must never remain an application-writable authority.
+    // Current C creation uses the atomic, idempotent v2 contract below.
+    const error = new Error("Legacy C Consumer provisioning route is retired; use provisionCConsumer().");
+    error.code = "C_CONSUMER_PROVISION_LEGACY_RETIRED";
+    throw error;
   }
 
-  // Canonical C Consumer provisioning.  The legacy three-argument wrapper is
-  // intentionally retained for older callers, but new C creation must use the
-  // single-transaction v2 contract so Instance identity, data scope, release,
-  // workspaces, and the optional Instance-owned Workflow are provisioned by
-  // one Cloud authority.
+  // Canonical C Consumer provisioning. The named legacy wrapper above is
+  // retained only as an explicit fail-closed historical surface; new C
+  // creation must use the single-transaction v2 contract so Instance identity,
+  // data scope, release, workspaces, and the optional Instance-owned Workflow
+  // are provisioned by one Cloud authority.
   async function provisionCConsumer(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     const idempotencyKey = String(input.idempotencyKey || "").trim();
@@ -2598,7 +2566,11 @@
   return Object.freeze({
     ENGINEERING_STATUS_DESCRIPTORS,
     lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
-    lifecycle: createLifecycleCapability(acceptTaskFromQjcDrop, true, reconcileWorkspaceDecision),
+    // The default service is retained for historical consumers, but it no
+    // longer exposes an application-writable lifecycle capability.  Formal C
+    // Runtime uses createInstanceService() and the instance-scoped Workflow
+    // v2 authority.
+    lifecycle: createLifecycleCapability(null, false, null),
     normalizeStatus,
     statusDescriptorFor,
     normalizeWorkspace,

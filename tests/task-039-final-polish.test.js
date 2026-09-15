@@ -107,11 +107,13 @@ test("Workspace delete is completion-protected and controlled while task content
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
   const inlineMigration = read("docs/supabase/20260818_task_039_inline_content_write.sql");
+  const movementRetirement = read("docs/supabase/20260914_retire_board_move_task_workspace.sql");
   assert.match(migration, /board_request_delete_workspace/i);
   assert.match(migration, /board_finalize_delete_workspace/i);
   assert.match(migration, /workspace_key is not null/i);
   assert.match(service, /deleteWorkspaceWithContract/);
-  assert.match(service, /board_move_task_workspace/);
+  assert.doesNotMatch(service, /gateway\.rpc\("board_move_task_workspace"/);
+  assert.match(movementRetirement, /revoke all on function public\.board_move_task_workspace\(uuid, uuid, text\)/i);
   assert.match(service, /worktodo_update_task/);
   assert.match(runtime, /function deleteWorkspace\(workspace\)/);
   assert.match(runtime, /function isWorkspaceDeletable\(workspace\)/);

@@ -104,7 +104,8 @@ test("QJC completion drop composes the existing guarded lifecycle contracts atom
 test("the shared C lifecycle contract records PM action context without weakening the gate", () => {
   assert.match(service, /C_LIFECYCLE_ACCEPTANCE_CONTRACT/);
   assert.match(service, /acceptFromQjcDrop/);
-  assert.match(service, /lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
+  assert.match(service, /C_LEGACY_LIFECYCLE_RETIRED/);
+  assert.doesNotMatch(service, /lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
   assert.match(cLifecycleMigration, /contract=module-c-lifecycle-acceptance-v1/);
   assert.match(cLifecycleMigration, /action=qjc-drop-to-completed/);
   assert.match(cLifecycleMigration, /source_workspace_id=%s/);
@@ -165,10 +166,10 @@ test("consumer adoption keeps WorkTodo and Investment outside PM Acceptance", ()
   assert.doesNotMatch(runtime, /function moveWorkTodoTask\(/);
   assert.match(runtime, /state\.applicationScope === "procurement"/);
   assert.match(runtime, /Investment/);
-  assert.match(service, /instanceOptions\.lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
+  assert.doesNotMatch(service, /instanceOptions\.lifecycleCapabilities\?\.pmAcceptanceFromQjcDrop === true/);
 });
 
-test("createInstanceService exposes the shared contract with explicit consumer opt-in", () => {
+test("createInstanceService does not re-enable the retired PM acceptance writer", () => {
   const gateway = { select: async () => [] };
   const generic = BoardReadService.createInstanceService({ gateway, boardInstanceId: "consumer-1" });
   assert.equal(generic.lifecycleContract.id, "module-c-lifecycle-acceptance-v1");
@@ -181,8 +182,8 @@ test("createInstanceService exposes the shared contract with explicit consumer o
     lifecycleCapabilities: { pmAcceptanceFromQjcDrop: true }
   });
   assert.equal(optedIn.lifecycleContract, generic.lifecycleContract);
-  assert.equal(optedIn.lifecycle.capabilities.pmAcceptanceFromQjcDrop, true);
-  assert.equal(typeof optedIn.lifecycle.acceptFromQjcDrop, "function");
+  assert.equal(optedIn.lifecycle.capabilities.pmAcceptanceFromQjcDrop, false);
+  assert.equal(typeof optedIn.lifecycle.acceptFromQjcDrop, "undefined");
 
   const authority = BoardReadService.createInstanceService({
     gateway,
@@ -193,29 +194,19 @@ test("createInstanceService exposes the shared contract with explicit consumer o
   assert.equal(typeof authority.lifecycle.reconcileWorkspaceDecision, "function");
 });
 
-test("the canonical C service sends the PM-selected workspace to Cloud", async () => {
+test("the retired default C workspace writer fails closed", async () => {
   const calls = [];
-  const result = await BoardReadService.reconcileWorkspaceDecision({
-    taskId: "task-1",
-    targetWorkspaceId: "workspace-2",
-    decisionNote: "PM selected workspace"
-  }, {
-    gateway: {
-      rpc: async (name, payload) => {
-        calls.push({ name, payload });
-        return { success: true, decision: "workspace" };
-      }
+  const gateway = {
+    rpc: async (name, payload) => {
+      calls.push({ name, payload });
+      return { success: true, decision: "workspace" };
     }
-  });
-  assert.deepEqual(result, { success: true, decision: "workspace" });
-  assert.deepEqual(calls, [{
-    name: "board_c_reconcile_workspace_decision",
-    payload: {
-      p_task_id: "task-1",
-      p_target_workspace_id: "workspace-2",
-      p_decision_note: "PM selected workspace"
-    }
-  }]);
+  };
+  await assert.rejects(
+    () => BoardReadService.reconcileWorkspaceDecision({ taskId: "task-1", targetWorkspaceId: "workspace-2" }, { gateway }),
+    error => error.code === "C_LEGACY_LIFECYCLE_RETIRED"
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("C workspace authority keeps PM gates and audit atomic", () => {

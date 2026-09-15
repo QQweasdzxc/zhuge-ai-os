@@ -11,7 +11,7 @@ const Parity = require("../shared/components/template-parity-engine.js");
 const provisioning = read("docs/supabase/20260912_c_consumer_provisioning_v2.sql");
 const closure = read("docs/supabase/20260912_c_completion_archive_closure_v2.sql");
 const scheduler = read("docs/supabase/20260912_c_completion_archive_scheduler_v2.sql");
-const checker = read("docs/supabase/20260912_c_authority_conformance_v2_hardening.sql");
+const checker = read("docs/supabase/20260914_c_authority_conformance_v2.sql");
 const optionalWorkflow = read("docs/supabase/20260913_c_completion_archive_optional_workflow.sql");
 
 test("A: C Consumer provisioning is one atomic, idempotent, fail-closed contract", () => {

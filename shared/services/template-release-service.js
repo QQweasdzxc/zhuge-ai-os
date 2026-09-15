@@ -75,16 +75,59 @@
     );
     const build = text(adoption.build || fallbackRelease.publishedBuild);
     const status = text(adoption.status || "published_pending_reload").toLowerCase();
+    const sourceCommit = text(adoption.source_commit || adoption.sourceCommit).trim().toLowerCase();
+    const sourceFingerprint = text(adoption.source_fingerprint || adoption.sourceFingerprint).trim().toLowerCase();
+    const publishedSourceCommit = text(fallbackRelease?.sourceCommit).trim().toLowerCase();
+    const publishedSourceFingerprint = text(fallbackRelease?.sourceFingerprint).trim().toLowerCase();
+    const versionBuildMatches = moduleVersion === text(fallbackRelease?.publishedVersion)
+      && build === text(fallbackRelease?.publishedBuild);
+    const sourceIdentityPersisted = Boolean(sourceCommit && sourceFingerprint);
+    let sourceIdentityStatus = "unknown";
+    let sourceIdentityOrigin = "missing";
+    let sourceIdentityMatches = false;
+
+    if (sourceIdentityPersisted) {
+      sourceIdentityOrigin = "adoption_record";
+      if (publishedSourceCommit && publishedSourceFingerprint) {
+        sourceIdentityMatches = sourceCommit === publishedSourceCommit
+          && sourceFingerprint === publishedSourceFingerprint;
+        sourceIdentityStatus = sourceIdentityMatches ? "matched" : "mismatch";
+      } else {
+        sourceIdentityStatus = "unverifiable";
+      }
+    } else if (!sourceCommit && !sourceFingerprint && versionBuildMatches && publishedSourceCommit && publishedSourceFingerprint) {
+      // Existing records created before the source-identity fields were added
+      // are not rewritten or guessed.  When their exact version/build points
+      // to the currently read Published Release, expose that read-only
+      // resolution explicitly so the UI can distinguish it from persisted
+      // adoption evidence.
+      sourceIdentityOrigin = "published_release";
+      sourceIdentityStatus = "resolved_from_published_release";
+      sourceIdentityMatches = true;
+    } else if (sourceCommit || sourceFingerprint) {
+      sourceIdentityOrigin = "adoption_record";
+      sourceIdentityStatus = "incomplete";
+    }
+
     return {
       status: status || "published_pending_reload",
       moduleVersion,
       templateVersion: moduleVersion,
       build,
+      sourceCommit,
+      sourceFingerprint,
+      publishedSourceCommit,
+      publishedSourceFingerprint,
+      sourceIdentityStatus,
+      sourceIdentityOrigin,
+      sourceIdentityPersisted,
+      sourceIdentityMatches,
+      versionBuildMatches,
       publishedAt: adoption.published_at || adoption.publishedAt || fallbackRelease.publishedAt || null,
       adoptedAt: adoption.adopted_at || adoption.adoptedAt || null,
       adoptedBy: text(adoption.adopted_by || adoption.adoptedBy),
       snapshot: cloneSerializable(adoption.snapshot || adoption.semantic_snapshot || adoption.semanticSnapshot || adoption.adopted_snapshot || adoption.adoptedSnapshot),
-      identityMatches: moduleVersion === fallbackRelease.publishedVersion && build === fallbackRelease.publishedBuild,
+      identityMatches: versionBuildMatches && sourceIdentityMatches,
     };
   }
 
@@ -265,9 +308,13 @@
         const consumer = forConsumer(updated, consumerId);
         const adoptedVersion = text(consumer.adoption?.moduleVersion || consumer.adoption?.templateVersion);
         const adoptedBuild = text(consumer.adoption?.build);
-        if (!updated || consumer.status !== "adopted" || !consumer.identityMatches || adoptedVersion !== version || adoptedBuild !== build) {
+        const sourceIdentityPersisted = consumer.adoption?.sourceIdentityPersisted === true;
+        const sourceIdentityMatches = consumer.adoption?.sourceIdentityMatches === true;
+        if (!updated || consumer.status !== "adopted" || !consumer.identityMatches || !sourceIdentityPersisted || !sourceIdentityMatches || adoptedVersion !== version || adoptedBuild !== build) {
           const error = new Error(`Cloud Read-back 未確認 ${consumerId} 已採用 Published C ${version} · Build ${build}。`);
-          error.code = "ADOPTION_READBACK_MISMATCH";
+          error.code = sourceIdentityPersisted && sourceIdentityMatches
+            ? "ADOPTION_READBACK_MISMATCH"
+            : "ADOPTION_SOURCE_IDENTITY_MISMATCH";
           throw error;
         }
         cache.set(moduleId, updated);
@@ -304,14 +351,14 @@
       moduleId: id,
       developmentVersion: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       developmentBuild: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
-      developmentSourceCommit: text(registered?.sourceCommit || snapshot.sourceCommit || product.commit),
-      developmentSourceFingerprint: text(registered?.sourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
+      developmentSourceCommit: text(registered?.sourceCommit || registered?.developmentSourceCommit || snapshot.developmentSourceCommit || snapshot.sourceCommit || product.commit),
+      developmentSourceFingerprint: text(registered?.sourceFingerprint || registered?.developmentSourceFingerprint || snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
       version: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       build: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
       publishedVersion: text(registered?.developmentVersion || snapshot.developmentVersion || product.version),
       publishedBuild: text(registered?.developmentBuild || snapshot.developmentBuild || product.build),
-      sourceCommit: text(registered?.sourceCommit || snapshot.sourceCommit || product.commit),
-      sourceFingerprint: text(registered?.sourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
+      sourceCommit: text(registered?.sourceCommit || registered?.developmentSourceCommit || snapshot.developmentSourceCommit || snapshot.sourceCommit || product.commit),
+      sourceFingerprint: text(registered?.sourceFingerprint || registered?.developmentSourceFingerprint || snapshot.developmentSourceFingerprint || snapshot.sourceFingerprint || product.sourceFingerprint),
     };
   }
 
@@ -341,7 +388,7 @@
       };
     }
     const adoption = release.consumers && release.consumers[id] ? release.consumers[id] : null;
-    const identityMatches = Boolean(adoption && adoption.identityMatches !== false);
+    const identityMatches = Boolean(adoption && adoption.identityMatches === true);
     let status = "not_adopted";
     if (adoption && !identityMatches) status = "stale";
     else if (adoption) status = adoption.status || "published_pending_reload";

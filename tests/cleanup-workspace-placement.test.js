@@ -109,5 +109,6 @@ test("the uncalled sequential planner is retired, not retained as a competing wo
   assert.equal(BoardRead.planTransition, undefined);
   assert.equal(BoardRead.availableTransitions, undefined);
   assert.equal(BoardRead.lifecycle.contract.id, "module-c-lifecycle-acceptance-v1");
-  assert.equal(typeof BoardRead.lifecycle.reconcileWorkspaceDecision, "function");
+  assert.equal(BoardRead.lifecycle.capabilities.pmWorkspaceAuthority, false);
+  assert.equal(BoardRead.lifecycle.reconcileWorkspaceDecision, undefined);
 });

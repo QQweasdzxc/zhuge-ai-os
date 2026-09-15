@@ -290,7 +290,7 @@
 .zhuge-module-shell .template-management-table-head,
 .zhuge-module-shell .template-management-row {
   display: grid;
-  grid-template-columns: minmax(130px, 1.2fr) minmax(110px, .85fr) minmax(155px, 1fr) 58px;
+  grid-template-columns: minmax(130px, 1.2fr) minmax(130px, 1fr) minmax(150px, 1fr) minmax(145px, 1fr);
   align-items: center;
   gap: 10px;
   padding: 10px 11px;
@@ -306,32 +306,6 @@
 .zhuge-module-shell .template-management-capability { color: var(--zhuge-success); font-size: .76rem; }
 .zhuge-module-shell .template-management-adoption { color: var(--zhuge-muted); font-size: .76rem; }
 .zhuge-module-shell .template-management-adoption.is-on { color: var(--zhuge-success); }
-.zhuge-module-shell .template-management-switch { display: inline-flex; justify-content: flex-end; cursor: pointer; }
-.zhuge-module-shell .template-management-switch input { position: absolute; opacity: 0; pointer-events: none; }
-.zhuge-module-shell .template-management-switch-track {
-  position: relative;
-  display: block;
-  width: 36px;
-  height: 21px;
-  border: 1px solid #475569;
-  border-radius: 999px;
-  background: #334155;
-  transition: background .16s ease, border-color .16s ease;
-}
-.zhuge-module-shell .template-management-switch-track::after {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #f8fafc;
-  content: "";
-  transition: transform .16s ease;
-}
-.zhuge-module-shell .template-management-switch input:checked + .template-management-switch-track { border-color: #34d399; background: #059669; }
-.zhuge-module-shell .template-management-switch input:checked + .template-management-switch-track::after { transform: translateX(15px); }
-.zhuge-module-shell .template-management-switch input:disabled + .template-management-switch-track { cursor: not-allowed; opacity: .5; }
 .zhuge-module-shell .template-management-empty { padding: 14px; color: var(--zhuge-muted); font-size: .82rem; }
 .zhuge-module-shell .template-runtime-observability {
   display: grid;
@@ -383,7 +357,9 @@
 .zhuge-module-shell .template-runtime-observability-summary { justify-items: end; text-align: right; }
 .zhuge-module-shell .template-runtime-observability-summary strong { color: var(--zhuge-accent); font-size: .76rem; white-space: nowrap; }
 .zhuge-module-shell .template-runtime-observability-summary small.is-healthy { color: var(--zhuge-success); }
+.zhuge-module-shell .template-runtime-observability-summary small.is-partial { color: #fbbf24; }
 .zhuge-module-shell .template-runtime-observability-summary small.is-fail { color: #f87171; }
+.zhuge-module-shell .template-runtime-observability-summary small.is-na { color: var(--zhuge-muted); }
 .zhuge-module-shell .template-runtime-observability-summary small.is-unknown { color: #fbbf24; }
 .zhuge-module-shell .template-runtime-observability-chevron { color: var(--zhuge-accent); font-size: 1.05rem; font-weight: 900; }
 .zhuge-module-shell .template-runtime-observability-card[open] > summary { border-bottom: 1px solid var(--zhuge-border); }
@@ -395,10 +371,63 @@
 .zhuge-module-shell .template-runtime-observability-field dd { margin: 2px 0 0; color: var(--zhuge-text); font-size: .77rem; overflow-wrap: anywhere; }
 .zhuge-module-shell .template-runtime-observability-health dd { font-weight: 800; }
 .zhuge-module-shell .template-runtime-observability-health.is-healthy dd { color: var(--zhuge-success); }
+.zhuge-module-shell .template-runtime-observability-health.is-partial dd { color: #fbbf24; }
 .zhuge-module-shell .template-runtime-observability-health.is-fail dd { color: #f87171; }
+.zhuge-module-shell .template-runtime-observability-health.is-na dd { color: var(--zhuge-muted); }
 .zhuge-module-shell .template-runtime-observability-health.is-unknown dd { color: #fbbf24; }
 .zhuge-module-shell .template-runtime-observability-technical { margin-top: 10px; border-top: 1px solid var(--zhuge-border); padding-top: 8px; }
 .zhuge-module-shell .template-runtime-observability-technical > summary { color: var(--zhuge-muted); cursor: pointer; font-size: .7rem; }
+.zhuge-module-shell .template-runtime-observability-evidence { grid-column: 1 / -1; min-width: 0; }
+.zhuge-module-shell .template-runtime-observability-evidence dt { color: var(--zhuge-muted); font-size: .69rem; }
+.zhuge-module-shell .template-runtime-observability-evidence dd { margin: 2px 0 0; color: var(--zhuge-text); font-size: .77rem; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-runtime-observability-evidence ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; }
+
+/* The site map and summary project canonical evidence into a readable
+ * hierarchy. They do not own registry, release or health decisions. */
+.zhuge-module-shell .template-site-map,
+.zhuge-module-shell .template-site-summary {
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--zhuge-border);
+  border-radius: 10px;
+  background: var(--zhuge-surface-raised);
+}
+.zhuge-module-shell .template-site-map-heading,
+.zhuge-module-shell .template-site-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.zhuge-module-shell .template-site-map-heading h4,
+.zhuge-module-shell .template-site-summary-heading h4 { margin: 4px 0; color: var(--zhuge-text); }
+.zhuge-module-shell .template-site-map-heading p,
+.zhuge-module-shell .template-site-summary-heading p { margin: 0; color: var(--zhuge-muted); font-size: .76rem; }
+.zhuge-module-shell .template-site-map-state,
+.zhuge-module-shell .template-site-summary-state { color: var(--zhuge-muted); font-size: .76rem; white-space: nowrap; }
+.zhuge-module-shell .template-site-summary-state.is-unknown { color: #fbbf24; }
+.zhuge-module-shell .template-site-map-tree,
+.zhuge-module-shell .template-site-map-children { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.zhuge-module-shell .template-site-map-children { margin: 7px 0 0 14px; padding-left: 12px; border-left: 1px solid var(--zhuge-border); }
+.zhuge-module-shell .template-site-map-node-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 8px 9px; border: 1px solid var(--zhuge-border); border-radius: 8px; background: var(--zhuge-surface); }
+.zhuge-module-shell .template-site-map-node-label { display: grid; gap: 2px; min-width: 0; }
+.zhuge-module-shell .template-site-map-node-label strong { color: var(--zhuge-text); font-size: .8rem; }
+.zhuge-module-shell .template-site-map-node-label small { color: var(--zhuge-muted); font-size: .71rem; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-site-map-node-label code { color: var(--zhuge-muted); font-size: .64rem; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-site-map-node-status { flex: 0 0 auto; font-size: .68rem; font-weight: 800; }
+.zhuge-module-shell .template-site-map-node-status.is-healthy { color: var(--zhuge-success); }
+.zhuge-module-shell .template-site-map-node-status.is-fail { color: #f87171; }
+.zhuge-module-shell .template-site-map-node-status.is-partial { color: #fbbf24; }
+.zhuge-module-shell .template-site-map-node-status.is-na { color: var(--zhuge-muted); }
+.zhuge-module-shell .template-site-map-node-status.is-unknown { color: #fbbf24; }
+.zhuge-module-shell .template-site-map-node-unhealthy > .template-site-map-node-row { border-color: color-mix(in srgb, #f87171 28%, var(--zhuge-border)); }
+.zhuge-module-shell .template-site-map-node-unknown > .template-site-map-node-row { border-color: color-mix(in srgb, #fbbf24 24%, var(--zhuge-border)); }
+.zhuge-module-shell .template-site-summary-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.zhuge-module-shell .template-site-summary-item { min-width: 0; padding: 8px 9px; border: 1px solid var(--zhuge-border); border-radius: 8px; background: var(--zhuge-surface); }
+.zhuge-module-shell .template-site-summary-item dt { color: var(--zhuge-muted); font-size: .66rem; }
+.zhuge-module-shell .template-site-summary-item dd { margin: 3px 0 0; color: var(--zhuge-text); font-size: .9rem; font-weight: 800; overflow-wrap: anywhere; }
+.zhuge-module-shell .template-management-readonly { color: var(--zhuge-muted); font-size: .72rem; }
 
 @media (max-width: 767px) {
   .zhuge-module-shell .control-center-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -408,10 +437,8 @@
   .zhuge-module-shell .template-management-card-summary { grid-column: 2 / 3; justify-items: start; }
   .zhuge-module-shell .template-management-card-chevron { grid-column: 3; grid-row: 1 / span 2; }
   .zhuge-module-shell .template-management-table-head { display: none; }
-  .zhuge-module-shell .template-management-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; }
-  .zhuge-module-shell .template-management-row > span:nth-child(2),
-  .zhuge-module-shell .template-management-row > span:nth-child(3) { grid-column: 1 / 2; }
-  .zhuge-module-shell .template-management-row > span:nth-child(4) { grid-column: 2; grid-row: 1 / span 3; }
+  .zhuge-module-shell .template-management-row { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .zhuge-module-shell .template-management-row > span { grid-column: 1; }
   .zhuge-module-shell .template-runtime-observability-heading { display: grid; gap: 5px; }
   .zhuge-module-shell .template-runtime-observability-state { white-space: normal; }
   .zhuge-module-shell .template-runtime-observability-grid { grid-template-columns: 1fr; }
@@ -419,6 +446,11 @@
   .zhuge-module-shell .template-runtime-observability-card > summary { grid-template-columns: minmax(0, 1fr) 18px; }
   .zhuge-module-shell .template-runtime-observability-summary { grid-column: 1 / 2; justify-items: start; text-align: left; }
   .zhuge-module-shell .template-runtime-observability-chevron { grid-column: 2; grid-row: 1 / span 2; }
+  .zhuge-module-shell .template-site-map-heading,
+  .zhuge-module-shell .template-site-summary-heading { display: grid; gap: 5px; }
+  .zhuge-module-shell .template-site-map-state,
+  .zhuge-module-shell .template-site-summary-state { white-space: normal; }
+  .zhuge-module-shell .template-site-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Investment keeps its finance-specific content, but inherits the same
