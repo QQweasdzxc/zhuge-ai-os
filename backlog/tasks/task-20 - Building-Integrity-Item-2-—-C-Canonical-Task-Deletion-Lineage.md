@@ -1,10 +1,10 @@
 ---
 id: TASK-20
 title: Building Integrity Item 2 — C Canonical Task Deletion Lineage
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-15 04:03'
-updated_date: '2026-09-15 05:03'
+updated_date: '2026-09-15 05:04'
 labels: []
 dependencies: []
 priority: high
@@ -40,3 +40,9 @@ Implementation authorized by PM Option D; active product data and the 49 histori
 
 Validated 2026-09-15: authenticated WorkTodo QA task WLTK-051 (task 7261e2e8-02f3-46c4-bce7-1554c3034233) was created and deleted through the normal C runtime. Cloud read-back shows task absent, one immutable manifest (28b5d4ab-0f90-429d-a789-da2e90cc7d6f), one task_deleted activity (id 1699), exact board/consumer/workspace lineage, one checklist child captured then cascaded, zero remaining QA children, zero task_deleted events without a manifest, zero manifest/activity lineage mismatches, and zero child orphans. Existing board_tasks total returned to 125; the 49 pre-existing parentless activities were not modified. Reload showed WorkTodo normal and WLTK-051 absent. Targeted 6/6 pass; full suite 542 tests, 536 pass, 0 fail, 6 browser skips because no CHROME_PATH/CHROMIUM_PATH/BROWSER_EXECUTABLE.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented the canonical Module C task deletion lineage contract. board_instance_delete_task now atomically records an immutable private manifest and task_deleted snapshot with Board/consumer/workspace/task/child/idempotency evidence before existing hard-delete cascades; authenticated read-back is Board Instance scoped. Verified with authenticated QA task WLTK-051 and Cloud read-back: task absent, manifest/activity linked, checklist child captured and cascaded, unknown task_deleted lineage 0, child orphan counts 0, board_tasks restored to 125, and WorkTodo reload normal. Targeted 6/6 pass; full suite 542 tests, 536 pass, 0 fail, 6 browser skips due missing browser executable. No existing product cards or the 49 historical activities were modified.
+<!-- SECTION:FINAL_SUMMARY:END -->
