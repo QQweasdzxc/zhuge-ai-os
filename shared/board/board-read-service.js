@@ -2447,22 +2447,19 @@
   }
 
   async function provisionConsumer(input = {}, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    const args = {
-      p_name: String(input.name || "").trim(),
-      p_task_code_prefix: String(input.taskCodePrefix || input.prefix || "").trim(),
-      p_template_key: String(input.templateKey || "c").trim().toLowerCase()
-    };
-    const applicationScope = String(input.applicationScope || "").trim().toLowerCase();
-    if (applicationScope) args.p_application_scope = applicationScope;
-    return gateway.rpc("board_provision_consumer", args);
+    // The three-argument provisioning route is retained as a named historical
+    // surface, but it must never remain an application-writable authority.
+    // Current C creation uses the atomic, idempotent v2 contract below.
+    const error = new Error("Legacy C Consumer provisioning route is retired; use provisionCConsumer().");
+    error.code = "C_CONSUMER_PROVISION_LEGACY_RETIRED";
+    throw error;
   }
 
-  // Canonical C Consumer provisioning.  The legacy three-argument wrapper is
-  // intentionally retained for older callers, but new C creation must use the
-  // single-transaction v2 contract so Instance identity, data scope, release,
-  // workspaces, and the optional Instance-owned Workflow are provisioned by
-  // one Cloud authority.
+  // Canonical C Consumer provisioning. The named legacy wrapper above is
+  // retained only as an explicit fail-closed historical surface; new C
+  // creation must use the single-transaction v2 contract so Instance identity,
+  // data scope, release, workspaces, and the optional Instance-owned Workflow
+  // are provisioned by one Cloud authority.
   async function provisionCConsumer(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     const idempotencyKey = String(input.idempotencyKey || "").trim();

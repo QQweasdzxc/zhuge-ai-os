@@ -29,20 +29,26 @@ function navigationApi() {
   return window.ZhugeSharedNavigation;
 }
 
-test("Generic C provisioning is a single authenticated Cloud contract", async () => {
+test("Legacy generic C provisioning is fail-closed and never reaches Cloud", async () => {
   const calls = [];
   const gateway = {
     async rpc(name, args) {
       calls.push({ name, args });
-      return { board_instance_id: "qa-instance" };
+      throw new Error(`unexpected legacy RPC: ${name}`);
     }
   };
-  const result = await BoardReadService.provisionConsumer({ name: "QA Template Board", prefix: "QAT", templateKey: "c" }, { gateway });
-  assert.deepEqual(result, { board_instance_id: "qa-instance" });
-  assert.deepEqual(calls, [{
-    name: "board_provision_consumer",
-    args: { p_name: "QA Template Board", p_task_code_prefix: "QAT", p_template_key: "c" }
-  }]);
+  await assert.rejects(
+    () => BoardReadService.provisionConsumer({ name: "QA Template Board", prefix: "QAT", templateKey: "c" }, { gateway }),
+    error => error.code === "C_CONSUMER_PROVISION_LEGACY_RETIRED"
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("Legacy C provisioning ACL retirement preserves only controlled service access", () => {
+  const retirement = read("docs/supabase/20260915_retire_legacy_c_provisioning.sql");
+  assert.match(retirement, /revoke all on function public\.board_provision_consumer\(\s*text,\s*text,\s*text\s*\)\s+from public, anon, authenticated/i);
+  assert.match(retirement, /grant execute on function public\.board_provision_consumer\(\s*text,\s*text,\s*text\s*\)\s+to service_role/i);
+  assert.match(retirement, /historical|maintenance/i);
 });
 
 test("Generic C board registry only exposes active non-template C consumers", async () => {
