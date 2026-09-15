@@ -126,3 +126,17 @@ test("Investment lifecycle migration defines one baseline-aware calculation and 
   assert.match(sql, /revoke all on table public\.transactions/i);
   assert.match(sql, /drop view if exists public\.investment_current_positions_view/i);
 });
+
+test("Investment projection read hotfix preserves the single owner-scoped authority", () => {
+  const sql = fs.readFileSync(path.join(ROOT, "docs/supabase/20260915_investment_projection_authenticated_read_hotfix_v1.sql"), "utf8");
+  const functionSql = fs.readFileSync(path.join(ROOT, "docs/supabase/20260915_investment_transaction_lifecycle_v1.sql"), "utf8");
+
+  assert.match(sql, /alter function public\.investment_calculated_positions\(\)\s*security definer/i);
+  assert.match(sql, /set search_path\s*=\s*pg_catalog, public, auth, extensions, private, pg_temp/i);
+  assert.match(sql, /revoke all on function public\.investment_calculated_positions\(\) from public, anon, authenticated/i);
+  assert.match(sql, /grant execute on function public\.investment_calculated_positions\(\) to authenticated, service_role/i);
+  assert.match(functionSql, /if v_auth_user_id is null then/i);
+  assert.match(functionSql, /v_owner_id := private\.investment_current_owner_id\(\)/i);
+  assert.match(functionSql, /where position\.user_id = v_owner_id/i);
+  assert.match(functionSql, /where transaction\.user_id = v_owner_id/i);
+});
