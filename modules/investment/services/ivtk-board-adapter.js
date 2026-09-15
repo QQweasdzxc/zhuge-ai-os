@@ -32,6 +32,23 @@
     return position?.sourceKind === "broker_snapshot_item" ? "最新確認的券商快照" : "歷史期初持倉";
   }
 
+  // The Investment transaction page already owns the write flow and calls the
+  // canonical investment_record_transaction RPC.  This domain slot only
+  // exposes that existing entry point from the shared Card Drawer; it never
+  // adds a form, writer, or lifecycle decision to the shared C component.
+  const TRANSACTION_ENTRY_HREF = "../../../modules/investment/#transactions";
+
+  function transactionEntrySection(item, isWatchlist, escape) {
+    if (isWatchlist) return null;
+    const symbol = escape(item?.symbol || "此標的");
+    return {
+      id: "investment-transactions",
+      title: "💰 交易紀錄",
+      hint: "Investment Domain",
+      html: `<div class="investment-ivtk-drawer-domain-slot" data-investment-domain-slot="transactions" data-investment-transaction-rpc="investment_record_transaction"><p>查看 ${symbol} 的買入／賣出紀錄，或新增一筆交易。持股、成本與損益仍由 Investment Cloud canonical result 計算。</p><div class="investment-ivtk-drawer-domain-actions"><a class="investment-ivtk-drawer-domain-link" href="${TRANSACTION_ENTRY_HREF}" data-investment-open-transactions aria-label="查看 ${symbol} 交易紀錄">查看交易紀錄</a><a class="investment-ivtk-drawer-domain-link is-primary" href="${TRANSACTION_ENTRY_HREF}" data-investment-add-transaction aria-label="為 ${symbol} 新增交易">＋新增交易</a></div></div>`
+    };
+  }
+
   function renderPositionCard(position, link, task, dependencies = {}) {
     const escape = dependencies.escape || (value => String(value == null ? "" : value));
     const format = dependencies.format || {};
@@ -281,13 +298,17 @@
     const details = isWatchlist
       ? `<p>${escape(item?.reason || "尚未記錄觀察理由")}</p>`
       : `<dl class="investment-ivtk-drawer-data"><div><dt>代號</dt><dd>${escape(item?.symbol || "—")}</dd></div><div><dt>名稱</dt><dd>${escape(item?.name || "—")}</dd></div><div><dt>成本</dt><dd>${escape(typeof format.currency === "function" ? format.currency(item?.investedCost, item?.currency) : String(item?.investedCost ?? "—"))}</dd></div>${isHistory ? `<div><dt>已實現損益</dt><dd>${escape(typeof format.signed === "function" ? format.signed(item?.realizedPnl) : String(item?.realizedPnl ?? "—"))}</dd></div>` : ""}<div><dt>資料來源</dt><dd>${escape(item?.marketValueSource || sourceLabel(item))}</dd></div></dl>`;
+    const transactionSection = transactionEntrySection(item, isWatchlist, escape);
     const drawerOptions = {
       title,
       titleCode: task?.workCode || link?.boardTaskId || "IVTK",
       subtitle: isWatchlist ? "Investment · 觀察名單" : isHistory ? "Investment · 投資紀錄" : "Investment · Cloud Position",
       readOnly: true,
       properties,
-      sections: [{ id: "investment-data", title: "Investment 資料", hint: "Read-only · Cloud Source of Truth", html: details }],
+      sections: [
+        { id: "investment-data", title: "Investment 資料", hint: "Read-only · Cloud Source of Truth", html: details },
+        ...(transactionSection ? [transactionSection] : [])
+      ],
       activity: { title: "資料來源", hint: "只顯示正式 Investment Evidence", html: `<div class="shared-task-drawer-empty">${escape(isWatchlist ? "目前沒有觀察活動紀錄。" : "此卡片由 Investment Cloud Position 投影；不偽造交易紀錄。")}</div>` }
     };
     if (goldenMaster?.renderDrawer) {

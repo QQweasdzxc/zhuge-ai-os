@@ -92,6 +92,59 @@ test("IVTK adapter presents Investment data through shared Card and two approved
   assert.doesNotMatch(html, /QAT-001/);
 });
 
+test("IVTK position Drawer exposes the existing Investment transaction entry without owning the shared Drawer", () => {
+  const position = Position.normalize({
+    id: "opening-aapl",
+    source_kind: "opening_position",
+    source_id: "opening-aapl",
+    symbol: "AAPL",
+    name: "蘋果",
+    market: "US",
+    currency: "USD",
+    quantity: 1,
+    avg_cost: 324.07,
+    invested_cost: 324.07,
+    market_value: 0,
+    unrealized_pnl: 0,
+    unrealized_pct: 0
+  });
+  const html = Adapter.renderDrawer(
+    position,
+    { boardTaskId: "task-aapl", cardKind: "position" },
+    { id: "task-aapl", workCode: "IVTK-010" },
+    {
+      escape,
+      format,
+      drawer: {
+        render: options => `<div data-shared-task-drawer>${options.sections.map(section => `<section><h3>${section.title}</h3>${section.html}</section>`).join("")}</div>`
+      }
+    }
+  );
+
+  assert.match(html, /data-investment-domain-slot="transactions"/);
+  assert.match(html, /data-investment-transaction-rpc="investment_record_transaction"/);
+  assert.match(html, /💰 交易紀錄/);
+  assert.match(html, /＋新增交易/);
+  assert.match(html, /href="\.\.\/\.\.\/\.\.\/modules\/investment\/#transactions"/);
+});
+
+test("IVTK watchlist Drawer keeps transaction entry out of non-position cards", () => {
+  const html = Adapter.renderDrawer(
+    { kind: "watchlist", symbol: "AAPL", name: "蘋果", market: "US", reason: "觀察" },
+    { boardTaskId: "task-watchlist", cardKind: "watchlist" },
+    { id: "task-watchlist", workCode: "IVTK-W-001" },
+    {
+      escape,
+      format,
+      drawer: {
+        render: options => `<div data-shared-task-drawer>${options.sections.map(section => section.html).join("")}</div>`
+      }
+    }
+  );
+
+  assert.doesNotMatch(html, /data-investment-domain-slot="transactions"/);
+});
+
 test("IVTK migration keeps financial values out of board_tasks and documents the source precedence", () => {
   const file = path.join(__dirname, "../../docs/supabase/20260903_investment_ivtk_projection.sql");
   const sql = fs.readFileSync(file, "utf8");
