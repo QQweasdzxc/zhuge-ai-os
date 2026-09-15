@@ -8,6 +8,7 @@
   const labels = Object.freeze({
     overview: ["投資首頁", "⌂"],
     portfolio: ["投資組合", "▦"],
+    transactions: ["交易紀錄", "💰"],
     strategy: ["投資策略", "◇"],
     settings: ["偏好設定", "⚙"],
     import: ["截圖匯入", "▧"]

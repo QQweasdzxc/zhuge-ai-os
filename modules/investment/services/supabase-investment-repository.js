@@ -265,34 +265,69 @@
     async function loadPositions() {
       const portfolio = await loadPortfolio();
       const brokerSnapshot = await loadLatestBrokerSnapshot(portfolio.id);
+      const owner = await legacyUser();
+      let rows;
+      try {
+        rows = await data.select(
+          "investment_current_positions_view",
+          `select=source_kind,source_id,source_snapshot_id,user_id,portfolio_id,effective_at,symbol,name,market,asset_type,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,currency,account,source,market_value_source,raw_broker_values,note,realized_pnl,ever_held,position_status,baseline_at,calculation_source&user_id=eq.${encodeURIComponent(owner.id)}&portfolio_id=eq.${encodeURIComponent(portfolio.id)}&order=market.asc,symbol.asc,source_id.asc`
+        );
+      } catch (error) {
+        throw recordError(classifyDataError(error, { assuranceLevel: currentAssuranceLevel(), resource: "Investment Calculated Positions" }));
+      }
+      if (Array.isArray(rows) && rows.length) {
+        return rows.map(row => Models.Position.normalize({
+          ...row,
+          userId: authUserId,
+          portfolioId: row.portfolio_id
+        }));
+      }
+      // The snapshot path remains a validation/read-back compatibility guard
+      // for deployments while the canonical view is being rolled out.  Once
+      // the view has rows, it is the only current-position result consumed.
       if (brokerSnapshot) return brokerSnapshot.items;
-      const rows = await ownerSelect("opening_positions", "id,portfolio_id,symbol,name,market,asset_type,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,currency,account,note,updated_at", `&portfolio_id=eq.${encodeURIComponent(portfolio.id)}&order=market.asc,symbol.asc`);
-      return (rows || []).map(row => Models.Position.normalize({
-        ...row,
-        userId: authUserId,
-        portfolioId: row.portfolio_id,
-        sourceKind: "opening_position",
-        sourceId: row.id,
-        effectiveAt: row.updated_at,
-        source: row.source
-      }));
+      return [];
     }
 
-    // Keep one canonical current-position read path.  The repository's
-    // existing deterministic rule is latest PM-confirmed Broker Snapshot,
-    // otherwise legacy opening_positions; this alias makes the source
-    // explicit to the Investment module without duplicating a second query.
     async function loadCurrentPositions() {
       return loadPositions();
     }
 
     async function loadTransactions() {
-      const rows = await ownerSelect("transactions", "id,portfolio_id,trade_date,trade_type,symbol,name,market,quantity,price,net_amount,currency,note,updated_at", "&order=trade_date.desc,created_at.desc&limit=50");
+      const rows = await ownerSelect("transactions", "id,portfolio_id,trade_date,trade_type,symbol,name,market,quantity,price,gross_amount,fee,tax,net_amount,currency,account,source,note,idempotency_key,created_at,updated_at", "&order=trade_date.desc,created_at.desc,id.desc&limit=200");
       return (rows || []).map(row => Models.Transaction.normalize({
         ...row,
         userId: authUserId,
-        portfolioId: row.portfolio_id
+        portfolioId: row.portfolio_id,
+        idempotencyKey: row.idempotency_key
       }));
+    }
+
+    async function recordTransaction(input = {}) {
+      assertSession({ write: true });
+      if (!gateway || typeof gateway.rpc !== "function") {
+        throw recordError(investmentError("INVESTMENT_TRANSACTION_WRITE_UNAVAILABLE", "目前資料閘道不支援受控交易紀錄寫入。"));
+      }
+      const portfolio = await loadPortfolio();
+      const result = await gateway.rpc("investment_record_transaction", {
+        p_portfolio_id: input.portfolioId || portfolio.id,
+        p_trade_date: input.tradeDate,
+        p_trade_type: input.tradeType,
+        p_symbol: input.symbol,
+        p_name: input.name || null,
+        p_market: input.market,
+        p_quantity: input.quantity,
+        p_price: input.price,
+        p_fee: input.fee || 0,
+        p_tax: input.tax || 0,
+        p_currency: input.currency,
+        p_account: input.account || null,
+        p_note: input.note || null,
+        p_idempotency_key: input.idempotencyKey
+      });
+      const row = first(result) || (result && !Array.isArray(result) ? result : null);
+      if (!row?.transaction_id) throw recordError(investmentError("INVESTMENT_TRANSACTION_WRITE_INVALID", "交易紀錄寫入回傳格式無法驗證。", { resource: "Transaction Write" }));
+      return Object.freeze({ ...row });
     }
 
     async function loadWatchlist() {
@@ -474,6 +509,7 @@
       loadPositions,
       loadCurrentPositions,
       loadTransactions,
+      recordTransaction,
       loadWatchlist,
       loadStrategies,
       loadSettings,

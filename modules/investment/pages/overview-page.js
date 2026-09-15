@@ -22,7 +22,7 @@
     if (!groups.length) {
       return `<div class="investment-kpi-unavailable"><strong>尚無持倉資料</strong><small>目前沒有可供計算的 Cloud 持倉資料。</small></div>`;
     }
-    return `<div class="investment-kpi-amounts">${groups.map(([currency, group]) => `<span><b>${field === "pnl" ? currencyAmount(group[field], currency, format) : format.currency(group[field], currency)}</b>${includePercent ? `<small>${format.percent(group.roi)}</small>` : `<small>${currency}</small>`}</span>`).join("")}</div>`;
+    return `<div class="investment-kpi-amounts">${groups.map(([currency, group]) => `<span><b>${field === "pnl" || field === "realizedPnl" ? currencyAmount(group[field], currency, format) : format.currency(group[field], currency)}</b>${includePercent ? `<small>${format.percent(group.roi)}</small>` : `<small>${currency}</small>`}</span>`).join("")}</div>`;
   }
 
   function renderMetric(id, label, value, note, state = "available") {
@@ -70,6 +70,7 @@
 
   function renderImportantHoldings(state, dependencies) {
     const positions = (Array.isArray(state.positions) ? state.positions : [])
+      .filter(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0)
       .slice()
       .sort((left, right) => Math.abs(Number(right.unrealizedPnl || 0)) - Math.abs(Number(left.unrealizedPnl || 0)))
       .slice(0, 4);
@@ -87,9 +88,9 @@
     const { format, calculation, escape } = dependencies;
     const positions = Array.isArray(state.positions) ? state.positions : [];
     const summary = calculation.summarize(positions);
-    const hasPositions = positions.length > 0;
+    const hasPositions = positions.some(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0);
     const hasTotalReturn = Boolean(state.performance?.totalReturn && Array.isArray(state.performance.totalReturn.values) && state.performance.totalReturn.values.length);
-    const positionCount = hasPositions ? `${positions.length} 筆持倉已讀回` : "尚未讀回持倉";
+    const positionCount = hasPositions ? `${summary.assetCount} 筆持倉已讀回` : "尚未讀回持倉";
     return `<section class="investment-command-center" data-investment-command-center data-investment-readonly="true">
       <div class="investment-page-heading"><div><p class="investment-eyebrow">Investment Command Center</p><h1>投資首頁</h1><p>先看今天值得注意的事，再看投資狀況與持股變化。</p></div><div class="investment-command-heading-actions"><span class="investment-pill">資料來源：Investment Cloud（唯讀）</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
 
@@ -101,7 +102,8 @@
       <section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 投資核心 KPI</p><h2>我現在的投資狀況如何？</h2><p>${positionCount}；不跨幣別硬湊單一數字。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
         ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format), "依目前已讀回的持倉成本計算。", hasPositions ? "available" : "unavailable")}
         ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format), "依目前已讀回的持倉市值計算。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("unrealized-pnl", "未實現損益", currencyValues(summary, "pnl", format, true), "依 Cloud 持倉的 unrealized_pnl 計算。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("unrealized-pnl", "我的損益／未實現損益", currencyValues(summary, "pnl", format, true), "依唯一 Investment Current Position calculation result 計算。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("realized-pnl", "已實現損益", currencyValues(summary, "realizedPnl", format), "依交易紀錄與移動加權平均成本法計算；不倒推 Opening Baseline 以前的歷史交易。", positions.length ? "available" : "unavailable")}
         ${renderMetric("total-return", "總報酬", renderTotalReturn(state, escape), "目前不具備完整已實現損益與股利 Contract。", hasTotalReturn ? "available" : "unavailable")}
       </div></section>
 

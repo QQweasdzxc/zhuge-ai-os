@@ -23,11 +23,12 @@
 
   function activeWorkspaces(board = {}) {
     return (Array.isArray(board.workspaces) ? board.workspaces : [])
-      .filter(workspace => workspace?.active !== false && ["ivtk-stocks", "ivtk-watchlist"].includes(String(workspace.key || "")))
+      .filter(workspace => workspace?.active !== false && ["ivtk-stocks", "ivtk-history", "ivtk-watchlist"].includes(String(workspace.key || "")))
       .sort((left, right) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0));
   }
 
   function sourceLabel(position) {
+    if (position?.positionStatus === "history") return "Investment Transaction Ledger · 已平倉持倉";
     return position?.sourceKind === "broker_snapshot_item" ? "最新確認的券商快照" : "歷史期初持倉";
   }
 
@@ -38,16 +39,22 @@
     const signed = value => String(typeof format.signed === "function" ? format.signed(value) : (value ?? "—"));
     const percent = value => String(typeof format.percent === "function" ? format.percent(value) : (value ?? "—"));
     const currency = (value, code) => String(typeof format.currency === "function" ? format.currency(value, code) : `${code || ""} ${value ?? "—"}`);
-    const trend = Number(position?.unrealizedPnl || 0) >= 0 ? "gain" : "loss";
+    const isHistory = position?.positionStatus === "history";
+    const performanceValue = isHistory ? position?.realizedPnl : position?.unrealizedPnl;
+    const trend = Number(performanceValue || 0) >= 0 ? "gain" : "loss";
     const code = task?.workCode || "";
     const symbol = position?.symbol || "未命名標的";
     const name = position?.name || "未命名標的";
     const taskId = link?.boardTaskId || task?.id || "";
     const marketValueSource = position?.marketValueSource || sourceLabel(position);
     const quantity = number(position.quantity).replace(/\.00$/, "");
-    const pnl = `${signed(position.unrealizedPnl)} / ${percent(position.unrealizedPercent)}`;
-    const summary = `${escape(quantity)} 股 · 成本 ${escape(currency(position.investedCost, position.currency))} · 市值 ${escape(currency(position.marketValue, position.currency))}`;
-    const body = `<div class="investment-ivtk-card-data-slot" data-investment-data-slot="position" aria-label="成本 ${escape(currency(position.investedCost, position.currency))}；均價 ${escape(number(position.averageCost))}"><span>成本 ${escape(currency(position.investedCost, position.currency))}</span><span>均價 ${escape(number(position.averageCost))}</span></div>`;
+    const pnl = isHistory
+      ? `已實現 ${signed(position.realizedPnl)}`
+      : `${signed(position.unrealizedPnl)} / ${percent(position.unrealizedPercent)}`;
+    const summary = isHistory
+      ? `已平倉 · 已實現 ${escape(currency(position.realizedPnl, position.currency))}`
+      : `${escape(quantity)} 股 · 成本 ${escape(currency(position.investedCost, position.currency))} · 市值 ${escape(currency(position.marketValue, position.currency))}`;
+    const body = `<div class="investment-ivtk-card-data-slot" data-investment-data-slot="position" aria-label="成本 ${escape(currency(position.investedCost, position.currency))}；均價 ${escape(number(position.averageCost))}"><span>${isHistory ? "歷史持倉" : `成本 ${escape(currency(position.investedCost, position.currency))}`}</span><span>均價 ${escape(number(position.averageCost))}</span>${isHistory ? `<span>已實現 ${escape(currency(position.realizedPnl, position.currency))}</span>` : ""}</div>`;
     const indicator = `<span class="investment-ivtk-card-indicator ${trend}" data-investment-performance="${trend}" title="${escape(pnl)}">${escape(pnl)}</span>`;
     const card = rootCard({
       // These are the canonical C Card classes. Investment only adds the
@@ -65,9 +72,10 @@
         "data-investment-source-id": position.sourceId,
         "data-investment-card": "position",
         "data-investment-source-label": marketValueSource,
+        "data-investment-position-status": position.positionStatus || "current",
         tabindex: "0",
         role: "button",
-        "aria-label": `${symbol} ${name}，${quantity} 股，${pnl}`
+        "aria-label": `${symbol} ${name}，${isHistory ? "已平倉" : `${quantity} 股`}，${pnl}`
       }
     }, dependencies);
     return card;
@@ -113,9 +121,12 @@
     const links = linkMap(board);
     const tasks = taskMap(board);
     const cards = [];
-    if (workspace.key === "ivtk-stocks") {
+    if (workspace.key === "ivtk-stocks" || workspace.key === "ivtk-history") {
       positions
         .slice()
+        .filter(position => workspace.key === "ivtk-history"
+          ? position.positionStatus === "history"
+          : position.positionStatus !== "history" && Number(position.quantity || 0) > 0)
         .sort((left, right) => `${left.market}:${left.symbol}`.localeCompare(`${right.market}:${right.symbol}`))
         .forEach(position => {
           const kind = position.sourceKind || "opening_position";
@@ -137,7 +148,11 @@
     const cardsHtml = cards.map(card => card.kind === "position"
       ? renderPositionCard(card.position, card.link, card.task, dependencies)
       : renderWatchlistCard(card.item, card.link, card.task, dependencies)).join("");
-    const expectedCount = workspace.key === "ivtk-stocks" ? positions.length : watchlist.length;
+    const expectedCount = workspace.key === "ivtk-stocks"
+      ? positions.filter(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0).length
+      : workspace.key === "ivtk-history"
+        ? positions.filter(position => position.positionStatus === "history").length
+        : watchlist.length;
     const pendingCount = Math.max(0, expectedCount - cards.length);
     const pendingHtml = pendingCount
       ? `<p class="investment-ivtk-pending-note">${pendingCount} 筆 Investment 資料尚在等待 IVTK 關聯同步。</p>`
@@ -150,7 +165,11 @@
       count: cards.length,
       cards,
       cardsHtml: `${cardsHtml}${pendingHtml}`,
-      emptyText: workspace.key === "ivtk-stocks" ? "目前沒有可投影的正式持倉。" : "目前沒有正式觀察標的。",
+      emptyText: workspace.key === "ivtk-stocks"
+        ? "目前沒有可投影的正式持倉。"
+        : workspace.key === "ivtk-history"
+          ? "目前沒有已平倉的投資紀錄。"
+          : "目前沒有正式觀察標的。",
       // Workspace geometry and controls remain C-owned. A projection is
       // intentionally read-only, so the shared Board receives no domain
       // create/reorder controls and the binder rejects drag operations.
@@ -191,6 +210,7 @@
       : `<div class="shared-capability-unavailable" data-shared-capability="c-board" role="status"><strong>模組 C 看板尚未載入</strong><span>Investment 不會建立另一套看板呈現。</span></div>`;
     const projectionDetail = [
       Number.isFinite(Number(projection.position_count)) ? `持倉 ${projection.position_count}` : "",
+      Number.isFinite(Number(projection.history_count)) ? `紀錄 ${projection.history_count}` : "",
       Number.isFinite(Number(projection.watchlist_count)) ? `觀察 ${projection.watchlist_count}` : ""
     ].filter(Boolean).join(" · ");
     const goldenMaster = boardRenderer;
@@ -239,6 +259,7 @@
     const escape = dependencies.escape || (value => String(value == null ? "" : value));
     const format = dependencies.format || {};
     const isWatchlist = link?.cardKind === "watchlist" || item?.sourceKind === "watchlist";
+    const isHistory = !isWatchlist && (link?.cardKind === "history" || item?.positionStatus === "history");
     const title = item?.symbol || item?.name || (isWatchlist ? "觀察標的" : "投資標的");
     const properties = isWatchlist
       ? [
@@ -249,17 +270,21 @@
       : [
         { key: "quantity", icon: "#", label: "持有數量", value: String(item?.quantity ?? "—") },
         { key: "average-cost", icon: "≈", label: "平均成本", value: typeof format.currency === "function" ? format.currency(item?.averageCost, item?.currency) : String(item?.averageCost ?? "—") },
-        { key: "market-value", icon: "▣", label: "目前市值", value: typeof format.currency === "function" ? format.currency(item?.marketValue, item?.currency) : String(item?.marketValue ?? "—") },
-        { key: "unrealized-pnl", icon: "↕", label: "未實現損益", value: typeof format.signed === "function" ? format.signed(item?.unrealizedPnl) : String(item?.unrealizedPnl ?? "—") },
-        { key: "return-rate", icon: "%", label: "報酬率", value: typeof format.percent === "function" ? format.percent(item?.unrealizedPercent) : String(item?.unrealizedPercent ?? "—") }
+        ...(isHistory ? [
+          { key: "realized-pnl", icon: "↕", label: "已實現損益", value: typeof format.signed === "function" ? format.signed(item?.realizedPnl) : String(item?.realizedPnl ?? "—") }
+        ] : [
+          { key: "market-value", icon: "▣", label: "目前市值", value: typeof format.currency === "function" ? format.currency(item?.marketValue, item?.currency) : String(item?.marketValue ?? "—") },
+          { key: "unrealized-pnl", icon: "↕", label: "未實現損益", value: typeof format.signed === "function" ? format.signed(item?.unrealizedPnl) : String(item?.unrealizedPnl ?? "—") },
+          { key: "return-rate", icon: "%", label: "報酬率", value: typeof format.percent === "function" ? format.percent(item?.unrealizedPercent) : String(item?.unrealizedPercent ?? "—") }
+        ])
       ];
     const details = isWatchlist
       ? `<p>${escape(item?.reason || "尚未記錄觀察理由")}</p>`
-      : `<dl class="investment-ivtk-drawer-data"><div><dt>代號</dt><dd>${escape(item?.symbol || "—")}</dd></div><div><dt>名稱</dt><dd>${escape(item?.name || "—")}</dd></div><div><dt>成本</dt><dd>${escape(typeof format.currency === "function" ? format.currency(item?.investedCost, item?.currency) : String(item?.investedCost ?? "—"))}</dd></div><div><dt>券商市值語意</dt><dd>${escape(item?.marketValueSource || sourceLabel(item))}</dd></div></dl>`;
+      : `<dl class="investment-ivtk-drawer-data"><div><dt>代號</dt><dd>${escape(item?.symbol || "—")}</dd></div><div><dt>名稱</dt><dd>${escape(item?.name || "—")}</dd></div><div><dt>成本</dt><dd>${escape(typeof format.currency === "function" ? format.currency(item?.investedCost, item?.currency) : String(item?.investedCost ?? "—"))}</dd></div>${isHistory ? `<div><dt>已實現損益</dt><dd>${escape(typeof format.signed === "function" ? format.signed(item?.realizedPnl) : String(item?.realizedPnl ?? "—"))}</dd></div>` : ""}<div><dt>資料來源</dt><dd>${escape(item?.marketValueSource || sourceLabel(item))}</dd></div></dl>`;
     const drawerOptions = {
       title,
       titleCode: task?.workCode || link?.boardTaskId || "IVTK",
-      subtitle: isWatchlist ? "Investment · 觀察名單" : "Investment · Cloud Position",
+      subtitle: isWatchlist ? "Investment · 觀察名單" : isHistory ? "Investment · 投資紀錄" : "Investment · Cloud Position",
       readOnly: true,
       properties,
       sections: [{ id: "investment-data", title: "Investment 資料", hint: "Read-only · Cloud Source of Truth", html: details }],

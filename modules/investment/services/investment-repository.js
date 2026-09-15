@@ -9,6 +9,7 @@
     "loadPortfolio",
     "loadPositions",
     "loadTransactions",
+    "recordTransaction",
     "loadWatchlist",
     "loadStrategies",
     "loadSettings"

@@ -46,6 +46,10 @@ function investmentDataGateway() {
       { id: "tw-1", portfolio_id: "portfolio-1", symbol: "2330", name: "台積電", market: "TW", asset_type: "stock", quantity: 10, avg_cost: 900, invested_cost: 9000, last_price: 950, market_value: 9500, unrealized_pnl: 500, unrealized_pct: 5.56, currency: "TWD" },
       { id: "us-1", portfolio_id: "portfolio-1", symbol: "MSFT", name: "Microsoft", market: "US", asset_type: "stock", quantity: 2, avg_cost: 400, invested_cost: 800, last_price: 420, market_value: 840, unrealized_pnl: 40, unrealized_pct: 5, currency: "USD" }
     ],
+    investment_current_positions_view: [
+      { source_kind: "opening_position", source_id: "tw-1", portfolio_id: "portfolio-1", symbol: "2330", name: "台積電", market: "TW", asset_type: "stock", quantity: 10, avg_cost: 900, invested_cost: 9000, last_price: 950, market_value: 9500, unrealized_pnl: 500, unrealized_pct: 5.56, currency: "TWD", position_status: "current", ever_held: true, realized_pnl: 0 },
+      { source_kind: "opening_position", source_id: "us-1", portfolio_id: "portfolio-1", symbol: "MSFT", name: "Microsoft", market: "US", asset_type: "stock", quantity: 2, avg_cost: 400, invested_cost: 800, last_price: 420, market_value: 840, unrealized_pnl: 40, unrealized_pct: 5, currency: "USD", position_status: "current", ever_held: true, realized_pnl: 0 }
+    ],
     transactions: [{ id: "transaction-1", portfolio_id: "portfolio-1", trade_date: "2026-08-01", trade_type: "BUY", symbol: "2330", name: "台積電", market: "TW", quantity: 10, price: 900, net_amount: 9000, currency: "TWD" }],
     watchlists: [{ id: "watch-1", portfolio_id: "portfolio-1", symbol: "0050", name: "元大台灣50", market: "TW", status: "觀察", research_theme: "大型權值", reason: "長期配置", importance: 1 }],
     strategies: [{ id: "strategy-1", portfolio_id: "portfolio-1", symbol: "2330", name: "台積電", strategy_type: "分批布局", decision_status: "觀察", target_price: 1000, support_price: 900, pressure_price: 980, strategist_note: "等待合理價格" }],
@@ -131,7 +135,7 @@ test("Portfolio calculation keeps TWD and USD totals independent", async () => {
 });
 
 test("Investment exposes the required SIT pages and standard folders", () => {
-  assert.deepEqual(Config.pages, ["overview", "portfolio", "strategy", "settings", "import"]);
+  assert.deepEqual(Config.pages, ["overview", "portfolio", "transactions", "strategy", "settings", "import"]);
   for (const folder of ["pages", "components", "services", "models", "store", "config", "assets", "utils"]) {
     assert.equal(fs.statSync(path.join(ROOT, "modules", "investment", folder)).isDirectory(), true);
   }
@@ -177,8 +181,8 @@ test("Investment UI is Traditional Chinese and no longer exposes engineering or 
     assert.equal(uiSources.includes(forbidden), false);
   }
   assert.equal(uiSources.includes("AAL1"), false);
-  assert.equal(uiSources.includes("AAL2"), false);
-  for (const expected of ["投資首頁", "投資組合", "投資策略", "偏好設定", "解鎖投資模組"]) {
+  assert.equal(uiSources.includes("AAL2 保護"), false);
+  for (const expected of ["投資首頁", "投資組合", "交易紀錄", "投資策略", "偏好設定", "解鎖投資模組"]) {
     assert.equal(uiSources.includes(expected), true);
   }
   assert.equal(uiSources.includes("觀察清單｜追蹤關注中的市場標的"), false);

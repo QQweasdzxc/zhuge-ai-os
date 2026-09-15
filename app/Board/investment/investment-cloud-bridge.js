@@ -75,7 +75,7 @@
     if (!state.rows.length || !state.links.length) return;
     const bySource = new Map(state.rows.map(row => [sourceKey(row.source_kind, row.source_id), row]));
     state.links.forEach(link => {
-      if (link.active === false || link.card_kind !== "position") return;
+      if (link.active === false || !["position", "history"].includes(link.card_kind)) return;
       const row = bySource.get(sourceKey(link.source_kind, link.source_id));
       if (!row) return;
       const card = document.querySelector(`[data-shared-task-board-card-id="${CSS.escape(String(link.board_task_id))}"]`);
@@ -90,7 +90,9 @@
         summary.className = "shared-task-card-summary";
         title?.insertAdjacentElement("afterend", summary);
       }
-      summary.textContent = `${num(row.quantity, 3)} 股 · 成本 ${money(row.invested_cost, row.currency)} · 市值 ${money(row.market_value, row.currency)}`;
+      summary.textContent = row.position_status === "history"
+        ? `已平倉 · 已實現 ${signedMoney(row.realized_pnl, row.currency)}`
+        : `${num(row.quantity, 3)} 股 · 成本 ${money(row.invested_cost, row.currency)} · 市值 ${money(row.market_value, row.currency)}`;
       let badge = card.querySelector("[data-investment-cloud-pnl]");
       if (!badge) {
         badge = document.createElement("span");
@@ -99,9 +101,12 @@
         const side = card.querySelector(".shared-task-card-header-side") || card.querySelector(".shared-task-card-header");
         side?.appendChild(badge);
       }
-      badge.dataset.trend = Number(row.unrealized_pnl || 0) >= 0 ? "gain" : "loss";
-      badge.textContent = `${signedMoney(row.unrealized_pnl, row.currency)} / ${signedPct(row.unrealized_pct)}`;
-      card.setAttribute("aria-label", `${row.symbol || ""} ${row.name || ""}，${num(row.quantity, 3)} 股，未實現損益 ${signedMoney(row.unrealized_pnl, row.currency)} ${signedPct(row.unrealized_pct)}`);
+      const performance = row.position_status === "history" ? row.realized_pnl : row.unrealized_pnl;
+      badge.dataset.trend = Number(performance || 0) >= 0 ? "gain" : "loss";
+      badge.textContent = row.position_status === "history"
+        ? `已實現 ${signedMoney(row.realized_pnl, row.currency)}`
+        : `${signedMoney(row.unrealized_pnl, row.currency)} / ${signedPct(row.unrealized_pct)}`;
+      card.setAttribute("aria-label", `${row.symbol || ""} ${row.name || ""}，${row.position_status === "history" ? "已平倉" : `${num(row.quantity, 3)} 股`}，${row.position_status === "history" ? "已實現損益" : "未實現損益"} ${signedMoney(performance, row.currency)}`);
     });
   }
 
@@ -111,7 +116,7 @@
     try {
       await syncProjection(gateway);
       const [rows, links] = await Promise.all([
-        gateway.select("investment_current_positions_view", "?select=source_kind,source_id,portfolio_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,effective_at&order=market.asc,symbol.asc"),
+        gateway.select("investment_current_positions_view", "?select=source_kind,source_id,portfolio_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,realized_pnl,ever_held,position_status,effective_at&order=market.asc,symbol.asc,source_id.asc"),
         gateway.select("investment_ivtk_card_links", "?select=board_task_id,source_kind,source_id,card_kind,active&active=eq.true&order=created_at.asc")
       ]);
       state.rows = Array.isArray(rows) ? rows : [];

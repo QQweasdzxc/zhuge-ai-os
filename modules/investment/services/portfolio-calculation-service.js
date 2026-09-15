@@ -10,18 +10,23 @@
 
   function summarize(positions = []) {
     const normalized = Array.isArray(positions) ? positions : [];
-    const tw = normalized.filter(position => position.currency === "TWD");
-    const us = normalized.filter(position => position.currency === "USD");
+    const current = normalized.filter(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0);
+    const tw = current.filter(position => position.currency === "TWD");
+    const us = current.filter(position => position.currency === "USD");
+    const twAll = normalized.filter(position => position.currency === "TWD");
+    const usAll = normalized.filter(position => position.currency === "USD");
     const summarizeCurrency = items => {
       const cost = total(items, "investedCost");
       const value = total(items, "marketValue");
       const pnl = total(items, "unrealizedPnl");
-      return Object.freeze({ count: items.length, cost, value, pnl, roi: cost ? pnl / cost * 100 : 0 });
+      return Object.freeze({ count: items.length, cost, value, pnl, realizedPnl: 0, roi: cost ? pnl / cost * 100 : 0 });
     };
+    const withRealized = (group, all) => Object.freeze({ ...group, realizedPnl: total(all, "realizedPnl") });
     return Object.freeze({
-      assetCount: normalized.length,
-      tw: summarizeCurrency(tw),
-      us: summarizeCurrency(us)
+      assetCount: current.length,
+      tw: withRealized(summarizeCurrency(tw), twAll),
+      us: withRealized(summarizeCurrency(us), usAll),
+      historicalAssetCount: normalized.filter(position => position.positionStatus === "history").length
     });
   }
 

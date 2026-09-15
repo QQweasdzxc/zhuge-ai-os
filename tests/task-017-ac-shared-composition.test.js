@@ -45,7 +45,7 @@ test("Investment keeps one portfolio C view and consolidates Watchlist as a work
   const entry = read("modules/investment/index.html");
   const adapter = read("modules/investment/services/ivtk-board-adapter.js");
 
-  assert.match(config, /pages: Object\.freeze\(\["overview", "portfolio", "strategy", "settings", "import"\]\)/);
+  assert.match(config, /pages: Object\.freeze\(\["overview", "portfolio", "transactions", "strategy", "settings", "import"\]\)/);
   assert.doesNotMatch(shell, /watchlist:/);
   assert.doesNotMatch(moduleSource, /InvestmentWatchlistPage/);
   assert.match(moduleSource, /page === "watchlist" \? "portfolio" : page/);

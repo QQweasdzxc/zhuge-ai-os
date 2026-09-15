@@ -4,6 +4,7 @@
   const pageRegistry = Object.freeze({
     overview: global.InvestmentOverviewPage,
     portfolio: global.InvestmentPortfolioPage,
+    transactions: global.InvestmentTransactionsPage,
     strategy: global.InvestmentStrategyPage,
     settings: global.InvestmentSettingsPage,
     import: global.InvestmentScreenshotImportPage
@@ -52,6 +53,15 @@
       source: String(formData.get("source") || "").trim(),
       idempotencyKey: String(formData.get("idempotencyKey") || "").trim()
     });
+  }
+
+  function transactionWriteFormValues(formOrValues) {
+    const keys = ["tradeType", "tradeDate", "market", "currency", "symbol", "name", "quantity", "price", "fee", "tax", "note", "idempotencyKey"];
+    if (formOrValues && typeof formOrValues === "object" && keys.some(key => key in formOrValues)) {
+      return Object.freeze(Object.fromEntries(keys.map(key => [key, String(formOrValues[key] ?? "").trim()])));
+    }
+    const formData = new FormData(formOrValues);
+    return Object.freeze(Object.fromEntries(keys.map(key => [key, String(formData.get(key) || "").trim()])));
   }
 
   function taipeiTimestamp(value) {
@@ -311,6 +321,7 @@
         portfolio: "投資組合｜查看目前持倉、成本與損益",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
         settings: "偏好設定｜管理投資模組的顯示與計算偏好",
+        transactions: "交易紀錄｜以受控交易 Contract 計算持股與成本",
         import: "截圖匯入｜辨識、Reconciliation 與受控 Snapshot"
       };
       const release = global.ZhugeFoundationConfig?.version || {};
@@ -330,6 +341,7 @@
       revokePreviewUrl: url => typeof global.URL?.revokeObjectURL === "function" ? global.URL.revokeObjectURL(url) : undefined
     });
     let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
+    let transactionWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
     let lastRenderedPageMarkup = "";
 
     function resetSnapshotWrite() {
@@ -383,7 +395,9 @@
         importSession: importSnapshot,
         reconciliation: dependencies.importEngine.reconcile(state.positions, recognizedRows, { scope }),
         snapshotWrite,
-        onSnapshotWrite: writeBrokerSnapshot
+        onSnapshotWrite: writeBrokerSnapshot,
+        transactionWrite,
+        onTransactionWrite: writeTransaction
       };
       const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
@@ -406,6 +420,122 @@
         button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
         button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
       });
+    }
+
+    async function beginTransactionWriteStepUp(formValues) {
+      transactionWrite = Object.freeze({
+        status: "step-up-required",
+        form: formValues,
+        result: null,
+        error: "",
+        stepUp: Object.freeze({ status: "preparing", mode: "preparing", error: "" })
+      });
+      renderPage();
+      try {
+        const prepared = await context.security.prepareUnlock();
+        transactionWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "ready", error: "", ...prepared })
+        });
+      } catch (error) {
+        transactionWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法準備安全驗證。" })
+        });
+      }
+      renderPage();
+    }
+
+    async function enrollTransactionWriteTotp() {
+      const formValues = transactionWrite.form || Object.freeze({});
+      transactionWrite = Object.freeze({
+        ...transactionWrite,
+        status: "step-up-required",
+        stepUp: Object.freeze({ ...(transactionWrite.stepUp || {}), status: "enrolling", error: "" })
+      });
+      renderPage();
+      try {
+        const enrolled = await context.security.enrollTotp();
+        transactionWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "ready", error: "", ...enrolled })
+        });
+      } catch (error) {
+        transactionWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法設定安全驗證。" })
+        });
+      }
+      renderPage();
+    }
+
+    async function verifyTransactionWrite(form) {
+      const formValues = transactionWrite.form || Object.freeze({});
+      const formData = new FormData(form);
+      const previousStepUp = transactionWrite.stepUp || {};
+      transactionWrite = Object.freeze({
+        ...transactionWrite,
+        status: "step-up-required",
+        stepUp: Object.freeze({ ...previousStepUp, status: "verifying", error: "" })
+      });
+      renderPage();
+      try {
+        await context.security.verifyUnlock({ moduleId: "investment-sensitive-write", factorId: formData.get("factorId"), code: formData.get("code") });
+        if (!currentSessionHasAal2()) throw snapshotWriteError("INVESTMENT_ASSURANCE_REQUIRED", "安全驗證尚未完成，請再試一次。");
+        await writeTransaction(formValues, { skipStepUp: true });
+      } catch (error) {
+        transactionWrite = Object.freeze({
+          status: "step-up-required",
+          form: formValues,
+          result: null,
+          error: "",
+          stepUp: Object.freeze({ ...previousStepUp, status: "ready", error: error?.message || "驗證碼不正確，請重新輸入。" })
+        });
+        renderPage();
+        root.querySelector('[data-investment-transaction-step-up] input[name="code"]')?.focus();
+      }
+    }
+
+    async function writeTransaction(formOrValues, { skipStepUp = false } = {}) {
+      const formValues = transactionWriteFormValues(formOrValues);
+      const quantity = Number(formValues.quantity);
+      const price = Number(formValues.price);
+      const fee = Number(formValues.fee || 0);
+      const tax = Number(formValues.tax || 0);
+      if (!formValues.tradeDate || !formValues.symbol || !formValues.market || !formValues.currency || !formValues.idempotencyKey || formValues.idempotencyKey.length < 8 || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price < 0 || !Number.isFinite(fee) || fee < 0 || !Number.isFinite(tax) || tax < 0) {
+        transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: "請完整填寫交易日期、代號、數量、單價、費用與至少 8 碼 Idempotency Key。", stepUp: null });
+        renderPage();
+        return;
+      }
+      if (!skipStepUp && sensitiveWriteRequiresStepUp() && !currentSessionHasAal2()) {
+        await beginTransactionWriteStepUp(formValues);
+        return;
+      }
+      transactionWrite = Object.freeze({ status: "submitting", form: formValues, result: null, error: "", stepUp: null });
+      renderPage();
+      try {
+        const result = await repository.recordTransaction({ ...formValues, quantity, price, fee, tax });
+        const rows = await repository.loadTransactions();
+        const readBack = rows.find(row => row.id === result.transaction_id || row.idempotencyKey === formValues.idempotencyKey);
+        if (!readBack) throw snapshotWriteError("INVESTMENT_TRANSACTION_READBACK_FAILED", "交易紀錄寫入後無法由 Cloud Read-back 驗證。");
+        transactionWrite = Object.freeze({ status: "success", form: formValues, result: Object.freeze({ ...result, readBack }), error: "", stepUp: null });
+        await load();
+      } catch (error) {
+        transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
+        renderPage();
+      }
     }
 
     async function beginSensitiveWriteStepUp(formValues) {
@@ -692,6 +822,14 @@
         beginSensitiveWriteStepUp(snapshotWrite.form || Object.freeze({})).catch(handleError);
         return;
       }
+      if (event.target.closest("[data-investment-transaction-write-enroll]")) {
+        enrollTransactionWriteTotp().catch(handleError);
+        return;
+      }
+      if (event.target.closest("[data-investment-transaction-write-retry]")) {
+        beginTransactionWriteStepUp(transactionWrite.form || Object.freeze({})).catch(handleError);
+        return;
+      }
       const importAction = event.target.closest("[data-investment-import-action]");
       if (!importAction) return;
       const action = importAction.dataset.investmentImportAction;
@@ -739,10 +877,22 @@
         verifySensitiveWrite(sensitiveWriteStepUpForm).catch(handleError);
         return;
       }
+      const transactionStepUpForm = event.target.closest("[data-investment-transaction-step-up]");
+      if (transactionStepUpForm) {
+        event.preventDefault();
+        verifyTransactionWrite(transactionStepUpForm).catch(handleError);
+        return;
+      }
       const snapshotForm = event.target.closest("[data-investment-snapshot-write-form]");
       if (snapshotForm) {
         event.preventDefault();
         writeBrokerSnapshot(snapshotForm).catch(handleError);
+        return;
+      }
+      const transactionForm = event.target.closest("[data-investment-transaction-form]");
+      if (transactionForm) {
+        event.preventDefault();
+        writeTransaction(transactionForm).catch(handleError);
         return;
       }
       const form = event.target.closest("[data-investment-import-edit]");
