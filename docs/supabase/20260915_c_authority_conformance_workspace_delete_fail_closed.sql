@@ -200,6 +200,7 @@ declare
     'board_save_workspace_notification_settings',
     'board_transition_task',
     'board_update_checklist_item',
+    'board_update_task_checklist_item',
     'board_update_task_content',
     'board_update_task_due_date',
     'board_update_task_title',
@@ -1008,17 +1009,11 @@ begin
      )
    );
 
-  select count(*)
-    into v_attachment_orphan_count
-    from public.board_task_attachments attachment
-    join public.board_tasks task on task.id = attachment.task_id
-   where task.board_instance_id = p_board_instance_id;
-
-  select count(*)
-    into v_checklist_orphan_count
-    from public.board_task_checklist_items checklist
-    join public.board_tasks task on task.id = checklist.task_id
-   where task.board_instance_id = p_board_instance_id;
+  -- Child rows inherit Board Instance scope from their parent task.  A linked
+  -- child is not an orphan; only the global unscoped checks below represent a
+  -- missing parent and therefore remain explicit unknown evidence.
+  v_attachment_orphan_count := 0;
+  v_checklist_orphan_count := 0;
 
   -- A child row without a task cannot be attributed to one Consumer.  Keep it
   -- as an explicit unknown evidence item instead of making every instance
@@ -1058,9 +1053,7 @@ begin
     + v_task_workflow_scope_errors
     + v_task_step_scope_errors
     + v_vendor_scope_errors
-    + v_notification_scope_errors
-    + v_attachment_orphan_count
-    + v_checklist_orphan_count;
+    + v_notification_scope_errors;
   v_data_isolation_status := case
     when v_data_scope_errors > 0 then 'fail'
     when v_historical_activity_unknown_count > 0

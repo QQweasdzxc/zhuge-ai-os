@@ -8,6 +8,10 @@ const checker = fs.readFileSync(
   path.join(ROOT, "docs/supabase/20260915_c_authority_conformance_workspace_delete_fail_closed.sql"),
   "utf8"
 );
+const checkerGap2Migration = fs.readFileSync(
+  path.join(ROOT, "docs/supabase/20260915_c_authority_conformance_checker_gap2.sql"),
+  "utf8"
+);
 const instanceMovementRetirement = fs.readFileSync(
   path.join(ROOT, "docs/supabase/20260914_retire_board_instance_move_workspace.sql"),
   "utf8"
@@ -96,6 +100,27 @@ test("Checker V2 uses instance-first adoption evidence and fails closed on ambig
   assert.match(checker, /'adoption_candidate_count',\s*v_adoption_candidate_count/i);
   assert.match(checker, /'unscoped_attachment_orphans',\s*v_unscoped_attachment_orphan_count/i);
   assert.match(checker, /'unscoped_checklist_orphans',\s*v_unscoped_checklist_orphan_count/i);
+});
+
+test("Checker Final Alignment #2 classifies the canonical shared task checklist writer", () => {
+  const sharedStart = checker.indexOf("v_shared_capability_functions");
+  const domainStart = checker.indexOf("v_domain_extension_functions");
+  assert.ok(sharedStart >= 0 && domainStart > sharedStart);
+  assert.match(checker.slice(sharedStart, domainStart), /'board_update_task_checklist_item'/i);
+  assert.match(checkerGap2Migration, /board_update_task_checklist_item/i);
+});
+
+test("Checker Final Alignment #2 counts only true unscoped child rows as orphan evidence", () => {
+  assert.match(checker, /v_attachment_orphan_count\s*:=\s*0/i);
+  assert.match(checker, /v_checklist_orphan_count\s*:=\s*0/i);
+  assert.match(checker, /attachment\.task_id\s+is\s+null/i);
+  assert.match(checker, /checklist\.task_id\s+is\s+null/i);
+  const scopeErrorStart = checker.indexOf("v_data_scope_errors :=");
+  const isolationStart = checker.indexOf("v_data_isolation_status :=", scopeErrorStart);
+  assert.ok(scopeErrorStart >= 0 && isolationStart > scopeErrorStart);
+  const scopeErrorBlock = checker.slice(scopeErrorStart, isolationStart);
+  assert.doesNotMatch(scopeErrorBlock, /v_attachment_orphan_count|v_checklist_orphan_count/);
+  assert.match(checkerGap2Migration, /only the global unscoped checks below represent/i);
 });
 
 test("Checker V2 treats fail-closed populated delete as canonical empty-workspace authority", () => {
