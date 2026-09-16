@@ -52,7 +52,14 @@
   }
 
   function readUserLabel(options = {}, access = {}) {
-    if (options.userLabel) return String(options.userLabel).trim();
+    if (typeof options.userLabel === "function") {
+      try {
+        const value = options.userLabel();
+        if (value) return String(value).trim();
+      } catch { /* fall through to the stored/auth identity */ }
+    } else if (options.userLabel) {
+      return String(options.userLabel).trim();
+    }
     if (typeof options.getUserLabel === "function") return String(options.getUserLabel() || "").trim();
     const stored = readStoredSession();
     return String(stored.name || stored.display_name || access.displayName || access.email || "Zhuge User").trim();
