@@ -223,10 +223,24 @@ cleared after the attempt. The runner does not log request bodies or secrets.
 
 `release-governance.js` is the single packaging path for formal FullSource
 Candidates. It is separate from product Runtime code and does not write Cloud
-data. The root `version.json.build` is the sole `BUILD_ID` and the ZIP filename
-prefix uses that value (`YYYYMMDD-HHmm`). `artifactCreatedAt` is metadata only;
-it is recorded in the sidecar Candidate Manifest and never determines filename
-identity.
+data. The root `version.json.build` is the sole Candidate `BUILD_ID`; Runtime
+configuration, module manifests, Runtime UI identity, the `template-release.js`
+Development version/build projection, and ordinary Runtime asset cache-busters
+must match it. The Published C Snapshot loader
+`shared/config/template-release.js?v=...` is intentionally pinned to the
+Published C Build, which may differ from the Candidate Build. Published
+Snapshot / Adoption identity is validated separately and is never rewritten by
+Candidate packaging. Arbitrary CSS/documentation dates are not Build Identity.
+
+The sidecar Candidate Manifest records both Candidate Build identity and the
+verified Published C identity / Adoption evidence. Candidate packaging does
+not require Candidate Build = Published Build. `template-publish.js --check`
+remains a separate Publish Readiness check; it is not a Candidate Packaging
+gate and performs no Publish write.
+
+Candidate filename identity is the root `version.json.build`, formatted as
+`YYYYMMDD-HHmm`. `artifactCreatedAt` is metadata only; it is recorded in the
+sidecar Candidate Manifest and never determines filename identity.
 
 At the start of a Formal Build Cycle, use the read-only generator to obtain the
 current Asia/Taipei `YYYYMMDD-HHmm` value. It fails if that value would reuse the
