@@ -4304,6 +4304,13 @@
     } else showBoardView("board");
     hydrateModuleRelease();
     refreshBoard().then(initRealtime).catch(() => {});
+    // One shared-shell hub is mounted only after the canonical App Access
+    // check has approved the session. Its creator actions remain protected by
+    // the existing backend creator resolver and RPC policies.
+    root.ZhugeGlobalFloatingHub?.mount?.({
+      userId: () => typeof currentUserUuid === "function" ? currentUserUuid() : "",
+      userLabel: () => session?.name || session?.email || ""
+    });
   }
 
   let originalMainMarkup = null;
@@ -4375,6 +4382,70 @@
       body: `<div class="board-access-actions"><a class="btn" href="../../../app/dashboard/">回到 Dashboard</a><button class="btn" type="button" id="boardAccessRetry">重新檢查</button></div>`
     });
     document.getElementById("boardAccessRetry")?.addEventListener("click", () => init());
+  }
+
+  let applicationAccessState = null;
+
+  function applicationAccessEmail() {
+    return String(session?.email || session?.user?.email || "").trim();
+  }
+
+  function renderApplicationAccessGate(access) {
+    const gate = root.ZhugeAppAccessGate;
+    const service = root.ZhugeAppAccess;
+    const main = document.querySelector(".main");
+    if (!gate?.mount || !main) {
+      renderAccessError("App Access 服務尚未準備完成，請重新整理後再試。\n");
+      return;
+    }
+    applicationAccessState = access || { status: "UNKNOWN", email: applicationAccessEmail() };
+    const mountOptions = {
+      service,
+      email: applicationAccessState.email || applicationAccessEmail(),
+      loginHref: "../../../?app=1",
+      onSubmitted: next => continueAfterApplicationAccess(next),
+      onRetry: next => continueAfterApplicationAccess(next),
+      onError: error => renderApplicationAccessGate({
+        status: "UNKNOWN",
+        email: applicationAccessEmail(),
+        error: String(error?.message || error || "App Access resolver failed")
+      })
+    };
+    gate.mount(main, applicationAccessState, mountOptions);
+  }
+
+  function continueAfterApplicationAccess(access) {
+    const gate = root.ZhugeAppAccessGate;
+    applicationAccessState = access || { status: "UNKNOWN", email: applicationAccessEmail() };
+    if (gate?.isApproved?.(applicationAccessState)) {
+      restoreCapturedBoardMarkup();
+      void init();
+      return;
+    }
+    renderApplicationAccessGate(applicationAccessState);
+  }
+
+  async function requireApplicationAccess() {
+    const service = root.ZhugeAppAccess;
+    const gate = root.ZhugeAppAccessGate;
+    if (!service?.getCurrent || !gate?.mount) {
+      renderAccessError("App Access 服務尚未準備完成，請重新整理後再試。\n");
+      return false;
+    }
+    let access;
+    try {
+      access = await service.getCurrent();
+    } catch (error) {
+      access = {
+        status: "UNKNOWN",
+        email: applicationAccessEmail(),
+        error: String(error?.message || error || "App Access resolver failed")
+      };
+    }
+    applicationAccessState = access;
+    if (gate.isApproved?.(access)) return true;
+    renderApplicationAccessGate(access);
+    return false;
   }
 
   function restoreCapturedBoardMarkup() {
@@ -4483,6 +4554,7 @@
         renderLoginState();
         return;
       }
+      if (!(await requireApplicationAccess())) return;
       restoreCapturedBoardMarkup();
       startBoardRuntime({ applicationScope: "c" });
       return;
@@ -4502,6 +4574,7 @@
         renderLoginState();
         return;
       }
+      if (!(await requireApplicationAccess())) return;
       try {
         const gateway = root.ZhugeSupabaseGateway?.createDataGateway?.();
         const rows = await gateway?.select?.("board_instances", "?select=id&active=eq.true&template_key=eq.c&task_code_prefix=eq.IVTK&is_template_instance=eq.false&legacy_application_scope=is.null&order=created_at.asc&limit=1");
@@ -4528,6 +4601,7 @@
         renderLoginState();
         return;
       }
+      if (!(await requireApplicationAccess())) return;
       restoreCapturedBoardMarkup();
       startBoardRuntime({
         applicationScope: "c",
@@ -4551,6 +4625,7 @@
         renderLoginState();
         return;
       }
+      if (!(await requireApplicationAccess())) return;
       restoreCapturedBoardMarkup();
       startBoardRuntime({ applicationScope: "worktodo" });
       return;
@@ -4573,6 +4648,7 @@
       renderLoginState();
       return;
     }
+    if (!(await requireApplicationAccess())) return;
     let context;
     try {
       const platform = provider.createPlatform();

@@ -27,6 +27,10 @@
       loginAt: new Date().toISOString()
     });
     window.persistAiOsSessionOnly = () => {};
+    // Fixture-only approved App Access seam. Production routes fail closed when
+    // the canonical service is unavailable; this fixture is testing board UI.
+    window.ZhugeAppAccess = { getCurrent: async () => ({ status: "APPROVED", email: "qjc@example.test" }), isApproved: access => access?.status === "APPROVED" };
+    window.ZhugeAppAccessGate = { mount: () => {}, isApproved: access => access?.status === "APPROVED" };
     let policy = { investment_mfa_required: false, investment_entry_mfa_required: false, investment_sensitive_write_mfa_required: true, ai_board_mfa_required: true, status: "resolved" };
     window.ZhugeRuntimeSessionProvider = {
       createPlatform: () => ({
@@ -73,6 +77,6 @@
         sessionStorageKeys: Object.keys(sessionStorage)
       });
       document.body.appendChild(audit);
-    }, 700);
+    }, 1500);
   </script>
 </body></html>

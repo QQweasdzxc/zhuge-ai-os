@@ -10,6 +10,81 @@ let workTodoDashboardSummary = {
   tasks: []
 };
 
+// Product access is separate from Google/Supabase authentication. The
+// canonical Cloud resolver is the only authority; this state only caches its
+// latest presentation result for the current page session.
+let appAccessState = null;
+let appAccessRequest = null;
+let worklogRuntimeReady = false;
+
+function appAccessService() {
+  return globalThis.ZhugeAppAccess || null;
+}
+
+function appAccessEmail() {
+  return String(session?.email || "").trim();
+}
+
+function appAccessGateMarkup(access = {}) {
+  const gate = globalThis.ZhugeAppAccessGate;
+  if (!gate?.render) return `<main class="app-access-gate" data-app-access-status="UNKNOWN"><section class="app-access-panel"><h1>目前無法確認使用權</h1><p>使用權服務尚未載入，請重新整理後再試。</p></section></main>`;
+  return gate.render(access, { email: appAccessEmail(), loginHref: "./?app=1&workspace=dashboard" });
+}
+
+function bindAppAccessGate(access = {}) {
+  const gate = globalThis.ZhugeAppAccessGate;
+  const host = document.getElementById("app");
+  if (!gate?.bind || !host) return;
+  gate.bind(host, access, {
+    service: appAccessService(),
+    onSubmitted: async next => {
+      appAccessState = next;
+      render("app-access-submitted");
+    },
+    onRetry: async next => {
+      appAccessState = next;
+      if (String(next?.status || "").toUpperCase() === "APPROVED") {
+        await initializeApprovedWorklogRuntime("app-access-approved");
+      } else {
+        render("app-access-retry");
+      }
+    },
+    onError: error => {
+      appAccessState = { ...(appAccessState || {}), status: "UNKNOWN", error: String(error?.message || error || "") };
+      render("app-access-error");
+    }
+  });
+}
+
+async function resolveWorklogAppAccess({ force = false } = {}) {
+  if (!session) return { status: "UNAUTHENTICATED", email: "" };
+  if (!force && appAccessState && appAccessState.status !== "CHECKING") return appAccessState;
+  if (!force && appAccessRequest) return appAccessRequest;
+  appAccessState = { status: "CHECKING", email: appAccessEmail() };
+  const service = appAccessService();
+  appAccessRequest = Promise.resolve().then(async () => {
+    if (!service?.getCurrent) throw new Error("App Access service 尚未載入。");
+    return await service.getCurrent();
+  }).catch(error => ({ status: "UNKNOWN", email: appAccessEmail(), error: String(error?.message || error || "App Access resolver failed") }))
+    .then(next => { appAccessState = next; return next; })
+    .finally(() => { appAccessRequest = null; });
+  return appAccessRequest;
+}
+
+async function initializeApprovedWorklogRuntime(reason = "app-access-approved") {
+  if (!session || String(appAccessState?.status || "").toUpperCase() !== "APPROVED") return false;
+  if (!worklogRuntimeReady) {
+    loadTasksForSession();
+    saveAll();
+    await DataService.init();
+    await refreshFormalWorkSummary();
+    if (typeof RealtimeService !== "undefined" && hasGoogleOAuthSession()) await RealtimeService.start();
+    worklogRuntimeReady = true;
+  }
+  render(reason);
+  return true;
+}
+
 const SYSTEM_TEMPLATE_VIEW = (() => {
   try {
     const value = new URLSearchParams(window.location.search).get("templateView");
@@ -4341,7 +4416,7 @@ function templateManagementMarkup() {
 }
 
 function management() {
-  return `<section class="panel control-center management-center" aria-label="管理功能內容"><section class="control-center-management-column" aria-labelledby="management-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="management-entry-title">管理入口</h2><p class="muted">進入工作看板、工程準則與系統藍圖。</p></div></div><div class="control-center-entry-grid">${controlCenterEntryMarkup()}${templateManagementMarkup()}</div></div></section></section>`;
+  return `<section class="panel control-center management-center" aria-label="管理功能內容"><section class="control-center-management-column" aria-labelledby="management-entry-title"><div class="control-center-entries"><div class="control-center-entry-heading"><div><h2 id="management-entry-title">管理入口</h2><p class="muted">進入工作看板、工程準則與系統藍圖。</p></div></div><div class="control-center-entry-grid">${controlCenterEntryMarkup()}${templateManagementMarkup()}</div><div data-user-access-management></div></div></section></section>`;
 }
 
 function sync() {
@@ -4871,6 +4946,16 @@ function render(reason = "state-update") {
     if (IS_EXTENSION_ENTRY) { replaceRootContent(extensionAssistantScreen()); bindWorklogAssistant(); return; }
     clearInvalidAuthState();
     if (!session) { replaceRootContent(authScreen()); bindAuth(); return; }
+    if (!appAccessState || String(appAccessState.status || "").toUpperCase() === "CHECKING") {
+      replaceRootContent(appAccessGateMarkup(appAccessState || { status: "CHECKING", email: appAccessEmail() }));
+      bindAppAccessGate(appAccessState || { status: "CHECKING", email: appAccessEmail() });
+      return;
+    }
+    if (String(appAccessState.status || "").toUpperCase() !== "APPROVED") {
+      replaceRootContent(appAccessGateMarkup(appAccessState));
+      bindAppAccessGate(appAccessState);
+      return;
+    }
     if (migrationRequired) { replaceRootContent(migrationScreen()); bindMigration(); bindGlobal(); return; }
     const initialization = worklogInitializationState();
     if (initialization.state === "unauthorized") { replaceRootContent(authScreen()); bindAuth(); return; }
@@ -4935,6 +5020,12 @@ function bindAuth() {
     const result = await getSupabaseAuthUser();
     if (!result) throw new Error("登入已完成，但尚未取得使用者工作階段，請重新整理後再試。");
     session = supabaseSessionFromUser(result.user, result.authSession, "email-password");
+    appAccessState = null;
+    await resolveWorklogAppAccess({ force: true });
+    if (String(appAccessState?.status || "").toUpperCase() !== "APPROVED") {
+      render("email-auth-access-check");
+      return;
+    }
     // Every successful login enters the product through the same Dashboard
     // landing surface. Workspace links still set an explicit destination in
     // the routing adapter before authentication begins.
@@ -4944,12 +5035,7 @@ function bindAuth() {
     recentWorkspaces = [];
     view = "center";
     hasOsShellState = true;
-    loadTasksForSession();
-    saveAll();
-    await DataService.init();
-    await refreshFormalWorkSummary();
-    if (typeof RealtimeService !== "undefined") await RealtimeService.start();
-    render("email-auth-success");
+    await initializeApprovedWorklogRuntime("email-auth-success");
   };
   form?.addEventListener("submit", async event => {
     event.preventDefault();
@@ -5474,6 +5560,12 @@ function bindGlobal() {
   document.querySelectorAll("[data-retry-cloud-sync]").forEach(b => b.onclick = () => {
     if (cloudSync.status === "failed") DataService.retryAutoSave();
   });
+  if (String(appAccessState?.status || "").toUpperCase() === "APPROVED") {
+    globalThis.ZhugeGlobalFloatingHub?.mount?.({
+      userId: () => typeof currentUserUuid === "function" ? currentUserUuid() : "",
+      userLabel: () => session?.name || session?.email || ""
+    });
+  }
 }
 function createTask(title = "", note = "", dueDate = "", options = {}) {
   const normalized = normalizeTask({
@@ -5742,7 +5834,7 @@ function taskWorkspace() {
   return `<section class="tasks-workspace lifecycle-task-workspace">${taskToolbar}<section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
-function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; tasks = []; workTodoDashboardSummary = formalWorkSummaryIdleState(); workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
+function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); globalThis.ZhugeGlobalFloatingHub?.unmount?.(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; appAccessState = null; appAccessRequest = null; worklogRuntimeReady = false; tasks = []; workTodoDashboardSummary = formalWorkSummaryIdleState(); workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
 
 function bindOnboarding() {
   let tags = [], src = [];
@@ -5774,6 +5866,13 @@ function bind() {
     ZhugeTemplateManagementCenter.bind(templateManagementCenter, {
       onUpdated: () => render("template-management-updated"),
       onPreview: templateId => openSystemTemplateWindow(templateId === "board" || templateId === "ai-board-empty-golden-master" ? "board" : templateId)
+    });
+  }
+  const userAccessManagement = document.querySelector("[data-user-access-management]");
+  if (userAccessManagement && typeof ZhugeUserAccessManagement !== "undefined") {
+    ZhugeUserAccessManagement.mount(userAccessManagement, {
+      service: appAccessService(),
+      dataGateway: globalThis.ZhugeSupabaseGateway?.createDataGateway?.()
     });
   }
   document.querySelectorAll("[data-dashboard-task-id]").forEach(button => button.onclick = event => {
@@ -7372,17 +7471,14 @@ async function boot() {
     const authResult = await getSupabaseAuthUser();
     if (authResult) {
       session = supabaseSessionFromUser(authResult.user, authResult.authSession, authResult.provider);
-      loadTasksForSession();
       if (authCallbackCaptured) { activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; hasOsShellState = true; }
-      saveAll();
-      await DataService.init();
-      await refreshFormalWorkSummary();
-      if (typeof RealtimeService !== "undefined") await RealtimeService.start();
+      await resolveWorklogAppAccess({ force: true });
+      await initializeApprovedWorklogRuntime("auth-success");
     } else if (hasGoogleOAuthSession()) {
-      loadTasksForSession();
-      await DataService.init();
-      await refreshFormalWorkSummary();
-      if (typeof RealtimeService !== "undefined") await RealtimeService.start();
+      if (session) {
+        await resolveWorklogAppAccess({ force: true });
+        await initializeApprovedWorklogRuntime("stored-auth-session");
+      }
     }
   } catch {
     clearStoredAuthSession();

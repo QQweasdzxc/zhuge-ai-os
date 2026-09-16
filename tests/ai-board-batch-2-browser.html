@@ -48,6 +48,10 @@
     loginAt: new Date().toISOString()
   });
   window.persistAiOsSessionOnly = () => {};
+  // Fixture-only approved App Access seam. Production routes fail closed when
+  // the canonical service is unavailable; this fixture is testing board UI.
+  window.ZhugeAppAccess = { getCurrent: async () => ({ status: "APPROVED", email: "qjc@example.test" }), isApproved: access => access?.status === "APPROVED" };
+  window.ZhugeAppAccessGate = { mount: () => {}, isApproved: access => access?.status === "APPROVED" };
   window.ZhugeRuntimeSessionProvider = {
     createPlatform: () => ({
       forModule: () => ({
@@ -128,5 +132,7 @@
   setTimeout(() => { const audit = document.createElement("pre"); audit.id = "history-audit"; audit.textContent = document.getElementById("taskDetailBody")?.textContent || ""; document.body.appendChild(audit); }, 4100);
   setTimeout(() => { const btn = document.querySelector('[data-shared-nav-collapse]'); btn?.click(); const collapsed = document.createElement("pre"); collapsed.id = "nav-collapse-audit"; const visible = Array.from(document.querySelectorAll('.sidebar-scroll [data-shared-nav-item]')).filter(node => getComputedStyle(node).display !== "none"); const task = document.querySelector('.sidebar-scroll [data-shared-nav-item="tasks-new"]'); collapsed.textContent = `${document.querySelector(".zhuge-module-shell")?.className || ""};collapsed-visible=${visible.map(node => node.dataset.sharedNavItem).join(",")};collapsed-new-tasks-tag=${task?.tagName || ""};collapsed-new-tasks-title=${task?.getAttribute("title") || ""};collapsed-new-tasks-href=${task?.getAttribute("href") || ""}`; document.body.appendChild(collapsed); btn?.click(); }, 4500);
   setTimeout(() => { document.querySelectorAll('[data-shared-nav-item]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); })); const audit = document.createElement("pre"); audit.id = "cross-workspace-audit"; audit.textContent = Array.from(document.querySelectorAll('[data-shared-nav-item]')).map(link => link.dataset.sharedNavItem).join(","); document.body.appendChild(audit); const ia = document.createElement("pre"); ia.id = "ai-board-ia-audit"; ia.textContent = `heading=${document.querySelectorAll('.side-section-heading[data-shared-nav-item="ai-board"]').length};duplicateMenu=${document.querySelectorAll('.side-section .side-item[data-shared-nav-item="ai-board"]').length};children=${document.querySelectorAll('.side-section[data-nav-group="ai-board"] .side-item-child').length}`; document.body.appendChild(ia); }, 4700);
-  setTimeout(() => { const column = document.querySelector("[data-shared-task-board-column]"); const header = column?.querySelector(".shared-task-board-column-header"); const audit = document.createElement("pre"); audit.id = "golden-master-column-audit"; audit.textContent = `class=${column?.className || ""};background=${header ? getComputedStyle(header).backgroundColor : ""};border=${header ? getComputedStyle(header).borderBottomColor : ""}`; document.body.appendChild(audit); }, 1200);
+  // App Access is an asynchronous pre-runtime gate; leave the existing UI
+  // assertion enough virtual time to observe the post-gate board.
+  setTimeout(() => { const column = document.querySelector("[data-shared-task-board-column]"); const header = column?.querySelector(".shared-task-board-column-header"); const audit = document.createElement("pre"); audit.id = "golden-master-column-audit"; audit.textContent = `class=${column?.className || ""};background=${header ? getComputedStyle(header).backgroundColor : ""};border=${header ? getComputedStyle(header).borderBottomColor : ""}`; document.body.appendChild(audit); }, 1800);
 </script>

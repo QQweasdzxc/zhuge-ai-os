@@ -134,6 +134,33 @@
     return data;
   }
 
+  // Presence is intentionally kept separate from postgres_changes.  The
+  // returned wrapper exposes only the channel operations required by the
+  // shared UI and never exposes the Supabase client or session tokens.
+  async function createPresenceChannel(options = {}) {
+    const topic = String(options.topic || "zhuge-app-presence-v1").trim();
+    const key = String(options.key || "").trim();
+    if (!/^zhuge-app-presence-v1$/.test(topic) || !key) {
+      const error = new Error("Shared Presence channel 參數不正確。");
+      error.code = "APP_PRESENCE_CHANNEL_INVALID";
+      throw error;
+    }
+    const client = await initializeAuthClient();
+    await client.realtime.setAuth(currentAccessToken());
+    const channel = client.channel(topic, {
+      config: { private: true, presence: { key } }
+    });
+    const wrapper = {
+      on: (...args) => { channel.on(...args); return wrapper; },
+      subscribe: callback => channel.subscribe(callback),
+      track: payload => channel.track(payload),
+      untrack: () => channel.untrack(),
+      presenceState: () => channel.presenceState(),
+      remove: () => client.removeChannel(channel)
+    };
+    return Object.freeze(wrapper);
+  }
+
   function encodedQuery(query = "") {
     const value = String(query || "").trim();
     return value && !value.startsWith("?") ? `?${value}` : value;
@@ -274,6 +301,7 @@
       uploadStorageObject,
       createStorageSignedUrl,
       removeStorageObject,
+      createPresenceChannel,
       subscribe: async (table, callback, filter = null) => {
         const tableName = String(table || "table");
         const normalizedFilter = typeof filter === "string" ? filter.trim() : "";

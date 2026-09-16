@@ -13,7 +13,7 @@ function runBrowser(browserExecutable, query) {
   const args = [
     "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
     "--no-first-run", "--disable-background-networking", "--disable-component-update", "--disable-sync",
-    "--window-size=1440,900", `--user-data-dir=${profile}`, "--virtual-time-budget=2000", "--dump-dom",
+    "--window-size=1440,900", `--user-data-dir=${profile}`, "--virtual-time-budget=3500", "--dump-dom",
     `file://${FIXTURE}?${query}`
   ];
   return new Promise((resolve, reject) => {

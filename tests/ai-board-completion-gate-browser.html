@@ -33,6 +33,10 @@
     loginAt: new Date().toISOString()
   });
   window.persistAiOsSessionOnly = () => {};
+  // Fixture-only approved App Access seam. Production routes fail closed when
+  // the canonical service is unavailable; this fixture is testing board UI.
+  window.ZhugeAppAccess = { getCurrent: async () => ({ status: "APPROVED", email: "qjc@example.test" }), isApproved: access => access?.status === "APPROVED" };
+  window.ZhugeAppAccessGate = { mount: () => {}, isApproved: access => access?.status === "APPROVED" };
   window.ZhugeRuntimeSessionProvider = {
     createPlatform: () => ({
       forModule: () => ({

@@ -114,7 +114,7 @@
           "../../shared/utils/render-engine.js", "../../shared/app-router.js", "../../shared/components/index.js", "../../shared/components/task-card.js", "../../shared/components/activity-text-renderer.js", "../../shared/components/task-card-summary.js", "../../shared/components/task-drawer.js", "../../shared/components/task-board.js", "../../shared/components/golden-master.js", "../../shared/components/system-template-catalog.js", "../../shared/components/template-management-center.js", "components/worktodo-task-adapter.js",
           "../../shared/components/workspaces.js", "../../shared/identity/creator-resolver.js", "../../shared/services/template-adoption-policy.js", "../../shared/components/zhuge-navigation.js", "../../shared/components/zhuge-shell.js", "../../shared/auth/auth-service.js", "../../app/dashboard/zhuge-dashboard.js",
           "../../shared/utils/priority-engine.js", "ai-daily-brief.js", "../../shared/api/repositories.js",
-          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/services/template-release-service.js", "../../shared/board/board-read-service.js", "components/worktodo-dashboard-adapter.js",
+          "../../shared/api/data-service.js", "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js", "../../shared/supabase/supabase-gateway.js", "../../shared/auth/app-access-service.js", "../../shared/auth/app-access-gate.js", "../../shared/components/global-floating-hub.js", "../../shared/components/user-access-management.js", "../../shared/services/template-release-service.js", "../../shared/board/board-read-service.js", "components/worktodo-dashboard-adapter.js",
           "../../shared/api/realtime-service.js", "../../shared/api/services.js", "work-intelligence.js",
           "suggestion-intelligence.js", "knowledge-intelligence.js", "knowledge-engine.js",
           "knowledge-repository-service.js", "../../shared/api/knowledge-api.js",
@@ -130,7 +130,10 @@
           "../../shared/theme/zhuge-os.css?v=20260915-1707",
           "../../shared/theme/ai-product.css?v=20260915-1707",
           "../../shared/theme/zhuge-workspace.css?v=20260915-1707",
-          "../../shared/theme/zhuge-navigation.css?v=20260915-1707"
+          "../../shared/theme/zhuge-navigation.css?v=20260915-1707",
+          "../../shared/theme/app-access.css?v=20260916-phase1",
+          "../../shared/theme/global-floating-hub.css?v=20260916-phase1",
+          "../../shared/theme/user-access-management.css?v=20260916-phase1"
         ];
         const appearanceScript = document.createElement("script");
         appearanceScript.src = "../../shared/theme/zhuge-appearance.js?v=20260915-1707";
@@ -174,6 +177,7 @@
         };
         document.getElementById("public-home-styles")?.remove();
         renderBootState("正在開啟工作空間…", "正在準備共用工作區與登入狀態", false);
+        const phase1CacheVersion = "20260916-phase1";
         const loadStyles = (index = 0) => {
           if (index >= appStyles.length) return Promise.resolve();
           return new Promise((resolve, reject) => {
@@ -188,7 +192,7 @@
         const load = (index = 0) => {
           if (index >= runtimeFiles.length) return;
           const script = document.createElement("script");
-          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=20260915-1707`;
+          script.src = runtimeFiles[index].includes("://") ? runtimeFiles[index] : `${runtimeFiles[index]}?v=${phase1CacheVersion}`;
           script.async = false;
           script.onload = () => load(index + 1);
           script.onerror = () => { renderBootState("工作空間暫時無法開啟", "部分共用資源載入失敗，請重新整理後再試。", true); };

@@ -167,6 +167,58 @@
     return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">Zhuge AI OS › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="../worklog/?app=1">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
   }
 
+  function appAccessScreen(access, context) {
+    const gate = global.ZhugeAppAccessGate;
+    const session = context?.session?.getSnapshot?.() || {};
+    const email = String(access?.email || session.email || "").trim();
+    const content = gate?.render
+      ? gate.render(access, { email, loginHref: "../../?app=1" })
+      : `<div class="investment-access-panel"><p class="investment-eyebrow">Zhuge AI OS · App Access</p><h1>目前無法確認使用權</h1><p>App Access 服務尚未載入，請重新整理後再試。</p></div>`;
+    return accessShell(content, { title: "Investment｜使用權", description: "Investment 模組｜App Access" });
+  }
+
+  async function requireAppAccess(root, context) {
+    const service = global.ZhugeAppAccess;
+    const gate = global.ZhugeAppAccessGate;
+    const session = context?.session?.getSnapshot?.() || {};
+    const mount = access => {
+      const current = access || { status: "UNKNOWN", email: session.email || "" };
+      if (gate?.isApproved?.(current)) {
+        global.location.reload();
+        return;
+      }
+      global.ZhugeComponents.Summary.mount(root, appAccessScreen(current, context));
+      mountAccessShell(root, { title: "Investment｜使用權", description: "Investment 模組｜App Access" });
+      gate?.bind?.(root, current, {
+        service,
+        onSubmitted: mount,
+        onRetry: mount,
+        onError: error => mount({
+          status: "UNKNOWN",
+          email: session.email || "",
+          error: String(error?.message || error || "App Access resolver failed")
+        })
+      });
+    };
+    if (!service?.getCurrent || !gate?.mount || !gate?.bind) {
+      mount({ status: "UNKNOWN", email: session.email || "", error: "App Access 服務尚未準備完成。" });
+      return false;
+    }
+    let access;
+    try {
+      access = await service.getCurrent();
+    } catch (error) {
+      access = {
+        status: "UNKNOWN",
+        email: session.email || "",
+        error: String(error?.message || error || "App Access resolver failed")
+      };
+    }
+    if (gate.isApproved(access)) return true;
+    mount(access);
+    return false;
+  }
+
   function unlockScreen(state = {}) {
     const escape = global.InvestmentSafeHtml.escape;
     const busy = state.status === "loading" || state.status === "verifying";
@@ -270,6 +322,7 @@
   async function createRuntime(root) {
     const platform = global.ZhugeRuntimeSessionProvider.createPlatform();
     const context = platform.forModule("investment");
+    if (!(await requireAppAccess(root, context))) return Object.freeze({ status: "blocked", context });
     await context.creator?.resolve?.();
     await context.security.loadMfaPolicy?.();
     const access = context.security.evaluate("view");
@@ -283,6 +336,10 @@
     }
 
     const identity = context.identity.getCurrent();
+    global.ZhugeGlobalFloatingHub?.mount?.({
+      userId: () => context.identity.getUserId?.() || "",
+      userLabel: () => identity?.name || identity?.email || ""
+    });
     const repository = global.InvestmentRepositoryContract.assertRepository(
       global.SupabaseInvestmentRepository.create({
         userId: context.identity.getUserId(),
