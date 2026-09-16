@@ -109,3 +109,22 @@ test("Global Floating Hub is the normal WorkLog floating entry and preserves ass
   assert.match(hub, /AI 小幫手/);
   assert.match(hub, /工時／時數/);
 });
+
+test("WorkLog cannot recreate the legacy floating assistant widget on normal routes", () => {
+  const worklog = fs.readFileSync(path.join(repoRoot, "modules/worklog/worklog-app.js"), "utf8");
+  const refresh = worklog.match(/function refreshConversationFromCloud\([\s\S]*?\n\}\n\nconst chineseNumberMap/);
+  assert.ok(refresh, "conversation refresh function should remain discoverable");
+  assert.doesNotMatch(refresh[0], /floatingAssistantWidget\(\)/);
+  assert.match(worklog, /function removeLegacyFloatingAssistantWidget\(\)/);
+  assert.match(worklog, /function bindGlobal\(\) \{\s*removeLegacyFloatingAssistantWidget\(\);/);
+  assert.match(worklog, /function standaloneChatScreen\(\)/);
+  assert.match(worklog, /function isStandaloneChatRoute\(\)/);
+});
+
+test("Presence resolves function-valued identity labels before rendering", () => {
+  const hub = fs.readFileSync(path.join(repoRoot, "shared/components/global-floating-hub.js"), "utf8");
+  assert.match(hub, /typeof options\.userLabel === "function"/);
+  assert.match(hub, /String\(value\)\.trim\(\)/);
+  assert.match(hub, /display_name: readUserLabel\(options, access\)/);
+  assert.doesNotMatch(hub, /if \(options\.userLabel\) return String\(options\.userLabel\)\.trim\(\);/);
+});

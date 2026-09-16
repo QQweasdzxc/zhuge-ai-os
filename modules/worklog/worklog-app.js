@@ -2247,25 +2247,17 @@ function clearAssistantPendingCommand() {
   return DataService.saveConversationState(null).catch(error => console.warn("Conversation state cloud sync deferred", { error, supabase: error.supabase || null }));
 }
 
+function removeLegacyFloatingAssistantWidget() {
+  if (IS_EXTENSION_ENTRY || isStandaloneChatRoute()) return;
+  document.querySelectorAll(".floating-assistant-widget").forEach(widget => widget.remove());
+}
+
 function refreshConversationFromCloud(renderAfter = true) {
   if (!hasGoogleOAuthSession() || migrationRequired || migrationRunning) return;
   if (conversationRefreshTimer) clearTimeout(conversationRefreshTimer);
   conversationRefreshTimer = setTimeout(() => {
     DataService.loadConversation().finally(() => {
       if (!renderAfter || !(isAssistantOpen() || IS_EXTENSION_ENTRY || isStandaloneChatRoute())) return;
-      const widget = document.querySelector(".floating-assistant-widget");
-      if (widget && !IS_EXTENSION_ENTRY && !isStandaloneChatRoute() && typeof RenderEngine !== "undefined") {
-        RenderEngine.partial("conversation-refresh", () => {
-          const holder = document.createElement("div");
-          holder.innerHTML = floatingAssistantWidget();
-          const next = holder.firstElementChild;
-          if (!next) return false;
-          widget.replaceWith(next);
-          bindWorklogAssistant();
-          return true;
-        });
-        return;
-      }
       render("conversation-refresh-fallback");
     });
   }, 150);
@@ -5556,6 +5548,7 @@ function bindWorklogAssistant() {
 }
 
 function bindGlobal() {
+  removeLegacyFloatingAssistantWidget();
   document.querySelectorAll("[data-logout]").forEach(b => b.onclick = () => doLogout());
   document.querySelectorAll("[data-retry-cloud-sync]").forEach(b => b.onclick = () => {
     if (cloudSync.status === "failed") DataService.retryAutoSave();
