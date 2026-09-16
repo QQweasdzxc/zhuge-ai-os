@@ -17,7 +17,9 @@ const FORBIDDEN_FILE_EXTENSIONS = new Set([".crt", ".jwk", ".key", ".pem", ".p12
 const BUILD_PATTERN = /^202\d{5}-\d{4}$/;
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$/;
 const CACHE_BUSTER_PATTERN = /\?v=(202\d{5}-\d{4})\b/g;
-const BUILD_LITERAL_PATTERN = /\b(202\d{5}-\d{4})\b/g;
+const PUBLISHED_SNAPSHOT_LOADER_PATTERN = /template-release\.js\?v=(202\d{5}-\d{4})\b/g;
+const RUNTIME_BUILD_ID_PATTERN = /\b(?:BUILD_ID|BUILD_TIME|phase1CacheVersion)\s*=\s*["'](202\d{5}-\d{4})["']/g;
+const PUBLISHED_CONSUMER_IDS = ["c", "ai-board", "worktodo", "worklog-procurement", "investment-ivtk"];
 
 class ReleaseGovernanceError extends Error {
   constructor(message, details = {}) {
@@ -115,6 +117,55 @@ function moduleVersionFiles(root) {
     .sort();
 }
 
+function readTemplateReleaseRecord(root) {
+  const source = readText(root, "shared/config/template-release.js");
+  const match = source.match(/const RELEASE = Object\.freeze\((\{[\s\S]*?\})\);/);
+  if (!match) {
+    fail("C release identity is missing from shared/config/template-release.js", {
+      file: "shared/config/template-release.js"
+    });
+  }
+
+  try {
+    return JSON.parse(match[1]);
+  } catch (error) {
+    fail("C release identity JSON is invalid in shared/config/template-release.js", {
+      file: "shared/config/template-release.js",
+      cause: error.message
+    });
+  }
+}
+
+function readPublishedCIdentity(root) {
+  const release = readTemplateReleaseRecord(root);
+
+  return {
+    templateId: String(release.templateId || ""),
+    templateVersion: String(release.templateVersion || ""),
+    buildAlias: String(release.build || ""),
+    version: String(release.publishedVersion || ""),
+    build: String(release.publishedBuild || ""),
+    sourceCommit: String(release.sourceCommit || ""),
+    sourceFingerprint: String(release.sourceFingerprint || ""),
+    publishedAt: String(release.publishedAt || ""),
+    snapshot: release.publishedSnapshot ? {
+      version: String(release.publishedSnapshot.version || ""),
+      build: String(release.publishedSnapshot.build || ""),
+      sourceCommit: String(release.publishedSnapshot.sourceCommit || ""),
+      sourceFingerprint: String(release.publishedSnapshot.sourceFingerprint || "")
+    } : null,
+    consumers: JSON.parse(JSON.stringify(release.consumers || {}))
+  };
+}
+
+function readDevelopmentCIdentity(root) {
+  const release = readTemplateReleaseRecord(root);
+  return {
+    version: String(release.developmentVersion || ""),
+    build: String(release.developmentBuild || "")
+  };
+}
+
 function readIdentitySnapshot(root = PROJECT_ROOT) {
   const resolvedRoot = path.resolve(root);
   const rootManifest = readJson(resolvedRoot, "version.json");
@@ -129,14 +180,21 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
   }));
 
   const cacheBusters = [];
-  const buildLiterals = [];
+  const publishedSnapshotLoaders = [];
+  const runtimeBuildIdentityLiterals = [];
   for (const relative of collectFiles(resolvedRoot).filter(isRuntimeFile)) {
     const source = readText(resolvedRoot, relative);
+    const publishedLoaderOffsets = new Set(
+      [...source.matchAll(PUBLISHED_SNAPSHOT_LOADER_PATTERN)]
+        .map(match => match.index + match[0].indexOf("?v="))
+    );
     for (const match of source.matchAll(CACHE_BUSTER_PATTERN)) {
-      cacheBusters.push({ file: relative, build: match[1] });
+      const item = { file: relative, build: match[1] };
+      if (publishedLoaderOffsets.has(match.index)) publishedSnapshotLoaders.push(item);
+      else cacheBusters.push(item);
     }
-    for (const match of source.matchAll(BUILD_LITERAL_PATTERN)) {
-      buildLiterals.push({ file: relative, build: match[1] });
+    for (const match of source.matchAll(RUNTIME_BUILD_ID_PATTERN)) {
+      runtimeBuildIdentityLiterals.push({ file: relative, build: match[1], field: match[0].split(/\s*=/, 1)[0].trim() });
     }
   }
 
@@ -147,6 +205,7 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
     build: String(rootManifest.build || ""),
     rootManifest,
     modules,
+    developmentCIdentity: readDevelopmentCIdentity(resolvedRoot),
     appConfig: {
       version: matchOne(appConfigSource, /\bconst\s+VERSION\s*=\s*["']([^"']+)["']/,
         "VERSION", "shared/app-config.js"),
@@ -180,9 +239,56 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
           "dashboard fallback build", "app/dashboard/zhuge-dashboard.js")
       }
     },
+    publishedCIdentity: readPublishedCIdentity(resolvedRoot),
     cacheBusters,
-    buildLiterals
+    publishedSnapshotLoaders,
+    runtimeBuildIdentityLiterals
   };
+}
+
+function publishedIdentityMismatches(identity) {
+  const mismatches = [];
+  if (!identity) return ["Published C identity is missing"];
+  if (identity.templateId !== "c") mismatches.push(`template-release templateId=${identity.templateId} != c`);
+  if (!VERSION_PATTERN.test(identity.version)) mismatches.push(`invalid Published C version: ${identity.version}`);
+  if (!BUILD_PATTERN.test(identity.build)) mismatches.push(`invalid Published C build: ${identity.build}`);
+  if (!/^[0-9a-f]{40}$/i.test(identity.sourceCommit)) mismatches.push("Published C sourceCommit is missing or invalid");
+  if (!/^[0-9a-f]{64}$/i.test(identity.sourceFingerprint)) mismatches.push("Published C sourceFingerprint is missing or invalid");
+  if (!identity.publishedAt || Number.isNaN(Date.parse(identity.publishedAt))) mismatches.push("Published C publishedAt is missing or invalid");
+  if (identity.templateVersion !== identity.version) mismatches.push("templateVersion does not match publishedVersion");
+  if (identity.buildAlias !== identity.build) mismatches.push("build alias does not match publishedBuild");
+
+  const snapshot = identity.snapshot;
+  if (!snapshot) {
+    mismatches.push("Published C semantic snapshot identity is missing");
+  } else {
+    for (const [field, actual, expected] of [
+      ["version", snapshot.version, identity.version],
+      ["build", snapshot.build, identity.build],
+      ["sourceCommit", snapshot.sourceCommit, identity.sourceCommit],
+      ["sourceFingerprint", snapshot.sourceFingerprint, identity.sourceFingerprint]
+    ]) {
+      if (actual !== expected) mismatches.push(`publishedSnapshot.${field}=${actual} != Published C ${field}=${expected}`);
+    }
+  }
+
+  if (!identity.consumers || typeof identity.consumers !== "object") {
+    mismatches.push("Published C Consumer Adoption evidence is missing");
+    return mismatches;
+  }
+  for (const consumerId of PUBLISHED_CONSUMER_IDS) {
+    const adoption = identity.consumers[consumerId];
+    if (!adoption) {
+      mismatches.push(`Published C adoption ${consumerId} is missing`);
+      continue;
+    }
+    if (adoption.templateVersion !== identity.version) mismatches.push(`${consumerId} adoption version differs from Published C`);
+    if (adoption.build !== identity.build) mismatches.push(`${consumerId} adoption build differs from Published C`);
+    if (adoption.sourceCommit !== identity.sourceCommit) mismatches.push(`${consumerId} adoption sourceCommit differs from Published C`);
+    if (adoption.sourceFingerprint !== identity.sourceFingerprint) mismatches.push(`${consumerId} adoption sourceFingerprint differs from Published C`);
+    if (typeof adoption.status !== "string" || !adoption.status.trim()) mismatches.push(`${consumerId} adoption status is missing`);
+  }
+  return mismatches;
 }
 
 function assertSourceIdentity(snapshot) {
@@ -190,6 +296,12 @@ function assertSourceIdentity(snapshot) {
   const { build, version } = snapshot;
   if (!VERSION_PATTERN.test(version)) mismatches.push(`invalid root version: ${version}`);
   if (!BUILD_PATTERN.test(build)) mismatches.push(`invalid root build: ${build}`);
+  if (snapshot.developmentCIdentity.version !== version) {
+    mismatches.push(`template-release developmentVersion=${snapshot.developmentCIdentity.version} != Candidate version ${version}`);
+  }
+  if (snapshot.developmentCIdentity.build !== build) {
+    mismatches.push(`template-release developmentBuild=${snapshot.developmentCIdentity.build} != Candidate BUILD_ID ${build}`);
+  }
 
   for (const module of snapshot.modules) {
     if (module.version !== version) mismatches.push(`${module.file}.version=${module.version} != ${version}`);
@@ -215,21 +327,35 @@ function assertSourceIdentity(snapshot) {
   for (const item of snapshot.cacheBusters) {
     if (item.build !== build) mismatches.push(`${item.file} cache-buster=${item.build} != ${build}`);
   }
-  for (const item of snapshot.buildLiterals) {
-    if (item.build !== build) mismatches.push(`${item.file} build literal=${item.build} != ${build}`);
+  for (const item of snapshot.runtimeBuildIdentityLiterals) {
+    if (item.build !== build) mismatches.push(`${item.file} ${item.field}=${item.build} != ${build}`);
   }
+  if (!snapshot.publishedSnapshotLoaders.length) mismatches.push("no Published C snapshot loader was found");
+  for (const item of snapshot.publishedSnapshotLoaders) {
+    if (item.build !== snapshot.publishedCIdentity.build) {
+      mismatches.push(`${item.file} template-release.js loader=${item.build} != Published C build ${snapshot.publishedCIdentity.build}`);
+    }
+  }
+  mismatches.push(...publishedIdentityMismatches(snapshot.publishedCIdentity));
 
   if (mismatches.length) {
-    fail("PRE-PACKAGING GATE = FAIL: Build Identity mismatch", { build, version, mismatches });
+    fail("PRE-PACKAGING GATE = FAIL: Candidate / Published Identity mismatch", {
+      candidate: { build, version },
+      publishedC: snapshot.publishedCIdentity,
+      mismatches
+    });
   }
 
   return Object.freeze({
     status: "PASS",
     build,
     version,
+    developmentCIdentity: snapshot.developmentCIdentity,
+    publishedCIdentity: snapshot.publishedCIdentity,
     moduleFiles: snapshot.modules.map(module => module.file),
     cacheBusterCount: snapshot.cacheBusters.length,
-    runtimeBuildLiteralCount: snapshot.buildLiterals.length
+    publishedSnapshotLoaderCount: snapshot.publishedSnapshotLoaders.length,
+    runtimeBuildIdentityLiteralCount: snapshot.runtimeBuildIdentityLiterals.length
   });
 }
 
@@ -420,6 +546,12 @@ function validateArchive(root, zipFile, expectedSourceManifest, expectedIdentity
         archive: extractedGate
       });
     }
+    if (JSON.stringify(extractedGate.publishedCIdentity) !== JSON.stringify(expectedIdentity.publishedCIdentity)) {
+      fail("POST-PACKAGING GATE = FAIL: Published C identity differs between Source and ZIP", {
+        source: expectedIdentity.publishedCIdentity,
+        archive: extractedGate.publishedCIdentity
+      });
+    }
     const extractedManifest = sourceManifest(extractRoot);
     compareManifests(expectedSourceManifest, extractedManifest);
     return Object.freeze({
@@ -454,6 +586,24 @@ function validateManifest(manifest, zipFile, identity, archiveValidation, expect
   const mismatches = [];
   if (manifest.build !== identity.build) mismatches.push(`manifest.build=${manifest.build} != ${identity.build}`);
   if (manifest.version !== identity.version) mismatches.push(`manifest.version=${manifest.version} != ${identity.version}`);
+  if (!manifest.publishedCIdentity) {
+    mismatches.push("manifest.publishedCIdentity is missing");
+  } else {
+    for (const field of ["version", "build", "sourceCommit", "sourceFingerprint", "publishedAt"]) {
+      if (manifest.publishedCIdentity[field] !== identity.publishedCIdentity[field]) {
+        mismatches.push(`manifest.publishedCIdentity.${field} differs from Published C Source identity`);
+      }
+    }
+    for (const consumerId of PUBLISHED_CONSUMER_IDS) {
+      const manifestAdoption = manifest.publishedCIdentity.consumers?.[consumerId];
+      const sourceAdoption = identity.publishedCIdentity.consumers?.[consumerId];
+      if (!manifestAdoption || !sourceAdoption) {
+        mismatches.push(`manifest.publishedCIdentity.consumers.${consumerId} is missing`);
+      } else if (JSON.stringify(manifestAdoption) !== JSON.stringify(sourceAdoption)) {
+        mismatches.push(`manifest.publishedCIdentity.consumers.${consumerId} differs from Source Adoption evidence`);
+      }
+    }
+  }
   if (expectedGitBaselineCommit && manifest.gitBaselineCommit !== expectedGitBaselineCommit) {
     mismatches.push(`manifest.gitBaselineCommit=${manifest.gitBaselineCommit} != ${expectedGitBaselineCommit}`);
   }
@@ -629,6 +779,7 @@ function packageCandidate({
       version: preGate.version,
       build: preGate.build,
       gitBaselineCommit: workingTree.commit,
+      publishedCIdentity: preGate.publishedCIdentity,
       sourceRoot: resolvedRoot,
       sourceDirty: false,
       artifactCreatedAt,

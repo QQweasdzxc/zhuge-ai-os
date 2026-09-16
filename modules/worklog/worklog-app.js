@@ -2116,6 +2116,10 @@ function isStandaloneChatRoute() {
   return /\/chat\/?$/.test(location.pathname) || new URLSearchParams(location.search).get("chat") === "1";
 }
 
+function isHubEmbeddedChatRoute() {
+  return new URLSearchParams(location.search).get("hub") === "1";
+}
+
 function appHomeUrl() {
   if (isStandaloneChatRoute()) return location.href.replace(/\/chat\/?(\?.*)?$/, "/").replace(/[?&]chat=1/, "");
   return WEB_APP_URL;
@@ -3176,6 +3180,10 @@ function worklogInitializationLoadingScreen() {
       <p>正在確認登入、雲端設定與工作身分。<br>確認完成後即進入 WorkLog。</p>
     </section>
   </main>`;
+}
+
+function hubEmbeddedAssistantLoadingScreen() {
+  return `<main class="hub-chat-embed-page" data-worklog-init-state="loading"><section class="panel hub-chat-embed-loading" role="status" aria-live="polite">正在載入工時小幫手…</section></main>`;
 }
 
 function worklogInitializationErrorScreen(state = {}) {
@@ -4271,8 +4279,9 @@ function assistantNudgeText() {
 }
 
 function assistantWelcomePanel(mode = "floating") {
+  const floatingMode = mode === "floating" || mode === "hub-embedded";
   const modeClass = mode === "extension" ? "extension-assistant" : (mode === "standalone" ? "standalone-assistant" : "floating-assistant");
-  return `<section class="panel assistant-panel ${modeClass}"><div class="assistant-welcome"><h2>🪶 Zhuge AI OS</h2><div class="muted">by Mr. KM</div><p>歡迎，今天也讓我陪你一起完成工作吧。</p><p>我會協助你用一句自然語言建立工時、寫入工時月曆，並在月底匯出 ECP。</p><button class="btn full" type="button" data-start-assistant="1">開始</button>${mode === "floating" ? `<button class="btn2 full" type="button" data-close-assistant="1">稍後</button>` : ""}</div></section>`;
+  return `<section class="panel assistant-panel ${modeClass}"><div class="assistant-welcome"><h2>🪶 Zhuge AI OS</h2><div class="muted">by Mr. KM</div><p>歡迎，今天也讓我陪你一起完成工作吧。</p><p>我會協助你用一句自然語言建立工時、寫入工時月曆，並在月底匯出 ECP。</p><button class="btn full" type="button" data-start-assistant="1">開始</button>${floatingMode ? `<button class="btn2 full" type="button" data-close-assistant="1">稍後</button>` : ""}</div></section>`;
 }
 
 function worklogAssistantPanel(mode = "web") {
@@ -4287,7 +4296,8 @@ function worklogAssistantPanel(mode = "web") {
     ? `<div class="muted">您可以直接告訴我：今天下午三點到四點開會、明天下午請特休、今天補一小時工時。</div>`
     : `<div class="muted">今天想完成什麼？</div>`;
   const title = "🪶 Mr. KM";
-  const modeClass = mode === "extension" ? "extension-assistant" : (mode === "floating" ? "floating-assistant" : (mode === "standalone" ? "standalone-assistant" : "assistant-module"));
+  const floatingMode = mode === "floating" || mode === "hub-embedded";
+  const modeClass = mode === "extension" ? "extension-assistant" : (floatingMode ? "floating-assistant" : (mode === "standalone" ? "standalone-assistant" : "assistant-module"));
   const installAction = mode === "standalone"
     ? (CHROME_EXTENSION_STORE_URL
       ? `<a class="assistant-icon-action" href="${escapeHtml(CHROME_EXTENSION_STORE_URL)}" target="_blank" rel="noopener" title="安裝 Chrome 擴充功能" aria-label="安裝 Chrome 擴充功能">🧩</a>`
@@ -4299,7 +4309,7 @@ function worklogAssistantPanel(mode = "web") {
   const fullscreenAction = mode === "floating"
     ? `<a class="assistant-icon-action" href="${escapeHtml(standaloneChatUrl())}" title="全螢幕開啟" aria-label="全螢幕開啟">↗</a>`
     : "";
-  const close = mode === "floating" ? `<button class="assistant-icon-action" type="button" data-close-assistant="1" title="關閉" aria-label="關閉">×</button>` : "";
+  const close = floatingMode ? `<button class="assistant-icon-action" type="button" data-close-assistant="1" title="關閉" aria-label="關閉">×</button>` : "";
   const headerActions = `<div class="assistant-header-actions">${installAction}${osAction}${fullscreenAction}${close}</div>`;
   const statusNotice = conversationSync.status === "uninitialized"
     ? `<div class="assistant-sync-warning">Conversation 尚未初始化，聊天目前僅儲存在此瀏覽器。</div>`
@@ -4314,6 +4324,11 @@ function extensionAssistantScreen() {
 function standaloneChatScreen() {
   const body = hasSeenAssistantWelcome() ? worklogAssistantPanel("standalone") : assistantWelcomePanel("standalone");
   return `<main class="standalone-chat-page">${body}</main>`;
+}
+
+function hubEmbeddedAssistantScreen() {
+  const body = hasSeenAssistantWelcome() ? worklogAssistantPanel("hub-embedded") : assistantWelcomePanel("hub-embedded");
+  return `<main class="hub-chat-embed-page">${body}</main>`;
 }
 
 function floatingAssistantWidget() {
@@ -4952,7 +4967,7 @@ function render(reason = "state-update") {
     const initialization = worklogInitializationState();
     if (initialization.state === "unauthorized") { replaceRootContent(authScreen()); bindAuth(); return; }
     if (initialization.state === "loading" || initialization.state === "idle" || initialization.state === "migration_required") {
-      replaceRootContent(worklogInitializationLoadingScreen());
+      replaceRootContent(isHubEmbeddedChatRoute() ? hubEmbeddedAssistantLoadingScreen() : worklogInitializationLoadingScreen());
       bindWorklogInitialization();
       bindGlobal();
       return;
@@ -4963,6 +4978,7 @@ function render(reason = "state-update") {
       bindGlobal();
       return;
     }
+    if (isHubEmbeddedChatRoute()) { replaceRootContent(hubEmbeddedAssistantScreen()); bindWorklogAssistant(); return; }
     if (isStandaloneChatRoute()) { replaceRootContent(standaloneChatScreen()); bindWorklogAssistant(); bindGlobal(); return; }
     if (needsWorklogWelcome()) { replaceRootContent(worklogWelcomeScreen()); bindWorklogWelcome(); bindGlobal(); return; }
     replaceRootContent(osShell());
@@ -5198,6 +5214,10 @@ function bindWorklogAssistant() {
     refreshConversationFromCloud(true);
   });
   document.querySelectorAll("[data-close-assistant]").forEach(button => button.onclick = () => {
+    if (isHubEmbeddedChatRoute() && window.parent !== window) {
+      window.parent.postMessage({ type: "zhuge-worklog-assistant-close" }, window.location.origin);
+      return;
+    }
     localStorage.setItem(assistantOpenKey(), "0");
     render();
   });
@@ -5549,6 +5569,7 @@ function bindWorklogAssistant() {
 
 function bindGlobal() {
   removeLegacyFloatingAssistantWidget();
+  if (isHubEmbeddedChatRoute()) return;
   document.querySelectorAll("[data-logout]").forEach(b => b.onclick = () => doLogout());
   document.querySelectorAll("[data-retry-cloud-sync]").forEach(b => b.onclick = () => {
     if (cloudSync.status === "failed") DataService.retryAutoSave();

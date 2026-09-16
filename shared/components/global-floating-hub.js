@@ -33,6 +33,10 @@
     return `${appRootPath()}${String(path || "").replace(/^\//, "")}${queryString ? `?${queryString}` : ""}`;
   }
 
+  function assistantEmbedHref() {
+    return href("modules/worklog/chat/", { app: "1", hub: "1" });
+  }
+
   function readStoredSession() {
     try {
       for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
@@ -83,9 +87,9 @@
   }
 
   function renderMarkup({ creator = false, pendingCount = null } = {}) {
-    const assistantHref = href("modules/worklog/chat/", { app: "1" });
     const hoursHref = href("modules/worklog/", { app: "1", workspace: "worklog" });
     const accessHref = href("modules/worklog/", { app: "1", workspace: "management", management: "users" });
+    const assistantHref = escape(assistantEmbedHref());
     const pendingBadge = Number.isFinite(pendingCount) && pendingCount > 0
       ? `<span class="zhuge-hub-badge" data-hub-pending-badge>${escape(pendingCount)}</span>` : "";
     const creatorMenu = creator ? `<div class="zhuge-hub-divider" role="separator"></div>
@@ -99,8 +103,14 @@
         <div class="zhuge-hub-heading"><strong>Global Floating Hub</strong><span>全站懸浮快捷中心</span></div>
         ${creatorMenu}
         <p class="zhuge-hub-section-label">我的快捷功能</p>
-        <a class="zhuge-hub-item" href="${escape(assistantHref)}"><span aria-hidden="true">💬</span><span>AI 小幫手</span><small>工時小幫手</small></a>
+        <button class="zhuge-hub-item" type="button" data-hub-assistant-open aria-expanded="false" aria-controls="zhugeHubChat"><span aria-hidden="true">💬</span><span>工時小幫手</span></button>
         <a class="zhuge-hub-item" href="${escape(hoursHref)}"><span aria-hidden="true">⏱️</span><span>工時／時數</span></a>
+      </section>
+      <section class="zhuge-hub-chat-overlay" data-hub-chat-overlay id="zhugeHubChat" role="dialog" aria-label="工時小幫手" hidden>
+        <div class="zhuge-hub-chat-window">
+          <div class="zhuge-hub-chat-heading"><strong>💬 工時小幫手</strong><button type="button" data-hub-chat-close aria-label="關閉工時小幫手">×</button></div>
+          <iframe class="zhuge-hub-chat-frame" data-hub-chat-frame data-src="${assistantHref}" title="工時小幫手" loading="lazy"></iframe>
+        </div>
       </section>
     </div>`;
   }
@@ -128,11 +138,57 @@
   function bindToggle(rootNode) {
     const toggle = rootNode.querySelector("[data-hub-toggle]");
     const menu = rootNode.querySelector("[data-hub-menu]");
+    const assistantButton = rootNode.querySelector("[data-hub-assistant-open]");
+    const chatOverlay = rootNode.querySelector("[data-hub-chat-overlay]");
+    const chatFrame = rootNode.querySelector("[data-hub-chat-frame]");
+    const chatClose = rootNode.querySelector("[data-hub-chat-close]");
+    const setChatOpen = open => {
+      if (!chatOverlay) return;
+      chatOverlay.hidden = !open;
+      assistantButton?.setAttribute("aria-expanded", String(open));
+      if (open && chatFrame && !chatFrame.dataset.loaded) {
+        chatFrame.src = chatFrame.dataset.src || assistantEmbedHref();
+        chatFrame.dataset.loaded = "true";
+      }
+      if (open) chatFrame?.focus?.();
+      else {
+        if (chatFrame?.dataset.loaded) {
+          chatFrame.src = "about:blank";
+          delete chatFrame.dataset.loaded;
+        }
+        assistantButton?.focus?.();
+      }
+    };
+    const onFrameMessage = event => {
+      if (event.origin !== root.location?.origin
+          || event.source !== chatFrame?.contentWindow
+          || chatOverlay?.hidden
+          || event.data?.type !== "zhuge-worklog-assistant-close") return;
+      setChatOpen(false);
+    };
+    state.frameMessageHandler = onFrameMessage;
+    root.addEventListener?.("message", onFrameMessage);
+
     toggle?.addEventListener("click", event => {
       event.stopPropagation();
       const open = menu.hidden;
       menu.hidden = !open;
       toggle.setAttribute("aria-expanded", String(open));
+    });
+    assistantButton?.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (menu) menu.hidden = true;
+      toggle?.setAttribute("aria-expanded", "false");
+      setChatOpen(true);
+    });
+    chatClose?.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      setChatOpen(false);
+    });
+    rootNode.addEventListener?.("keydown", event => {
+      if (event.key === "Escape" && chatOverlay && !chatOverlay.hidden) setChatOpen(false);
     });
     rootNode.querySelector("[data-hub-presence-toggle]")?.addEventListener("click", event => {
       const list = rootNode.querySelector("[data-hub-online-list]");
@@ -206,6 +262,7 @@
     if (!state) return;
     try { await state.channel?.untrack?.(); } catch { /* best effort presence cleanup */ }
     try { await state.channel?.remove?.(); } catch { /* best effort presence cleanup */ }
+    if (state.frameMessageHandler) root.removeEventListener?.("message", state.frameMessageHandler);
     state.root?.remove?.();
     state = null;
   }

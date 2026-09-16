@@ -105,9 +105,17 @@ test("Global Floating Hub is the normal WorkLog floating entry and preserves ass
   assert.doesNotMatch(shell[0], /\$\{floatingAssistantWidget\(\)\}/);
   assert.match(worklog, /function floatingAssistantWidget\(\)/);
   assert.match(worklog, /function isStandaloneChatRoute\(\)/);
-  assert.match(hub, /href\("modules\/worklog\/chat\/", \{ app: "1" \}\)/);
-  assert.match(hub, /AI 小幫手/);
+  assert.match(hub, /data-hub-assistant-open/);
+  assert.match(hub, /data-hub-chat-overlay/);
+  assert.match(hub, /assistantEmbedHref\(\)[\s\S]*hub: "1"/);
+  assert.doesNotMatch(hub, /<a class="zhuge-hub-item" href="\$\{escape\(assistant/);
+  assert.match(hub, /工時小幫手/);
   assert.match(hub, /工時／時數/);
+  assert.match(worklog, /function isHubEmbeddedChatRoute\(\)/);
+  assert.match(worklog, /function hubEmbeddedAssistantScreen\(\)/);
+  assert.match(worklog, /worklogAssistantPanel\("hub-embedded"\)/);
+  assert.match(worklog, /if \(isHubEmbeddedChatRoute\(\)\) \{ replaceRootContent\(hubEmbeddedAssistantScreen\(\)\); bindWorklogAssistant\(\); return; \}/);
+  assert.match(worklog, /zhuge-worklog-assistant-close/);
 });
 
 test("WorkLog cannot recreate the legacy floating assistant widget on normal routes", () => {

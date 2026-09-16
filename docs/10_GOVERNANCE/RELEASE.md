@@ -52,19 +52,21 @@ Start Formal Build
 
 ## Published versus Development identity
 
-The current Source and the Published C Runtime are different identity layers.
-The Source Build Identity comes from the root `version.json` and current
-Source/runtime metadata. The Published C Runtime is the Cloud record returned
-by `get_published_module_release('c')`, whose canonical fields are:
+The current Candidate / Runtime and the Published C Runtime are separate
+identity layers. Candidate Build Identity comes from the root `version.json`
+and current Runtime metadata. The Published C Runtime is the Cloud record
+returned by `get_published_module_release('c')`, whose canonical fields are:
 
 - `published_version`
 - `published_build`
 - `source_commit`
 - `source_fingerprint`
 
-Published fields are immutable release evidence; the current Development HEAD
-must never substitute for them. Development may be `DEVELOPMENT_AHEAD` /
-`NOT YET PUBLISHED` while Runtime identifies a previous Published C snapshot.
+Published fields are immutable release evidence; Candidate Build or current
+Development HEAD must never substitute for them. A new FullSource Candidate
+may therefore use a new Build while the Published C Snapshot and existing
+Consumer Adoption continue to identify the previous Published Build. This is a
+valid `DEVELOPMENT_AHEAD` / `NOT YET PUBLISHED` state, not an identity mismatch.
 
 Consumer Adoption is a separate acknowledgement. `publish_module_release`
 seeds Published source identity and `record_module_adoption` derives
@@ -79,12 +81,29 @@ explicitly legacy/non-persisted evidence until a governed adoption write.
 
 ## Candidate packaging governance
 
-The root `version.json.build` is the only `BUILD_ID` and Candidate filename
-identity source. Runtime configuration, module manifests, Runtime UI identity,
-and literal HTML/JS/CSS cache-busters must match it exactly. Candidate
-filenames use that `BUILD_ID`, formatted as `YYYYMMDD-HHmm`. `artifactCreatedAt`
-is separate artifact metadata and must not participate in the Candidate
-filename prefix.
+The root `version.json.build` is the only Candidate `BUILD_ID` and Candidate
+filename identity source. Runtime configuration, Module manifests, Runtime UI
+identity, and ordinary Runtime asset cache-busters must match it exactly. The
+`template-release.js` Development version/build projection must also match the
+Candidate root identity. The loader URL for
+`shared/config/template-release.js` is the deliberate exception: its `?v=`
+cache-buster must match the Published C Build, not the new Candidate Build. The
+Published Snapshot and each Adoption record must remain
+internally consistent with the verified Published identity, independently of
+the Candidate Build. Arbitrary dates in CSS comments or documentation are not
+Build Identity fields.
+
+The Candidate Manifest records both identities: Candidate `build` plus the
+separate Published C identity (`version`, `build`, `sourceCommit`,
+`sourceFingerprint`, `publishedAt`, and Consumer Adoption evidence). Candidate
+packaging validates both contracts without performing or implying a Publish.
+`template-publish.js --check` is Publish Readiness only; it is not a Candidate
+Packaging gate and may correctly report not-ready while the Candidate is ahead
+of Published C. It performs no Publish write.
+
+Candidate filenames use `version.json.build`, formatted as `YYYYMMDD-HHmm`.
+`artifactCreatedAt` is separate artifact metadata and must not participate in
+the Candidate filename prefix.
 
 Use the controlled tool path for Candidate packaging:
 

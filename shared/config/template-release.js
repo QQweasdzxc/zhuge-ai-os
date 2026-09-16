@@ -15,22 +15,22 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.13",
-  "developmentBuild": "20260916-1334",
+  "developmentBuild": "20260916-1506",
   "publishedVersion": "0.9.0-alpha.9.13",
-  "publishedBuild": "20260916-1334",
+  "publishedBuild": "20260915-1707",
   "templateVersion": "0.9.0-alpha.9.13",
-  "build": "20260916-1334",
+  "build": "20260915-1707",
   "developmentSourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
-  "developmentSourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
-  "sourceCommit": "e3647228030c2181f9e7d9a153e6e3ccb345da83",
+  "developmentSourceFingerprint": "7b2930050fd2e0792f2cab74cae08ab8381dcf8c730d7c5a8ae6f91b859d66c0",
+  "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
   "sourceDirty": false,
-  "sourceFingerprint": "5ec987520723859077b346b1368fe83c392f0a84ec6d07d0e7ff8e4e22277dcb",
+  "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
   "publishedSnapshot": {
     "schemaVersion": 1,
     "version": "0.9.0-alpha.9.13",
-    "build": "20260916-1334",
-    "sourceCommit": "e3647228030c2181f9e7d9a153e6e3ccb345da83",
-    "sourceFingerprint": "5ec987520723859077b346b1368fe83c392f0a84ec6d07d0e7ff8e4e22277dcb",
+    "build": "20260915-1707",
+    "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+    "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
     "inventory": {
       "engineVersion": "c-mother-template-parity-v2",
       "baseline": "C Mother Template",
@@ -476,32 +476,56 @@
       "runtimeInference": "forbidden"
     }
   },
-  "publishedAt": "2026-09-13T22:04:19.284Z",
+  "publishedAt": "2026-09-15T14:49:07.294293+00:00",
   "consumers": {
     "c": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260916-1334",
-      "status": "adopted"
+      "build": "20260915-1707",
+      "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+      "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
+      "status": "adopted",
+      "adoptedAt": "2026-09-15T14:49:07.481175+00:00",
+      "adoptedBy": "ac5afcc7-f045-41a9-8827-eaf085a04c0d",
+      "publishedAt": "2026-09-15T14:49:07.294293+00:00",
+      "cloudConsumerId": "c"
     },
     "worktodo": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260916-1334",
-      "status": "adopted"
+      "build": "20260915-1707",
+      "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+      "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
+      "status": "published_pending_reload",
+      "publishedAt": "2026-09-15T14:49:07.294293+00:00",
+      "cloudConsumerId": "worktodo"
     },
     "ai-board": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260916-1334",
-      "status": "adopted"
+      "build": "20260915-1707",
+      "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+      "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
+      "status": "published_pending_reload",
+      "publishedAt": "2026-09-15T14:49:07.294293+00:00",
+      "cloudConsumerId": "ai-board"
     },
     "investment-ivtk": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260916-1334",
-      "status": "adopted"
+      "build": "20260915-1707",
+      "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+      "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
+      "status": "adopted",
+      "adoptedAt": "2026-09-15T14:49:27.402955+00:00",
+      "adoptedBy": "ac5afcc7-f045-41a9-8827-eaf085a04c0d",
+      "publishedAt": "2026-09-15T14:49:07.294293+00:00",
+      "cloudConsumerId": "81f49fc7-ac0f-428e-8fcd-5ee612c52993"
     },
     "worklog-procurement": {
       "templateVersion": "0.9.0-alpha.9.13",
-      "build": "20260916-1334",
-      "status": "adopted"
+      "build": "20260915-1707",
+      "sourceCommit": "d792b4b871450c87926c764ede7c1be8ce3684ec",
+      "sourceFingerprint": "0b0aee84d739cb2790aac5ea37820fb1e198c9c4086518f9d2110aec8f2d6516",
+      "status": "published_pending_reload",
+      "publishedAt": "2026-09-15T14:49:07.294293+00:00",
+      "cloudConsumerId": "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9"
     }
   }
 });

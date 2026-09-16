@@ -7,38 +7,52 @@ const { execFileSync } = require("node:child_process");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 const release = require("../shared/config/template-release.js").getSnapshot();
+const candidateIdentity = JSON.parse(read("version.json"));
 
-test("C publish metadata is generated and internally consistent", () => {
+test("Published C identity stays internally consistent while Candidate Runtime may be ahead", () => {
   assert.equal(release.templateId, "c");
   assert.equal(release.templateVersion, release.publishedVersion);
   assert.equal(release.build, release.publishedBuild);
   assert.equal(release.developmentVersion, release.publishedVersion);
-  assert.equal(release.developmentBuild, release.publishedBuild);
+  assert.equal(release.developmentBuild, candidateIdentity.build);
+  assert.notEqual(release.developmentBuild, release.publishedBuild);
+  assert.notEqual(candidateIdentity.build, release.publishedBuild);
   assert.match(release.developmentSourceCommit, /^[0-9a-f]{40}$/);
   assert.match(release.developmentSourceFingerprint, /^[0-9a-f]{64}$/);
   assert.match(release.sourceCommit, /^[0-9a-f]{40}$/);
   assert.match(release.sourceFingerprint, /^[0-9a-f]{64}$/);
+  assert.equal(release.publishedSnapshot.version, release.publishedVersion);
+  assert.equal(release.publishedSnapshot.build, release.publishedBuild);
+  assert.equal(release.publishedSnapshot.sourceCommit, release.sourceCommit);
+  assert.equal(release.publishedSnapshot.sourceFingerprint, release.sourceFingerprint);
   execFileSync("git", ["cat-file", "-e", `${release.developmentSourceCommit}^{commit}`], { cwd: ROOT, stdio: "pipe" });
   assert.ok(release.publishedAt);
-  for (const consumerId of ["c", "worktodo", "ai-board", "investment-ivtk", "worklog-procurement"]) {
-    assert.deepEqual(release.consumers[consumerId], {
-      templateVersion: release.publishedVersion,
-      build: release.publishedBuild,
-      status: "adopted"
-    });
+  const expectedStatuses = {
+    c: "adopted",
+    "ai-board": "published_pending_reload",
+    worktodo: "published_pending_reload",
+    "worklog-procurement": "published_pending_reload",
+    "investment-ivtk": "adopted"
+  };
+  for (const [consumerId, status] of Object.entries(expectedStatuses)) {
+    const adoption = release.consumers[consumerId];
+    assert.equal(adoption.templateVersion, release.publishedVersion);
+    assert.equal(adoption.build, release.publishedBuild);
+    assert.equal(adoption.sourceCommit, release.sourceCommit);
+    assert.equal(adoption.sourceFingerprint, release.sourceFingerprint);
+    assert.equal(adoption.status, status);
   }
+  assert.equal(release.consumers["worklog-procurement"].cloudConsumerId, "38d8d4b1-6d01-4d58-835b-b2beb61fc6b9");
+  assert.equal(release.consumers["investment-ivtk"].cloudConsumerId, "81f49fc7-ac0f-428e-8fcd-5ee612c52993");
   try {
     execFileSync(process.execPath, ["tools/template-publish.js", "--check"], { cwd: ROOT, stdio: "pipe" });
+    assert.fail("Publish Readiness must remain separate and fail while Candidate is not Published");
   } catch (error) {
-    // The frozen release snapshot must not be rewritten while this worktree
-    // contains the next development change.  The packaging command remains
-    // strict; during development the only expected failure is the source
-    // fingerprint drift that tells the release gate a new identity is needed.
     const output = `${error.stdout || ""}\n${error.stderr || ""}`;
+    assert.match(output, /published build must match version\.json/);
     assert.match(output, /sourceFingerprint must match canonical source/);
-    assert.doesNotMatch(output, /published (?:version|build) must match version\.json/);
-    assert.doesNotMatch(output, /development (?:version|build) must match version\.json/);
-    assert.doesNotMatch(output, /missing matching template-release cache-buster/);
+    assert.match(output, /worktodo is not marked adopted/);
+    assert.match(output, /ai-board is not marked adopted/);
   }
 });
 
