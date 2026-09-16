@@ -9,6 +9,8 @@
 
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
   const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
+  const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["worklog", "tasks-new", "library", "settings"]);
+  const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
@@ -65,6 +67,11 @@
       result[id] = { ...DEFAULT_REGISTRY[id], ...(options.workspaceRegistry?.[id] || {}) };
       return result;
     }, {});
+  }
+
+  function resolvedCreatorCapability(options = {}) {
+    if (typeof options.isCreator === "boolean") return options.isCreator;
+    return policyRuntime()?.isCreator;
   }
 
   function consumerBoardItems(boardInstances, root, options = {}) {
@@ -145,6 +152,15 @@
     const foundation = global.ZhugeFoundationConfig || {};
     const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
     const registry = registryFor(options);
+    const isGeneralUser = resolvedCreatorCapability(options) === false;
+    if (isGeneralUser) {
+      GENERAL_USER_VISIBLE_ITEMS.forEach(id => {
+        if (registry[id]) registry[id] = { ...registry[id], visible: true };
+      });
+      GENERAL_USER_HIDDEN_ITEMS.forEach(id => {
+        if (registry[id]) registry[id] = { ...registry[id], visible: false };
+      });
+    }
     const syncLabel = typeof options.sidebarSyncStatusLabel === "function" ? options.sidebarSyncStatusLabel() : (options.sidebarSyncStatusLabel || "🟢 已同步");
     const syncTime = options.syncTime || "尚未同步";
     const build = options.build || release.build || "";
@@ -162,8 +178,16 @@
     // destinations are rendered by the Control Console's second-level tabs;
     // keeping the source definition here preserves one canonical registry.
     const showGovernance = options.adminVisible !== false;
-    const control = showGovernance ? controlGroupMarkup(registry, options, esc, root, board) : itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
-    const systemItems = ["library", "management", "settings"].map(id => itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc));
+    const control = isGeneralUser && !isVisible(registry.sync)
+      ? ""
+      : showGovernance
+        ? controlGroupMarkup(registry, options, esc, root, board)
+        : itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
+    const systemItems = ["library", "management", "settings"].map(id => (
+      isGeneralUser && !isVisible(registry[id])
+        ? ""
+        : itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc)
+    ));
     // Module A owns this ordering: Control Console → Management → Settings.
     // Management is a peer of the Console, not content embedded inside it.
     const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}${systemItems[2]}</div>`;
@@ -374,7 +398,12 @@
       const creator = await resolver?.resolve?.() || { is_creator: false };
       const policy = await service.load({ userId, isCreator: creator.is_creator === true, force });
       if (generation !== policyBootstrapGeneration) return policy;
-      global.ZhugeTemplateAdoptionRuntime = Object.freeze({ service, policy, pageId });
+      global.ZhugeTemplateAdoptionRuntime = Object.freeze({
+        service,
+        policy,
+        pageId,
+        isCreator: creator.is_creator === true
+      });
       document.dispatchEvent(new CustomEvent("zhuge-template-adoption-ready", { detail: { pageId, status: policy.status } }));
       return policy;
     })().finally(() => { policyBootstrapPromise = null; });
@@ -388,6 +417,10 @@
     const pageId = pageIdForTarget(target);
     if (!pageId) return target?.dataset.sharedNavigationDisabled !== "true";
     const runtime = policyRuntime();
+    // Navigation is a shared shell for all resolved non-Creator sessions.
+    // Creator-only template preferences must not suppress the general-user
+    // shell; this affects presentation only, not App Access or data authority.
+    if (runtime?.isCreator === false) return true;
     return Boolean(runtime?.service?.isTemplateEnabled?.({
       pageId,
       templateId: "navigation",

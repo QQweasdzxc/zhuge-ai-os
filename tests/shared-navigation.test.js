@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -131,3 +132,99 @@ test("Shared Navigation opens WorkLog internal destinations without a private Bo
 });
 
 function indexSource() { return read("app/Board/ai/index.html"); }
+
+function loadNavigationForTest({ runtime = null, target = null } = {}) {
+  const document = {
+    readyState: "loading",
+    body: null,
+    documentElement: { dataset: {} },
+    addEventListener() {},
+    querySelector() { return null; },
+    getElementById(id) { return id === "zhugeSharedNavigation" ? target : null; }
+  };
+  const window = {
+    ZhugeTemplateAdoptionRuntime: runtime,
+    ZhugeFoundationConfig: { version: { version: "test", build: "test" } },
+    // Keep autoMount at the adoption decision in these tests; rendering and
+    // menu projection are covered separately below.
+    ZhugeBoardReadService: { listBoardInstances: () => new Promise(() => {}) }
+  };
+  vm.runInNewContext(read("shared/components/zhuge-navigation.js"), {
+    window,
+    document,
+    CustomEvent: class CustomEvent {},
+    MutationObserver: undefined
+  });
+  return window.ZhugeSharedNavigation;
+}
+
+test("approved general-user navigation uses the shared shell and PM visibility projection", () => {
+  const runtime = {
+    isCreator: false,
+    policy: { userId: "general-user" },
+    service: { isTemplateEnabled: () => false }
+  };
+  const navigation = loadNavigationForTest({ runtime });
+  const html = navigation.render({ externalRoot: "../../" });
+  const hasItem = id => html.includes(`data-shared-nav-item="${id}"`);
+
+  for (const id of ["worklog", "tasks-new", "library", "settings"]) {
+    assert.equal(hasItem(id), true, `${id} should be visible to approved general users`);
+  }
+  for (const id of ["procurement", "investment", "sync", "management"]) {
+    assert.equal(hasItem(id), false, `${id} should be hidden from approved general users`);
+  }
+  // AI Board is not part of the current primary rail; the projection does not
+  // introduce it or alter its route-level security contract.
+  assert.equal(hasItem("ai-board"), false);
+
+  const worklog = read("modules/worklog/worklog-app.js");
+  const approvedGate = worklog.indexOf('String(appAccessState.status || "").toUpperCase() !== "APPROVED"');
+  const runtimeShell = worklog.indexOf("replaceRootContent(osShell())", approvedGate);
+  assert.ok(approvedGate >= 0 && runtimeShell > approvedGate, "WorkLog must keep App Access approval ahead of the shared product shell");
+});
+
+test("Creator navigation stays unchanged and non-Creator shell mount ignores Creator-only adoption preference", () => {
+  const creatorNavigation = loadNavigationForTest({ runtime: {
+    isCreator: true,
+    policy: { userId: "creator" },
+    service: { isTemplateEnabled: () => true }
+  } });
+  const creatorHtml = creatorNavigation.render({ externalRoot: "../../" });
+  for (const id of ["worklog", "tasks-new", "procurement", "investment", "sync", "management", "library", "settings"]) {
+    assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
+  }
+
+  const generalTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const generalNavigation = loadNavigationForTest({
+    runtime: { isCreator: false, policy: { userId: "general-user" }, service: { isTemplateEnabled: () => false } },
+    target: generalTarget
+  });
+  generalNavigation.autoMount();
+  assert.equal(generalTarget.dataset.zhugeNavigationMounting, "true");
+
+  const creatorTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const unadoptedCreatorNavigation = loadNavigationForTest({
+    runtime: { isCreator: true, policy: { userId: "creator" }, service: { isTemplateEnabled: () => false } },
+    target: creatorTarget
+  });
+  unadoptedCreatorNavigation.autoMount();
+  assert.equal(creatorTarget.dataset.zhugeNavigationMounting, undefined);
+
+  const unresolvedTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const unresolvedNavigation = loadNavigationForTest({ target: unresolvedTarget });
+  unresolvedNavigation.autoMount();
+  assert.equal(unresolvedTarget.dataset.zhugeNavigationMounting, undefined);
+});
