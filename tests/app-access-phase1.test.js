@@ -96,3 +96,16 @@ test("C board branches gate before runtime and direct Investment does the same",
   assert.match(investment, /async function requireAppAccess\(/);
   assert.match(investment, /if \(gate\.isApproved\(access\)\) return true/);
 });
+
+test("Global Floating Hub is the normal WorkLog floating entry and preserves assistant access", () => {
+  const worklog = fs.readFileSync(path.join(repoRoot, "modules/worklog/worklog-app.js"), "utf8");
+  const hub = fs.readFileSync(path.join(repoRoot, "shared/components/global-floating-hub.js"), "utf8");
+  const shell = worklog.match(/function osShell\(\) \{[\s\S]*?\n\}/);
+  assert.ok(shell, "normal WorkLog shell should remain discoverable");
+  assert.doesNotMatch(shell[0], /\$\{floatingAssistantWidget\(\)\}/);
+  assert.match(worklog, /function floatingAssistantWidget\(\)/);
+  assert.match(worklog, /function isStandaloneChatRoute\(\)/);
+  assert.match(hub, /href\("modules\/worklog\/chat\/", \{ app: "1" \}\)/);
+  assert.match(hub, /AI 小幫手/);
+  assert.match(hub, /工時／時數/);
+});

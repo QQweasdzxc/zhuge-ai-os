@@ -3860,7 +3860,7 @@ function osShell() {
   const globalNavAttribute = SYSTEM_TEMPLATE_VIEW === "navigation" ? "" : ' data-shared-navigation-mode="template-only"';
   const templatePageId = IS_SYSTEM_TEMPLATE_VIEW ? "" : worklogTemplatePageId(activeWorkspace);
   const templatePageAttribute = templatePageId ? ` data-template-page-id="${escapeHtml(templatePageId)}"` : "";
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}>${sharedNavigationTargetMarkup()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main>${floatingAssistantWidget()}</div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}>${sharedNavigationTargetMarkup()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main></div>`;
 }
 
 function onboardingWorkspace() {

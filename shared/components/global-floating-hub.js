@@ -76,7 +76,7 @@
   }
 
   function renderMarkup({ creator = false, pendingCount = null } = {}) {
-    const assistantHref = href("modules/worklog/", { app: "1", workspace: "worklog", open: "assistant" });
+    const assistantHref = href("modules/worklog/chat/", { app: "1" });
     const hoursHref = href("modules/worklog/", { app: "1", workspace: "worklog" });
     const accessHref = href("modules/worklog/", { app: "1", workspace: "management", management: "users" });
     const pendingBadge = Number.isFinite(pendingCount) && pendingCount > 0
