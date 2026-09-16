@@ -107,10 +107,14 @@
     }
     function findVendor(vendorId) {
       const id = text(vendorId);
+      if (!id) return null;
       return state.vendors.find(row => text(row.vendorId) === id) || null;
     }
+    function linkedVendorId() {
+      return text(state.linked?.vendorId);
+    }
     function currentVendor() {
-      return state.selected || findVendor(state.linked?.vendorId);
+      return state.selected || findVendor(linkedVendorId());
     }
     function filteredVendors() {
       const query = text(search?.value).toLowerCase();
@@ -141,13 +145,13 @@
       if (selected) {
         selected.innerHTML = row
           ? `<strong>${esc(text(row.vendorName) || "未命名廠商")}</strong><span>${esc(vendorSummary(row))}</span>`
-            : state.linked?.vendorId
+            : linkedVendorId()
             ? `<strong>目前關聯的廠商</strong><span>最新廠商名冊中暫時找不到資料。</span>`
             : "尚未關聯";
       }
       if (view) view.disabled = readOnly || !row || state.busy;
       if (save) save.disabled = readOnly || !state.selected || state.busy;
-      if (clear) clear.disabled = readOnly || !state.linked?.vendorId || state.busy;
+      if (clear) clear.disabled = readOnly || !linkedVendorId() || state.busy;
     }
     function renderDetailPanel(row) {
       if (!detail) return;
@@ -279,7 +283,7 @@
         state.vendors = Array.isArray(rows) ? rows : [];
         state.selected = findVendor(state.linked.vendorId);
         renderSelected();
-        setStatus(state.linked.vendorId ? "已載入目前關聯。" : "尚未關聯廠商。", "ok");
+        setStatus(linkedVendorId() ? "已載入目前關聯。" : "尚未關聯廠商。", "ok");
       }
     };
   }
