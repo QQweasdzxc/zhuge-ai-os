@@ -166,13 +166,16 @@ test("D: parity treats optional Workflow and lifecycle capabilities as legal N/A
   assert.deepEqual(optional.failedChecks, []);
 });
 
-test("C: formal WorkTodo runtime adopts the shared C instance lifecycle on the existing board", () => {
+test("C: formal WorkTodo runtime adopts shared C lifecycle through an explicitly resolved Board", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
   const boardRead = read("shared/board/board-read-service.js");
   assert.match(runtime, /const cInstanceRuntime = \["c", "ai_board", "procurement"\]\.includes\(state\.applicationScope\) \|\| state\.applicationScope === "worktodo"/);
   assert.match(runtime, /state\.cNativeWorkTodo = state\.applicationScope === "worktodo"/);
   assert.match(runtime, /readOnly: state\.readOnly/);
-  assert.match(runtime, /legacyApplicationScope: state\.applicationScope === "procurement"[\s\S]*state\.applicationScope === "worktodo" \? "worktodo"/);
+  assert.match(runtime, /legacyApplicationScope: state\.applicationScope === "procurement"[\s\S]*state\.applicationScope === "ai_board" \? "ai_board" : ""/);
+  assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo", boardInstanceId \}\)/);
+  assert.doesNotMatch(runtime, /legacyApplicationScope:\s*state\.applicationScope === "worktodo" \? "worktodo"/);
+  assert.match(boardRead, /resolveOrProvisionPersonalWorkTodo/);
   assert.match(boardRead, /board_c_reconcile_completion_archive_lifecycle_v2/);
 });
 

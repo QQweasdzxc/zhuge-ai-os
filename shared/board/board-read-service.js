@@ -85,6 +85,11 @@
   // only used to resolve the explicit workspace id before calling the shared
   // C board-instance writer; it is not a second task-creation authority.
   const WORKTODO_DEFAULT_WORKSPACE_KEY = "worktodo-todo";
+  const WORKTODO_SELF_PROVISION_MARKER = "worktodo-self";
+  const WORKTODO_SELF_SCOPE_PREFIX = "worktodo-user-";
+  const WORKTODO_SELF_NAME = "工作待辦";
+  const WORKTODO_SELF_PREFIX_SENTINEL = "SELF";
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // P2 establishes the instance-scoped lifecycle context.  Workflow is an
   // optional capability: a Board may instead expose an explicit completion
@@ -2480,6 +2485,125 @@
     return gateway.rpc("board_provision_c_consumer_v2", args);
   }
 
+  function personalWorkTodoScope(userId) {
+    const normalizedUserId = String(userId || "").trim().toLowerCase();
+    if (!UUID_PATTERN.test(normalizedUserId)) {
+      const error = new Error("無法驗證目前登入身份，未解析或建立個人工作待辦看板。");
+      error.code = "WORKTODO_PERSONAL_IDENTITY_INVALID";
+      throw error;
+    }
+    return `${WORKTODO_SELF_SCOPE_PREFIX}${normalizedUserId.replace(/-/g, "")}`;
+  }
+
+  function validateResolvedWorkTodoInstance(instance, { userId, scope, personal = false } = {}) {
+    const expectedScope = String(scope || "").trim().toLowerCase();
+    if (
+      !instance?.id
+      || !UUID_PATTERN.test(String(instance.id))
+      || String(instance.owner_uuid || "").toLowerCase() !== String(userId || "").toLowerCase()
+      || String(instance.template_key || "").toLowerCase() !== "c"
+      || String(instance.authorization_mode || "").toLowerCase() !== "owner"
+      || instance.is_template_instance === true
+      || instance.active === false
+      || String(instance.legacy_application_scope || "").toLowerCase() !== expectedScope
+      || !/^[A-Z][A-Z0-9]{1,15}$/.test(String(instance.task_code_prefix || ""))
+      || (personal && String(instance.task_code_prefix || "").toUpperCase() === "WLTK")
+    ) {
+      const error = new Error("個人工作待辦 Board Identity / Owner Scope 無法驗證；已停止載入。");
+      error.code = "WORKTODO_PERSONAL_BOARD_IDENTITY_INVALID";
+      throw error;
+    }
+    return instance;
+  }
+
+  async function resolveOrProvisionPersonalWorkTodo(input = {}, options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const userId = String(input.userId || "").trim().toLowerCase();
+    const personalScope = personalWorkTodoScope(userId);
+
+    const findOwnedInstance = async scope => {
+      const query = `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active&owner_uuid=eq.${encodeURIComponent(userId)}&legacy_application_scope=eq.${encodeURIComponent(scope)}&template_key=eq.c&active=eq.true&is_template_instance=eq.false&limit=2`;
+      const rows = await gateway.select("board_instances", query);
+      if (!Array.isArray(rows)) {
+        const error = new Error("個人工作待辦 Board Read-back 格式無法驗證；已停止載入。");
+        error.code = "WORKTODO_PERSONAL_BOARD_READ_INVALID";
+        throw error;
+      }
+      if (rows.length > 1) {
+        const error = new Error("找到多個相同身份的工作待辦 Board；已停止載入以避免資料分流。");
+        error.code = "WORKTODO_PERSONAL_BOARD_NOT_UNIQUE";
+        throw error;
+      }
+      if (!rows.length) return null;
+      return validateResolvedWorkTodoInstance(rows[0], { userId, scope, personal: scope === personalScope });
+    };
+
+    // Preserve the existing Owner WorkTodo exactly as-is. It is resolved
+    // before the personal namespace and is never passed to the provisioner.
+    const ownerWorkTodo = await findOwnedInstance("worktodo");
+    if (ownerWorkTodo) {
+      return Object.freeze({
+        boardInstanceId: String(ownerWorkTodo.id),
+        boardInstance: ownerWorkTodo,
+        provisioned: false,
+        identity: "existing-owner-worktodo"
+      });
+    }
+
+    const personalWorkTodo = await findOwnedInstance(personalScope);
+    if (personalWorkTodo) {
+      return Object.freeze({
+        boardInstanceId: String(personalWorkTodo.id),
+        boardInstance: personalWorkTodo,
+        provisioned: false,
+        identity: "personal-worktodo"
+      });
+    }
+
+    const randomId = String(input.idempotencyKey || root.crypto?.randomUUID?.() || "").trim();
+    if (!randomId) {
+      const error = new Error("安全 Idempotency Key 尚未準備完成，未建立個人工作待辦看板。");
+      error.code = "WORKTODO_PERSONAL_IDEMPOTENCY_UNAVAILABLE";
+      throw error;
+    }
+    const result = await provisionCConsumer({
+      name: WORKTODO_SELF_NAME,
+      taskCodePrefix: WORKTODO_SELF_PREFIX_SENTINEL,
+      templateKey: "c",
+      applicationScope: WORKTODO_SELF_PROVISION_MARKER,
+      workspaceBlueprint: null,
+      workflowBlueprint: null,
+      idempotencyKey: `worktodo-self-${randomId}`
+    }, { gateway });
+    const payload = Array.isArray(result) ? result[0] : result;
+    const instance = payload?.board_instance || payload?.boardInstance || payload?.instance;
+    const boardInstanceId = String(instance?.id || payload?.board_instance_id || "").trim();
+    validateResolvedWorkTodoInstance(instance, { userId, scope: personalScope, personal: true });
+    if (
+      String(payload?.contract || "") !== "module-c-consumer-provisioning-v2"
+      || String(payload?.template_key || "").toLowerCase() !== "c"
+      || String(payload?.application_scope || "").toLowerCase() !== personalScope
+      || String(payload?.module_adoption?.status || "").toLowerCase() !== "adopted"
+      || payload?.workflow_version_id != null
+      || String(payload?.shared_runtime || "") !== "module-c-golden-master-runtime"
+      || payload?.atomic !== true
+      || payload?.fail_closed !== true
+      || !boardInstanceId
+      || boardInstanceId !== String(instance.id)
+    ) {
+      const error = new Error("C Provisioning 回傳的個人 WorkTodo Contract 不完整；已停止 Runtime 載入。");
+      error.code = "WORKTODO_PERSONAL_PROVISIONING_CONTRACT_INVALID";
+      throw error;
+    }
+    return Object.freeze({
+      boardInstanceId,
+      boardInstance: instance,
+      provisioning: payload,
+      provisioned: true,
+      identity: "personal-worktodo"
+    });
+  }
+
   function governanceRunnerUrl(options = {}) {
     return String(options.runnerUrl || root.ZhugeGovernanceApprovalRunnerUrl || "http://127.0.0.1:8765").replace(/\/$/, "");
   }
@@ -2662,6 +2786,7 @@
     createInstanceService,
     provisionConsumer,
     provisionCConsumer,
+    resolveOrProvisionPersonalWorkTodo,
     getAuthorityConformance,
     requestTaskContractUpdate,
     taskContractUpdateStatus,

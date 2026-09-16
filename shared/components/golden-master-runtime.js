@@ -4219,6 +4219,14 @@
   function startBoardRuntime(options = {}) {
     const cTemplate = options.applicationScope === "c" || isCTemplateMode();
     const procurement = options.applicationScope === "procurement" || isProcurementMode();
+    const workTodoRuntime = options.applicationScope === "worktodo" || isWorkTodoMode();
+    const requestedBoardInstanceId = workTodoRuntime
+      ? String(options.boardInstanceId || "").trim()
+      : String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
+    if (workTodoRuntime && !requestedBoardInstanceId) {
+      renderAccessError("個人工作待辦 Board 尚未解析；已停止載入，請重新整理或聯絡管理者。\n");
+      return;
+    }
     state.applicationScope = cTemplate
       ? "c"
       : procurement ? "procurement"
@@ -4232,7 +4240,6 @@
       || (investmentTaskDrawerExtension ? { taskDrawer: investmentTaskDrawerExtension } : null);
     state.cNativeWorkTodo = state.applicationScope === "worktodo";
     state.readOnly = state.cNativeWorkTodo && options.readOnly === true;
-    const requestedBoardInstanceId = String(options.boardInstanceId || queryParameter("boardInstanceId") || "").trim();
     state.boardInstanceId = requestedBoardInstanceId;
     state.boardIsTemplate = state.applicationScope === "c" && !requestedBoardInstanceId;
     state.consumerId = state.applicationScope === "c"
@@ -4256,7 +4263,7 @@
           boardInstanceId: requestedBoardInstanceId,
           legacyApplicationScope: state.applicationScope === "procurement"
             ? "procurement"
-            : state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "worktodo" ? "worktodo" : "",
+            : state.applicationScope === "ai_board" ? "ai_board" : "",
           consumerId: state.consumerId,
           workflowReadOnly,
           readOnly: state.readOnly,
@@ -4269,7 +4276,7 @@
       ? defaultService.createWorkflowCapability({
           templateKey: "c",
           boardInstanceId: state.applicationScope === "c" ? requestedBoardInstanceId : "",
-          legacyApplicationScope: state.applicationScope === "worktodo" ? "worktodo" : state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "procurement" ? "procurement" : "",
+          legacyApplicationScope: state.applicationScope === "ai_board" ? "ai_board" : state.applicationScope === "procurement" ? "procurement" : "",
           readOnly: workflowReadOnly,
           allowExistingCardAdoption: cWorkflowRuntime && !state.readOnly,
           allowWorkspaceMovement: cWorkflowRuntime && !state.readOnly
@@ -4626,8 +4633,20 @@
         return;
       }
       if (!(await requireApplicationAccess())) return;
-      restoreCapturedBoardMarkup();
-      startBoardRuntime({ applicationScope: "worktodo" });
+      try {
+        if (typeof defaultService.resolveOrProvisionPersonalWorkTodo !== "function") {
+          throw new Error("WorkTodo 個人 Board Resolver 尚未載入；未啟動其他資料路徑。");
+        }
+        const resolved = await defaultService.resolveOrProvisionPersonalWorkTodo({
+          userId: typeof currentUserUuid === "function" ? currentUserUuid() : ""
+        });
+        const boardInstanceId = String(resolved?.boardInstanceId || "").trim();
+        if (!boardInstanceId) throw new Error("WorkTodo Board Identity 無法驗證；未啟動 Runtime。");
+        restoreCapturedBoardMarkup();
+        startBoardRuntime({ applicationScope: "worktodo", boardInstanceId });
+      } catch (error) {
+        renderAccessError(error?.message || "個人工作待辦無法安全載入；請重新整理後再試。\n");
+      }
       return;
     }
     const provider = root.ZhugeRuntimeSessionProvider;

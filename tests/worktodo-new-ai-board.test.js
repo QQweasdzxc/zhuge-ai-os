@@ -84,7 +84,10 @@ test("new WorkTodo is a source-equivalent AI Board consumer with a scoped data b
   assert.match(actionAdapters, /worktodoUpdateTask/);
   assert.match(runtime, /consumer: state\.cNativeWorkTodo \? "worktodo"/);
   assert.match(runtime, /WorkTodo（舊）為唯讀比較入口/);
-  assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo" \}\)/);
+  assert.match(runtime, /resolveOrProvisionPersonalWorkTodo\(/);
+  assert.match(runtime, /startBoardRuntime\(\{ applicationScope: "worktodo", boardInstanceId \}\)/);
+  assert.match(runtime, /workTodoRuntime\s*\?\s*String\(options\.boardInstanceId \|\| ""\)/);
+  assert.doesNotMatch(runtime, /legacyApplicationScope:\s*state\.applicationScope === "worktodo" \? "worktodo"/);
   assert.match(runtime, /function sortTasksForDisplay\(tasks\)/);
   assert.match(runtime, /root\.ZhugeWorkTodoOrdering\?\.sortTasks/);
   assert.doesNotMatch(runtime, /emptyWorkTodo|GM-FIX-|golden-master-preview/i);
