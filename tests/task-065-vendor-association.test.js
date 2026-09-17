@@ -2,10 +2,70 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
+
+function createElement() {
+  return {
+    disabled: false,
+    hidden: false,
+    value: "",
+    innerHTML: "",
+    textContent: "",
+    dataset: {},
+    listeners: new Map(),
+    addEventListener(name, handler) { this.listeners.set(name, handler); },
+    querySelector() { return null; },
+    focus() {},
+    async emit(name, event = {}) { return this.listeners.get(name)?.(event); }
+  };
+}
+
+async function mountVendorAssociation({ link, vendors, serviceOverride = null }) {
+  const selectors = [
+    "[data-gas-vendor-association-state]",
+    "[data-gas-vendor-search]",
+    "[data-gas-vendor-results]",
+    "[data-gas-vendor-selected]",
+    "[data-gas-vendor-open]",
+    "[data-gas-vendor-selector]",
+    "[data-gas-vendor-confirm]",
+    "[data-gas-vendor-cancel]",
+    "[data-gas-vendor-pending]",
+    "[data-gas-vendor-view]",
+    "[data-gas-vendor-save]",
+    "[data-gas-vendor-clear]",
+    "[data-gas-vendor-detail]"
+  ];
+  const elements = new Map(selectors.map(selector => [selector, createElement()]));
+  const host = { querySelector: selector => elements.get(selector) || null };
+  const container = {
+    querySelector: selector => selector === "[data-gas-vendor-association-root]" ? host : null
+  };
+  let currentLink = link;
+  const writes = [];
+  const service = serviceOverride || {
+    async getTaskVendorLink() { return currentLink; },
+    async setTaskVendorLink(taskId, vendorId) {
+      writes.push({ taskId, vendorId });
+      currentLink = vendorId ? { vendorId } : { vendorId: "" };
+      return currentLink;
+    }
+  };
+  class MockVendorSheetService {
+    async list() { return vendors; }
+  }
+  const runtimeWindow = {
+    VendorSheetService: { VendorSheetService: MockVendorSheetService },
+    setTimeout(callback) { callback?.(); return 0; }
+  };
+  vm.runInNewContext(read("app/Board/procurement/vendor-task-association.js"), { window: runtimeWindow });
+  await runtimeWindow.ZhugeGasVendorAssociation.mount({ container, task: { id: "task-test" }, service });
+  return { elements, service, writes, getLink: () => currentLink };
+}
 
 test("GAS Vendor Association is a consumer extension over the shared C Drawer", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
@@ -47,6 +107,60 @@ test("GAS Vendor selector R2 stays collapsed until search and confirms in the dr
   assert.doesNotMatch(source, /if \(!query\) return state\.vendors\.slice/);
   assert.match(source, /data-gas-vendor-selector-close/);
   assert.doesNotMatch(source, /window\.open\(/);
+});
+
+test("unlinked GAS cards keep the Vendor selector blank for every empty Vendor ID form", async () => {
+  const vendors = [
+    { vendorId: "", vendorName: "千騰" },
+    { vendorId: "GAS-V0001", vendorName: "千勝" }
+  ];
+  const links = [null, { vendorId: null }, { vendorId: undefined }, { vendorId: "" }, { vendorId: "   " }];
+
+  for (const link of links) {
+    const { elements } = await mountVendorAssociation({ link, vendors });
+    assert.equal(elements.get("[data-gas-vendor-selected]").innerHTML, "尚未關聯");
+    assert.equal(elements.get("[data-gas-vendor-save]").disabled, true);
+    assert.equal(elements.get("[data-gas-vendor-clear]").disabled, true);
+    assert.equal(elements.get("[data-gas-vendor-association-state]").textContent, "尚未關聯廠商。");
+  }
+});
+
+test("an existing GAS Vendor Association still resolves its original Vendor", async () => {
+  const { elements } = await mountVendorAssociation({
+    link: { vendorId: "GAS-V0001" },
+    vendors: [{ vendorId: "GAS-V0001", vendorName: "千勝" }]
+  });
+
+  assert.match(elements.get("[data-gas-vendor-selected]").innerHTML, /千勝/);
+  assert.equal(elements.get("[data-gas-vendor-clear]").disabled, false);
+});
+
+test("search, explicit Vendor choice, save, and reload preserve the canonical Association", async () => {
+  const vendors = [{ vendorId: "GAS-V0001", vendorName: "千勝" }];
+  const first = await mountVendorAssociation({ link: null, vendors });
+  const search = first.elements.get("[data-gas-vendor-search]");
+  search.value = "千勝";
+  await first.elements.get("[data-gas-vendor-open]").emit("click");
+  await search.emit("input");
+  await first.elements.get("[data-gas-vendor-results]").emit("click", {
+    target: {
+      closest(selector) {
+        return selector === "[data-gas-vendor-choice]"
+          ? { dataset: { gasVendorChoice: "GAS-V0001" } }
+          : null;
+      }
+    }
+  });
+  await first.elements.get("[data-gas-vendor-confirm]").emit("click");
+  await first.elements.get("[data-gas-vendor-save]").emit("click");
+
+  assert.deepEqual(first.writes, [{ taskId: "task-test", vendorId: "GAS-V0001" }]);
+  assert.match(first.elements.get("[data-gas-vendor-selected]").innerHTML, /千勝/);
+  assert.equal(first.getLink().vendorId, "GAS-V0001");
+
+  const reloaded = await mountVendorAssociation({ link: first.getLink(), vendors });
+  assert.match(reloaded.elements.get("[data-gas-vendor-selected]").innerHTML, /千勝/);
+  assert.equal(reloaded.getLink().vendorId, "GAS-V0001");
 });
 
 test("GAS Vendor Association Cloud contract stores only a formal Vendor ID", () => {
