@@ -206,9 +206,13 @@ test("Investment Intelligence Edge adapter is read-only and has no Product Data 
   assert.doesNotMatch(source, /createClient|SUPABASE_SERVICE_ROLE_KEY|service_role/);
   assert.doesNotMatch(source, /\.insert\s*\(|\.update\s*\(|\.delete\s*\(|\.upsert\s*\(/);
   assert.match(source, /investment-intelligence-edge-v1/);
+  assert.match(source, /yuantaEtfBridge/);
+  assert.match(source, /type: "industry_exposure"/);
+  assert.match(source, /type: "related_symbol"/);
+  assert.match(source, /FUNDAMENTAL_FRESH_MS/);
 });
 
-test("official/public evidence adapters feed OHLC, fundamental, market phase and industry without inferring ETF components", async () => {
+test("official/public evidence adapters feed OHLC, fundamental, market phase, ETF components, industry exposure and related symbols", async () => {
   intelligence.clearProvidersForTest();
   const calls = [];
   const now = Date.parse("2026-09-18T04:00:00.000Z");
@@ -235,14 +239,30 @@ test("official/public evidence adapters feed OHLC, fundamental, market phase and
     if (url.startsWith(endpoint("twse-daily"))) return responseJson({ fields: ["Date", "TradeVolume", "TradeValue", "OpeningPrice", "HighestPrice", "LowestPrice", "ClosingPrice", "Change", "Transaction"], data: bars });
     if (url.startsWith(endpoint("yahoo-history"))) return responseJson({ chart: { result: [{ meta: { currency: "USD" }, timestamp: yahooBars, indicators: { quote: [{ open: yahooCloses, high: yahooCloses.map(value => value + 1), low: yahooCloses.map(value => value - 1), close: yahooCloses, volume: yahooCloses.map(() => 1000) }] } }] } });
     if (url.startsWith(endpoint("twse-holiday"))) return responseJson([{ Date: "1150918", Description: "" }]);
-    if (url.startsWith(endpoint("twse-financial"))) return responseJson([{ 公司代號: "2330", 公司名稱: "台積電", 營業收入: "2404483690", 本期淨利: "1279582227", 基本每股盈餘: "49.33" }]);
-    if (url.startsWith(endpoint("twse-company"))) return responseJson([{ 公司代號: "2330", 公司名稱: "台積電", 產業別: "半導體" }]);
+    if (url.startsWith(endpoint("twse-financial"))) return responseJson([{ 公司代號: "2330", 公司名稱: "台積電", 出表日期: "1150918", 營業收入: "2404483690", 營業毛利: "1200000000", 營業利益: "1000000000", 本期淨利: "1279582227", 基本每股盈餘: "49.33" }]);
+    if (url.startsWith(endpoint("yuanta-etf"))) {
+      const ticker = new URL(url).searchParams.get("ticker");
+      if (ticker !== "0050") return responseJson({ PCF: null, FundWeights: { StockWeights: [] } });
+      return responseJson({
+        PCF: { markcd: "0050", fundname: "元大台灣卓越50基金", trandate: "20260918" },
+        FundWeights: { StockWeights: [
+          { code: "2330", name: "台積電", weights: 56.78, qty: 100 },
+          { code: "2454", name: "聯發科", weights: 6.54, qty: 20 },
+          { code: "2308", name: "台達電", weights: 3.16, qty: 30 }
+        ] }
+      });
+    }
+    if (url.startsWith(endpoint("twse-company"))) return responseJson([
+      { 公司代號: "2330", 公司名稱: "台積電", 產業別: "半導體" },
+      { 公司代號: "2454", 公司名稱: "聯發科", 產業別: "半導體" },
+      { 公司代號: "2308", 公司名稱: "台達電", 產業別: "電子零組件" }
+    ]);
     if (url.startsWith("https://www.sec.gov/files/company_tickers.json")) return responseJson({ 0: { ticker: "AAPL", cik_str: 320193 } });
     if (url.startsWith("https://data.sec.gov/api/xbrl/companyfacts")) return responseJson({ "us-gaap": {
-      Revenues: { units: { USD: [{ val: 1000, end: "2025-12-31" }] } },
+      Revenues: { units: { USD: [{ val: 1000, end: "2025-12-31" }, { val: 800, end: "2024-12-31" }] } },
       Assets: { units: { USD: [{ val: 2000, end: "2025-12-31" }] } },
       NetIncomeLoss: { units: { USD: [{ val: 300, end: "2025-12-31" }] } }
-    } });
+    }, dei: { EntityCommonStockSharesOutstanding: { units: { shares: [{ val: 1000, end: "2025-12-31" }] } } } });
     if (url.startsWith("https://data.sec.gov/submissions")) return responseJson({ sic: "3571", sicDescription: "Electronic Computers" });
     if (url.startsWith(endpoint("fx"))) return responseJson({ rates: { TWD: 31.8 }, time_last_update_utc: "Fri, 18 Sep 2026 00:00:00 GMT" });
     if (url.startsWith(endpoint("news"))) return responseText(`<?xml version="1.0"?><rss><channel><item><title>evidence</title><link>https://news.test/evidence</link><pubDate>Fri, 18 Sep 2026 03:00:00 GMT</pubDate><source>Test News</source><description>verified</description></item></channel></rss>`);
@@ -262,6 +282,7 @@ test("official/public evidence adapters feed OHLC, fundamental, market phase and
       twseHoliday: endpoint("twse-holiday"),
       twseFinancial: endpoint("twse-financial"),
       twseCompany: endpoint("twse-company"),
+      yuantaEtfBridge: endpoint("yuanta-etf"),
       exchangeRate: endpoint("fx"),
       frankfurter: endpoint("frankfurter"),
       secTickers: "https://www.sec.gov/files/company_tickers.json",
@@ -285,8 +306,57 @@ test("official/public evidence adapters feed OHLC, fundamental, market phase and
   assert.equal(result.contexts.find(item => item.symbol === "2330").analysis.relationships.status, "AVAILABLE");
   assert.equal(result.contexts.find(item => item.symbol === "AAPL").analysis.fundamental.status, "AVAILABLE");
   assert.equal(result.contexts.find(item => item.symbol === "AAPL").analysis.relationships.status, "AVAILABLE");
-  assert.equal(result.contexts.find(item => item.symbol === "0050").analysis.relationships.status, "INSUFFICIENT_EVIDENCE");
-  assert.equal(result.contexts.find(item => item.symbol === "0050").evidence.some(item => item.type === "etf_component"), false);
+  const twseEvidence = result.contexts.find(item => item.symbol === "2330").evidence.find(item => item.type === "fundamental");
+  assert.match(twseEvidence.facts.join("|"), /net_margin_pct=/);
+  const aaplEvidence = result.contexts.find(item => item.symbol === "AAPL").evidence.find(item => item.type === "fundamental");
+  assert.match(aaplEvidence.facts.join("|"), /revenue_growth_pct_versus_previous_reported_period=/);
+  const etfEvidence = result.contexts.find(item => item.symbol === "0050").evidence;
+  assert.equal(result.contexts.find(item => item.symbol === "0050").analysis.relationships.status, "AVAILABLE");
+  assert.equal(etfEvidence.some(item => item.type === "etf_component"), true);
+  assert.equal(etfEvidence.some(item => item.type === "industry_exposure"), true);
+  assert.equal(etfEvidence.some(item => item.type === "related_symbol"), true);
+  assert.match(etfEvidence.find(item => item.type === "etf_component").facts.join("|"), /component=2330/);
+  assert.match(etfEvidence.find(item => item.type === "industry_exposure").facts.join("|"), /industry=半導體/);
+  assert.match(etfEvidence.find(item => item.type === "related_symbol").facts.join("|"), /related_symbol=2330/);
   const secCall = calls.find(item => item.url.startsWith("https://www.sec.gov/files/company_tickers.json"));
   assert.match(secCall.options.headers["User-Agent"], /Zhuge AI OS Investment Intelligence/);
+});
+
+test("ETF relationship evidence remains insufficient when the official PCF source is unavailable", async () => {
+  intelligence.clearProvidersForTest();
+  const endpoint = name => `https://provider.test/${name}`;
+  const runtime = providers.create({
+    intelligence,
+    fetch: async url => {
+      if (url.startsWith(endpoint("yuanta-etf"))) return responseJson({ PCF: null, FundWeights: { StockWeights: [] } });
+      if (url.startsWith(endpoint("twse-company"))) return responseJson([]);
+      throw new Error(`Unexpected URL: ${url}`);
+    },
+    endpoints: { yuantaEtfBridge: endpoint("yuanta-etf"), twseCompany: endpoint("twse-company") }
+  });
+  const result = await runtime.loadRelationships([{ symbol: "006208", market: "TW" }]);
+  assert.equal(result[0].available, false);
+  assert.equal(result[0].evidence.length, 0);
+  assert.equal(result[0].error, "RELATIONSHIP_UNAVAILABLE");
+});
+
+test("ETF component evidence survives an optional industry-source outage", async () => {
+  intelligence.clearProvidersForTest();
+  const endpoint = name => `https://provider.test/${name}`;
+  const runtime = providers.create({
+    intelligence,
+    fetch: async url => {
+      if (url.startsWith(endpoint("yuanta-etf"))) return responseJson({
+        PCF: { markcd: "0050", fundname: "元大台灣卓越50基金", trandate: "20260918" },
+        FundWeights: { StockWeights: [{ code: "2330", name: "台積電", weights: 56.78 }] }
+      });
+      if (url.startsWith(endpoint("twse-company"))) throw new Error("TWSE company classification unavailable");
+      throw new Error(`Unexpected URL: ${url}`);
+    },
+    endpoints: { yuantaEtfBridge: endpoint("yuanta-etf"), twseCompany: endpoint("twse-company") }
+  });
+  const result = await runtime.loadRelationships([{ symbol: "0050", market: "TW" }]);
+  assert.equal(result[0].available, true);
+  assert.deepEqual(result[0].evidence.map(item => item.type), ["etf_component", "related_symbol"]);
+  assert.match(result[0].evidence[0].limitations.join("|"), /industry_exposure=INSUFFICIENT_EVIDENCE/);
 });

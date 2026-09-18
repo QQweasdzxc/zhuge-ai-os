@@ -21,6 +21,7 @@ const MAX_NEWS_PER_SYMBOL = 8;
 const FRESH_QUOTE_MS = 15 * 60 * 1000;
 const FRESH_FX_MS = 24 * 60 * 60 * 1000;
 const HISTORY_FRESH_MS = 7 * 24 * 60 * 60 * 1000;
+const FUNDAMENTAL_FRESH_MS = 90 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 10000;
 const SEC_USER_AGENT = "Zhuge AI OS Investment Intelligence/1.0 (contact: qq.1025@gmail.com)";
 
@@ -32,6 +33,7 @@ const ENDPOINTS = Object.freeze({
   twseHoliday: "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule",
   twseFinancial: "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci",
   twseCompany: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+  yuantaEtfBridge: "https://etfapi.yuantaetfs.com/ectranslation/api/bridge",
   exchangeRate: "https://open.er-api.com/v6/latest/USD",
   frankfurter: "https://api.frankfurter.app/latest?from=USD&to=TWD",
   secTickers: "https://www.sec.gov/files/company_tickers.json",
@@ -231,12 +233,23 @@ function twseSymbol(request: RequestSpec) {
 
 function parseTaipeiDate(value: unknown) {
   const raw = text(value, 40);
+  const rocCompact = raw.match(/^(\d{3})(\d{2})(\d{2})$/);
+  if (rocCompact) {
+    const parsed = new Date(`${Number(rocCompact[1]) + 1911}-${rocCompact[2]}-${rocCompact[3]}T00:00:00+08:00`);
+    return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+  }
   const normalized = raw.replace(/[.\-]/g, "/");
   const match = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
   if (!match) return Number.isNaN(new Date(raw).getTime()) ? "" : new Date(raw).toISOString();
   const [, year, month, day] = match;
   const parsed = new Date(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+08:00`);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+}
+
+function parseCompactTaipeiDate(value: unknown) {
+  const raw = text(value, 40);
+  const match = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+  return match ? parseTaipeiDate(`${match[1]}/${match[2]}/${match[3]}`) : parseTaipeiDate(raw);
 }
 
 function temporalStatus(asOf: string, now: number, windowMs: number) {
@@ -560,17 +573,37 @@ function normalizeNews(items: JsonObject[]) {
   });
 }
 
-function secLatestFact(facts: JsonObject, names: string[]) {
+function secFactSeries(facts: JsonObject, names: string[]) {
+  const namespaces = [facts["us-gaap"], facts.dei].filter(item => item && typeof item === "object") as JsonObject[];
+  const candidates: Array<Array<{ name: string; unit: string; value: number | null; end: string; filed: string; form: string }>> = [];
   for (const name of names) {
-    const namespaces = [facts["us-gaap"], facts.dei].filter(item => item && typeof item === "object") as JsonObject[];
     for (const namespace of namespaces) {
       const entry = namespace[name] && typeof namespace[name] === "object" ? namespace[name] as JsonObject : {};
       const units = entry.units && typeof entry.units === "object" ? entry.units as JsonObject : {};
-      const rows = Object.values(units).flat().filter(item => finiteNumber((item as JsonObject)?.val) !== null).sort((left, right) => String((right as JsonObject)?.end || (right as JsonObject)?.filed || "").localeCompare(String((left as JsonObject)?.end || (left as JsonObject)?.filed || "")));
-      if (rows.length) return { name, unit: Object.keys(units)[0], value: finiteNumber((rows[0] as JsonObject).val), end: text((rows[0] as JsonObject).end || (rows[0] as JsonObject).filed, 40) };
+      const rows = Object.entries(units).flatMap(([unit, values]) => (Array.isArray(values) ? values : []).map(item => ({
+        name,
+        unit,
+        value: finiteNumber((item as JsonObject)?.val),
+        end: text((item as JsonObject)?.end || (item as JsonObject)?.filed, 40),
+        filed: text((item as JsonObject)?.filed, 40),
+        form: text((item as JsonObject)?.form, 20)
+      }))).filter(item => item.value !== null)
+        .sort((left, right) => String(right.end || right.filed).localeCompare(String(left.end || left.filed)));
+      const seen = new Set<string>();
+      const unique = rows.filter(item => {
+        const key = `${item.end}|${item.value}|${item.unit}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (unique.length) candidates.push(unique);
     }
   }
-  return null;
+  return candidates.sort((left, right) => {
+    const leftDate = Date.parse(left[0]?.end || left[0]?.filed || "") || 0;
+    const rightDate = Date.parse(right[0]?.end || right[0]?.filed || "") || 0;
+    return rightDate - leftDate || right.length - left.length;
+  })[0] || [];
 }
 
 async function secTickerCik(symbol: string) {
@@ -582,43 +615,94 @@ async function secTickerCik(symbol: string) {
   return cik;
 }
 
-function twseFinancialEvidence(request: RequestSpec, payload: unknown, sourceUrl: string) {
+function numericRowMetric(row: JsonObject, pattern: RegExp) {
+  for (const [key, value] of Object.entries(row)) {
+    if (!pattern.test(key)) continue;
+    const parsed = finiteNumber(value);
+    if (parsed !== null) return { key, value: parsed };
+  }
+  return null;
+}
+
+function twseFinancialEvidence(request: RequestSpec, payload: unknown, sourceUrl: string, now: number) {
   const rows = Array.isArray(payload) ? payload : payload && typeof payload === "object" && Array.isArray((payload as JsonObject).data) ? (payload as JsonObject).data : [];
   const row = rows.find(item => text((item as JsonObject)?.公司代號 || (item as JsonObject)?.Code, 20) === request.symbol) as JsonObject | undefined;
   if (!row) throw Object.assign(new Error("TWSE financial unavailable"), { code: "FUNDAMENTAL_UNAVAILABLE" });
-  const facts = Object.entries(row).filter(([key, value]) => /營業收入|營業利益|本期淨利|每股盈餘|revenue|income|eps/i.test(key) && text(value, 120)).slice(0, 8).map(([key, value]) => `${key}=${text(value, 120)}`);
+  const metrics = [
+    ["revenue", numericRowMetric(row, /營業收入|revenue/i)],
+    ["gross_profit", numericRowMetric(row, /營業毛利|gross.?profit/i)],
+    ["operating_income", numericRowMetric(row, /營業利益|operating.?income/i)],
+    ["net_income", numericRowMetric(row, /本期淨利|淨利.*母公司|net.?income/i)],
+    ["eps", numericRowMetric(row, /每股盈餘|eps/i)],
+    ["revenue_growth_pct", numericRowMetric(row, /營收.*(成長|年增)|revenue.*growth|growth.*revenue/i)]
+  ] as Array<[string, { key: string; value: number } | null]>;
+  const facts = metrics.filter(([, value]) => value).map(([label, value]) => `${label}=${value!.value} @${value!.key}`);
+  const revenue = metrics.find(([label]) => label === "revenue")?.[1];
+  const netIncome = metrics.find(([label]) => label === "net_income")?.[1];
+  if (revenue && netIncome && revenue.value !== 0) facts.push(`net_margin_pct=${((netIncome.value / revenue.value) * 100).toFixed(2)}`);
   if (!facts.length) throw Object.assign(new Error("TWSE financial facts unavailable"), { code: "FUNDAMENTAL_UNAVAILABLE" });
+  const missing = [];
+  if (!metrics.find(([label]) => label === "revenue_growth_pct")?.[1]) missing.push("revenue_growth");
+  if (!metrics.find(([label]) => label === "eps")?.[1]) missing.push("eps");
+  const observedAt = parseTaipeiDate(row.出表日期 || row.資料日期 || row.資料年月);
+  const freshnessValue = temporalStatus(observedAt, now, FUNDAMENTAL_FRESH_MS);
   return {
     type: "fundamental",
     symbol: request.symbol,
     market: request.market,
     title: `${request.symbol} TWSE 公開財報資料`,
-    summary: `TWSE 官方公開資料提供 ${facts.length} 項財報欄位。`,
+    summary: `TWSE 官方公開資料提供 ${facts.length} 項可驗證基本面欄位。`,
     source: "TWSE Financial Open Data",
     sourceUrl,
-    observedAt: text(row.出表日期, 40),
+    observedAt,
     quality: "official_open_data",
+    freshness: freshnessValue,
+    stale: freshnessValue === "stale",
     facts,
-    limitations: ["TWSE 公開財報資料不直接提供完整估值或投資建議。"]
+    limitations: [
+      ...missing.map(label => `${label}=INSUFFICIENT_EVIDENCE`),
+      "valuation=INSUFFICIENT_EVIDENCE",
+      "TWSE 公開財報資料不直接提供完整估值或投資建議。"
+    ]
   };
 }
 
-async function loadFundamental(request: RequestSpec) {
+async function loadFundamental(request: RequestSpec, now: number) {
   if (request.market === "TW") {
     const url = ENDPOINTS.twseFinancial;
-    return { provider: "twse-financial", evidence: twseFinancialEvidence(request, await providerRequest(url, "json"), url) };
+    return { provider: "twse-financial", evidence: twseFinancialEvidence(request, await providerRequest(url, "json"), url, now) };
   }
   const cik = await secTickerCik(request.symbol);
   const url = `${ENDPOINTS.secFacts}/CIK${cik}.json`;
   const payload = await providerRequest(url, "json") as JsonObject;
   const facts = payload.facts && typeof payload.facts === "object" ? payload.facts as JsonObject : payload;
   const selections = [
-    ["revenue", ["Revenues", "SalesRevenueNet"]],
+    ["revenue", ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "SalesRevenueGoodsNet", "Revenues"]],
     ["assets", ["Assets"]],
     ["net_income", ["NetIncomeLoss"]],
-    ["eps_diluted", ["EarningsPerShareDiluted"]]
-  ].map(([label, names]) => [label, secLatestFact(facts, names as string[])]).filter(([, value]) => value) as Array<[string, { value: number | null; unit: string; end: string }] >;
+    ["eps_diluted", ["EarningsPerShareDiluted"]],
+    ["shares_outstanding", ["EntityCommonStockSharesOutstanding"]]
+  ].map(([label, names]) => [label, secFactSeries(facts, names as string[])]).filter(([, series]) => Array.isArray(series) && series.length) as Array<[string, Array<{ value: number | null; unit: string; end: string; filed: string; form: string }>] >;
   if (!selections.length) throw Object.assign(new Error("SEC Company Facts unavailable"), { code: "FUNDAMENTAL_UNAVAILABLE" });
+  const factsList = selections.map(([label, series]) => {
+    const latest = series[0];
+    return `${label}=${latest.value}${latest.unit ? ` ${latest.unit}` : ""}${latest.end ? ` @${latest.end}` : ""}`;
+  });
+  const revenueSeries = selections.find(([label]) => label === "revenue")?.[1] || [];
+  const netIncome = selections.find(([label]) => label === "net_income")?.[1]?.[0];
+  const revenue = revenueSeries[0];
+  if (revenueSeries.length > 1 && revenueSeries[1].value !== null && revenueSeries[1].value !== 0 && revenue.value !== null) {
+    factsList.push(`revenue_growth_pct_versus_previous_reported_period=${(((revenue.value - revenueSeries[1].value) / Math.abs(revenueSeries[1].value)) * 100).toFixed(2)}`);
+  }
+  if (revenue?.value !== null && netIncome?.value !== null && revenue.value !== 0) {
+    factsList.push(`net_margin_pct=${((netIncome.value / revenue.value) * 100).toFixed(2)}`);
+  }
+  const missing = [];
+  if (revenueSeries.length < 2) missing.push("revenue_growth");
+  if (!selections.some(([label]) => label === "eps_diluted")) missing.push("eps_diluted");
+  if (!selections.some(([label]) => label === "net_income") || !revenue) missing.push("profitability_margin");
+  const observedAt = selections.flatMap(([, series]) => series.map(value => value.end)).filter(Boolean).sort().at(-1) || "";
+  const freshnessValue = temporalStatus(observedAt, now, FUNDAMENTAL_FRESH_MS);
   return {
     provider: "sec-company-facts",
     evidence: {
@@ -626,15 +710,145 @@ async function loadFundamental(request: RequestSpec) {
       symbol: request.symbol,
       market: request.market,
       title: `${request.symbol} SEC Company Facts`,
-      summary: `SEC Company Facts 提供 ${selections.length} 項可驗證的基本面欄位。`,
+      summary: `SEC Company Facts 提供 ${factsList.length} 項可驗證基本面欄位。`,
       source: "SEC EDGAR Company Facts",
       sourceUrl: url,
-      observedAt: selections.map(([, value]) => value.end).filter(Boolean).sort().at(-1) || "",
+      observedAt,
       quality: "official_open_data",
-      facts: selections.map(([label, value]) => `${label}=${value.value}${value.unit ? ` ${value.unit}` : ""}${value.end ? ` @${value.end}` : ""}`),
-      limitations: ["SEC Company Facts 不直接提供完整估值、ETF 成分或投資建議。"]
+      freshness: freshnessValue,
+      stale: freshnessValue === "stale",
+      facts: factsList,
+      limitations: [
+        ...missing.map(label => `${label}=INSUFFICIENT_EVIDENCE`),
+        "valuation=INSUFFICIENT_EVIDENCE",
+        "SEC Company Facts 不直接提供完整估值、ETF 成分或投資建議。"
+      ]
     }
   };
+}
+
+function yuantaEtfUrl(symbol: string) {
+  const params = new URLSearchParams({
+    APIType: "ETFAPI",
+    AppName: "ETF",
+    CompanyName: "YUANTAFUNDS",
+    PageName: "/investment",
+    DeviceId: "zhuge-ai-os-investment",
+    FuncId: "PCF/Daily",
+    Device: "3",
+    Platform: "ETF",
+    ticker: symbol
+  });
+  return `${ENDPOINTS.yuantaEtfBridge}?${params.toString()}`;
+}
+
+function yuantaComponentRows(payload: unknown) {
+  const root = payload && typeof payload === "object" ? payload as JsonObject : {};
+  const weights = root.FundWeights && typeof root.FundWeights === "object" ? (root.FundWeights as JsonObject).StockWeights : null;
+  return Array.isArray(weights) ? weights : [];
+}
+
+function yuantaComponent(row: unknown) {
+  const item = row && typeof row === "object" ? row as JsonObject : {};
+  const symbol = text(item.code || item.stkcd, 20).toUpperCase();
+  const name = text(item.name, 120);
+  const weight = finiteNumber(item.weights);
+  return symbol ? { symbol, name, weight } : null;
+}
+
+async function loadYuantaEtfRelationships(request: RequestSpec, now: number) {
+  if (request.market !== "TW") throw Object.assign(new Error("ETF relationship unavailable"), { code: "RELATIONSHIP_UNAVAILABLE" });
+  const sourceUrl = yuantaEtfUrl(request.symbol);
+  const payload = await providerRequest(sourceUrl, "json") as JsonObject;
+  const rows = yuantaComponentRows(payload).map(yuantaComponent).filter(Boolean) as Array<{ symbol: string; name: string; weight: number | null }>;
+  const pcf = payload.PCF && typeof payload.PCF === "object" ? payload.PCF as JsonObject : {};
+  if (!rows.length || !text(pcf.markcd, 20)) throw Object.assign(new Error("ETF components unavailable"), { code: "RELATIONSHIP_UNAVAILABLE" });
+  const observedAt = parseCompactTaipeiDate(pcf.trandate || pcf.upddate);
+  const freshnessValue = temporalStatus(observedAt, now, 7 * 24 * 60 * 60 * 1000);
+  const componentFacts = [
+    `fund=${text(pcf.fundname, 120) || request.symbol}`,
+    `component_count=${rows.length}`,
+    ...rows.slice(0, 20).map(item => `component=${item.symbol}${item.name ? `:${item.name}` : ""}${item.weight !== null ? `;weight_pct=${item.weight}` : ""}`)
+  ];
+  const componentEvidence: JsonObject = {
+    type: "etf_component",
+    symbol: request.symbol,
+    market: request.market,
+    title: `${request.symbol} ETF 成分股與權重`,
+    summary: `元大投信公開 PCF/Daily 提供 ${rows.length} 筆 ${text(pcf.fundname, 120) || request.symbol} 成分資料。`,
+    source: "Yuanta ETF PCF/Daily",
+    sourceUrl,
+    observedAt,
+    quality: "official_issuer_open_data",
+    freshness: freshnessValue,
+    stale: freshnessValue === "stale",
+    facts: componentFacts,
+    limitations: ["成分資料是觀察與研究 Evidence，不直接產生投資建議。", ...(rows.length > 20 ? ["僅在 facts 展示前 20 筆，完整筆數由 component_count 保留。"] : [])]
+  };
+  const evidence: JsonObject[] = [componentEvidence];
+  let companyPayload: unknown = [];
+  let companyUnavailable = false;
+  try {
+    companyPayload = await providerRequest(ENDPOINTS.twseCompany, "json");
+  } catch {
+    companyUnavailable = true;
+  }
+  const companyRows = Array.isArray(companyPayload) ? companyPayload : companyPayload && typeof companyPayload === "object" && Array.isArray((companyPayload as JsonObject).data) ? (companyPayload as JsonObject).data : [];
+  const industryBySymbol = new Map<string, string>();
+  for (const row of companyRows) {
+    const item = row as JsonObject;
+    const symbol = text(item.公司代號 || item.Code, 20).toUpperCase();
+    const industry = text(item.產業別 || item.Industry, 120);
+    if (symbol && industry) industryBySymbol.set(symbol, industry);
+  }
+  const exposures = new Map<string, { weight: number; count: number; symbols: string[] }>();
+  for (const item of rows) {
+    const industry = industryBySymbol.get(item.symbol);
+    if (!industry) continue;
+    const current = exposures.get(industry) || { weight: 0, count: 0, symbols: [] };
+    current.weight += item.weight || 0;
+    current.count += 1;
+    current.symbols.push(item.symbol);
+    exposures.set(industry, current);
+  }
+  if (exposures.size) {
+    evidence.push({
+      type: "industry_exposure",
+      symbol: request.symbol,
+      market: request.market,
+      title: `${request.symbol} ETF 產業曝險`,
+      summary: `依 ETF 成分與 TWSE 官方產業分類整理 ${exposures.size} 個產業群組。`,
+      source: "Yuanta ETF PCF/Daily + TWSE Company Basic Open Data",
+      sourceUrl: ENDPOINTS.twseCompany,
+      observedAt: "",
+      quality: "official_open_data",
+      freshness: "unknown",
+      stale: false,
+      facts: Array.from(exposures.entries()).sort((left, right) => right[1].weight - left[1].weight).slice(0, 20).map(([industry, value]) => `industry=${industry};component_count=${value.count};weight_pct=${value.weight.toFixed(2)};symbols=${value.symbols.slice(0, 12).join(",")}`),
+      limitations: ["產業曝險依公開成分與公司分類彙總；未包含未能對應分類的成分。"]
+    });
+  } else {
+    (componentEvidence.limitations as string[]).push(`industry_exposure=INSUFFICIENT_EVIDENCE${companyUnavailable ? ": TWSE company classification unavailable" : ": no component classification matched"}`);
+  }
+  const related = rows.filter(item => item.symbol !== request.symbol).slice(0, 10);
+  if (related.length) {
+    evidence.push({
+      type: "related_symbol",
+      symbol: request.symbol,
+      market: request.market,
+      title: `${request.symbol} 相關成分標的`,
+      summary: `以官方 ETF 成分權重排序，提供可進一步研究的相關標的。`,
+      source: "Yuanta ETF PCF/Daily",
+      sourceUrl,
+      observedAt,
+      quality: "official_issuer_open_data",
+      freshness: freshnessValue,
+      stale: freshnessValue === "stale",
+      facts: related.map(item => `related_symbol=${item.symbol}${item.name ? `:${item.name}` : ""}${item.weight !== null ? `;weight_pct=${item.weight}` : ""}`),
+      limitations: ["相關標的是成分關係 Evidence，不等同推薦或買賣訊號。"]
+    });
+  }
+  return evidence;
 }
 
 async function loadRelationship(request: RequestSpec) {
@@ -854,11 +1068,11 @@ async function loadHistories(requests: RequestSpec[], now: number) {
   return { items: results, trace };
 }
 
-async function loadFundamentals(requests: RequestSpec[]) {
+async function loadFundamentals(requests: RequestSpec[], now: number) {
   const items: JsonObject[] = [];
   const trace: JsonObject[] = [];
   for (const request of requests) {
-    const result = await withFallback([{ provider: request.market === "TW" ? "twse-financial" : "sec-company-facts", run: async () => loadFundamental(request) }]);
+    const result = await withFallback([{ provider: request.market === "TW" ? "twse-financial" : "sec-company-facts", run: async () => loadFundamental(request, now) }]);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
     items.push(result.ok
       ? { symbol: request.symbol, market: request.market, provider: result.provider, available: true, evidence: [(result.value as JsonObject).evidence], error: null, attempts: result.attempts }
@@ -867,14 +1081,20 @@ async function loadFundamentals(requests: RequestSpec[]) {
   return { items, trace };
 }
 
-async function loadRelationships(requests: RequestSpec[]) {
+async function loadRelationships(requests: RequestSpec[], now: number) {
   const items: JsonObject[] = [];
   const trace: JsonObject[] = [];
   for (const request of requests) {
-    const result = await withFallback([{ provider: request.market === "TW" ? "twse-company-industry" : "sec-company-industry", run: async () => loadRelationship(request) }]);
+    const candidates = request.market === "TW"
+      ? [
+          { provider: "yuanta-etf-pcf", run: async () => loadYuantaEtfRelationships(request, now) },
+          { provider: "twse-company-industry", run: async () => [((await loadRelationship(request)) as JsonObject).evidence as JsonObject] }
+        ]
+      : [{ provider: "sec-company-industry", run: async () => [((await loadRelationship(request)) as JsonObject).evidence as JsonObject] }];
+    const result = await withFallback(candidates);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
     items.push(result.ok
-      ? { symbol: request.symbol, market: request.market, provider: result.provider, available: true, evidence: [(result.value as JsonObject).evidence], error: null, attempts: result.attempts }
+      ? { symbol: request.symbol, market: request.market, provider: result.provider, available: true, evidence: Array.isArray(result.value) ? result.value : [(result.value as JsonObject).evidence], error: null, attempts: result.attempts }
       : { symbol: request.symbol, market: request.market, provider: null, available: false, evidence: [], error: result.attempts.at(-1)?.reason || "UNAVAILABLE", attempts: result.attempts });
   }
   return { items, trace };
@@ -1004,8 +1224,8 @@ Deno.serve(async request => {
       loadFx(now),
       loadNews(input.symbols, now),
       loadHistories(input.symbols, now),
-      loadFundamentals(input.symbols),
-      loadRelationships(input.symbols),
+      loadFundamentals(input.symbols, now),
+      loadRelationships(input.symbols, now),
       loadMarketPhases(input.symbols, now)
     ]);
     const contexts = input.symbols.map(requestValue => {
