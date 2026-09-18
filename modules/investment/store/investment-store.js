@@ -26,6 +26,7 @@
         fx: null,
         news: [],
         contexts: [],
+        analyses: [],
         quality: Object.freeze({}),
         error: null,
         loadedAt: null

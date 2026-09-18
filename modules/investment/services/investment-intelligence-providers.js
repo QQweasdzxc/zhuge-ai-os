@@ -128,6 +128,8 @@
   function create(options = {}) {
     const intelligence = options.intelligence || root?.InvestmentIntelligenceLayer;
     if (!intelligence) throw new TypeError("InvestmentIntelligenceProviders requires InvestmentIntelligenceLayer.");
+    const analysis = options.analysis || root?.InvestmentAnalysisService;
+    const strategyLibrary = options.strategyLibrary || root?.InvestmentStrategyLibrary;
     const fetchImpl = options.fetch || root?.fetch?.bind(root);
     const endpoints = Object.freeze({ ...DEFAULT_ENDPOINTS, ...(options.endpoints || {}) });
     const now = typeof options.now === "function" ? options.now : () => Date.now();
@@ -379,6 +381,11 @@
       });
     }
 
+    function enrichContexts(contexts) {
+      if (!analysis?.enrichContextPack) return Object.freeze(contexts);
+      return Object.freeze(contexts.map(context => analysis.enrichContextPack(context, { strategyLibrary })));
+    }
+
     function edgeRequest(input = {}) {
       const requests = uniqueRequests(input.symbols || input.positions || ["2330", "0050", "AAPL"]);
       return {
@@ -411,7 +418,8 @@
       const quotes = Object.freeze((Array.isArray(response.quotes) ? response.quotes : []).map(item => intelligence.normalizeQuote(item, now())));
       const fx = intelligence.normalizeFx(response.fx || { available: false }, now());
       const news = Object.freeze((Array.isArray(response.news) ? response.news : []).map(item => intelligence.normalizeEvidence(item)));
-      const contexts = Object.freeze((Array.isArray(response.contexts) ? response.contexts : []).map(normalizeEdgeContext));
+      const contexts = enrichContexts((Array.isArray(response.contexts) ? response.contexts : []).map(normalizeEdgeContext));
+      const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
       return Object.freeze({
         contract: "zhuge-investment-intelligence-runtime-v1",
         generatedAt,
@@ -419,6 +427,7 @@
         fx,
         news,
         contexts,
+        analyses,
         quality: Object.freeze(response.quality && typeof response.quality === "object" ? { ...response.quality } : {}),
         providerTrace: Object.freeze(response.provider_trace && typeof response.provider_trace === "object" ? { ...response.provider_trace } : {})
       });
@@ -431,7 +440,7 @@
         loadFx(),
         loadNews(requests, Number(input.newsLimit || 3))
       ]);
-      const contexts = Object.freeze(requests.map(requestValue => {
+      const contexts = enrichContexts(requests.map(requestValue => {
         const quote = quotes.find(item => item.symbol === requestValue.symbol && item.market === requestValue.market);
         const evidence = [quoteEvidence(quote), fxEvidence(requestValue.market === "US" ? fx : null), ...news.filter(item => !item.symbol || item.symbol === requestValue.symbol)].filter(Boolean);
         const missing = [];
@@ -453,6 +462,7 @@
           strategyIds: input.strategyIds || []
         });
       }));
+      const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
       return Object.freeze({
         contract: "zhuge-investment-intelligence-runtime-v1",
         generatedAt: new Date(now()).toISOString(),
@@ -460,6 +470,7 @@
         fx,
         news,
         contexts,
+        analyses,
         quality: Object.freeze({
           market: Object.freeze({ total: quotes.length, available: quotes.filter(item => item.available).length, stale: quotes.filter(item => item.stale).length }),
           fx: Object.freeze({ available: Boolean(fx?.available), freshness: fx?.freshness || "unavailable" }),

@@ -28,6 +28,7 @@
       version: global.InvestmentConfig.version,
       intelligence: global.InvestmentIntelligenceLayer,
       providers: global.InvestmentIntelligenceProviders,
+      analysis: global.InvestmentAnalysisService,
       strategyLibrary: global.InvestmentStrategyLibrary
     };
   }
@@ -368,6 +369,8 @@
     const dependencies = dependencyBundle();
     const intelligenceProviders = dependencies.providers?.create?.({
       intelligence: dependencies.intelligence,
+      analysis: dependencies.analysis,
+      strategyLibrary: dependencies.strategyLibrary,
       invokeFunction: context.data.invokeFunction
     }) || null;
     const recognitionProvider = dependencies.recognitionProvider?.create?.({
@@ -925,6 +928,7 @@
           fx: null,
           news: [],
           contexts: [],
+          analyses: [],
           quality: Object.freeze({}),
           error: null,
           loadedAt: null
@@ -948,6 +952,7 @@
               fx: intelligence.fx,
               news: intelligence.news,
               contexts: intelligence.contexts,
+              analyses: intelligence.analyses || intelligence.contexts.map(item => item.analysis).filter(Boolean),
               quality: intelligence.quality,
               error: null,
               loadedAt: intelligence.generatedAt
@@ -961,6 +966,7 @@
               fx: null,
               news: [],
               contexts: [],
+              analyses: [],
               quality: Object.freeze({}),
               error: "PROVIDER_ADAPTER_UNAVAILABLE",
               loadedAt: null

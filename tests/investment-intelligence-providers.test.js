@@ -5,6 +5,8 @@ const path = require("node:path");
 
 const intelligence = require("../modules/investment/services/investment-intelligence-layer.js");
 const providers = require("../modules/investment/services/investment-intelligence-providers.js");
+const analysis = require("../modules/investment/services/investment-analysis-service.js");
+const strategyLibrary = require("../modules/investment/services/investment-strategy-library.js");
 const calculation = require("../modules/investment/services/portfolio-calculation-service.js");
 
 function responseJson(value, status = 200) {
@@ -155,6 +157,45 @@ test("Investment production path uses the authenticated Shared Gateway Edge adap
   assert.equal(result.quotes[0].freshness, "stale");
   assert.equal(result.fx.rate, 31.86);
   assert.equal(result.contexts[0].contract, "zhuge-investment-context-pack-v1");
+});
+
+test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis projection", async () => {
+  intelligence.clearProvidersForTest();
+  const runtime = providers.create({
+    intelligence,
+    analysis,
+    strategyLibrary,
+    invokeFunction: async () => ({
+      contract: "zhuge-investment-intelligence-edge-v1",
+      read_only: true,
+      generated_at: "2026-09-18T09:00:00.000Z",
+      quotes: [],
+      fx: { available: false },
+      news: [],
+      contexts: [{
+        contract: "zhuge-investment-context-pack-v1",
+        symbol: "2330",
+        market: "TW",
+        generatedAt: "2026-09-18T09:00:00.000Z",
+        marketPhase: { phase: "OPEN", source: "test-session" },
+        evidence: [{ type: "ohlc", title: "daily candles", source: "test", facts: ["sma20=2400"] }],
+        missing: [],
+        strategyIds: ["ma_golden_cross"]
+      }],
+      quality: {},
+      provider_trace: {},
+      stream_subscriptions: 0,
+      mutating_operations_invoked: false
+    })
+  });
+
+  const result = await runtime.load({ symbols: [{ symbol: "2330", market: "TW" }] });
+
+  assert.equal(result.analyses.length, 1);
+  assert.equal(result.contexts[0].analysis.contract, "zhuge-investment-analysis-v1");
+  assert.equal(result.contexts[0].analysis.marketPhase.status, "AVAILABLE");
+  assert.equal(result.contexts[0].analysis.technical.status, "AVAILABLE");
+  assert.equal(result.contexts[0].analysis.strategyLibrary.matches[0].status, "AVAILABLE");
 });
 
 test("Investment Intelligence Edge adapter is read-only and has no Product Data write surface", () => {
