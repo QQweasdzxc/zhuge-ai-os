@@ -20,6 +20,16 @@
       todayFocus: [],
       marketEvents: [],
       currentPositionSource: "unknown",
+      intelligence: Object.freeze({
+        status: "idle",
+        quotes: [],
+        fx: null,
+        news: [],
+        contexts: [],
+        quality: Object.freeze({}),
+        error: null,
+        loadedAt: null
+      }),
       ivtk: Object.freeze({
         status: "idle",
         board: null,

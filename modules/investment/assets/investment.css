@@ -173,6 +173,13 @@ button { color: inherit; }
 .investment-event-list article { border-left-color: var(--investment-warning); }
 .investment-event-list header { display: flex; justify-content: space-between; gap: 10px; }
 .investment-event-list time { color: var(--investment-muted); font-size: .68rem; }
+.investment-quote-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.investment-quote-card { display: grid; gap: 5px; border: 1px solid var(--investment-line); border-radius: 12px; padding: 12px; background: rgba(6, 16, 30, .28); }
+.investment-quote-card.is-available { border-color: rgba(67, 211, 146, .35); }
+.investment-quote-card.is-unavailable { border-color: rgba(245, 185, 66, .38); }
+.investment-quote-card header { display: flex; justify-content: space-between; gap: 8px; }
+.investment-quote-card header span, .investment-quote-card small { color: var(--investment-muted); font-size: .72rem; }
+.investment-quote-card > b { font-size: 1.05rem; }
 .investment-kpi-section { display: grid; gap: 0; }
 .investment-kpi-section .investment-panel-heading { align-items: center; }
 .investment-kpi-grid { margin-bottom: 0; }
@@ -186,6 +193,7 @@ button { color: inherit; }
 .investment-kpi-amounts span { display: grid; gap: 3px; }
 .investment-kpi-amounts b { color: var(--investment-text); font-size: 1.18rem; }
 .investment-kpi-amounts small, .investment-kpi-unavailable small { color: var(--investment-muted); font-size: .68rem; }
+.investment-kpi-amounts span small + small { color: var(--investment-accent); }
 .investment-kpi-unavailable { display: grid; align-content: center; gap: 4px; min-height: 43px; }
 .investment-kpi-unavailable strong { color: #ffd481; font-size: .92rem; }
 .investment-advisor-flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
@@ -224,6 +232,7 @@ button { color: inherit; }
   .investment-identity strong, .investment-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .investment-main { padding: 18px 14px 34px; }
   .investment-kpi-grid, .investment-position-grid, .investment-watch-grid, .investment-settings-grid { grid-template-columns: 1fr; }
+  .investment-quote-grid { grid-template-columns: 1fr; }
   .investment-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-reasoning { grid-template-columns: 1fr; }
   .investment-transaction-row { grid-template-columns: 1fr 1fr; }

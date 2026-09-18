@@ -34,5 +34,32 @@
     return numeric(position.unrealizedPnl) >= 0 ? "gain" : "loss";
   }
 
-  return Object.freeze({ summarize, classify });
+  function applyQuotes(positions = [], quotes = []) {
+    const quoteMap = new Map((Array.isArray(quotes) ? quotes : [])
+      .filter(quote => quote?.available && Number.isFinite(Number(quote.price)))
+      .map(quote => [`${String(quote.market || "").toUpperCase()}:${String(quote.symbol || "").toUpperCase()}`, quote]));
+    return Object.freeze((Array.isArray(positions) ? positions : []).map(position => {
+      const key = `${String(position.market || "").toUpperCase()}:${String(position.symbol || "").toUpperCase()}`;
+      const quote = quoteMap.get(key);
+      if (!quote) return position;
+      const quantity = numeric(position.quantity);
+      const investedCost = numeric(position.investedCost);
+      const marketValue = quantity * Number(quote.price);
+      const unrealizedPnl = marketValue - investedCost;
+      return Object.freeze({
+        ...position,
+        lastPrice: Number(quote.price),
+        marketValue,
+        unrealizedPnl,
+        unrealizedPercent: investedCost ? unrealizedPnl / investedCost * 100 : 0,
+        marketValueSource: quote.provider || quote.source || position.marketValueSource,
+        quoteProvider: quote.provider || "",
+        quoteSource: quote.source || "",
+        quoteAsOf: quote.asOf || null,
+        quoteFreshness: quote.freshness || "unknown"
+      });
+    }));
+  }
+
+  return Object.freeze({ summarize, classify, applyQuotes });
 });
