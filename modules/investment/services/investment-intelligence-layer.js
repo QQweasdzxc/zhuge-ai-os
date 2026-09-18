@@ -111,6 +111,7 @@
 
   function normalizeEvidence(item = {}) {
     const observedAt = String(item.observedAt || item.publishedAt || item.asOf || "").trim();
+    const computedFreshness = item.freshness || freshness(observedAt);
     return Object.freeze({
       type: String(item.type || "unknown"),
       symbol: String(item.symbol || "").trim().toUpperCase(),
@@ -121,8 +122,8 @@
       sourceUrl: String(item.sourceUrl || "").trim(),
       observedAt,
       quality: String(item.quality || "unknown"),
-      freshness: item.freshness || freshness(observedAt),
-      stale: item.stale === true || item.freshness === "stale",
+      freshness: computedFreshness,
+      stale: item.stale === true || computedFreshness === "stale",
       facts: Object.freeze(Array.isArray(item.facts) ? item.facts.slice() : []),
       limitations: Object.freeze(Array.isArray(item.limitations) ? item.limitations.slice() : [])
     });

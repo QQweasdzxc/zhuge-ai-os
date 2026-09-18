@@ -46,6 +46,8 @@ test("Investment provider adapters normalize real quote shapes, fallback, FX, ne
   assert.equal(result.fx.available, true);
   assert.equal(result.fx.rate, 31.86);
   assert.equal(result.news.length, 1);
+  assert.equal(result.news[0].freshness, "stale");
+  assert.equal(result.news[0].stale, true);
   assert.equal(result.contexts.length, 3);
   assert.equal(result.contexts.find(item => item.symbol === "2330").evidence[0].type, "market_quote");
   assert.equal(result.contexts.find(item => item.symbol === "AAPL").evidence.some(item => item.type === "fx_benchmark"), true);
