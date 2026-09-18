@@ -5,6 +5,8 @@ const path = require("node:path");
 
 const intelligence = require("../modules/investment/services/investment-intelligence-layer.js");
 const providers = require("../modules/investment/services/investment-intelligence-providers.js");
+const analysis = require("../modules/investment/services/investment-analysis-service.js");
+const strategyLibrary = require("../modules/investment/services/investment-strategy-library.js");
 const calculation = require("../modules/investment/services/portfolio-calculation-service.js");
 
 function responseJson(value, status = 200) {
@@ -157,6 +159,45 @@ test("Investment production path uses the authenticated Shared Gateway Edge adap
   assert.equal(result.contexts[0].contract, "zhuge-investment-context-pack-v1");
 });
 
+test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis projection", async () => {
+  intelligence.clearProvidersForTest();
+  const runtime = providers.create({
+    intelligence,
+    analysis,
+    strategyLibrary,
+    invokeFunction: async () => ({
+      contract: "zhuge-investment-intelligence-edge-v1",
+      read_only: true,
+      generated_at: "2026-09-18T09:00:00.000Z",
+      quotes: [],
+      fx: { available: false },
+      news: [],
+      contexts: [{
+        contract: "zhuge-investment-context-pack-v1",
+        symbol: "2330",
+        market: "TW",
+        generatedAt: "2026-09-18T09:00:00.000Z",
+        marketPhase: { phase: "OPEN", source: "test-session" },
+        evidence: [{ type: "ohlc", title: "daily candles", source: "test", facts: ["sma20=2400"] }],
+        missing: [],
+        strategyIds: ["ma_golden_cross"]
+      }],
+      quality: {},
+      provider_trace: {},
+      stream_subscriptions: 0,
+      mutating_operations_invoked: false
+    })
+  });
+
+  const result = await runtime.load({ symbols: [{ symbol: "2330", market: "TW" }] });
+
+  assert.equal(result.analyses.length, 1);
+  assert.equal(result.contexts[0].analysis.contract, "zhuge-investment-analysis-v1");
+  assert.equal(result.contexts[0].analysis.marketPhase.status, "AVAILABLE");
+  assert.equal(result.contexts[0].analysis.technical.status, "AVAILABLE");
+  assert.equal(result.contexts[0].analysis.strategyLibrary.matches[0].status, "AVAILABLE");
+});
+
 test("Investment Intelligence Edge adapter is read-only and has no Product Data write surface", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/investment-intelligence-read/index.ts"), "utf8");
   assert.match(source, /Deno\.serve/);
@@ -165,4 +206,87 @@ test("Investment Intelligence Edge adapter is read-only and has no Product Data 
   assert.doesNotMatch(source, /createClient|SUPABASE_SERVICE_ROLE_KEY|service_role/);
   assert.doesNotMatch(source, /\.insert\s*\(|\.update\s*\(|\.delete\s*\(|\.upsert\s*\(/);
   assert.match(source, /investment-intelligence-edge-v1/);
+});
+
+test("official/public evidence adapters feed OHLC, fundamental, market phase and industry without inferring ETF components", async () => {
+  intelligence.clearProvidersForTest();
+  const calls = [];
+  const now = Date.parse("2026-09-18T04:00:00.000Z");
+  const bars = Array.from({ length: 60 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 0, 1 + index));
+    const yyyy = date.getUTCFullYear();
+    const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(date.getUTCDate()).padStart(2, "0");
+    const close = 100 + index;
+    return [`${yyyy}/${mm}/${dd}`, "1000", "100000", String(close - 1), String(close + 1), String(close - 2), String(close), "+1", "100"];
+  });
+  const yahooBars = Array.from({ length: 60 }, (_, index) => Math.floor(Date.UTC(2026, 0, 1 + index) / 1000));
+  const yahooCloses = yahooBars.map((_, index) => 200 + index);
+  const endpoint = name => `https://provider.test/${name}`;
+  const fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.startsWith(endpoint("twse-quote"))) {
+      const code = new URL(url).searchParams.get("ex_ch")?.match(/tse_(\w+)\.tw/)?.[1];
+      return responseJson({ msgArray: code === "2330" ? [{ c: "2330", z: "100", tlong: String(now) }] : [] });
+    }
+    if (url.startsWith(endpoint("yahoo-quote"))) {
+      return responseJson({ chart: { result: [{ meta: { currency: "USD", regularMarketPrice: 220, regularMarketTime: Math.floor(now / 1000) } }] } });
+    }
+    if (url.startsWith(endpoint("twse-daily"))) return responseJson({ fields: ["Date", "TradeVolume", "TradeValue", "OpeningPrice", "HighestPrice", "LowestPrice", "ClosingPrice", "Change", "Transaction"], data: bars });
+    if (url.startsWith(endpoint("yahoo-history"))) return responseJson({ chart: { result: [{ meta: { currency: "USD" }, timestamp: yahooBars, indicators: { quote: [{ open: yahooCloses, high: yahooCloses.map(value => value + 1), low: yahooCloses.map(value => value - 1), close: yahooCloses, volume: yahooCloses.map(() => 1000) }] } }] } });
+    if (url.startsWith(endpoint("twse-holiday"))) return responseJson([{ Date: "1150918", Description: "" }]);
+    if (url.startsWith(endpoint("twse-financial"))) return responseJson([{ 公司代號: "2330", 公司名稱: "台積電", 營業收入: "2404483690", 本期淨利: "1279582227", 基本每股盈餘: "49.33" }]);
+    if (url.startsWith(endpoint("twse-company"))) return responseJson([{ 公司代號: "2330", 公司名稱: "台積電", 產業別: "半導體" }]);
+    if (url.startsWith("https://www.sec.gov/files/company_tickers.json")) return responseJson({ 0: { ticker: "AAPL", cik_str: 320193 } });
+    if (url.startsWith("https://data.sec.gov/api/xbrl/companyfacts")) return responseJson({ "us-gaap": {
+      Revenues: { units: { USD: [{ val: 1000, end: "2025-12-31" }] } },
+      Assets: { units: { USD: [{ val: 2000, end: "2025-12-31" }] } },
+      NetIncomeLoss: { units: { USD: [{ val: 300, end: "2025-12-31" }] } }
+    } });
+    if (url.startsWith("https://data.sec.gov/submissions")) return responseJson({ sic: "3571", sicDescription: "Electronic Computers" });
+    if (url.startsWith(endpoint("fx"))) return responseJson({ rates: { TWD: 31.8 }, time_last_update_utc: "Fri, 18 Sep 2026 00:00:00 GMT" });
+    if (url.startsWith(endpoint("news"))) return responseText(`<?xml version="1.0"?><rss><channel><item><title>evidence</title><link>https://news.test/evidence</link><pubDate>Fri, 18 Sep 2026 03:00:00 GMT</pubDate><source>Test News</source><description>verified</description></item></channel></rss>`);
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  const runtime = providers.create({
+    intelligence,
+    analysis,
+    strategyLibrary,
+    fetch,
+    now: () => now,
+    endpoints: {
+      yahooChart: endpoint("yahoo-quote"),
+      yahooHistory: endpoint("yahoo-history"),
+      twseQuote: endpoint("twse-quote"),
+      twseDaily: endpoint("twse-daily"),
+      twseHoliday: endpoint("twse-holiday"),
+      twseFinancial: endpoint("twse-financial"),
+      twseCompany: endpoint("twse-company"),
+      exchangeRate: endpoint("fx"),
+      frankfurter: endpoint("frankfurter"),
+      secTickers: "https://www.sec.gov/files/company_tickers.json",
+      secFacts: "https://data.sec.gov/api/xbrl/companyfacts",
+      secSubmissions: "https://data.sec.gov/submissions",
+      googleNews: endpoint("news"),
+      bingNews: endpoint("bing-news")
+    }
+  });
+
+  const result = await runtime.load({ symbols: [
+    { symbol: "2330", market: "TW" },
+    { symbol: "0050", market: "TW" },
+    { symbol: "AAPL", market: "US" }
+  ], newsLimit: 1 });
+
+  assert.equal(result.histories.every(item => item.available), true);
+  assert.equal(result.contexts.find(item => item.symbol === "2330").analysis.marketPhase.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "2330").analysis.technical.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "2330").analysis.fundamental.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "2330").analysis.relationships.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "AAPL").analysis.fundamental.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "AAPL").analysis.relationships.status, "AVAILABLE");
+  assert.equal(result.contexts.find(item => item.symbol === "0050").analysis.relationships.status, "INSUFFICIENT_EVIDENCE");
+  assert.equal(result.contexts.find(item => item.symbol === "0050").evidence.some(item => item.type === "etf_component"), false);
+  const secCall = calls.find(item => item.url.startsWith("https://www.sec.gov/files/company_tickers.json"));
+  assert.match(secCall.options.headers["User-Agent"], /Zhuge AI OS Investment Intelligence/);
 });
