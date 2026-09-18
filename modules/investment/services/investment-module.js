@@ -68,6 +68,21 @@
     return Object.freeze(Object.fromEntries(keys.map(key => [key, String(formData.get(key) || "").trim()])));
   }
 
+  function researchRequestFormValues(formOrValues) {
+    const values = formOrValues && typeof formOrValues === "object" && "symbol" in formOrValues
+      ? formOrValues
+      : Object.fromEntries(new FormData(formOrValues).entries());
+    const symbol = String(values.symbol || "").trim().toUpperCase().replace(/\.(TW|TWO)$/i, "");
+    if (!/^[A-Z0-9][A-Z0-9.-]{0,15}$/.test(symbol)) {
+      throw snapshotWriteError("INVESTMENT_RESEARCH_SYMBOL_INVALID", "請輸入有效的股票／ETF 代號，例如 2330、0050 或 AAPL。");
+    }
+    const requestedMarket = String(values.market || "AUTO").trim().toUpperCase();
+    const market = requestedMarket === "TW" || requestedMarket === "US"
+      ? requestedMarket
+      : /^\d{4,6}$/.test(symbol) ? "TW" : "US";
+    return Object.freeze({ symbol, market });
+  }
+
   function taipeiTimestamp(value) {
     const raw = String(value || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
@@ -857,6 +872,15 @@
       renderPage();
     }
 
+    function strategyIdsFor(strategies) {
+      const catalogStrategyIds = typeof dependencies.strategyLibrary?.list === "function"
+        ? dependencies.strategyLibrary.list().map(item => item.id).filter(Boolean)
+        : [];
+      return catalogStrategyIds.length
+        ? catalogStrategyIds
+        : Array.isArray(strategies) ? strategies.map(item => item.strategyType || item.strategy_type).filter(Boolean) : [];
+    }
+
     async function loadIntelligence(portfolio, positions, watchlist, strategies) {
       if (!intelligenceProviders) return null;
       const requests = [
@@ -874,9 +898,6 @@
         { symbol: "0050", name: "元大台灣50", market: "TW" },
         { symbol: "AAPL", name: "Apple", market: "US" }
       ];
-      const catalogStrategyIds = typeof dependencies.strategyLibrary?.list === "function"
-        ? dependencies.strategyLibrary.list().map(item => item.id).filter(Boolean)
-        : [];
       return intelligenceProviders.load({
         symbols: requests,
         newsLimit: 3,
@@ -886,9 +907,7 @@
         },
         // The analysis consumer compares the existing 15-item Strategy Library.
         // Persisted strategies remain user decision records and are not mutated.
-        strategyIds: catalogStrategyIds.length
-          ? catalogStrategyIds
-          : Array.isArray(strategies) ? strategies.map(item => item.strategyType || item.strategy_type).filter(Boolean) : []
+        strategyIds: strategyIdsFor(strategies)
       });
     }
 
@@ -903,6 +922,60 @@
         contexts,
         analyses: Object.freeze(contexts.map(item => item.analysis).filter(Boolean))
       });
+    }
+
+    async function runResearch(form) {
+      let request;
+      try {
+        request = researchRequestFormValues(form);
+      } catch (error) {
+        store.update({
+          research: Object.freeze({ status: "error", query: "", request: null, result: null, error: error.message, loadedAt: null })
+        });
+        renderPage();
+        return;
+      }
+
+      const current = store.getState();
+      store.update({
+        research: Object.freeze({ status: "loading", query: request.symbol, request, result: null, error: "", loadedAt: null })
+      });
+      renderPage();
+      try {
+        if (!intelligenceProviders) throw snapshotWriteError("INVESTMENT_RESEARCH_UNAVAILABLE", "目前沒有可用的 Investment Intelligence Provider。");
+        const result = await intelligenceProviders.load({
+          symbols: [request],
+          newsLimit: 3,
+          portfolioContext: {
+            portfolioId: current.portfolio?.id || "",
+            currentPositionCount: Array.isArray(current.positions) ? current.positions.length : 0
+          },
+          strategyIds: strategyIdsFor(current.strategies)
+        });
+        const runtimeResult = enrichIntelligenceWithPortfolio(result, current.positions);
+        store.update({
+          research: Object.freeze({
+            status: "ready",
+            query: request.symbol,
+            request,
+            result: runtimeResult,
+            error: "",
+            loadedAt: runtimeResult.generatedAt || new Date().toISOString()
+          })
+        });
+      } catch (error) {
+        store.update({
+          research: Object.freeze({
+            status: "error",
+            query: request.symbol,
+            request,
+            result: null,
+            error: String(error?.code || "PROVIDER_LOAD_FAILED"),
+            loadedAt: null
+          })
+        });
+      }
+      renderPage();
     }
 
     async function load() {
@@ -1117,6 +1190,12 @@
       }
     });
     root.addEventListener("submit", event => {
+      const researchForm = event.target.closest("[data-investment-research-form]");
+      if (researchForm) {
+        event.preventDefault();
+        runResearch(researchForm).catch(handleError);
+        return;
+      }
       const confirmedInputForm = event.target.closest("[data-investment-confirmed-input-form]");
       if (confirmedInputForm) {
         event.preventDefault();

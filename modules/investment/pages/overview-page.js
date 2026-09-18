@@ -222,7 +222,7 @@
     return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
   }
 
-  function renderLiveAnalysisCards(state, escape) {
+  function renderLiveAnalysisCards(state, escape, heading = "即時軍師分析") {
     const intelligence = state.intelligence || {};
     const contexts = Array.isArray(intelligence.contexts) ? intelligence.contexts : [];
     const analyses = Array.isArray(intelligence.analyses) && intelligence.analyses.length
@@ -256,7 +256,40 @@
       const status = String(analysis.status || "UNKNOWN");
       return `<article class="investment-analysis-card" data-investment-analysis-symbol="${escape(symbol)}"><header><div><span class="investment-analysis-market">${escape(analysis.market || context.market || "")}</span><h3>${escape(symbolName(state, symbol))} <small>${escape(symbol)}</small></h3></div><span class="investment-analysis-status is-${escape(analysisStatusClass(status))}">${escape(analysisStatusLabel(status))}</span></header><div class="investment-analysis-summary"><div><strong>發生什麼？</strong><p>${escape(happenedWithPhase)}</p></div><div><strong>對我有什麼影響？</strong><p>${escape(impact)}</p></div><div><strong>接下來觀察什麼？</strong><p>${escape(observe)}</p></div></div><details class="investment-analysis-why"><summary>為什麼？<span>查看資料來源與限制</span></summary>${renderAnalysisDetail(analysis, context, escape)}</details></article>`;
     }).join("");
-    return `<div class="investment-analysis-consumer" data-investment-analysis-consumer><div class="investment-analysis-consumer-heading"><div><strong>即時軍師分析</strong><small>諸葛只整理已取得的 Evidence；資料不足時不補猜。</small></div><span>${analyses.length} 個標的</span></div><div class="investment-analysis-card-list">${cards}</div></div>`;
+    return `<div class="investment-analysis-consumer" data-investment-analysis-consumer><div class="investment-analysis-consumer-heading"><div><strong>${escape(heading)}</strong><small>諸葛只整理已取得的 Evidence；資料不足時不補猜。</small></div><span>${analyses.length} 個標的</span></div><div class="investment-analysis-card-list">${cards}</div></div>`;
+  }
+
+  function renderResearchMeta(result, escape) {
+    const context = Array.isArray(result?.contexts) ? result.contexts[0] : null;
+    const analysis = Array.isArray(result?.analyses) ? result.analyses[0] : context?.analysis;
+    if (!context && !analysis) return "";
+    const sectionStatusText = section => {
+      const status = String(section?.status || "UNKNOWN");
+      return `${analysisStatusLabel(status)} (${status})`;
+    };
+    return `<div class="investment-research-meta" data-investment-research-evidence-meta><span>Context Pack：${escape(context?.contract || "UNKNOWN")}</span><span>Analysis：${escape(analysis?.contract || "UNKNOWN")}</span><span>基本面 Evidence：${escape(sectionStatusText(analysis?.fundamental))}</span><span>ETF／產業／相關 Evidence：${escape(sectionStatusText(analysis?.relationships))}</span></div>`;
+  }
+
+  function renderResearchSurface(state, escape) {
+    const research = state.research || {};
+    const request = research.request || {};
+    const busy = research.status === "loading";
+    const result = research.result;
+    const resultMarkup = result
+      ? renderLiveAnalysisCards({ ...state, intelligence: result }, escape, "標的研究結果")
+      : research.status === "loading"
+        ? `<div class="investment-panel-empty" data-investment-research-state="loading"><strong>正在整理標的 Evidence…</strong><small>依序取得行情、基本面、ETF／產業／相關標的與分析結果。</small></div>`
+        : research.status === "error"
+          ? `<div class="investment-panel-empty" data-investment-research-state="error"><strong>標的研究暫時無法讀取</strong><small>${escape(research.error || "目前沒有可用的研究結果，請稍後再試。")}</small></div>`
+          : `<div class="investment-panel-empty" data-investment-research-state="idle"><strong>輸入代號開始研究</strong><small>例如 2330、0050 或 AAPL；資料不足時會明確顯示 INSUFFICIENT_EVIDENCE。</small></div>`;
+    const status = research.status === "ready"
+      ? "已讀回"
+      : research.status === "loading"
+        ? "讀取中"
+        : research.status === "error"
+          ? "讀取失敗"
+          : "待查詢";
+    return `<article class="investment-command-panel investment-research-panel" data-investment-section="research"><header class="investment-panel-heading"><div><p class="investment-eyebrow">06 · 標的研究</p><h2>查詢一個標的</h2><p>沿用既有 Evidence → Context Pack → Analysis；不修改持倉、交易或策略紀錄。</p></div><span class="investment-panel-status ${research.status === "ready" ? "is-ready" : "is-pending"}">${status}</span></header><form class="investment-research-form" data-investment-research-form><label><span>股票／ETF 代號</span><input name="symbol" value="${escape(String(research.query || ""))}" placeholder="2330／0050／AAPL" autocomplete="off" maxlength="16" required ${busy ? "disabled" : ""}></label><label><span>市場</span><select name="market" ${busy ? "disabled" : ""}><option value="AUTO" ${!request.market ? "selected" : ""}>自動判定</option><option value="TW" ${request.market === "TW" ? "selected" : ""}>台股／ETF</option><option value="US" ${request.market === "US" ? "selected" : ""}>美股</option></select></label><button type="submit" ${busy ? "disabled" : ""}>${busy ? "查詢中…" : "開始研究"}</button></form>${renderResearchMeta(result, escape)}${resultMarkup}</article>`;
   }
 
   function renderAdvisor(state, escape, format) {
@@ -303,6 +336,8 @@
     const positionCount = hasPositions ? `${summary.assetCount} 筆持倉已讀回` : "尚未讀回持倉";
     return `<section class="investment-command-center" data-investment-command-center data-investment-readonly="true">
       <div class="investment-page-heading"><div><p class="investment-eyebrow">Investment Command Center</p><h1>投資首頁</h1><p>先看今天值得注意的事，再看投資狀況與持股變化。</p></div><div class="investment-command-heading-actions"><span class="investment-pill">資料來源：Investment Cloud（唯讀）</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
+
+      ${renderResearchSurface(state, escape)}
 
       <div class="investment-command-grid investment-command-grid-top">
         <article class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 今日軍令</p><h2>今天我的投資發生什麼事情？</h2><p>只呈現有可信資料支撐的事項。</p></div><span class="investment-panel-status is-pending">待建立</span></header>${renderTodayFocus(state, escape)}</article>
