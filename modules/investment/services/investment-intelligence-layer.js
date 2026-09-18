@@ -5,7 +5,16 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const PROVIDER_KINDS = Object.freeze(["market", "news", "fundamental", "fx", "social"]);
+  const PROVIDER_KINDS = Object.freeze([
+    "market",
+    "market_history",
+    "market_phase",
+    "news",
+    "fundamental",
+    "relationship",
+    "fx",
+    "social"
+  ]);
   const providers = new Map();
 
   function normalizeProvider(provider = {}) {
