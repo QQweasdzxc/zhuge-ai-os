@@ -866,10 +866,12 @@
         generatedAt: item.generatedAt,
         portfolioContext: item.portfolioContext,
         marketPhase: item.marketPhase,
+        decisionZones: item.decisionZones,
         dataQuality: item.dataQuality,
         evidence: item.evidence,
         missing: item.missing,
-        strategyIds: item.strategyIds
+        strategyIds: item.strategyIds,
+        strategyEvidence: item.strategyEvidence
       });
     }
 

@@ -74,6 +74,7 @@
     PARTIAL: "部分資料可用",
     INSUFFICIENT_EVIDENCE: "資料還不夠",
     NOT_SELECTED: "尚未指定分析角度",
+    NOT_APPLICABLE: "目前不適用",
     UNKNOWN: "暫時無法判定"
   });
 
@@ -82,7 +83,10 @@
     technical: "行情與技術觀察",
     fundamental: "基本面",
     relationships: "產業／相關標的",
-    strategyLibrary: "策略 Evidence"
+    strategyLibrary: "策略 Evidence",
+    decisionZones: "買點／賣點／策略區間",
+    portfolioRisk: "我的持有曝險",
+    evidenceConfidence: "Evidence 信心"
   });
 
   const MISSING_LABELS = Object.freeze({
@@ -92,7 +96,12 @@
     historical_ohlc_or_indicators: "歷史行情",
     fundamental_evidence: "基本面資料",
     relationship_evidence: "產業／相關標的資料",
-    market_phase: "市場階段"
+    market_phase: "市場階段",
+    strategy_evidence: "策略所需 Evidence",
+    explicit_decision_zone: "明確策略區間資料",
+    market_value: "持倉市值",
+    industry_exposure: "產業曝險資料",
+    additional_evidence: "更多分析 Evidence"
   });
 
   function analysisStatusLabel(status) {
@@ -159,6 +168,39 @@
     }).join("")}</div>`;
   }
 
+  function renderAnalysisList(title, items, escape, emptyText = "目前沒有可列出的項目。") {
+    const values = Array.isArray(items) ? items.filter(Boolean).slice(0, 8) : [];
+    return `<div class="investment-analysis-factor-group"><strong>${escape(title)}</strong>${values.length ? `<ul>${values.map(item => `<li>${escape(item)}</li>`).join("")}</ul>` : `<p>${escape(emptyText)}</p>`}</div>`;
+  }
+
+  function renderAnalysisExtras(analysis, escape) {
+    const zones = analysis?.decisionZones || {};
+    const zoneRows = [zones.buyPoint, zones.sellPoint, zones.strategyRange].filter(Boolean).map(zone => {
+      const status = sectionStatus(zone);
+      const value = zone.value || (status === "INSUFFICIENT_EVIDENCE" ? "資料不足，不產生價格區間" : "尚未提供可驗證區間");
+      const conditions = Array.isArray(zone.conditions) && zone.conditions.length ? `；觀察條件：${zone.conditions.join("、")}` : "";
+      return `<div class="investment-analysis-detail-row"><span>${escape(zone.label || "策略區間")}</span><strong class="is-${escape(analysisStatusClass(status))}">${escape(value)}</strong><p>${escape(conditions || (status === "AVAILABLE" ? "由明確 Evidence 提供。" : "不由單一價格或指標自行推導。"))}</p></div>`;
+    }).join("");
+    const risk = analysis?.portfolioRisk || {};
+    const concentration = Array.isArray(risk.concentration?.byCurrency) ? risk.concentration.byCurrency : [];
+    const marketExposure = Array.isArray(risk.marketExposure) ? risk.marketExposure : [];
+    const industryExposure = Array.isArray(risk.industryExposure) ? risk.industryExposure : [];
+    const exposureMarkup = [...concentration, ...marketExposure, ...industryExposure].slice(0, 12).map(item => {
+      const weight = item.weight === null || item.weight === undefined ? "未知" : `${(Number(item.weight) * 100).toFixed(1)}%`;
+      return `<li>${escape(item.key || item.symbol || "曝險")}：${escape(weight)}${item.currency ? `（${escape(item.currency)}）` : ""}</li>`;
+    }).join("");
+    const confidence = analysis?.confidence || {};
+    const confidenceSummary = confidence.score === null || confidence.score === undefined
+      ? "目前沒有足夠 Evidence 形成可追溯信心評估。"
+      : `${confidence.score}/100（${confidence.level || "UNKNOWN"}）；這是 Evidence 覆蓋度，不是獲利機率。`;
+    const factors = Array.isArray(confidence.reasons) ? confidence.reasons : [];
+    const synthesis = analysis?.strategySynthesis || analysis?.strategyLibrary?.synthesis || {};
+    return `${zones.status ? `<div class="investment-analysis-detail-grid"><div class="investment-analysis-detail-row"><span>${escape(ANALYSIS_SECTION_LABELS.decisionZones)}</span><strong class="is-${escape(analysisStatusClass(zones.status))}">${escape(analysisStatusLabel(zones.status))}</strong><p>${escape(zones.summary || "不產生未經證明的買賣點。")}</p></div>${zoneRows}</div>` : ""}
+      <div class="investment-analysis-extra-block">${risk.status ? `<div class="investment-analysis-detail-row"><span>${escape(ANALYSIS_SECTION_LABELS.portfolioRisk)}</span><strong class="is-${escape(analysisStatusClass(risk.status))}">${escape(analysisStatusLabel(risk.status))}</strong><p>${escape(risk.summary || "目前沒有可呈現的持有曝險。")}</p></div>` : ""}${exposureMarkup ? `<ul class="investment-analysis-exposure-list">${exposureMarkup}</ul>` : ""}${Array.isArray(risk.signals) && risk.signals.length ? renderAnalysisList("目前可觀察的風險訊號", risk.signals, escape) : ""}${Array.isArray(risk.missing) && risk.missing.length ? `<p class="investment-analysis-detail-empty">尚缺：${escape(risk.missing.join("、"))}</p>` : ""}</div>
+      <div class="investment-analysis-extra-block"><div class="investment-analysis-detail-row"><span>${escape(ANALYSIS_SECTION_LABELS.evidenceConfidence)}</span><strong class="is-${escape(analysisStatusClass(confidence.status))}">${escape(confidenceSummary)}</strong><p>由 Evidence 完整度、新鮮度、Provider 品質與資料一致性形成。</p></div>${factors.length ? renderAnalysisList("信心依據", factors, escape) : ""}</div>
+      <div class="investment-analysis-extra-block">${synthesis.status ? `<div class="investment-analysis-detail-row"><span>多策略綜合研判</span><strong class="is-${escape(analysisStatusClass(synthesis.status))}">${escape(analysisStatusLabel(synthesis.status))}</strong><p>${escape(synthesis.summary || "不替使用者選單一策略。")}</p></div>${renderAnalysisList("支持因素", synthesis.supportingFactors, escape)}${renderAnalysisList("反對因素", synthesis.opposingFactors, escape)}${renderAnalysisList("接下來觀察的條件", synthesis.watchConditions, escape)}${renderAnalysisList("資料不足", synthesis.insufficientEvidence, escape)}${renderAnalysisList("策略衝突", synthesis.conflicts, escape, "目前沒有偵測到方向衝突。")}` : ""}</div>`;
+  }
+
   function renderAnalysisDetail(analysis, context, escape) {
     const sectionKeys = ["marketPhase", "technical", "fundamental", "relationships", "strategyLibrary"];
     const sections = sectionKeys.map(key => {
@@ -170,12 +212,14 @@
     }).join("");
     const missing = uniqueStrings([
       ...(Array.isArray(context?.missing) ? context.missing : []),
-      ...sectionKeys.flatMap(key => Array.isArray(analysis?.[key]?.missing) ? analysis[key].missing : [])
+      ...sectionKeys.flatMap(key => Array.isArray(analysis?.[key]?.missing) ? analysis[key].missing : []),
+      ...(Array.isArray(analysis?.decisionZones?.missing) ? analysis.decisionZones.missing : []),
+      ...(Array.isArray(analysis?.portfolioRisk?.missing) ? analysis.portfolioRisk.missing : [])
     ]);
     const missingMarkup = missing.length
       ? `<div class="investment-analysis-missing"><strong>目前還缺少</strong><span>${escape(missing.map(missingLabel).join("、"))}</span><small>資料不足時不補猜結論。</small></div>`
       : `<div class="investment-analysis-missing is-complete"><strong>目前沒有已知缺口</strong><span>仍只呈現 Evidence，不自動產生買賣建議。</span></div>`;
-    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
+    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
   }
 
   function renderLiveAnalysisCards(state, escape) {

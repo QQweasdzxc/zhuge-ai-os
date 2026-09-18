@@ -874,6 +874,9 @@
         { symbol: "0050", name: "元大台灣50", market: "TW" },
         { symbol: "AAPL", name: "Apple", market: "US" }
       ];
+      const catalogStrategyIds = typeof dependencies.strategyLibrary?.list === "function"
+        ? dependencies.strategyLibrary.list().map(item => item.id).filter(Boolean)
+        : [];
       return intelligenceProviders.load({
         symbols: requests,
         newsLimit: 3,
@@ -881,7 +884,24 @@
           portfolioId: portfolio?.id || "",
           currentPositionCount: Array.isArray(positions) ? positions.length : 0
         },
-        strategyIds: Array.isArray(strategies) ? strategies.map(item => item.strategyType || item.strategy_type).filter(Boolean) : []
+        // The analysis consumer compares the existing 15-item Strategy Library.
+        // Persisted strategies remain user decision records and are not mutated.
+        strategyIds: catalogStrategyIds.length
+          ? catalogStrategyIds
+          : Array.isArray(strategies) ? strategies.map(item => item.strategyType || item.strategy_type).filter(Boolean) : []
+      });
+    }
+
+    function enrichIntelligenceWithPortfolio(intelligence, portfolioPositions) {
+      if (!intelligence || !dependencies.analysis?.enrichContextPack || !Array.isArray(intelligence.contexts)) return intelligence;
+      const contexts = Object.freeze(intelligence.contexts.map(context => dependencies.analysis.enrichContextPack(context, {
+        strategyLibrary: dependencies.strategyLibrary,
+        portfolioPositions
+      })));
+      return Object.freeze({
+        ...intelligence,
+        contexts,
+        analyses: Object.freeze(contexts.map(item => item.analysis).filter(Boolean))
       });
     }
 
@@ -938,6 +958,7 @@
         const intelligence = await loadIntelligence(portfolio, positions, watchlist, strategies);
         if (intelligence) {
           const livePositions = dependencies.calculation.applyQuotes(positions, intelligence.quotes);
+          const runtimeIntelligence = enrichIntelligenceWithPortfolio(intelligence, livePositions);
           const events = intelligence.news.map(item => Object.freeze({
             ...item,
             occurredAt: item.observedAt || ""
@@ -948,14 +969,14 @@
             marketEvents: events,
             intelligence: Object.freeze({
               status: "ready",
-              quotes: intelligence.quotes,
-              fx: intelligence.fx,
-              news: intelligence.news,
-              contexts: intelligence.contexts,
-              analyses: intelligence.analyses || intelligence.contexts.map(item => item.analysis).filter(Boolean),
-              quality: intelligence.quality,
+              quotes: runtimeIntelligence.quotes,
+              fx: runtimeIntelligence.fx,
+              news: runtimeIntelligence.news,
+              contexts: runtimeIntelligence.contexts,
+              analyses: runtimeIntelligence.analyses,
+              quality: runtimeIntelligence.quality,
               error: null,
-              loadedAt: intelligence.generatedAt
+              loadedAt: runtimeIntelligence.generatedAt
             })
           });
         } else {

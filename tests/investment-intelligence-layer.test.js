@@ -15,13 +15,17 @@ test("Investment Intelligence provider fallback uses next healthy provider", asy
 });
 
 test("Investment Context Pack deduplicates evidence and preserves limitations", () => {
-  const pack = intelligence.buildContextPack({ symbol: "0051", market: "TW", generatedAt: "2026-09-18T03:00:00.000Z", evidence: [
+  const pack = intelligence.buildContextPack({ symbol: "0051", market: "TW", generatedAt: "2026-09-18T03:00:00.000Z", decisionZones: {
+    buyPoint: { value: "重新站回支撐" }
+  }, strategyEvidence: [{ strategyId: "ma_golden_cross", stance: "SUPPORT", reason: "均線重新確認" }], evidence: [
     { type: "news", title: "A", source: "S", sourceUrl: "https://example.test/a", observedAt: "2026-09-18", limitations: ["delayed"] },
     { type: "news", title: "A", source: "S", sourceUrl: "https://example.test/a", observedAt: "2026-09-18", limitations: ["delayed"] }
   ] });
   assert.equal(pack.contract, "zhuge-investment-context-pack-v1");
   assert.equal(pack.evidence.length, 1);
   assert.deepEqual(pack.evidence[0].limitations, ["delayed"]);
+  assert.equal(pack.decisionZones.buyPoint.value, "重新站回支撐");
+  assert.equal(pack.strategyEvidence[0].strategyId, "ma_golden_cross");
 });
 
 test("Investment Strategy Library exposes the studied 15-skill catalog", () => {

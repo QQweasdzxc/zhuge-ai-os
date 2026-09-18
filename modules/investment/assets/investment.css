@@ -237,8 +237,14 @@ button { color: inherit; }
 .investment-analysis-detail-row > strong { font-size: .7rem; }
 .investment-analysis-detail-row > strong.is-available { color: var(--investment-loss); }
 .investment-analysis-detail-row > strong.is-insufficient-evidence, .investment-analysis-detail-row > strong.is-unknown { color: #ffd481; }
-.investment-analysis-detail-row > strong.is-not-selected { color: var(--investment-muted); }
+.investment-analysis-detail-row > strong.is-not-selected, .investment-analysis-detail-row > strong.is-not-applicable { color: var(--investment-muted); }
 .investment-analysis-detail-row > p { grid-column: 1 / -1; margin: 0; color: var(--investment-muted); font-size: .7rem; line-height: 1.45; }
+.investment-analysis-extra-block { display: grid; gap: 8px; margin-top: 12px; }
+.investment-analysis-factor-group { display: grid; gap: 5px; border-top: 1px solid rgba(109, 184, 255, .12); padding-top: 8px; }
+.investment-analysis-factor-group > strong { color: var(--investment-accent); font-size: .7rem; }
+.investment-analysis-factor-group ul, .investment-analysis-exposure-list { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--investment-muted); font-size: .68rem; line-height: 1.45; }
+.investment-analysis-factor-group p { margin: 0; color: var(--investment-muted); font-size: .68rem; line-height: 1.45; }
+.investment-analysis-exposure-list { border-left: 2px solid rgba(109, 184, 255, .24); padding: 7px 0 7px 18px; }
 .investment-analysis-missing { display: grid; gap: 3px; margin: 11px 0; border: 1px dashed rgba(245, 185, 66, .36); border-radius: 9px; padding: 9px 10px; color: #ffd481; }
 .investment-analysis-missing.is-complete { border-color: rgba(67, 211, 146, .3); color: var(--investment-loss); }
 .investment-analysis-missing strong, .investment-analysis-subheading { font-size: .7rem; }
