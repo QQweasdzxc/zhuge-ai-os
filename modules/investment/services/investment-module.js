@@ -27,6 +27,7 @@
       ivtk: global.InvestmentIVTKBoardAdapter,
       version: global.InvestmentConfig.version,
       intelligence: global.InvestmentIntelligenceLayer,
+      providers: global.InvestmentIntelligenceProviders,
       strategyLibrary: global.InvestmentStrategyLibrary
     };
   }
@@ -365,6 +366,10 @@
     }
     const store = global.InvestmentStore.create({ pages: global.InvestmentConfig.pages, activePage });
     const dependencies = dependencyBundle();
+    const intelligenceProviders = dependencies.providers?.create?.({
+      intelligence: dependencies.intelligence,
+      invokeFunction: context.data.invokeFunction
+    }) || null;
     const recognitionProvider = dependencies.recognitionProvider?.create?.({
       invokeFunction: context.data.invokeFunction
     }) || null;
@@ -849,6 +854,34 @@
       renderPage();
     }
 
+    async function loadIntelligence(portfolio, positions, watchlist, strategies) {
+      if (!intelligenceProviders) return null;
+      const requests = [
+        ...(Array.isArray(positions) ? positions.filter(position => Number(position.quantity || 0) > 0).map(position => ({
+          symbol: position.symbol,
+          name: position.name,
+          market: position.market
+        })) : []),
+        ...(Array.isArray(watchlist) ? watchlist.map(item => ({
+          symbol: item.symbol,
+          name: item.name,
+          market: item.market
+        })) : []),
+        { symbol: "2330", name: "台積電", market: "TW" },
+        { symbol: "0050", name: "元大台灣50", market: "TW" },
+        { symbol: "AAPL", name: "Apple", market: "US" }
+      ];
+      return intelligenceProviders.load({
+        symbols: requests,
+        newsLimit: 3,
+        portfolioContext: {
+          portfolioId: portfolio?.id || "",
+          currentPositionCount: Array.isArray(positions) ? positions.length : 0
+        },
+        strategyIds: Array.isArray(strategies) ? strategies.map(item => item.strategyType || item.strategy_type).filter(Boolean) : []
+      });
+    }
+
     async function load() {
       store.update({
         status: "loading",
@@ -884,6 +917,70 @@
           : "opening_positions",
         loadedAt: new Date().toISOString()
       });
+
+      store.update({
+        intelligence: Object.freeze({
+          status: "loading",
+          quotes: [],
+          fx: null,
+          news: [],
+          contexts: [],
+          quality: Object.freeze({}),
+          error: null,
+          loadedAt: null
+        })
+      });
+      try {
+        const intelligence = await loadIntelligence(portfolio, positions, watchlist, strategies);
+        if (intelligence) {
+          const livePositions = dependencies.calculation.applyQuotes(positions, intelligence.quotes);
+          const events = intelligence.news.map(item => Object.freeze({
+            ...item,
+            occurredAt: item.observedAt || ""
+          }));
+          store.update({
+            positions: livePositions,
+            todayFocus: events.slice(0, 3),
+            marketEvents: events,
+            intelligence: Object.freeze({
+              status: "ready",
+              quotes: intelligence.quotes,
+              fx: intelligence.fx,
+              news: intelligence.news,
+              contexts: intelligence.contexts,
+              quality: intelligence.quality,
+              error: null,
+              loadedAt: intelligence.generatedAt
+            })
+          });
+        } else {
+          store.update({
+            intelligence: Object.freeze({
+              status: "unavailable",
+              quotes: [],
+              fx: null,
+              news: [],
+              contexts: [],
+              quality: Object.freeze({}),
+              error: "PROVIDER_ADAPTER_UNAVAILABLE",
+              loadedAt: null
+            })
+          });
+        }
+      } catch (error) {
+        store.update({
+          intelligence: Object.freeze({
+            status: "unavailable",
+            quotes: [],
+            fx: null,
+            news: [],
+            contexts: [],
+            quality: Object.freeze({}),
+            error: String(error?.code || "PROVIDER_LOAD_FAILED"),
+            loadedAt: null
+          })
+        });
+      }
 
       let projection = null;
       let projectionError = null;

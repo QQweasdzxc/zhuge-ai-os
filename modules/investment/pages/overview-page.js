@@ -15,14 +15,22 @@
     return `${numeric >= 0 ? "+" : "-"}${format.currency(Math.abs(numeric), currency)}`;
   }
 
-  function currencyValues(summary, field, format, includePercent = false) {
+  function currencyValues(summary, field, format, includePercent = false, fx = null) {
     const groups = CURRENCY_GROUPS
       .map(([currency, key]) => [currency, summary[key]])
       .filter(([, group]) => group && group.count > 0);
     if (!groups.length) {
       return `<div class="investment-kpi-unavailable"><strong>尚無持倉資料</strong><small>目前沒有可供計算的 Cloud 持倉資料。</small></div>`;
     }
-    return `<div class="investment-kpi-amounts">${groups.map(([currency, group]) => `<span><b>${field === "pnl" || field === "realizedPnl" ? currencyAmount(group[field], currency, format) : format.currency(group[field], currency)}</b>${includePercent ? `<small>${format.percent(group.roi)}</small>` : `<small>${currency}</small>`}</span>`).join("")}</div>`;
+    return `<div class="investment-kpi-amounts">${groups.map(([currency, group]) => {
+      const value = field === "pnl" || field === "realizedPnl" ? currencyAmount(group[field], currency, format) : format.currency(group[field], currency);
+      const approximate = currency === "USD"
+        ? fx?.available
+          ? `<small>約 ${format.currency(Number(group[field] || 0) * Number(fx.rate), "TWD")}</small>`
+          : `<small>約 NT$：匯率暫不可用</small>`
+        : "";
+      return `<span><b>${value}</b>${includePercent ? `<small>${format.percent(group.roi)}</small>` : `<small>${currency}</small>`}${approximate}</span>`;
+    }).join("")}</div>`;
   }
 
   function renderMetric(id, label, value, note, state = "available") {
@@ -46,11 +54,19 @@
   }
 
   function renderRealtime(state, escape) {
+    const intelligence = state.intelligence || {};
+    const quotes = Array.isArray(intelligence.quotes) ? intelligence.quotes.filter(Boolean).slice(0, 6) : [];
     const events = Array.isArray(state.marketEvents) ? state.marketEvents.filter(Boolean).slice(0, 4) : [];
-    if (!events.length) {
+    if (!quotes.length && !events.length) {
       return `<div class="investment-panel-empty" data-investment-state="pending"><strong>即時情報尚未接通</strong><small>目前尚未有 Price／News／Event Engine 資料；這裡不顯示猜測或假行情。</small></div>`;
     }
-    return `<div class="investment-event-list">${events.map(event => `<article><header><span>${escape(String(event.type || "市場事件"))}</span><time>${escape(String(event.occurredAt || ""))}</time></header><strong>${escape(String(event.title || "未命名事件"))}</strong><p>${escape(String(event.summary || "尚無摘要"))}</p></article>`).join("")}</div>`;
+    const quoteMarkup = quotes.length
+      ? `<div class="investment-quote-grid">${quotes.map(quote => `<article class="investment-quote-card ${quote.available ? "is-available" : "is-unavailable"}"><header><strong>${escape(String(quote.symbol || ""))}</strong><span>${escape(String(quote.market || ""))}</span></header><b>${quote.available ? escape(String(quote.price)) : "目前不可用"}</b><small>${escape(String(quote.currency || ""))} · ${escape(String(quote.source || quote.provider || "無來源"))}</small><small>${quote.asOf ? `as-of ${escape(String(quote.asOf))}` : "尚無 as-of 時間"} · ${escape(String(quote.freshness || "unknown"))}</small></article>`).join("")}</div>`
+      : "";
+    const eventMarkup = events.length
+      ? `<div class="investment-event-list">${events.map(event => `<article><header><span>${escape(String(event.type || "市場事件"))}</span><time>${escape(String(event.occurredAt || event.observedAt || ""))}</time></header><strong>${escape(String(event.title || "未命名事件"))}</strong><p>${escape(String(event.summary || "尚無摘要"))}</p><small>${escape(String(event.source || "無來源"))} · ${escape(String(event.freshness || "unknown"))}</small></article>`).join("")}</div>`
+      : `<div class="investment-panel-empty" data-investment-state="pending"><strong>新聞／搜尋目前不可用</strong><small>未取得可驗證的 Provider evidence；不顯示猜測資料。</small></div>`;
+    return `${quoteMarkup}${eventMarkup}`;
   }
 
   function renderAdvisor(state, escape, format) {
@@ -100,10 +116,10 @@
       </div>
 
       <section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 投資核心 KPI</p><h2>我現在的投資狀況如何？</h2><p>${positionCount}；不跨幣別硬湊單一數字。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
-        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format), "依目前已讀回的持倉成本計算。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format), "依目前已讀回的持倉市值計算。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("unrealized-pnl", "我的損益／未實現損益", currencyValues(summary, "pnl", format, true), "依唯一 Investment Current Position calculation result 計算。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("realized-pnl", "已實現損益", currencyValues(summary, "realizedPnl", format), "依交易紀錄與移動加權平均成本法計算；不倒推 Opening Baseline 以前的歷史交易。", positions.length ? "available" : "unavailable")}
+        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$，不改變原始幣別。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), "由最新可用行情更新既有持倉計算結果；USD 同時顯示約 NT$。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("unrealized-pnl", "我的損益／未實現損益", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), "依唯一 Investment Current Position calculation result 計算。", hasPositions ? "available" : "unavailable")}
+        ${renderMetric("realized-pnl", "已實現損益", currencyValues(summary, "realizedPnl", format, false, state.intelligence?.fx), "依交易紀錄與移動加權平均成本法計算；不倒推 Opening Baseline 以前的歷史交易。", positions.length ? "available" : "unavailable")}
         ${renderMetric("total-return", "總報酬", renderTotalReturn(state, escape), "目前不具備完整已實現損益與股利 Contract。", hasTotalReturn ? "available" : "unavailable")}
       </div></section>
 
