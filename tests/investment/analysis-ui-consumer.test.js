@@ -27,7 +27,7 @@ function context(symbol, market, evidence, missing = [], strategyIds = ["ma_gold
   };
 }
 
-function renderState(contexts, analyses, strategies = []) {
+function renderState(contexts, analyses, strategies = [], research = null) {
   return overview.render({
     status: "ready",
     activePage: "overview",
@@ -45,7 +45,8 @@ function renderState(contexts, analyses, strategies = []) {
       contexts,
       analyses,
       quality: {}
-    }
+    },
+    research
   }, {
     escape,
     format: {
@@ -106,6 +107,32 @@ test("Investment homepage consumes symbol-specific Analysis without writing Stra
   assert.match(markup, /既有決策紀錄/);
   assert.doesNotMatch(markup, /目前沒有可供分析的 Evidence/);
   assert.equal(JSON.stringify(persisted), beforeStrategies);
+});
+
+test("Investment homepage exposes a read-only symbol research consumer for Fundamental and ETF Evidence", () => {
+  const contexts = [context("0050", "TW", [
+    { type: "market_quote", title: "0050 最新可用行情", summary: "已取得行情", source: "TWSE", observedAt: "2026-09-19T01:00:00.000Z", freshness: "fresh", stale: false },
+    { type: "etf_component", title: "0050 ETF 成分", summary: "已取得 51 筆成分。", source: "Yuanta ETF PCF", observedAt: "2026-09-18T16:00:00.000Z", freshness: "fresh", stale: false, facts: ["component_count=51"] },
+    { type: "industry_exposure", title: "0050 產業曝險", summary: "已依官方成分分類。", source: "TWSE Company Basic", observedAt: "2026-09-18T16:00:00.000Z", freshness: "fresh", stale: false },
+    { type: "related_symbol", title: "0050 相關標的", summary: "可由成分 Evidence 進一步研究。", source: "Yuanta ETF PCF", observedAt: "2026-09-18T16:00:00.000Z", freshness: "fresh", stale: false }
+  ], ["fundamental_evidence"] )];
+  const analyses = contexts.map(item => analysis.enrichContextPack(item, { strategyLibrary }).analysis);
+  const markup = renderState(contexts, analyses, [], {
+    status: "ready",
+    query: "0050",
+    request: { symbol: "0050", market: "TW" },
+    result: { contexts, analyses },
+    error: "",
+    loadedAt: "2026-09-19T01:00:00.000Z"
+  });
+
+  assert.match(markup, /data-investment-research-form/);
+  assert.match(markup, /value="0050"/);
+  assert.match(markup, /標的研究結果/);
+  assert.match(markup, /基本面 Evidence：資料還不夠 \(INSUFFICIENT_EVIDENCE\)/);
+  assert.match(markup, /ETF／產業／相關 Evidence：/);
+  assert.match(markup, /component_count=51/);
+  assert.match(markup, /Yuanta ETF PCF/);
 });
 
 test("Investment homepage keeps the existing empty state when no live or persisted analysis exists", () => {

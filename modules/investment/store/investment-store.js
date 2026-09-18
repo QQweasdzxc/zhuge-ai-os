@@ -31,6 +31,14 @@
         error: null,
         loadedAt: null
       }),
+      research: Object.freeze({
+        status: "idle",
+        query: "",
+        request: null,
+        result: null,
+        error: "",
+        loadedAt: null
+      }),
       ivtk: Object.freeze({
         status: "idle",
         board: null,
