@@ -159,10 +159,14 @@
       generatedAt: String(input.generatedAt || new Date().toISOString()),
       portfolioContext: Object.freeze(input.portfolioContext && typeof input.portfolioContext === "object" ? { ...input.portfolioContext } : {}),
       marketPhase: Object.freeze(input.marketPhase && typeof input.marketPhase === "object" ? { ...input.marketPhase } : {}),
+      decisionZones: Object.freeze(input.decisionZones && typeof input.decisionZones === "object" ? { ...input.decisionZones } : {}),
       dataQuality: Object.freeze(input.dataQuality && typeof input.dataQuality === "object" ? { ...input.dataQuality } : {}),
       evidence: Object.freeze(evidence),
       missing: Object.freeze((Array.isArray(input.missing) ? input.missing : []).map(String)),
-      strategyIds: Object.freeze((Array.isArray(input.strategyIds) ? input.strategyIds : []).map(String))
+      strategyIds: Object.freeze((Array.isArray(input.strategyIds) ? input.strategyIds : []).map(String)),
+      strategyEvidence: Object.freeze((Array.isArray(input.strategyEvidence) ? input.strategyEvidence : [])
+        .filter(item => item && typeof item === "object")
+        .map(item => Object.freeze({ ...item })))
     });
   }
 

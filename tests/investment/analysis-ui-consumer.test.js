@@ -96,6 +96,10 @@ test("Investment homepage consumes symbol-specific Analysis without writing Stra
   assert.match(markup, /接下來觀察什麼？/);
   assert.match(markup, /為什麼？/);
   assert.match(markup, /目前資料還不夠，諸葛暫時不判斷/);
+  assert.match(markup, /買點／賣點／策略區間/);
+  assert.match(markup, /我的持有曝險/);
+  assert.match(markup, /Evidence 信心/);
+  assert.match(markup, /多策略綜合研判/);
   assert.match(markup, /TWSE/);
   assert.match(markup, /SEC EDGAR/);
   assert.match(markup, /sma20=2400/);
