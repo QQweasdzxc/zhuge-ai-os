@@ -86,12 +86,15 @@
     return rows.sort((left, right) => left.label.localeCompare(right.label, "zh-Hant"));
   }
 
-  function renderMarkup({ creator = false, pendingCount = null } = {}) {
+  function renderMarkup({ creator = false, pendingCount = null, investmentPendingCount = 0 } = {}) {
     const hoursHref = href("modules/worklog/", { app: "1", workspace: "worklog" });
     const accessHref = href("modules/worklog/", { app: "1", workspace: "management", management: "users" });
     const assistantHref = escape(assistantEmbedHref());
+    const investmentPendingHref = `${href("modules/investment/", { pending: "1" })}#transactions`;
     const pendingBadge = Number.isFinite(pendingCount) && pendingCount > 0
       ? `<span class="zhuge-hub-badge" data-hub-pending-badge>${escape(pendingCount)}</span>` : "";
+    const investmentPendingBadge = Number.isFinite(investmentPendingCount) && investmentPendingCount > 0
+      ? `<span class="zhuge-hub-badge" data-hub-investment-pending-badge>${escape(investmentPendingCount)}</span>` : "";
     const creatorMenu = creator ? `<div class="zhuge-hub-divider" role="separator"></div>
       <p class="zhuge-hub-section-label">Creator 快捷功能</p>
       <button class="zhuge-hub-item" type="button" data-hub-presence-toggle><span aria-hidden="true">👥</span><span>在線使用者</span><strong data-hub-online-count>—</strong></button>
@@ -103,6 +106,7 @@
         <div class="zhuge-hub-heading"><strong>Global Floating Hub</strong><span>全站懸浮快捷中心</span></div>
         ${creatorMenu}
         <p class="zhuge-hub-section-label">我的快捷功能</p>
+        <a class="zhuge-hub-item" href="${escape(investmentPendingHref)}" data-hub-pending-actions><span aria-hidden="true">🔔</span><span>待我確認</span>${investmentPendingBadge}</a>
         <button class="zhuge-hub-item" type="button" data-hub-assistant-open aria-expanded="false" aria-controls="zhugeHubChat"><span aria-hidden="true">💬</span><span>工時小幫手</span></button>
         <a class="zhuge-hub-item" href="${escape(hoursHref)}"><span aria-hidden="true">⏱️</span><span>工時／時數</span></a>
       </section>
@@ -238,6 +242,7 @@
     const dataGateway = options.dataGateway || root.ZhugeSupabaseGateway?.createDataGateway?.();
     let creator = false;
     let pendingCount = null;
+    let investmentPendingCount = 0;
     try {
       const resolver = options.creatorResolver || root.ZhugeCreatorResolver?.create?.({ dataGateway, readUserId: () => readUserId(options) });
       const snapshot = await resolver?.resolve?.();
@@ -247,9 +252,16 @@
         pendingCount = applications.filter(item => String(item?.status || "").toUpperCase() === "PENDING").length;
       }
     } catch { /* creator menu remains hidden on an inconclusive resolver */ }
+    try {
+      if (typeof dataGateway?.rpc === "function") {
+        const result = await dataGateway.rpc("investment_pending_action_count", {});
+        const value = Array.isArray(result) ? result[0] : result;
+        investmentPendingCount = Math.max(0, Number(value || 0));
+      }
+    } catch { /* pending action badge is optional until the migration is adopted */ }
 
     const hub = document.createElement("div");
-    hub.innerHTML = renderMarkup({ creator, pendingCount });
+    hub.innerHTML = renderMarkup({ creator, pendingCount, investmentPendingCount });
     const mounted = hub.firstElementChild;
     document.body.appendChild(mounted);
     state = { root: mounted, service, access, creator, channel: null, presenceError: null };

@@ -330,6 +330,53 @@
       return Object.freeze({ ...row });
     }
 
+    async function loadPendingActions() {
+      const rows = await ownerSelect(
+        "investment_pending_actions",
+        "id,portfolio_id,action_type,status,source,source_ref,title,summary,transaction_payload,evidence,idempotency_key,created_at,last_error",
+        "&status=eq.pending&order=created_at.asc,id.asc&limit=100"
+      );
+      return Object.freeze((rows || []).map(row => Object.freeze({
+        id: String(row.id || ""),
+        portfolioId: String(row.portfolio_id || ""),
+        actionType: String(row.action_type || ""),
+        status: String(row.status || ""),
+        source: String(row.source || ""),
+        sourceRef: String(row.source_ref || ""),
+        title: String(row.title || ""),
+        summary: String(row.summary || ""),
+        transaction: Object.freeze({ ...(row.transaction_payload || {}) }),
+        evidence: Object.freeze({ ...(row.evidence || {}) }),
+        idempotencyKey: String(row.idempotency_key || ""),
+        createdAt: row.created_at || null,
+        lastError: String(row.last_error || "")
+      })));
+    }
+
+    async function confirmPendingAction(actionId) {
+      assertSession({ write: true });
+      if (!gateway || typeof gateway.rpc !== "function") {
+        throw recordError(investmentError("INVESTMENT_PENDING_WRITE_UNAVAILABLE", "目前資料閘道不支援待確認交易寫入。"));
+      }
+      const result = await gateway.rpc("investment_confirm_pending_action", { p_action_id: actionId });
+      const row = first(result) || (result && !Array.isArray(result) ? result : null);
+      if (!row?.action_id || !row?.transaction_id) {
+        throw recordError(investmentError("INVESTMENT_PENDING_WRITE_INVALID", "待確認交易寫入回傳格式無法驗證。"));
+      }
+      return Object.freeze({ ...row });
+    }
+
+    async function dismissPendingAction(actionId) {
+      assertSession();
+      if (!gateway || typeof gateway.rpc !== "function") {
+        throw recordError(investmentError("INVESTMENT_PENDING_DISMISS_UNAVAILABLE", "目前資料閘道不支援稍後處理。"));
+      }
+      const result = await gateway.rpc("investment_dismiss_pending_action", { p_action_id: actionId });
+      const row = first(result) || (result && !Array.isArray(result) ? result : null);
+      if (!row?.action_id) throw recordError(investmentError("INVESTMENT_PENDING_DISMISS_INVALID", "待確認交易狀態回傳格式無法驗證。"));
+      return Object.freeze({ ...row });
+    }
+
     async function loadWatchlist() {
       const rows = await ownerSelect("watchlists", "id,portfolio_id,symbol,name,market,status,research_theme,reason,importance,updated_at", "&order=importance.asc,updated_at.desc");
       return (rows || []).map(row => Models.Watchlist.normalize({
@@ -510,6 +557,9 @@
       loadCurrentPositions,
       loadTransactions,
       recordTransaction,
+      loadPendingActions,
+      confirmPendingAction,
+      dismissPendingAction,
       loadWatchlist,
       loadStrategies,
       loadSettings,

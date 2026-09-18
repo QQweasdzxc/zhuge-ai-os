@@ -429,3 +429,15 @@ button { color: inherit; }
 .investment-ivtk-drawer-data div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(83, 127, 171, .2); padding-bottom: 6px; }
 .investment-ivtk-drawer-data dt { color: var(--investment-muted); }
 .investment-ivtk-drawer-data dd { margin: 0; text-align: right; }
+
+/* Human-in-the-loop Investment pending actions */
+.investment-pending-actions{display:grid;gap:14px;margin:0 0 20px}.investment-pending-action{border-color:rgba(226,172,75,.34)}.investment-pending-transaction-summary{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:12px 0;padding:12px 14px;border-radius:12px;background:rgba(8,18,33,.38);color:#cfe0ef}.investment-pending-transaction-summary>span{font-size:13px}.investment-pending-quantity{margin-left:auto;color:#a9bfd5}.investment-pending-quantity b{color:#9ce8c1}.investment-pending-actions .investment-page-heading{margin-bottom:0}@media(max-width:620px){.investment-pending-transaction-summary{display:grid;gap:7px}.investment-pending-quantity{margin-left:0}}
+
+/* Investment Intelligence / Strategy Library — domain-owned, not C Mother */
+.investment-strategy-library { margin: 0 0 24px; padding: 20px; border: 1px solid var(--line, rgba(148,163,184,.22)); border-radius: 18px; background: var(--panel, rgba(15,23,42,.42)); }
+.investment-strategy-skill-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 16px; }
+.investment-strategy-skill { padding: 14px; border: 1px solid var(--line, rgba(148,163,184,.18)); border-radius: 14px; background: rgba(148,163,184,.05); }
+.investment-strategy-skill div { display: flex; align-items: center; gap: 8px; }
+.investment-strategy-skill span { font-size: 11px; opacity: .68; }
+.investment-strategy-skill strong { font-size: 14px; }
+.investment-strategy-skill p { margin: 8px 0 0; font-size: 12px; line-height: 1.55; opacity: .78; }

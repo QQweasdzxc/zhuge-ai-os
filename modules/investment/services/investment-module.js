@@ -25,7 +25,9 @@
       actionAdapters: global.ZhugeSharedTaskActionAdapters,
       releaseService: global.ZhugeModulePublishService,
       ivtk: global.InvestmentIVTKBoardAdapter,
-      version: global.InvestmentConfig.version
+      version: global.InvestmentConfig.version,
+      intelligence: global.InvestmentIntelligenceLayer,
+      strategyLibrary: global.InvestmentStrategyLibrary
     };
   }
 
@@ -399,6 +401,7 @@
     });
     let snapshotWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
     let transactionWrite = Object.freeze({ status: "idle", form: Object.freeze({}), result: null, error: "", stepUp: null });
+    let pendingActionWrite = Object.freeze({ status: "idle", activeId: "", result: null, error: "", stepUp: null });
     let lastRenderedPageMarkup = "";
 
     function resetSnapshotWrite() {
@@ -454,7 +457,8 @@
         snapshotWrite,
         onSnapshotWrite: writeBrokerSnapshot,
         transactionWrite,
-        onTransactionWrite: writeTransaction
+        onTransactionWrite: writeTransaction,
+        pendingActionWrite
       };
       const markup = state.status === "loading"
         ? '<div class="investment-loading"><span></span><p>正在讀取投資資料…</p></div>'
@@ -591,6 +595,62 @@
         await load();
       } catch (error) {
         transactionWrite = Object.freeze({ status: "error", form: formValues, result: null, error: error?.message || "受控交易紀錄寫入失敗。", stepUp: null });
+        renderPage();
+      }
+    }
+
+    async function confirmPendingAction(actionId, { skipStepUp = false } = {}) {
+      const id = String(actionId || "").trim();
+      if (!id) return;
+      if (!skipStepUp && sensitiveWriteRequiresStepUp() && !currentSessionHasAal2()) {
+        pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ status: "preparing", mode: "preparing", error: "" }) });
+        renderPage();
+        try {
+          const prepared = await context.security.prepareUnlock();
+          pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ status: "ready", error: "", ...prepared }) });
+        } catch (error) {
+          pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法準備安全驗證。" }) });
+        }
+        renderPage();
+        return;
+      }
+      pendingActionWrite = Object.freeze({ status: "submitting", activeId: id, result: null, error: "", stepUp: null });
+      renderPage();
+      try {
+        const result = await repository.confirmPendingAction(id);
+        pendingActionWrite = Object.freeze({ status: "success", activeId: id, result, error: "", stepUp: null });
+        await load();
+      } catch (error) {
+        pendingActionWrite = Object.freeze({ status: "error", activeId: id, result: null, error: error?.message || "待確認交易寫入失敗。", stepUp: null });
+        renderPage();
+      }
+    }
+
+    async function enrollPendingActionTotp() {
+      const id = pendingActionWrite.activeId;
+      pendingActionWrite = Object.freeze({ ...pendingActionWrite, status: "step-up-required", stepUp: Object.freeze({ ...(pendingActionWrite.stepUp || {}), status: "enrolling", error: "" }) });
+      renderPage();
+      try {
+        const enrolled = await context.security.enrollTotp();
+        pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ status: "ready", error: "", ...enrolled }) });
+      } catch (error) {
+        pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ status: "error", mode: "error", error: error?.message || "無法設定安全驗證。" }) });
+      }
+      renderPage();
+    }
+
+    async function verifyPendingAction(form) {
+      const id = pendingActionWrite.activeId;
+      const formData = new FormData(form);
+      const previousStepUp = pendingActionWrite.stepUp || {};
+      pendingActionWrite = Object.freeze({ ...pendingActionWrite, status: "step-up-required", stepUp: Object.freeze({ ...previousStepUp, status: "verifying", error: "" }) });
+      renderPage();
+      try {
+        await context.security.verifyUnlock({ moduleId: "investment-sensitive-write", factorId: formData.get("factorId"), code: formData.get("code") });
+        if (!currentSessionHasAal2()) throw snapshotWriteError("INVESTMENT_ASSURANCE_REQUIRED", "安全驗證尚未完成，請再試一次。");
+        await confirmPendingAction(id, { skipStepUp: true });
+      } catch (error) {
+        pendingActionWrite = Object.freeze({ status: "step-up-required", activeId: id, result: null, error: "", stepUp: Object.freeze({ ...previousStepUp, status: "ready", error: error?.message || "驗證碼不正確，請重新輸入。" }) });
         renderPage();
       }
     }
@@ -800,10 +860,11 @@
       const loadCurrentPositions = typeof repository.loadCurrentPositions === "function"
         ? repository.loadCurrentPositions
         : repository.loadPositions;
-      const [portfolio, positions, transactions, watchlist, strategies, settings] = await Promise.all([
+      const [portfolio, positions, transactions, pendingActions, watchlist, strategies, settings] = await Promise.all([
         repository.loadPortfolio(),
         loadCurrentPositions(),
         repository.loadTransactions(),
+        typeof repository.loadPendingActions === "function" ? repository.loadPendingActions() : Promise.resolve([]),
         repository.loadWatchlist(),
         repository.loadStrategies(),
         repository.loadSettings()
@@ -814,6 +875,7 @@
         portfolio,
         positions,
         transactions,
+        pendingActions,
         watchlist,
         strategies,
         settings,
@@ -887,6 +949,15 @@
         beginTransactionWriteStepUp(transactionWrite.form || Object.freeze({})).catch(handleError);
         return;
       }
+      const pendingConfirm = event.target.closest("[data-investment-pending-confirm]");
+      if (pendingConfirm) {
+        confirmPendingAction(pendingConfirm.dataset.investmentPendingConfirm).catch(handleError);
+        return;
+      }
+      if (event.target.closest("[data-investment-pending-write-enroll]")) {
+        enrollPendingActionTotp().catch(handleError);
+        return;
+      }
       const importAction = event.target.closest("[data-investment-import-action]");
       if (!importAction) return;
       const action = importAction.dataset.investmentImportAction;
@@ -932,6 +1003,12 @@
       if (sensitiveWriteStepUpForm) {
         event.preventDefault();
         verifySensitiveWrite(sensitiveWriteStepUpForm).catch(handleError);
+        return;
+      }
+      const pendingStepUpForm = event.target.closest("[data-investment-pending-step-up]");
+      if (pendingStepUpForm) {
+        event.preventDefault();
+        verifyPendingAction(pendingStepUpForm).catch(handleError);
         return;
       }
       const transactionStepUpForm = event.target.closest("[data-investment-transaction-step-up]");
