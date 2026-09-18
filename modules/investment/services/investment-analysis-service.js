@@ -134,7 +134,7 @@
 
   function analyzeRelationships(evidence) {
     const relationshipEvidence = evidenceMatches(evidence, [
-      "etf_component", "component", "industry", "sector", "related_stock", "relationship"
+      "etf_component", "component", "industry", "industry_exposure", "sector", "related_stock", "related_symbol", "relationship"
     ]);
     if (!relationshipEvidence.length) {
       return section("relationships", "ETF / Components / Industry / Related Stocks", STATUS.INSUFFICIENT_EVIDENCE, {

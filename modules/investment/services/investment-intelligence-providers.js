@@ -13,6 +13,7 @@
     twseHoliday: "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule",
     twseFinancial: "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci",
     twseCompany: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+    yuantaEtfBridge: "https://etfapi.yuantaetfs.com/ectranslation/api/bridge",
     exchangeRate: "https://open.er-api.com/v6/latest/USD",
     frankfurter: "https://api.frankfurter.app/latest?from=USD&to=TWD",
     secTickers: "https://www.sec.gov/files/company_tickers.json",
@@ -79,12 +80,23 @@
   function parseTaipeiDate(value) {
     const raw = text(value);
     if (!raw) return "";
+    const rocCompact = raw.match(/^(\d{3})(\d{2})(\d{2})$/);
+    if (rocCompact) {
+      const parsed = new Date(`${Number(rocCompact[1]) + 1911}-${rocCompact[2]}-${rocCompact[3]}T00:00:00+08:00`);
+      return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+    }
     const normalized = raw.replace(/[.\-]/g, "/");
     const match = normalized.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
     if (!match) return Number.isNaN(new Date(raw).getTime()) ? "" : new Date(raw).toISOString();
     const [, year, month, day] = match;
     const parsed = new Date(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+08:00`);
     return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+  }
+
+  function parseCompactTaipeiDate(value) {
+    const raw = text(value);
+    const match = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+    return match ? parseTaipeiDate(`${match[1]}/${match[2]}/${match[3]}`) : parseTaipeiDate(raw);
   }
 
   function freshnessLabel(asOf, nowMs, freshWithinMs) {
@@ -246,37 +258,124 @@
     };
   }
 
-  function secLatestFact(facts, names) {
-    for (const name of names) {
-      const entry = facts?.["us-gaap"]?.[name] || facts?.["dei"]?.[name];
-      const units = entry?.units && typeof entry.units === "object" ? entry.units : {};
-      const rows = Object.values(units).flat().filter(item => number(item?.val) !== null).sort((a, b) => String(b?.end || b?.filed || "").localeCompare(String(a?.end || a?.filed || "")));
-      if (rows.length) return { name, unit: Object.keys(units)[0], value: number(rows[0].val), end: text(rows[0].end || rows[0].filed) };
+  function numericRowMetric(row, pattern) {
+    for (const [key, value] of Object.entries(row || {})) {
+      if (!pattern.test(key)) continue;
+      const parsed = number(value);
+      if (parsed !== null) return { key, value: parsed };
     }
     return null;
   }
 
-  function secFundamentalEvidence(request, facts, provider, sourceUrl) {
+  function secFactSeries(facts, names) {
+    const candidates = [];
+    for (const name of names) {
+      const entry = facts?.["us-gaap"]?.[name] || facts?.["dei"]?.[name];
+      const units = entry?.units && typeof entry.units === "object" ? entry.units : {};
+      const rows = Object.entries(units).flatMap(([unit, values]) => (Array.isArray(values) ? values : []).map(item => ({
+        name,
+        unit,
+        value: number(item?.val),
+        end: text(item?.end || item?.filed),
+        filed: text(item?.filed),
+        form: text(item?.form)
+      }))).filter(item => item.value !== null)
+        .sort((a, b) => String(b.end || b.filed).localeCompare(String(a.end || a.filed)));
+      const seen = new Set();
+      const unique = rows.filter(item => {
+        const key = `${item.end}|${item.value}|${item.unit}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (unique.length) candidates.push(unique);
+    }
+    return candidates.sort((a, b) => {
+      const leftDate = Date.parse(a[0]?.end || a[0]?.filed || "") || 0;
+      const rightDate = Date.parse(b[0]?.end || b[0]?.filed || "") || 0;
+      return rightDate - leftDate || b.length - a.length;
+    })[0] || [];
+  }
+
+  function twseFinancialEvidence(request, row, sourceUrl, nowMs) {
+    const metrics = [
+      ["revenue", numericRowMetric(row, /營業收入|revenue/i)],
+      ["gross_profit", numericRowMetric(row, /營業毛利|gross.?profit/i)],
+      ["operating_income", numericRowMetric(row, /營業利益|operating.?income/i)],
+      ["net_income", numericRowMetric(row, /本期淨利|淨利.*母公司|net.?income/i)],
+      ["eps", numericRowMetric(row, /每股盈餘|eps/i)],
+      ["revenue_growth_pct", numericRowMetric(row, /營收.*(成長|年增)|revenue.*growth|growth.*revenue/i)]
+    ];
+    const facts = metrics.filter(([, value]) => value).map(([label, value]) => `${label}=${value.value} @${value.key}`);
+    const revenue = metrics.find(([label]) => label === "revenue")?.[1];
+    const netIncome = metrics.find(([label]) => label === "net_income")?.[1];
+    if (revenue && netIncome && revenue.value !== 0) facts.push(`net_margin_pct=${((netIncome.value / revenue.value) * 100).toFixed(2)}`);
+    if (!facts.length) throw providerError("FUNDAMENTAL_UNAVAILABLE", `TWSE financial facts unavailable for ${request.symbol}.`);
+    const missing = [];
+    if (!metrics.find(([label]) => label === "revenue_growth_pct")?.[1]) missing.push("revenue_growth");
+    if (!metrics.find(([label]) => label === "eps")?.[1]) missing.push("eps");
+    const observedAt = parseTaipeiDate(row?.出表日期 || row?.資料日期 || row?.資料年月);
+    const freshness = freshnessLabel(observedAt, nowMs, 90 * 24 * 60 * 60 * 1000);
+    return {
+      type: "fundamental",
+      symbol: request.symbol,
+      market: request.market,
+      title: `${request.symbol} TWSE 公開財報資料`,
+      summary: `TWSE 官方公開資料提供 ${facts.length} 項可驗證基本面欄位。`,
+      source: "TWSE Financial Open Data",
+      sourceUrl,
+      observedAt,
+      quality: "official_open_data",
+      freshness,
+      stale: freshness === "stale",
+      facts,
+      limitations: [...missing.map(label => `${label}=INSUFFICIENT_EVIDENCE`), "valuation=INSUFFICIENT_EVIDENCE", "TWSE 公開財報資料不直接提供完整估值或投資建議。"]
+    };
+  }
+
+  function secFundamentalEvidence(request, facts, provider, sourceUrl, nowMs = Date.now()) {
     const factNamespaces = facts?.facts && typeof facts.facts === "object" ? facts.facts : facts;
     const selections = [
-      ["revenue", ["Revenues", "SalesRevenueNet"]],
+      ["revenue", ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "SalesRevenueGoodsNet", "Revenues"]],
       ["assets", ["Assets"]],
       ["net_income", ["NetIncomeLoss"]],
-      ["eps_diluted", ["EarningsPerShareDiluted"]]
-    ].map(([label, names]) => [label, secLatestFact(factNamespaces, names)]).filter(([, value]) => value);
+      ["eps_diluted", ["EarningsPerShareDiluted"]],
+      ["shares_outstanding", ["EntityCommonStockSharesOutstanding"]]
+    ].map(([label, names]) => [label, secFactSeries(factNamespaces, names)]).filter(([, series]) => series.length);
     if (!selections.length) throw providerError("FUNDAMENTAL_UNAVAILABLE", `SEC facts unavailable for ${request.symbol}.`);
+    const factsList = selections.map(([label, series]) => {
+      const latest = series[0];
+      return `${label}=${latest.value}${latest.unit ? ` ${latest.unit}` : ""}${latest.end ? ` @${latest.end}` : ""}`;
+    });
+    const revenueSeries = selections.find(([label]) => label === "revenue")?.[1] || [];
+    const revenue = revenueSeries[0];
+    const netIncome = selections.find(([label]) => label === "net_income")?.[1]?.[0];
+    if (revenueSeries.length > 1 && revenueSeries[1].value !== null && revenueSeries[1].value !== 0 && revenue.value !== null) {
+      factsList.push(`revenue_growth_pct_versus_previous_reported_period=${(((revenue.value - revenueSeries[1].value) / Math.abs(revenueSeries[1].value)) * 100).toFixed(2)}`);
+    }
+    if (revenue?.value !== null && netIncome?.value !== null && revenue.value !== 0) {
+      factsList.push(`net_margin_pct=${((netIncome.value / revenue.value) * 100).toFixed(2)}`);
+    }
+    const missing = [];
+    if (revenueSeries.length < 2) missing.push("revenue_growth");
+    if (!selections.some(([label]) => label === "eps_diluted")) missing.push("eps_diluted");
+    if (!selections.some(([label]) => label === "net_income") || !revenue) missing.push("profitability_margin");
+    const observedAt = selections.flatMap(([, series]) => series.map(value => value.end)).filter(Boolean).sort().at(-1) || "";
+    const freshness = freshnessLabel(observedAt, nowMs, 90 * 24 * 60 * 60 * 1000);
     return {
       type: "fundamental",
       symbol: request.symbol,
       market: request.market,
       title: `${request.symbol} SEC Company Facts`,
-      summary: `SEC Company Facts 提供 ${selections.length} 項可驗證的基本面欄位。`,
+      summary: `SEC Company Facts 提供 ${factsList.length} 項可驗證基本面欄位。`,
       source: "SEC EDGAR Company Facts",
       sourceUrl,
-      observedAt: selections.map(([, value]) => value.end).filter(Boolean).sort().at(-1) || "",
+      observedAt,
       quality: "official_open_data",
-      facts: selections.map(([label, value]) => `${label}=${value.value}${value.unit ? ` ${value.unit}` : ""}${value.end ? ` @${value.end}` : ""}`),
-      limitations: ["SEC Company Facts 不直接提供完整估值、ETF 成分或投資建議。"]
+      freshness,
+      stale: freshness === "stale",
+      facts: factsList,
+      limitations: [...missing.map(label => `${label}=INSUFFICIENT_EVIDENCE`), "valuation=INSUFFICIENT_EVIDENCE", "SEC Company Facts 不直接提供完整估值、ETF 成分或投資建議。"]
     };
   }
 
@@ -296,6 +395,116 @@
       facts: [`industry=${industry}`, `sic=${text(payload?.sic)}`],
       limitations: ["SEC SIC 分類不是 ETF 成分或投資建議。"]
     };
+  }
+
+  function yuantaEtfUrl(endpoint, symbol) {
+    const params = new URLSearchParams({
+      APIType: "ETFAPI",
+      AppName: "ETF",
+      CompanyName: "YUANTAFUNDS",
+      PageName: "/investment",
+      DeviceId: "zhuge-ai-os-investment",
+      FuncId: "PCF/Daily",
+      Device: "3",
+      Platform: "ETF",
+      ticker: symbol
+    });
+    return `${endpoint}?${params.toString()}`;
+  }
+
+  function yuantaComponentRows(payload) {
+    return Array.isArray(payload?.FundWeights?.StockWeights) ? payload.FundWeights.StockWeights : [];
+  }
+
+  function yuantaComponent(row) {
+    const symbol = text(row?.code || row?.stkcd).toUpperCase();
+    return symbol ? { symbol, name: text(row?.name), weight: number(row?.weights) } : null;
+  }
+
+  function yuantaEtfRelationshipEvidence(request, payload, sourceUrl, companyPayload, nowMs, companySourceUrl) {
+    const rows = yuantaComponentRows(payload).map(yuantaComponent).filter(Boolean);
+    const pcf = payload?.PCF || {};
+    if (!rows.length || !text(pcf.markcd)) throw providerError("RELATIONSHIP_UNAVAILABLE", `ETF components unavailable for ${request.symbol}.`);
+    const observedAt = parseCompactTaipeiDate(pcf.trandate || pcf.upddate);
+    const freshness = freshnessLabel(observedAt, nowMs, 7 * 24 * 60 * 60 * 1000);
+    const componentEvidence = {
+      type: "etf_component",
+      symbol: request.symbol,
+      market: request.market,
+      title: `${request.symbol} ETF 成分股與權重`,
+      summary: `元大投信公開 PCF/Daily 提供 ${rows.length} 筆 ${text(pcf.fundname) || request.symbol} 成分資料。`,
+      source: "Yuanta ETF PCF/Daily",
+      sourceUrl,
+      observedAt,
+      quality: "official_issuer_open_data",
+      freshness,
+      stale: freshness === "stale",
+      facts: [`fund=${text(pcf.fundname) || request.symbol}`, `component_count=${rows.length}`, ...rows.slice(0, 20).map(item => `component=${item.symbol}${item.name ? `:${item.name}` : ""}${item.weight !== null ? `;weight_pct=${item.weight}` : ""}`)],
+      limitations: ["成分資料是觀察與研究 Evidence，不直接產生投資建議。", ...(rows.length > 20 ? ["僅在 facts 展示前 20 筆，完整筆數由 component_count 保留。"] : [])]
+    };
+    const evidence = [componentEvidence];
+    let companyRows;
+    let companyUnavailable = companyPayload == null;
+    try {
+      companyRows = Array.isArray(companyPayload) ? companyPayload : Array.isArray(companyPayload?.data) ? companyPayload.data : [];
+    } catch {
+      companyRows = [];
+      companyUnavailable = true;
+    }
+    const industryBySymbol = new Map();
+    for (const row of companyRows) {
+      const symbol = text(row?.公司代號 || row?.Code).toUpperCase();
+      const industry = text(row?.產業別 || row?.Industry);
+      if (symbol && industry) industryBySymbol.set(symbol, industry);
+    }
+    const exposures = new Map();
+    for (const item of rows) {
+      const industry = industryBySymbol.get(item.symbol);
+      if (!industry) continue;
+      const current = exposures.get(industry) || { weight: 0, count: 0, symbols: [] };
+      current.weight += item.weight || 0;
+      current.count += 1;
+      current.symbols.push(item.symbol);
+      exposures.set(industry, current);
+    }
+    if (exposures.size) {
+      evidence.push({
+        type: "industry_exposure",
+        symbol: request.symbol,
+        market: request.market,
+        title: `${request.symbol} ETF 產業曝險`,
+        summary: `依 ETF 成分與 TWSE 官方產業分類整理 ${exposures.size} 個產業群組。`,
+        source: "Yuanta ETF PCF/Daily + TWSE Company Basic Open Data",
+        sourceUrl: companySourceUrl,
+        observedAt: "",
+        quality: "official_open_data",
+        freshness: "unknown",
+        stale: false,
+        facts: Array.from(exposures.entries()).sort((left, right) => right[1].weight - left[1].weight).slice(0, 20).map(([industry, value]) => `industry=${industry};component_count=${value.count};weight_pct=${value.weight.toFixed(2)};symbols=${value.symbols.slice(0, 12).join(",")}`),
+        limitations: ["產業曝險依公開成分與公司分類彙總；未包含未能對應分類的成分。"]
+      });
+    } else {
+      componentEvidence.limitations.push(`industry_exposure=INSUFFICIENT_EVIDENCE${companyUnavailable ? ": TWSE company classification unavailable" : ": no component classification matched"}`);
+    }
+    const related = rows.filter(item => item.symbol !== request.symbol).slice(0, 10);
+    if (related.length) {
+      evidence.push({
+        type: "related_symbol",
+        symbol: request.symbol,
+        market: request.market,
+        title: `${request.symbol} 相關成分標的`,
+        summary: "以官方 ETF 成分權重排序，提供可進一步研究的相關標的。",
+        source: "Yuanta ETF PCF/Daily",
+        sourceUrl,
+        observedAt,
+        quality: "official_issuer_open_data",
+        freshness,
+        stale: freshness === "stale",
+        facts: related.map(item => `related_symbol=${item.symbol}${item.name ? `:${item.name}` : ""}${item.weight !== null ? `;weight_pct=${item.weight}` : ""}`),
+        limitations: ["相關標的是成分關係 Evidence，不等同推薦或買賣訊號。"]
+      });
+    }
+    return evidence;
   }
 
   function asOfFromTwse(row) {
@@ -558,28 +767,12 @@
         markets: ["TW"],
         fetch: async requestInput => {
           const requestValue = normalizeRequest(requestInput);
-          const payload = await request(endpoints.twseFinancial);
+          const sourceUrl = endpoints.twseFinancial;
+          const payload = await request(sourceUrl);
           const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
           const row = rows.find(item => text(item?.公司代號 || item?.Code) === requestValue.symbol);
           if (!row) throw providerError("FUNDAMENTAL_UNAVAILABLE", `TWSE financial data unavailable for ${requestValue.symbol}.`);
-          const facts = Object.entries(row)
-            .filter(([key, value]) => /營業收入|營業利益|本期淨利|每股盈餘|revenue|income|eps/i.test(key) && text(value))
-            .slice(0, 8)
-            .map(([key, value]) => `${key}=${text(value)}`);
-          if (!facts.length) throw providerError("FUNDAMENTAL_UNAVAILABLE", `TWSE financial facts unavailable for ${requestValue.symbol}.`);
-          return {
-            type: "fundamental",
-            symbol: requestValue.symbol,
-            market: requestValue.market,
-            title: `${requestValue.symbol} TWSE 公開財報資料`,
-            summary: `TWSE 官方公開資料提供 ${facts.length} 項財報欄位。`,
-            source: "TWSE Financial Open Data",
-            sourceUrl: endpoints.twseFinancial,
-            observedAt: text(row?.出表日期),
-            quality: "official_open_data",
-            facts,
-            limitations: ["TWSE 公開財報資料不直接提供完整估值或投資建議。"]
-          };
+          return twseFinancialEvidence(requestValue, row, sourceUrl, now());
         }
       });
       intelligence.registerProvider({
@@ -595,7 +788,26 @@
           const cik = text(ticker?.cik_str).padStart(10, "0");
           if (!cik) throw providerError("FUNDAMENTAL_UNAVAILABLE", `SEC CIK unavailable for ${requestValue.symbol}.`);
           const url = `${endpoints.secFacts}/CIK${cik}.json`;
-          return secFundamentalEvidence(requestValue, await request(url), "sec-company-facts", url);
+          return secFundamentalEvidence(requestValue, await request(url), "sec-company-facts", url, now());
+        }
+      });
+      intelligence.registerProvider({
+        id: "yuanta-etf-pcf",
+        kind: "relationship",
+        priority: 5,
+        markets: ["TW"],
+        fetch: async requestInput => {
+          const requestValue = normalizeRequest(requestInput);
+          const sourceUrl = yuantaEtfUrl(endpoints.yuantaEtfBridge, requestValue.symbol);
+          const payload = await request(sourceUrl);
+          let companyPayload = null;
+          try {
+            companyPayload = await request(endpoints.twseCompany);
+          } catch {
+            // ETF component and related-symbol evidence remain valid when the
+            // optional industry classification source is temporarily absent.
+          }
+          return yuantaEtfRelationshipEvidence(requestValue, payload, sourceUrl, companyPayload, now(), endpoints.twseCompany);
         }
       });
       intelligence.registerProvider({
@@ -783,7 +995,7 @@
           market: requestValue.market,
           provider: result.provider,
           available: result.ok,
-          evidence: result.ok ? Object.freeze([result.value]) : Object.freeze([]),
+          evidence: result.ok ? Object.freeze(Array.isArray(result.value) ? result.value : [result.value]) : Object.freeze([]),
           error: result.ok ? null : (result.attempts.at(-1)?.reason || "UNAVAILABLE"),
           attempts: result.attempts
         });
@@ -800,7 +1012,7 @@
           market: requestValue.market,
           provider: result.provider,
           available: result.ok,
-          evidence: result.ok ? Object.freeze([result.value]) : Object.freeze([]),
+          evidence: result.ok ? Object.freeze(Array.isArray(result.value) ? result.value : [result.value]) : Object.freeze([]),
           error: result.ok ? null : (result.attempts.at(-1)?.reason || "UNAVAILABLE"),
           attempts: result.attempts
         });
