@@ -28,7 +28,7 @@ function context(symbol, market, evidence, missing = [], strategyIds = ["ma_gold
   };
 }
 
-function renderState(contexts, analyses, strategies = [], research = null, watchlist = []) {
+function renderState(contexts, analyses, strategies = [], research = null, watchlist = [], intelligenceState = {}) {
   return overview.render({
     status: "ready",
     activePage: "overview",
@@ -39,7 +39,8 @@ function renderState(contexts, analyses, strategies = [], research = null, watch
     todayFocus: [],
     marketEvents: [],
     intelligence: {
-      status: "ready",
+      status: intelligenceState.status || "ready",
+      error: intelligenceState.error || "",
       quotes: [],
       fx: null,
       news: [],
@@ -140,6 +141,22 @@ test("Investment homepage keeps the existing empty state when no live or persist
   const markup = renderState([], [], []);
   assert.match(markup, /目前沒有可供分析的 Evidence/);
   assert.doesNotMatch(markup, /data-investment-analysis-consumer/);
+});
+
+test("Investment homepage keeps loading, error, and broker-boundary states explicit", () => {
+  const loading = renderState([], [], [], null, [], { status: "loading" });
+  assert.match(loading, /今日重點讀取中/);
+  assert.match(loading, /行情與市場情報讀取中/);
+  assert.match(loading, /諸葛正在整理 Evidence/);
+  assert.match(loading, /富邦 Read-only 尚未接通/);
+  assert.doesNotMatch(loading, /TWD 0|USD 0/);
+
+  const failed = renderState([], [], [], null, [], { status: "error", error: "Edge temporarily unavailable" });
+  assert.match(failed, /今日重點暫時無法讀取/);
+  assert.match(failed, /市場情報暫時無法讀取/);
+  assert.match(failed, /軍師分析暫時無法讀取/);
+  assert.match(failed, /Edge temporarily unavailable/);
+  assert.match(failed, /富邦 Read-only 尚未接通/);
 });
 
 test("Investment UX re-layout keeps the canonical data surfaces and exposes the mobile-first IA", () => {
