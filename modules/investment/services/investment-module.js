@@ -399,8 +399,8 @@
       const pageKey = pageId || activePage;
       const [pageTitle, pageIcon] = global.InvestmentModuleShell.labels[pageKey] || ["投資", "📈"];
       const descriptions = {
-        overview: "投資模組｜查看投資組合、近期變化與今日重點",
-        portfolio: "投資組合｜查看目前持倉、成本與損益",
+        overview: "投資模組｜查看今日軍師、持股總覽與近期變化",
+        portfolio: "我的持股｜查看目前持倉、成本與損益",
         strategy: "投資策略｜整理策略、判斷與風險提醒",
         settings: "偏好設定｜管理投資模組的顯示與計算偏好",
         transactions: "交易紀錄｜以受控交易 Contract 計算持股與成本",
@@ -501,8 +501,11 @@
       }
       global.ZhugeMotherTemplateRelease?.applyToDocument?.("investment-ivtk");
       root.querySelectorAll("[data-investment-route]").forEach(button => {
-        button.classList.toggle("active", button.dataset.investmentRoute === state.activePage);
-        button.setAttribute("aria-selected", button.dataset.investmentRoute === state.activePage ? "true" : "false");
+        const isFocusedShortcut = Boolean(button.dataset.investmentFocus);
+        const isActive = !isFocusedShortcut && button.dataset.investmentRoute === state.activePage;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+        button.setAttribute("aria-current", isActive ? "page" : "false");
       });
     }
 
@@ -853,7 +856,17 @@
       }
     }
 
-    function navigate(page, updateHash = true) {
+    function focusSection(section) {
+      const key = String(section || "").trim();
+      if (!key) return;
+      const target = root.querySelector(`[data-investment-section="${key}"]`);
+      if (!target) return;
+      target.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      target.setAttribute("data-investment-focused", "true");
+      global.setTimeout?.(() => target.removeAttribute("data-investment-focused"), 1600);
+    }
+
+    function navigate(page, updateHash = true, focus = "") {
       const canonical = canonicalPage(page);
       if (!global.InvestmentConfig.pages.includes(canonical)) return;
       if (updateHash && global.location.hash !== `#${canonical}`) global.location.hash = canonical;
@@ -863,6 +876,7 @@
       store.setActivePage(canonical);
       renderSharedHeader(canonical);
       renderPage();
+      if (focus) global.requestAnimationFrame?.(() => focusSection(focus));
     }
 
     async function runRecognition() {
@@ -1123,11 +1137,14 @@
     root.addEventListener("click", event => {
       const route = event.target.closest("[data-investment-route]");
       if (route) {
-        if (route.dataset.investmentRoute === "portfolio") {
-          global.location.href = "../../app/Board/investment/";
+        const page = route.dataset.investmentRoute;
+        const focus = route.dataset.investmentFocus || "";
+        if (page === "portfolio") {
+          global.location.href = `../../app/Board/investment/${focus === "watchlist" ? "#watchlist" : ""}`;
           return;
         }
-        navigate(route.dataset.investmentRoute);
+        navigate(page, true, focus);
+        return;
       }
       if (event.target.closest("[data-investment-refresh]")) load().catch(handleError);
       if (event.target.closest("[data-investment-sensitive-write-enroll]")) {

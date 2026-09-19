@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const overview = require("../../modules/investment/pages/overview-page.js");
+const shell = require("../../modules/investment/components/module-shell.js");
 const analysis = require("../../modules/investment/services/investment-analysis-service.js");
 const strategyLibrary = require("../../modules/investment/services/investment-strategy-library.js");
 
@@ -27,12 +28,12 @@ function context(symbol, market, evidence, missing = [], strategyIds = ["ma_gold
   };
 }
 
-function renderState(contexts, analyses, strategies = [], research = null) {
+function renderState(contexts, analyses, strategies = [], research = null, watchlist = []) {
   return overview.render({
     status: "ready",
     activePage: "overview",
     positions: [],
-    watchlist: [],
+    watchlist,
     strategies,
     performance: null,
     todayFocus: [],
@@ -139,4 +140,23 @@ test("Investment homepage keeps the existing empty state when no live or persist
   const markup = renderState([], [], []);
   assert.match(markup, /目前沒有可供分析的 Evidence/);
   assert.doesNotMatch(markup, /data-investment-analysis-consumer/);
+});
+
+test("Investment UX re-layout keeps the canonical data surfaces and exposes the mobile-first IA", () => {
+  const watchlist = [{ symbol: "0050", name: "元大台灣50", market: "TW", status: "觀察中", reason: "長期配置" }];
+  const markup = renderState([], [], [], null, watchlist);
+  const shellMarkup = shell.render({ activePage: "overview", identity: {} });
+
+  for (const expected of ["今日軍師", "我的持股", "觀察股", "個股研究", "問軍師", "市場情報"]) {
+    assert.match(shellMarkup, new RegExp(expected));
+  }
+  assert.match(shellMarkup, /investment-primary-nav/);
+  assert.match(markup, /data-investment-section="today-focus"/);
+  assert.match(markup, /data-investment-section="important-holdings"/);
+  assert.match(markup, /data-investment-section="watchlist"/);
+  assert.match(markup, /0050/);
+  assert.match(markup, /data-investment-section="research"/);
+  assert.match(markup, /data-investment-section="realtime"/);
+  assert.match(markup, /今日損益/);
+  assert.match(markup, /目前沒有 canonical 今日損益結果/);
 });

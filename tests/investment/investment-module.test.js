@@ -182,7 +182,7 @@ test("Investment UI is Traditional Chinese and no longer exposes engineering or 
   }
   assert.equal(uiSources.includes("AAL1"), false);
   assert.equal(uiSources.includes("AAL2 保護"), false);
-  for (const expected of ["投資首頁", "投資組合", "交易紀錄", "投資策略", "偏好設定", "解鎖投資模組"]) {
+  for (const expected of ["今日軍師", "我的持股", "觀察股", "個股研究", "問軍師", "市場情報", "交易紀錄", "投資策略", "偏好設定", "解鎖投資模組"]) {
     assert.equal(uiSources.includes(expected), true);
   }
   assert.equal(uiSources.includes("觀察清單｜追蹤關注中的市場標的"), false);
