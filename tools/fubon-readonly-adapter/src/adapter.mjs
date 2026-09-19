@@ -18,18 +18,21 @@ const CREDENTIAL_ENV_KEYS = Object.freeze([
   "FUBON_CERT_FILE_BASE64",
 ]);
 
+let nativeRuntimeLock = Promise.resolve();
+
 export class ProofError extends Error {
-  constructor(code, stage, message = code) {
+  constructor(code, stage, message = code, telemetry = undefined) {
     super(message);
     this.name = "ProofError";
     this.code = code;
     this.stage = stage;
+    this.telemetry = telemetry;
   }
 }
 
 export class CredentialBoundaryError extends ProofError {
-  constructor(missing) {
-    super("CREDENTIALS_NOT_INJECTED", "credential_boundary");
+  constructor(missing, telemetry = undefined) {
+    super("CREDENTIALS_NOT_INJECTED", "credential_boundary", "CREDENTIALS_NOT_INJECTED", telemetry);
     this.name = "CredentialBoundaryError";
     this.missing = Object.freeze([...missing]);
   }
@@ -112,6 +115,79 @@ async function removeTemporaryCertificate(certificatePath) {
   await fs.rm(certificatePath, { force: true }).catch(() => undefined);
 }
 
+async function withIsolatedWorkingDirectory(callback) {
+  const previousRun = nativeRuntimeLock;
+  let releaseRun;
+  nativeRuntimeLock = new Promise((resolve) => {
+    releaseRun = resolve;
+  });
+  await previousRun;
+
+  const originalDirectory = process.cwd();
+  const isolatedDirectory = await fs.mkdtemp(join(tmpdir(), "zhuge-fubon-readonly-"));
+  try {
+    process.chdir(isolatedDirectory);
+    return await callback(isolatedDirectory);
+  } finally {
+    process.chdir(originalDirectory);
+    await fs.rm(isolatedDirectory, { recursive: true, force: true }).catch(() => undefined);
+    releaseRun();
+  }
+}
+
+function decodeNativeLogLine(line) {
+  const candidate = line.trim();
+  if (!candidate || !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate)) return "";
+  try {
+    return Buffer.from(candidate, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function hasControlWebSocketConnectionEvidence(isolatedDirectory) {
+  const logDirectory = join(isolatedDirectory, "log");
+  const logNames = await fs.readdir(logDirectory).catch(() => []);
+  for (const logName of logNames) {
+    const content = await fs.readFile(join(logDirectory, logName), "utf8").catch(() => "");
+    if (content.split(/\r?\n/).some((line) => decodeNativeLogLine(line).includes("Successfully connected to WebSocket"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function controlTelemetry(connected, attempted = true) {
+  return {
+    control_websocket: {
+      allowed: true,
+      attempted,
+      connected,
+    },
+    market_data_subscription: {
+      active: false,
+      count: 0,
+    },
+    trading_operation: {
+      invoked: false,
+    },
+  };
+}
+
+async function observeControlWebSocket(isolatedDirectory, waitMs = 1200) {
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  const connected = await hasControlWebSocketConnectionEvidence(isolatedDirectory);
+  if (!connected) {
+    throw new ProofError(
+      "SDK_CONTROL_WEBSOCKET_UNAVAILABLE",
+      "sdk_instantiate",
+      "SDK_CONTROL_WEBSOCKET_UNAVAILABLE",
+      controlTelemetry(false),
+    );
+  }
+  return controlTelemetry(true);
+}
+
 function responseData(response, stage) {
   if (!response || response.isSuccess !== true) {
     throw new ProofError(`${stage.toUpperCase()}_FAILED`, stage);
@@ -173,97 +249,139 @@ export async function runReadOnlyProof({
   moduleSpecifier = process.env.FUBON_NODE_SDK_MODULE || SDK_NAME,
   symbol = DEFAULT_SYMBOL,
 } = {}) {
-  loadFubonSdk({ moduleSpecifier });
-
-  // Hard guard: the official native SDK constructor starts its control
-  // WebSocket transport before credential validation. B1 explicitly forbids
-  // establishing any WebSocket, so do not instantiate, read credentials, or
-  // continue to login until PM approves a transport boundary change.
-  throw new ProofError("SDK_INSTANTIATE_REQUIRES_WEBSOCKET", "sdk_instantiate");
-
-  /* istanbul ignore next -- retained as the approved read-only flow after the transport gate is resolved */
-  const loaded = loadFubonSdk({ moduleSpecifier });
-
-  let sdk;
-  try {
-    sdk = new loaded.FubonSDK();
-  } catch {
-    throw new ProofError("SDK_INSTANTIATE_FAILED", "sdk_instantiate");
-  }
-
-  let certificatePath;
-  try {
-    const credentials = readServerCredentials(env);
-    certificatePath = await materializeCertificate(credentials.certificateBase64);
-
-    const loginResponse = await resolveMaybePromise(
-      sdk.apikeyLogin(
-        credentials.personalId,
-        credentials.apiKey,
-        certificatePath,
-        credentials.certPassword,
-      ),
-    );
-    const accounts = responseData(loginResponse, "login");
-    if (!Array.isArray(accounts)) {
-      throw new ProofError("LOGIN_RESPONSE_INVALID", "login");
-    }
-
-    const inventories = [];
-    for (const account of accounts) {
-      const inventoryResponse = await resolveMaybePromise(sdk.accounting.inventories(account));
-      inventories.push(responseData(inventoryResponse, "inventory"));
-    }
-
-    // initRealtime creates the SDK's REST client and a dormant WebSocket client.
-    // It does not connect or subscribe; this proof never calls connect/subscribe.
-    await resolveMaybePromise(sdk.initRealtime());
-    const quoteResponse = await resolveMaybePromise(
-      sdk.marketdata.restClient.stock.intraday.quote({ symbol }),
-    );
-
-    return {
-      contract: CONTRACT,
-      result: "PASS",
-      sdk: {
-        name: SDK_NAME,
-        version: loaded.version ?? SDK_VERSION,
-        module_specifier: loaded.moduleSpecifier,
-      },
-      account: {
-        status: "PASS",
-        count: accounts.length,
-        accounts: accounts.map(accountEvidence),
-      },
-      inventory: {
-        status: "PASS",
-        per_account: inventories.map(inventoryEvidence),
-      },
-      quote: {
-        status: "PASS",
-        ...quoteEvidence(quoteResponse, symbol),
-      },
-      stream_subscriptions: 0,
-      websocket_connected: false,
-      mutating_operations_invoked: false,
-    };
-  } finally {
-    await removeTemporaryCertificate(certificatePath);
-    if (sdk && typeof sdk.shutdown === "function") {
+  return withIsolatedWorkingDirectory(async (isolatedDirectory) => {
+    const loaded = loadFubonSdk({ moduleSpecifier });
+    let sdk;
+    let telemetry;
+    try {
       try {
-        sdk.shutdown();
+        sdk = new loaded.FubonSDK();
       } catch {
-        // Cleanup must not expose SDK or credential details.
+        throw new ProofError("SDK_INSTANTIATE_FAILED", "sdk_instantiate");
+      }
+
+      telemetry = await observeControlWebSocket(isolatedDirectory);
+
+      let credentials;
+      try {
+        credentials = readServerCredentials(env);
+      } catch (error) {
+        if (error instanceof ProofError) error.telemetry = telemetry;
+        throw error;
+      }
+
+      let certificatePath;
+      try {
+        certificatePath = await materializeCertificate(credentials.certificateBase64);
+
+        const loginResponse = await resolveMaybePromise(
+          sdk.apikeyLogin(
+            credentials.personalId,
+            credentials.apiKey,
+            certificatePath,
+            credentials.certPassword,
+          ),
+        );
+        const accounts = responseData(loginResponse, "login");
+        if (!Array.isArray(accounts)) {
+          throw new ProofError("LOGIN_RESPONSE_INVALID", "login");
+        }
+
+        const inventories = [];
+        for (const account of accounts) {
+          const inventoryResponse = await resolveMaybePromise(sdk.accounting.inventories(account));
+          inventories.push(responseData(inventoryResponse, "inventory"));
+        }
+
+        // This creates the SDK REST client and a dormant market-data client.
+        // The proof never calls market-data connect() or subscribe().
+        await resolveMaybePromise(sdk.initRealtime());
+        const quoteResponse = await resolveMaybePromise(
+          sdk.marketdata.restClient.stock.intraday.quote({ symbol }),
+        );
+
+        return {
+          contract: CONTRACT,
+          result: "PASS",
+          sdk: {
+            name: SDK_NAME,
+            version: loaded.version ?? SDK_VERSION,
+            module_specifier: loaded.moduleSpecifier,
+          },
+          ...telemetry,
+          account: {
+            status: "PASS",
+            count: accounts.length,
+            accounts: accounts.map(accountEvidence),
+          },
+          inventory: {
+            status: "PASS",
+            per_account: inventories.map(inventoryEvidence),
+          },
+          quote: {
+            status: "PASS",
+            ...quoteEvidence(quoteResponse, symbol),
+          },
+          credentials_returned: false,
+        };
+      } finally {
+        await removeTemporaryCertificate(certificatePath);
+      }
+    } finally {
+      if (sdk && typeof sdk.shutdown === "function") {
+        try {
+          sdk.shutdown();
+        } catch {
+          // Cleanup must not expose SDK or credential details.
+        }
       }
     }
-  }
+  });
+}
+
+export async function runControlSocketProof({
+  moduleSpecifier = process.env.FUBON_NODE_SDK_MODULE || SDK_NAME,
+} = {}) {
+  return withIsolatedWorkingDirectory(async (isolatedDirectory) => {
+    const loaded = loadFubonSdk({ moduleSpecifier });
+    let sdk;
+    try {
+      try {
+        sdk = new loaded.FubonSDK();
+      } catch {
+        throw new ProofError("SDK_INSTANTIATE_FAILED", "sdk_instantiate");
+      }
+      const telemetry = await observeControlWebSocket(isolatedDirectory);
+      return {
+        contract: CONTRACT,
+        result: "PASS",
+        stage: "sdk_instantiate",
+        sdk: {
+          name: SDK_NAME,
+          version: loaded.version ?? SDK_VERSION,
+          module_specifier: loaded.moduleSpecifier,
+        },
+        ...telemetry,
+        credentials_read: false,
+        credentials_returned: false,
+      };
+    } finally {
+      if (sdk && typeof sdk.shutdown === "function") {
+        try {
+          sdk.shutdown();
+        } catch {
+          // Cleanup must not expose SDK or credential details.
+        }
+      }
+    }
+  });
 }
 
 export function sanitizedError(error) {
   if (error instanceof ProofError) {
     const blocked = new Set([
       "CREDENTIALS_NOT_INJECTED",
-      "SDK_INSTANTIATE_REQUIRES_WEBSOCKET",
+      "SDK_CONTROL_WEBSOCKET_UNAVAILABLE",
     ]);
     return {
       contract: CONTRACT,
@@ -271,9 +389,7 @@ export function sanitizedError(error) {
       stage: error.stage,
       error_code: error.code,
       credentials_returned: false,
-      stream_subscriptions: 0,
-      websocket_connected: false,
-      mutating_operations_invoked: false,
+      ...(error.telemetry ?? controlTelemetry(false, false)),
     };
   }
 
@@ -283,8 +399,6 @@ export function sanitizedError(error) {
     stage: "adapter",
     error_code: "ADAPTER_UNEXPECTED_ERROR",
     credentials_returned: false,
-    stream_subscriptions: 0,
-    websocket_connected: false,
-    mutating_operations_invoked: false,
+    ...controlTelemetry(false, false),
   };
 }

@@ -8,6 +8,7 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "proof:load-only": "node src/cli.mjs --load-only",
+    "proof:control-only": "node src/cli.mjs --control-only",
     "proof": "node src/cli.mjs"
   },
   "dependencies": {

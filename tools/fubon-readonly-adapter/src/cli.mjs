@@ -1,10 +1,25 @@
-import { loadFubonSdk, runReadOnlyProof, sanitizedError, CONTRACT, SDK_NAME, SDK_VERSION } from "./adapter.mjs";
+import {
+  loadFubonSdk,
+  runControlSocketProof,
+  runReadOnlyProof,
+  sanitizedError,
+  CONTRACT,
+  SDK_NAME,
+  SDK_VERSION,
+} from "./adapter.mjs";
 
 function print(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
-if (process.argv.includes("--load-only")) {
+if (process.argv.includes("--control-only")) {
+  try {
+    print(await runControlSocketProof());
+  } catch (error) {
+    print(sanitizedError(error));
+    process.exitCode = 1;
+  }
+} else if (process.argv.includes("--load-only")) {
   try {
     const loaded = loadFubonSdk();
     print({
@@ -18,9 +33,18 @@ if (process.argv.includes("--load-only")) {
       },
       sdk_constructor_available: typeof loaded.FubonSDK === "function",
       credentials_read: false,
-      stream_subscriptions: 0,
-      websocket_connected: false,
-      mutating_operations_invoked: false,
+      control_websocket: {
+        allowed: true,
+        attempted: false,
+        connected: false,
+      },
+      market_data_subscription: {
+        active: false,
+        count: 0,
+      },
+      trading_operation: {
+        invoked: false,
+      },
     });
   } catch (error) {
     print(sanitizedError(error));
@@ -33,7 +57,7 @@ if (process.argv.includes("--load-only")) {
     print(sanitizedError(error));
     process.exitCode = [
       "CREDENTIALS_NOT_INJECTED",
-      "SDK_INSTANTIATE_REQUIRES_WEBSOCKET",
+      "SDK_CONTROL_WEBSOCKET_UNAVAILABLE",
     ].includes(error?.code) ? 2 : 1;
   }
 }

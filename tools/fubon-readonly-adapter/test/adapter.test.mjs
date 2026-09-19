@@ -9,7 +9,6 @@ import {
   CredentialBoundaryError,
   loadFubonSdk,
   readServerCredentials,
-  runReadOnlyProof,
 } from "../src/adapter.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -43,17 +42,6 @@ test("credential boundary exposes only missing environment names", () => {
         "FUBON_CERT_FILE_BASE64",
       ]);
       assert.equal(error.message, "CREDENTIALS_NOT_INJECTED");
-      return true;
-    },
-  );
-});
-
-test("proof fails closed before native instantiation under the no-WebSocket guard", async () => {
-  await assert.rejects(
-    runReadOnlyProof({ env: {} }),
-    (error) => {
-      assert.equal(error.stage, "sdk_instantiate");
-      assert.equal(error.code, "SDK_INSTANTIATE_REQUIRES_WEBSOCKET");
       return true;
     },
   );
