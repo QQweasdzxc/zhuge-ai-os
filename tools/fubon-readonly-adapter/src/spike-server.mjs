@@ -191,7 +191,7 @@ function writeJson(response, value, httpStatus) {
 
 const startupEvidence = await runStartupProbe();
 const server = createServer((request, response) => {
-  if (request.method !== "GET" || !["/", "/healthz"].includes(request.url)) {
+  if (request.method !== "GET" || !["/", "/health", "/healthz"].includes(request.url)) {
     writeJson(response, { error: "NOT_FOUND" }, 404);
     return;
   }

@@ -89,10 +89,12 @@ test("Render spike entrypoint is sanitized and has no login path", async () => {
 
   assert.match(source, /0\.0\.0\.0/);
   assert.match(source, /process\.env\.PORT/);
+  assert.match(source, /"\/health"/);
   assert.match(source, /runControlSocketProof/);
   assert.match(source, /credentials_read: false/);
   assert.match(source, /market_data_subscription: \{ active: false, count: 0 \}/);
   assert.match(source, /trading_operation: \{ invoked: false \}/);
   assert.doesNotMatch(source, /runReadOnlyProof/);
   assert.doesNotMatch(source, /apikeyLogin/);
+  assert.doesNotMatch(source, /FUBON_(API_PERSONAL_ID|API_KEY|CERT_PASSWORD|CERT_FILE_BASE64)/);
 });
