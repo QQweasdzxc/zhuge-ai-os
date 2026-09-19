@@ -10,6 +10,10 @@ import {
   loadFubonSdk,
   readServerCredentials,
 } from "../src/adapter.mjs";
+import {
+  SanitizedOutputGuardError,
+  validateSanitizedProof,
+} from "../src/sanitized-output-guard.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const adapterRoot = join(here, "..");
@@ -44,5 +48,38 @@ test("credential boundary exposes only missing environment names", () => {
       assert.equal(error.message, "CREDENTIALS_NOT_INJECTED");
       return true;
     },
+  );
+});
+
+test("sanitized output guard accepts read-only proof contract", () => {
+  const summary = validateSanitizedProof({
+    contract: "fubon-node-readonly-proof-v1",
+    result: "PASS",
+    stage: "complete",
+    sdk: { version: "2.3.0" },
+    control_websocket: { allowed: true, connected: true },
+    market_data_subscription: { active: false, count: 0 },
+    trading_operation: { invoked: false },
+    credentials_returned: false,
+    account: { count: 3 },
+    inventory: { per_account: [{ rows: 0 }] },
+    quote: { symbol: "2330", available: true, price: 1, as_of: "2026-01-01T00:00:00.000Z" },
+  }, {});
+
+  assert.equal(summary.contract, "fubon-node-readonly-proof-v1");
+  assert.equal(summary.account_count, 3);
+  assert.equal(summary.market_data_subscription.count, 0);
+  assert.equal(summary.trading_operation.invoked, false);
+});
+
+test("sanitized output guard rejects credential-shaped fields", () => {
+  assert.throws(
+    () => validateSanitizedProof({
+      contract: "fubon-node-readonly-proof-v1",
+      result: "PASS",
+      apiKey: "must never be present",
+    }, {}),
+    (error) => error instanceof SanitizedOutputGuardError
+      && error.code === "FORBIDDEN_OUTPUT_FIELD",
   );
 });

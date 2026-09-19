@@ -63,3 +63,24 @@ guards. It does not write Zhuge Product Data or call order APIs.
 
 The successful login/account/inventory/quote proof still requires PM-controlled
 credential injection. This repository does not contain those values.
+
+## GitHub Actions one-time proof contract
+
+`.github/workflows/fubon-readonly-proof.yml` is intentionally manual-only
+(`workflow_dispatch`). It is not a Product Runtime, deployment, or publish
+workflow. The job uses `contents: read`, a protected environment named
+`fubon-readonly-proof`, a 15-minute timeout, and no artifact upload.
+
+The PM must create these four Environment Secrets in GitHub:
+
+- `FUBON_API_PERSONAL_ID`
+- `FUBON_API_KEY`
+- `FUBON_CERT_PASSWORD`
+- `FUBON_CERT_FILE_BASE64`
+
+The workflow passes them only as process environment variables to the proof
+step. It redirects adapter stderr and raw JSON to ephemeral runner files,
+validates the output with `scripts/validate-proof-output.mjs`, prints only a
+sanitized summary, and deletes the temporary files before the job exits.
+It does not upload raw Fubon responses or invoke order, modify, cancel, or
+market-data subscription operations.
