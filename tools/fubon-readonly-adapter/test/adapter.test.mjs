@@ -83,3 +83,16 @@ test("sanitized output guard rejects credential-shaped fields", () => {
       && error.code === "FORBIDDEN_OUTPUT_FIELD",
   );
 });
+
+test("Render spike entrypoint is sanitized and has no login path", async () => {
+  const source = await readFile(join(adapterRoot, "src", "spike-server.mjs"), "utf8");
+
+  assert.match(source, /0\.0\.0\.0/);
+  assert.match(source, /process\.env\.PORT/);
+  assert.match(source, /runControlSocketProof/);
+  assert.match(source, /credentials_read: false/);
+  assert.match(source, /market_data_subscription: \{ active: false, count: 0 \}/);
+  assert.match(source, /trading_operation: \{ invoked: false \}/);
+  assert.doesNotMatch(source, /runReadOnlyProof/);
+  assert.doesNotMatch(source, /apikeyLogin/);
+});
