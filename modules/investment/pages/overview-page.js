@@ -33,8 +33,9 @@
     }).join("")}</div>`;
   }
 
-  function renderMetric(id, label, value, note, state = "available") {
-    return `<article class="investment-command-kpi ${state === "unavailable" ? "is-unavailable" : ""}" data-investment-kpi="${id}"><header><small>${label}</small><span>${state === "unavailable" ? "資料不足" : "Cloud Read-only"}</span></header>${value}<p>${note}</p></article>`;
+  function renderMetric(id, label, value, note, state = "available", variant = "") {
+    const variantClass = variant ? ` investment-command-kpi-${variant}` : "";
+    return `<article class="investment-command-kpi${variantClass} ${state === "unavailable" ? "is-unavailable" : ""}" data-investment-kpi="${id}"><header><small>${label}</small><span>${state === "unavailable" ? "資料不足" : "Cloud Read-only"}</span></header>${value}<p>${note}</p></article>`;
   }
 
   function renderTotalReturn(state, escape) {
@@ -48,6 +49,12 @@
   function renderTodayFocus(state, escape) {
     const items = Array.isArray(state.todayFocus) ? state.todayFocus.filter(Boolean).slice(0, 3) : [];
     if (!items.length) {
+      if (state.intelligence?.status === "loading") {
+        return `<div class="investment-panel-empty" data-investment-state="loading"><strong>今日重點讀取中</strong><small>正在整理可驗證的行情、新聞與事件；完成前不補猜。</small></div>`;
+      }
+      if (state.intelligence?.status === "error") {
+        return `<div class="investment-panel-empty" data-investment-state="error"><strong>今日重點暫時無法讀取</strong><small>${escape(String(state.intelligence?.error || "目前沒有可用的今日 Evidence，請稍後再試。"))}</small></div>`;
+      }
       return `<div class="investment-panel-empty" data-investment-state="pending"><strong>目前沒有可驗證的今日重點</strong><small>待 Price／News／Event Intelligence 建立後，這裡只顯示有 Evidence 的投資事項。</small></div>`;
     }
     return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(String(item.title || "未命名事項"))}</strong><p>${escape(String(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
@@ -57,7 +64,13 @@
     const intelligence = state.intelligence || {};
     const quotes = Array.isArray(intelligence.quotes) ? intelligence.quotes.filter(Boolean).slice(0, 6) : [];
     const events = Array.isArray(state.marketEvents) ? state.marketEvents.filter(Boolean).slice(0, 4) : [];
+    if (intelligence.status === "loading") {
+      return `<div class="investment-panel-empty" data-investment-state="loading"><strong>行情與市場情報讀取中</strong><small>正在取得最新可用資料；讀取完成前不顯示猜測值。</small></div>`;
+    }
     if (!quotes.length && !events.length) {
+      if (intelligence.status === "error") {
+        return `<div class="investment-panel-empty" data-investment-state="error"><strong>市場情報暫時無法讀取</strong><small>${escape(String(intelligence.error || "目前沒有可用的行情或事件資料，請稍後再試。"))}</small></div>`;
+      }
       return `<div class="investment-panel-empty" data-investment-state="pending"><strong>即時情報尚未接通</strong><small>目前尚未有 Price／News／Event Engine 資料；這裡不顯示猜測或假行情。</small></div>`;
     }
     const quoteMarkup = quotes.length
@@ -289,7 +302,7 @@
         : research.status === "error"
           ? "讀取失敗"
           : "待查詢";
-    return `<article class="investment-command-panel investment-research-panel" data-investment-section="research"><header class="investment-panel-heading"><div><p class="investment-eyebrow">06 · 標的研究</p><h2>查詢一個標的</h2><p>沿用既有 Evidence → Context Pack → Analysis；不修改持倉、交易或策略紀錄。</p></div><span class="investment-panel-status ${research.status === "ready" ? "is-ready" : "is-pending"}">${status}</span></header><form class="investment-research-form" data-investment-research-form><label><span>股票／ETF 代號</span><input name="symbol" value="${escape(String(research.query || ""))}" placeholder="2330／0050／AAPL" autocomplete="off" maxlength="16" required ${busy ? "disabled" : ""}></label><label><span>市場</span><select name="market" ${busy ? "disabled" : ""}><option value="AUTO" ${!request.market ? "selected" : ""}>自動判定</option><option value="TW" ${request.market === "TW" ? "selected" : ""}>台股／ETF</option><option value="US" ${request.market === "US" ? "selected" : ""}>美股</option></select></label><button type="submit" ${busy ? "disabled" : ""}>${busy ? "查詢中…" : "開始研究"}</button></form>${renderResearchMeta(result, escape)}${resultMarkup}</article>`;
+    return `<article id="investment-section-research" class="investment-command-panel investment-research-panel" data-investment-section="research"><header class="investment-panel-heading"><div><p class="investment-eyebrow">07 · 個股研究</p><h2>查詢一個標的</h2><p>沿用既有 Evidence → Context Pack → Analysis；不修改持倉、交易或策略紀錄。</p></div><span class="investment-panel-status ${research.status === "ready" ? "is-ready" : "is-pending"}">${status}</span></header><form class="investment-research-form" data-investment-research-form><label><span>股票／ETF 代號</span><input name="symbol" value="${escape(String(research.query || ""))}" placeholder="2330／0050／AAPL" autocomplete="off" maxlength="16" required ${busy ? "disabled" : ""}></label><label><span>市場</span><select name="market" ${busy ? "disabled" : ""}><option value="AUTO" ${!request.market ? "selected" : ""}>自動判定</option><option value="TW" ${request.market === "TW" ? "selected" : ""}>台股／ETF</option><option value="US" ${request.market === "US" ? "selected" : ""}>美股</option></select></label><button type="submit" ${busy ? "disabled" : ""}>${busy ? "查詢中…" : "開始研究"}</button></form>${renderResearchMeta(result, escape)}${resultMarkup}</article>`;
   }
 
   function renderAdvisor(state, escape, format) {
@@ -305,9 +318,14 @@
     const recordsMarkup = records.length
       ? `<div class="investment-advisor-records"><div class="investment-analysis-consumer-heading"><div><strong>已保存的決策紀錄</strong><small>保留既有 Strategy Decision Record；即時 Analysis 不會自動寫入。</small></div></div>${records.map(record => `<article><header><strong>${escape(record.title || "投資策略")}</strong><span>${escape(record.decision || "觀望")}</span></header><div><small>Evidence</small><p>${escape(record.evidence || "尚無 Evidence")}</p></div><div><small>Reason</small><p>${escape(record.reason || "尚無推理紀錄")}</p></div><small>更新：${escape(format.date(record.updatedAt))}</small></article>`).join("")}</div>`
       : "";
+    const intelligenceStatus = String(state.intelligence?.status || "ready");
     const emptyMarkup = liveMarkup || recordsMarkup
       ? ""
-      : `<div class="investment-panel-empty" data-investment-state="pending"><strong>目前沒有可供分析的 Evidence</strong><small>沒有可信資料時，諸葛先生不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
+      : intelligenceStatus === "loading"
+        ? `<div class="investment-panel-empty" data-investment-state="loading"><strong>諸葛正在整理 Evidence</strong><small>正在讀取行情、基本面、ETF／產業／相關標的與分析結果；完成前不補猜結論。</small></div>`
+        : intelligenceStatus === "error"
+          ? `<div class="investment-panel-empty" data-investment-state="error"><strong>軍師分析暫時無法讀取</strong><small>${escape(String(state.intelligence?.error || "目前沒有可用的分析結果，請稍後再試。"))}</small></div>`
+          : `<div class="investment-panel-empty" data-investment-state="pending"><strong>目前沒有可供分析的 Evidence</strong><small>沒有可信資料時，諸葛先生不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
     return `<div class="investment-advisor-flow">${flow.map(([title, description], index) => `<div class="investment-advisor-step"><b>${index + 1}</b><span><strong>${title}</strong><small>${description}</small></span></div>`).join("")}</div>${liveMarkup}${recordsMarkup}${emptyMarkup}`;
   }
 
@@ -324,7 +342,48 @@
       escape: dependencies.escape,
       format: dependencies.format,
       classify: dependencies.calculation.classify
-    })).join("")}</div><p class="investment-readonly-note">目前依未實現損益絕對值列出重點，僅供資訊整理，不代表 AI 投資建議。</p>`;
+    })).join("")}</div><p class="investment-readonly-note">點擊個股查看完整明細與研究；此區僅整理既有持倉結果，不代表 AI 投資建議。</p>`;
+  }
+
+  function renderTodayPnl(state, escape, format) {
+    const value = state.performance?.todayPnl ?? state.performance?.dailyPnl;
+    const values = Array.isArray(value?.values) ? value.values : [];
+    if (values.length) {
+      return `<div class="investment-kpi-amounts">${values.map(item => `<span><b>${escape(String(item.value ?? "—"))}</b><small>${escape(String(item.currency || ""))}</small></span>`).join("")}</div>`;
+    }
+    if (Number.isFinite(Number(value))) {
+      const currency = String(state.performance?.todayPnlCurrency || "TWD");
+      const formatted = typeof format.currency === "function" ? format.currency(Number(value), currency) : `${currency} ${Number(value)}`;
+      return `<div class="investment-kpi-amounts"><span><b>${escape(formatted)}</b><small>${escape(currency)}</small></span></div>`;
+    }
+    return `<div class="investment-kpi-unavailable"><strong>資料不足</strong><small>目前沒有 canonical 今日損益結果；不以未實現損益代替。</small></div>`;
+  }
+
+  function hasTodayPnlEvidence(state) {
+    const value = state.performance?.todayPnl ?? state.performance?.dailyPnl;
+    return Array.isArray(value?.values) && value.values.length || Number.isFinite(Number(value));
+  }
+
+  function renderWatchlistPreview(state, dependencies) {
+    const escape = dependencies.escape;
+    const format = dependencies.format || {};
+    const items = Array.isArray(state.watchlist) ? state.watchlist.slice(0, 4) : [];
+    const quotes = Array.isArray(state.intelligence?.quotes) ? state.intelligence.quotes : [];
+    if (!items.length) {
+      return `<div class="investment-panel-empty" data-investment-state="empty"><strong>目前沒有觀察股</strong><small>觀察股與實際持股分開保存；加入後會在這裡顯示變化與觀察原因。</small></div>`;
+    }
+    const cards = items.map(item => {
+      const symbol = String(item.symbol || "").toUpperCase();
+      const quote = quotes.find(row => String(row?.symbol || "").toUpperCase() === symbol && String(row?.market || "").toUpperCase() === String(item.market || "").toUpperCase());
+      const hasQuote = quote?.available === true && Number.isFinite(Number(quote.price));
+      const price = hasQuote && typeof format.number === "function" ? format.number(Number(quote.price)) : hasQuote ? String(quote.price) : "行情待讀回";
+      const change = Number.isFinite(Number(quote?.changePercent))
+        ? `${Number(quote.changePercent) >= 0 ? "+" : ""}${Number(quote.changePercent).toFixed(2)}%`
+        : "變化待 Evidence";
+      const freshness = quote?.freshness ? ` · ${quote.freshness}` : "";
+      return `<article class="investment-watchlist-preview-card"><header><div><strong>${escape(symbol || "未命名標的")}</strong><small>${escape(item.name || item.market || "觀察標的")}</small></div><span>${escape(item.status || "觀察中")}</span></header><div class="investment-watchlist-preview-value"><b>${escape(price)}</b><small>${escape(change)}${escape(freshness)}</small></div><p>${escape(item.reason || item.theme || "尚未記錄觀察原因")}</p></article>`;
+    }).join("");
+    return `<div class="investment-watchlist-preview-grid">${cards}</div><p class="investment-readonly-note">只顯示已讀回的行情與觀察資料；沒有 Evidence 時保留「待讀回」，不補猜。</p>`;
   }
 
   function render(state, dependencies = {}) {
@@ -333,29 +392,37 @@
     const summary = calculation.summarize(positions);
     const hasPositions = positions.some(position => position.positionStatus !== "history" && Number(position.quantity || 0) > 0);
     const hasTotalReturn = Boolean(state.performance?.totalReturn && Array.isArray(state.performance.totalReturn.values) && state.performance.totalReturn.values.length);
+    const hasTodayPnl = hasTodayPnlEvidence(state);
+    const hasTodayFocus = Array.isArray(state.todayFocus) && state.todayFocus.length > 0;
+    const hasRealtime = (Array.isArray(state.intelligence?.quotes) && state.intelligence.quotes.some(quote => quote?.available)) || (Array.isArray(state.marketEvents) && state.marketEvents.length > 0);
+    const intelligenceLoading = state.intelligence?.status === "loading";
     const positionCount = hasPositions ? `${summary.assetCount} 筆持倉已讀回` : "尚未讀回持倉";
     return `<section class="investment-command-center" data-investment-command-center data-investment-readonly="true">
-      <div class="investment-page-heading"><div><p class="investment-eyebrow">Investment Command Center</p><h1>投資首頁</h1><p>先看今天值得注意的事，再看投資狀況與持股變化。</p></div><div class="investment-command-heading-actions"><span class="investment-pill">資料來源：Investment Cloud（唯讀）</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
+      <div class="investment-page-heading"><div><p class="investment-eyebrow">Investment Command Center</p><h1>今日軍師</h1><p>先看持股、損益與需要注意的事。</p></div><div class="investment-command-heading-actions"><span class="investment-pill">Investment Cloud · 唯讀</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
 
-      ${renderResearchSurface(state, escape)}
-
-      <div class="investment-command-grid investment-command-grid-top">
-        <article class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 今日軍令</p><h2>今天我的投資發生什麼事情？</h2><p>只呈現有可信資料支撐的事項。</p></div><span class="investment-panel-status is-pending">待建立</span></header>${renderTodayFocus(state, escape)}</article>
-        <article class="investment-command-panel investment-advisor-panel" data-investment-section="advisor"><header class="investment-panel-heading"><div><p class="investment-eyebrow">05 · 諸葛先生</p><h2>投資決策區</h2><p>先看發生什麼、對你的影響與接下來觀察什麼；不替使用者下決定。</p></div><span class="investment-panel-status ${Array.isArray(state.intelligence?.analyses) && state.intelligence.analyses.length ? "is-ready" : "is-pending"}">${Array.isArray(state.intelligence?.analyses) && state.intelligence.analyses.length ? "即時 Evidence" : "等待 Evidence"}</span></header>${renderAdvisor(state, escape, format)}</article>
+      <div class="investment-command-grid investment-command-grid-top investment-first-glance">
+        <article id="investment-section-today-focus" class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 需要注意的事</p><h2>今天有什麼要留意？</h2></div><span class="investment-panel-status ${hasTodayFocus ? "is-ready" : "is-pending"}">${hasTodayFocus ? "已有 Evidence" : "待建立"}</span></header>${renderTodayFocus(state, escape)}</article>
+        <section class="investment-command-panel investment-glance-summary" data-investment-section="glance-summary"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 今日總覽</p><h2>我的投資今天怎麼樣？</h2><p>${positionCount}；不跨幣別硬湊單一數字。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-glance-metrics">
+          ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), "由最新可用行情更新既有持倉計算結果。", hasPositions ? "available" : "unavailable", "primary")}
+          ${renderMetric("unrealized-pnl", "總損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), "依唯一 Investment Current Position calculation result。", hasPositions ? "available" : "unavailable", "primary")}
+          ${renderMetric("today-pnl", "今日變化", renderTodayPnl(state, escape, format), "沒有 canonical 結果時保持資料不足。", hasTodayPnl ? "available" : "unavailable", "primary")}
+        </div></section>
       </div>
 
-      <section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 投資核心 KPI</p><h2>我現在的投資狀況如何？</h2><p>${positionCount}；不跨幣別硬湊單一數字。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
-        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$，不改變原始幣別。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), "由最新可用行情更新既有持倉計算結果；USD 同時顯示約 NT$。", hasPositions ? "available" : "unavailable")}
-        ${renderMetric("unrealized-pnl", "我的損益／未實現損益", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), "依唯一 Investment Current Position calculation result 計算。", hasPositions ? "available" : "unavailable")}
+      <article class="investment-command-panel investment-holdings-panel" data-investment-section="important-holdings"><header class="investment-panel-heading"><div><p class="investment-eyebrow">03 · 我的持股</p><h2>目前持有哪些？</h2><p>先看各持股賺賠；點擊個股再看完整研究。</p></div><button type="button" data-investment-route="portfolio">查看全部 →</button></header>${renderImportantHoldings(state, dependencies)}</article>
+
+      <details class="investment-secondary-layer" data-investment-layer="accounting"><summary><span><strong>更多帳務資訊</strong><small>投入成本、已實現損益、總報酬</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">帳務明細</p><h2>完整投資數字</h2><p>保留原始幣別與既有 canonical calculation result。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
+        ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$。", hasPositions ? "available" : "unavailable")}
         ${renderMetric("realized-pnl", "已實現損益", currencyValues(summary, "realizedPnl", format, false, state.intelligence?.fx), "依交易紀錄與移動加權平均成本法計算；不倒推 Opening Baseline 以前的歷史交易。", positions.length ? "available" : "unavailable")}
         ${renderMetric("total-return", "總報酬", renderTotalReturn(state, escape), "目前不具備完整已實現損益與股利 Contract。", hasTotalReturn ? "available" : "unavailable")}
-      </div></section>
+      </div><p class="investment-boundary-note" data-investment-state="blocked"><strong>富邦 Read-only 尚未接通</strong><span>目前持股、交易與損益仍使用既有 canonical Investment source；不把未接通的券商資料當成持倉結果。</span></p></section></div></details>
 
-      <div class="investment-command-grid investment-command-grid-bottom">
-        <article class="investment-command-panel investment-holdings-panel" data-investment-section="important-holdings"><header class="investment-panel-heading"><div><p class="investment-eyebrow">03 · 重要持股</p><h2>哪些持股值得先看？</h2><p>先用可解釋的持倉資料整理，不假裝是 AI 判斷。</p></div><button type="button" data-investment-route="portfolio">查看全部 →</button></header>${renderImportantHoldings(state, dependencies)}</article>
-        <article class="investment-command-panel investment-realtime-panel" data-investment-section="realtime"><header class="investment-panel-heading"><div><p class="investment-eyebrow">04 · 即時情報</p><h2>市場與事件</h2><p>行情、新聞與事件接通後才會呈現。</p></div><span class="investment-panel-status is-pending">待接通</span></header>${renderRealtime(state, escape)}</article>
-      </div>
+      <details class="investment-secondary-layer" data-investment-layer="watchlist-market"><summary><span><strong>觀察股與市場情報</strong><small>觀察變化、行情、新聞與事件</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><div class="investment-command-grid investment-command-grid-bottom">
+        <article id="investment-section-watchlist" class="investment-command-panel investment-watchlist-preview-panel" data-investment-section="watchlist"><header class="investment-panel-heading"><div><p class="investment-eyebrow">04 · 諸葛觀察股</p><h2>與持股分開追蹤</h2><p>顯示觀察原因與已取得的近期變化。</p></div><button type="button" data-investment-route="portfolio" data-investment-focus="watchlist">查看全部 →</button></header>${renderWatchlistPreview(state, dependencies)}</article>
+        <article id="investment-section-realtime" class="investment-command-panel investment-realtime-panel" data-investment-section="realtime"><header class="investment-panel-heading"><div><p class="investment-eyebrow">05 · 市場情報</p><h2>市場與事件</h2><p>行情、新聞與事件接通後才會呈現。</p></div><span class="investment-panel-status ${intelligenceLoading ? "is-pending" : hasRealtime ? "is-ready" : "is-pending"}">${intelligenceLoading ? "讀取中" : hasRealtime ? "已有可用資料" : "待接通"}</span></header>${renderRealtime(state, escape)}</article>
+      </div></div></details>
+
+      <details class="investment-secondary-layer" data-investment-layer="analysis"><summary><span><strong>問軍師與個股研究</strong><small>白話研判、Evidence 與深入分析</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><article id="investment-section-advisor" class="investment-command-panel investment-advisor-panel" data-investment-section="advisor"><header class="investment-panel-heading"><div><p class="investment-eyebrow">06 · 問軍師</p><h2>投資決策區</h2><p>先看發生什麼、對你的影響與接下來觀察什麼；不替使用者下決定。</p></div><span class="investment-panel-status ${Array.isArray(state.intelligence?.analyses) && state.intelligence.analyses.length ? "is-ready" : "is-pending"}">${Array.isArray(state.intelligence?.analyses) && state.intelligence.analyses.length ? "即時 Evidence" : "等待 Evidence"}</span></header>${renderAdvisor(state, escape, format)}</article>${renderResearchSurface(state, escape)}</div></details>
     </section>`;
   }
 
