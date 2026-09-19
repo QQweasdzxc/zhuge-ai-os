@@ -1,0 +1,16 @@
+{
+  "name": "@zhuge/fubon-readonly-adapter-proof",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "proof:load-only": "node src/cli.mjs --load-only",
+    "proof": "node src/cli.mjs"
+  },
+  "dependencies": {
+    "fubon-neo": "file:./vendor/fubon-neo-2.3.0.tgz"
+  }
+}
