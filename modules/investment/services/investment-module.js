@@ -861,9 +861,17 @@
       if (!key) return;
       const target = root.querySelector(`[data-investment-section="${key}"]`);
       if (!target) return;
+      const layer = target.closest?.("details[data-investment-layer]");
+      if (layer) {
+        layer.open = true;
+        layer.setAttribute("data-investment-focused", "true");
+      }
       target.scrollIntoView?.({ behavior: "smooth", block: "start" });
       target.setAttribute("data-investment-focused", "true");
-      global.setTimeout?.(() => target.removeAttribute("data-investment-focused"), 1600);
+      global.setTimeout?.(() => {
+        target.removeAttribute("data-investment-focused");
+        layer?.removeAttribute("data-investment-focused");
+      }, 1600);
     }
 
     function navigate(page, updateHash = true, focus = "") {

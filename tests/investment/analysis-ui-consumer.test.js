@@ -151,12 +151,18 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
     assert.match(shellMarkup, new RegExp(expected));
   }
   assert.match(shellMarkup, /investment-primary-nav/);
+  assert.match(shellMarkup, /investment-tool-nav/);
+  assert.match(shellMarkup, /更多工具/);
   assert.match(markup, /data-investment-section="today-focus"/);
+  assert.match(markup, /investment-first-glance/);
+  assert.match(markup, /investment-glance-metrics/);
   assert.match(markup, /data-investment-section="important-holdings"/);
   assert.match(markup, /data-investment-section="watchlist"/);
   assert.match(markup, /0050/);
   assert.match(markup, /data-investment-section="research"/);
   assert.match(markup, /data-investment-section="realtime"/);
+  assert.match(markup, /更多帳務資訊/);
+  assert.match(markup, /問軍師與個股研究/);
   assert.match(markup, /今日損益/);
   assert.match(markup, /目前沒有 canonical 今日損益結果/);
 });

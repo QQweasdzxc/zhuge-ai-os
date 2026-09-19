@@ -34,11 +34,15 @@
   function render(state, dependencies = {}) {
     const escape = dependencies.escape;
     const identity = state.identity || {};
-    const tabs = Object.entries(labels).map(([id, [label, icon]]) => `<button type="button" role="tab" aria-selected="${state.activePage === id ? "true" : "false"}" class="investment-tab ${state.activePage === id ? "active" : ""}" data-investment-route="${id}"><span aria-hidden="true">${icon}</span>${label}</button>`).join("");
+    const toolTabs = Object.entries(labels)
+      .filter(([id]) => !["overview", "portfolio"].includes(id))
+      .map(([id, [label, icon]]) => `<button type="button" role="tab" aria-selected="${state.activePage === id ? "true" : "false"}" class="investment-tab ${state.activePage === id ? "active" : ""}" data-investment-route="${id}"><span aria-hidden="true">${icon}</span>${label}</button>`)
+      .join("");
+    const toolsOpen = ["transactions", "strategy", "settings", "import"].includes(state.activePage);
     return `<div class="zhuge-module-shell workspace-shell investment-module-shell" data-investment-module-shell data-shared-navigation-mode="template-only" data-template-page-id="investment"><div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="investment" data-template-page-id="investment" data-shared-navigation-disabled="true" data-exclude-board-prefix="IVTK"></div><div class="app workspace-app investment-app">
       <div id="zhugeSharedHeader" class="workspace-shell-header" data-zhuge-shared-header></div>
       <div class="investment-layout">
-        <main class="investment-main">${renderPrimaryNavigation(state)}<div class="investment-tool-nav"><span class="investment-tool-nav-label">更多工具</span><div class="investment-content-tabs" role="tablist" aria-label="投資模組工具">${tabs}</div></div><div id="investmentPage" class="investment-page" aria-live="polite"></div></main>
+        <main class="investment-main">${renderPrimaryNavigation(state)}<details class="investment-tool-nav"${toolsOpen ? " open" : ""}><summary class="investment-tool-nav-summary"><span class="investment-tool-nav-label">更多工具</span><small>交易紀錄、策略、截圖匯入、設定</small><span class="investment-tool-nav-chevron" aria-hidden="true">⌄</span></summary><div class="investment-content-tabs" role="tablist" aria-label="投資模組工具">${toolTabs}</div></details><div id="investmentPage" class="investment-page" aria-live="polite"></div></main>
       </div>
     </div></div>`;
   }
