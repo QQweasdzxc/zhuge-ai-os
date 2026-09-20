@@ -298,6 +298,57 @@ Deno.serve(async (requestValue) => {
       return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
     }
 
+    if (operation === "claim_gpt") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may claim a TASK.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const boardInstanceId = String(body.boardInstanceId || "").trim();
+      const stage = String(body.stage || "planning").trim().toLowerCase();
+      if (!boardInstanceId) throw new Error("boardInstanceId is required for GPT Claim.");
+      if (!["planning", "review"].includes(stage)) throw new Error("GPT Claim stage must be planning or review.");
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+      const result = await request(cfg, "rpc/board_claim_next_gpt_task", {
+        method: "POST",
+        body: JSON.stringify({
+          p_board_instance_id: boardInstanceId,
+          p_idempotency_key: idempotencyKey,
+          p_stage: stage,
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, stage, result });
+    }
+
+    if (operation === "plan_handoff_co") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may hand a planned TASK to Co.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const task = await findTask(cfg, String(body.task || ""));
+      const plan = body.plan && typeof body.plan === "object" && !Array.isArray(body.plan) ? body.plan : null;
+      if (!plan) throw new Error("plan object is required for GPT -> Co handoff.");
+      const claimToken = String(body.claimToken || "").trim();
+      if (!claimToken) throw new Error("claimToken is required for GPT planning handoff.");
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+      const result = await request(cfg, "rpc/board_gpt_plan_and_handoff_co", {
+        method: "POST",
+        body: JSON.stringify({
+          p_task_id: task.id,
+          p_claim_token: claimToken,
+          p_idempotency_key: idempotencyKey,
+          p_plan: plan,
+          p_actor_label: "GPT"
+        })
+      });
+      const updatedTask = await findTask(cfg, String(body.task));
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
     if (operation === "claim_specific_task") {
       if (actorToken.profile !== "transition" || actorToken.actor !== "Co") {
         throw new AuthenticationError("Only the signed Co actor may use Specific Task Claim.", 403);
@@ -349,15 +400,65 @@ Deno.serve(async (requestValue) => {
         throw new AuthenticationError("Actor body does not match the signed token.", 403);
       }
       const task = await findTask(cfg, String(body.task || ""));
+      const reviewState = String(body.reviewState || "").trim().toLowerCase();
+      const nextGate = body.nextGate ? String(body.nextGate).trim().toLowerCase() : null;
+      const reviewNote = body.reviewNote ? String(body.reviewNote).trim() : null;
+      const evidenceRef = body.evidenceRef ? String(body.evidenceRef).trim() : null;
+      const regressionNote = body.regressionNote ? String(body.regressionNote).trim() : null;
+      const regressionRef = body.regressionRef ? String(body.regressionRef).trim() : null;
+      const claimToken = String(body.claimToken || "").trim();
+      if (!["pass", "rework"].includes(reviewState)) throw new Error("reviewState must be pass or rework.");
+      if (!claimToken) throw new Error("claimToken is required for GPT Review.");
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
       const result = await request(cfg, "rpc/board_orchestrate_engineering_review", {
         method: "POST",
         body: JSON.stringify({
           p_task_id: task.id,
+          p_review_state: reviewState,
+          p_next_gate: nextGate,
+          p_review_note: reviewNote,
+          p_evidence_ref: evidenceRef,
+          p_regression_note: regressionNote,
+          p_regression_ref: regressionRef,
+          p_idempotency_key: idempotencyKey,
+          p_claim_token: claimToken,
           p_actor_label: "GPT"
         })
       });
       const updatedTask = await findTask(cfg, String(body.task));
       return json({ capability: "board:transition", actor: actorToken.actor, operation, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
+    if (operation === "renew_gpt_claim") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may renew a TASK claim.", 403);
+      }
+      const claimToken = String(body.claimToken || "").trim();
+      if (!claimToken) throw new Error("claimToken is required for GPT claim renewal.");
+      const result = await request(cfg, "rpc/board_renew_gpt_task_claim", {
+        method: "POST",
+        body: JSON.stringify({
+          p_claim_token: claimToken,
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
+    }
+
+    if (operation === "release_gpt_claim") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may release a TASK claim.", 403);
+      }
+      const claimToken = String(body.claimToken || "").trim();
+      if (!claimToken) throw new Error("claimToken is required for GPT claim release.");
+      const result = await request(cfg, "rpc/board_release_gpt_task_claim", {
+        method: "POST",
+        body: JSON.stringify({
+          p_claim_token: claimToken,
+          p_reason: body.reason ? String(body.reason).trim() : null
+        })
+      });
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, result });
     }
 
     if (operation === "reclaim_expired_claim") {
@@ -499,7 +600,7 @@ Deno.serve(async (requestValue) => {
       const updated = await findChecklistItem(cfg, task.id, itemKey);
       return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
     }
-    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_specific_task, reconcile_qjc_to_co_ready, engineering_review, reclaim_expired_claim, renew_claim, release_claim or transition" }, 400);
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_gpt, plan_handoff_co, claim_specific_task, reconcile_qjc_to_co_ready, engineering_review, reclaim_expired_claim, renew_claim, release_claim, renew_gpt_claim, release_gpt_claim or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;
@@ -507,6 +608,9 @@ Deno.serve(async (requestValue) => {
     const targetAssignee = String(body.targetAssignee || "");
     if (body.expectedStatus && task.status !== body.expectedStatus) {
       return json({ error: `Expected ${body.task} to be ${body.expectedStatus}, found ${task.status}.` }, 409);
+    }
+    if (actor === "GPT") {
+      throw new AuthenticationError("GPT qa transitions must use the controlled engineering_review operation.", 403, "GPT_REVIEW_REQUIRED");
     }
     validateTransition(actor, task.status, targetStatus, targetAssignee);
     const result = await request(cfg, "rpc/board_transition_task", {
