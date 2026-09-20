@@ -36,6 +36,9 @@ function usage(message = "") {
     "    --idempotency-key gpt-plan-handoff-20260920-001 --plan-json '{...}' --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-specific-task \\",
     "    --task TASK-001 --actor Co --idempotency-key co-specific-20260901-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-specific-gpt-task \\",
+    "    --task TASK-001 --actor GPT --stage planning \\",
+    "    --idempotency-key gpt-specific-20260920-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reconcile-qjc-to-co-ready \\",
     "    --task TASK-001 --actor GPT --idempotency-key qjc-reconcile-20260901-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js engineering-review \\",
@@ -214,6 +217,27 @@ async function claimSpecificTask(config, args) {
     operation: "claim_specific_task",
     actor: "Co",
     task: args.task,
+    idempotencyKey: args["idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
+async function claimSpecificGptTask(config, args) {
+  if (!args.task || args.actor !== "GPT") {
+    throw new Error("--task and --actor GPT are required for claim-specific-gpt-task.");
+  }
+  const stage = String(args.stage || "planning").trim().toLowerCase();
+  if (!["planning", "review"].includes(stage)) {
+    throw new Error("--stage must be planning or review.");
+  }
+  const payload = {
+    operation: "claim_specific_gpt",
+    actor: "GPT",
+    task: args.task,
+    stage,
     idempotencyKey: args["idempotency-key"] || null,
     leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
   };
@@ -419,7 +443,7 @@ async function checklist(config, args) {
 
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition", "checklist", "claim", "claim-gpt", "plan-handoff-co", "claim-specific-task", "reconcile-qjc-to-co-ready", "engineering-review", "reclaim-expired-claim", "renew-claim", "release-claim", "renew-gpt-claim", "release-gpt-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-gpt, plan-handoff-co, claim-specific-task, reconcile-qjc-to-co-ready, engineering-review, reclaim-expired-claim, renew-claim, release-claim, renew-gpt-claim or release-gpt-claim.");
+  if (!["inspect", "transition", "checklist", "claim", "claim-gpt", "plan-handoff-co", "claim-specific-task", "claim-specific-gpt-task", "reconcile-qjc-to-co-ready", "engineering-review", "reclaim-expired-claim", "renew-claim", "release-claim", "renew-gpt-claim", "release-gpt-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-gpt, plan-handoff-co, claim-specific-task, claim-specific-gpt-task, reconcile-qjc-to-co-ready, engineering-review, reclaim-expired-claim, renew-claim, release-claim, renew-gpt-claim or release-gpt-claim.");
   const config = configFromEnvironment();
   const result = args.command === "inspect"
     ? await inspect(config, args)
@@ -435,6 +459,8 @@ async function main(argv = process.argv.slice(2)) {
               ? await planHandoffCo(config, args)
           : args.command === "claim-specific-task"
           ? await claimSpecificTask(config, args)
+          : args.command === "claim-specific-gpt-task"
+          ? await claimSpecificGptTask(config, args)
           : args.command === "reconcile-qjc-to-co-ready"
             ? await reconcileQjcToCoReady(config, args)
           : args.command === "engineering-review"
@@ -455,4 +481,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, claimGpt, planHandoffCo, reconcileQjcToCoReady, engineeringReview, reclaimExpiredClaim, renewGptClaim, releaseGptClaim };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, claimSpecificGptTask, claimGpt, planHandoffCo, reconcileQjcToCoReady, engineeringReview, reclaimExpiredClaim, renewGptClaim, releaseGptClaim };

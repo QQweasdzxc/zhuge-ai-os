@@ -322,6 +322,33 @@ Deno.serve(async (requestValue) => {
       return json({ capability: "board:transition", actor: actorToken.actor, operation, stage, result });
     }
 
+    if (operation === "claim_specific_gpt") {
+      if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
+        throw new AuthenticationError("Only the signed GPT actor may use Specific GPT Task Claim.", 403);
+      }
+      if (body.actor && body.actor !== actorToken.actor) {
+        throw new AuthenticationError("Actor body does not match the signed token.", 403);
+      }
+      const task = await findTask(cfg, String(body.task || ""));
+      const stage = String(body.stage || "planning").trim().toLowerCase();
+      if (!["planning", "review"].includes(stage)) {
+        throw new Error("Specific GPT Claim stage must be planning or review.");
+      }
+      const idempotencyKey = boundedIdempotencyKey(body.idempotencyKey, actorToken.jti);
+      const result = await request(cfg, "rpc/board_claim_specific_gpt_task", {
+        method: "POST",
+        body: JSON.stringify({
+          p_task_id: task.id,
+          p_idempotency_key: idempotencyKey,
+          p_stage: stage,
+          p_actor_label: "GPT",
+          p_lease_seconds: boundedLeaseSeconds(body.leaseSeconds)
+        })
+      });
+      const updatedTask = await findTask(cfg, String(body.task));
+      return json({ capability: "board:transition", actor: actorToken.actor, operation, stage, result, task: updatedTask, audit: await audit(cfg, updatedTask.id) });
+    }
+
     if (operation === "plan_handoff_co") {
       if (actorToken.profile !== "transition" || actorToken.actor !== "GPT") {
         throw new AuthenticationError("Only the signed GPT actor may hand a planned TASK to Co.", 403);
@@ -600,7 +627,7 @@ Deno.serve(async (requestValue) => {
       const updated = await findChecklistItem(cfg, task.id, itemKey);
       return json({ task, checklist: updated, result, audit: await checklistAudit(cfg, updated.id) });
     }
-    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_gpt, plan_handoff_co, claim_specific_task, reconcile_qjc_to_co_ready, engineering_review, reclaim_expired_claim, renew_claim, release_claim, renew_gpt_claim, release_gpt_claim or transition" }, 400);
+    if (operation !== "transition") return json({ error: "operation must be inspect, checklist, claim, claim_gpt, claim_specific_gpt, plan_handoff_co, claim_specific_task, reconcile_qjc_to_co_ready, engineering_review, reclaim_expired_claim, renew_claim, release_claim, renew_gpt_claim, release_gpt_claim or transition" }, 400);
 
     if (body.actor && body.actor !== actorToken.actor) return json({ error: "Actor body does not match the signed token." }, 403);
     const actor = actorToken.actor;
