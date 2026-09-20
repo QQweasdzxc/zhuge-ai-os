@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const migration = fs.readFileSync(path.join(root, "docs/supabase/20260920_task_074_gpt_specific_claim.sql"), "utf8");
+const activeGuardMigration = fs.readFileSync(path.join(root, "docs/supabase/20260920_task_074_gpt_specific_claim_active_guard.sql"), "utf8");
 const edge = fs.readFileSync(path.join(root, "supabase/functions/engineering-transition/index.ts"), "utf8");
 const tool = require(path.join(root, "tools/engineering-transition.js"));
 
@@ -26,6 +27,17 @@ test("targeted GPT planning and review claims fail closed on canonical eligibili
   assert.match(migration, /board_c_resolve_workflow_create_state/i);
   assert.match(migration, /workflow_version_id = v_binding\.workflow_version_id/i);
   assert.match(migration, /current_workflow_step_id = v_binding\.current_workflow_step_id/i);
+});
+
+test("competing specific GPT claims fail closed at the active-claim boundary", () => {
+  assert.match(activeGuardMigration, /TASK already has an active Cloud Claim/i);
+  assert.match(activeGuardMigration, /board_claim_specific_gpt_task/i);
+  assert.match(activeGuardMigration, /A non-expired target claim wins before stage eligibility/i);
+  assert.ok(
+    activeGuardMigration.indexOf("TASK already has an active Cloud Claim")
+      < activeGuardMigration.indexOf("if v_stage = 'planning' then"),
+    "active claim guard must precede stage eligibility"
+  );
 });
 
 test("Edge exposes signed GPT-specific claim and calls only the targeted RPC", () => {
