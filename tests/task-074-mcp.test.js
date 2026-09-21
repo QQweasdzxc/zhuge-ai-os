@@ -40,7 +40,7 @@ test("MCP edge exposes RFC 9728 metadata without weakening proxy authentication"
   assert.match(edgeSource, /bearer_methods_supported: \[\]/);
   assert.match(edgeSource, /x-zhuge-auth-scheme/);
   assert.match(edgeSource, /MCP_RESOURCE_URL/);
-  assert.match(edgeSource, /MCP-Proxy resource_metadata=/);
+  assert.match(edgeSource, /Bearer resource_metadata=/);
   assert.match(edgeSource, /MCP_TRUSTED_PROXY_SECRET/);
 });
 

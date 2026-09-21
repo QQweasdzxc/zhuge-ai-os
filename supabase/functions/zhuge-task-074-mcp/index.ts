@@ -143,7 +143,11 @@ function authorizeMcpRequest(request: Request) {
   const supplied = String(request.headers.get(PROXY_AUTH_HEADER) || "");
   if (!supplied || !equalSecret(supplied, expected)) {
     throw new McpHttpError("MCP client authentication is required.", 401, "MCP_AUTH_REQUIRED", {
-      "www-authenticate": `MCP-Proxy resource_metadata="${protectedResourceMetadataUrl(request)}"`
+      // tunnel-client v0.0.14 performs RFC 9728 discovery only from the
+      // resource_metadata auth-param on a Bearer challenge.  This challenge
+      // advertises discovery metadata; the actual MCP authorization remains
+      // the independent proxy-secret check above.
+      "www-authenticate": `Bearer resource_metadata="${protectedResourceMetadataUrl(request)}"`
     });
   }
 }
