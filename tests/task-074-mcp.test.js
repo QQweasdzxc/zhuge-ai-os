@@ -34,6 +34,16 @@ test("MCP edge keeps the Broker key and Actor Token inside the protected runtime
   assert.doesNotMatch(edgeSource, /console\.(log|error|warn)/);
 });
 
+test("MCP edge exposes RFC 9728 metadata without weakening proxy authentication", () => {
+  assert.match(edgeSource, /oauth-protected-resource/);
+  assert.match(edgeSource, /resource,/);
+  assert.match(edgeSource, /bearer_methods_supported: \[\]/);
+  assert.match(edgeSource, /x-zhuge-auth-scheme/);
+  assert.match(edgeSource, /MCP_RESOURCE_URL/);
+  assert.match(edgeSource, /MCP-Proxy resource_metadata=/);
+  assert.match(edgeSource, /MCP_TRUSTED_PROXY_SECRET/);
+});
+
 test("MCP edge reuses the existing Broker and engineering-transition surfaces", () => {
   assert.match(edgeSource, /engineering-actor-broker/);
   assert.match(edgeSource, /engineering-transition/);

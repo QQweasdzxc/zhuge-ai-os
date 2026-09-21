@@ -25,6 +25,18 @@ supplies `x-zhuge-mcp-proxy-auth` with the server-side
 header through `tunnel-client` static MCP headers; do not add a second auth
 scheme.
 
+RFC 9728 Protected Resource Metadata is available without the proxy secret at:
+
+```text
+GET https://<supabase-project>.supabase.co/functions/v1/zhuge-task-074-mcp/.well-known/oauth-protected-resource/mcp
+```
+
+The response identifies the exact MCP resource URL and advertises an empty
+OAuth bearer-method list because this server uses the existing protected
+proxy-secret header rather than an OAuth authorization server. No
+`authorization_servers` value is advertised because this surface does not
+issue or delegate OAuth tokens.
+
 Example profile fragment (secret value is never written here):
 
 ```yaml
@@ -78,7 +90,11 @@ Optional URLs default to the same Supabase project:
 ```text
 ENGINEERING_ACTOR_BROKER_URL
 ENGINEERING_TRANSITION_URL
+MCP_RESOURCE_URL=https://<supabase-project>.supabase.co/functions/v1/zhuge-task-074-mcp/mcp
 ```
+
+`MCP_RESOURCE_URL` is non-secret. If omitted, the function derives the
+canonical resource from `SUPABASE_URL` and the function slug.
 
 `SUPABASE_SERVICE_ROLE_KEY` is not read by this function. It remains only in
 the existing Broker / transition runtimes.

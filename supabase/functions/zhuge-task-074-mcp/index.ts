@@ -2,11 +2,11 @@
  * TASK-074 Remote MCP server.
  *
  * The function is a protected protocol adapter, not a second Board authority:
- * ChatGPT -> mTLS-authenticated proxy -> this MCP surface -> existing Broker
+ * ChatGPT -> protected tunnel/proxy -> this MCP surface -> existing Broker
  * -> short-lived GPT Actor Token -> engineering-transition v36 -> canonical RPC.
  *
- * The public MCP URL must be the HTTPS mTLS proxy URL.  The raw Supabase
- * function URL is backend-only and is protected by the shared proxy secret.
+ * The raw Supabase function URL is protected by the shared proxy secret and
+ * may be reached through the approved Secure MCP Tunnel.
  */
 
 import {
@@ -23,6 +23,9 @@ const BROKER_KEY_ID_DEFAULT = "chatgpt-engineering-connector-1";
 const BROKER_CLOCK_SKEW_SECONDS = 90;
 const BROKER_TTL_SECONDS = 300;
 const PROXY_AUTH_HEADER = "x-zhuge-mcp-proxy-auth";
+const MCP_RESOURCE_URL_ENV = "MCP_RESOURCE_URL";
+const PROTECTED_RESOURCE_METADATA_SUFFIX = "/.well-known/oauth-protected-resource";
+const MCP_FUNCTION_SLUG = "zhuge-task-074-mcp";
 
 function text(value: unknown, maxLength = 240) {
   return String(value ?? "").trim().slice(0, maxLength);
@@ -69,12 +72,78 @@ function equalSecret(left: string, right: string) {
   return result === 0;
 }
 
+function canonicalMcpResourceUrl(request: Request) {
+  const configured = String(Deno.env.get(MCP_RESOURCE_URL_ENV) || "").trim();
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+      if (parsed.protocol !== "https:" || parsed.search || parsed.hash || !parsed.pathname.endsWith("/mcp")) throw new Error("invalid MCP resource URL");
+      return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      throw new McpHttpError("MCP resource metadata configuration is unavailable.", 503, "MCP_CONFIGURATION_UNAVAILABLE");
+    }
+  }
+
+  const supabaseUrl = String(Deno.env.get("SUPABASE_URL") || "").trim().replace(/\/$/, "");
+  if (supabaseUrl) {
+    try {
+      const parsed = new URL(supabaseUrl);
+      if (parsed.protocol !== "https:") throw new Error("SUPABASE_URL must use HTTPS");
+      return `${parsed.origin}/functions/v1/${MCP_FUNCTION_SLUG}/mcp`;
+    } catch {
+      throw new McpHttpError("MCP resource metadata configuration is unavailable.", 503, "MCP_CONFIGURATION_UNAVAILABLE");
+    }
+  }
+
+  const requestUrl = new URL(request.url);
+  const metadataIndex = requestUrl.pathname.indexOf(PROTECTED_RESOURCE_METADATA_SUFFIX);
+  const functionPath = metadataIndex >= 0
+    ? requestUrl.pathname.slice(0, metadataIndex)
+    : requestUrl.pathname.replace(/\/mcp$/, "");
+  const normalizedFunctionPath = (functionPath || `/functions/v1/${MCP_FUNCTION_SLUG}`).replace(/\/$/, "");
+  return `${requestUrl.origin}${normalizedFunctionPath}/mcp`;
+}
+
+function protectedResourceMetadataUrl(request: Request) {
+  const resource = new URL(canonicalMcpResourceUrl(request));
+  const functionPath = resource.pathname.replace(/\/mcp$/, "");
+  return `${resource.origin}${functionPath}${PROTECTED_RESOURCE_METADATA_SUFFIX}/mcp`;
+}
+
+function metadataHeaders() {
+  return {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "x-content-type-options": "nosniff"
+  };
+}
+
+function handleProtectedResourceMetadata(request: Request) {
+  const pathname = new URL(request.url).pathname;
+  const isMetadataPath = pathname.endsWith(`${PROTECTED_RESOURCE_METADATA_SUFFIX}/mcp`) || pathname.endsWith(PROTECTED_RESOURCE_METADATA_SUFFIX);
+  if (!isMetadataPath) return null;
+
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: metadataHeaders() });
+  if (request.method !== "GET") return new Response(JSON.stringify({ error: "Protected Resource Metadata requires GET.", code: "MCP_METHOD_NOT_ALLOWED" }), { status: 405, headers: { ...metadataHeaders(), allow: "GET, OPTIONS" } });
+
+  const resource = canonicalMcpResourceUrl(request);
+  return new Response(JSON.stringify({
+    resource,
+    resource_name: "Zhuge TASK-074 MCP",
+    bearer_methods_supported: [],
+    "x-zhuge-auth-scheme": PROXY_AUTH_HEADER
+  }), { status: 200, headers: metadataHeaders() });
+}
+
 function authorizeMcpRequest(request: Request) {
   const expected = envRequired("MCP_TRUSTED_PROXY_SECRET");
   const supplied = String(request.headers.get(PROXY_AUTH_HEADER) || "");
   if (!supplied || !equalSecret(supplied, expected)) {
     throw new McpHttpError("MCP client authentication is required.", 401, "MCP_AUTH_REQUIRED", {
-      "www-authenticate": "Mutual TLS is required at the public MCP proxy."
+      "www-authenticate": `MCP-Proxy resource_metadata="${protectedResourceMetadataUrl(request)}"`
     });
   }
 }
@@ -249,4 +318,8 @@ async function callTool(call: McpCall) {
   }
 }
 
-Deno.serve(async request => handleMcpRequest(request, { authorize: authorizeMcpRequest, callTool }));
+Deno.serve(async request => {
+  const metadata = handleProtectedResourceMetadata(request);
+  if (metadata) return metadata;
+  return handleMcpRequest(request, { authorize: authorizeMcpRequest, callTool });
+});
