@@ -30,6 +30,21 @@ claims return to the Co queue, while review claims remain in the GPT review
 queue. No Task, Card, or Product Data is created, deleted, migrated, or
 copied by the orchestration metadata change.
 
+## QJC Runtime QA action
+
+Runtime QA is a human QJC-authorized action, not a GPT actor action. The
+canonical source contract is `public.board_task074_runtime_qa(...)`. It accepts
+only `pass` or `rework`, requires bounded evidence and an idempotency key, and
+atomically binds the target workspace/status/assignee to the published
+workflow step while recording before/after evidence in
+`engineering_activity_log` and the existing workflow idempotency ledger.
+
+The action is fail-closed unless the published workflow has exactly one
+required `runtime_qa` gate and exactly one matching QJC transition for the
+requested result. It cannot perform PM-controlled completion. The GPT-only MCP
+surface must not expose this action as a QJC impersonation path; GPT Review
+therefore remains a handoff to the authenticated QJC gate.
+
 ## Evidence gates
 
 GPT planning writes only the existing Board Task contract fields. GPT Review
