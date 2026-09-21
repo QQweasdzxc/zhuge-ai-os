@@ -15,11 +15,13 @@ test("TASK-074 MCP source exposes only the bounded lifecycle tools", () => {
     "task074_gpt_claim",
     "task074_plan_handoff_co",
     "task074_gpt_review",
+    "task074_runtime_qa",
     "task074_inspect",
     "task074_renew_gpt_claim",
     "task074_release_gpt_claim"
   ]) assert.match(protocolSource, new RegExp(`name: "${tool}"`));
   assert.doesNotMatch(protocolSource, /task074_co_claim|create_task|governance_write|service_role/i);
+  assert.match(edgeSource, /MCP_QJC_AUTH_REQUIRED/);
   assert.match(protocolSource, /MCP_PATH = ".*mcp"/);
   assert.match(protocolSource, /MCP request is too large/);
 });
@@ -66,6 +68,26 @@ test("MCP protocol validation is strict and fail-closed", async () => {
   });
   assert.throws(() => protocol.validateToolCall({ name: "task074_plan_handoff_co", arguments: { task: "TASK-079", claim_token: "not-a-uuid", idempotency_key: "gpt-handoff-20260921", plan: {} } }), /claim_token/);
   assert.throws(() => protocol.validateToolCall({ name: "task074_gpt_review", arguments: { task: "TASK-079", review_state: "pass", next_gate: "runtime_qa", claim_token: "00000000-0000-4000-8000-000000000001", idempotency_key: "gpt-review-20260921", review_note: "review" } }), /regression/);
+  assert.deepEqual(protocol.validateToolCall({
+    name: "task074_runtime_qa",
+    arguments: {
+      task: "TASK-079",
+      qa_state: "pass",
+      evidence_ref: "runtime:task-079-qa01",
+      idempotency_key: "qjc-runtime-qa-20260921"
+    }
+  }), {
+    task: "TASK-079",
+    qaState: "pass",
+    evidenceNote: null,
+    evidenceRef: "runtime:task-079-qa01",
+    idempotencyKey: "qjc-runtime-qa-20260921",
+    transitionKey: null
+  });
+  assert.throws(() => protocol.validateToolCall({
+    name: "task074_runtime_qa",
+    arguments: { task: "TASK-079", qa_state: "rework", idempotency_key: "qjc-runtime-qa-20260921" }
+  }), /evidence/);
 });
 
 test("MCP modern discovery, legacy handshake, tool listing, and auth dependency are Inspector-ready", async () => {
@@ -99,8 +121,9 @@ test("MCP modern discovery, legacy handshake, tool listing, and auth dependency 
     body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })
   }), { authorize, callTool });
   const listed = await list.json();
-  assert.equal(listed.result.tools.length, 6);
+  assert.equal(listed.result.tools.length, 7);
   assert.equal(listed.result.tools.some(tool => tool.name === "task074_gpt_claim"), true);
+  assert.equal(listed.result.tools.some(tool => tool.name === "task074_runtime_qa"), true);
 
   const modernList = await protocol.handleMcpRequest(new Request("http://127.0.0.1:8787/mcp", {
     method: "POST",

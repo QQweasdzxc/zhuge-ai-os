@@ -140,6 +140,24 @@ export const MCP_TOOLS = Object.freeze([
     annotations: { ...toolAnnotations, readOnlyHint: false }
   },
   {
+    name: "task074_runtime_qa",
+    description: "Expose the canonical QJC Runtime QA action contract for discovery. Execution remains a human QJC gate and fails closed on the GPT-only MCP actor surface.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        task: { type: "string", pattern: "^TASK-[A-Z0-9][A-Z0-9-]{0,60}$" },
+        qa_state: { type: "string", enum: ["pass", "rework"] },
+        evidence_note: { type: "string", maxLength: 12000 },
+        evidence_ref: { type: "string", maxLength: 1000 },
+        idempotency_key: { type: "string", minLength: 8, maxLength: 200 },
+        transition_key: { type: "string", maxLength: 160 }
+      },
+      required: ["task", "qa_state", "idempotency_key"]
+    },
+    annotations: { ...toolAnnotations, readOnlyHint: false }
+  },
+  {
     name: "task074_inspect",
     description: "Read the canonical task state and recent activity for one explicitly named TASK-xxx. Does not create or change Board data.",
     inputSchema: {
@@ -328,6 +346,21 @@ export function validateToolCall(call: McpCall) {
         throw new McpToolError("PASS requires regression evidence.", "MCP_ARGUMENT_INVALID");
       }
       return result;
+    }
+    case "task074_runtime_qa": {
+      const qaState = boundedString(args.qa_state, "qa_state", 20).toLowerCase();
+      if (!REVIEW_STATES.has(qaState)) throw new McpToolError("qa_state must be pass or rework.", "MCP_ARGUMENT_INVALID");
+      const evidenceNote = args.evidence_note ? boundedString(args.evidence_note, "evidence_note", 12000) : null;
+      const evidenceRef = args.evidence_ref ? boundedString(args.evidence_ref, "evidence_ref", 1000) : null;
+      if (!evidenceNote && !evidenceRef) throw new McpToolError("Runtime QA evidence note or reference is required.", "MCP_ARGUMENT_INVALID");
+      return {
+        task: taskCode(args.task),
+        qaState,
+        evidenceNote,
+        evidenceRef,
+        idempotencyKey: idempotencyKey(args.idempotency_key),
+        transitionKey: args.transition_key ? boundedString(args.transition_key, "transition_key", 160) : null
+      };
     }
     case "task074_inspect":
       return { task: taskCode(args.task) };

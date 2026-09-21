@@ -65,14 +65,19 @@ Only these bounded tools are exposed:
 - `task074_gpt_claim`
 - `task074_plan_handoff_co`
 - `task074_gpt_review`
+- `task074_runtime_qa`
 - `task074_inspect`
 - `task074_renew_gpt_claim`
 - `task074_release_gpt_claim`
 
 There is deliberately no Co claim tool. Co remains the existing canonical Co
-runtime and the MCP server never impersonates Co. Every write is sent through
-the existing Broker -> short-lived GPT Actor Token -> `engineering-transition`
-path. The Actor Token and Broker caller private key never appear in MCP output.
+runtime and the MCP server never impersonates Co. `task074_runtime_qa` is
+discoverable with its canonical QJC action schema, but the GPT-only MCP actor
+fails closed when attempting to execute it; the actual writer remains the
+authenticated QJC `board_task074_runtime_qa` contract. GPT lifecycle writes are
+sent through the existing Broker -> short-lived GPT Actor Token ->
+`engineering-transition` path. The Actor Token and Broker caller private key
+never appear in MCP output.
 
 ## Server-side configuration
 

@@ -303,6 +303,11 @@ async function callTool(call: McpCall) {
         regressionNote: args.regressionNote,
         regressionRef: args.regressionRef
       });
+    case "task074_runtime_qa":
+      throw new McpToolError(
+        "task074_runtime_qa requires a real authenticated QJC runtime; the GPT-only MCP actor cannot authorize this human gate.",
+        "MCP_QJC_AUTH_REQUIRED"
+      );
     case "task074_inspect":
       return callEngineeringTransition({ operation: "inspect", task: args.task });
     case "task074_renew_gpt_claim":
