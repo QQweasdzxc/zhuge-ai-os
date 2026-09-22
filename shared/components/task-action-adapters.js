@@ -47,7 +47,9 @@
       taskId: selectedTaskId,
       targetWorkspaceId: selectedWorkspaceId,
       decisionNote: payload.reason || "PM workspace decision",
-      idempotencyKey: payload.idempotencyKey || `workspace-${selectedTaskId}-${selectedWorkspaceId}`
+      idempotencyKey: payload.idempotencyKey || `workspace-${selectedTaskId}-${selectedWorkspaceId}`,
+      adoptWorkflow: payload.adoptWorkflow === true,
+      adoptionIdempotencyKey: payload.adoptionIdempotencyKey
     });
   }
 

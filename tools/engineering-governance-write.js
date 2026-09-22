@@ -71,6 +71,9 @@ async function writeGovernance(config, operation, payload) {
     const error = new Error(`Governance Write ${response.status}: ${detail}`);
     error.status = response.status;
     error.code = parsed?.code || "AUTHORIZATION_FAILED";
+    // Keep a bounded, non-secret diagnostic for the local approval runner. The
+    // runner never returns credentials, tokens, or raw response bodies.
+    error.remoteMessage = String(detail || "").replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]").replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted]").slice(0, 400);
     throw error;
   }
   return parsed;

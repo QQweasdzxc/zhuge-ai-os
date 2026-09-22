@@ -28,12 +28,23 @@ function usage(message = "") {
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim \\",
     "    --board-instance-id <AI_BOARD_INSTANCE_ID> --actor Co \\",
     "    --idempotency-key co-claim-20260831-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-gpt \\",
+    "    --board-instance-id <AI_BOARD_INSTANCE_ID> --actor GPT --stage planning \\",
+    "    --idempotency-key gpt-plan-20260920-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js plan-handoff-co \\",
+    "    --task TASK-001 --actor GPT --claim-token <GPT_CLAIM_TOKEN> \\",
+    "    --idempotency-key gpt-plan-handoff-20260920-001 --plan-json '{...}' --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-specific-task \\",
     "    --task TASK-001 --actor Co --idempotency-key co-specific-20260901-001 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js claim-specific-gpt-task \\",
+    "    --task TASK-001 --actor GPT --stage planning \\",
+    "    --idempotency-key gpt-specific-20260920-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reconcile-qjc-to-co-ready \\",
     "    --task TASK-001 --actor GPT --idempotency-key qjc-reconcile-20260901-001 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js engineering-review \\",
-    "    --task TASK-001 --actor GPT --confirm",
+    "    --task TASK-001 --actor GPT --review-state pass --next-gate pm_decision_required \\",
+    "    --claim-token <GPT_REVIEW_CLAIM_TOKEN> --idempotency-key gpt-review-20260920-001 \\",
+    "    --evidence-note 'Review evidence' --regression-note 'Regression evidence' --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js reclaim-expired-claim \\",
     "    --task TASK-001 --expired-claim-token <EXPIRED_CLAIM_TOKEN> --actor Co \\",
     "    --idempotency-key co-reclaim-20260831-001 --lease-seconds 900 --confirm",
@@ -41,6 +52,10 @@ function usage(message = "") {
     "    --claim-token <CLAIM_TOKEN> --lease-seconds 900 --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js release-claim \\",
     "    --claim-token <CLAIM_TOKEN> --reason 'blocked by external dependency' --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js renew-gpt-claim \\",
+    "    --actor GPT --claim-token <GPT_CLAIM_TOKEN> --lease-seconds 900 --confirm",
+    "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js release-gpt-claim \\",
+    "    --actor GPT --claim-token <GPT_CLAIM_TOKEN> --reason 'manual handoff stop' --confirm",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js inspect --task TASK-001",
     "  SUPABASE_URL=... ENGINEERING_ACTOR_TOKEN=... node tools/engineering-transition.js transition \\",
     "    --task TASK-001 --target-status qa --target-assignee GPT \\",
@@ -91,6 +106,9 @@ function validateTransition({ actor, currentStatus, targetStatus, targetAssignee
   if (!ALLOWED_STATUSES.has(targetStatus)) throw new Error(`Unsupported target status: ${targetStatus || "(empty)"}`);
   if (actor === "Co" && currentStatus === "ready" && targetStatus === "inprogress" && targetAssignee === "Co") {
     throw new Error("Co ready -> inprogress requires board_claim_next_task");
+  }
+  if (actor === "GPT" && currentStatus === "qa") {
+    throw new Error("GPT qa transitions require engineering-review");
   }
   const allowedAssignee = TRANSITIONS[actor]?.[currentStatus]?.[targetStatus];
   if (!allowedAssignee || allowedAssignee !== targetAssignee) {
@@ -172,6 +190,25 @@ async function claim(config, args) {
   return requestTool(config, payload);
 }
 
+async function claimGpt(config, args) {
+  if (!args["board-instance-id"] || args.actor !== "GPT") {
+    throw new Error("--board-instance-id and --actor GPT are required for claim-gpt.");
+  }
+  const stage = String(args.stage || "planning").trim().toLowerCase();
+  if (!["planning", "review"].includes(stage)) throw new Error("--stage must be planning or review.");
+  const payload = {
+    operation: "claim_gpt",
+    actor: "GPT",
+    boardInstanceId: args["board-instance-id"],
+    stage,
+    idempotencyKey: args["idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
 async function claimSpecificTask(config, args) {
   if (!args.task || args.actor !== "Co") {
     throw new Error("--task and --actor Co are required for claim-specific-task.");
@@ -180,6 +217,27 @@ async function claimSpecificTask(config, args) {
     operation: "claim_specific_task",
     actor: "Co",
     task: args.task,
+    idempotencyKey: args["idempotency-key"] || null,
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
+async function claimSpecificGptTask(config, args) {
+  if (!args.task || args.actor !== "GPT") {
+    throw new Error("--task and --actor GPT are required for claim-specific-gpt-task.");
+  }
+  const stage = String(args.stage || "planning").trim().toLowerCase();
+  if (!["planning", "review"].includes(stage)) {
+    throw new Error("--stage must be planning or review.");
+  }
+  const payload = {
+    operation: "claim_specific_gpt",
+    actor: "GPT",
+    task: args.task,
+    stage,
     idempotencyKey: args["idempotency-key"] || null,
     leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
   };
@@ -203,6 +261,26 @@ async function reconcileQjcToCoReady(config, args) {
   return requestTool(config, payload);
 }
 
+async function planHandoffCo(config, args) {
+  if (!args.task || args.actor !== "GPT" || !args["claim-token"] || !args["plan-json"]) {
+    throw new Error("--task, --actor GPT, --claim-token and --plan-json are required for plan-handoff-co.");
+  }
+  let plan;
+  try { plan = JSON.parse(args["plan-json"]); } catch { throw new Error("--plan-json must be valid JSON."); }
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) throw new Error("--plan-json must be a JSON object.");
+  const payload = {
+    operation: "plan_handoff_co",
+    actor: "GPT",
+    task: args.task,
+    claimToken: args["claim-token"],
+    idempotencyKey: args["idempotency-key"] || null,
+    plan
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  return requestTool(config, payload);
+}
+
 async function engineeringReview(config, args) {
   if (!args.task || args.actor !== "GPT") {
     throw new Error("--task and --actor GPT are required for engineering-review.");
@@ -210,9 +288,27 @@ async function engineeringReview(config, args) {
   const payload = {
     operation: "engineering_review",
     actor: "GPT",
-    task: args.task
+    task: args.task,
+    reviewState: args["review-state"] || null,
+    nextGate: args["next-gate"] || null,
+    reviewNote: args["evidence-note"] || null,
+    evidenceRef: args["evidence-ref"] || null,
+    regressionNote: args["regression-note"] || null,
+    regressionRef: args["regression-ref"] || null,
+    claimToken: args["claim-token"] || null,
+    idempotencyKey: args["idempotency-key"] || null
   };
   if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  if (!["pass", "rework"].includes(payload.reviewState)) throw new Error("--review-state must be pass or rework.");
+  if (!payload.claimToken) throw new Error("--claim-token is required for engineering-review.");
+  payload.idempotencyKey = boundedIdempotencyKey(args["idempotency-key"]);
+  if (payload.reviewState === "pass" && !["pm_decision_required", "runtime_qa"].includes(payload.nextGate)) {
+    throw new Error("--next-gate must be pm_decision_required or runtime_qa for a PASS.");
+  }
+  if (!payload.reviewNote && !payload.evidenceRef) throw new Error("Review evidence note or reference is required.");
+  if (payload.reviewState === "pass" && !payload.regressionNote && !payload.regressionRef) {
+    throw new Error("Regression evidence note or reference is required for a PASS.");
+  }
   return requestTool(config, payload);
 }
 
@@ -271,6 +367,34 @@ async function releaseClaim(config, args) {
   return requestTool(config, payload);
 }
 
+async function renewGptClaim(config, args) {
+  if (!args["claim-token"] || args.actor !== "GPT") {
+    throw new Error("--claim-token and --actor GPT are required for renew-gpt-claim.");
+  }
+  const payload = {
+    operation: "renew_gpt_claim",
+    actor: "GPT",
+    claimToken: args["claim-token"],
+    leaseSeconds: args["lease-seconds"] === undefined ? 900 : boundedLeaseSeconds(args["lease-seconds"])
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
+async function releaseGptClaim(config, args) {
+  if (!args["claim-token"] || args.actor !== "GPT") {
+    throw new Error("--claim-token and --actor GPT are required for release-gpt-claim.");
+  }
+  const payload = {
+    operation: "release_gpt_claim",
+    actor: "GPT",
+    claimToken: args["claim-token"],
+    reason: args.reason || null
+  };
+  if (!args.confirm) return { dryRun: true, service: config.functionUrl, ...payload };
+  return requestTool(config, payload);
+}
+
 async function transition(config, args) {
   if (!args.task || !args.actor || !args["target-status"] || !args["target-assignee"]) {
     throw new Error("--task, --actor, --target-status and --target-assignee are required.");
@@ -319,7 +443,7 @@ async function checklist(config, args) {
 
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  if (!["inspect", "transition", "checklist", "claim", "claim-specific-task", "reconcile-qjc-to-co-ready", "engineering-review", "reclaim-expired-claim", "renew-claim", "release-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-specific-task, reconcile-qjc-to-co-ready, engineering-review, reclaim-expired-claim, renew-claim or release-claim.");
+  if (!["inspect", "transition", "checklist", "claim", "claim-gpt", "plan-handoff-co", "claim-specific-task", "claim-specific-gpt-task", "reconcile-qjc-to-co-ready", "engineering-review", "reclaim-expired-claim", "renew-claim", "release-claim", "renew-gpt-claim", "release-gpt-claim"].includes(args.command)) return usage("Command must be inspect, transition, checklist, claim, claim-gpt, plan-handoff-co, claim-specific-task, claim-specific-gpt-task, reconcile-qjc-to-co-ready, engineering-review, reclaim-expired-claim, renew-claim, release-claim, renew-gpt-claim or release-gpt-claim.");
   const config = configFromEnvironment();
   const result = args.command === "inspect"
     ? await inspect(config, args)
@@ -329,8 +453,14 @@ async function main(argv = process.argv.slice(2)) {
         ? await checklist(config, args)
         : args.command === "claim"
           ? await claim(config, args)
+          : args.command === "claim-gpt"
+            ? await claimGpt(config, args)
+            : args.command === "plan-handoff-co"
+              ? await planHandoffCo(config, args)
           : args.command === "claim-specific-task"
           ? await claimSpecificTask(config, args)
+          : args.command === "claim-specific-gpt-task"
+          ? await claimSpecificGptTask(config, args)
           : args.command === "reconcile-qjc-to-co-ready"
             ? await reconcileQjcToCoReady(config, args)
           : args.command === "engineering-review"
@@ -339,7 +469,11 @@ async function main(argv = process.argv.slice(2)) {
             ? await reclaimExpiredClaim(config, args)
           : args.command === "renew-claim"
             ? await renewClaim(config, args)
-            : await releaseClaim(config, args);
+            : args.command === "release-claim"
+              ? await releaseClaim(config, args)
+              : args.command === "renew-gpt-claim"
+                ? await renewGptClaim(config, args)
+                : await releaseGptClaim(config, args);
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -347,4 +481,4 @@ if (require.main === module) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
-module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, reconcileQjcToCoReady, engineeringReview, reclaimExpiredClaim };
+module.exports = { ALLOWED_ACTORS, ALLOWED_STATUSES, CHECKLIST_STATES, TRANSITIONS, configFromEnvironment, validateTransition, validateChecklist, boundedIdempotencyKey, boundedLeaseSeconds, parseArgs, claimSpecificTask, claimSpecificGptTask, claimGpt, planHandoffCo, reconcileQjcToCoReady, engineeringReview, reclaimExpiredClaim, renewGptClaim, releaseGptClaim };

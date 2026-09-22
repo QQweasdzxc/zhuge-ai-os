@@ -40,6 +40,58 @@ ENGINEERING_ACTOR_PRIVATE_JWK='…' node tools/engineering-actor-broker.js issue
 The token is short-lived (maximum five minutes), scoped to `board:transition`,
 and must never be placed in browser code, a ZIP, source control, or chat.
 
+## External ChatGPT server-to-server Broker path
+
+The approved external handoff uses the protected Supabase Edge Function
+`engineering-actor-broker`. It is not a browser endpoint and it does not accept
+Supabase user sessions, anon keys, chat text, or caller-supplied actor claims.
+
+The connector signs the exact request body with a separate P-256 private JWK:
+
+```text
+ENGINEERING_BROKER_CALLER_PRIVATE_JWK=<connector-only-private-JWK>
+ENGINEERING_BROKER_CALLER_KEY_ID=chatgpt-engineering-connector-1
+```
+
+The signed headers are:
+
+```text
+X-Zhuge-Broker-Key-Id
+X-Zhuge-Broker-Timestamp
+X-Zhuge-Broker-Request-Id
+X-Zhuge-Broker-Signature
+```
+
+The signature covers `timestamp.request_id.sha256(body)`. The Broker rejects
+missing, stale, malformed, unallowlisted, or replayed requests. The only
+allowlisted body is the bounded GPT transition capability:
+
+```json
+{
+  "actor": "GPT",
+  "profile": "transition",
+  "ttl_seconds": 300,
+  "purpose": "engineering-transition"
+}
+```
+
+The Broker Edge Function requires these server-side values:
+
+```text
+ENGINEERING_ACTOR_PRIVATE_JWK=<existing private JWK matching engineering-transition v36 public key>
+ENGINEERING_BROKER_CALLER_JWKS={"keys":{"chatgpt-engineering-connector-1":{"kty":"EC","crv":"P-256","x":"...","y":"..."}}}
+```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` remain only in the Edge runtime.
+The Broker records sanitized `request_id`, `jti`, caller key id, actor,
+audience, scope, and timestamps in the protected issuance ledger before it
+returns the signed Actor Token. It never stores the token or private keys.
+
+The returned Token is sent only to the connector process, which then calls the
+existing `engineering-transition` v36 endpoint. The Broker does not issue the
+`governance-write` profile and therefore cannot bypass the existing PM
+authorization capability.
+
 ## Trusted Engineering Memory read path
 
 For a new Zhuge AI OS engineering Co, issue a separate read-only capability

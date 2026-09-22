@@ -20,13 +20,13 @@ test("controlled transition permits Co to return work to ready", () => {
   }));
 });
 
-test("controlled transition permits GPT fail and pass handoffs", () => {
-  assert.doesNotThrow(() => Tool.validateTransition({
+test("GPT qa handoffs must use the controlled engineering review operation", () => {
+  assert.throws(() => Tool.validateTransition({
     actor: "GPT", currentStatus: "qa", targetStatus: "inprogress", targetAssignee: "Co"
-  }));
-  assert.doesNotThrow(() => Tool.validateTransition({
+  }), /engineering-review/);
+  assert.throws(() => Tool.validateTransition({
     actor: "GPT", currentStatus: "qa", targetStatus: "qa", targetAssignee: "QJC"
-  }));
+  }), /engineering-review/);
 });
 
 test("unapproved transitions and actors are rejected", () => {
@@ -149,13 +149,23 @@ test("Engineering Review requires the GPT actor and is dry-run by default", asyn
     functionUrl: "https://example.supabase.co/functions/v1/engineering-transition"
   }, {
     task: "TASK-055",
-    actor: "GPT"
+    actor: "GPT",
+    "review-state": "rework",
+    "evidence-note": "review evidence"
   });
   assert.deepEqual(result, {
     dryRun: true,
     service: "https://example.supabase.co/functions/v1/engineering-transition",
     operation: "engineering_review",
     actor: "GPT",
-    task: "TASK-055"
+    task: "TASK-055",
+    reviewState: "rework",
+    nextGate: null,
+    reviewNote: "review evidence",
+    evidenceRef: null,
+    regressionNote: null,
+    regressionRef: null,
+    claimToken: null,
+    idempotencyKey: null
   });
 });
