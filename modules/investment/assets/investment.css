@@ -113,6 +113,7 @@ button { color: inherit; }
 .investment-transaction-row:last-child { border-bottom: 0; }
 .investment-transaction-row time, .investment-transaction-row span { color: var(--investment-muted); }
 .investment-transaction-row b:last-child { text-align: right; }
+.investment-transaction-row b:last-child small { display: block; color: var(--investment-muted); font-size: .62rem; font-weight: 600; }
 
 .investment-watch-grid, .investment-settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .investment-watch-card, .investment-strategy-card { border: 1px solid var(--investment-line); border-radius: var(--zhuge-radius-md); background: var(--investment-panel); padding: 18px; box-shadow: var(--zhuge-shadow-card); }
@@ -323,6 +324,10 @@ button { color: inherit; }
 .investment-readonly-note { margin: 12px 0 0; color: var(--investment-muted); font-size: .7rem; line-height: 1.5; }
 .investment-watchlist-preview-grid{display:grid;gap:8px}
 .investment-watchlist-preview-card{display:grid;gap:7px;border:1px solid rgba(109,184,255,.2);border-radius:10px;background:rgba(6,16,30,.3);padding:10px 11px}
+.investment-watchlist-preview-card.is-interactive{cursor:pointer;min-height:44px;transition:border-color .18s ease,background-color .18s ease,transform .18s ease}
+.investment-watchlist-preview-card.is-interactive:hover{border-color:rgba(109,184,255,.55);background:rgba(6,16,30,.52);transform:translateY(-1px)}
+.investment-watchlist-preview-card.is-interactive:focus-visible{outline:3px solid rgba(109,184,255,.65);outline-offset:3px}
+.investment-watchlist-preview-card.is-interactive:active{transform:translateY(0)}
 .investment-watchlist-preview-card header{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}
 .investment-watchlist-preview-card header div{display:grid;gap:2px;min-width:0}
 .investment-watchlist-preview-card header strong{font-size:.82rem}
@@ -332,6 +337,7 @@ button { color: inherit; }
 .investment-watchlist-preview-value b{font-size:.9rem}
 .investment-watchlist-preview-value small{color:var(--investment-accent);font-size:.64rem}
 .investment-watchlist-preview-card p{margin:0;line-height:1.45}
+.investment-watchlist-preview-action{color:var(--investment-accent);font-size:.68rem;font-weight:700}
 
 @media (max-width: 900px) { .investment-access-content { min-height: 0; padding: 10px 0 18px; } .investment-access-panel { min-height: 360px; padding: 20px; } }
 @keyframes investment-spin { to { transform: rotate(360deg); } }

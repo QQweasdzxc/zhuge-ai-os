@@ -176,6 +176,8 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
   assert.match(markup, /data-investment-section="important-holdings"/);
   assert.match(markup, /data-investment-section="watchlist"/);
   assert.match(markup, /0050/);
+  assert.match(markup, /data-investment-research-symbol="0050"/);
+  assert.match(markup, /查看研究/);
   assert.match(markup, /data-investment-section="research"/);
   assert.match(markup, /data-investment-section="realtime"/);
   assert.match(markup, /更多帳務資訊/);

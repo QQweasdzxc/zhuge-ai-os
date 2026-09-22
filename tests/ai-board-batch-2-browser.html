@@ -109,7 +109,8 @@
     reorderWorkspaces: async () => ({ success: true }),
     updateChecklistItem: async () => ({}),
     createTask: async () => ({}),
-    subscribe: async () => async () => {}
+    subscribe: async () => async () => {},
+    createInstanceService: () => window.ZhugeBoardReadService
   };
 </script>
 <script src="../shared/components/task-action-contract.js"></script>

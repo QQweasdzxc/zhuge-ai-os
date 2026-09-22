@@ -57,7 +57,8 @@
     window.ZhugeBoardReadService = {
       STATUS_WORKSPACES: [],
       load: async () => ({ tasks: [], principles: [], systemMaps: [] }),
-      subscribe: async () => async () => {}
+      subscribe: async () => async () => {},
+      createInstanceService: () => window.ZhugeBoardReadService
     };
   </script>
   <script src="../shared/components/golden-master-runtime.js"></script>

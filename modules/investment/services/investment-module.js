@@ -887,6 +887,26 @@
       if (focus) global.requestAnimationFrame?.(() => focusSection(focus));
     }
 
+    function openResearchForSymbol(symbol, market = "AUTO") {
+      const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+      if (!normalizedSymbol) return;
+      const normalizedMarket = String(market || "AUTO").trim().toUpperCase();
+      navigate("overview", true, "research");
+      const schedule = typeof global.requestAnimationFrame === "function"
+        ? global.requestAnimationFrame.bind(global)
+        : callback => global.setTimeout(callback, 0);
+      schedule(() => {
+        const form = root.querySelector("[data-investment-research-form]");
+        const input = form?.querySelector("input[name=\"symbol\"]");
+        if (!form || !input) return;
+        input.value = normalizedSymbol;
+        const marketSelect = form.querySelector("select[name=\"market\"]");
+        if (marketSelect && ["TW", "US"].includes(normalizedMarket)) marketSelect.value = normalizedMarket;
+        input.focus({ preventScroll: true });
+        input.select?.();
+      });
+    }
+
     async function runRecognition() {
       await importSession.startRecognition(recognitionProvider?.recognize
         ? (files, metadata) => recognitionProvider.recognize(files, metadata)
@@ -1143,6 +1163,11 @@
     }
 
     root.addEventListener("click", event => {
+      const researchTarget = event.target.closest("[data-investment-research-symbol]");
+      if (researchTarget) {
+        openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
+        return;
+      }
       const route = event.target.closest("[data-investment-route]");
       if (route) {
         const page = route.dataset.investmentRoute;
@@ -1299,6 +1324,12 @@
       renderPage();
     });
     root.addEventListener("keydown", event => {
+      const researchTarget = event.target.closest("[data-investment-research-symbol]");
+      if (researchTarget && ["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
+        return;
+      }
       const dropzone = event.target.closest("[data-investment-import-dropzone]");
       if (!dropzone || !["Enter", " "].includes(event.key)) return;
       event.preventDefault();

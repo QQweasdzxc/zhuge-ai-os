@@ -126,6 +126,7 @@
 }
 .zhuge-module-shell .btn,
 .zhuge-module-shell .btn2 { min-height: 36px; padding: 8px 12px; }
+.zhuge-module-shell .zhuge-core-button { min-height: var(--zhuge-touch-target-min); }
 .zhuge-module-shell .btn:not(.gray):not(.red):not(.amber),
 .zhuge-module-shell .btn2.selected { border-color: var(--zhuge-accent-strong); }
 .zhuge-module-shell .btn:hover,
@@ -259,6 +260,7 @@
 }
 .zhuge-module-shell .template-management-card-header:hover,
 .zhuge-module-shell .template-management-card-header:focus-visible { background: var(--zhuge-surface-raised); outline: none; }
+.zhuge-module-shell .template-management-card-header.zhuge-core-button { min-height: 72px; box-shadow: none; }
 .zhuge-module-shell .template-management-code {
   display: grid;
   place-items: center;

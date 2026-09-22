@@ -78,9 +78,11 @@
       const type = tradeLabels[transaction.tradeType] || transaction.tradeType || "未知";
       const amount = transaction.netAmount || ((transaction.grossAmount || transaction.quantity * transaction.price) * (transaction.tradeType === "BUY" ? -1 : 1));
       const amountText = typeof format.currency === "function" ? format.currency(Math.abs(amount), transaction.currency) : `${transaction.currency || ""} ${Math.abs(amount)}`;
-      return `<div class="investment-transaction-row" data-investment-transaction-id="${text(transaction.id, escape)}"><time>${text(typeof format.date === "function" ? format.date(transaction.tradeDate) : transaction.tradeDate, escape)}</time><span><b>${text(type, escape)}</b> · ${text(transaction.symbol, escape)}${transaction.name ? ` · ${text(transaction.name, escape)}` : ""}</span><span>${text(transaction.quantity, escape)} 股</span><span>${text(typeof format.currency === "function" ? format.currency(transaction.price, transaction.currency) : transaction.price, escape)}</span><b>${text(`${transaction.tradeType === "BUY" ? "-" : "+"}${amountText}`, escape)}</b></div>`;
+      const cashflowLabel = transaction.tradeType === "BUY" ? "買入支出" : transaction.tradeType === "SELL" ? "賣出收入" : "現金流";
+      const cashflowSign = transaction.tradeType === "BUY" ? "-" : "+";
+      return `<div class="investment-transaction-row" data-investment-transaction-id="${text(transaction.id, escape)}"><time>${text(typeof format.date === "function" ? format.date(transaction.tradeDate) : transaction.tradeDate, escape)}</time><span><b>${text(type, escape)}</b> · ${text(transaction.symbol, escape)}${transaction.name ? ` · ${text(transaction.name, escape)}` : ""}</span><span>${text(transaction.quantity, escape)} 股</span><span>${text(typeof format.currency === "function" ? format.currency(transaction.price, transaction.currency) : transaction.price, escape)}</span><b aria-label="${text(`${cashflowLabel} ${cashflowSign}${amountText}`, escape)}"><small>${text(cashflowLabel, escape)}</small> ${text(`${cashflowSign}${amountText}`, escape)}</b></div>`;
     }).join("");
-    return `<div class="investment-table" data-investment-transactions><div class="investment-transaction-row investment-transaction-heading"><b>日期</b><b>交易</b><b>數量</b><b>單價</b><b>淨額</b></div>${rows}</div>`;
+    return `<div class="investment-table" data-investment-transactions><div class="investment-transaction-row investment-transaction-heading"><b>日期</b><b>交易</b><b>數量</b><b>單價</b><b>現金流</b></div>${rows}</div>`;
   }
 
   function render(state = {}, dependencies = {}) {

@@ -23,8 +23,9 @@ test("all formal workspace entry points mount the canonical Shared OS Shell", ()
   assert.match(investment, /investment-module-shell/);
 });
 
-test("Shared Shell owns the canonical geometry and appearance tokens", () => {
+test("Shared Foundation owns the canonical geometry and appearance tokens", () => {
   const shell = read("shared/theme/zhuge-shell.css");
+  const foundation = read("shared/theme/tokens.css");
   for (const token of [
     "--shell-sidebar-width",
     "--shell-main-gap",
@@ -34,8 +35,9 @@ test("Shared Shell owns the canonical geometry and appearance tokens", () => {
     "--shell-header-content-gap",
     "--shell-section-gap",
     "--shell-radius"
-  ]) assert.match(shell, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(shell, /data-theme="light"/);
+  ]) assert.match(foundation, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(shell, /@import url\("\.\/tokens\.css"\)/);
+  assert.match(foundation, /html\[data-theme="light"\]/);
   assert.match(read("shared/theme/zhuge-appearance.js"), /system.*light.*dark|allowed/si);
 });
 
