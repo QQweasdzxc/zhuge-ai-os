@@ -32,7 +32,7 @@ const PRODUCT_TASK_UPDATE_STATUS_PATH = "/api/task-update-status";
 const PRODUCT_TASK_UPDATE_FIELDS = new Set(["task_id", "summary", "usage_scenario"]);
 const PRODUCT_TASK_CREATE_PATH = "/api/request-task-create";
 const PRODUCT_TASK_CREATE_STATUS_PATH = "/api/task-create-status";
-const PRODUCT_TASK_CREATE_FIELDS = new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id"]);
+const PRODUCT_TASK_CREATE_FIELDS = new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id", "workflow_mode"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALLOWED_OPERATIONS = new Set([
   "create_task_contract",
@@ -51,7 +51,7 @@ const OPERATION_LABELS = Object.freeze({
   set_pm_accepted_baseline: "登記 PM Accepted Baseline"
 });
 const PAYLOAD_FIELDS = Object.freeze({
-  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id"]),
+  create_task_contract: new Set(["title", "summary", "usage_scenario", "priority", "acceptance_criteria", "workspace_id", "workflow_mode"]),
   update_task_contract: new Set([
     "task_id", "title", "summary", "usage_scenario", "priority", "domain", "category",
     "problem", "objective", "proposed_solution", "related_work", "acceptance_criteria",
@@ -271,13 +271,17 @@ function normalizeProductTaskCreateRequest(value) {
     usage_scenario: 20000,
     priority: 120,
     acceptance_criteria: 30000,
-    workspace_id: 120
+    workspace_id: 120,
+    workflow_mode: 32
   });
   for (const field of Object.keys(fieldLimits)) {
     if (!Object.prototype.hasOwnProperty.call(source, field)) continue;
     const normalized = stringValue(source[field], `payload.${field}`, fieldLimits[field]).trim();
     if (field === "workspace_id" && normalized && !UUID_PATTERN.test(normalized)) {
       throw new RunnerError("INVALID_ACTION", "payload.workspace_id must be a valid workspace identity.");
+    }
+    if (field === "workflow_mode" && normalized && !["published", "unbound"].includes(normalized.toLowerCase())) {
+      throw new RunnerError("INVALID_ACTION", "payload.workflow_mode must be published or unbound.");
     }
     if (normalized) payload[field] = normalized;
   }
@@ -290,7 +294,8 @@ function normalizeProductTaskCreateRequest(value) {
     usage_scenario: "使用情境",
     priority: "優先級",
     acceptance_criteria: "驗收條件",
-    workspace_id: "指定工作區"
+    workspace_id: "指定工作區",
+    workflow_mode: "Workflow 綁定模式"
   });
   const suppliedFields = Object.keys(payload).map(field => labels[field] || field);
   return normalizeActionManifest({
@@ -406,8 +411,20 @@ function readRequestBody(request) {
 }
 
 function publicError(error) {
-  if (error instanceof RunnerError) return { code: error.code, message: error.publicMessage };
-  return { code: error?.code || "OPERATIONAL_PATH_FAILED", message: "Governance approval could not be completed. No credential was exposed." };
+  if (error instanceof RunnerError) {
+    return {
+      code: error.code,
+      status: Number.isInteger(error.status) ? error.status : null,
+      message: error.publicMessage,
+      detail: error.remoteMessage ? String(error.remoteMessage).slice(0, 400) : undefined
+    };
+  }
+  return {
+    code: error?.code || "OPERATIONAL_PATH_FAILED",
+    status: Number.isInteger(error?.status) ? error.status : null,
+    message: "Governance approval could not be completed. No credential was exposed.",
+    detail: error?.remoteMessage ? String(error.remoteMessage).slice(0, 400) : undefined
+  };
 }
 
 async function parseResponseBody(response) {
@@ -627,11 +644,26 @@ function summarizeCreatedTaskReadBack(action, taskRows, auditRows, checklistRows
   if (!readBackString(task.board_instance_id) || !readBackString(task.workspace_id)) {
     throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back is missing the formal Board or Workspace identity.");
   }
-  if (readBackString(task.status) !== "ready" || readBackString(task.assignee) !== "Co") {
+  const initialLifecycleIsPublished = readBackString(task.status) === "ready" && readBackString(task.assignee) === "Co";
+  const initialLifecycleIsUnbound = readBackString(task.status) === "not_started" && !readBackString(task.assignee);
+  if (!initialLifecycleIsPublished && !initialLifecycleIsUnbound) {
     throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back has an unexpected initial lifecycle state.");
   }
-  if (!readBackString(task.workflow_version_id) || !readBackString(task.current_workflow_step_id)) {
-    throw new RunnerError("READ_BACK_FAILED", "GPT TASK read-back is missing the current Workflow binding.");
+  const workflowMode = readBackString(action.payload.workflow_mode || "published").toLowerCase();
+  if (workflowMode === "published" && !initialLifecycleIsPublished) {
+    throw new RunnerError("READ_BACK_FAILED", "Published GPT TASK read-back has an unexpected initial lifecycle state.");
+  }
+  if (workflowMode === "unbound" && !initialLifecycleIsUnbound) {
+    throw new RunnerError("READ_BACK_FAILED", "Unbound GPT TASK read-back has an unexpected initial lifecycle state.");
+  }
+  const hasWorkflowBinding = Boolean(
+    readBackString(task.workflow_version_id) && readBackString(task.current_workflow_step_id)
+  );
+  if (workflowMode === "published" && !hasWorkflowBinding) {
+    throw new RunnerError("READ_BACK_FAILED", "Published GPT TASK read-back is missing the current Workflow binding.");
+  }
+  if (workflowMode === "unbound" && hasWorkflowBinding) {
+    throw new RunnerError("READ_BACK_FAILED", "Unbound GPT TASK read-back unexpectedly contains a Workflow binding.");
   }
 
   const audit = (Array.isArray(auditRows) ? auditRows : []).find(row => (
@@ -688,6 +720,7 @@ function summarizeCreatedTaskReadBack(action, taskRows, auditRows, checklistRows
       }))
     },
     workflowBinding: {
+      mode: workflowMode,
       workflowVersionId: readBackString(task.workflow_version_id),
       currentWorkflowStepId: readBackString(task.current_workflow_step_id)
     }
@@ -1048,7 +1081,13 @@ function createRunner(options = {}) {
       return { authorizationId, operation: action.operation, readBack };
     } catch (error) {
       if (error instanceof RunnerError) throw error;
-      throw new RunnerError("OPERATIONAL_PATH_FAILED", "Governance approval could not be completed. No credential was exposed.");
+      const wrapped = new RunnerError(
+        String(error?.code || "OPERATIONAL_PATH_FAILED"),
+        "Governance approval could not be completed. No credential was exposed."
+      );
+      if (Number.isInteger(error?.status)) wrapped.status = error.status;
+      if (error?.remoteMessage) wrapped.remoteMessage = String(error.remoteMessage).slice(0, 400);
+      throw wrapped;
     } finally {
       pmAuthorizationToken = "";
       actorToken = "";

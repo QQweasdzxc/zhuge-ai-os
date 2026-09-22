@@ -124,7 +124,8 @@ test("C Workflow moves an unbound card through formal adoption when a Published 
   await workflow.moveWorkspaceDecision({
     taskId: "task-1",
     targetWorkspaceId: "workspace-2",
-    idempotencyKey: "move-1"
+    idempotencyKey: "move-1",
+    adoptWorkflow: true
   });
   assert.deepEqual(calls.map(call => call.name), [
     "board_c_workflow_get",
