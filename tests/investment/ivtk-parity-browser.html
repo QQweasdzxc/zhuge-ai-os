@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Investment IVTK C Mother Template parity browser regression</title>
+    <link rel="stylesheet" href="../../shared/theme/golden-master.css">
+    <link rel="stylesheet" href="../../shared/theme/task-board.css">
+    <link rel="stylesheet" href="../../shared/theme/task-card.css">
+    <link rel="stylesheet" href="../../shared/theme/task-drawer.css">
+  </head>
+  <body>
+    <main id="mount"></main>
+    <script src="../../shared/components/task-card.js"></script>
+    <script src="../../shared/components/task-drawer.js"></script>
+    <script src="../../shared/components/task-board.js"></script>
+    <script src="../../shared/components/golden-master.js"></script>
+    <script src="../../shared/components/activity-classifier.js"></script>
+    <script src="../../shared/components/activity-text-renderer.js"></script>
+    <script src="../../shared/components/task-card-summary.js"></script>
+    <script src="../../shared/components/task-action-contract.js"></script>
+    <script src="../../shared/components/task-action-adapters.js"></script>
+    <script src="../../shared/components/template-parity-engine.js"></script>
+    <script src="../../shared/services/template-release-service.js"></script>
+    <script src="../../modules/investment/utils/safe-html.js"></script>
+    <script src="../../modules/investment/utils/formatters.js"></script>
+    <script src="../../modules/investment/models/position.js"></script>
+    <script src="../../modules/investment/services/ivtk-board-adapter.js"></script>
+    <script>
+      const position = InvestmentPosition.normalize({
+        id: "opening-1",
+        source_kind: "opening_position",
+        source_id: "opening-1",
+        symbol: "2330",
+        name: "台積電",
+        market: "TW",
+        currency: "TWD",
+        quantity: 1,
+        avg_cost: 2428,
+        invested_cost: 2428,
+        last_price: 2440,
+        market_value: 2440,
+        unrealized_pnl: 12,
+        unrealized_pct: 0.49
+      });
+      const state = {
+        positions: [position],
+        watchlist: [],
+        ivtk: {
+          status: "ready",
+          projectionStatus: "ready",
+          projection: { position_count: 1, watchlist_count: 0 },
+          board: {
+            workspaces: [
+              { id: "stocks", key: "ivtk-stocks", name: "股票投資", sortOrder: 10, active: true },
+              { id: "watchlist", key: "ivtk-watchlist", name: "觀察名單", sortOrder: 20, active: true }
+            ],
+            tasks: [{ id: "task-1", workCode: "IVTK-001", title: "Investment Position Projection" }],
+            links: [{ boardTaskId: "task-1", sourceKind: "opening_position", sourceId: "opening-1", cardKind: "position", active: true }]
+          }
+        }
+      };
+      const dependencies = {
+        escape: InvestmentSafeHtml.escape,
+        format: InvestmentFormatters,
+        card: ZhugeSharedTaskCard,
+        drawer: ZhugeSharedTaskDrawer,
+        goldenMaster: ZhugeGoldenMaster,
+        parity: ZhugeTemplateParityEngine
+      };
+      const mount = document.getElementById("mount");
+      mount.innerHTML = InvestmentIVTKBoardAdapter.renderBoard(state, dependencies);
+      const surface = mount.querySelector("[data-golden-master-surface]");
+      window.ZhugeBoardRuntime = InvestmentIVTKBoardAdapter.createRuntimeBridge(state, dependencies, { root: window, boardRoot: surface });
+      const parity = window.ZhugeBoardRuntime.runParityGuard({ trigger: "browser-regression" });
+      const opened = window.ZhugeBoardRuntime.openTaskDetail("task-1");
+      const card = mount.querySelector("[data-investment-card]");
+      const audit = {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        status: parity.status,
+        gapCount: parity.gapCount,
+        fingerprint: parity.fingerprint,
+        markers: [
+          Boolean(mount.querySelector("[data-golden-master-surface]")),
+          Boolean(mount.querySelector('[data-golden-master-toolbar="true"]')),
+          Boolean(mount.querySelector("[data-golden-master-board-mount]")),
+          Boolean(mount.querySelector("[data-shared-task-board]"))
+        ],
+        workspaceCount: mount.querySelectorAll("[data-shared-task-board-column]").length,
+        cardCount: mount.querySelectorAll("[data-investment-card]").length,
+        canonicalCard: Boolean(card?.classList.contains("shared-task-card") && card?.classList.contains("taskcard")),
+        customBoardFrameworkAbsent: !mount.querySelector(".investment-ivtk-board, .investment-ivtk-column"),
+        drawer: Boolean(opened?.drawer?.matches?.("[data-shared-task-drawer]")),
+        drawerContract: ZhugeGoldenMaster.assertSharedDrawerContract({ consumer: "investment-ivtk", adapter: { sharedDrawerContract: { ownsDrawer: false, viewModel: "toSharedViewModel" } }, drawer: ZhugeSharedTaskDrawer }).ok,
+        documentOverflowFree: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        documentWidth: document.documentElement.scrollWidth,
+        documentClientWidth: document.documentElement.clientWidth,
+        overflowOffenders: Array.from(document.querySelectorAll("body *"))
+          .map(node => ({ node, rect: node.getBoundingClientRect() }))
+          .filter(({ node, rect }) => rect.right > window.innerWidth + 1 && node.scrollWidth > node.clientWidth + 1)
+          .slice(0, 8)
+          .map(({ node, rect }) => ({ tag: node.tagName, id: node.id, className: node.className, right: Math.round(rect.right), width: node.scrollWidth, clientWidth: node.clientWidth })),
+        wideElements: Array.from(document.querySelectorAll("body *"))
+          .filter(node => node.scrollWidth > node.clientWidth + 1)
+          .slice(0, 8)
+          .map(node => ({ tag: node.tagName, id: node.id, className: node.className, width: node.scrollWidth, clientWidth: node.clientWidth })),
+        boardScrollContained: Boolean(mount.querySelector(".golden-master-board-shell")),
+        runtimeMethods: ["refresh", "openTaskDetail", "moveTaskToWorkspace", "completionGateStatus", "completionGateMessage", "runParityGuard"].every(name => typeof window.ZhugeBoardRuntime[name] === "function")
+      };
+      const report = document.createElement("pre");
+      report.id = "ivtk-parity-audit";
+      report.textContent = JSON.stringify(audit);
+      document.body.appendChild(report);
+    </script>
+  </body>
+</html>
