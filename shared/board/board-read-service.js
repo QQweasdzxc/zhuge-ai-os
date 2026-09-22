@@ -1691,6 +1691,15 @@
         p_idempotency_key: input.idempotencyKey || null
       }));
     };
+    const moveThroughSharedMovementAuthority = async (input = {}) => {
+      assertDecisionWritable();
+      return gateway.rpc("board_c_move_workspace_decision_v1", {
+        p_task_id: input.taskId,
+        p_target_workspace_id: input.targetWorkspaceId,
+        p_decision_note: input.decisionNote || input.reason || null,
+        p_idempotency_key: input.idempotencyKey || null
+      });
+    };
     const moveWorkspaceDecision = async (input = {}) => {
       assertDecisionWritable();
       const taskId = String(input.taskId || "").trim();
@@ -1700,58 +1709,40 @@
         throw error;
       }
 
-      if (input.detachWorkflow === true) {
-        return detachWorkflowAndMoveTask(input);
-      }
+      // The shared Cloud authority owns the binding/published-workflow/target
+      // workspace read and chooses normal movement, optional unbound movement,
+      // or canonical detach+move atomically. Consumers never decide detach.
+      if (input.adoptWorkflow === true) {
+        const workflowState = await get({ includeDraft: false });
+        const publishedWorkflowId = String(
+          workflowState?.state?.publishedWorkflowVersionId || workflowState?.published?.id || ""
+        ).trim();
+        const taskResolution = await resolveTaskWorkflow(taskId);
+        const resolutionState = String(taskResolution?.state || "").trim().toLowerCase();
 
-      // These are authoritative Cloud reads. The client deliberately does not
-      // infer a workflow from a consumer, status, assignee, workspace name, or
-      // order.
-      const workflowState = await get({ includeDraft: false });
-      const publishedWorkflowId = String(
-        workflowState?.state?.publishedWorkflowVersionId || workflowState?.published?.id || ""
-      ).trim();
-      const taskResolution = await resolveTaskWorkflow(taskId);
-      const resolutionState = String(taskResolution?.state || "").trim().toLowerCase();
+        if (resolutionState === "workflow_binding_invalid") {
+          const error = new Error(taskResolution?.message || "卡片的正式流程綁定無法驗證；卡片未移動。");
+          error.code = "C_WORKFLOW_TASK_BINDING_INVALID";
+          throw error;
+        }
 
-      if (resolutionState === "workflow_binding_invalid") {
-        const error = new Error(taskResolution?.message || "卡片的正式流程綁定無法驗證；卡片未移動。");
-        error.code = "C_WORKFLOW_TASK_BINDING_INVALID";
-        throw error;
-      }
-
-      if (publishedWorkflowId && resolutionState === "workflow_not_configured") {
-        if (input.adoptWorkflow === true) {
+        if (publishedWorkflowId && resolutionState === "workflow_not_configured") {
           if (!capabilityFlags.existingCardAdoption || typeof adoptUnboundCard !== "function") {
             const error = new Error("這張卡片尚未完成正式流程採用；目前沒有可安全執行的共用採用能力，卡片未移動。");
             error.code = "C_WORKFLOW_EXISTING_CARD_ADOPTION_UNAVAILABLE";
             throw error;
           }
-          // Adoption is now explicit. An unbound card can otherwise move
-          // freely through the same optional-workflow decision contract.
           await adoptUnboundCard({
             taskId,
             idempotencyKey: input.adoptionIdempotencyKey || `workflow-adopt-${taskId}`
           });
-          return reconcileBoundWorkspaceDecision(input);
         }
-        return reconcileBoundWorkspaceDecision(input);
       }
 
-      if (resolutionState === "resolved") return reconcileBoundWorkspaceDecision(input);
-
-      if (resolutionState !== "workflow_not_configured") {
-        const error = new Error(taskResolution?.message || "卡片流程狀態無法安全判定；卡片未移動。");
-        error.code = "C_WORKFLOW_TASK_RESOLUTION_UNAVAILABLE";
-        throw error;
-      }
-
-      // Workflow is optional, but movement still belongs to the same C
-      // decision authority.  The v2 Cloud contract validates the Board
-      // Instance, the explicit completion designation (when present), the
-      // lifecycle policy, audit, and idempotency in one transaction.  There is
-      // no generic/global movement fallback here.
-      return reconcileBoundWorkspaceDecision(input);
+      return moveThroughSharedMovementAuthority({
+        ...input,
+        taskId
+      });
     };
     const reconcileLegacyCard = async () => {
       throw legacyLifecycleRetiredError("board_c_workflow_reconcile_legacy_card_v2");
@@ -1781,8 +1772,8 @@
       detachWorkflowAndMoveTask,
       resolveTask: resolveTaskWorkflow,
       // One public C movement authority. It preserves unbound cards as
-      // unbound, supports explicit adoption, and exposes the canonical
-      // detach+move contract for cards leaving a published workflow.
+      // unbound, supports explicit adoption, and lets Cloud choose the
+      // canonical detach+move route for cards leaving a Published Workflow.
       moveWorkspaceDecision,
       reconcileWorkspaceDecision: moveWorkspaceDecision,
       reconcileLegacyCard,

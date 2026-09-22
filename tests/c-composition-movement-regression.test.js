@@ -106,12 +106,10 @@ test("all C consumers use the same v2 adoption and movement authority", async ()
 
     assert.deepEqual(calls.map(call => call.name), [
       "board_c_workflow_adopt_unbound_card_v2",
-      "board_c_workflow_get",
-      "board_c_workflow_resolve_task",
-      "board_c_reconcile_workspace_decision_v2"
+      "board_c_move_workspace_decision_v1"
     ]);
     assert.equal(calls[0].args.p_idempotency_key, `${page.id}-adopt`);
-    assert.equal(calls[3].args.p_idempotency_key, `${page.id}-move`);
+    assert.equal(calls[1].args.p_idempotency_key, `${page.id}-move`);
     assert.equal(calls.filter(call => call.name !== "board_c_workflow_get" && call.name !== "board_c_workflow_resolve_task")
       .every(call => call.args.p_task_id === `${page.id}-task`), true);
   }
@@ -127,17 +125,7 @@ test("all C consumers keep the same C movement path when Workflow is optional", 
       },
       async rpc(name, args) {
         calls.push({ name, args });
-        if (name === "board_c_workflow_get") {
-          return {
-            contract: "module-c-lifecycle-acceptance-v2",
-            board_instance_id: page.boardId,
-            state: null,
-            published: null,
-            draft: null
-          };
-        }
-        if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
-        if (name === "board_c_reconcile_workspace_decision_v2") {
+        if (name === "board_c_move_workspace_decision_v1") {
           workspaceId = args.p_target_workspace_id;
           return {
             id: `${page.id}-task`,
@@ -188,12 +176,8 @@ test("all C consumers keep the same C movement path when Workflow is optional", 
     });
     assert.equal(workspaceId, `${page.id}-workspace-3`);
     assert.deepEqual(calls.map(call => call.name), [
-      "board_c_workflow_get",
-      "board_c_workflow_resolve_task",
-      "board_c_reconcile_workspace_decision_v2",
-      "board_c_workflow_get",
-      "board_c_workflow_resolve_task",
-      "board_c_reconcile_workspace_decision_v2"
+      "board_c_move_workspace_decision_v1",
+      "board_c_move_workspace_decision_v1"
     ]);
     assert.equal(calls.filter(call => call.name === "board_instance_move_task_workspace")
       .every(call => call.args.p_task_id === `${page.id}-task`), true);
@@ -275,5 +259,5 @@ test("read-only Investment keeps settings protected while its C movement path re
   assert.equal(service.workflow.capabilities.existingCardAdoption, true);
   assert.equal(service.workflow.capabilities.adoption, false);
   await service.reconcileWorkspaceDecision({ taskId: "investment-task", targetWorkspaceId: "investment-target" });
-  assert.equal(calls.at(-1).name, "board_c_reconcile_workspace_decision_v2");
+  assert.equal(calls.at(-1).name, "board_c_move_workspace_decision_v1");
 });

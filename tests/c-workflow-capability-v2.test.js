@@ -45,7 +45,7 @@ test("Module C exposes one Board Instance-owned Workflow v2 capability", async (
   });
 
   const getCall = calls.find(call => call.name === "board_c_workflow_get");
-  const reconcileCall = calls.find(call => call.name === "board_c_reconcile_workspace_decision_v2");
+  const reconcileCall = calls.find(call => call.name === "board_c_move_workspace_decision_v1");
   assert.equal(getCall.args.p_board_instance_id, "board-1");
   assert.equal(getCall.args.p_include_draft, true);
   assert.deepEqual(reconcileCall.args, {
@@ -131,7 +131,7 @@ test("C Workflow moves an unbound card through formal adoption when a Published 
     "board_c_workflow_get",
     "board_c_workflow_resolve_task",
     "board_c_workflow_adopt_unbound_card_v2",
-    "board_c_reconcile_workspace_decision_v2"
+    "board_c_move_workspace_decision_v1"
   ]);
   assert.equal(calls[2].args.p_idempotency_key, "workflow-adopt-task-1");
   assert.equal(calls[3].args.p_idempotency_key, "move-1");
@@ -144,11 +144,7 @@ test("C Workflow uses the same C move contract when Workflow is optional", async
     async select() { return [{ id: "consumer-board", name: "Consumer", template_key: "c", active: true }]; },
     async rpc(name, args) {
       calls.push({ name, args });
-      if (name === "board_c_workflow_get") {
-        return { contract: "module-c-lifecycle-acceptance-v2", board_instance_id: "consumer-board", state: null, published: null };
-      }
-      if (name === "board_c_workflow_resolve_task") return { state: "workflow_not_configured" };
-      if (name === "board_c_reconcile_workspace_decision_v2") {
+      if (name === "board_c_move_workspace_decision_v1") {
         workspaceId = args.p_target_workspace_id;
         return {
           id: "task-1",
@@ -179,12 +175,8 @@ test("C Workflow uses the same C move contract when Workflow is optional", async
   await secondSession.moveWorkspaceDecision({ taskId: "task-1", targetWorkspaceId: "workspace-3" });
   assert.equal(workspaceId, "workspace-3");
   assert.deepEqual(calls.map(call => call.name), [
-    "board_c_workflow_get",
-    "board_c_workflow_resolve_task",
-    "board_c_reconcile_workspace_decision_v2",
-    "board_c_workflow_get",
-    "board_c_workflow_resolve_task",
-    "board_c_reconcile_workspace_decision_v2"
+    "board_c_move_workspace_decision_v1",
+    "board_c_move_workspace_decision_v1"
   ]);
   assert.equal(calls.every(call => call.args.p_task_id === "task-1" || call.name === "board_c_workflow_get"), true);
 });

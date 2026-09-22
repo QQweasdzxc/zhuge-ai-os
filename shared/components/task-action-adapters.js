@@ -48,7 +48,6 @@
       targetWorkspaceId: selectedWorkspaceId,
       decisionNote: payload.reason || "PM workspace decision",
       idempotencyKey: payload.idempotencyKey || `workspace-${selectedTaskId}-${selectedWorkspaceId}`,
-      detachWorkflow: payload.detachWorkflow === true,
       adoptWorkflow: payload.adoptWorkflow === true,
       adoptionIdempotencyKey: payload.adoptionIdempotencyKey
     });

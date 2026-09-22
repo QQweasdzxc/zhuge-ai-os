@@ -320,19 +320,7 @@ test("AI Board populated Workspace Delete fails closed while WorkTodo uses C Wor
       if (name === "worktodo_request_delete_workspace") {
         return { workspace_id: "workspace-2", task_ids: ["task-3", "task-4"], tasks_preserved: true };
       }
-      if (name === "board_c_workflow_get") {
-        return {
-          contract: "module-c-lifecycle-acceptance-v2",
-          board_instance_id: "worktodo-board",
-          state: { published_workflow_version_id: "worktodo-workflow" },
-          published: { id: "worktodo-workflow", board_instance_id: "worktodo-board", steps: [] },
-          draft: null
-        };
-      }
-      if (name === "board_c_workflow_resolve_task") {
-        return { state: "resolved" };
-      }
-      if (name === "board_c_reconcile_workspace_decision_v2") {
+      if (name === "board_c_move_workspace_decision_v1") {
         return {
           contract: "module-c-lifecycle-acceptance-v2",
           state: "workspace_moved",
@@ -367,16 +355,12 @@ test("AI Board populated Workspace Delete fails closed while WorkTodo uses C Wor
   assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
     "board_request_delete_workspace",
     "worktodo_request_delete_workspace",
-    "board_c_workflow_get",
-    "board_c_workflow_resolve_task",
-    "board_c_reconcile_workspace_decision_v2",
-    "board_c_workflow_get",
-    "board_c_workflow_resolve_task",
-    "board_c_reconcile_workspace_decision_v2",
+    "board_c_move_workspace_decision_v1",
+    "board_c_move_workspace_decision_v1",
     "worktodo_finalize_delete_workspace"
   ]);
   assert.equal(calls.some(call => call.name === "worktodo_update_task"), false);
-  const reconciliations = calls.filter(call => call.name === "board_c_reconcile_workspace_decision_v2");
+  const reconciliations = calls.filter(call => call.name === "board_c_move_workspace_decision_v1");
   assert.deepEqual(reconciliations.map(call => call.params.p_task_id), ["task-3", "task-4"]);
   assert.equal(reconciliations.every(call => call.params.p_target_workspace_id === "worktodo-todo-1"), true);
   assert.equal(reconciliations.every(call => call.params.p_idempotency_key.startsWith("worktodo-delete-workspace-2-")), true);
