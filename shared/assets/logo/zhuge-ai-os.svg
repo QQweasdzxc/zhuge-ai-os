@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
-  <title id="title">Zhuge AI OS</title>
-  <desc id="desc">Zhuge AI OS product mark</desc>
-  <defs><linearGradient id="g" x1="26" y1="106" x2="103" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#2F82F6"/><stop offset="1" stop-color="#54D7FF"/></linearGradient></defs>
-  <rect width="128" height="128" rx="30" fill="#071526"/>
-  <path d="M28 99c18-3 36-12 51-26 18-16 28-36 31-57-22 2-42 11-58 27C37 58 30 78 28 99Z" fill="url(#g)"/>
-  <path d="M29 100c17-20 34-37 57-55M52 80l-1-23M67 66l20-2M40 91l-1-14M79 53l15-1" fill="none" stroke="#E9F7FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M24 108c19-2 37-8 52-18" fill="none" stroke="#42D392" stroke-width="5" stroke-linecap="round"/>
-</svg>
