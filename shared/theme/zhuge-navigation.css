@@ -210,8 +210,37 @@ html[data-theme="light"] .zhuge-module-shell .sidebar-build-summary { color: var
   html[data-theme="system"] .zhuge-module-shell .mini,
   html[data-theme="system"] .zhuge-module-shell .shared-nav-collapse,
   html[data-theme="system"] .zhuge-module-shell .side-group-toggle { background: var(--zhuge-surface-raised); border-color: var(--zhuge-border); color: var(--zhuge-text); }
-  html[data-theme="system"] .zhuge-module-shell .sidebar-sync-summary,
+html[data-theme="system"] .zhuge-module-shell .sidebar-sync-summary,
 html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: var(--zhuge-text); }
+}
+
+/* TASK-088 Part 1 Shared Foundation: the collapsed rail remains a complete,
+ * keyboard-addressable navigation surface.  Labels may be visually reduced,
+ * but every destination keeps a native label/title and a visible focus ring. */
+.zhuge-module-shell > .os-sidebar :is(.shared-nav-collapse,.sidebar-close,.sidebar-menu-mark,.side-item,.side-section-heading,.brand-stack):focus-visible {
+  outline: 3px solid var(--zhuge-accent, #60a5fa);
+  outline-offset: 2px;
+}
+.zhuge-module-shell > .os-sidebar .shared-nav-collapse[aria-expanded="false"] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--zhuge-accent, #60a5fa) 58%, transparent);
+}
+.zhuge-module-shell.zhuge-nav-collapsed .side-item,
+.zhuge-module-shell.zhuge-nav-collapsed .side-section-heading {
+  overflow: hidden;
+}
+.zhuge-module-shell.zhuge-nav-collapsed .side-item.on,
+.zhuge-module-shell.zhuge-nav-collapsed .side-section-heading.on {
+  box-shadow: inset 3px 0 var(--zhuge-accent, #60a5fa);
+}
+.zhuge-module-shell.zhuge-nav-collapsed .side-item-icon,
+.zhuge-module-shell.zhuge-nav-collapsed .nav-section-icon {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zhuge-module-shell,
+  .zhuge-module-shell > .os-sidebar,
+  .zhuge-module-shell > .sidebar-backdrop { transition: none; }
 }
 
 /* One canonical Sidebar geometry for every route. Module styles may change

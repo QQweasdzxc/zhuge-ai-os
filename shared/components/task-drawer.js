@@ -81,11 +81,12 @@
       ? `<span class="shared-task-drawer-title-code" data-shared-task-title-code>${titleCode}</span><span class="shared-task-drawer-title-separator" aria-hidden="true">｜</span><span id="taskDetailTitle" data-shared-task-title>${title}</span>`
       : `<span id="taskDetailTitle" data-shared-task-title>${title}</span>`;
     const properties = Array.isArray(config.properties) ? config.properties : config.meta;
+    const propertyMarkup = renderProperties(properties);
     return `<div class="shared-task-drawer zhuge-core-modal" data-shared-task-drawer data-shared-task-framework="v1"${readOnly}>
-      <div class="shared-task-drawer-backdrop" data-shared-task-drawer-close aria-hidden="true"></div>
-      <aside class="shared-task-drawer-panel zhuge-core-card zhuge-core-modal-panel" role="dialog" aria-modal="true" aria-label="${title}">
-        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><div class="shared-task-drawer-title-row"><h2 data-shared-task-title-heading>${heading}</h2>${titleEditor}</div></div><div class="shared-task-drawer-header-actions">${config.headerMenuHtml ? String(config.headerMenuHtml) : ""}<button class="shared-task-drawer-close zhuge-core-button" type="button" data-shared-task-drawer-close aria-label="關閉">×</button></div></header>
-        <div class="shared-task-drawer-properties-wrap">${renderProperties(properties)}</div>
+      <button class="shared-task-drawer-backdrop" type="button" data-shared-task-drawer-close aria-label="關閉工作抽屜"></button>
+      <aside class="shared-task-drawer-panel zhuge-core-card zhuge-core-modal-panel" data-shared-task-drawer-panel role="dialog" aria-modal="true" aria-labelledby="taskDetailTitle" tabindex="-1">
+        <header class="shared-task-drawer-header" data-shared-task-region="header"><div><span class="shared-task-drawer-kicker">${subtitle}</span><div class="shared-task-drawer-title-row"><h2 data-shared-task-title-heading>${heading}</h2>${titleEditor}</div></div><div class="shared-task-drawer-header-actions">${config.headerMenuHtml ? String(config.headerMenuHtml) : ""}<button class="shared-task-drawer-close zhuge-core-button" type="button" data-shared-task-drawer-close aria-label="關閉工作抽屜" title="關閉工作抽屜">×</button></div></header>
+        ${propertyMarkup ? `<div class="shared-task-drawer-properties-wrap">${propertyMarkup}</div>` : ""}
         <div class="shared-task-drawer-grid">
           <main class="shared-task-drawer-content" data-shared-task-region="work-body">${sections.map(renderSection).join("")}</main>
           <aside class="shared-task-drawer-activity" data-shared-task-region="activity" aria-label="${activityTitle}"><div class="shared-task-drawer-section-heading"><h3>${activityTitle}</h3><span>${activityHint}</span></div>${activityTop ? `<div class="shared-task-drawer-activity-top">${activityTop}</div>` : ""}${activityNotesMarkup}<div id="taskActivityList" class="shared-task-drawer-activity-list zhuge-core-list" data-shared-task-timeline>${activityRows}</div>${activityBottom}</aside>
@@ -96,15 +97,145 @@
     </div>`;
   }
 
+  const FOCUSABLE_SELECTOR = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled]):not([type=hidden])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])"
+  ].join(",");
+  const behaviorState = new WeakMap();
+  let behaviorInstalled = false;
+  let openDrawerCount = 0;
+  let previousBodyOverflow = "";
+
+  function focusableNodes(panel) {
+    if (!panel) return [];
+    return Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR)).filter(node => {
+      if (!(node instanceof Element)) return false;
+      const style = typeof getComputedStyle === "function" ? getComputedStyle(node) : null;
+      return style?.display !== "none" && style?.visibility !== "hidden" && node.getClientRects().length > 0;
+    });
+  }
+
+  function isVisible(root) {
+    if (!root || !root.isConnected) return false;
+    if (!root.getClientRects().length) return false;
+    for (let node = root; node && node !== document.documentElement; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    return true;
+  }
+
+  function lockBodyScroll() {
+    if (!document.body) return;
+    if (openDrawerCount === 0) {
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      document.body.dataset.sharedTaskDrawerScrollLocked = "true";
+    }
+    openDrawerCount += 1;
+  }
+
+  function unlockBodyScroll() {
+    if (!document.body || openDrawerCount === 0) return;
+    openDrawerCount -= 1;
+    if (openDrawerCount === 0) {
+      document.body.style.overflow = previousBodyOverflow;
+      delete document.body.dataset.sharedTaskDrawerScrollLocked;
+      previousBodyOverflow = "";
+    }
+  }
+
+  function enhance(root, options) {
+    if (!root || typeof document === "undefined") return root || null;
+    const existing = behaviorState.get(root);
+    if (existing) return root;
+    const panel = root.querySelector("[data-shared-task-drawer-panel]");
+    if (!panel || !isVisible(root)) return root;
+    const previousFocus = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    const config = options || {};
+    const state = { closed: false, previousFocus, panel };
+    const cleanup = () => {
+      if (state.closed) return;
+      state.closed = true;
+      root.dataset.sharedTaskDrawerState = "closed";
+      unlockBodyScroll();
+      if (state.previousFocus?.isConnected && typeof state.previousFocus.focus === "function") {
+        state.previousFocus.focus({ preventScroll: true });
+      }
+    };
+    const onClose = event => {
+      cleanup();
+      if (typeof config.onClose === "function") config.onClose(event);
+    };
+    const onClick = event => {
+      if (event.target?.closest?.("[data-shared-task-drawer-close]")) {
+        if (typeof config.onClose === "function") event.preventDefault();
+        onClose(event);
+      }
+    };
+    const onKeydown = event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        const closeButton = root.querySelector("button[data-shared-task-drawer-close]");
+        if (closeButton) closeButton.click();
+        else cleanup();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const nodes = focusableNodes(panel);
+      if (!nodes.length) {
+        event.preventDefault();
+        panel.focus({ preventScroll: true });
+        return;
+      }
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    };
+    root.addEventListener("click", onClick, true);
+    root.addEventListener("keydown", onKeydown);
+    root.dataset.sharedTaskDrawerEnhanced = "true";
+    root.dataset.sharedTaskDrawerState = "open";
+    behaviorState.set(root, { cleanup, onClose });
+    lockBodyScroll();
+    const initialFocus = root.querySelector("button.shared-task-drawer-close") || panel;
+    if (typeof initialFocus.focus === "function") initialFocus.focus({ preventScroll: true });
+    return root;
+  }
+
+  function installBehavior() {
+    if (behaviorInstalled || typeof document === "undefined" || typeof MutationObserver !== "function") return;
+    behaviorInstalled = true;
+    const start = () => {
+      if (!document.body) return;
+      const scan = () => document.querySelectorAll("[data-shared-task-drawer]").forEach(root => enhance(root));
+      scan();
+      const observer = new MutationObserver(scan);
+      observer.observe(document.body, { childList: true, subtree: true });
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+    else start();
+  }
+
   function mount(target, options) {
     if (!target) return null;
     target.innerHTML = render(options);
     const root = target.querySelector("[data-shared-task-drawer]");
     if (!root) return null;
-    const onClose = options && typeof options.onClose === "function" ? options.onClose : null;
-    if (onClose) root.querySelectorAll("[data-shared-task-drawer-close]").forEach(node => node.addEventListener("click", onClose));
+    enhance(root, options);
     return root;
   }
 
-  return Object.freeze({ escapeHtml, renderProperties, render, mount });
+  installBehavior();
+  return Object.freeze({ escapeHtml, renderProperties, render, mount, enhance });
 });

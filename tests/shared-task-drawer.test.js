@@ -29,6 +29,9 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   assert.match(html, /class="shared-task-drawer-property is-interactive"/);
   assert.match(html, /data-shared-task-region="work-body"/);
   assert.match(html, /data-shared-task-region="activity"/);
+  assert.match(html, /data-shared-task-drawer-panel[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="taskDetailTitle"/);
+  assert.match(html, /class="shared-task-drawer-backdrop" type="button"[^>]*aria-label="關閉工作抽屜"/);
+  assert.match(html, /class="shared-task-drawer-close zhuge-core-button"[^>]*aria-label="關閉工作抽屜"/);
   assert.match(html, /data-shared-task-timeline/);
   assert.match(html, /id="taskActivityList" class="shared-task-drawer-activity-list(?: zhuge-core-list)?" data-shared-task-timeline/);
   assert.match(html, /shared-task-drawer-activity-top/);
@@ -41,6 +44,17 @@ test("Shared Task Drawer renders a reusable two-column presentation shell", () =
   assert.match(html, /<textarea>進度<\/textarea>/);
   assert.match(html, /data-governance="cancelled"/);
   assert.match(html, /hidden data-shared-task-drawer-section="optional-checklist"/);
+});
+
+test("Shared Task Drawer omits an empty property band and exposes the shared focus contract", () => {
+  const empty = Drawer.render({ title: "沒有屬性" });
+  assert.doesNotMatch(empty, /shared-task-drawer-properties-wrap/);
+  const source = read("shared/components/task-drawer.js");
+  assert.match(source, /function enhance\(root, options\)/);
+  assert.match(source, /sharedTaskDrawerScrollLocked/);
+  assert.match(source, /event\.key === "Escape"/);
+  assert.match(source, /event\.key !== "Tab"/);
+  assert.match(source, /function installBehavior\(\)/);
 });
 
 test("Shared Task Drawer applies the approved activity gap to the real card container", () => {

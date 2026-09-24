@@ -111,7 +111,8 @@
       ? String(options.activeBoardInstanceId) === String(item.boardInstanceId)
       : options.activeWorkspace === id || (id === "ai-board" && String(options.activeWorkspace || "").startsWith("ai-board"));
     const label = `<span class="side-item-icon" aria-hidden="true">${esc(item.icon || "□")}</span><span class="side-item-label">${esc(item.navLabel || item.label)}</span>`;
-    const attrs = `data-shared-nav-item="${esc(id)}" data-open-workspace="${esc(id)}" title="${esc(item.navTitle || item.navLabel || item.label)}"`;
+    const navTitle = item.navTitle || item.navLabel || item.label;
+    const attrs = `data-shared-nav-item="${esc(id)}" data-open-workspace="${esc(id)}" title="${esc(navTitle)}" aria-label="${esc(navTitle)}"${active ? " aria-current=\"page\"" : ""}`;
     const cls = `side-item ${active ? "on" : ""} ${depth ? "side-item-child" : ""}`;
     if (!item.enabled || item.comingSoon) {
       return `<div class="${cls} disabled" ${attrs} aria-disabled="true">${label}${item.comingSoon ? "<small>施工中</small>" : ""}</div>`;
@@ -128,7 +129,7 @@
     if (!item) return `<h3><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></h3>`;
     const active = options.activeWorkspace === id || String(options.activeWorkspace || "").startsWith(`${id}-`);
     const href = options.externalRoot ? destination(id, options.externalRoot) : (item.externalHref || "#");
-    return `<a class="side-section-heading ${active ? "on" : ""}" data-shared-nav-item="${esc(id)}" data-open-workspace="${esc(id)}" href="${esc(href)}" title="${esc(title)}"><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></a>`;
+    return `<a class="side-section-heading ${active ? "on" : ""}" data-shared-nav-item="${esc(id)}" data-open-workspace="${esc(id)}" href="${esc(href)}" title="${esc(title)}" aria-label="${esc(title)}"${active ? " aria-current=\"page\"" : ""}><span class="nav-section-icon" aria-hidden="true">${esc(icon)}</span><span class="nav-section-label">${esc(title)}</span></a>`;
   }
 
   function sectionMarkup(title, icon, ids, registry, options, esc, group, childIndexes = [], headingId = null) {
@@ -191,7 +192,7 @@
     // Module A owns this ordering: Control Console → Management → Settings.
     // Management is a peer of the Console, not content embedded inside it.
     const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}${systemItems[2]}</div>`;
-    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" aria-label="全站導覽"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="收合導覽" title="收合導覽">‹</button></div><div class="sidebar-scroll">${camp}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
+    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${camp}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
@@ -248,11 +249,18 @@
   }
   function setCollapsed(shell, collapsed) {
     if (!shell) return;
-    shell.classList.toggle("zhuge-nav-collapsed", collapsed);
-    shell.querySelector("[data-shared-nav-collapse]")?.setAttribute("aria-label", collapsed ? "展開導覽" : "收合導覽");
-    shell.querySelector("[data-shared-nav-collapse]")?.setAttribute("title", collapsed ? "展開導覽" : "收合導覽");
-    shell.querySelector("[data-shared-nav-collapse]").textContent = collapsed ? "›" : "‹";
-    try { global.localStorage?.setItem(COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* cache preference is optional */ }
+    const nextCollapsed = Boolean(collapsed);
+    const control = shell.querySelector("[data-shared-nav-collapse]");
+    const navigation = shell.querySelector("[data-zhuge-shared-navigation='true']");
+    shell.classList.toggle("zhuge-nav-collapsed", nextCollapsed);
+    shell.dataset.sharedNavigationCollapsed = String(nextCollapsed);
+    control?.setAttribute("aria-label", nextCollapsed ? "展開導覽" : "收合導覽");
+    control?.setAttribute("title", nextCollapsed ? "展開導覽" : "收合導覽");
+    control?.setAttribute("aria-expanded", String(!nextCollapsed));
+    if (control) control.textContent = nextCollapsed ? "›" : "‹";
+    navigation?.setAttribute("data-shared-nav-collapsed", String(nextCollapsed));
+    navigation?.setAttribute("aria-label", `全站導覽${nextCollapsed ? "（已收合）" : ""}`);
+    try { global.localStorage?.setItem(COLLAPSED_KEY, nextCollapsed ? "1" : "0"); } catch { /* cache preference is optional */ }
   }
   function setSyncStatus({ label = "🟢 已同步", time = "尚未同步", state = "" } = {}) {
     const summary = document.getElementById("developerCloudSyncStatus");
