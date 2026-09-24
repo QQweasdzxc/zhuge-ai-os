@@ -224,6 +224,8 @@ button { color: inherit; }
 .investment-panel-empty small { line-height: 1.6; }
 .investment-panel-empty[data-investment-state="loading"] { border-color: rgba(109, 184, 255, .48); background: rgba(109, 184, 255, .04); }
 .investment-panel-empty[data-investment-state="error"] { border-color: rgba(255, 120, 133, .46); background: rgba(255, 120, 133, .05); }
+.investment-empty-action { justify-self: start; min-height: 44px; border: 1px solid rgba(109, 184, 255, .58); border-radius: 9px; background: rgba(109, 184, 255, .13); padding: 9px 13px; color: var(--investment-text); cursor: pointer; font: inherit; font-size: .72rem; font-weight: 750; }
+.investment-empty-action:hover, .investment-empty-action:focus-visible { border-color: var(--investment-accent); background: rgba(109, 184, 255, .24); outline: 3px solid rgba(109, 184, 255, .24); outline-offset: 2px; }
 .investment-boundary-note { display: grid; gap: 4px; margin: 14px 0 0; border-top: 1px solid rgba(83, 127, 171, .22); padding-top: 12px; color: var(--investment-muted); font-size: .7rem; line-height: 1.5; }
 .investment-boundary-note strong { color: #ffd481; font-size: .72rem; }
 .investment-boundary-note span { overflow-wrap: anywhere; }
@@ -338,6 +340,65 @@ button { color: inherit; }
 .investment-watchlist-preview-value small{color:var(--investment-accent);font-size:.64rem}
 .investment-watchlist-preview-card p{margin:0;line-height:1.45}
 .investment-watchlist-preview-action{color:var(--investment-accent);font-size:.68rem;font-weight:700}
+
+/* TASK-091 Investment desktop rework: first glance is intentionally short;
+ * secondary accounting, research and market detail remain in their existing
+ * disclosure surfaces. */
+.investment-command-center{gap:14px}
+.investment-page-heading{margin-bottom:12px;align-items:center}
+.investment-page-heading h1{font-size:clamp(1.6rem,2.6vw,2.08rem)}
+.investment-page-heading p:not(.investment-eyebrow){font-size:.8rem;line-height:1.45}
+.investment-command-heading-actions{gap:8px}
+.investment-first-glance{gap:12px}
+.investment-command-panel,.investment-kpi-section{padding:16px;border-radius:14px}
+.investment-focus-panel{border-left:4px solid rgba(245,185,66,.82);padding-left:14px}
+.investment-glance-summary{border-left:4px solid rgba(109,184,255,.78);padding-left:14px}
+.investment-panel-heading{margin-bottom:10px;gap:10px}
+.investment-panel-heading h2{font-size:1rem;letter-spacing:-.01em}
+.investment-panel-heading p:not(.investment-eyebrow){font-size:.72rem;line-height:1.45}
+.investment-panel-status{font-size:.64rem;padding:4px 7px;border-radius:999px}
+.investment-glance-metrics{gap:0}
+.investment-glance-metrics .investment-command-kpi{padding:2px 12px}
+.investment-command-kpi{min-height:124px!important;padding:13px}
+.investment-command-kpi header small{font-size:.67rem}
+.investment-command-kpi header span{font-size:.58rem}
+.investment-command-kpi>p{font-size:.64rem;line-height:1.4}
+.investment-kpi-amounts{gap:5px}
+.investment-kpi-amounts b{font-size:1.12rem}
+.investment-holdings-panel{padding:16px}
+.investment-holdings-panel .investment-position-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.investment-position-card{padding:13px;border-radius:12px}
+.investment-position-card header strong{font-size:1rem}
+.investment-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0}
+.investment-metrics div{padding:7px}
+.investment-metrics b{font-size:.78rem}
+.investment-secondary-layer{border-color:rgba(83,127,171,.34);border-radius:12px;background:rgba(8,21,38,.32)}
+.investment-secondary-layer>summary{min-height:48px;padding:11px 14px}
+.investment-secondary-layer-content{padding:0 14px 14px}
+.investment-tool-nav{margin-bottom:16px}
+.investment-primary-nav-item{min-height:44px;padding:8px 10px}
+.investment-primary-nav-item strong{font-size:.7rem}
+.investment-watchlist-preview-card{padding:9px 10px}
+.investment-panel-empty{min-height:116px;padding:16px}
+.investment-analysis-card,.investment-analysis-detail-row{border-radius:10px}
+.investment-research-panel .investment-research-form{margin-bottom:10px}
+.investment-research-panel .investment-research-form input,.investment-research-panel .investment-research-form select{min-height:44px}
+.investment-research-panel .investment-research-form button,.investment-refresh{min-height:44px}
+.investment-readonly-note,.investment-boundary-note{font-size:.68rem;line-height:1.45}
+
+@media(min-width:1200px){
+  .investment-holdings-panel .investment-position-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .investment-position-card header{min-height:48px}
+  .investment-position-card footer{font-size:.78rem}
+}
+
+@media(max-width:700px){
+  .investment-page-heading{align-items:stretch}
+  .investment-page-heading h1{font-size:1.45rem}
+  .investment-command-panel,.investment-kpi-section{padding:13px}
+  .investment-focus-panel,.investment-glance-summary{padding-left:11px}
+  .investment-secondary-layer-content{padding:0 10px 10px}
+}
 
 @media (max-width: 900px) { .investment-access-content { min-height: 0; padding: 10px 0 18px; } .investment-access-panel { min-height: 360px; padding: 20px; } }
 @keyframes investment-spin { to { transform: rotate(360deg); } }
