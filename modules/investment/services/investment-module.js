@@ -370,6 +370,9 @@
       })
     );
     const initialHash = String(global.location.hash || "").replace(/^#/, "");
+    const requestedFocus = ["today-focus", "research", "advisor", "realtime"].includes(new URLSearchParams(global.location.search || "").get("focus"))
+      ? new URLSearchParams(global.location.search || "").get("focus")
+      : "";
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
     const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
@@ -502,7 +505,8 @@
       global.ZhugeMotherTemplateRelease?.applyToDocument?.("investment-ivtk");
       root.querySelectorAll("[data-investment-route]").forEach(button => {
         const isFocusedShortcut = Boolean(button.dataset.investmentFocus);
-        const isActive = !isFocusedShortcut && button.dataset.investmentRoute === state.activePage;
+        const isActive = button.dataset.investmentRoute === state.activePage
+          && (!isFocusedShortcut || (state.activePage === "overview" && button.dataset.investmentFocus === "today-focus"));
         button.classList.toggle("active", isActive);
         button.setAttribute("aria-selected", isActive ? "true" : "false");
         button.setAttribute("aria-current", isActive ? "page" : "false");
@@ -1346,6 +1350,12 @@
 
     try {
       await load();
+      if (requestedFocus) {
+        const schedule = typeof global.requestAnimationFrame === "function"
+          ? global.requestAnimationFrame.bind(global)
+          : callback => global.setTimeout(callback, 0);
+        schedule(() => focusSection(requestedFocus));
+      }
       return Object.freeze({ status: "ready", context, repository, store, importSession, reload: load, navigate });
     } catch (error) {
       handleError(error);

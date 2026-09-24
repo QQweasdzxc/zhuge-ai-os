@@ -145,7 +145,7 @@ test("Investment homepage keeps the existing empty state when no live or persist
 
 test("Investment homepage keeps loading, error, and broker-boundary states explicit", () => {
   const loading = renderState([], [], [], null, [], { status: "loading" });
-  assert.match(loading, /今日重點讀取中/);
+  assert.match(loading, /今日重點整理中/);
   assert.match(loading, /行情與市場情報讀取中/);
   assert.match(loading, /諸葛正在整理 Evidence/);
   assert.match(loading, /富邦 Read-only 尚未接通/);

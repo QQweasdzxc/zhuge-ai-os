@@ -35,7 +35,7 @@
 
   function renderMetric(id, label, value, note, state = "available", variant = "") {
     const variantClass = variant ? ` investment-command-kpi-${variant}` : "";
-    return `<article class="investment-command-kpi${variantClass} ${state === "unavailable" ? "is-unavailable" : ""}" data-investment-kpi="${id}"><header><small>${label}</small><span>${state === "unavailable" ? "資料不足" : "Cloud Read-only"}</span></header>${value}<p>${note}</p></article>`;
+    return `<article class="investment-command-kpi${variantClass} ${state === "unavailable" ? "is-unavailable" : ""}" data-investment-kpi="${id}"><header><small>${label}</small><span>${state === "unavailable" ? "尚無資料" : "已更新"}</span></header>${value}<p>${note}</p></article>`;
   }
 
   function renderTotalReturn(state, escape) {
@@ -50,12 +50,12 @@
     const items = Array.isArray(state.todayFocus) ? state.todayFocus.filter(Boolean).slice(0, 3) : [];
     if (!items.length) {
       if (state.intelligence?.status === "loading") {
-        return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待資料整理完成；不需要輸入或修改資料。"><strong data-zhuge-state-status>今日重點讀取中</strong><small data-zhuge-state-detail>正在整理可驗證的行情、新聞與事件；完成前不補猜。</small></div>`;
+        return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待資料整理完成；不需要輸入或修改資料。"><strong data-zhuge-state-status>今日重點整理中</strong><small data-zhuge-state-detail>正在整理行情、新聞與事件；完成前不做推測。</small></div>`;
       }
       if (state.intelligence?.status === "error") {
         return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請按重新整理；若持續失敗，保留錯誤訊息交給管理者。"><strong data-zhuge-state-status>今日重點暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的今日 Evidence，請稍後再試。"))}</small></div>`;
       }
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>待 Price／News／Event Intelligence 建立後，這裡只顯示有 Evidence 的投資事項。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>目前資料還不夠，諸葛暫時不判斷；你可以先查看持股。</small></div>`;
     }
     return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(String(item.title || "未命名事項"))}</strong><p>${escape(String(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
   }
@@ -399,19 +399,19 @@
     const hasRealtime = (Array.isArray(state.intelligence?.quotes) && state.intelligence.quotes.some(quote => quote?.available)) || (Array.isArray(state.marketEvents) && state.marketEvents.length > 0);
     const intelligenceLoading = state.intelligence?.status === "loading";
     const positionCount = hasPositions ? `${summary.assetCount} 筆持倉已讀回` : "尚未讀回持倉";
-    return `<section class="investment-command-center" data-investment-command-center data-investment-readonly="true">
-      <div class="investment-page-heading"><div><p class="investment-eyebrow">Investment Command Center</p><h1>今日軍師</h1><p>先看持股、損益與需要注意的事。</p></div><div class="investment-command-heading-actions"><span class="investment-pill">Investment Cloud · 唯讀</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
+    return `<section class="investment-command-center" data-investment-command-center data-investment-first-screen="true" data-investment-readonly="true">
+      <div class="investment-page-heading"><div><p class="investment-eyebrow">投資首頁 · 今日軍師</p><h1>今天先看這四件事</h1><p>目前持股 → 總損益 → 今日變化 → 需要注意的事</p></div><div class="investment-command-heading-actions"><span class="investment-pill">資料：Investment Cloud · 唯讀</span><button class="investment-refresh" type="button" data-investment-refresh>重新整理</button></div></div>
 
       <div class="investment-command-grid investment-command-grid-top investment-first-glance">
-        <article id="investment-section-today-focus" class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 需要注意的事</p><h2>今天有什麼要留意？</h2></div><span class="investment-panel-status ${hasTodayFocus ? "is-ready" : "is-pending"}">${hasTodayFocus ? "已有 Evidence" : "待建立"}</span></header>${renderTodayFocus(state, escape)}</article>
-        <section class="investment-command-panel investment-glance-summary" data-investment-section="glance-summary"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 今日總覽</p><h2>我的投資今天怎麼樣？</h2><p>${positionCount}；不跨幣別硬湊單一數字。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-glance-metrics">
+        <article id="investment-section-today-focus" class="investment-command-panel investment-focus-panel" data-investment-section="today-focus"><header class="investment-panel-heading"><div><p class="investment-eyebrow">01 · 需要注意的事</p><h2>今天需要注意什麼？</h2></div><span class="investment-panel-status ${hasTodayFocus ? "is-ready" : "is-pending"}">${hasTodayFocus ? "有可驗證資料" : "尚未有資料"}</span></header>${renderTodayFocus(state, escape)}</article>
+        <section class="investment-command-panel investment-glance-summary" data-investment-section="glance-summary"><header class="investment-panel-heading"><div><p class="investment-eyebrow">02 · 今日總覽</p><h2>持股今天怎麼樣？</h2><p>${positionCount}；TWD／USD 分開呈現。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "尚無資料"}</span></header><div class="investment-glance-metrics">
           ${renderMetric("market-value", "目前市值", currencyValues(summary, "value", format, false, state.intelligence?.fx), "由最新可用行情更新既有持倉計算結果。", hasPositions ? "available" : "unavailable", "primary")}
           ${renderMetric("unrealized-pnl", "總損益／報酬率", currencyValues(summary, "pnl", format, true, state.intelligence?.fx), "依唯一 Investment Current Position calculation result。", hasPositions ? "available" : "unavailable", "primary")}
           ${renderMetric("today-pnl", "今日變化", renderTodayPnl(state, escape, format), "沒有 canonical 結果時保持資料不足。", hasTodayPnl ? "available" : "unavailable", "primary")}
         </div></section>
       </div>
 
-      <article class="investment-command-panel investment-holdings-panel" data-investment-section="important-holdings"><header class="investment-panel-heading"><div><p class="investment-eyebrow">03 · 我的持股</p><h2>目前持有哪些？</h2><p>先看各持股賺賠；點擊個股再看完整研究。</p></div><button type="button" data-investment-route="portfolio">查看全部 →</button></header>${renderImportantHoldings(state, dependencies)}</article>
+      <article class="investment-command-panel investment-holdings-panel" data-investment-section="important-holdings"><header class="investment-panel-heading"><div><p class="investment-eyebrow">03 · 我的持股</p><h2>我現在持有哪些？</h2><p>先看各持股賺賠；點擊個股再看完整研究。</p></div><button type="button" data-investment-route="portfolio">查看全部 →</button></header>${renderImportantHoldings(state, dependencies)}</article>
 
       <details class="investment-secondary-layer" data-investment-layer="accounting"><summary><span><strong>更多帳務資訊</strong><small>投入成本、已實現損益、總報酬</small></span><b aria-hidden="true">⌄</b></summary><div class="investment-secondary-layer-content"><section class="investment-kpi-section" data-investment-section="core-kpi"><header class="investment-panel-heading"><div><p class="investment-eyebrow">帳務明細</p><h2>完整投資數字</h2><p>保留原始幣別與既有 canonical calculation result。</p></div><span class="investment-panel-status ${hasPositions ? "is-ready" : "is-pending"}">${hasPositions ? "可計算" : "資料不足"}</span></header><div class="investment-kpi-grid">
         ${renderMetric("invested-cost", "總投入成本", currencyValues(summary, "cost", format, false, state.intelligence?.fx), "依目前已讀回的持倉成本計算；USD 同時顯示約 NT$。", hasPositions ? "available" : "unavailable")}

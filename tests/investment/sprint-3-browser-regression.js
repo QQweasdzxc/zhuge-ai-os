@@ -18,8 +18,8 @@ const { resolveBrowserExecutable } = require("../browser-executable");
   await page.waitForSelector("[data-investment-module-shell]");
 
   assert.equal(await page.locator(".investment-command-center").count(), 1);
-  assert.equal(await page.locator(".investment-page-heading h1").textContent(), "投資首頁");
-  assert.equal(await page.getByText("投資核心 KPI").count(), 1);
+  assert.equal(await page.locator(".investment-page-heading h1").textContent(), "今天先看這四件事");
+  assert.equal(await page.getByText("完整投資數字").count(), 1);
   assert.equal(await page.getByText(/Shared Session|Security Gate|Mock Data|Module Version|UUID/).count(), 0);
   assert.equal(errors.length, 0, errors.join("\n"));
 
@@ -59,7 +59,7 @@ const { resolveBrowserExecutable } = require("../browser-executable");
     });
     await runtime.goto(`${baseUrl}/modules/investment/`);
     await runtime.waitForSelector("[data-investment-module-shell]");
-    assert.equal(await runtime.locator(".investment-page-heading h1").textContent(), "投資首頁");
+    assert.equal(await runtime.locator(".investment-page-heading h1").textContent(), "今天先看這四件事");
     assert.equal(await runtime.locator(".investment-position-card").count(), 2);
     assert.equal(runtimeErrors.length, 0, runtimeErrors.join("\n"));
     await runtime.screenshot({ path: path.join(__dirname, "..", "evidence", "investment-sprint-3-overview.png"), fullPage: true });

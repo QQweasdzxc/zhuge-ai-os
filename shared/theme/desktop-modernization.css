@@ -1,0 +1,443 @@
+/*
+ * TASK-088 Desktop Modernization — P3 → P6
+ *
+ * This file is the desktop adoption layer for the existing shared shell and
+ * components. It changes presentation hierarchy only; workflow, auth, data,
+ * and consumer contracts remain owned by their existing authorities.
+ */
+
+:root {
+  --zhuge-desktop-content-max: 1480px;
+  --zhuge-desktop-gutter: clamp(22px, 2.4vw, 42px);
+  --zhuge-desktop-section-gap: 22px;
+  --zhuge-desktop-card-radius: var(--radius-lg, 18px);
+  --zhuge-desktop-muted-surface: color-mix(in srgb, var(--zhuge-surface-raised, #f5f7fb) 82%, transparent);
+}
+
+@media (min-width: 1024px) {
+  /* Shared shell rhythm */
+  .zhuge-module-shell .workspace-canvas,
+  .zhuge-module-shell .workspace-content,
+  .zhuge-module-shell .workspace-main {
+    max-width: var(--zhuge-desktop-content-max);
+    margin-inline: auto;
+  }
+
+  .zhuge-module-shell .workspace-canvas {
+    padding-inline: var(--zhuge-desktop-gutter);
+    padding-block: 26px 42px;
+  }
+
+  .zhuge-module-shell .panel,
+  .zhuge-module-shell .entry,
+  .zhuge-module-shell .surface-card {
+    border-radius: var(--zhuge-desktop-card-radius);
+  }
+
+  .zhuge-module-shell .panel-head,
+  .zhuge-module-shell .section-head,
+  .zhuge-module-shell .workspace-context {
+    gap: 14px;
+  }
+
+  .zhuge-module-shell .muted {
+    line-height: 1.55;
+  }
+
+  /* P3 — Management / Control: action summary first, diagnostics second. */
+  .management-center,
+  .control-center {
+    display: grid;
+    gap: var(--zhuge-desktop-section-gap);
+  }
+
+  .control-center-first-screen,
+  .management-first-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.9fr);
+    align-items: stretch;
+    gap: 18px;
+    padding: 22px 24px;
+    border: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 76%, transparent);
+    border-radius: var(--zhuge-desktop-card-radius);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--zhuge-surface-raised, #fff) 96%, #e7f0ff), var(--zhuge-desktop-muted-surface));
+  }
+
+  .control-center-first-screen h2,
+  .management-first-screen h2 {
+    margin: 4px 0 8px;
+    font-size: clamp(1.25rem, 1.2vw + 0.8rem, 1.7rem);
+    line-height: 1.25;
+  }
+
+  .control-center-first-screen p,
+  .management-first-screen p {
+    max-width: 62ch;
+  }
+
+  .control-center-summary-grid,
+  .management-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-self: stretch;
+  }
+
+  .control-center-summary-card,
+  .management-summary-card {
+    display: grid;
+    gap: 6px;
+    align-content: center;
+    min-height: 86px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--zhuge-surface-raised, #fff) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 72%, transparent);
+  }
+
+  .control-center-summary-card strong,
+  .management-summary-card strong {
+    font-size: 0.98rem;
+  }
+
+  .control-center-summary-card small,
+  .management-summary-card small {
+    color: var(--zhuge-text-muted, #627083);
+    line-height: 1.45;
+  }
+
+  .control-center-status-summary {
+    display: grid;
+    grid-template-columns: minmax(170px, 0.55fr) minmax(0, 1.45fr);
+    gap: 18px;
+    align-items: center;
+    padding: 18px 22px;
+    border-radius: var(--zhuge-desktop-card-radius);
+    background: var(--zhuge-surface, #fff);
+    border: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 78%, transparent);
+  }
+
+  .control-center-status-summary .status-summary-state {
+    display: grid;
+    gap: 5px;
+  }
+
+  .control-center-status-summary .status-summary-state strong {
+    font-size: 1.35rem;
+  }
+
+  .control-center-status-summary .status-summary-items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .control-center-status-summary .status-summary-item {
+    padding: 11px 13px;
+    border-radius: 12px;
+    background: var(--zhuge-desktop-muted-surface);
+  }
+
+  .control-center-status-summary .status-summary-item strong,
+  .control-center-status-summary .status-summary-item small {
+    display: block;
+  }
+
+  .control-center-status-summary .status-summary-item small {
+    margin-top: 3px;
+    color: var(--zhuge-text-muted, #627083);
+    line-height: 1.4;
+  }
+
+  .control-center-services .service-card,
+  .control-center .service-card {
+    min-height: 112px;
+    padding: 16px 18px;
+  }
+
+  .control-center-services .service-card small,
+  .control-center .service-card small {
+    line-height: 1.45;
+  }
+
+  .desktop-secondary-details {
+    border-top: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 72%, transparent);
+    padding-top: 15px;
+  }
+
+  .desktop-secondary-details > summary,
+  .settings-secondary-section > summary,
+  .knowledge-card-details > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 9px 12px;
+    border-radius: 11px;
+    cursor: pointer;
+    color: var(--zhuge-text, #1c2735);
+    font-weight: 700;
+    list-style: none;
+  }
+
+  .desktop-secondary-details > summary::-webkit-details-marker,
+  .settings-secondary-section > summary::-webkit-details-marker,
+  .knowledge-card-details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .desktop-secondary-details > summary::after,
+  .settings-secondary-section > summary::after,
+  .knowledge-card-details > summary::after {
+    content: "＋";
+    color: var(--zhuge-text-muted, #627083);
+    font-size: 1.1rem;
+  }
+
+  .desktop-secondary-details[open] > summary::after,
+  .settings-secondary-section[open] > summary::after,
+  .knowledge-card-details[open] > summary::after {
+    content: "−";
+  }
+
+  .desktop-secondary-details > summary:hover,
+  .settings-secondary-section > summary:hover,
+  .knowledge-card-details > summary:hover {
+    background: var(--zhuge-desktop-muted-surface);
+  }
+
+  /* P4 — Settings and Knowledge use compact first layers. */
+  .settings-first-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: end;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    border-radius: var(--zhuge-desktop-card-radius);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--zhuge-surface-raised, #fff) 95%, #eef4ff), var(--zhuge-desktop-muted-surface));
+    border: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 76%, transparent);
+  }
+
+  .settings-first-screen h2 {
+    margin: 4px 0 7px;
+  }
+
+  .settings-section-index {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .settings-section-index a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--zhuge-surface-raised, #fff);
+    border: 1px solid color-mix(in srgb, var(--zhuge-border, #dbe3ef) 76%, transparent);
+    color: var(--zhuge-text, #1c2735);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .settings-section-index a:hover,
+  .settings-section-index a:focus-visible {
+    background: color-mix(in srgb, var(--zhuge-accent, #edf5ff) 18%, var(--zhuge-surface-raised, #fff));
+  }
+
+  .settings-secondary-section {
+    margin-top: 18px;
+    padding: 7px 10px 14px;
+    border-radius: var(--zhuge-desktop-card-radius);
+    background: var(--zhuge-desktop-muted-surface);
+  }
+
+  .settings-secondary-section > summary small {
+    display: block;
+    margin-left: auto;
+    color: var(--zhuge-text-muted, #627083);
+    font-weight: 500;
+  }
+
+  .settings-advanced-section {
+    opacity: 0.92;
+  }
+
+  [data-knowledge-library] .library-list,
+  .knowledge-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  [data-knowledge-library] .knowledge-card,
+  .knowledge-card-grid .knowledge-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    min-height: 0;
+    padding: 17px 18px;
+  }
+
+  [data-knowledge-library] .knowledge-card-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.48;
+  }
+
+  [data-knowledge-library] .knowledge-card-details {
+    margin-top: 2px;
+  }
+
+  [data-knowledge-library] .knowledge-card-details-content {
+    padding: 4px 12px 8px;
+  }
+
+  [data-knowledge-library] .knowledge-card-toolbar {
+    align-items: center;
+    gap: 8px;
+  }
+
+  [data-knowledge-library] .knowledge-card-toolbar button,
+  [data-knowledge-library] .knowledge-card-toolbar a {
+    min-height: 44px;
+  }
+
+  /* P5 — AI Board, WorkTodo, C Template and Procurement share the same board rhythm. */
+  .shared-task-board-shell,
+  .task-board-shell,
+  .board-shell {
+    padding: 20px;
+    border-radius: var(--zhuge-desktop-card-radius);
+    background: color-mix(in srgb, var(--zhuge-surface-raised, #fff) 96%, #f3f6fb);
+  }
+
+  .shared-task-board,
+  .task-board,
+  .board-columns {
+    gap: 18px;
+  }
+
+  .shared-task-board-column,
+  .task-board-column,
+  .board-column {
+    min-width: 285px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px color-mix(in srgb, #16243a 8%, transparent);
+  }
+
+  .shared-task-board-column > header,
+  .task-board-column > header,
+  .board-column > header {
+    min-height: 56px;
+    padding: 14px 16px;
+  }
+
+  .shared-task-card,
+  .task-card,
+  .board-task-card {
+    border-radius: 13px;
+    box-shadow: 0 5px 14px color-mix(in srgb, #16243a 8%, transparent);
+  }
+
+  .shared-task-card:hover,
+  .task-card:hover,
+  .board-task-card:hover {
+    transform: translateY(-1px);
+  }
+
+  .shared-task-board .empty-state,
+  .shared-task-board-empty,
+  .task-board .empty-state,
+  .board-columns .empty-state {
+    min-height: 120px;
+    padding: 22px 16px;
+  }
+
+  .task-board-toolbar,
+  .shared-task-board-toolbar,
+  .board-toolbar {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  /* Shared drawer / overlay presentation; behavior remains in task-drawer.js. */
+  .shared-task-drawer-panel,
+  .task-drawer-panel,
+  [data-task-drawer-panel] {
+    box-shadow: -18px 0 50px color-mix(in srgb, #0d1c32 24%, transparent);
+  }
+
+  .shared-task-drawer-panel .task-drawer-header,
+  .task-drawer-panel .task-drawer-header {
+    padding: 20px 24px;
+  }
+
+  .shared-task-drawer-panel .task-drawer-body,
+  .task-drawer-panel .task-drawer-body {
+    padding-inline: 24px;
+  }
+
+  /* P6 — WorkLog remains the reference surface; only rhythm and feedback density move. */
+  .workspace-worklog .worklog-page,
+  .workspace-worklog .daily-workspace,
+  .workspace-worklog .worklog-dashboard {
+    max-width: var(--zhuge-desktop-content-max);
+    margin-inline: auto;
+  }
+
+  .workspace-worklog .panel-grid,
+  .workspace-worklog .dashboard-grid,
+  .workspace-worklog .worklog-grid {
+    gap: 18px;
+  }
+
+  .workspace-worklog .panel-head h2,
+  .workspace-worklog .panel-head h3 {
+    letter-spacing: -0.01em;
+  }
+
+  .workspace-worklog .state-card,
+  .workspace-worklog .empty-state,
+  .workspace-worklog .error-state,
+  .workspace-worklog .loading-state {
+    line-height: 1.5;
+  }
+
+  /* All shared feedback states keep an explicit message/action hierarchy. */
+  .state-card,
+  .empty-state,
+  .error-state,
+  .loading-state,
+  .unavailable-state,
+  .insufficient-evidence-state {
+    border-radius: 14px;
+  }
+
+  .state-card .state-title,
+  .empty-state .state-title,
+  .error-state .state-title,
+  .loading-state .state-title {
+    font-weight: 800;
+  }
+
+  .state-card .state-action,
+  .empty-state .state-action,
+  .error-state .state-action,
+  .unavailable-state .state-action {
+    margin-top: 10px;
+  }
+
+  /* Status words remain readable without relying on color alone. */
+  .status-badge,
+  .state-badge,
+  [data-status] {
+    font-variant-numeric: tabular-nums;
+  }
+}
