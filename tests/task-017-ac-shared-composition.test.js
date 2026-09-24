@@ -43,6 +43,7 @@ test("Investment keeps one portfolio C view and consolidates Watchlist as a work
   const shell = read("modules/investment/components/module-shell.js");
   const moduleSource = read("modules/investment/services/investment-module.js");
   const entry = read("modules/investment/index.html");
+  const board = read("app/Board/investment/index.html");
   const adapter = read("modules/investment/services/ivtk-board-adapter.js");
 
   assert.match(config, /pages: Object\.freeze\(\["overview", "portfolio", "transactions", "strategy", "settings", "import"\]\)/);
@@ -51,6 +52,9 @@ test("Investment keeps one portfolio C view and consolidates Watchlist as a work
   assert.match(moduleSource, /page === "watchlist" \? "portfolio" : page/);
   assert.match(moduleSource, /if \(state\.activePage === "portfolio"\)/);
   assert.doesNotMatch(entry, /pages\/watchlist-page\.js/);
+  assert.match(board, /id="investmentNavigation" data-investment-navigation="canonical"/);
+  assert.match(board, /modules\/investment\/components\/module-shell\.js/);
+  assert.doesNotMatch(board, /procurement-content-tabs investment-c-tabs/);
   assert.match(adapter, /renderBoard\(\{/);
   assert.doesNotMatch(adapter, /investment-ivtk-fallback-board/);
   assert.doesNotMatch(adapter, /<article class=\"\$\{escape\(options\.className/);
