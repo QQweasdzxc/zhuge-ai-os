@@ -140,6 +140,7 @@ test("all Workspaces use the WorkLog collapsed rail geometry", async t => {
 
 test("collapsed rail geometry is owned by shared navigation, not WorkLog CSS", () => {
   const nav = fs.readFileSync(path.join(ROOT, "shared/theme/zhuge-navigation.css"), "utf8");
+  const source = fs.readFileSync(NAV_SOURCE, "utf8");
   const worklog = fs.readFileSync(path.join(ROOT, "modules/worklog/worklog.css"), "utf8");
   assert.match(nav, /--zhuge-sidebar-collapsed-width:\s*72px/);
   assert.match(nav, /--zhuge-sidebar-collapsed-item-padding-block:\s*9px/);
@@ -147,5 +148,11 @@ test("collapsed rail geometry is owned by shared navigation, not WorkLog CSS", (
   assert.match(nav, /\.zhuge-module-shell\[data-shared-navigation-mode="template-only"\]\[data-shared-navigation-active="true"\]\.zhuge-nav-collapsed\s*\{\s*grid-template-columns:\s*var\(--zhuge-sidebar-collapsed-width\)\s+minmax\(0,1fr\)\s*!important/);
   assert.match(nav, /@media\s*\(max-width:\s*767px\)[\s\S]*?\.zhuge-module-shell\.zhuge-nav-collapsed\s*>\s*\.os-sidebar\s*\{\s*width:\s*min\(86vw,\s*320px\)/);
   assert.match(nav, /\.zhuge-module-shell\.zhuge-nav-collapsed \.side-section > h3\s*\{\s*display:\s*none/);
+  assert.match(nav, /zhuge-module-shell\.zhuge-nav-collapsed \.side-item\.on/);
+  assert.match(nav, /prefers-reduced-motion/);
+  assert.match(source, /data-shared-nav-collapsed/);
+  assert.match(source, /aria-expanded=\"\$\{collapsed \? \"false\" : \"true\"\}\"/);
+  assert.match(source, /control\?\.setAttribute\("aria-expanded", String\(!nextCollapsed\)\)/);
+  assert.match(source, /aria-current=\\\"page\\\"/);
   assert.doesNotMatch(worklog, /workspace-worklog\.zhuge-nav-collapsed/);
 });
