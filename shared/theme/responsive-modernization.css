@@ -1,0 +1,310 @@
+/*
+ * TASK-088 successor: Mobile / Responsive / Accessibility foundation.
+ *
+ * This is a presentation-only layer.  It consumes the existing token,
+ * responsive, shell, drawer and feedback contracts; it does not own routing,
+ * workflow, auth or product data.  Keep consumer-specific rules out of this
+ * file so one fix benefits every Shared Shell surface.
+ */
+@import url("./tokens.css");
+@import url("./responsive.css");
+
+:root {
+  --zhuge-responsive-gutter: clamp(10px, 2.8vw, 24px);
+  --zhuge-responsive-content-gap: clamp(12px, 2.4vw, 22px);
+  --zhuge-readable-line-length: 78ch;
+  --zhuge-focus-ring: 3px solid var(--zhuge-accent, #79aefc);
+  --zhuge-focus-offset: 2px;
+  --zhuge-mobile-bottom-clearance: 92px;
+}
+
+/* Make zoom and text reflow safe.  In particular, never disable pinch zoom
+ * and never let an intrinsic child widen the document at 200% text zoom. */
+html {
+  min-width: 320px;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-block: var(--zhuge-space-4, 16px);
+}
+
+body {
+  min-width: 320px;
+  overflow-x: clip;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+pre,
+code {
+  max-width: 100%;
+}
+
+pre {
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell, .zhuge-public-shell) {
+  min-width: 0;
+  padding-bottom: max(18px, var(--zhuge-safe-area-bottom, 0px));
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.app, .workspace-app, .workspace-canvas, .workspace-content-container, main, section, article, form) {
+  min-width: 0;
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(h1, h2, h3, h4, p, small, label, a, button, td, th, summary) {
+  overflow-wrap: anywhere;
+}
+
+/* One visible keyboard focus contract across product and public surfaces. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--zhuge-focus-ring);
+  outline-offset: var(--zhuge-focus-offset);
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel, .entry, .surface-card, .zhuge-core-card, .zhuge-state, .empty, .loading, .error) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.zhuge-state, .empty, .loading, .error) {
+  overflow-wrap: anywhere;
+  line-height: var(--zhuge-line-height-relaxed, 1.65);
+}
+
+/* Explicit opt-in wrappers keep data tables readable instead of shrinking
+ * columns below a useful width. Existing table consumers can adopt the
+ * wrapper without changing their data or rendering contract. */
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.zhuge-responsive-table, .table-scroll, .table-container, [data-responsive-table]) {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+:where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.zhuge-responsive-table, .table-scroll, .table-container, [data-responsive-table]) > table {
+  min-width: 560px;
+}
+
+/* Keep fixed overlays away from the home indicator and make long panels
+ * independently scrollable. */
+:where(.shared-task-drawer, .zhuge-hub-chat-overlay, .zhuge-floating-hub) {
+  padding-bottom: max(0px, var(--zhuge-safe-area-bottom, 0px));
+}
+
+:where(.shared-task-drawer-panel, .zhuge-hub-chat-window) {
+  min-width: 0;
+  min-height: 0;
+}
+
+:where(.shared-task-drawer-content, .shared-task-drawer-activity, .zhuge-hub-chat-frame) {
+  min-width: 0;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  /* Tablet is a real layout tier: preserve the rail, but protect the content
+   * column from card grids and toolbars with intrinsic minimum widths. */
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) {
+    gap: var(--zhuge-responsive-content-gap);
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-canvas, .workspace-content-container, .page-shell) {
+    padding-inline: var(--zhuge-responsive-gutter);
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar, .form-actions) {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    scroll-padding-bottom: calc(var(--zhuge-mobile-bottom-clearance) + var(--zhuge-safe-area-bottom, 0px));
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) {
+    padding-inline: max(8px, var(--zhuge-safe-area-left, 0px)) max(8px, var(--zhuge-safe-area-right, 0px));
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-canvas, .workspace-content-container, .page-shell) {
+    padding-inline: var(--zhuge-responsive-gutter);
+    padding-bottom: max(24px, var(--zhuge-safe-area-bottom, 0px));
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar) {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar) > * {
+    flex: 0 0 auto;
+  }
+
+  /* 16px avoids iOS's automatic zoom while retaining user-controlled page
+   * zoom and browser text enlargement. */
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(input, select, textarea) {
+    font-size: max(16px, 1em);
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context, .zhuge-shared-header-right) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context, .zhuge-shared-header-right) > * {
+    max-width: 100%;
+  }
+
+  /* Shared Drawer becomes a full-height mobile surface with a single reading
+   * column; content and activity retain their existing semantic regions. */
+  .shared-task-drawer {
+    align-items: stretch;
+    padding: var(--zhuge-safe-area-top, 0px) var(--zhuge-safe-area-right, 0px) var(--zhuge-safe-area-bottom, 0px) var(--zhuge-safe-area-left, 0px);
+  }
+
+  .shared-task-drawer-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .shared-task-drawer-header {
+    gap: 10px;
+    padding-inline: max(14px, var(--zhuge-safe-area-left, 0px)) max(14px, var(--zhuge-safe-area-right, 0px));
+  }
+
+  .shared-task-drawer-header h2 {
+    font-size: clamp(1.05rem, 5vw, 1.35rem);
+  }
+
+  .shared-task-drawer-meta-wrap,
+  .shared-task-drawer-content,
+  .shared-task-drawer-activity,
+  .shared-task-drawer-footer {
+    padding-inline: var(--zhuge-responsive-gutter);
+  }
+
+  .shared-task-drawer-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shared-task-drawer-section-heading span {
+    text-align: left;
+  }
+
+  .shared-task-drawer-properties {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shared-task-drawer-footer {
+    padding-bottom: max(12px, var(--zhuge-safe-area-bottom, 0px));
+  }
+
+  .zhuge-hub-chat-overlay {
+    right: max(8px, var(--zhuge-safe-area-right, 0px));
+    bottom: calc(68px + var(--zhuge-safe-area-bottom, 0px));
+    width: calc(100vw - 16px - var(--zhuge-safe-area-left, 0px) - var(--zhuge-safe-area-right, 0px));
+    max-width: 520px;
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.form-actions, .actions, .toolbar-actions) {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.form-actions, .actions, .toolbar-actions) > :where(button, a) {
+    min-height: var(--zhuge-touch-target-min);
+  }
+}
+
+@media (max-width: 420px) {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-canvas, .workspace-content-container, .page-shell) {
+    padding-inline: 8px;
+  }
+
+  .shared-task-drawer-properties {
+    grid-template-columns: 1fr;
+  }
+
+  .shared-task-drawer-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline-width: 4px;
+  }
+
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel, .entry, .surface-card, .zhuge-state, .empty, .loading, .error) {
+    border-color: currentColor;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid Highlight;
+  }
+
+  :where(button, a[role="button"], input[type="button"], input[type="submit"]) {
+    border: 1px solid ButtonText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@supports not (height: 100dvh) {
+  .zhuge-hub-chat-overlay,
+  .shared-task-drawer-panel {
+    max-height: 100vh;
+  }
+}
