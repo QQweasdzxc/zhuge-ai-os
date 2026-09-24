@@ -1,0 +1,34 @@
+/*
+ * Shared feedback contract.
+ * Consumers opt in with data-zhuge-state; the finite vocabulary prevents
+ * one-off green states from masking unavailable or insufficient evidence.
+ */
+.zhuge-state {
+  display: grid;
+  gap: var(--zhuge-space-2);
+  min-width: 0;
+  padding: var(--zhuge-space-4);
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-md);
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  line-height: var(--zhuge-line-height-normal);
+}
+
+.zhuge-state > :where(strong, h2, h3, p) { margin: 0; }
+.zhuge-state [data-zhuge-state-detail] { color: var(--zhuge-muted); font-size: var(--zhuge-font-sm); }
+.zhuge-state[data-zhuge-state="loading"] { border-color: color-mix(in srgb, var(--zhuge-warning) 40%, var(--zhuge-border)); }
+.zhuge-state[data-zhuge-state="empty"] { border-style: dashed; }
+.zhuge-state[data-zhuge-state="error"] { border-color: color-mix(in srgb, var(--zhuge-danger) 62%, var(--zhuge-border)); }
+.zhuge-state[data-zhuge-state="unavailable"],
+.zhuge-state[data-zhuge-state="insufficient-evidence"] {
+  border-color: color-mix(in srgb, var(--zhuge-warning) 52%, var(--zhuge-border));
+}
+.zhuge-state[data-zhuge-state="loading"] [data-zhuge-state-status],
+.zhuge-state[data-zhuge-state="error"] [data-zhuge-state-status],
+.zhuge-state[data-zhuge-state="unavailable"] [data-zhuge-state-status],
+.zhuge-state[data-zhuge-state="insufficient-evidence"] [data-zhuge-state-status] {
+  color: var(--zhuge-warning);
+}
+.zhuge-state[data-zhuge-state="empty"] [data-zhuge-state-status] { color: var(--zhuge-muted); }
+.zhuge-state [data-zhuge-state-status] { font-weight: 750; }

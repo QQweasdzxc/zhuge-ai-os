@@ -97,36 +97,43 @@
       ? `<span class="zhuge-hub-badge" data-hub-investment-pending-badge>${escape(investmentPendingCount)}</span>` : "";
     const creatorMenu = creator ? `<div class="zhuge-hub-divider" role="separator"></div>
       <p class="zhuge-hub-section-label">Creator 快捷功能</p>
-      <button class="zhuge-hub-item" type="button" data-hub-presence-toggle><span aria-hidden="true">👥</span><span>在線使用者</span><strong data-hub-online-count>—</strong></button>
-      <div class="zhuge-hub-online-list" data-hub-online-list hidden></div>
+      <button class="zhuge-hub-item zhuge-core-button" type="button" data-hub-presence-toggle><span aria-hidden="true">👥</span><span>在線使用者</span><strong data-hub-online-count aria-live="polite">尚未連線</strong></button>
+      <div class="zhuge-hub-online-list" data-hub-online-list hidden aria-live="polite" role="status"></div>
       <a class="zhuge-hub-item" href="${escape(accessHref)}"><span aria-hidden="true">🔔</span><span>待審核使用者</span>${pendingBadge}</a>` : "";
     return `<div class="zhuge-floating-hub" data-global-floating-hub>
-      <button class="zhuge-hub-trigger" type="button" data-hub-toggle aria-expanded="false" aria-controls="zhugeHubMenu" aria-label="開啟 Global Floating Hub">✦</button>
+      <button class="zhuge-hub-trigger zhuge-core-button" type="button" data-hub-toggle aria-expanded="false" aria-controls="zhugeHubMenu" aria-label="開啟 Global Floating Hub">✦</button>
       <section class="zhuge-hub-menu" id="zhugeHubMenu" data-hub-menu hidden aria-label="Global Floating Hub 快捷功能">
         <div class="zhuge-hub-heading"><strong>Global Floating Hub</strong><span>全站懸浮快捷中心</span></div>
         ${creatorMenu}
         <p class="zhuge-hub-section-label">我的快捷功能</p>
         <a class="zhuge-hub-item" href="${escape(investmentPendingHref)}" data-hub-pending-actions><span aria-hidden="true">🔔</span><span>待我確認</span>${investmentPendingBadge}</a>
-        <button class="zhuge-hub-item" type="button" data-hub-assistant-open aria-expanded="false" aria-controls="zhugeHubChat"><span aria-hidden="true">💬</span><span>工時小幫手</span></button>
+        <button class="zhuge-hub-item zhuge-core-button" type="button" data-hub-assistant-open aria-expanded="false" aria-controls="zhugeHubChat"><span aria-hidden="true">💬</span><span>工時小幫手</span></button>
         <a class="zhuge-hub-item" href="${escape(hoursHref)}"><span aria-hidden="true">⏱️</span><span>工時／時數</span></a>
       </section>
       <section class="zhuge-hub-chat-overlay" data-hub-chat-overlay id="zhugeHubChat" role="dialog" aria-label="工時小幫手" hidden>
         <div class="zhuge-hub-chat-window">
-          <div class="zhuge-hub-chat-heading"><strong>💬 工時小幫手</strong><button type="button" data-hub-chat-close aria-label="關閉工時小幫手">×</button></div>
+          <div class="zhuge-hub-chat-heading"><strong>💬 工時小幫手</strong><button class="zhuge-core-button" type="button" data-hub-chat-close aria-label="關閉工時小幫手">×</button></div>
           <iframe class="zhuge-hub-chat-frame" data-hub-chat-frame data-src="${assistantHref}" title="工時小幫手" loading="lazy"></iframe>
         </div>
       </section>
     </div>`;
   }
 
-  function renderPresence(rows) {
+  function renderPresence(rows, status = "connected") {
     if (!state?.root) return;
     const count = state.root.querySelector("[data-hub-online-count]");
     const list = state.root.querySelector("[data-hub-online-list]");
-    if (count) count.textContent = `${rows.length} 人在線`;
+    const resolvedStatus = String(status || "connected");
+    if (count) {
+      count.textContent = resolvedStatus === "error" ? "無法確認" : `${rows.length} 人在線`;
+      count.dataset.presenceState = resolvedStatus;
+    }
     if (list) {
       list.replaceChildren();
-      if (!rows.length) {
+      list.dataset.presenceState = resolvedStatus;
+      if (resolvedStatus === "error") {
+        list.textContent = "目前無法確認在線狀態，請稍後再試。";
+      } else if (!rows.length) {
         list.textContent = "目前沒有可顯示的在線使用者";
       } else {
         rows.forEach(row => {
@@ -214,7 +221,7 @@
     try {
       const channel = await service.createPresenceChannel({ topic: PRESENCE_TOPIC, key: userId });
       state.channel = channel;
-      const sync = () => renderPresence(normalizePresenceRows(channel.presenceState?.()));
+      const sync = () => renderPresence(normalizePresenceRows(channel.presenceState?.()), "connected");
       channel.on("presence", { event: "sync" }, sync);
       channel.on("presence", { event: "join" }, sync);
       channel.on("presence", { event: "leave" }, sync);
@@ -224,7 +231,7 @@
       sync();
     } catch (error) {
       state.presenceError = error;
-      renderPresence([]);
+      renderPresence([], "error");
     }
   }
 

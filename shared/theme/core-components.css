@@ -1,0 +1,77 @@
+@import url("./tokens.css");
+@import url("./responsive.css");
+@import url("./feedback.css");
+
+/*
+ * Shared Core Component Contract.
+ *
+ * These opt-in classes are the common presentation authority for controls,
+ * cards, forms, overlays, lists, tables and feedback. Consumers may compose
+ * them with their domain class, but must not fork the interaction semantics.
+ */
+:where(.zhuge-core-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zhuge-space-2);
+  min-width: var(--zhuge-touch-target-min);
+  min-height: var(--zhuge-touch-target-min);
+  padding: var(--zhuge-space-2) var(--zhuge-space-4);
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-sm);
+  background: var(--zhuge-surface-soft);
+  color: var(--zhuge-text);
+  font: inherit;
+  line-height: var(--zhuge-line-height-snug);
+  cursor: pointer;
+}
+:where(.zhuge-core-button):hover,
+:where(.zhuge-core-button):focus-visible { border-color: var(--zhuge-accent); background: var(--zhuge-surface-raised); }
+:where(.zhuge-core-button):focus-visible { outline: 2px solid var(--zhuge-accent); outline-offset: 2px; }
+:where(.zhuge-core-button):disabled,
+:where(.zhuge-core-button)[aria-disabled="true"] { cursor: not-allowed; opacity: .58; }
+:where(.zhuge-core-button)[aria-busy="true"] { cursor: wait; }
+:where(.zhuge-core-button[data-variant="primary"]) { border-color: var(--zhuge-accent-strong); background: var(--zhuge-accent-strong); color: #fff; }
+:where(.zhuge-core-button[data-variant="danger"]) { border-color: var(--zhuge-danger); color: #fff; background: color-mix(in srgb, var(--zhuge-danger) 26%, var(--zhuge-surface)); }
+
+:where(.zhuge-core-card) {
+  min-width: 0;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-md);
+  background: var(--zhuge-surface);
+  color: var(--zhuge-text);
+  box-shadow: var(--zhuge-shadow-card);
+}
+
+:where(.zhuge-core-form) { display: grid; gap: var(--zhuge-space-4); min-width: 0; }
+:where(.zhuge-core-form) label { display: grid; gap: var(--zhuge-space-2); color: var(--zhuge-text); font-weight: 700; }
+:where(.zhuge-core-form) :where(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--zhuge-touch-target-min);
+  box-sizing: border-box;
+  border: 1px solid var(--zhuge-border);
+  border-radius: var(--zhuge-radius-sm);
+  background: var(--zhuge-surface-soft);
+  color: var(--zhuge-text);
+  font: inherit;
+  line-height: var(--zhuge-line-height-normal);
+  padding: var(--zhuge-space-2) var(--zhuge-space-3);
+}
+:where(.zhuge-core-form) :where(input, textarea, select):focus-visible { border-color: var(--zhuge-accent); outline: 2px solid color-mix(in srgb, var(--zhuge-accent) 42%, transparent); outline-offset: 1px; }
+
+:where(.zhuge-core-modal) { position: fixed; inset: 0; z-index: var(--zhuge-layer-modal); display: grid; place-items: center; padding: max(var(--zhuge-space-4), var(--zhuge-safe-area-top)) max(var(--zhuge-space-4), var(--zhuge-safe-area-right)) max(var(--zhuge-space-4), var(--zhuge-safe-area-bottom)) max(var(--zhuge-space-4), var(--zhuge-safe-area-left)); background: rgba(2, 6, 23, .68); }
+:where(.zhuge-core-modal)[hidden] { display: none; }
+:where(.zhuge-core-modal-panel) { width: min(720px, 100%); max-height: min(90svh, 860px); overflow: auto; }
+:where(.zhuge-core-drawer) { position: fixed; z-index: var(--zhuge-layer-drawer); max-width: 100vw; max-height: 100svh; overflow: auto; }
+
+:where(.zhuge-core-list) { display: grid; gap: var(--zhuge-space-2); min-width: 0; margin: 0; padding: 0; list-style: none; }
+:where(.zhuge-core-list-item) { min-width: 0; padding: var(--zhuge-space-3); border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-sm); background: var(--zhuge-surface-soft); overflow-wrap: anywhere; }
+:where(.zhuge-core-table) { width: 100%; border-collapse: collapse; color: var(--zhuge-text); }
+:where(.zhuge-core-table) :where(th, td) { padding: var(--zhuge-space-3); border-bottom: 1px solid var(--zhuge-border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+:where(.zhuge-core-table) th { color: var(--zhuge-muted); font-size: var(--zhuge-font-sm); }
+
+:where(.zhuge-core-toast) { position: fixed; right: max(var(--zhuge-space-4), var(--zhuge-safe-area-right)); bottom: max(var(--zhuge-space-4), var(--zhuge-safe-area-bottom)); z-index: var(--zhuge-layer-toast); max-width: min(420px, calc(100vw - 32px)); padding: var(--zhuge-space-3) var(--zhuge-space-4); border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-sm); background: var(--zhuge-surface-raised); color: var(--zhuge-text); box-shadow: var(--zhuge-shadow-overlay); }
+:where(.zhuge-core-toast)[data-state="success"] { border-color: var(--zhuge-success); }
+:where(.zhuge-core-toast)[data-state="warning"],
+:where(.zhuge-core-toast)[data-state="error"] { border-color: var(--zhuge-warning); }

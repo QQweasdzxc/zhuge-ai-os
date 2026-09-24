@@ -12,6 +12,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   const nav = read("shared/components/zhuge-navigation.js");
   const css = read("shared/theme/zhuge-navigation.css");
   const shellCss = read("shared/theme/zhuge-shell.css");
+  const foundationCss = read("shared/theme/tokens.css");
   const worklogCss = read("modules/worklog/worklog.css");
   const worklog = read("modules/worklog/worklog-app.js");
   const worklogIndex = read("modules/worklog/index.html");
@@ -59,12 +60,12 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.match(css, /\.workspace-shell-header/);
   assert.match(css, /\.workspace-subnav/);
   assert.match(css, /\.workspace-content-container/);
-  assert.match(css, /--zhuge-sidebar-item-height: 40px/);
-  assert.match(css, /--zhuge-sidebar-child-height: 36px/);
-  assert.match(shellCss, /--shell-sidebar-width:\s*232px/);
+  assert.match(css, /--zhuge-sidebar-item-height: var\(--zhuge-touch-target-min\)/);
+  assert.match(css, /--zhuge-sidebar-child-height: var\(--zhuge-touch-target-min\)/);
+  assert.match(foundationCss, /--shell-sidebar-width:\s*232px/);
   assert.match(css, /\.agent-panel,\.side-section\{[^}]*padding:10px 8px[^}]*margin-bottom:8px/);
-  assert.match(css, /\.side-item\{[^}]*min-height:40px[^}]*padding:7px 9px[^}]*margin-top:4px/);
-  assert.match(css, /\.side-item-child\{[^}]*min-height:36px[^}]*padding:6px 9px/);
+  assert.match(css, /\.side-item\{[^}]*min-height:var\(--zhuge-touch-target-min\)[^}]*padding:7px 9px[^}]*margin-top:4px/);
+  assert.match(css, /\.side-item-child\{[^}]*min-height:var\(--zhuge-touch-target-min\)[^}]*padding:6px 9px/);
   assert.match(css, /\.zhuge-module-shell \.agent-panel,\s*\.zhuge-module-shell \.side-section[\s\S]*padding:\s*8px[\s\S]*margin-bottom:\s*var\(--zhuge-sidebar-section-gap\)/);
   assert.match(css, /height:\s*calc\(100vh - 36px\)/);
   assert.match(css, /max-height:\s*calc\(100vh - 36px\)/);

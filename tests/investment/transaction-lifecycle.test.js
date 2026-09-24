@@ -106,6 +106,8 @@ test("Transaction page exposes the three Investment domain inputs and canonical 
   assert.match(html, /手續費／交易成本/);
   assert.match(html, /移動加權平均成本法/);
   assert.match(html, /既有 opening positions 維持為 Opening Baseline/);
+  assert.match(html, /現金流/);
+  assert.match(html, /買入支出/);
   assert.match(html, /data-investment-transaction-form/);
   assert.match(html, /2330/);
 });

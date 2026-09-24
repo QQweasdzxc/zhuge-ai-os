@@ -386,7 +386,10 @@
     const html = goldenMaster?.renderDrawer
       ? goldenMaster.renderDrawer({ ...drawerOptions, components: { drawer } })
       : drawer.render(drawerOptions);
-    return html.replace('<div class="shared-task-drawer"', `<div class="shared-task-drawer worktodo-shared-task-drawer" data-worktodo-shared-drawer data-worktodo-task-id="${escapeHtml(vm.id)}" data-worktodo-task-cloud-id="${escapeHtml(vm.cloudId)}"`);
+    return html.replace(
+      /<div class="shared-task-drawer(?=[\s>])/,
+      `<div class="shared-task-drawer worktodo-shared-task-drawer" data-worktodo-shared-drawer data-worktodo-task-id="${escapeHtml(vm.id)}" data-worktodo-task-cloud-id="${escapeHtml(vm.cloudId)}"`
+    );
   }
 
   function renderCard(task, options = {}) {
