@@ -60,7 +60,7 @@ test("TASK-011 shares spacing and attachment presentation across AI Board and Wo
   assert.match(boardCss, /shared-task-board-column>\.add\{[^}]*margin:16px 10px 10px/);
   assert.match(boardCss, /shared-task-board-add-card\{[^}]*margin:16px 10px 10px/);
   assert.match(drawerCss, /data-shared-task-timeline\].*gap:8px/);
-  assert.match(drawerCss, /data-shared-task-timeline\] \.shared-task-drawer-activity-row\{[^}]*border:1px solid #344052[^}]*padding:16px 16px 16px 0/);
+  assert.match(drawerCss, /data-shared-task-timeline\] \.shared-task-drawer-activity-row\{[^}]*min-height:0[^}]*border:1px solid #344052[^}]*padding:13px 16px 13px 0/);
   assert.match(runtime, /const files = Array\.from\(attachmentInput\?\.files \|\| \[\]\)/);
   assert.doesNotMatch(runtime, /const files = workTodo \? \[\] : Array\.from/);
   assert.match(runtime, /progressAttachmentIcon/);

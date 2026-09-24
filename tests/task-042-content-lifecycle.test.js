@@ -80,8 +80,8 @@ test("TASK-042 Progress Note composer is a drawer-level fixed action", () => {
   assert.match(css, /\.shared-task-progress-note-header\{display:flex/);
   assert.match(css, /\.shared-task-progress-note-actions\{display:inline-flex/);
   assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\]\{[^}]*gap:8px/);
-  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\] \.shared-task-drawer-activity-row\{[^}]*border:1px solid #344052[^}]*padding:16px 16px 16px 0/);
-  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:118px/);
+  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\] \.shared-task-drawer-activity-row\{[^}]*min-height:0[^}]*border:1px solid #344052[^}]*padding:13px 16px 13px 0/);
+  assert.match(css, /\.shared-task-drawer-activity-list\[data-shared-task-timeline\].*min-height:0/);
   assert.match(css, /\.shared-task-icon-button\{display:grid/);
 });
 
