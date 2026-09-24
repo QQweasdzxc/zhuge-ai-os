@@ -50,12 +50,12 @@
     const items = Array.isArray(state.todayFocus) ? state.todayFocus.filter(Boolean).slice(0, 3) : [];
     if (!items.length) {
       if (state.intelligence?.status === "loading") {
-        return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading"><strong data-zhuge-state-status>今日重點讀取中</strong><small data-zhuge-state-detail>正在整理可驗證的行情、新聞與事件；完成前不補猜。</small></div>`;
+        return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待資料整理完成；不需要輸入或修改資料。"><strong data-zhuge-state-status>今日重點讀取中</strong><small data-zhuge-state-detail>正在整理可驗證的行情、新聞與事件；完成前不補猜。</small></div>`;
       }
       if (state.intelligence?.status === "error") {
-        return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error"><strong data-zhuge-state-status>今日重點暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的今日 Evidence，請稍後再試。"))}</small></div>`;
+        return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請按重新整理；若持續失敗，保留錯誤訊息交給管理者。"><strong data-zhuge-state-status>今日重點暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的今日 Evidence，請稍後再試。"))}</small></div>`;
       }
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>待 Price／News／Event Intelligence 建立後，這裡只顯示有 Evidence 的投資事項。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>待 Price／News／Event Intelligence 建立後，這裡只顯示有 Evidence 的投資事項。</small></div>`;
     }
     return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(String(item.title || "未命名事項"))}</strong><p>${escape(String(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
   }
@@ -65,20 +65,20 @@
     const quotes = Array.isArray(intelligence.quotes) ? intelligence.quotes.filter(Boolean).slice(0, 6) : [];
     const events = Array.isArray(state.marketEvents) ? state.marketEvents.filter(Boolean).slice(0, 4) : [];
     if (intelligence.status === "loading") {
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading"><strong data-zhuge-state-status>行情與市場情報讀取中</strong><small data-zhuge-state-detail>正在取得最新可用資料；讀取完成前不顯示猜測值。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待最新資料完成；不需要手動補值。"><strong data-zhuge-state-status>行情與市場情報讀取中</strong><small data-zhuge-state-detail>正在取得最新可用資料；讀取完成前不顯示猜測值。</small></div>`;
     }
     if (!quotes.length && !events.length) {
       if (intelligence.status === "error") {
-        return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error"><strong data-zhuge-state-status>市場情報暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(intelligence.error || "目前沒有可用的行情或事件資料，請稍後再試。"))}</small></div>`;
+        return `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請按重新整理；若仍失敗，再交由管理者處理資料來源。"><strong data-zhuge-state-status>市場情報暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(intelligence.error || "目前沒有可用的行情或事件資料，請稍後再試。"))}</small></div>`;
       }
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable"><strong data-zhuge-state-status>即時情報尚未接通</strong><small data-zhuge-state-detail>目前尚未有 Price／News／Event Engine 資料；這裡不顯示猜測或假行情。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不需處理；可稍後重新整理，或先查看既有持股結果。"><strong data-zhuge-state-status>即時情報尚未接通</strong><small data-zhuge-state-detail>目前尚未有 Price／News／Event Engine 資料；這裡不顯示猜測或假行情。</small></div>`;
     }
     const quoteMarkup = quotes.length
       ? `<div class="investment-quote-grid">${quotes.map(quote => `<article class="investment-quote-card ${quote.available ? "is-available" : "is-unavailable"}"><header><strong>${escape(String(quote.symbol || ""))}</strong><span>${escape(String(quote.market || ""))}</span></header><b>${quote.available ? escape(String(quote.price)) : "目前不可用"}</b><small>${escape(String(quote.currency || ""))} · ${escape(String(quote.source || quote.provider || "無來源"))}</small><small>${quote.asOf ? `as-of ${escape(String(quote.asOf))}` : "尚無 as-of 時間"} · ${escape(String(quote.freshness || "unknown"))}</small></article>`).join("")}</div>`
       : "";
     const eventMarkup = events.length
       ? `<div class="investment-event-list">${events.map(event => `<article><header><span>${escape(String(event.type || "市場事件"))}</span><time>${escape(String(event.occurredAt || event.observedAt || ""))}</time></header><strong>${escape(String(event.title || "未命名事件"))}</strong><p>${escape(String(event.summary || "尚無摘要"))}</p><small>${escape(String(event.source || "無來源"))} · ${escape(String(event.freshness || "unknown"))}</small></article>`).join("")}</div>`
-      : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable"><strong data-zhuge-state-status>新聞／搜尋目前不可用</strong><small data-zhuge-state-detail>未取得可驗證的 Provider evidence；不顯示猜測資料。</small></div>`;
+      : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不需補資料；可稍後重新整理或回到持股頁。"><strong data-zhuge-state-status>新聞／搜尋目前不可用</strong><small data-zhuge-state-detail>未取得可驗證的 Provider evidence；不顯示猜測資料。</small></div>`;
     return `${quoteMarkup}${eventMarkup}`;
   }
 
@@ -291,10 +291,10 @@
     const resultMarkup = result
       ? renderLiveAnalysisCards({ ...state, intelligence: result }, escape, "標的研究結果")
       : research.status === "loading"
-        ? `<div class="investment-panel-empty zhuge-state" data-investment-research-state="loading" data-zhuge-state="loading"><strong data-zhuge-state-status>正在整理標的 Evidence…</strong><small data-zhuge-state-detail>依序取得行情、基本面、ETF／產業／相關標的與分析結果。</small></div>`
+        ? `<div class="investment-panel-empty zhuge-state" data-investment-research-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待研究完成；不需要離開此頁。"><strong data-zhuge-state-status>正在整理標的 Evidence…</strong><small data-zhuge-state-detail>依序取得行情、基本面、ETF／產業／相關標的與分析結果。</small></div>`
         : research.status === "error"
-          ? `<div class="investment-panel-empty zhuge-state" data-investment-research-state="error" data-zhuge-state="error"><strong data-zhuge-state-status>標的研究暫時無法讀取</strong><small data-zhuge-state-detail>${escape(research.error || "目前沒有可用的研究結果，請稍後再試。")}</small></div>`
-          : `<div class="investment-panel-empty zhuge-state" data-investment-research-state="idle" data-zhuge-state="empty"><strong data-zhuge-state-status>輸入代號開始研究</strong><small data-zhuge-state-detail>例如 2330、0050 或 AAPL；資料不足時會明確顯示 INSUFFICIENT_EVIDENCE。</small></div>`;
+          ? `<div class="investment-panel-empty zhuge-state" data-investment-research-state="error" data-zhuge-state="error" data-zhuge-state-action="請按重新整理再試；若持續失敗，保留錯誤訊息交給管理者。"><strong data-zhuge-state-status>標的研究暫時無法讀取</strong><small data-zhuge-state-detail>${escape(research.error || "目前沒有可用的研究結果，請稍後再試。")}</small><button type="button" class="investment-empty-action" data-investment-refresh>重新整理研究</button></div>`
+          : `<div class="investment-panel-empty zhuge-state" data-investment-research-state="idle" data-zhuge-state="empty" data-zhuge-state-action="輸入代號並按開始研究；資料不足時會清楚標示。"><strong data-zhuge-state-status>輸入代號開始研究</strong><small data-zhuge-state-detail>例如 2330、0050 或 AAPL；資料不足時會明確顯示 INSUFFICIENT_EVIDENCE。</small></div>`;
     const status = research.status === "ready"
       ? "已讀回"
       : research.status === "loading"
@@ -322,10 +322,10 @@
     const emptyMarkup = liveMarkup || recordsMarkup
       ? ""
       : intelligenceStatus === "loading"
-        ? `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading"><strong data-zhuge-state-status>諸葛正在整理 Evidence</strong><small data-zhuge-state-detail>正在讀取行情、基本面、ETF／產業／相關標的與分析結果；完成前不補猜結論。</small></div>`
+        ? `<div class="investment-panel-empty zhuge-state" data-investment-state="loading" data-zhuge-state="loading" data-zhuge-state-action="請等待 Evidence 整理完成；不需要手動補寫策略。"><strong data-zhuge-state-status>諸葛正在整理 Evidence</strong><small data-zhuge-state-detail>正在讀取行情、基本面、ETF／產業／相關標的與分析結果；完成前不補猜結論。</small></div>`
         : intelligenceStatus === "error"
-          ? `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error"><strong data-zhuge-state-status>軍師分析暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的分析結果，請稍後再試。"))}</small></div>`
-          : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="insufficient-evidence"><strong data-zhuge-state-status>目前沒有可供分析的 Evidence</strong><small data-zhuge-state-detail>沒有可信資料時，諸葛先生不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
+          ? `<div class="investment-panel-empty zhuge-state" data-investment-state="error" data-zhuge-state="error" data-zhuge-state-action="請重新整理；若持續失敗，先使用個股研究查詢並保留錯誤訊息。"><strong data-zhuge-state-status>軍師分析暫時無法讀取</strong><small data-zhuge-state-detail>${escape(String(state.intelligence?.error || "目前沒有可用的分析結果，請稍後再試。"))}</small></div>`
+          : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="insufficient-evidence" data-zhuge-state-action="目前不替你下結論；可輸入標的開始研究，或稍後再試。"><strong data-zhuge-state-status>目前沒有可供分析的 Evidence</strong><small data-zhuge-state-detail>沒有可信資料時，諸葛先生不產生 Recommendation；User Decision 永遠保留給使用者。</small></div>`;
     return `<div class="investment-advisor-flow">${flow.map(([title, description], index) => `<div class="investment-advisor-step"><b>${index + 1}</b><span><strong>${title}</strong><small>${description}</small></span></div>`).join("")}</div>${liveMarkup}${recordsMarkup}${emptyMarkup}`;
   }
 
@@ -336,7 +336,7 @@
       .sort((left, right) => Math.abs(Number(right.unrealizedPnl || 0)) - Math.abs(Number(left.unrealizedPnl || 0)))
       .slice(0, 4);
     if (!positions.length) {
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="empty" data-zhuge-state="empty"><strong data-zhuge-state-status>目前尚無持股資料</strong><small data-zhuge-state-detail>待 Investment Cloud 讀回可用的 Portfolio／Opening Position 後，這裡會顯示重點持股。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="empty" data-zhuge-state="empty" data-zhuge-state-action="目前不需手動補資料；待 Investment Cloud 讀回後會自動顯示。"><strong data-zhuge-state-status>目前尚無持股資料</strong><small data-zhuge-state-detail>待 Investment Cloud 讀回可用的 Portfolio／Opening Position 後，這裡會顯示重點持股。</small></div>`;
     }
     return `<div class="investment-position-grid">${positions.map(position => dependencies.positionCard.render(position, {
       escape: dependencies.escape,
@@ -370,7 +370,7 @@
     const items = Array.isArray(state.watchlist) ? state.watchlist.slice(0, 4) : [];
     const quotes = Array.isArray(state.intelligence?.quotes) ? state.intelligence.quotes : [];
     if (!items.length) {
-      return `<div class="investment-panel-empty zhuge-state" data-investment-state="empty" data-zhuge-state="empty"><strong data-zhuge-state-status>目前沒有觀察股</strong><small data-zhuge-state-detail>觀察股與實際持股分開保存；加入後會在這裡顯示變化與觀察原因。</small></div>`;
+      return `<div class="investment-panel-empty zhuge-state" data-investment-state="empty" data-zhuge-state="empty" data-zhuge-state-action="可前往觀察股入口新增標的；不會改變目前持股。"><strong data-zhuge-state-status>目前沒有觀察股</strong><small data-zhuge-state-detail>觀察股與實際持股分開保存；加入後會在這裡顯示變化與觀察原因。</small><button type="button" class="investment-empty-action" data-investment-route="portfolio" data-investment-focus="watchlist">前往觀察股</button></div>`;
     }
     const cards = items.map(item => {
       const symbol = String(item.symbol || "").toUpperCase();

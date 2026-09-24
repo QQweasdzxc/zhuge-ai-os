@@ -32,3 +32,14 @@
 }
 .zhuge-state[data-zhuge-state="empty"] [data-zhuge-state-status] { color: var(--zhuge-muted); }
 .zhuge-state [data-zhuge-state-status] { font-weight: 750; }
+
+/* Shared state language: status is visible without relying on colour alone. */
+.zhuge-state{position:relative;grid-template-columns:auto minmax(0,1fr);align-items:start;column-gap:var(--zhuge-space-3)}
+.zhuge-state::before{content:"i";display:grid;place-items:center;width:24px;height:24px;border:1px solid currentColor;border-radius:50%;font-size:.78rem;font-weight:800;line-height:1;opacity:.9}
+.zhuge-state[data-zhuge-state="loading"]::before{content:"…";color:var(--zhuge-warning)}
+.zhuge-state[data-zhuge-state="empty"]::before{content:"—";color:var(--zhuge-muted)}
+.zhuge-state[data-zhuge-state="error"]::before{content:"!";color:var(--zhuge-danger)}
+.zhuge-state[data-zhuge-state="unavailable"]::before,.zhuge-state[data-zhuge-state="insufficient-evidence"]::before{content:"?";color:var(--zhuge-warning)}
+.zhuge-state>:where(strong,h2,h3,p,[data-zhuge-state-detail],[data-zhuge-state-action]){grid-column:2}
+.zhuge-state::after{grid-column:2;content:attr(data-zhuge-state-action);color:var(--zhuge-accent);font-size:var(--zhuge-font-sm)}
+.zhuge-state[data-zhuge-state-action=""]::after{display:none}

@@ -180,3 +180,59 @@
 .shared-task-card-menu-popover button,.shared-task-attachment-menu-popover button{border:0;border-radius:6px;background:transparent;color:#d7e2f2;text-align:left;padding:8px 10px;cursor:pointer;font:inherit;font-size:12px;white-space:nowrap}
 .shared-task-card-menu-popover button:hover,.shared-task-attachment-menu-popover button:hover{background:#223044}.shared-task-card-menu-popover .is-danger,.shared-task-attachment-menu-popover .is-danger{color:#ff9ba5}.shared-task-card-menu-popover .is-danger:hover,.shared-task-attachment-menu-popover .is-danger:hover{background:#3a1d25;color:#fff}
 .shared-task-attachment-note{display:block;margin-top:3px;color:#aeb9c8;font-size:11px;line-height:1.45;overflow-wrap:anywhere;white-space:normal}
+
+/* TASK-091 Desktop UX rework: the drawer is a shared surface.  Keep the
+ * existing dark product theme, but lift panel contrast so task content,
+ * properties and next actions remain readable above the backdrop. */
+.shared-task-drawer-backdrop{background:rgba(4,10,20,.78)}
+.shared-task-drawer-panel{background:#182b44;border-color:#587392;box-shadow:0 24px 80px rgba(0,0,0,.58)}
+.shared-task-drawer-header{background:#1d3553;border-bottom-color:#4b6685}
+.shared-task-drawer-header h2{color:#f4f8fd}
+.shared-task-drawer-kicker{color:#b5c9e0}
+.shared-task-drawer-close{color:#d7e5f4;min-width:44px;min-height:44px}
+.shared-task-drawer-close:hover,.shared-task-drawer-close:focus-visible{color:#fff;background:#294768;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-drawer-meta-wrap{background:#162a43;border-bottom-color:#4b6685}
+.shared-task-drawer-meta-item{border-color:#587392;background:#23405f;color:#edf5fd}
+.shared-task-drawer-meta-item b{color:#b6cbe1}
+.shared-task-drawer-grid{background:#182b44}
+.shared-task-drawer-content{border-right-color:#4b6685;color:#e7f0fa}
+.shared-task-drawer-activity{background:#12263e;color:#e7f0fa}
+.shared-task-drawer-section{border-bottom-color:#496580}
+.shared-task-drawer-section-heading h3{color:#f0f6fc}
+.shared-task-drawer-section-heading span,.shared-task-drawer-activity-badge{color:#b6cbe1}
+.shared-task-drawer-collapsible summary{color:#edf5fd}
+.shared-task-drawer-empty{border-color:#6b87a4;background:#1c3551;color:#c2d4e8}
+.shared-task-drawer-activity>.shared-task-drawer-section-heading{background:#12263e}
+.shared-task-drawer-footer{background:#1d3553;border-top-color:#4b6685}
+.shared-task-drawer-progress-composer-body{background:#1b3451;border-color:#6b8bad;box-shadow:0 8px 28px rgba(0,0,0,.38)}
+.shared-task-progress-composer-trigger{background:#264665;border-color:#7da7d2;color:#f2f7fd}
+.shared-task-progress-composer-trigger:hover,.shared-task-progress-composer-trigger:focus-visible{background:#31577f;border-color:#b0d5ff;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-progress-composer-body textarea,.shared-task-progress-note-editor textarea,.shared-task-property-editor{background:#10233a;border-color:#6b8bad;color:#f1f6fb}
+.shared-task-progress-composer-body textarea:focus,.shared-task-progress-note-editor textarea:focus,.shared-task-property-editor:focus{outline:2px solid rgba(139,193,255,.55);outline-offset:1px}
+.shared-task-progress-composer-body label,.shared-task-progress-note-editor label{color:#e9f2fb}
+.shared-task-progress-composer-body small,.shared-task-progress-file-hint,.shared-task-progress-composer-actions small{color:#b5c9df}
+.shared-task-progress-submit{background:#2a5681;border-color:#8bb9e7;color:#fff}
+.shared-task-progress-submit:hover,.shared-task-progress-submit:focus-visible{background:#3672aa;border-color:#c1e0ff;outline:2px solid #8bc1ff;outline-offset:2px}
+.shared-task-drawer-property{border-color:#587392;background:#213d5b;color:#ecf4fc}
+.shared-task-drawer-property-label,.shared-task-drawer-property-value{color:#e6f0fa}
+.shared-task-drawer-property-label{color:#b6cbe1}
+.shared-task-drawer-property.is-interactive:hover,.shared-task-drawer-property.is-interactive:focus-visible{border-color:#9bcaff;background:#2b4f74;outline:2px solid rgba(139,193,255,.42);outline-offset:1px}
+.shared-task-checklist-item{border-color:#587392;background:#1b3552;color:#edf5fd}
+.shared-task-checklist-item small,.shared-task-checklist-note{color:#b6cbe1}
+.shared-task-checklist-add input{background:#10233a;border-color:#6b8bad;color:#f1f6fb}
+.shared-task-checklist-add button,.shared-task-attachment-add{min-height:40px}
+.shared-task-attachment-dropzone{border-color:#7292b2;background:#1a3552;color:#d2e2f2}
+.shared-task-attachment-dropzone:hover,.shared-task-attachment-dropzone:focus-visible{border-color:#b0d5ff;background:#264a70;outline:2px solid rgba(139,193,255,.42);outline-offset:1px}
+.shared-task-attachment-preview,.shared-task-attachment-artifact{border-color:#587392;background:#152e4a;color:#e6f0fa}
+.shared-task-attachment-copy strong,.shared-task-attachment-copy small{color:#eef5fb}
+.shared-task-attachment-copy small{color:#b6cbe1}
+.shared-task-drawer button:focus-visible,.shared-task-drawer a:focus-visible{outline:2px solid #a9d2ff;outline-offset:2px}
+.shared-task-drawer :is(button,.btn,.btn2,.input,textarea,select){min-height:44px}
+.shared-task-drawer .shared-task-progress-submit,.shared-task-drawer .shared-task-progress-composer-trigger{min-height:44px}
+
+@media(min-width:821px){
+  .shared-task-drawer-panel{width:min(1180px,calc(100vw - 40px))}
+  .shared-task-drawer-header{padding:20px 26px}
+  .shared-task-drawer-meta-wrap{padding:13px 26px}
+  .shared-task-drawer-content,.shared-task-drawer-activity{padding:22px 26px}
+}

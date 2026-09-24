@@ -514,6 +514,45 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 .workspace-worklog .settings-actions .settings-reset-action,.workspace-worklog .settings-actions .settings-logout-action{width:auto;margin:0;min-height:38px;padding:9px 13px}
 .workspace-worklog .settings-version{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;color:#94a3b8;font-size:.75rem}
 .workspace-worklog .settings-version strong{color:#cbd5e1;font-weight:800}
+
+/* TASK-091 shared desktop polish: management, control, settings and
+ * knowledge surfaces share a compact first layer; detail remains expandable. */
+.management-center .control-center-entry-grid{gap:8px}
+.management-center .control-center-entry{min-height:60px;padding:10px 12px;border-radius:12px}
+.management-center .template-management-center{border-radius:14px}
+.template-management-heading,.template-site-map-heading,.template-site-summary-heading,.template-runtime-observability-heading{gap:10px}
+.template-management-status,.template-runtime-observability-error{line-height:1.45}
+.template-management-cards,.template-management-table{font-size:.78rem}
+.template-management-card{border-radius:10px}
+.template-management-card-header{min-height:56px;padding:10px 12px}
+.template-management-card-body{padding:10px 12px}
+.template-management-table-head,.template-management-row{grid-template-columns:minmax(145px,1.15fr) minmax(120px,1fr) minmax(110px,.8fr) minmax(100px,.75fr);gap:8px;padding:8px 10px}
+.template-site-summary-grid,.template-runtime-observability-grid{gap:8px}
+.template-site-summary-grid>div,.template-runtime-observability-entry{padding:8px 10px;border-radius:9px}
+.user-access-management{padding:14px!important;border-radius:14px}
+.user-access-management-heading{margin-bottom:10px}
+.user-access-management-table{max-height:62vh;overflow:auto}
+.control-center-status-column .developer-console,.control-center-status-column .system-info-grid{font-size:.78rem}
+.control-center-status-column .control-grid{gap:8px}
+.workspace-worklog .settings-page-heading{padding-bottom:4px;border-bottom:1px solid rgba(148,163,184,.18)}
+.workspace-worklog .settings-summary-card,.workspace-worklog .settings-preference-card{min-height:58px}
+.workspace-worklog .settings-work-section{order:3}
+.workspace-worklog .settings-ecp-section{order:4}
+.workspace-worklog .settings-actions{order:5}
+.workspace-worklog .library-list{gap:8px}
+.workspace-worklog .library-list .entry{padding:10px 12px;border-radius:10px}
+.workspace-worklog .knowledge-result-list{line-height:1.45}
+.workspace-worklog :is(.btn,.btn2,.input,select,textarea){min-height:44px}
+.workspace-worklog .control-center-entry:focus-visible,.workspace-worklog .settings-page button:focus-visible,.workspace-worklog .library-list button:focus-visible{outline:2px solid #8bc1ff;outline-offset:2px}
+@media(min-width:1024px){
+  .management-center .template-management-center{padding:14px 16px}
+  .workspace-worklog .settings-page{max-width:1060px;margin-left:auto;margin-right:auto}
+}
+@media(max-width:767px){
+  .template-management-table{overflow-x:auto}
+  .template-management-table-head,.template-management-row{min-width:650px}
+  .user-access-management-table{max-height:none;overflow:visible}
+}
 @media(max-width:767px){
   .workspace-worklog .settings-summary-grid,
   .workspace-worklog .settings-preferences,
