@@ -36,6 +36,8 @@ test("SkyEye uses the bounded map overlay contract and lazy CCTV presentation", 
   assert.match(app, /overlayContract\.close/);
   assert.match(app, /overlayContract\.snapPosition/);
   assert.match(app, /renderCctvMedia/);
+  assert.match(app, /qualityLabel/);
+  assert.match(app, /資料品質/);
   assert.match(app, /item\.mode !== "primary" \|\| item\.layerKey !== "cctv"/);
   assert.doesNotMatch(app, /marker\.image_url[\s\S]{0,220}renderSelectedDetail/);
   assert.match(overlay, /MAX_PRIMARY = 1/);
@@ -47,6 +49,7 @@ test("SkyEye uses the bounded map overlay contract and lazy CCTV presentation", 
 
 test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () => {
   const edge = read("supabase/functions/zhuge-skyeye-read/index.ts");
+  const normalizers = read("supabase/functions/zhuge-skyeye-read/normalizers.mjs");
   assert.match(edge, /Deno\.serve/);
   assert.match(edge, /read_only: true/);
   assert.match(edge, /product_data_mutation: false/);
@@ -56,5 +59,14 @@ test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () =
   assert.match(edge, /CWA_API_KEY/);
   assert.match(edge, /MOENV_API_KEY/);
   assert.match(edge, /includeCctv && layers\.includes\("cctv"\)/);
+  assert.match(edge, /PROVIDER_TIMEOUT/);
+  assert.match(edge, /PROVIDER_MALFORMED_RESPONSE/);
+  assert.match(edge, /PROVIDER_NETWORK_ERROR/);
+  assert.match(edge, /INSUFFICIENT_EVIDENCE/);
+  assert.match(edge, /data_quality/);
+  assert.match(normalizers, /freshnessFor/);
+  assert.match(normalizers, /malformed/);
   assert.doesNotMatch(edge, /console\.(log|error|warn)\(/);
+  assert.doesNotMatch(edge, /service_role/i);
+  assert.doesNotMatch(edge, /supabase\.from|\.insert\(|\.update\(|\.delete\(/i);
 });

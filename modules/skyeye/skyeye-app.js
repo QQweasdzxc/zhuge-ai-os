@@ -54,6 +54,11 @@
     return ({ fresh: "新鮮", stale: "較舊", unknown: "時間未明", unavailable: "不可用" })[value] || value;
   }
 
+  function qualityLabel(layer) {
+    const value = text(layer.data_quality, "unavailable");
+    return ({ usable: "可用", stale: "較舊", unverified: "資料待核實", metadata_only: "僅有來源資料", insufficient: "資料不足", unavailable: "不可用" })[value] || value;
+  }
+
   function renderLayerControls() {
     const host = $("[data-skyeye-layers]");
     if (!host) return;
@@ -81,7 +86,7 @@
     const asOf = text(layer.as_of, "未提供時間");
     const freshness = freshnessLabel(layer);
     const status = layer.available ? "可用" : "資料不足，暫不判斷";
-    return `<div class="skyeye-layer-meta"><span><b>來源</b> ${esc(source)}</span><span><b>更新</b> ${esc(asOf)}</span><span><b>新鮮度</b> ${esc(freshness)}</span><span><b>狀態</b> ${esc(status)}</span>${layer.error_code ? `<span><b>原因</b> ${esc(layer.error_code)}</span>` : ""}</div>`;
+    return `<div class="skyeye-layer-meta"><span><b>來源</b> ${esc(source)}</span><span><b>更新</b> ${esc(asOf)}</span><span><b>新鮮度</b> ${esc(freshness)}</span><span><b>資料品質</b> ${esc(qualityLabel(layer))}</span><span><b>狀態</b> ${esc(status)}</span>${layer.error_code ? `<span><b>原因</b> ${esc(layer.error_code)}</span>` : ""}</div>`;
   }
 
   function stageBounds() {

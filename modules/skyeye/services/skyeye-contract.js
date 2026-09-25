@@ -55,6 +55,14 @@
       : [];
     const available = raw.available === true;
     const evidenceStatus = available ? AVAILABLE : INSUFFICIENT;
+    const rawQuality = text(raw.data_quality || raw.dataQuality, 60);
+    const inferredQuality = !available
+      ? "unavailable"
+      : text(raw.freshness, 40) === "unknown"
+        ? "unverified"
+        : raw.stale === true
+          ? "stale"
+          : "usable";
     return Object.freeze({
       key: normalizedKey,
       available,
@@ -66,6 +74,7 @@
       freshness: text(raw.freshness, 40) || "unavailable",
       stale: raw.stale === true,
       evidence_status: evidenceStatus,
+      data_quality: rawQuality || inferredQuality,
       error_code: text(raw.error_code || raw.errorCode, 80),
       markers: Object.freeze(markers),
       overlay: raw.overlay && typeof raw.overlay === "object"

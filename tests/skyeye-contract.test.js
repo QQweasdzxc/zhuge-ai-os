@@ -11,9 +11,10 @@ test("SkyEye normalizes read-only layer evidence and preserves unavailable state
         available: true,
         provider: "CWA",
         source: "Weather station observations",
-        as_of: "2026-09-25T01:00:00.000Z",
-        freshness: "fresh",
-        markers: [{ id: "station-1", label: "臺北", lat: 25.04, lng: 121.56, value: 27.2, unit: "°C" }]
+      as_of: "2026-09-25T01:00:00.000Z",
+      freshness: "fresh",
+      data_quality: "usable",
+      markers: [{ id: "station-1", label: "臺北", lat: 25.04, lng: 121.56, value: 27.2, unit: "°C" }]
       },
       aqi: { available: false, error_code: "CONFIGURATION_UNAVAILABLE" }
     }
@@ -21,7 +22,9 @@ test("SkyEye normalizes read-only layer evidence and preserves unavailable state
   assert.equal(result.read_only, true);
   assert.equal(result.layers.weather.available, true);
   assert.equal(result.layers.weather.markers.length, 1);
+  assert.equal(result.layers.weather.data_quality, "usable");
   assert.equal(result.layers.aqi.evidence_status, "INSUFFICIENT_EVIDENCE");
+  assert.equal(result.layers.aqi.data_quality, "unavailable");
   assert.equal(result.layers.aqi.error_code, "CONFIGURATION_UNAVAILABLE");
 });
 
@@ -47,4 +50,13 @@ test("SkyEye marker normalization rejects coordinates that cannot be placed", ()
   });
   assert.equal(result.markers.length, 1);
   assert.equal(result.markers[0].id, "ok");
+});
+
+test("SkyEye does not label evidence usable when freshness cannot be verified", () => {
+  const result = contract.normalizeLayer("weather", {
+    available: true,
+    freshness: "unknown",
+    markers: [{ id: "station-1", lat: 25, lng: 121 }]
+  });
+  assert.equal(result.data_quality, "unverified");
 });
