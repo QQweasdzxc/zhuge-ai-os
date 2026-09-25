@@ -12,6 +12,7 @@
   const LAYERS = ["weather", "radar", "earthquake", "aqi", "cctv"];
   const LABELS = Object.freeze({ weather: "🌦️ 天氣", radar: "📡 雷達", earthquake: "🌋 地震", aqi: "🍃 空氣品質", cctv: "📹 CCTV" });
   const ICONS = Object.freeze({ weather: "☁", radar: "◌", earthquake: "!", aqi: "A", cctv: "▣" });
+  const overlayContract = root.ZhugeSkyEyeOverlayContract;
   const state = {
     access: null,
     gateway: null,
@@ -21,7 +22,9 @@
     groups: {},
     selected: null,
     loading: false,
-    cctvRequested: false
+    cctvRequested: false,
+    overlayWindows: [],
+    overlayViewportWired: false
   };
 
   const $ = selector => document.querySelector(selector);
@@ -81,6 +84,201 @@
     return `<div class="skyeye-layer-meta"><span><b>來源</b> ${esc(source)}</span><span><b>更新</b> ${esc(asOf)}</span><span><b>新鮮度</b> ${esc(freshness)}</span><span><b>狀態</b> ${esc(status)}</span>${layer.error_code ? `<span><b>原因</b> ${esc(layer.error_code)}</span>` : ""}</div>`;
   }
 
+  function stageBounds() {
+    const stage = $("[data-skyeye-stage]");
+    const rect = stage?.getBoundingClientRect?.();
+    const visualWidth = Number(window.visualViewport?.width) || 0;
+    const visualHeight = Number(window.visualViewport?.height) || 0;
+    const stageWidth = Number(rect?.width) || visualWidth || window.innerWidth || 375;
+    const stageHeight = Number(rect?.height) || visualHeight || window.innerHeight || 667;
+    return {
+      width: Math.max(1, visualWidth ? Math.min(stageWidth, visualWidth) : stageWidth),
+      height: Math.max(1, visualHeight ? Math.min(stageHeight, visualHeight) : stageHeight)
+    };
+  }
+
+  function overlaySafeTop() {
+    const stage = $("[data-skyeye-stage]");
+    const computed = stage ? getComputedStyle(stage) : null;
+    const value = Number.parseFloat(computed?.getPropertyValue("--zhuge-safe-area-top") || "0");
+    return Number.isFinite(value) ? Math.max(12, value) : 12;
+  }
+
+  function overlayCardWidth() {
+    return Math.min(264, Math.max(236, stageBounds().width - 24));
+  }
+
+  function defaultOverlayPosition() {
+    const bounds = stageBounds();
+    return overlayContract.clampPosition({
+      left: bounds.width - overlayCardWidth() - 12,
+      top: overlaySafeTop() + 64
+    }, bounds, { cardWidth: overlayCardWidth(), cardHeight: 260, safeTop: overlaySafeTop() });
+  }
+
+  function overlayItem(id) {
+    return state.overlayWindows.find(item => item.id === id) || null;
+  }
+
+  function renderCctvMedia(item) {
+    if (item.mode !== "primary" || item.layerKey !== "cctv") return "";
+    const marker = item.marker || {};
+    if (marker.image_url) {
+      return `<img class="skyeye-cctv-image skyeye-overlay-media" src="${esc(marker.image_url)}" alt="${esc(marker.label || "CCTV")} 即時影像" loading="eager" referrerpolicy="no-referrer">`;
+    }
+    if (marker.stream_url) {
+      return `<video class="skyeye-cctv-video skyeye-overlay-media" controls playsinline preload="metadata" src="${esc(marker.stream_url)}"><span>目前瀏覽器無法播放此影像。</span></video>`;
+    }
+    return `<p class="skyeye-overlay-unavailable">目前沒有可載入的影像來源。</p>`;
+  }
+
+  function renderOverlayCard(item) {
+    const marker = item.marker || {};
+    const label = text(marker.label, LABELS[item.layerKey] || "資料標記");
+    const layer = layerState(item.layerKey);
+    if (item.mode === "minimized") {
+      return `<button type="button" class="skyeye-minimized-window" data-skyeye-overlay-expand="${esc(item.id)}" aria-label="展開 ${esc(label)} 浮窗"><span aria-hidden="true">${ICONS[item.layerKey] || "•"}</span><span>${esc(label)}</span><small>${esc(freshnessLabel(layer))}</small></button>`;
+    }
+    const position = item.position || defaultOverlayPosition();
+    return `<article class="skyeye-floating-window" data-skyeye-overlay-window="${esc(item.id)}" data-window-state="primary" style="left:${Number(position.left) || 12}px;top:${Number(position.top) || overlaySafeTop()}px" aria-label="${esc(label)} 浮動資料視窗">
+      <div class="skyeye-overlay-handle" data-skyeye-overlay-handle="${esc(item.id)}" role="group" tabindex="0" aria-label="拖曳 ${esc(label)} 浮窗">
+        <span class="skyeye-overlay-title"><span aria-hidden="true">${ICONS[item.layerKey] || "•"}</span><strong>${esc(label)}</strong></span>
+        <span class="skyeye-overlay-actions"><button type="button" data-skyeye-overlay-minimize="${esc(item.id)}" aria-label="縮小 ${esc(label)} 浮窗">−</button><button type="button" data-skyeye-overlay-close="${esc(item.id)}" aria-label="關閉 ${esc(label)} 浮窗">×</button></span>
+      </div>
+      <div class="skyeye-overlay-body">
+        <p class="skyeye-overlay-detail">${esc(marker.detail || "此資料標記沒有更多可驗證描述。")}</p>
+        ${marker.observed_at ? `<small class="skyeye-overlay-observed">觀測 ${esc(marker.observed_at)}</small>` : ""}
+        ${renderCctvMedia(item)}
+        ${renderLayerMeta(layer)}
+        <button type="button" class="skyeye-overlay-detail-button" data-skyeye-overlay-detail="${esc(item.id)}">查看詳細資料</button>
+      </div>
+    </article>`;
+  }
+
+  function renderOverlayWindows() {
+    const host = $("[data-skyeye-overlays]");
+    if (!host || !overlayContract) return;
+    if (!state.overlayWindows.length) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    const primary = state.overlayWindows.filter(item => item.mode === "primary").map(renderOverlayCard).join("");
+    const minimized = state.overlayWindows.filter(item => item.mode === "minimized").map(renderOverlayCard).join("");
+    host.hidden = false;
+    host.innerHTML = `${primary}${minimized ? `<div class="skyeye-minimized-stack" aria-label="已縮小的地圖資料視窗">${minimized}</div>` : ""}`;
+    host.querySelectorAll("button").forEach(button => button.addEventListener("pointerdown", event => event.stopPropagation()));
+    host.querySelectorAll("[data-skyeye-overlay-window], .skyeye-minimized-stack").forEach(node => {
+      node.addEventListener("pointerdown", event => event.stopPropagation());
+    });
+    host.querySelectorAll("[data-skyeye-overlay-minimize]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      minimizeOverlay(button.dataset.skyeyeOverlayMinimize);
+    }));
+    host.querySelectorAll("[data-skyeye-overlay-close]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      closeOverlay(button.dataset.skyeyeOverlayClose);
+    }));
+    host.querySelectorAll("[data-skyeye-overlay-expand]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      expandOverlay(button.dataset.skyeyeOverlayExpand);
+    }));
+    host.querySelectorAll("[data-skyeye-overlay-detail]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      showOverlayDetail(button.dataset.skyeyeOverlayDetail);
+    }));
+    host.querySelectorAll("[data-skyeye-overlay-handle]").forEach(handle => {
+      handle.addEventListener("pointerdown", event => startOverlayDrag(event, handle.dataset.skyeyeOverlayHandle, handle));
+      handle.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showOverlayDetail(handle.dataset.skyeyeOverlayHandle);
+        }
+      });
+    });
+  }
+
+  function openOverlay(marker, layerKey) {
+    if (!overlayContract) return;
+    const current = overlayItem(overlayContract.idFor(marker, layerKey));
+    const outcome = overlayContract.open(state.overlayWindows, marker, layerKey, Date.now(), current?.position || defaultOverlayPosition());
+    state.overlayWindows = outcome.windows;
+    renderOverlayWindows();
+  }
+
+  function minimizeOverlay(id) {
+    if (!overlayContract) return;
+    state.overlayWindows = overlayContract.minimize(state.overlayWindows, id).windows;
+    renderOverlayWindows();
+  }
+
+  function expandOverlay(id) {
+    if (!overlayContract) return;
+    state.overlayWindows = overlayContract.expand(state.overlayWindows, id).windows;
+    renderOverlayWindows();
+    clampOverlayPositions();
+  }
+
+  function closeOverlay(id) {
+    if (!overlayContract) return;
+    state.overlayWindows = overlayContract.close(state.overlayWindows, id);
+    renderOverlayWindows();
+  }
+
+  function showOverlayDetail(id) {
+    const item = overlayItem(id);
+    if (!item) return;
+    state.selected = { marker: item.marker, layerKey: item.layerKey };
+    renderSelectedDetail();
+    const sheet = $("[data-skyeye-sheet]");
+    sheet?.scrollTo?.({ top: sheet.scrollHeight, behavior: "smooth" });
+  }
+
+  function startOverlayDrag(event, id, handle) {
+    if (!overlayContract || event.button !== undefined && event.button !== 0) return;
+    const item = overlayItem(id);
+    const card = handle.closest("[data-skyeye-overlay-window]");
+    if (!item || !card) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { x: event.clientX, y: event.clientY };
+    const origin = { ...(item.position || defaultOverlayPosition()) };
+    const move = nextEvent => {
+      nextEvent.preventDefault();
+      const next = overlayContract.snapPosition({ left: origin.left + nextEvent.clientX - start.x, top: origin.top + nextEvent.clientY - start.y }, stageBounds(), { cardWidth: card.offsetWidth || overlayCardWidth(), cardHeight: card.offsetHeight || 260, safeTop: overlaySafeTop(), snapDistance: 36 });
+      card.style.left = `${next.left}px`;
+      card.style.top = `${next.top}px`;
+    };
+    const end = nextEvent => {
+      document.removeEventListener("pointermove", move);
+      const next = overlayContract.clampPosition({ left: origin.left + nextEvent.clientX - start.x, top: origin.top + nextEvent.clientY - start.y }, stageBounds(), { cardWidth: card.offsetWidth || overlayCardWidth(), cardHeight: card.offsetHeight || 260, safeTop: overlaySafeTop() });
+      state.overlayWindows = overlayContract.setPosition(state.overlayWindows, id, next);
+      renderOverlayWindows();
+    };
+    handle.setPointerCapture?.(event.pointerId);
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", end, { once: true });
+    document.addEventListener("pointercancel", end, { once: true });
+  }
+
+  function clampOverlayPositions() {
+    if (!overlayContract || !state.overlayWindows.length) return;
+    const bounds = stageBounds();
+    state.overlayWindows = state.overlayWindows.map(item => item.mode === "primary"
+      ? { ...item, position: overlayContract.clampPosition(item.position, bounds, { cardWidth: overlayCardWidth(), cardHeight: 260, safeTop: overlaySafeTop() }) }
+      : item);
+    renderOverlayWindows();
+  }
+
+  function wireOverlayViewport() {
+    if (state.overlayViewportWired) return;
+    state.overlayViewportWired = true;
+    window.addEventListener("resize", clampOverlayPositions, { passive: true });
+    window.addEventListener("orientationchange", clampOverlayPositions, { passive: true });
+    window.visualViewport?.addEventListener("resize", clampOverlayPositions, { passive: true });
+    window.visualViewport?.addEventListener("scroll", clampOverlayPositions, { passive: true });
+  }
+
   function renderSelectedDetail() {
     const host = $("[data-skyeye-detail]");
     const close = $("[data-skyeye-detail-close]");
@@ -92,15 +290,15 @@
     }
     const { marker, layerKey } = state.selected;
     const layer = layerState(layerKey);
-    const media = marker.image_url
-      ? `<img class="skyeye-cctv-image" src="${esc(marker.image_url)}" alt="${esc(marker.label)} 即時影像" loading="lazy" referrerpolicy="no-referrer">`
-      : "";
-    const stream = marker.stream_url
-      ? `<p><a href="${esc(marker.stream_url)}" target="_blank" rel="noopener noreferrer">開啟來源影像</a></p>`
-      : "";
-    host.innerHTML = `<strong>${esc(marker.label || "資料標記")}</strong><p>${esc(marker.detail || "此標記沒有更多可驗證描述。")}<br>${esc(marker.observed_at || "未提供觀測時間")}</p>${media}${stream}${renderLayerMeta(layer)}`;
+    const cctv = layerKey === "cctv";
+    const action = `<button type="button" class="skyeye-cctv-cta" data-skyeye-open-overlay="${esc(overlayContract?.idFor(marker, layerKey) || "")}">${cctv ? "在地圖浮窗開啟影像" : "在地圖浮窗查看"}</button>`;
+    host.innerHTML = `<strong>${esc(marker.label || "資料標記")}</strong><p>${esc(marker.detail || "此標記沒有更多可驗證描述。")}<br>${esc(marker.observed_at || "未提供觀測時間")}</p>${cctv ? "<p class=\"skyeye-overlay-note\">只有開啟浮窗時才載入 CCTV 影像；縮小或關閉會停止載入。</p>" : ""}${action}${renderLayerMeta(layer)}`;
     host.hidden = false;
     if (close) close.hidden = false;
+    host.querySelector("[data-skyeye-open-overlay]")?.addEventListener("click", event => {
+      event.stopPropagation();
+      openOverlay(marker, layerKey);
+    });
   }
 
   function markerIcon(layerKey) {
@@ -126,6 +324,7 @@
         item.on("click", () => {
           state.selected = { marker, layerKey };
           renderSelectedDetail();
+          openOverlay(marker, layerKey);
           const sheet = $("[data-skyeye-sheet]");
           sheet?.scrollTo?.({ top: sheet.scrollHeight, behavior: "smooth" });
         });
@@ -214,6 +413,8 @@
     if (gate) { gate.hidden = true; gate.replaceChildren(); }
     if (stage) stage.hidden = false;
     initializeMap();
+    wireOverlayViewport();
+    renderOverlayWindows();
     renderLayerControls();
     renderSummary();
     $("[data-skyeye-refresh]")?.addEventListener("click", () => {

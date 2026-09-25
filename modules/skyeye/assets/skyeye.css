@@ -77,6 +77,104 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 .skyeye-map .leaflet-control-zoom { margin-top: 76px; margin-right: 8px; }
 .skyeye-map .leaflet-control-zoom a { min-width: 40px; min-height: 40px; line-height: 38px; font-size: 1.2rem; }
 .skyeye-map .leaflet-control-attribution { font-size: .62rem; }
+.skyeye-overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--zhuge-layer-shell, 20) + 5);
+  overflow: hidden;
+  pointer-events: none;
+}
+.skyeye-floating-window {
+  position: absolute;
+  width: min(264px, calc(100vw - 24px));
+  max-height: min(46svh, 360px);
+  overflow: auto;
+  border: 1px solid var(--zhuge-border, rgba(255,255,255,.54));
+  border-radius: var(--zhuge-radius-md, 16px);
+  background: var(--zhuge-surface-raised, rgba(7, 17, 31, .94));
+  color: var(--zhuge-text, #eef8ff);
+  box-shadow: var(--zhuge-shadow-overlay, 0 16px 36px rgba(2,6,23,.46));
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+  overscroll-behavior: contain;
+}
+.skyeye-overlay-handle {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.16);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.skyeye-overlay-handle:active { cursor: grabbing; }
+.skyeye-overlay-title { display: inline-flex; min-width: 0; align-items: center; gap: 7px; }
+.skyeye-overlay-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
+.skyeye-overlay-actions { display: inline-flex; flex: 0 0 auto; gap: 2px; }
+.skyeye-overlay-actions button {
+  display: inline-flex;
+  min-width: var(--zhuge-touch-target-min, 44px);
+  min-height: var(--zhuge-touch-target-min, 44px);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #e3f3ff;
+  font-size: 1.12rem;
+}
+.skyeye-overlay-actions button:hover, .skyeye-overlay-actions button:focus-visible { background: rgba(103,232,249,.18); outline: 2px solid #67e8f9; outline-offset: 1px; }
+.skyeye-overlay-body { padding: 10px 11px 12px; touch-action: manipulation; }
+.skyeye-overlay-detail { margin: 0; color: #e0eff8; font-size: .74rem; line-height: 1.45; }
+.skyeye-overlay-observed { display: block; margin-top: 5px; color: #b8cfdf; font-size: .66rem; }
+.skyeye-overlay-body .skyeye-layer-meta { margin-top: 8px; background: rgba(15, 35, 55, .88); }
+.skyeye-overlay-detail-button {
+  width: 100%;
+  min-height: var(--zhuge-touch-target-min, 44px);
+  margin-top: 8px;
+  border: 1px solid rgba(103,232,249,.72);
+  border-radius: var(--zhuge-radius-sm, 10px);
+  background: rgba(14,116,144,.9);
+  color: #fff;
+  font-size: .74rem;
+  font-weight: 800;
+}
+.skyeye-overlay-detail-button:focus-visible { outline: 2px solid #fef08a; outline-offset: 2px; }
+.skyeye-overlay-media { margin-top: 8px; }
+.skyeye-cctv-video { display: block; width: 100%; max-height: 190px; border-radius: 10px; background: #020617; }
+.skyeye-overlay-unavailable, .skyeye-overlay-note { margin: 8px 0 0; color: #f7d58c; font-size: .7rem; line-height: 1.4; }
+.skyeye-minimized-stack {
+  position: absolute;
+  top: max(72px, calc(var(--zhuge-safe-area-top) + 64px));
+  right: 12px;
+  display: flex;
+  max-width: calc(100% - 24px);
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+.skyeye-minimized-window {
+  display: grid;
+  min-width: 0;
+  min-height: var(--zhuge-touch-target-min, 44px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,.52);
+  border-radius: var(--zhuge-radius-pill, 999px);
+  background: var(--zhuge-surface-raised, rgba(7,17,31,.94));
+  color: var(--zhuge-text, #eef8ff);
+  box-shadow: var(--zhuge-shadow-card, 0 10px 24px rgba(2,6,23,.4));
+  font-size: .72rem;
+  text-align: left;
+}
+.skyeye-minimized-window span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skyeye-minimized-window small { color: #b8cfdf; font-size: .62rem; }
+.skyeye-minimized-window:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 .skyeye-marker {
   width: 30px;
   height: 30px;
@@ -154,6 +252,16 @@ body.skyeye-page .skyeye-app { min-width: 0; }
   .skyeye-layer-grid { grid-template-columns: 1fr; }
   .skyeye-topbar h1 { font-size: .95rem; }
   .skyeye-status-pill { max-width: 48vw; }
+  .skyeye-floating-window { width: min(244px, calc(100vw - 20px)); max-height: 42svh; }
+  .skyeye-overlay-body { padding-right: 9px; padding-left: 9px; }
+  .skyeye-overlay-handle { padding-left: 9px; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .skyeye-floating-window { max-height: 38svh; }
+  .skyeye-bottom-sheet { max-height: 46svh; }
+}
+@media (max-height: 500px) {
+  .skyeye-minimized-stack { top: max(60px, calc(var(--zhuge-safe-area-top) + 48px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .skyeye-bottom-sheet, .skyeye-map { scroll-behavior: auto; }

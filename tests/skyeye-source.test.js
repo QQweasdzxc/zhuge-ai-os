@@ -23,6 +23,28 @@ test("SkyEye client requests the read adapter through the Shared Gateway and gat
   assert.doesNotMatch(app, /api_key|TDX_CLIENT_SECRET|CWA_API_KEY|MOENV_API_KEY/);
 });
 
+test("SkyEye uses the bounded map overlay contract and lazy CCTV presentation", () => {
+  const app = read("modules/skyeye/skyeye-app.js");
+  const html = read("modules/skyeye/index.html");
+  const css = read("modules/skyeye/assets/skyeye.css");
+  const overlay = read("modules/skyeye/services/skyeye-overlay-contract.js");
+  assert.match(html, /data-skyeye-overlays/);
+  assert.match(html, /skyeye-overlay-contract\.js/);
+  assert.match(app, /overlayContract\.open/);
+  assert.match(app, /overlayContract\.minimize/);
+  assert.match(app, /overlayContract\.expand/);
+  assert.match(app, /overlayContract\.close/);
+  assert.match(app, /overlayContract\.snapPosition/);
+  assert.match(app, /renderCctvMedia/);
+  assert.match(app, /item\.mode !== "primary" \|\| item\.layerKey !== "cctv"/);
+  assert.doesNotMatch(app, /marker\.image_url[\s\S]{0,220}renderSelectedDetail/);
+  assert.match(overlay, /MAX_PRIMARY = 1/);
+  assert.match(overlay, /MAX_MINIMIZED = 2/);
+  assert.match(css, /\.skyeye-overlay-layer[\s\S]*pointer-events: none/);
+  assert.match(css, /\.skyeye-overlay-handle[\s\S]*touch-action: none/);
+  assert.match(css, /min-height: 44px/);
+});
+
 test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () => {
   const edge = read("supabase/functions/zhuge-skyeye-read/index.ts");
   assert.match(edge, /Deno\.serve/);
