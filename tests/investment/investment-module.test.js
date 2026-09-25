@@ -212,3 +212,10 @@ test("Investment runtime preserves strategy and homework projections after portf
   assert.match(source, /strategyScans:\s*Object\.freeze\(contexts\.map/);
   assert.match(source, /homeworkPacks:\s*Object\.freeze\(contexts\.map/);
 });
+
+test("Investment watchlist research cards support keyboard activation", () => {
+  const source = fs.readFileSync(path.join(ROOT, "modules", "investment", "services", "investment-module.js"), "utf8");
+  assert.match(source, /root\.addEventListener\("keydown", event =>/);
+  assert.match(source, /event\.key !== "Enter" && event\.key !== " "/);
+  assert.match(source, /openResearchForSymbol\(researchTarget\.dataset\.investmentResearchSymbol/);
+});

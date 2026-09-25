@@ -1278,6 +1278,13 @@
         renderPage();
       }
     });
+    root.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const researchTarget = event.target.closest?.("[data-investment-research-symbol]");
+      if (!researchTarget) return;
+      event.preventDefault();
+      openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
+    });
     root.addEventListener("submit", event => {
       const researchForm = event.target.closest("[data-investment-research-form]");
       if (researchForm) {
