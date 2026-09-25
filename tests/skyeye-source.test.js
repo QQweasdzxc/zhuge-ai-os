@@ -70,3 +70,14 @@ test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () =
   assert.doesNotMatch(edge, /service_role/i);
   assert.doesNotMatch(edge, /supabase\.from|\.insert\(|\.update\(|\.delete\(/i);
 });
+
+test("SkyEye CCTV loader keeps one retrieval timestamp binding", () => {
+  const edge = read("supabase/functions/zhuge-skyeye-read/index.ts");
+  const cctvLoader = edge.match(/async function loadCctv\([\s\S]*?(?=\nfunction requestedLayers)/)?.[0];
+  assert.ok(cctvLoader, "loadCctv source must remain discoverable");
+  assert.equal(
+    (cctvLoader.match(/const retrievedAt = new Date\(now\)\.toISOString\(\);/g) || []).length,
+    1,
+    "loadCctv must not redeclare retrievedAt"
+  );
+});
