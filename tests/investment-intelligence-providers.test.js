@@ -7,6 +7,7 @@ const intelligence = require("../modules/investment/services/investment-intellig
 const providers = require("../modules/investment/services/investment-intelligence-providers.js");
 const analysis = require("../modules/investment/services/investment-analysis-service.js");
 const strategyLibrary = require("../modules/investment/services/investment-strategy-library.js");
+const homeworkPack = require("../modules/investment/services/investment-homework-pack.js");
 const calculation = require("../modules/investment/services/portfolio-calculation-service.js");
 
 function responseJson(value, status = 200) {
@@ -165,6 +166,7 @@ test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis
     intelligence,
     analysis,
     strategyLibrary,
+    homeworkPack,
     invokeFunction: async () => ({
       contract: "zhuge-investment-intelligence-edge-v1",
       read_only: true,
@@ -196,6 +198,9 @@ test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis
   assert.equal(result.contexts[0].analysis.marketPhase.status, "AVAILABLE");
   assert.equal(result.contexts[0].analysis.technical.status, "AVAILABLE");
   assert.equal(result.contexts[0].analysis.strategyLibrary.matches[0].status, "AVAILABLE");
+  assert.equal(result.homeworkPacks.length, 1);
+  assert.equal(result.contexts[0].homeworkPack.contract, "zhuge-investment-homework-pack-v1");
+  assert.equal(result.contexts[0].homeworkPack.readOnly, true);
 });
 
 test("Investment Intelligence Edge adapter is read-only and has no Product Data write surface", () => {

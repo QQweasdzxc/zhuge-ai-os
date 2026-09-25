@@ -235,6 +235,21 @@
       <div class="investment-analysis-extra-block">${synthesis.status ? `<div class="investment-analysis-detail-row"><span>多策略綜合研判</span><strong class="is-${escape(analysisStatusClass(synthesis.status))}">${escape(analysisStatusLabel(synthesis.status))}</strong><p>${escape(synthesis.summary || "不替使用者選單一策略。")}</p></div>${renderAnalysisList("支持因素", synthesis.supportingFactors, escape)}${renderAnalysisList("反對因素", synthesis.opposingFactors, escape)}${renderAnalysisList("接下來觀察的條件", synthesis.watchConditions, escape)}${renderAnalysisList("資料不足", synthesis.insufficientEvidence, escape)}${renderAnalysisList("策略衝突", synthesis.conflicts, escape, "目前沒有偵測到方向衝突。")}` : ""}</div>`;
   }
 
+  function renderHomeworkPack(pack, escape) {
+    if (!pack) return "";
+    const status = String(pack.status || "INSUFFICIENT_EVIDENCE");
+    const statusLabel = status === "READY"
+      ? "可開始整理"
+      : status === "PARTIAL"
+        ? "部分資料"
+        : status === "NOT_SELECTED"
+          ? "尚未指定策略"
+          : "資料不足";
+    const items = Array.isArray(pack.homework) ? pack.homework.slice(0, 8) : [];
+    const itemMarkup = items.map(item => `<li><span>${escape(item.label || "觀察項目")}</span><strong>${escape(item.reason || "目前沒有說明")}</strong></li>`).join("");
+    return `<div class="investment-analysis-extra-block" data-investment-homework-pack><div class="investment-analysis-detail-row"><span>研究作業包</span><strong class="is-${escape(analysisStatusClass(status))}">${escape(statusLabel)}</strong><p>只整理既有 Evidence，供你回看與觀察；不自動建立任務、不產生分數。</p></div><div class="investment-analysis-detail-grid"><div class="investment-analysis-detail-row"><span>發生什麼？</span><p>${escape(pack.plainLanguage?.happened || "目前沒有足夠 Evidence 描述發生了什麼。")}</p></div><div class="investment-analysis-detail-row"><span>對我有什麼影響？</span><p>${escape(pack.plainLanguage?.impact || "目前無法判斷持有部位影響。")}</p></div><div class="investment-analysis-detail-row"><span>接下來觀察什麼？</span><p>${escape(pack.plainLanguage?.next || "目前沒有可驗證的觀察條件。")}</p></div></div>${itemMarkup ? `<ul class="investment-analysis-exposure-list">${itemMarkup}</ul>` : ""}</div>`;
+  }
+
   function renderAnalysisDetail(analysis, context, escape) {
     const sectionKeys = ["marketPhase", "technical", "fundamental", "relationships", "strategyLibrary"];
     const sections = sectionKeys.map(key => {
@@ -253,7 +268,7 @@
     const missingMarkup = missing.length
       ? `<div class="investment-analysis-missing"><strong>目前還缺少</strong><span>${escape(missing.map(missingLabel).join("、"))}</span><small>資料不足時不補猜結論。</small></div>`
       : `<div class="investment-analysis-missing is-complete"><strong>目前沒有已知缺口</strong><span>仍只呈現 Evidence，不自動產生買賣建議。</span></div>`;
-    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}${renderStrategyScan(context?.strategyScan, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
+    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}${renderStrategyScan(context?.strategyScan, escape)}${renderHomeworkPack(context?.homeworkPack, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
   }
 
   function renderLiveAnalysisCards(state, escape, heading = "即時軍師分析") {
