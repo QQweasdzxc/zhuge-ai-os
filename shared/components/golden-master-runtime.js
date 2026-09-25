@@ -3884,25 +3884,24 @@
   }
 
   function workflowStudioRuntimeCount(step) {
+    return state.tasks.filter(task => workflowStudioTaskMatchesStep(task, step)).length;
+  }
+
+  function workflowStudioTaskMatchesStep(task, step) {
     const workspaceId = String(step?.workspaceId || "");
-    return state.tasks.filter(task => {
-      const taskWorkspaceId = String(task?.workspaceId || task?.workspace_id || "");
-      const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
-      return taskWorkspaceId === workspaceId || taskStepId === String(step?.id || "");
-    }).length;
+    const taskWorkspaceId = String(task?.workspaceId || task?.workspace_id || "");
+    const stepId = String(step?.id || "");
+    const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
+    // An empty workspace id is not a scope.  Only explicit canonical
+    // workspace/step bindings may place a task in a Workflow Studio node.
+    return (workspaceId && taskWorkspaceId === workspaceId) || (stepId && taskStepId === stepId);
   }
 
   function workflowStudioRuntimeTasks(step) {
-    const workspaceId = String(step?.workspaceId || "");
-    const stepId = String(step?.id || "");
-    return state.tasks.filter(task => {
-      // Presentation only: use explicit canonical task binding fields already
-      // delivered by Board Read Service. Never infer a workflow step from
-      // status, assignee, or a workspace name.
-      const taskWorkspaceId = String(task?.workspaceId || task?.workspace_id || "");
-      const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
-      return taskWorkspaceId === workspaceId || (stepId && taskStepId === stepId);
-    });
+    // Presentation only: use explicit canonical task binding fields already
+    // delivered by Board Read Service. Never infer a workflow step from
+    // status, assignee, or a workspace name.
+    return state.tasks.filter(task => workflowStudioTaskMatchesStep(task, step));
   }
 
   function workflowStudioRuntimeOverlay(step) {
@@ -5088,7 +5087,8 @@
     clone: cloneWorkflowEditor,
     diff: workflowStudioDiff,
     layout: workflowStudioLayout,
-    validate: validateWorkflowEditor
+    validate: validateWorkflowEditor,
+    runtimeTaskMatches: workflowStudioTaskMatchesStep
   });
   root.ZhugeBoardRuntime = Object.freeze({
     refresh: refreshBoard,

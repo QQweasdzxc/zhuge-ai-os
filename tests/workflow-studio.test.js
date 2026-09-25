@@ -22,6 +22,7 @@ test("Workflow Studio exposes canonical visual editing helpers without a second 
   assert.equal(typeof studio.clone, "function");
   assert.equal(typeof studio.diff, "function");
   assert.equal(typeof studio.layout, "function");
+  assert.equal(typeof studio.runtimeTaskMatches, "function");
   const before = {
     name: "工作流程",
     steps: [
@@ -48,6 +49,15 @@ test("Workflow Studio exposes canonical visual editing helpers without a second 
   assert.equal(layout.positions.size, 3);
   assert.ok(layout.width >= 720);
   assert.ok(layout.height >= 230);
+});
+
+test("Workflow Studio does not treat an empty workspace id as a runtime scope", () => {
+  const studio = loadStudio();
+  const unbound = { workspaceId: "", currentWorkflowStepId: "" };
+  const workspaceStep = { id: "step-1", workspaceId: "workspace-1" };
+  assert.equal(studio.runtimeTaskMatches(unbound, workspaceStep), false);
+  assert.equal(studio.runtimeTaskMatches({ workspaceId: "workspace-1" }, workspaceStep), true);
+  assert.equal(studio.runtimeTaskMatches({ currentWorkflowStepId: "step-1" }, workspaceStep), true);
 });
 
 test("Workflow Studio accepts an Optional Workflow with zero connections", () => {
