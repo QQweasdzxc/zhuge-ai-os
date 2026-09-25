@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", readOnly: false, cNativeWorkTodo: false, entryLabel: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, authorityConformance: undefined, workflowEditor: null, workflowModalOpen: false, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", readOnly: false, cNativeWorkTodo: false, entryLabel: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, workflowVersions: [], workflowEditor: null, workflowEditorBase: null, workflowHistory: [], workflowHistoryIndex: -1, workflowModalOpen: false, workflowStudioPositions: new Map(), workflowStudioSelectedStep: "", workflowStudioValidation: null, authorityConformance: undefined, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -3749,6 +3749,206 @@
     };
   }
 
+  // Workflow Studio is a presentation/editor layer over the existing C
+  // workflow capability.  It never becomes a second workflow source of
+  // truth: step/transition payloads still go through the canonical
+  // board_c_workflow_* capability, while canvas positions and undo history
+  // remain local draft UI state.
+  function cloneWorkflowEditor(editor) {
+    return JSON.parse(JSON.stringify(editor || { workflowVersionId: "", name: "", description: "", steps: [], transitions: [] }));
+  }
+
+  function workflowEditorFingerprint(editor) {
+    const value = cloneWorkflowEditor(editor);
+    value.steps = (value.steps || []).map(step => ({ ...step, id: undefined }));
+    value.transitions = (value.transitions || []).map(transition => ({ ...transition, id: undefined }));
+    return JSON.stringify(value);
+  }
+
+  function workflowStudioDiff(before, after) {
+    const left = cloneWorkflowEditor(before);
+    const right = cloneWorkflowEditor(after);
+    const leftSteps = new Map((left.steps || []).map(step => [String(step.stepKey), step]));
+    const rightSteps = new Map((right.steps || []).map(step => [String(step.stepKey), step]));
+    const addedSteps = [...rightSteps.keys()].filter(key => !leftSteps.has(key));
+    const removedSteps = [...leftSteps.keys()].filter(key => !rightSteps.has(key));
+    const changedSteps = [...rightSteps.keys()].filter(key => leftSteps.has(key) && JSON.stringify(leftSteps.get(key)) !== JSON.stringify(rightSteps.get(key)));
+    const transitionKey = item => `${item.fromStepKey}→${item.toStepKey}`;
+    const leftTransitions = new Set((left.transitions || []).map(transitionKey));
+    const rightTransitions = new Set((right.transitions || []).map(transitionKey));
+    return {
+      addedSteps,
+      removedSteps,
+      changedSteps,
+      addedTransitions: [...rightTransitions].filter(key => !leftTransitions.has(key)),
+      removedTransitions: [...leftTransitions].filter(key => !rightTransitions.has(key)),
+      changed: addedSteps.length + removedSteps.length + changedSteps.length + [...rightTransitions].filter(key => !leftTransitions.has(key)).length + [...leftTransitions].filter(key => !rightTransitions.has(key)).length > 0
+    };
+  }
+
+  function workflowStudioLayout(editor) {
+    const steps = Array.isArray(editor?.steps) ? editor.steps : [];
+    const columns = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(Math.max(steps.length, 1)))));
+    const nodeWidth = 208;
+    const nodeHeight = 124;
+    const gapX = 28;
+    const gapY = 42;
+    const positions = new Map();
+    steps.forEach((step, index) => {
+      const key = String(step.stepKey || `step-${index + 1}`);
+      const saved = state.workflowStudioPositions.get(key);
+      positions.set(key, saved || {
+        x: 24 + (index % columns) * (nodeWidth + gapX),
+        y: 24 + Math.floor(index / columns) * (nodeHeight + gapY)
+      });
+    });
+    return {
+      positions,
+      width: Math.max(720, 48 + columns * (nodeWidth + gapX)),
+      height: Math.max(230, 48 + Math.ceil(steps.length / columns) * (nodeHeight + gapY))
+    };
+  }
+
+  function workflowStudioRuntimeCount(step) {
+    const workspaceId = String(step?.workspaceId || "");
+    return state.tasks.filter(task => {
+      const taskWorkspaceId = String(task?.workspaceId || task?.workspace_id || "");
+      const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
+      return taskWorkspaceId === workspaceId || taskStepId === String(step?.id || "");
+    }).length;
+  }
+
+  function workflowStudioPushHistory(editor) {
+    const next = cloneWorkflowEditor(editor);
+    const current = state.workflowHistory[state.workflowHistoryIndex];
+    if (current && workflowEditorFingerprint(current) === workflowEditorFingerprint(next)) {
+      state.workflowEditor = next;
+      return next;
+    }
+    const base = state.workflowHistory.slice(0, state.workflowHistoryIndex + 1);
+    base.push(next);
+    state.workflowHistory = base.slice(-40);
+    state.workflowHistoryIndex = state.workflowHistory.length - 1;
+    state.workflowEditor = next;
+    return next;
+  }
+
+  function workflowStudioResetHistory(editor) {
+    const next = cloneWorkflowEditor(editor);
+    state.workflowHistory = [next];
+    state.workflowHistoryIndex = 0;
+    state.workflowEditor = next;
+    state.workflowEditorBase = cloneWorkflowEditor(next);
+    state.workflowStudioValidation = null;
+  }
+
+  function workflowStudioRestoreHistory(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= state.workflowHistory.length) return;
+    state.workflowHistoryIndex = index;
+    state.workflowEditor = cloneWorkflowEditor(state.workflowHistory[index]);
+    state.workflowStudioValidation = null;
+    renderWorkflowSettingsModal();
+  }
+
+  function workflowStudioCurrent(editor = state.workflowEditor || workflowEditorFromData(state.workflowData)) {
+    return cloneWorkflowEditor(editor);
+  }
+
+  function workflowStudioValidationMarkup() {
+    const result = state.workflowStudioValidation;
+    if (!result) return "<p class=\"workflow-studio-muted\">尚未執行檢查；儲存或發布前仍會由 Canonical Workflow 驗證。</p>";
+    if (result.errors.length) return `<div class="workflow-studio-validation is-error"><strong>目前不能發布</strong><ul>${result.errors.map(error => `<li>${esc(error)}</li>`).join("")}</ul></div>`;
+    return `<div class="workflow-studio-validation is-success"><strong>基本檢查通過</strong><span>流程仍須透過正式儲存／發布 Contract 寫入 Cloud。</span></div>`;
+  }
+
+  function workflowStudioDiffMarkup() {
+    const diff = workflowStudioDiff(state.workflowEditorBase, state.workflowEditor);
+    if (!diff.changed) return "<p class=\"workflow-studio-muted\">相對於目前載入版本，尚未有變更。</p>";
+    const rows = [];
+    if (diff.addedSteps.length) rows.push(`<li>新增階段：${diff.addedSteps.map(esc).join("、")}</li>`);
+    if (diff.removedSteps.length) rows.push(`<li>移除階段：${diff.removedSteps.map(esc).join("、")}</li>`);
+    if (diff.changedSteps.length) rows.push(`<li>調整階段：${diff.changedSteps.map(esc).join("、")}</li>`);
+    if (diff.addedTransitions.length) rows.push(`<li>新增連線：${diff.addedTransitions.map(esc).join("、")}</li>`);
+    if (diff.removedTransitions.length) rows.push(`<li>移除連線：${diff.removedTransitions.map(esc).join("、")}</li>`);
+    return `<ul class="workflow-studio-diff-list">${rows.join("")}</ul>`;
+  }
+
+  function renderWorkflowStudio(editor) {
+    const canvasHost = document.querySelector("[data-workflow-studio-canvas]");
+    const diffHost = document.querySelector("[data-workflow-studio-diff]");
+    const validationHost = document.querySelector("[data-workflow-studio-validation]");
+    const historyHost = document.querySelector("[data-workflow-studio-history]");
+    if (!canvasHost) return;
+    const current = workflowStudioCurrent(editor);
+    const layout = workflowStudioLayout(current);
+    const nodeWidth = 208;
+    const nodeHeight = 124;
+    const nodeByKey = new Map(current.steps.map(step => [String(step.stepKey), step]));
+    const edgeMarkup = (current.transitions || []).map(transition => {
+      const from = layout.positions.get(String(transition.fromStepKey));
+      const to = layout.positions.get(String(transition.toStepKey));
+      if (!from || !to) return "";
+      const x1 = from.x + nodeWidth / 2;
+      const y1 = from.y + nodeHeight;
+      const x2 = to.x + nodeWidth / 2;
+      const y2 = to.y;
+      const bend = Math.max(28, Math.abs(y2 - y1) * 0.36);
+      return `<path class="workflow-studio-edge" d="M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}" marker-end="url(#workflowStudioArrow)"><title>${esc(transition.fromStepKey)} → ${esc(transition.toStepKey)}</title></path>`;
+    }).join("");
+    const nodeMarkup = current.steps.map((step, index) => {
+      const key = String(step.stepKey || `step-${index + 1}`);
+      const position = layout.positions.get(key);
+      const selected = state.workflowStudioSelectedStep === key;
+      const runtimeCount = workflowStudioRuntimeCount(step);
+      const flags = [step.isInitial ? "起始" : "", step.isCompletion ? "完成" : "", step.gateRequired ? "需確認" : ""].filter(Boolean).join(" · ");
+      return `<article class="workflow-studio-node${selected ? " is-selected" : ""}" data-workflow-studio-node data-step-key="${esc(key)}" tabindex="0" role="button" draggable="true" style="left:${position.x}px;top:${position.y}px" aria-label="${esc(step.name || key)}"><div class="workflow-studio-node-title"><span>${index + 1}</span><strong>${esc(step.name || "未命名階段")}</strong></div><small>${esc(workflowRoleLabel(step.roleKey))} · ${esc(workflowWorkspaceLabel(step.workspaceId))}</small><div class="workflow-studio-node-meta"><span>${runtimeCount} 張卡</span>${flags ? `<span>${esc(flags)}</span>` : ""}</div></article>`;
+    }).join("");
+    canvasHost.innerHTML = `<div class="workflow-studio-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="workflow-studio-edges" viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true"><defs><marker id="workflowStudioArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path></marker></defs>${edgeMarkup}</svg><div class="workflow-studio-nodes">${nodeMarkup}</div></div>`;
+    if (diffHost) diffHost.innerHTML = workflowStudioDiffMarkup();
+    if (validationHost) validationHost.innerHTML = workflowStudioValidationMarkup();
+    if (historyHost) {
+      historyHost.innerHTML = `<span>編輯步驟 ${state.workflowHistoryIndex + 1}/${state.workflowHistory.length}</span><button class="btn" type="button" data-workflow-undo${state.workflowHistoryIndex <= 0 ? " disabled" : ""}>復原</button><button class="btn" type="button" data-workflow-redo${state.workflowHistoryIndex >= state.workflowHistory.length - 1 ? " disabled" : ""}>重做</button>`;
+    }
+    canvasHost.querySelectorAll("[data-workflow-studio-node]").forEach(node => {
+      const selectNode = () => {
+        state.workflowStudioSelectedStep = String(node.dataset.stepKey || "");
+        renderWorkflowStudio(state.workflowEditor);
+      };
+      node.addEventListener("click", selectNode);
+      node.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectNode(); } });
+      node.addEventListener("dragstart", event => {
+        event.dataTransfer?.setData("text/plain", String(node.dataset.stepKey || ""));
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+      });
+    });
+    canvasHost.querySelector(".workflow-studio-canvas")?.addEventListener("dragover", event => event.preventDefault());
+    canvasHost.querySelector(".workflow-studio-canvas")?.addEventListener("drop", event => {
+      event.preventDefault();
+      const key = event.dataTransfer?.getData("text/plain");
+      if (!key) return;
+      const canvas = event.currentTarget;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.max(12, Math.round(event.clientX - rect.left - nodeWidth / 2));
+      const y = Math.max(12, Math.round(event.clientY - rect.top - nodeHeight / 2));
+      state.workflowStudioPositions.set(key, { x, y });
+      renderWorkflowStudio(state.workflowEditor);
+    });
+  }
+
+  function workflowStudioStepOptions(editor, selected = "") {
+    return (editor?.steps || []).map(step => `<option value="${esc(step.stepKey)}"${String(step.stepKey) === String(selected) ? " selected" : ""}>${esc(step.name || step.stepKey)}</option>`).join("");
+  }
+
+  function workflowStudioVersionMarkup(readOnly) {
+    const versions = Array.isArray(state.workflowVersions) ? state.workflowVersions : [];
+    if (!versions.length) return "<p class=\"workflow-studio-muted\">尚未讀取版本歷史。</p>";
+    return versions.map(version => {
+      const current = String(version.id || "") === String(state.workflowData?.published?.id || state.workflowData?.draft?.id || "");
+      const label = `v${Number(version.versionNo || 0) || "?"} · ${version.status === "published" ? "已發布" : "草稿"}`;
+      return `<div class="workflow-version-row${current ? " is-current" : ""}"><div><strong>${esc(label)}</strong><small>${esc(version.name || "未命名流程")}</small></div><button class="btn" type="button" data-workflow-load-version="${esc(version.id)}"${readOnly ? " disabled" : ""}>載入草稿</button></div>`;
+    }).join("");
+  }
+
   function workflowModalStatus(text = "", kind = "") {
     state.workflowEditorStatus = { text: String(text || ""), kind: String(kind || "") };
     const host = document.querySelector("[data-workflow-status]");
@@ -3804,7 +4004,7 @@
     const editor = state.workflowEditor || workflowEditorFromData(state.workflowData);
     state.workflowEditor = editor;
     const status = state.workflowEditorStatus || { text: "", kind: "" };
-    return `<div class="workflow-settings-backdrop" data-workflow-settings-backdrop><section class="workflow-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workflowSettingsTitle"><header><div><span class="workflow-settings-eyebrow">MODULE C · ${readOnly ? "唯讀" : "WORKFLOW CAPABILITY"}</span><h2 id="workflowSettingsTitle">流程設定</h2><p>用一眼看懂的方式設定「這張子板的工作怎麼走」。</p></div><button class="workflow-settings-close" type="button" data-workflow-close aria-label="關閉流程設定">×</button></header><div class="workflow-settings-status" data-workflow-status data-state="${esc(status.kind)}"${status.text ? "" : " hidden"}>${esc(status.text)}</div><div class="workflow-settings-layout"><aside class="workflow-settings-preview-panel"><h3>流程預覽</h3><p>每個階段對應一個工作區；卡片會依這張子板已發布的流程執行。</p><div class="workflow-preview" data-workflow-preview></div><details class="workflow-technical-details"><summary>技術詳細資料</summary><dl><dt>Canonical Contract</dt><dd>${esc(workflow?.contract?.id || "module-c-lifecycle-acceptance-v2")}</dd><dt>Board Instance</dt><dd>${esc(state.boardInstanceId || "尚未讀取")}</dd><dt>Published Version</dt><dd>${esc(state.workflowData?.state?.publishedWorkflowVersionId || state.workflowData?.published?.id || "尚未發布")}</dd></dl></details></aside><main class="workflow-settings-editor"><div class="workflow-settings-section-heading"><div><h3>工作階段</h3><p>拖曳前可先把階段名稱、負責人、工作區與完成條件設定清楚。</p></div><button class="btn" type="button" data-workflow-add-step${readOnly ? " disabled" : ""}>＋ 新增階段</button></div><div class="workflow-definition-fields"><label><span>流程名稱</span><input type="text" data-workflow-definition="name" value="${esc(editor.name)}" maxlength="80" placeholder="例如：一般工作流程"${readOnly ? " disabled" : ""}></label><label><span>流程說明（選填）</span><textarea data-workflow-definition="description" maxlength="240" placeholder="簡單說明這張子板的工作如何完成"${readOnly ? " disabled" : ""}>${esc(editor.description)}</textarea></label></div><div class="workflow-step-list" data-workflow-step-list>${editor.steps.map((step, index) => renderWorkflowStepEditor(step, index, editor, readOnly)).join("")}</div><div class="workflow-settings-section-heading workflow-transition-heading"><div><h3>合法流程轉換</h3><p>勾選 PM 可以直接做的決定；不要求先經過其他工作區。</p></div></div><div class="workflow-transition-list" data-workflow-transition-list>${renderWorkflowTransitionEditor(editor, readOnly)}</div></main></div><footer><span class="workflow-unsaved-note" data-workflow-unsaved-note></span><button class="btn" type="button" data-workflow-close>取消</button>${readOnly ? "" : "<button class=\"btn\" type=\"button\" data-workflow-save>儲存草稿</button><button class=\"btn primary\" type=\"button\" data-workflow-publish>儲存並發布</button>"}</footer></section></div>`;
+    return `<div class="workflow-settings-backdrop" data-workflow-settings-backdrop><section class="workflow-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workflowSettingsTitle"><header><div><span class="workflow-settings-eyebrow">MODULE C · ${readOnly ? "唯讀" : "WORKFLOW CAPABILITY"}</span><h2 id="workflowSettingsTitle">流程設定</h2><p>用一眼看懂的方式設定「這張子板的工作怎麼走」。</p></div><button class="workflow-settings-close" type="button" data-workflow-close aria-label="關閉流程設定">×</button></header><div class="workflow-settings-status" data-workflow-status data-state="${esc(status.kind)}"${status.text ? "" : " hidden"}>${esc(status.text)}</div><section class="workflow-studio-panel" aria-labelledby="workflowStudioTitle"><div class="workflow-studio-heading"><div><span class="workflow-studio-eyebrow">CANONICAL WORKFLOW VIEW</span><h3 id="workflowStudioTitle">流程畫布</h3><p>節點與箭頭只是可視化編輯層；儲存與發布仍由 Module C 正式 Contract 驗證。</p></div><div class="workflow-studio-history" data-workflow-studio-history></div></div><div class="workflow-studio-toolbar"><button class="btn" type="button" data-workflow-validate${readOnly ? " disabled" : ""}>檢查流程</button><label><span>從</span><select data-workflow-connect-from${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><span class="workflow-studio-arrow-label" aria-hidden="true">→</span><label><span>到</span><select data-workflow-connect-to${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><button class="btn" type="button" data-workflow-connect${readOnly ? " disabled" : ""}>新增連線</button></div><div class="workflow-studio-canvas-host" data-workflow-studio-canvas></div><div class="workflow-studio-lower-grid"><section><h4>變更預覽</h4><div data-workflow-studio-diff></div></section><section><h4>發布前檢查</h4><div data-workflow-studio-validation></div></section></div></section><div class="workflow-settings-layout"><aside class="workflow-settings-preview-panel"><h3>流程摘要</h3><p>每個階段對應一個工作區；卡片會依這張子板已發布的流程執行。</p><div class="workflow-preview" data-workflow-preview></div><details class="workflow-technical-details"><summary>版本歷史／回復</summary><div class="workflow-version-history" data-workflow-version-history>${workflowStudioVersionMarkup(readOnly)}</div><small>載入版本只會建立本地草稿；儲存或發布仍需由下方正式按鈕明確執行。</small></details><details class="workflow-technical-details"><summary>技術詳細資料</summary><dl><dt>Canonical Contract</dt><dd>${esc(workflow?.contract?.id || "module-c-lifecycle-acceptance-v2")}</dd><dt>Board Instance</dt><dd>${esc(state.boardInstanceId || "尚未讀取")}</dd><dt>Published Version</dt><dd>${esc(state.workflowData?.state?.publishedWorkflowVersionId || state.workflowData?.published?.id || "尚未發布")}</dd></dl></details></aside><main class="workflow-settings-editor"><div class="workflow-settings-section-heading"><div><h3>工作階段</h3><p>可在畫布上拖曳節點整理閱讀順序；欄位修改仍會回到同一份草稿。</p></div><button class="btn" type="button" data-workflow-add-step${readOnly ? " disabled" : ""}>＋ 新增階段</button></div><div class="workflow-definition-fields"><label><span>流程名稱</span><input type="text" data-workflow-definition="name" value="${esc(editor.name)}" maxlength="80" placeholder="例如：一般工作流程"${readOnly ? " disabled" : ""}></label><label><span>流程說明（選填）</span><textarea data-workflow-definition="description" maxlength="240" placeholder="簡單說明這張子板的工作如何完成"${readOnly ? " disabled" : ""}>${esc(editor.description)}</textarea></label></div><div class="workflow-step-list" data-workflow-step-list>${editor.steps.map((step, index) => renderWorkflowStepEditor(step, index, editor, readOnly)).join("")}</div><div class="workflow-settings-section-heading workflow-transition-heading"><div><h3>合法流程轉換</h3><p>勾選 PM 可以直接做的決定；不要求先經過其他工作區。</p></div></div><div class="workflow-transition-list" data-workflow-transition-list>${renderWorkflowTransitionEditor(editor, readOnly)}</div></main></div><footer><span class="workflow-unsaved-note" data-workflow-unsaved-note></span><button class="btn" type="button" data-workflow-close>取消</button>${readOnly ? "" : "<button class=\"btn\" type=\"button\" data-workflow-save>儲存草稿</button><button class=\"btn primary\" type=\"button\" data-workflow-publish>儲存並發布</button>"}</footer></section></div>`;
   }
 
   function renderWorkflowSettingsModal() {
@@ -3818,6 +4018,7 @@
     host.hidden = false;
     host.style.display = "block";
     renderWorkflowPreview(state.workflowEditor || workflowEditorFromData(state.workflowData));
+    renderWorkflowStudio(state.workflowEditor || workflowEditorFromData(state.workflowData));
     bindWorkflowSettingsModal(host);
   }
 
@@ -3945,7 +4146,8 @@
     if (!workflow || workflow.readOnly === true) return;
     const editor = collectWorkflowEditor();
     const errors = validateWorkflowEditor(editor);
-    if (errors.length) { state.workflowEditor = editor; renderWorkflowSettingsModal(); workflowModalStatus(errors.join(" "), "error"); return; }
+    state.workflowStudioValidation = { errors, warnings: [] };
+    if (errors.length) { workflowStudioPushHistory(editor); renderWorkflowSettingsModal(); workflowModalStatus(errors.join(" "), "error"); return; }
     state.workflowEditor = editor;
     const request = workflowPayload(editor);
     const keyBase = `${state.boardInstanceId || "board"}-${Date.now()}`;
@@ -3961,6 +4163,15 @@
         state.workflowData = result;
       }
       state.workflowEditor = workflowEditorFromData(state.workflowData);
+      workflowStudioResetHistory(state.workflowEditor);
+      try {
+        const versionResult = await workflow.listVersions?.();
+        state.workflowVersions = Array.isArray(versionResult?.versions) ? versionResult.versions : state.workflowVersions;
+      } catch (_error) {
+        // Version history is additive UI evidence.  A temporary history read
+        // failure must not turn an otherwise successful canonical save into a
+        // second write path or a false success state.
+      }
       workflowModalStatus(publish ? "流程已發布；新的卡片會依這個版本執行，既有卡片不會被自動改寫。" : "流程草稿已儲存；尚未影響目前已發布版本。", "success");
       await refreshBoard({ quiet: true });
       renderWorkflowSettingsModal();
@@ -3975,11 +4186,52 @@
   function bindWorkflowSettingsModal(host) {
     host.querySelectorAll("[data-workflow-close]").forEach(button => button.addEventListener("click", closeWorkflowSettings));
     host.querySelector("[data-workflow-settings-backdrop]")?.addEventListener("click", event => { if (event.target === event.currentTarget) closeWorkflowSettings(); });
+    host.querySelector("[data-workflow-validate]")?.addEventListener("click", () => {
+      const editor = collectWorkflowEditor();
+      const errors = validateWorkflowEditor(editor);
+      state.workflowEditor = editor;
+      state.workflowStudioValidation = { errors, warnings: [] };
+      renderWorkflowStudio(editor);
+      workflowModalStatus(errors.length ? errors.join(" ") : "基本檢查通過；正式 Cloud validation 仍以儲存／發布 Contract 為準。", errors.length ? "error" : "success");
+    });
+    host.querySelector("[data-workflow-undo]")?.addEventListener("click", () => workflowStudioRestoreHistory(state.workflowHistoryIndex - 1));
+    host.querySelector("[data-workflow-redo]")?.addEventListener("click", () => workflowStudioRestoreHistory(state.workflowHistoryIndex + 1));
+    host.querySelectorAll("[data-workflow-definition], [data-workflow-field]").forEach(field => field.addEventListener("change", () => {
+      workflowStudioPushHistory(collectWorkflowEditor());
+      renderWorkflowSettingsModal();
+    }));
+    host.querySelectorAll("[data-workflow-transition=\"true\"]").forEach(field => field.addEventListener("change", () => {
+      workflowStudioPushHistory(collectWorkflowEditor());
+      renderWorkflowSettingsModal();
+    }));
+    host.querySelector("[data-workflow-connect]")?.addEventListener("click", () => {
+      const editor = collectWorkflowEditor();
+      const fromStepKey = String(host.querySelector("[data-workflow-connect-from]")?.value || "");
+      const toStepKey = String(host.querySelector("[data-workflow-connect-to]")?.value || "");
+      if (!fromStepKey || !toStepKey || fromStepKey === toStepKey) {
+        workflowModalStatus("請選擇不同的起點與終點；未新增流程連線。", "error");
+        return;
+      }
+      if (!editor.transitions.some(item => item.fromStepKey === fromStepKey && item.toStepKey === toStepKey)) {
+        const target = editor.steps.find(step => step.stepKey === toStepKey);
+        editor.transitions.push({ transitionKey: `${fromStepKey}_to_${toStepKey}`.slice(0, 64), fromStepKey, toStepKey, allowedRoles: ["pm"], requiresGate: Boolean(target?.gateRequired || target?.isCompletion) });
+        workflowStudioPushHistory(editor);
+        renderWorkflowSettingsModal();
+        workflowModalStatus("已新增本地連線；儲存草稿或發布後才會寫入 Canonical Workflow。", "success");
+      } else workflowModalStatus("這條連線已存在。", "loading");
+    });
+    host.querySelectorAll("[data-workflow-load-version]").forEach(button => button.addEventListener("click", () => {
+      const version = state.workflowVersions.find(item => String(item.id) === String(button.dataset.workflowLoadVersion || ""));
+      if (!version) return;
+      workflowStudioPushHistory(workflowEditorFromData({ published: version }));
+      renderWorkflowSettingsModal();
+      workflowModalStatus("已載入選定版本作為本地草稿；尚未寫入或發布。", "success");
+    }));
     host.querySelector("[data-workflow-add-step]")?.addEventListener("click", () => {
       const editor = collectWorkflowEditor();
       editor.steps.push({ stepKey: `step-${editor.steps.length + 1}`, name: "新階段", sortOrder: editor.steps.length, roleKey: "pm", workspaceId: workflowDefaultWorkspace(), statusKey: "inprogress", isInitial: false, isCompletion: false, gateRequired: false, evidenceLabel: "" });
       editor.transitions = workflowDefaultTransitions(editor.steps);
-      state.workflowEditor = editor;
+      workflowStudioPushHistory(editor);
       renderWorkflowSettingsModal();
     });
     host.querySelectorAll("[data-workflow-step-up], [data-workflow-step-down], [data-workflow-step-delete]").forEach(button => button.addEventListener("click", () => {
@@ -3994,22 +4246,33 @@
         editor.steps.forEach((step, order) => { step.sortOrder = order; });
       } else if (editor.steps.length > 2) editor.steps.splice(index, 1);
       editor.transitions = editor.transitions.filter(item => editor.steps.some(step => step.stepKey === item.fromStepKey) && editor.steps.some(step => step.stepKey === item.toStepKey));
-      state.workflowEditor = editor;
+      workflowStudioPushHistory(editor);
       renderWorkflowSettingsModal();
     }));
     host.querySelector("[data-workflow-save]")?.addEventListener("click", () => saveWorkflowSettings({ publish: false }));
     host.querySelector("[data-workflow-publish]")?.addEventListener("click", () => saveWorkflowSettings({ publish: true }));
     renderWorkflowPreview(state.workflowEditor || workflowEditorFromData(state.workflowData));
+    renderWorkflowStudio(state.workflowEditor || workflowEditorFromData(state.workflowData));
   }
 
   async function openWorkflowSettings() {
     state.workflowModalOpen = true;
     state.workflowEditorStatus = { text: "", kind: "" };
+    state.workflowStudioValidation = null;
+    state.workflowVersions = [];
+    workflowStudioResetHistory(workflowEditorFromData(state.workflowData));
     renderWorkflowSettingsModal();
     try {
       const workflow = state.workflowCapability || activeService()?.workflow;
       if (workflow?.get) state.workflowData = await workflow.get({ includeDraft: workflow.readOnly !== true });
       state.workflowEditor = workflowEditorFromData(state.workflowData);
+      workflowStudioResetHistory(state.workflowEditor);
+      try {
+        const versionResult = await workflow?.listVersions?.();
+        state.workflowVersions = Array.isArray(versionResult?.versions) ? versionResult.versions : [];
+      } catch (_error) {
+        state.workflowVersions = [];
+      }
       renderWorkflowSettingsModal();
     } catch (error) {
       workflowModalStatus(error?.message || "流程設定讀取失敗；目前未修改雲端資料。", "error");
@@ -4697,6 +4960,13 @@
     }
     renderAccessError(access.code === "CAPABILITY_REQUIRED" ? "目前登入帳號沒有 AI Board 管理權限。" : "目前帳號尚未通過 AI Board 安全檢查。\n");
   }
+  // Expose only pure Workflow Studio inspection helpers for developer QA and
+  // browser contract tests.  Cloud writes remain behind ZhugeBoardReadService.
+  root.ZhugeWorkflowStudio = Object.freeze({
+    clone: cloneWorkflowEditor,
+    diff: workflowStudioDiff,
+    layout: workflowStudioLayout
+  });
   root.ZhugeBoardRuntime = Object.freeze({
     refresh: refreshBoard,
     openTaskDetail: openTaskDetail,
@@ -4728,6 +4998,8 @@
         workflowContract: workflow?.contract ? JSON.parse(JSON.stringify(workflow.contract)) : null,
         workflowCapabilities: workflow?.capabilities ? JSON.parse(JSON.stringify(workflow.capabilities)) : {},
         workflow: state.workflowData ? JSON.parse(JSON.stringify(state.workflowData)) : null,
+        workflowVersions: state.workflowVersions.map(version => JSON.parse(JSON.stringify(version))),
+        workflowEditor: state.workflowEditor ? JSON.parse(JSON.stringify(state.workflowEditor)) : null,
         templateRelease: state.templateRelease ? JSON.parse(JSON.stringify(state.templateRelease)) : null,
         authorityConformance: state.authorityConformance ? JSON.parse(JSON.stringify(state.authorityConformance)) : null,
         workspaces: state.workspaces.slice(),

@@ -1569,6 +1569,26 @@
     });
     const rpc = async (name, args = {}) => gateway.rpc(name, { ...(args || {}), p_board_instance_id: await boardInstanceId() });
     const get = async (options = {}) => normalizeWorkflowResult(await rpc("board_c_workflow_get", { p_include_draft: options.includeDraft === true && !readOnly }));
+    const listVersions = async () => {
+      const instanceId = await boardInstanceId();
+      const definitions = await gateway.select(
+        "board_workflow_definitions",
+        `?select=id,board_instance_id,version_no,name,description,status,based_on_workflow_version_id,created_by,published_by,created_at,updated_at,published_at,retired_at&board_instance_id=eq.${encodeURIComponent(instanceId)}&order=version_no.desc`
+      );
+      const versions = await Promise.all((Array.isArray(definitions) ? definitions : []).map(async definition => {
+        const versionId = encodeURIComponent(definition.id);
+        const [steps, transitions, gates] = await Promise.all([
+          gateway.select("board_workflow_steps", `?select=id,workflow_version_id,step_key,name,sort_order,role_key,workspace_id,status_key,is_initial,is_completion&workflow_version_id=eq.${versionId}&order=sort_order.asc`),
+          gateway.select("board_workflow_transitions", `?select=id,workflow_version_id,transition_key,from_step_id,to_step_id,allowed_roles,requires_gate&workflow_version_id=eq.${versionId}&order=transition_key.asc`),
+          gateway.select("board_workflow_gates", `?select=id,workflow_version_id,step_id,step_key,gate_key,name,required,human_action_required,completion_role,failure_policy,sort_order&workflow_version_id=eq.${versionId}&order=sort_order.asc,gate_key.asc`)
+        ]);
+        const evidence = (Array.isArray(gates) ? gates : []).length
+          ? (await Promise.all(gates.map(gate => gateway.select("board_workflow_evidence_requirements", `?select=id,gate_id,gate_key,evidence_key,label,required,source_kind,sort_order&gate_id=eq.${encodeURIComponent(gate.id)}&order=sort_order.asc,evidence_key.asc`)))).flat()
+          : [];
+        return normalizeWorkflowDefinition({ ...definition, steps, transitions, gates, evidence_requirements: evidence });
+      }));
+      return { boardInstanceId: instanceId, versions };
+    };
     const saveDraft = async (input = {}) => {
       assertWritable();
       // The canonical RPC accepts its persisted snake_case contract.  Keep
@@ -1761,6 +1781,7 @@
       resolveBoardInstance,
       boardInstanceId,
       get,
+      listVersions,
       saveDraft,
       validateDraft,
       publish,
