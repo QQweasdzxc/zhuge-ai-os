@@ -122,6 +122,48 @@
     return `line-task-v1:${event}:${action}`.slice(0, 240);
   }
 
+  function commandState(command) {
+    return Object.freeze({
+      create_task: "unassigned",
+      accept_task: "assigned",
+      set_progress: "in_progress",
+      mark_blocked: "blocked",
+      mark_delayed: "delayed",
+      complete_task: "completed"
+    })[command] || "unassigned";
+  }
+
+  function commandEvidence(value, command, progress) {
+    const reason = text(value.reason || value.blockReason || value.delayReason, 500);
+    const dueAt = text(value.dueAt || value.due_at, 80);
+    if (command === "set_progress" && !progress) {
+      const error = new Error("LINE progress update requires an explicit progress value.");
+      error.code = "LINE_PROGRESS_REQUIRED";
+      throw error;
+    }
+    if (command === "mark_blocked" && !reason) {
+      const error = new Error("A blocked Task requires an explicit reason.");
+      error.code = "LINE_BLOCK_REASON_REQUIRED";
+      throw error;
+    }
+    if (command === "mark_delayed" && (!reason || !dueAt)) {
+      const error = new Error("A delayed Task requires an explicit reason and due date.");
+      error.code = "LINE_DELAY_EVIDENCE_REQUIRED";
+      throw error;
+    }
+    if (command === "mark_delayed" && !Number.isFinite(Date.parse(dueAt))) {
+      const error = new Error("A delayed Task requires a valid due date.");
+      error.code = "LINE_DELAY_DATE_INVALID";
+      throw error;
+    }
+    if (command === "complete_task" && progress?.value !== 100) {
+      const error = new Error("A completed Task requires explicit 100% progress.");
+      error.code = "LINE_COMPLETION_PROGRESS_REQUIRED";
+      throw error;
+    }
+    return Object.freeze({ reason, dueAt });
+  }
+
   function requireVerifiedEvent(event) {
     if (!event?.accepted || event.identity?.verified !== true) {
       const error = new Error("Verified LINE event is required before a canonical Task command can be created.");
@@ -159,6 +201,7 @@
       error.allowed = progress.allowed;
       throw error;
     }
+    const evidence = commandEvidence(value, command, progress);
     const taskId = first(value.taskId, "");
     if (command !== "create_task" && !taskId) {
       const error = new Error("Existing canonical task id is required for this LINE command.");
@@ -170,8 +213,12 @@
       task_id: taskId || null,
       title: command === "create_task" ? text(value.title, 240) : null,
       content: command === "create_task" ? text(value.content, 4000) : null,
-      state: normalizeState(value.state, command === "complete_task" ? "completed" : "assigned"),
+      // LINE may request a command, but it never chooses the resulting state.
+      // The canonical command itself is the only state transition selector.
+      state: commandState(command),
       progress: progress ? progress.value : null,
+      reason: evidence.reason || null,
+      due_at: evidence.dueAt || null,
       source: "line",
       line_subject_type: event.identity.subjectType
     };

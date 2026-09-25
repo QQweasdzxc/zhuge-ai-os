@@ -46,6 +46,12 @@ provider credential belongs in the browser or a Flex message.
 | `delayed` | 延期 | 提供新預計時間 | requires an explicit reason/date in the canonical path |
 | `completed` | 完成 | 查看紀錄 | no further progress mutation |
 
+The transport cannot choose a different state by sending a `state` field. The
+allowlisted command determines the canonical target state. `mark_blocked`
+requires a reason, `mark_delayed` requires a reason plus a valid `due_at`, and
+`complete_task` requires explicit `progress = 100`; missing evidence fails
+before the canonical RPC boundary.
+
 Reminders are notifications, not state authority. A future Messaging API
 adapter must call a bounded, server-side sender with a provider-specific
 idempotency key and must not write `board_tasks` directly.

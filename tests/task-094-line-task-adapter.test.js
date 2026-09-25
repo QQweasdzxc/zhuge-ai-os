@@ -44,6 +44,7 @@ test("canonical command requires server-resolved identity and Board scope", () =
   assert.equal(command.persistence, "server-only");
   assert.equal(command.idempotencyKey, "line-task-v1:evt-094-001:set_progress");
   assert.equal(command.payload.progress, 50);
+  assert.equal(command.payload.state, "in_progress");
 });
 
 test("create_task and non-create commands have bounded allowlists", () => {
@@ -61,7 +62,7 @@ test("create_task and non-create commands have bounded allowlists", () => {
     event, command: "delete_task", resolvedUserId: "u", boardInstanceId: "b", taskId: "t"
   }), error => error.code === "LINE_COMMAND_NOT_ALLOWED");
   assert.throws(() => adapter.canonicalCommand({
-    event, command: "complete_task", resolvedUserId: "u", boardInstanceId: "b"
+    event, command: "complete_task", resolvedUserId: "u", boardInstanceId: "b", progress: 100
   }), error => error.code === "LINE_TASK_ID_REQUIRED");
 });
 
@@ -79,3 +80,79 @@ test("LINE adapter uses deterministic event idempotency and does not accept arbi
   assert.equal(adapter.idempotencyKey("", "accept_task"), "");
 });
 
+test("LINE commands derive state from the allowlisted command, not user input", () => {
+  const event = verifiedEvent({ webhookEventId: "evt-094-state" });
+  const command = adapter.canonicalCommand({
+    event,
+    command: "accept_task",
+    state: "completed",
+    resolvedUserId: "authenticated-user-uuid",
+    boardInstanceId: "board-instance-uuid",
+    taskId: "task-uuid"
+  });
+  assert.equal(command.payload.state, "assigned");
+  assert.equal(command.payload.progress, null);
+});
+
+test("blocked and delayed commands require explicit human-readable evidence", () => {
+  const blockedEvent = verifiedEvent({ webhookEventId: "evt-094-blocked" });
+  assert.throws(() => adapter.canonicalCommand({
+    event: blockedEvent,
+    command: "mark_blocked",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t"
+  }), error => error.code === "LINE_BLOCK_REASON_REQUIRED");
+
+  const delayedEvent = verifiedEvent({ webhookEventId: "evt-094-delayed" });
+  assert.throws(() => adapter.canonicalCommand({
+    event: delayedEvent,
+    command: "mark_delayed",
+    reason: "等待外部資料",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t"
+  }), error => error.code === "LINE_DELAY_EVIDENCE_REQUIRED");
+
+  const command = adapter.canonicalCommand({
+    event: delayedEvent,
+    command: "mark_delayed",
+    reason: "等待外部資料",
+    dueAt: "2026-10-01T09:00:00+08:00",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t"
+  });
+  assert.equal(command.payload.state, "delayed");
+  assert.equal(command.payload.reason, "等待外部資料");
+  assert.equal(command.payload.due_at, "2026-10-01T09:00:00+08:00");
+});
+
+test("completion requires explicit 100% evidence and progress updates require a value", () => {
+  const event = verifiedEvent({ webhookEventId: "evt-094-complete" });
+  assert.throws(() => adapter.canonicalCommand({
+    event,
+    command: "complete_task",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t",
+    progress: 75
+  }), error => error.code === "LINE_COMPLETION_PROGRESS_REQUIRED");
+  assert.throws(() => adapter.canonicalCommand({
+    event,
+    command: "set_progress",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t"
+  }), error => error.code === "LINE_PROGRESS_REQUIRED");
+  const completed = adapter.canonicalCommand({
+    event,
+    command: "complete_task",
+    resolvedUserId: "u",
+    boardInstanceId: "b",
+    taskId: "t",
+    progress: 100
+  });
+  assert.equal(completed.payload.state, "completed");
+  assert.equal(completed.payload.progress, 100);
+});
