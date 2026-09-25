@@ -93,6 +93,48 @@ test("TASK-086 fails closed for empty, unavailable, unsupported, and missing sig
   assert.equal(missing.reason, "ATTACHMENT_SIGNED_URL_MISSING");
 });
 
+test("TASK-086 fails closed when the attachment body or parser is unavailable", async () => {
+  const unreadable = await reader.read(attachment(), {
+    load: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => "" },
+      blob: async () => { throw Object.assign(new Error("body unavailable"), { code: "ATTACHMENT_BODY_UNREADABLE" }); }
+    })
+  });
+  assert.equal(unreadable.status, "unavailable");
+  assert.equal(unreadable.reason, "ATTACHMENT_BODY_UNREADABLE");
+
+  const previous = globalThis.KnowledgeEngine;
+  globalThis.KnowledgeEngine = {
+    supports: () => true,
+    ingest: async () => { throw Object.assign(new Error("parser unavailable"), { code: "ATTACHMENT_PARSE_FAILED" }); }
+  };
+  try {
+    const parsed = await reader.read(attachment({ filename: "brief.pdf", mimeType: "application/pdf" }), {
+      load: async () => response("pdf-bytes", { mimeType: "application/pdf" })
+    });
+    assert.equal(parsed.status, "error");
+    assert.equal(parsed.reason, "ATTACHMENT_PARSE_FAILED");
+    assert.equal(parsed.evidenceStatus, "ERROR");
+  } finally {
+    if (previous === undefined) delete globalThis.KnowledgeEngine;
+    else globalThis.KnowledgeEngine = previous;
+  }
+});
+
+test("TASK-086 converts a bounded fetch timeout into unavailable evidence", async () => {
+  const result = await reader.read(attachment(), {
+    timeoutMs: 1000,
+    load: async (_url, options = {}) => new Promise((_resolve, reject) => {
+      options.signal?.addEventListener("abort", () => reject(Object.assign(new Error("timeout"), { code: "ATTACHMENT_CONTEXT_TIMEOUT" })), { once: true });
+    })
+  });
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.reason, "ATTACHMENT_CONTEXT_TIMEOUT");
+  assert.match(result.nextStep, /逾時/);
+});
+
 test("TASK-086 Shared Drawer exposes the read-only context action and result surface", () => {
   const root = path.resolve(__dirname, "..");
   const runtime = fs.readFileSync(path.join(root, "shared/components/golden-master-runtime.js"), "utf8");
