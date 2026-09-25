@@ -571,6 +571,7 @@
     const strategyLibrary = options.strategyLibrary || root?.InvestmentStrategyLibrary;
     const strategyScanner = options.strategyScanner || root?.InvestmentStrategyScanner;
     const homeworkPack = options.homeworkPack || root?.InvestmentHomeworkPack;
+    const strategyBacktest = options.strategyBacktest || root?.InvestmentStrategyBacktest;
     const fetchImpl = options.fetch || root?.fetch?.bind(root);
     const endpoints = Object.freeze({ ...DEFAULT_ENDPOINTS, ...(options.endpoints || {}) });
     const now = typeof options.now === "function" ? options.now : () => Date.now();
@@ -1255,7 +1256,14 @@
       return typeof invokeFunction === "function" ? loadViaEdge(input) : loadDirect(input);
     }
 
-    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load });
+    function runBacktest(input = {}) {
+      if (!strategyBacktest?.run) {
+        throw providerError("BACKTEST_UNAVAILABLE", "Investment Strategy Backtest contract is unavailable.");
+      }
+      return strategyBacktest.run(input);
+    }
+
+    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load, runBacktest });
   }
 
   return Object.freeze({ DEFAULT_ENDPOINTS, create });
