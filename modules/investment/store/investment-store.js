@@ -27,6 +27,8 @@
         news: [],
         contexts: [],
         analyses: [],
+        strategyScans: [],
+        homeworkPacks: [],
         quality: Object.freeze({}),
         error: null,
         loadedAt: null

@@ -201,3 +201,14 @@ test("both Dashboard presentations link to the Investment module without router 
   assert.match(runtimeDashboard, /\["investment",/);
   assert.match(router, /investment:\s*"modules\/investment\/"/);
 });
+
+test("Investment runtime preserves strategy and homework projections after portfolio enrichment", () => {
+  const source = fs.readFileSync(path.join(ROOT, "modules", "investment", "services", "investment-module.js"), "utf8");
+
+  assert.match(source, /strategyScanner:\s*global\.InvestmentStrategyScanner/);
+  assert.match(source, /homeworkPack:\s*global\.InvestmentHomeworkPack/);
+  assert.match(source, /strategyScanner\.scanContext\(enriched/);
+  assert.match(source, /homeworkPack\.buildContext\(\s*\{ \.\.\.enriched/);
+  assert.match(source, /strategyScans:\s*Object\.freeze\(contexts\.map/);
+  assert.match(source, /homeworkPacks:\s*Object\.freeze\(contexts\.map/);
+});
