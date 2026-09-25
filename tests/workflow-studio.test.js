@@ -64,6 +64,16 @@ test("Workflow Studio UI contains visual canvas, validation, diff, history and b
   assert.doesNotMatch(runtimeSource, /insert into|update public\./i);
 });
 
+test("Workflow Studio exposes a read-only runtime overlay without becoming workflow authority", () => {
+  assert.match(runtimeSource, /workflowStudioRuntimeOverlay/);
+  assert.match(runtimeSource, /activeClaim \|\| task\?\.active_claim \|\| task\?\.claim/);
+  assert.match(runtimeSource, /data-workflow-runtime-overlay/);
+  assert.match(runtimeSource, /等待 \$\{runtime\.waiting\} · 阻塞 \$\{runtime\.blocked\}/);
+  assert.match(runtimeSource, /不需確認/);
+  assert.match(runtimeSource, /Never infer/);
+  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /\.workflow-studio-node-runtime/);
+});
+
 test("Workflow capability reads version history through the existing board-scoped gateway", () => {
   assert.match(serviceSource, /const listVersions = async \(\) =>/);
   assert.match(serviceSource, /board_workflow_definitions/);

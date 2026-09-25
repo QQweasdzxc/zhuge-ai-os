@@ -3856,7 +3856,7 @@
     const steps = Array.isArray(editor?.steps) ? editor.steps : [];
     const columns = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(Math.max(steps.length, 1)))));
     const nodeWidth = 208;
-    const nodeHeight = 124;
+    const nodeHeight = 166;
     const gapX = 28;
     const gapY = 42;
     const positions = new Map();
@@ -3882,6 +3882,46 @@
       const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
       return taskWorkspaceId === workspaceId || taskStepId === String(step?.id || "");
     }).length;
+  }
+
+  function workflowStudioRuntimeTasks(step) {
+    const workspaceId = String(step?.workspaceId || "");
+    const stepId = String(step?.id || "");
+    return state.tasks.filter(task => {
+      // Presentation only: use explicit canonical task binding fields already
+      // delivered by Board Read Service. Never infer a workflow step from
+      // status, assignee, or a workspace name.
+      const taskWorkspaceId = String(task?.workspaceId || task?.workspace_id || "");
+      const taskStepId = String(task?.currentWorkflowStepId || task?.current_workflow_step_id || "");
+      return taskWorkspaceId === workspaceId || (stepId && taskStepId === stepId);
+    });
+  }
+
+  function workflowStudioRuntimeOverlay(step) {
+    const tasks = workflowStudioRuntimeTasks(step);
+    const unique = values => [...new Set(values.map(value => String(value || "").trim()).filter(Boolean))];
+    const statusOf = task => String(task?.rawStatus || task?.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const actors = unique(tasks.map(task => task?.assignee || task?.assigneeRole || task?.assignee_role));
+    const claims = unique(tasks.flatMap(task => {
+      const claim = task?.activeClaim || task?.active_claim || task?.claim;
+      if (!claim || typeof claim !== "object") return [];
+      return [claim.actorLabel || claim.actor_label || claim.claimPurpose || claim.claim_purpose || "active"];
+    }));
+    return Object.freeze({
+      count: tasks.length,
+      actors: Object.freeze(actors),
+      claims: Object.freeze(claims),
+      waiting: tasks.filter(task => ["qa", "review", "waiting_acceptance", "waiting_reply"].includes(statusOf(task))).length,
+      blocked: tasks.filter(task => statusOf(task) === "blocked").length,
+      gate: step?.gateRequired === true || step?.isCompletion === true ? "需要確認" : "不需確認"
+    });
+  }
+
+  function workflowStudioRuntimeMarkup(step) {
+    const runtime = workflowStudioRuntimeOverlay(step);
+    const actorLabel = runtime.actors.length ? runtime.actors.join("、") : "未分派";
+    const claimLabel = runtime.claims.length ? runtime.claims.join("、") : "未由讀取契約提供";
+    return `<div class="workflow-studio-node-runtime" data-workflow-runtime-overlay aria-label="Runtime 狀態"><span>負責：${esc(actorLabel)}</span><span>Claim：${esc(claimLabel)}</span><span>Gate：${esc(runtime.gate)} · 等待 ${runtime.waiting} · 阻塞 ${runtime.blocked}</span></div>`;
   }
 
   function workflowStudioPushHistory(editor) {
@@ -3948,7 +3988,7 @@
     const current = workflowStudioCurrent(editor);
     const layout = workflowStudioLayout(current);
     const nodeWidth = 208;
-    const nodeHeight = 124;
+    const nodeHeight = 166;
     const nodeByKey = new Map(current.steps.map(step => [String(step.stepKey), step]));
     const edgeMarkup = (current.transitions || []).map(transition => {
       const from = layout.positions.get(String(transition.fromStepKey));
@@ -3967,7 +4007,7 @@
       const selected = state.workflowStudioSelectedStep === key;
       const runtimeCount = workflowStudioRuntimeCount(step);
       const flags = [step.isInitial ? "起始" : "", step.isCompletion ? "完成" : "", step.gateRequired ? "需確認" : ""].filter(Boolean).join(" · ");
-      return `<article class="workflow-studio-node${selected ? " is-selected" : ""}" data-workflow-studio-node data-step-key="${esc(key)}" tabindex="0" role="button" draggable="true" style="left:${position.x}px;top:${position.y}px" aria-label="${esc(step.name || key)}"><div class="workflow-studio-node-title"><span>${index + 1}</span><strong>${esc(step.name || "未命名階段")}</strong></div><small>${esc(workflowRoleLabel(step.roleKey))} · ${esc(workflowWorkspaceLabel(step.workspaceId))}</small><div class="workflow-studio-node-meta"><span>${runtimeCount} 張卡</span>${flags ? `<span>${esc(flags)}</span>` : ""}</div></article>`;
+      return `<article class="workflow-studio-node${selected ? " is-selected" : ""}" data-workflow-studio-node data-step-key="${esc(key)}" tabindex="0" role="button" draggable="true" style="left:${position.x}px;top:${position.y}px" aria-label="${esc(step.name || key)}"><div class="workflow-studio-node-title"><span>${index + 1}</span><strong>${esc(step.name || "未命名階段")}</strong></div><small>${esc(workflowRoleLabel(step.roleKey))} · ${esc(workflowWorkspaceLabel(step.workspaceId))}</small><div class="workflow-studio-node-meta"><span>${runtimeCount} 張卡</span>${flags ? `<span>${esc(flags)}</span>` : ""}</div>${workflowStudioRuntimeMarkup(step)}</article>`;
     }).join("");
     canvasHost.innerHTML = `<div class="workflow-studio-canvas" style="width:${layout.width}px;height:${layout.height}px"><svg class="workflow-studio-edges" viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true"><defs><marker id="workflowStudioArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"></path></marker></defs>${edgeMarkup}</svg><div class="workflow-studio-nodes">${nodeMarkup}</div></div>`;
     if (diffHost) diffHost.innerHTML = workflowStudioDiffMarkup();
