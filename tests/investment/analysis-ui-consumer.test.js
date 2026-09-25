@@ -111,6 +111,27 @@ test("Investment homepage consumes symbol-specific Analysis without writing Stra
   assert.equal(JSON.stringify(persisted), beforeStrategies);
 });
 
+test("Investment homepage exposes the evidence-bounded Strategy Scanner inside Why", () => {
+  const base = context("2330", "TW", [{ type: "ohlc", title: "history", source: "TWSE", facts: ["sma20=2400"] }]);
+  base.strategyScan = {
+    contract: "zhuge-investment-strategy-scanner-v1",
+    status: "PARTIAL",
+    matches: [{ id: "ma_golden_cross", name: "均線金叉", status: "READY", missing: [] }, { id: "growth_quality", name: "成長品質", status: "INSUFFICIENT_EVIDENCE", missing: ["fundamental_analysis"] }],
+    supportingFactors: ["技術條件支持"],
+    opposingFactors: [],
+    conflicts: [],
+    evidenceOnly: true,
+    mutation: "none"
+  };
+  const analyses = [analysis.enrichContextPack(base, { strategyLibrary }).analysis];
+  const markup = renderState([base], analyses);
+  assert.match(markup, /data-investment-strategy-scanner/);
+  assert.match(markup, /策略掃描/);
+  assert.match(markup, /Evidence 部分具備/);
+  assert.match(markup, /不產生外部分數/);
+  assert.match(markup, /成長品質/);
+});
+
 test("Investment homepage exposes a read-only symbol research consumer for Fundamental and ETF Evidence", () => {
   const contexts = [context("0050", "TW", [
     { type: "market_quote", title: "0050 最新可用行情", summary: "已取得行情", source: "TWSE", observedAt: "2026-09-19T01:00:00.000Z", freshness: "fresh", stale: false },

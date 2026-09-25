@@ -186,6 +186,27 @@
     return `<div class="investment-analysis-factor-group"><strong>${escape(title)}</strong>${values.length ? `<ul>${values.map(item => `<li>${escape(item)}</li>`).join("")}</ul>` : `<p>${escape(emptyText)}</p>`}</div>`;
   }
 
+  function strategyScanStatusLabel(status) {
+    return {
+      READY: "Evidence 已具備",
+      PARTIAL: "Evidence 部分具備",
+      INSUFFICIENT_EVIDENCE: "資料還不夠",
+      NOT_SELECTED: "尚未指定策略",
+      UNKNOWN: "暫時無法判定"
+    }[String(status || "UNKNOWN")] || "暫時無法判定";
+  }
+
+  function renderStrategyScan(scan, escape) {
+    if (!scan || !Array.isArray(scan.matches)) return "";
+    const rows = scan.matches.slice(0, 8).map(item => `<li><span>${escape(item.name || item.id || "策略")}</span><strong>${escape(strategyScanStatusLabel(item.status))}</strong>${item.missing?.length ? `<small>缺少：${escape(item.missing.join("、"))}</small>` : ""}</li>`).join("");
+    const factors = [
+      ...(Array.isArray(scan.supportingFactors) ? scan.supportingFactors.slice(0, 2).map(item => `支持：${item}`) : []),
+      ...(Array.isArray(scan.opposingFactors) ? scan.opposingFactors.slice(0, 2).map(item => `反對：${item}`) : []),
+      ...(Array.isArray(scan.conflicts) ? scan.conflicts.slice(0, 1) : [])
+    ];
+    return `<div class="investment-analysis-extra-block" data-investment-strategy-scanner><div class="investment-analysis-detail-row"><span>策略掃描</span><strong class="is-${escape(analysisStatusClass(scan.status))}">${escape(strategyScanStatusLabel(scan.status))}</strong><p>只整理既有 Evidence；不產生外部分數、不替你選策略。</p></div><ul class="investment-analysis-exposure-list">${rows || `<li>目前沒有指定策略。</li>`}</ul>${factors.length ? renderAnalysisList("支持／反對因素", factors, escape) : ""}</div>`;
+  }
+
   function renderAnalysisExtras(analysis, escape) {
     const zones = analysis?.decisionZones || {};
     const zoneRows = [zones.buyPoint, zones.sellPoint, zones.strategyRange].filter(Boolean).map(zone => {
@@ -232,7 +253,7 @@
     const missingMarkup = missing.length
       ? `<div class="investment-analysis-missing"><strong>目前還缺少</strong><span>${escape(missing.map(missingLabel).join("、"))}</span><small>資料不足時不補猜結論。</small></div>`
       : `<div class="investment-analysis-missing is-complete"><strong>目前沒有已知缺口</strong><span>仍只呈現 Evidence，不自動產生買賣建議。</span></div>`;
-    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
+    return `<div class="investment-analysis-detail-grid">${sections}</div>${missingMarkup}${renderAnalysisExtras(analysis, escape)}${renderStrategyScan(context?.strategyScan, escape)}<div><strong class="investment-analysis-subheading">來源 Evidence</strong>${renderAnalysisEvidence(context?.evidence, escape)}</div>`;
   }
 
   function renderLiveAnalysisCards(state, escape, heading = "即時軍師分析") {
