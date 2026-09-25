@@ -18,8 +18,12 @@ LINE Webhook / LIFF
 
 The browser, LIFF page, Flex payload, and LINE user cannot supply an
 `auth.uid`, Board instance, Workspace, Workflow binding, or arbitrary RPC.
-Missing or ambiguous identity mapping fails closed. No service-role or
-provider credential belongs in the browser or a Flex message.
+The protected server must pass a verified `serverResolution` object with
+`authority = canonical-board-scope`, the authenticated Zhuge user, the Board
+instance, the verified LINE subject/type, and (for non-create commands) the
+server-resolved Task id. Missing, ambiguous, or subject-mismatched resolution
+fails closed. No service-role or provider credential belongs in the browser or
+a Flex message.
 
 ## Contract
 
@@ -72,14 +76,17 @@ idempotency key and must not write `board_tasks` directly.
 
 1. Unverified webhook → rejected before command creation.
 2. Missing event id → rejected; no idempotency key.
-3. Missing server-side identity/Board mapping → `LINE_IDENTITY_MAPPING_REQUIRED`.
+3. Missing or unverified `serverResolution` → `LINE_SERVER_RESOLUTION_REQUIRED`;
+   a subject mismatch → `LINE_RESOLUTION_SUBJECT_MISMATCH`.
 4. `60%` → rejected; only the five explicit progress steps are valid.
 5. Duplicate event/command → same idempotency key; canonical server decides
    replay without a duplicate Task or activity.
 6. Flex projection contains state text, progress, and optional deep link but
    `mutation = none`.
-7. Any direct task id / Board id supplied without server authorization is
-   rejected or ignored by the protected adapter.
+7. Any direct task id / Board id supplied without
+   `serverResolution.verified` and `serverResolution.authority =
+   canonical-board-scope` is rejected; a caller value that disagrees with the
+   verified resolution is rejected with `LINE_RESOLUTION_MISMATCH`.
 
 ## Attribution
 

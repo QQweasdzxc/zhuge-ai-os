@@ -13,6 +13,18 @@ function verifiedEvent(overrides = {}) {
   }, { signatureVerified: true });
 }
 
+function serverResolution(event, overrides = {}) {
+  return {
+    verified: true,
+    authority: "canonical-board-scope",
+    userId: "authenticated-user-uuid",
+    boardInstanceId: "board-instance-uuid",
+    subject: event.identity.subject,
+    subjectType: event.identity.subjectType,
+    ...overrides
+  };
+}
+
 test("LINE adapter normalizes only verified events and fails closed otherwise", () => {
   const pending = adapter.normalizeWebhookEvent({ webhookEventId: "evt", source: { userId: "u" } });
   assert.equal(pending.accepted, false);
@@ -30,21 +42,35 @@ test("LINE progress contract allows only explicit 25-point steps", () => {
 });
 
 test("canonical command requires server-resolved identity and Board scope", () => {
-  assert.throws(() => adapter.canonicalCommand({ event: verifiedEvent(), command: "accept_task" }), error => error.code === "LINE_IDENTITY_MAPPING_REQUIRED");
+  assert.throws(() => adapter.canonicalCommand({ event: verifiedEvent(), command: "accept_task" }), error => error.code === "LINE_SERVER_RESOLUTION_REQUIRED");
+  const event = verifiedEvent({ webhookEventId: "evt-094-resolved" });
   const command = adapter.canonicalCommand({
-    event: verifiedEvent(),
+    event,
     command: "set_progress",
-    resolvedUserId: "authenticated-user-uuid",
-    boardInstanceId: "board-instance-uuid",
-    taskId: "task-uuid",
+    serverResolution: serverResolution(event, { taskId: "task-uuid" }),
     progress: 50,
     state: "in_progress"
   });
   assert.equal(command.authority, "canonical-board-rpc");
   assert.equal(command.persistence, "server-only");
-  assert.equal(command.idempotencyKey, "line-task-v1:evt-094-001:set_progress");
+  assert.equal(command.idempotencyKey, "line-task-v1:evt-094-resolved:set_progress");
   assert.equal(command.payload.progress, 50);
   assert.equal(command.payload.state, "in_progress");
+});
+
+test("LINE commands fail closed when caller scope is not bound to the verified subject", () => {
+  const event = verifiedEvent({ webhookEventId: "evt-094-subject" });
+  assert.throws(() => adapter.canonicalCommand({
+    event,
+    command: "accept_task",
+    serverResolution: serverResolution(event, { subject: "different-line-user", taskId: "task-uuid" })
+  }), error => error.code === "LINE_RESOLUTION_SUBJECT_MISMATCH");
+  assert.throws(() => adapter.canonicalCommand({
+    event,
+    command: "accept_task",
+    serverResolution: serverResolution(event, { taskId: "task-uuid" }),
+    taskId: "different-task"
+  }), error => error.code === "LINE_RESOLUTION_MISMATCH");
 });
 
 test("create_task and non-create commands have bounded allowlists", () => {
@@ -52,18 +78,17 @@ test("create_task and non-create commands have bounded allowlists", () => {
   const create = adapter.canonicalCommand({
     event,
     command: "create_task",
-    resolvedUserId: "authenticated-user-uuid",
-    boardInstanceId: "board-instance-uuid",
+    serverResolution: serverResolution(event),
     title: "整理供應商報價",
     content: "從 LINE 建立後仍由 canonical Board RPC 寫入"
   });
   assert.equal(create.payload.task_id, null);
   assert.throws(() => adapter.canonicalCommand({
-    event, command: "delete_task", resolvedUserId: "u", boardInstanceId: "b", taskId: "t"
+    event, command: "delete_task", serverResolution: serverResolution(event, { taskId: "t" })
   }), error => error.code === "LINE_COMMAND_NOT_ALLOWED");
   assert.throws(() => adapter.canonicalCommand({
-    event, command: "complete_task", resolvedUserId: "u", boardInstanceId: "b", progress: 100
-  }), error => error.code === "LINE_TASK_ID_REQUIRED");
+    event, command: "complete_task", serverResolution: serverResolution(event), progress: 100
+  }), error => error.code === "LINE_RESOLVED_TASK_REQUIRED");
 });
 
 test("Flex card is a sanitized presentation projection and carries no mutation", () => {
@@ -86,9 +111,7 @@ test("LINE commands derive state from the allowlisted command, not user input", 
     event,
     command: "accept_task",
     state: "completed",
-    resolvedUserId: "authenticated-user-uuid",
-    boardInstanceId: "board-instance-uuid",
-    taskId: "task-uuid"
+    serverResolution: serverResolution(event, { taskId: "task-uuid" })
   });
   assert.equal(command.payload.state, "assigned");
   assert.equal(command.payload.progress, null);
@@ -99,9 +122,7 @@ test("blocked and delayed commands require explicit human-readable evidence", ()
   assert.throws(() => adapter.canonicalCommand({
     event: blockedEvent,
     command: "mark_blocked",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t"
+    serverResolution: serverResolution(blockedEvent, { taskId: "t" })
   }), error => error.code === "LINE_BLOCK_REASON_REQUIRED");
 
   const delayedEvent = verifiedEvent({ webhookEventId: "evt-094-delayed" });
@@ -109,9 +130,7 @@ test("blocked and delayed commands require explicit human-readable evidence", ()
     event: delayedEvent,
     command: "mark_delayed",
     reason: "等待外部資料",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t"
+    serverResolution: serverResolution(delayedEvent, { taskId: "t" })
   }), error => error.code === "LINE_DELAY_EVIDENCE_REQUIRED");
 
   const command = adapter.canonicalCommand({
@@ -119,9 +138,7 @@ test("blocked and delayed commands require explicit human-readable evidence", ()
     command: "mark_delayed",
     reason: "等待外部資料",
     dueAt: "2026-10-01T09:00:00+08:00",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t"
+    serverResolution: serverResolution(delayedEvent, { taskId: "t" })
   });
   assert.equal(command.payload.state, "delayed");
   assert.equal(command.payload.reason, "等待外部資料");
@@ -133,24 +150,18 @@ test("completion requires explicit 100% evidence and progress updates require a 
   assert.throws(() => adapter.canonicalCommand({
     event,
     command: "complete_task",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t",
+    serverResolution: serverResolution(event, { taskId: "t" }),
     progress: 75
   }), error => error.code === "LINE_COMPLETION_PROGRESS_REQUIRED");
   assert.throws(() => adapter.canonicalCommand({
     event,
     command: "set_progress",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t"
+    serverResolution: serverResolution(event, { taskId: "t" })
   }), error => error.code === "LINE_PROGRESS_REQUIRED");
   const completed = adapter.canonicalCommand({
     event,
     command: "complete_task",
-    resolvedUserId: "u",
-    boardInstanceId: "b",
-    taskId: "t",
+    serverResolution: serverResolution(event, { taskId: "t" }),
     progress: 100
   });
   assert.equal(completed.payload.state, "completed");

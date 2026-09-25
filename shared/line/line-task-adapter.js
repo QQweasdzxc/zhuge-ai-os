@@ -177,6 +177,41 @@
     }
   }
 
+  function requireServerResolution(value, event, command) {
+    const resolution = object(value.serverResolution || value.authorityResolution);
+    const userId = first(resolution.userId || resolution.user_id, "");
+    const boardInstanceId = first(resolution.boardInstanceId || resolution.board_instance_id, "");
+    const taskId = first(resolution.taskId || resolution.task_id, "");
+    const subject = first(resolution.subject || resolution.lineSubject || resolution.line_subject, "");
+    const subjectType = first(resolution.subjectType || resolution.subject_type, "").toLowerCase();
+    if (resolution.verified !== true || resolution.authority !== "canonical-board-scope") {
+      const error = new Error("A verified server-side Board scope resolution is required before a LINE command can be created.");
+      error.code = "LINE_SERVER_RESOLUTION_REQUIRED";
+      throw error;
+    }
+    if (!userId || !boardInstanceId || !subject || !subjectType) {
+      const error = new Error("The server-side LINE identity and Board scope resolution is incomplete.");
+      error.code = "LINE_SERVER_RESOLUTION_INCOMPLETE";
+      throw error;
+    }
+    if (subject !== event.identity.subject || subjectType !== event.identity.subjectType) {
+      const error = new Error("The server-side resolution is not bound to the verified LINE subject.");
+      error.code = "LINE_RESOLUTION_SUBJECT_MISMATCH";
+      throw error;
+    }
+    if (command === "create_task" && taskId) {
+      const error = new Error("A create command cannot carry an existing server-resolved Task id.");
+      error.code = "LINE_CREATE_TASK_RESOLUTION_INVALID";
+      throw error;
+    }
+    if (command !== "create_task" && !taskId) {
+      const error = new Error("Existing canonical Task resolution is required for this LINE command.");
+      error.code = "LINE_RESOLVED_TASK_REQUIRED";
+      throw error;
+    }
+    return Object.freeze({ userId, boardInstanceId, taskId, subject, subjectType });
+  }
+
   function canonicalCommand(input = {}) {
     const value = object(input);
     const event = value.event;
@@ -187,11 +222,15 @@
       error.code = "LINE_COMMAND_NOT_ALLOWED";
       throw error;
     }
-    const resolvedUserId = first(value.resolvedUserId, "");
-    const boardInstanceId = first(value.boardInstanceId, "");
-    if (!resolvedUserId || !boardInstanceId) {
-      const error = new Error("Server-side Zhuge identity and Board scope resolution are required.");
-      error.code = "LINE_IDENTITY_MAPPING_REQUIRED";
+    const resolution = requireServerResolution(value, event, command);
+    const suppliedUserId = first(value.resolvedUserId, "");
+    const suppliedBoardInstanceId = first(value.boardInstanceId, "");
+    const suppliedTaskId = first(value.taskId, "");
+    if ((suppliedUserId && suppliedUserId !== resolution.userId)
+      || (suppliedBoardInstanceId && suppliedBoardInstanceId !== resolution.boardInstanceId)
+      || (suppliedTaskId && suppliedTaskId !== resolution.taskId)) {
+      const error = new Error("Caller-provided identity or Task scope does not match the verified server resolution.");
+      error.code = "LINE_RESOLUTION_MISMATCH";
       throw error;
     }
     const progress = value.progress == null ? null : normalizeProgress(value.progress);
@@ -202,14 +241,9 @@
       throw error;
     }
     const evidence = commandEvidence(value, command, progress);
-    const taskId = first(value.taskId, "");
-    if (command !== "create_task" && !taskId) {
-      const error = new Error("Existing canonical task id is required for this LINE command.");
-      error.code = "LINE_TASK_ID_REQUIRED";
-      throw error;
-    }
+    const taskId = resolution.taskId;
     const payload = {
-      board_instance_id: boardInstanceId,
+      board_instance_id: resolution.boardInstanceId,
       task_id: taskId || null,
       title: command === "create_task" ? text(value.title, 240) : null,
       content: command === "create_task" ? text(value.content, 4000) : null,
@@ -230,7 +264,7 @@
     return Object.freeze({
       contract: CONTRACT,
       operation: command,
-      actor: Object.freeze({ userId: resolvedUserId, provider: "line", subjectType: event.identity.subjectType }),
+      actor: Object.freeze({ userId: resolution.userId, provider: "line", subjectType: event.identity.subjectType }),
       idempotencyKey: idempotencyKey(event.eventId, command),
       payload: Object.freeze(payload),
       authority: "canonical-board-rpc",
