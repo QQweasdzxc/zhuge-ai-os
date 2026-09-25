@@ -65,6 +65,23 @@ test("Workflow Studio accepts an Optional Workflow with zero connections", () =>
   assert.match(validation.warnings[0], /沒有流程連線/);
 });
 
+test("Workflow Studio diff reports definition metadata changes", () => {
+  const studio = loadStudio();
+  const before = {
+    name: "一般流程",
+    description: "原本的說明",
+    steps: [
+      { stepKey: "todo", name: "待辦", workspaceId: "w1" },
+      { stepKey: "done", name: "完成", workspaceId: "w2" }
+    ],
+    transitions: []
+  };
+  const after = { ...before, name: "可選流程", description: "更新後的說明" };
+  const diff = studio.diff(before, after);
+  assert.deepEqual(JSON.parse(JSON.stringify(diff.changedDefinition)), ["流程名稱", "流程說明"]);
+  assert.equal(diff.changed, true);
+});
+
 test("Workflow Studio UI contains visual canvas, validation, diff, history and bounded connection controls", () => {
   assert.match(runtimeSource, /data-workflow-studio-canvas/);
   assert.match(runtimeSource, /data-workflow-studio-node/);

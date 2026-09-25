@@ -3838,6 +3838,9 @@
   function workflowStudioDiff(before, after) {
     const left = cloneWorkflowEditor(before);
     const right = cloneWorkflowEditor(after);
+    const changedDefinition = [];
+    if (String(left.name || "") !== String(right.name || "")) changedDefinition.push("流程名稱");
+    if (String(left.description || "") !== String(right.description || "")) changedDefinition.push("流程說明");
     const leftSteps = new Map((left.steps || []).map(step => [String(step.stepKey), step]));
     const rightSteps = new Map((right.steps || []).map(step => [String(step.stepKey), step]));
     const addedSteps = [...rightSteps.keys()].filter(key => !leftSteps.has(key));
@@ -3850,9 +3853,10 @@
       addedSteps,
       removedSteps,
       changedSteps,
+      changedDefinition,
       addedTransitions: [...rightTransitions].filter(key => !leftTransitions.has(key)),
       removedTransitions: [...leftTransitions].filter(key => !rightTransitions.has(key)),
-      changed: addedSteps.length + removedSteps.length + changedSteps.length + [...rightTransitions].filter(key => !leftTransitions.has(key)).length + [...leftTransitions].filter(key => !rightTransitions.has(key)).length > 0
+      changed: changedDefinition.length + addedSteps.length + removedSteps.length + changedSteps.length + [...rightTransitions].filter(key => !leftTransitions.has(key)).length + [...leftTransitions].filter(key => !rightTransitions.has(key)).length > 0
     };
   }
 
@@ -3979,6 +3983,7 @@
     const diff = workflowStudioDiff(state.workflowEditorBase, state.workflowEditor);
     if (!diff.changed) return "<p class=\"workflow-studio-muted\">相對於目前載入版本，尚未有變更。</p>";
     const rows = [];
+    if (diff.changedDefinition.length) rows.push(`<li>調整流程資料：${diff.changedDefinition.map(esc).join("、")}</li>`);
     if (diff.addedSteps.length) rows.push(`<li>新增階段：${diff.addedSteps.map(esc).join("、")}</li>`);
     if (diff.removedSteps.length) rows.push(`<li>移除階段：${diff.removedSteps.map(esc).join("、")}</li>`);
     if (diff.changedSteps.length) rows.push(`<li>調整階段：${diff.changedSteps.map(esc).join("、")}</li>`);
