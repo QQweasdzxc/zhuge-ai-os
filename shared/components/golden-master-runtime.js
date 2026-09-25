@@ -3799,7 +3799,8 @@
     }
     steps.sort((a, b) => a.sortOrder - b.sortOrder).forEach((step, index) => { step.sortOrder = index; });
     const stepById = new Map(steps.filter(step => step.id).map(step => [step.id, step.stepKey]));
-    const existingTransitions = Array.isArray(source?.transitions) ? source.transitions.map(item => ({
+    const hasTransitionContract = Array.isArray(source?.transitions);
+    const existingTransitions = hasTransitionContract ? source.transitions.map(item => ({
       transitionKey: String(item.transitionKey || item.transition_key || ""),
       fromStepKey: String(item.fromStepKey || item.from_step_key || stepById.get(String(item.fromStepId || item.from_step_id || "")) || ""),
       toStepKey: String(item.toStepKey || item.to_step_key || stepById.get(String(item.toStepId || item.to_step_id || "")) || ""),
@@ -3811,7 +3812,10 @@
       name: String(source?.name || state.boardName || "本子板流程"),
       description: String(source?.description || ""),
       steps,
-      transitions: existingTransitions.length ? existingTransitions : workflowDefaultTransitions(steps)
+      // Preserve an explicit empty transition set. Optional Workflow permits
+      // isolated workspaces; only the empty editor fallback gets a starter
+      // transition when no canonical transition contract exists yet.
+      transitions: hasTransitionContract ? existingTransitions : workflowDefaultTransitions(steps)
     };
   }
 
@@ -4336,7 +4340,6 @@
     host.querySelector("[data-workflow-add-step]")?.addEventListener("click", () => {
       const editor = collectWorkflowEditor();
       editor.steps.push({ stepKey: `step-${editor.steps.length + 1}`, name: "新階段", sortOrder: editor.steps.length, roleKey: "pm", workspaceId: workflowDefaultWorkspace(), statusKey: "inprogress", isInitial: false, isCompletion: false, gateRequired: false, evidenceLabel: "" });
-      editor.transitions = workflowDefaultTransitions(editor.steps);
       workflowStudioPushHistory(editor);
       renderWorkflowSettingsModal();
     });

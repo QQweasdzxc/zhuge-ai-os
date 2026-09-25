@@ -74,6 +74,12 @@ test("Workflow Studio exposes a read-only runtime overlay without becoming workf
   assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /\.workflow-studio-node-runtime/);
 });
 
+test("Workflow Studio preserves an explicit zero-connection Optional Workflow", () => {
+  assert.match(runtimeSource, /const hasTransitionContract = Array\.isArray\(source\?\.transitions\)/);
+  assert.match(runtimeSource, /transitions: hasTransitionContract \? existingTransitions : workflowDefaultTransitions\(steps\)/);
+  assert.doesNotMatch(runtimeSource, /editor\.transitions = workflowDefaultTransitions\(editor\.steps\)/);
+});
+
 test("Workflow capability reads version history through the existing board-scoped gateway", () => {
   assert.match(serviceSource, /const listVersions = async \(\) =>/);
   assert.match(serviceSource, /board_workflow_definitions/);
