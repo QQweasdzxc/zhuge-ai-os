@@ -1,0 +1,260 @@
+/*
+ * Shared LINE Task Adapter contract.
+ *
+ * LINE is an interaction transport only.  This module never owns Board data,
+ * Workflow, auth, or persistence.  A protected server adapter must resolve a
+ * verified LINE subject to an authenticated Zhuge user and then call the
+ * existing canonical Board RPC through its normal authority boundary.
+ */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.ZhugeLineTaskAdapter = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  const CONTRACT = "zhuge-line-task-adapter-v1";
+  const PROGRESS_STEPS = Object.freeze([0, 25, 50, 75, 100]);
+  const TASK_STATES = Object.freeze([
+    "unassigned",
+    "assigned",
+    "in_progress",
+    "blocked",
+    "delayed",
+    "completed"
+  ]);
+  const COMMANDS = Object.freeze([
+    "create_task",
+    "accept_task",
+    "set_progress",
+    "mark_blocked",
+    "mark_delayed",
+    "complete_task"
+  ]);
+  const MAX_TEXT = 500;
+  const MAX_EVENT_ID = 200;
+
+  function text(value, max = MAX_TEXT) {
+    return String(value == null ? "" : value)
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+      .trim()
+      .slice(0, max);
+  }
+
+  function object(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function first(value, fallback = "") {
+    return text(value || fallback);
+  }
+
+  function normalizeProgress(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return Object.freeze({ ok: false, code: "PROGRESS_REQUIRED" });
+    const rounded = Math.round(number);
+    if (!PROGRESS_STEPS.includes(rounded)) {
+      return Object.freeze({ ok: false, code: "PROGRESS_STEP_INVALID", allowed: [...PROGRESS_STEPS] });
+    }
+    return Object.freeze({ ok: true, value: rounded });
+  }
+
+  function normalizeState(value, fallback = "unassigned") {
+    const raw = text(value, 40).toLowerCase().replace(/[ -]+/g, "_");
+    const aliases = Object.freeze({
+      todo: "unassigned",
+      open: "unassigned",
+      accepted: "assigned",
+      working: "in_progress",
+      blocked: "blocked",
+      delayed: "delayed",
+      done: "completed",
+      complete: "completed"
+    });
+    const normalized = aliases[raw] || raw;
+    return TASK_STATES.includes(normalized) ? normalized : fallback;
+  }
+
+  function sourceIdentity(source = {}) {
+    const value = object(source);
+    const type = first(value.type, "").toLowerCase();
+    const id = first(value.userId || value.groupId || value.roomId, "");
+    const subjectType = value.userId ? "user" : value.groupId ? "group" : value.roomId ? "room" : "unknown";
+    return Object.freeze({
+      provider: "line",
+      subjectType,
+      subject: id,
+      sourceType: type || "unknown",
+      verified: false
+    });
+  }
+
+  function normalizeWebhookEvent(event = {}, options = {}) {
+    const value = object(event);
+    const message = object(value.message);
+    const identity = sourceIdentity(value.source);
+    const eventId = first(value.webhookEventId || value.eventId || options.eventId, "");
+    const messageText = message.type === "text" ? text(message.text, 2000) : "";
+    const verified = options.signatureVerified === true;
+    const hasIdentity = Boolean(identity.subject && identity.subjectType !== "unknown");
+    return Object.freeze({
+      contract: CONTRACT,
+      eventId: eventId.slice(0, MAX_EVENT_ID),
+      eventType: first(value.type, "unknown"),
+      timestamp: Number.isFinite(Number(value.timestamp)) ? Number(value.timestamp) : null,
+      identity: Object.freeze({ ...identity, verified }),
+      message: Object.freeze({
+        type: first(message.type, "unknown"),
+        text: messageText,
+        hasText: Boolean(messageText)
+      }),
+      accepted: Boolean(eventId && hasIdentity && verified),
+      rejectCode: !eventId ? "LINE_EVENT_ID_REQUIRED"
+        : !hasIdentity ? "LINE_SOURCE_ID_REQUIRED"
+          : !verified ? "LINE_SIGNATURE_UNVERIFIED" : ""
+    });
+  }
+
+  function idempotencyKey(eventId, command) {
+    const event = text(eventId, MAX_EVENT_ID);
+    const action = text(command, 80).toLowerCase();
+    if (!event || !COMMANDS.includes(action)) return "";
+    return `line-task-v1:${event}:${action}`.slice(0, 240);
+  }
+
+  function requireVerifiedEvent(event) {
+    if (!event?.accepted || event.identity?.verified !== true) {
+      const error = new Error("Verified LINE event is required before a canonical Task command can be created.");
+      error.code = event?.rejectCode || "LINE_EVENT_UNVERIFIED";
+      throw error;
+    }
+    if (!event.eventId) {
+      const error = new Error("LINE webhook event id is required for idempotency.");
+      error.code = "LINE_EVENT_ID_REQUIRED";
+      throw error;
+    }
+  }
+
+  function canonicalCommand(input = {}) {
+    const value = object(input);
+    const event = value.event;
+    requireVerifiedEvent(event);
+    const command = text(value.command, 80).toLowerCase();
+    if (!COMMANDS.includes(command)) {
+      const error = new Error("LINE command is not allowlisted.");
+      error.code = "LINE_COMMAND_NOT_ALLOWED";
+      throw error;
+    }
+    const resolvedUserId = first(value.resolvedUserId, "");
+    const boardInstanceId = first(value.boardInstanceId, "");
+    if (!resolvedUserId || !boardInstanceId) {
+      const error = new Error("Server-side Zhuge identity and Board scope resolution are required.");
+      error.code = "LINE_IDENTITY_MAPPING_REQUIRED";
+      throw error;
+    }
+    const progress = value.progress == null ? null : normalizeProgress(value.progress);
+    if (progress && !progress.ok) {
+      const error = new Error("Progress must be one of 0, 25, 50, 75, or 100 percent.");
+      error.code = progress.code;
+      error.allowed = progress.allowed;
+      throw error;
+    }
+    const taskId = first(value.taskId, "");
+    if (command !== "create_task" && !taskId) {
+      const error = new Error("Existing canonical task id is required for this LINE command.");
+      error.code = "LINE_TASK_ID_REQUIRED";
+      throw error;
+    }
+    const payload = {
+      board_instance_id: boardInstanceId,
+      task_id: taskId || null,
+      title: command === "create_task" ? text(value.title, 240) : null,
+      content: command === "create_task" ? text(value.content, 4000) : null,
+      state: normalizeState(value.state, command === "complete_task" ? "completed" : "assigned"),
+      progress: progress ? progress.value : null,
+      source: "line",
+      line_subject_type: event.identity.subjectType
+    };
+    if (command === "create_task" && !payload.title) {
+      const error = new Error("A title is required to create a canonical Task.");
+      error.code = "LINE_TASK_TITLE_REQUIRED";
+      throw error;
+    }
+    return Object.freeze({
+      contract: CONTRACT,
+      operation: command,
+      actor: Object.freeze({ userId: resolvedUserId, provider: "line", subjectType: event.identity.subjectType }),
+      idempotencyKey: idempotencyKey(event.eventId, command),
+      payload: Object.freeze(payload),
+      authority: "canonical-board-rpc",
+      persistence: "server-only",
+      audit: Object.freeze({ eventId: event.eventId, provider: "line" })
+    });
+  }
+
+  function flexTaskCard(task = {}, options = {}) {
+    const value = object(task);
+    const taskId = first(value.id || value.taskId, "");
+    const title = text(value.title || "未命名工作", 120);
+    const progress = normalizeProgress(value.progress == null ? 0 : value.progress);
+    const progressLabel = progress.ok ? `${progress.value}%` : "資料不足";
+    const state = normalizeState(value.state || value.status);
+    const label = Object.freeze({
+      unassigned: "待接單",
+      assigned: "已接單",
+      in_progress: "進行中",
+      blocked: "卡關",
+      delayed: "延期",
+      completed: "完成"
+    })[state] || "狀態未知";
+    const deepLink = text(options.deepLink, 1000);
+    return Object.freeze({
+      type: "flex_task_card",
+      altText: `${title}｜${label}｜${progressLabel}`,
+      taskId,
+      title,
+      state,
+      stateLabel: label,
+      progress: progress.ok ? progress.value : null,
+      progressLabel,
+      deepLink: deepLink || null,
+      mutation: "none"
+    });
+  }
+
+  async function verifySignature(body, signature, channelSecret, cryptoImpl) {
+    const secret = text(channelSecret, 200);
+    const supplied = text(signature, 200);
+    const cryptoValue = cryptoImpl || (typeof globalThis !== "undefined" ? globalThis.crypto : null);
+    if (!secret || !supplied || !cryptoValue?.subtle) return false;
+    const key = await cryptoValue.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const digest = await cryptoValue.subtle.sign("HMAC", key, new TextEncoder().encode(String(body || "")));
+    let binary = "";
+    for (const byte of new Uint8Array(digest)) binary += String.fromCharCode(byte);
+    const expected = typeof btoa === "function" ? btoa(binary) : Buffer.from(binary, "binary").toString("base64");
+    if (expected.length !== supplied.length) return false;
+    let diff = 0;
+    for (let index = 0; index < expected.length; index += 1) diff |= expected.charCodeAt(index) ^ supplied.charCodeAt(index);
+    return diff === 0;
+  }
+
+  return Object.freeze({
+    CONTRACT,
+    PROGRESS_STEPS,
+    TASK_STATES,
+    COMMANDS,
+    normalizeProgress,
+    normalizeState,
+    normalizeWebhookEvent,
+    idempotencyKey,
+    canonicalCommand,
+    flexTaskCard,
+    verifySignature
+  });
+});
