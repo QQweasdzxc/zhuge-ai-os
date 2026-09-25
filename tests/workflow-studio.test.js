@@ -50,6 +50,21 @@ test("Workflow Studio exposes canonical visual editing helpers without a second 
   assert.ok(layout.height >= 230);
 });
 
+test("Workflow Studio accepts an Optional Workflow with zero connections", () => {
+  const studio = loadStudio();
+  const validation = studio.validate({
+    name: "可選流程",
+    steps: [
+      { stepKey: "inspiration", name: "小靈感", workspaceId: "w1", isInitial: true, isCompletion: false },
+      { stepKey: "suspended", name: "暫緩", workspaceId: "w2", isInitial: false, isCompletion: true }
+    ],
+    transitions: []
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(validation.errors)), []);
+  assert.equal(validation.warnings.length, 1);
+  assert.match(validation.warnings[0], /沒有流程連線/);
+});
+
 test("Workflow Studio UI contains visual canvas, validation, diff, history and bounded connection controls", () => {
   assert.match(runtimeSource, /data-workflow-studio-canvas/);
   assert.match(runtimeSource, /data-workflow-studio-node/);
@@ -78,6 +93,8 @@ test("Workflow Studio preserves an explicit zero-connection Optional Workflow", 
   assert.match(runtimeSource, /const hasTransitionContract = Array\.isArray\(source\?\.transitions\)/);
   assert.match(runtimeSource, /transitions: hasTransitionContract \? existingTransitions : workflowDefaultTransitions\(steps\)/);
   assert.doesNotMatch(runtimeSource, /editor\.transitions = workflowDefaultTransitions\(editor\.steps\)/);
+  assert.match(runtimeSource, /Optional Workflow permits a valid definition/);
+  assert.match(runtimeSource, /目前沒有流程連線；這張流程允許獨立工作區/);
 });
 
 test("Workflow capability reads version history through the existing board-scoped gateway", () => {

@@ -3968,7 +3968,11 @@
     const result = state.workflowStudioValidation;
     if (!result) return "<p class=\"workflow-studio-muted\">尚未執行檢查；儲存或發布前仍會由 Canonical Workflow 驗證。</p>";
     if (result.errors.length) return `<div class="workflow-studio-validation is-error"><strong>目前不能發布</strong><ul>${result.errors.map(error => `<li>${esc(error)}</li>`).join("")}</ul></div>`;
-    return `<div class="workflow-studio-validation is-success"><strong>基本檢查通過</strong><span>流程仍須透過正式儲存／發布 Contract 寫入 Cloud。</span></div>`;
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const warningMarkup = warnings.length
+      ? '<ul class="workflow-studio-warning-list">' + warnings.map(warning => '<li>' + esc(warning) + '</li>').join("") + '</ul>'
+      : "";
+    return '<div class="workflow-studio-validation is-success"><strong>基本檢查通過</strong>' + warningMarkup + '<span>流程仍須透過正式儲存／發布 Contract 寫入 Cloud。</span></div>';
   }
 
   function workflowStudioDiffMarkup() {
@@ -4225,6 +4229,7 @@
 
   function validateWorkflowEditor(editor) {
     const errors = [];
+    const warnings = [];
     if (!editor.name) errors.push("請先輸入流程名稱。");
     if (editor.steps.length < 2) errors.push("流程至少需要兩個工作階段。");
     if (editor.steps.filter(step => step.isInitial).length !== 1) errors.push("請設定且只設定一個起始階段。");
@@ -4235,8 +4240,11 @@
       if (!step.name) errors.push(`第 ${index + 1} 個階段尚未命名。`);
       if (!step.workspaceId) errors.push(`「${step.name || `第 ${index + 1} 個階段`}」尚未指定工作區。`);
     });
-    if (!editor.transitions.length) errors.push("請至少設定一個合法流程轉換。");
-    return errors;
+    // Optional Workflow permits a valid definition whose workspaces are not
+    // connected. This mirrors the canonical Cloud validator: zero
+    // transitions is a warning, not a client-side write blocker.
+    if (!editor.transitions.length) warnings.push("目前沒有流程連線；這張流程允許獨立工作區，卡片不會自動套用轉換。");
+    return { errors, warnings };
   }
 
   function workflowPayload(editor) {
@@ -4255,9 +4263,9 @@
     const workflow = state.workflowCapability || activeService()?.workflow;
     if (!workflow || workflow.readOnly === true) return;
     const editor = collectWorkflowEditor();
-    const errors = validateWorkflowEditor(editor);
-    state.workflowStudioValidation = { errors, warnings: [] };
-    if (errors.length) { workflowStudioPushHistory(editor); renderWorkflowSettingsModal(); workflowModalStatus(errors.join(" "), "error"); return; }
+    const validation = validateWorkflowEditor(editor);
+    state.workflowStudioValidation = validation;
+    if (validation.errors.length) { workflowStudioPushHistory(editor); renderWorkflowSettingsModal(); workflowModalStatus(validation.errors.join(" "), "error"); return; }
     state.workflowEditor = editor;
     const request = workflowPayload(editor);
     const keyBase = `${state.boardInstanceId || "board"}-${Date.now()}`;
@@ -4298,11 +4306,11 @@
     host.querySelector("[data-workflow-settings-backdrop]")?.addEventListener("click", event => { if (event.target === event.currentTarget) closeWorkflowSettings(); });
     host.querySelector("[data-workflow-validate]")?.addEventListener("click", () => {
       const editor = collectWorkflowEditor();
-      const errors = validateWorkflowEditor(editor);
+      const validation = validateWorkflowEditor(editor);
       state.workflowEditor = editor;
-      state.workflowStudioValidation = { errors, warnings: [] };
+      state.workflowStudioValidation = validation;
       renderWorkflowStudio(editor);
-      workflowModalStatus(errors.length ? errors.join(" ") : "基本檢查通過；正式 Cloud validation 仍以儲存／發布 Contract 為準。", errors.length ? "error" : "success");
+      workflowModalStatus(validation.errors.length ? validation.errors.join(" ") : "基本檢查通過；正式 Cloud validation 仍以儲存／發布 Contract 為準。", validation.errors.length ? "error" : "success");
     });
     host.querySelector("[data-workflow-undo]")?.addEventListener("click", () => workflowStudioRestoreHistory(state.workflowHistoryIndex - 1));
     host.querySelector("[data-workflow-redo]")?.addEventListener("click", () => workflowStudioRestoreHistory(state.workflowHistoryIndex + 1));
@@ -5074,7 +5082,8 @@
   root.ZhugeWorkflowStudio = Object.freeze({
     clone: cloneWorkflowEditor,
     diff: workflowStudioDiff,
-    layout: workflowStudioLayout
+    layout: workflowStudioLayout,
+    validate: validateWorkflowEditor
   });
   root.ZhugeBoardRuntime = Object.freeze({
     refresh: refreshBoard,
