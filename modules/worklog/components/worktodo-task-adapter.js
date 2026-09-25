@@ -312,8 +312,8 @@
     return `<details class="shared-task-drawer-checklist-panel worktodo-shared-checklist-panel" data-worktodo-checklist-panel${vm.checklist.length ? " open" : ""}><summary><span>☑ 工作 Checklist</span><span data-worktodo-checklist-count>${done} / ${vm.checklist.length}</span></summary><div class="shared-task-drawer-checklist-body"><ul class="worktodo-shared-checklist-list">${rows}</ul>${empty}${add}</div></details>`;
   }
   function attachmentMarkup(vm, readOnly) {
-    const rows = vm.attachments.map(item => `<article class="worktodo-shared-attachment-row" data-worktodo-attachment="${escapeHtml(item.id)}" data-worktodo-attachment-path="${escapeHtml(item.storagePath)}"><span class="worktodo-shared-attachment-preview" data-worktodo-attachment-preview="${escapeHtml(item.id)}">${isImage(item.mimeType) ? "🖼️" : "📄"}</span><span class="worktodo-shared-attachment-copy"><strong>${escapeHtml(item.filename)}</strong><small>${escapeHtml(item.mimeType)} · ${escapeHtml(byteSize(item.byteSize))}</small></span><span class="worktodo-shared-attachment-actions"><button class="btn2" type="button" data-worktodo-attachment-open="${escapeHtml(item.id)}">開啟／預覽</button>${readOnly ? "" : `<button class="shared-task-icon-button" type="button" data-worktodo-attachment-delete="${escapeHtml(item.id)}" aria-label="刪除附件" title="刪除附件">🗑️</button>`}</span></article>`).join("");
-    return `<div class="worktodo-shared-attachments" data-worktodo-attachments-zone>${rows || `<div class="worktodo-shared-attachment-empty">目前沒有附件</div>`}${readOnly ? "" : `<label class="btn2 worktodo-shared-attachment-add" for="worktodoTaskAttachmentInput">＋新增附件<input id="worktodoTaskAttachmentInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label>`}</div>`;
+    const rows = vm.attachments.map(item => `<article class="worktodo-shared-attachment-row" data-worktodo-attachment="${escapeHtml(item.id)}" data-worktodo-attachment-path="${escapeHtml(item.storagePath)}"><span class="worktodo-shared-attachment-preview" data-worktodo-attachment-preview="${escapeHtml(item.id)}">${isImage(item.mimeType) ? "🖼️" : "📄"}</span><span class="worktodo-shared-attachment-copy"><strong>${escapeHtml(item.filename)}</strong><small>${escapeHtml(item.mimeType)} · ${escapeHtml(byteSize(item.byteSize))}</small></span><span class="worktodo-shared-attachment-actions"><button class="btn2" type="button" data-worktodo-attachment-open="${escapeHtml(item.id)}">開啟／預覽</button><button class="btn2" type="button" data-worktodo-attachment-context="${escapeHtml(item.id)}">🤖 讀取給 AI</button>${readOnly ? "" : `<button class="shared-task-icon-button" type="button" data-worktodo-attachment-delete="${escapeHtml(item.id)}" aria-label="刪除附件" title="刪除附件">🗑️</button>`}</span></article>`).join("");
+    return `<div class="worktodo-shared-attachments" data-worktodo-attachments-zone>${rows || `<div class="worktodo-shared-attachment-empty">目前沒有附件</div>`}${readOnly ? "" : `<label class="btn2 worktodo-shared-attachment-add" for="worktodoTaskAttachmentInput">＋新增附件<input id="worktodoTaskAttachmentInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label>`}<section class="shared-attachment-context-result" data-worktodo-attachment-context-result hidden aria-live="polite"></section></div>`;
   }
   function journalRow(entry, vm, options = {}) {
     const attachments = vm.attachments.filter(item => item.attachmentScope === "progress_note" && (item.activityId === entry.id || item.journalEntryUuid === entry.id));
@@ -455,6 +455,21 @@
         const attachmentId = button.dataset.sharedAttachmentOpen || button.dataset.worktodoAttachmentOpen;
         const item = rows.find(row => String(row.id || row.attachmentId) === String(attachmentId));
         return openAttachment?.(item);
+      };
+    });
+    const contextButtons = [...container.querySelectorAll("[data-shared-attachment-context], [data-worktodo-attachment-context]")];
+    contextButtons.forEach(button => {
+      button.onclick = async () => {
+        const attachmentId = button.dataset.sharedAttachmentContext || button.dataset.worktodoAttachmentContext;
+        const item = rows.find(row => String(row.id || row.attachmentId) === String(attachmentId));
+        if (!item || typeof options.onReadContext !== "function") {
+          options.onError?.(new Error("Shared Attachment Context Reader 尚未載入。"), item, button);
+          return;
+        }
+        button.disabled = true;
+        try { await options.onReadContext(item, button); }
+        catch (error) { options.onError?.(error, item, button); }
+        finally { button.disabled = false; }
       };
     });
     const deleteButtons = [

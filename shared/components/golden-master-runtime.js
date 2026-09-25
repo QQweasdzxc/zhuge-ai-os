@@ -2467,7 +2467,9 @@
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
       const attachmentId = item.attachmentId || item.id || "";
-      const remove = archiveOnly ? "" : `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover"><button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button type="button" data-attachment-menu-action="rename">✏️ 重新命名</button><button type="button" data-attachment-menu-action="note">📝 附註</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button></div></details>`;
+      const contextAction = `<button type="button" data-attachment-menu-action="context">🤖 讀取給 AI</button>`;
+      const editableActions = archiveOnly ? "" : `<button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button type="button" data-attachment-menu-action="rename">✏️ 重新命名</button><button type="button" data-attachment-menu-action="note">📝 附註</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button>`;
+      const remove = `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover">${contextAction}${editableActions}</div></details>`;
       const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
       const note = item.note ? `<small class="shared-task-attachment-note">📝 ${esc(item.note)}</small>` : "";
       return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}${note}</span>${remove}</article>`;
@@ -2475,7 +2477,7 @@
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
     const add = archiveOnly ? "" : `<div class="shared-task-attachment-dropzone" data-task-attachment-dropzone tabindex="0" aria-label="拖曳檔案到這裡上傳"><span class="shared-task-attachment-drop-icon" aria-hidden="true">📎</span><span><strong>拖曳檔案到這裡直接上傳</strong><small>或使用下方按鈕選擇檔案；支援一次多個檔案</small></span></div><label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
-    return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}</div>`;
+    return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}<section class="shared-attachment-context-result" data-shared-attachment-context-result hidden aria-live="polite"></section></div>`;
   }
   function formatByteSize(bytes) {
     const value = Number(bytes || 0);
@@ -2689,6 +2691,59 @@
       }
     }));
   }
+  function attachmentContextStateLabel(result = {}) {
+    const labels = {
+      ready: "已讀取",
+      insufficient_evidence: "資料不足",
+      unsupported: "格式尚未支援",
+      unavailable: "目前無法讀取",
+      error: "解析失敗"
+    };
+    return labels[String(result.status || "").toLowerCase()] || "讀取結果";
+  }
+  function renderAttachmentContextResult(result = {}) {
+    const panel = document.querySelector("[data-shared-attachment-context-result]");
+    if (!panel) return;
+    const status = String(result.status || "error").toLowerCase();
+    const source = result.source || {};
+    const preview = result.contentPreview ? `<pre class="shared-attachment-context-preview">${esc(result.contentPreview)}</pre>` : "";
+    const mediaHint = result.modality === "image" ? "圖片已載入至記憶體中的 AI context；目前不會自動產生未經證實的描述。" : "";
+    const detail = result.reason ? `<p class="shared-attachment-context-next">原因：${esc(result.reason)}${result.nextStep ? `｜${esc(result.nextStep)}` : ""}</p>` : "";
+    panel.hidden = false;
+    panel.dataset.state = status;
+    panel.innerHTML = `<header><strong>🤖 附件 AI Context｜${esc(attachmentContextStateLabel(result))}</strong><button type="button" class="shared-task-icon-button" data-shared-attachment-context-close aria-label="關閉附件 AI Context" title="關閉">×</button></header><p>${esc(result.filename || "附件")} · ${esc(result.mimeType || "未知格式")}</p>${mediaHint ? `<p>${esc(mediaHint)}</p>` : ""}${preview}${detail}<small>來源：${esc(source.provider || "受控附件來源")} · as-of：${esc(source.asOf || "未提供")} · freshness：${esc(source.freshness || "unknown")} · evidence：${esc(result.evidenceStatus || "UNKNOWN")}</small>`;
+    panel.querySelector("[data-shared-attachment-context-close]")?.addEventListener("click", () => {
+      panel.hidden = true;
+      panel.replaceChildren();
+    });
+  }
+  async function readTaskAttachmentContext(task, item, actionContract, button) {
+    const context = root.ZhugeAttachmentContext;
+    if (!context?.read) {
+      renderAttachmentContextResult({ status: "unavailable", filename: item?.filename || "附件", reason: "ATTACHMENT_CONTEXT_MODULE_UNAVAILABLE", nextStep: "請重新整理後再試。" });
+      return;
+    }
+    if (button) button.disabled = true;
+    renderAttachmentContextResult({ status: "unavailable", filename: item?.filename || "附件", reason: "ATTACHMENT_CONTEXT_LOADING", nextStep: "正在讀取附件內容…" });
+    try {
+      const result = await context.read(item, {
+        resolveUrl: attachment => actionContract.read("attachmentUrl", { attachment: {
+          ...attachment,
+          id: attachment.id || attachment.attachmentId,
+          attachmentId: attachment.id || attachment.attachmentId,
+          storagePath: attachment.storagePath || attachment.storage_path,
+          storage_path: attachment.storagePath || attachment.storage_path,
+          storageBucket: attachment.storageBucket || attachment.storage_bucket || "board-task-attachments",
+          storage_bucket: attachment.storageBucket || attachment.storage_bucket || "board-task-attachments"
+        } })
+      });
+      renderAttachmentContextResult(result);
+    } catch (error) {
+      renderAttachmentContextResult({ status: "error", filename: item?.filename || "附件", reason: "ATTACHMENT_CONTEXT_FAILED", nextStep: "請稍後再試。" });
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
   function wireTaskAttachments(task, archiveOnly, options = {}) {
     hydrateTaskAttachmentPreviews();
     if (archiveOnly) return;
@@ -2759,6 +2814,17 @@
         button.closest("details")?.removeAttribute("open");
         const attachmentId = row?.dataset.taskAttachmentId || "";
         const item = (options.rawAttachments || []).find(candidate => String(candidate.id || candidate.attachmentId) === String(attachmentId)) || {};
+        if (action === "context") {
+          button.closest("details")?.removeAttribute("open");
+          await readTaskAttachmentContext(task, {
+            ...item,
+            id: item.id || item.attachmentId || attachmentId,
+            attachmentId: item.attachmentId || item.id || attachmentId,
+            storagePath: item.storagePath || item.storage_path || row?.dataset.taskAttachmentPath,
+            mimeType: item.mimeType || item.mime_type || row?.dataset.taskAttachmentMime
+          }, actionContract, button);
+          return;
+        }
         if (action === "rename" || action === "note") {
           const currentNote = String(item.note || "");
           const value = action === "rename"

@@ -933,6 +933,36 @@ async function workTodoOpenAttachment(attachment) {
   }
 }
 
+function renderWorkTodoAttachmentContextResult(drawerRoot, result = {}) {
+  const panel = drawerRoot?.querySelector?.("[data-worktodo-attachment-context-result]");
+  if (!panel) return;
+  const status = String(result.status || "error").toLowerCase();
+  const labels = { ready: "已讀取", insufficient_evidence: "資料不足", unsupported: "格式尚未支援", unavailable: "目前無法讀取", error: "解析失敗" };
+  const source = result.source || {};
+  const preview = result.contentPreview ? `<pre class="shared-attachment-context-preview">${escapeHtml(result.contentPreview)}</pre>` : "";
+  const imageHint = result.modality === "image" ? "圖片已載入至記憶體中的 AI context；目前不會自動產生未經證實的描述。" : "";
+  panel.hidden = false;
+  panel.dataset.state = status;
+  panel.innerHTML = `<header><strong>🤖 附件 AI Context｜${escapeHtml(labels[status] || "讀取結果")}</strong><button type="button" class="shared-task-icon-button" data-worktodo-attachment-context-close aria-label="關閉附件 AI Context" title="關閉">×</button></header><p>${escapeHtml(result.filename || "附件")} · ${escapeHtml(result.mimeType || "未知格式")}</p>${imageHint ? `<p>${escapeHtml(imageHint)}</p>` : ""}${preview}${result.reason ? `<p class="shared-attachment-context-next">原因：${escapeHtml(result.reason)}${result.nextStep ? `｜${escapeHtml(result.nextStep)}` : ""}</p>` : ""}<small>來源：${escapeHtml(source.provider || "受控附件來源")} · as-of：${escapeHtml(source.asOf || "未提供")} · freshness：${escapeHtml(source.freshness || "unknown")} · evidence：${escapeHtml(result.evidenceStatus || "UNKNOWN")}</small>`;
+  panel.querySelector("[data-worktodo-attachment-context-close]")?.addEventListener("click", () => {
+    panel.hidden = true;
+    panel.replaceChildren();
+  });
+}
+
+async function workTodoReadAttachmentContext(drawerRoot, attachment) {
+  const reader = globalThis.ZhugeAttachmentContext;
+  if (!reader?.read) {
+    renderWorkTodoAttachmentContextResult(drawerRoot, { status: "unavailable", filename: attachment?.filename || "附件", reason: "ATTACHMENT_CONTEXT_MODULE_UNAVAILABLE", nextStep: "請重新整理後再試。" });
+    return;
+  }
+  renderWorkTodoAttachmentContextResult(drawerRoot, { status: "unavailable", filename: attachment?.filename || "附件", reason: "ATTACHMENT_CONTEXT_LOADING", nextStep: "正在讀取附件內容…" });
+  const result = await reader.read(attachment, {
+    resolveUrl: item => SupabaseRepository.signedWorkTodoAttachmentUrl(item.storage_path || item.storagePath, 300)
+  });
+  renderWorkTodoAttachmentContextResult(drawerRoot, result);
+}
+
 function bindWorkTodoAttachments(root, task) {
   const data = workTodoCapabilityData(task);
   const attachments = Array.isArray(data.attachments) ? data.attachments : [];
@@ -950,6 +980,7 @@ function bindWorkTodoAttachments(root, task) {
     dataService: DataService,
     confirm,
     onOpen: workTodoOpenAttachment,
+    onReadContext: item => workTodoReadAttachmentContext(root, item),
     onDeleted: async () => {
       await refreshWorkTodoDrawerCapabilities();
       toast("附件已透過正式刪除流程移除");
