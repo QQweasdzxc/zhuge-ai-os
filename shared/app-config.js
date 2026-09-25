@@ -109,6 +109,7 @@ const workspaceRegistry = {
   "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, externalHref: "../../app/Board/worktodo/" },
   procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, externalHref: "../../app/Board/procurement/" },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, externalHref: "../investment/" },
+  skyeye: { icon: "🛰️", label: "天眼", group: "mobile", enabled: true, externalHref: "../skyeye/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },
