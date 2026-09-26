@@ -42,7 +42,7 @@ test("canonical product and public surfaces opt into the successor layer", () =>
   ];
   for (const file of surfaces) {
     const source = read(file);
-    assert.match(source, /responsive-modernization\.css\?v=20260926-0901/, `${file} must load successor CSS`);
+    assert.match(source, /responsive-modernization\.css\?v=20260926-1032/, `${file} must load successor CSS`);
     assert.match(source, /viewport-fit=cover/, `${file} must preserve safe-area viewport metadata`);
     assert.doesNotMatch(source, /user-scalable\s*=\s*no|max(?:imum)?-scale\s*=\s*1/i, `${file} must not disable zoom`);
   }
@@ -55,4 +55,13 @@ test("responsive source preview covers shared board, drawer, states and long con
     "zhuge-state", "insufficient-evidence", "zhuge-floating-hub",
     "viewport-fit"
   ]) assert.match(fixture, new RegExp(marker), `${marker} preview marker missing`);
+});
+
+test("mobile drawer keeps safe-area and dynamic viewport rules authoritative", () => {
+  const css = read("shared/theme/responsive-modernization.css");
+  assert.match(css, /shared-task-drawer\)\s*\{[\s\S]*padding-block-start: var\(--zhuge-safe-area-top/);
+  assert.match(css, /shared-task-drawer-panel\)\s*\{[\s\S]*max-height: 100dvh/);
+  assert.match(css, /orientation:\s*landscape/);
+  assert.match(css, /max-height:\s*520px/);
+  assert.match(css, /shared-task-drawer-grid\)\s*\{[\s\S]*overflow-y:\s*auto/);
 });

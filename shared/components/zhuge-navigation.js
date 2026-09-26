@@ -201,9 +201,57 @@
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
+  const mobileSidebarState = new WeakMap();
+  let mobileSidebarScrollLockCount = 0;
+  let mobileSidebarPreviousOverflow = "";
+  let mobileSidebarPreviousPaddingRight = "";
+
+  function isMobileViewport() {
+    return Boolean(
+      global.matchMedia?.("(max-width: 767px)")?.matches
+      || (!global.matchMedia && Number(global.innerWidth || 0) > 0 && Number(global.innerWidth) < 768)
+    );
+  }
+
+  function sidebarFocusableNodes(shell) {
+    const panel = shell?.querySelector("[data-zhuge-shared-navigation='true']");
+    if (!panel) return [];
+    return Array.from(panel.querySelectorAll("a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])")).filter(node => {
+      if (!node || node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+      const style = typeof global.getComputedStyle === "function" ? global.getComputedStyle(node) : null;
+      return style?.display !== "none" && style?.visibility !== "hidden";
+    });
+  }
+
+  function lockMobileSidebarScroll() {
+    if (!global.document?.body) return;
+    if (mobileSidebarScrollLockCount === 0 && !global.document.body.dataset.sharedTaskDrawerScrollLocked) {
+      mobileSidebarPreviousOverflow = global.document.body.style.overflow;
+      mobileSidebarPreviousPaddingRight = global.document.body.style.paddingRight;
+      global.document.body.style.overflow = "hidden";
+      global.document.body.style.paddingRight = "var(--zhuge-scrollbar-compensation, 0px)";
+      global.document.body.dataset.zhugeSidebarScrollLocked = "true";
+    }
+    mobileSidebarScrollLockCount += 1;
+  }
+
+  function unlockMobileSidebarScroll() {
+    if (!global.document?.body || mobileSidebarScrollLockCount === 0) return;
+    mobileSidebarScrollLockCount -= 1;
+    if (mobileSidebarScrollLockCount > 0) return;
+    if (!global.document.body.dataset.sharedTaskDrawerScrollLocked) {
+      global.document.body.style.overflow = mobileSidebarPreviousOverflow;
+      global.document.body.style.paddingRight = mobileSidebarPreviousPaddingRight;
+      delete global.document.body.dataset.zhugeSidebarScrollLocked;
+    }
+    mobileSidebarPreviousOverflow = "";
+    mobileSidebarPreviousPaddingRight = "";
+  }
+
   function setSidebarOpen(shell, open) {
     if (!shell) return;
     const isOpen = Boolean(open);
+    const wasOpen = shell.classList.contains("sidebar-open");
     shell.classList.toggle("sidebar-open", isOpen);
     shell.dataset.sidebarState = isOpen ? "open" : "closed";
     shell.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
@@ -214,6 +262,23 @@
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
     });
+    if (!isMobileViewport() || wasOpen === isOpen) return;
+    if (isOpen) {
+      const previousFocus = global.document?.activeElement && global.document.activeElement !== global.document.body
+        ? global.document.activeElement
+        : null;
+      mobileSidebarState.set(shell, { previousFocus });
+      lockMobileSidebarScroll();
+      const first = sidebarFocusableNodes(shell)[0];
+      if (first?.focus) first.focus({ preventScroll: true });
+      return;
+    }
+    unlockMobileSidebarScroll();
+    const previousFocus = mobileSidebarState.get(shell)?.previousFocus;
+    mobileSidebarState.delete(shell);
+    if (previousFocus?.isConnected && typeof previousFocus.focus === "function") {
+      previousFocus.focus({ preventScroll: true });
+    }
   }
   function ensureSidebarBackdrop(shell) {
     if (!shell || shell.querySelector(".sidebar-backdrop")) return;
@@ -294,11 +359,27 @@
       setSidebarOpen(shell, Boolean(toggle) && !shell.classList.contains("sidebar-open"));
     });
     document.addEventListener("keydown", event => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" && event.key !== "Tab") return;
       const shell = document.querySelector(".os-shell.sidebar-open,.zhuge-module-shell.sidebar-open");
       if (!shell) return;
-      setSidebarOpen(shell, false);
-      shell.querySelector("[data-toggle-sidebar]")?.focus?.();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSidebarOpen(shell, false);
+        shell.querySelector("[data-toggle-sidebar]")?.focus?.();
+        return;
+      }
+      if (event.key !== "Tab" || !isMobileViewport()) return;
+      const nodes = sidebarFocusableNodes(shell);
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && global.document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && global.document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     });
   }
   function wireCollapse() {

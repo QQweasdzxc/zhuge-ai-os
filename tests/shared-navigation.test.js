@@ -229,3 +229,14 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
   unresolvedNavigation.autoMount();
   assert.equal(unresolvedTarget.dataset.zhugeNavigationMounting, undefined);
 });
+
+test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap", () => {
+  const navigation = read("shared/components/zhuge-navigation.js");
+  assert.match(navigation, /function isMobileViewport\(\)/);
+  assert.match(navigation, /function lockMobileSidebarScroll\(\)/);
+  assert.match(navigation, /zhugeSidebarScrollLocked/);
+  assert.match(navigation, /function sidebarFocusableNodes\(shell\)/);
+  assert.match(navigation, /event\.key !== "Tab" \|\| !isMobileViewport\(\)/);
+  assert.match(navigation, /previousFocus\?\.isConnected/);
+  assert.match(navigation, /last\.focus\(\{ preventScroll: true \}\)/);
+});
