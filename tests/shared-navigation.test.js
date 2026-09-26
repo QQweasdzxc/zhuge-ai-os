@@ -1,0 +1,245 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const ROOT = path.join(__dirname, "..");
+const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
+
+test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component", () => {
+  const index = read("app/Board/ai/index.html");
+  const nav = read("shared/components/zhuge-navigation.js");
+  const css = read("shared/theme/zhuge-navigation.css");
+  const shellCss = read("shared/theme/zhuge-shell.css");
+  const foundationCss = read("shared/theme/tokens.css");
+  const worklogCss = read("modules/worklog/worklog.css");
+  const worklog = read("modules/worklog/worklog-app.js");
+  const worklogIndex = read("modules/worklog/index.html");
+  const investmentIndex = read("modules/investment/index.html");
+  const investmentModule = read("modules/investment/services/investment-module.js");
+  const investmentShell = read("modules/investment/components/module-shell.js");
+  assert.match(index, /id="zhugeSharedNavigation"/);
+  assert.match(index, /shared\/components\/zhuge-navigation\.js/);
+  assert.match(index, /shared\/theme\/zhuge-navigation\.css/);
+  assert.match(worklog, /sharedNavigationTargetMarkup/);
+  assert.match(worklog, /id="zhugeSharedNavigation"/);
+  assert.doesNotMatch(worklog, /function osSidebar|worklogNavigationAdopted|ZhugeSharedNavigation\.render/);
+  assert.match(worklogIndex, /shared\/components\/zhuge-navigation\.js/);
+  assert.match(worklogIndex, /shared\/identity\/creator-resolver\.js/);
+  assert.match(investmentIndex, /shared\/config\/version\.js/);
+  assert.doesNotMatch(investmentModule, /ZhugeSharedNavigation\.mount/);
+  assert.match(investmentShell, /investment-content-tabs/);
+  assert.doesNotMatch(investmentShell, /investment-local-nav/);
+  for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
+  assert.match(nav, /data-zhuge-shared-navigation/);
+  assert.match(nav, /function wireSidebar\(\)/);
+  assert.match(nav, /zhugeSharedNavSidebarWired/);
+  assert.match(nav, /function ensureMobileLauncher\(shell\)/);
+  assert.doesNotMatch(read("app/dashboard/index.html"), /data-toggle-sidebar\].*shell\.classList/);
+  assert.doesNotMatch(read("shared/components/golden-master-runtime.js"), /document\.querySelectorAll\("\[data-toggle-sidebar\]"\)/);
+  assert.doesNotMatch(investmentModule, /root\.querySelector\("\.zhuge-module-shell"\).*sidebar-open/);
+  assert.doesNotMatch(worklog, /document\.querySelectorAll\("\[data-toggle-sidebar\]"\)/);
+  assert.doesNotMatch(nav, /investment:[^\n]*status:\s*["']SIT["']/);
+  assert.doesNotMatch(read("shared/app-config.js"), /investment:[^\n]*status:\s*["']SIT["']/);
+  assert.match(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board-board", "ai-board-principles", "ai-board-system-map"\]/);
+  assert.match(nav, /sectionHeadingMarkup/);
+  assert.doesNotMatch(nav, /sectionMarkup\("AI Board", "🤖", \["ai-board",/);
+  assert.match(nav, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true/);
+  assert.match(nav, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true/);
+  assert.match(nav, /function isVisible\(item\)/);
+  assert.match(nav, /ids\.filter\(id => isVisible\(registry\[id\]\)\)/);
+  assert.doesNotMatch(nav, /const construction =/);
+  assert.doesNotMatch(nav, /agentPanel|DEFAULT_AGENTS|工時 Agent|投資 Agent/);
+  assert.doesNotMatch(nav, /label: "採購營帳"/);
+  assert.doesNotMatch(nav, /label: "Travel"/);
+  assert.match(nav, /ZhugeFoundationConfig/);
+  assert.match(css, /\.os-sidebar/);
+  assert.match(css, /\.side-section-heading/);
+  assert.match(css, /\.side-item\.on/);
+  assert.match(css, /\.workspace-shell-header/);
+  assert.match(css, /\.workspace-subnav/);
+  assert.match(css, /\.workspace-content-container/);
+  assert.match(css, /--zhuge-sidebar-item-height: var\(--zhuge-touch-target-min\)/);
+  assert.match(css, /--zhuge-sidebar-child-height: var\(--zhuge-touch-target-min\)/);
+  assert.match(foundationCss, /--shell-sidebar-width:\s*232px/);
+  assert.match(css, /\.agent-panel,\.side-section\{[^}]*padding:10px 8px[^}]*margin-bottom:8px/);
+  assert.match(css, /\.side-item\{[^}]*min-height:var\(--zhuge-touch-target-min\)[^}]*padding:7px 9px[^}]*margin-top:4px/);
+  assert.match(css, /\.side-item-child\{[^}]*min-height:var\(--zhuge-touch-target-min\)[^}]*padding:6px 9px/);
+  assert.match(css, /\.zhuge-module-shell \.agent-panel,\s*\.zhuge-module-shell \.side-section[\s\S]*padding:\s*8px[\s\S]*margin-bottom:\s*var\(--zhuge-sidebar-section-gap\)/);
+  assert.match(css, /height:\s*calc\(100vh - 36px\)/);
+  assert.match(css, /max-height:\s*calc\(100vh - 36px\)/);
+  assert.doesNotMatch(nav, /sidebar-version-summary/);
+  assert.match(nav, /sidebar-build-summary/);
+  assert.match(css, /body:has\(\.zhuge-module-shell\)\s*\{\s*margin:\s*0/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar\s*\{[\s\S]*font-family:\s*-apple-system/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar \*,\s*[\s\S]*box-sizing:\s*border-box/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar \.shared-nav-collapse\s*\{[\s\S]*font:\s*inherit/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar \.brand-mark\s*\{[\s\S]*width:\s*20px[\s\S]*height:\s*18\.4px[\s\S]*line-height:\s*18\.4px/);
+  assert.match(css, /\.zhuge-module-shell > \.os-sidebar \.developer-build-info \.sidebar-build-summary\s*\{[\s\S]*margin:\s*0/);
+  assert.match(css, /canonical Sidebar geometry/i);
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /--zhuge-sidebar-item-height\s*:/);
+  assert.doesNotMatch(worklogCss, /workspace-worklog \.side-item\{min-height:46px/);
+  assert.doesNotMatch(worklogCss, /workspace-worklog \.os-sidebar\{min-height/);
+  assert.doesNotMatch(
+    worklogCss,
+    /(?:\.os-shell|\.os-topbar|\.os-body|\.os-sidebar|\.os-main|\.side-item|\.side-section|\.agent-panel|\.adaptive-menu|\.sidebar-close|\.sidebar-backdrop|\.developer-build-info|\.sidebar-brand)/,
+    "WorkLog must not own navigation presentation"
+  );
+  assert.doesNotMatch(nav, /工作待辦（舊）/);
+  assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
+  assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "procurement", "investment"\]/);
+  assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
+  const rootBuild = JSON.parse(read("version.json")).build;
+  assert.match(worklogIndex, new RegExp(`<script src="\\.\\.\\/\\.\\.\\/shared/config/version\\.js\\?v=${rootBuild}"><\\/script>`));
+  assert.ok(worklogIndex.indexOf("shared/config/version.js") < worklogIndex.indexOf("shared/components/zhuge-navigation.js"), "WorkLog must load the shared release identity before mounting canonical navigation");
+  const stylesheetOrder = [
+    [index, "shared/theme/zhuge-workspace.css"],
+    [read("app/Board/worktodo/index.html"), "shared/theme/zhuge-workspace.css"],
+    [read("app/dashboard/index.html"), "shared/theme/zhuge-dashboard.css"],
+    [investmentIndex, "shared/theme/zhuge-workspace.css"]
+  ];
+  for (const [source, lastContentStyle] of stylesheetOrder) {
+    assert.ok(source.indexOf(lastContentStyle) < source.indexOf("shared/theme/zhuge-navigation.css"), `${lastContentStyle} must load before canonical navigation CSS`);
+  }
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /Canonical Sidebar geometry/);
+  assert.doesNotMatch(read("shared/theme/zhuge-workspace.css"), /\.zhuge-module-shell .*\.os-sidebar/);
+  assert.doesNotMatch(read("shared/theme/zhuge-dashboard.css"), /\.zhuge-dashboard-shell .*\.os-sidebar/);
+  assert.match(index, /class="zhuge-module-shell workspace-shell"/);
+  assert.match(index, /class="top workspace-shell-header"/);
+  assert.match(index, /class="workspace-tabs workspace-subnav"/);
+  assert.doesNotMatch(index, /board-local-nav/);
+  assert.match(investmentShell, /workspace-shell-header/);
+  assert.match(worklog, /workspace-context-bar workspace-shell-header/);
+  assert.match(worklog, /os-shell workspace-shell workspace-/);
+  assert.match(worklogCss, /Shared Workspace Shell parity/);
+  assert.match(worklogCss, /workspace-shell\.workspace-worklog/);
+  assert.match(read("shared/theme/zhuge-workspace.css"), /workspace-worklog \.workspace-canvas[\s\S]*min-height: 0/);
+  assert.match(read("shared/theme/zhuge-workspace.css"), /workspace-worklog \.daily-workspace[\s\S]*min-height: 0/);
+});
+
+test("Shared Navigation opens WorkLog internal destinations without a private Board router", () => {
+  const nav = read("shared/components/zhuge-navigation.js");
+  const worklog = read("modules/worklog/index.html");
+  assert.doesNotMatch(nav, /modules\/worklog\/\?app=1&workspace=tasks/);
+  assert.match(nav, /modules\/worklog\/\?app=1&workspace=library/);
+  assert.match(nav, /modules\/worklog\/\?app=1&workspace=sync/);
+  assert.match(nav, /modules\/worklog\/\?app=1&workspace=management/);
+  assert.match(nav, /modules\/worklog\/\?app=1&workspace=settings/);
+  assert.match(worklog, /allowedWorkspaces = new Set/);
+  assert.match(worklog, /zhuge_os_open_tabs_v1/);
+  assert.match(worklog, /zhuge_os_active_workspace_v1/);
+  assert.doesNotMatch(indexSource(), /window\.history\.back\(/);
+});
+
+function indexSource() { return read("app/Board/ai/index.html"); }
+
+function loadNavigationForTest({ runtime = null, target = null } = {}) {
+  const document = {
+    readyState: "loading",
+    body: null,
+    documentElement: { dataset: {} },
+    addEventListener() {},
+    querySelector() { return null; },
+    getElementById(id) { return id === "zhugeSharedNavigation" ? target : null; }
+  };
+  const window = {
+    ZhugeTemplateAdoptionRuntime: runtime,
+    ZhugeFoundationConfig: { version: { version: "test", build: "test" } },
+    // Keep autoMount at the adoption decision in these tests; rendering and
+    // menu projection are covered separately below.
+    ZhugeBoardReadService: { listBoardInstances: () => new Promise(() => {}) }
+  };
+  vm.runInNewContext(read("shared/components/zhuge-navigation.js"), {
+    window,
+    document,
+    CustomEvent: class CustomEvent {},
+    MutationObserver: undefined
+  });
+  return window.ZhugeSharedNavigation;
+}
+
+test("approved general-user navigation uses the shared shell and PM visibility projection", () => {
+  const runtime = {
+    isCreator: false,
+    policy: { userId: "general-user" },
+    service: { isTemplateEnabled: () => false }
+  };
+  const navigation = loadNavigationForTest({ runtime });
+  const html = navigation.render({ externalRoot: "../../" });
+  const hasItem = id => html.includes(`data-shared-nav-item="${id}"`);
+
+  for (const id of ["worklog", "tasks-new", "library", "settings"]) {
+    assert.equal(hasItem(id), true, `${id} should be visible to approved general users`);
+  }
+  for (const id of ["procurement", "investment", "sync", "management"]) {
+    assert.equal(hasItem(id), false, `${id} should be hidden from approved general users`);
+  }
+  // AI Board is not part of the current primary rail; the projection does not
+  // introduce it or alter its route-level security contract.
+  assert.equal(hasItem("ai-board"), false);
+
+  const worklog = read("modules/worklog/worklog-app.js");
+  const approvedGate = worklog.indexOf('String(appAccessState.status || "").toUpperCase() !== "APPROVED"');
+  const runtimeShell = worklog.indexOf("replaceRootContent(osShell())", approvedGate);
+  assert.ok(approvedGate >= 0 && runtimeShell > approvedGate, "WorkLog must keep App Access approval ahead of the shared product shell");
+});
+
+test("Creator navigation stays unchanged and non-Creator shell mount ignores Creator-only adoption preference", () => {
+  const creatorNavigation = loadNavigationForTest({ runtime: {
+    isCreator: true,
+    policy: { userId: "creator" },
+    service: { isTemplateEnabled: () => true }
+  } });
+  const creatorHtml = creatorNavigation.render({ externalRoot: "../../" });
+  for (const id of ["worklog", "tasks-new", "procurement", "investment", "sync", "management", "library", "settings"]) {
+    assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
+  }
+
+  const generalTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const generalNavigation = loadNavigationForTest({
+    runtime: { isCreator: false, policy: { userId: "general-user" }, service: { isTemplateEnabled: () => false } },
+    target: generalTarget
+  });
+  generalNavigation.autoMount();
+  assert.equal(generalTarget.dataset.zhugeNavigationMounting, "true");
+
+  const creatorTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const unadoptedCreatorNavigation = loadNavigationForTest({
+    runtime: { isCreator: true, policy: { userId: "creator" }, service: { isTemplateEnabled: () => false } },
+    target: creatorTarget
+  });
+  unadoptedCreatorNavigation.autoMount();
+  assert.equal(creatorTarget.dataset.zhugeNavigationMounting, undefined);
+
+  const unresolvedTarget = {
+    isConnected: true,
+    dataset: { templatePageId: "worklog", sharedNavigationDisabled: "true" },
+    closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
+  };
+  const unresolvedNavigation = loadNavigationForTest({ target: unresolvedTarget });
+  unresolvedNavigation.autoMount();
+  assert.equal(unresolvedTarget.dataset.zhugeNavigationMounting, undefined);
+});
+
+test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap", () => {
+  const navigation = read("shared/components/zhuge-navigation.js");
+  assert.match(navigation, /function isMobileViewport\(\)/);
+  assert.match(navigation, /function lockMobileSidebarScroll\(\)/);
+  assert.match(navigation, /zhugeSidebarScrollLocked/);
+  assert.match(navigation, /function sidebarFocusableNodes\(shell\)/);
+  assert.match(navigation, /event\.key !== "Tab" \|\| !isMobileViewport\(\)/);
+  assert.match(navigation, /previousFocus\?\.isConnected/);
+  assert.match(navigation, /last\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(navigation, /aria-hidden.*String\(!isOpen\)/);
+  assert.match(navigation, /global\.addEventListener\?\.\("resize"/);
+  assert.match(navigation, /mobileSidebarState\.has\(shell\)/);
+});
