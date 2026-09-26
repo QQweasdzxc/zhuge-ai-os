@@ -82,3 +82,30 @@ test("TASK-086 bounds AI output and converts executor failure to sanitized unava
   assert.equal(failed.reason, "AI_PROVIDER_UNAVAILABLE");
   assert.equal(failed.mutation, "none");
 });
+
+test("TASK-086 function executor serializes text and in-memory image without Storage identity", async () => {
+  let call;
+  const executor = reader.createFunctionExecutor({
+    invokeFunction: async (name, payload, options) => {
+      call = { name, payload, options };
+      return { provider: "protected-ai-reader", output: { summary: "可驗證摘要" } };
+    }
+  });
+  const image = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
+  const result = await reader.analyzeInput({
+    contract: reader.INPUT_CONTRACT,
+    status: "ready",
+    attachmentId: "att-image",
+    filename: "chart.png",
+    mimeType: "image/png",
+    evidence: { source: { provider: "supabase-storage", asOf: "2026-09-26T00:00:00Z" } },
+    parts: [{ type: "input_image", mimeType: "image/png", blob: image }]
+  }, { executor, timeoutMs: 1_000 });
+  assert.equal(result.status, "ready");
+  assert.equal(call.name, reader.FUNCTION_NAME);
+  assert.equal(call.payload.contract, reader.INPUT_CONTRACT);
+  assert.equal(call.payload.parts[0].type, "input_image");
+  assert.match(call.payload.parts[0].data_url, /^data:image\/png;base64,/);
+  assert.equal("signedUrl" in call.payload, false);
+  assert.equal("storagePath" in call.payload, false);
+});

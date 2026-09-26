@@ -2708,10 +2708,17 @@
     const source = result.source || {};
     const preview = result.contentPreview ? `<pre class="shared-attachment-context-preview">${esc(result.contentPreview)}</pre>` : "";
     const mediaHint = result.modality === "image" ? "圖片已載入至記憶體中的 AI context；目前不會自動產生未經證實的描述。" : "";
+    const aiResult = result.aiResult || null;
+    const aiOutput = aiResult?.status === "ready" && aiResult.output && typeof aiResult.output === "object" ? aiResult.output : null;
+    const aiMarkup = aiOutput
+      ? `<section class="shared-attachment-ai-result" data-state="ready"><strong>諸葛 AI 閱讀</strong><p>${esc(aiOutput.summary || "目前沒有可驗證摘要。")}</p>${Array.isArray(aiOutput.observations) && aiOutput.observations.length ? `<ul>${aiOutput.observations.map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}${Array.isArray(aiOutput.uncertainties) && aiOutput.uncertainties.length ? `<small>仍需確認：${esc(aiOutput.uncertainties.join("、"))}</small>` : ""}</section>`
+      : aiResult
+        ? `<small class="shared-attachment-ai-status" data-state="${esc(String(aiResult.status || "unavailable"))}">AI 閱讀：${esc(aiResult.nextStep || aiResult.reason || "目前沒有可驗證 AI 摘要。")}</small>`
+        : "";
     const detail = result.reason ? `<p class="shared-attachment-context-next">原因：${esc(result.reason)}${result.nextStep ? `｜${esc(result.nextStep)}` : ""}</p>` : "";
     panel.hidden = false;
     panel.dataset.state = status;
-    panel.innerHTML = `<header><strong>🤖 附件 AI Context｜${esc(attachmentContextStateLabel(result))}</strong><button type="button" class="shared-task-icon-button" data-shared-attachment-context-close aria-label="關閉附件 AI Context" title="關閉">×</button></header><p>${esc(result.filename || "附件")} · ${esc(result.mimeType || "未知格式")}</p>${mediaHint ? `<p>${esc(mediaHint)}</p>` : ""}${preview}${detail}<small>來源：${esc(source.provider || "受控附件來源")} · as-of：${esc(source.asOf || "未提供")} · freshness：${esc(source.freshness || "unknown")} · evidence：${esc(result.evidenceStatus || "UNKNOWN")}</small>`;
+    panel.innerHTML = `<header><strong>🤖 附件 AI Context｜${esc(attachmentContextStateLabel(result))}</strong><button type="button" class="shared-task-icon-button" data-shared-attachment-context-close aria-label="關閉附件 AI Context" title="關閉">×</button></header><p>${esc(result.filename || "附件")} · ${esc(result.mimeType || "未知格式")}</p>${mediaHint ? `<p>${esc(mediaHint)}</p>` : ""}${preview}${aiMarkup}${detail}<small>來源：${esc(source.provider || "受控附件來源")} · as-of：${esc(source.asOf || "未提供")} · freshness：${esc(source.freshness || "unknown")} · evidence：${esc(result.evidenceStatus || "UNKNOWN")}</small>`;
     panel.querySelector("[data-shared-attachment-context-close]")?.addEventListener("click", () => {
       panel.hidden = true;
       panel.replaceChildren();
@@ -2739,6 +2746,16 @@
       });
       renderAttachmentContextResult(result);
       context.emitAIContext?.(result);
+      const aiReader = root.ZhugeAttachmentAIReader;
+      const gateway = root.ZhugeSupabaseGateway?.createDataGateway?.();
+      if (aiReader?.analyzeInput && aiReader?.createFunctionExecutor && typeof gateway?.invokeFunction === "function") {
+        const aiResult = await aiReader.analyzeInput(context.toAIInput(result), {
+          executor: aiReader.createFunctionExecutor({ invokeFunction: gateway.invokeFunction }),
+          timeoutMs: 35_000
+        });
+        renderAttachmentContextResult({ ...result, aiResult });
+        root.dispatchEvent?.(new CustomEvent("zhuge:attachment-ai-result", { detail: aiResult }));
+      }
     } catch (error) {
       renderAttachmentContextResult({ status: "error", filename: item?.filename || "附件", reason: "ATTACHMENT_CONTEXT_FAILED", nextStep: "請稍後再試。" });
     } finally {
