@@ -70,7 +70,14 @@ idempotency key and must not write `board_tasks` directly.
 - Messaging API credentials stay in an Edge/server runtime. This source slice
   intentionally does not activate a provider or require a secret.
 - Delivery, retry, timeout, malformed payload, duplicate event, and provider
-  unavailable states must be shown as explicit unavailable/error evidence.
+  unavailable states must be shown as explicit unavailable/error evidence. The
+  server-only messaging adapter bounds provider calls to 8 seconds (10 seconds
+  absolute maximum), permits at most one retry for an explicit transient
+  rejection, and does not retry a timeout because delivery is uncertain. An
+  atomic idempotency-store `claim` is supported to prevent concurrent sends;
+  a fresh pending claim returns `in_flight` without calling the provider, while
+  an expired pending claim may be reclaimed after the store validates
+  `replaceIfStale`.
 
 ## Test vectors and acceptance
 

@@ -14,6 +14,11 @@
 
   const CONTRACT = "zhuge-line-messaging-adapter-v1";
   const MAX_MESSAGE_CHARS = 800;
+  const DEFAULT_TIMEOUT_MS = 8000;
+  const MAX_TIMEOUT_MS = 10000;
+  const DEFAULT_MAX_RETRIES = 1;
+  const MAX_MAX_RETRIES = 1;
+  const DEFAULT_PENDING_TTL_MS = 30000;
 
   function text(value, max = MAX_MESSAGE_CHARS) {
     return String(value == null ? "" : value)
@@ -27,6 +32,69 @@
     error.code = code;
     error.status = status;
     throw error;
+  }
+
+  function boundedNumber(value, fallback, maximum) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+    return Math.min(Math.floor(parsed), maximum);
+  }
+
+  function errorCode(value, fallback) {
+    return text(value?.code || value?.errorCode || fallback, 80) || fallback;
+  }
+
+  function statusOf(value) {
+    const status = Number(value?.status || value?.statusCode);
+    return Number.isInteger(status) ? status : 0;
+  }
+
+  function retryable(value) {
+    const status = statusOf(value);
+    return value?.retryable === true || status === 408 || status === 425 || status === 429 || status >= 500;
+  }
+
+  function deliveryUncertain(value) {
+    return value?.delivery === "uncertain" || errorCode(value, "") === "LINE_SEND_TIMEOUT";
+  }
+
+  function nowOf(options) {
+    const value = typeof options.now === "function" ? options.now() : Date.now();
+    return Number.isFinite(Number(value)) ? Number(value) : Date.now();
+  }
+
+  async function sendAttempt(send, payload, key, attempt, timeoutMs) {
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller?.abort();
+        const error = new Error("LINE_SEND_TIMEOUT");
+        error.code = "LINE_SEND_TIMEOUT";
+        error.status = 504;
+        error.delivery = "uncertain";
+        reject(error);
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        Promise.resolve().then(() => send(payload, {
+          provider: "line-messaging-api",
+          idempotencyKey: key,
+          attempt,
+          signal: controller?.signal
+        })),
+        timeout
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function isFreshPending(record, now, ttl) {
+    if (record?.status !== "pending") return false;
+    const startedAt = Number(record.startedAt);
+    return Number.isFinite(startedAt) && now - startedAt < ttl;
   }
 
   function ensureIntent(intent) {
@@ -63,26 +131,71 @@
       fail("LINE_MESSAGING_IDEMPOTENCY_STORE_UNAVAILABLE", 503);
     }
     const key = text(value.idempotencyKey, 480);
+    const now = nowOf(options);
     const existing = await options.idempotencyStore.get(key);
     if (existing?.status === "sent" || existing?.status === "accepted") {
       return Object.freeze({ contract: CONTRACT, status: "already_sent", idempotencyKey: key, mutation: "none" });
     }
+    const pendingTtlMs = boundedNumber(options.pendingTtlMs, DEFAULT_PENDING_TTL_MS, MAX_TIMEOUT_MS * 10);
+    if (isFreshPending(existing, now, pendingTtlMs)) {
+      return Object.freeze({ contract: CONTRACT, status: "in_flight", idempotencyKey: key, mutation: "none" });
+    }
     const payload = messagePayload(value, options);
-    let response;
-    try {
-      response = await options.send(payload, { provider: "line-messaging-api", idempotencyKey: key });
-    } catch (error) {
-      await options.idempotencyStore.put(key, { status: "failed", code: text(error?.code || "LINE_SEND_FAILED", 80) });
-      return Object.freeze({ contract: CONTRACT, status: "failed", idempotencyKey: key, mutation: "none", errorCode: text(error?.code || "LINE_SEND_FAILED", 80) });
+    const pending = { status: "pending", startedAt: now };
+    if (typeof options.idempotencyStore.claim === "function") {
+      const claim = await options.idempotencyStore.claim(key, pending, {
+        replaceIfStale: Boolean(existing?.status === "pending" && !isFreshPending(existing, now, pendingTtlMs))
+      });
+      if (claim?.status === "sent" || claim?.status === "accepted") {
+        return Object.freeze({ contract: CONTRACT, status: "already_sent", idempotencyKey: key, mutation: "none" });
+      }
+      if (claim?.status === "pending" && claim.startedAt !== now) {
+        return Object.freeze({ contract: CONTRACT, status: "in_flight", idempotencyKey: key, mutation: "none" });
+      }
+    } else {
+      await options.idempotencyStore.put(key, pending);
     }
-    const accepted = response?.accepted !== false && response?.ok !== false;
-    if (!accepted) {
-      await options.idempotencyStore.put(key, { status: "failed", code: text(response?.code || "LINE_SEND_REJECTED", 80) });
-      return Object.freeze({ contract: CONTRACT, status: "failed", idempotencyKey: key, mutation: "none", errorCode: text(response?.code || "LINE_SEND_REJECTED", 80) });
+
+    const timeoutMs = boundedNumber(options.timeoutMs, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
+    const maxRetries = boundedNumber(options.maxRetries, DEFAULT_MAX_RETRIES, MAX_MAX_RETRIES);
+    let lastCode = "LINE_SEND_FAILED";
+    let lastUncertain = false;
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+      try {
+        const response = await sendAttempt(options.send, payload, key, attempt, timeoutMs);
+        const accepted = response?.accepted !== false && response?.ok !== false;
+        if (accepted) {
+          await options.idempotencyStore.put(key, { status: "sent", sentAt: nowOf(options) });
+          return Object.freeze({ contract: CONTRACT, status: "sent", idempotencyKey: key, mutation: "external-notification-only", attempts: attempt });
+        }
+        lastCode = errorCode(response, "LINE_SEND_REJECTED");
+        lastUncertain = false;
+        if (!retryable(response) || attempt > maxRetries) break;
+      } catch (error) {
+        lastCode = errorCode(error, "LINE_SEND_FAILED");
+        lastUncertain = deliveryUncertain(error);
+        if (!retryable(error) || lastUncertain || attempt > maxRetries) break;
+      }
     }
-    await options.idempotencyStore.put(key, { status: "sent" });
-    return Object.freeze({ contract: CONTRACT, status: "sent", idempotencyKey: key, mutation: "external-notification-only" });
+    await options.idempotencyStore.put(key, { status: "failed", code: lastCode, delivery: lastUncertain ? "uncertain" : "rejected" });
+    return Object.freeze({
+      contract: CONTRACT,
+      status: "failed",
+      idempotencyKey: key,
+      mutation: "none",
+      errorCode: lastCode,
+      delivery: lastUncertain ? "uncertain" : "rejected"
+    });
   }
 
-  return Object.freeze({ CONTRACT, MAX_MESSAGE_CHARS, messagePayload, sendReminder });
+  return Object.freeze({
+    CONTRACT,
+    MAX_MESSAGE_CHARS,
+    DEFAULT_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+    DEFAULT_MAX_RETRIES,
+    MAX_MAX_RETRIES,
+    messagePayload,
+    sendReminder
+  });
 });
