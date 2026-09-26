@@ -101,6 +101,9 @@ test("Workflow Studio UI contains visual canvas, validation, diff, history and b
   assert.match(runtimeSource, /data-workflow-undo/);
   assert.match(runtimeSource, /data-workflow-redo/);
   assert.match(runtimeSource, /data-workflow-load-version/);
+  assert.match(runtimeSource, /data-workflow-remove-transition/);
+  assert.match(runtimeSource, /pointerdown/);
+  assert.match(runtimeSource, /setPointerCapture/);
   assert.match(serviceSource, /board_c_workflow_save_draft/);
   assert.match(serviceSource, /board_c_workflow_publish/);
   assert.doesNotMatch(runtimeSource, /insert into|update public\./i);
@@ -131,4 +134,12 @@ test("Workflow capability reads version history through the existing board-scope
   assert.match(serviceSource, /board_workflow_transitions/);
   assert.match(serviceSource, /return \{ boardInstanceId: instanceId, versions \};/);
   assert.match(serviceSource, /listVersions,/);
+});
+
+test("Workflow Studio keeps connection removal and touch dragging presentation-only", () => {
+  assert.match(runtimeSource, /已移除本地連線；儲存草稿或發布後才會寫入 Canonical Workflow/);
+  assert.match(runtimeSource, /state\.workflowStudioPositions\.set/);
+  assert.match(runtimeSource, /建立回復草稿/);
+  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /workflow-transition-entry/);
+  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /touch-action:none/);
 });

@@ -4028,7 +4028,13 @@
       historyHost.innerHTML = `<span>編輯步驟 ${state.workflowHistoryIndex + 1}/${state.workflowHistory.length}</span><button class="btn" type="button" data-workflow-undo${state.workflowHistoryIndex <= 0 ? " disabled" : ""}>復原</button><button class="btn" type="button" data-workflow-redo${state.workflowHistoryIndex >= state.workflowHistory.length - 1 ? " disabled" : ""}>重做</button>`;
     }
     canvasHost.querySelectorAll("[data-workflow-studio-node]").forEach(node => {
+      let pointerDrag = null;
+      let pointerMoved = false;
       const selectNode = () => {
+        if (pointerMoved) {
+          pointerMoved = false;
+          return;
+        }
         state.workflowStudioSelectedStep = String(node.dataset.stepKey || "");
         renderWorkflowStudio(state.workflowEditor);
       };
@@ -4038,6 +4044,44 @@
         event.dataTransfer?.setData("text/plain", String(node.dataset.stepKey || ""));
         if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
       });
+      node.addEventListener("pointerdown", event => {
+        if (event.button !== undefined && event.button !== 0) return;
+        if (event.target?.closest?.("button,a,input,select,textarea")) return;
+        const canvas = canvasHost.querySelector(".workflow-studio-canvas");
+        if (!canvas) return;
+        const key = String(node.dataset.stepKey || "");
+        const position = layout.positions.get(key) || { x: 12, y: 12 };
+        const rect = canvas.getBoundingClientRect();
+        pointerDrag = {
+          pointerId: event.pointerId,
+          offsetX: event.clientX - rect.left - position.x,
+          offsetY: event.clientY - rect.top - position.y,
+          canvas
+        };
+        pointerMoved = false;
+        node.setPointerCapture?.(event.pointerId);
+        node.classList.add("is-dragging");
+        event.preventDefault();
+      });
+      node.addEventListener("pointermove", event => {
+        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+        const rect = pointerDrag.canvas.getBoundingClientRect();
+        const x = Math.max(12, Math.round(event.clientX - rect.left - pointerDrag.offsetX));
+        const y = Math.max(12, Math.round(event.clientY - rect.top - pointerDrag.offsetY));
+        pointerMoved = pointerMoved || Math.abs(x - Number.parseInt(node.style.left || "0", 10)) > 2 || Math.abs(y - Number.parseInt(node.style.top || "0", 10)) > 2;
+        node.style.left = `${x}px`;
+        node.style.top = `${y}px`;
+        state.workflowStudioPositions.set(String(node.dataset.stepKey || ""), { x, y });
+        event.preventDefault();
+      });
+      const finishPointerDrag = event => {
+        if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+        node.releasePointerCapture?.(event.pointerId);
+        node.classList.remove("is-dragging");
+        pointerDrag = null;
+      };
+      node.addEventListener("pointerup", finishPointerDrag);
+      node.addEventListener("pointercancel", finishPointerDrag);
     });
     canvasHost.querySelector(".workflow-studio-canvas")?.addEventListener("dragover", event => event.preventDefault());
     canvasHost.querySelector(".workflow-studio-canvas")?.addEventListener("drop", event => {
@@ -4063,7 +4107,7 @@
     return versions.map(version => {
       const current = String(version.id || "") === String(state.workflowData?.published?.id || state.workflowData?.draft?.id || "");
       const label = `v${Number(version.versionNo || 0) || "?"} · ${version.status === "published" ? "已發布" : "草稿"}`;
-      return `<div class="workflow-version-row${current ? " is-current" : ""}"><div><strong>${esc(label)}</strong><small>${esc(version.name || "未命名流程")}</small></div><button class="btn" type="button" data-workflow-load-version="${esc(version.id)}"${readOnly ? " disabled" : ""}>載入草稿</button></div>`;
+      return `<div class="workflow-version-row${current ? " is-current" : ""}"><div><strong>${esc(label)}</strong><small>${esc(version.name || "未命名流程")}</small></div><button class="btn" type="button" data-workflow-load-version="${esc(version.id)}"${readOnly ? " disabled" : ""}>建立回復草稿</button></div>`;
     }).join("");
   }
 
@@ -4111,7 +4155,7 @@
     editor.steps.forEach(from => editor.steps.forEach(to => {
       if (from.stepKey === to.stepKey) return;
       const enabled = workflowTransitionEnabled(editor, from.stepKey, to.stepKey);
-      rows.push(`<label class="workflow-transition-row"><input type="checkbox" data-workflow-transition="true" data-from-step="${esc(from.stepKey)}" data-to-step="${esc(to.stepKey)}"${enabled ? " checked" : ""}${readOnly ? " disabled" : ""}><span>${esc(from.name)} <b>→</b> ${esc(to.name)}</span><small>${to.isCompletion ? "完成確認" : "PM 可直接決定"}</small></label>`);
+    rows.push(`<div class="workflow-transition-entry"><label class="workflow-transition-row"><input type="checkbox" data-workflow-transition="true" data-from-step="${esc(from.stepKey)}" data-to-step="${esc(to.stepKey)}"${enabled ? " checked" : ""}${readOnly ? " disabled" : ""}><span>${esc(from.name)} <b>→</b> ${esc(to.name)}</span><small>${to.isCompletion ? "完成確認" : "PM 可直接決定"}</small></label><button class="btn workflow-transition-remove" type="button" data-workflow-remove-transition data-from-step="${esc(from.stepKey)}" data-to-step="${esc(to.stepKey)}"${readOnly || !enabled ? " disabled" : ""}>刪除連線</button></div>`);
     }));
     return rows.join("");
   }
@@ -4122,7 +4166,7 @@
     const editor = state.workflowEditor || workflowEditorFromData(state.workflowData);
     state.workflowEditor = editor;
     const status = state.workflowEditorStatus || { text: "", kind: "" };
-    return `<div class="workflow-settings-backdrop" data-workflow-settings-backdrop><section class="workflow-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workflowSettingsTitle"><header><div><span class="workflow-settings-eyebrow">MODULE C · ${readOnly ? "唯讀" : "WORKFLOW CAPABILITY"}</span><h2 id="workflowSettingsTitle">流程設定</h2><p>用一眼看懂的方式設定「這張子板的工作怎麼走」。</p></div><button class="workflow-settings-close" type="button" data-workflow-close aria-label="關閉流程設定">×</button></header><div class="workflow-settings-status" data-workflow-status data-state="${esc(status.kind)}"${status.text ? "" : " hidden"}>${esc(status.text)}</div><section class="workflow-studio-panel" aria-labelledby="workflowStudioTitle"><div class="workflow-studio-heading"><div><span class="workflow-studio-eyebrow">CANONICAL WORKFLOW VIEW</span><h3 id="workflowStudioTitle">流程畫布</h3><p>節點與箭頭只是可視化編輯層；儲存與發布仍由 Module C 正式 Contract 驗證。</p></div><div class="workflow-studio-history" data-workflow-studio-history></div></div><div class="workflow-studio-toolbar"><button class="btn" type="button" data-workflow-validate${readOnly ? " disabled" : ""}>檢查流程</button><label><span>從</span><select data-workflow-connect-from${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><span class="workflow-studio-arrow-label" aria-hidden="true">→</span><label><span>到</span><select data-workflow-connect-to${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><button class="btn" type="button" data-workflow-connect${readOnly ? " disabled" : ""}>新增連線</button></div><div class="workflow-studio-canvas-host" data-workflow-studio-canvas></div><div class="workflow-studio-lower-grid"><section><h4>變更預覽</h4><div data-workflow-studio-diff></div></section><section><h4>發布前檢查</h4><div data-workflow-studio-validation></div></section></div></section><div class="workflow-settings-layout"><aside class="workflow-settings-preview-panel"><h3>流程摘要</h3><p>每個階段對應一個工作區；卡片會依這張子板已發布的流程執行。</p><div class="workflow-preview" data-workflow-preview></div><details class="workflow-technical-details"><summary>版本歷史／回復</summary><div class="workflow-version-history" data-workflow-version-history>${workflowStudioVersionMarkup(readOnly)}</div><small>載入版本只會建立本地草稿；儲存或發布仍需由下方正式按鈕明確執行。</small></details><details class="workflow-technical-details"><summary>技術詳細資料</summary><dl><dt>Canonical Contract</dt><dd>${esc(workflow?.contract?.id || "module-c-lifecycle-acceptance-v2")}</dd><dt>Board Instance</dt><dd>${esc(state.boardInstanceId || "尚未讀取")}</dd><dt>Published Version</dt><dd>${esc(state.workflowData?.state?.publishedWorkflowVersionId || state.workflowData?.published?.id || "尚未發布")}</dd></dl></details></aside><main class="workflow-settings-editor"><div class="workflow-settings-section-heading"><div><h3>工作階段</h3><p>可在畫布上拖曳節點整理閱讀順序；欄位修改仍會回到同一份草稿。</p></div><button class="btn" type="button" data-workflow-add-step${readOnly ? " disabled" : ""}>＋ 新增階段</button></div><div class="workflow-definition-fields"><label><span>流程名稱</span><input type="text" data-workflow-definition="name" value="${esc(editor.name)}" maxlength="80" placeholder="例如：一般工作流程"${readOnly ? " disabled" : ""}></label><label><span>流程說明（選填）</span><textarea data-workflow-definition="description" maxlength="240" placeholder="簡單說明這張子板的工作如何完成"${readOnly ? " disabled" : ""}>${esc(editor.description)}</textarea></label></div><div class="workflow-step-list" data-workflow-step-list>${editor.steps.map((step, index) => renderWorkflowStepEditor(step, index, editor, readOnly)).join("")}</div><div class="workflow-settings-section-heading workflow-transition-heading"><div><h3>合法流程轉換</h3><p>勾選 PM 可以直接做的決定；不要求先經過其他工作區。</p></div></div><div class="workflow-transition-list" data-workflow-transition-list>${renderWorkflowTransitionEditor(editor, readOnly)}</div></main></div><footer><span class="workflow-unsaved-note" data-workflow-unsaved-note></span><button class="btn" type="button" data-workflow-close>取消</button>${readOnly ? "" : "<button class=\"btn\" type=\"button\" data-workflow-save>儲存草稿</button><button class=\"btn primary\" type=\"button\" data-workflow-publish>儲存並發布</button>"}</footer></section></div>`;
+    return `<div class="workflow-settings-backdrop" data-workflow-settings-backdrop><section class="workflow-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="workflowSettingsTitle"><header><div><span class="workflow-settings-eyebrow">MODULE C · ${readOnly ? "唯讀" : "WORKFLOW CAPABILITY"}</span><h2 id="workflowSettingsTitle">流程設定</h2><p>用一眼看懂的方式設定「這張子板的工作怎麼走」。</p></div><button class="workflow-settings-close" type="button" data-workflow-close aria-label="關閉流程設定">×</button></header><div class="workflow-settings-status" data-workflow-status data-state="${esc(status.kind)}"${status.text ? "" : " hidden"}>${esc(status.text)}</div><section class="workflow-studio-panel" aria-labelledby="workflowStudioTitle"><div class="workflow-studio-heading"><div><span class="workflow-studio-eyebrow">CANONICAL WORKFLOW VIEW</span><h3 id="workflowStudioTitle">流程畫布</h3><p>節點與箭頭只是可視化編輯層；儲存與發布仍由 Module C 正式 Contract 驗證。</p></div><div class="workflow-studio-history" data-workflow-studio-history></div></div><div class="workflow-studio-toolbar"><button class="btn" type="button" data-workflow-validate${readOnly ? " disabled" : ""}>檢查流程</button><label><span>從</span><select data-workflow-connect-from${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><span class="workflow-studio-arrow-label" aria-hidden="true">→</span><label><span>到</span><select data-workflow-connect-to${readOnly ? " disabled" : ""}>${workflowStudioStepOptions(editor)}</select></label><button class="btn" type="button" data-workflow-connect${readOnly ? " disabled" : ""}>新增連線</button></div><div class="workflow-studio-canvas-host" data-workflow-studio-canvas></div><div class="workflow-studio-lower-grid"><section><h4>變更預覽</h4><div data-workflow-studio-diff></div></section><section><h4>發布前檢查</h4><div data-workflow-studio-validation></div></section></div></section><div class="workflow-settings-layout"><aside class="workflow-settings-preview-panel"><h3>流程摘要</h3><p>每個階段對應一個工作區；卡片會依這張子板已發布的流程執行。</p><div class="workflow-preview" data-workflow-preview></div><details class="workflow-technical-details"><summary>版本歷史／回復</summary><div class="workflow-version-history" data-workflow-version-history>${workflowStudioVersionMarkup(readOnly)}</div><small>建立回復草稿只會載入選定版本；儲存或發布仍需由下方正式按鈕明確執行。</small></details><details class="workflow-technical-details"><summary>技術詳細資料</summary><dl><dt>Canonical Contract</dt><dd>${esc(workflow?.contract?.id || "module-c-lifecycle-acceptance-v2")}</dd><dt>Board Instance</dt><dd>${esc(state.boardInstanceId || "尚未讀取")}</dd><dt>Published Version</dt><dd>${esc(state.workflowData?.state?.publishedWorkflowVersionId || state.workflowData?.published?.id || "尚未發布")}</dd></dl></details></aside><main class="workflow-settings-editor"><div class="workflow-settings-section-heading"><div><h3>工作階段</h3><p>可在畫布上拖曳節點整理閱讀順序；欄位修改仍會回到同一份草稿。</p></div><button class="btn" type="button" data-workflow-add-step${readOnly ? " disabled" : ""}>＋ 新增階段</button></div><div class="workflow-definition-fields"><label><span>流程名稱</span><input type="text" data-workflow-definition="name" value="${esc(editor.name)}" maxlength="80" placeholder="例如：一般工作流程"${readOnly ? " disabled" : ""}></label><label><span>流程說明（選填）</span><textarea data-workflow-definition="description" maxlength="240" placeholder="簡單說明這張子板的工作如何完成"${readOnly ? " disabled" : ""}>${esc(editor.description)}</textarea></label></div><div class="workflow-step-list" data-workflow-step-list>${editor.steps.map((step, index) => renderWorkflowStepEditor(step, index, editor, readOnly)).join("")}</div><div class="workflow-settings-section-heading workflow-transition-heading"><div><h3>合法流程轉換</h3><p>勾選 PM 可以直接做的決定；不要求先經過其他工作區。</p></div></div><div class="workflow-transition-list" data-workflow-transition-list>${renderWorkflowTransitionEditor(editor, readOnly)}</div></main></div><footer><span class="workflow-unsaved-note" data-workflow-unsaved-note></span><button class="btn" type="button" data-workflow-close>取消</button>${readOnly ? "" : "<button class=\"btn\" type=\"button\" data-workflow-save>儲存草稿</button><button class=\"btn primary\" type=\"button\" data-workflow-publish>儲存並發布</button>"}</footer></section></div>`;
   }
 
   function renderWorkflowSettingsModal() {
@@ -4325,6 +4369,17 @@
     host.querySelectorAll("[data-workflow-transition=\"true\"]").forEach(field => field.addEventListener("change", () => {
       workflowStudioPushHistory(collectWorkflowEditor());
       renderWorkflowSettingsModal();
+    }));
+    host.querySelectorAll("[data-workflow-remove-transition]").forEach(button => button.addEventListener("click", () => {
+      const editor = collectWorkflowEditor();
+      const fromStepKey = String(button.dataset.fromStep || "");
+      const toStepKey = String(button.dataset.toStep || "");
+      const before = editor.transitions.length;
+      editor.transitions = editor.transitions.filter(item => !(item.fromStepKey === fromStepKey && item.toStepKey === toStepKey));
+      if (editor.transitions.length === before) return;
+      workflowStudioPushHistory(editor);
+      renderWorkflowSettingsModal();
+      workflowModalStatus("已移除本地連線；儲存草稿或發布後才會寫入 Canonical Workflow。", "success");
     }));
     host.querySelector("[data-workflow-connect]")?.addEventListener("click", () => {
       const editor = collectWorkflowEditor();
