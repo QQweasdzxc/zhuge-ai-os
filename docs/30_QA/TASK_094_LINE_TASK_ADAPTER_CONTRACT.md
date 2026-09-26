@@ -1,6 +1,6 @@
 # TASK-094｜Shared LINE Task Adapter Contract
 
-Status: Source-ready / not deployed. LINE is a transport and notification
+Status: Edge-source-ready / provider-optional. LINE is a transport and notification
 surface; the canonical AI Board / Module C runtime remains the only Task,
 Workspace, Workflow, progress, audit, and persistence authority.
 
@@ -95,8 +95,28 @@ idempotency key and must not write `board_tasks` directly.
    canonical-board-scope` is rejected; a caller value that disagrees with the
    verified resolution is rejected with `LINE_RESOLUTION_MISMATCH`.
 
+## Protected Edge runtime
+
+`supabase/functions/zhuge-line-task-runtime` is the server-side webhook host.
+It uses LINE channel-secret HMAC before JSON parsing, resolves the subject via
+the service-role-only `line_resolve_subject` RPC, and sends allowlisted task
+commands through `board_line_task_command_v1`. The RPC resolves the approved
+user's single personal WorkTodo Board instance and uses the existing Board
+creation/audit boundary; workflow-bound tasks fail closed rather than bypassing
+the canonical Workflow transition. Webhook idempotency is durable in
+`private.line_webhook_idempotency`, with a 30-second in-flight guard and stale
+reclaim. The Edge `/health` response is sanitized and reports only configured,
+available, error category, and mutation boundary.
+
+Provider credentials are optional at deployment time. Without both
+`LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`, the runtime returns
+`PROVIDER_NOT_CONFIGURED`, performs no provider call, and performs no Board
+mutation. The credentials remain Edge secrets; no browser, LIFF, Flex payload,
+ZIP, or response contains them.
+
 ## Attribution
 
-This slice uses no third-party source code, SDK, or provider runtime. No MIT
-attribution or provider notice is required. Provider terms and Messaging API
-credential activation remain a later deployment gate.
+This slice uses no third-party source code or SDK. It calls the LINE Messaging
+API only through the protected server-side adapter; provider terms and
+credential activation remain a later runtime gate. No MIT attribution is
+required for this slice.

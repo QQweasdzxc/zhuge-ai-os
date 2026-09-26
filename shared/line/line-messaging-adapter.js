@@ -124,6 +124,42 @@
     });
   }
 
+  function replyPayload(replyToken, messages) {
+    const token = text(replyToken, 240);
+    if (!token) fail("LINE_REPLY_TOKEN_REQUIRED", 400);
+    const values = (Array.isArray(messages) ? messages : [])
+      .slice(0, 3)
+      .map(message => {
+        if (!message || typeof message !== "object") fail("LINE_REPLY_MESSAGE_INVALID", 400);
+        const type = text(message.type, 40);
+        if (type !== "text" && type !== "flex") fail("LINE_REPLY_MESSAGE_UNSUPPORTED", 415);
+        if (type === "text") return { type, text: text(message.text, MAX_MESSAGE_CHARS) };
+        return { type, altText: text(message.altText || "Zhuge AI OS 工作卡片", 120), contents: message.contents && typeof message.contents === "object" ? message.contents : {} };
+      });
+    if (!values.length) fail("LINE_REPLY_MESSAGE_REQUIRED", 400);
+    return Object.freeze({ replyToken: token, messages: Object.freeze(values) });
+  }
+
+  async function sendReply(replyToken, messages, options = {}) {
+    if (typeof options.send !== "function") fail("LINE_MESSAGING_SENDER_UNAVAILABLE", 503);
+    const payload = replyPayload(replyToken, messages);
+    const timeoutMs = boundedNumber(options.timeoutMs, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
+    const maxRetries = boundedNumber(options.maxRetries, DEFAULT_MAX_RETRIES, MAX_MAX_RETRIES);
+    let lastCode = "LINE_REPLY_FAILED";
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+      try {
+        const response = await sendAttempt(options.send, payload, text(options.idempotencyKey, 480), attempt, timeoutMs);
+        if (response?.accepted !== false && response?.ok !== false) return Object.freeze({ contract: CONTRACT, status: "sent", attempts: attempt, mutation: "external-notification-only" });
+        lastCode = errorCode(response, "LINE_REPLY_REJECTED");
+        if (!retryable(response) || attempt > maxRetries) break;
+      } catch (error) {
+        lastCode = errorCode(error, "LINE_REPLY_FAILED");
+        if (deliveryUncertain(error) || !retryable(error) || attempt > maxRetries) break;
+      }
+    }
+    return Object.freeze({ contract: CONTRACT, status: "failed", errorCode: lastCode, mutation: "none" });
+  }
+
   async function sendReminder(intent, options = {}) {
     const value = ensureIntent(intent);
     if (typeof options.send !== "function") fail("LINE_MESSAGING_SENDER_UNAVAILABLE", 503);
@@ -196,6 +232,8 @@
     DEFAULT_MAX_RETRIES,
     MAX_MAX_RETRIES,
     messagePayload,
+    replyPayload,
+    sendReply,
     sendReminder
   });
 });

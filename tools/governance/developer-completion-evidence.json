@@ -56,9 +56,16 @@
         "tests/task-094-line-messaging-adapter.test.js",
         "tests/task-094-line-reminder-contract.test.js",
         "tests/task-094-line-webhook-handler.test.js",
+        "tests/task-094-line-runtime.test.js",
+        "tests/runtime-automation-readiness.test.js",
+        "tools/runtime/provider-readiness.mjs",
+        "tools/runtime/authenticated-runtime-qa.mjs",
+        ".github/workflows/authenticated-runtime-qa.yml",
+        "supabase/functions/zhuge-line-task-runtime/index.ts",
+        "docs/supabase/20260926_task_094_line_runtime.sql",
         "docs/30_QA/TASK_094_LINE_TASK_ADAPTER_CONTRACT.md"
       ],
-      "human_gate": ["protected webhook host", "LINE secret injection", "LIFF/Messaging API runtime QA"],
+      "human_gate": ["LINE secret injection", "LIFF/Messaging API runtime QA", "authenticated storage-state secret for CI runtime QA"],
       "handoff": {"operation": "engineering_review", "review_state": "pending", "next_gate": "gpt", "claim_token_source": "active_authenticated_co_claim"}
     },
     "TASK-097": {

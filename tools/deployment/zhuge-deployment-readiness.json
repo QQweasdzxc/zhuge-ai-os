@@ -31,17 +31,21 @@
       "rollback": "redeploy the previous approved function source; keep attachments and Product Data unchanged"
     },
     "task-094": {
-      "kind": "protected-server-adapter-source",
+      "kind": "supabase-edge-function",
+      "function": "zhuge-line-task-runtime",
       "source": [
+        "supabase/functions/zhuge-line-task-runtime/index.ts",
         "shared/line/line-task-adapter.js",
         "shared/line/line-webhook-handler.js",
         "shared/line/line-messaging-adapter.js",
-        "shared/line/line-reminder-contract.js"
+        "shared/line/line-reminder-contract.js",
+        "shared/line/line-runtime-contract.js",
+        "docs/supabase/20260926_task_094_line_runtime.sql"
       ],
       "required_secret_names": ["LINE_CHANNEL_SECRET", "LINE_CHANNEL_ACCESS_TOKEN"],
-      "status": "human_runtime_host_required",
-      "smoke_contract": "zhuge-line-webhook-handler-v1",
-      "rollback": "disable the protected webhook route and sender binding; do not write Board rows directly"
+      "status": "edge_source_ready_provider_optional",
+      "smoke_contract": "zhuge-line-task-runtime-v1",
+      "rollback": "redeploy the previous approved function source; keep LINE bindings and Board data unchanged"
     },
     "task-101": {
       "kind": "supabase-migration",
@@ -49,6 +53,18 @@
       "rollback": "docs/supabase/ROLLBACK_20260926_task_101_workflow_restore_version.sql",
       "required_secret_names": [],
       "smoke_contract": "module-c-workflow-restore-version-v1"
+    },
+    "runtime-automation": {
+      "kind": "github-actions-read-only-qa",
+      "source": [
+        "tools/runtime/authenticated-runtime-qa.mjs",
+        "tools/runtime/provider-readiness.mjs",
+        ".github/workflows/authenticated-runtime-qa.yml"
+      ],
+      "required_secret_names": ["Zhuge_AUTH_STORAGE_STATE_B64"],
+      "status": "source_ready_credential_optional",
+      "smoke_contract": "zhuge-authenticated-runtime-qa-v1",
+      "rollback": "disable the workflow; no Product Data or provider state is mutated"
     }
   },
   "readback": {

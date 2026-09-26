@@ -132,3 +132,19 @@ test("TASK-094 Messaging adapter can reclaim a stale pending claim", async () =>
   });
   assert.equal(result.status, "sent");
 });
+
+test("TASK-094 Messaging adapter sanitizes webhook replies and bounds retry", async () => {
+  let calls = 0;
+  const result = await adapter.sendReply("reply-token-opaque", [{ type: "text", text: "已受理" }], {
+    idempotencyKey: "line-reply-test-1",
+    send: async payload => {
+      calls += 1;
+      assert.equal(payload.messages[0].text, "已受理");
+      assert.doesNotMatch(JSON.stringify(payload), /channel|access\.token|secret/i);
+      return { accepted: true, status: 200 };
+    }
+  });
+  assert.equal(result.status, "sent");
+  assert.equal(calls, 1);
+  assert.throws(() => adapter.replyPayload("", [{ type: "text", text: "x" }]), error => error.code === "LINE_REPLY_TOKEN_REQUIRED");
+});
