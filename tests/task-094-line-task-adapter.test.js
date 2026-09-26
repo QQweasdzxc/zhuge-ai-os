@@ -99,6 +99,18 @@ test("Flex card is a sanitized presentation projection and carries no mutation",
   assert.equal(card.mutation, "none");
 });
 
+test("Flex message is a sanitized LINE/LIFF presentation projection", () => {
+  const message = adapter.flexTaskMessage({ id: "task-1", title: "整理文件", state: "in_progress", progress: 50 }, {
+    deepLink: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?task=task-1"
+  });
+  assert.equal(message.type, "flex");
+  assert.equal(message.contents.type, "bubble");
+  assert.equal(message.contents.footer.contents[0].action.type, "uri");
+  assert.match(message.contents.footer.contents[0].action.uri, /task=task-1/);
+  assert.equal(message.mutation, "none");
+  assert.doesNotMatch(JSON.stringify(message), /channel|access\.token|secret|personal/i);
+});
+
 test("LINE adapter uses deterministic event idempotency and does not accept arbitrary task writes", () => {
   assert.equal(adapter.idempotencyKey("evt-1", "accept_task"), "line-task-v1:evt-1:accept_task");
   assert.equal(adapter.idempotencyKey("evt-1", "delete_task"), "");

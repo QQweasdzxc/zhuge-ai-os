@@ -39,6 +39,9 @@ test("TASK-094 Edge runtime has custom signature auth, sanitized RPC boundary, a
   assert.match(edge, /signature_verified:\s*true/);
   assert.match(edge, /secrets_exposed:\s*false/);
   assert.doesNotMatch(edge, /console\.(log|error)\(/);
+  assert.match(edge, /flexTaskMessage/);
+  assert.match(edge, /LINE_LIFF_TASK_BASE_URL/);
+  assert.match(edge, /taskDeepLink/);
 });
 
 test("TASK-094 Cloud bridge is private, service-role-only, durable, and workflow fail-closed", () => {
