@@ -29,7 +29,9 @@
       intelligence: global.InvestmentIntelligenceLayer,
       providers: global.InvestmentIntelligenceProviders,
       analysis: global.InvestmentAnalysisService,
-      strategyLibrary: global.InvestmentStrategyLibrary
+      strategyLibrary: global.InvestmentStrategyLibrary,
+      strategyScanner: global.InvestmentStrategyScanner,
+      homeworkPack: global.InvestmentHomeworkPack
     };
   }
 
@@ -389,6 +391,8 @@
       intelligence: dependencies.intelligence,
       analysis: dependencies.analysis,
       strategyLibrary: dependencies.strategyLibrary,
+      strategyScanner: dependencies.strategyScanner,
+      homeworkPack: dependencies.homeworkPack,
       invokeFunction: context.data.invokeFunction
     }) || null;
     const recognitionProvider = dependencies.recognitionProvider?.create?.({
@@ -959,14 +963,36 @@
 
     function enrichIntelligenceWithPortfolio(intelligence, portfolioPositions) {
       if (!intelligence || !dependencies.analysis?.enrichContextPack || !Array.isArray(intelligence.contexts)) return intelligence;
-      const contexts = Object.freeze(intelligence.contexts.map(context => dependencies.analysis.enrichContextPack(context, {
-        strategyLibrary: dependencies.strategyLibrary,
-        portfolioPositions
-      })));
+      const contexts = Object.freeze(intelligence.contexts.map(context => {
+        const enriched = dependencies.analysis.enrichContextPack(context, {
+          strategyLibrary: dependencies.strategyLibrary,
+          portfolioPositions
+        });
+        const strategyScan = dependencies.strategyScanner?.scanContext
+          ? dependencies.strategyScanner.scanContext(enriched, {
+              analysis: enriched.analysis,
+              strategyLibrary: dependencies.strategyLibrary,
+              analysisService: dependencies.analysis
+            })
+          : context.strategyScan;
+        const homeworkPack = dependencies.homeworkPack?.buildContext
+          ? dependencies.homeworkPack.buildContext(
+              { ...enriched, ...(strategyScan ? { strategyScan } : {}) },
+              { analysis: enriched.analysis, strategyScan }
+            )
+          : context.homeworkPack;
+        return Object.freeze({
+          ...enriched,
+          ...(strategyScan ? { strategyScan } : {}),
+          ...(homeworkPack ? { homeworkPack } : {})
+        });
+      }));
       return Object.freeze({
         ...intelligence,
         contexts,
-        analyses: Object.freeze(contexts.map(item => item.analysis).filter(Boolean))
+        analyses: Object.freeze(contexts.map(item => item.analysis).filter(Boolean)),
+        strategyScans: Object.freeze(contexts.map(item => item.strategyScan).filter(Boolean)),
+        homeworkPacks: Object.freeze(contexts.map(item => item.homeworkPack).filter(Boolean))
       });
     }
 
@@ -1068,6 +1094,8 @@
           news: [],
           contexts: [],
           analyses: [],
+          strategyScans: [],
+          homeworkPacks: [],
           quality: Object.freeze({}),
           error: null,
           loadedAt: null
@@ -1093,6 +1121,8 @@
               news: runtimeIntelligence.news,
               contexts: runtimeIntelligence.contexts,
               analyses: runtimeIntelligence.analyses,
+              strategyScans: runtimeIntelligence.strategyScans,
+              homeworkPacks: runtimeIntelligence.homeworkPacks,
               quality: runtimeIntelligence.quality,
               error: null,
               loadedAt: runtimeIntelligence.generatedAt
@@ -1107,6 +1137,8 @@
               news: [],
               contexts: [],
               analyses: [],
+              strategyScans: [],
+              homeworkPacks: [],
               quality: Object.freeze({}),
               error: "PROVIDER_ADAPTER_UNAVAILABLE",
               loadedAt: null
@@ -1121,6 +1153,9 @@
             fx: null,
             news: [],
             contexts: [],
+            analyses: [],
+            strategyScans: [],
+            homeworkPacks: [],
             quality: Object.freeze({}),
             error: String(error?.code || "PROVIDER_LOAD_FAILED"),
             loadedAt: null
@@ -1242,6 +1277,13 @@
         importSession.confirmPreview();
         renderPage();
       }
+    });
+    root.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const researchTarget = event.target.closest?.("[data-investment-research-symbol]");
+      if (!researchTarget) return;
+      event.preventDefault();
+      openResearchForSymbol(researchTarget.dataset.investmentResearchSymbol, researchTarget.dataset.investmentResearchMarket);
     });
     root.addEventListener("submit", event => {
       const researchForm = event.target.closest("[data-investment-research-form]");

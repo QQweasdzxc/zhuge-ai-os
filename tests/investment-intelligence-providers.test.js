@@ -7,6 +7,8 @@ const intelligence = require("../modules/investment/services/investment-intellig
 const providers = require("../modules/investment/services/investment-intelligence-providers.js");
 const analysis = require("../modules/investment/services/investment-analysis-service.js");
 const strategyLibrary = require("../modules/investment/services/investment-strategy-library.js");
+const homeworkPack = require("../modules/investment/services/investment-homework-pack.js");
+const strategyBacktest = require("../modules/investment/services/investment-strategy-backtest.js");
 const calculation = require("../modules/investment/services/portfolio-calculation-service.js");
 
 function responseJson(value, status = 200) {
@@ -78,6 +80,22 @@ test("Investment provider quote overlay reuses the canonical P&L calculation", (
   assert.equal(live[0].marketValue, 24600);
   assert.equal(live[0].unrealizedPnl, 15600);
   assert.equal(live[0].quoteProvider, "twse-open");
+});
+
+test("Investment provider exposes the read-only Strategy Backtest contract without owning signals", () => {
+  const runtime = providers.create({ intelligence, strategyBacktest });
+  const result = runtime.runBacktest({
+    bars: [
+      { timestamp: "2026-01-01", open: 100, close: 101 },
+      { timestamp: "2026-01-02", open: 110, close: 111 },
+      { timestamp: "2026-01-03", open: 120, close: 121 }
+    ],
+    signals: [{ action: "ENTER", barIndex: 0 }, { action: "EXIT", barIndex: 1 }]
+  });
+  assert.equal(result.contract, "zhuge-investment-strategy-backtest-v1");
+  assert.equal(result.status, "AVAILABLE");
+  assert.equal(result.readOnly, true);
+  assert.equal(result.mutation, "none");
 });
 
 test("Investment production path uses the authenticated Shared Gateway Edge adapter", async () => {
@@ -165,6 +183,7 @@ test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis
     intelligence,
     analysis,
     strategyLibrary,
+    homeworkPack,
     invokeFunction: async () => ({
       contract: "zhuge-investment-intelligence-edge-v1",
       read_only: true,
@@ -196,6 +215,9 @@ test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis
   assert.equal(result.contexts[0].analysis.marketPhase.status, "AVAILABLE");
   assert.equal(result.contexts[0].analysis.technical.status, "AVAILABLE");
   assert.equal(result.contexts[0].analysis.strategyLibrary.matches[0].status, "AVAILABLE");
+  assert.equal(result.homeworkPacks.length, 1);
+  assert.equal(result.contexts[0].homeworkPack.contract, "zhuge-investment-homework-pack-v1");
+  assert.equal(result.contexts[0].homeworkPack.readOnly, true);
 });
 
 test("Investment Intelligence Edge adapter is read-only and has no Product Data write surface", () => {

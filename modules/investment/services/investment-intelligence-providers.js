@@ -569,6 +569,9 @@
     if (!intelligence) throw new TypeError("InvestmentIntelligenceProviders requires InvestmentIntelligenceLayer.");
     const analysis = options.analysis || root?.InvestmentAnalysisService;
     const strategyLibrary = options.strategyLibrary || root?.InvestmentStrategyLibrary;
+    const strategyScanner = options.strategyScanner || root?.InvestmentStrategyScanner;
+    const homeworkPack = options.homeworkPack || root?.InvestmentHomeworkPack;
+    const strategyBacktest = options.strategyBacktest || root?.InvestmentStrategyBacktest;
     const fetchImpl = options.fetch || root?.fetch?.bind(root);
     const endpoints = Object.freeze({ ...DEFAULT_ENDPOINTS, ...(options.endpoints || {}) });
     const now = typeof options.now === "function" ? options.now : () => Date.now();
@@ -1089,7 +1092,21 @@
 
     function enrichContexts(contexts) {
       if (!analysis?.enrichContextPack) return Object.freeze(contexts);
-      return Object.freeze(contexts.map(context => analysis.enrichContextPack(context, { strategyLibrary })));
+      return Object.freeze(contexts.map(context => {
+        const enriched = analysis.enrichContextPack(context, { strategyLibrary });
+        const strategyScan = strategyScanner?.scanContext
+          ? strategyScanner.scanContext(enriched, { analysis: enriched.analysis, strategyLibrary, analysisService: analysis })
+          : null;
+        return homeworkPack?.buildContext
+          ? Object.freeze({
+            ...enriched,
+            ...(strategyScan ? { strategyScan } : {}),
+            homeworkPack: homeworkPack.buildContext({ ...enriched, ...(strategyScan ? { strategyScan } : {}) }, { analysis: enriched.analysis, strategyScan })
+          })
+          : strategyScan
+            ? Object.freeze({ ...enriched, strategyScan })
+            : enriched;
+      }));
     }
 
     function edgeRequest(input = {}) {
@@ -1130,6 +1147,8 @@
       const marketPhase = Object.freeze(response.market_phase && typeof response.market_phase === "object" ? { ...response.market_phase } : {});
       const contexts = enrichContexts((Array.isArray(response.contexts) ? response.contexts : []).map(normalizeEdgeContext));
       const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
+      const strategyScans = Object.freeze(contexts.map(item => item.strategyScan).filter(Boolean));
+      const homeworkPacks = Object.freeze(contexts.map(item => item.homeworkPack).filter(Boolean));
       return Object.freeze({
         contract: "zhuge-investment-intelligence-runtime-v1",
         generatedAt,
@@ -1142,6 +1161,8 @@
         marketPhase,
         contexts,
         analyses,
+        strategyScans,
+        homeworkPacks,
         quality: Object.freeze(response.quality && typeof response.quality === "object" ? { ...response.quality } : {}),
         providerTrace: Object.freeze(response.provider_trace && typeof response.provider_trace === "object" ? { ...response.provider_trace } : {})
       });
@@ -1203,6 +1224,8 @@
         });
       }));
       const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
+      const strategyScans = Object.freeze(contexts.map(item => item.strategyScan).filter(Boolean));
+      const homeworkPacks = Object.freeze(contexts.map(item => item.homeworkPack).filter(Boolean));
       return Object.freeze({
         contract: "zhuge-investment-intelligence-runtime-v1",
         generatedAt: new Date(now()).toISOString(),
@@ -1215,6 +1238,8 @@
         marketPhase: marketPhases,
         contexts,
         analyses,
+        strategyScans,
+        homeworkPacks,
         quality: Object.freeze({
           market: Object.freeze({ total: quotes.length, available: quotes.filter(item => item.available).length, stale: quotes.filter(item => item.stale).length }),
           fx: Object.freeze({ available: Boolean(fx?.available), freshness: fx?.freshness || "unavailable" }),
@@ -1231,7 +1256,14 @@
       return typeof invokeFunction === "function" ? loadViaEdge(input) : loadDirect(input);
     }
 
-    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load });
+    function runBacktest(input = {}) {
+      if (!strategyBacktest?.run) {
+        throw providerError("BACKTEST_UNAVAILABLE", "Investment Strategy Backtest contract is unavailable.");
+      }
+      return strategyBacktest.run(input);
+    }
+
+    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load, runBacktest });
   }
 
   return Object.freeze({ DEFAULT_ENDPOINTS, create });

@@ -1,7 +1,7 @@
 // P5.2A-1 Foundation Split: configuration and static constants.
 const VERSION = "0.9.0-alpha.9.13";
 const RELEASE_VERSION = VERSION;
-const BUILD_TIME = "20260925-0040";
+const BUILD_TIME = "20260926-1108";
 const DEPLOY_SOURCE = `worklog-app.js?v=${BUILD_TIME}`;
 const KNOWLEDGE_DEBUG_MODE = (() => {
   try { return new URLSearchParams(location.search).has("debugKnowledge") || localStorage.getItem("zhuge_debug_knowledge") === "1"; }
@@ -109,6 +109,7 @@ const workspaceRegistry = {
   "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, externalHref: "../../app/Board/worktodo/" },
   procurement: { icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, externalHref: "../../app/Board/procurement/" },
   investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, externalHref: "../investment/" },
+  skyeye: { icon: "🛰️", label: "天眼", group: "mobile", enabled: true, externalHref: "../skyeye/" },
   "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, externalHref: "../../app/Board/ai/" },
   "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=board" },
   "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, externalHref: "../../app/Board/ai/?view=principles" },

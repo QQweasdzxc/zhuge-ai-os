@@ -9,7 +9,7 @@
 
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
   const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
-  const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["worklog", "tasks-new", "library", "settings"]);
+  const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["worklog", "tasks-new", "library", "settings", "skyeye"]);
   const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
@@ -20,6 +20,9 @@
     // Keeping this entry label-only prevents one module from looking different
     // from the rest of the shared navigation.
     investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, visible: true },
+    // Mobile-only read surface. The shared registry owns reachability; CSS
+    // keeps the entry out of the desktop rail without creating another nav.
+    skyeye: { icon: "🛰️", label: "天眼", group: "mobile", enabled: true, visible: true },
     "ai-board": { icon: "🤖", label: "AI Board", group: "ai-board", enabled: true, visible: true },
     "ai-board-board": { icon: "📋", label: "工作看板", group: "ai-board-child", enabled: true, visible: true },
     "ai-board-principles": { icon: "📘", label: "工程準則", group: "ai-board-child", enabled: true, visible: true },
@@ -49,6 +52,7 @@
       worklog: "modules/worklog/?app=1&workspace=worklog",
       "tasks-new": "app/Board/worktodo/",
       investment: "modules/investment/",
+      skyeye: "modules/skyeye/",
       "ai-board": "app/Board/ai/",
       "ai-board-board": "app/Board/ai/?view=board",
       "ai-board-principles": "app/Board/ai/?view=principles",
@@ -173,6 +177,7 @@
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "procurement", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1, 2]);
+    const mobileTools = sectionMarkup("即時資訊", "🛰️", ["skyeye"], registry, { ...options, externalRoot: root }, esc, "mobile");
     const consumerBoards = sectionMarkup("套用的看板", "▦", consumerItems.map(item => item.id), registry, { ...options, externalRoot: root }, esc, "consumer-boards");
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
     // The sidebar structure must be identical for every Workspace. Governance
@@ -192,15 +197,68 @@
     // Module A owns this ordering: Control Console → Management → Settings.
     // Management is a peer of the Console, not content embedded inside it.
     const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}${systemItems[2]}</div>`;
-    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${camp}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
+    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${camp}${mobileTools}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
+  const mobileSidebarState = new WeakMap();
+  let mobileSidebarScrollLockCount = 0;
+  let mobileSidebarPreviousOverflow = "";
+  let mobileSidebarPreviousPaddingRight = "";
+
+  function isMobileViewport() {
+    return Boolean(
+      global.matchMedia?.("(max-width: 767px)")?.matches
+      || (!global.matchMedia && Number(global.innerWidth || 0) > 0 && Number(global.innerWidth) < 768)
+    );
+  }
+
+  function sidebarFocusableNodes(shell) {
+    const panel = shell?.querySelector("[data-zhuge-shared-navigation='true']");
+    if (!panel) return [];
+    return Array.from(panel.querySelectorAll("a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])")).filter(node => {
+      if (!node || node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+      const style = typeof global.getComputedStyle === "function" ? global.getComputedStyle(node) : null;
+      return style?.display !== "none" && style?.visibility !== "hidden";
+    });
+  }
+
+  function lockMobileSidebarScroll() {
+    if (!global.document?.body) return;
+    if (mobileSidebarScrollLockCount === 0 && !global.document.body.dataset.sharedTaskDrawerScrollLocked) {
+      mobileSidebarPreviousOverflow = global.document.body.style.overflow;
+      mobileSidebarPreviousPaddingRight = global.document.body.style.paddingRight;
+      global.document.body.style.overflow = "hidden";
+      global.document.body.style.paddingRight = "var(--zhuge-scrollbar-compensation, 0px)";
+      global.document.body.dataset.zhugeSidebarScrollLocked = "true";
+    }
+    mobileSidebarScrollLockCount += 1;
+  }
+
+  function unlockMobileSidebarScroll() {
+    if (!global.document?.body || mobileSidebarScrollLockCount === 0) return;
+    mobileSidebarScrollLockCount -= 1;
+    if (mobileSidebarScrollLockCount > 0) return;
+    if (!global.document.body.dataset.sharedTaskDrawerScrollLocked) {
+      global.document.body.style.overflow = mobileSidebarPreviousOverflow;
+      global.document.body.style.paddingRight = mobileSidebarPreviousPaddingRight;
+      delete global.document.body.dataset.zhugeSidebarScrollLocked;
+    }
+    mobileSidebarPreviousOverflow = "";
+    mobileSidebarPreviousPaddingRight = "";
+  }
+
   function setSidebarOpen(shell, open) {
     if (!shell) return;
     const isOpen = Boolean(open);
+    const wasOpen = shell.classList.contains("sidebar-open");
+    const mobile = isMobileViewport();
+    const hasTrackedMobileState = mobileSidebarState.has(shell);
     shell.classList.toggle("sidebar-open", isOpen);
     shell.dataset.sidebarState = isOpen ? "open" : "closed";
+    const navigation = shell.querySelector("[data-zhuge-shared-navigation='true']");
+    if (mobile) navigation?.setAttribute("aria-hidden", String(!isOpen));
+    else navigation?.removeAttribute("aria-hidden");
     shell.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
@@ -209,6 +267,27 @@
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
     });
+    // A viewport resize can leave an open mobile drawer mounted after the
+    // media query changes. Its tracked state is the authority for cleanup;
+    // do not leave body scrolling locked when the shell becomes desktop.
+    if (wasOpen === isOpen || (!mobile && !hasTrackedMobileState)) return;
+    if (isOpen) {
+      if (!mobile) return;
+      const previousFocus = global.document?.activeElement && global.document.activeElement !== global.document.body
+        ? global.document.activeElement
+        : null;
+      mobileSidebarState.set(shell, { previousFocus });
+      lockMobileSidebarScroll();
+      const first = sidebarFocusableNodes(shell)[0];
+      if (first?.focus) first.focus({ preventScroll: true });
+      return;
+    }
+    unlockMobileSidebarScroll();
+    const previousFocus = mobileSidebarState.get(shell)?.previousFocus;
+    mobileSidebarState.delete(shell);
+    if (previousFocus?.isConnected && typeof previousFocus.focus === "function") {
+      previousFocus.focus({ preventScroll: true });
+    }
   }
   function ensureSidebarBackdrop(shell) {
     if (!shell || shell.querySelector(".sidebar-backdrop")) return;
@@ -288,12 +367,34 @@
       event.preventDefault();
       setSidebarOpen(shell, Boolean(toggle) && !shell.classList.contains("sidebar-open"));
     });
+    global.addEventListener?.("resize", () => {
+      if (isMobileViewport()) return;
+      document.querySelectorAll(".os-shell.sidebar-open,.zhuge-module-shell.sidebar-open").forEach(shell => {
+        if (mobileSidebarState.has(shell)) setSidebarOpen(shell, false);
+      });
+    });
     document.addEventListener("keydown", event => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" && event.key !== "Tab") return;
       const shell = document.querySelector(".os-shell.sidebar-open,.zhuge-module-shell.sidebar-open");
       if (!shell) return;
-      setSidebarOpen(shell, false);
-      shell.querySelector("[data-toggle-sidebar]")?.focus?.();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSidebarOpen(shell, false);
+        shell.querySelector("[data-toggle-sidebar]")?.focus?.();
+        return;
+      }
+      if (event.key !== "Tab" || !isMobileViewport()) return;
+      const nodes = sidebarFocusableNodes(shell);
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && global.document.activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && global.document.activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     });
   }
   function wireCollapse() {

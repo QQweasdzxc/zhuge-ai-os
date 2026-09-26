@@ -226,6 +226,22 @@
 .shared-task-attachment-preview,.shared-task-attachment-artifact{border-color:#587392;background:#152e4a;color:#e6f0fa}
 .shared-task-attachment-copy strong,.shared-task-attachment-copy small{color:#eef5fb}
 .shared-task-attachment-copy small{color:#b6cbe1}
+.shared-attachment-context-result{display:grid;gap:7px;padding:11px 12px;border:1px solid #456b8e;border-radius:10px;background:#122235;color:#dcecff}
+.shared-attachment-context-result[hidden]{display:none}
+.shared-attachment-context-result header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.shared-attachment-context-result p{margin:0;color:#c5d8ec;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.shared-attachment-context-result small{color:#a9bed3;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.shared-attachment-context-result[data-state="ready"]{border-color:#398c79;background:#102c2b}
+.shared-attachment-context-result[data-state="insufficient_evidence"],.shared-attachment-context-result[data-state="unsupported"]{border-color:#9b7a38;background:#332914}
+.shared-attachment-context-result[data-state="unavailable"],.shared-attachment-context-result[data-state="error"]{border-color:#9c5b65;background:#321d27}
+.shared-attachment-context-preview{max-height:220px;margin:0;padding:9px;overflow:auto;border:1px solid rgba(168,203,235,.25);border-radius:7px;background:rgba(3,10,18,.28);color:#f1f7ff;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.shared-attachment-context-next{color:#f1d49a!important}
+.shared-attachment-ai-result{display:grid;gap:5px;padding:9px 10px;border:1px solid rgba(93,188,153,.45);border-radius:8px;background:rgba(16,63,52,.42);color:#e4fff3}
+.shared-attachment-ai-result strong{font-size:11px;letter-spacing:.02em}
+.shared-attachment-ai-result p,.shared-attachment-ai-result ul{margin:0;font-size:11px;line-height:1.55}
+.shared-attachment-ai-result ul{padding-left:18px}
+.shared-attachment-ai-result small,.shared-attachment-ai-status{color:#c7e8d8;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.shared-attachment-ai-status[data-state="unavailable"]{color:#f1d49a}
 .shared-task-drawer button:focus-visible,.shared-task-drawer a:focus-visible{outline:2px solid #a9d2ff;outline-offset:2px}
 .shared-task-drawer :is(button,.btn,.btn2,.input,textarea,select){min-height:44px}
 .shared-task-drawer .shared-task-progress-submit,.shared-task-drawer .shared-task-progress-composer-trigger{min-height:44px}
