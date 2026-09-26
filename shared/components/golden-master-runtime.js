@@ -2738,6 +2738,7 @@
         } })
       });
       renderAttachmentContextResult(result);
+      context.emitAIContext?.(result);
     } catch (error) {
       renderAttachmentContextResult({ status: "error", filename: item?.filename || "附件", reason: "ATTACHMENT_CONTEXT_FAILED", nextStep: "請稍後再試。" });
     } finally {
@@ -4039,7 +4040,23 @@
         renderWorkflowStudio(state.workflowEditor);
       };
       node.addEventListener("click", selectNode);
-      node.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectNode(); } });
+      node.addEventListener("keydown", event => {
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+          const key = String(node.dataset.stepKey || "");
+          const position = layout.positions.get(key) || { x: 12, y: 12 };
+          const delta = event.shiftKey ? 40 : 10;
+          const next = {
+            x: Math.max(12, position.x + (event.key === "ArrowLeft" ? -delta : event.key === "ArrowRight" ? delta : 0)),
+            y: Math.max(12, position.y + (event.key === "ArrowUp" ? -delta : event.key === "ArrowDown" ? delta : 0))
+          };
+          state.workflowStudioPositions.set(key, next);
+          renderWorkflowStudio(state.workflowEditor);
+          Array.from(document.querySelectorAll("[data-workflow-studio-node]")).find(item => String(item.dataset.stepKey || "") === key)?.focus?.();
+          event.preventDefault();
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectNode(); }
+      });
       node.addEventListener("dragstart", event => {
         event.dataTransfer?.setData("text/plain", String(node.dataset.stepKey || ""));
         if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";

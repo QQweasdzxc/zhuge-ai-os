@@ -104,6 +104,8 @@ test("Workflow Studio UI contains visual canvas, validation, diff, history and b
   assert.match(runtimeSource, /data-workflow-remove-transition/);
   assert.match(runtimeSource, /pointerdown/);
   assert.match(runtimeSource, /setPointerCapture/);
+  assert.match(runtimeSource, /ArrowUp/);
+  assert.match(runtimeSource, /workflowStudioPositions\.set/);
   assert.match(serviceSource, /board_c_workflow_save_draft/);
   assert.match(serviceSource, /board_c_workflow_publish/);
   assert.doesNotMatch(runtimeSource, /insert into|update public\./i);

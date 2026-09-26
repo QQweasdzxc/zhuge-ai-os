@@ -961,6 +961,7 @@ async function workTodoReadAttachmentContext(drawerRoot, attachment) {
     resolveUrl: item => SupabaseRepository.signedWorkTodoAttachmentUrl(item.storage_path || item.storagePath, 300)
   });
   renderWorkTodoAttachmentContextResult(drawerRoot, result);
+  reader.emitAIContext?.(result);
 }
 
 function bindWorkTodoAttachments(root, task) {

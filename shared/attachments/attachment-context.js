@@ -252,6 +252,54 @@
     return unsupported(attachment, "ATTACHMENT_FORMAT_UNSUPPORTED");
   }
 
+  function toAIInput(result = {}) {
+    const status = String(result.status || "error").toLowerCase();
+    const source = result.source && typeof result.source === "object" ? result.source : {};
+    const evidence = Object.freeze({
+      contract: CONTRACT,
+      status,
+      evidenceStatus: String(result.evidenceStatus || "UNKNOWN"),
+      source: Object.freeze({
+        provider: String(source.provider || "controlled-signed-attachment"),
+        asOf: String(source.asOf || ""),
+        freshness: String(source.freshness || "unknown"),
+        dataQuality: String(source.dataQuality || "unknown"),
+        parser: String(source.parser || "")
+      })
+    });
+    if (status !== "ready") return Object.freeze({ contract: "zhuge-attachment-ai-input-v1", status, evidence, parts: [] });
+    const parts = [];
+    if (result.modality === "image" && result.media?.blob) {
+      parts.push(Object.freeze({ type: "input_image", mimeType: String(result.media.mimeType || result.mimeType || "image/*"), blob: result.media.blob }));
+    } else if (result.content) {
+      parts.push(Object.freeze({ type: "input_text", text: String(result.content) }));
+    }
+    return Object.freeze({
+      contract: "zhuge-attachment-ai-input-v1",
+      status: parts.length ? "ready" : "insufficient_evidence",
+      attachmentId: String(result.attachmentId || ""),
+      filename: String(result.filename || "未命名附件"),
+      mimeType: String(result.mimeType || "application/octet-stream"),
+      evidence,
+      parts: Object.freeze(parts)
+    });
+  }
+
+  function emitAIContext(result = {}, target = root) {
+    const input = toAIInput(result);
+    if (typeof target?.dispatchEvent === "function") {
+      let event = null;
+      if (typeof target.CustomEvent === "function") {
+        event = new target.CustomEvent("zhuge:attachment-context-ready", { detail: input });
+      } else if (target.document?.createEvent) {
+        event = target.document.createEvent("CustomEvent");
+        event.initCustomEvent("zhuge:attachment-context-ready", false, false, input);
+      }
+      if (event) target.dispatchEvent(event);
+    }
+    return input;
+  }
+
   return Object.freeze({
     CONTRACT,
     MAX_BYTES,
@@ -259,6 +307,8 @@
     normalizeAttachment,
     cleanText,
     read,
+    toAIInput,
+    emitAIContext,
     statuses: Object.freeze(["ready", "insufficient_evidence", "unsupported", "unavailable", "error"])
   });
 });

@@ -56,6 +56,27 @@ test("TASK-086 image attachment produces in-memory multimodal evidence", async (
   assert.equal(result.evidenceStatus, "AVAILABLE");
 });
 
+test("TASK-086 produces a bounded AI input envelope and never invents failed evidence", async () => {
+  const textResult = await reader.read(attachment(), { load: async () => response("可供模型閱讀的內容") });
+  const textInput = reader.toAIInput(textResult);
+  assert.equal(textInput.contract, "zhuge-attachment-ai-input-v1");
+  assert.equal(textInput.status, "ready");
+  assert.equal(textInput.parts[0].type, "input_text");
+  assert.match(textInput.parts[0].text, /模型閱讀/);
+  assert.equal(JSON.stringify(textInput).includes("signed.example"), false);
+
+  const imageResult = await reader.read(attachment({ filename: "chart.png", mimeType: "image/png" }), {
+    load: async () => response("image-bytes", { mimeType: "image/png" })
+  });
+  const imageInput = reader.toAIInput(imageResult);
+  assert.equal(imageInput.parts[0].type, "input_image");
+  assert.equal(imageInput.parts[0].mimeType, "image/png");
+
+  const failedInput = reader.toAIInput({ status: "unavailable", evidenceStatus: "UNAVAILABLE" });
+  assert.equal(failedInput.status, "unavailable");
+  assert.deepEqual([...failedInput.parts], []);
+});
+
 test("TASK-086 document attachment reuses the existing KnowledgeEngine parser", async () => {
   const previous = globalThis.KnowledgeEngine;
   globalThis.KnowledgeEngine = {
@@ -142,8 +163,10 @@ test("TASK-086 Shared Drawer exposes the read-only context action and result sur
   const page = fs.readFileSync(path.join(root, "app/Board/worktodo/index.html"), "utf8");
   assert.ok(runtime.includes('data-attachment-menu-action="context"'));
   assert.ok(runtime.includes("data-shared-attachment-context-result"));
+  assert.match(runtime, /emitAIContext/);
   assert.ok(adapter.includes("data-worktodo-attachment-context"));
   assert.ok(adapter.includes("onReadContext"));
+  assert.match(page, /attachment-context\.js/);
   assert.ok(page.includes("shared/attachments/attachment-context.js"));
   assert.ok(page.includes("knowledge-engine.js"));
 });
