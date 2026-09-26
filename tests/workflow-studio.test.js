@@ -7,6 +7,7 @@ import vm from "node:vm";
 const root = path.resolve(".");
 const runtimeSource = fs.readFileSync(path.join(root, "shared/components/golden-master-runtime.js"), "utf8");
 const serviceSource = fs.readFileSync(path.join(root, "shared/board/board-read-service.js"), "utf8");
+const restoreMigration = fs.readFileSync(path.join(root, "docs/supabase/20260926_task_101_workflow_restore_version.sql"), "utf8");
 
 function loadStudio() {
   const document = { readyState: "loading", addEventListener() {} };
@@ -100,7 +101,8 @@ test("Workflow Studio UI contains visual canvas, validation, diff, history and b
   assert.match(runtimeSource, /data-workflow-validate/);
   assert.match(runtimeSource, /data-workflow-undo/);
   assert.match(runtimeSource, /data-workflow-redo/);
-  assert.match(runtimeSource, /data-workflow-load-version/);
+  assert.match(runtimeSource, /data-workflow-restore-version/);
+  assert.match(runtimeSource, /restoreWorkflowVersion/);
   assert.match(runtimeSource, /data-workflow-remove-transition/);
   assert.match(runtimeSource, /pointerdown/);
   assert.match(runtimeSource, /setPointerCapture/);
@@ -108,6 +110,7 @@ test("Workflow Studio UI contains visual canvas, validation, diff, history and b
   assert.match(runtimeSource, /workflowStudioPositions\.set/);
   assert.match(serviceSource, /board_c_workflow_save_draft/);
   assert.match(serviceSource, /board_c_workflow_publish/);
+  assert.match(serviceSource, /board_c_workflow_restore_version/);
   assert.doesNotMatch(runtimeSource, /insert into|update public\./i);
 });
 
@@ -141,7 +144,19 @@ test("Workflow capability reads version history through the existing board-scope
 test("Workflow Studio keeps connection removal and touch dragging presentation-only", () => {
   assert.match(runtimeSource, /已移除本地連線；儲存草稿或發布後才會寫入 Canonical Workflow/);
   assert.match(runtimeSource, /state\.workflowStudioPositions\.set/);
-  assert.match(runtimeSource, /建立回復草稿/);
+  assert.match(runtimeSource, /回復為新草稿/);
+  assert.match(serviceSource, /board_c_workflow_restore_version/);
   assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /workflow-transition-entry/);
   assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /touch-action:none/);
+});
+
+test("Workflow Studio restore is a canonical immutable-source to new-draft path", () => {
+  assert.match(restoreMigration, /create or replace function public\.board_c_workflow_restore_version/i);
+  assert.match(restoreMigration, /board_c_workflow_save_draft/i);
+  assert.match(restoreMigration, /gate_step\(step\)/i);
+  assert.match(restoreMigration, /流程版本的 Gate 無法對應/i);
+  assert.match(restoreMigration, /source_immutable', true/i);
+  assert.match(restoreMigration, /based_on_workflow_version_id = v_source\.id/i);
+  assert.doesNotMatch(restoreMigration, /update public\.board_workflow_definitions[\s\S]*where id = v_source\.id/i);
+  assert.match(restoreMigration, /revoke all on function public\.board_c_workflow_restore_version/i);
 });

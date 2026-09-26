@@ -4124,7 +4124,7 @@
     return versions.map(version => {
       const current = String(version.id || "") === String(state.workflowData?.published?.id || state.workflowData?.draft?.id || "");
       const label = `v${Number(version.versionNo || 0) || "?"} · ${version.status === "published" ? "已發布" : "草稿"}`;
-      return `<div class="workflow-version-row${current ? " is-current" : ""}"><div><strong>${esc(label)}</strong><small>${esc(version.name || "未命名流程")}</small></div><button class="btn" type="button" data-workflow-load-version="${esc(version.id)}"${readOnly ? " disabled" : ""}>建立回復草稿</button></div>`;
+      return `<div class="workflow-version-row${current ? " is-current" : ""}"><div><strong>${esc(label)}</strong><small>${esc(version.name || "未命名流程")}</small></div><button class="btn" type="button" data-workflow-restore-version="${esc(version.id)}"${readOnly ? " disabled" : ""}>回復為新草稿</button></div>`;
     }).join("");
   }
 
@@ -4366,6 +4366,40 @@
     }
   }
 
+  async function restoreWorkflowVersion(workflowVersionId) {
+    const workflow = state.workflowCapability || activeService()?.workflow;
+    if (!workflow || workflow.readOnly === true || typeof workflow.restoreVersion !== "function") {
+      workflowModalStatus("目前版本回復能力尚未接通；未修改流程。", "error");
+      return;
+    }
+    const sourceId = String(workflowVersionId || "").trim();
+    if (!sourceId) return;
+    const keyBase = `${state.boardInstanceId || "board"}-${sourceId}-${Date.now()}`;
+    try {
+      workflowModalStatus("正在建立回復草稿…", "loading");
+      const result = await workflow.restoreVersion({
+        sourceWorkflowVersionId: sourceId,
+        expectedDraftVersionId: state.workflowData?.state?.draftWorkflowVersionId || null,
+        idempotencyKey: `workflow-restore-${keyBase}`
+      });
+      state.workflowData = result;
+      state.workflowEditor = workflowEditorFromData(result);
+      state.workflowStudioValidation = null;
+      workflowStudioResetHistory(state.workflowEditor);
+      try {
+        const versionResult = await workflow.listVersions?.();
+        state.workflowVersions = Array.isArray(versionResult?.versions) ? versionResult.versions : state.workflowVersions;
+      } catch (_error) {
+        // The restore itself is already committed through the canonical RPC;
+        // keep the current in-memory history if a follow-up read is delayed.
+      }
+      renderWorkflowSettingsModal();
+      workflowModalStatus("已從歷史版本建立新的回復草稿；尚未發布，原版本保持不變。", "success");
+    } catch (error) {
+      workflowModalStatus(error?.message || "版本回復未完成；目前流程未變更。", "error");
+    }
+  }
+
   function bindWorkflowSettingsModal(host) {
     host.querySelectorAll("[data-workflow-close]").forEach(button => button.addEventListener("click", closeWorkflowSettings));
     host.querySelector("[data-workflow-settings-backdrop]")?.addEventListener("click", event => { if (event.target === event.currentTarget) closeWorkflowSettings(); });
@@ -4414,12 +4448,8 @@
         workflowModalStatus("已新增本地連線；儲存草稿或發布後才會寫入 Canonical Workflow。", "success");
       } else workflowModalStatus("這條連線已存在。", "loading");
     });
-    host.querySelectorAll("[data-workflow-load-version]").forEach(button => button.addEventListener("click", () => {
-      const version = state.workflowVersions.find(item => String(item.id) === String(button.dataset.workflowLoadVersion || ""));
-      if (!version) return;
-      workflowStudioPushHistory(workflowEditorFromData({ published: version }));
-      renderWorkflowSettingsModal();
-      workflowModalStatus("已載入選定版本作為本地草稿；尚未寫入或發布。", "success");
+    host.querySelectorAll("[data-workflow-restore-version]").forEach(button => button.addEventListener("click", () => {
+      restoreWorkflowVersion(button.dataset.workflowRestoreVersion || "");
     }));
     host.querySelector("[data-workflow-add-step]")?.addEventListener("click", () => {
       const editor = collectWorkflowEditor();

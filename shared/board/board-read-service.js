@@ -1643,6 +1643,14 @@
       }));
     };
     const validateDraft = async workflowVersionId => normalizeWorkflowResult(await gateway.rpc("board_c_workflow_validate_draft", { p_workflow_version_id: workflowVersionId }));
+    const restoreVersion = async (input = {}) => {
+      assertWritable();
+      return normalizeWorkflowResult(await rpc("board_c_workflow_restore_version", {
+        p_source_workflow_version_id: input.sourceWorkflowVersionId || input.workflowVersionId,
+        p_expected_draft_version_id: input.expectedDraftVersionId || null,
+        p_idempotency_key: input.idempotencyKey || null
+      }));
+    };
     const publish = async (input = {}) => {
       assertWritable();
       return normalizeWorkflowResult(await gateway.rpc("board_c_workflow_publish", {
@@ -1784,6 +1792,7 @@
       listVersions,
       saveDraft,
       validateDraft,
+      restoreVersion,
       publish,
       requestAdoption,
       approveAdoption,

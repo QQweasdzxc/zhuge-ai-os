@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const reader = require("../shared/attachments/attachment-context.js");
+const aiReader = require("../shared/ai/attachment-reader.js");
 
 function attachment(overrides = {}) {
   return {
@@ -168,5 +169,24 @@ test("TASK-086 Shared Drawer exposes the read-only context action and result sur
   assert.ok(adapter.includes("onReadContext"));
   assert.match(page, /attachment-context\.js/);
   assert.ok(page.includes("shared/attachments/attachment-context.js"));
+  assert.ok(page.includes("shared/ai/attachment-reader.js"));
   assert.ok(page.includes("knowledge-engine.js"));
+});
+
+test("TASK-086 Shared AI Reader is available beside the existing attachment context on every C attachment surface", () => {
+  const root = path.resolve(__dirname, "..");
+  const pages = [
+    "app/Board/worktodo/index.html",
+    "app/Board/ai/index.html",
+    "app/Board/template-preview/index.html",
+    "app/Board/procurement/index.html",
+    "app/Board/investment/index.html",
+    "modules/worklog/index.html"
+  ];
+  for (const relative of pages) {
+    const source = fs.readFileSync(path.join(root, relative), "utf8");
+    assert.match(source, /shared\/ai\/attachment-reader\.js/);
+    assert.match(source, /attachment-context\.js/);
+  }
+  assert.equal(aiReader.CONTRACT, "zhuge-attachment-ai-reader-v1");
 });

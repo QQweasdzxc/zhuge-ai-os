@@ -7,10 +7,13 @@
  * persistence and never accepts a client-supplied user/Board scope.
  */
 (function (root, factory) {
-  const api = factory(root?.ZhugeLineTaskAdapter || (typeof require === "function" ? require("./line-task-adapter.js") : null));
+  const api = factory(
+    root?.ZhugeLineTaskAdapter || (typeof require === "function" ? require("./line-task-adapter.js") : null),
+    root?.ZhugeLineReminderContract || (typeof require === "function" ? require("./line-reminder-contract.js") : null)
+  );
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.ZhugeLineWebhookHandler = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function (adapter) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (adapter, reminderContract) {
   "use strict";
 
   const CONTRACT = "zhuge-line-webhook-handler-v1";
@@ -68,5 +71,10 @@
     });
   }
 
-  return Object.freeze({ CONTRACT, verifyAndNormalize, dispatchCanonical });
+  function buildReminderIntent(input = {}) {
+    if (typeof reminderContract?.buildIntent !== "function") throw reject("LINE_REMINDER_CONTRACT_UNAVAILABLE", 500);
+    return reminderContract.buildIntent(input);
+  }
+
+  return Object.freeze({ CONTRACT, verifyAndNormalize, dispatchCanonical, buildReminderIntent });
 });

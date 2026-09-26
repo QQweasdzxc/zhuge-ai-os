@@ -70,3 +70,19 @@ test("TASK-094 canonical dispatch delegates to injected executor and returns san
   assert.equal(result.result.taskId, "task-094");
   assert.equal(JSON.stringify(result).includes(secret), false);
 });
+
+test("TASK-094 reminder intent stays behind the protected server boundary", () => {
+  const intent = handler.buildReminderIntent({
+    taskId: "task-094",
+    eventType: "progress_updated",
+    eventId: "activity-094",
+    recipientUserId: "user-094",
+    lineSubject: "line-user-opaque",
+    canonicalState: "in_progress",
+    progress: 75,
+    title: "整理報價"
+  });
+  assert.equal(intent.idempotencyKey, "line-reminder-v1:task-094:progress_updated:activity-094");
+  assert.equal(intent.delivery, "protected-server-messaging-boundary");
+  assert.equal(intent.mutation, "none");
+});
