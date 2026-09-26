@@ -9,6 +9,7 @@ const analysis = require("../modules/investment/services/investment-analysis-ser
 const strategyLibrary = require("../modules/investment/services/investment-strategy-library.js");
 const homeworkPack = require("../modules/investment/services/investment-homework-pack.js");
 const strategyBacktest = require("../modules/investment/services/investment-strategy-backtest.js");
+const volumeConfirmation = require("../modules/investment/services/investment-volume-confirmation.js");
 const calculation = require("../modules/investment/services/portfolio-calculation-service.js");
 
 function responseJson(value, status = 200) {
@@ -218,6 +219,46 @@ test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis
   assert.equal(result.homeworkPacks.length, 1);
   assert.equal(result.contexts[0].homeworkPack.contract, "zhuge-investment-homework-pack-v1");
   assert.equal(result.contexts[0].homeworkPack.readOnly, true);
+});
+
+test("Provider runtime wires history into volume confirmation Evidence and the existing Scanner", async () => {
+  intelligence.clearProvidersForTest();
+  const bars = Array.from({ length: 40 }, (_, index) => {
+    const bullish = index === 21;
+    const bearish = index === 28;
+    const close = bullish ? 105 : bearish ? 95 : 100;
+    const volume = index === 20 || index === 27 ? 50 : index === 21 || index === 28 ? 180 : 100;
+    return { asOf: `2026-01-${String(index + 1).padStart(2, "0")}`, open: 100, high: 105, low: 95, close, volume };
+  });
+  const runtime = providers.create({
+    intelligence,
+    analysis,
+    strategyLibrary,
+    strategyScanner: require("../modules/investment/services/investment-strategy-scanner.js"),
+    homeworkPack,
+    strategyBacktest,
+    volumeConfirmation,
+    invokeFunction: async () => ({
+      contract: "zhuge-investment-intelligence-edge-v1",
+      read_only: true,
+      generated_at: "2026-09-18T09:00:00.000Z",
+      quotes: [],
+      fx: { available: false },
+      news: [],
+      histories: [{ contract: "zhuge-investment-history-v1", symbol: "2330", market: "TW", available: true, provider: "twse-daily-history", source: "TWSE Daily Trading Open Data", sourceUrl: "https://www.twse.com.tw/rwd/en/afterTrading/STOCK_DAY", asOf: "2026-02-09", freshness: "fresh", stale: false, bars }],
+      contexts: [{ contract: "zhuge-investment-context-pack-v1", symbol: "2330", market: "TW", strategyIds: ["volume_contraction_confirmation"], evidence: [{ type: "ohlc", symbol: "2330", market: "TW", source: "TWSE", title: "history", facts: ["bars=40"] }], missing: [] }],
+      quality: {},
+      provider_trace: {},
+      stream_subscriptions: 0,
+      mutating_operations_invoked: false
+    })
+  });
+  const result = await runtime.load({ symbols: [{ symbol: "2330", market: "TW" }] });
+  assert.equal(result.volumeConfirmations.length, 1);
+  assert.equal(result.volumeConfirmations[0].metrics.sampleCount, 2);
+  assert.equal(result.contexts[0].volumeConfirmation.contract, "volume_contraction_confirmation_v1");
+  assert.equal(result.contexts[0].evidence.some(item => item.type === "volume_confirmation"), true);
+  assert.equal(result.contexts[0].strategyScan.matches[0].status, "READY");
 });
 
 test("Investment Intelligence Edge adapter is read-only and has no Product Data write surface", () => {

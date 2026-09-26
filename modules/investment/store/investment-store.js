@@ -28,6 +28,7 @@
         contexts: [],
         analyses: [],
         strategyScans: [],
+        volumeConfirmations: [],
         homeworkPacks: [],
         quality: Object.freeze({}),
         error: null,

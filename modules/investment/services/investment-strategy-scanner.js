@@ -23,6 +23,7 @@
     bull_trend: ["technical_analysis", "market_phase"],
     ma_golden_cross: ["technical_analysis"],
     volume_breakout: ["technical_analysis"],
+    volume_contraction_confirmation: ["technical_analysis", "volume_confirmation"],
     hot_theme: ["news_evidence", "relationships"],
     event_driven: ["news_evidence"],
     growth_quality: ["fundamental_analysis"],
@@ -63,6 +64,10 @@
     if (requirement === "news_evidence") {
       return list(context?.evidence).some(item => ["news", "event", "social"].includes(text(item?.type).toLowerCase()))
         ? "AVAILABLE" : "INSUFFICIENT_EVIDENCE";
+    }
+    if (requirement === "volume_confirmation") {
+      const status = text(context?.volumeConfirmation?.status).toUpperCase();
+      return ["AVAILABLE", "PARTIAL", "INSUFFICIENT_EVIDENCE"].includes(status) ? status : "INSUFFICIENT_EVIDENCE";
     }
     const key = keys[requirement] || requirement;
     const section = analysis?.[key];
@@ -128,6 +133,10 @@
         availableEvidence: Object.freeze(availableEvidence),
         missing: Object.freeze(missing),
         evidenceRefs: Object.freeze(sourceMatch?.evidenceRefs || []),
+        ...(id === "volume_contraction_confirmation" && context.volumeConfirmation ? {
+          patternCounts: Object.freeze({ ...(context.volumeConfirmation.patternCounts || {}) }),
+          metrics: Object.freeze({ ...(context.volumeConfirmation.metrics || {}) })
+        } : {}),
         reason: status === STATUS.READY
           ? "策略所需 Evidence 已具備，可交由既有 Analysis Contract 解讀。"
           : status === STATUS.PARTIAL

@@ -679,3 +679,14 @@ button { color: inherit; }
 .investment-strategy-runtime-missing { margin: 0; color: var(--investment-muted); font-size: .72rem; line-height: 1.5; overflow-wrap: anywhere; }
 .investment-strategy-runtime-empty { min-height: 100px; }
 @media (max-width: 767px) { .investment-strategy-runtime { padding: 14px; } .investment-strategy-runtime-row header { align-items: flex-start; flex-direction: column; } }
+.investment-volume-confirmation { display: grid; gap: 12px; margin: 0 0 24px; padding: 18px; border: 1px solid rgba(106, 210, 190, .28); border-radius: var(--zhuge-radius-lg); background: linear-gradient(145deg, rgba(14, 48, 61, .56), rgba(8, 25, 39, .5)); }
+.investment-volume-confirmation-row { display: grid; gap: 9px; border: 1px solid rgba(106, 210, 190, .28); border-radius: 12px; padding: 13px 14px; background: rgba(5, 21, 31, .3); }
+.investment-volume-confirmation-row header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.investment-volume-confirmation-row header > div { display: grid; gap: 3px; min-width: 0; }
+.investment-volume-confirmation-row header strong { font-size: 1rem; }
+.investment-volume-patterns, .investment-volume-metrics { display: flex; flex-wrap: wrap; gap: 6px; }
+.investment-volume-patterns span, .investment-volume-metrics span { border: 1px solid rgba(106, 210, 190, .22); border-radius: 999px; padding: 4px 8px; color: var(--investment-muted); font-size: .68rem; }
+.investment-volume-patterns span:first-child { color: var(--investment-loss); }
+.investment-volume-patterns span:nth-child(2) { color: #ffd481; }
+.investment-volume-source { color: var(--investment-muted); overflow-wrap: anywhere; }
+@media (max-width: 767px) { .investment-volume-confirmation { padding: 14px; } .investment-volume-confirmation-row header { align-items: flex-start; flex-direction: column; } }

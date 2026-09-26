@@ -32,9 +32,10 @@ test("deployment readiness preflight validates artifacts and never applies", () 
   assert.equal(output.automatic_mutation, false);
   assert.deepEqual(output.secret_names, [
     "CWA_API_KEY", "LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET",
-    "MOENV_API_KEY", "OPENAI_API_KEY", "TDX_CLIENT_ID", "TDX_CLIENT_SECRET"
+    "MOENV_API_KEY", "OPENAI_API_KEY", "TDX_CLIENT_ID", "TDX_CLIENT_SECRET",
+    "Zhuge_AUTH_STORAGE_STATE_B64"
   ]);
-  assert.match(output.artifacts["task-094"].status, /human_runtime_host_required/);
+  assert.match(output.artifacts["task-094"].status, /edge_source_ready_provider_optional/);
 });
 
 test("deployment readiness refuses an apply flag", () => {

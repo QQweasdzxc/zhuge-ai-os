@@ -1,0 +1,66 @@
+name: Authenticated Runtime QA
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authenticated-runtime-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authenticated-runtime:
+    name: Authenticated Desktop + Mobile Runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install pinned runtime QA dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install pinned Chromium runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Run sanitized provider readiness
+        env:
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}
+          MOENV_API_KEY: ${{ secrets.MOENV_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          Zhuge_SKYEYE_RUNTIME_URL: ${{ vars.Zhuge_SKYEYE_RUNTIME_URL }}
+          Zhuge_TASK_ATTACHMENT_RUNTIME_URL: ${{ vars.Zhuge_TASK_ATTACHMENT_RUNTIME_URL }}
+          Zhuge_LINE_RUNTIME_URL: ${{ vars.Zhuge_LINE_RUNTIME_URL }}
+        run: node tools/runtime/provider-readiness.mjs
+
+      - name: Run authenticated runtime QA
+        env:
+          Zhuge_RUNTIME_URL: ${{ vars.Zhuge_RUNTIME_URL }}
+          Zhuge_AUTH_STORAGE_STATE_B64: ${{ secrets.Zhuge_AUTH_STORAGE_STATE_B64 }}
+          Zhuge_LINE_RUNTIME_URL: ${{ vars.Zhuge_LINE_RUNTIME_URL }}
+        run: node tools/runtime/authenticated-runtime-qa.mjs
+
+      - name: Upload sanitized browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-runtime-qa-${{ github.sha }}
+          path: tests/evidence/authenticated-runtime-qa/
+          if-no-files-found: ignore
+          retention-days: 14

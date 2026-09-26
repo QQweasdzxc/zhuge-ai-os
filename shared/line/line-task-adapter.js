@@ -303,6 +303,37 @@
     });
   }
 
+  function flexTaskMessage(task = {}, options = {}) {
+    const card = flexTaskCard(task, options);
+    const bodyContents = [
+      Object.freeze({ type: "text", text: card.title, weight: "bold", size: "md", wrap: true }),
+      Object.freeze({ type: "text", text: `狀態：${card.stateLabel}`, size: "sm", color: "#5f6368", margin: "md" }),
+      Object.freeze({ type: "text", text: `進度：${card.progressLabel}`, size: "sm", color: "#5f6368", margin: "sm" })
+    ];
+    const bubble = {
+      type: "bubble",
+      size: "kilo",
+      body: Object.freeze({ type: "box", layout: "vertical", spacing: "sm", contents: Object.freeze(bodyContents) })
+    };
+    if (card.deepLink) {
+      bubble.footer = Object.freeze({
+        type: "box",
+        layout: "vertical",
+        contents: Object.freeze([Object.freeze({
+          type: "button",
+          style: "primary",
+          action: Object.freeze({ type: "uri", label: "開啟 Zhuge", uri: card.deepLink })
+        })])
+      });
+    }
+    return Object.freeze({
+      type: "flex",
+      altText: card.altText,
+      contents: Object.freeze(bubble),
+      mutation: "none"
+    });
+  }
+
   async function verifySignature(body, signature, channelSecret, cryptoImpl) {
     const secret = text(channelSecret, 200);
     const supplied = text(signature, 200);
@@ -336,6 +367,7 @@
     idempotencyKey,
     canonicalCommand,
     flexTaskCard,
+    flexTaskMessage,
     verifySignature
   });
 });

@@ -10,6 +10,7 @@ test("Strategy page consumes read-only scanner/homework runtime projections", ()
     strategies: [],
     intelligence: {
       strategyScans: [{ symbol: "0050", market: "TW", status: "PARTIAL", matches: [{ id: "growth_quality", name: "成長品質", status: "INSUFFICIENT_EVIDENCE" }], insufficientEvidence: ["成長品質：缺少 fundamental analysis"] }],
+      volumeConfirmations: [{ symbol: "0050", market: "TW", status: "INSUFFICIENT_EVIDENCE", patternCounts: { bullish: 0, bearish: 0, flat: 0 }, metrics: { sampleCount: 0 }, evidence: [{ source: "TWSE", observedAt: "2026-09-18", retrievedAt: "2026-09-19", limitations: ["INSUFFICIENT_EVIDENCE"] }] }],
       homeworkPacks: [{ symbol: "0050", market: "TW", status: "PARTIAL" }]
     }
   }, { escape, format, strategyLibrary: { list: () => [] } });
@@ -18,6 +19,8 @@ test("Strategy page consumes read-only scanner/homework runtime projections", ()
   assert.match(markup, /成長品質/);
   assert.match(markup, /資料不足/);
   assert.match(markup, /不建立策略紀錄/);
+  assert.match(markup, /data-investment-volume-confirmation/);
+  assert.match(markup, /量價確認／量進價弱/);
 });
 
 test("Strategy page does not fabricate runtime results when no scan exists", () => {
