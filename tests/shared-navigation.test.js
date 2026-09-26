@@ -239,4 +239,7 @@ test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap"
   assert.match(navigation, /event\.key !== "Tab" \|\| !isMobileViewport\(\)/);
   assert.match(navigation, /previousFocus\?\.isConnected/);
   assert.match(navigation, /last\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(navigation, /aria-hidden.*String\(!isOpen\)/);
+  assert.match(navigation, /global\.addEventListener\?\.\("resize"/);
+  assert.match(navigation, /mobileSidebarState\.has\(shell\)/);
 });

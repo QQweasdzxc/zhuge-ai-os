@@ -252,8 +252,13 @@
     if (!shell) return;
     const isOpen = Boolean(open);
     const wasOpen = shell.classList.contains("sidebar-open");
+    const mobile = isMobileViewport();
+    const hasTrackedMobileState = mobileSidebarState.has(shell);
     shell.classList.toggle("sidebar-open", isOpen);
     shell.dataset.sidebarState = isOpen ? "open" : "closed";
+    const navigation = shell.querySelector("[data-zhuge-shared-navigation='true']");
+    if (mobile) navigation?.setAttribute("aria-hidden", String(!isOpen));
+    else navigation?.removeAttribute("aria-hidden");
     shell.querySelectorAll("[data-toggle-sidebar]").forEach(button => {
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
@@ -262,8 +267,12 @@
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", "zhugeSharedNavigationPanel");
     });
-    if (!isMobileViewport() || wasOpen === isOpen) return;
+    // A viewport resize can leave an open mobile drawer mounted after the
+    // media query changes. Its tracked state is the authority for cleanup;
+    // do not leave body scrolling locked when the shell becomes desktop.
+    if (wasOpen === isOpen || (!mobile && !hasTrackedMobileState)) return;
     if (isOpen) {
+      if (!mobile) return;
       const previousFocus = global.document?.activeElement && global.document.activeElement !== global.document.body
         ? global.document.activeElement
         : null;
@@ -357,6 +366,12 @@
       if (!shell) return;
       event.preventDefault();
       setSidebarOpen(shell, Boolean(toggle) && !shell.classList.contains("sidebar-open"));
+    });
+    global.addEventListener?.("resize", () => {
+      if (isMobileViewport()) return;
+      document.querySelectorAll(".os-shell.sidebar-open,.zhuge-module-shell.sidebar-open").forEach(shell => {
+        if (mobileSidebarState.has(shell)) setSidebarOpen(shell, false);
+      });
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape" && event.key !== "Tab") return;
