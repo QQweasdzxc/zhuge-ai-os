@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SkyEye mobile browser guard</title>
+  <link rel="stylesheet" href="../shared/theme/tokens.css">
+  <link rel="stylesheet" href="../shared/theme/responsive-modernization.css">
+  <link rel="stylesheet" href="../modules/skyeye/assets/skyeye.css">
+</head>
+<body class="skyeye-page">
+  <div class="zhuge-module-shell skyeye-shell">
+    <main class="app skyeye-app" aria-label="SkyEye browser fixture">
+      <section class="skyeye-desktop-guard" aria-label="天眼使用限制">
+        <strong>🛰️ 天眼目前提供手機版地圖</strong>
+        <p>請使用手機寬度開啟天眼。</p>
+      </section>
+      <section class="skyeye-mobile-stage" data-skyeye-stage>
+        <div class="skyeye-topbar">
+          <div><h1>🛰️ 天眼</h1><p>只顯示目前已載入的公開資料 evidence</p></div>
+          <div class="skyeye-topbar-actions">
+            <button class="skyeye-nav-button" type="button" aria-label="開啟導覽">☰</button>
+            <button class="skyeye-refresh-button" type="button" aria-label="重新讀取">↻</button>
+          </div>
+        </div>
+        <div class="skyeye-map" aria-label="天眼地圖"></div>
+        <div class="skyeye-overlay-layer" aria-label="地圖浮動資料視窗">
+          <article class="skyeye-floating-window" style="left:12px;top:72px">
+            <header class="skyeye-overlay-handle"><strong class="skyeye-overlay-title">📷 CCTV</strong><div class="skyeye-overlay-actions"><button type="button" aria-label="縮小">−</button><button type="button" aria-label="關閉">×</button></div></header>
+            <div class="skyeye-overlay-body"><p class="skyeye-overlay-detail">公開道路影像 evidence</p><button class="skyeye-overlay-detail-button" type="button">查看詳情</button></div>
+          </article>
+          <div class="skyeye-minimized-stack"><button class="skyeye-minimized-window" type="button"><span>🌦️</span><span>天氣</span><small>展開</small></button><button class="skyeye-minimized-window" type="button"><span>🌏</span><span>地震</span><small>展開</small></button></div>
+        </div>
+        <div class="skyeye-status-pill" data-state="loading" role="status">正在確認資料來源…</div>
+        <section class="skyeye-bottom-sheet" aria-label="天眼圖層與資料詳情">
+          <div class="skyeye-sheet-heading"><h2>圖層與資料</h2><button type="button" aria-label="關閉資料詳情">×</button></div>
+          <div class="skyeye-layer-grid"><button class="skyeye-layer-button" type="button" aria-pressed="true">📷 CCTV<small>點開後載入</small></button><button class="skyeye-layer-button" type="button" aria-pressed="false">🌦️ 天氣<small>資料來源</small></button><button class="skyeye-layer-button" type="button" aria-pressed="false">🌫️ 空氣品質<small>資料來源</small></button></div>
+          <div class="skyeye-evidence-summary"><strong>諸葛目前畫面摘要</strong><p>目前只根據已載入 evidence 整理。</p></div>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
