@@ -190,10 +190,38 @@ function replyText(result: JsonObject) {
   return `Zhuge AI OS\n${operation || "工作更新"}\n狀態：${state || "已受理"}${progress}${taskId ? `\nTask：${taskId}` : ""}`.slice(0, 800);
 }
 
+function taskDeepLink(taskId: string, baseUrl: string) {
+  if (!taskId || !baseUrl) return "";
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol !== "https:") return "";
+    url.searchParams.set("task", taskId);
+    return url.toString().slice(0, 1000);
+  } catch {
+    return "";
+  }
+}
+
+function replyMessages(result: JsonObject, env: JsonObject) {
+  const taskId = text(result.taskId, 120);
+  const messages: JsonObject[] = [{ type: "text", text: replyText(result) }];
+  const deepLink = taskDeepLink(taskId, text(env.LINE_LIFF_TASK_BASE_URL, 1000));
+  if (!deepLink) return messages;
+  const adapter = (globalThis as any).ZhugeLineTaskAdapter;
+  const card = adapter.flexTaskMessage({
+    id: taskId,
+    title: text(result.title, 120) || "工作更新",
+    state: text(result.transportState || result.status, 80),
+    progress: Number.isInteger(result.progress) ? result.progress : null
+  }, { deepLink });
+  messages.push(card);
+  return messages;
+}
+
 async function sendReply(replyToken: string, result: JsonObject, env: JsonObject, eventId: string) {
   const messaging = (globalThis as any).ZhugeLineMessagingAdapter;
   if (!replyToken || !env.LINE_CHANNEL_ACCESS_TOKEN) return { status: "not_sent", reason: "PROVIDER_NOT_CONFIGURED" };
-  const outcome = await messaging.sendReply(replyToken, [{ type: "text", text: replyText(result) }], {
+  const outcome = await messaging.sendReply(replyToken, replyMessages(result, env), {
     idempotencyKey: `line-reply-v1:${eventId}`,
     send: async (payload: JsonObject, options: JsonObject) => {
       const response = await fetch("https://api.line.me/v2/bot/message/reply", {
