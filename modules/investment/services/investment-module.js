@@ -31,7 +31,8 @@
       analysis: global.InvestmentAnalysisService,
       strategyLibrary: global.InvestmentStrategyLibrary,
       strategyScanner: global.InvestmentStrategyScanner,
-      homeworkPack: global.InvestmentHomeworkPack
+      homeworkPack: global.InvestmentHomeworkPack,
+      volumeConfirmation: global.InvestmentVolumeConfirmation
     };
   }
 
@@ -393,6 +394,7 @@
       strategyLibrary: dependencies.strategyLibrary,
       strategyScanner: dependencies.strategyScanner,
       homeworkPack: dependencies.homeworkPack,
+      volumeConfirmation: dependencies.volumeConfirmation,
       invokeFunction: context.data.invokeFunction
     }) || null;
     const recognitionProvider = dependencies.recognitionProvider?.create?.({
@@ -1095,6 +1097,7 @@
           contexts: [],
           analyses: [],
           strategyScans: [],
+          volumeConfirmations: [],
           homeworkPacks: [],
           quality: Object.freeze({}),
           error: null,
@@ -1122,6 +1125,7 @@
               contexts: runtimeIntelligence.contexts,
               analyses: runtimeIntelligence.analyses,
               strategyScans: runtimeIntelligence.strategyScans,
+              volumeConfirmations: runtimeIntelligence.volumeConfirmations || [],
               homeworkPacks: runtimeIntelligence.homeworkPacks,
               quality: runtimeIntelligence.quality,
               error: null,
@@ -1138,6 +1142,7 @@
               contexts: [],
               analyses: [],
               strategyScans: [],
+              volumeConfirmations: [],
               homeworkPacks: [],
               quality: Object.freeze({}),
               error: "PROVIDER_ADAPTER_UNAVAILABLE",
@@ -1155,6 +1160,7 @@
             contexts: [],
             analyses: [],
             strategyScans: [],
+            volumeConfirmations: [],
             homeworkPacks: [],
             quality: Object.freeze({}),
             error: String(error?.code || "PROVIDER_LOAD_FAILED"),

@@ -56,7 +56,22 @@ test("scanner returns NOT_SELECTED rather than auto-selecting a Strategy", () =>
   assert.equal(result.insufficientEvidence[0].includes("沒有指定策略"), true);
 });
 
-test("all fifteen catalog strategies have an explicit evidence requirement", () => {
+test("scanner consumes the volume confirmation result through the existing evidence contract", () => {
+  const result = scanner.scanContext(context({
+    strategyIds: ["volume_contraction_confirmation"],
+    evidence: [{ type: "ohlc", source: "TWSE", title: "daily history", facts: ["bars=120"] }],
+    volumeConfirmation: {
+      status: "AVAILABLE",
+      patternCounts: { bullish: 3, bearish: 1 },
+      metrics: { sampleCount: 4, upRate: 0.75 }
+    }
+  }), { analysisService: analysis, strategyLibrary: strategies });
+  assert.equal(result.status, "READY");
+  assert.equal(result.matches[0].id, "volume_contraction_confirmation");
+  assert.equal(result.matches[0].patternCounts.bullish, 3);
+});
+
+test("all catalog strategies have an explicit evidence requirement", () => {
   for (const strategy of strategies.list()) {
     assert.ok(Array.isArray(scanner.requirementFor(strategy)));
     assert.ok(scanner.requirementFor(strategy).length > 0);

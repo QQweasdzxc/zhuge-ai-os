@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const read = relativePath => fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+const BUILD = JSON.parse(read("version.json")).build;
 
 test("TASK-088 successor owns one shared responsive/accessibility layer", () => {
   const css = read("shared/theme/responsive-modernization.css");
@@ -42,7 +43,7 @@ test("canonical product and public surfaces opt into the successor layer", () =>
   ];
   for (const file of surfaces) {
     const source = read(file);
-    assert.match(source, /responsive-modernization\.css\?v=20260926-1403/, `${file} must load successor CSS`);
+    assert.match(source, new RegExp(`responsive-modernization\\.css\\?v=${BUILD}`), `${file} must load successor CSS`);
     assert.match(source, /viewport-fit=cover/, `${file} must preserve safe-area viewport metadata`);
     assert.doesNotMatch(source, /user-scalable\s*=\s*no|max(?:imum)?-scale\s*=\s*1/i, `${file} must not disable zoom`);
   }

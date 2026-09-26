@@ -572,6 +572,7 @@
     const strategyScanner = options.strategyScanner || root?.InvestmentStrategyScanner;
     const homeworkPack = options.homeworkPack || root?.InvestmentHomeworkPack;
     const strategyBacktest = options.strategyBacktest || root?.InvestmentStrategyBacktest;
+    const volumeConfirmation = options.volumeConfirmation || root?.InvestmentVolumeConfirmation;
     const fetchImpl = options.fetch || root?.fetch?.bind(root);
     const endpoints = Object.freeze({ ...DEFAULT_ENDPOINTS, ...(options.endpoints || {}) });
     const now = typeof options.now === "function" ? options.now : () => Date.now();
@@ -1090,6 +1091,29 @@
       });
     }
 
+    function attachVolumeConfirmation(context, result) {
+      if (!result) return context;
+      const missing = result.status === "INSUFFICIENT_EVIDENCE"
+        ? [...(Array.isArray(context.missing) ? context.missing : []), "volume_confirmation"]
+        : context.missing;
+      const rebuilt = intelligence.buildContextPack({
+        ...context,
+        evidence: [...(Array.isArray(context.evidence) ? context.evidence : []), ...(Array.isArray(result.evidence) ? result.evidence : [])],
+        missing
+      });
+      return Object.freeze({ ...rebuilt, volumeConfirmation: result });
+    }
+
+    function buildVolumeConfirmations(histories, input, generatedAt) {
+      if (!volumeConfirmation?.runHistory) return Object.freeze([]);
+      return Object.freeze((Array.isArray(histories) ? histories : []).map(history => volumeConfirmation.runHistory({
+        history,
+        strategyBacktest,
+        config: input.volumeConfirmationConfig,
+        retrievedAt: generatedAt
+      })));
+    }
+
     function enrichContexts(contexts) {
       if (!analysis?.enrichContextPack) return Object.freeze(contexts);
       return Object.freeze(contexts.map(context => {
@@ -1145,7 +1169,11 @@
       const fundamentals = Object.freeze(Array.isArray(response.fundamentals) ? response.fundamentals : []);
       const relationships = Object.freeze(Array.isArray(response.relationships) ? response.relationships : []);
       const marketPhase = Object.freeze(response.market_phase && typeof response.market_phase === "object" ? { ...response.market_phase } : {});
-      const contexts = enrichContexts((Array.isArray(response.contexts) ? response.contexts : []).map(normalizeEdgeContext));
+      const volumeConfirmations = buildVolumeConfirmations(histories, input, generatedAt);
+      const volumeByKey = new Map(volumeConfirmations.map(item => [`${item.market}:${item.symbol}`, item]));
+      const contexts = enrichContexts((Array.isArray(response.contexts) ? response.contexts : [])
+        .map(normalizeEdgeContext)
+        .map(context => attachVolumeConfirmation(context, volumeByKey.get(`${context.market}:${context.symbol}`))));
       const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
       const strategyScans = Object.freeze(contexts.map(item => item.strategyScan).filter(Boolean));
       const homeworkPacks = Object.freeze(contexts.map(item => item.homeworkPack).filter(Boolean));
@@ -1159,6 +1187,7 @@
         fundamentals,
         relationships,
         marketPhase,
+        volumeConfirmations,
         contexts,
         analyses,
         strategyScans,
@@ -1180,6 +1209,9 @@
         loadRelationships(requests),
         loadMarketPhases(requests)
       ]);
+      const generatedAt = new Date(now()).toISOString();
+      const volumeConfirmations = buildVolumeConfirmations(histories, input, generatedAt);
+      const volumeByKey = new Map(volumeConfirmations.map(item => [`${item.market}:${item.symbol}`, item]));
       const contexts = enrichContexts(requests.map(requestValue => {
         const quote = quotes.find(item => item.symbol === requestValue.symbol && item.market === requestValue.market);
         const history = histories.find(item => item.symbol === requestValue.symbol && item.market === requestValue.market);
@@ -1203,7 +1235,7 @@
         if (!fundamental?.available) missing.push("fundamental_evidence");
         if (!relationship?.available) missing.push("relationship_evidence");
         if (!phase?.available) missing.push("market_phase");
-        return intelligence.buildContextPack({
+        const context = intelligence.buildContextPack({
           symbol: requestValue.symbol,
           market: requestValue.market,
           generatedAt: new Date(now()).toISOString(),
@@ -1222,13 +1254,14 @@
           missing,
           strategyIds: input.strategyIds || []
         });
+        return attachVolumeConfirmation(context, volumeByKey.get(`${requestValue.market}:${requestValue.symbol}`));
       }));
       const analyses = Object.freeze(contexts.map(item => item.analysis).filter(Boolean));
       const strategyScans = Object.freeze(contexts.map(item => item.strategyScan).filter(Boolean));
       const homeworkPacks = Object.freeze(contexts.map(item => item.homeworkPack).filter(Boolean));
       return Object.freeze({
         contract: "zhuge-investment-intelligence-runtime-v1",
-        generatedAt: new Date(now()).toISOString(),
+        generatedAt,
         quotes,
         fx,
         news,
@@ -1236,6 +1269,7 @@
         fundamentals,
         relationships,
         marketPhase: marketPhases,
+        volumeConfirmations,
         contexts,
         analyses,
         strategyScans,
@@ -1263,7 +1297,21 @@
       return strategyBacktest.run(input);
     }
 
-    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load, runBacktest });
+    function runVolumeConfirmation(input = {}) {
+      if (!volumeConfirmation?.runHistory) {
+        throw providerError("VOLUME_CONFIRMATION_UNAVAILABLE", "Volume confirmation contract is unavailable.");
+      }
+      return volumeConfirmation.runHistory(input);
+    }
+
+    function runVolumeThresholdSweep(input = {}) {
+      if (!volumeConfirmation?.runThresholdSweep) {
+        throw providerError("VOLUME_CONFIRMATION_UNAVAILABLE", "Volume confirmation threshold sweep is unavailable.");
+      }
+      return volumeConfirmation.runThresholdSweep(input);
+    }
+
+    return Object.freeze({ register, loadQuotes, loadFx, loadNews, loadHistories, loadFundamentals, loadRelationships, loadMarketPhases, loadDirect, loadViaEdge, load, runBacktest, runVolumeConfirmation, runVolumeThresholdSweep });
   }
 
   return Object.freeze({ DEFAULT_ENDPOINTS, create });

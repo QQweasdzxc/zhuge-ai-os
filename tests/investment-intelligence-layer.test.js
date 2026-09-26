@@ -28,10 +28,11 @@ test("Investment Context Pack deduplicates evidence and preserves limitations", 
   assert.equal(pack.strategyEvidence[0].strategyId, "ma_golden_cross");
 });
 
-test("Investment Strategy Library exposes the studied 15-skill catalog", () => {
+test("Investment Strategy Library exposes the studied catalog plus volume confirmation", () => {
   const list = strategies.list();
-  assert.equal(list.length, 15);
+  assert.equal(list.length, 16);
   assert.equal(strategies.get("ma_golden_cross").name, "均線金叉");
+  assert.equal(strategies.get("volume_contraction_confirmation").name, "量價確認");
   assert.equal(strategies.get("event_driven").name, "事件驅動");
   assert.equal(strategies.get("missing"), null);
 });

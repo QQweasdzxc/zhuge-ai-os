@@ -85,9 +85,16 @@
       trades: [],
       metrics: {
         completedTrades: 0,
+        sampleCount: 0,
         winRate: null,
+        upRate: null,
+        downRate: null,
+        flatRate: null,
+        averageReturn: null,
+        medianReturn: null,
         cumulativeReturn: null,
         maxDrawdown: null,
+        maxAdverseExcursion: null,
         openPosition: false
       },
       warnings: unique(warnings),
@@ -100,6 +107,44 @@
       }),
       readOnly: true,
       mutation: "none"
+    };
+  }
+
+  function median(values) {
+    const sorted = values.slice().sort((left, right) => left - right);
+    if (!sorted.length) return null;
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+
+  function summarizeTrades(trades, options = {}) {
+    const returns = trades.map(trade => Number(trade.return)).filter(Number.isFinite);
+    const wins = returns.filter(value => value > 0).length;
+    const losses = returns.filter(value => value < 0).length;
+    const flats = returns.length - wins - losses;
+    const equity = [1];
+    for (const trade of trades) equity.push(equity[equity.length - 1] * (1 + trade.return));
+    let peak = equity[0];
+    let maxDrawdown = 0;
+    for (const value of equity) {
+      peak = Math.max(peak, value);
+      maxDrawdown = Math.min(maxDrawdown, value / peak - 1);
+    }
+    const maes = trades.map(trade => Number(trade.maxAdverseExcursion)).filter(Number.isFinite);
+    return {
+      completedTrades: trades.length,
+      sampleCount: trades.length,
+      winRate: returns.length ? wins / returns.length : null,
+      upRate: returns.length ? wins / returns.length : null,
+      downRate: returns.length ? losses / returns.length : null,
+      flatRate: returns.length ? flats / returns.length : null,
+      averageReturn: returns.length ? returns.reduce((sum, value) => sum + value, 0) / returns.length : null,
+      medianReturn: median(returns),
+      cumulativeReturn: returns.length ? equity[equity.length - 1] - 1 : null,
+      maxDrawdown: returns.length ? maxDrawdown : null,
+      maxAdverseExcursion: maes.length ? Math.min(...maes) : null,
+      holdingHorizon: options.holdingHorizon ?? null,
+      openPosition: Boolean(options.openPosition)
     };
   }
 
@@ -174,23 +219,8 @@
       open = null;
     }
     if (open) warnings.push("回測期間結束時仍有未平倉 signal；未把未實現結果當成已實現交易。");
-    const equity = [1];
-    for (const trade of trades) equity.push(equity[equity.length - 1] * (1 + trade.return));
-    let peak = equity[0];
-    let maxDrawdown = 0;
-    for (const value of equity) {
-      peak = Math.max(peak, value);
-      maxDrawdown = Math.min(maxDrawdown, value / peak - 1);
-    }
-    const wins = trades.filter(trade => trade.return > 0).length;
     result.trades = trades;
-    result.metrics = {
-      completedTrades: trades.length,
-      winRate: trades.length ? wins / trades.length : null,
-      cumulativeReturn: trades.length ? equity[equity.length - 1] - 1 : null,
-      maxDrawdown: trades.length ? maxDrawdown : null,
-      openPosition: Boolean(open)
-    };
+    result.metrics = summarizeTrades(trades, { openPosition: open });
     result.warnings = unique(warnings);
     result.status = trades.length
       ? open || warnings.length ? STATUS.PARTIAL : STATUS.AVAILABLE
@@ -198,5 +228,122 @@
     return Object.freeze(result);
   }
 
-  return Object.freeze({ CONTRACT, STATUS, normalizeBars, normalizeSignals, run });
+  function normalizeTimedEvents(rows) {
+    return list(rows).map((row, index) => {
+      const confirmationIndex = Number.isInteger(row?.confirmationIndex)
+        ? row.confirmationIndex
+        : Number(row?.confirmation_index);
+      const entryIndex = Number.isInteger(row?.entryIndex) ? row.entryIndex : Number(row?.entry_index);
+      const exitIndex = Number.isInteger(row?.exitIndex) ? row.exitIndex : Number(row?.exit_index);
+      const pattern = text(row?.pattern || row?.direction, 80);
+      const valid = Number.isInteger(confirmationIndex) && confirmationIndex >= 0
+        && Number.isInteger(entryIndex) && entryIndex > confirmationIndex
+        && Number.isInteger(exitIndex) && exitIndex >= entryIndex;
+      return Object.freeze({
+        index,
+        valid,
+        confirmationIndex,
+        entryIndex,
+        exitIndex,
+        pattern,
+        symbol: text(row?.symbol, 40).toUpperCase(),
+        industry: text(row?.industry, 160) || "unknown",
+        strategyId: text(row?.strategyId || row?.strategy_id, 100),
+        reason: text(row?.reason || row?.summary, 300),
+        evidenceRefs: Object.freeze(list(row?.evidenceRefs || row?.evidence_refs).map(evidenceRef).slice(0, 8))
+      });
+    });
+  }
+
+  function runTimed(input = {}) {
+    const bars = normalizeBars(input.bars);
+    const events = normalizeTimedEvents(input.events);
+    const result = baseResult(input, STATUS.INSUFFICIENT_EVIDENCE);
+    result.bars.usable = bars.length;
+    result.signals = { input: events.length, usable: events.filter(item => item.valid).length };
+    result.methodology = Object.freeze({
+      execution: "confirmation_close_then_next_bar_open",
+      lookaheadGuard: "confirmation is known only after confirmation bar close; entry uses the following bar open",
+      exit: "holding_horizon_bars uses the entry bar as bar 1 and exits at that bar close",
+      costs: "fee_bps and slippage_bps are applied to entry and exit fills",
+      signalAuthority: "caller-supplied evidence-backed events only"
+    });
+    if (bars.length < 2) {
+      result.warnings.push("至少需要兩根含 open/close 的歷史 bars；不以單一價格回測。");
+      return Object.freeze(result);
+    }
+    if (!events.length) {
+      result.warnings.push("沒有 caller-supplied event；不自行產生策略訊號。");
+      return Object.freeze(result);
+    }
+    if (events.some(item => !item.valid)) {
+      result.status = STATUS.INVALID_INPUT;
+      result.warnings.push("存在無效 timed event；confirmationIndex < entryIndex <= exitIndex 是必要條件。");
+      return Object.freeze(result);
+    }
+    const feeBps = Math.min(1000, Math.max(0, number(input.feeBps ?? input.fee_bps) ?? 0));
+    const slippageBps = Math.min(1000, Math.max(0, number(input.slippageBps ?? input.slippage_bps) ?? 0));
+    const feeRate = feeBps / 10000;
+    const slippageRate = slippageBps / 10000;
+    const warnings = [];
+    const trades = [];
+    let lastExitIndex = -1;
+    for (const event of events.slice().sort((left, right) => left.entryIndex - right.entryIndex || left.index - right.index)) {
+      if (event.exitIndex >= bars.length || event.entryIndex >= bars.length) {
+        warnings.push(`event ${event.index} 沒有足夠 bars 完成 holding horizon，已忽略。`);
+        continue;
+      }
+      if (event.entryIndex <= lastExitIndex && input.allowOverlap !== true) {
+        warnings.push(`event ${event.index} 與前一樣本重疊；allowOverlap=false，已忽略。`);
+        continue;
+      }
+      const entryBar = bars[event.entryIndex];
+      const exitBar = bars[event.exitIndex];
+      const entryPrice = entryBar.open * (1 + slippageRate);
+      const exitPrice = exitBar.close * (1 - slippageRate);
+      if (!(entryPrice > 0) || !(exitPrice > 0)) {
+        warnings.push(`event ${event.index} 的 entry/exit price 無效，已忽略。`);
+        continue;
+      }
+      const netReturn = ((exitPrice * (1 - feeRate)) / (entryPrice * (1 + feeRate))) - 1;
+      const lows = bars.slice(event.entryIndex, event.exitIndex + 1).map(item => item.low).filter(value => Number.isFinite(value) && value > 0);
+      const maxAdverseExcursion = lows.length ? Math.min(...lows.map(low => low / entryPrice - 1)) : null;
+      trades.push(Object.freeze({
+        strategyId: event.strategyId || text(input.strategyId, 100),
+        pattern: event.pattern,
+        symbol: event.symbol,
+        industry: event.industry,
+        confirmationAt: bars[event.confirmationIndex].timestamp,
+        entryAt: entryBar.timestamp,
+        exitAt: exitBar.timestamp,
+        confirmationIndex: event.confirmationIndex,
+        entryIndex: event.entryIndex,
+        exitIndex: event.exitIndex,
+        entryPrice,
+        exitPrice,
+        return: netReturn,
+        maxAdverseExcursion,
+        evidenceRefs: event.evidenceRefs
+      }));
+      lastExitIndex = event.exitIndex;
+    }
+    result.trades = trades;
+    result.metrics = summarizeTrades(trades, {
+      holdingHorizon: input.holdingHorizon ?? input.holding_horizon,
+      openPosition: false
+    });
+    result.methodology = Object.freeze({
+      ...result.methodology,
+      feeBps,
+      slippageBps,
+      overlap: input.allowOverlap === true ? "allowed" : "non_overlapping_samples"
+    });
+    result.warnings = unique(warnings);
+    result.status = trades.length
+      ? warnings.length ? STATUS.PARTIAL : STATUS.AVAILABLE
+      : STATUS.INSUFFICIENT_EVIDENCE;
+    return Object.freeze(result);
+  }
+
+  return Object.freeze({ CONTRACT, STATUS, normalizeBars, normalizeSignals, normalizeTimedEvents, summarizeTrades, run, runTimed });
 });
