@@ -42,7 +42,7 @@ test("canonical product and public surfaces opt into the successor layer", () =>
   ];
   for (const file of surfaces) {
     const source = read(file);
-    assert.match(source, /responsive-modernization\.css\?v=20260926-0855/, `${file} must load successor CSS`);
+    assert.match(source, /responsive-modernization\.css\?v=20260926-0901/, `${file} must load successor CSS`);
     assert.match(source, /viewport-fit=cover/, `${file} must preserve safe-area viewport metadata`);
     assert.doesNotMatch(source, /user-scalable\s*=\s*no|max(?:imum)?-scale\s*=\s*1/i, `${file} must not disable zoom`);
   }
