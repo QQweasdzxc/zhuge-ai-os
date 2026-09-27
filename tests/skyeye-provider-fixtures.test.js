@@ -22,7 +22,9 @@ test("SkyEye provider fixtures normalize weather, earthquake, AQI and CCTV evide
   assert.equal(earthquake.markers[0].magnitude, 4.2);
   assert.equal(earthquake.markers[0].depth_km, 18);
   assert.equal(aqi.markers[0].value, 42);
-  assert.equal(cctv.markers[0].detail, "點擊標記後才載入影像");
+  assert.equal(cctv.markers[0].detail, "忠孝東路");
+  assert.equal(cctv.markers[0].road_label, "忠孝東路");
+  assert.equal(cctv.markers[0].media_available, true);
   assert.equal(cctv.markers[0].stream_url, "https://example.invalid/cctv.m3u8");
 });
 

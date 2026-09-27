@@ -266,3 +266,68 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   .skyeye-bottom-sheet, .skyeye-map { scroll-behavior: auto; }
 }
+
+/* Location-centric V2: the map stays primary while controls remain compact,
+ * safe-area aware, and non-blocking. */
+.skyeye-topbar small { display: block; margin-top: 2px; color: #d8ecff; font-size: .64rem; text-shadow: 0 1px 3px rgba(0,0,0,.65); }
+.skyeye-location-controls {
+  position: absolute;
+  top: max(78px, calc(var(--zhuge-safe-area-top) + 66px));
+  right: 10px;
+  left: 10px;
+  z-index: 30;
+  pointer-events: none;
+}
+.skyeye-location-controls > * { pointer-events: auto; }
+.skyeye-search-form { display: flex; gap: 6px; max-width: min(520px, calc(100vw - 20px)); margin: 0 auto; padding: 4px; border: 1px solid rgba(255,255,255,.52); border-radius: 16px; background: rgba(7,17,31,.86); box-shadow: 0 7px 22px rgba(2,6,23,.28); backdrop-filter: blur(16px); }
+.skyeye-search-form input { min-width: 0; flex: 1; min-height: 44px; padding: 0 11px; border: 0; border-radius: 12px; background: transparent; color: #f8fbff; font: inherit; font-size: .78rem; outline: none; }
+.skyeye-search-form input::placeholder { color: #bfd2e1; }
+.skyeye-search-form input:focus-visible { outline: 2px solid #67e8f9; outline-offset: -2px; }
+.skyeye-search-form button, .skyeye-location-actions button { min-height: 44px; padding: 0 12px; border: 1px solid rgba(103,232,249,.74); border-radius: 12px; background: #0e7490; color: #fff; font-size: .74rem; font-weight: 800; white-space: nowrap; }
+.skyeye-location-actions { display: flex; justify-content: center; gap: 7px; margin-top: 7px; }
+.skyeye-location-actions button { border-color: rgba(255,255,255,.42); background: rgba(7,17,31,.82); box-shadow: 0 5px 16px rgba(2,6,23,.24); }
+.skyeye-location-actions button[data-skyeye-search-area]:not([hidden]) { border-color: #f5c451; color: #fff5c2; }
+.skyeye-search-results { display: grid; max-width: min(520px, calc(100vw - 20px)); max-height: min(30svh, 220px); margin: 6px auto 0; overflow: auto; border: 1px solid rgba(255,255,255,.36); border-radius: 14px; background: rgba(7,17,31,.94); box-shadow: 0 12px 28px rgba(2,6,23,.32); }
+.skyeye-search-result { min-height: 54px; padding: 8px 12px; border: 0; border-bottom: 1px solid rgba(255,255,255,.12); background: transparent; color: #f8fbff; text-align: left; }
+.skyeye-search-result:last-child { border-bottom: 0; }
+.skyeye-search-result:hover, .skyeye-search-result:focus-visible { background: rgba(14,116,144,.55); outline: 2px solid #67e8f9; outline-offset: -2px; }
+.skyeye-search-result strong, .skyeye-search-result small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skyeye-search-result strong { font-size: .75rem; }
+.skyeye-search-result small { margin-top: 3px; color: #bdd1df; font-size: .64rem; }
+.skyeye-bottom-sheet { z-index: 35; max-height: min(62svh, 520px); transition: max-height .2s ease, transform .2s ease; overscroll-behavior: contain; }
+.skyeye-bottom-sheet[data-sheet-state="collapsed"] { max-height: min(166px, 25svh); }
+.skyeye-bottom-sheet[data-sheet-state="half"] { max-height: min(46svh, 390px); }
+.skyeye-bottom-sheet[data-sheet-state="expanded"] { max-height: min(calc(var(--skyeye-visual-height, 100svh) - 20px), 720px); }
+.skyeye-bottom-sheet[data-sheet-state="collapsed"] .skyeye-layer-grid,
+.skyeye-bottom-sheet[data-sheet-state="collapsed"] .skyeye-detail,
+.skyeye-bottom-sheet[data-sheet-state="collapsed"] .skyeye-state { display: none; }
+.skyeye-sheet-handle { display: block; width: 52px; min-width: 52px; min-height: 44px; margin: -2px auto 4px; padding: 16px 0; border: 0; border-radius: 999px; background: transparent; cursor: grab; touch-action: none; }
+.skyeye-sheet-handle::after { display: block; width: 42px; height: 4px; margin: auto; border-radius: 999px; background: rgba(255,255,255,.7); content: ""; }
+.skyeye-sheet-handle:active { cursor: grabbing; }
+.skyeye-sheet-heading h2 { display: flex; min-width: 0; align-items: baseline; gap: 3px; }
+.skyeye-sheet-heading h2 small { overflow: hidden; color: #b8cfdf; font-size: .64rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.skyeye-sheet-mode-actions { display: flex; gap: 5px; margin-top: 7px; }
+.skyeye-sheet-mode-actions button { min-height: 44px; flex: 1; border: 1px solid rgba(148,163,184,.38); border-radius: 10px; background: rgba(30,41,59,.72); color: #dceeff; font-size: .68rem; font-weight: 750; }
+.skyeye-sheet-mode-actions button:focus-visible, .skyeye-sheet-mode-actions button:hover { border-color: #67e8f9; outline: 2px solid rgba(103,232,249,.46); outline-offset: 1px; }
+.skyeye-summary-note { display: block; margin-top: 7px; color: #a9bfd2; font-size: .64rem; line-height: 1.35; }
+.skyeye-marker-context { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
+.skyeye-marker-context span { color: #b8cfdf; font-size: .7rem; }
+.skyeye-layer-button[data-state="provider_not_configured"], .skyeye-layer-button[data-state="provider_unavailable"], .skyeye-layer-button[data-state="error"] { border-color: rgba(251,113,133,.75); }
+.skyeye-layer-button[data-state="empty"], .skyeye-layer-button[data-state="not_requested"] { border-color: rgba(245,196,81,.64); }
+.skyeye-layer-button[data-state="stale"] { border-color: rgba(251,191,36,.78); }
+.skyeye-layer-button[data-state="available"] { border-color: rgba(74,222,128,.58); }
+.skyeye-map .leaflet-control-container { touch-action: manipulation; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 380px) {
+  .skyeye-location-controls { top: max(76px, calc(var(--zhuge-safe-area-top) + 64px)); }
+  .skyeye-location-actions button { padding-right: 9px; padding-left: 9px; font-size: .67rem; }
+  .skyeye-search-form button { padding-right: 10px; padding-left: 10px; }
+  .skyeye-bottom-sheet[data-sheet-state="collapsed"] { max-height: 178px; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .skyeye-location-controls { top: max(58px, calc(var(--zhuge-safe-area-top) + 48px)); }
+  .skyeye-bottom-sheet[data-sheet-state="collapsed"] { max-height: 134px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skyeye-bottom-sheet { transition: none; }
+}

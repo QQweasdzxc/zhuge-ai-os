@@ -18,11 +18,22 @@
     gateway: null,
     map: null,
     layers: null,
-    active: { weather: true, radar: true, earthquake: true, aqi: true, cctv: false },
+    active: { weather: true, radar: true, earthquake: true, aqi: true, cctv: true },
     groups: {},
     selected: null,
     loading: false,
-    cctvRequested: false,
+    location: null,
+    myLocation: null,
+    locationPermission: "unknown",
+    searchResults: [],
+    mapChangedSinceQuery: false,
+    mapEventsWired: false,
+    sheetState: "collapsed",
+    requestSequence: 0,
+    activeRequestController: null,
+    searchRequestController: null,
+    areaSearchTimer: null,
+    suppressMapEvents: false,
     overlayWindows: [],
     overlayViewportWired: false
   };
@@ -30,6 +41,45 @@
   const $ = selector => document.querySelector(selector);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
   const text = (value, fallback = "") => String(value == null ? fallback : value).trim() || fallback;
+
+  const STATE_LABELS = Object.freeze({
+    loading: "載入中",
+    not_requested: "尚未載入",
+    available: "可用",
+    empty: "此區域沒有資料",
+    provider_not_configured: "資料來源尚未設定",
+    provider_unavailable: "資料來源暫時無法連線",
+    stale: "資料較舊",
+    error: "讀取失敗"
+  });
+
+  const LAYER_LABELS = Object.freeze({ weather: "天氣", radar: "雷達", earthquake: "地震", aqi: "空氣品質", cctv: "CCTV" });
+
+  function stateLabel(layer) {
+    return STATE_LABELS[text(layer?.state, "empty")] || "狀態未明";
+  }
+
+  function locationLabel(location = state.location) {
+    return text(location?.label, "尚未選定地點");
+  }
+
+  function locationRadiusForZoom() {
+    const zoom = Number(state.map?.getZoom?.() || 13);
+    return Math.min(50000, Math.max(500, Math.round(140000 / Math.pow(2, Math.max(0, zoom - 7)))));
+  }
+
+  function currentMapLocation(source = "map") {
+    const center = state.map?.getCenter?.();
+    if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
+    return {
+      label: source === "map" ? "目前地圖範圍" : text(state.location?.label, "目前視角"),
+      source,
+      center: { lat: Number(center.lat), lng: Number(center.lng) },
+      accuracy_m: 0,
+      radius_m: locationRadiusForZoom(),
+      bbox: null
+    };
+  }
 
   function setStatus(message, stateName = "") {
     const node = $("[data-skyeye-status]");
@@ -46,7 +96,7 @@
   }
 
   function layerState(key) {
-    return state.layers?.layers?.[key] || root.ZhugeSkyEyeContract.normalizeLayer(key, {});
+    return state.layers?.layers?.[key] || root.ZhugeSkyEyeContract.normalizeLayer(key, { error_code: "NOT_REQUESTED" });
   }
 
   function freshnessLabel(layer) {
@@ -59,15 +109,41 @@
     return ({ usable: "可用", stale: "較舊", unverified: "資料待核實", metadata_only: "僅有來源資料", insufficient: "資料不足", unavailable: "不可用" })[value] || value;
   }
 
+  function renderLocationHeader() {
+    const label = $("[data-skyeye-location-label]");
+    if (label) label.textContent = `📍 ${locationLabel()}`;
+    const sheetLabel = $("[data-skyeye-sheet-location]");
+    if (sheetLabel) sheetLabel.textContent = `｜${locationLabel()}`;
+    const accuracy = $("[data-skyeye-location-accuracy]");
+    if (accuracy) {
+      accuracy.textContent = state.myLocation?.accuracy_m
+        ? `定位精度約 ${Math.round(state.myLocation.accuracy_m)}m`
+        : state.location?.source === "search" ? "地點搜尋結果" : "由目前視角查詢";
+      accuracy.hidden = !state.location;
+    }
+    const areaButton = $("[data-skyeye-search-area]");
+    if (areaButton) areaButton.hidden = !state.mapChangedSinceQuery;
+  }
+
+  function renderSearchResults() {
+    const host = $("[data-skyeye-search-results]");
+    if (!host) return;
+    host.hidden = !state.searchResults.length;
+    host.innerHTML = state.searchResults.map((result, index) => `<button type="button" class="skyeye-search-result" data-skyeye-search-result="${index}"><strong>${esc(result.label)}</strong><small>${esc(result.source || "公開地理編碼")}</small></button>`).join("");
+    host.querySelectorAll("[data-skyeye-search-result]").forEach(button => button.addEventListener("click", () => {
+      const result = state.searchResults[Number(button.dataset.skyeyeSearchResult)];
+      if (result) selectSearchResult(result);
+    }));
+  }
+
   function renderLayerControls() {
     const host = $("[data-skyeye-layers]");
     if (!host) return;
     host.innerHTML = LAYERS.map(key => {
       const layer = layerState(key);
-      const requested = key === "cctv" && !state.cctvRequested;
-      const label = key === "cctv" && requested ? "📹 CCTV（點擊載入）" : LABELS[key];
-      const stateLabel = layer.available ? freshnessLabel(layer) : (requested ? "尚未載入" : "資料不足");
-      return `<button type="button" class="skyeye-layer-button" data-skyeye-layer="${key}" aria-pressed="${state.active[key] ? "true" : "false"}" data-state="${layer.available ? "available" : "unavailable"}"><span>${label}</span><small>${esc(stateLabel)}</small></button>`;
+      const count = Number(layer.count || layer.markers?.length || 0);
+      const label = key === "cctv" ? `📹 CCTV｜附近 ${count} 支` : LABELS[key];
+      return `<button type="button" class="skyeye-layer-button" data-skyeye-layer="${key}" aria-pressed="${state.active[key] ? "true" : "false"}" data-state="${esc(layer.state || "empty")}"><span>${label}</span><small>${esc(stateLabel(layer))}${layer.error_code ? ` · ${esc(layer.error_code)}` : ""}</small></button>`;
     }).join("");
     host.querySelectorAll("[data-skyeye-layer]").forEach(button => {
       button.addEventListener("click", () => toggleLayer(button.dataset.skyeyeLayer));
@@ -77,16 +153,37 @@
   function renderSummary() {
     const host = $("[data-skyeye-summary]");
     if (!host) return;
+    if (!state.layers) {
+      host.innerHTML = `<strong>尚未選定地點</strong><p>允許瀏覽器定位，或搜尋地名／地址後，天眼才會查詢附近公開資料。</p><small class="skyeye-summary-note">精確位置只留在本次瀏覽器工作階段。</small>`;
+      renderLocationHeader();
+      return;
+    }
     const summary = root.ZhugeSkyEyeContract.summaryFromLoadedEvidence(state.layers || {}, Object.keys(state.active).filter(key => state.active[key]));
-    host.innerHTML = `<strong>諸葛目前畫面摘要</strong><p>${esc(summary.text)}</p>`;
+    const cctv = layerState("cctv");
+    const available = Object.keys(state.active).filter(key => state.active[key] && layerState(key).available);
+    const unavailable = Object.keys(state.active).filter(key => state.active[key] && !layerState(key).available && layerState(key).state !== "not_requested");
+    const nearest = Array.isArray(cctv.markers) ? cctv.markers.find(marker => Number.isFinite(Number(marker.distance_m))) : null;
+    const nearestText = nearest ? `，最近 ${Number(nearest.distance_m) < 1000 ? `${Math.round(nearest.distance_m)}m` : `${(Number(nearest.distance_m) / 1000).toFixed(1)}km`}` : "";
+    const cctvText = cctv.state === "empty"
+      ? "此區域目前沒有可用 CCTV"
+      : cctv.available
+        ? `可用 CCTV ${Number(cctv.count || cctv.markers?.length || 0)} 支${nearestText}`
+        : `CCTV ${stateLabel(cctv)}`;
+    const availableWithoutCctv = available.filter(key => key !== "cctv");
+    const loadedDetails = availableWithoutCctv.map(key => `${LAYER_LABELS[key]} ✓`);
+    const detail = available.length || unavailable.length
+      ? `${cctvText}${loadedDetails.length ? `｜${loadedDetails.join("、")}` : ""}${unavailable.length ? `｜${unavailable.map(key => `${LAYER_LABELS[key]} ${stateLabel(layerState(key))}`).join("、")}` : ""}`
+      : summary.text;
+    host.innerHTML = `<strong>${esc(locationLabel())}</strong><p>${esc(detail)}</p><small class="skyeye-summary-note">只根據已載入 evidence；來源與時間請展開查看。</small>`;
+    renderLocationHeader();
   }
 
   function renderLayerMeta(layer) {
     const source = text(layer.source, "未提供來源");
     const asOf = text(layer.as_of, "未提供時間");
     const freshness = freshnessLabel(layer);
-    const status = layer.available ? "可用" : "資料不足，暫不判斷";
-    return `<div class="skyeye-layer-meta"><span><b>來源</b> ${esc(source)}</span><span><b>更新</b> ${esc(asOf)}</span><span><b>新鮮度</b> ${esc(freshness)}</span><span><b>資料品質</b> ${esc(qualityLabel(layer))}</span><span><b>狀態</b> ${esc(status)}</span>${layer.error_code ? `<span><b>原因</b> ${esc(layer.error_code)}</span>` : ""}</div>`;
+    const status = stateLabel(layer);
+    return `<div class="skyeye-layer-meta"><span><b>來源</b> ${esc(source)}</span><span><b>更新</b> ${esc(asOf)}</span><span><b>新鮮度</b> ${esc(freshness)}</span><span><b>資料品質</b> ${esc(qualityLabel(layer))}</span><span><b>空間策略</b> ${esc(layer.spatial_strategy || "provider_defined")}</span><span><b>狀態</b> ${esc(status)}</span>${layer.error_code ? `<span><b>原因</b> ${esc(layer.error_code)}</span>` : ""}</div>`;
   }
 
   function stageBounds() {
@@ -297,7 +394,10 @@
     const layer = layerState(layerKey);
     const cctv = layerKey === "cctv";
     const action = `<button type="button" class="skyeye-cctv-cta" data-skyeye-open-overlay="${esc(overlayContract?.idFor(marker, layerKey) || "")}">${cctv ? "在地圖浮窗開啟影像" : "在地圖浮窗查看"}</button>`;
-    host.innerHTML = `<strong>${esc(marker.label || "資料標記")}</strong><p>${esc(marker.detail || "此標記沒有更多可驗證描述。")}<br>${esc(marker.observed_at || "未提供觀測時間")}</p>${cctv ? "<p class=\"skyeye-overlay-note\">只有開啟浮窗時才載入 CCTV 影像；縮小或關閉會停止載入。</p>" : ""}${action}${renderLayerMeta(layer)}`;
+    const distance = marker.distance_m === null || marker.distance_m === undefined ? "" : `<span>距離 ${Number(marker.distance_m) < 1000 ? `${Math.round(marker.distance_m)}m` : `${(Number(marker.distance_m) / 1000).toFixed(1)}km`}</span>`;
+    const road = marker.intersection_label || marker.road_label || "";
+    const direction = marker.direction ? `<span>方向 ${esc(marker.direction)}</span>` : "";
+    host.innerHTML = `<strong>${esc(marker.label || "資料標記")}</strong><p>${esc(marker.detail || "此標記沒有更多可驗證描述。")}<br>${esc(marker.observed_at || "未提供觀測時間")}</p>${road ? `<p class="skyeye-marker-context"><b>${esc(road)}</b> ${distance} ${direction}</p>` : distance || direction ? `<p class="skyeye-marker-context">${distance} ${direction}</p>` : ""}${cctv ? "<p class=\"skyeye-overlay-note\">只有開啟浮窗時才載入 CCTV 影像；縮小或關閉會停止載入。</p>" : ""}${action}${renderLayerMeta(layer)}`;
     host.hidden = false;
     if (close) close.hidden = false;
     host.querySelector("[data-skyeye-open-overlay]")?.addEventListener("click", event => {
@@ -313,6 +413,32 @@
       iconSize: [30, 30],
       iconAnchor: [15, 15]
     });
+  }
+
+  function renderUserLocation() {
+    if (!state.map || !state.myLocation?.center) return;
+    const point = state.myLocation.center;
+    const group = root.L.layerGroup();
+    root.L.circleMarker([point.lat, point.lng], {
+      radius: 8,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2563eb",
+      fillOpacity: 1,
+      interactive: false
+    }).bindTooltip("我的位置", { direction: "top", offset: [0, -8] }).addTo(group);
+    if (Number(state.myLocation.accuracy_m) > 0) {
+      root.L.circle([point.lat, point.lng], {
+        radius: Math.min(10000, Math.max(10, Number(state.myLocation.accuracy_m))),
+        color: "#2563eb",
+        weight: 1,
+        fillColor: "#60a5fa",
+        fillOpacity: .16,
+        interactive: false
+      }).addTo(group);
+    }
+    group.addTo(state.map);
+    state.groups.__userLocation = group;
   }
 
   function refreshMap() {
@@ -341,6 +467,7 @@
       group.addTo(state.map);
       state.groups[layerKey] = group;
     });
+    renderUserLocation();
     renderSummary();
   }
 
@@ -351,50 +478,266 @@
       maxZoom: 18,
       attribution: "© OpenStreetMap contributors"
     }).addTo(state.map);
+    wireMapEvents();
     return true;
   }
 
-  async function loadLayers(layers, includeCctv = false) {
-    if (state.loading || !state.gateway) return;
+  function wireMapEvents() {
+    if (!state.map || state.mapEventsWired) return;
+    state.mapEventsWired = true;
+    const markMoved = () => {
+      if (state.suppressMapEvents) return;
+      state.mapChangedSinceQuery = true;
+      renderLocationHeader();
+      window.clearTimeout(state.areaSearchTimer);
+      state.areaSearchTimer = window.setTimeout(() => renderLocationHeader(), 280);
+    };
+    state.map.on("moveend zoomend", markMoved);
+  }
+
+  function abortActiveRequest(kind = "data") {
+    if (kind === "search") state.searchRequestController?.abort?.();
+    else state.activeRequestController?.abort?.();
+  }
+
+  function requestPayload(layers, includeCctv, requestId) {
+    return {
+      layers,
+      include_cctv: includeCctv,
+      request_id: requestId,
+      location_context: state.location ? {
+        label: state.location.label,
+        source: state.location.source,
+        center: state.location.center,
+        accuracy_m: state.location.accuracy_m,
+        radius_m: state.location.radius_m,
+        bbox: state.location.bbox,
+        provider_context: state.location.provider_context || {}
+      } : null
+    };
+  }
+
+  async function loadLayers(layers, includeCctv = true) {
+    if (!state.gateway) return;
+    abortActiveRequest();
+    const sequence = ++state.requestSequence;
+    const controller = new AbortController();
+    state.activeRequestController = controller;
     state.loading = true;
-    setStatus("正在讀取資料 evidence…", "loading");
-    setState("正在向受控唯讀資料服務請求；不會修改產品資料。", "loading");
+    setStatus("正在讀取目前地點的公開資料…", "loading");
+    setState("正在向受控唯讀資料服務請求；精確位置只留在本次瀏覽器工作階段。", "loading");
+    const requestId = `skyeye-${Date.now()}-${sequence}`;
     try {
-      const response = await state.gateway.invokeFunction(FUNCTION_NAME, { layers, include_cctv: includeCctv });
+      const response = await state.gateway.invokeFunction(FUNCTION_NAME, requestPayload(layers, includeCctv, requestId), { signal: controller.signal });
+      if (sequence !== state.requestSequence) return;
       const normalized = root.ZhugeSkyEyeContract.normalizeResponse(response);
-      const mergedLayers = { ...(state.layers?.layers || {}) };
-      layers.forEach(key => { mergedLayers[key] = normalized.layers[key]; });
-      state.layers = root.ZhugeSkyEyeContract.normalizeResponse({ ...normalized, layers: mergedLayers });
+      state.layers = normalized;
+      if (normalized.location_context) state.location = normalized.location_context;
+      state.mapChangedSinceQuery = false;
       renderLayerControls();
       refreshMap();
       const count = state.layers.loaded_layers.length;
-      setStatus(count ? `已載入 ${count} 個資料層` : "目前沒有可用資料層", count ? "success" : "error");
-      setState(count ? "資料已載入；請從圖層或標記查看來源與更新時間。" : "目前資料不足，諸葛暫不做判斷。", count ? "success" : "error");
+      const hasError = layers.some(key => ["error", "provider_unavailable"].includes(layerState(key).state));
+      setStatus(count ? `${locationLabel()}已載入 ${count} 個資料層` : `${locationLabel()}目前沒有可用資料`, hasError ? "warning" : count ? "success" : "error");
+      setState(count ? "資料已載入；請從圖層或標記查看來源、更新時間與狀態。" : "目前沒有可用 evidence，諸葛暫不做判斷。", hasError ? "warning" : count ? "success" : "error");
     } catch (error) {
+      if (error?.name === "AbortError" || sequence !== state.requestSequence) return;
       setStatus("資料服務暫時無法讀取", "error");
       setState(`目前無法取得天眼資料（${text(error?.code, "READ_UNAVAILABLE")}），請稍後重試。`, "error");
     } finally {
-      state.loading = false;
-      renderLayerControls();
+      if (sequence === state.requestSequence) {
+        state.loading = false;
+        state.activeRequestController = null;
+        renderLayerControls();
+      }
     }
+  }
+
+  async function loadGeocode(query) {
+    if (!state.gateway) return;
+    abortActiveRequest("search");
+    const controller = new AbortController();
+    state.searchRequestController = controller;
+    const input = text(query, "");
+    if (!input) {
+      setState("請輸入地名、地址或景點。", "warning");
+      return;
+    }
+    setStatus("正在搜尋地點…", "loading");
+    try {
+      const response = await state.gateway.invokeFunction(FUNCTION_NAME, { operation: "geocode", query: input }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      state.searchResults = Array.isArray(response?.results) ? response.results : [];
+      renderSearchResults();
+      if (!state.searchResults.length) {
+        setStatus("找不到這個地點", "warning");
+        setState(`找不到「${input}」，請換一個地名或較完整的地址。`, "warning");
+      } else {
+        setStatus(`找到 ${state.searchResults.length} 個地點`, "success");
+        setState("請選擇搜尋結果，天眼會重新查詢該位置附近的資料。", "success");
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setStatus("地點搜尋暫時無法使用", "error");
+      setState(`目前無法完成地點搜尋（${text(error?.code, "GEOCODE_UNAVAILABLE")}）。`, "error");
+    } finally {
+      if (state.searchRequestController === controller) state.searchRequestController = null;
+    }
+  }
+
+  function setLocationContext(location, options = {}) {
+    if (!location?.center) return;
+    state.location = {
+      label: text(location.label, "目前地點"),
+      source: text(location.source, "search"),
+      center: { lat: Number(location.center.lat), lng: Number(location.center.lng) },
+      accuracy_m: Number(location.accuracy_m || 0),
+      radius_m: Number(location.radius_m || 5000),
+      bbox: Array.isArray(location.bbox) ? location.bbox : null,
+      provider_context: location.provider_context && typeof location.provider_context === "object"
+        ? { tdx_city: text(location.provider_context.tdx_city, 80) }
+        : { tdx_city: text(location.tdx_city, 80) }
+    };
+    state.searchResults = [];
+    renderSearchResults();
+    renderLocationHeader();
+    if (state.map) {
+      state.suppressMapEvents = true;
+      state.map.setView([state.location.center.lat, state.location.center.lng], Number(options.zoom || 14), { animate: false });
+      window.setTimeout(() => { state.suppressMapEvents = false; }, 320);
+    }
+    void loadLayers(LAYERS.slice(), true);
+  }
+
+  function selectSearchResult(result) {
+    setLocationContext({
+      label: result.label,
+      source: "search",
+      center: result.center,
+      accuracy_m: 0,
+      radius_m: 5000,
+      bbox: result.bbox,
+      provider_context: result.provider_context || {}
+    });
+  }
+
+  function onGeolocationFailure(error) {
+    state.locationPermission = error?.code === 1 ? "denied" : "unavailable";
+    state.myLocation = null;
+    state.location = null;
+    renderLocationHeader();
+    const reason = error?.code === 1 ? "你未允許定位" : error?.code === 3 ? "定位逾時" : "目前無法取得定位";
+    setStatus("請搜尋地點", "warning");
+    setState(`${reason}；不影響天眼使用。請搜尋地名、地址或景點後開始查詢附近資料。`, "warning");
+  }
+
+  function requestBrowserLocation() {
+    if (!navigator.geolocation) {
+      onGeolocationFailure({ code: 2 });
+      return;
+    }
+    state.locationPermission = "requesting";
+    setStatus("正在取得目前位置…", "loading");
+    setState("請允許瀏覽器定位；精確位置不會寫入產品資料、analytics 或 log。", "loading");
+    navigator.geolocation.getCurrentPosition(position => {
+      const latitude = Number(position.coords.latitude);
+      const longitude = Number(position.coords.longitude);
+      const accuracy = Number(position.coords.accuracy || 0);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        onGeolocationFailure({ code: 2 });
+        return;
+      }
+      state.locationPermission = "granted";
+      state.myLocation = { center: { lat: latitude, lng: longitude }, accuracy_m: accuracy };
+      setLocationContext({
+        label: "我的位置附近",
+        source: "browser_geolocation",
+        center: { lat: latitude, lng: longitude },
+        accuracy_m: accuracy,
+        radius_m: Math.max(500, Math.min(10000, accuracy * 6 || 5000))
+      }, { zoom: 15 });
+    }, onGeolocationFailure, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+  }
+
+  function searchThisArea() {
+    const location = currentMapLocation("map");
+    if (!location) return;
+    state.myLocation = null;
+    setLocationContext(location, { zoom: state.map?.getZoom?.() || 13 });
+  }
+
+  function goToMyLocation() {
+    if (state.myLocation?.center) {
+      setLocationContext({ ...state.location, label: "我的位置附近", source: "browser_geolocation", center: state.myLocation.center, accuracy_m: state.myLocation.accuracy_m }, { zoom: 15 });
+      return;
+    }
+    requestBrowserLocation();
   }
 
   function toggleLayer(key) {
     if (!LAYERS.includes(key)) return;
-    const layer = layerState(key);
-    if (key === "cctv" && !state.cctvRequested) {
-      state.cctvRequested = true;
-      state.active.cctv = true;
-      void loadLayers(["cctv"], true);
-      return;
-    }
-    if (!layer.available && key !== "cctv") {
-      void loadLayers([key], false);
-      return;
-    }
     state.active[key] = !state.active[key];
     refreshMap();
     renderLayerControls();
+  }
+
+  function setSheetState(next) {
+    const allowed = ["collapsed", "half", "expanded"];
+    const mode = allowed.includes(next) ? next : "collapsed";
+    state.sheetState = mode;
+    const sheet = $("[data-skyeye-sheet]");
+    if (sheet) {
+      sheet.dataset.sheetState = mode;
+      sheet.setAttribute("aria-expanded", mode === "expanded" ? "true" : "false");
+    }
+    $("[data-skyeye-sheet-state]")?.replaceChildren(document.createTextNode(mode === "collapsed" ? "摘要" : mode === "half" ? "圖層" : "完整資料"));
+  }
+
+  function wireSheetGestures() {
+    const sheet = $("[data-skyeye-sheet]");
+    const handle = $("[data-skyeye-sheet-handle]");
+    if (!sheet || !handle || sheet.dataset.gestureWired === "true") return;
+    sheet.dataset.gestureWired = "true";
+    handle.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const startY = event.clientY;
+      const startMode = state.sheetState;
+      const onUp = nextEvent => {
+        const delta = nextEvent.clientY - startY;
+        document.removeEventListener("pointerup", onUp);
+        if (delta < -28) setSheetState(startMode === "collapsed" ? "half" : "expanded");
+        else if (delta > 28) setSheetState(startMode === "expanded" ? "half" : "collapsed");
+      };
+      document.addEventListener("pointerup", onUp, { once: true });
+    });
+    sheet.querySelectorAll("[data-skyeye-sheet-to]").forEach(button => button.addEventListener("click", () => setSheetState(button.dataset.skyeyeSheetTo)));
+    setSheetState(state.sheetState);
+  }
+
+  function wireLocationControls() {
+    const form = $("[data-skyeye-search-form]");
+    if (form && form.dataset.wired !== "true") {
+      form.dataset.wired = "true";
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        const input = form.querySelector("input");
+        void loadGeocode(input?.value || "");
+      });
+    }
+    $("[data-skyeye-my-location]")?.addEventListener("click", goToMyLocation);
+    $("[data-skyeye-search-area]")?.addEventListener("click", searchThisArea);
+    $("[data-skyeye-search-again]")?.addEventListener("click", () => $("[data-skyeye-search-input]")?.focus());
+  }
+
+  function wireVisualViewport() {
+    const update = () => {
+      const viewportHeight = Number(window.visualViewport?.height) || window.innerHeight;
+      document.documentElement.style.setProperty("--skyeye-visual-height", `${Math.max(240, viewportHeight)}px`);
+    };
+    update();
+    window.visualViewport?.addEventListener("resize", update, { passive: true });
+    window.visualViewport?.addEventListener("scroll", update, { passive: true });
   }
 
   function mountAccessGate(access) {
@@ -419,19 +762,18 @@
     if (stage) stage.hidden = false;
     initializeMap();
     wireOverlayViewport();
+    wireVisualViewport();
+    wireSheetGestures();
+    wireLocationControls();
     renderOverlayWindows();
     renderLayerControls();
     renderSummary();
-    $("[data-skyeye-refresh]")?.addEventListener("click", () => {
-      const requested = ["weather", "radar", "earthquake", "aqi"];
-      if (state.cctvRequested) requested.push("cctv");
-      void loadLayers(requested, state.cctvRequested);
-    });
+    $("[data-skyeye-refresh]")?.addEventListener("click", () => void loadLayers(LAYERS.slice(), true));
     $("[data-skyeye-detail-close]")?.addEventListener("click", () => {
       state.selected = null;
       renderSelectedDetail();
     });
-    await loadLayers(["weather", "radar", "earthquake", "aqi"], false);
+    requestBrowserLocation();
     void root.ZhugeGlobalFloatingHub?.mount?.({
       service: root.ZhugeAppAccess,
       dataGateway: state.gateway,
