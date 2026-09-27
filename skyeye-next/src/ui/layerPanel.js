@@ -28,6 +28,8 @@ const PANEL_GROUPS = [
       'traffic',
       'transit',
       'bikeshare',
+      'taiwan-freeway-live',
+      'taiwan-freeway-cms',
     ],
   },
   {
@@ -72,6 +74,8 @@ const PANEL_POSITIONS = new Map(
 const PANEL_LABELS = {
   'ais-live-vessels': 'Live Vessels',
   bikeshare: 'Bike Share',
+  'taiwan-freeway-live': 'Taiwan freeway traffic',
+  'taiwan-freeway-cms': 'Taiwan CMS boards',
   cctv: 'Cameras',
   'alpr-cameras': 'Mapped ALPR Cameras',
   'local-datacenters': 'Data Centers',

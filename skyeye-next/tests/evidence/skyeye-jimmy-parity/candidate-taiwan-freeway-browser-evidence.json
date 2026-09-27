@@ -1,5 +1,5 @@
 {
-  "contract": "skyeye-jimmy-taiwan-parity-freeway-wave-3-v1",
+  "contract": "skyeye-jimmy-taiwan-parity-freeway-wave-3-layer-v1",
   "runtime": {
     "viewport": "1440x900",
     "appUrl": "http://127.0.0.1:4180"
@@ -14,8 +14,8 @@
       "status": "available",
       "stale": false,
       "entityCount": 680,
-      "dataTimestamp": "2026-09-27T23:14:00.000Z",
-      "fetchedAt": "2026-09-27T23:15:42.044Z",
+      "dataTimestamp": "2026-09-27T23:39:00.000Z",
+      "fetchedAt": "2026-09-27T23:40:08.577Z",
       "rawResponseReturned": false,
       "cache": "miss"
     },
@@ -26,10 +26,64 @@
       "status": "available",
       "stale": false,
       "entityCount": 1121,
-      "dataTimestamp": "2026-09-27T23:12:00.000Z",
-      "fetchedAt": "2026-09-27T23:15:42.076Z",
+      "dataTimestamp": "2026-09-27T23:38:00.000Z",
+      "fetchedAt": "2026-09-27T23:40:08.618Z",
       "rawResponseReturned": false,
       "cache": "miss"
+    },
+    "shapes": {
+      "httpStatus": 200,
+      "providerId": "taiwan.freeway.section-shape",
+      "source": "Taiwan Freeway Bureau Open Data",
+      "status": "available",
+      "stale": false,
+      "entityCount": 465,
+      "dataTimestamp": "2026-09-27T23:38:47.000Z",
+      "fetchedAt": "2026-09-27T23:39:11.056Z",
+      "rawResponseReturned": false,
+      "cache": "fresh"
+    },
+    "cmsStatic": {
+      "httpStatus": 200,
+      "providerId": "taiwan.freeway.cms-static",
+      "source": "Taiwan Freeway Bureau Open Data",
+      "status": "available",
+      "stale": false,
+      "entityCount": 1121,
+      "dataTimestamp": "2026-09-27T23:05:15.000Z",
+      "fetchedAt": "2026-09-27T23:39:11.118Z",
+      "rawResponseReturned": false,
+      "cache": "fresh"
+    }
+  },
+  "layerProof": {
+    "taiwan-freeway-live": {
+      "stats": {
+        "count": 465,
+        "countLabel": "465",
+        "lastUpdate": "2026-09-27T23:40:08.577Z",
+        "loading": false,
+        "stale": false,
+        "status": "available",
+        "error": null,
+        "source": "Taiwan Freeway Bureau Open Data"
+      },
+      "entityCount": 465,
+      "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-freeway-live-layer.png"
+    },
+    "taiwan-freeway-cms": {
+      "stats": {
+        "count": 1121,
+        "countLabel": "1121",
+        "lastUpdate": "2026-09-27T23:40:08.618Z",
+        "loading": false,
+        "stale": false,
+        "status": "available",
+        "error": null,
+        "source": "Taiwan Freeway Bureau Open Data"
+      },
+      "entityCount": 1121,
+      "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-freeway-cms-layer.png"
     }
   },
   "requests": [
@@ -42,6 +96,36 @@
       "method": "GET",
       "host": "127.0.0.1:4180",
       "path": "/api/taiwan/freeway/cms"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/shapes"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms-static"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/live"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/shapes"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms-static"
     }
   ],
   "responses": [
@@ -54,6 +138,36 @@
       "status": 200,
       "host": "127.0.0.1:4180",
       "path": "/api/taiwan/freeway/cms"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/shapes"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms-static"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/live"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/shapes"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms-static"
     }
   ],
   "consoleErrors": [],

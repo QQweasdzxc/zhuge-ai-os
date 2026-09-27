@@ -17,6 +17,10 @@ import { createCycloneSource } from '../layers/cyclones/source.js';
 import { createWindSource } from '../layers/wind/source.js';
 import { createFirmsSource } from '../layers/firms/source.js';
 import { createReferenceSources } from '../sources/reference.js';
+import {
+  createTaiwanFreewayCmsSource,
+  createTaiwanFreewayLiveSource,
+} from '../layers/taiwanFreeway/source.js';
 export { createReferenceSources as createStandaloneReferenceSources } from '../sources/reference.js';
 
 /** Select standalone providers without starting their acquisition. */
@@ -47,5 +51,15 @@ export function createStandaloneLayerSources({ taiwanEnhanced = false } = {}) {
     cyclones: createCycloneSource({
       basePath: taiwanEnhanced ? '/api/taiwan/cwa/typhoon' : '/api/cyclones',
     }),
+    taiwanFreewayLive: taiwanEnhanced
+      ? createTaiwanFreewayLiveSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
+    taiwanFreewayCms: taiwanEnhanced
+      ? createTaiwanFreewayCmsSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
   };
 }

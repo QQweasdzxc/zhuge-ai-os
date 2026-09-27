@@ -105,8 +105,10 @@ They are exposed only through `/api/taiwan/freeway/live` and
 `/api/taiwan/freeway/cms`, respectively. XML is bounded and normalized on the
 server; the browser receives provider/source/update/stale metadata and sanitized
 entities, never the raw XML. The adapters use a short TTL, in-flight request
-coalescing, and stale-on-error behavior. A map layer consumer is intentionally
-not claimed by this foundation step.
+coalescing, and stale-on-error behavior. The candidate's Taiwan-specific
+`taiwan-freeway-live` and `taiwan-freeway-cms` consumers join the live feeds to
+the official daily geometry/location catalogs before rendering. The existing
+global traffic layer remains unchanged.
 
 ## Cache and request safety
 
@@ -121,3 +123,13 @@ Camera catalog metadata and camera media are separate concerns. A future adapter
 ## Mode invariant
 
 Disabling Taiwan enhanced mode preserves the frozen upstream/global defaults and hides Taiwan-only map stacks. The source path is additive; it does not alter the global provider authority or current production SkyEye.
+
+### Freeway traffic and CMS map consumers
+
+The Taiwan parity candidate keeps the official Freeway Bureau feeds behind the
+server boundary. `LiveTraffic.xml` is joined with the daily `SectionShape.xml`
+catalog before the browser receives section geometry. `CMSLive.xml` is joined
+with the daily `CMS.xml` catalog before the browser receives sign coordinates.
+The two read-only layer consumers are `taiwan-freeway-live` and
+`taiwan-freeway-cms`; they do not replace the existing global traffic layer.
+The feeds are cached and sanitized, and the UI never receives raw XML.

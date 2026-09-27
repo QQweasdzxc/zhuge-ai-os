@@ -26,6 +26,8 @@ test('panel presentation places Transit between Street Traffic and Bike Share in
       'traffic',
       'transit',
       'bikeshare',
+      'taiwan-freeway-live',
+      'taiwan-freeway-cms',
     ],
   );
   assert.equal(order.filter(({ id }) => id === 'transit').length, 1);

@@ -178,6 +178,7 @@
     "runtime": "node",
     "exports": ["./server/providers/taiwan"],
     "modules": [
+      "server/providers/taiwan.js",
       "server/providers/taiwan/cache.js",
       "server/providers/taiwan/cwa.js",
       "server/providers/taiwan/aqi.js",
@@ -193,6 +194,15 @@
       "src/sources/httpBody.js"
     ],
     "external": []
+  },
+  "taiwan-freeway-layer": {
+    "exports": ["./layers/taiwan-freeway"],
+    "modules": [
+      "src/layers/taiwanFreeway/index.js",
+      "src/layers/taiwanFreeway/index.test.mjs",
+      "src/layers/taiwanFreeway/source.js"
+    ],
+    "external": ["cesium"]
   },
   "radio-provider": {
     "runtime": "node",
@@ -1382,6 +1392,8 @@
       "src/layers/wind/rendering.js",
       "src/layers/weather/rasterTiles.js",
       "src/layers/wind/source.js",
+      "src/layers/taiwanFreeway/index.js",
+      "src/layers/taiwanFreeway/source.js",
       "src/sources/windBody.js",
       "src/data/detection.js",
       "src/data/detectionCohort.js",
@@ -2020,6 +2032,8 @@
       "src/layers/wind/presentation.js",
       "src/layers/wind/rendering.js",
       "src/layers/weather/rasterTiles.js",
+      "src/layers/taiwanFreeway/index.js",
+      "src/layers/taiwanFreeway/source.js",
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/alprCameras.js",
       "src/app/layers/bikeshare.js",

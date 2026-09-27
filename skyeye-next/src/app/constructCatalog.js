@@ -29,6 +29,10 @@ import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
 import { createBhoteKoshiEventLayer } from '../data/bhoteKoshiEvent.js';
 import { createBhoteKoshiLocatorLayer } from '../data/bhoteKoshiLocator.js';
+import {
+  createTaiwanFreewayCmsLayer,
+  createTaiwanFreewayLiveLayer,
+} from '../layers/taiwanFreeway/index.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -52,6 +56,8 @@ const SOURCE_METHODS = Object.freeze({
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
+  taiwanFreewayLive: ['getSnapshot'],
+  taiwanFreewayCms: ['getSnapshot'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
   cables: ['fetch'],
@@ -157,6 +163,8 @@ export function createApplicationCatalog({
         createApplicationTransit({ surface, source: sources.transit }),
         createApplicationBikeshare({ source: sources.bikeshare }),
         createApplicationDirections(),
+        createTaiwanFreewayLiveLayer({ source: sources.taiwanFreewayLive }),
+        createTaiwanFreewayCmsLayer({ source: sources.taiwanFreewayCms }),
         createApplicationRecentImagery(),
         vessels,
         installations,

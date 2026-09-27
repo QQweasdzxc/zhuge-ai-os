@@ -8,6 +8,10 @@ export const FREEWAY_LIVE_TRAFFIC_URL =
   'https://tisvcloud.freeway.gov.tw/history/motc20/LiveTraffic.xml';
 export const FREEWAY_CMS_LIVE_URL =
   'https://tisvcloud.freeway.gov.tw/history/motc20/CMSLive.xml';
+export const FREEWAY_SECTION_SHAPE_URL =
+  'https://tisvcloud.freeway.gov.tw/history/motc20/SectionShape.xml';
+export const FREEWAY_CMS_STATIC_URL =
+  'https://tisvcloud.freeway.gov.tw/history/motc20/CMS.xml';
 
 const SOURCE = 'Taiwan Freeway Bureau Open Data';
 const ATTRIBUTION =
@@ -17,6 +21,8 @@ const COVERAGE = 'Taiwan national freeways';
 const MAX_BYTES = 2 * 1024 * 1024;
 const LIVE_TRAFFIC_ID = 'taiwan.freeway.live-traffic';
 const CMS_ID = 'taiwan.freeway.cms';
+const SECTION_SHAPE_ID = 'taiwan.freeway.section-shape';
+const CMS_STATIC_ID = 'taiwan.freeway.cms-static';
 
 function text(value, max = 240) {
   return String(value ?? '')
@@ -26,11 +32,11 @@ function text(value, max = 240) {
     .slice(0, max);
 }
 
-function tagValue(xml, tag) {
+function tagValue(xml, tag, max = 240) {
   const match = String(xml || '').match(
     new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'),
   );
-  return match ? text(match[1]) : '';
+  return match ? text(match[1], max) : '';
 }
 
 function tagNumber(xml, tag) {
@@ -51,7 +57,13 @@ function blocks(xml, tag) {
   return [...String(xml || '').matchAll(expression)].map((match) => match[1]);
 }
 
-function baseContract(providerId, dataTimestamp, fetchedAt, entities) {
+function baseContract(
+  providerId,
+  dataTimestamp,
+  fetchedAt,
+  entities,
+  sourceUrl,
+) {
   return {
     schemaVersion: 1,
     providerId,
@@ -66,8 +78,7 @@ function baseContract(providerId, dataTimestamp, fetchedAt, entities) {
     entities,
     features: [],
     providerMetadata: {
-      sourceUrl:
-        providerId === CMS_ID ? FREEWAY_CMS_LIVE_URL : FREEWAY_LIVE_TRAFFIC_URL,
+      sourceUrl: sourceUrl,
       updateCadence: 'every 1 minute',
       browserDirect: false,
       rawResponseReturned: false,
@@ -106,7 +117,13 @@ export function parseFreewayLiveTrafficXml(xml, nowMs = Date.now()) {
     })
     .filter(Boolean);
   if (!entities.length) throw new Error('freeway_live_records_empty');
-  return baseContract(LIVE_TRAFFIC_ID, updateTime, fetchedAt, entities);
+  return baseContract(
+    LIVE_TRAFFIC_ID,
+    updateTime,
+    fetchedAt,
+    entities,
+    FREEWAY_LIVE_TRAFFIC_URL,
+  );
 }
 
 /** Normalize the official CMSLive XML and retain message evidence as text. */
@@ -137,7 +154,86 @@ export function parseFreewayCmsXml(xml, nowMs = Date.now()) {
     })
     .filter(Boolean);
   if (!entities.length) throw new Error('freeway_cms_records_empty');
-  return baseContract(CMS_ID, updateTime, fetchedAt, entities);
+  return baseContract(
+    CMS_ID,
+    updateTime,
+    fetchedAt,
+    entities,
+    FREEWAY_CMS_LIVE_URL,
+  );
+}
+
+function parseWktLineString(value) {
+  const match = String(value || '').match(/^LINESTRING\s*\((.+)\)$/i);
+  if (!match) return [];
+  return match[1]
+    .split(',')
+    .map((pair) => pair.trim().split(/\s+/).map(Number))
+    .filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat))
+    .slice(0, 10_000)
+    .map(([lon, lat]) => [lon, lat]);
+}
+
+/** Normalize the official daily SectionShape feed for map-layer placement. */
+export function parseFreewaySectionShapeXml(xml, nowMs = Date.now()) {
+  const fetchedAt = new Date(nowMs).toISOString();
+  const updateTime = isoOrNull(tagValue(xml, 'UpdateTime')) || fetchedAt;
+  const entities = blocks(xml, 'SectionShape')
+    .slice(0, 10_000)
+    .map((block) => {
+      const id = text(tagValue(block, 'SectionID'), 60);
+      const coordinates = parseWktLineString(
+        tagValue(block, 'Geometry', MAX_BYTES),
+      );
+      if (!id || coordinates.length < 2) return null;
+      return { id, sectionId: id, coordinates };
+    })
+    .filter(Boolean);
+  if (!entities.length) throw new Error('freeway_section_shapes_empty');
+  return baseContract(
+    SECTION_SHAPE_ID,
+    updateTime,
+    fetchedAt,
+    entities,
+    FREEWAY_SECTION_SHAPE_URL,
+  );
+}
+
+/** Normalize the official daily CMS catalog with safe map coordinates. */
+export function parseFreewayCmsStaticXml(xml, nowMs = Date.now()) {
+  const fetchedAt = new Date(nowMs).toISOString();
+  const updateTime = isoOrNull(tagValue(xml, 'UpdateTime')) || fetchedAt;
+  const entities = blocks(xml, 'CMS')
+    .slice(0, 10_000)
+    .map((block) => {
+      const id = text(tagValue(block, 'CMSID'), 100);
+      const lon = tagNumber(block, 'PositionLon');
+      const lat = tagNumber(block, 'PositionLat');
+      if (!id || !Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+      return {
+        id,
+        cmsId: id,
+        lon,
+        lat,
+        roadId: text(tagValue(block, 'RoadID'), 40) || null,
+        roadName: text(tagValue(block, 'RoadName'), 120) || null,
+        direction: text(tagValue(block, 'RoadDirection'), 24) || null,
+        locationMile: text(tagValue(block, 'LocationMile'), 40) || null,
+        section: {
+          start: text(tagValue(block, 'Start'), 120) || null,
+          end: text(tagValue(block, 'End'), 120) || null,
+        },
+      };
+    })
+    .filter(Boolean);
+  if (!entities.length) throw new Error('freeway_cms_static_empty');
+  return baseContract(
+    CMS_STATIC_ID,
+    updateTime,
+    fetchedAt,
+    entities,
+    FREEWAY_CMS_STATIC_URL,
+  );
 }
 
 function writeJson(res, status, value) {
@@ -270,6 +366,22 @@ export function freewayProxy(options = {}) {
       sourceUrl: FREEWAY_CMS_LIVE_URL,
       route: '/api/taiwan/freeway/cms',
       parse: parseFreewayCmsXml,
+      ...options,
+    }),
+    createFeed({
+      providerId: SECTION_SHAPE_ID,
+      sourceUrl: FREEWAY_SECTION_SHAPE_URL,
+      route: '/api/taiwan/freeway/shapes',
+      parse: parseFreewaySectionShapeXml,
+      ttlMs: 6 * 60 * 60 * 1000,
+      ...options,
+    }),
+    createFeed({
+      providerId: CMS_STATIC_ID,
+      sourceUrl: FREEWAY_CMS_STATIC_URL,
+      route: '/api/taiwan/freeway/cms-static',
+      parse: parseFreewayCmsStaticXml,
+      ttlMs: 6 * 60 * 60 * 1000,
       ...options,
     }),
   ];
