@@ -25,6 +25,10 @@ import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { windProxy } from './wind.js';
+import { cwaProxy } from './taiwan/cwa.js';
+import { reservoirProxy } from './taiwan/reservoir.js';
+import { aqiProxy } from './taiwan/aqi.js';
+import { freewayProxy } from './taiwan/freeway.js';
 
 /** Construct the local provider plugins in their established order. */
 function localProviderPlugins() {
@@ -54,6 +58,10 @@ function localProviderPlugins() {
     windProxy(),
     weatherProxy(),
     cycloneProxy(),
+    cwaProxy(),
+    reservoirProxy(),
+    aqiProxy(),
+    ...freewayProxy(),
     firePerimetersProxy(),
     keySetupEndpoint(),
   ];

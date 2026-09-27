@@ -19,6 +19,7 @@ import {
 import { sanitizeCctvRangeHeader } from './cctv/range.js';
 import { createHlsPuller } from './cctv/stream.js';
 import { googleServerApiKey } from './places/google-key.js';
+import { isTaiwanMetadataOnlySourceKind } from './cctv/taiwan.js';
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
 /**
  * Vite plugin: CCTV camera proxy with source registry, frame/media serving,
@@ -502,6 +503,33 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             'X-CCTV-Source': 'upstream-image',
           });
           res.end(upstreamImage.body);
+          return;
+        }
+
+        // Taiwan Taipei/New Taipei adapters intentionally publish catalog
+        // metadata before an authorized live-media contract exists. Do not
+        // substitute Street View or synthetic artwork: that would make an
+        // unrelated image look like the selected public camera.
+        if (isTaiwanMetadataOnlySourceKind(source?.sourceKind)) {
+          setHealth(cameraId, {
+            status: 'unavailable',
+            sourceKind: source.sourceKind,
+            label: source.provider || 'Taiwan CCTV metadata',
+            message: 'Live media is not configured for this metadata catalog',
+          });
+          res.writeHead(503, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            'X-CCTV-Source': 'unavailable',
+          });
+          res.end(
+            JSON.stringify({
+              error_code: 'CCTV_MEDIA_NOT_CONFIGURED',
+              status: 'unavailable',
+              provider: source.provider || null,
+              sourceKind: source.sourceKind,
+            }),
+          );
           return;
         }
 

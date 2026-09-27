@@ -36,6 +36,14 @@ function advance(field, point, seconds, scratch) {
   );
   const lat = point[1] + (scratch.v * dt) / DEGREE_METERS;
   if (Math.abs(lat) > 88.5 || Math.abs(lon - point[0]) > 180) return null;
+  if (
+    field.region &&
+    (lon < field.region.west ||
+      lon > field.region.east ||
+      lat < field.region.south ||
+      lat > field.region.north)
+  )
+    return null;
   if (Math.abs(lon - point[0]) + Math.abs(lat - point[1]) < 1e-8) return null;
   return [lon, lat];
 }
@@ -74,13 +82,19 @@ export function bakeWindStreamlines(
   const paths = [];
   const scratch = { u: 0, v: 0 };
   for (let seed = 0; seed < budget; seed++) {
-    const lon = normalizeLongitude(seed * GOLDEN_ANGLE);
-    const lat =
-      (Math.asin(
-        (((seed + 0.5) / budget) * 2 - 1) * Math.sin((88 * Math.PI) / 180),
-      ) *
-        180) /
-      Math.PI;
+    const lon = field.region
+      ? field.region.west +
+        (((seed * GOLDEN_ANGLE) % 360) / 360) *
+          (field.region.east - field.region.west)
+      : normalizeLongitude(seed * GOLDEN_ANGLE);
+    const lat = field.region
+      ? field.region.south +
+        ((seed * 0.61803398875) % 1) * (field.region.north - field.region.south)
+      : (Math.asin(
+          (((seed + 0.5) / budget) * 2 - 1) * Math.sin((88 * Math.PI) / 180),
+        ) *
+          180) /
+        Math.PI;
     const center = [lon, lat];
     sampleWind(field, lon, lat, scratch);
     const speed = Math.hypot(scratch.u, scratch.v);

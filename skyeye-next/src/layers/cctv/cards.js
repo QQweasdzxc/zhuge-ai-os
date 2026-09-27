@@ -277,6 +277,13 @@ export function createCards({ state: layerState, services, parts, source }) {
     refreshMs,
     { userGesture = false } = {},
   ) {
+    if (record?.camera?.feedConfigured !== true) {
+      Object.assign(
+        slot,
+        applyFrameResult(slot, { ok: false, frame: null }, Date.now()),
+      );
+      return;
+    }
     if (typeof document !== 'undefined' && document.hidden && !userGesture)
       return;
     const now = Date.now();

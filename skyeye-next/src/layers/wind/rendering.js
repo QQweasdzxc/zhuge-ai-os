@@ -258,10 +258,20 @@ export function createWindRendering({
 
   function spawn(particle, scene, occluder) {
     for (let attempt = 0; attempt < 6; attempt++) {
-      const west = bounds?.west ?? -180;
-      const east = bounds?.east ?? 180;
-      const low = bounds?.sinSouth ?? -0.9998;
-      const high = bounds?.sinNorth ?? 0.9998;
+      const region = field?.region;
+      const west = Math.max(bounds?.west ?? -180, region?.west ?? -180);
+      const east = Math.min(bounds?.east ?? 180, region?.east ?? 180);
+      const south = Math.max(
+        Math.asin(bounds?.sinSouth ?? -0.9998) / degree,
+        region?.south ?? -90,
+      );
+      const north = Math.min(
+        Math.asin(bounds?.sinNorth ?? 0.9998) / degree,
+        region?.north ?? 90,
+      );
+      if (west >= east || south >= north) return;
+      const low = Math.sin(south * degree);
+      const high = Math.sin(north * degree);
       particle.lon = ((west + Math.random() * (east - west) + 540) % 360) - 180;
       particle.lat = Math.asin(low + Math.random() * (high - low)) / degree;
       particle.age = 1 + Math.random() * 7;
@@ -704,7 +714,7 @@ export function createWindRendering({
       if (canvas && field) {
         gpuNarrow = nextNarrow;
         if (!reuseGeometry) {
-          gpuActive = gpu.supported() && gpu.setField(field);
+          gpuActive = !field.region && gpu.supported() && gpu.setField(field);
           reportedGpuReady = gpuActive ? gpu.getDiagnostics().ready : null;
           flowTime = 0;
         }

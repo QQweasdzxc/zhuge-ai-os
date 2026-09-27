@@ -83,6 +83,7 @@ export function createApplicationCatalog({
   vesselOptions,
   resolveAsset,
   nepalBoundaryResolver,
+  taiwanEnhanced = false,
 }) {
   if (!signal?.addEventListener)
     throw new TypeError('An application lifetime signal is required');
@@ -165,23 +166,49 @@ export function createApplicationCatalog({
           vessels,
           installations,
         }),
-        createWindLayer({ feed: sources.wind, clock: weatherClock }),
+        createWindLayer({
+          feed: sources.wind,
+          clock: weatherClock,
+          name: taiwanEnhanced ? 'CWA wind' : 'Wind',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan · FORECAST'
+            : 'GFS / ECMWF IFS · FORECAST',
+        }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-radar',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'CWA radar' : 'Rain radar',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan · OBSERVED'
+            : 'NOAA nowCOAST · OBSERVED',
         }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-satellite',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'Satellite clouds' : 'Satellite clouds',
+          source: 'NOAA nowCOAST · OBSERVED',
         }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-lightning',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'Lightning density' : 'Lightning density',
+          source: 'NOAA nowCOAST · OBSERVED',
         }),
-        createCyclonesLayer({ feed: sources.cyclones }),
+        createCyclonesLayer({
+          feed: sources.cyclones,
+          name: taiwanEnhanced
+            ? 'CWA typhoon advisories'
+            : 'Cyclone advisories',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan'
+            : 'NOAA NHC / CPHC',
+          coverage: taiwanEnhanced
+            ? 'Taiwan and western North Pacific weather context'
+            : undefined,
+        }),
         ...createInfrastructureLayers(localGeoJsonServices),
         createApplicationCables({ source: sources.cables }),
         createApplicationFirms({

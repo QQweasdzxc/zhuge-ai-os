@@ -37,6 +37,8 @@ export function createWeatherLayer({
   feed,
   clock,
   id = 'weather-radar',
+  name = null,
+  source = 'NOAA nowCOAST · OBSERVED',
   cesium = Cesium,
   createRendering = createWeatherRendering,
   documentRef = globalThis.document,
@@ -249,13 +251,15 @@ export function createWeatherLayer({
   }
   const layer = {
     id,
-    name: radar
-      ? 'Rain radar'
-      : lightning
-        ? 'Lightning density'
-        : 'Satellite clouds',
+    name:
+      name ||
+      (radar
+        ? 'Rain radar'
+        : lightning
+          ? 'Lightning density'
+          : 'Satellite clouds'),
     icon: radar ? '◉' : lightning ? 'ϟ' : '☁',
-    source: 'NOAA nowCOAST · OBSERVED',
+    source,
     updateInterval: lightning ? 600_000 : 120_000,
     init(nextViewer) {
       viewer = nextViewer;
@@ -539,12 +543,14 @@ export function createWeatherLayer({
         readout: true,
         summary: {
           label: radar
-            ? 'Rain radar · US'
+            ? manifest?.providerId === 'taiwan.cwa.radar'
+              ? 'Rain radar · Taiwan'
+              : 'Rain radar · US'
             : lightning
               ? 'Lightning density · 15 min'
               : 'Satellite clouds',
           coverage: radar
-            ? 'CONUS'
+            ? manifest?.coverage || 'CONUS'
             : lightning
               ? 'Americas + Pacific'
               : product === 'clouds'
@@ -682,7 +688,7 @@ export function createWeatherLayer({
         loading,
         error: error || rendering?.getDiagnostics().error || null,
         stale: Boolean(manifest?.stale || observationDelayed()),
-        source: 'NOAA nowCOAST',
+        source: manifest?.source || source,
         observedAt: shownTime(),
       };
     },

@@ -12,12 +12,14 @@ export function createStandaloneCatalog({
     terrainSource: createApplicationRequestServices().terrain,
     signal,
   }),
+  taiwanEnhanced = false,
 } = {}) {
   return createApplicationCatalog({
     nepalBoundaryResolver,
     surface,
-    sources: createStandaloneLayerSources(),
+    sources: createStandaloneLayerSources({ taiwanEnhanced }),
     signal,
+    taiwanEnhanced,
     vesselOptions: {
       maxRows: import.meta.env?.VITE_AIS_LIVE_MAX_ROWS,
       maxLabels: import.meta.env?.VITE_AIS_LIVE_LABEL_MAX_ROWS,

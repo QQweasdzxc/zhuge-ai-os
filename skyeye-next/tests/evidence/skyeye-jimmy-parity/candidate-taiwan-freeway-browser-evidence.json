@@ -1,0 +1,61 @@
+{
+  "contract": "skyeye-jimmy-taiwan-parity-freeway-wave-3-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180"
+  },
+  "rawResponseReturned": false,
+  "jimmyGatewayRequestCount": 0,
+  "result": {
+    "live": {
+      "httpStatus": 200,
+      "providerId": "taiwan.freeway.live-traffic",
+      "source": "Taiwan Freeway Bureau Open Data",
+      "status": "available",
+      "stale": false,
+      "entityCount": 680,
+      "dataTimestamp": "2026-09-27T23:14:00.000Z",
+      "fetchedAt": "2026-09-27T23:15:42.044Z",
+      "rawResponseReturned": false,
+      "cache": "miss"
+    },
+    "cms": {
+      "httpStatus": 200,
+      "providerId": "taiwan.freeway.cms",
+      "source": "Taiwan Freeway Bureau Open Data",
+      "status": "available",
+      "stale": false,
+      "entityCount": 1121,
+      "dataTimestamp": "2026-09-27T23:12:00.000Z",
+      "fetchedAt": "2026-09-27T23:15:42.076Z",
+      "rawResponseReturned": false,
+      "cache": "miss"
+    }
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/live"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/live"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/freeway/cms"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

@@ -1,0 +1,46 @@
+{
+  "contract": "skyeye-jimmy-taiwan-parity-wra-reservoir-provider-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180"
+  },
+  "rawResponseReturned": false,
+  "jimmyGatewayRequestCount": 0,
+  "result": {
+    "httpStatus": 200,
+    "providerId": "taiwan.wra.reservoir",
+    "source": "Water Resources Agency, Ministry of Economic Affairs",
+    "status": "available",
+    "stale": false,
+    "entityCount": 53,
+    "firstEntity": {
+      "id": "10802",
+      "name": "羅東攔河堰",
+      "observedAt": "2026-09-25T16:00:00.000Z"
+    },
+    "dataTimestamp": "2026-09-26T23:00:00.000Z",
+    "fetchedAt": "2026-09-27T23:15:39.584Z",
+    "attribution": "Water Resources Agency, Ministry of Economic Affairs",
+    "license": "Open Government Data License, version 1.0",
+    "geographicCoverage": "Taiwan reservoirs",
+    "cache": "miss",
+    "rawResponseReturned": false
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs",
+      "contentType": "application/json"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

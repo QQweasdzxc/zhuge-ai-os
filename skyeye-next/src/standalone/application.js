@@ -55,6 +55,7 @@ export function createStandaloneApplication({
           ),
         signal: context.signal,
         surface: scene.operations.surface,
+        taiwanEnhanced,
       });
       return scene;
     },

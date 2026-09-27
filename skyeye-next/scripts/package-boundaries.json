@@ -161,6 +161,7 @@
       "server/providers/cctv/normalize.js",
       "server/providers/cctv/range.js",
       "server/providers/cctv/sources.js",
+      "server/providers/cctv/taiwan.js",
       "server/providers/cctv/stream.js",
       "server/providers/common/http.js",
       "src/data/directionText.js",
@@ -169,6 +170,26 @@
       "scripts/google-server-key.mjs",
       "src/data/cctvFootprint.js",
       "src/sources/cctvTypes.js",
+      "src/sources/httpBody.js"
+    ],
+    "external": []
+  },
+  "taiwan-provider": {
+    "runtime": "node",
+    "exports": ["./server/providers/taiwan"],
+    "modules": [
+      "server/providers/taiwan/cache.js",
+      "server/providers/taiwan/cwa.js",
+      "server/providers/taiwan/aqi.js",
+      "server/providers/taiwan/aqi.test.mjs",
+      "server/providers/taiwan/freeway.js",
+      "server/providers/taiwan/freeway.test.mjs",
+      "server/providers/taiwan/nlsc.js",
+      "server/providers/taiwan/orchestrator.js",
+      "server/providers/taiwan/reservoir.js",
+      "server/providers/taiwan/reservoir.test.mjs",
+      "server/providers/common/http.js",
+      "src/data/taiwanProviderContract.js",
       "src/sources/httpBody.js"
     ],
     "external": []

@@ -3,7 +3,10 @@ import test from 'node:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { cctvProxy } from '../../server/providers/cctv.js';
+import {
+  cctvProxy,
+  fetchCctvImageFromUpstream,
+} from '../../server/providers/cctv.js';
 import { radioBrowserProxy } from '../../server/providers/radio.js';
 import { localProviderPlugins } from '../../server/providers/local.js';
 
@@ -190,4 +193,30 @@ test('a failed CCTV media fetch reports a fixed health message, not the error te
   assert.equal(camera.message, 'Media fetch failed');
   assert.equal(camera.message.includes('ETIMEDOUT'), false);
   assert.equal(camera.message.includes('secret-path'), false);
+});
+
+test('Freeway multipart MJPEG yields one bounded JPEG frame only', async (t) => {
+  isolate(t);
+  const jpeg = Buffer.from([0xff, 0xd8, 0x01, 0x02, 0xff, 0xd9]);
+  const body = Buffer.concat([
+    Buffer.from('--frame\r\nContent-Type: image/jpeg\r\n\r\n'),
+    jpeg,
+    Buffer.from('\r\n--frame--\r\n'),
+  ]);
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async () =>
+      new Response(body, {
+        status: 200,
+        headers: {
+          'content-type': 'multipart/x-mixed-replace; boundary=frame',
+        },
+      }),
+  );
+  const frame = await fetchCctvImageFromUpstream(
+    'https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10000',
+  );
+  assert.equal(frame?.contentType, 'image/jpeg');
+  assert.deepEqual(frame?.body, jpeg);
 });

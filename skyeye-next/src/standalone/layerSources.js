@@ -20,7 +20,11 @@ import { createReferenceSources } from '../sources/reference.js';
 export { createReferenceSources as createStandaloneReferenceSources } from '../sources/reference.js';
 
 /** Select standalone providers without starting their acquisition. */
-export function createStandaloneLayerSources() {
+export function createStandaloneLayerSources({ taiwanEnhanced = false } = {}) {
+  const weatherBasePath = taiwanEnhanced
+    ? '/api/taiwan/cwa/radar'
+    : '/api/weather';
+  const windBasePath = taiwanEnhanced ? '/api/taiwan/cwa/wind' : '/api/wind';
   return {
     ...createReferenceSources(),
     flights: createOpenSkySource(),
@@ -38,8 +42,10 @@ export function createStandaloneLayerSources() {
     launches: createLaunchSource(),
     alpr: createOverpassAlprSource(),
     firms: createFirmsSource(),
-    wind: createWindSource(),
-    weather: createWeatherSource(),
-    cyclones: createCycloneSource(),
+    wind: createWindSource({ basePath: windBasePath }),
+    weather: createWeatherSource({ basePath: weatherBasePath }),
+    cyclones: createCycloneSource({
+      basePath: taiwanEnhanced ? '/api/taiwan/cwa/typhoon' : '/api/cyclones',
+    }),
   };
 }

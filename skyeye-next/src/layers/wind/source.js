@@ -4,7 +4,9 @@ import { readWindBody } from '../../sources/windBody.js';
 export function createWindSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
   timeoutMs = 45_000,
+  basePath = '/api/wind',
 } = {}) {
+  const escapedBasePath = basePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return {
     async getSnapshot({ signal, model = 'gfs', overlay = 'none' } = {}) {
       if (!['gfs', 'ifs'].includes(model))
@@ -22,7 +24,7 @@ export function createWindSource({
       const active = controller.signal;
       try {
         signal?.throwIfAborted();
-        const response = await fetchImpl(`/api/wind/manifest?${query}`, {
+        const response = await fetchImpl(`${basePath}/manifest?${query}`, {
           signal: active,
           cache: 'no-store',
           redirect: 'error',
@@ -68,9 +70,16 @@ export function createWindSource({
           ![grid.lo1, grid.la1, grid.dx, grid.dy].every(Number.isFinite) ||
           grid.dx <= 0 ||
           grid.dy <= 0 ||
-          Math.abs(grid.nx * grid.dx - 360) > 0.01 ||
+          (!manifest.region && Math.abs(grid.nx * grid.dx - 360) > 0.01) ||
+          (manifest.region &&
+            (!Number.isFinite(manifest.region.west) ||
+              !Number.isFinite(manifest.region.east) ||
+              !Number.isFinite(manifest.region.south) ||
+              !Number.isFinite(manifest.region.north) ||
+              manifest.region.west >= manifest.region.east ||
+              manifest.region.south >= manifest.region.north)) ||
           !new RegExp(
-            `^/api/wind/grid/${model}-[\\w.-]+\\.bin\\?${query}$`,
+            `^${escapedBasePath}/grid/${model}-[\\w.-]+\\.bin\\?${query}$`,
           ).test(manifest.gridUrl)
         )
           throw new Error('Malformed wind manifest');

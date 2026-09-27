@@ -2,19 +2,22 @@
 
 This registry separates observed public reachability from permission to reuse or redistribute.
 
-| Provider/source | Attribution | License / ToS state | Candidate disposition |
-|---|---|---|---|
-| NLSC EMAP/PHOTO2 WMTS | Taiwan National Land Surveying and Mapping Center | Endpoint reachable; current reuse terms still require confirmation | Opt-in E2E spike with visible attribution; production activation remains review-gated |
-| CWA radar PNG | Central Weather Administration | Public asset observed; current redistribution terms require confirmation | Registry only |
-| CWA/Twipcam GFS/KML | CWA attribution; hosting boundary unresolved | Review required | Registry only |
-| Taipei CCTV | Taipei City Government/source owner | Public media reachability is not reuse permission | Registry only |
-| New Taipei CCTV | New Taipei City Government/source owner | Public media reachability is not reuse permission | Registry only |
-| Freeway CCTV | Taiwan Freeway Bureau/source owner | Public media reachability is not reuse permission | Registry only |
-| TDX | TDX | Registration/rate terms and credential boundary unresolved | Not configured |
-| MOENV AQI | Taiwan Ministry of Environment | Current API terms require confirmation | Not configured |
-| USGS | USGS | Upstream attribution boundary retained; review before Taiwan relabeling | Reuse with attribution |
-| OpenSky / AISStream | Upstream provider labels | Existing upstream provider terms remain authoritative | Existing upstream adapters |
-| FlightAware | FlightAware | Proprietary page/data; no reuse evidence | Not recommended |
-| Jimmy `/api/*` gateway | Jimmy runtime | No production reuse permission or stability contract established | Reference only; never a dependency |
+| Provider/source        | Attribution                                       | License / ToS state                                                                                                | Candidate disposition                                                                 |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| NLSC EMAP/PHOTO2 WMTS  | Taiwan National Land Surveying and Mapping Center | Endpoint reachable; current reuse terms still require confirmation                                                 | Opt-in E2E spike with visible attribution; production activation remains review-gated |
+| CWA radar PNG          | Central Weather Administration                    | Public asset observed and used by the isolated Wave 1 E2E proof; current redistribution terms require confirmation | Candidate adapter only; license gate remains open                                     |
+| CWA/Twipcam GFS/KML    | CWA attribution; hosting boundary unresolved      | Review required; browser runtime evidence does not establish redistribution rights                                 | Candidate adapter only; license gate remains open                                     |
+| Taipei CCTV            | Taipei City Government / data.taipei               | Official metadata dataset is public; dataset notes require application/contract for traffic-image reuse           | Metadata adapter only; live media disabled until authorized |
+| New Taipei CCTV        | New Taipei City Government / data.ntpc.gov.tw     | Official point dataset is public under Open Government Data License 1.0; live-feed mapping remains unconfirmed   | Metadata adapter only; no guessed media URL |
+| Freeway CCTV           | Taiwan Freeway Bureau / freeway.gov.tw            | Official XML catalog is public; live-image reuse/attribution terms remain under review                            | Bounded official-host frame proof; no continuous stream |
+| WRA reservoirs         | Water Resources Agency, Ministry of Economic Affairs | Reservoir Daily Operation Status is listed under Open Government Data License 1.0; source notes daily records may be omitted | Normalized read-only adapter; candidate layer/visual parity still open |
+| TDX                    | TDX                                               | Registration/rate terms and credential boundary unresolved                                                         | Not configured                                                                        |
+| MOENV AQI              | Taiwan Ministry of Environment                    | Official `aqx_p_432` dataset is listed under the Open Government Data License 1.0; API key and current activation terms remain a controlled gate | Server-only adapter; `PROVIDER_NOT_CONFIGURED` until `MOENV_API_KEY` is injected |
+| Taiwan Freeway live traffic | Taiwan Freeway Bureau, Ministry of Transportation and Communications | Official `LiveTraffic.xml` dataset; one-minute cadence; Open Government Data License, version 1.0 | Server-only normalized adapter; raw XML is not exposed |
+| Taiwan Freeway CMS live signs | Taiwan Freeway Bureau, Ministry of Transportation and Communications | Official `CMSLive.xml` dataset; one-minute cadence; Open Government Data License, version 1.0 | Server-only normalized adapter; raw XML is not exposed |
+| USGS                   | USGS                                              | Upstream attribution boundary retained; review before Taiwan relabeling                                            | Reuse with attribution                                                                |
+| OpenSky / AISStream    | Upstream provider labels                          | Existing upstream provider terms remain authoritative                                                              | Existing upstream adapters                                                            |
+| FlightAware            | FlightAware                                       | Proprietary page/data; no reuse evidence                                                                           | Not recommended                                                                       |
+| Jimmy `/api/*` gateway | Jimmy runtime                                     | No production reuse permission or stability contract established                                                   | Reference only; never a dependency                                                    |
 
 Upstream MIT attribution remains governed by the existing `LICENSE` and `DATA_SOURCES.md`. No Jimmy-specific compiled bundle or proprietary asset is copied into this candidate.

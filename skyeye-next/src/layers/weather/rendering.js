@@ -79,6 +79,7 @@ function createGlobeRendering({
   }
 
   function prefetchTiles(snapshot, time) {
+    if (snapshot.imageUrl) return [];
     const { west, south, east, north } = snapshot.bounds;
     const bounds = cesium.Rectangle.fromDegrees(west, south, east, north);
     const view = viewer.camera?.computeViewRectangle?.(
@@ -89,9 +90,14 @@ function createGlobeRendering({
       : bounds;
     if (!coverage) return [];
     const scheme = new cesium.GeographicTilingScheme();
-    const template = weatherTileUrl(snapshot.product, time, {
-      size: profile(snapshot.product).tileSize,
-    });
+    const template = weatherTileUrl(
+      snapshot.product,
+      time,
+      {
+        size: profile(snapshot.product).tileSize,
+      },
+      snapshot.basePath,
+    );
     const urls = [];
     for (let z = 0; z <= 1; z++) {
       for (let y = 0; y < scheme.getNumberOfYTilesAtLevel(z); y++) {
@@ -341,29 +347,43 @@ function createGlobeRendering({
               : 'NOAA nowCOAST · NESDIS GOES / global satellite partners',
           false,
         );
-        const provider = global
-          ? createRasterTileProvider({
-              cesium,
-              texture,
+        const provider = snapshot.imageUrl
+          ? new cesium.SingleTileImageryProvider({
+              url: snapshot.imageUrl,
               rectangle,
-              tilingScheme,
-              maximumLevel: GLOBAL_TILE_MAXIMUM_LEVEL,
-              tileSize: nextProfile.tileSize,
-              credit,
-              createCanvas,
+              tileWidth: snapshot.imageWidth,
+              tileHeight: snapshot.imageHeight,
+              credit: new cesium.Credit(
+                snapshot.attribution || 'Weather provider',
+                false,
+              ),
             })
-          : new cesium.UrlTemplateImageryProvider({
-              url: weatherTileUrl(snapshot.product, time, {
-                size: nextProfile.tileSize,
-              }),
-              tilingScheme,
-              rectangle,
-              tileWidth: nextProfile.tileSize,
-              tileHeight: nextProfile.tileSize,
-              maximumLevel: nextProfile.maximumLevel,
-              enablePickFeatures: false,
-              credit,
-            });
+          : global
+            ? createRasterTileProvider({
+                cesium,
+                texture,
+                rectangle,
+                tilingScheme,
+                maximumLevel: GLOBAL_TILE_MAXIMUM_LEVEL,
+                tileSize: nextProfile.tileSize,
+                credit,
+                createCanvas,
+              })
+            : new cesium.UrlTemplateImageryProvider({
+                url: weatherTileUrl(
+                  snapshot.product,
+                  time,
+                  { size: nextProfile.tileSize },
+                  snapshot.basePath,
+                ),
+                tilingScheme,
+                rectangle,
+                tileWidth: nextProfile.tileSize,
+                tileHeight: nextProfile.tileSize,
+                maximumLevel: nextProfile.maximumLevel,
+                enablePickFeatures: false,
+                credit,
+              });
         const requestImage = provider.requestImage.bind(provider);
         provider.requestImage = (x, y, level, request) => {
           if (frame.closed) return undefined;

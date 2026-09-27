@@ -19,9 +19,17 @@ import {
   loadCalgarySourcesFromOpenData,
   loadDelDOTSourcesFromOpenData,
 } from './sources.js';
+import {
+  loadFreewaySourcesFromOpenData,
+  loadNewTaipeiSourcesFromOpenData,
+  loadTaipeiSourcesFromOpenData,
+} from './taiwan.js';
 
 /** Env kill switch: unset or anything but "0" means enabled. */
 const envEnabled = (name) => String(process.env[name] || '1').trim() !== '0';
+const taiwanParityEnabled = () =>
+  String(process.env.CCTV_TAIWAN_ENABLED || '').trim() === '1' ||
+  String(process.env.VITE_SKYEYE_TAIWAN_PARITY || '').trim() === '1';
 
 /**
  * Live open-data packs, in merge order. Adding a region is one entry here
@@ -91,6 +99,21 @@ const LIVE_PACKS = [
     name: 'deldot',
     enabled: () => envEnabled('CCTV_DELDOT_ENABLED'),
     load: loadDelDOTSourcesFromOpenData,
+  },
+  {
+    name: 'taipei',
+    enabled: taiwanParityEnabled,
+    load: loadTaipeiSourcesFromOpenData,
+  },
+  {
+    name: 'new-taipei',
+    enabled: taiwanParityEnabled,
+    load: loadNewTaipeiSourcesFromOpenData,
+  },
+  {
+    name: 'freeway-taiwan',
+    enabled: taiwanParityEnabled,
+    load: loadFreewaySourcesFromOpenData,
   },
 ];
 /**

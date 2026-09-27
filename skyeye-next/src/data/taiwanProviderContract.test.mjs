@@ -27,6 +27,14 @@ test('Taiwan contract is provider-neutral and contains no Jimmy gateway dependen
     providerRegistryEntry('taiwan.port').status,
     'blocked_provider_unknown',
   );
+  assert.equal(
+    providerRegistryEntry('taiwan.reservoir').status,
+    'license_review_required',
+  );
+  assert.match(
+    providerRegistryEntry('taiwan.reservoir').sourceUrl,
+    /^https:\/\/opendata\.wra\.gov\.tw\/api\/v2\//,
+  );
 });
 
 test('NLSC layers preserve official source, attribution and coverage metadata', () => {

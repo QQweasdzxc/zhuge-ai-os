@@ -18,7 +18,21 @@ export function sampleWind(field, lon, lat, result = {}) {
     return result;
   }
   const { u, v, nx, ny, lo1, la1, dx, dy } = field;
-  const x = ((normalizeLongitude(lon - lo1) + 360) % 360) / dx;
+  const regional = field.region;
+  if (
+    regional &&
+    (lon < regional.west ||
+      lon > regional.east ||
+      lat < regional.south ||
+      lat > regional.north)
+  ) {
+    result.u = Number.NaN;
+    result.v = Number.NaN;
+    return result;
+  }
+  const x = regional
+    ? Math.max(0, Math.min(nx - 1.000001, (lon - lo1) / dx))
+    : ((normalizeLongitude(lon - lo1) + 360) % 360) / dx;
   const y = (la1 - lat) / dy;
   const x0 = Math.floor(x);
   const tx = x - x0;
@@ -26,8 +40,10 @@ export function sampleWind(field, lon, lat, result = {}) {
   const y0 = Math.floor(yClamped);
   const y1 = Math.min(ny - 1, y0 + 1);
   const ty = yClamped - y0;
-  const left = ((x0 % nx) + nx) % nx;
-  const right = (left + 1) % nx;
+  const left = regional
+    ? Math.max(0, Math.min(nx - 1, x0))
+    : ((x0 % nx) + nx) % nx;
+  const right = regional ? Math.min(nx - 1, left + 1) : (left + 1) % nx;
   const a = y0 * nx + left;
   const b = y0 * nx + right;
   const c = y1 * nx + left;
