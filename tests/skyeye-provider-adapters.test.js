@@ -73,3 +73,12 @@ test("freshness is explicit for fresh, stale, and unverifiable timestamps", asyn
   assert.deepEqual(freshnessFor("not-a-date", now), { freshness: "unknown", stale: false });
   assert.equal(latestObservedAt([{ observed_at: "" }], ""), "");
 });
+
+test("CCTV normalizer preserves provider direction and intersection fields without guessing", async () => {
+  const { normalizeCctvRows } = await loadNormalizers();
+  const result = normalizeCctvRows([{ CCTVID: "C-2", RoadName: "文化路", IntersectionName: "文化路與漢生東路", Direction: "東向", PositionLat: 25.014, PositionLon: 121.463 }], "2026-09-26T00:05:00.000Z");
+  assert.equal(result.markers[0].road_label, "文化路");
+  assert.equal(result.markers[0].intersection_label, "文化路與漢生東路");
+  assert.equal(result.markers[0].direction, "東向");
+  assert.equal(result.markers[0].media_available, false);
+});

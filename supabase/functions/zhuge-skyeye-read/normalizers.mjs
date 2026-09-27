@@ -36,6 +36,16 @@ function timestamp(value) {
   return "";
 }
 
+function safeHttpUrl(value) {
+  const candidate = text(value, 800);
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 function rowTimestamp(row, keys) {
   if (!row || typeof row !== "object") return "";
   for (const key of keys) {
@@ -217,16 +227,28 @@ export function normalizeCctvRows(payload, retrievedAt) {
     const point = coordinate(row);
     if (point.lat === null || point.lng === null) return null;
     const id = text(row.CCTVID || row.CctvId || row.CCTVId || row.id || index, 100);
+    const roadLabel = text(row.RoadName || row.RoadNameZh || row.roadName || row.road_name, 160);
+    const intersectionLabel = text(
+      row.IntersectionName || row.Intersection || row.intersection || row.intersectionName,
+      180
+    );
+    const direction = text(row.Direction || row.direction || row.Heading || row.heading, 40);
+    const imageUrl = safeHttpUrl(row.VideoImageUrl || row.VideoImageURL || row.videoImageUrl || row.video_image_url);
+    const streamUrl = safeHttpUrl(row.VideoStreamUrl || row.VideoStreamURL || row.videoStreamUrl || row.video_stream_url);
     return {
       id: `tdx-cctv-${id}`,
       kind: "cctv",
-      label: text(row.RoadName || row.RoadNameZh || row.roadName || `CCTV ${index + 1}`, 160),
-      detail: "點擊標記後才載入影像",
+      label: roadLabel || `CCTV ${index + 1}`,
+      detail: intersectionLabel || roadLabel || "TDX CCTV 公開點位 metadata",
       lat: point.lat,
       lng: point.lng,
       observed_at: rowTimestamp(row, ["UpdateTime", "updateTime", "LastUpdateTime", "lastUpdateTime"]),
-      image_url: text(row.VideoImageUrl || row.VideoImageURL || row.videoImageUrl || row.video_image_url, 800),
-      stream_url: text(row.VideoStreamUrl || row.VideoStreamURL || row.videoStreamUrl || row.video_stream_url, 800),
+      road_label: roadLabel,
+      intersection_label: intersectionLabel,
+      direction,
+      media_available: Boolean(imageUrl || streamUrl),
+      image_url: imageUrl,
+      stream_url: streamUrl,
       source: "TDX"
     };
   }).filter(Boolean);

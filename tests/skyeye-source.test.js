@@ -15,11 +15,20 @@ test("SkyEye is a mobile-only shared-navigation entry, not a desktop destination
   assert.match(css, /@media\(max-width:767px\).*data-nav-group="mobile"/s);
 });
 
-test("SkyEye client requests the read adapter through the Shared Gateway and gates CCTV", () => {
+test("SkyEye client requests the read adapter through the Shared Gateway and discovers CCTV with location", () => {
   const app = read("modules/skyeye/skyeye-app.js");
   assert.match(app, /invokeFunction\(FUNCTION_NAME/);
   assert.match(app, /include_cctv: includeCctv/);
-  assert.match(app, /if \(key === "cctv" && !state\.cctvRequested\)/);
+  assert.match(app, /location_context/);
+  assert.match(app, /operation: "geocode"/);
+  assert.match(app, /requestBrowserLocation/);
+  assert.match(app, /searchThisArea/);
+  assert.match(app, /AbortController/);
+  assert.match(app, /requestSequence/);
+  assert.match(app, /locationPermission/);
+  assert.match(app, /data-skyeye-sheet-to/);
+  assert.match(app, /accuracy_m/);
+  assert.doesNotMatch(app, /CCTV（點擊載入）/);
   assert.doesNotMatch(app, /api_key|TDX_CLIENT_SECRET|CWA_API_KEY|MOENV_API_KEY/);
 });
 
@@ -59,6 +68,12 @@ test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () =
   assert.match(edge, /CWA_API_KEY/);
   assert.match(edge, /MOENV_API_KEY/);
   assert.match(edge, /includeCctv && layers\.includes\("cctv"\)/);
+  assert.match(edge, /zhuge-skyeye-read-v2/);
+  assert.match(edge, /GEOCODE_URL/);
+  assert.match(edge, /location_context/);
+  assert.match(edge, /provider_not_configured/);
+  assert.match(edge, /spatial_strategy/);
+  assert.match(edge, /distanceMeters/);
   assert.match(edge, /PROVIDER_TIMEOUT/);
   assert.match(edge, /PROVIDER_MALFORMED_RESPONSE/);
   assert.match(edge, /PROVIDER_NETWORK_ERROR/);
@@ -71,13 +86,10 @@ test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () =
   assert.doesNotMatch(edge, /supabase\.from|\.insert\(|\.update\(|\.delete\(/i);
 });
 
-test("SkyEye CCTV loader keeps one retrieval timestamp binding", () => {
+test("SkyEye CCTV loader keeps one request timestamp binding", () => {
   const edge = read("supabase/functions/zhuge-skyeye-read/index.ts");
   const cctvLoader = edge.match(/async function loadCctv\([\s\S]*?(?=\nfunction requestedLayers)/)?.[0];
   assert.ok(cctvLoader, "loadCctv source must remain discoverable");
-  assert.equal(
-    (cctvLoader.match(/const retrievedAt = new Date\(now\)\.toISOString\(\);/g) || []).length,
-    1,
-    "loadCctv must not redeclare retrievedAt"
-  );
+  assert.match(cctvLoader, /normalizeCctvRows\(payload, new Date\(now\)\.toISOString\(\)\)/);
+  assert.equal((cctvLoader.match(/const retrievedAt/g) || []).length, 0, "CCTV loader must use the request timestamp once");
 });
