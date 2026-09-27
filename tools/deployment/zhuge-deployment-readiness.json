@@ -18,7 +18,7 @@
       "source": "supabase/functions/zhuge-skyeye-read",
       "required_secret_names": ["TDX_CLIENT_ID", "TDX_CLIENT_SECRET", "CWA_API_KEY", "MOENV_API_KEY"],
       "non_secret_env_names": ["SKYEYE_ALLOWED_ORIGINS"],
-      "smoke_contract": "zhuge-skyeye-read-v1",
+      "smoke_contract": "zhuge-skyeye-read-v2",
       "rollback": "redeploy the previous approved function source; do not delete provider data"
     },
     "task-086": {
