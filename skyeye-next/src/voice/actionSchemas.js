@@ -372,6 +372,8 @@ const schemas = [
             'bing-labels',
             'esri-imagery',
             'osm',
+            'nlsc-emap',
+            'nlsc-photo2',
           ],
         },
       },

@@ -17,6 +17,7 @@ export function createStandaloneApplication({
   geospatial = {},
   voice = {},
   allowQaRegistration = false,
+  taiwanEnhanced = false,
 }) {
   if (constructed)
     throw new Error('The standalone application already owns this page');
@@ -40,6 +41,7 @@ export function createStandaloneApplication({
         ...context,
         googleApiKey,
         cesiumToken,
+        taiwanEnhanced,
         loaderStatus,
       });
       catalog = createStandaloneCatalog({

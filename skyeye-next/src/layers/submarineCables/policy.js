@@ -78,7 +78,14 @@ export const CABLE_LABEL_DEPTH_DECISION = Object.freeze({
  */
 
 export const CABLE_GLOBE_STACK_IDS = Object.freeze(
-  new Set(['bing-aerial', 'bing-labels', 'esri-imagery', 'osm']),
+  new Set([
+    'bing-aerial',
+    'bing-labels',
+    'esri-imagery',
+    'osm',
+    'nlsc-emap',
+    'nlsc-photo2',
+  ]),
 );
 
 /** EntityCluster's private marker collections and their required types. */

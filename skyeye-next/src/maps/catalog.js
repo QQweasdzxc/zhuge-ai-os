@@ -37,4 +37,20 @@ export const MAP_STACKS = [
     kind: 'osm',
     requiresIon: false,
   },
+  {
+    id: 'nlsc-emap',
+    label: 'NLSC EMAP',
+    shortLabel: 'EMAP',
+    kind: 'nlsc',
+    requiresIon: false,
+    taiwanOnly: true,
+  },
+  {
+    id: 'nlsc-photo2',
+    label: 'NLSC PHOTO2',
+    shortLabel: 'PHOTO2',
+    kind: 'nlsc',
+    requiresIon: false,
+    taiwanOnly: true,
+  },
 ];

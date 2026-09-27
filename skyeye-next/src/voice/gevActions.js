@@ -277,6 +277,13 @@ const STACK_ALIASES = new Map([
   ['road', 'osm'],
   ['roads', 'osm'],
   ['road map', 'osm'],
+  ['nlsc-emap', 'nlsc-emap'],
+  ['nlsc emap', 'nlsc-emap'],
+  ['taiwan map', 'nlsc-emap'],
+  ['taiwan road map', 'nlsc-emap'],
+  ['nlsc-photo2', 'nlsc-photo2'],
+  ['nlsc photo2', 'nlsc-photo2'],
+  ['taiwan photo', 'nlsc-photo2'],
 ]);
 
 /** Search order for track_entity across entity layer families. */

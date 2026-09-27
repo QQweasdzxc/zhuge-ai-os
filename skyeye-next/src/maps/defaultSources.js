@@ -5,7 +5,9 @@ import {
   createOsmImagery,
   createEsriImagery,
   createIonImagery,
+  createNlscImagery,
   ESRI_ATTRIBUTION_HTML,
+  NLSC_ATTRIBUTION_HTML,
 } from './imagery.js';
 import { createWorldTerrain, createKeylessTerrain } from './terrain.js';
 
@@ -14,6 +16,7 @@ export function createDefaultMapSources({
   googleTileset = null,
   cesiumToken = '',
   googleApiKey = '',
+  taiwanEnhanced = false,
 } = {}) {
   const ionToken = String(cesiumToken || '').trim();
   const hasIon = Boolean(ionToken);
@@ -25,17 +28,25 @@ export function createDefaultMapSources({
       : createKeylessTerrain,
   };
   return {
-    defaultId: googleTileset ? 'photoreal' : 'esri-imagery',
+    defaultId: taiwanEnhanced
+      ? 'nlsc-emap'
+      : googleTileset
+        ? 'photoreal'
+        : 'esri-imagery',
     unknownId: 'photoreal',
     recoveryId: googleTileset ? 'photoreal' : null,
     state: { hasCesiumIonToken: hasIon },
     sources: MAP_STACKS.map((descriptor) => {
       const common = {
         descriptor,
-        available: !descriptor.requiresIon || hasIon,
+        available:
+          (!descriptor.requiresIon || hasIon) &&
+          (!descriptor.taiwanOnly || taiwanEnhanced),
         unavailableReason: descriptor.requiresIon
           ? keySetupRequirement('cesium-ion')
-          : null,
+          : descriptor.taiwanOnly && !taiwanEnhanced
+            ? 'Taiwan enhanced mode is disabled'
+            : null,
       };
       if (descriptor.kind === 'photoreal')
         return {
@@ -49,7 +60,12 @@ export function createDefaultMapSources({
           ? () => createIonImagery(descriptor.style, ionToken)
           : descriptor.id === 'osm'
             ? createOsmImagery
-            : createEsriImagery;
+            : descriptor.kind === 'nlsc'
+              ? () =>
+                  createNlscImagery(
+                    descriptor.id === 'nlsc-photo2' ? 'PHOTO2' : 'EMAP',
+                  )
+              : createEsriImagery;
       return {
         ...common,
         imagery,
@@ -67,7 +83,9 @@ export function createDefaultMapSources({
                 message: 'Esri Satellite tile requests failed; using OSM',
               },
             }
-          : {}),
+          : descriptor.kind === 'nlsc'
+            ? { credit: NLSC_ATTRIBUTION_HTML }
+            : {}),
       };
     }),
   };

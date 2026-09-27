@@ -121,7 +121,7 @@ const CONTROLLER_STACKS = [
   },
 ];
 
-test('the row renders exactly the five owner-approved sources', () => {
+test('the global row keeps the five upstream sources when Taiwan parity is disabled', () => {
   const container = makeElement();
   renderMapStackChips(container, CONTROLLER_STACKS, {
     activeId: 'photoreal',
@@ -145,6 +145,8 @@ test('the row renders exactly the five owner-approved sources', () => {
     'bing-labels',
     'esri-imagery',
     'osm',
+    'nlsc-emap',
+    'nlsc-photo2',
   ]);
   assert.ok(
     container.children.every(
@@ -155,6 +157,40 @@ test('the row renders exactly the five owner-approved sources', () => {
     container.children.every((chip) =>
       chip.classList.contains(MAP_STACK_CHIP_CLASS),
     ),
+  );
+});
+
+test('Taiwan parity mode presents NLSC only when its sources are available', () => {
+  const container = makeElement();
+  renderMapStackChips(
+    container,
+    [
+      ...CONTROLLER_STACKS,
+      {
+        id: 'nlsc-emap',
+        label: 'NLSC EMAP',
+        taiwanOnly: true,
+        available: true,
+      },
+      {
+        id: 'nlsc-photo2',
+        label: 'NLSC PHOTO2',
+        taiwanOnly: true,
+        available: true,
+      },
+    ],
+    { activeId: 'nlsc-emap', doc },
+  );
+
+  assert.deepEqual(
+    container.children.map((chip) => chip.dataset.stackId),
+    PRESENTED_MAP_STACK_IDS,
+  );
+  assert.equal(
+    container.children
+      .find((chip) => chip.dataset.stackId === 'nlsc-emap')
+      .getAttribute('aria-pressed'),
+    'true',
   );
 });
 
@@ -180,7 +216,7 @@ test('re-rendering replaces the previous chips instead of stacking a second row'
   });
   renderMapStackChips(container, CONTROLLER_STACKS, { activeId: 'osm', doc });
 
-  assert.equal(container.children.length, PRESENTED_MAP_STACK_IDS.length);
+  assert.equal(container.children.length, CONTROLLER_STACKS.length);
 });
 
 test('clicking a chip dispatches that stack id — the same selection the dropdown made', () => {

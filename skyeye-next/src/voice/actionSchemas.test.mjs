@@ -27,9 +27,10 @@ test('the complete Realtime tool payload pins the additive analyst, satellite, L
     .digest('hex');
   assert.equal(
     digest,
-    // Re-derived for the additive `local-adsb` set_layer_visibility value and
-    // the Cyber HUD layout; the separate sonar tool is excluded above.
-    '590d537d93e132ac64ac5e211ad5bb9d7d1b1f22e2dd963dda5465fab4510a3b',
+    // Re-derived for the additive Taiwan parity basemap ids, the
+    // `local-adsb` set_layer_visibility value and the Cyber HUD layout; the
+    // separate sonar tool is excluded above.
+    '3f7a5d7585ec39d37a2dd10f342a9891d405d2c7d18ad4e214c24fef2af55570',
   );
 });
 
@@ -112,6 +113,11 @@ test('all legacy action arguments are byte-identical after removing the delibera
         value.enum = value.enum.filter((key) => key !== 'fire-perimeters');
     }
   }
+  const mapStack = legacy.find((tool) => tool.name === 'set_map_stack')
+    .parameters.properties.stack;
+  mapStack.enum = mapStack.enum.filter(
+    (key) => !['nlsc-emap', 'nlsc-photo2'].includes(key),
+  );
   // Independently derived by executing trusted c9f9896 actionSchemas in the restricted container.
   const hud = legacy.find((tool) => tool.name === 'set_hud').parameters
     .properties.layout;

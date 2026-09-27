@@ -20,6 +20,7 @@ export class MapStackController extends MapSourceController {
     });
     this.googleTileset = options.googleTileset || null;
     this.cesiumToken = String(options.cesiumToken || '').trim();
+    this.taiwanEnhanced = options.taiwanEnhanced === true;
   }
   _hasPhotorealCredentials() {
     const googleKey =

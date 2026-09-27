@@ -4,6 +4,7 @@ import { describeError } from './standalone/errors.js';
 const application = createStandaloneApplication({
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
   cesiumToken: import.meta.env.CESIUM_ION_TOKEN,
+  taiwanEnhanced: import.meta.env.VITE_SKYEYE_TAIWAN_PARITY === '1',
   allowQaRegistration: import.meta.env.DEV,
 });
 

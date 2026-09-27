@@ -19,6 +19,8 @@ export const PRESENTED_MAP_STACK_IDS = Object.freeze([
   'bing-labels',
   'esri-imagery',
   'osm',
+  'nlsc-emap',
+  'nlsc-photo2',
 ]);
 
 /**
@@ -70,6 +72,7 @@ export function mapStackChipModels(stacks, activeId) {
   );
   return PRESENTED_MAP_STACK_IDS.map((id) => stacksById.get(id))
     .filter(Boolean)
+    .filter((stack) => !stack.taiwanOnly || stack.available === true)
     .map((stack) => mapStackChipModel(stack, activeId));
 }
 
