@@ -29,9 +29,11 @@ browser, or included in a Candidate ZIP.
 | `CWA_API_KEY` | CWA Open Data member API key | weather observations and earthquake reports |
 | `MOENV_API_KEY` | MOENV open data API key | AQI monitoring data |
 
-The initial map request never requests CCTV. A user action is required before
-the Edge adapter calls TDX. The adapter returns sanitized provider metadata;
-it does not return OAuth credentials or raw provider error bodies.
+Location-scoped map requests may request nearby CCTV metadata when the location
+flow includes the CCTV layer. That request returns sanitized point metadata;
+media remains lazy and is fetched only after the user opens one CCTV marker.
+If the layer is not requested, the Edge adapter does not call TDX. It never
+returns OAuth credentials or raw provider error bodies.
 
 ## Runtime evidence rules
 
@@ -70,12 +72,14 @@ this document as a permanent legal grant.
    candidate artifacts.
 3. Keep the authenticated gateway path and `SKYEYE_ALLOWED_ORIGINS` contract;
    do not expose the provider endpoints directly to the browser.
-4. Verify the sanitized response has `read_only: true`, provider/source/as-of
-   metadata, `freshness`, `stale`, `data_quality`, and an explicit
-   `INSUFFICIENT_EVIDENCE` or provider error code when a layer is unavailable.
-5. Verify the default request does not load CCTV; a user action is required for
-   that opt-in layer. Roll back by restoring the previous Edge Function source
-   and its matching candidate, without changing Product Data.
+4. Verify the sanitized V2 response has `read_only: true`, a request-scoped
+   `location_context`, provider/source/as-of metadata, `freshness`, `stale`,
+   `data_quality`, and an explicit `INSUFFICIENT_EVIDENCE` or provider error
+   code when a layer is unavailable.
+5. Verify location requests return CCTV metadata without media fan-out, and
+   that media is fetched only for the selected marker. Roll back by restoring
+   the previous Edge Function source and its matching candidate, without
+   changing Product Data.
 
 ## Safe injection
 
