@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Management Layout R1 QA</title>
+  <link rel="stylesheet" href="../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../modules/worklog/worklog.css">
+  <link rel="stylesheet" href="../shared/theme/zhuge-workspace.css">
+  <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
+</head>
+<body>
+  <div class="os-shell workspace-shell workspace-management zhuge-module-shell">
+    <aside class="os-sidebar">
+      <div class="sidebar-brand"><strong>🪶 Zhuge AI OS</strong></div>
+      <div class="sidebar-scroll">
+        <div>工作空間</div><div>WorkLog</div><div>工作待辦</div><div>Investment</div>
+        <div>系統</div><div>Knowledge</div><div>控制台</div><div>管理功能</div><div>設定</div>
+      </div>
+    </aside>
+    <main class="os-main workspace-app">
+      <header class="workspace-context-bar"><strong>🛠️ 管理功能</strong><span>管理功能｜進入工作看板、工程準則與系統模板管理中心</span></header>
+      <div class="workspace-tabs"><button class="workspace-tab active" type="button">🛠️ 管理功能</button></div>
+      <div class="workspace-canvas">
+        <section class="panel control-center management-center" aria-label="管理功能內容">
+          <section class="control-center-management-column" aria-labelledby="management-entry-title">
+            <div class="control-center-entries">
+              <div class="control-center-entry-heading">
+                <div><h2 id="management-entry-title">管理入口</h2><p class="muted">進入工作看板、工程準則與系統藍圖。</p></div>
+              </div>
+              <div class="control-center-entry-grid">
+                <button class="control-center-entry" type="button"><span class="control-center-entry-icon">✅</span><span><strong>工作看板</strong><small>查看工程工作與執行狀態</small></span><span>→</span></button>
+                <button class="control-center-entry" type="button"><span class="control-center-entry-icon">📚</span><span><strong>工程準則</strong><small>閱讀開發規則與治理原則</small></span><span>→</span></button>
+                <button class="control-center-entry" type="button"><span class="control-center-entry-icon">🗺️</span><span><strong>系統藍圖</strong><small>理解模組、架構與資料流</small></span><span>→</span></button>
+                <section class="control-center-entry-group template-management-center">
+                  <div class="template-management-heading"><div><span class="template-management-kicker">Creator Control / Template Adoption</span><h3>🧩 系統模板管理中心</h3><p class="muted">集中管理 A / B / C Template、正式 Consumer Capability 與 Cloud Adoption State。</p></div><span class="template-management-source">來源：Supabase Cloud Settings</span></div>
+                  <div class="template-management-status">C 母版已發布</div>
+                  <div class="template-management-cards">
+                    <div class="template-management-card"><div class="template-management-card-header"><span class="template-management-code">C</span><span class="template-management-card-title"><strong>C 區｜看板區</strong><small>唯一正式看板模板</small></span><span class="template-management-card-summary"><strong>已套用 4 頁</strong><small>Consumer 4 頁</small></span><span>⌄</span></div></div>
+                    <div class="template-management-card"><div class="template-management-card-header"><span class="template-management-code">A</span><span class="template-management-card-title"><strong>A 區｜導航欄</strong><small>唯一正式導航模板</small></span><span class="template-management-card-summary"><strong>已套用 10 頁</strong><small>Consumer 10 頁</small></span><span>⌄</span></div></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

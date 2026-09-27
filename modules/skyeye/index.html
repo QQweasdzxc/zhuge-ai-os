@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08111d">
+  <meta name="description" content="Zhuge AI OS 天眼：以地點為中心查看天氣、地震、空氣品質與道路影像公開資料。">
+  <title>天眼｜Zhuge AI OS</title>
+  <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/variables.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/typography.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/global-floating-hub.css?v=20260927-1018">
+  <link rel="stylesheet" href="../../shared/theme/app-access.css?v=20260927-1018">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./assets/skyeye.css?v=20260927-1018">
+</head>
+<body class="skyeye-page">
+  <div class="zhuge-module-shell skyeye-shell">
+    <div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="skyeye"></div>
+    <div class="app skyeye-app">
+      <main id="skyeyeMain" aria-labelledby="skyeyeTitle">
+        <div id="skyeyeAuthGate" hidden></div>
+        <section class="skyeye-stage skyeye-mobile-stage" data-skyeye-stage hidden>
+          <div class="skyeye-topbar">
+            <div>
+              <h1 id="skyeyeTitle">🛰️ 天眼</h1>
+              <p data-skyeye-location-label>📍 尚未選定地點</p>
+              <small data-skyeye-location-accuracy hidden></small>
+            </div>
+            <div class="skyeye-topbar-actions">
+              <button class="skyeye-nav-button" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button>
+              <button class="skyeye-refresh-button" type="button" data-skyeye-refresh aria-label="重新讀取天眼資料">↻</button>
+            </div>
+          </div>
+          <div id="skyeyeMap" class="skyeye-map" aria-label="天眼地圖"></div>
+          <div class="skyeye-overlay-layer" data-skyeye-overlays aria-label="地圖浮動資料視窗" aria-live="polite" hidden></div>
+          <div class="skyeye-status-pill" data-skyeye-status data-state="loading" role="status" aria-live="polite">正在確認資料來源…</div>
+          <section class="skyeye-location-controls" aria-label="天眼地點控制">
+            <form class="skyeye-search-form" data-skyeye-search-form>
+              <label class="sr-only" for="skyeyeSearchInput">搜尋地點、地址或景點</label>
+              <input id="skyeyeSearchInput" data-skyeye-search-input type="search" autocomplete="off" placeholder="搜尋地點、地址或景點" maxlength="180">
+              <button type="submit" aria-label="搜尋地點">搜尋</button>
+            </form>
+            <div class="skyeye-location-actions">
+              <button type="button" data-skyeye-my-location>📍 回到我的位置</button>
+              <button type="button" data-skyeye-search-area hidden>搜尋此區域</button>
+            </div>
+            <div class="skyeye-search-results" data-skyeye-search-results hidden></div>
+          </section>
+          <aside class="skyeye-bottom-sheet skyeye-evidence-panel" data-skyeye-sheet aria-label="天眼圖層與資料詳情">
+            <button type="button" class="skyeye-sheet-handle" data-skyeye-sheet-handle aria-label="拖曳查看天眼資料"></button>
+            <p class="skyeye-panel-kicker">SkyEye evidence</p>
+            <div class="skyeye-sheet-heading">
+              <h2><span data-skyeye-sheet-state>摘要</span><small data-skyeye-sheet-location></small></h2>
+              <button type="button" data-skyeye-detail-close aria-label="關閉資料詳情" hidden>×</button>
+            </div>
+            <div class="skyeye-sheet-mode-actions" aria-label="資料詳情層級">
+              <button type="button" data-skyeye-sheet-to="collapsed">摘要</button>
+              <button type="button" data-skyeye-sheet-to="half">圖層</button>
+              <button type="button" data-skyeye-sheet-to="expanded">完整資料</button>
+            </div>
+            <div class="skyeye-layer-grid" data-skyeye-layers></div>
+            <div class="skyeye-evidence-summary" data-skyeye-summary>
+              <strong>諸葛目前畫面摘要</strong>
+              <p>尚未載入資料。</p>
+            </div>
+            <div class="skyeye-detail" data-skyeye-detail hidden></div>
+            <p class="skyeye-state" data-skyeye-state aria-live="polite"></p>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>var session = null;</script>
+  <script src="../../shared/config/version.js?v=20260927-1018"></script>
+  <script src="../../shared/config/template-release.js?v=20260915-1707"></script>
+  <script src="../../shared/app-config.js?v=20260927-1018"></script>
+  <script src="../../shared/utils/shared-utils.js?v=20260927-1018"></script>
+  <script src="../../shared/storage/storage-migration.js?v=20260927-1018"></script>
+  <script src="../../shared/identity/identity-health.js?v=20260927-1018"></script>
+  <script src="../../shared/auth/session-lifecycle.js?v=20260927-1018"></script>
+  <script src="../../shared/auth/auth-service.js?v=20260927-1018"></script>
+  <script src="../../shared/identity/identity-service.js?v=20260927-1018"></script>
+  <script src="../../shared/auth/session-service.js?v=20260927-1018"></script>
+  <script src="../../shared/supabase/supabase-gateway.js?v=20260927-1018"></script>
+  <script src="../../shared/auth/app-access-service.js?v=20260927-1018"></script>
+  <script src="../../shared/auth/app-access-gate.js?v=20260927-1018"></script>
+  <script src="../../shared/identity/creator-resolver.js?v=20260927-1018"></script>
+  <script src="../../shared/components/zhuge-navigation.js?v=20260927-1018"></script>
+  <script src="../../shared/components/zhuge-shell.js?v=20260927-1018"></script>
+  <script src="../../shared/components/global-floating-hub.js?v=20260927-1018"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./services/skyeye-contract.js?v=20260927-1018"></script>
+  <script src="./services/skyeye-overlay-contract.js?v=20260927-1018"></script>
+  <script src="./skyeye-app.js?v=20260927-1018"></script>
+</body>
+</html>
