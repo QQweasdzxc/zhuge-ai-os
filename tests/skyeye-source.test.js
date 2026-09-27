@@ -6,13 +6,15 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
-test("SkyEye is a mobile-only shared-navigation entry, not a desktop destination", () => {
+test("SkyEye is a shared location-centric navigation entry across desktop and mobile", () => {
   const nav = read("shared/components/zhuge-navigation.js");
+  const appConfig = read("shared/app-config.js");
   const css = read("shared/theme/zhuge-navigation.css");
   assert.match(nav, /skyeye:\s*\{ icon: "🛰️", label: "天眼"/);
   assert.match(nav, /skyeye:\s*"modules\/skyeye\/"/);
-  assert.match(css, /data-nav-group="mobile"/);
-  assert.match(css, /@media\(max-width:767px\).*data-nav-group="mobile"/s);
+  assert.match(nav, /skyeye:[\s\S]{0,120}group: "live"/);
+  assert.match(appConfig, /skyeye:[\s\S]{0,120}group: "live"/);
+  assert.doesNotMatch(css, /data-nav-group="mobile"/);
 });
 
 test("SkyEye client requests the read adapter through the Shared Gateway and discovers CCTV with location", () => {
@@ -39,6 +41,9 @@ test("SkyEye uses the bounded map overlay contract and lazy CCTV presentation", 
   const overlay = read("modules/skyeye/services/skyeye-overlay-contract.js");
   assert.match(html, /data-skyeye-overlays/);
   assert.match(html, /skyeye-overlay-contract\.js/);
+  assert.doesNotMatch(html, /skyeye-desktop-guard/);
+  assert.match(html, /skyeye-evidence-panel/);
+  assert.match(css, /skyeye-desktop-panel-width/);
   assert.match(app, /overlayContract\.open/);
   assert.match(app, /overlayContract\.minimize/);
   assert.match(app, /overlayContract\.expand/);

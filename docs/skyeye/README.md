@@ -1,13 +1,15 @@
-# Zhuge SkyEye Mobile Read Contract
+# Zhuge SkyEye Location-Centric Read Contract
 
-`modules/skyeye/` is a mobile-only, authenticated read surface inside the
-existing Shared Shell. It does not create a second map product, persist map
-data, or alter Investment / Module C contracts.
+`modules/skyeye/` is an authenticated location-centric read surface inside the
+existing Shared Shell. Desktop and mobile share the same map, evidence,
+provider and CCTV lifecycle; only the presentation changes at the responsive
+breakpoint. It does not create a second map product, persist map data, or
+alter Investment / Module C contracts.
 
 ## Runtime path
 
 ```text
-Mobile Shared Navigation
+Shared Navigation
   -> modules/skyeye/
   -> Shared Supabase Gateway (authenticated session)
   -> zhuge-skyeye-read (read-only Edge adapter)

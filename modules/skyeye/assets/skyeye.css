@@ -4,20 +4,7 @@ body.skyeye-page { margin: 0; background: #08111d; color: #edf6ff; }
 body.skyeye-page .zhuge-module-shell { min-height: 100svh; }
 body.skyeye-page .skyeye-app { min-width: 0; }
 
-.skyeye-desktop-guard {
-  display: grid;
-  min-height: min(540px, 75svh);
-  place-items: center;
-  padding: 32px;
-  border: 1px solid rgba(148, 163, 184, .22);
-  border-radius: 20px;
-  background: #101d2d;
-  color: #d9e8f5;
-  text-align: center;
-}
-.skyeye-desktop-guard strong { display: block; margin-bottom: 8px; font-size: 1.2rem; }
-.skyeye-desktop-guard p { max-width: 34rem; margin: 0; color: #a9bfd2; line-height: 1.6; }
-
+.skyeye-stage,
 .skyeye-mobile-stage {
   position: relative;
   isolation: isolate;
@@ -237,15 +224,10 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 .skyeye-state[data-state="error"] { color: #fecdd3; }
 .skyeye-state[data-state="success"] { color: #bbf7d0; }
 
-@media (min-width: 768px) {
-  .skyeye-mobile-stage { display: none; }
-  body.skyeye-page .skyeye-desktop-guard { display: grid; }
-}
 @media (max-width: 767px) {
   body.skyeye-page .zhuge-module-shell { padding: 0; }
   body.skyeye-page .skyeye-app { width: 100%; }
-  .skyeye-desktop-guard { display: none; }
-  .skyeye-mobile-stage { border-radius: 0; }
+  .skyeye-stage, .skyeye-mobile-stage { border-radius: 0; }
   .skyeye-bottom-sheet { right: 8px; left: 8px; }
 }
 @media (max-width: 380px) {
@@ -295,6 +277,7 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 .skyeye-search-result strong { font-size: .75rem; }
 .skyeye-search-result small { margin-top: 3px; color: #bdd1df; font-size: .64rem; }
 .skyeye-bottom-sheet { z-index: 35; max-height: min(62svh, 520px); transition: max-height .2s ease, transform .2s ease; overscroll-behavior: contain; }
+.skyeye-panel-kicker { display: none; margin: 0 0 8px; color: #9bd7e8; font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .skyeye-bottom-sheet[data-sheet-state="collapsed"] { max-height: min(166px, 25svh); }
 .skyeye-bottom-sheet[data-sheet-state="half"] { max-height: min(46svh, 390px); }
 .skyeye-bottom-sheet[data-sheet-state="expanded"] { max-height: min(calc(var(--skyeye-visual-height, 100svh) - 20px), 720px); }
@@ -330,4 +313,85 @@ body.skyeye-page .skyeye-app { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .skyeye-bottom-sheet { transition: none; }
+}
+
+/* Desktop uses the same Location-Centric V2 stage and stateful evidence
+ * surface. Only presentation changes: the map remains primary and the
+ * mobile sheet becomes a persistent right-side panel. */
+@media (min-width: 768px) {
+  body.skyeye-page .skyeye-stage,
+  body.skyeye-page .skyeye-mobile-stage {
+    --skyeye-desktop-panel-width: clamp(320px, 34vw, 460px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--skyeye-desktop-panel-width);
+    grid-template-rows: minmax(0, 1fr);
+    height: calc(100svh - 36px);
+    min-height: 620px;
+    border-radius: 20px;
+  }
+  body.skyeye-page .skyeye-map {
+    position: relative;
+    inset: auto;
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    width: auto;
+    height: 100%;
+  }
+  body.skyeye-page .skyeye-overlay-layer {
+    top: 0;
+    right: var(--skyeye-desktop-panel-width);
+    bottom: 0;
+    left: 0;
+  }
+  body.skyeye-page .skyeye-topbar {
+    top: max(18px, var(--zhuge-safe-area-top));
+    right: calc(var(--skyeye-desktop-panel-width) + 18px);
+    left: 18px;
+  }
+  body.skyeye-page .skyeye-location-controls {
+    top: max(92px, calc(var(--zhuge-safe-area-top) + 76px));
+    right: calc(var(--skyeye-desktop-panel-width) + 18px);
+    left: 18px;
+  }
+  body.skyeye-page .skyeye-status-pill {
+    position: absolute;
+    bottom: 18px;
+    left: 18px;
+    z-index: 31;
+  }
+  body.skyeye-page .skyeye-bottom-sheet {
+    position: relative;
+    inset: auto;
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    height: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow: auto;
+    padding: 24px 20px calc(24px + var(--zhuge-safe-area-bottom));
+    border-width: 0 0 0 1px;
+    border-radius: 0;
+    background: rgba(7, 17, 31, .96);
+    box-shadow: none;
+  }
+  body.skyeye-page .skyeye-bottom-sheet[data-sheet-state="collapsed"],
+  body.skyeye-page .skyeye-bottom-sheet[data-sheet-state="half"],
+  body.skyeye-page .skyeye-bottom-sheet[data-sheet-state="expanded"] {
+    max-height: none;
+  }
+  body.skyeye-page .skyeye-sheet-handle { display: none; }
+  body.skyeye-page .skyeye-panel-kicker { display: block; }
+  body.skyeye-page .skyeye-layer-grid { grid-template-columns: 1fr; }
+  body.skyeye-page .skyeye-sheet-mode-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.skyeye-page .skyeye-sheet-mode-actions button { min-width: 0; padding: 0 6px; }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  body.skyeye-page .skyeye-stage,
+  body.skyeye-page .skyeye-mobile-stage {
+    height: min(760px, calc(100svh - 36px));
+    min-height: 560px;
+  }
 }

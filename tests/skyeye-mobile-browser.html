@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>SkyEye mobile browser guard</title>
+  <title>SkyEye responsive browser fixture</title>
   <link rel="stylesheet" href="../shared/theme/tokens.css">
   <link rel="stylesheet" href="../shared/theme/responsive-modernization.css">
   <link rel="stylesheet" href="../modules/skyeye/assets/skyeye.css">
@@ -11,11 +11,7 @@
 <body class="skyeye-page">
   <div class="zhuge-module-shell skyeye-shell">
     <main class="app skyeye-app" aria-label="SkyEye browser fixture">
-      <section class="skyeye-desktop-guard" aria-label="天眼使用限制">
-        <strong>🛰️ 天眼目前提供手機版地圖</strong>
-        <p>請使用手機寬度開啟天眼。</p>
-      </section>
-      <section class="skyeye-mobile-stage" data-skyeye-stage>
+      <section class="skyeye-stage skyeye-mobile-stage" data-skyeye-stage>
         <div class="skyeye-topbar">
           <div><h1>🛰️ 天眼</h1><p data-skyeye-location-label>📍 板橋車站附近</p><small data-skyeye-location-accuracy>由地點搜尋</small></div>
           <div class="skyeye-topbar-actions">
@@ -37,13 +33,14 @@
           <div class="skyeye-minimized-stack"><button class="skyeye-minimized-window" type="button"><span>🌦️</span><span>天氣</span><small>展開</small></button><button class="skyeye-minimized-window" type="button"><span>🌏</span><span>地震</span><small>展開</small></button></div>
         </div>
         <div class="skyeye-status-pill" data-state="loading" role="status">正在確認資料來源…</div>
-        <section class="skyeye-bottom-sheet" data-skyeye-sheet data-sheet-state="collapsed" aria-label="天眼圖層與資料詳情">
+        <aside class="skyeye-bottom-sheet skyeye-evidence-panel" data-skyeye-sheet data-sheet-state="collapsed" aria-label="天眼圖層與資料詳情">
           <button type="button" class="skyeye-sheet-handle" aria-label="拖曳查看天眼資料"></button>
+          <p class="skyeye-panel-kicker">SkyEye evidence</p>
           <div class="skyeye-sheet-heading"><h2><span>摘要</span><small>｜板橋車站附近</small></h2><button type="button" aria-label="關閉資料詳情">×</button></div>
           <div class="skyeye-sheet-mode-actions"><button type="button" data-skyeye-sheet-to="collapsed">摘要</button><button type="button" data-skyeye-sheet-to="half">圖層</button><button type="button" data-skyeye-sheet-to="expanded">完整資料</button></div>
           <div class="skyeye-layer-grid"><button class="skyeye-layer-button" type="button" aria-pressed="true" data-state="available">📹 CCTV｜附近 12 支<small>可用</small></button><button class="skyeye-layer-button" type="button" aria-pressed="false" data-state="available">🌦️ 天氣<small>可用</small></button><button class="skyeye-layer-button" type="button" aria-pressed="false" data-state="empty">🍃 空氣品質<small>此區域沒有資料</small></button></div>
           <div class="skyeye-evidence-summary"><strong>諸葛目前畫面摘要</strong><p>目前只根據已載入 evidence 整理。</p></div>
-        </section>
+        </aside>
       </section>
     </main>
   </div>
@@ -57,6 +54,25 @@
         document.querySelector('[data-skyeye-location-label]').textContent = '📍 板橋車站附近';
         results.hidden = true;
       });
+    });
+    document.querySelector('[data-skyeye-my-location]').addEventListener('click', () => {
+      navigator.geolocation?.getCurrentPosition?.(
+        position => {
+          document.querySelector('[data-skyeye-location-label]').textContent = '📍 我的附近';
+          document.querySelector('[data-skyeye-location-accuracy]').textContent = `定位精度約 ${Math.round(position.coords.accuracy)}m`;
+          document.querySelector('.skyeye-status-pill').textContent = '已取得目前位置';
+          document.querySelector('.skyeye-status-pill').dataset.state = 'success';
+        },
+        () => {
+          document.querySelector('[data-skyeye-location-label]').textContent = '📍 請搜尋地點';
+          document.querySelector('.skyeye-status-pill').textContent = '定位未允許，仍可搜尋地點';
+          document.querySelector('.skyeye-status-pill').dataset.state = 'warning';
+        }
+      );
+    });
+    document.querySelector('[data-skyeye-search-area]').addEventListener('click', () => {
+      document.querySelector('.skyeye-status-pill').textContent = '已搜尋目前地圖範圍';
+      document.querySelector('.skyeye-status-pill').dataset.state = 'success';
     });
     document.querySelectorAll('[data-skyeye-sheet-to]').forEach(button => button.addEventListener('click', () => {
       document.querySelector('[data-skyeye-sheet]').dataset.sheetState = button.dataset.skyeyeSheetTo;

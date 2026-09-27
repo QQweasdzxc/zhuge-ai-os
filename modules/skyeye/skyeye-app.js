@@ -1,4 +1,4 @@
-/* Zhuge SkyEye mobile consumer.
+/* Zhuge SkyEye location-centric consumer.
  *
  * This module owns presentation and map interaction only. Auth/session and
  * Edge invocation remain the existing Shared Gateway contracts. No browser
@@ -35,7 +35,8 @@
     areaSearchTimer: null,
     suppressMapEvents: false,
     overlayWindows: [],
-    overlayViewportWired: false
+    overlayViewportWired: false,
+    visualViewportWired: false
   };
 
   const $ = selector => document.querySelector(selector);
@@ -731,11 +732,16 @@
   }
 
   function wireVisualViewport() {
+    if (state.visualViewportWired) return;
+    state.visualViewportWired = true;
     const update = () => {
       const viewportHeight = Number(window.visualViewport?.height) || window.innerHeight;
       document.documentElement.style.setProperty("--skyeye-visual-height", `${Math.max(240, viewportHeight)}px`);
+      window.requestAnimationFrame?.(() => state.map?.invalidateSize?.({ animate: false }));
     };
     update();
+    window.addEventListener("resize", update, { passive: true });
+    window.addEventListener("orientationchange", update, { passive: true });
     window.visualViewport?.addEventListener("resize", update, { passive: true });
     window.visualViewport?.addEventListener("scroll", update, { passive: true });
   }
