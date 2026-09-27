@@ -1,0 +1,14 @@
+{
+  "name": "zhuge-ai-os-browser-regression",
+  "private": true,
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:browser": "node tests/run-browser-regression.js"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}

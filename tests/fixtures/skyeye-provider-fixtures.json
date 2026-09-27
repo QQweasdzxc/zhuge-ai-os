@@ -1,0 +1,58 @@
+{
+  "weather": {
+    "records": [
+      {
+        "StationName": "臺北",
+        "StationId": "C0A980",
+        "GeoInfo": { "Coordinates": [121.56, 25.04] },
+        "WeatherElement": [
+          { "ElementName": "AirTemperature", "ElementValue": { "Temperature": "27.2" } }
+        ],
+        "ObsTime": { "DateTime": "2026-09-26T00:00:00+08:00" }
+      }
+    ]
+  },
+  "earthquake": {
+    "Earthquake": [
+      {
+        "EarthquakeNo": "E0001",
+        "EarthquakeInfo": {
+          "OriginTime": "2026-09-25T23:40:00+08:00",
+          "FocalDepth": 18,
+          "Epicenter": {
+            "Location": "花蓮近海",
+            "EpicenterLatitude": 23.95,
+            "EpicenterLongitude": 121.65
+          },
+          "EarthquakeMagnitude": { "MagnitudeValue": 4.2 }
+        }
+      }
+    ]
+  },
+  "aqi": {
+    "records": [
+      {
+        "sitename": "臺北",
+        "siteid": "1",
+        "latitude": "25.04",
+        "longitude": "121.56",
+        "aqi": "42",
+        "publishtime": "2026-09-26 00:00"
+      }
+    ]
+  },
+  "cctv": {
+    "CCTV": [
+      {
+        "CCTVID": "TPE-001",
+        "RoadName": "忠孝東路",
+        "PositionLat": 25.041,
+        "PositionLon": 121.545,
+        "UpdateTime": "2026-09-26T00:00:00+08:00",
+        "VideoImageUrl": "https://example.invalid/cctv.jpg",
+        "VideoStreamUrl": "https://example.invalid/cctv.m3u8"
+      }
+    ]
+  },
+  "malformed": { "result": { "message": "not a row collection" } }
+}

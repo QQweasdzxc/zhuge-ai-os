@@ -1,0 +1,6 @@
+@import url("./variables.css");
+
+:root {
+  color-scheme: dark;
+  --zhuge-surface: var(--zhuge-color-panel);
+}

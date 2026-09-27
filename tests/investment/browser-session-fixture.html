@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8">
+    <title>Investment SIT Session Fixture</title>
+  </head>
+  <body>
+    <p>Preparing a fake Shared Session for local browser SIT…</p>
+    <script>
+      localStorage.setItem("zhuge_ai_os_session_v1", JSON.stringify({
+        user_uuid: "550e8400-e29b-41d4-a716-446655440000",
+        email: "sit@example.test",
+        name: "SIT Reviewer",
+        provider: "google",
+        expires_at: 4102444800000,
+        aal: "aal1"
+      }));
+      location.replace("../../modules/investment/");
+    </script>
+  </body>
+</html>
