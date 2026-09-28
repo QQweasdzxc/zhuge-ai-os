@@ -189,6 +189,10 @@
       "server/providers/taiwan/orchestrator.js",
       "server/providers/taiwan/reservoir.js",
       "server/providers/taiwan/reservoir.test.mjs",
+      "server/providers/taiwan/reservoirShapes.js",
+      "server/providers/taiwan/reservoirShapes.test.mjs",
+      "server/providers/taiwan/tdx.js",
+      "server/providers/taiwan/tdx.test.mjs",
       "server/providers/common/http.js",
       "src/data/taiwanProviderContract.js",
       "src/sources/httpBody.js"
@@ -201,6 +205,16 @@
       "src/layers/taiwanFreeway/index.js",
       "src/layers/taiwanFreeway/index.test.mjs",
       "src/layers/taiwanFreeway/source.js"
+    ],
+    "external": ["cesium"]
+  },
+  "taiwan-reservoir-layer": {
+    "exports": ["./layers/taiwan-reservoir"],
+    "modules": [
+      "src/layers/taiwanReservoir/index.js",
+      "src/layers/taiwanReservoir/index.test.mjs",
+      "src/layers/taiwanReservoir/source.js",
+      "src/layers/taiwanReservoir/source.test.mjs"
     ],
     "external": ["cesium"]
   },
@@ -1394,6 +1408,8 @@
       "src/layers/wind/source.js",
       "src/layers/taiwanFreeway/index.js",
       "src/layers/taiwanFreeway/source.js",
+      "src/layers/taiwanReservoir/index.js",
+      "src/layers/taiwanReservoir/source.js",
       "src/sources/windBody.js",
       "src/data/detection.js",
       "src/data/detectionCohort.js",
@@ -2034,6 +2050,8 @@
       "src/layers/weather/rasterTiles.js",
       "src/layers/taiwanFreeway/index.js",
       "src/layers/taiwanFreeway/source.js",
+      "src/layers/taiwanReservoir/index.js",
+      "src/layers/taiwanReservoir/source.js",
       "src/app/layers/aisLiveVessels.js",
       "src/app/layers/alprCameras.js",
       "src/app/layers/bikeshare.js",

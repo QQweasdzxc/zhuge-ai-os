@@ -548,6 +548,11 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     disposition: 'enabled-only',
   }),
   Object.freeze({
+    id: 'taiwan-reservoirs',
+    token: '5',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
     id: 'telegeography-submarine-cables',
     token: 'u',
     disposition: 'enabled-only',

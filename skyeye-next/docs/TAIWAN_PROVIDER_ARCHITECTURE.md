@@ -80,9 +80,16 @@ The Taiwan reservoir source is now confirmed independently of the Jimmy gateway:
 the read-only adapter uses the Water Resources Agency daily reservoir operation
 dataset, normalizes only published fields, bounds the response, coalesces
 concurrent reads, and serves stale evidence when a previously successful source
-becomes unavailable. The route is `/api/taiwan/reservoirs`; it is not yet a
-Jimmy-parity layer consumer, so the parity matrix remains `PARTIAL` until a
-candidate layer and visual/interaction proof are added.
+becomes unavailable. The route is `/api/taiwan/reservoirs`; it remains the
+canonical daily-facts boundary for the Taiwan reservoir layer.
+
+The candidate now also reads the official WRA reservoir storage-range WFS
+GeoJSON at `/api/taiwan/reservoirs/shapes`. The server bounds the response,
+reduces only the published Taiwan geometry for browser use, and never returns
+the source FeatureCollection. `src/layers/taiwanReservoir` joins the shape
+names to the daily operation records and renders bounded reservoir
+outlines/selection points. The daily facts and geometry have separate
+freshness evidence; a missing daily match does not invent a value for the map.
 
 ## MOENV AQI foundation
 

@@ -44,6 +44,7 @@ const PANEL_GROUPS = [
       'local-datacenters',
       'telegeography-submarine-cables',
       'local-dams',
+      'taiwan-reservoirs',
     ],
   },
   {
@@ -76,6 +77,7 @@ const PANEL_LABELS = {
   bikeshare: 'Bike Share',
   'taiwan-freeway-live': 'Taiwan freeway traffic',
   'taiwan-freeway-cms': 'Taiwan CMS boards',
+  'taiwan-reservoirs': 'Taiwan reservoirs',
   cctv: 'Cameras',
   'alpr-cameras': 'Mapped ALPR Cameras',
   'local-datacenters': 'Data Centers',

@@ -33,4 +33,18 @@ export {
   reservoirProxy,
   WRA_RESERVOIR_URL,
 } from './taiwan/reservoir.js';
+export {
+  parseWraReservoirShapesGeoJson,
+  reservoirShapesProxy,
+  WRA_RESERVOIR_SHAPES_URL,
+} from './taiwan/reservoirShapes.js';
+export {
+  parseTdxMetroLivePayload,
+  parseTdxRailLivePayload,
+  TDX_API_BASE_URL,
+  TDX_RAIL_LIVE_URL,
+  TDX_TOKEN_URL,
+  tdxProxy,
+  tdxSecretNames,
+} from './taiwan/tdx.js';
 export { createTaiwanDataOrchestrator } from './taiwan/orchestrator.js';

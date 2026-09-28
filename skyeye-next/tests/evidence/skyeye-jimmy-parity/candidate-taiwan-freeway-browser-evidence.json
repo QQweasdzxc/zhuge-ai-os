@@ -14,8 +14,8 @@
       "status": "available",
       "stale": false,
       "entityCount": 680,
-      "dataTimestamp": "2026-09-27T23:39:00.000Z",
-      "fetchedAt": "2026-09-27T23:40:08.577Z",
+      "dataTimestamp": "2026-09-28T00:28:00.000Z",
+      "fetchedAt": "2026-09-28T00:30:02.380Z",
       "rawResponseReturned": false,
       "cache": "miss"
     },
@@ -26,8 +26,8 @@
       "status": "available",
       "stale": false,
       "entityCount": 1121,
-      "dataTimestamp": "2026-09-27T23:38:00.000Z",
-      "fetchedAt": "2026-09-27T23:40:08.618Z",
+      "dataTimestamp": "2026-09-28T00:26:00.000Z",
+      "fetchedAt": "2026-09-28T00:30:02.576Z",
       "rawResponseReturned": false,
       "cache": "miss"
     },
@@ -38,8 +38,8 @@
       "status": "available",
       "stale": false,
       "entityCount": 465,
-      "dataTimestamp": "2026-09-27T23:38:47.000Z",
-      "fetchedAt": "2026-09-27T23:39:11.056Z",
+      "dataTimestamp": "2026-09-28T00:26:50.000Z",
+      "fetchedAt": "2026-09-28T00:27:24.259Z",
       "rawResponseReturned": false,
       "cache": "fresh"
     },
@@ -50,8 +50,8 @@
       "status": "available",
       "stale": false,
       "entityCount": 1121,
-      "dataTimestamp": "2026-09-27T23:05:15.000Z",
-      "fetchedAt": "2026-09-27T23:39:11.118Z",
+      "dataTimestamp": "2026-09-28T00:05:15.000Z",
+      "fetchedAt": "2026-09-28T00:27:24.325Z",
       "rawResponseReturned": false,
       "cache": "fresh"
     }
@@ -61,7 +61,7 @@
       "stats": {
         "count": 465,
         "countLabel": "465",
-        "lastUpdate": "2026-09-27T23:40:08.577Z",
+        "lastUpdate": "2026-09-28T00:30:02.380Z",
         "loading": false,
         "stale": false,
         "status": "available",
@@ -75,7 +75,7 @@
       "stats": {
         "count": 1121,
         "countLabel": "1121",
-        "lastUpdate": "2026-09-27T23:40:08.618Z",
+        "lastUpdate": "2026-09-28T00:30:02.576Z",
         "loading": false,
         "stale": false,
         "status": "available",

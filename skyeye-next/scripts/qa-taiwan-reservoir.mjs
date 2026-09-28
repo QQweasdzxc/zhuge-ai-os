@@ -2,9 +2,8 @@
 /**
  * Browser proof for the Taiwan WRA reservoir provider foundation.
  *
- * This is intentionally a provider-contract proof, not a Jimmy visual-parity
- * claim: the candidate has no reservoir layer consumer yet. Only sanitized
- * metadata is persisted; the WRA response body is never written to evidence.
+ * This records sanitized WRA provider and Taiwan reservoir-layer evidence;
+ * neither the daily JSON nor the source KML is written to evidence.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -95,37 +94,104 @@ try {
       cache: 'no-store',
     });
     const body = await response.json();
+    const shapesResponse = await fetch('/api/taiwan/reservoirs/shapes', {
+      cache: 'no-store',
+    });
+    const shapes = await shapesResponse.json();
     return {
-      httpStatus: response.status,
-      providerId: body?.providerId || null,
-      source: body?.source || null,
-      status: body?.status || null,
-      stale: Boolean(body?.stale),
-      entityCount: Array.isArray(body?.entities) ? body.entities.length : 0,
-      firstEntity: Array.isArray(body?.entities) && body.entities[0]
-        ? {
-            id: body.entities[0].id || null,
-            name: body.entities[0].name || null,
-            observedAt: body.entities[0].observedAt || null,
-          }
-        : null,
-      dataTimestamp: body?.dataTimestamp || null,
-      fetchedAt: body?.fetchedAt || null,
-      attribution: body?.attribution || null,
-      license: body?.license || null,
-      geographicCoverage: body?.geographicCoverage || null,
-      cache: body?.providerMetadata?.cache || null,
-      rawResponseReturned: Boolean(body?.providerMetadata?.rawResponseReturned),
+      daily: {
+        httpStatus: response.status,
+        providerId: body?.providerId || null,
+        source: body?.source || null,
+        status: body?.status || null,
+        stale: Boolean(body?.stale),
+        entityCount: Array.isArray(body?.entities) ? body.entities.length : 0,
+        firstEntity: Array.isArray(body?.entities) && body.entities[0]
+          ? {
+              id: body.entities[0].id || null,
+              name: body.entities[0].name || null,
+              observedAt: body.entities[0].observedAt || null,
+            }
+          : null,
+        dataTimestamp: body?.dataTimestamp || null,
+        fetchedAt: body?.fetchedAt || null,
+        attribution: body?.attribution || null,
+        license: body?.license || null,
+        geographicCoverage: body?.geographicCoverage || null,
+        cache: body?.providerMetadata?.cache || null,
+        rawResponseReturned: Boolean(body?.providerMetadata?.rawResponseReturned),
+      },
+      shapes: {
+        httpStatus: shapesResponse.status,
+        providerId: shapes?.providerId || null,
+        status: shapes?.status || null,
+        stale: Boolean(shapes?.stale),
+        entityCount: Array.isArray(shapes?.entities) ? shapes.entities.length : 0,
+        firstName: shapes?.entities?.[0]?.name || null,
+        geometryCount: Array.isArray(shapes?.entities)
+          ? shapes.entities.reduce((sum, entity) => sum + (entity.rings?.length || 0), 0)
+          : 0,
+        sourceUrl: shapes?.providerMetadata?.sourceUrl || null,
+        license: shapes?.license || null,
+        rawResponseReturned: Boolean(shapes?.providerMetadata?.rawResponseReturned),
+      },
     };
   });
+  await page.evaluate(() =>
+    window.__godsEyeView.dataManager.setEnabled('taiwan-reservoirs', true, {
+      source: 'qa',
+    }),
+  );
+  await page.waitForFunction(
+    () => {
+      const entry = window.__godsEyeView.dataManager.layers.get('taiwan-reservoirs');
+      const stats = entry?.module?.getStats?.();
+      return Boolean(entry?.enabled && stats && !stats.loading && stats.status === 'available');
+    },
+    { timeout: 60_000 },
+  );
+  const layer = await page.evaluate(() => {
+    const entry = window.__godsEyeView.dataManager.layers.get('taiwan-reservoirs');
+    const dataSource = window.__godsEyeView.viewer.dataSources.getByName('taiwan-reservoirs')[0];
+    return {
+      stats: entry?.module?.getStats?.() || null,
+      entityCount: dataSource?.entities?.values?.length || 0,
+      analystCount: entry?.module?.getAnalystRecords?.().length || 0,
+    };
+  });
+  await page.evaluate(async () => {
+    const viewer = window.__godsEyeView.viewer;
+    const dataSource = viewer.dataSources.getByName('taiwan-reservoirs')[0];
+    if (dataSource) await viewer.flyTo(dataSource);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 1_500));
+  const screenshotPath = path.join(
+    evidenceDir,
+    'candidate-taiwan-reservoir-layer.png',
+  );
+  await page.screenshot({ path: screenshotPath, fullPage: false });
   evidence.result = result;
+  evidence.layer = { ...layer, screenshot: path.relative(repoRoot, screenshotPath) };
   evidence.requests = requests;
   evidence.responses = responses;
   evidence.consoleErrors = consoleErrors;
   evidence.pageErrors = pageErrors;
-  if (result.httpStatus !== 200 || result.providerId !== 'taiwan.wra.reservoir')
+  if (
+    result.daily.httpStatus !== 200 ||
+    result.daily.providerId !== 'taiwan.wra.reservoir' ||
+    result.shapes.httpStatus !== 200 ||
+    result.shapes.providerId !== 'taiwan.wra.reservoir-shapes' ||
+    result.shapes.entityCount === 0 ||
+    layer.entityCount === 0 ||
+    layer.stats?.status !== 'available'
+  )
     throw new Error(`WRA reservoir provider proof failed: ${JSON.stringify(result)}`);
-  if (result.rawResponseReturned || consoleErrors.length || pageErrors.length)
+  if (
+    result.daily.rawResponseReturned ||
+    result.shapes.rawResponseReturned ||
+    consoleErrors.length ||
+    pageErrors.length
+  )
     throw new Error(`WRA reservoir evidence was not sanitized: ${JSON.stringify({ result, consoleErrors, pageErrors })}`);
 } finally {
   await browser.close();

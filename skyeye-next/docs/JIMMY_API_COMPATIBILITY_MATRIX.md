@@ -12,11 +12,11 @@ The paths below are compatibility observations from normal browser navigation. T
 | `/api/traffic` | GET incident JSON | Official Taiwan source must be identified | `ADAPTER_REQUIRED` |
 | `/api/freeway/live` | GET highway data | Official source must be identified | `SERVER_PROXY_REQUIRED` |
 | `/api/cms/live` | GET CMS board data | Official source must be identified | `ADAPTER_REQUIRED` |
-| `/api/rail/live` | GET rail data | Official source must be identified | `ADAPTER_REQUIRED` |
-| `/api/tdx/metro/crowd` | GET; 429 in recon | TDX server cache/coalescing/backoff | `SERVER_PROXY_REQUIRED` |
-| `/api/reservoirs` | GET reservoir JSON | WRA/official adapter after terms review | `ADAPTER_REQUIRED` |
-| `/api/marine/ports` | GET 15-record port response | Exact source unknown | `UNKNOWN` |
-| `/api/geocode` | GET query result | Exact provider unknown | `UNKNOWN` |
+| `/api/rail/live` | GET rail data | `/api/taiwan/tdx/rail/live` (TDX OAuth, server-only) | `SERVER_PROXY_REQUIRED` |
+| `/api/tdx/metro/crowd` | GET; 429 in recon | TDX live-board adapter exists, but crowd contract remains unresolved | `BLOCKED_PROVIDER_UNKNOWN` |
+| `/api/reservoirs` | GET reservoir JSON | WRA daily operation adapter plus bounded WRA storage-range geometry at `/api/taiwan/reservoirs/shapes` | `ADAPTER_REQUIRED` |
+| `/api/marine/ports` | GET 15-record port response | Exact source unknown | `BLOCKED_PROVIDER_UNKNOWN` |
+| `/api/geocode` | GET query result | Exact provider unknown | `BLOCKED_PROVIDER_UNKNOWN` |
 | `/api/flightaware/live/flight/{callsign}` | GET HTML/proxy page | Proprietary page/data; never a Zhuge backend dependency | `NOT_RECOMMENDED` |
 | `/api/twipcam/*` | GET widget/catalog proxy paths | Reference-only gateway | `UNKNOWN` |
 
