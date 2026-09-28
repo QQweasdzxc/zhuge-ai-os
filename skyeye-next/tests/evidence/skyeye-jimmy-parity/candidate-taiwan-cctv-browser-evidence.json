@@ -13,7 +13,7 @@
       "tfl-open-data": 250,
       "fintraffic-open-data": 300,
       "drivebc-open-data": 250,
-      "txdot-its": 492,
+      "txdot-its": 500,
       "tallinn-ristmikud": 255,
       "tarktee-datex": 179,
       "municipal-webcam": 1,
@@ -22,7 +22,7 @@
       "deldot-open-data": 300,
       "taipei-open-data-metadata": 417,
       "new-taipei-open-data-metadata": 30,
-      "freeway-open-data": 519
+      "freeway-open-data": 511
     },
     "taipei": {
       "id": "taipei-cctv-001",
@@ -69,7 +69,7 @@
     "cameraId": "freeway-cctv-CCTV-N1-S-0-000-M",
     "status": 200,
     "contentType": "image/jpeg",
-    "byteLength": 24221,
+    "byteLength": 23917,
     "jpegSignature": true,
     "rawResponsePersisted": false
   },

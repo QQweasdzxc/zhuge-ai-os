@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   parseTdxMetroLivePayload,
+  parseTdxHighwayLivePayload,
   parseTdxRailLivePayload,
+  TDX_HIGHWAY_LIVE_URL,
   TDX_RAIL_LIVE_URL,
   TDX_TOKEN_URL,
   tdxProxy,
@@ -57,6 +59,27 @@ test('TDX metro live board is explicit and not mislabeled as crowd data', () => 
   assert.match(result.providerMetadata.sourceUrl, /Rail\/Metro\/LiveBoard\/TRTC/);
 });
 
+test('TDX highway live payload normalizes official read-only traffic fields', () => {
+  const result = parseTdxHighwayLivePayload(
+    [
+      {
+        RoadID: 'HW-1',
+        SectionID: 'HW-1-001',
+        RoadName: '台9線',
+        TravelTime: 420,
+        TravelSpeed: 36,
+        CongestionLevel: 2,
+        DataCollectTime: '2026-09-28T08:00:00+08:00',
+      },
+    ],
+    Date.parse('2026-09-28T00:05:00Z'),
+  );
+  assert.equal(result.providerId, 'taiwan.tdx.highway-live');
+  assert.equal(result.entities[0].sectionId, 'HW-1-001');
+  assert.equal(result.entities[0].travelSpeedKph, 36);
+  assert.equal(new URL(TDX_HIGHWAY_LIVE_URL).pathname, '/api/basic/v2/Road/Traffic/Live/Highway');
+});
+
 test('TDX adapter fails closed without credentials and does not call token or data endpoints', async () => {
   let calls = 0;
   const proxy = tdxProxy({
@@ -96,6 +119,23 @@ test('TDX adapter fails closed without credentials and does not call token or da
   ]);
   assert.equal(calls, 0);
   assert.equal(TDX_TOKEN_URL.includes('/auth/realms/TDXConnect/protocol/openid-connect/token'), true);
+});
+
+test('TDX highway route fails closed without credentials', async () => {
+  const proxy = tdxProxy({
+    resolveClientId: () => '',
+    resolveClientSecret: () => '',
+    fetchImpl: async () => { throw new Error('unexpected upstream call'); },
+  });
+  const routes = new Map();
+  proxy.configureServer({ middlewares: { use(path, handler) { routes.set(path, handler); } } });
+  const out = { destroyed: false, writeHead(status) { this.status = status; }, end(body) { this.body = body; } };
+  await routes.get('/api/taiwan/tdx')({ method: 'GET', url: '/highway/live' }, out);
+  const body = JSON.parse(out.body);
+  assert.equal(out.status, 200);
+  assert.equal(body.providerId, 'taiwan.tdx.highway-live');
+  assert.equal(body.status, 'provider_not_configured');
+  assert.equal(body.providerMetadata.upstreamCalled, false);
 });
 
 test('TDX adapter rejects unsupported operators before upstream access', async () => {

@@ -49,6 +49,7 @@
     "qa:taiwan-reservoir": "node scripts/qa-taiwan-reservoir.mjs",
     "qa:taiwan-aqi": "node scripts/qa-taiwan-aqi.mjs",
     "qa:taiwan-tdx": "node scripts/qa-taiwan-tdx.mjs",
+    "qa:taiwan-information": "node scripts/qa-taiwan-information.mjs",
     "qa:taiwan-freeway": "node scripts/qa-taiwan-freeway.mjs",
     "check:boundaries": "node scripts/check-import-directions.mjs && node scripts/check-package-boundaries.mjs",
     "qa:transit": "node scripts/qa-transit.mjs"
@@ -76,6 +77,7 @@
   "exports": {
     "./layers/taiwan-freeway": "./src/layers/taiwanFreeway/index.js",
     "./layers/taiwan-reservoir": "./src/layers/taiwanReservoir/index.js",
+    "./layers/taiwan-marine": "./src/layers/taiwanMarine/index.js",
     "./server/providers/taiwan": {
       "node": "./server/providers/taiwan.js"
     },

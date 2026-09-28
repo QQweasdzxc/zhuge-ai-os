@@ -187,6 +187,12 @@
       "server/providers/taiwan/freeway.test.mjs",
       "server/providers/taiwan/nlsc.js",
       "server/providers/taiwan/orchestrator.js",
+      "server/providers/taiwan/geocode.js",
+      "server/providers/taiwan/geocode.test.mjs",
+      "server/providers/taiwan/marine.js",
+      "server/providers/taiwan/marine.test.mjs",
+      "server/providers/taiwan/ports.js",
+      "server/providers/taiwan/ports.test.mjs",
       "server/providers/taiwan/reservoir.js",
       "server/providers/taiwan/reservoir.test.mjs",
       "server/providers/taiwan/reservoirShapes.js",
@@ -215,6 +221,16 @@
       "src/layers/taiwanReservoir/index.test.mjs",
       "src/layers/taiwanReservoir/source.js",
       "src/layers/taiwanReservoir/source.test.mjs"
+    ],
+    "external": ["cesium"]
+  },
+  "taiwan-marine-layer": {
+    "exports": ["./layers/taiwan-marine"],
+    "modules": [
+      "src/layers/taiwanMarine/index.js",
+      "src/layers/taiwanMarine/index.test.mjs",
+      "src/layers/taiwanMarine/source.js",
+      "src/layers/taiwanMarine/source.test.mjs"
     ],
     "external": ["cesium"]
   },
@@ -1408,6 +1424,8 @@
       "src/layers/wind/source.js",
       "src/layers/taiwanFreeway/index.js",
       "src/layers/taiwanFreeway/source.js",
+      "src/layers/taiwanMarine/index.js",
+      "src/layers/taiwanMarine/source.js",
       "src/layers/taiwanReservoir/index.js",
       "src/layers/taiwanReservoir/source.js",
       "src/sources/windBody.js",
@@ -2050,6 +2068,8 @@
       "src/layers/weather/rasterTiles.js",
       "src/layers/taiwanFreeway/index.js",
       "src/layers/taiwanFreeway/source.js",
+      "src/layers/taiwanMarine/index.js",
+      "src/layers/taiwanMarine/source.js",
       "src/layers/taiwanReservoir/index.js",
       "src/layers/taiwanReservoir/source.js",
       "src/app/layers/aisLiveVessels.js",

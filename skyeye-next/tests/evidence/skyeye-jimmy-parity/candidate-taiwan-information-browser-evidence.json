@@ -1,0 +1,146 @@
+{
+  "contract": "skyeye-jimmy-taiwan-information-layers-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180"
+  },
+  "rawResponseReturned": false,
+  "jimmyGatewayRequestCount": 0,
+  "providers": {
+    "marine": {
+      "path": "/api/taiwan/marine/wave",
+      "httpStatus": 200,
+      "providerId": "taiwan.marine.wave",
+      "source": "Institute of Transportation, Ministry of Transportation and Communications",
+      "status": "available",
+      "stale": false,
+      "entityCount": 48,
+      "dataTimestamp": "2026-09-28T00:00:00.000Z",
+      "fetchedAt": "2026-09-28T01:00:18.644Z",
+      "errorCode": null,
+      "cache": "miss",
+      "upstreamCalled": null,
+      "rawResponseReturned": false
+    },
+    "fishingPorts": {
+      "path": "/api/taiwan/ports/fishing",
+      "httpStatus": 200,
+      "providerId": "taiwan.moa.fishing-ports",
+      "source": "Ministry of Agriculture Taiwan Open Data",
+      "status": "available",
+      "stale": false,
+      "entityCount": 239,
+      "dataTimestamp": "2026-09-28T01:00:18.917Z",
+      "fetchedAt": "2026-09-28T01:00:18.917Z",
+      "errorCode": null,
+      "cache": "miss",
+      "upstreamCalled": null,
+      "rawResponseReturned": false
+    },
+    "highwayLive": {
+      "path": "/api/taiwan/tdx/highway/live",
+      "httpStatus": 200,
+      "providerId": "taiwan.tdx.highway-live",
+      "source": "TDX Transport Data eXchange, Ministry of Transportation and Communications",
+      "status": "provider_not_configured",
+      "stale": false,
+      "entityCount": 0,
+      "dataTimestamp": null,
+      "fetchedAt": "2026-09-28T01:00:18.921Z",
+      "errorCode": "PROVIDER_NOT_CONFIGURED",
+      "cache": "empty",
+      "upstreamCalled": false,
+      "rawResponseReturned": false
+    },
+    "geocode": {
+      "path": "/api/taiwan/geocode?q=%E5%8F%B0%E5%8C%97%E8%BB%8A%E7%AB%99",
+      "httpStatus": 200,
+      "providerId": "taiwan.geocoder.nlsc",
+      "source": "Taiwan National Land Surveying and Mapping Center",
+      "status": "provider_unavailable",
+      "stale": false,
+      "entityCount": 0,
+      "dataTimestamp": null,
+      "fetchedAt": "2026-09-28T01:00:19.013Z",
+      "errorCode": "NLSC_HTTP_404",
+      "cache": "miss",
+      "upstreamCalled": null,
+      "rawResponseReturned": false
+    }
+  },
+  "layer": {
+    "stats": {
+      "portCount": 239,
+      "count": 240,
+      "countLabel": "239",
+      "waveAvailable": true,
+      "lastUpdate": "2026-09-28T01:00:18.644Z",
+      "loading": false,
+      "stale": false,
+      "status": "available",
+      "error": null,
+      "source": "Taiwan official marine and fishing-port open data"
+    },
+    "entityCount": 240,
+    "analystCount": 240,
+    "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-marine-layer.png"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/marine/wave",
+      "search": ""
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/ports/fishing",
+      "search": ""
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/highway/live",
+      "search": ""
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/geocode",
+      "search": "?q=%E5%8F%B0%E5%8C%97%E8%BB%8A%E7%AB%99"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/marine/wave",
+      "search": "",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/ports/fishing",
+      "search": "",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/highway/live",
+      "search": "",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/geocode",
+      "search": "?q=%E5%8F%B0%E5%8C%97%E8%BB%8A%E7%AB%99",
+      "contentType": "application/json"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

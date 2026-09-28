@@ -140,3 +140,30 @@ with the daily `CMS.xml` catalog before the browser receives sign coordinates.
 The two read-only layer consumers are `taiwan-freeway-live` and
 `taiwan-freeway-cms`; they do not replace the existing global traffic layer.
 The feeds are cached and sanitized, and the UI never receives raw XML.
+
+## Marine, port, and geocoder adapters
+
+The candidate also keeps the following Taiwan-specific sources behind the
+same server boundary:
+
+- `taiwan.marine.wave` reads the official Taipei Port observation XML and
+  exposes `/api/taiwan/marine/wave`. It normalizes the latest published wave
+  observation, retains source/time/stale metadata, and uses bounded caching
+  and request coalescing.
+- `taiwan.moa.fishing-ports` reads the Ministry of Agriculture fishing-port
+  open data and exposes `/api/taiwan/ports/fishing`. It is a catalog/evidence
+  source, not a live vessel or port telemetry feed.
+- `taiwan.tdx.highway-live` exposes the official TDX provincial-highway live
+  contract at `/api/taiwan/tdx/highway/live`. It is server-only and
+  fail-closed when the TDX credential is absent; the browser receives
+  `PROVIDER_NOT_CONFIGURED` rather than an unauthenticated upstream call.
+- `taiwan.geocoder.nlsc` exposes `/api/taiwan/geocode`. The adapter uses the
+  official NLSC text-query boundary and preserves an explicit unavailable
+  state when the current public request is rejected (`NLSC_HTTP_404`). It
+  never fabricates a place result or falls back to the Jimmy gateway.
+
+The first browser proof observed 48 official marine records, 239 fishing-port
+records, and a zero-call TDX not-configured response. These are capability
+evidence, not a claim of Jimmy visual parity: the reference marine panel still
+has a separate 15-record presentation contract that remains open in the parity
+matrix.

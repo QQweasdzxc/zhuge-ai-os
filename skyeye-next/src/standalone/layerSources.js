@@ -22,6 +22,7 @@ import {
   createTaiwanFreewayLiveSource,
 } from '../layers/taiwanFreeway/source.js';
 import { createTaiwanReservoirSource } from '../layers/taiwanReservoir/source.js';
+import { createTaiwanMarineSource } from '../layers/taiwanMarine/source.js';
 export { createReferenceSources as createStandaloneReferenceSources } from '../sources/reference.js';
 
 /** Select standalone providers without starting their acquisition. */
@@ -64,6 +65,11 @@ export function createStandaloneLayerSources({ taiwanEnhanced = false } = {}) {
         },
     taiwanReservoirs: taiwanEnhanced
       ? createTaiwanReservoirSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
+    taiwanMarine: taiwanEnhanced
+      ? createTaiwanMarineSource()
       : {
           getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
         },

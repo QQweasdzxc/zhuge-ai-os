@@ -40,11 +40,24 @@ export {
 } from './taiwan/reservoirShapes.js';
 export {
   parseTdxMetroLivePayload,
+  parseTdxHighwayLivePayload,
   parseTdxRailLivePayload,
   TDX_API_BASE_URL,
+  TDX_HIGHWAY_LIVE_URL,
   TDX_RAIL_LIVE_URL,
   TDX_TOKEN_URL,
   tdxProxy,
   tdxSecretNames,
 } from './taiwan/tdx.js';
+export {
+  TAIPEI_PORT_MARINE_URL,
+  marineProxy,
+  parseTaipeiPortMarineXml,
+} from './taiwan/marine.js';
+export {
+  TAIWAN_FISHING_PORTS_URL,
+  fishingPortsProxy,
+  parseTaiwanFishingPortsPayload,
+} from './taiwan/ports.js';
+export { NLSC_GEOCODE_URL, nlscGeocodeProxy } from './taiwan/geocode.js';
 export { createTaiwanDataOrchestrator } from './taiwan/orchestrator.js';

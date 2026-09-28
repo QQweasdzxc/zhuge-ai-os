@@ -34,6 +34,7 @@ import {
   createTaiwanFreewayLiveLayer,
 } from '../layers/taiwanFreeway/index.js';
 import { createTaiwanReservoirLayer } from '../layers/taiwanReservoir/index.js';
+import { createTaiwanMarineLayer } from '../layers/taiwanMarine/index.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -60,6 +61,7 @@ const SOURCE_METHODS = Object.freeze({
   taiwanFreewayLive: ['getSnapshot'],
   taiwanFreewayCms: ['getSnapshot'],
   taiwanReservoirs: ['getSnapshot'],
+  taiwanMarine: ['getSnapshot'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
   cables: ['fetch'],
@@ -168,6 +170,7 @@ export function createApplicationCatalog({
         createTaiwanFreewayLiveLayer({ source: sources.taiwanFreewayLive }),
         createTaiwanFreewayCmsLayer({ source: sources.taiwanFreewayCms }),
         createTaiwanReservoirLayer({ source: sources.taiwanReservoirs }),
+        createTaiwanMarineLayer({ source: sources.taiwanMarine }),
         createApplicationRecentImagery(),
         vessels,
         installations,

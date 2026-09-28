@@ -8,6 +8,7 @@ export const TDX_TOKEN_URL =
   'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 export const TDX_API_BASE_URL = 'https://tdx.transportdata.tw/api/basic/v2';
 export const TDX_RAIL_LIVE_URL = `${TDX_API_BASE_URL}/Rail/TRA/LiveTrainDelay?$top=2000&$format=JSON`;
+export const TDX_HIGHWAY_LIVE_URL = `${TDX_API_BASE_URL}/Road/Traffic/Live/Highway?$top=2000&$format=JSON`;
 
 const TDX_CLIENT_ID_ENV = 'TDX_CLIENT_ID';
 const TDX_CLIENT_SECRET_ENV = 'TDX_CLIENT_SECRET';
@@ -148,6 +149,43 @@ export function parseTdxRailLivePayload(payload, nowMs = Date.now()) {
   return result;
 }
 
+/** Normalize TDX provincial-highway live traffic records. */
+export function parseTdxHighwayLivePayload(payload, nowMs = Date.now()) {
+  const rows = rowsFromPayload(payload).slice(0, 4_000);
+  const result = baseContract({
+    providerId: 'taiwan.tdx.highway-live',
+    capability: 'traffic-live',
+    coverage: 'Taiwan provincial highways',
+    sourceUrl: TDX_HIGHWAY_LIVE_URL,
+    rows,
+    nowMs,
+  });
+  result.entities = rows
+    .map((row, index) => {
+      const id = text(
+        row?.SectionID || row?.RoadSectionID || row?.RoadID || row?.LinkID,
+        80,
+      );
+      if (!id) return null;
+      return {
+        id: `${id}:${index}`,
+        roadId: text(row?.RoadID, 40) || null,
+        sectionId: id,
+        roadName: text(row?.RoadName || row?.RoadNameZh, 120) || null,
+        travelTimeSeconds: numberOrNull(row?.TravelTime),
+        travelSpeedKph: numberOrNull(row?.TravelSpeed),
+        congestionLevel: numberOrNull(row?.CongestionLevel),
+        congestionLevelId: text(row?.CongestionLevelID, 24) || null,
+        dataCollectTime: isoOrNull(
+          row?.DataCollectTime || row?.SrcUpdateTime || row?.UpdateTime,
+        ),
+        geometry: row?.Geometry || row?.geometry || null,
+      };
+    })
+    .filter(Boolean);
+  return result;
+}
+
 /** Normalize TDX Metro LiveBoard records; this is not a crowd-density contract. */
 export function parseTdxMetroLivePayload(
   payload,
@@ -260,6 +298,16 @@ function feedDefinition(kind, operator = 'KRTC') {
       sourceUrl: TDX_RAIL_LIVE_URL,
       route: '/rail/live',
       parse: parseTdxRailLivePayload,
+    };
+  }
+  if (kind === 'highway') {
+    return {
+      providerId: 'taiwan.tdx.highway-live',
+      capability: 'traffic-live',
+      coverage: 'Taiwan provincial highways',
+      sourceUrl: TDX_HIGHWAY_LIVE_URL,
+      route: '/highway/live',
+      parse: parseTdxHighwayLivePayload,
     };
   }
   return {
@@ -395,6 +443,8 @@ export function tdxProxy({
     const pathname = url.pathname;
     let definition;
     if (pathname === '/rail/live') definition = feedDefinition('rail');
+    else if (pathname === '/highway/live')
+      definition = feedDefinition('highway');
     else if (pathname === '/metro/live') {
       const operator = String(
         url.searchParams.get('operator') || 'KRTC',
