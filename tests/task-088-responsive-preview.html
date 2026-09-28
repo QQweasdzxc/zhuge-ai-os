@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TASK-088 successor responsive source preview</title>
+  <link rel="stylesheet" href="../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../shared/theme/zhuge-navigation.css">
+  <link rel="stylesheet" href="../shared/theme/task-board.css">
+  <link rel="stylesheet" href="../shared/theme/task-card.css">
+  <link rel="stylesheet" href="../shared/theme/task-drawer.css">
+  <link rel="stylesheet" href="../shared/theme/feedback.css">
+  <link rel="stylesheet" href="../shared/theme/global-floating-hub.css">
+  <link rel="stylesheet" href="../shared/theme/desktop-modernization.css">
+  <link rel="stylesheet" href="../shared/theme/responsive-modernization.css">
+  <style>
+    body { margin: 0; background: var(--zhuge-page-bg); color: var(--zhuge-text); font-family: var(--zhuge-font-family); }
+    .responsive-preview { max-width: 1540px; margin: 0 auto; }
+    .responsive-preview .workspace-canvas { display: grid; gap: var(--zhuge-responsive-content-gap); }
+    .responsive-preview .preview-intro { display: grid; gap: 6px; padding: 18px 20px; border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-md); background: var(--zhuge-surface); }
+    .responsive-preview .preview-intro h1, .responsive-preview .preview-intro p { margin: 0; }
+    .responsive-preview .preview-intro p { color: var(--zhuge-muted); max-width: var(--zhuge-readable-line-length); }
+    .responsive-preview .responsive-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+    .responsive-preview .responsive-column { min-width: 0; padding: 12px; border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-md); background: var(--zhuge-surface); }
+    .responsive-preview .responsive-column h2 { margin: 0 0 10px; font-size: 1rem; }
+    .responsive-preview .responsive-card { min-width: 0; padding: 14px; border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-sm); background: var(--zhuge-surface-raised); }
+    .responsive-preview .responsive-card h3 { margin: 8px 0 4px; font-size: 1rem; }
+    .responsive-preview .responsive-card p { margin: 0; color: var(--zhuge-muted); line-height: var(--zhuge-line-height-relaxed); }
+    .responsive-preview .responsive-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .responsive-preview .responsive-actions button { min-height: var(--zhuge-touch-target-min); }
+    .responsive-preview .responsive-data-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .responsive-preview .responsive-data-grid article { min-width: 0; padding: 12px; border: 1px solid var(--zhuge-border); border-radius: var(--zhuge-radius-sm); background: var(--zhuge-surface-raised); }
+    .responsive-preview .responsive-data-grid strong, .responsive-preview .responsive-data-grid small { display: block; overflow-wrap: anywhere; }
+    .responsive-preview .responsive-table { max-width: 100%; overflow-x: auto; }
+    .responsive-preview .responsive-table table { min-width: 560px; width: 100%; border-collapse: collapse; }
+    .responsive-preview .responsive-table th, .responsive-preview .responsive-table td { padding: 10px; border-bottom: 1px solid var(--zhuge-border); text-align: left; }
+    .responsive-preview .responsive-state-stack { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .responsive-preview .responsive-state-stack .zhuge-state { min-width: 0; }
+    @media (max-width: 900px) {
+      .responsive-preview .responsive-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767px) {
+      .responsive-preview .responsive-board { grid-template-columns: repeat(3, minmax(250px, 1fr)); overflow-x: auto; padding-bottom: 6px; }
+      .responsive-preview .responsive-state-stack { grid-template-columns: 1fr; }
+      .responsive-preview .preview-intro { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="zhuge-module-shell workspace-shell responsive-preview">
+    <aside class="os-sidebar" aria-label="共用導航">
+      <div class="sidebar-brand"><div class="brand-row"><span class="brand-mark" aria-hidden="true">🪶</span><a class="brand-stack" href="#"><h1>Zhuge AI OS</h1><span class="brand-companion">Shared Shell</span></a></div><button class="shared-nav-collapse" type="button" aria-label="收合導航">‹</button></div>
+      <div class="sidebar-scroll"><section class="side-section"><h3>工作空間</h3><a class="side-item on" href="#"><span class="side-item-icon" aria-hidden="true">✅</span><span class="side-item-label">工作待辦</span></a><a class="side-item" href="#"><span class="side-item-icon" aria-hidden="true">📈</span><span class="side-item-label">Investment</span></a></section><section class="side-section"><h3>工具</h3><a class="side-item" href="#"><span class="side-item-icon" aria-hidden="true">📚</span><span class="side-item-label">Knowledge</span></a><a class="side-item" href="#"><span class="side-item-icon" aria-hidden="true">⚙️</span><span class="side-item-label">設定</span></a></section></div>
+    </aside>
+    <main class="workspace-app">
+      <header class="workspace-shell-header zhuge-shared-header"><div class="workspace-context-inner"><div class="zhuge-shared-header-copy"><span class="zhuge-shared-header-kicker">TASK-088 successor source preview</span><h1>工作待辦</h1><p>Mobile、Tablet、Zoom 與長內容共用同一套 Shell。</p></div><div class="zhuge-shared-header-right"><button class="btn2" type="button">重新整理</button><button class="btn primary" type="button">＋ 新增卡片</button></div></div></header>
+      <div class="workspace-canvas">
+        <section class="preview-intro"><h2>先看下一步</h2><p>這段長文字用來確認放大文字、窄螢幕換行與第二層資訊不會把主要操作推出畫面。狀態文字會直接說明發生什麼、是否影響工作以及下一步。</p><div class="responsive-actions"><button class="btn primary" type="button">開啟 Task Drawer</button><button class="btn2" type="button">查看工具入口</button></div></section>
+        <section class="responsive-board" aria-label="工作看板"><article class="responsive-column"><h2>待辦事項 <small>2</small></h2><div class="responsive-card"><small>WLTK-101</small><h3>整理供應商回覆與下一步</h3><p>確認長標題、長內容、卡片摘要與操作按鈕在窄寬度都能讀取。</p></div></article><article class="responsive-column"><h2>進行中 <small>1</small></h2><div class="responsive-card"><small>WLTK-102</small><h3>準備月度報告</h3><p>目前已完成一半，詳細活動紀錄在共用 Drawer 內。</p></div></article><article class="responsive-column"><h2>已完成 <small>1</small></h2><div class="responsive-card"><small>WLTK-103</small><h3>完成週會紀錄</h3><p>完成狀態保留可讀的時間與下一步，不靠顏色單獨表達。</p></div></article></section>
+        <section class="responsive-data-grid" aria-label="資料摘要"><article><small>目前狀態</small><strong>🟢 可使用</strong></article><article><small>資料同步</small><strong>已同步</strong></article><article><small>需要處理</small><strong>0 件</strong></article><article><small>最後更新</small><strong>2026/09/25</strong></article></section>
+        <section class="responsive-table" aria-label="長表格示例"><table><thead><tr><th>項目</th><th>來源</th><th>更新時間</th><th>狀態</th><th>下一步</th></tr></thead><tbody><tr><td>長內容測試資料</td><td>Shared Runtime</td><td>今天 07:12</td><td>可使用</td><td>查看詳情</td></tr><tr><td>Evidence 狀態</td><td>Provider</td><td>今天 07:10</td><td>資料不足時明確提示</td><td>等待更新</td></tr></tbody></table></section>
+        <section class="responsive-state-stack" aria-label="狀態回饋"><div class="zhuge-state" data-zhuge-state="empty"><strong data-zhuge-state-status>目前沒有更多工作</strong><p data-zhuge-state-detail>新增一張卡片後，它會出現在這裡。</p></div><div class="zhuge-state" data-zhuge-state="unavailable"><strong data-zhuge-state-status>暫時無法取得資料</strong><p data-zhuge-state-detail>不會使用假資料；請稍後重試。</p></div><div class="zhuge-state" data-zhuge-state="insufficient-evidence"><strong data-zhuge-state-status>目前資料還不夠</strong><p data-zhuge-state-detail>諸葛暫時不判斷，等 Evidence 完整後再查看。</p></div></section>
+      </div>
+    </main>
+  </div>
+  <div class="shared-task-drawer" aria-label="工作卡片詳細資料"><div class="shared-task-drawer-backdrop"></div><section class="shared-task-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="responsive-drawer-title"><header class="shared-task-drawer-header"><div><span class="shared-task-drawer-kicker">工作待辦／Task Drawer</span><h2 id="responsive-drawer-title">整理供應商回覆與下一步</h2></div><button class="shared-task-drawer-close" type="button" aria-label="關閉工作抽屜">×</button></header><div class="shared-task-drawer-meta-wrap"><div class="shared-task-drawer-meta"><span class="shared-task-drawer-meta-item"><b>狀態</b><span>進行中</span></span><span class="shared-task-drawer-meta-item"><b>工作區</b><span>工作待辦</span></span><span class="shared-task-drawer-meta-item"><b>負責人</b><span>Co / GPT</span></span></div></div><div class="shared-task-drawer-grid"><div class="shared-task-drawer-content"><section class="shared-task-drawer-section"><div class="shared-task-drawer-section-heading"><h3>下一步</h3><span>先完成這件事</span></div><p>確認供應商回覆，整理出可執行的下一步，並在完成後留下可追溯紀錄。</p><button class="btn primary" type="button">更新進度</button></section><section class="shared-task-drawer-section"><div class="shared-task-drawer-section-heading"><h3>工作內容</h3><span>完整內容可閱讀</span></div><p>長內容測試：這段文字故意較長，確認在 Mobile、Tablet、瀏覽器縮放與系統文字放大時，仍能換行、閱讀與返回，不會遮住關閉按鈕或底部操作。</p></section></div><aside class="shared-task-drawer-activity"><div class="shared-task-drawer-section-heading"><h3>活動紀錄</h3><span>最近更新</span></div><div class="shared-task-drawer-activity-list"><article class="shared-task-drawer-activity-row" data-activity-kind="system"><strong class="shared-task-drawer-activity-badge">系統</strong><div>卡片已進入進行中。</div></article><article class="shared-task-drawer-activity-row" data-activity-kind="human"><strong class="shared-task-drawer-activity-badge">使用者</strong><div>已補充下一步與驗證條件。</div></article></div></aside></div></section></div>
+  <div class="zhuge-floating-hub"><button class="zhuge-hub-trigger" type="button" aria-label="開啟全站懸浮快捷中心">◎</button></div>
+</body>
+</html>
