@@ -3,7 +3,7 @@
 Candidate scope: `codex/skyeye-jimmy-taiwan-parity-20260927`
 Upstream baseline: `bilawalsidhu/gods-eye-view@b210ab0fe4d71c7faa0268134e0aa5f3c53fc7fe`
 Reference runtime: <https://godeyes.jimmy-dev.win/>
-Current successor source build: `20260928-0904` (previous `20260928-0027`, `20260928-0720`, `20260928-0745`, `20260928-0823`, and `20260928-0850` checkpoints remain frozen)
+Current successor source build: `20260928-0912` (previous `20260928-0027`, `20260928-0720`, `20260928-0745`, `20260928-0823`, `20260928-0850`, and `20260928-0904` checkpoints remain frozen)
 Reference evidence is behavioral/network evidence only. The Jimmy same-origin `/api/*` gateway is not a production dependency.
 
 ## Status vocabulary

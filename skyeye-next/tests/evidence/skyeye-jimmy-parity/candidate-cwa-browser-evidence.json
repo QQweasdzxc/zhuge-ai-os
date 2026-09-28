@@ -11,12 +11,12 @@
         "stats": {
           "count": 1,
           "countLabel": "Observed",
-          "lastUpdate": 1790556583293,
+          "lastUpdate": 1790557838263,
           "loading": false,
           "error": null,
           "stale": false,
           "source": "Central Weather Administration, Taiwan",
-          "observedAt": "2026-09-28T00:49:43.293Z"
+          "observedAt": "2026-09-28T01:10:38.263Z"
         },
         "diagnostics": {
           "host": "globe",
@@ -27,13 +27,13 @@
           "imageryCount": 1,
           "infrared": "filtered",
           "loading": false,
-          "time": "2026-09-28T00:49:43.293Z",
+          "time": "2026-09-28T01:10:38.263Z",
           "hidden": false,
           "product": "radar",
           "pendingTiles": 0,
           "deferredTiles": 0,
           "loadedTiles": 1,
-          "frameLoadMs": 725.5,
+          "frameLoadMs": 763.4000000357628,
           "error": null,
           "playing": false,
           "followLatest": true,
@@ -189,7 +189,7 @@
             "mode": "globe curvature",
             "maxOpacity": 0.28
           },
-          "painted": 2980,
+          "painted": 2967,
           "framePending": true,
           "imageryActive": true,
           "host": "globe",

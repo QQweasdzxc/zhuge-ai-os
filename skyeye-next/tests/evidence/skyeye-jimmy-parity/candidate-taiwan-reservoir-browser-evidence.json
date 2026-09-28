@@ -20,11 +20,11 @@
         "observedAt": "2026-09-25T16:00:00.000Z"
       },
       "dataTimestamp": "2026-09-27T00:00:00.000Z",
-      "fetchedAt": "2026-09-28T00:49:38.971Z",
+      "fetchedAt": "2026-09-28T01:11:39.088Z",
       "attribution": "Water Resources Agency, Ministry of Economic Affairs",
       "license": "Open Government Data License, version 1.0",
       "geographicCoverage": "Taiwan reservoirs",
-      "cache": "fresh",
+      "cache": "miss",
       "rawResponseReturned": false
     },
     "shapes": {
