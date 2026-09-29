@@ -1,0 +1,116 @@
+<main id="jfr-runtime" aria-label="Taiwan GodEyes full-screen runtime">
+  <header class="jfr-topbar">
+    <button class="jfr-back" type="button" data-jimmy-action="return" aria-label="Return to Zhuge AI OS" title="Return to Zhuge AI OS">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+    </button>
+    <div class="jfr-brand" aria-label="Taiwan GodEyes">
+      <span class="jfr-brand-mark" aria-hidden="true">G</span>
+      <span class="jfr-brand-copy"><strong>台灣天眼</strong><small>GODEYES · OPERATIONAL VIEW</small></span>
+    </div>
+    <div class="jfr-search-host" aria-label="Search location"></div>
+    <div class="jfr-live-state" role="status" aria-live="polite">
+      <i aria-hidden="true"></i><span id="jfr-runtime-state">INITIALIZING</span>
+    </div>
+    <div class="jfr-top-metrics" aria-live="polite">
+      <span><b id="jfr-layer-count">0</b><small>LAYERS</small></span>
+      <span><b id="jfr-camera-count">0</b><small>CAMERAS</small></span>
+    </div>
+    <button class="jfr-icon-button" type="button" data-jimmy-action="refresh" aria-label="Refresh enabled layers" title="Refresh enabled layers">
+      <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+    </button>
+    <button class="jfr-icon-button" type="button" data-jimmy-action="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">
+      <span class="material-symbols-outlined" aria-hidden="true">fullscreen</span>
+    </button>
+  </header>
+
+  <nav class="jfr-operation-bar" aria-label="Operational controls">
+    <div class="jfr-operation-group jfr-native-actions"></div>
+    <button type="button" data-jimmy-action="layers" aria-expanded="false" aria-controls="jfr-layer-drawer"><span class="material-symbols-outlined" aria-hidden="true">layers</span>圖層</button>
+    <button type="button" data-jimmy-action="contacts" aria-expanded="false" aria-controls="jfr-intelligence-panel"><span class="material-symbols-outlined" aria-hidden="true">radar</span>情資面板</button>
+    <button type="button" data-jimmy-action="open-camera" aria-controls="jfr-camera-window"><span class="material-symbols-outlined" aria-hidden="true">videocam</span>攝影機</button>
+    <button type="button" data-jimmy-action="display" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">visibility</span>顯示效果</button>
+    <button type="button" data-jimmy-action="hud" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">visibility</span>HUD</button>
+    <span class="jfr-op-divider" aria-hidden="true"></span>
+    <span class="jfr-source-readout" id="jfr-map-source">MAP SOURCE · CHECKING</span>
+    <span class="jfr-flex-spacer"></span>
+    <span class="jfr-clock" id="jfr-clock" aria-label="Local runtime time"></span>
+  </nav>
+
+  <section id="jfr-hud-strip" class="jfr-hud-strip" aria-label="Map status HUD" aria-live="polite">
+    <span class="jfr-hud-mark" aria-hidden="true">⌖</span>
+    <span><small>視角</small><strong id="jfr-hud-view">台灣・新北市</strong></span>
+    <i aria-hidden="true"></i>
+    <span><small>底圖</small><strong id="jfr-hud-source">NLSC PHOTO2</strong></span>
+    <i aria-hidden="true"></i>
+    <span><small>資料圖層</small><strong><b id="jfr-hud-layers">0</b> 已啟用</strong></span>
+    <i aria-hidden="true"></i>
+    <span><small>攝影機</small><strong><b id="jfr-hud-cameras">0</b> 支</strong></span>
+  </section>
+
+  <aside id="jfr-layer-drawer" class="jfr-panel jfr-layer-drawer" aria-label="Data layer controls" hidden>
+    <header class="jfr-panel-header"><div><small>DATA CATALOG</small><strong>圖層控制</strong></div><button type="button" data-jimmy-action="close-layers" aria-label="Close layer controls">×</button></header>
+    <div class="jfr-layer-host"></div>
+  </aside>
+
+  <aside id="jfr-intelligence-panel" class="jfr-panel jfr-intelligence-panel" aria-label="Weather, traffic and scene context" hidden>
+    <header class="jfr-panel-header"><div><small>LIVE CONTEXT</small><strong>即時情資</strong></div><button type="button" data-jimmy-action="close-context" aria-label="Close intelligence panel">×</button></header>
+    <div class="jfr-panel-tabs" role="tablist" aria-label="Intelligence categories">
+      <button type="button" role="tab" aria-selected="true" data-jimmy-panel="weather">天氣</button>
+      <button type="button" role="tab" aria-selected="false" data-jimmy-panel="traffic">路況</button>
+      <button type="button" role="tab" aria-selected="false" data-jimmy-panel="context">情境</button>
+    </div>
+    <section class="jfr-evidence-summary" aria-label="Live layer evidence" aria-live="polite">
+      <header><strong>資料狀態</strong><span>僅顯示目前已載入資料</span></header>
+      <div class="jfr-evidence-row"><span>天氣／雷達</span><strong data-jimmy-summary="weather">尚未載入</strong></div>
+      <div class="jfr-evidence-row"><span>路況／事件</span><strong data-jimmy-summary="traffic">尚未載入</strong></div>
+      <div class="jfr-evidence-row"><span>CCTV 點位</span><strong data-jimmy-summary="cctv">尚未載入</strong></div>
+    </section>
+    <div class="jfr-intelligence-host"></div>
+  </aside>
+
+  <section id="jfr-camera-window" class="jfr-camera-window" aria-label="Selected CCTV camera" hidden>
+    <header class="jfr-window-header" data-jimmy-drag-handle>
+      <span class="jfr-window-live"><i aria-hidden="true"></i> CAMERA MONITOR</span>
+      <span id="jfr-camera-title">SELECT A CAMERA</span>
+      <button type="button" data-jimmy-action="close-camera" aria-label="Close CCTV monitor">×</button>
+    </header>
+    <div class="jfr-camera-feed-host"></div>
+    <div class="jfr-camera-connection" aria-hidden="true"></div>
+    <footer><span id="jfr-camera-source">SOURCE · NOT REQUESTED</span><span id="jfr-camera-updated">—</span></footer>
+  </section>
+  <svg id="jfr-camera-links" class="jfr-camera-links" aria-hidden="true"><line /></svg>
+
+  <nav class="jfr-bottom-layers" aria-label="Quick layers">
+    <button class="jfr-layer-menu" type="button" data-jimmy-action="layers" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">layers</span><span>圖層</span></button>
+    <div class="jfr-quick-layer-list">
+      <button type="button" data-jimmy-layer="flights" aria-pressed="false">✈ 航班</button>
+      <button type="button" data-jimmy-layer="ais-live-vessels" aria-pressed="false">船舶</button>
+      <button type="button" data-jimmy-layer="weather-radar" aria-pressed="false">雷達</button>
+      <button type="button" data-jimmy-layer="wind" aria-pressed="false">風場</button>
+      <button type="button" data-jimmy-layer="weather-cyclones" aria-pressed="false">颱風</button>
+      <button type="button" data-jimmy-layer="earthquakes" aria-pressed="false">地震</button>
+      <button type="button" data-jimmy-layer="traffic" aria-pressed="false">交通</button>
+      <button type="button" data-jimmy-layer="taiwan-freeway-live" aria-pressed="false">國道</button>
+      <button type="button" data-jimmy-layer="taiwan-freeway-cms" aria-pressed="false">CMS</button>
+      <button type="button" data-jimmy-layer="transit" aria-pressed="false">鐵道</button>
+      <button type="button" data-jimmy-layer="taiwan-reservoirs" aria-pressed="false">水庫</button>
+      <button type="button" data-jimmy-layer="taiwan-marine" aria-pressed="false">港口</button>
+      <button type="button" data-jimmy-layer="cctv" aria-pressed="false">📹 CCTV</button>
+    </div>
+    <div class="jfr-map-source-host"></div>
+  </nav>
+
+  <footer class="jfr-statusbar" aria-live="polite">
+    <span class="jfr-status-live"><i aria-hidden="true"></i> LIVE DATA</span>
+    <span id="jfr-coordinate-readout">LAT — · LON —</span>
+    <span id="jfr-altitude-readout">ALT —</span>
+    <span class="jfr-flex-spacer"></span>
+    <span id="jfr-refresh-state">REFRESH · AUTO</span>
+    <span>TAIWAN PROVIDER FOUNDATION</span>
+  </footer>
+
+  <div class="jfr-hidden-host">
+    <div class="jfr-controls-host"></div>
+    <div class="jfr-style-indicator-host"></div>
+  </div>
+</main>

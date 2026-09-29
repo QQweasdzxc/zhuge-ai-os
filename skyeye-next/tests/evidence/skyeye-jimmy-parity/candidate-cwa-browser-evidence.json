@@ -1,0 +1,283 @@
+{
+  "contract": "skyeye-jimmy-taiwan-parity-cwa-wave-1-v1",
+  "runtime": "desktop-1440x900",
+  "appUrl": "http://127.0.0.1:4180",
+  "results": {
+    "radar": {
+      "status": "FUNCTIONAL_MATCH",
+      "state": {
+        "id": "weather-radar",
+        "enabled": true,
+        "stats": {
+          "count": 1,
+          "countLabel": "Observed",
+          "lastUpdate": 1790557838263,
+          "loading": false,
+          "error": null,
+          "stale": false,
+          "source": "Central Weather Administration, Taiwan",
+          "observedAt": "2026-09-28T01:10:38.263Z"
+        },
+        "diagnostics": {
+          "host": "globe",
+          "cache": {
+            "mosaics": 0,
+            "prefetching": false
+          },
+          "imageryCount": 1,
+          "infrared": "filtered",
+          "loading": false,
+          "time": "2026-09-28T01:10:38.263Z",
+          "hidden": false,
+          "product": "radar",
+          "pendingTiles": 0,
+          "deferredTiles": 0,
+          "loadedTiles": 1,
+          "frameLoadMs": 763.4000000357628,
+          "error": null,
+          "playing": false,
+          "followLatest": true,
+          "clock": {
+            "mode": "latest",
+            "target": null,
+            "playing": false
+          },
+          "historyFrames": 1,
+          "timerActive": false
+        },
+        "params": {
+          "opacity": "strong"
+        }
+      },
+      "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-cwa-radar.png"
+    },
+    "typhoon": {
+      "status": "FUNCTIONAL_MATCH",
+      "state": {
+        "id": "weather-cyclones",
+        "enabled": true,
+        "stats": {
+          "count": 1,
+          "lastUpdate": 1790532000000,
+          "loading": false,
+          "error": null,
+          "stale": false,
+          "source": "Central Weather Administration, Taiwan",
+          "advisoryAt": "2026-09-27T18:00:00.000Z",
+          "empty": false
+        },
+        "diagnostics": {
+          "storms": 1,
+          "tracks": 1,
+          "cones": 1,
+          "forecastPoints": 8,
+          "dataSources": 1,
+          "entities": 12,
+          "selectedId": "tw260927",
+          "timerActive": false,
+          "enabled": true,
+          "loading": false,
+          "requestPending": false,
+          "selectionActive": true,
+          "selectionIntent": "auto"
+        },
+        "params": null
+      },
+      "focusedState": {
+        "id": "weather-cyclones",
+        "enabled": true,
+        "stats": {
+          "count": 1,
+          "lastUpdate": 1790532000000,
+          "loading": false,
+          "error": null,
+          "stale": false,
+          "source": "Central Weather Administration, Taiwan",
+          "advisoryAt": "2026-09-27T18:00:00.000Z",
+          "empty": false
+        },
+        "diagnostics": {
+          "storms": 1,
+          "tracks": 1,
+          "cones": 1,
+          "forecastPoints": 8,
+          "dataSources": 1,
+          "entities": 12,
+          "selectedId": "tw260927",
+          "timerActive": false,
+          "enabled": true,
+          "loading": false,
+          "requestPending": false,
+          "selectionActive": true,
+          "selectionIntent": "user"
+        },
+        "params": null
+      },
+      "selection": {
+        "firstStormId": "tw260927",
+        "stats": {
+          "count": 1,
+          "lastUpdate": 1790532000000,
+          "loading": false,
+          "error": null,
+          "stale": false,
+          "source": "Central Weather Administration, Taiwan",
+          "advisoryAt": "2026-09-27T18:00:00.000Z",
+          "empty": false
+        },
+        "diagnostics": {
+          "storms": 1,
+          "tracks": 1,
+          "cones": 1,
+          "forecastPoints": 8,
+          "dataSources": 1,
+          "entities": 12,
+          "selectedId": "tw260927",
+          "timerActive": false,
+          "enabled": true,
+          "loading": false,
+          "requestPending": false,
+          "selectionActive": true,
+          "selectionIntent": "auto"
+        }
+      },
+      "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-cwa-typhoon-focused.png"
+    },
+    "wind": {
+      "status": "FUNCTIONAL_MATCH",
+      "state": {
+        "id": "wind",
+        "enabled": true,
+        "stats": {
+          "count": 11431,
+          "lastUpdate": 1790510400000,
+          "error": null,
+          "source": "Central Weather Administration, Taiwan",
+          "coverage": "Taiwan context and surrounding western Pacific grid",
+          "countLabel": "Forecast",
+          "loading": false,
+          "model": "GFS",
+          "overlay": "speed",
+          "paused": false,
+          "stale": false,
+          "validTime": "2026-09-27 12:00 UTC"
+        },
+        "diagnostics": {
+          "overlay": "speed",
+          "paused": false,
+          "reducedMotion": false,
+          "hidden": false,
+          "particleCount": 3000,
+          "renderMode": "canvas-fallback",
+          "gpu": {
+            "pathCount": 0,
+            "vertexCount": 0,
+            "buildMs": 0,
+            "error": null,
+            "cellCount": 0,
+            "visibleCells": 0,
+            "visibleVertexCount": 0,
+            "heightFade": 0,
+            "ready": false,
+            "mode": "gpu-streamlines",
+            "displayHeightMeters": 12000
+          },
+          "relief": {
+            "active": true,
+            "reason": null,
+            "lighting": "View-directed display shading",
+            "mode": "globe curvature",
+            "maxOpacity": 0.28
+          },
+          "painted": 2967,
+          "framePending": true,
+          "imageryActive": true,
+          "host": "globe",
+          "shell": null,
+          "imageryError": null
+        },
+        "params": {
+          "model": "gfs",
+          "overlay": "speed",
+          "paused": false,
+          "units": "km/h"
+        }
+      },
+      "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-cwa-wind.png"
+    }
+  },
+  "cwaRequests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/radar/manifest",
+      "search": "?product=radar"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/radar/image",
+      "search": ""
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/typhoon",
+      "search": ""
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/wind/manifest",
+      "search": "?model=gfs"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/wind/grid/gfs-1790549895-1.bin",
+      "search": "?model=gfs"
+    }
+  ],
+  "cwaResponses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/radar/manifest",
+      "search": "?product=radar",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/radar/image",
+      "search": "",
+      "contentType": "image/png"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/typhoon",
+      "search": "",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/wind/manifest",
+      "search": "?model=gfs",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/cwa/wind/grid/gfs-1790549895-1.bin",
+      "search": "?model=gfs",
+      "contentType": "application/octet-stream"
+    }
+  ],
+  "jimmyGatewayRequestCount": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "rawResponseReturned": false,
+  "cwaHttpFailures": []
+}

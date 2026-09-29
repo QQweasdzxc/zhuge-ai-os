@@ -1,0 +1,127 @@
+{
+  "capturedAt": "2026-09-27T16:13:38.834Z",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "firstLaunchButtons": [
+    "layers_clear",
+    "🔗",
+    "view_in_ar",
+    "N\n      navigation",
+    "public",
+    "chevron_left\n          PREV",
+    "CURRENT\n          NORMAL",
+    "NEXT\n          chevron_right",
+    "skip_previous",
+    "skip_next",
+    "chevron_left",
+    "WX\n          OFF",
+    "chevron_left",
+    "chevron_right",
+    "CYCLE OFF",
+    "right_panel_close",
+    "SIG",
+    "NEWS",
+    "LOCAL",
+    "◀",
+    "◀",
+    "ENABLE",
+    "◀◀",
+    "▶",
+    "▶▶",
+    "public\n      RESET",
+    "close_fullscreen\n      EXIT COCKPIT",
+    "EXIT CLEAN VIEW",
+    "LOCATION",
+    "+"
+  ],
+  "dismissed": true,
+  "mapControl": {
+    "text": "view_in_ar",
+    "aria": "Tilt map to oblique view"
+  },
+  "nlscResponseCount": 131,
+  "nlscResponses": [
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/0/1",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/1/0",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/0/0",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/1/1",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/0/0",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/0/1",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/1/0",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/1/1/1",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/11/467/842",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/11/467/843",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/937/1686",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/937/1687",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/11/467/844",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/936/1686",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/936/1687",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/935/1684",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/935/1685",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/934/1686",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/934/1687",
+      "status": 200
+    },
+    {
+      "url": "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/12/936/1685",
+      "status": 200
+    }
+  ]
+}
