@@ -38,10 +38,29 @@ export function validateWeatherSnapshot(value, product) {
     value.latest !== times.at(-1) ||
     value.tileSize !== 256 ||
     value.maxLevel !== 6 ||
-    value.tilingScheme !== 'geographic'
+    value.tilingScheme !== 'geographic' ||
+    (value.imageUrl !== undefined &&
+      (!Number.isInteger(value.imageWidth) ||
+        !Number.isInteger(value.imageHeight) ||
+        value.imageWidth < 256 ||
+        value.imageWidth > 8192 ||
+        value.imageHeight < 256 ||
+        value.imageHeight > 8192)) ||
+    (value.imageUrl !== undefined &&
+      (!isSafeSameOriginPath(value.imageUrl) ||
+        typeof value.attribution !== 'string'))
   )
     throw new Error('Malformed weather manifest');
   return value;
+}
+
+function isSafeSameOriginPath(value) {
+  return (
+    typeof value === 'string' &&
+    value.startsWith('/api/') &&
+    !value.startsWith('//') &&
+    !/[\u0000-\u001f<>]/.test(value)
+  );
 }
 
 /** Largest whole-extent image per product; also the proxy default size. */
@@ -61,6 +80,7 @@ export function weatherImageUrl(
   time,
   { width, height } = {},
   bbox = null,
+  basePath = '/api/weather',
 ) {
   if (!WEATHER_PRODUCTS.includes(product) || !Number.isFinite(Date.parse(time)))
     throw new Error('Invalid weather frame');
@@ -88,22 +108,28 @@ export function weatherImageUrl(
     // The largest size is the proxy default: one frame has one URL.
     if (width !== largest.width) size = `&size=${width}x${height}`;
   }
-  return `/api/weather/image?product=${product}&time=${encodeURIComponent(time)}${box}${size}`;
+  return `${basePath}/image?product=${product}&time=${encodeURIComponent(time)}${box}${size}`;
 }
 
-export function weatherTileUrl(product, time, { size } = {}) {
+export function weatherTileUrl(
+  product,
+  time,
+  { size } = {},
+  basePath = '/api/weather',
+) {
   if (!WEATHER_PRODUCTS.includes(product) || !Number.isFinite(Date.parse(time)))
     throw new Error('Invalid weather frame');
   if (size !== undefined && ![256, 512, 1024].includes(size))
     throw new Error('Invalid weather tile size');
   // Construct locally; never accept a manifest-provided host or template.
-  return `/api/weather/tile?product=${product}&time=${encodeURIComponent(time)}&z={z}&x={x}&y={y}${size === undefined ? '' : `&size=${size}`}`;
+  return `${basePath}/tile?product=${product}&time=${encodeURIComponent(time)}&z={z}&x={x}&y={y}${size === undefined ? '' : `&size=${size}`}`;
 }
 
 /** Acquisition is lazy and shares the application's existing source contract. */
 export function createWeatherSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
   timeoutMs = 15_000,
+  basePath = '/api/weather',
 } = {}) {
   return {
     async getSnapshot({ product = 'radar', signal } = {}) {
@@ -119,14 +145,15 @@ export function createWeatherSource({
       try {
         signal?.throwIfAborted();
         const response = await fetchImpl(
-          `/api/weather/manifest?product=${product}`,
+          `${basePath}/manifest?product=${product}`,
           { signal: controller.signal, cache: 'no-store', redirect: 'error' },
         );
         if (!response.ok) throw new Error(`Weather HTTP ${response.status}`);
-        return validateWeatherSnapshot(
+        const snapshot = validateWeatherSnapshot(
           await readResponseJsonCapped(response, 16_384, controller.signal),
           product,
         );
+        return { ...snapshot, basePath };
       } finally {
         clearTimeout(timer);
         signal?.removeEventListener('abort', abort);

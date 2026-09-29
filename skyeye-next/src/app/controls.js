@@ -11,6 +11,7 @@ export function createApplicationControls({
   services,
   catalog,
   placeSearch,
+  disableStartupFlight = false,
   defer,
 }) {
   // Initialize the style manager (post-processing, HUD, locations, share links)
@@ -40,9 +41,11 @@ export function createApplicationControls({
   defer(() => cockpitCloudEffects?.destroy());
 
   // If no share link state, do default fly-to Austin
-  if (!styleManager.hasShareState) {
+  if (!styleManager.hasShareState && !disableStartupFlight) {
     loaderStatus.textContent = 'Flying to Austin, TX...';
     defer(flyToAustin(viewer));
+  } else if (disableStartupFlight && !styleManager.hasShareState) {
+    loaderStatus.textContent = 'Preparing operational view...';
   } else {
     loaderStatus.textContent = 'Restoring shared view...';
   }

@@ -29,6 +29,12 @@ import { createInfrastructureLayers } from '../data/infrastructure.js';
 import { localGeoJsonServices } from './localGeojsonServices.js';
 import { createBhoteKoshiEventLayer } from '../data/bhoteKoshiEvent.js';
 import { createBhoteKoshiLocatorLayer } from '../data/bhoteKoshiLocator.js';
+import {
+  createTaiwanFreewayCmsLayer,
+  createTaiwanFreewayLiveLayer,
+} from '../layers/taiwanFreeway/index.js';
+import { createTaiwanReservoirLayer } from '../layers/taiwanReservoir/index.js';
+import { createTaiwanMarineLayer } from '../layers/taiwanMarine/index.js';
 
 const SOURCE_METHODS = Object.freeze({
   flights: ['getSnapshot'],
@@ -52,6 +58,10 @@ const SOURCE_METHODS = Object.freeze({
   wind: ['getSnapshot'],
   weather: ['getSnapshot'],
   cyclones: ['getSnapshot'],
+  taiwanFreewayLive: ['getSnapshot'],
+  taiwanFreewayCms: ['getSnapshot'],
+  taiwanReservoirs: ['getSnapshot'],
+  taiwanMarine: ['getSnapshot'],
   earthquakes: ['getSnapshot'],
   'fire-perimeters': ['getSnapshot'],
   cables: ['fetch'],
@@ -83,6 +93,7 @@ export function createApplicationCatalog({
   vesselOptions,
   resolveAsset,
   nepalBoundaryResolver,
+  taiwanEnhanced = false,
 }) {
   if (!signal?.addEventListener)
     throw new TypeError('An application lifetime signal is required');
@@ -156,6 +167,10 @@ export function createApplicationCatalog({
         createApplicationTransit({ surface, source: sources.transit }),
         createApplicationBikeshare({ source: sources.bikeshare }),
         createApplicationDirections(),
+        createTaiwanFreewayLiveLayer({ source: sources.taiwanFreewayLive }),
+        createTaiwanFreewayCmsLayer({ source: sources.taiwanFreewayCms }),
+        createTaiwanReservoirLayer({ source: sources.taiwanReservoirs }),
+        createTaiwanMarineLayer({ source: sources.taiwanMarine }),
         createApplicationRecentImagery(),
         vessels,
         installations,
@@ -165,23 +180,49 @@ export function createApplicationCatalog({
           vessels,
           installations,
         }),
-        createWindLayer({ feed: sources.wind, clock: weatherClock }),
+        createWindLayer({
+          feed: sources.wind,
+          clock: weatherClock,
+          name: taiwanEnhanced ? 'CWA wind' : 'Wind',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan · FORECAST'
+            : 'GFS / ECMWF IFS · FORECAST',
+        }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-radar',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'CWA radar' : 'Rain radar',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan · OBSERVED'
+            : 'NOAA nowCOAST · OBSERVED',
         }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-satellite',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'Satellite clouds' : 'Satellite clouds',
+          source: 'NOAA nowCOAST · OBSERVED',
         }),
         createWeatherLayer({
           feed: sources.weather,
           id: 'weather-lightning',
           clock: weatherClock,
+          name: taiwanEnhanced ? 'Lightning density' : 'Lightning density',
+          source: 'NOAA nowCOAST · OBSERVED',
         }),
-        createCyclonesLayer({ feed: sources.cyclones }),
+        createCyclonesLayer({
+          feed: sources.cyclones,
+          name: taiwanEnhanced
+            ? 'CWA typhoon advisories'
+            : 'Cyclone advisories',
+          source: taiwanEnhanced
+            ? 'Central Weather Administration, Taiwan'
+            : 'NOAA NHC / CPHC',
+          coverage: taiwanEnhanced
+            ? 'Taiwan and western North Pacific weather context'
+            : undefined,
+        }),
         ...createInfrastructureLayers(localGeoJsonServices),
         createApplicationCables({ source: sources.cables }),
         createApplicationFirms({

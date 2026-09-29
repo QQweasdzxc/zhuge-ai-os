@@ -12,11 +12,11 @@ import { createTaiwanDataOrchestrator } from '../../server/providers/taiwan/orch
 test('NLSC adapter constructs only official WMTS URLs and rejects unsafe coordinates', () => {
   assert.equal(
     nlscTileUrl('emap', 7, 106, 53),
-    `${NLSC_WMTS_ENDPOINT}/EMAP/default/GoogleMapsCompatible/7/106/53`,
+    `${NLSC_WMTS_ENDPOINT}/EMAP/default/GoogleMapsCompatible/7/53/106`,
   );
   assert.equal(
     nlscTileUrl('photo2', 3, 4, 5),
-    `${NLSC_WMTS_ENDPOINT}/PHOTO2/default/GoogleMapsCompatible/3/4/5`,
+    `${NLSC_WMTS_ENDPOINT}/PHOTO2/default/GoogleMapsCompatible/3/5/4`,
   );
   assert.throws(
     () => nlscTileUrl('emap', -1, 0, 0),
@@ -54,7 +54,7 @@ test('NLSC probe returns sanitized network metadata only', async () => {
 
   assert.deepEqual(calls, [
     {
-      url: `${NLSC_WMTS_ENDPOINT}/EMAP/default/GoogleMapsCompatible/1/2/3`,
+      url: `${NLSC_WMTS_ENDPOINT}/EMAP/default/GoogleMapsCompatible/1/3/2`,
       method: 'GET',
       accept: 'image/jpeg,image/*',
     },

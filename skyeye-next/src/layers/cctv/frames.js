@@ -217,6 +217,13 @@ export function createFrames({ state: layerState, services, parts, source }) {
   function refreshProjectionImage(record, force = false) {
     const runtime = record?.projection;
     if (!runtime || runtime.mode !== 'image' || !runtime.image) return;
+    if (record.camera.feedConfigured !== true) {
+      paintPlaceholderThrottled(record, runtime, {
+        status: 'unavailable',
+        message: 'Live media is not configured for this camera',
+      });
+      return;
+    }
     // Hidden-state gate (perf wave 2): no new frame fetch/decode for a canvas
     // nobody can see. The refresh interval re-fills naturally on return.
     if (typeof document !== 'undefined' && document.hidden && !force) return;

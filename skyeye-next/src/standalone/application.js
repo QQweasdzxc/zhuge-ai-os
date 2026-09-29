@@ -18,6 +18,8 @@ export function createStandaloneApplication({
   voice = {},
   allowQaRegistration = false,
   taiwanEnhanced = false,
+  disableStartupFlight = false,
+  skipProviderSettings = false,
 }) {
   if (constructed)
     throw new Error('The standalone application already owns this page');
@@ -55,6 +57,7 @@ export function createStandaloneApplication({
           ),
         signal: context.signal,
         surface: scene.operations.surface,
+        taiwanEnhanced,
       });
       return scene;
     },
@@ -64,10 +67,17 @@ export function createStandaloneApplication({
         loaderStatus,
         placeSearch,
         catalog,
+        disableStartupFlight,
       }),
     createData: (context) =>
       createStandaloneData({ ...context, allowQaRegistration, catalog }),
     createTools: (context) =>
-      createStandaloneTools({ ...context, loadingScreen, placeSearch, voice }),
+      createStandaloneTools({
+        ...context,
+        loadingScreen,
+        placeSearch,
+        voice,
+        skipProviderSettings,
+      }),
   });
 }

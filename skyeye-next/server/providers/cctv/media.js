@@ -429,6 +429,38 @@ export async function fetchTxdotSnapshot(
 const MAX_SAME_HOST_REDIRECTS = 2;
 
 /**
+ * Freeway Bureau exposes a public multipart MJPEG stream rather than a still
+ * image. Extract only the first complete JPEG so the existing frame contract
+ * can display a real frame without keeping an unbounded stream open.
+ */
+async function readFirstMultipartJpeg(response, maxBytes) {
+  const reader = response.body?.getReader?.();
+  if (!reader) return null;
+  let bytes = Buffer.alloc(0);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes = Buffer.concat([bytes, Buffer.from(value)]);
+      if (bytes.length > maxBytes) return null;
+      const start = bytes.indexOf(Buffer.from([0xff, 0xd8]));
+      if (start < 0) continue;
+      const end = bytes.indexOf(Buffer.from([0xff, 0xd9]), start + 2);
+      if (end < 0) continue;
+      return bytes.subarray(start, end + 2);
+    }
+    return null;
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      /* already closed */
+    }
+    reader.releaseLock();
+  }
+}
+
+/**
  * Fetch a registered frame URL following redirects ONLY within the original
  * origin (scheme, host and port; at most MAX_SAME_HOST_REDIRECTS hops).
  * Default redirect-following would let an upstream steer a host-pinned
@@ -544,7 +576,22 @@ export async function fetchCctvImageFromUpstream(
     );
     if (!upstream) return null;
     const contentType = upstream.headers.get('content-type') || '';
-    if (!upstream.ok || !contentType.startsWith('image/')) {
+    if (!upstream.ok) {
+      controller.abort();
+      return null;
+    }
+    if (contentType.toLowerCase().startsWith('multipart/x-mixed-replace')) {
+      let host = '';
+      try {
+        host = new URL(url).hostname;
+      } catch {
+        return null;
+      }
+      if (!/^cctv[ns]?\.freeway\.gov\.tw$/i.test(host)) return null;
+      const body = await readFirstMultipartJpeg(upstream, maxBytes);
+      return body ? { ok: true, body, contentType: 'image/jpeg' } : null;
+    }
+    if (!contentType.startsWith('image/')) {
       controller.abort();
       return null;
     }

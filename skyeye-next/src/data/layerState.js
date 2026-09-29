@@ -538,6 +538,26 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     optionOwner: 'satellites',
   }),
   Object.freeze({
+    id: 'taiwan-freeway-cms',
+    token: '3',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
+    id: 'taiwan-freeway-live',
+    token: '4',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
+    id: 'taiwan-marine',
+    token: '6',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
+    id: 'taiwan-reservoirs',
+    token: '5',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
     id: 'telegeography-submarine-cables',
     token: 'u',
     disposition: 'enabled-only',

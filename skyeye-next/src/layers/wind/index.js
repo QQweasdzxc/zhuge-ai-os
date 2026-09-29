@@ -28,6 +28,8 @@ export function windStats(manifest) {
     lastUpdate: Number.isFinite(run) ? run : null,
     error:
       manifest?.reason || (manifest?.unavailable ? 'Wind unavailable' : null),
+    source: manifest?.source || null,
+    coverage: manifest?.geographicCoverage || null,
   };
 }
 
@@ -35,6 +37,8 @@ export function windStats(manifest) {
 export function createWindLayer({
   feed,
   clock,
+  name = 'Wind',
+  source = 'GFS / ECMWF IFS · FORECAST',
   cesium = Cesium,
   container,
   createRendering = createWindRendering,
@@ -86,9 +90,9 @@ export function createWindLayer({
   const unsubscribeClock = clock?.subscribe(notify);
   const layer = {
     id: 'wind',
-    name: 'Wind',
+    name,
     icon: '🌬',
-    source: 'GFS / ECMWF IFS · FORECAST',
+    source,
     updateInterval: 3600_000,
     init(nextViewer) {
       viewer = nextViewer;
@@ -290,7 +294,11 @@ export function createWindLayer({
         readout: true,
         summary: {
           label,
-          coverage: 'Global · 1° grid',
+          coverage:
+            manifest?.geographicCoverage ||
+            (manifest?.region
+              ? 'Taiwan context · regional grid'
+              : 'Global · 1° grid'),
           validTime: manifest?.cycle?.validIso,
           issuedTime: manifest?.cycle?.runIso,
           detail: `${model === 'ifs' ? 'ECMWF IFS' : 'GFS'} forecast · ${valid || 'Unavailable'}`,
@@ -431,7 +439,8 @@ export function createWindLayer({
         overlay,
         paused,
         stale: Boolean(manifest?.stale),
-        source: model === 'ifs' ? 'ECMWF IFS' : 'NOAA GFS',
+        source:
+          manifest?.source || (model === 'ifs' ? 'ECMWF IFS' : 'NOAA GFS'),
         validTime:
           formatWindValidTime(manifest?.cycle?.validIso) || 'Unavailable',
         error:

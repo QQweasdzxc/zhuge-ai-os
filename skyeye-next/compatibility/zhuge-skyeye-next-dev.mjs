@@ -16,6 +16,7 @@ import { createServer } from 'vite';
 
 const candidateRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mountPath = '/skyeye-next';
+const jimmyMountPath = `${mountPath}/jimmy`;
 const publicHost = process.env.ZHUGE_SKYEYE_NEXT_HOST || process.env.HOST || '127.0.0.1';
 const publicPort = Number(process.env.ZHUGE_SKYEYE_NEXT_PORT || process.env.PORT || 4174);
 const internalPort = publicPort + 1;
@@ -28,6 +29,7 @@ function sendHealth(res) {
   const payload = JSON.stringify({
     candidate: 'skyeye-next',
     route: `${mountPath}/`,
+    jimmy_full_runtime_candidate: `${jimmyMountPath}/`,
     upstream: 'gods-eye-view',
     upstream_commit: 'b210ab0fe4d71c7faa0268134e0aa5f3c53fc7fe',
     runtime_boundary: 'isolated-upstream-application',
@@ -105,6 +107,17 @@ const gateway = http.createServer((req, res) => {
   if (requestUrl.pathname === mountPath) {
     res.writeHead(302, { location: `${mountPath}/` });
     res.end();
+    return;
+  }
+
+  if (requestUrl.pathname === jimmyMountPath) {
+    res.writeHead(302, { location: `${jimmyMountPath}/${requestUrl.search}` });
+    res.end();
+    return;
+  }
+
+  if (requestUrl.pathname === `${jimmyMountPath}/`) {
+    proxyToUpstream(req, res, `/jimmy-runtime.html${requestUrl.search}`);
     return;
   }
 

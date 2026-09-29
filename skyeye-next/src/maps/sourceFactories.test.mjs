@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as Cesium from 'cesium';
-import { createIonImagery } from './imagery.js';
+import { createIonImagery, createNlscImagery } from './imagery.js';
 import { createWorldTerrain, createKeylessTerrain } from './terrain.js';
 import { createDefaultMapSources } from './defaultSources.js';
+
+test('NLSC imagery follows TileMatrix/TileRow/TileCol rather than XYZ order', () => {
+  const provider = createNlscImagery('PHOTO2');
+  assert.equal(
+    provider.url,
+    'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}',
+  );
+});
 
 test('Esri uses Re:Earth without keys and preserves ion terrain when configured', async () => {
   const originalTerrain = Cesium.CesiumTerrainProvider.fromUrl;

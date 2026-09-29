@@ -28,7 +28,9 @@ export function createNlscImagery(layer = 'EMAP') {
   const safeLayer =
     String(layer).toUpperCase() === 'PHOTO2' ? 'PHOTO2' : 'EMAP';
   return new Cesium.UrlTemplateImageryProvider({
-    url: `https://wmts.nlsc.gov.tw/wmts/${safeLayer}/default/GoogleMapsCompatible/{z}/{x}/{y}`,
+    // NLSC's GoogleMapsCompatible REST path is TileMatrix/TileRow/TileCol
+    // (z/y/x), unlike the common XYZ z/x/y ordering.
+    url: `https://wmts.nlsc.gov.tw/wmts/${safeLayer}/default/GoogleMapsCompatible/{z}/{y}/{x}`,
     maximumLevel: 18,
     credit: NLSC_ATTRIBUTION_HTML,
     enablePickFeatures: false,

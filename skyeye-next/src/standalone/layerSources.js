@@ -17,10 +17,20 @@ import { createCycloneSource } from '../layers/cyclones/source.js';
 import { createWindSource } from '../layers/wind/source.js';
 import { createFirmsSource } from '../layers/firms/source.js';
 import { createReferenceSources } from '../sources/reference.js';
+import {
+  createTaiwanFreewayCmsSource,
+  createTaiwanFreewayLiveSource,
+} from '../layers/taiwanFreeway/source.js';
+import { createTaiwanReservoirSource } from '../layers/taiwanReservoir/source.js';
+import { createTaiwanMarineSource } from '../layers/taiwanMarine/source.js';
 export { createReferenceSources as createStandaloneReferenceSources } from '../sources/reference.js';
 
 /** Select standalone providers without starting their acquisition. */
-export function createStandaloneLayerSources() {
+export function createStandaloneLayerSources({ taiwanEnhanced = false } = {}) {
+  const weatherBasePath = taiwanEnhanced
+    ? '/api/taiwan/cwa/radar'
+    : '/api/weather';
+  const windBasePath = taiwanEnhanced ? '/api/taiwan/cwa/wind' : '/api/wind';
   return {
     ...createReferenceSources(),
     flights: createOpenSkySource(),
@@ -38,8 +48,30 @@ export function createStandaloneLayerSources() {
     launches: createLaunchSource(),
     alpr: createOverpassAlprSource(),
     firms: createFirmsSource(),
-    wind: createWindSource(),
-    weather: createWeatherSource(),
-    cyclones: createCycloneSource(),
+    wind: createWindSource({ basePath: windBasePath }),
+    weather: createWeatherSource({ basePath: weatherBasePath }),
+    cyclones: createCycloneSource({
+      basePath: taiwanEnhanced ? '/api/taiwan/cwa/typhoon' : '/api/cyclones',
+    }),
+    taiwanFreewayLive: taiwanEnhanced
+      ? createTaiwanFreewayLiveSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
+    taiwanFreewayCms: taiwanEnhanced
+      ? createTaiwanFreewayCmsSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
+    taiwanReservoirs: taiwanEnhanced
+      ? createTaiwanReservoirSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
+    taiwanMarine: taiwanEnhanced
+      ? createTaiwanMarineSource()
+      : {
+          getSnapshot: async () => ({ entities: [], status: 'not_requested' }),
+        },
   };
 }

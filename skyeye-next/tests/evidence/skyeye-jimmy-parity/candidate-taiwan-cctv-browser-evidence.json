@@ -1,0 +1,175 @@
+{
+  "contract": "skyeye-jimmy-taiwan-parity-cctv-wave-2-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180",
+    "productionGatewayRequests": 0
+  },
+  "catalog": {
+    "count": 4000,
+    "bySourceKind": {
+      "austin-open-data": 250,
+      "caltrans-open-data": 300,
+      "tfl-open-data": 250,
+      "fintraffic-open-data": 300,
+      "drivebc-open-data": 250,
+      "txdot-its": 500,
+      "tallinn-ristmikud": 255,
+      "municipal-webcam": 1,
+      "nsw-livetraffic": 240,
+      "calgary-open-data": 217,
+      "deldot-open-data": 300,
+      "taipei-open-data-metadata": 417,
+      "new-taipei-open-data-metadata": 30,
+      "freeway-open-data": 690
+    },
+    "taipei": {
+      "id": "taipei-cctv-001",
+      "name": "001-市民快承德",
+      "city": "Taipei",
+      "lat": 25.04855,
+      "lon": 121.5169,
+      "provider": "Taipei City Government Open Data",
+      "sourceKind": "taipei-open-data-metadata",
+      "feedType": "image",
+      "mediaAvailable": false,
+      "road": null,
+      "direction": null
+    },
+    "newTaipei": {
+      "id": "new-taipei-cctv-C000002",
+      "name": "文化路1段、民生路(下大漢橋)",
+      "city": "New Taipei",
+      "lat": 25.022613,
+      "lon": 121.467942,
+      "provider": "New Taipei City Government Open Data",
+      "sourceKind": "new-taipei-open-data-metadata",
+      "feedType": "image",
+      "mediaAvailable": false,
+      "road": null,
+      "direction": null
+    },
+    "freeway": {
+      "id": "freeway-cctv-CCTV-N1-S-0-000-M",
+      "name": "國道1號 0K+000 S 基隆端 → 基隆交流道",
+      "city": "Taiwan Freeways",
+      "lat": 25.1229931,
+      "lon": 121.735695,
+      "provider": "Taiwan Freeway Bureau Open Data",
+      "sourceKind": "freeway-open-data",
+      "feedType": "image",
+      "mediaAvailable": false,
+      "road": null,
+      "direction": null
+    }
+  },
+  "media": {
+    "provider": "Freeway Bureau CCTV",
+    "cameraId": "freeway-cctv-CCTV-N1-S-0-000-M",
+    "status": 200,
+    "contentType": "image/jpeg",
+    "byteLength": 23521,
+    "jpegSignature": true,
+    "rawResponsePersisted": false
+  },
+  "metadataOnlyMedia": [
+    {
+      "cameraId": "taipei-cctv-001",
+      "status": 503,
+      "contentType": "application/json",
+      "errorCode": "CCTV_MEDIA_NOT_CONFIGURED",
+      "cctvSource": "unavailable"
+    },
+    {
+      "cameraId": "new-taipei-cctv-C000002",
+      "status": 503,
+      "contentType": "application/json",
+      "errorCode": "CCTV_MEDIA_NOT_CONFIGURED",
+      "cctvSource": "unavailable"
+    }
+  ],
+  "selection": {
+    "selectedOk": true,
+    "activeCameraId": "freeway-cctv-CCTV-N1-S-0-000-M",
+    "activeSourceKind": "snapshot",
+    "activeLat": 25.1229931,
+    "activeLon": 121.735695,
+    "billboardPresent": true,
+    "mapPlacement": true,
+    "frameUrlFamily": true,
+    "mediaUrlExposedOnlyOnSelection": true,
+    "summaryHasCctv": true
+  },
+  "screenshots": {
+    "catalog": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-cctv-catalog.png",
+    "selected": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-cctv-selected.png"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/sources"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/freeway-cctv-CCTV-N1-S-0-000-M"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/taipei-cctv-001"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/new-taipei-cctv-C000002"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/health"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/sources",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/freeway-cctv-CCTV-N1-S-0-000-M",
+      "contentType": "image/jpeg"
+    },
+    {
+      "status": 503,
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/taipei-cctv-001",
+      "contentType": "application/json"
+    },
+    {
+      "status": 503,
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/frame/new-taipei-cctv-C000002",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/cctv/health",
+      "contentType": "application/json"
+    }
+  ],
+  "consoleErrors": [],
+  "expectedUnavailableConsoleErrors": 2,
+  "pageErrors": [],
+  "status": "FUNCTIONAL_MATCH",
+  "providerBoundary": {
+    "taipei": "metadata_only_live_reuse_requires_official_application_or_contract",
+    "newTaipei": "metadata_only_live_mapping_not_established",
+    "freeway": "official_catalog_plus_bounded_single_jpeg_frame"
+  }
+}

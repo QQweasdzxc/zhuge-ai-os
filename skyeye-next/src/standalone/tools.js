@@ -2,8 +2,12 @@ import { createAssetDirectorySource } from '../director/packs/source.js';
 import { createApplicationTools } from '../app/tools.js';
 import { startStandaloneChrome } from './startupChrome.js';
 export function createStandaloneTools(options) {
+  const { skipProviderSettings = false, ...applicationOptions } = options || {};
   return createApplicationTools({
-    startChrome: startStandaloneChrome,
+    startChrome: (chromeOptions) => startStandaloneChrome({
+      ...chromeOptions,
+      ...(skipProviderSettings ? { initializeSettings: () => null } : {}),
+    }),
     sceneDataPacks: {
       sources: {
         assets: createAssetDirectorySource({
@@ -11,6 +15,6 @@ export function createStandaloneTools(options) {
         }),
       },
     },
-    ...options,
+    ...applicationOptions,
   });
 }

@@ -6,12 +6,25 @@ import { expandApplicationHtml, APPLICATION_TEMPLATES } from '../../build/applic
 test('the standalone document expands every component once and preserves unique element ids', () => {
   const source = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   const html = expandApplicationHtml(source);
-  assert.equal([...source.matchAll(/gev:template /g)].length, APPLICATION_TEMPLATES.length);
+  const requestedTemplates = [...source.matchAll(/gev:template ([^\s]+) -->/g)].map((match) => match[1]);
+  assert.ok(requestedTemplates.length > 0);
+  assert.ok(requestedTemplates.every((name) => APPLICATION_TEMPLATES.includes(name)));
   assert.doesNotMatch(html, /gev:template/);
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   assert.match(html, /id="cesiumContainer"/);
   assert.match(html, /type="module" src="\/src\/main.js"/);
+});
+
+test('Jimmy full-runtime document assembles as a separate experience without duplicate IDs', () => {
+  const source = readFileSync(new URL('../../jimmy-runtime.html', import.meta.url), 'utf8');
+  const html = expandApplicationHtml(source);
+  assert.doesNotMatch(html, /gev:template/);
+  assert.match(html, /id="jfr-runtime"/);
+  assert.match(html, /id="cesiumContainer"/);
+  assert.match(html, /src="\/src\/standalone\/jimmyMain.js"/);
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
 });
 
 test('component selection includes only requested markup and refuses filesystem traversal', () => {

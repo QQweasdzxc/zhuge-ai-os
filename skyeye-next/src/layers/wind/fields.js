@@ -98,13 +98,25 @@ export function sampleScalar(
   )
     return null;
   const { nx, ny, lo1, la1, dx, dy } = grid;
-  const x = ((normalizeLongitude(lon - lo1) + 360) % 360) / dx;
+  const regional = grid.region;
+  if (
+    regional &&
+    (lon < regional.west ||
+      lon > regional.east ||
+      lat < regional.south ||
+      lat > regional.north)
+  )
+    return null;
+  const x = regional
+    ? Math.max(0, Math.min(nx - 1.000001, (lon - lo1) / dx))
+    : ((normalizeLongitude(lon - lo1) + 360) % 360) / dx;
   const y = clamp((la1 - lat) / dy, 0, ny - 1);
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
   const tx = x - x0;
   const ty = y - y0;
-  const col = (n) => ((n % nx) + nx) % nx;
+  const col = (n) =>
+    regional ? Math.max(0, Math.min(nx - 1, n)) : ((n % nx) + nx) % nx;
   const y1 = Math.min(y0 + 1, ny - 1);
   const a = scalar.values[y0 * nx + col(x0)];
   const b = scalar.values[y0 * nx + col(x0 + 1)];

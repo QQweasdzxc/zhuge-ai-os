@@ -1,0 +1,87 @@
+{
+  "contract": "skyeye-jimmy-taiwan-parity-wra-reservoir-provider-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180"
+  },
+  "rawResponseReturned": false,
+  "jimmyGatewayRequestCount": 0,
+  "result": {
+    "daily": {
+      "httpStatus": 200,
+      "providerId": "taiwan.wra.reservoir",
+      "source": "Water Resources Agency, Ministry of Economic Affairs",
+      "status": "available",
+      "stale": false,
+      "entityCount": 53,
+      "firstEntity": {
+        "id": "10802",
+        "name": "羅東攔河堰",
+        "observedAt": "2026-09-25T16:00:00.000Z"
+      },
+      "dataTimestamp": "2026-09-27T00:00:00.000Z",
+      "fetchedAt": "2026-09-28T01:11:39.088Z",
+      "attribution": "Water Resources Agency, Ministry of Economic Affairs",
+      "license": "Open Government Data License, version 1.0",
+      "geographicCoverage": "Taiwan reservoirs",
+      "cache": "miss",
+      "rawResponseReturned": false
+    },
+    "shapes": {
+      "httpStatus": 200,
+      "providerId": "taiwan.wra.reservoir-shapes",
+      "status": "available",
+      "stale": false,
+      "entityCount": 101,
+      "firstName": "馬鞍后池",
+      "geometryCount": 124,
+      "sourceUrl": "https://maps.wra.gov.tw/arcgis/services/WMS/GIC_WMS/MapServer/WFSServer?service=WFS&version=2.0.0&request=GetFeature&typeNames=GIC_WMS%3Aressub&outputFormat=geojson&count=500",
+      "license": "Open Government Data License, version 1.0",
+      "rawResponseReturned": false
+    }
+  },
+  "layer": {
+    "stats": {
+      "count": 101,
+      "countLabel": "101",
+      "lastUpdate": "2026-09-28T00:49:44.582Z",
+      "loading": false,
+      "stale": false,
+      "status": "available",
+      "operationStatus": "available",
+      "error": null,
+      "source": "Water Resources Agency, Ministry of Economic Affairs"
+    },
+    "entityCount": 225,
+    "analystCount": 101,
+    "screenshot": "tests/evidence/skyeye-jimmy-parity/candidate-taiwan-reservoir-layer.png"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs/shapes"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs",
+      "contentType": "application/json"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/reservoirs/shapes",
+      "contentType": "application/json"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

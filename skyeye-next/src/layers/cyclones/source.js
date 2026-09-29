@@ -119,19 +119,21 @@ export function validateCycloneSnapshot(value) {
     budget = { coordinates: 0, points: 0 };
   const storms = value.storms.map((raw) => {
     if (
-      !/^(?:al|ep|cp)\d{6}$/.test(raw?.id) ||
+      !/^(?:al|ep|cp|tw)\d{6}$/.test(raw?.id) ||
       seen.has(raw.id) ||
       !['current', 'pending', 'unavailable'].includes(raw.geometryStatus)
     )
       throw malformed();
     seen.add(raw.id);
-    const advisoryNumber = advisory(raw.advisoryNumber);
+    const advisoryNumber =
+      raw.advisoryNumber === null ? null : advisory(raw.advisoryNumber);
     const geometryAdvisoryNumber =
       raw.geometryAdvisoryNumber === null
         ? null
         : advisory(raw.geometryAdvisoryNumber);
     if (
       raw.geometryStatus === 'current' &&
+      advisoryNumber !== null &&
       geometryAdvisoryNumber !== advisoryNumber
     )
       throw malformed();
@@ -208,6 +210,7 @@ export function validateCycloneSnapshot(value) {
 export function createCycloneSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
   timeoutMs = 15_000,
+  basePath = '/api/cyclones',
 } = {}) {
   return {
     async getSnapshot({ signal } = {}) {
@@ -220,7 +223,7 @@ export function createCycloneSource({
       );
       try {
         signal?.throwIfAborted();
-        const response = await fetchImpl('/api/cyclones', {
+        const response = await fetchImpl(basePath, {
           signal: controller.signal,
           cache: 'no-store',
           redirect: 'error',

@@ -43,7 +43,15 @@
     "test": "node scripts/run-unit-tests.mjs",
     "test:track": "node scripts/track-regression.mjs",
     "qa:map-source-tray": "node scripts/qa-map-source-tray.mjs",
+    "qa:jimmy-runtime": "node scripts/qa-jimmy-runtime.mjs",
     "qa:taiwan-parity": "node scripts/qa-taiwan-map-source.mjs",
+    "qa:taiwan-cwa": "node scripts/qa-taiwan-cwa.mjs",
+    "qa:taiwan-cctv": "node scripts/qa-taiwan-cctv.mjs",
+    "qa:taiwan-reservoir": "node scripts/qa-taiwan-reservoir.mjs",
+    "qa:taiwan-aqi": "node scripts/qa-taiwan-aqi.mjs",
+    "qa:taiwan-tdx": "node scripts/qa-taiwan-tdx.mjs",
+    "qa:taiwan-information": "node scripts/qa-taiwan-information.mjs",
+    "qa:taiwan-freeway": "node scripts/qa-taiwan-freeway.mjs",
     "check:boundaries": "node scripts/check-import-directions.mjs && node scripts/check-package-boundaries.mjs",
     "qa:transit": "node scripts/qa-transit.mjs"
   },
@@ -68,6 +76,12 @@
     "ws": "^8.21.0"
   },
   "exports": {
+    "./layers/taiwan-freeway": "./src/layers/taiwanFreeway/index.js",
+    "./layers/taiwan-reservoir": "./src/layers/taiwanReservoir/index.js",
+    "./layers/taiwan-marine": "./src/layers/taiwanMarine/index.js",
+    "./server/providers/taiwan": {
+      "node": "./server/providers/taiwan.js"
+    },
     "./infrastructure": "./src/data/infrastructure.js",
     "./infrastructure/geojson": "./src/data/localGeojsonCore.js",
     "./infrastructure/lod": "./src/data/localGeojsonLod.js",

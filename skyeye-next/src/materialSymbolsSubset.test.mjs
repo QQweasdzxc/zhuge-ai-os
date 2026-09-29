@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const SRC_ROOT = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = path.resolve(SRC_ROOT, '..');
 const INDEX_HTML = path.join(REPO_ROOT, 'index.html');
+const JIMMY_HTML = path.join(REPO_ROOT, 'jimmy-runtime.html');
+const JIMMY_TEMPLATE = path.join(SRC_ROOT, 'ui/templates/jimmy-runtime.html');
 
 /** The glyph written as element text: `<span class="material-symbols-outlined">radar</span>`. */
 const SPAN_TEXT =
@@ -53,11 +55,12 @@ function sourceFiles(directory = SRC_ROOT) {
  * is not a ternary, and splitting on its `?` would keep the condition.
  * @returns {Map<string, string>} glyph -> the first file that names it.
  */
-function referencedGlyphs() {
+function referencedGlyphs({ excludeJimmyTemplate = false } = {}) {
   const found = new Map();
   for (const file of sourceFiles()) {
     const source = readFileSync(file, 'utf8');
     const relative = path.relative(REPO_ROOT, file).split(path.sep).join('/');
+    if (excludeJimmyTemplate && relative === 'src/ui/templates/jimmy-runtime.html') continue;
     const add = (glyph) => {
       if (!found.has(glyph)) found.set(glyph, relative);
     };
@@ -86,7 +89,7 @@ function subsettedGlyphs(html = readFileSync(INDEX_HTML, 'utf8')) {
 
 test('every glyph the sources render is in the icon_names subset', () => {
   const subset = subsettedGlyphs();
-  const missing = [...referencedGlyphs()]
+  const missing = [...referencedGlyphs({ excludeJimmyTemplate: true })]
     .filter(([glyph]) => !subset.has(glyph))
     .map(([glyph, file]) => `${glyph} (${file})`);
 
@@ -97,6 +100,14 @@ test('every glyph the sources render is in the icon_names subset', () => {
       'Add them there — an unlisted glyph renders as its own name on screen: ' +
       missing.join(', '),
   );
+});
+
+test('the isolated Jimmy runtime carries its own glyph subset', () => {
+  const subset = subsettedGlyphs(readFileSync(JIMMY_HTML, 'utf8'));
+  const template = readFileSync(JIMMY_TEMPLATE, 'utf8');
+  const glyphs = new Set([...template.matchAll(SPAN_TEXT)].map((match) => match[1]));
+  const missing = [...glyphs].filter((glyph) => !subset.has(glyph));
+  assert.deepEqual(missing, [], 'Jimmy standalone HTML must request every icon its shell renders');
 });
 
 test('the unused Material Icons Round family is not loaded', () => {
