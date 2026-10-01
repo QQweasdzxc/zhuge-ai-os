@@ -52,7 +52,7 @@ await new Promise((resolve, reject) => server.listen(0, "127.0.0.1", (error) => 
 const address = server.address();
 const base = `http://127.0.0.1:${address.port}`;
 const browser = await chromium.launch({ headless: true, ...(browserExecutable() ? { executablePath: browserExecutable() } : {}) });
-const result = { runAt: new Date().toISOString(), scope: "temporary static-file preview only; no API server", checks: [], providerCorsErrors: [], consoleErrors: [], pageErrors: [], screenshots: [] };
+const result = { runAt: new Date().toISOString(), scope: "temporary static-file preview only; no authenticated session or API server", checks: [], providerCorsErrors: [], consoleErrors: [], pageErrors: [], screenshots: [], portfolioReadRequests: 0 };
 const pass = (name, evidence = "") => result.checks.push({ name, result: "PASS", evidence });
 const providerHosts = new Set([
   "openapi.twse.com.tw", "openapi.taifex.com.tw", "openapi.tdcc.com.tw",
@@ -61,6 +61,13 @@ const providerHosts = new Set([
 ]);
 
 function watchPage(page) {
+  page.on("request", (request) => {
+    let url;
+    try { url = new URL(request.url()); } catch { return; }
+    if (/^\/rest\/v1\/(app_users|portfolios|investment_current_positions_view|broker_position_snapshots|current_broker_positions_view)$/.test(url.pathname)) {
+      result.portfolioReadRequests += 1;
+    }
+  });
   page.on("pageerror", (error) => result.pageErrors.push(error.message));
   page.on("requestfailed", (request) => {
     let parsed;
@@ -116,15 +123,21 @@ try {
   await save(page, "lab-center-desktop-1440.png");
   await page.getByRole("link", { name: "進入 Lab" }).click();
   await page.waitForURL(/\/labs\/investment\/$/);
+  await page.locator('.portfolio-state[data-state="SESSION_REQUIRED"]').waitFor({ state: "visible" });
   await page.locator(".stock-card").first().waitFor({ state: "visible", timeout: 90_000 });
   assert.equal(await page.locator(".stock-card").count(), 3);
+  assert.equal(await page.locator(".portfolio-holding-card").count(), 0);
+  assert.match(await page.locator(".portfolio-state").innerText(), /需要先登入 Zhuge AI OS/);
+  assert.equal(result.portfolioReadRequests, 0, "anonymous session must be denied before any portfolio REST read");
   assert.match(await page.locator("body").innerText(), /2330\.TW|台積電/);
   assert.doesNotMatch(await page.locator("body").innerText(), /開啟本機 Lab|在終端機執行|Demo 限制|VIP lock|License Key/);
   assert.equal(await page.locator("a[href]").evaluateAll((links) => links.some((link) => /^(https?:)?\/\/(127\.0\.0\.1|localhost)|\.app(?:$|\/)/i.test(link.getAttribute("href") || ""))), false);
   await save(page, "investment-home-desktop-1440.png");
+  await save(page, "my-holdings-session-gate-desktop-1440.png");
   const desktop = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
   assert.ok(desktop.scrollWidth <= desktop.width + 1, JSON.stringify(desktop));
   pass("AIOS Lab Center → same-origin Lab runtime", `path=${new URL(page.url()).pathname}; no popup or independent service; ${JSON.stringify(desktop)}`);
+  pass("anonymous portfolio boundary", "SESSION_REQUIRED before owner mapping/portfolio SELECT; portfolio REST reads=0");
 
   for (const [symbol, name, screenshot] of [
     ["2330.TW", "台積電", "investment-2330-desktop-1440.png"],
@@ -149,18 +162,33 @@ try {
     assert.ok((await page.locator("body").innerText()).length > 100);
     pass(`${title} static route`, "real provider results or explicit unavailable/proxy-required state rendered");
   }
+
+  await page.goto(`${base}/labs/investment/#research/AAPL`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: /AAPL 個股研究/ }).waitFor({ state: "visible", timeout: 90_000 });
+  assert.match(await page.locator("body").innerText(), /尚未接通/);
+  await save(page, "investment-AAPL-research-not-connected-desktop-1440.png");
+  pass("AAPL research route retains explicit provider boundary", "NOT_CONNECTED with null evidence; no simulated quote or holdings displayed");
+
+  await page.goto(`${base}/labs/investment/#research/NVDA`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: /NVDA 個股研究/ }).waitFor({ state: "visible", timeout: 90_000 });
+  assert.match(await page.locator("body").innerText(), /尚未接通/);
+  pass("NVDA research route retains explicit provider boundary", "NOT_CONNECTED with null evidence; no simulated quote or holdings displayed");
   await context.close();
 
   const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   const mobile = await mobileContext.newPage();
   watchPage(mobile);
   await mobile.goto(`${base}/labs/investment/`, { waitUntil: "domcontentloaded" });
+  await mobile.locator('.portfolio-state[data-state="SESSION_REQUIRED"]').waitFor({ state: "visible" });
   await mobile.locator(".stock-card").first().waitFor({ state: "visible", timeout: 90_000 });
+  assert.equal(await mobile.locator(".portfolio-holding-card").count(), 0);
+  assert.equal(result.portfolioReadRequests, 0, "mobile anonymous session must not trigger portfolio REST reads");
   const layout = await mobile.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
   assert.ok(layout.scrollWidth <= layout.width + 1, JSON.stringify(layout));
   const targets = await mobile.locator(".mobile-nav button").evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().height)));
   assert.ok(targets.every((height) => height >= 44), JSON.stringify(targets));
   await save(mobile, "investment-home-mobile-375.png");
+  await save(mobile, "my-holdings-session-gate-mobile-375.png");
   await mobile.locator('button[data-action="research"][data-symbol="2330.TW"]').first().click();
   await mobile.getByRole("heading", { name: /2330\.TW 個股研究/ }).waitFor({ state: "visible", timeout: 90_000 });
   await save(mobile, "investment-2330-mobile-375.png");

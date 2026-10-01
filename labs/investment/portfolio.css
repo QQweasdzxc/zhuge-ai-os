@@ -1,0 +1,43 @@
+.portfolio-section{margin-top:24px}
+.portfolio-source-note,.portfolio-read-at{color:var(--muted);font-size:12px}
+.portfolio-source-note{margin:-7px 0 13px}
+.portfolio-read-at{white-space:nowrap}
+.portfolio-holdings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:14px}
+.portfolio-holding-card{min-width:0;padding:17px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel)}
+.portfolio-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.portfolio-card-head h3{margin:0 0 3px;font-size:17px;overflow-wrap:anywhere}
+.portfolio-card-head .status-chip{flex-shrink:0}
+.portfolio-quantity{display:flex;align-items:baseline;gap:7px;margin:15px 0 10px}
+.portfolio-quantity strong{font-size:24px;font-variant-numeric:tabular-nums}
+.portfolio-quantity span{color:var(--muted);font-size:12px}
+.portfolio-values,.portfolio-research-context dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.portfolio-values>div,.portfolio-research-context dl>div{min-width:0;padding:9px 10px;border-radius:10px;background:var(--panel-2)}
+.portfolio-values dt,.portfolio-research-context dt{color:var(--muted);font-size:11px}
+.portfolio-values dd,.portfolio-research-context dd{margin:4px 0 0;overflow-wrap:anywhere;font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}
+.portfolio-card-source{display:grid;gap:3px;margin-top:12px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.portfolio-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px;padding-top:11px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+.portfolio-card-footer .primary-button{min-height:44px}
+.portfolio-state{display:grid;justify-items:start;gap:5px;padding:18px;border:1px dashed var(--border);border-radius:14px;background:var(--panel)}
+.portfolio-state strong{color:var(--text)}
+.portfolio-state p{margin:0;color:var(--muted);font-size:13px}
+.portfolio-state .secondary-button{margin-top:7px;min-height:44px}
+.portfolio-research-context{display:grid;gap:12px;margin:0 0 18px;padding:16px;border:1px solid #45617e;border-radius:14px;background:#17283a}
+.portfolio-research-context>div:first-child{display:grid;gap:2px}
+.portfolio-research-context>div:first-child strong{font-size:14px}
+.portfolio-research-context>div:first-child span,.portfolio-research-context>p{margin:0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.portfolio-research-context dl>div{background:#1d3147}
+.portfolio-research-context p{line-height:1.5}
+.portfolio-holding-card .status-chip[data-status="PARTIAL"]{color:var(--warn);border-color:#80683c}
+@media(max-width:720px){
+  .portfolio-section{margin-top:18px}
+  .portfolio-section .section-title{align-items:flex-start;flex-direction:column;gap:3px;margin:20px 0 12px}
+  .portfolio-holdings-grid{grid-template-columns:minmax(0,1fr)}
+  .portfolio-holding-card{padding:14px}
+  .portfolio-card-head{flex-wrap:wrap}
+  .portfolio-quantity strong{font-size:22px}
+  .portfolio-values,.portfolio-research-context dl{gap:7px}
+  .portfolio-values>div,.portfolio-research-context dl>div{padding:8px}
+  .portfolio-card-source{font-size:10px}
+  .portfolio-card-footer{align-items:flex-start}
+  .portfolio-research-context{padding:13px}
+}

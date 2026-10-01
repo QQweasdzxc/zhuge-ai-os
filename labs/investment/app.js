@@ -1,4 +1,7 @@
 import { loadHome, loadResearch, loadMarket, loadOpening, loadRadar } from "./src/browser-runtime.mjs";
+import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
+import { createUnconnectedResearch } from "./src/portfolio/research-placeholder.mjs";
+import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs";
 
 const root = document.querySelector("#view-root");
 const dialog = document.querySelector("[data-dialog]");
@@ -8,13 +11,29 @@ const navButtons = [...document.querySelectorAll("[data-view]")];
 const runtimeStatus = document.querySelector("[data-runtime-status]");
 const STORE_WATCH = "zhuge.investment.sandbox.watch.v1";
 const STORE_NOTES = "zhuge.investment.sandbox.notes.v1";
-const symbolNames = { "2330.TW": "台積電", "0050.TW": "元大台灣50", "6488.TWO": "環球晶" };
-const state = { view: "home", symbol: "2330.TW", home: null, research: null, request: 0 };
+const symbolNames = Object.assign(Object.create(null), {
+  "2330.TW": "台積電", "0050.TW": "元大台灣50", "6488.TWO": "環球晶", AAPL: "Apple", NVDA: "NVIDIA",
+});
+const SUPPORTED_RESEARCH_SYMBOLS = new Set(["2330.TW", "0050.TW", "6488.TWO"]);
+const state = { view: "home", symbol: "2330.TW", home: null, research: null, portfolio: { status: "LOADING", positions: [] }, portfolioPromise: null, request: 0 };
+
+let portfolioAdapter = null;
+try {
+  const platform = globalThis.ZhugeRuntimeSessionProvider?.createPlatform?.();
+  const context = platform?.forModule?.("investment");
+  if (context) portfolioAdapter = createReadOnlyPortfolioAdapter({
+    context,
+    appAccess: globalThis.ZhugeAppAccess,
+    appAccessGate: globalThis.ZhugeAppAccessGate,
+  });
+} catch {
+  portfolioAdapter = null;
+}
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const list = (value) => Array.isArray(value) ? value : value == null ? [] : [value];
-const fmt = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toLocaleString("zh-TW", { maximumFractionDigits: digits }) : "—";
-const fmtSigned = (value, digits = 2) => Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : ""}${fmt(value, digits)}` : "—";
+const fmt = (value, digits = 2) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? Number(value).toLocaleString("zh-TW", { maximumFractionDigits: digits }) : "—";
+const fmtSigned = (value, digits = 2) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? `${Number(value) > 0 ? "+" : ""}${fmt(value, digits)}` : "—";
 const statusNames = {
   AVAILABLE: "資料可用", PARTIAL: "部分欄位可用", NOT_APPLICABLE: "不適用此標的",
   NOT_CONNECTED: "尚未接通", PROVIDER_REVIEW_REQUIRED: "來源審查中", UNAVAILABLE: "暫時無法取得",
@@ -90,6 +109,87 @@ function pageHead(title, description, controls = "") {
   return `<header class="page-head"><div><p class="eyebrow">Zhuge Investment Sandbox</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${controls ? `<div class="head-actions">${controls}</div>` : ""}</header>`;
 }
 
+function portfolioErrorStatus(error) {
+  const mapping = {
+    SESSION_REQUIRED: "SESSION_REQUIRED",
+    APP_ACCESS_REQUIRED: "APP_ACCESS_REQUIRED",
+    MFA_REQUIRED: "MFA_REQUIRED",
+    OWNER_MAPPING_REQUIRED: "OWNER_MAPPING_REQUIRED",
+    ACCESS_GATE_UNAVAILABLE: "ACCESS_UNAVAILABLE",
+    ACCESS_CHECK_UNAVAILABLE: "ACCESS_UNAVAILABLE",
+    SECURITY_CHECK_UNAVAILABLE: "ACCESS_UNAVAILABLE",
+    PORTFOLIO_ACCESS_DENIED: "ACCESS_UNAVAILABLE",
+  };
+  return mapping[error?.code] || "UNAVAILABLE";
+}
+
+function registerPortfolioSymbols(result) {
+  for (const position of list(result?.positions)) {
+    const symbol = String(position.researchSymbol || position.symbol || "").toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9.-]{0,15}(?:\.(?:TW|TWO))?$/.test(symbol)) continue;
+    if (!Object.hasOwn(symbolNames, symbol)) symbolNames[symbol] = position.name || symbol;
+  }
+}
+
+async function loadPortfolioSnapshot(force = false) {
+  if (state.portfolioPromise && !force) return state.portfolioPromise;
+  if (!force && state.portfolio.status !== "LOADING") return state.portfolio;
+  const pending = (async () => {
+    if (!portfolioAdapter) {
+      state.portfolio = { status: "UNAVAILABLE", positions: [] };
+      return state.portfolio;
+    }
+    try {
+      state.portfolio = await portfolioAdapter.load();
+      registerPortfolioSymbols(state.portfolio);
+    } catch (error) {
+      state.portfolio = { status: portfolioErrorStatus(error), positions: [] };
+    }
+    return state.portfolio;
+  })();
+  state.portfolioPromise = pending;
+  try { return await pending; }
+  finally { if (state.portfolioPromise === pending) state.portfolioPromise = null; }
+}
+
+function portfolioPositionForSymbol(symbol) {
+  const target = String(symbol || "").toUpperCase();
+  const code = target.replace(/\.(TW|TWO)$/, "");
+  return list(state.portfolio?.positions).find(position => {
+    const candidate = String(position.researchSymbol || position.symbol || "").toUpperCase();
+    return candidate === target || candidate.replace(/\.(TW|TWO)$/, "") === code;
+  }) || null;
+}
+
+function navigateHash(route) {
+  const next = `#${route}`;
+  if (location.hash === next) routeFromHash();
+  else location.hash = next;
+}
+
+function routeFromHash() {
+  let route = "";
+  try { route = decodeURIComponent(String(location.hash || "").replace(/^#/, "")); }
+  catch { return loadHomeView(); }
+  if (route.startsWith("research/")) {
+    const symbol = route.slice("research/".length).toUpperCase();
+    if (/^[A-Z0-9][A-Z0-9.-]{0,15}(?:\.(?:TW|TWO))?$/.test(symbol)) loadResearchView(symbol);
+    else loadHomeView();
+    return;
+  }
+  if (["home", "opening", "market", "radar", "watchlist"].includes(route)) {
+    showView(route);
+    return;
+  }
+  loadHomeView();
+}
+
+function navigateToResearch(symbol) {
+  const safeSymbol = String(symbol || "").toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9.-]{0,15}(?:\.(?:TW|TWO))?$/.test(safeSymbol)) return;
+  navigateHash(`research/${encodeURIComponent(safeSymbol)}`);
+}
+
 function quoteHeadline(evidence) {
   if (!evidence?.data) return `<div class="empty-state">${esc(evidenceState(evidence).what)}<br>${esc(evidenceState(evidence).action)}</div>`;
   const data = evidence.data;
@@ -155,6 +255,7 @@ function renderHome(data) {
   ].join("");
   root.innerHTML = `${pageHead("研究總覽", "先看三檔起始研究標的的官方收盤與有來源的脈搏。這裡不輸出綜合分數或買賣方向。", `<button class="secondary-button" data-action="refresh">↻ 更新來源</button>`)}
     <div class="callout"><strong>資料定位</strong><p>官方日收為延遲行情，不是盤中即時報價；價格變動與營收只是不同期間的原始證據，不代表未來報酬。</p></div>
+    ${renderPortfolioSection(state.portfolio)}
     <div class="section-title"><h2>研究標的</h2><span>2330 · 0050 · 6488</span></div>
     <div class="research-grid">${cards}</div>
     <div class="section-title"><h2>台灣市場脈搏</h2><span>來源日期分開顯示</span></div><div class="evidence-grid">${pulseCards}</div>
@@ -178,13 +279,16 @@ function renderResearch(data) {
   state.symbol = data.symbol;
   const quote = data.quote;
   const currentCard = state.home?.cards?.find((item) => item.symbol === data.symbol);
+  const portfolioPosition = portfolioPositionForSymbol(data.symbol);
+  const displayName = symbolNames[data.symbol] || portfolioPosition?.name || data.symbol;
   const notes = loadNotes();
   const noteText = notes[data.symbol] || "";
   const history = data.history?.data;
   const chart = Array.isArray(history) && history.length > 1 ? makeChart(history) : `<div class="empty-state">${esc(data.history?.note || "目前沒有可用歷史線圖")}</div>`;
   const barNote = history?.length ? `共 ${history.length} 筆 · ${history[0].date} 至 ${history.at(-1).date}` : "歷史資料未接通";
-  const fundamental = data.instrumentType === "ETF" ? "0050 為 ETF，不顯示營運公司財報作為基金基本面。基金成分、權重、淨值與配息資料仍未接通。" : "公司揭露為官方最新可得資訊；財報期間與欄位口徑依來源呈現。";
-  root.innerHTML = `${pageHead(`${data.symbol} 個股研究`, `${symbolNames[data.symbol]} · ${data.instrumentType} · 研究只讀取有來源的證據，不形成買賣指令。`, `<button class="secondary-button" data-action="home">返回總覽</button><button class="primary-button" data-action="toggle-watch" data-symbol="${esc(data.symbol)}">${isWatched(data.symbol) ? "移出觀察" : "加入觀察"}</button>`)}
+  const fundamental = data.instrumentType === "ETF" ? `${displayName} 為 ETF，不顯示營運公司財報作為基金基本面。基金成分、權重、淨值與配息資料仍未接通。` : "公司揭露為官方最新可得資訊；財報期間與欄位口徑依來源呈現。";
+  root.innerHTML = `${pageHead(`${data.symbol} 個股研究`, `${displayName} · ${data.instrumentType} · 研究只讀取有來源的證據，不形成買賣指令。`, `<button class="secondary-button" data-action="home">返回總覽</button><button class="primary-button" data-action="toggle-watch" data-symbol="${esc(data.symbol)}">${isWatched(data.symbol) ? "移出觀察" : "加入觀察"}</button>`)}
+    ${renderPortfolioResearchContext(portfolioPosition)}
     <div class="layout-two"><section class="surface"><div class="evidence-head"><div><p class="eyebrow">OFFICIAL CLOSE</p><h2>${esc(currentCard?.name || symbolNames[data.symbol])} · ${esc(data.symbol)}</h2></div>${badge(quote)}</div>${quoteHeadline(quote)}<p class="tiny-note">${esc(quote?.note || "最新可得官方收盤資料")} · ${esc(quote?.dataTimestamp || "資料日期未提供")}</p></section><section class="surface"><h2>觀察筆記</h2><p class="tiny-note">只保存在目前瀏覽器，不會送到 Cloud。</p><div class="note-editor"><textarea data-note-input aria-label="個股觀察筆記" placeholder="記錄待查問題或個人觀察…">${esc(noteText)}</textarea><div><button class="primary-button" data-action="save-note" data-symbol="${esc(data.symbol)}">儲存筆記</button> <span class="flash" data-note-status></span></div></div></section></div>
     <div class="section-title"><h2>價格與技術</h2><span>${esc(barNote)}</span></div><div class="layout-two"><section class="surface"><div class="evidence-head"><h2>官方日收歷史</h2>${badge(data.history)}</div>${chart}<p class="tiny-note">${esc(data.history?.note || "未提供")}</p><details><summary>來源與證據</summary>${sourceDetails(data.history)}</details></section>${indicatorRows(data.indicators)}</div>
     <div class="section-title"><h2>營運與基本面</h2><span>不適用／未接欄位保留原狀</span></div><div class="evidence-grid">${evidenceCard("公司基本資料", data.profile, data.profile?.data ? `<div class="metric-row"><div class="metric"><label>公司</label><strong>${esc(data.profile.data.name || "—")}</strong></div><div class="metric"><label>產業（官方原文）</label><strong>${esc(data.profile.data.industry || "—")}</strong></div><div class="metric"><label>交易市場</label><strong>${esc(data.profile.data.venue || "—")}</strong></div></div><p class="evidence-note">${esc(data.profile.data.business || "業務描述未提供")}</p>` : "")}${evidenceCard("月營收", data.revenue, data.revenue?.data ? `<div class="evidence-value">${fmt(data.revenue.data.amountThousandTwd, 0)}<small> 千元</small></div><p class="tiny-note">${esc(data.revenue.data.period || "期間未提供")} · 年增 ${fmtSigned(data.revenue.data.yearOverYearPercent)}% · 月增 ${fmtSigned(data.revenue.data.monthOverMonthPercent)}%</p>` : "")}${evidenceCard("最新損益", data.income, data.income?.data ? `<p>${esc(data.income.data.period || "期間未提供")} · ${esc(data.income.data.scope || "")}</p><p>營收 ${fmt(data.income.data.revenueThousandTwd, 0)} 千元 · EPS ${fmt(data.income.data.eps, 2)} 元</p>` : "")}${evidenceCard("資產負債", data.balance, data.balance?.data ? `<p>${esc(data.balance.data.period || "期間未提供")} · ${esc(data.balance.data.scope || "")}</p><p>資產 ${fmt(data.balance.data.assetsThousandTwd, 0)} 千元 · 負債 ${fmt(data.balance.data.liabilitiesThousandTwd, 0)} 千元 · 權益 ${fmt(data.balance.data.equityThousandTwd, 0)} 千元</p>` : "")}</div>
@@ -271,16 +375,32 @@ function renderError(message, retry = true) {
 async function loadHomeView() {
   state.view = "home"; applyNav();
   const { requestId } = startRequest("正在讀取可由瀏覽器存取的官方來源…");
-  try { const data = await loadHome(); if (requestId === state.request) renderHome(data); }
+  try {
+    const [data] = await Promise.all([loadHome(), loadPortfolioSnapshot()]);
+    if (requestId === state.request) renderHome(data);
+  }
   catch (error) { if (error.name !== "AbortError" && requestId === state.request) renderError("總覽來源回應無法使用。這裡不會以快取 fixture 或模擬值填入。 "); }
 }
 
 async function loadResearchView(symbol = state.symbol) {
-  if (!symbolNames[symbol]) return renderError("此研究池不支援該代碼。", false);
-  state.view = "research"; state.symbol = symbol; applyNav();
-  const { requestId } = startRequest(`正在讀取 ${symbolNames[symbol]} 的可用研究來源…`);
-  try { const data = await loadResearch(symbol); if (requestId === state.request) renderResearch(data); }
-  catch (error) { if (error.name !== "AbortError" && requestId === state.request) renderError(`${symbol} 研究資料暫時無法載入；未以其他來源替代。`); }
+  const normalizedSymbol = String(symbol || "").toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9.-]{0,15}(?:\.(?:TW|TWO))?$/.test(normalizedSymbol)) return renderError("研究代碼格式無法辨識。", false);
+  const position = portfolioPositionForSymbol(normalizedSymbol);
+  const displayName = symbolNames[normalizedSymbol] || position?.name || normalizedSymbol;
+  if (!symbolNames[normalizedSymbol] && !position) return renderError("此代碼不在已核對的研究池或目前持股中。", false);
+  state.view = "research"; state.symbol = normalizedSymbol; applyNav();
+  const { requestId } = startRequest(`正在讀取 ${displayName} 的可用研究來源…`);
+  try {
+    const data = SUPPORTED_RESEARCH_SYMBOLS.has(normalizedSymbol)
+      ? await loadResearch(normalizedSymbol)
+      : createUnconnectedResearch({
+        symbol: normalizedSymbol,
+        market: position?.market || "OTHER",
+        name: displayName,
+        assetType: position?.assetType || "個股",
+      });
+    if (requestId === state.request) renderResearch(data);
+  } catch (error) { if (error.name !== "AbortError" && requestId === state.request) renderError(`${normalizedSymbol} 研究資料暫時無法載入；未以其他來源替代。`); }
 }
 
 async function loadSimpleView(view) {
@@ -311,6 +431,7 @@ async function showView(view) {
 }
 
 async function refreshCurrent() {
+  await loadPortfolioSnapshot(true);
   if (state.view === "research") return loadResearchView(state.symbol);
   return showView(state.view);
 }
@@ -355,14 +476,17 @@ function evidenceDialog(card) {
 
 document.addEventListener("click", (event) => {
   const view = event.target.closest("[data-view]")?.dataset.view;
-  if (view) { showView(view); return; }
+  if (view) {
+    navigateHash(view === "research" ? `research/${encodeURIComponent(state.symbol)}` : view);
+    return;
+  }
   if (event.target.closest("[data-refresh]")) { refreshCurrent(); return; }
   const actionNode = event.target.closest("[data-action]");
   if (!actionNode) return;
   const action = actionNode.dataset.action;
   const symbol = actionNode.dataset.symbol;
-  if (action === "research") { dialog.close?.(); loadResearchView(symbol); }
-  else if (action === "home") loadHomeView();
+  if (action === "research" || action === "portfolio-research") { dialog.close?.(); navigateToResearch(symbol); }
+  else if (action === "home") navigateHash("home");
   else if (action === "toggle-watch") toggleWatch(symbol);
   else if (action === "remove-watch") toggleWatch(symbol, true);
   else if (action === "pick-watch") { toggleWatch(symbol); dialog.close(); state.view = "watchlist"; applyNav(); renderWatchlist(); }
@@ -372,12 +496,8 @@ document.addEventListener("click", (event) => {
 });
 document.querySelector("[data-dialog-close]").addEventListener("click", () => dialog.close());
 dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+window.addEventListener("hashchange", routeFromHash);
 
 runtimeStatus.textContent = "AIOS 同源 Lab · 唯讀";
 
-const initial = location.hash.slice(1);
-if (initial.startsWith("research/")) {
-  const symbol = decodeURIComponent(initial.slice("research/".length));
-  if (symbolNames[symbol]) state.symbol = symbol;
-  loadResearchView(state.symbol);
-} else loadHomeView();
+loadPortfolioSnapshot().finally(routeFromHash);

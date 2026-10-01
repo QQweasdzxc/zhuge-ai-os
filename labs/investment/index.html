@@ -7,7 +7,8 @@
   <meta name="description" content="Zhuge 自有、唯讀、具來源證據的台灣投資研究工作台。">
   <title>Lab_投資｜Zhuge Investment Sandbox</title>
   <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./portfolio.css?v=20261001-2324">
 </head>
 <body>
   <div class="app-shell">
@@ -49,6 +50,31 @@
     <div class="dialog-head"><div><p class="eyebrow">EVIDENCE DETAIL</p><h2 data-dialog-title>資料來源</h2></div><button class="icon-button" data-dialog-close aria-label="關閉">×</button></div>
     <div class="dialog-body" data-dialog-body></div>
   </dialog>
+  <!-- Use the same root session, app-access, MFA and shared data boundaries as formal Investment. -->
+  <script src="../../shared/app-config.js?v=20261001-2324"></script>
+  <script src="../../shared/utils/shared-utils.js?v=20261001-2324"></script>
+  <script src="../../shared/storage/storage-migration.js?v=20261001-2324"></script>
+  <script src="../../shared/api/data-result.js?v=20261001-2324"></script>
+  <script src="../../shared/identity/identity-health.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/session-lifecycle.js?v=20261001-2324"></script>
+  <script src="../../shared/core/repository-bootstrap.js?v=20261001-2324"></script>
+  <script src="../../shared/api/sync-queue.js?v=20261001-2324"></script>
+  <script src="../../shared/foundation/index.js?v=20261001-2324"></script>
+  <script src="../../shared/app-state.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/auth-service.js?v=20261001-2324"></script>
+  <script src="../../shared/identity/identity-service.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/session-service.js?v=20261001-2324"></script>
+  <script src="../../shared/identity/creator-resolver.js?v=20261001-2324"></script>
+  <script src="../../shared/supabase/supabase-gateway.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/app-access-service.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/app-access-gate.js?v=20261001-2324"></script>
+  <script src="../../shared/security/permission-service.js?v=20261001-2324"></script>
+  <script src="../../shared/security/mfa-service.js?v=20261001-2324"></script>
+  <script src="../../shared/security/security-gate.js?v=20261001-2324"></script>
+  <script src="../../shared/services/module-context.js?v=20261001-2324"></script>
+  <script src="../../shared/services/shared-platform.js?v=20261001-2324"></script>
+  <script src="../../shared/security/platform-policy.js?v=20261001-2324"></script>
+  <script src="../../shared/auth/runtime-session-provider.js?v=20261001-2324"></script>
   <script type="importmap">
     {"imports":{"fflate":"./assets/vendor/fflate-browser.js","fast-xml-parser":"./assets/vendor/fast-xml-parser.mjs"}}
   </script>
