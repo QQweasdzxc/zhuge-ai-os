@@ -1,6 +1,0 @@
-
-$ bun run typecheck:opentui && bun run typecheck:dom && bun run typecheck:cloudflare && bun run typecheck:scripts
-$ tsc --project tsconfig.opentui.json
-$ tsc --project tsconfig.dom.json
-$ tsc --project tsconfig.cloudflare.json
-$ tsc --project tsconfig.scripts.json

@@ -1,7 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "lib": ["ESNext", "WebWorker"]
-  },
-  "files": ["src/renderers/cloudflare/worker.ts"]
-}
