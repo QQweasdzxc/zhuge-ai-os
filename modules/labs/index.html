@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08111d">
+  <meta name="description" content="Zhuge AI OS 隔離 Lab 清單與實驗入口。">
+  <title>Lab 實驗室｜Zhuge AI OS</title>
+  <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../shared/theme/tokens.css">
+  <link rel="stylesheet" href="../../shared/theme/variables.css">
+  <link rel="stylesheet" href="../../shared/theme/typography.css">
+  <link rel="stylesheet" href="../../shared/theme/dark.css">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css">
+  <link rel="stylesheet" href="./labs-center.css">
+</head>
+<body>
+  <div class="zhuge-module-shell workspace-shell labs-shell">
+    <div id="zhugeSharedNavigation" data-external-root="../../" data-active-workspace="labs"></div>
+    <main class="labs-main">
+      <header class="labs-header">
+        <p class="labs-eyebrow">Zhuge AI OS · ISOLATED EXPERIMENTS</p>
+        <h1>Lab 實驗室</h1>
+        <p>各 Lab 使用獨立目錄與資料邊界；入口清單由 registry 維護，不會把 Lab 原始碼打包進 AIOS。</p>
+      </header>
+      <section class="labs-content" aria-labelledby="labsListTitle">
+        <div class="labs-section-heading">
+          <h2 id="labsListTitle">可用實驗</h2>
+          <span data-lab-count>讀取中</span>
+        </div>
+        <div class="labs-list" data-labs-list aria-live="polite">
+          <p class="labs-state" data-labs-state>正在讀取 Lab registry…</p>
+        </div>
+      </section>
+      <footer class="labs-boundary-note">Lab 為研究用途。資料真實性、第三方授權與 Provider 可用性須依各自證據判定。</footer>
+    </main>
+  </div>
+  <script src="../../shared/components/zhuge-navigation.js"></script>
+  <script src="./labs-center.js"></script>
+</body>
+</html>

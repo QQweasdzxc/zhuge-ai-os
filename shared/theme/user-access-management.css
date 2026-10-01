@@ -1,0 +1,6 @@
+@import url("./core-components.css");
+@import url("./responsive.css");
+.user-access-management .zhuge-core-button{min-height:var(--zhuge-touch-target-min)}
+.user-access-management .user-access-application{border-color:var(--zhuge-border);background:var(--zhuge-surface-soft)}
+.user-access-management .user-access-management-status[data-zhuge-state="empty"]{border:1px dashed var(--zhuge-border);border-radius:var(--zhuge-radius-sm);padding:var(--zhuge-space-4)}
+.user-access-management .user-access-management-status[data-zhuge-state="error"]{border-left:3px solid var(--zhuge-danger);padding-left:var(--zhuge-space-3)}
