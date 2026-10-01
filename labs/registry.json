@@ -2,24 +2,20 @@
   "schemaVersion": 1,
   "labs": [
     {
-      "id": "genspark-stock-ai",
-      "name": "Genspark Stock AI",
+      "id": "zhuge-investment-sandbox",
+      "name": "Lab_投資｜Zhuge Investment Sandbox",
       "category": "Investment",
       "status": "EXPERIMENT",
       "enabled": true,
-      "localEntry": "http://127.0.0.1:8765/?demo=1",
-      "source": "https://github.com/dvorak0727/Genspark-Stock-AI",
+      "localEntry": "./investment/",
+      "source": "Zhuge AI OS source: labs/investment/",
       "currentGate": "PM_REVIEW",
-      "upstreamCommit": "35182db578b0b8c693d34f52f3988534d4c52f83",
-      "licenseStatus": "UNCONFIRMED",
+      "licenseStatus": "Zhuge source; provider terms vary",
       "dataTruthLabels": [
-        "REAL",
         "OFFICIAL",
-        "FINMIND",
-        "YAHOO",
         "FALLBACK",
-        "SIMULATED",
-        "DEMO",
+        "DELAYED",
+        "SERVER_PROXY_REQUIRED",
         "UNAVAILABLE"
       ]
     }

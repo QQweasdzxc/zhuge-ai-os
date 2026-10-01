@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101925">
+  <meta name="description" content="Zhuge 自有、唯讀、具來源證據的台灣投資研究工作台。">
+  <title>Lab_投資｜Zhuge Investment Sandbox</title>
+  <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="研究工作台導覽">
+      <a class="brand" href="#home" aria-label="回到研究總覽">
+        <span class="brand-mark">諸</span><span><strong>Zhuge</strong><small>INVESTMENT LAB</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="主要功能">
+        <button type="button" data-view="home" class="nav-item is-active">研究總覽</button>
+        <button type="button" data-view="research" class="nav-item">個股研究</button>
+        <button type="button" data-view="opening" class="nav-item">開盤壓力</button>
+        <button type="button" data-view="market" class="nav-item">大盤脈搏</button>
+        <button type="button" data-view="radar" class="nav-item">產業價格雷達</button>
+        <button type="button" data-view="watchlist" class="nav-item">觀察與筆記</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="runtime-indicator"><i></i><span data-runtime-status>準備讀取 Lab</span></div>
+        <small>研究用途 · 唯讀 · 不下單</small>
+        <a href="../" class="back-link">返回 Lab 實驗室</a>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">諸</span><strong>Lab_投資</strong></div>
+        <div class="topbar-context"><span class="eyebrow">Zhuge-owned research</span><span>官方來源優先 · 每筆證據標示來源與日期</span></div>
+        <div class="topbar-right"><span class="read-only-chip">唯讀研究</span><button class="icon-button" type="button" data-refresh aria-label="重新整理目前資料" title="重新整理">↻</button></div>
+      </header>
+      <nav class="mobile-nav" aria-label="主要功能">
+        <button data-view="home" class="is-active">總覽</button><button data-view="research">個股研究</button><button data-view="opening">開盤壓力</button><button data-view="market">大盤脈搏</button><button data-view="radar">價格雷達</button><button data-view="watchlist">觀察與筆記</button>
+      </nav>
+      <section id="view-root" class="view-root" aria-live="polite">
+        <div class="loading-state"><span class="spinner"></span><p>正在讀取官方來源…</p></div>
+      </section>
+      <footer class="app-footer"><span>資料只讀取官方／已審核來源；跨來源限制、延遲與未接能力會明確標示。</span><span>研究用途，不構成投資建議。</span></footer>
+    </main>
+  </div>
+  <dialog class="detail-dialog" data-dialog>
+    <div class="dialog-head"><div><p class="eyebrow">EVIDENCE DETAIL</p><h2 data-dialog-title>資料來源</h2></div><button class="icon-button" data-dialog-close aria-label="關閉">×</button></div>
+    <div class="dialog-body" data-dialog-body></div>
+  </dialog>
+  <script type="importmap">
+    {"imports":{"fflate":"./assets/vendor/fflate-browser.js","fast-xml-parser":"./assets/vendor/fast-xml-parser.mjs"}}
+  </script>
+  <script src="./assets/vendor/fast-xml-parser.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

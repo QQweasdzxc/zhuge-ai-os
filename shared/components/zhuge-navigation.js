@@ -59,7 +59,7 @@
       "ai-board-principles": "app/Board/ai/?view=principles",
       "ai-board-system-map": "app/Board/ai/?view=system-map",
       procurement: "app/Board/procurement/",
-      labs: "modules/labs/",
+      labs: "labs/",
       library: "modules/worklog/?app=1&workspace=library",
       sync: "modules/worklog/?app=1&workspace=sync",
       management: "modules/worklog/?app=1&workspace=management",

@@ -7,7 +7,7 @@
     dashboard: "app/dashboard/",
     worklog: "modules/worklog/",
     investment: "modules/investment/",
-    labs: "modules/labs/"
+    labs: "labs/"
   });
 
   function resolve(name = "dashboard") {

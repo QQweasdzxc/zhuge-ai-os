@@ -1,14 +1,15 @@
 # Zhuge Labs Registry
 
-`registry.json` is the single source of truth for Lab Center entries. A Lab is an isolated experiment, not an Investment capability or a Production dependency.
+`registry.json` is the single source of truth for Lab Center entries. A Lab is an isolated experiment, not an Investment capability or a dependency of the formal Investment module.
 
 ## Boundary
 
-- Lab source lives outside the `zhuge-ai-os` repository, under the configured local Lab root.
-- The registry may point to a local entry and upstream source, but must never bundle a Lab's source into a Production build.
+- Zhuge-owned Lab source can live under this AIOS source tree in `labs/`; external experiments remain outside the repository.
+- The Lab Center and its entries are separate static paths. Production modules do not import or bundle Lab source.
 - Lab access is one shared Module A navigation destination (`Lab 實驗室`), not one navigation item per Lab.
 - `status`, `enabled`, `localEntry`, `source`, and `currentGate` are rendered from this registry.
 - Provider credentials, plans, rate limits, and upstream licensing remain governed by their providers and rights holders. A Lab entry does not grant access or imply Runtime PASS.
+- `localEntry` must resolve same-origin under `/labs/`; localhost and external destinations are rejected.
 
 ## Entry schema
 

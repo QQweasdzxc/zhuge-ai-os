@@ -21,7 +21,8 @@ const standaloneScripts = [
   "tests/task-088-responsive-browser.js",
   "tests/task-088-desktop-preview.js",
   "tests/investment/screenshot-import-browser-regression.js",
-  "tests/investment/sprint-3-browser-regression.js"
+  "tests/investment/sprint-3-browser-regression.js",
+  "tests/lab-investment-browser.e2e.mjs"
 ];
 
 function fail(message) {

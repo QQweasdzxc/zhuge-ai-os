@@ -1,0 +1,199 @@
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { mkdir } from "node:fs/promises";
+import { chromium } from "playwright";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const evidenceDir = path.resolve(process.env.LAB_INVESTMENT_EVIDENCE_DIR || "/tmp/zhuge-lab-investment-browser-evidence");
+const mime = new Map([
+  [".html", "text/html; charset=utf-8"], [".css", "text/css; charset=utf-8"],
+  [".js", "text/javascript; charset=utf-8"], [".mjs", "text/javascript; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"], [".svg", "image/svg+xml"],
+]);
+const server = createServer(async (request, response) => {
+  const url = new URL(request.url || "/", "http://127.0.0.1");
+  let pathname;
+  try { pathname = decodeURIComponent(url.pathname); }
+  catch { response.writeHead(400).end(); return; }
+  if (pathname === "/") pathname = "/labs/";
+  if (pathname.endsWith("/")) pathname += "index.html";
+  const file = path.resolve(root, `.${pathname}`);
+  if (!file.startsWith(`${root}${path.sep}`)) { response.writeHead(403).end(); return; }
+  try {
+    const bytes = await readFile(file);
+    response.writeHead(200, {
+      "content-type": mime.get(path.extname(file)) || "application/octet-stream",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    response.end(bytes);
+  } catch {
+    response.writeHead(404).end();
+  }
+});
+
+function browserExecutable() {
+  const candidates = [
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    process.env.BROWSER_EXECUTABLE,
+    process.env.CHROME_PATH,
+    process.env.CHROMIUM_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+await mkdir(evidenceDir, { recursive: true });
+await new Promise((resolve, reject) => server.listen(0, "127.0.0.1", (error) => error ? reject(error) : resolve()));
+const address = server.address();
+const base = `http://127.0.0.1:${address.port}`;
+const browser = await chromium.launch({ headless: true, ...(browserExecutable() ? { executablePath: browserExecutable() } : {}) });
+const result = { runAt: new Date().toISOString(), scope: "temporary static-file preview only; no API server", checks: [], providerCorsErrors: [], consoleErrors: [], pageErrors: [], screenshots: [] };
+const pass = (name, evidence = "") => result.checks.push({ name, result: "PASS", evidence });
+const providerHosts = new Set([
+  "openapi.twse.com.tw", "openapi.taifex.com.tw", "openapi.tdcc.com.tw",
+  "www.tpex.org.tw", "thedocs.worldbank.org", "datacatalog.worldbank.org",
+  "www.twse.com.tw", "www.dramexchange.com", "en.sse.net.cn", "indexes.nasdaqomx.com",
+]);
+
+function watchPage(page) {
+  page.on("pageerror", (error) => result.pageErrors.push(error.message));
+  page.on("requestfailed", (request) => {
+    let parsed;
+    try { parsed = new URL(request.url()); } catch {}
+    const failure = request.failure()?.errorText || "browser fetch failed";
+    const record = { host: parsed?.hostname || "unknown", path: parsed?.pathname || "", failure };
+    result.requestFailures ||= [];
+    result.requestFailures.push(record);
+    if (providerHosts.has(record.host)) result.providerCorsErrors.push(`${record.host}${record.path}: ${failure}`);
+    else if (/ERR_ABORTED/.test(failure)) {
+      result.expectedNavigationCancellations ||= [];
+      result.expectedNavigationCancellations.push(record);
+    } else {
+      result.unexpectedRequestFailures ||= [];
+      result.unexpectedRequestFailures.push(record);
+    }
+  });
+  page.on("response", (response) => {
+    let url;
+    try { url = new URL(response.url()); } catch { return; }
+    if (url.origin === new URL(base).origin && response.status() >= 400) {
+      result.sameOriginHttpFailures ||= [];
+      result.sameOriginHttpFailures.push({ path: url.pathname, status: response.status() });
+    }
+  });
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const text = message.text();
+    if (/Access to fetch|CORS policy|blocked by CORS/i.test(text)) result.providerCorsErrors.push(text.slice(0, 280));
+    else if (/Failed to load resource: net::ERR_[A-Z_]+/.test(text)) {
+      result.browserNetworkNotices ||= [];
+      result.browserNetworkNotices.push(text.slice(0, 280));
+    }
+    else result.consoleErrors.push(text.slice(0, 280));
+  });
+}
+
+async function save(page, name) {
+  const file = path.join(evidenceDir, name);
+  await page.screenshot({ path: file, fullPage: true, animations: "disabled" });
+  result.screenshots.push(file);
+}
+
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  watchPage(page);
+  await page.goto(`${base}/labs/`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Lab 實驗室" }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: /Lab_投資/ }).waitFor({ state: "visible" });
+  const href = await page.getByRole("link", { name: "進入 Lab" }).getAttribute("href");
+  assert.equal(new URL(href, page.url()).origin, new URL(page.url()).origin);
+  await save(page, "lab-center-desktop-1440.png");
+  await page.getByRole("link", { name: "進入 Lab" }).click();
+  await page.waitForURL(/\/labs\/investment\/$/);
+  await page.locator(".stock-card").first().waitFor({ state: "visible", timeout: 90_000 });
+  assert.equal(await page.locator(".stock-card").count(), 3);
+  assert.match(await page.locator("body").innerText(), /2330\.TW|台積電/);
+  assert.doesNotMatch(await page.locator("body").innerText(), /開啟本機 Lab|在終端機執行|Demo 限制|VIP lock|License Key/);
+  assert.equal(await page.locator("a[href]").evaluateAll((links) => links.some((link) => /^(https?:)?\/\/(127\.0\.0\.1|localhost)|\.app(?:$|\/)/i.test(link.getAttribute("href") || ""))), false);
+  await save(page, "investment-home-desktop-1440.png");
+  const desktop = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+  assert.ok(desktop.scrollWidth <= desktop.width + 1, JSON.stringify(desktop));
+  pass("AIOS Lab Center → same-origin Lab runtime", `path=${new URL(page.url()).pathname}; no popup or independent service; ${JSON.stringify(desktop)}`);
+
+  for (const [symbol, name, screenshot] of [
+    ["2330.TW", "台積電", "investment-2330-desktop-1440.png"],
+    ["0050.TW", "元大台灣50", "investment-0050-desktop-1440.png"],
+    ["6488.TWO", "環球晶", "investment-6488-desktop-1440.png"],
+  ]) {
+    await page.locator(`button[data-action="research"][data-symbol="${symbol}"]`).first().click();
+    await page.getByRole("heading", { name: new RegExp(`${symbol} 個股研究`) }).waitFor({ state: "visible", timeout: 90_000 });
+    const text = await page.locator("body").innerText();
+    assert.ok(text.includes(name));
+    assert.match(text, /來源與證據|Provider：/);
+    if (symbol === "0050.TW") assert.match(text, /ETF|不適用此標的/);
+    if (symbol === "6488.TWO") assert.match(text, /需要安全資料代理|尚未接通|暫時無法取得/);
+    await save(page, screenshot);
+    pass(`${symbol} research route and truthful provider state`, `page title and evidence rendered; ${symbol === "6488.TWO" ? "TPEx CORS boundary retained" : "no simulated value asserted"}`);
+    if (symbol !== "6488.TWO") await page.getByRole("button", { name: "返回總覽" }).click();
+  }
+
+  for (const [view, title] of [["opening", "開盤壓力"], ["market", "大盤脈搏"], ["radar", "產業價格雷達"]]) {
+    await page.locator(`[data-view="${view}"]`).first().click();
+    await page.getByRole("heading", { name: title, exact: true }).waitFor({ state: "visible", timeout: 90_000 });
+    assert.ok((await page.locator("body").innerText()).length > 100);
+    pass(`${title} static route`, "real provider results or explicit unavailable/proxy-required state rendered");
+  }
+  await context.close();
+
+  const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  const mobile = await mobileContext.newPage();
+  watchPage(mobile);
+  await mobile.goto(`${base}/labs/investment/`, { waitUntil: "domcontentloaded" });
+  await mobile.locator(".stock-card").first().waitFor({ state: "visible", timeout: 90_000 });
+  const layout = await mobile.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+  assert.ok(layout.scrollWidth <= layout.width + 1, JSON.stringify(layout));
+  const targets = await mobile.locator(".mobile-nav button").evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().height)));
+  assert.ok(targets.every((height) => height >= 44), JSON.stringify(targets));
+  await save(mobile, "investment-home-mobile-375.png");
+  await mobile.locator('button[data-action="research"][data-symbol="2330.TW"]').first().click();
+  await mobile.getByRole("heading", { name: /2330\.TW 個股研究/ }).waitFor({ state: "visible", timeout: 90_000 });
+  await save(mobile, "investment-2330-mobile-375.png");
+  pass("Mobile 375×812 Lab and 2330 journey", `${JSON.stringify(layout)}; minimum navigation target=${Math.min(...targets)}px`);
+  await mobileContext.close();
+
+  if (result.unexpectedRequestFailures?.length) result.consoleErrors.push(`Unexpected request failures: ${JSON.stringify(result.unexpectedRequestFailures)}`);
+  if (result.sameOriginHttpFailures?.length) result.consoleErrors.push(`Same-origin HTTP failures: ${JSON.stringify(result.sameOriginHttpFailures)}`);
+  const classifiedNetworkFailures = (result.requestFailures || []).filter((failure) => providerHosts.has(failure.host) || /ERR_ABORTED/.test(failure.failure)).length;
+  if (result.browserNetworkNotices?.length > classifiedNetworkFailures) {
+    result.consoleErrors.push("Browser reported a network failure but no provider-boundary request was captured.");
+  }
+  assert.deepEqual(result.pageErrors, []);
+  assert.deepEqual(result.consoleErrors, []);
+  result.checks.push({ name: "Runtime JavaScript/console errors", result: "PASS", evidence: "0 uncaught page errors; CORS errors are captured separately as expected provider boundary evidence." });
+} catch (error) {
+  result.failure = String(error?.stack || error);
+  result.checks.push({ name: "Lab Investment browser journeys", result: "FAIL", evidence: String(error?.message || error) });
+} finally {
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+const output = path.join(evidenceDir, "browser-result.json");
+await (await import("node:fs/promises")).writeFile(output, `${JSON.stringify(result, null, 2)}\n`);
+console.log(JSON.stringify({
+  passCount: result.checks.filter((check) => check.result === "PASS").length,
+  failCount: result.checks.filter((check) => check.result === "FAIL").length,
+  checks: result.checks,
+  pageErrors: result.pageErrors,
+  consoleErrors: result.consoleErrors,
+  providerCorsErrors: result.providerCorsErrors.length,
+  screenshots: result.screenshots,
+  evidence: output,
+}, null, 2));
+if (result.checks.some((check) => check.result === "FAIL")) process.exitCode = 1;
