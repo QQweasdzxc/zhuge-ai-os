@@ -16,7 +16,7 @@
   function localEntryUrl(value) {
     try {
       const url = new URL(String(value || ""));
-      if (url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname)) return null;
+      if (url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || url.pathname !== "/sandbox/") return null;
       return url;
     } catch {
       return null;
@@ -27,18 +27,18 @@
     const article = node("article", "lab-card");
     const main = node("div");
     const title = node("h3", "", lab.name || lab.id || "未命名 Lab");
-    main.append(title, node("p", "", `${lab.category || "未分類"} · ${lab.status || "狀態未設定"} · ${lab.enabled === false ? "已停用" : "已啟用"}`));
+    main.append(title, node("p", "", lab.description || `${lab.category || "未分類"} · ${lab.status || "狀態未設定"} · ${lab.enabled === false ? "已停用" : "已啟用"}`));
 
     const meta = node("div", "lab-meta");
     [
-      `目前 Gate：${lab.currentGate || "未設定"}`,
-      `上游授權：${lab.licenseStatus || "未確認"}`
+      `狀態：${lab.status || "未設定"}`,
+      `目前 Gate：${lab.currentGate || "未設定"}`
     ].forEach(label => meta.append(node("span", "lab-chip", label)));
     main.append(meta);
 
     const actions = node("div", "lab-actions");
     const entry = localEntryUrl(lab.localEntry);
-    const link = node("a", "", entry && lab.enabled !== false ? "開啟本機 Lab" : "入口不可用");
+    const link = node("a", "", entry && lab.enabled !== false ? "進入 Lab" : "入口不可用");
     if (entry && lab.enabled !== false) {
       link.href = entry.href;
       link.target = "_blank";
@@ -64,11 +64,9 @@
       }
     }
     detail.append(source);
-    detail.append(node("p", "", `凍結上游 commit：${lab.upstreamCommit || "未記錄"}`));
-    detail.append(node("p", "", "AIOS 入口只連至本機服務，不會載入或打包 Genspark 原始碼。上游 Demo/VIP/授權 gate 保持原樣；第三方資料 Provider 限制亦不變。"));
-
-    const launch = node("pre", "", "在終端機執行：\ncd '/Users/qq/Documents/GitHub/zhuge-labs/investment/genspark-stock-ai/working-copy'\npython3 -m http.server 8765 --bind 127.0.0.1\n\n然後按「開啟本機 Lab」。目前入口使用上游明示的 ?demo=1；Demo 會限制部分功能，並非解除授權或真實資料證據。");
-    detail.append(launch);
+    detail.append(node("p", "", `研究參考版本：${lab.referenceCommit || "未記錄"}`));
+    detail.append(node("p", "", "這是 Zhuge 獨立實作；Genspark 僅作功能研究參考，沒有複製其原始碼或素材。研究入口只使用本機服務，不會打包進 AIOS。"));
+    detail.append(node("p", "", "使用「Zhuge Investment Sandbox」一鍵啟動器後，再按「進入 Lab」。所有資料來源、日期、延遲與未接狀態都會在研究頁標示；不需要 upstream 帳號或 Demo/VIP 授權。第三方 Provider credential、權限與使用條款仍照其規則處理。"));
     article.append(main, actions, detail);
     return article;
   }

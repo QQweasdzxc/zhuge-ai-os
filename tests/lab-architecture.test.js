@@ -6,17 +6,18 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
-test("Lab registry is the only AIOS Lab catalog and keeps Genspark source external", () => {
+test("Lab registry is the only AIOS Lab catalog and points to the Zhuge-owned investment sandbox", () => {
   const registry = JSON.parse(read("labs/registry.json"));
   assert.equal(registry.schemaVersion, 1);
   assert.equal(registry.labs.length, 1);
   assert.deepEqual(
     [registry.labs[0].category, registry.labs[0].status, registry.labs[0].enabled, registry.labs[0].currentGate],
-    ["Investment", "EXPERIMENT", true, "PM_REVIEW"]
+    ["Lab_投資", "EXPERIMENT", true, "PM_REVIEW"]
   );
-  assert.match(registry.labs[0].localEntry, /^http:\/\/127\.0\.0\.1:/);
+  assert.equal(registry.labs[0].localEntry, "http://127.0.0.1:4191/sandbox/");
   assert.match(registry.labs[0].source, /^https:\/\/github\.com\//);
-  assert.equal(registry.labs[0].licenseStatus, "UNCONFIRMED");
+  assert.equal(registry.labs[0].licenseStatus, "REFERENCE_ONLY_NO_SOURCE_REUSE");
+  assert.equal(registry.labs[0].referenceOnly, true);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment")), false);
   assert.match(read("labs/README.md"), /must never bundle/i);
 });
@@ -39,11 +40,11 @@ test("Lab Center renders the registry safely and only links to loopback Lab entr
   assert.match(router, /labs: "modules\/labs\/"/);
 });
 
-test("Lab Center reports source, gate, license and local-start instructions", () => {
+test("Lab Center reports source and gate without exposing terminal commands or upstream demo entry", () => {
   const script = read("modules/labs/labs-center.js");
   assert.match(script, /currentGate/);
-  assert.match(script, /licenseStatus/);
-  assert.match(script, /upstreamCommit/);
-  assert.match(script, /http\.server 8765 --bind 127\.0\.0\.1/);
-  assert.match(script, /Demo 會限制部分功能/);
+  assert.match(script, /referenceCommit/);
+  assert.match(script, /進入 Lab/);
+  assert.match(script, /一鍵啟動器/);
+  assert.doesNotMatch(script, /http\.server|\?demo=1|genspark-stock-ai\/working-copy/);
 });
