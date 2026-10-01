@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "labs": [
+    {
+      "id": "genspark-stock-ai",
+      "name": "Genspark Stock AI",
+      "category": "Investment",
+      "status": "EXPERIMENT",
+      "enabled": true,
+      "localEntry": "http://127.0.0.1:8765/?demo=1",
+      "source": "https://github.com/dvorak0727/Genspark-Stock-AI",
+      "currentGate": "PM_REVIEW",
+      "upstreamCommit": "35182db578b0b8c693d34f52f3988534d4c52f83",
+      "licenseStatus": "UNCONFIRMED",
+      "dataTruthLabels": [
+        "REAL",
+        "OFFICIAL",
+        "FINMIND",
+        "YAHOO",
+        "FALLBACK",
+        "SIMULATED",
+        "DEMO",
+        "UNAVAILABLE"
+      ]
+    }
+  ]
+}

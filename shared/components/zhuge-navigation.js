@@ -10,7 +10,7 @@
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
   const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
   const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["worklog", "tasks-new", "library", "settings", "skyeye"]);
-  const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management"]);
+  const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management", "labs"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
@@ -33,6 +33,7 @@
     hr: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     travel: { icon: "🚧", label: "施工中", group: "construction", enabled: false, visible: false, comingSoon: true },
     library: { icon: "📚", label: "Knowledge", group: "system", enabled: true, visible: true },
+    labs: { icon: "🧪", label: "Lab 實驗室", group: "system", enabled: true, visible: true },
     sync: { icon: "🔗", label: "控制台", group: "system", enabled: true, visible: true },
     management: { icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true },
     settings: { icon: "⚙️", label: "設定", group: "system", enabled: true, visible: true }
@@ -58,6 +59,7 @@
       "ai-board-principles": "app/Board/ai/?view=principles",
       "ai-board-system-map": "app/Board/ai/?view=system-map",
       procurement: "app/Board/procurement/",
+      labs: "modules/labs/",
       library: "modules/worklog/?app=1&workspace=library",
       sync: "modules/worklog/?app=1&workspace=sync",
       management: "modules/worklog/?app=1&workspace=management",
@@ -189,14 +191,14 @@
       : showGovernance
         ? controlGroupMarkup(registry, options, esc, root, board)
         : itemMarkup("sync", registry.sync, { ...options, externalRoot: root }, esc);
-    const systemItems = ["library", "management", "settings"].map(id => (
+    const systemItems = ["library", "labs", "management", "settings"].map(id => (
       isGeneralUser && !isVisible(registry[id])
         ? ""
         : itemMarkup(id, registry[id], { ...options, externalRoot: root }, esc)
     ));
-    // Module A owns this ordering: Control Console → Management → Settings.
+    // Module A owns this ordering: Knowledge → Labs → Control Console → Management → Settings.
     // Management is a peer of the Console, not content embedded inside it.
-    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${control}${systemItems[1]}${systemItems[2]}</div>`;
+    const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${systemItems[1]}${control}${systemItems[2]}${systemItems[3]}</div>`;
     return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${camp}${liveTools}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 

@@ -31,7 +31,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(investmentModule, /ZhugeSharedNavigation\.mount/);
   assert.match(investmentShell, /investment-content-tabs/);
   assert.doesNotMatch(investmentShell, /investment-local-nav/);
-  for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "控制台", "設定"]) assert.match(nav, new RegExp(label));
+  for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "Lab 實驗室", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /data-zhuge-shared-navigation/);
   assert.match(nav, /function wireSidebar\(\)/);
   assert.match(nav, /zhugeSharedNavSidebarWired/);
@@ -172,7 +172,7 @@ test("approved general-user navigation uses the shared shell and PM visibility p
   for (const id of ["worklog", "tasks-new", "library", "settings"]) {
     assert.equal(hasItem(id), true, `${id} should be visible to approved general users`);
   }
-  for (const id of ["procurement", "investment", "sync", "management"]) {
+  for (const id of ["procurement", "investment", "sync", "management", "labs"]) {
     assert.equal(hasItem(id), false, `${id} should be hidden from approved general users`);
   }
   // AI Board is not part of the current primary rail; the projection does not
@@ -192,7 +192,7 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
     service: { isTemplateEnabled: () => true }
   } });
   const creatorHtml = creatorNavigation.render({ externalRoot: "../../" });
-  for (const id of ["worklog", "tasks-new", "procurement", "investment", "sync", "management", "library", "settings"]) {
+  for (const id of ["worklog", "tasks-new", "procurement", "investment", "sync", "management", "library", "settings", "labs"]) {
     assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
   }
 
