@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "check": "node --check app.js && node --check src/browser-runtime.mjs && node --check src/providers/browser-taiwan.mjs",
+    "check": "node --check app.js && node --check src/browser-runtime.mjs && node --check src/portfolio/history.mjs && node --check src/portfolio/view.mjs && node --check src/providers/browser-taiwan.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

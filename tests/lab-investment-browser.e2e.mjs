@@ -16,6 +16,7 @@ const mime = new Map([
 ]);
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", "http://127.0.0.1");
+  if (url.pathname === "/favicon.ico") { response.writeHead(204).end(); return; }
   let pathname;
   try { pathname = decodeURIComponent(url.pathname); }
   catch { response.writeHead(400).end(); return; }
@@ -88,6 +89,10 @@ function watchPage(page) {
   page.on("response", (response) => {
     let url;
     try { url = new URL(response.url()); } catch { return; }
+    if (response.status() >= 400) {
+      result.httpErrorResponses ||= [];
+      result.httpErrorResponses.push({ host: url.hostname, path: url.pathname, status: response.status() });
+    }
     if (url.origin === new URL(base).origin && response.status() >= 400) {
       result.sameOriginHttpFailures ||= [];
       result.sameOriginHttpFailures.push({ path: url.pathname, status: response.status() });
@@ -101,13 +106,19 @@ function watchPage(page) {
       result.browserNetworkNotices ||= [];
       result.browserNetworkNotices.push(text.slice(0, 280));
     }
-    else result.consoleErrors.push(text.slice(0, 280));
+    else result.consoleErrors.push({ message: text.slice(0, 280), location: message.location() });
   });
 }
 
 async function save(page, name) {
   const file = path.join(evidenceDir, name);
   await page.screenshot({ path: file, fullPage: true, animations: "disabled" });
+  result.screenshots.push(file);
+}
+
+async function saveElement(locator, name) {
+  const file = path.join(evidenceDir, name);
+  await locator.screenshot({ path: file, animations: "disabled" });
   result.screenshots.push(file);
 }
 
@@ -194,6 +205,43 @@ try {
   await save(mobile, "investment-2330-mobile-375.png");
   pass("Mobile 375×812 Lab and 2330 journey", `${JSON.stringify(layout)}; minimum navigation target=${Math.min(...targets)}px`);
   await mobileContext.close();
+
+  const fixtureContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  const fixture = await fixtureContext.newPage();
+  watchPage(fixture);
+  await fixture.goto(`${base}/labs/investment/test/fixtures/portfolio-sparkline.html`, { waitUntil: "domcontentloaded" });
+  await fixture.locator('html[data-fixture-ready="true"]').waitFor({ state: "attached" });
+  assert.match(await fixture.locator(".fixture-banner").innerText(), /QA VISUAL FIXTURE.*合成測試資料/);
+  assert.equal(await fixture.locator(".portfolio-holding-card").count(), 4);
+  const etfCard = fixture.locator('[data-portfolio-symbol="0050"]');
+  const stockCard = fixture.locator('[data-portfolio-symbol="2330"]');
+  const tpexCard = fixture.locator('[data-portfolio-symbol="6488"]');
+  assert.equal(await etfCard.locator('.portfolio-sparkline-chart[data-point-count="20"]').count(), 1);
+  assert.equal(await etfCard.locator('[data-average-cost-reference="true"]').count(), 1);
+  assert.equal(await etfCard.locator('[data-latest-point="true"]').count(), 1);
+  assert.equal(await stockCard.locator('[data-average-cost-reference="true"]').count(), 1);
+  assert.equal(await tpexCard.locator('.portfolio-sparkline[data-history-status="NOT_CONNECTED"] .portfolio-sparkline-chart').count(), 0);
+  assert.match(await tpexCard.innerText(), /歷史行情尚未接通|NOT_CONNECTED/);
+  await save(fixture, "my-holdings-desktop-1440.png");
+  await saveElement(etfCard, "0050-card-desktop-1440.png");
+  await saveElement(stockCard, "average-cost-reference-card-desktop-1440.png");
+  await saveElement(tpexCard, "no-history-card-desktop-1440.png");
+  const desktopFixtureLayout = await fixture.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+  assert.ok(desktopFixtureLayout.scrollWidth <= desktopFixtureLayout.width + 1, JSON.stringify(desktopFixtureLayout));
+  pass("Portfolio sparkline desktop visual fixture", `${JSON.stringify(desktopFixtureLayout)}; 20-point chart, average-cost line, latest point and NOT_CONNECTED verified; visible synthetic-data watermark`);
+  await fixtureContext.close();
+
+  const fixtureMobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  const fixtureMobile = await fixtureMobileContext.newPage();
+  watchPage(fixtureMobile);
+  await fixtureMobile.goto(`${base}/labs/investment/test/fixtures/portfolio-sparkline.html`, { waitUntil: "domcontentloaded" });
+  await fixtureMobile.locator('html[data-fixture-ready="true"]').waitFor({ state: "attached" });
+  const mobileFixtureLayout = await fixtureMobile.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+  assert.ok(mobileFixtureLayout.scrollWidth <= mobileFixtureLayout.width + 1, JSON.stringify(mobileFixtureLayout));
+  assert.equal(await fixtureMobile.locator('[data-portfolio-symbol="0050"] [data-average-cost-reference="true"]').count(), 1);
+  await save(fixtureMobile, "my-holdings-mobile-375.png");
+  pass("Portfolio sparkline mobile visual fixture", `${JSON.stringify(mobileFixtureLayout)}; no horizontal overflow; visible synthetic-data watermark`);
+  await fixtureMobileContext.close();
 
   if (result.unexpectedRequestFailures?.length) result.consoleErrors.push(`Unexpected request failures: ${JSON.stringify(result.unexpectedRequestFailures)}`);
   if (result.sameOriginHttpFailures?.length) result.consoleErrors.push(`Same-origin HTTP failures: ${JSON.stringify(result.sameOriginHttpFailures)}`);

@@ -1,7 +1,8 @@
-import { loadHome, loadResearch, loadMarket, loadOpening, loadRadar } from "./src/browser-runtime.mjs";
+import { loadHome, loadResearch, loadMarket, loadOpening, loadRadar, loadHistory } from "./src/browser-runtime.mjs?v=20261002-0015";
 import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
 import { createUnconnectedResearch } from "./src/portfolio/research-placeholder.mjs";
-import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs";
+import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261002-0015";
+import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261002-0015";
 
 const root = document.querySelector("#view-root");
 const dialog = document.querySelector("[data-dialog]");
@@ -15,7 +16,7 @@ const symbolNames = Object.assign(Object.create(null), {
   "2330.TW": "台積電", "0050.TW": "元大台灣50", "6488.TWO": "環球晶", AAPL: "Apple", NVDA: "NVIDIA",
 });
 const SUPPORTED_RESEARCH_SYMBOLS = new Set(["2330.TW", "0050.TW", "6488.TWO"]);
-const state = { view: "home", symbol: "2330.TW", home: null, research: null, portfolio: { status: "LOADING", positions: [] }, portfolioPromise: null, request: 0 };
+const state = { view: "home", symbol: "2330.TW", home: null, research: null, portfolio: { status: "LOADING", positions: [] }, portfolioHistories: new Map(), portfolioPromise: null, request: 0 };
 
 let portfolioAdapter = null;
 try {
@@ -255,7 +256,7 @@ function renderHome(data) {
   ].join("");
   root.innerHTML = `${pageHead("研究總覽", "先看三檔起始研究標的的官方收盤與有來源的脈搏。這裡不輸出綜合分數或買賣方向。", `<button class="secondary-button" data-action="refresh">↻ 更新來源</button>`)}
     <div class="callout"><strong>資料定位</strong><p>官方日收為延遲行情，不是盤中即時報價；價格變動與營收只是不同期間的原始證據，不代表未來報酬。</p></div>
-    ${renderPortfolioSection(state.portfolio)}
+    ${renderPortfolioSection(state.portfolio, state.portfolioHistories)}
     <div class="section-title"><h2>研究標的</h2><span>2330 · 0050 · 6488</span></div>
     <div class="research-grid">${cards}</div>
     <div class="section-title"><h2>台灣市場脈搏</h2><span>來源日期分開顯示</span></div><div class="evidence-grid">${pulseCards}</div>
@@ -376,8 +377,25 @@ async function loadHomeView() {
   state.view = "home"; applyNav();
   const { requestId } = startRequest("正在讀取可由瀏覽器存取的官方來源…");
   try {
-    const [data] = await Promise.all([loadHome(), loadPortfolioSnapshot()]);
-    if (requestId === state.request) renderHome(data);
+    const [data, portfolio] = await Promise.all([loadHome(), loadPortfolioSnapshot()]);
+    const histories = await loadPortfolioHistoryMap({
+      positions: portfolio.positions,
+      trends: data.trends,
+      loadHistory: async (symbol) => {
+        if (SUPPORTED_RESEARCH_SYMBOLS.has(symbol)) return loadHistory(symbol);
+        const position = list(portfolio.positions).find((item) => String(item.researchSymbol || item.symbol).toUpperCase() === symbol);
+        return createUnconnectedResearch({
+          symbol,
+          market: position?.market || "OTHER",
+          name: position?.name || symbol,
+          assetType: position?.assetType || "個股",
+        }).history;
+      },
+    });
+    if (requestId === state.request) {
+      state.portfolioHistories = histories;
+      renderHome(data);
+    }
   }
   catch (error) { if (error.name !== "AbortError" && requestId === state.request) renderError("總覽來源回應無法使用。這裡不會以快取 fixture 或模擬值填入。 "); }
 }

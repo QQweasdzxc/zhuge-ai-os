@@ -11,13 +11,10 @@ function number(value, digits = 2) {
 
 function money(value, currency) {
   if (!finite(value)) return "—";
-  const code = currency === "USD" ? "USD" : currency === "TWD" ? "TWD" : "";
-  if (!code) return number(value);
-  return new Intl.NumberFormat("zh-TW", {
-    style: "currency",
-    currency: code,
-    maximumFractionDigits: code === "USD" ? 2 : 0,
-  }).format(Number(value));
+  const code = currency === "USD" ? "US$" : currency === "TWD" ? "NT$" : "";
+  const numeric = Number(value);
+  const amount = number(Math.abs(numeric), currency === "USD" ? 2 : 0);
+  return (numeric < 0 ? "-" : "") + code + amount;
 }
 
 function signedMoney(value, currency) {
@@ -52,11 +49,79 @@ function stateMessage(result = {}) {
   return states[result.status] || states.UNAVAILABLE;
 }
 
-export function renderPortfolioSection(result = {}) {
+function historyMeta(evidence = {}) {
+  const provider = evidence.provider || "Provider 未提供";
+  const dataDate = evidence.dataTimestamp || "日期未提供";
+  const latency = evidence.delayed ? "延遲收盤" : "延遲狀態未標示";
+  const freshness = evidence.stale === true ? "資料較舊" : evidence.stale === false ? "時效正常" : "時效未確認";
+  const fallback = evidence.fallback ? "Fallback：同來源快取" : "Fallback：否";
+  return `${provider} · ${dataDate} · ${latency} · ${freshness} · ${fallback}`;
+}
+
+export function renderPortfolioSparkline(position = {}, evidence = null) {
+  const rows = Array.isArray(evidence?.data) ? evidence.data : [];
+  const bars = rows
+    .filter((item) => item && finite(item.close) && Number(item.close) >= 0)
+    .slice(-20);
+  const cost = finite(position.averageCost) ? Number(position.averageCost) : null;
+  const status = evidence?.status || "NOT_CONNECTED";
+  const meta = historyMeta(evidence || {});
+
+  if (bars.length < 2) {
+    const state = status === "NOT_CONNECTED" || status === "PROVIDER_REVIEW_REQUIRED" ? "NOT_CONNECTED" : "UNAVAILABLE";
+    const message = state === "NOT_CONNECTED"
+      ? "歷史行情尚未接通"
+      : bars.length === 1 ? "歷史行情樣本不足 2 筆" : "歷史行情暫時無法取得";
+    return `<section class="portfolio-sparkline" data-history-status="${escapeHtml(state)}" data-has-cost-reference="false" aria-label="近期價格走勢">
+      <div class="portfolio-sparkline-head"><strong>近 20 日價格走勢</strong><span class="status-chip" data-status="${escapeHtml(state)}">${escapeHtml(state)}</span></div>
+      <p class="portfolio-sparkline-empty">${message}</p>
+      <p class="portfolio-sparkline-meta">${escapeHtml(meta)}${evidence?.errorCode ? ` · 狀態：${escapeHtml(evidence.errorCode)}` : ""}</p>
+    </section>`;
+  }
+
+  const values = bars.map((item) => Number(item.close));
+  const scaleValues = cost === null ? values : [...values, cost];
+  let min = Math.min(...scaleValues);
+  let max = Math.max(...scaleValues);
+  if (max === min) {
+    const pad = Math.max(Math.abs(max) * 0.02, 1);
+    min -= pad;
+    max += pad;
+  }
+  const yFor = (value) => 58 - ((value - min) / (max - min)) * 46;
+  const points = values.map((value, index) => ({
+    x: 4 + (index / (values.length - 1)) * 292,
+    y: yFor(value),
+  }));
+  const line = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const area = `${line} L296,62 L4,62 Z`;
+  const direction = values.at(-1) > values[0] ? "up" : values.at(-1) < values[0] ? "down" : "flat";
+  const latest = points.at(-1);
+  const costLine = cost === null ? "" : `<line class="portfolio-sparkline-cost" data-average-cost-reference="true" x1="4" x2="296" y1="${yFor(cost).toFixed(1)}" y2="${yFor(cost).toFixed(1)}"><title>平均成本 ${escapeHtml(money(cost, position.currency))}</title></line>`;
+  const costLabel = cost === null ? "未提供成本線" : `平均成本 ${money(cost, position.currency)}`;
+  const aria = `近 20 日 ${bars.length} 筆收盤價走勢${cost === null ? "；未提供平均成本" : `；平均成本 ${money(cost, position.currency)}`}`;
+  return `<section class="portfolio-sparkline" data-history-status="${escapeHtml(status)}" data-has-cost-reference="${cost === null ? "false" : "true"}" aria-label="近期價格走勢">
+    <div class="portfolio-sparkline-head"><strong>近 20 日價格走勢</strong><span>${bars.length} 筆</span></div>
+    <svg class="portfolio-sparkline-chart" viewBox="0 0 300 66" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(aria)}" data-point-count="${bars.length}">
+      <title>${escapeHtml(aria)}</title>
+      ${costLine}
+      <path class="portfolio-sparkline-area portfolio-sparkline-${direction}" d="${area}"></path>
+      <path class="portfolio-sparkline-line portfolio-sparkline-${direction}" d="${line}"></path>
+      <circle class="portfolio-sparkline-latest portfolio-sparkline-${direction}" data-latest-point="true" cx="${latest.x.toFixed(1)}" cy="${latest.y.toFixed(1)}" r="3.4"><title>最新收盤 ${escapeHtml(money(values.at(-1), position.currency))}</title></circle>
+    </svg>
+    <div class="portfolio-sparkline-foot"><span>最新 ${escapeHtml(money(values.at(-1), position.currency))}</span><span>${escapeHtml(costLabel)}</span></div>
+    <p class="portfolio-sparkline-meta">${escapeHtml(meta)}</p>
+  </section>`;
+}
+
+export function renderPortfolioSection(result = {}, histories = new Map()) {
   const readAt = result.loadedAt ? `<span class="portfolio-read-at">讀取時間：${escapeHtml(dateLabel(result.loadedAt))}</span>` : "";
   let body = "";
   if (result.status === "AVAILABLE" && Array.isArray(result.positions) && result.positions.length) {
-    body = `<div class="portfolio-holdings-grid">${result.positions.map(renderPortfolioCard).join("")}</div>`;
+    body = `<div class="portfolio-holdings-grid">${result.positions.map((position) => {
+      const history = histories?.get?.(position.researchSymbol) || histories?.get?.(position.symbol) || null;
+      return renderPortfolioCard(position, history);
+    }).join("")}</div>`;
   } else {
     const [title, impact, next] = stateMessage(result);
     const action = ["SESSION_REQUIRED", "APP_ACCESS_REQUIRED", "MFA_REQUIRED"].includes(result.status)
@@ -69,7 +134,7 @@ export function renderPortfolioSection(result = {}) {
   return `<section class="portfolio-section" aria-labelledby="portfolio-heading"><div class="section-title"><h2 id="portfolio-heading">我的持股</h2>${readAt}</div><p class="portfolio-source-note">來源：Zhuge Investment Portfolio · 只讀正式持股；價格為持股紀錄估值，非即時行情。</p>${body}</section>`;
 }
 
-export function renderPortfolioCard(position = {}) {
+export function renderPortfolioCard(position = {}, history = null) {
   const currency = position.currency;
   const pnlClass = finite(position.unrealizedPnl) && Number(position.unrealizedPnl) > 0
     ? "positive"
@@ -86,6 +151,7 @@ export function renderPortfolioCard(position = {}) {
       <div><dt>未實現損益</dt><dd class="${pnlClass}">${signedMoney(position.unrealizedPnl, currency)}</dd></div>
       <div><dt>損益率</dt><dd class="${pnlClass}">${finite(position.unrealizedPct) ? `${number(position.unrealizedPct)}%` : "—"}</dd></div>
     </dl>
+    ${renderPortfolioSparkline(position, history)}
     <div class="portfolio-card-source"><span>持股來源：${escapeHtml(position.portfolioSource || "Zhuge Investment Portfolio")}</span><span>持股資料時間：${escapeHtml(dateLabel(position.asOf))}</span><span>估值來源：${escapeHtml(position.marketValueSource || "來源未提供")} · 非即時行情</span></div>
     <div class="portfolio-card-footer"><span>${statusLabel(position.status)}</span><button class="primary-button" type="button" data-action="portfolio-research" data-symbol="${researchSymbol}">查看研究</button></div>
   </article>`;

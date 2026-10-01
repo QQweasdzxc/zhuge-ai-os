@@ -42,21 +42,9 @@ test("Lab context contains no portfolio values in its route and US providers rem
   assert.match(placeholder, /data: null/);
 });
 
-test("formal Investment module changes are limited to Candidate identity/cache-buster", () => {
+test("formal Investment source remains untouched by Lab-only work", () => {
   const { execFileSync } = require("node:child_process");
   const changed = execFileSync("git", ["diff", "HEAD", "--name-only", "--", "modules/investment"], { cwd: root, encoding: "utf8" })
     .trim().split("\n").filter(Boolean).sort();
-  assert.deepEqual(changed, ["modules/investment/index.html", "modules/investment/version.json"]);
-
-  const baselineVersion = JSON.parse(execFileSync("git", ["show", "HEAD:modules/investment/version.json"], { cwd: root, encoding: "utf8" }));
-  const currentVersion = JSON.parse(read("modules/investment/version.json"));
-  const candidateBuild = currentVersion.build;
-  assert.equal(candidateBuild, JSON.parse(read("version.json")).build);
-  currentVersion.build = baselineVersion.build;
-  assert.deepEqual(currentVersion, baselineVersion);
-
-  const baselineHtml = execFileSync("git", ["show", "HEAD:modules/investment/index.html"], { cwd: root, encoding: "utf8" });
-  const currentHtml = read("modules/investment/index.html");
-  const normalizedHtml = currentHtml.replaceAll(candidateBuild, baselineVersion.build);
-  assert.equal(normalizedHtml, baselineHtml);
+  assert.deepEqual(changed, []);
 });

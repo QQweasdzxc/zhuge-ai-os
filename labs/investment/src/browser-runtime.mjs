@@ -1,4 +1,4 @@
-import { loadHome as loadProviderHome, loadMarketPulse, loadOpenPressure, loadResearch as loadProviderResearch, loadHistory } from "./providers/official-taiwan.mjs";
+import { loadHome as loadProviderHome, loadMarketPulse, loadOpenPressure, loadResearch as loadProviderResearch, loadHistory as loadProviderHistory } from "./providers/official-taiwan.mjs";
 import { loadBrowserQuote } from "./providers/browser-taiwan.mjs";
 import { loadPriceRadar } from "./providers/price-radar.mjs";
 
@@ -39,6 +39,10 @@ export async function loadHome() {
   const base = await loadProviderHome(loadBrowserQuote);
   const trends = await Promise.all(base.cards.map(async (card) => ({ symbol: card.symbol, history: await loadHistory(card.symbol) })));
   return applyBrowserProviderBoundary({ ...base, trends });
+}
+
+export async function loadHistory(symbol) {
+  return applyBrowserProviderBoundary(await loadProviderHistory(symbol));
 }
 
 export async function loadResearch(symbol) {

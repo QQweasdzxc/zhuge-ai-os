@@ -49,7 +49,7 @@ test("Lab investment is a static same-origin runtime with no local API server de
   assert.match(html, /\.\/app\.js/);
   assert.match(html, /type="importmap"/);
   assert.match(html, /fast-xml-parser/);
-  assert.match(app, /from "\.\/src\/browser-runtime\.mjs"/);
+  assert.match(app, /from "\.\/src\/browser-runtime\.mjs(?:\?v=[^"]*)?"/);
   assert.doesNotMatch(app, /fetch\("\/api\//);
   assert.doesNotMatch(html, /\/sandbox\//);
   assert.match(runtime, /SERVER_PROXY_REQUIRED/);

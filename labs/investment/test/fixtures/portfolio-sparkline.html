@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Portfolio Sparkline QA Fixture</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../portfolio.css?v=20261002-0015">
+  <style>
+    .fixture-banner{position:sticky;top:0;z-index:5;padding:10px 16px;border-bottom:2px solid #edc57d;background:#3c301b;color:#fff1c9;font-size:13px;font-weight:750;text-align:center}
+    .fixture-main{width:min(100%,1320px);margin:0 auto;padding:20px clamp(14px,3vw,40px) 32px}
+    .fixture-main>h1{margin:4px 0 8px;font-size:26px}
+    .fixture-main>p{margin:0 0 16px;color:var(--muted);font-size:13px}
+    @media(max-width:720px){.fixture-main{padding:16px 12px 28px}.fixture-main>h1{font-size:22px}}
+  </style>
+</head>
+<body>
+  <div class="fixture-banner">QA VISUAL FIXTURE — 持股欄位與價格曲線皆為合成測試資料，非 PM Portfolio、非真實行情；不會寫入或讀取正式持股。</div>
+  <main class="fixture-main">
+    <p class="eyebrow">DEVELOPER QA ONLY</p>
+    <h1>我的持股｜Mini Sparkline</h1>
+    <p>用明確標示的測試資料檢查持股卡密度、成本線、未接通狀態與手機排版。實際行情狀態另由 live Provider QA 驗證。</p>
+    <div id="portfolio-fixture"></div>
+  </main>
+  <script type="module">
+    import { renderPortfolioSection } from "../../src/portfolio/view.mjs?v=20261002-0015";
+
+    const dates = Array.from({ length: 20 }, (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}`);
+    const history = (provider, values) => ({
+      status: "AVAILABLE", provider, dataTruth: "SIMULATED", dataTimestamp: "2026-09-30",
+      fetchedAt: "2026-10-01T10:00:00.000Z", stale: false, delayed: true, fallback: false,
+      note: "Synthetic UI fixture only; never a Runtime or Provider PASS.",
+      data: values.map((close, index) => ({ date: dates[index], close })),
+    });
+    const positions = [
+      { symbol: "0050", researchSymbol: "0050.TW", name: "元大台灣50", marketLabel: "TW", currency: "TWD", assetType: "ETF", quantity: 709, averageCost: 65.45, investedCost: 46404.05, lastPrice: 112.9, marketValue: 80046.1, unrealizedPnl: 33642.05, unrealizedPct: 72.5, asOf: "2026-10-01T09:00:00+08:00", portfolioSource: "QA FIXTURE ONLY", marketValueSource: "Synthetic QA fields", status: "AVAILABLE" },
+      { symbol: "2330", researchSymbol: "2330.TW", name: "台積電", marketLabel: "TW", currency: "TWD", quantity: 10, averageCost: 2350, investedCost: 23500, lastPrice: 2510, marketValue: 25100, unrealizedPnl: 1600, unrealizedPct: 6.81, asOf: "2026-10-01T09:00:00+08:00", portfolioSource: "QA FIXTURE ONLY", marketValueSource: "Synthetic QA fields", status: "AVAILABLE" },
+      { symbol: "6488", researchSymbol: "6488.TWO", name: "環球晶", marketLabel: "TW", currency: "TWD", quantity: 20, averageCost: 1200, investedCost: 24000, lastPrice: 1000, marketValue: 20000, unrealizedPnl: -4000, unrealizedPct: -16.67, asOf: "2026-10-01T09:00:00+08:00", portfolioSource: "QA FIXTURE ONLY", marketValueSource: "Synthetic QA fields", status: "AVAILABLE" },
+      { symbol: "AAPL", researchSymbol: "AAPL", name: "Apple", marketLabel: "US", currency: "USD", quantity: 4, averageCost: null, investedCost: null, lastPrice: null, marketValue: null, unrealizedPnl: null, unrealizedPct: null, asOf: null, portfolioSource: "QA FIXTURE ONLY", marketValueSource: "來源未提供", status: "PARTIAL" },
+    ];
+    const histories = new Map([
+      ["0050.TW", history("TEST FIXTURE", [104, 105, 106, 105, 107, 108, 109, 107, 110, 111, 109, 112, 111, 113, 110, 112, 114, 111, 113, 112.9])],
+      ["2330.TW", history("TEST FIXTURE", [2420, 2435, 2410, 2450, 2440, 2465, 2470, 2455, 2480, 2475, 2490, 2500, 2485, 2510, 2490, 2505, 2515, 2500, 2520, 2510])],
+      ["6488.TWO", { status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "TPEx", dataTimestamp: null, delayed: true, stale: null, fallback: false, errorCode: "HISTORY_NOT_CONNECTED", data: null }],
+      ["AAPL", { status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "未接通", dataTimestamp: null, delayed: false, stale: null, fallback: false, errorCode: "NOT_CONNECTED", data: null }],
+    ]);
+    document.querySelector("#portfolio-fixture").innerHTML = renderPortfolioSection({ status: "AVAILABLE", positions }, histories);
+    document.documentElement.dataset.fixtureReady = "true";
+  </script>
+</body>
+</html>
