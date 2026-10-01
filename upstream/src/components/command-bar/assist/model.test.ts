@@ -1,0 +1,185 @@
+import { describe, expect, test } from "bun:test";
+import {
+  buildAssistResultItems,
+  formatAssistCandidateLabel,
+  isQuestionLike,
+  shouldAutoAskAssist,
+  shouldShowAssistRow,
+  type AssistRequestState,
+} from "./model";
+
+const handlers = {
+  onAsk: () => {},
+  onSignUp: () => {},
+  onRunCandidate: () => {},
+};
+
+function labels(
+  state: AssistRequestState,
+  options?: { query?: string; enabled?: boolean; auto?: boolean },
+): string[] {
+  return buildAssistResultItems({
+    ...handlers,
+    query: options?.query ?? "chart nvidia vs amd",
+    enabled: options?.enabled ?? true,
+    auto: options?.auto ?? true,
+    state,
+  }).map((item) => item.label);
+}
+
+describe("shouldAutoAskAssist", () => {
+  test("stays out of the way while the user speaks the command language", () => {
+    expect(shouldAutoAskAssist({ query: "chart nvidia vs amd", hasShortcutIntent: false })).toBe(true);
+    expect(shouldAutoAskAssist({ query: "nvda", hasShortcutIntent: false })).toBe(true);
+    // A recognized prefix — with or without an argument — is not a question.
+    expect(shouldAutoAskAssist({ query: "T NVDA", hasShortcutIntent: true })).toBe(false);
+    expect(shouldAutoAskAssist({ query: "gg", hasShortcutIntent: false })).toBe(false);
+    expect(shouldAutoAskAssist({ query: "   ", hasShortcutIntent: false })).toBe(false);
+  });
+});
+
+describe("isQuestionLike", () => {
+  test("reads a question mark or a leading question word as a question", () => {
+    expect(isQuestionLike("why is NVDA down")).toBe(true);
+    expect(isQuestionLike("chart nvidia vs amd?")).toBe(true);
+    expect(isQuestionLike("compare NVDA and AMD")).toBe(true);
+    // A single word is a prefix search, even when it reads like a question word.
+    expect(isQuestionLike("is")).toBe(false);
+    expect(isQuestionLike("chart nvidia vs amd")).toBe(false);
+    expect(isQuestionLike("  ")).toBe(false);
+  });
+});
+
+describe("shouldShowAssistRow", () => {
+  test("offers the AI on natural language, or on any dead end", () => {
+    expect(shouldShowAssistRow({ query: "chart nvidia vs amd", resultCount: 4 })).toBe(true);
+    expect(shouldShowAssistRow({ query: "zzzz", resultCount: 0 })).toBe(true);
+    expect(shouldShowAssistRow({ query: "chart", resultCount: 3 })).toBe(false);
+    expect(shouldShowAssistRow({ query: "  ", resultCount: 0 })).toBe(false);
+    // Trailing whitespace alone is not a second word.
+    expect(shouldShowAssistRow({ query: "chart ", resultCount: 3 })).toBe(false);
+  });
+});
+
+describe("buildAssistResultItems", () => {
+  test("routes signed-out users to sign up instead of the request", () => {
+    expect(labels({ status: "idle" }, { enabled: false })).toEqual(["Ask AI — sign up to enable"]);
+  });
+
+  test("renders each state of the request", () => {
+    expect(labels({ status: "idle" })).toEqual(["Thinking…"]);
+    expect(labels({ status: "idle" }, { auto: false })).toEqual([]);
+    expect(labels({ status: "loading", query: "chart nvidia vs amd", source: "auto" }))
+      .toEqual(["Thinking…"]);
+    expect(labels({ status: "answered", query: "chart nvidia vs amd", source: "auto", candidates: [] }))
+      .toEqual(["No command found — try HELP"]);
+  });
+
+  test("keeps failures silent unless the user asked for the answer", () => {
+    const failure = { status: "error", query: "chart nvidia vs amd", kind: "rate-limited" } as const;
+    expect(labels({ ...failure, source: "auto" })).toEqual([]);
+    expect(labels({ ...failure, source: "explicit" }))
+      .toEqual(["Rate limited — try again in a minute"]);
+  });
+
+  test("lays a candidate out like any other row: prefix in the badge, argument leading the label", () => {
+    expect(formatAssistCandidateLabel({ input: "DES NVDA", prefix: "DES", title: "Open security details for NVDA" }))
+      .toBe("NVDA \u00b7 Open security details");
+    expect(formatAssistCandidateLabel({ input: "G NVDA AMD", prefix: "G", title: "Chart NVDA vs AMD" }))
+      .toBe("NVDA AMD \u00b7 Chart NVDA vs AMD");
+    // No argument: the title stands alone rather than a stray separator.
+    expect(formatAssistCandidateLabel({ input: "ERN", prefix: "ERN", title: "Earnings Calendar" }))
+      .toBe("Earnings Calendar");
+    // A prefix the input does not start with is not stripped out of it.
+    expect(formatAssistCandidateLabel({ input: "show earnings", prefix: "ERN", title: "Earnings" }))
+      .toBe("show earnings \u00b7 Earnings");
+  });
+
+  test("shows candidates with the prefix as badge and runs the exact command-bar text", () => {
+    const runs: Array<[string, string | undefined]> = [];
+    const items = buildAssistResultItems({
+      ...handlers,
+      onRunCandidate: (input, prefix) => runs.push([input, prefix]),
+      query: "chart nvidia vs amd",
+      enabled: true,
+      auto: true,
+      state: {
+        status: "answered",
+        query: "chart nvidia vs amd",
+        source: "auto",
+        candidates: [{ input: "G NVDA AMD", title: "Chart NVDA vs AMD", prefix: "G", confidence: 0.9 }],
+      },
+    });
+
+    expect(items[0]?.label).toBe("NVDA AMD \u00b7 Chart NVDA vs AMD");
+    expect(items[0]?.badge).toBe("G");
+    // The marker rides the trailing column instead of shifting the label.
+    expect(items[0]?.right).toBe("✦");
+    expect(items[0]?.accent).toBe(true);
+    items[0]?.action();
+    expect(runs).toEqual([["G NVDA AMD", "G"]]);
+  });
+
+  test("offers the assistant pane for a question, without taking Enter from a command", () => {
+    const asked: string[] = [];
+    const items = buildAssistResultItems({
+      ...handlers,
+      onAskGloom: (question) => asked.push(question),
+      query: "why is NVDA down?",
+      enabled: true,
+      auto: true,
+      state: {
+        status: "answered",
+        query: "why is NVDA down?",
+        source: "auto",
+        candidates: [{ input: "DES NVDA", title: "Open security details for NVDA", prefix: "DES", confidence: 0.8 }],
+      },
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      "NVDA \u00b7 Open security details",
+      "why is NVDA down? \u00b7 Ask Gloom",
+    ]);
+    expect(items[1]?.badge).toBe("ASKG");
+    expect(items[1]?.defaultSelectable).toBe(false);
+    items[1]?.action();
+    expect(asked).toEqual(["why is NVDA down?"]);
+  });
+
+  test("replaces the dead-end row when no command fits the query", () => {
+    const items = buildAssistResultItems({
+      ...handlers,
+      onAskGloom: () => {},
+      query: "tell me about the bond market",
+      enabled: true,
+      auto: true,
+      state: {
+        status: "answered",
+        query: "tell me about the bond market",
+        source: "auto",
+        candidates: [],
+      },
+    });
+
+    expect(items.map((item) => item.label)).toEqual(["tell me about the bond market \u00b7 Ask Gloom"]);
+    // Nothing local fits, so Enter belongs to the assistant.
+    expect(items[0]?.defaultSelectable).toBe(true);
+  });
+
+  test("leaves the row out when the assistant pane is unavailable", () => {
+    expect(labels(
+      { status: "answered", query: "why is NVDA down?", source: "auto", candidates: [] },
+      { query: "why is NVDA down?" },
+    )).toEqual(["No command found — try HELP"]);
+  });
+
+  test("ignores an answer that belongs to an earlier query", () => {
+    const state: AssistRequestState = {
+      status: "answered",
+      query: "chart nvidia",
+      source: "auto",
+      candidates: [{ input: "G NVDA", title: "Chart NVDA", prefix: "G", confidence: 0.9 }],
+    };
+    expect(labels(state, { query: "chart nvidia vs amd" })).toEqual(["Thinking…"]);
+  });
+});

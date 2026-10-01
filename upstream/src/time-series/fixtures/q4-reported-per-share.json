@@ -1,0 +1,305 @@
+{
+  "JPM": {
+    "source": {
+      "url": "https://www.jpmorganchase.com/content/dam/jpmc/jpmorgan-chase-and-co/investor-relations/documents/quarterly-earnings/2025/4th-quarter/ff69a4a4-ab52-4a38-b82a-f153ba695e41.pdf",
+      "documentPage": 11,
+      "pdfPage": 12,
+      "unitNote": "PDF amounts are millions except per-share data; shares and income multiplied by1000000.",
+      "sha256": "0dc46b01df3b4c0082337ba219d7bc697f70c7fbfc8ba6c486632ca8f4c54835"
+    },
+    "annual": {
+      "date": "2025-12-31",
+      "currency": "USD",
+      "eps": 20.02,
+      "basicShares": 2776500000,
+      "dilutedShares": 2781500000,
+      "netIncome": 57048000000
+    },
+    "quarterly": [
+      {
+        "date": "2025-03-31",
+        "currency": "USD",
+        "eps": 5.07,
+        "basicShares": 2819400000,
+        "dilutedShares": 2824300000,
+        "netIncome": 14643000000
+      },
+      {
+        "date": "2025-06-30",
+        "currency": "USD",
+        "eps": 5.24,
+        "basicShares": 2788700000,
+        "dilutedShares": 2793700000,
+        "netIncome": 14987000000
+      },
+      {
+        "date": "2025-09-30",
+        "currency": "USD",
+        "eps": 5.07,
+        "basicShares": 2762400000,
+        "dilutedShares": 2767600000,
+        "netIncome": 14393000000
+      },
+      {
+        "date": "2025-12-31",
+        "currency": "USD",
+        "eps": 4.63,
+        "basicShares": 2735300000,
+        "dilutedShares": 2740500000,
+        "netIncome": 13025000000
+      }
+    ]
+  },
+  "PLD": {
+    "source": {
+      "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045609.json",
+      "capturedAt": "2026-09-16",
+      "sha256": "42b1e16ac75fb70de369040e3e511da28ae2ad9bbe32c9c6bcd4affa074e55d1"
+    },
+    "annual": {
+      "date": "2025-12-31",
+      "currency": "USD",
+      "eps": 3.56,
+      "basicShares": 928473000,
+      "dilutedShares": 956832000
+    },
+    "quarterly": [
+      {
+        "date": "2025-03-31",
+        "currency": "USD",
+        "eps": 0.63,
+        "basicShares": 927338000,
+        "dilutedShares": 956080000
+      },
+      {
+        "date": "2025-06-30",
+        "currency": "USD",
+        "eps": 0.61,
+        "basicShares": 928476000,
+        "dilutedShares": 955882000
+      },
+      {
+        "date": "2025-09-30",
+        "currency": "USD",
+        "eps": 0.82,
+        "basicShares": 928851000,
+        "dilutedShares": 956603000
+      },
+      {
+        "date": "2025-12-31",
+        "currency": "USD",
+        "eps": 1.49
+      }
+    ],
+    "facts": [
+      {
+        "field": "eps",
+        "concept": "EarningsPerShareDiluted",
+        "unit": "USD/shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-12-31",
+          "val": 3.56,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025"
+        }
+      },
+      {
+        "field": "basicShares",
+        "concept": "WeightedAverageNumberOfSharesOutstandingBasic",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-12-31",
+          "val": 928473000,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025"
+        }
+      },
+      {
+        "field": "dilutedShares",
+        "concept": "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-12-31",
+          "val": 956832000,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025"
+        }
+      },
+      {
+        "field": "eps",
+        "concept": "EarningsPerShareDiluted",
+        "unit": "USD/shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-03-31",
+          "val": 0.63,
+          "accn": "0001193125-26-197850",
+          "fy": 2026,
+          "fp": "Q1",
+          "form": "10-Q",
+          "filed": "2026-04-30",
+          "frame": "CY2025Q1"
+        }
+      },
+      {
+        "field": "basicShares",
+        "concept": "WeightedAverageNumberOfSharesOutstandingBasic",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-03-31",
+          "val": 927338000,
+          "accn": "0001193125-26-197850",
+          "fy": 2026,
+          "fp": "Q1",
+          "form": "10-Q",
+          "filed": "2026-04-30",
+          "frame": "CY2025Q1"
+        }
+      },
+      {
+        "field": "dilutedShares",
+        "concept": "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-01-01",
+          "end": "2025-03-31",
+          "val": 956080000,
+          "accn": "0001193125-26-197850",
+          "fy": 2026,
+          "fp": "Q1",
+          "form": "10-Q",
+          "filed": "2026-04-30",
+          "frame": "CY2025Q1"
+        }
+      },
+      {
+        "field": "eps",
+        "concept": "EarningsPerShareDiluted",
+        "unit": "USD/shares",
+        "fact": {
+          "start": "2025-04-01",
+          "end": "2025-06-30",
+          "val": 0.61,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025Q2"
+        }
+      },
+      {
+        "field": "basicShares",
+        "concept": "WeightedAverageNumberOfSharesOutstandingBasic",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-04-01",
+          "end": "2025-06-30",
+          "val": 928476000,
+          "accn": "0000950170-25-099770",
+          "fy": 2025,
+          "fp": "Q2",
+          "form": "10-Q",
+          "filed": "2025-07-30",
+          "frame": "CY2025Q2"
+        }
+      },
+      {
+        "field": "dilutedShares",
+        "concept": "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-04-01",
+          "end": "2025-06-30",
+          "val": 955882000,
+          "accn": "0000950170-25-099770",
+          "fy": 2025,
+          "fp": "Q2",
+          "form": "10-Q",
+          "filed": "2025-07-30",
+          "frame": "CY2025Q2"
+        }
+      },
+      {
+        "field": "eps",
+        "concept": "EarningsPerShareDiluted",
+        "unit": "USD/shares",
+        "fact": {
+          "start": "2025-07-01",
+          "end": "2025-09-30",
+          "val": 0.82,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025Q3"
+        }
+      },
+      {
+        "field": "basicShares",
+        "concept": "WeightedAverageNumberOfSharesOutstandingBasic",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-07-01",
+          "end": "2025-09-30",
+          "val": 928851000,
+          "accn": "0001193125-25-253512",
+          "fy": 2025,
+          "fp": "Q3",
+          "form": "10-Q",
+          "filed": "2025-10-28",
+          "frame": "CY2025Q3"
+        }
+      },
+      {
+        "field": "dilutedShares",
+        "concept": "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "unit": "shares",
+        "fact": {
+          "start": "2025-07-01",
+          "end": "2025-09-30",
+          "val": 956603000,
+          "accn": "0001193125-25-253512",
+          "fy": 2025,
+          "fp": "Q3",
+          "form": "10-Q",
+          "filed": "2025-10-28",
+          "frame": "CY2025Q3"
+        }
+      },
+      {
+        "field": "eps",
+        "concept": "EarningsPerShareDiluted",
+        "unit": "USD/shares",
+        "fact": {
+          "start": "2025-10-01",
+          "end": "2025-12-31",
+          "val": 1.49,
+          "accn": "0001193125-26-051453",
+          "fy": 2025,
+          "fp": "FY",
+          "form": "10-K",
+          "filed": "2026-02-13",
+          "frame": "CY2025Q4"
+        }
+      }
+    ]
+  }
+}

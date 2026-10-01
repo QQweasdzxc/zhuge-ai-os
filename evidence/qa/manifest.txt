@@ -1,0 +1,3 @@
+plugin-manifest.json is current (15 built-in plugins).
+
+$ bun run scripts/generate-plugin-manifest.ts --check

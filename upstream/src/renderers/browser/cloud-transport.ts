@@ -1,0 +1,47 @@
+import { apiClient, setCloudApiFetchTransport } from "../../api-client";
+import { settleWithin } from "../../utils/async-deadline";
+import { setHttpFetchTransport } from "../../utils/http-transport";
+import { createBrowserHttpProxyTransport } from "./http-proxy-transport";
+
+const SESSION_COOKIE_NAMES = ["__Secure-gloomberb.session_token", "gloomberb.session_token"] as const;
+
+function plantBrowserSessionCookies(cookieHeader: string): void {
+  if (typeof document === "undefined") return;
+  const secure = typeof location !== "undefined" && location.protocol === "https:";
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const name = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1);
+    if (!(SESSION_COOKIE_NAMES as readonly string[]).includes(name) || !value) continue;
+    const useSecure = secure || name.startsWith("__Secure-");
+    document.cookie = `${name}=${value}; Path=/; SameSite=Lax${useSecure ? "; Secure" : ""}`;
+  }
+}
+
+export function browserCredentialedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const cookieHeader = headers.get("Cookie");
+  if (cookieHeader) plantBrowserSessionCookies(cookieHeader);
+  // These are controlled by the browser. Desktop transports may set them, but
+  // carrying them into fetch would either fail or misrepresent the web origin.
+  headers.delete("Cookie");
+  headers.delete("Origin");
+  return fetch(url, { ...init, headers, credentials: "include" });
+}
+
+export function installBrowserFetchTransports(): void {
+  apiClient.setCookieSessionMode(true);
+  // Native fetch, so a response body can be read while it arrives.
+  setCloudApiFetchTransport(browserCredentialedFetch, { streaming: true });
+  // Plugin requests to a host on the proxy allowlist go through the worker,
+  // which can reach APIs that send no CORS headers. Those come back buffered,
+  // but nothing on the allowlist streams; every other host is a direct fetch
+  // exactly as before, and that path does.
+  setHttpFetchTransport(createBrowserHttpProxyTransport(), { streaming: true });
+}
+
+export async function restoreBrowserCloudSession(budgetMs = 5_000): Promise<void> {
+  await settleWithin(apiClient.getSession(), budgetMs);
+}

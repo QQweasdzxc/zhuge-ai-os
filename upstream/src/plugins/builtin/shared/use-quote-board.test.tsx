@@ -1,0 +1,325 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { act, useMemo, useState } from "react";
+import { testRender } from "../../../renderers/opentui/test-utils";
+import { MarketDataCoordinator, setSharedMarketDataCoordinator } from "../../../market-data/coordinator";
+import { createTestDataProvider } from "../../../test-support/data-provider";
+import type { MarketDataRequestContext, QuoteBatchResult, QuoteSubscriptionTarget } from "../../../types/data-provider";
+import type { Quote } from "../../../types/financials";
+import { Text } from "../../../ui";
+import { PluginRenderProvider, type PluginRuntimeAccess } from "../../runtime";
+import {
+  quoteBoardFooterInfo,
+  quoteBoardStatus,
+  useQuoteBoard,
+  type BoardQuoteMap,
+} from "./use-quote-board";
+
+const SYMBOLS = ["^GSPC", "^FTSE"];
+const POLL_MS = 40;
+
+function quote(symbol: string, price: number): Quote {
+  return {
+    symbol,
+    price,
+    change: 1,
+    changePercent: 1,
+    marketState: "REGULAR",
+    lastUpdated: 1_700_000_000_000,
+  } as Quote;
+}
+
+interface BatchCall {
+  symbols: string[];
+  forceRefresh: boolean | undefined;
+}
+
+/** Batch-capable provider whose next answer the test swaps between loads. */
+function batchProvider(reply: () => QuoteBatchResult[] | Error) {
+  const calls: BatchCall[] = [];
+  const provider = {
+    getQuotesBatch: async (
+      targets: Array<{ symbol: string }>,
+      options?: { forceRefresh?: boolean },
+    ): Promise<QuoteBatchResult[]> => {
+      calls.push({
+        symbols: targets.map((target) => target.symbol),
+        forceRefresh: options?.forceRefresh,
+      });
+      const answer = reply();
+      if (answer instanceof Error) throw answer;
+      return answer;
+    },
+  };
+  return { provider, calls };
+}
+
+let quotes: BoardQuoteMap = new Map();
+let refreshBoard: () => void = () => {};
+let setBoardSymbols: (symbols: string[]) => void = () => {};
+let setBoardProvider: (provider: object | null) => void = () => {};
+
+function Probe({ intervalMs, symbols }: { intervalMs: number; symbols: string[] }) {
+  const board = useQuoteBoard(symbols, { fallbackIntervalMs: intervalMs });
+  quotes = board.quotes;
+  refreshBoard = board.refresh;
+  return <Text>{`${board.quotes.size}`}</Text>;
+}
+
+function Harness({ provider, intervalMs }: { provider: object; intervalMs: number }) {
+  const [symbols, setSymbols] = useState(SYMBOLS);
+  const [activeProvider, setProvider] = useState<object | null>(provider);
+  setBoardSymbols = setSymbols;
+  setBoardProvider = setProvider;
+  const runtime = useMemo(
+    () => ({ getMarketData: () => activeProvider }) as unknown as PluginRuntimeAccess,
+    [activeProvider],
+  );
+  return (
+    <PluginRenderProvider runtime={runtime} pluginId="test">
+      <Probe intervalMs={intervalMs} symbols={symbols} />
+    </PluginRenderProvider>
+  );
+}
+
+let testSetup: Awaited<ReturnType<typeof testRender>> | undefined;
+
+afterEach(async () => {
+  quotes = new Map();
+  refreshBoard = () => {};
+  if (!testSetup) return;
+  await act(async () => {
+    testSetup!.renderer.destroy();
+  });
+  testSetup = undefined;
+});
+
+async function mount(provider: object, intervalMs = 10_000) {
+  testSetup = await testRender(<Harness provider={provider} intervalMs={intervalMs} />, {
+    width: 40,
+    height: 6,
+  });
+  await settle();
+}
+
+async function settle(waitMs = 0) {
+  await act(async () => {
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    await testSetup!.renderOnce();
+    await testSetup!.renderOnce();
+  });
+}
+
+describe("useQuoteBoard cache bypass", () => {
+  test("serves the cache on open, then forces every refresh after it", async () => {
+    const { provider, calls } = batchProvider(() => (
+      SYMBOLS.map((symbol) => ({ target: { symbol, exchange: "" }, quote: quote(symbol, 100) }))
+    ));
+    await mount(provider, POLL_MS);
+
+    // Opening a pane may paint from cache; a refresh that returns cache is a lie.
+    expect(calls[0]).toEqual({ symbols: SYMBOLS, forceRefresh: false });
+
+    await act(async () => {
+      refreshBoard();
+    });
+    await settle();
+    expect(calls[1]?.forceRefresh).toBe(true);
+
+    // The fallback poll is a refresh too, so it must bypass the provider cache as well.
+    await settle(POLL_MS * 2);
+    expect(calls.length).toBeGreaterThan(2);
+    expect(calls.slice(1).every((call) => call.forceRefresh === true)).toBe(true);
+  });
+
+  test("the serial fallback asks for a fresh quote the same way", async () => {
+    const contexts: Array<MarketDataRequestContext | undefined> = [];
+    const provider = {
+      getQuote: async (symbol: string, _exchange?: string, context?: MarketDataRequestContext) => {
+        contexts.push(context);
+        return quote(symbol, 100);
+      },
+    };
+    await mount(provider);
+
+    await act(async () => {
+      refreshBoard();
+    });
+    await settle();
+
+    expect(contexts.slice(0, SYMBOLS.length).every((context) => context === undefined)).toBe(true);
+    expect(contexts.slice(SYMBOLS.length).every((context) => context?.cacheMode === "refresh"))
+      .toBe(true);
+  });
+});
+
+describe("useQuoteBoard failure handling", () => {
+  test("keeps the last good quote and reports it stale instead of blanking", async () => {
+    let fail = false;
+    const { provider } = batchProvider(() => (
+      fail
+        ? SYMBOLS.map((symbol) => ({
+          target: { symbol, exchange: "" },
+          quote: null,
+          error: new Error("upstream 503"),
+        }))
+        : SYMBOLS.map((symbol) => ({ target: { symbol, exchange: "" }, quote: quote(symbol, 100) }))
+    ));
+    await mount(provider);
+    expect(quotes.get("^GSPC")?.quote?.price).toBe(100);
+
+    fail = true;
+    await act(async () => {
+      refreshBoard();
+    });
+    await settle();
+
+    const state = quotes.get("^GSPC");
+    expect(state?.quote?.price).toBe(100);
+    expect(state?.stale).toBe(true);
+    expect(state?.error).toBe("upstream 503");
+
+    const status = quoteBoardStatus(quotes);
+    expect(status).toMatchObject({ loading: 0, stale: 2, unavailable: 0 });
+    expect(quoteBoardFooterInfo(status).map((segment) => segment.id))
+      .toEqual(["stale", "fresh"]);
+  });
+
+  test("a whole batch call that throws still leaves the board readable", async () => {
+    let fail = false;
+    const { provider } = batchProvider(() => (
+      fail
+        ? new Error("network down")
+        : SYMBOLS.map((symbol) => ({ target: { symbol, exchange: "" }, quote: quote(symbol, 100) }))
+    ));
+    await mount(provider);
+
+    fail = true;
+    await act(async () => {
+      refreshBoard();
+    });
+    await settle();
+
+    expect(quotes.get("^FTSE")?.quote?.price).toBe(100);
+    expect(quotes.get("^FTSE")?.stale).toBe(true);
+    expect(quoteBoardStatus(quotes).stale).toBe(2);
+  });
+
+  test("a symbol that never resolved reports unavailable without requiring an error", async () => {
+    const { provider } = batchProvider(() => SYMBOLS.map((symbol) => ({
+      target: { symbol, exchange: "" },
+      quote: symbol === "^GSPC" ? quote(symbol, 100) : null,
+    })));
+    await mount(provider);
+
+    expect(quotes.get("^FTSE")?.quote).toBeNull();
+    const status = quoteBoardStatus(quotes);
+    expect(status).toMatchObject({ stale: 0, unavailable: 1 });
+    expect(quoteBoardFooterInfo(status).map((segment) => segment.id)).toEqual(["error", "fresh"]);
+  });
+});
+
+describe("useQuoteBoard target changes", () => {
+  test("drops removed quotes and errors while retaining overlapping quotes across pending requests", async () => {
+    const pending: Array<(rows: QuoteBatchResult[]) => void> = [];
+    const provider = { getQuotesBatch: () => new Promise<QuoteBatchResult[]>((resolve) => pending.push(resolve)) };
+    await mount(provider);
+    const recent = { ...quote("^GSPC", 100), lastUpdated: 1_700_001_000_000 };
+    const retained = quote("^FTSE", 200);
+    await act(async () => pending.shift()!([
+      { target: { symbol: "^GSPC" }, quote: recent },
+      { target: { symbol: "^FTSE" }, quote: retained },
+    ]));
+    await settle();
+    await act(async () => refreshBoard());
+    const previousRequest = pending.shift()!;
+    await act(async () => setBoardSymbols(["^FTSE", "DX-Y.NYB"]));
+    await settle();
+    const currentRequest = pending.shift()!;
+    expect([...quotes.keys()]).toEqual(["^FTSE", "DX-Y.NYB"]);
+    expect(quotes.get("^FTSE")?.quote).toBe(retained);
+    expect(quoteBoardStatus(quotes).latestTs).toBe(retained.lastUpdated);
+    await act(async () => previousRequest([
+      { target: { symbol: "^GSPC" }, quote: null, error: new Error("removed listing failed") },
+      { target: { symbol: "^FTSE" }, quote: quote("^FTSE", 999) },
+    ]));
+    await settle();
+    expect([...quotes.keys()]).toEqual(["^FTSE", "DX-Y.NYB"]);
+    expect(quotes.get("^FTSE")?.quote).toBe(retained);
+    expect(quotes.get("^FTSE")?.loading).toBe(true);
+    await act(async () => currentRequest([
+      { target: { symbol: "^FTSE" }, quote: null, error: new Error("temporary outage") },
+      { target: { symbol: "DX-Y.NYB" }, quote: null, error: new Error("unavailable") },
+    ]));
+    await settle();
+    expect(quoteBoardStatus(quotes)).toMatchObject({ stale: 1, unavailable: 1, loading: 0, latestTs: retained.lastUpdated });
+    expect(quotes.get("^FTSE")?.quote).toBe(retained);
+    await act(async () => setBoardSymbols(["^FTSE"]));
+    await settle();
+    expect([...quotes.keys()]).toEqual(["^FTSE"]);
+    expect(quoteBoardStatus(quotes).unavailable).toBe(0);
+    await act(async () => pending.shift()!([{ target: { symbol: "^FTSE" }, quote: retained }]));
+    await settle();
+  });
+
+  test("invalidates pending work and prunes selection when the provider disconnects", async () => {
+    let finish!: (rows: QuoteBatchResult[]) => void;
+    const provider = { getQuotesBatch: () => new Promise<QuoteBatchResult[]>((resolve) => { finish = resolve; }) };
+    await mount(provider);
+    await act(async () => { setBoardSymbols(["^FTSE"]); setBoardProvider(null); });
+    await settle();
+    expect([...quotes.keys()]).toEqual(["^FTSE"]);
+    expect(quotes.get("^FTSE")?.loading).toBe(false);
+    await act(async () => finish(SYMBOLS.map((symbol) => ({ target: { symbol }, quote: quote(symbol, 999) }))));
+    await settle();
+    expect([...quotes.keys()]).toEqual(["^FTSE"]);
+    expect(quotes.get("^FTSE")?.quote).toBeNull();
+    await act(async () => setBoardSymbols([]));
+    await settle();
+    expect(quoteBoardStatus(quotes)).toEqual({ loading: 0, stale: 0, unavailable: 0, latestTs: 0 });
+  });
+});
+
+describe("useQuoteBoard streaming", () => {
+  afterEach(() => {
+    setSharedMarketDataCoordinator(null);
+  });
+
+  test("rides the shared feed and polls only the symbols the feed is not carrying", async () => {
+    let emit: ((target: QuoteSubscriptionTarget, quote: Quote) => void) | null = null;
+    let streamed: QuoteSubscriptionTarget[] = [];
+    const coordinator = new MarketDataCoordinator(createTestDataProvider({
+      subscribeQuotes: (targets, onQuote) => {
+        streamed = targets;
+        emit = onQuote;
+        return () => {};
+      },
+    }));
+    setSharedMarketDataCoordinator(coordinator);
+    const { provider, calls } = batchProvider(() => SYMBOLS.map((symbol) => ({
+      target: { symbol, exchange: "" },
+      quote: quote(symbol, 100),
+    })));
+    await mount(provider, POLL_MS);
+
+    // Index symbols go out on the feed with the listing the board loads them by.
+    expect(streamed.map((target) => [target.symbol, target.exchange])).toEqual([["^FTSE", ""], ["^GSPC", ""]]);
+    await act(async () => emit!(streamed.find((target) => target.symbol === "^GSPC")!, {
+      ...quote("^GSPC", 101),
+      lastUpdated: 1_700_000_060_000,
+      delivery: "stream",
+    }));
+    // Store listeners hear about a change on a zero timer.
+    await settle(5);
+    expect(quotes.get("^GSPC")?.quote?.price).toBe(101);
+    expect(quotes.get("^FTSE")?.quote?.price).toBe(100);
+
+    const before = calls.length;
+    await settle(POLL_MS * 3);
+    const polls = calls.slice(before);
+    expect(polls.length).toBeGreaterThan(0);
+    expect(polls.every((call) => call.forceRefresh === true && call.symbols.join() === "^FTSE")).toBe(true);
+    // A late snapshot never replaces the newer streamed quote.
+    expect(quotes.get("^GSPC")?.quote?.price).toBe(101);
+    coordinator.destroy();
+  });
+});

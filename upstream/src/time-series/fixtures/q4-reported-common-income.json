@@ -1,0 +1,394 @@
+{
+  "source": {
+    "url": "https://www.jpmorganchase.com/content/dam/jpmc/jpmorgan-chase-and-co/investor-relations/documents/quarterly-earnings/2025/4th-quarter/ff69a4a4-ab52-4a38-b82a-f153ba695e41.pdf",
+    "documentPage": 11,
+    "pdfPage": 12,
+    "unitNote": "PDF amounts are millions except per-share data; shares and income multiplied by1000000.",
+    "sha256": "0dc46b01df3b4c0082337ba219d7bc697f70c7fbfc8ba6c486632ca8f4c54835",
+    "revenueDocumentPage": 1,
+    "revenuePdfPage": 2,
+    "note": "Selected issuer disclosures; no replacements are injected into production. SEC entries are copied verbatim from the captured packet."
+  },
+  "companyfactsSource": {
+    "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000019617.json",
+    "capturedAt": "2026-09-16",
+    "sha256": "4abdc1a9b3611f671cd776357b1035a575d391feb82181d31616a85f707755eb"
+  },
+  "annual": {
+    "date": "2025-12-31",
+    "currency": "USD",
+    "eps": 20.02,
+    "basicShares": 2776500000,
+    "dilutedShares": 2781500000,
+    "netIncome": 57048000000,
+    "netIncomeCommonStockholders": 55681000000,
+    "totalRevenue": 182447000000
+  },
+  "quarterly": [
+    {
+      "date": "2025-03-31",
+      "currency": "USD",
+      "eps": 5.07,
+      "basicShares": 2819400000,
+      "dilutedShares": 2824300000,
+      "netIncome": 14643000000,
+      "netIncomeCommonStockholders": 14317000000,
+      "totalRevenue": 45310000000
+    },
+    {
+      "date": "2025-06-30",
+      "currency": "USD",
+      "eps": 5.24,
+      "basicShares": 2788700000,
+      "dilutedShares": 2793700000,
+      "netIncome": 14987000000,
+      "netIncomeCommonStockholders": 14630000000,
+      "totalRevenue": 44912000000
+    },
+    {
+      "date": "2025-09-30",
+      "currency": "USD",
+      "eps": 5.07,
+      "basicShares": 2762400000,
+      "dilutedShares": 2767600000,
+      "netIncome": 14393000000,
+      "netIncomeCommonStockholders": 14043000000,
+      "totalRevenue": 46427000000
+    },
+    {
+      "date": "2025-12-31",
+      "currency": "USD",
+      "eps": 4.63,
+      "basicShares": 2735300000,
+      "dilutedShares": 2740500000,
+      "netIncome": 13025000000,
+      "netIncomeCommonStockholders": 12689000000,
+      "totalRevenue": 45798000000
+    }
+  ],
+  "participatingSecurityAllocationMillions": {
+    "annual": 268,
+    "quarterly": [
+      71,
+      75,
+      68,
+      56
+    ]
+  },
+  "companyfacts": {
+    "cik": 19617,
+    "facts": {
+      "us-gaap": {
+        "Revenues": {
+          "units": {
+            "USD": [
+              {
+                "start": "2025-01-01",
+                "end": "2025-12-31",
+                "val": 182447000000,
+                "accn": "0001628280-26-008131",
+                "fy": 2025,
+                "fp": "FY",
+                "form": "10-K",
+                "filed": "2026-02-13",
+                "frame": "CY2025"
+              }
+            ]
+          }
+        },
+        "NetIncomeLoss": {
+          "units": {
+            "USD": [
+              {
+                "start": "2025-01-01",
+                "end": "2025-03-31",
+                "val": 14643000000,
+                "accn": "0000019617-25-000421",
+                "fy": 2025,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2025-05-01"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-03-31",
+                "val": 14643000000,
+                "accn": "0001628280-26-029344",
+                "fy": 2026,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2026-05-01",
+                "frame": "CY2025Q1"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "val": 29630000000,
+                "accn": "0000019617-25-000615",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2025-08-05"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "val": 29630000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06"
+              },
+              {
+                "start": "2025-04-01",
+                "end": "2025-06-30",
+                "val": 14987000000,
+                "accn": "0000019617-25-000615",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2025-08-05"
+              },
+              {
+                "start": "2025-04-01",
+                "end": "2025-06-30",
+                "val": 14987000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06",
+                "frame": "CY2025Q2"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-09-30",
+                "val": 44023000000,
+                "accn": "0001628280-25-048859",
+                "fy": 2025,
+                "fp": "Q3",
+                "form": "10-Q",
+                "filed": "2025-11-04"
+              },
+              {
+                "start": "2025-07-01",
+                "end": "2025-09-30",
+                "val": 14393000000,
+                "accn": "0001628280-25-048859",
+                "fy": 2025,
+                "fp": "Q3",
+                "form": "10-Q",
+                "filed": "2025-11-04",
+                "frame": "CY2025Q3"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-12-31",
+                "val": 57048000000,
+                "accn": "0001628280-26-008131",
+                "fy": 2025,
+                "fp": "FY",
+                "form": "10-K",
+                "filed": "2026-02-13"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-12-31",
+                "val": 57000000000,
+                "accn": "0000019617-26-000096",
+                "fy": null,
+                "fp": null,
+                "form": "DEF 14A",
+                "filed": "2026-04-06",
+                "frame": "CY2025"
+              }
+            ]
+          }
+        },
+        "NetIncomeLossAvailableToCommonStockholdersBasic": {
+          "units": {
+            "USD": [
+              {
+                "start": "2025-01-01",
+                "end": "2025-03-31",
+                "val": 14317000000,
+                "accn": "0000019617-25-000421",
+                "fy": 2025,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2025-05-01"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-03-31",
+                "val": 14317000000,
+                "accn": "0001628280-26-029344",
+                "fy": 2026,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2026-05-01",
+                "frame": "CY2025Q1"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "val": 28948000000,
+                "accn": "0000019617-25-000615",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2025-08-05"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "val": 28948000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06"
+              },
+              {
+                "start": "2025-04-01",
+                "end": "2025-06-30",
+                "val": 14630000000,
+                "accn": "0000019617-25-000615",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2025-08-05"
+              },
+              {
+                "start": "2025-04-01",
+                "end": "2025-06-30",
+                "val": 14630000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06",
+                "frame": "CY2025Q2"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-09-30",
+                "val": 42991000000,
+                "accn": "0001628280-25-048859",
+                "fy": 2025,
+                "fp": "Q3",
+                "form": "10-Q",
+                "filed": "2025-11-04"
+              },
+              {
+                "start": "2025-07-01",
+                "end": "2025-09-30",
+                "val": 14043000000,
+                "accn": "0001628280-25-048859",
+                "fy": 2025,
+                "fp": "Q3",
+                "form": "10-Q",
+                "filed": "2025-11-04",
+                "frame": "CY2025Q3"
+              },
+              {
+                "start": "2025-01-01",
+                "end": "2025-12-31",
+                "val": 55681000000,
+                "accn": "0001628280-26-008131",
+                "fy": 2025,
+                "fp": "FY",
+                "form": "10-K",
+                "filed": "2026-02-13",
+                "frame": "CY2025"
+              }
+            ]
+          }
+        },
+        "Assets": {
+          "units": {
+            "USD": [
+              {
+                "end": "2025-03-31",
+                "val": 4357856000000,
+                "accn": "0000019617-25-000421",
+                "fy": 2025,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2025-05-01"
+              },
+              {
+                "end": "2025-03-31",
+                "val": 4357856000000,
+                "accn": "0001628280-26-029344",
+                "fy": 2026,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2026-05-01",
+                "frame": "CY2025Q1I"
+              },
+              {
+                "end": "2025-06-30",
+                "val": 4552482000000,
+                "accn": "0000019617-25-000615",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2025-08-05"
+              },
+              {
+                "end": "2025-06-30",
+                "val": 4552482000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06",
+                "frame": "CY2025Q2I"
+              },
+              {
+                "end": "2025-09-30",
+                "val": 4560205000000,
+                "accn": "0001628280-25-048859",
+                "fy": 2025,
+                "fp": "Q3",
+                "form": "10-Q",
+                "filed": "2025-11-04",
+                "frame": "CY2025Q3I"
+              },
+              {
+                "end": "2025-12-31",
+                "val": 4424900000000,
+                "accn": "0001628280-26-008131",
+                "fy": 2025,
+                "fp": "FY",
+                "form": "10-K",
+                "filed": "2026-02-13"
+              },
+              {
+                "end": "2025-12-31",
+                "val": 4424900000000,
+                "accn": "0001628280-26-029344",
+                "fy": 2026,
+                "fp": "Q1",
+                "form": "10-Q",
+                "filed": "2026-05-01"
+              },
+              {
+                "end": "2025-12-31",
+                "val": 4424900000000,
+                "accn": "0001628280-26-054343",
+                "fy": 2026,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": "2026-08-06",
+                "frame": "CY2025Q4I"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

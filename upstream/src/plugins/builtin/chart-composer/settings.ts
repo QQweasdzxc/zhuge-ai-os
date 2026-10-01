@@ -1,0 +1,455 @@
+import type { ChartResolution, TimeRange } from "../../../components/chart/core/types";
+import { CHART_RESOLUTIONS, TIME_RANGES as CHART_RANGES } from "../../../time-series/range";
+import { formatChartResolution } from "./viewport-labels";
+import type {
+  PaneSettingField,
+  PaneSettingOption,
+  PaneSettingsContext,
+  PaneSettingsDef,
+} from "../../../types/plugin";
+import type {
+  ChartPanelSpec,
+  ChartSeriesSpec,
+  ChartSpec,
+  ChartStudySpec,
+  SeriesStyle,
+} from "../../../time-series/types";
+import { isOhlcSeriesStyle } from "../../../time-series/spec";
+import { REALIZED_VOLATILITY_ESTIMATORS, isRealizedVolatilityEstimator } from "../../../market-data/realized-volatility";
+import {
+  applySeriesStyle,
+  buildCustomChartPreset,
+  buildEmptyChartPreset,
+  buildPriceChartPreset,
+  chartSeriesLabel,
+  formatSeriesExpression,
+  getCompatibleSeriesStyles,
+  builtinStudyPeriod,
+  defaultStudyPeriod,
+  getSelectedBuiltinStudies,
+  isPeriodStudy,
+  getSelectedPairStudies,
+  setBuiltinStudies,
+  setPairStudies,
+  type BuiltinStudySelection,
+  type PairStudySelection,
+} from "./presets";
+import {
+  CHART_SPEC_SETTING_KEY,
+  parseChartSpecOr,
+} from "./chart-spec";
+
+export { CHART_RANGES, CHART_RESOLUTIONS };
+
+/** Full name and short form for each builtin indicator; the label adds its period. */
+const CHART_STUDY_NAMES: Record<BuiltinStudySelection, { name: string; short?: string; description: string }> = {
+  volume: { name: "Volume", description: "Volume columns in a lower panel." },
+  sma20: { name: "Simple moving average", short: "SMA", description: "Simple moving average on the primary price series." },
+  sma50: { name: "Simple moving average", short: "SMA", description: "Simple moving average on the primary price series." },
+  sma200: { name: "Simple moving average", short: "SMA", description: "Simple moving average on the primary price series." },
+  ema20: { name: "Exponential moving average", short: "EMA", description: "Exponential moving average on the primary price series." },
+  bollinger20: { name: "Bollinger Bands", short: "BB", description: "Bollinger Bands at two standard deviations." },
+  rsi14: { name: "Relative strength index", short: "RSI", description: "Relative Strength Index in a lower panel." },
+  macd: { name: "MACD", short: "12, 26, 9", description: "12/26/9 MACD in a lower panel." },
+  "realized-vol": { name: "Realized volatility", description: "Annualized daily volatility in a lower panel." },
+};
+
+/** Title of the prompt that edits a study's period: `SMA period`. */
+export function chartStudyPeriodTitle(selection: BuiltinStudySelection): string {
+  return `${CHART_STUDY_NAMES[selection].short ?? CHART_STUDY_NAMES[selection].name} period`;
+}
+
+/** `Simple moving average (SMA 50)`: the name, the acronym and the period it runs with. */
+export function chartStudyLabel(selection: BuiltinStudySelection, period: number | null): string {
+  const { name, short } = CHART_STUDY_NAMES[selection];
+  if (!short) return name;
+  return isPeriodStudy(selection) && period != null ? `${name} (${short} ${period})` : `${name} (${short})`;
+}
+
+function chartStudyOptions(periodOf: (selection: BuiltinStudySelection) => number | null) {
+  return (Object.keys(CHART_STUDY_NAMES) as BuiltinStudySelection[]).map((value) => ({
+    value,
+    label: chartStudyLabel(value, periodOf(value)),
+    description: CHART_STUDY_NAMES[value].description,
+  }));
+}
+
+export const CHART_STUDY_OPTIONS: Array<PaneSettingOption & { value: BuiltinStudySelection }> = chartStudyOptions(defaultStudyPeriod);
+
+/** The indicator options with the periods this chart actually uses. */
+export function chartStudyOptionsFor(spec: ChartSpec): Array<PaneSettingOption & { value: BuiltinStudySelection }> {
+  return chartStudyOptions((selection) => builtinStudyPeriod(spec, selection));
+}
+
+export const CHART_FORMULA_OPTIONS: Array<PaneSettingOption & { value: PairStudySelection }> = [
+  { value: "ratio", label: "Ratio", description: "First series divided by the second series." },
+  { value: "spread", label: "Spread", description: "First series minus the second series." },
+  { value: "correlation", label: "Correlation 20", description: "20-observation rolling return correlation on shared observation times." },
+];
+
+export const CHART_SETTING_KEYS = {
+  series: "chartSeries",
+  indicators: "chartIndicators",
+  formulas: "chartFormulas",
+  dateWindow: "chartDateWindow",
+  range: "chartRange",
+  resolution: "chartResolution",
+  mode: "chartMode",
+  realizedVolWindow: "chartRealizedVolWindow",
+  realizedVolEstimator: "chartRealizedVolEstimator",
+} as const;
+
+function fallbackSpec(symbol: string | null | undefined): ChartSpec {
+  return symbol ? buildPriceChartPreset(symbol) : buildEmptyChartPreset();
+}
+
+function sourceKey(series: ChartSeriesSpec): string {
+  return formatSeriesExpression(series).toLowerCase();
+}
+
+/**
+ * The compact style picker is intentionally scoped to a chart with exactly one
+ * authored series. Multi-series styling belongs in the Series editor where the
+ * target is explicit, even when all but one series are currently hidden.
+ */
+export function getChartInlineStyleTarget(spec: ChartSpec): ChartSeriesSpec | null {
+  return spec.series.length === 1 ? spec.series[0] ?? null : null;
+}
+
+export function getChartInlineStyles(spec: ChartSpec): SeriesStyle[] {
+  const target = getChartInlineStyleTarget(spec);
+  if (!target) return [];
+  const fieldId = target.source.kind === "security" ? target.source.fieldId : "";
+  const anotherOhlcSeriesSharesPanel = spec.series.some((series) => (
+    series.id !== target.id
+    && series.panelId === target.panelId
+    && isOhlcSeriesStyle(series.style)
+  ));
+  return getCompatibleSeriesStyles(fieldId).filter((style) => (
+    !anotherOhlcSeriesSharesPanel || !isOhlcSeriesStyle(style)
+  ));
+}
+
+function reconcileBasePanels(
+  existing: readonly ChartPanelSpec[],
+  authored: readonly ChartPanelSpec[],
+  series: readonly ChartSeriesSpec[],
+  studies: readonly ChartStudySpec[],
+): ChartPanelSpec[] {
+  const requiredIds = new Set([
+    "main",
+    ...series.map((entry) => entry.panelId),
+    ...studies.map((entry) => entry.panelId),
+  ]);
+  const existingById = new Map(existing.map((panel) => [panel.id, panel] as const));
+  const authoredById = new Map(authored.map((panel) => [panel.id, panel] as const));
+  return [...requiredIds].map((id) => (
+    existingById.get(id)
+    ?? authoredById.get(id)
+    ?? { id }
+  ));
+}
+
+function replaceChartSeriesFromExpression(
+  spec: ChartSpec,
+  expression: string,
+): ChartSpec {
+  const authored = buildCustomChartPreset(expression);
+  const existingBySource = new Map<string, ChartSeriesSpec[]>();
+  for (const series of spec.series) {
+    const key = sourceKey(series);
+    existingBySource.set(key, [...(existingBySource.get(key) ?? []), series]);
+  }
+
+  const series = authored.series.map((entry) => {
+    const matches = existingBySource.get(sourceKey(entry));
+    return matches?.shift() ?? entry;
+  });
+  const seriesIds = new Set(series.map((entry) => entry.id));
+  const retainedStudies = spec.studies.filter((study) => (
+    study.inputSeriesIds.every((seriesId) => seriesIds.has(seriesId))
+  ));
+  const builtinStudies = getSelectedBuiltinStudies(spec);
+  const pairStudies = getSelectedPairStudies(spec);
+  const panels = reconcileBasePanels(spec.panels, authored.panels, series, retainedStudies);
+  const base: ChartSpec = {
+    ...spec,
+    series,
+    studies: retainedStudies,
+    panels,
+  };
+  return setPairStudies(setBuiltinStudies(base, builtinStudies), pairStudies);
+}
+
+function formatDateWindow(spec: ChartSpec): string {
+  const window = spec.viewport.dateWindow;
+  return window ? `${window.start} to ${window.end}` : "";
+}
+
+function parseDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error("Use YYYY-MM-DD dates.");
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error(`"${value}" is not a valid date.`);
+  }
+  return value;
+}
+
+function parseDateWindow(value: string): { start: string; end: string } | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const match = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2})\s*(?:to|through|\.\.|,|–|—)\s*(\d{4}-\d{2}-\d{2})$/i,
+  );
+  if (!match) {
+    throw new Error("Use YYYY-MM-DD to YYYY-MM-DD, or leave blank for the preset range.");
+  }
+  const start = parseDate(match[1]!);
+  const end = parseDate(match[2]!);
+  if (start > end) throw new Error("The start date must be before the end date.");
+  return { start, end };
+}
+
+function requireString(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new Error(`${label} must be text.`);
+  return value;
+}
+
+function requireSelection<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  label: string,
+): T[] {
+  if (!Array.isArray(value) || value.some((entry) => (
+    typeof entry !== "string" || !allowed.includes(entry as T)
+  ))) {
+    throw new Error(`Choose valid ${label.toLowerCase()} options.`);
+  }
+  return value as T[];
+}
+
+function cleanDerivedSettings(
+  settings: Record<string, unknown>,
+  spec: ChartSpec,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {
+    ...settings,
+    [CHART_SPEC_SETTING_KEY]: spec,
+  };
+  for (const key of Object.values(CHART_SETTING_KEYS)) delete next[key];
+  delete next.chartExpression;
+  return next;
+}
+
+export function applyChartComposerPaneSetting(
+  settings: Record<string, unknown>,
+  field: PaneSettingField,
+  value: unknown,
+  context?: Pick<PaneSettingsContext, "activeTicker">,
+): Record<string, unknown> {
+  const spec = parseChartSpecOr(
+    settings[CHART_SPEC_SETTING_KEY],
+    fallbackSpec(context?.activeTicker),
+  );
+  let nextSpec = spec;
+
+  switch (field.key) {
+    case CHART_SETTING_KEYS.series:
+      nextSpec = replaceChartSeriesFromExpression(spec, requireString(value, "Series"));
+      break;
+    case CHART_SETTING_KEYS.indicators:
+      nextSpec = setBuiltinStudies(
+        spec,
+        requireSelection(
+          value,
+          CHART_STUDY_OPTIONS.map((option) => option.value),
+          "indicator",
+        ),
+      );
+      break;
+    case CHART_SETTING_KEYS.formulas:
+      nextSpec = setPairStudies(
+        spec,
+        requireSelection(
+          value,
+          CHART_FORMULA_OPTIONS.map((option) => option.value),
+          "formula",
+        ),
+      );
+      break;
+    case CHART_SETTING_KEYS.realizedVolWindow:
+    case CHART_SETTING_KEYS.realizedVolEstimator: {
+      const editingWindow = field.key === CHART_SETTING_KEYS.realizedVolWindow;
+      const parameter = editingWindow ? "window" : "estimator";
+      const parsed = editingWindow ? Number(requireString(value, "Realized volatility window")) : value;
+      if (editingWindow && (typeof parsed !== "number" || !Number.isInteger(parsed) || parsed < 2)) {
+        throw new Error("Choose a whole volatility window of at least two sessions.");
+      }
+      if (!editingWindow && !isRealizedVolatilityEstimator(parsed)) throw new Error("Choose a supported volatility estimator.");
+      nextSpec = {
+        ...spec,
+        studies: spec.studies.map((study) => study.kind === "realized-vol" && study.id.startsWith("builtin:")
+          ? { ...study, parameters: { ...study.parameters, [parameter]: parsed as number | string } } : study),
+      };
+      break;
+    }
+    case CHART_SETTING_KEYS.dateWindow: {
+      const dateWindow = parseDateWindow(requireString(value, "Date window"));
+      nextSpec = {
+        ...spec,
+        viewport: {
+          ...spec.viewport,
+          dateWindow,
+          maxPoints: undefined,
+        },
+      };
+      break;
+    }
+    case CHART_SETTING_KEYS.range: {
+      const range = requireString(value, "Range") as TimeRange;
+      if (!CHART_RANGES.includes(range)) throw new Error("Choose a valid chart range.");
+      nextSpec = {
+        ...spec,
+        viewport: {
+          ...spec.viewport,
+          range,
+          dateWindow: undefined,
+          maxPoints: undefined,
+        },
+      };
+      break;
+    }
+    case CHART_SETTING_KEYS.resolution: {
+      const resolution = requireString(value, "Resolution") as ChartResolution;
+      if (!CHART_RESOLUTIONS.includes(resolution)) throw new Error("Choose a valid chart resolution.");
+      nextSpec = { ...spec, viewport: { ...spec.viewport, resolution } };
+      break;
+    }
+    case CHART_SETTING_KEYS.mode: {
+      const target = getChartInlineStyleTarget(spec);
+      const mode = requireString(value, "Mode") as SeriesStyle;
+      if (!target) {
+        throw new Error(spec.series.length === 0
+          ? "Add a series before choosing a chart style."
+          : "Use the Series editor to style a multi-series chart.");
+      }
+      if (!getChartInlineStyles(spec).includes(mode)) {
+        throw new Error(`That chart style is not compatible with ${chartSeriesLabel(target)}.`);
+      }
+      nextSpec = {
+        ...spec,
+        series: spec.series.map((series) => (
+          series.id === target.id ? applySeriesStyle(series, mode) : series
+        )),
+      };
+      break;
+    }
+    default:
+      return { ...settings, [field.key]: value };
+  }
+
+  return cleanDerivedSettings(settings, nextSpec);
+}
+
+export function buildChartComposerPaneSettingsDef(
+  settings: Record<string, unknown>,
+  activeTicker?: string | null,
+): PaneSettingsDef {
+  const spec = parseChartSpecOr(settings[CHART_SPEC_SETTING_KEY], fallbackSpec(activeTicker));
+  const inlineStyleTarget = getChartInlineStyleTarget(spec);
+  const modes = getChartInlineStyles(spec);
+  const realizedVol = spec.studies.find((study) => study.kind === "realized-vol" && study.id.startsWith("builtin:"));
+
+  return {
+    title: "Chart Settings",
+    values: {
+      [CHART_SETTING_KEYS.series]: spec.series.map(formatSeriesExpression).join(", "),
+      [CHART_SETTING_KEYS.indicators]: getSelectedBuiltinStudies(spec),
+      [CHART_SETTING_KEYS.formulas]: getSelectedPairStudies(spec),
+      [CHART_SETTING_KEYS.dateWindow]: formatDateWindow(spec),
+      [CHART_SETTING_KEYS.range]: spec.viewport.range,
+      [CHART_SETTING_KEYS.resolution]: spec.viewport.resolution,
+      [CHART_SETTING_KEYS.mode]: inlineStyleTarget?.style ?? "",
+      ...(realizedVol ? {
+        [CHART_SETTING_KEYS.realizedVolWindow]: String(realizedVol.parameters.window ?? 30),
+        [CHART_SETTING_KEYS.realizedVolEstimator]: realizedVol.parameters.estimator ?? "close-to-close",
+      } : {}),
+    },
+    fields: [
+      {
+        key: CHART_SETTING_KEYS.series,
+        label: "Series",
+        description: "Edit the chart sources. Press S in the pane for guided search and field suggestions.",
+        type: "text",
+        placeholder: "AAPL:price, MSFT:revenue, FRED:CPIAUCSL",
+      },
+      {
+        key: CHART_SETTING_KEYS.indicators,
+        label: "Indicators",
+        description: "Choose price studies and lower-panel indicators.",
+        type: "multi-select",
+        options: CHART_STUDY_OPTIONS,
+      },
+      {
+        key: CHART_SETTING_KEYS.formulas,
+        label: "Formulas",
+        description: "Compare two chart series with a derived formula.",
+        type: "multi-select",
+        options: CHART_FORMULA_OPTIONS,
+      },
+      ...(realizedVol ? [
+        {
+          key: CHART_SETTING_KEYS.realizedVolWindow,
+          label: "RV Window (sessions)",
+          type: "text" as const,
+          placeholder: "30",
+        },
+        {
+          key: CHART_SETTING_KEYS.realizedVolEstimator,
+          label: "RV Estimator",
+          type: "select" as const,
+          options: REALIZED_VOLATILITY_ESTIMATORS.map((estimator) => ({
+            value: estimator,
+            label: estimator.split("-").map((word) => word[0]!.toUpperCase() + word.slice(1)).join("-"),
+          })),
+        },
+      ] : []),
+      {
+        key: CHART_SETTING_KEYS.dateWindow,
+        label: "Date Window",
+        description: "Enter YYYY-MM-DD to YYYY-MM-DD. Leave blank to use the preset range.",
+        type: "text",
+        placeholder: "2025-01-01 to 2026-01-01",
+      },
+      {
+        key: CHART_SETTING_KEYS.range,
+        label: "Range",
+        description: "Set the preset time range and clear any custom date window.",
+        type: "select",
+        options: CHART_RANGES.map((range) => ({ value: range, label: range })),
+      },
+      {
+        key: CHART_SETTING_KEYS.resolution,
+        label: "Resolution",
+        description: "Choose the observation interval, or let the chart select it automatically.",
+        type: "select",
+        options: CHART_RESOLUTIONS.map((resolution) => ({
+          value: resolution,
+          label: formatChartResolution(resolution),
+        })),
+      },
+      ...(inlineStyleTarget
+        ? [{
+          key: CHART_SETTING_KEYS.mode,
+          label: `Style (${chartSeriesLabel(inlineStyleTarget)})`,
+          description: `Choose how ${chartSeriesLabel(inlineStyleTarget)} is drawn.`,
+          type: "select" as const,
+          options: modes.map((mode) => ({ value: mode, label: mode.toUpperCase() })),
+        }]
+        : []),
+    ],
+    applyValue: applyChartComposerPaneSetting,
+  };
+}

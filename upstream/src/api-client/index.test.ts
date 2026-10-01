@@ -1,0 +1,1275 @@
+import { afterEach, describe, expect, jest, test } from "bun:test";
+import { apiClient, setCloudApiFetchTransport } from "./index";
+import { publishableMarketplaceLayout } from "../layout-marketplace/payload";
+import { createDefaultConfig } from "../types/config";
+import type { PaneDef } from "../types/plugin";
+import { GloomberbCloudProvider } from "../sources/gloomberb-cloud";
+import type { Quote } from "../types/financials";
+import { getActiveQuoteDisplay } from "../market-data/market/status";
+import { installTestWebSocket, verifiedUser } from "../test-support/cloud-api";
+import type { AssistCommandDescriptor } from "./types";
+
+const originalFetch = globalThis.fetch;
+const originalWebSocket = globalThis.WebSocket;
+
+function mockFetch(
+  handler: (
+    input: Request | string | URL,
+    init?: RequestInit,
+  ) => Response | Promise<Response>,
+): typeof fetch {
+  return handler as unknown as typeof fetch;
+}
+
+function flushQuoteSubscriptionUpdates(): void {
+  jest.runAllTimers();
+}
+
+afterEach(() => {
+  apiClient.dispose();
+  globalThis.fetch = originalFetch;
+  globalThis.WebSocket = originalWebSocket;
+  setCloudApiFetchTransport(null);
+  apiClient.setSessionToken(null);
+  apiClient.setWebSocketToken(null);
+  apiClient.setCookieSessionMode(false);
+  jest.useRealTimers();
+});
+
+test("normalizes unavailable JSON changes through REST, embedded financials, batches and quote streams", async () => {
+  const sockets = installTestWebSocket();
+  apiClient.setSessionToken("quote-wire-session");
+  apiClient.restoreCachedUser(verifiedUser);
+  const provider = new GloomberbCloudProvider();
+  const target = { symbol: "AAPL", exchange: "NASDAQ" };
+  let quote = {
+    ...target, price: 100, currency: "USD", providerId: "gloomberb-cloud",
+    dataSource: "live", lastUpdated: Date.parse("2026-09-16T14:00:00Z"),
+    marketState: "REGULAR", change: Number.NaN, changePercent: Number.NaN,
+  };
+  setCloudApiFetchTransport(mockFetch((input) => {
+    const path = new URL(String(input)).pathname;
+    if (path.endsWith("/auth/session")) return Response.json({ user: verifiedUser });
+    const data = path.includes("/financials")
+      ? { quote, annualStatements: [], quarterlyStatements: [], priceHistory: [] }
+      : quote;
+    return Response.json({ status: "success", data: path.endsWith("/batch")
+      ? { items: [{ ...target, status: "success", data }] } : data });
+  }));
+  const seen: Quote[] = [];
+  const unsubscribe = provider.subscribeQuotes([target], (_target, value) => seen.push(value));
+  const socket = sockets[0]!;
+  socket.open();
+  try {
+    for (const [index, change] of [Number.NaN, 0, 2].entries()) {
+      quote = { ...quote, price: Number.isFinite(change) ? 100 + change : 100, change, changePercent: change };
+      // Both transports serialize NaN to null before the real client parses it.
+      socket.receive({ type: "market.quote", ...target, quote });
+      const values = [
+        await provider.getQuote(target.symbol, target.exchange),
+        (await provider.getTickerFinancials(target.symbol, target.exchange)).quote,
+        (await provider.getQuotesBatch([target]))[0]?.quote,
+        (await provider.getTickerFinancialsBatch([target]))[0]?.financials?.quote,
+        seen.at(-1),
+      ];
+      expect(seen).toHaveLength(index + 1);
+      for (const value of values) {
+        expect(value).toBeDefined();
+        expect(value?.change).toBe(change);
+        expect(value?.changePercent).toBe(change);
+        expect(getActiveQuoteDisplay(value)?.change).toBe(change);
+        expect(getActiveQuoteDisplay(value)?.changePercent).toBe(change);
+      }
+    }
+  } finally {
+    unsubscribe();
+  }
+});
+
+describe("apiClient layout marketplace", () => {
+  test("lists and publishes validated layouts through authenticated transport", async () => {
+    const config = createDefaultConfig("/tmp/api-layout-marketplace-test");
+    const panes = new Map(
+      config.layout.instances.map((instance) => [
+        instance.paneId,
+        {
+          id: instance.paneId,
+          name: instance.paneId,
+          component: () => null,
+          defaultPosition: "right" as const,
+        } satisfies PaneDef,
+      ]),
+    );
+    const payload = publishableMarketplaceLayout(config.layout, {}, panes);
+    const entry = {
+      id: "0123456789abcdef0123456789abcdef",
+      name: "Research Desk",
+      ...payload,
+      author: { username: "analyst", displayName: "Analyst" },
+      publishedAt: "2026-08-26T00:00:00.000Z",
+    };
+    const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+    apiClient.setSessionToken("marketplace-session");
+    setCloudApiFetchTransport(async (url, init) => {
+      calls.push({
+        url,
+        method: init?.method ?? "GET",
+        ...(typeof init?.body === "string"
+          ? { body: JSON.parse(init.body) }
+          : {}),
+      });
+      const path = new URL(url).pathname;
+      return Response.json(
+        path === `/layouts/${entry.id}` || init?.method === "POST"
+          ? entry
+          : { items: [entry] },
+      );
+    });
+
+    await expect(apiClient.listMarketplaceLayouts()).resolves.toEqual([entry]);
+    await expect(apiClient.getMarketplaceLayout(entry.id)).resolves.toEqual(
+      entry,
+    );
+    await expect(
+      apiClient.publishMarketplaceLayout(entry.name, payload),
+    ).resolves.toEqual(entry);
+
+    expect(
+      calls.map((call) => [new URL(call.url).pathname, call.method]),
+    ).toEqual([
+      ["/layouts", "GET"],
+      [`/layouts/${entry.id}`, "GET"],
+      ["/layouts", "POST"],
+    ]);
+    expect(calls[2]?.body).toMatchObject({
+      name: "Research Desk",
+      schemaVersion: 2,
+      paneState: {},
+    });
+  });
+});
+
+describe("apiClient auth cookies", () => {
+  test("accepts a browser-managed api.gloom.sh cookie without exposing its value", async () => {
+    apiClient.setCookieSessionMode(true);
+    setCloudApiFetchTransport(
+      mockFetch(() => Response.json({ user: verifiedUser })),
+    );
+
+    await expect(
+      apiClient.signIn("test@example.com", "password"),
+    ).resolves.toEqual(verifiedUser);
+    expect(apiClient.getSessionToken()).toBeNull();
+    expect(apiClient.isVerified()).toBe(true);
+  });
+
+  test("reports signed-in from the restored user when the cookie hides the raw token", async () => {
+    apiClient.setCookieSessionMode(true);
+    setCloudApiFetchTransport(
+      mockFetch(() => Response.json({ user: verifiedUser })),
+    );
+
+    expect(apiClient.isSignedIn()).toBe(false);
+    await apiClient.signIn("test@example.com", "password");
+    expect(apiClient.getSessionToken()).toBeNull();
+    expect(apiClient.isSignedIn()).toBe(true);
+  });
+
+  test("coalesces anonymous browser session checks and remembers the result", async () => {
+    apiClient.setCookieSessionMode(true);
+    let requests = 0;
+    let finishRequest!: () => void;
+    setCloudApiFetchTransport(async () => {
+      requests += 1;
+      await new Promise<void>((resolve) => {
+        finishRequest = resolve;
+      });
+      return Response.json({ user: null });
+    });
+
+    const checks = [
+      apiClient.ensureVerifiedSession(),
+      apiClient.ensureVerifiedSession(),
+      apiClient.ensureVerifiedSession(),
+    ];
+    expect(requests).toBe(1);
+    finishRequest();
+
+    await expect(Promise.all(checks)).resolves.toEqual([null, null, null]);
+    await expect(apiClient.ensureVerifiedSession()).resolves.toBeNull();
+    expect(requests).toBe(1);
+  });
+
+  /**
+   * On boot a session check can leave before the persisted token is installed.
+   * Its "no session" answer must not overwrite the verified user that hydrate
+   * restored in the meantime; that exact sequence left the app authenticated
+   * for chat while every plan-gated surface reported signed out.
+   */
+  test("a session check that predates the restored token does not wipe the restored user", async () => {
+    const seen: Array<string | null> = [];
+    let releaseFirst!: () => void;
+    setCloudApiFetchTransport(async (_url, init) => {
+      const cookie = new Headers(init?.headers).get("cookie");
+      seen.push(cookie);
+      if (seen.length === 1) {
+        await new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+        return Response.json({ user: null });
+      }
+      return Response.json({ user: verifiedUser });
+    });
+
+    // A cookie-less check goes out first.
+    const early = apiClient.getSession();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toBeNull();
+
+    // Hydrate installs the token and the cached user while it is in flight.
+    apiClient.setSessionToken("restored-token");
+    apiClient.restoreCachedUser(verifiedUser);
+    expect(apiClient.getCurrentUser()?.emailVerified).toBe(true);
+
+    releaseFirst();
+    await expect(early).resolves.toMatchObject({ id: verifiedUser.id });
+
+    // The stale answer was discarded and a second check went out with the real cookie.
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toContain("restored-token");
+    expect(apiClient.getCurrentUser()?.emailVerified).toBe(true);
+  });
+
+  test("captures secure session cookies after login and reuses them on session refresh", async () => {
+    const seenCookies: Array<string | null> = [];
+
+    globalThis.fetch = mockFetch(
+      async (_input: Request | string | URL, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        seenCookies.push(headers.get("Cookie"));
+
+        if (seenCookies.length === 1) {
+          return Response.json(
+            { token: "ws-token", user: verifiedUser },
+            { headers: { "set-cookie": "__Secure-gloomberb.session_token=signed-token.value; Path=/; HttpOnly; Secure; SameSite=Lax" } },
+          );
+        }
+
+        return Response.json({ user: verifiedUser });
+      },
+    );
+
+    await apiClient.signIn("test@example.com", "password");
+    await apiClient.getSession();
+
+    expect(apiClient.getSessionToken()).toBe("signed-token.value");
+    expect(apiClient.getWebSocketToken()).toBe("ws-token");
+    expect(seenCookies).toEqual([
+      null,
+      "__Secure-gloomberb.session_token=signed-token.value",
+    ]);
+  });
+
+  test("ignores a stale response cookie after the session credential changes", async () => {
+    let releaseResponse: (() => void) | null = null;
+    let markRequestStarted: (() => void) | null = null;
+    const requestStarted = new Promise<void>((resolve) => {
+      markRequestStarted = resolve;
+    });
+
+    apiClient.setSessionToken("old-session.value");
+    setCloudApiFetchTransport(async () => {
+      markRequestStarted?.();
+      await new Promise<void>((resolve) => {
+        releaseResponse = resolve;
+      });
+      return Response.json(
+        {
+          channels: [],
+          onlineCount: 0,
+          channelStates: [],
+          notifications: [],
+        },
+        { headers: { "set-cookie": "__Secure-gloomberb.session_token=old-session.value; Path=/; HttpOnly; Secure; SameSite=None" } },
+      );
+    });
+
+    const staleRequest = apiClient.getChatState();
+    await requestStarted;
+    apiClient.setSessionToken("new-session.value");
+    releaseResponse?.();
+    await staleRequest;
+
+    expect(apiClient.getSessionToken()).toBe("new-session.value");
+  });
+
+  test("uses an installed cloud API fetch transport for auth cookie capture", async () => {
+    const seenCookies: Array<string | null> = [];
+    globalThis.fetch = mockFetch(async () => {
+      throw new Error("global fetch should not be used");
+    });
+    setCloudApiFetchTransport(async (_url, init) => {
+      const headers = new Headers(init?.headers);
+      seenCookies.push(headers.get("Cookie"));
+      return Response.json(
+        { token: "ws-token", user: verifiedUser },
+        { headers: { "set-cookie": "gloomberb.session_token=signed-token.value; Path=/; HttpOnly; SameSite=Lax" } },
+      );
+    });
+
+    await apiClient.signIn("test@example.com", "password");
+
+    expect(apiClient.getSessionToken()).toBe("signed-token.value");
+    expect(apiClient.getWebSocketToken()).toBe("ws-token");
+    expect(seenCookies).toEqual([null]);
+  });
+
+  test("rejects login success without a captured session cookie", async () => {
+    globalThis.fetch = mockFetch(async () =>
+      Response.json({ token: "raw-session-token", user: verifiedUser }),
+    );
+
+    await expect(
+      apiClient.signIn("test@example.com", "password"),
+    ).rejects.toThrow("could not save the login session");
+    expect(apiClient.getSessionToken()).toBeNull();
+    expect(apiClient.getWebSocketToken()).toBeNull();
+    expect(apiClient.getCurrentUser()).toBeNull();
+  });
+
+  test("replays both supported cookie names when restoring a saved session token", async () => {
+    const seenCookies: Array<string | null> = [];
+    apiClient.setSessionToken("persisted-token.value");
+
+    globalThis.fetch = mockFetch(
+      async (_input: Request | string | URL, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        seenCookies.push(headers.get("Cookie"));
+        return Response.json({ user: verifiedUser });
+      },
+    );
+
+    await apiClient.getSession();
+
+    expect(seenCookies).toEqual([
+      "__Secure-gloomberb.session_token=persisted-token.value; gloomberb.session_token=persisted-token.value",
+    ]);
+  });
+
+  test("creates a browser handoff with the captured session instead of exposing it in the URL", async () => {
+    let requestedUrl = "";
+    let requestedCookie: string | null = null;
+    apiClient.setSessionToken("desktop-session-token");
+    globalThis.fetch = mockFetch(
+      async (input: Request | string | URL, init?: RequestInit) => {
+        requestedUrl = String(input);
+        requestedCookie = new Headers(init?.headers).get("Cookie");
+        return Response.json({
+          url: "https://api.gloom.sh/cloud/auth/browser-handoff?token=opaque-one-time-token",
+        });
+      },
+    );
+
+    const handoff = await apiClient.createBrowserHandoff();
+
+    expect(new URL(requestedUrl).pathname).toBe("/cloud/auth/browser-handoff");
+    expect(requestedCookie).toBe(
+      "__Secure-gloomberb.session_token=desktop-session-token; gloomberb.session_token=desktop-session-token",
+    );
+    expect(handoff.url).toContain("token=opaque-one-time-token");
+    expect(handoff.url).not.toContain("desktop-session-token");
+  });
+
+  test("keeps cached identity when session refresh is rejected without a hard account-missing response", async () => {
+    apiClient.setSessionToken("persisted-token.value");
+    apiClient.restoreCachedUser(verifiedUser);
+
+    globalThis.fetch = mockFetch(async () =>
+      Response.json({ message: "Unauthorized" }, { status: 401 }),
+    );
+
+    await expect(apiClient.getSession()).rejects.toThrow("Unauthorized");
+    expect(apiClient.getSessionToken()).toBe("persisted-token.value");
+    expect(apiClient.getCurrentUser()).toMatchObject({
+      id: verifiedUser.id,
+      username: verifiedUser.username,
+      emailVerified: true,
+    });
+  });
+
+  test("clears cached identity when session refresh says the account no longer exists", async () => {
+    apiClient.setSessionToken("persisted-token.value");
+    apiClient.setWebSocketToken("ws-token");
+    apiClient.restoreCachedUser(verifiedUser);
+
+    globalThis.fetch = mockFetch(async () =>
+      Response.json({ code: "USER_NOT_FOUND" }, { status: 403 }),
+    );
+
+    await expect(apiClient.getSession()).resolves.toBeNull();
+    expect(apiClient.getSessionToken()).toBeNull();
+    expect(apiClient.getWebSocketToken()).toBeNull();
+    expect(apiClient.getCurrentUser()).toBeNull();
+  });
+
+  test("clears local session on explicit sign out even if the server request fails", async () => {
+    apiClient.setSessionToken("persisted-token.value");
+    apiClient.setWebSocketToken("ws-token");
+    apiClient.restoreCachedUser(verifiedUser);
+
+    globalThis.fetch = mockFetch(async () =>
+      Response.json({ message: "server unavailable" }, { status: 503 }),
+    );
+
+    await expect(apiClient.signOut()).rejects.toThrow("server unavailable");
+    expect(apiClient.getSessionToken()).toBeNull();
+    expect(apiClient.getWebSocketToken()).toBeNull();
+    expect(apiClient.getCurrentUser()).toBeNull();
+  });
+});
+
+describe("apiClient quote socket", () => {
+  test("drops a stale websocket token after socket close so reconnect can use the session token", () => {
+    const sockets = installTestWebSocket(0);
+    apiClient.setSessionToken("session-token");
+    apiClient.setWebSocketToken("stale-ws-token");
+    apiClient.restoreCachedUser(verifiedUser);
+
+    const unsubscribe = apiClient.subscribeQuotes(
+      [{ symbol: "AAPL" }],
+      () => {},
+    );
+
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0]!.url).toContain("token=stale-ws-token");
+
+    sockets[0]!.closeWith({ code: 1008, reason: "Unauthorized" });
+
+    expect(apiClient.getWebSocketToken()).toBeNull();
+    expect(apiClient.getSessionToken()).toBe("session-token");
+
+    unsubscribe();
+  });
+
+  test("opens an anonymous market websocket and sends quote priority hints", () => {
+    const sockets = installTestWebSocket();
+
+    const unsubscribe = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "portfolio",
+          visible: true,
+          selected: true,
+          weight: 100,
+        },
+      ],
+      () => {},
+    );
+    sockets[0]!.open();
+
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0]!.url).toBe("wss://api.gloom.sh/cloud/ws");
+    expect(sockets[0]!.sent).toContainEqual({
+      type: "market.subscribe",
+      symbols: [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "portfolio",
+          visible: true,
+          selected: true,
+          weight: 100,
+        },
+      ],
+    });
+
+    unsubscribe();
+  });
+
+  test("reconnects and replays quote targets when market entitlement changes", () => {
+    const sockets = installTestWebSocket();
+    apiClient.setSessionToken("session-token");
+    apiClient.restoreCachedUser({ ...verifiedUser, plan: "free" });
+    const target = {
+      symbol: "AAPL260731C00110000",
+      exchange: "OPTIONS",
+      surface: "options" as const,
+      visible: true,
+    };
+    const unsubscribe = apiClient.subscribeQuotes([target], () => {});
+    sockets[0]!.open();
+
+    apiClient.restoreCachedUser({ ...verifiedUser, plan: "pro" });
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[0]!.closeCalls).toBe(1);
+    expect(sockets[1]!.url).toContain("token=session-token");
+    sockets[1]!.open();
+    expect(sockets[1]!.sent).toContainEqual({
+      type: "market.subscribe",
+      symbols: [target],
+    });
+    unsubscribe();
+  });
+
+  test("serializes and dispatches compact OCC option quote targets", () => {
+    const sockets = installTestWebSocket();
+    const seen: Array<{ symbol: string; dataSource: string | undefined }> = [];
+    const unsubscribe = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL260731C00110000",
+          exchange: "OPTIONS",
+          surface: "options",
+          visible: true,
+          selected: true,
+          weight: 100,
+        },
+      ],
+      (target, quote) => {
+        seen.push({ symbol: target.symbol, dataSource: quote.dataSource });
+      },
+    );
+    const socket = sockets[0]!;
+    socket.open();
+
+    expect(socket.sent).toContainEqual({
+      type: "market.subscribe",
+      symbols: [
+        {
+          symbol: "AAPL260731C00110000",
+          exchange: "OPTIONS",
+          surface: "options",
+          visible: true,
+          selected: true,
+          weight: 100,
+        },
+      ],
+    });
+
+    socket.receive({
+      type: "market.quote",
+      symbol: "AAPL260731C00110000",
+      exchange: "OPTIONS",
+      quote: {
+        symbol: "AAPL260731C00110000",
+        providerId: "gloomberb-cloud",
+        price: 2.5,
+        currency: "USD",
+        change: 0,
+        changePercent: 0,
+        lastUpdated: 1_800_000_000_000,
+        dataSource: "live",
+      },
+    });
+
+    expect(seen).toEqual([
+      {
+        symbol: "AAPL260731C00110000",
+        dataSource: "live",
+      },
+    ]);
+    unsubscribe();
+  });
+
+  test("preserves quote delivery and stale metadata from websocket messages", () => {
+    const sockets = installTestWebSocket();
+    const seen: Array<{ delivery?: string; stale?: boolean }> = [];
+    const unsubscribe = apiClient.subscribeQuotes(
+      [{ symbol: "AAPL260731C00110000", exchange: "OPTIONS" }],
+      (_target, quote) => {
+        seen.push({ delivery: quote.delivery, stale: quote.stale });
+      },
+    );
+    const socket = sockets[0]!;
+    socket.open();
+
+    socket.receive({
+      type: "market.quote",
+      symbol: "AAPL260731C00110000",
+      exchange: "OPTIONS",
+      delivery: "poll",
+      stale: true,
+      quote: {
+        symbol: "AAPL260731C00110000",
+        providerId: "gloomberb-cloud",
+        price: 2.5,
+        currency: "USD",
+        change: 0,
+        changePercent: 0,
+        lastUpdated: 1_800_000_000_000,
+        dataSource: "live",
+      },
+    });
+
+    expect(seen).toEqual([{ delivery: "poll", stale: true }]);
+    unsubscribe();
+  });
+
+  test("does not invent quote priority hints when opening a socket", () => {
+    const sockets = installTestWebSocket();
+
+    const unsubscribe = apiClient.subscribeQuotes(
+      [{ symbol: "AAPL", exchange: "NASDAQ" }],
+      () => {},
+    );
+    sockets[0]!.open();
+
+    expect(sockets[0]!.sent).toContainEqual({
+      type: "market.subscribe",
+      symbols: [{ symbol: "AAPL", exchange: "NASDAQ" }],
+    });
+
+    unsubscribe();
+  });
+
+  test("recomputes quote priority when overlapping subscriptions are removed", () => {
+    jest.useFakeTimers();
+    const sockets = installTestWebSocket();
+    const deliveredSurfaces: string[] = [];
+    const unsubscribeInline = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "inline",
+          weight: 1,
+        },
+      ],
+      (target) => {
+        deliveredSurfaces.push(target.surface ?? "unknown");
+      },
+    );
+    const socket = sockets[0]!;
+    socket.open();
+    flushQuoteSubscriptionUpdates();
+    socket.sent.length = 0;
+
+    const unsubscribeDetail = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "detail",
+          visible: true,
+          selected: true,
+          weight: 50,
+        },
+      ],
+      (target) => {
+        deliveredSurfaces.push(target.surface ?? "unknown");
+      },
+    );
+    flushQuoteSubscriptionUpdates();
+
+    expect(socket.sent.at(-1)).toEqual({
+      type: "market.subscribe",
+      symbols: [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "detail",
+          visible: true,
+          selected: true,
+          weight: 50,
+        },
+      ],
+    });
+
+    socket.receive({
+      type: "market.quote",
+      symbol: "AAPL",
+      exchange: "NASDAQ",
+      quote: { symbol: "AAPL", price: 123 },
+    });
+    expect(deliveredSurfaces).toEqual(["inline", "detail"]);
+
+    unsubscribeDetail();
+    flushQuoteSubscriptionUpdates();
+    expect(socket.sent.at(-1)).toEqual({
+      type: "market.subscribe",
+      symbols: [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "inline",
+          weight: 1,
+        },
+      ],
+    });
+
+    unsubscribeInline();
+  });
+
+  test("unsubscribes a server-side quote when queued priority updates are removed", () => {
+    jest.useFakeTimers();
+    const sockets = installTestWebSocket();
+    const unsubscribeMsft = apiClient.subscribeQuotes(
+      [{ symbol: "MSFT", exchange: "NASDAQ" }],
+      () => {},
+    );
+    const socket = sockets[0]!;
+    socket.open();
+    flushQuoteSubscriptionUpdates();
+
+    const unsubscribeInline = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "inline",
+          weight: 1,
+        },
+      ],
+      () => {},
+    );
+    flushQuoteSubscriptionUpdates();
+    expect(socket.sent.at(-1)).toEqual({
+      type: "market.subscribe",
+      symbols: [
+        { symbol: "AAPL", exchange: "NASDAQ", surface: "inline", weight: 1 },
+      ],
+    });
+
+    socket.sent.length = 0;
+    const unsubscribeDetail = apiClient.subscribeQuotes(
+      [
+        {
+          symbol: "AAPL",
+          exchange: "NASDAQ",
+          surface: "detail",
+          visible: true,
+          selected: true,
+          weight: 50,
+        },
+      ],
+      () => {},
+    );
+    unsubscribeDetail();
+    unsubscribeInline();
+    flushQuoteSubscriptionUpdates();
+
+    expect(socket.sent).toEqual([
+      {
+        type: "market.unsubscribe",
+        symbols: [
+          { symbol: "AAPL", exchange: "NASDAQ", surface: "inline", weight: 1 },
+        ],
+      },
+    ]);
+    unsubscribeMsft();
+  });
+
+  test("unsubscribes removed quote targets before subscribing replacements", () => {
+    jest.useFakeTimers();
+    const sockets = installTestWebSocket();
+    const oldTargets = Array.from({ length: 16 }, (_, index) => ({
+      symbol: `OPT${index}`,
+      exchange: "OPTIONS",
+    }));
+    const newTargets = Array.from({ length: 16 }, (_, index) => ({
+      symbol: `OPT${index + 2}`,
+      exchange: "OPTIONS",
+    }));
+    const unsubscribeOld = apiClient.subscribeQuotes(oldTargets, () => {});
+    const socket = sockets[0]!;
+    socket.open();
+    flushQuoteSubscriptionUpdates();
+    socket.sent.length = 0;
+
+    const unsubscribeNew = apiClient.subscribeQuotes(newTargets, () => {});
+    unsubscribeOld();
+    flushQuoteSubscriptionUpdates();
+
+    expect(
+      socket.sent.map((message) => (message as { type: string }).type),
+    ).toEqual(["market.unsubscribe", "market.subscribe"]);
+    expect(socket.sent[0]).toMatchObject({
+      symbols: [{ symbol: "OPT0" }, { symbol: "OPT1" }],
+    });
+    expect(socket.sent[1]).toMatchObject({
+      symbols: [{ symbol: "OPT16" }, { symbol: "OPT17" }],
+    });
+
+    unsubscribeNew();
+  });
+
+  test("keeps an anonymous market websocket open after auth rejection", () => {
+    const seenPrices: number[] = [];
+    const sockets = installTestWebSocket();
+
+    const unsubscribe = apiClient.subscribeQuotes(
+      [{ symbol: "AAPL" }],
+      (_target, quote) => {
+        seenPrices.push(quote.price);
+      },
+    );
+    const socket = sockets[0]!;
+    socket.open();
+    socket.receive({ type: "auth.unverified" });
+    socket.receive({
+      type: "market.quote",
+      symbol: "AAPL",
+      exchange: "",
+      quote: {
+        symbol: "AAPL",
+        price: 123,
+        currency: "USD",
+        change: 0,
+        changePercent: 0,
+        lastUpdated: 1,
+        providerId: "gloomberb-cloud",
+        dataSource: "live",
+      },
+    });
+
+    expect(socket.closeCalls).toBe(0);
+    expect(seenPrices).toEqual([123]);
+
+    unsubscribe();
+  });
+});
+
+describe("apiClient scanner subscriptions", () => {
+  test("subscribes once for many panes, fans out, replays the snapshot, and unsubscribes last", () => {
+    const sockets = installTestWebSocket();
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+
+    const unsubscribeFirst = apiClient.subscribeScanner("hilo", (event) =>
+      first.push(event),
+    );
+    const socket = sockets[0]!;
+    socket.open();
+    expect(socket.sent).toContainEqual({
+      type: "scanner.subscribe",
+      scanner: "hilo",
+    });
+
+    const payload = {
+      status: "live",
+      asOf: 1,
+      windows: {
+        s30: { highs: 1, lows: 0 },
+        m1: { highs: 2, lows: 1 },
+        m5: { highs: 3, lows: 2 },
+      },
+      highs: [],
+      lows: [],
+    };
+    socket.receive({ type: "scanner.hilo", ...payload });
+
+    // A second pane must not open a second upstream subscription, and must not
+    // wait a tick for its first frame.
+    const subscribeCount = () =>
+      socket.sent.filter((message: any) => message.type === "scanner.subscribe")
+        .length;
+    const before = subscribeCount();
+    const unsubscribeSecond = apiClient.subscribeScanner("hilo", (event) =>
+      second.push(event),
+    );
+    expect(subscribeCount()).toBe(before);
+    expect(second).toEqual([{ type: "data", payload }]);
+
+    socket.receive({ type: "scanner.hilo", ...payload, asOf: 2 });
+    expect(first).toHaveLength(2);
+    expect(second).toHaveLength(2);
+
+    unsubscribeFirst();
+    expect(socket.sent).not.toContainEqual({
+      type: "scanner.unsubscribe",
+      scanner: "hilo",
+    });
+    unsubscribeSecond();
+    expect(socket.sent).toContainEqual({
+      type: "scanner.unsubscribe",
+      scanner: "hilo",
+    });
+  });
+
+  test("replays scanner subscriptions after a reconnect and surfaces denials", () => {
+    const sockets = installTestWebSocket();
+    const seen: unknown[] = [];
+    const unsubscribe = apiClient.subscribeScanner("flow", (event) =>
+      seen.push(event),
+    );
+
+    const socket = sockets[0]!;
+    socket.open();
+    socket.receive({
+      type: "scanner.denied",
+      scanner: "flow",
+      reason: "pro_required",
+    });
+    expect(seen).toEqual([{ type: "denied", reason: "pro_required" }]);
+
+    jest.useFakeTimers();
+    socket.closeWith({ code: 1006, reason: "network" });
+    jest.runAllTimers();
+    const reconnected = sockets[1]!;
+    reconnected.open();
+    expect(reconnected.sent).toContainEqual({
+      type: "scanner.subscribe",
+      scanner: "flow",
+    });
+
+    unsubscribe();
+  });
+});
+
+describe("apiClient chat timestamps", () => {
+  // A missed normalize call parses a SQLite-style timestamp as local time.
+  const timestampCases: Array<{
+    call: string;
+    payload: unknown;
+    read: () => Promise<unknown[]>;
+    expected: string[];
+  }> = [
+    {
+      call: "getMessages",
+      payload: [{ id: "m1", createdAt: "2026-04-08 07:28:27.625" }],
+      read: async () => [(await apiClient.getMessages("everyone"))[0]?.createdAt],
+      expected: ["2026-04-08T07:28:27.625Z"],
+    },
+    {
+      call: "sendMessage",
+      payload: { id: "m2", createdAt: "2026-04-08T07:29:27.625" },
+      read: async () => [(await apiClient.sendMessage("everyone", "hello")).createdAt],
+      expected: ["2026-04-08T07:29:27.625Z"],
+    },
+    {
+      call: "editMessage",
+      payload: { id: "m2", createdAt: "2026-04-08 07:29:27.625", editedAt: "2026-04-08 07:30:27.625" },
+      read: async () => [(await apiClient.editMessage("everyone", "m2", "hello edited")).editedAt],
+      expected: ["2026-04-08T07:30:27.625Z"],
+    },
+    {
+      call: "getChatState",
+      payload: {
+        channels: [],
+        notifications: [{
+          id: "n1",
+          createdAt: "2026-04-08 07:30:00.000",
+          message: { id: "m2", createdAt: "2026-04-08 07:29:00.000" },
+        }],
+      },
+      read: async () => {
+        const notification = (await apiClient.getChatState()).notifications[0];
+        return [notification?.createdAt, notification?.message.createdAt];
+      },
+      expected: ["2026-04-08T07:30:00.000Z", "2026-04-08T07:29:00.000Z"],
+    },
+  ];
+
+  test.each(timestampCases)("$call normalizes timestamps to UTC ISO strings", async ({ payload, read, expected }) => {
+    globalThis.fetch = mockFetch(async () => Response.json(payload));
+
+    expect(await read()).toEqual(expected);
+  });
+
+  test("normalizes websocket chat timestamps before notifying listeners", async () => {
+    const seenCreatedAts: string[] = [];
+    const channel = apiClient.connectChannel("everyone", (message) => {
+      seenCreatedAts.push(message.createdAt);
+    });
+
+    await (apiClient as any).socket.handleSocketMessage(
+      JSON.stringify({
+        type: "chat.message",
+        channelId: "everyone",
+        data: {
+          id: "m1",
+          channelId: "everyone",
+          content: "hello",
+          replyToId: null,
+          createdAt: "2026-04-08 07:28:27.625",
+          user: { id: "u1", username: "alice", displayName: "Alice" },
+          replyTo: null,
+        },
+      }),
+    );
+
+    expect(seenCreatedAts).toEqual(["2026-04-08T07:28:27.625Z"]);
+    channel.close();
+  });
+
+  test("emits websocket chat presence and notification events", async () => {
+    const seenPresence: number[] = [];
+    const seenNotifications: string[] = [];
+    const unsubscribePresence = apiClient.subscribeChatPresence(
+      (onlineCount) => {
+        seenPresence.push(onlineCount);
+      },
+    );
+    const unsubscribeNotifications = apiClient.subscribeChatNotifications(
+      (notification) => {
+        seenNotifications.push(
+          `${notification.id}:${notification.message.createdAt}`,
+        );
+      },
+    );
+
+    await (apiClient as any).socket.handleSocketMessage(
+      JSON.stringify({
+        type: "chat.presence",
+        onlineCount: 5,
+      }),
+    );
+    await (apiClient as any).socket.handleSocketMessage(
+      JSON.stringify({
+        type: "chat.notification",
+        data: {
+          id: "n1",
+          type: "reply",
+          channelId: "everyone",
+          messageId: "m2",
+          createdAt: "2026-04-08 07:30:00.000",
+          message: {
+            id: "m2",
+            channelId: "everyone",
+            content: "reply",
+            replyToId: "m1",
+            createdAt: "2026-04-08 07:29:00.000",
+            user: { id: "u2", username: "bob", displayName: "Bob" },
+            replyTo: {
+              content: "parent",
+              user: { id: "u1", username: "ada" },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(seenPresence).toEqual([5]);
+    expect(seenNotifications).toEqual(["n1:2026-04-08T07:29:00.000Z"]);
+    unsubscribePresence();
+    unsubscribeNotifications();
+  });
+});
+
+describe("apiClient account profile", () => {
+  test("updates profile fields through the account endpoint", async () => {
+    let requestedUrl = "";
+    let requestedBody = "";
+    apiClient.setSessionToken("session-token");
+    apiClient.restoreCachedUser(verifiedUser);
+    globalThis.fetch = mockFetch(
+      async (input: Request | string | URL, init?: RequestInit) => {
+        requestedUrl = String(input);
+        requestedBody = String(init?.body ?? "");
+        return Response.json({
+          profile: {
+            id: verifiedUser.id,
+            email: verifiedUser.email,
+            emailVerified: true,
+            plan: "pro",
+            username: "renamed",
+            name: "Renamed User",
+            company: "Gloomberb",
+            title: "Founder",
+            bio: "Markets.",
+            profilePublic: true,
+            publicEmail: "public@example.com",
+            xAccount: "ada",
+            sharedPortfolioId: "main",
+            acceptUnknownDms: true,
+            chatEmailNotificationsEnabled: false,
+            updatedAt: "2026-04-01T00:00:00.000Z",
+          },
+        });
+      },
+    );
+
+    const profile = await apiClient.updateAccountProfile({
+      username: "renamed",
+      name: "Renamed User",
+      profilePublic: true,
+      sharedPortfolioId: "main",
+      acceptUnknownDms: true,
+      chatEmailNotificationsEnabled: false,
+    });
+
+    expect(new URL(requestedUrl).pathname).toBe("/account/profile");
+    expect(JSON.parse(requestedBody)).toEqual({
+      username: "renamed",
+      name: "Renamed User",
+      profilePublic: true,
+      sharedPortfolioId: "main",
+      acceptUnknownDms: true,
+      chatEmailNotificationsEnabled: false,
+    });
+    expect(profile.username).toBe("renamed");
+    expect(apiClient.getCurrentUser()?.username).toBe("renamed");
+    expect(apiClient.getCurrentUser()?.plan).toBe("pro");
+    expect(apiClient.getCurrentUser()?.chatEmailNotificationsEnabled).toBe(
+      false,
+    );
+  });
+});
+
+describe("apiClient command assist", () => {
+  test("fits argument values inside the server caps", async () => {
+    let sent: AssistCommandDescriptor[] = [];
+    apiClient.setSessionToken("session-token");
+    apiClient.restoreCachedUser(verifiedUser);
+    globalThis.fetch = mockFetch(async (_input, init) => {
+      sent = (JSON.parse(String(init?.body)) as { commands: AssistCommandDescriptor[] }).commands;
+      return Response.json({ candidates: [] });
+    });
+    const values = (count: number) => Array.from({ length: count }, (_, index) => ({
+      value: `v${index}`,
+      label: `Value ${index}`,
+    }));
+
+    await apiClient.assistCommand("switch theme", [
+      {
+        prefix: "TH",
+        name: "Change Theme",
+        arg: {
+          kind: "text",
+          // 41 values, but the one too long to run is dropped before counting.
+          options: [{ value: "amber", label: "A".repeat(80) }, { value: "x".repeat(41), label: "Long" }, ...values(39)],
+        },
+      },
+      { prefix: "CTM", name: "Futures Curve", arg: { kind: "text", optional: true, options: values(41) } },
+    ]);
+
+    const [theme, curve] = sent;
+    expect(theme?.arg?.options).toHaveLength(40);
+    expect(theme?.arg?.options?.[0]).toEqual({ value: "amber", label: "A".repeat(60) });
+    expect(theme?.arg?.options?.some((option) => option.value.length > 40)).toBe(false);
+    // A cut list would read as the whole set, so an oversized one is not sent.
+    expect(curve?.arg).toEqual({ kind: "text", optional: true });
+  });
+});
+
+describe("apiClient cloud news", () => {
+  test("uses the existing /news route with backend ticker filters", async () => {
+    let seenUrl = "";
+    globalThis.fetch = mockFetch(async (input: Request | string | URL) => {
+      seenUrl = String(input);
+      return Response.json({ items: [], nextCursor: null });
+    });
+
+    const result = await apiClient.getCloudNews({
+      feed: "ticker",
+      ticker: "AAPL",
+      exchange: "NASDAQ",
+      tickerTier: "primary",
+      limit: 25,
+      topics: ["earnings", "mna"],
+      sectors: ["information_technology"],
+      minImportance: 60,
+      breaking: false,
+      since: new Date("2026-04-01T00:00:00.000Z"),
+      cursor: "cursor-1",
+    });
+
+    const url = new URL(seenUrl);
+    expect(url.pathname).toBe("/news");
+    expect(url.searchParams.get("feed")).toBe("ticker");
+    expect(url.searchParams.get("tickers")).toBe("AAPL:XNAS");
+    expect(url.searchParams.get("tickerTier")).toBe("primary");
+    expect(url.searchParams.get("limit")).toBe("25");
+    expect(url.searchParams.get("topics")).toBe("earnings,mna");
+    expect(url.searchParams.get("sectors")).toBe("information_technology");
+    expect(url.searchParams.get("minImportance")).toBe("60");
+    expect(url.searchParams.get("breaking")).toBe("false");
+    expect(url.searchParams.get("since")).toBe("2026-04-01T00:00:00.000Z");
+    expect(url.searchParams.get("cursor")).toBe("cursor-1");
+    expect(result).toEqual({ items: [], nextCursor: null });
+  });
+});
+
+describe("apiClient document search", () => {
+  test("builds the search query from filters and omits empty ones", async () => {
+    let seenUrl = "";
+    globalThis.fetch = mockFetch(async (input: Request | string | URL) => {
+      seenUrl = String(input);
+      return Response.json({
+        hits: [],
+        total: 0,
+        countCapped: false,
+        hasMore: false,
+        nextOffset: 0,
+        tookMs: 3,
+      });
+    });
+
+    await apiClient.searchCloudDocuments({
+      query: "  margin pressure  ",
+      tickers: [" aapl ", "msft"],
+      docTypes: ["transcript", "filing"],
+      sources: [],
+      from: "2026-01-01T00:00:00.000Z",
+      sort: "newest",
+      limit: 40,
+      offset: 0,
+    });
+
+    const url = new URL(seenUrl);
+    expect(url.pathname).toBe("/cloud/search");
+    expect(url.searchParams.get("q")).toBe("margin pressure");
+    expect(url.searchParams.get("tickers")).toBe("AAPL,MSFT");
+    expect(url.searchParams.get("docTypes")).toBe("transcript,filing");
+    expect(url.searchParams.get("from")).toBe("2026-01-01T00:00:00.000Z");
+    expect(url.searchParams.get("sort")).toBe("newest");
+    expect(url.searchParams.get("limit")).toBe("40");
+    expect(url.searchParams.has("sources")).toBe(false);
+    expect(url.searchParams.has("to")).toBe(false);
+    // Offset 0 is the first page; sending it only lengthens the cache key.
+    expect(url.searchParams.has("offset")).toBe(false);
+    // Counting is the server default, so only opting out travels.
+    expect(url.searchParams.has("count")).toBe(false);
+
+    await apiClient.searchCloudDocuments({
+      query: "margin",
+      limit: 3,
+      count: false,
+    });
+    expect(new URL(seenUrl).searchParams.get("count")).toBe("false");
+  });
+
+  test("accepts a saved-search write with or without an envelope", async () => {
+    const record = {
+      id: "saved-1",
+      name: "margin pressure",
+      query: "margin pressure",
+      filters: {},
+      alertEnabled: true,
+      alertChannels: ["email"],
+      lastRunAt: null,
+      lastMatchAt: null,
+      matchCount: 0,
+      createdAt: "2026-05-01T00:00:00.000Z",
+    };
+
+    globalThis.fetch = mockFetch(async () =>
+      Response.json({ search: record }),
+    );
+    expect(
+      (
+        await apiClient.createCloudSavedSearch({
+          name: record.name,
+          query: record.query,
+        })
+      ).id,
+    ).toBe("saved-1");
+
+    globalThis.fetch = mockFetch(async () => Response.json(record));
+    expect(
+      (
+        await apiClient.updateCloudSavedSearch("saved-1", {
+          alertEnabled: false,
+        })
+      ).id,
+    ).toBe("saved-1");
+
+    globalThis.fetch = mockFetch(async () => Response.json({}));
+    await expect(
+      apiClient.updateCloudSavedSearch("saved-1", { alertEnabled: false }),
+    ).rejects.toThrow("missing a record");
+  });
+});

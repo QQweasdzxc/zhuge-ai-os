@@ -1,0 +1,228 @@
+{
+  "ok": true,
+  "data": {
+    "kind": "pane-screenshot",
+    "target": "TW",
+    "capability": {
+      "id": "taiwan-research-pane",
+      "botSafe": true,
+      "outputKind": "bundle",
+      "reportReadiness": "ready",
+      "screenshotReadiness": "live-dom"
+    },
+    "symbols": [
+      "6488.TWO"
+    ],
+    "options": {
+      "view": "history"
+    },
+    "rowCount": 13,
+    "empty": true,
+    "complete": true,
+    "unavailableSymbols": [],
+    "semanticMismatch": false,
+    "usable": false,
+    "unusableReason": "The pane rendered an empty state.",
+    "dataEvidence": null,
+    "outputPath": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/6488.TWO-history.png",
+    "render": {
+      "visibleText": "台灣研究 6488.TWO 總覽 日行情 營運 籌碼 產業 衍生 來源與缺口 價格 TWD 1,035 2026-09-30 漲跌 90 9.52% 日行情來源與口徑 狀態 NOT_CONNECTED Provider TPEx 資料時間 未提供 出表時間 未提供 讀取時間 未提供 時效 未知（來源未提供資料日期） 行情類型 delayed／官方定期資料，非盤中即時 Fallback 無 Error code TPEX_HISTORY_NOT_CONNECTED 說明 TPEx 歷史端點在 Gap Map 中；本輪保留 Spike 的未接入狀態。 可用筆數 未提供 原始 OHLCV（非還原價格） 日期 開 高 低 收 量（股） 此區塊尚未有可用資料；請看上方狀態與來源。",
+      "visibleKeyValues": [
+        {
+          "label": "價格 TWD",
+          "text": "價格 TWD 1,035 2026-09-30"
+        },
+        {
+          "label": "漲跌",
+          "text": "漲跌 90 9.52%"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 NOT_CONNECTED"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider TPEx"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 未提供"
+        },
+        {
+          "label": "出表時間",
+          "text": "出表時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 未提供"
+        },
+        {
+          "label": "時效",
+          "text": "時效 未知（來源未提供資料日期）"
+        },
+        {
+          "label": "行情類型",
+          "text": "行情類型 delayed／官方定期資料，非盤中即時"
+        },
+        {
+          "label": "Fallback",
+          "text": "Fallback 無"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code TPEX_HISTORY_NOT_CONNECTED"
+        },
+        {
+          "label": "說明",
+          "text": "說明 TPEx 歷史端點在 Gap Map 中；本輪保留 Spike 的未接入狀態。"
+        },
+        {
+          "label": "可用筆數",
+          "text": "可用筆數 未提供"
+        }
+      ],
+      "rows": [],
+      "truncated": true,
+      "truncationReasons": [
+        "rows extend below the rendered viewport",
+        "columns extend beyond the rendered viewport"
+      ],
+      "loadingStateDetected": false,
+      "errorStateDetected": false,
+      "errorStateMarkers": [],
+      "emptyStateDetected": true,
+      "emptyStateMarkers": [],
+      "semanticUi": [
+        {
+          "id": "ui:1",
+          "role": "button",
+          "label": "Close pane",
+          "disabled": false,
+          "actions": [
+            "press"
+          ],
+          "metadata": {
+            "icon": "close"
+          }
+        },
+        {
+          "id": "ui:3",
+          "role": "tabs",
+          "label": "Tabs",
+          "actions": [
+            "close",
+            "select"
+          ],
+          "metadata": {
+            "activeValue": "history",
+            "tabs": [
+              {
+                "label": "總覽",
+                "value": "overview",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "日行情",
+                "value": "history",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "營運",
+                "value": "operations",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "籌碼",
+                "value": "ownership",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "產業",
+                "value": "radar",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "衍生",
+                "value": "derivatives",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "來源與缺口",
+                "value": "sources",
+                "disabled": false,
+                "closeable": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "ui:2",
+          "role": "pane-header-tabs",
+          "actions": [
+            "press"
+          ],
+          "metadata": {}
+        },
+        {
+          "id": "ui:4",
+          "role": "table",
+          "label": "Data table",
+          "actions": [
+            "activateRow",
+            "scrollBy",
+            "scrollTo",
+            "selectRow",
+            "sort"
+          ],
+          "metadata": {
+            "paneInstanceId": "taiwan-research:cli-6488-two",
+            "sortColumnId": null,
+            "sortDirection": "asc",
+            "columns": [
+              {
+                "id": "date",
+                "label": "日期"
+              },
+              {
+                "id": "open",
+                "label": "開"
+              },
+              {
+                "id": "high",
+                "label": "高"
+              },
+              {
+                "id": "low",
+                "label": "低"
+              },
+              {
+                "id": "close",
+                "label": "收"
+              },
+              {
+                "id": "volume",
+                "label": "量（股）"
+              }
+            ],
+            "rows": [],
+            "rowCount": 0
+          }
+        }
+      ],
+      "expectedText": [
+        "6488.TWO"
+      ],
+      "missingExpectedText": [],
+      "expectedSelections": [],
+      "missingExpectedSelections": [],
+      "expectedChart": null,
+      "chartEvidenceMismatches": []
+    }
+  }
+}

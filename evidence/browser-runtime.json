@@ -1,0 +1,197 @@
+{
+  "completedAt": "2026-10-01T01:13:33.185Z",
+  "renderer": "Gloomberb original Desktop pane renderer + real Chromium + Bun official HTTP bridge",
+  "results": [
+    {
+      "symbol": "2330.TW",
+      "view": "overview",
+      "expected": [
+        "TWSE",
+        "月營收",
+        "資料時間",
+        "Fallback"
+      ],
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-overview.png",
+      "truncated": true,
+      "activeView": "overview"
+    },
+    {
+      "symbol": "2330.TW",
+      "view": "operations",
+      "expected": [
+        "MOPS",
+        "非單季",
+        "MoM",
+        "千元"
+      ],
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-operations.png",
+      "truncated": true,
+      "activeView": "operations"
+    },
+    {
+      "symbol": "2330.TW",
+      "view": "history",
+      "expected": [
+        "TWSE",
+        "2026-09-30",
+        "原始 OHLCV"
+      ],
+      "requiresRows": true,
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 20,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-history.png",
+      "truncated": true,
+      "activeView": "history"
+    },
+    {
+      "symbol": "2330.TW",
+      "view": "ownership",
+      "expected": [
+        "TDCC",
+        "股權分散",
+        "股數"
+      ],
+      "requiresRows": true,
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 17,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-ownership.png",
+      "truncated": true,
+      "activeView": "ownership"
+    },
+    {
+      "symbol": "0050.TW",
+      "view": "overview",
+      "expected": [
+        "ETF",
+        "PARTIAL",
+        "NOT_CONNECTED",
+        "不適用"
+      ],
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/0050.TW-overview.png",
+      "truncated": true,
+      "activeView": "overview"
+    },
+    {
+      "symbol": "6488.TWO",
+      "view": "overview",
+      "expected": [
+        "TPEx",
+        "環球晶",
+        "EPS",
+        "MOPS"
+      ],
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/6488.TWO-overview.png",
+      "truncated": true,
+      "activeView": "overview"
+    },
+    {
+      "symbol": "6488.TWO",
+      "view": "history",
+      "expected": [
+        "NOT_CONNECTED",
+        "TPEX_HISTORY_NOT_CONNECTED"
+      ],
+      "expectedEmpty": true,
+      "status": "PASS",
+      "gate": "explicit-gap-ui",
+      "exitCode": 0,
+      "dataUsable": false,
+      "capabilityStatus": "NOT_CONNECTED",
+      "expectedEmptyVerified": true,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/6488.TWO-history.png",
+      "truncated": true,
+      "activeView": "history"
+    },
+    {
+      "symbol": "2330.TW",
+      "view": "radar",
+      "expected": [
+        "World Bank",
+        "PROVIDER_REVIEW_REQUIRED",
+        "CC BY 4.0",
+        "BINARY_HTTP_TRANSPORT_UNAVAILABLE",
+        "Bun 終端"
+      ],
+      "transportGap": true,
+      "status": "PASS",
+      "gate": "explicit-transport-gap-ui",
+      "exitCode": 0,
+      "dataUsable": false,
+      "capabilityStatus": "UNAVAILABLE",
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 0,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-radar.png",
+      "truncated": true,
+      "activeView": "radar"
+    },
+    {
+      "symbol": "2330.TW",
+      "view": "derivatives",
+      "expected": [
+        "TAIFEX",
+        "TXO",
+        "PARTIAL",
+        "IV"
+      ],
+      "requiresRows": true,
+      "status": "PASS",
+      "gate": "live-data-ui",
+      "exitCode": 0,
+      "dataUsable": true,
+      "capabilityStatus": null,
+      "expectedEmptyVerified": false,
+      "visibleRowCount": 18,
+      "missing": [],
+      "output": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-derivatives.png",
+      "truncated": true,
+      "activeView": "derivatives"
+    }
+  ]
+}

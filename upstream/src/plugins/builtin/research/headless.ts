@@ -1,0 +1,132 @@
+import type {
+  AnalystResearchData,
+  CorporateActionsData,
+  TickerFinancials,
+} from "../../../types/financials";
+import type {
+  HeadlessPaneContext,
+  HeadlessPaneDefinition,
+  HeadlessPaneLoadArgs,
+  HeadlessRowsResult,
+} from "../../../types/plugin";
+import { buildEventRows, eventSourceNotice, type EventRow } from "./event-model";
+import { EVENT_COLUMNS, loadEventSources } from "./event-sources";
+
+export interface EarningsEstimateSources {
+  actions: CorporateActionsData | null;
+  estimates: AnalystResearchData | null;
+  financials: TickerFinancials | null;
+  currency: string;
+  errors?: string[];
+}
+
+export interface EarningsEstimatesHeadlessDependencies {
+  loadSources(
+    symbol: string,
+    context: HeadlessPaneContext,
+  ): Promise<EarningsEstimateSources>;
+}
+
+const defaultDependencies: EarningsEstimatesHeadlessDependencies = {
+  async loadSources(symbol, context) {
+    const { actions, estimates, financials, currency, ...failures } = await loadEventSources(context.marketData, symbol);
+    const errors = [
+      failures.actionsError === null ? null : `corporate actions: ${failures.actionsError}`,
+      failures.estimatesError === null ? null : `analyst estimates: ${failures.estimatesError}`,
+      failures.financialsError === null ? null : `financials: ${failures.financialsError}`,
+    ].filter((error): error is string => error !== null);
+    if (!actions && !estimates && !financials && errors.length > 0) {
+      throw new Error(errors.join("; "));
+    }
+    return { actions, estimates, financials, currency, errors };
+  },
+};
+
+function matchesKind(row: EventRow, kind: string): boolean {
+  if (kind === "all") return ["Earnings", "Q Est", "FY Est", "TTM"].includes(row.status);
+  if (kind === "estimates") return row.status === "Q Est" || row.status === "FY Est";
+  return row.status === "Earnings" && row.earningsState === "reported";
+}
+
+export function projectEarningsEstimatesHeadless(
+  sources: EarningsEstimateSources,
+  args: HeadlessPaneLoadArgs,
+): HeadlessRowsResult {
+  const kind = String(args.options.kind ?? "all");
+  const limit = Number(args.options.limit ?? 50);
+  const matching = buildEventRows(
+    sources.actions,
+    sources.estimates,
+    sources.financials,
+    sources.currency,
+  ).filter((row) => matchesKind(row, kind));
+  const rows = matching.slice(0, limit).map((row) => ({ ...row }));
+  const notice = eventSourceNotice({ variant: "earnings-estimates", symbol: args.symbols[0] ?? String(args.argument ?? ""),
+    actions: sources.actions, estimates: sources.estimates,
+    actionsError: sources.actions ? null : "Source unavailable", estimatesError: sources.estimates ? null : "Source unavailable",
+  });
+  const errors = [...(sources.errors ?? []), ...(notice?.failed ? [notice.text] : [])];
+  const unmatchedReportedPeriods = matching.filter((row) => row.earningsState === "reported" && !row.fiscalPeriodEnd).map((row) => row.date);
+  if (unmatchedReportedPeriods.length) errors.push(`No statement period identified for ${unmatchedReportedPeriods.length} reported earnings row(s); quarterly revenue is unavailable.`);
+
+  return {
+    columns: EVENT_COLUMNS,
+    rows,
+    errors: errors.length ? errors : undefined,
+    metadata: {
+      currency: sources.currency,
+      kind,
+      total: matching.length,
+      returned: rows.length,
+      truncated: rows.length < matching.length,
+      coverageNote: notice?.text,
+      epsBasis: "Provider EPS and consensus may be adjusted; accounting basis is unspecified. TTM EPS sums the reported quarter rows when all four match a statement period; otherwise it comes from statements.",
+      dateNote: "Fiscal period dates are not announcement dates. Revenue is attached only to an identified statement period.",
+      unmatchedReportedPeriods,
+    },
+  };
+}
+
+export function createEarningsEstimatesHeadless(
+  dependencies: EarningsEstimatesHeadlessDependencies = defaultDependencies,
+): HeadlessPaneDefinition<"rows"> {
+  return {
+    shape: "rows",
+    argument: {
+      kind: "ticker",
+      placeholder: "ticker",
+      description: "Company symbol.",
+    },
+    options: [
+      {
+        key: "kind",
+        description: "Estimate or reported rows to include.",
+        type: "enum",
+        values: [
+          { value: "all" },
+          { value: "estimates" },
+          { value: "reported" },
+        ],
+        defaultValue: "all",
+      },
+      {
+        key: "limit",
+        description: "Maximum rows to return.",
+        type: "integer",
+        defaultValue: 50,
+        minimum: 1,
+        maximum: 200,
+      },
+    ],
+    columns: EVENT_COLUMNS,
+    describe: (args) => `Earnings Estimates | ${String(args.argument)}`,
+    async load(args, context) {
+      return projectEarningsEstimatesHeadless(
+        await dependencies.loadSources(String(args.argument), context),
+        args,
+      );
+    },
+  };
+}
+
+export const earningsEstimatesHeadless = createEarningsEstimatesHeadless();

@@ -1,0 +1,624 @@
+diff --git a/index-218h9p3f.js b/index-218h9p3f.js
+index b9445d2cca9477dfe06026da451b6d19268fcbdd..8734376ebd706056791f8b59ad0992ac6c440d3c 100644
+--- a/index-218h9p3f.js
++++ b/index-218h9p3f.js
+@@ -6487,17 +6487,27 @@ class MouseParser {
+     const buf = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+     return buf.toString("latin1");
+   }
+-  parseMouseEvent(data) {
++  projectPixelToCell(pixel, pixelExtent, cellCount) {
++    if (cellCount <= 1) {
++      return 0;
++    }
++    if (!(pixelExtent > 0)) {
++      return Math.max(Math.floor(pixel), 0);
++    }
++    const projected = Math.floor(Math.max(pixel, 0) * cellCount / pixelExtent);
++    return Math.max(0, Math.min(projected, cellCount - 1));
++  }
++  parseMouseEvent(data, context = undefined) {
+     const str = this.decodeInput(data);
+-    const parsed = this.parseMouseSequenceAt(str, 0);
++    const parsed = this.parseMouseSequenceAt(str, 0, context);
+     return parsed?.event ?? null;
+   }
+-  parseAllMouseEvents(data) {
++  parseAllMouseEvents(data, context = undefined) {
+     const str = this.decodeInput(data);
+     const events = [];
+     let offset = 0;
+     while (offset < str.length) {
+-      const parsed = this.parseMouseSequenceAt(str, offset);
++      const parsed = this.parseMouseSequenceAt(str, offset, context);
+       if (!parsed) {
+         break;
+       }
+@@ -6506,19 +6516,19 @@ class MouseParser {
+     }
+     return events;
+   }
+-  parseMouseSequenceAt(str, offset) {
++  parseMouseSequenceAt(str, offset, context = undefined) {
+     if (!str.startsWith("\x1B[", offset))
+       return null;
+     const introducer = str[offset + 2];
+     if (introducer === "<") {
+-      return this.parseSgrSequence(str, offset);
++      return this.parseSgrSequence(str, offset, context);
+     }
+     if (introducer === "M") {
+       return this.parseBasicSequence(str, offset);
+     }
+     return null;
+   }
+-  parseSgrSequence(str, offset) {
++  parseSgrSequence(str, offset, context = undefined) {
+     let index = offset + 3;
+     const values = [0, 0, 0];
+     let part = 0;
+@@ -6546,7 +6556,7 @@ class MouseParser {
+           if (!hasDigit || part !== 2)
+             return null;
+           return {
+-            event: this.decodeSgrEvent(values[0], values[1], values[2], char),
++            event: this.decodeSgrEvent(values[0], values[1], values[2], char, context),
+             consumed: index - offset + 1
+           };
+         }
+@@ -6567,10 +6577,12 @@ class MouseParser {
+       consumed: 6
+     };
+   }
+-  decodeSgrEvent(rawButtonCode, wireX, wireY, pressRelease) {
+-    const button = rawButtonCode & 3;
++  decodeSgrEvent(rawButtonCode, wireX, wireY, pressRelease, context = undefined) {
++    const encodedButton = rawButtonCode & 3;
++    const isExtendedButton = (rawButtonCode & 128) !== 0;
++    const button = isExtendedButton ? 8 + encodedButton : encodedButton;
+     const isScroll = (rawButtonCode & 64) !== 0;
+-    const scrollDirection = !isScroll ? undefined : MouseParser.SCROLL_DIRECTIONS[button];
++    const scrollDirection = !isScroll ? undefined : MouseParser.SCROLL_DIRECTIONS[encodedButton];
+     const isMotion = (rawButtonCode & 32) !== 0;
+     const modifiers = {
+       shift: (rawButtonCode & 4) !== 0,
+@@ -6581,7 +6593,7 @@ class MouseParser {
+     let scrollInfo;
+     if (isMotion) {
+       const isDragging = this.mouseButtonsPressed.size > 0;
+-      if (button === 3) {
++      if (!isExtendedButton && encodedButton === 3) {
+         type = "move";
+       } else if (isDragging) {
+         type = "drag";
+@@ -6596,17 +6608,24 @@ class MouseParser {
+       };
+     } else {
+       type = pressRelease === "M" ? "down" : "up";
+-      if (type === "down" && button !== 3) {
++      if (type === "down" && (isExtendedButton || encodedButton !== 3)) {
+         this.mouseButtonsPressed.add(button);
+       } else if (type === "up") {
+         this.mouseButtonsPressed.clear();
+       }
+     }
++    const pixelModeRequested = context?.mouseUsesPixels === true;
++    const pixelModeConfirmed = context?.mousePixelsConfirmed === true;
++    const pixelModeDetected = pixelModeRequested && (pixelModeConfirmed || wireX > (context?.terminalWidth ?? Number.POSITIVE_INFINITY) || wireY > (context?.terminalHeight ?? Number.POSITIVE_INFINITY));
++    const pixelX = pixelModeDetected ? Math.max(wireX - 1, 0) : undefined;
++    const pixelY = pixelModeDetected ? Math.max(wireY - 1, 0) : undefined;
+     return {
+       type,
+-      button: button === 3 ? 0 : button,
+-      x: wireX - 1,
+-      y: wireY - 1,
++      button: !isExtendedButton && encodedButton === 3 ? 0 : button,
++      x: pixelModeDetected && pixelX !== undefined ? this.projectPixelToCell(pixelX, context?.pixelWidth ?? 0, context?.terminalWidth ?? 0) : wireX - 1,
++      y: pixelModeDetected && pixelY !== undefined ? this.projectPixelToCell(pixelY, context?.pixelHeight ?? 0, context?.terminalHeight ?? 0) : wireY - 1,
++      pixelX,
++      pixelY,
+       modifiers,
+       scroll: scrollInfo
+     };
+@@ -7030,7 +7049,13 @@ var DEFAULT_PROTOCOL_CONTEXT = {
+   privateCapabilityRepliesActive: false,
+   pixelResolutionQueryActive: false,
+   explicitWidthCprActive: false,
+-  startupCursorCprActive: false
++  startupCursorCprActive: false,
++  mouseUsesPixels: false,
++  mousePixelsConfirmed: false,
++  terminalWidth: 0,
++  terminalHeight: 0,
++  pixelWidth: 0,
++  pixelHeight: 0
+ };
+ var RXVT_DOLLAR_CSI_RE = /^\x1b\[\d+\$$/;
+ var SYSTEM_CLOCK = new SystemClock;
+@@ -7369,7 +7394,13 @@ class StdinParser {
+       privateCapabilityRepliesActive: options.protocolContext?.privateCapabilityRepliesActive ?? false,
+       pixelResolutionQueryActive: options.protocolContext?.pixelResolutionQueryActive ?? false,
+       explicitWidthCprActive: options.protocolContext?.explicitWidthCprActive ?? false,
+-      startupCursorCprActive: options.protocolContext?.startupCursorCprActive ?? false
++      startupCursorCprActive: options.protocolContext?.startupCursorCprActive ?? false,
++      mouseUsesPixels: options.protocolContext?.mouseUsesPixels ?? false,
++      mousePixelsConfirmed: options.protocolContext?.mousePixelsConfirmed ?? false,
++      terminalWidth: options.protocolContext?.terminalWidth ?? 0,
++      terminalHeight: options.protocolContext?.terminalHeight ?? 0,
++      pixelWidth: options.protocolContext?.pixelWidth ?? 0,
++      pixelHeight: options.protocolContext?.pixelHeight ?? 0
+     };
+   }
+   get bufferCapacity() {
+@@ -8298,11 +8329,14 @@ class StdinParser {
+     });
+   }
+   emitMouse(rawBytes, encoding) {
+-    const event = this.mouseParser.parseMouseEvent(rawBytes);
++    const event = this.mouseParser.parseMouseEvent(rawBytes, this.protocolContext);
+     if (!event) {
+       this.emitOpaqueResponse("unknown", rawBytes);
+       return;
+     }
++    if (event.pixelX !== undefined && event.pixelY !== undefined && !this.protocolContext.mousePixelsConfirmed) {
++      this.updateProtocolContext({ mousePixelsConfirmed: true });
++    }
+     this.events.push({
+       type: "mouse",
+       raw: decodeLatin1(rawBytes),
+@@ -17995,6 +18029,8 @@ function isGapType(value) {
+ 
+ class BoxRenderable extends Renderable {
+   _backgroundColor;
++  _hoverBackgroundColor;
++  _isHovered = false;
+   _border;
+   _borderStyle;
+   _borderColor;
+@@ -18023,6 +18059,7 @@ class BoxRenderable extends Renderable {
+       this._focusable = true;
+     }
+     this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor);
++    this._hoverBackgroundColor = options.hoverBackgroundColor === undefined ? undefined : parseColor(options.hoverBackgroundColor);
+     this._border = options.border ?? this._defaultOptions.border;
+     if (!options.border && (options.borderStyle || options.borderColor || options.focusedBorderColor || options.customBorderChars)) {
+       this._border = true;
+@@ -18064,11 +18101,26 @@ class BoxRenderable extends Renderable {
+   }
+   set backgroundColor(value) {
+     const newColor = parseColor(value ?? this._defaultOptions.backgroundColor);
+-    if (this._backgroundColor !== newColor) {
++    if (!this._backgroundColor.equals(newColor)) {
+       this._backgroundColor = newColor;
+       this.requestRender();
+     }
+   }
++  get hoverBackgroundColor() {
++    return this._hoverBackgroundColor;
++  }
++  set hoverBackgroundColor(value) {
++    const newColor = value === undefined || value === null ? undefined : parseColor(value);
++    const changed = newColor === undefined
++      ? this._hoverBackgroundColor !== undefined
++      : !this._hoverBackgroundColor?.equals(newColor);
++    if (changed) {
++      this._hoverBackgroundColor = newColor;
++      if (this._isHovered) {
++        this.requestRender();
++      }
++    }
++  }
+   get border() {
+     return this._border;
+   }
+@@ -18152,9 +18204,39 @@ class BoxRenderable extends Renderable {
+       this.requestRender();
+     }
+   }
++  onMouseEvent(event) {
++    if (!this._hoverBackgroundColor) {
++      if (this._isHovered) {
++        this._isHovered = false;
++        this.requestRender();
++      }
++      return;
++    }
++    if (event.type === "over" && !this._isHovered) {
++      this._isHovered = true;
++      this.requestRender();
++    } else if (event.type === "out" && this._isHovered) {
++      this._isHovered = false;
++      this.requestRender();
++    }
++  }
++  getActiveHoverBackgroundColor() {
++    if (this._isHovered && this._hoverBackgroundColor) {
++      return this._hoverBackgroundColor;
++    }
++    let parent = this.parent;
++    while (parent) {
++      if (parent instanceof BoxRenderable && parent._isHovered && parent._hoverBackgroundColor) {
++        return parent._hoverBackgroundColor;
++      }
++      parent = parent.parent;
++    }
++    return undefined;
++  }
+   renderSelf(buffer) {
+     const hasBorder = this.borderSides.top || this.borderSides.right || this.borderSides.bottom || this.borderSides.left;
+-    const hasVisibleFill = this.shouldFill && this._backgroundColor.a > 0;
++    const backgroundColor = this.getActiveHoverBackgroundColor() ?? this._backgroundColor;
++    const hasVisibleFill = this.shouldFill && backgroundColor.a > 0;
+     if (!hasBorder && !hasVisibleFill) {
+       return;
+     }
+@@ -18171,7 +18253,7 @@ class BoxRenderable extends Renderable {
+       customBorderChars: this._customBorderChars,
+       border: this._border,
+       borderColor: currentBorderColor,
+-      backgroundColor: this._backgroundColor,
++      backgroundColor,
+       shouldFill: this.shouldFill,
+       title: this._title,
+       titleAlignment: this._titleAlignment,
+@@ -22288,6 +22370,8 @@ class MouseEvent {
+   button;
+   x;
+   y;
++  pixelX;
++  pixelY;
+   source;
+   modifiers;
+   scroll;
+@@ -22307,6 +22391,8 @@ class MouseEvent {
+     this.button = attributes.button;
+     this.x = attributes.x;
+     this.y = attributes.y;
++    this.pixelX = attributes.pixelX;
++    this.pixelY = attributes.pixelY;
+     this.modifiers = attributes.modifiers;
+     this.scroll = attributes.scroll;
+     this.source = attributes.source;
+@@ -22457,6 +22543,10 @@ class CliRenderer extends EventEmitter9 {
+   resizeDebounceDelay = 100;
+   enableMouseMovement = false;
+   _useMouse = true;
++  _mouseProtocolSignature = "disabled";
++  _pixelMouseEnabled = false;
++  _pendingMouseMoveEvent = null;
++  _pendingMouseMoveTimer = null;
+   autoFocus = true;
+   _screenMode = "alternate-screen";
+   _footerHeight = DEFAULT_FOOTER_HEIGHT;
+@@ -22491,7 +22581,7 @@ class CliRenderer extends EventEmitter9 {
+     this.handleResize(width, height);
+   }).bind(this);
+   _capabilities = null;
+-  _latestPointer = { x: 0, y: 0 };
++  _latestPointer = { x: 0, y: 0, pixelX: undefined, pixelY: undefined };
+   _hasPointer = false;
+   _lastPointerModifiers = {
+     shift: false,
+@@ -22738,7 +22828,13 @@ Captured external output:
+         privateCapabilityRepliesActive: false,
+         pixelResolutionQueryActive: false,
+         explicitWidthCprActive: false,
+-        startupCursorCprActive: false
++        startupCursorCprActive: false,
++        mouseUsesPixels: false,
++        mousePixelsConfirmed: false,
++        terminalWidth: this._terminalWidth,
++        terminalHeight: this._terminalHeight,
++        pixelWidth: 0,
++        pixelHeight: 0
+       },
+       clock: this.clock
+     });
+@@ -24021,12 +24117,14 @@ Captured external output:
+   enableMouse() {
+     this._useMouse = true;
+     this.lib.enableMouse(this.rendererPtr, this.enableMouseMovement);
++    this.syncPixelMouseMode();
+   }
+   disableMouse() {
+     this._useMouse = false;
+     this.setCapturedRenderable(undefined);
+     this.stdinParser?.resetMouseState();
+     this.lib.disableMouse(this.rendererPtr);
++    this.disablePixelMouseMode();
+   }
+   enableKittyKeyboard(flags = 3) {
+     this.lib.enableKittyKeyboard(this.rendererPtr, flags);
+@@ -24036,6 +24134,52 @@ Captured external output:
+     this.lib.disableKittyKeyboard(this.rendererPtr);
+     this.updateStdinParserProtocolContext({ kittyKeyboardEnabled: false }, true);
+   }
++  getMouseProtocolTrackingMode() {
++    return this.enableMouseMovement ? "any" : "press";
++  }
++  buildMouseProtocolSequence(pixelEnabled) {
++    const trackingSequence = this.enableMouseMovement ? "\x1B[?1000l\x1B[?1002l\x1B[?1003h" : "\x1B[?1003l\x1B[?1002l\x1B[?1000h";
++    return "\x1B[?1005l\x1B[?1015l\x1B[?1006h" + trackingSequence + (pixelEnabled ? "\x1B[?1016h" : "\x1B[?1016l");
++  }
++  syncPixelMouseMode(force = false) {
++    const nextEnabled = Boolean(this._useMouse);
++    const hasPixelCapability = this._capabilities?.sgr_pixels === true;
++    const hasPixelResolution = (this._resolution?.width ?? 0) > 0 && (this._resolution?.height ?? 0) > 0;
++    const nextPixelEnabled = Boolean(nextEnabled && hasPixelCapability && hasPixelResolution && this._terminalWidth > 0 && this._terminalHeight > 0);
++    const nextSignature = nextEnabled ? `${this.getMouseProtocolTrackingMode()}:${nextPixelEnabled ? "pixel" : "cell"}` : "disabled";
++    if (nextEnabled) {
++      if (force || this._mouseProtocolSignature !== nextSignature) {
++        this.writeOut(this.buildMouseProtocolSequence(nextPixelEnabled));
++      }
++    } else if (force || this._mouseProtocolSignature !== "disabled") {
++      this.writeOut("\x1B[?1016l\x1B[?1006l\x1B[?1005l\x1B[?1015l\x1B[?1003l\x1B[?1002l\x1B[?1000l");
++    }
++    this._mouseProtocolSignature = nextSignature;
++    this._pixelMouseEnabled = nextPixelEnabled;
++    this.updateStdinParserProtocolContext({
++      mouseUsesPixels: nextPixelEnabled,
++      mousePixelsConfirmed: nextPixelEnabled,
++      terminalWidth: this._terminalWidth,
++      terminalHeight: this._terminalHeight,
++      pixelWidth: this._resolution?.width ?? 0,
++      pixelHeight: this._resolution?.height ?? 0
++    }, true);
++  }
++  disablePixelMouseMode() {
++    if (this._mouseProtocolSignature !== "disabled") {
++      this.writeOut("\x1B[?1016l\x1B[?1006l\x1B[?1005l\x1B[?1015l\x1B[?1003l\x1B[?1002l\x1B[?1000l");
++    }
++    this._mouseProtocolSignature = "disabled";
++    this._pixelMouseEnabled = false;
++    this.updateStdinParserProtocolContext({
++      mouseUsesPixels: false,
++      mousePixelsConfirmed: false,
++      terminalWidth: this._terminalWidth,
++      terminalHeight: this._terminalHeight,
++      pixelWidth: this._resolution?.width ?? 0,
++      pixelHeight: this._resolution?.height ?? 0
++    }, true);
++  }
+   set useThread(useThread) {
+     this._useThread = useThread;
+     this.lib.setUseThread(this.rendererPtr, useThread);
+@@ -24141,6 +24285,7 @@ Captured external output:
+     }
+     this.lib.processCapabilityResponse(this.rendererPtr, sequence);
+     this._capabilities = this.lib.getTerminalCapabilities(this.rendererPtr);
++    this.syncPixelMouseMode();
+     if (this._capabilities?.terminal?.from_xtversion) {
+       this.resolveXtVersionWaiters();
+     }
+@@ -24170,6 +24315,7 @@ Captured external output:
+     if (sequence === "\x1B[I") {
+       if (this.shouldRestoreModesOnNextFocus) {
+         this.lib.restoreTerminalModes(this.rendererPtr);
++        this.syncPixelMouseMode(true);
+         this.shouldRestoreModesOnNextFocus = false;
+       }
+       if (this._terminalFocusState !== true) {
+@@ -24218,7 +24364,7 @@ Captured external output:
+         this._keyHandler.processParsedKey(event.key);
+         return;
+       case "mouse":
+-        if (this._useMouse && this.processSingleMouseEvent(event.event)) {
++        if (this._useMouse && this.processMouseEvent(event.event)) {
+           return;
+         }
+         this.dispatchSequenceHandlers(event.raw);
+@@ -24264,6 +24410,7 @@ Captured external output:
+         }
+         this.waitingForPixelResolution = false;
+         this.updateStdinParserProtocolContext({ pixelResolutionQueryActive: false }, true);
++        this.syncPixelMouseMode();
+         return true;
+       }
+       return false;
+@@ -24292,15 +24439,62 @@ Captured external output:
+     }
+     return event;
+   }
++  cloneMouseEventAttributes(mouseEvent) {
++    return {
++      ...mouseEvent,
++      modifiers: { ...mouseEvent.modifiers }
++    };
++  }
++  processMouseEvent(mouseEvent) {
++    if (mouseEvent.type !== "move") {
++      this.flushPendingMouseMove();
++      return this.processSingleMouseEvent(mouseEvent);
++    }
++    if (this._pendingMouseMoveTimer === null) {
++      const handled = this.processSingleMouseEvent(mouseEvent);
++      this.schedulePendingMouseMove();
++      return handled;
++    }
++    this._pendingMouseMoveEvent = this.cloneMouseEventAttributes(mouseEvent);
++    return true;
++  }
++  schedulePendingMouseMove() {
++    if (this._pendingMouseMoveTimer !== null || this._isDestroyed) {
++      return;
++    }
++    const delay = Math.max(8, Math.floor(this.minTargetFrameTime));
++    this._pendingMouseMoveTimer = this.clock.setTimeout(() => {
++      this._pendingMouseMoveTimer = null;
++      this.flushPendingMouseMove();
++    }, delay);
++  }
++  flushPendingMouseMove() {
++    if (this._pendingMouseMoveTimer !== null) {
++      this.clock.clearTimeout(this._pendingMouseMoveTimer);
++      this._pendingMouseMoveTimer = null;
++    }
++    const pending = this._pendingMouseMoveEvent;
++    this._pendingMouseMoveEvent = null;
++    if (!pending || this._isDestroyed) {
++      return false;
++    }
++    return this.processSingleMouseEvent(pending);
++  }
+   processSingleMouseEvent(mouseEvent) {
+     if (this._splitHeight > 0) {
+       if (mouseEvent.y < this.renderOffset) {
+         return false;
+       }
+       mouseEvent.y -= this.renderOffset;
++      if (mouseEvent.pixelY !== undefined && this._resolution) {
++        const cellHeight = this._resolution.height / Math.max(this._terminalHeight, 1);
++        mouseEvent.pixelY = Math.max(mouseEvent.pixelY - this.renderOffset * cellHeight, 0);
++      }
+     }
+     this._latestPointer.x = mouseEvent.x;
+     this._latestPointer.y = mouseEvent.y;
++    this._latestPointer.pixelX = mouseEvent.pixelX;
++    this._latestPointer.pixelY = mouseEvent.pixelY;
+     this._hasPointer = true;
+     this._lastPointerModifiers = mouseEvent.modifiers;
+     if (this._console.visible) {
+@@ -24437,6 +24631,8 @@ Captured external output:
+       return;
+     }
+     const baseEvent = {
++      pixelX: this._latestPointer.pixelX,
++      pixelY: this._latestPointer.pixelY,
+       type: "move",
+       button: 0,
+       x: this._latestPointer.x,
+@@ -24527,6 +24723,7 @@ Captured external output:
+     const pendingSplitFooterTransition = this.pendingSplitFooterTransition;
+     const previousGeometry = calculateRenderGeometry(this._screenMode, this._terminalWidth, this._terminalHeight, this._footerHeight);
+     const prevWidth = this._terminalWidth;
++    this.syncPixelMouseMode();
+     const previousTerminalHeight = this._terminalHeight;
+     const visiblePreviousSplitHeight = pendingSplitFooterTransition?.sourceHeight ?? previousGeometry.effectiveFooterHeight;
+     this._terminalWidth = width;
+@@ -24832,6 +25029,11 @@ Captured external output:
+       this.clock.clearTimeout(this.resizeTimeoutId);
+       this.resizeTimeoutId = null;
+     }
++    if (this._pendingMouseMoveTimer !== null) {
++      this.clock.clearTimeout(this._pendingMouseMoveTimer);
++      this._pendingMouseMoveTimer = null;
++    }
++    this._pendingMouseMoveEvent = null;
+     if (this.capabilityTimeoutId !== null) {
+       this.clock.clearTimeout(this.capabilityTimeoutId);
+       this.capabilityTimeoutId = null;
+@@ -24847,6 +25049,7 @@ Captured external output:
+     }
+     this.themeModeState.cancelRefresh();
+     this._isRunning = false;
++    this.disablePixelMouseMode();
+     this.waitingForPixelResolution = false;
+     this.updateStdinParserProtocolContext({
+       privateCapabilityRepliesActive: false,
+diff --git a/lib/parse.mouse.d.ts b/lib/parse.mouse.d.ts
+index c29f953fde0b78f09d2ec7a830e5a72452c1fe7e..04613b921bd9b4a9a7a1a4fbd0234d4012df67a1 100644
+--- a/lib/parse.mouse.d.ts
++++ b/lib/parse.mouse.d.ts
+@@ -8,6 +8,8 @@ export type RawMouseEvent = {
+     button: number;
+     x: number;
+     y: number;
++    pixelX?: number;
++    pixelY?: number;
+     modifiers: {
+         shift: boolean;
+         alt: boolean;
+@@ -20,8 +22,23 @@ export declare class MouseParser {
+     private static readonly SCROLL_DIRECTIONS;
+     reset(): void;
+     private decodeInput;
+-    parseMouseEvent(data: Buffer | Uint8Array): RawMouseEvent | null;
+-    parseAllMouseEvents(data: Buffer | Uint8Array): RawMouseEvent[];
++    private projectPixelToCell;
++    parseMouseEvent(data: Buffer | Uint8Array, context?: {
++        mouseUsesPixels?: boolean;
++        mousePixelsConfirmed?: boolean;
++        terminalWidth?: number;
++        terminalHeight?: number;
++        pixelWidth?: number;
++        pixelHeight?: number;
++    }): RawMouseEvent | null;
++    parseAllMouseEvents(data: Buffer | Uint8Array, context?: {
++        mouseUsesPixels?: boolean;
++        mousePixelsConfirmed?: boolean;
++        terminalWidth?: number;
++        terminalHeight?: number;
++        pixelWidth?: number;
++        pixelHeight?: number;
++    }): RawMouseEvent[];
+     private parseMouseSequenceAt;
+     private parseSgrSequence;
+     private parseBasicSequence;
+diff --git a/lib/stdin-parser.d.ts b/lib/stdin-parser.d.ts
+index 6b733d534d8e9b77c5c2773f93c7a22063c18d84..a5c318d591e9f3775e276e555c15052c8dbd20cb 100644
+--- a/lib/stdin-parser.d.ts
++++ b/lib/stdin-parser.d.ts
+@@ -28,6 +28,12 @@ export interface StdinParserProtocolContext {
+     pixelResolutionQueryActive: boolean;
+     explicitWidthCprActive: boolean;
+     startupCursorCprActive: boolean;
++    mouseUsesPixels: boolean;
++    mousePixelsConfirmed: boolean;
++    terminalWidth: number;
++    terminalHeight: number;
++    pixelWidth: number;
++    pixelHeight: number;
+ }
+ export interface StdinParserOptions {
+     timeoutMs?: number;
+diff --git a/renderables/Box.d.ts b/renderables/Box.d.ts
+index 7ecb70d38ca41d1afdc078780985827e8f10e3a7..0845141e20ebd71a163dba67880d494a05b27d9a 100644
+--- a/renderables/Box.d.ts
++++ b/renderables/Box.d.ts
+@@ -5,6 +5,7 @@ import { type ColorInput, RGBA } from "../lib/RGBA.js";
+ import type { RenderContext } from "../types.js";
+ export interface BoxOptions<TRenderable extends Renderable = BoxRenderable> extends RenderableOptions<TRenderable> {
+     backgroundColor?: string | RGBA;
++    hoverBackgroundColor?: string | RGBA;
+     borderStyle?: BorderStyle;
+     border?: boolean | BorderSides[];
+     borderColor?: string | RGBA;
+@@ -22,6 +23,8 @@ export interface BoxOptions<TRenderable extends Renderable = BoxRenderable> exte
+ }
+ export declare class BoxRenderable extends Renderable {
+     protected _backgroundColor: RGBA;
++    protected _hoverBackgroundColor?: RGBA;
++    protected _isHovered: boolean;
+     protected _border: boolean | BorderSides[];
+     protected _borderStyle: BorderStyle;
+     protected _borderColor: RGBA;
+@@ -50,6 +53,8 @@ export declare class BoxRenderable extends Renderable {
+     set customBorderChars(value: BorderCharacters | undefined);
+     get backgroundColor(): RGBA;
+     set backgroundColor(value: RGBA | string | undefined);
++    get hoverBackgroundColor(): RGBA | undefined;
++    set hoverBackgroundColor(value: RGBA | string | undefined);
+     get border(): boolean | BorderSides[];
+     set border(value: boolean | BorderSides[]);
+     get borderStyle(): BorderStyle;
+@@ -66,6 +71,7 @@ export declare class BoxRenderable extends Renderable {
+     set bottomTitle(value: string | undefined);
+     get bottomTitleAlignment(): "left" | "center" | "right";
+     set bottomTitleAlignment(value: "left" | "center" | "right");
++    protected getActiveHoverBackgroundColor(): RGBA | undefined;
+     protected renderSelf(buffer: OptimizedBuffer): void;
+     protected getScissorRect(): {
+         x: number;
+diff --git a/renderer.d.ts b/renderer.d.ts
+index 96189246f423809fc52d2ad182d57ed2e80ac098..7dd0baf1697041cf8ad556b115cd13ad2e18bc65 100644
+--- a/renderer.d.ts
++++ b/renderer.d.ts
+@@ -143,6 +143,8 @@ export declare class MouseEvent {
+     readonly button: number;
+     readonly x: number;
+     readonly y: number;
++    readonly pixelX?: number;
++    readonly pixelY?: number;
+     readonly source?: Renderable;
+     readonly modifiers: {
+         shift: boolean;

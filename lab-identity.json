@@ -1,0 +1,14 @@
+{
+  "name": "Zhuge Investment Intelligence Lab",
+  "phase": "Phase 1 Taiwan Research Workbench",
+  "build": "20261001-0917",
+  "identityCreatedAt": "2026-10-01T01:17:10Z",
+  "timezone": "Asia/Taipei",
+  "upstreamVersion": "0.15.2",
+  "upstreamCommit": "62317c477c1ef9b8394a12eac971c5546441b76e",
+  "localBaselineCommit": "4dac027d2d5b0ac11f3cc8a7df767335efe87d91",
+  "runtimeTested": { "os": "macOS", "architecture": "arm64", "bun": "1.4.2" },
+  "contract": "zhuge-taiwan-research-workbench-v1",
+  "scope": ["2330.TW", "0050.TW", "6488.TWO"],
+  "productionIntegration": false
+}

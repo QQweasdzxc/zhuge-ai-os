@@ -1,0 +1,647 @@
+import { describe, expect, test } from "bun:test";
+import { createInitialState } from "../core/state/app/state";
+import { MarketDataCoordinator, setSharedMarketDataCoordinator } from "../market-data/coordinator";
+import { createTestDataProvider } from "../test-support/data-provider";
+import { createDefaultConfig } from "../types/config";
+import type { PricePoint } from "../types/financials";
+import type { TickerRecord } from "../types/ticker";
+import {
+  __syncContributorInternalsForTests,
+  coreCollectionsSyncContributor,
+  coreConfigSyncContributor,
+} from "./core-contributors";
+import { setSyncedProfileAnalytics } from "./profile-analytics";
+import { createTestTicker } from "../test-support/ticker";
+import { createTestFinancials } from "../test-support/data-provider";
+
+describe("core sync contributors", () => {
+  function priceHistoryFromReturns(returns: number[]): PricePoint[] {
+    let close = 100;
+    return [
+      { date: new Date("2026-06-01T20:00:00.000Z"), close },
+      ...returns.map((value, index) => {
+        close *= 1 + value;
+        return {
+          date: new Date(Date.UTC(2026, 5, index + 2, 20)),
+          close,
+        };
+      }),
+    ];
+  }
+
+  test("redacts local paths and credential-like config keys", async () => {
+    const config = createDefaultConfig("/Users/ada/private-data");
+    config.brokerInstances = [{
+      id: "broker-1",
+      brokerType: "demo",
+      label: "Demo Broker",
+      config: {
+        apiKey: "secret-api-key",
+        password: "secret-password",
+      },
+    }];
+    config.pluginConfig = {
+      "demo-plugin": {
+        theme: "dark",
+        token: "secret-token",
+        downloadPath: "/Users/ada/private-downloads",
+      },
+    };
+
+    const state = createInitialState(config);
+    const payload = await coreConfigSyncContributor.collect({ state });
+    const serialized = JSON.stringify(payload);
+
+    expect(serialized).not.toContain("/Users/ada/private-data");
+    expect(serialized).not.toContain("/Users/ada/private-downloads");
+    expect(serialized).not.toContain("secret-api-key");
+    expect(serialized).not.toContain("secret-password");
+    expect(serialized).not.toContain("secret-token");
+    expect(serialized).toContain("Demo Broker");
+  });
+
+  test("normalizes legacy built-in ownership in pulled config", () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    const layouts = config.layouts.map((savedLayout) => savedLayout);
+
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      disabledPlugins: ["analytics", "kelly-sizer", "changelog", "macro-tv"],
+      pluginConfig: {
+        analytics: { metric: "beta", shared: "legacy" },
+        portfolio: { shared: "canonical" },
+        help: { section: "shortcuts" },
+      },
+      layout: config.layout,
+      layouts,
+      activeLayoutIndex: config.activeLayoutIndex,
+    });
+
+    expect(merged?.disabledPlugins).toEqual(["portfolio", "macro"]);
+    expect(merged?.pluginConfig).toEqual({
+      portfolio: { metric: "beta", shared: "canonical" },
+      application: { section: "shortcuts" },
+    });
+  });
+
+  // Two signed-in clients used to hand each other their view on every poll:
+  // the pull replaced live pane state with the other device's, the apply
+  // pushed this device's back, and an open detail or a scrolled tab strip
+  // reset every few seconds.
+  test("a pulled layout keeps this device's session state", () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-session-state-test");
+    const localPaneState = { "jobs:home": { pluginState: { jobs: { "jobs:open": "NVDA" } } } };
+    config.layouts = [{
+      ...config.layouts[0]!,
+      paneState: localPaneState,
+      focusedPaneId: "jobs:home",
+    }];
+    const remoteLayout = {
+      ...config.layout,
+      instances: [...config.layout.instances, {
+        instanceId: "help:remote",
+        paneId: "help",
+        binding: { kind: "none" as const },
+      }],
+    };
+
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      layout: remoteLayout,
+      layouts: [{
+        ...config.layouts[0]!,
+        layout: remoteLayout,
+        paneState: { "jobs:home": { pluginState: { jobs: { "jobs:open": null } } } },
+        focusedPaneId: "help:remote",
+      }],
+      activeLayoutIndex: 0,
+    });
+
+    expect(merged?.layout).toEqual(remoteLayout);
+    expect(merged?.layouts[0]?.layout).toEqual(remoteLayout);
+    expect(merged?.layouts[0]?.paneState).toBe(localPaneState);
+    expect(merged?.layouts[0]?.focusedPaneId).toBe("jobs:home");
+  });
+
+  test("the synced config payload carries no session state", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-session-payload-test");
+    config.layouts = [{
+      ...config.layouts[0]!,
+      paneState: { "jobs:home": { cursorSymbol: "NVDA", pluginState: { jobs: { "jobs:open": "NVDA" } } } },
+      focusedPaneId: "jobs:home",
+      activePanel: "right",
+    }];
+
+    const payload = await coreConfigSyncContributor.collect({
+      state: createInitialState(config),
+    }) as any;
+
+    expect(payload.layouts[0].layout).toBeDefined();
+    expect(payload.layouts[0]).not.toHaveProperty("paneState");
+    expect(payload.layouts[0]).not.toHaveProperty("focusedPaneId");
+    expect(payload.layouts[0]).not.toHaveProperty("activePanel");
+    expect(JSON.stringify(payload)).not.toContain("jobs:open");
+  });
+
+  test("emits legacy aliases for mixed-version config sync", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.disabledPlugins = ["portfolio"];
+    config.pluginConfig = {
+      portfolio: { "commonAssumptions:v1": { kellyFraction: 0.5 } },
+    };
+
+    const payload = await coreConfigSyncContributor.collect({
+      state: createInitialState(config),
+    }) as any;
+
+    expect(payload.disabledPlugins).toEqual([
+      "portfolio",
+      "portfolio-list",
+      "analytics",
+      "kelly-sizer",
+    ]);
+    for (const pluginId of ["portfolio", "portfolio-list", "analytics", "kelly-sizer"]) {
+      expect(payload.pluginConfig[pluginId]).toEqual(config.pluginConfig.portfolio);
+    }
+  });
+
+  test("preserves local broker identity when applying sanitized portfolios", () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-broker-identity-test");
+    config.portfolios = [{
+      id: "broker:demo-live:ACCOUNT-1",
+      name: "Primary",
+      currency: "USD",
+      brokerId: "demo",
+      brokerInstanceId: "demo-live",
+      brokerAccountId: "ACCOUNT-1",
+      lastSyncedAt: 100,
+    }];
+
+    const collected = __syncContributorInternalsForTests.collectCoreConfigPayload(config) as {
+      portfolios: Array<Record<string, unknown>>;
+    };
+    expect(collected.portfolios[0]).not.toHaveProperty("brokerInstanceId");
+    expect(collected.portfolios[0]).not.toHaveProperty("brokerAccountId");
+
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      portfolios: [{
+        id: "broker:demo-live:ACCOUNT-1",
+        name: "Primary",
+        currency: "USD",
+        brokerId: "demo",
+        lastSyncedAt: 200,
+      }],
+    });
+
+    expect(merged?.portfolios).toEqual([{
+      id: "broker:demo-live:ACCOUNT-1",
+      name: "Primary",
+      currency: "USD",
+      brokerId: "demo",
+      brokerInstanceId: "demo-live",
+      brokerAccountId: "ACCOUNT-1",
+      lastSyncedAt: 200,
+    }]);
+  });
+
+  test("does not reintroduce older unlinked broker portfolios from cloud", () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-broker-identity-test");
+    config.portfolios = [
+      {
+        id: "main",
+        name: "Main",
+        currency: "USD",
+      },
+      {
+        id: "broker:demo-live:ACCOUNT-1",
+        name: "Primary",
+        currency: "USD",
+        brokerId: "demo",
+        brokerInstanceId: "demo-live",
+        brokerAccountId: "ACCOUNT-1",
+        lastSyncedAt: 200,
+      },
+      {
+        id: "broker:demo-live:ACCOUNT-2",
+        name: "Secondary",
+        currency: "USD",
+        brokerId: "demo",
+        brokerInstanceId: "demo-live",
+        brokerAccountId: "ACCOUNT-2",
+        lastSyncedAt: 200,
+      },
+    ];
+
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      portfolios: [
+        { id: "main", name: "Main", currency: "USD" },
+        { id: "broker:demo-live:ACCOUNT-1", name: "Primary", currency: "USD", brokerId: "demo", lastSyncedAt: 200 },
+        { id: "broker:demo-live:ACCOUNT-2", name: "Secondary", currency: "USD", brokerId: "demo", lastSyncedAt: 200 },
+        { id: "broker:demo-old:ACCOUNT-1", name: "Primary", currency: "USD", brokerId: "demo", lastSyncedAt: 100 },
+        { id: "broker:demo-old:ACCOUNT-2", name: "Secondary", currency: "USD", brokerId: "demo", lastSyncedAt: 100 },
+        { id: "broker:demo-old:REMOVED", name: "Removed", currency: "USD", brokerId: "demo", lastSyncedAt: 100 },
+        { id: "broker:demo-other:ACCOUNT-3", name: "Remote", currency: "USD", brokerId: "demo", lastSyncedAt: 300 },
+      ],
+    });
+
+    expect(merged?.portfolios).toEqual([
+      config.portfolios[0],
+      config.portfolios[1],
+      config.portfolios[2],
+      {
+        id: "broker:demo-other:ACCOUNT-3",
+        name: "Remote",
+        currency: "USD",
+        brokerId: "demo",
+        lastSyncedAt: 300,
+      },
+    ]);
+  });
+
+  test("keeps resumable onboarding local until the guide is complete", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.onboardingComplete = false;
+    config.onboardingProgress = {
+      version: 1,
+      stage: "account",
+      path: "manual",
+      portfolioId: "main",
+      tickerSymbol: "AAPL",
+    };
+
+    const payload = await coreConfigSyncContributor.collect({
+      state: createInitialState(config),
+    }) as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("onboardingComplete");
+
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      onboardingComplete: true,
+    });
+    expect(merged?.onboardingComplete).toBe(false);
+    expect(merged?.onboardingProgress).toEqual(config.onboardingProgress);
+  });
+
+  test("treats synced onboarding completion as a one-way signal", async () => {
+    const completedConfig = createDefaultConfig("/tmp/gloomberb-sync-test");
+    completedConfig.onboardingComplete = true;
+    const completedPayload = await coreConfigSyncContributor.collect({
+      state: createInitialState(completedConfig),
+    }) as Record<string, unknown>;
+    expect(completedPayload.onboardingComplete).toBe(true);
+
+    const staleMerge = __syncContributorInternalsForTests.mergeConfigPayload(completedConfig, {
+      onboardingComplete: false,
+    });
+    expect(staleMerge?.onboardingComplete).toBe(true);
+
+    const incompleteConfig = createDefaultConfig("/tmp/gloomberb-sync-test");
+    incompleteConfig.onboardingComplete = false;
+    const incompletePayload = await coreConfigSyncContributor.collect({
+      state: createInitialState(incompleteConfig),
+    }) as Record<string, unknown>;
+    expect(incompletePayload).not.toHaveProperty("onboardingComplete");
+  });
+
+  test("ignores malformed synced layout collections", () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    const merged = __syncContributorInternalsForTests.mergeConfigPayload(config, {
+      layout: config.layout,
+      layouts: null,
+      activeLayoutIndex: 0,
+    });
+
+    expect(merged?.layout).toBe(config.layout);
+    expect(merged?.layouts).toBe(config.layouts);
+    expect(merged?.activeLayoutIndex).toBe(config.activeLayoutIndex);
+  });
+
+  test("syncs collection memberships and sanitized positions", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.portfolios = [{
+      id: "main",
+      name: "Main",
+      currency: "USD",
+      brokerAccountId: "account-id",
+      brokerInstanceId: "broker-id",
+    }];
+    config.watchlists = [{ id: "ai", name: "AI" }];
+    const ticker: TickerRecord = createTestTicker("NVDA", "NVIDIA", {
+      portfolios: ["main"],
+      watchlists: ["ai"],
+      positions: [{
+        portfolio: "main",
+        shares: 10,
+        avgCost: 100,
+        broker: "manual",
+        marketValue: 1500,
+        brokerAccountId: "account-id",
+        brokerInstanceId: "broker-id",
+        brokerContractId: 42,
+      }],
+      custom: { secretToken: "hidden", note: "keep" },
+      tags: ["semis"],
+    });
+    const state = createInitialState(config);
+    state.tickers = new Map([["NVDA", ticker]]);
+    state.financials = new Map([[
+      "NVDA",
+      createTestFinancials({
+        quote: {
+          symbol: "NVDA",
+          price: 150,
+          currency: "USD",
+          change: 1,
+          changePercent: 2,
+          lastUpdated: 1,
+        },
+        fundamentals: { return1Y: 0.42 },
+        priceHistory: [
+          { date: new Date("2026-06-23T20:00:00.000Z"), close: 125 },
+          { date: new Date("2026-06-30T20:00:00.000Z"), close: 149 },
+        ],
+      }),
+    ]]);
+
+    const payload = await coreCollectionsSyncContributor.collect({ state });
+    const serialized = JSON.stringify(payload);
+
+    expect(serialized).toContain("NVDA");
+    expect(serialized).toContain("AI");
+    expect(serialized).toContain("Main");
+    expect(serialized).toContain("keep");
+    expect(serialized).not.toContain("account-id");
+    expect(serialized).not.toContain("broker-id");
+    expect(serialized).not.toContain("hidden");
+    expect(serialized).not.toContain("brokerContractId");
+    expect((payload as any).baseCurrency).toBe("USD");
+    expect((payload as any).exchangeRates).toEqual({ USD: 1 });
+    expect((payload as any).tickers[0].quote.price).toBe(150);
+    expect((payload as any).tickers[0].quote.weekReferencePrice).toBe(125);
+    expect((payload as any).tickers[0].quote.weekChangePercent).toBe(20);
+    expect((payload as any).analyticsByPortfolio.main.oneYearReturn).toBeNull();
+
+    const saved: TickerRecord[] = [];
+    const sanitizedTickerPayload = { tickers: (payload as any).tickers };
+    await coreCollectionsSyncContributor.apply?.(sanitizedTickerPayload, {
+      baselinePayload: sanitizedTickerPayload,
+      baselineState: state,
+      state,
+      getState: () => state,
+      isCurrent: () => true,
+      dispatch: () => {},
+      tickerRepository: { saveTicker: async (record: TickerRecord) => { saved.push(record); } },
+    } as unknown as Parameters<NonNullable<typeof coreCollectionsSyncContributor.apply>>[1]);
+
+    expect(saved[0]?.metadata.positions[0]).toMatchObject({
+      brokerInstanceId: "broker-id",
+      brokerAccountId: "account-id",
+      brokerContractId: 42,
+    });
+  });
+
+  test("keeps a position written while the app was closed", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-position-test");
+    config.portfolios = [{ id: "main", name: "Main", currency: "USD" }];
+    const withoutPosition: TickerRecord = createTestTicker("NVDA", "NVIDIA", { portfolios: ["main"] });
+    const syncedState = createInitialState(config);
+    syncedState.tickers = new Map([["NVDA", withoutPosition]]);
+    const syncedPayload = await coreCollectionsSyncContributor.collect({ state: syncedState });
+
+    // `gloomberb portfolio position set` wrote this straight to the database.
+    const state = createInitialState(config);
+    state.tickers = new Map([["NVDA", {
+      metadata: {
+        ...withoutPosition.metadata,
+        positions: [{ portfolio: "main", shares: 10, avgCost: 100, broker: "manual", currency: "USD" }],
+      },
+    }]]);
+
+    const saved: TickerRecord[] = [];
+    await coreCollectionsSyncContributor.apply?.(syncedPayload, {
+      baselinePayload: syncedPayload,
+      baselineState: state,
+      state,
+      getState: () => state,
+      isCurrent: () => true,
+      dispatch: () => {},
+      tickerRepository: { saveTicker: async (record: TickerRecord) => { saved.push(record); } },
+    } as unknown as Parameters<NonNullable<typeof coreCollectionsSyncContributor.apply>>[1]);
+
+    expect(saved).toHaveLength(0);
+    expect(state.tickers.get("NVDA")?.metadata.positions).toHaveLength(1);
+  });
+
+  test("does not publish current holdings performance as account return or unsupported basket beta", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.baseCurrency = "USD";
+    config.portfolios = [
+      { id: "main", name: "Main", currency: "USD" },
+      {
+        id: "broker:ibkr:U123",
+        name: "U123",
+        currency: "USD",
+        brokerId: "ibkr",
+        brokerInstanceId: "ibkr",
+        brokerAccountId: "U123",
+      },
+    ];
+    config.brokerInstances = [{
+      id: "ibkr",
+      brokerType: "ibkr",
+      label: "IBKR",
+      config: {},
+      enabled: true,
+    }];
+    const ticker = (symbol: string, portfolio: string): TickerRecord => (createTestTicker(symbol, symbol, {
+      exchange: "TSE",
+      currency: "JPY",
+      portfolios: [portfolio],
+      positions: [{
+        portfolio,
+        shares: 10,
+        avgCost: 900,
+        broker: "manual",
+        currency: "JPY",
+      }],
+    }));
+    const state = createInitialState(config);
+    state.tickers = new Map([
+      ["7203.T", ticker("7203.T", "main")],
+      ["6758.T", ticker("6758.T", "broker:ibkr:U123")],
+    ]);
+    state.financials = new Map([
+      ["7203.T", createTestFinancials({
+        quote: { symbol: "7203.T", price: 1000, currency: "JPY", change: 0, changePercent: 0, lastUpdated: 1 },
+        fundamentals: { return1Y: 0.1 },
+        priceHistory: priceHistoryFromReturns([0.015, -0.0045, 0.018, 0.009, -0.006, 0.012, 0.0045, -0.003, 0.0105, 0.006, -0.0015]),
+      })],
+      ["6758.T", createTestFinancials({
+        quote: { symbol: "6758.T", price: 1000, currency: "JPY", change: 0, changePercent: 0, lastUpdated: 1 },
+        fundamentals: { return1Y: 0.2 },
+        priceHistory: priceHistoryFromReturns([0.03, -0.009, 0.036, 0.018, -0.012, 0.024, 0.009, -0.006, 0.021, 0.012, -0.003]),
+      })],
+      ["SPY", createTestFinancials({
+        quote: { symbol: "SPY", price: 100, currency: "USD", change: 0, changePercent: 0, lastUpdated: 1 },
+        priceHistory: priceHistoryFromReturns([0.01, -0.003, 0.012, 0.006, -0.004, 0.008, 0.003, -0.002, 0.007, 0.004, -0.001]),
+      })],
+    ]);
+    state.brokerAccounts = {
+      ibkr: [{
+        accountId: "U123",
+        name: "U123",
+        currency: "USD",
+        source: "flex",
+        netLiquidation: 1_900_000,
+        grossPositionValue: 2_320_000,
+        dailyPnl: 12_345,
+        unrealizedPnl: 456_789,
+        updatedAt: 123,
+      }],
+    };
+
+    const payload = await coreCollectionsSyncContributor.collect({ state }) as any;
+
+    expect(payload.baseCurrency).toBe("USD");
+    expect(payload.analyticsByPortfolio.main.oneYearReturn).toBeNull();
+    expect(payload.analyticsByPortfolio.main.spyBeta).toBeNull();
+    expect(payload.analyticsByPortfolio["broker:ibkr:U123"].oneYearReturn).toBeNull();
+    expect(payload.analyticsByPortfolio["broker:ibkr:U123"].spyBeta).toBeNull();
+    expect(payload.accountsByPortfolio).toEqual({
+      "broker:ibkr:U123": {
+        currency: "USD",
+        netLiquidation: 1_900_000,
+        dailyPnl: 12_345,
+        unrealizedPnl: 456_789,
+        updatedAt: 123,
+      },
+    });
+    expect(payload.analyticsByPortfolio.main).not.toHaveProperty("marketValue");
+    expect(payload.analyticsByPortfolio.main).not.toHaveProperty("holdingsCount");
+    expect(payload.analyticsByPortfolio.main).not.toHaveProperty("currency");
+    expect(payload.analyticsByPortfolio.main).not.toHaveProperty("sourceLabel");
+
+    const mainTicker = state.tickers.get("7203.T")!;
+    mainTicker.metadata.currency = "USD";
+    mainTicker.metadata.positions[0]!.currency = "USD";
+    state.financials.get("7203.T")!.quote!.currency = "USD";
+    const supported = await coreCollectionsSyncContributor.collect({ state }) as any;
+    expect(supported.analyticsByPortfolio.main.spyBeta).toBeCloseTo(1.5, 5);
+    expect(supported.analyticsByPortfolio.main.oneYearReturn).toBeNull();
+
+    const cleanBenchmark = state.financials.get("SPY")!.priceHistory!;
+    const benchmarkEnd = cleanBenchmark.at(-1)!;
+    state.financials.get("SPY")!.priceHistory = [...cleanBenchmark.slice(0, -1), { ...benchmarkEnd, high: benchmarkEnd.close - 1 }];
+    setSyncedProfileAnalytics("main", { oneYearReturn: 0.25, spyBeta: 1.4 });
+    const invalidBenchmark = await coreCollectionsSyncContributor.collect({ state }) as any;
+    expect(invalidBenchmark.analyticsByPortfolio.main).toEqual({ oneYearReturn: 0.25, spyBeta: null, basis: "holdings" });
+    state.financials.get("SPY")!.priceHistory = cleanBenchmark;
+    const cleanHolding = state.financials.get("7203.T")!.priceHistory!;
+    const holdingEnd = cleanHolding.at(-1)!;
+    state.financials.get("7203.T")!.priceHistory = [...cleanHolding.slice(0, -1), { ...holdingEnd, low: holdingEnd.close + 1 }];
+    const invalidHolding = await coreCollectionsSyncContributor.collect({ state }) as any;
+    expect(invalidHolding.analyticsByPortfolio.main).toEqual({ oneYearReturn: null, spyBeta: null, basis: null });
+    state.financials.get("7203.T")!.priceHistory = cleanHolding;
+    setSyncedProfileAnalytics("main", null);
+    const corrected = await coreCollectionsSyncContributor.collect({ state }) as any;
+    expect(corrected.analyticsByPortfolio.main.spyBeta).toBeCloseTo(1.5, 5);
+
+    mainTicker.metadata.positions[0]!.side = "short";
+    const short = await coreCollectionsSyncContributor.collect({ state }) as any;
+    expect(short.analyticsByPortfolio.main.spyBeta).toBeNull();
+  });
+
+  test("values holdings in a non-USD base currency with the loaded exchange rates", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.baseCurrency = "EUR";
+    config.portfolios = [{ id: "main", name: "Main", currency: "EUR" }];
+    const state = createInitialState(config);
+    state.tickers = new Map([["NVDA", {
+      metadata: {
+        ticker: "NVDA", exchange: "NASDAQ", currency: "USD", name: "NVIDIA",
+        portfolios: ["main"], watchlists: [], custom: {}, tags: [],
+        positions: [{ portfolio: "main", shares: 10, avgCost: 100, broker: "manual", currency: "USD" }],
+      },
+    }]]);
+    const history = (returns: number[]) => ({
+      quote: { symbol: "", price: 100, currency: "USD", change: 0, changePercent: 0, lastUpdated: 1 },
+      priceHistory: priceHistoryFromReturns(returns), annualStatements: [], quarterlyStatements: [],
+    });
+    state.financials = new Map([
+      ["NVDA", history([0.015, -0.0045, 0.018, 0.009, -0.006, 0.012, 0.0045, -0.003, 0.0105, 0.006, -0.0015])],
+      ["SPY", history([0.01, -0.003, 0.012, 0.006, -0.004, 0.008, 0.003, -0.002, 0.007, 0.004, -0.001])],
+    ]);
+    const requested: string[] = [];
+    setSharedMarketDataCoordinator(new MarketDataCoordinator(createTestDataProvider({
+      getExchangeRate: async (currency) => { requested.push(currency); return 1.1; },
+    })));
+    try {
+      const payload = await coreCollectionsSyncContributor.collect({ state }) as any;
+      expect(payload.analyticsByPortfolio.main.spyBeta).toBeCloseTo(1.5, 5);
+      expect(requested).toEqual(["EUR"]);
+    } finally {
+      setSharedMarketDataCoordinator(null);
+    }
+  });
+
+  test("redaction removes nested credential-shaped fields", () => {
+    const sanitized = __syncContributorInternalsForTests.sanitizeUnknown({
+      nested: {
+        refreshToken: "nope",
+        publicValue: "ok",
+      },
+    });
+
+    expect(sanitized).toEqual({ nested: { publicValue: "ok" } });
+  });
+
+  test("uses preview-computed profile analytics without exposing values", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.portfolios = [{ id: "preview", name: "Preview", currency: "USD" }];
+    const state = createInitialState(config);
+
+    setSyncedProfileAnalytics("preview", { oneYearReturn: 0.25, spyBeta: 1.4 });
+    const payload = await coreCollectionsSyncContributor.collect({ state }) as any;
+    setSyncedProfileAnalytics("preview", null);
+
+    expect(payload.analyticsByPortfolio.preview).toEqual({
+      oneYearReturn: 0.25,
+      spyBeta: 1.4,
+      basis: "holdings",
+    });
+    expect(payload.analyticsByPortfolio.preview).not.toHaveProperty("marketValue");
+  });
+
+  test("preserves pulled profile analytics before local market data is ready", async () => {
+    const config = createDefaultConfig("/tmp/gloomberb-sync-test");
+    config.portfolios = [{ id: "main", name: "Main", currency: "USD" }];
+    const state = createInitialState(config);
+
+    await coreCollectionsSyncContributor.apply?.({
+      analyticsByPortfolio: {
+        main: { oneYearReturn: 0.27, spyBeta: 1.1 },
+      },
+      tickers: [],
+    }, {
+      snapshot: {
+        schemaVersion: 1,
+        appId: "gloomberb",
+        clientId: "test-client",
+        createdAt: "2026-07-21T22:03:59.832Z",
+        contributors: {},
+      },
+      baselineState: state,
+      state,
+      getState: () => state,
+      isCurrent: () => true,
+      dispatch: () => {},
+      tickerRepository: {} as never,
+    });
+
+    const payload = await coreCollectionsSyncContributor.collect({ state }) as any;
+    setSyncedProfileAnalytics("main", null);
+
+    expect(payload.analyticsByPortfolio.main).toEqual({
+      oneYearReturn: 0.27,
+      spyBeta: 1.1,
+      basis: "holdings",
+    });
+  });
+});

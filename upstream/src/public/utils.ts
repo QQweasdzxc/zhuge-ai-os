@@ -1,0 +1,112 @@
+/**
+ * Public utility surface for external plugins (`gloomberb/utils`).
+ *
+ * Everything re-exported here is a compatibility commitment: plugins in other
+ * repositories import it, so removing or changing a signature is a breaking
+ * change for them. Internal helpers stay internal — add to this barrel only
+ * when a real plugin needs it, and prefer widening later over exporting
+ * speculatively.
+ *
+ * `src/public/public-api.test.ts` checks that every subpath resolves and that a
+ * bundled plugin shares the host's module instances.
+ */
+
+export { createThrottledFetch } from "../utils/throttled-fetch";
+export type {
+  ThrottledFetchClient,
+  ThrottledFetchOptions,
+  ThrottledFetchTransport,
+} from "../utils/throttled-fetch";
+
+export { normalizedHttpUrl } from "../utils/url";
+
+export { formatRelativeAge, formatTimeAgo } from "../utils/datetime-format";
+
+export { decodeHtmlEntities } from "../utils/html-entities";
+
+export { isPlainKey, isPlainKeyboardEvent } from "../utils/keyboard";
+export type { KeyboardModifierEventLike } from "../utils/keyboard";
+
+export {
+  displayWidth,
+  formatCompact,
+  formatCompactCurrency,
+  formatCurrency,
+  formatGrowthShort,
+  formatNumber,
+  formatPercent,
+  formatPercentRaw,
+  formatWithDivisor,
+  padTo,
+  pickUnit,
+  truncateToDisplayWidth,
+} from "../utils/format";
+
+// Broker and instrument helpers. IBKR needs all of these, and any broker plugin
+// will: instance lookup, currency minor units, venue normalization, and stable
+// hashing for cache keys.
+export {
+  buildBrokerPortfolioId,
+  createBrokerInstanceId,
+  getBrokerInstance,
+  getBrokerInstancesByType,
+  isBrokerPortfolioId,
+} from "../utils/broker-instances";
+export {
+  hasLikelyQuoteUnitMismatch,
+  normalizePriceValueByDivisor,
+  resolveCurrencyUnit,
+  resolveExchangeSubUnitCurrencyUnit,
+  resolvePriceHistoryCurrencyUnit,
+} from "../utils/currency-units";
+export type { CurrencyUnitInfo } from "../utils/currency-units";
+export {
+  canonicalExchange,
+  canonicalTickerKey,
+  normalizeSymbol,
+  parsePublicTickerKey,
+  publicExchange,
+  publicTickerKey,
+  resolveExchangeTimeZone,
+} from "../utils/exchanges";
+export { fnv1aHashString } from "../utils/hash";
+export { splitLongTextSegmentByDisplayWidth, truncateWithEllipsis, wrapTextLines } from "../utils/text-wrap";
+export { httpFetch, setHttpFetchTransport } from "../utils/http-transport";
+export type { HttpFetchTransport } from "../utils/http-transport";
+export { debugLog } from "../utils/debug-log";
+
+// A pane that fetches on its own schedule and wants to survive restarts: a
+// persisted cache keyed by the plugin, with a TTL and a stale-while-refresh
+// read. The Fear & Greed and IPO calendar plugins both keep their last good
+// payload this way so the pane has something to show before the first fetch.
+export { createPluginCache } from "../data/plugin-cache";
+export type { PluginCacheResult } from "../data/plugin-cache";
+
+// Table sorting, so a plugin table cycles its sort the same way built-in ones
+// do and orders mixed null/number/string columns identically.
+export { compareSortValues, cycleSortPreference, nextHeaderSort } from "../utils/sort-values";
+export type { HeaderSortOptions, SortDirection, SortPreference } from "../utils/sort-values";
+
+// Exchange schedules are published as wall-clock times in a named zone.
+export { zonedDateTimeParts, zonedWallClockToUtcMs } from "../utils/zoned-date-time";
+
+// A list pane with a search field hands the arrow keys between the two.
+export { isPlainArrowDown, isPlainArrowUp, stopSearchFocusNavigation } from "../utils/search-focus-navigation";
+
+// Timing for the work a pane does on the main thread: parsing a large payload,
+// rebuilding rows, re-sorting a table. Slow samples are logged by the host's
+// perf logger, so a plugin's hot paths show up in the same trace as the app's
+// instead of being invisible.
+export { measurePerf, measurePerfAsync } from "../utils/perf-marks";
+
+// Opening a URL a provider handed back, and bounding a call that may never
+// answer. Both are security or startup rules the host already settled: an
+// auth flow must not launch a `file:` or `javascript:` URL, and optional
+// discovery must not hold up a launch forever.
+export { safeExternalUrl } from "../utils/external-url";
+export { withDeadline } from "../utils/async-deadline";
+
+// Which renderer this copy of the plugin is running in. A plugin with a native
+// half needs it to tell the terminal, where it owns the panes, from the Bun
+// process behind the desktop view, where it only answers capability calls.
+export { getCurrentPluginTarget } from "../plugins/current-target";

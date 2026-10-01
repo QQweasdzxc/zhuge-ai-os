@@ -1,0 +1,349 @@
+import { Box } from "../../../ui";
+import { getCurrentPluginTarget } from "../../current-target";
+import { recordResearchActivity, recordResearchTabView } from "../../../api-client/research-activity";
+import { listExternalPlugins } from "../../external-runtime";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { PaneProps, TickerResearchTabDef } from "../../../types/plugin";
+import { t, tf } from "../../../i18n";
+import { quoteSubscriptionTargetFromTicker } from "../../../market-data/request-types";
+import {
+  useAppDispatch,
+  useAppSelector,
+  usePaneCollection,
+  usePaneInstance,
+  usePaneStateValue,
+  usePaneTicker,
+  usePaneAppConfig,
+  type AppState,
+} from "../../../state/app/context";
+import { useQuoteUpdates } from "../../../state/hooks/quote-streaming";
+import { getSharedRegistry } from "../../registry";
+import { ChoiceDialog, EmptyState, NestedPaneTabs, PaneFooterScope, usePaneFooter, usePaneMenuItems, usePaneTabs } from "../../../components";
+import { useOptionalDialog, type PromptContext } from "../../../ui/dialog";
+import { useThrottledCommitValue } from "../../../react/use-throttled-commit-value";
+import { resolveOptionsTarget } from "../../../utils/options";
+import {
+  buildVisibleTickerResearchTabs,
+  getTickerResearchPaneSettings,
+  resolveLockedTabId,
+} from "./settings";
+import { TICKER_RESEARCH_BUILTIN_TABS } from "./research-tabs";
+import { useLiveStreamingSetting } from "../../../state/hooks/live-streaming";
+import { useCloudAccessFooter } from "../shared/cloud-upgrade";
+import { CLOUD_QUOTE_DELAY_MINUTES } from "../../../api-client/plan-access";
+import { parsePublicTickerKey } from "../../../utils/exchanges";
+import { tickerHasYahooSuffix } from "../../../sources/yahoo-finance/symbols";
+import { tickerQuoteFooterInfo } from "./quote-footer";
+import { ResearchTabKeysProvider, useResearchTabKeysHost } from "./research-tab-keys";
+
+const TICKER_RESEARCH_TAB_COMMIT_DELAY_MS = 120;
+/** A tab counts as viewed once it stays open this long, not when h/l passes over it. */
+const TICKER_RESEARCH_TAB_VIEW_DWELL_MS = 2_000;
+
+function sameStringSet(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+}
+
+function registryTickerResearchTabsSnapshot(registry: ReturnType<typeof getSharedRegistry>): string {
+  if (!registry) return "";
+  return [...registry.tickerResearchTabs.values()]
+    .map((tab) => `${tab.id}:${tab.name}:${tab.order}:${registry.getTickerResearchTabPluginId?.(tab.id) ?? ""}`)
+    .join("\0");
+}
+
+function useRegistryTickerResearchTabsSnapshot(registry: ReturnType<typeof getSharedRegistry>): string {
+  const subscribe = useCallback((onStoreChange: () => void) => {
+    const events = registry?.events;
+    if (!events) return () => {};
+    const unregisterRegistered = events.on("plugin:registered", onStoreChange);
+    const unregisterUnregistered = events.on("plugin:unregistered", onStoreChange);
+    return () => {
+      unregisterRegistered();
+      unregisterUnregistered();
+    };
+  }, [registry]);
+
+  const getSnapshot = useCallback(() => registryTickerResearchTabsSnapshot(registry), [registry]);
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+function getCollectionMembershipKey(state: AppState, collectionId: string | null): "portfolios" | "watchlists" | null {
+  if (!collectionId) return null;
+  if (state.config.portfolios.some((portfolio) => portfolio.id === collectionId)) return "portfolios";
+  if (state.config.watchlists.some((watchlist) => watchlist.id === collectionId)) return "watchlists";
+  return null;
+}
+
+function getCollectionTickerCount(state: AppState, collectionId: string | null): number {
+  const membershipKey = getCollectionMembershipKey(state, collectionId);
+  if (!collectionId || !membershipKey) return 0;
+  let count = 0;
+  for (const ticker of state.tickers.values()) {
+    if (ticker.metadata[membershipKey].includes(collectionId)) count += 1;
+  }
+  return count;
+}
+
+function getCollectionName(state: AppState, collectionId: string | null): string {
+  if (!collectionId) return "";
+  const portfolio = state.config.portfolios.find((entry) => entry.id === collectionId);
+  if (portfolio) return portfolio.name;
+  const watchlist = state.config.watchlists.find((entry) => entry.id === collectionId);
+  if (watchlist) return watchlist.name;
+  return collectionId;
+}
+
+export function TickerResearchPane({ focused, width, height }: PaneProps) {
+  const dispatch = useAppDispatch();
+  const config = usePaneAppConfig();
+  const paneInstance = usePaneInstance();
+  const { ticker, financials, error: instrumentError } = usePaneTicker();
+  const liveStreaming = useLiveStreamingSetting();
+  const streamingTarget = quoteSubscriptionTargetFromTicker(ticker, ticker?.metadata.ticker, "provider");
+  const streamingTargets = useMemo(() => (
+    streamingTarget
+      ? [{
+        ...streamingTarget,
+        surface: "detail" as const,
+        visible: true,
+        selected: true,
+        weight: 100,
+      }]
+      : []
+  ), [
+    streamingTarget?.symbol,
+    streamingTarget?.exchange,
+    streamingTarget?.route,
+    streamingTarget?.context?.brokerId,
+    streamingTarget?.context?.brokerInstanceId,
+    streamingTarget?.context?.instrument,
+  ]);
+  useQuoteUpdates(streamingTargets, { liveStreaming });
+
+  const { collectionId } = usePaneCollection();
+  const [committedActiveTabId, setCommittedActiveTabId] = usePaneStateValue<string>("activeTabId", "overview");
+  const {
+    value: activeTabId,
+    setValue: setActiveTabId,
+  } = useThrottledCommitValue(
+    committedActiveTabId,
+    setCommittedActiveTabId,
+    TICKER_RESEARCH_TAB_COMMIT_DELAY_MS,
+    { commitPendingOnUnmount: true },
+  );
+  useEffect(() => {
+    if (!focused || !ticker || getCurrentPluginTarget() !== "web") return;
+    const url = new URL(window.location.href);
+    if (ticker.metadata.broker_contracts?.length) {
+      for (const key of ["ticker", "exchange", "tab"]) url.searchParams.delete(key);
+      window.history.replaceState(window.history.state, "", url.href);
+      return;
+    }
+    url.searchParams.set("ticker", ticker.metadata.ticker);
+    // A bare ticker can name different issuers on different venues. Keep the
+    // selected listing on reload, and replace any previous pane's venue.
+    if (ticker.metadata.exchange && !parsePublicTickerKey(ticker.metadata.ticker).exchange && !tickerHasYahooSuffix(ticker.metadata.ticker)) {
+      url.searchParams.set("exchange", ticker.metadata.exchange);
+    } else {
+      url.searchParams.delete("exchange");
+    }
+    url.searchParams.set("tab", activeTabId);
+    window.history.replaceState(window.history.state, "", url.href);
+  }, [focused, ticker?.metadata.ticker, ticker?.metadata.exchange, activeTabId, ticker?.metadata.broker_contracts]);
+  const [pluginCaptured, setPluginCaptured] = useState(false);
+  useEffect(() => {
+    if (focused && Number.isFinite(financials?.quote?.price) && (financials?.quote?.price ?? 0) > 0) {
+      recordResearchActivity("research_viewed", "research");
+    }
+  }, [focused, financials?.quote?.price]);
+  const [mountedTabIds, setMountedTabIds] = useState<Set<string>>(() => new Set());
+  const paneSettings = getTickerResearchPaneSettings(paneInstance?.settings);
+  const hasOptionsChain = !!resolveOptionsTarget(ticker)?.effectiveTicker;
+  const collectionTickerCount = useAppSelector((state) => getCollectionTickerCount(state, collectionId));
+  const collectionName = useAppSelector((state) => getCollectionName(state, collectionId));
+
+  const disabledPlugins = config.disabledPlugins;
+  const registry = getSharedRegistry();
+  const tickerResearchTabsSnapshot = useRegistryTickerResearchTabsSnapshot(registry);
+  // Hosts that render a pane without booting the plugin registry (the desktop
+  // screenshot renderer) would otherwise leave the body with no tabs at all.
+  const tickerResearchTabs = useMemo<TickerResearchTabDef[]>(() => (
+    registry
+      ? [...registry.tickerResearchTabs.values()].filter((tab) => {
+        const ownerId = registry.getTickerResearchTabPluginId?.(tab.id);
+        return !ownerId || !disabledPlugins.includes(ownerId);
+      })
+      : TICKER_RESEARCH_BUILTIN_TABS
+  ), [disabledPlugins, registry, tickerResearchTabsSnapshot]);
+  const allTabs = buildVisibleTickerResearchTabs(tickerResearchTabs, ticker, financials, {
+    config,
+    hasOptionsChain,
+  });
+  const resolvedTabId = paneSettings.hideTabs
+    ? resolveLockedTabId(paneSettings, allTabs)
+    : (allTabs.some((tab) => tab.id === activeTabId) ? activeTabId : (allTabs[0]?.id ?? "overview"));
+  // Only quote/chart views use the parent quote status. Other research tabs
+  // own their data status (the options chain may have a different delay/feed).
+  const quoteFooterActive = resolvedTabId === "overview" || resolvedTabId === "chart";
+  const cloudAccess = useCloudAccessFooter({
+    delayLabel: tf("{count}m", { count: CLOUD_QUOTE_DELAY_MINUTES }),
+    degraded: financials?.quote?.dataSource !== "live",
+    focused: focused && quoteFooterActive,
+    segmentId: "ticker-research-access",
+    shortcutScope: "ticker-research:upgrade",
+  });
+  usePaneFooter(
+    "ticker-research-access",
+    () => quoteFooterActive ? {
+      // Chart owns additional footer actions, so keep its parent status compact.
+      info: tickerQuoteFooterInfo(financials?.quote, cloudAccess.segment, resolvedTabId === "overview" ? width : undefined),
+      hints: cloudAccess.hint ? [cloudAccess.hint] : undefined,
+      order: -1,
+    } : null,
+    [cloudAccess.hint, cloudAccess.segment, financials?.quote, quoteFooterActive, resolvedTabId, width],
+  );
+
+  const visibleTabIdKey = allTabs.map((tab) => tab.id).join("\0");
+  // A quote tick re-renders this pane; the tab strip only has to re-render
+  // when a tab appears, disappears, or is renamed.
+  const tabItemsKey = allTabs.map((tab) => `${tab.id}:${tab.name}`).join("\0");
+  const tabItems = useMemo(
+    () => allTabs.map((tab) => ({ label: t(tab.name), value: tab.id })),
+    [tabItemsKey],
+  );
+  // A tab's detail that moves with h/l itself (a 13F fund's sections) takes
+  // those keys while it is open; Esc gives them back to the strip.
+  const researchTabKeys = useResearchTabKeysHost();
+  const stripFocused = focused && !pluginCaptured && !researchTabKeys.claimed;
+  const { strip: tabStrip, rows: tabBarHeight } = usePaneTabs(!paneSettings.hideTabs && ticker ? {
+    tabs: tabItems,
+    activeValue: resolvedTabId,
+    onSelect: setActiveTabId,
+    focused: stripFocused,
+  } : null);
+  // h/l step one tab at a time; with twenty tabs the pane menu jumps straight to one.
+  const dialog = useOptionalDialog();
+  const showTabs = !paneSettings.hideTabs && !!ticker;
+  usePaneMenuItems("ticker-research:go-to-tab", () => {
+    if (!showTabs || !dialog || tabItems.length < 2) return null;
+    return [{
+      id: "go-to-tab",
+      label: t("Go to Tab…"),
+      onSelect: () => {
+        void dialog.prompt<string>({
+          closeOnClickOutside: true,
+          content: (context: PromptContext<string>) => (
+            <ChoiceDialog
+              {...context}
+              title={t("Go to Tab")}
+              selectedChoiceId={resolvedTabId}
+              choices={tabItems.map((tab) => ({ id: tab.value, label: tab.label }))}
+            />
+          ),
+        }).then((tabId) => {
+          if (tabId) setActiveTabId(tabId);
+        }).catch(() => {});
+      },
+    }];
+  }, [dialog, resolvedTabId, setActiveTabId, showTabs, tabItems]);
+  // Which tabs people stay on. A pane pinned to one tab has no strip; opening
+  // it is a function open, counted with those.
+  useEffect(() => {
+    if (!focused || !showTabs) return;
+    const ownerId = registry?.getTickerResearchTabPluginId?.(resolvedTabId);
+    const fromExternalPlugin = !!ownerId && listExternalPlugins().some((entry) => entry.plugin.id === ownerId);
+    const timer = setTimeout(() => recordResearchTabView(resolvedTabId, fromExternalPlugin), TICKER_RESEARCH_TAB_VIEW_DWELL_MS);
+    return () => clearTimeout(timer);
+  }, [focused, registry, resolvedTabId, showTabs]);
+  const contentHeight = Math.max(1, height - tabBarHeight);
+  const visibleTabIds = useMemo(() => new Set(allTabs.map((tab) => tab.id)), [visibleTabIdKey]);
+  const renderedTabIds = useMemo(() => {
+    const next = new Set<string>();
+    for (const tabId of mountedTabIds) {
+      if (visibleTabIds.has(tabId)) next.add(tabId);
+    }
+    if (visibleTabIds.has(resolvedTabId)) {
+      next.add(resolvedTabId);
+    }
+    return next;
+  }, [mountedTabIds, resolvedTabId, visibleTabIds]);
+
+  const handlePluginCapture = useCallback((capturing: boolean) => {
+    setPluginCaptured(capturing);
+    dispatch({ type: "SET_INPUT_CAPTURED", captured: capturing });
+  }, [dispatch]);
+  const ignorePluginCapture = useCallback(() => {}, []);
+
+  useEffect(() => {
+    setPluginCaptured(false);
+    dispatch({ type: "SET_INPUT_CAPTURED", captured: false });
+  }, [resolvedTabId, dispatch]);
+
+  useEffect(() => {
+    setMountedTabIds((current) => {
+      const next = new Set<string>();
+      for (const tabId of current) {
+        if (visibleTabIds.has(tabId)) next.add(tabId);
+      }
+      if (visibleTabIds.has(resolvedTabId)) {
+        next.add(resolvedTabId);
+      }
+      return sameStringSet(current, next) ? current : next;
+    });
+  }, [resolvedTabId, visibleTabIds]);
+
+  if (!ticker) {
+    const isEmptyFollowCollection = paneInstance?.binding?.kind === "follow" && !!collectionId && collectionTickerCount === 0;
+    const message = instrumentError ?? (isEmptyFollowCollection
+      ? tf("No tickers in {name}.", { name: collectionName || t("this collection") })
+      : t("No ticker selected."));
+
+    return (
+      <Box flexDirection="column" flexGrow={1} paddingX={1}>
+        <EmptyState title={message} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column" flexGrow={1} flexBasis={0} overflow="hidden">
+      {tabStrip}
+
+      <Box height={contentHeight} flexGrow={1} flexBasis={0} overflow="hidden">
+        <ResearchTabKeysProvider value={showTabs ? researchTabKeys.value : null}>
+          {tickerResearchTabs.map((tab) => {
+            if (!renderedTabIds.has(tab.id) || !visibleTabIds.has(tab.id)) return null;
+            const TickerResearchTab = tab.component;
+            const isActive = resolvedTabId === tab.id;
+            return (
+              <Box
+                key={tab.id}
+                visible={isActive}
+                flexDirection="column"
+                flexGrow={1}
+                flexBasis={0}
+                height={contentHeight}
+                overflow="hidden"
+              >
+                <PaneFooterScope active={isActive}>
+                  <NestedPaneTabs>
+                    <TickerResearchTab
+                      width={width}
+                      height={contentHeight}
+                      focused={focused && isActive}
+                      onCapture={isActive ? handlePluginCapture : ignorePluginCapture}
+                    />
+                  </NestedPaneTabs>
+                </PaneFooterScope>
+              </Box>
+            );
+          })}
+        </ResearchTabKeysProvider>
+      </Box>
+    </Box>
+  );
+}

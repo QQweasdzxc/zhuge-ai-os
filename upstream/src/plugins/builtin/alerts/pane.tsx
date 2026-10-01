@@ -1,0 +1,345 @@
+import { Box } from "../../../ui";
+import { Button, PaneStatusBody, PaneFooterScope, usePaneTabs } from "../../../components";
+import { usePluginPaneState } from "../../runtime";
+import { EventAlertsPane } from "./events-pane";
+import { AlertHistoryPane } from "./history-pane";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  confirmDialog,
+  DataTableView,
+  usePaneFooter,
+  type DataTableCell,
+  type DataTableColumn,
+  type DataTableKeyEvent,
+} from "../../../components";
+import { TextFieldDialog } from "../../../components/pane-settings-dialog/field-dialogs";
+import { colors } from "../../../theme/colors";
+import { isPlainKey } from "../../../utils/keyboard";
+import { TextAttributes } from "../../../ui";
+import { useDialog, type AlertContext } from "../../../ui/dialog";
+import type { PaneProps } from "../../../types/plugin";
+import { usePluginAppActions, usePluginConfigState } from "../../runtime";
+import {
+  deserializeAlerts,
+  editAlert,
+  formatAlertDescription,
+  rearmAlert as rebuildAlert,
+  readAlertsStoreError,
+  serializeAlerts,
+} from "./alert-engine";
+import { parseAlertCommandValues } from "./command";
+import { ALERTS_KEY } from "./constants";
+import {
+  conditionLabel,
+  formatAlertDistance,
+  formatAlertTargetPrice,
+  formatCurrentPrice,
+  formatQuoteChecked,
+  relativeTime,
+} from "./format";
+import type { AlertRule } from "./types";
+import { useQuoteEntries } from "../../../market-data/hooks";
+import { buildQuoteKey, resolveEntryData } from "../../../market-data/selectors";
+import { alertInstrument, streamedAlertQuote, syncAlertQuoteStream } from "./live";
+import { quoteAlertFields } from "./quotes";
+
+type AlertColumnId =
+  | "status"
+  | "symbol"
+  | "current"
+  | "target"
+  | "away"
+  | "condition"
+  | "quote"
+  | "triggered";
+
+type AlertColumn = DataTableColumn & { id: AlertColumnId };
+
+const ALERT_COLUMNS: AlertColumn[] = [
+  { id: "status", label: "State", width: 9, align: "left" },
+  { id: "symbol", label: "Symbol", width: 7, align: "left" },
+  { id: "current", label: "Current", width: 9, align: "right" },
+  { id: "target", label: "Target", width: 9, align: "right" },
+  { id: "away", label: "Away", width: 8, align: "right" },
+  { id: "condition", label: "Trigger", width: 7, align: "left" },
+  { id: "quote", label: "Quote", width: 8, align: "left" },
+  { id: "triggered", label: "Alerted", width: 8, align: "left" },
+];
+
+const ALERT_TABLE_CONTENT_WIDTH = ALERT_COLUMNS.reduce(
+  (sum, column) => sum + column.width + 1,
+  2,
+);
+
+const ALERT_TABS = [
+  { label: "Prices", value: "prices" },
+  { label: "Events", value: "events" },
+  { label: "History", value: "history" },
+];
+
+export function AlertsPane(props: PaneProps) {
+  const [tab, setTab] = usePluginPaneState<string>("tab", "prices");
+  const { strip: tabStrip, rows: tabRows } = usePaneTabs({
+    tabs: ALERT_TABS,
+    activeValue: tab,
+    onSelect: setTab,
+    focused: props.focused,
+    dense: true,
+  });
+  return (
+    <Box flexDirection="column" width={props.width} height={props.height}>
+      {tabStrip}
+      <PaneFooterScope active>
+        {tab === "events" ? (
+          <EventAlertsPane {...props} height={Math.max(1, props.height - tabRows)} />
+        ) : tab === "history" ? (
+          <AlertHistoryPane {...props} height={Math.max(1, props.height - tabRows)} />
+        ) : (
+          <PriceAlertsPane {...props} height={Math.max(1, props.height - tabRows)} />
+        )}
+      </PaneFooterScope>
+    </Box>
+  );
+}
+
+function PriceAlertsPane({ focused, width, height }: PaneProps) {
+  const [alertsJson, setAlertsJson] = usePluginConfigState<string>(ALERTS_KEY, "[]");
+  const { openPluginCommandWorkflow } = usePluginAppActions();
+  const dialog = useDialog();
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const showHorizontalScrollbar = ALERT_TABLE_CONTENT_WIDTH > width;
+  const storeError = useMemo(() => readAlertsStoreError(alertsJson), [alertsJson]);
+
+  const { alerts, rows, quoteError } = useMemo(() => {
+    const parsed = deserializeAlerts(alertsJson);
+    const activeAlerts = parsed.filter((a) => a.status === "active");
+    const triggeredAlerts = parsed
+      .filter((a) => a.status === "triggered")
+      .sort((a, b) => (b.triggeredAt ?? 0) - (a.triggeredAt ?? 0));
+
+    return {
+      alerts: parsed,
+      rows: [...activeAlerts, ...triggeredAlerts],
+      quoteError: parsed.find((alert) => alert.lastCheckError)?.lastCheckError ?? null,
+    };
+  }, [alertsJson]);
+
+  // The store keeps the last checked price at a coarse cadence; while a
+  // symbol streams the table shows its live price instead.
+  const liveInstruments = useMemo(() => {
+    const unique = new Map(rows
+      .filter((alert) => alert.status === "active")
+      .map((alert) => [buildQuoteKey(alertInstrument(alert)), alertInstrument(alert)] as const));
+    return [...unique.values()];
+  }, [rows]);
+  const liveEntries = useQuoteEntries(liveInstruments);
+  // Re-arm, edit and delete write the store from here; the stream follows the
+  // new symbol set now rather than at the next check.
+  const liveSymbolsKey = liveInstruments.map((instrument) => buildQuoteKey(instrument)).sort().join("\u001f");
+  useEffect(() => {
+    syncAlertQuoteStream();
+  }, [liveSymbolsKey]);
+  const displayRows = useMemo(() => rows.map((alert) => {
+    if (alert.status !== "active") return alert;
+    const quote = streamedAlertQuote(resolveEntryData(liveEntries.get(buildQuoteKey(alertInstrument(alert)))));
+    return quote ? { ...alert, ...quoteAlertFields(quote, quote.receivedAt) } : alert;
+  }), [liveEntries, rows]);
+
+  const savePaneAlerts = useCallback((next: AlertRule[] | ((current: AlertRule[]) => AlertRule[])) => {
+    setAlertsJson((currentJson) => {
+      const current = deserializeAlerts(currentJson);
+      const resolved = typeof next === "function" ? next(current) : next;
+      return serializeAlerts(resolved);
+    });
+  }, [setAlertsJson]);
+
+  const deleteAlert = useCallback(async (id: string) => {
+    const alert = alerts.find((a) => a.id === id);
+    if (!alert) return;
+    const confirmed = await confirmDialog(dialog, {
+      title: "Delete alert?",
+      body: [`${formatAlertDescription(alert)} will no longer be watched.`],
+      confirmLabel: "Delete",
+    });
+    if (!confirmed) return;
+    savePaneAlerts(alerts.filter((a) => a.id !== id));
+    setSelectedIdx((prev) => Math.max(0, Math.min(prev, rows.length - 2)));
+  }, [alerts, dialog, rows.length, savePaneAlerts]);
+
+  const rearmAlert = useCallback((id: string) => {
+    savePaneAlerts(
+      alerts.map((a) => (a.id === id ? rebuildAlert(a) : a)),
+    );
+  }, [alerts, savePaneAlerts]);
+
+  const startAddAlert = useCallback(() => {
+    openPluginCommandWorkflow("set-alert");
+  }, [openPluginCommandWorkflow]);
+
+  const deleteSelectedAlert = useCallback(() => {
+    const selected = rows[selectedIdx];
+    if (selected) void deleteAlert(selected.id);
+  }, [deleteAlert, rows, selectedIdx]);
+
+  const rearmSelectedAlert = useCallback(() => {
+    const selected = rows[selectedIdx];
+    if (selected?.status === "triggered") rearmAlert(selected.id);
+  }, [rearmAlert, rows, selectedIdx]);
+
+  const editSelectedAlert = useCallback(() => {
+    const selected = rows[selectedIdx];
+    if (!selected) return;
+    void dialog.alert({
+      closeOnClickOutside: true,
+      content: (context: AlertContext) => (
+        <TextFieldDialog
+          {...context}
+          field={{
+            type: "text",
+            key: "alert",
+            label: "Edit alert",
+            description: "SYMBOL above|below|crosses PRICE",
+            placeholder: "AAPL above 200",
+          }}
+          currentValue={`${selected.symbol} ${selected.condition} ${selected.targetPrice}`}
+          onApply={async (value) => {
+            const parsed = parseAlertCommandValues({ shortcut: value });
+            if (!parsed) throw new Error("Use SYMBOL above|below|crosses PRICE.");
+            savePaneAlerts((current) => current.map((alert) => (
+              alert.id === selected.id
+                ? editAlert(alert, parsed.symbol, parsed.condition, parsed.price)
+                : alert
+            )));
+          }}
+        />
+      ),
+    });
+  }, [dialog, rows, savePaneAlerts, selectedIdx]);
+
+  // Quotes come from the plugin's single background poll, which writes into the
+  // same persisted store, so the pane never fetches on its own.
+
+  usePaneFooter("alerts", () => ({
+    info: storeError
+      ? [{ id: "store-error", parts: [{ text: storeError, tone: "warning" as const }] }]
+      : quoteError
+        ? [{ id: "quote-error", parts: [{ text: quoteError, tone: "warning" as const }] }]
+        : [],
+    hints: [
+      { id: "add", key: "a", label: "dd alert", onPress: startAddAlert },
+      {
+        id: "edit",
+        key: "e",
+        label: "dit",
+        onPress: editSelectedAlert,
+        disabled: rows.length === 0,
+      },
+      {
+        id: "delete",
+        key: "d",
+        label: "elete",
+        onPress: deleteSelectedAlert,
+        disabled: rows.length === 0,
+      },
+      ...(rows[selectedIdx]?.status === "triggered"
+        ? [{ id: "rearm", key: "m", label: "re-arm", title: "Re-arm", onPress: rearmSelectedAlert }]
+        : []),
+    ],
+  }), [
+    deleteSelectedAlert,
+    editSelectedAlert,
+    rearmSelectedAlert,
+    rows,
+    selectedIdx,
+    quoteError,
+    rows.length,
+    startAddAlert,
+    storeError,
+  ]);
+
+  useEffect(() => {
+    setSelectedIdx((prev) => (rows.length === 0 ? 0 : Math.min(prev, rows.length - 1)));
+  }, [rows.length]);
+
+  // The footer hints bind a, e, d and m; `n` is a second key for adding.
+  const handleTableKeyDown = useCallback((event: DataTableKeyEvent) => {
+    if (!isPlainKey(event, "n")) return false;
+    startAddAlert();
+    return true;
+  }, [startAddAlert]);
+
+  const renderCell = useCallback((
+    alert: AlertRule,
+    column: AlertColumn,
+  ): DataTableCell => {
+    switch (column.id) {
+      case "status":
+        return {
+          text: alert.status === "triggered" ? "Triggered" : "Active",
+          color: alert.status === "triggered" ? colors.positive : colors.textDim,
+          attributes: alert.status === "triggered" ? TextAttributes.BOLD : TextAttributes.NONE,
+        };
+      case "symbol":
+        return {
+          text: alert.symbol,
+          color: colors.textBright,
+          attributes: TextAttributes.BOLD,
+        };
+      case "current":
+        return {
+          text: formatCurrentPrice(alert, column.width),
+          color: alert.lastCheckError ? colors.negative : colors.text,
+        };
+      case "target":
+        return { text: formatAlertTargetPrice(alert, column.width) };
+      case "away":
+        return {
+          text: formatAlertDistance(alert),
+          color: colors.textDim,
+        };
+      case "condition":
+        return { text: conditionLabel(alert.condition) };
+      case "quote":
+        return {
+          text: formatQuoteChecked(alert),
+          color: colors.textDim,
+        };
+      case "triggered":
+        return {
+          text: alert.triggeredAt ? relativeTime(alert.triggeredAt) : "-",
+          color: colors.textDim,
+        };
+    }
+  }, []);
+
+  return (
+    <DataTableView<AlertRule, AlertColumn>
+      focused={focused}
+      selection={{
+        kind: "index",
+        selectedIndex: selectedIdx,
+        onChange: (index) => setSelectedIdx(index),
+      }}
+      onRootKeyDown={handleTableKeyDown}
+      rootWidth={width}
+      rootHeight={height}
+      rootBackgroundColor={colors.bg}
+      columns={ALERT_COLUMNS}
+      items={displayRows}
+      sortColumnId={null}
+      sortDirection="asc"
+      getItemKey={(alert) => alert.id}
+      onActivate={(alert) => {
+        if (alert.status === "triggered") rearmAlert(alert.id);
+      }}
+      renderCell={renderCell}
+      selectedTextOverridesCellColor
+      emptyStateTitle="Saved alerts could not be read."
+      emptyStateHint={storeError ?? undefined}
+      emptyContent={storeError ? undefined : (
+        <PaneStatusBody empty emptyTitle="No alerts" actions={<Button label="Add alert" compact onPress={startAddAlert} />} />
+      )}
+      showHorizontalScrollbar={showHorizontalScrollbar}
+    />
+  );
+}

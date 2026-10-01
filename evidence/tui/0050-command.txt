@@ -1,0 +1,70 @@
+  > Search or run a command  Ctrl+P                                                                                                   SPY — TWD
+:: 台灣研究 2330.TW
+  總覽  日行情  營運  籌碼  產業  衍生  來源與缺口
+  價格 TWD   2,480  2026-09-30                                           漲跌       5  0.2%
+
+  2330.TW 台灣積體電路製造股份有限公司
+  價格（TWD）           2,480
+  漲跌                  5
+  漲跌幅（%）           0.2
+  成交量（股）          34,282,491
+  狀態                  PASS
+  Provider              TWSE
+  資料時間              2026-09-30
+  出表時間              未提供
+  讀取時間    ┌─:: 台灣研究 0050.TW───────────────────────────────────────────────────────────────────────────────────── ...  x ─┐
+  時效          總覽  日行情  營運  籌碼  產業  衍生  來源與缺口
+  行情類型      價格 TWD   112.05  2026-09-30                            漲跌       0.75  0.67%
+  Fallback                                                                                                                      █
+  Error code    0050.TW 元大台灣50                                                                                              █
+  說明          價格（TWD）           112.05                                                                                    █
+  來源          漲跌                  0.75                                                                                      █
+  來源          漲跌幅（%）           0.67                                                                                      █
+  來源          成交量（股）          60,951,975                                                                                █
+  來源          狀態                  PASS                                                                                      █
+                Provider              TWSE                                                                                      █
+  公司／ETF     資料時間              2026-09-30                                                                                █
+  名稱          出表時間              未提供                                                                                    █
+  商品類型      讀取時間              2026-10-01T01:11:01.246Z                                                                  █
+  產業（官方欄  時效                  在研究時效預算內                                                                          █
+  主要業務      行情類型              delayed／官方定期資料，非盤中即時                                                         █
+  狀態          Fallback              無                                                                                        █
+  說明          Error code            未提供                                                                                    █
+                說明                  最新可取得官方收盤，不是盤中即時行情；漲跌僅由有日期且對齊的官方日資料或官方前收計算。    █
+  最新營運摘要  來源                  https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL                               █
+  營運來源      來源                  https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260801&stockNo=0050 █
+  月營收狀態    來源                  https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=0050 █
+  營收月份      來源                  https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=0050 █
+  月營收（千元
+  MoM（%）      公司／ETF
+  YoY（%）      名稱                  元大台灣50
+  財報狀態      商品類型              ETF
+  財報期末      產業（官方欄位）      未提供
+  營收（千元）  主要業務              未提供
+  EPS（元）     狀態                  PARTIAL
+  口徑          說明                  僅有 ETF 名稱／商品種類；成分、持股權重、淨值與產業曝險尚未接入。發行商頁供人工核對。
+
+  研究範圍      最新營運摘要
+  法人 / 融資   營運來源              MOPS
+  產業訊號      月營收狀態            NOT_CONNECTED
+  使用提醒      營收月份              未提供
+                月營收（千元）        未提供
+                MoM（%）              未提供
+                YoY（%）              未提供
+                財報狀態              NOT_CONNECTED
+                財報期末              未提供
+              └0050.TW｜PASS｜收盤／定期資料                                                                             [r]    ─◢
+
+
+
+
+
+
+
+
+
+
+
+
+2330.TW｜PASS｜收盤／定期資料
+                                                                                                                        v0.15.2 ☁ 登入 意見回饋

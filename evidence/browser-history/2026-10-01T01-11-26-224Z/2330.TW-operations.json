@@ -1,0 +1,326 @@
+{
+  "ok": true,
+  "data": {
+    "kind": "pane-screenshot",
+    "target": "TW",
+    "capability": {
+      "id": "taiwan-research-pane",
+      "botSafe": true,
+      "outputKind": "bundle",
+      "reportReadiness": "ready",
+      "screenshotReadiness": "live-dom"
+    },
+    "symbols": [
+      "2330.TW"
+    ],
+    "options": {
+      "view": "operations"
+    },
+    "rowCount": 49,
+    "empty": false,
+    "complete": true,
+    "unavailableSymbols": [],
+    "semanticMismatch": false,
+    "usable": true,
+    "unusableReason": null,
+    "dataEvidence": null,
+    "outputPath": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-operations.png",
+    "render": {
+      "visibleText": "台灣研究 2330.TW 總覽 日行情 營運 籌碼 產業 衍生 來源與缺口 價格 TWD 2,480 2026-09-30 漲跌 5 0.2% 月營收（最新月份） 月份 2026-08-31 營收（千元） 514,805,337 上月（千元） 467,580,548 去年同月（千元） 335,771,691 MoM（%） 10.1 YoY（%） 53.32 備註 因先進製程產品需求增加所致。 狀態 PASS Provider MOPS 資料時間 2026-08-31 出表時間 2026-09-17 讀取時間 2026-10-01T01:09:29.145Z 時效 在研究時效預算內 行情類型 delayed／官方定期資料，非盤中即時 Fallback 無 Error code 未提供 說明 TWD 千元 來源 https://openapi.twse.com.tw/v1/opendata/t187ap05_L 綜合損益（年初至本季累計，非單季） 期末 2026-06-30 營業收入（千元） 2,404,483,690 毛利（千元） 1,611,606,116 營業利益（千元） 1,425,568,793 本期淨利（千元） 1,279,582,227 EPS（元） 49.33 狀態 PASS Provider MOPS 資料時間 2026-06-30 出表時間 2026-10-01 讀取時間 2026-10-01T01:09:28.351Z 時效 在研究時效預算內 行情類型 delayed／官方定期資料，非盤中即時 Fallback 無 Error code 未提供 說明 TWD 千元；EPS 為元 來源 https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci 資產負債（期末餘額） 期末 2026-06-30 資產（千元） 9,375,654,727 負債（千元） 2,901,183,746 權益（千元） 6,474,470,981 狀態 PASS Provider MOPS 資料時間 2026-06-30 出表時間 2026-10-01 讀取時間 2026-10-01T01:09:27.891Z 時效 在研究時效預算內 行情類型 delayed／官方定期資料，非盤中即時 Fallback 無 Error code 未提供 說明 TWD 千元 來源 https://openapi.twse.com.tw/v1/opendata/t187ap07_L_ci",
+      "visibleKeyValues": [
+        {
+          "label": "價格 TWD",
+          "text": "價格 TWD 2,480 2026-09-30"
+        },
+        {
+          "label": "漲跌",
+          "text": "漲跌 5 0.2%"
+        },
+        {
+          "label": "月份",
+          "text": "月份 2026-08-31"
+        },
+        {
+          "label": "營收（千元）",
+          "text": "營收（千元） 514,805,337"
+        },
+        {
+          "label": "上月（千元）",
+          "text": "上月（千元） 467,580,548"
+        },
+        {
+          "label": "去年同月（千元）",
+          "text": "去年同月（千元） 335,771,691"
+        },
+        {
+          "label": "MoM（%）",
+          "text": "MoM（%） 10.1"
+        },
+        {
+          "label": "YoY（%）",
+          "text": "YoY（%） 53.32"
+        },
+        {
+          "label": "備註",
+          "text": "備註 因先進製程產品需求增加所致。"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PASS"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider MOPS"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 2026-08-31"
+        },
+        {
+          "label": "出表時間",
+          "text": "出表時間 2026-09-17"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:09:29.145Z"
+        },
+        {
+          "label": "時效",
+          "text": "時效 在研究時效預算內"
+        },
+        {
+          "label": "行情類型",
+          "text": "行情類型 delayed／官方定期資料，非盤中即時"
+        },
+        {
+          "label": "Fallback",
+          "text": "Fallback 無"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code 未提供"
+        },
+        {
+          "label": "說明",
+          "text": "說明 TWD 千元"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://openapi.twse.com.tw/v1/opendata/t187ap05_L"
+        },
+        {
+          "label": "期末",
+          "text": "期末 2026-06-30"
+        },
+        {
+          "label": "營業收入（千元）",
+          "text": "營業收入（千元） 2,404,483,690"
+        },
+        {
+          "label": "毛利（千元）",
+          "text": "毛利（千元） 1,611,606,116"
+        },
+        {
+          "label": "營業利益（千元）",
+          "text": "營業利益（千元） 1,425,568,793"
+        },
+        {
+          "label": "本期淨利（千元）",
+          "text": "本期淨利（千元） 1,279,582,227"
+        },
+        {
+          "label": "EPS（元）",
+          "text": "EPS（元） 49.33"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PASS"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider MOPS"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 2026-06-30"
+        },
+        {
+          "label": "出表時間",
+          "text": "出表時間 2026-10-01"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:09:28.351Z"
+        },
+        {
+          "label": "時效",
+          "text": "時效 在研究時效預算內"
+        },
+        {
+          "label": "行情類型",
+          "text": "行情類型 delayed／官方定期資料，非盤中即時"
+        },
+        {
+          "label": "Fallback",
+          "text": "Fallback 無"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code 未提供"
+        },
+        {
+          "label": "說明",
+          "text": "說明 TWD 千元；EPS 為元"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci"
+        },
+        {
+          "label": "期末",
+          "text": "期末 2026-06-30"
+        },
+        {
+          "label": "資產（千元）",
+          "text": "資產（千元） 9,375,654,727"
+        },
+        {
+          "label": "負債（千元）",
+          "text": "負債（千元） 2,901,183,746"
+        },
+        {
+          "label": "權益（千元）",
+          "text": "權益（千元） 6,474,470,981"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PASS"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider MOPS"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 2026-06-30"
+        },
+        {
+          "label": "出表時間",
+          "text": "出表時間 2026-10-01"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:09:27.891Z"
+        },
+        {
+          "label": "時效",
+          "text": "時效 在研究時效預算內"
+        },
+        {
+          "label": "行情類型",
+          "text": "行情類型 delayed／官方定期資料，非盤中即時"
+        },
+        {
+          "label": "Fallback",
+          "text": "Fallback 無"
+        }
+      ],
+      "rows": [],
+      "truncated": true,
+      "truncationReasons": [
+        "rows extend below the rendered viewport"
+      ],
+      "loadingStateDetected": false,
+      "errorStateDetected": false,
+      "errorStateMarkers": [],
+      "emptyStateDetected": false,
+      "emptyStateMarkers": [],
+      "semanticUi": [
+        {
+          "id": "ui:1",
+          "role": "button",
+          "label": "Close pane",
+          "disabled": false,
+          "actions": [
+            "press"
+          ],
+          "metadata": {
+            "icon": "close"
+          }
+        },
+        {
+          "id": "ui:3",
+          "role": "tabs",
+          "label": "Tabs",
+          "actions": [
+            "close",
+            "select"
+          ],
+          "metadata": {
+            "activeValue": "operations",
+            "tabs": [
+              {
+                "label": "總覽",
+                "value": "overview",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "日行情",
+                "value": "history",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "營運",
+                "value": "operations",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "籌碼",
+                "value": "ownership",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "產業",
+                "value": "radar",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "衍生",
+                "value": "derivatives",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "來源與缺口",
+                "value": "sources",
+                "disabled": false,
+                "closeable": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "ui:2",
+          "role": "pane-header-tabs",
+          "actions": [
+            "press"
+          ],
+          "metadata": {}
+        }
+      ],
+      "expectedText": [
+        "2330.TW"
+      ],
+      "missingExpectedText": [],
+      "expectedSelections": [],
+      "missingExpectedSelections": [],
+      "expectedChart": null,
+      "chartEvidenceMismatches": []
+    }
+  }
+}

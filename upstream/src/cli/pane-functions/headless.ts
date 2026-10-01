@@ -1,0 +1,506 @@
+import { getSharedRegistry } from "../../plugins/registry";
+import { parsePublicTickerKey } from "../../utils/exchanges";
+import { apiClient } from "../../api-client";
+import type { MarketContext } from "../types";
+import type {
+  HeadlessBundleResult,
+  HeadlessBundleSection,
+  HeadlessPaneColumn,
+  HeadlessPaneContext,
+  HeadlessPaneDefinition,
+  HeadlessPaneEntry,
+  HeadlessPaneLoadArgs,
+  HeadlessPaneOptionValues,
+  HeadlessPaneResult,
+  HeadlessPaneRow,
+  HeadlessSeries,
+  HeadlessSeriesResult,
+  HeadlessSnapshotResult,
+} from "../../types/plugin";
+import { cliStyles, renderSection, renderStats, renderTable } from "../../utils/cli-output";
+import { humanizeCliKey } from "../result";
+import { observationDate } from "../../time-series/price-comparison";
+import type { ResolvedSeries } from "../../time-series/types";
+import type { PaneFunctionReport } from "./report";
+import type { ResolvedPaneFunction } from "./resolver";
+import { isRecord } from "../../utils/guards";
+
+interface SerializableHeadlessColumn {
+  key: string;
+  header: string;
+  align?: "left" | "right" | "center";
+  width?: number;
+  description?: string;
+}
+
+export interface LoadedHeadlessPaneModel {
+  definition: HeadlessPaneDefinition;
+  args: HeadlessPaneLoadArgs;
+  result: HeadlessPaneResult;
+}
+
+function argumentName(definition: HeadlessPaneDefinition): string {
+  return definition.argument.placeholder
+    ?? (definition.argument.kind === "free-text" ? "text" : "symbol");
+}
+
+function requiredArgumentError(definition: HeadlessPaneDefinition, token: string): Error {
+  return new Error(`Usage: gloomberb fn ${token} <${argumentName(definition)}>`);
+}
+
+function normalizeSymbol(value: string): string {
+  return value.trim().replace(/^\$+/, "").toUpperCase();
+}
+
+function normalizeSymbolList(value: string): string[] {
+  const symbols: string[] = [];
+  const seen = new Set<string>();
+  for (const part of value.split(/[,\s]+/)) {
+    const symbol = normalizeSymbol(part);
+    if (!symbol || seen.has(symbol)) continue;
+    seen.add(symbol);
+    symbols.push(symbol);
+  }
+  return symbols;
+}
+
+function validateSymbolCount(
+  definition: HeadlessPaneDefinition,
+  token: string,
+  symbols: string[],
+): void {
+  const minimum = definition.argument.minimum
+    ?? (definition.argument.optional ? 0 : 1);
+  const maximum = definition.argument.maximum;
+  if (symbols.length < minimum) {
+    if (minimum <= 1) throw requiredArgumentError(definition, token);
+    throw new Error(`${token} requires at least ${minimum} symbols.`);
+  }
+  if (maximum != null && symbols.length > maximum) {
+    throw new Error(`${token} accepts at most ${maximum} symbols.`);
+  }
+}
+
+export function buildHeadlessPaneLoadArgs(
+  definition: HeadlessPaneDefinition,
+  token: string,
+  rawArgument: string,
+  options: HeadlessPaneOptionValues,
+): HeadlessPaneLoadArgs {
+  const raw = rawArgument.trim();
+  switch (definition.argument.kind) {
+    case "none":
+      if (raw) throw new Error(`${token} does not accept an argument.`);
+      return { rawArgument: raw, argument: null, symbols: [], options };
+    case "free-text":
+      if (!raw && !definition.argument.optional) throw requiredArgumentError(definition, token);
+      return { rawArgument: raw, argument: raw || null, symbols: [], options };
+    case "ticker": {
+      const symbol = normalizeSymbol(raw);
+      const symbols = symbol ? [symbol] : [];
+      validateSymbolCount(definition, token, symbols);
+      return {
+        rawArgument: raw,
+        argument: symbol || null,
+        symbols,
+        options,
+      };
+    }
+    case "tickers":
+    case "symbol-list": {
+      const symbols = normalizeSymbolList(raw);
+      validateSymbolCount(definition, token, symbols);
+      return {
+        rawArgument: raw,
+        argument: symbols.length > 0 ? symbols : null,
+        symbols,
+        options,
+      };
+    }
+    default: {
+      const _exhaustive: never = definition.argument.kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (!signal.aborted) return;
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new Error("Headless pane load was aborted.");
+}
+
+export async function loadHeadlessPaneModel(
+  definition: HeadlessPaneDefinition,
+  args: HeadlessPaneLoadArgs,
+  context: HeadlessPaneContext,
+): Promise<HeadlessPaneResult> {
+  throwIfAborted(context.signal);
+  const result = await definition.load(args, context);
+  throwIfAborted(context.signal);
+  validateHeadlessResult(definition.shape, result);
+  return result;
+}
+
+/**
+ * Loads the same renderer-neutral model used by `fn`.
+ * Both reports and screenshot payloads execute this loader.
+ */
+export async function loadResolvedHeadlessPaneModel(
+  resolved: ResolvedPaneFunction,
+  context: Pick<MarketContext, "config" | "store" | "refresh"> & { dataProvider: HeadlessPaneContext["marketData"] },
+  rawArgument: string,
+  signal: AbortSignal = new AbortController().signal,
+): Promise<LoadedHeadlessPaneModel> {
+  const definition = resolved.headless;
+  if (!definition) throw new Error(`${resolved.token} has no headless pane model.`);
+  const args = buildHeadlessPaneLoadArgs(definition, resolved.token, rawArgument, resolved.options);
+  const headlessContext: HeadlessPaneContext = {
+    marketData: context.dataProvider,
+    apiClient,
+    config: context.config,
+    signal,
+    ...(context.refresh ? { refresh: true } : {}),
+    settings: resolved.instance.settings,
+    capabilities: getSharedRegistry() ?? undefined,
+    async resolvePortfolio(id) {
+      const portfolio = context.config.portfolios.find(row => row.id === id);
+      if (!portfolio) return null;
+      const tickers = (await context.store.loadAllTickers()).filter(row => row.metadata.portfolios.includes(id));
+      return { portfolio, tickers };
+    },
+    async resolveInstrument(key) {
+      const parsed = parsePublicTickerKey(key);
+      const ticker = await context.store.loadTicker(key)
+        ?? (key !== parsed.symbol ? await context.store.loadTicker(parsed.symbol) : null);
+      return { symbol: parsed.symbol, exchange: parsed.exchange ?? ticker?.metadata.exchange };
+    },
+  };
+  const result = await loadHeadlessPaneModel(definition, args, headlessContext);
+  return { definition, args, result };
+}
+
+function validateHeadlessResult(shape: HeadlessPaneDefinition["shape"], result: unknown): void {
+  if (!isRecord(result)) throw new Error(`Headless ${shape} loader returned an invalid result.`);
+  const valid = shape === "rows"
+    ? Array.isArray(result.rows)
+    : shape === "bundle"
+      ? Array.isArray(result.sections)
+      : shape === "series"
+        ? Array.isArray(result.series)
+        : Array.isArray(result.items) && result.asOf != null;
+  if (!valid) throw new Error(`Headless ${shape} loader returned an invalid result.`);
+}
+
+function serializableColumns(columns: HeadlessPaneColumn[]): SerializableHeadlessColumn[] {
+  return columns.map((column) => ({
+    key: column.key,
+    header: column.header,
+    ...(column.align ? { align: column.align } : {}),
+    ...(column.width != null ? { width: column.width } : {}),
+    ...(column.description ? { description: column.description } : {}),
+  }));
+}
+
+function inferColumns(rows: HeadlessPaneRow[]): HeadlessPaneColumn[] {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) keys.add(key);
+  }
+  return [...keys].map((key) => ({ key, header: key }));
+}
+
+function columnsFor(
+  rows: HeadlessPaneRow[],
+  ownColumns: HeadlessPaneColumn[] | undefined,
+  fallbackColumns: HeadlessPaneColumn[] | undefined,
+): HeadlessPaneColumn[] {
+  return ownColumns ?? fallbackColumns ?? inferColumns(rows);
+}
+
+function serializeBundleSection(
+  section: HeadlessBundleSection,
+  fallbackColumns: HeadlessPaneColumn[] | undefined,
+): Record<string, unknown> {
+  if ("rows" in section && section.rows) {
+    const columns = columnsFor(section.rows, section.columns, fallbackColumns);
+    return {
+      title: section.title,
+      columns: serializableColumns(columns),
+      rows: section.rows,
+    };
+  }
+  return { title: section.title, entries: section.entries };
+}
+
+export function serializeHeadlessPaneResult(
+  definition: HeadlessPaneDefinition,
+  result: HeadlessPaneResult,
+): Record<string, unknown> {
+  const common = {
+    ...(result.errors ? { errors: result.errors } : {}),
+    ...(result.metadata ? { metadata: result.metadata } : {}),
+  };
+  switch (definition.shape) {
+    case "rows": {
+      const rowsResult = result as HeadlessPaneResult & { rows: HeadlessPaneRow[]; columns?: HeadlessPaneColumn[] };
+      const columns = columnsFor(rowsResult.rows, rowsResult.columns, definition.columns);
+      return { ...common, columns: serializableColumns(columns), rows: rowsResult.rows };
+    }
+    case "bundle": {
+      const bundle = result as HeadlessBundleResult;
+      return {
+        ...common,
+        sections: bundle.sections.map((section) => serializeBundleSection(section, definition.columns)),
+      };
+    }
+    case "series": {
+      const series = result as HeadlessSeriesResult;
+      return { ...common, series: series.series, ...(series.stats ? { stats: series.stats } : {}) };
+    }
+    case "snapshot": {
+      const snapshot = result as HeadlessSnapshotResult;
+      const columns = columnsFor(snapshot.items, undefined, definition.columns);
+      return {
+        ...common,
+        asOf: snapshot.asOf,
+        columns: serializableColumns(columns),
+        items: snapshot.items,
+      };
+    }
+    default: {
+      const _exhaustive: never = definition.shape;
+      return _exhaustive;
+    }
+  }
+}
+
+function displayValue(value: unknown): string {
+  if (value == null) return "-";
+  if (value instanceof Date) return displayTime(value.getTime());
+  if (typeof value === "number") return displayNumber(value);
+  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "string" && ISO_INSTANT.test(value)) return displayInstant(value);
+  return String(value);
+}
+
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/;
+
+/**
+ * Providers hand some instants over as ISO strings; print them in UTC like Date
+ * values, keeping seconds and milliseconds only when the source carries them
+ * (tape prints), never SIP nanoseconds.
+ */
+function displayInstant(value: string): string {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return value;
+  const iso = new Date(time).toISOString();
+  if (iso.slice(17, 23) === "00.000") return displayTime(time);
+  return `${iso.slice(0, iso.endsWith(".000Z") ? 19 : 23).replace("T", " ")} UTC`;
+}
+
+/** Drops binary floating-point noise (4.019999999999996) without rounding real digits. */
+function displayNumber(value: number): string {
+  if (!Number.isFinite(value) || Number.isInteger(value) || Math.abs(value) >= 1e9) return String(value);
+  return String(float32Shortest(value) ?? Number(value.toPrecision(12)));
+}
+
+/**
+ * Some feeds store prices as float32, so 338.93 arrives as 338.929992676. A value
+ * that is exactly a float32 prints as the shortest decimal that rounds back to it,
+ * which leaves genuine doubles (never exactly float32 unless short) untouched.
+ */
+function float32Shortest(value: number): number | null {
+  if (Math.fround(value) !== value) return null;
+  for (let digits = 1; digits <= 9; digits += 1) {
+    const candidate = Number(value.toPrecision(digits));
+    if (Math.fround(candidate) === value) return candidate;
+  }
+  return null;
+}
+
+function displayTime(time: number): string {
+  if (!Number.isFinite(time)) return "-";
+  const iso = new Date(time).toISOString();
+  return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : `${iso.slice(0, 16).replace("T", " ")} UTC`;
+}
+
+const CALENDAR_RESOLUTIONS = new Set(["1d", "1wk", "1mo"]);
+
+/** Session bars print the trading date the chart and comparison notice use, not the bar's open instant. */
+function seriesPointDate(series: HeadlessSeries, date: HeadlessSeries["points"][number]["date"]): string {
+  const time = date instanceof Date ? date.getTime() : typeof date === "number" ? date : Date.parse(date);
+  if (!Number.isFinite(time)) return typeof date === "string" ? date : "-";
+  const resolved = series as HeadlessSeries & Partial<Pick<ResolvedSeries, "historyResolution" | "timeBasis">>;
+  return resolved.historyResolution && CALENDAR_RESOLUTIONS.has(resolved.historyResolution)
+    ? observationDate(time, resolved)
+    : displayTime(time);
+}
+
+function seriesValue(series: HeadlessSeries, value: number | null): string {
+  if (value == null) return "-";
+  return series.unit?.trim() === "%" && Number.isFinite(value) ? value.toFixed(2) : displayNumber(value);
+}
+
+function renderRows(
+  rows: HeadlessPaneRow[],
+  ownColumns: HeadlessPaneColumn[] | undefined,
+  fallbackColumns: HeadlessPaneColumn[] | undefined,
+): string {
+  if (rows.length === 0) return "No data.";
+  const columns = columnsFor(rows, ownColumns, fallbackColumns);
+  return renderTable(
+    columns.map((column) => ({
+      header: humanizeCliKey(column.header),
+      align: column.align,
+      width: column.width,
+    })),
+    rows.map((row) => columns.map((column) => {
+      const value = row[column.key];
+      return column.format ? column.format(value, row) : displayValue(value);
+    })),
+  );
+}
+
+function renderEntries(entries: HeadlessPaneEntry[]): string {
+  if (entries.length === 0) return "No data.";
+  return renderStats(entries.map((entry) => [entry.label, entry.formatted ?? displayValue(entry.value)]));
+}
+
+function renderBundle(
+  definition: HeadlessPaneDefinition,
+  result: HeadlessBundleResult,
+): string[] {
+  return result.sections.flatMap((section, index) => [
+    ...(index > 0 ? [""] : []),
+    renderSection(section.title),
+    "rows" in section && section.rows
+      ? renderRows(section.rows, section.columns, definition.columns)
+      : renderEntries(section.entries),
+  ]);
+}
+
+function renderSeries(result: HeadlessSeriesResult): string[] {
+  const rows = result.series.map((series) => {
+    const latest = [...series.points].reverse().find((point) => (
+      point.value != null || point.close != null
+    ));
+    return {
+      series: series.label,
+      latest: latest ? seriesPointDate(series, latest.date) : "-",
+      value: seriesValue(series, latest?.value ?? latest?.close ?? null),
+      unit: series.unit?.trim() || null,
+      points: series.points.length,
+    };
+  });
+  const columns: HeadlessPaneColumn[] = [
+    { key: "series", header: "Series" },
+    { key: "latest", header: "Latest" },
+    { key: "value", header: "Value", align: "right" },
+    ...(rows.some((row) => row.unit) ? [{ key: "unit", header: "Unit" }] : []),
+    { key: "points", header: "Points", align: "right" },
+  ];
+  const lines = [renderRows(rows, columns, undefined)];
+  if (result.stats) {
+    const entries = Array.isArray(result.stats)
+      ? result.stats
+      : Object.entries(result.stats).map(([label, value]) => ({ label, value }));
+    lines.push("", renderSection("Statistics"), renderEntries(entries));
+  }
+  return lines;
+}
+
+function reportTitle(definition: HeadlessPaneDefinition, args: HeadlessPaneLoadArgs, fallback: string): string {
+  if (typeof definition.describe === "function") return definition.describe(args);
+  return definition.describe ?? fallback;
+}
+
+export function renderHeadlessPaneText(
+  definition: HeadlessPaneDefinition,
+  result: HeadlessPaneResult,
+  args: HeadlessPaneLoadArgs,
+  fallbackTitle: string,
+): string {
+  const lines = [cliStyles.bold(reportTitle(definition, args, fallbackTitle)), ""];
+  const notices = result.metadata?.notices;
+  if (Array.isArray(notices)) {
+    const textNotices = [...new Set(notices.filter((notice): notice is string => typeof notice === "string" && notice.trim().length > 0))];
+    if (textNotices.length) lines.push(...textNotices, "");
+  }
+  switch (definition.shape) {
+    case "rows": {
+      const rowsResult = result as HeadlessPaneResult & { rows: HeadlessPaneRow[]; columns?: HeadlessPaneColumn[] };
+      lines.push(renderRows(rowsResult.rows, rowsResult.columns, definition.columns));
+      break;
+    }
+    case "bundle":
+      lines.push(...renderBundle(definition, result as HeadlessBundleResult));
+      break;
+    case "series":
+      lines.push(...renderSeries(result as HeadlessSeriesResult));
+      break;
+    case "snapshot": {
+      const snapshot = result as HeadlessSnapshotResult;
+      lines.push(`As of: ${displayValue(snapshot.asOf)}`, "", renderRows(snapshot.items, undefined, definition.columns));
+      break;
+    }
+    default: {
+      const _exhaustive: never = definition.shape;
+      return _exhaustive;
+    }
+  }
+  if (result.errors?.length) lines.push("", cliStyles.warning(`Errors: ${result.errors.join(" ")}`));
+  return lines.join("\n").trimEnd();
+}
+
+function resultRowCount(definition: HeadlessPaneDefinition, result: HeadlessPaneResult): number {
+  switch (definition.shape) {
+    case "rows":
+      return (result as { rows: HeadlessPaneRow[] }).rows.length;
+    case "bundle":
+      return (result as HeadlessBundleResult).sections.reduce((count, section) => (
+        count + ("rows" in section && section.rows ? section.rows.length : section.entries.length)
+      ), 0);
+    case "series":
+      return (result as HeadlessSeriesResult).series.reduce((count, series) => count + series.points.length, 0);
+    case "snapshot":
+      return (result as HeadlessSnapshotResult).items.length;
+    default: {
+      const _exhaustive: never = definition.shape;
+      return _exhaustive;
+    }
+  }
+}
+
+export async function buildHeadlessFunctionReport(
+  resolved: ResolvedPaneFunction,
+  context: MarketContext,
+  rawArgument: string,
+): Promise<PaneFunctionReport> {
+  const loaded = await loadResolvedHeadlessPaneModel(resolved, context, rawArgument);
+  const rowCount = resultRowCount(loaded.definition, loaded.result);
+  const symbols = loaded.result.symbols ?? loaded.args.symbols;
+  const unavailableSymbols = loaded.result.unavailableSymbols ?? (rowCount === 0 ? symbols : []);
+  const serialized = serializeHeadlessPaneResult(loaded.definition, loaded.result);
+  return {
+    data: {
+      kind: loaded.definition.shape,
+      target: resolved.token,
+      capabilityId: resolved.capability.id,
+      symbols,
+      options: resolved.options,
+      rowCount,
+      empty: rowCount === 0,
+      complete: loaded.result.complete !== false && unavailableSymbols.length === 0 && !loaded.result.errors?.length,
+      unavailableSymbols,
+      ...serialized,
+    },
+    text: renderHeadlessPaneText(
+      loaded.definition,
+      loaded.result,
+      loaded.args,
+      resolved.label,
+    ),
+  };
+}

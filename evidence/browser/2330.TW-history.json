@@ -1,0 +1,1207 @@
+{
+  "ok": true,
+  "data": {
+    "kind": "pane-screenshot",
+    "target": "TW",
+    "capability": {
+      "id": "taiwan-research-pane",
+      "botSafe": true,
+      "outputKind": "bundle",
+      "reportReadiness": "ready",
+      "screenshotReadiness": "live-dom"
+    },
+    "symbols": [
+      "2330.TW"
+    ],
+    "options": {
+      "view": "history"
+    },
+    "rowCount": 20,
+    "empty": false,
+    "complete": true,
+    "unavailableSymbols": [],
+    "semanticMismatch": false,
+    "usable": true,
+    "unusableReason": null,
+    "dataEvidence": null,
+    "outputPath": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-history.png",
+    "render": {
+      "visibleText": "台灣研究 2330.TW 總覽 日行情 營運 籌碼 產業 衍生 來源與缺口 價格 TWD 2,480 2026-09-30 漲跌 5 0.2% 日行情來源與口徑 狀態 PASS Provider TWSE 資料時間 2026-09-30 出表時間 未提供 讀取時間 2026-10-01T01:12:41.322Z 時效 在研究時效預算內 行情類型 delayed／官方定期資料，非盤中即時 Fallback 無 Error code 未提供 說明 最近三個日曆月的原始日 OHLCV；未還原除權息／分割，不用於回測。 來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260801&stockNo=2330 來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330 來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330 可用筆數 41 原始 OHLCV（非還原價格） 日期 開 高 低 收 量（股） 2026-09-30 2,495 2,510 2,480 2,480 34,282,491 2026-09-29 2,475 2,495 2,475 2,475 26,893,348 2026-09-24 2,480 2,490 2,470 2,475 14,557,662 2026-09-23 2,475 2,505 2,475 2,500 22,817,873 2026-09-22 2,505 2,510 2,460 2,460 22,009,927 2026-09-21 2,445 2,485 2,445 2,480 16,086,510 2026-09-18 2,460 2,460 2,435 2,460 40,892,688 2026-09-17 2,405 2,445 2,400 2,425 18,116,974 2026-09-16 2,375 2,395 2,375 2,380 20,919,285 2026-09-15 2,405 2,405 2,380 2,385 15,215,752 2026-09-14 2,385 2,395 2,380 2,380 21,520,958 2026-09-11 2,430 2,430 2,405 2,410 21,131,357 2026-09-10 2,445 2,455 2,435 2,450 19,835,796 2026-09-09 2,480 2,490 2,460 2,465 17,798,845 2026-09-08 2,465 2,505 2,460 2,470 28,931,697 2026-09-07 2,435 2,460 2,430 2,460 26,898,329 2026-09-04 2,415 2,415 2,390 2,410 14,102,018 2026-09-03 2,385 2,400 2,380 2,390 14,252,351 2026-09-02 2,415 2,420 2,385 2,385 25,151,394 2026-09-01 2,395 2,440 2,390 2,440 31,855,287",
+      "visibleKeyValues": [
+        {
+          "label": "價格 TWD",
+          "text": "價格 TWD 2,480 2026-09-30"
+        },
+        {
+          "label": "漲跌",
+          "text": "漲跌 5 0.2%"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PASS"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider TWSE"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 2026-09-30"
+        },
+        {
+          "label": "出表時間",
+          "text": "出表時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:12:41.322Z"
+        },
+        {
+          "label": "時效",
+          "text": "時效 在研究時效預算內"
+        },
+        {
+          "label": "行情類型",
+          "text": "行情類型 delayed／官方定期資料，非盤中即時"
+        },
+        {
+          "label": "Fallback",
+          "text": "Fallback 無"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code 未提供"
+        },
+        {
+          "label": "說明",
+          "text": "說明 最近三個日曆月的原始日 OHLCV；未還原除權息／分割，不用於回測。"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260801&stockNo=2330"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260901&stockNo=2330"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20261001&stockNo=2330"
+        },
+        {
+          "label": "可用筆數",
+          "text": "可用筆數 41"
+        }
+      ],
+      "rows": [
+        {
+          "tableIndex": 0,
+          "rowIndex": 0,
+          "key": "0",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-30"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,495"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,510"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,480"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,480"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "34,282,491"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 1,
+          "key": "1",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-29"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,475"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,495"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,475"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,475"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "26,893,348"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 2,
+          "key": "2",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-24"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,480"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,490"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,470"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,475"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "14,557,662"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 3,
+          "key": "3",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-23"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,475"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,505"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,475"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,500"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "22,817,873"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 4,
+          "key": "4",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-22"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,505"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,510"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,460"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,460"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "22,009,927"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 5,
+          "key": "5",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-21"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,445"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,485"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,445"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,480"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "16,086,510"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 6,
+          "key": "6",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-18"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,460"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,460"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,435"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,460"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "40,892,688"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 7,
+          "key": "7",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-17"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,405"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,445"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,400"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,425"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "18,116,974"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 8,
+          "key": "8",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-16"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,375"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,395"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,375"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,380"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "20,919,285"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 9,
+          "key": "9",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-15"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,405"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,405"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,380"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,385"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "15,215,752"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 10,
+          "key": "10",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-14"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,385"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,395"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,380"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,380"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "21,520,958"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 11,
+          "key": "11",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-11"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,430"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,430"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,405"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,410"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "21,131,357"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 12,
+          "key": "12",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-10"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,445"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,455"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,435"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,450"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "19,835,796"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 13,
+          "key": "13",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-09"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,480"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,490"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,460"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,465"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "17,798,845"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 14,
+          "key": "14",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-08"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,465"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,505"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,460"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,470"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "28,931,697"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 15,
+          "key": "15",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-07"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,435"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,460"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,430"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,460"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "26,898,329"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 16,
+          "key": "16",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-04"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,415"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,415"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,390"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,410"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "14,102,018"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 17,
+          "key": "17",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-03"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,385"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,400"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,380"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,390"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "14,252,351"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 18,
+          "key": "18",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-02"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,415"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,420"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,385"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,385"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "25,151,394"
+            }
+          ]
+        },
+        {
+          "tableIndex": 0,
+          "rowIndex": 19,
+          "key": "19",
+          "selected": false,
+          "cells": [
+            {
+              "columnId": "date",
+              "columnLabel": "日期",
+              "text": "2026-09-01"
+            },
+            {
+              "columnId": "open",
+              "columnLabel": "開",
+              "text": "2,395"
+            },
+            {
+              "columnId": "high",
+              "columnLabel": "高",
+              "text": "2,440"
+            },
+            {
+              "columnId": "low",
+              "columnLabel": "低",
+              "text": "2,390"
+            },
+            {
+              "columnId": "close",
+              "columnLabel": "收",
+              "text": "2,440"
+            },
+            {
+              "columnId": "volume",
+              "columnLabel": "量（股）",
+              "text": "31,855,287"
+            }
+          ]
+        }
+      ],
+      "truncated": true,
+      "truncationReasons": [
+        "rows extend below the rendered viewport",
+        "columns extend beyond the rendered viewport"
+      ],
+      "loadingStateDetected": false,
+      "errorStateDetected": false,
+      "errorStateMarkers": [],
+      "emptyStateDetected": false,
+      "emptyStateMarkers": [],
+      "semanticUi": [
+        {
+          "id": "ui:1",
+          "role": "button",
+          "label": "Close pane",
+          "disabled": false,
+          "actions": [
+            "press"
+          ],
+          "metadata": {
+            "icon": "close"
+          }
+        },
+        {
+          "id": "ui:3",
+          "role": "tabs",
+          "label": "Tabs",
+          "actions": [
+            "close",
+            "select"
+          ],
+          "metadata": {
+            "activeValue": "history",
+            "tabs": [
+              {
+                "label": "總覽",
+                "value": "overview",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "日行情",
+                "value": "history",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "營運",
+                "value": "operations",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "籌碼",
+                "value": "ownership",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "產業",
+                "value": "radar",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "衍生",
+                "value": "derivatives",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "來源與缺口",
+                "value": "sources",
+                "disabled": false,
+                "closeable": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "ui:2",
+          "role": "pane-header-tabs",
+          "actions": [
+            "press"
+          ],
+          "metadata": {}
+        },
+        {
+          "id": "ui:4",
+          "role": "table",
+          "label": "Data table",
+          "actions": [
+            "activateRow",
+            "scrollBy",
+            "scrollTo",
+            "selectRow",
+            "sort"
+          ],
+          "metadata": {
+            "paneInstanceId": "taiwan-research:cli-2330-tw",
+            "sortColumnId": null,
+            "sortDirection": "asc",
+            "columns": [
+              {
+                "id": "date",
+                "label": "日期"
+              },
+              {
+                "id": "open",
+                "label": "開"
+              },
+              {
+                "id": "high",
+                "label": "高"
+              },
+              {
+                "id": "low",
+                "label": "低"
+              },
+              {
+                "id": "close",
+                "label": "收"
+              },
+              {
+                "id": "volume",
+                "label": "量（股）"
+              }
+            ],
+            "rows": [
+              {
+                "index": 0,
+                "key": "0",
+                "selected": false
+              },
+              {
+                "index": 1,
+                "key": "1",
+                "selected": false
+              },
+              {
+                "index": 2,
+                "key": "2",
+                "selected": false
+              },
+              {
+                "index": 3,
+                "key": "3",
+                "selected": false
+              },
+              {
+                "index": 4,
+                "key": "4",
+                "selected": false
+              },
+              {
+                "index": 5,
+                "key": "5",
+                "selected": false
+              },
+              {
+                "index": 6,
+                "key": "6",
+                "selected": false
+              },
+              {
+                "index": 7,
+                "key": "7",
+                "selected": false
+              },
+              {
+                "index": 8,
+                "key": "8",
+                "selected": false
+              },
+              {
+                "index": 9,
+                "key": "9",
+                "selected": false
+              },
+              {
+                "index": 10,
+                "key": "10",
+                "selected": false
+              },
+              {
+                "index": 11,
+                "key": "11",
+                "selected": false
+              },
+              {
+                "index": 12,
+                "key": "12",
+                "selected": false
+              },
+              {
+                "index": 13,
+                "key": "13",
+                "selected": false
+              },
+              {
+                "index": 14,
+                "key": "14",
+                "selected": false
+              },
+              {
+                "index": 15,
+                "key": "15",
+                "selected": false
+              },
+              {
+                "index": 16,
+                "key": "16",
+                "selected": false
+              },
+              {
+                "index": 17,
+                "key": "17",
+                "selected": false
+              },
+              {
+                "index": 18,
+                "key": "18",
+                "selected": false
+              },
+              {
+                "index": 19,
+                "key": "19",
+                "selected": false
+              },
+              {
+                "index": 20,
+                "key": "20",
+                "selected": false
+              },
+              {
+                "index": 21,
+                "key": "21",
+                "selected": false
+              },
+              {
+                "index": 22,
+                "key": "22",
+                "selected": false
+              },
+              {
+                "index": 23,
+                "key": "23",
+                "selected": false
+              },
+              {
+                "index": 24,
+                "key": "24",
+                "selected": false
+              },
+              {
+                "index": 25,
+                "key": "25",
+                "selected": false
+              },
+              {
+                "index": 26,
+                "key": "26",
+                "selected": false
+              },
+              {
+                "index": 27,
+                "key": "27",
+                "selected": false
+              },
+              {
+                "index": 28,
+                "key": "28",
+                "selected": false
+              },
+              {
+                "index": 29,
+                "key": "29",
+                "selected": false
+              },
+              {
+                "index": 30,
+                "key": "30",
+                "selected": false
+              },
+              {
+                "index": 31,
+                "key": "31",
+                "selected": false
+              },
+              {
+                "index": 32,
+                "key": "32",
+                "selected": false
+              },
+              {
+                "index": 33,
+                "key": "33",
+                "selected": false
+              },
+              {
+                "index": 34,
+                "key": "34",
+                "selected": false
+              },
+              {
+                "index": 35,
+                "key": "35",
+                "selected": false
+              },
+              {
+                "index": 36,
+                "key": "36",
+                "selected": false
+              },
+              {
+                "index": 37,
+                "key": "37",
+                "selected": false
+              },
+              {
+                "index": 38,
+                "key": "38",
+                "selected": false
+              },
+              {
+                "index": 39,
+                "key": "39",
+                "selected": false
+              },
+              {
+                "index": 40,
+                "key": "40",
+                "selected": false
+              }
+            ],
+            "rowCount": 41
+          }
+        }
+      ],
+      "expectedText": [
+        "2330.TW"
+      ],
+      "missingExpectedText": [],
+      "expectedSelections": [],
+      "missingExpectedSelections": [],
+      "expectedChart": null,
+      "chartEvidenceMismatches": []
+    }
+  }
+}

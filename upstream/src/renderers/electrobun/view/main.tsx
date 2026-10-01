@@ -1,0 +1,242 @@
+/** @jsxImportSource react */
+import { setCurrentPluginTarget } from "../../../plugins/current-target";
+import { createRoot } from "react-dom/client";
+import { App } from "../../../app";
+import { applyLanguageFromConfig } from "../../../i18n";
+import { debugLog } from "../../../utils/debug-log";
+import { measurePerfAsync } from "../../../utils/perf-marks";
+import {
+  backendRequest,
+  initElectrobunBackend,
+  onPluginsUpdated,
+  replaceElectrobunCapabilityManifests,
+  setElectrobunRemoteRequestHandler,
+} from "./backend-rpc";
+import { installElectrobunCapabilityStreamClient } from "./capability-stream-client";
+import { installFocusScopeRelease } from "./host/focus-scope";
+import { installElectrobunBrokerRemoteClient } from "./broker-remote-client";
+import { installElectrobunConfigStoreHost } from "./config-host";
+import {
+  installElectrobunCloudApiFetchTransport,
+  installElectrobunHttpFetchTransport,
+} from "./http-fetch";
+import { installElectrobunUpdateHost } from "./update-host";
+import { installScreenshotWatermark } from "./screenshot-watermark";
+import { installElectrobunWindowFullscreenTracking } from "./window-fullscreen";
+import { installDomMarketDataFrames } from "./data-frames";
+import { DomErrorBoundary, DomHostProviders } from "./dom-host-providers";
+import { DesktopFatalScreen } from "./fatal-screen";
+import { createWebUiHost, webRendererHost } from "./ui-host";
+import { createApplicationMenuBridge } from "./application-menu-bridge";
+import { createDesktopDeepLinkBridge } from "./desktop-deeplink-bridge";
+import {
+  initializeDesktopResearchActivity,
+  observeDesktopDeepLinks,
+} from "../../../api-client/research-activity";
+import { createDesktopWindowBridge } from "./desktop/window/bridge";
+import { prepareDetachedSnapshot } from "./desktop/window/snapshot";
+import { createElectrobunAppServices } from "./app-services";
+import { getRendererPlugins } from "../../../plugins/catalog-ui";
+import { loadDesktopExternalPlugin, loadDesktopExternalPlugins } from "./external-plugins";
+import { activateUpdatedPlugins } from "../../../plugins/builtin/plugin-marketplace/activation";
+import { getMarketplaceHost, setPluginManager, type PluginManager } from "../../../plugins/builtin/plugin-marketplace/store";
+import { remoteNotesFilesIO, setNotesFilesIO } from "../../../plugins/builtin/notes/files";
+import { NOTES_FILES_CAPABILITY_ID } from "../../../capabilities";
+import { loadOfficialPluginIds } from "../../../plugins/builtin/plugin-marketplace/feed";
+import { crashReportsEnabled, installCrashReporter, reportCrash } from "../../../telemetry/crash-reports";
+import { installWindowCrashListeners } from "../../../telemetry/crash-reports-dom";
+import { currentTelemetryConfig } from "../../../telemetry/live-config";
+import { installUsageCounter, usageCountsEnabled } from "../../../telemetry/usage-counts";
+import { installWindowUsageFlush } from "../../../telemetry/usage-counts-dom";
+
+// Declared here rather than sniffed: the desktop view and the hosted browser
+// app are both browser contexts but differ in what plugins may do.
+setCurrentPluginTarget("desktop");
+// Errors are held until the Bun process has answered `init` with the install
+// id and the off switch; the reports themselves go out over the same RPC
+// transport as every other Cloud call.
+installWindowCrashListeners();
+installWindowUsageFlush();
+
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Missing root element");
+}
+const appRootElement = rootElement;
+
+const root = createRoot(appRootElement);
+const bootLog = debugLog.createLogger("electrobun-web-boot");
+let appMounted = false;
+
+appRootElement.tabIndex = -1;
+root.render(<div className="gloom-loading">Starting Gloomberb...</div>);
+
+function renderFatalError(error: unknown, details?: string, title = "Gloomberb failed to start"): void {
+  root.render(
+    <DesktopFatalScreen
+      title={title}
+      error={error}
+      details={details}
+      source="renderer-fatal"
+    />,
+  );
+}
+
+window.__gloomRenderFatalError = (error, details, source) => {
+  if (appMounted && source === "unhandledrejection") {
+    return;
+  }
+  renderFatalError(error, details, "Gloomberb crashed");
+};
+
+function focusWebSurface(): void {
+  window.focus();
+  appRootElement.focus({ preventScroll: true });
+}
+
+function requestStartupFocus(): void {
+  focusWebSurface();
+  requestAnimationFrame(() => {
+    void backendRequest("host.focusWindow")
+      .catch(() => null)
+      .then(() => focusWebSurface());
+  });
+}
+
+async function boot() {
+  bootLog.info("boot started");
+  const backendInitPromise = initElectrobunBackend();
+  // Avoid a premature global unhandled-rejection render while UI chunks load.
+  void backendInitPromise.catch(() => {});
+
+  installElectrobunConfigStoreHost();
+  installElectrobunBrokerRemoteClient();
+  installElectrobunHttpFetchTransport();
+  installElectrobunCloudApiFetchTransport();
+  installElectrobunUpdateHost();
+  // Notes are files only the Bun process can reach, so the notes plugin's
+  // file operations run there.
+  setNotesFilesIO((dataDir) => remoteNotesFilesIO(dataDir, (operationId, payload) => (
+    backendRequest("capability.invoke", { capabilityId: NOTES_FILES_CAPABILITY_ID, operationId, payload })
+  )));
+  const init = await measurePerfAsync("startup.electrobun.backend-init", () => backendInitPromise);
+  // The environment's opt-out comes from the Bun process; the config
+  // switches are read live, so the command bar toggles apply at once.
+  installCrashReporter({
+    surface: "desktop",
+    os: init.telemetry.os,
+    homeDir: init.telemetry.homeDir,
+    isEnabled: () => !init.telemetry.optedOut && crashReportsEnabled(currentTelemetryConfig(init.config)),
+    getInstallId: () => init.telemetry.installId,
+  });
+  installUsageCounter({
+    surface: "desktop",
+    os: init.telemetry.os,
+    isEnabled: () => !init.telemetry.optedOut && usageCountsEnabled(currentTelemetryConfig(init.config)),
+    getInstallId: () => init.telemetry.installId,
+    officialPluginIds: loadOfficialPluginIds,
+  });
+  installElectrobunCapabilityStreamClient();
+  installFocusScopeRelease();
+  installElectrobunWindowFullscreenTracking();
+  installDomMarketDataFrames();
+  installScreenshotWatermark();
+  const desktopSnapshot = init.windowKind === "detached" && init.paneId && init.desktopSnapshot
+    ? prepareDetachedSnapshot(init.desktopSnapshot, init.paneId)
+    : init.desktopSnapshot;
+  const config = desktopSnapshot?.config ?? init.config;
+  applyLanguageFromConfig(config);
+  const desktopWindowBridge = createDesktopWindowBridge(init.windowKind, init.paneId);
+  const desktopApplicationMenuBridge = createApplicationMenuBridge();
+  initializeDesktopResearchActivity();
+  const desktopDeepLinkBridge = observeDesktopDeepLinks(createDesktopDeepLinkBridge());
+  const webUiHost = createWebUiHost(init.desktopPlatform);
+  // Compiled by the Bun process, which owns the filesystem. A failure here must
+  // not stop the app from starting: the marketplace reports broken plugins, and
+  // the built-in catalog is enough to run on.
+  const externalPlugins = await measurePerfAsync(
+    "startup.electrobun.load-external-plugins",
+    async () => {
+      try {
+        return await loadDesktopExternalPlugins(await backendRequest("plugins.listExternal"));
+      } catch (error) {
+        debugLog.createLogger("desktop-plugins").error(`External plugin load failed: ${error}`);
+        return [];
+      }
+    },
+  );
+
+  // The view cannot run git or bun; every operation is the Bun process doing
+  // it, and `load` is that process compiling the result for this renderer.
+  // `activate` registers the plugin over there too, where its capabilities and
+  // brokers actually run, and adopts the manifests that come back.
+  const pluginManager: PluginManager = {
+    install: (repo, pin) => backendRequest("plugins.install", { ref: repo, ...(pin ? { pin } : {}) }),
+    update: (directory, pin) => backendRequest("plugins.update", { directory, ...(pin ? { pin } : {}) }),
+    remove: (directory) => backendRequest("plugins.remove", { directory }),
+    remoteHeads: (directories) => backendRequest("plugins.remoteHeads", { directories: [...directories] }),
+    load: async (directory) => {
+      const bundle = await backendRequest("plugins.bundle", { directory });
+      return bundle ? loadDesktopExternalPlugin(bundle) : null;
+    },
+    activate: async (directory) => {
+      const result = await backendRequest("plugins.activate", { directory });
+      if (!result.ok) return result;
+      replaceElectrobunCapabilityManifests(result.capabilityManifests);
+      return { ok: true };
+    },
+    deactivate: async (pluginId) => {
+      const result = await backendRequest("plugins.deactivate", { pluginId });
+      replaceElectrobunCapabilityManifests(result.capabilityManifests);
+    },
+  };
+  setPluginManager(pluginManager);
+  // Official plugins the Bun process updated in the background, brought into
+  // this session the way the Plugins pane does after an update.
+  onPluginsUpdated(({ directories }) => {
+    const marketplace = getMarketplaceHost();
+    if (marketplace) void activateUpdatedPlugins(directories, marketplace, pluginManager);
+  });
+
+  const remoteControlAdapter = init.windowKind === "main"
+    ? { registerHandler: setElectrobunRemoteRequestHandler }
+    : undefined;
+  measurePerfAsync("startup.electrobun.root-render", async () => {
+    root.render(
+      <DomErrorBoundary
+        label="[desktop-recovery] renderer error boundary"
+        fallback={(error, details) => (
+          <DesktopFatalScreen error={error} details={details} source="react-error-boundary" />
+        )}
+      >
+        <DomHostProviders ui={webUiHost} renderer={webRendererHost}>
+          <App
+            config={config}
+            servicesFactory={createElectrobunAppServices}
+            externalPlugins={externalPlugins}
+            plugins={getRendererPlugins(externalPlugins)}
+            desktopWindowBridge={desktopWindowBridge}
+            desktopApplicationMenuBridge={desktopApplicationMenuBridge}
+            desktopDeepLinkBridge={desktopDeepLinkBridge}
+            desktopSnapshot={desktopSnapshot}
+            desktopThemePreview={init.desktopThemePreview}
+            remoteControlAdapter={remoteControlAdapter}
+          />
+        </DomHostProviders>
+      </DomErrorBoundary>,
+    );
+    appMounted = true;
+  });
+  requestStartupFocus();
+  bootLog.info("root render scheduled", {
+    layoutPanes: config.layout.instances.length,
+    floatingPanes: config.layout.floating.length,
+    detachedPanes: config.layout.detached.length,
+    brokerInstances: config.brokerInstances.length,
+  });
+}
+
+boot().catch((error) => {
+  reportCrash(error, { kind: "uncaught" });
+  renderFatalError(error);
+});

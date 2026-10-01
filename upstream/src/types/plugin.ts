@@ -1,0 +1,863 @@
+import type { ReactNode } from "react";
+import type { AppTickerRepositoryPort } from "../core/app-service-ports";
+import type { HeadlessPaneDefinition } from "./headless";
+
+export type {
+  HeadlessBundleResult,
+  HeadlessBundleSection,
+  HeadlessPaneApiClient,
+  HeadlessPaneArgumentDef,
+  HeadlessPaneArgumentKind,
+  HeadlessPaneColumn,
+  HeadlessPaneContext,
+  HeadlessPaneDefinition,
+  HeadlessPaneEntry,
+  HeadlessPaneLoadArgs,
+  HeadlessPaneOptionDef,
+  HeadlessPaneOptionType,
+  HeadlessPaneOptionValue,
+  HeadlessPaneOptionValues,
+  HeadlessPaneResult,
+  HeadlessPaneResultByShape,
+  HeadlessPaneRow,
+  HeadlessPaneShape,
+  HeadlessRowsResult,
+  HeadlessSeries,
+  HeadlessSeriesPoint,
+  HeadlessSeriesResult,
+  HeadlessSnapshotResult,
+} from "./headless";
+import type { ConnectionHealthRegistry } from "../core/connection-health";
+import type { PluginEvents } from "../plugins/event-bus";
+import type { PluginLogger } from "../utils/debug-log";
+import type { BrokerAdapter } from "./broker";
+import type { PluginCapability } from "../capabilities";
+import type { CliGlobalOptions } from "../cli/options";
+import type { CliResult, CliResultRenderOptions } from "../cli/result";
+import type { ContextMenuContext, ContextMenuItem } from "./context-menu";
+import type {
+  AppConfig,
+  BrokerInstanceConfig,
+  ColumnConfig,
+  LayoutConfig,
+  PaneBinding,
+  PaneInstanceConfig,
+} from "./config";
+import type { DataProvider } from "./data-provider";
+import type { TickerFinancials } from "./financials";
+import type { CachePolicy, PersistedResourceValue } from "./persistence";
+import type { TickerRecord } from "./ticker";
+import type { BrokerContractRef, InstrumentSearchResult, TickerInstrumentKind, TickerListingRef } from "./instrument";
+import type { SyncContributor, SyncTransport } from "../sync/types";
+
+export type { TickerInstrumentKind } from "./instrument";
+
+/**
+ * Named render slots. The host renders only `status:widget`; the other names
+ * are never drawn and are kept so existing plugins still type-check.
+ */
+export interface GloomSlots {
+  /** @deprecated Never rendered. Use `ctx.registerTickerResearchTab`. */
+  "ticker-research:tab": { ticker: TickerRecord; financials: TickerFinancials | null };
+  /** @deprecated Never rendered. Use `ctx.registerTickerResearchTab`. */
+  "ticker-research:section": { ticker: TickerRecord; financials: TickerFinancials | null };
+  /** @deprecated Never rendered. Use `ctx.registerColumn`. */
+  "list:column": { ticker: TickerRecord; financials: TickerFinancials | null };
+  /** @deprecated Never rendered. Use `ctx.registerCommandBarSearchProvider`. */
+  "command:extra": { query: string };
+  /** @deprecated Never rendered. Use `ctx.registerCommand`. */
+  "command:preset": Record<string, never>;
+  "status:widget": Record<string, never>;
+  /** @deprecated Never rendered. Declare settings with `configSchema`. */
+  "config:section": Record<string, never>;
+  /** @deprecated Never called. Subscribe with `ctx.on("ticker:refreshed")`. */
+  "data:post-refresh": { ticker: string; financials: TickerFinancials };
+  /** @deprecated Never called. Contribute data with an `asset-data` capability. */
+  "data:enricher": { ticker: TickerRecord };
+}
+
+export interface PaneProps {
+  paneId: string;
+  paneType: string;
+  focused: boolean;
+  width: number;
+  height: number;
+  close?: () => void;
+}
+
+export type PaneSharePrivateFields = true | readonly string[];
+
+export interface PanePortableShareDef {
+  /** Fields excluded before pane configuration or state leaves the device. */
+  private?: {
+    title?: boolean;
+    params?: PaneSharePrivateFields;
+    settings?: PaneSharePrivateFields;
+    state?: PaneSharePrivateFields;
+  };
+  /**
+   * Rewrites the instance before it leaves the device. The receiver has none
+   * of the sender's local ticker records, so anything resolved through them
+   * (a listing's venue, for example) must be pinned into the instance here.
+   */
+  prepare?(pane: PaneInstanceConfig, context: { tickers: ReadonlyMap<string, TickerRecord> }): PaneInstanceConfig;
+}
+
+export interface PaneDef {
+  id: string;
+  name: string;
+  icon?: string;
+  component: (props: PaneProps) => ReactNode;
+  defaultPosition: "left" | "right";
+  defaultWidth?: string;
+  defaultFloatingSize?: { width: number; height: number };
+  defaultMode?: "docked" | "floating";
+  /** Pane publishes its selected symbol as pane-state `cursorSymbol`, so ticker panes can follow it. */
+  tickerSource?: boolean;
+  /** Renderer-neutral data model used by CLI functions, automation, and hosted tools. */
+  headless?: HeadlessPaneDefinition;
+  /** Add an Excel-compatible CSV action for the pane's single active DataTable. */
+  tableExport?: true;
+  settings?: PaneSettingsDef | ((context: PaneSettingsContext) => PaneSettingsDef | null);
+  /** Portable sharing is public by default; list the few pane-owned fields that must remain local. */
+  portableShare?: PanePortableShareDef;
+  /** Compact controls surfaced next to the pane title. Toggle keys reference toggle fields in settings. */
+  quickSettings?: readonly PaneQuickSettingDef[];
+}
+
+export interface PaneQuickSettingDef {
+  type: "toggle";
+  key: string;
+  icon: "zap";
+  label?: string;
+}
+
+export interface PaneSettingsContext {
+  config: AppConfig;
+  layout: LayoutConfig;
+  paneId: string;
+  paneType: string;
+  pane: PaneInstanceConfig;
+  settings: Record<string, unknown>;
+  paneState: Record<string, unknown>;
+  activeTicker: string | null;
+  activeCollectionId: string | null;
+}
+
+export interface PaneSettingOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+interface PaneSettingFieldBase {
+  key: string;
+  label: string;
+  description?: string;
+  storage?: "pane" | "plugin";
+  /** Keys in the same storage scope that should be reset when this value changes. */
+  clearOnChange?: string[];
+}
+
+interface PaneSettingToggleField extends PaneSettingFieldBase {
+  type: "toggle";
+}
+
+export interface PaneSettingTextField extends PaneSettingFieldBase {
+  type: "text";
+  placeholder?: string;
+}
+
+interface PaneSettingSelectField extends PaneSettingFieldBase {
+  type: "select";
+  options: PaneSettingOption[];
+}
+
+interface PaneSettingMultiSelectField extends PaneSettingFieldBase {
+  type: "multi-select";
+  options: PaneSettingOption[];
+}
+
+interface PaneSettingOrderedMultiSelectField extends PaneSettingFieldBase {
+  type: "ordered-multi-select";
+  options: PaneSettingOption[];
+}
+
+export interface PaneSettingActionContext extends PaneSettingsContext {
+  surface: "pane-dialog" | "command-bar";
+  close(): void;
+  openCommandBar(query?: string): void;
+  notify(notification: AppNotificationRequest): void;
+}
+
+export type PaneSettingActionHandler = (
+  context: PaneSettingActionContext,
+) => void | Promise<void>;
+
+export type PaneSettingActionField = Omit<PaneSettingFieldBase, "storage" | "clearOnChange"> & {
+  type: "action";
+  actionId: string;
+  actionLabel?: string;
+  disabled?: boolean;
+  action: PaneSettingActionHandler;
+};
+
+export type PaneSettingField =
+  | PaneSettingToggleField
+  | PaneSettingTextField
+  | PaneSettingSelectField
+  | PaneSettingMultiSelectField
+  | PaneSettingOrderedMultiSelectField
+  | PaneSettingActionField;
+
+export interface PaneSettingsDef {
+  title?: string;
+  values?: Record<string, unknown>;
+  fields: PaneSettingField[];
+  applyValue?: (
+    settings: Record<string, unknown>,
+    field: PaneSettingField,
+    value: unknown,
+    context: PaneSettingsContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+}
+
+export interface PaneTemplateContext {
+  config: AppConfig;
+  layout: LayoutConfig;
+  focusedPaneId: string | null;
+  activeTicker: string | null;
+  activeInstrument?: BrokerContractRef | null;
+  activeListing?: TickerListingRef;
+  activeCollectionId: string | null;
+}
+
+/** One value a shortcut argument accepts: `value` is typed after the prefix, `label` says what it is. */
+export interface ShortcutArgOption {
+  value: string;
+  label: string;
+}
+
+interface PaneTemplateShortcut {
+  prefix: string;
+  /** Other mnemonics for the same view (FFIP for WIRP). They open it when typed but are not listed as separate rows. */
+  aliases?: readonly string[];
+  argPlaceholder?: string;
+  argKind?: "text" | "ticker" | "ticker-list";
+  argOptional?: boolean;
+  /**
+   * With no argument typed and none to infer from the active ticker, open
+   * the pane without one instead of asking for it (ERN alone is the market
+   * board). Without it an optional argument still falls back to the form.
+   */
+  openWithoutArg?: boolean;
+  /**
+   * Named values the argument accepts, for an argument mostly drawn from a
+   * small set (a statistic, a futures root). The command-bar assistant picks
+   * from it instead of guessing the text; the command may accept others too.
+   */
+  argOptions?: () => readonly ShortcutArgOption[];
+}
+
+export interface PaneTemplateCreateOptions {
+  arg?: string;
+  values?: Record<string, string>;
+  symbol?: string | null;
+  symbols?: string[] | null;
+  ticker?: TickerRecord | null;
+  searchResult?: InstrumentSearchResult | null;
+  instrument?: BrokerContractRef | null;
+  listing?: TickerListingRef;
+  /** Template-owned, validated data restored from a public pane share. */
+  shareData?: unknown;
+}
+
+export interface PaneTemplateInstanceConfig {
+  instanceId?: string;
+  title?: string;
+  binding?: PaneBinding;
+  params?: Record<string, string>;
+  settings?: Record<string, unknown>;
+  placement?: "default" | "docked" | "floating";
+  relativeToPaneId?: string;
+  relativePosition?: "left" | "right" | "above" | "below";
+}
+
+export interface PaneTemplatePublicShareContext {
+  pane: PaneInstanceConfig;
+  paneState: Record<string, unknown>;
+}
+
+export interface PaneTemplatePublicShareSnapshot {
+  title: string;
+  description?: string;
+  data: Record<string, unknown>;
+}
+
+export interface PaneTemplatePublicShareDef {
+  serialize(context: PaneTemplatePublicShareContext): PaneTemplatePublicShareSnapshot | null;
+  restore(data: Record<string, unknown>): PaneTemplateCreateOptions | null;
+}
+
+export interface PaneTemplateDef {
+  id: string;
+  paneId: string;
+  label: string;
+  description: string;
+  keywords?: string[];
+  shortcut?: PaneTemplateShortcut;
+  /** Template-specific headless model. Takes precedence over the pane-level model. */
+  headless?: HeadlessPaneDefinition;
+  wizard?: WizardStep[];
+  canCreate?: (context: PaneTemplateContext, options?: PaneTemplateCreateOptions) => boolean;
+  createInstance?: (
+    context: PaneTemplateContext,
+    options?: PaneTemplateCreateOptions,
+  ) => PaneTemplateInstanceConfig | null | Promise<PaneTemplateInstanceConfig | null>;
+  /** Legacy v1 restoration or an explicit transformed snapshot; normal pane shares use portableShare. */
+  publicShare?: PaneTemplatePublicShareDef;
+}
+
+export interface WizardStep {
+  key: string;
+  label: string;
+  placeholder?: string;
+  defaultValue?: string;
+  required?: boolean;
+  type?: "text" | "password" | "info" | "select" | "number" | "textarea";
+  options?: Array<{ label: string; value: string }>;
+  dependsOn?: { key: string; value: string };
+  /** Later wizard values to clear when this selection changes from its default. */
+  clearOnChange?: string[];
+  body?: string[];
+}
+
+export interface CommandShortcutArgContext {
+  activeTicker: string | null;
+}
+
+interface CommandShortcutArgDef {
+  placeholder?: string;
+  kind?: "text" | "ticker" | "ticker-list";
+  parse?: (
+    arg: string,
+    context: CommandShortcutArgContext,
+  ) => Record<string, string>;
+}
+
+export interface CommandResultDef {
+  id: string;
+  label: string;
+  detail?: string;
+  category?: string;
+  right?: string;
+  keywords?: string[];
+  current?: boolean;
+  disabled?: boolean;
+  execute: () => void | Promise<void>;
+}
+
+export interface CommandBarResultLineSegment {
+  text: string;
+  emphasis?: "match" | "muted";
+}
+
+export interface CommandBarResultLine {
+  segments: CommandBarResultLineSegment[];
+}
+
+export interface CommandBarResultDef {
+  id: string;
+  label: string;
+  detail?: string;
+  /** Rendered under the label. Each entry is one additional row. */
+  lines?: CommandBarResultLine[];
+  category?: string;
+  /** Short tag drawn left of the label, e.g. a document type. Six characters at most. */
+  badge?: string;
+  right?: string;
+  keywords?: string[];
+  disabled?: boolean;
+  execute: () => void | Promise<void>;
+}
+
+export interface CommandBarSearchContext {
+  activeTicker: string | null;
+  activeCollectionId: string | null;
+}
+
+export interface CommandBarSearchProvider {
+  id: string;
+  /** Section heading for these rows, e.g. "Documents". */
+  category: string;
+  /** Sort position of the section. Higher sinks. Navigation sections are negative; use a positive value to sit below them. */
+  priority?: number;
+  /** Skip provide() below this length. Default 3. */
+  minQueryLength?: number;
+  /** Default 300. */
+  debounceMs?: number;
+  provide(
+    query: string,
+    context: CommandBarSearchContext,
+    signal: AbortSignal,
+  ): Promise<CommandBarResultDef[]>;
+}
+
+interface CliHelpColumn {
+  header: string;
+  align?: "left" | "right" | "center";
+  width?: number;
+}
+
+interface CliCommandHelpSection {
+  title: string;
+  columns?: CliHelpColumn[];
+  rows?: string[][];
+  lines?: string[];
+}
+
+interface CliCommandHelpOption {
+  /** Flag spelling with its value, e.g. `--range <range>`. */
+  flags: string;
+  description: string;
+}
+
+interface CliCommandHelp {
+  /** Heading `gloomberb help` lists the command under. Plugin commands without one share a plugin heading. */
+  group?: string;
+  /** Invocations without the leading `gloomberb`, e.g. `quote <symbol...>`. */
+  usage?: string[];
+  options?: CliCommandHelpOption[];
+  /** Complete invocations without the leading `gloomberb`. */
+  examples?: string[];
+  /** Extra blocks shown only in the command's own help (`gloomberb help <command>`). */
+  sections?: CliCommandHelpSection[];
+}
+
+interface CliLaunchEnvironment {
+  terminalWidth: number;
+  terminalHeight: number;
+}
+
+/**
+ * The resume state the app writes at exit and reads at startup. A plugin whose
+ * CLI command launches the UI seeds it so the pane opens on what was asked for
+ * rather than on what the last session left behind.
+ */
+export type { AppSessionSnapshot } from "../core/state/session-persistence";
+
+export interface CliLaunchConfigResult<TLaunchState = unknown> {
+  config: AppConfig;
+  launchState?: TLaunchState;
+}
+
+export interface CliLaunchRequest<TLaunchState = unknown> {
+  applyConfig(config: AppConfig, env: CliLaunchEnvironment): CliLaunchConfigResult<TLaunchState>;
+  applySessionSnapshot?(
+    config: AppConfig,
+    snapshot: import("../core/state/session-persistence").AppSessionSnapshot | null,
+    launchState: TLaunchState | undefined,
+  ): import("../core/state/session-persistence").AppSessionSnapshot;
+}
+
+export type CliDispatchResult =
+  | { kind: "handled" }
+  | { kind: "launch-ui"; request: CliLaunchRequest }
+  | { kind: "unhandled" };
+
+export interface CliCommandContext {
+  initConfigData(): Promise<import("../cli/types").ConfigContext>;
+  initMarketData(): Promise<import("../cli/types").MarketContext>;
+  initServices(): Promise<import("../cli/types").CliServicesContext>;
+  cliOptions: CliGlobalOptions;
+  plugins: GloomPlugin[];
+  fail(message: string, details?: string): never;
+  closeAndFail(
+    persistence: import("../data/app-persistence").AppPersistence,
+    message: string,
+    details?: string,
+  ): never;
+  output: {
+    cliStyles: typeof import("../utils/cli-output").cliStyles;
+    colorBySign: typeof import("../utils/cli-output").colorBySign;
+    renderSection: typeof import("../utils/cli-output").renderSection;
+    renderStat: typeof import("../utils/cli-output").renderStat;
+    renderStats: typeof import("../utils/cli-output").renderStats;
+    renderTable: typeof import("../utils/cli-output").renderTable;
+  };
+  printResult<T, Row extends Record<string, unknown> = Record<string, unknown>>(
+    result: CliResult<T>,
+    options?: CliResultRenderOptions<T, Row>,
+  ): void;
+  log: PluginLogger;
+}
+
+export interface CliCommandDef {
+  name: string;
+  aliases?: string[];
+  description: string;
+  help?: CliCommandHelp;
+  execute(args: string[], ctx: CliCommandContext): void | CliDispatchResult | Promise<void | CliDispatchResult>;
+}
+
+export interface CommandDef {
+  id: string;
+  label: string;
+  keywords: string[];
+  shortcut?: string;
+  shortcutArg?: CommandShortcutArgDef;
+  buildResults?: (arg: string) => CommandResultDef[];
+  execute: (values?: Record<string, string>) => void | Promise<void>;
+  category: "navigation" | "data" | "portfolio" | "config";
+  description?: string;
+  wizard?: WizardStep[];
+  confirm?: CommandConfirmDef | ((context: CommandConfirmContext) => CommandConfirmDef | null);
+  wizardLayout?: "steps" | "form";
+  hidden?: () => boolean;
+}
+
+interface CommandConfirmContext {
+  config: AppConfig;
+  layout: LayoutConfig;
+  activeTicker: string | null;
+  activeCollectionId: string | null;
+}
+
+interface CommandConfirmDef {
+  title: string;
+  body: string[];
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: "default" | "danger";
+}
+
+export interface CustomColumnDef extends ColumnConfig {
+  render: (ticker: TickerRecord, financials: TickerFinancials | null) => string;
+}
+
+export interface TickerResearchTabProps {
+  width: number;
+  height: number;
+  focused: boolean;
+  onCapture: (capturing: boolean) => void;
+}
+
+interface TickerResearchTabVisibilityContext {
+  config: AppConfig;
+  ticker: TickerRecord | null;
+  financials: TickerFinancials | null | undefined;
+  hasOptionsChain: boolean;
+  /** Resolved from the quote, broker contract and saved type; `equity` when nothing says otherwise. */
+  instrumentKind: TickerInstrumentKind;
+}
+
+export interface TickerResearchTabDef {
+  id: string;
+  name: string;
+  order: number;
+  component: (props: TickerResearchTabProps) => ReactNode;
+  /**
+   * Instrument kinds this tab has data for, such as `["equity"]` for company
+   * filings. Omit when every ticker has it (chart, news, notes).
+   */
+  instruments?: readonly TickerInstrumentKind[];
+  /** Narrower checks than `instruments`: a US listing, an options chain, a connected broker. */
+  isVisible?: (context: TickerResearchTabVisibilityContext) => boolean;
+}
+
+export interface KeyboardShortcut {
+  id: string;
+  key: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  description: string;
+  execute: () => void;
+}
+
+export interface TickerAction {
+  id: string;
+  label: string;
+  keywords: string[];
+  filter?: (ticker: TickerRecord) => boolean;
+  execute: (ticker: TickerRecord, financials: TickerFinancials | null) => void | Promise<void>;
+}
+
+export interface ContextMenuProviderDef {
+  id: string;
+  order?: number;
+  contexts?: ContextMenuContext["kind"][];
+  getItems(context: ContextMenuContext): ContextMenuItem[] | null | undefined;
+}
+
+export interface PluginPersistence {
+  getState<T = unknown>(key: string, options?: { schemaVersion?: number }): T | null;
+  setState(key: string, value: unknown, options?: { schemaVersion?: number }): void;
+  deleteState(key: string): void;
+  getResource<T = unknown>(
+    kind: string,
+    key: string,
+    options?: { sourceKey?: string; schemaVersion?: number; allowExpired?: boolean },
+  ): PersistedResourceValue<T> | null;
+  setResource<T = unknown>(
+    kind: string,
+    key: string,
+    value: T,
+    options: {
+      cachePolicy: CachePolicy;
+      sourceKey?: string;
+      schemaVersion?: number;
+      provenance?: unknown;
+    },
+  ): PersistedResourceValue<T>;
+  deleteResource(kind: string, key: string, options?: { sourceKey?: string }): void;
+}
+
+export interface PluginResumeState {
+  getState<T = unknown>(key: string, options?: { schemaVersion?: number }): T | null;
+  setState(key: string, value: unknown, options?: { schemaVersion?: number }): void;
+  deleteState(key: string): void;
+  getPaneState<T = unknown>(paneId: string, key: string): T | null;
+  setPaneState(paneId: string, key: string, value: unknown): void;
+  deletePaneState(paneId: string, key: string): void;
+}
+
+export interface PluginConfigState {
+  get<T = unknown>(key: string): T | null;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<void>;
+  keys(): string[];
+}
+
+export interface PluginTeamStateEntry<T> {
+  value: T;
+  revision: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/**
+ * Plugin-owned data shared with a team, keyed per plugin. Writes take the
+ * revision they expect and fail when a teammate wrote first, so nothing is
+ * overwritten silently. Scoped to the active team unless a teamId is given.
+ */
+export interface PluginTeamState {
+  activeTeamId(): string | null;
+  get<T>(key: string, options?: { teamId?: string }): Promise<PluginTeamStateEntry<T> | null>;
+  list<T>(options?: { teamId?: string }): Promise<Array<PluginTeamStateEntry<T> & { key: string }>>;
+  set<T>(key: string, value: T, options?: { teamId?: string; expectRevision?: number }): Promise<{ revision: number }>;
+  delete(key: string, options?: { teamId?: string }): Promise<void>;
+  subscribe<T>(
+    key: string,
+    listener: (entry: PluginTeamStateEntry<T> | null) => void,
+    options?: { teamId?: string },
+  ): () => void;
+}
+
+export interface PluginPaneSettingsState {
+  get<T = unknown>(paneId: string, key: string): T | null;
+  set(paneId: string, key: string, value: unknown): Promise<void>;
+  delete(paneId: string, key: string): Promise<void>;
+}
+
+export type AppNotificationType = "info" | "success" | "error";
+type AppDesktopNotificationMode = "never" | "when-inactive" | "always";
+
+export interface AppNotificationDelivery {
+  toastVisible: boolean;
+  desktopRequested: boolean;
+}
+
+export interface AppNotificationRequest {
+  title?: string;
+  body: string;
+  subtitle?: string;
+  duration?: number;
+  type?: AppNotificationType;
+  toast?: boolean;
+  /** If true, in-app toast stays visible until user dismisses it */
+  persistent?: boolean;
+  desktop?: AppDesktopNotificationMode;
+  /** macOS sound name (e.g., "Glass", "Ping", "Hero"). Ignored on other platforms. */
+  sound?: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+  /** Rendered next to `action`. Use for a dismissing counterpart such as snooze. */
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+export interface BrokerInstanceUpdateOptions {
+  label?: string;
+  enabled?: boolean;
+  replaceConfig?: boolean;
+}
+
+export interface PinTickerOptions {
+  floating?: boolean;
+  paneType?: string;
+  forceNewPane?: boolean;
+  /** Preserve a contract explicitly selected from instrument search. */
+  instrument?: BrokerContractRef | null;
+  listing?: TickerListingRef;
+  /** Select this research tab once the requested ticker has resolved. */
+  tabId?: string;
+}
+
+export interface GloomPluginContext {
+  registerPane(pane: PaneDef): void;
+  /** Returns a disposer; templates added after setup (team views) use it. */
+  registerPaneTemplate(template: PaneTemplateDef): () => void;
+  registerCommand(command: CommandDef): void;
+  registerCommandBarSearchProvider(provider: CommandBarSearchProvider): () => void;
+  registerColumn(column: CustomColumnDef): void;
+  registerBroker(broker: BrokerAdapter): void;
+  registerCapability(capability: PluginCapability): void;
+  registerTickerResearchTab(tab: TickerResearchTabDef): void;
+  registerShortcut(shortcut: KeyboardShortcut): void;
+  registerTickerAction(action: TickerAction): void;
+  registerContextMenuProvider(provider: ContextMenuProviderDef): void;
+  registerSyncContributor(contributor: SyncContributor): () => void;
+  registerSyncTransport(transport: SyncTransport): () => void;
+  watchNewsQuery?(
+    query: import("./news-source").NewsQuery,
+    listener: (state: import("./news-source").NewsQueryState) => void,
+  ): () => void;
+
+  getData(ticker: string): TickerFinancials | null;
+  getTicker(ticker: string): TickerRecord | null;
+  getConfig(): import("./config").AppConfig;
+  getPaneDef(paneId: string): PaneDef | undefined;
+
+  readonly marketData: DataProvider;
+  readonly connectionHealth: ConnectionHealthRegistry;
+  readonly tickerRepository: AppTickerRepositoryPort;
+  readonly persistence: PluginPersistence;
+  readonly log: PluginLogger;
+  readonly resume: PluginResumeState;
+  readonly configState: PluginConfigState;
+  readonly paneSettings: PluginPaneSettingsState;
+  readonly teamState: PluginTeamState;
+
+  createBrokerInstance(brokerType: string, label: string, values: Record<string, unknown>): Promise<BrokerInstanceConfig>;
+  updateBrokerInstance(instanceId: string, values: Record<string, unknown>, options?: BrokerInstanceUpdateOptions): Promise<void>;
+  syncBrokerInstance(instanceId: string): Promise<void>;
+  removeBrokerInstance(instanceId: string): Promise<void>;
+
+  selectTicker(symbol: string, paneId?: string): void;
+  switchPanel(panel: "left" | "right"): void;
+  switchTab(tabId: string, paneId?: string): void;
+  openCommandBar(query?: string): void;
+  showPane(paneId: string): void;
+  createPaneFromTemplate(templateId: string, options?: PaneTemplateCreateOptions): void;
+  hidePane(paneId: string): void;
+  focusPane(paneId: string): void;
+  pinTicker(symbol: string, options?: PinTickerOptions): void;
+  navigateTicker(symbol: string, options?: { sourcePaneId?: string | null }): void;
+  openPaneSettings(paneId?: string): void;
+  /** Copies a live share link for a pane instance (the focused pane when omitted). */
+  sharePane(paneId?: string): void;
+
+  on<K extends keyof PluginEvents>(event: K, handler: (payload: PluginEvents[K]) => void): () => void;
+  emit<K extends keyof PluginEvents>(event: K, payload: PluginEvents[K]): void;
+
+  notify(notification: AppNotificationRequest): AppNotificationDelivery | void;
+}
+
+/**
+ * Where a plugin can actually run.
+ *
+ * `cli` and `tui` run in Bun and may use Node APIs. `desktop` runs in the
+ * Electrobun view. `web` runs in the browser at term.gloom.sh, which rules out
+ * Node builtins entirely — a plugin opening a TCP socket (IBKR Gateway) can
+ * never be web-capable, no matter what it declares.
+ *
+ * Plugins may declare this, but the registry derives it from a static import
+ * scan and overwrites the declaration. Treat an author-supplied value as a hint.
+ */
+export type PluginTarget = "cli" | "tui" | "desktop" | "web";
+
+export const ALL_PLUGIN_TARGETS: readonly PluginTarget[] = ["cli", "tui", "desktop", "web"];
+
+/**
+ * One setting a plugin needs from the user before it is useful, such as an API
+ * key. Values are stored in the plugin's `configState` under `key`.
+ */
+export interface PluginConfigField {
+  key: string;
+  label: string;
+  type?: "text" | "password" | "number" | "select";
+  /** Shown under the field. Say where to get the value, not what the plugin does. */
+  description?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  /** The plugin counts as "needs setup" while a required field is empty. Default true. */
+  required?: boolean;
+  options?: Array<{ label: string; value: string }>;
+}
+
+export interface GloomPlugin {
+  id: string;
+  /**
+   * Where this plugin's saved state lives: its `pluginConfig` entry, its resume
+   * state, and the per-pane state its panes write. Defaults to `id`.
+   *
+   * Set it when a plugin is renamed, or moves out of this repository under a
+   * new id, so the threads, tabs, and defaults a user already has stay theirs.
+   * Everything else (the toggle, the marketplace, seeding) keys off `id`.
+   */
+  stateId?: string;
+  name: string;
+  version: string;
+  description?: string;
+  toggleable?: boolean;
+  order?: number;
+  cliCommands?: CliCommandDef[];
+  /** Defaults to every target when omitted. */
+  targets?: readonly PluginTarget[];
+  /**
+   * Third-party hosts the plugin fetches from, as bare domains
+   * (`"api.example.com"`; a parent domain also covers its subdomains).
+   *
+   * Terminal and desktop reach anything, so this is informational there and
+   * is what the plugin directory shows under "Network access". On the web the
+   * browser cannot call a host that sends no CORS headers, so the hosted app
+   * proxies exactly the hosts the bundled plugins declare here and refuses
+   * the rest. A plugin that leaves a host out works on the desktop and fails
+   * on the web.
+   *
+   * Hosts reached on the plugin's behalf count too: `YahooHttpClient` collects
+   * a cookie from `fc.yahoo.com` before any screener call, so a plugin using it
+   * declares that host even though its own code never names it.
+   */
+  hosts?: readonly string[];
+  /** Shown in the marketplace pane and on the website. */
+  homepage?: string;
+  /**
+   * Settings the plugin cannot work without. Declaring them gives the plugin a
+   * "Set up <name>" command, a form the marketplace opens from its `s` key, and
+   * a `needs setup` status until every required field has a value. Read the
+   * values back with `ctx.configState.get(key)`.
+   */
+  configSchema?: PluginConfigField[];
+  /**
+   * Overrides the default readiness rule (every required `configSchema` field
+   * has a value) for plugins whose setup is not a plain form, such as a broker
+   * login or a file that must exist.
+   */
+  isConfigured?(values: Record<string, unknown>): boolean;
+
+  setup?(ctx: GloomPluginContext): void | Promise<void>;
+  dispose?(): void;
+
+  panes?: PaneDef[];
+  paneTemplates?: PaneTemplateDef[];
+  broker?: BrokerAdapter;
+  capabilities?: PluginCapability[];
+  slots?: Partial<{
+    [K in keyof GloomSlots]: (props: GloomSlots[K]) => ReactNode;
+  }>;
+}

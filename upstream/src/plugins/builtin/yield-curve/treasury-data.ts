@@ -1,0 +1,71 @@
+import { apiClient } from "../../../api-client";
+
+export interface YieldPoint {
+  maturity: string;      // "1M", "3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"
+  maturityYears: number; // 0.083, 0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30
+  yield: number | null;  // percent, e.g., 4.29
+  asOf?: string | null;  // FRED observation date, absent on older servers
+  stale?: boolean;
+  fetchedAt?: string;
+  error?: string;
+}
+
+export function isYieldObservationDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+export function yieldCurveErrors(points: readonly YieldPoint[]): string[] {
+  return points.flatMap((point) => point.error ? [`${point.maturity}: ${point.error}`] : []);
+}
+
+export const TREASURY_MATURITIES: Array<{ maturity: string; years: number; seriesId: string }> = [
+  { maturity: "1M",  years: 1/12,  seriesId: "DGS1MO" },
+  { maturity: "3M",  years: 0.25,  seriesId: "DGS3MO" },
+  { maturity: "6M",  years: 0.5,   seriesId: "DGS6MO" },
+  { maturity: "1Y",  years: 1,     seriesId: "DGS1" },
+  { maturity: "2Y",  years: 2,     seriesId: "DGS2" },
+  { maturity: "3Y",  years: 3,     seriesId: "DGS3" },
+  { maturity: "5Y",  years: 5,     seriesId: "DGS5" },
+  { maturity: "7Y",  years: 7,     seriesId: "DGS7" },
+  { maturity: "10Y", years: 10,    seriesId: "DGS10" },
+  { maturity: "20Y", years: 20,    seriesId: "DGS20" },
+  { maturity: "30Y", years: 30,    seriesId: "DGS30" },
+];
+
+export type YieldCurveLoader = () => Promise<YieldPoint[]>;
+
+export async function loadYieldCurve(
+  loader: YieldCurveLoader = () => apiClient.getCloudYieldCurve(),
+): Promise<YieldPoint[]> {
+  return loader();
+}
+
+/**
+ * A curve has one as-of date only when all its available tenors agree.
+ */
+export function curveAsOf(points: readonly YieldPoint[]): string | null {
+  const available = points.filter((point) => point.yield != null && Number.isFinite(point.yield));
+  const date = available[0]?.asOf;
+  return isYieldObservationDate(date) && available.every((point) => point.asOf === date) ? date : null;
+}
+
+/** The long tenor's yield minus the short one's, in percentage points, only when both come from one session. */
+export function curveSpread(points: readonly YieldPoint[] | null | undefined, short: string, long: string): number | null {
+  const near = points?.find((point) => point.maturity === short);
+  const far = points?.find((point) => point.maturity === long);
+  if (near?.yield == null || far?.yield == null || !Number.isFinite(near.yield) || !Number.isFinite(far.yield)
+    || !isYieldObservationDate(near.asOf) || near.asOf !== far.asOf) return null;
+  return far.yield - near.yield;
+}
+
+export function spreadBasisPoints(points: readonly YieldPoint[], short = "2Y", long = "10Y"): number | null {
+  const spread = curveSpread(points, short, long);
+  return spread == null ? null : Math.round(spread * 100);
+}
+
+export function isInverted(points: readonly YieldPoint[]): boolean | null {
+  const spread = spreadBasisPoints(points);
+  return spread == null ? null : spread < 0;
+}

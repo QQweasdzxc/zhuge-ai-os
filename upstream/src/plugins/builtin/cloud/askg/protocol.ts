@@ -1,0 +1,292 @@
+// Wire declarations must match the Gloom Cloud /askg API.
+import type {
+  HeadlessPaneArgumentDef,
+  HeadlessPaneColumn,
+  HeadlessPaneOptionDef,
+  HeadlessPaneShape,
+} from "../../../../types/headless";
+import type {
+  RemoteJsonSchema,
+  RemoteWriteTier,
+} from "../../../../remote/types";
+
+/** Major version of the ASKG client and server wire contract. */
+export const ASKG_PROTOCOL_VERSION = 1;
+
+/** Maximum accepted JSON-encoded client tool result size. */
+export const MAX_TOOL_RESULT_BYTES = 262_144;
+
+/** Source form for valid tool names advertised to ASKG. */
+export const TOOL_NAME_PATTERN = "^[a-z0-9][a-z0-9_.]{0,47}$";
+
+/** JSON value accepted on the ASKG wire. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+/** Safety tier applied before a client tool is executed. */
+export type WriteTier = RemoteWriteTier;
+
+/** Runtime that opened an ASKG session. */
+export type ASKGClientKind = "tui" | "desktop" | "web";
+
+/** Origin of an advertised client tool. */
+/**
+ * Origin of a tool. This client only ever advertises "headless" and
+ * "remote-op"; "server" describes the tools the platform runs itself and
+ * reports back in `serverTools`, so a session response can describe its whole
+ * tool surface.
+ */
+export type ToolManifestSource = "headless" | "remote-op" | "server";
+
+/** The subset this client is allowed to advertise at session start. */
+export type ClientToolManifestSource = Exclude<ToolManifestSource, "server">;
+
+/** Headless result shapes supported by the tool timeline. */
+export type ToolManifestShape = HeadlessPaneShape;
+
+/** Serializable headless argument declaration. */
+export type ToolManifestArgument = HeadlessPaneArgumentDef;
+
+/** Serializable headless option declaration. */
+export type ToolManifestOption = Omit<HeadlessPaneOptionDef, "settingKey" | "pluginState">;
+
+/** Serializable headless column declaration. */
+export type ToolManifestColumn = Omit<HeadlessPaneColumn, "format">;
+
+/** JSON Schema accepted by a remote operation tool. */
+export type ToolInputSchema = RemoteJsonSchema;
+
+/** Client or server tool metadata negotiated when a session starts. */
+export type ClientToolManifest = ToolManifest & { source: ClientToolManifestSource };
+
+export interface ToolManifest {
+  /** Lowercase stable identifier matching TOOL_NAME_PATTERN. */
+  name: string;
+  source: ToolManifestSource;
+  title: string;
+  description: string;
+  writeTier: WriteTier;
+  shape?: ToolManifestShape;
+  argument?: ToolManifestArgument;
+  options?: ToolManifestOption[];
+  columns?: ToolManifestColumn[];
+  inputSchema?: ToolInputSchema;
+  confirm: "never" | "always";
+  timeoutMs: number;
+}
+
+/** Client identity included in a session negotiation. */
+export interface ASKGClientDescriptor {
+  kind: ASKGClientKind;
+  version: string;
+}
+
+/** Terminal context supplied to the model at session start. */
+export interface ASKGSessionContext {
+  query?: string;
+  symbol?: string;
+  paneId?: string;
+  layout?: JsonValue;
+}
+
+/** Request used to negotiate tools and limits for an ASKG session. */
+export interface ASKGSessionStartRequest {
+  protocolVersion: typeof ASKG_PROTOCOL_VERSION;
+  client: ASKGClientDescriptor;
+  context: ASKGSessionContext;
+  /** A client may only advertise tools it executes itself. */
+  tools: ClientToolManifest[];
+  manifestHash: string;
+}
+
+/** Per-user and per-turn limits returned by the platform. */
+export interface ASKGLimits {
+  requestsPerMinute: number;
+  turnsPerDay: number;
+  turnsRemainingToday: number;
+  maxToolCallsPerTurn: number;
+  turnWallClockMs: number;
+  clientToolTimeoutMs: number;
+}
+
+/** Client tool rejected during session negotiation. */
+export interface ASKGRejectedTool {
+  name: string;
+  reason: string;
+}
+
+/** Successful ASKG session negotiation response. */
+export interface ASKGSessionStartResponse {
+  protocolVersion: typeof ASKG_PROTOCOL_VERSION;
+  sessionId: string;
+  manifestHash: string;
+  serverTools: ToolManifest[];
+  acceptedTools: string[];
+  rejectedTools: ASKGRejectedTool[];
+  limits: ASKGLimits;
+  tier: string;
+  model: string;
+  promptVersion: string;
+  expiresAt: string;
+}
+
+/** Request body for one turn on an open session. */
+export interface ASKGTurnRequest {
+  protocolVersion?: typeof ASKG_PROTOCOL_VERSION;
+  /** Client generated id, reused verbatim to re-attach to a running turn. */
+  turnId: string;
+  /** Omitted to start a conversation; the stream reports the one it opened. */
+  conversationId?: string;
+  input: string;
+  context?: ASKGSessionContext;
+  /**
+   * Only read for a turn that named no conversation. The platform stores the
+   * transcript, so once there is one it is the context, and two clients on one
+   * conversation cannot disagree about what was said.
+   */
+  history?: Array<{ role: "user" | "assistant"; text: string }>;
+}
+
+/** Shared fields carried by every turn stream event. */
+export interface ASKGEventBase {
+  seq: number;
+}
+
+/** Announces the session and turn attached to this stream. */
+export interface ASKGSessionEvent extends ASKGEventBase {
+  type: "session";
+  sessionId: string;
+  turnId: string;
+  model: string;
+  promptVersion: string;
+  /** The stored conversation this turn was recorded in. */
+  conversationId?: string;
+}
+
+/** Appends model text to the visible answer. */
+export interface ASKGTextDeltaEvent extends ASKGEventBase {
+  type: "text-delta";
+  turnId: string;
+  delta: string;
+}
+
+/** Delegates one negotiated tool call to the client. */
+export interface ASKGToolCallEvent extends ASKGEventBase {
+  type: "tool-call";
+  turnId: string;
+  toolCallId: string;
+  name: string;
+  args: Record<string, JsonValue>;
+  writeTier: WriteTier;
+  requiresConfirmation: boolean;
+  preview: JsonValue;
+  timeoutMs: number;
+  expiresAt: string;
+}
+
+/** Compact result information suitable for the tool timeline. */
+export interface ToolExecutionSummary {
+  rowCount?: number;
+  elapsedMs: number;
+  truncated: boolean;
+  note?: string;
+  sample?: JsonValue;
+}
+
+/** Status returned by either a server or client tool execution. */
+export type ToolResultStatus =
+  | "ok"
+  | "error"
+  | "denied"
+  | "timeout"
+  | "partial"
+  | "cancelled";
+
+/** Reports a completed server tool or an accepted client execution. */
+export interface ASKGToolExecutedEvent extends ASKGEventBase {
+  type: "tool-executed";
+  turnId: string;
+  toolCallId: string;
+  name: string;
+  source: ToolManifestSource;
+  status: ToolResultStatus;
+  summary: ToolExecutionSummary;
+}
+
+/** Confirms that one client tool result was accepted by the turn loop. */
+export interface ASKGToolResultAckEvent extends ASKGEventBase {
+  type: "tool-result-ack";
+  turnId: string;
+  toolCallId: string;
+}
+
+/** Stable error codes that clients can handle without parsing text. */
+export type ASKGErrorCode =
+  | "rate_limited"
+  | "daily_turn_cap"
+  | "tool_budget_exhausted"
+  | "turn_timeout"
+  | "model_usage_limit"
+  | "model_unavailable"
+  | "turn_already_recorded"
+  | "internal";
+
+/** Reports a recoverable or terminal session or turn failure. */
+export interface ASKGErrorEvent extends ASKGEventBase {
+  type: "error";
+  turnId?: string;
+  code: ASKGErrorCode;
+  message: string;
+  retryable: boolean;
+  retryAfterMs?: number;
+}
+
+/** Token accounting emitted when the model provider supplies it. */
+export interface ASKGUsageEvent extends ASKGEventBase {
+  type: "usage";
+  turnId: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimated: boolean;
+}
+
+/** Reason a turn stream stopped. */
+export type ASKGDoneReason = "complete" | "cancelled" | "error" | "timeout";
+
+/** Terminates a turn stream. */
+export interface ASKGDoneEvent extends ASKGEventBase {
+  type: "done";
+  turnId: string;
+  reason: ASKGDoneReason;
+}
+
+/** Event payloads emitted over the ASKG turn SSE stream. */
+export type ASKGSseEvent =
+  | ASKGSessionEvent
+  | ASKGTextDeltaEvent
+  | ASKGToolCallEvent
+  | ASKGToolExecutedEvent
+  | ASKGToolResultAckEvent
+  | ASKGErrorEvent
+  | ASKGUsageEvent
+  | ASKGDoneEvent;
+
+/** Client result posted for one delegated tool call. */
+export interface ToolResultPayload {
+  turnId: string;
+  toolCallId: string;
+  status: ToolResultStatus;
+  result?: JsonValue;
+  rowCount?: number;
+  truncated: boolean;
+  elapsedMs: number;
+  note?: string;
+  rev?: string;
+  undoToken?: string;
+}

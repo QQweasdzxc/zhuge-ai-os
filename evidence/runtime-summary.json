@@ -1,0 +1,134 @@
+{
+  "capturedAt": "2026-10-01T00:56:44.790Z",
+  "summaries": [
+    {
+      "symbol": "2330.TW",
+      "quote": "PASS",
+      "price": 2480,
+      "dataTimestamp": "2026-09-30",
+      "history": "PASS",
+      "bars": 41,
+      "profile": "PASS",
+      "revenue": "PASS",
+      "income": "PASS",
+      "balance": "PASS",
+      "holders": "PASS",
+      "bands": 17,
+      "futures": "PASS",
+      "options": "PARTIAL",
+      "radar": [
+        {
+          "id": "dram-nand",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "sox",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "oil",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "copper",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "scfi",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        }
+      ]
+    },
+    {
+      "symbol": "0050.TW",
+      "quote": "PASS",
+      "price": 112.05,
+      "dataTimestamp": "2026-09-30",
+      "history": "PASS",
+      "bars": 41,
+      "profile": "PARTIAL",
+      "revenue": "NOT_CONNECTED",
+      "income": "NOT_CONNECTED",
+      "balance": "NOT_CONNECTED",
+      "holders": "PASS",
+      "bands": 17,
+      "futures": "PASS",
+      "options": "PARTIAL",
+      "radar": [
+        {
+          "id": "dram-nand",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "sox",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "oil",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "copper",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "scfi",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        }
+      ]
+    },
+    {
+      "symbol": "6488.TWO",
+      "quote": "PASS",
+      "price": 1035,
+      "dataTimestamp": "2026-09-30",
+      "history": "NOT_CONNECTED",
+      "bars": 0,
+      "profile": "PASS",
+      "revenue": "PASS",
+      "income": "PASS",
+      "balance": "PASS",
+      "holders": "PASS",
+      "bands": 17,
+      "futures": "PASS",
+      "options": "PARTIAL",
+      "radar": [
+        {
+          "id": "dram-nand",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "sox",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        },
+        {
+          "id": "oil",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "copper",
+          "status": "PASS",
+          "date": "2026-08"
+        },
+        {
+          "id": "scfi",
+          "status": "PROVIDER_REVIEW_REQUIRED",
+          "date": null
+        }
+      ]
+    }
+  ]
+}

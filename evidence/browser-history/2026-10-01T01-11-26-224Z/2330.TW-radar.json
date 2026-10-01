@@ -1,0 +1,318 @@
+{
+  "ok": true,
+  "data": {
+    "kind": "pane-screenshot",
+    "target": "TW",
+    "capability": {
+      "id": "taiwan-research-pane",
+      "botSafe": true,
+      "outputKind": "bundle",
+      "reportReadiness": "ready",
+      "screenshotReadiness": "live-dom"
+    },
+    "symbols": [
+      "2330.TW"
+    ],
+    "options": {
+      "view": "radar"
+    },
+    "rowCount": 47,
+    "empty": false,
+    "complete": true,
+    "unavailableSymbols": [],
+    "semanticMismatch": false,
+    "usable": true,
+    "unusableReason": null,
+    "dataEvidence": null,
+    "outputPath": "/Users/qq/Documents/Zhuge Investment Intelligence Lab/screenshots/2330.TW-radar.png",
+    "render": {
+      "visibleText": "台灣研究 2330.TW 總覽 日行情 營運 籌碼 產業 衍生 來源與缺口 價格 TWD 2,480 2026-09-30 漲跌 5 0.2% DRAM / NAND 狀態 PROVIDER_REVIEW_REQUIRED 資料時間 未提供 讀取時間 未提供 Provider TrendForce / DRAMeXchange 來源 https://www.dramexchange.com/ 時效 未取得 Attribution TrendForce / DRAMeXchange License 未確認自動化／再散布授權；REFERENCE_ONLY Error code SOURCE_AUDIT_REQUIRES_REVIEW 說明 公開報價不等於可自動抓取與再散布；本輪不呼叫、不模擬。 對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。 Confidence 未評估；是證據支持程度，不是報酬機率 SEMICONDUCTOR / SOX 狀態 PROVIDER_REVIEW_REQUIRED 資料時間 未提供 讀取時間 未提供 Provider Nasdaq 來源 https://indexes.nasdaqomx.com/Index/Overview/SOX 時效 未取得 Attribution Nasdaq License 未確認自動化／再散布授權；REFERENCE_ONLY Error code SOURCE_AUDIT_REQUIRES_REVIEW 說明 指數授權與機器介面待確認；不拿 ETF 或費半概念分數代替 SOX。 對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。 Confidence 未評估；是證據支持程度，不是報酬機率 WTI / BRENT OIL 狀態 UNAVAILABLE 資料時間 未提供 讀取時間 2026-10-01T01:11:17.284Z Provider World Bank Pink Sheet 來源 https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx 時效 未取得 Attribution World Bank, Commodity Price Data (Pink Sheet); Zhuge 計算月對月變化；非 World Bank 背書。 License CC BY 4.0；資料集授權：https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections Error code WORKBOOK_SCHEMA_CHANGED 說明 官方月均價，次月第 2 個工作日發布；不是今日行情。下載檔固定 audit revision，失效時回報 unavailable，不改抓未審核來源。 對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。 Confidence 未評估；是證據支持程度，不是報酬機率 COPPER 狀態 UNAVAILABLE 資料時間 未提供 讀取時間 2026-10-01T01:11:17.284Z Provider World Bank Pink Sheet 來源 https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx 時效 未取得 Attribution World Bank, Commodity Price Data (Pink Sheet); Zhuge 計算月對月變化；非 World Bank 背書。 License CC BY 4.0；資料集授權：https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections Error code WORKBOOK_SCHEMA_CHANGED 說明 官方月均價，次月第 2 個工作日發布；不是今日行情。下載檔固定 audit revision，失效時回報 unavailable，不改抓未審核來源。 對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。 Confidence 未評估；是證據支持程度，不是報酬機率 SCFI 狀態 PROVIDER_REVIEW_REQUIRED 資料時間 未提供 讀取時間 未提供 Provider Shanghai Shipping Exchange 來源 https://en.sse.net.cn/indices/scfinew.jsp 時效 未取得 Attribution Shanghai Shipping Exchange License 未確認自動化／再散布授權；REFERENCE_ONLY Error code SOURCE_AUDIT_REQUIRES_REVIEW 說明 官方週指數公開頁；自動化／資料再散布授權待確認，不與 SCFIS 混用。 對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。 Confidence 未評估；是證據支持程度，不是報酬機率",
+      "visibleKeyValues": [
+        {
+          "label": "價格 TWD",
+          "text": "價格 TWD 2,480 2026-09-30"
+        },
+        {
+          "label": "漲跌",
+          "text": "漲跌 5 0.2%"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PROVIDER_REVIEW_REQUIRED"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 未提供"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider TrendForce / DRAMeXchange"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://www.dramexchange.com/"
+        },
+        {
+          "label": "時效",
+          "text": "時效 未取得"
+        },
+        {
+          "label": "Attribution",
+          "text": "Attribution TrendForce / DRAMeXchange"
+        },
+        {
+          "label": "License",
+          "text": "License 未確認自動化／再散布授權；REFERENCE_ONLY"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code SOURCE_AUDIT_REQUIRES_REVIEW"
+        },
+        {
+          "label": "說明",
+          "text": "說明 公開報價不等於可自動抓取與再散布；本輪不呼叫、不模擬。"
+        },
+        {
+          "label": "對此標的",
+          "text": "對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。"
+        },
+        {
+          "label": "Confidence",
+          "text": "Confidence 未評估；是證據支持程度，不是報酬機率"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 PROVIDER_REVIEW_REQUIRED"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 未提供"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider Nasdaq"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://indexes.nasdaqomx.com/Index/Overview/SOX"
+        },
+        {
+          "label": "時效",
+          "text": "時效 未取得"
+        },
+        {
+          "label": "Attribution",
+          "text": "Attribution Nasdaq"
+        },
+        {
+          "label": "License",
+          "text": "License 未確認自動化／再散布授權；REFERENCE_ONLY"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code SOURCE_AUDIT_REQUIRES_REVIEW"
+        },
+        {
+          "label": "說明",
+          "text": "說明 指數授權與機器介面待確認；不拿 ETF 或費半概念分數代替 SOX。"
+        },
+        {
+          "label": "對此標的",
+          "text": "對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。"
+        },
+        {
+          "label": "Confidence",
+          "text": "Confidence 未評估；是證據支持程度，不是報酬機率"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 UNAVAILABLE"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:11:17.284Z"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider World Bank Pink Sheet"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx"
+        },
+        {
+          "label": "時效",
+          "text": "時效 未取得"
+        },
+        {
+          "label": "Attribution",
+          "text": "Attribution World Bank, Commodity Price Data (Pink Sheet); Zhuge 計算月對月變化；非 World Bank 背書。"
+        },
+        {
+          "label": "License",
+          "text": "License CC BY 4.0；資料集授權：https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code WORKBOOK_SCHEMA_CHANGED"
+        },
+        {
+          "label": "說明",
+          "text": "說明 官方月均價，次月第 2 個工作日發布；不是今日行情。下載檔固定 audit revision，失效時回報 unavailable，不改抓未審核來源。"
+        },
+        {
+          "label": "對此標的",
+          "text": "對此標的 資料／公司曝險還不夠，暫不判定有利或不利。價格上漲不等於公司獲利上升，更不等於股價必漲。"
+        },
+        {
+          "label": "Confidence",
+          "text": "Confidence 未評估；是證據支持程度，不是報酬機率"
+        },
+        {
+          "label": "狀態",
+          "text": "狀態 UNAVAILABLE"
+        },
+        {
+          "label": "資料時間",
+          "text": "資料時間 未提供"
+        },
+        {
+          "label": "讀取時間",
+          "text": "讀取時間 2026-10-01T01:11:17.284Z"
+        },
+        {
+          "label": "Provider",
+          "text": "Provider World Bank Pink Sheet"
+        },
+        {
+          "label": "來源",
+          "text": "來源 https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx"
+        },
+        {
+          "label": "時效",
+          "text": "時效 未取得"
+        },
+        {
+          "label": "Attribution",
+          "text": "Attribution World Bank, Commodity Price Data (Pink Sheet); Zhuge 計算月對月變化；非 World Bank 背書。"
+        },
+        {
+          "label": "License",
+          "text": "License CC BY 4.0；資料集授權：https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections"
+        },
+        {
+          "label": "Error code",
+          "text": "Error code WORKBOOK_SCHEMA_CHANGED"
+        }
+      ],
+      "rows": [],
+      "truncated": true,
+      "truncationReasons": [
+        "rows extend below the rendered viewport"
+      ],
+      "loadingStateDetected": false,
+      "errorStateDetected": false,
+      "errorStateMarkers": [],
+      "emptyStateDetected": false,
+      "emptyStateMarkers": [],
+      "semanticUi": [
+        {
+          "id": "ui:1",
+          "role": "button",
+          "label": "Close pane",
+          "disabled": false,
+          "actions": [
+            "press"
+          ],
+          "metadata": {
+            "icon": "close"
+          }
+        },
+        {
+          "id": "ui:3",
+          "role": "tabs",
+          "label": "Tabs",
+          "actions": [
+            "close",
+            "select"
+          ],
+          "metadata": {
+            "activeValue": "radar",
+            "tabs": [
+              {
+                "label": "總覽",
+                "value": "overview",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "日行情",
+                "value": "history",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "營運",
+                "value": "operations",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "籌碼",
+                "value": "ownership",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "產業",
+                "value": "radar",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "衍生",
+                "value": "derivatives",
+                "disabled": false,
+                "closeable": false
+              },
+              {
+                "label": "來源與缺口",
+                "value": "sources",
+                "disabled": false,
+                "closeable": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "ui:2",
+          "role": "pane-header-tabs",
+          "actions": [
+            "press"
+          ],
+          "metadata": {}
+        }
+      ],
+      "expectedText": [
+        "2330.TW"
+      ],
+      "missingExpectedText": [],
+      "expectedSelections": [],
+      "missingExpectedSelections": [],
+      "expectedChart": null,
+      "chartEvidenceMismatches": []
+    }
+  }
+}

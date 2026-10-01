@@ -1,0 +1,40 @@
+bun test v1.4.2 (744846f84)
+
+
+src/plugins/builtin/taiwan/research.test.ts:
+(pass) Phase 1 bounded Taiwan research > allows only the three PM targets, with canonical suffixes [0.10ms]
+(pass) Phase 1 bounded Taiwan research > missing market numbers are never coerced to zero [0.10ms]
+(pass) Phase 1 bounded Taiwan research > ROC and Gregorian dates are valid; no retrieval date substitution [0.10ms]
+(pass) Phase 1 bounded Taiwan research > unknown freshness remains unknown; explicit age budget marks stale [0.03ms]
+(pass) Phase 1 bounded Taiwan research > missing quarter or invalid revenue month cannot invent a period [0.07ms]
+(pass) Phase 1 bounded Taiwan research > schema loss stays missing instead of green with empty financial values [0.13ms]
+(pass) Phase 1 bounded Taiwan research > undated usable evidence is PARTIAL, not fresh PASS [0.05ms]
+(pass) Phase 1 bounded Taiwan research > unavailable evidence retains a code and null instead of fabricated data [0.02ms]
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://openapi.twse.com.tw/v1/opendata/t187ap05_L [0.07ms]
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_ci
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://openapi.twse.com.tw/v1/opendata/t187ap07_L_ci
+(pass) Phase 1 bounded Taiwan research > actual recorded official row normalization: https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap07_O_ci
+(pass) Phase 1 bounded Taiwan research > headless TW uses the original bundle and ticker contracts [0.01ms]
+(pass) Phase 1 bounded Taiwan research > UI and CLI projections expose source, data date, missing and fallback [5.04ms]
+(pass) Phase 1 bounded Taiwan research > ETF company financials are not fabricated [0.31ms]
+(pass) Phase 1 bounded Taiwan research > OTC gaps remain explicit while quote and financial data can coexist [0.17ms]
+(pass) official transport boundary > coalesces concurrent dataset reads and preserves retrieval receipt [11.81ms]
+(pass) official transport boundary > HTTP failure is rejected and preserved, never converted into empty financial data [0.18ms]
+(pass) official transport boundary > malformed JSON fails closed [0.04ms]
+(pass) five-source radar and explainable impact > parses the captured actual World Bank workbook with declared monthly units [159.40ms]
+(pass) five-source radar and explainable impact > empty or malformed workbook is not accepted [0.57ms]
+(pass) five-source radar and explainable impact > native binary response preserves actual official observations [128.05ms]
+(pass) five-source radar and explainable impact > upstream text-only proxy is an explicit transport gap, not a green radar [5.52ms]
+(pass) five-source radar and explainable impact > known text-only bridge makes no XLSX request and has no invented fetchedAt [0.27ms]
+(pass) five-source radar and explainable impact > radar is exactly five groups and review-only providers never have values [0.03ms]
+(pass) five-source radar and explainable impact > price up is a cost headwind, not blanket good news [0.02ms]
+(pass) five-source radar and explainable impact > down can be a revenue headwind [0.01ms]
+(pass) five-source radar and explainable impact > unknown, unverified, stale or unavailable exposure produces no directional claim [0.02ms]
+(pass) five-source radar and explainable impact > proxy directions remain Mixed and confidence is not a probability [0.02ms]
+
+ 31 pass
+ 0 fail
+ 177 expect() calls
+Ran 31 tests across 1 file. [334.00ms]

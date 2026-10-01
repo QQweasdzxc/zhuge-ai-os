@@ -1,0 +1,339 @@
+import { useMemo, type RefObject } from "react";
+import type {
+  CloudEarningsTranscriptPayload,
+  CloudTranscriptTurnPayload,
+} from "../../../api-client";
+import {
+  BulletList,
+  FigureList,
+  PaneStatusBody,
+  Prose,
+  QueryBar,
+  READING_WIDTH,
+  SectionHeading,
+  type QueryBarSearch,
+} from "../../../components";
+import { useShortcut } from "../../../react/input";
+import { colors } from "../../../theme/colors";
+import {
+  Box,
+  ScrollBox,
+  Text,
+  TextAttributes,
+  useUiCapabilities,
+  type ScrollBoxRenderable,
+} from "../../../ui";
+import { isPlainKey } from "../../../utils/keyboard";
+import {
+  formatCallDate,
+  formatDuration,
+  formatSentiment,
+  formatTimestamp,
+} from "./format";
+import { buildTranscriptSegments, filterTranscriptTurns } from "./model";
+import { splitParagraphs, splitSentences } from "./prose";
+
+export type ReaderTab = "summary" | "transcript" | "qa";
+
+/** `hint` is the key that jumps to the section, shown on its chip. */
+export const READER_TABS: Array<{ label: string; value: ReaderTab; hint: string }> = [
+  { label: "Summary", value: "summary", hint: "s" },
+  { label: "Transcript", value: "transcript", hint: "t" },
+  { label: "Q&A", value: "qa", hint: "q" },
+];
+
+const NATIVE_STRETCH_STYLE = { minWidth: 0 };
+
+function speakerColor(turn: CloudTranscriptTurnPayload): string {
+  if (turn.speaker === "Operator") return colors.textDim;
+  if (turn.role === "Analyst") return colors.warning;
+  return colors.textBright;
+}
+
+/** Role and firm after the name; "Operator" is not repeated as its own role. */
+function turnDetail(turn: CloudTranscriptTurnPayload): string {
+  const role = turn.role && turn.role !== turn.speaker ? turn.role : null;
+  return [role, turn.company].filter(Boolean).join(", ");
+}
+
+/** A summary section as one point per sentence. */
+function Section({
+  title,
+  body,
+  width,
+}: {
+  title: string;
+  body: string;
+  width: number;
+}) {
+  if (!body.trim()) return null;
+  return (
+    <Box flexDirection="column">
+      <SectionHeading marginTop={1} title={title} />
+      <BulletList items={splitSentences(body)} width={width} color={colors.text} />
+    </Box>
+  );
+}
+
+function TurnView({
+  turn,
+  width,
+}: {
+  turn: CloudTranscriptTurnPayload;
+  width: number;
+}) {
+  const detail = turnDetail(turn);
+  // The server cuts paragraphs where the speaker paused on the recording.
+  // A transcript from before that is one block, so it is cut here by length.
+  const paragraphs =
+    turn.paragraphs && turn.paragraphs.length > 0
+      ? turn.paragraphs
+      : splitParagraphs(turn.text);
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Box height={1} flexDirection="row" gap={1} overflow="hidden">
+        {/* A transcript the company published as a document has no timings. */}
+        {turn.startSeconds !== null && (
+          <Text fg={colors.textDim}>{formatTimestamp(turn.startSeconds)}</Text>
+        )}
+        <Text fg={speakerColor(turn)} attributes={TextAttributes.BOLD}>
+          {turn.speaker}
+        </Text>
+        {detail ? <Text fg={colors.textDim}>{detail}</Text> : null}
+      </Box>
+      {paragraphs.map((paragraph, index) => (
+        <Box key={index} flexDirection="column" marginTop={index === 0 ? 0 : 1}>
+          <Prose
+            text={paragraph}
+            width={width}
+            color={colors.text}
+          />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+export function TranscriptView({
+  transcript,
+  loading,
+  error,
+  tab,
+  onTabChange,
+  tabsFocused,
+  query,
+  search,
+  width,
+  scrollRef,
+}: {
+  transcript: CloudEarningsTranscriptPayload | null;
+  loading: boolean;
+  error: string | null;
+  tab: ReaderTab;
+  onTabChange: (tab: ReaderTab) => void;
+  /** Whether left/right should move between tabs. */
+  tabsFocused: boolean;
+  /** Free-text filter applied to the turns, for finding a topic in a long call. */
+  query?: string;
+  /** The find field, drawn in the reader's bar beside the section switch. */
+  search?: QueryBarSearch;
+  width: number;
+  /** Lets the owning pane drive keyboard scrolling. */
+  scrollRef?: RefObject<ScrollBoxRenderable | null>;
+}) {
+  const { nativePaneChrome } = useUiCapabilities();
+  const isNative = nativePaneChrome === true;
+
+  const turns = useMemo(
+    () =>
+      filterTranscriptTurns(transcript?.turns ?? [], {
+        section: tab === "qa" ? "qa" : "transcript",
+        search: query,
+      }),
+    [transcript, tab, query],
+  );
+  const fullTextSegments = useMemo(() => (
+    transcript && tab === "transcript" && !transcript.turns?.length
+      ? buildTranscriptSegments(transcript, "transcript", { search: query }) : []
+  ), [transcript, tab, query]);
+  const hasQa = (transcript?.turns ?? []).some((turn) => turn.isQa);
+  const readerTabs = READER_TABS.map((entry) => ({
+    label: entry.label,
+    value: entry.value,
+    hint: entry.hint,
+    disabled: entry.value === "qa" && !hasQa,
+  }));
+
+  // Scoped: inside a ticker research tab the tab strip also answers h/l and
+  // registered first. A scoped handler runs ahead of unscoped ones in its
+  // phase, so an open call keeps h/l for its sections.
+  useShortcut((event) => {
+    if (!tabsFocused || !transcript) return;
+    const direction = isPlainKey(event, "h", "left") ? -1 : isPlainKey(event, "l", "right") ? 1 : 0;
+    if (!direction) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    const enabled = readerTabs.filter((entry) => !entry.disabled);
+    const index = enabled.findIndex((entry) => entry.value === tab);
+    const next = index < 0
+      ? enabled[direction > 0 ? 0 : enabled.length - 1]
+      : enabled[Math.max(0, Math.min(enabled.length - 1, index + direction))];
+    if (next && next.value !== tab) onTabChange(next.value);
+  }, { enabled: tabsFocused && !!transcript, scope: "earnings-calls:reader" });
+
+  if (loading && !transcript) {
+    return (
+      <PaneStatusBody loading align="center" loadingLabel="Loading transcript..." />
+    );
+  }
+
+  if (error && !transcript) {
+    return (
+      <PaneStatusBody error={error} />
+    );
+  }
+
+  if (!transcript) return null;
+
+  // The stack title already names ticker and period, so lead with metadata.
+  const meta = [
+    formatCallDate(transcript.callAt),
+    formatDuration(transcript.durationSeconds),
+    transcript.sentiment !== null
+      ? `sentiment ${formatSentiment(transcript.sentiment)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
+
+  // One column of padding each side inside the scroll box.
+  const bodyWidth = Math.max(12, width - 2);
+  const proseWidth = Math.min(bodyWidth, READING_WIDTH);
+  const contentWidth = isNative ? "100%" : bodyWidth;
+  const contentStyle = isNative ? NATIVE_STRETCH_STYLE : undefined;
+
+  return (
+    <Box
+      flexDirection="column"
+      flexGrow={1}
+      flexShrink={1}
+      flexBasis={0}
+      minHeight={0}
+      overflow="hidden"
+    >
+      <QueryBar
+        width={width}
+        search={search}
+        filters={[{
+          id: "section",
+          label: "Show",
+          inline: true,
+          value: tab,
+          options: readerTabs,
+          onChange: (value: string) => onTabChange(value as ReaderTab),
+        }]}
+      />
+      <ScrollBox
+        ref={scrollRef}
+        flexGrow={1}
+        flexShrink={1}
+        flexBasis={0}
+        minHeight={0}
+        scrollY
+        focusable={false}
+        paddingX={1}
+      >
+        <Box flexDirection="column" width={contentWidth} style={contentStyle}>
+          {tab === "summary" ? (
+            <>
+              <Prose
+                text={meta}
+                width={proseWidth}
+                color={colors.textDim}
+              />
+              {transcript.keyFigures?.length ? (
+                <Box flexDirection="column">
+                  <SectionHeading marginTop={1} title="KEY FIGURES" />
+                  <FigureList figures={transcript.keyFigures} width={proseWidth} />
+                </Box>
+              ) : null}
+              <Section
+                title="SUMMARY"
+                body={transcript.summary ?? ""}
+                width={proseWidth}
+              />
+              <Section
+                title="WHAT STOOD OUT"
+                body={transcript.notable ?? ""}
+                width={proseWidth}
+              />
+              <Section
+                title="ANALYSTS PRESSED ON"
+                body={transcript.analystFocus ?? ""}
+                width={proseWidth}
+              />
+              <Section
+                title="GUIDANCE"
+                body={transcript.guidance ?? ""}
+                width={proseWidth}
+              />
+              <Section
+                title="RISKS"
+                body={transcript.riskFactors ?? ""}
+                width={proseWidth}
+              />
+              {transcript.participants.length > 0 && (
+                <Box flexDirection="column">
+                  <SectionHeading marginTop={1} title="PARTICIPANTS" />
+                  {transcript.participants.map((participant) => (
+                    <Prose
+                      key={participant.name}
+                      text={[
+                        participant.name,
+                        participant.role,
+                        participant.company,
+                      ]
+                        .filter(Boolean)
+                        .join("  ·  ")}
+                      width={proseWidth}
+                      color={colors.text}
+                    />
+                  ))}
+                </Box>
+              )}
+            </>
+          ) : (
+            <>
+              {turns.map((turn, index) => (
+                <TurnView
+                  key={`${turn.startSeconds ?? "doc"}-${index}`}
+                  turn={turn}
+                  width={proseWidth}
+                />
+              ))}
+              {fullTextSegments.map((segment) => (
+                <Box key={segment.index} marginTop={1}>
+                  <Prose text={segment.text} width={proseWidth} color={colors.text} />
+                </Box>
+              ))}
+              {turns.length === 0 && fullTextSegments.length === 0 && (
+                <Box marginTop={1}>
+                  <Prose
+                    text={
+                      query?.trim()
+                        ? `Nothing matching "${query.trim()}" in this call.`
+                        : tab === "qa" ? "No question and answer section in this call."
+                          : "Transcript text is unavailable."
+                    }
+                    width={proseWidth}
+                    color={colors.textDim}
+                  />
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
+      </ScrollBox>
+    </Box>
+  );
+}

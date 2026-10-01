@@ -1,0 +1,45 @@
+{
+  "completedAt": "2026-10-01T01:10:59.982Z",
+  "results": [
+    {
+      "id": "targeted",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 319,
+      "pass": "30",
+      "fail": "0",
+      "timezone": "Asia/Taipei",
+      "profileIsolation": "Lab-only child runtime / upstream temporary fixtures"
+    },
+    {
+      "id": "typecheck",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 17151,
+      "pass": null,
+      "fail": null,
+      "timezone": "Asia/Taipei",
+      "profileIsolation": "Lab-only child runtime / upstream temporary fixtures"
+    },
+    {
+      "id": "manifest",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 140,
+      "pass": null,
+      "fail": null,
+      "timezone": "Asia/Taipei",
+      "profileIsolation": "Lab-only child runtime / upstream temporary fixtures"
+    },
+    {
+      "id": "full-regression",
+      "exitCode": 1,
+      "status": "FAIL",
+      "durationMs": 90303,
+      "pass": "5315",
+      "fail": "1",
+      "timezone": "UTC",
+      "profileIsolation": "Lab-only child runtime / upstream temporary fixtures"
+    }
+  ]
+}

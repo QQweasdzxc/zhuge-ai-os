@@ -1,0 +1,1917 @@
+import type {
+  AnalystResearchData,
+  CorporateActionsData,
+  HolderData,
+  HolderRecord,
+  OptionsChain,
+  PriceHistorySource,
+  Quote,
+  TickerFinancials,
+} from "../types/financials";
+import type { SyncSettings, SyncSnapshot } from "../sync/types";
+
+export interface ChatUserSummary {
+  id: string;
+  username: string | null;
+  displayName: string;
+  bio?: string | null;
+  company?: string | null;
+  title?: string | null;
+  profilePublic?: boolean;
+  acceptUnknownDms?: boolean;
+  portfolioAnalytics?: PublicPortfolioAnalytics | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  channelId: string;
+  content: string;
+  replyToId: string | null;
+  createdAt: string;
+  editedAt?: string | null;
+  user: ChatUserSummary;
+  replyTo?: { content: string; user: { id?: string; username: string } } | null;
+  clientStatus?: "sending" | "failed";
+  clientError?: string | null;
+}
+
+export interface ChatChannel {
+  id: string;
+  name: string;
+  kind?: "public" | "direct" | "group" | "team";
+  created_at: string;
+  teamId?: string;
+  dmUser?: ChatUserSummary | null;
+  members?: ChatUserSummary[];
+}
+
+export interface ChatChannelState {
+  channelId: string;
+  notificationsEnabled: boolean;
+  lastReadMessageId: string | null;
+  unreadCount: number;
+}
+
+export interface ChatNotification {
+  id: string;
+  type: "reply" | "mention" | "channel";
+  channelId: string;
+  messageId: string;
+  createdAt: string;
+  message: ChatMessage;
+}
+
+export interface ChatStateResponse {
+  channels: ChatChannel[];
+  onlineCount: number;
+  channelStates: ChatChannelState[];
+  notifications: ChatNotification[];
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  username: string | null;
+  emailVerified: boolean;
+  image: string | null;
+  plan?: "free" | "pro";
+  /** ISO timestamp when the free Pro trial ends; null once it has lapsed or was never started. */
+  trialEndsAt?: string | null;
+  /** Plan the server actually entitles right now, i.e. `plan` upgraded to "pro" while a trial is running. */
+  effectivePlan?: "free" | "pro";
+  company?: string | null;
+  title?: string | null;
+  bio?: string | null;
+  profilePublic?: boolean;
+  publicEmail?: string | null;
+  xAccount?: string | null;
+  sharedPortfolioId?: string | null;
+  acceptUnknownDms?: boolean;
+  chatEmailNotificationsEnabled?: boolean;
+  portfolioAnalytics?: PublicPortfolioAnalytics | null;
+  syncEnabled?: boolean;
+  weeklyRoundupEnabled?: boolean;
+  positionAlertsEnabled?: boolean;
+  lastSyncAt?: string | null;
+  lastRoundupEmailAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PersistedAuthUser = Pick<AuthUser, "id" | "emailVerified"> &
+  Partial<AuthUser>;
+
+export interface AccountProfile {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  plan: "free" | "pro";
+  /** ISO timestamp when the free Pro trial ends; null once it has lapsed or was never started. */
+  trialEndsAt?: string | null;
+  /** Plan the server actually entitles right now, i.e. `plan` upgraded to "pro" while a trial is running. */
+  effectivePlan?: "free" | "pro";
+  username: string | null;
+  name: string;
+  company: string | null;
+  title: string | null;
+  bio: string | null;
+  profilePublic: boolean;
+  publicEmail: string | null;
+  xAccount: string | null;
+  sharedPortfolioId: string | null;
+  acceptUnknownDms: boolean;
+  chatEmailNotificationsEnabled: boolean;
+  portfolioAnalytics?: PublicPortfolioAnalytics | null;
+  syncEnabled: boolean;
+  weeklyRoundupEnabled: boolean;
+  positionAlertsEnabled: boolean;
+  lastSyncAt: string | null;
+  lastRoundupEmailAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface PublicPortfolioAnalytics {
+  oneYearReturn?: number | null;
+  spyBeta?: number | null;
+  /** "account": the broker's own returns. "holdings": estimated from today's holdings. */
+  basis?: "account" | "holdings" | null;
+}
+
+export interface BuildoutAccountResponse {
+  user: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+  };
+  subscription: {
+    product: "buildout";
+    plan: "free" | "pro";
+    active: boolean;
+    billingInterval: "month" | "year" | null;
+    stripeSubscriptionId: string | null;
+    stripeSubscriptionStatus: string | null;
+  };
+  prices: {
+    monthly: {
+      priceId: string;
+      amountUsd: number;
+      interval: "month";
+    };
+    yearly: {
+      priceId: string;
+      amountUsd: number;
+      interval: "year";
+    };
+  };
+}
+
+export interface BuildoutTokenResponse {
+  token: string;
+  expiresAt: string;
+}
+
+export interface CloudPricingTier {
+  /** Charged amount, in integer cents. */
+  amount: number;
+}
+
+/** Public `/pricing` payload; no session required. */
+export interface CloudPricing {
+  currency: "usd";
+  trialDays: number;
+  monthly: CloudPricingTier;
+  yearly: CloudPricingTier;
+}
+
+/** One command-bar prefix described for `/assist/command`. */
+export interface AssistCommandDescriptor {
+  prefix: string;
+  name: string;
+  description?: string;
+  arg?: {
+    placeholder?: string;
+    kind: "text" | "ticker" | "ticker-list";
+    /** The command also runs with no argument at all. */
+    optional?: boolean;
+    /** Named values the argument accepts; a command may take others too (COT takes any CFTC code). */
+    options?: { value: string; label: string }[];
+  };
+}
+
+/** A command-bar line the assistant believes answers the query. */
+export interface AssistCommandCandidate {
+  /** Exact command-bar text to run, e.g. "G NVDA AMD". */
+  input: string;
+  title: string;
+  prefix: string;
+  confidence: number;
+}
+
+export interface AssistCommandResponse {
+  candidates: AssistCommandCandidate[];
+}
+
+export type AccountProfileUpdate = Partial<{
+  username: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+  bio: string | null;
+  profilePublic: boolean;
+  publicEmail: string | null;
+  xAccount: string | null;
+  sharedPortfolioId: string | null;
+  acceptUnknownDms: boolean;
+  chatEmailNotificationsEnabled: boolean;
+  portfolioAnalytics: PublicPortfolioAnalytics | null;
+  syncEnabled: boolean;
+  weeklyRoundupEnabled: boolean;
+  positionAlertsEnabled: boolean;
+}>;
+
+export interface CloudSyncSnapshotResponse {
+  snapshot: SyncSnapshot | null;
+  revision: number | null;
+  updatedAt: string | null;
+  settings: SyncSettings;
+}
+
+export interface CloudSyncPushResponse {
+  revision: number;
+  updatedAt: string;
+  settings: SyncSettings;
+}
+
+export interface CloudQuotePayload extends Omit<Quote, "change" | "changePercent"> {
+  // JSON encodes the provider's unavailable numeric values as null.
+  change?: number | null;
+  changePercent?: number | null;
+  providerId: "gloomberb-cloud";
+  dataSource: "live" | "delayed";
+}
+
+export interface CloudFinancialsPayload extends Omit<TickerFinancials, "quote"> {
+  quote?: CloudQuotePayload;
+}
+
+export interface CloudWorldVenuePayload {
+  mic: string;
+  name: string;
+  title: string;
+  country: string;
+  countryCode: string;
+  city: string;
+  timezone: string;
+  latitude: number;
+  longitude: number;
+  isOpen: boolean;
+  timeAfterOpenSeconds?: number;
+  timeToOpenSeconds?: number;
+  timeToCloseSeconds?: number;
+}
+
+export interface CloudWorldVenueMapPayload {
+  providerId: "gloomberb-cloud";
+  checkedAt: number;
+  refreshAt: number;
+  stale?: boolean;
+  venues: CloudWorldVenuePayload[];
+}
+
+export interface CloudOptionsChainPayload extends OptionsChain {
+  providerId: "gloomberb-cloud";
+}
+
+interface CloudHolderPayload extends HolderRecord {
+  providerId: "gloomberb-cloud";
+  ownerType: "institution";
+}
+
+export interface CloudHoldersPayload extends HolderData {
+  providerId: "gloomberb-cloud";
+  holders: CloudHolderPayload[];
+}
+
+export interface CloudAnalystResearchPayload extends AnalystResearchData {
+  providerId: "gloomberb-cloud";
+}
+
+export interface CloudCorporateActionsPayload extends CorporateActionsData {
+  providerId: "gloomberb-cloud";
+}
+
+export interface CloudPricePointPayload {
+  /** @deprecated No longer read; a history's boundary is its response `coverage`. */
+  historySource?: PriceHistorySource;
+  date: string;
+  open?: number;
+  high?: number;
+  low?: number;
+  close: number;
+  volume?: number;
+}
+
+type CloudEconImpact = "high" | "medium" | "low";
+
+export interface CloudEconEventPayload {
+  id: string;
+  date: string;
+  time: string;
+  country: string;
+  event: string;
+  actual: string | null;
+  forecast: string | null;
+  prior: string | null;
+  impact: CloudEconImpact;
+}
+
+export interface CloudFredObservationPayload {
+  date: string;
+  value: number | null;
+}
+
+export interface CloudFredSeriesInfoPayload {
+  id: string;
+  title: string;
+  units: string;
+  frequency: string;
+  seasonalAdjustment: string;
+  source: string;
+  notes: string;
+  lastUpdated?: string;
+  observationStart?: string;
+  observationEnd?: string;
+}
+
+export interface CloudFredSeriesPayload {
+  observations: CloudFredObservationPayload[];
+  info: CloudFredSeriesInfoPayload | null;
+  fetchedAt?: string;
+  stale?: boolean;
+  coverage?: { observations: "available"; info: "available" | "unavailable" };
+}
+
+/**
+ * One month of Robert Shiller's dataset. FRED carries no long-run S&P earnings,
+ * so this is what every earnings-based valuation ratio is built from.
+ */
+export interface CloudShillerObservationPayload {
+  date: string;
+  price: number | null;
+  dividend: number | null;
+  earnings: number | null;
+  cpi: number | null;
+  longRate: number | null;
+  cape: number | null;
+  /** CAPE earnings yield over the real 10-year rate; Shiller's equity risk premium. */
+  excessCapeYield: number | null;
+}
+
+export interface CloudShillerPayload {
+  observations: CloudShillerObservationPayload[];
+  sourceUrl: string;
+  fetchedAt: string;
+}
+
+/** One publicly disseminated single-name CDS transaction report. */
+export interface CloudCdsTradePayload {
+  disseminationId: string;
+  originalDisseminationId: string | null;
+  actionType: string;
+  eventTimestamp: string;
+  executionTimestamp: string | null;
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  maturityDate: string | null;
+  issuerName: string | null;
+  underlierId: string | null;
+  underlierIdSource: string | null;
+  upi: string | null;
+  upiFisn: string | null;
+  upiUnderlierName: string | null;
+  notionalAmount: number | null;
+  /** Reported notional is a regulatory cap, so the real trade was at least this size. */
+  notionalCapped: boolean;
+  notionalCurrency: string | null;
+  fixedRate: number | null;
+  reportedSpread: number | null;
+  /** Unit of `reportedSpread`, e.g. basis points or percent. */
+  spreadNotation: string | null;
+  upfrontAmount: number | null;
+  upfrontCurrency: string | null;
+}
+
+export interface CloudCdsResponse {
+  source: string;
+  asOf: string | null;
+  trades: CloudCdsTradePayload[];
+}
+
+/** One New York trade date of an issuer's on-the-run 5Y spread. */
+export interface CloudCdsHistoryPointPayload {
+  date: string;
+  /** Median of the day's prints in basis points. */
+  spreadBp: number;
+  prints: number;
+  /** Prints that reported the spread; the rest were converted from their upfront. */
+  reported: number;
+  /** The contract on the run that day, e.g. "2031-12-20". */
+  maturity: string;
+}
+
+export interface CloudCdsHistoryResponse {
+  source: string;
+  /** The matched reference entity, or null when nothing on the tape matched. */
+  issuer: string | null;
+  tenor: string;
+  currency: string | null;
+  asOf: string | null;
+  points: CloudCdsHistoryPointPayload[];
+}
+
+export interface CloudShortInterestPointPayload {
+  settlementDate: string;
+  sharesShort: number;
+  previousSharesShort: number | null;
+  averageDailyVolume: number | null;
+  daysToCover: number | null;
+  changePercent: number | null;
+  revised: boolean;
+}
+
+export interface CloudShortInterestPayload {
+  symbol: string;
+  issueName: string | null;
+  points: CloudShortInterestPointPayload[];
+}
+
+export interface CloudYieldPointPayload {
+  maturity: string;
+  maturityYears: number;
+  yield: number | null;
+  /** FRED observation date. Absent on servers older than the field. */
+  asOf?: string | null;
+  fetchedAt?: string;
+  stale?: boolean;
+}
+
+type CloudCongressTradeSide = "BUY" | "SELL" | "EXCHANGE" | "OTHER";
+
+export interface CloudCongressTradePayload {
+  id: string;
+  chamber: "house" | "senate";
+  filingId: string;
+  docId: string;
+  memberName: string;
+  stateDistrict: string;
+  filingDate: string;
+  transactionDate: string | null;
+  notificationDate: string | null;
+  lagDays: number | null;
+  side: CloudCongressTradeSide;
+  transactionType: string;
+  ticker: string | null;
+  assetName: string;
+  assetType: string | null;
+  owner: string;
+  rawOwner: string;
+  amount: string;
+  amountLow: number | null;
+  amountHigh: number | null;
+  capGainsOver200: boolean | null;
+  filingStatus: string | null;
+  subholdingOf: string | null;
+  description: string | null;
+  sourceUrl: string;
+  returnSinceTx?: number | null;
+  returnSinceFiling?: number | null;
+  returnAsOf?: string | null;
+  party?: string | null;
+  committees?: string[];
+}
+
+export interface CloudCongressMemberPayload {
+  id: string;
+  memberName: string;
+  stateDistrict: string;
+  tradeCount: number;
+  buyCount: number;
+  sellCount: number;
+  exchangeCount: number;
+  otherCount: number;
+  estimatedLow: number | null;
+  estimatedHigh: number | null;
+  lastFilingDate: string | null;
+  avgLagDays: number | null;
+  medianReturn?: number | null;
+  buyHitRate?: number | null;
+  pricedTradeCount?: number;
+  pricedBuyCount?: number;
+  party?: string | null;
+  committees?: string[];
+}
+
+export interface CloudCongressTickerPayload {
+  ticker: string;
+  tradeCount: number;
+  buyCount: number;
+  sellCount: number;
+  exchangeCount: number;
+  otherCount: number;
+  memberCount: number;
+  memberIds: string[];
+  estimatedLow: number | null;
+  estimatedHigh: number | null;
+  lastFilingDate: string | null;
+}
+
+export interface CloudCongressHousePayload {
+  asOf: string;
+  /** "all" pages both chambers' filings as one date-ordered index. */
+  chamber: "house" | "senate" | "all";
+  source: "house-clerk" | "senate-efd" | "congress";
+  year: number;
+  indexUpdatedAt: string | null;
+  filingsScanned: number;
+  /** Filings in the window the server could read. */
+  filingsParsed?: number;
+  /** Filings the source refused; the server retries them on its own schedule. */
+  filingsFailed?: number;
+  /** Filings left unread because the server's daily document budget is spent. */
+  filingsPending?: number;
+  /** Scanned Senate paper filings: listed and linked, not read. */
+  filingsPaper?: number;
+  /** The merged feed could not reach the Senate source; this window is House only. */
+  senateUnavailable?: boolean;
+  filingCount: number;
+  filingOffset?: number;
+  hasMore?: boolean;
+  hasMoreFilings?: boolean;
+  nextOffset?: number;
+  nextFilingOffset?: number;
+  trades: CloudCongressTradePayload[];
+  members: CloudCongressMemberPayload[];
+  tickers?: CloudCongressTickerPayload[];
+}
+
+export interface CloudEarningsCallPayload {
+  id: string;
+  ticker: string;
+  companyName: string | null;
+  fiscalYear: number | null;
+  fiscalQuarter: number | null;
+  callAt: string | null;
+  status: string;
+  durationSeconds: number | null;
+  wordCount: number | null;
+  hasTranscript: boolean;
+  sentiment: number | null;
+  /** The replay or event page the transcript came from. */
+  webcastUrl?: string | null;
+}
+
+export interface CloudJobsSeriesPoint {
+  day: string;
+  open: number;
+  /** Null on the first observed day, when the whole board is seen for the first time. */
+  new: number | null;
+  closed: number;
+  /** Open standing roles the company hires for continuously. */
+  evergreen?: number;
+  /** Open contract and temporary roles. */
+  contract?: number;
+}
+
+export interface CloudJobsBucket {
+  id: string;
+  label: string;
+  count: number;
+  share: number;
+  /** Count 30 days ago from the daily roll-up, when the history reaches back. */
+  previous: number | null;
+}
+
+export interface CloudJobsPosting {
+  id: number;
+  title: string;
+  function: string | null;
+  seniority: string | null;
+  location: string | null;
+  country: string | null;
+  remote: boolean | null;
+  employmentKind?: string | null;
+  /** A standing posting for a continuous-hiring role; null when unjudged. */
+  evergreen?: boolean | null;
+  postedAt: string | null;
+  postedPrecision: "exact" | "approximate" | "floor" | null;
+  firstSeenAt: string;
+  url: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  salaryPeriod: string | null;
+  tags: string[];
+}
+
+export interface CloudJobsChange {
+  count: number;
+  percent: number | null;
+}
+
+export interface CloudJobsSummaryPayload {
+  status: "ok";
+  ticker: string;
+  companyName: string | null;
+  coverage: {
+    status: string;
+    vendor: string | null;
+    careersUrl: string | null;
+    lastCollectedAt: string | null;
+    firstObservedAt: string | null;
+    daysObserved: number;
+    employeeCount: number | null;
+  };
+  openCount: number;
+  openPerThousandEmployees: number | null;
+  new7d: number;
+  new30d: number;
+  closed30d: number;
+  change30d: CloudJobsChange | null;
+  change90d: CloudJobsChange | null;
+  /** False when the careers system re-dates every role on refresh, so dates are withheld. */
+  datesReliable?: boolean;
+  /** Open postings the system dates within the last 30 days. */
+  posted30d?: number | null;
+  remoteShare: number | null;
+  /**
+   * Open roles that are standing postings for continuous-hiring positions
+   * (baristas, servers, store associates, nurses). One more of those says
+   * nothing about the company's plans; open minus evergreen is the count of
+   * specific roles.
+   */
+  evergreenCount?: number;
+  evergreenShare?: number | null;
+  /** Share of open roles that are contract or temporary, among those known. */
+  contractShare?: number | null;
+  medianAgeDays: number | null;
+  series: CloudJobsSeriesPoint[];
+  /** The current backlog by how long each role has been posted. */
+  ageBuckets?: Array<{ id: string; label: string; count: number }>;
+  functions: CloudJobsBucket[];
+  countries: CloudJobsBucket[];
+  seniority: CloudJobsBucket[];
+  tags: CloudJobsBucket[];
+  salary: {
+    count: number;
+    currency: string;
+    period: string;
+    medianMin: number;
+    medianMax: number;
+    byFunction: Array<{ id: string; label: string; count: number; medianMin: number; medianMax: number }>;
+  } | null;
+  recent: CloudJobsPosting[];
+}
+
+export interface CloudJobsPendingPayload {
+  status: "pending";
+  ticker: string;
+  queued: boolean;
+  message: string;
+}
+
+export type CloudJobsResponse = CloudJobsSummaryPayload | CloudJobsPendingPayload;
+
+export interface CloudJobsPostingsPayload {
+  postings: CloudJobsPosting[];
+  total: number;
+}
+
+export interface CloudJobsMoverPayload {
+  ticker: string;
+  companyName: string | null;
+  openCount: number;
+  employeeCount: number | null;
+  change30d: CloudJobsChange | null;
+  /** Open roles the system dates within the last 30 days, null when its dates cannot be read. */
+  posted30d?: number | null;
+  new7d: number;
+  topFunction: string | null;
+  topCountry?: { code: string; share: number } | null;
+}
+
+export interface CloudJobsMoversPayload {
+  asOf: string;
+  covered: number;
+  /** Companies in the ranking; `movers` is one page of them. */
+  total?: number;
+  movers: CloudJobsMoverPayload[];
+}
+
+export interface CloudEarningsCallListPayload {
+  calls: CloudEarningsCallPayload[];
+  /** Set when asking about a company started a search that is still running. */
+  pending?: boolean;
+  /** Set when the requested symbol is not one the SEC knows. */
+  unknownTicker?: boolean;
+}
+
+/** One row of a proxy statement's Summary Compensation Table, in dollars. */
+export interface CloudExecutiveRowPayload {
+  name: string;
+  title: string;
+  salary: number | null;
+  bonus: number | null;
+  stockAwards: number | null;
+  optionAwards: number | null;
+  nonEquityIncentive: number | null;
+  pensionAndDeferred: number | null;
+  allOther: number | null;
+  total: number | null;
+}
+
+export interface CloudProxyStatementSummaryPayload {
+  id: string;
+  ticker: string;
+  company: {
+    ticker: string;
+    cik: string | null;
+    name: string;
+    shortName: string;
+  };
+  /** Year of the filing date: what people call "the 2026 proxy". */
+  proxyYear: number;
+  fiscalYear: number | null;
+  fiscalYearLabel: string | null;
+  filedAt: string;
+  meetingDate: string | null;
+  updatedAt: string;
+  ceoName: string | null;
+  ceoTitle: string | null;
+  ceoTotal: number | null;
+  ceoPriorYearTotal: number | null;
+  payRatio: number | null;
+  medianEmployeePay: number | null;
+}
+
+export interface CloudProxyStatementPayload extends CloudProxyStatementSummaryPayload {
+  docUrl: string;
+  ceo: (CloudExecutiveRowPayload & { priorYearTotal: number | null }) | null;
+  namedExecutives: CloudExecutiveRowPayload[];
+  sayOnPayPriorSupport: number | null;
+  highlights: string | null;
+  keyFigures: CloudTranscriptKeyFigurePayload[];
+  otherYears: CloudProxyStatementSummaryPayload[];
+}
+
+export interface CloudRiskFactorPayload {
+  heading: string;
+  group: string | null;
+  excerpt: string;
+  words: number;
+}
+
+export interface CloudRiskNotePayload {
+  /** Position of the risk in `risks` (or in the prior year's list, for removed). */
+  index: number;
+  text: string;
+}
+
+export interface CloudRiskReportSummaryPayload {
+  id: string;
+  ticker: string;
+  company: {
+    ticker: string;
+    cik: string | null;
+    name: string;
+    shortName: string;
+  };
+  /** Year of the filing date: "the 2026 10-K". */
+  reportYear: number;
+  filedAt: string;
+  updatedAt: string;
+  riskCount: number;
+  groupCount: number;
+  wordCount: number;
+  addedCount: number | null;
+  removedCount: number | null;
+  rewordedCount: number | null;
+  overview: string | null;
+}
+
+export interface CloudRiskReportPayload extends CloudRiskReportSummaryPayload {
+  docUrl: string;
+  groups: string[];
+  risks: CloudRiskFactorPayload[];
+  diff: {
+    added: number[];
+    removed: Array<{ heading: string; group: string | null; excerpt: string }>;
+    reworded: Array<{
+      index: number;
+      similarity: number;
+      headingChanged: boolean;
+      priorHeading: string | null;
+    }>;
+    matched: number;
+    priorRiskCount: number;
+  } | null;
+  notes: {
+    added: CloudRiskNotePayload[];
+    removed: CloudRiskNotePayload[];
+    reworded: CloudRiskNotePayload[];
+    top: CloudRiskNotePayload[];
+  };
+  otherYears: CloudRiskReportSummaryPayload[];
+}
+
+export interface CloudRiskReportListPayload {
+  company: {
+    ticker: string;
+    cik: string | null;
+    name: string;
+    shortName: string;
+  } | null;
+  reports: CloudRiskReportSummaryPayload[];
+}
+
+export interface CloudFilingPersonPayload {
+  name: string;
+  role: string;
+  action: string;
+  effective: string | null;
+}
+
+/** An 8-K, classified by its items and, when it carried news, read. */
+export interface CloudFilingEventPayload {
+  id: string;
+  ticker: string;
+  company: {
+    ticker: string;
+    cik: string | null;
+    name: string;
+    shortName: string;
+  };
+  filedAt: string;
+  /** Verified SEC filing calendar date; filedAt may instead be an acceptance instant. */
+  filingDate?: string | null;
+  /** "8-K", or "8-K/A" for an amendment. Older servers omit it. */
+  form?: string;
+  docUrl: string;
+  items: string[];
+  labels: string[];
+  kinds: string[];
+  material: boolean;
+  headline: string | null;
+  summary: string | null;
+  people: CloudFilingPersonPayload[];
+  /** True when the headline and points are the model's reading rather than the item labels. */
+  read: boolean;
+}
+
+export interface CloudProxyStatementListPayload {
+  company: {
+    ticker: string;
+    cik: string | null;
+    name: string;
+    shortName: string;
+  };
+  proxies: CloudProxyStatementSummaryPayload[];
+}
+
+export interface CloudTranscriptTurnPayload {
+  speaker: string;
+  role?: string;
+  company?: string;
+  text: string;
+  /** `text` cut where the speaker paused or changed topic; absent on older transcripts. */
+  paragraphs?: string[];
+  isQa: boolean;
+  /** Offset into the recording; null when the company published the transcript as a document. */
+  startSeconds: number | null;
+}
+
+export interface CloudTranscriptKeyFigurePayload {
+  /** What the number is, e.g. "Q3 revenue guidance". */
+  label: string;
+  /** As management said it, e.g. "$108B ± 2%". */
+  value: string;
+  /** Comparison or qualifier, e.g. "vs $96B in Q2". */
+  note?: string;
+}
+
+export interface CloudTranscriptParticipantPayload {
+  name: string;
+  role?: string;
+  company?: string;
+}
+
+export interface CloudEarningsTranscriptPayload {
+  id: string;
+  ticker: string;
+  companyName: string | null;
+  fiscalYear: number | null;
+  fiscalQuarter: number | null;
+  callAt: string | null;
+  timing: string | null;
+  webcastUrl: string | null;
+  durationSeconds: number | null;
+  status: string;
+  fullText: string;
+  turns: CloudTranscriptTurnPayload[];
+  participants: CloudTranscriptParticipantPayload[];
+  /** The numbers management gave, picked for a card; empty on older transcripts. */
+  keyFigures?: CloudTranscriptKeyFigurePayload[];
+  summary: string | null;
+  guidance: string | null;
+  riskFactors: string | null;
+  analystFocus: string | null;
+  notable: string | null;
+  sentiment: number | null;
+  sentimentRationale: string | null;
+  qaStartTurn: number | null;
+  wordCount: number | null;
+  asrModel: string | null;
+  updatedAt: string | null;
+}
+
+export type CloudSearchDocType = "transcript" | "news" | "filing";
+
+export type CloudSearchSort = "relevance" | "newest" | "oldest";
+
+/**
+ * Per-chunk provenance. Which keys are present depends on `docType`: transcripts
+ * carry speaker attribution, news carries the wire source, filings carry the
+ * form and section. Kept as one optional-key record so an unknown docType from a
+ * newer server still renders instead of failing to parse.
+ */
+export interface CloudSearchChunkMetadata {
+  speaker?: string;
+  role?: string;
+  company?: string;
+  isQa?: boolean;
+  startSeconds?: number;
+  turnIndex?: number;
+  source?: string;
+  summary?: string;
+  form?: string;
+  accession?: string;
+  section?: string;
+}
+
+export interface CloudSearchHit {
+  id: string;
+  docType: CloudSearchDocType;
+  sourceId: string;
+  chunkIndex: number;
+  ticker: string;
+  publishedAt: string;
+  title: string;
+  url: string;
+  /** Matched terms wrapped in `<mark>`, fragments joined by an ellipsis. */
+  snippet: string;
+  score: number;
+  metadata: CloudSearchChunkMetadata;
+  /**
+   * Chunks of this document that matched. Only sent for a distinct search,
+   * where the row stands for the document rather than for one chunk.
+   */
+  matchCount?: number;
+}
+
+export interface CloudSearchResponse {
+  hits: CloudSearchHit[];
+  total: number;
+  /** The server stopped counting past its cap, so `total` is a lower bound. */
+  countCapped: boolean;
+  hasMore: boolean;
+  nextOffset: number;
+  tookMs: number;
+}
+
+export interface CloudSearchDocumentChunk {
+  id: string;
+  chunkIndex: number;
+  body: string;
+  metadata: CloudSearchChunkMetadata;
+}
+
+export interface CloudSearchDocument {
+  docType: CloudSearchDocType;
+  sourceId: string;
+  ticker: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  chunks: CloudSearchDocumentChunk[];
+}
+
+export interface CloudSearchDocumentResponse {
+  document: CloudSearchDocument;
+}
+
+export interface CloudSavedSearchFilters {
+  tickers?: string[];
+  docTypes?: CloudSearchDocType[];
+  sources?: string[];
+  from?: string;
+  to?: string;
+}
+
+export interface CloudSavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  filters: CloudSavedSearchFilters;
+  alertEnabled: boolean;
+  alertChannels: string[];
+  lastRunAt: string | null;
+  lastMatchAt: string | null;
+  matchCount: number;
+  createdAt: string;
+}
+
+export interface CloudSavedSearchListResponse {
+  searches: CloudSavedSearch[];
+}
+
+export interface CloudSavedSearchInput {
+  name: string;
+  query: string;
+  filters?: CloudSavedSearchFilters;
+  alertEnabled?: boolean;
+  alertChannels?: string[];
+}
+
+export interface CloudSecFilingPayload {
+  accessionNumber: string;
+  form: string;
+  filingDate: string;
+  acceptedAt?: string;
+  /** Unmodified SEC acceptanceDateTime; a missing timezone is not inferred. */
+  acceptedAtRaw?: string;
+  primaryDocument?: string;
+  primaryDocDescription?: string;
+  items?: string;
+  cik: string;
+  companyName?: string;
+  filingUrl: string;
+  primaryDocumentUrl?: string;
+}
+
+export interface CloudSecDocumentPayload {
+  sequence?: string;
+  type: string;
+  description?: string;
+  document: string;
+  url: string;
+  size?: string;
+  isPrimary: boolean;
+}
+
+export interface CloudSecFilingsResponse {
+  filings: CloudSecFilingPayload[];
+  hasMore: boolean;
+  nextOffset: number;
+}
+
+export interface CloudSecDocumentsResponse {
+  documents: CloudSecDocumentPayload[];
+}
+
+export interface CloudSecForm4Payload {
+  filingDate: string;
+  reportedName: string;
+  title: string;
+  transactionType: "P" | "S" | "A" | "D" | "";
+  shares: number;
+  pricePerShare: number | null;
+  totalValue: number | null;
+  sharesOwned: number | null;
+  form: string;
+}
+
+export interface CloudSecContentResponse {
+  content: string | null;
+  form4: CloudSecForm4Payload | null;
+}
+
+interface CloudNewsEntityPayload {
+  id: string;
+  entityType: string;
+  name: string;
+  symbol: string | null;
+  exchange: string | null;
+  canonicalTicker: string | null;
+  role: string | null;
+  confidence: number | null;
+}
+
+interface CloudNewsTickerLinkPayload {
+  symbol: string;
+  exchange: string;
+  canonicalTicker: string;
+  relationType: string;
+  displayTier: "primary" | "related";
+  confidence: number;
+  relevanceScore: number;
+  impactScore?: number;
+  sentiment?: "positive" | "neutral" | "negative" | null;
+}
+
+export interface CloudNewsStoryItemPayload {
+  id: string;
+  sourceKey: string;
+  sourceName: string;
+  title: string;
+  summary?: string;
+  url: string;
+  publishedAt: string;
+  hasArticleText?: boolean;
+}
+
+export interface CloudNewsPayload {
+  id: string;
+  headline: string;
+  summary: string;
+  topic?: string;
+  topics?: string[];
+  category: string;
+  sentiment: "positive" | "neutral" | "negative";
+  sectors: string[];
+  scope?: string;
+  firstPublishedAt: string;
+  lastPublishedAt: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  primaryUrl: string;
+  primarySource: string;
+  scores?: {
+    importance?: number;
+    urgency?: number;
+    marketImpact?: number;
+    novelty?: number;
+    confidence?: number;
+  };
+  flags?: {
+    breaking?: boolean;
+    developing?: boolean;
+    stale?: boolean;
+  };
+  variantCount: number;
+  sourceCount: number;
+  sources: string[];
+  entities: CloudNewsEntityPayload[];
+  tickerLinks: CloudNewsTickerLinkPayload[];
+  items?: CloudNewsStoryItemPayload[];
+}
+
+export interface CloudNewsListResponse {
+  items: CloudNewsPayload[];
+  nextCursor: string | null;
+}
+
+interface CloudTweetUserPayload {
+  id: string;
+  userName: string;
+  name: string;
+}
+
+interface CloudTweetMetricsPayload {
+  retweets: number | null;
+  replies: number | null;
+  likes: number | null;
+  quotes: number | null;
+  views: number | null;
+  bookmarks: number | null;
+}
+
+interface CloudTweetMediaPayload {
+  type?: string;
+  url?: string;
+  mediaUrl?: string;
+  media_url?: string;
+  media_url_https?: string;
+  previewImageUrl?: string;
+  preview_image_url?: string;
+}
+
+export interface CloudTweetPayload {
+  id: string;
+  url: string;
+  text: string;
+  createdAt: string;
+  lang: string;
+  isReply: boolean;
+  author: CloudTweetUserPayload;
+  metrics: CloudTweetMetricsPayload;
+  media?: CloudTweetMediaPayload[];
+  photos?: CloudTweetMediaPayload[];
+  images?: CloudTweetMediaPayload[];
+}
+
+export type CloudTweetQueryType = "Latest" | "Top";
+
+export interface CloudTweetSearchResponse {
+  ticker?: string;
+  cashtag?: string;
+  query: string;
+  queryType: CloudTweetQueryType;
+  since: string;
+  until: string;
+  limit: number;
+  offset?: number;
+  /** More tweets sit behind this page. Absent on servers without paging. */
+  hasMore?: boolean;
+  hours: number;
+  includeReplies?: boolean;
+  cached: boolean;
+  cacheTtlMs: number;
+  asOf: string;
+  tweets: CloudTweetPayload[];
+}
+
+type CloudMarketStatus =
+  | "success"
+  | "partial"
+  | "empty"
+  | "unsupported"
+  | "retryable_error"
+  | "fatal_error";
+
+/** The dates a history source vouches for. Which boundary fields appear depends on the reason. */
+export interface CloudHistoryCoverage {
+  source: string;
+  reasonCode?: string;
+  /** First date (YYYY-MM-DD) whose share lineage the source verified. */
+  verifiedLineageStart?: string;
+  /** First bar date (YYYY-MM-DD) the source serves, such as a fund's inception. */
+  firstAllowedBarDate?: string;
+  inceptionDate?: string;
+  sourceUrl: string;
+  firstBarDate: string | null;
+  lastBarDate: string | null;
+  barCount: number;
+}
+
+export interface CloudMarketResponse<T> {
+  status: CloudMarketStatus;
+  data: T | null;
+  reasonCode?: string;
+  asOf?: string;
+  staleAt?: string;
+  stale?: boolean;
+  currency?: string;
+  /** Untrusted history-only failure evidence, validated by the history adapter. */
+  historyRetention?: unknown;
+  /** Source-declared history semantics; validated separately from quote metadata. */
+  historySession?: unknown;
+  /** Untrusted until the history adapter validates its boundary dates. */
+  coverage?: CloudHistoryCoverage;
+  providerMeta?: {
+    provider?: string;
+    upstream?: string;
+    status?: CloudMarketStatus;
+    reasonCode?: string;
+    normalizedSymbol?: string;
+    normalizedExchange?: string;
+    stale?: boolean;
+    fallbackReason?: string;
+    requestedResolution?: string;
+    servedResolution?: string;
+    latencyMs?: number;
+    range?: string;
+    granularity?: string;
+    timezone?: string;
+    currency?: string;
+    barCount?: number;
+  };
+}
+
+export interface CloudMarketBatchTarget {
+  symbol: string;
+  exchange?: string;
+}
+
+export interface CloudMarketBatchItem<T> {
+  symbol: string;
+  exchange: string;
+  status: CloudMarketStatus;
+  data: T | null;
+  reasonCode?: string;
+  stale?: boolean;
+}
+
+export interface CloudMarketBatchPayload<T> {
+  items: Array<CloudMarketBatchItem<T>>;
+}
+
+export type CloudMarketScreenerCategory = "gainers" | "losers" | "most-active";
+
+export interface CloudMarketScreenerItem {
+  rank: number;
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  tradeCount?: number;
+  currency: string;
+  high52w?: number;
+  low52w?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  exchange: string;
+  lastUpdated: number;
+  dataSource: "live";
+}
+
+export interface CloudMarketScreenerPayload {
+  providerId: "gloomberb-cloud";
+  category: CloudMarketScreenerCategory;
+  asOf: string;
+  stale?: boolean;
+  items: CloudMarketScreenerItem[];
+}
+
+/** Cache reuse policy for one Equity Diagnostic request. */
+export type CloudEquityDiagnosticMode = "cache-first" | "refresh";
+
+export type CloudEquityDiagnosticFindingKind =
+  "red_flag" | "green_flag" | "anomaly";
+
+/** 3 is the most severe. */
+export type CloudEquityDiagnosticSeverity = 1 | 2 | 3;
+
+export interface CloudEquityDiagnosticFinding {
+  id: string;
+  kind: CloudEquityDiagnosticFindingKind;
+  severity: CloudEquityDiagnosticSeverity;
+  confidence: number;
+  title: string;
+  /** What the data says, with no reading attached. */
+  observation: string;
+  /** What the observation may mean; kept apart from the observation on purpose. */
+  interpretation: string;
+  /** Ids into `evidence`; unresolved ids are dropped by the client. */
+  evidenceIds: string[];
+}
+
+export interface CloudEquityDiagnosticCoverage {
+  dataset: string;
+  status: "available" | "no_data" | "unsupported" | "failed";
+  asOf?: string;
+  provider?: string;
+  note?: string;
+}
+
+/** The server owns citation URLs; the client never builds them. */
+export interface CloudEquityDiagnosticEvidence {
+  id: string;
+  dataset: string;
+  label: string;
+  asOf?: string;
+  provider?: string;
+  url?: string;
+}
+
+export interface CloudEquityDiagnosticPending {
+  status: "generating";
+  retryAfterMs: number;
+}
+
+export interface CloudEquityDiagnosticResponse {
+  schemaVersion: 1;
+  access: "preview" | "full";
+  symbol: string;
+  exchange: string;
+  companyName?: string;
+  status: "complete" | "partial" | "insufficient_data";
+  verdict: "risk_skewed" | "balanced" | "opportunity_skewed" | "unclear";
+  summary: string;
+  confidence: number;
+  findings: CloudEquityDiagnosticFinding[];
+  watchItems: string[];
+  coverage: CloudEquityDiagnosticCoverage[];
+  evidence: CloudEquityDiagnosticEvidence[];
+  generatedAt: string;
+  expiresAt: string;
+  /** Before this instant a `refresh` request may still answer from cache. */
+  refreshAllowedAt: string;
+  cached: boolean;
+  stale: boolean;
+  promptVersion: 1;
+  /** The model that answered. Diagnostic only: never rendered to the user. */
+  model: string;
+}
+
+export type CloudEquityDiagnosticResult =
+  CloudEquityDiagnosticPending | CloudEquityDiagnosticResponse;
+
+export interface CloudVerificationResponse {
+  sent: boolean;
+  email?: string;
+  alreadyVerified?: boolean;
+}
+
+/** A short-lived, single-use browser URL that establishes the existing desktop session. */
+export interface CloudBrowserHandoffResponse {
+  url: string;
+}
+
+export interface DeviceAuthStartResponse {
+  deviceCode: string;
+  /** 8 characters formatted "XXXX-XXXX", shown so a user without the app can type it. */
+  userCode: string;
+  expiresAt: string;
+  /** Like https://gloom.sh/link/<userCode>; this is what the QR code encodes. */
+  verificationUri: string;
+  pollIntervalMs: number;
+}
+
+/** The approved response is single-use; polling again returns a non-approved status. */
+export type DeviceAuthTokenResponse =
+  | { status: "pending" }
+  | { status: "denied" }
+  | { status: "expired" }
+  | { status: "approved"; sessionToken: string; user: AuthUser };
+
+/** Shared server-computed scanners fanned out to every subscriber. */
+export type ScannerKind = "hilo" | "flow";
+
+export type ScannerStatus = "live" | "starting" | "closed" | "degraded";
+
+export interface ScannerWindowCounts {
+  highs: number;
+  lows: number;
+}
+
+export interface ScannerHiloExtreme {
+  symbol: string;
+  price: number;
+  volume?: number | null;
+  /** Times this symbol printed a new session extreme today. */
+  count: number;
+  at: number;
+}
+
+/** Which entitlement tier produced the payload: free accounts get a delayed instance. */
+export interface ScannerAccessInfo {
+  access: "realtime" | "delayed";
+  /** 0 on the realtime instance, 15 on the delayed one. */
+  delayMinutes: number;
+}
+
+export interface ScannerHiloPayload extends ScannerAccessInfo {
+  status: ScannerStatus;
+  asOf: number;
+  windows: {
+    s30: ScannerWindowCounts;
+    m1: ScannerWindowCounts;
+    m5: ScannerWindowCounts;
+  };
+  highs: ScannerHiloExtreme[];
+  lows: ScannerHiloExtreme[];
+}
+
+export interface ScannerFlowEvent {
+  id: string;
+  at: number;
+  underlying: string;
+  contract: string;
+  right: "C" | "P";
+  strike: number;
+  expiry: string;
+  side: "ask" | "bid" | "mid" | "unknown";
+  kind: "sweep" | "block" | "split" | "trade";
+  size: number;
+  price: number;
+  premium: number;
+  volume?: number | null;
+  openInterest?: number | null;
+  volOi?: number | null;
+  iv?: number | null;
+}
+
+export interface ScannerFlowPayload extends ScannerAccessInfo {
+  status: ScannerStatus;
+  asOf: number;
+  events: ScannerFlowEvent[];
+}
+
+/** Filters for recorded flow prints, matching the FLOW pane's own. */
+export interface ScannerFlowHistoryQuery {
+  /** Page before this print (newest first); omit for the latest prints. */
+  before?: { at: number; id: string };
+  limit?: number;
+  minPremium?: number;
+  right?: "C" | "P";
+  kind?: "sweep" | "block";
+  minVolOi?: number;
+  maxExpiryDays?: number;
+  /** Only these listed symbols (the pane's "mine" universe). */
+  symbols?: string[];
+}
+
+export interface ScannerFlowHistoryPage {
+  events: ScannerFlowEvent[];
+  hasMore: boolean;
+}
+
+export type ScannerPayload = ScannerHiloPayload | ScannerFlowPayload;
+
+/** What a scanner subscriber receives: data, or the entitlement refusal. */
+export type ScannerFeedEvent<T extends ScannerPayload = ScannerPayload> =
+  { type: "data"; payload: T } | { type: "denied"; reason: string };
+
+export interface QuoteStreamTarget {
+  symbol: string;
+  exchange?: string;
+  surface?:
+    | "portfolio"
+    | "watchlist"
+    | "detail"
+    | "monitor"
+    | "inline"
+    | "options"
+    | "screener"
+    | "unknown";
+  visible?: boolean;
+  selected?: boolean;
+  weight?: number;
+}
+
+export const TEAM_ACCENT_COLORS = [
+  "amber",
+  "blue",
+  "cyan",
+  "green",
+  "magenta",
+  "orange",
+  "red",
+  "violet",
+] as const;
+
+export type TeamAccentColor = (typeof TEAM_ACCENT_COLORS)[number];
+
+export type TeamRole = "owner" | "admin" | "member";
+
+export interface TeamSummary {
+  id: string;
+  name: string;
+  slug: string;
+  accentColor: TeamAccentColor;
+  shortName: string;
+  allowMemberInvites: boolean;
+  /** Seats the team can fill; a Team plan deal sets it, otherwise 25. */
+  memberLimit?: number;
+  channelId: string;
+  createdAt: string;
+  role: TeamRole;
+  memberCount: number;
+}
+
+export interface TeamMember {
+  id: string;
+  role: TeamRole;
+  joinedAt: string;
+  user: { id: string; username: string | null; displayName: string };
+}
+
+export interface TeamInviteLink {
+  token: string;
+  url: string;
+  teamId: string;
+  createdBy: string;
+  expiresAt: string;
+  maxUses: number | null;
+  uses: number;
+  createdAt: string;
+}
+
+/** A Better Auth organization invitation as returned by /auth/organization/* endpoints. */
+export interface TeamUser {
+  id: string;
+  username: string | null;
+  displayName: string;
+}
+
+/** An invitation addressed to the signed-in person. */
+export interface TeamReceivedInvitation {
+  id: string;
+  role: TeamRole;
+  expiresAt: string;
+  createdAt: string;
+  team: {
+    id: string;
+    name: string;
+    slug: string;
+    accentColor: TeamAccentColor;
+    shortName: string;
+    memberCount: number;
+  };
+  inviter: TeamUser;
+}
+
+/** An invitation a team sent; the invitee is null for addresses without an account. */
+export interface TeamSentInvitation {
+  id: string;
+  status: string;
+  role: TeamRole;
+  expiresAt: string;
+  createdAt: string;
+  inviter: TeamUser;
+  invitee: TeamUser | null;
+}
+
+export interface TeamUpdatedEvent {
+  teamId: string;
+  change: "settings" | "members" | "channels" | "deleted";
+}
+
+export interface TeamUsernameInvitation {
+  id: string;
+  status: string;
+  expiresAt: string;
+  invitee: { id: string; username: string | null; displayName: string };
+}
+
+interface TeamActor {
+  id: string;
+  username: string | null;
+  displayName: string;
+}
+
+interface TeamNotificationTeam {
+  id: string;
+  name: string;
+  accentColor: TeamAccentColor;
+  shortName: string;
+}
+
+export type TeamNotificationData =
+  | {
+      kind: "team-invite";
+      team: TeamNotificationTeam;
+      invitationId: string;
+      expiresAt: string;
+      inviter: TeamActor;
+    }
+  | { kind: "team-joined"; team: TeamNotificationTeam; member: TeamActor }
+  | {
+      kind: "layout-updated";
+      team: TeamNotificationTeam;
+      layoutId: string;
+      layoutName: string;
+      revision: number;
+      author: TeamActor;
+    };
+
+export type TeamNotificationType = TeamNotificationData["kind"];
+
+export interface TeamNotification {
+  id: string;
+  type: TeamNotificationType;
+  channelId: string;
+  createdAt: string;
+  data: TeamNotificationData;
+}
+
+// Cloud notes
+
+export type NoteOwnerKind = "user" | "team";
+export type NoteKind = "ticker" | "quick";
+
+export interface CloudNoteOwner {
+  kind: NoteOwnerKind;
+  id: string;
+}
+
+export interface CloudNoteSummary {
+  id: string;
+  owner: CloudNoteOwner;
+  kind: NoteKind;
+  key: string;
+  title: string | null;
+  revision: number;
+  updatedBy: { id: string; username: string | null; displayName: string };
+  createdAt: string;
+  updatedAt: string;
+  size: number;
+}
+
+export interface CloudNote extends Omit<CloudNoteSummary, "size"> {
+  content: string;
+}
+
+export interface CloudNoteScope {
+  scope: NoteOwnerKind;
+  teamId?: string;
+}
+
+// Theses
+
+export type ThesisStatus = "watching" | "active" | "closed";
+export type ThesisHealth = "unverified" | "intact" | "weakening" | "broken";
+export type ThesisPillarStatus = ThesisHealth;
+
+export interface ThesisInstrument {
+  symbol: string;
+  exchange?: string;
+  side: "long" | "short";
+  role: "core" | "hedge";
+}
+
+export interface ThesisMetricBound {
+  key: string;
+  op: ">=" | "<=";
+  value: number;
+  unit?: string;
+}
+
+export interface ThesisPillar {
+  id: string;
+  text: string;
+  kind: "qualitative" | "metric";
+  metric?: ThesisMetricBound;
+  /** Symbol the claim is about; absent means the thesis as a whole. */
+  scope?: string;
+  status: ThesisPillarStatus;
+  note?: string;
+}
+
+export interface ThesisKillCondition {
+  id: string;
+  text: string;
+  triggered: boolean;
+  note?: string;
+}
+
+export interface ThesisCatalyst {
+  id: string;
+  text: string;
+  date?: string;
+  status: "pending" | "hit" | "missed";
+}
+
+export interface ThesisDocument {
+  summary: string;
+  instruments: ThesisInstrument[];
+  evidence: { symbols: string[]; keywords: string[] };
+  pillars: ThesisPillar[];
+  killConditions: ThesisKillCondition[];
+  catalysts: ThesisCatalyst[];
+  target?: { price?: number; note?: string };
+  entry?: { date?: string; price?: number };
+}
+
+export interface ThesisOutcome {
+  verdict: "right" | "wrong" | "lucky" | "unlucky";
+  returnPct?: number;
+  lesson?: string;
+}
+
+export interface ThesisEditor {
+  id: string;
+  username: string | null;
+  displayName: string;
+}
+
+export interface CloudThesis {
+  id: string;
+  owner: CloudNoteOwner;
+  title: string;
+  status: ThesisStatus;
+  conviction: number;
+  horizon: string | null;
+  reviewEveryDays: number;
+  document: ThesisDocument;
+  outcome: ThesisOutcome | null;
+  health: ThesisHealth;
+  revision: number;
+  /** Signals waiting for a verdict. */
+  openSignals: number;
+  createdBy: string;
+  updatedBy: ThesisEditor;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt: string | null;
+  closedAt: string | null;
+}
+
+export type ThesisSignalTargetKind = "pillar" | "kill" | "catalyst" | "thesis";
+export type ThesisSignalVerdict = "supports" | "challenges" | "breaks" | "neutral";
+export type ThesisSignalStatus = "open" | "accepted" | "dismissed" | "snoozed" | "noted";
+
+export interface ThesisSignalSource {
+  kind: "news" | "filing" | "transcript" | "metric" | "review" | "user";
+  id?: string;
+  title?: string;
+  url?: string;
+  at?: string;
+  symbol?: string;
+}
+
+export interface ThesisSignal {
+  id: string;
+  thesisId: string;
+  targetKind: ThesisSignalTargetKind;
+  targetId: string | null;
+  verdict: ThesisSignalVerdict;
+  confidence: number | null;
+  reason: string;
+  source: ThesisSignalSource | null;
+  origin: "ai" | "rule" | "user";
+  status: ThesisSignalStatus;
+  resolutionNote: string | null;
+  createdBy: ThesisEditor | null;
+  resolvedBy: ThesisEditor | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  snoozedUntil: string | null;
+}
+
+export interface ThesisDraft extends ThesisDocument {
+  title: string;
+  horizon: string | null;
+}
+
+export interface ThesisPatch {
+  title?: string;
+  status?: ThesisStatus;
+  conviction?: number;
+  horizon?: string | null;
+  reviewEveryDays?: number;
+  document?: ThesisDocument;
+  outcome?: ThesisOutcome | null;
+  note?: string | null;
+  reviewed?: boolean;
+}
+
+// Team collections
+
+export type TeamCollectionKind = "watchlist" | "portfolio";
+
+export interface TeamCollection {
+  id: string;
+  teamId: string;
+  kind: TeamCollectionKind;
+  name: string;
+  currency: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  itemCount: number;
+}
+
+export interface TeamCollectionItem {
+  collectionId: string;
+  symbol: string;
+  exchange: string;
+  quantity: number | null;
+  note: string | null;
+  addedBy: string;
+  addedAt: string;
+  updatedAt: string;
+}
+
+export type TeamCollectionChange =
+  | { change: "created"; collection: TeamCollection }
+  | { change: "updated"; collection: TeamCollection }
+  | { change: "deleted"; collectionId: string }
+  | { change: "item-added" | "item-updated" | "item-removed"; collectionId: string; item: TeamCollectionItem };
+
+export type TeamCollectionEvent = TeamCollectionChange & { teamId: string; actorId: string };
+
+// Team views and plugin state
+
+export interface TeamView {
+  id: string;
+  teamId: string;
+  name: string;
+  revision: number;
+  spec: Record<string, unknown>;
+  createdBy: string;
+  author: { username: string | null; displayName: string };
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+}
+
+export type TeamViewEvent =
+  | { teamId: string; actorId: string; view: TeamView }
+  | { teamId: string; actorId: string; viewId: string };
+
+export interface TeamPluginStateEntry {
+  teamId: string;
+  pluginId: string;
+  key: string;
+  value: unknown;
+  revision: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export type TeamPluginStateEvent =
+  | { teamId: string; actorId: string; state: TeamPluginStateEntry }
+  | { teamId: string; actorId: string; pluginId: string; key: string; deleted: true };
