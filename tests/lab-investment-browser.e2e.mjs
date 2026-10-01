@@ -137,6 +137,13 @@ try {
   await page.locator('.portfolio-state[data-state="SESSION_REQUIRED"]').waitFor({ state: "visible" });
   await page.locator(".stock-card").first().waitFor({ state: "visible", timeout: 90_000 });
   assert.equal(await page.locator(".stock-card").count(), 3);
+  const homeMiniCharts = page.locator('.stock-card .mini-market-chart[data-mode="research"]');
+  assert.equal(await homeMiniCharts.count(), 3, "all three research cards must use the shared chart authority");
+  for (const chart of await homeMiniCharts.all()) {
+    assert.equal(await chart.getAttribute("data-has-cost-reference"), "false");
+    assert.ok(["candlestick", "close-line", "none"].includes(await chart.getAttribute("data-chart-type")));
+    if (await chart.getAttribute("data-chart-type") === "close-line") assert.equal(await chart.getAttribute("data-state"), "PARTIAL_HISTORY");
+  }
   assert.equal(await page.locator(".portfolio-holding-card").count(), 0);
   assert.match(await page.locator(".portfolio-state").innerText(), /需要先登入 Zhuge AI OS/);
   assert.equal(result.portfolioReadRequests, 0, "anonymous session must be denied before any portfolio REST read");
@@ -145,6 +152,11 @@ try {
   assert.equal(await page.locator("a[href]").evaluateAll((links) => links.some((link) => /^(https?:)?\/\/(127\.0\.0\.1|localhost)|\.app(?:$|\/)/i.test(link.getAttribute("href") || ""))), false);
   await save(page, "investment-home-desktop-1440.png");
   await save(page, "my-holdings-session-gate-desktop-1440.png");
+  await page.locator('[data-view="watchlist"]').first().click();
+  await page.getByRole("heading", { name: "觀察與筆記", exact: true }).waitFor({ state: "visible" });
+  assert.equal(await page.locator(".research-grid .stock-card .mini-market-chart[data-mode=\"research\"]").count(), 3, "watchlist research pool must reuse home history through the shared chart authority");
+  await page.locator('[data-view="home"]').first().click();
+  await page.getByRole("heading", { name: "研究總覽", exact: true }).waitFor({ state: "visible" });
   const desktop = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
   assert.ok(desktop.scrollWidth <= desktop.width + 1, JSON.stringify(desktop));
   pass("AIOS Lab Center → same-origin Lab runtime", `path=${new URL(page.url()).pathname}; no popup or independent service; ${JSON.stringify(desktop)}`);
@@ -216,19 +228,31 @@ try {
   const etfCard = fixture.locator('[data-portfolio-symbol="0050"]');
   const stockCard = fixture.locator('[data-portfolio-symbol="2330"]');
   const tpexCard = fixture.locator('[data-portfolio-symbol="6488"]');
-  assert.equal(await etfCard.locator('.portfolio-sparkline-chart[data-point-count="20"]').count(), 1);
+  const etfResearch = fixture.locator('[data-research-symbol="0050.TW"]');
+  const stockResearch = fixture.locator('[data-research-symbol="2330.TW"]');
+  assert.equal(await etfCard.locator('.mini-market-chart[data-mode="portfolio"][data-chart-type="candlestick"][data-bar-count="20"]').count(), 1);
+  assert.equal(await etfCard.locator('[data-candle="true"]').count(), 20);
+  assert.equal(await etfCard.locator('[data-volume-bar="true"]').count(), 20);
   assert.equal(await etfCard.locator('[data-average-cost-reference="true"]').count(), 1);
   assert.equal(await etfCard.locator('[data-latest-point="true"]').count(), 1);
   assert.equal(await stockCard.locator('[data-average-cost-reference="true"]').count(), 1);
-  assert.equal(await tpexCard.locator('.portfolio-sparkline[data-history-status="NOT_CONNECTED"] .portfolio-sparkline-chart').count(), 0);
+  assert.equal(await tpexCard.locator('.mini-market-chart[data-state="NOT_CONNECTED"] svg').count(), 0);
   assert.match(await tpexCard.innerText(), /歷史行情尚未接通|NOT_CONNECTED/);
+  for (const researchCard of [etfResearch, stockResearch]) {
+    assert.equal(await researchCard.locator('.mini-market-chart[data-mode="research"][data-chart-type="candlestick"]').count(), 1);
+    assert.equal(await researchCard.locator('[data-candle="true"]').count(), 20);
+    assert.equal(await researchCard.locator('[data-volume-bar="true"]').count(), 20);
+    assert.equal(await researchCard.locator('[data-average-cost-reference="true"]').count(), 0);
+  }
   await save(fixture, "my-holdings-desktop-1440.png");
-  await saveElement(etfCard, "0050-card-desktop-1440.png");
-  await saveElement(stockCard, "average-cost-reference-card-desktop-1440.png");
+  await saveElement(etfResearch, "research-0050-chart-desktop-1440.png");
+  await saveElement(etfCard, "portfolio-0050-cost-line-desktop-1440.png");
+  await saveElement(stockResearch, "research-2330-chart-desktop-1440.png");
+  await saveElement(stockCard, "portfolio-2330-cost-line-desktop-1440.png");
   await saveElement(tpexCard, "no-history-card-desktop-1440.png");
   const desktopFixtureLayout = await fixture.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
   assert.ok(desktopFixtureLayout.scrollWidth <= desktopFixtureLayout.width + 1, JSON.stringify(desktopFixtureLayout));
-  pass("Portfolio sparkline desktop visual fixture", `${JSON.stringify(desktopFixtureLayout)}; 20-point chart, average-cost line, latest point and NOT_CONNECTED verified; visible synthetic-data watermark`);
+  pass("Shared mini candlestick chart desktop fixture", `${JSON.stringify(desktopFixtureLayout)}; 0050/2330 research and portfolio modes each render 20 candles + volume; portfolio alone has cost overlay; 6488 NOT_CONNECTED; synthetic fixture watermark visible`);
   await fixtureContext.close();
 
   const fixtureMobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
@@ -238,9 +262,13 @@ try {
   await fixtureMobile.locator('html[data-fixture-ready="true"]').waitFor({ state: "attached" });
   const mobileFixtureLayout = await fixtureMobile.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
   assert.ok(mobileFixtureLayout.scrollWidth <= mobileFixtureLayout.width + 1, JSON.stringify(mobileFixtureLayout));
-  assert.equal(await fixtureMobile.locator('[data-portfolio-symbol="0050"] [data-average-cost-reference="true"]').count(), 1);
+  assert.equal(await fixtureMobile.locator('[data-portfolio-symbol="0050"] .mini-market-chart[data-chart-type="candlestick"] [data-average-cost-reference="true"]').count(), 1);
+  assert.equal(await fixtureMobile.locator('[data-research-symbol="0050.TW"] .mini-market-chart[data-chart-type="candlestick"]').count(), 1);
+  assert.equal(await fixtureMobile.locator('[data-research-symbol="0050.TW"] [data-average-cost-reference="true"]').count(), 0);
   await save(fixtureMobile, "my-holdings-mobile-375.png");
-  pass("Portfolio sparkline mobile visual fixture", `${JSON.stringify(mobileFixtureLayout)}; no horizontal overflow; visible synthetic-data watermark`);
+  await saveElement(fixtureMobile.locator('[data-portfolio-symbol="0050"]'), "portfolio-0050-cost-line-mobile-375.png");
+  await saveElement(fixtureMobile.locator('[data-research-symbol="2330.TW"]'), "research-2330-chart-mobile-375.png");
+  pass("Shared mini candlestick chart mobile fixture", `${JSON.stringify(mobileFixtureLayout)}; research has no cost overlay, portfolio cost line is present, and no horizontal overflow; synthetic fixture watermark visible`);
   await fixtureMobileContext.close();
 
   if (result.unexpectedRequestFailures?.length) result.consoleErrors.push(`Unexpected request failures: ${JSON.stringify(result.unexpectedRequestFailures)}`);

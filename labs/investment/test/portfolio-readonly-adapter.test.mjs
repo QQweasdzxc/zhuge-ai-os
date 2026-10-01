@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { createReadOnlyPortfolioAdapter, PortfolioReadError } from "../src/portfolio/readonly-adapter.mjs";
 import { createUnconnectedResearch } from "../src/portfolio/research-placeholder.mjs";
-import { renderPortfolioCard, renderPortfolioResearchContext, renderPortfolioSection, renderPortfolioSparkline } from "../src/portfolio/view.mjs";
+import { renderPortfolioCard, renderPortfolioResearchContext, renderPortfolioSection, renderPortfolioMiniChart } from "../src/portfolio/view.mjs";
 
 const OWNER_ID = "test-owner-id";
 const AUTH_ID = "test-auth-id";
@@ -163,8 +163,12 @@ test("unsupported US providers stay NOT_CONNECTED without fabricated values", as
   assert.equal(result.history.data, null);
 });
 
-test("portfolio sparkline keeps only the latest 20 closes and marks the canonical average-cost reference", () => {
-  const bars = Array.from({ length: 25 }, (_, index) => ({ date: `2026-09-${String(index + 1).padStart(2, "0")}`, close: 50 + index }));
+test("portfolio card uses the shared 20-bar candlestick chart, actual volume, and canonical average-cost reference", () => {
+  const bars = Array.from({ length: 25 }, (_, index) => {
+    const close = 50 + index;
+    const open = close - 0.5;
+    return { date: `2026-09-${String(index + 1).padStart(2, "0")}`, open, high: close + 1, low: open - 1, close, volume: index * 100 };
+  });
   const card = renderPortfolioCard({
     symbol: "0050", researchSymbol: "0050.TW", name: "元大台灣50", marketLabel: "TW", currency: "TWD",
     quantity: 709, averageCost: 65, status: "AVAILABLE",
@@ -173,12 +177,15 @@ test("portfolio sparkline keeps only the latest 20 closes and marks the canonica
     fetchedAt: "2026-10-01T09:00:00.000Z", delayed: true, stale: false, fallback: false, data: bars,
   });
 
-  assert.match(card, /近 20 日價格走勢/);
+  assert.match(card, /近 20 日 K 線/);
   assert.match(card, /NT\$65/);
-  assert.match(card, /data-point-count="20"/);
+  assert.match(card, /data-mode="portfolio" data-chart-type="candlestick"/);
+  assert.match(card, /data-bar-count="20"/);
+  assert.equal((card.match(/data-candle="true"/g) || []).length, 20);
+  assert.equal((card.match(/data-volume-bar="true"/g) || []).length, 20);
   assert.match(card, /data-has-cost-reference="true"/);
   assert.match(card, /data-average-cost-reference="true"/);
-  assert.match(card, /data-latest-point="true"/);
+  assert.match(card, /data-candle-index="19" data-latest-point="true"/);
   assert.match(card, /TWSE · 2026-10-01 · 延遲收盤 · 時效正常 · Fallback：否/);
 });
 
@@ -190,12 +197,13 @@ test("missing average cost omits the reference line without estimating a replace
   const card = renderPortfolioCard({ symbol: "2330", researchSymbol: "2330.TW", name: "台積電", currency: "TWD", averageCost: null }, evidence);
   assert.match(card, /data-has-cost-reference="false"/);
   assert.doesNotMatch(card, /data-average-cost-reference="true"/);
-  assert.match(card, /未提供成本線/);
+  assert.match(card, /data-chart-type="close-line"/);
+  assert.match(card, /PARTIAL_HISTORY/);
   assert.match(card, /平均成本／股<\/dt><dd>—/);
 });
 
 test("unconnected and unavailable history render truthful empty states, never a synthetic path", () => {
-  const notConnected = renderPortfolioSparkline({ averageCost: 65, currency: "TWD" }, {
+  const notConnected = renderPortfolioMiniChart({ averageCost: 65, currency: "TWD" }, {
     status: "NOT_CONNECTED", provider: "TPEx", errorCode: "HISTORY_NOT_CONNECTED", delayed: true, fallback: false, data: null,
   });
   assert.match(notConnected, /歷史行情尚未接通/);
@@ -203,7 +211,7 @@ test("unconnected and unavailable history render truthful empty states, never a 
   assert.match(notConnected, /TPEx/);
   assert.doesNotMatch(notConnected, /<svg|<path|data-average-cost-reference="true"/);
 
-  const unavailable = renderPortfolioSparkline({}, { status: "UNAVAILABLE", provider: "TWSE", errorCode: "TIMEOUT", data: null });
+  const unavailable = renderPortfolioMiniChart({}, { status: "UNAVAILABLE", provider: "TWSE", errorCode: "TIMEOUT", data: null });
   assert.match(unavailable, /歷史行情暫時無法取得/);
   assert.match(unavailable, /TIMEOUT/);
   assert.doesNotMatch(unavailable, /<svg|<path/);

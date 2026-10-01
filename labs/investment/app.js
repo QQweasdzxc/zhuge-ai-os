@@ -1,8 +1,9 @@
-import { loadHome, loadResearch, loadMarket, loadOpening, loadRadar, loadHistory } from "./src/browser-runtime.mjs?v=20261002-0015";
+import { loadHome, loadResearch, loadMarket, loadOpening, loadRadar, loadHistory } from "./src/browser-runtime.mjs?v=20261002-0050";
 import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
 import { createUnconnectedResearch } from "./src/portfolio/research-placeholder.mjs";
-import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261002-0015";
-import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261002-0015";
+import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261002-0050";
+import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261002-0050";
+import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261002-0050";
 
 const root = document.querySelector("#view-root");
 const dialog = document.querySelector("[data-dialog]");
@@ -198,14 +199,6 @@ function quoteHeadline(evidence) {
   return `<div class="quote-number">${fmt(data.close)}<small>TWD / 股</small></div><div class="quote-change ${Number.isFinite(change) ? change > 0 ? "positive" : change < 0 ? "negative" : "neutral" : "neutral"}">${fmtSigned(data.change)} · ${fmtSigned(change)}%</div>`;
 }
 
-function sparkline(history) {
-  const closes = list(history?.data).map((item) => Number(item.close)).filter(Number.isFinite);
-  if (closes.length < 2) return `<p class="tiny-note">${esc(history?.note || "尚無可用歷史線圖")}</p>`;
-  const min = Math.min(...closes), max = Math.max(...closes), range = max - min || 1;
-  const points = closes.map((value, index) => `${(index / (closes.length - 1) * 300).toFixed(1)},${(34 - (value - min) / range * 28).toFixed(1)}`).join(" ");
-  return `<svg class="sparkline" viewBox="0 0 300 40" preserveAspectRatio="none" role="img" aria-label="官方日收歷史走勢，${closes.length} 筆"> <path class="area" d="M${points.replaceAll(" ", " L")} L300,40 L0,40 Z"></path><path d="M${points.replaceAll(" ", " L")}"></path></svg>`;
-}
-
 function quoteChip(quote) {
   if (!quote?.data) return badge(quote);
   const change = Number(quote.data.changePercent);
@@ -215,6 +208,7 @@ function quoteChip(quote) {
 
 function renderStockCard(card, history) {
   const quote = card.quote;
+  const chartHistory = history ?? list(state.home?.trends).find((entry) => entry.symbol === card.symbol)?.history;
   const displayName = card.name || card.displayName || symbolNames[card.symbol];
   const date = quote?.dataTimestamp || "日期未提供";
   const revenue = card.revenue?.data?.yearOverYearPercent;
@@ -222,7 +216,7 @@ function renderStockCard(card, history) {
   return `<article class="stock-card">
     <div class="stock-card-top"><div><h2 class="stock-name">${esc(displayName)}</h2><span class="ticker">${esc(card.symbol)} · ${esc(card.venue)}</span></div>${quoteChip(quote)}</div>
     ${quoteHeadline(quote)}
-    ${sparkline(history)}
+    ${MiniMarketChart({ evidence: chartHistory, mode: "research", currency: "TWD" })}
     <p class="tiny-note">${esc(quote?.provider || "來源未提供")} · ${esc(date)} · ${quote?.delayed ? "延遲收盤" : ""}</p>
     ${companyRevenue ? `<p class="tiny-note">最近月營收年增 ${fmtSigned(revenue)}% · ${esc(card.revenue.data.period || "期間未提供")}</p>` : `<p class="tiny-note">${card.instrumentType === "ETF" ? "ETF：公司營收不適用；基金持股與淨值未接通。" : "營運資料可進入研究頁查看。"}</p>`}
     <div class="stock-card-footer"><span class="ticker">${badge(quote)}</span><button class="primary-button" data-action="research" data-symbol="${esc(card.symbol)}">個股研究</button></div>

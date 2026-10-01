@@ -1,0 +1,330 @@
+{
+  "runAt": "2026-10-01T17:03:15.554Z",
+  "scope": "temporary static-file preview only; no authenticated session or API server",
+  "checks": [
+    {
+      "name": "AIOS Lab Center → same-origin Lab runtime",
+      "result": "PASS",
+      "evidence": "path=/labs/investment/; no popup or independent service; {\"width\":1440,\"scrollWidth\":1425}"
+    },
+    {
+      "name": "anonymous portfolio boundary",
+      "result": "PASS",
+      "evidence": "SESSION_REQUIRED before owner mapping/portfolio SELECT; portfolio REST reads=0"
+    },
+    {
+      "name": "2330.TW research route and truthful provider state",
+      "result": "PASS",
+      "evidence": "page title and evidence rendered; no simulated value asserted"
+    },
+    {
+      "name": "0050.TW research route and truthful provider state",
+      "result": "PASS",
+      "evidence": "page title and evidence rendered; no simulated value asserted"
+    },
+    {
+      "name": "6488.TWO research route and truthful provider state",
+      "result": "PASS",
+      "evidence": "page title and evidence rendered; TPEx CORS boundary retained"
+    },
+    {
+      "name": "開盤壓力 static route",
+      "result": "PASS",
+      "evidence": "real provider results or explicit unavailable/proxy-required state rendered"
+    },
+    {
+      "name": "大盤脈搏 static route",
+      "result": "PASS",
+      "evidence": "real provider results or explicit unavailable/proxy-required state rendered"
+    },
+    {
+      "name": "產業價格雷達 static route",
+      "result": "PASS",
+      "evidence": "real provider results or explicit unavailable/proxy-required state rendered"
+    },
+    {
+      "name": "AAPL research route retains explicit provider boundary",
+      "result": "PASS",
+      "evidence": "NOT_CONNECTED with null evidence; no simulated quote or holdings displayed"
+    },
+    {
+      "name": "NVDA research route retains explicit provider boundary",
+      "result": "PASS",
+      "evidence": "NOT_CONNECTED with null evidence; no simulated quote or holdings displayed"
+    },
+    {
+      "name": "Mobile 375×812 Lab and 2330 journey",
+      "result": "PASS",
+      "evidence": "{\"width\":375,\"scrollWidth\":375}; minimum navigation target=44px"
+    },
+    {
+      "name": "Shared mini candlestick chart desktop fixture",
+      "result": "PASS",
+      "evidence": "{\"width\":1440,\"scrollWidth\":1425}; 0050/2330 research and portfolio modes each render 20 candles + volume; portfolio alone has cost overlay; 6488 NOT_CONNECTED; synthetic fixture watermark visible"
+    },
+    {
+      "name": "Shared mini candlestick chart mobile fixture",
+      "result": "PASS",
+      "evidence": "{\"width\":375,\"scrollWidth\":375}; research has no cost overlay, portfolio cost line is present, and no horizontal overflow; synthetic fixture watermark visible"
+    },
+    {
+      "name": "Runtime JavaScript/console errors",
+      "result": "PASS",
+      "evidence": "0 uncaught page errors; CORS errors are captured separately as expected provider boundary evidence."
+    }
+  ],
+  "providerCorsErrors": [
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap05_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap05_L: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL: net::ERR_FAILED",
+    "Access to fetch at 'https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested",
+    "thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap03_L: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/exchangeReport/MI_MARGN' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/exchangeReport/MI_MARGN: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap06_L_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap07_L_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap07_L_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap04_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap04_L: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.taifex.com.tw/v1/DailyMarketReportFut' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.taifex.com.tw/v1/DailyMarketReportFut: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap07_O_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap07_O_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap04_O' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap04_O: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap05_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap05_L: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL: net::ERR_FAILED",
+    "Access to fetch at 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes: net::ERR_FAILED",
+    "Access to fetch at 'https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested",
+    "thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap03_L: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap07_L_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap07_L_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.taifex.com.tw/v1/DailyMarketReportFut' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.taifex.com.tw/v1/DailyMarketReportFut: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap04_L' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap04_L: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/opendata/t187ap06_L_ci: net::ERR_FAILED",
+    "Access to fetch at 'https://openapi.twse.com.tw/v1/exchangeReport/MI_MARGN' from origin 'http://127.0.0.1:51499' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "openapi.twse.com.tw/v1/exchangeReport/MI_MARGN: net::ERR_FAILED"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshots": [
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/lab-center-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-home-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/my-holdings-session-gate-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-2330-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-0050-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-6488-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-AAPL-research-not-connected-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-home-mobile-375.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/my-holdings-session-gate-mobile-375.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/investment-2330-mobile-375.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/my-holdings-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/research-0050-chart-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/portfolio-0050-cost-line-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/research-2330-chart-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/portfolio-2330-cost-line-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/no-history-card-desktop-1440.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/my-holdings-mobile-375.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/portfolio-0050-cost-line-mobile-375.png",
+    "/Users/qq/Documents/GitHub/zhuge-ai-os/labs/investment/docs/mini-market-chart-v1/screenshots/research-2330-chart-mobile-375.png"
+  ],
+  "portfolioReadRequests": 0,
+  "requestFailures": [
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap05_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap05_O",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/tpex_mainboard_daily_close_quotes",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/exchangeReport/STOCK_DAY_ALL",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "thedocs.worldbank.org",
+      "path": "/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap03_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/exchangeReport/MI_MARGN",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap06_L_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap07_L_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap04_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.taifex.com.tw",
+      "path": "/v1/DailyMarketReportFut",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap06_O_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap07_O_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap03_O",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/tpex_3insti_daily_trading",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap04_O",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/tpex_mainboard_margin_balance",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/mopsfin_t187ap05_O",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap05_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/exchangeReport/STOCK_DAY_ALL",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "www.tpex.org.tw",
+      "path": "/openapi/v1/tpex_mainboard_daily_close_quotes",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "thedocs.worldbank.org",
+      "path": "/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Historical-Data-Monthly.xlsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap03_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap07_L_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.taifex.com.tw",
+      "path": "/v1/DailyMarketReportFut",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap04_L",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/opendata/t187ap06_L_ci",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "host": "openapi.twse.com.tw",
+      "path": "/v1/exchangeReport/MI_MARGN",
+      "failure": "net::ERR_FAILED"
+    }
+  ],
+  "browserNetworkNotices": [
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED",
+    "Failed to load resource: net::ERR_FAILED"
+  ]
+}

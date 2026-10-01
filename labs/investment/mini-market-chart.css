@@ -1,0 +1,33 @@
+.mini-market-chart{min-width:0;margin-top:12px;padding:9px 11px 7px;border:1px solid var(--border);border-radius:11px;background:rgba(8,15,24,.34);overflow:hidden}
+.mini-market-chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;color:var(--text);font-size:11px}
+.mini-market-chart-head>span{color:var(--muted);font-size:9px;text-align:right;overflow-wrap:anywhere}
+.mini-market-chart-state{flex:0 0 auto;padding:1px 6px;border:1px solid var(--border);border-radius:999px;white-space:nowrap}
+.mini-market-chart-state[data-state="PARTIAL_HISTORY"]{color:var(--warn);border-color:#80683c}
+.mini-market-chart-state[data-state="NOT_CONNECTED"]{color:#bac5d3}
+.mini-market-chart-state[data-state="UNAVAILABLE"]{color:var(--bad);border-color:#75474a}
+.mini-market-chart-svg{display:block;width:100%;height:67px;margin:4px 0 0;overflow:visible}
+.mini-market-chart-svg.has-volume{height:77px}
+.mini-market-candle-wick{stroke:currentColor;stroke-width:1.25;vector-effect:non-scaling-stroke}
+.mini-market-candle-body{fill:currentColor;stroke:currentColor;stroke-width:.5;vector-effect:non-scaling-stroke}
+.mini-market-candle-up{color:#ef9b9b}
+.mini-market-candle-down{color:#85d6b0}
+.mini-market-candle-flat{color:#aebbd0}
+.mini-market-volume-bar{opacity:.48}
+.mini-market-volume-up{fill:#ef9b9b}
+.mini-market-volume-down{fill:#85d6b0}
+.mini-market-volume-flat{fill:#aebbd0}
+.mini-market-cost-line{stroke:#c1cbd6;stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.mini-market-close-fallback polyline{fill:none;stroke:currentColor;stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.mini-market-close-fallback circle{fill:currentColor;stroke:var(--panel);stroke-width:1;vector-effect:non-scaling-stroke}
+.mini-market-close-up{color:#ef9b9b}
+.mini-market-close-down{color:#85d6b0}
+.mini-market-close-flat{color:#aebbd0}
+.mini-market-chart-legend{display:flex;align-items:center;flex-wrap:wrap;gap:5px 12px;min-height:13px;color:var(--muted);font-size:9px;line-height:1.25;overflow-wrap:anywhere}
+.mini-market-volume-key:before{content:"";display:inline-block;width:8px;height:7px;margin-right:4px;background:#8ea3ba;opacity:.6;vertical-align:middle}
+.mini-market-cost-key{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.mini-market-cost-key i{width:14px;border-top:1px dashed #c1cbd6;flex:0 0 auto}
+.mini-market-chart-foot{display:flex;justify-content:space-between;gap:8px;min-width:0;color:var(--muted);font-size:9px;font-variant-numeric:tabular-nums}
+.mini-market-chart-foot span{min-width:0;overflow-wrap:anywhere}
+.mini-market-chart-note,.mini-market-chart-meta{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.3;overflow-wrap:anywhere}
+.mini-market-chart-empty{display:grid;place-items:center;min-height:45px;margin:4px 0;border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-size:11px;text-align:center}
+@media(max-width:720px){.mini-market-chart{padding:8px 9px 7px}.mini-market-chart-svg{height:64px}.mini-market-chart-svg.has-volume{height:73px}.mini-market-chart-head{font-size:10px}.mini-market-chart-foot,.mini-market-chart-meta,.mini-market-chart-note{font-size:9px}}

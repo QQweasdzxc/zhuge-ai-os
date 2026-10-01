@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Portfolio Sparkline QA Fixture</title>
+  <title>Mini Market Chart QA Fixture</title>
   <link rel="stylesheet" href="../../styles.css">
-  <link rel="stylesheet" href="../../portfolio.css?v=20261002-0015">
+  <link rel="stylesheet" href="../../portfolio.css?v=20261002-0050">
+  <link rel="stylesheet" href="../../mini-market-chart.css?v=20261002-0050">
   <style>
     .fixture-banner{position:sticky;top:0;z-index:5;padding:10px 16px;border-bottom:2px solid #edc57d;background:#3c301b;color:#fff1c9;font-size:13px;font-weight:750;text-align:center}
     .fixture-main{width:min(100%,1320px);margin:0 auto;padding:20px clamp(14px,3vw,40px) 32px}
@@ -18,19 +19,24 @@
   <div class="fixture-banner">QA VISUAL FIXTURE — 持股欄位與價格曲線皆為合成測試資料，非 PM Portfolio、非真實行情；不會寫入或讀取正式持股。</div>
   <main class="fixture-main">
     <p class="eyebrow">DEVELOPER QA ONLY</p>
-    <h1>我的持股｜Mini Sparkline</h1>
-    <p>用明確標示的測試資料檢查持股卡密度、成本線、未接通狀態與手機排版。實際行情狀態另由 live Provider QA 驗證。</p>
+    <h1>Investment Lab｜Mini Market Chart</h1>
+    <p>同一元件用於研究與持股卡；持股資料、OHLC 與成交量都是明確標示的合成測試資料，實際行情另由 Runtime Provider 證據判定。</p>
+    <section class="surface"><h2>研究標的｜研究模式</h2><div id="research-fixture" class="research-grid"></div></section>
     <div id="portfolio-fixture"></div>
   </main>
   <script type="module">
-    import { renderPortfolioSection } from "../../src/portfolio/view.mjs?v=20261002-0015";
+    import { MiniMarketChart } from "../../src/components/mini-market-chart.mjs?v=20261002-0050";
+    import { renderPortfolioSection } from "../../src/portfolio/view.mjs?v=20261002-0050";
 
     const dates = Array.from({ length: 20 }, (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}`);
     const history = (provider, values) => ({
       status: "AVAILABLE", provider, dataTruth: "SIMULATED", dataTimestamp: "2026-09-30",
       fetchedAt: "2026-10-01T10:00:00.000Z", stale: false, delayed: true, fallback: false,
       note: "Synthetic UI fixture only; never a Runtime or Provider PASS.",
-      data: values.map((close, index) => ({ date: dates[index], close })),
+      data: values.map((close, index) => {
+        const open = index ? values[index - 1] : close - 1;
+        return { date: dates[index], open, high: Math.max(open, close) + 1, low: Math.min(open, close) - 1, close, volume: (index + 1) * 1000 };
+      }),
     });
     const positions = [
       { symbol: "0050", researchSymbol: "0050.TW", name: "元大台灣50", marketLabel: "TW", currency: "TWD", assetType: "ETF", quantity: 709, averageCost: 65.45, investedCost: 46404.05, lastPrice: 112.9, marketValue: 80046.1, unrealizedPnl: 33642.05, unrealizedPct: 72.5, asOf: "2026-10-01T09:00:00+08:00", portfolioSource: "QA FIXTURE ONLY", marketValueSource: "Synthetic QA fields", status: "AVAILABLE" },
@@ -44,6 +50,11 @@
       ["6488.TWO", { status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "TPEx", dataTimestamp: null, delayed: true, stale: null, fallback: false, errorCode: "HISTORY_NOT_CONNECTED", data: null }],
       ["AAPL", { status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "未接通", dataTimestamp: null, delayed: false, stale: null, fallback: false, errorCode: "NOT_CONNECTED", data: null }],
     ]);
+    document.querySelector("#research-fixture").innerHTML = ["0050.TW", "2330.TW"].map((symbol) => {
+      const evidence = histories.get(symbol);
+      const label = symbol === "0050.TW" ? "元大台灣50" : "台積電";
+      return `<article class="stock-card fixture-research-card" data-research-symbol="${symbol}"><h3>${label} · ${symbol}</h3>${MiniMarketChart({ evidence, mode: "research", averageCost: 65, currency: "TWD" })}</article>`;
+    }).join("");
     document.querySelector("#portfolio-fixture").innerHTML = renderPortfolioSection({ status: "AVAILABLE", positions }, histories);
     document.documentElement.dataset.fixtureReady = "true";
   </script>
