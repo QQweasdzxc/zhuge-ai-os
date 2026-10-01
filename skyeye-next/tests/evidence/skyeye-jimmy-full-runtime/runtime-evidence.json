@@ -1,0 +1,292 @@
+{
+  "candidate": {
+    "url": "http://127.0.0.1:4190/skyeye-next/jimmy/",
+    "states": [
+      {
+        "width": 1440,
+        "height": 900,
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "map": {
+          "width": 1440,
+          "height": 900
+        },
+        "runtimeReady": true,
+        "welcomeHidden": true,
+        "mapStack": "MAP SOURCE · NLSC PHOTO2",
+        "panels": {
+          "intelligenceOpen": true,
+          "layerDrawerOpen": false
+        },
+        "nativeHudHidden": true,
+        "referenceEffectsIsolated": true,
+        "intelligenceContentContained": true,
+        "hudVisible": true,
+        "nativeActionsContained": true,
+        "mapVisible": true,
+        "cctv": "30",
+        "layerCount": "3",
+        "overflowX": false,
+        "state": {
+          "activeMapId": "nlsc-photo2",
+          "activeMapLabel": "NLSC PHOTO2",
+          "layerCount": 3,
+          "enabledLayerIds": [
+            "cctv",
+            "taiwan-freeway-live",
+            "taiwan-freeway-cms"
+          ],
+          "cctvCount": 30,
+          "selectedCameraId": "new-taipei-cctv-C000003",
+          "cameraWindowVisible": true,
+          "selectedCameraLinkVisible": true,
+          "hudVisible": true,
+          "sceneMode": 2,
+          "globeTilesLoaded": false,
+          "imageryLayerCount": 1,
+          "center": {
+            "latitude": 24.949999999999992,
+            "longitude": 121.49900000000001,
+            "altitude": 593.7039508974801
+          }
+        },
+        "initialLayerResults": [
+          {
+            "layerId": "cctv",
+            "status": "available",
+            "enabled": true,
+            "activated": true,
+            "selectedCameraId": "new-taipei-cctv-C000003",
+            "selectedCameraDistanceKm": 8.2
+          },
+          {
+            "layerId": "taiwan-freeway-live",
+            "status": "available",
+            "enabled": true,
+            "activated": true
+          },
+          {
+            "layerId": "taiwan-freeway-cms",
+            "status": "available",
+            "enabled": true,
+            "activated": true
+          }
+        ]
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "map": {
+          "width": 1920,
+          "height": 1080
+        },
+        "runtimeReady": true,
+        "welcomeHidden": true,
+        "mapStack": "MAP SOURCE · NLSC PHOTO2",
+        "panels": {
+          "intelligenceOpen": true,
+          "layerDrawerOpen": false
+        },
+        "nativeHudHidden": true,
+        "referenceEffectsIsolated": true,
+        "intelligenceContentContained": true,
+        "hudVisible": true,
+        "nativeActionsContained": true,
+        "mapVisible": true,
+        "cctv": "30",
+        "layerCount": "3",
+        "overflowX": false,
+        "state": {
+          "activeMapId": "nlsc-photo2",
+          "activeMapLabel": "NLSC PHOTO2",
+          "layerCount": 3,
+          "enabledLayerIds": [
+            "cctv",
+            "taiwan-freeway-live",
+            "taiwan-freeway-cms"
+          ],
+          "cctvCount": 30,
+          "selectedCameraId": "new-taipei-cctv-C000003",
+          "cameraWindowVisible": true,
+          "selectedCameraLinkVisible": true,
+          "hudVisible": true,
+          "sceneMode": 2,
+          "globeTilesLoaded": true,
+          "imageryLayerCount": 1,
+          "center": {
+            "latitude": 24.949999999999992,
+            "longitude": 121.49900000000001,
+            "altitude": 593.7039508974801
+          }
+        },
+        "initialLayerResults": [
+          {
+            "layerId": "cctv",
+            "status": "available",
+            "enabled": true,
+            "activated": true,
+            "selectedCameraId": "new-taipei-cctv-C000003",
+            "selectedCameraDistanceKm": 8.2
+          },
+          {
+            "layerId": "taiwan-freeway-live",
+            "status": "available",
+            "enabled": true,
+            "activated": true
+          },
+          {
+            "layerId": "taiwan-freeway-cms",
+            "status": "available",
+            "enabled": true,
+            "activated": true
+          }
+        ]
+      }
+    ],
+    "errors": [
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+      "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ],
+    "failures": [
+      {
+        "host": "127.0.0.1:4190",
+        "path": "/api/cctv/frame/new-taipei-cctv-C000003",
+        "status": 503
+      },
+      {
+        "host": "127.0.0.1:4190",
+        "path": "/api/cctv/frame/new-taipei-cctv-C000003",
+        "status": 503
+      },
+      {
+        "host": "127.0.0.1:4190",
+        "path": "/api/cctv/frame/new-taipei-cctv-C000003",
+        "status": 503
+      },
+      {
+        "host": "127.0.0.1:4190",
+        "path": "/api/cctv/frame/new-taipei-cctv-C000003",
+        "status": 503
+      },
+      {
+        "host": "127.0.0.1:4190",
+        "path": "/api/cctv/frame/new-taipei-cctv-C000003",
+        "status": 503
+      }
+    ],
+    "harnessWarnings": [
+      "dev_proxy_does_not_forward_vite_hmr_websocket"
+    ],
+    "runtime": {
+      "runtime": {
+        "activeMapId": "nlsc-photo2",
+        "activeMapLabel": "NLSC PHOTO2",
+        "layerCount": 3,
+        "enabledLayerIds": [
+          "cctv",
+          "taiwan-freeway-live",
+          "taiwan-freeway-cms"
+        ],
+        "cctvCount": 30,
+        "selectedCameraId": "new-taipei-cctv-C000003",
+        "cameraWindowVisible": true,
+        "selectedCameraLinkVisible": true,
+        "hudVisible": true,
+        "sceneMode": 2,
+        "globeTilesLoaded": true,
+        "imageryLayerCount": 1,
+        "center": {
+          "latitude": 24.949999999999992,
+          "longitude": 121.49900000000001,
+          "altitude": 593.7039508974801
+        }
+      },
+      "initialLayerResults": [
+        {
+          "layerId": "cctv",
+          "status": "available",
+          "enabled": true,
+          "activated": true,
+          "selectedCameraId": "new-taipei-cctv-C000003",
+          "selectedCameraDistanceKm": 8.2
+        },
+        {
+          "layerId": "taiwan-freeway-live",
+          "status": "available",
+          "enabled": true,
+          "activated": true
+        },
+        {
+          "layerId": "taiwan-freeway-cms",
+          "status": "available",
+          "enabled": true,
+          "activated": true
+        }
+      ],
+      "activeLayers": [
+        "taiwan-freeway-live",
+        "taiwan-freeway-cms",
+        "cctv"
+      ]
+    }
+  },
+  "reference": {
+    "url": "https://godeyes.jimmy-dev.win/",
+    "captures": [
+      {
+        "file": "reference-1440x900.png",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "status": 200,
+        "title": "台灣天眼 - 地圖與攝影機整合資訊平台",
+        "url": "https://godeyes.jimmy-dev.win/",
+        "sha256": "2372ebe9e73ac7b5f89e1de2f3733f1d5e9379c9864f5fe37ca42ff844d948b8",
+        "captureSource": "previous authenticated-free direct browser capture; no fixture"
+      },
+      {
+        "file": "reference-1920x1080.png",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "status": 304,
+        "title": "台灣天眼 - 地圖與攝影機整合資訊平台",
+        "url": "https://godeyes.jimmy-dev.win/",
+        "sha256": "70f680cb3de1d7b8e29142753584b36f184dad9b0c3dbe0255d574e80a20034e",
+        "captureSource": "previous authenticated-free direct browser capture; no fixture"
+      }
+    ],
+    "errors": []
+  },
+  "screenshots": [
+    {
+      "file": "candidate-1440x900.png",
+      "sha256": "8091e4f4a433ddcc87887fe36918cbc635646c666a7a64cdac6a76132eede405"
+    },
+    {
+      "file": "candidate-1920x1080.png",
+      "sha256": "4dd59dd543a2ff766a492e12a6b7db504e351e365b771cb8808e1467d870d340"
+    }
+  ],
+  "interactions": {
+    "layerDrawerOpened": true,
+    "layerDrawerClosed": true,
+    "intelligenceClosed": true,
+    "intelligenceReopened": true,
+    "displayControlsOpened": true,
+    "hudButtonPressed": "false",
+    "hudHiddenAfterToggle": true,
+    "hudRestored": true,
+    "fullscreenEntered": true,
+    "returnedFromFullscreen": true,
+    "locationSearchAvailable": true,
+    "locationSearchAcceptsInput": true
+  }
+}

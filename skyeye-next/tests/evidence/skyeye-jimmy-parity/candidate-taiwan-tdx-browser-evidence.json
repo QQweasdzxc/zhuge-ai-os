@@ -1,0 +1,61 @@
+{
+  "contract": "skyeye-jimmy-taiwan-tdx-read-only-gate-v1",
+  "runtime": {
+    "viewport": "1440x900",
+    "appUrl": "http://127.0.0.1:4180"
+  },
+  "rawResponseReturned": false,
+  "jimmyGatewayRequestCount": 0,
+  "results": [
+    {
+      "path": "/api/taiwan/tdx/rail/live",
+      "httpStatus": 200,
+      "providerId": "taiwan.tdx.rail-live",
+      "capability": "rail-live",
+      "status": "provider_not_configured",
+      "stale": false,
+      "entityCount": 0,
+      "errorCode": "PROVIDER_NOT_CONFIGURED",
+      "upstreamCalled": false,
+      "rawResponseReturned": false
+    },
+    {
+      "path": "/api/taiwan/tdx/metro/live?operator=KRTC",
+      "httpStatus": 200,
+      "providerId": "taiwan.tdx.metro-live-board",
+      "capability": "metro-live-board",
+      "status": "provider_not_configured",
+      "stale": false,
+      "entityCount": 0,
+      "errorCode": "PROVIDER_NOT_CONFIGURED",
+      "upstreamCalled": false,
+      "rawResponseReturned": false
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/rail/live"
+    },
+    {
+      "method": "GET",
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/metro/live"
+    }
+  ],
+  "responses": [
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/rail/live"
+    },
+    {
+      "status": 200,
+      "host": "127.0.0.1:4180",
+      "path": "/api/taiwan/tdx/metro/live"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}
