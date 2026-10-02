@@ -18,9 +18,10 @@ test("TASK-067 scopes the existing reorder contract to the submitted board insta
 
 test("TASK-067 keeps the shared runtime dynamic and sends the complete current order", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /state\.workspaces\.filter\(workspace => workspace\.active\)/);
-  assert.match(runtime, /const fullOrder = ordered\.map/);
+  assert.match(runtime, /const originalOrder = state\.workspaces\.filter\(workspace => workspace\.active === true\)/);
+  assert.match(runtime, /const fullOrder = workspaceOrderAfterDrop\(originalOrder, draggedId, targetId\)/);
   assert.match(runtime, /const workspaceIds = fullOrder\.map\(workspace => workspace\.id\)/);
+  assert.match(runtime, /insertionIndex = draggedIndex < targetIndex \? targetIndex - 1 : targetIndex/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.doesNotMatch(runtime, /workspaceIds\.slice\(0,\s*5\)|\["待辦"|\["Co區"/);
 });

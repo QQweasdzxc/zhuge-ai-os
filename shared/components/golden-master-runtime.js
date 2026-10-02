@@ -807,7 +807,9 @@
         key: workspace.key,
         name: workspace.name,
         completion,
-        reorderable: !state.readOnly && !completion && !legacyTerminal && state.applicationScope !== "procurement",
+        // Every active Module C workspace is a sortable board column,
+        // including Completion and consumer-specific/custom workspaces.
+        reorderable: !state.readOnly,
         addHtml: !completion && !state.readOnly && !legacyTerminal && state.applicationScope !== "procurement"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
@@ -1365,21 +1367,31 @@
   function hasDragType(event, type) {
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
+  function workspaceOrderAfterDrop(workspaces, draggedId, targetId) {
+    const ordered = (Array.isArray(workspaces) ? workspaces : [])
+      .filter(workspace => workspace?.active === true)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const visible = ordered.filter(isMainBoardWorkspace);
+    const draggedIndex = visible.findIndex(workspace => workspace.id === draggedId);
+    const targetIndex = visible.findIndex(workspace => workspace.id === targetId);
+    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return ordered;
+    const [dragged] = visible.splice(draggedIndex, 1);
+    // The target shifts left by one when the dragged column came from before it.
+    const insertionIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    visible.splice(insertionIndex, 0, dragged);
+    let visibleIndex = 0;
+    return ordered.map(workspace => isMainBoardWorkspace(workspace) ? visible[visibleIndex++] : workspace);
+  }
   async function reorderWorkspace(draggedId, targetId) {
     if (state.readOnly) {
       setBanner(readOnlyRuntimeError().message, "error");
       return;
     }
     if (!draggedId || !targetId || draggedId === targetId) return;
-    const ordered = state.workspaces.filter(workspace => workspace.active).sort((a, b) => a.sortOrder - b.sortOrder);
-    const visible = ordered.filter(isMainBoardWorkspace);
-    const draggedIndex = visible.findIndex(workspace => workspace.id === draggedId);
-    const targetIndex = visible.findIndex(workspace => workspace.id === targetId);
-    if (draggedIndex < 0 || targetIndex < 0) return;
-    const [dragged] = visible.splice(draggedIndex, 1);
-    visible.splice(visible.findIndex(workspace => workspace.id === targetId), 0, dragged);
-    let visibleIndex = 0;
-    const fullOrder = ordered.map(workspace => isMainBoardWorkspace(workspace) ? visible[visibleIndex++] : workspace);
+    const originalOrder = state.workspaces.filter(workspace => workspace.active === true)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const fullOrder = workspaceOrderAfterDrop(originalOrder, draggedId, targetId);
+    if (fullOrder.every((workspace, index) => workspace.id === originalOrder[index]?.id)) return;
     try {
       setBanner("正在保存工作區排序…", "loading");
       const workspaceIds = fullOrder.map(workspace => workspace.id);
@@ -1751,7 +1763,7 @@
       },
       canReorderColumn: id => {
         const workspace = state.workspaceById.get(String(id));
-        return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace) && !isCompletionWorkspace(workspace));
+        return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id }) => {
         return reorderWorkspace(sourceId, id);
@@ -5216,6 +5228,7 @@
     openWorkflowSettings: openWorkflowSettings,
     closeWorkflowSettings: closeWorkflowSettings,
     sortTasksByCode: sortTasksByCode,
+    computeWorkspaceDropOrder: (workspaces, draggedId, targetId) => workspaceOrderAfterDrop(workspaces, draggedId, targetId),
     completionGateStatus: completionGateStatus,
     completionGateMessage: completionGateMessage,
     runParityGuard: options => runTemplateParityCheck(options?.trigger || "regression", { silent: options?.silent === true }),

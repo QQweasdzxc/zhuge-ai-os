@@ -1257,11 +1257,6 @@
     );
   }
 
-  async function worktodoReorderWorkspaces(workspaceIds, options = {}) {
-    const gateway = options.gateway || requireGateway();
-    return gateway.rpc("worktodo_reorder_workspaces", { p_workspace_ids: workspaceIds });
-  }
-
   async function worktodoCreateWorkspace(name, options = {}) {
     const gateway = options.gateway || requireGateway();
     return gateway.rpc("worktodo_create_workspace", { p_name: name }).then(normalizeWorkspace);
@@ -2776,7 +2771,6 @@
     reorderWorkspaces,
     worktodoRenameWorkspace,
     worktodoDeleteWorkspace,
-    worktodoReorderWorkspaces,
     worktodoCreateWorkspace,
     moveTaskWorkspace,
     governanceAction,

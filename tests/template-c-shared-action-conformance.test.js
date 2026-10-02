@@ -132,7 +132,7 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   assert.match(service, /legacyMovementRetiredError\("board_move_task_workspace"\)/);
   assert.doesNotMatch(service, /gateway\.rpc\("board_move_task_workspace"/);
   const worktodoDeleteStart = service.indexOf("async function worktodoDeleteWorkspace");
-  const worktodoDeleteEnd = service.indexOf("async function worktodoReorderWorkspaces", worktodoDeleteStart);
+  const worktodoDeleteEnd = service.indexOf("async function worktodoCreateWorkspace", worktodoDeleteStart);
   assert.ok(worktodoDeleteStart >= 0 && worktodoDeleteEnd > worktodoDeleteStart);
   const worktodoDelete = service.slice(worktodoDeleteStart, worktodoDeleteEnd);
   assert.match(worktodoDelete, /createWorkflowCapability/);

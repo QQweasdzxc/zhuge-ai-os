@@ -132,7 +132,9 @@
         createWorkspace: payload => required(service, "worktodoCreateWorkspace")(payload.name),
         renameWorkspace: payload => required(service, "worktodoRenameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "worktodoDeleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId, { workflowCapability }),
-        reorderWorkspace: payload => required(service, "worktodoReorderWorkspaces")(payload.workspaceIds),
+        // WorkTodo is a Module C consumer: ordering uses the same
+        // board-instance-scoped authority as every other C board.
+        reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "worktodoUpdateTask")({ taskId: payload.taskId || taskId, patch: { title: payload.title } }),
         updateContent: payload => required(service, "worktodoUpdateTask")({
           taskId: payload.taskId || taskId,

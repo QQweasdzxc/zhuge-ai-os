@@ -8,8 +8,10 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled Cloud path", () => {
   const sql = read("docs/supabase/20260824_template_operation_parity.sql") + read("docs/supabase/20260824_worktodo_operations_fix.sql") + read("docs/supabase/20260824_canonical_template_workspace_add.sql") + read("docs/supabase/20260826_custom_workspace_delete.sql");
+  const writerClosure = read("docs/supabase/20260914_worktodo_c_writer_authority_closure.sql");
   const service = read("shared/board/board-read-service.js");
   const runtime = read("shared/components/golden-master-runtime.js");
+  const adapters = read("shared/components/task-action-adapters.js");
 
   assert.match(sql, /worktodo_rename_workspace/);
   assert.match(sql, /worktodo_reorder_workspaces/);
@@ -25,16 +27,18 @@ test("TASK-011 keeps WorkTodo workspace operations on a creator-only controlled 
   assert.match(sql, /revoke all on function public\.worktodo_rename_workspace/);
   assert.match(sql, /grant execute on function public\.worktodo_reorder_workspaces/);
   assert.match(service, /gateway\.rpc\("worktodo_rename_workspace"/);
-  assert.match(service, /gateway\.rpc\("worktodo_reorder_workspaces"/);
   assert.match(service, /worktodoRenameWorkspace,/);
-  assert.match(service, /worktodoReorderWorkspaces,/);
+  assert.match(writerClosure, /revoke all on function public\.worktodo_reorder_workspaces\(uuid\[\]\)[\s\S]*?from public, anon, authenticated, service_role/i);
+  assert.match(service, /gateway\.rpc\("board_instance_reorder_workspaces"/);
+  assert.doesNotMatch(service, /worktodoReorderWorkspaces|gateway\.rpc\("worktodo_reorder_workspaces"/);
+  assert.match(adapters, /reorderWorkspace: payload => required\(service, "reorderWorkspaces"\)\(payload\.workspaceIds\)/);
   assert.match(service, /gateway\.rpc\("worktodo_create_workspace"/);
   assert.match(service, /p_workspace_id: input\.workspaceId \|\| null/);
   assert.match(service, /worktodoCreateWorkspace,/);
   assert.match(service, /worktodoDeleteWorkspace,/);
   assert.match(service, /deleteWorkspaceWithContract/);
   const worktodoDeleteStart = service.indexOf("async function worktodoDeleteWorkspace");
-  const worktodoDeleteEnd = service.indexOf("async function worktodoReorderWorkspaces", worktodoDeleteStart);
+  const worktodoDeleteEnd = service.indexOf("async function worktodoCreateWorkspace", worktodoDeleteStart);
   assert.ok(worktodoDeleteStart >= 0 && worktodoDeleteEnd > worktodoDeleteStart);
   const worktodoDelete = service.slice(worktodoDeleteStart, worktodoDeleteEnd);
   assert.match(worktodoDelete, /createWorkflowCapability/);
