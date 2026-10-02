@@ -21,7 +21,7 @@ test("TASK-067 keeps the shared runtime dynamic and sends the complete current o
   assert.match(runtime, /const originalOrder = state\.workspaces\.filter\(workspace => workspace\.active === true\)/);
   assert.match(runtime, /const fullOrder = workspaceOrderAfterDrop\(originalOrder, draggedId, targetId, position\)/);
   assert.match(runtime, /const workspaceIds = fullOrder\.map\(workspace => workspace\.id\)/);
-  assert.match(runtime, /insertionIndex = draggedIndex < targetIndex \? targetIndex - 1 : targetIndex/);
+  assert.match(runtime, /targetAfterRemoval \+ \(position === "after" \? 1 : 0\)/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.doesNotMatch(runtime, /workspaceIds\.slice\(0,\s*5\)|\["待辦"|\["Co區"/);
 });
