@@ -47,14 +47,9 @@ button { color: inherit; }
 
 .investment-main { min-width: 0; padding: clamp(18px, 3vw, 36px); }
 .investment-module-shell .investment-layout{display:block;min-height:auto}.investment-module-shell .investment-main{padding:clamp(18px,3vw,36px);padding-bottom:clamp(100px,10vw,132px)}.investment-module-shell .investment-page{max-width:none}
-.investment-primary-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:14px}
-.investment-primary-nav-item{display:flex;align-items:center;gap:9px;min-width:0;min-height:48px;border:1px solid var(--investment-line);border-radius:12px;background:rgba(16,38,65,.48);padding:10px 11px;color:var(--investment-muted);cursor:pointer;text-align:left;transition:border-color .16s ease,background .16s ease,color .16s ease,transform .16s ease}
-.investment-primary-nav-item:hover,.investment-primary-nav-item:focus-visible,.investment-primary-nav-item.active{border-color:rgba(109,184,255,.54);background:linear-gradient(135deg,rgba(109,184,255,.18),rgba(16,38,65,.72));color:var(--investment-text);outline:none}
-.investment-primary-nav-item:hover{transform:translateY(-1px)}
-.investment-primary-nav-item > span:first-child{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:8px;background:rgba(109,184,255,.12);font-size:1rem}
-.investment-primary-nav-item > span:last-child{display:grid;gap:2px;min-width:0}
-.investment-primary-nav-item strong{font-size:.74rem;white-space:nowrap}
-.investment-primary-nav-item small{overflow:hidden;color:var(--investment-muted);font-size:.6rem;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.investment-primary-nav{margin-bottom:14px}
+.investment-primary-nav .investment-tab{flex:0 0 auto;white-space:nowrap;text-decoration:none}
+.investment-primary-nav .investment-tab:focus-visible{outline:2px solid var(--investment-accent);outline-offset:2px}
 .investment-tool-nav{margin-bottom:var(--shell-section-gap);border-bottom:1px solid var(--investment-line)}
 .investment-tool-nav-summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 2px;cursor:pointer;list-style:none;color:var(--investment-muted)}
 .investment-tool-nav-summary::-webkit-details-marker{display:none}
@@ -376,8 +371,6 @@ button { color: inherit; }
 .investment-secondary-layer>summary{min-height:48px;padding:11px 14px}
 .investment-secondary-layer-content{padding:0 14px 14px}
 .investment-tool-nav{margin-bottom:16px}
-.investment-primary-nav-item{min-height:44px;padding:8px 10px}
-.investment-primary-nav-item strong{font-size:.7rem}
 .investment-watchlist-preview-card{padding:9px 10px}
 .investment-panel-empty{min-height:116px;padding:16px}
 .investment-analysis-card,.investment-analysis-detail-row{border-radius:10px}
@@ -412,7 +405,6 @@ button { color: inherit; }
   .investment-kpi-grid, .investment-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-watch-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-command-grid-top, .investment-command-grid-bottom { grid-template-columns: 1fr; }
-  .investment-primary-nav{grid-template-columns:repeat(3,minmax(0,1fr))}
   .investment-command-side-stack{grid-template-columns:repeat(2,minmax(0,1fr))}
   .investment-research-form { grid-template-columns: 1fr 1fr; }
   .investment-research-form button { grid-column: 1 / -1; }
@@ -429,9 +421,8 @@ button { color: inherit; }
   .investment-identity { max-width: 52%; }
   .investment-identity strong, .investment-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .investment-main { padding: 18px 14px 34px; }
-  .investment-primary-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-  .investment-primary-nav-item{padding:9px}
-  .investment-primary-nav-item small{display:none}
+  .investment-module-shell .investment-primary-nav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+  .investment-primary-nav .investment-tab{min-height:44px;flex:0 0 auto;padding:9px 11px}
   .investment-tool-nav{align-items:flex-start;display:grid;gap:5px;padding-bottom:0}
   .investment-tool-nav-label{padding:0 2px}
   .investment-command-side-stack{grid-template-columns:1fr}

@@ -379,6 +379,7 @@
     const canonicalPage = page => page === "watchlist" ? "portfolio" : page;
     const requestedPage = canonicalPage(initialHash);
     const activePage = global.InvestmentConfig.pages.includes(requestedPage) ? requestedPage : "overview";
+    let activeFocus = activePage === "overview" ? (requestedFocus || "today-focus") : "";
     if (activePage === "portfolio") {
       global.location.replace("../../app/Board/investment/");
       return;
@@ -401,7 +402,7 @@
       invokeFunction: context.data.invokeFunction
     }) || null;
 
-    global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, identity }, dependencies));
+    global.ZhugeComponents.Summary.mount(root, global.InvestmentModuleShell.render({ activePage, activeFocus, identity }, dependencies));
     function renderSharedHeader(pageId) {
       const sharedHeaderTarget = root.querySelector("#zhugeSharedHeader");
       if (!sharedHeaderTarget || !global.ZhugeSharedShell) return;
@@ -510,9 +511,10 @@
       }
       global.ZhugeMotherTemplateRelease?.applyToDocument?.("investment-ivtk");
       root.querySelectorAll("[data-investment-route]").forEach(button => {
-        const isFocusedShortcut = Boolean(button.dataset.investmentFocus);
-        const isActive = button.dataset.investmentRoute === state.activePage
-          && (!isFocusedShortcut || (state.activePage === "overview" && button.dataset.investmentFocus === "today-focus"));
+        const isActive = global.InvestmentModuleShell.navigationIsCurrent({
+          route: button.dataset.investmentRoute,
+          focus: button.dataset.investmentFocus || ""
+        }, { activePage: state.activePage, activeFocus });
         button.classList.toggle("active", isActive);
         button.setAttribute("aria-selected", isActive ? "true" : "false");
         button.setAttribute("aria-current", isActive ? "page" : "false");
@@ -887,6 +889,9 @@
     function navigate(page, updateHash = true, focus = "") {
       const canonical = canonicalPage(page);
       if (!global.InvestmentConfig.pages.includes(canonical)) return;
+      const previousPage = store.getState().activePage;
+      if (focus) activeFocus = focus;
+      else if (canonical !== previousPage) activeFocus = canonical === "overview" ? "today-focus" : "";
       if (updateHash && global.location.hash !== `#${canonical}`) global.location.hash = canonical;
       if (!updateHash && page === "watchlist" && global.history?.replaceState) {
         global.history.replaceState(null, "", `${global.location.pathname}${global.location.search}#portfolio`);

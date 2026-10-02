@@ -196,10 +196,14 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
   const markup = renderState([], [], [], null, watchlist);
   const shellMarkup = shell.render({ activePage: "overview", identity: {} });
 
-  for (const expected of ["今日軍師", "我的持股", "觀察股", "個股研究", "問軍師", "市場情報"]) {
+  for (const expected of ["今日軍師", "我的持股", "觀察股", "個股研究", "團軍師", "市場情報"]) {
     assert.match(shellMarkup, new RegExp(expected));
   }
-  assert.match(shellMarkup, /investment-primary-nav/);
+  assert.match(shellMarkup, /investment-primary-nav investment-content-tabs/);
+  assert.match(shellMarkup, /role="tablist" aria-label="投資主要入口"/);
+  const primaryMarkup = shellMarkup.split('class="investment-tool-nav"')[0];
+  assert.equal((primaryMarkup.match(/role="tab"/g) || []).length, 6);
+  assert.doesNotMatch(shellMarkup, /investment-primary-nav-item/);
   assert.match(shellMarkup, /investment-tool-nav/);
   assert.match(shellMarkup, /更多工具/);
   assert.match(markup, /data-investment-section="today-focus"/);
@@ -216,4 +220,34 @@ test("Investment UX re-layout keeps the canonical data surfaces and exposes the 
   assert.match(markup, /問軍師與個股研究/);
   assert.match(markup, /今日損益/);
   assert.match(markup, /目前沒有 canonical 今日損益結果/);
+});
+
+test("Investment primary tabs retain routes and expose exactly one correct active destination", () => {
+  const cases = [
+    [{ activePage: "overview", activeFocus: "today-focus" }, "today-focus", "今日軍師"],
+    [{ activePage: "portfolio", activeFocus: "portfolio" }, "portfolio", "我的持股"],
+    [{ activePage: "portfolio", activeFocus: "watchlist" }, "watchlist", "觀察股"],
+    [{ activePage: "overview", activeFocus: "research" }, "research", "個股研究"],
+    [{ activePage: "overview", activeFocus: "advisor" }, "advisor", "團軍師"],
+    [{ activePage: "overview", activeFocus: "realtime" }, "realtime", "市場情報"]
+  ];
+
+  for (const [state, expectedFocus, expectedLabel] of cases) {
+    const markup = shell.renderPrimaryNavigation(state);
+    const selected = shell.primaryNavigation.filter(item => shell.navigationIsCurrent(item, state));
+    assert.equal(selected.length, 1, `${expectedLabel} should be the only active primary tab`);
+    assert.equal(selected[0].focus || "portfolio", expectedFocus);
+    assert.equal(selected[0].label, expectedLabel);
+    assert.equal((markup.match(/aria-selected="true"/g) || []).length, 1);
+    assert.match(markup, /data-investment-route="(?:overview|portfolio)"/);
+  }
+
+  const boardLinks = shell.renderPrimaryNavigation({ activePage: "portfolio", activeFocus: "watchlist" }, {
+    asLinks: true,
+    panelId: "investmentBoardView",
+    hrefFor: item => item.focus === "watchlist" ? "./#watchlist" : item.route === "portfolio" ? "./" : `?focus=${item.focus}`
+  });
+  assert.match(boardLinks, /aria-controls="investmentBoardView"/);
+  assert.match(boardLinks, /data-investment-focus="watchlist"[^>]*aria-current="page"[^>]*href="\.\/#watchlist"/);
+  assert.match(boardLinks, /data-investment-focus="today-focus"[^>]*href="\?focus=today-focus"/);
 });

@@ -19,27 +19,30 @@
     { route: "portfolio", label: "我的持股", icon: "💼", description: "目前持有、成本與損益" },
     { route: "portfolio", focus: "watchlist", label: "觀察股", icon: "👀", description: "與持股分開追蹤" },
     { route: "overview", focus: "research", label: "個股研究", icon: "🔬", description: "查詢標的與深入 Evidence" },
-    { route: "overview", focus: "advisor", label: "問軍師", icon: "🧠", description: "看白話研判與理由" },
+    { route: "overview", focus: "advisor", label: "團軍師", icon: "🧠", description: "看白話研判與理由" },
     { route: "overview", focus: "realtime", label: "市場情報", icon: "📊", description: "行情、新聞與事件" }
   ]);
 
   function navigationIsCurrent(item, state = {}) {
     if (item.focus) return item.route === state.activePage && item.focus === (state.activeFocus || (state.activePage === "overview" ? "today-focus" : ""));
+    if (item.route === "portfolio") return state.activePage === "portfolio" && state.activeFocus !== "watchlist";
     return item.route === state.activePage;
   }
 
   function renderPrimaryNavigation(state = {}, options = {}) {
     const asLinks = options.asLinks === true;
     const hrefFor = typeof options.hrefFor === "function" ? options.hrefFor : () => "#";
-    return `<nav class="investment-primary-nav" aria-label="投資主要入口">${primaryNavigation.map(item => {
+    const panelId = String(options.panelId || "investmentPage").trim();
+    return `<nav class="investment-primary-nav investment-content-tabs" role="tablist" aria-label="投資主要入口">${primaryNavigation.map(item => {
       const focusAttribute = item.focus ? ` data-investment-focus="${item.focus}"` : "";
       const current = navigationIsCurrent(item, state) ? "true" : "false";
-      const common = `class="investment-primary-nav-item ${current === "true" ? "active" : ""}" data-investment-route="${item.route}"${focusAttribute} aria-current="${current === "true" ? "page" : "false"}" title="${item.description}"`;
+      const controlsAttribute = panelId ? ` aria-controls="${panelId}"` : "";
+      const common = `class="investment-tab ${current === "true" ? "active" : ""}" role="tab" aria-selected="${current}"${controlsAttribute} data-investment-route="${item.route}"${focusAttribute} aria-current="${current === "true" ? "page" : "false"}" title="${item.description}"`;
       const action = asLinks
         ? `${common} href="${hrefFor(item)}"`
         : `type="button" ${common}`;
       const tag = asLinks ? "a" : "button";
-      return `<${tag} ${action}><span aria-hidden="true">${item.icon}</span><span><strong>${item.label}</strong><small>${item.description}</small></span></${tag}>`;
+      return `<${tag} ${action}><span aria-hidden="true">${item.icon}</span>${item.label}</${tag}>`;
     }).join("")}</nav>`;
   }
 
@@ -73,5 +76,5 @@
     </div></div>`;
   }
 
-  return Object.freeze({ labels, primaryNavigation, renderPrimaryNavigation, renderToolNavigation, render });
+  return Object.freeze({ labels, primaryNavigation, navigationIsCurrent, renderPrimaryNavigation, renderToolNavigation, render });
 });
