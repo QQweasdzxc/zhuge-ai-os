@@ -137,7 +137,8 @@ test("Main Board respects Cloud active/archive state rather than historical work
   assert.match(runtime, /if \(workspace\?\.archivedAt\) return false;/);
   assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /state\.workspaces\.filter\(isMainBoardWorkspace\)/);
-  assert.match(runtime, /const fullOrder = workspaceOrderAfterDrop\(originalOrder, draggedId, targetId, position\)/);
+  assert.match(runtime, /const boardWorkspaces = \(\) => state\.workspaces\.filter\(isMainBoardWorkspace\)/);
+  assert.match(runtime, /authority\.reorder\(/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.match(runtime, /state\.tasks\.filter\(task => !isArchiveTask\(task\)\)/);
   assert.doesNotMatch(runtime, /board_restore_workspace|board_reopen_workspace/i);

@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const BoardReadService = require("../shared/board/board-read-service.js");
 const Adapters = require("../shared/components/task-action-adapters.js");
+const WorkspaceOrderingAuthority = require("../shared/board/workspace-ordering-authority.js");
 
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -78,6 +79,7 @@ test("Module C exposes reorder handles for every visible active workspace, inclu
 test("shared drag ordering correctly moves columns both directions, including Completion", () => {
   const context = {
     ZhugeBoardReadService: {},
+    ZhugeModuleCWorkspaceOrderingAuthority: WorkspaceOrderingAuthority,
     document: { readyState: "loading", addEventListener() {} },
     console,
     setTimeout,

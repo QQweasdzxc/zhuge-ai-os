@@ -809,7 +809,7 @@
         completion,
         // Every active Module C workspace is a sortable board column,
         // including Completion and consumer-specific/custom workspaces.
-        reorderable: !state.readOnly,
+        reorderable: !state.readOnly && isMainBoardWorkspace(workspace),
         addHtml: !completion && !state.readOnly && !legacyTerminal && state.applicationScope !== "procurement"
           ? "<button class=\"add\" data-workspace-add=\"" + esc(workspace.id) + "\">＋ 新增 " + itemLabel + "</button>"
           : "",
@@ -1368,39 +1368,40 @@
     return Array.from(event?.dataTransfer?.types || []).includes(type);
   }
   function workspaceOrderAfterDrop(workspaces, draggedId, targetId, position = "before") {
-    const ordered = (Array.isArray(workspaces) ? workspaces : [])
-      .filter(workspace => workspace?.active === true)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-    const visible = ordered.filter(isMainBoardWorkspace);
-    const draggedIndex = visible.findIndex(workspace => workspace.id === draggedId);
-    const targetIndex = visible.findIndex(workspace => workspace.id === targetId);
-    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) return ordered;
-    const [dragged] = visible.splice(draggedIndex, 1);
-    // The target shifts left by one when the dragged column came from before
-    // it. The shared drop surface supports both halves of a target so users
-    // can place a workspace at either edge, including the final position.
-    const targetAfterRemoval = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
-    const insertionIndex = targetAfterRemoval + (position === "after" ? 1 : 0);
-    visible.splice(insertionIndex, 0, dragged);
-    let visibleIndex = 0;
-    return ordered.map(workspace => isMainBoardWorkspace(workspace) ? visible[visibleIndex++] : workspace);
+    const authority = root.ZhugeModuleCWorkspaceOrderingAuthority;
+    if (!authority?.buildReorderedOrder) return [];
+    const visible = (Array.isArray(workspaces) ? workspaces : []).filter(isMainBoardWorkspace);
+    return authority.buildReorderedOrder(visible, draggedId, targetId, position, { isVisible: () => true }).orderedWorkspaces;
   }
-  async function reorderWorkspace(draggedId, targetId, position = "before") {
+  async function reorderWorkspace(draggedId, targetId, placement = "before") {
     if (state.readOnly) {
       setBanner(readOnlyRuntimeError().message, "error");
       return;
     }
     if (!draggedId || !targetId || draggedId === targetId) return;
-    const originalOrder = state.workspaces.filter(workspace => workspace.active === true)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-    const fullOrder = workspaceOrderAfterDrop(originalOrder, draggedId, targetId, position);
-    if (fullOrder.every((workspace, index) => workspace.id === originalOrder[index]?.id)) return;
+    const authority = root.ZhugeModuleCWorkspaceOrderingAuthority;
+    if (!authority?.reorder) {
+      const error = new Error("Module C Workspace Ordering Authority 尚未載入。");
+      error.code = "MODULE_C_WORKSPACE_ORDERING_AUTHORITY_UNAVAILABLE";
+      throw error;
+    }
     try {
       setBanner("正在保存工作區排序…", "loading");
-      const workspaceIds = fullOrder.map(workspace => workspace.id);
-      await executeSharedTaskAction(null, "reorderWorkspace", { workspaceIds }, { refresh: false, reopen: false });
-      await refreshBoard({ quiet: true });
+      const boardWorkspaces = () => state.workspaces.filter(isMainBoardWorkspace);
+      const result = await authority.reorder({
+        workspaces: boardWorkspaces(),
+        draggedId,
+        targetId,
+        placement,
+        isVisible: () => true,
+        persist: workspaceIds => executeSharedTaskAction(null, "reorderWorkspace", { workspaceIds }, { refresh: false, reopen: false }),
+        reload: async () => {
+          await refreshBoard({ quiet: true });
+          return boardWorkspaces();
+        }
+      });
       setBanner(state.applicationScope === "c" ? "工作區排序已保存至 C 母版 Cloud 資料。" : "工作區排序已保存至 Cloud。", "success");
+      return result;
     } catch (error) {
       setBanner("工作區排序失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次排序；原順序未變更。" : "正式 Cloud 未接受這次排序；原順序未變更。")), "error");
     }
@@ -1769,12 +1770,9 @@
         return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace));
       },
       onColumnDrop: async ({ sourceId, id, column, event }) => {
-        const targetRect = column?.getBoundingClientRect?.();
-        const position = targetRect && Number.isFinite(Number(event?.clientX))
-          && Number(event.clientX) >= targetRect.left + targetRect.width / 2
-          ? "after"
-          : "before";
-        return reorderWorkspace(sourceId, id, position);
+        const authority = root.ZhugeModuleCWorkspaceOrderingAuthority;
+        const placement = authority?.resolveDropPlacement?.(event, column) || "before";
+        return reorderWorkspace(sourceId, id, placement);
       }
     };
     if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
@@ -5233,6 +5231,11 @@
     refresh: refreshBoard,
     openTaskDetail: openTaskDetail,
     moveTaskToWorkspace: moveTaskToWorkspace,
+    reorderWorkspace: (sourceId, targetId, placement = "before") => reorderWorkspace(sourceId, targetId, placement),
+    canReorderWorkspace: id => {
+      const workspace = state.workspaceById.get(String(id));
+      return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace));
+    },
     openWorkflowSettings: openWorkflowSettings,
     closeWorkflowSettings: closeWorkflowSettings,
     sortTasksByCode: sortTasksByCode,

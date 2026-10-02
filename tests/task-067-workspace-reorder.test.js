@@ -16,12 +16,11 @@ test("TASK-067 scopes the existing reorder contract to the submitted board insta
   assert.doesNotMatch(sql, /待辦|Co區|GPT區|QJC驗證|已完工/);
 });
 
-test("TASK-067 keeps the shared runtime dynamic and sends the complete current order", () => {
+test("TASK-067 keeps the shared runtime dynamic and delegates the complete order", () => {
   const runtime = read("shared/components/golden-master-runtime.js");
-  assert.match(runtime, /const originalOrder = state\.workspaces\.filter\(workspace => workspace\.active === true\)/);
-  assert.match(runtime, /const fullOrder = workspaceOrderAfterDrop\(originalOrder, draggedId, targetId, position\)/);
-  assert.match(runtime, /const workspaceIds = fullOrder\.map\(workspace => workspace\.id\)/);
-  assert.match(runtime, /targetAfterRemoval \+ \(position === "after" \? 1 : 0\)/);
+  assert.match(runtime, /const boardWorkspaces = \(\) => state\.workspaces\.filter\(isMainBoardWorkspace\)/);
+  assert.match(runtime, /authority\.reorder\(/);
+  assert.match(runtime, /persist: workspaceIds => executeSharedTaskAction/);
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.doesNotMatch(runtime, /workspaceIds\.slice\(0,\s*5\)|\["待辦"|\["Co區"/);
 });
