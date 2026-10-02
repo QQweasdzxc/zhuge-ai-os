@@ -65,7 +65,7 @@
       }),
       actions: {
         createTask: payload => required(service, "createTask")(payload),
-        createWorkspace: payload => required(service, "createWorkspace")(payload.name),
+        createWorkspace: payload => required(service, "createWorkspace")(payload.name, { workflowBinding: payload.workflowBinding }),
         renameWorkspace: payload => required(service, "renameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "deleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
@@ -207,7 +207,7 @@
       }),
       actions: {
         createTask: payload => required(service, "createTask")(payload),
-        createWorkspace: payload => required(service, "createWorkspace")(payload.name),
+        createWorkspace: payload => required(service, "createWorkspace")(payload.name, { workflowBinding: payload.workflowBinding }),
         renameWorkspace: payload => required(service, "renameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "deleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),

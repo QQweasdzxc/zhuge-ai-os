@@ -1473,6 +1473,15 @@
     menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\" title=\"只修改顯示名稱，不改 Canonical workspace key\">重新命名</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"settings\">⚙️ 工作區設定</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"delete\">刪除工作區</button>";
+    if (canIntegrateExistingWorkspace(workspace)) {
+      const bindingButton = document.createElement("button");
+      bindingButton.type = "button";
+      bindingButton.setAttribute("role", "menuitem");
+      bindingButton.dataset.workspaceAction = "workflow-binding";
+      bindingButton.textContent = "納入流程";
+      bindingButton.onclick = event => { event.stopPropagation(); closeWorkspaceMenus(); openWorkspaceDrawer(workspace); };
+      menu.appendChild(bindingButton);
+    }
     header.appendChild(menu);
     button.setAttribute("aria-expanded", "true");
     const renameButton = menu.querySelector("[data-workspace-action=rename]");
@@ -3618,7 +3627,17 @@
     modal.setAttribute("aria-hidden", "true");
     drawer?.classList.remove("is-open");
   }
-  function openWorkspaceDrawer() {
+  let pendingWorkspaceBinding = null;
+  let pendingWorkspaceCreationName = "";
+  function canIntegrateExistingWorkspace(workspace) {
+    const authorizedKeys = defaultService.C_WORKSPACE_WORKFLOW_BINDING_SCOPE?.aiBoardExistingWorkspaceKeys || [];
+    const published = state.workflowData?.published;
+    return !state.readOnly && state.applicationScope === "ai_board" && workspace?.active === true
+      && authorizedKeys.includes(workspace.key) && Boolean(published?.id)
+      && !published.steps.some(step => step.workspaceId === workspace.id)
+      && typeof activeService()?.bindWorkspaceToWorkflow === "function";
+  }
+  function openWorkspaceDrawer(workspace) {
     if (state.readOnly) {
       setBanner(readOnlyRuntimeError().message, "error");
       return;
@@ -3629,9 +3648,33 @@
     backdrop.classList.add("is-open");
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
+    const existing = workspace?.id ? workspace : null;
+    if (existing && !canIntegrateExistingWorkspace(existing)) { closeWorkspaceDrawer(); return; }
+    // Retain a partially-created workspace across close/reopen in this
+    // session, so a retry cannot create a duplicate Workspace.
+    pendingWorkspaceBinding = existing || pendingWorkspaceBinding;
+    const hasWorkflow = Boolean(state.workflowData?.published?.id || state.workflowData?.state?.publishedWorkflowVersionId || pendingWorkspaceBinding);
+    const controls = drawer.querySelector("[data-workspace-workflow-binding]");
+    if (controls) controls.hidden = !hasWorkflow;
+    const createButton = drawer.querySelector("[data-workspace-create]");
+    if (createButton) createButton.textContent = hasWorkflow ? "納入流程並發布" : "建立";
+    drawer.setAttribute("aria-label", pendingWorkspaceBinding ? "工作區納入流程" : "新增工作區");
+    const heading = drawer.querySelector("h2");
+    if (heading) heading.textContent = pendingWorkspaceBinding ? "工作區納入流程" : "＋ 新增工作區";
+    drawer.querySelectorAll("select").forEach(select => { select.value = ""; });
+    const confirm = document.getElementById("workspaceWorkflowConfirm");
+    if (confirm) confirm.checked = false;
+    const progress = drawer.querySelector("[data-workspace-binding-progress]");
+    if (progress) progress.textContent = pendingWorkspaceBinding ? "工作區已存在，本次僅處理流程 binding，不會重建工作區。" : "";
+    const settings = drawer.querySelector("[data-workspace-binding-settings]");
+    if (settings) {
+      settings.hidden = !pendingWorkspaceBinding;
+      settings.onclick = () => { closeWorkspaceDrawer(); openWorkflowSettings(); };
+    }
     const input = document.getElementById("workspaceName");
     if (input) {
-      input.value = "";
+      input.value = pendingWorkspaceBinding?.name || pendingWorkspaceCreationName || "";
+      input.disabled = Boolean(pendingWorkspaceBinding || pendingWorkspaceCreationName);
       window.setTimeout(() => input.focus(), 0);
     }
   }
@@ -3657,12 +3700,53 @@
     const button = document.querySelector("[data-workspace-create]");
     if (button) button.disabled = true;
     try {
-      await executeSharedTaskAction(null, "createWorkspace", { name }, { refresh: false, reopen: false });
+      const workflow = state.workflowCapability || activeService()?.workflow;
+      const snapshot = workflow?.get && state.boardInstanceId ? await workflow.get({ includeDraft: true }) : null;
+      const hasWorkflow = Boolean(snapshot?.published?.id || snapshot?.state?.publishedWorkflowVersionId);
+      let workflowBinding;
+      if (hasWorkflow || pendingWorkspaceBinding) {
+        workflowBinding = {
+          roleKey: document.getElementById("workspaceWorkflowRole")?.value || "",
+          statusKey: document.getElementById("workspaceWorkflowStatus")?.value || "",
+          confirmed: document.getElementById("workspaceWorkflowConfirm")?.checked === true
+        };
+        if (!workflowBinding.roleKey || !workflowBinding.statusKey || !workflowBinding.confirmed) {
+          state.workflowData = snapshot || state.workflowData;
+          document.querySelector("[data-workspace-workflow-binding]")?.removeAttribute("hidden");
+          throw new Error("請選擇工作區角色與狀態，並確認發布新流程版本；尚未送出建立操作。");
+        }
+      }
+      if (pendingWorkspaceBinding) {
+        await activeService().bindWorkspaceToWorkflow({ workspaceId: pendingWorkspaceBinding.id, ...workflowBinding });
+      } else {
+        await executeSharedTaskAction(null, "createWorkspace", { name, workflowBinding }, { refresh: false, reopen: false });
+      }
+      pendingWorkspaceBinding = null;
+      pendingWorkspaceCreationName = "";
       closeWorkspaceDrawer();
       await refreshBoard({ quiet: true });
-      setBanner(state.applicationScope === "c" ? "工作區「" + esc(name) + "」已建立並保存至 C 母版 Cloud 資料。" : "工作區「" + esc(name) + "」已建立並保存至 Cloud。", "success");
+      setBanner(workflowBinding ? "工作區「" + esc(name) + "」已納入已發布流程；唯一 binding 讀回確認。" : state.applicationScope === "c" ? "工作區「" + esc(name) + "」已建立並保存至 C 母版 Cloud 資料。" : "工作區「" + esc(name) + "」已建立並保存至 Cloud。", "success");
     } catch (error) {
-      setBanner("工作區建立失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次建立。" : "正式 Cloud 未接受這次建立。")), "error");
+      if (error.workspaceCreationUncertain) {
+        pendingWorkspaceCreationName = name;
+        if (input) input.disabled = true;
+        const progress = document.querySelector("[data-workspace-binding-progress]");
+        if (progress) progress.textContent = "建立回應尚未確認。再次送出只會核對原請求，不會重建；重新載入前請先核對看板。";
+        if (button) button.textContent = "核對建立狀態";
+      }
+      if (error.workspace || pendingWorkspaceBinding) {
+        pendingWorkspaceCreationName = "";
+        pendingWorkspaceBinding = error.workspace || pendingWorkspaceBinding;
+        input.disabled = true;
+        input.value = pendingWorkspaceBinding.name;
+        const progress = document.querySelector("[data-workspace-binding-progress]");
+        if (progress) progress.textContent = "工作區已存在；流程發布／讀回尚未確認。請開啟流程設定核對草稿或已發布版本，勿重建工作區。";
+        const settings = document.querySelector("[data-workspace-binding-settings]");
+        if (settings) { settings.hidden = false; settings.onclick = () => { closeWorkspaceDrawer(); openWorkflowSettings(); }; }
+        if (button) button.textContent = "重試流程綁定";
+        await refreshBoard({ quiet: true });
+      }
+      setBanner((pendingWorkspaceBinding ? "工作區流程未完成：" : "工作區建立失敗：") + esc(error?.message || "請重新載入後核對狀態。"), "error");
     } finally {
       if (button) button.disabled = false;
     }
@@ -4738,6 +4822,8 @@
     return match ? decodeURIComponent(match[1].replace(/\+/g, " ")) : "";
   }
   function startBoardRuntime(options = {}) {
+    pendingWorkspaceBinding = null;
+    pendingWorkspaceCreationName = "";
     const cTemplate = options.applicationScope === "c" || isCTemplateMode();
     const procurement = options.applicationScope === "procurement" || isProcurementMode();
     const workTodoRuntime = options.applicationScope === "worktodo" || isWorkTodoMode();

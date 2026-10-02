@@ -1,0 +1,138 @@
+{
+  "gate": "SOURCE_AND_DEVELOPER_QA_ONLY_HARD_STOP",
+  "created_at_utc": "2026-10-02T17:08:10.070510+00:00",
+  "repository": "QQweasdzxc/zhuge-ai-os",
+  "branch": "work",
+  "base_head": "1133d66112f8633d003b41722c579c527fcc0de9",
+  "origin_main": "1133d66112f8633d003b41722c579c527fcc0de9",
+  "version": "0.9.0-alpha.9.13",
+  "build": "20261001-2324",
+  "uncommitted": true,
+  "targeted": {
+    "tests": 98,
+    "pass": 98,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "failed_tests": []
+  },
+  "localhost_browser": {
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "failed_tests": []
+  },
+  "full_regression": {
+    "tests": 832,
+    "pass": 821,
+    "fail": 11,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "failed_tests": [
+      "AI Board Browser UI exposes PM-readable drawer status, free workspace movement, and navigation",
+      "C publish UI sends the current identity and keeps legacy health check out of the Mother Template",
+      "Creator sees both independent MFA controls and Non-Creator sees none",
+      "Drawer PM acceptance and QJC card drag share the formal completion lifecycle",
+      "SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evidence presentation",
+      "TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widths",
+      "TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet and mobile",
+      "TASK-088 Batch C shared drawer uses core states at desktop, tablet and mobile widths",
+      "TASK-088 Part 1 shared Drawer and collapsed Navigation keep the desktop contract",
+      "WorkTodo uses the Shared Task Drawer presentation contract at runtime",
+      "all Workspaces use the WorkLog collapsed rail geometry"
+    ],
+    "status": "FAIL_ENVIRONMENT_BASELINE_MATCH"
+  },
+  "unchanged_head_browser_baseline": {
+    "tests": 16,
+    "pass": 5,
+    "fail": 11,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "failed_tests": [
+      "AI Board Browser UI exposes PM-readable drawer status, free workspace movement, and navigation",
+      "C publish UI sends the current identity and keeps legacy health check out of the Mother Template",
+      "Creator sees both independent MFA controls and Non-Creator sees none",
+      "Drawer PM acceptance and QJC card drag share the formal completion lifecycle",
+      "SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evidence presentation",
+      "TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widths",
+      "TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet and mobile",
+      "TASK-088 Batch C shared drawer uses core states at desktop, tablet and mobile widths",
+      "TASK-088 Part 1 shared Drawer and collapsed Navigation keep the desktop contract",
+      "WorkTodo uses the Shared Task Drawer presentation contract at runtime",
+      "all Workspaces use the WorkLog collapsed rail geometry"
+    ]
+  },
+  "baseline_failure_names_match": true,
+  "npm_browser_regression": {
+    "status": "BLOCKED",
+    "reason": "Existing file:// browser limitations; IVTK timeout left a Chromium child preventing runner completion. Terminated task-owned runner/browser processes. No source harness remediation.",
+    "terminated_process_count": 23
+  },
+  "diff_check": "PASS",
+  "javascript_syntax": "PASS",
+  "source_identity": "PASS",
+  "formal_release_preflight": "BLOCKED_UNCOMMITTED_WORKING_TREE",
+  "cloud_mutation": false,
+  "remote_mutation": false,
+  "schema_or_rpc_signature_changed": false,
+  "commit": false,
+  "push": false,
+  "deploy": false,
+  "gpt_review": "PENDING",
+  "runtime_qjc": "NOT_EXECUTED",
+  "source_sha256": {
+    "shared/board/board-read-service.js": "18b03337ae3ee225a58056a634e5f3227d0b33eef0fc441f0d955e0d32252e89",
+    "shared/components/golden-master-runtime.js": "cee76da076fe91468bc74a20bed13153574708723ac3053aeacde9d90ba0a988",
+    "shared/components/golden-master.js": "7e50f914468e6842f286ab03eff70d3d97a4ea0f3229d06749a2603463caa8da",
+    "shared/components/task-action-adapters.js": "da1505e4e41026d092af1d883dc22766a73a52c2fd8a93905c7700bf3f1ded52",
+    "tests/c-operational-motherboard.test.js": "fa136612751d15491b6cf8ed21f3f17b6a19bae2c57e85cc841a634682749f2a",
+    "tests/run-browser-regression.js": "7547b179c43fcc49828118c888f0a16ea0e7f8d91f341ffd19a556618da6a0c2",
+    "tests/fixtures/module-c-workspace-workflow-gateway.js": "5232353c334fd7a648ea355371d0f21332b556c2ef7462c3ed75b38e3de150bc",
+    "tests/module-c-workspace-workflow-binding.test.js": "dcc38c303f67f91e6f92ea3869690d9578e0055f220837ef3de7c62051bcdac7",
+    "tests/module-c-workspace-workflow-binding-browser.test.js": "8687679d5a028bff761c26ebbb026fb93b90e8b054359d489932507a6dfabd18"
+  },
+  "logs": [
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/targeted-stable.log",
+      "sha256": "4f3ac5da2a7888dddc5362c1fb81129ab83fd037caaf2cd8a7292de6ab2a0685",
+      "bytes": 9825
+    },
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/browser-stable.log",
+      "sha256": "f1f85c0e25de76a3b435076ef015f71326881e0db45c0d78ba5456c1f3a15daf",
+      "bytes": 881
+    },
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/full-stable.log",
+      "sha256": "8315b0db77e936c65a337b1f0ef6011abae56e623458d6da6c17b9d1fa795c25",
+      "bytes": 124982
+    },
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/baseline-browser.log",
+      "sha256": "dcb389bd8f23f5189072d11c5877f54aac7fdba14cf46ef51370a969ce312bd8",
+      "bytes": 46927
+    },
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/browser-regression.log",
+      "sha256": "03d53b79270e365d5e1a730e453d8d93b7aebe1c3008e43b7315ec1027866bfc",
+      "bytes": 35026
+    },
+    {
+      "path": "/workspace/artifacts/module-c-workspace-workflow-binding-qa-20261002T170810Z/preflight.log",
+      "sha256": "7c1d0289be1e941989ab700a42c19729c32129be6018f4512986ddafe9a952dd",
+      "bytes": 663
+    }
+  ],
+  "limitations": [
+    "Source QA uses an in-memory gateway; it does not prove live Cloud binding changes.",
+    "Existing saveDraft cannot atomically compare-and-swap an absent draft across separate RPC calls; isolated Runtime QA must exclude concurrent Workflow editors.",
+    "Formal source remains uncommitted and no release package was created."
+  ]
+}

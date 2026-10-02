@@ -162,7 +162,14 @@ ${consumerCreate}
 <div id="workspaceCreateDrawerBackdrop" class="board-create-drawer-backdrop" data-workspace-drawer-close aria-hidden="true"></div>
 <aside id="workspaceCreateDrawer" class="board-create-drawer board-workspace-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="新增工作區">
  <div class="modalhead"><h2>＋ 新增工作區</h2><button class="x" type="button" data-workspace-drawer-close aria-label="關閉新增工作區">×</button></div>
- <div class="modalbody"><div class="field"><label for="workspaceName">工作區名稱</label><input id="workspaceName" type="text" maxlength="80" placeholder="例如：測試區" autocomplete="off"><div class="hint">建立後會依目前排序出現在 Board 最右側。</div></div></div>
+ <div class="modalbody"><div class="field"><label for="workspaceName">工作區名稱</label><input id="workspaceName" type="text" maxlength="80" placeholder="例如：測試區" autocomplete="off"><div class="hint">建立後會依目前排序出現在 Board 最右側。</div></div>
+ <div data-workspace-workflow-binding hidden>
+  <p class="hint">此看板使用已發布流程。請選擇工作區的角色與狀態；本次操作會發布新的流程版本，既有卡片不會自動改版。新工作區不會自動新增轉換連線。</p>
+  <div class="field"><label for="workspaceWorkflowRole">負責角色</label><select id="workspaceWorkflowRole"><option value="">請選擇角色</option><option value="co">Co</option><option value="gpt">GPT</option><option value="qjc">QJC</option><option value="pm">PM</option></select></div>
+  <div class="field"><label for="workspaceWorkflowStatus">工作狀態</label><select id="workspaceWorkflowStatus"><option value="">請選擇狀態</option><option value="ready">待開始</option><option value="inprogress">處理中</option><option value="qa">驗證中</option></select></div>
+  <label><input id="workspaceWorkflowConfirm" type="checkbox"> 確認將此工作區納入流程並發布新版本</label>
+ </div><p class="hint" data-workspace-binding-progress role="status"></p>
+ <button class="btn" type="button" data-workspace-binding-settings hidden>開啟流程設定</button></div>
  <div class="drawer-actions"><button class="btn" type="button" data-workspace-drawer-close>取消</button><button class="btn primary" type="button" data-workspace-create>建立</button></div>
 </aside>
 

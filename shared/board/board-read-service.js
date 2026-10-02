@@ -16,6 +16,14 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root, activityClassifier) {
   "use strict";
 
+  // PM-scoped operation allowlist, not a second Workflow definition.
+  const C_WORKSPACE_WORKFLOW_BINDING_SCOPE = Object.freeze({
+    aiBoardExistingWorkspaceKeys: Object.freeze([
+      "task-custom-50ae893517654d71baac8d457061a46b",
+      "task-custom-12c1399e29c9438e9abc28ce1cf115f9"
+    ])
+  });
+
   const ENGINEERING_STATUS_DESCRIPTORS = Object.freeze([
     { key: "ready", label: "Ready", code: "ready" },
     { key: "inprogress", label: "推進中", code: "inprogress" },
@@ -381,7 +389,8 @@
         required: item.required !== false,
         humanActionRequired: item.human_action_required === true || item.humanActionRequired === true,
         completionRole: String(item.completion_role || item.completionRole || "pm").toLowerCase(),
-        failurePolicy: String(item.failure_policy || item.failurePolicy || "stay").toLowerCase()
+        failurePolicy: String(item.failure_policy || item.failurePolicy || "stay").toLowerCase(),
+        sortOrder: Number(item.sort_order ?? item.sortOrder ?? 0)
       })),
       evidenceRequirements: (Array.isArray(source.evidence_requirements || source.evidenceRequirements) ? (source.evidence_requirements || source.evidenceRequirements) : []).map(item => Object.freeze({
         id: String(item.id || ""),
@@ -390,7 +399,8 @@
         evidenceKey: String(item.evidence_key || item.evidenceKey || ""),
         label: String(item.label || ""),
         required: item.required !== false,
-        sourceKind: String(item.source_kind || item.sourceKind || "pm_action_context").toLowerCase()
+        sourceKind: String(item.source_kind || item.sourceKind || "pm_action_context").toLowerCase(),
+        sortOrder: Number(item.sort_order ?? item.sortOrder ?? 0)
       }))
     });
   }
@@ -2091,17 +2101,174 @@
         consumerId: requestedConsumerId
       });
     }
-    async function instanceCreateWorkspace(name) {
+    // This is orchestration of the existing versioned Workflow capability,
+    // not another writer/registry. Never infer a role, status or transition.
+    let workspaceBindingBusy = false;
+    let uncertainWorkspaceCreation = null;
+    const pendingWorkspaceBindings = new Set();
+    const aiBoardBindingRepairKeys = new Set(C_WORKSPACE_WORKFLOW_BINDING_SCOPE.aiBoardExistingWorkspaceKeys);
+    function workspaceBindingError(message, code = "C_WORKSPACE_WORKFLOW_BINDING") {
+      const error = new Error(message);
+      error.code = code;
+      return error;
+    }
+    async function workspaceBindingSnapshot(binding, workspaceId = "", suppliedSnapshot = null) {
+      if (readOnly || workflow.readOnly) throw workspaceBindingError("目前子板為唯讀，不能建立工作區流程綁定。", "C_WORKFLOW_READ_ONLY");
+      if (binding?.confirmed !== true || !["co", "gpt", "qjc", "pm"].includes(binding.roleKey)
+        || !["ready", "inprogress", "qa"].includes(binding.statusKey)) {
+        throw workspaceBindingError("請明確選擇角色與狀態，並確認發布新的流程版本。");
+      }
       const instance = await resolveInstance();
-      const token = typeof root.crypto?.randomUUID === "function"
-        ? root.crypto.randomUUID().replace(/-/g, "")
-        : `${Date.now()}${Math.random().toString(16).slice(2)}`;
-      const prefix = String(instance.task_code_prefix || "board").trim().toLowerCase();
-      return gateway.rpc("board_instance_create_workspace", {
-        p_board_instance_id: instance.id,
-        p_name: name,
-        p_workspace_key: `${prefix}-custom-${token}`
-      }).then(normalizeInstanceWorkspace);
+      const snapshot = suppliedSnapshot || await workflow.get({ includeDraft: true });
+      const published = snapshot.published;
+      if (!published?.id || published.status !== "published" || published.boardInstanceId !== String(instance.id)
+        || snapshot.state?.publishedWorkflowVersionId !== published.id) {
+        throw workspaceBindingError("無法確認目前已發布流程；未建立工作區或修改流程。");
+      }
+      // An uncertain publish/read-back can be retried without another write,
+      // including after the user finishes its draft in Workflow Settings.
+      if (workspaceId && published.steps.filter(step => step.workspaceId === workspaceId).length === 1) return snapshot;
+      if (snapshot.draft || snapshot.state?.draftWorkflowVersionId) {
+        throw workspaceBindingError("已有流程草稿；請先在流程設定完成或處理草稿，避免覆寫其他變更。", "C_WORKFLOW_DRAFT_EXISTS");
+      }
+      return snapshot;
+    }
+    async function publishWorkspaceBinding(workspace, binding, snapshot) {
+      const published = snapshot.published;
+      const current = await workflow.get({ includeDraft: true });
+      if (current.state?.publishedWorkflowVersionId !== published.id || current.draft || current.state?.draftWorkflowVersionId) {
+        throw workspaceBindingError("流程已變更；請重新載入後處理工作區綁定。", "C_WORKFLOW_CHANGED");
+      }
+      if (published.steps.some(step => step.workspaceId === workspace.id)) {
+        throw workspaceBindingError("工作區已有流程綁定；未新增第二個 Step。");
+      }
+      const stepById = new Map(published.steps.map(step => [step.id, step.stepKey]));
+      const gateById = new Map(published.gates.map(gate => [gate.id, gate.gateKey]));
+      const stepKey = `workspace-${workspace.id}`;
+      const request = {
+        name: published.name,
+        description: published.description,
+        steps: [...published.steps, {
+          stepKey, name: workspace.name,
+          sortOrder: Math.max(-1, ...published.steps.map(step => step.sortOrder)) + 1,
+          roleKey: binding.roleKey, workspaceId: workspace.id, statusKey: binding.statusKey,
+          isInitial: false, isCompletion: false
+        }],
+        transitions: published.transitions.map(transition => ({ ...transition,
+          fromStepKey: stepById.get(transition.fromStepId), toStepKey: stepById.get(transition.toStepId)
+        })),
+        gates: published.gates.map(gate => ({ ...gate, stepKey: gate.stepKey || stepById.get(gate.stepId) })),
+        evidenceRequirements: published.evidenceRequirements.map(evidence => ({ ...evidence,
+          gateKey: evidence.gateKey || gateById.get(evidence.gateId)
+        }))
+      };
+      if (request.steps.filter(step => step.stepKey === stepKey).length !== 1
+        || request.transitions.some(item => !item.fromStepKey || !item.toStepKey)
+        || request.gates.some(item => !item.stepKey)
+        || request.evidenceRequirements.some(item => !item.gateKey)) {
+        throw workspaceBindingError("既有流程 Contract 不完整；未儲存或發布流程。");
+      }
+      const key = `workspace-binding-${workspace.id}-${published.id}`;
+      let draftId = "";
+      let stage = "save_draft";
+      try {
+        const saved = await workflow.saveDraft({ ...request, idempotencyKey: `${key}-save` });
+        const savedDraft = saved.draft || saved.workflow;
+        draftId = String(savedDraft?.id || "");
+        if (!draftId || savedDraft.status !== "draft" || savedDraft.boardInstanceId !== workspace.boardInstanceId
+          || savedDraft.basedOnWorkflowVersionId !== published.id) {
+          throw workspaceBindingError("草稿回應版本／來源不符；請到流程設定核對，勿重建工作區。");
+        }
+        stage = "validate";
+        const validated = await workflow.validateDraft(draftId);
+        if (validated.validation?.valid !== true) throw workspaceBindingError("流程草稿未通過 Cloud validation；尚未發布。");
+        stage = "publish";
+        const beforePublish = await workflow.get({ includeDraft: true });
+        if (beforePublish.state?.publishedWorkflowVersionId !== published.id
+          || beforePublish.state?.draftWorkflowVersionId !== draftId
+          || JSON.stringify(beforePublish.draft) !== JSON.stringify(savedDraft)) {
+          throw workspaceBindingError("驗證期間流程草稿或已發布版本已變更；未發布，請到流程設定核對。", "C_WORKFLOW_CHANGED");
+        }
+        await workflow.publish({ workflowVersionId: draftId, expectedPublishedVersionId: published.id, idempotencyKey: `${key}-publish` });
+        stage = "read_back";
+        const readBack = await workflow.get({ includeDraft: true });
+        if (readBack.state?.publishedWorkflowVersionId !== draftId || readBack.published?.id !== draftId
+          || readBack.published.status !== "published"
+          || readBack.published.boardInstanceId !== workspace.boardInstanceId
+          || readBack.published.steps.filter(step => step.workspaceId === workspace.id).length !== 1) {
+          throw workspaceBindingError("發布後讀回未確認唯一 binding；請核對流程設定，勿重建工作區。");
+        }
+        pendingWorkspaceBindings.delete(workspace.id);
+        return Object.freeze({ ...workspace, workflowBinding: { state: "published", workflowVersionId: draftId } });
+      } catch (error) {
+        error.workspace = workspace;
+        error.workflowVersionId = draftId;
+        error.bindingStage = stage;
+        throw error;
+      }
+    }
+    async function instanceBindWorkspaceToWorkflow(input = {}) {
+      if (workspaceBindingBusy) throw workspaceBindingError("工作區流程操作正在進行，請勿重複送出。");
+      workspaceBindingBusy = true;
+      try {
+        const instance = await resolveInstance();
+        const rows = await gateway.select("board_workspaces", `?select=*&id=eq.${encodeURIComponent(input.workspaceId || "")}&board_instance_id=eq.${encodeURIComponent(instance.id)}&active=eq.true`);
+        const row = Array.isArray(rows) ? rows[0] : rows;
+        if (!row?.id || row.board_instance_id !== instance.id || row.active !== true) throw workspaceBindingError("找不到此子板的啟用工作區。");
+        const isAuthorizedRepair = instance.legacy_application_scope === "ai_board" && aiBoardBindingRepairKeys.has(row.workspace_key);
+        if (!pendingWorkspaceBindings.has(row.id) && !isAuthorizedRepair) throw workspaceBindingError("此既有工作區不在本次 binding 整合範圍。");
+        const workspace = normalizeInstanceWorkspace(row);
+        const snapshot = await workspaceBindingSnapshot(input, workspace.id);
+        if (snapshot.published.steps.filter(step => step.workspaceId === workspace.id).length === 1) {
+          pendingWorkspaceBindings.delete(workspace.id);
+          return Object.freeze({ ...workspace, workflowBinding: { state: "published", workflowVersionId: snapshot.published.id } });
+        }
+        return await publishWorkspaceBinding(workspace, input, snapshot);
+      } finally { workspaceBindingBusy = false; }
+    }
+    async function instanceCreateWorkspace(name, options = {}) {
+      if (workspaceBindingBusy) throw workspaceBindingError("工作區流程操作正在進行，請勿重複送出。");
+      if (readOnly) throw workspaceBindingError("目前子板為唯讀，不能建立工作區。", "C_WORKFLOW_READ_ONLY");
+      workspaceBindingBusy = true;
+      let workspace;
+      try {
+        const workflowState = await workflow.get({ includeDraft: true });
+        const configured = Boolean(workflowState.published?.id || workflowState.state?.publishedWorkflowVersionId);
+        // Every caller of shared Workspace creation observes this boundary,
+        // not just the UI. Optional Workflow never gets implicitly enabled.
+        const snapshot = configured || options.workflowBinding
+          ? await workspaceBindingSnapshot(options.workflowBinding, "", workflowState)
+          : null;
+        const instance = await resolveInstance();
+        if (uncertainWorkspaceCreation) {
+          if (name !== uncertainWorkspaceCreation.name) throw workspaceBindingError("上一個工作區建立狀態尚未確認，請先核對原工作區。");
+          const rows = await gateway.select("board_workspaces", `?select=*&workspace_key=eq.${encodeURIComponent(uncertainWorkspaceCreation.key)}&board_instance_id=eq.${encodeURIComponent(instance.id)}&active=eq.true`);
+          const row = Array.isArray(rows) ? rows[0] : rows;
+          if (!row?.id || row.board_instance_id !== instance.id || row.workspace_key !== uncertainWorkspaceCreation.key || row.active !== true) {
+            throw workspaceBindingError("尚未讀回原建立請求的工作區；未重送建立，請重新載入看板核對。");
+          }
+          workspace = normalizeInstanceWorkspace(row);
+        } else {
+          const token = typeof root.crypto?.randomUUID === "function"
+            ? root.crypto.randomUUID().replace(/-/g, "")
+            : `${Date.now()}${Math.random().toString(16).slice(2)}`;
+          const prefix = String(instance.task_code_prefix || "board").trim().toLowerCase();
+          uncertainWorkspaceCreation = { name, key: `${prefix}-custom-${token}` };
+          workspace = normalizeInstanceWorkspace(await gateway.rpc("board_instance_create_workspace", {
+            p_board_instance_id: instance.id,
+            p_name: name,
+            p_workspace_key: uncertainWorkspaceCreation.key
+          }));
+        }
+        uncertainWorkspaceCreation = null;
+        if (!snapshot) return workspace;
+        pendingWorkspaceBindings.add(workspace.id);
+        return await publishWorkspaceBinding(workspace, options.workflowBinding, snapshot);
+      } catch (error) {
+        if (workspace) error.workspace = workspace;
+        if (uncertainWorkspaceCreation) error.workspaceCreationUncertain = true;
+        throw error;
+      } finally { workspaceBindingBusy = false; }
     }
     async function instanceRenameWorkspace(workspaceId, name) {
       await resolveInstance();
@@ -2388,6 +2555,7 @@
       reconcileCompletionArchiveLifecycle: instanceReconcileCompletionArchiveLifecycle,
       getAuthorityConformance: instanceGetAuthorityConformance,
       createWorkspace: instanceCreateWorkspace,
+      bindWorkspaceToWorkflow: instanceBindWorkspaceToWorkflow,
       renameWorkspace: instanceRenameWorkspace,
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
       saveWorkspaceNotificationSettings: instanceSaveWorkspaceNotificationSettings,
@@ -2724,6 +2892,7 @@
     normalizeStatus,
     statusDescriptorFor,
     normalizeWorkspace,
+    C_WORKSPACE_WORKFLOW_BINDING_SCOPE,
     normalizeMovement,
     classifyActivity,
     normalizeActivity,
