@@ -14,7 +14,7 @@
   "use strict";
 
   const ACTIONS = Object.freeze([
-    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
+    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "archiveWorkspace", "restoreWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
     "addProgressNote", "editProgressNote", "deleteProgressNote",
     "addGeneralAttachment", "addProgressAttachment", "updateAttachmentMetadata", "deleteAttachment",
     "addChecklist", "updateChecklist", "deleteChecklist", "updateGovernanceChecklist",
@@ -24,7 +24,7 @@
   function stableKey(name, payload, options = {}) {
     if (options.key) return String(options.key);
     const taskId = payload?.taskId || payload?.task_id || payload?.task?.id || "";
-    const recordId = payload?.activityId || payload?.activity_id || payload?.attachmentId || payload?.attachment_id || payload?.id || "";
+    const recordId = payload?.activityId || payload?.activity_id || payload?.attachmentId || payload?.attachment_id || payload?.id || payload?.workspaceId || "";
     return `${String(name || "action")}:${taskId}:${recordId}`;
   }
 

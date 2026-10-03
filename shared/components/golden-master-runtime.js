@@ -93,7 +93,7 @@
     if (indicator) {
       indicator.className = `board-header-status-indicator is-${stateName}`;
       indicator.textContent = stateName === "error" ? "!" : "●";
-      indicator.title = String(model?.title || "同步狀態尚未讀取");
+      indicator.title = String(model?.title || "母版採用狀態尚未讀取");
     }
     if (summary) summary.textContent = String(model?.title || "尚未讀取");
   }
@@ -1066,6 +1066,7 @@
     const query = state.archiveSearch.trim().toLocaleLowerCase("zh-TW");
     return sortTasksByCode(state.tasks.filter(task => {
       if (!isArchiveTask(task)) return false;
+      if (state.archiveWorkspaceId && String(task.workspaceId) !== state.archiveWorkspaceId) return false;
       const status = activeService().normalizeStatus ? activeService().normalizeStatus(task.status) : String(task.status || "").toLowerCase();
       if (filter !== "all" && status !== filter) return false;
       if (!query) return true;
@@ -1086,7 +1087,14 @@
       : `<div class="board-empty">${all.length ? `找不到符合條件的封存 ${itemLabel}。` : `目前沒有封存 ${itemLabel}。`}</div>`;
     wireTaskCards();
   }
-  function openArchiveDrawer() {
+  function openArchiveDrawer(workspaceId = "") {
+    state.archiveWorkspaceId = typeof workspaceId === "string" ? workspaceId : "";
+    state.archiveSearch = "";
+    state.archiveFilter = "all";
+    const search = document.getElementById("archiveSearch");
+    if (search) search.value = "";
+    const filter = document.getElementById("archiveFilter");
+    if (filter) filter.value = "all";
     const backdrop = document.getElementById("archiveDrawerBackdrop");
     const drawer = document.getElementById("archiveDrawer");
     if (!backdrop || !drawer) return;
@@ -1413,6 +1421,116 @@
       setBanner("工作區排序失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次排序；原順序未變更。" : "正式 Cloud 未接受這次排序；原順序未變更。")), "error");
     }
   }
+
+  let workspaceLifecycleReturnFocus = null;
+  let workspaceLifecycleBusy = false;
+  function workspaceLifecycleError(error) {
+    if (/PGRST202|does not exist|Could not find.*function|schema cache/i.test(String(error?.code || "") + " " + String(error?.message || ""))) {
+      return "工作區封存／恢復尚未在 Cloud 啟用，未變更資料。請由管理者完成版本驗證後再試。";
+    }
+    const message = String(error?.message || "");
+    if (/^(你沒有|此看板有尚未發布|此看板目前未啟用|看板已有同名|請輸入工作區|此工作區|空工作區|工作區狀態已變更|完成工作區|流程版本已變更|工作區與流程目前)/.test(message)) return message;
+    return "工作區操作未完成，資料未變更。請重新整理看板後再試；若仍失敗，請由管理者確認流程設定。";
+  }
+  function closeWorkspaceLifecycle() {
+    if (workspaceLifecycleBusy) return;
+    const dialog = document.getElementById("workspaceLifecycleDialog");
+    if (dialog) { dialog.style.display = "none"; dialog.setAttribute("aria-hidden", "true"); }
+    workspaceLifecycleReturnFocus?.isConnected && workspaceLifecycleReturnFocus.focus();
+  }
+  function closeWorkspaceArchive() {
+    document.getElementById("workspaceArchiveDrawer")?.classList.remove("is-open");
+    document.getElementById("workspaceArchiveDrawer")?.setAttribute("aria-hidden", "true");
+    document.getElementById("workspaceArchiveBackdrop")?.classList.remove("is-open");
+  }
+  function openWorkspaceLifecycle(workspace, restore = false) {
+    const dialog = document.getElementById("workspaceLifecycleDialog");
+    if (!dialog || state.readOnly || workspaceLifecycleBusy) return;
+    workspaceLifecycleReturnFocus = document.activeElement;
+    const counts = restore ? workspace.counts : workspaceTaskCounts(workspace);
+    const history = counts.history || 0;
+    const codes = counts.history_codes || counts.historyCodes || [];
+    const codeText = codes.length ? `（${codes.slice(0, 5).join("、")}${codes.length > 5 ? "…" : ""}）` : "";
+    document.getElementById("workspaceLifecycleTitle").textContent = restore ? "恢復工作區" : "封存工作區";
+    document.getElementById("workspaceLifecycleBody").innerHTML = restore
+      ? `<p>恢復後會回到目前看板。工作區與歷史卡片的身分不變，舊流程線不會自動重建。</p><label for="workspaceRestoreName">工作區名稱</label><input id="workspaceRestoreName" value="${esc(workspace.name)}"><p data-workspace-lifecycle-error role="alert"></p>`
+      : `<p>${counts.current > 0 ? `此工作區仍有 ${counts.current} 張進行中的卡片，請先處理目前工作。` : history > 0 ? `此工作區沒有進行中的卡片，但仍保留 ${history} 張歷史卡${esc(codeText)}。你可以封存工作區，歷史資料會完整保留。` : "此工作區沒有保留卡片，請使用刪除工作區，系統會保留操作紀錄。"}</p><p data-workspace-lifecycle-error role="alert"></p>`;
+    const actions = document.getElementById("workspaceLifecycleActions");
+    actions.innerHTML = `${restore || (!counts.current && history > 0) ? `<button class="btn primary" type="button" data-workspace-lifecycle-confirm>${restore ? "恢復工作區" : "封存工作區"}</button>` : ""}${history > 0 ? '<button class="btn" type="button" data-workspace-history>查看歷史卡</button>' : ""}<button class="btn" type="button" data-workspace-lifecycle-close>取消</button>`;
+    actions.querySelector("[data-workspace-lifecycle-close]").onclick = closeWorkspaceLifecycle;
+    actions.querySelector("[data-workspace-history]")?.addEventListener("click", () => {
+      closeWorkspaceLifecycle(); closeWorkspaceArchive(); openArchiveDrawer(String(workspace.id));
+    });
+    actions.querySelector("[data-workspace-lifecycle-confirm]")?.addEventListener("click", async () => {
+      workspaceLifecycleBusy = true;
+      const buttons = [...dialog.querySelectorAll("button,input")];
+      buttons.forEach(button => button.disabled = true);
+      const name = document.getElementById("workspaceRestoreName")?.value.trim();
+      try {
+        await executeSharedTaskAction(null, restore ? "restoreWorkspace" : "archiveWorkspace", { workspaceId: workspace.id, name }, { refresh: true, reopen: false });
+        workspaceLifecycleBusy = false;
+        closeWorkspaceLifecycle();
+        setBanner(restore ? "工作區已恢復；歷史資料與原工作區身分完整保留。" : "工作區已封存；歷史卡片與資料完整保留。", "success");
+        if (document.getElementById("workspaceArchiveDrawer")?.classList.contains("is-open")) await renderWorkspaceArchive();
+      } catch (error) {
+        dialog.querySelector("[data-workspace-lifecycle-error]").textContent = workspaceLifecycleError(error);
+      } finally { workspaceLifecycleBusy = false; buttons.forEach(button => button.disabled = false); }
+    });
+    dialog.style.display = "grid";
+    dialog.setAttribute("aria-hidden", "false");
+    dialog.querySelector("#workspaceRestoreName,[data-workspace-lifecycle-confirm],[data-workspace-lifecycle-close]")?.focus();
+  }
+  async function renderWorkspaceArchive() {
+    const list = document.getElementById("workspaceArchiveList");
+    const status = document.getElementById("workspaceArchiveStatus");
+    if (!list || !status) return;
+    status.textContent = "正在讀取封存工作區…";
+    list.innerHTML = "";
+    try {
+      const rows = await activeService().listArchivedWorkspaces();
+      if (!Array.isArray(rows)) throw new Error("封存工作區清單未能讀取，請重新整理後再試。");
+      status.textContent = rows.length ? `共 ${rows.length} 個封存工作區` : "目前沒有封存工作區。";
+      for (const row of rows) {
+        const item = document.createElement("section");
+        item.className = "workspace-archive-row";
+        item.dataset.archivedWorkspaceId = row.id;
+        item.innerHTML = `<h3>${esc(row.name)}</h3><p>封存時間：${esc(dateLabel(row.archived_at || row.archivedAt))}</p><p>歷史卡 ${Number(row.counts?.history || 0)} · 保留總數 ${Number(row.counts?.retained_total || 0)}</p><div><button class="btn" type="button" data-workspace-history>查看歷史卡</button> <button class="btn primary" type="button" data-workspace-restore>恢復</button></div>`;
+        item.querySelector("[data-workspace-history]").onclick = () => { closeWorkspaceArchive(); openArchiveDrawer(String(row.id)); };
+        item.querySelector("[data-workspace-restore]").disabled = state.readOnly;
+        item.querySelector("[data-workspace-restore]").onclick = () => openWorkspaceLifecycle(row, true);
+        list.appendChild(item);
+      }
+    } catch (error) { status.textContent = workspaceLifecycleError(error); }
+  }
+  async function openWorkspaceArchive() {
+    const drawer = document.getElementById("workspaceArchiveDrawer");
+    if (!drawer || typeof activeService()?.listArchivedWorkspaces !== "function") return;
+    document.getElementById("workspaceArchiveBackdrop")?.classList.add("is-open");
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    drawer.querySelector("[data-workspace-archive-close]")?.focus();
+    await renderWorkspaceArchive();
+  }
+  function wireWorkspaceLifecycle() {
+    document.querySelectorAll("[data-workspace-archive-close]").forEach(button => button.onclick = closeWorkspaceArchive);
+    document.querySelectorAll("[data-workspace-lifecycle-close]").forEach(button => button.onclick = closeWorkspaceLifecycle);
+    if (state.workspaceLifecycleKeyboardBound) return;
+    state.workspaceLifecycleKeyboardBound = true;
+    document.addEventListener("keydown", event => {
+      const modal = document.getElementById("workspaceLifecycleDialog");
+      const drawer = document.getElementById("workspaceArchiveDrawer");
+      const surface = modal?.getAttribute("aria-hidden") === "false" ? modal : drawer?.getAttribute("aria-hidden") === "false" ? drawer : null;
+      if (!surface) return;
+      if (event.key === "Escape") { event.preventDefault(); surface === modal ? closeWorkspaceLifecycle() : closeWorkspaceArchive(); }
+      if (event.key === "Tab") {
+        const controls = [...surface.querySelectorAll("button,input")].filter(node => !node.disabled && node.getBoundingClientRect().height > 0);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    });
+  }
+
   async function deleteWorkspace(workspace) {
     if (state.readOnly) {
       setBanner(readOnlyRuntimeError().message, "error");
@@ -1433,9 +1551,10 @@
         : "這個工作區目前不在可刪除的正式看板範圍內。", "error");
       return;
     }
-    if (taskCount > 0 && (state.applicationScope === "ai_board" || state.applicationScope === "c" || state.cNativeWorkTodo)) {
+    if (taskCount > 0 && (typeof activeService()?.archiveWorkspace === "function" || state.applicationScope === "ai_board" || state.applicationScope === "c" || state.cNativeWorkTodo)) {
       setBanner(esc(root.ZhugeGoldenMaster.workspaceDeleteBlockedMessage(workspaceTaskCounts(workspace))), "error");
       closeWorkspaceMenus();
+      if (typeof activeService()?.archiveWorkspace === "function") openWorkspaceLifecycle(workspace);
       return;
     }
     const targetWorkspace = workspaceDeleteTarget(workspace);
@@ -1446,7 +1565,7 @@
     }
     closeWorkspaceMenus();
     if (taskCount === 0) {
-      if (!window.confirm(`確定刪除「${workspace.name}」工作區？此工作區目前沒有工作卡片，刪除後無法復原。`)) return;
+      if (!window.confirm(`確定刪除「${workspace.name}」工作區？此工作區目前沒有工作卡片，將從目前看板移除；系統保留工作區與操作紀錄。`)) return;
     } else {
       const firstConfirmed = window.confirm(`此工作區目前有 ${taskCount} 張工作卡片，刪除前會先將全部工作卡片移至「${targetLabel}」，工作資料會保留。\n\n第一次確認：取消／繼續刪除`);
       if (!firstConfirmed) return;
@@ -1461,7 +1580,7 @@
       }, { refresh: true, reopen: false });
       setBanner(taskCount > 0
         ? `工作區「${esc(workspace.name)}」已刪除；${taskCount} 張工作卡片已保留於「${esc(targetLabel)}」。`
-        : `空工作區「${esc(workspace.name)}」已刪除。`, "success");
+        : `空工作區「${esc(workspace.name)}」已從目前看板移除；工作區與操作紀錄保留。`, "success");
     } catch (error) {
       setBanner("工作區刪除失敗：" + esc(error?.message || (state.applicationScope === "c" ? "C 母版 Cloud 資料未接受這次刪除；原資料未變更。" : "正式 Cloud 未接受這次刪除；原資料未變更。")), "error");
     }
@@ -1480,6 +1599,17 @@
     menu.innerHTML = "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"rename\" title=\"只修改顯示名稱，不改 Canonical workspace key\">重新命名</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"settings\">⚙️ 工作區設定</button>"
       + "<button type=\"button\" role=\"menuitem\" data-workspace-action=\"delete\">刪除工作區</button>";
+    if (typeof activeService()?.archiveWorkspace === "function") {
+      const archive = document.createElement("button");
+      archive.type = "button";
+      archive.setAttribute("role", "menuitem");
+      archive.dataset.workspaceAction = "archive";
+      archive.textContent = "封存工作區";
+      archive.disabled = workspaceTaskCounts(workspace).current > 0 || !isMainBoardWorkspace(workspace) || isCompletionWorkspace(workspace);
+      archive.title = archive.disabled ? "請先處理目前工作；完成工作區須保留" : "保留歷史資料並從目前看板隱藏";
+      archive.onclick = event => { event.stopPropagation(); closeWorkspaceMenus(); openWorkspaceLifecycle(workspace); };
+      menu.appendChild(archive);
+    }
     header.appendChild(menu);
     button.setAttribute("aria-expanded", "true");
     const renameButton = menu.querySelector("[data-workspace-action=rename]");
@@ -4628,6 +4758,81 @@
     const defaultWorkspaceKey = state.applicationScope === "c"
       ? defaultBoardWorkspaceKey()
       : state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "procurement" ? defaultBoardWorkspaceKey() : "todo";
+    const createMenu = actions.querySelector(".board-header-create-menu");
+    const trigger = actions.querySelector("[data-board-create-menu]");
+    const consumerCreate = actions.querySelector("[data-board-create-consumer]");
+    const popup = createMenu?.querySelector(".board-header-create-popover");
+    if (popup) popup.setAttribute("role", "group");
+    const syncCreateSemantics = () => {
+      const mobile = trigger && getComputedStyle(trigger).display !== "none";
+      if (consumerCreate) {
+        if (mobile) actions.querySelector(".board-header-status-actions")?.appendChild(consumerCreate);
+        else actions.insertBefore(consumerCreate, createMenu);
+      }
+      popup?.setAttribute("role", mobile ? "menu" : "group");
+      popup?.querySelectorAll("button").forEach(button => button.setAttribute("role", mobile ? "menuitem" : "button"));
+    };
+    state.compactMediaCleanup?.();
+    const media = root.matchMedia?.("(max-width:767px)");
+    const reflowActions = () => {
+      createMenu?.classList.remove("is-open");
+      trigger?.setAttribute("aria-expanded", "false");
+      syncCreateSemantics();
+    };
+    media?.addEventListener("change", reflowActions);
+    state.compactMediaCleanup = () => media?.removeEventListener("change", reflowActions);
+    syncCreateSemantics();
+    const closeCreate = () => {
+      createMenu?.classList.remove("is-open");
+      trigger?.setAttribute("aria-expanded", "false");
+    };
+    trigger?.addEventListener("click", () => {
+      closeStatusMenu();
+      syncCreateSemantics();
+      const open = !createMenu.classList.contains("is-open");
+      createMenu.classList.toggle("is-open", open);
+      trigger.setAttribute("aria-expanded", String(open));
+      if (open) createMenu.querySelector(".board-header-create-popover button")?.focus();
+    });
+    createMenu?.addEventListener("keydown", event => {
+      if (!createMenu.classList.contains("is-open") || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      const items = [...popup.querySelectorAll("button:not(:disabled)")];
+      const current = items.indexOf(document.activeElement);
+      const index = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (current + (event.key === "ArrowUp" ? -1 : 1) + items.length) % items.length;
+      items[index]?.focus();
+      event.preventDefault();
+    });
+    createMenu?.addEventListener("focusout", event => {
+      if (!createMenu.contains(event.relatedTarget)) closeCreate();
+    });
+    createMenu?.addEventListener("click", event => {
+      if (event.target.closest(".board-header-create-popover button")) closeCreate();
+    });
+    actions.querySelector(".board-header-status-menu")?.addEventListener("toggle", event => {
+      if (event.target.open) closeCreate();
+    });
+    if (!state.compactActionsDocumentBound) {
+      state.compactActionsDocumentBound = true;
+      document.addEventListener("click", event => {
+        if (!event.target.closest(".board-header-create-menu")) {
+          document.querySelector(".board-header-create-menu")?.classList.remove("is-open");
+          document.querySelector("[data-board-create-menu]")?.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        const open = document.querySelector(".board-header-create-menu.is-open");
+        if (open) {
+          open.classList.remove("is-open");
+          const toggle = open.querySelector("[data-board-create-menu]");
+          toggle?.setAttribute("aria-expanded", "false");
+          toggle?.focus();
+          event.preventDefault();
+        }
+      });
+    }
+    actions.querySelector("[data-board-open-workspace-archive]")?.addEventListener("click", () => { closeStatusMenu(); openWorkspaceArchive(); });
+    if (typeof activeService()?.listArchivedWorkspaces !== "function") actions.querySelector("[data-board-open-workspace-archive]")?.remove();
     actions.querySelector("[data-board-create-consumer]")?.addEventListener("click", openConsumerCreate);
     actions.querySelector("[data-board-create-card]")?.addEventListener("click", () => openQuickAdd(defaultWorkspaceKey));
     actions.querySelector("[data-board-create-workspace]")?.addEventListener("click", openWorkspaceDrawer);
@@ -4780,6 +4985,7 @@
     });
     renderBoardHeaderActions();
     wireArchiveControls();
+    wireWorkspaceLifecycle();
     document.querySelectorAll("[data-workspace-drawer-close]").forEach(button => button.addEventListener("click", closeWorkspaceDrawer));
     document.querySelector("[data-workspace-create]")?.addEventListener("click", createWorkspace);
     document.getElementById("workspaceName")?.addEventListener("keydown", event => {

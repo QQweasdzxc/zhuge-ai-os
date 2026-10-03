@@ -15,7 +15,7 @@
 
   const ENGINE_VERSION = "c-mother-template-parity-v2";
   const REQUIRED_ACTIONS = Object.freeze([
-    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
+    "createTask", "createWorkspace", "renameWorkspace", "deleteWorkspace", "archiveWorkspace", "restoreWorkspace", "reorderWorkspace", "updateTitle", "updateContent", "deleteTask",
     "addProgressNote", "editProgressNote", "deleteProgressNote",
     "addGeneralAttachment", "addProgressAttachment", "updateAttachmentMetadata", "deleteAttachment",
     "addChecklist", "updateChecklist", "deleteChecklist", "updateGovernanceChecklist",

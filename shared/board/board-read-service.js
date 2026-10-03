@@ -770,7 +770,7 @@
       ? `board_instance_id=eq.${encodeURIComponent(requestedInstanceId)}`
       : `application_scope=eq.${applicationScope}`;
     const [workspaceRows, taskRows, engineeringMemory] = await Promise.all([
-      gateway.select("board_workspaces", `?select=id,board_instance_id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&${scopeQuery}&active=eq.true&order=sort_order.asc`),
+      gateway.select("board_workspaces", `?select=id,board_instance_id,workspace_key,name,sort_order,active,archived_at,created_at,updated_at,application_scope,owner_uuid&${scopeQuery}&order=sort_order.asc`),
       gateway.select("board_tasks", `?select=id,board_instance_id,title,status,priority,assignee,due_date,agreement_mode,agreement_start_date,agreement_end_date,workspace_id,workflow_version_id,current_workflow_step_id,source_workspace,summary,problem,objective,proposed_solution,acceptance_criteria,related_work,developer_notes,pm_notes,usage_scenario,work_code,created_by,created_at,updated_at,resolution_action,merged_into,linked_to,resolution_reason,resolved_at,resolved_by,accepted_at,accepted_by,completion_at,completion_by,archive_due_at,archived_at,archived_by,application_scope,owner_uuid&${scopeQuery}&order=created_at.asc`),
       options.engineeringMemory || (isWorkTodo || isBoardInstance ? { status: "not_applicable", records: [], failures: [] } : resolver.resolveCurrentCanonical({ gateway, codes: options.knowledgeCodes }))
     ]);
@@ -2332,6 +2332,21 @@
       await resolveInstance();
       return gateway.rpc("board_instance_delete_workspace", { p_workspace_id: workspaceId });
     }
+    async function instanceListArchivedWorkspaces() {
+      const instance = await resolveInstance();
+      return gateway.rpc("board_instance_list_archived_workspaces", { p_board_instance_id: instance.id });
+    }
+    async function instanceArchiveWorkspace(workspaceId) {
+      const instance = await resolveInstance();
+      if (readOnly) throw workspaceBindingError("此看板目前為唯讀。", "C_WORKFLOW_READ_ONLY");
+      return gateway.rpc("board_instance_archive_workspace", { p_board_instance_id: instance.id, p_workspace_id: workspaceId });
+    }
+    async function instanceRestoreWorkspace(workspaceId, name = null) {
+      const instance = await resolveInstance();
+      if (readOnly) throw workspaceBindingError("此看板目前為唯讀。", "C_WORKFLOW_READ_ONLY");
+      if (name != null && !String(name).trim()) throw workspaceBindingError("請輸入工作區名稱。", "WORKSPACE_NAME_REQUIRED");
+      return gateway.rpc("board_instance_restore_workspace", { p_board_instance_id: instance.id, p_workspace_id: workspaceId, p_name: name == null ? null : String(name).trim() });
+    }
     async function instanceReorderWorkspaces(workspaceIds) {
       await resolveInstance();
       return gateway.rpc("board_instance_reorder_workspaces", { p_workspace_ids: workspaceIds });
@@ -2608,6 +2623,9 @@
       getWorkspaceNotificationSettings: instanceGetWorkspaceNotificationSettings,
       saveWorkspaceNotificationSettings: instanceSaveWorkspaceNotificationSettings,
       deleteWorkspace: instanceDeleteWorkspace,
+      archiveWorkspace: instanceArchiveWorkspace,
+      restoreWorkspace: instanceRestoreWorkspace,
+      listArchivedWorkspaces: instanceListArchivedWorkspaces,
       reorderWorkspaces: instanceReorderWorkspaces,
       moveTaskWorkspace: instanceMoveTaskWorkspace,
       createTask: instanceCreateTask,

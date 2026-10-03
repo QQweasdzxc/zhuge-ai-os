@@ -101,6 +101,7 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
     await t.test("new Workspace gets one Step automatically and no new Edge", async () => {
       const page = await pageFor();
       try {
+        if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         assert.equal(await page.locator("[data-workspace-workflow-binding], [data-workspace-binding-settings]").count(), 0);
         await page.fill("#workspaceName", "Browser Custom Workspace");
@@ -145,12 +146,14 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
     await t.test("failed save retry reuses the Workspace, including after drawer close/reopen", async () => {
       const page = await pageFor("fail-save");
       try {
+        if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         await page.fill("#workspaceName", "Recoverable Browser Workspace");
         await page.click("[data-workspace-create]");
         await page.waitForFunction(() => document.querySelector("[data-workspace-binding-progress]").textContent.includes("不會重建 Workspace"));
         assert.equal(await page.locator("#workspaceName").isDisabled(), true);
         await page.locator("#workspaceCreateDrawer [data-workspace-drawer-close]").last().click();
+        if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         assert.equal(await page.inputValue("#workspaceName"), "Recoverable Browser Workspace");
         await page.evaluate(() => { window.bindingFixture.state.failAt = ""; });
@@ -163,6 +166,7 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
     await t.test("invalid draft is pending and publish is never called", async () => {
       const page = await pageFor("invalid");
       try {
+        if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         await page.fill("#workspaceName", "Validation Pending");
         await page.click("[data-workspace-create]");
@@ -267,7 +271,8 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
       await t.test(`${scope} optional Workflow retains Workspace creation UI`, async () => {
         const page = await pageFor(`scope=${scope}&optional&consumer=${consumer}`);
         try {
-          await page.click("[data-board-create-workspace]");
+          if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
+        await page.click("[data-board-create-workspace]");
           assert.equal(await page.locator("[data-workspace-workflow-binding], [data-workspace-binding-settings]").count(), 0);
           await page.fill("#workspaceName", "Optional Custom Workspace");
           await page.click("[data-workspace-create]");

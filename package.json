@@ -9,6 +9,7 @@
     "test:browser": "node tests/run-browser-regression.js"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "playwright": "1.55.1"
   }
 }

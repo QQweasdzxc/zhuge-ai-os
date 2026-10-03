@@ -68,6 +68,8 @@
         createWorkspace: payload => required(service, "createWorkspace")(payload.name, { workflowBinding: payload.workflowBinding }),
         renameWorkspace: payload => required(service, "renameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "deleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId),
+        archiveWorkspace: payload => required(service, "archiveWorkspace")(payload.workspaceId),
+        restoreWorkspace: payload => required(service, "restoreWorkspace")(payload.workspaceId, payload.name),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "updateTaskTitle")({ taskId: payload.taskId || taskId, title: payload.title }),
         updateContent: payload => required(service, "updateTaskContent")({
@@ -134,6 +136,8 @@
         deleteWorkspace: payload => required(service, "worktodoDeleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId, { workflowCapability }),
         // WorkTodo is a Module C consumer: ordering uses the same
         // board-instance-scoped authority as every other C board.
+        archiveWorkspace: payload => required(service, "archiveWorkspace")(payload.workspaceId),
+        restoreWorkspace: payload => required(service, "restoreWorkspace")(payload.workspaceId, payload.name),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "worktodoUpdateTask")({ taskId: payload.taskId || taskId, patch: { title: payload.title } }),
         updateContent: payload => required(service, "worktodoUpdateTask")({
@@ -210,6 +214,8 @@
         createWorkspace: payload => required(service, "createWorkspace")(payload.name, { workflowBinding: payload.workflowBinding }),
         renameWorkspace: payload => required(service, "renameWorkspace")(payload.workspaceId, payload.name),
         deleteWorkspace: payload => required(service, "deleteWorkspace")(payload.workspaceId, payload.targetWorkspaceId),
+        archiveWorkspace: payload => required(service, "archiveWorkspace")(payload.workspaceId),
+        restoreWorkspace: payload => required(service, "restoreWorkspace")(payload.workspaceId, payload.name),
         reorderWorkspace: payload => required(service, "reorderWorkspaces")(payload.workspaceIds),
         updateTitle: payload => required(service, "updateTaskTitle")({ taskId: payload.taskId || taskId, title: payload.title }),
         updateContent: payload => required(service, "updateTaskContent")({

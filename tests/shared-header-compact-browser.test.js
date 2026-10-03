@@ -84,7 +84,7 @@ test('Shared Header compact geometry and usable controls across all formal adopt
         assert.match(metrics.identity, /PM.*pm@example.test/);
         assert.equal(metrics.scrollWidth, metrics.clientWidth, `${item.name} overflow at ${width}`);
         if (width === 1440) assert.ok(metrics.height >= 72 && metrics.height <= 76, `${item.name} desktop height ${metrics.height}`);
-        else if (metrics.actions) assert.ok(metrics.height >= 120 && metrics.height <= 140, `${item.name} narrow height ${metrics.height}`);
+        else if (metrics.actions) assert.ok(metrics.height >= 110 && metrics.height <= 116, `${item.name} narrow height ${metrics.height}`);
         else assert.ok(metrics.height >= 72 && metrics.height <= 76, `${item.name} header without actions height ${metrics.height}`);
         for (const control of metrics.controls) assert.ok(control.width >= 44 && control.height >= 44, `${item.name}/${width} touch target ${JSON.stringify(control)}`);
         if (item.scope) {
