@@ -938,13 +938,7 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   box-sizing: border-box;
   padding: 0 !important;
 }
-.zhuge-module-shell .workspace-shell-header {
-  box-sizing: border-box;
-  height: var(--shell-header-height);
-  min-height: var(--shell-header-height);
-  padding: 14px 22px;
-  margin-bottom: var(--shell-header-content-gap);
-}
+/* Header geometry is owned solely by zhuge-shell.css. */
 .zhuge-module-shell .workspace-tabs,
 .zhuge-module-shell .workspace-subnav {
   box-sizing: border-box;
@@ -1085,21 +1079,12 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 }
 
 @media (max-width: 900px) {
-  .zhuge-module-shell .workspace-shell-header {
-    height: auto;
-    min-height: 64px;
-    padding: 13px 16px;
-  }
   .zhuge-module-shell > .workspace-app,
   .zhuge-module-shell > .app.workspace-app {
     padding: 0;
   }
 }
 @media (max-width: 700px) {
-  .zhuge-module-shell .workspace-shell-header {
-    min-height: 58px;
-    padding: 12px 14px;
-  }
   .zhuge-module-shell > .workspace-app,
   .zhuge-module-shell > .app.workspace-app {
     padding: 0;

@@ -653,9 +653,11 @@
     if (state.applicationScope === "c") return key.startsWith(`${boardTaskPrefix()}-custom-`);
     return key === "";
   }
+  function workspaceTaskCounts(workspace) {
+    return root.ZhugeBoardReadService.projectWorkspaceTaskCounts(state.tasks, workspace?.id, { isHistorical: isArchiveTask });
+  }
   function workspaceTaskCount(workspace) {
-    const workspaceId = String(workspace?.id || "");
-    return state.tasks.filter(task => String(task?.workspaceId || task?.workspace_id || "") === workspaceId).length;
+    return workspaceTaskCounts(workspace).retained;
   }
   function workspaceDeleteTarget(sourceWorkspace = null) {
     const targetKey = state.applicationScope === "worktodo" ? "worktodo-todo" : state.applicationScope === "procurement" ? defaultBoardWorkspaceKey() : state.applicationScope === "c" ? defaultBoardWorkspaceKey() : "todo";
@@ -806,6 +808,7 @@
         id: workspace.id,
         key: workspace.key,
         name: workspace.name,
+        countProjection: workspaceTaskCounts(workspace),
         completion,
         // Every active Module C workspace is a sortable board column,
         // including Completion and consumer-specific/custom workspaces.
@@ -863,7 +866,11 @@
       cards.replaceChildren();
       const rows = groups[workspace.id] || [];
       cards.innerHTML = rows.length ? rows.map(taskMarkup).join("") : `<div class="board-empty">${state.applicationScope === "procurement" ? "目前沒有正式 GAS 資料" : "目前沒有工作"}</div>`;
-      if (count) count.textContent = String(rows.length);
+      if (count) {
+        count.textContent = String(rows.length);
+        count.setAttribute?.("aria-label", `目前顯示 ${rows.length} 張卡片`);
+        count.setAttribute?.("title", "目前顯示卡片數；受搜尋篩選影響。工作區的目前／歷史／保留總數列於下方。");
+      }
     });
     wireTaskCards();
     if (unresolvedWorkspaceCount) {
@@ -1426,8 +1433,8 @@
         : "這個工作區目前不在可刪除的正式看板範圍內。", "error");
       return;
     }
-    if (taskCount > 0 && state.applicationScope === "ai_board") {
-      setBanner(`此工作區仍有 ${taskCount} 張工作卡片，需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片。`, "error");
+    if (taskCount > 0 && (state.applicationScope === "ai_board" || state.applicationScope === "c" || state.cNativeWorkTodo)) {
+      setBanner(esc(root.ZhugeGoldenMaster.workspaceDeleteBlockedMessage(workspaceTaskCounts(workspace))), "error");
       closeWorkspaceMenus();
       return;
     }

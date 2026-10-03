@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "migration": "20261003093851_module_c_detach_cancel_completion_countdown.sql",
+  "engine": "PGlite 0.3.14 isolated Postgres; stubbed auth/write/designation boundaries; no remote connection",
+  "cases": [
+    "leave Completion cancels due and preserves row/status/evidence; exactly one audit; replay idempotent",
+    "detach into stable Completion preserves due",
+    "no session rejected without audit or move",
+    "no task write rejected without audit or move",
+    "active lease rejected without audit or move",
+    "archived row rejected without audit or move",
+    "invalid workspace rejected without audit or move",
+    "anonymous execution denied; authenticated grant preserved"
+  ]
+}

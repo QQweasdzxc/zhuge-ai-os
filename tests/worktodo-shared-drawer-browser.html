@@ -40,6 +40,7 @@
   <script src="../shared/components/task-action-adapters.js"></script>
   <script src="../shared/components/golden-master.js"></script>
   <script src="../modules/worklog/components/worktodo-task-adapter.js"></script>
+  <script src="../shared/board/board-read-service.js"></script>
   <script>
     var session = null;
     const fixtureTask = window.__fixtureTask = {
@@ -199,6 +200,7 @@
       loadWorkTodoTaskAttachments: async () => []
     };
     window.ZhugeBoardReadService = {
+      projectWorkspaceTaskCounts: window.ZhugeBoardReadService.projectWorkspaceTaskCounts,
       statusDescriptorFor: status => ({ label: String(status || "未知") }),
       normalizeStatus: status => String(status || "not_started"),
       isGovernanceTerminal: () => false,

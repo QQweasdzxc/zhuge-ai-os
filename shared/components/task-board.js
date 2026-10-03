@@ -33,6 +33,10 @@
     const name = escapeHtml(column.name || column.label || "工作區");
     const icon = column.icon ? `<span class="shared-task-board-column-icon" aria-hidden="true">${escapeHtml(column.icon)}</span>` : "";
     const count = Number.isFinite(Number(column.count)) ? Number(column.count) : (Array.isArray(column.cards) ? column.cards.length : 0);
+    const projection = column.countProjection;
+    const countSummary = projection
+      ? `<div class="shared-task-board-count-summary" data-workspace-count-summary aria-label="工作區卡片統計"><span>目前卡 ${escapeHtml(projection.current)}</span><span>歷史卡 ${escapeHtml(projection.history)}</span><span>保留總數 ${escapeHtml(projection.retained)}</span></div>`
+      : "";
     const controls = markup(column.controlsHtml);
     const add = markup(column.addHtml);
     const cards = column.cardsHtml != null
@@ -52,7 +56,7 @@
       : `<span class="shared-task-board-column-handle workspace-drag-handle" data-shared-task-board-column-handle draggable="true" title="拖曳重新排序" aria-label="拖曳重新排序">⠿</span>`;
     return `<section class="${escapeHtml(className)}" data-shared-task-board-column="${id}" data-workspace-id="${id}" data-workspace-key="${key}"${readOnly}>
       <header class="${escapeHtml(headerClass)}" data-workspace-header="${id}"><span class="shared-task-board-column-title workspace-title">${icon}${name}</span><span class="count shared-task-board-column-count">${count}</span>${controls}${handle}</header>
-      ${add}<div class="shared-task-board-cards cards" data-shared-task-board-cards="${id}">${cardContent}</div>
+      ${countSummary}${add}<div class="shared-task-board-cards cards" data-shared-task-board-cards="${id}">${cardContent}</div>
     </section>`;
   }
 

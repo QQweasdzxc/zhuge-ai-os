@@ -122,7 +122,13 @@ test("Workspace Delete uses one Shared Action and explicit domain-controlled del
   assert.match(runtime, /isWorkspaceDeletable/);
   assert.match(runtime, /isCompletionWorkspace/);
   assert.match(runtime, /isLegacyTerminalWorkspace/);
-  assert.match(runtime, /需先完成卡片處理後才能刪除；系統不會自動搬移工作卡片/);
+  // PM-approved count clarity replaces the ambiguous legacy wording. Verify
+  // the exact historical message and its shared projection/guard route.
+  assert.match(runtime, /ZhugeGoldenMaster.workspaceDeleteBlockedMessage\(workspaceTaskCounts\(workspace\)\)/);
+  assert.match(runtime, /taskCount > 0 && \(state.applicationScope === "ai_board" \|\| state.applicationScope === "c" \|\| state.cNativeWorkTodo\)/);
+  const golden = require("../shared/components/golden-master.js");
+  assert.equal(golden.workspaceDeleteBlockedMessage({ current: 0, history: 1, retained: 1, historyCodes: ["TASK-079"] }),
+    "此工作區目前無進行中卡片，但仍保留 1 張歷史卡（TASK-079），因此不能刪除。");
   assert.match(runtime, /executeSharedTaskAction\(null, "deleteWorkspace"/);
   assert.match(service, /board_request_delete_workspace/);
   assert.match(service, /board_finalize_delete_workspace/);

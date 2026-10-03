@@ -1,0 +1,1754 @@
+[
+  {
+    "adopter": "Board/ai",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "AI Board",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/ai",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "AI Board",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/ai",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "AI Board",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/ai",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "AI Board",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/worktodo",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/worktodo",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/worktodo",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/worktodo",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 78.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 94.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 57.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/procurement",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "庶務行政",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/procurement",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "庶務行政",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/procurement",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "庶務行政",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/procurement",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "庶務行政",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/investment",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/investment",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/investment",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/investment",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/template-preview",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "C 唯一看板母版",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "＋ 建立看板",
+        "width": 112.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/template-preview",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "C 唯一看板母版",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 建立看板",
+        "width": 112.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/template-preview",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "C 唯一看板母版",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 建立看板",
+        "width": 112.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Board/template-preview",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "C 唯一看板母版",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋ 建立看板",
+        "width": 112.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 卡片",
+        "width": 80.453125,
+        "height": 44
+      },
+      {
+        "label": "＋ 工作區",
+        "width": 96.453125,
+        "height": 44
+      },
+      {
+        "label": "開啟同步狀態與工具",
+        "width": 53.78125,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Dashboard",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "AI OS 首頁",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "Dashboard",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "AI OS 首頁",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Dashboard",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "AI OS 首頁",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Dashboard",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "AI OS 首頁",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/overview",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "🏠 今日軍師",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/overview",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "🏠 今日軍師",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/overview",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "🏠 今日軍師",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/overview",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "🏠 今日軍師",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/portfolio",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/portfolio",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/portfolio",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/portfolio",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "💼 我的持股",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/transactions",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "💰 交易紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/transactions",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "💰 交易紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/transactions",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "💰 交易紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/transactions",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "💰 交易紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/strategy",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "◇ 投資策略",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/strategy",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "◇ 投資策略",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/strategy",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "◇ 投資策略",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/strategy",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "◇ 投資策略",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/settings",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "⚙ 偏好設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/settings",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "⚙ 偏好設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/settings",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "⚙ 偏好設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/settings",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "⚙ 偏好設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/import",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "▧ 截圖匯入",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/import",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "▧ 截圖匯入",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/import",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "▧ 截圖匯入",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "Investment/import",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "▧ 截圖匯入",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "↻ 重新整理",
+        "width": 107.859375,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/worklog",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "工作紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "WorkLog/worklog",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "工作紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/worklog",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "工作紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/worklog",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "工作紀錄",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/tasks",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "＋卡片",
+        "width": 74.015625,
+        "height": 44
+      },
+      {
+        "label": "＋工作區",
+        "width": 90.015625,
+        "height": 44
+      },
+      {
+        "label": "📦封存",
+        "width": 77.96875,
+        "height": 44
+      },
+      {
+        "label": "重新整理工作待辦",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/tasks",
+    "viewport": 1024,
+    "height": 128,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋卡片",
+        "width": 74.015625,
+        "height": 44
+      },
+      {
+        "label": "＋工作區",
+        "width": 90.015625,
+        "height": 44
+      },
+      {
+        "label": "📦封存",
+        "width": 77.96875,
+        "height": 44
+      },
+      {
+        "label": "重新整理工作待辦",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/tasks",
+    "viewport": 390,
+    "height": 128,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋卡片",
+        "width": 84.328125,
+        "height": 44
+      },
+      {
+        "label": "＋工作區",
+        "width": 100.328125,
+        "height": 44
+      },
+      {
+        "label": "📦封存",
+        "width": 88.28125,
+        "height": 44
+      },
+      {
+        "label": "重新整理工作待辦",
+        "width": 47.0625,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/tasks",
+    "viewport": 320,
+    "height": 128,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "工作待辦",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": true,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "＋卡片",
+        "width": 74.015625,
+        "height": 44
+      },
+      {
+        "label": "＋工作區",
+        "width": 90.015625,
+        "height": 44
+      },
+      {
+        "label": "📦封存",
+        "width": 77.96875,
+        "height": 44
+      },
+      {
+        "label": "重新整理工作待辦",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/library",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "Knowledge",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "WorkLog/library",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "Knowledge",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/library",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "Knowledge",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/library",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "Knowledge",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/sync",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "控制台",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "WorkLog/sync",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "控制台",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/sync",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "控制台",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/sync",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "控制台",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/management",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "管理功能",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "WorkLog/management",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "管理功能",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/management",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "管理功能",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/management",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "管理功能",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/settings",
+    "viewport": 1440,
+    "height": 74,
+    "width": 1158,
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "title": "設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": []
+  },
+  {
+    "adopter": "WorkLog/settings",
+    "viewport": 1024,
+    "height": 74,
+    "width": 742,
+    "scrollWidth": 1024,
+    "clientWidth": 1024,
+    "title": "設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/settings",
+    "viewport": 390,
+    "height": 74,
+    "width": 374,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "title": "設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "adopter": "WorkLog/settings",
+    "viewport": 320,
+    "height": 74,
+    "width": 304,
+    "scrollWidth": 320,
+    "clientWidth": 320,
+    "title": "設定",
+    "identity": "PMpm@example.test",
+    "kicker": false,
+    "actions": false,
+    "controls": [
+      {
+        "label": "開啟 Zhuge AI OS 導覽",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  }
+]

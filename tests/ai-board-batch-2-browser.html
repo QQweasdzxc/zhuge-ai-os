@@ -28,6 +28,7 @@
 <script src="../shared/components/task-drawer.js"></script>
 <script src="../shared/components/task-board.js"></script>
 <script src="../shared/components/golden-master.js"></script>
+<script src="../shared/board/board-read-service.js"></script>
 <script>
   let session = null;
   window.getSharedSessionSnapshot = () => ({ user_id: "qjc-test", isAuthenticated: true });
@@ -76,6 +77,7 @@
   const workspaceFor = id => mockWorkspaces.find(workspace => workspace.id === id);
   const taskFor = id => mockTasks.find(task => task.id === id);
   window.ZhugeBoardReadService = {
+    projectWorkspaceTaskCounts: window.ZhugeBoardReadService.projectWorkspaceTaskCounts,
     statusDescriptorFor: status => ({ ready: { label: "Ready" }, inprogress: { label: "推進中" }, qa: { label: "驗證中" }, done: { label: "已完成" } }[status] || { label: "未知工程狀態" }),
     normalizeStatus: status => String(status || "ready"),
     isGovernanceTerminal: task => ["merged", "cancelled"].includes(String(task?.status || "")),

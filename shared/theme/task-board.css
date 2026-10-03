@@ -32,3 +32,5 @@
 @media(max-width:767px){
   .shared-task-board-column{flex-basis:calc(100vw - 28px);width:calc(100vw - 28px);min-width:calc(100vw - 28px);max-width:calc(100vw - 28px)}
 }
+
+.shared-task-board-count-summary{display:flex;flex-wrap:wrap;gap:4px 10px;padding:6px 10px;color:var(--zhuge-muted,#aeb8c5);font-size:12px;line-height:1.5}

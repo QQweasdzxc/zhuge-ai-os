@@ -179,12 +179,12 @@ pre {
     font-size: max(16px, 1em);
   }
 
-  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context, .zhuge-shared-header-right) {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context) {
     align-items: stretch;
     flex-direction: column;
   }
 
-  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context, .zhuge-shared-header-right) > * {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.panel-head, .section-head, .workspace-context) > * {
     max-width: 100%;
   }
 

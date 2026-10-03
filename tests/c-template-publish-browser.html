@@ -4,6 +4,7 @@
 <div id="publishTarget"></div>
 <script src="../shared/config/version.js"></script>
 <script src="../shared/config/template-release.js"></script>
+<script src="../shared/board/board-read-service.js"></script>
 <script>
   const snapshot = window.ZhugeMotherTemplateRelease.getSnapshot();
   const oldBuild = "20260901-1550";
@@ -42,6 +43,7 @@
   };
   const nextRelease = published(snapshot.developmentBuild, snapshot.sourceCommit, snapshot.sourceFingerprint, "published_pending_reload");
   window.ZhugeBoardReadService = {
+    projectWorkspaceTaskCounts: window.ZhugeBoardReadService.projectWorkspaceTaskCounts,
     listModuleConsumers: async () => [
       { consumerId: "c", consumerLabel: "C 母版" },
       { consumerId: "worktodo", consumerLabel: "WorkTodo" },

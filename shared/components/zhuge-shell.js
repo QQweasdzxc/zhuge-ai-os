@@ -56,7 +56,7 @@
     const actions = actionMarkup ? `<div class="actions zhuge-shared-header-actions">${actionMarkup}</div>` : "";
     const id = options.id ? ` id="${esc(options.id)}"` : "";
     const navigationMenu = options.showNavigationMenu === false ? "" : `<button class="mini adaptive-menu zhuge-shared-menu" type="button" data-toggle-sidebar="1" aria-label="開啟 Zhuge AI OS 導覽" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button>`;
-    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true"><div class="zhuge-shared-header-main">${navigationMenu}<div class="zhuge-shared-header-copy"><p class="zhuge-shared-header-kicker">Zhuge AI OS</p><h1>${esc(title)}</h1><p>${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
+    return `<header${id} class="workspace-shell-header zhuge-shared-header" data-zhuge-shared-header="true" data-mounted="true"><div class="zhuge-shared-header-main">${navigationMenu}<div class="zhuge-shared-header-copy"><h1 title="${esc(title)}">${esc(title)}</h1><p title="${esc(description)}">${esc(description)}</p></div></div><div class="zhuge-shared-header-right">${renderIdentity(identity, options)}${actions}</div></header>`;
   }
 
   function optionsFromTarget(target) {

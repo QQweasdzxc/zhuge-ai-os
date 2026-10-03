@@ -10,9 +10,59 @@
    * but the outer frame, header rhythm and main gutter use these tokens. */
 }
 
-.zhuge-shared-header{width:100%;min-width:0;height:var(--shell-header-height);min-height:var(--shell-header-height);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 22px;border:1px solid #334155;border-radius:var(--shell-radius);background:#1e293b;color:#f8fafc;box-shadow:0 10px 30px rgba(2,6,23,.14);box-sizing:border-box;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;line-height:normal}
-.zhuge-shared-header-main{display:flex;align-items:center;gap:12px;min-width:0}.zhuge-shared-menu{display:none;flex:0 0 auto}
-.zhuge-shared-header-copy{min-width:0}.zhuge-shared-header-kicker{margin:0 0 3px;color:#93c5fd;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:normal}.zhuge-shared-header h1{margin:0;font-size:1.28rem;line-height:1.25}.zhuge-shared-header-copy>p:last-child{margin:4px 0 0;color:#cbd5e1;font-size:.78rem;line-height:1.45}.zhuge-shared-header-right{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;flex-wrap:wrap}.zhuge-shared-identity{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid #334155;border-radius:12px;background:#111827;padding:7px 10px}.zhuge-shared-identity-dot{width:8px;height:8px;border-radius:50%;background:#f59e0b;flex:0 0 auto}.zhuge-shared-identity-dot.is-authenticated{background:#22c55e}.zhuge-shared-identity-copy{display:flex;flex-direction:column;min-width:0}.zhuge-shared-identity-copy strong{font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zhuge-shared-identity-copy small{color:#94a3b8;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zhuge-shared-header-actions{margin:0}.zhuge-shared-header-build{color:#94a3b8;font-size:.68rem;white-space:nowrap}
+/* Sole geometry authority for headers rendered by ZhugeSharedShell. */
+.zhuge-shared-header,
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header {
+  width: 100%; min-width: 0; height: auto; min-height: var(--shell-header-height);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--shell-header-gap);
+  padding: var(--shell-header-padding-block) var(--shell-header-padding-inline);
+  border: 1px solid #334155; border-radius: var(--shell-radius);
+  background: #1e293b; color: #f8fafc; box-shadow: 0 10px 30px rgba(2,6,23,.14);
+  box-sizing: border-box;
+  font: 16px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;
+  line-height: normal;
+}
+.zhuge-shared-header-main { display: flex; align-items: center; gap: var(--shell-header-gap); min-width: 0; flex: 1; }
+.zhuge-shared-menu { display: none; flex: 0 0 auto; }
+.zhuge-shared-header-copy { min-width: 0; }
+.zhuge-shared-header h1 { margin: 0; font-size: 1.25rem; line-height: 1.25; }
+.zhuge-shared-header-copy > p:last-child { margin: 2px 0 0; color: #cbd5e1; font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-header-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--shell-header-gap); min-width: 0; }
+.zhuge-shared-identity { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; border: 1px solid #334155; border-radius: 10px; background: #111827; padding: 5px 8px; }
+.zhuge-shared-identity-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex: 0 0 auto; }
+.zhuge-shared-identity-dot.is-authenticated { background: #22c55e; }
+.zhuge-shared-identity-copy { display: flex; flex-direction: column; min-width: 0; }
+.zhuge-shared-identity-copy strong { font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-identity-copy small { color: #94a3b8; font-size: .6875rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhuge-shared-header-actions { margin: 0; display: flex; align-items: center; gap: var(--shell-header-gap); }
+.zhuge-shared-header-build { color: #94a3b8; font-size: .68rem; white-space: nowrap; }
+.zhuge-shared-header :is(button, .btn, .btn2, summary, [role="button"]),
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header :is(button, .btn, .btn2, summary, [role="button"]) {
+  box-sizing: border-box; min-width: var(--zhuge-touch-target-min); min-height: var(--zhuge-touch-target-min);
+  flex-shrink: 0;
+}
+@media (max-width: 1180px) {
+  .zhuge-shared-header,
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 36%);
+    grid-template-rows: minmax(44px, auto) auto;
+    min-height: var(--shell-header-mobile-height); align-items: center;
+  }
+  .zhuge-shared-header-main { grid-column: 1; grid-row: 1; }
+  .zhuge-shared-header-right { display: contents; }
+  .zhuge-shared-header-right > .zhuge-shared-identity { grid-column: 2; grid-row: 1; justify-self: end; max-width: 100%; }
+  .zhuge-shared-header .zhuge-shared-header-actions > div { display: flex; flex-wrap: nowrap; flex-shrink: 0; }
+  .zhuge-shared-header-actions { grid-column: 1 / -1; grid-row: 2; min-width: 0; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+  /* Tool menus must escape the scrolling action row; otherwise their popup
+   * is clipped. On narrow headers they use the existing fixed overlay layer. */
+  .zhuge-shared-header .zhuge-shared-header-actions .board-header-status-popover { position: fixed; top: calc(var(--shell-header-mobile-height) + 18px); left: 16px; right: 16px; width: auto; max-height: calc(100dvh - var(--shell-header-mobile-height) - 34px); overflow-y: auto; }
+  .zhuge-shared-header h1 { font-size: 1.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zhuge-shared-header:has(.zhuge-shared-header-actions:empty),
+  .zhuge-shared-header:not(:has(.zhuge-shared-header-actions)),
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:has(.zhuge-shared-header-actions:empty),
+  .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:not(:has(.zhuge-shared-header-actions)) { min-height: var(--shell-header-height); grid-template-rows: minmax(44px, auto); }
+}
 .zhuge-module-shell>.workspace-app,.zhuge-module-shell>.app{min-width:0;width:100%}.zhuge-module-shell>.workspace-app>.zhuge-shared-header{margin-bottom:var(--shell-header-content-gap)}.workspace-content-container,.workspace-canvas{min-width:0;max-width:none}
 .os-shell.zhuge-module-shell{max-width:none;margin:0}.os-shell.zhuge-module-shell>.os-main{min-width:0;width:100%}.os-shell.zhuge-module-shell>.sidebar-backdrop{display:none}
 .zhuge-dashboard-shell .page-shell{width:100%;max-width:none;margin:0;padding:0 0 40px}.zhuge-dashboard-shell .section-heading{margin-top:0}
@@ -20,7 +70,7 @@
 .investment-module-shell>.workspace-app{min-width:0;padding:0;box-sizing:border-box}
 .zhuge-dashboard-shell .page-shell,.zhuge-dashboard-shell .page-shell h1,.zhuge-dashboard-shell .page-shell h2,.zhuge-dashboard-shell .page-shell p{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}.zhuge-dashboard-shell .identity-hub>div{min-width:0;max-width:100%}
 .zhuge-module-shell.zhuge-nav-collapsed>.workspace-app,.zhuge-module-shell.zhuge-nav-collapsed>.app{min-width:0}
-@media(max-width:900px){.zhuge-shared-header{height:auto;min-height:64px;align-items:flex-start;flex-direction:column;padding:13px 16px}.zhuge-shared-header-right{width:100%;justify-content:flex-start}.zhuge-shared-header-build{margin-left:auto}}
+
 /* Wide desktop uses the circular shared rail control as the only Sidebar
  * controller.  The hamburger remains available only to tablet/mobile
  * navigation patterns, where the rail is no longer persistently visible. */
@@ -29,6 +79,6 @@
   .zhuge-shared-menu{display:none!important}
   .zhuge-module-shell.zhuge-nav-collapsed .zhuge-shared-menu{display:none!important}
 }
-@media(max-width:767px){.zhuge-shared-header{border-radius:14px;padding:12px 14px}.zhuge-shared-menu{display:inline-flex}.zhuge-shared-header-right{gap:7px}.zhuge-shared-identity{max-width:100%}.zhuge-shared-header-actions .btn{padding:7px 10px;font-size:.75rem}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
+@media(max-width:767px){.zhuge-shared-menu{display:inline-flex}.zhuge-dashboard-shell .identity-hub{gap:14px}.zhuge-dashboard-shell .primary-action{white-space:normal;text-align:center;max-width:100%}}
 @media(max-width:900px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}
 @media(max-width:767px){.zhuge-dashboard-shell>.workspace-app,.investment-module-shell>.workspace-app{padding:0}}

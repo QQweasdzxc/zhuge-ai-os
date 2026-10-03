@@ -70,7 +70,11 @@
   --shell-main-gap: 14px;
   --shell-page-padding-x: 24px;
   --shell-page-padding-y: 24px;
-  --shell-header-height: 94px;
+  --shell-header-height: 74px;
+  --shell-header-padding-block: 8px;
+  --shell-header-padding-inline: 14px;
+  --shell-header-gap: 8px;
+  --shell-header-mobile-height: 128px;
   --shell-header-content-gap: 12px;
   --shell-section-gap: 10px;
   --shell-radius: var(--zhuge-radius-md);

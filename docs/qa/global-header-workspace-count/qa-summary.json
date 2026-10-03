@@ -1,0 +1,55 @@
+{
+  "baseSha": "4a0dfafd4cdd772268903efc976418236dc714f4",
+  "targeted": {
+    "pass": 25,
+    "fail": 0,
+    "skipped": 0
+  },
+  "countConformance": {
+    "pass": 9,
+    "fail": 0,
+    "skipped": 0
+  },
+  "fullRegression": {
+    "command": "node --test tests/*.test.js",
+    "pass": 841,
+    "fail": 0,
+    "skipped": 0
+  },
+  "browserRegression": {
+    "command": "npm run test:browser",
+    "pass": 31,
+    "fail": 0,
+    "skipped": 0,
+    "standalonePassed": 5
+  },
+  "headerGeometry": {
+    "adopters": 18,
+    "viewports": [
+      1440,
+      1024,
+      390,
+      320
+    ],
+    "measurements": 72,
+    "desktopHeight": 74,
+    "narrowHeightWithActions": 128,
+    "minimumControlWidth": 44,
+    "minimumControlHeight": 44,
+    "narrowHeightWithoutActions": 74
+  },
+  "archiveSqlQa": {
+    "engine": "isolated PGlite 0.3.14",
+    "status": "PASS",
+    "caseGroups": 8,
+    "scope": "Actual migration executed; auth/write/designation dependencies stubbed. No remote/RLS acceptance claim."
+  },
+  "sourceIdentity": "PASS",
+  "gitDiffCheck": "PASS",
+  "cloudMutation": false,
+  "push": false,
+  "deploy": false,
+  "productionTask079": "UNCHANGED; archive_due_at remains stale; archived_at NULL",
+  "review": "PENDING GPT/CTO",
+  "preflight": "Run on final clean local commit; result recorded in external release-preflight.json"
+}

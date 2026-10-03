@@ -114,6 +114,15 @@
     return `<div${toolbarId} class="${escapeHtml(className)}" data-golden-master-toolbar="true" aria-label="${escapeHtml(toolbar.ariaLabel || "Toolbar")}"><div class="golden-master-toolbar-filters">${filters}</div><div class="golden-master-toolbar-actions">${actions}${customActions}</div>${status}${legend}${search}</div>`;
   }
 
+  function workspaceDeleteBlockedMessage(counts) {
+    const codes = counts.historyCodes.slice(0, 5).join("、");
+    const history = counts.history ? `${counts.history} 張歷史卡（${codes}${counts.historyCodes.length > 5 ? "等" : ""}）` : "";
+    if (counts.current === 0 && counts.history > 0) {
+      return `此工作區目前無進行中卡片，但仍保留 ${history}，因此不能刪除。`;
+    }
+    return `此工作區目前有 ${counts.current} 張目前卡${history ? `，並保留 ${history}` : ""}，保留總數 ${counts.retained}；需先依正式卡片處理流程處理，才能刪除工作區。系統不會自動搬移或刪除卡片。`;
+  }
+
   function renderHeaderActions(options = {}) {
     const scope = escapeHtml(options.applicationScope || "");
     const refreshId = escapeHtml(options.refreshId || "refreshBoardBtn");
@@ -301,6 +310,7 @@ ${consumerCreate}
     escapeHtml,
     renderHeader,
     renderHeaderActions,
+    workspaceDeleteBlockedMessage,
     renderToolbar,
     renderOperations,
     mountOperations,

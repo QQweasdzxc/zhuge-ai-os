@@ -1,0 +1,25 @@
+{
+  "baseSha": "4a0dfafd4cdd772268903efc976418236dc714f4",
+  "productionReadOnly": {
+    "cronJob": "module-c-completion-archive-v2",
+    "schedule": "*/5 * * * *",
+    "active": true,
+    "latestObservedCronStatus": "succeeded",
+    "schedulerErrors": 0,
+    "workspaceId": "70d94d8d-7c49-48ed-b39c-c985c6efea3e",
+    "taskId": "480f59c0-d252-4e04-9b37-457bfbac346b",
+    "workCode": "TASK-079",
+    "status": "done",
+    "workflowVersionId": null,
+    "currentWorkflowStepId": null,
+    "completionAt": "2026-09-21T15:07:30.314854Z",
+    "archiveDueAt": "2026-09-22T15:07:30.314854Z",
+    "archivedAt": null,
+    "detachAt": "2026-09-22T12:10:34.963279Z",
+    "detachSourceWorkspace": "e9d27fbc-d60c-41d8-af9e-703511693a48",
+    "detachAction": "workflow_detached_workspace_decision",
+    "newMigrationRecorded": false,
+    "sourceFixPresent": false
+  },
+  "pmDecision": "Leaving Completion cancels countdown; prepare source-only existing-writer fix; no live migration or row repair."
+}

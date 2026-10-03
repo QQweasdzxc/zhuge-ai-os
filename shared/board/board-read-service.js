@@ -527,6 +527,21 @@
     });
   }
 
+  // A retained row still belongs to its Workspace even when presentation
+  // sends it to History. Search visibility must never change delete safety.
+  function projectWorkspaceTaskCounts(tasks, workspaceId, options = {}) {
+    const id = String(workspaceId || "");
+    const isHistorical = options.isHistorical || isArchiveTask;
+    const related = id ? (Array.isArray(tasks) ? tasks : []).filter(task => String(task.workspaceId || task.workspace_id || "") === id) : [];
+    const history = related.filter(isHistorical);
+    return Object.freeze({
+      current: related.length - history.length,
+      history: history.length,
+      retained: related.length,
+      historyCodes: Object.freeze([...new Set(history.map(task => String(task.workCode || task.work_code || task.id || "未編號")))])
+    });
+  }
+
   function normalizeChecklistItem(row = {}) {
     return Object.freeze({
       id: String(row.id || ""),
@@ -2579,6 +2594,7 @@
       statusDescriptorFor,
       completionGateStatus,
       isArchiveTask,
+      projectWorkspaceTaskCounts,
       isGovernanceTerminal,
       completionArchiveContract: C_COMPLETION_ARCHIVE_LIFECYCLE_CONTRACT,
       getCompletionArchivePolicy: options => getCompletionArchivePolicy(withGateway(options)),
@@ -2940,6 +2956,7 @@
     createWorkflowCapability,
     isGovernanceTerminal,
     isArchiveTask,
+    projectWorkspaceTaskCounts,
     normalizeChecklistItem,
     completionGateStatus,
     isPrinciple,
