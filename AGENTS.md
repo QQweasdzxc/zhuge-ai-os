@@ -9,7 +9,15 @@ This project uses Backlog.md for task and project management.
 
 **For every user request in this project, run `backlog instructions overview` before answering or taking action.**
 
-Use the overview to decide whether to search, read, create, or update Backlog tasks.
+Use the overview for read/search guidance. Zhuge AI OS TASK identity takes
+precedence over the generic CLI recommendation to create a local task:
+- Only a TASK ID already present in the formal Board/DB and visible to PM may
+  be used as `TASK-xxx`. Backlog is a local tracking mirror, not an ID authority.
+- Never run task creation to allocate a formal TASK number locally. Without a
+  verified formal ID, use a descriptive scope and existing QA/documentation.
+- Apply lifecycle guides only to an existing, verified formal TASK mirror.
+- PM-authorized removal of an invalid local TASK record is identity correction,
+  not completion or creation of a replacement numbered task.
 
 Before task lifecycle actions, read the matching detailed guide:
 - `backlog instructions task-creation` before creating or splitting tasks

@@ -273,64 +273,39 @@ cleared after the attempt. The runner does not log request bodies or secrets.
 
 ## Controlled Candidate packaging
 
-`release-governance.js` is the single packaging path for formal FullSource
-Candidates. It is separate from product Runtime code and does not write Cloud
-data. The root `version.json.build` is the sole Candidate `BUILD_ID`; Runtime
-configuration, module manifests, Runtime UI identity, the `template-release.js`
-Development version/build projection, and ordinary Runtime asset cache-busters
-must match it. The Published C Snapshot loader
-`shared/config/template-release.js?v=...` is intentionally pinned to the
-Published C Build, which may differ from the Candidate Build. Published
-Snapshot / Adoption identity is validated separately and is never rewritten by
-Candidate packaging. Arbitrary CSS/documentation dates are not Build Identity.
-
-The sidecar Candidate Manifest records both Candidate Build identity and the
-verified Published C identity / Adoption evidence. Candidate packaging does
-not require Candidate Build = Published Build. `template-publish.js --check`
-remains a separate Publish Readiness check; it is not a Candidate Packaging
-gate and performs no Publish write.
-
-Candidate filename identity is the root `version.json.build`, formatted as
-`YYYYMMDD-HHmm`. `artifactCreatedAt` is metadata only; it is recorded in the
-sidecar Candidate Manifest and never determines filename identity.
-
-At the start of a Formal Build Cycle, use the read-only generator to obtain the
-current Asia/Taipei `YYYYMMDD-HHmm` value. It fails if that value would reuse the
-previous root Build; the approved value must then be written to
-`version.json.build` and synchronized across Source before the commit:
-
-```bash
-node tools/release-governance.js new-build-id
-```
-
-The controlled sequence is: generate a new Build ID, update Source identity,
-commit, verify a clean Working Tree, run the Pre-Gate and Regression/Preflight,
-package, then run the Post-Gate and Manifest/ZIP verification. Formal packaging
-fails closed if Git HEAD or the Working Tree status is unavailable, or if the
-Working Tree is not clean.
-
-Run the identity gate before packaging:
+`release-governance.js` is the single FullSource packaging authority for
+Candidate, Review and QA Backup. It never pushes/deploys, applies migrations or
+writes Cloud data. Follow docs/10_GOVERNANCE/RELEASE.md for identity, naming,
+TASK verification, delivery destinations and independent promotion/runtime gates.
 
 ```bash
 node tools/release-governance.js preflight
+node tools/release-governance.js new-build-id
+node tools/release-governance.js package --type review \
+  --description Global-Header-Workspace-Count-Archive-Fix \
+  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' \
+  --output-dir /workspace/artifacts/Global-Header-Workspace-Count-Archive-Fix
 ```
 
-After Governance, Checklist, and Full Regression have independently passed,
-provide their PASS evidence and package a new Candidate:
+`new-build-id` is a read-only generator for a future formal Candidate cut, not
+an instruction to increase Build while creating Review/QA Backup. Candidate
+filename prefix uses version.json.build; Review/QA Backup uses actual ZIP
+creation time in Asia/Taipei. Build and artifactCreatedAt are separate fields.
+Development identity matches Candidate Runtime; Published C Snapshot/Adoption
+and its loader cache-buster are separately validated and never rewritten here.
 
-```bash
-node tools/release-governance.js package \
-  --description Checklist-Canonical-Final \
-  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS"}' \
-  --output-dir dist \
-  --deliver
-```
+The same packager verifies clean Git source, exact commit/parent, eligible
+tracked blobs, naming, ZIP integrity, Manifest and automatic .zip.sha256
+sidecar. Descriptive scopes need no TASK ID. TASK scopes use the existing
+protected inspect command and fail closed if formal Board identity cannot be
+verified. Package QA evidence must be truthful, including browser regression.
 
-The tool fails closed on identity mismatch, forbidden archive entries,
-overwrites, Source ↔ ZIP differences, invalid Manifest data, or an output path
-other than the formal PM `版控` directory. `dist/` is temporary packaging
-output only. The ZIP and its `<candidate>.zip.manifest.json` sidecar are
-delivered to the formal PM directory only after the Post-Packaging Gate passes.
+Destinations are explicit storage choices, not Source Authority: Cloud workspace,
+Mac local/Google Drive or PM-designated directories. Optional --deliver requires
+--delivery-root; no Mac path is privileged. ZIP + Manifest + SHA256 are delivered
+as one verified append-only set. Review first, then wait for PM exact-SHA Push
+authorization: Push main = GitHub Pages Production Auto Deploy. Local commits
+and packages do not deploy or apply Supabase migrations.
 
 ### AI Board inline task-content update mode
 

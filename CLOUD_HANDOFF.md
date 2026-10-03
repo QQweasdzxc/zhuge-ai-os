@@ -12,6 +12,11 @@ session.
 
 Audit time: 2026-10-02, Asia/Taipei
 
+The identity/status tables below are the historical 2026-10-02 handoff snapshot,
+not current deployment readback. For current source use fetched origin/main and
+version.json. Current release/naming/gate authority is docs/10_GOVERNANCE/RELEASE.md
+and tools/release-governance.js. Do not use old artifact names as naming rules.
+
 ## 1. PROJECT IDENTITY
 
 | Item | Current value |
@@ -95,7 +100,7 @@ Board, navigation, numbering, or action authority.
 - Shared Board read/write boundary: shared/board/board-read-service.js
 - Shared navigation registry: shared/components/zhuge-navigation.js
 - Shared workspace ordering authority:
-  shared/components/workspace-ordering-authority.js
+  shared/board/workspace-ordering-authority.js
 - Shared action contract/adapters:
   shared/components/task-action-contract.js and
   shared/components/task-action-adapters.js
@@ -123,8 +128,12 @@ or client-side secrets.
 ### 2.5 GitHub and runtime relationship
 
 - GitHub main is the canonical source branch.
-- A commit or tag identifies source; it does not automatically deploy
-  Production or change Supabase Cloud.
+- A local commit or tag identifies source and does not deploy Production.
+- Push main = GitHub Pages Production Auto Deploy. Push requires GPT/CTO
+  Review PASS and task-specific PM exact-SHA authorization; a successful Push
+  is a promotion action, not proof that deployment or runtime acceptance passed.
+- Pages deployment never applies Supabase migrations or publishes Workflow.
+  Migration, Cloud mutation and Workflow publish require separate authorization.
 - The Candidate Build comes from root version.json.build.
 - Published C identity is a separate persisted release/adoption identity and
   may have a different build from the current Candidate Runtime Build.
@@ -330,6 +339,17 @@ only intended application-repository change in this handoff task.
 
 ### Git and branch rules
 
+- GitHub origin/main is the only Source SSOT. Cloud Co is the primary developer;
+  Mac is a mirror/backup. Do not perform Cloud-to-Mac canonical integration.
+- Start with git fetch origin; task BASE_SHA must equal origin/main and the
+  working tree must be clean. Stop on BASE mismatch; do not merge/rebase/reset.
+- TASK IDs come only from formal Board/DB records visible to PM. Use descriptive
+  scopes without a verified ID; local Backlog cannot allocate formal TASK IDs.
+- Push main requires GPT/CTO Review PASS and this task's PM exact-SHA authority.
+  Fetch again immediately before Push and require origin/main == task BASE_SHA.
+  Only the reviewed exact commit's approved fast-forward lineage may be pushed.
+  No force push, PR/merge, additional manual deploy or inherited authorization.
+
 - Canonical branch is main.
 - The current release tag is AIOS-CANONICAL-20261002-2229.
 - Future implementation should use the branch/worktree explicitly authorized
@@ -397,7 +417,7 @@ Shared runtime and authority:
 - shared/components/golden-master.js
 - shared/components/golden-master-runtime.js
 - shared/components/zhuge-navigation.js
-- shared/components/workspace-ordering-authority.js
+- shared/board/workspace-ordering-authority.js
 - shared/components/task-action-contract.js
 - shared/components/task-action-adapters.js
 - shared/board/board-read-service.js
@@ -450,8 +470,9 @@ It must not start coding until PM/GPT provides the next scoped task.
 2. QJC/PM may separately authorize live Runtime/Cloud QA and read-back.
 3. If deployment is authorized, use the exact source baseline/tag or a newly
    approved commit and verify the deployed runtime independently.
-4. Do not infer that the Candidate ZIP or GitHub push applied Cloud migration,
-   scheduler, Published C reload, or Production deployment.
+4. A ZIP or local commit does not deploy. Authorized push main automatically
+   triggers Pages Production deploy; read back deploy success and deployed SHA.
+   Neither Push nor Pages applies Cloud migration, scheduler or Published C reload.
 
 ### If the next product request concerns Boards/Workspaces
 
@@ -507,7 +528,7 @@ The following instruction is intended to be given to a new Codex Cloud Agent:
     - repository root and GitHub remote;
     - current branch, HEAD, release tag, and remote main;
     - working tree and untracked files;
-    - Version 0.9.0-alpha.9.13 and Build 20261001-2324;
+    - current Version/Build read from version.json (not the historical table);
     - the shared Module C runtime and its Board/Workspace authorities;
     - the difference between source, Candidate, Published C, Cloud/runtime,
       and PM/QJC acceptance;

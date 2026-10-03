@@ -111,23 +111,94 @@ Use the controlled tool path for Candidate packaging:
 node tools/release-governance.js preflight
 node tools/release-governance.js package \
   --description Checklist-Canonical-Final \
-  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS"}' \
-  --output-dir dist \
-  --deliver
+  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' \
+  --output-dir dist
 ```
 
-The tool creates a temporary ZIP under `dist/`, derives its filename from the
-root `version.json.build`, records `artifactCreatedAt` as separate manifest
-metadata, runs the Post-Packaging Gate from the ZIP itself, and only then
-copies the ZIP and Manifest to the formal PM delivery directory:
+The existing tool supports Candidate, Review and QA Backup through one packager.
+Every FullSource filename is:
 
 ```text
-/Users/qq/Library/CloudStorage/GoogleDrive-qq.1025@gmail.com/我的雲端硬碟/TOOLS-自製/ZhuGe AI OS/版控/
+YYYYMMDD-HHMM_Zhuge_AI_OS-v<Version>-<Scope>-FullSource-<Candidate|Review|QA-Backup>.zip
 ```
 
-The formal delivery is append-only: existing artifacts are never overwritten.
-The Post-Packaging Gate validates ZIP identity, Source ↔ ZIP file hashes,
-`unzip -t`, SHA-256, file count, and Candidate Manifest identity.
+Candidate prefix = version.json.build = Runtime Build = Manifest candidateBuild.
+Review / QA Backup prefix = actual Artifact Created At in Asia/Taipei, independent
+of the current source Build. A Review is not a Candidate cut; do not change the
+source Build merely to archive governance or work in progress. The next formal
+Candidate cut must obtain a new Build and synchronize Source before committing.
+All artifacts retain source build and full Git SHA / Parent SHA; only Candidate
+has candidateBuild. Sidecars use the complete ZIP basename:
+`.zip.manifest.json` and `.zip.sha256`.
+
+Scope must be descriptive ASCII letters/numbers/hyphens. Any TASK number requires
+readback through the existing protected engineering-transition inspect path:
+a real task UUID, exact work_code and formal Board UUID, visible to PM. No local
+Backlog, guessed ID or caller-supplied boolean can authorize a TASK filename.
+If protected readback is unavailable, use a descriptive scope. The packager
+records sanitized TASK identity provenance, never credentials or actor tokens.
+
+```bash
+node tools/release-governance.js package --type review \
+  --description Global-Header-Workspace-Count-Archive-Fix \
+  --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' \
+  --output-dir /workspace/artifacts/Global-Header-Workspace-Count-Archive-Fix
+```
+
+Use `--type qa-backup` for QA Backup and `--type candidate` (default) for a
+formal Candidate. PASS inputs must come from actual QA of the packaged source;
+baseline failures, skipped/browser-unavailable/auth-unavailable checks are not
+PASS. Report PASS, FAIL, BLOCKED, NOT VERIFIED or PENDING accurately. The tool
+requires browser regression evidence as well as the existing release gates.
+
+Packaging uses the clean commit's tracked eligible blobs, excludes .git,
+node_modules, caches/temp/profile/runtime scratch fixtures and secrets, and
+verifies Source-to-ZIP hashes, ZIP integrity, Manifest naming/identity, SHA256
+sidecar and file count. Excluded tracked scratch files are recorded explicitly
+in the Manifest; no untracked/ignored runtime artifacts may enter FullSource.
+Every destination is append-only; never overwrite an existing artifact set.
+
+Artifact destination may be a Cloud workspace directory, Mac local/Google Drive
+or another PM-designated location. Use `--output-dir`; optional `--deliver`
+requires an explicit `--delivery-root`. Delivery path is not version-control
+Authority. Artifact Identity + Manifest + SHA256 + Git SHA define the archive;
+GitHub main remains Source SSOT. Do not add a storage registry.
+
+## Source, promotion and runtime gates
+
+Existing Capability First: request → EXISTS / PARTIAL / MISSING → authorized
+smallest gap only. One capability has one shared canonical authority.
+Before work: git fetch origin, verify task BASE_SHA = origin/main and clean tree.
+Preserve already-authorized unpushed work; a mismatch is HARD STOP, never an
+implicit merge, rebase, reset or permission to add unrelated commits.
+
+Local commit → no deployment. Push main = GitHub Pages Production Auto Deploy.
+The required sequence is Coding → Developer QA → local commit → Artifact →
+GPT/CTO Review PASS → PM task-specific exact-SHA Push Authorization → main →
+Production Auto Deploy → Runtime Readback. Immediately before authorized Push,
+fetch again and require origin/main == task BASE_SHA. Push only the reviewed
+exact commit with its explicitly approved fast-forward lineage. Never force push,
+self-create PR/merge, inherit another task's authorization or manually deploy.
+
+After Push verify GitHub main SHA = artifact SOURCE_SHA = Production deployed SHA
+and read back Version / Build. If Production SHA cannot be read, report NOT
+VERIFIED. Deploy failure: report logs/blocker and stop for GPT/PM; do not blindly
+retry Push, force push, revert source or invent a source-fix commit.
+
+A source migration file is not an applied migration. Pages does not apply
+Supabase migrations, publish Workflow or mutate Production DB. Each requires
+separate explicit PM/GPT authorization and the existing controlled authority.
+Always report SOURCE_STATE, MIGRATION_STATE, DEPLOY_STATE and RUNTIME_STATE
+separately. Developer QA does not imply QJC/PM runtime acceptance.
+
+## Mandatory delivery self-check
+
+Before every report check BASE_SHA_VERIFIED, EXISTING_CAPABILITY_CHECK,
+TASK_ID_AUTHORITY, VERSION, BUILD, ARTIFACT_NAMING, MANIFEST, SHA256,
+SOURCE_TO_ZIP, QA, FULL_REGRESSION, BROWSER_REGRESSION, MIGRATION_STATE,
+PUSH_AUTHORIZATION, DEPLOY_STATE and WORKING_TREE. Inapplicable or unverified
+checks must be explicitly identified; any failed required gate is HARD STOP,
+never an overall release PASS.
 
 ## Foundation freeze
 

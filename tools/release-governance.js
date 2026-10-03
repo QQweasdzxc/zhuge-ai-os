@@ -8,10 +8,10 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const FORMAL_DELIVERY_ROOT = "/Users/qq/Library/CloudStorage/GoogleDrive-qq.1025@gmail.com/我的雲端硬碟/TOOLS-自製/ZhuGe AI OS/版控";
+const ARTIFACT_TYPES = Object.freeze({ candidate: "Candidate", review: "Review", "qa-backup": "QA-Backup" });
 const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared"];
 const RUNTIME_EXTENSIONS = new Set([".html", ".js", ".css"]);
-const FORBIDDEN_DIRECTORY_NAMES = new Set([".git", "dist", "node_modules"]);
+const FORBIDDEN_DIRECTORY_NAMES = new Set([".git", "dist", "node_modules", ".cache", "cache", "tmp", "temp", "browser-profile", "playwright-report", "test-results"]);
 const FORBIDDEN_FILE_NAMES = new Set([".DS_Store"]);
 const FORBIDDEN_FILE_EXTENSIONS = new Set([".crt", ".jwk", ".key", ".pem", ".p12"]);
 const BUILD_PATTERN = /^202\d{5}-\d{4}$/;
@@ -47,6 +47,7 @@ function isForbiddenRelativePath(relative) {
   const basename = segments[segments.length - 1];
   if (segments.some(segment => FORBIDDEN_DIRECTORY_NAMES.has(segment))) return true;
   if (FORBIDDEN_FILE_NAMES.has(basename)) return true;
+  if (/^tests\/\.ai-board-batch-2-browser-\d+\.html$/.test(relative)) return true;
   if (/^\.env(?:\.|$)/i.test(basename)) return true;
   return FORBIDDEN_FILE_EXTENSIONS.has(path.extname(basename).toLowerCase());
 }
@@ -429,6 +430,31 @@ function assertWorkingTreeClean(root = PROJECT_ROOT) {
   return Object.freeze({ status: "PASS", commit, workingTree: "clean" });
 }
 
+function commitSourceManifest(root = PROJECT_ROOT) {
+  const { commit } = assertWorkingTreeClean(root);
+  const records = execFileSync("git", ["ls-tree", "-rz", commit], { cwd: root }).toString("utf8").split("\0").filter(Boolean);
+  const files = [];
+  const exclusions = [];
+  for (const record of records) {
+    const separator = record.indexOf("\t");
+    const [mode, type, blob] = record.slice(0, separator).split(" ");
+    const relative = record.slice(separator + 1);
+    if (isForbiddenRelativePath(relative)) {
+      exclusions.push({ path: relative, reason: "Excluded by canonical secret/runtime-artifact packaging policy" });
+      continue;
+    }
+    if (type !== "blob" || !["100644", "100755"].includes(mode)) {
+      fail("Unsupported tracked source entry; exact blob packaging required", { path: relative, mode, type });
+    }
+    const content = fs.readFileSync(path.join(root, relative));
+    const blobHash = crypto.createHash("sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
+    if (blobHash !== blob) fail("Working source differs from Git commit blob", { path: relative, commit });
+    files.push({ path: relative, bytes: content.length, sha256: crypto.createHash("sha256").update(content).digest("hex") });
+  }
+  files.sort((a, b) => Buffer.from(a.path).compare(Buffer.from(b.path)));
+  return { commit, parentCommit: runGit(root, ["rev-parse", `${commit}^`]), files, exclusions };
+}
+
 function artifactTaipeiParts(date = new Date()) {
   const parsedDate = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -474,14 +500,58 @@ function formatArtifactFilenameTimestamp(date = new Date()) {
   return `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`;
 }
 
-function candidateFilename({ build, version, description }) {
-  if (!BUILD_PATTERN.test(build)) fail(`Invalid Runtime Build ID for Candidate manifest: ${build}`);
-  if (!VERSION_PATTERN.test(version)) fail(`Invalid Version for Candidate filename: ${version}`);
-  const cleanDescription = String(description || "").trim();
-  if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(cleanDescription)) {
-    fail("Candidate description must contain only ASCII letters, numbers, and hyphens.", { description });
+function assertArtifactScope(scope, formalTaskIdentity = []) {
+  const cleanScope = String(scope || "").trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(cleanScope)) {
+    fail("Artifact scope must contain only ASCII letters, numbers, and hyphens.", { scope });
   }
-  return `${build}_Zhuge_AI_OS-v${version}-${cleanDescription}-FullSource-Candidate.zip`;
+  for (const code of cleanScope.match(/TASK-\d+/gi) || []) {
+    const row = formalTaskIdentity.find(item => item.workCode === code);
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!row || row.authority !== "engineering-transition.inspect" || row.pmVisible !== true
+      || !uuid.test(row.taskId || "") || !uuid.test(row.boardInstanceId || "")
+      || !row.verifiedAt || Number.isNaN(Date.parse(row.verifiedAt))) {
+      fail("Unverified formal TASK ID in artifact scope; use a descriptive scope.", { task: code });
+    }
+  }
+  return cleanScope;
+}
+
+function verifyFormalTaskIds(scope, root = PROJECT_ROOT) {
+  const codes = [...new Set(String(scope || "").match(/TASK-\d+/gi) || [])];
+  if (!codes.length) return [];
+  // Reuse the protected read-only authority; never trust a local Backlog or a
+  // caller's --verified flag. This command cannot allocate or mutate a TASK.
+  return codes.map(code => {
+    let row;
+    try {
+      const output = execFileSync(process.execPath,
+        [path.join(root, "tools/engineering-transition.js"), "inspect", "--task", code],
+        { cwd: root, encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] });
+      row = JSON.parse(output).task;
+    } catch {
+      fail("Formal TASK readback unavailable; use a descriptive scope.", { task: code });
+    }
+    const evidence = { authority: "engineering-transition.inspect", workCode: row?.work_code,
+      taskId: row?.id, boardInstanceId: row?.board_instance_id, pmVisible: true,
+      verifiedAt: formatArtifactCreatedAt() };
+    assertArtifactScope(code, [evidence]);
+    return evidence;
+  });
+}
+
+function artifactFilename({ artifactType = "candidate", build, version, scope, artifactCreatedAt, formalTaskIdentity = [] }) {
+  if (!ARTIFACT_TYPES[artifactType]) fail("Unsupported artifact type", { artifactType });
+  if (!BUILD_PATTERN.test(build)) fail(`Invalid Runtime Build ID for artifact: ${build}`);
+  if (!VERSION_PATTERN.test(version)) fail(`Invalid Version for artifact filename: ${version}`);
+  const cleanScope = assertArtifactScope(scope, formalTaskIdentity);
+  if (artifactType !== "candidate" && !artifactCreatedAt) fail("Artifact Created At is required for Review / QA Backup naming");
+  const prefix = artifactType === "candidate" ? build : formatArtifactFilenameTimestamp(artifactCreatedAt);
+  return `${prefix}_Zhuge_AI_OS-v${version}-${cleanScope}-FullSource-${ARTIFACT_TYPES[artifactType]}.zip`;
+}
+
+function candidateFilename({ build, version, description, formalTaskIdentity = [] }) {
+  return artifactFilename({ artifactType: "candidate", build, version, scope: description, formalTaskIdentity });
 }
 
 function escapeRegExp(value) {
@@ -500,7 +570,7 @@ function manifestFilename(zipFilename) {
 }
 
 function assertRegressionEvidence(regression) {
-  for (const field of ["governance", "checklist", "full", "gitDiffCheck"]) {
+  for (const field of ["governance", "checklist", "full", "gitDiffCheck", "browser"]) {
     if (!regression || regression[field] !== "PASS") {
       fail(`Regression evidence ${field} must be PASS before packaging`, { regression });
     }
@@ -568,113 +638,103 @@ function validateArchive(root, zipFile, expectedSourceManifest, expectedIdentity
 }
 
 function assertFormalDeliveryRoot(deliveryRoot) {
+  if (!String(deliveryRoot || "").trim()) fail("Explicit artifact destination is required");
   const resolved = path.resolve(deliveryRoot);
-  if (resolved !== FORMAL_DELIVERY_ROOT) {
-    fail("FORMAL DELIVERY GATE = FAIL: unexpected PM delivery location", {
-      expected: FORMAL_DELIVERY_ROOT,
-      actual: resolved
-    });
-  }
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-    fail("FORMAL DELIVERY GATE = FAIL: PM delivery location is unavailable", { deliveryRoot: resolved });
+    fail("FORMAL DELIVERY GATE = FAIL: destination is unavailable", { deliveryRoot: resolved });
   }
   return resolved;
 }
 
-function validateManifest(manifest, zipFile, identity, archiveValidation, expectedGitBaselineCommit = null) {
+function validateManifest(manifest, zipFile, identity, archiveValidation, expectedGitBaselineCommit = null, expectedParentCommit = null) {
   const expectedFilename = path.basename(zipFile);
   const mismatches = [];
   if (manifest.build !== identity.build) mismatches.push(`manifest.build=${manifest.build} != ${identity.build}`);
   if (manifest.version !== identity.version) mismatches.push(`manifest.version=${manifest.version} != ${identity.version}`);
-  if (!manifest.publishedCIdentity) {
-    mismatches.push("manifest.publishedCIdentity is missing");
-  } else {
+  if (!manifest.publishedCIdentity) mismatches.push("manifest.publishedCIdentity is missing");
+  else {
     for (const field of ["version", "build", "sourceCommit", "sourceFingerprint", "publishedAt"]) {
       if (manifest.publishedCIdentity[field] !== identity.publishedCIdentity[field]) {
         mismatches.push(`manifest.publishedCIdentity.${field} differs from Published C Source identity`);
       }
     }
-    for (const consumerId of PUBLISHED_CONSUMER_IDS) {
-      const manifestAdoption = manifest.publishedCIdentity.consumers?.[consumerId];
-      const sourceAdoption = identity.publishedCIdentity.consumers?.[consumerId];
-      if (!manifestAdoption || !sourceAdoption) {
-        mismatches.push(`manifest.publishedCIdentity.consumers.${consumerId} is missing`);
-      } else if (JSON.stringify(manifestAdoption) !== JSON.stringify(sourceAdoption)) {
-        mismatches.push(`manifest.publishedCIdentity.consumers.${consumerId} differs from Source Adoption evidence`);
-      }
+    if (JSON.stringify(manifest.publishedCIdentity) !== JSON.stringify(identity.publishedCIdentity)) {
+      mismatches.push("manifest.publishedCIdentity snapshot / adoption differs from Published C Source identity");
     }
   }
+  const gitSha = /^[0-9a-f]{40}$/i;
+  if (!gitSha.test(manifest.SOURCE_SHA || "") || manifest.SOURCE_SHA !== manifest.gitBaselineCommit) mismatches.push("manifest SOURCE_SHA is missing or inconsistent");
+  if (!gitSha.test(manifest.PARENT_SHA || "") || manifest.PARENT_SHA !== manifest.parentCommit) mismatches.push("manifest PARENT_SHA is missing or inconsistent");
   if (expectedGitBaselineCommit && manifest.gitBaselineCommit !== expectedGitBaselineCommit) {
     mismatches.push(`manifest.gitBaselineCommit=${manifest.gitBaselineCommit} != ${expectedGitBaselineCommit}`);
   }
-  if (manifest.candidateFilename !== expectedFilename) mismatches.push("manifest candidateFilename differs from ZIP filename");
+  if (expectedParentCommit && manifest.PARENT_SHA !== expectedParentCommit) mismatches.push("manifest PARENT_SHA differs from source parent");
+  if (manifest.filename !== expectedFilename) mismatches.push("manifest filename differs from ZIP filename");
+  if (manifest.artifactType === "candidate" && manifest.candidateFilename !== expectedFilename) mismatches.push("manifest candidateFilename differs from ZIP filename");
+  if (manifest.artifactType === "candidate" && manifest.candidateBuild !== identity.build) mismatches.push("manifest Candidate Build differs from source Build");
+  if (manifest.artifactType !== "candidate" && Object.hasOwn(manifest, "candidateBuild")) mismatches.push("Backup must not claim Candidate Build");
   if (manifest.sha256 !== sha256File(zipFile)) mismatches.push("manifest SHA-256 differs from ZIP");
   if (manifest.fileCount !== archiveValidation.fileCount) mismatches.push("manifest fileCount differs from ZIP");
   if (manifest.sourceManifestSha256 !== archiveValidation.sourceManifestSha256) mismatches.push("manifest Source manifest digest differs");
+  if (!Array.isArray(manifest.files) || sourceManifestDigest(manifest.files) !== manifest.sourceManifestSha256) mismatches.push("manifest file hashes differ from source digest");
   if (manifest.prePackagingGate !== "PASS") mismatches.push("manifest prePackagingGate is not PASS");
   if (manifest.postPackagingGate !== "PASS") mismatches.push("manifest postPackagingGate is not PASS");
-  if (!manifest.artifactCreatedAt) mismatches.push("manifest artifactCreatedAt is missing");
-  if (manifest.artifactCreatedAtTimezone !== "Asia/Taipei") {
-    mismatches.push("manifest artifactCreatedAtTimezone must be Asia/Taipei");
-  }
-  if (manifest.artifactCreatedAt) {
-    try {
-      formatArtifactCreatedAt(manifest.artifactCreatedAt);
-    } catch (error) {
-      mismatches.push(`manifest artifactCreatedAt is invalid: ${error.message}`);
-    }
-  }
-  if (!candidateFilenameParts(expectedFilename, { version: identity.version, build: identity.build })) {
-    mismatches.push(`candidateFilename must start with BUILD_ID ${identity.build} and match version ${identity.version}`);
-  }
-  if (mismatches.length) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest mismatch", { mismatches });
+  if (manifest.artifactCreatedAtTimezone !== "Asia/Taipei") mismatches.push("manifest artifactCreatedAtTimezone must be Asia/Taipei");
+  if (!manifest.artifactCreatedAt || !/\+08:00$/.test(manifest.artifactCreatedAt)) mismatches.push("manifest Artifact Created At must be Asia/Taipei timestamp");
+  try {
+    const generated = artifactFilename({ artifactType: manifest.artifactType, version: identity.version, build: identity.build,
+      scope: manifest.scope, artifactCreatedAt: manifest.artifactCreatedAt, formalTaskIdentity: manifest.formalTaskIdentity });
+    if (generated !== expectedFilename) mismatches.push("ZIP filename BUILD_ID/Version contract mismatch or Artifact Created At naming mismatch");
+  } catch (error) { mismatches.push(error.message); }
+  if (mismatches.length) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest mismatch / Artifact Manifest mismatch", { mismatches });
+  assertRegressionEvidence(manifest.regression);
   return Object.freeze({ status: "PASS", manifest: manifestFilename(expectedFilename) });
 }
 
-function validateCandidate({ root = PROJECT_ROOT, zipFile, manifestFile }) {
+function validateArtifact({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const resolvedRoot = path.resolve(root);
-  const identitySnapshot = readIdentitySnapshot(resolvedRoot);
-  const preGate = assertSourceIdentity(identitySnapshot);
-  if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Candidate Manifest is missing", { manifestFile });
+  const tracked = commitSourceManifest(resolvedRoot);
+  const preGate = assertSourceIdentity(readIdentitySnapshot(resolvedRoot));
+  if (path.resolve(manifestFile) !== path.resolve(manifestFilename(zipFile))) fail("Manifest filename must match complete ZIP basename");
+  if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Artifact Manifest is missing", { manifestFile });
   const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
-  const filenameParts = candidateFilenameParts(path.basename(zipFile), {
-    version: preGate.version,
-    build: preGate.build
-  });
-  const expectedName = filenameParts
-    ? candidateFilename({
-      build: preGate.build,
-      version: preGate.version,
-      description: filenameParts[1]
-    })
-    : null;
-  if (path.basename(zipFile) !== expectedName) {
-    fail("POST-PACKAGING GATE = FAIL: ZIP filename BUILD_ID/Version contract mismatch", {
-      expectedPrefix: `${preGate.build}_Zhuge_AI_OS-v${preGate.version}-`,
-      actual: path.basename(zipFile)
-    });
+  const verifiedTasks = verifyFormalTaskIds(manifest.scope, resolvedRoot);
+  const identityFields = rows => (rows || []).map(({ workCode, taskId, boardInstanceId, authority, pmVisible }) =>
+    ({ workCode, taskId, boardInstanceId, authority, pmVisible }));
+  if (JSON.stringify(identityFields(manifest.formalTaskIdentity)) !== JSON.stringify(identityFields(verifiedTasks))) {
+    fail("Manifest formal TASK identity differs from protected Board readback");
   }
-  const expectedManifest = sourceManifest(resolvedRoot);
-  const archiveValidation = validateArchive(resolvedRoot, zipFile, expectedManifest, preGate);
-  const expectedGitBaselineCommit = runGit(resolvedRoot, ["rev-parse", "HEAD"]);
-  const manifestValidation = validateManifest(manifest, zipFile, preGate, archiveValidation, expectedGitBaselineCommit);
-  return Object.freeze({ prePackagingGate: preGate, postPackagingGate: { ...archiveValidation, ...manifestValidation } });
+  const expectedName = artifactFilename({ artifactType: manifest.artifactType, build: preGate.build, version: preGate.version,
+    scope: manifest.scope, artifactCreatedAt: manifest.artifactCreatedAt, formalTaskIdentity: manifest.formalTaskIdentity });
+  if (path.basename(zipFile) !== expectedName) fail("POST-PACKAGING GATE = FAIL: ZIP filename BUILD_ID/Version contract mismatch or Artifact Created At naming mismatch", { expected: expectedName, actual: path.basename(zipFile) });
+  const archiveValidation = validateArchive(resolvedRoot, zipFile, tracked.files, preGate);
+  const manifestValidation = validateManifest(manifest, zipFile, preGate, archiveValidation, tracked.commit, tracked.parentCommit);
+  if (JSON.stringify(manifest.exclusions) !== JSON.stringify(tracked.exclusions)) fail("Manifest source exclusions differ from tracked policy");
+  const sha256FilePath = `${zipFile}.sha256`;
+  if (!fs.existsSync(sha256FilePath)) fail("SHA256 sidecar is missing", { sha256File: sha256FilePath });
+  const expectedChecksum = `${sha256File(zipFile)}  ${path.basename(zipFile)}\n`;
+  if (fs.readFileSync(sha256FilePath, "utf8") !== expectedChecksum) fail("SHA256 sidecar hash / filename mismatch");
+  return Object.freeze({ prePackagingGate: preGate,
+    postPackagingGate: { ...archiveValidation, ...manifestValidation, sha256Sidecar: "PASS", gitBlobConsistency: "PASS" } });
+}
+
+function validateCandidate(options) {
+  // Compatibility entry point on the same engine; no second packager.
+  const manifest = readJson(path.dirname(options.manifestFile), path.basename(options.manifestFile));
+  if (manifest.artifactType !== "candidate") fail("Candidate validator requires Candidate artifact");
+  return validateArtifact(options);
 }
 
 function candidatePairPaths(deliveryRoot, zipFilename) {
+  if (!String(deliveryRoot || "").trim()) fail("Explicit artifact destination is required");
   const resolvedDeliveryRoot = path.resolve(deliveryRoot);
   const normalizedFilename = String(zipFilename || "");
-  if (!normalizedFilename || path.basename(normalizedFilename) !== normalizedFilename) {
-    fail("FORMAL DELIVERY GATE = FAIL: invalid Candidate filename", {
-      deliveryRoot: resolvedDeliveryRoot,
-      zipFilename
-    });
+  if (path.basename(normalizedFilename) !== normalizedFilename
+    || !/^202\d{5}-\d{4}_Zhuge_AI_OS-v[0-9A-Za-z.-]+-[A-Za-z0-9][A-Za-z0-9-]*-FullSource-(?:Candidate|Review|QA-Backup)\.zip$/.test(normalizedFilename)) {
+    fail("FORMAL DELIVERY GATE = FAIL: invalid Artifact filename / timestamp prefix", { zipFilename });
   }
-  return Object.freeze({
-    deliveryRoot: resolvedDeliveryRoot,
-    zipFile: path.join(resolvedDeliveryRoot, normalizedFilename),
-    manifestFile: path.join(resolvedDeliveryRoot, manifestFilename(normalizedFilename))
-  });
+  return Object.freeze({ deliveryRoot: resolvedDeliveryRoot, zipFile: path.join(resolvedDeliveryRoot, normalizedFilename),
+    manifestFile: path.join(resolvedDeliveryRoot, manifestFilename(normalizedFilename)), sha256File: path.join(resolvedDeliveryRoot, `${normalizedFilename}.sha256`) });
 }
 
 function validateCandidatePairAtRoot({ root = PROJECT_ROOT, deliveryRoot, zipFilename } = {}) {
@@ -682,181 +742,101 @@ function validateCandidatePairAtRoot({ root = PROJECT_ROOT, deliveryRoot, zipFil
   const missing = [];
   if (!fs.existsSync(pair.zipFile)) missing.push("Candidate ZIP");
   if (!fs.existsSync(pair.manifestFile)) missing.push("Candidate Manifest");
-  if (missing.length) {
-    fail("FORMAL DELIVERY GATE = FAIL: Candidate delivery pair incomplete", {
-      deliveryRoot: pair.deliveryRoot,
-      zipFile: pair.zipFile,
-      manifestFile: pair.manifestFile,
-      missing
-    });
-  }
-  const validation = validateCandidate({ root, zipFile: pair.zipFile, manifestFile: pair.manifestFile });
-  return Object.freeze({
-    status: "PASS",
-    ...pair,
-    validation
-  });
+  if (!fs.existsSync(pair.sha256File)) missing.push("SHA256 sidecar");
+  if (missing.length) fail("FORMAL DELIVERY GATE = FAIL: Candidate delivery pair incomplete / Artifact set incomplete", { ...pair, missing });
+  const validation = validateArtifact({ root, zipFile: pair.zipFile, manifestFile: pair.manifestFile });
+  return Object.freeze({ status: "PASS", ...pair, validation });
 }
 
-function verifyFormalDeliveryPair({ root = PROJECT_ROOT, deliveryRoot = FORMAL_DELIVERY_ROOT, zipFilename } = {}) {
-  const formalRoot = assertFormalDeliveryRoot(deliveryRoot);
-  return validateCandidatePairAtRoot({ root, deliveryRoot: formalRoot, zipFilename });
+function verifyFormalDeliveryPair({ root = PROJECT_ROOT, deliveryRoot, zipFilename } = {}) {
+  return validateCandidatePairAtRoot({ root, deliveryRoot: assertFormalDeliveryRoot(deliveryRoot), zipFilename });
 }
 
-function copyCandidatePair({ sourceZip, sourceManifest, deliveryRoot, zipFilename } = {}) {
+function copyCandidatePair({ sourceZip, sourceManifest, sourceSha256 = `${sourceZip}.sha256`, deliveryRoot, zipFilename } = {}) {
   const pair = candidatePairPaths(deliveryRoot, zipFilename);
-  if (fs.existsSync(pair.zipFile) || fs.existsSync(pair.manifestFile)) {
-    fail("FORMAL DELIVERY GATE = FAIL: target already exists; overwrite is forbidden", {
-      zipFile: pair.zipFile,
-      manifestFile: pair.manifestFile
-    });
-  }
-
-  const created = [pair.zipFile, pair.manifestFile];
+  const targets = [pair.zipFile, pair.manifestFile, pair.sha256File];
+  if (targets.some(file => fs.existsSync(file))) fail("FORMAL DELIVERY GATE = FAIL: target already exists; overwrite is forbidden", pair);
+  const created = [];
   try {
-    fs.copyFileSync(sourceZip, pair.zipFile);
-    fs.copyFileSync(sourceManifest, pair.manifestFile);
+    fs.mkdirSync(pair.deliveryRoot, { recursive: true });
+    for (const [source, target] of [[sourceZip, pair.zipFile], [sourceManifest, pair.manifestFile], [sourceSha256, pair.sha256File]]) {
+      fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL);
+      created.push(target);
+    }
     return Object.freeze({ ...pair, created });
   } catch (error) {
-    for (const file of created.reverse()) {
-      try { fs.rmSync(file, { force: true }); } catch { /* best-effort rollback of this invocation */ }
-    }
-    fail("FORMAL DELIVERY GATE = FAIL: paired delivery write failed", {
-      zipFile: pair.zipFile,
-      manifestFile: pair.manifestFile,
-      cause: error.message
-    });
+    for (const file of created.reverse()) fs.rmSync(file, { force: true });
+    fail("FORMAL DELIVERY GATE = FAIL: paired delivery write failed", { ...pair, cause: error.message });
   }
 }
 
 function removeCreatedPair(pair) {
-  for (const file of [...(pair?.created || [])].reverse()) {
-    try { fs.rmSync(file, { force: true }); } catch { /* best-effort rollback of this invocation */ }
-  }
+  for (const file of [...(pair?.created || [])].reverse()) fs.rmSync(file, { force: true });
 }
 
-function packageCandidate({
-  root = PROJECT_ROOT,
-  outputDir = path.join(root, "dist"),
-  description,
-  regression = {},
-  deliver = false,
-  deliveryRoot = FORMAL_DELIVERY_ROOT,
-  createdAt = null
-} = {}) {
+function packageArtifact({ root = PROJECT_ROOT, outputDir = path.join(root, "dist"), scope, description,
+  artifactType = "candidate", regression = {}, deliver = false, deliveryRoot, createdAt = null } = {}) {
   const resolvedRoot = path.resolve(root);
   const resolvedOutput = path.resolve(outputDir);
-  const workingTree = assertWorkingTreeClean(resolvedRoot);
+  const tracked = commitSourceManifest(resolvedRoot);
+  if (!/^[0-9a-f]{40}$/i.test(tracked.parentCommit || "")) fail("FullSource requires a Git Parent SHA");
   assertRegressionEvidence(regression);
   const snapshot = readIdentitySnapshot(resolvedRoot);
   const preGate = assertSourceIdentity(snapshot);
-  const sourceFiles = sourceManifest(resolvedRoot);
-  const filename = candidateFilename({
-    build: preGate.build,
-    version: preGate.version,
-    description
-  });
-  const zipFile = path.join(resolvedOutput, filename);
-  const manifestFile = path.join(resolvedOutput, manifestFilename(filename));
-  if (fs.existsSync(zipFile) || fs.existsSync(manifestFile)) {
-    fail("PACKAGING GATE = FAIL: Candidate output already exists; overwrite is forbidden", { zipFile, manifestFile });
-  }
-  const formalRoot = deliver ? assertFormalDeliveryRoot(deliveryRoot) : null;
-  fs.mkdirSync(resolvedOutput, { recursive: true });
-  const sourceStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-source-stage-"));
-  const artifactStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-candidate-artifact-stage-"));
-  const stagedZipFile = path.join(artifactStageRoot, filename);
-  const stagedManifestFile = path.join(artifactStageRoot, manifestFilename(filename));
+  if (!ARTIFACT_TYPES[artifactType]) fail("Unsupported artifact type", { artifactType });
+  const artifactScope = scope || description;
+  const formalTaskIdentity = verifyFormalTaskIds(artifactScope, resolvedRoot);
+  assertArtifactScope(artifactScope, formalTaskIdentity);
+  if (deliver && !String(deliveryRoot || "").trim()) fail("--deliver requires explicit --delivery-root");
+  const sourceStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-artifact-source-stage-"));
+  const artifactStageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-artifact-stage-"));
   try {
-    copySource(resolvedRoot, sourceStageRoot, sourceFiles.map(item => item.path));
-    execFileSync("zip", ["-qr", stagedZipFile, "."], { cwd: sourceStageRoot, stdio: ["ignore", "pipe", "pipe"] });
-    // Record provenance after the ZIP has been fully created. The optional
-    // createdAt override exists only for deterministic tests.
+    copySource(resolvedRoot, sourceStageRoot, tracked.files.map(item => item.path));
+    const rawZip = path.join(artifactStageRoot, "source.zip");
+    execFileSync("zip", ["-qr", rawZip, "."], { cwd: sourceStageRoot, stdio: ["ignore", "pipe", "pipe"] });
+    // Capture after ZIP creation. Test-only createdAt override is not a CLI option.
     const artifactCreatedAt = formatArtifactCreatedAt(createdAt || new Date());
-    const archiveValidation = validateArchive(resolvedRoot, stagedZipFile, sourceFiles, preGate);
-    const manifest = {
-      product: snapshot.product,
-      version: preGate.version,
-      build: preGate.build,
-      gitBaselineCommit: workingTree.commit,
-      publishedCIdentity: preGate.publishedCIdentity,
-      sourceRoot: resolvedRoot,
-      sourceDirty: false,
-      artifactCreatedAt,
-      artifactCreatedAtTimezone: "Asia/Taipei",
-      candidateFilename: filename,
-      sha256: sha256File(stagedZipFile),
-      fileCount: archiveValidation.fileCount,
-      sourceManifestSha256: archiveValidation.sourceManifestSha256,
-      deliveryLocation: formalRoot || resolvedOutput,
-      temporaryOutput: resolvedOutput,
-      regression,
-      prePackagingGate: "PASS",
-      postPackagingGate: "PASS",
-      archiveIntegrity: archiveValidation.unzipTest,
-      sourceZipConsistency: archiveValidation.sourceZip,
-      artifactType: "candidate"
-    };
-    fs.writeFileSync(stagedManifestFile, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    validateCandidate({ root: resolvedRoot, zipFile: stagedZipFile, manifestFile: stagedManifestFile });
-
-    const temporaryPair = copyCandidatePair({
-      sourceZip: stagedZipFile,
-      sourceManifest: stagedManifestFile,
-      deliveryRoot: resolvedOutput,
-      zipFilename: filename
-    });
-    try {
-      validateCandidate({ root: resolvedRoot, zipFile: temporaryPair.zipFile, manifestFile: temporaryPair.manifestFile });
-    } catch (error) {
-      removeCreatedPair(temporaryPair);
-      throw error;
-    }
-
+    const filename = artifactFilename({ artifactType, build: preGate.build, version: preGate.version,
+      scope: artifactScope, artifactCreatedAt, formalTaskIdentity });
+    const staged = candidatePairPaths(artifactStageRoot, filename);
+    fs.renameSync(rawZip, staged.zipFile);
+    const archiveValidation = validateArchive(resolvedRoot, staged.zipFile, tracked.files, preGate);
+    const manifest = { schemaVersion: 2, product: snapshot.product, version: preGate.version, build: preGate.build,
+      artifactType, scope: artifactScope, filename, SOURCE_SHA: tracked.commit, PARENT_SHA: tracked.parentCommit,
+      gitBaselineCommit: tracked.commit, parentCommit: tracked.parentCommit, formalTaskIdentity,
+      publishedCIdentity: preGate.publishedCIdentity, sourceRoot: resolvedRoot, sourceDirty: false,
+      artifactCreatedAt, artifactCreatedAtTimezone: "Asia/Taipei", sha256: sha256File(staged.zipFile),
+      fileCount: archiveValidation.fileCount, sourceManifestSha256: archiveValidation.sourceManifestSha256,
+      files: tracked.files, exclusions: tracked.exclusions, deliveryLocation: deliver ? path.resolve(deliveryRoot) : resolvedOutput,
+      regression, prePackagingGate: "PASS", postPackagingGate: "PASS",
+      archiveIntegrity: archiveValidation.unzipTest, sourceZipConsistency: archiveValidation.sourceZip };
+    if (artifactType === "candidate") { manifest.candidateBuild = preGate.build; manifest.candidateFilename = filename; }
+    fs.writeFileSync(staged.manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    fs.writeFileSync(staged.sha256File, `${manifest.sha256}  ${filename}\n`);
+    validateArtifact({ root: resolvedRoot, zipFile: staged.zipFile, manifestFile: staged.manifestFile });
+    const output = copyCandidatePair({ sourceZip: staged.zipFile, sourceManifest: staged.manifestFile,
+      sourceSha256: staged.sha256File, deliveryRoot: resolvedOutput, zipFilename: filename });
     let formalDelivery = null;
-    if (formalRoot) {
-      const formalPair = copyCandidatePair({
-        sourceZip: temporaryPair.zipFile,
-        sourceManifest: temporaryPair.manifestFile,
-        deliveryRoot: formalRoot,
-        zipFilename: filename
-      });
-      try {
-        const formalVerification = verifyFormalDeliveryPair({
-          root: resolvedRoot,
-          deliveryRoot: formalRoot,
-          zipFilename: filename
-        });
-        formalDelivery = Object.freeze({
-          status: "PASS",
-          zipFile: formalPair.zipFile,
-          manifestFile: formalPair.manifestFile,
-          sha256: sha256File(formalPair.zipFile),
-          pairVerification: formalVerification.status
-        });
-      } catch (error) {
-        removeCreatedPair(formalPair);
-        throw error;
+    try {
+      validateArtifact({ root: resolvedRoot, zipFile: output.zipFile, manifestFile: output.manifestFile });
+      if (deliver) {
+        const formal = copyCandidatePair({ sourceZip: output.zipFile, sourceManifest: output.manifestFile,
+          sourceSha256: output.sha256File, deliveryRoot, zipFilename: filename });
+        try { formalDelivery = verifyFormalDeliveryPair({ root: resolvedRoot, deliveryRoot, zipFilename: filename }); }
+        catch (error) { removeCreatedPair(formal); throw error; }
       }
-    }
-
-    return Object.freeze({
-      identity: preGate,
-      zipFile,
-      manifestFile,
-      artifactCreatedAt,
-      sha256: sha256File(temporaryPair.zipFile),
-      size: fs.statSync(temporaryPair.zipFile).size,
-      fileCount: archiveValidation.fileCount,
-      prePackagingGate: "PASS",
-      postPackagingGate: "PASS",
-      temporaryOutput: resolvedOutput,
-      formalDelivery
-    });
+    } catch (error) { removeCreatedPair(output); throw error; }
+    return Object.freeze({ identity: preGate, artifactType, ...output, SOURCE_SHA: tracked.commit, PARENT_SHA: tracked.parentCommit,
+      artifactCreatedAt, sha256: manifest.sha256, size: fs.statSync(output.zipFile).size, fileCount: manifest.fileCount,
+      prePackagingGate: "PASS", postPackagingGate: "PASS", formalDelivery });
   } finally {
     fs.rmSync(sourceStageRoot, { recursive: true, force: true });
     fs.rmSync(artifactStageRoot, { recursive: true, force: true });
   }
+}
+
+function packageCandidate(options = {}) {
+  return packageArtifact({ ...options, artifactType: "candidate" });
 }
 
 function parseCli(argv) {
@@ -880,7 +860,7 @@ function parseCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js package --description <slug> --regression-json '<json>' [--output-dir <dir>] [--deliver]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
+  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js package --type <candidate|review|qa-backup> --description <scope> --regression-json '<json>' [--output-dir <dir>] [--deliver --delivery-root <dir>]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -914,13 +894,14 @@ function main(argv = process.argv.slice(2)) {
     }
   }
   assertRegressionEvidence(regression);
-  const result = packageCandidate({
+  const result = packageArtifact({
     root: options.root || PROJECT_ROOT,
     outputDir: options["output-dir"] || path.join(options.root || PROJECT_ROOT, "dist"),
     description: options.description,
+    artifactType: options.type || "candidate",
     regression,
     deliver: Boolean(options.deliver),
-    deliveryRoot: options["delivery-root"] || FORMAL_DELIVERY_ROOT
+    deliveryRoot: options["delivery-root"]
   });
   console.log(JSON.stringify(result, null, 2));
 }
@@ -940,7 +921,14 @@ if (require.main === module) {
 
 module.exports = {
   PROJECT_ROOT,
-  FORMAL_DELIVERY_ROOT,
+  candidatePairPaths,
+  ARTIFACT_TYPES,
+  artifactFilename,
+  assertArtifactScope,
+  verifyFormalTaskIds,
+  commitSourceManifest,
+  packageArtifact,
+  validateArtifact,
   ReleaseGovernanceError,
   collectFiles,
   readIdentitySnapshot,

@@ -69,6 +69,7 @@ function fixture({
       "investment-ivtk": consumer("adopted")
     }
   };
+  write(root, ".gitignore", "dist/\nnode_modules/\n.cache/\n");
   write(root, "version.json", JSON.stringify({ module: "Zhuge AI OS", version: VERSION, build: candidateBuild }));
   write(root, "index.html", `<!doctype html><script src="shared/config/template-release.js?v=${publishedLoaderBuild}"></script><link rel="stylesheet" href="shared/site.css?v=${cacheBuild}"><span>Version ${VERSION} · Build ${runtimeBuild}</span>`);
   write(root, "shared/site.css", `/* Historical annotation 20260916-1334 is not a Build Identity. */\nbody { color: black; }`);
@@ -82,13 +83,14 @@ function fixture({
   execFileSync("git", ["init", "-q"], { cwd: root });
   execFileSync("git", ["config", "user.email", "release-gate-fixture@example.test"], { cwd: root });
   execFileSync("git", ["config", "user.name", "Release Gate Fixture"], { cwd: root });
+  execFileSync("git", ["commit", "--allow-empty", "-qm", "fixture parent"], { cwd: root });
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-qm", "fixture baseline"], { cwd: root });
   return root;
 }
 
 function passRegression() {
-  return { governance: "PASS", checklist: "PASS", full: "PASS", gitDiffCheck: "PASS" };
+  return { governance: "PASS", checklist: "PASS", full: "PASS", gitDiffCheck: "PASS", browser: "PASS" };
 }
 
 function cleanup(root) {
@@ -113,6 +115,7 @@ function readManifest(file) {
 function writePair(root, result, manifest = readManifest(result.manifestFile), { includeZip = true, includeManifest = true } = {}) {
   const pairRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-release-formal-pair-"));
   if (includeZip) fs.copyFileSync(result.zipFile, path.join(pairRoot, path.basename(result.zipFile)));
+  fs.copyFileSync(result.sha256File, path.join(pairRoot, path.basename(result.sha256File)));
   if (includeManifest) fs.writeFileSync(path.join(pairRoot, path.basename(result.manifestFile)), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return pairRoot;
 }
@@ -195,8 +198,10 @@ test("ZIP filename using a packaging timestamp instead of BUILD_ID fails the Pos
     const result = Governance.packageCandidate({ root, outputDir, description: "Identity-Test", regression: passRegression() });
     const wrongZip = path.join(outputDir, `20260101-0000_Zhuge_AI_OS-v${VERSION}-Identity-Test-FullSource-Candidate.zip`);
     fs.copyFileSync(result.zipFile, wrongZip);
+    const wrongManifest = `${wrongZip}.manifest.json`;
+    fs.copyFileSync(result.manifestFile, wrongManifest);
     assert.throws(
-      () => Governance.validateCandidate({ root, zipFile: wrongZip, manifestFile: result.manifestFile }),
+      () => Governance.validateCandidate({ root, zipFile: wrongZip, manifestFile: wrongManifest }),
       error => /ZIP filename BUILD_ID\/Version contract mismatch/.test(error.message)
     );
   } finally {
@@ -326,18 +331,24 @@ test("dirty Git working tree fails closed before packaging", () => {
   }
 });
 
-test("temporary dist output is not a formal PM delivery", () => {
+test("delivery destination is explicit and must be an available directory", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-release-output-"));
   try {
-    assert.throws(() => Governance.assertFormalDeliveryRoot(root), /unexpected PM delivery location/);
-  } finally {
-    cleanup(root);
-  }
+    assert.equal(Governance.assertFormalDeliveryRoot(root), path.resolve(root));
+    assert.throws(() => Governance.assertFormalDeliveryRoot(), /Explicit artifact destination/);
+    const file = path.join(root, "not-a-directory");
+    fs.writeFileSync(file, "test");
+    assert.throws(() => Governance.assertFormalDeliveryRoot(file), /destination is unavailable/);
+  } finally { cleanup(root); }
 });
 
-test("formal PM delivery location is a distinct controlled path", () => {
-  assert.equal(path.resolve(Governance.FORMAL_DELIVERY_ROOT), Governance.FORMAL_DELIVERY_ROOT);
-  assert.doesNotMatch(Governance.FORMAL_DELIVERY_ROOT, /\/Worktrees\//);
+test("Cloud, Mac and PM destinations do not define source authority", () => {
+  assert.equal(Object.hasOwn(Governance, "FORMAL_DELIVERY_ROOT"), false);
+  for (const destination of ["/workspace/artifacts/review", "/Users/pm/GoogleDrive/review", "/tmp/pm-designated"]) {
+    const pair = Governance.candidatePairPaths(destination, Governance.candidateFilename({ build: BUILD, version: VERSION, description: "Delivery" }));
+    assert.equal(pair.deliveryRoot, path.resolve(destination));
+    assert.equal(pair.sha256File, `${pair.zipFile}.sha256`);
+  }
 });
 
 test("ZIP + matching Manifest passes the Candidate Delivery Pair Gate", () => {
@@ -491,17 +502,18 @@ test("Git Commit mismatch fails the Candidate Manifest Gate", () => {
   }
 });
 
-test("wrong formal delivery destination fails the Formal Delivery Pair Gate", () => {
-  const { root, result, filename } = packageFixture("Wrong-Destination");
-  const wrongRoot = path.join(root, "not-formal-delivery");
+test("the same exact artifact verifies at a PM-selected destination", () => {
+  const { root, result, filename } = packageFixture("Portable-Destination");
+  const target = path.join(root, "dist", "pm-destination");
   try {
-    assert.throws(
-      () => Governance.verifyFormalDeliveryPair({ root, deliveryRoot: wrongRoot, zipFilename: filename }),
-      error => /unexpected PM delivery location/.test(error.message)
-    );
-  } finally {
-    cleanup(root);
-  }
+    const delivered = Governance.copyCandidatePair({ sourceZip: result.zipFile,
+      sourceManifest: result.manifestFile, deliveryRoot: target, zipFilename: filename });
+    assert.equal(Governance.verifyFormalDeliveryPair({ root, deliveryRoot: target, zipFilename: filename }).status, "PASS");
+    assert.equal(fs.readFileSync(delivered.sha256File, "utf8"), fs.readFileSync(result.sha256File, "utf8"));
+    assert.throws(() => Governance.copyCandidatePair({ sourceZip: result.zipFile,
+      sourceManifest: result.manifestFile, deliveryRoot: target, zipFilename: filename }), /overwrite is forbidden/);
+    assert.equal(Governance.verifyFormalDeliveryPair({ root, deliveryRoot: target, zipFilename: filename }).status, "PASS");
+  } finally { cleanup(root); }
 });
 
 test("paired delivery write failure rolls back a partial target", () => {
@@ -518,8 +530,169 @@ test("paired delivery write failure rolls back a partial target", () => {
       error => /paired delivery write failed/.test(error.message)
     );
     assert.equal(fs.existsSync(path.join(pairRoot, filename)), false);
+    assert.throws(() => Governance.copyCandidatePair({ sourceZip: result.zipFile,
+      sourceManifest: result.manifestFile, sourceSha256: path.join(root, "missing.sha256"),
+      deliveryRoot: pairRoot, zipFilename: filename }), /paired delivery write failed/);
+    assert.equal(fs.existsSync(path.join(pairRoot, filename)), false);
+    assert.equal(fs.existsSync(path.join(pairRoot, `${filename}.manifest.json`)), false);
+    assert.equal(fs.existsSync(path.join(pairRoot, `${filename}.sha256`)), false);
     assert.equal(fs.existsSync(path.join(pairRoot, `${filename}.manifest.json`)), false);
   } finally {
     cleanup(root);
   }
+});
+
+
+test("missing timestamp prefix fails the actual artifact validation gate", () => {
+  const { root, result } = packageFixture("Missing-Timestamp");
+  try {
+    const badZip = path.join(root, "dist", path.basename(result.zipFile).replace(/^\d{8}-\d{4}_/, ""));
+    fs.copyFileSync(result.zipFile, badZip);
+    fs.copyFileSync(result.manifestFile, `${badZip}.manifest.json`);
+    assert.throws(() => Governance.validateArtifact({ root, zipFile: badZip, manifestFile: `${badZip}.manifest.json` }), /filename BUILD_ID\/Version contract mismatch/);
+    assert.throws(() => Governance.candidatePairPaths(path.dirname(badZip), path.basename(badZip)), /timestamp prefix/);
+  } finally { cleanup(root); }
+});
+
+test("unverified TASK scope and local Backlog identity fail closed", () => {
+  for (const scope of ["TASK-38", "TASK-037-Workflow", "Global-TASK-999-Fix", "task-38-Fix"]) {
+    assert.throws(() => Governance.artifactFilename({ build: BUILD, version: VERSION, scope }), /Unverified formal TASK/);
+  }
+  assert.throws(() => Governance.assertArtifactScope("TASK-38", [{ workCode: "TASK-38", pmVisible: true }]), /Unverified formal TASK/);
+  const root = fixture();
+  try {
+    write(root, "backlog/tasks/local.md", "id: TASK-38\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "local tracking only"], { cwd: root });
+    assert.throws(() => Governance.packageArtifact({ root, artifactType: "review", scope: "TASK-38",
+      regression: passRegression() }), /Formal TASK readback unavailable/);
+  } finally { cleanup(root); }
+});
+
+test("formal TASK scope reuses protected inspect and records sanitized Board identity", () => {
+  const root = fixture();
+  try {
+    // Isolated stand-in for the existing read-only tool, never a real Cloud call.
+    write(root, "tools/engineering-transition.js", `console.log(JSON.stringify({task:{id:'480f59c0-d252-4e04-9b37-457bfbac346b',work_code:'TASK-079',board_instance_id:'70d94d8d-7c49-48ed-b39c-c985c6efea3e'}}));`);
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "isolated inspect contract"], { cwd: root });
+    const result = Governance.packageArtifact({ root, artifactType: "review", scope: "TASK-079-Archive-Fix", regression: passRegression() });
+    const manifest = readManifest(result.manifestFile);
+    assert.equal(manifest.formalTaskIdentity.length, 1);
+    assert.equal(manifest.formalTaskIdentity[0].authority, "engineering-transition.inspect");
+    assert.equal(manifest.formalTaskIdentity[0].workCode, "TASK-079");
+    assert.equal(manifest.formalTaskIdentity[0].pmVisible, true);
+    assert.equal(Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.status, "PASS");
+    assert.doesNotMatch(JSON.stringify(manifest.formalTaskIdentity), /token|credential|private/i);
+    manifest.formalTaskIdentity[0].taskId = "00000000-0000-0000-0000-000000000000";
+    fs.writeFileSync(result.manifestFile, JSON.stringify(manifest));
+    assert.throws(() => Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /differs from protected Board readback/);
+  } finally { cleanup(root); }
+});
+
+test("descriptive Review uses actual Taipei creation time and keeps source Build separate", () => {
+  assert.throws(() => Governance.artifactFilename({ artifactType: "review", build: BUILD, version: VERSION, scope: "Descriptive" }), /Artifact Created At is required/);
+  const root = fixture();
+  try {
+    const result = Governance.packageArtifact({ root, artifactType: "review", scope: "Global-Header-Workspace-Count-Archive-Fix",
+      regression: passRegression(), createdAt: new Date("2026-10-03T09:43:12Z") });
+    const manifest = readManifest(result.manifestFile);
+    assert.equal(path.basename(result.zipFile), `20261003-1743_Zhuge_AI_OS-v${VERSION}-Global-Header-Workspace-Count-Archive-Fix-FullSource-Review.zip`);
+    assert.equal(manifest.artifactCreatedAt, "2026-10-03T17:43:12+08:00");
+    assert.equal(manifest.build, BUILD);
+    assert.equal(Object.hasOwn(manifest, "candidateBuild"), false);
+    assert.deepEqual(manifest.formalTaskIdentity, []);
+    assert.equal(manifest.SOURCE_SHA, execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim());
+    assert.equal(manifest.PARENT_SHA, execFileSync("git", ["rev-parse", "HEAD^"], { cwd: root, encoding: "utf8" }).trim());
+    assert.equal(fs.readFileSync(result.sha256File, "utf8"), `${result.sha256}  ${path.basename(result.zipFile)}\n`);
+    assert.equal(path.basename(result.manifestFile), `${path.basename(result.zipFile)}.manifest.json`);
+    assert.equal(Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.sha256Sidecar, "PASS");
+  } finally { cleanup(root); }
+});
+
+test("QA Backup uses the same packager and creation-time naming gate", () => {
+  const root = fixture();
+  try {
+    const result = Governance.packageArtifact({ root, artifactType: "qa-backup", scope: "Governance-Enforcement",
+      regression: passRegression(), createdAt: new Date("2026-10-03T10:45:00Z") });
+    assert.equal(path.basename(result.zipFile), `20261003-1845_Zhuge_AI_OS-v${VERSION}-Governance-Enforcement-FullSource-QA-Backup.zip`);
+    assert.equal(readManifest(result.manifestFile).artifactType, "qa-backup");
+    assert.equal(Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.sourceZip, "PASS");
+    assert.throws(() => Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /requires Candidate/);
+  } finally { cleanup(root); }
+});
+
+test("Review creation-time or timezone tampering fails Manifest/filename validation", () => {
+  const root = fixture();
+  try {
+    const result = Governance.packageArtifact({ root, artifactType: "review", scope: "Timestamp-Enforcement", regression: passRegression(), createdAt: new Date("2026-10-03T09:43:12Z") });
+    const original = readManifest(result.manifestFile);
+    fs.writeFileSync(result.manifestFile, JSON.stringify({ ...original, artifactCreatedAt: "2026-10-03T18:43:12+08:00" }));
+    assert.throws(() => Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /Artifact Created At naming mismatch/);
+    fs.writeFileSync(result.manifestFile, JSON.stringify({ ...original, artifactCreatedAt: "2026-10-03T09:43:12Z" }));
+    assert.throws(() => Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), error => error.details.mismatches.some(item => item.includes("Asia/Taipei timestamp")));
+  } finally { cleanup(root); }
+});
+
+test("Candidate Build, Parent SHA and sidecar identity each fail independently when tampered", () => {
+  const { root, result } = packageFixture("Identity-Tampering");
+  try {
+    const original = readManifest(result.manifestFile);
+    for (const patch of [{ candidateBuild: "20260101-0000" }, { PARENT_SHA: "0".repeat(40), parentCommit: "0".repeat(40) }]) {
+      fs.writeFileSync(result.manifestFile, JSON.stringify({ ...original, ...patch }));
+      assert.throws(() => Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /Manifest mismatch/);
+    }
+    fs.writeFileSync(result.manifestFile, JSON.stringify(original));
+    const checksum = fs.readFileSync(result.sha256File, "utf8");
+    fs.unlinkSync(result.sha256File);
+    assert.throws(() => Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /SHA256 sidecar is missing/);
+    for (const corrupted of [checksum.replace(result.sha256, "0".repeat(64)), checksum.replace(path.basename(result.zipFile), "wrong.zip")]) {
+      fs.writeFileSync(result.sha256File, corrupted);
+      assert.throws(() => Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /sidecar hash \/ filename mismatch/);
+    }
+    fs.writeFileSync(result.sha256File, checksum);
+    assert.equal(Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.status, "PASS");
+  } finally { cleanup(root); }
+});
+
+test("manifest basename, eligible commit blobs and ignored artifacts are enforced", () => {
+  const root = fixture();
+  try {
+    write(root, "tests/.ai-board-batch-2-browser-1480.html", "legacy generated scratch");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "legacy tracked scratch"], { cwd: root });
+    write(root, ".cache/browser-profile/token.json", "ignored private runtime artifact");
+    const result = Governance.packageArtifact({ root, artifactType: "review", scope: "Source-Consistency", regression: passRegression() });
+    const manifest = readManifest(result.manifestFile);
+    const entries = execFileSync("unzip", ["-Z1", result.zipFile], { encoding: "utf8" });
+    assert.doesNotMatch(entries, /node_modules|\.cache|browser-profile|\.ai-board-batch-2-browser/);
+    assert.equal(manifest.exclusions[0].path, "tests/.ai-board-batch-2-browser-1480.html");
+    assert.equal(manifest.files.length, manifest.fileCount);
+    assert.equal(manifest.SOURCE_SHA, execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim());
+    const wrongManifest = path.join(root, "dist", "wrong.manifest.json");
+    fs.copyFileSync(result.manifestFile, wrongManifest);
+    assert.throws(() => Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: wrongManifest }), /complete ZIP basename/);
+    assert.equal(Governance.validateArtifact({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.gitBlobConsistency, "PASS");
+  } finally { cleanup(root); }
+});
+
+test("browser BLOCKED/SKIP is never packaging PASS", () => {
+  for (const state of ["FAIL", "BLOCKED", "SKIP", "NOT VERIFIED", "PENDING", undefined]) {
+    assert.throws(() => Governance.assertRegressionEvidence({ ...passRegression(), browser: state }), /browser must be PASS/);
+  }
+});
+
+test("Push main governance wording matches automatic Pages deployment and separate mutation gates", () => {
+  for (const file of ["CLOUD_HANDOFF.md", "docs/10_GOVERNANCE/RELEASE.md", "tools/README.md"]) {
+    const source = fs.readFileSync(path.join(ROOT, file), "utf8");
+    assert.match(source, /Push main = GitHub Pages Production Auto Deploy/);
+    assert.match(source, /exact-SHA/);
+    assert.match(source, /[Ll]ocal commit/);
+    assert.match(source, /migration/i);
+  }
+  const handoff = fs.readFileSync(path.join(ROOT, "CLOUD_HANDOFF.md"), "utf8");
+  assert.doesNotMatch(handoff, /A commit or tag identifies source; it does not automatically deploy/);
+  const agents = fs.readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
+  assert.match(agents, /Backlog is a local tracking mirror, not an ID authority/);
+  assert.match(agents, /Never run task creation to allocate a formal TASK number locally/);
 });

@@ -116,4 +116,45 @@ Product Version/Build remain 0.9.0-alpha.9.13 / 20261003-1407 during this scoped
 source fix. Any ZIP is a commit-specific review/backup snapshot, not a newly
 promoted Candidate or proof of Production deployment. New release identity
 and promotion are separate gates. CTO review and Production acceptance remain
-pending; Backlog stays In Progress at the requested HARD STOP.
+pending at the requested HARD STOP. The scope is
+Global-Header-Workspace-Count-Archive-Fix; no formal TASK number is assigned
+by local Backlog. The invalid local numbered record was removed under PM
+authority; all Developer QA evidence remains in this directory.
+
+
+## Governance reconciliation and enforcement Developer QA
+
+PM-authorized scope: Global-Header-Workspace-Count-Archive-Fix. The prior header,
+count and detach-writer implementation is preserved. Source BASE remains
+4a0dfafd4cdd772268903efc976418236dc714f4; the existing unpushed source commit is
+the parent of this governance correction. No new formal TASK ID is allocated.
+The invalid local Backlog identity was removed, and the work branch is
+global-header-workspace-count-archive-fix. Historical commits are preserved.
+
+The existing release-governance.js now owns Candidate, Review and QA Backup
+through one engine. Gates cover timestamp/type/scope, protected formal TASK
+inspect readback, exact tracked eligible Git blobs, source/parent SHA, source
+Build versus Artifact Created At, ZIP integrity, Manifest and automatic SHA256
+sidecar. Output/delivery destinations are explicit storage choices with
+append-only artifact sets. No Mac location is a Source Authority. Candidate
+Build remains unchanged during Review packaging. No second registry/packager.
+
+Final Developer QA: governance targeted 40 passed / 0 failed / 0 skipped;
+Full Regression 851 passed / 0 failed / 0 skipped; official Browser Regression
+31 passed / 0 failed / 0 skipped plus all five standalone scripts PASS. Browser
+uses installed pinned Playwright Chromium and existing loopback fixture
+transport. Existing assertions remain; obsolete fixed-Mac destination tests
+were replaced by explicit destination, portable identity, no-overwrite and
+complete-set rollback assertions. Generated historical screenshot files were
+copied to external QA evidence and restored to their original committed blobs.
+
+Source Version/Build remain 0.9.0-alpha.9.13 / 20261003-1407. After local commit,
+run clean-tree preflight and package Review with actual Asia/Taipei creation
+time. The tool's final Manifest supplies the exact new Source SHA/Parent SHA,
+file hashes and QA evidence; do not label the previous parent as latest source.
+
+SOURCE_STATE: local governance correction, pending GPT/CTO review.
+MIGRATION_STATE: no apply this round; live state NOT VERIFIED this round.
+DEPLOY_STATE: no Push / Deploy; Production readback NOT VERIFIED this round.
+RUNTIME_STATE: no Cloud/Production mutation or Workflow publish; live
+Runtime/QJC acceptance is separate and is not claimed by Developer QA.
