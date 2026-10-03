@@ -30,3 +30,14 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 
 </CRITICAL_INSTRUCTION>
 <!-- BACKLOG.MD GUIDELINES END -->
+
+## Release / artifact mandatory gate
+
+Follow the MATERIAL SOURCE CHANGE RULE in docs/10_GOVERNANCE/RELEASE.md and
+tools/release-governance.js. Any completed material Source change for delivery,
+backup, review acceptance, Candidate or PM handoff must enter a new Formal Build
+Cycle: new BUILD_ID → synchronized Source identity → QA → new FullSource ZIP.
+Reuse an old Build only for unchanged-source artifact-only rename/relocate/
+re-verification. Review/QA Backup are not exceptions. BUILD_IDENTITY_STALE is
+HARD STOP; never bypass the existing gate, replace origin/main with a local
+work commit or add a second baseline/Build registry.

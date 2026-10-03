@@ -86,6 +86,7 @@ function fixture({
   execFileSync("git", ["commit", "--allow-empty", "-qm", "fixture parent"], { cwd: root });
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-qm", "fixture baseline"], { cwd: root });
+  execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: root });
   return root;
 }
 
@@ -564,8 +565,9 @@ test("unverified TASK scope and local Backlog identity fail closed", () => {
     write(root, "backlog/tasks/local.md", "id: TASK-38\n");
     execFileSync("git", ["add", "."], { cwd: root });
     execFileSync("git", ["commit", "-qm", "local tracking only"], { cwd: root });
+    assert.throws(() => Governance.verifyFormalTaskIds("TASK-38", root), /Formal TASK readback unavailable/);
     assert.throws(() => Governance.packageArtifact({ root, artifactType: "review", scope: "TASK-38",
-      regression: passRegression() }), /Formal TASK readback unavailable/);
+      regression: passRegression() }), /BUILD_IDENTITY_STALE/);
   } finally { cleanup(root); }
 });
 
@@ -576,6 +578,8 @@ test("formal TASK scope reuses protected inspect and records sanitized Board ide
     write(root, "tools/engineering-transition.js", `console.log(JSON.stringify({task:{id:'480f59c0-d252-4e04-9b37-457bfbac346b',work_code:'TASK-079',board_instance_id:'70d94d8d-7c49-48ed-b39c-c985c6efea3e'}}));`);
     execFileSync("git", ["add", "."], { cwd: root });
     execFileSync("git", ["commit", "-qm", "isolated inspect contract"], { cwd: root });
+    // The completed inspect stub is part of this isolated formal fixture baseline.
+    execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: root });
     const result = Governance.packageArtifact({ root, artifactType: "review", scope: "TASK-079-Archive-Fix", regression: passRegression() });
     const manifest = readManifest(result.manifestFile);
     assert.equal(manifest.formalTaskIdentity.length, 1);
@@ -695,4 +699,123 @@ test("Push main governance wording matches automatic Pages deployment and separa
   const agents = fs.readFileSync(path.join(ROOT, "AGENTS.md"), "utf8");
   assert.match(agents, /Backlog is a local tracking mirror, not an ID authority/);
   assert.match(agents, /Never run task creation to allocate a formal TASK number locally/);
+});
+
+
+test("MATERIAL SOURCE CHANGE RULE blocks stale Build for Candidate, Review and QA Backup", () => {
+  const root = fixture();
+  try {
+    write(root, "docs/completed-source-change.md", "material governance/source change\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "completed material change"], { cwd: root });
+    assert.throws(() => Governance.assertMaterialBuildIdentity(root), error =>
+      error.details.code === "BUILD_IDENTITY_STALE"
+      && error.details.previousBuild === BUILD && error.details.currentBuild === BUILD
+      && error.details.changedFiles.includes("docs/completed-source-change.md"));
+    for (const artifactType of ["candidate", "review", "qa-backup"]) {
+      assert.throws(() => Governance.packageArtifact({ root, artifactType, scope: "Material-Source-Change",
+        regression: passRegression() }), /BUILD_IDENTITY_STALE/);
+    }
+    assert.equal(fs.existsSync(path.join(root, "dist")), false, "No stale artifact is written");
+    const tool = path.join(ROOT, "tools/release-governance.js");
+    assert.throws(() => execFileSync(process.execPath, [tool, "preflight", "--root", root], { stdio: "pipe" }),
+      error => error.status === 1 && /BUILD_IDENTITY_STALE/.test(error.stderr.toString()));
+  } finally { cleanup(root); }
+});
+
+test("unchanged Source permits artifact-only relocation/reverification with the same Build", () => {
+  const { root, result, filename } = packageFixture("Artifact-Only");
+  try {
+    const gate = Governance.assertMaterialBuildIdentity(root);
+    assert.equal(gate.materialSourceChanged, false);
+    assert.equal(gate.previousBuild, BUILD);
+    assert.equal(gate.currentBuild, BUILD);
+    const destination = path.join(root, "dist", "relocated");
+    const copied = Governance.copyCandidatePair({ sourceZip: result.zipFile, sourceManifest: result.manifestFile,
+      deliveryRoot: destination, zipFilename: filename });
+    const readback = Governance.verifyFormalDeliveryPair({ root, deliveryRoot: destination, zipFilename: filename });
+    assert.equal(readback.status, "PASS");
+    assert.deepEqual(fs.readFileSync(copied.zipFile), fs.readFileSync(result.zipFile));
+    assert.equal(readManifest(copied.manifestFile).build, BUILD);
+  } finally { cleanup(root); }
+});
+
+test("new synchronized Build accepts material Source and preserves Published C evidence", () => {
+  const root = fixture();
+  try {
+    const before = Governance.readIdentitySnapshot(root);
+    const nextBuild = BUILD === "20261004-0800" ? "20261004-0801" : "20261004-0800";
+    const publishedLoader = before.publishedSnapshotLoaders;
+    write(root, "shared/material-source.js", "const materialChange = true;\n");
+    const sync = Governance.synchronizeBuildIdentity({ root, build: nextBuild });
+    assert.equal(sync.status, "PASS");
+    const after = Governance.readIdentitySnapshot(root);
+    assert.equal(Governance.assertSourceIdentity(after).build, nextBuild);
+    assert.deepEqual(after.publishedCIdentity, before.publishedCIdentity);
+    assert.deepEqual(after.publishedSnapshotLoaders, publishedLoader);
+    assert.deepEqual(after.developmentCIdentity, { version: VERSION, build: nextBuild });
+    assert.equal(after.runtimeUi.rootFooter.build, nextBuild);
+    assert.equal(after.runtimeUi.dashboardFallback.build, nextBuild);
+    assert.equal(after.appConfig.build, nextBuild);
+    assert.equal(after.sharedVersion.build, nextBuild);
+    assert.ok(after.cacheBusters.every(item => item.build === nextBuild));
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "new synchronized Formal Build"], { cwd: root });
+    const gate = Governance.assertMaterialBuildIdentity(root);
+    assert.equal(gate.status, "PASS");
+    assert.equal(gate.materialSourceChanged, true);
+    assert.equal(gate.previousBuild, BUILD);
+    assert.equal(gate.currentBuild, nextBuild);
+    const result = Governance.packageCandidate({ root, description: "New-Formal-Build", regression: passRegression() });
+    const manifest = readManifest(result.manifestFile);
+    assert.equal(manifest.build, nextBuild);
+    assert.equal(manifest.candidateBuild, nextBuild);
+    assert.deepEqual(manifest.buildIdentityGate, gate);
+    const immutableManifest = fs.readFileSync(result.manifestFile);
+    // Simulate authorized promotion in an isolated fixture only. The archive's
+    // original baseline proof must remain valid after main advances to Source.
+    execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: root });
+    assert.equal(Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }).postPackagingGate.status, "PASS");
+    assert.deepEqual(fs.readFileSync(result.manifestFile), immutableManifest);
+    manifest.buildIdentityGate.previousBuild = nextBuild;
+    fs.writeFileSync(result.manifestFile, JSON.stringify(manifest));
+    assert.throws(() => Governance.validateCandidate({ root, zipFile: result.zipFile, manifestFile: result.manifestFile }), /differs from formal Git baseline/);
+  } finally { cleanup(root); }
+});
+
+test("a missing formal main baseline cannot be replaced by a local work commit or a flag", () => {
+  const root = fixture();
+  try {
+    execFileSync("git", ["update-ref", "-d", "refs/remotes/origin/main"], { cwd: root });
+    assert.throws(() => Governance.assertMaterialBuildIdentity(root), /BUILD_BASELINE_UNAVAILABLE/);
+    assert.throws(() => Governance.packageCandidate({ root, description: "No-Baseline", regression: passRegression(), previousBuild: "20260101-0000" }), /BUILD_BASELINE_UNAVAILABLE/);
+    assert.throws(() => Governance.synchronizeBuildIdentity({ root, build: BUILD }), /requires a different valid BUILD_ID/);
+  } finally { cleanup(root); }
+});
+
+test("formal main must be in development ancestry and commits cannot silently become the baseline", () => {
+  const root = fixture();
+  try {
+    const oldFormal = execFileSync("git", ["rev-parse", "origin/main"], { cwd: root, encoding: "utf8" }).trim();
+    write(root, "shared/material-source.js", "material change\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-qm", "unreleased work"], { cwd: root });
+    assert.throws(() => Governance.assertMaterialBuildIdentity(root), /BUILD_IDENTITY_STALE/);
+    assert.equal(execFileSync("git", ["rev-parse", "origin/main"], { cwd: root, encoding: "utf8" }).trim(), oldFormal);
+    const unrelated = execFileSync("git", ["commit-tree", `${oldFormal}^{tree}`, "-m", "unrelated formal lineage"], { cwd: root, encoding: "utf8" }).trim();
+    execFileSync("git", ["update-ref", "refs/remotes/origin/main", unrelated], { cwd: root });
+    assert.throws(() => Governance.assertMaterialBuildIdentity(root), /BUILD_BASELINE_DIVERGED/);
+  } finally { cleanup(root); }
+});
+
+test("all governing documents require a new Build even for material Review/QA delivery", () => {
+  for (const file of ["docs/10_GOVERNANCE/RELEASE.md", "AGENTS.md", "CLOUD_HANDOFF.md"]) {
+    const source = fs.readFileSync(path.join(ROOT, file), "utf8");
+    assert.match(source, /MATERIAL SOURCE CHANGE RULE/);
+    assert.match(source, /BUILD_IDENTITY_STALE/);
+    assert.match(source, /artifact-only/);
+  }
+  const release = fs.readFileSync(path.join(ROOT, "docs/10_GOVERNANCE/RELEASE.md"), "utf8");
+  assert.doesNotMatch(release, /do not change the\nsource Build merely to archive governance/);
+  assert.match(release, /review acceptance, Candidate creation, or PM handoff MUST/);
 });

@@ -360,6 +360,13 @@ only intended application-repository change in this handoff task.
   source identity.
 - Candidate ZIPs are append-only and must not overwrite an existing ZIP or
   Manifest.
+- MATERIAL SOURCE CHANGE RULE: completed material Source changes for delivery,
+  backup, review acceptance, Candidate or PM handoff require a new Formal Build
+  Cycle and synchronized identity, QA and a new FullSource ZIP. Review/QA Backup
+  do not bypass this rule. Reuse Build only for unchanged-source artifact-only
+  rename/relocate/re-verification. The existing release-governance.js compares
+  fetched origin/main Source/Build and blocks BUILD_IDENTITY_STALE.
+
 
 ### Test and regression rules
 

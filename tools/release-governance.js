@@ -455,6 +455,99 @@ function commitSourceManifest(root = PROJECT_ROOT) {
   return { commit, parentCommit: runGit(root, ["rev-parse", `${commit}^`]), files, exclusions };
 }
 
+function eligibleGitSource(root, commit) {
+  const records = execFileSync("git", ["ls-tree", "-rz", commit], { cwd: root }).toString("utf8").split("\0").filter(Boolean);
+  return new Map(records.map(record => {
+    const separator = record.indexOf("\t");
+    return [record.slice(separator + 1), record.slice(0, separator)];
+  }).filter(([relative]) => !isForbiddenRelativePath(relative)));
+}
+
+function materialBuildEvidence(root, commit, baselineCommit) {
+  if (!/^[0-9a-f]{40}$/i.test(commit || "") || !/^[0-9a-f]{40}$/i.test(baselineCommit || "")) {
+    fail("BUILD_BASELINE_UNAVAILABLE: valid Git Source/baseline commits are required");
+  }
+  try { execFileSync("git", ["merge-base", "--is-ancestor", baselineCommit, commit], { cwd: root, stdio: "ignore" }); }
+  catch { fail("BUILD_BASELINE_DIVERGED: formal baseline must be an ancestor of Source"); }
+  let baselineIdentity, identity;
+  try {
+    baselineIdentity = JSON.parse(execFileSync("git", ["show", `${baselineCommit}:version.json`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+    identity = JSON.parse(execFileSync("git", ["show", `${commit}:version.json`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch { fail("BUILD_BASELINE_UNAVAILABLE: formal Source/Build identity cannot be read"); }
+  if (!BUILD_PATTERN.test(baselineIdentity.build || "") || !BUILD_PATTERN.test(identity.build || "")) {
+    fail("BUILD_BASELINE_UNAVAILABLE: Source/formal Build is invalid");
+  }
+  const previous = eligibleGitSource(root, baselineCommit);
+  const current = eligibleGitSource(root, commit);
+  const changedFiles = [...new Set([...previous.keys(), ...current.keys()])]
+    .filter(relative => previous.get(relative) !== current.get(relative)).sort();
+  if (changedFiles.length && identity.build === baselineIdentity.build) {
+    fail("BUILD_IDENTITY_STALE: material Source changed without a new Formal Build", {
+      code: "BUILD_IDENTITY_STALE", baselineCommit, sourceCommit: commit,
+      previousBuild: baselineIdentity.build, currentBuild: identity.build, changedFiles
+    });
+  }
+  return Object.freeze({ status: "PASS", baselineCommit, sourceCommit: commit,
+    previousBuild: baselineIdentity.build, currentBuild: identity.build,
+    materialSourceChanged: changedFiles.length > 0, changedFiles });
+}
+
+function assertMaterialBuildIdentity(root = PROJECT_ROOT) {
+  const { commit } = assertWorkingTreeClean(root);
+  // GitHub main is the existing formal Source Authority. No caller-controlled
+  // baseline, artifact location or nearest work commit may replace it.
+  const baselineCommit = runGit(root, ["rev-parse", "--verify", "origin/main^{commit}"]);
+  if (!baselineCommit) fail("BUILD_BASELINE_UNAVAILABLE: fetch origin/main before release preflight or packaging");
+  return materialBuildEvidence(root, commit, baselineCommit);
+}
+
+function synchronizeBuildIdentity({ root = PROJECT_ROOT, build } = {}) {
+  const snapshot = readIdentitySnapshot(root);
+  assertSourceIdentity(snapshot);
+  if (!BUILD_PATTERN.test(build || "") || build === snapshot.build) {
+    fail("A new Formal Build requires a different valid BUILD_ID", { previousBuild: snapshot.build, build });
+  }
+  const updates = new Map();
+  const update = (relative, transform) => {
+    const before = updates.get(relative)?.after ?? readText(root, relative);
+    const after = transform(before);
+    if (!updates.has(relative)) updates.set(relative, { before, after });
+    else updates.get(relative).after = after;
+  };
+  for (const relative of ["version.json", ...snapshot.modules.map(item => item.file)]) {
+    update(relative, source => source.replace(/("build"\s*:\s*")[^"]+("+)/, `$1${build}$2`));
+  }
+  update("shared/config/version.js", source => source.replace(/(\bbuild\s*:\s*["'])[^"]+?(["'])/, `$1${build}$2`));
+  update("shared/config/template-release.js", source => source.replace(/("developmentBuild"\s*:\s*")[^"]+("+)/, `$1${build}$2`));
+  update("index.html", source => source.replace(/(Version\s+[^<·]+?\s*·\s*Build\s+)202\d{5}-\d{4}/, `$1${build}`));
+  update("app/dashboard/zhuge-dashboard.js", source => source.replace(/(const\s+build\s*=\s*typeof\s+BUILD_TIME\s*!==\s*["']undefined["']\s*\?\s*BUILD_TIME\s*:\s*["'])202\d{5}-\d{4}(["'])/, `$1${build}$2`));
+  const runtimeFiles = new Set([...snapshot.cacheBusters, ...snapshot.runtimeBuildIdentityLiterals].map(item => item.file));
+  for (const relative of runtimeFiles) {
+    update(relative, source => {
+      const protectedOffsets = new Set([...source.matchAll(PUBLISHED_SNAPSHOT_LOADER_PATTERN)]
+        .map(match => match.index + match[0].indexOf("?v=")));
+      return source.replace(CACHE_BUSTER_PATTERN, (match, oldBuild, offset) => protectedOffsets.has(offset) ? match : `?v=${build}`)
+        .replace(RUNTIME_BUILD_ID_PATTERN, (match, oldBuild) => match.replace(oldBuild, build));
+    });
+  }
+  const written = [];
+  try {
+    for (const [relative, { before, after }] of updates) {
+      if (readText(root, relative) !== before) fail("Build synchronization source changed concurrently", { file: relative });
+      if (before !== after) { fs.writeFileSync(path.join(root, relative), after); written.push(relative); }
+    }
+    const afterSnapshot = readIdentitySnapshot(root);
+    const gate = assertSourceIdentity(afterSnapshot);
+    if (gate.build !== build || JSON.stringify(snapshot.publishedCIdentity) !== JSON.stringify(afterSnapshot.publishedCIdentity)) {
+      fail("Build synchronization must preserve Published C identity and match the new Build");
+    }
+    return { status: "PASS", previousBuild: snapshot.build, build, changedFiles: written, publishedCIdentityPreserved: true };
+  } catch (error) {
+    for (const relative of written) fs.writeFileSync(path.join(root, relative), updates.get(relative).before);
+    throw error;
+  }
+}
+
 function artifactTaipeiParts(date = new Date()) {
   const parsedDate = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(parsedDate.getTime())) {
@@ -695,9 +788,19 @@ function validateArtifact({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const resolvedRoot = path.resolve(root);
   const tracked = commitSourceManifest(resolvedRoot);
   const preGate = assertSourceIdentity(readIdentitySnapshot(resolvedRoot));
+  const buildIdentityGate = assertMaterialBuildIdentity(resolvedRoot);
   if (path.resolve(manifestFile) !== path.resolve(manifestFilename(zipFile))) fail("Manifest filename must match complete ZIP basename");
   if (!fs.existsSync(manifestFile)) fail("POST-PACKAGING GATE = FAIL: Artifact Manifest is missing", { manifestFile });
   const manifest = readJson(path.dirname(manifestFile), path.basename(manifestFile));
+  // Reverify immutable cut-time evidence against Git, while still applying the
+  // live main gate above. Promotion can advance main without rewriting a ZIP.
+  const recordedBaseline = manifest.buildIdentityGate?.baselineCommit;
+  const recordedGate = materialBuildEvidence(resolvedRoot, tracked.commit, recordedBaseline);
+  try { execFileSync("git", ["merge-base", "--is-ancestor", recordedBaseline, buildIdentityGate.baselineCommit], { cwd: resolvedRoot, stdio: "ignore" }); }
+  catch { fail("Manifest Build baseline is not in formal main history"); }
+  if (JSON.stringify(manifest.buildIdentityGate) !== JSON.stringify(recordedGate)) {
+    fail("Manifest Build identity gate differs from formal Git baseline");
+  }
   const verifiedTasks = verifyFormalTaskIds(manifest.scope, resolvedRoot);
   const identityFields = rows => (rows || []).map(({ workCode, taskId, boardInstanceId, authority, pmVisible }) =>
     ({ workCode, taskId, boardInstanceId, authority, pmVisible }));
@@ -715,7 +818,7 @@ function validateArtifact({ root = PROJECT_ROOT, zipFile, manifestFile }) {
   const expectedChecksum = `${sha256File(zipFile)}  ${path.basename(zipFile)}\n`;
   if (fs.readFileSync(sha256FilePath, "utf8") !== expectedChecksum) fail("SHA256 sidecar hash / filename mismatch");
   return Object.freeze({ prePackagingGate: preGate,
-    postPackagingGate: { ...archiveValidation, ...manifestValidation, sha256Sidecar: "PASS", gitBlobConsistency: "PASS" } });
+    postPackagingGate: { ...archiveValidation, ...manifestValidation, sha256Sidecar: "PASS", gitBlobConsistency: "PASS", buildIdentityGate } });
 }
 
 function validateCandidate(options) {
@@ -783,6 +886,7 @@ function packageArtifact({ root = PROJECT_ROOT, outputDir = path.join(root, "dis
   assertRegressionEvidence(regression);
   const snapshot = readIdentitySnapshot(resolvedRoot);
   const preGate = assertSourceIdentity(snapshot);
+  const buildIdentityGate = assertMaterialBuildIdentity(resolvedRoot);
   if (!ARTIFACT_TYPES[artifactType]) fail("Unsupported artifact type", { artifactType });
   const artifactScope = scope || description;
   const formalTaskIdentity = verifyFormalTaskIds(artifactScope, resolvedRoot);
@@ -802,7 +906,7 @@ function packageArtifact({ root = PROJECT_ROOT, outputDir = path.join(root, "dis
     fs.renameSync(rawZip, staged.zipFile);
     const archiveValidation = validateArchive(resolvedRoot, staged.zipFile, tracked.files, preGate);
     const manifest = { schemaVersion: 2, product: snapshot.product, version: preGate.version, build: preGate.build,
-      artifactType, scope: artifactScope, filename, SOURCE_SHA: tracked.commit, PARENT_SHA: tracked.parentCommit,
+      artifactType, scope: artifactScope, filename, buildIdentityGate, SOURCE_SHA: tracked.commit, PARENT_SHA: tracked.parentCommit,
       gitBaselineCommit: tracked.commit, parentCommit: tracked.parentCommit, formalTaskIdentity,
       publishedCIdentity: preGate.publishedCIdentity, sourceRoot: resolvedRoot, sourceDirty: false,
       artifactCreatedAt, artifactCreatedAtTimezone: "Asia/Taipei", sha256: sha256File(staged.zipFile),
@@ -860,7 +964,7 @@ function parseCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js package --type <candidate|review|qa-backup> --description <scope> --regression-json '<json>' [--output-dir <dir>] [--deliver --delivery-root <dir>]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
+  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js sync-build --build <approved-new-build>\n  node tools/release-governance.js package --type <candidate|review|qa-backup> --description <scope> --regression-json '<json>' [--output-dir <dir>] [--deliver --delivery-root <dir>]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -873,7 +977,7 @@ function main(argv = process.argv.slice(2)) {
     const root = options.root || PROJECT_ROOT;
     const workingTree = assertWorkingTreeClean(root);
     const snapshot = readIdentitySnapshot(root);
-    console.log(JSON.stringify({ ...assertSourceIdentity(snapshot), workingTree }, null, 2));
+    console.log(JSON.stringify({ ...assertSourceIdentity(snapshot), workingTree, buildIdentityGate: assertMaterialBuildIdentity(root) }, null, 2));
     return;
   }
   if (command === "new-build-id") {
@@ -883,6 +987,10 @@ function main(argv = process.argv.slice(2)) {
     const previousBuild = options["previous-build"] || snapshot.build;
     const build = generateNewBuildId({ previousBuild });
     console.log(JSON.stringify({ status: "PASS", timezone: "Asia/Taipei", build, previousBuild, workingTree }, null, 2));
+    return;
+  }
+  if (command === "sync-build") {
+    console.log(JSON.stringify(synchronizeBuildIdentity({ root: options.root || PROJECT_ROOT, build: options.build }), null, 2));
     return;
   }
   if (command !== "package") fail(`Unknown command: ${command}`);
@@ -925,6 +1033,8 @@ module.exports = {
   ARTIFACT_TYPES,
   artifactFilename,
   assertArtifactScope,
+  assertMaterialBuildIdentity,
+  synchronizeBuildIdentity,
   verifyFormalTaskIds,
   commitSourceManifest,
   packageArtifact,

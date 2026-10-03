@@ -158,3 +158,41 @@ MIGRATION_STATE: no apply this round; live state NOT VERIFIED this round.
 DEPLOY_STATE: no Push / Deploy; Production readback NOT VERIFIED this round.
 RUNTIME_STATE: no Cloud/Production mutation or Workflow publish; live
 Runtime/QJC acceptance is separate and is not claimed by Developer QA.
+
+## Formal Build Cycle: material Source identity correction
+
+The preceding sections record historical implementation/review evidence. Their
+unchanged-Build Review policy is superseded by the MATERIAL SOURCE CHANGE RULE
+in docs/10_GOVERNANCE/RELEASE.md; it must not be used for a new delivery.
+
+PM-authorized descriptive scope:
+Global-Header-Workspace-Count-Archive-Governance. Formal Source BASE is
+4a0dfafd4cdd772268903efc976418236dc714f4; development parent is
+e904dd7c8b7b194aba0b4bc7acf1700ed7ff7547. Product Version remains
+0.9.0-alpha.9.13. New Formal Build 20261003-1937 was generated at the actual
+cycle start in Asia/Taipei through the existing release authority, replacing
+the previous 20261003-1407 Source identity. Published C evidence retains its
+existing Published identity; it is not promoted by this Candidate.
+
+The single existing release-governance.js compares eligible committed Source
+blobs with origin/main and rejects BUILD_IDENTITY_STALE before packaging when
+material Source differs but the Build is unchanged. Candidate, Review and QA
+Backup share this gate. Unchanged-source artifact-only operations may reuse
+Build identity. The Manifest records immutable cut-time baseline evidence,
+verified from Git even after main promotion, alongside source/parent SHA and
+separate Artifact Created At. Existing Build synchronization updates ordinary
+runtime projections/cache-busters and preserves Published C loaders/evidence.
+
+Fresh governance, feature, Full Regression, official Browser Regression, diff
+and clean-tree release preflight gates are required after the local commit.
+Final counts, commands, exact commit and Candidate verification are recorded
+in the external QA summary and Candidate Manifest only after these runs;
+historical counts above are not reused as this cycle's result. Generated
+tracked browser screenshots are copied to external evidence before restoring
+their committed blobs. No assertion is removed, weakened or skipped.
+
+Delivery is a new FullSource Candidate with Build-prefixed basename and matching
+Manifest/SHA256 sidecars. Earlier Review/Build artifacts remain unchanged.
+No formal TASK number is allocated. Source migrations remain included without
+application; this cycle does not Push, Deploy, publish Workflow, change Cloud
+data or claim live Production/Runtime acceptance.

@@ -287,8 +287,14 @@ node tools/release-governance.js package --type review \
   --output-dir /workspace/artifacts/Global-Header-Workspace-Count-Archive-Fix
 ```
 
-`new-build-id` is a read-only generator for a future formal Candidate cut, not
-an instruction to increase Build while creating Review/QA Backup. Candidate
+`new-build-id` is the existing read-only Formal Build generator. Completed
+material Source change sets require a new Build before Candidate, Review or QA
+Backup. Use `sync-build --build <approved-new-build>` on the same tool to
+synchronize root identity and its projections without rewriting Published C.
+Only unchanged-source artifact-only operations can reuse the previous Build.
+Preflight and all packaging automatically compare Source/Build to fetched
+origin/main; `BUILD_IDENTITY_STALE` cannot be bypassed by Artifact Type or a
+caller-provided previous Build. Candidate
 filename prefix uses version.json.build; Review/QA Backup uses actual ZIP
 creation time in Asia/Taipei. Build and artifactCreatedAt are separate fields.
 Development identity matches Candidate Runtime; Published C Snapshot/Adoption

@@ -11,6 +11,41 @@ Version + Build + Git Commit + Package Time
 The Build identifies the formal release, not only a runtime compile. A public
 page-only change still receives a new Build.
 
+## MATERIAL SOURCE CHANGE RULE
+
+Any completed material Source change set that is ready for delivery, backup,
+review acceptance, Candidate creation, or PM handoff MUST enter a new Formal
+Build Cycle.
+
+```text
+Material Source Change
+→ New BUILD_ID
+→ synchronized Source identity
+→ QA
+→ new FullSource ZIP
+```
+
+A previous BUILD_ID may be reused only when Source content is unchanged and
+the operation is artifact-only (rename / relocate / re-verify existing artifact).
+有實質 Source 更動，就必須建立新的 Build 與新的 FullSource ZIP；這也適用
+Review／QA Backup，不能藉 Artifact Type 避開 Formal Build Cycle。
+
+The existing release-governance.js automatically reads the fetched origin/main
+commit and its version.json as the previous formal Source/Build baseline. It
+compares eligible tracked Git blobs, paths and modes, including governance,
+docs, tests and migrations. Source delta + unchanged formal Build produces
+BUILD_IDENTITY_STALE: FAIL before preflight/packaging for every artifact type.
+Missing/diverged formal baseline also fails closed. There is no override or
+second baseline registry. Excluded runtime/cache artifacts are not formal Source.
+The gate and baseline SHA are recorded and reverified in the Manifest against
+Git history. Main promotion may advance the live baseline; immutable cut-time
+evidence remains valid without rewriting prior ZIPs or Manifests.
+
+Use the existing tool's new-build-id generator at Formal Build start, then
+sync-build --build <approved-new-build> to update root Source identity and its
+existing projections. Synchronization preserves Published C evidence and its
+loader identity. It does not create a commit, deploy or write Cloud.
+
 ## Formal Build Cycle
 
 At the start of every new Formal Build Cycle, obtain the current date/time in
@@ -124,9 +159,9 @@ YYYYMMDD-HHMM_Zhuge_AI_OS-v<Version>-<Scope>-FullSource-<Candidate|Review|QA-Bac
 
 Candidate prefix = version.json.build = Runtime Build = Manifest candidateBuild.
 Review / QA Backup prefix = actual Artifact Created At in Asia/Taipei, independent
-of the current source Build. A Review is not a Candidate cut; do not change the
-source Build merely to archive governance or work in progress. The next formal
-Candidate cut must obtain a new Build and synchronize Source before committing.
+of the current source Build. Review / QA Backup do not bypass the Material
+Source Change rule: completed changed Source first needs a new synchronized
+Build and QA. Only unchanged-source artifact-only operations may reuse Build.
 All artifacts retain source build and full Git SHA / Parent SHA; only Candidate
 has candidateBuild. Sidecars use the complete ZIP basename:
 `.zip.manifest.json` and `.zip.sha256`.
