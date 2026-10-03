@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-02 16:42'
-updated_date: '2026-10-02 18:34'
+updated_date: '2026-10-03 04:51'
 labels: []
 dependencies: []
 ordinal: 32000
@@ -30,6 +30,8 @@ PM authorized Source and Developer QA only following read-only RCA. Published AI
 
 <!-- SECTION:PLAN:BEGIN -->
 1. Integrate the shared Instance Service using existing Workflow capability, preserve version contracts and fail closed on draft/conflict. 2. Add explicit binding controls to shared Workspace UI and restrict existing AI Board remediation to the two authorized keys. 3. Exercise authority sequence, failure recovery and all adopters with mock/unit and localhost browser QA. 4. Run regression/preflight, record Source-only evidence and HARD STOP.
+
+TASK-37 re-release: synchronize a new canonical Candidate Build ID using Release Governance; run required QA gates; create local release commit and FullSource Candidate with manifest/SHA; verify Build identity and artifact; no push, deploy, Cloud/Supabase mutation, or Workflow publish.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -40,6 +42,10 @@ Implemented shared Instance Service integration with explicit role/status/publis
 Source Developer QA complete: targeted 98/98 PASS; localhost Chromium 8/8 PASS; final full regression 821 PASS / 11 FAIL / 0 SKIP. The same 11 failed test names were reproduced against unchanged HEAD in a separate baseline directory; all are existing Cloud browser environment checks. npm browser regression was BLOCKED by file URL fixtures and a leaked IVTK Chromium child; the task-owned runner/browser processes were terminated. JS syntax, git diff --check and source identity PASS. Formal release preflight remains blocked by uncommitted source. See docs/qa/module-c-workspace-workflow-binding/DEVELOPER_QA.md and developer-qa.json. Existing saveDraft absence-CAS race is documented; future Runtime QA must exclude concurrent Workflow editors. No commit, push, deploy or Cloud mutation. HARD STOP; retain In Progress until separate review/runtime gates.
 
 Subsequent PM authorization: verify exact before/after failure-name equality, create one local commit only, and export that commit as FullSource ZIP with manifest and SHA-256. No push, deploy or formal Workflow binding mutation. Existing Candidate packager requires full=PASS, so the authorized artifact is a clearly labeled local-commit source snapshot using the existing file filters/source-manifest/archive-validation helpers; full regression remains 821 PASS / 11 baseline-matching FAIL. Previous uncommitted/stop notes describe the earlier QA snapshot. Review/runtime gates remain pending.
+
+TASK-37 Re-Release QA, Candidate Build 20261003-1223: Release identity/preflight PASS; targeted 67/67 PASS including nine Module C localhost Chromium cases. Full Regression 832 total, 821 pass, 11 fail, 0 skipped; the failure-name set exactly matches the recorded unchanged-HEAD Cloud baseline in docs/qa/module-c-workspace-workflow-binding/developer-qa.json. Browser Regression BLOCKED when the IVTK file:// case hung with two Chromium children; task-owned runner and children were terminated and no live Chromium process remained. Migration retained and not applied. No Cloud mutation, Workflow publish, push, or deploy. Candidate packaging remains this task’s local step; GPT Review and PM push authorization remain pending.
+
+Release gate disposition: The repository QA guidance states the 11 unchanged-HEAD baseline failures must remain FAIL and that the Candidate packager requires Full Regression PASS. The commit-state run reproduced all 11 names (832 total, 821 pass, 11 fail), but the raw command exit was 1; therefore no formal Candidate is deliverable. A temporary Candidate ZIP/Manifest/SHA created during packaging verification was removed. Browser Regression remains BLOCKED by the Cloud file:// limitation and IVTK runner hang. Keep this task In Progress for GPT/PM decision; no push, deploy, Cloud mutation, migration apply, or Workflow publish.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
