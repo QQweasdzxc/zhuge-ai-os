@@ -182,5 +182,9 @@
   "cloud_mutation": false,
   "migration_applied": false,
   "candidate_zip_created": false,
-  "review": "PENDING GPT/CTO"
+  "review": "PENDING GPT/CTO",
+  "next_candidate_build": "20261003-1407",
+  "build_generator": "node tools/release-governance.js new-build-id",
+  "build_generated_after_full_zero_fail": true,
+  "source_identity_check": "PASS"
 }
