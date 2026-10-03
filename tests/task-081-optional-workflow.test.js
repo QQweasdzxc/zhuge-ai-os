@@ -37,7 +37,7 @@ test("TASK-081 source routes every consumer through shared movement authority", 
   assert.match(service, /board_c_move_workspace_decision_v1/);
   assert.doesNotMatch(adapters, /detachWorkflow: payload\.detachWorkflow/);
   assert.match(service, /input\.adoptWorkflow === true/);
-  assert.match(service, /p_workflow_mode: input\.workflowMode \|\| "published"/);
+  assert.match(service, /p_workflow_mode: "published"/);
   assert.match(approval, /workflow_mode/);
   assert.match(approval, /Published GPT TASK read-back is missing the current Workflow binding/);
   assert.match(approval, /Unbound GPT TASK read-back unexpectedly contains a Workflow binding/);

@@ -7,7 +7,7 @@ import vm from "node:vm";
 const root = path.resolve(".");
 const runtimeSource = fs.readFileSync(path.join(root, "shared/components/golden-master-runtime.js"), "utf8");
 const serviceSource = fs.readFileSync(path.join(root, "shared/board/board-read-service.js"), "utf8");
-const restoreMigration = fs.readFileSync(path.join(root, "docs/supabase/20260926_task_101_workflow_restore_version.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261003021318_task37_module_c_workflow_canvas_simplification.sql"), "utf8");
 
 function loadStudio() {
   const document = { readyState: "loading", addEventListener() {} };
@@ -18,12 +18,61 @@ function loadStudio() {
   return window.ZhugeWorkflowStudio;
 }
 
-test("Workflow Studio exposes canonical visual editing helpers without a second authority", () => {
+test("Workflow Studio uses the canonical Workflow service and exposes pure canvas helpers", () => {
   const studio = loadStudio();
   assert.equal(typeof studio.clone, "function");
   assert.equal(typeof studio.diff, "function");
   assert.equal(typeof studio.layout, "function");
-  assert.equal(typeof studio.runtimeTaskMatches, "function");
+  assert.equal(typeof studio.validate, "function");
+  assert.equal(typeof studio.topology, "function");
+  assert.equal(typeof studio.payload, "function");
+  assert.match(serviceSource, /board_c_workflow_save_draft/);
+  assert.match(serviceSource, /board_c_workflow_validate_draft/);
+  assert.match(serviceSource, /board_c_workflow_publish/);
+  assert.doesNotMatch(runtimeSource, /insert into|update public\./i);
+});
+
+test("Workflow Studio topology drives start/end flags and an empty graph is legal", () => {
+  const studio = loadStudio();
+  const editor = {
+    name: "獨立 Workspace",
+    steps: [
+      { stepKey: "one", name: "第一個", workspaceId: "w1", roleKey: "co", statusKey: "ready" },
+      { stepKey: "two", name: "第二個", workspaceId: "w2", roleKey: "co", statusKey: "ready" }
+    ],
+    transitions: []
+  };
+  const validation = studio.validate(editor);
+  assert.deepEqual(JSON.parse(JSON.stringify(validation.errors)), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(validation.warnings)), []);
+  const payload = studio.payload(editor);
+  assert.equal(payload.transitions.length, 0);
+  assert.ok(payload.steps.every(step => step.isInitial && step.isCompletion));
+  assert.deepEqual(Array.from(studio.topology(editor).incoming), []);
+  assert.deepEqual(Array.from(studio.topology(editor).outgoing), []);
+});
+
+test("Workflow Studio derives topology for a connected graph and gives new edges no role or Gate barrier", () => {
+  const studio = loadStudio();
+  const editor = {
+    name: "Connected",
+    steps: [
+      { stepKey: "todo", name: "待辦", workspaceId: "w1", roleKey: "co", statusKey: "ready" },
+      { stepKey: "review", name: "驗收", workspaceId: "w2", roleKey: "qjc", statusKey: "qa" },
+      { stepKey: "done", name: "完成", workspaceId: "w3", roleKey: "pm", statusKey: "done" }
+    ],
+    transitions: [
+      { fromStepKey: "todo", toStepKey: "review" },
+      { fromStepKey: "review", toStepKey: "done" }
+    ]
+  };
+  const payload = studio.payload(editor);
+  assert.deepEqual(payload.steps.map(step => [step.isInitial, step.isCompletion]), [[true, false], [false, false], [false, true]]);
+  assert.ok(payload.transitions.every(edge => edge.allowedRoles.includes("co") && edge.allowedRoles.includes("gpt") && edge.allowedRoles.includes("qjc") && edge.allowedRoles.includes("pm") && edge.requiresGate === false));
+});
+
+test("Workflow Studio diff still reports graph and definition edits", () => {
+  const studio = loadStudio();
   const before = {
     name: "工作流程",
     steps: [
@@ -34,25 +83,18 @@ test("Workflow Studio exposes canonical visual editing helpers without a second 
   };
   const after = {
     ...before,
+    name: "獨立流程",
     steps: [...before.steps, { stepKey: "review", name: "複核", workspaceId: "w3" }],
-    transitions: [
-      { fromStepKey: "todo", toStepKey: "review" },
-      { fromStepKey: "review", toStepKey: "done" }
-    ]
+    transitions: [{ fromStepKey: "todo", toStepKey: "review" }]
   };
   const diff = studio.diff(before, after);
   assert.deepEqual(JSON.parse(JSON.stringify(diff.addedSteps)), ["review"]);
-  assert.deepEqual(JSON.parse(JSON.stringify(diff.removedSteps)), []);
-  assert.deepEqual(JSON.parse(JSON.stringify(diff.addedTransitions)), ["todo→review", "review→done"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(diff.addedTransitions)), ["todo→review"]);
   assert.deepEqual(JSON.parse(JSON.stringify(diff.removedTransitions)), ["todo→done"]);
   assert.equal(diff.changed, true);
-  const layout = studio.layout(after);
-  assert.equal(layout.positions.size, 3);
-  assert.ok(layout.width >= 720);
-  assert.ok(layout.height >= 230);
 });
 
-test("Workflow Studio does not treat an empty workspace id as a runtime scope", () => {
+test("Workflow Studio does not treat an empty Workspace id as a task scope", () => {
   const studio = loadStudio();
   const unbound = { workspaceId: "", currentWorkflowStepId: "" };
   const workspaceStep = { id: "step-1", workspaceId: "workspace-1" };
@@ -61,102 +103,60 @@ test("Workflow Studio does not treat an empty workspace id as a runtime scope", 
   assert.equal(studio.runtimeTaskMatches({ currentWorkflowStepId: "step-1" }, workspaceStep), true);
 });
 
-test("Workflow Studio accepts an Optional Workflow with zero connections", () => {
-  const studio = loadStudio();
-  const validation = studio.validate({
-    name: "可選流程",
-    steps: [
-      { stepKey: "inspiration", name: "小靈感", workspaceId: "w1", isInitial: true, isCompletion: false },
-      { stepKey: "suspended", name: "暫緩", workspaceId: "w2", isInitial: false, isCompletion: true }
-    ],
-    transitions: []
-  });
-  assert.deepEqual(JSON.parse(JSON.stringify(validation.errors)), []);
-  assert.equal(validation.warnings.length, 1);
-  assert.match(validation.warnings[0], /沒有流程連線/);
-});
-
-test("Workflow Studio diff reports definition metadata changes", () => {
-  const studio = loadStudio();
-  const before = {
-    name: "一般流程",
-    description: "原本的說明",
-    steps: [
-      { stepKey: "todo", name: "待辦", workspaceId: "w1" },
-      { stepKey: "done", name: "完成", workspaceId: "w2" }
-    ],
-    transitions: []
-  };
-  const after = { ...before, name: "可選流程", description: "更新後的說明" };
-  const diff = studio.diff(before, after);
-  assert.deepEqual(JSON.parse(JSON.stringify(diff.changedDefinition)), ["流程名稱", "流程說明"]);
-  assert.equal(diff.changed, true);
-});
-
-test("Workflow Studio UI contains visual canvas, validation, diff, history and bounded connection controls", () => {
+test("Workflow canvas has side plus handles, a dashed connection preview, and Edge-only deletion", () => {
   assert.match(runtimeSource, /data-workflow-studio-canvas/);
   assert.match(runtimeSource, /data-workflow-studio-node/);
-  assert.match(runtimeSource, /data-workflow-connect/);
-  assert.match(runtimeSource, /data-workflow-studio-diff/);
-  assert.match(runtimeSource, /data-workflow-validate/);
-  assert.match(runtimeSource, /data-workflow-undo/);
-  assert.match(runtimeSource, /data-workflow-redo/);
-  assert.match(runtimeSource, /data-workflow-restore-version/);
-  assert.match(runtimeSource, /restoreWorkflowVersion/);
+  assert.match(runtimeSource, /data-workflow-connector="left"/);
+  assert.match(runtimeSource, /data-workflow-connector="right"/);
+  assert.match(runtimeSource, /data-workflow-edge-preview/);
   assert.match(runtimeSource, /data-workflow-remove-transition/);
   assert.match(runtimeSource, /pointerdown/);
   assert.match(runtimeSource, /setPointerCapture/);
-  assert.match(runtimeSource, /ArrowUp/);
-  assert.match(runtimeSource, /workflowStudioPositions\.set/);
-  assert.match(serviceSource, /board_c_workflow_save_draft/);
-  assert.match(serviceSource, /board_c_workflow_publish/);
-  assert.match(serviceSource, /board_c_workflow_restore_version/);
-  assert.doesNotMatch(runtimeSource, /insert into|update public\./i);
+  assert.match(runtimeSource, /event\.pointerType === "touch"/);
+  assert.ok(runtimeSource.includes("next.transitions = next.transitions.filter"));
+  assert.doesNotMatch(runtimeSource, /data-workflow-connect-from|data-workflow-connect-to|data-workflow-save|data-workflow-validate|data-workflow-step-delete/);
+  assert.doesNotMatch(runtimeSource, /data-workflow-studio-diff|data-workflow-studio-validation|流程摘要|變更預覽|發布前檢查|檢查流程|儲存草稿/);
 });
 
-test("Workflow Studio exposes a read-only runtime overlay without becoming workflow authority", () => {
-  assert.match(runtimeSource, /workflowStudioRuntimeOverlay/);
-  assert.match(runtimeSource, /activeClaim \|\| task\?\.active_claim \|\| task\?\.claim/);
-  assert.match(runtimeSource, /data-workflow-runtime-overlay/);
-  assert.match(runtimeSource, /等待 \$\{runtime\.waiting\} · 阻塞 \$\{runtime\.blocked\}/);
-  assert.match(runtimeSource, /不需確認/);
-  assert.match(runtimeSource, /Never infer/);
-  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /\.workflow-studio-node-runtime/);
+test("Node inspector keeps required fields compact and advanced Gate/Claim details out of the main editor", () => {
+  assert.match(runtimeSource, /data-workflow-inspector/);
+  assert.match(runtimeSource, /data-workflow-field="name"/);
+  assert.match(runtimeSource, /data-workflow-field="workspaceId"/);
+  assert.match(runtimeSource, /data-workflow-field="statusKey"/);
+  assert.doesNotMatch(runtimeSource, /Claim：|Gate：|data-workflow-field="gateRequired"|data-workflow-field="evidenceLabel"/);
+  assert.match(fs.readFileSync(path.join(root, "shared/components/golden-master.js"), "utf8"), /Workspace 可獨立存在/);
 });
 
-test("Workflow Studio preserves an explicit zero-connection Optional Workflow", () => {
-  assert.match(runtimeSource, /const hasTransitionContract = Array\.isArray\(source\?\.transitions\)/);
-  assert.match(runtimeSource, /transitions: hasTransitionContract \? existingTransitions : workflowDefaultTransitions\(steps\)/);
-  assert.doesNotMatch(runtimeSource, /editor\.transitions = workflowDefaultTransitions\(editor\.steps\)/);
-  assert.match(runtimeSource, /Optional Workflow permits a valid definition/);
-  assert.match(runtimeSource, /目前沒有流程連線；這張流程允許獨立工作區/);
+test("Workflow publish runs save → validate → publish → read-back and keeps failures user-readable", () => {
+  const start = runtimeSource.indexOf("async function saveWorkflowSettings()");
+  const end = runtimeSource.indexOf("function bindWorkflowSettingsModal", start);
+  const publish = runtimeSource.slice(start, end);
+  assert.ok(publish.indexOf("workflow.saveDraft") < publish.indexOf("workflow.validateDraft"));
+  assert.ok(publish.indexOf("workflow.validateDraft") < publish.indexOf("workflow.publish"));
+  assert.ok(publish.indexOf("workflow.publish") < publish.lastIndexOf("workflow.get"));
+  assert.match(publish, /workflowUserError\(error\)/);
+  assert.doesNotMatch(publish, /error\.message\s*\|\|/);
 });
 
-test("Workflow capability reads version history through the existing board-scoped gateway", () => {
-  assert.match(serviceSource, /const listVersions = async \(\) =>/);
-  assert.match(serviceSource, /board_workflow_definitions/);
-  assert.match(serviceSource, /board_workflow_steps/);
-  assert.match(serviceSource, /board_workflow_transitions/);
-  assert.match(serviceSource, /return \{ boardInstanceId: instanceId, versions \};/);
-  assert.match(serviceSource, /listVersions,/);
+test("Migration permits zero Edges, requires one Step per active Workspace, and preserves the exact-one task guard", () => {
+  assert.match(migration, /drop index if exists public\.board_workflow_one_initial_step_idx/i);
+  assert.match(migration, /drop index if exists public\.board_workflow_one_completion_step_idx/i);
+  assert.match(migration, /每個啟用中的 Workspace 必須恰好對應一個階段/);
+  assert.match(migration, /'transitions', '\[\]'::jsonb/);
+  assert.match(migration, /board_c_workflow_save_draft/);
+  assert.match(migration, /board_c_workflow_publish/);
+  assert.match(migration, /board_provision_c_consumer_v2/);
+  assert.match(migration, /and v_published/);
+  assert.doesNotMatch(migration, /insert into public\.board_tasks|delete from public\.board_workspaces|update public\.board_workspaces/i);
 });
 
-test("Workflow Studio keeps connection removal and touch dragging presentation-only", () => {
-  assert.match(runtimeSource, /已移除本地連線；儲存草稿或發布後才會寫入 Canonical Workflow/);
-  assert.match(runtimeSource, /state\.workflowStudioPositions\.set/);
-  assert.match(runtimeSource, /回復為新草稿/);
-  assert.match(serviceSource, /board_c_workflow_restore_version/);
-  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /workflow-transition-entry/);
-  assert.match(fs.readFileSync(path.join(root, "shared/theme/golden-master.css"), "utf8"), /touch-action:none/);
-});
-
-test("Workflow Studio restore is a canonical immutable-source to new-draft path", () => {
-  assert.match(restoreMigration, /create or replace function public\.board_c_workflow_restore_version/i);
-  assert.match(restoreMigration, /board_c_workflow_save_draft/i);
-  assert.match(restoreMigration, /gate_step\(step\)/i);
-  assert.match(restoreMigration, /流程版本的 Gate 無法對應/i);
-  assert.match(restoreMigration, /source_immutable', true/i);
-  assert.match(restoreMigration, /based_on_workflow_version_id = v_source\.id/i);
-  assert.doesNotMatch(restoreMigration, /update public\.board_workflow_definitions[\s\S]*where id = v_source\.id/i);
-  assert.match(restoreMigration, /revoke all on function public\.board_c_workflow_restore_version/i);
+test("new C consumers initialize generic active Workspace blueprints as standalone Steps", () => {
+  const branchStart = migration.indexOf("if p_workflow_blueprint is null then");
+  const branchEnd = migration.indexOf("\n    else\n      if jsonb_typeof(p_workflow_blueprint", branchStart);
+  assert.ok(branchStart >= 0 && branchEnd > branchStart);
+  const defaultWorkflow = migration.slice(branchStart, branchEnd);
+  assert.match(defaultWorkflow, /'transitions', '\[\]'::jsonb/);
+  assert.match(defaultWorkflow, /for v_workspace in select value from jsonb_array_elements\(v_workspace_blueprint\)/i);
+  assert.match(defaultWorkflow, /'workspace_id', v_workspace_map->>v_workspace_key/i);
+  assert.doesNotMatch(defaultWorkflow, /'workspace_id', v_workspace_map->>'todo'|'step_key', 'todo'/i);
 });

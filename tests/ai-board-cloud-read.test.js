@@ -210,6 +210,7 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
     await BoardRead.worktodoAddTaskProgressNote({ taskId: taskRow.id, note: "Progress" }, { gateway });
     await BoardRead.worktodoMigrateTask("WLTK-004", { gateway });
     assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
+      "board_c_workflow_get",
       "board_instance_create_task",
       "worktodo_update_task",
       "worktodo_add_task_progress_note",

@@ -48,10 +48,11 @@ test("C service resolves the registry and uses the generic board contract", asyn
   assert.match(workspace.key, /^mdtk-custom-/);
   assert.deepEqual(calls.map(call => call.name), [
     "board_resolve_template_instance",
-    "board_instance_create_task",
     "board_resolve_template_instance",
+    "board_c_workflow_get",
+    "board_instance_create_task",
     "board_c_workflow_get",
     "board_instance_create_workspace"
   ]);
-  assert.equal(calls[1].args.p_board_instance_id, "c-instance");
+  assert.equal(calls.find(call => call.name === "board_instance_create_task").args.p_board_instance_id, "c-instance");
 });

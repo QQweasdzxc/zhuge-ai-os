@@ -18,16 +18,18 @@ function createWorkspaceWorkflowGateway(options = {}) {
       workspace_id: workspace.id, role_key: index === 4 ? "pm" : "co", status_key: index === 4 ? "done" : "ready",
       is_initial: index === 0, is_completion: index === 4
     })),
-    transitions: [{ transition_key: "to_done", from_step_id: "step-0", to_step_id: "step-4", allowed_roles: ["pm", "qjc"], requires_gate: true }],
+    transitions: options.emptyEdges ? [] : [{ transition_key: "to_done", from_step_id: "step-0", to_step_id: "step-4", allowed_roles: ["pm", "qjc"], requires_gate: true }],
     gates: [{ id: "gate-done", step_id: "step-4", gate_key: "completion", name: "Completion gate", required: true, human_action_required: true, completion_role: "pm", failure_policy: "stay", sort_order: 9 }],
     evidence_requirements: [{ id: "evidence-done", gate_id: "gate-done", evidence_key: "runtime", label: "Runtime acceptance", required: true, source_kind: "pm_action_context", sort_order: 7 }]
   };
+  if (options.persisted?.workspaces) workspaces.splice(0, workspaces.length, ...structuredClone(options.persisted.workspaces));
+  if (options.persisted?.initial) Object.assign(initial, structuredClone(options.persisted.initial));
   const state = {
     calls: [], reads: [], workspaces, initial,
-    published: options.optional ? null : structuredClone(initial),
-    draft: options.draft ? { id: "other-draft" } : null,
-    cards: [{ id: "existing-card", workspace_id: "ws-todo", workflow_version_id: "published-1", current_workflow_step_id: "step-0" }],
-    failAt: options.failAt || "", readsAfterPublish: 0, getCount: 0, createdCount: 0
+    published: options.persisted ? structuredClone(options.persisted.published) : options.optional ? null : structuredClone(initial),
+    draft: options.persisted ? structuredClone(options.persisted.draft) : options.draft ? { id: "other-draft" } : null,
+    cards: options.persisted ? structuredClone(options.persisted.cards || []) : [{ id: "existing-card", workspace_id: "ws-todo", workflow_version_id: "published-1", current_workflow_step_id: "step-0" }],
+    failAt: options.failAt || "", readsAfterPublish: 0, getCount: 0, createdCount: Number(options.persisted?.createdCount || 0)
   };
   const board = { id: boardId, active: true, template_key: "c", legacy_application_scope: scope, task_code_prefix: scope === "ai_board" ? "TASK" : "WLTK" };
   const gateway = {
