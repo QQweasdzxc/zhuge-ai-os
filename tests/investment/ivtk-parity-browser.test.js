@@ -1,46 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
-const { resolveBrowserExecutable } = require("../browser-executable");
+const { resolveBrowserExecutable, browserDOM } = require("../browser-executable");
 
 const FIXTURE = path.join(__dirname, "ivtk-parity-browser.html");
 
-function runBrowser(browserExecutable, windowSize = "1440,1000") {
-  return new Promise((resolve, reject) => {
-    const profile = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-ivtk-parity-"));
-    const args = [
-      "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-      "--no-first-run", "--disable-background-networking", "--disable-component-update",
-      "--disable-sync", `--window-size=${windowSize}`, `--user-data-dir=${profile}`,
-      "--virtual-time-budget=1000", "--dump-dom", `file://${FIXTURE}`
-    ];
-    const child = spawn(browserExecutable, args, { encoding: "utf8" });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const finish = (error, output) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (error) return reject(error);
-      child.kill("SIGKILL");
-      resolve(output);
-    };
-    const timer = setTimeout(() => finish(new Error(stderr || "Chrome timed out during IVTK parity regression")), 30000);
-    child.stdout.on("data", chunk => {
-      stdout += chunk;
-      if (stdout.includes('id="ivtk-parity-audit"')) finish(null, stdout);
-    });
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    child.on("error", error => finish(error));
-    child.on("close", code => {
-      if (!stdout) finish(new Error(stderr || `Chrome exited with code ${code}`));
-      else finish(null, stdout);
-    });
-  });
+async function runBrowser(browserExecutable, windowSize = "1440,1000") {
+  const output = await browserDOM(browserExecutable, FIXTURE, { ready: '#ivtk-parity-audit', width: Math.max(500, Number(windowSize.split(",")[0])), height: Number(windowSize.split(",")[1]) });
+  return output;
 }
 
 async function readAudit(t, windowSize) {

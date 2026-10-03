@@ -1,9 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 const { chromium } = require("playwright");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixtureURL } = require("./browser-executable");
 
 const fixture = path.join(__dirname, "skyeye-mobile-browser.html");
 
@@ -87,7 +86,7 @@ test("SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evide
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 });
       const page = await context.newPage();
       await installGeolocation(page, "allow");
-      await page.goto(pathToFileURL(fixture).href, { waitUntil: "load" });
+      await page.goto(await fixtureURL(fixture), { waitUntil: "load" });
       await page.locator("[data-skyeye-my-location]").click();
       assert.match(await page.locator("[data-skyeye-location-label]").textContent(), /我的附近/);
       await page.fill("[data-skyeye-search-input]", "板橋車站");
@@ -135,7 +134,7 @@ test("SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evide
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
       const page = await context.newPage();
       await installGeolocation(page, permission);
-      await page.goto(pathToFileURL(fixture).href, { waitUntil: "load" });
+      await page.goto(await fixtureURL(fixture), { waitUntil: "load" });
       await page.locator("[data-skyeye-my-location]").click();
       const label = await page.locator("[data-skyeye-location-label]").textContent();
       assert.match(label, permission === "allow" ? /我的附近/ : /請搜尋地點/, `desktop geolocation ${permission}`);

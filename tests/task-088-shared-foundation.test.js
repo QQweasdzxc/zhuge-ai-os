@@ -3,9 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
-const { spawn } = require("node:child_process");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixturePath, browserDOM } = require("./browser-executable");
 
 const ROOT = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -54,7 +52,7 @@ function fixture() {
     "shared/theme/zhuge-shell.css",
     "shared/theme/zhuge-navigation.css",
     "shared/theme/global-floating-hub.css"
-  ].map(file => `<link rel="stylesheet" href="${pathToFileURL(path.join(ROOT, file)).href}">`).join("");
+  ].map(file => `<link rel="stylesheet" href="${fixturePath(path.join(ROOT, file))}">`).join("");
   return `<!doctype html><html><head><meta charset="utf-8">${styles}</head><body>
     <main class="zhuge-module-shell">
       <aside class="os-sidebar"><button class="shared-nav-collapse" type="button">≡</button></aside>
@@ -91,42 +89,10 @@ function fixture() {
   </body></html>`;
 }
 
-function runBrowser(browserExecutable, htmlFile, width) {
-  const args = [
-    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-    "--no-first-run", "--disable-background-networking", "--disable-component-update",
-    "--disable-sync", `--window-size=${width},900`,
-    `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-"))}`,
-    "--virtual-time-budget=1200", "--dump-dom", pathToFileURL(htmlFile).href
-  ];
-  return new Promise((resolve, reject) => {
-    const child = spawn(browserExecutable, args, { encoding: "utf8" });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const timer = setTimeout(() => finish(new Error(stderr || "Chrome timed out"), true), 30000);
-    const finish = (value, failed = false) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { child.kill("SIGKILL"); } catch {}
-      failed ? reject(value) : resolve(value);
-    };
-    const parse = () => {
-      const match = stdout.match(/data-task088="([^\"]+)"/);
-      if (match) finish(JSON.parse(match[1].replace(/&quot;/g, '"')));
-    };
-    child.stdout.on("data", chunk => { stdout += chunk; parse(); });
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    child.on("error", error => finish(error, true));
-    child.on("close", code => {
-      if (settled) return;
-      if (!stdout) return finish(new Error(stderr || `Chrome exited with ${code}`), true);
-      const match = stdout.match(/data-task088="([^\"]+)"/);
-      if (!match) return finish(new Error(`TASK-088 runtime metrics missing at ${width}px`), true);
-      finish(JSON.parse(match[1].replace(/&quot;/g, '"')));
-    });
-  });
+async function runBrowser(browserExecutable, htmlFile, width) {
+  const output = await browserDOM(browserExecutable, htmlFile, { ready: '[data-task088]', width: width || 1600, height: 900 });
+  const match = output.match(/data-task088="([^\"]+)"/);
+  return JSON.parse(match[1].replace(/&quot;/g, '"'));
 }
 
 test("TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widths", async t => {
@@ -134,6 +100,7 @@ test("TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widt
   if (!browserExecutable) return t.skip("Browser executable unavailable for responsive runtime proof");
 
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-fixture-"));
+  t.after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
   const file = path.join(fixtureDir, "foundation.html");
   fs.writeFileSync(file, fixture());
   const metrics = {};

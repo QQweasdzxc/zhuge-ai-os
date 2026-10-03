@@ -1,0 +1,186 @@
+{
+  "task": "TASK-37 Release Baseline Recovery",
+  "source_parent": "c4f64a6587cfed682767e7e1b7532516d85277af",
+  "base_sha": "5e3dcfabc1b86b7c4bd4a6afb049b6b2b6aa7348",
+  "recovery_qa_build": "20261003-1223",
+  "failures": [
+    {
+      "id": 1,
+      "test": "AI Board Browser UI exposes PM-readable drawer status, free workspace movement, and navigation",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 2,
+      "test": "C publish UI sends the current identity and keeps legacy health check out of the Mother Template",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 3,
+      "test": "Creator sees both independent MFA controls and Non-Creator sees none",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 4,
+      "test": "Drawer PM acceptance and QJC card drag share the formal completion lifecycle",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 5,
+      "test": "SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evidence presentation",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 6,
+      "test": "TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widths",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 7,
+      "test": "TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet and mobile",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 8,
+      "test": "TASK-088 Batch C shared drawer uses core states at desktop, tablet and mobile widths",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 9,
+      "test": "TASK-088 Part 1 shared Drawer and collapsed Navigation keep the desktop contract",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 10,
+      "test": "WorkTodo uses the Shared Task Drawer presentation contract at runtime",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained. WorkTodo waits for checklistPanelOpenAfterAdd before readback, preserving its assertion.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    },
+    {
+      "id": 11,
+      "test": "all Workspaces use the WorkLog collapsed rail geometry",
+      "type": "TEST_INFRA",
+      "root_cause": "Managed Chromium blocks file URL fixtures; legacy CLI DOM execution does not provide reliable output/cleanup.",
+      "fix": "Existing browser-executable helper serves canonical fixtures on loopback HTTP; existing Playwright driver awaits completed audit and closes browser in finally. All product assertions retained.",
+      "readback": {
+        "targeted": "PASS",
+        "full": "PASS",
+        "official_browser": "PASS"
+      }
+    }
+  ],
+  "targeted": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0
+  },
+  "authority": {
+    "pass": 60,
+    "fail": 0,
+    "skip": 0
+  },
+  "full_regression": {
+    "pass": 834,
+    "fail": 0,
+    "skip": 0
+  },
+  "browser_regression": {
+    "pass": 29,
+    "fail": 0,
+    "skip": 0,
+    "standalone_pass": 5
+  },
+  "logs": {
+    "targeted": {
+      "path": "/tmp/task37-recovery-targeted-final.log",
+      "sha256": "289123f0d20faeac2057763db0bcdcb3b4a52d5c78352ab6c511286b7dacde47"
+    },
+    "authority": {
+      "path": "/tmp/task37-recovery-authority.log",
+      "sha256": "21c4e501fb99ea6321d1981def0523eb52fba509f64757d8c0be9534d031f995"
+    },
+    "full": {
+      "path": "/tmp/task37-recovery-full.log",
+      "sha256": "d89817f052b42e424da38977f164ba2c7175b3c3aaaaa0277e164e260b2cc69f"
+    },
+    "browser": {
+      "path": "/tmp/task37-recovery-browser-final.log",
+      "sha256": "8f4f30ea43381fc49d70a3009ba8cad9a98ea5e822704fe0253dd418bfbf49af"
+    }
+  },
+  "existing_assertions_changed": false,
+  "application_functionality_changed": false,
+  "remote_mutation": false,
+  "cloud_mutation": false,
+  "migration_applied": false,
+  "candidate_zip_created": false,
+  "review": "PENDING GPT/CTO"
+}

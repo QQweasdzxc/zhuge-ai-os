@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@codex'
 created_date: '2026-10-02 16:42'
-updated_date: '2026-10-03 04:51'
+updated_date: '2026-10-03 06:07'
 labels: []
 dependencies: []
 ordinal: 32000
@@ -32,6 +32,8 @@ PM authorized Source and Developer QA only following read-only RCA. Published AI
 1. Integrate the shared Instance Service using existing Workflow capability, preserve version contracts and fail closed on draft/conflict. 2. Add explicit binding controls to shared Workspace UI and restrict existing AI Board remediation to the two authorized keys. 3. Exercise authority sequence, failure recovery and all adopters with mock/unit and localhost browser QA. 4. Run regression/preflight, record Source-only evidence and HARD STOP.
 
 TASK-37 re-release: synchronize a new canonical Candidate Build ID using Release Governance; run required QA gates; create local release commit and FullSource Candidate with manifest/SHA; verify Build identity and artifact; no push, deploy, Cloud/Supabase mutation, or Workflow publish.
+
+Release Baseline Recovery: extend existing browser-executable test support with loopback HTTP fixture transport and owned Chromium cleanup; migrate legacy file URL tests without changing assertions; verify all 11 readbacks, official browser authority, full regression and clean-commit release preflight. No Candidate ZIP or remote mutation.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -46,6 +48,8 @@ Subsequent PM authorization: verify exact before/after failure-name equality, cr
 TASK-37 Re-Release QA, Candidate Build 20261003-1223: Release identity/preflight PASS; targeted 67/67 PASS including nine Module C localhost Chromium cases. Full Regression 832 total, 821 pass, 11 fail, 0 skipped; the failure-name set exactly matches the recorded unchanged-HEAD Cloud baseline in docs/qa/module-c-workspace-workflow-binding/developer-qa.json. Browser Regression BLOCKED when the IVTK file:// case hung with two Chromium children; task-owned runner and children were terminated and no live Chromium process remained. Migration retained and not applied. No Cloud mutation, Workflow publish, push, or deploy. Candidate packaging remains this task’s local step; GPT Review and PM push authorization remain pending.
 
 Release gate disposition: The repository QA guidance states the 11 unchanged-HEAD baseline failures must remain FAIL and that the Candidate packager requires Full Regression PASS. The commit-state run reproduced all 11 names (832 total, 821 pass, 11 fail), but the raw command exit was 1; therefore no formal Candidate is deliverable. A temporary Candidate ZIP/Manifest/SHA created during packaging verification was removed. Browser Regression remains BLOCKED by the Cloud file:// limitation and IVTK runner hang. Keep this task In Progress for GPT/PM decision; no push, deploy, Cloud mutation, migration apply, or Workflow publish.
+
+Release Baseline Recovery: all 11 prior failures diagnosed TEST_INFRA; repaired existing browser-executable transport and DOM driver using localhost HTTP and pinned Playwright, preserving all existing assertions. Targeted 18/18, Module C/helper/release checks 60/60, Full Regression 834/834 (0 fail/skip), official npm browser authority 29/29 plus all five standalone PASS. Installed pinned dependencies via npm ci for ESM resolution. No product behavior, schema/RPC, Cloud, publish, push or deploy changes. New Candidate Build synchronization follows only after these green gates; no ZIP this round. GPT/CTO review pending.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

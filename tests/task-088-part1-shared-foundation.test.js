@@ -3,12 +3,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
-const { spawn } = require("node:child_process");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixturePath, browserDOM } = require("./browser-executable");
 
 const ROOT = path.resolve(__dirname, "..");
-const urlFor = file => pathToFileURL(path.join(ROOT, file)).href;
+const urlFor = file => fixturePath(path.join(ROOT, file));
 
 function fixture() {
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -85,47 +83,17 @@ function fixture() {
   </body></html>`;
 }
 
-function runBrowser(browserExecutable, htmlFile, width) {
-  const args = [
-    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-    "--no-first-run", "--disable-background-networking", "--disable-component-update",
-    "--disable-sync", `--window-size=${width},900`,
-    `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-part1-"))}`,
-    "--virtual-time-budget=1600", "--dump-dom", pathToFileURL(htmlFile).href
-  ];
-  return new Promise((resolve, reject) => {
-    const child = spawn(browserExecutable, args, { encoding: "utf8" });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const finish = (error, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { child.kill("SIGKILL"); } catch {}
-      error ? reject(error) : resolve(value);
-    };
-    const parse = () => {
-      const match = stdout.match(/data-task088-part1="([^\"]+)"/);
-      if (match) finish(null, JSON.parse(match[1].replace(/&quot;/g, '"')));
-    };
-    const timer = setTimeout(() => finish(new Error(stderr || "Shared Foundation browser fixture timed out"), true), 30000);
-    child.stdout.on("data", chunk => { stdout += chunk; parse(); });
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    child.on("error", error => finish(error, true));
-    child.on("close", code => {
-      if (settled) return;
-      const match = stdout.match(/data-task088-part1="([^\"]+)"/);
-      if (!match) return finish(new Error(`TASK-088 Part 1 metrics missing at ${width}px (exit ${code}): ${stderr}`), true);
-      finish(null, JSON.parse(match[1].replace(/&quot;/g, '"')));
-    });
-  });
+async function runBrowser(browserExecutable, htmlFile, width) {
+  const output = await browserDOM(browserExecutable, htmlFile, { ready: '[data-task088-part1]', width: width || 1600, height: 900 });
+  const match = output.match(/data-task088-part1="([^\"]+)"/);
+  return JSON.parse(match[1].replace(/&quot;/g, '"'));
 }
 
 test("TASK-088 Part 1 shared Drawer and collapsed Navigation keep the desktop contract", async t => {
   const browserExecutable = resolveBrowserExecutable();
   if (!browserExecutable) return t.skip("Browser executable unavailable for Shared Foundation runtime proof");
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-part1-fixture-"));
+  t.after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
   const file = path.join(fixtureDir, "shared-foundation.html");
   fs.writeFileSync(file, fixture());
   for (const width of [1440, 1024]) {

@@ -1,9 +1,8 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { chromium } = require("playwright");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixtureURL } = require("./browser-executable");
 
 const ROOT = path.resolve(__dirname, "..");
 const fixture = path.join(__dirname, "task-088-responsive-preview.html");
@@ -60,7 +59,7 @@ async function inspect(page, label) {
       const errors = [];
       page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
       page.on("pageerror", error => errors.push(error.message));
-      await page.goto(`file://${fixture}`, { waitUntil: "load" });
+      await page.goto(await fixtureURL(fixture), { waitUntil: "load" });
       await page.screenshot({
         path: path.join(evidenceDir, `task-088-${label}-responsive-source-preview.png`),
         fullPage: true,

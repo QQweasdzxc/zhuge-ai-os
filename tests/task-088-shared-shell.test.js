@@ -3,9 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
-const { spawn } = require("node:child_process");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixturePath, browserDOM } = require("./browser-executable");
 
 const ROOT = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -31,9 +29,9 @@ test("TASK-088 Batch B keeps one shared navigation state contract", () => {
 });
 
 function fixture() {
-  const navigation = pathToFileURL(path.join(ROOT, "shared/components/zhuge-navigation.js")).href;
+  const navigation = fixturePath(path.join(ROOT, "shared/components/zhuge-navigation.js"));
   return `<!doctype html><html><head><meta charset="utf-8">
-    <link rel="stylesheet" href="${pathToFileURL(path.join(ROOT, "shared/theme/zhuge-navigation.css")).href}">
+    <link rel="stylesheet" href="${fixturePath(path.join(ROOT, "shared/theme/zhuge-navigation.css"))}">
   </head><body><div class="zhuge-module-shell"><div id="zhugeSharedNavigation" data-active-workspace="worklog"></div><header class="workspace-shell-header"><div class="zhuge-shared-header-main"></div></header><main class="app"></main></div>
     <script>window.ZhugeFoundationConfig={version:{version:"test",build:"test"}};</script>
     <script src="${navigation}"></script>
@@ -58,41 +56,10 @@ function fixture() {
   </body></html>`;
 }
 
-function runBrowser(browserExecutable, htmlFile, width) {
-  const args = [
-    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-    "--no-first-run", "--disable-background-networking", "--disable-component-update",
-    "--disable-sync", `--window-size=${width},900`,
-    `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-shell-"))}`,
-    "--virtual-time-budget=1200", "--dump-dom", pathToFileURL(htmlFile).href
-  ];
-  return new Promise((resolve, reject) => {
-    const child = spawn(browserExecutable, args, { encoding: "utf8" });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const timer = setTimeout(() => finish(new Error(stderr || "Chrome timed out"), true), 30000);
-    const finish = (value, failed = false) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { child.kill("SIGKILL"); } catch {}
-      failed ? reject(value) : resolve(value);
-    };
-    const parse = () => {
-      const match = stdout.match(/data-task088-shell="([^"]+)"/);
-      if (match) finish(JSON.parse(match[1].replace(/&quot;/g, '"')));
-    };
-    child.stdout.on("data", chunk => { stdout += chunk; parse(); });
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    child.on("error", error => finish(error, true));
-    child.on("close", code => {
-      if (settled) return;
-      const match = stdout.match(/data-task088-shell="([^"]+)"/);
-      if (!match) return finish(new Error(`TASK-088 shell metrics missing at ${width}px (exit ${code})`), true);
-      finish(JSON.parse(match[1].replace(/&quot;/g, '"')));
-    });
-  });
+async function runBrowser(browserExecutable, htmlFile, width) {
+  const output = await browserDOM(browserExecutable, htmlFile, { ready: '[data-task088-shell]', width: width || 1600, height: 900 });
+  const match = output.match(/data-task088-shell="([^"]+)"/);
+  return JSON.parse(match[1].replace(/&quot;/g, '"'));
 }
 
 test("TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet and mobile", async t => {
@@ -100,6 +67,7 @@ test("TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet 
   if (!browserExecutable) return t.skip("Browser executable unavailable for shell runtime proof");
 
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-task-088-shell-fixture-"));
+  t.after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
   const file = path.join(fixtureDir, "shell.html");
   fs.writeFileSync(file, fixture());
   for (const width of [1440, 1024, 500]) {

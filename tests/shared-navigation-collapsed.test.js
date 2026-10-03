@@ -3,9 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
-const { spawn } = require("node:child_process");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixturePath, browserDOM } = require("./browser-executable");
 
 const ROOT = path.join(__dirname, "..");
 const NAV_SOURCE = path.join(ROOT, "shared/components/zhuge-navigation.js");
@@ -42,12 +40,12 @@ const ROUTES = {
 };
 
 function cssLinks(files) {
-  return files.map(file => `<link rel="stylesheet" href="${pathToFileURL(path.join(ROOT, file)).href}">`).join("");
+  return files.map(file => `<link rel="stylesheet" href="${fixturePath(path.join(ROOT, file))}">`).join("");
 }
 
 function fixture(files, activeWorkspace) {
   return `<!doctype html><html><head><meta charset="utf-8">${cssLinks(files)}
-    <script src="${pathToFileURL(NAV_SOURCE).href}"></script>
+    <script src="${fixturePath(NAV_SOURCE)}"></script>
   </head><body><main class="zhuge-module-shell workspace-shell zhuge-nav-collapsed" style="width:1600px;height:1000px;">
     <div id="zhugeSharedNavigation"></div><div class="app"></div>
   </main><script>
@@ -77,43 +75,10 @@ function fixture(files, activeWorkspace) {
   </script></body></html>`;
 }
 
-function runBrowser(browserExecutable, htmlFile) {
-  const args = [
-    "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-    "--no-first-run", "--disable-background-networking", "--disable-component-update",
-    "--disable-sync", "--window-size=1600,1000", `--user-data-dir=${fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-nav-collapsed-"))}`,
-    "--virtual-time-budget=1200", "--dump-dom", pathToFileURL(htmlFile).href
-  ];
-  return new Promise((resolve, reject) => {
-    const child = spawn(browserExecutable, args, { encoding: "utf8" });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const finish = (error, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { child.kill("SIGKILL"); } catch { /* already exited */ }
-      error ? reject(error) : resolve(value);
-    };
-    const timer = setTimeout(() => finish(new Error(stderr || "Chrome timed out while measuring collapsed navigation")), 30000);
-    child.stdout.on("data", chunk => {
-      stdout += chunk;
-      if (stdout.includes("data-collapsed-metrics=")) {
-        const match = stdout.match(/data-collapsed-metrics="([^"]+)"/);
-        if (match) finish(null, JSON.parse(match[1].replace(/&quot;/g, '"')));
-      }
-    });
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    child.on("error", error => finish(error));
-    child.on("close", code => {
-      if (settled) return;
-      if (!stdout) return finish(new Error(stderr || `Chrome exited with code ${code}`));
-      const match = stdout.match(/data-collapsed-metrics="([^"]+)"/);
-      if (!match) return finish(new Error(`Collapsed navigation metrics missing for ${htmlFile}`));
-      finish(null, JSON.parse(match[1].replace(/&quot;/g, '"')));
-    });
-  });
+async function runBrowser(browserExecutable, htmlFile, width) {
+  const output = await browserDOM(browserExecutable, htmlFile, { ready: '[data-collapsed-metrics]', width: width || 1600, height: 900 });
+  const match = output.match(/data-collapsed-metrics="([^"]+)"/);
+  return JSON.parse(match[1].replace(/&quot;/g, '"'));
 }
 
 test("all Workspaces use the WorkLog collapsed rail geometry", async t => {
@@ -121,6 +86,7 @@ test("all Workspaces use the WorkLog collapsed rail geometry", async t => {
   if (!browserExecutable) return t.skip("Set CHROME_PATH, CHROMIUM_PATH, or BROWSER_EXECUTABLE to run the collapsed navigation browser regression");
 
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "zhuge-nav-fixtures-"));
+  t.after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
   const metrics = {};
   for (const [route, files] of Object.entries(ROUTES)) {
     const file = path.join(fixtureDir, `${route}.html`);

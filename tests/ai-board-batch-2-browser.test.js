@@ -2,9 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 const { chromium } = require("playwright");
-const { resolveBrowserExecutable } = require("./browser-executable");
+const { resolveBrowserExecutable, fixtureURL } = require("./browser-executable");
 
 const ROOT = path.join(__dirname, "..");
 
@@ -24,7 +23,7 @@ test("AI Board Browser UI exposes PM-readable drawer status, free workspace move
   });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto(pathToFileURL(preparedFixture).href, { waitUntil: "domcontentloaded" });
+  await page.goto(await fixtureURL(preparedFixture), { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => [
     "checklist-audit", "drawer-markup-audit", "board-nav-audit", "principles-nav-audit",
     "system-map-nav-audit", "search-audit", "history-audit", "nav-collapse-audit",
