@@ -1169,7 +1169,10 @@
 
   async function createWorkspace(name, options = {}) {
     const gateway = options.gateway || requireGateway();
-    return gateway.rpc("board_create_workspace", { p_name: name }).then(normalizeWorkspace);
+    // The exported compatibility service uses the same atomic instance lifecycle
+    // as formal consumers; the old SQL writer is retired and cannot bypass Steps.
+    return createInstanceService({ gateway, legacyApplicationScope: "ai_board", consumerId: "ai-board" })
+      .createWorkspace(name, options);
   }
 
   async function renameWorkspace(workspaceId, name, options = {}) {
