@@ -3813,7 +3813,7 @@
         pendingWorkspaceCreationName = name;
         if (input) input.disabled = true;
         const progress = document.querySelector("[data-workspace-binding-progress]");
-        if (progress) progress.textContent = "建立回應尚未確認。再次送出只會核對原請求，不會重建；重新載入前請先核對看板。";
+        if (progress) progress.textContent = "建立狀態尚未確認；再次送出會以原請求核對或完成建立，不會建立重複工作區。";
         if (button) button.textContent = "核對建立狀態";
       }
       if (error.workspace) {

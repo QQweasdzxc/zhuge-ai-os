@@ -22,33 +22,33 @@ test("configured Workspace creation auto-binds every active Workspace through sa
   const cardsBefore = structuredClone(state.cards);
   const sourceBefore = structuredClone(state.initial);
   const workspace = await service.createWorkspace("New Workspace");
-  assert.deepEqual(writes(state).map(call => call.name), ["board_instance_create_workspace", "board_c_workflow_save_draft", "board_c_workflow_validate_draft", "board_c_workflow_publish"]);
-  const save = state.calls.find(call => call.name.endsWith("save_draft")).args;
-  assert.deepEqual(save.p_transitions, [{ transition_key: "to_done", from_step_key: "todo", to_step_key: "completed", allowed_roles: ["pm", "qjc"], requires_gate: true }]);
-  assert.deepEqual(save.p_gates, [{ step_key: "completed", gate_key: "completion", name: "Completion gate", required: true, human_action_required: true, completion_role: "pm", failure_policy: "stay", sort_order: 9 }]);
-  assert.deepEqual(save.p_evidence_requirements, [{ gate_key: "completion", evidence_key: "runtime", label: "Runtime acceptance", required: true, source_kind: "pm_action_context", sort_order: 7 }]);
-  assert.equal(save.p_steps.length, state.workspaces.length);
-  const added = save.p_steps.filter(step => !state.initial.steps.some(existing => existing.workspace_id === step.workspace_id));
-  assert.equal(added.length, 4);
-  assert.ok(added.every(step => step.role_key === "co" && step.status_key === "ready"));
-  assert.ok(added.every(step => !save.p_transitions.some(edge => edge.from_step_key === step.step_key || edge.to_step_key === step.step_key)));
+  assert.deepEqual(writes(state).map(call => call.name), ["board_instance_create_workspace"]);
+  assert.deepEqual(state.published.transitions, sourceBefore.transitions);
+  assert.deepEqual(state.published.gates, sourceBefore.gates);
+  assert.deepEqual(state.published.evidence_requirements, sourceBefore.evidence_requirements);
+  assert.equal(state.published.steps.length, state.workspaces.length);
+  const added=state.published.steps.filter(step=>!state.initial.steps.some(existing=>existing.workspace_id===step.workspace_id));
+  assert.equal(added.length,4);
+  assert.ok(added.every(step=>step.role_key==="co" && step.status_key==="ready"));
+  assert.ok(added.every(step=>!state.published.transitions.some(edge=>edge.from_step_id===step.id||edge.to_step_id===step.id)));
   assert.ok(state.workspaces.every(row => bindingCounts(state).get(row.id) === 1));
   assert.equal(state.cards.length, cardsBefore.length);
   assert.deepEqual(state.initial, sourceBefore);
   assert.equal(workspace.workflowBinding.state, "published");
-  assert.equal(state.calls.find(call => call.name.endsWith("publish")).args.p_expected_published_version_id, "published-1");
+  assert.deepEqual(state.lifecycle, ["save", "validate", "publish", "readback"]);
   const card = await service.createTask({ title: "Created after binding", workspaceId: workspace.id });
   assert.equal(card.workflowVersionId, "draft-fixture");
 });
 
 for (const scope of ["worktodo", "procurement", "c"]) {
-  test(`${scope} optional Workflow keeps the original Workspace and TASK path`, async () => {
+  test(`${scope} unconfigured Workflow initializes standalone Steps and keeps the Workspace/TASK path`, async () => {
     const { service, state } = fixture({ scope, optional: true });
     const workspace = await service.createWorkspace("Optional Workspace");
     const card = await service.createTask({ title: "Optional task", workspaceId: workspace.id });
     assert.deepEqual(writes(state).map(call => call.name), ["board_instance_create_workspace", "board_instance_create_task"]);
-    assert.equal(card.workflowVersionId, "");
-    assert.equal(workspace.workflowBinding, undefined);
+    assert.equal(card.workflowVersionId, "draft-fixture");
+    assert.equal(state.published.transitions.length,0);
+    assert.deepEqual(workspace.workflowBinding,{state:"published",workflowVersionId:"draft-fixture"});
   });
   test(`${scope} configured Workflow auto-binds new Workspace without creating a new Edge`, async () => {
     const { service, state } = fixture({ scope });
@@ -62,7 +62,7 @@ for (const scope of ["worktodo", "procurement", "c"]) {
 test("legacy missing bindings, including TASK-081, repair through the shared publish authority before TASK creation", async () => {
   const { service, state } = fixture();
   const card = await service.createTask({ title: "TASK-081 remains standalone", workspaceId: "ws-custom-2" });
-  assert.deepEqual(writes(state).map(call => call.name), ["board_c_workflow_save_draft", "board_c_workflow_validate_draft", "board_c_workflow_publish", "board_instance_create_task"]);
+  assert.deepEqual(writes(state).map(call => call.name), ["board_instance_create_task"]);
   assert.equal(state.published.steps.length, state.workspaces.length);
   assert.ok(state.workspaces.every(row => bindingCounts(state).get(row.id) === 1));
   assert.equal(state.published.transitions.length, 1);
@@ -99,53 +99,44 @@ test("read-only consumers cannot create or reconcile Workspace bindings", async 
   }
 });
 
-test("Workspace and Published version changes during reconciliation stop before publish", async () => {
-  for (const options of [{ changeOnGet: 2 }, { draftOnGet: 2 }]) {
-    const { service, state } = fixture(options);
-    await assert.rejects(() => service.createWorkspace("Partial"), error => error.code === "C_WORKFLOW_CHANGED" && error.workspace.id === "ws-created-1");
-    assert.deepEqual(writes(state).map(call => call.name), ["board_instance_create_workspace"]);
-  }
+test("system validation failure rolls back Workspace creation and retry reuses its request key", async () => {
+  const {service,state}=fixture({failAt:"board_c_workflow_save_draft"});
+  const before=structuredClone(state.workspaces);
+  await assert.rejects(()=>service.createWorkspace("Recoverable"),e=>e.workspaceCreationUncertain===true);
+  assert.deepEqual(state.workspaces,before);assert.equal(state.createdCount,0);assert.equal(state.published.id,"published-1");
+  state.failAt="";
+  const recovered=await service.createWorkspace("Recoverable");
+  assert.equal(recovered.id,"ws-created-1");assert.equal(state.createdCount,1);
+  const calls=state.calls.filter(c=>c.name==="board_instance_create_workspace");
+  assert.equal(calls.length,2);assert.equal(calls[0].args.p_workspace_key,calls[1].args.p_workspace_key);
 });
 
-test("failed reconciliation retries the existing Workspace and never creates a duplicate", async () => {
-  const { service, state } = fixture({ failAt: "board_c_workflow_save_draft" });
-  await assert.rejects(() => service.createWorkspace("Recoverable"), error => error.workspace.id === "ws-created-1" && error.bindingStage === "save_draft");
-  state.failAt = "";
-  const result = await service.bindWorkspaceToWorkflow({ workspaceId: "ws-created-1" });
-  assert.equal(result.workflowBinding.state, "published");
-  assert.equal(state.createdCount, 1);
-  assert.equal(bindingCounts(state).get("ws-created-1"), 1);
+test("uncertain Workspace response retries the idempotent writer and never inserts twice",async()=>{
+ const {service,state}=fixture({createResponseLost:true});
+ await assert.rejects(()=>service.createWorkspace("Uncertain creation"),e=>e.workspaceCreationUncertain===true);
+ const recovered=await service.createWorkspace("Uncertain creation");assert.equal(recovered.id,"ws-created-1");assert.equal(state.createdCount,1);
+ const calls=state.calls.filter(c=>c.name==="board_instance_create_workspace");assert.equal(calls.length,2);assert.deepEqual(calls[0].args,calls[1].args);
 });
 
-test("uncertain Workspace creation recovers by canonical key and does not insert twice", async () => {
-  const { service, state } = fixture({ createResponseLost: true });
-  await assert.rejects(() => service.createWorkspace("Uncertain creation"), error => error.workspaceCreationUncertain === true);
-  const recovered = await service.createWorkspace("Uncertain creation");
-  assert.equal(state.createdCount, 1);
-  assert.equal(recovered.id, "ws-created-1");
-  assert.equal(recovered.workflowBinding.state, "published");
-  const blocked = fixture({ failAt: "board_instance_create_workspace" });
-  await assert.rejects(() => blocked.service.createWorkspace("Unknown"));
-  await assert.rejects(() => blocked.service.createWorkspace("Unknown"), error => error.workspaceCreationUncertain === true);
-  assert.equal(blocked.state.calls.filter(call => call.name === "board_instance_create_workspace").length, 1);
+test("system validation/publish failures roll back and read-back failures cannot report acceptance",async()=>{
+ for(const options of [{invalidDraft:true},{failAt:"board_c_workflow_validate_draft"},{publishConflict:true},{badReadBack:true}]){
+  const {service,state}=fixture(options);const before=structuredClone(state.workspaces);
+  await assert.rejects(()=>service.createWorkspace("Pending"),e=>e.workspaceCreationUncertain===true);
+  if(options.badReadBack){assert.equal(state.createdCount,1);assert.equal(state.published.id,"draft-fixture");}
+  else{assert.equal(state.createdCount,0);assert.deepEqual(state.workspaces,before);assert.equal(state.published.id,"published-1");}
+  assert.equal(state.calls.some(c=>c.name==="board_c_workflow_publish"),false,'Browser never owns publish');
+ }
 });
 
-test("validation, publish, and read-back failures never report binding acceptance", async () => {
-  for (const options of [{ invalidDraft: true }, { failAt: "board_c_workflow_validate_draft" }, { publishConflict: true }, { badReadBack: true }]) {
-    const { service, state } = fixture(options);
-    await assert.rejects(() => service.createWorkspace("Pending"), error => Boolean(error.workspace && error.workflowVersionId === "draft-fixture"));
-    assert.equal(state.published.id, options.badReadBack ? "draft-fixture" : "published-1");
-    if (!options.badReadBack && !options.publishConflict) assert.equal(state.calls.some(call => call.name.endsWith("publish")), false);
-    assert.equal(state.createdCount, 1);
-  }
-});
-
-test("draft edits or Published version changes during validation stop before publish", async () => {
-  for (const options of [{ editDraftOnGet: 3 }, { changeOnGet: 3 }, { draftOnGet: 3 }]) {
-    const { service, state } = fixture(options);
-    await assert.rejects(() => service.createWorkspace("Concurrent change"), error => error.code === "C_WORKFLOW_CHANGED" && error.bindingStage === "publish");
-    assert.equal(state.calls.some(call => call.name.endsWith("publish")), false);
-  }
+test("existing user Draft remains Draft and browser sends no save/validate/publish RPC",async()=>{
+ const {service,state}=fixture();
+ state.draft={...structuredClone(state.published),id:"user-draft",status:"draft",name:"Unconfirmed workflow",description:"Preserve user setting",based_on_workflow_version_id:state.published.id};
+ state.draft.transitions.push({transition_key:"user-only",from_step_id:"step-1",to_step_id:"step-0",allowed_roles:["gpt"]});
+ const draftEdges=structuredClone(state.draft.transitions);
+ await service.createWorkspace("Independent");
+ assert.equal(state.draft.id,"user-draft");assert.equal(state.draft.status,"draft");assert.equal(state.draft.name,"Unconfirmed workflow");assert.deepEqual(state.draft.transitions,draftEdges);
+ assert.equal(state.published.transitions.some(e=>e.transition_key==="user-only"),false);
+ assert.deepEqual(writes(state).map(c=>c.name),["board_instance_create_workspace"]);
 });
 
 test("same-session duplicate Workspace submissions are rejected", async () => {

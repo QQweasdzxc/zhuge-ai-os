@@ -29,9 +29,27 @@ function createWorkspaceWorkflowGateway(options = {}) {
     published: options.persisted ? structuredClone(options.persisted.published) : options.optional ? null : structuredClone(initial),
     draft: options.persisted ? structuredClone(options.persisted.draft) : options.draft ? { id: "other-draft" } : null,
     cards: options.persisted ? structuredClone(options.persisted.cards || []) : [{ id: "existing-card", workspace_id: "ws-todo", workflow_version_id: "published-1", current_workflow_step_id: "step-0" }],
-    failAt: options.failAt || "", readsAfterPublish: 0, getCount: 0, createdCount: Number(options.persisted?.createdCount || 0)
+    failAt: options.failAt || "", readsAfterPublish: 0, getCount: 0, createdCount: Number(options.persisted?.createdCount || 0), lifecycle: [], reconcileCount: 0
   };
   const board = { id: boardId, active: true, template_key: "c", legacy_application_scope: scope, task_code_prefix: scope === "ai_board" ? "TASK" : "WLTK" };
+  function reconcile() {
+    if (state.failAt === "board_c_workflow_save_draft" || state.failAt === "board_c_workflow_validate_draft" || options.invalidDraft) throw new Error("Atomic lifecycle validation failure");
+    if (options.publishConflict) throw new Error("Published version changed");
+    const active=state.workspaces.filter(w=>w.active!==false && w.archived_at==null);
+    if (state.published && state.published.steps.length===active.length && active.every(w=>state.published.steps.filter(s=>s.workspace_id===w.id).length===1)) return;
+    const base=state.published || {...initial,name:'System baseline',steps:[],transitions:[],gates:[],evidence_requirements:[]};
+    const steps=active.map((w,i)=>base.steps.find(s=>s.workspace_id===w.id)||{id:'system-step-'+w.id,workspace_id:w.id,step_key:'workspace-'+w.workspace_key,name:w.name,sort_order:i*10,role_key:'co',status_key:'ready',is_initial:true,is_completion:true});
+    const ids=new Set(steps.map(s=>s.id));
+    state.published={...structuredClone(base),id:++state.reconcileCount===1?'draft-fixture':'system-fixture-'+state.reconcileCount,status:'published',steps,transitions:base.transitions.filter(e=>ids.has(e.from_step_id)&&ids.has(e.to_step_id))};
+    state.lifecycle.push('save','validate','publish','readback');
+    if(state.draft){
+      state.draft={...state.draft,status:'draft',based_on_workflow_version_id:state.published.id};
+      const previous=state.draft.steps||[];
+      state.draft.steps=active.map(w=>previous.find(s=>s.workspace_id===w.id)||structuredClone(steps.find(s=>s.workspace_id===w.id)));
+      const draftIds=new Set(state.draft.steps.map(s=>s.id));
+      state.draft.transitions=(state.draft.transitions||[]).filter(e=>draftIds.has(e.from_step_id)&&draftIds.has(e.to_step_id));
+    }
+  }
   const gateway = {
     async select(table, query) {
       state.reads.push({ table, query });
@@ -59,9 +77,14 @@ function createWorkspaceWorkflowGateway(options = {}) {
         return snapshot;
       }
       if (name === "board_instance_create_workspace") {
-        const workspace = { id: `ws-created-${++state.createdCount}`, board_instance_id: boardId, workspace_key: args.p_workspace_key, name: args.p_name, sort_order: 100, active: true };
-        state.workspaces.push(workspace);
-        if (options.createResponseLost) throw new Error("Workspace committed but response was lost");
+        const before={workspaces:structuredClone(state.workspaces),published:structuredClone(state.published),draft:structuredClone(state.draft),createdCount:state.createdCount,reconcileCount:state.reconcileCount};
+        let workspace=state.workspaces.find(w=>w.workspace_key===args.p_workspace_key);
+        try {
+          if(!workspace){workspace={id:`ws-created-${++state.createdCount}`,board_instance_id:boardId,workspace_key:args.p_workspace_key,name:args.p_name,sort_order:100,active:true};state.workspaces.push(workspace);}
+          if(workspace.active===false||workspace.name!==args.p_name)throw new Error('Workspace request key mismatch');
+          reconcile();
+        } catch(error){Object.assign(state,before);throw error;}
+        if (options.createResponseLost && !state.responseLost) {state.responseLost=true;throw new Error("Workspace committed but response was lost");}
         return workspace;
       }
       if (name === "board_c_workflow_save_draft") {
@@ -85,6 +108,7 @@ function createWorkspaceWorkflowGateway(options = {}) {
         return { workflow: structuredClone(state.published) };
       }
       if (name === "board_instance_create_task") {
+        reconcile();
         const bindings = state.published?.steps.filter(step => step.workspace_id === args.p_workspace_id) || [];
         if (state.published && args.p_workflow_mode === "published" && bindings.length !== 1) throw new Error("Module C workspace does not have exactly one Workflow Step binding");
         const task = { id: "new-card", board_instance_id: boardId, workspace_id: args.p_workspace_id, title: args.p_title, status: bindings[0]?.status_key || args.p_status, workflow_version_id: state.published?.id || null, current_workflow_step_id: bindings[0]?.id || null };

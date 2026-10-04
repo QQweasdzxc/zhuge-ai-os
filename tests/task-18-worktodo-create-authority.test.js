@@ -47,7 +47,7 @@ test("WorkTodo Assistant create is routed through the shared C board-instance wr
   assert.equal(created.boardInstanceId, "worktodo-board");
   assert.equal(created.workspaceId, "worktodo-default");
   assert.equal(created.workCode, "WLTK-999");
-  assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), ["board_c_workflow_get", "board_instance_create_task"]);
+  assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), ["board_instance_create_task"]);
   const workspaceRead = calls.find(call => call.type === "select" && call.table === "board_workspaces");
   assert.match(workspaceRead.query, /board_instance_id=eq\.worktodo-board/);
   assert.match(read("shared/board/board-read-service.js"), /WORKTODO_DEFAULT_WORKSPACE_KEY = "worktodo-todo"/);
