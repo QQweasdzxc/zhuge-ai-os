@@ -698,6 +698,54 @@
     });
   }
 
+  function projectBoardConsumer(instance = {}) {
+    const normalized = normalizeBoardInstance(instance);
+    const scope = normalized.legacyApplicationScope.trim().toLowerCase().replace(/_/g, "-");
+    const prefix = normalized.taskCodePrefix.trim().toUpperCase();
+    const projectAssignment = normalized.projectAssignment.trim().toLowerCase();
+    const displayName = normalized.name.trim() || prefix || normalized.id || "未命名看板";
+    const isC = normalized.templateKey.trim().toLowerCase() === "c";
+
+    let consumerKind = isC ? "generic-c-consumer" : "board-consumer";
+    let consumerId = normalized.id;
+    let runtimeRole = "consumer";
+    let navigationParent = projectAssignment === "worklog" || projectAssignment === "investment"
+      ? projectAssignment
+      : "consumer-boards";
+
+    if (normalized.isTemplateInstance === true && isC) {
+      consumerKind = "c-mother";
+      consumerId = "c";
+      runtimeRole = "mother";
+      navigationParent = "";
+    } else if (scope === "ai-board") {
+      consumerKind = "ai-board";
+      consumerId = "ai-board";
+      navigationParent = "";
+    } else if (scope === "worktodo") {
+      consumerKind = "worktodo";
+      consumerId = "worktodo";
+      navigationParent = "";
+    } else if (prefix === "GAS") {
+      consumerKind = "gas";
+      navigationParent = "";
+    } else if (prefix === "IVTK") {
+      consumerKind = "investment";
+      navigationParent = "";
+    }
+
+    return Object.freeze({
+      ...normalized,
+      consumerId,
+      consumerKind,
+      displayName,
+      navigationParent,
+      runtimeRole,
+      governanceMode: runtimeRole === "mother" ? "mother" : "consumer",
+      isGenericCConsumer: consumerKind === "generic-c-consumer"
+    });
+  }
+
   async function listBoardInstances(options = {}) {
     const gateway = options.gateway || requireGateway();
     const rows = await gateway.select(
@@ -721,19 +769,16 @@
     const templateKey = encodeURIComponent(requestedTemplateKey);
     const rows = await gateway.select(
       "board_instances",
-      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
+      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
     );
     return (Array.isArray(rows) ? rows : [])
       .map(row => {
-        const instance = normalizeBoardInstance(row);
-        const legacyScope = instance.legacyApplicationScope.replace(/_/g, "-");
-        const consumerId = instance.isTemplateInstance ? "c" : legacyScope || instance.id;
+        const projection = projectBoardConsumer(row);
         return Object.freeze({
-          ...instance,
-          consumerId,
-          consumerLabel: instance.isTemplateInstance
+          ...projection,
+          consumerLabel: projection.runtimeRole === "mother"
             ? "C 母版"
-            : instance.name || instance.taskCodePrefix || consumerId,
+            : projection.displayName,
         });
       })
       .filter(instance => (
@@ -2845,6 +2890,7 @@
     normalizePrinciple,
     normalizeSystemMap,
     normalizeBoardInstance,
+    projectBoardConsumer,
     load,
     listBoardInstances,
     listModuleConsumers,
