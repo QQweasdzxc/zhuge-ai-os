@@ -16,7 +16,7 @@ function motherPage(){
  // transport are isolated; provisioning executes the reviewed SQL in PGlite.
  const scripts=['config/version.js','components/zhuge-navigation.js','components/zhuge-shell.js','components/task-card.js','components/task-drawer.js','components/task-board.js','components/golden-master.js','components/activity-classifier.js','board/board-read-service.js','components/task-action-contract.js','components/task-action-adapters.js','board/workspace-ordering-authority.js'];
  const seam=`<script>${authSeam}
- window.ZhugeTemplateAdoptionRuntime={isCreator:false};
+ window.ZhugeTemplateAdoptionRuntime={isCreator:true,service:{isTemplateEnabled:()=>true}};
  const transport=async(kind,payload)=>{const r=await fetch('/qa/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await r.json();if(!r.ok)throw Error(result.error);return result;};
  const gateway={select:(table,query)=>transport('select',{table,query}),rpc:(name,args)=>transport('rpc',{name,args})};
  window.ZhugeSupabaseGateway={createDataGateway:()=>gateway};
@@ -103,10 +103,38 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    const steps=(await db.query('select * from board_workflow_steps where workflow_version_id=$1',[published[0].id])).rows;assert.equal(steps.length,4);assert.equal(new Set(steps.map(s=>s.workspace_id)).size,4);
    assert.equal((await db.query('select * from board_workflow_transitions where workflow_version_id=$1',[published[0].id])).rows.length,0);
    const adoption=(await db.query("select consumer_adoptions from module_releases where module_id='c'")).rows[0].consumer_adoptions;assert.ok(JSON.stringify(adoption).includes(id));
-   const nav=page.locator(`[data-zhuge-shared-navigation] a[href*="${id}"]`);await nav.waitFor();assert.match(await page.locator('[data-zhuge-shared-navigation]').innerText(),/套用的看板/);
+   const nav=page.locator(`[data-zhuge-shared-navigation] a[href*="${id}"]`);
+   const assertNavigationPlacement=async()=>{
+    await nav.waitFor({state:'visible'});
+    assert.equal(await nav.count(),1,'Consumer has exactly one Navigation entry');
+    assert.equal(await nav.locator('.side-item-label').innerText(),'Golden '+prefix,'primary label is Board name only');
+    const placement=await nav.evaluate(node=>{
+     const section=node.closest('[data-nav-group]');
+     let parent=node.previousElementSibling;
+     while(parent&&parent.classList.contains('side-item-child'))parent=parent.previousElementSibling;
+     return {group:section.dataset.navGroup,child:node.classList.contains('side-item-child'),parent:parent?.dataset.sharedNavItem||''};
+    });
+    if(project){
+     assert.deepEqual(placement,{group:'camp',child:true,parent:project});
+     assert.equal(await page.locator(`[data-nav-group="consumer-boards"] a[href*="${id}"]`).count(),0,'assigned Consumer is not duplicated in applied boards');
+    }else{
+     assert.equal(placement.group,'consumer-boards');
+     assert.equal(placement.child,false);
+     assert.match(await page.locator('[data-nav-group="consumer-boards"]').innerText(),/套用的看板/);
+    }
+   };
+   await assertNavigationPlacement();
+   if(project==='investment'){
+    await page.evaluate(()=>{window.ZhugeTemplateAdoptionRuntime.isCreator=false;window.ZhugeSharedNavigation.refresh();});
+    await nav.waitFor({state:'detached'});
+    assert.equal(await page.locator('[data-shared-nav-item="investment"]').count(),0,'hidden parent has no floating Investment child');
+    await page.evaluate(()=>{window.ZhugeTemplateAdoptionRuntime.isCreator=true;window.ZhugeSharedNavigation.refresh();});
+    await assertNavigationPlacement();
+   }
    await page.locator("#consumerCreateModal [data-consumer-create-close]").first().click();
    await nav.click();await page.waitForURL('**/*boardInstanceId='+id);await page.locator('[data-workspace-id]').first().waitFor();assert.equal(await page.locator('[data-workspace-id]').count(),4);
    await page.reload();await page.locator('[data-workspace-id]').first().waitFor();assert.equal(await page.locator('[data-workspace-id]').count(),4);
+   await assertNavigationPlacement();
    assert.deepEqual(errors,[]);await page.close();
   });
  }
