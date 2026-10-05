@@ -5,6 +5,7 @@
 :root {
   --zhuge-sidebar-item-height: var(--zhuge-touch-target-min);
   --zhuge-sidebar-child-height: var(--zhuge-touch-target-min);
+  --zhuge-sidebar-child-font-size: 14px;
   --zhuge-sidebar-item-font-size: .9375rem;
   --zhuge-sidebar-item-line-height: 1.35;
   --zhuge-sidebar-item-padding-block: 7px;
@@ -330,11 +331,30 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 }
 /* Keep native buttons and routed anchors identical even when a later
  * shared responsive reset applies font: inherit to buttons. */
-.zhuge-module-shell > .os-sidebar .side-item-child { font-weight: 750; }
+.zhuge-module-shell > .os-sidebar .side-item-child {
+  font-family: inherit;
+  font-size: var(--zhuge-sidebar-child-font-size);
+  font-weight: 750;
+  line-height: var(--zhuge-sidebar-item-line-height);
+  letter-spacing: normal;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  align-items: center;
+}
+.zhuge-module-shell > .os-sidebar .side-item-child .side-item-label {
+  font: inherit;
+  letter-spacing: inherit;
+}
+.zhuge-module-shell > .os-sidebar .side-item-child .side-item-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  line-height: 1;
+  font-weight: 400;
+}
 .zhuge-module-shell .side-item-child {
   min-height: var(--zhuge-sidebar-child-height);
   padding: var(--zhuge-sidebar-child-padding-block) var(--zhuge-sidebar-child-padding-inline);
-  font-size: .875rem;
+  font-size: var(--zhuge-sidebar-child-font-size);
   line-height: var(--zhuge-sidebar-item-line-height);
 }
 .zhuge-module-shell .developer-build-info {

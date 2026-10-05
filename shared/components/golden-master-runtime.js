@@ -344,12 +344,15 @@
     }
   }
   function mountCTemplateReleasePanel() {
-    if (state.applicationScope !== "c" || state.showTemplateReleasePanel === false) {
-      const host = document.getElementById("canonicalCTemplatePreview");
+    const host = document.getElementById("canonicalCTemplatePreview");
+    // Full release governance belongs to the Mother, not Consumer work surfaces.
+    // Compact adoption status and Shared Board capabilities remain independent.
+    if (state.applicationScope !== "c" || !state.boardIsTemplate || state.showTemplateReleasePanel === false) {
       if (host) host.hidden = true;
       return;
     }
-    root.ZhugeCanonicalCTemplatePreview?.mountBanner?.(document.getElementById("canonicalCTemplatePreview"), {
+    if (host) host.hidden = false;
+    root.ZhugeCanonicalCTemplatePreview?.mountBanner?.(host, {
       title: state.boardIsTemplate ? "C 唯一看板母版" : (state.boardName || "C Consumer 看板"),
       description: state.boardIsTemplate
         ? "MDTK canonical Cloud · 完整套用 Shared Board / Card / Drawer 操作"

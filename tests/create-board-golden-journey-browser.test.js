@@ -14,7 +14,7 @@ function motherPage(){
  const authSeam=auth.slice(auth.indexOf('  let session = null;'),auth.indexOf('  const mockWorkspaces = ['));
  // Actual Mother markup, shared renderers and Runtime. Only authentication and
  // transport are isolated; provisioning executes the reviewed SQL in PGlite.
- const scripts=['config/version.js','components/zhuge-navigation.js','components/zhuge-shell.js','components/task-card.js','components/task-drawer.js','components/task-board.js','components/golden-master.js','components/activity-classifier.js','board/board-read-service.js','components/task-action-contract.js','components/task-action-adapters.js','board/workspace-ordering-authority.js'];
+ const scripts=['config/version.js','components/zhuge-navigation.js','components/zhuge-shell.js','components/task-card.js','components/task-drawer.js','components/task-board.js','components/golden-master.js','components/c-template-preview.js','components/activity-classifier.js','board/board-read-service.js','components/task-action-contract.js','components/task-action-adapters.js','board/workspace-ordering-authority.js'];
  const seam=`<script>${authSeam}
  window.ZhugeTemplateAdoptionRuntime={isCreator:true,service:{isTemplateEnabled:()=>true}};
  const transport=async(kind,payload)=>{const r=await fetch('/qa/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await r.json();if(!r.ok)throw Error(result.error);return result;};
@@ -70,11 +70,14 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
  t.after(async()=>{await browser.close();await new Promise(resolve=>server.close(resolve));await db.close();});
  for(const [project,prefix] of [['','QANONE'],['worklog','QAWLOG'],['investment','QAINVT']]){
   await t.test(project||'unassigned',async()=>{
+   const consumerName=({worklog:'晨光協作',investment:'遠山研究'})[project]||'雲間記事';
    const page=await browser.newPage({viewport:{width:1280,height:900}});page.setDefaultTimeout(10000);t.after(()=>page.close());const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/*',route=>route.request().url().startsWith(origin)?route.continue():route.abort());
    page.on('dialog',dialog=>dialog.accept());
    await page.goto(origin+'/app/Board/template-preview/');
    const create=page.locator('[data-board-create-consumer]');await create.waitFor();
+   await page.locator('[data-c-operational-motherboard]').waitFor({state:'visible'});
+   assert.equal(await page.locator('[data-module-publish]').isVisible(),true,'Mother keeps full Publish Pipeline');
    for(const selector of ['[data-board-create-consumer]','[data-board-create-workspace]','[data-board-create-card]']){
     const button=page.locator(selector);assert.equal(await button.evaluate(n=>getComputedStyle(n).cursor),'pointer');
     await button.hover();await page.waitForTimeout(160);assert.notEqual(await button.evaluate(n=>getComputedStyle(n).filter),'none');
@@ -83,7 +86,7 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    await create.evaluate(n=>n.disabled=true);assert.equal(await create.evaluate(n=>getComputedStyle(n).cursor),'not-allowed');assert.ok(Number(await create.evaluate(n=>getComputedStyle(n).opacity))<1);await create.evaluate(n=>n.disabled=false);
    await create.click();await page.locator('#consumerCreateModal').waitFor({state:'visible'});
    await page.click('[data-consumer-create]');assert.match(await page.locator('#consumerCreateStatus').innerText(),/名稱/);
-   await page.selectOption('#consumerBoardProject',project);await page.fill('#consumerBoardName','Golden '+prefix);
+   await page.selectOption('#consumerBoardProject',project);await page.fill('#consumerBoardName',consumerName);
    await page.fill('#consumerBoardPrefix','!');await page.click('[data-consumer-create]');assert.match(await page.locator('#consumerCreateStatus').innerText(),/代號/);
    if(project==='worklog'){
     const before=(await db.query('select count(*) count from board_instances')).rows[0].count;
@@ -102,12 +105,13 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    const published=(await db.query("select * from board_workflow_definitions where board_instance_id=$1 and status='published'",[id])).rows;assert.equal(published.length,1);
    const steps=(await db.query('select * from board_workflow_steps where workflow_version_id=$1',[published[0].id])).rows;assert.equal(steps.length,4);assert.equal(new Set(steps.map(s=>s.workspace_id)).size,4);
    assert.equal((await db.query('select * from board_workflow_transitions where workflow_version_id=$1',[published[0].id])).rows.length,0);
+   const qaTask=(await db.query("insert into board_tasks(board_instance_id,workspace_id,work_code,title,status) values($1,$2,$3,'任意 Consumer 工作卡','not_started') returning id",[id,rows.find(w=>w.workspace_key==='todo').id,prefix+'-001'])).rows[0];
    const adoption=(await db.query("select consumer_adoptions from module_releases where module_id='c'")).rows[0].consumer_adoptions;assert.ok(JSON.stringify(adoption).includes(id));
    const nav=page.locator(`[data-zhuge-shared-navigation] a[href*="${id}"]`);
    const assertNavigationPlacement=async()=>{
     await nav.waitFor({state:'visible'});
     assert.equal(await nav.count(),1,'Consumer has exactly one Navigation entry');
-    assert.equal(await nav.locator('.side-item-label').innerText(),'Golden '+prefix,'primary label is Board name only');
+    assert.equal(await nav.locator('.side-item-label').innerText(),consumerName,'primary label is Board name only');
     const placement=await nav.evaluate(node=>{
      const section=node.closest('[data-nav-group]');
      let parent=node.previousElementSibling;
@@ -135,6 +139,20 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    await nav.click();await page.waitForURL('**/*boardInstanceId='+id);await page.locator('[data-workspace-id]').first().waitFor();assert.equal(await page.locator('[data-workspace-id]').count(),4);
    await page.reload();await page.locator('[data-workspace-id]').first().waitFor();assert.equal(await page.locator('[data-workspace-id]').count(),4);
    await assertNavigationPlacement();
+   assert.equal(await page.locator('[data-c-operational-motherboard]:visible').count(),0,'Generic Consumer never exposes the full Mother governance panel');
+   assert.equal(await page.locator('#canonicalCTemplatePreview').isVisible(),false);
+   assert.equal(await page.locator('[data-board-create-card]').isVisible(),true);
+   assert.equal(await page.locator('[data-board-create-workspace]').isVisible(),true);
+   const card=page.locator(`[data-task-id="${qaTask.id}"]`);await card.waitFor({state:'visible'});await card.click();
+   await page.locator('[data-shared-task-drawer-panel]').waitFor({state:'visible'});
+   await page.locator('[data-shared-task-drawer-close]').last().click();
+   const workflow=page.locator('[data-board-nav="workflow-settings"]');await workflow.waitFor({state:'visible'});await workflow.click();
+   await page.locator('[data-workflow-studio-canvas]').waitFor({state:'visible'});
+   await page.locator('[data-workflow-close]').click();
+   await page.setViewportSize({width:390,height:844});
+   assert.equal(await page.locator('[data-c-operational-motherboard]:visible').count(),0,'Mobile Consumer keeps governance hidden');
+   assert.equal(await page.locator('[data-workspace-id]').count(),4);
+   assert.equal(await card.isVisible(),true,'Mobile still renders Shared cards');
    assert.deepEqual(errors,[]);await page.close();
   });
  }
