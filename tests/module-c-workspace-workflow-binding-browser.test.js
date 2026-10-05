@@ -108,7 +108,7 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
         await page.click("[data-workspace-create]");
         await page.waitForFunction(() => window.bindingFixture.state.published.id === "draft-fixture");
         await page.waitForFunction(() => document.getElementById("workspaceCreateDrawer").getAttribute("aria-hidden") === "true");
-        assert.deepEqual(await writeNames(page), ["board_instance_create_workspace", "board_c_workflow_save_draft", "board_c_workflow_validate_draft", "board_c_workflow_publish"]);
+        assert.deepEqual(await writeNames(page), ["board_instance_create_workspace"]);
         assert.equal(await page.evaluate(() => window.bindingFixture.state.published.steps.filter(step => step.workspace_id === "ws-created-1").length), 1);
         assert.equal(await page.evaluate(() => window.bindingFixture.state.published.transitions.some(edge => edge.from_step_id === "ws-created-1" || edge.to_step_id === "ws-created-1")), false);
       } finally { await page.close(); }
@@ -133,7 +133,7 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
           assert.equal(result.workflow.transitions.some(edge => edge.from_step_id === "ws-custom-2" || edge.to_step_id === "ws-custom-2"), false);
         }
         assert.deepEqual(await writeNames(page), [
-          "board_c_workflow_save_draft", "board_c_workflow_validate_draft", "board_c_workflow_publish", "board_instance_create_task",
+          "board_instance_create_task",
           "board_instance_create_task", "board_instance_create_task"
         ]);
         await page.reload();
@@ -143,14 +143,41 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
       } finally { await page.close(); }
     });
 
-    await t.test("failed save retry reuses the Workspace, including after drawer close/reopen", async () => {
+    await t.test("existing user Draft Edges/settings remain unpublished during Workspace and TASK creation, including reload",async()=>{
+      const page=await pageFor();
+      try{
+        await page.evaluate(()=>{
+          const f=window.bindingFixture.state;
+          f.draft={...structuredClone(f.published),id:"unconfirmed-user-draft",status:"draft",name:"User unconfirmed",description:"Keep unconfirmed settings"};
+          f.draft.steps[0].name="User node rename";
+          f.draft.transitions.push({transition_key:"unconfirmed-edge",from_step_id:"step-1",to_step_id:"step-0",allowed_roles:["gpt"]});
+        });
+        if(await page.locator("[data-board-create-menu]").isVisible())await page.click("[data-board-create-menu]");
+        await page.click("[data-board-create-workspace]");await page.fill("#workspaceName","Draft-safe Workspace");await page.click("[data-workspace-create]");
+        await page.waitForFunction(()=>window.bindingFixture.state.createdCount===1);
+        await page.waitForFunction(()=>document.getElementById("workspaceCreateDrawer").getAttribute("aria-hidden")==="true");
+        await page.locator('[data-workspace-add="ws-created-1"]').click();await page.fill("#taskTitle","Draft-safe TASK");await page.click("[data-golden-master-create-card]");
+        await page.waitForFunction(()=>window.bindingFixture.state.cards.some(c=>c.title==="Draft-safe TASK"));
+        for(const reload of [false,true]){
+          if(reload){await page.reload();await page.waitForSelector("[data-workspace-header]");}
+          const r=await page.evaluate(()=>({draft:window.bindingFixture.state.draft,published:window.bindingFixture.state.published,cards:window.bindingFixture.state.cards}));
+          assert.equal(r.draft.id,"unconfirmed-user-draft");assert.equal(r.draft.status,"draft");assert.equal(r.draft.name,"User unconfirmed");
+          assert.equal(r.draft.steps.find(s=>s.workspace_id==="ws-todo").name,"User node rename");
+          assert.ok(r.draft.transitions.some(e=>e.transition_key==="unconfirmed-edge"));
+          assert.equal(r.published.transitions.some(e=>e.transition_key==="unconfirmed-edge"),false);
+          assert.equal(r.published.name,"Fixture Workflow");assert.ok(r.cards.some(c=>c.title==="Draft-safe TASK"));
+        }
+      }finally{await page.close();}
+    });
+
+    await t.test("failed atomic save retry reuses the request key, including after drawer close/reopen", async () => {
       const page = await pageFor("fail-save");
       try {
         if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         await page.fill("#workspaceName", "Recoverable Browser Workspace");
         await page.click("[data-workspace-create]");
-        await page.waitForFunction(() => document.querySelector("[data-workspace-binding-progress]").textContent.includes("不會重建 Workspace"));
+        await page.waitForFunction(() => document.querySelector("[data-workspace-binding-progress]").textContent.includes("不會建立重複工作區"));
         assert.equal(await page.locator("#workspaceName").isDisabled(), true);
         await page.locator("#workspaceCreateDrawer [data-workspace-drawer-close]").last().click();
         if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
@@ -163,14 +190,14 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
       } finally { await page.close(); }
     });
 
-    await t.test("invalid draft is pending and publish is never called", async () => {
+    await t.test("invalid system structure rolls back and browser never publishes", async () => {
       const page = await pageFor("invalid");
       try {
         if (await page.locator("[data-board-create-menu]").isVisible()) await page.click("[data-board-create-menu]");
         await page.click("[data-board-create-workspace]");
         await page.fill("#workspaceName", "Validation Pending");
         await page.click("[data-workspace-create]");
-        await page.waitForFunction(() => document.querySelector("[data-workspace-binding-progress]").textContent.includes("不會重建 Workspace"));
+        await page.waitForFunction(() => document.querySelector("[data-workspace-binding-progress]").textContent.includes("不會建立重複工作區"));
         assert.equal((await writeNames(page)).includes("board_c_workflow_publish"), false);
         assert.equal(await page.evaluate(() => window.bindingFixture.state.published.id), "published-1");
         assert.equal(await page.locator("[data-workspace-binding-settings]").count(), 0);
@@ -278,7 +305,8 @@ test("Module C Workspace and Workflow canvas browser QA uses localhost and in-me
           await page.click("[data-workspace-create]");
           await page.waitForFunction(() => window.bindingFixture.state.createdCount === 1);
           assert.deepEqual(await writeNames(page), ["board_instance_create_workspace"]);
-          assert.equal(await page.evaluate(() => window.bindingFixture.state.published), null);
+          assert.equal(await page.evaluate(() => window.bindingFixture.state.published.transitions.length), 0);
+          assert.equal(await page.evaluate(() => window.bindingFixture.state.published.steps.length), await page.evaluate(() => window.bindingFixture.state.workspaces.length));
         } finally { await page.close(); }
       });
     }

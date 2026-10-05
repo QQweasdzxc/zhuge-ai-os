@@ -22,7 +22,9 @@ test("C route loads the canonical Cloud MDTK host and shared runtime", () => {
 
 test("C service resolves the registry and uses the generic board contract", async () => {
   const calls = [];
+  let storedWorkspace;
   const gateway = {
+    async select(table) { return table==='board_workspaces' ? [storedWorkspace] : []; },
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === "board_resolve_template_instance") {
@@ -31,9 +33,10 @@ test("C service resolves the registry and uses the generic board contract", asyn
       if (name === "board_instance_create_task") {
         return { id: "mdtk-task-1", board_instance_id: "c-instance", work_code: "MDTK-001", title: args.p_title, status: args.p_status, workspace_id: "mdtk-todo" };
       }
-      if (name === "board_c_workflow_get") return { board_instance_id: "c-instance", published: null, draft: null };
+      if (name === "board_c_workflow_get") return { board_instance_id:"c-instance",state:{published_workflow_version_id:"system-version"},published:{id:"system-version",board_instance_id:"c-instance",status:"published",steps:[{id:"step-created",workspace_id:storedWorkspace.id}]},draft:null };
       if (name === "board_instance_create_workspace") {
-        return { id: "mdtk-workspace-1", board_instance_id: "c-instance", workspace_key: args.p_workspace_key, name: args.p_name, sort_order: 60, active: true };
+        storedWorkspace = { id: "mdtk-workspace-1", board_instance_id: "c-instance", workspace_key: args.p_workspace_key, name: args.p_name, sort_order: 60, active: true };
+        return storedWorkspace;
       }
       throw new Error(`Unexpected RPC ${name}`);
     }
@@ -48,11 +51,10 @@ test("C service resolves the registry and uses the generic board contract", asyn
   assert.match(workspace.key, /^mdtk-custom-/);
   assert.deepEqual(calls.map(call => call.name), [
     "board_resolve_template_instance",
-    "board_resolve_template_instance",
-    "board_c_workflow_get",
     "board_instance_create_task",
-    "board_c_workflow_get",
-    "board_instance_create_workspace"
+    "board_instance_create_workspace",
+    "board_resolve_template_instance",
+    "board_c_workflow_get"
   ]);
   assert.equal(calls.find(call => call.name === "board_instance_create_task").args.p_board_instance_id, "c-instance");
 });

@@ -3008,8 +3008,10 @@
           if (action === "rename" && !trimmed) return setBanner("附件顯示名稱不可空白。", "error");
           await actionContract.execute("updateAttachmentMetadata", {
             taskId: task.id, attachmentId,
-            displayName: action === "rename" ? trimmed : (item.filename || filename),
-            note: action === "note" ? trimmed : currentNote
+            // NULL means preserve the stored value in the canonical metadata RPC.
+            // Never overwrite the other field using a potentially stale UI item.
+            displayName: action === "rename" ? trimmed : null,
+            note: action === "note" ? trimmed : null
           }, {
             key: `attachment-metadata:${task.id}:${attachmentId}`,
             onSuccess: async () => {
@@ -3813,7 +3815,7 @@
         pendingWorkspaceCreationName = name;
         if (input) input.disabled = true;
         const progress = document.querySelector("[data-workspace-binding-progress]");
-        if (progress) progress.textContent = "建立回應尚未確認。再次送出只會核對原請求，不會重建；重新載入前請先核對看板。";
+        if (progress) progress.textContent = "建立狀態尚未確認；再次送出會以原請求核對或完成建立，不會建立重複工作區。";
         if (button) button.textContent = "核對建立狀態";
       }
       if (error.workspace) {

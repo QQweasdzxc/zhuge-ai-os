@@ -21,10 +21,13 @@ declare
   v_row public.board_task_attachments;
 begin
   if v_actor is null then raise exception 'AUTH_REQUIRED'; end if;
-  select * into v_row from public.board_task_attachments where id = p_attachment_id and deletion_status = 'active';
+  select * into v_row from public.board_task_attachments where id = p_attachment_id and deletion_status = 'active' for update;
   if not found then raise exception 'ATTACHMENT_NOT_FOUND'; end if;
+  if not public.board_task_can_write(v_row.task_id) then
+    raise exception using errcode = '42501', message = 'Parent Task write authorization is required';
+  end if;
 
-  -- Attachment belongs to a board task visible to the signed-in user through the existing board RLS/contract.
+  -- Definer writes must check the existing parent Task writer authority explicitly.
   if p_display_name is not null and length(btrim(p_display_name)) = 0 then raise exception 'DISPLAY_NAME_REQUIRED'; end if;
 
   update public.board_task_attachments
@@ -37,6 +40,6 @@ begin
 end;
 $$;
 
-revoke all on function public.board_update_task_attachment_metadata(uuid,text,text) from public;
+revoke all on function public.board_update_task_attachment_metadata(uuid,text,text) from public, anon, authenticated, service_role;
 grant execute on function public.board_update_task_attachment_metadata(uuid,text,text) to authenticated;
 commit;

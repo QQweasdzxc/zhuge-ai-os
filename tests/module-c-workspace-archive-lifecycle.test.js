@@ -2,78 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { PGlite } = require('@electric-sql/pglite');
 const shared = require('../shared/board/board-read-service.js');
-const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-const authority = read('docs/supabase/20260910_c_workflow_capability_v2.sql');
-function fn(source, name) {
-  const start = source.indexOf(`create or replace function ${name}(`);
-  assert.ok(start >= 0, name);
-  return source.slice(start, source.indexOf('$function$;', source.indexOf('as $function$', start)) + '$function$;'.length);
-}
-const owner = '00000000-0000-4000-8000-000000000001';
-const other = '00000000-0000-4000-8000-000000000002';
-const board = '10000000-0000-4000-8000-000000000001';
-const foreignBoard = '10000000-0000-4000-8000-000000000002';
-const todo = '20000000-0000-4000-8000-000000000001';
-const history = '20000000-0000-4000-8000-000000000002';
-const completed = '20000000-0000-4000-8000-000000000003';
-const empty = '20000000-0000-4000-8000-000000000004';
-const foreignWorkspace = '20000000-0000-4000-8000-000000000005';
-const task = '30000000-0000-4000-8000-000000000079';
-async function fixture(published = true) {
-  const db = new PGlite();
-  await db.exec(`
-    create schema auth; create schema private; create role anon; create role authenticated;
-    create table auth.users(id uuid primary key);
-    insert into auth.users values ('${owner}'), ('${other}');
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.uid', true),'')::uuid $$;
-    select set_config('request.uid','${owner}',false);
-    create table board_instances(id uuid primary key, active boolean not null default true, owner_uuid uuid, legacy_application_scope text);
-    insert into board_instances(id,owner_uuid) values ('${board}','${owner}'),('${foreignBoard}','${other}');
-    create function board_instance_can_write(id uuid) returns boolean language sql stable security definer as $$ select exists(select 1 from board_instances b where b.id=$1 and owner_uuid=auth.uid() and active) $$;
-    create function board_instance_can_read(id uuid) returns boolean language sql stable security definer as $$ select board_instance_can_write($1) $$;
-    create table board_workspaces(id uuid primary key, board_instance_id uuid references board_instances, workspace_key text not null,
-      name text not null, sort_order integer not null, active boolean not null default true, archived_at timestamptz,
-      application_scope text default 'c', owner_uuid uuid, created_by uuid references auth.users,
-      created_at timestamptz default now(), updated_at timestamptz default now(), updated_by uuid references auth.users);
-    create table board_tasks(id uuid primary key, workspace_id uuid references board_workspaces on delete restrict,
-      board_instance_id uuid references board_instances, work_code text, title text, status text, completion_at timestamptz,
-      archive_due_at timestamptz, archived_at timestamptz, workflow_version_id uuid, current_workflow_step_id uuid);
-    create table engineering_activity_log(id uuid primary key default gen_random_uuid(), entity_type text, entity_id text, action text,
-      before_data jsonb, after_data jsonb, note text, actor_id uuid, actor_type text, actor_label text, activity_type text);
-    create table retained_attachments(id uuid primary key default gen_random_uuid(), task_id uuid references board_tasks, object_key text);
-    insert into board_workspaces(id,board_instance_id,workspace_key,name,sort_order) values
-      ('${todo}','${board}','todo','待辦',10), ('${history}','${board}','custom-e2e','TASK-081-E2E-20260922',20),
-      ('${completed}','${board}','completed','完成',30), ('${empty}','${board}','empty','空工作區',40),
-      ('${foreignWorkspace}','${foreignBoard}','custom','另一個看板',10);
-    insert into board_tasks(id,workspace_id,board_instance_id,work_code,title,status) values
-      ('${task}','${history}','${board}','TASK-079','Historical owner','done');
-    insert into retained_attachments(task_id,object_key) values ('${task}','unchanged-evidence');
-  `);
-  await db.exec(authority.slice(authority.indexOf('create table if not exists public.board_workflow_definitions'), authority.indexOf('create table if not exists public.board_workflow_adoptions')));
-  await db.exec('alter table board_tasks add foreign key(workflow_version_id) references board_workflow_definitions on delete restrict; alter table board_tasks add foreign key(current_workflow_step_id) references board_workflow_steps on delete restrict;');
-  await db.exec(authority.slice(authority.indexOf('create table if not exists private.board_workflow_action_idempotency'),authority.indexOf('alter table public.board_workflow_definitions enable')));
-  await db.exec('drop index board_workflow_one_initial_step_idx; drop index board_workflow_one_completion_step_idx;');
-  for (const name of ['private.board_workflow_snapshot', 'public.board_c_workflow_save_draft', 'public.board_c_workflow_validate_draft']) await db.exec(fn(authority, name));
-  await db.exec(fn(read('docs/supabase/20260910_c_workflow_publish_state_fix.sql'), 'public.board_c_workflow_publish'));
-  await db.exec(fn(read('docs/supabase/20260913_c_completion_archive_optional_workflow.sql'), 'private.board_c_completion_archive_designation'));
-  await db.exec(read('docs/supabase/20260915_c_workspace_delete_populated_fail_closed.sql'));
-  await db.exec(fn(read('supabase/migrations/20261002193217_task_35_module_c_workspace_ordering_authority.sql'),'public.enforce_worktodo_workspace_scope'));
-  await db.exec('create trigger trg_enforce_worktodo_workspace_scope before update or delete on board_workspaces for each row execute function enforce_worktodo_workspace_scope();');
-  await db.exec(read('supabase/migrations/20261003213137_module_c_workspace_archive_restore_lifecycle.sql'));
-  if (published) {
-    const workspaces = (await db.query('select * from board_workspaces where board_instance_id=$1 order by sort_order',[board])).rows;
-    const steps = workspaces.map(w => ({workspace_id:w.id, step_key:w.workspace_key, name:w.id===todo?'PM custom phase':w.name, sort_order:w.sort_order, role_key:'co',status_key:'ready',is_initial:false,is_completion:false}));
-    const edges = [{transition_key:'todo-history',from_step_key:'todo',to_step_key:'custom-e2e',allowed_roles:['pm']}, {transition_key:'todo-complete',from_step_key:'todo',to_step_key:'completed',allowed_roles:['pm']}];
-    const gates = [{gate_key:'retained-gate',step_key:'custom-e2e',name:'Historical confirmation'}, {gate_key:'active-gate',step_key:'todo',name:'Existing confirmation'}];
-    const evidence = [{gate_key:'retained-gate',evidence_key:'retained-evidence',label:'History',source_kind:'artifact'}, {gate_key:'active-gate',evidence_key:'active-evidence',label:'Active',source_kind:'artifact'}];
-    const saved = (await db.query('select board_c_workflow_save_draft($1,$2,null,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb) result',[board,'Local QA',JSON.stringify(steps),JSON.stringify(edges),JSON.stringify(gates),JSON.stringify(evidence)])).rows[0].result;
-    await db.query('select board_c_workflow_publish($1)',[saved.workflow.id]);
-    await db.query('update board_tasks set workflow_version_id=$1,current_workflow_step_id=$2 where id=$3',[saved.workflow.id,saved.workflow.steps.find(s=>s.workspace_id===history).id,task]);
-  }
-  return db;
-}
+const {fixture,owner,other,board,foreignBoard,todo,history,completed,empty,foreignWorkspace,task}=require('./fixtures/module-c-workspace-lifecycle-sql');
+
 async function value(db, sql, params = []) { return (await db.query(sql, params)).rows[0].result; }
 async function archive(db, ws=history, instance=board) { return value(db,'select board_instance_archive_workspace($1,$2) result',[instance,ws]); }
 async function restore(db, name=null) { return value(db,'select board_instance_restore_workspace($1,$2,$3) result',[board,history,name]); }
@@ -113,7 +44,7 @@ test('Module C archive/restore preserves Task-079 UUID, ownership, attachment, i
   assert.equal(new Set(restored.workflow.workflow.steps.map(s=>s.workspace_id)).size,4);
 });
 
-test('Workspace archive rejects current work, completion designation, empty workspace, foreign scope and unsaved drafts without mutation', async t => {
+test('Workspace archive rejects current work, completion designation, empty workspace, foreign scope without mutation; user drafts remain unpublished', async t => {
   const db = await fixture(); t.after(()=>db.close());
   await db.query('update board_tasks set completion_at=now(),archive_due_at=null where id=$1',[task]);
   await rejected(db,()=>archive(db),/進行中的卡片/);
@@ -122,24 +53,29 @@ test('Workspace archive rejects current work, completion designation, empty work
   await rejected(db,()=>archive(db,empty),/空工作區/);
   await rejected(db,()=>archive(db,foreignWorkspace),/狀態已變更/);
   await db.query('insert into board_workflow_definitions(board_instance_id,version_no,name) values($1,2,$2)',[board,'Unsaved draft']);
-  await rejected(db,()=>archive(db),/尚未發布/);
+  const orphan = await value(db,"select to_jsonb(d) result from board_workflow_definitions d where status='draft'");
+  await archive(db);
+  assert.equal((await value(db,'select to_jsonb(d) result from board_workflow_definitions d where id=$1',[orphan.id])).status,'draft');
   await db.exec(`select set_config('request.uid','${other}',false);`);
   await rejected(db,()=>archive(db),/權限/);
   await assert.rejects(()=>value(db,'select board_instance_list_archived_workspaces($1) result',[board]),/權限/);
 });
 
-test('Restore validates collision, order, same identity and rolls back while drafts exist; no-Workflow lifecycle stays optional', async t => {
+test('Restore validates collision, order and same identity; initializes independent Steps without publishing user Drafts', async t => {
   const db = await fixture(false); t.after(()=>db.close());
-  assert.equal((await archive(db)).workflow,null);
+  assert.equal((await archive(db)).workflow.workflow.transitions.length,0);
   await rejected(db,()=>restore(db,''),/請輸入工作區名稱/);
   await db.query('insert into board_workspaces(id,board_instance_id,workspace_key,name,sort_order) values(gen_random_uuid(),$1,$2,$3,20)',[board,'collision','TASK-081-E2E-20260922']);
   await rejected(db,()=>restore(db),/同名/);
   const restored = await restore(db,'恢復歷史');
-  assert.equal(restored.workspace.sort_order,50); assert.equal(restored.workspace.id,history); assert.equal(restored.workflow,null);
+  assert.equal(restored.workspace.sort_order,50); assert.equal(restored.workspace.id,history); assert.equal(restored.workflow.workflow.transitions.length,0);
   await archive(db);
-  await db.query('insert into board_workflow_definitions(board_instance_id,version_no,name) values($1,1,$2)',[board,'Pending']);
-  await rejected(db,()=>restore(db,'恢復歷史'),/尚未發布/);
-  await db.exec("delete from board_workflow_definitions where status='draft';");
+  await db.query('insert into board_workflow_definitions(board_instance_id,version_no,name) values($1,(select max(version_no)+1 from board_workflow_definitions where board_instance_id=$1),$2)',[board,'Pending']);
+  const beforeDraft=await value(db,"select to_jsonb(d) result from board_workflow_definitions d where status='draft'");
+  await restore(db,'恢復歷史');
+  assert.equal((await value(db,'select to_jsonb(d) result from board_workflow_definitions d where id=$1',[beforeDraft.id])).status,'draft');
+  await archive(db);
+  await db.exec("update board_instance_workflow_state set draft_workflow_version_id=null; delete from board_workflow_definitions where status='draft';");
   // Simulate a retained legacy archived Completion identity; restoring it may
   // not create two canonical Completion designations even without Workflow.
   await db.query('update board_workspaces set workspace_key=$2 where id=$1',[history,'legacy-completed']);

@@ -134,9 +134,27 @@ The C contract is capability-shared and data-independent:
 | Release identity | Published `module_releases` source identity | Adoption stores server-derived Published identity |
 | Runtime health | `public.board_c_authority_conformance_check(uuid)` | Management Center reads and displays; it does not re-score |
 
-Workflow is an optional capability. `NOT_CONFIGURED` / `N/A` is legal; a
-configured Consumer Workflow remains Consumer-owned and does not replace the
-shared C engines or authority contracts.
+Workflow Edges are optional; every active Module C Workspace has exactly one
+Step in its structural baseline. New Boards initialize all Workspace Steps with
+zero Edges. Standalone Steps can create TASKs without user Edge publication.
+Legacy `NOT_CONFIGURED` state is repaired by the existing lifecycle writer.
+
+Workspace create, empty soft-deactivate, archive, restore and TASK create delegate
+structural reconciliation to `private.board_workspace_publish_lifecycle` within
+the canonical RPC transaction. Published/retired evidence supplies system nodes
+and existing Edges; user Drafts never supply automatic Publish content. Required
+Draft node structure is synchronized while user Edge/settings remain unpublished.
+Restore preserves UUID/history and adds a standalone Step without incident Edges.
+The existing one-Draft index remains enforced: a retained Draft is parked only
+inside the locked transaction, then restored with its identity/content/pointer;
+any failure rolls back the entire operation. Historical Published evidence and
+Task bindings are never rewritten by structural reconciliation.
+
+Graph endpoints do not define semantic Completion ownership. The existing stable
+Completion designation owns archive scope, with the same 24h policy/countdown.
+A Board without that designation remains archive `N/A`, even with a structural
+Published baseline. Consumer Workflow remains Consumer-owned and does not replace
+the shared C engines or authority contracts.
 
 The current formal C Completion policy is 24 hours (`86400` seconds), starting
 at the actual Completion entry event. It is not based on creation time or last

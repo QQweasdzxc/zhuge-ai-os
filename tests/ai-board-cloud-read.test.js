@@ -210,7 +210,6 @@ test("WorkTodo read and write adapters keep Application Scope and Owner UUID in 
     await BoardRead.worktodoAddTaskProgressNote({ taskId: taskRow.id, note: "Progress" }, { gateway });
     await BoardRead.worktodoMigrateTask("WLTK-004", { gateway });
     assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
-      "board_c_workflow_get",
       "board_instance_create_task",
       "worktodo_update_task",
       "worktodo_add_task_progress_note",
@@ -265,10 +264,14 @@ test("WorkTodo card summary honors both new system and historical human Progress
 
 test("Board workspace mutations stay controlled and retired generic movement fails closed", async () => {
   const calls = [];
+  const lifecycle = require("./fixtures/module-c-workspace-workflow-gateway.js").createWorkspaceWorkflowGateway();
   const gateway = {
     rpc: async (name, params) => {
       calls.push({ type: "rpc", name, params });
-      if (name === "board_create_workspace" || name === "board_rename_workspace") {
+      if (name === "board_instance_create_workspace" || name === "board_c_workflow_get") {
+        return lifecycle.gateway.rpc(name, params);
+      }
+      if (name === "board_rename_workspace") {
         return { id: "workspace-1", workspace_key: "", name: params.p_name, sort_order: 60, active: true };
       }
       if (name === "board_move_task_workspace") return { id: params.p_task_id, status: "qa", assignee: "GPT", workspace_id: params.p_target_workspace_id };
@@ -276,6 +279,7 @@ test("Board workspace mutations stay controlled and retired generic movement fai
     },
     select: async (table, query) => {
       calls.push({ type: "select", table, query });
+      if (table === "board_instances" || table === "board_workspaces") return lifecycle.gateway.select(table, query);
       return [{ id: "audit-1", entity_id: "task-1", before_data: { workspace_id: "a", workspace_name: "Co區" }, after_data: { workspace_id: "b", workspace_name: "GPT區" }, actor_label: "QJC", created_at: "2026-08-15T00:00:00Z", action: "workspace_moved" }];
     }
   };
@@ -290,16 +294,20 @@ test("Board workspace mutations stay controlled and retired generic movement fai
   );
   const movements = await BoardRead.loadMovementHistory("task-1", { gateway });
   assert.equal(created.name, "測試區");
+  assert.equal(created.workflowBinding.state, "published");
+  assert.equal(lifecycle.state.published.steps.filter(step => step.workspace_id === created.id).length, 1);
   assert.equal(renamed.name, "測試區2");
   assert.equal(movements[0].fromWorkspace, "Co區");
   assert.equal(movements[0].toWorkspace, "GPT區");
   assert.deepEqual(calls.filter(call => call.type === "rpc").map(call => call.name), [
-    "board_create_workspace",
+    "board_instance_create_workspace",
+    "board_c_workflow_get",
     "board_rename_workspace",
     "board_reorder_workspaces"
   ]);
   assert.equal(calls.some(call => call.name === "board_move_task_workspace"), false);
-  assert.match(calls.find(call => call.type === "select").query, /workspace_moved/);
+  assert.equal(calls.some(call => call.name === "board_create_workspace"), false);
+  assert.match(calls.find(call => call.type === "select" && call.table === "engineering_activity_log").query, /workspace_moved/);
 });
 
 test("AI Board populated Workspace Delete fails closed while WorkTodo uses C Workflow reconciliation", async () => {
