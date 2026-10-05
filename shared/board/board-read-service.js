@@ -910,7 +910,7 @@
     const encoded = encodeURIComponent(String(taskId || ""));
     const rows = await gateway.select(
       "board_task_attachments",
-      `?select=id,task_id,activity_id,attachment_scope,filename,mime_type,byte_size,storage_bucket,storage_path,upload_status,deletion_status,deleted_at,deleted_by,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&deletion_status=eq.active&order=created_at.desc`
+      `?select=id,task_id,activity_id,attachment_scope,filename,display_name,note,mime_type,byte_size,storage_bucket,storage_path,upload_status,deletion_status,deleted_at,deleted_by,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&deletion_status=eq.active&order=created_at.desc`
     );
     return (Array.isArray(rows) ? rows : []).map(normalizeTaskAttachment);
   }

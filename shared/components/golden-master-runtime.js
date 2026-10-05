@@ -3008,8 +3008,10 @@
           if (action === "rename" && !trimmed) return setBanner("附件顯示名稱不可空白。", "error");
           await actionContract.execute("updateAttachmentMetadata", {
             taskId: task.id, attachmentId,
-            displayName: action === "rename" ? trimmed : (item.filename || filename),
-            note: action === "note" ? trimmed : currentNote
+            // NULL means preserve the stored value in the canonical metadata RPC.
+            // Never overwrite the other field using a potentially stale UI item.
+            displayName: action === "rename" ? trimmed : null,
+            note: action === "note" ? trimmed : null
           }, {
             key: `attachment-metadata:${task.id}:${attachmentId}`,
             onSuccess: async () => {
