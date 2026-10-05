@@ -235,7 +235,11 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell.zhuge-nav-collapsed .side-section-heading.on {
   box-shadow: inset 3px 0 var(--zhuge-accent, #60a5fa);
 }
-.zhuge-module-shell.zhuge-nav-collapsed .side-item-icon,
+.zhuge-module-shell.zhuge-nav-collapsed .side-item-icon {
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  min-width: 0;
+}
 .zhuge-module-shell.zhuge-nav-collapsed .nav-section-icon {
   flex: 0 0 auto;
 }
@@ -324,6 +328,9 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
   font-size: var(--zhuge-sidebar-item-font-size);
   line-height: var(--zhuge-sidebar-item-line-height);
 }
+/* Keep native buttons and routed anchors identical even when a later
+ * shared responsive reset applies font: inherit to buttons. */
+.zhuge-module-shell > .os-sidebar .side-item-child { font-weight: 750; }
 .zhuge-module-shell .side-item-child {
   min-height: var(--zhuge-sidebar-child-height);
   padding: var(--zhuge-sidebar-child-padding-block) var(--zhuge-sidebar-child-padding-inline);
@@ -371,4 +378,14 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
 .zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"] > .workspace-app,
 .zhuge-module-shell[data-shared-navigation-mode="template-only"][data-shared-navigation-active="true"] > .app {
   grid-column: 2;
+}
+
+/* A mobile drawer must stay within its viewport so the shared scroll region
+ * can absorb long Consumer lists instead of extending below the screen. */
+@media (max-width: 767px) {
+  .zhuge-module-shell > .os-sidebar {
+    height: calc(100dvh - var(--zhuge-safe-area-top) - var(--zhuge-safe-area-bottom));
+    max-height: calc(100dvh - var(--zhuge-safe-area-top) - var(--zhuge-safe-area-bottom));
+    min-height: 0;
+  }
 }
