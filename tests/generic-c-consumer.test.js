@@ -136,3 +136,82 @@ test("Generic consumer creation closes the anonymous low-level instance ACL", ()
   assert.match(security, /grant execute on function public\.board_create_instance\(text, text, text\)\s+to postgres/);
   assert.doesNotMatch(security, /grant execute[\s\S]*to authenticated/);
 });
+
+const identityKeys = ["boardInstanceId", "name", "taskCodePrefix", "templateKey", "projectAssignment", "legacyApplicationScope", "isTemplateInstance", "consumerId", "consumerRole", "legacyCompatibilityIdentity", "identityResolved"];
+const identityOf = value => Object.fromEntries(identityKeys.map(key => [key, value[key]]));
+
+for (const assignment of [null, "worklog", "investment"]) {
+  test(`Consumer identity is stable across all service entries: ${assignment || "unassigned"}`, async () => {
+    const row = { id: "consumer-fixture", name: "任意名稱", task_code_prefix: "IVTK", template_key: "c", project_assignment: assignment, legacy_application_scope: null, is_template_instance: false, active: true };
+    const gateway = { async select(table, query) {
+      if (table === "board_instances") {
+        if (!query.includes("select=*")) assert.match(query, /project_assignment/);
+        return [row];
+      }
+      assert.match(query, /board_instance_id=eq.consumer-fixture/);
+      return [];
+    }, async rpc() { throw new Error("Read-only identity projection must not mutate Cloud"); } };
+    const previous = global.getSharedSessionSnapshot;
+    global.getSharedSessionSnapshot = () => ({ isAuthenticated: true });
+    try {
+      const normalized = BoardReadService.normalizeBoardInstance(row);
+      const [listed] = await BoardReadService.listBoardInstances({ gateway });
+      const [consumer] = await BoardReadService.listModuleConsumers({ gateway });
+      const service = BoardReadService.createInstanceService({ gateway, boardInstanceId: row.id, consumerId: "stale-caller-identity", readOnly: true });
+      assert.equal(service.requestedConsumerId, "stale-caller-identity");
+      assert.equal(Object.hasOwn(service, "consumerId"), false);
+      const loaded = await service.load();
+      assert.equal(Object.hasOwn(service, "consumerId"), false);
+      assert.equal(service.requestedConsumerId, "stale-caller-identity");
+      for (const projection of [listed, consumer, loaded]) assert.deepEqual(identityOf(projection), identityOf(normalized));
+      assert.equal(loaded.consumerRole, "generic-consumer");
+      assert.equal(loaded.consumerId, row.id);
+      assert.equal(loaded.projectAssignment, assignment || "");
+      const renamed = BoardReadService.normalizeBoardInstance({ ...row, name: "C 母版", task_code_prefix: "GAS" });
+      assert.equal(renamed.consumerId, normalized.consumerId);
+      assert.equal(renamed.consumerRole, normalized.consumerRole);
+    } finally {
+      if (previous === undefined) delete global.getSharedSessionSnapshot;
+      else global.getSharedSessionSnapshot = previous;
+    }
+  });
+}
+
+test("Legacy compatibility derives from persisted role/scope, never prefix", async () => {
+  const rows = [
+    { id: "mother-fixture", is_template_instance: true, legacy_application_scope: null, task_code_prefix: "OTHER" },
+    { id: "ai-fixture", is_template_instance: false, legacy_application_scope: "ai_board", task_code_prefix: "OTHER" },
+    { id: "worktodo-fixture", is_template_instance: false, legacy_application_scope: "worktodo", task_code_prefix: "OTHER" },
+    { id: "gas-fixture", is_template_instance: false, legacy_application_scope: "procurement", task_code_prefix: "GAS" },
+    { id: "investment-fixture", is_template_instance: false, legacy_application_scope: null, task_code_prefix: "IVTK" },
+    { id: "personal-fixture", is_template_instance: false, legacy_application_scope: "worktodo-user-fixture", task_code_prefix: "PERSONAL" }
+  ].map(row => ({ ...row, template_key: "c", name: "任意名稱", active: true }));
+  const projections = await BoardReadService.listModuleConsumers({ gateway: { async select() { return rows; } } });
+  assert.deepEqual(projections.map(row => row.consumerId), ["c", "ai-board", "worktodo", "procurement", "investment-fixture", "worktodo-user-fixture"]);
+  assert.deepEqual(projections.map(row => row.consumerRole), ["mother", "legacy-adopter", "legacy-adopter", "legacy-adopter", "generic-consumer", "legacy-adopter"]);
+  const previous = global.getSharedSessionSnapshot;
+  global.getSharedSessionSnapshot = () => ({ isAuthenticated: true });
+  try {
+    for (const row of rows) {
+      const gateway = { async select(table) { return table === "board_instances" ? [row] : []; } };
+      const loaded = await BoardReadService.createInstanceService({ gateway, boardInstanceId: row.id, readOnly: true }).load();
+      assert.deepEqual(identityOf(loaded), identityOf(projections.find(item => item.id === row.id)));
+    }
+  } finally {
+    if (previous === undefined) delete global.getSharedSessionSnapshot;
+    else global.getSharedSessionSnapshot = previous;
+  }
+});
+
+test("Incomplete identity cannot be guessed as Mother or Generic", async () => {
+  for (const row of [{}, { id: "unknown", template_key: "c" }, { id: "unknown", is_template_instance: false }]) {
+    const normalized = BoardReadService.normalizeBoardInstance(row);
+    assert.equal(normalized.identityResolved, false);
+    assert.equal(normalized.consumerRole, "unknown");
+    assert.equal(normalized.consumerId, "");
+    const gateway = { async select() { return [row]; } };
+    assert.deepEqual(await BoardReadService.listBoardInstances({ gateway }), []);
+    assert.deepEqual(await BoardReadService.listModuleConsumers({ gateway }), []);
+    if (row.id) await assert.rejects(BoardReadService.createInstanceService({ gateway, boardInstanceId: row.id, readOnly: true }).load(), { code: "BOARD_INSTANCE_IDENTITY_UNRESOLVED" });
+  }
+});

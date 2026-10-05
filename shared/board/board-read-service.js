@@ -682,16 +682,31 @@
   }
 
   function normalizeBoardInstance(row = {}) {
+    const id = String(row.id || row.boardInstanceId || "").trim();
+    const templateKey = String(row.template_key || row.templateKey || "").trim();
+    const legacyApplicationScope = String(row.legacy_application_scope || row.legacyApplicationScope || "").trim();
+    const templateFlag = row.is_template_instance ?? row.isTemplateInstance;
+    const identityResolved = Boolean(id && templateKey && typeof templateFlag === "boolean");
+    const isTemplateInstance = templateFlag === true;
+    const legacyCompatibilityIdentity = legacyApplicationScope.replace(/_/g, "-");
+    const consumerRole = !identityResolved ? "unknown" : isTemplateInstance ? "mother" : legacyApplicationScope ? "legacy-adopter" : "generic-consumer";
+    const consumerId = !identityResolved ? "" : isTemplateInstance ? templateKey : legacyCompatibilityIdentity || id;
     return Object.freeze({
-      id: String(row.id || ""),
+      boardInstanceId: id,
+      identityResolved,
+      consumerId,
+      consumerRole,
+      legacyCompatibilityIdentity,
+      consumerLabel: isTemplateInstance && identityResolved ? "C 母版" : String(row.name || row.task_code_prefix || row.taskCodePrefix || consumerId),
+      id,
       name: String(row.name || ""),
       taskCodePrefix: String(row.task_code_prefix || row.taskCodePrefix || ""),
-      templateKey: String(row.template_key || row.templateKey || ""),
+      templateKey,
       authorizationMode: String(row.authorization_mode || row.authorizationMode || ""),
       ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
-      legacyApplicationScope: String(row.legacy_application_scope || row.legacyApplicationScope || ""),
+      legacyApplicationScope,
       projectAssignment: String(row.project_assignment || row.projectAssignment || ""),
-      isTemplateInstance: row.is_template_instance === true || row.isTemplateInstance === true,
+      isTemplateInstance,
       active: row.active !== false,
       createdAt: row.created_at || row.createdAt || null,
       updatedAt: row.updated_at || row.updatedAt || null
@@ -707,6 +722,7 @@
     return (Array.isArray(rows) ? rows : [])
       .map(normalizeBoardInstance)
       .filter(instance => (
+        instance.identityResolved &&
         instance.id &&
         instance.active !== false &&
         instance.isTemplateInstance !== true &&
@@ -721,22 +737,12 @@
     const templateKey = encodeURIComponent(requestedTemplateKey);
     const rows = await gateway.select(
       "board_instances",
-      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
+      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
     );
     return (Array.isArray(rows) ? rows : [])
-      .map(row => {
-        const instance = normalizeBoardInstance(row);
-        const legacyScope = instance.legacyApplicationScope.replace(/_/g, "-");
-        const consumerId = instance.isTemplateInstance ? "c" : legacyScope || instance.id;
-        return Object.freeze({
-          ...instance,
-          consumerId,
-          consumerLabel: instance.isTemplateInstance
-            ? "C 母版"
-            : instance.name || instance.taskCodePrefix || consumerId,
-        });
-      })
+      .map(normalizeBoardInstance)
       .filter(instance => (
+        instance.identityResolved &&
         instance.id &&
         instance.active !== false &&
         instance.templateKey === requestedTemplateKey &&
@@ -2106,18 +2112,25 @@
 
     async function instanceLoad(options = {}) {
       const instance = await resolveInstance();
+      const boardIdentity = normalizeBoardInstance(instance);
+      if (!boardIdentity.identityResolved) {
+        const error = new Error("Canonical Board identity is incomplete.");
+        error.code = "BOARD_INSTANCE_IDENTITY_UNRESOLVED";
+        throw error;
+      }
+      if (requestedBoardInstanceId && boardIdentity.id !== requestedBoardInstanceId) {
+        const error = new Error("Canonical Board identity does not match the requested instance.");
+        error.code = "BOARD_INSTANCE_IDENTITY_MISMATCH";
+        throw error;
+      }
       const completionArchive = await instanceReconcileCompletionArchiveOnLoad();
       const result = await load({ ...options, ...withGateway(options), boardInstanceId: instance.id });
       return Object.freeze({
         ...result,
         completionArchive,
-        boardName: String(instance.name || ""),
-        taskCodePrefix: String(instance.task_code_prefix || ""),
-        templateKey: String(instance.template_key || templateKey),
-        authorizationMode: String(instance.authorization_mode || ""),
-        isTemplateInstance: instance.is_template_instance === true,
-        readOnly,
-        consumerId: requestedConsumerId
+        ...boardIdentity,
+        boardName: boardIdentity.name,
+        readOnly
       });
     }
     // The existing Workspace/Task RPCs own atomic structural reconciliation.
@@ -2440,7 +2453,9 @@
     const service = Object.freeze({
       applicationScope: "c",
       templateKey,
-      consumerId: requestedConsumerId,
+      // Request/legacy compatibility input only. Canonical consumerId is
+      // resolved exclusively by normalizeBoardInstance() in load().
+      requestedConsumerId,
       boardInstanceId: requestedBoardInstanceId,
       readOnly,
       lifecycleContract: C_LIFECYCLE_ACCEPTANCE_CONTRACT,
