@@ -90,16 +90,16 @@
       .map(instance => {
         const id = `consumer-board:${instance.id}`;
         const prefix = String(instance.taskCodePrefix || "").trim().toUpperCase();
-        const name = String(instance.name || "").trim() || prefix || "未命名看板";
+        const name = String(instance.name || "");
         return {
           id,
           boardInstanceId: String(instance.id),
           taskCodePrefix: prefix,
           icon: "▦",
           label: name,
-          navLabel: prefix ? `${name}（${prefix}）` : name,
+          navLabel: name,
           navTitle: `${name}${prefix ? ` · ${prefix}` : ""}`,
-          group: "consumer-boards",
+          group: instance.projectAssignment || "consumer-boards",
           enabled: true,
           visible: true,
           externalHref: `${base}app/Board/template-preview/?templateView=board&boardInstanceId=${encodeURIComponent(String(instance.id))}`
@@ -178,9 +178,13 @@
     const brand = root
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
-    const camp = sectionMarkup("工作空間", "⛺", ["worklog", "tasks-new", "procurement", "investment"], registry, { ...options, externalRoot: root }, esc, "camp", [1, 2]);
+    const worklogConsumers = isVisible(registry.worklog) ? consumerItems.filter(item => item.group === "worklog").map(item => item.id) : [];
+    const investmentConsumers = isVisible(registry.investment) ? consumerItems.filter(item => item.group === "investment").map(item => item.id) : [];
+    const campIds = ["worklog", "tasks-new", "procurement", ...worklogConsumers, "investment", ...investmentConsumers];
+    const childIndexes = campIds.flatMap((id, index) => id === "tasks-new" || id === "procurement" || worklogConsumers.includes(id) || investmentConsumers.includes(id) ? [index] : []);
+    const camp = sectionMarkup("工作空間", "⛺", campIds, registry, { ...options, externalRoot: root }, esc, "camp", childIndexes);
     const liveTools = sectionMarkup("即時資訊", "🛰️", ["skyeye"], registry, { ...options, externalRoot: root }, esc, "live");
-    const consumerBoards = sectionMarkup("套用的看板", "▦", consumerItems.map(item => item.id), registry, { ...options, externalRoot: root }, esc, "consumer-boards");
+    const consumerBoards = sectionMarkup("套用的看板", "▦", consumerItems.filter(item => item.group === "consumer-boards").map(item => item.id), registry, { ...options, externalRoot: root }, esc, "consumer-boards");
     const board = sectionMarkup("AI Board", "🤖", ["ai-board-board", "ai-board-principles", "ai-board-system-map"], registry, { ...options, externalRoot: root }, esc, "ai-board", [0, 1, 2], "ai-board");
     // The sidebar structure must be identical for every Workspace. Governance
     // destinations are rendered by the Control Console's second-level tabs;
@@ -481,39 +485,10 @@
       syncTime: target?.dataset.syncTime || ""
     };
   }
-  async function readBoardInstances(options = {}) {
-    if (Array.isArray(options.boardInstances)) return options.boardInstances;
+  async function readBoardInstances() {
     const service = global.ZhugeBoardReadService;
-    if (typeof service?.listBoardInstances === "function") {
-      try { return await service.listBoardInstances(); } catch { return []; }
-    }
-    const gateway = global.ZhugeSupabaseGateway?.createDataGateway?.();
-    if (!gateway || typeof gateway.select !== "function") return [];
-    try {
-      const rows = await gateway.select(
-        "board_instances",
-        "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
-      );
-      return (Array.isArray(rows) ? rows : []).map(row => ({
-        id: String(row?.id || ""),
-        name: String(row?.name || ""),
-        taskCodePrefix: String(row?.task_code_prefix || ""),
-        templateKey: String(row?.template_key || "").toLowerCase(),
-        authorizationMode: String(row?.authorization_mode || ""),
-        ownerUuid: String(row?.owner_uuid || ""),
-        legacyApplicationScope: String(row?.legacy_application_scope || ""),
-        isTemplateInstance: row?.is_template_instance === true,
-        active: row?.active !== false,
-        createdAt: row?.created_at || null,
-        updatedAt: row?.updated_at || null
-      })).filter(row => (
-        row.id &&
-        row.active !== false &&
-        row.isTemplateInstance !== true &&
-        !row.legacyApplicationScope &&
-        row.templateKey === "c"
-      ));
-    } catch { return []; }
+    if (typeof service?.listBoardInstances !== "function") return [];
+    try { return await service.listBoardInstances(); } catch { return []; }
   }
   function readTemplatePolicyUserId() {
     try {

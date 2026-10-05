@@ -88,7 +88,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /sectionMarkup\("工作空間", "⛺", \["worklog", "tasks-new", "procurement", "investment"\]/);
+  assert.match(nav, /const campIds = \["worklog", "tasks-new", "procurement", \.\.\.worklogConsumers, "investment", \.\.\.investmentConsumers\]/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;
   assert.match(worklogIndex, new RegExp(`<script src="\\.\\.\\/\\.\\.\\/shared/config/version\\.js\\?v=${rootBuild}"><\\/script>`));
@@ -242,4 +242,77 @@ test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap"
   assert.match(navigation, /aria-hidden.*String\(!isOpen\)/);
   assert.match(navigation, /global\.addEventListener\?\.\("resize"/);
   assert.match(navigation, /mobileSidebarState\.has\(shell\)/);
+});
+
+test("Generic consumers use Board names and project assignment for parent/child placement", () => {
+  const navigation = loadNavigationForTest();
+  const boards = [
+    { id: "assigned-work", name: "Project Tasks", taskCodePrefix: "RANDOM", projectAssignment: "worklog" },
+    { id: "assigned-investment", name: "Portfolio Tasks", taskCodePrefix: "RANDOM", projectAssignment: "investment" },
+    { id: "unassigned", name: "Independent Tasks", taskCodePrefix: "WLTK", projectAssignment: "" }
+  ];
+  const html = navigation.render({ externalRoot: "/", boardInstances: boards, activeBoardInstanceId: "assigned-work" });
+  const entry = id => html.match(new RegExp(`<a[^>]*data-shared-nav-item="${id}"[^>]*>[\\s\\S]*?<\\/a>`))?.[0];
+  const position = id => html.indexOf(`data-shared-nav-item="${id}"`);
+  assert.ok(position("worklog") < position("tasks-new"));
+  assert.ok(position("tasks-new") < position("procurement"));
+  assert.ok(position("procurement") < position("consumer-board:assigned-work"));
+  assert.ok(position("consumer-board:assigned-work") < position("investment"));
+  assert.ok(position("investment") < position("consumer-board:assigned-investment"));
+  assert.ok(position("consumer-board:assigned-investment") < html.indexOf('data-nav-group="consumer-boards"'));
+  assert.ok(position("consumer-board:unassigned") > html.indexOf('data-nav-group="consumer-boards"'));
+  for (const board of boards) {
+    const link = entry(`consumer-board:${board.id}`);
+    assert.match(link, new RegExp(`class="side-item-label">${board.name}<\\/span>`));
+    assert.match(link, new RegExp(`title="${board.name} · ${board.taskCodePrefix}"`));
+    assert.doesNotMatch(link, new RegExp(`${board.name}（`));
+    assert.match(link, new RegExp(`boardInstanceId=${board.id}`));
+  }
+  assert.match(entry("consumer-board:assigned-work"), /side-item-child/);
+  assert.match(entry("consumer-board:assigned-work"), /aria-current="page"/);
+  assert.match(entry("consumer-board:assigned-investment"), /side-item-child/);
+  assert.doesNotMatch(entry("consumer-board:assigned-investment"), /aria-current/);
+  assert.doesNotMatch(entry("consumer-board:unassigned"), /side-item-child/);
+  const renamedPrefixes = navigation.render({ boardInstances: boards.map(board => ({ ...board, taskCodePrefix: "OTHER" })) });
+  assert.ok(renamedPrefixes.indexOf('data-shared-nav-item="consumer-board:assigned-work"') < renamedPrefixes.indexOf('data-shared-nav-item="investment"'));
+  assert.ok(renamedPrefixes.indexOf('data-shared-nav-item="consumer-board:assigned-investment"') > renamedPrefixes.indexOf('data-shared-nav-item="investment"'));
+});
+
+test("Official GAS/IVTK compatibility entries and parent visibility remain intact", () => {
+  const navigation = loadNavigationForTest();
+  const html = navigation.render({ externalRoot: "/", boardInstances: [
+    { id: "gas-fixture", name: "Official GAS", taskCodePrefix: "GAS" },
+    { id: "ivtk-fixture", name: "Official IVTK", taskCodePrefix: "IVTK" }
+  ] });
+  assert.match(html, /data-shared-nav-item="tasks-new"[^>]*href="\/app\/Board\/worktodo\/"/);
+  assert.match(html, /data-shared-nav-item="procurement"[^>]*href="\/app\/Board\/procurement\/"/);
+  assert.match(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
+  assert.doesNotMatch(html, /consumer-board:(gas-fixture|ivtk-fixture)/);
+  const general = loadNavigationForTest({ runtime: { isCreator: false } }).render({ boardInstances: [
+    { id: "hidden-investment", name: "Hidden child", projectAssignment: "investment", taskCodePrefix: "OTHER" }
+  ] });
+  assert.doesNotMatch(general, /consumer-board:hidden-investment/);
+});
+
+test("Navigation registry reads only shared canonical service and fails closed without fallback", async () => {
+  const window = {};
+  const document = { readyState: "loading", body: null, addEventListener() {} };
+  // Expose the existing private reader inside the test VM, without adding a
+  // public Navigation resolver or changing its production API.
+  const source = read("shared/components/zhuge-navigation.js").replace(
+    '  global.ZhugeSharedNavigation = Object.freeze(',
+    '  global.readBoardInstancesForTest = readBoardInstances;\n  global.ZhugeSharedNavigation = Object.freeze('
+  );
+  vm.runInNewContext(source, { window, document });
+  let directReads = 0;
+  window.ZhugeSupabaseGateway = { createDataGateway() { directReads++; throw new Error("Navigation must not query Cloud directly"); } };
+  assert.equal((await window.readBoardInstancesForTest({ boardInstances: [{ id: "guessed" }] })).length, 0);
+  window.ZhugeBoardReadService = { async listBoardInstances() { throw new Error("Shared read failed"); } };
+  assert.equal((await window.readBoardInstancesForTest()).length, 0);
+  const canonical = [{ id: "shared-projection", name: "From shared service", projectAssignment: "worklog" }];
+  let reads = 0;
+  window.ZhugeBoardReadService = { async listBoardInstances() { reads++; return canonical; } };
+  assert.equal(await window.readBoardInstancesForTest(), canonical);
+  assert.equal(reads, 1);
+  assert.equal(directReads, 0);
 });

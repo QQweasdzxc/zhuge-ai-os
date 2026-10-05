@@ -110,7 +110,8 @@ test("Shared Navigation renders registry-driven C consumer routes", () => {
     build: "20260829-1024"
   });
   assert.match(rendered, /套用的看板/);
-  assert.match(rendered, /QA Template Board（QAT）/);
+  assert.match(rendered, /class="side-item-label">QA Template Board<\/span>/);
+  assert.doesNotMatch(rendered, /QA Template Board（QAT）/);
   assert.match(rendered, /boardInstanceId=qa-instance/);
   assert.match(rendered, /class="side-item on/);
 });
