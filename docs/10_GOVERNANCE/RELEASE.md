@@ -11,6 +11,19 @@ Version + Build + Git Commit + Package Time
 The Build identifies the formal release, not only a runtime compile. A public
 page-only change still receives a new Build.
 
+## Production redeployment Version rule
+
+Every Production upload or deployment, including a hotfix, re-upload or
+redeployment of unchanged Source, MUST use a new Product Version and a new
+Asia/Taipei Build ID. Reusing the previous Production Version is prohibited.
+This rule also applies to every main Push because main triggers Pages Auto Deploy.
+Unchanged-source artifact-only operations do not deploy and remain exempt.
+
+Product Version / Build synchronization is not a C Mother publication. Preserve
+Published C snapshot, adoption records and published identity; update only the
+Development projection where the existing release-consistency contract requires it.
+Production migration and business data mutation remain separate PM gates.
+
 ## MATERIAL SOURCE CHANGE RULE
 
 Any completed material Source change set that is ready for delivery, backup,

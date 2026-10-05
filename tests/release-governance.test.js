@@ -125,7 +125,8 @@ test("normal identity passes the Pre-Packaging Gate", () => {
   const gate = Governance.assertSourceIdentity(Governance.readIdentitySnapshot(ROOT));
   assert.equal(gate.status, "PASS");
   assert.equal(gate.build, BUILD);
-  assert.equal(gate.version, VERSION);
+  assert.equal(gate.version, JSON.parse(fs.readFileSync(path.join(ROOT, "version.json"), "utf8")).version);
+  assert.equal(gate.publishedCIdentity.version, VERSION);
   assert.equal(gate.publishedCIdentity.build, PUBLISHED_BUILD);
   assert.equal(gate.publishedCIdentity.sourceCommit, PUBLISHED_SOURCE_COMMIT);
 });
