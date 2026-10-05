@@ -690,6 +690,7 @@
       authorizationMode: String(row.authorization_mode || row.authorizationMode || ""),
       ownerUuid: String(row.owner_uuid || row.ownerUuid || ""),
       legacyApplicationScope: String(row.legacy_application_scope || row.legacyApplicationScope || ""),
+      projectAssignment: String(row.project_assignment || row.projectAssignment || ""),
       isTemplateInstance: row.is_template_instance === true || row.isTemplateInstance === true,
       active: row.active !== false,
       createdAt: row.created_at || row.createdAt || null,
@@ -701,7 +702,7 @@
     const gateway = options.gateway || requireGateway();
     const rows = await gateway.select(
       "board_instances",
-      "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,is_template_instance,active,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
+      "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
     );
     return (Array.isArray(rows) ? rows : [])
       .map(normalizeBoardInstance)
@@ -2601,6 +2602,9 @@
       p_workflow_blueprint: input.workflowBlueprint && typeof input.workflowBlueprint === "object" ? input.workflowBlueprint : null,
       p_idempotency_key: idempotencyKey
     };
+    if (Object.prototype.hasOwnProperty.call(input, "projectAssignment")) {
+      args.p_project_assignment = String(input.projectAssignment || "").trim().toLowerCase() || null;
+    }
     return gateway.rpc("board_provision_c_consumer_v2", args);
   }
 

@@ -3896,7 +3896,8 @@
         name,
         taskCodePrefix: prefix,
         templateKey: "c",
-        applicationScope: project,
+        projectAssignment: project,
+        applicationScope: null,
         idempotencyKey: state.consumerProvisionIdempotencyKey
       });
       const instance = result?.board_instance || result?.boardInstance || result?.instance;

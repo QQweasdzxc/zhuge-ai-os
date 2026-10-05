@@ -339,3 +339,9 @@
 
 .zhuge-module-shell .board-header-mobile-label{display:none}
 @media(max-width:767px){.zhuge-module-shell .board-header-desktop-label{display:none}.zhuge-module-shell .board-header-mobile-label{display:inline}}
+
+/* Shared Module C interaction affordance; primary is emphasis, not clickability. */
+.zhuge-module-shell .btn:not(:disabled):not([aria-disabled="true"]){cursor:pointer;transition:filter .12s ease,border-color .12s ease,box-shadow .12s ease}
+.zhuge-module-shell .btn:not(:disabled):not([aria-disabled="true"]):hover{filter:brightness(1.18);border-color:var(--zhuge-accent,#7eb2ff);box-shadow:0 0 0 1px var(--zhuge-accent,#7eb2ff)}
+.zhuge-module-shell .btn:not(:disabled):not([aria-disabled="true"]):focus-visible{outline:2px solid var(--zhuge-accent,#7eb2ff);outline-offset:3px}
+.zhuge-module-shell .btn:disabled,.zhuge-module-shell .btn[aria-disabled="true"]{cursor:not-allowed;opacity:.55}
