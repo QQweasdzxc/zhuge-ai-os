@@ -58,6 +58,7 @@ test("Generic C board registry only exposes active non-template C consumers", as
       assert.match(query, /is_template_instance=eq\.false/);
       assert.match(query, /legacy_application_scope=is.null/);
       assert.match(query, /template_key=eq\.c/);
+      assert.match(query, /project_assignment/);
       return [
         { id: "qa", name: "QA Template Board", task_code_prefix: "QAT", template_key: "c", active: true, is_template_instance: false },
         { id: "mother", name: "C 母版", task_code_prefix: "MDTK", template_key: "c", active: true, is_template_instance: true },
@@ -86,6 +87,60 @@ test("Generic module consumer status reads the full registry identity set", asyn
   const consumers = await BoardReadService.listModuleConsumers({ templateKey: "c", gateway });
   assert.deepEqual(consumers.map(consumer => consumer.consumerId), ["c", "worktodo", "ai-board", "qa-instance"]);
   assert.equal(consumers[3].consumerLabel, "QA Template Board");
+});
+
+test("Generic C projection derives identity and placement from canonical Board Instance fields", () => {
+  const worklog = BoardReadService.projectBoardConsumer({
+    id: "consumer-worklog",
+    name: "壽德待辦",
+    task_code_prefix: "SDTK",
+    template_key: "c",
+    project_assignment: "worklog",
+    active: true,
+    is_template_instance: false
+  });
+  assert.equal(worklog.displayName, "壽德待辦");
+  assert.equal(worklog.taskCodePrefix, "SDTK");
+  assert.equal(worklog.consumerKind, "generic-c-consumer");
+  assert.equal(worklog.navigationParent, "worklog");
+  assert.equal(worklog.runtimeRole, "consumer");
+  assert.equal(worklog.governanceMode, "consumer");
+  assert.equal(worklog.isGenericCConsumer, true);
+
+  const investment = BoardReadService.projectBoardConsumer({
+    id: "consumer-investment",
+    name: "投資測試板",
+    task_code_prefix: "TEST",
+    template_key: "c",
+    project_assignment: "investment",
+    active: true,
+    is_template_instance: false
+  });
+  assert.equal(investment.navigationParent, "investment");
+
+  const unassigned = BoardReadService.projectBoardConsumer({
+    id: "consumer-unassigned",
+    name: "未歸屬測試板",
+    task_code_prefix: "DEMO",
+    template_key: "c",
+    active: true,
+    is_template_instance: false
+  });
+  assert.equal(unassigned.navigationParent, "consumer-boards");
+
+  const mother = BoardReadService.projectBoardConsumer({
+    id: "mother",
+    name: "C 母版測試",
+    task_code_prefix: "MDTK",
+    template_key: "c",
+    active: true,
+    is_template_instance: true
+  });
+  assert.equal(mother.consumerId, "c");
+  assert.equal(mother.consumerKind, "c-mother");
+  assert.equal(mother.runtimeRole, "mother");
+  assert.equal(mother.governanceMode, "mother");
+  assert.equal(mother.navigationParent, "");
 });
 
 test("C Runtime exposes name/prefix provisioning without a consumer-specific source path", () => {
