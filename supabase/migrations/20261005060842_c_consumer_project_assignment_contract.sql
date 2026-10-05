@@ -267,7 +267,7 @@ begin
       btrim(v_workspace->>'name'),
       coalesce((v_workspace->>'sort_order')::integer, 0),
       coalesce((v_workspace->>'active')::boolean, true),
-      case when v_is_personal_worktodo or v_scope in ('ai_board', 'worktodo') then v_scope else null end,
+      case when v_is_personal_worktodo then 'worktodo' when v_scope in ('ai_board', 'worktodo') then v_scope else null end,
       v_user,
       v_user,
       v_user
@@ -449,4 +449,5 @@ end;
 $function$;
 revoke all on function public.board_provision_c_consumer_v2(text,text,text,text,jsonb,jsonb,text,text) from public, anon;
 grant execute on function public.board_provision_c_consumer_v2(text,text,text,text,jsonb,jsonb,text,text) to authenticated;
+notify pgrst, 'reload schema';
 commit;

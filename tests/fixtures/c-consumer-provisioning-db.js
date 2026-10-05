@@ -9,7 +9,7 @@ async function provisioningDb(){
  alter table board_instances add unique(task_code_prefix);
  alter table board_instances add unique(legacy_application_scope);
  update board_workspaces set application_scope=null;
- alter table board_workspaces add constraint golden_workspace_scope check(application_scope is null or application_scope in ('ai_board','worktodo') or application_scope like 'worktodo-user-%');
+ alter table board_workspaces add constraint board_workspaces_application_scope_ck check(application_scope is null or application_scope in ('ai_board','worktodo'));
  update board_instances set is_template_instance=true,task_code_prefix='MDTK',name='C 唯一看板母版' where id='${board}';
  insert into board_instances(name,task_code_prefix,owner_uuid,legacy_application_scope) values('Existing WorkLog','EXWL','${owner}','worklog'),('Existing Investment','EXIV','${owner}','investment');`);
  await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations',migration),'utf8'));
