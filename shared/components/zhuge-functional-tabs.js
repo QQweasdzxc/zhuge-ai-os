@@ -79,7 +79,16 @@
     visibleRows.set(row, visible);
   }
 
-  function refresh() { document.querySelectorAll('.zhuge-functional-tabs').forEach(sync); }
+  function normalizePageRhythm() {
+    document.querySelectorAll('[data-zhuge-page-rhythm="stacked-tabs"]').forEach(layout => {
+      const stack = layout.querySelector(':scope > .zhuge-functional-tabs-stack');
+      const content = layout.querySelector(':scope > .workspace-canvas');
+      const secondary = content?.querySelector(':scope > .workspace-subnav.zhuge-functional-tabs');
+      if (stack && secondary && secondary.parentElement !== stack) stack.append(secondary);
+    });
+  }
+
+  function refresh() { normalizePageRhythm(); document.querySelectorAll('.zhuge-functional-tabs').forEach(sync); }
   function boot() {
     refresh();
     new MutationObserver(refresh).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'open'] });

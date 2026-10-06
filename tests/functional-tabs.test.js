@@ -6,7 +6,8 @@ const ROOT = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const AUTHORITY = 'shared/theme/zhuge-functional-tabs.css';
 const TAB_TOKEN = /(?:^|[.#:\s>+~])(?:(?:[\w-]+-)?tabs?|workspace-subnav|investment-(?:primary-nav|content-tabs))(?=$|[\s.:#\[])/;
-const VISUAL = /(?:^|;)\s*(?:display|align-items|justify-content|flex(?:-[\w-]+)?|grid(?:-[\w-]+)?|gap|(?:min-|max-)?(?:height|width)|padding(?:-[\w-]+)?|margin(?:-[\w-]+)?|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|font(?:-[\w-]+)?|line-height|letter-spacing|outline(?:-[\w-]+)?|box-shadow|overflow(?:-[\w-]+)?|white-space|text-decoration|position|transform|inset(?:-[\w-]+)?|top|right|bottom|left)\s*:/;
+const PAGE_RHYTHM_TOKEN = /(?:shared-header|workspace-shell-header|functional-tabs-header|workspace-canvas|workspace-content-container|page-content|view-root)/;
+const VISUAL = /(?:^|;)\s*(?:display|align-items|justify-content|flex(?:-[\w-]+)?|grid(?:-[\w-]+)?|(?:(?:row|column)-)?gap|(?:min-|max-)?(?:height|width)|padding(?:-[\w-]+)?|margin(?:-[\w-]+)?|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|font(?:-[\w-]+)?|line-height|letter-spacing|outline(?:-[\w-]+)?|box-shadow|overflow(?:-[\w-]+)?|white-space|text-decoration|position|transform|inset(?:-[\w-]+)?|top|right|bottom|left)\s*:/;
 function violations(css) {
   const found = [];
   const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -16,7 +17,8 @@ function violations(css) {
       const normalized = selector.trim();
       const target = normalized.split(/[>+~]/).at(-1).trim().split(/\s+/).at(-1);
       const affectsTabParent = /[>+~]/.test(normalized) && TAB_TOKEN.test(normalized) && !/\.investment-tool-nav\s*\[[^\]]+\]\s+\.investment-tool-nav-(?:summary|label|chevron)/.test(normalized);
-      if (TAB_TOKEN.test(target) || affectsTabParent) found.push(normalized);
+      const affectsPageRhythm = /[+~]/.test(normalized) && PAGE_RHYTHM_TOKEN.test(normalized);
+      if (TAB_TOKEN.test(target) || affectsTabParent || affectsPageRhythm) found.push(normalized);
     }
   }
   return found;
@@ -49,6 +51,9 @@ test('Static authority guard rejects private tab and parent-rhythm CSS', () => {
   for (const selector of ['.workspace-tab','.workspace-tabs','.workspace-subnav','.procurement-content-tab','.investment-primary-nav','.investment-content-tabs','.mobile-worklog-tabs','.console-tabs','.zhuge-functional-tab','.future-feature-tab']) {
     for (const property of ['padding:12px','border:1px solid red','background:red','font-size:18px','height:30px','display:grid','margin-top:8px','transform:translateY(1px)']) assert.equal(violations(selector + '{' + property + '}').length, 1, `${selector} ${property}`);
   }
+  for (const selector of ['.module-shell .workspace-shell-header+.workspace-tabs','.module-shell .workspace-tabs+.workspace-canvas','.module-shell .zhuge-functional-tabs-stack+.workspace-canvas','.module-shell .workspace-shell-header+.page-content']) {
+    for (const property of ['margin-top:8px','margin-bottom:0','padding-top:0','row-gap:4px','gap:0','transform:translateY(1px)']) assert.equal(violations(selector + '{' + property + '}').length, 1, `${selector} ${property}`);
+  }
   assert.deepEqual(violations('.workspace-tab-search-trigger{width:44px}.investment-tool-nav{position:relative}.investment-tool-nav-summary{min-height:44px}.investment-tool-nav[open] .investment-tool-nav-summary{color:red}'), []);
 });
 
@@ -66,6 +71,8 @@ test('Formal tab rows share canonical nav structure and retain consumer actions'
   assert.doesNotMatch(read('modules/worklog/worklog-app.js'), /data-worklog-navigation class="workspace-tabs workspace-subnav empty zhuge-functional-tabs"/);
   assert.match(read('shared/components/zhuge-functional-tabs.js'), /zhuge-functional-tab-icon/);
   assert.match(read('shared/components/zhuge-functional-tabs.js'), /zhuge-functional-tab-label/);
+  assert.match(read('shared/components/zhuge-functional-tabs.js'), /normalizePageRhythm/);
+  assert.match(read('app/Board/investment/index.html'), /data-zhuge-page-rhythm="stacked-tabs"/);
   assert.match(read('shared/components/zhuge-functional-tabs.js'), /tabs\[next\]\.focus\(\)/);
   assert.doesNotMatch(read('shared/components/zhuge-functional-tabs.js'), /\.rpc\(|localStorage|location\.|history\./);
 });

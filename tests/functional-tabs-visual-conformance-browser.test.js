@@ -83,7 +83,7 @@ test('Functional Tabs pixel fixture has 0 changed pixels and exact computed/geom
       const baselineGeometry = await page.locator('[data-consumer-wrapper="generic"]').evaluate(root => {
         const rect = selector => { const r = root.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, height: r.height }; };
         const header = rect('.zhuge-functional-tabs-header'), row = rect('.zhuge-functional-tabs'), content = rect('[data-first-content]');
-        const tab = root.querySelector('.zhuge-functional-tab'), icon = tab.querySelector('.zhuge-functional-tab-icon'), label = tab.querySelector('.zhuge-functional-tab-label'), actions = root.querySelector('.zhuge-functional-tabs-actions');
+        const tab = root.querySelector('.zhuge-functional-tab'), icon = tab.querySelector('.zhuge-functional-tab-icon'), label = tab.querySelector('.zhuge-functional-tab-label'), actions = root.querySelector('.zhuge-functional-tabs-actions'), context = root.querySelector('[data-page-context]'), major = root.querySelector('[data-major-section]');
         const tr = tab.getBoundingClientRect(), ir = icon.getBoundingClientRect(), lr = label.getBoundingClientRect(), ar = actions.getBoundingClientRect();
         return {
           headerToTabs: row.top - header.bottom,
@@ -93,13 +93,15 @@ test('Functional Tabs pixel fixture has 0 changed pixels and exact computed/geom
           iconWidth: ir.width, iconHeight: ir.height, iconCenterY: ir.top + ir.height / 2 - row.top,
           labelCenterY: lr.top + lr.height / 2 - row.top,
           dividerY: row.bottom - 1 - row.top,
-          actionsCenterY: ar.top + ar.height / 2 - row.top
+          actionsCenterY: ar.top + ar.height / 2 - row.top,
+          majorSectionGap: major.getBoundingClientRect().top - context.getBoundingClientRect().bottom
         };
       });
-      assert.equal(baselineGeometry.headerToTabs, 0, `${viewport.width}: GAS measured header-to-tabs token`);
+      assert.equal(baselineGeometry.headerToTabs, 12, `${viewport.width}: canonical header-to-tabs rhythm`);
       assert.equal(baselineGeometry.rowHeight, 45);
       assert.equal(baselineGeometry.tabsToContent, 16, `${viewport.width}: GAS measured tabs-to-content token`);
       assert.equal(baselineGeometry.tabHeight, 44);
+      assert.equal(baselineGeometry.majorSectionGap, 16, `${viewport.width}: canonical major-section rhythm`);
 
       const referencePng = decodePng(await page.locator('[data-consumer-wrapper="generic"]').screenshot({ animations: 'disabled' }));
       for (const surface of SURFACES) {
@@ -114,9 +116,9 @@ test('Functional Tabs pixel fixture has 0 changed pixels and exact computed/geom
         const geometry = await root.evaluate(rootNode => {
           const rect = selector => { const r = rootNode.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, height: r.height }; };
           const header = rect('.zhuge-functional-tabs-header'), row = rect('.zhuge-functional-tabs'), content = rect('[data-first-content]');
-          const tab = rootNode.querySelector('.zhuge-functional-tab'), icon = tab.querySelector('.zhuge-functional-tab-icon'), label = tab.querySelector('.zhuge-functional-tab-label'), actions = rootNode.querySelector('.zhuge-functional-tabs-actions');
+          const tab = rootNode.querySelector('.zhuge-functional-tab'), icon = tab.querySelector('.zhuge-functional-tab-icon'), label = tab.querySelector('.zhuge-functional-tab-label'), actions = rootNode.querySelector('.zhuge-functional-tabs-actions'), context = rootNode.querySelector('[data-page-context]'), major = rootNode.querySelector('[data-major-section]');
           const tr = tab.getBoundingClientRect(), ir = icon.getBoundingClientRect(), lr = label.getBoundingClientRect(), ar = actions.getBoundingClientRect();
-          return {headerToTabs:row.top-header.bottom,rowHeight:row.height,tabsToContent:content.top-row.bottom,tabHeight:tr.height,iconWidth:ir.width,iconHeight:ir.height,iconCenterY:ir.top+ir.height/2-row.top,labelCenterY:lr.top+lr.height/2-row.top,dividerY:row.bottom-1-row.top,actionsCenterY:ar.top+ar.height/2-row.top};
+          return {headerToTabs:row.top-header.bottom,rowHeight:row.height,tabsToContent:content.top-row.bottom,tabHeight:tr.height,iconWidth:ir.width,iconHeight:ir.height,iconCenterY:ir.top+ir.height/2-row.top,labelCenterY:lr.top+lr.height/2-row.top,dividerY:row.bottom-1-row.top,actionsCenterY:ar.top+ar.height/2-row.top,majorSectionGap:major.getBoundingClientRect().top-context.getBoundingClientRect().bottom};
         });
         assert.deepEqual(geometry, baselineGeometry, `${surface} geometry ${viewport.width}`);
         const screenshot = decodePng(await root.screenshot({ animations: 'disabled' }));

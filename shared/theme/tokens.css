@@ -75,7 +75,12 @@
   --shell-header-padding-inline: 14px;
   --shell-header-gap: 8px;
   --shell-header-mobile-height: 116px;
-  --shell-header-content-gap: 12px;
+  --zhuge-page-header-tabs-gap: 12px;
+  --zhuge-page-tabs-content-gap: 16px;
+  --zhuge-page-tabs-stack-gap: 8px;
+  --zhuge-page-header-content-gap: 16px;
+  --zhuge-page-major-section-gap: 16px;
+  --shell-header-content-gap: var(--zhuge-page-header-tabs-gap);
   --shell-section-gap: 10px;
   --shell-radius: var(--zhuge-radius-md);
   --zhuge-shadow: 0 18px 45px rgba(0, 0, 0, .16);

@@ -21,7 +21,7 @@ const cases=[
  {name:'C-Mother',entry:'app/Board/template-preview/index.html',mother:true},
  {name:'Arbitrary-Generic',entry:'app/Board/template-preview/index.html',mother:false},
  {name:'GAS',entry:'app/Board/procurement/index.html'},
- {name:'Investment-Board',entry:'app/Board/investment/index.html',investment:true,links:true},
+ {name:'Investment-Board',entry:'app/Board/investment/index.html',investment:true,links:true,stack:true},
  {name:'Investment-Module',entry:'modules/investment/index.html',investment:true},
  {name:'AI-Board',entry:'app/Board/ai/index.html'},
  {name:'WorkTodo',entry:'app/Board/worktodo/index.html'},
@@ -35,7 +35,7 @@ function styles(entry) {
 function fixture(item) {
  const header=`<div id="zhugeSharedHeader" class="zhuge-shared-header workspace-shell-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>共用頁首</h1><p>測試頁面 Header</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>signed in</small></span></div></div></div>`;
  let body;
- if(item.investment) body=`<main class="zhuge-module-shell investment-module-shell zhuge-functional-tabs-layout">${header}${shell.renderPrimaryNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route+(i.focus?'/'+i.focus:''),actionsMarkup:shell.renderToolNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route})})}${item.links?'<div class="workspace-canvas">':''}<section id="${item.links?'investmentBoardView':'investmentPage'}" ${item.links?'data-board-main-view':''} class="${item.links?'':'zhuge-functional-tabs-content'}"></section>${item.links?'</div>':''}</main>`;
+ if(item.investment) body=`<main class="zhuge-module-shell investment-module-shell zhuge-functional-tabs-layout" ${item.stack?'data-zhuge-page-rhythm="stacked-tabs"':''}>${header}${item.stack?'<div class="zhuge-functional-tabs-stack">':''}${shell.renderPrimaryNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route+(i.focus?'/'+i.focus:''),actionsMarkup:shell.renderToolNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route})})}${item.stack?'</div>':''}${item.links?'<div class="workspace-canvas"><nav class="workspace-subnav zhuge-functional-tabs" aria-label="Board 次導覽"><button class="zhuge-functional-tab active" type="button">Board</button><button class="zhuge-functional-tab" type="button">流程設定</button></nav>':''}<section id="${item.links?'investmentBoardView':'investmentPage'}" ${item.links?'data-board-main-view':''} class="${item.links?'':'zhuge-functional-tabs-content'}"></section>${item.links?'</div>':''}</main>`;
  else if(item.worklog) body=`<main class="zhuge-module-shell workspace-shell workspace-worklog zhuge-functional-tabs-layout">${header}${wlContext.workspaceTabs()}<div class="workspace-canvas">${wlContext.mobileWorklogTabs()}<section id="mobile-worklog-time">工時</section><section id="mobile-worklog-suggestions">建議</section></div></main>`;
  else if(item.lab) {
   const source=read(item.entry), actualHeader=source.match(/<header class="topbar zhuge-functional-tabs-header">[\s\S]*?<\/header>/)[0], actualMobileTabs=source.match(/<nav class="mobile-nav zhuge-functional-tabs"[\s\S]*?<\/nav>/)[0], actualContent=source.match(/<section id="view-root" class="view-root zhuge-functional-tabs-content"[\s\S]*?<\/section>/)[0];
@@ -70,7 +70,7 @@ test('Functional Tabs: actual adopter markup/renderers share Desktop/Mobile geom
    const file=path.join(dir,item.name+'.html');fs.writeFileSync(file,fixture(item));
    const page=await browser.newPage({viewport:{width:1280,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(await fixtureURL(file));await page.waitForSelector('[data-ready]');
-   for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
+   for(const viewport of [{width:1280,height:900},{width:390,height:844},{width:320,height:740}]){
     await page.setViewportSize(viewport);
     const rows=page.locator('.zhuge-functional-tabs:visible');
     if(item.lab&&viewport.width===1280){assert.equal(await rows.count(),0,'Lab sidebar is navigation, not a desktop tab row');continue;}
@@ -93,8 +93,8 @@ test('Functional Tabs: actual adopter markup/renderers share Desktop/Mobile geom
      const rowStyle=await row.evaluate(n=>{const s=getComputedStyle(n);return {background:s.backgroundColor,radius:s.borderRadius,divider:s.borderBottomWidth,wrap:s.flexWrap,display:s.display,gap:s.gap};});
      assert.deepEqual(rowStyle,{background:'rgba(0, 0, 0, 0)',radius:'0px',divider:'1px',wrap:'nowrap',display:'flex',gap:'8px'});
      if(r===0){
-      const layout=await row.evaluate(n=>{const shell=n.closest('.zhuge-functional-tabs-layout'),header=shell?.querySelector('.zhuge-shared-header,.workspace-shell-header,.zhuge-functional-tabs-header'),rect=x=>x?.getBoundingClientRect();const rows=[...shell.querySelectorAll('.zhuge-functional-tabs')].filter(x=>x.getClientRects().length&&!x.closest('.zhuge-functional-tabs-mobile-disclosure'));const firstRow=rows[0],lastRow=rows.at(-1),firstRect=rect(firstRow),headerRect=rect(header),lastRect=rect(lastRow);const content=lastRow?.nextElementSibling;const contentRect=rect(content);const stack=firstRow?.parentElement.classList.contains('zhuge-functional-tabs-stack')?firstRow.parentElement:null;const stackNext=stack?.nextElementSibling;return {headerToTabs:firstRect.top-headerRect.bottom,firstRowHeight:firstRect.height,lastRowToContent:contentRect.top-lastRect.bottom,stackGap:stack&&stackNext?.querySelector('.zhuge-functional-tabs')?stackNext.querySelector('.zhuge-functional-tabs').getBoundingClientRect().top-firstRect.bottom:null};});
-      assert.equal(layout.headerToTabs,0,item.name+' header-to-tabs exact');assert.equal(layout.firstRowHeight,45,item.name+' row exact height');assert.equal(layout.lastRowToContent,16,item.name+' tabs-to-content exact');
+      const layout=await row.evaluate((n,isWorklog)=>{const shell=n.closest('.zhuge-functional-tabs-layout'),header=shell?.querySelector('.zhuge-shared-header,.workspace-shell-header,.zhuge-functional-tabs-header'),rect=x=>x?.getBoundingClientRect();const visible=x=>x.getClientRects().length&&!x.closest('.zhuge-functional-tabs-mobile-disclosure');const rows=[...shell.querySelectorAll('.zhuge-functional-tabs')].filter(visible);const firstRow=rows[0],stack=firstRow?.parentElement.classList.contains('zhuge-functional-tabs-stack')?firstRow.parentElement:null;const stackRows=stack?[...stack.querySelectorAll(':scope > .zhuge-functional-tabs')].filter(visible):[];const lastRow=stackRows.at(-1)||rows.at(-1),firstRect=rect(firstRow),headerRect=rect(header),lastRect=rect(lastRow);const content=stack?.nextElementSibling||lastRow?.nextElementSibling;const contentRect=rect(content);let stackGap=stack&&stackRows.length>1?rect(stackRows[1]).top-firstRect.bottom:null;if(isWorklog&&window.innerWidth<=767){const secondary=shell.querySelector('.zhuge-functional-tabs[data-functional-tabs-mobile-only]');if(secondary)stackGap=rect(secondary).top-firstRect.bottom;}return {headerToTabs:firstRect.top-headerRect.bottom,firstRowHeight:firstRect.height,lastRowToContent:contentRect.top-lastRect.bottom,stackGap};},item.worklog===true);
+      assert.equal(layout.headerToTabs,12,item.name+' header-to-tabs exact');assert.equal(layout.firstRowHeight,45,item.name+' row exact height');assert.equal(layout.lastRowToContent,16,item.name+' tabs-to-content exact');
       if(layout.stackGap!==null)assert.equal(layout.stackGap,8,item.name+' secondary row stack gap exact');
       const sharedLayout={headerToTabs:layout.headerToTabs,firstRowHeight:layout.firstRowHeight,lastRowToContent:layout.lastRowToContent};
       if(!liveLayoutBaseline)liveLayoutBaseline=sharedLayout;else assert.deepEqual(sharedLayout,liveLayoutBaseline,item.name+' shared live layout '+viewport.width);
@@ -148,5 +148,34 @@ test('Functional Tabs preserve domain actions, link navigation, keyboard selecti
    }
    await page.close();
   }
+ }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('Page Rhythm Authority enforces Type A/B/C spacing exactly at desktop and narrow mobile',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'page-rhythm-qa-'));
+ const browser=await chromium.launch({executablePath:resolveBrowserExecutable()||chromium.executablePath(),headless:true,args:['--no-sandbox']});
+ const href=file=>fixturePath(path.join(ROOT,file));
+ const html=`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <link rel="stylesheet" href="${href('shared/theme/zhuge-shell.css')}">
+ <link rel="stylesheet" href="${href('shared/theme/zhuge-functional-tabs.css')}">
+ <style>body{margin:0;background:#07111f}.rhythm{width:100%;padding:0}.zhuge-functional-tabs-header{height:74px;min-height:74px}.zhuge-page-content-flow>section{height:20px}</style>
+ <main class="rhythm zhuge-functional-tabs-layout" data-case="type-a"><header class="zhuge-shared-header zhuge-functional-tabs-header">Page</header><nav class="zhuge-functional-tabs"><button class="zhuge-functional-tab active">A</button></nav><section class="zhuge-functional-tabs-content">Content</section></main>
+ <main class="rhythm zhuge-functional-tabs-layout" data-case="type-b"><header class="zhuge-shared-header zhuge-functional-tabs-header">Page</header><nav class="zhuge-functional-tabs"><button class="zhuge-functional-tab active">Primary</button></nav><nav class="zhuge-functional-tabs"><button class="zhuge-functional-tab active">Secondary</button></nav><section class="zhuge-functional-tabs-content zhuge-page-content-flow"><section data-context>Context</section><section data-major>Major</section></section></main>
+ <main class="rhythm zhuge-page-rhythm-layout" data-case="type-c"><header class="zhuge-shared-header">Page</header><section data-first-content>Content</section></main>
+ <script src="${href('shared/components/zhuge-functional-tabs.js')}"></script>`;
+ try{
+  const file=path.join(dir,'rhythm.html');fs.writeFileSync(file,html);const page=await browser.newPage({deviceScaleFactor:1});await page.goto(await fixtureURL(file));await page.waitForFunction(()=>document.querySelector('[data-case="type-b"] .zhuge-functional-tabs .zhuge-functional-tab')?.dataset.functionalTabNormalized==='true');
+  for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:320,height:740}]){
+   await page.setViewportSize(viewport);
+   const geometry=await page.evaluate(()=>{
+    const measure=(root,header,tabs,content)=>{const rect=s=>root.querySelector(s).getBoundingClientRect();const h=rect(header),t=rect(tabs),c=rect(content);return {headerTabs:t.top-h.bottom,tabsContent:c.top-t.bottom,rowHeight:t.height};};
+    const a=document.querySelector('[data-case="type-a"]'),b=document.querySelector('[data-case="type-b"]'),c=document.querySelector('[data-case="type-c"]');
+    const br=[...b.querySelectorAll(':scope > .zhuge-functional-tabs')];const sections=b.querySelectorAll('[data-context],[data-major]');
+    const r=s=>s.getBoundingClientRect();const bh=r(b.querySelector('.zhuge-functional-tabs-header')),b1=r(br[0]),b2=r(br[1]),bc=r(b.querySelector('.zhuge-functional-tabs-content'));
+    return {a:measure(a,'.zhuge-functional-tabs-header','.zhuge-functional-tabs','.zhuge-functional-tabs-content'),b:{headerTabs:b1.top-bh.bottom,stack:b2.top-b1.bottom,tabsContent:bc.top-b2.bottom,rowHeight:b1.height},c:(()=>{const h=r(c.querySelector('header')),content=r(c.querySelector('[data-first-content]'));return content.top-h.bottom;})(),major:r(sections[1]).top-r(sections[0]).bottom};
+   });
+   assert.deepEqual(geometry,{a:{headerTabs:12,tabsContent:16,rowHeight:45},b:{headerTabs:12,stack:8,tabsContent:16,rowHeight:45},c:16,major:16},`Page Rhythm ${viewport.width}x${viewport.height}`);
+  }
+  await page.close();
  }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

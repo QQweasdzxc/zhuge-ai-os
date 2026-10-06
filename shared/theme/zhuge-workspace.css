@@ -37,8 +37,8 @@
   color: var(--zhuge-text);
   box-shadow: var(--zhuge-shadow);
 }
-.zhuge-module-shell .workspace-context-bar { margin-bottom: var(--shell-header-content-gap); }
-.zhuge-module-shell .zhuge-shared-header { margin-bottom: var(--shell-header-content-gap); }
+.zhuge-module-shell .workspace-context-bar,
+.zhuge-module-shell .zhuge-shared-header { margin-block: 0; }
 .zhuge-module-shell .zhuge-shared-header-kicker { color: var(--zhuge-accent); }
 .zhuge-module-shell .zhuge-shared-header-copy>p:last-child,
 .zhuge-module-shell .zhuge-shared-header-build { color: var(--zhuge-muted); }
@@ -476,8 +476,8 @@
 .zhuge-module-shell .main > .board-shell,
 .zhuge-module-shell .main > .governance-history,
 .zhuge-module-shell .main > .board-subview { max-width: none; }
-.zhuge-module-shell .main > .toolbar { margin-bottom: var(--shell-section-gap); }
-.zhuge-module-shell .main > .note { margin: 0 0 var(--shell-section-gap); }
+.zhuge-module-shell .main > .toolbar { margin-bottom: var(--zhuge-page-major-section-gap); }
+.zhuge-module-shell .main > .note { margin: 0 0 var(--zhuge-page-major-section-gap); }
 .zhuge-module-shell .main .board-shell { border-color: var(--zhuge-border); border-radius: var(--zhuge-radius-md); }
 
 /* System Template windows are view modes over the canonical Runtime.  A and

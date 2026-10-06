@@ -186,7 +186,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
  * header, sub-navigation, container and responsive surface as AI Board and
  * Investment.  These overrides intentionally sit after the legacy mockup
  * rules above so the old dashboard treatment cannot hide the shared frame. */
-.workspace-shell.workspace-worklog .workspace-context-bar{display:block;width:100%;max-width:none;margin:0 0 12px}
+.workspace-shell.workspace-worklog .workspace-context-bar{display:block;width:100%;max-width:none;margin:0}
 .workspace-shell.workspace-worklog .workspace-title,
 .workspace-shell.workspace-worklog [data-worklog-navigation]{display:flex}
 .workspace-shell.workspace-worklog .workspace-canvas{border:1px solid #334155;border-radius:0 0 22px 22px;background:#1e293b;padding:16px;min-height:calc(100vh - 152px);overflow-x:hidden}
@@ -196,7 +196,7 @@ html:has(.standalone-chat-page),body:has(.standalone-chat-page),#app:has(.standa
 }
 
 @media(max-width:767px){
-  .workspace-shell.workspace-worklog .workspace-context-bar{margin:0 0 8px;border-radius:14px;padding:10px 12px}
+  .workspace-shell.workspace-worklog .workspace-context-bar{margin:0;border-radius:14px;padding:10px 12px}
   .workspace-shell.workspace-worklog .workspace-canvas{border-radius:0 0 16px 16px;padding:0;min-height:calc(100svh - 120px)}
 }
 .summary-heading-toggle span i{font-style:normal;color:#94a3b8;font-size:.72em;font-weight:750}

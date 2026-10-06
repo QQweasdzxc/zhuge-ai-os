@@ -63,7 +63,7 @@
   .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:has(.zhuge-shared-header-actions:empty),
   .zhuge-module-shell .workspace-shell-header.zhuge-shared-header:not(:has(.zhuge-shared-header-actions)) { min-height: var(--shell-header-height); grid-template-rows: minmax(44px, auto); }
 }
-.zhuge-module-shell>.workspace-app,.zhuge-module-shell>.app{min-width:0;width:100%}.zhuge-module-shell>.workspace-app>.zhuge-shared-header{margin-bottom:var(--shell-header-content-gap)}.workspace-content-container,.workspace-canvas{min-width:0;max-width:none}
+.zhuge-module-shell>.workspace-app,.zhuge-module-shell>.app{min-width:0;width:100%}.workspace-content-container,.workspace-canvas{min-width:0;max-width:none}
 .os-shell.zhuge-module-shell{max-width:none;margin:0}.os-shell.zhuge-module-shell>.os-main{min-width:0;width:100%}.os-shell.zhuge-module-shell>.sidebar-backdrop{display:none}
 .zhuge-dashboard-shell .page-shell{width:100%;max-width:none;margin:0;padding:0 0 40px}.zhuge-dashboard-shell .section-heading{margin-top:0}
 .zhuge-dashboard-shell>.workspace-app{min-width:0;padding:0;box-sizing:border-box}
