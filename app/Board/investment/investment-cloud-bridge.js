@@ -1,16 +1,12 @@
 (function (root) {
   "use strict";
 
-  const state = { rows: [], links: [], projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null };
+  const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null };
 
   function esc(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-  function num(value, digits = 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n.toLocaleString("zh-TW", { maximumFractionDigits: digits }) : "—";
   }
   function money(value, currency) {
     const n = Number(value);
@@ -23,11 +19,37 @@
     if (!Number.isFinite(n)) return "—";
     return `${n >= 0 ? "+" : "-"}${money(Math.abs(n), currency)}`;
   }
-  function signedPct(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : "—";
-  }
   function sourceKey(kind, id) { return `${String(kind || "")}:${String(id || "")}`; }
+
+  function historyRequest(row) {
+    const market = String(row?.market || "").trim().toUpperCase();
+    if (!row?.symbol || !["TW", "TWSE", "TPEX", "TWO"].includes(market)) return null;
+    return { symbol: String(row.symbol).trim().toUpperCase().replace(/\.(TW|TWO)$/i, ""), market: "TW", name: String(row.name || "") };
+  }
+  function marketKey(value) {
+    const market = String(value || "").trim().toUpperCase();
+    return ["TW", "TWSE", "TPEX", "TWO"].includes(market) ? "TW" : market;
+  }
+
+  async function loadOfficialHistories(gateway, rows) {
+    if (typeof gateway?.invokeFunction !== "function") return new Map();
+    const symbols = [...new Map(rows
+      .filter(row => row?.position_status === "current" && Number(row?.quantity || 0) > 0)
+      .map(historyRequest)
+      .filter(Boolean)
+      .map(item => [`${item.market}:${item.symbol}`, item])).values()];
+    if (!symbols.length) return new Map();
+    try {
+      const response = await gateway.invokeFunction("investment-intelligence-read", { symbols, news_limit: 1, portfolio_context: {}, strategy_ids: [] });
+      if (response?.contract !== "zhuge-investment-intelligence-edge-v1" || response?.read_only !== true) return new Map();
+      const histories = Array.isArray(response?.histories) ? response.histories : [];
+      return new Map(histories.map(history => [`${String(history.market || "").toUpperCase()}:${String(history.symbol || "").toUpperCase()}`, history]));
+    } catch (error) {
+      // The existing authenticated Investment read authority may be unavailable.
+      // The holding projection remains usable; the card renders an honest empty trend.
+      return new Map();
+    }
+  }
 
   function resolveInvestmentItem(taskId) {
     const link = state.links.find(item => String(item?.board_task_id || item?.boardTaskId || "") === String(taskId || "") && item?.active !== false);
@@ -100,31 +122,50 @@
       if (!card) return;
       card.dataset.investmentCloudLinked = "true";
       card.dataset.investmentSymbol = row.symbol || "";
-      const title = card.querySelector(".shared-task-card-title");
-      if (title) title.textContent = `${row.symbol || ""} · ${row.name || ""}`;
-      let summary = card.querySelector(".shared-task-card-summary");
-      if (!summary) {
-        summary = document.createElement("p");
-        summary.className = "shared-task-card-summary";
-        title?.insertAdjacentElement("afterend", summary);
+      if (link.card_kind === "history" || row.position_status === "history") {
+        const signature = JSON.stringify(row);
+        if (card.dataset.investmentHistoricalProjection === signature) return;
+        const title = card.querySelector(".shared-task-card-title");
+        if (title) title.textContent = `${row.symbol || ""} · ${row.name || ""}`;
+        let summary = card.querySelector(".shared-task-card-summary");
+        if (!summary) {
+          summary = document.createElement("p");
+          summary.className = "shared-task-card-summary";
+          title?.insertAdjacentElement("afterend", summary);
+        }
+        summary.textContent = `已平倉 · 已實現 ${signedMoney(row.realized_pnl, row.currency)}`;
+        let badge = card.querySelector("[data-investment-cloud-pnl]");
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.dataset.investmentCloudPnl = "true";
+          badge.className = "investment-cloud-pnl";
+          const side = card.querySelector(".shared-task-card-header-side") || card.querySelector(".shared-task-card-header");
+          side?.appendChild(badge);
+        }
+        badge.dataset.trend = Number(row.realized_pnl || 0) >= 0 ? "gain" : "loss";
+        badge.textContent = `已實現 ${signedMoney(row.realized_pnl, row.currency)}`;
+        card.setAttribute("aria-label", `${row.symbol || ""} ${row.name || ""}，已平倉，已實現損益 ${signedMoney(row.realized_pnl, row.currency)}`);
+        card.dataset.investmentHistoricalProjection = signature;
+        return;
       }
-      summary.textContent = row.position_status === "history"
-        ? `已平倉 · 已實現 ${signedMoney(row.realized_pnl, row.currency)}`
-        : `${num(row.quantity, 3)} 股 · 成本 ${money(row.invested_cost, row.currency)} · 市值 ${money(row.market_value, row.currency)}`;
-      let badge = card.querySelector("[data-investment-cloud-pnl]");
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.dataset.investmentCloudPnl = "true";
-        badge.className = "investment-cloud-pnl";
-        const side = card.querySelector(".shared-task-card-header-side") || card.querySelector(".shared-task-card-header");
-        side?.appendChild(badge);
-      }
-      const performance = row.position_status === "history" ? row.realized_pnl : row.unrealized_pnl;
-      badge.dataset.trend = Number(performance || 0) >= 0 ? "gain" : "loss";
-      badge.textContent = row.position_status === "history"
-        ? `已實現 ${signedMoney(row.realized_pnl, row.currency)}`
-        : `${signedMoney(row.unrealized_pnl, row.currency)} / ${signedPct(row.unrealized_pct)}`;
-      card.setAttribute("aria-label", `${row.symbol || ""} ${row.name || ""}，${row.position_status === "history" ? "已平倉" : `${num(row.quantity, 3)} 股`}，${row.position_status === "history" ? "已實現損益" : "未實現損益"} ${signedMoney(performance, row.currency)}`);
+      if (link.card_kind !== "position" || row.position_status !== "current") return;
+      const content = root.InvestmentHoldingCardPresentation;
+      if (!content?.renderHoldingContent) return;
+      const market = marketKey(row.market);
+      const history = state.histories.get(`${market}:${String(row.symbol || "").toUpperCase().replace(/\.(TW|TWO)$/i, "")}`) || null;
+      const signature = JSON.stringify({ row, history: history ? { provider: history.provider, asOf: history.asOf, bars: (history.bars || []).slice(-20).map(bar => [bar.asOf, bar.close]) } : null });
+      if (card.dataset.investmentHoldingProjection === signature) return;
+      card.dataset.investmentCard = "position";
+      card.dataset.investmentSourceKind = row.source_kind || "";
+      card.dataset.investmentSourceId = row.source_id || "";
+      card.classList.add("investment-holding-runtime-card");
+      const taskCode = card.dataset.workCode || card.querySelector(".shared-task-card-code")?.textContent?.trim() || "";
+      card.innerHTML = content.renderHoldingContent(row, { workCode: taskCode }, history, root.InvestmentFormatters || {});
+      const priceLabel = row.last_price !== null && row.last_price !== undefined && row.last_price !== "" && Number.isFinite(Number(row.last_price)) ? row.last_price : "尚無行情";
+      const percentLabel = row.unrealized_pct !== null && row.unrealized_pct !== undefined && row.unrealized_pct !== "" && Number.isFinite(Number(row.unrealized_pct)) ? row.unrealized_pct : "—";
+      const label = `${row.symbol || ""} ${row.name || ""}，持股估值 ${priceLabel}，未實現損益率 ${percentLabel}`;
+      card.setAttribute("aria-label", label);
+      card.dataset.investmentHoldingProjection = signature;
     });
   }
 
@@ -134,11 +175,12 @@
     try {
       await syncProjection(gateway);
       const [rows, links] = await Promise.all([
-        gateway.select("investment_current_positions_view", "?select=source_kind,source_id,portfolio_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,realized_pnl,ever_held,position_status,effective_at&order=market.asc,symbol.asc,source_id.asc"),
+        gateway.select("investment_current_positions_view", "?select=source_kind,source_id,portfolio_id,symbol,name,market,currency,quantity,avg_cost,invested_cost,last_price,market_value,unrealized_pnl,unrealized_pct,realized_pnl,ever_held,position_status,effective_at,market_value_source&order=market.asc,symbol.asc,source_id.asc"),
         gateway.select("investment_ivtk_card_links", "?select=board_task_id,source_kind,source_id,card_kind,active&active=eq.true&order=created_at.asc")
       ]);
       state.rows = Array.isArray(rows) ? rows : [];
       state.links = Array.isArray(links) ? links : [];
+      state.histories = await loadOfficialHistories(gateway, state.rows);
       apply();
       document.body.dataset.investmentCloudBridge = "ready";
       document.body.dataset.investmentCloudProjection = state.projectionError ? "error" : "ready";
