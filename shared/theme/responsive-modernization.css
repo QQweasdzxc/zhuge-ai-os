@@ -139,7 +139,7 @@ pre {
     padding-inline: var(--zhuge-responsive-gutter);
   }
 
-  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar, .form-actions) {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.board-toolbar, .toolbar, .form-actions) {
     min-width: 0;
     flex-wrap: wrap;
   }
@@ -159,7 +159,7 @@ pre {
     padding-bottom: max(24px, var(--zhuge-safe-area-bottom, 0px));
   }
 
-  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar) {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.board-toolbar, .toolbar) {
     display: flex;
     min-width: 0;
     max-width: 100%;
@@ -169,7 +169,7 @@ pre {
     scrollbar-width: thin;
   }
 
-  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.workspace-tabs, .workspace-subnav, .board-toolbar, .toolbar) > * {
+  :where(.zhuge-module-shell, .zhuge-dashboard-shell) :where(.board-toolbar, .toolbar) > * {
     flex: 0 0 auto;
   }
 

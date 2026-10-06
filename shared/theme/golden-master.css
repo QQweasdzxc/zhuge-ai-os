@@ -183,7 +183,7 @@
 
 /* Shared Board search: quiet by default, discoverable from the active tab row. */
 .zhuge-module-shell .golden-master-tab-tools{display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto;min-width:0}
-.zhuge-module-shell .workspace-tab-search-trigger{display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;min-height:34px;padding:5px 8px;border:1px solid var(--zhuge-border)!important;border-radius:8px;background:var(--zhuge-surface-raised);color:var(--zhuge-text);font-size:18px;font-weight:700;line-height:1;cursor:pointer}
+.zhuge-module-shell .workspace-tab-search-trigger{display:inline-flex;align-items:center;justify-content:center;width:44px;min-width:44px;min-height:44px;padding:5px 8px;border:1px solid var(--zhuge-border)!important;border-radius:8px;background:var(--zhuge-surface-raised);color:var(--zhuge-text);font-size:18px;font-weight:700;line-height:1;cursor:pointer}
 .zhuge-module-shell .workspace-tab-search-trigger:hover,.zhuge-module-shell .workspace-tab-search-trigger[aria-expanded="true"]{border-color:var(--zhuge-accent)!important;background:color-mix(in srgb,var(--zhuge-accent) 14%,var(--zhuge-surface-raised));color:var(--zhuge-text)}
 .zhuge-module-shell .workspace-tab-search-trigger:focus-visible{outline:2px solid var(--zhuge-accent);outline-offset:2px}
 .zhuge-module-shell .golden-master-tab-search{display:flex;align-items:center;gap:3px;width:min(260px,35vw);min-width:190px;box-sizing:border-box;margin:0;padding:0 4px 0 9px;border:1px solid var(--zhuge-border);border-radius:8px;background:var(--zhuge-surface-raised);color:var(--zhuge-muted)}

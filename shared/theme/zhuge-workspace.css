@@ -7,19 +7,7 @@
  */
 /* Product-wide tokens are defined once in shared/theme/zhuge-shell.css. */
 
-/* Canonical Workspace Tabs tokens.  Every workspace route uses this same
- * geometry; page styles may change only the active state and content below. */
-:root {
-  --zhuge-workspace-tabs-height: 42px;
-  --zhuge-workspace-tabs-gap: 6px;
-  --zhuge-workspace-tabs-padding-inline: 8px;
-  --zhuge-workspace-tab-height: 38px;
-  --zhuge-workspace-tab-padding-block: 8px;
-  --zhuge-workspace-tab-padding-inline: 12px;
-  --zhuge-workspace-tab-icon-gap: 6px;
-  --zhuge-workspace-tab-close-size: 18px;
-  --zhuge-workspace-tab-radius: 9px;
-}
+/* Functional Tabs are owned by zhuge-functional-tabs.css. */
 
 /* Shared frame geometry. Modules keep their own content markup, but the
  * outer page always uses the same background, header and content rhythm. */
@@ -60,33 +48,6 @@
 }
 .zhuge-module-shell .zhuge-shared-identity-copy strong { color: var(--zhuge-text); }
 .zhuge-module-shell .zhuge-shared-identity-copy small { color: var(--zhuge-muted); }
-.zhuge-module-shell .workspace-tabs,
-.zhuge-module-shell .workspace-subnav,
-.zhuge-module-shell .investment-local-nav {
-  border-color: var(--zhuge-border);
-  background: color-mix(in srgb, var(--zhuge-surface) 92%, transparent);
-}
-.zhuge-module-shell .workspace-tabs { padding: 7px 8px 0; min-height: 44px; }
-.zhuge-module-shell .workspace-tab,
-.zhuge-module-shell .investment-nav-item,
-.zhuge-module-shell .workspace-subnav button {
-  border-color: transparent;
-  background: transparent;
-  color: var(--zhuge-muted);
-  border-radius: 10px;
-  padding: 8px 11px;
-  min-height: 36px;
-}
-.zhuge-module-shell .workspace-tab:hover,
-.zhuge-module-shell .workspace-tab.active,
-.zhuge-module-shell .investment-nav-item:hover,
-.zhuge-module-shell .investment-nav-item.active,
-.zhuge-module-shell .workspace-subnav button:hover,
-.zhuge-module-shell .workspace-subnav button.active {
-  border-color: color-mix(in srgb, var(--zhuge-accent) 40%, transparent);
-  background: color-mix(in srgb, var(--zhuge-accent) 15%, transparent);
-  color: var(--zhuge-text);
-}
 
 /* Existing WorkLog panels become the same quiet, compact surfaces as the
  * Dashboard. The selectors are intentionally generic so Knowledge, Control
@@ -458,12 +419,6 @@
 /* Investment keeps its finance-specific content, but inherits the same
  * Workspace frame and compact information rhythm. */
 .investment-module-shell .investment-layout { display: block; min-height: 0; }
-.investment-module-shell .investment-local-nav {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 0 clamp(14px, 2vw, 24px) 10px;
-}
 .investment-module-shell .investment-main { padding: clamp(14px, 2vw, 24px); }
 .investment-module-shell .investment-page { max-width: none; }
 .investment-module-shell .investment-page-heading,
@@ -516,7 +471,6 @@
 .zhuge-module-shell.workspace-shell > .workspace-app > .main > .workspace-canvas {
   padding: 0;
 }
-.zhuge-module-shell .main > .workspace-subnav,
 .zhuge-module-shell .main > .toolbar,
 .zhuge-module-shell .main > .note,
 .zhuge-module-shell .main > .board-shell,
@@ -633,9 +587,6 @@ html[data-theme="light"] body:has(.zhuge-module-shell .board) {
 /* Light mode surfaces for legacy dark module CSS. */
 html[data-theme="light"] .zhuge-module-shell,
 html[data-theme="light"] .zhuge-module-shell body { background: var(--zhuge-page-bg); color: var(--zhuge-text); }
-html[data-theme="light"] .zhuge-module-shell .workspace-tabs,
-html[data-theme="light"] .zhuge-module-shell .workspace-subnav,
-html[data-theme="light"] .zhuge-module-shell .investment-local-nav { background: var(--zhuge-surface-soft); }
 html[data-theme="light"] .zhuge-module-shell .panel,
 html[data-theme="light"] .zhuge-module-shell .entry,
 html[data-theme="light"] .zhuge-module-shell .empty,
@@ -754,9 +705,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   html[data-theme="system"] .zhuge-module-shell .summary-metrics div { background: var(--zhuge-surface-soft); border-color: var(--zhuge-border); color: var(--zhuge-text); }
   html[data-theme="system"] body:has(.investment-module-shell) { --investment-bg: var(--zhuge-page-bg); --investment-panel: var(--zhuge-surface); --investment-panel-soft: var(--zhuge-surface-raised); --investment-line: var(--zhuge-border); --investment-text: var(--zhuge-text); --investment-muted: var(--zhuge-muted); }
   html[data-theme="system"] body:has(.zhuge-module-shell .board) { --bg: var(--zhuge-page-bg); --panel: var(--zhuge-surface-raised); --panel2: var(--zhuge-surface-soft); --line: var(--zhuge-border); --text: var(--zhuge-text); --muted: var(--zhuge-muted); --blue: var(--zhuge-accent); --blue-soft: color-mix(in srgb, var(--zhuge-accent) 12%, transparent); }
-  html[data-theme="system"] .zhuge-module-shell .workspace-tabs,
-  html[data-theme="system"] .zhuge-module-shell .workspace-subnav,
-  html[data-theme="system"] .zhuge-module-shell .investment-local-nav { background: var(--zhuge-surface-soft); }
   html[data-theme="system"] .zhuge-module-shell .panel,
   html[data-theme="system"] .zhuge-module-shell .entry,
   html[data-theme="system"] .zhuge-module-shell .empty,
@@ -816,80 +764,12 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   .zhuge-module-shell .investment-main,
   .zhuge-module-shell .main { padding: 10px; }
   .zhuge-module-shell .panel { padding: 14px; border-radius: 14px; }
-  .zhuge-module-shell .workspace-tabs,
-  .zhuge-module-shell .workspace-subnav,
-  .zhuge-module-shell .investment-local-nav { overflow-x: auto; flex-wrap: nowrap; }
   .investment-module-shell .investment-kpi-grid,
   .investment-module-shell .investment-position-grid,
   .investment-module-shell .investment-watch-grid,
   .investment-module-shell .investment-settings-grid { grid-template-columns: 1fr; }
-}
+}/* PM QA Round 3: shared geometry and interaction polish. */
 
-/* PM QA Round 3: shared geometry and interaction polish. */
-.zhuge-module-shell .workspace-tabs {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--zhuge-workspace-tabs-gap);
-  min-height: var(--zhuge-workspace-tabs-height);
-  padding: 0 var(--zhuge-workspace-tabs-padding-inline);
-  border: 0;
-  border-bottom: 1px solid var(--zhuge-border);
-  border-radius: 0;
-  background: transparent;
-}
-.zhuge-module-shell .workspace-tab {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--zhuge-workspace-tab-icon-gap);
-  min-height: var(--zhuge-workspace-tab-height);
-  margin: 0;
-  padding: var(--zhuge-workspace-tab-padding-block) var(--zhuge-workspace-tab-padding-inline);
-  border: 1px solid transparent !important;
-  border-bottom: 2px solid transparent !important;
-  border-radius: var(--zhuge-workspace-tab-radius) var(--zhuge-workspace-tab-radius) 0 0;
-  background: transparent;
-  color: var(--zhuge-muted);
-  font-size: .875rem;
-  font-weight: 800;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-.zhuge-module-shell .workspace-tab > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--zhuge-workspace-tab-icon-gap);
-  min-width: 0;
-  line-height: inherit;
-}
-.zhuge-module-shell .workspace-tab:hover,
-.zhuge-module-shell .workspace-tab:focus-visible {
-  border-color: color-mix(in srgb, var(--zhuge-accent) 36%, transparent) !important;
-  border-bottom-color: var(--zhuge-accent) !important;
-  background: color-mix(in srgb, var(--zhuge-accent) 8%, transparent);
-  color: var(--zhuge-text);
-  outline: none;
-}
-.zhuge-module-shell .workspace-tab.active {
-  border-color: var(--zhuge-border) !important;
-  border-bottom-color: var(--zhuge-accent) !important;
-  background: var(--zhuge-surface);
-  color: var(--zhuge-text);
-  box-shadow: 0 -1px 0 var(--zhuge-surface);
-}
-.zhuge-module-shell .workspace-tab .tab-close {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 var(--zhuge-workspace-tab-close-size);
-  width: var(--zhuge-workspace-tab-close-size);
-  height: var(--zhuge-workspace-tab-close-size);
-  margin-left: 2px;
-  border-radius: 5px;
-  font-size: .85rem;
-  font-weight: 800;
-  line-height: 1;
-}
-.zhuge-module-shell .workspace-tab .tab-close:hover { background: color-mix(in srgb, var(--zhuge-text) 12%, transparent); }
 .zhuge-module-shell .btn,
 .zhuge-module-shell .btn2 { min-height: 40px; border-radius: var(--zhuge-radius-sm); }
 .zhuge-module-shell .settings-reset-action,
@@ -937,53 +817,13 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 .zhuge-module-shell > .app.workspace-app > .main {
   box-sizing: border-box;
   padding: 0 !important;
-}
-/* Header geometry is owned solely by zhuge-shell.css. */
-.zhuge-module-shell .workspace-tabs,
-.zhuge-module-shell .workspace-subnav {
-  box-sizing: border-box;
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: nowrap;
-  gap: var(--zhuge-workspace-tabs-gap);
-  width: 100%;
-  height: var(--zhuge-workspace-tabs-height);
-  min-height: var(--zhuge-workspace-tabs-height);
-  padding: 0 var(--zhuge-workspace-tabs-padding-inline);
-  overflow-x: auto;
-  overflow-y: hidden;
-  border: 0;
-  border-bottom: 1px solid var(--zhuge-border);
-  border-radius: 0;
-  background: transparent;
-}
-.zhuge-module-shell .workspace-subnav {
-  margin-top: 0 !important;
-}
+}/* Header geometry is owned solely by zhuge-shell.css. */
+
 .zhuge-module-shell .workspace-tabs + .workspace-canvas,
 .zhuge-module-shell .workspace-subnav + .toolbar,
 .zhuge-module-shell .workspace-subnav + .note,
 .zhuge-module-shell .workspace-subnav + .workspace-content-container {
   margin-top: var(--shell-header-content-gap);
-}
-.zhuge-module-shell .workspace-tab,
-.zhuge-module-shell .workspace-subnav > button,
-.zhuge-module-shell .workspace-subnav > .nav {
-  box-sizing: border-box;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: var(--zhuge-workspace-tab-icon-gap);
-  height: var(--zhuge-workspace-tab-height);
-  min-height: var(--zhuge-workspace-tab-height);
-  margin: 0;
-  padding: var(--zhuge-workspace-tab-padding-block) var(--zhuge-workspace-tab-padding-inline);
-  border-radius: var(--zhuge-workspace-tab-radius) var(--zhuge-workspace-tab-radius) 0 0;
-  font-size: .875rem;
-  font-weight: 800;
-  line-height: 1.25;
-  white-space: nowrap;
 }
 .zhuge-module-shell .workspace-canvas {
   min-height: 0;
@@ -1096,15 +936,10 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
  * Investment C-board surface: Header -> spacing -> tabs -> spacing -> content.
  * Presentation only; no Investment data, routing, C runtime, or GAS behavior. */
 .investment-module-shell .investment-main { padding: 0 !important; }
-.investment-module-shell .investment-content-tabs {
-  margin: clamp(18px, 3vw, 36px) 0 16px;
-  padding: 0;
-}
 .investment-module-shell .investment-page-heading > div > .investment-eyebrow { margin-top: 0; }
 @media (max-width: 900px) {
   .investment-module-shell .investment-main { padding: 0 !important; }
 }
 @media (max-width: 700px) {
   .investment-module-shell .investment-main { padding: 0 !important; }
-  .investment-module-shell .investment-content-tabs { margin-top: 18px; }
 }

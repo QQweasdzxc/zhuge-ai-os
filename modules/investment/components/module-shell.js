@@ -33,11 +33,11 @@
     const asLinks = options.asLinks === true;
     const hrefFor = typeof options.hrefFor === "function" ? options.hrefFor : () => "#";
     const panelId = String(options.panelId || "investmentPage").trim();
-    return `<nav class="investment-primary-nav investment-content-tabs" role="tablist" aria-label="投資主要入口">${primaryNavigation.map(item => {
+    return `<nav class="investment-primary-nav investment-content-tabs zhuge-functional-tabs" role="${asLinks ? "navigation" : "tablist"}" aria-label="投資主要入口">${primaryNavigation.map(item => {
       const focusAttribute = item.focus ? ` data-investment-focus="${item.focus}"` : "";
       const current = navigationIsCurrent(item, state) ? "true" : "false";
       const controlsAttribute = panelId ? ` aria-controls="${panelId}"` : "";
-      const common = `class="investment-tab ${current === "true" ? "active" : ""}" role="tab" aria-selected="${current}"${controlsAttribute} data-investment-route="${item.route}"${focusAttribute} aria-current="${current === "true" ? "page" : "false"}" title="${item.description}"`;
+      const common = `class="investment-tab zhuge-functional-tab ${current === "true" ? "active" : ""}" ${asLinks ? "" : `role="tab" aria-selected="${current}"${controlsAttribute}`} data-investment-route="${item.route}"${focusAttribute} aria-current="${current === "true" ? "page" : "false"}" title="${item.description}"`;
       const action = asLinks
         ? `${common} href="${hrefFor(item)}"`
         : `type="button" ${common}`;
@@ -53,7 +53,7 @@
       .filter(([id]) => !["overview", "portfolio"].includes(id))
       .map(([id, [label, icon]]) => {
         const active = state.activePage === id ? "true" : "false";
-        const common = `class="investment-tab ${active === "true" ? "active" : ""}" aria-selected="${active}"`;
+        const common = `class="investment-tab zhuge-functional-tab ${active === "true" ? "active" : ""}" ${asLinks ? `aria-current="${active === "true" ? "page" : "false"}"` : `aria-selected="${active}"`}`;
         const action = asLinks
           ? `${common} href="${hrefFor({ route: id })}"`
           : `type="button" role="tab" ${common} data-investment-route="${id}"`;
@@ -62,7 +62,7 @@
       })
       .join("");
     const toolsOpen = ["transactions", "strategy", "settings", "import"].includes(state.activePage);
-    return `<details class="investment-tool-nav"${toolsOpen ? " open" : ""}><summary class="investment-tool-nav-summary"><span class="investment-tool-nav-label">更多工具</span><small>交易紀錄、策略、截圖匯入、設定</small><span class="investment-tool-nav-chevron" aria-hidden="true">⌄</span></summary><div class="investment-content-tabs" role="tablist" aria-label="投資模組工具">${toolTabs}</div></details>`;
+    return `<details class="investment-tool-nav"${toolsOpen ? " open" : ""}><summary class="investment-tool-nav-summary"><span class="investment-tool-nav-label">更多工具</span><small>交易紀錄、策略、截圖匯入、設定</small><span class="investment-tool-nav-chevron" aria-hidden="true">⌄</span></summary><div class="investment-content-tabs zhuge-functional-tabs" role="${asLinks ? "navigation" : "tablist"}" aria-label="投資模組工具">${toolTabs}</div></details>`;
   }
 
   function render(state, dependencies = {}) {

@@ -911,7 +911,7 @@
     let tools = tabs.querySelector("[data-golden-master-tab-tools]");
     if (!tools) {
       tools = document.createElement("div");
-      tools.className = "golden-master-tab-tools";
+      tools.className = "golden-master-tab-tools zhuge-functional-tabs-actions";
       tools.dataset.goldenMasterTabTools = "true";
       tools.setAttribute("role", "presentation");
       tabs.appendChild(tools);
@@ -1963,7 +1963,7 @@
     if (!tabs || !content || document.querySelector('[data-board-nav="security"]')) return;
 
     const tab = document.createElement("button");
-    tab.className = "workspace-tab";
+    tab.className = "workspace-tab zhuge-functional-tab";
     tab.type = "button";
     tab.title = "安全設定";
     tab.dataset.boardNav = "security";
@@ -4535,7 +4535,7 @@
       let tab = productTabs.querySelector('[data-board-nav="workflow-settings"]');
       if (!tab) {
         tab = document.createElement("button");
-        tab.className = "procurement-content-tab";
+        tab.className = "procurement-content-tab zhuge-functional-tab";
         tab.type = "button";
         tab.setAttribute("role", "tab");
         tab.setAttribute("aria-selected", "false");
@@ -4553,7 +4553,7 @@
       const parent = boardMain?.parentElement;
       if (!parent) return null;
       tabs = document.createElement("div");
-      tabs.className = "workspace-tabs workspace-subnav";
+      tabs.className = "workspace-tabs workspace-subnav zhuge-functional-tabs";
       tabs.setAttribute("role", "tablist");
       tabs.setAttribute("aria-label", "看板功能");
       parent.insertBefore(tabs, boardMain);
@@ -4561,7 +4561,7 @@
     let boardTab = tabs.querySelector('[data-board-nav="board"]');
     if (!boardTab) {
       boardTab = document.createElement("button");
-      boardTab.className = "workspace-tab active";
+      boardTab.className = "workspace-tab active zhuge-functional-tab";
       boardTab.type = "button";
       boardTab.title = "看板";
       boardTab.dataset.boardNav = "board";
@@ -4575,7 +4575,7 @@
     let tab = tabs.querySelector('[data-board-nav="workflow-settings"]');
     if (!tab) {
       tab = document.createElement("button");
-      tab.className = "workspace-tab";
+      tab.className = "workspace-tab zhuge-functional-tab";
       tab.type = "button";
       tab.title = state.workflowCapability.readOnly === true ? "查看流程設定" : "流程設定";
       tab.dataset.boardNav = "workflow-settings";

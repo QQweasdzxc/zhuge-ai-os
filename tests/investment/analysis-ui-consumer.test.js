@@ -247,7 +247,9 @@ test("Investment primary tabs retain routes and expose exactly one correct activ
     panelId: "investmentBoardView",
     hrefFor: item => item.focus === "watchlist" ? "./#watchlist" : item.route === "portfolio" ? "./" : `?focus=${item.focus}`
   });
-  assert.match(boardLinks, /aria-controls="investmentBoardView"/);
+  assert.match(boardLinks, /role="navigation"/);
+  assert.doesNotMatch(boardLinks, /role="tab"|aria-selected|aria-controls/);
+  assert.equal((boardLinks.match(/aria-current="page"/g) || []).length, 1);
   assert.match(boardLinks, /data-investment-focus="watchlist"[^>]*aria-current="page"[^>]*href="\.\/#watchlist"/);
   assert.match(boardLinks, /data-investment-focus="today-focus"[^>]*href="\?focus=today-focus"/);
 });

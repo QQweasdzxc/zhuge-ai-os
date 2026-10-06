@@ -36,9 +36,6 @@ button { color: inherit; }
 .investment-module-title div { display: grid; gap: 3px; }
 .investment-module-title small { color: var(--investment-muted); font-size: .7rem; }
 .investment-sidebar nav { display: grid; gap: 7px; }
-.investment-nav-item { display: flex; align-items: center; gap: 11px; width: 100%; border: 1px solid transparent; border-radius: 12px; background: transparent; padding: 11px 12px; color: var(--investment-muted); cursor: pointer; text-align: left; }
-.investment-nav-item:hover, .investment-nav-item.active { border-color: rgba(109, 184, 255, .35); background: rgba(109, 184, 255, .12); color: var(--investment-text); }
-.investment-nav-item.active { box-shadow: inset 3px 0 var(--investment-accent); }
 .investment-sidebar-meta { display: grid; gap: 4px; margin-top: auto; border: 1px solid var(--investment-line); border-radius: 14px; padding: 12px; background: rgba(16, 38, 65, .6); }
 .investment-sidebar-meta span, .investment-sidebar-meta small { color: var(--investment-muted); font-size: .72rem; }
 .investment-sidebar-meta strong { color: var(--investment-warning); font-size: .83rem; }
@@ -47,9 +44,6 @@ button { color: inherit; }
 
 .investment-main { min-width: 0; padding: clamp(18px, 3vw, 36px); }
 .investment-module-shell .investment-layout{display:block;min-height:auto}.investment-module-shell .investment-main{padding:clamp(18px,3vw,36px);padding-bottom:clamp(100px,10vw,132px)}.investment-module-shell .investment-page{max-width:none}
-.investment-primary-nav{margin-bottom:14px}
-.investment-primary-nav .investment-tab{flex:0 0 auto;white-space:nowrap;text-decoration:none}
-.investment-primary-nav .investment-tab:focus-visible{outline:2px solid var(--investment-accent);outline-offset:2px}
 .investment-tool-nav{margin-bottom:var(--shell-section-gap);border-bottom:1px solid var(--investment-line)}
 .investment-tool-nav-summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 2px;cursor:pointer;list-style:none;color:var(--investment-muted)}
 .investment-tool-nav-summary::-webkit-details-marker{display:none}
@@ -58,9 +52,6 @@ button { color: inherit; }
 .investment-tool-nav-summary small{overflow:hidden;color:var(--investment-muted);font-size:.66rem;text-overflow:ellipsis;white-space:nowrap}
 .investment-tool-nav-chevron{margin-left:auto;color:var(--investment-accent);font-size:.9rem;transition:transform .16s ease}
 .investment-tool-nav[open] .investment-tool-nav-chevron{transform:rotate(180deg)}
-.investment-tool-nav .investment-content-tabs{margin:0;border-bottom:0;padding:8px 0 2px}
-.investment-module-shell .investment-content-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:var(--shell-section-gap);padding:0;border-bottom:1px solid var(--investment-line)}.investment-module-shell .investment-tab{display:inline-flex;align-items:center;gap:7px;min-height:44px;border:1px solid transparent;border-radius:10px 10px 0 0;background:transparent;color:var(--investment-muted);padding:9px 12px;cursor:pointer}.investment-module-shell .investment-tab.active,.investment-module-shell .investment-tab:hover{border-color:var(--investment-line);border-bottom-color:var(--investment-accent);background:var(--investment-panel);color:var(--investment-text)}
-.investment-tool-nav .investment-content-tabs{margin-bottom:0;padding:8px 0 2px;border-bottom:0}
 .investment-sit-banner { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
 .investment-sit-banner span, .investment-pill { border: 1px solid var(--investment-line); border-radius: 999px; background: rgba(16, 38, 65, .64); padding: 6px 10px; color: var(--investment-muted); font-size: .72rem; font-weight: 700; }
 .investment-page { max-width: 1240px; margin: 0 auto; }
@@ -401,7 +392,6 @@ button { color: inherit; }
   .investment-sidebar { position: sticky; z-index: 15; top: 72px; display: block; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--investment-line); overflow-x: auto; }
   .investment-module-title, .investment-sidebar-meta, .investment-back-link { display: none; }
   .investment-sidebar nav { display: flex; width: max-content; }
-  .investment-nav-item { width: auto; }
   .investment-kpi-grid, .investment-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-watch-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investment-command-grid-top, .investment-command-grid-bottom { grid-template-columns: 1fr; }
@@ -421,8 +411,6 @@ button { color: inherit; }
   .investment-identity { max-width: 52%; }
   .investment-identity strong, .investment-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .investment-main { padding: 18px 14px 34px; }
-  .investment-module-shell .investment-primary-nav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-  .investment-primary-nav .investment-tab{min-height:44px;flex:0 0 auto;padding:9px 11px}
   .investment-tool-nav{align-items:flex-start;display:grid;gap:5px;padding-bottom:0}
   .investment-tool-nav-label{padding:0 2px}
   .investment-command-side-stack{grid-template-columns:1fr}

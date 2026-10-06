@@ -59,18 +59,15 @@ test("Dashboard workspace layout gives the calendar the wider column and keeps s
   assert.match(dashboard, /dashboard-workspace-layout[\s\S]*grid-template-columns: minmax\(0, 2\.1fr\) minmax\(280px, 1fr\)/s);
 });
 
-test("Workspace Tabs use one canonical geometry and token source across routes", () => {
-  const css = read("shared/theme/zhuge-workspace.css");
-  const worklog = read("modules/worklog/worklog-app.js");
-  assert.match(css, /--zhuge-workspace-tabs-height:\s*42px/);
-  assert.match(css, /--zhuge-workspace-tabs-gap:\s*6px/);
-  assert.match(css, /--zhuge-workspace-tab-height:\s*38px/);
-  assert.match(css, /--zhuge-workspace-tab-padding-inline:\s*12px/);
-  assert.match(css, /workspace-tabs\s*\{[\s\S]*gap:\s*var\(--zhuge-workspace-tabs-gap\)/);
-  assert.match(css, /workspace-tab\s*\{[\s\S]*gap:\s*var\(--zhuge-workspace-tab-icon-gap\)/);
-  assert.match(css, /workspace-tab > span:first-child[\s\S]*gap:\s*var\(--zhuge-workspace-tab-icon-gap\)/);
-  assert.match(css, /workspace-tab \.tab-close[\s\S]*flex: 0 0 var\(--zhuge-workspace-tab-close-size\)/);
-  assert.match(worklog, /function workspaceTabs\(\)/);
+test("Functional Tabs use one canonical geometry and token source across routes", () => {
+  const css = read("shared/theme/zhuge-functional-tabs.css");
+  assert.match(css, /--zhuge-functional-tab-height:\s*44px/);
+  assert.match(css, /--zhuge-functional-tabs-gap:\s*8px/);
+  assert.match(css, /--zhuge-functional-tab-padding-inline:\s*12px/);
+  assert.match(css, /gap:\s*var\(--zhuge-functional-tab-icon-gap\)/);
+  assert.match(css, /zhuge-functional-tab \.tab-close/);
+  assert.match(read("shared/theme/zhuge-shell.css"), /@import.*zhuge-functional-tabs.css/);
+  assert.match(read("modules/worklog/worklog-app.js"), /function workspaceTabs\(\)/);
 });
 
 test("Control Console and Management are separate Module A destinations", () => {
@@ -135,7 +132,7 @@ test("Full-site UX polish keeps collapsible regions out of layout flow and uses 
   const workspaceCss = read("shared/theme/zhuge-workspace.css");
   const worklogCss = read("modules/worklog/worklog.css");
   const settings = read("modules/worklog/worklog-app.js");
-  assert.match(workspaceCss, /workspace-tabs[\s\S]*border-bottom/);
+  assert.match(read("shared/theme/zhuge-functional-tabs.css"), /zhuge-functional-tabs[\s\S]*border-bottom/);
   assert.match(workspaceCss, /workspace-worklog[\s\S]*summary-dashboard/);
   assert.match(workspaceCss, /task-drawer:not\(\.is-open\)/);
   assert.match(settings, /settings-reset-action/);
