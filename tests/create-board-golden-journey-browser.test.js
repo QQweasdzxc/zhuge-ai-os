@@ -5,7 +5,7 @@ const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
 const {resolveBrowserExecutable}=require('./browser-executable');
-const {provisioningDb,board}=require('./fixtures/c-consumer-provisioning-db');
+const {lifecycleDb,identitySnapshot,board}=require('./fixtures/module-c-board-lifecycle-sql');
 const {fn,read}=require('./fixtures/module-c-workspace-lifecycle-sql');
 const ROOT=path.resolve(__dirname,'..');
 function motherPage(){
@@ -14,7 +14,7 @@ function motherPage(){
  const authSeam=auth.slice(auth.indexOf('  let session = null;'),auth.indexOf('  const mockWorkspaces = ['));
  // Actual Mother markup, shared renderers and Runtime. Only authentication and
  // transport are isolated; provisioning executes the reviewed SQL in PGlite.
- const scripts=['config/version.js','components/zhuge-navigation.js','components/zhuge-shell.js','components/task-card.js','components/task-drawer.js','components/task-board.js','components/golden-master.js','components/c-template-preview.js','components/activity-classifier.js','board/board-read-service.js','components/task-action-contract.js','components/task-action-adapters.js','board/workspace-ordering-authority.js'];
+ const scripts=['config/version.js','components/zhuge-navigation.js','components/zhuge-shell.js','components/task-card.js','components/task-drawer.js','components/task-board.js','components/golden-master.js','components/c-template-preview.js','components/template-management-center.js','components/activity-classifier.js','board/board-read-service.js','components/task-action-contract.js','components/task-action-adapters.js','board/workspace-ordering-authority.js'];
  const seam=`<script>${authSeam}
  window.ZhugeTemplateAdoptionRuntime={isCreator:true,service:{isTemplateEnabled:()=>true}};
  const transport=async(kind,payload)=>{const r=await fetch('/qa/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await r.json();if(!r.ok)throw Error(result.error);return result;};
@@ -27,10 +27,10 @@ function motherPage(){
  return original.slice(0,original.indexOf('<script src='))+scripts.map(s=>`<script src="/shared/${s}"></script>`).join('\n')+seam+'<script src="/shared/components/golden-master-runtime.js"></script></body></html>';
 }
 test('Create Board Golden Journey: real Mother clicks → canonical SQL → shared navigation → persisted Consumer',async t=>{
- const db=await provisioningDb();
+ const db=await lifecycleDb();
  await db.exec(fn(read('docs/supabase/20260910_c_workflow_capability_v2.sql'),'public.board_c_workflow_get'));
  const calls=[];
- const tables=new Set(['board_instances','board_workspaces','board_tasks','board_workflow_definitions','board_workflow_steps','board_workflow_transitions','board_workflow_gates','board_workflow_evidence_requirements','board_workflow_state','engineering_activity_log']);
+ const tables=new Set(['board_instances','board_workspaces','board_tasks','board_workflow_definitions','board_workflow_steps','board_workflow_transitions','board_workflow_gates','board_workflow_evidence_requirements','board_workflow_state','engineering_activity_log','module_releases']);
  const server=http.createServer(async(req,res)=>{
   try{
    const url=new URL(req.url,'http://localhost');
@@ -50,12 +50,22 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
      result=(await db.query(`select * from ${input.table}${where.length?' where '+where.join(' and '):''}`,values)).rows;
      const order=query.get('order')?.split(',')[0]?.split('.')[0];if(order)result.sort((a,b)=>String(a[order]??'').localeCompare(String(b[order]??''),undefined,{numeric:true}));
     }else{
-     assert.ok(['board_provision_c_consumer_v2','board_c_workflow_get'].includes(input.name),'QA RPC allowlist');
+     assert.ok(['board_provision_c_consumer_v2','board_c_workflow_get','board_instance_archive','board_instance_restore','board_instance_list_archived'].includes(input.name),'QA RPC allowlist');
      const args=input.args||{};const keys=Object.keys(args);keys.forEach(k=>assert.match(k,/^p_[a-z_]+$/));
      result=(await db.query(`select public.${input.name}(${keys.map((k,i)=>`${k} => $${i+1}`).join(',')}) result`,keys.map(k=>typeof args[k]==='object'&&args[k]!==null?JSON.stringify(args[k]):args[k]))).rows[0].result;
      calls.push({name:input.name,args,result});
     }
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
+   }
+   if(url.pathname==='/modules/worklog/'||url.pathname==='/modules/worklog/index.html'){
+    res.setHeader('Content-Type','text/html');
+    const page=motherPage().replace('<script src="/shared/components/golden-master-runtime.js"></script>','');
+    res.end(page.replace('</body>',`<section id="qaManagement"></section><script>
+    window.ZhugeTemplateAdoptionPolicy={TEMPLATES:{board:{id:'board',code:'C',label:'看板',description:'Shared'}},PAGE_REGISTRY:{}};
+    window.ZhugeTemplateAdoptionRuntime.policy={status:'resolved'};
+    window.ZhugeModulePublishService={read:async()=>{const [r]=await transport('select',{table:'module_releases',query:'?'});return {publishedVersion:r.published_version,publishedBuild:r.published_build,consumers:r.consumer_adoptions};},hasPendingDevelopment:()=>false};
+    const paint=()=>{const host=document.getElementById('qaManagement');host.innerHTML=ZhugeTemplateManagementCenter.render();ZhugeTemplateManagementCenter.bind(host,{onUpdated:paint});};paint();
+    </script></body>`));return;
    }
    if(url.pathname.endsWith('/template-preview/')||url.pathname.endsWith('/template-preview/index.html')){res.setHeader('Content-Type','text/html');res.end(motherPage());return;}
    if(url.pathname==='/favicon.ico'){res.statusCode=204;res.end();return;}
@@ -153,6 +163,46 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    assert.equal(await page.locator('[data-c-operational-motherboard]:visible').count(),0,'Mobile Consumer keeps governance hidden');
    assert.equal(await page.locator('[data-workspace-id]').count(),4);
    assert.equal(await card.isVisible(),true,'Mobile still renders Shared cards');
+   const retainedBefore=await identitySnapshot(db,id);
+   const originalIdentity=retainedBefore.board_instances[0];
+   for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
+    await page.setViewportSize(viewport);
+    // Follow the existing shared Management destination and use its real component.
+    await page.goto(origin+'/modules/worklog/?app=1&workspace=management');
+    const active=page.locator(`[data-template-runtime-entry="consumer-${id}"]`);
+    await active.waitFor({state:'visible'});await active.locator('summary').first().click();
+    assert.equal(await active.locator('.template-runtime-observability-name strong').innerText(),consumerName);
+    const archive=active.locator('[data-board-lifecycle="archive"]');await archive.waitFor({state:'visible'});
+    const archiveCount=calls.filter(c=>c.name==='board_instance_archive').length;
+    await archive.dblclick();
+    await page.locator(`[data-archived-board="${id}"]`).waitFor({state:'visible'});
+    await active.waitFor({state:'detached'});
+    assert.equal(calls.filter(c=>c.name==='board_instance_archive').length,archiveCount+1,'double click produces one transition');
+    await page.locator(`[data-shared-nav-item="consumer-board:${id}"]`).waitFor({state:'detached'});
+    assert.equal(await page.locator(`[data-template-site-map] code:text-is("${id}")`).count(),0);
+    const archivedPage=await browser.newPage({viewport});archivedPage.setDefaultTimeout(10000);
+    await archivedPage.goto(origin+'/app/Board/template-preview/?templateView=board&boardInstanceId='+id);
+    await archivedPage.getByRole('heading',{name:'此看板已封存',exact:true}).waitFor({state:'visible'});
+    assert.equal(await archivedPage.locator('[data-workspace-id]').count(),0);
+    assert.equal(await archivedPage.locator('[data-task-id]').count(),0);
+    assert.equal((await db.query('select active from board_instances where id=$1',[id])).rows[0].active,false,'direct URL cannot restore');
+    await archivedPage.close();
+    const restoredCount=calls.filter(c=>c.name==='board_instance_restore').length;
+    const restore=page.locator(`[data-archived-board="${id}"] [data-board-lifecycle="restore"]`);
+    await restore.dblclick();await active.waitFor({state:'visible'});
+    await page.locator(`[data-archived-board="${id}"]`).waitFor({state:'detached'});
+    assert.equal(calls.filter(c=>c.name==='board_instance_restore').length,restoredCount+1);
+    await assertNavigationPlacement();
+    const reopened=await browser.newPage({viewport});reopened.setDefaultTimeout(10000);
+    await reopened.goto(origin+'/app/Board/template-preview/?templateView=board&boardInstanceId='+id);
+    await reopened.locator(`[data-task-id="${qaTask.id}"]`).waitFor({state:'visible'});
+    assert.equal(await reopened.locator('[data-workspace-id]').count(),4);await reopened.close();
+   }
+   const retainedAfter=await identitySnapshot(db,id);
+   const lifecycleKeys=['active','archived_at','archived_by','archive_origin','updated_at'];
+   const unchanged=r=>Object.fromEntries(Object.entries(r).filter(([k])=>!lifecycleKeys.includes(k)));
+   assert.deepEqual(unchanged(retainedAfter.board_instances[0]),unchanged(originalIdentity));
+   for(const key of Object.keys(retainedBefore).filter(k=>k!=='board_instances'))assert.deepEqual(retainedAfter[key],retainedBefore[key],key+' retained');
    assert.deepEqual(errors,[]);await page.close();
   });
  }

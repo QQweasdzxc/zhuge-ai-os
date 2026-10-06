@@ -4955,6 +4955,11 @@
       }
       return result;
     }).catch(error => {
+      if (error?.code === "BOARD_INSTANCE_ARCHIVED") {
+        state.tasks = []; state.workspaces = []; state.taskById = new Map(); state.workspaceById = new Map();
+        renderAccessState({ title: "此看板已封存", message: "工作區、卡片與紀錄仍完整保留。請到管理中心還原看板後再開啟。" });
+        throw error;
+      }
       const loginLink = "../../../?app=1";
       const message = error && error.code === "BOARD_SESSION_REQUIRED" ? "請先登入 Zhuge AI OS，再開啟 AI Board。<a href=\"" + loginLink + "\">前往登入</a>" : "正式 Cloud Read 失敗：" + esc(error && error.message || "未知錯誤") + "。請重新整理或確認 Shared Session。";
       setBanner(message, "error");

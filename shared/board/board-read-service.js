@@ -708,6 +708,12 @@
       projectAssignment: String(row.project_assignment || row.projectAssignment || ""),
       isTemplateInstance,
       active: row.active !== false,
+      archivedAt: row.archived_at || row.archivedAt || null,
+      archivedBy: row.archived_by || row.archivedBy || null,
+      lifecycleManaged: identityResolved && consumerRole === "generic-consumer" && (row.lifecycle_managed ?? row.lifecycleManaged) === true,
+      lifecycleState: row.active === false
+        ? (row.archived_at || row.archivedAt ? "ARCHIVED" : "UNKNOWN")
+        : (row.archived_at || row.archivedAt ? "UNKNOWN" : "ACTIVE"),
       createdAt: row.created_at || row.createdAt || null,
       updatedAt: row.updated_at || row.updatedAt || null
     });
@@ -717,7 +723,7 @@
     const gateway = options.gateway || requireGateway();
     const rows = await gateway.select(
       "board_instances",
-      "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
+      "?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,archived_at,archived_by,lifecycle_managed,created_at,updated_at&active=eq.true&is_template_instance=eq.false&legacy_application_scope=is.null&template_key=eq.c&order=created_at.asc"
     );
     return (Array.isArray(rows) ? rows : [])
       .map(normalizeBoardInstance)
@@ -737,7 +743,7 @@
     const templateKey = encodeURIComponent(requestedTemplateKey);
     const rows = await gateway.select(
       "board_instances",
-      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
+      `?select=id,name,task_code_prefix,template_key,authorization_mode,owner_uuid,legacy_application_scope,project_assignment,is_template_instance,active,archived_at,archived_by,lifecycle_managed,created_at,updated_at&active=eq.true&template_key=eq.${templateKey}&order=created_at.asc`
     );
     return (Array.isArray(rows) ? rows : [])
       .map(normalizeBoardInstance)
@@ -759,6 +765,28 @@
     }
     return resolver;
   }
+
+  async function listArchivedBoardInstances(options = {}) {
+    const gateway = options.gateway || requireGateway();
+    const rows = await gateway.rpc("board_instance_list_archived", {});
+    return (Array.isArray(rows) ? rows : []).map(normalizeBoardInstance).filter(instance =>
+      instance.identityResolved && instance.consumerRole === "generic-consumer" && instance.lifecycleManaged && instance.lifecycleState === "ARCHIVED");
+  }
+
+  async function setBoardArchived(boardInstanceId, archived, options = {}) {
+    const id = String(boardInstanceId || "").trim();
+    if (!id) throw new Error("Board Instance identity is required");
+    const gateway = options.gateway || requireGateway();
+    const result = normalizeBoardInstance(await gateway.rpc(archived ? "board_instance_archive" : "board_instance_restore", { p_board_instance_id: id }));
+    if (result.boardInstanceId !== id || !result.identityResolved || !result.lifecycleManaged || result.lifecycleState !== (archived ? "ARCHIVED" : "ACTIVE")) {
+      throw new Error("Board lifecycle readback mismatch");
+    }
+    root.ZhugeSharedNavigation?.refresh?.();
+    if (typeof root.CustomEvent === "function") root.document?.dispatchEvent?.(new root.CustomEvent("zhuge-board-lifecycle-updated", { detail: { boardInstanceId: id, lifecycleState: result.lifecycleState } }));
+    return result;
+  }
+  const archiveBoardInstance = (id, options) => setBoardArchived(id, true, options);
+  const restoreBoardInstance = (id, options) => setBoardArchived(id, false, options);
 
   async function load(options = {}) {
     const identity = currentIdentity();
@@ -1997,7 +2025,7 @@
     const resolveInstance = async () => {
       if (!instancePromise) {
         instancePromise = (requestedBoardInstanceId
-          ? gateway.select("board_instances", `?select=*&id=eq.${encodeURIComponent(requestedBoardInstanceId)}&active=eq.true`)
+          ? gateway.select("board_instances", `?select=*&id=eq.${encodeURIComponent(requestedBoardInstanceId)}`)
           : legacyApplicationScope
             ? gateway.select("board_instances", `?select=*&legacy_application_scope=eq.${encodeURIComponent(legacyApplicationScope)}&active=eq.true`)
             : gateway.rpc("board_resolve_template_instance", { p_template_key: templateKey })
@@ -2009,6 +2037,9 @@
             const error = new Error("Canonical board instance 尚未建立。");
             error.code = "BOARD_INSTANCE_NOT_FOUND";
             throw error;
+          }
+          if (instance.active === false) {
+            const error = new Error("此看板已封存"); error.code = "BOARD_INSTANCE_ARCHIVED"; throw error;
           }
           return instance;
         });
@@ -2111,6 +2142,7 @@
     }
 
     async function instanceLoad(options = {}) {
+      instancePromise = null; // Re-check lifecycle before every runtime reload.
       const instance = await resolveInstance();
       const boardIdentity = normalizeBoardInstance(instance);
       if (!boardIdentity.identityResolved) {
@@ -2863,6 +2895,9 @@
     load,
     listBoardInstances,
     listModuleConsumers,
+    listArchivedBoardInstances,
+    archiveBoardInstance,
+    restoreBoardInstance,
     normalizeCompletionArchivePolicy,
     normalizeCompletionArchiveContext,
     normalizeCompletionArchiveReconciliation,

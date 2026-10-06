@@ -13,7 +13,7 @@ test("Published C identity stays internally consistent while Candidate Runtime m
   assert.equal(release.templateId, "c");
   assert.equal(release.templateVersion, release.publishedVersion);
   assert.equal(release.build, release.publishedBuild);
-  assert.equal(release.developmentVersion, release.publishedVersion);
+  assert.equal(release.developmentVersion, candidateIdentity.version);
   assert.equal(release.developmentBuild, candidateIdentity.build);
   assert.notEqual(release.developmentBuild, release.publishedBuild);
   assert.notEqual(candidateIdentity.build, release.publishedBuild);

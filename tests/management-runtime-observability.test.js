@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const BoardReadService = require("../shared/board/board-read-service.js");
 const ManagementCenter = require("../shared/components/template-management-center.js");
 const ROOT = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -30,7 +31,10 @@ const instances = [
   { id: "worktodo-instance", name: "工作待辦", templateKey: "c", legacyApplicationScope: "worktodo", active: true, consumerId: "worktodo" },
   { id: "gas-instance", name: "庶務行政", templateKey: "c", taskCodePrefix: "GAS", active: true, consumerId: "gas-instance" },
   { id: "investment-instance", name: "投資戰情板", templateKey: "c", taskCodePrefix: "IVTK", active: true, consumerId: "investment-instance" }
-];
+].map(row => BoardReadService.normalizeBoardInstance({
+  isTemplateInstance: false, ...row,
+  legacyApplicationScope: row.legacyApplicationScope || (row.taskCodePrefix === "GAS" ? "procurement" : row.taskCodePrefix === "IVTK" ? "investment" : "")
+}));
 
 function authority(instance, options = {}) {
   return {
@@ -195,4 +199,55 @@ test("site map keeps Module, Template and Consumer hierarchy separate", () => {
   assert.deepEqual(templateC.children.map(node => node.label), ["C Mother", "AI Board", "工作待辦", "庶務行政（GAS）", "投資組合（Investment）"]);
   assert.equal(model.children.some(node => node.key === "management-center"), true);
   assert.equal(templateC.children.some(node => node.key === "management-center"), false);
+});
+
+for (const projectAssignment of ['', 'worklog', 'investment']) {
+  test(`Generic Management uses canonical projection across all surfaces: ${projectAssignment || 'unassigned'}`, () => {
+    for (const prefix of ['RANDOM', 'GAS', 'IVTK', 'MDTK']) {
+      const instance = BoardReadService.normalizeBoardInstance({ id: 'fixture-generic', name: '雲間協作', templateKey: 'c', isTemplateInstance: false, projectAssignment, taskCodePrefix: prefix });
+      const release = { ...RELEASE, consumers: { ...RELEASE.consumers, [instance.consumerId]: RELEASE.consumers.c } };
+      const entries = ManagementCenter.buildRuntimeIdentityModel({ instances: [instance, instance], release, authorities: new Map([[instance.id, { value: authority(instance) }]]) });
+      assert.equal(entries.length, 1, 'one canonical Board appears once');
+      const entry = entries[0];
+      assert.equal(entry.label, instance.name);
+      assert.equal(entry.consumerRole, 'generic-consumer');
+      assert.equal(entry.runtimeEntry, '/app/Board/template-preview/?templateView=board&boardInstanceId=fixture-generic');
+      assert.equal(entry.adoptionKey, instance.consumerId);
+      assert.match(entry.adoption, /已採用/);
+      const site = ManagementCenter.buildSiteMapModel({ entries }).children.find(n => n.key === 'module-c').children[0];
+      assert.equal(site.children.length, 1);
+      assert.equal(site.children[0].label, instance.name);
+      const snapshot = { status: 'resolved', service: { isTemplateEnabled: () => false }, templates: { board: { id: 'board', label: '看板', code: 'C' } }, pages: {} };
+      const [model] = ManagementCenter.buildTemplateModel(snapshot, entries);
+      assert.equal(model.consumers.length, 1);
+      assert.equal(model.rows[0].page.label, instance.name);
+      assert.equal(model.rows[0].runtimeEntry.label, entry.label);
+      assert.equal(model.enabledCount, 1);
+      const registryPage = { id: instance.id, label: 'stale presentation', supportedTemplates: ['board'] };
+      const [existing] = ManagementCenter.buildTemplateModel({ ...snapshot, pages: { [instance.id]: registryPage } }, entries);
+      assert.equal(existing.rows.length, 1);
+      assert.equal(existing.rows[0].page.label, instance.name);
+      assert.equal(registryPage.label, 'stale presentation', 'Management never modifies the Registry');
+    }
+  });
+}
+
+test('Management honors canonical consumerLabel and safely encodes the canonical Board entry', () => {
+  const instance = { ...BoardReadService.normalizeBoardInstance({ id: 'opaque/id?value', name: 'Board name', templateKey: 'c', isTemplateInstance: false }), consumerLabel: 'Canonical presentation' };
+  const [entry] = ManagementCenter.buildRuntimeIdentityModel({ instances: [instance] });
+  assert.equal(entry.label, instance.consumerLabel);
+  assert.equal(entry.runtimeEntry, '/app/Board/template-preview/?templateView=board&boardInstanceId=opaque%2Fid%3Fvalue');
+});
+
+test('Unresolved identity cannot claim Mother, Generic, healthy evidence or a runtime entry', () => {
+  for (const bad of [{ identityResolved: false, consumerRole: 'mother', isTemplateInstance: true }, { identityResolved: false, consumerRole: 'generic-consumer' }, { consumerRole: 'mother', isTemplateInstance: true }]) {
+    const instance = { id: 'unresolved', name: 'Do not infer', consumerId: 'c', taskCodePrefix: 'GAS', ...bad };
+    const [entry] = ManagementCenter.buildRuntimeIdentityModel({ instances: [instance], release: RELEASE, authorities: new Map([[instance.id, { value: authority(instance) }]]) });
+    assert.equal(entry.label, 'Unknown / Not Available');
+    assert.equal(entry.consumerRole, 'unknown');
+    assert.equal(entry.health, 'UNKNOWN');
+    assert.equal(entry.runtimeEntry, 'Unknown / Not Available');
+    assert.equal(entry.adoptionKey, '');
+    assert.equal(entry.evidenceAvailable, false);
+  }
 });

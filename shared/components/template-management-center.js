@@ -21,28 +21,28 @@
       label: "C Mother",
       pageId: "template-c",
       legacyLabel: "Legacy Authority",
-      matches: instance => instance?.isTemplateInstance === true
+      matches: instance => instance?.consumerRole === "mother" && instance?.isTemplateInstance === true
     }),
     Object.freeze({
       key: "ai-board",
       label: "AI Board",
       pageId: "ai-board",
       legacyLabel: "Legacy Authority",
-      matches: instance => normalizeRuntimeScope(instance) === "ai-board"
+      matches: instance => instance?.legacyCompatibilityIdentity === "ai-board"
     }),
     Object.freeze({
       key: "worktodo",
       label: "工作待辦",
       pageId: "tasks-new",
       legacyLabel: "Legacy Create Authority",
-      matches: instance => normalizeRuntimeScope(instance) === "worktodo"
+      matches: instance => instance?.legacyCompatibilityIdentity === "worktodo"
     }),
     Object.freeze({
       key: "gas",
       label: "庶務行政（GAS）",
       pageId: "procurement",
       legacyLabel: "Legacy Authority",
-      matches: instance => String(instance?.taskCodePrefix || "").trim().toUpperCase() === "GAS"
+      matches: instance => instance?.legacyCompatibilityIdentity === "procurement" || String(instance?.taskCodePrefix || "").trim().toUpperCase() === "GAS"
     }),
     Object.freeze({
       key: "investment",
@@ -50,7 +50,7 @@
       pageId: "investment",
       legacyLabel: "Legacy Authority",
       readOnlyExpected: true,
-      matches: instance => String(instance?.taskCodePrefix || "").trim().toUpperCase() === "IVTK"
+      matches: instance => instance?.legacyCompatibilityIdentity === "investment" || String(instance?.taskCodePrefix || "").trim().toUpperCase() === "IVTK"
     })
   ]);
   const CONSUMER_ID_ALIASES = Object.freeze({
@@ -82,6 +82,10 @@
   let releaseRequest = null;
   let runtimeObservabilityState = { status: "idle", entries: [], error: "" };
   let runtimeObservabilityRequest = null;
+  let archivedBoardsState = { status: "idle", entries: [], error: "" };
+  let archivedBoardsRequest = null;
+  const lifecycleActions = new Set();
+  let lifecycleFeedback = "";
 
   function escapeHtml(value = "") {
     return String(value).replace(/[&<>'"]/g, ch => ({
@@ -91,13 +95,6 @@
       "'": "&#39;",
       '"': "&quot;"
     }[ch]));
-  }
-
-  function normalizeRuntimeScope(instance = {}) {
-    return String(instance.legacyApplicationScope || instance.legacy_application_scope || "")
-      .trim()
-      .toLowerCase()
-      .replace(/_/g, "-");
   }
 
   function firstDefined(source, ...keys) {
@@ -220,6 +217,10 @@
   }
 
   function navigationEntryPath(profile, navigation = root?.ZhugeSharedNavigation) {
+    if (profile?.unresolved) return "Unknown / Not Available";
+    if (profile?.consumerRole === "generic-consumer") {
+      return `/app/Board/template-preview/?templateView=board&boardInstanceId=${encodeURIComponent(profile.boardInstanceId)}`;
+    }
     // template-preview is the existing C Mother runtime entry; Navigation's
     // destination() remains the source for every named Consumer entry.
     if (profile?.key === "c-mother") return "/app/Board/template-preview/";
@@ -231,13 +232,26 @@
   }
 
   function runtimeViewFor(instance = {}) {
-    return RUNTIME_VIEW_DEFINITIONS.find(definition => definition.matches(instance)) || Object.freeze({
-      key: `other-${textValue(instance.id, "unknown")}`,
-      label: "其他 C 看板",
-      pageId: null,
-      legacyLabel: "Legacy Authority",
-      matches: () => false
-    });
+    const boardInstanceId = textValue(instance.boardInstanceId || instance.id).trim();
+    if (instance.identityResolved === true && boardInstanceId && instance.consumerId) {
+      if (instance.consumerRole === "generic-consumer") {
+        // Role and identity come exclusively from BoardReadService. Prefixes
+        // below are restricted to legacy presentation, never Generic identity.
+        return Object.freeze({ key: `consumer-${boardInstanceId}`, consumerRole: instance.consumerRole,
+          boardInstanceId, label: textValue(instance.consumerLabel || instance.name) || "Unknown / Not Available",
+          pageId: null, legacyLabel: "Legacy Authority" });
+      }
+      if (instance.consumerRole === "mother" || instance.consumerRole === "legacy-adopter") {
+        const profile = RUNTIME_VIEW_DEFINITIONS.find(definition => (instance.consumerRole === "mother" ? definition.key === "c-mother" : definition.key !== "c-mother") && definition.matches(instance));
+        if (profile) return profile;
+        if (instance.consumerRole === "legacy-adopter") {
+          return Object.freeze({ key: `legacy-${boardInstanceId}`, label: textValue(instance.consumerLabel || instance.name) || "Unknown / Not Available",
+            pageId: null, legacyLabel: "Legacy Authority" });
+        }
+      }
+    }
+    return Object.freeze({ key: `unknown-${boardInstanceId || "unavailable"}`, unresolved: true,
+      label: "Unknown / Not Available", pageId: null, legacyLabel: "Legacy Authority" });
   }
 
   function authorityFor(authorities, instance) {
@@ -247,7 +261,12 @@
   }
 
   function releaseAdoptionFor(release, instance, profile, authority) {
+    if (profile?.unresolved) return { key: "", adoption: null };
     const consumers = release?.consumers && typeof release.consumers === "object" ? release.consumers : {};
+    if (profile?.consumerRole === "generic-consumer") {
+      const key = [instance.consumerId, instance.boardInstanceId || instance.id].find(key => Object.prototype.hasOwnProperty.call(consumers, key));
+      return key ? { key, adoption: consumers[key] } : { key: "", adoption: null };
+    }
     const source = authority?.source || {};
     const candidateKeys = [
       firstDefined(source, "module_adoption_key", "moduleAdoptionKey"),
@@ -449,12 +468,14 @@
   }
 
   function buildRuntimeIdentityModel({ instances = [], authorities = {}, release = null, navigation = root?.ZhugeSharedNavigation } = {}) {
-    const activeInstances = (Array.isArray(instances) ? instances : []).filter(instance => instance?.active !== false && instance?.id);
-    const consumedInstances = new Set();
+    const seen = new Set();
+    const activeInstances = (Array.isArray(instances) ? instances : [])
+      .filter(instance => instance?.active !== false && (instance?.boardInstanceId || instance?.id))
+      .map(instance => ({ ...instance, id: instance.boardInstanceId || instance.id }))
+      .filter(instance => { if (seen.has(instance.id)) return false; seen.add(instance.id); return true; });
     const entries = [];
     const append = (profile, instance = null) => {
-      if (instance?.id) consumedInstances.add(instance.id);
-      const rawAuthority = authorityFor(authorities, instance);
+      const rawAuthority = profile.unresolved ? null : authorityFor(authorities, instance);
       const authority = rawAuthority?.value || rawAuthority;
       const authorityError = rawAuthority?.error ? textValue(rawAuthority.error?.message || rawAuthority.error) : "";
       const adoption = adoptionModel(release, instance || {}, profile, authority);
@@ -470,7 +491,13 @@
         label: profile.label,
         module: "C｜看板區",
         boardInstanceId: instanceId,
-        instanceName: textValue(instance?.name),
+        instanceName: profile.unresolved ? "" : textValue(instance?.name),
+        identityResolved: !profile.unresolved,
+        consumerRole: profile.unresolved ? "unknown" : instance.consumerRole,
+        consumerId: profile.unresolved ? "" : instance.consumerId,
+        projectAssignment: profile.unresolved ? "" : instance.projectAssignment || "",
+        lifecycleState: instance.lifecycleState || "UNKNOWN",
+        lifecycleManaged: instance.lifecycleManaged === true && instance.consumerRole === "generic-consumer" && !profile.unresolved,
         runtimeEntry: navigationEntryPath(profile, navigation),
         runtime: authorityState.runtime,
         data: authorityState.data,
@@ -517,10 +544,12 @@
       });
     };
 
-    RUNTIME_VIEW_DEFINITIONS.forEach(profile => {
-      activeInstances.filter(instance => profile.matches(instance)).forEach(instance => entries.push(append(profile, instance)));
+    const presentations = activeInstances.map(instance => ({ instance, profile: runtimeViewFor(instance) }));
+    presentations.sort((a, b) => {
+      const order = profile => { const index = RUNTIME_VIEW_DEFINITIONS.indexOf(profile); return index < 0 ? RUNTIME_VIEW_DEFINITIONS.length : index; };
+      return order(a.profile) - order(b.profile);
     });
-    activeInstances.filter(instance => !consumedInstances.has(instance.id)).forEach(instance => entries.push(append(runtimeViewFor(instance), instance)));
+    presentations.forEach(({ instance, profile }) => entries.push(append(profile, instance)));
     return entries;
   }
 
@@ -750,13 +779,23 @@
     }) === true;
   }
 
-  function buildTemplateModel(snapshot = runtimeSnapshot()) {
+  function buildTemplateModel(snapshot = runtimeSnapshot(), runtimeEntries = runtimeObservabilityState.entries) {
     const ready = isReady(snapshot);
     return templateOrder(snapshot.templates).map(template => {
       const consumers = Object.values(snapshot.pages).filter(page => page?.isMother !== true && Array.isArray(page?.supportedTemplates) && page.supportedTemplates.includes(template.id));
+      // Dynamic C Consumers are read-only projections, not new Registry pages.
+      const genericEntries = template.id === "board" ? runtimeEntries.filter(entry => entry.identityResolved && entry.consumerRole === "generic-consumer") : [];
+      const genericById = new Map(genericEntries.map(entry => [entry.boardInstanceId, entry]));
+      for (const entry of genericById.values()) {
+        const index = consumers.findIndex(page => page.id === entry.boardInstanceId);
+        const page = { ...(index >= 0 ? consumers[index] : {}), id: entry.boardInstanceId, label: entry.label, runtimeEntry: entry.runtimeEntry };
+        if (index >= 0) consumers[index] = page;
+        else consumers.push(page);
+      }
       const rows = consumers.map(page => ({
         page,
-        enabled: enabledFor(snapshot, page.id, template.id)
+        runtimeEntry: genericById.get(page.id),
+        enabled: genericById.has(page.id) ? genericById.get(page.id).adoptionIdentityMatches === true : enabledFor(snapshot, page.id, template.id)
       }));
       return {
         template,
@@ -859,6 +898,7 @@
         const activeInstances = (Array.isArray(instances) ? instances : []).filter(instance => instance?.id && instance.active !== false);
         const authorityPairs = await Promise.all(activeInstances.map(async instance => {
           try {
+            if (runtimeViewFor(instance).unresolved) throw new Error("Canonical Consumer identity unresolved");
             const service = boardRead.createInstanceService({
               gateway,
               boardInstanceId: instance.id,
@@ -891,6 +931,28 @@
       });
     runtimeObservabilityRequest = request;
     return request;
+  }
+
+  function refreshArchivedBoards({ force = false } = {}) {
+    if (archivedBoardsRequest) return archivedBoardsRequest;
+    if (!force && archivedBoardsState.status === "resolved") return Promise.resolve(archivedBoardsState.entries);
+    const service = root?.ZhugeBoardReadService;
+    if (typeof service?.listArchivedBoardInstances !== "function") {
+      archivedBoardsState = { status: "unavailable", entries: [], error: "已封存看板服務尚未載入" };
+      return Promise.resolve([]);
+    }
+    archivedBoardsState = { ...archivedBoardsState, status: "loading" };
+    archivedBoardsRequest = Promise.resolve().then(() => service.listArchivedBoardInstances()).then(entries => {
+      archivedBoardsState = { status: "resolved", entries, error: "" }; return entries;
+    }).catch(error => { archivedBoardsState = { status: "error", entries: [], error: error.message }; return []; })
+      .finally(() => { archivedBoardsRequest = null; refreshCallback?.(); });
+    return archivedBoardsRequest;
+  }
+
+  function archivedBoardsMarkup() {
+    const state = archivedBoardsState;
+    const rows = state.entries.filter(instance => instance.identityResolved && instance.consumerRole === "generic-consumer" && instance.lifecycleManaged && instance.lifecycleState === "ARCHIVED");
+    return `<section class="template-runtime-observability" data-archived-boards><h4>已封存看板</h4><p role="status">${escapeHtml(lifecycleFeedback || state.error || (state.status === "loading" ? "正在讀取…" : ""))}</p>${rows.map(instance => `<article data-archived-board="${escapeHtml(instance.boardInstanceId)}"><strong>${escapeHtml(instance.consumerLabel || instance.name)}</strong><p>封存時間：${escapeHtml(instance.archivedAt)} · 歸屬：${escapeHtml(instance.projectAssignment || "暫不歸屬")}</p><details><summary>技術資訊</summary>${escapeHtml(instance.boardInstanceId)}</details><button class="btn2 zhuge-core-button" type="button" data-board-lifecycle="restore" data-board-instance-id="${escapeHtml(instance.boardInstanceId)}"${lifecycleActions.has(instance.boardInstanceId) ? " disabled" : ""}>還原看板</button></article>`).join("")}</section>`;
   }
 
   function runtimeObservabilityMarkup() {
@@ -933,7 +995,7 @@
     const releaseIdentity = entry.publishedVersion && entry.publishedBuild
       ? `${entry.publishedVersion} / ${entry.publishedBuild}`
       : "Unknown / Not Available";
-    return `<details class="template-runtime-observability-card" data-template-runtime-entry="${escapeHtml(entry.key)}" data-template-runtime-health="${escapeHtml(entry.overallStatus || "unknown")}"><summary><span class="template-runtime-observability-name"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(entry.module)}</small></span><span class="template-runtime-observability-summary"><strong>${escapeHtml(entry.runtime)}</strong><small class="${statusClass}">${escapeHtml(overallLabel)}</small></span><span class="template-runtime-observability-chevron" aria-hidden="true">⌄</span></summary><div class="template-runtime-observability-body"><dl class="template-runtime-observability-fields">${value("Overall Health", overallLabel, `template-runtime-observability-health ${statusClass}`)}${value("Gap Count", entry.gapCount == null ? "Unknown / Not Available" : String(entry.gapCount))}${value("Runtime", entry.runtime)}${value("Board Instance", entry.boardInstanceId || "Unknown / Not Available")}${value("Runtime Entry", entry.runtimeEntry)}${value("Data", entry.data)}${value("Writer Authority", entry.writer)}${value("Workflow", entry.workflow)}${value("Completion", entry.completion)}${value("Archive", entry.archive)}${value("Persistence", entry.persistence)}${value("Release", releaseIdentity)}${value("Adoption", entry.adoption)}${value("Legacy Authority", legacyValue)}${reasons}</dl><details class="template-runtime-observability-technical"><summary>Contract 詳細</summary><dl class="template-runtime-observability-fields">${technical}</dl></details></div></details>`;
+    return `<details class="template-runtime-observability-card" data-template-runtime-entry="${escapeHtml(entry.key)}" data-template-runtime-health="${escapeHtml(entry.overallStatus || "unknown")}"><summary><span class="template-runtime-observability-name"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(entry.module)}</small></span><span class="template-runtime-observability-summary"><strong>${escapeHtml(entry.runtime)}</strong><small class="${statusClass}">${escapeHtml(overallLabel)}</small></span><span class="template-runtime-observability-chevron" aria-hidden="true">⌄</span></summary><div class="template-runtime-observability-body"><dl class="template-runtime-observability-fields">${value("Overall Health", overallLabel, `template-runtime-observability-health ${statusClass}`)}${value("Gap Count", entry.gapCount == null ? "Unknown / Not Available" : String(entry.gapCount))}${value("Runtime", entry.runtime)}${value("Board Instance", entry.boardInstanceId || "Unknown / Not Available")}${value("Runtime Entry", entry.runtimeEntry)}${value("Project Assignment", entry.projectAssignment || "暫不歸屬")}${value("Lifecycle", entry.lifecycleState)}${value("Data", entry.data)}${value("Writer Authority", entry.writer)}${value("Workflow", entry.workflow)}${value("Completion", entry.completion)}${value("Archive", entry.archive)}${value("Persistence", entry.persistence)}${value("Release", releaseIdentity)}${value("Adoption", entry.adoption)}${value("Legacy Authority", legacyValue)}${reasons}</dl><details class="template-runtime-observability-technical"><summary>Contract 詳細</summary><dl class="template-runtime-observability-fields">${technical}</dl></details>${entry.lifecycleManaged && entry.lifecycleState === "ACTIVE" ? `<button class="btn2 zhuge-core-button" type="button" data-board-lifecycle="archive" data-board-instance-id="${escapeHtml(entry.boardInstanceId)}"${lifecycleActions.has(entry.boardInstanceId) ? " disabled" : ""}>封存看板</button>` : ""}</div></details>`;
   }
 
   function releaseStatusMarkup() {
@@ -977,10 +1039,11 @@
 
   function renderConsumerRows(model, snapshot) {
     if (!model.rows.length) return `<div class="template-management-empty">目前沒有此 Template 的 Consumer。</div>`;
-    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">Template Capability</span><span role="columnheader">Cloud Adoption Preference</span><span role="columnheader">Management Center</span></div>${model.rows.map(({ page, enabled }) => { const capabilityText = `Registry · ${model.template.code} capability`; return `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">${escapeHtml(capabilityText)}</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${escapeHtml(adoptionLabel(snapshot, enabled))}</span></span><span class="template-management-readonly" role="cell">READ-ONLY · 不在此寫入</span></div>`; }).join("")}</div>`;
+    return `<div class="template-management-table" role="table" aria-label="${escapeHtml(model.template.label)} Consumer 清單"><div class="template-management-table-head" role="row"><span role="columnheader">頁面 (Consumer)</span><span role="columnheader">Template Capability</span><span role="columnheader">Cloud Adoption Preference</span><span role="columnheader">Management Center</span></div>${model.rows.map(({ page, enabled, runtimeEntry }) => { const capabilityText = `Registry · ${model.template.code} capability`; return `<div class="template-management-row" role="row" data-template-management-row="${escapeHtml(page.id)}-${escapeHtml(model.template.id)}"><span class="template-management-consumer" role="cell">${escapeHtml(page.label)}</span><span class="template-management-capability" role="cell">${escapeHtml(capabilityText)}</span><span role="cell"><span class="template-management-adoption ${enabled ? "is-on" : "is-off"}" data-template-management-adoption>${escapeHtml(runtimeEntry ? runtimeEntry.adoption : adoptionLabel(snapshot, enabled))}</span></span><span class="template-management-readonly" role="cell">READ-ONLY · 不在此寫入</span></div>`; }).join("")}</div>`;
   }
 
   function render(options = {}) {
+    if (archivedBoardsState.status === "idle") refreshArchivedBoards();
     if (releaseState.status === "idle") refreshPublishedRelease();
     if (runtimeObservabilityState.status === "idle") refreshRuntimeObservability();
     const snapshot = runtimeSnapshot();
@@ -993,7 +1056,7 @@
       const panelId = `template-management-panel-${template.id}`;
       return `<section class="template-management-card" data-template-management-template="${escapeHtml(template.id)}"><button class="template-management-card-header zhuge-core-button" type="button" data-template-management-toggle aria-expanded="false" aria-controls="${escapeHtml(panelId)}"><span class="template-management-code" aria-hidden="true">${escapeHtml(template.code)}</span><span class="template-management-card-title"><strong>${escapeHtml(template.code)} 區｜${escapeHtml(template.label)}</strong><small>${escapeHtml(template.description)}</small></span><span class="template-management-card-summary"><strong>已套用 ${escapeHtml(count)}</strong><small>Consumer ${supportCount} 頁</small></span><span class="template-management-card-chevron" aria-hidden="true">⌄</span></button><div class="template-management-card-body" id="${escapeHtml(panelId)}" data-template-management-panel hidden><div class="template-management-card-actions"><button class="btn2 zhuge-core-button" type="button" data-template-management-preview data-template-id="${escapeHtml(template.id)}">查看模板</button></div>${renderConsumerRows(model, snapshot)}</div></section>`;
     }).join("");
-    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">System Observability／Navigation Surface</span><h3>🧩 系統模板管理中心</h3><p class="muted">只讀取 Template、Module、Consumer、Release、Adoption 與 C Authority Evidence；不在此重新判定 Health。</p></div><span class="template-management-source">來源：Canonical Cloud Evidence</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div>${releaseStatusMarkup()}${siteMapMarkup(runtimeEntries)}${siteWideSummaryMarkup(runtimeEntries)}${runtimeObservabilityMarkup()}<div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
+    return `<section class="control-center-entry-group template-management-center" data-template-management-center><div class="template-management-heading"><div><span class="template-management-kicker">System Observability／Navigation Surface</span><h3>🧩 系統模板管理中心</h3><p class="muted">讀取 canonical identity 與 Authority Evidence；看板封存／還原須明確確認，不在此重新判定 Health。</p></div><span class="template-management-source">來源：Canonical Cloud Evidence</span></div><div class="template-management-status" data-template-management-status role="status">${escapeHtml(statusMessage(snapshot))}</div>${releaseStatusMarkup()}${siteMapMarkup(runtimeEntries)}${siteWideSummaryMarkup(runtimeEntries)}${runtimeObservabilityMarkup()}${archivedBoardsMarkup()}<div class="template-management-cards">${cards || `<div class="template-management-empty">Template Registry 尚未載入。</div>`}</div></section>`;
   }
 
   function ensurePolicyEvents(onUpdated) {
@@ -1022,6 +1085,23 @@
   function bind(container, options = {}) {
     if (!container) return;
     ensurePolicyEvents(options.onUpdated);
+    container.querySelectorAll("[data-board-lifecycle]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const id = button.dataset.boardInstanceId;
+        const action = button.dataset.boardLifecycle;
+        if (lifecycleActions.has(id)) return;
+        const message = action === "archive" ? "封存後將從導航與使用中的看板清單移除，所有工作區、卡片與紀錄都會保留，可日後還原。確定封存看板？" : "確定還原此看板？將恢復同一個看板與原歸屬。";
+        if (!root.confirm?.(message)) return;
+        lifecycleActions.add(id); button.disabled = true;
+        try {
+          const service = root.ZhugeBoardReadService;
+          await (action === "archive" ? service.archiveBoardInstance(id) : service.restoreBoardInstance(id));
+          lifecycleFeedback = action === "archive" ? "看板已封存，所有資料完整保留。" : "看板已還原。";
+          await Promise.all([refreshRuntimeObservability({ force: true }), refreshArchivedBoards({ force: true })]);
+        } catch (error) { lifecycleFeedback = `操作未完成：${error.message || "請重新讀取看板狀態"}`; }
+        finally { lifecycleActions.delete(id); button.disabled = false; refreshCallback?.(); }
+      });
+    });
     container.querySelectorAll("[data-template-management-toggle]").forEach(button => {
       button.addEventListener("click", () => {
         const panel = root.document?.getElementById(button.getAttribute("aria-controls"));

@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
+const BoardReadService = require("../shared/board/board-read-service.js");
 
 const ROOT = path.join(__dirname, "..");
 
@@ -16,10 +18,46 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   const procurement = read("app/Board/procurement/index.html");
   const policy = read("shared/services/template-adoption-policy.js");
 
-  assert.match(navigation, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true, visible: true/);
-  assert.match(navigation, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true, visible: true/);
-  assert.match(navigation, /management: "modules\/worklog\/\?app=1&workspace=management"/);
-  assert.match(navigation, /\["worklog", "tasks-new", "procurement", "investment"\]/);
+  const window = { ZhugeTemplateAdoptionRuntime: { isCreator: true } };
+  const document = { readyState: "loading", body: null, addEventListener() {} };
+  vm.runInNewContext(navigation, { window, document });
+  const nav = window.ZhugeSharedNavigation;
+  const boards = [
+    { id: "qa-official-gas", name: "Official administrative board", task_code_prefix: "GAS" },
+    { id: "qa-work", name: "Arbitrary work board", task_code_prefix: "ANYW", project_assignment: "worklog" },
+    { id: "qa-invest", name: "Arbitrary investment board", task_code_prefix: "ANYI", project_assignment: "investment" },
+    { id: "qa-unassigned", name: "Arbitrary independent board", task_code_prefix: "ANYU" }
+  ].map(row => BoardReadService.normalizeBoardInstance({ template_key: "c", is_template_instance: false, active: true, ...row }));
+  const html = nav.render({ externalRoot: "/", boardInstances: boards });
+  const item = id => {
+    const match = [...html.matchAll(/<(a|button)\b([^>]*)>([\s\S]*?)<\/\1>/g)]
+      .find(match => match[2].includes(`data-shared-nav-item="${id}"`));
+    assert.ok(match, `${id} is reachable`);
+    return { attrs: match[2], content: match[3], index: match.index };
+  };
+  for (const id of ["management", "sync"]) {
+    assert.equal(nav.DEFAULT_REGISTRY[id].group, "system");
+    const href = item(id).attrs.match(/href="([^"]+)"/)[1].replace(/&amp;/g, "&");
+    const url = new URL(href, "https://qa.invalid");
+    assert.equal(url.pathname, "/modules/worklog/");
+    assert.equal(url.searchParams.get("app"), "1");
+    assert.equal(url.searchParams.get("workspace"), id);
+    assert.ok(item(id).index > html.indexOf('data-nav-group="system"'), `${id} is a system entry`);
+  }
+  assert.equal(nav.DEFAULT_REGISTRY.procurement.group, "camp-child");
+  assert.match(item("procurement").attrs, /side-item-child/);
+  assert.match(item("procurement").attrs, /href="\/app\/Board\/procurement\/"/);
+  assert.ok(item("procurement").index > item("worklog").index);
+  assert.ok(item("procurement").index < item("investment").index);
+  assert.ok(!html.includes('consumer-board:qa-official-gas'), "GAS has no duplicate Generic entry");
+  assert.match(item("consumer-board:qa-work").attrs, /side-item-child/);
+  assert.ok(item("consumer-board:qa-work").index > item("worklog").index);
+  assert.ok(item("consumer-board:qa-work").index < item("investment").index);
+  assert.match(item("consumer-board:qa-invest").attrs, /side-item-child/);
+  assert.ok(item("consumer-board:qa-invest").index > item("investment").index);
+  assert.ok(item("consumer-board:qa-invest").index < html.indexOf('data-nav-group="consumer-boards"'));
+  assert.ok(item("consumer-board:qa-unassigned").index > html.indexOf('data-nav-group="consumer-boards"'));
+  assert.doesNotMatch(item("consumer-board:qa-unassigned").attrs, /side-item-child/);
   assert.match(config, /procurement: \{ icon: "🧾", label: "庶務行政", group: "camp-child", enabled: true/);
   assert.match(config, /management: \{ icon: "🛠️", label: "管理功能", group: "system", enabled: true/);
   assert.match(policy, /management: Object\.freeze\(\{[\s\S]*requiredTemplates: Object\.freeze\(\["navigation"\]\)/);
