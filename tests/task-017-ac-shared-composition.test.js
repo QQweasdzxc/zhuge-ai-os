@@ -90,7 +90,7 @@ test("Investment keeps one portfolio C view and consolidates Watchlist as a work
   assert.match(moduleSource, /page === "watchlist" \? "portfolio" : page/);
   assert.match(moduleSource, /if \(state\.activePage === "portfolio"\)/);
   assert.doesNotMatch(entry, /pages\/watchlist-page\.js/);
-  assert.match(board, /id="investmentNavigation" data-investment-navigation="canonical"/);
+  assert.match(board, /id="investmentNavigation"[^>]*data-investment-navigation="canonical"/);
   assert.match(board, /modules\/investment\/components\/module-shell\.js/);
   assert.doesNotMatch(board, /procurement-content-tabs investment-c-tabs/);
   assert.match(adapter, /renderBoard\(\{/);

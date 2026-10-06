@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-workspace.css">
+  <link rel="stylesheet" href="../../shared/theme/zhuge-navigation.css">
+  <link rel="stylesheet" href="../../shared/theme/golden-master.css">
+  <link rel="stylesheet" href="../../app/Board/procurement/procurement.css">
+  <link rel="stylesheet" href="../../modules/investment/assets/investment.css">
+  <link rel="stylesheet" href="../../shared/theme/desktop-modernization.css">
+  <link rel="stylesheet" href="../../shared/theme/responsive-modernization.css">
+  <link rel="stylesheet" href="../../labs/investment/styles.css">
+  <link rel="stylesheet" href="../../labs/investment/portfolio.css">
+  <style>
+    *,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}
+    body{margin:0;padding:16px;background:#07111f;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif}
+    #fixtures{display:grid;gap:32px;max-width:100%;margin:auto}
+    .fixture-case{width:680px;max-width:100%;margin:0 auto;padding:0;background:#07111f;color:#f8fafc}
+    .fixture-case .zhuge-functional-tabs-layout{width:100%;min-width:0;margin:0;padding:0;gap:0;background:#07111f}
+    .fixture-case .zhuge-functional-tabs-header{height:74px;min-height:74px;margin:0;padding:8px 14px}
+    .fixture-case .zhuge-functional-tabs-content{height:1px;min-height:1px;margin:0;border-top:1px solid #334155}
+    @media(max-width:767px){body{padding:8px}.fixture-case{width:100%}}
+  </style>
+  <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css">
+</head>
+<body>
+  <div id="fixtures">
+    <main class="fixture-case zhuge-functional-tabs-layout generic-wrapper" data-consumer-wrapper="generic">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+    <main class="fixture-case zhuge-functional-tabs-layout gas-wrapper" data-consumer-wrapper="gas">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+    <main class="fixture-case zhuge-functional-tabs-layout investment-wrapper" data-consumer-wrapper="investment">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+    <main class="fixture-case zhuge-functional-tabs-layout worklog-wrapper" data-consumer-wrapper="worklog">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+    <main class="fixture-case zhuge-functional-tabs-layout ai-board-wrapper" data-consumer-wrapper="ai-board">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+    <main class="fixture-case zhuge-functional-tabs-layout c-mother-wrapper" data-consumer-wrapper="c-mother">
+      <header class="zhuge-shared-header zhuge-functional-tabs-header"><div class="zhuge-shared-header-main"><div class="zhuge-shared-header-copy"><h1>一致性測試</h1><p>共同 Header reference</p></div></div><div class="zhuge-shared-header-right"><div class="zhuge-shared-identity"><span class="zhuge-shared-identity-dot is-authenticated"></span><span class="zhuge-shared-identity-copy"><strong>QA User</strong><small>Signed in</small></span></div></div></header>
+      <nav class="zhuge-functional-tabs" aria-label="功能頁籤"><button class="zhuge-functional-tab active" type="button">📋 第一頁</button><button class="zhuge-functional-tab" type="button">⚙️ 第二頁</button><button class="zhuge-functional-tab" type="button">▦ 第三頁</button><div class="zhuge-functional-tabs-actions"><button type="button" aria-label="搜尋">⌕</button></div></nav>
+      <section class="zhuge-functional-tabs-content" data-first-content></section>
+    </main>
+  </div>
+  <script src="../../shared/components/zhuge-functional-tabs.js"></script>
+</body>
+</html>

@@ -64,9 +64,13 @@ test("Functional Tabs use one canonical geometry and token source across routes"
   assert.match(css, /--zhuge-functional-tab-height:\s*44px/);
   assert.match(css, /--zhuge-functional-tabs-gap:\s*8px/);
   assert.match(css, /--zhuge-functional-tab-padding-inline:\s*12px/);
+  assert.match(css, /--zhuge-functional-tabs-header-gap:\s*0px/);
+  assert.match(css, /--zhuge-functional-tabs-content-gap:\s*16px/);
+  assert.match(css, /--zhuge-functional-tabs-stack-gap:\s*8px/);
   assert.match(css, /gap:\s*var\(--zhuge-functional-tab-icon-gap\)/);
   assert.match(css, /zhuge-functional-tab \.tab-close/);
-  assert.match(read("shared/theme/zhuge-shell.css"), /@import.*zhuge-functional-tabs.css/);
+  assert.doesNotMatch(read("shared/theme/zhuge-shell.css"), /@import.*zhuge-functional-tabs.css/);
+  assert.match(read("app/Board/procurement/index.html"), /zhuge-functional-tabs\.css/);
   assert.match(read("modules/worklog/worklog-app.js"), /function workspaceTabs\(\)/);
 });
 

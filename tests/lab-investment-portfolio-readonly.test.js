@@ -61,7 +61,9 @@ function assertInvestmentReleaseBoundary({ changed, beforeManifest, manifest, pr
   }
   assert.equal(manifest.version, product.version);
   assert.equal(manifest.build, product.build);
-  const normalized = (source, build) => normalizedProductLoaders(source, build).replace(/\n?<script src="..\/..\/shared\/components\/zhuge-functional-tabs.js\?v=PRODUCT_BUILD"><\/script>/g, "");
+  const normalized = (source, build) => normalizedProductLoaders(source, build)
+    .replace(/\n?\s*<script src="..\/..\/shared\/components\/zhuge-functional-tabs.js\?v=PRODUCT_BUILD"><\/script>/g, "")
+    .replace(/\n?\s*<link rel="stylesheet" href="..\/..\/shared\/theme\/zhuge-functional-tabs.css\?v=PRODUCT_BUILD">/g, "");
   assert.equal(normalized(html, product.build), normalized(beforeHtml, beforeProduct.build), "only Product v= and the shared Functional Tabs adapter loader may change");
 }
 
@@ -81,12 +83,18 @@ test("Investment business source stays untouched; shared Functional Tabs present
   assert.deepEqual(JSON.parse(JSON.stringify(newShell.primaryNavigation)), JSON.parse(JSON.stringify(oldShell.primaryNavigation)));
   assert.deepEqual(JSON.parse(JSON.stringify(newShell.labels)), JSON.parse(JSON.stringify(oldShell.labels)));
   assert.equal(newShell.navigationIsCurrent.toString(), oldShell.navigationIsCurrent.toString());
-  const presentation = html => html.replace(/ zhuge-functional-tabs?/g, "").replace(/\s(?:role|aria-selected|aria-current|aria-controls)="[^"]*"/g, "").replace(/\s+/g," ");
+  const destinations = html => [...html.matchAll(/<(?:a|button)\b([^>]*)>([\s\S]*?)<\/(?:a|button)>/g)].map(([, attrs, body]) => {
+    const route = attrs.match(/data-investment-route="([^"]+)"/)?.[1] || attrs.match(/href="[^"]*\/qa\/([^/?#]+)(?:\?[^\"]*)?"/)?.[1] || "";
+    const className = attrs.match(/class="([^"]+)"/)?.[1] || "";
+    const label = body.replace(/<[^>]*>/g, "").replace(/\s+/g, "").trim();
+    return route && label ? { route, label, active: /(?:^|\s)(?:active|is-current)(?:\s|$)/.test(className) || /aria-current="page"|aria-selected="true"/.test(attrs) } : null;
+  }).filter(Boolean);
   for (const activePage of Object.keys(oldShell.labels)) for (const activeFocus of ["", "watchlist", "research", "advisor", "realtime", "today-focus"]) for (const asLinks of [true,false]) {
     const state = { activePage, activeFocus }, options = { asLinks, hrefFor: item => "/qa/" + item.route + "?focus=" + (item.focus || "") };
-    for (const method of ["renderPrimaryNavigation", "renderToolNavigation"]) assert.equal(presentation(newShell[method](state, options)), presentation(oldShell[method](state, options)), method + " retains routes/labels/handlers");
+    assert.deepEqual(destinations(newShell.renderPrimaryNavigation(state, options)), destinations(oldShell.renderPrimaryNavigation(state, options)), "primary tab destinations/labels/active state retained");
+    assert.deepEqual(destinations(newShell.renderToolNavigation(state, options)), destinations(oldShell.renderToolNavigation(state, options)), "disclosed tool destinations/labels/active state retained");
   }
-  const nonTabCss = css => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/([^{}]+)\{([^{}]*)\}/g, (all, selector) => /\.investment-(?:primary-nav|content-tabs|tab|nav-item)(?![\w-])/.test(selector) ? "" : all).replace(/\s+/g, "");
+  const nonTabCss = css => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/([^{}]+)\{([^{}]*)\}/g, (all, selector) => /\.investment-(?:primary-nav|content-tabs|tab|nav-item|tool-nav|tool-menu(?:-item)?)(?![\w-])/.test(selector) ? "" : all).replace(/\s+/g, "");
   assert.equal(nonTabCss(read("modules/investment/assets/investment.css")), nonTabCss(head("modules/investment/assets/investment.css")), "all Investment content CSS stays identical");
   assertInvestmentReleaseBoundary({ changed: [...changed, ...untracked],
     beforeManifest: JSON.parse(head("modules/investment/version.json")), manifest: JSON.parse(read("modules/investment/version.json")),

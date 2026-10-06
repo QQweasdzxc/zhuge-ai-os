@@ -3411,12 +3411,12 @@ function workspaceTabs() {
   // sidebar and shared Header already provide the module navigation context.
   // Do not add a second single-workspace title row above the board.
   if (activeWorkspace === "tasks") return "";
-  if (!openTabs.length) return `<div data-worklog-navigation class="workspace-tabs workspace-subnav empty zhuge-functional-tabs"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
+  if (!openTabs.length) return `<div data-worklog-navigation class="workspace-subnav empty"><span>🪶 Zhuge AI OS</span><span class="muted">工作模組入口</span></div>`;
   if (openTabs.length === 1) {
     const w = workspaceDef(openTabs[0]);
     return `<div class="workspace-title workspace-subnav">${w.icon} ${w.label}</div>`;
   }
-  return `<div data-worklog-navigation class="workspace-tabs workspace-subnav zhuge-functional-tabs">${openTabs.map(id => { const w = workspaceDef(id); const close = openTabs.length > 1 ? `<span class="tab-close" data-close-workspace="${id}">×</span>` : ""; return `<button class="workspace-tab zhuge-functional-tab ${activeWorkspace === id ? "active" : ""}" data-activate-workspace="${id}"><span>${w.icon} ${w.label}</span>${close}</button>`; }).join("")}</div>`;
+  return `<nav data-worklog-navigation class="workspace-tabs workspace-subnav zhuge-functional-tabs">${openTabs.map(id => { const w = workspaceDef(id); const close = openTabs.length > 1 ? `<span class="tab-close" data-close-workspace="${id}">×</span>` : ""; return `<button class="workspace-tab zhuge-functional-tab ${activeWorkspace === id ? "active" : ""}" data-activate-workspace="${id}"><span>${w.icon} ${w.label}</span>${close}</button>`; }).join("")}</nav>`;
 }
 
 function comingSoonWorkspace(id) {
@@ -3909,7 +3909,7 @@ function osShell() {
   const globalNavAttribute = SYSTEM_TEMPLATE_VIEW === "navigation" ? "" : ' data-shared-navigation-mode="template-only"';
   const templatePageId = IS_SYSTEM_TEMPLATE_VIEW ? "" : worklogTemplatePageId(activeWorkspace);
   const templatePageAttribute = templatePageId ? ` data-template-page-id="${escapeHtml(templatePageId)}"` : "";
-  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}>${sharedNavigationTargetMarkup()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main></div>`;
+  return `<div class="os-shell workspace-shell workspace-${escapeHtml(activeWorkspace)}${templateClass} ${sidebarOpen ? "sidebar-open" : ""} ${navCollapsed ? "zhuge-nav-collapsed" : ""} zhuge-module-shell"${globalNavAttribute}${templatePageAttribute}>${sharedNavigationTargetMarkup()}<div class="sidebar-backdrop" data-close-sidebar="1"></div><main class="os-main workspace-app zhuge-functional-tabs-layout">${shellHeader}${workspaceTabs()}<div class="${workspaceCanvasClass}">${workspaceContent()}</div></main></div>`;
 }
 
 function onboardingWorkspace() {
@@ -4238,7 +4238,7 @@ function mobileWorklogTabs() {
     { id: "time", label: "工時" },
     { id: "suggestions", label: `工作建議 <span class="mobile-worklog-badge">${suggestionCount}</span>` }
   ];
-  return `<nav data-functional-tabs-mode="navigation" data-functional-tabs-mobile-only data-worklog-mobile-sections class="mobile-worklog-tabs zhuge-functional-tabs" aria-label="工時工作區捷徑">${tabs.map(tab => `<button class="mobile-worklog-tab zhuge-functional-tab ${mobileWorklogTab === tab.id ? "active" : ""}" type="button" data-mobile-worklog-tab="${tab.id}">${tab.label}</button>`).join("")}</nav>`;
+  return `<nav data-functional-tabs-mobile-only data-worklog-mobile-sections class="mobile-worklog-tabs zhuge-functional-tabs" aria-label="工時工作區捷徑">${tabs.map(tab => `<button class="mobile-worklog-tab zhuge-functional-tab ${mobileWorklogTab === tab.id ? "active" : ""}" type="button" data-mobile-worklog-tab="${tab.id}">${tab.label}</button>`).join("")}</nav>`;
 }
 
 function renderAssistantCard(card = null) {

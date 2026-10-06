@@ -8,12 +8,12 @@
   <title>Lab_投資｜Zhuge Investment Sandbox</title>
   <link rel="icon" href="../../shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
     <link rel="stylesheet" href="../../shared/theme/tokens.css?v=20261006-1342">
-    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261006-1342">
     <script src="../../shared/components/zhuge-functional-tabs.js?v=20261006-1342"></script>
     <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="./portfolio.css?v=20261002-0050">
     <link rel="stylesheet" href="./mini-market-chart.css?v=20261002-0050">
-</head>
+    <link rel="stylesheet" href="../../shared/theme/zhuge-functional-tabs.css?v=20261006-1656">
+  </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="研究工作台導覽">
@@ -35,16 +35,16 @@
       </div>
     </aside>
 
-    <main class="main-area">
-      <header class="topbar">
+    <main class="main-area zhuge-functional-tabs-layout">
+      <header class="topbar zhuge-functional-tabs-header">
         <div class="mobile-brand"><span class="brand-mark">諸</span><strong>Lab_投資</strong></div>
         <div class="topbar-context"><span class="eyebrow">Zhuge-owned research</span><span>官方來源優先 · 每筆證據標示來源與日期</span></div>
         <div class="topbar-right"><span class="read-only-chip">唯讀研究</span><button class="icon-button" type="button" data-refresh aria-label="重新整理目前資料" title="重新整理">↻</button></div>
       </header>
-      <nav class="mobile-nav zhuge-functional-tabs" data-functional-tabs-mobile-only data-functional-tabs-mode="navigation" aria-label="主要功能">
+      <nav class="mobile-nav zhuge-functional-tabs" data-functional-tabs-mobile-only aria-label="主要功能">
         <button data-view="home" class="zhuge-functional-tab is-active">總覽</button><button class="zhuge-functional-tab" data-view="research">個股研究</button><button class="zhuge-functional-tab" data-view="opening">開盤壓力</button><button class="zhuge-functional-tab" data-view="market">大盤脈搏</button><button class="zhuge-functional-tab" data-view="radar">價格雷達</button><button class="zhuge-functional-tab" data-view="watchlist">觀察與筆記</button>
       </nav>
-      <section id="view-root" class="view-root" aria-live="polite">
+      <section id="view-root" class="view-root zhuge-functional-tabs-content" aria-live="polite">
         <div class="loading-state"><span class="spinner"></span><p>正在讀取官方來源…</p></div>
       </section>
       <footer class="app-footer"><span>資料只讀取官方／已審核來源；跨來源限制、延遲與未接能力會明確標示。</span><span>研究用途，不構成投資建議。</span></footer>

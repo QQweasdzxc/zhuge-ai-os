@@ -819,12 +819,6 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
   padding: 0 !important;
 }/* Header geometry is owned solely by zhuge-shell.css. */
 
-.zhuge-module-shell .workspace-tabs + .workspace-canvas,
-.zhuge-module-shell .workspace-subnav + .toolbar,
-.zhuge-module-shell .workspace-subnav + .note,
-.zhuge-module-shell .workspace-subnav + .workspace-content-container {
-  margin-top: var(--shell-header-content-gap);
-}
 .zhuge-module-shell .workspace-canvas {
   min-height: 0;
 }

@@ -2,7 +2,6 @@
 @import url("./responsive.css");
 @import url("./feedback.css");
 @import url("./core-components.css");
-@import url("./zhuge-functional-tabs.css?v=20261006-1656");
 
 /* Shared page frame. Product-wide tokens are owned by tokens.css; modules
  * own their content and may only add scoped presentation aliases. */

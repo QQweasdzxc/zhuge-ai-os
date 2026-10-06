@@ -4552,7 +4552,7 @@
       const boardMain = document.querySelector("[data-board-main-view]");
       const parent = boardMain?.parentElement;
       if (!parent) return null;
-      tabs = document.createElement("div");
+      tabs = document.createElement("nav");
       tabs.className = "workspace-tabs workspace-subnav zhuge-functional-tabs";
       tabs.setAttribute("role", "tablist");
       tabs.setAttribute("aria-label", "看板功能");

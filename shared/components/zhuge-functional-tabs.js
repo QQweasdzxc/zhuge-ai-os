@@ -1,57 +1,84 @@
-/* Shared Functional Tabs accessibility/visibility adapter.
- * Canonical classes opt in. Consumers retain all routing and panel handlers.
- */
+/* Shared Functional Tabs DOM, accessibility and active-visibility authority. */
 (function (root) {
   "use strict";
   const activeTabs = new WeakMap();
   const visibleRows = new WeakMap();
-  const set = (node, name, value) => {
-    if (node.getAttribute(name) !== value) node.setAttribute(name, value);
-  };
+  const ICON = /^[\p{Extended_Pictographic}\p{S}](?:\uFE0F|\uFE0E)?(?:\u200D[\p{Extended_Pictographic}\p{S}](?:\uFE0F|\uFE0E)?)*$/u;
+  const set = (node, name, value) => { if (node.getAttribute(name) !== value) node.setAttribute(name, value); };
+
   function tabsFor(row) {
     return Array.from(row.querySelectorAll('.zhuge-functional-tab')).filter(tab => tab.closest('.zhuge-functional-tabs') === row);
   }
+
+  function iconAndLabel(tab) {
+    const close = Array.from(tab.querySelectorAll('.tab-close'));
+    const iconNode = Array.from(tab.querySelectorAll('[aria-hidden="true"]')).find(node => !node.classList.contains('tab-close'));
+    let icon = iconNode?.textContent.trim() || '';
+    const text = Array.from(tab.childNodes).filter(node => !close.some(control => node === control || node.contains?.(control)) && node !== iconNode)
+      .map(node => node.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
+    let label = text;
+    if (!icon) {
+      const first = text.match(/^(\S+)(?:\s+|$)([\s\S]*)$/u);
+      if (first && ICON.test(first[1]) && first[2]) { icon = first[1]; label = first[2].trim(); }
+    } else {
+      label = text.replace(new RegExp('^' + icon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\s+|$)'), '').trim();
+    }
+    return { icon, label, close };
+  }
+
+  function normalizeTab(tab) {
+    if (tab.dataset.functionalTabNormalized === 'true') return;
+    const { icon, label, close } = iconAndLabel(tab);
+    const iconSlot = document.createElement('span');
+    iconSlot.className = 'zhuge-functional-tab-icon';
+    iconSlot.setAttribute('aria-hidden', 'true');
+    iconSlot.textContent = icon;
+    const labelSlot = document.createElement('span');
+    labelSlot.className = 'zhuge-functional-tab-label';
+    labelSlot.textContent = label;
+    tab.replaceChildren(iconSlot, labelSlot, ...close);
+    tab.dataset.functionalTabNormalized = 'true';
+  }
+
   function keepVisible(row, tab) {
     if (!tab || row.clientWidth === 0) return;
     const bounds = row.getBoundingClientRect(), rect = tab.getBoundingClientRect();
-    if (rect.left < bounds.left) row.scrollLeft += rect.left - bounds.left;
-    else if (rect.right > bounds.right) row.scrollLeft += rect.right - bounds.right;
+    const edgeClearance = 1;
+    if (rect.left < bounds.left + edgeClearance) row.scrollLeft += rect.left - bounds.left - edgeClearance;
+    else if (rect.right > bounds.right - edgeClearance) row.scrollLeft += rect.right - bounds.right + edgeClearance;
   }
-  function normalizeIcon(tab) {
-    // Existing GAS/Investment markup already separates decorative icons.
-    const existing = tab.querySelector('span[aria-hidden="true"]');
-    if (existing) { existing.dataset.functionalTabIcon = 'true'; return; }
-    const label = tab.firstElementChild?.tagName === 'SPAN' && !tab.firstElementChild.classList.contains('tab-close') ? tab.firstElementChild : tab;
-    const text = Array.from(label.childNodes).find(node => node.nodeType === 3 && node.textContent.trim());
-    const match = text?.textContent.match(/^\s*([\p{Extended_Pictographic}\p{S}]\uFE0F?)\s+(.+)$/u);
-    if (!match) return;
-    const icon = document.createElement('span');
-    icon.dataset.functionalTabIcon = 'true'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = match[1];
-    text.replaceWith(icon, document.createTextNode(" " + match[2]));
-  }
+
   function sync(row) {
+    if (row.tagName !== 'NAV') throw new Error('Functional Tab row must use the canonical <nav> DOM contract.');
     const tabs = tabsFor(row);
     if (!tabs.length) return;
+    if (tabs.some(tab => tab.parentElement !== row)) throw new Error('Functional Tabs must be direct children of their canonical row.');
+    if (Array.from(row.children).some(child => !child.classList.contains('zhuge-functional-tab') && !child.classList.contains('zhuge-functional-tabs-actions'))) throw new Error('Functional Tab row contains a non-canonical child.');
+    for (const tab of tabs) normalizeTab(tab);
     const navigation = row.dataset.functionalTabsMode === 'navigation' || tabs.some(tab => tab.tagName === 'A');
     set(row, 'role', navigation ? 'navigation' : 'tablist');
     const selected = tabs.find(tab => tab.classList.contains('active') || tab.classList.contains('is-active'));
     for (const tab of tabs) {
-      normalizeIcon(tab);
       if (navigation) {
         tab.removeAttribute('role');
         tab.removeAttribute('aria-selected');
         if (tab === selected) set(tab, 'aria-current', 'page');
-        else tab.removeAttribute('aria-current');
+        else if (tab.hasAttribute('aria-current')) tab.removeAttribute('aria-current');
       } else {
         set(tab, 'role', 'tab');
         set(tab, 'aria-selected', String(tab === selected));
         set(tab, 'tabindex', tab === (selected || tabs[0]) ? '0' : '-1');
+        tab.removeAttribute('aria-current');
       }
     }
     const visible = row.clientWidth > 0;
-    if (activeTabs.get(row) !== selected || (visible && !visibleRows.get(row))) { activeTabs.set(row, selected); keepVisible(row, selected); }
+    if (activeTabs.get(row) !== selected || (visible && !visibleRows.get(row))) {
+      activeTabs.set(row, selected);
+      keepVisible(row, selected);
+    }
     visibleRows.set(row, visible);
   }
+
   function refresh() { document.querySelectorAll('.zhuge-functional-tabs').forEach(sync); }
   function boot() {
     refresh();
@@ -70,7 +97,8 @@
     });
     root.addEventListener('resize', () => document.querySelectorAll('.zhuge-functional-tabs').forEach(row => keepVisible(row, activeTabs.get(row))));
   }
-  root.ZhugeFunctionalTabs = Object.freeze({ refresh, sync, keepVisible });
+
+  root.ZhugeFunctionalTabs = Object.freeze({ refresh, sync, keepVisible, normalizeTab });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })(window);

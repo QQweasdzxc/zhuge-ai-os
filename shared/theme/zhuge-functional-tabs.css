@@ -1,43 +1,134 @@
-/* Sole Functional Tabs presentation authority. Routing belongs to consumers. */
+/*
+ * Canonical Functional Tabs component, row and page rhythm authority.
+ * This stylesheet must be the last stylesheet in every Functional Tab surface.
+ * A source guard enforces that contract and rejects private visual declarations.
+ */
 :root {
+  --zhuge-functional-tabs-header-gap: 0px; /* measured from the GAS reference runtime */
+  --zhuge-functional-tabs-content-gap: 16px; /* measured from the GAS reference runtime */
+  --zhuge-functional-tabs-stack-gap: 8px;
+  --zhuge-functional-tabs-row-height: 45px; /* 44px control + 1px divider */
+  --zhuge-functional-tabs-divider-width: 1px;
   --zhuge-functional-tabs-gap: 8px;
   --zhuge-functional-tab-height: 44px;
   --zhuge-functional-tab-padding-inline: 12px;
   --zhuge-functional-tab-icon-gap: 7px;
+  --zhuge-functional-tab-icon-width: 18px;
   --zhuge-functional-tab-radius: 10px;
 }
+
+/* Page layout uses one header → tabs → content rhythm. */
+.zhuge-functional-tabs-layout {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.zhuge-functional-tabs-layout > :is(.zhuge-shared-header, .workspace-shell-header, .zhuge-functional-tabs-header),
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs,
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-stack,
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-content {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.zhuge-functional-tabs-layout > :is(.zhuge-shared-header, .workspace-shell-header, .zhuge-functional-tabs-header) + .zhuge-functional-tabs,
+.zhuge-functional-tabs-layout > :is(.zhuge-shared-header, .workspace-shell-header, .zhuge-functional-tabs-header) + .zhuge-functional-tabs-stack {
+  margin-top: var(--zhuge-functional-tabs-header-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs + .zhuge-functional-tabs,
+.zhuge-functional-tabs-stack > .zhuge-functional-tabs + .zhuge-functional-tabs {
+  margin-top: var(--zhuge-functional-tabs-stack-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs + :is(.workspace-canvas, .workspace-content-container, .zhuge-functional-tabs-content),
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-stack + :is(.workspace-canvas, .workspace-content-container, .zhuge-functional-tabs-content) {
+  margin-top: var(--zhuge-functional-tabs-content-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-stack + .workspace-canvas:has(> .zhuge-functional-tabs) {
+  margin-top: var(--zhuge-functional-tabs-stack-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-stack > .zhuge-functional-tabs + .zhuge-functional-tabs {
+  margin-top: var(--zhuge-functional-tabs-stack-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs-content { min-width: 0; }
+.zhuge-functional-tabs-layout > .workspace-canvas > .zhuge-functional-tabs {
+  margin: 0 0 var(--zhuge-functional-tabs-content-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs + .workspace-canvas > .zhuge-functional-tabs {
+  margin-bottom: var(--zhuge-functional-tabs-content-gap);
+}
+.zhuge-functional-tabs-layout > .zhuge-functional-tabs + .view-root { margin-top: var(--zhuge-functional-tabs-content-gap); }
+
+/* The complete row contract. No consumer selector may own visual properties. */
 .zhuge-functional-tabs {
   box-sizing: border-box;
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   gap: var(--zhuge-functional-tabs-gap);
-  width: 100%; min-width: 0; max-width: 100%;
-  margin: 0 0 16px; padding: 0;
-  border: 0; border-bottom: 1px solid var(--zhuge-border, #334155);
-  border-radius: 0; background: transparent;
-  overflow-x: auto; overflow-y: hidden;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--zhuge-functional-tabs-row-height);
+  min-height: var(--zhuge-functional-tabs-row-height);
+  padding: 0;
+  border: 0;
+  border-bottom: var(--zhuge-functional-tabs-divider-width) solid var(--zhuge-border, #334155);
+  border-radius: 0;
+  background: transparent;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 4px;
+  position: relative;
+  isolation: isolate;
+}
+.zhuge-functional-tabs::after {
+  content: "";
+  display: block;
+  flex: 0 0 1px;
+  width: 1px;
+  height: 1px;
 }
 .zhuge-functional-tabs .zhuge-functional-tab {
   box-sizing: border-box;
-  display: inline-flex; flex: 0 0 auto;
-  align-items: center; justify-content: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   gap: var(--zhuge-functional-tab-icon-gap);
-  min-width: 44px; height: var(--zhuge-functional-tab-height);
+  min-width: var(--zhuge-functional-tab-height);
+  width: auto;
+  height: var(--zhuge-functional-tab-height);
   min-height: var(--zhuge-functional-tab-height);
-  margin: 0; padding: 9px var(--zhuge-functional-tab-padding-inline);
+  max-height: var(--zhuge-functional-tab-height);
+  margin: 0;
+  padding: 9px var(--zhuge-functional-tab-padding-inline);
   border: 1px solid transparent;
   border-radius: var(--zhuge-functional-tab-radius) var(--zhuge-functional-tab-radius) 0 0;
-  background: transparent; color: var(--zhuge-muted, #94a3b8);
+  background: transparent;
+  color: var(--zhuge-muted, #94a3b8);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", Arial, sans-serif;
-  font-size: 14px; font-weight: 800; line-height: 20px; letter-spacing: normal;
-  white-space: nowrap; text-decoration: none; cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 20px;
+  letter-spacing: normal;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .zhuge-functional-tabs .zhuge-functional-tab:hover,
 .zhuge-functional-tabs .zhuge-functional-tab.active,
+.zhuge-functional-tabs .zhuge-functional-tab.is-active,
 .zhuge-functional-tabs .zhuge-functional-tab[aria-selected="true"],
 .zhuge-functional-tabs .zhuge-functional-tab[aria-current="page"] {
   border-color: var(--zhuge-border, #334155);
@@ -46,16 +137,56 @@
   color: var(--zhuge-text, #f8fafc);
 }
 .zhuge-functional-tabs .zhuge-functional-tab:focus-visible {
-  outline: 2px solid var(--zhuge-accent, #60a5fa); outline-offset: -3px;
+  outline: 2px solid var(--zhuge-accent, #60a5fa);
+  outline-offset: -3px;
 }
-.zhuge-functional-tabs .zhuge-functional-tab:disabled {
-  opacity: .5; cursor: not-allowed;
+.zhuge-functional-tabs .zhuge-functional-tab:disabled,
+.zhuge-functional-tabs .zhuge-functional-tab[aria-disabled="true"] {
+  opacity: .5;
+  cursor: not-allowed;
 }
-.zhuge-functional-tab > span:first-child { display: inline-flex; align-items: center; gap: var(--zhuge-functional-tab-icon-gap); }
-.zhuge-functional-tab [data-functional-tab-icon] { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; width: 18px; font: inherit; }
-.zhuge-functional-tab .tab-close { display: inline-grid; place-items: center; width: 18px; height: 18px; line-height: 1; border-radius: 4px; }
+.zhuge-functional-tab-icon {
+  display: inline-flex;
+  flex: 0 0 var(--zhuge-functional-tab-icon-width);
+  align-items: center;
+  justify-content: center;
+  width: var(--zhuge-functional-tab-icon-width);
+  height: 20px;
+  overflow: hidden;
+  font: inherit;
+  line-height: 20px;
+}
+.zhuge-functional-tab-label {
+  display: inline-block;
+  min-width: 0;
+  font: inherit;
+  line-height: inherit;
+  white-space: inherit;
+}
+.zhuge-functional-tab .tab-close {
+  display: inline-grid;
+  flex: 0 0 18px;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  border-radius: 4px;
+}
 .zhuge-functional-tab .tab-close:hover { background: color-mix(in srgb, var(--zhuge-text, #f8fafc) 12%, transparent); }
-.zhuge-functional-tabs-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }
+.zhuge-functional-tabs-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  min-height: 44px;
+  margin-left: auto;
+}
+.zhuge-functional-tabs-actions > :is(button, a, summary, [role="button"]) {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+}
 .zhuge-functional-tabs[data-functional-tabs-mobile-only] { display: none; }
 @media (max-width: 767px) {
   .zhuge-functional-tabs[data-functional-tabs-mobile-only] { display: flex; }
