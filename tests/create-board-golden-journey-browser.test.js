@@ -88,6 +88,8 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    const create=page.locator('[data-board-create-consumer]');await create.waitFor();
    await page.locator('[data-c-operational-motherboard]').waitFor({state:'visible'});
    assert.equal(await page.locator('[data-module-publish]').isVisible(),true,'Mother keeps full Publish Pipeline');
+   assert.equal(await page.locator('[data-board-nav="board"]').innerText(),'📋 C 母版看板');
+   assert.equal(await page.locator('[data-board-nav="board"]').getAttribute('aria-label'),'C 母版看板');
    for(const selector of ['[data-board-create-consumer]','[data-board-create-workspace]','[data-board-create-card]']){
     const button=page.locator(selector);assert.equal(await button.evaluate(n=>getComputedStyle(n).cursor),'pointer');
     await button.hover();await page.waitForTimeout(160);assert.notEqual(await button.evaluate(n=>getComputedStyle(n).filter),'none');
@@ -151,6 +153,9 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    await assertNavigationPlacement();
    assert.equal(await page.locator('[data-c-operational-motherboard]:visible').count(),0,'Generic Consumer never exposes the full Mother governance panel');
    assert.equal(await page.locator('#canonicalCTemplatePreview').isVisible(),false);
+   assert.equal(await page.locator('[data-board-nav="board"]').innerText(),'📋 看板');
+   assert.equal(await page.locator('[data-board-nav="board"]').getAttribute('title'),'看板');
+   assert.equal(await page.locator('[data-board-nav="board"]').getAttribute('aria-label'),'看板');
    assert.equal(await page.locator('[data-board-create-card]').isVisible(),true);
    assert.equal(await page.locator('[data-board-create-workspace]').isVisible(),true);
    const card=page.locator(`[data-task-id="${qaTask.id}"]`);await card.waitFor({state:'visible'});await card.click();

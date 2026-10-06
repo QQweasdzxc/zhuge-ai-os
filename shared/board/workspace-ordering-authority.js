@@ -125,6 +125,7 @@
     const ids = validateFullOrder(ordered, normalized.map(workspaceId));
     return Object.freeze({
       placement: placementValue(placement),
+      noOp: ids.every((id, index) => id === workspaceId(ordered[index])),
       workspaceIds: Object.freeze(ids.slice()),
       orderedWorkspaces: Object.freeze(normalized),
       visibleWorkspaces: Object.freeze(nextVisible.slice())
@@ -145,6 +146,7 @@
       options.placement,
       { isVisible: options.isVisible }
     );
+    if (plan.noOp) return plan;
     if (typeof options.persist !== "function") {
       fail("WORKSPACE_ORDER_PERSIST_UNAVAILABLE", "Workspace ordering persistence authority is unavailable.");
     }

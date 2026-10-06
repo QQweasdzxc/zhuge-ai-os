@@ -152,7 +152,13 @@ async function dragWorkspace(page, sourceId, targetId, position) {
     const dataTransfer = new DataTransfer();
     handle.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer }));
     target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer, clientX }));
-    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer, clientX }));
+    if (target.dataset.workspaceDropPlacement !== position || !target.classList.contains("workspace-drop-" + position)) throw new Error("insertion preview does not match canonical placement");
+    const marker = getComputedStyle(target, "::after");
+    if (marker.content === "none" || parseFloat(marker.width) < 3) throw new Error("vertical insertion marker is missing");
+    if (parseFloat(position === "before" ? marker.left : marker.right) !== 0) throw new Error("marker is on the wrong edge");
+    // A changed drop coordinate must not override the displayed insertion edge.
+    const dropX = position === "after" ? rect.left + 2 : rect.right - 2;
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer, clientX: dropX }));
     handle.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer }));
   }, { sourceId, targetId, position });
 }
@@ -202,6 +208,29 @@ test("Module C Workspace Reorder browser E2E: WorkTodo and AI Board, create, bot
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.createWorkspace && document.querySelectorAll("[data-shared-task-board-column]").length >= 4, null, { timeout: 20000 });
 
+    if (isWorkTodo) {
+      await dragWorkspace(page, "ws-waiting", "ws-completed", "after");
+      await expectOrder(page, ["ws-todo","ws-inprogress","ws-completed","ws-waiting"]);
+      const auditCount = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "[]").length, AUDIT_KEY);
+      await dragWorkspace(page, "ws-completed", "ws-waiting", "before");
+      await page.waitForTimeout(100);
+      await expectOrder(page, ["ws-todo","ws-inprogress","ws-completed","ws-waiting"]);
+      assert.equal(await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "[]").length, AUDIT_KEY), auditCount, "unchanged order never persists/audits");
+      assert.equal(await page.locator(".workspace-drop-before,.workspace-drop-after,.workspace-dropzone,.workspace-dragging,[data-workspace-drop-placement]").count(), 0, "drop/dragend clean all interaction state");
+      await dragWorkspace(page, "ws-completed", "ws-waiting", "after");
+      await expectOrder(page, ["ws-todo","ws-inprogress","ws-waiting","ws-completed"]);
+    }
+    for (const endEvent of ["dragleave", "dragend"]) {
+      await page.evaluate(endEvent => {
+        const handle = document.querySelector(".workspace-drag-handle");
+        const target = document.querySelectorAll("[data-shared-task-board-column]")[1];
+        const dataTransfer = new DataTransfer();
+        handle.dispatchEvent(new DragEvent("dragstart", { bubbles:true, cancelable:true, dataTransfer }));
+        target.dispatchEvent(new DragEvent("dragover", { bubbles:true, cancelable:true, dataTransfer, clientX: target.getBoundingClientRect().left+2 }));
+        (endEvent === "dragend" ? handle : target).dispatchEvent(new DragEvent(endEvent, { bubbles:true, dataTransfer }));
+      }, endEvent);
+      assert.equal(await page.locator(".workspace-drop-before,.workspace-drop-after,.workspace-dropzone,.workspace-dragging,[data-workspace-drop-placement]").count(), 0, endEvent + " cleans interaction state");
+    }
     const todoId = "ws-todo";
     const completionId = "ws-completed";
     const completionKey = isWorkTodo ? "worktodo-completed" : "completed";
@@ -270,6 +299,8 @@ test("Module C Workspace Reorder browser E2E: WorkTodo and AI Board, create, bot
     assert.equal((await workspaceIds(page)).at(-1), completionId, "Completion remains last after reload");
     await takeBoardShot("completion-last-after-reload");
 
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator("[data-shared-task-board-column]").first().evaluate(column => Math.round(column.getBoundingClientRect().width)),300,"Mobile Golden Master 300px column geometry preserved");
     const persistedAudit = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "[]"), AUDIT_KEY);
     assert.ok(persistedAudit.length >= 4, "each successful fixture reorder leaves an audit record");
     assert.deepEqual(pageErrors, [], `${consumer} has no uncaught browser errors`);

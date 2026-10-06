@@ -1404,8 +1404,10 @@
       throw error;
     }
     try {
-      setBanner("正在保存工作區排序…", "loading");
       const boardWorkspaces = () => state.workspaces.filter(isMainBoardWorkspace);
+      const plan = authority.buildReorderedOrder(boardWorkspaces(), draggedId, targetId, placement);
+      if (plan.noOp) return plan;
+      setBanner("正在保存工作區排序…", "loading");
       const result = await authority.reorder({
         workspaces: boardWorkspaces(),
         draggedId,
@@ -1909,11 +1911,8 @@
         const workspace = state.workspaceById.get(String(id));
         return Boolean(!state.readOnly && workspace && isMainBoardWorkspace(workspace));
       },
-      onColumnDrop: async ({ sourceId, id, column, event }) => {
-        const authority = root.ZhugeModuleCWorkspaceOrderingAuthority;
-        const placement = authority?.resolveDropPlacement?.(event, column) || "before";
-        return reorderWorkspace(sourceId, id, placement);
-      }
+      resolveColumnDropPlacement: ({ column, event }) => root.ZhugeModuleCWorkspaceOrderingAuthority?.resolveDropPlacement?.(event, column),
+      onColumnDrop: async ({ sourceId, id, placement }) => reorderWorkspace(sourceId, id, placement)
     };
     if (root.ZhugeGoldenMaster?.bindBoard) root.ZhugeGoldenMaster.bindBoard(board, boardHandlers);
     else root.ZhugeSharedTaskBoard?.bind(board, boardHandlers);
@@ -4569,6 +4568,10 @@
       boardTab.textContent = "📋 看板";
       tabs.insertBefore(boardTab, tabs.firstChild);
     }
+    const boardLabel = state.boardIsTemplate === true ? "C 母版看板" : "看板";
+    boardTab.textContent = "📋 " + boardLabel;
+    boardTab.title = boardLabel;
+    boardTab.setAttribute("aria-label", boardLabel);
     let tab = tabs.querySelector('[data-board-nav="workflow-settings"]');
     if (!tab) {
       tab = document.createElement("button");

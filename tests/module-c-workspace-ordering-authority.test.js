@@ -122,7 +122,7 @@ test("shared runtime uses the ordering authority and keeps protection separate",
   assert.match(runtime, /executeSharedTaskAction\(null, "reorderWorkspace"/);
   assert.match(runtime, /refreshBoard\(\{ quiet: true \}\)/);
   assert.doesNotMatch(runtime, /canReorderColumn: id =>[\s\S]{0,240}!isCompletionWorkspace\(workspace\)/);
-  assert.match(board, /onColumnDrop\?\.\(\{ id, sourceId: event\.dataTransfer\.getData\(COLUMN_DRAG_TYPE\), column, event \}\)/);
+  assert.match(board, /onColumnDrop\?\.\(\{ id, sourceId: event\.dataTransfer\.getData\(COLUMN_DRAG_TYPE\), column, event, placement \}\)/);
   assert.match(board, /onCardDrop\?\.\(\{ id, cardId, column, event \}\)/);
   assert.match(sql, /module_c_workspace_ordering_authority/);
   assert.match(sql, /set_config\('zhuge\.module_c_workspace_ordering', '1', true\)/);
@@ -146,4 +146,20 @@ test("all shared Module C entry points load one ordering authority", () => {
     const runtimeScript = html.indexOf("golden-master-runtime.js");
     assert.ok(authorityScript >= 0 && authorityScript < runtimeScript, `${file} must load the shared authority before the runtime`);
   }
+});
+
+
+test("adjacent no-op does not persist or reload; completion remains freely movable", async () => {
+  const rows = workspaces();
+  let writes = 0, reads = 0;
+  const unchanged = await authority.reorder({ workspaces: rows, draggedId: "done", targetId: "new", placement: "after", persist: () => writes++, reload: () => reads++ });
+  assert.equal(unchanged.noOp, true);
+  assert.deepEqual(unchanged.workspaceIds, ["todo", "system", "new", "done"]);
+  assert.equal(writes, 0); assert.equal(reads, 0);
+  const moved = authority.buildReorderedOrder(rows, "new", "done", "after");
+  assert.equal(moved.noOp, false);
+  assert.deepEqual(moved.workspaceIds, ["todo", "system", "done", "new"]);
+  assert.deepEqual(moved.orderedWorkspaces.map(row => row.sortOrder), [10,20,30,40]);
+  assert.equal(authority.buildReorderedOrder(moved.orderedWorkspaces, "done", "new", "before").noOp, true);
+  assert.deepEqual(authority.buildReorderedOrder(moved.orderedWorkspaces, "done", "new", "after").workspaceIds, ["todo","system","new","done"]);
 });

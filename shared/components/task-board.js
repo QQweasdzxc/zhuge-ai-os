@@ -78,6 +78,14 @@
   function bind(target, handlers = {}) {
     const board = typeof target === "string" ? document.querySelector(target) : target;
     if (!board) return false;
+    const clearDropIndicators = () => board.querySelectorAll("[data-shared-task-board-column]").forEach(column => {
+      column.classList.remove("workspace-dropzone", "dropzone", "workspace-drop-before", "workspace-drop-after");
+      delete column.dataset.workspaceDropPlacement;
+    });
+    const clearColumnDrag = () => {
+      clearDropIndicators();
+      board.querySelectorAll(".workspace-dragging").forEach(column => column.classList.remove("workspace-dragging"));
+    };
     const cards = board.querySelectorAll("[data-shared-task-board-card-id], [data-task-id], [data-worktodo-open-task]");
     cards.forEach(card => {
       card.ondragstart = event => {
@@ -112,7 +120,7 @@
         handlers.onColumnDragStart?.({ id, column, event });
       };
       handle.ondragend = event => {
-        handle.closest("[data-shared-task-board-column]")?.classList.remove("workspace-dragging");
+        clearColumnDrag();
         handlers.onColumnDragEnd?.({ handle, event });
       };
     });
@@ -121,12 +129,18 @@
       column.ondragover = event => {
         if (!hasDragType(event, CARD_DRAG_TYPE) && !hasDragType(event, COLUMN_DRAG_TYPE)) return;
         event.preventDefault();
-        column.classList.add(hasDragType(event, COLUMN_DRAG_TYPE) ? "workspace-dropzone" : "dropzone");
+        if (hasDragType(event, COLUMN_DRAG_TYPE)) {
+          const placement = handlers.resolveColumnDropPlacement?.({ id, column, event });
+          clearDropIndicators();
+          if (placement !== "before" && placement !== "after") return;
+          column.dataset.workspaceDropPlacement = placement;
+          column.classList.add("workspace-dropzone", "workspace-drop-" + placement);
+        } else column.classList.add("dropzone");
         handlers.onDragOver?.({ id, column, event });
       };
       column.ondragleave = event => {
         if (event.relatedTarget && column.contains(event.relatedTarget)) return;
-        column.classList.remove("workspace-dropzone", "dropzone");
+        clearColumnDrag();
         handlers.onDragLeave?.({ id, column, event });
       };
       column.ondrop = async event => {
@@ -134,9 +148,11 @@
         const isColumn = hasDragType(event, COLUMN_DRAG_TYPE);
         if (!isCard && !isColumn) return;
         event.preventDefault();
-        column.classList.remove("workspace-dropzone", "dropzone");
+        const placement = column.dataset.workspaceDropPlacement;
+        clearColumnDrag();
         if (isColumn) {
-          await handlers.onColumnDrop?.({ id, sourceId: event.dataTransfer.getData(COLUMN_DRAG_TYPE), column, event });
+          if (placement !== "before" && placement !== "after") return;
+          await handlers.onColumnDrop?.({ id, sourceId: event.dataTransfer.getData(COLUMN_DRAG_TYPE), column, event, placement });
           return;
         }
         const cardId = event.dataTransfer.getData(CARD_DRAG_TYPE) || event.dataTransfer.getData("text/plain");
