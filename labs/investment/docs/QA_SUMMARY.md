@@ -1,10 +1,13 @@
 # Lab_投資 In-Repository Candidate QA Summary
 
-## Current Genspark migration worktree — 2026-10-08
+## Current Genspark migration candidate — 2026-10-08
 
-This is local Developer QA evidence for the working tree based on
-`07b6e57d85e2fb34619d88065fda7ad71c8070d4`. It is not a Production Runtime
-acceptance and is not a release Candidate yet.
+This is local Developer QA evidence for the source based on canonical
+`origin/main` `07b6e57d85e2fb34619d88065fda7ad71c8070d4`. Exact source SHA and
+artifact integrity are recorded in the generated Candidate manifest. These
+results are not Production Runtime acceptance.
+
+Product identity: `0.9.0-alpha.9.26` / `20261008-0050`.
 
 | Gate | Result |
 |---|---:|
@@ -12,12 +15,14 @@ acceptance and is not a release Candidate yet.
 | Lab syntax check | PASS |
 | Lab desktop/mobile anonymous browser journey | 8 PASS / 0 FAIL; 0 page or console errors |
 | Root Lab/provider targeted tests | 26 PASS / 0 FAIL / 0 SKIP |
-| Release consistency/governance tests | 46 PASS / 0 FAIL / 0 SKIP |
-| Full root Regression | 927 PASS / 0 FAIL / 0 SKIP |
-| Official Browser Regression | 41 PASS / 0 FAIL / 0 SKIP |
+| Release consistency/governance tests | 51 PASS / 0 FAIL / 0 SKIP |
+| Broader focused root suite | 77 PASS / 0 FAIL / 0 SKIP |
+| Full root Regression | 932 PASS / 0 FAIL / 0 SKIP |
+| Official Browser Regression | 41 PASS / 0 FAIL / 0 SKIP; 5 standalone scripts PASS |
 | Functional Tabs targeted after restoring Lab adopter coverage | 3 PASS / 0 FAIL / 0 SKIP |
 | `git diff --check` | PASS |
-| Release preflight | BLOCKED: dirty working tree; no release Build or artifact created |
+| Release governance identity gate | PASS: Version, Product Build, Lab manifest, and runtime cache-busters agree |
+| Release preflight | PASS: clean source identity gate; ZIP/manifest integrity is recorded in the Candidate manifest |
 | Production authenticated holdings/watchlist/history readback | NOT VERIFIED: no signed-in browser profile |
 | Production Edge deployment of current source | NOT DEPLOYED |
 | Production Investment Board archive | NOT PERFORMED |
