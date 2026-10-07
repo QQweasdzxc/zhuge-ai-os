@@ -71,12 +71,16 @@ function fixture({
   };
   write(root, ".gitignore", "dist/\nnode_modules/\n.cache/\n");
   write(root, "version.json", JSON.stringify({ module: "Zhuge AI OS", version: VERSION, build: candidateBuild }));
+  write(root, "labs/investment/version.json", JSON.stringify({ name: "Lab_投資", version: VERSION, build: candidateBuild }));
   write(root, "index.html", `<!doctype html><script src="shared/config/template-release.js?v=${publishedLoaderBuild}"></script><link rel="stylesheet" href="shared/site.css?v=${cacheBuild}"><span>Version ${VERSION} · Build ${runtimeBuild}</span>`);
   write(root, "shared/site.css", `/* Historical annotation 20260916-1334 is not a Build Identity. */\nbody { color: black; }`);
   write(root, "shared/app-config.js", `const VERSION = "${VERSION}";\nconst BUILD_TIME = "${runtimeBuild}";`);
   write(root, "shared/config/version.js", `globalThis.version = { version: "${VERSION}", build: "${runtimeBuild}" };`);
   write(root, "shared/config/template-release.js", `const RELEASE = Object.freeze(${JSON.stringify(publishedRelease, null, 2)});`);
   write(root, "shared/runtime.js", `const runtime = "runtime.js?v=${cacheBuild}";`);
+  write(root, "labs/investment/index.html", `<link rel="stylesheet" href="./lab-product.css?v=${cacheBuild}"><script src="../../shared/config/version.js?v=${cacheBuild}"></script>`);
+  write(root, "labs/investment/src/runtime.mjs", `import "./provider.mjs?v=${cacheBuild}";`);
+  write(root, "labs/investment/test/fixtures/stale.html", '<script src="fixture.js?v=20260826-0001"></script>');
   write(root, "app/dashboard/index.html", `<meta name="application-version" content="${VERSION}">`);
   write(root, "app/dashboard/zhuge-dashboard.js", `const version = typeof VERSION !== "undefined" ? VERSION : "${VERSION}";\nconst build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "${runtimeBuild}";`);
   write(root, "modules/worklog/version.json", JSON.stringify({ version: VERSION, build: moduleBuild }));
@@ -223,6 +227,74 @@ test("cache-buster different from BUILD_ID fails the Pre-Packaging Gate", () => 
   }
 });
 
+test("active Lab Investment runtime cache-busters are governed by the root Product Build", () => {
+  const root = fixture();
+  try {
+    const before = Governance.readIdentitySnapshot(root);
+    assert.ok(before.cacheBusters.some(item => item.file === "labs/investment/index.html"));
+    assert.ok(before.cacheBusters.some(item => item.file === "labs/investment/src/runtime.mjs"));
+    assert.ok(!before.cacheBusters.some(item => item.file === "labs/investment/test/fixtures/stale.html"));
+
+    const nextBuild = "20260827-1443";
+    const synchronized = Governance.synchronizeBuildIdentity({ root, build: nextBuild });
+    assert.ok(synchronized.changedFiles.includes("labs/investment/index.html"));
+    assert.ok(synchronized.changedFiles.includes("labs/investment/src/runtime.mjs"));
+
+    const labEntry = fs.readFileSync(path.join(root, "labs/investment/index.html"), "utf8");
+    const labModule = fs.readFileSync(path.join(root, "labs/investment/src/runtime.mjs"), "utf8");
+    assert.match(labEntry, new RegExp(`\\?v=${nextBuild}`, "g"));
+    assert.match(labModule, new RegExp(`\\?v=${nextBuild}`, "g"));
+    assert.equal(Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)).build, nextBuild);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("Build synchronization repairs stale active Lab references before the strict identity gate", () => {
+  const root = fixture();
+  try {
+    write(root, "labs/investment/index.html", '<script src="../../shared/config/version.js?v=20260826-0001"></script>');
+    assert.throws(
+      () => Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)),
+      error => error.details.mismatches.some(item => item.includes("labs/investment/index.html cache-buster"))
+    );
+    const nextBuild = "20260827-1443";
+    Governance.synchronizeBuildIdentity({ root, build: nextBuild });
+    assert.equal(Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)).build, nextBuild);
+    assert.match(fs.readFileSync(path.join(root, "labs/investment/index.html"), "utf8"), new RegExp(`\\?v=${nextBuild}`));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("explicit current-Build repair only reconciles runtime references and preserves the Build", () => {
+  const root = fixture();
+  try {
+    write(root, "labs/investment/index.html", '<script src="../../shared/config/version.js?v=20260826-0001"></script>');
+    assert.throws(() => Governance.synchronizeBuildIdentity({ root, build: BUILD }), /requires a different valid BUILD_ID/);
+    const repaired = Governance.synchronizeBuildIdentity({ root, build: BUILD, allowCurrentBuildRepair: true });
+    assert.equal(repaired.build, BUILD);
+    assert.ok(repaired.changedFiles.includes("labs/investment/index.html"));
+    assert.equal(Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)).build, BUILD);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("stale active Lab Investment cache-buster fails the Pre-Packaging Gate", () => {
+  const root = fixture();
+  try {
+    write(root, "labs/investment/index.html", '<script src="../../shared/config/version.js?v=20260826-0001"></script>');
+    assert.throws(
+      () => Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)),
+      error => /PRE-PACKAGING GATE = FAIL/.test(error.message)
+        && error.details.mismatches.some(item => item.includes("labs/investment/index.html cache-buster"))
+    );
+  } finally {
+    cleanup(root);
+  }
+});
+
 test("module Build different from root Build fails the Pre-Packaging Gate", () => {
   const root = fixture({ moduleBuild: "20260826-1443" });
   try {
@@ -230,6 +302,26 @@ test("module Build different from root Build fails the Pre-Packaging Gate", () =
       () => Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)),
       error => /PRE-PACKAGING GATE = FAIL/.test(error.message) && error.details.mismatches.some(item => item.includes("modules/worklog/version.json.build"))
     );
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("active Lab manifest follows the single root Product Version and Build", () => {
+  const root = fixture();
+  try {
+    write(root, "labs/investment/version.json", JSON.stringify({ name: "Lab_投資", version: VERSION, build: "20260826-0001" }));
+    assert.throws(
+      () => Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)),
+      error => /PRE-PACKAGING GATE = FAIL/.test(error.message)
+        && error.details.mismatches.some(item => item.includes("labs/investment/version.json.build"))
+    );
+    const nextBuild = "20260827-1443";
+    Governance.synchronizeBuildIdentity({ root, build: nextBuild });
+    const labManifest = JSON.parse(fs.readFileSync(path.join(root, "labs/investment/version.json"), "utf8"));
+    assert.equal(labManifest.version, VERSION);
+    assert.equal(labManifest.build, nextBuild);
+    assert.equal(Governance.assertSourceIdentity(Governance.readIdentitySnapshot(root)).build, nextBuild);
   } finally {
     cleanup(root);
   }

@@ -9,8 +9,12 @@ const { execFileSync } = require("node:child_process");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const ARTIFACT_TYPES = Object.freeze({ candidate: "Candidate", review: "Review", "qa-backup": "QA-Backup" });
-const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared"];
-const RUNTIME_EXTENSIONS = new Set([".html", ".js", ".css"]);
+// Lab_投資 is an active Product runtime and shares the root Product Build.
+// Keep it under this existing governance authority so its cache-busters cannot
+// drift into a second release identity.
+const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared", "labs/investment"];
+const RUNTIME_EXCLUDED_ROOTS = ["labs/investment/docs", "labs/investment/test"];
+const RUNTIME_EXTENSIONS = new Set([".html", ".js", ".mjs", ".css"]);
 const FORBIDDEN_DIRECTORY_NAMES = new Set([".git", "dist", "node_modules", ".cache", "cache", "tmp", "temp", "browser-profile", "playwright-report", "test-results"]);
 const FORBIDDEN_FILE_NAMES = new Set([".DS_Store"]);
 const FORBIDDEN_FILE_EXTENSIONS = new Set([".crt", ".jwk", ".key", ".pem", ".p12"]);
@@ -83,6 +87,7 @@ function collectFiles(root) {
 
 function isRuntimeFile(relative) {
   if (!RUNTIME_EXTENSIONS.has(path.extname(relative).toLowerCase())) return false;
+  if (RUNTIME_EXCLUDED_ROOTS.some(rootName => relative === rootName || relative.startsWith(`${rootName}/`))) return false;
   return RUNTIME_SCAN_ROOTS.some(rootName => relative === rootName || relative.startsWith(`${rootName}/`));
 }
 
@@ -108,14 +113,16 @@ function matchOne(source, pattern, label, file) {
   return match[1];
 }
 
-function moduleVersionFiles(root) {
+function productVersionFiles(root) {
   const modulesRoot = path.join(root, "modules");
-  if (!fs.existsSync(modulesRoot)) return [];
-  return fs.readdirSync(modulesRoot, { withFileTypes: true })
+  const moduleFiles = fs.existsSync(modulesRoot) ? fs.readdirSync(modulesRoot, { withFileTypes: true })
     .filter(entry => entry.isDirectory())
     .map(entry => toPosix(path.join("modules", entry.name, "version.json")))
     .filter(relative => fs.existsSync(path.join(root, relative)))
-    .sort();
+    : [];
+  const activeLabManifest = "labs/investment/version.json";
+  if (fs.existsSync(path.join(root, activeLabManifest))) moduleFiles.push(activeLabManifest);
+  return moduleFiles.sort();
 }
 
 function readTemplateReleaseRecord(root) {
@@ -175,7 +182,7 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
   const rootIndexSource = readText(resolvedRoot, "index.html");
   const dashboardSource = readText(resolvedRoot, "app/dashboard/zhuge-dashboard.js");
   const dashboardIndexSource = readText(resolvedRoot, "app/dashboard/index.html");
-  const modules = moduleVersionFiles(resolvedRoot).map(relative => ({
+  const modules = productVersionFiles(resolvedRoot).map(relative => ({
     file: relative,
     ...readJson(resolvedRoot, relative)
   }));
@@ -292,7 +299,7 @@ function publishedIdentityMismatches(identity) {
   return mismatches;
 }
 
-function assertSourceIdentity(snapshot) {
+function assertSourceIdentity(snapshot, { allowStaleRuntimeReferences = false } = {}) {
   const mismatches = [];
   const { build, version } = snapshot;
   if (!VERSION_PATTERN.test(version)) mismatches.push(`invalid root version: ${version}`);
@@ -306,7 +313,9 @@ function assertSourceIdentity(snapshot) {
 
   for (const module of snapshot.modules) {
     if (module.version !== version) mismatches.push(`${module.file}.version=${module.version} != ${version}`);
-    if (module.build !== build) mismatches.push(`${module.file}.build=${module.build} != ${build}`);
+    if (!allowStaleRuntimeReferences && module.build !== build) {
+      mismatches.push(`${module.file}.build=${module.build} != ${build}`);
+    }
   }
 
   const identityValues = [
@@ -325,11 +334,13 @@ function assertSourceIdentity(snapshot) {
   }
 
   if (!snapshot.cacheBusters.length) mismatches.push("no formal runtime cache-buster was found");
-  for (const item of snapshot.cacheBusters) {
-    if (item.build !== build) mismatches.push(`${item.file} cache-buster=${item.build} != ${build}`);
-  }
-  for (const item of snapshot.runtimeBuildIdentityLiterals) {
-    if (item.build !== build) mismatches.push(`${item.file} ${item.field}=${item.build} != ${build}`);
+  if (!allowStaleRuntimeReferences) {
+    for (const item of snapshot.cacheBusters) {
+      if (item.build !== build) mismatches.push(`${item.file} cache-buster=${item.build} != ${build}`);
+    }
+    for (const item of snapshot.runtimeBuildIdentityLiterals) {
+      if (item.build !== build) mismatches.push(`${item.file} ${item.field}=${item.build} != ${build}`);
+    }
   }
   if (!snapshot.publishedSnapshotLoaders.length) mismatches.push("no Published C snapshot loader was found");
   for (const item of snapshot.publishedSnapshotLoaders) {
@@ -501,10 +512,13 @@ function assertMaterialBuildIdentity(root = PROJECT_ROOT) {
   return materialBuildEvidence(root, commit, baselineCommit);
 }
 
-function synchronizeBuildIdentity({ root = PROJECT_ROOT, build } = {}) {
+function synchronizeBuildIdentity({ root = PROJECT_ROOT, build, allowCurrentBuildRepair = false } = {}) {
   const snapshot = readIdentitySnapshot(root);
-  assertSourceIdentity(snapshot);
-  if (!BUILD_PATTERN.test(build || "") || build === snapshot.build) {
+  // Build synchronization is the repair path for stale runtime references.
+  // All version, module and Published C contracts remain enforced before any
+  // write; the complete identity gate is re-run after synchronization.
+  assertSourceIdentity(snapshot, { allowStaleRuntimeReferences: true });
+  if (!BUILD_PATTERN.test(build || "") || (build === snapshot.build && !allowCurrentBuildRepair)) {
     fail("A new Formal Build requires a different valid BUILD_ID", { previousBuild: snapshot.build, build });
   }
   const updates = new Map();
@@ -950,6 +964,8 @@ function parseCli(argv) {
     const token = rest[index];
     if (token === "--deliver") {
       options.deliver = true;
+    } else if (token === "--repair-current-build") {
+      options.repairCurrentBuild = true;
     } else if (token.startsWith("--")) {
       const key = token.slice(2);
       const value = rest[index + 1];
@@ -964,7 +980,7 @@ function parseCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js sync-build --build <approved-new-build>\n  node tools/release-governance.js package --type <candidate|review|qa-backup> --description <scope> --regression-json '<json>' [--output-dir <dir>] [--deliver --delivery-root <dir>]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
+  console.log(`Usage:\n  node tools/release-governance.js new-build-id\n  node tools/release-governance.js sync-build --build <approved-new-build> [--repair-current-build]\n  node tools/release-governance.js package --type <candidate|review|qa-backup> --description <scope> --regression-json '<json>' [--output-dir <dir>] [--deliver --delivery-root <dir>]\n  node tools/release-governance.js preflight\n\nThe root version.json.build is the only Build Identity source.\n`);
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -990,7 +1006,11 @@ function main(argv = process.argv.slice(2)) {
     return;
   }
   if (command === "sync-build") {
-    console.log(JSON.stringify(synchronizeBuildIdentity({ root: options.root || PROJECT_ROOT, build: options.build }), null, 2));
+    console.log(JSON.stringify(synchronizeBuildIdentity({
+      root: options.root || PROJECT_ROOT,
+      build: options.build,
+      allowCurrentBuildRepair: options.repairCurrentBuild === true
+    }), null, 2));
     return;
   }
   if (command !== "package") fail(`Unknown command: ${command}`);
