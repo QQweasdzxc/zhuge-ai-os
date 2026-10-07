@@ -1,8 +1,8 @@
 import { createReadOnlyPortfolioAdapter } from "./src/portfolio/readonly-adapter.mjs";
 import { createLabMarketProvider } from "./src/providers/lab-market-provider.mjs";
-import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261008-0040";
-import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261008-0040";
-import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261008-0040";
+import { loadPortfolioHistoryMap } from "./src/portfolio/history.mjs?v=20261008-0050";
+import { renderPortfolioResearchContext, renderPortfolioSection } from "./src/portfolio/view.mjs?v=20261008-0050";
+import { MiniMarketChart } from "./src/components/mini-market-chart.mjs?v=20261008-0050";
 import { calculateIndicators } from "./src/domain/indicators.mjs";
 
 const root = document.querySelector("#view-root");
