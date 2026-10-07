@@ -70,6 +70,24 @@ test("holding card uses official TWSE history only and keeps unavailable trend t
   assert.doesNotMatch(markup, /data-board-task-price|data-board-task-cost|market_value=/);
 });
 
+test("Portfolio KPI includes current positive-quantity rows only and marks incomplete currency totals", () => {
+  const result = presentation.summarizeCurrentPositions([
+    position({ source_id: "tw-a", market_value: 100, invested_cost: 80, unrealized_pnl: 20 }),
+    position({ source_id: "tw-b", market_value: null, invested_cost: 60, unrealized_pnl: null }),
+    position({ source_id: "us-a", market: "US", currency: "USD", market_value: 50, invested_cost: 40, unrealized_pnl: 10 }),
+    position({ source_id: "zero", quantity: 0, position_status: "current", market_value: 500, invested_cost: 400, unrealized_pnl: 100 }),
+    position({ source_id: "history", position_status: "history", quantity: 0, market_value: 900, invested_cost: 500, unrealized_pnl: 400 })
+  ]);
+  assert.equal(result.count, 3);
+  assert.deepEqual(result.currencies, ["TWD", "USD"]);
+  assert.equal(result.groups.TWD.marketValue.value, null);
+  assert.equal(result.groups.TWD.marketValue.missingCount, 1);
+  assert.equal(result.groups.TWD.investedCost.value, 140);
+  assert.equal(result.groups.TWD.unrealizedPnl.value, null);
+  assert.equal(result.groups.USD.marketValue.value, 50);
+  assert.equal(result.groups.USD.roi, 25);
+});
+
 async function inspectViewport(t, { width, height, screenshotName }) {
   const executablePath = resolveBrowserExecutable() || chromium.executablePath();
   assert.ok(fs.existsSync(executablePath), `Chromium executable not found: ${executablePath}`);
@@ -79,55 +97,80 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     await page.goto(await fixtureURL(fixture), { waitUntil: "load" });
-    await page.waitForSelector('[data-investment-holding-presentation="v2"]');
+    await page.waitForSelector('[data-investment-holding-presentation="portfolio-v1"]');
     await page.waitForFunction(() => document.body.dataset.investmentCloudBridge === "ready");
     const audit = await page.evaluate(() => {
-      const cards = [...document.querySelectorAll(".investment-holding-runtime-card")];
+      const cards = [...document.querySelectorAll(".investment-portfolio-grid .investment-holding-runtime-card")];
       const rects = cards.map(card => {
         const box = card.getBoundingClientRect();
-        const title = card.querySelector(".shared-task-card-title");
-        const price = card.querySelector(".investment-holding-price");
+        const title = card.querySelector(".investment-portfolio-holding-title");
+        const price = card.querySelector(".investment-portfolio-holding-hero strong:first-child");
         return {
           width: box.width, height: box.height, title: title?.innerText || "", price: price?.innerText || "",
-          footer: card.querySelector(".investment-holding-freshness")?.innerText || "",
+          footer: card.querySelector(".investment-portfolio-holding-footer")?.innerText || "",
           trigger: card.querySelector("[data-investment-holding-detail-trigger]")?.getAttribute("aria-expanded") || "",
-          hiddenDetails: !card.querySelector(".investment-holding-metrics, .investment-holding-trend"),
+          hasTrend: Boolean(card.querySelector(".investment-holding-trend")),
+          marketValue: card.querySelector(".investment-portfolio-holding-market")?.innerText || "",
           hasOldProjectionText: /Investment Position Projection|Card projection owned by Investment Cloud/.test(card.innerText),
           touchCard: card.getAttribute("role") === "button" || card.tabIndex >= 0
         };
       });
+      const grid = document.querySelector("[data-investment-portfolio-grid]");
+      const firstTop = cards[0]?.getBoundingClientRect().top;
       return {
         width: innerWidth, documentWidth: document.documentElement.scrollWidth,
         count: cards.length, cards: rects,
-        historicalCardUnchanged: document.querySelector(".fixture-legacy-history")?.querySelector(".shared-task-card-title")?.innerText === "7001 · 歷史標的"
-          && !document.querySelector(".fixture-legacy-history")?.querySelector('[data-investment-holding-presentation="v2"]'),
-        title: [...document.querySelectorAll(".investment-holding-title")].map(node => node.innerText),
-        price: [...document.querySelectorAll(".investment-holding-price")].map(node => node.innerText),
+        historicalExcluded: !document.querySelector("[data-investment-portfolio-grid] [data-shared-task-board-card-id='task-fixture-history']"),
+        workspaceColumnsHidden: [...document.querySelectorAll("#holdingCards>[data-shared-task-board-column]")].every(node => node.hidden),
+        toolbarHidden: getComputedStyle(document.querySelector(".golden-master-toolbar")).display === "none",
+        title: [...document.querySelectorAll(".investment-portfolio-holding-title")].map(node => node.innerText),
+        price: [...document.querySelectorAll(".investment-portfolio-holding-hero strong:first-child")].map(node => node.innerText),
         identityPreserved: [...document.querySelectorAll(".investment-holding-runtime-card")].map(card => card.dataset.investmentWorkCode),
         baselineHeights: window.__holdingBaselineCardHeights,
         cardHeights: cards.map(card => card.getBoundingClientRect().height),
+        firstRowCount: cards.filter(card => Math.abs(card.getBoundingClientRect().top - firstTop) < 1).length,
+        marketFilterLabels: [...document.querySelectorAll("[data-investment-market-filter]")].map(button => button.innerText),
+        summaryCount: document.querySelector("[data-investment-portfolio-summary-desktop] strong")?.innerText || document.querySelector(".investment-portfolio-summary-desktop article:last-child strong")?.innerText,
+        summaryTwdPartial: /部分資料尚缺/.test(document.querySelector(".investment-portfolio-summary")?.innerText || ""),
+        rpcCalls: window.__rpcCalls.map(item => item.name),
         noOldText: !cards.some(card => /Investment Position Projection|Card projection owned by Investment Cloud/.test(card.innerText)),
         marketDataOnlyInPresentation: !document.querySelector("[data-board-task-price], [data-board-task-cost], [data-board-task-pnl]")
       };
     });
-    assert.equal(audit.count, 3);
-    assert.ok(audit.cards.every(card => card.title && card.price && card.trigger === "false" && card.hiddenDetails && !card.hasOldProjectionText && card.touchCard));
-    assert.deepEqual(audit.identityPreserved, ["IVTK-001", "IVTK-002", "IVTK-003"]);
+    assert.equal(audit.count, 4);
+    assert.ok(audit.cards.every(card => card.title && card.price && card.trigger === "false" && card.hasTrend && card.marketValue && !card.hasOldProjectionText && card.touchCard));
+    assert.deepEqual(audit.identityPreserved, ["IVTK-001", "IVTK-002", "IVTK-003", "IVTK-004"]);
     assert.equal(audit.noOldText, true);
-    assert.equal(audit.historicalCardUnchanged, true);
+    assert.equal(audit.historicalExcluded, true);
+    assert.equal(audit.workspaceColumnsHidden, true);
+    assert.equal(audit.toolbarHidden, true);
     assert.equal(audit.marketDataOnlyInPresentation, true);
-    assert.deepEqual(audit.cardHeights, audit.baselineHeights.slice(0, 3));
+    assert.deepEqual(audit.cardHeights, [104, 104, 104, 104]);
+    assert.deepEqual(audit.marketFilterLabels, ["全部", "台股", "美股"]);
+    assert.equal(audit.summaryCount, "4");
+    assert.equal(audit.summaryTwdPartial, true);
+    assert.deepEqual(audit.rpcCalls, ["sync_investment_ivtk_projection"]);
+    assert.equal(audit.firstRowCount, width >= 1200 ? 4 : width >= 900 ? 3 : width >= 640 ? 2 : 1);
     assert.ok(audit.documentWidth <= audit.width, `horizontal overflow ${audit.documentWidth} > ${audit.width}`);
     if (width < 500) assert.ok(audit.cards.every(card => card.width <= width));
     await fs.promises.mkdir(artifactDirectory, { recursive: true });
     await page.screenshot({ path: path.join(artifactDirectory, screenshotName), fullPage: true, animations: "disabled" });
-    const cards = page.locator(".investment-holding-runtime-card");
+    const cards = page.locator(".investment-portfolio-grid .investment-holding-runtime-card");
     const firstCard = cards.nth(0);
     const secondCard = cards.nth(1);
     const firstTrigger = firstCard.locator("[data-investment-holding-detail-trigger]");
     const secondTrigger = secondCard.locator("[data-investment-holding-detail-trigger]");
     const initialRect = await firstCard.boundingBox();
     const boardRect = await page.locator("#holdingCards").boundingBox();
+    await page.locator('[data-investment-market-filter="tw"]').click();
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 3);
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card[data-investment-source-id='fixture-asset-d']:visible").count(), 0);
+    await page.locator('[data-investment-market-filter="us"]').click();
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 1);
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card[data-investment-source-id='fixture-asset-d']:visible").count(), 1);
+    await page.locator('[data-investment-market-filter="all"]').click();
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 4);
+    assert.deepEqual(await page.evaluate(() => window.__rpcCalls.map(item => item.name)), ["sync_investment_ivtk_projection"], "filters change only presentation and never call a writer");
     await firstTrigger.click();
     const panel = page.locator("[data-investment-holding-detail-layer]:not([hidden]) .investment-holding-detail-panel");
     await panel.waitFor({ state: "visible" });
@@ -145,10 +188,9 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     assert.deepEqual(await firstCard.boundingBox(), initialRect, "opening details must not resize the card");
     assert.deepEqual(await page.locator("#holdingCards").boundingBox(), boardRect, "opening details must not reflow the Board");
     if (width >= 500) {
-      await firstTrigger.click();
+      await page.locator("[data-investment-holding-detail-close]").click();
       assert.equal(await page.locator("[data-investment-holding-detail-layer]").isHidden(), true, "activating the same trigger toggles the panel closed");
       assert.equal(await firstTrigger.getAttribute("aria-expanded"), "false");
-      await firstTrigger.click();
     } else {
       await page.locator("[data-investment-holding-detail-backdrop]").click({ position: { x: 12, y: 12 } });
       await firstTrigger.click();
@@ -173,7 +215,7 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     assert.equal(await firstTrigger.getAttribute("aria-expanded"), "false");
     assert.equal(await firstTrigger.evaluate(node => document.activeElement === node), true, "closing restores focus to the original trigger");
     if (width < 500) {
-      await page.locator(".investment-holding-runtime-card").nth(2).locator("[data-investment-holding-detail-trigger]").click();
+      await page.locator(".investment-portfolio-grid .investment-holding-runtime-card").nth(2).locator("[data-investment-holding-detail-trigger]").click();
       const unavailablePanel = page.locator("[data-investment-holding-detail-layer]:not([hidden]) .investment-holding-detail-panel");
       assert.match(await unavailablePanel.innerText(), /尚無行情/);
       assert.match(await unavailablePanel.innerText(), /目前價格[\s\S]*—/);
@@ -188,9 +230,13 @@ async function inspectViewport(t, { width, height, screenshotName }) {
 
 test("holding card desktop and mobile presentation is responsive and preserves IVTK identity", async t => {
   const desktop = await inspectViewport(t, { width: 1440, height: 900, screenshotName: "holding-card-desktop-visual-fixture.png" });
+  const normal = await inspectViewport(t, { width: 1024, height: 900, screenshotName: "holding-card-normal-visual-fixture.png" });
+  const narrow = await inspectViewport(t, { width: 700, height: 900, screenshotName: "holding-card-narrow-visual-fixture.png" });
   const mobile = await inspectViewport(t, { width: 390, height: 844, screenshotName: "holding-card-mobile-visual-fixture.png" });
   assert.equal(desktop.width, 1440);
+  assert.equal(normal.firstRowCount, 3);
+  assert.equal(narrow.firstRowCount, 2);
   assert.equal(mobile.width, 390);
-  assert.deepEqual(desktop.cardHeights, [104, 104, 104]);
-  assert.deepEqual(mobile.cardHeights, [104, 104, 104]);
+  assert.deepEqual(desktop.cardHeights, [104, 104, 104, 104]);
+  assert.deepEqual(mobile.cardHeights, [104, 104, 104, 104]);
 });

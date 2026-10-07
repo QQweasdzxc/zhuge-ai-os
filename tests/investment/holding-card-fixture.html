@@ -12,9 +12,9 @@
   <link rel="stylesheet" href="../../app/Board/investment/investment-board.css">
   <style>
     body{margin:0;min-height:100vh;background:var(--investment-bg);color:var(--investment-text);font-family:var(--zhuge-font-family)}
-    .fixture-page{max-width:1180px;margin:0 auto;padding:24px}.fixture-legacy-history{display:none}
+    .fixture-page{max-width:1440px;box-sizing:border-box;margin:0 auto;padding:24px}.fixture-legacy-history{display:none}
     .fixture-watermark{margin:0 0 16px;color:var(--investment-warning);font-size:12px;font-weight:800}
-    .fixture-cards{display:flex;flex-direction:column;gap:9px;width:min(300px,100%)}
+    .fixture-cards{display:flex;flex-direction:column;gap:9px;width:100%}
     .fixture-card{min-width:0;height:104px;min-height:104px;box-sizing:border-box;overflow:hidden;border:1px solid var(--investment-line);border-radius:var(--zhuge-radius-md);background:var(--investment-panel);padding:12px;box-shadow:var(--zhuge-shadow-card)}
     @media(max-width:700px){.fixture-page{padding:14px}.fixture-cards{width:100%}}
   </style>
@@ -22,12 +22,18 @@
 <body>
   <main class="fixture-page">
     <p class="fixture-watermark">DEVELOPER VISUAL FIXTURE — synthetic rows, not Production holdings</p>
-    <section id="holdingCards" class="fixture-cards" aria-label="持股卡片視覺測試">
-      <article class="fixture-card card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-1"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-001</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
-      <article class="fixture-card card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-2"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-002</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
-      <article class="fixture-card card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-3"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-003</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
-    </section>
-    <article class="fixture-card fixture-legacy-history taskcard shared-task-board-card board-cloud-card" data-shared-task-board-card-id="task-fixture-history"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-004</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
+    <div class="golden-master-toolbar" data-golden-master-toolbar>Workspace Kanban toolbar fixture</div>
+    <div class="golden-master-board-shell"><section id="holdingCards" class="fixture-cards shared-task-board board" data-shared-task-board="investment-ivtk" aria-label="持股卡片視覺測試">
+      <section data-shared-task-board-column data-workspace-id="stocks"><header data-workspace-header>投資-台股</header><div data-shared-task-board-cards>
+        <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-1" data-work-code="IVTK-001"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-001</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
+        <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-2" data-work-code="IVTK-002"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-002</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
+        <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-3" data-work-code="IVTK-003"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-003</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
+      </div></section>
+      <section data-shared-task-board-column data-workspace-id="us"><header data-workspace-header>投資-美股</header><div data-shared-task-board-cards>
+        <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-4" data-work-code="IVTK-004"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-004</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
+      </div></section>
+      <section class="fixture-legacy-history" data-shared-task-board-column data-workspace-id="history"><header data-workspace-header>投資紀錄</header><div data-shared-task-board-cards><article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" data-shared-task-board-card-id="task-fixture-history"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-005</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article></div></section>
+    </section></div>
   </main>
   <script src="../../modules/investment/utils/formatters.js"></script>
   <script src="../../modules/investment/components/holding-card-presentation.js"></script>
@@ -39,13 +45,15 @@
       { source_kind: "opening_position", source_id: "fixture-asset-a", portfolio_id: "fixture-portfolio", symbol: "2742", name: "遠山科技", market: "TW", currency: "TWD", quantity: 20, avg_cost: 54.25, invested_cost: 1085, last_price: 68.25, market_value: 1365, unrealized_pnl: 280, unrealized_pct: 25.8064, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
       { source_kind: "broker_snapshot_item", source_id: "fixture-asset-b", portfolio_id: "fixture-portfolio", symbol: "3158", name: "山海材料", market: "TW", currency: "TWD", quantity: 10, avg_cost: 92.5, invested_cost: 925, last_price: 84.5, market_value: 845, unrealized_pnl: -80, unrealized_pct: -8.6486, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture snapshot" },
       { source_kind: "opening_position", source_id: "fixture-asset-c", portfolio_id: "fixture-portfolio", symbol: "4982", name: "雲嶺工業", market: "TW", currency: "TWD", quantity: 5, avg_cost: 101.5, invested_cost: 507.5, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, position_status: "current", effective_at: null, market_value_source: "fixture estimate" },
+      { source_kind: "opening_position", source_id: "fixture-asset-d", portfolio_id: "fixture-portfolio", symbol: "AAPL", name: "蘋果公司", market: "US", currency: "USD", quantity: 2, avg_cost: 180, invested_cost: 360, last_price: 192, market_value: 384, unrealized_pnl: 24, unrealized_pct: 6.6667, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
       { source_kind: "transaction", source_id: "fixture-history", portfolio_id: "fixture-portfolio", symbol: "7001", name: "歷史標的", market: "TW", currency: "TWD", quantity: 0, avg_cost: 0, invested_cost: 0, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, realized_pnl: 123, position_status: "history", effective_at: null, market_value_source: "transaction_calculated" }
     ];
-    const links = rows.map((row, index) => ({ board_task_id: index === 3 ? "task-fixture-history" : `task-fixture-${index + 1}`, source_kind: row.source_kind, source_id: row.source_id, card_kind: index === 3 ? "history" : "position", active: true }));
-    window.__holdingBaselineCardHeights = [...document.querySelectorAll(".fixture-card")].map(card => card.getBoundingClientRect().height);
+    const links = rows.map((row, index) => ({ board_task_id: index === 4 ? "task-fixture-history" : `task-fixture-${index + 1}`, source_kind: row.source_kind, source_id: row.source_id, card_kind: index === 4 ? "history" : "position", active: true }));
+    window.__holdingBaselineCardHeights = [...document.querySelectorAll(".fixture-card")].slice(0, 4).map(card => card.getBoundingClientRect().height);
+    window.__rpcCalls = [];
     window.ZhugeSupabaseGateway = {
       createDataGateway: () => ({
-        rpc: async () => ({ created_count: 0, relinked_count: 0, moved_count: 0, deactivated_count: 0 }),
+        rpc: async (name, args) => { window.__rpcCalls.push({ name, args }); return { created_count: 0, relinked_count: 0, moved_count: 0, deactivated_count: 0 }; },
         select: async resource => resource === "investment_current_positions_view" ? rows : resource === "investment_ivtk_card_links" ? links : [],
         invokeFunction: async () => ({
           contract: "zhuge-investment-intelligence-edge-v1", read_only: true,

@@ -133,6 +133,43 @@
     </div>`;
   }
 
+  function summarizeCurrentPositions(rows = []) {
+    const current = (Array.isArray(rows) ? rows : []).filter(row =>
+      String(row?.position_status || row?.positionStatus || "") === "current"
+      && Number.isFinite(Number(row?.quantity))
+      && Number(row.quantity) > 0
+    );
+    const currencies = [...new Set(current.map(row => String(row.currency || "TWD").toUpperCase()))].sort();
+    const groups = Object.fromEntries(currencies.map(currency => {
+      const items = current.filter(row => String(row.currency || "TWD").toUpperCase() === currency);
+      const metric = field => {
+        const values = items.map(row => finite(row[field]) ? Number(row[field]) : null);
+        const missing = values.filter(value => value === null).length;
+        return Object.freeze({ value: values.length && missing === 0 ? values.reduce((sum, value) => sum + value, 0) : null, missingCount: missing });
+      };
+      const marketValue = metric("market_value");
+      const investedCost = metric("invested_cost");
+      const unrealizedPnl = metric("unrealized_pnl");
+      const roi = investedCost.value !== null && investedCost.value > 0 && unrealizedPnl.value !== null
+        ? unrealizedPnl.value / investedCost.value * 100
+        : null;
+      return [currency, Object.freeze({ count: items.length, marketValue, investedCost, unrealizedPnl, roi })];
+    }));
+    return Object.freeze({ count: current.length, currencies: Object.freeze(currencies), groups: Object.freeze(groups) });
+  }
+
+  function renderPortfolioHoldingContent(row = {}, task = {}, history = null, format = {}) {
+    const model = buildHoldingViewModel(row, task, history, format);
+    const escape = escapeHtml;
+    const unavailable = model.lastPrice === null || model.marketValue === null || model.unrealizedPnl === null;
+    return `<div class="investment-portfolio-holding" data-investment-holding-presentation="portfolio-v1" data-investment-source-kind="${escape(model.sourceKind)}" data-investment-source-id="${escape(model.sourceId)}">
+      <div class="investment-portfolio-holding-heading"><h3 class="investment-portfolio-holding-title"><span>${escape(model.symbol || "—")}</span><span>${escape(model.displayName || "名稱未提供")}</span></h3><span class="investment-holding-badge">已持有</span></div>
+      <div class="investment-portfolio-holding-hero"><strong>${escape(model.formatted.price)}</strong><strong class="${escape(model.trend)}">${escape(model.formatted.unrealizedPercent)}</strong></div>
+      <div class="investment-portfolio-holding-market"><span>市值 <b>${escape(model.formatted.marketValue)}</b></span>${renderSparkline(history)}</div>
+      <div class="investment-portfolio-holding-footer"><span class="investment-portfolio-holding-meta"><span>${escape(unavailable ? "尚無行情" : `收盤 ${model.formatted.quoteDate}`)}</span><span>損益 ${escape(model.formatted.unrealizedPnl)}</span><span class="investment-holding-code">${escape(model.workCode)}</span></span><button type="button" class="investment-holding-detail-trigger" data-investment-holding-detail-trigger aria-label="查看持股明細" aria-controls="investmentHoldingDetailPanel" aria-expanded="false"><span>明細</span><span aria-hidden="true">›</span></button></div>
+    </div>`;
+  }
+
   function renderHoldingDetail(row = {}, task = {}, history = null, format = {}) {
     const model = buildHoldingViewModel(row, task, history, format);
     const escape = escapeHtml;
@@ -147,6 +184,8 @@
   return Object.freeze({
     buildHoldingViewModel,
     renderHoldingContent,
+    summarizeCurrentPositions,
+    renderPortfolioHoldingContent,
     renderHoldingDetail,
     renderSparkline,
     eligibleOfficialHistory

@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null, detailLayer: null, detailPanel: null, detailTrigger: null, detailCard: null, detailListenersBound: false };
+  const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null, detailLayer: null, detailPanel: null, detailTrigger: null, detailCard: null, detailListenersBound: false, portfolioFilter: "all" };
 
   function esc(value) {
     return String(value == null ? "" : value)
@@ -29,6 +29,119 @@
   function marketKey(value) {
     const market = String(value || "").trim().toUpperCase();
     return ["TW", "TWSE", "TPEX", "TWO"].includes(market) ? "TW" : market;
+  }
+
+  function currentPositionRows() {
+    return state.rows.filter(row => row?.position_status === "current" && Number.isFinite(Number(row?.quantity)) && Number(row.quantity) > 0);
+  }
+
+  function portfolioAmount(metric, currency, mode = "currency") {
+    if (!metric || metric.value === null) return `<span class="investment-portfolio-unavailable">${metric?.missingCount ? "部分資料尚缺" : "—"}</span>`;
+    const format = root.InvestmentFormatters || {};
+    const value = Number(metric.value);
+    if (mode === "signed") return typeof format.signed === "function" ? format.signed(value, 2) : `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+    return typeof format.currency === "function" ? format.currency(value, currency) : money(value, currency);
+  }
+
+  function renderCurrencyTotals(summary, field, mode = "currency", includeRoi = false) {
+    return summary.currencies.map(currency => {
+      const group = summary.groups[currency];
+      const metric = group[field];
+      const roi = includeRoi && group.roi !== null
+        ? `<small>${(root.InvestmentFormatters?.percent?.(group.roi) || `${group.roi >= 0 ? "+" : ""}${group.roi.toFixed(2)}%`)}</small>`
+        : includeRoi ? `<small>報酬率資料不足</small>` : "";
+      return `<span class="investment-portfolio-currency-total" data-currency="${esc(currency)}"><b>${portfolioAmount(metric, currency, mode)}</b><small>${esc(currency)}${metric?.missingCount ? ` · ${metric.missingCount} 檔未完整` : ""}</small>${roi}</span>`;
+    }).join("") || `<span class="investment-portfolio-unavailable">尚無目前持股</span>`;
+  }
+
+  function renderPortfolioSummary(rows) {
+    const presenter = root.InvestmentHoldingCardPresentation;
+    const summary = presenter?.summarizeCurrentPositions?.(rows) || { count: 0, currencies: [], groups: {} };
+    const format = root.InvestmentFormatters || {};
+    return `<div class="investment-portfolio-summary" data-investment-portfolio-summary>
+      <div class="investment-portfolio-summary-desktop">
+        <article><span>總市值</span><div>${renderCurrencyTotals(summary, "marketValue")}</div></article>
+        <article><span>投入成本</span><div>${renderCurrencyTotals(summary, "investedCost")}</div></article>
+        <article><span>未實現損益</span><div>${renderCurrencyTotals(summary, "unrealizedPnl", "signed", true)}</div></article>
+        <article><span>持股檔數</span><strong>${summary.count}</strong></article>
+      </div>
+      <div class="investment-portfolio-summary-mobile">
+        <article><span>總市值</span><div>${renderCurrencyTotals(summary, "marketValue")}</div></article>
+        <article><span>總損益</span><div>${renderCurrencyTotals(summary, "unrealizedPnl", "signed", true)}</div></article>
+        <details><summary>投入成本與持股數</summary><div>${renderCurrencyTotals(summary, "investedCost")}<span>${summary.count} 檔目前持股</span></div></details>
+      </div>
+    </div>`;
+  }
+
+  function marketFilterFor(row) {
+    const market = marketKey(row?.market);
+    return ["TW", "TWSE", "TPEX", "TWO"].includes(market) ? "tw" : market === "US" ? "us" : "other";
+  }
+
+  function mountPortfolioView() {
+    const board = document.querySelector('[data-shared-task-board="investment-ivtk"]');
+    if (!board) return;
+    board.classList.add("investment-portfolio-board");
+    let view = board.querySelector(":scope > [data-investment-portfolio-view]");
+    if (!view) {
+      view = document.createElement("section");
+      view.className = "investment-portfolio-view";
+      view.dataset.investmentPortfolioView = "true";
+      view.setAttribute("aria-label", "目前持股 Portfolio View");
+      view.innerHTML = `<div data-investment-portfolio-summary-host></div><div class="investment-portfolio-filters" role="group" aria-label="依市場篩選持股"><button type="button" data-investment-market-filter="all">全部</button><button type="button" data-investment-market-filter="tw">台股</button><button type="button" data-investment-market-filter="us">美股</button></div><div class="investment-portfolio-grid" data-investment-portfolio-grid></div><p class="investment-portfolio-pending" data-investment-portfolio-pending hidden></p>`;
+      board.prepend(view);
+      view.addEventListener("click", event => {
+        const button = event.target.closest?.("[data-investment-market-filter]");
+        if (!button) return;
+        state.portfolioFilter = button.dataset.investmentMarketFilter || "all";
+        view.querySelectorAll("[data-investment-market-filter]").forEach(item => {
+          const active = item === button;
+          item.classList.toggle("is-active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        view.querySelectorAll(".investment-holding-runtime-card").forEach(card => {
+          card.hidden = state.portfolioFilter !== "all" && card.dataset.investmentMarket !== state.portfolioFilter;
+        });
+      });
+    }
+    const summaryHost = view.querySelector("[data-investment-portfolio-summary-host]");
+    const summaryMarkup = renderPortfolioSummary(currentPositionRows());
+    if (summaryHost.dataset.signature !== summaryMarkup) {
+      summaryHost.innerHTML = summaryMarkup;
+      summaryHost.dataset.signature = summaryMarkup;
+    }
+    const grid = view.querySelector("[data-investment-portfolio-grid]");
+    const currentRows = currentPositionRows();
+    const links = new Map(state.links.filter(link => link.active !== false && link.card_kind === "position")
+      .map(link => [sourceKey(link.source_kind, link.source_id), link]));
+    const mounted = new Set();
+    let cardIndex = 0;
+    currentRows.forEach(row => {
+      const link = links.get(sourceKey(row.source_kind, row.source_id));
+      if (!link) return;
+      const card = board.querySelector(`[data-shared-task-board-card-id="${CSS.escape(String(link.board_task_id))}"]`);
+      if (!card) return;
+      card.classList.add("investment-portfolio-card");
+      card.dataset.investmentMarket = marketFilterFor(row);
+      card.hidden = state.portfolioFilter !== "all" && card.dataset.investmentMarket !== state.portfolioFilter;
+      const anchor = grid.children[cardIndex] || null;
+      if (card.parentElement !== grid || card !== anchor) grid.insertBefore(card, anchor);
+      cardIndex += 1;
+      mounted.add(String(link.board_task_id));
+    });
+    grid.querySelectorAll(".investment-holding-runtime-card").forEach(card => {
+      if (!mounted.has(String(card.dataset.sharedTaskBoardCardId || ""))) card.remove();
+    });
+    board.querySelectorAll(":scope > [data-shared-task-board-column]").forEach(column => { column.hidden = true; });
+    const pending = view.querySelector("[data-investment-portfolio-pending]");
+    const missingLinks = currentRows.length - mounted.size;
+    pending.hidden = missingLinks === 0;
+    pending.textContent = missingLinks ? `${missingLinks} 檔目前持股仍在等待既有 IVTK 卡片關聯同步；資料保留顯示狀態，未建立或移動工作卡。` : "";
+    view.querySelectorAll("[data-investment-market-filter]").forEach(item => {
+      const active = item.dataset.investmentMarketFilter === state.portfolioFilter;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-pressed", active ? "true" : "false");
+    });
   }
 
   async function loadOfficialHistories(gateway, rows) {
@@ -305,13 +418,14 @@
       card.classList.add("investment-holding-runtime-card");
       const taskCode = card.dataset.workCode || card.querySelector(".shared-task-card-code")?.textContent?.trim() || "";
       card.dataset.investmentWorkCode = taskCode;
-      card.innerHTML = content.renderHoldingContent(row, { workCode: taskCode }, history, root.InvestmentFormatters || {});
+      card.innerHTML = content.renderPortfolioHoldingContent(row, { workCode: taskCode }, history, root.InvestmentFormatters || {});
       const priceLabel = row.last_price !== null && row.last_price !== undefined && row.last_price !== "" && Number.isFinite(Number(row.last_price)) ? row.last_price : "尚無行情";
       const percentLabel = row.unrealized_pct !== null && row.unrealized_pct !== undefined && row.unrealized_pct !== "" && Number.isFinite(Number(row.unrealized_pct)) ? row.unrealized_pct : "—";
       const label = `${row.symbol || ""} ${row.name || ""}，持股估值 ${priceLabel}，未實現損益率 ${percentLabel}`;
       card.setAttribute("aria-label", label);
       card.dataset.investmentHoldingProjection = signature;
     });
+    mountPortfolioView();
   }
 
   async function load() {
@@ -344,6 +458,7 @@
   function boot() {
     load();
     const mount = document.querySelector("[data-board-main-view]") || document.body;
+    mount.classList.add("investment-portfolio-surface");
     bindHoldingDetail(mount);
     state.observer = new MutationObserver(scheduleApply);
     state.observer.observe(mount, { childList: true, subtree: true });
