@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null };
+  const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null, detailLayer: null, detailPanel: null, detailTrigger: null, detailCard: null, detailListenersBound: false };
 
   function esc(value) {
     return String(value == null ? "" : value)
@@ -68,6 +68,150 @@
   }
 
   registerTaskDrawerExtension();
+
+  function ensureDetailLayer() {
+    if (state.detailLayer?.isConnected) return state.detailLayer;
+    const layer = document.createElement("div");
+    layer.className = "investment-holding-detail-layer";
+    layer.dataset.investmentHoldingDetailLayer = "true";
+    layer.hidden = true;
+    layer.innerHTML = `<button type="button" class="investment-holding-detail-backdrop" data-investment-holding-detail-backdrop aria-label="關閉持股明細"></button><section id="investmentHoldingDetailPanel" class="investment-holding-detail-panel" role="dialog" aria-labelledby="investmentHoldingDetailTitle" tabindex="-1"></section>`;
+    document.body.appendChild(layer);
+    state.detailLayer = layer;
+    state.detailPanel = layer.querySelector(".investment-holding-detail-panel");
+    layer.querySelector("[data-investment-holding-detail-backdrop]")?.addEventListener("click", closeHoldingDetail);
+    layer.addEventListener("click", event => {
+      if (event.target.closest?.("[data-investment-holding-detail-close]")) closeHoldingDetail();
+    });
+    return layer;
+  }
+
+  function closeHoldingDetail({ restoreFocus = true } = {}) {
+    if (!state.detailLayer) return;
+    state.detailLayer.hidden = true;
+    state.detailLayer.dataset.mode = "";
+    state.detailPanel?.replaceChildren();
+    state.detailTrigger?.setAttribute("aria-expanded", "false");
+    const trigger = state.detailTrigger;
+    state.detailTrigger = null;
+    state.detailCard = null;
+    if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+  }
+
+  function positionDesktopDetail(card, panel) {
+    const rect = card.getBoundingClientRect();
+    const width = Math.min(380, Math.max(280, window.innerWidth - 32));
+    panel.style.width = `${width}px`;
+    panel.style.maxHeight = `${Math.max(260, Math.floor(window.innerHeight * 0.76))}px`;
+    panel.style.visibility = "hidden";
+    panel.style.left = "0px";
+    panel.style.top = "0px";
+    const panelRect = panel.getBoundingClientRect();
+    const gap = 12;
+    const right = rect.right + gap;
+    const left = rect.left - panelRect.width - gap;
+    let x;
+    let y = rect.top;
+    if (right + panelRect.width <= window.innerWidth - 12) x = right;
+    else if (left >= 12) x = left;
+    else {
+      x = Math.min(Math.max(12, rect.left), window.innerWidth - panelRect.width - 12);
+      if (rect.bottom + gap + panelRect.height <= window.innerHeight - 12) y = rect.bottom + gap;
+      else y = rect.top - panelRect.height - gap;
+    }
+    y = Math.min(Math.max(12, y), window.innerHeight - panelRect.height - 12);
+    panel.style.left = `${Math.round(x)}px`;
+    panel.style.top = `${Math.round(y)}px`;
+    panel.style.visibility = "visible";
+  }
+
+  function openHoldingDetail(card, trigger) {
+    const taskId = card?.dataset.sharedTaskBoardCardId;
+    const resolved = resolveInvestmentItem(taskId);
+    const renderer = root.InvestmentHoldingCardPresentation?.renderHoldingDetail;
+    if (!resolved || resolved.cardKind !== "position" || resolved.item?.position_status !== "current" || typeof renderer !== "function") return;
+    if (state.detailTrigger === trigger && !state.detailLayer?.hidden) {
+      closeHoldingDetail();
+      return;
+    }
+    if (!state.detailLayer?.hidden) closeHoldingDetail({ restoreFocus: false });
+    const layer = ensureDetailLayer();
+    const history = state.histories.get(`${marketKey(resolved.item.market)}:${String(resolved.item.symbol || "").toUpperCase().replace(/\.(TW|TWO)$/i, "")}`) || null;
+    const taskCode = card.dataset.investmentWorkCode || card.dataset.workCode || card.querySelector(".shared-task-card-code")?.textContent?.trim() || "";
+    state.detailPanel.innerHTML = renderer(resolved.item, { workCode: taskCode }, history, root.InvestmentFormatters || {});
+    state.detailTrigger = trigger;
+    state.detailCard = card;
+    trigger.setAttribute("aria-expanded", "true");
+    layer.hidden = false;
+    const mobile = window.matchMedia("(max-width: 640px)").matches;
+    layer.dataset.mode = mobile ? "mobile" : "desktop";
+    state.detailPanel.setAttribute("aria-modal", mobile ? "true" : "false");
+    if (mobile) {
+      state.detailPanel.style.width = "";
+      state.detailPanel.style.maxHeight = `${Math.floor(window.innerHeight * 0.76)}px`;
+      state.detailPanel.style.left = "";
+      state.detailPanel.style.top = "";
+      state.detailPanel.style.visibility = "visible";
+    } else {
+      positionDesktopDetail(card, state.detailPanel);
+    }
+    state.detailPanel.querySelector("[data-investment-holding-detail-close]")?.focus({ preventScroll: true });
+  }
+
+  function bindHoldingDetail(rootNode) {
+    if (!rootNode || state.detailListenersBound) return;
+    state.detailListenersBound = true;
+    ensureDetailLayer();
+    rootNode.addEventListener("click", event => {
+      const trigger = event.target.closest?.("[data-investment-holding-detail-trigger]");
+      if (trigger) {
+        event.preventDefault();
+        event.stopPropagation();
+        const card = trigger.closest(".investment-holding-runtime-card");
+        openHoldingDetail(card, trigger);
+        return;
+      }
+    }, true);
+    document.addEventListener("click", event => {
+      if (!state.detailLayer || state.detailLayer.hidden) return;
+      if (event.target.closest?.(".investment-holding-detail-panel") || event.target.closest?.("[data-investment-holding-detail-trigger]")) return;
+      closeHoldingDetail({ restoreFocus: Boolean(event.target.closest?.("[data-investment-holding-detail-backdrop]")) });
+    }, true);
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && state.detailLayer && !state.detailLayer.hidden) {
+        event.preventDefault();
+        closeHoldingDetail();
+        return;
+      }
+      if (event.key === "Tab" && state.detailLayer && !state.detailLayer.hidden && state.detailLayer.dataset.mode === "mobile") {
+        const focusable = [...state.detailPanel.querySelectorAll("button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])")];
+        if (focusable.length) {
+          const first = focusable[0], last = focusable.at(-1);
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      }
+    });
+    rootNode.addEventListener("keydown", event => {
+      if ((event.key === "Enter" || event.key === " ") && event.target.closest?.("[data-investment-holding-detail-trigger]")) event.stopPropagation();
+    }, true);
+    const reposition = () => {
+      if (!state.detailLayer || state.detailLayer.hidden) return;
+      if (!state.detailCard?.isConnected) { closeHoldingDetail({ restoreFocus: false }); return; }
+      const mobile = window.matchMedia("(max-width: 640px)").matches;
+      state.detailLayer.dataset.mode = mobile ? "mobile" : "desktop";
+      state.detailPanel.setAttribute("aria-modal", mobile ? "true" : "false");
+      if (mobile) {
+        state.detailPanel.style.width = "";
+        state.detailPanel.style.maxHeight = `${Math.floor(window.innerHeight * 0.76)}px`;
+        state.detailPanel.style.left = "";
+        state.detailPanel.style.top = "";
+        state.detailPanel.style.visibility = "visible";
+      } else positionDesktopDetail(state.detailCard, state.detailPanel);
+    };
+    window.addEventListener("resize", reposition, { passive: true });
+    window.addEventListener("scroll", reposition, { passive: true, capture: true });
+  }
 
   function projectionChanged(result) {
     return ["created_count", "relinked_count", "moved_count", "deactivated_count"]
@@ -160,6 +304,7 @@
       card.dataset.investmentSourceId = row.source_id || "";
       card.classList.add("investment-holding-runtime-card");
       const taskCode = card.dataset.workCode || card.querySelector(".shared-task-card-code")?.textContent?.trim() || "";
+      card.dataset.investmentWorkCode = taskCode;
       card.innerHTML = content.renderHoldingContent(row, { workCode: taskCode }, history, root.InvestmentFormatters || {});
       const priceLabel = row.last_price !== null && row.last_price !== undefined && row.last_price !== "" && Number.isFinite(Number(row.last_price)) ? row.last_price : "尚無行情";
       const percentLabel = row.unrealized_pct !== null && row.unrealized_pct !== undefined && row.unrealized_pct !== "" && Number.isFinite(Number(row.unrealized_pct)) ? row.unrealized_pct : "—";
@@ -199,6 +344,7 @@
   function boot() {
     load();
     const mount = document.querySelector("[data-board-main-view]") || document.body;
+    bindHoldingDetail(mount);
     state.observer = new MutationObserver(scheduleApply);
     state.observer.observe(mount, { childList: true, subtree: true });
     document.addEventListener("click", event => {

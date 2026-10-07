@@ -53,7 +53,7 @@ function normalizedProductLoaders(source, productBuild) {
 }
 
 function assertInvestmentReleaseBoundary({ changed, beforeManifest, manifest, product, beforeProduct, beforeHtml, html }) {
-  const allowed = new Set(["modules/investment/index.html", "modules/investment/version.json", "modules/investment/assets/investment.css", "modules/investment/components/module-shell.js"]);
+  const allowed = new Set(["modules/investment/index.html", "modules/investment/version.json", "modules/investment/assets/investment.css", "modules/investment/components/module-shell.js", "modules/investment/components/holding-card-presentation.js"]);
   for (const file of changed) assert.ok(allowed.has(file), `Investment functional source changed: ${file}`);
   assert.deepEqual(Object.keys(manifest).sort(), Object.keys(beforeManifest).sort(), "manifest keys retained");
   for (const key of Object.keys(beforeManifest)) {
@@ -67,14 +67,15 @@ function assertInvestmentReleaseBoundary({ changed, beforeManifest, manifest, pr
   assert.equal(normalized(html, product.build), normalized(beforeHtml, beforeProduct.build), "only Product v= and the shared Functional Tabs adapter loader may change");
 }
 
-test("Investment business source stays untouched; shared Functional Tabs presentation and Product metadata may synchronize", () => {
+test("Investment business source stays untouched; Holding presentation and governed Product metadata may synchronize", () => {
   const { execFileSync } = require("node:child_process");
   const head = file => execFileSync("git", ["show", `HEAD:${file}`], { cwd: root, encoding: "utf8" });
   const changed = execFileSync("git", ["diff", "HEAD", "--name-only", "--", "modules/investment"], { cwd: root, encoding: "utf8" })
     .trim().split("\n").filter(Boolean);
   const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard", "--", "modules/investment"], { cwd: root, encoding: "utf8" })
     .trim().split("\n").filter(Boolean);
-  // The PM-authorized UI files may only migrate presentation. Compare every
+  // The PM-authorized Holding presentation file and governed metadata may only
+  // change the approved display boundary. Compare every
   // existing route/focus rendering to HEAD, not merely an allowlist of paths.
   const vm = require("node:vm");
   const shell = source => { const context = { module: { exports: {} } }; vm.runInNewContext(source, context); return context.module.exports; };

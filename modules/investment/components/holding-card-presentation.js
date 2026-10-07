@@ -42,8 +42,16 @@
     return `${amount > 0 ? "+" : ""}${formattedNumber(amount, format, 2)}%`;
   }
 
+  function formattedQuantity(value, format) {
+    if (!finite(value)) return "—";
+    const amount = Number(value);
+    if (Number.isInteger(amount) && typeof format?.integer === "function") return format.integer(amount);
+    if (!Number.isInteger(amount) && typeof format?.number === "function") return format.number(amount, 3);
+    return new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 3 }).format(amount);
+  }
+
   function quoteDate(value, format) {
-    if (!value || !Number.isFinite(Date.parse(value))) return "日期未提供";
+    if (!value || !Number.isFinite(Date.parse(value))) return "—";
     if (typeof format?.date === "function") return format.date(value);
     return new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit" }).format(new Date(value));
   }
@@ -90,6 +98,7 @@
       currency: String(row.currency || "TWD"),
       lastPrice: finite(row.last_price) ? Number(row.last_price) : null,
       averageCost: finite(row.avg_cost) ? Number(row.avg_cost) : null,
+      investedCost: finite(row.invested_cost) ? Number(row.invested_cost) : null,
       marketValue: finite(row.market_value) ? Number(row.market_value) : null,
       unrealizedPnl: finite(pnl) ? Number(pnl) : null,
       unrealizedPercent: finite(percent) ? Number(percent) : null,
@@ -101,7 +110,10 @@
       historyBarCount: eligibleOfficialHistory(history) ? history.bars.filter(bar => finite(bar?.close)).slice(-20).length : 0,
       formatted: Object.freeze({
         lastPrice: formattedNumber(row.last_price, format, 2),
+        price: finite(row.last_price) ? `${currencySymbol(row.currency)} ${formattedNumber(row.last_price, format, 2)}` : "—",
         averageCost: formattedNumber(row.avg_cost, format, 2),
+        investedCost: formattedMoney(row.invested_cost, row.currency, format),
+        quantity: formattedQuantity(row.quantity, format),
         marketValue: formattedMoney(row.market_value, row.currency, format),
         unrealizedPnl: signedMoney(pnl, row.currency, format),
         unrealizedPercent: formattedPercent(percent, format),
@@ -114,18 +126,28 @@
     const model = buildHoldingViewModel(row, task, history, format);
     const escape = escapeHtml;
     const trendClass = model.trend;
-    return `<div class="investment-holding-card" data-investment-holding-presentation="v1" data-investment-source-kind="${escape(model.sourceKind)}" data-investment-source-id="${escape(model.sourceId)}">
+    return `<div class="investment-holding-card" data-investment-holding-presentation="v2" data-investment-source-kind="${escape(model.sourceKind)}" data-investment-source-id="${escape(model.sourceId)}">
       <div class="investment-holding-heading"><h3 class="shared-task-card-title investment-holding-title"><span class="investment-holding-symbol">${escape(model.symbol || "—")}</span><span class="investment-holding-name">${escape(model.displayName || "名稱未提供")}</span></h3><span class="investment-holding-badge">已持有</span></div>
-      <div class="investment-holding-hero"><div class="investment-holding-price"><strong>${escape(model.formatted.lastPrice)}</strong><span>${escape(currencySymbol(model.currency))} · 持股估值</span><small>${escape(model.formatted.quoteDate)} · 非即時行情</small></div><div class="investment-holding-return ${trendClass}"><strong>${escape(model.formatted.unrealizedPercent)}</strong><span>未實現損益率</span></div></div>
-      <dl class="investment-holding-metrics"><div><dt>平均成本 / 股</dt><dd>${escape(model.formatted.averageCost)}</dd></div><div><dt>市值</dt><dd>${escape(model.formatted.marketValue)}</dd></div><div class="${trendClass}"><dt>未實現損益</dt><dd>${escape(model.formatted.unrealizedPnl)}</dd></div></dl>
-      ${renderSparkline(history)}
-      <footer class="shared-task-card-footer investment-holding-footer"><span>${escape(model.estimateSource)} · 持股資料</span><span class="investment-holding-code">${escape(model.workCode)}</span></footer>
+      <div class="investment-holding-hero"><strong class="investment-holding-price">${escape(model.formatted.price)}</strong><strong class="investment-holding-return ${trendClass}">${escape(model.formatted.unrealizedPercent)}</strong></div>
+      <div class="investment-holding-card-bottom"><span class="investment-holding-freshness">持股資料時間 ${escape(model.formatted.quoteDate)} · 非即時行情</span><span class="investment-holding-code">${escape(model.workCode)}</span><button type="button" class="investment-holding-detail-trigger" data-investment-holding-detail-trigger aria-label="查看持股明細" aria-controls="investmentHoldingDetailPanel" aria-expanded="false"><span class="investment-holding-detail-trigger-label">明細</span><span aria-hidden="true">⌄</span></button></div>
     </div>`;
+  }
+
+  function renderHoldingDetail(row = {}, task = {}, history = null, format = {}) {
+    const model = buildHoldingViewModel(row, task, history, format);
+    const escape = escapeHtml;
+    const trendClass = model.trend;
+    return `<header class="investment-holding-detail-header"><div><h2 id="investmentHoldingDetailTitle"><span>${escape(model.symbol || "—")}</span> ${escape(model.displayName || "名稱未提供")}</h2><span class="investment-holding-badge">已持有</span></div><button type="button" class="investment-holding-detail-close" data-investment-holding-detail-close aria-label="關閉持股明細">×</button></header>
+      <p class="investment-holding-detail-quantity">持有 <strong>${escape(model.formatted.quantity)}</strong> 股 <span class="investment-holding-code">${escape(model.workCode)}</span></p>
+      <dl class="investment-holding-detail-metrics"><div><dt>平均成本 / 股</dt><dd>${escape(model.formatted.averageCost)}</dd></div><div><dt>投入成本</dt><dd>${escape(model.formatted.investedCost)}</dd></div><div><dt>目前價格</dt><dd>${escape(model.formatted.price)}</dd></div><div><dt>目前市值</dt><dd>${escape(model.formatted.marketValue)}</dd></div><div class="${trendClass}"><dt>未實現損益</dt><dd>${escape(model.formatted.unrealizedPnl)}</dd></div><div class="${trendClass}"><dt>損益率</dt><dd>${escape(model.formatted.unrealizedPercent)}</dd></div></dl>
+      <section class="investment-holding-detail-trend" aria-label="近 20 日行情"><h3>近 20 日行情</h3>${renderSparkline(history)}</section>
+      <footer class="investment-holding-detail-footer"><span>持股資料時間：${escape(model.formatted.quoteDate)}</span><span>資料來源：${escape(model.estimateSource)}</span><span>非即時行情</span></footer>`;
   }
 
   return Object.freeze({
     buildHoldingViewModel,
     renderHoldingContent,
+    renderHoldingDetail,
     renderSparkline,
     eligibleOfficialHistory
   });

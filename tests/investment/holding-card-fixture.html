@@ -14,9 +14,9 @@
     body{margin:0;min-height:100vh;background:var(--investment-bg);color:var(--investment-text);font-family:var(--zhuge-font-family)}
     .fixture-page{max-width:1180px;margin:0 auto;padding:24px}.fixture-legacy-history{display:none}
     .fixture-watermark{margin:0 0 16px;color:var(--investment-warning);font-size:12px;font-weight:800}
-    .fixture-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-    .fixture-card{min-width:0;border:1px solid var(--investment-line);border-radius:var(--zhuge-radius-md);background:var(--investment-panel);padding:16px;box-shadow:var(--zhuge-shadow-card)}
-    @media(max-width:700px){.fixture-page{padding:14px}.fixture-cards{grid-template-columns:minmax(0,1fr)}}
+    .fixture-cards{display:flex;flex-direction:column;gap:9px;width:min(300px,100%)}
+    .fixture-card{min-width:0;height:104px;min-height:104px;box-sizing:border-box;overflow:hidden;border:1px solid var(--investment-line);border-radius:var(--zhuge-radius-md);background:var(--investment-panel);padding:12px;box-shadow:var(--zhuge-shadow-card)}
+    @media(max-width:700px){.fixture-page{padding:14px}.fixture-cards{width:100%}}
   </style>
 </head>
 <body>
@@ -38,17 +38,18 @@
     const rows = [
       { source_kind: "opening_position", source_id: "fixture-asset-a", portfolio_id: "fixture-portfolio", symbol: "2742", name: "遠山科技", market: "TW", currency: "TWD", quantity: 20, avg_cost: 54.25, invested_cost: 1085, last_price: 68.25, market_value: 1365, unrealized_pnl: 280, unrealized_pct: 25.8064, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
       { source_kind: "broker_snapshot_item", source_id: "fixture-asset-b", portfolio_id: "fixture-portfolio", symbol: "3158", name: "山海材料", market: "TW", currency: "TWD", quantity: 10, avg_cost: 92.5, invested_cost: 925, last_price: 84.5, market_value: 845, unrealized_pnl: -80, unrealized_pct: -8.6486, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture snapshot" },
-      { source_kind: "opening_position", source_id: "fixture-asset-c", portfolio_id: "fixture-portfolio", symbol: "4982", name: "雲嶺工業", market: "TW", currency: "TWD", quantity: 5, avg_cost: 101.5, invested_cost: 507.5, last_price: 101.5, market_value: 507.5, unrealized_pnl: 0, unrealized_pct: 0, position_status: "current", effective_at: null, market_value_source: "fixture estimate" },
+      { source_kind: "opening_position", source_id: "fixture-asset-c", portfolio_id: "fixture-portfolio", symbol: "4982", name: "雲嶺工業", market: "TW", currency: "TWD", quantity: 5, avg_cost: 101.5, invested_cost: 507.5, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, position_status: "current", effective_at: null, market_value_source: "fixture estimate" },
       { source_kind: "transaction", source_id: "fixture-history", portfolio_id: "fixture-portfolio", symbol: "7001", name: "歷史標的", market: "TW", currency: "TWD", quantity: 0, avg_cost: 0, invested_cost: 0, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, realized_pnl: 123, position_status: "history", effective_at: null, market_value_source: "transaction_calculated" }
     ];
     const links = rows.map((row, index) => ({ board_task_id: index === 3 ? "task-fixture-history" : `task-fixture-${index + 1}`, source_kind: row.source_kind, source_id: row.source_id, card_kind: index === 3 ? "history" : "position", active: true }));
+    window.__holdingBaselineCardHeights = [...document.querySelectorAll(".fixture-card")].map(card => card.getBoundingClientRect().height);
     window.ZhugeSupabaseGateway = {
       createDataGateway: () => ({
         rpc: async () => ({ created_count: 0, relinked_count: 0, moved_count: 0, deactivated_count: 0 }),
         select: async resource => resource === "investment_current_positions_view" ? rows : resource === "investment_ivtk_card_links" ? links : [],
         invokeFunction: async () => ({
           contract: "zhuge-investment-intelligence-edge-v1", read_only: true,
-          histories: rows.map((row, index) => ({ symbol: row.symbol, market: "TW", provider: "twse-daily-history", source: "TWSE Daily Trading Open Data", asOf: "2026-10-06T00:00:00Z", available: true, bars: barSets[index] }))
+          histories: rows.map((row, index) => ({ symbol: row.symbol, market: "TW", provider: index === 2 ? "unavailable" : "twse-daily-history", source: index === 2 ? "" : "TWSE Daily Trading Open Data", asOf: "2026-10-06T00:00:00Z", available: index !== 2, bars: barSets[index] }))
         })
       })
     };
