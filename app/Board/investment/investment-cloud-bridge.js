@@ -2,6 +2,8 @@
   "use strict";
 
   const state = { rows: [], links: [], histories: new Map(), projection: null, projectionError: null, syncPromise: null, timer: 0, observer: null, detailLayer: null, detailPanel: null, detailTrigger: null, detailCard: null, detailListenersBound: false, portfolioFilter: "all" };
+  const prototypeSymbols = Object.freeze(["0050", "00878", "00929", "6898"]);
+  const prototypeSymbolOrder = new Map(prototypeSymbols.map((symbol, index) => [symbol, index]));
 
   function esc(value) {
     return String(value == null ? "" : value)
@@ -33,6 +35,12 @@
 
   function currentPositionRows() {
     return state.rows.filter(row => row?.position_status === "current" && Number.isFinite(Number(row?.quantity)) && Number(row.quantity) > 0);
+  }
+
+  function prototypePositionRows() {
+    return currentPositionRows()
+      .filter(row => prototypeSymbolOrder.has(String(row?.symbol || "").trim().toUpperCase().replace(/\.(TW|TWO)$/i, "")))
+      .sort((left, right) => prototypeSymbolOrder.get(String(left.symbol).trim().toUpperCase().replace(/\.(TW|TWO)$/i, "")) - prototypeSymbolOrder.get(String(right.symbol).trim().toUpperCase().replace(/\.(TW|TWO)$/i, "")));
   }
 
   function portfolioAmount(metric, currency, mode = "currency") {
@@ -105,13 +113,13 @@
       });
     }
     const summaryHost = view.querySelector("[data-investment-portfolio-summary-host]");
-    const summaryMarkup = renderPortfolioSummary(currentPositionRows());
+    const currentRows = prototypePositionRows();
+    const summaryMarkup = renderPortfolioSummary(currentRows);
     if (summaryHost.dataset.signature !== summaryMarkup) {
       summaryHost.innerHTML = summaryMarkup;
       summaryHost.dataset.signature = summaryMarkup;
     }
     const grid = view.querySelector("[data-investment-portfolio-grid]");
-    const currentRows = currentPositionRows();
     const links = new Map(state.links.filter(link => link.active !== false && link.card_kind === "position")
       .map(link => [sourceKey(link.source_kind, link.source_id), link]));
     const mounted = new Set();
@@ -135,8 +143,13 @@
     board.querySelectorAll(":scope > [data-shared-task-board-column]").forEach(column => { column.hidden = true; });
     const pending = view.querySelector("[data-investment-portfolio-pending]");
     const missingLinks = currentRows.length - mounted.size;
-    pending.hidden = missingLinks === 0;
-    pending.textContent = missingLinks ? `${missingLinks} 檔目前持股仍在等待既有 IVTK 卡片關聯同步；資料保留顯示狀態，未建立或移動工作卡。` : "";
+    const foundSymbols = new Set(currentRows.map(row => String(row.symbol || "").trim().toUpperCase().replace(/\.(TW|TWO)$/i, "")));
+    const missingSymbols = prototypeSymbols.filter(symbol => !foundSymbols.has(symbol));
+    pending.hidden = missingLinks === 0 && missingSymbols.length === 0;
+    pending.textContent = [
+      missingLinks ? `${missingLinks} 檔持股仍在等待既有 IVTK 卡片關聯同步；沒有建立或移動工作卡。` : "",
+      missingSymbols.length ? `目前持股資料未提供：${missingSymbols.join("、")}。` : ""
+    ].filter(Boolean).join(" ");
     view.querySelectorAll("[data-investment-market-filter]").forEach(item => {
       const active = item.dataset.investmentMarketFilter === state.portfolioFilter;
       item.classList.toggle("is-active", active);
@@ -439,7 +452,7 @@
       ]);
       state.rows = Array.isArray(rows) ? rows : [];
       state.links = Array.isArray(links) ? links : [];
-      state.histories = await loadOfficialHistories(gateway, state.rows);
+      state.histories = await loadOfficialHistories(gateway, prototypePositionRows());
       apply();
       document.body.dataset.investmentCloudBridge = "ready";
       document.body.dataset.investmentCloudProjection = state.projectionError ? "error" : "ready";

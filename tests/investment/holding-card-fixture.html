@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Investment Holding Card Visual QA Fixture</title>
+  <title>Investment Intelligence Card Prototype Fixture</title>
   <link rel="stylesheet" href="../../shared/theme/zhuge-shell.css">
   <link rel="stylesheet" href="../../shared/theme/task-card.css">
   <link rel="stylesheet" href="../../shared/theme/task-board.css">
@@ -28,8 +28,6 @@
         <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-1" data-work-code="IVTK-001"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-001</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
         <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-2" data-work-code="IVTK-002"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-002</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
         <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-3" data-work-code="IVTK-003"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-003</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
-      </div></section>
-      <section data-shared-task-board-column data-workspace-id="us"><header data-workspace-header>投資-美股</header><div data-shared-task-board-cards>
         <article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" role="button" tabindex="0" data-shared-task-board-card-id="task-fixture-4" data-work-code="IVTK-004"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-004</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article>
       </div></section>
       <section class="fixture-legacy-history" data-shared-task-board-column data-workspace-id="history"><header data-workspace-header>投資紀錄</header><div data-shared-task-board-cards><article class="fixture-card shared-task-card taskcard shared-task-board-card board-cloud-card" data-shared-task-board-card-id="task-fixture-history"><div class="shared-task-card-header"><div class="shared-task-card-header-main"><div class="shared-task-card-code">IVTK-005</div></div></div><h3 class="shared-task-card-title">Investment Position Projection</h3><p class="shared-task-card-summary">Card projection owned by Investment Cloud</p></article></div></section>
@@ -38,14 +36,14 @@
   <script src="../../modules/investment/utils/formatters.js"></script>
   <script src="../../modules/investment/components/holding-card-presentation.js"></script>
   <script>
-    const barSets = [0, 1, 2].map((offset) => Array.from({ length: 20 }, (_, index) => ({
+    const barSets = [0, 1, 2, 3].map((offset) => Array.from({ length: 20 }, (_, index) => ({
       asOf: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`, close: 50 + index + offset
     })));
     const rows = [
-      { source_kind: "opening_position", source_id: "fixture-asset-a", portfolio_id: "fixture-portfolio", symbol: "2742", name: "遠山科技", market: "TW", currency: "TWD", quantity: 20, avg_cost: 54.25, invested_cost: 1085, last_price: 68.25, market_value: 1365, unrealized_pnl: 280, unrealized_pct: 25.8064, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
-      { source_kind: "broker_snapshot_item", source_id: "fixture-asset-b", portfolio_id: "fixture-portfolio", symbol: "3158", name: "山海材料", market: "TW", currency: "TWD", quantity: 10, avg_cost: 92.5, invested_cost: 925, last_price: 84.5, market_value: 845, unrealized_pnl: -80, unrealized_pct: -8.6486, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture snapshot" },
-      { source_kind: "opening_position", source_id: "fixture-asset-c", portfolio_id: "fixture-portfolio", symbol: "4982", name: "雲嶺工業", market: "TW", currency: "TWD", quantity: 5, avg_cost: 101.5, invested_cost: 507.5, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, position_status: "current", effective_at: null, market_value_source: "fixture estimate" },
-      { source_kind: "opening_position", source_id: "fixture-asset-d", portfolio_id: "fixture-portfolio", symbol: "AAPL", name: "蘋果公司", market: "US", currency: "USD", quantity: 2, avg_cost: 180, invested_cost: 360, last_price: 192, market_value: 384, unrealized_pnl: 24, unrealized_pct: 6.6667, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
+      { source_kind: "opening_position", source_id: "fixture-asset-a", portfolio_id: "fixture-portfolio", symbol: "0050", name: "元大台灣50（合成 fixture）", market: "TW", currency: "TWD", quantity: 709, avg_cost: 65.45, invested_cost: 46404.05, last_price: 107.8, market_value: 76430.2, unrealized_pnl: 30026.15, unrealized_pct: 64.7, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
+      { source_kind: "broker_snapshot_item", source_id: "fixture-asset-b", portfolio_id: "fixture-portfolio", symbol: "00878", name: "國泰永續高股息（合成 fixture）", market: "TW", currency: "TWD", quantity: 900, avg_cost: 18.4, invested_cost: 16560, last_price: 17.5, market_value: 15750, unrealized_pnl: -810, unrealized_pct: -4.89, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture snapshot" },
+      { source_kind: "opening_position", source_id: "fixture-asset-c", portfolio_id: "fixture-portfolio", symbol: "00929", name: "復華台灣科技優息（合成 fixture）", market: "TW", currency: "TWD", quantity: 500, avg_cost: 18.2, invested_cost: 9100, last_price: 19.1, market_value: 9550, unrealized_pnl: 450, unrealized_pct: 4.95, position_status: "current", effective_at: "2026-10-06T08:00:00Z", market_value_source: "fixture estimate" },
+      { source_kind: "opening_position", source_id: "fixture-asset-d", portfolio_id: "fixture-portfolio", symbol: "6898", name: "測試名稱（合成 fixture）", market: "TW", currency: "TWD", quantity: 200, avg_cost: 72, invested_cost: 14400, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, position_status: "current", effective_at: null, market_value_source: "fixture estimate" },
       { source_kind: "transaction", source_id: "fixture-history", portfolio_id: "fixture-portfolio", symbol: "7001", name: "歷史標的", market: "TW", currency: "TWD", quantity: 0, avg_cost: 0, invested_cost: 0, last_price: null, market_value: null, unrealized_pnl: null, unrealized_pct: null, realized_pnl: 123, position_status: "history", effective_at: null, market_value_source: "transaction_calculated" }
     ];
     const links = rows.map((row, index) => ({ board_task_id: index === 4 ? "task-fixture-history" : `task-fixture-${index + 1}`, source_kind: row.source_kind, source_id: row.source_id, card_kind: index === 4 ? "history" : "position", active: true }));
@@ -57,7 +55,7 @@
         select: async resource => resource === "investment_current_positions_view" ? rows : resource === "investment_ivtk_card_links" ? links : [],
         invokeFunction: async () => ({
           contract: "zhuge-investment-intelligence-edge-v1", read_only: true,
-          histories: rows.map((row, index) => ({ symbol: row.symbol, market: "TW", provider: index === 2 ? "unavailable" : "twse-daily-history", source: index === 2 ? "" : "TWSE Daily Trading Open Data", asOf: "2026-10-06T00:00:00Z", available: index !== 2, bars: barSets[index] }))
+          histories: rows.map((row, index) => ({ symbol: row.symbol, market: "TW", provider: index === 3 || index === 4 ? "unavailable" : "twse-daily-history", source: index === 3 || index === 4 ? "" : "TWSE Daily Trading Open Data", asOf: "2026-10-06T00:00:00Z", available: index !== 3 && index !== 4, bars: barSets[index] || [] }))
         })
       })
     };

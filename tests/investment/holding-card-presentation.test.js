@@ -8,7 +8,7 @@ const presentation = require("../../modules/investment/components/holding-card-p
 const format = require("../../modules/investment/utils/formatters.js");
 
 const fixture = path.join(__dirname, "holding-card-fixture.html");
-const artifactDirectory = path.resolve(__dirname, "../../..", "artifacts/Investment-Holding-Card-Promotion");
+const artifactDirectory = path.resolve(__dirname, "../../..", "artifacts/Investment-Holdings-Intelligence-Prototype");
 
 function position(overrides = {}) {
   return {
@@ -88,6 +88,15 @@ test("Portfolio KPI includes current positive-quantity rows only and marks incom
   assert.equal(result.groups.USD.roi, 25);
 });
 
+test("intelligence card puts canonical holding facts and truthful chip pending state on the card", () => {
+  const source = position({ symbol: "0050", name: "測試名稱（合成 fixture）", quantity: 709, avg_cost: 65.45, market_value: 76430.2, unrealized_pnl: 30026.15, unrealized_pct: 64.7 });
+  const markup = presentation.renderPortfolioHoldingContent(source, { workCode: "IVTK-001" }, history(), format);
+  for (const label of ["0050", "測試名稱", "目前價格", "64.70%", "損益", "持有", "平均成本", "65.45", "目前市值", "近 20 日價格趨勢", "籌碼訊號", "資料待接", "詳細分析"]) assert.ok(markup.includes(label), `missing ${label}`);
+  assert.match(markup, /data-investment-holding-presentation="intelligence-v1"/);
+  assert.match(markup, /data-investment-holding-detail-trigger/);
+  assert.doesNotMatch(markup, /外資買賣|投信買賣|自營商買賣/);
+});
+
 async function inspectViewport(t, { width, height, screenshotName }) {
   const executablePath = resolveBrowserExecutable() || chromium.executablePath();
   assert.ok(fs.existsSync(executablePath), `Chromium executable not found: ${executablePath}`);
@@ -97,7 +106,7 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     await page.goto(await fixtureURL(fixture), { waitUntil: "load" });
-    await page.waitForSelector('[data-investment-holding-presentation="portfolio-v1"]');
+    await page.waitForSelector('[data-investment-holding-presentation="intelligence-v1"]');
     await page.waitForFunction(() => document.body.dataset.investmentCloudBridge === "ready");
     const audit = await page.evaluate(() => {
       const cards = [...document.querySelectorAll(".investment-portfolio-grid .investment-holding-runtime-card")];
@@ -106,11 +115,12 @@ async function inspectViewport(t, { width, height, screenshotName }) {
         const title = card.querySelector(".investment-portfolio-holding-title");
         const price = card.querySelector(".investment-portfolio-holding-hero strong:first-child");
         return {
-          width: box.width, height: box.height, title: title?.innerText || "", price: price?.innerText || "",
-          footer: card.querySelector(".investment-portfolio-holding-footer")?.innerText || "",
+          width: box.width, height: box.height, title: card.querySelector(".investment-intelligence-title")?.innerText || "", price: card.querySelector(".investment-intelligence-price-row>div>strong")?.innerText || "",
+          footer: card.querySelector(".investment-intelligence-footer")?.innerText || "",
+          details: card.innerText,
           trigger: card.querySelector("[data-investment-holding-detail-trigger]")?.getAttribute("aria-expanded") || "",
           hasTrend: Boolean(card.querySelector(".investment-holding-trend")),
-          marketValue: card.querySelector(".investment-portfolio-holding-market")?.innerText || "",
+          marketValue: card.querySelector(".investment-intelligence-metrics")?.innerText || "",
           hasOldProjectionText: /Investment Position Projection|Card projection owned by Investment Cloud/.test(card.innerText),
           touchCard: card.getAttribute("role") === "button" || card.tabIndex >= 0
         };
@@ -123,8 +133,9 @@ async function inspectViewport(t, { width, height, screenshotName }) {
         historicalExcluded: !document.querySelector("[data-investment-portfolio-grid] [data-shared-task-board-card-id='task-fixture-history']"),
         workspaceColumnsHidden: [...document.querySelectorAll("#holdingCards>[data-shared-task-board-column]")].every(node => node.hidden),
         toolbarHidden: getComputedStyle(document.querySelector(".golden-master-toolbar")).display === "none",
-        title: [...document.querySelectorAll(".investment-portfolio-holding-title")].map(node => node.innerText),
-        price: [...document.querySelectorAll(".investment-portfolio-holding-hero strong:first-child")].map(node => node.innerText),
+        title: [...document.querySelectorAll(".investment-intelligence-title")].map(node => node.innerText),
+        symbols: [...document.querySelectorAll(".investment-intelligence-title>span:first-child")].map(node => node.innerText),
+        price: [...document.querySelectorAll(".investment-intelligence-price-row>div>strong")].map(node => node.innerText),
         identityPreserved: [...document.querySelectorAll(".investment-holding-runtime-card")].map(card => card.dataset.investmentWorkCode),
         baselineHeights: window.__holdingBaselineCardHeights,
         cardHeights: cards.map(card => card.getBoundingClientRect().height),
@@ -138,14 +149,16 @@ async function inspectViewport(t, { width, height, screenshotName }) {
       };
     });
     assert.equal(audit.count, 4);
+    assert.deepEqual(audit.symbols, ["0050", "00878", "00929", "6898"]);
     assert.ok(audit.cards.every(card => card.title && card.price && card.trigger === "false" && card.hasTrend && card.marketValue && !card.hasOldProjectionText && card.touchCard));
+    assert.ok(audit.cards.every(card => ["持有", "股", "平均成本", "目前市值", "近 20 日價格趨勢", "籌碼訊號", "資料待接", "詳細分析"].every(label => card.details.includes(label))));
     assert.deepEqual(audit.identityPreserved, ["IVTK-001", "IVTK-002", "IVTK-003", "IVTK-004"]);
     assert.equal(audit.noOldText, true);
     assert.equal(audit.historicalExcluded, true);
     assert.equal(audit.workspaceColumnsHidden, true);
     assert.equal(audit.toolbarHidden, true);
     assert.equal(audit.marketDataOnlyInPresentation, true);
-    assert.deepEqual(audit.cardHeights, [104, 104, 104, 104]);
+    assert.deepEqual(audit.cardHeights, [256, 256, 256, 256]);
     assert.deepEqual(audit.marketFilterLabels, ["全部", "台股", "美股"]);
     assert.equal(audit.summaryCount, "4");
     assert.equal(audit.summaryTwdPartial, true);
@@ -163,11 +176,9 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     const initialRect = await firstCard.boundingBox();
     const boardRect = await page.locator("#holdingCards").boundingBox();
     await page.locator('[data-investment-market-filter="tw"]').click();
-    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 3);
-    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card[data-investment-source-id='fixture-asset-d']:visible").count(), 0);
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 4);
     await page.locator('[data-investment-market-filter="us"]').click();
-    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 1);
-    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card[data-investment-source-id='fixture-asset-d']:visible").count(), 1);
+    assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 0);
     await page.locator('[data-investment-market-filter="all"]').click();
     assert.equal(await page.locator(".investment-portfolio-grid .investment-holding-runtime-card:visible").count(), 4);
     assert.deepEqual(await page.evaluate(() => window.__rpcCalls.map(item => item.name)), ["sync_investment_ivtk_projection"], "filters change only presentation and never call a writer");
@@ -215,7 +226,7 @@ async function inspectViewport(t, { width, height, screenshotName }) {
     assert.equal(await firstTrigger.getAttribute("aria-expanded"), "false");
     assert.equal(await firstTrigger.evaluate(node => document.activeElement === node), true, "closing restores focus to the original trigger");
     if (width < 500) {
-      await page.locator(".investment-portfolio-grid .investment-holding-runtime-card").nth(2).locator("[data-investment-holding-detail-trigger]").click();
+      await page.locator(".investment-portfolio-grid .investment-holding-runtime-card").nth(3).locator("[data-investment-holding-detail-trigger]").click();
       const unavailablePanel = page.locator("[data-investment-holding-detail-layer]:not([hidden]) .investment-holding-detail-panel");
       assert.match(await unavailablePanel.innerText(), /尚無行情/);
       assert.match(await unavailablePanel.innerText(), /目前價格[\s\S]*—/);
@@ -228,15 +239,15 @@ async function inspectViewport(t, { width, height, screenshotName }) {
   }
 }
 
-test("holding card desktop and mobile presentation is responsive and preserves IVTK identity", async t => {
-  const desktop = await inspectViewport(t, { width: 1440, height: 900, screenshotName: "holding-card-desktop-visual-fixture.png" });
-  const normal = await inspectViewport(t, { width: 1024, height: 900, screenshotName: "holding-card-normal-visual-fixture.png" });
-  const narrow = await inspectViewport(t, { width: 700, height: 900, screenshotName: "holding-card-narrow-visual-fixture.png" });
-  const mobile = await inspectViewport(t, { width: 390, height: 844, screenshotName: "holding-card-mobile-visual-fixture.png" });
+test("four Investment intelligence cards fit desktop comparison and a readable mobile column", async t => {
+  const desktop = await inspectViewport(t, { width: 1440, height: 900, screenshotName: "investment-intelligence-desktop.png" });
+  const normal = await inspectViewport(t, { width: 1024, height: 900, screenshotName: "investment-intelligence-1024.png" });
+  const narrow = await inspectViewport(t, { width: 700, height: 900, screenshotName: "investment-intelligence-700.png" });
+  const mobile = await inspectViewport(t, { width: 390, height: 844, screenshotName: "investment-intelligence-mobile.png" });
   assert.equal(desktop.width, 1440);
   assert.equal(normal.firstRowCount, 3);
   assert.equal(narrow.firstRowCount, 2);
   assert.equal(mobile.width, 390);
-  assert.deepEqual(desktop.cardHeights, [104, 104, 104, 104]);
-  assert.deepEqual(mobile.cardHeights, [104, 104, 104, 104]);
+  assert.deepEqual(desktop.cardHeights, [256, 256, 256, 256]);
+  assert.deepEqual(mobile.cardHeights, [256, 256, 256, 256]);
 });

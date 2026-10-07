@@ -161,12 +161,14 @@
   function renderPortfolioHoldingContent(row = {}, task = {}, history = null, format = {}) {
     const model = buildHoldingViewModel(row, task, history, format);
     const escape = escapeHtml;
-    const unavailable = model.lastPrice === null || model.marketValue === null || model.unrealizedPnl === null;
-    return `<div class="investment-portfolio-holding" data-investment-holding-presentation="portfolio-v1" data-investment-source-kind="${escape(model.sourceKind)}" data-investment-source-id="${escape(model.sourceId)}">
-      <div class="investment-portfolio-holding-heading"><h3 class="investment-portfolio-holding-title"><span>${escape(model.symbol || "—")}</span><span>${escape(model.displayName || "名稱未提供")}</span></h3><span class="investment-holding-badge">已持有</span></div>
-      <div class="investment-portfolio-holding-hero"><strong>${escape(model.formatted.price)}</strong><strong class="${escape(model.trend)}">${escape(model.formatted.unrealizedPercent)}</strong></div>
-      <div class="investment-portfolio-holding-market"><span>市值 <b>${escape(model.formatted.marketValue)}</b></span>${renderSparkline(history)}</div>
-      <div class="investment-portfolio-holding-footer"><span class="investment-portfolio-holding-meta"><span>${escape(unavailable ? "尚無行情" : `收盤 ${model.formatted.quoteDate}`)}</span><span>損益 ${escape(model.formatted.unrealizedPnl)}</span><span class="investment-holding-code">${escape(model.workCode)}</span></span><button type="button" class="investment-holding-detail-trigger" data-investment-holding-detail-trigger aria-label="查看持股明細" aria-controls="investmentHoldingDetailPanel" aria-expanded="false"><span>明細</span><span aria-hidden="true">›</span></button></div>
+    return `<div class="investment-intelligence-card" data-investment-holding-presentation="intelligence-v1" data-investment-source-kind="${escape(model.sourceKind)}" data-investment-source-id="${escape(model.sourceId)}">
+      <header class="investment-intelligence-heading"><h3 class="investment-intelligence-title"><span>${escape(model.symbol || "—")}</span><span>${escape(model.displayName || "名稱未提供")}</span></h3><span class="investment-holding-badge">已持有</span></header>
+      <div class="investment-intelligence-price-row"><div><span>目前價格</span><strong>${escape(model.formatted.price)}</strong></div><strong class="${escape(model.trend)}">${escape(model.formatted.unrealizedPercent)}</strong></div>
+      <div class="investment-intelligence-position-row"><span>損益 <b class="${escape(model.trend)}">${escape(model.formatted.unrealizedPnl)}</b></span><span>持有 <b>${escape(model.formatted.quantity)}</b> 股</span></div>
+      <dl class="investment-intelligence-metrics"><div><dt>平均成本</dt><dd>${escape(model.formatted.averageCost)}</dd></div><div><dt>目前市值</dt><dd>${escape(model.formatted.marketValue)}</dd></div></dl>
+      <section class="investment-intelligence-trend" aria-label="近 20 日價格趨勢"><span>近 20 日價格趨勢</span>${renderSparkline(history)}</section>
+      <div class="investment-intelligence-chip" aria-label="籌碼訊號"><span>籌碼訊號</span><strong>資料待接</strong></div>
+      <footer class="investment-intelligence-footer"><span class="investment-holding-code">${escape(model.workCode)}</span><button type="button" class="investment-holding-detail-trigger" data-investment-holding-detail-trigger aria-label="開啟詳細分析" aria-controls="investmentHoldingDetailPanel" aria-expanded="false"><span>詳細分析</span><span aria-hidden="true">›</span></button></footer>
     </div>`;
   }
 
