@@ -31,7 +31,9 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(investmentModule, /ZhugeSharedNavigation\.mount/);
   assert.match(investmentShell, /investment-content-tabs/);
   assert.doesNotMatch(investmentShell, /investment-local-nav/);
-  for (const label of ["WorkLog", "工作待辦", "Investment", "AI Board", "工程準則", "系統藍圖", "Knowledge", "Lab 實驗室", "控制台", "設定"]) assert.match(nav, new RegExp(label));
+  for (const label of ["WorkLog", "工作待辦", "AI Board", "工程準則", "系統藍圖", "Knowledge", "Lab 實驗室", "控制台", "設定"]) assert.match(nav, new RegExp(label));
+  assert.match(nav, /investment: \{[^}]*visible: false/);
+  assert.match(nav, /label: "Lab 實驗室"/);
   assert.match(nav, /data-zhuge-shared-navigation/);
   assert.match(nav, /function wireSidebar\(\)/);
   assert.match(nav, /zhugeSharedNavSidebarWired/);
@@ -88,7 +90,8 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /const campIds = \["worklog", "tasks-new", "procurement", \.\.\.worklogConsumers, "investment", \.\.\.investmentConsumers\]/);
+  assert.match(nav, /const campIds = \["worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
+  assert.match(nav, /investmentBoards/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;
   assert.match(worklogIndex, new RegExp(`<script src="\\.\\.\\/\\.\\.\\/shared/config/version\\.js\\?v=${rootBuild}"><\\/script>`));
@@ -192,9 +195,10 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
     service: { isTemplateEnabled: () => true }
   } });
   const creatorHtml = creatorNavigation.render({ externalRoot: "../../" });
-  for (const id of ["worklog", "tasks-new", "procurement", "investment", "sync", "management", "library", "settings", "labs"]) {
+  for (const id of ["worklog", "tasks-new", "procurement", "sync", "management", "library", "settings", "labs"]) {
     assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
   }
+  assert.equal(creatorHtml.includes('data-shared-nav-item="investment"'), false, "official Investment is parked");
 
   const generalTarget = {
     isConnected: true,
@@ -257,8 +261,9 @@ test("Generic consumers use Board names and project assignment for parent/child 
   assert.ok(position("worklog") < position("tasks-new"));
   assert.ok(position("tasks-new") < position("procurement"));
   assert.ok(position("procurement") < position("consumer-board:assigned-work"));
-  assert.ok(position("consumer-board:assigned-work") < position("investment"));
-  assert.ok(position("investment") < position("consumer-board:assigned-investment"));
+  assert.ok(position("consumer-board:assigned-work") < html.indexOf('data-nav-group="investment-consumers"'));
+  assert.ok(html.indexOf('data-nav-group="investment-consumers"') < position("consumer-board:assigned-investment"));
+  assert.equal(position("investment"), -1, "parked official Investment entry must not render");
   assert.ok(position("consumer-board:assigned-investment") < html.indexOf('data-nav-group="consumer-boards"'));
   assert.ok(position("consumer-board:unassigned") > html.indexOf('data-nav-group="consumer-boards"'));
   for (const board of boards) {
@@ -274,8 +279,7 @@ test("Generic consumers use Board names and project assignment for parent/child 
   assert.doesNotMatch(entry("consumer-board:assigned-investment"), /aria-current/);
   assert.doesNotMatch(entry("consumer-board:unassigned"), /side-item-child/);
   const renamedPrefixes = navigation.render({ boardInstances: boards.map(board => ({ ...board, taskCodePrefix: "OTHER" })) });
-  assert.ok(renamedPrefixes.indexOf('data-shared-nav-item="consumer-board:assigned-work"') < renamedPrefixes.indexOf('data-shared-nav-item="investment"'));
-  assert.ok(renamedPrefixes.indexOf('data-shared-nav-item="consumer-board:assigned-investment"') > renamedPrefixes.indexOf('data-shared-nav-item="investment"'));
+  assert.ok(renamedPrefixes.indexOf('data-shared-nav-item="consumer-board:assigned-investment"') > renamedPrefixes.indexOf('data-nav-group="investment-consumers"'));
 });
 
 test("Official GAS/IVTK compatibility entries and parent visibility remain intact", () => {
@@ -286,7 +290,8 @@ test("Official GAS/IVTK compatibility entries and parent visibility remain intac
   ] });
   assert.match(html, /data-shared-nav-item="tasks-new"[^>]*href="\/app\/Board\/worktodo\/"/);
   assert.match(html, /data-shared-nav-item="procurement"[^>]*href="\/app\/Board\/procurement\/"/);
-  assert.match(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
+  assert.doesNotMatch(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
+  assert.match(html, /data-shared-nav-item="labs"/);
   assert.doesNotMatch(html, /consumer-board:(gas-fixture|ivtk-fixture)/);
   const general = loadNavigationForTest({ runtime: { isCreator: false } }).render({ boardInstances: [
     { id: "hidden-investment", name: "Hidden child", projectAssignment: "investment", taskCodePrefix: "OTHER" }

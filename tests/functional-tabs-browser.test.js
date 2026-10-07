@@ -26,7 +26,7 @@ const cases=[
  {name:'AI-Board',entry:'app/Board/ai/index.html'},
  {name:'WorkTodo',entry:'app/Board/worktodo/index.html'},
  {name:'WorkLog-Management-Console',entry:'modules/worklog/index.html',worklog:true},
- {name:'Lab',entry:'labs/investment/index.html',lab:true}
+ {name:'Lab-Investment',entry:'labs/investment/index.html',lab:true}
 ];
 const STYLE_FIELDS=['fontFamily','fontSize','fontWeight','lineHeight','height','minHeight','paddingTop','paddingRight','paddingBottom','paddingLeft','marginTop','marginRight','marginBottom','marginLeft','columnGap','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','borderRadius','borderColor','borderBottomColor','backgroundColor','color','textDecoration','whiteSpace','cursor'];
 function styles(entry) {
@@ -38,8 +38,8 @@ function fixture(item) {
  if(item.investment) body=`<main class="zhuge-module-shell investment-module-shell zhuge-functional-tabs-layout" ${item.stack?'data-zhuge-page-rhythm="stacked-tabs"':''}>${header}${item.stack?'<div class="zhuge-functional-tabs-stack">':''}${shell.renderPrimaryNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route+(i.focus?'/'+i.focus:''),actionsMarkup:shell.renderToolNavigation({activePage:'portfolio'},{asLinks:item.links,hrefFor:i=>'#'+i.route})})}${item.stack?'</div>':''}${item.links?'<div class="workspace-canvas"><nav class="workspace-subnav zhuge-functional-tabs" aria-label="Board 次導覽"><button class="zhuge-functional-tab active" type="button">Board</button><button class="zhuge-functional-tab" type="button">流程設定</button></nav>':''}<section id="${item.links?'investmentBoardView':'investmentPage'}" ${item.links?'data-board-main-view':''} class="${item.links?'':'zhuge-functional-tabs-content'}"></section>${item.links?'</div>':''}</main>`;
  else if(item.worklog) body=`<main class="zhuge-module-shell workspace-shell workspace-worklog zhuge-functional-tabs-layout">${header}${wlContext.workspaceTabs()}<div class="workspace-canvas">${wlContext.mobileWorklogTabs()}<section id="mobile-worklog-time">工時</section><section id="mobile-worklog-suggestions">建議</section></div></main>`;
  else if(item.lab) {
-  const source=read(item.entry), actualHeader=source.match(/<header class="topbar zhuge-functional-tabs-header">[\s\S]*?<\/header>/)[0], actualMobileTabs=source.match(/<nav class="mobile-nav zhuge-functional-tabs"[\s\S]*?<\/nav>/)[0], actualContent=source.match(/<section id="view-root" class="view-root zhuge-functional-tabs-content"[\s\S]*?<\/section>/)[0];
-  body=`<main class="main-area zhuge-functional-tabs-layout">${actualHeader}${actualMobileTabs}${actualContent}</main>`;
+  const source=read(item.entry), actualHeader=source.match(/<header class="topbar zhuge-functional-tabs-header">[\s\S]*?<\/header>/)[0], actualTabs=source.match(/<nav class="lab-content-nav zhuge-functional-tabs"[\s\S]*?<\/nav>/)[0], actualContent=source.match(/<section id="view-root" class="view-root zhuge-functional-tabs-content"[\s\S]*?<\/section>/)[0];
+  body=`<main class="app main-area zhuge-functional-tabs-layout">${actualHeader}${actualTabs}${actualContent}</main>`;
  }
  else body=read(item.entry).match(/<body[^>]*>([\s\S]*?)<\/body>/)[1].replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
  const script=file=>`<script src="${fixturePath(path.join(ROOT,file))}"></script>`;
@@ -73,7 +73,6 @@ test('Functional Tabs: actual adopter markup/renderers share Desktop/Mobile geom
    for(const viewport of [{width:1280,height:900},{width:390,height:844},{width:320,height:740}]){
     await page.setViewportSize(viewport);
     const rows=page.locator('.zhuge-functional-tabs:visible');
-    if(item.lab&&viewport.width===1280){assert.equal(await rows.count(),0,'Lab sidebar is navigation, not a desktop tab row');continue;}
     assert.ok(await rows.count()>0,item.name+' has its Functional Tabs');
     for(let r=0;r<await rows.count();r++){
      const row=rows.nth(r),tabs=row.locator(':scope > .zhuge-functional-tab');const first=tabs.first();assert.equal(await row.evaluate(n=>n.tagName),'NAV',item.name+' canonical row tag');assert.equal(await row.evaluate(n=>[...n.children].filter(child=>child.classList.contains('zhuge-functional-tab')).length),await tabs.count(),item.name+' tabs are direct row children');

@@ -1,17 +1,9 @@
 const PORTFOLIO_SOURCE = "Zhuge Investment Portfolio";
 
 const POSITION_COLUMNS = [
-  "symbol", "name", "market", "asset_type", "quantity", "avg_cost", "invested_cost",
+  "source_kind", "realized_pnl", "symbol", "name", "market", "asset_type", "quantity", "avg_cost", "invested_cost",
   "last_price", "market_value", "unrealized_pnl", "unrealized_pct", "currency",
   "effective_at", "market_value_source", "position_status",
-].join(",");
-
-const SNAPSHOT_COLUMNS = "id,snapshot_at,position_count";
-
-const SNAPSHOT_POSITION_COLUMNS = [
-  "snapshot_id", "item_id", "symbol", "name", "market", "currency", "quantity",
-  "avg_cost", "invested_cost", "last_price", "market_value", "unrealized_pnl",
-  "unrealized_pct", "market_value_source",
 ].join(",");
 
 const MARKET_SOURCE_LABELS = Object.freeze({
@@ -27,6 +19,16 @@ const MARKET_LABELS = Object.freeze({
   TWSE: "TW",
   TWO: "TW",
   TPEX: "TW",
+  US: "US",
+  NASDAQ: "US",
+  NYSE: "US",
+  AMEX: "US",
+});
+
+const VENUE_LABELS = Object.freeze({
+  TWSE: "TWSE",
+  TPEX: "TPEX",
+  TWO: "TPEX",
   US: "US",
   NASDAQ: "US",
   NYSE: "US",
@@ -70,6 +72,7 @@ function normalizePosition(row, { effectiveAt = row?.effective_at, snapshotKind 
   const symbol = textOrEmpty(row?.symbol).toUpperCase();
   const marketCode = textOrEmpty(row?.market).toUpperCase();
   const market = MARKET_LABELS[marketCode] || "OTHER";
+  const venue = VENUE_LABELS[marketCode] || (market === "US" ? "US" : "");
   const quantity = numberOrNull(row?.quantity);
   const averageCost = numberOrNull(row?.avg_cost);
   const investedCost = numberOrNull(row?.invested_cost);
@@ -87,11 +90,12 @@ function normalizePosition(row, { effectiveAt = row?.effective_at, snapshotKind 
 
   return Object.freeze({
     symbol,
-    researchSymbol: researchSymbolFor({ symbol, market }),
+    researchSymbol: researchSymbolFor({ symbol, market, venue }),
     name: name || symbol || "未命名標的",
     market,
     marketLabel: market === "OTHER" ? "市場未提供" : market,
-    assetType: textOrEmpty(row?.asset_type).toUpperCase() === "ETF" || symbol === "0050" ? "ETF" : "個股",
+    assetType: textOrEmpty(row?.asset_type).toUpperCase() === "ETF" ? "ETF" : "個股",
+    venue,
     currency,
     quantity,
     averageCost,
@@ -108,13 +112,16 @@ function normalizePosition(row, { effectiveAt = row?.effective_at, snapshotKind 
   });
 }
 
-export function researchSymbolFor({ symbol, market } = {}) {
+export function researchSymbolFor({ symbol, market, venue } = {}) {
   const normalized = textOrEmpty(symbol).toUpperCase();
   if (!normalized) return "";
   if (/\.(TW|TWO)$/.test(normalized)) return normalized;
   if (market === "US") return normalized;
-  const taiwanKnown = { "2330": "2330.TW", "0050": "0050.TW", "6488": "6488.TWO" };
-  return taiwanKnown[normalized] || normalized;
+  if (venue === "TWSE") return `${normalized}.TW`;
+  if (venue === "TPEX") return `${normalized}.TWO`;
+  // A bare Taiwan code can be listed on either exchange. Leave it unresolved;
+  // the authenticated catalog resolver must supply a unique venue.
+  return normalized;
 }
 
 function onlyCurrent(rows) {
@@ -168,35 +175,34 @@ export function createReadOnlyPortfolioAdapter({ context, appAccess, appAccessGa
     return userId;
   }
 
-  async function load() {
+  async function resolveOwnerContext() {
+    const authUserId = await authorize();
+    const mapping = rowsOrFail(await select(
+      "app_users",
+      `select=id&auth_user_id=eq.${encodeFilter(authUserId)}&limit=1`,
+    ));
+    const ownerId = textOrEmpty(mapping[0]?.id);
+    if (!ownerId) throw new PortfolioReadError("OWNER_MAPPING_REQUIRED");
+
+    const portfolios = rowsOrFail(await select(
+      "portfolios",
+      `select=id,is_default,updated_at&user_id=eq.${encodeFilter(ownerId)}&order=is_default.desc,updated_at.desc&limit=1`,
+    ));
+    return Object.freeze({ authUserId, ownerId, portfolioId: textOrEmpty(portfolios[0]?.id) });
+  }
+
+  async function loadCurrentPositions() {
     const loadedAt = validTimestamp(now());
     try {
-      const authUserId = await authorize();
-      const mapping = rowsOrFail(await select(
-        "app_users",
-        `select=id&auth_user_id=eq.${encodeFilter(authUserId)}&limit=1`,
-      ));
-      const ownerId = textOrEmpty(mapping[0]?.id);
-      if (!ownerId) throw new PortfolioReadError("OWNER_MAPPING_REQUIRED");
-
-      const portfolios = rowsOrFail(await select(
-        "portfolios",
-        `select=id,is_default,updated_at&user_id=eq.${encodeFilter(ownerId)}&order=is_default.desc,updated_at.desc&limit=1`,
-      ));
-      const portfolioId = textOrEmpty(portfolios[0]?.id);
+      const { ownerId, portfolioId } = await resolveOwnerContext();
       if (!portfolioId) return Object.freeze({ status: "EMPTY", source: PORTFOLIO_SOURCE, loadedAt, positions: [] });
 
       const positionRows = rowsOrFail(await select(
         "investment_current_positions_view",
-        `select=${POSITION_COLUMNS}&user_id=eq.${encodeFilter(ownerId)}&portfolio_id=eq.${encodeFilter(portfolioId)}&order=market.asc,symbol.asc,source_id.asc`,
+        `select=${POSITION_COLUMNS}&user_id=eq.${encodeFilter(ownerId)}&portfolio_id=eq.${encodeFilter(portfolioId)}&position_status=eq.current&quantity=gt.0&order=market.asc,symbol.asc,source_id.asc`,
       ));
 
-      let positions;
-      if (positionRows.length) {
-        positions = onlyCurrent(positionRows);
-      } else {
-        positions = await loadConfirmedSnapshot({ ownerId, portfolioId });
-      }
+      const positions = onlyCurrent(positionRows);
       return Object.freeze({
         status: positions.length ? "AVAILABLE" : "EMPTY",
         source: PORTFOLIO_SOURCE,
@@ -209,36 +215,132 @@ export function createReadOnlyPortfolioAdapter({ context, appAccess, appAccessGa
     }
   }
 
-  async function loadConfirmedSnapshot({ ownerId, portfolioId }) {
-    const headers = rowsOrFail(await select(
-      "broker_position_snapshots",
-      `select=${SNAPSHOT_COLUMNS}&user_id=eq.${encodeFilter(ownerId)}&portfolio_id=eq.${encodeFilter(portfolioId)}&verification=eq.pm_confirmed&order=snapshot_at.desc,created_at.desc,id.desc&limit=1`,
-    ));
-    const header = headers[0];
-    const snapshotId = textOrEmpty(header?.id);
-    if (!snapshotId) return [];
-
-    const items = rowsOrFail(await select(
-      "current_broker_positions_view",
-      `select=${SNAPSHOT_POSITION_COLUMNS}&snapshot_id=eq.${encodeFilter(snapshotId)}&portfolio_id=eq.${encodeFilter(portfolioId)}&order=market.asc,symbol.asc`,
-    ));
-    const expectedCount = Number(header.position_count);
-    if (!Number.isInteger(expectedCount) || expectedCount < 0 || items.length !== expectedCount) {
-      throw new PortfolioReadError("SNAPSHOT_INCOMPLETE");
+  async function loadWatchlist() {
+    const loadedAt = validTimestamp(now());
+    try {
+      const { ownerId } = await resolveOwnerContext();
+      const rows = rowsOrFail(await select(
+        "watchlists",
+        `select=id,symbol,name,market,status,research_theme,reason,importance,updated_at&user_id=eq.${encodeFilter(ownerId)}&order=importance.asc,updated_at.desc`,
+      ));
+      const items = rows.map(row => Object.freeze({
+        id: textOrEmpty(row.id),
+        symbol: textOrEmpty(row.symbol).toUpperCase(),
+        name: textOrEmpty(row.name),
+        market: textOrEmpty(row.market).toUpperCase(),
+        status: textOrEmpty(row.status),
+        researchTheme: textOrEmpty(row.research_theme),
+        reason: textOrEmpty(row.reason),
+        importance: numberOrNull(row.importance),
+        updatedAt: validTimestamp(row.updated_at),
+      }));
+      return Object.freeze({ status: items.length ? "AVAILABLE" : "EMPTY", source: "watchlists", loadedAt, items: Object.freeze(items) });
+    } catch (error) {
+      if (error instanceof PortfolioReadError) throw error;
+      throw new PortfolioReadError("WATCHLIST_READ_UNAVAILABLE");
     }
-    const snapshotAt = validTimestamp(header.snapshot_at);
-    return items
-      .map(row => normalizePosition(row, { effectiveAt: snapshotAt, snapshotKind: "confirmed_snapshot_fallback" }))
-      .filter(position => position.symbol && position.quantity !== null && position.quantity > 0);
   }
 
-  return Object.freeze({ load });
+  async function loadClosedPositions() {
+    const loadedAt = validTimestamp(now());
+    try {
+      const { ownerId, portfolioId } = await resolveOwnerContext();
+      if (!portfolioId) return Object.freeze({ status: "EMPTY", source: "investment_current_positions_view", loadedAt, items: [] });
+      const rows = rowsOrFail(await select(
+        "investment_current_positions_view",
+        `select=source_kind,source_id,symbol,name,market,currency,realized_pnl,effective_at,position_status&user_id=eq.${encodeFilter(ownerId)}&portfolio_id=eq.${encodeFilter(portfolioId)}&position_status=eq.history&order=effective_at.desc,symbol.asc`,
+      ));
+      const items = rows
+        .filter(row => textOrEmpty(row.position_status).toLowerCase() === "history")
+        .map(row => Object.freeze({
+          symbol: textOrEmpty(row.symbol).toUpperCase(),
+          name: textOrEmpty(row.name),
+          market: MARKET_LABELS[textOrEmpty(row.market).toUpperCase()] || textOrEmpty(row.market).toUpperCase() || "—",
+          currency: textOrEmpty(row.currency).toUpperCase(),
+          realizedPnl: numberOrNull(row.realized_pnl),
+          effectiveAt: validTimestamp(row.effective_at),
+          sourceKind: textOrEmpty(row.source_kind),
+          sourceId: textOrEmpty(row.source_id),
+        }));
+      return Object.freeze({ status: items.length ? "AVAILABLE" : "EMPTY", source: "investment_current_positions_view", loadedAt, items: Object.freeze(items) });
+    } catch (error) {
+      if (error instanceof PortfolioReadError) throw error;
+      throw new PortfolioReadError("CLOSED_HISTORY_READ_UNAVAILABLE");
+    }
+  }
+
+  async function loadTransactions({ symbol, market, limit = 100 } = {}) {
+    const loadedAt = validTimestamp(now());
+    const inputSymbol = textOrEmpty(symbol).toUpperCase();
+    const suffixMarket = /\.(TW|TWO)$/.test(inputSymbol) ? "TW" : "";
+    const providedMarket = textOrEmpty(market).toUpperCase();
+    const normalizedMarket = providedMarket === "US" || providedMarket === "TW" ? providedMarket : suffixMarket;
+    if (!normalizedMarket) throw new PortfolioReadError("MARKET_IDENTITY_REQUIRED");
+    try {
+      const { ownerId, portfolioId } = await resolveOwnerContext();
+      if (!portfolioId) return Object.freeze({ status: "EMPTY", source: "transactions", loadedAt, items: [] });
+      const normalizedSymbol = inputSymbol.replace(/\.(TW|TWO)$/, "");
+      const clauses = [
+        `user_id=eq.${encodeFilter(ownerId)}`,
+        `portfolio_id=eq.${encodeFilter(portfolioId)}`,
+        ...(normalizedSymbol ? [`symbol=eq.${encodeFilter(normalizedSymbol)}`] : []),
+        `market=eq.${encodeFilter(normalizedMarket)}`,
+        "order=trade_date.desc,created_at.desc",
+        `limit=${Math.min(200, Math.max(1, Math.floor(Number(limit) || 100)))}`,
+      ];
+      const rows = rowsOrFail(await select(
+        "transactions",
+        `select=id,portfolio_id,trade_date,trade_type,symbol,name,market,quantity,price,gross_amount,fee,tax,net_amount,currency,source,note,created_at&${clauses.join("&")}`,
+      ));
+      const items = rows.map(row => Object.freeze({
+        id: textOrEmpty(row.id),
+        tradeDate: validTimestamp(row.trade_date),
+        tradeType: textOrEmpty(row.trade_type),
+        symbol: textOrEmpty(row.symbol).toUpperCase(),
+        name: textOrEmpty(row.name),
+        market: MARKET_LABELS[textOrEmpty(row.market).toUpperCase()] || textOrEmpty(row.market).toUpperCase() || "—",
+        quantity: numberOrNull(row.quantity),
+        price: numberOrNull(row.price),
+        grossAmount: numberOrNull(row.gross_amount),
+        fee: numberOrNull(row.fee),
+        tax: numberOrNull(row.tax),
+        netAmount: numberOrNull(row.net_amount),
+        currency: textOrEmpty(row.currency).toUpperCase(),
+        source: textOrEmpty(row.source),
+        note: textOrEmpty(row.note),
+        createdAt: validTimestamp(row.created_at),
+      }));
+      return Object.freeze({ status: items.length ? "AVAILABLE" : "EMPTY", source: "transactions", loadedAt, items: Object.freeze(items) });
+    } catch (error) {
+      if (error instanceof PortfolioReadError) throw error;
+      throw new PortfolioReadError("TRANSACTION_READ_UNAVAILABLE");
+    }
+  }
+
+  async function assertReadAccess() {
+    await resolveOwnerContext();
+    return true;
+  }
+
+  // The explicit names document this adapter's product contract. Keep the
+  // earlier method names as aliases for callers already shipped in the Lab.
+  return Object.freeze({
+    loadCurrentPositions,
+    loadWatchlist,
+    loadClosedPositions,
+    loadTransactions,
+    assertReadAccess,
+    load: loadCurrentPositions,
+    loadClosedHistory: loadClosedPositions,
+  });
 }
 
 export const portfolioReadContract = Object.freeze({
   source: PORTFOLIO_SOURCE,
   primaryResource: "investment_current_positions_view",
-  fallbackResource: "current_broker_positions_view",
+  watchlistResource: "watchlists",
+  closedHistoryResource: "investment_current_positions_view",
+  transactionsResource: "transactions",
   readMode: "authenticated select-only",
   writes: Object.freeze([]),
 });

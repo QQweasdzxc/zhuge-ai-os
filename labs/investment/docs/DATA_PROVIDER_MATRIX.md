@@ -1,5 +1,9 @@
 # Data Provider Matrix
 
+> Historical snapshot from 2026-10-01. It predates the current Active Lab and
+> provider path; it is not a current Production status report. See
+> `GENSPARK_CAPABILITY_MATRIX.md` for current implementation and gates.
+
 > Historical observation from the original Node local runtime on 2026-10-01; not current static-browser availability. For this same-origin static Candidate, use `LAB_INVESTMENT_RUNTIME_EVIDENCE.md`. A server-side observation does not prove browser CORS access.
 
 Observed on 2026-10-01 in local Runtime (`127.0.0.1:4191`). “Available” is specific to the captured request and data date, not a reliability or licensing guarantee. No secret was read. No Yahoo or FinMind fallback was used.

@@ -1,39 +1,61 @@
-# Zhuge Investment Sandbox v1 — Baseline
+# Lab_投資 — Active Product Baseline
 
-## Purpose and boundary
+> Replaces the historical “Investment Sandbox v1” scope. The former three-symbol
+> sandbox restrictions are not the current Product target.
 
-This is a Zhuge-owned, same-origin static research Lab. It is not a copy, fork, or source-derived redistribution of Genspark Stock AI, and it does not replace or modify AIOS Investment. Genspark is a feature-reference input only; no Genspark source or asset is present in this Lab.
+## Product boundary
 
-- Genspark reference commit: `35182db578b0b8c693d34f52f3988534d4c52f83`
-- Reference role: behavioral/feature inspiration only; no upstream source/assets imported.
-- Original Sandbox branch: `lab/investment-sandbox-v1`
-- Candidate runtime: static files under `labs/investment/`; no app launcher, standalone API server, localhost URL, or user Terminal step.
-- Browser provider access: direct official endpoints only where CORS permits. CORS-blocked sources stay `SERVER_PROXY_REQUIRED` / `NOT_CONNECTED`; no Product Data or substitute values are written.
-- No Cloud write, Product Data write, transaction, order, or production integration.
-- AIOS Lab Center reads the single `labs/registry.json` authority. Formal Investment code remains unchanged; Lab source is not imported by formal modules.
+- Official Investment / IVTK / Board presentation is parked. Its records remain
+  canonical and are not modified by the Lab.
+- `Lab_投資` is the active Investment product-development surface under the
+  AIOS global shell. Its local navigation is content navigation, not a second
+  global sidebar.
+- The current Genspark reference is inspected at commit
+  `7f9cfc5de61227faacd27d3baafa82bb41cba6ab`. Source and assets are not copied;
+  no standard upstream license file was present at that revision.
+- The intended capability coverage and current gates are recorded in
+  `GENSPARK_CAPABILITY_MATRIX.md`.
 
-## Implemented v1 surfaces
+## Current source authorities
 
-1. Research overview with official closing prices, compact price histories, available monthly revenue evidence, Taiwan market pulse, and reviewed commodity references.
-2. Per-symbol research for `2330.TW`, `0050.TW`, and `6488.TWO`.
-3. Opening-pressure evidence page; unavailable overseas factors remain explicit, not inferred.
-4. Taiwan market pulse: index, advancing/declining/flat counts, and listed-market institutional totals where the official feeds return usable fields.
-5. Technical indicators calculated from the same-source official daily OHLCV actually loaded by the page.
-6. Industry price radar: World Bank Pink Sheet monthly Brent/WTI/Copper only; DRAM/NAND, SOX, and SCFI remain source-review gated.
-7. Watchlist and research notes stored only in the current browser's localStorage.
+| Data | Authority | Access contract |
+|---|---|---|
+| Current holdings | `investment_current_positions_view` | Authenticated user + owner + portfolio scoped; current positions with quantity > 0; read-only |
+| Watchlist | `watchlists` | Authenticated owner-scoped SELECT; the browser's temporary list is separately labeled `本機暫存觀察` |
+| Closed positions | `investment_current_positions_view` | Authenticated owner + portfolio scoped history rows; transactions are read-only detail only |
+| Taiwan research | Existing Zhuge Investment Intelligence and bounded official-source adapters | Explicit TW market and, where required, exact TWSE/TPEx listing identity |
+| US company identity | SEC company ticker catalog | Market must be explicitly US |
+| US quote/history compatibility | Existing Zhuge-owned Edge/provider path | External provider terms and live Production behavior remain a release gate |
 
-## Exclusions
+Portfolio valuation is not a live quote. The UI labels portfolio values with
+`effective_at` and `market_value_source`; research prices retain their provider,
+observation time, freshness, and delay semantics. Research data never writes
+back into a portfolio position.
 
-No AI buy/sell score, no external score as truth, no media-news feed, no AAPL runtime provider, no ETF constituents/NAV, no TPEx historical OHLCV, no account link, no trade capability, and no false completion for missing data. UI availability is not proof that a provider is connected.
+## Current Lab entry points
 
-## Reference and data truth
+The Lab exposes: 總覽、選股雷達、市場、我的持股、觀察名單、個股研究、籌碼、技術分析、平倉歷史.
+Formal and local temporary watchlists are visibly separate. This list of entry
+points is not evidence that every provider-dependent capability is complete;
+consult the capability matrix for status and gates.
 
-Provider evidence carries status, provider, source URL, source data date, retrieval time, stale/delayed/fallback flags, attribution/license when applicable, note, and sanitized error code. All prices here are delayed/latest available source observations, not real-time execution quotes.
+## Runtime and security boundary
 
-## Use
+- Lab personal data uses the existing AIOS session, App Access, MFA, user-to-owner
+  mapping, and Shared Data Gateway.
+- Personal data adapters expose only SELECT operations and fail closed if
+  session, authorization, MFA, or owner mapping is unresolved.
+- The Lab does not include Genspark's license login, author account, Worker,
+  author-owned identity, or plan gates.
+- Provider values are never synthesized from portfolio values. Missing source
+  data remains missing, and simulation is not mixed with real personal data.
+- The Lab has no trade execution path.
 
-Open AIOS → **Lab 實驗室** → **Lab_投資** → **進入 Lab**. The browser loads the Lab from the same AIOS origin. No separate app, server, localhost URL, or terminal action is part of the user flow. Provider availability is independent and shown with source evidence.
+## Release and acceptance boundary
 
-## Review gate
-
-Developer QA is complete only for the source/runtime checks enumerated in `LAB_INVESTMENT_RUNTIME_EVIDENCE.md` and `QA_SUMMARY.md`. Local candidate browser checks do not imply production deployment or PM acceptance.
+Local unit/browser evidence is not authenticated Production Runtime evidence.
+The current candidate still requires a logged-in PM session to verify actual
+holdings, watchlist, closed history, TW/US provider behavior, and release
+identity. Edge Function source changes also require their own verified
+deployment/readback; GitHub Pages status alone does not prove an Edge Function
+is deployed.

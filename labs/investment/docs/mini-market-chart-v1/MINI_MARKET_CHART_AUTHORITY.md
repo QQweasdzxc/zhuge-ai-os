@@ -9,7 +9,7 @@ Scope: `labs/investment/` stock-card history visualizations only.
 
 | Consumer | Mode | History input | Additional input |
 |---|---|---|---|
-| Research cards (2330 / 0050 / 6488 and research pool) | `research` | Existing Lab history evidence; watchlist research cards reuse `state.home.trends` | Currency |
+| Catalog-resolved TW/US Research cards | `research` | Existing market-scoped Lab history evidence; repeated symbols reuse provider results | Currency and market identity |
 | My Holdings cards | `portfolio` | Existing history map, reusing research trends and deduplicating missing symbols | Read-only `averageCost` and portfolio currency |
 
 `src/portfolio/view.mjs` keeps only a small mode-binding wrapper. The old portfolio area/sparkline renderer was removed.

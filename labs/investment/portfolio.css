@@ -29,6 +29,7 @@
 .portfolio-research-context>div:first-child span,.portfolio-research-context>p{margin:0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
 .portfolio-research-context dl>div{background:#1d3147}
 .portfolio-research-context p{line-height:1.5}
+.watch-canonical-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 0}.watch-canonical-fields>div{min-width:0;padding:8px 10px;border-radius:9px;background:var(--panel-2)}.watch-canonical-fields dt{color:var(--muted);font-size:11px}.watch-canonical-fields dd{margin:3px 0 0;overflow-wrap:anywhere;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}.local-watchlist-section{margin-top:18px}.local-watchlist-section .section-title{margin-top:0}
 .portfolio-holding-card .status-chip[data-status="PARTIAL"]{color:var(--warn);border-color:#80683c}
 @media(max-width:720px){
   .portfolio-section{margin-top:18px}

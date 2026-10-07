@@ -1,4 +1,9 @@
-# Lab_投資 In-Repository Migration
+# Historical Lab_投資 In-Repository Migration
+
+> This records the original 2026-10-01 move into the repository. “Sandbox” and
+> the initial limited provider scope below are historical, not current product
+> target. `Lab_投資` is now the active Investment product-development surface;
+> see `GENSPARK_CAPABILITY_MATRIX.md` for the current Genspark migration audit.
 
 ## Candidate identity
 

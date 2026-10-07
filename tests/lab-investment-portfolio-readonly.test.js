@@ -11,7 +11,9 @@ test("Lab portfolio reads use the canonical Investment projection through Shared
   const app = read("labs/investment/app.js");
   const html = read("labs/investment/index.html");
   assert.match(adapter, /investment_current_positions_view/);
-  assert.match(adapter, /current_broker_positions_view/);
+  assert.doesNotMatch(adapter, /current_broker_positions_view/);
+  assert.match(adapter, /loadCurrentPositions/);
+  assert.match(adapter, /loadClosedPositions/);
   assert.match(adapter, /context\.data\.select/);
   assert.match(adapter, /context\.security\?\.evaluate\?\.\("view"\)/);
   assert.match(adapter, /appAccess\.getCurrent\(\)/);
@@ -28,18 +30,22 @@ test("Lab portfolio projection is allowlisted and does not request account or ra
   assert.doesNotMatch(primaryProjection[1], /account|raw_broker_values|user_id|portfolio_id|source_id/);
   assert.doesNotMatch(adapter, /\.rpc\s*\(|\.insert\s*\(|\.update\s*\(|\.delete\s*\(|\.upsert\s*\(/i);
   assert.match(adapter, /writes: Object\.freeze\(\[\]\)/);
-  assert.match(adapter, /SNAPSHOT_INCOMPLETE/);
+  assert.match(adapter, /position_status=eq\.current&quantity=gt\.0/);
+  assert.match(adapter, /user_id=eq\./);
+  assert.match(adapter, /portfolio_id=eq\./);
 });
 
-test("Lab context contains no portfolio values in its route and US providers remain explicitly unconnected", () => {
+test("Lab route contains no portfolio values and TW/US research keeps explicit market identity", () => {
   const app = read("labs/investment/app.js");
-  const placeholder = read("labs/investment/src/portfolio/research-placeholder.mjs");
-  assert.match(app, /research\/\$\{encodeURIComponent\(safeSymbol\)\}/);
+  const provider = read("labs/investment/src/providers/lab-market-provider.mjs");
+  assert.match(app, /research\/\$\{normalizedMarket\}\/\$\{encodeURIComponent\(safeSymbol\)\}/);
   assert.doesNotMatch(app, /location\.hash[^\n]*(quantity|averageCost|investedCost|unrealized)/i);
   assert.doesNotMatch(app, /localStorage\.(?:getItem|setItem)\([^\n]*(?:portfolio|holding)/i);
-  assert.match(app, /createUnconnectedResearch/);
-  assert.match(placeholder, /status: "NOT_CONNECTED"/);
-  assert.match(placeholder, /data: null/);
+  assert.match(app, /marketCode\(market\)/);
+  assert.match(provider, /MARKETS\.has\(requestedMarket\)/);
+  assert.match(provider, /MARKETS\.has\(market\)/);
+  assert.match(provider, /SYMBOL_REQUEST_INVALID/);
+  assert.match(provider, /getTaiwanMarketScan/);
 });
 
 function normalizedProductLoaders(source, productBuild) {
@@ -53,7 +59,7 @@ function normalizedProductLoaders(source, productBuild) {
 }
 
 function assertInvestmentReleaseBoundary({ changed, beforeManifest, manifest, product, beforeProduct, beforeHtml, html }) {
-  const allowed = new Set(["modules/investment/index.html", "modules/investment/version.json", "modules/investment/assets/investment.css", "modules/investment/components/module-shell.js", "modules/investment/components/holding-card-presentation.js"]);
+  const allowed = new Set(["modules/investment/index.html", "modules/investment/version.json", "modules/investment/assets/investment.css", "modules/investment/components/module-shell.js", "modules/investment/components/holding-card-presentation.js", "modules/investment/services/investment-intelligence-providers.js"]);
   for (const file of changed) assert.ok(allowed.has(file), `Investment functional source changed: ${file}`);
   assert.deepEqual(Object.keys(manifest).sort(), Object.keys(beforeManifest).sort(), "manifest keys retained");
   for (const key of Object.keys(beforeManifest)) {
@@ -67,7 +73,7 @@ function assertInvestmentReleaseBoundary({ changed, beforeManifest, manifest, pr
   assert.equal(normalized(html, product.build), normalized(beforeHtml, beforeProduct.build), "only Product v= and the shared Functional Tabs adapter loader may change");
 }
 
-test("Investment business source stays untouched; Holding presentation and governed Product metadata may synchronize", () => {
+test("Official Investment presentation stays untouched while the shared market provider authority may add explicit TW/US identity", () => {
   const { execFileSync } = require("node:child_process");
   const head = file => execFileSync("git", ["show", `HEAD:${file}`], { cwd: root, encoding: "utf8" });
   const changed = execFileSync("git", ["diff", "HEAD", "--name-only", "--", "modules/investment"], { cwd: root, encoding: "utf8" })
@@ -97,6 +103,13 @@ test("Investment business source stays untouched; Holding presentation and gover
   }
   const nonTabCss = css => css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/([^{}]+)\{([^{}]*)\}/g, (all, selector) => /\.investment-(?:primary-nav|content-tabs|tab|nav-item|tool-nav|tool-menu(?:-item)?)(?![\w-])/.test(selector) ? "" : all).replace(/\s+/g, "");
   assert.equal(nonTabCss(read("modules/investment/assets/investment.css")), nonTabCss(head("modules/investment/assets/investment.css")), "all Investment content CSS stays identical");
+  const providerSource = read("modules/investment/services/investment-intelligence-providers.js");
+  assert.match(providerSource, /const suppliedMarket = text\(request\.market\)\.toUpperCase\(\)/);
+  assert.match(providerSource, /if \(market !== "TW" && market !== "US"\) return null/);
+  assert.match(providerSource, /input\.symbols \|\| input\.positions \|\| \[\]/);
+  assert.doesNotMatch(providerSource, /\["2330",\s*"0050",\s*"AAPL"\]/);
+  assert.doesNotMatch(providerSource, /(?:supabase|client)\.from\s*\(/i, "shared provider does not query or mutate Product tables");
+  assert.doesNotMatch(providerSource, /SUPABASE_SERVICE_ROLE|service_role/i);
   assertInvestmentReleaseBoundary({ changed: [...changed, ...untracked],
     beforeManifest: JSON.parse(head("modules/investment/version.json")), manifest: JSON.parse(read("modules/investment/version.json")),
     product: JSON.parse(read("version.json")), beforeProduct: JSON.parse(head("version.json")),

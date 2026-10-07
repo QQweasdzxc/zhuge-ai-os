@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { createReadOnlyPortfolioAdapter, PortfolioReadError } from "../src/portfolio/readonly-adapter.mjs";
+import { createReadOnlyPortfolioAdapter, PortfolioReadError, researchSymbolFor } from "../src/portfolio/readonly-adapter.mjs";
 import { createUnconnectedResearch } from "../src/portfolio/research-placeholder.mjs";
 import { renderPortfolioCard, renderPortfolioResearchContext, renderPortfolioSection, renderPortfolioMiniChart } from "../src/portfolio/view.mjs";
 
@@ -73,9 +73,10 @@ test("canonical holdings use only the authenticated owner-scoped SELECT path and
   assert.deepEqual(Object.keys(position).sort(), [
     "asOf", "assetType", "averageCost", "currency", "investedCost", "lastPrice", "market", "marketLabel",
     "marketValue", "marketValueSource", "name", "portfolioSource", "quantity", "researchSymbol", "snapshotKind",
-    "status", "symbol", "unrealizedPct", "unrealizedPnl",
+    "status", "symbol", "unrealizedPct", "unrealizedPnl", "venue",
   ].sort());
-  assert.equal(position.researchSymbol, "0050.TW");
+  assert.equal(position.researchSymbol, "0050");
+  assert.equal(position.venue, "");
   assert.equal(position.quantity, 709);
   assert.equal(position.lastPrice, 68.25);
   assert.equal(position.status, "AVAILABLE");
@@ -87,7 +88,63 @@ test("canonical holdings use only the authenticated owner-scoped SELECT path and
   assert.match(calls[0].query, /select=id&auth_user_id=eq.test-auth-id/);
   assert.match(calls[1].query, /user_id=eq.test-owner-id/);
   assert.match(calls[2].query, /user_id=eq.test-owner-id&portfolio_id=eq.test-portfolio-id/);
+  assert.match(calls[2].query, /position_status=eq.current&quantity=gt.0/);
   assert.doesNotMatch(calls[2].query, /account|raw_broker_values|source_id=/);
+});
+
+test("Taiwan portfolio symbols are resolved only by an explicit venue or authenticated catalog", () => {
+  assert.equal(researchSymbolFor({ symbol: "9876", market: "TW" }), "9876");
+  assert.equal(researchSymbolFor({ symbol: "9876", market: "TW", venue: "TWSE" }), "9876.TW");
+  assert.equal(researchSymbolFor({ symbol: "9876", market: "TW", venue: "TPEX" }), "9876.TWO");
+  assert.equal(researchSymbolFor({ symbol: "NVDA", market: "US" }), "NVDA");
+});
+
+test("canonical watchlist is owner-scoped and exposes only the requested research fields", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: {
+    ...baseResponses(),
+    watchlists: [{ id: "watch-1", symbol: "0050", name: "元大台灣50", market: "TW", status: "active", research_theme: "大型權值", reason: "長期配置", importance: 1, updated_at: "2026-10-06T08:00:00Z", user_id: "must-not-leak" }],
+  } });
+  const result = await adapter.loadWatchlist();
+  assert.equal(result.status, "AVAILABLE");
+  assert.equal(result.source, "watchlists");
+  assert.deepEqual(result.items[0], {
+    id: "watch-1", symbol: "0050", name: "元大台灣50", market: "TW", status: "active",
+    researchTheme: "大型權值", reason: "長期配置", importance: 1, updatedAt: "2026-10-06T08:00:00.000Z",
+  });
+  const query = calls.find(call => call.resource === "watchlists");
+  assert.match(query.query, /user_id=eq.test-owner-id/);
+  assert.match(query.query, /select=id,symbol,name,market,status,research_theme,reason,importance,updated_at/);
+  assert.ok(calls.every(call => call.method === "select"));
+});
+
+test("closed history comes from history rows of the canonical positions view only", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: {
+    ...baseResponses(),
+    investment_current_positions_view: [
+      { source_kind: "transaction", symbol: "2330", name: "台積電", market: "TW", currency: "TWD", realized_pnl: "1250.5", effective_at: "2026-09-30T08:00:00Z", position_status: "history" },
+      { source_kind: "opening_position", symbol: "0050", name: "元大台灣50", market: "TW", currency: "TWD", realized_pnl: "0", position_status: "current" },
+    ],
+  } });
+  const result = await adapter.loadClosedHistory();
+  assert.equal(result.status, "AVAILABLE");
+  assert.equal(result.source, "investment_current_positions_view");
+  assert.deepEqual(result.items, [{
+    symbol: "2330", sourceId: "", name: "台積電", market: "TW", currency: "TWD", realizedPnl: 1250.5,
+    effectiveAt: "2026-09-30T08:00:00.000Z", sourceKind: "transaction",
+  }]);
+  const query = calls.find(call => call.resource === "investment_current_positions_view");
+  assert.match(query.query, /select=source_kind,source_id,symbol/);
+  assert.match(query.query, /user_id=eq.test-owner-id&portfolio_id=eq.test-portfolio-id&position_status=eq.history/);
+  assert.ok(calls.every(call => call.method === "select"));
+});
+
+test("watchlist and closed-history reads preserve the existing session, App Access and MFA gates", async () => {
+  for (const scenario of [{ authenticated: false, code: "SESSION_REQUIRED" }, { approved: false, code: "APP_ACCESS_REQUIRED" }, { permitted: false, code: "MFA_REQUIRED" }]) {
+    const { adapter, calls } = fakeRuntime(scenario);
+    await assert.rejects(adapter.loadWatchlist(), error => error.code === scenario.code);
+    await assert.rejects(adapter.loadClosedHistory(), error => error.code === scenario.code);
+    assert.deepEqual(calls, []);
+  }
 });
 
 test("null and malformed canonical fields remain null and produce a partial status, never zero-fill", async () => {
@@ -100,37 +157,71 @@ test("null and malformed canonical fields remain null and produce a partial stat
   assert.equal(result.positions[0].status, "PARTIAL");
 });
 
-test("empty canonical projection uses only the formal confirmed-snapshot compatibility fallback", async () => {
-  const responses = {
+test("empty current-position projection stays empty and never falls back to snapshots", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: {
     ...baseResponses([]),
-    broker_position_snapshots: [{ id: "test-snapshot-id", snapshot_at: "2026-09-30T16:00:00Z", position_count: 1 }],
-    current_broker_positions_view: [{ ...current0050, snapshot_id: "test-snapshot-id", item_id: "test-item-id" }],
-  };
-  const { adapter, calls } = fakeRuntime({ responses });
+    broker_position_snapshots: [{ id: "must-not-read", snapshot_at: "2026-09-30T16:00:00Z", position_count: 1 }],
+    current_broker_positions_view: [{ ...current0050, snapshot_id: "must-not-read", item_id: "must-not-read" }],
+  } });
   const result = await adapter.load();
-  assert.equal(result.status, "AVAILABLE");
-  assert.equal(result.positions[0].snapshotKind, "confirmed_snapshot_fallback");
-  assert.equal(result.positions[0].asOf, "2026-09-30T16:00:00.000Z");
-  assert.deepEqual(calls.map(call => call.resource), [
-    "app_users", "portfolios", "investment_current_positions_view", "broker_position_snapshots", "current_broker_positions_view",
-  ]);
+  assert.equal(result.status, "EMPTY");
+  assert.deepEqual(result.positions, []);
+  assert.deepEqual(calls.map(call => call.resource), ["app_users", "portfolios", "investment_current_positions_view"]);
   assert.ok(calls.every(call => call.method === "select"));
-  assert.match(calls[3].query, /verification=eq.pm_confirmed/);
-  assert.doesNotMatch(calls[4].query, /raw_broker_values|account/);
 });
 
-test("incomplete fallback snapshot fails closed and no write-shaped capability is used", async () => {
-  const responses = {
-    ...baseResponses([]),
-    broker_position_snapshots: [{ id: "test-snapshot-id", snapshot_at: "2026-09-30T16:00:00Z", position_count: 2 }],
-    current_broker_positions_view: [{ ...current0050, snapshot_id: "test-snapshot-id", item_id: "test-item-id" }],
-  };
-  const { adapter, calls } = fakeRuntime({ responses });
-  await assert.rejects(adapter.load(), error => error.code === "SNAPSHOT_INCOMPLETE");
+test("adapter exposes no write capability and only canonical view resources", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: baseResponses([]) });
+  await adapter.load();
+  assert.deepEqual(Object.keys(adapter).sort(), [
+    "assertReadAccess", "load", "loadClosedHistory", "loadClosedPositions", "loadCurrentPositions", "loadTransactions", "loadWatchlist",
+  ]);
+  assert.equal(adapter.load, adapter.loadCurrentPositions);
+  assert.equal(adapter.loadClosedHistory, adapter.loadClosedPositions);
   assert.ok(calls.every(call => call.method === "select"));
 
   const source = await readFile(new URL("../src/portfolio/readonly-adapter.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(source, /\.rpc\s*\(|\.insert\s*\(|\.update\s*\(|\.delete\s*\(|\.upsert\s*\(/i);
+  assert.doesNotMatch(source, /broker_position_snapshots|current_broker_positions_view/);
+});
+
+test("transactions are an optional owner-scoped read-only detail source", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: {
+    ...baseResponses(),
+    transactions: [{
+      id: "tx-1", portfolio_id: PORTFOLIO_ID, trade_date: "2026-09-30", trade_type: "buy",
+      symbol: "2330", name: "台積電", market: "TW", quantity: "10", price: "100",
+      gross_amount: "1000", fee: "1", tax: "0", net_amount: "1001", currency: "TWD",
+      source: "statement", note: "evidence", created_at: "2026-10-01T00:00:00Z", user_id: "must-not-leak",
+    }],
+  } });
+  const result = await adapter.loadTransactions({ symbol: "2330.TW", market: "TW", limit: 500 });
+  assert.equal(result.status, "AVAILABLE");
+  assert.equal(result.items[0].id, "tx-1");
+  assert.equal(result.items[0].symbol, "2330");
+  assert.equal(result.items[0].netAmount, 1001);
+  assert.equal(Object.hasOwn(result.items[0], "user_id"), false);
+  const query = calls.find(call => call.resource === "transactions");
+  assert.match(query.query, /user_id=eq.test-owner-id&portfolio_id=eq.test-portfolio-id&symbol=eq.2330/);
+  assert.match(query.query, /market=eq.TW/);
+  assert.match(query.query, /limit=200/);
+  assert.ok(calls.every(call => call.method === "select"));
+});
+
+test("read authorization can be checked without introducing a mutation path", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: baseResponses([]) });
+  assert.equal(await adapter.assertReadAccess(), true);
+  assert.deepEqual(calls.map(call => call.resource), ["app_users", "portfolios"]);
+  assert.ok(calls.every(call => call.method === "select"));
+});
+
+test("transaction lookup requires market identity and never queries a bare ticker across markets", async () => {
+  const { adapter, calls } = fakeRuntime({ responses: { ...baseResponses(), transactions: [] } });
+  await assert.rejects(adapter.loadTransactions({ symbol: "1234" }), error => error.code === "MARKET_IDENTITY_REQUIRED");
+  assert.deepEqual(calls, []);
+  await adapter.loadTransactions({ symbol: "1234", market: "US" });
+  const query = calls.find(call => call.resource === "transactions");
+  assert.match(query.query, /symbol=eq.1234&market=eq.US/);
 });
 
 test("card and research context render missing values as dashes and contain no trading instruction", () => {
@@ -139,8 +230,10 @@ test("card and research context render missing values as dashes and contain no t
     quantity: 4, averageCost: 100, investedCost: null, lastPrice: null, marketValue: null,
     unrealizedPnl: null, unrealizedPct: null, asOf: null, status: "PARTIAL",
   });
-  assert.match(card, /data-action="portfolio-research" data-symbol="AAPL"/);
-  assert.match(card, /目前價格<\/dt><dd>—/);
+  assert.match(card, /data-action="portfolio-research" data-market="US".*data-symbol="AAPL"/);
+  assert.match(card, /持股估值／非即時<\/dt><dd>—/);
+  assert.match(card, /effective_at/);
+  assert.match(card, /market_value_source/);
   assert.match(card, /目前市值<\/dt><dd>—/);
   assert.match(card, /未實現損益<\/dt><dd class="neutral">—/);
   assert.doesNotMatch(card, /買進|賣出|加碼|減碼/);
@@ -152,6 +245,16 @@ test("card and research context render missing values as dashes and contain no t
   assert.match(context, /我的持股/);
   assert.match(context, /不代表加碼、減碼、買進或賣出建議/);
   assert.match(renderPortfolioSection({ status: "EMPTY", positions: [] }), /目前沒有可顯示的持股/);
+});
+
+test("portfolio research action fails closed when canonical market identity is unresolved", () => {
+  const card = renderPortfolioCard({
+    symbol: "1234", researchSymbol: "1234", name: "Unknown-market asset", market: "OTHER",
+    marketLabel: "市場未提供", quantity: 1, status: "PARTIAL",
+  });
+  assert.match(card, /市場身分未確認/);
+  assert.doesNotMatch(card, /data-action="portfolio-research"/);
+  assert.doesNotMatch(card, /data-market="TW"/);
 });
 
 test("unsupported US providers stay NOT_CONNECTED without fabricated values", async () => {
@@ -215,4 +318,26 @@ test("unconnected and unavailable history render truthful empty states, never a 
   assert.match(unavailable, /歷史行情暫時無法取得/);
   assert.match(unavailable, /TIMEOUT/);
   assert.doesNotMatch(unavailable, /<svg|<path/);
+});
+
+test("Lab exposes full Investment content navigation while preserving the canonical personal data sources", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/portfolio/readonly-adapter.mjs", import.meta.url), "utf8");
+  const nav = html.match(/<nav class="lab-content-nav[\s\S]*?<\/nav>/)?.[0] || "";
+  for (const view of ["overview", "scanner", "market", "holdings", "watchlist", "research", "chips", "technical", "history"]) {
+    assert.match(nav, new RegExp('data-view="' + view + '"'));
+  }
+  assert.equal((nav.match(/data-view=/g) || []).length, 9);
+  assert.match(html, /data-symbol-search-form/);
+  assert.match(html, /data-market-select/);
+  assert.match(app, /InvestmentIntelligenceProviders\?\.create/);
+  assert.match(app, /開放資料/);
+  assert.match(app, /我的正式觀察名單/);
+  assert.match(app, /本機暫存觀察/);
+  assert.match(app, /我的平倉歷史/);
+  assert.match(source, /"watchlists"/);
+  assert.match(source, /position_status=eq\.history/);
+  assert.match(source, /"transactions"/);
+  assert.doesNotMatch(source, /\.rpc\s*\(|\.insert\s*\(|\.update\s*\(|\.delete\s*\(|\.upsert\s*\(/i);
 });

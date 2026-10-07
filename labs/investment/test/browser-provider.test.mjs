@@ -23,7 +23,7 @@ test("TWSE browser CSV mapping produces dated official quote evidence for suppor
 });
 
 test("TWSE browser CSV maps ETF quote but never invents a missing row", () => {
-  const etf = mapTwseCsvQuote(fixture, "0050.TW");
+  const etf = mapTwseCsvQuote(fixture, { symbol: "0050.TW", market: "TW", venue: "TWSE", instrumentType: "ETF", name: "ETF fixture" });
   assert.equal(etf.data.instrumentType, "ETF");
   assert.equal(etf.data.close, 112.9);
   const absent = mapTwseCsvQuote(fixture, "6488.TWO");

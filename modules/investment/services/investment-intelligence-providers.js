@@ -39,18 +39,22 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-  function marketOf(value) {
-    const market = text(value).toUpperCase();
-    return market === "US" ? "US" : "TW";
-  }
-
   function normalizeRequest(item) {
     const request = typeof item === "string" ? { symbol: item } : item || {};
-    const symbol = text(request.symbol).toUpperCase().replace(/\.(TW|TWO)$/i, "");
+    const rawSymbol = text(request.symbol).toUpperCase();
+    const symbol = rawSymbol.replace(/\.(TW|TWO)$/i, "");
     if (!symbol) return null;
+    const suppliedMarket = text(request.market).toUpperCase();
+    const suffixImpliesTaiwan = /\.(TW|TWO)$/i.test(rawSymbol);
+    const market = suppliedMarket || (suffixImpliesTaiwan ? "TW" : "");
+    if (market !== "TW" && market !== "US") return null;
+    const venue = market === "TW"
+      ? text(request.venue).toUpperCase() === "TPEX" || rawSymbol.endsWith(".TWO") ? "TPEX" : "TWSE"
+      : "US";
     return Object.freeze({
       symbol,
-      market: marketOf(request.market || (/^\d{4,6}$/.test(symbol) ? "TW" : "US")),
+      market,
+      venue,
       name: text(request.name),
       query: text(request.query)
     });
@@ -62,7 +66,7 @@
       .map(normalizeRequest)
       .filter(item => {
         if (!item) return false;
-        const key = `${item.market}:${item.symbol}`;
+        const key = `${item.market}:${item.venue}:${item.symbol}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -70,7 +74,7 @@
   }
 
   function yahooSymbol(request) {
-    return request.market === "TW" ? `${request.symbol}.TW` : request.symbol;
+    return request.market === "TW" ? `${request.symbol}.${request.venue === "TPEX" ? "TWO" : "TW"}` : request.symbol;
   }
 
   function twseSymbol(request) {
@@ -1134,11 +1138,12 @@
     }
 
     function edgeRequest(input = {}) {
-      const requests = uniqueRequests(input.symbols || input.positions || ["2330", "0050", "AAPL"]);
+      const requests = uniqueRequests(input.symbols || input.positions || []);
       return {
         symbols: requests.map(item => ({
           symbol: item.symbol,
           market: item.market,
+          venue: item.venue,
           name: item.name,
           query: item.query
         })),
@@ -1146,7 +1151,10 @@
         portfolio_context: input.portfolioContext && typeof input.portfolioContext === "object"
           ? { current_position_count: Number(input.portfolioContext.currentPositionCount || 0) }
           : {},
-        strategy_ids: Array.isArray(input.strategyIds) ? input.strategyIds.map(String).slice(0, 20) : []
+        strategy_ids: Array.isArray(input.strategyIds) ? input.strategyIds.map(String).slice(0, 20) : [],
+        taiwan_evidence: Array.isArray(input.taiwanEvidence) ? input.taiwanEvidence.slice(0, 12) : [],
+        taiwan_market_overview: input.taiwanMarketOverview === true,
+        news_only: input.newsOnly === true
       };
     }
 
@@ -1193,13 +1201,18 @@
         strategyScans,
         homeworkPacks,
         quality: Object.freeze(response.quality && typeof response.quality === "object" ? { ...response.quality } : {}),
-        providerTrace: Object.freeze(response.provider_trace && typeof response.provider_trace === "object" ? { ...response.provider_trace } : {})
+        providerTrace: Object.freeze(response.provider_trace && typeof response.provider_trace === "object" ? { ...response.provider_trace } : {}),
+        taiwanEvidence: Object.freeze(Array.isArray(response.taiwan_evidence) ? response.taiwan_evidence : []),
+        taiwanMarketOverview: response.taiwan_market_overview && typeof response.taiwan_market_overview === "object" ? Object.freeze(response.taiwan_market_overview) : null
       });
     }
 
     async function loadDirect(input = {}) {
       responseCache.clear();
-      const requests = uniqueRequests(input.symbols || input.positions || ["2330", "0050", "AAPL"]);
+      // Research context must be driven by an explicit user selection or
+      // authenticated portfolio/watchlist projection. Never seed a personal
+      // Investment surface with a hard-coded symbol universe.
+      const requests = uniqueRequests(input.symbols || input.positions || []);
       const [quotes, fx, news, histories, fundamentals, relationships, marketPhases] = await Promise.all([
         loadQuotes(requests),
         loadFx(),

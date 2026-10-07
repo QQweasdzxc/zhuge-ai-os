@@ -12,9 +12,10 @@ test("Lab registry exposes one Zhuge-owned investment Lab on a relative same-ori
   assert.equal(registry.labs.length, 1);
   assert.deepEqual(
     [registry.labs[0].category, registry.labs[0].status, registry.labs[0].enabled, registry.labs[0].currentGate],
-    ["Investment", "EXPERIMENT", true, "PM_REVIEW"],
+    ["Investment", "ACTIVE", true, "PRODUCTION_RUNTIME_REVIEW"],
   );
-  assert.equal(registry.labs[0].id, "zhuge-investment-sandbox");
+  assert.equal(registry.labs[0].id, "zhuge-investment-lab");
+  assert.equal(registry.labs[0].name, "Lab_投資");
   assert.equal(registry.labs[0].localEntry, "./investment/");
   assert.doesNotMatch(registry.labs[0].localEntry, /127\.0\.0\.1|localhost|https?:/i);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "index.html")), true);
@@ -44,23 +45,26 @@ test("Module A and root router keep exactly one Lab Center destination", () => {
 test("Lab investment is a static same-origin runtime with no local API server dependency", () => {
   const html = read("labs/investment/index.html");
   const app = read("labs/investment/app.js");
-  const runtime = read("labs/investment/src/browser-runtime.mjs");
   assert.match(html, /\.\/styles\.css/);
   assert.match(html, /\.\/app\.js/);
   assert.match(html, /type="importmap"/);
   assert.match(html, /fast-xml-parser/);
-  assert.match(app, /from "\.\/src\/browser-runtime\.mjs(?:\?v=[^"]*)?"/);
+  assert.match(app, /createReadOnlyPortfolioAdapter/);
+  assert.match(app, /createLabMarketProvider/);
+  assert.match(html, /modules\/investment\/services\/investment-intelligence-providers\.js/);
   assert.doesNotMatch(app, /fetch\("\/api\//);
   assert.doesNotMatch(html, /\/sandbox\//);
-  assert.match(runtime, /SERVER_PROXY_REQUIRED/);
-  assert.match(runtime, /openapi\.twse\.com\.tw/);
+  assert.doesNotMatch(app, /dvorak0727\.workers\.dev|license-worker|LICENSE_KV/i);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "server.mjs")), false);
   assert.match(read("labs/investment/.gitignore"), /^node_modules\/$/m);
 });
 
-test("formal Investment source is not a Lab runtime dependency", () => {
+test("Lab reuses only the approved Investment provider authority, not the formal UI or Board runtime", () => {
   const runtime = read("labs/investment/src/browser-runtime.mjs");
   const html = read("labs/investment/index.html");
+  const app = read("labs/investment/app.js");
   assert.doesNotMatch(runtime, /modules\/investment/);
-  assert.doesNotMatch(html, /modules\/investment/);
+  assert.match(html, /modules\/investment\/services\/investment-intelligence-providers\.js/);
+  assert.doesNotMatch(html, /modules\/investment\/(?:index\.html|app\.js|components\/module-shell|services\/investment-module|services\/ivtk-board-adapter)/);
+  assert.doesNotMatch(app, /GoldenMaster|IVTK|board_tasks|board_workspaces|investment_ivtk_card_links/);
 });

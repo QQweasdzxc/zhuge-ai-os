@@ -48,13 +48,13 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   assert.match(item("procurement").attrs, /side-item-child/);
   assert.match(item("procurement").attrs, /href="\/app\/Board\/procurement\/"/);
   assert.ok(item("procurement").index > item("worklog").index);
-  assert.ok(item("procurement").index < item("investment").index);
+  assert.equal(nav.DEFAULT_REGISTRY.investment.visible, false);
+  assert.doesNotMatch(html, /data-shared-nav-item="investment"/);
   assert.ok(!html.includes('consumer-board:qa-official-gas'), "GAS has no duplicate Generic entry");
   assert.match(item("consumer-board:qa-work").attrs, /side-item-child/);
   assert.ok(item("consumer-board:qa-work").index > item("worklog").index);
-  assert.ok(item("consumer-board:qa-work").index < item("investment").index);
   assert.match(item("consumer-board:qa-invest").attrs, /side-item-child/);
-  assert.ok(item("consumer-board:qa-invest").index > item("investment").index);
+  assert.ok(item("consumer-board:qa-invest").index > html.indexOf('data-nav-group="investment-consumers"'));
   assert.ok(item("consumer-board:qa-invest").index < html.indexOf('data-nav-group="consumer-boards"'));
   assert.ok(item("consumer-board:qa-unassigned").index > html.indexOf('data-nav-group="consumer-boards"'));
   assert.doesNotMatch(item("consumer-board:qa-unassigned").attrs, /side-item-child/);

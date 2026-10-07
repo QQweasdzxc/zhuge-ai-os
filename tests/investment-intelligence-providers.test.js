@@ -169,13 +169,97 @@ test("Investment production path uses the authenticated Shared Gateway Edge adap
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].functionName, "investment-intelligence-read");
-  assert.deepEqual(calls[0].body.symbols, [{ symbol: "2330", market: "TW", name: "", query: "" }]);
+  assert.deepEqual(calls[0].body.symbols, [{ symbol: "2330", market: "TW", venue: "TWSE", name: "", query: "" }]);
   assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, "url"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, "credential"), false);
   assert.equal(result.quotes[0].provider, "twse-open");
   assert.equal(result.quotes[0].freshness, "stale");
   assert.equal(result.fx.rate, 31.86);
   assert.equal(result.contexts[0].contract, "zhuge-investment-context-pack-v1");
+});
+
+test("authenticated provider can request bounded read-only watchlist news without the full quote pipeline", async () => {
+  const calls = [];
+  const runtime = providers.create({
+    intelligence,
+    invokeFunction: async (functionName, body) => {
+      calls.push({ functionName, body });
+      return {
+        contract: "zhuge-investment-intelligence-edge-v1",
+        read_only: true,
+        generated_at: "2026-10-07T09:00:00.000Z",
+        news: [{ type: "news", symbol: "AAPL", market: "US", title: "Candidate result", sourceUrl: "https://news.example/aapl" }],
+      };
+    },
+  });
+  const result = await runtime.load({ symbols: [{ symbol: "AAPL", market: "US", name: "Apple Inc." }], newsOnly: true, newsLimit: 5 });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].functionName, "investment-intelligence-read");
+  assert.equal(calls[0].body.news_only, true);
+  assert.equal(calls[0].body.news_limit, 5);
+  assert.equal(result.news[0].symbol, "AAPL");
+  assert.deepEqual(result.quotes, []);
+  assert.equal(result.readOnly ?? result.contract, "zhuge-investment-intelligence-runtime-v1");
+});
+
+test("Investment Intelligence does not inject a fixed starter-symbol universe", async () => {
+  const calls = [];
+  const runtime = providers.create({
+    intelligence,
+    invokeFunction: async (functionName, body) => {
+      calls.push({ functionName, body });
+      return {
+        contract: "zhuge-investment-intelligence-edge-v1",
+        read_only: true,
+        generated_at: "2026-09-18T09:00:00.000Z",
+        quotes: [], fx: { available: false }, news: [], contexts: [], quality: {}, provider_trace: {},
+        stream_subscriptions: 0, mutating_operations_invoked: false,
+      };
+    },
+  });
+  await runtime.load({ taiwanMarketOverview: true });
+  assert.deepEqual(calls[0].body.symbols, []);
+});
+
+test("Investment direct provider requires explicit market identity and has no seeded symbols", async () => {
+  intelligence.clearProvidersForTest();
+  const calls = [];
+  const runtime = providers.create({
+    intelligence,
+    fetch: async url => {
+      calls.push(String(url));
+      throw new Error("fixture: provider unavailable");
+    },
+  });
+
+  const result = await runtime.loadDirect({ symbols: ["2330", "AAPL"] });
+  assert.deepEqual(result.quotes, []);
+  assert.deepEqual(result.contexts, []);
+  assert.equal(calls.some(url => /2330|0050|AAPL/.test(url)), false);
+});
+
+test("Investment Intelligence keeps same-code Taiwan listings separate by canonical venue", async () => {
+  const calls = [];
+  const runtime = providers.create({
+    intelligence,
+    invokeFunction: async (functionName, body) => {
+      calls.push({ functionName, body });
+      return {
+        contract: "zhuge-investment-intelligence-edge-v1",
+        read_only: true,
+        generated_at: "2026-09-18T09:00:00.000Z",
+        quotes: [], fx: { available: false }, news: [], histories: [], fundamentals: [], relationships: [],
+        market_phase: {}, contexts: [], quality: {}, provider_trace: {},
+        stream_subscriptions: 0, mutating_operations_invoked: false,
+      };
+    },
+  });
+  await runtime.load({ symbols: [
+    { symbol: "6488", market: "TW", venue: "TPEX" },
+    { symbol: "6488", market: "TW", venue: "TWSE" },
+  ] });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body.symbols.map(item => item.venue), ["TPEX", "TWSE"]);
 });
 
 test("Investment runtime enriches Context Pack Evidence with the #9-#13 analysis projection", async () => {
@@ -273,6 +357,22 @@ test("Investment Intelligence Edge adapter is read-only and has no Product Data 
   assert.match(source, /type: "industry_exposure"/);
   assert.match(source, /type: "related_symbol"/);
   assert.match(source, /FUNDAMENTAL_FRESH_MS/);
+  assert.match(source, /normalizeTaiwanEvidence/);
+  assert.match(source, /loadOfficialInstitutional/);
+  assert.match(source, /loadOfficialHolders/);
+  assert.match(source, /loadOfficialMargin/);
+  assert.match(source, /loadOfficialAnnouncements/);
+  assert.match(source, /loadOfficialTaiwanMarketPulse/);
+  assert.match(source, /taiwan_market_overview/);
+  assert.match(source, /taiwan_market_scan/);
+  assert.match(source, /loadTaiwanMarketScan/);
+  assert.match(source, /buildTaiwanMarketScan/);
+  assert.match(source, /TWSE and TPEx daily quote sources are unavailable/);
+  assert.match(source, /news_only/);
+  assert.match(source, /News-only mode requires bounded symbol requests/);
+  assert.match(source, /const newsResult = await loadNews\(input\.symbols, now\)/);
+  assert.match(source, /await requireAuthenticatedSession\(request\);[\s\S]*?validateInput/);
+  assert.doesNotMatch(source, /(?:fetch|providerRequest)\(text\(input\.(?:url|endpoint)|new URL\(text\(input\.(?:url|endpoint)/);
 });
 
 test("official/public evidence adapters feed OHLC, fundamental, market phase, ETF components, industry exposure and related symbols", async () => {

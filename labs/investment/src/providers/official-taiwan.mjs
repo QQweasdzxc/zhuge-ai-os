@@ -3,12 +3,6 @@ import { fetchCached, ProviderError } from "../lib/http-cache.mjs";
 import { first, monthStarts, normalizeDate, number, rows, staleByCalendarDays, text } from "../lib/normalize.mjs";
 import { calculateIndicators } from "../domain/indicators.mjs";
 
-export const SYMBOLS = Object.freeze([
-  { symbol: "2330.TW", code: "2330", venue: "TWSE", instrumentType: "個股", displayName: "台積電" },
-  { symbol: "0050.TW", code: "0050", venue: "TWSE", instrumentType: "ETF", displayName: "元大台灣50" },
-  { symbol: "6488.TWO", code: "6488", venue: "TPEx", instrumentType: "個股", displayName: "環球晶" },
-]);
-
 const BASE = Object.freeze({
   twseOpen: "https://openapi.twse.com.tw/v1",
   twseWeb: "https://www.twse.com.tw",
@@ -40,10 +34,24 @@ const API = Object.freeze({
 const ttl = Object.freeze({ quote: 30_000, list: 60_000, history: 30 * 60_000, mops: 10 * 60_000, tdcc: 10 * 60_000, derivatives: 30_000 });
 
 function symbolInfo(value) {
-  const raw = text(value).toUpperCase();
-  const found = SYMBOLS.find((item) => item.symbol === raw || item.code === raw);
-  if (!found) throw new ProviderError("SYMBOL_NOT_FOUND");
-  return found;
+  const input = value && typeof value === "object" ? value : { symbol: value };
+  const rawValue = text(input.symbol).toUpperCase();
+  const suffixVenue = rawValue.endsWith(".TWO") ? "TPEx" : rawValue.endsWith(".TW") ? "TWSE" : "";
+  const code = rawValue.replace(/\.(TW|TWO)$/i, "");
+  const market = text(input.market).toUpperCase() || (suffixVenue ? "TW" : "");
+  const venueValue = text(input.venue).toUpperCase();
+  const venue = venueValue === "TPEX" ? "TPEx" : venueValue === "TWSE" ? "TWSE" : suffixVenue;
+  if (market !== "TW" || !venue || !/^[A-Z0-9.-]{1,16}$/.test(code)) {
+    throw new ProviderError(venue ? "SYMBOL_NOT_FOUND" : "LISTING_VENUE_REQUIRED");
+  }
+  const instrumentTypeValue = text(input.instrumentType || input.assetType).toUpperCase();
+  return Object.freeze({
+    symbol: `${code}.${venue === "TWSE" ? "TW" : "TWO"}`,
+    code,
+    venue,
+    instrumentType: instrumentTypeValue === "ETF" ? "ETF" : instrumentTypeValue === "個股" ? "個股" : "UNKNOWN",
+    displayName: text(input.name || input.displayName) || code,
+  });
 }
 
 function dateFromRow(row, keys = ["Date", "日期", "資料日期", "出表日期"]) {
@@ -159,7 +167,7 @@ export async function loadHistory(value) {
     return makeEvidence({
       status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "TPEx",
       source: ["https://www.tpex.org.tw/"], stale: null, delayed: true,
-      note: "官方最新收盤已接入；6488 官方歷史機器查詢尚未完成相容性驗證，因此技術指標不以 Yahoo 或其他歷史資料補空。",
+      note: "該掛牌市場的官方歷史機器查詢尚未完成相容性驗證，因此技術指標不以未核實來源補空。",
       errorCode: "HISTORY_NOT_CONNECTED",
     });
   }
@@ -223,8 +231,8 @@ function sourceOrUnavailable(item, url, kind) {
     status: "NOT_APPLICABLE", dataTruth: "NOT_CONNECTED", provider: "MOPS", source: [url],
     delayed: true, stale: null, errorCode: "ETF_COMPANY_DATA_NOT_APPLICABLE",
     note: kind === "profile"
-      ? "0050 是 ETF，不適用營運公司基本資料；基金成分、持股權重與淨值尚未接入。"
-      : "0050 是 ETF，不適用營運公司月營收或財報；基金持股、配息與淨值尚未接入。",
+      ? "ETF 不適用單一營運公司基本資料；基金成分、持股權重與淨值尚未接入。"
+      : "ETF 不適用營運公司月營收或財報；基金持股、配息與淨值尚未接入。",
   });
 }
 
@@ -508,12 +516,13 @@ export async function loadMarketPulse() {
   };
 }
 
-export async function loadOpenPressure() {
+export async function loadOpenPressure(candidateSymbols = []) {
+  const candidates = (Array.isArray(candidateSymbols) ? candidateSymbols : []).slice(0, 12).map(symbolInfo);
   const [nightFutures, pulse, announcements] = await Promise.all([
-    loadFuturesNight(), loadMarketPulse(), Promise.all(SYMBOLS.map((item) => loadAnnouncements(item.symbol))),
+    loadFuturesNight(), loadMarketPulse(), Promise.all(candidates.map((item) => loadAnnouncements(item))),
   ]);
   const notConnected = (provider, note, errorCode) => makeEvidence({ status: "PROVIDER_REVIEW_REQUIRED", dataTruth: "NOT_CONNECTED", provider, note, errorCode });
-  const latestAnnouncements = announcements.flatMap((item, index) => (item.data ?? []).map((entry) => ({ ...entry, symbol: SYMBOLS[index].symbol })))
+  const latestAnnouncements = announcements.flatMap((item, index) => (item.data ?? []).map((entry) => ({ ...entry, symbol: candidates[index].symbol })))
     .sort((a, b) => `${b.date ?? ""} ${b.time ?? ""}`.localeCompare(`${a.date ?? ""} ${a.time ?? ""}`)).slice(0, 10);
   return {
     generatedAt: new Date().toISOString(),
@@ -523,19 +532,19 @@ export async function loadOpenPressure() {
     sox: notConnected("Nasdaq", "SOX 指數自動取得與展示授權尚未完成審查；不以 ETF 或產業印象替代。", "SOX_LICENSE_REVIEW_REQUIRED"),
     adr: notConnected("需先確認授權的美股報價來源", "TSMC ADR 與關聯先行股行情尚未接入。", "ADR_PROVIDER_REVIEW_REQUIRED"),
     foreignExchange: notConnected("需先確認官方匯率資料授權", "匯率與宏觀指標尚未接入。", "FX_PROVIDER_NOT_CONNECTED"),
-    events: makeEvidence({ status: latestAnnouncements.length ? "AVAILABLE" : "PARTIAL", dataTruth: latestAnnouncements.length ? "OFFICIAL" : "NOT_CONNECTED", provider: "MOPS", source: announcements.flatMap((item) => item.source), dataTimestamp: latestAnnouncements[0]?.date ?? null, fetchedAt: new Date().toISOString(), delayed: true, stale: staleByCalendarDays(latestAnnouncements[0]?.date, 30), note: "僅彙整三檔研究標的的 MOPS 重大訊息；不代表完整市場事件行事曆。", data: latestAnnouncements }),
+    events: makeEvidence({ status: latestAnnouncements.length ? "AVAILABLE" : "PARTIAL", dataTruth: latestAnnouncements.length ? "OFFICIAL" : "NOT_CONNECTED", provider: "MOPS", source: announcements.flatMap((item) => item.source), dataTimestamp: latestAnnouncements[0]?.date ?? null, fetchedAt: new Date().toISOString(), delayed: true, stale: staleByCalendarDays(latestAnnouncements[0]?.date, 30), note: "只彙整傳入之研究候選標的公告；不代表完整市場事件行事曆。", data: latestAnnouncements }),
     note: "開盤壓力頁只整理有來源的資訊，不輸出買賣方向或交易建議。",
   };
 }
 
 export async function loadResearch(value, loadRadar, readQuote = loadQuote) {
   const item = symbolInfo(value);
-  const quote = await readQuote(item.symbol);
+  const quote = await readQuote(item);
   const quoteDate = quote.dataTimestamp;
   const [history, profile, revenue, income, balance, holders, institutional, margin, announcements, nightFutures, radar] = await Promise.all([
-    loadHistory(item.symbol), loadMops(item.symbol, "profile"), loadMops(item.symbol, "revenue"),
-    loadMops(item.symbol, "income"), loadMops(item.symbol, "balance"), loadHolders(item.symbol),
-    loadInstitutional(item.symbol, quoteDate), loadMargin(item.symbol), loadAnnouncements(item.symbol), loadFuturesNight(), loadRadar(),
+    loadHistory(item), loadMops(item, "profile"), loadMops(item, "revenue"),
+    loadMops(item, "income"), loadMops(item, "balance"), loadHolders(item),
+    loadInstitutional(item, quoteDate), loadMargin(item), loadAnnouncements(item), loadFuturesNight(), loadRadar(),
   ]);
   const indicators = history.data?.length ? makeEvidence({
     status: history.data.length >= 26 ? "AVAILABLE" : "PARTIAL", dataTruth: "OFFICIAL", provider: history.provider,
@@ -565,15 +574,16 @@ export async function loadResearch(value, loadRadar, readQuote = loadQuote) {
       { capability: "新聞媒體全文", status: "NOT_CONNECTED", note: "只接官方重大訊息標題；媒體新聞來源與全文授權尚未審核。" },
       { capability: "股利與估值歷史", status: "NOT_CONNECTED", note: "本版未接入；不由近似欄位推算。" },
       ...(item.instrumentType === "ETF" ? [{ capability: "ETF 持股、成分與淨值", status: "NOT_CONNECTED", note: "基金持股、權重與淨值尚未接入；不使用指數成分替代。" }] : []),
-      ...(item.venue === "TPEx" ? [{ capability: "6488 歷史 OHLCV", status: "NOT_CONNECTED", note: "官方歷史機器端點尚未完成驗證；技術指標不使用其他來源補空。" }] : []),
+      ...(item.venue === "TPEx" ? [{ capability: "TPEx 歷史 OHLCV", status: "NOT_CONNECTED", note: "該市場官方歷史機器端點尚未完成相容性驗證；技術指標不使用其他來源補空。" }] : []),
     ],
   };
 }
 
-export async function loadHome(readQuote = loadQuote) {
-  const cards = await Promise.all(SYMBOLS.map(async (item) => {
+export async function loadHome(candidateSymbols = [], readQuote = loadQuote) {
+  const symbols = (Array.isArray(candidateSymbols) ? candidateSymbols : []).slice(0, 12).map(symbolInfo);
+  const cards = await Promise.all(symbols.map(async (item) => {
     const [quote, revenue] = await Promise.all([
-      readQuote(item.symbol),
+      readQuote(item),
       item.instrumentType === "ETF" ? Promise.resolve(makeEvidence({ status: "NOT_APPLICABLE", dataTruth: "NOT_CONNECTED", provider: "MOPS", note: "ETF 不適用營運公司月營收。", errorCode: "ETF_COMPANY_DATA_NOT_APPLICABLE" })) : loadMops(item.symbol, "revenue"),
     ]);
     const signals = [];
@@ -591,7 +601,7 @@ async function loadRadarSafe() {
 }
 
 export function supportedSymbol(value) {
-  return SYMBOLS.find((item) => item.symbol === text(value).toUpperCase() || item.code === text(value).toUpperCase()) ?? null;
+  try { return symbolInfo(value); } catch { return null; }
 }
 
 export const providerEndpoints = API;

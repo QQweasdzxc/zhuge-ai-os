@@ -1,4 +1,10 @@
-# Portfolio Read Contract
+# Historical Portfolio Read Contract (superseded)
+
+> This document describes the earlier read-only integration snapshot. Its
+> snapshot fallback and US-provider notes are not the current contract. The
+> current authenticated holdings/watchlist/history contract is implemented in
+> `src/portfolio/readonly-adapter.mjs` and inventoried in
+> `../GENSPARK_CAPABILITY_MATRIX.md`.
 
 ## Authority
 
@@ -24,11 +30,8 @@ Primary SELECT sequence:
 2. `portfolios`: owner-scoped default/recent portfolio selection
 3. `investment_current_positions_view`: owner- and portfolio-scoped current positions
 
-Compatibility fallback, only if the primary view returns zero rows:
-
-1. `broker_position_snapshots`: latest `pm_confirmed` header for that owner and portfolio
-2. `current_broker_positions_view`: rows for the confirmed snapshot
-3. Exact item count must equal the snapshot header count. Mismatch returns `SNAPSHOT_INCOMPLETE`; no partial or guessed list is shown.
+No snapshot fallback is used. Empty canonical current rows stay empty; the Lab
+does not reinterpret a broker snapshot as the current portfolio projection.
 
 Only allowlisted display fields are selected: symbol, name, market, asset type, quantity, average/invested cost, last price, market value, unrealized P/L and percentage, currency, effective timestamp, valuation-source label, and current-position status. Internal account identifiers, raw broker payloads, and unrelated portfolio data are excluded.
 
@@ -49,7 +52,12 @@ The Shared ModuleContext read boundary is used with authenticated database acces
 | `marketValueSource` | Sanitized source label | `來源未提供` |
 | `status` | `AVAILABLE` / `PARTIAL` | Missing required fields remain visible as dashes |
 
-Research-provider evidence is separate from portfolio evidence. Supported Taiwan symbols continue through the Lab’s existing provider pipeline; symbols without a verified provider (including US symbols in this version) report `NOT_CONNECTED`, null data, and no invented quote.
+Research-provider evidence is separate from portfolio evidence. Current TW/US
+symbol identity is explicit and flows through the existing authenticated
+Investment Intelligence provider. Where a quote/history source is not
+approved or available, the UI reports an unavailable state and null data; it
+never substitutes portfolio valuation or simulated values for a research
+quote.
 
 ## Prohibited capability
 

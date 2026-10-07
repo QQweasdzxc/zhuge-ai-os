@@ -131,7 +131,8 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
      return {group:section.dataset.navGroup,child:node.classList.contains('side-item-child'),parent:parent?.dataset.sharedNavItem||''};
     });
     if(project){
-     assert.deepEqual(placement,{group:'camp',child:true,parent:project});
+     if(project==='worklog') assert.deepEqual(placement,{group:'camp',child:true,parent:'worklog'});
+     else assert.deepEqual(placement,{group:'investment-consumers',child:true,parent:''});
      assert.equal(await page.locator(`[data-nav-group="consumer-boards"] a[href*="${id}"]`).count(),0,'assigned Consumer is not duplicated in applied boards');
     }else{
      assert.equal(placement.group,'consumer-boards');
@@ -143,7 +144,7 @@ test('Create Board Golden Journey: real Mother clicks → canonical SQL → shar
    if(project==='investment'){
     await page.evaluate(()=>{window.ZhugeTemplateAdoptionRuntime.isCreator=false;window.ZhugeSharedNavigation.refresh();});
     await nav.waitFor({state:'detached'});
-    assert.equal(await page.locator('[data-shared-nav-item="investment"]').count(),0,'hidden parent has no floating Investment child');
+    assert.equal(await page.locator('[data-nav-group="investment-consumers"] a').count(),0,'hidden Investment assignment has no floating child');
     await page.evaluate(()=>{window.ZhugeTemplateAdoptionRuntime.isCreator=true;window.ZhugeSharedNavigation.refresh();});
     await assertNavigationPlacement();
    }

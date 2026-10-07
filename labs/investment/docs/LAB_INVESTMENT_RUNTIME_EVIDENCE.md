@@ -1,5 +1,24 @@
 # Lab_投資 Runtime Evidence
 
+> Historical snapshot from the 2026-10-01 sandbox Candidate. It is not evidence
+> for the current Active Lab source or authenticated Production behavior. Use
+> `GENSPARK_CAPABILITY_MATRIX.md` for the current audited capability/gate map.
+
+## Current Genspark migration local browser readback — 2026-10-08
+
+- Source base: `07b6e57d85e2fb34619d88065fda7ad71c8070d4`.
+- Local anonymous Chromium run: `8 PASS / 0 FAIL`; no uncaught page or console errors.
+- Desktop viewport: `1440px`; Mobile viewport: `390×844`, `scrollWidth=390`, all three local navigation touch targets at least `44px`.
+- The browser verifies that unauthenticated Holdings, Watchlist, Closed History,
+  and market scanner paths fail closed without fixture data or protected reads.
+- Screenshots are under `/tmp/zhuge-lab-investment-browser-evidence/` and are
+  local review evidence only.
+- The TinyFish default profile has no recorded signed-in Production site.
+  Authenticated owner-scoped Production readback, provider data acceptance,
+  Official Investment Board archive, and deployment are therefore not verified.
+- This local run is not a Production Runtime PASS and does not establish the
+  requested long-term use gate.
+
 ## Scope and environment
 
 - Candidate Build: `20261001-1801`

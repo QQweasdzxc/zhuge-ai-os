@@ -1,5 +1,5 @@
 {
-  "name": "zhuge-investment-sandbox",
+  "name": "zhuge-investment-lab",
   "version": "1.0.1",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "check": "node --check app.js && node --check src/browser-runtime.mjs && node --check src/portfolio/history.mjs && node --check src/portfolio/view.mjs && node --check src/components/mini-market-chart.mjs && node --check src/providers/browser-taiwan.mjs",
+    "check": "node --check app.js && node --check src/browser-runtime.mjs && node --check src/portfolio/history.mjs && node --check src/portfolio/view.mjs && node --check src/portfolio/readonly-adapter.mjs && node --check src/components/mini-market-chart.mjs && node --check src/providers/browser-taiwan.mjs && node --check src/providers/official-taiwan.mjs && node --check src/providers/lab-market-provider.mjs && node --check src/watchlist/events.mjs && node --check src/domain/indicators.mjs && node --check src/domain/taiwan-market-scan.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

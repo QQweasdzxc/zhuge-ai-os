@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "labs": [
     {
-      "id": "zhuge-investment-sandbox",
-      "name": "Lab_投資｜Zhuge Investment Sandbox",
+      "id": "zhuge-investment-lab",
+      "name": "Lab_投資",
       "category": "Investment",
-      "status": "EXPERIMENT",
+      "status": "ACTIVE",
       "enabled": true,
       "localEntry": "./investment/",
       "source": "Zhuge AI OS source: labs/investment/",
-      "currentGate": "PM_REVIEW",
+      "currentGate": "PRODUCTION_RUNTIME_REVIEW",
       "licenseStatus": "Zhuge source; provider terms vary",
       "dataTruthLabels": [
         "OFFICIAL",

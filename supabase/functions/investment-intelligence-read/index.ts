@@ -8,9 +8,21 @@
  * Gateway, which owns the current authenticated session headers.
  */
 
+import {
+  loadAnnouncements as loadOfficialAnnouncements,
+  loadHolders as loadOfficialHolders,
+  loadInstitutional as loadOfficialInstitutional,
+  loadMargin as loadOfficialMargin,
+  loadMarketPulse as loadOfficialTaiwanMarketPulse,
+} from "../../../labs/investment/src/providers/official-taiwan.mjs";
+import { buildTaiwanMarketScan, normalizeTaiwanScanFilters } from "../../../labs/investment/src/domain/taiwan-market-scan.mjs";
+
 type JsonObject = Record<string, unknown>;
 type Market = "TW" | "US";
-type RequestSpec = { symbol: string; market: Market; name: string; query: string };
+type RequestSpec = { symbol: string; market: Market; name: string; query: string; venue: string };
+type CatalogRequest = { market: Market; query: string };
+type TaiwanEvidenceKind = "institutional" | "ownership" | "margin" | "announcements";
+type TaiwanEvidenceRequest = { symbol: string; market: "TW"; venue: "TWSE" | "TPEX"; name: string; kinds: TaiwanEvidenceKind[] };
 
 const CONTRACT = "zhuge-investment-intelligence-edge-v1";
 const CONTEXT_CONTRACT = "zhuge-investment-context-pack-v1";
@@ -30,6 +42,9 @@ const ENDPOINTS = Object.freeze({
   yahooHistory: "https://query1.finance.yahoo.com/v8/finance/chart",
   twseQuote: "https://mis.twse.com.tw/stock/api/getStockInfo.jsp",
   twseDaily: "https://www.twse.com.tw/rwd/en/afterTrading/STOCK_DAY",
+  tpexDailyClose: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+  twseDailyAll: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+  tpexDailyAll: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
   twseHoliday: "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule",
   twseFinancial: "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci",
   twseCompany: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
@@ -39,6 +54,8 @@ const ENDPOINTS = Object.freeze({
   secTickers: "https://www.sec.gov/files/company_tickers.json",
   secFacts: "https://data.sec.gov/api/xbrl/companyfacts",
   secSubmissions: "https://data.sec.gov/submissions",
+  twseCompanyCatalog: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+  tpexCompanyCatalog: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O",
   googleNews: "https://news.google.com/rss/search",
   bingNews: "https://www.bing.com/news/search"
 });
@@ -74,11 +91,18 @@ function marketOf(value: unknown, symbol = ""): Market {
 
 function normalizeRequest(value: unknown): RequestSpec | null {
   const input = typeof value === "string" ? { symbol: value } : value && typeof value === "object" ? value as JsonObject : {};
-  const symbol = text(input.symbol, 20).toUpperCase().replace(/\.(TW|TWO)$/i, "");
-  if (!symbol || !/^[A-Z0-9._-]{1,20}$/.test(symbol)) return null;
+  const rawSymbol = text(input.symbol, 24).toUpperCase();
+  const suffixVenue = rawSymbol.endsWith(".TWO") ? "TPEX" : rawSymbol.endsWith(".TW") ? "TWSE" : "";
+  const symbol = rawSymbol.replace(/\.(TW|TWO)$/i, "");
+  if (!symbol || !/^(?:[A-Z0-9][A-Z0-9._-]{0,19}|\^[A-Z0-9._-]{1,19})$/.test(symbol)) return null;
+  const market = marketOf(input.market, symbol);
+  const venue = market === "TW"
+    ? text(input.venue, 20).toUpperCase() === "TPEX" || suffixVenue === "TPEX" ? "TPEX" : "TWSE"
+    : "US";
   return {
     symbol,
-    market: marketOf(input.market, symbol),
+    market,
+    venue,
     name: text(input.name, 120),
     query: text(input.query, 180)
   };
@@ -90,13 +114,154 @@ function uniqueRequests(value: unknown) {
   for (const item of Array.isArray(value) ? value : []) {
     const normalized = normalizeRequest(item);
     if (!normalized) continue;
-    const key = `${normalized.market}:${normalized.symbol}`;
+    const key = `${normalized.market}:${normalized.venue}:${normalized.symbol}`;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(normalized);
     if (result.length >= MAX_SYMBOLS) break;
   }
   return result;
+}
+
+function catalogRequest(value: unknown): CatalogRequest | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as JsonObject;
+  const market = text(input.market, 10).toUpperCase();
+  const query = text(input.query, 80);
+  if ((market !== "TW" && market !== "US") || query.length < 1) return null;
+  return { market, query };
+}
+
+function catalogRows(payload: unknown): JsonObject[] {
+  if (Array.isArray(payload)) return payload.filter(item => item && typeof item === "object") as JsonObject[];
+  if (payload && typeof payload === "object") {
+    const root = payload as JsonObject;
+    for (const key of ["data", "result", "msgArray"]) {
+      if (Array.isArray(root[key])) return (root[key] as unknown[]).filter(item => item && typeof item === "object") as JsonObject[];
+    }
+  }
+  return [];
+}
+
+function firstText(row: JsonObject, keys: string[]) {
+  for (const key of keys) {
+    const value = text(row[key], 180);
+    if (value) return value;
+  }
+  return "";
+}
+
+function catalogMatch(item: JsonObject, query: string) {
+  const needle = query.trim().toLocaleLowerCase();
+  return !needle || [item.symbol, item.name, item.industry].some(value => text(value, 180).toLocaleLowerCase().includes(needle));
+}
+
+function normalizeTaiwanEvidence(value: unknown): TaiwanEvidenceRequest[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 12) return null;
+  const allowedKinds = new Set<TaiwanEvidenceKind>(["institutional", "ownership", "margin", "announcements"]);
+  const requests: TaiwanEvidenceRequest[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") return null;
+    const input = entry as JsonObject;
+    const rawSymbol = text(input.symbol, 24).toUpperCase();
+    const symbol = rawSymbol.replace(/\.(TW|TWO)$/i, "");
+    const suffixVenue = rawSymbol.endsWith(".TWO") ? "TPEX" : rawSymbol.endsWith(".TW") ? "TWSE" : "";
+    const requestedVenue = text(input.venue, 12).toUpperCase();
+    const venue = requestedVenue === "TPEX" || suffixVenue === "TPEX" ? "TPEX" : requestedVenue === "TWSE" || suffixVenue === "TWSE" ? "TWSE" : "";
+    const kinds = Array.isArray(input.kinds)
+      ? input.kinds.map(item => text(item, 24).toLowerCase()).filter((kind): kind is TaiwanEvidenceKind => allowedKinds.has(kind as TaiwanEvidenceKind))
+      : [];
+    if (!symbol || !/^[A-Z0-9.-]{1,16}$/.test(symbol) || !venue || !kinds.length || kinds.length !== input.kinds.length) return null;
+    requests.push({
+      symbol,
+      market: "TW",
+      venue,
+      name: text(input.name, 120),
+      kinds: Array.from(new Set(kinds)),
+    });
+  }
+  return requests;
+}
+
+async function loadTaiwanEvidence(request: TaiwanEvidenceRequest) {
+  const providerSymbol = `${request.symbol}.${request.venue === "TPEX" ? "TWO" : "TW"}`;
+  const sourceRequest = { symbol: providerSymbol, market: "TW", venue: request.venue, name: request.name };
+  const loaders: Record<TaiwanEvidenceKind, (value: typeof sourceRequest) => Promise<unknown>> = {
+    institutional: loadOfficialInstitutional,
+    ownership: loadOfficialHolders,
+    margin: loadOfficialMargin,
+    announcements: loadOfficialAnnouncements,
+  };
+  const results = await Promise.all(request.kinds.map(async kind => [kind, await loaders[kind](sourceRequest)] as const));
+  return { symbol: request.symbol, market: request.market, venue: request.venue, evidence: Object.fromEntries(results) };
+}
+
+async function loadCatalog(request: CatalogRequest) {
+  if (request.market === "US") {
+    const payload = await providerRequest(ENDPOINTS.secTickers, "json") as JsonObject;
+    const items = Object.values(payload || {}).flatMap(value => {
+      if (!value || typeof value !== "object") return [];
+      const row = value as JsonObject;
+      const symbol = text(row.ticker, 24).toUpperCase();
+      const name = text(row.title, 180);
+      if (!symbol || !name || !/^[A-Z0-9][A-Z0-9.-]{0,15}$/.test(symbol)) return [];
+      const mapped = { symbol, name, market: "US", venue: "US", source: "SEC company_tickers.json" };
+      return catalogMatch(mapped, request.query) ? [mapped] : [];
+    }).slice(0, 20);
+    return { items, source: ENDPOINTS.secTickers, dataTimestamp: null };
+  }
+
+  const [twse, tpex] = await Promise.allSettled([
+    providerRequest(ENDPOINTS.twseCompanyCatalog, "json"),
+    providerRequest(ENDPOINTS.tpexCompanyCatalog, "json")
+  ]);
+  const records = [] as Array<JsonObject & { market: string; venue: string; source: string }>;
+  for (const [venue, result, source] of [
+    ["TWSE", twse, ENDPOINTS.twseCompanyCatalog],
+    ["TPEX", tpex, ENDPOINTS.tpexCompanyCatalog]
+  ] as const) {
+    if (result.status !== "fulfilled") continue;
+    for (const row of catalogRows(result.value)) {
+      const symbol = firstText(row, ["公司代號", "證券代號", "Code", "SecuritiesCompanyCode", "股票代號"]).toUpperCase();
+      const name = firstText(row, ["公司名稱", "證券名稱", "CompanyName", "公司簡稱", "Name"]);
+      const industry = firstText(row, ["產業別", "產業類別", "Industry"]);
+      if (!symbol || !name || !/^[A-Z0-9.-]{1,16}$/.test(symbol)) continue;
+      const item = { symbol, name, industry, market: "TW", venue, source };
+      if (catalogMatch(item, request.query)) records.push(item);
+    }
+  }
+  const unique = Array.from(new Map(records.map(item => [`${item.venue}:${item.symbol}`, item])).values()).slice(0, 20);
+  return { items: unique, source: [ENDPOINTS.twseCompanyCatalog, ENDPOINTS.tpexCompanyCatalog], dataTimestamp: null };
+}
+
+async function loadTaiwanMarketScan(filters: Record<string, unknown>, now: number) {
+  const urls = [
+    ENDPOINTS.twseDailyAll,
+    ENDPOINTS.tpexDailyAll,
+    ENDPOINTS.twseCompanyCatalog,
+    ENDPOINTS.tpexCompanyCatalog,
+  ];
+  const results = await Promise.allSettled(urls.map(url => providerRequest(url, "json")));
+  const [twseQuotes, tpexQuotes, twseCatalog, tpexCatalog] = results.map(result => result.status === "fulfilled" ? result.value : null);
+  if (!twseQuotes && !tpexQuotes) {
+    throw new HttpError("TWSE and TPEx daily quote sources are unavailable.", 502, "TAIWAN_SCANNER_SOURCES_UNAVAILABLE");
+  }
+  const scan = buildTaiwanMarketScan({
+    twseQuotes,
+    tpexQuotes,
+    twseCatalog,
+    tpexCatalog,
+    filters,
+    generatedAt: new Date(now).toISOString(),
+  });
+  return {
+    ...scan,
+    sourceFailures: results.flatMap((result, index) => result.status === "rejected" ? [{
+      source: urls[index],
+      errorCode: "SOURCE_READ_FAILED",
+    }] : []),
+  };
 }
 
 function allowedOrigins() {
@@ -224,7 +389,7 @@ function asOfFromTwse(row: JsonObject) {
 }
 
 function yahooSymbol(request: RequestSpec) {
-  return request.market === "TW" ? `${request.symbol}.TW` : request.symbol;
+  return request.market === "TW" ? `${request.symbol}.${request.venue === "TPEX" ? "TWO" : "TW"}` : request.symbol;
 }
 
 function twseSymbol(request: RequestSpec) {
@@ -444,6 +609,33 @@ function quoteFromTwse(request: RequestSpec, payload: unknown, now: number, sour
     receivedAt: new Date(now).toISOString(),
     freshness: freshness(asOf, now, FRESH_QUOTE_MS),
     stale: freshness(asOf, now, FRESH_QUOTE_MS) === "stale",
+    available: true,
+    error: null
+  };
+}
+
+function quoteFromTpex(request: RequestSpec, payload: unknown, now: number, sourceUrl: string) {
+  const rows = catalogRows(payload);
+  const row = rows.find(item => firstText(item, ["SecuritiesCompanyCode", "證券代號", "公司代號"]) === request.symbol);
+  if (!row) throw Object.assign(new Error("TPEx daily quote unavailable"), { code: "QUOTE_UNAVAILABLE" });
+  const price = finiteNumber(row.Close ?? row.ClosingPrice ?? row.close ?? row["收盤價"]);
+  const asOf = parseTaipeiDate(row.Date ?? row.日期 ?? row["資料日期"]);
+  if (price === null || !asOf) throw Object.assign(new Error("TPEx daily quote has no valid close/date"), { code: "QUOTE_UNAVAILABLE" });
+  const freshnessLabel = freshness(asOf, now, FRESH_QUOTE_MS);
+  return {
+    contract: "zhuge-investment-quote-v1",
+    symbol: request.symbol,
+    market: "TW",
+    currency: "TWD",
+    price,
+    provider: "tpex-daily-close",
+    source: "TPEx Daily Close OpenAPI",
+    sourceUrl,
+    asOf,
+    receivedAt: new Date(now).toISOString(),
+    freshness: freshnessLabel,
+    stale: freshnessLabel === "stale",
+    delayed: true,
     available: true,
     error: null
   };
@@ -987,9 +1179,15 @@ async function loadMarketPhase(request: RequestSpec, now: number) {
 async function loadQuote(request: RequestSpec, now: number) {
   const yahooUrl = `${ENDPOINTS.yahooChart}/${encodeURIComponent(yahooSymbol(request))}?range=1d&interval=1m&includePrePost=false`;
   const twseUrl = `${ENDPOINTS.twseQuote}?ex_ch=${encodeURIComponent(twseSymbol(request))}&json=1&delay=0`;
+  const tpexUrl = ENDPOINTS.tpexDailyClose;
+  const primary = request.market === "TW" && request.venue === "TWSE"
+    ? [{ provider: "twse-open", run: async () => quoteFromTwse(request, await providerRequest(twseUrl, "json"), now, twseUrl) }]
+    : request.market === "TW" && request.venue === "TPEX"
+      ? [{ provider: "tpex-daily-close", run: async () => quoteFromTpex(request, await providerRequest(tpexUrl, "json"), now, tpexUrl) }]
+      : [];
   const result = await withFallback([
-    { provider: "yahoo-chart", run: async () => quoteFromYahoo(request, await providerRequest(yahooUrl, "json"), now, yahooUrl) },
-    ...(request.market === "TW" ? [{ provider: "twse-open", run: async () => quoteFromTwse(request, await providerRequest(twseUrl, "json"), now, twseUrl) }] : [])
+    ...primary,
+    { provider: "yahoo-chart", run: async () => quoteFromYahoo(request, await providerRequest(yahooUrl, "json"), now, yahooUrl) }
   ]);
   if (result.ok) return { ...(result.value as JsonObject), provider: result.provider, attempts: result.attempts };
   return {
@@ -1056,10 +1254,13 @@ async function loadHistories(requests: RequestSpec[], now: number) {
   const results: JsonObject[] = [];
   const trace: JsonObject[] = [];
   for (const request of requests) {
-    const result = await withFallback([
+    const candidates = request.market === "TW" && request.venue === "TWSE" ? [
       { provider: "twse-daily-history", run: async () => (await loadMarketHistory(request, now, "twse")).history },
       { provider: "yahoo-history", run: async () => (await loadMarketHistory(request, now, "yahoo")).history }
-    ].filter(candidate => request.market === "TW" || candidate.provider === "yahoo-history"));
+    ] : [
+      { provider: "yahoo-history", run: async () => (await loadMarketHistory(request, now, "yahoo")).history }
+    ];
+    const result = await withFallback(candidates);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
     results.push(result.ok
       ? { ...(result.value as JsonObject), provider: result.provider, attempts: result.attempts }
@@ -1201,12 +1402,40 @@ function validateInput(value: unknown) {
   if (!value || typeof value !== "object") throw new HttpError("Investment Intelligence request is invalid.", 400, "INVALID_REQUEST");
   const input = value as JsonObject;
   const requests = uniqueRequests(input.symbols);
-  if (!requests.length) throw new HttpError("At least one symbol is required.", 400, "SYMBOLS_REQUIRED");
+  const catalog = catalogRequest(input.catalog_query);
+  const taiwanEvidence = normalizeTaiwanEvidence(input.taiwan_evidence);
+  const taiwanMarketOverview = input.taiwan_market_overview === true;
+  const taiwanMarketScan = input.taiwan_market_scan === undefined
+    ? null
+    : input.taiwan_market_scan && typeof input.taiwan_market_scan === "object"
+      ? normalizeTaiwanScanFilters(input.taiwan_market_scan as Record<string, unknown>)
+      : null;
+  if (input.news_only !== undefined && typeof input.news_only !== "boolean") throw new HttpError("News-only flag is invalid.", 400, "NEWS_MODE_INVALID");
+  const newsOnly = input.news_only === true;
+  if (newsOnly && (!requests.length || catalog || taiwanEvidence?.length || taiwanMarketOverview || taiwanMarketScan)) {
+    throw new HttpError("News-only mode requires bounded symbol requests and no other read mode.", 400, "NEWS_MODE_INVALID");
+  }
+  if (!requests.length && !catalog && !taiwanEvidence?.length && !taiwanMarketOverview && !taiwanMarketScan) {
+    throw new HttpError("A symbol, bounded catalog query, or supported Taiwan read is required.", 400, "SYMBOLS_REQUIRED");
+  }
+  if (input.catalog_query && !catalog) throw new HttpError("Catalog query is invalid.", 400, "CATALOG_QUERY_INVALID");
+  if (input.taiwan_market_scan !== undefined && !taiwanMarketScan) throw new HttpError("Taiwan market scan filters are invalid.", 400, "SCANNER_FILTERS_INVALID");
+  if (input.taiwan_evidence !== undefined && !taiwanEvidence) throw new HttpError("Taiwan evidence query is invalid.", 400, "TAIWAN_EVIDENCE_QUERY_INVALID");
   const newsLimit = Math.min(MAX_NEWS_SYMBOLS, Math.max(1, Math.floor(Number(input.news_limit || 3))));
   const strategyIds = Array.isArray(input.strategy_ids)
     ? input.strategy_ids.map(item => text(item, 80)).filter(Boolean).slice(0, 20)
     : [];
-  return { symbols: requests, news_limit: newsLimit, strategy_ids: strategyIds, portfolio_context: input.portfolio_context };
+  return {
+    symbols: requests,
+    catalog_query: catalog,
+    taiwan_evidence: taiwanEvidence || [],
+    taiwan_market_overview: taiwanMarketOverview,
+    taiwan_market_scan: taiwanMarketScan,
+    news_limit: newsLimit,
+    news_only: newsOnly,
+    strategy_ids: strategyIds,
+    portfolio_context: input.portfolio_context,
+  };
 }
 
 Deno.serve(async request => {
@@ -1219,15 +1448,34 @@ Deno.serve(async request => {
     const input = validateInput(await request.json().catch(() => ({})));
     providerCache.clear();
     const now = Date.now();
-    const [quotes, fx, newsResult, historiesResult, fundamentalsResult, relationshipsResult, marketPhaseResult] = await Promise.all([
-      Promise.all(input.symbols.map(requestValue => loadQuote(requestValue, now))),
-      loadFx(now),
-      loadNews(input.symbols, now),
-      loadHistories(input.symbols, now),
-      loadFundamentals(input.symbols, now),
-      loadRelationships(input.symbols, now),
-      loadMarketPhases(input.symbols, now)
+    if (input.news_only) {
+      const newsResult = await loadNews(input.symbols, now);
+      return json({
+        contract: CONTRACT,
+        read_only: true,
+        generated_at: new Date(now).toISOString(),
+        news: newsResult.items,
+        provider_trace: { news: newsResult.trace },
+        quality: { news: { count: newsResult.items.length, available: newsResult.items.length > 0 } },
+      }, 200, origin);
+    }
+    const catalogResult = input.catalog_query ? await loadCatalog(input.catalog_query) : null;
+    const [taiwanEvidenceResult, taiwanMarketOverview] = await Promise.all([
+      Promise.all(input.taiwan_evidence.map(loadTaiwanEvidence)),
+      input.taiwan_market_overview ? loadOfficialTaiwanMarketPulse() : Promise.resolve(null),
     ]);
+    const taiwanMarketScan = input.taiwan_market_scan ? await loadTaiwanMarketScan(input.taiwan_market_scan, now) : null;
+    const [quotes, fx, newsResult, historiesResult, fundamentalsResult, relationshipsResult, marketPhaseResult] = input.symbols.length
+      ? await Promise.all([
+        Promise.all(input.symbols.map(requestValue => loadQuote(requestValue, now))),
+        loadFx(now),
+        loadNews(input.symbols, now),
+        loadHistories(input.symbols, now),
+        loadFundamentals(input.symbols, now),
+        loadRelationships(input.symbols, now),
+        loadMarketPhases(input.symbols, now)
+      ])
+      : [[], { available: false }, { items: [], trace: [] }, { items: [], trace: [] }, { items: [], trace: [] }, { items: [], trace: [] }, { items: {} , trace: []}];
     const contexts = input.symbols.map(requestValue => {
       const quote = quotes.find(item => item.symbol === requestValue.symbol && item.market === requestValue.market) || {};
       const history = historiesResult.items.find(item => item.symbol === requestValue.symbol && item.market === requestValue.market) || {};
@@ -1240,6 +1488,10 @@ Deno.serve(async request => {
       contract: CONTRACT,
       read_only: true,
       generated_at: new Date(now).toISOString(),
+      ...(catalogResult ? { catalog_results: catalogResult.items, catalog_source: catalogResult.source, catalog_data_timestamp: catalogResult.dataTimestamp } : {}),
+      ...(input.taiwan_evidence.length ? { taiwan_evidence: taiwanEvidenceResult } : {}),
+      ...(taiwanMarketOverview ? { taiwan_market_overview: taiwanMarketOverview } : {}),
+      ...(taiwanMarketScan ? { taiwan_market_scan: taiwanMarketScan } : {}),
       quotes,
       fx,
       news: newsResult.items,
