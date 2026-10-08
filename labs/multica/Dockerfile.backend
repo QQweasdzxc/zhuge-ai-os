@@ -11,9 +11,7 @@ COPY labs/multica/overrides/dbid.go /tmp/dbid.go
 COPY labs/multica/overrides/zhuge_auth.go /tmp/zhuge_auth.go
 COPY labs/multica/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
 COPY labs/multica/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
-RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \\
- && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go \\
- && python3 /tmp/apply-zhuge-identity.py
+RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go && python3 /tmp/apply-zhuge-identity.py
 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
