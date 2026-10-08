@@ -3,12 +3,17 @@ ARG MULTICA_UPSTREAM_COMMIT=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec
 
 FROM alpine:3.21 AS source
 ARG MULTICA_UPSTREAM_COMMIT
-RUN apk add --no-cache git
+RUN apk add --no-cache git python3
 RUN git clone https://github.com/multica-ai/multica.git /src \
  && cd /src \
  && git checkout "${MULTICA_UPSTREAM_COMMIT}"
 COPY labs/multica/overrides/dbid.go /tmp/dbid.go
-RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go
+COPY labs/multica/overrides/zhuge_auth.go /tmp/zhuge_auth.go
+COPY labs/multica/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/multica/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
+RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \\
+ && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go \\
+ && python3 /tmp/apply-zhuge-identity.py
 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
