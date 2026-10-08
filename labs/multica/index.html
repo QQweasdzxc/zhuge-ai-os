@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Multica Agent Lab · Zhuge AI OS</title>
+  <style>
+    :root{color-scheme:dark}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
+    main{max-width:760px;margin:0 auto;padding:56px 24px}
+    .card{border:1px solid #253550;border-radius:20px;background:#0f1b2d;padding:28px}
+    .eyebrow{color:#60a5fa;font-size:13px;font-weight:800;letter-spacing:.08em}
+    h1{margin:10px 0 12px;font-size:34px}
+    p{color:#aab8ca;line-height:1.7}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+    a.button{display:inline-flex;align-items:center;min-height:46px;padding:0 18px;border-radius:12px;background:#2563eb;color:white;text-decoration:none;font-weight:750}
+    a.secondary{background:#1e293b}
+    .note{margin-top:22px;padding-top:18px;border-top:1px solid #253550;font-size:13px}
+    code{color:#bfdbfe}
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="eyebrow">Zhuge AI OS · LAB</div>
+      <h1>Multica Agent Lab</h1>
+      <p>原生 Multica 人機協作實驗場。第一階段刻意保留 Board、Issues、Agents、Runs、Runtime、Blocked、Skills、Squads 與 Autopilot 的原始操作感受。</p>
+      <div class="actions">
+        <a class="button" href="https://zhuge-multica-lab.onrender.com" rel="noopener">進入 Multica Lab</a>
+        <a class="button secondary" href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer">上游原始碼</a>
+      </div>
+      <p class="note">Lab 邊界：Supabase 隔離 Schema、Zhuge UUID Authority、Zhuge-owned Runtime / Provider、<code>DO_NOT_TRACK=true</code>。不授權 Agent 直接寫入 Production main。</p>
+    </section>
+  </main>
+</body>
+</html>
