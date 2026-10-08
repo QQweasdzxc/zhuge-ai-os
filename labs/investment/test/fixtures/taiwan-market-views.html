@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab Taiwan Market Views QA</title>
+  <link rel="stylesheet" href="../../../../shared/theme/tokens.css">
+  <link rel="stylesheet" href="../../../../shared/theme/variables.css">
+  <link rel="stylesheet" href="../../../../shared/theme/typography.css">
+  <link rel="stylesheet" href="../../../../shared/theme/dark.css">
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../lab-product.css">
+  <style>output { display: block; max-width: 100%; overflow-wrap: anywhere; }</style>
+</head>
+<body>
+  <div class="investment-lab-shell"><main class="view-root">
+    <h1>台股市場視圖 QA</h1>
+    <p class="callout">DEVELOPER QA ONLY — 明確合成測試資料，不代表市場行情。</p>
+    <section class="surface"><h2>產業廣度</h2><div id="heatmap"></div><output id="filter-result"></output></section>
+    <section class="surface"><h2>排名呈現</h2><div class="scanner-presentation-bar"><button class="secondary-button" data-mode="table">表格</button><button class="secondary-button" data-mode="cards">卡片</button></div><div id="results"></div></section>
+    <section class="surface"><h2>TDCC 本機觀測</h2><p class="callout">DEVELOPER QA ONLY — 合成來源列，不代表任何股票持有人或真實市場資料。</p><div id="tdcc"></div></section>
+  </main></div>
+  <script type="module">
+    import { renderTaiwanScanResults } from "../../src/components/taiwan-scan-results.mjs";
+    import { renderTaiwanSectorHeatmap } from "../../src/components/taiwan-sector-heatmap.mjs";
+    import { filtersForTaiwanSector } from "../../src/domain/taiwan-market-scan.mjs";
+    import { renderTdccOwnership } from "../../src/components/taiwan-positioning-evidence.mjs";
+    const sectors = [
+      { rank: 1, venue: "TWSE", date: "2026-10-07", industry: "QA 正向產業", averageChangePercent: 1.2, up: 8, down: 2, flat: 0, symbols: 10, changeCoverage: 10 },
+      { rank: 2, venue: "TPEX", date: "2026-10-07", industry: "QA 缺值產業", averageChangePercent: null, up: 0, down: 0, flat: 0, symbols: 3, changeCoverage: 0 },
+    ];
+    const rows = [{ rank: 1, symbol: "QA01", name: "Synthetic Example", venue: "TWSE", date: "2026-10-07", industry: "QA 正向產業", close: 100, change: 1, changePercent: 1, volume: 100, tradeValue: 10000, score: 80, scoreComponents: { dailyChangePercentile: 70, tradeValuePercentile: 95 } }];
+    const results = document.querySelector("#results");
+    const result = document.querySelector("#filter-result");
+    document.querySelector("#heatmap").innerHTML = renderTaiwanSectorHeatmap(sectors);
+    document.querySelector("#tdcc").innerHTML = renderTdccOwnership({
+      status: "AVAILABLE", dataTimestamp: "2026-10-02", provider: "TDCC",
+      data: Array.from({ length: 17 }, (_, index) => ({ band: `來源級距 ${index + 1}`, holders: index + 1, shares: (index + 1) * 1000, percent: index < 15 ? index + 1 : null })),
+    }, {
+      status: "AVAILABLE", currentDate: "2026-10-02", currentTopThreeSourceLevelsPct: 42,
+      previousDate: "2026-09-25", previousTopThreeSourceLevelsPct: 40.5,
+      changePercentagePoints: 1.5, note: "DEVELOPER QA fixture; browser-local source-date comparison only.",
+    });
+    const render = mode => { results.innerHTML = renderTaiwanScanResults(rows, mode); results.dataset.mode = mode; };
+    render("table");
+    document.addEventListener("click", event => {
+      const mode = event.target.closest("[data-mode]")?.dataset.mode;
+      if (mode) render(mode);
+      const tile = event.target.closest('[data-action="sector-scan"]');
+      if (tile) result.textContent = JSON.stringify(filtersForTaiwanSector({ sort: "score", limit: 20, offset: 40 }, tile.dataset));
+    });
+    document.documentElement.dataset.fixtureReady = "true";
+  </script>
+</body>
+</html>

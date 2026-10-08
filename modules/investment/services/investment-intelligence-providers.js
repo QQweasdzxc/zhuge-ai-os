@@ -1154,6 +1154,8 @@
         strategy_ids: Array.isArray(input.strategyIds) ? input.strategyIds.map(String).slice(0, 20) : [],
         taiwan_evidence: Array.isArray(input.taiwanEvidence) ? input.taiwanEvidence.slice(0, 12) : [],
         taiwan_market_overview: input.taiwanMarketOverview === true,
+        global_market_context: input.globalMarketContext === true,
+        ...(String(input.tdccHistorySymbol || "").trim() ? { tdcc_history_symbol: String(input.tdccHistorySymbol).trim().toUpperCase() } : {}),
         news_only: input.newsOnly === true
       };
     }
@@ -1203,7 +1205,11 @@
         quality: Object.freeze(response.quality && typeof response.quality === "object" ? { ...response.quality } : {}),
         providerTrace: Object.freeze(response.provider_trace && typeof response.provider_trace === "object" ? { ...response.provider_trace } : {}),
         taiwanEvidence: Object.freeze(Array.isArray(response.taiwan_evidence) ? response.taiwan_evidence : []),
-        taiwanMarketOverview: response.taiwan_market_overview && typeof response.taiwan_market_overview === "object" ? Object.freeze(response.taiwan_market_overview) : null
+        taiwanMarketOverview: response.taiwan_market_overview && typeof response.taiwan_market_overview === "object" ? Object.freeze(response.taiwan_market_overview) : null,
+        globalMarketContext: response.global_market_context && typeof response.global_market_context === "object" ? Object.freeze(response.global_market_context) : null,
+        globalReferenceContext: Object.freeze(Array.isArray(response.global_reference_context) ? response.global_reference_context : []),
+        globalCommodityContext: Array.isArray(response.global_commodity_context) ? Object.freeze(response.global_commodity_context) : Object.freeze([]),
+        tdccHistoricalSeries: response.tdcc_historical_series && typeof response.tdcc_historical_series === "object" ? Object.freeze(response.tdcc_historical_series) : null
       });
     }
 
@@ -1282,6 +1288,7 @@
         fundamentals,
         relationships,
         marketPhase: marketPhases,
+        globalReferenceContext: Object.freeze([]),
         volumeConfirmations,
         contexts,
         analyses,

@@ -13,14 +13,22 @@ Do not redistribute upstream material unless its license is separately
 confirmed. The Genspark capability inventory is recorded in
 `GENSPARK_CAPABILITY_MATRIX.md`.
 
-## Yahoo Finance compatibility endpoint
+## Zhuge-owned U.S. market provider
 
-The existing Zhuge Investment Intelligence Source contains a Yahoo Chart
-compatibility provider for quote/history. Its use in Zhuge Production remains
-subject to provider terms, source availability, and human release validation.
-The Genspark author's Cloudflare Worker is not used. Until provider approval is
-recorded, Yahoo-backed US data is an `EXTERNAL_PROVIDER_BLOCKED` release gate and
-must not be reported as a verified Production capability.
+Lab_投資 uses its bounded Zhuge-owned Yahoo-compatible read Edge as the primary
+U.S. quote and daily-history provider. Returned observations retain source date,
+retrieval time, delayed/freshness state, and provider identity. Alpaca is an
+optional fallback only; no Alpaca credential is required for the primary route.
+The Genspark author's Cloudflare Worker is not used by the Lab runtime.
+
+## Alpaca US market data
+
+The optional Lab fallback issues read-only quote snapshot and daily-bars requests
+to Alpaca's official market-data API using the IEX feed. Credentials are held in
+Zhuge Edge environment variables and are never bundled into browser code. IEX
+coverage is a single exchange feed, not consolidated U.S. coverage. Alpaca is not
+required for basic U.S. research. The adapter is not a trading or
+order-execution integration.
 
 ## World Bank Commodity Price Data (Pink Sheet)
 

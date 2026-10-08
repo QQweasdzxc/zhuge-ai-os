@@ -133,8 +133,8 @@ function zhugeRootContinueMarkup() {
 }
 
 function zhugeRootReleaseMeta() {
-  const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.9.26";
-  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20261008-0050";
+  const version = typeof VERSION !== "undefined" ? VERSION : "0.9.0-alpha.9.27";
+  const build = typeof BUILD_TIME !== "undefined" ? BUILD_TIME : "20261008-1337";
   return `<div class="zhuge-root-release-meta" aria-label="版本資訊"><div><span>版本</span><strong>v${escapeHtml(version)}</strong></div><div><span>Build</span><strong>${escapeHtml(build)}</strong></div><div><span>環境</span><strong>Production</strong></div><div><span>Repository</span><strong>zhuge-ai-os</strong></div></div>`;
 }
 

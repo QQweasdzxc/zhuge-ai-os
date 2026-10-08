@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../../lab-product.css">
+  <title>Chip Cycle QA Fixture</title>
+</head>
+<body class="investment-lab">
+  <main class="lab-main"><div id="fixture"></div></main>
+  <script type="module">
+    import { buildChipCycleObservation } from "../../src/domain/chip-cycle-observation.mjs";
+    import { renderChipCycleObservation } from "../../src/components/chip-cycle-observation.mjs";
+    const bars = Array.from({ length: 20 }, (_, index) => {
+      const close = 100 + index * 0.1;
+      return { date: `2026-09-${String(index + 1).padStart(2, "0")}`, open: close - 0.02, high: close + 0.1, low: close - 0.1, close, volume: 100 + index };
+    });
+    const summary = { fiveSessions: { sessions: 5, complete: true, through: "2026-09-30", allThreeNetShares: 5000 } };
+    document.querySelector("#fixture").innerHTML = renderChipCycleObservation(buildChipCycleObservation({ bars, institutionalSummary: summary }));
+    document.documentElement.dataset.fixtureReady = "true";
+  </script>
+</body>
+</html>

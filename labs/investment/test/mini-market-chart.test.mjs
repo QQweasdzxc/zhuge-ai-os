@@ -79,7 +79,7 @@ test("not-connected and unavailable histories show explicit state and no synthet
   const notConnected = MiniMarketChart({ evidence: { status: "NOT_CONNECTED", provider: "TPEx", errorCode: "HISTORY_NOT_CONNECTED", data: null }, mode: "portfolio", averageCost: 12 });
   assert.match(notConnected, /data-chart-type="none" data-state="NOT_CONNECTED"/);
   assert.match(notConnected, /data-bar-count="0" data-has-volume="false" data-has-cost-reference="false"/);
-  assert.match(notConnected, /歷史行情尚未接通/);
+  assert.match(notConnected, /尚無已驗證的官方歷史行情來源/);
   assert.match(notConnected, /HISTORY_NOT_CONNECTED/);
   assert.doesNotMatch(notConnected, /<svg|<rect|data-average-cost-reference="true"/);
 
@@ -87,6 +87,15 @@ test("not-connected and unavailable histories show explicit state and no synthet
   assert.match(unavailable, /data-state="UNAVAILABLE"/);
   assert.match(unavailable, /歷史行情暫時無法取得/);
   assert.doesNotMatch(unavailable, /<svg|<rect/);
+});
+
+test("US history secret gate names the Zhuge Edge setup boundary without fabricating a chart", () => {
+  const html = MiniMarketChart({ evidence: {
+    status: "NOT_CONNECTED", provider: "Alpaca IEX", errorCode: "EXTERNAL_SECRET_REQUIRED", data: null,
+  } });
+  assert.match(html, /美股歷史行情來源暫時無法取得；Alpaca 僅是可選備援，並非使用必要條件/);
+  assert.match(html, /data-chart-type="none"/);
+  assert.doesNotMatch(html, /<svg|data-candle="true"|data-close-fallback="true"/);
 });
 
 test("up candles are Taiwan-red and down candles are Taiwan-green; flat uses neutral tone", () => {

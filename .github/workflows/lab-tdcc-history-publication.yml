@@ -1,0 +1,46 @@
+name: Lab TDCC History Publication
+
+on:
+  push:
+    branches:
+      - main
+    # Bootstrap the first artifact when the publisher is introduced. Ordinary
+    # Product pushes do not cause another data publication.
+    paths:
+      - .github/workflows/lab-tdcc-history-publication.yml
+      - labs/investment/scripts/publish-tdcc-history.mjs
+  schedule:
+    # Government dataset metadata identifies a monthly update cadence; poll on
+    # the first Monday after month start instead of claiming weekly freshness.
+    - cron: "30 18 1-7 * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lab-tdcc-history-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish source-dated TDCC history artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch, merge and publish official TDCC snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node labs/investment/scripts/publish-tdcc-history.mjs

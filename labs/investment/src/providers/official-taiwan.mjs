@@ -2,6 +2,7 @@ import { makeEvidence, unavailableEvidence } from "../lib/contract.mjs";
 import { fetchCached, ProviderError } from "../lib/http-cache.mjs";
 import { first, monthStarts, normalizeDate, number, rows, staleByCalendarDays, text } from "../lib/normalize.mjs";
 import { calculateIndicators } from "../domain/indicators.mjs";
+import { summarizeInstitutionalFlows } from "../domain/institutional-flow-summary.mjs";
 
 const BASE = Object.freeze({
   twseOpen: "https://openapi.twse.com.tw/v1",
@@ -321,41 +322,122 @@ function arrayRowObject(fields, record) {
   return Object.fromEntries((fields ?? []).slice(0, record.length).map((field, index) => [field, record[index]]));
 }
 
+function tabularRows(payload) {
+  const rootRows = rows(payload);
+  const root = payload && typeof payload === "object" ? payload : {};
+  const direct = rootRows.length
+    ? rootRows.map(row => Array.isArray(row) ? arrayRowObject(root.fields, row) : row)
+    : [];
+  if (direct.length) return direct;
+  const tables = Array.isArray(root.tables) ? root.tables : [];
+  return tables.flatMap(table => {
+    if (!table || typeof table !== "object") return [];
+    const tableRows = rows(table.data);
+    return tableRows.map(row => Array.isArray(row) ? arrayRowObject(table.fields, row) : row);
+  });
+}
+
+function recentWeekdayDateKeys(endDate, limit = 24) {
+  const normalized = normalizeDate(endDate)
+    ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei" }).format(new Date());
+  const cursor = new Date(`${normalized}T12:00:00.000Z`);
+  const dates = [];
+  for (let checked = 0; checked < 45 && dates.length < limit; checked += 1) {
+    const weekday = cursor.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) dates.push(cursor.toISOString().slice(0, 10).replace(/-/g, ""));
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return dates;
+}
+
+function tpexInstitutionalPoint(row) {
+  const point = {
+    date: dateFromRow(row),
+    foreignNetShares: number(first(row, ["ForeignInvestorsIncludeMainlandAreaInvestors-Difference", "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference"])),
+    trustNetShares: number(first(row, ["SecuritiesInvestmentTrustCompanies-Difference"])),
+    dealerNetShares: number(first(row, ["Dealers-Difference", "DealersDifference"])),
+  };
+  point.allThreeNetShares = [point.foreignNetShares, point.trustNetShares, point.dealerNetShares].every(value => value != null)
+    ? point.foreignNetShares + point.trustNetShares + point.dealerNetShares
+    : null;
+  return point.date ? point : null;
+}
+
 export async function loadInstitutional(value, tradeDate = null) {
   const item = symbolInfo(value);
   if (item.venue === "TWSE") {
-    const queryDate = (tradeDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei" }).format(new Date())).replace(/-/g, "");
-    const url = `${BASE.twseWeb}/fund/T86?response=json&date=${queryDate}&selectType=ALLBUT0999`;
+    const dateKeys = recentWeekdayDateKeys(tradeDate);
+    const points = [];
+    const sourceUrls = [];
+    let latestResult = null;
+    let latestResultDate = "";
+    let latestPoint = null;
+    let failures = 0;
     try {
-      const result = await getJson(url, 30 * 60_000);
-      const match = rows(result.value?.data).map((record) => arrayRowObject(result.value.fields, record))
-        .find((row) => text(first(row, ["證券代號"])) === item.code);
-      if (!match) return evidenceFromResult({ result, provider: "TWSE", source: [url], data: null, dataTimestamp: normalizeDate(result.value?.date), note: "TWSE 三大法人資料未找到此標的或該交易日尚未發布。" });
+      for (let index = 0; index < dateKeys.length && points.length < 10; index += 4) {
+        const batch = dateKeys.slice(index, index + 4);
+        const results = await Promise.allSettled(batch.map(async (queryDate) => {
+          const url = `${BASE.twseWeb}/fund/T86?response=json&date=${queryDate}&selectType=ALLBUT0999`;
+          const result = await getJson(url, 30 * 60_000);
+          const match = rows(result.value?.data).map((record) => arrayRowObject(result.value.fields, record))
+            .find((row) => text(first(row, ["證券代號"])) === item.code);
+          if (!match) return { result, url, point: null };
+          const point = {
+            date: normalizeDate(result.value?.date) ?? normalizeDate(queryDate),
+            foreignNetShares: number(first(match, ["外陸資買賣超股數(不含外資自營商)"])),
+            trustNetShares: number(first(match, ["投信買賣超股數"])),
+            dealerNetShares: number(first(match, ["自營商買賣超股數"])),
+            allThreeNetShares: number(first(match, ["三大法人買賣超股數"])),
+          };
+          return { result, url, point: point.date ? point : null };
+        }));
+        for (const result of results) {
+          if (result.status === "rejected") { failures += 1; continue; }
+          if (!latestResult) latestResult = result.value.result;
+          if (!result.value.point) continue;
+          points.push(result.value.point);
+          sourceUrls.push(result.value.url);
+          if (!latestPoint || result.value.point.date > latestPoint.date) {
+            latestPoint = result.value.point;
+            latestResult = result.value.result;
+            latestResultDate = result.value.point.date;
+          }
+        }
+      }
+      if (!latestPoint) {
+        if (!latestResult && failures) return unavailableEvidence("TWSE", [`${BASE.twseWeb}/fund/T86`], "PROVIDER_READ_FAILED", "TWSE 三大法人資料暫時無法讀取。");
+        const attempted = dateKeys.map(queryDate => `${BASE.twseWeb}/fund/T86?response=json&date=${queryDate}&selectType=ALLBUT0999`);
+        return evidenceFromResult({ result: latestResult, provider: "TWSE", source: attempted, data: null, dataTimestamp: null, note: "TWSE 三大法人資料未找到此標的或近期交易日尚未發布。" });
+      }
+      const historySummary = summarizeInstitutionalFlows(points);
       const data = {
-        foreignNetShares: number(first(match, ["外陸資買賣超股數(不含外資自營商)"])),
-        trustNetShares: number(first(match, ["投信買賣超股數"])),
-        dealerNetShares: number(first(match, ["自營商買賣超股數"])),
-        allThreeNetShares: number(first(match, ["三大法人買賣超股數"])),
+        foreignNetShares: latestPoint.foreignNetShares,
+        trustNetShares: latestPoint.trustNetShares,
+        dealerNetShares: latestPoint.dealerNetShares,
+        allThreeNetShares: latestPoint.allThreeNetShares,
+        historySummary: { ...historySummary, sourceFailures: failures },
       };
-      return evidenceFromResult({ result, provider: "TWSE", source: [url], data, dataTimestamp: normalizeDate(result.value?.date) ?? queryDate, note: "官方三大法人日買賣超股數；是當日交易流量，不是法人持股名單。", staleDays: 5, partial: Object.values(data).some((entry) => entry == null) });
+      const source = [...new Set(sourceUrls)];
+      const complete = [data.foreignNetShares, data.trustNetShares, data.dealerNetShares, data.allThreeNetShares].every(entry => entry != null);
+      const summariesComplete = historySummary.fiveSessions.complete && historySummary.tenSessions.complete;
+      return evidenceFromResult({ result: latestResult, provider: "TWSE", source, data, dataTimestamp: latestResultDate || latestPoint.date, note: "官方 T86 三大法人日買賣超；含近 5／10 個實際來源交易日累計與連買賣摘要。是交易流量，不是法人持股名單。", staleDays: 5, partial: !complete || !summariesComplete || failures > 0 });
     } catch (error) {
-      return unavailableEvidence("TWSE", [url], error?.code ?? "PROVIDER_READ_FAILED", "三大法人資料暫時無法讀取。" );
+      return unavailableEvidence("TWSE", [`${BASE.twseWeb}/fund/T86`], error?.code ?? "PROVIDER_READ_FAILED", "三大法人資料暫時無法讀取。" );
     }
   }
 
   const url = API.tpexInstitutional;
   try {
     const result = await getJson(url, ttl.list);
-    const match = rows(result.value).filter((row) => text(row.SecuritiesCompanyCode) === item.code)
-      .sort((a, b) => String(b.Date).localeCompare(String(a.Date)))[0];
-    if (!match) return evidenceFromResult({ result, provider: "TPEx", source: [url], data: null, dataTimestamp: null, note: "TPEx 三大法人資料未找到此標的。" });
-    const date = normalizeDate(match.Date);
-    const data = {
-      foreignNetShares: number(first(match, ["ForeignInvestorsIncludeMainlandAreaInvestors-Difference", "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference"])),
-      trustNetShares: number(first(match, ["SecuritiesInvestmentTrustCompanies-Difference"])),
-      dealerNetShares: number(first(match, ["Dealers-Difference", "DealersDifference"])),
-    };
-    return evidenceFromResult({ result, provider: "TPEx", source: [url], data, dataTimestamp: date, note: "官方三大法人日買賣超股數；資料欄位保留交易所定義，不推論機構持倉。", staleDays: 5, partial: Object.values(data).some((entry) => entry == null) });
+    const points = rows(result.value).filter((row) => text(row.SecuritiesCompanyCode) === item.code)
+      .map(tpexInstitutionalPoint).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date)).slice(-10);
+    const latestPoint = points.at(-1);
+    if (!latestPoint) return evidenceFromResult({ result, provider: "TPEx", source: [url], data: null, dataTimestamp: null, note: "TPEx 三大法人資料未找到此標的。" });
+    const historySummary = summarizeInstitutionalFlows(points);
+    const data = { ...latestPoint, historySummary: { ...historySummary, sourceFailures: 0 } };
+    const complete = [data.foreignNetShares, data.trustNetShares, data.dealerNetShares, data.allThreeNetShares].every(entry => entry != null);
+    const summariesComplete = historySummary.fiveSessions.complete && historySummary.tenSessions.complete;
+    return evidenceFromResult({ result, provider: "TPEx", source: [url], data, dataTimestamp: latestPoint.date, note: "官方 TPEx 三大法人日買賣超；三類法人加總由同一來源列計算，並提供近 5／10 個來源交易日摘要。", staleDays: 5, partial: !complete || !summariesComplete });
   } catch (error) {
     return unavailableEvidence("TPEx", [url], error?.code ?? "PROVIDER_READ_FAILED", "三大法人資料暫時無法讀取。" );
   }
@@ -475,6 +557,112 @@ async function loadTwseInstitutionalMarket(date) {
   }
 }
 
+async function loadTpexInstitutionalMarket() {
+  const url = API.tpexInstitutional;
+  try {
+    const result = await getJson(url, ttl.list);
+    const sourceRows = rows(result.value).filter(row => text(row.SecuritiesCompanyCode));
+    const dates = sourceRows.map(row => dateFromRow(row)).filter(Boolean).sort();
+    const date = dates.at(-1) ?? null;
+    const latest = sourceRows.filter(row => dateFromRow(row) === date);
+    const counts = new Map();
+    for (const row of latest) counts.set(text(row.SecuritiesCompanyCode), (counts.get(text(row.SecuritiesCompanyCode)) ?? 0) + 1);
+    const duplicateRows = [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+    const bySymbol = new Map(latest.map(row => [text(row.SecuritiesCompanyCode), row]));
+    const securities = [...bySymbol.values()];
+    const sum = key => {
+      if (!securities.length || duplicateRows) return null;
+      const values = securities.map(row => number(row[key]));
+      return values.every(value => value != null) ? values.reduce((total, value) => total + value, 0) : null;
+    };
+    const data = {
+      foreignNetShares: sum("ForeignInvestorsIncludeMainlandAreaInvestors-Difference"),
+      trustNetShares: sum("SecuritiesInvestmentTrustCompanies-Difference"),
+      dealerNetShares: sum("Dealers-Difference"),
+      securitiesRows: securities.length,
+      duplicateRows,
+      dataDate: date,
+    };
+    data.allThreeNetShares = [data.foreignNetShares, data.trustNetShares, data.dealerNetShares].every(value => value != null)
+      ? data.foreignNetShares + data.trustNetShares + data.dealerNetShares
+      : null;
+    const complete = securities.length > 0 && duplicateRows === 0 && [data.foreignNetShares, data.trustNetShares, data.dealerNetShares, data.allThreeNetShares].every(value => value != null);
+    return evidenceFromResult({ result, provider: "TPEx", source: [url], data: securities.length ? data : null,
+      dataTimestamp: date, note: "依 TPEx 三大法人日資料逐筆彙總上櫃證券；只累加同一來源日期且代碼去重。缺任一列欄位時保留該總額為空，不將空值當零。",
+      staleDays: 5, partial: !complete, status: securities.length ? undefined : "UNAVAILABLE" });
+  } catch (error) {
+    return unavailableEvidence("TPEx", [url], error?.code ?? "PROVIDER_READ_FAILED", "上櫃三大法人市場彙總暫時無法讀取。");
+  }
+}
+
+function marginRows(payload, venue) {
+  const marginKeys = venue === "TWSE" ? ["融資今日餘額", "融資餘額"] : ["MarginPurchaseBalance"];
+  const shortKeys = venue === "TWSE" ? ["融券今日餘額", "融券餘額"] : ["ShortSaleBalance"];
+  return tabularRows(payload).filter(row => text(first(row, ["股票代號", "證券代號", "SecuritiesCompanyCode", "Code"]))
+    && marginKeys.some(key => Object.hasOwn(row, key))
+    && shortKeys.some(key => Object.hasOwn(row, key)));
+}
+
+function aggregateMarginVenue({ payload, result, venue, url }) {
+  const allRows = marginRows(payload, venue);
+  const codeKey = venue === "TWSE" ? ["股票代號", "證券代號", "Code"] : ["SecuritiesCompanyCode", "證券代號", "股票代號"];
+  const candidates = allRows.filter(row => /^[A-Z0-9]{1,8}$/i.test(text(first(row, codeKey))));
+  const dates = candidates.map(row => dateFromRow(row)).filter(Boolean).sort();
+  const date = dates.at(-1) ?? normalizeDate(payload?.date) ?? null;
+  const sourceScoped = date ? candidates.filter(row => !dateFromRow(row) || dateFromRow(row) === date) : candidates;
+  const scopedCodes = sourceScoped.map(row => text(first(row, codeKey)));
+  const duplicateRows = scopedCodes.length - new Set(scopedCodes).size;
+  const scoped = [...new Map(sourceScoped.map(row => [text(first(row, codeKey)), row])).values()];
+  const marginKeys = venue === "TWSE" ? ["融資今日餘額", "融資餘額"] : ["MarginPurchaseBalance"];
+  const shortKeys = venue === "TWSE" ? ["融券今日餘額", "融券餘額"] : ["ShortSaleBalance"];
+  const sumField = keys => {
+    if (!scoped.length) return { value: null, missingRows: 0 };
+    const values = scoped.map(row => number(first(row, keys)));
+    const missingRows = values.filter(value => value == null).length;
+    return { value: missingRows || duplicateRows ? null : values.reduce((sum, value) => sum + value, 0), missingRows };
+  };
+  const margin = sumField(marginKeys), short = sumField(shortKeys);
+  const data = scoped.length ? {
+    marginBalance: margin.value,
+    shortBalance: short.value,
+    securitiesRows: scoped.length,
+    marginMissingRows: margin.missingRows,
+    shortMissingRows: short.missingRows,
+    duplicateRows,
+    dataDate: date,
+    coverage: "來源中可辨識的代碼列；不是衍生性商品、券資比或金額統計",
+  } : null;
+  const complete = Boolean(data && date && duplicateRows === 0 && margin.value != null && short.value != null);
+  return evidenceFromResult({ result, provider: venue, source: [url], data, dataTimestamp: date,
+    note: "依交易所當日融資融券表逐證券餘額彙總；上市／上櫃分開呈現，不跨交易所合併。只有所有代碼列欄位齊全時才顯示總額。",
+    staleDays: 5, partial: !complete, status: data ? undefined : "UNAVAILABLE" });
+}
+
+async function loadMarketMargin() {
+  const urls = [API.twseMargin, API.tpexMargin];
+  const results = await Promise.allSettled(urls.map(url => getJson(url, ttl.list)));
+  const twse = results[0].status === "fulfilled"
+    ? aggregateMarginVenue({ payload: results[0].value.value, result: results[0].value, venue: "TWSE", url: urls[0] })
+    : unavailableEvidence("TWSE", [urls[0]], results[0].reason?.code ?? "PROVIDER_READ_FAILED", "上市融資融券市場彙總暫時無法讀取。");
+  const tpex = results[1].status === "fulfilled"
+    ? aggregateMarginVenue({ payload: results[1].value.value, result: results[1].value, venue: "TPEx", url: urls[1] })
+    : unavailableEvidence("TPEx", [urls[1]], results[1].reason?.code ?? "PROVIDER_READ_FAILED", "上櫃融資融券市場彙總暫時無法讀取。");
+  const available = [twse, tpex].filter(item => item.data);
+  const complete = [twse, tpex].every(item => item.status === "AVAILABLE");
+  const dates = [twse.dataTimestamp, tpex.dataTimestamp].filter(Boolean).sort();
+  return makeEvidence({
+    status: complete ? "AVAILABLE" : available.length ? "PARTIAL" : "UNAVAILABLE",
+    dataTruth: "OFFICIAL", provider: "TWSE / TPEx", source: urls,
+    dataTimestamp: dates.length === 2 && dates[0] === dates[1] ? dates[0] : null,
+    fetchedAt: results.flatMap(item => item.status === "fulfilled" ? [item.value.fetchedAt] : []).filter(Boolean).sort().at(-1) ?? null,
+    stale: dates.length === 2 && dates[0] === dates[1] ? staleByCalendarDays(dates[0], 5) : null,
+    delayed: true, fallback: false,
+    note: "上市與上櫃餘額保留各自來源、日期與涵蓋列數；日期不同時不提供跨市場合計。部分證券欄位缺漏時該市場總額保持空白。",
+    errorCode: available.length ? null : "MARKET_MARGIN_UNAVAILABLE",
+    data: { TWSE: twse, TPEx: tpex },
+  });
+}
+
 async function loadMarketBreadth() {
   const sources = [API.twseQuotes, API.tpexQuotes];
   try {
@@ -504,15 +692,17 @@ async function loadMarketBreadth() {
 export async function loadMarketPulse() {
   const [index, breadth] = await Promise.all([loadMarketIndex(), loadMarketBreadth()]);
   const tradeDate = index.dataTimestamp;
-  const institutions = await loadTwseInstitutionalMarket(tradeDate);
-  const notConnected = (provider, note, code) => makeEvidence({ status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider, note, errorCode: code });
+  const [institutions, tpexInstitutions, margin] = await Promise.all([
+    loadTwseInstitutionalMarket(tradeDate), loadTpexInstitutionalMarket(), loadMarketMargin(),
+  ]);
   return {
     generatedAt: new Date().toISOString(),
     index,
     breadth,
     institutions,
-    margin: notConnected("TWSE / TPEx", "市場融資融券合計尚未完成口徑對齊；個股研究頁可查看官方個股餘額。", "MARKET_MARGIN_NOT_CONNECTED"),
-    sectors: notConnected("TWSE / TPEx", "產業分類與全市場每日統計尚未完成資料口徑驗證。", "SECTOR_SUMMARY_NOT_CONNECTED"),
+    tpexInstitutions,
+    margin,
+    sectors: makeEvidence({ status: "NOT_CONNECTED", dataTruth: "NOT_CONNECTED", provider: "TWSE / TPEx", note: "產業分類與全市場每日統計尚未完成資料口徑驗證。", errorCode: "SECTOR_SUMMARY_NOT_CONNECTED" }),
   };
 }
 

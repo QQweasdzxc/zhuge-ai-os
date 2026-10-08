@@ -25,7 +25,7 @@ test("Lab shipped runtime has no Genspark author account or license-worker depen
     source: await readFile(file, "utf8"),
   })));
   const forbidden = [
-    ["upstream Worker host", /license-worker\.dvorak0727\.workers\.dev/i],
+    ["upstream Worker host", /dvorak0727\.workers\.dev/i],
     ["original author identity", /dvorak0727(?:\.github\.io|@gmail\.com)/i],
     ["original license storage", /LICENSE_KV/i],
     ["original license verification route", /(?:fetch\s*\(\s*[^\n]{0,160})?\/verify(?:[/?'"`]|\b)/i],
@@ -34,6 +34,8 @@ test("Lab shipped runtime has no Genspark author account or license-worker depen
     ["upstream product branding", /Genspark[- ]Stock[- ]AI/i],
   ];
   const violations = [];
+  const browserSources = sources.map(item => item.source).join("\n");
+  assert.doesNotMatch(browserSources, /ALPACA_API_(?:KEY_ID|SECRET_KEY)|APCA-API-KEY-ID|APCA-API-SECRET-KEY/i, "US provider credentials belong only in the Zhuge Edge environment, never shipped browser source");
   for (const { file, source } of sources) {
     for (const [label, pattern] of forbidden) {
       if (pattern.test(source)) violations.push(`${file}: ${label}`);

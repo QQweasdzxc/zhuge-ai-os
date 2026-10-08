@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTaiwanMarketScan, normalizeTaiwanScanFilters } from "../src/domain/taiwan-market-scan.mjs";
+import { buildTaiwanMarketScan, filtersForTaiwanSector, normalizeTaiwanScanFilters } from "../src/domain/taiwan-market-scan.mjs";
 
 const twseQuotes = [
   { Date: "2026/10/07", Code: "1101", Name: "台泥", TradeVolume: "1,000", TradeValue: "50,000", OpeningPrice: "49", HighestPrice: "52", LowestPrice: "48", ClosingPrice: "51", Change: "2" },
@@ -67,6 +67,41 @@ test("scan filters are bounded and invalid venue/ranges fail closed", () => {
   assert.equal(normalizeTaiwanScanFilters({ offset: 100000 }).offset, 5000);
 });
 
+test("price, change and volume filters are applied together before relative ranking", () => {
+  const result = buildTaiwanMarketScan({
+    twseQuotes,
+    tpexQuotes,
+    twseCatalog,
+    tpexCatalog,
+    filters: { venue: "TWSE", minPrice: 300, maxPrice: 304, minChangePct: 0, maxChangePct: 2, minVolume: 1500, minTradeValue: 100_000 },
+  });
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0].symbol, "2330");
+  assert.deepEqual(result.filters, {
+    venue: "TWSE", industry: "", minPrice: 300, maxPrice: 304, minChangePct: 0,
+    maxChangePct: 2, minVolume: 1500, minTradeValue: 100_000,
+    sort: "score", limit: 50, offset: 0,
+  });
+  assert.equal(normalizeTaiwanScanFilters({ minChangePct: 2, maxChangePct: 1 }), null);
+});
+
+test("selecting a heatmap tile opens bounded scanner filters for its source industry", () => {
+  assert.deepEqual(filtersForTaiwanSector({ sort: "change", limit: 25, offset: 50 }, { venue: "TPEX", industry: "半導體業" }), {
+    venue: "TPEX",
+    industry: "半導體業",
+    minPrice: null,
+    maxPrice: null,
+    minChangePct: null,
+    maxChangePct: null,
+    minVolume: null,
+    minTradeValue: null,
+    sort: "change",
+    limit: 25,
+    offset: 0,
+  });
+  assert.equal(filtersForTaiwanSector({}, { venue: "not-a-venue", industry: "半導體業" }).venue, "ALL");
+});
+
 test("industry options are canonical source labels and do not invent an unknown industry", () => {
   const result = buildTaiwanMarketScan({
     twseQuotes,
@@ -76,4 +111,24 @@ test("industry options are canonical source labels and do not invent an unknown 
   });
   assert.deepEqual(result.industryOptions, ["水泥工業"]);
   assert.equal(result.items.find(item => item.symbol === "2330").industry, null);
+});
+
+test("sector summary retains every source-backed industry instead of truncating the heatmap universe", () => {
+  const quotes = Array.from({ length: 10 }, (_, index) => ({
+    Date: "2026/10/07",
+    Code: String(1000 + index),
+    Name: `公司${index}`,
+    ClosingPrice: String(20 + index),
+    Change: String(index % 2 ? -1 : 1),
+    TradeVolume: "100",
+    TradeValue: "2000",
+  }));
+  const catalog = quotes.map((row, index) => ({
+    公司代號: row.Code,
+    公司名稱: row.Name,
+    產業別: `產業${index}`,
+  }));
+  const result = buildTaiwanMarketScan({ twseQuotes: quotes, tpexQuotes: [], twseCatalog: catalog, tpexCatalog: [] });
+  assert.equal(result.sectorSummary.length, 10);
+  assert.deepEqual(result.sectorSummary.map(item => item.rank), Array.from({ length: 10 }, (_, index) => index + 1));
 });

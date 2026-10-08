@@ -84,6 +84,14 @@ export function normalizeTaiwanScanFilters(input = {}) {
   return Object.freeze(filters);
 }
 
+/** Preserve current bounded scanner choices while opening a selected source industry. */
+export function filtersForTaiwanSector(current = {}, sector = {}) {
+  const base = normalizeTaiwanScanFilters(current) || normalizeTaiwanScanFilters();
+  const venue = normalizedVenue(sector.venue) || "ALL";
+  const industry = text(sector.industry, 120);
+  return normalizeTaiwanScanFilters({ ...base, venue, industry, offset: 0 });
+}
+
 function percentileRanks(items, field) {
   const available = items.filter(item => Number.isFinite(item[field])).slice().sort((a, b) => a[field] - b[field] || a.symbol.localeCompare(b.symbol));
   const ranks = new Map();
@@ -184,7 +192,7 @@ export function buildTaiwanMarketScan({ twseQuotes, tpexQuotes, twseCatalog, tpe
   }
   for (const group of sectorGroups.values()) {
     group.sort((a, b) => (b.averageChangePercent ?? -Infinity) - (a.averageChangePercent ?? -Infinity) || a.industry.localeCompare(b.industry, "zh-TW"));
-    group.slice(0, 8).forEach((item, index) => sectorSummary.push({ ...item, rank: index + 1 }));
+    group.forEach((item, index) => sectorSummary.push({ ...item, rank: index + 1 }));
   }
   sectorSummary.sort((a, b) => a.rank - b.rank || a.date.localeCompare(b.date) || a.venue.localeCompare(b.venue));
   const filtered = latest.filter(item => passesFilters(item, filters));

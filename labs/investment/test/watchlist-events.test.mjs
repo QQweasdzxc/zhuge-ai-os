@@ -17,7 +17,7 @@ test("candidate news attaches only to the exact canonical market and symbol", ()
   assert.deepEqual(result.items.map(item => `${item.market}:${item.symbol}`).sort(), ["TW:ABC", "US:ABC"]);
   assert.equal(result.items.some(item => item.title === "unscoped result"), false);
   assert.equal(result.items.every(item => item.classification === "candidate_provider_search_result"), true);
-  assert.equal(result.notificationDelivery, "HUMAN_GATE");
+  assert.equal(result.notificationDelivery, "SECRET_REQUIRED");
 });
 
 test("event candidates reject unsafe source URLs and incomplete provider rows", () => {

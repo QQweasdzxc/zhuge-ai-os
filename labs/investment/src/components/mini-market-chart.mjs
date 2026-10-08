@@ -29,7 +29,11 @@ function validCandle(row) {
 
 function emptyChart({ mode, evidence }) {
   const state = evidence?.status === "UNAVAILABLE" || evidence?.status === "ERROR" ? "UNAVAILABLE" : "NOT_CONNECTED";
-  const message = state === "NOT_CONNECTED" ? "歷史行情尚未接通" : "歷史行情暫時無法取得";
+  const message = evidence?.errorCode === "EXTERNAL_SECRET_REQUIRED"
+    ? "美股歷史行情來源暫時無法取得；Alpaca 僅是可選備援，並非使用必要條件。"
+    : evidence?.errorCode === "HISTORY_NOT_CONNECTED"
+      ? "此掛牌市場尚無已驗證的官方歷史行情來源。"
+      : state === "NOT_CONNECTED" ? "歷史行情尚未接通" : "歷史行情暫時無法取得";
   return '<section class="mini-market-chart" data-mode="' + mode + '" data-chart-type="none" data-state="' + state + '" data-bar-count="0" data-has-volume="false" data-has-cost-reference="false" aria-label="' + (mode === "portfolio" ? "持股" : "研究") + '近 20 日行情">'
     + '<div class="mini-market-chart-head"><strong>近 20 日行情</strong><span class="mini-market-chart-state" data-state="' + state + '">' + state + '</span></div>'
     + '<p class="mini-market-chart-empty">' + message + '</p>'

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Treasury yield curve component QA fixture</title>
+  <link rel="stylesheet" href="../../../../shared/theme/tokens.css">
+  <link rel="stylesheet" href="../../lab-product.css">
+</head>
+<body class="investment-lab-shell">
+  <main class="app">
+    <section class="view-root">
+      <p class="tiny-note">Synthetic QA fixture; not live Treasury</p>
+      <div id="fixture"></div>
+    </section>
+  </main>
+  <script type="module">
+    import { renderUsTreasuryContext } from "../../src/components/us-treasury-context.mjs";
+    document.querySelector("#fixture").innerHTML = renderUsTreasuryContext({
+      available: true,
+      provider: "Synthetic QA fixture",
+      dataTimestamp: "2026-10-06",
+      freshness: "fresh",
+      source: [],
+      data: { twoYearPct: 3.98, tenYearPct: 4.18, thirtyYearPct: 4.8, tenYearMinusTwoYearPct: 0.2 },
+      note: "Synthetic QA fixture; not live Treasury.",
+    });
+    document.documentElement.dataset.fixtureReady = "true";
+  </script>
+</body>
+</html>

@@ -68,7 +68,7 @@ export function matchWatchlistEventCandidates(watchlist = [], providerItems = []
     totalCount: rows.length,
     unscannedCount,
     items: Object.freeze(items),
-    notificationDelivery: "HUMAN_GATE",
+    notificationDelivery: "SECRET_REQUIRED",
     note: "來源搜尋結果僅為候選訊息，尚未人工核對原文；此功能不寄送通知。",
   });
 }

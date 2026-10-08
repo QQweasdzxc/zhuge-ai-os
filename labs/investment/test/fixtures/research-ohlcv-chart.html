@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab Research OHLCV Conformance</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../mini-market-chart.css">
+</head>
+<body>
+  <main class="view-root">
+    <h1>研究 OHLCV 圖表 QA</h1>
+    <p class="callout">DEVELOPER QA ONLY — 下列 OHLCV 是合成測試資料，不代表市場報價或真實持股。</p>
+    <section class="surface" id="chart"></section>
+  </main>
+  <script type="module">
+    import { renderResearchOhlcvChart } from "../../src/components/research-ohlcv-chart.mjs";
+    const bars = Array.from({ length: 20 }, (_, index) => {
+      const open = 100 + index;
+      const close = open + (index % 2 ? -0.5 : 0.75);
+      return { date: `2026-09-${String(index + 1).padStart(2, "0")}`, open, high: Math.max(open, close) + 1, low: Math.min(open, close) - 1, close, volume: (index + 1) * 100 };
+    });
+    document.querySelector("#chart").innerHTML = renderResearchOhlcvChart({
+      status: "AVAILABLE", provider: "Synthetic QA fixture", dataTimestamp: "2026-09-30", delayed: true,
+      data: bars,
+    }, { market: "US" });
+    document.documentElement.dataset.fixtureReady = "true";
+  </script>
+</body>
+</html>

@@ -67,7 +67,7 @@ test("TW research requests include the resolved listing identity for canonical c
   assert.equal(request.symbols[0].venue, "TWSE");
   assert.deepEqual(request.taiwanEvidence, [{
     symbol: "7456", market: "TW", venue: "TWSE", name: "Example Holdings",
-    kinds: ["institutional", "ownership", "margin", "announcements"],
+    kinds: ["institutional", "ownership", "margin", "announcements", "brokerBranches"],
   }]);
 });
 
@@ -128,7 +128,13 @@ test("Taiwan chip and market reads use the authenticated existing Edge and offic
       margin: { status: "AVAILABLE", data: { marginBalance: 20 } },
       announcements: { status: "EMPTY", data: [] },
     } }],
-    taiwanMarketOverview: { index: { status: "AVAILABLE" }, breadth: { status: "AVAILABLE" } },
+    taiwanMarketOverview: {
+      index: { status: "AVAILABLE" }, breadth: { status: "AVAILABLE" },
+      institutions: { status: "AVAILABLE", provider: "TWSE", data: { allThreeNetShares: 30 } },
+      tpexInstitutions: { status: "PARTIAL", provider: "TPEx", data: { allThreeNetShares: null } },
+      margin: { status: "AVAILABLE", provider: "TWSE / TPEx", data: { TWSE: { status: "AVAILABLE" }, TPEx: { status: "AVAILABLE" } } },
+      futures: { status: "AVAILABLE", provider: "TAIFEX", data: { last: 22000 } },
+    },
   } });
   const result = await provider.getTaiwanEvidence({ symbol: "0050.TW", market: "TW" });
   assert.equal(result.evidence.institutional.data.allThreeNetShares, 10);
@@ -138,12 +144,64 @@ test("Taiwan chip and market reads use the authenticated existing Edge and offic
   const edgeRequest = calls.find(item => item.type === "load").input;
   assert.deepEqual(edgeRequest.symbols, []);
   assert.deepEqual(edgeRequest.taiwanEvidence[0], {
-    symbol: "0050", market: "TW", venue: "TWSE", name: "", kinds: ["institutional", "ownership", "margin", "announcements"],
+    symbol: "0050", market: "TW", venue: "TWSE", name: "", kinds: ["institutional", "ownership", "margin", "announcements", "brokerBranches"],
   });
 
   const overview = await provider.getTaiwanMarketOverview();
   assert.equal(overview.index.status, "AVAILABLE");
+  assert.equal(overview.futures.provider, "TAIFEX");
+  assert.equal(overview.futures.data.last, 22000);
+  assert.equal(overview.institutions.data.allThreeNetShares, 30);
+  assert.equal(overview.tpexInstitutions.data.allThreeNetShares, null);
+  assert.equal(overview.margin.data.TPEx.status, "AVAILABLE");
   assert.equal(calls.filter(item => item.type === "load")[1].input.taiwanMarketOverview, true);
+});
+
+test("global market context uses the existing authenticated read Edge and preserves official Treasury evidence", async () => {
+  const evidence = {
+    status: "AVAILABLE", available: true, provider: "U.S. Treasury Daily Treasury Yield Curve",
+    source: ["https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"],
+    data: { series: "10-year par yield", tenYearPct: 4.18, date: "2026-10-06" },
+    dataTimestamp: "2026-10-06", freshness: "fresh", delayed: true,
+  };
+  const commodities = [{ status: "AVAILABLE", provider: "World Bank Pink Sheet", data: { id: "oil", observations: [{ month: "2026-09", value: 71 }] } }];
+  const references = [{ status: "AVAILABLE", available: true, provider: "FRED", category: "market", seriesId: "SP500", label: "S&P 500", data: { value: 5780.12 }, dataTimestamp: "2026-10-06" }];
+  const { provider, calls } = fixture({ runtime: { globalMarketContext: evidence, globalReferenceContext: references, globalCommodityContext: commodities } });
+  const result = await provider.getMarketContext([]);
+  const request = calls.find(item => item.type === "load").input;
+  assert.equal(request.globalMarketContext, true);
+  assert.deepEqual(request.symbols, []);
+  assert.deepEqual(result.globalMarketContext, evidence);
+  assert.deepEqual(result.globalReferenceContext, references);
+  assert.deepEqual(result.globalCommodityContext, commodities);
+  assert.equal(result.readOnly, true);
+
+  const denied = fixture({ authorize: async () => "MFA_REQUIRED" });
+  await assert.rejects(denied.provider.getMarketContext([]), error => error.code === "MFA_REQUIRED");
+  assert.deepEqual(denied.calls, []);
+});
+
+test("TDCC history uses the existing authenticated read authority and stays TW-only", async () => {
+  const series = {
+    contract: "zhuge-tdcc-series-v1", status: "AVAILABLE", symbol: "2330",
+    provider: "TDCC public dataset 11452", dataTimestamp: "2026-10-09",
+    fetchedAt: "2026-10-10T01:00:00.000Z", observations: [{ date: "2026-10-09", topThreeSourceLevelsPct: 50 }],
+  };
+  const { provider, calls } = fixture({ runtime: { tdccHistoricalSeries: series } });
+  const result = await provider.getTdccHistoricalSeries({ symbol: "2330", market: "TW", venue: "TWSE" });
+  assert.deepEqual(result, series);
+  const request = calls.find(item => item.type === "load").input;
+  assert.deepEqual(request.symbols, []);
+  assert.equal(request.tdccHistorySymbol, "2330");
+  assert.equal(calls.filter(item => item.type === "invoke").length, 0);
+
+  const us = await provider.getTdccHistoricalSeries({ symbol: "AAPL", market: "US" });
+  assert.equal(us.status, "NOT_APPLICABLE");
+  assert.equal(calls.filter(item => item.type === "load").length, 1);
+
+  const denied = fixture({ authorize: async () => "MFA_REQUIRED" });
+  await assert.rejects(denied.provider.getTdccHistoricalSeries({ symbol: "2330", market: "TW", venue: "TWSE" }), error => error.code === "MFA_REQUIRED");
+  assert.deepEqual(denied.calls, []);
 });
 
 test("watchlist event candidates use authenticated read-only news mode and exact market identities", async () => {

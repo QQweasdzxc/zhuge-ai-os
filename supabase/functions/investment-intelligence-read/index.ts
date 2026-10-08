@@ -13,15 +13,29 @@ import {
   loadHolders as loadOfficialHolders,
   loadInstitutional as loadOfficialInstitutional,
   loadMargin as loadOfficialMargin,
+  loadFuturesNight as loadOfficialTaiwanNightFutures,
   loadMarketPulse as loadOfficialTaiwanMarketPulse,
 } from "../../../labs/investment/src/providers/official-taiwan.mjs";
 import { buildTaiwanMarketScan, normalizeTaiwanScanFilters } from "../../../labs/investment/src/domain/taiwan-market-scan.mjs";
+import { createAlpacaUsMarketProvider } from "../_shared/alpaca-us-market.mjs";
+import { createYahooUsMarketProvider, loadYahooGlobalMarketContext } from "../_shared/yahoo-us-market.mjs";
+import { createFinMindBrokerBranchProvider } from "../_shared/finmind-broker-branches.mjs";
+import { createTwseEtfNavProvider } from "../_shared/twse-etf-nav.mjs";
+import { parseTpexHistoryPayload, tpexHistoryRequestUrl } from "../../../labs/investment/src/providers/tpex-history.mjs";
+import { mapSecCompanyFilings } from "../_shared/sec-company-filings.mjs";
+import { loadTreasuryTenYearContext } from "../_shared/us-treasury-market-context.mjs";
+import { loadFredGlobalFxContext } from "../_shared/fred-global-fx-context.mjs";
+import { loadWorldBankCommodityRadar } from "../_shared/world-bank-commodity-radar.mjs";
+import { parseWorldBankMonthlyWorkbook } from "../../../labs/investment/src/providers/world-bank-monthly-workbook.mjs";
+import { unzipSync } from "npm:fflate@0.8.3";
+import { XMLParser } from "npm:fast-xml-parser@5.7.3";
+import { fetchCached } from "../../../labs/investment/src/lib/http-cache.mjs";
 
 type JsonObject = Record<string, unknown>;
 type Market = "TW" | "US";
 type RequestSpec = { symbol: string; market: Market; name: string; query: string; venue: string };
 type CatalogRequest = { market: Market; query: string };
-type TaiwanEvidenceKind = "institutional" | "ownership" | "margin" | "announcements";
+type TaiwanEvidenceKind = "institutional" | "ownership" | "margin" | "announcements" | "brokerBranches";
 type TaiwanEvidenceRequest = { symbol: string; market: "TW"; venue: "TWSE" | "TPEX"; name: string; kinds: TaiwanEvidenceKind[] };
 
 const CONTRACT = "zhuge-investment-intelligence-edge-v1";
@@ -36,10 +50,10 @@ const HISTORY_FRESH_MS = 7 * 24 * 60 * 60 * 1000;
 const FUNDAMENTAL_FRESH_MS = 90 * 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 10000;
 const SEC_USER_AGENT = "Zhuge AI OS Investment Intelligence/1.0 (contact: qq.1025@gmail.com)";
+const TDCC_RELEASE_TAG_URL = "https://api.github.com/repos/QQweasdzxc/zhuge-ai-os/releases/tags/lab-data-tdcc-history";
+const TDCC_RELEASE_DOWNLOAD_PREFIX = "https://github.com/QQweasdzxc/zhuge-ai-os/releases/download/lab-data-tdcc-history/";
 
 const ENDPOINTS = Object.freeze({
-  yahooChart: "https://query2.finance.yahoo.com/v8/finance/chart",
-  yahooHistory: "https://query1.finance.yahoo.com/v8/finance/chart",
   twseQuote: "https://mis.twse.com.tw/stock/api/getStockInfo.jsp",
   twseDaily: "https://www.twse.com.tw/rwd/en/afterTrading/STOCK_DAY",
   tpexDailyClose: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
@@ -82,11 +96,11 @@ function finiteNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function marketOf(value: unknown, symbol = ""): Market {
+function marketOf(value: unknown): Market | "" {
   const market = text(value, 10).toUpperCase();
   if (market === "US") return "US";
   if (market === "TW") return "TW";
-  return /^\d{4,6}$/.test(symbol) ? "TW" : "US";
+  return "";
 }
 
 function normalizeRequest(value: unknown): RequestSpec | null {
@@ -95,7 +109,8 @@ function normalizeRequest(value: unknown): RequestSpec | null {
   const suffixVenue = rawSymbol.endsWith(".TWO") ? "TPEX" : rawSymbol.endsWith(".TW") ? "TWSE" : "";
   const symbol = rawSymbol.replace(/\.(TW|TWO)$/i, "");
   if (!symbol || !/^(?:[A-Z0-9][A-Z0-9._-]{0,19}|\^[A-Z0-9._-]{1,19})$/.test(symbol)) return null;
-  const market = marketOf(input.market, symbol);
+  const market = marketOf(input.market);
+  if (!market || (suffixVenue && market !== "TW")) return null;
   const venue = market === "TW"
     ? text(input.venue, 20).toUpperCase() === "TPEX" || suffixVenue === "TPEX" ? "TPEX" : "TWSE"
     : "US";
@@ -159,7 +174,7 @@ function catalogMatch(item: JsonObject, query: string) {
 function normalizeTaiwanEvidence(value: unknown): TaiwanEvidenceRequest[] | null {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 12) return null;
-  const allowedKinds = new Set<TaiwanEvidenceKind>(["institutional", "ownership", "margin", "announcements"]);
+  const allowedKinds = new Set<TaiwanEvidenceKind>(["institutional", "ownership", "margin", "announcements", "brokerBranches"]);
   const requests: TaiwanEvidenceRequest[] = [];
   for (const entry of value) {
     if (!entry || typeof entry !== "object") return null;
@@ -170,7 +185,7 @@ function normalizeTaiwanEvidence(value: unknown): TaiwanEvidenceRequest[] | null
     const requestedVenue = text(input.venue, 12).toUpperCase();
     const venue = requestedVenue === "TPEX" || suffixVenue === "TPEX" ? "TPEX" : requestedVenue === "TWSE" || suffixVenue === "TWSE" ? "TWSE" : "";
     const kinds = Array.isArray(input.kinds)
-      ? input.kinds.map(item => text(item, 24).toLowerCase()).filter((kind): kind is TaiwanEvidenceKind => allowedKinds.has(kind as TaiwanEvidenceKind))
+      ? input.kinds.map(item => text(item, 24)).filter((kind): kind is TaiwanEvidenceKind => allowedKinds.has(kind as TaiwanEvidenceKind))
       : [];
     if (!symbol || !/^[A-Z0-9.-]{1,16}$/.test(symbol) || !venue || !kinds.length || kinds.length !== input.kinds.length) return null;
     requests.push({
@@ -187,11 +202,13 @@ function normalizeTaiwanEvidence(value: unknown): TaiwanEvidenceRequest[] | null
 async function loadTaiwanEvidence(request: TaiwanEvidenceRequest) {
   const providerSymbol = `${request.symbol}.${request.venue === "TPEX" ? "TWO" : "TW"}`;
   const sourceRequest = { symbol: providerSymbol, market: "TW", venue: request.venue, name: request.name };
+  const brokerProvider = createFinMindBrokerBranchProvider({ token: Deno.env.get("FINMIND_TOKEN") || "" });
   const loaders: Record<TaiwanEvidenceKind, (value: typeof sourceRequest) => Promise<unknown>> = {
     institutional: loadOfficialInstitutional,
     ownership: loadOfficialHolders,
     margin: loadOfficialMargin,
     announcements: loadOfficialAnnouncements,
+    brokerBranches: value => brokerProvider.getLatestBranchReport({ ...value, market: "TW" }),
   };
   const results = await Promise.all(request.kinds.map(async kind => [kind, await loaders[kind](sourceRequest)] as const));
   return { symbol: request.symbol, market: request.market, venue: request.venue, evidence: Object.fromEntries(results) };
@@ -388,10 +405,6 @@ function asOfFromTwse(row: JsonObject) {
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
 }
 
-function yahooSymbol(request: RequestSpec) {
-  return request.market === "TW" ? `${request.symbol}.${request.venue === "TPEX" ? "TWO" : "TW"}` : request.symbol;
-}
-
 function twseSymbol(request: RequestSpec) {
   return `tse_${request.symbol}.tw`;
 }
@@ -488,44 +501,6 @@ function parseTwseDailyPayload(request: RequestSpec, payload: unknown, provider:
   };
 }
 
-function parseYahooHistory(request: RequestSpec, payload: unknown, provider: string, sourceUrl: string, now: number) {
-  const root = payload && typeof payload === "object" ? payload as JsonObject : {};
-  const chart = root.chart && typeof root.chart === "object" ? root.chart as JsonObject : {};
-  const result = Array.isArray(chart.result) ? chart.result[0] as JsonObject : {};
-  const timestamps = Array.isArray(result.timestamp) ? result.timestamp : [];
-  const indicators = result.indicators && typeof result.indicators === "object" ? result.indicators as JsonObject : {};
-  const quote = Array.isArray(indicators.quote) ? indicators.quote[0] as JsonObject : {};
-  const bars = timestamps.map((timestamp, index) => {
-    const close = finiteNumber(quote.close?.[index]);
-    if (close === null) return null;
-    return {
-      asOf: new Date(Number(timestamp) * 1000).toISOString(),
-      open: finiteNumber(quote.open?.[index]),
-      high: finiteNumber(quote.high?.[index]),
-      low: finiteNumber(quote.low?.[index]),
-      close,
-      volume: finiteNumber(quote.volume?.[index])
-    };
-  }).filter(Boolean);
-  if (!bars.length) throw Object.assign(new Error("Yahoo history unavailable"), { code: "HISTORY_UNAVAILABLE" });
-  const meta = result.meta && typeof result.meta === "object" ? result.meta as JsonObject : {};
-  const asOf = bars.at(-1)!.asOf;
-  return {
-    contract: "zhuge-investment-history-v1",
-    symbol: request.symbol,
-    market: request.market,
-    currency: text(meta.currency, 10) || (request.market === "TW" ? "TWD" : "USD"),
-    provider,
-    source: "Yahoo Finance Chart Compatibility Provider",
-    sourceUrl,
-    asOf,
-    freshness: temporalStatus(asOf, now, HISTORY_FRESH_MS),
-    stale: temporalStatus(asOf, now, HISTORY_FRESH_MS) === "stale",
-    available: true,
-    bars
-  };
-}
-
 function technicalEvidence(history: JsonObject) {
   if (history.available !== true || !Array.isArray(history.bars) || history.bars.length < 20) return null;
   const closes = history.bars.map(item => finiteNumber((item as JsonObject).close)).filter(value => value !== null) as number[];
@@ -555,37 +530,6 @@ function technicalEvidence(history: JsonObject) {
     stale: history.stale === true,
     facts,
     limitations: ["本 Evidence 只提供可驗證的技術觀察，不產生買賣建議。", ...(history.stale === true ? ["歷史序列最新資料已超過 freshness window。"] : [])]
-  };
-}
-
-function quoteFromYahoo(request: RequestSpec, payload: unknown, now: number, sourceUrl: string) {
-  const root = payload && typeof payload === "object" ? payload as JsonObject : {};
-  const result = (root.chart && typeof root.chart === "object" ? root.chart as JsonObject : {}).result;
-  const row = Array.isArray(result) ? result[0] as JsonObject : {};
-  const meta = row?.meta && typeof row.meta === "object" ? row.meta as JsonObject : {};
-  const quote = row?.indicators && typeof row.indicators === "object" ? row.indicators as JsonObject : {};
-  const quoteRows = Array.isArray(quote.quote) ? quote.quote[0] as JsonObject : {};
-  const closes = Array.isArray(quoteRows?.close) ? quoteRows.close : [];
-  const fallbackPrice = closes.slice().reverse().map(finiteNumber).find(value => value !== null);
-  const price = finiteNumber(meta.regularMarketPrice) ?? fallbackPrice;
-  if (price === null) throw Object.assign(new Error("Quote unavailable"), { code: "QUOTE_UNAVAILABLE" });
-  const regularMarketTime = finiteNumber(meta.regularMarketTime);
-  const asOf = regularMarketTime ? new Date(regularMarketTime * 1000).toISOString() : "";
-  return {
-    contract: "zhuge-investment-quote-v1",
-    symbol: request.symbol,
-    market: request.market,
-    currency: text(meta.currency, 10) || (request.market === "TW" ? "TWD" : "USD"),
-    price,
-    provider: "yahoo-chart",
-    source: "Yahoo Finance Chart",
-    sourceUrl,
-    asOf,
-    receivedAt: new Date(now).toISOString(),
-    freshness: freshness(asOf, now, FRESH_QUOTE_MS),
-    stale: freshness(asOf, now, FRESH_QUOTE_MS) === "stale",
-    available: true,
-    error: null
   };
 }
 
@@ -876,10 +820,14 @@ async function loadFundamental(request: RequestSpec, now: number) {
     ["shares_outstanding", ["EntityCommonStockSharesOutstanding"]]
   ].map(([label, names]) => [label, secFactSeries(facts, names as string[])]).filter(([, series]) => Array.isArray(series) && series.length) as Array<[string, Array<{ value: number | null; unit: string; end: string; filed: string; form: string }>] >;
   if (!selections.length) throw Object.assign(new Error("SEC Company Facts unavailable"), { code: "FUNDAMENTAL_UNAVAILABLE" });
-  const factsList = selections.map(([label, series]) => {
+  const entityName = text(payload.entityName, 180);
+  const factsList = [
+    ...(entityName ? [`company_name=${entityName}`] : []),
+    ...selections.map(([label, series]) => {
     const latest = series[0];
     return `${label}=${latest.value}${latest.unit ? ` ${latest.unit}` : ""}${latest.end ? ` @${latest.end}` : ""}`;
-  });
+    })
+  ];
   const revenueSeries = selections.find(([label]) => label === "revenue")?.[1] || [];
   const netIncome = selections.find(([label]) => label === "net_income")?.[1]?.[0];
   const revenue = revenueSeries[0];
@@ -1091,8 +1039,63 @@ async function loadRelationship(request: RequestSpec) {
   };
 }
 
-async function loadMarketHistory(request: RequestSpec, now: number, source = request.market === "TW" ? "twse" : "yahoo") {
-  if (request.market === "TW" && source === "twse") {
+function createAlpacaMarketProvider() {
+  return createAlpacaUsMarketProvider({
+    apiKey: Deno.env.get("ALPACA_API_KEY_ID"),
+    apiSecret: Deno.env.get("ALPACA_API_SECRET_KEY"),
+    now: () => Date.now(),
+  });
+}
+
+function createYahooMarketProvider() {
+  return createYahooUsMarketProvider({ now: () => Date.now() });
+}
+
+async function loadMarketHistory(request: RequestSpec, now: number) {
+  if (request.market === "TW" && request.venue === "TPEX") {
+    const responses: Array<{ payload: unknown; url: string }> = [];
+    let failedMonths = 0;
+    for (const month of monthStarts(now, 6)) {
+      const url = tpexHistoryRequestUrl(request.symbol, month);
+      try {
+        responses.push({ payload: await providerRequest(url, "json"), url });
+      } catch {
+        failedMonths += 1;
+      }
+    }
+    const bars = responses.flatMap(item => parseTpexHistoryPayload(item.payload, { now }));
+    const uniqueBars = Array.from(new Map(bars.map(item => [item.date, item])).values()).sort((left, right) => left.date.localeCompare(right.date));
+    if (!uniqueBars.length) throw Object.assign(new Error("TPEx history unavailable"), { code: "HISTORY_UNAVAILABLE" });
+    const asOf = uniqueBars.at(-1)!.date;
+    return {
+      provider: "tpex-website-history",
+      history: {
+        contract: "zhuge-investment-history-v1",
+        symbol: request.symbol,
+        market: "TW",
+        venue: "TPEX",
+        currency: "TWD",
+        provider: "tpex-website-history",
+        source: "TPEx 官方上櫃個股月成交資訊",
+        sourceUrl: "https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock",
+        sourceUrls: responses.map(item => item.url),
+        asOf,
+        freshness: temporalStatus(asOf, now, HISTORY_FRESH_MS),
+        stale: temporalStatus(asOf, now, HISTORY_FRESH_MS) === "stale",
+        delayed: true,
+        available: true,
+        status: failedMonths ? "PARTIAL" : "AVAILABLE",
+        failedMonths,
+        volumeUnit: "shares",
+        note: "官方歷史表成交量原始單位為張，已依 1 張 = 1,000 股換算；歷史資料不含定價交易，價格未還原除權息／分割。",
+        bars: uniqueBars.map(item => ({ ...item, asOf: item.date })),
+      }
+    };
+  }
+  if (request.venue !== "TWSE") {
+    throw Object.assign(new Error("Taiwan daily history requires a resolved TWSE or TPEx venue."), { code: "HISTORY_NOT_CONNECTED" });
+  }
+  if (request.market === "TW") {
     const responses: Array<{ payload: unknown; url: string }> = [];
     for (const month of monthStarts(now, 6)) {
       const url = `${ENDPOINTS.twseDaily}?date=${month}&stockNo=${encodeURIComponent(request.symbol)}&response=json`;
@@ -1130,8 +1133,7 @@ async function loadMarketHistory(request: RequestSpec, now: number, source = req
       }
     };
   }
-  const url = `${ENDPOINTS.yahooHistory}/${encodeURIComponent(yahooSymbol(request))}?range=1y&interval=1d&includePrePost=false`;
-  return { provider: "yahoo-history", history: parseYahooHistory(request, await providerRequest(url, "json"), "yahoo-history", url, now) };
+  throw Object.assign(new Error("Market history unavailable."), { code: "HISTORY_NOT_CONNECTED" });
 }
 
 async function loadMarketPhase(request: RequestSpec, now: number) {
@@ -1177,18 +1179,19 @@ async function loadMarketPhase(request: RequestSpec, now: number) {
 }
 
 async function loadQuote(request: RequestSpec, now: number) {
-  const yahooUrl = `${ENDPOINTS.yahooChart}/${encodeURIComponent(yahooSymbol(request))}?range=1d&interval=1m&includePrePost=false`;
   const twseUrl = `${ENDPOINTS.twseQuote}?ex_ch=${encodeURIComponent(twseSymbol(request))}&json=1&delay=0`;
   const tpexUrl = ENDPOINTS.tpexDailyClose;
-  const primary = request.market === "TW" && request.venue === "TWSE"
-    ? [{ provider: "twse-open", run: async () => quoteFromTwse(request, await providerRequest(twseUrl, "json"), now, twseUrl) }]
-    : request.market === "TW" && request.venue === "TPEX"
-      ? [{ provider: "tpex-daily-close", run: async () => quoteFromTpex(request, await providerRequest(tpexUrl, "json"), now, tpexUrl) }]
-      : [];
-  const result = await withFallback([
-    ...primary,
-    { provider: "yahoo-chart", run: async () => quoteFromYahoo(request, await providerRequest(yahooUrl, "json"), now, yahooUrl) }
-  ]);
+  const primary = request.market === "US"
+    ? [
+      { provider: "zhuge-yahoo-chart", run: async () => createYahooMarketProvider().getQuote(request.symbol) },
+      { provider: "alpaca-iex", run: async () => createAlpacaMarketProvider().getQuote(request.symbol) },
+    ]
+    : request.venue === "TWSE"
+      ? [{ provider: "twse-open", run: async () => quoteFromTwse(request, await providerRequest(twseUrl, "json"), now, twseUrl) }]
+      : request.venue === "TPEX"
+        ? [{ provider: "tpex-daily-close", run: async () => quoteFromTpex(request, await providerRequest(tpexUrl, "json"), now, tpexUrl) }]
+        : [];
+  const result = await withFallback(primary);
   if (result.ok) return { ...(result.value as JsonObject), provider: result.provider, attempts: result.attempts };
   return {
     contract: "zhuge-investment-quote-v1",
@@ -1240,10 +1243,24 @@ async function loadNews(requests: RequestSpec[], now: number) {
     const query = request.query || `${request.symbol}${request.market === "TW" ? " 台股" : ""}`;
     const googleUrl = `${ENDPOINTS.googleNews}?q=${encodeURIComponent(query)}&hl=${request.market === "TW" ? "zh-TW" : "en-US"}&gl=${request.market === "TW" ? "TW" : "US"}&ceid=${request.market === "TW" ? "TW:zh-Hant" : "US:en"}`;
     const bingUrl = `${ENDPOINTS.bingNews}?q=${encodeURIComponent(query)}&format=rss`;
-    const result = await withFallback([
+    const candidates = request.market === "US"
+      ? [
+        { provider: "sec-edgar-company-filings", run: async () => {
+          const cik = await secTickerCik(request.symbol);
+          const url = `${ENDPOINTS.secSubmissions}/CIK${cik}.json`;
+          const payload = await providerRequest(url, "json") as JsonObject;
+          const filings = mapSecCompanyFilings({ symbol: request.symbol, cik, payload, now });
+          if (!filings.length) throw Object.assign(new Error("SEC company filings unavailable"), { code: "SEC_FILINGS_UNAVAILABLE" });
+          return filings as unknown as JsonObject[];
+        } },
+        { provider: "google-news-rss", run: async () => parseRss(await providerRequest(googleUrl, "text"), request, "Google News RSS", now) },
+        { provider: "bing-news-rss", run: async () => parseRss(await providerRequest(bingUrl, "text"), request, "Bing News RSS", now) },
+      ]
+      : [
       { provider: "google-news-rss", run: async () => parseRss(await providerRequest(googleUrl, "text"), request, "Google News RSS", now) },
       { provider: "bing-news-rss", run: async () => parseRss(await providerRequest(bingUrl, "text"), request, "Bing News RSS", now) }
-    ]);
+      ];
+    const result = await withFallback(candidates);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
     if (result.ok) results.push(...(result.value as JsonObject[]));
   }
@@ -1254,12 +1271,13 @@ async function loadHistories(requests: RequestSpec[], now: number) {
   const results: JsonObject[] = [];
   const trace: JsonObject[] = [];
   for (const request of requests) {
-    const candidates = request.market === "TW" && request.venue === "TWSE" ? [
-      { provider: "twse-daily-history", run: async () => (await loadMarketHistory(request, now, "twse")).history },
-      { provider: "yahoo-history", run: async () => (await loadMarketHistory(request, now, "yahoo")).history }
-    ] : [
-      { provider: "yahoo-history", run: async () => (await loadMarketHistory(request, now, "yahoo")).history }
-    ];
+    const provider = request.market === "US" ? "zhuge-yahoo-chart-daily" : request.venue === "TWSE" ? "twse-daily-history" : "tpex-history";
+    const candidates = request.market === "US"
+      ? [
+        { provider: "zhuge-yahoo-chart-daily", run: async () => createYahooMarketProvider().getHistory(request.symbol) },
+        { provider: "alpaca-iex-daily", run: async () => createAlpacaMarketProvider().getHistory(request.symbol) },
+      ]
+      : [{ provider, run: async () => (await loadMarketHistory(request, now)).history }];
     const result = await withFallback(candidates);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
     results.push(result.ok
@@ -1294,8 +1312,34 @@ async function loadRelationships(requests: RequestSpec[], now: number) {
       : [{ provider: "sec-company-industry", run: async () => [((await loadRelationship(request)) as JsonObject).evidence as JsonObject] }];
     const result = await withFallback(candidates);
     trace.push({ symbol: request.symbol, provider: result.provider, attempts: result.attempts });
+    const evidence = result.ok
+      ? (Array.isArray(result.value) ? result.value as JsonObject[] : [(result.value as JsonObject).evidence as JsonObject])
+      : [];
+    const isConfirmedEtf = request.market === "TW" && evidence.some(item => item?.type === "etf_component");
+    if (isConfirmedEtf) {
+      const nav = await createTwseEtfNavProvider().getFundEvidence({ symbol: request.symbol, market: "TW", venue: request.venue });
+      evidence.push({
+        type: "etf_fund",
+        symbol: request.symbol,
+        market: request.market,
+        title: `${request.symbol} ETF NAV / 規模資料`,
+        summary: nav.note,
+        source: nav.provider,
+        sourceUrl: nav.sourceUrl,
+        observedAt: nav.dataTimestamp,
+        fetchedAt: nav.fetchedAt,
+        quality: nav.status === "AVAILABLE" ? "source_available" : nav.status.toLowerCase(),
+        freshness: nav.status === "AVAILABLE" || nav.status === "PARTIAL" ? "source_dated" : "unavailable",
+        stale: false,
+        data: nav.data,
+        status: nav.status,
+        errorCode: nav.errorCode,
+        limitations: [nav.note],
+      });
+      trace.push({ symbol: request.symbol, provider: nav.provider, status: nav.status, error: nav.errorCode || null });
+    }
     items.push(result.ok
-      ? { symbol: request.symbol, market: request.market, provider: result.provider, available: true, evidence: Array.isArray(result.value) ? result.value : [(result.value as JsonObject).evidence], error: null, attempts: result.attempts }
+      ? { symbol: request.symbol, market: request.market, provider: result.provider, available: true, evidence, error: null, attempts: result.attempts }
       : { symbol: request.symbol, market: request.market, provider: null, available: false, evidence: [], error: result.attempts.at(-1)?.reason || "UNAVAILABLE", attempts: result.attempts });
   }
   return { items, trace };
@@ -1377,6 +1421,7 @@ function buildContext(request: RequestSpec, quote: JsonObject, fx: JsonObject, n
   return {
     contract: CONTEXT_CONTRACT,
     symbol: request.symbol,
+    name: request.name || request.symbol,
     market: request.market,
     generatedAt: new Date(now).toISOString(),
     portfolioContext: input.portfolio_context && typeof input.portfolio_context === "object"
@@ -1398,6 +1443,104 @@ function buildContext(request: RequestSpec, quote: JsonObject, fx: JsonObject, n
   };
 }
 
+async function loadOfficialTaiwanMarketOverview() {
+  const [pulse, futures] = await Promise.all([
+    loadOfficialTaiwanMarketPulse(),
+    loadOfficialTaiwanNightFutures(),
+  ]);
+  return { ...pulse, futures };
+}
+
+async function loadOfficialGlobalCommodityContext() {
+  return loadWorldBankCommodityRadar({
+    fetchWorkbook: url => fetchCached(url, { kind: "bytes", ttlMs: 6 * 60 * 60_000, timeoutMs: 25_000, failureCooldownMs: 60_000 }),
+    parseWorkbook: bytes => parseWorldBankMonthlyWorkbook(bytes, { unzipSync, XMLParser }),
+  });
+}
+
+async function loadPublishedTdccHistoricalSeries(symbol: string) {
+  const unavailable = (status: string, error: string | null = null) => ({
+    contract: "zhuge-tdcc-series-v1",
+    status,
+    provider: "TDCC public dataset 11452 · Zhuge scheduled normalized publication",
+    symbol,
+    sourceUrl: "https://data.gov.tw/dataset/11452",
+    publicationUrl: TDCC_RELEASE_TAG_URL,
+    fetchedAt: null,
+    dataTimestamp: null,
+    observations: [],
+    error,
+    note: "排程只累積官方 CSV 實際出現的來源日期；不回填不存在的歷史資料。",
+  });
+  try {
+    const release = await providerRequest(TDCC_RELEASE_TAG_URL, "json") as JsonObject;
+    const assets = Array.isArray(release.assets) ? release.assets as JsonObject[] : [];
+    const asset = assets
+      .filter(item => /^tdcc-history-[0-9-]+-[a-f0-9]{12}\.json$/.test(text(item.name, 120)))
+      .sort((left, right) => Date.parse(text(right.created_at)) - Date.parse(text(left.created_at)))[0];
+    if (!asset) return unavailable("INSUFFICIENT_HISTORY", "PUBLICATION_NOT_AVAILABLE");
+    // Construct the download URL from the fixed Zhuge release authority and the
+    // validated asset basename. Never fetch a URL supplied by release metadata.
+    const assetName = text(asset.name, 120);
+    const assetUrl = `${TDCC_RELEASE_DOWNLOAD_PREFIX}${encodeURIComponent(assetName)}`;
+    const payload = await providerRequest(assetUrl, "json") as JsonObject;
+    if (payload.contract !== "zhuge-tdcc-static-history-v1" || !Array.isArray(payload.observations)) {
+      return unavailable("UNAVAILABLE", "PUBLICATION_CONTRACT_INVALID");
+    }
+    const observationsByDate = new Map<string, JsonObject>();
+    for (const item of payload.observations as JsonObject[]) {
+      const date = text(item.date, 10);
+      const parsedDate = Date.parse(`${date}T00:00:00.000Z`);
+      if (text(item.symbol, 16).toUpperCase() !== symbol
+        || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+        || !Number.isFinite(parsedDate)
+        || new Date(parsedDate).toISOString().slice(0, 10) !== date
+        || !item.levels || typeof item.levels !== "object") continue;
+      const rawLevels = item.levels as JsonObject;
+      const levels = Object.fromEntries([13, 14, 15].map(level => [String(level), finiteNumber(rawLevels[String(level)])])) as JsonObject;
+      if ([13, 14, 15].some(level => levels[String(level)] !== null
+        && (Number(levels[String(level)]) < 0 || Number(levels[String(level)]) > 100))) continue;
+      const complete = [13, 14, 15].every(level => levels[String(level)] !== null);
+      observationsByDate.set(date, {
+        symbol,
+        date,
+        levels,
+        topThreeSourceLevelsPct: complete ? [13, 14, 15].reduce((sum, level) => sum + Number(levels[String(level)]), 0) : null,
+        status: complete ? "AVAILABLE" : "PARTIAL",
+      });
+    }
+    let previousTopThree: number | null = null;
+    const observations = [...observationsByDate.values()]
+      .sort((left, right) => text(left.date, 10).localeCompare(text(right.date, 10)))
+      .slice(-104)
+      .map(item => {
+        const total = finiteNumber(item.topThreeSourceLevelsPct);
+        const changePercentagePoints = total !== null && previousTopThree !== null ? total - previousTopThree : null;
+        if (total !== null) previousTopThree = total;
+        return { ...item, changePercentagePoints };
+      });
+    const completeDates = new Set(observations.filter(item => item.status === "AVAILABLE" && finiteNumber(item.topThreeSourceLevelsPct) !== null).map(item => text(item.date, 10)));
+    const status = completeDates.size >= 2 ? "AVAILABLE" : observations.length ? "INSUFFICIENT_HISTORY" : "EMPTY";
+    return {
+      contract: "zhuge-tdcc-series-v1",
+      status,
+      provider: text(payload.provider, 180) || "TDCC public dataset 11452",
+      symbol,
+      sourceUrl: text(payload.sourceUrl, 1000) || "https://data.gov.tw/dataset/11452",
+      publicationUrl: assetUrl,
+      license: text(payload.license, 160) || "政府資料開放授權條款第 1 版",
+      sourceSha256: text(payload.sourceSha256, 64) || null,
+      fetchedAt: text(payload.fetchedAt, 40) || null,
+      dataTimestamp: observations.at(-1) ? text(observations.at(-1).date, 10) : null,
+      observations,
+      error: null,
+      note: text(payload.note, 500) || "僅顯示官方 CSV 實際提供的來源日期及彙總級距比例。",
+    };
+  } catch (error) {
+    return unavailable("UNAVAILABLE", safeProviderCode(error));
+  }
+}
+
 function validateInput(value: unknown) {
   if (!value || typeof value !== "object") throw new HttpError("Investment Intelligence request is invalid.", 400, "INVALID_REQUEST");
   const input = value as JsonObject;
@@ -1405,6 +1548,12 @@ function validateInput(value: unknown) {
   const catalog = catalogRequest(input.catalog_query);
   const taiwanEvidence = normalizeTaiwanEvidence(input.taiwan_evidence);
   const taiwanMarketOverview = input.taiwan_market_overview === true;
+  const tdccHistorySymbol = text(input.tdcc_history_symbol, 16).toUpperCase();
+  if (input.tdcc_history_symbol !== undefined && (!tdccHistorySymbol || !/^[A-Z0-9.-]{1,16}$/.test(tdccHistorySymbol))) {
+    throw new HttpError("TDCC history symbol is invalid.", 400, "TDCC_SYMBOL_INVALID");
+  }
+  if (input.global_market_context !== undefined && typeof input.global_market_context !== "boolean") throw new HttpError("Global market context flag is invalid.", 400, "GLOBAL_CONTEXT_INVALID");
+  const globalMarketContext = input.global_market_context === true;
   const taiwanMarketScan = input.taiwan_market_scan === undefined
     ? null
     : input.taiwan_market_scan && typeof input.taiwan_market_scan === "object"
@@ -1412,10 +1561,10 @@ function validateInput(value: unknown) {
       : null;
   if (input.news_only !== undefined && typeof input.news_only !== "boolean") throw new HttpError("News-only flag is invalid.", 400, "NEWS_MODE_INVALID");
   const newsOnly = input.news_only === true;
-  if (newsOnly && (!requests.length || catalog || taiwanEvidence?.length || taiwanMarketOverview || taiwanMarketScan)) {
+  if (newsOnly && (!requests.length || catalog || taiwanEvidence?.length || taiwanMarketOverview || taiwanMarketScan || globalMarketContext || tdccHistorySymbol)) {
     throw new HttpError("News-only mode requires bounded symbol requests and no other read mode.", 400, "NEWS_MODE_INVALID");
   }
-  if (!requests.length && !catalog && !taiwanEvidence?.length && !taiwanMarketOverview && !taiwanMarketScan) {
+  if (!requests.length && !catalog && !taiwanEvidence?.length && !taiwanMarketOverview && !taiwanMarketScan && !globalMarketContext && !tdccHistorySymbol) {
     throw new HttpError("A symbol, bounded catalog query, or supported Taiwan read is required.", 400, "SYMBOLS_REQUIRED");
   }
   if (input.catalog_query && !catalog) throw new HttpError("Catalog query is invalid.", 400, "CATALOG_QUERY_INVALID");
@@ -1430,6 +1579,8 @@ function validateInput(value: unknown) {
     catalog_query: catalog,
     taiwan_evidence: taiwanEvidence || [],
     taiwan_market_overview: taiwanMarketOverview,
+    global_market_context: globalMarketContext,
+    tdcc_history_symbol: tdccHistorySymbol || "",
     taiwan_market_scan: taiwanMarketScan,
     news_limit: newsLimit,
     news_only: newsOnly,
@@ -1460,11 +1611,19 @@ Deno.serve(async request => {
       }, 200, origin);
     }
     const catalogResult = input.catalog_query ? await loadCatalog(input.catalog_query) : null;
-    const [taiwanEvidenceResult, taiwanMarketOverview] = await Promise.all([
+    const [taiwanEvidenceResult, taiwanMarketOverview, globalMarketContext, fredReferenceContext, yahooGlobalContext, globalCommodityContext] = await Promise.all([
       Promise.all(input.taiwan_evidence.map(loadTaiwanEvidence)),
-      input.taiwan_market_overview ? loadOfficialTaiwanMarketPulse() : Promise.resolve(null),
+      input.taiwan_market_overview ? loadOfficialTaiwanMarketOverview() : Promise.resolve(null),
+      input.global_market_context ? loadTreasuryTenYearContext() : Promise.resolve(null),
+      input.global_market_context ? loadFredGlobalFxContext() : Promise.resolve([]),
+      input.global_market_context ? loadYahooGlobalMarketContext({ provider: createYahooMarketProvider() }) : Promise.resolve([]),
+      input.global_market_context ? loadOfficialGlobalCommodityContext() : Promise.resolve([]),
     ]);
+    const globalReferenceContext = [...fredReferenceContext, ...yahooGlobalContext];
     const taiwanMarketScan = input.taiwan_market_scan ? await loadTaiwanMarketScan(input.taiwan_market_scan, now) : null;
+    const tdccHistoricalSeries = input.tdcc_history_symbol
+      ? await loadPublishedTdccHistoricalSeries(input.tdcc_history_symbol)
+      : null;
     const [quotes, fx, newsResult, historiesResult, fundamentalsResult, relationshipsResult, marketPhaseResult] = input.symbols.length
       ? await Promise.all([
         Promise.all(input.symbols.map(requestValue => loadQuote(requestValue, now))),
@@ -1491,7 +1650,11 @@ Deno.serve(async request => {
       ...(catalogResult ? { catalog_results: catalogResult.items, catalog_source: catalogResult.source, catalog_data_timestamp: catalogResult.dataTimestamp } : {}),
       ...(input.taiwan_evidence.length ? { taiwan_evidence: taiwanEvidenceResult } : {}),
       ...(taiwanMarketOverview ? { taiwan_market_overview: taiwanMarketOverview } : {}),
+      ...(globalMarketContext ? { global_market_context: globalMarketContext } : {}),
+      ...(input.global_market_context ? { global_reference_context: globalReferenceContext } : {}),
+      ...(input.global_market_context ? { global_commodity_context: globalCommodityContext } : {}),
       ...(taiwanMarketScan ? { taiwan_market_scan: taiwanMarketScan } : {}),
+      ...(tdccHistoricalSeries ? { tdcc_historical_series: tdccHistoricalSeries } : {}),
       quotes,
       fx,
       news: newsResult.items,

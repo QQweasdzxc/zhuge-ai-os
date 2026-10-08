@@ -69,11 +69,30 @@ different source is never silently substituted.
   inputs. No unexplained score is a source of truth.
 - Macro, global indices, commodities, and FX are context, not direct trade
   instructions.
+- The global-reference panel reads a fixed allowlist of FRED market index and
+  H.10 FX series. A displayed delta compares the latest observation with the
+  preceding valid source observation (which may not be the prior calendar day);
+  source date and daily-delay semantics remain visible.
+- The Lab's current U.S. Treasury curve context uses the official daily
+  Treasury XML feed for 2-year, 10-year, and 30-year par yields. The 10Y–2Y
+  spread is computed only when both observations are present in the same dated
+  row. It is delayed daily macro evidence, not a security quote. The shared
+  provider cache preserves the source retrieval time and fallback flag.
 
 ## Provider rights and Production evidence
 
 Public endpoint reachability is not itself permission to republish or cache.
-Confirm source terms, attribution, rate limits, and any subscription requirement
-before enabling a provider in Production. The current Yahoo compatibility route
-and other external sources remain gated pending that review. This document does
-not claim that an authenticated Production runtime has been verified.
+Taiwan exchange sources retain source attribution and their own delayed-data
+semantics. US quote and daily OHLCV reads use the Zhuge-owned authenticated Edge
+adapter for Alpaca's IEX single-exchange feed; its API key and secret are read
+only from Edge environment variables and are never sent to the browser. IEX is
+not consolidated US market coverage. The US path returns
+`EXTERNAL_SECRET_REQUIRED` until those Edge credentials are provisioned, and
+provider account/data terms must permit this private authenticated display.
+TPEx historical OHLCV now reads the fixed official monthly `tradingStock`
+endpoint through the authenticated Investment Intelligence Edge. Its returned
+volume is in lots and is normalized at 1 lot = 1,000 shares; the historical
+endpoint excludes fixed-price trades and does not adjust for corporate actions.
+Local parser/provider tests verify the contract, but an authenticated
+Production response has not been read back. This document does not claim that
+an authenticated Production runtime has been verified.

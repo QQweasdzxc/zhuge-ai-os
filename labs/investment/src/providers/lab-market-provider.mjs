@@ -132,7 +132,7 @@ export function createLabMarketProvider({
           market: "TW",
           venue: item.venue,
           name: item.name,
-          kinds: ["institutional", "ownership", "margin", "announcements"],
+          kinds: ["institutional", "ownership", "margin", "announcements", "brokerBranches"],
         }))
         .slice(0, 12)
       : [];
@@ -188,7 +188,7 @@ export function createLabMarketProvider({
       || Object.freeze({ symbol: request.symbol, market: request.market, available: false, evidence: [], error: "PROFILE_UNAVAILABLE" });
   }
 
-  async function loadTaiwanEvidence(input, kinds = ["institutional", "ownership", "margin", "announcements"]) {
+  async function loadTaiwanEvidence(input, kinds = ["institutional", "ownership", "margin", "announcements", "brokerBranches"]) {
     await ensureAuthorized();
     const request = await resolveRequest(input);
     if (request.market === "US") {
@@ -236,6 +236,8 @@ export function createLabMarketProvider({
       index: unavailable("UNAVAILABLE", "TWSE", "台灣市場統計讀取失敗。", "TAIWAN_MARKET_UNAVAILABLE"),
       breadth: unavailable("UNAVAILABLE", "TWSE / TPEx", "市場廣度讀取失敗。", "TAIWAN_MARKET_UNAVAILABLE"),
       institutions: unavailable("UNAVAILABLE", "TWSE", "法人市場資料讀取失敗。", "TAIWAN_MARKET_UNAVAILABLE"),
+      tpexInstitutions: unavailable("UNAVAILABLE", "TPEx", "上櫃法人市場資料讀取失敗。", "TAIWAN_MARKET_UNAVAILABLE"),
+      margin: unavailable("UNAVAILABLE", "TWSE / TPEx", "上市櫃融資融券市場彙總讀取失敗。", "TAIWAN_MARKET_UNAVAILABLE"),
     });
   }
 
@@ -255,17 +257,38 @@ export function createLabMarketProvider({
   }
 
   async function getMarketContext(inputs = []) {
-    const result = await loadResearch(inputs);
+    const result = await loadResearch(inputs, { globalMarketContext: true });
     return Object.freeze({
       generatedAt: result.generatedAt,
       fx: result.fx,
       marketPhase: result.marketPhase,
+      globalMarketContext: result.globalMarketContext,
+      globalReferenceContext: Object.freeze(Array.isArray(result.globalReferenceContext) ? result.globalReferenceContext : []),
+      globalCommodityContext: Object.freeze(Array.isArray(result.globalCommodityContext) ? result.globalCommodityContext : []),
       news: result.news,
       quotes: result.quotes,
       histories: result.histories,
       providerTrace: result.providerTrace,
       quality: result.quality,
       readOnly: true,
+    });
+  }
+
+  async function getTdccHistoricalSeries(input) {
+    await ensureAuthorized();
+    const request = await resolveRequest(input);
+    if (request.market !== "TW") {
+      return Object.freeze({ contract: "zhuge-tdcc-series-v1", status: "NOT_APPLICABLE", symbol: request.symbol, observations: [], provider: null, dataTimestamp: null });
+    }
+    const result = await intelligenceProvider.load({ symbols: [], tdccHistorySymbol: request.symbol });
+    return result?.tdccHistoricalSeries || Object.freeze({
+      contract: "zhuge-tdcc-series-v1",
+      status: "UNAVAILABLE",
+      symbol: request.symbol,
+      observations: [],
+      provider: "TDCC public dataset 11452",
+      dataTimestamp: null,
+      error: "TDCC_HISTORY_UNAVAILABLE",
     });
   }
 
@@ -344,6 +367,7 @@ export function createLabMarketProvider({
     getTaiwanMarketOverview,
     getTaiwanMarketScan,
     getMarketContext,
+    getTdccHistoricalSeries,
     getNews,
     getWatchlistEventCandidates,
   });
@@ -353,5 +377,5 @@ export const labMarketProviderContract = Object.freeze({
   provider: "existing InvestmentIntelligenceProviders + investment-intelligence-read",
   readOnly: true,
   markets: Object.freeze(["TW", "US"]),
-  requiredMethods: Object.freeze(["getQuote", "getHistory", "getProfile", "getInstitutional", "getOwnership", "getMargin", "getAnnouncements", "getTaiwanMarketOverview", "getTaiwanMarketScan", "getMarketContext", "getWatchlistEventCandidates"]),
+  requiredMethods: Object.freeze(["getQuote", "getHistory", "getProfile", "getInstitutional", "getOwnership", "getMargin", "getAnnouncements", "getTaiwanMarketOverview", "getTaiwanMarketScan", "getMarketContext", "getTdccHistoricalSeries", "getWatchlistEventCandidates"]),
 });

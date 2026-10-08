@@ -257,7 +257,7 @@ test("portfolio research action fails closed when canonical market identity is u
   assert.doesNotMatch(card, /data-market="TW"/);
 });
 
-test("unsupported US providers stay NOT_CONNECTED without fabricated values", async () => {
+test("generic research placeholder remains fail-closed when no provider has been selected", async () => {
   const result = createUnconnectedResearch({ symbol: "AAPL", market: "US", name: "Apple" });
   assert.equal(result.quote.status, "NOT_CONNECTED");
   assert.equal(result.quote.data, null);
@@ -309,7 +309,7 @@ test("unconnected and unavailable history render truthful empty states, never a 
   const notConnected = renderPortfolioMiniChart({ averageCost: 65, currency: "TWD" }, {
     status: "NOT_CONNECTED", provider: "TPEx", errorCode: "HISTORY_NOT_CONNECTED", delayed: true, fallback: false, data: null,
   });
-  assert.match(notConnected, /歷史行情尚未接通/);
+  assert.match(notConnected, /尚無已驗證的官方歷史行情來源/);
   assert.match(notConnected, /NOT_CONNECTED/);
   assert.match(notConnected, /TPEx/);
   assert.doesNotMatch(notConnected, /<svg|<path|data-average-cost-reference="true"/);
@@ -325,10 +325,10 @@ test("Lab exposes full Investment content navigation while preserving the canoni
   const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const source = await readFile(new URL("../src/portfolio/readonly-adapter.mjs", import.meta.url), "utf8");
   const nav = html.match(/<nav class="lab-content-nav[\s\S]*?<\/nav>/)?.[0] || "";
-  for (const view of ["overview", "scanner", "market", "holdings", "watchlist", "research", "chips", "technical", "history"]) {
+  for (const view of ["overview", "scanner", "market", "holdings", "watchlist", "research", "chips", "technical", "backtest", "history"]) {
     assert.match(nav, new RegExp('data-view="' + view + '"'));
   }
-  assert.equal((nav.match(/data-view=/g) || []).length, 9);
+  assert.equal((nav.match(/data-view=/g) || []).length, 10);
   assert.match(html, /data-symbol-search-form/);
   assert.match(html, /data-market-select/);
   assert.match(app, /InvestmentIntelligenceProviders\?\.create/);

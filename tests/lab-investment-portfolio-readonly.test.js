@@ -38,6 +38,7 @@ test("Lab portfolio projection is allowlisted and does not request account or ra
 test("Lab route contains no portfolio values and TW/US research keeps explicit market identity", () => {
   const app = read("labs/investment/app.js");
   const provider = read("labs/investment/src/providers/lab-market-provider.mjs");
+  const edge = read("supabase/functions/investment-intelligence-read/index.ts");
   assert.match(app, /research\/\$\{normalizedMarket\}\/\$\{encodeURIComponent\(safeSymbol\)\}/);
   assert.doesNotMatch(app, /location\.hash[^\n]*(quantity|averageCost|investedCost|unrealized)/i);
   assert.doesNotMatch(app, /localStorage\.(?:getItem|setItem)\([^\n]*(?:portfolio|holding)/i);
@@ -46,6 +47,10 @@ test("Lab route contains no portfolio values and TW/US research keeps explicit m
   assert.match(provider, /MARKETS\.has\(market\)/);
   assert.match(provider, /SYMBOL_REQUEST_INVALID/);
   assert.match(provider, /getTaiwanMarketScan/);
+  assert.match(edge, /function marketOf\(value: unknown\): Market \| ""/);
+  assert.match(edge, /const market = marketOf\(input\.market\)/);
+  assert.match(edge, /if \(!market \|\| \(suffixVenue && market !== "TW"\)\) return null/);
+  assert.doesNotMatch(edge, /\^\\d\{4,6\}\$[^\n]{0,80}\? "TW" : "US"/, "Edge must not infer market from ticker width or alpha/numeric shape");
 });
 
 function normalizedProductLoaders(source, productBuild) {

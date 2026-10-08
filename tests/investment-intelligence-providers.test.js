@@ -202,6 +202,72 @@ test("authenticated provider can request bounded read-only watchlist news withou
   assert.equal(result.readOnly ?? result.contract, "zhuge-investment-intelligence-runtime-v1");
 });
 
+test("Investment provider carries the bounded TDCC history request and returns its read-only series", async () => {
+  intelligence.clearProvidersForTest();
+  const calls = [];
+  const series = {
+    contract: "zhuge-tdcc-series-v1", status: "AVAILABLE", symbol: "2330",
+    provider: "TDCC public dataset 11452", dataTimestamp: "2026-10-09", observations: [],
+  };
+  const runtime = providers.create({
+    intelligence,
+    invokeFunction: async (functionName, body) => {
+      calls.push({ functionName, body });
+      return {
+        contract: "zhuge-investment-intelligence-edge-v1",
+        read_only: true,
+        generated_at: "2026-10-10T01:00:00.000Z",
+        tdcc_historical_series: series,
+      };
+    },
+  });
+  const result = await runtime.load({ tdccHistorySymbol: "2330" });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].functionName, "investment-intelligence-read");
+  assert.equal(calls[0].body.tdcc_history_symbol, "2330");
+  assert.deepEqual(result.tdccHistoricalSeries, series);
+});
+
+test("authenticated Investment Edge provider can request global Treasury context without symbol rows", async () => {
+  intelligence.clearProvidersForTest();
+  const calls = [];
+  const evidence = {
+    status: "AVAILABLE", available: true, provider: "U.S. Treasury Daily Treasury Yield Curve",
+    source: ["https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"],
+    data: { series: "10-year par yield", tenYearPct: 4.18, date: "2026-10-06" },
+    dataTimestamp: "2026-10-06", freshness: "fresh", delayed: true,
+  };
+  const references = [{
+    status: "AVAILABLE", available: true, provider: "FRED", category: "market", seriesId: "SP500",
+    label: "S&P 500", unit: "index points", data: { value: 5780, change: 20, changePct: 0.35, previousDate: "2026-10-05" },
+    dataTimestamp: "2026-10-06", freshness: "fresh", delayed: true,
+    source: ["https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500&cosd=2026-08-22"],
+  }];
+  const runtime = providers.create({
+    intelligence,
+    invokeFunction: async (functionName, body) => {
+      calls.push({ functionName, body });
+      return {
+        contract: "zhuge-investment-intelligence-edge-v1",
+        read_only: true,
+        generated_at: "2026-10-07T09:00:00.000Z",
+        global_market_context: evidence,
+        global_reference_context: references,
+        global_commodity_context: [{ status: "AVAILABLE", provider: "World Bank Pink Sheet", data: { id: "oil", observations: [{ month: "2026-09", value: 71 }] } }],
+      };
+    },
+  });
+  const result = await runtime.load({ globalMarketContext: true });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].functionName, "investment-intelligence-read");
+  assert.deepEqual(calls[0].body.symbols, []);
+  assert.equal(calls[0].body.global_market_context, true);
+  assert.deepEqual(result.globalMarketContext, evidence);
+  assert.deepEqual(result.globalReferenceContext, references);
+  assert.equal(result.globalCommodityContext[0].provider, "World Bank Pink Sheet");
+  assert.equal(result.quotes.length, 0);
+});
+
 test("Investment Intelligence does not inject a fixed starter-symbol universe", async () => {
   const calls = [];
   const runtime = providers.create({
@@ -363,16 +429,44 @@ test("Investment Intelligence Edge adapter is read-only and has no Product Data 
   assert.match(source, /loadOfficialMargin/);
   assert.match(source, /loadOfficialAnnouncements/);
   assert.match(source, /loadOfficialTaiwanMarketPulse/);
+  assert.match(source, /loadFuturesNight as loadOfficialTaiwanNightFutures/);
+  assert.match(source, /async function loadOfficialTaiwanMarketOverview\(\)[\s\S]*?const \[pulse, futures\] = await Promise\.all/);
+  assert.match(source, /return \{ \.\.\.pulse, futures \}/);
   assert.match(source, /taiwan_market_overview/);
   assert.match(source, /taiwan_market_scan/);
   assert.match(source, /loadTaiwanMarketScan/);
   assert.match(source, /buildTaiwanMarketScan/);
+  assert.match(source, /loadTreasuryTenYearContext/);
+  assert.match(source, /loadFredGlobalFxContext/);
+  assert.match(source, /global_reference_context/);
+  assert.doesNotMatch(source, /global_fx_context/);
+  assert.match(source, /loadWorldBankCommodityRadar/);
+  assert.match(source, /createTwseEtfNavProvider/);
+  assert.match(source, /const isConfirmedEtf = request.market === "TW"/);
+  assert.match(source, /type: "etf_fund"/);
+  assert.match(source, /global_commodity_context/);
+  assert.match(source, /global_market_context/);
   assert.match(source, /TWSE and TPEx daily quote sources are unavailable/);
   assert.match(source, /news_only/);
   assert.match(source, /News-only mode requires bounded symbol requests/);
+  assert.match(source, /TDCC_RELEASE_DOWNLOAD_PREFIX/);
+  assert.match(source, /const assetUrl = `\$\{TDCC_RELEASE_DOWNLOAD_PREFIX\}\$\{encodeURIComponent\(assetName\)\}`/);
+  assert.doesNotMatch(source, /providerRequest\(text\(asset\.browser_download_url/);
+  assert.match(source, /globalMarketContext \|\| tdccHistorySymbol/);
   assert.match(source, /const newsResult = await loadNews\(input\.symbols, now\)/);
   assert.match(source, /await requireAuthenticatedSession\(request\);[\s\S]*?validateInput/);
   assert.doesNotMatch(source, /(?:fetch|providerRequest)\(text\(input\.(?:url|endpoint)|new URL\(text\(input\.(?:url|endpoint)/);
+});
+
+test("TWSE MIS NAV read is attached only to issuer-confirmed ETF relationships", async () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/investment-intelligence-read/index.ts"), "utf8");
+  const relationshipBlock = source.slice(source.indexOf("async function loadRelationships"), source.indexOf("async function loadMarketPhases"));
+  assert.match(relationshipBlock, /evidence\.some\(item => item\?\.type === "etf_component"\)/);
+  assert.match(relationshipBlock, /createTwseEtfNavProvider\(\)\.getFundEvidence/);
+  assert.match(relationshipBlock, /provider: nav\.provider/);
+  assert.match(relationshipBlock, /data: nav\.data/);
+  assert.match(relationshipBlock, /type: "etf_fund"/);
+  assert.doesNotMatch(relationshipBlock, /if\s*\(request\.symbol/);
 });
 
 test("official/public evidence adapters feed OHLC, fundamental, market phase, ETF components, industry exposure and related symbols", async () => {
