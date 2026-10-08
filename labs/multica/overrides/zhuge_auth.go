@@ -104,9 +104,17 @@ func verifyZhugeIdentity(ctx context.Context, token string) (zhugeSupabaseUser, 
 	if accessResp.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("Zhuge app access lookup failed: %s", accessResp.Status)
 	}
-	var rows []zhugeAccessRow
-	if err := json.NewDecoder(accessResp.Body).Decode(&rows); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(accessResp.Body).Decode(&raw); err != nil {
 		return user, err
+	}
+	var rows []zhugeAccessRow
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		var row zhugeAccessRow
+		if err2 := json.Unmarshal(raw, &row); err2 != nil {
+			return user, err
+		}
+		rows = []zhugeAccessRow{row}
 	}
 	if len(rows) == 0 || !strings.EqualFold(strings.TrimSpace(rows[0].Status), "APPROVED") {
 		return user, errors.New("Zhuge app access is not approved")
