@@ -33,7 +33,7 @@
       "dataTruthLabels": [
         "SELF_HOSTED",
         "SUPABASE_ISOLATED",
-        "ZHUge_UUID_AUTHORITY",
+        "ZHUGE_UUID_AUTHORITY",
         "NO_PRODUCTION_CREDENTIALS"
       ]
     }
