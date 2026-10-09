@@ -101,8 +101,8 @@ must_replace(account, '              value={profileName}\n              onChange
 # ---------------------------------------------------------------------------
 must_replace(
     "packages/views/settings/components/workspace-tab.tsx",
-    "      {membersFetched && (\\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>",
-    "      {false && membersFetched && (\\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>"
+    "      {membersFetched && (\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>",
+    "      {false && membersFetched && (\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>"
 )
 
 print("Zhuge Multica Lab house rules applied")
