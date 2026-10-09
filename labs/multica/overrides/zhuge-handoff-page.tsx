@@ -15,7 +15,7 @@ export default function ZhugeHandoffPage() {
         return;
       }
       window.localStorage.setItem("multica_token", token);
-      window.location.replace("/login");
+      window.location.replace("/");
     } catch {
       setMessage("Zhuge 身分交接失敗。請從 Zhuge AI OS 的 Lab 入口重新進入。");
     }
