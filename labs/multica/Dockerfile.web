@@ -8,8 +8,12 @@ RUN git clone https://github.com/multica-ai/multica.git /src \
  && cd /src \
  && git checkout "${MULTICA_UPSTREAM_COMMIT}"
 COPY labs/multica/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/multica/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
+COPY labs/multica/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
+COPY labs/multica/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx
 COPY labs/multica/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
-RUN python3 /tmp/apply-zhuge-identity.py
+COPY labs/multica/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
+RUN python3 /tmp/apply-zhuge-identity.py && python3 /tmp/apply-zhuge-house-rules.py
 
 FROM node:22-alpine AS deps
 WORKDIR /app
