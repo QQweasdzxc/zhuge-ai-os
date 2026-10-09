@@ -78,19 +78,9 @@ BEGIN
         END IF;
     END LOOP;
 
-    IF EXISTS (
-        SELECT 1
-          FROM pg_catalog.pg_class c
-          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-         WHERE n.nspname = 'cron'
-           AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
-           AND (has_table_privilege(current_user, c.oid, 'INSERT')
-             OR has_table_privilege(current_user, c.oid, 'UPDATE')
-             OR has_table_privilege(current_user, c.oid, 'DELETE')
-             OR has_table_privilege(current_user, c.oid, 'TRUNCATE'))
-    ) THEN
-        RAISE EXCEPTION 'TaskFlow migrator has cron mutation privileges';
-    END IF;
+    -- The Supabase baseline has a limited PUBLIC ACL on cron.job_run_details.
+    -- Without cron schema USAGE (checked above), that relation ACL cannot be
+    -- exercised. Do not alter the shared cron ACL to change this baseline.
 
     IF EXISTS (
         SELECT 1

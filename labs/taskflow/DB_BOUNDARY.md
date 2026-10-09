@@ -16,6 +16,12 @@ repository-controlled bootstrap provisions the TaskFlow schema and role. The
 runtime role owns only TaskFlow objects. Database credentials stay in private
 runtime configuration and never enter source or images.
 
+The existing Supabase `cron` schema has a limited `PUBLIC` relation ACL,
+including `DELETE` on `cron.job_run_details`. TaskFlow roles receive no `USAGE`
+on `cron`, so PostgreSQL rejects access before relation privileges can be used.
+The startup checks enforce that schema boundary, and TaskFlow never changes the
+shared cron ACL.
+
 The TaskFlow migration staging firewall copies the pinned Multica migrations
 without changing `third_party/multica/`. It applies narrow TaskFlow-owned
 transforms for optional/global extension setup and Multica legacy cron cleanup,

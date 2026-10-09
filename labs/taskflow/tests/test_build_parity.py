@@ -69,6 +69,9 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("pg_catalog.pg_has_role", entrypoint)
         self.assertIn("must not have extensions CREATE", entrypoint)
         self.assertIn("has_sequence_privilege", entrypoint)
+        self.assertIn("has_schema_privilege(current_user, 'cron', 'USAGE')", entrypoint)
+        self.assertIn("relation ACL cannot be", entrypoint)
+        self.assertNotIn("TaskFlow runtime has cron mutation privileges", entrypoint)
         self.assertNotIn("CREATE SCHEMA", entrypoint)
         self.assertNotIn("CREATE EXTENSION", entrypoint)
         self.assertNotIn("/app/migrate up", entrypoint)
@@ -78,6 +81,9 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("TASKFLOW_MIGRATION_DATABASE_URL", migrator)
         self.assertIn("must not have extensions CREATE", migrator)
         self.assertIn("has_sequence_privilege", migrator)
+        self.assertIn("has_schema_privilege(current_user, 'cron', 'USAGE')", migrator)
+        self.assertIn("relation ACL cannot be", migrator)
+        self.assertNotIn("TaskFlow migrator has cron mutation privileges", migrator)
         self.assertIn("exec /app/migrate up", migrator)
 
     def test_taskflow_overlay_isolated_from_native_overlay(self):
