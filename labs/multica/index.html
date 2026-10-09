@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Multica Agent Lab · Zhuge AI OS</title>
+  <style>
+    :root{color-scheme:dark}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
+    main{max-width:760px;margin:0 auto;padding:56px 24px}
+    .card{border:1px solid #253550;border-radius:20px;background:#0f1b2d;padding:28px}
+    .eyebrow{color:#60a5fa;font-size:13px;font-weight:800;letter-spacing:.08em}
+    h1{margin:10px 0 12px;font-size:34px}
+    p{color:#aab8ca;line-height:1.7}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+    button,a.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border:0;border-radius:12px;background:#2563eb;color:white;text-decoration:none;font:inherit;font-weight:750;cursor:pointer}
+    button:disabled{opacity:.55;cursor:wait}
+    a.secondary{background:#1e293b}
+    .status{margin-top:16px;min-height:24px;color:#bfdbfe}
+    .note{margin-top:22px;padding-top:18px;border-top:1px solid #253550;font-size:13px}
+    code{color:#bfdbfe}
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="eyebrow">Zhuge AI OS · LAB</div>
+      <h1>Multica Agent Lab</h1>
+      <p>Multica 直接接受目前已登入的 Zhuge 身分與 UUID。沒有第二次註冊、沒有 OTP，也不建立另一個 Human Identity。</p>
+      <p>Board、Issues、Agents、Runs、Runtime、Blocked、Skills、Squads 與 Autopilot 仍保留原生 Multica 體驗。</p>
+      <div class="actions">
+        <button id="enterLab" type="button">直接進入 Multica Lab</button>
+        <a class="button secondary" href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer">上游原始碼</a>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <p class="note">Identity Authority：Zhuge Shared Identity。Multica 只接受 Zhuge 已核准的 Supabase Session，並沿用相同 <code>user UUID</code> 建立本地 Session。</p>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const AUTH_KEY = "zhuge_ai_os_google_auth_session_v1";
+      const SESSION_KEY = "zhuge_ai_os_session_v1";
+      const API = "https://zhuge-multica-lab-api.onrender.com";
+      const WEB = "https://zhuge-multica-lab.onrender.com";
+      const button = document.getElementById("enterLab");
+      const status = document.getElementById("status");
+
+      function readJson(key) {
+        try { return JSON.parse(localStorage.getItem(key) || "null"); }
+        catch { return null; }
+      }
+
+      function currentAccessToken() {
+        return readJson(AUTH_KEY)?.access_token || readJson(SESSION_KEY)?.access_token || "";
+      }
+
+      async function enter() {
+        const accessToken = currentAccessToken();
+        if (!accessToken) {
+          status.textContent = "目前沒有 Zhuge 登入 Session。請先回 Zhuge AI OS 登入，再從 Lab 進入。";
+          return;
+        }
+
+        button.disabled = true;
+        status.textContent = "正在把 Zhuge 身分交給 Multica Lab…";
+        try {
+          const response = await fetch(API + "/auth/zhuge", {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access_token: accessToken })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload.token) {
+            throw new Error(payload.error || "Zhuge Identity handoff failed");
+          }
+          status.textContent = "身分確認完成，正在進入 Multica…";
+          location.href = WEB + "/zhuge-handoff#zhuge_token=" + encodeURIComponent(payload.token);
+        } catch (error) {
+          console.error("Multica Zhuge handoff failed", error);
+          status.textContent = "目前無法完成身分交接。請先回 Zhuge AI OS 重新登入後再試。";
+          button.disabled = false;
+        }
+      }
+
+      button.addEventListener("click", enter);
+    })();
+  </script>
+</body>
+</html>

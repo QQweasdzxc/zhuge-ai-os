@@ -18,6 +18,24 @@
         "SERVER_PROXY_REQUIRED",
         "UNAVAILABLE"
       ]
+    },
+    {
+      "id": "zhuge-multica-agent-lab",
+      "name": "Multica Agent Lab",
+      "category": "Agent Collaboration",
+      "status": "STAGING",
+      "enabled": true,
+      "localEntry": "./multica/",
+      "source": "https://github.com/multica-ai/multica",
+      "upstreamCommit": "8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec",
+      "currentGate": "NATIVE_EXPERIENCE_BOOTSTRAP",
+      "licenseStatus": "Multica License; original branding and attribution retained",
+      "dataTruthLabels": [
+        "SELF_HOSTED",
+        "SUPABASE_ISOLATED",
+        "ZHUGE_UUID_AUTHORITY",
+        "NO_PRODUCTION_CREDENTIALS"
+      ]
     }
   ]
 }
