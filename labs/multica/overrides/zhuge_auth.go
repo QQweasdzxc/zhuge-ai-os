@@ -33,6 +33,13 @@ type zhugeAccessRow struct {
 	Status string `json:"status"`
 }
 
+// ZhugeManagedOnly closes Multica-native human-account and workspace-membership
+// mutation paths inside the Zhuge Lab. Humans enter through Zhuge identity;
+// Multica remains free to manage agents, issues, runs, runtimes and skills.
+func (h *Handler) ZhugeManagedOnly(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusForbidden, "managed by Zhuge AI OS")
+}
+
 func zhugePGUUID(raw string) (pgtype.UUID, error) {
 	id, err := uuid.Parse(strings.TrimSpace(raw))
 	if err != nil {
