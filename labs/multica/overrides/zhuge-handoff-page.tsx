@@ -9,13 +9,14 @@ export default function ZhugeHandoffPage() {
     try {
       const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const token = params.get("zhuge_token");
+      const destination = params.get("zhuge_dest") || "/";
       window.history.replaceState(null, "", window.location.pathname);
       if (!token) {
         setMessage("沒有收到 Zhuge 身分。請從 Zhuge AI OS 的 Lab 入口重新進入。");
         return;
       }
       window.localStorage.setItem("multica_token", token);
-      window.location.replace("/");
+      window.location.replace(destination);
     } catch {
       setMessage("Zhuge 身分交接失敗。請從 Zhuge AI OS 的 Lab 入口重新進入。");
     }
