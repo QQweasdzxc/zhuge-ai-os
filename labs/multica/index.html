@@ -54,6 +54,46 @@
         return readJson(AUTH_KEY)?.access_token || readJson(SESSION_KEY)?.access_token || "";
       }
 
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      async function waitUntilReady(url, init, label, timeoutMs = 90000) {
+        const started = Date.now();
+        let lastError = "";
+        while (Date.now() - started < timeoutMs) {
+          try {
+            const response = await fetch(url, { cache: "no-store", ...init });
+            if (response.ok) return;
+            lastError = label + " 回應 " + response.status;
+          } catch (error) {
+            lastError = error?.message || String(error);
+          }
+          await sleep(1800);
+        }
+        throw new Error(lastError || (label + " 啟動逾時"));
+      }
+
+      async function warmLab() {
+        status.textContent = "正在啟動 Multica Lab…第一次進入可能需要約 30–60 秒。";
+        await Promise.all([
+          waitUntilReady(API + "/readyz", { mode: "cors" }, "Multica API"),
+          waitUntilReady(WEB + "/zhuge-ready", { mode: "cors" }, "Multica Web")
+        ]);
+      }
+
+      async function fetchBoardDestination(token) {
+        const response = await fetch(API + "/api/workspaces", {
+          method: "GET",
+          mode: "cors",
+          cache: "no-store",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if (!response.ok) throw new Error("無法讀取 Multica Lab Workspace");
+        const workspaces = await response.json();
+        const first = Array.isArray(workspaces) ? workspaces[0] : null;
+        if (!first?.slug) return "/";
+        return "/" + encodeURIComponent(first.slug) + "/issues";
+      }
+
       async function enter() {
         const accessToken = currentAccessToken();
         if (!accessToken) {
@@ -62,8 +102,10 @@
         }
 
         button.disabled = true;
-        status.textContent = "正在把 Zhuge 身分交給 Multica Lab…";
         try {
+          await warmLab();
+
+          status.textContent = "正在確認 Zhuge 身分與 UUID…";
           const response = await fetch(API + "/auth/zhuge", {
             method: "POST",
             mode: "cors",
@@ -74,11 +116,15 @@
           if (!response.ok || !payload.token) {
             throw new Error(payload.error || "Zhuge Identity handoff failed");
           }
-          status.textContent = "身分確認完成，正在進入 Multica…";
-          location.href = WEB + "/zhuge-handoff#zhuge_token=" + encodeURIComponent(payload.token);
+
+          status.textContent = "身分確認完成，正在直接進入 Multica 看板…";
+          const destination = await fetchBoardDestination(payload.token);
+          location.href = WEB + "/zhuge-handoff#zhuge_token=" +
+            encodeURIComponent(payload.token) +
+            "&zhuge_dest=" + encodeURIComponent(destination);
         } catch (error) {
           console.error("Multica Zhuge handoff failed", error);
-          status.textContent = "目前無法完成身分交接。請先回 Zhuge AI OS 重新登入後再試。";
+          status.textContent = "Multica Lab 目前尚未準備完成，請稍後再試。";
           button.disabled = false;
         }
       }
