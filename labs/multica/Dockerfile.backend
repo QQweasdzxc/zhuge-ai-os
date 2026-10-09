@@ -10,8 +10,12 @@ RUN git clone https://github.com/multica-ai/multica.git /src \
 COPY labs/multica/overrides/dbid.go /tmp/dbid.go
 COPY labs/multica/overrides/zhuge_auth.go /tmp/zhuge_auth.go
 COPY labs/multica/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/multica/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
+COPY labs/multica/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
+COPY labs/multica/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx
 COPY labs/multica/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
-RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go && python3 /tmp/apply-zhuge-identity.py
+COPY labs/multica/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
+RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go && python3 /tmp/apply-zhuge-identity.py && python3 /tmp/apply-zhuge-house-rules.py
 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
