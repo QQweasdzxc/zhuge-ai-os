@@ -31,6 +31,7 @@ def copy_override(tmp_name, rel):
 copy_override("zhuge-root-page.tsx", "apps/web/app/(landing)/page.tsx")
 copy_override("zhuge-login-page.tsx", "apps/web/app/(auth)/login/page.tsx")
 copy_override("zhuge-help-launcher.tsx", "packages/views/layout/help-launcher.tsx")
+copy_override("multica-brand-mark.tsx", "apps/web/components/zhuge-multica-brand.tsx")
 
 # ---------------------------------------------------------------------------
 # Backend: Zhuge is the only Human Identity / Membership Authority.

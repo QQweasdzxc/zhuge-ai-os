@@ -40,12 +40,21 @@ class TaskFlowBuildParityTests(unittest.TestCase):
                 (NATIVE / "overrides" / name).read_bytes(),
                 name,
             )
-        for name in ("apply-zhuge-identity.py", "apply-zhuge-house-rules.py"):
+        for name in ("apply-zhuge-identity.py",):
             self.assertEqual(
                 (TASKFLOW / "patches" / name).read_bytes(),
                 (NATIVE / "patches" / name).read_bytes(),
                 name,
             )
+        native_house_rules = (NATIVE / "patches/apply-zhuge-house-rules.py").read_text()
+        taskflow_house_rules = (TASKFLOW / "patches/apply-zhuge-house-rules.py").read_text()
+        self.assertEqual(
+            taskflow_house_rules.replace(
+                'copy_override("multica-brand-mark.tsx", "apps/web/components/zhuge-multica-brand.tsx")\n',
+                "",
+            ),
+            native_house_rules,
+        )
 
     def test_taskflow_replacement_pages_keep_multica_brand_and_attribution(self):
         for name in (
@@ -54,10 +63,14 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             "zhuge-handoff-page.tsx",
         ):
             text = (TASKFLOW / "overrides" / name).read_text()
-            self.assertIn("MulticaIcon", text, name)
+            self.assertIn("MulticaBrandMark", text, name)
             self.assertIn("multica", text.lower(), name)
             self.assertIn("All rights reserved.", text, name)
             self.assertIn("https://github.com/multica-ai/multica", text, name)
+        self.assertIn(
+            "MulticaIcon",
+            (TASKFLOW / "overrides/multica-brand-mark.tsx").read_text(),
+        )
 
     def test_boundary_defaults_match_native_lab_and_keep_cloud_telemetry_off(self):
         backend = (TASKFLOW / "Dockerfile.backend").read_text()
@@ -103,6 +116,7 @@ class TaskFlowBuildParityTests(unittest.TestCase):
                 "zhuge-root-page.tsx",
                 "zhuge-login-page.tsx",
                 "zhuge-help-launcher.tsx",
+                "multica-brand-mark.tsx",
             ):
                 (tmpdir / name).write_text("// fixture\n")
             script = self._relocate_script(

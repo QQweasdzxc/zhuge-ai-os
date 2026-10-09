@@ -6,6 +6,7 @@ copies, leaving the Native Lab Golden Baseline unchanged.
 
 The landing, login, and handoff presentation copies add the upstream Multica
 logo, product name, and exact displayed copyright attribution required by the
-vendored license. Identity, routing, house-rule, and data behavior otherwise
-match the Native Lab baseline. The frozen upstream source itself remains
-unchanged under `third_party/multica/`.
+vendored license. A small client-component wrapper renders the upstream logo
+from Server Component routes. Identity, routing, house-rule, and data behavior
+otherwise match the Native Lab baseline. The frozen upstream source itself
+remains unchanged under `third_party/multica/`.

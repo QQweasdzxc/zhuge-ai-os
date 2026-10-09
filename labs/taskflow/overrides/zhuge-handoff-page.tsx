@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
+import { MulticaBrandMark } from "@/components/zhuge-multica-brand";
 
 export default function ZhugeHandoffPage() {
   const [message, setMessage] = useState("正在接收 Zhuge 身分…");
@@ -26,10 +26,7 @@ export default function ZhugeHandoffPage() {
   return (
     <main className="flex min-h-svh items-center justify-center p-6">
       <div className="max-w-md text-center">
-        <div className="mb-5 flex items-center justify-center gap-2 text-foreground">
-          <MulticaIcon className="size-5" noSpin />
-          <span className="text-sm font-semibold lowercase tracking-[0.04em]">multica</span>
-        </div>
+        <MulticaBrandMark className="mb-5 flex items-center justify-center gap-2 text-foreground" />
         <div className="text-sm text-muted-foreground">{message}</div>
         <footer className="mt-6 text-xs text-muted-foreground">
           © {new Date().getFullYear()} Multica. All rights reserved. ·{" "}

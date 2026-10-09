@@ -17,6 +17,7 @@ COPY labs/taskflow/overrides/zhuge-ready-route.ts /tmp/zhuge-ready-route.ts
 COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
 COPY labs/taskflow/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
 COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx
+COPY labs/taskflow/overrides/multica-brand-mark.tsx /tmp/multica-brand-mark.tsx
 COPY labs/taskflow/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
 COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
 RUN python3 /tmp/apply-zhuge-identity.py \

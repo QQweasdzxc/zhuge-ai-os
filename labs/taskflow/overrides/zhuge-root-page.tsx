@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { RedirectIfAuthenticated } from "@/features/landing/components/redirect-if-authenticated";
-import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
+import { MulticaBrandMark } from "@/components/zhuge-multica-brand";
 
 export const metadata: Metadata = {
   title: { absolute: "Multica Agent Lab · Zhuge AI OS" },
@@ -15,8 +15,7 @@ export default function LandingPage() {
         <div className="mx-auto flex min-h-svh w-full max-w-3xl items-center px-6 py-14">
           <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-sm sm:p-10">
             <div className="flex items-center gap-2 text-foreground">
-              <MulticaIcon className="size-5" noSpin />
-              <span className="text-sm font-semibold lowercase tracking-[0.04em]">multica</span>
+              <MulticaBrandMark className="flex items-center gap-2" />
               <span className="text-xs text-muted-foreground">· ZHUGE AI OS LAB</span>
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Multica Agent Lab</h1>

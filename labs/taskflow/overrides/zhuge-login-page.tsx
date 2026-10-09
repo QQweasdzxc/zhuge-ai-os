@@ -1,7 +1,7 @@
 "use client";
 
 import { RedirectIfAuthenticated } from "@/features/landing/components/redirect-if-authenticated";
-import { MulticaIcon } from "@multica/ui/components/common/multica-icon";
+import { MulticaBrandMark } from "@/components/zhuge-multica-brand";
 
 export default function Page() {
   return (
@@ -10,10 +10,7 @@ export default function Page() {
       <main className="min-h-svh bg-background text-foreground">
         <div className="mx-auto flex min-h-svh w-full max-w-xl items-center px-6 py-14">
           <section className="w-full rounded-2xl border border-border bg-card p-7 text-center shadow-sm sm:p-10">
-            <div className="flex items-center justify-center gap-2 text-foreground">
-              <MulticaIcon className="size-5" noSpin />
-              <span className="text-sm font-semibold lowercase tracking-[0.04em]">multica</span>
-            </div>
+            <MulticaBrandMark className="flex items-center justify-center gap-2 text-foreground" />
             <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-muted-foreground">ZHUGE AI OS · IDENTITY</p>
             <h1 className="mt-3 text-2xl font-semibold">不用再登入一次</h1>
             <p className="mt-4 leading-7 text-muted-foreground">
