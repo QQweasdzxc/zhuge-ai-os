@@ -78,7 +78,7 @@ settings = "packages/views/settings/components/settings-page.tsx"
 must_replace(
     settings,
     '            entry("members", t(($) => $.page.tabs.members), Users, <MembersTab />, {\n              adminOnly: true,\n            }),\n',
-    ''
+    '            ...(false ? [entry("members", t(($) => $.page.tabs.members), Users, <MembersTab />, { adminOnly: true })] : []),\n'
 )
 
 # ---------------------------------------------------------------------------
@@ -99,12 +99,10 @@ must_replace(account, '              value={profileName}\n              onChange
 # Workspace: the Zhuge-created Lab room cannot be abandoned or deleted from
 # inside Multica. Native context/description/prefix settings remain testable.
 # ---------------------------------------------------------------------------
-workspace = ROOT / "packages/views/settings/components/workspace-tab.tsx"
-text = workspace.read_text()
-start = text.find('      {/* Danger Zone')
-end = text.find('      <Dialog\n        open={prefixDraft !== null}', start)
-if start < 0 or end < 0:
-    raise SystemExit("Zhuge house-rules danger-zone markers missing")
-workspace.write_text(text[:start] + text[end:])
+must_replace(
+    "packages/views/settings/components/workspace-tab.tsx",
+    "      {membersFetched && (\\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>",
+    "      {false && membersFetched && (\\n        <SettingsSection title={t(($) => $.workspace.danger_zone)}>"
+)
 
 print("Zhuge Multica Lab house rules applied")
