@@ -1,31 +1,33 @@
-# Multica Lab — secure bind and first runtime
+# Multica Lab — Zhuge identity and first runtime
 
 This file contains no credentials.
 
-## 1. Backend secrets (Render)
+## 1. Identity
 
-Service: `zhuge-multica-lab-api`
+There is no Multica-native human registration flow in Zhuge Lab.
 
-The backend cannot become healthy until these two private values are set directly in Render:
+Entry contract:
 
-- `DATABASE_URL`: a Supabase PostgreSQL connection string that authenticates a role whose `search_path` begins with `lab_multica,extensions,public`.
-- `JWT_SECRET`: a strong random secret (Multica recommends a 32-byte / 64-hex value).
+```
+Zhuge authenticated session
+  → /auth/zhuge
+  → verify Supabase user + Zhuge app access
+  → reuse the same Zhuge user UUID
+  → create a Multica-local session
+  → enter the Zhuge-created Lab workspace
+```
 
-Recommended database role already provisioned in Supabase:
-`multica_lab_runtime`
+Email OTP, Google login inside Multica, native workspace signup, invitations and share-link membership are disabled.
 
-The role has no password yet by design. Set its password privately in Supabase SQL Editor or another secure administrative path, then use that credential only in Render's private environment variable UI. Never commit it and never paste it into chat.
+## 2. Database
 
-The Lab schema is:
-`lab_multica`
+Backend service: `zhuge-multica-lab-api`
 
-Production Zhuge tables are not the target of Multica migrations.
+Database: Zhuge Supabase project, isolated schema `lab_multica`.
 
-## 2. Native login bootstrap
+Runtime database role: `multica_lab_runtime`.
 
-For the first native Multica experience, keep Multica authentication unchanged.
-
-If email/SMTP is not configured, Multica prints the one-time verification code in backend logs. This is acceptable only for this private Lab bootstrap. After the first account/workspace is created, close public signup again.
+`DATABASE_URL` and `JWT_SECRET` are stored only in Render private environment configuration. Production Zhuge canonical tables are not migration targets.
 
 ## 3. Connect a Zhuge-owned runtime
 
@@ -35,7 +37,7 @@ Recommended first runtime:
 - Machine: Zhuge Mac mini
 - Provider: Codex CLI
 
-On that machine, after the backend is healthy:
+On that machine:
 
 ```bash
 brew install multica-ai/tap/multica
@@ -45,16 +47,16 @@ multica setup self-host \
 multica daemon status
 ```
 
-The setup flow opens authentication in the browser. Do not copy provider credentials into Multica server environment variables; let the daemon use the coding CLI credentials already owned by the runtime machine.
+The browser handoff must use the already-bound Zhuge identity. Provider credentials stay on the runtime machine; do not place Codex credentials in Multica server environment variables.
 
 ## 4. Safety boundary
 
-The initial experiment may read/change a Lab worktree or isolated Zhuge source copy, run tests, create commits and report diffs.
+The experiment may read/change a Lab worktree or isolated Zhuge source copy, run tests, create Lab commits and report diffs.
 
 It must not:
 - push `main` without Zhuge PM exact-SHA approval,
 - use Production Supabase service credentials,
-- deploy Production,
+- deploy Zhuge Production,
 - mutate canonical Production data.
 
 ## 5. First experience acceptance
