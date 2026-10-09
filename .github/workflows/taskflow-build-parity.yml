@@ -1,0 +1,56 @@
+name: TaskFlow Build Parity
+
+on:
+  push:
+    branches:
+      - taskflow-dev
+    paths:
+      - "third_party/multica/**"
+      - "labs/taskflow/**"
+      - ".github/workflows/taskflow-build-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  overlay-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify TaskFlow overlay and fail-closed patch contract
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+
+  backend-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow backend from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.backend \
+            -t taskflow-multica-backend:parity . 2>&1 | tee /tmp/taskflow-backend-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-build.log; then
+            echo "Unexpected Multica application-source clone in backend build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-backend-build.log
+
+  web-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow web from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.web \
+            -t taskflow-multica-web:parity . 2>&1 | tee /tmp/taskflow-web-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-web-build.log; then
+            echo "Unexpected Multica application-source clone in web build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-web-build.log

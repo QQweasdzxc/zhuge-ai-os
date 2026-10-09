@@ -31,22 +31,22 @@ The Render services are configured from the Zhuge repository branch `lab/multica
 - Web service `zhuge-multica-lab`: `labs/multica/Dockerfile.web`, live at `43e86b3...`.
 - API service `zhuge-multica-lab-api`: `labs/multica/Dockerfile.backend`, live at `5c96e23...`.
 
-The native snapshot contains the upstream-pinned Web/API Docker builds, UUID and identity overrides, Zhuge handoff pages, readiness route, house-rule patchers, security/house-rule documents, and build workflow. Its existing `labs/multica/Dockerfile.*` files still clone the upstream at build time and are left unchanged as the Native Lab Golden Baseline. TaskFlow builds instead use the frozen local tree and its own upstream Dockerfiles:
+The native snapshot contains the upstream-pinned Web/API Docker builds, UUID and identity overrides, Zhuge handoff pages, readiness route, house-rule patchers, security/house-rule documents, and build workflow. Its existing `labs/multica/Dockerfile.*` files still clone upstream at build time and are left unchanged as the Native Lab Golden Baseline. TaskFlow uses TaskFlow-owned wrappers and overlays with the repository root as build context:
 
 ```sh
-docker build -f third_party/multica/Dockerfile -t taskflow-multica-api:local third_party/multica
-docker build -f third_party/multica/Dockerfile.web -t taskflow-multica-web:local third_party/multica
+docker build -f labs/taskflow/Dockerfile.backend -t taskflow-multica-api:local .
+docker build -f labs/taskflow/Dockerfile.web -t taskflow-multica-web:local .
 ```
 
-Those TaskFlow build commands do not clone Multica source. `lab/multica-native` is a branch/service source name; repository paths are under `labs/multica/`.
+Those wrappers copy `third_party/multica/` into a build source stage, then apply TaskFlow-owned copies under `labs/taskflow/overrides/` and `labs/taskflow/patches/`. They do not clone Multica application source. The wrappers carry the pinned source SHA, keep workspace creation/cloud/telemetry defaults closed, and include the upstream `LICENSE` and `NOTICE` in their runtime images. `lab/multica-native` is a branch/service source name; repository paths are under `labs/multica/`.
 
 Render's control plane reports both deployed services as `live`, and their service configuration points at the expected repository branch and Dockerfiles. Direct HTTP readiness probes from this execution environment returned `403`; this environment-level response is not treated as a runtime failure or as end-user authenticated acceptance.
 
 ## TaskFlow implementation gate
 
-**READY FOR IMPLEMENTATION: YES.**
+The TaskFlow source-ownership and license gates passed. The TaskFlow Build Parity gate is tracked by `.github/workflows/taskflow-build-parity.yml` and is complete only when the backend and web image builds both succeed for the exact branch commit.
 
-TaskFlow Dev contains current canonical `main`, the exact Multica Native Lab source snapshot used by the live Web deploy, and a complete local vendor copy of the frozen upstream source. Its local TaskFlow build uses the vendor tree and preserves the upstream LICENSE / NOTICE. The license and branding boundary is recorded in `labs/taskflow/THIRD_PARTY_MULTICA.md`. Future TaskFlow work must preserve the PR #35–#37 Zhuge overlay and keep Multica attribution in any derived UI. Do not rebuild from the Investment Candidate or advance the upstream pin without a separate review.
+TaskFlow Dev contains current canonical `main`, the exact Multica Native Lab source snapshot used by the live Web deploy, and a complete local vendor copy of the frozen upstream source. Its TaskFlow-owned overlays preserve the Zhuge identity/handoff and house rules while retaining the Multica logo, product name, and displayed attribution on replaced entry surfaces. The license and branding boundary is recorded in `labs/taskflow/THIRD_PARTY_MULTICA.md`. Future TaskFlow work must preserve the PR #35–#37 Zhuge overlay and keep Multica attribution in any derived UI. Do not rebuild from the Investment Candidate or advance the upstream pin without a separate review.
 
 ## Zhuge overlay commits
 

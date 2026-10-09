@@ -1,0 +1,66 @@
+# TaskFlow-owned backend wrapper. Build with the Zhuge repository root as context.
+# Multica source is copied from the immutable local vendor snapshot; no source clone.
+ARG MULTICA_SOURCE_SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec
+
+FROM alpine:3.21 AS source
+ARG MULTICA_SOURCE_SHA
+RUN apk add --no-cache python3
+WORKDIR /
+COPY third_party/multica/ /src/
+RUN test "${MULTICA_SOURCE_SHA}" = "8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec" \
+ && test -f /src/LICENSE \
+ && test -f /src/NOTICE \
+ && echo "TASKFLOW_SOURCE_MODE=vendored SHA=${MULTICA_SOURCE_SHA}; upstream application source clone=disabled"
+
+COPY labs/taskflow/overrides/dbid.go /tmp/dbid.go
+COPY labs/taskflow/overrides/zhuge_auth.go /tmp/zhuge_auth.go
+COPY labs/taskflow/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
+COPY labs/taskflow/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
+COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx
+COPY labs/taskflow/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
+COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
+RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
+ && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go \
+ && python3 /tmp/apply-zhuge-identity.py \
+ && python3 /tmp/apply-zhuge-house-rules.py
+
+FROM golang:1.26-alpine AS builder
+ARG MULTICA_SOURCE_SHA
+ARG VERSION=taskflow-parity
+ARG COMMIT=${MULTICA_SOURCE_SHA}
+ARG DATE=unknown
+RUN apk add --no-cache git
+WORKDIR /src
+COPY --from=source /src /src
+RUN cd server && go mod download
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/maintenance ./cmd/maintenance
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_task_usage_hourly ./cmd/backfill_task_usage_hourly
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_codex_usage_cache ./cmd/backfill_codex_usage_cache
+
+FROM alpine:3.21 AS runtime
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /src/server/bin/server .
+COPY --from=builder /src/server/bin/multica .
+COPY --from=builder /src/server/bin/migrate .
+COPY --from=builder /src/server/bin/maintenance .
+COPY --from=builder /src/server/bin/backfill_task_usage_hourly .
+COPY --from=builder /src/server/bin/backfill_codex_usage_cache .
+COPY --from=builder /src/server/migrations/ ./migrations/
+COPY --from=source /src/LICENSE /src/NOTICE ./
+COPY --from=source /src/docker/entrypoint.sh .
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+ENV DISABLE_WORKSPACE_CREATION=true \
+    MULTICA_CLOUD_URL= \
+    DO_NOT_TRACK=1 \
+    ANALYTICS_DISABLED=true
+LABEL org.opencontainers.image.title="TaskFlow · Multica backend" \
+      org.opencontainers.image.vendor="Index Labs (Hong Kong) Limited" \
+      org.opencontainers.image.source="https://github.com/multica-ai/multica" \
+      org.opencontainers.image.revision="8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec"
+EXPOSE 8080
+ENTRYPOINT ["./entrypoint.sh"]
