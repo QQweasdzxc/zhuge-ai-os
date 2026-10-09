@@ -130,6 +130,9 @@
       }
 
       button.addEventListener("click", enter);
+      if (currentAccessToken()) {
+        void enter();
+      }
     })();
   </script>
 </body>
