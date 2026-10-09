@@ -25,7 +25,7 @@ Backend service: `zhuge-multica-lab-api`
 
 Database: Zhuge Supabase project, isolated schema `lab_multica`.
 
-Runtime database role: `multica_lab_runtime`.
+Runtime database role: `multica_lab_runtime`. Its `search_path` is restricted to `lab_multica, extensions`; it does not resolve Zhuge Production `public` tables.
 
 `DATABASE_URL` and `JWT_SECRET` are stored only in Render private environment configuration. Production Zhuge canonical tables are not migration targets.
 
