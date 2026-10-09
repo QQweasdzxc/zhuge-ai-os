@@ -14,6 +14,8 @@ handoff = Path("/src/apps/web/app/(auth)/zhuge-handoff")
 handoff.mkdir(parents=True, exist_ok=True)
 handoff.joinpath("page.tsx").write_text(Path("/tmp/zhuge-handoff-page.tsx").read_text())
 
-ready = Path("/src/apps/web/app/zhuge-ready")
-ready.mkdir(parents=True, exist_ok=True)
-ready.joinpath("route.ts").write_text(Path("/tmp/zhuge-ready-route.ts").read_text())
+ready_source = Path("/tmp/zhuge-ready-route.ts")
+if ready_source.exists():
+    ready = Path("/src/apps/web/app/zhuge-ready")
+    ready.mkdir(parents=True, exist_ok=True)
+    ready.joinpath("route.ts").write_text(ready_source.read_text())
