@@ -132,9 +132,11 @@ try {
   await page.goto(`${base}/labs/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Lab 實驗室" }).waitFor({ state: "visible" });
   await page.getByRole("heading", { name: /Lab_投資/ }).waitFor({ state: "visible" });
-  const href = await page.getByRole("link", { name: "進入 Lab" }).getAttribute("href");
+  const investmentCard = page.getByRole("article").filter({ hasText: "Lab_投資" });
+  const investmentLink = investmentCard.getByRole("link", { name: "進入 Lab" });
+  const href = await investmentLink.getAttribute("href");
   assert.equal(new URL(href, page.url()).origin, new URL(page.url()).origin);
-  await page.getByRole("link", { name: "進入 Lab" }).click();
+  await investmentLink.click();
   await page.waitForURL(/\/labs\/investment\/$/);
   const nav = page.locator('.lab-content-nav[role="tablist"]');
   await nav.getByRole("tab", { name: "我的持股" }).waitFor({ state: "visible" });
