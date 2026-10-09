@@ -9,15 +9,19 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 test("Lab registry exposes one Zhuge-owned investment Lab on a relative same-origin path", () => {
   const registry = JSON.parse(read("labs/registry.json"));
   assert.equal(registry.schemaVersion, 1);
-  assert.equal(registry.labs.length, 1);
+  const investmentLabs = registry.labs.filter(lab => lab.category === "Investment");
+  const nativeMulticaLabs = registry.labs.filter(lab => lab.id === "zhuge-multica-agent-lab");
+  assert.equal(investmentLabs.length, 1);
+  assert.equal(nativeMulticaLabs.length, 1, "Multica Native Lab remains registered as the Golden Baseline");
+  assert.equal(registry.labs.some(lab => lab.id === "taskflow"), false, "TaskFlow stays in WORK navigation, not the Lab registry");
   assert.deepEqual(
-    [registry.labs[0].category, registry.labs[0].status, registry.labs[0].enabled, registry.labs[0].currentGate],
+    [investmentLabs[0].category, investmentLabs[0].status, investmentLabs[0].enabled, investmentLabs[0].currentGate],
     ["Investment", "ACTIVE", true, "PRODUCTION_RUNTIME_REVIEW"],
   );
-  assert.equal(registry.labs[0].id, "zhuge-investment-lab");
-  assert.equal(registry.labs[0].name, "Lab_投資");
-  assert.equal(registry.labs[0].localEntry, "./investment/");
-  assert.doesNotMatch(registry.labs[0].localEntry, /127\.0\.0\.1|localhost|https?:/i);
+  assert.equal(investmentLabs[0].id, "zhuge-investment-lab");
+  assert.equal(investmentLabs[0].name, "Lab_投資");
+  assert.equal(investmentLabs[0].localEntry, "./investment/");
+  assert.doesNotMatch(investmentLabs[0].localEntry, /127\.0\.0\.1|localhost|https?:/i);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "index.html")), true);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "Zhuge Investment Sandbox.app")), false);
   assert.match(read("labs/README.md"), /same-origin/i);
