@@ -26,13 +26,21 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             self.assertIn("labs/taskflow/overrides/", text)
             self.assertIn("labs/taskflow/patches/", text)
             self.assertIn("/src/LICENSE /src/NOTICE", text)
+        backend = (TASKFLOW / "Dockerfile.backend").read_text()
+        self.assertIn("postgresql-client", backend)
+        self.assertIn("taskflow-entrypoint.sh", backend)
+        self.assertIn('ENTRYPOINT ["./taskflow-entrypoint.sh"]', backend)
+        entrypoint = (TASKFLOW / "overrides/taskflow-entrypoint.sh").read_text()
+        self.assertIn("CREATE SCHEMA IF NOT EXISTS lab_multica", entrypoint)
+        self.assertIn("CREATE SCHEMA IF NOT EXISTS extensions", entrypoint)
+        self.assertIn("SET search_path TO lab_multica, extensions", entrypoint)
+        self.assertIn("exec /app/multica-entrypoint.sh", entrypoint)
 
     def test_taskflow_overlay_isolated_from_native_overlay(self):
         exact_copies = (
             "dbid.go",
             "zhuge_auth.go",
             "zhuge-help-launcher.tsx",
-            "zhuge-ready-route.ts",
         )
         for name in exact_copies:
             self.assertEqual(
@@ -54,6 +62,19 @@ class TaskFlowBuildParityTests(unittest.TestCase):
                 "",
             ),
             native_house_rules,
+        )
+
+    def test_taskflow_ready_route_allows_only_configured_dev_shell_origins(self):
+        route = (TASKFLOW / "overrides/zhuge-ready-route.ts").read_text()
+        self.assertIn("TASKFLOW_ENTRY_ORIGINS", route)
+        self.assertIn('"https://qqweasdzxc.github.io"', route)
+        self.assertIn("new Set([PRODUCTION_SHELL_ORIGIN, ...configured])", route)
+        self.assertIn("if (!origin || !allowedEntryOrigins().has(origin))", route)
+        self.assertNotIn('"access-control-allow-origin": "*"', route)
+        self.assertNotEqual(
+            route,
+            (NATIVE / "overrides/zhuge-ready-route.ts").read_text(),
+            "TaskFlow Dev CORS config is TaskFlow-owned; Native Lab stays frozen",
         )
 
     def test_taskflow_replacement_pages_keep_multica_brand_and_attribution(self):
@@ -83,8 +104,8 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("NEXT_PUBLIC_ENABLE_CLOUD_RUNTIME=false", web)
         self.assertIn("REMOTE_API_URL=http://backend:8080", web)
         boundary = (TASKFLOW / "DB_BOUNDARY.md").read_text()
-        self.assertIn("lab_multica, extensions", boundary)
-        self.assertIn("must not receive Zhuge Production credentials", boundary)
+        self.assertIn("lab_multica,extensions", boundary)
+        self.assertIn("database credentials or resolve canonical Zhuge tables", boundary)
 
     def test_identity_patch_fails_closed_when_upstream_router_marker_is_missing(self):
         with tempfile.TemporaryDirectory() as temp:

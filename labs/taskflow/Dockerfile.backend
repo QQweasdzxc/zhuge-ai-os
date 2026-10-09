@@ -43,7 +43,7 @@ RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_task_us
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_codex_usage_cache ./cmd/backfill_codex_usage_cache
 
 FROM alpine:3.21 AS runtime
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates postgresql-client tzdata
 WORKDIR /app
 COPY --from=builder /src/server/bin/server .
 COPY --from=builder /src/server/bin/multica .
@@ -53,8 +53,10 @@ COPY --from=builder /src/server/bin/backfill_task_usage_hourly .
 COPY --from=builder /src/server/bin/backfill_codex_usage_cache .
 COPY --from=builder /src/server/migrations/ ./migrations/
 COPY --from=source /src/LICENSE /src/NOTICE ./
-COPY --from=source /src/docker/entrypoint.sh .
-RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+COPY --from=source /src/docker/entrypoint.sh ./multica-entrypoint.sh
+COPY labs/taskflow/overrides/taskflow-entrypoint.sh ./taskflow-entrypoint.sh
+RUN sed -i 's/\r$//' multica-entrypoint.sh taskflow-entrypoint.sh \
+ && chmod +x multica-entrypoint.sh taskflow-entrypoint.sh
 ENV DISABLE_WORKSPACE_CREATION=true \
     MULTICA_CLOUD_URL= \
     DO_NOT_TRACK=1 \
@@ -64,4 +66,4 @@ LABEL org.opencontainers.image.title="TaskFlow · Multica backend" \
       org.opencontainers.image.source="https://github.com/multica-ai/multica" \
       org.opencontainers.image.revision="8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec"
 EXPOSE 8080
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["./taskflow-entrypoint.sh"]

@@ -34,7 +34,8 @@ test("TaskFlow entry retains the shared Zhuge identity handoff and required Mult
   assert.match(entry, /MulticaIcon|brand-mark/);
   assert.match(entry, /© <span id="copyrightYear"/);
   assert.match(entry, /github\.com\/multica-ai\/multica/);
-  assert.match(read("labs/taskflow/DB_BOUNDARY.md"), /lab_multica, extensions/);
+  assert.match(read("labs/taskflow/DB_BOUNDARY.md"), /lab_multica,extensions/);
+  assert.match(read("labs/taskflow/overrides/taskflow-entrypoint.sh"), /SET search_path TO lab_multica, extensions/);
   assert.match(read("labs/taskflow/Dockerfile.backend"), /MULTICA_CLOUD_URL=/);
   assert.match(read("labs/taskflow/Dockerfile.backend"), /DO_NOT_TRACK=1/);
   assert.match(read("labs/taskflow/Dockerfile.web"), /NEXT_PUBLIC_ENABLE_CLOUD_RUNTIME=false/);
@@ -99,6 +100,46 @@ test("TaskFlow Dev launcher emits only validated non-secret service origins", ()
       const result = run(invalid);
       assert.notEqual(result.status, 0, JSON.stringify(invalid));
     }
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("TaskFlow Dev shell serves the Zhuge WORK navigation and TaskFlow entry from one isolated origin", () => {
+  const script = path.join(ROOT, "labs/taskflow/build-dev-shell.mjs");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "taskflow-shell-"));
+  try {
+    const outputDir = path.join(temp, "site");
+    const run = env => spawnSync(process.execPath, [script], {
+      encoding: "utf8",
+      env: { ...process.env, TASKFLOW_SHELL_OUTPUT: outputDir, ...env }
+    });
+    const ok = run({
+      TASKFLOW_API_URL: "https://zhuge-taskflow-dev-api.onrender.com/",
+      TASKFLOW_WEB_URL: "https://zhuge-taskflow-dev-web.onrender.com/",
+      TASKFLOW_SHELL_ORIGIN: "https://zhuge-taskflow-dev-shell.onrender.com/"
+    });
+    assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+    assert.equal(fs.existsSync(path.join(outputDir, "index.html")), true);
+    assert.equal(fs.existsSync(path.join(outputDir, "modules/worklog/index.html")), true);
+    assert.equal(fs.existsSync(path.join(outputDir, "shared/components/zhuge-navigation.js")), true);
+    assert.equal(fs.existsSync(path.join(outputDir, "labs/taskflow/index.html")), true);
+    assert.equal(fs.existsSync(path.join(outputDir, "third_party/multica")), false);
+    assert.equal(fs.existsSync(path.join(outputDir, "tests")), false);
+    const nav = fs.readFileSync(path.join(outputDir, "shared/components/zhuge-navigation.js"), "utf8");
+    assert.ok(nav.indexOf('taskflow: "labs/taskflow/"') >= 0);
+    assert.ok(nav.indexOf('taskflow: "labs/taskflow/"') < nav.indexOf('worklog: "modules/worklog/'));
+    const config = fs.readFileSync(path.join(outputDir, "labs/taskflow/runtime-config.js"), "utf8");
+    assert.ok(config.includes('"apiUrl":"https://zhuge-taskflow-dev-api.onrender.com"'));
+    assert.ok(config.includes('"webUrl":"https://zhuge-taskflow-dev-web.onrender.com"'));
+    assert.doesNotMatch(config, /token|secret|service_role/i);
+
+    const native = run({
+      TASKFLOW_API_URL: "https://zhuge-multica-lab-api.onrender.com",
+      TASKFLOW_WEB_URL: "https://zhuge-taskflow-dev-web.onrender.com",
+      TASKFLOW_SHELL_ORIGIN: "https://zhuge-taskflow-dev-shell.onrender.com"
+    });
+    assert.notEqual(native.status, 0, "shell build must fail closed against Native Lab endpoints");
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
