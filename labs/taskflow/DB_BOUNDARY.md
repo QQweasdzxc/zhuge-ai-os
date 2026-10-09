@@ -28,9 +28,13 @@ transforms for optional/global extension setup and Multica legacy cron cleanup,
 then rejects forbidden schema references before the image can be built. See
 [MIGRATION_BOUNDARY.md](MIGRATION_BOUNDARY.md).
 
-Migrations run separately through the controlled `taskflow_migrator` identity.
-The API runtime role has no schema DDL privileges and never applies migrations
-at service startup.
+Migrations use the controlled `taskflow_migrator` identity through
+`taskflow-migrate.sh`. For the first TaskFlow deploy only, a deployment may
+explicitly set `TASKFLOW_MIGRATE_BEFORE_START=true`; the entrypoint runs that
+separate migrator wrapper before its runtime-role checks, then unsets the
+migrator URL before starting the API. The flag defaults off and must be turned
+off and the URL cleared after the bootstrap deploy. Normal API starts use only
+`taskflow_runtime`, with no DDL privileges.
 
 The API image defaults Multica Cloud integration off, disables workspace
 creation, and disables telemetry. Web builds default cloud runtime UI off and

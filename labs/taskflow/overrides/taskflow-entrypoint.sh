@@ -3,6 +3,14 @@ set -eu
 
 : "${DATABASE_URL:?TaskFlow requires its restricted runtime database role}"
 
+# Optional one-shot bootstrap. The migration wrapper verifies and uses the
+# separate taskflow_migrator URL; the API process starts only with DATABASE_URL.
+if [ "${TASKFLOW_MIGRATE_BEFORE_START:-false}" = "true" ]; then
+  : "${TASKFLOW_MIGRATION_DATABASE_URL:?Bootstrap mode requires taskflow_migrator}"
+  ./taskflow-migrate.sh
+  unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START
+fi
+
 # Normal API starts never apply DDL. Migrations are a separate, controlled
 # one-shot action using taskflow_migrator.
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
