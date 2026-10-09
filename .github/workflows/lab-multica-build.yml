@@ -1,0 +1,28 @@
+name: Multica Lab Build Validation
+
+on:
+  push:
+    branches:
+      - lab/multica-native
+    paths:
+      - "labs/multica/**"
+      - ".github/workflows/lab-multica-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Multica backend Lab wrapper
+        run: docker build -f labs/multica/Dockerfile.backend -t zhuge-multica-backend:lab .
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Multica web Lab wrapper
+        run: docker build -f labs/multica/Dockerfile.web -t zhuge-multica-web:lab .
