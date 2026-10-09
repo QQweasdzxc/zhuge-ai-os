@@ -90,7 +90,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /const campIds = \["worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
+  assert.match(nav, /const campIds = \["taskflow", "worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
   assert.match(nav, /investmentBoards/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;
@@ -172,7 +172,7 @@ test("approved general-user navigation uses the shared shell and PM visibility p
   const html = navigation.render({ externalRoot: "../../" });
   const hasItem = id => html.includes(`data-shared-nav-item="${id}"`);
 
-  for (const id of ["worklog", "tasks-new", "library", "settings"]) {
+  for (const id of ["taskflow", "worklog", "tasks-new", "library", "settings"]) {
     assert.equal(hasItem(id), true, `${id} should be visible to approved general users`);
   }
   for (const id of ["procurement", "investment", "sync", "management", "labs"]) {
@@ -195,7 +195,7 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
     service: { isTemplateEnabled: () => true }
   } });
   const creatorHtml = creatorNavigation.render({ externalRoot: "../../" });
-  for (const id of ["worklog", "tasks-new", "procurement", "sync", "management", "library", "settings", "labs"]) {
+  for (const id of ["taskflow", "worklog", "tasks-new", "procurement", "sync", "management", "library", "settings", "labs"]) {
     assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
   }
   assert.equal(creatorHtml.includes('data-shared-nav-item="investment"'), false, "official Investment is parked");
@@ -232,6 +232,24 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
   const unresolvedNavigation = loadNavigationForTest({ target: unresolvedTarget });
   unresolvedNavigation.autoMount();
   assert.equal(unresolvedTarget.dataset.zhugeNavigationMounting, undefined);
+});
+
+test("TaskFlow is the first WORK navigation entry and links to its own Zhuge handoff", () => {
+  const navigation = loadNavigationForTest({ runtime: {
+    isCreator: false,
+    policy: { userId: "general-user" },
+    service: { isTemplateEnabled: () => false }
+  } });
+  const html = navigation.render({ externalRoot: "../../" });
+  const work = html.match(/<div class="side-section" data-nav-group="camp">([\s\S]*?)<\/div>/)?.[1] || "";
+  const taskFlowIndex = work.indexOf('data-shared-nav-item="taskflow"');
+  const workLogIndex = work.indexOf('data-shared-nav-item="worklog"');
+  assert.ok(taskFlowIndex >= 0, "TaskFlow must appear in the WORK section");
+  assert.ok(workLogIndex > taskFlowIndex, "TaskFlow must appear above WorkLog");
+  assert.match(work, /href="\.\.\/\.\.\/labs\/taskflow\/"/);
+  assert.match(read("labs/taskflow/index.html"), /\/auth\/zhuge/);
+  assert.match(read("labs/taskflow/index.html"), /zhuge-handoff/);
+  assert.match(read("labs/taskflow/index.html"), /zhuge-ready/);
 });
 
 test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap", () => {
