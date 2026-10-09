@@ -29,10 +29,6 @@ type zhugeSupabaseUser struct {
 	UserMetadata map[string]any `json:"user_metadata"`
 }
 
-type zhugeAccessRow struct {
-	Status string `json:"status"`
-}
-
 // ZhugeManagedOnly closes Multica-native human-account and workspace-membership
 // mutation paths inside the Zhuge Lab. Humans enter through Zhuge identity;
 // Multica remains free to manage agents, issues, runs, runtimes and skills.
@@ -101,30 +97,6 @@ func verifyZhugeIdentity(ctx context.Context, token string) (zhugeSupabaseUser, 
 	}
 	if user.ID == "" || user.Email == "" {
 		return user, errors.New("Zhuge identity is incomplete")
-	}
-
-	accessResp, err := zhugeSupabaseRequest(ctx, http.MethodPost, "/rest/v1/rpc/resolve_app_access", token, map[string]any{})
-	if err != nil {
-		return user, err
-	}
-	defer accessResp.Body.Close()
-	if accessResp.StatusCode != http.StatusOK {
-		return user, fmt.Errorf("Zhuge app access lookup failed: %s", accessResp.Status)
-	}
-	var raw json.RawMessage
-	if err := json.NewDecoder(accessResp.Body).Decode(&raw); err != nil {
-		return user, err
-	}
-	var rows []zhugeAccessRow
-	if err := json.Unmarshal(raw, &rows); err != nil {
-		var row zhugeAccessRow
-		if err2 := json.Unmarshal(raw, &row); err2 != nil {
-			return user, err
-		}
-		rows = []zhugeAccessRow{row}
-	}
-	if len(rows) == 0 || !strings.EqualFold(strings.TrimSpace(rows[0].Status), "APPROVED") {
-		return user, errors.New("Zhuge app access is not approved")
 	}
 	return user, nil
 }

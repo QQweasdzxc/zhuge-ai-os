@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import importlib.util
+import hashlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -11,6 +14,30 @@ from pathlib import Path
 TASKFLOW = Path(__file__).resolve().parents[1]
 REPO = TASKFLOW.parents[1]
 NATIVE = REPO / "labs" / "multica"
+STAGING_SCRIPT = TASKFLOW / "patches" / "stage-migrations.py"
+STAGING_SPEC = importlib.util.spec_from_file_location("taskflow_stage_migrations", STAGING_SCRIPT)
+STAGING = importlib.util.module_from_spec(STAGING_SPEC)
+assert STAGING_SPEC.loader is not None
+STAGING_SPEC.loader.exec_module(STAGING)
+DB_BOUNDARY_SCRIPT = TASKFLOW / "patches" / "apply-taskflow-db-boundary.py"
+DB_BOUNDARY_SPEC = importlib.util.spec_from_file_location("taskflow_db_boundary", DB_BOUNDARY_SCRIPT)
+DB_BOUNDARY = importlib.util.module_from_spec(DB_BOUNDARY_SPEC)
+assert DB_BOUNDARY_SPEC.loader is not None
+DB_BOUNDARY_SPEC.loader.exec_module(DB_BOUNDARY)
+
+ZHUGE_PUBLIC_FUNCTIONS = (
+    "allocate_board_task_work_code",
+    "board_instance_identity_immutable",
+    "enforce_board_task_scope",
+    "enforce_worktodo_workspace_scope",
+    "rls_auto_enable",
+    "set_updated_at",
+    "worklog_alpha_list_qq",
+    "worklog_rc1_list_source_events_qq",
+    "worktodo_assign_work_code",
+    "resolve_app_access",
+    "is_app_access_approved",
+)
 
 
 class TaskFlowBuildParityTests(unittest.TestCase):
@@ -28,20 +55,33 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             self.assertIn("/src/LICENSE /src/NOTICE", text)
         backend = (TASKFLOW / "Dockerfile.backend").read_text()
         self.assertIn("postgresql-client", backend)
+        self.assertIn("stage-migrations.py", backend)
+        self.assertIn("apply-taskflow-db-boundary.py", backend)
+        self.assertIn("/taskflow-staged-migrations/ ./migrations/", backend)
         self.assertIn("taskflow-entrypoint.sh", backend)
+        self.assertIn("taskflow-migrate.sh", backend)
         self.assertIn('ENTRYPOINT ["./taskflow-entrypoint.sh"]', backend)
         entrypoint = (TASKFLOW / "overrides/taskflow-entrypoint.sh").read_text()
-        self.assertIn("CREATE SCHEMA IF NOT EXISTS lab_multica", entrypoint)
-        self.assertIn("CREATE SCHEMA IF NOT EXISTS extensions", entrypoint)
-        self.assertIn("SET search_path TO lab_multica, extensions", entrypoint)
-        self.assertIn("exec /app/multica-entrypoint.sh", entrypoint)
+        self.assertIn("current_user <> 'taskflow_runtime'", entrypoint)
+        self.assertIn("ARRAY['taskflow', 'extensions']", entrypoint)
+        self.assertIn("'public', 'lab_multica', 'cron'", entrypoint)
+        self.assertIn("has_table_privilege(current_user, c.oid, protected_table_privilege)", entrypoint)
+        self.assertIn("pg_catalog.pg_has_role", entrypoint)
+        self.assertIn("must not have extensions CREATE", entrypoint)
+        self.assertIn("has_sequence_privilege", entrypoint)
+        self.assertNotIn("CREATE SCHEMA", entrypoint)
+        self.assertNotIn("CREATE EXTENSION", entrypoint)
+        self.assertNotIn("/app/migrate up", entrypoint)
+        self.assertIn("exec /app/server", entrypoint)
+        migrator = (TASKFLOW / "overrides/taskflow-migrate.sh").read_text()
+        self.assertIn("current_user <> 'taskflow_migrator'", migrator)
+        self.assertIn("TASKFLOW_MIGRATION_DATABASE_URL", migrator)
+        self.assertIn("must not have extensions CREATE", migrator)
+        self.assertIn("has_sequence_privilege", migrator)
+        self.assertIn("exec /app/migrate up", migrator)
 
     def test_taskflow_overlay_isolated_from_native_overlay(self):
-        exact_copies = (
-            "dbid.go",
-            "zhuge_auth.go",
-            "zhuge-help-launcher.tsx",
-        )
+        exact_copies = ("dbid.go", "zhuge-help-launcher.tsx")
         for name in exact_copies:
             self.assertEqual(
                 (TASKFLOW / "overrides" / name).read_bytes(),
@@ -63,6 +103,87 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             ),
             native_house_rules,
         )
+        taskflow_auth = (TASKFLOW / "overrides/zhuge_auth.go").read_text()
+        self.assertIn('"/auth/v1/user"', taskflow_auth)
+        self.assertIn("zhugePGUUID(identity.ID)", taskflow_auth)
+        self.assertNotIn("/rest/v1/rpc/", taskflow_auth)
+        self.assertNotIn("resolve_app_access", taskflow_auth)
+        self.assertNotEqual(
+            (TASKFLOW / "overrides/zhuge_auth.go").read_bytes(),
+            (NATIVE / "overrides/zhuge_auth.go").read_bytes(),
+            "TaskFlow Auth verifies the Zhuge session without calling Zhuge public RPCs",
+        )
+
+    def test_taskflow_runtime_sql_and_migrations_do_not_call_public_schema_or_zhuge_functions(self):
+        code_suffixes = {".go", ".sql", ".js", ".mjs", ".ts", ".tsx", ".sh", ".py", ".html"}
+        sources = [
+            path
+            for path in TASKFLOW.rglob("*")
+            if path.is_file()
+            and path.suffix in code_suffixes
+            and "tests" not in path.relative_to(TASKFLOW).parts
+            and path.name != "apply-taskflow-db-boundary.py"
+        ]
+        for path in sources:
+            text = path.read_text(errors="replace")
+            self.assertNotRegex(
+                text,
+                r"\bpublic\s*\.\s*[A-Za-z_][A-Za-z_0-9$]*",
+                f"TaskFlow application source must not qualify Zhuge public objects: {path}",
+            )
+            for function_name in ZHUGE_PUBLIC_FUNCTIONS:
+                explicit_reference = rf"(?i)(?:/rest/v1/rpc/|public\s*\.\s*){re.escape(function_name)}\b"
+                self.assertNotRegex(
+                    text,
+                    explicit_reference,
+                    f"TaskFlow application source must not call Zhuge public function {function_name}: {path}",
+                )
+
+        vendor_migrations = REPO / "third_party" / "multica" / "server" / "migrations"
+        migration_runner = REPO / "third_party" / "multica" / "server" / "cmd" / "migrate" / "main.go"
+        patched_runner = DB_BOUNDARY.patch_migration_runner_text(migration_runner.read_text())
+        self.assertIn('IndexRegclass: "taskflow.idx_comment_content_bigm"', patched_runner)
+        self.assertIn('TableRegclass: "taskflow.comment"', patched_runner)
+        self.assertNotRegex(patched_runner, r"\bpublic\s*\.")
+        self.assertEqual(hashlib.sha256(migration_runner.read_bytes()).hexdigest(), DB_BOUNDARY.EXPECTED_SHA256)
+        with self.assertRaisesRegex(ValueError, "expected one exact migration-runner marker"):
+            DB_BOUNDARY.patch_migration_runner_text("package main\n")
+
+        vendor_runtime_sources = REPO / "third_party" / "multica" / "server"
+        for path in vendor_runtime_sources.rglob("*.go"):
+            if path.name.endswith("_test.go") or "migrations" in path.parts:
+                continue
+            text = path.read_text(errors="replace")
+            if path == migration_runner:
+                text = patched_runner
+            self.assertNotRegex(
+                text,
+                r"\bpublic\s*\.",
+                f"TaskFlow build source must not resolve Zhuge public objects: {path}",
+            )
+            for function_name in ZHUGE_PUBLIC_FUNCTIONS:
+                self.assertNotRegex(
+                    text,
+                    rf"(?i)(?:/rest/v1/rpc/|public\s*\.\s*){re.escape(function_name)}\b",
+                    f"TaskFlow build source must not call Zhuge public function {function_name}: {path}",
+                )
+
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "staged"
+            STAGING.stage_migrations(vendor_migrations, output)
+            for migration in output.glob("*.sql"):
+                text = STAGING.strip_sql_comments(migration.read_text())
+                self.assertNotRegex(
+                    text,
+                    r"(?i)\bpublic\s*\.\s*[A-Za-z_][A-Za-z_0-9$]*",
+                    migration.name,
+                )
+                for function_name in ZHUGE_PUBLIC_FUNCTIONS:
+                    self.assertNotRegex(
+                        text,
+                        rf"(?i)public\s*\.\s*{re.escape(function_name)}\b",
+                        migration.name,
+                    )
 
     def test_taskflow_ready_route_allows_only_configured_dev_shell_origins(self):
         route = (TASKFLOW / "overrides/zhuge-ready-route.ts").read_text()
@@ -104,8 +225,76 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("NEXT_PUBLIC_ENABLE_CLOUD_RUNTIME=false", web)
         self.assertIn("REMOTE_API_URL=http://backend:8080", web)
         boundary = (TASKFLOW / "DB_BOUNDARY.md").read_text()
-        self.assertIn("lab_multica,extensions", boundary)
-        self.assertIn("database credentials or resolve canonical Zhuge tables", boundary)
+        self.assertIn("taskflow,extensions", boundary)
+        self.assertIn("MIGRATION_BOUNDARY.md", boundary)
+
+    def test_taskflow_staging_firewall_copies_complete_migration_set_and_neutralizes_legacy_cron(self):
+        vendor_migrations = REPO / "third_party" / "multica" / "server" / "migrations"
+        original_103_hash = hashlib.sha256(
+            (vendor_migrations / "103_drop_legacy_daily_rollups.up.sql").read_bytes()
+        ).hexdigest()
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "staged"
+            up_count, down_count, changed = STAGING.stage_migrations(vendor_migrations, output)
+            self.assertEqual((up_count, down_count, changed), (590, 590, 8))
+            self.assertEqual(len(list(output.glob("*.up.sql"))), 590)
+            self.assertEqual(len(list(output.glob("*.down.sql"))), 590)
+
+            staged_103 = (output / "103_drop_legacy_daily_rollups.up.sql").read_text()
+            self.assertNotIn("cron.unschedule", STAGING.strip_sql_comments(staged_103))
+            self.assertNotIn("cron.job", STAGING.strip_sql_comments(staged_103))
+            self.assertIn("DROP TABLE IF EXISTS task_usage_daily", staged_103)
+            self.assertIn("task_usage_hourly_rollup_state", staged_103)
+
+            staged_101 = (output / "101_task_usage_hourly_schema.up.sql").read_text()
+            self.assertIn("CREATE TABLE task_usage_hourly", staged_101)
+            staged_102 = (output / "102_task_usage_hourly_pipeline.up.sql").read_text()
+            self.assertIn("CREATE OR REPLACE FUNCTION rollup_task_usage_hourly()", staged_102)
+            self.assertIn("pgcrypto", (output / "001_init.up.sql").read_text())
+            self.assertNotIn("CREATE EXTENSION", (output / "001_init.up.sql").read_text())
+            self.assertNotIn("CREATE EXTENSION", (output / "137_search_index_pg_trgm_extension.up.sql").read_text())
+            staged_032_down = (output / "032_issue_search_index.down.sql").read_text()
+            self.assertNotIn("DROP EXTENSION", staged_032_down)
+            self.assertIn("DROP INDEX IF EXISTS idx_issue_title_bigm", staged_032_down)
+
+            for migration in output.glob("*.sql"):
+                self.assertEqual(
+                    STAGING.firewall_errors(migration.name, migration.read_text()),
+                    [],
+                    migration.name,
+                )
+
+        self.assertEqual(
+            hashlib.sha256(
+                (vendor_migrations / "103_drop_legacy_daily_rollups.up.sql").read_bytes()
+            ).hexdigest(),
+            original_103_hash,
+        )
+
+    def test_taskflow_migration_firewall_rejects_protected_schema_access(self):
+        samples = (
+            "ALTER TABLE public.app_users ADD COLUMN x text;",
+            "SELECT * FROM lab_multica.issue;",
+            "SELECT cron.unschedule('old_job') FROM cron.job;",
+            "SET search_path = taskflow, public;",
+            "CREATE SCHEMA auth;",
+            "GRANT USAGE ON SCHEMA storage TO taskflow_runtime;",
+            "DROP EXTENSION IF EXISTS pg_bigm;",
+        )
+        for sql in samples:
+            with self.subTest(sql=sql):
+                self.assertTrue(STAGING.firewall_errors("fixture.sql", sql))
+        self.assertEqual(
+            STAGING.firewall_errors("allowed.sql", "ALTER TABLE taskflow.issue ADD COLUMN x text;"),
+            [],
+        )
+
+    def test_taskflow_migration_transform_fails_closed_if_upstream_marker_changes(self):
+        with self.assertRaisesRegex(ValueError, "upstream SHA256 changed"):
+            STAGING.transform_file(
+                "103_drop_legacy_daily_rollups.up.sql",
+                b"-- changed upstream migration\n",
+            )
 
     def test_identity_patch_fails_closed_when_upstream_router_marker_is_missing(self):
         with tempfile.TemporaryDirectory() as temp:

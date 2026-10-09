@@ -21,10 +21,16 @@ COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.ts
 COPY labs/taskflow/overrides/multica-brand-mark.tsx /tmp/multica-brand-mark.tsx
 COPY labs/taskflow/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
 COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
+COPY labs/taskflow/patches/apply-taskflow-db-boundary.py /tmp/apply-taskflow-db-boundary.py
+COPY labs/taskflow/patches/stage-migrations.py /tmp/stage-migrations.py
 RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go \
+ && python3 /tmp/apply-taskflow-db-boundary.py \
  && python3 /tmp/apply-zhuge-identity.py \
- && python3 /tmp/apply-zhuge-house-rules.py
+ && python3 /tmp/apply-zhuge-house-rules.py \
+ && python3 /tmp/stage-migrations.py \
+      --source /src/server/migrations \
+      --output /taskflow-staged-migrations
 
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
@@ -51,12 +57,12 @@ COPY --from=builder /src/server/bin/migrate .
 COPY --from=builder /src/server/bin/maintenance .
 COPY --from=builder /src/server/bin/backfill_task_usage_hourly .
 COPY --from=builder /src/server/bin/backfill_codex_usage_cache .
-COPY --from=builder /src/server/migrations/ ./migrations/
+COPY --from=source /taskflow-staged-migrations/ ./migrations/
 COPY --from=source /src/LICENSE /src/NOTICE ./
-COPY --from=source /src/docker/entrypoint.sh ./multica-entrypoint.sh
 COPY labs/taskflow/overrides/taskflow-entrypoint.sh ./taskflow-entrypoint.sh
-RUN sed -i 's/\r$//' multica-entrypoint.sh taskflow-entrypoint.sh \
- && chmod +x multica-entrypoint.sh taskflow-entrypoint.sh
+COPY labs/taskflow/overrides/taskflow-migrate.sh ./taskflow-migrate.sh
+RUN sed -i 's/\r$//' taskflow-entrypoint.sh taskflow-migrate.sh \
+ && chmod +x taskflow-entrypoint.sh taskflow-migrate.sh
 ENV DISABLE_WORKSPACE_CREATION=true \
     MULTICA_CLOUD_URL= \
     DO_NOT_TRACK=1 \
