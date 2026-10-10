@@ -90,7 +90,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /const campIds = \["worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
+  assert.match(nav, /const campIds = \["taskflow", "worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
   assert.match(nav, /investmentBoards/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;

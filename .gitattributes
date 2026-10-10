@@ -1,0 +1,3 @@
+# Keep the frozen upstream snapshot byte-identical; its historical whitespace
+# is retained as provenance and is not an application-source lint target.
+third_party/multica/** -whitespace

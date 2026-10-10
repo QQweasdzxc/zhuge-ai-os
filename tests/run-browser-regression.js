@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, "..");
 const browserTests = [
   "tests/release-consistency.test.js",
   "tests/taskflow-entry.test.js",
+  "tests/taskflow-cli-sso.test.js",
   "tests/taskflow-entry-browser.test.js",
   "tests/functional-tabs-browser.test.js",
   "tests/functional-tabs-visual-conformance-browser.test.js",

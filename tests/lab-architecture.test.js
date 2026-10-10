@@ -9,15 +9,17 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 test("Lab registry exposes one Zhuge-owned investment Lab on a relative same-origin path", () => {
   const registry = JSON.parse(read("labs/registry.json"));
   assert.equal(registry.schemaVersion, 1);
-  assert.equal(registry.labs.length, 1);
+  const investmentLabs = registry.labs.filter(lab => lab.category === "Investment");
+  assert.equal(investmentLabs.length, 1);
+  const investmentLab = investmentLabs[0];
   assert.deepEqual(
-    [registry.labs[0].category, registry.labs[0].status, registry.labs[0].enabled, registry.labs[0].currentGate],
+    [investmentLab.category, investmentLab.status, investmentLab.enabled, investmentLab.currentGate],
     ["Investment", "ACTIVE", true, "PRODUCTION_RUNTIME_REVIEW"],
   );
-  assert.equal(registry.labs[0].id, "zhuge-investment-lab");
-  assert.equal(registry.labs[0].name, "Lab_投資");
-  assert.equal(registry.labs[0].localEntry, "./investment/");
-  assert.doesNotMatch(registry.labs[0].localEntry, /127\.0\.0\.1|localhost|https?:/i);
+  assert.equal(investmentLab.id, "zhuge-investment-lab");
+  assert.equal(investmentLab.name, "Lab_投資");
+  assert.equal(investmentLab.localEntry, "./investment/");
+  assert.doesNotMatch(investmentLab.localEntry, /127\.0\.0\.1|localhost|https?:/i);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "index.html")), true);
   assert.equal(fs.existsSync(path.join(root, "labs", "investment", "Zhuge Investment Sandbox.app")), false);
   assert.match(read("labs/README.md"), /same-origin/i);

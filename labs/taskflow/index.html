@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#07111f" />
   <title>TaskFlow · Multica · Zhuge AI OS</title>
-  <script src="./runtime-config.js?v=20261010-1406"></script>
+  <script src="./runtime-config.js?v=20261010-2022"></script>
+  <script src="./cli-sso.js?v=20261010-2022"></script>
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
     *{box-sizing:border-box}
@@ -50,11 +51,49 @@
       "use strict";
       const AUTH_KEY = "zhuge_ai_os_google_auth_session_v1";
       const SESSION_KEY = "zhuge_ai_os_session_v1";
-      const AIOS_LOGIN_URL = "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard";
+      const entryPath = window.location.pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+      const entryMatch = entryPath.match(/^(.*)\/labs\/taskflow$/);
+      const aiosBasePath = entryMatch ? entryMatch[1] : "/zhuge-ai-os";
+      const AIOS_LOGIN_URL = new URL(aiosBasePath + "/modules/worklog/?app=1&workspace=dashboard", window.location.origin).toString();
       const config = window.ZhugeTaskFlowConfig || {};
+      const cliSSO = window.ZhugeTaskFlowCliSSO;
       const button = document.getElementById("enterTaskFlow");
       const status = document.getElementById("status");
       document.getElementById("copyrightYear").textContent = String(new Date().getFullYear());
+
+      const cliParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const hasCliFragment = cliParams.has("cli_callback") || cliParams.has("cli_state") || cliParams.has("cli_error");
+      let cliIntent = { status: "none" };
+      if (hasCliFragment) {
+        cliIntent = cliParams.has("cli_error") || !cliSSO
+          ? { status: "invalid" }
+          : cliSSO.parseCliIntent(cliParams);
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        if (cliIntent.status === "valid") {
+          try {
+            const pending = cliSSO.readPendingCliIntent(window.sessionStorage);
+            if (pending.status === "valid" && pending.state === cliIntent.state) {
+              cliSSO.consumePendingCliIntent(cliIntent.state, window.sessionStorage);
+            }
+          } catch {}
+        }
+      }
+
+      function returnToOfficialLogin(message) {
+        if (cliIntent.status === "valid") {
+          try {
+            if (!cliSSO?.storePendingCliIntent(cliIntent, window.sessionStorage)) {
+              status.textContent = "此瀏覽器無法安全保存 CLI 登入要求。請允許此站台工作階段儲存後重新執行 multica login。";
+              return;
+            }
+          } catch {
+            status.textContent = "此瀏覽器無法安全保存 CLI 登入要求。請允許此站台工作階段儲存後重新執行 multica login。";
+            return;
+          }
+        }
+        status.textContent = message;
+        window.location.replace(AIOS_LOGIN_URL);
+      }
 
       function normalizedBase(value, label) {
         let url;
@@ -116,7 +155,7 @@
           headers: { Authorization: "Bearer " + token }
         }, 10000);
         if (response.status === 401 || response.status === 403) {
-          window.location.replace(AIOS_LOGIN_URL);
+          returnToOfficialLogin("Zhuge Session 已失效，正在返回官方登入頁…");
           return "";
         }
         if (!response.ok) throw new Error("無法讀取 TaskFlow Workspace。");
@@ -138,8 +177,7 @@
 
         const accessToken = currentAccessToken();
         if (!accessToken) {
-          status.textContent = "尚未登入 Zhuge AI OS，正在返回官方登入頁…";
-          window.location.replace(AIOS_LOGIN_URL);
+          returnToOfficialLogin("尚未登入 Zhuge AI OS，正在返回官方登入頁…");
           return;
         }
 
@@ -159,8 +197,7 @@
             body: JSON.stringify({ access_token: accessToken })
           }, 12000);
           if (response.status === 401 || response.status === 403) {
-            status.textContent = "Zhuge Session 已失效，正在返回官方登入頁…";
-            window.location.replace(AIOS_LOGIN_URL);
+            returnToOfficialLogin("Zhuge Session 已失效，正在返回官方登入頁…");
             return;
           }
           const payload = await response.json().catch(() => ({}));
@@ -170,7 +207,11 @@
           const destination = await fetchBoardDestination(api, payload.token);
           if (!destination) return;
           const handoff = new URL("/zhuge-handoff", web);
-          handoff.hash = new URLSearchParams({ zhuge_token: payload.token, zhuge_dest: destination }).toString();
+          const safeDestination = cliIntent.status === "valid"
+            ? cliSSO.buildTaskFlowLoginDestination(cliIntent)
+            : cliSSO?.safeTaskFlowDestination(destination, web);
+          if (!safeDestination) throw new Error("TaskFlow return route rejected");
+          handoff.hash = new URLSearchParams({ zhuge_token: payload.token, zhuge_dest: safeDestination }).toString();
           window.location.replace(handoff.toString());
         } catch {
           status.textContent = "TaskFlow 尚未就緒或連線逾時。請稍後按「重新連線 TaskFlow」。";
@@ -181,12 +222,16 @@
 
       const configured = Boolean(config.apiUrl && config.webUrl);
       button.disabled = !configured;
-      button.textContent = configured ? "直接進入 TaskFlow" : "TaskFlow 服務尚未設定";
-      if (!configured) {
+      button.textContent = configured
+        ? (cliIntent.status === "valid" ? "驗證 Zhuge 身分並繼續 CLI 授權" : "直接進入 TaskFlow")
+        : "TaskFlow 服務尚未設定";
+      if (cliIntent.status === "invalid") {
+        button.disabled = true;
+        status.textContent = "CLI 登入要求無效或已過期。請在 CLI 重新執行 multica login。";
+      } else if (!configured) {
         status.textContent = "TaskFlow Web/API 服務網址尚未設定。";
       } else if (!currentAccessToken()) {
-        status.textContent = "尚未登入 Zhuge AI OS，正在返回官方登入頁…";
-        window.location.replace(AIOS_LOGIN_URL);
+        returnToOfficialLogin("尚未登入 Zhuge AI OS，正在返回官方登入頁…");
       } else {
         void enter();
       }

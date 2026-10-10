@@ -9,9 +9,10 @@ const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 
 test("formal TaskFlow entry has a consistent new Product release identity", () => {
   const gate = ReleaseGovernance.assertSourceIdentity(ReleaseGovernance.readIdentitySnapshot(ROOT));
+  const identity = JSON.parse(read("version.json"));
   assert.equal(gate.status, "PASS");
-  assert.equal(gate.version, "0.9.0-alpha.9.29");
-  assert.equal(gate.build, "20261010-1406");
+  assert.equal(gate.version, identity.version);
+  assert.equal(gate.build, identity.build);
   assert.equal(gate.publishedCIdentity.build, "20260915-1707");
 });
 
@@ -45,4 +46,20 @@ test("TaskFlow sends the existing Zhuge session only to API POST and returns to 
   assert.doesNotMatch(entry, /access_token\s*=/);
   assert.doesNotMatch(entry, /access_token=[^"'\s&]/);
   assert.doesNotMatch(entry, /console\.(?:log|error|warn).*access_token/i);
+});
+
+test("TaskFlow CLI login return uses same-origin Zhuge login and the guarded one-use SSO bridge", () => {
+  const entry = read("labs/taskflow/index.html");
+  const worklog = read("modules/worklog/index.html");
+  const helper = read("labs/taskflow/cli-sso.js");
+  assert.match(entry, /new URL\(aiosBasePath \+ "\/modules\/worklog\/\?app=1&workspace=dashboard", window\.location\.origin\)/);
+  assert.match(entry, /storePendingCliIntent\(cliIntent, window\.sessionStorage\)/);
+  assert.match(entry, /history\.replaceState\(null, "", window\.location\.pathname \+ window\.location\.search\)/);
+  assert.match(entry, /buildTaskFlowLoginDestination\(cliIntent\)/);
+  assert.match(worklog, /labs\/taskflow\/cli-sso\.js\?v=/);
+  assert.match(worklog, /startLoginReturnMonitor\(window\)/);
+  assert.match(helper, /PENDING_INTENT_TTL_MS = 4 \* 60 \* 1000/);
+  assert.match(helper, /consumePendingCliIntent/);
+  assert.match(helper, /claims\.exp/);
+  assert.doesNotMatch(worklog, /cli_callback=.*(?:access_token|refresh_token)/i);
 });
