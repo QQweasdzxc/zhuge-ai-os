@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+// TaskFlow-owned insertion used by apply-zhuge-identity.py.
+// The frozen Multica proxy remains the routing authority; this only adds the
+// Zhuge CLI login handoff before native locale and runtime routing.
+const ZHUGE_TASKFLOW_CLI_AI_OS_URL = "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/";
+const ZHUGE_TASKFLOW_CLI_STATE = /^[a-f0-9]{32}$/;
 
-const AIOS_TASKFLOW_URL = "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/";
-const CLI_STATE = /^[a-f0-9]{32}$/;
-
-function validCallback(raw: string): boolean {
+function zhugeTaskFlowValidCliCallback(raw: string): boolean {
   try {
     const url = new URL(raw);
     const port = Number(url.port);
@@ -19,15 +20,20 @@ function validCallback(raw: string): boolean {
   }
 }
 
-export function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.replace(/\/+$/, "") !== "/login") return NextResponse.next();
+function zhugeTaskFlowCliLogin(request: NextRequest): NextResponse | null {
+  if (request.nextUrl.pathname.replace(/\/+$/, "") !== "/login") return null;
 
   const callbacks = request.nextUrl.searchParams.getAll("cli_callback");
   const states = request.nextUrl.searchParams.getAll("cli_state");
-  if (callbacks.length === 0 && states.length === 0) return NextResponse.next();
+  if (callbacks.length === 0 && states.length === 0) return null;
 
-  const target = new URL(AIOS_TASKFLOW_URL);
-  if (callbacks.length === 1 && states.length === 1 && validCallback(callbacks[0]) && CLI_STATE.test(states[0])) {
+  const target = new URL(ZHUGE_TASKFLOW_CLI_AI_OS_URL);
+  if (
+    callbacks.length === 1
+    && states.length === 1
+    && zhugeTaskFlowValidCliCallback(callbacks[0])
+    && ZHUGE_TASKFLOW_CLI_STATE.test(states[0])
+  ) {
     const fragment = new URLSearchParams();
     fragment.set("cli_callback", callbacks[0]);
     fragment.set("cli_state", states[0]);
@@ -35,9 +41,8 @@ export function proxy(request: NextRequest) {
   } else {
     target.hash = "cli_error=invalid";
   }
-  // The incoming callback/state are non-credential CLI correlation data.
-  // Redirect before page scripts run; the destination receives them only in a fragment.
+
+  // Callback/state are non-credential CLI correlation values. The redirect
+  // moves them into a fragment before the native Multica proxy runs.
   return NextResponse.redirect(target, 303);
 }
-
-export const config = { matcher: ["/login"] };

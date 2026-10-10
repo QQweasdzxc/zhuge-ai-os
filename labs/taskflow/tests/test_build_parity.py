@@ -98,12 +98,16 @@ class TaskFlowBuildParityTests(unittest.TestCase):
                 (NATIVE / "overrides" / name).read_bytes(),
                 name,
             )
-        for name in ("apply-zhuge-identity.py",):
-            self.assertEqual(
-                (TASKFLOW / "patches" / name).read_bytes(),
-                (NATIVE / "patches" / name).read_bytes(),
-                name,
-            )
+        native_identity_patch = (NATIVE / "patches/apply-zhuge-identity.py").read_text()
+        taskflow_identity_patch = (TASKFLOW / "patches/apply-zhuge-identity.py").read_text()
+        self.assertIn('r.With(authVerifyRL).Post("/auth/zhuge", h.ZhugeLogin)', taskflow_identity_patch)
+        self.assertIn('r.Post("/api/cli-token", h.ZhugeIssueCliToken)', taskflow_identity_patch)
+        self.assertIn("zhugeTaskFlowCliLogin(req)", taskflow_identity_patch)
+        self.assertIn("proxy_text.count(proxy_signature) != 1", taskflow_identity_patch)
+        self.assertIn('r.With(authVerifyRL).Post("/auth/zhuge", h.ZhugeLogin)', native_identity_patch)
+        native_proxy = (REPO / "third_party/multica/apps/web/proxy.ts").read_text()
+        self.assertIn("resolveLocaleFromSignals", native_proxy)
+        self.assertNotIn("zhugeTaskFlowCliLogin", native_proxy)
         native_house_rules = (NATIVE / "patches/apply-zhuge-house-rules.py").read_text()
         taskflow_house_rules = (TASKFLOW / "patches/apply-zhuge-house-rules.py").read_text()
         self.assertEqual(

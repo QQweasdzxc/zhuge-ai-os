@@ -24,9 +24,24 @@ cli_helper.write_text(Path("/tmp/zhuge-cli-sso.js").read_text())
 
 proxy_source = Path("/tmp/zhuge-cli-proxy.ts")
 proxy_target = Path("/src/apps/web/proxy.ts")
-if proxy_target.exists():
-    raise SystemExit("TaskFlow CLI proxy target already exists; refusing to overwrite")
-proxy_target.write_text(proxy_source.read_text())
+if not proxy_target.exists():
+    raise SystemExit("Multica proxy.ts marker file not found")
+proxy_text = proxy_target.read_text()
+proxy_signature = "export function proxy(req: NextRequest) {"
+proxy_call = (
+    "export function proxy(req: NextRequest) {\n"
+    "  const zhugeTaskFlowResponse = zhugeTaskFlowCliLogin(req);\n"
+    "  if (zhugeTaskFlowResponse) return zhugeTaskFlowResponse;"
+)
+if proxy_text.count(proxy_signature) != 1 or "zhugeTaskFlowCliLogin(req)" in proxy_text:
+    raise SystemExit("Multica proxy entry marker missing, ambiguous, or already patched")
+proxy_text = proxy_text.replace(
+    proxy_signature,
+    proxy_source.read_text().rstrip() + "\n\n" + proxy_signature,
+    1,
+)
+proxy_text = proxy_text.replace(proxy_signature, proxy_call, 1)
+proxy_target.write_text(proxy_text)
 
 cli_test_source = Path("/tmp/zhuge_auth_cli_test.go")
 if cli_test_source.exists():
