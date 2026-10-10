@@ -9,10 +9,11 @@
 
   const COLLAPSED_KEY = "zhuge_shared_nav_collapsed_v1";
   const CONTROL_GROUP_KEY = "zhuge_shared_nav_control_expanded_v1";
-  const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["worklog", "tasks-new", "library", "settings", "skyeye"]);
+  const GENERAL_USER_VISIBLE_ITEMS = Object.freeze(["taskflow", "worklog", "tasks-new", "library", "settings", "skyeye"]);
   const GENERAL_USER_HIDDEN_ITEMS = Object.freeze(["procurement", "investment", "sync", "management", "labs"]);
   const DEFAULT_REGISTRY = Object.freeze({
     dashboard: { icon: "🪶", label: "Zhuge AI OS", group: "root", enabled: true, hidden: true, root: true },
+    taskflow: { icon: "🧭", label: "TaskFlow", group: "camp", enabled: true, visible: true },
     worklog: { icon: "✏️", label: "WorkLog", group: "camp", enabled: true, visible: true },
     // The new WorkTodo consumer is the sole WorkTodo presentation entry.
     "tasks-new": { icon: "✅", label: "工作待辦", group: "camp-child", enabled: true, visible: true },
@@ -51,6 +52,7 @@
       // static app/dashboard page remains the anonymous landing surface, but
       // shared navigation must never discard an already hydrated session.
       dashboard: "modules/worklog/?app=1&workspace=dashboard",
+      taskflow: "labs/taskflow/",
       worklog: "modules/worklog/?app=1&workspace=worklog",
       "tasks-new": "app/Board/worktodo/",
       investment: "modules/investment/",
@@ -181,7 +183,7 @@
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const worklogConsumers = isVisible(registry.worklog) ? consumerItems.filter(item => item.group === "worklog").map(item => item.id) : [];
     const investmentConsumers = isGeneralUser ? [] : consumerItems.filter(item => item.group === "investment").map(item => item.id);
-    const campIds = ["worklog", "tasks-new", "procurement", ...worklogConsumers];
+    const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers];
     const childIndexes = campIds.flatMap((id, index) => id === "tasks-new" || id === "procurement" || worklogConsumers.includes(id) ? [index] : []);
     const camp = sectionMarkup("工作空間", "⛺", campIds, registry, { ...options, externalRoot: root }, esc, "camp", childIndexes);
     const investmentBoards = investmentConsumers.length

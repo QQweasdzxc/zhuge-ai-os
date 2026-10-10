@@ -4,6 +4,9 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const browserTests = [
+  "tests/release-consistency.test.js",
+  "tests/taskflow-entry.test.js",
+  "tests/taskflow-entry-browser.test.js",
   "tests/functional-tabs-browser.test.js",
   "tests/functional-tabs-visual-conformance-browser.test.js",
   "tests/create-board-golden-journey-browser.test.js",
