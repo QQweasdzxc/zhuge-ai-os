@@ -8,9 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -214,20 +212,10 @@ func (h *Handler) ZhugeLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-const zhugeCliAuthorizationTTL = 5 * time.Minute
-
-func zhugeCliTokenClaims(userID, email, name, sessionID string, now time.Time) jwt.MapClaims {
-	return jwt.MapClaims{
-		"sub": userID, "email": email, "name": name, "sid": sessionID,
-		"exp": now.Add(zhugeCliAuthorizationTTL).Unix(), "iat": now.Unix(),
-	}
-}
-
-// ZhugeIssueCliToken keeps the native CLI exchange contract while limiting the
-// browser-to-loopback bearer to the CLI's five-minute callback window. The
-// protected route's identity comes from auth middleware; request bodies never
-// select a user. The native CLI exchanges this grant for its existing revocable
-// personal access token through POST /api/tokens.
+// ZhugeIssueCliToken issues an opaque, one-time authorization code for the
+// native CLI callback. It is not an API access token; middleware accepts it
+// once, only on POST /api/tokens, to exchange it for the native revocable PAT.
+// The bound identity comes from authenticated Zhuge middleware.
 func (h *Handler) ZhugeIssueCliToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, private")
 	w.Header().Set("Pragma", "no-cache")
@@ -244,16 +232,10 @@ func (h *Handler) ZhugeIssueCliToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
 		return
 	}
-	sessionID, err := auth.NewSessionID()
+	code, err := auth.NewCLIAuthorizationCode(uuidToString(user.ID))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create CLI authorization")
+		writeError(w, http.StatusServiceUnavailable, "CLI authorization is temporarily unavailable")
 		return
 	}
-	claims := zhugeCliTokenClaims(uuidToString(user.ID), user.Email, user.Name, sessionID, time.Now())
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(auth.JWTSecret())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create CLI authorization")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+	writeJSON(w, http.StatusOK, map[string]string{"token": code})
 }

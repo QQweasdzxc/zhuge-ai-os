@@ -63,15 +63,17 @@ test("TaskFlow return paths are relative and same-origin only", () => {
   }
 });
 
-test("CLI token is constrained to validated callback and state is consumed once", () => {
-  const token = "short-lived-jwt-value-123";
+test("native callback carries an opaque one-time code, never an API access token", () => {
+  const authorizationCode = "zgc_" + "a".repeat(43);
   const state = "0123456789abcdef0123456789abcdef";
-  const target = new URL(sso.buildCliCallbackUrl("http://127.0.0.1:43127/callback", token, state));
+  const target = new URL(sso.buildCliCallbackUrl("http://127.0.0.1:43127/callback", authorizationCode, state));
   assert.equal(target.origin, "http://127.0.0.1:43127");
   assert.equal(target.pathname, "/callback");
-  assert.equal(target.searchParams.get("token"), token);
+  assert.equal(target.searchParams.get("token"), authorizationCode);
+  assert.doesNotMatch(target.searchParams.get("token"), /^[^.]+\.[^.]+\.[^.]+$/);
   assert.equal(target.searchParams.get("state"), state);
-  assert.throws(() => sso.buildCliCallbackUrl("http://example.com/callback", token, state));
+  assert.throws(() => sso.buildCliCallbackUrl("http://example.com/callback", authorizationCode, state));
+  assert.throws(() => sso.buildCliCallbackUrl("http://127.0.0.1:43127/callback", "eyJhbGciOiJIUzI1NiJ9.payload.sig", state));
   const values = new Map();
   const storage = { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, value) };
   assert.equal(sso.consumeCliState(state, storage), true);
@@ -93,8 +95,11 @@ test("CLI overlay uses Zhuge-authenticated identity and five-minute native grant
   assert.match(login, /consumeCliState/);
   assert.match(login, /buildCliCallbackUrl/);
   assert.match(auth, /requireUserID\(w, r\)/);
-  assert.match(auth, /zhugeCliTokenClaims/);
-  assert.match(auth, /zhugeCliAuthorizationTTL\s*=\s*5\s*\*\s*time\.Minute/);
+  assert.match(auth, /NewCLIAuthorizationCode\(uuidToString\(user\.ID\)\)/);
+  assert.doesNotMatch(auth, /zhugeCliTokenClaims|SignedString\(auth\.JWTSecret\(\)\)/);
+  assert.match(read("labs/taskflow/overrides/zhuge_cli_grant.go"), /ConsumeCLIAuthorizationCode/);
+  assert.match(read("labs/taskflow/patches/patch-cli-auth-middleware.py"), /r\.URL\.Path, "\/"\) != "\/api\/tokens"/);
+  assert.match(docker, /TestZhugeCLIAuthorizationCode/);
   assert.match(patch, /r\.Post\("\/api\/cli-token", h\.ZhugeIssueCliToken\)/);
   assert.match(patch, /Native CLI token route marker not found/);
   assert.match(docker, /go test \.\/internal\/handler -run/);

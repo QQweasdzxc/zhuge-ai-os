@@ -54,6 +54,8 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             self.assertIn("labs/taskflow/patches/", text)
             self.assertIn("/src/LICENSE /src/NOTICE", text)
         backend = (TASKFLOW / "Dockerfile.backend").read_text()
+        self.assertIn("patch-cli-auth-middleware.py", backend)
+        self.assertIn("TestZhugeCLIAuthorizationCode", backend)
         self.assertIn("postgresql-client", backend)
         self.assertIn("stage-migrations.py", backend)
         self.assertIn("apply-taskflow-db-boundary.py", backend)
@@ -127,6 +129,11 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             (NATIVE / "overrides/zhuge_auth.go").read_bytes(),
             "TaskFlow Auth verifies the Zhuge session without calling Zhuge public RPCs",
         )
+        cli_auth = (TASKFLOW / "patches/patch-cli-auth-middleware.py").read_text()
+        self.assertIn('"/api/tokens"', cli_auth)
+        self.assertIn("ConsumeCLIAuthorizationCode(tokenString)", cli_auth)
+        self.assertIn("marker missing, ambiguous, or already patched", cli_auth)
+        self.assertNotIn("SignedString", (TASKFLOW / "overrides/zhuge_auth.go").read_text())
 
     def test_taskflow_runtime_sql_and_migrations_do_not_call_public_schema_or_zhuge_functions(self):
         code_suffixes = {".go", ".sql", ".js", ".mjs", ".ts", ".tsx", ".sh", ".py", ".html"}

@@ -92,8 +92,8 @@ export default function Page() {
     setWorking(true);
     setError("");
     try {
-      const { token } = await api.issueCliToken();
-      window.location.replace(sso.buildCliCallbackUrl(intent.callback, token, intent.state));
+      const { token: authorizationCode } = await api.issueCliToken();
+      window.location.replace(sso.buildCliCallbackUrl(intent.callback, authorizationCode, intent.state));
     } catch {
       setWorking(false);
       setReady(false);

@@ -43,9 +43,19 @@ proxy_text = proxy_text.replace(
 proxy_text = proxy_text.replace(proxy_signature, proxy_call, 1)
 proxy_target.write_text(proxy_text)
 
+auth_source = Path("/tmp/zhuge_cli_grant.go")
+auth_test_source = Path("/tmp/zhuge_cli_grant_test.go")
+middleware_test_source = Path("/tmp/zhuge_cli_middleware_test.go")
+if not auth_source.exists() or not auth_test_source.exists() or not middleware_test_source.exists():
+    raise SystemExit("TaskFlow CLI authorization grant overlay is incomplete")
+Path("/src/server/internal/auth/zhuge_cli_grant.go").write_text(auth_source.read_text())
+Path("/src/server/internal/auth/zhuge_cli_grant_test.go").write_text(auth_test_source.read_text())
+Path("/src/server/internal/middleware/zhuge_cli_middleware_test.go").write_text(middleware_test_source.read_text())
+
 cli_test_source = Path("/tmp/zhuge_auth_cli_test.go")
-if cli_test_source.exists():
-    Path("/src/server/internal/handler/zhuge_auth_cli_test.go").write_text(cli_test_source.read_text())
+if not cli_test_source.exists():
+    raise SystemExit("TaskFlow CLI handler test overlay is missing")
+Path("/src/server/internal/handler/zhuge_auth_cli_test.go").write_text(cli_test_source.read_text())
 
 handoff = Path("/src/apps/web/app/(auth)/zhuge-handoff")
 handoff.mkdir(parents=True, exist_ok=True)

@@ -16,6 +16,10 @@ COPY labs/taskflow/overrides/dbid.go /tmp/dbid.go
 COPY labs/taskflow/overrides/zhuge_auth.go /tmp/zhuge_auth.go
 COPY labs/taskflow/overrides/zhuge-cli-proxy.ts /tmp/zhuge-cli-proxy.ts
 COPY labs/taskflow/overrides/zhuge_auth_cli_test.go /tmp/zhuge_auth_cli_test.go
+COPY labs/taskflow/overrides/zhuge_cli_grant.go /tmp/zhuge_cli_grant.go
+COPY labs/taskflow/overrides/zhuge_cli_grant_test.go /tmp/zhuge_cli_grant_test.go
+COPY labs/taskflow/overrides/zhuge_cli_middleware_test.go /tmp/zhuge_cli_middleware_test.go
+COPY labs/taskflow/patches/patch-cli-auth-middleware.py /tmp/patch-cli-auth-middleware.py
 COPY labs/taskflow/cli-sso.js /tmp/zhuge-cli-sso.js
 COPY labs/taskflow/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
 COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
@@ -30,6 +34,7 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/zhuge_auth.go /src/server/internal/handler/zhuge_auth.go \
  && python3 /tmp/apply-taskflow-db-boundary.py \
  && python3 /tmp/apply-zhuge-identity.py \
+ && python3 /tmp/patch-cli-auth-middleware.py \
  && python3 /tmp/apply-zhuge-house-rules.py \
  && python3 /tmp/stage-migrations.py \
       --source /src/server/migrations \
@@ -44,7 +49,9 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
-RUN cd server && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeCliTokenClaims -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
+ && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
+ && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate

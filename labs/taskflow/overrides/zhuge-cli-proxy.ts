@@ -27,16 +27,18 @@ function zhugeTaskFlowCliLogin(request: NextRequest): NextResponse | null {
   const states = request.nextUrl.searchParams.getAll("cli_state");
   if (callbacks.length === 0 && states.length === 0) return null;
 
+  const callback = callbacks.length === 1 ? callbacks[0] ?? "" : "";
+  const state = states.length === 1 ? states[0] ?? "" : "";
   const target = new URL(ZHUGE_TASKFLOW_CLI_AI_OS_URL);
   if (
     callbacks.length === 1
     && states.length === 1
-    && zhugeTaskFlowValidCliCallback(callbacks[0])
-    && ZHUGE_TASKFLOW_CLI_STATE.test(states[0])
+    && zhugeTaskFlowValidCliCallback(callback)
+    && ZHUGE_TASKFLOW_CLI_STATE.test(state)
   ) {
     const fragment = new URLSearchParams();
-    fragment.set("cli_callback", callbacks[0]);
-    fragment.set("cli_state", states[0]);
+    fragment.set("cli_callback", callback);
+    fragment.set("cli_state", state);
     target.hash = fragment.toString();
   } else {
     target.hash = "cli_error=invalid";

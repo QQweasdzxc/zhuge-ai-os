@@ -54,10 +54,11 @@
       return url.origin === origin ? url.pathname + url.search + url.hash : null;
     } catch { return null; }
   }
-  function buildCliCallbackUrl(callback, token, state) {
-    if (!validateCliCallback(callback) || typeof token !== "string" || token.length < 16 || !validateCliState(state)) throw new Error("invalid CLI callback grant");
+  function buildCliCallbackUrl(callback, authorizationCode, state) {
+    if (!validateCliCallback(callback) || typeof authorizationCode !== "string" || !authorizationCode.startsWith("zgc_") || !validateCliState(state)) throw new Error("invalid CLI authorization code");
     const url = new URL(callback);
-    url.searchParams.set("token", token);
+    // Keep the native CLI callback field name, but send only a one-use opaque code.
+    url.searchParams.set("token", authorizationCode);
     url.searchParams.set("state", state);
     return url.toString();
   }
