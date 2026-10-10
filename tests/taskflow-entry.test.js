@@ -10,10 +10,13 @@ const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
 test("formal TaskFlow entry has a consistent new Product release identity", () => {
   const gate = ReleaseGovernance.assertSourceIdentity(ReleaseGovernance.readIdentitySnapshot(ROOT));
   const identity = JSON.parse(read("version.json"));
+  const entry = read("labs/taskflow/index.html");
   assert.equal(gate.status, "PASS");
   assert.equal(gate.version, identity.version);
   assert.equal(gate.build, identity.build);
   assert.equal(gate.publishedCIdentity.build, "20260915-1707");
+  assert.match(entry, new RegExp(`runtime-config\\.js\\?v=${identity.build}`));
+  assert.match(entry, new RegExp(`cli-sso\\.js\\?v=${identity.build}`));
 });
 
 test("WORK navigation places TaskFlow before WorkLog on the canonical AIOS origin", () => {
