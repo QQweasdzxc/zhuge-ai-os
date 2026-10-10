@@ -21,8 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Check patch whitespace
-        run: git show --check --oneline HEAD
+        run: git diff HEAD^ HEAD --check
       - name: Verify TaskFlow overlay and fail-closed patch contract
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
       - name: Verify TaskFlow navigation and authenticated entry contract
