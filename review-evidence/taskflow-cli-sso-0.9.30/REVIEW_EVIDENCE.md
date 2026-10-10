@@ -7,7 +7,7 @@
 - Baseline: `origin/main` `92e6a61fcfbb2c9e5639f45a93d63599482d9e44` — Product `0.9.0-alpha.9.29`, Build `20261010-1406`.
 - Candidate identity: **0.9.0-alpha.9.30 / 20261010-2139**. The two root canonical identity sources and all governed Product manifests match; Published C remains independent at `0.9.0-alpha.9.13 / 20260915-1707`.
 - Candidate is four commits ahead of baseline, a direct descendant, not a merge of `taskflow-dev`. The divergent `origin/taskflow-dev` `a4c22c1bba68957532965e2648ff49b411317810` remains unmerged.
-- Review-only remote reference is intended to contain this exact candidate as its parent, plus this evidence package and a CI-only workflow. That reference is not a deployed app and does not trigger Pages or Render deployment.
+- Review-only remote reference: [`review/taskflow-cli-sso-0.9.30`](https://github.com/QQweasdzxc/zhuge-ai-os/tree/review/taskflow-cli-sso-0.9.30), review commit `3d86a849958153c40f1dfe3dc46e45a7798fe3a9`, whose sole parent is the exact candidate SHA above. It contains only this evidence package and a CI-only workflow; it is not a deployed app and does not trigger Pages or Render deployment.
 - No main push, Render deployment, Production DB/Auth/Cron mutation, or PM-authenticated CLI acceptance has occurred.
 
 ## Exact diff inventory and scope
@@ -68,7 +68,7 @@ Rerun on source SHA `22182207b2e58a465204df8d1f84bc5300f84535`:
 - Full Regression: `node --test tests/*.test.js` — **954 pass / 0 fail / 0 skip**.
 - Browser Regression: `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser` — **61 pass / 0 fail / 0 skip**; 23 browser suites plus the defined standalone browser scripts, no page/console errors in report.
 - `git diff --check origin/main...22182207b2e58a465204df8d1f84bc5300f84535` — PASS.
-- Remote Build Parity: **PENDING** until the review-reference workflow completes. The workflow checks out and builds exact candidate `22182207b2e58a465204df8d1f84bc5300f84535`, not the review-evidence commit.
+- GitHub remote Build Parity: **PASS**. [Actions run 38062344922](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38062344922) ran on the review-only branch commit above, checked out and asserted candidate SHA `22182207b2e58a465204df8d1f84bc5300f84535`, passed the TaskFlow Python and Node contract tests, built both the TaskFlow backend and web images, verified the pinned vendored-source marker, and preserved the test/build logs in [artifact 11673482901](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38062344922/artifacts/11673482901) (SHA-256 `6f4f9e559041960d6a0fde921dee192dfc69b536944731106cf2822307767a7f`, expires 2026-10-24). The Web build emitted two non-fatal upstream CSS parser warnings on `::highlight(...)`; compilation and image export succeeded. No deploy step exists in this workflow.
 
 Full Regression rewrites tracked screenshot evidence. Those test-generated PNGs were restored to the pre-run candidate versions; the original candidate worktree is clean.
 
