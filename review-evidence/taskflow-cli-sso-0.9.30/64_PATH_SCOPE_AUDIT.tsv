@@ -1,0 +1,65 @@
+PATH	CLASSIFICATION	DISPOSITION
+.gitattributes	Preserve vendored upstream whitespace byte-for-byte	IN SCOPE — vendor provenance only
+.github/workflows/taskflow-build-parity.yml	Build Parity workflow; push trigger limited to main; manual dispatch only	IN SCOPE — no branch deployment trigger
+app/Board/ai/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/Board/investment/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/Board/procurement/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/Board/template-preview/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/Board/worktodo/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/dashboard/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+app/dashboard/zhuge-dashboard.js	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+labs/investment/app.js	Product release cache-buster synchronization only; portfolio logic unchanged	RELEASE METADATA ONLY
+labs/investment/index.html	Product release cache-buster synchronization only; portfolio logic unchanged	RELEASE METADATA ONLY
+labs/investment/src/portfolio/view.mjs	Product release cache-buster synchronization only; portfolio logic unchanged	RELEASE METADATA ONLY
+labs/investment/version.json	Product release cache-buster synchronization only; portfolio logic unchanged	RELEASE METADATA ONLY
+labs/taskflow/DB_BOUNDARY.md	TaskFlow operational/provenance documentation	IN SCOPE
+labs/taskflow/DEV_DEPLOYMENT.md	TaskFlow operational/provenance documentation	IN SCOPE
+labs/taskflow/Dockerfile.backend	TaskFlow build / staging / packaging authority	IN SCOPE
+labs/taskflow/Dockerfile.web	TaskFlow build / staging / packaging authority	IN SCOPE
+labs/taskflow/MIGRATION_BOUNDARY.md	TaskFlow operational/provenance documentation	IN SCOPE
+labs/taskflow/TASKFLOW_BASELINE.md	TaskFlow operational/provenance documentation	IN SCOPE
+labs/taskflow/THIRD_PARTY_MULTICA.md	TaskFlow operational/provenance documentation	IN SCOPE
+labs/taskflow/build-dev-entry.mjs	TaskFlow build / staging / packaging authority	IN SCOPE
+labs/taskflow/build-dev-shell.mjs	TaskFlow build / staging / packaging authority	IN SCOPE
+labs/taskflow/cli-sso.js	TaskFlow entry / CLI SSO implementation	IN SCOPE
+labs/taskflow/index.html	TaskFlow entry / CLI SSO implementation	IN SCOPE
+labs/taskflow/overrides/README.md	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/dbid.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/multica-brand-mark.tsx	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/taskflow-entrypoint.sh	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/taskflow-migrate.sh	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-cli-proxy.ts	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-handoff-page.tsx	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-help-launcher.tsx	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-login-page.tsx	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-ready-route.ts	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge-root-page.tsx	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge_auth.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge_auth_cli_test.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge_cli_grant.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge_cli_grant_test.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/overrides/zhuge_cli_middleware_test.go	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/patches/apply-taskflow-db-boundary.py	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/patches/apply-zhuge-house-rules.py	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/patches/apply-zhuge-identity.py	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/patches/patch-cli-auth-middleware.py	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/patches/stage-migrations.py	TaskFlow-owned overlay / identity / CLI SSO / DB boundary	IN SCOPE
+labs/taskflow/tests/test_build_parity.py	TaskFlow tests / fail-closed build contract	IN SCOPE
+labs/taskflow/tests/test_cli_auth_patch.py	TaskFlow tests / fail-closed build contract	IN SCOPE
+modules/investment/index.html	Product release Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+modules/investment/version.json	Product release Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+modules/skyeye/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+modules/worklog/chat/index.html	Product Version/Build/cache-buster synchronization only	RELEASE METADATA ONLY
+modules/worklog/index.html	Release cache synchronization plus TaskFlow CLI auth-return monitor	IN SCOPE — TaskFlow integration; no WorkLog data/API logic change
+modules/worklog/version.json	Canonical Product release identity synchronization; Published C identity retained	RELEASE METADATA ONLY
+shared/app-config.js	Canonical Product release identity synchronization; Published C identity retained	RELEASE METADATA ONLY
+shared/config/template-release.js	Canonical Product release identity synchronization; Published C identity retained	RELEASE METADATA ONLY
+shared/config/version.js	Canonical Product release identity synchronization; Published C identity retained	RELEASE METADATA ONLY
+tests/lab-architecture.test.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+tests/run-browser-regression.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+tests/shared-navigation.test.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+tests/taskflow-cli-sso.test.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+tests/taskflow-entry-browser.test.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+tests/taskflow-entry.test.js	Regression coverage for TaskFlow entry/CLI SSO/release or existing lab composition	IN SCOPE — test only
+version.json	Canonical Product release identity synchronization; Published C identity retained	RELEASE METADATA ONLY

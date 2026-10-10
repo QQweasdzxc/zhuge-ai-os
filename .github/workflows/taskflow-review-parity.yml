@@ -1,0 +1,71 @@
+name: TaskFlow Candidate Build Parity (temporary review reference)
+
+on:
+  push:
+    branches:
+      - 'review/taskflow-cli-sso-0.9.30'
+    paths:
+      - '.github/workflows/taskflow-review-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: '22182207b2e58a465204df8d1f84bc5300f84535'
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify candidate identity and patch whitespace
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = '22182207b2e58a465204df8d1f84bc5300f84535'
+          git diff HEAD^ HEAD --check
+      - name: Run TaskFlow overlay and CLI SSO contract tests
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v 2>&1 | tee /tmp/taskflow-python.log
+          node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js tests/release-consistency.test.js tests/release-governance.test.js 2>&1 | tee /tmp/taskflow-node.log
+      - name: Build TaskFlow backend from exact candidate
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain -f labs/taskflow/Dockerfile.backend -t taskflow-multica-backend:parity . 2>&1 | tee /tmp/taskflow-backend-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-build.log; then
+            echo 'Unexpected Multica application-source clone in backend build log' >&2
+            exit 1
+          fi
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/taskflow-backend-build.log
+      - name: Build TaskFlow web from exact candidate
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain -f labs/taskflow/Dockerfile.web -t taskflow-multica-web:parity . 2>&1 | tee /tmp/taskflow-web-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-web-build.log; then
+            echo 'Unexpected Multica application-source clone in web build log' >&2
+            exit 1
+          fi
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/taskflow-web-build.log
+      - name: Preserve remote parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskflow-cli-sso-0.9.30-parity-${{ github.sha }}
+          path: |
+            /tmp/taskflow-python.log
+            /tmp/taskflow-node.log
+            /tmp/taskflow-backend-build.log
+            /tmp/taskflow-web-build.log
+          if-no-files-found: warn
+          retention-days: 14
