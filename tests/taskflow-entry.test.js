@@ -77,7 +77,8 @@ test("TaskFlow entry resolves only the existing Zhuge session keys and hands tok
   assert.match(entry, /fetch\(`\$\{api\}\/auth\/zhuge`/);
   assert.match(entry, /body: JSON\.stringify\(\{ access_token: accessToken \}\)/);
   assert.doesNotMatch(entry, /access_token=[^"'`]/);
-  assert.match(entry, /if \(configured && currentAccessToken\(\)\) void enter\(\)/);
+  assert.match(entry, /const invalidCliRequest = cliIntent.status === "invalid" \|\| cliError === "invalid"/);
+  assert.match(entry, /if \(configured && currentAccessToken\(\) && !invalidCliRequest\) void enter\(\)/);
 });
 
 test("TaskFlow Dev launcher emits only validated non-secret service origins", () => {
