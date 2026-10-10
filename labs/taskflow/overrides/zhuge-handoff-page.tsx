@@ -11,13 +11,24 @@ export default function ZhugeHandoffPage() {
       const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const token = params.get("zhuge_token");
       const destination = params.get("zhuge_dest") || "/";
-      window.history.replaceState(null, "", window.location.pathname);
+      const resolved = new URL(destination, window.location.origin);
+      const safeDestination = destination.startsWith("/")
+        && !destination.startsWith("//")
+        && !destination.includes("\\")
+        && resolved.origin === window.location.origin
+        ? resolved.pathname + resolved.search + resolved.hash
+        : null;
       if (!token) {
         setMessage("沒有收到 Zhuge 身分。請從 Zhuge AI OS 的 Lab 入口重新進入。");
         return;
       }
+      if (!safeDestination) {
+        setMessage("返回路徑不安全。請從 Zhuge AI OS 的 Lab 入口重新進入。");
+        return;
+      }
+      window.history.replaceState(null, "", window.location.pathname);
       window.localStorage.setItem("multica_token", token);
-      window.location.replace(destination);
+      window.location.replace(safeDestination);
     } catch {
       setMessage("Zhuge 身分交接失敗。請從 Zhuge AI OS 的 Lab 入口重新進入。");
     }

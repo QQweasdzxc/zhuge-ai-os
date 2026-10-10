@@ -45,12 +45,29 @@
       <p class="attribution">Powered by <strong>Multica</strong> · © <span id="copyrightYear"></span> Multica. All rights reserved. · <a href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer">Source and attribution</a></p>
     </section>
   </main>
+  <script src="./cli-sso.js"></script>
   <script>
     (() => {
       "use strict";
       const AUTH_KEY = "zhuge_ai_os_google_auth_session_v1";
       const SESSION_KEY = "zhuge_ai_os_session_v1";
       const config = window.ZhugeTaskFlowConfig || {};
+      const cliSSO = window.ZhugeTaskFlowCliSSO;
+      if (!cliSSO) throw new Error("TaskFlow CLI authorization helper is unavailable");
+      const queryParams = new URLSearchParams(window.location.search);
+      const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const queryHasCliIntent = queryParams.has("cli_callback") || queryParams.has("cli_state");
+      const fragmentHasCliIntent = fragmentParams.has("cli_callback") || fragmentParams.has("cli_state");
+      const cliError = fragmentParams.get("cli_error") || queryParams.get("cli_error") || "";
+      const cliIntent = cliSSO.parseCliIntent(fragmentHasCliIntent ? fragmentParams : queryParams);
+      if (queryHasCliIntent || fragmentHasCliIntent) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("cli_callback");
+        cleanUrl.searchParams.delete("cli_state");
+        cleanUrl.searchParams.delete("cli_error");
+        cleanUrl.hash = "";
+        window.history.replaceState(null, "", cleanUrl.pathname + cleanUrl.search);
+      }
       const button = document.getElementById("enterTaskFlow");
       const status = document.getElementById("status");
       document.getElementById("copyrightYear").textContent = String(new Date().getFullYear());
@@ -147,7 +164,10 @@
           if (!response.ok || !payload.token) throw new Error(payload.error || "Zhuge Identity handoff failed");
 
           status.textContent = "身分確認完成，正在開啟 TaskFlow…";
-          const destination = await fetchBoardDestination(api, payload.token);
+          if (cliIntent.status === "invalid") throw new Error("Invalid CLI authorization request");
+          const destination = cliIntent.status === "valid"
+            ? cliSSO.buildTaskFlowLoginDestination(cliIntent)
+            : await fetchBoardDestination(api, payload.token);
           window.location.href = `${web}/zhuge-handoff#zhuge_token=${encodeURIComponent(payload.token)}&zhuge_dest=${encodeURIComponent(destination)}`;
         } catch (error) {
           console.error("TaskFlow Zhuge handoff failed", error);
@@ -157,11 +177,16 @@
       }
 
       const configured = Boolean(config.apiUrl && config.webUrl);
-      button.disabled = !configured;
-      button.textContent = configured ? "直接進入 TaskFlow" : "TaskFlow Dev 尚未連線";
+      const invalidCliRequest = cliIntent.status === "invalid" || cliError === "invalid";
+      button.disabled = !configured || invalidCliRequest;
+      button.textContent = configured
+        ? (cliIntent.status === "valid" ? "驗證 Zhuge 身分並繼續 CLI 授權" : "直接進入 TaskFlow")
+        : "TaskFlow Dev 尚未連線";
       if (!configured) status.textContent = "TaskFlow Web/API Dev URL 尚未設定；Native Lab 保持獨立不變。";
+      else if (invalidCliRequest) status.textContent = "CLI 登入要求無效。請在 CLI 重新執行 multica login。";
+      else if (cliIntent.status === "valid" && !currentAccessToken()) status.textContent = "目前沒有 Zhuge 登入 Session。請先登入 Zhuge AI OS，再重新執行 multica login。";
       button.addEventListener("click", enter);
-      if (configured && currentAccessToken()) void enter();
+      if (configured && currentAccessToken() && !invalidCliRequest) void enter();
     })();
   </script>
 </body>

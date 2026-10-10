@@ -16,6 +16,9 @@ COPY labs/taskflow/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
 COPY labs/taskflow/overrides/zhuge-ready-route.ts /tmp/zhuge-ready-route.ts
 COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
 COPY labs/taskflow/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
+COPY labs/taskflow/overrides/zhuge-cli-proxy.ts /tmp/zhuge-cli-proxy.ts
+COPY labs/taskflow/cli-sso.js /tmp/zhuge-cli-sso.js
+COPY labs/taskflow/overrides/zhuge_auth_cli_test.go /tmp/zhuge_auth_cli_test.go
 COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx
 COPY labs/taskflow/overrides/multica-brand-mark.tsx /tmp/multica-brand-mark.tsx
 COPY labs/taskflow/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py

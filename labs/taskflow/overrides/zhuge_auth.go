@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -213,4 +214,46 @@ func (h *Handler) ZhugeLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-var _ = time.Second
+const zhugeCliAuthorizationTTL = 5 * time.Minute
+
+func zhugeCliTokenClaims(userID, email, name, sessionID string, now time.Time) jwt.MapClaims {
+	return jwt.MapClaims{
+		"sub": userID, "email": email, "name": name, "sid": sessionID,
+		"exp": now.Add(zhugeCliAuthorizationTTL).Unix(), "iat": now.Unix(),
+	}
+}
+
+// ZhugeIssueCliToken keeps the native CLI exchange contract while limiting the
+// browser-to-loopback bearer to the CLI's five-minute callback window. The
+// protected route's identity comes from auth middleware; request bodies never
+// select a user. The native CLI exchanges this grant for its existing revocable
+// personal access token through POST /api/tokens.
+func (h *Handler) ZhugeIssueCliToken(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, private")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+
+	userID, ok := requireUserID(w, r)
+	if !ok { return }
+	user, err := h.Queries.GetUser(r.Context(), parseUUID(userID))
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "authenticated user not found")
+		return
+	}
+	if auth.IsTemporarilyDisabledUser(uuidToString(user.ID), user.Email) {
+		writeError(w, http.StatusForbidden, auth.TemporarilyDisabledUserError)
+		return
+	}
+	sessionID, err := auth.NewSessionID()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create CLI authorization")
+		return
+	}
+	claims := zhugeCliTokenClaims(uuidToString(user.ID), user.Email, user.Name, sessionID, time.Now())
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(auth.JWTSecret())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create CLI authorization")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+}

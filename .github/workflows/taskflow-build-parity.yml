@@ -24,7 +24,7 @@ jobs:
       - name: Verify TaskFlow overlay and fail-closed patch contract
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
       - name: Verify TaskFlow navigation and authenticated entry contract
-        run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js
+        run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
 
   backend-image:
     runs-on: ubuntu-latest
