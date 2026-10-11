@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - review/taskflow-issue-40-20261011
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"

@@ -43,13 +43,21 @@ func TestTaskFlowPoolBudgetAcceptsConservativeSimulatedAllocation(t *testing.T) 
 	}
 }
 
+func TestTaskFlowPoolBudgetRequiresPositiveExternalReserve(t *testing.T) {
+	setTaskFlowPoolBudget(t, "8", "4", "2", "0", "1")
+	err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 4, MinConns: 0}, primaryPoolSizing)
+	if err == nil {
+		t.Fatal("zero external session reserve must fail closed")
+	}
+}
+
 func TestTaskFlowPoolBudgetAccountsForAllAPIInstances(t *testing.T) {
 	setTaskFlowPoolBudget(t, "8", "6", "0", "2", "2")
 	if err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 5, MinConns: 0}, primaryPoolSizing); err == nil {
 		t.Fatal("per-instance pool max multiplied by API replicas must fit the allocation")
 	}
-	setTaskFlowPoolBudget(t, "8", "8", "0", "0", "2")
-	if err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 4, MinConns: 0}, primaryPoolSizing); err != nil {
+	setTaskFlowPoolBudget(t, "8", "6", "0", "2", "2")
+	if err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 3, MinConns: 0}, primaryPoolSizing); err != nil {
 		t.Fatalf("exact multi-instance allocation rejected: %v", err)
 	}
 }
@@ -62,14 +70,14 @@ func TestTaskFlowPoolBudgetRejectsAllocationsAboveTotal(t *testing.T) {
 }
 
 func TestTaskFlowPoolBudgetRejectsImpossibleMinAndMax(t *testing.T) {
-	setTaskFlowPoolBudget(t, "8", "8", "0", "0", "1")
+	setTaskFlowPoolBudget(t, "8", "6", "0", "2", "1")
 	if err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 4, MinConns: 5}, primaryPoolSizing); err == nil {
 		t.Fatal("min > max must fail instead of silently clamping")
 	}
 }
 
 func TestTaskFlowPoolBudgetRejectsMalformedExplicitSettings(t *testing.T) {
-	setTaskFlowPoolBudget(t, "8", "8", "0", "0", "1")
+	setTaskFlowPoolBudget(t, "8", "6", "0", "2", "1")
 	t.Setenv("DATABASE_MAX_CONNS", "not-a-number")
 	if err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 8, MinConns: 0}, primaryPoolSizing); err == nil {
 		t.Fatal("malformed explicit pool max must fail closed")

@@ -60,6 +60,27 @@ class StabilityOverlayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "marker missing or ambiguous"):
             OVERLAY.patch_webhook_worker("func unrelated() {}\n")
 
+    def test_pool_budget_fails_before_connection_creation_and_is_rollback_compatible(self) -> None:
+        original = (SOURCE_ROOT / "server/cmd/server/dbstats.go").read_text()
+        budget_keys = (
+            "TASKFLOW_DB_SESSION_BUDGET",
+            "TASKFLOW_DB_PRIMARY_SESSION_BUDGET",
+            "TASKFLOW_DB_REPLICA_SESSION_BUDGET",
+            "TASKFLOW_DB_EXTERNAL_SESSION_RESERVE",
+            "TASKFLOW_API_REPLICA_COUNT",
+        )
+
+        # The pinned .9.31-era pool source does not read the new non-secret
+        # ledger keys, so staging them does not alter rollback behavior.
+        for key in budget_keys:
+            with self.subTest(key=key):
+                self.assertNotIn(key, original)
+
+        patched = OVERLAY.patch_db_stats(original)
+        validate_index = patched.index("validateTaskFlowPoolBudget(cfg, sizing)")
+        pool_create_index = patched.index("return pgxpool.NewWithConfig(ctx, cfg)")
+        self.assertLess(validate_index, pool_create_index)
+
     def test_webhook_backoff_does_not_rewrite_durable_delivery_semantics(self) -> None:
         source = (SOURCE_ROOT / "server/internal/handler/webhook_delivery_worker.go").read_text()
         patched = OVERLAY.patch_webhook_worker(source)

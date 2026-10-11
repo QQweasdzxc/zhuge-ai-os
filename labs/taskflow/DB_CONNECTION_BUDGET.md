@@ -40,17 +40,23 @@ Before creating either TaskFlow API pool, require these non-secret deployment
 values:
 
 - `TASKFLOW_DB_SESSION_BUDGET`: total sessions allocated to TaskFlow after
-  reserving shared-project headroom for non-TaskFlow clients.
+  reserving shared-project headroom for Native Lab, operators, and every other
+  non-TaskFlow client. The release value must be derived from the actual
+  Supavisor limit and measured shared consumers.
 - `TASKFLOW_DB_PRIMARY_SESSION_BUDGET`: total primary-pool allocation across
   all API instances.
 - `TASKFLOW_DB_REPLICA_SESSION_BUDGET`: total optional replica-pool allocation
   across all API instances (explicit `0` when disabled).
-- `TASKFLOW_DB_EXTERNAL_SESSION_RESERVE`: sessions reserved for controlled
-  migrations, maintenance/backfill processes, or other TaskFlow clients.
+- `TASKFLOW_DB_EXTERNAL_SESSION_RESERVE`: sessions reserved inside the
+  TaskFlow allocation for controlled migrations, maintenance/backfill
+  processes, and other non-API database clients. This must be a measured,
+  positive reservation; zero is rejected because the candidate must not assume
+  non-API database occupancy is zero.
 - `TASKFLOW_API_REPLICA_COUNT`: actual API instance count used for the
   deployment.
 
-The guard rejects missing/malformed budgets, `min > max`, and any computed
+The guard rejects missing/malformed budgets, a zero external-session reserve,
+`min > max`, and any computed
 `pool max × API instance count` above its allocation. Primary + replica +
 external reservations must fit the declared TaskFlow total. It logs only pool
 counts and budget integers; it never logs a URL, password, or secret. The guard
@@ -74,8 +80,18 @@ GPT/CTO + PM release gate. No Production load test was run.
 ## Recovery / risk
 
 - No Production change is part of this review candidate. Before a later release,
-  record the current Render deployment/image and the old pool settings so a
-  rollback can restore that image and configuration together.
+  record the current Render deployment/image and existing `DATABASE_*` settings.
+- Safe `.9.31` → `.9.32` rollout is conditional on an evidence-based budget
+  ledger being approved first. Add the five non-secret budget settings while
+  the `.9.31` image is still active; the pinned `.9.31` pool source does not
+  read these names, so its existing pool configuration is unchanged. Then
+  deploy the exact `.9.32` image. Its guard validates configuration before
+  `pgxpool.NewWithConfig`, so missing or inconsistent values prevent the API
+  from opening a pool. If startup fails, stop rollout and redeploy the recorded
+  `.9.31` image; it ignores the new budget keys and requires no database
+  rollback because this candidate adds no migration or data mutation. Do not
+  pick the five values until the actual pooler limit, API replica count, Native
+  Lab, and other database consumers have been measured.
 - Too-small allocations can increase queue wait/timeout latency. The safe
   response is to stop deployment, remeasure all consumers, and revise the
   declared budget; do not raise a pool cap based solely on `EMAXCONNSESSION`.

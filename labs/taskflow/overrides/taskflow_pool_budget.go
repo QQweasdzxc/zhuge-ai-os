@@ -49,7 +49,10 @@ func validateTaskFlowPoolBudget(cfg *pgxpool.Config, sizing dbPoolSizing) error 
 	if err != nil {
 		return err
 	}
-	externalReserve, err := requiredBudget(taskFlowExternalReserveEnv, true)
+	// A zero reserve would silently assume that migrations, maintenance, and
+	// other non-API database clients never overlap the API pools. Require an
+	// explicit positive allocation; the release gate still has to establish it.
+	externalReserve, err := requiredBudget(taskFlowExternalReserveEnv, false)
 	if err != nil {
 		return err
 	}
