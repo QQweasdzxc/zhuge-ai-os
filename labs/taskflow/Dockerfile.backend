@@ -58,6 +58,11 @@ RUN TASKFLOW_STABILITY_PATCH_SCRIPT=/tmp/apply-taskflow-stability.py \
     python3 /tmp/test_taskflow_stability_overlay.py \
  && python3 /tmp/apply-taskflow-stability.py --target backend --root /src --overlays /taskflow-stability-overlays
 
+COPY labs/taskflow/patches/apply-taskflow-zh-hant.py /tmp/apply-taskflow-zh-hant.py
+COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant/taskflow_zh_hant_language_test.go
+RUN python3 /tmp/apply-taskflow-zh-hant.py --target backend --root /src --overlays /taskflow-zh-hant \
+ && test -f /src/server/internal/handler/taskflow_zh_hant_language_test.go
+
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
@@ -69,7 +74,8 @@ COPY --from=source /src /src
 RUN cd server && go mod download
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
-RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1
+RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
+ && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
