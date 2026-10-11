@@ -22,7 +22,27 @@ OVERLAY = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = OVERLAY
 SPEC.loader.exec_module(OVERLAY)
 
-DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[3]
+def find_default_repo_root() -> Path:
+    configured_root = os.environ.get("TASKFLOW_STABILITY_REPO_ROOT")
+    if configured_root:
+        return Path(configured_root).resolve()
+
+    # In the repository, discover the root by its vendored source marker. The
+    # Docker parity build copies this test to /tmp, so it must not assume that
+    # __file__ has the repository's original directory depth.
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "third_party" / "multica").is_dir():
+            return parent
+
+    # When source and overlay roots are supplied separately (as in the image
+    # build), this value is only the fallback for optional local paths.
+    source_root = os.environ.get("TASKFLOW_VENDOR_SOURCE_ROOT")
+    if source_root:
+        return Path(source_root).resolve()
+    return Path.cwd().resolve()
+
+
+DEFAULT_REPO_ROOT = find_default_repo_root()
 SOURCE_ROOT = Path(os.environ.get("TASKFLOW_VENDOR_SOURCE_ROOT", DEFAULT_REPO_ROOT / "third_party/multica")).resolve()
 OVERLAY_ROOT = Path(os.environ.get("TASKFLOW_STABILITY_OVERLAY_ROOT", Path(__file__).resolve().parents[1] / "overrides")).resolve()
 
