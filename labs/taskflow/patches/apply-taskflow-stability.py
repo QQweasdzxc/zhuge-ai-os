@@ -50,6 +50,17 @@ def patch_db_stats(source: str) -> str:
         "",
         "silent min/max pool clamp",
     )
+    # TaskFlow's bounded trial uses DATABASE_MIN_CONNS=0. The upstream
+    # primary pool parser rejects zero via envInt32, which would fall back to
+    # the default minimum (5) and make a max=4 configuration fail the
+    # TaskFlow fail-closed guard. Enable the existing non-negative parser for
+    # the TaskFlow build copy only; a missing value still uses the pinned 5.
+    source = replace_once(
+        source,
+        "\t\tdefaultMinConns: defaultMinConns,\n\t}",
+        "\t\tdefaultMinConns: defaultMinConns,\n\t\tallowZeroMin:   true,\n\t}",
+        "TaskFlow explicit zero primary minimum",
+    )
     return source
 
 

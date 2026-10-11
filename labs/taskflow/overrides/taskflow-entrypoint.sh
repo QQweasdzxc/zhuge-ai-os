@@ -8,8 +8,11 @@ set -eu
 if [ "${TASKFLOW_MIGRATE_BEFORE_START:-false}" = "true" ]; then
   : "${TASKFLOW_MIGRATION_DATABASE_URL:?Bootstrap mode requires taskflow_migrator}"
   ./taskflow-migrate.sh
-  unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START
 fi
+
+# Never pass the one-shot migration credential or mode flag into the long-lived
+# API process, including when migration mode is disabled.
+unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START
 
 # Normal API starts never apply DDL. Migrations are a separate, controlled
 # one-shot action using taskflow_migrator.

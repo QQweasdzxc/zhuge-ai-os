@@ -92,10 +92,50 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertNotIn("CREATE EXTENSION", entrypoint)
         self.assertIn('TASKFLOW_MIGRATE_BEFORE_START:-false', entrypoint)
         self.assertIn('./taskflow-migrate.sh', entrypoint)
-        self.assertIn('unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START', entrypoint)
+        unset_line = 'unset TASKFLOW_MIGRATION_DATABASE_URL TASKFLOW_MIGRATE_BEFORE_START'
+        self.assertIn(unset_line, entrypoint)
+        self.assertGreater(entrypoint.index(unset_line), entrypoint.index('\nfi\n'))
+        self.assertLess(entrypoint.index(unset_line), entrypoint.index('psql "$DATABASE_URL"'))
         self.assertLess(entrypoint.index('./taskflow-migrate.sh'), entrypoint.index('psql "$DATABASE_URL"'))
         self.assertNotIn("/app/migrate up", entrypoint)
         self.assertIn("exec /app/server", entrypoint)
+
+        # With migration mode disabled, startup must not invoke the migrator
+        # and must scrub its URL before exec'ing the long-lived API.
+        with tempfile.TemporaryDirectory(prefix="taskflow-entrypoint-migration-off-") as tmp:
+            root = Path(tmp)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            psql_stub = bin_dir / "psql"
+            psql_stub.write_text("#!/bin/sh\ncat >/dev/null\n")
+            psql_stub.chmod(0o755)
+            migration_marker = root / "migration-ran"
+            migrate_stub = root / "taskflow-migrate.sh"
+            migrate_stub.write_text(f"#!/bin/sh\nprintf ran > {migration_marker}\n")
+            migrate_stub.chmod(0o755)
+            server_stub = root / "server"
+            server_stub.write_text(
+                "#!/bin/sh\n"
+                "if [ -n \"${TASKFLOW_MIGRATION_DATABASE_URL:-}\" ]; then exit 31; fi\n"
+                "if [ -n \"${TASKFLOW_MIGRATE_BEFORE_START:-}\" ]; then exit 32; fi\n"
+            )
+            server_stub.chmod(0o755)
+            entrypoint_path = root / "taskflow-entrypoint.sh"
+            entrypoint_path.write_text(entrypoint.replace("exec /app/server", f"exec {server_stub}"))
+            entrypoint_path.chmod(0o755)
+            env = os.environ.copy()
+            env.update({
+                "PATH": f"{bin_dir}{os.pathsep}{env.get('PATH', '')}",
+                "DATABASE_URL": "postgres://isolated-runtime.invalid/taskflow",
+                "TASKFLOW_MIGRATION_DATABASE_URL": "isolated-migrator-sentinel",
+                "TASKFLOW_MIGRATE_BEFORE_START": "false",
+            })
+            result = subprocess.run(
+                ["./taskflow-entrypoint.sh"], cwd=root, env=env,
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(migration_marker.exists())
         migrator = (TASKFLOW / "overrides/taskflow-migrate.sh").read_text()
         self.assertIn("current_user <> 'taskflow_migrator'", migrator)
         self.assertIn("TASKFLOW_MIGRATION_DATABASE_URL", migrator)

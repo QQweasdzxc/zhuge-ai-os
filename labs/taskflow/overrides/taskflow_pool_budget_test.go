@@ -43,6 +43,23 @@ func TestTaskFlowPoolBudgetAcceptsConservativeSimulatedAllocation(t *testing.T) 
 	}
 }
 
+func TestTaskFlowProposedTrialBudgetAcceptsZeroPrimaryMinimum(t *testing.T) {
+	setTaskFlowPoolBudget(t, "6", "4", "0", "2", "1")
+	t.Setenv("DATABASE_MAX_CONNS", "4")
+	t.Setenv("DATABASE_MIN_CONNS", "0")
+
+	// No URL pool_min_conns override: this verifies that the TaskFlow overlay
+	// honors the requested zero minimum instead of falling back to Multica's 5.
+	cfg := &pgxpool.Config{MaxConns: 25, MinConns: 5}
+	applyPoolSizing(cfg, "postgres://localhost/taskflow", primaryPoolSizing)
+	if cfg.MaxConns != 4 || cfg.MinConns != 0 {
+		t.Fatalf("effective primary pool = %d/%d, want 4/0", cfg.MaxConns, cfg.MinConns)
+	}
+	if err := validateTaskFlowPoolBudget(cfg, primaryPoolSizing); err != nil {
+		t.Fatalf("proposed 6/4/0/2/1 budget rejected: %v", err)
+	}
+}
+
 func TestTaskFlowPoolBudgetRequiresPositiveExternalReserve(t *testing.T) {
 	setTaskFlowPoolBudget(t, "8", "4", "2", "0", "1")
 	err := validateTaskFlowPoolBudget(&pgxpool.Config{MaxConns: 4, MinConns: 0}, primaryPoolSizing)
