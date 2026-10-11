@@ -34,7 +34,8 @@ COPY labs/taskflow/tests/test_taskflow_stability_overlay.py /tmp/test_taskflow_s
 COPY labs/taskflow/overrides/taskflow-row-query.test.ts /taskflow-stability-overlays/taskflow-row-query.test.ts
 COPY labs/taskflow/overrides/taskflow-list-load-more-footer.test.tsx /taskflow-stability-overlays/taskflow-list-load-more-footer.test.tsx
 COPY labs/taskflow/overrides/taskflow-pagination-recovery.test.tsx /taskflow-stability-overlays/taskflow-pagination-recovery.test.tsx
-RUN TASKFLOW_VENDOR_SOURCE_ROOT=/src TASKFLOW_STABILITY_OVERLAY_ROOT=/taskflow-stability-overlays \
+RUN TASKFLOW_STABILITY_PATCH_SCRIPT=/tmp/apply-taskflow-stability.py \
+    TASKFLOW_VENDOR_SOURCE_ROOT=/src TASKFLOW_STABILITY_OVERLAY_ROOT=/taskflow-stability-overlays \
     python3 /tmp/test_taskflow_stability_overlay.py \
  && python3 /tmp/apply-taskflow-stability.py --target web --root /src --overlays /taskflow-stability-overlays
 

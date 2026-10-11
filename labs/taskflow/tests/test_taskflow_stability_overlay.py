@@ -12,7 +12,10 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "patches" / "apply-taskflow-stability.py"
+SCRIPT = Path(os.environ.get(
+    "TASKFLOW_STABILITY_PATCH_SCRIPT",
+    Path(__file__).resolve().parents[1] / "patches" / "apply-taskflow-stability.py",
+)).resolve()
 SPEC = importlib.util.spec_from_file_location("taskflow_stability_overlay", SCRIPT)
 assert SPEC and SPEC.loader
 OVERLAY = importlib.util.module_from_spec(SPEC)

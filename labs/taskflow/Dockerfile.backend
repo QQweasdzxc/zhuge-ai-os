@@ -51,7 +51,8 @@ COPY labs/taskflow/overrides/taskflow_pool_budget.go /taskflow-stability-overlay
 COPY labs/taskflow/overrides/taskflow_pool_budget_test.go /taskflow-stability-overlays/taskflow_pool_budget_test.go
 COPY labs/taskflow/overrides/taskflow_webhook_backoff.go /taskflow-stability-overlays/taskflow_webhook_backoff.go
 COPY labs/taskflow/overrides/taskflow_webhook_backoff_test.go /taskflow-stability-overlays/taskflow_webhook_backoff_test.go
-RUN TASKFLOW_VENDOR_SOURCE_ROOT=/src TASKFLOW_STABILITY_OVERLAY_ROOT=/taskflow-stability-overlays \
+RUN TASKFLOW_STABILITY_PATCH_SCRIPT=/tmp/apply-taskflow-stability.py \
+    TASKFLOW_VENDOR_SOURCE_ROOT=/src TASKFLOW_STABILITY_OVERLAY_ROOT=/taskflow-stability-overlays \
     python3 /tmp/test_taskflow_stability_overlay.py \
  && python3 /tmp/apply-taskflow-stability.py --target backend --root /src --overlays /taskflow-stability-overlays
 
