@@ -53,6 +53,7 @@ COPY labs/taskflow/overrides/taskflow_webhook_backoff.go /taskflow-stability-ove
 COPY labs/taskflow/overrides/taskflow_webhook_backoff_test.go /taskflow-stability-overlays/taskflow_webhook_backoff_test.go
 RUN TASKFLOW_STABILITY_PATCH_SCRIPT=/tmp/apply-taskflow-stability.py \
     TASKFLOW_STABILITY_REPO_ROOT=/src \
+    TASKFLOW_STABILITY_TARGET=backend \
     TASKFLOW_VENDOR_SOURCE_ROOT=/src TASKFLOW_STABILITY_OVERLAY_ROOT=/taskflow-stability-overlays \
     python3 /tmp/test_taskflow_stability_overlay.py \
  && python3 /tmp/apply-taskflow-stability.py --target backend --root /src --overlays /taskflow-stability-overlays
