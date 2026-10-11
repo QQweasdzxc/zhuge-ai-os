@@ -28,6 +28,7 @@ COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.ts
 COPY labs/taskflow/overrides/multica-brand-mark.tsx /tmp/multica-brand-mark.tsx
 COPY labs/taskflow/patches/apply-zhuge-identity.py /tmp/apply-zhuge-identity.py
 COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rules.py
+COPY labs/taskflow/patches/patch-router-contract-test-main.py /tmp/patch-router-contract-test-main.py
 COPY labs/taskflow/patches/apply-taskflow-db-boundary.py /tmp/apply-taskflow-db-boundary.py
 COPY labs/taskflow/patches/stage-migrations.py /tmp/stage-migrations.py
 RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
@@ -38,7 +39,11 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && python3 /tmp/apply-zhuge-house-rules.py \
  && python3 /tmp/stage-migrations.py \
       --source /src/server/migrations \
-      --output /taskflow-staged-migrations
+      --output /taskflow-staged-migrations \
+ && python3 /tmp/patch-router-contract-test-main.py
+
+# Test the router after every TaskFlow and house-rule patch has been applied.
+COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
 
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
@@ -49,6 +54,7 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
+RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1

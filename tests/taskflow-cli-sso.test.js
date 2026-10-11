@@ -157,7 +157,11 @@ test("CLI overlay uses Zhuge-authenticated identity and five-minute native grant
   assert.match(read("labs/taskflow/patches/patch-cli-auth-middleware.py"), /r\.URL\.Path, "\/"\) != "\/api\/tokens"/);
   assert.match(docker, /TestZhugeCLIAuthorizationCode/);
   assert.match(patch, /r\.Post\("\/api\/cli-token", h\.ZhugeIssueCliToken\)/);
-  assert.match(patch, /Native CLI token route marker not found/);
+  assert.match(patch, /Native CLI token route marker missing, ambiguous, or mapped to an unexpected handler/);
+  assert.match(patch, /router\.write_text\(text\)/);
+  assert.match(patch, /Final Zhuge login route postcondition failed/);
+  assert.match(patch, /Final Zhuge CLI token route postcondition failed/);
+  assert.match(patch, /if __name__ == "__main__"/);
   assert.match(docker, /go test \.\/internal\/handler -run/);
   assert.match(proxy, /request\.nextUrl\.searchParams\.getAll\("cli_callback"\)/);
   assert.match(proxy, /target\.hash = fragment\.toString\(\)/);

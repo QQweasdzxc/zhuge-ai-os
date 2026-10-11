@@ -24,6 +24,16 @@ DB_BOUNDARY_SPEC = importlib.util.spec_from_file_location("taskflow_db_boundary"
 DB_BOUNDARY = importlib.util.module_from_spec(DB_BOUNDARY_SPEC)
 assert DB_BOUNDARY_SPEC.loader is not None
 DB_BOUNDARY_SPEC.loader.exec_module(DB_BOUNDARY)
+IDENTITY_SCRIPT = TASKFLOW / "patches" / "apply-zhuge-identity.py"
+IDENTITY_SPEC = importlib.util.spec_from_file_location("taskflow_zhuge_identity", IDENTITY_SCRIPT)
+IDENTITY = importlib.util.module_from_spec(IDENTITY_SPEC)
+assert IDENTITY_SPEC.loader is not None
+IDENTITY_SPEC.loader.exec_module(IDENTITY)
+ROUTER_TEST_MAIN_SCRIPT = TASKFLOW / "patches" / "patch-router-contract-test-main.py"
+ROUTER_TEST_MAIN_SPEC = importlib.util.spec_from_file_location("taskflow_router_test_main", ROUTER_TEST_MAIN_SCRIPT)
+ROUTER_TEST_MAIN = importlib.util.module_from_spec(ROUTER_TEST_MAIN_SPEC)
+assert ROUTER_TEST_MAIN_SPEC.loader is not None
+ROUTER_TEST_MAIN_SPEC.loader.exec_module(ROUTER_TEST_MAIN)
 
 ZHUGE_PUBLIC_FUNCTIONS = (
     "allocate_board_task_work_code",
@@ -55,6 +65,10 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             self.assertIn("/src/LICENSE /src/NOTICE", text)
         backend = (TASKFLOW / "Dockerfile.backend").read_text()
         self.assertIn("patch-cli-auth-middleware.py", backend)
+        self.assertIn("patch-router-contract-test-main.py", backend)
+        self.assertIn("taskflow_router_contract_test.go", backend)
+        self.assertIn("TASKFLOW_ROUTER_CONTRACT_ONLY=1", backend)
+        self.assertIn("TestTaskFlowZhugeRoutesInFinalRouter", backend)
         self.assertIn("TestZhugeCLIAuthorizationCode", backend)
         self.assertIn("postgresql-client", backend)
         self.assertIn("stage-migrations.py", backend)
@@ -310,7 +324,32 @@ class TaskFlowBuildParityTests(unittest.TestCase):
                 [sys.executable, str(script)], capture_output=True, text=True
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Multica router auth marker not found", result.stderr + result.stdout)
+            self.assertIn("Multica router auth marker missing", result.stderr + result.stdout)
+
+    def test_identity_route_patch_updates_both_routes_once_and_is_idempotent(self):
+        native = (
+            'r.With(authVerifyRL).Post("/auth/verify-code", h.VerifyCode)\n'
+            'r.Post("/api/cli-token", h.IssueCliToken)\n'
+        )
+        patched = IDENTITY.patch_router_routes(native)
+        self.assertEqual(patched.count('r.With(authVerifyRL).Post("/auth/zhuge", h.ZhugeLogin)'), 1)
+        self.assertEqual(patched.count('r.Post("/api/cli-token", h.ZhugeIssueCliToken)'), 1)
+        self.assertNotIn('r.Post("/api/cli-token", h.IssueCliToken)', patched)
+        self.assertEqual(IDENTITY.patch_router_routes(patched), patched)
+
+        with self.assertRaisesRegex(SystemExit, "Zhuge login route marker missing, ambiguous"):
+            IDENTITY.patch_router_routes(native + 'r.Post("/auth/zhuge", h.VerifyCode)\n')
+        with self.assertRaisesRegex(SystemExit, "Native CLI token route marker missing"):
+            IDENTITY.patch_router_routes('r.With(authVerifyRL).Post("/auth/verify-code", h.VerifyCode)\n')
+
+    def test_router_contract_test_harness_is_guarded_and_fails_closed_on_marker_drift(self):
+        source = "package main\nfunc TestMain(m *testing.M) {\n\tctx := context.Background()\n}\n"
+        patched = ROUTER_TEST_MAIN.enable_router_contract_only(source)
+        self.assertIn('if os.Getenv("TASKFLOW_ROUTER_CONTRACT_ONLY") == "1"', patched)
+        with self.assertRaisesRegex(SystemExit, "already patched"):
+            ROUTER_TEST_MAIN.enable_router_contract_only(patched)
+        with self.assertRaisesRegex(SystemExit, "marker missing, ambiguous, or already patched"):
+            ROUTER_TEST_MAIN.enable_router_contract_only("package main\n")
 
     def test_house_rules_patch_fails_closed_when_required_marker_is_missing(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -345,6 +384,10 @@ class TaskFlowBuildParityTests(unittest.TestCase):
             f"Path({os.fspath(root / 'server/cmd/server/router.go')!r})",
         )
         text = text.replace('Path("/src")', f"Path({os.fspath(root)!r})")
+        text = text.replace(
+            'Path("/src/server/cmd/server/integration_test.go")',
+            f"Path({os.fspath(root / 'server/cmd/server/integration_test.go')!r})",
+        )
         text = text.replace('Path("/tmp")', f"Path({os.fspath(tmpdir)!r})")
         relocated = tmpdir / source.name
         relocated.write_text(text)

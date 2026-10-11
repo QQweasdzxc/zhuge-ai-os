@@ -184,23 +184,74 @@ test("unauthenticated TaskFlow entry returns to official Zhuge Login on desktop 
   }
 });
 
-test("expired Zhuge session is rejected by TaskFlow API and returned to Zhuge Login", async t => {
+test("expired or forbidden Zhuge session is rejected and returned to Zhuge Login", async t => {
   const browser = await launch(t);
   const entry = await fixtureURL(path.join(ROOT, "labs/taskflow/index.html"));
   const entryOrigin = new URL(entry).origin;
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  const readCaptured = await configureEntry(page, "https://taskflow-api.example", "https://taskflow-web.example", { authStatus: 401 });
-  await page.addInitScript(({ origin }) => {
-    if (location.origin === origin) localStorage.setItem("zhuge_ai_os_session_v1", JSON.stringify({ access_token: "expired-test-session-token" }));
-  }, { origin: entryOrigin });
-  await page.goto(entry, { waitUntil: "load" });
-  await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
-  const authRequest = readCaptured();
-  assert.ok(authRequest);
-  assert.equal(new URL(authRequest.url).search, "");
-  assert.equal(JSON.parse(authRequest.body).access_token, "expired-test-session-token");
-  const loginUrl = new URL(page.url());
-  assert.equal(loginUrl.search, "?app=1&workspace=dashboard");
-  assert.equal(loginUrl.hash, "");
-  await page.close();
+  for (const authStatus of [401, 403]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const readCaptured = await configureEntry(page, "https://taskflow-api.example", "https://taskflow-web.example", { authStatus });
+    await page.addInitScript(({ origin }) => {
+      if (location.origin === origin) localStorage.setItem("zhuge_ai_os_session_v1", JSON.stringify({ access_token: "expired-test-session-token" }));
+    }, { origin: entryOrigin });
+    await page.goto(entry, { waitUntil: "load" });
+    await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
+    const authRequest = readCaptured();
+    assert.ok(authRequest);
+    assert.equal(new URL(authRequest.url).search, "");
+    assert.equal(JSON.parse(authRequest.body).access_token, "expired-test-session-token");
+    const loginUrl = new URL(page.url());
+    assert.equal(loginUrl.search, "?app=1&workspace=dashboard");
+    assert.equal(loginUrl.hash, "");
+    await page.close();
+  }
+});
+
+test("TaskFlow entry reports API 404 and 5xx distinctly instead of calling them timeouts", async t => {
+  const browser = await launch(t);
+  const entry = await fixtureURL(path.join(ROOT, "labs/taskflow/index.html"));
+  const entryOrigin = new URL(entry).origin;
+  for (const [authStatus, expected] of [[404, "路由不存在（HTTP 404）"], [503, "服務異常（HTTP 503）"]]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await configureEntry(page, "https://taskflow-api.example", "https://taskflow-web.example", { authStatus });
+    await page.addInitScript(({ origin }) => {
+      if (location.origin === origin) localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-test-session-token" }));
+    }, { origin: entryOrigin });
+    await page.goto(entry, { waitUntil: "load" });
+    await page.getByRole("status").getByText(expected).waitFor({ timeout: 10000 });
+    const message = await page.getByRole("status").innerText();
+    assert.match(message, new RegExp(expected));
+    assert.doesNotMatch(message, /逾時/);
+    assert.equal(new URL(page.url()).pathname, new URL(entry).pathname);
+    assert.equal(await page.locator("#enterTaskFlow").isDisabled(), false);
+    await page.close();
+  }
+});
+
+test("TaskFlow entry distinguishes an aborted request from an ordinary network failure", async t => {
+  const browser = await launch(t);
+  const entry = await fixtureURL(path.join(ROOT, "labs/taskflow/index.html"));
+  const entryOrigin = new URL(entry).origin;
+  for (const [failure, expected] of [["abort", /請求逾時/], ["network", /網路連線失敗/]]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await configureEntry(page, "https://taskflow-api.example", "https://taskflow-web.example");
+    await page.addInitScript(({ origin, failure }) => {
+      if (location.origin === origin) localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-test-session-token" }));
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, options) => {
+        if (new URL(typeof input === "string" ? input : input.url, location.href).pathname === "/auth/zhuge") {
+          const error = failure === "abort" ? new DOMException("aborted", "AbortError") : new TypeError("offline");
+          return Promise.reject(error);
+        }
+        return originalFetch(input, options);
+      };
+    }, { origin: entryOrigin, failure });
+    await page.goto(entry, { waitUntil: "load" });
+    await page.getByRole("status").getByText(expected).waitFor({ timeout: 10000 });
+    const message = await page.getByRole("status").innerText();
+    assert.match(message, expected);
+    if (failure === "abort") assert.doesNotMatch(message, /HTTP|網路連線失敗/);
+    else assert.doesNotMatch(message, /逾時/);
+    await page.close();
+  }
 });
