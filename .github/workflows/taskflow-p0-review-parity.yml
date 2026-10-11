@@ -1,0 +1,201 @@
+name: TaskFlow P0 Login Review Parity
+
+on:
+  push:
+    branches:
+      - review/taskflow-p0-login-0.9.31-ci
+    paths:
+      - .github/workflows/taskflow-p0-review-parity.yml
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact reviewed candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 7c5999a2522d224e76568976aecf94cdd513690a
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify exact candidate identity and review scope
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '7c5999a2522d224e76568976aecf94cdd513690a'
+          test "$(git rev-parse HEAD^ )" = '22182207b2e58a465204df8d1f84bc5300f84535'
+          git diff HEAD^ HEAD --check
+          git diff --name-only HEAD^ HEAD | tee /tmp/taskflow-changed-files.txt
+          test "$(wc -l < /tmp/taskflow-changed-files.txt | tr -d ' ')" = 30
+          printf 'candidate_sha=%s\n' "$(git rev-parse HEAD)" | tee /tmp/taskflow-run-context.txt
+          printf 'workflow_ref=%s\n' "$GITHUB_REF" | tee -a /tmp/taskflow-run-context.txt
+          printf 'workflow_sha=%s\n' "$GITHUB_SHA" | tee -a /tmp/taskflow-run-context.txt
+          printf 'run_url=%s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" | tee -a /tmp/taskflow-run-context.txt
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run candidate overlay and Node contract tests
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v 2>&1 | tee /tmp/taskflow-python.log
+          node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js tests/release-consistency.test.js tests/release-governance.test.js 2>&1 | tee /tmp/taskflow-node.log
+
+      - name: Verify final-router Go test is staged after all TaskFlow patches
+        working-directory: candidate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          dockerfile = Path('labs/taskflow/Dockerfile.backend').read_text()
+          ordered = [
+              'python3 /tmp/apply-zhuge-identity.py',
+              'python3 /tmp/patch-cli-auth-middleware.py',
+              'python3 /tmp/apply-zhuge-house-rules.py',
+              'COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go',
+              "RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1",
+          ]
+          positions = [dockerfile.find(marker) for marker in ordered]
+          if any(position < 0 for position in positions) or positions != sorted(positions):
+              raise SystemExit(f'Final router test ordering/markers invalid: {positions}')
+          print('Final router contract test is copied and executed after identity, CLI auth, and house-rule patches.')
+          PY
+
+      - name: Build backend builder stage without cache
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --no-cache --progress=plain --target builder \
+            -f labs/taskflow/Dockerfile.backend \
+            -t taskflow-p0-login-backend-builder:review . 2>&1 | tee /tmp/taskflow-backend-builder-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-builder-build.log; then
+            echo 'Unexpected Multica application-source clone in backend builder log' >&2
+            exit 1
+          fi
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/taskflow-backend-builder-build.log
+          grep -F "TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1" /tmp/taskflow-backend-builder-build.log
+          if grep -Eiq '\[no tests to run\]' /tmp/taskflow-backend-builder-build.log; then
+            echo 'Final router Go test did not match a test case' >&2
+            exit 1
+          fi
+
+      - name: Execute named router and invalid-session cases in built candidate image
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/taskflow-router-review-negative_test.go <<'GO'
+          package main
+
+          import (
+            "io"
+            "net/http"
+            "net/http/httptest"
+            "strings"
+            "testing"
+
+            "github.com/multica-ai/multica/server/internal/analytics"
+          )
+
+          func TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken(t *testing.T) {
+            t.Setenv("CORS_ALLOWED_ORIGINS", "https://aios.example")
+            authCalls := 0
+            authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+              authCalls++
+              if r.URL.Path != "/auth/v1/user" { t.Errorf("unexpected identity path: %s", r.URL.Path) }
+              if r.Header.Get("apikey") != "review-anon-key" { t.Errorf("identity request omitted expected anon key") }
+              if r.Header.Get("Authorization") != "Bearer review-invalid-or-expired-token" { t.Errorf("identity request did not use test token") }
+              w.WriteHeader(http.StatusUnauthorized)
+              _, _ = io.WriteString(w, `{"message":"invalid token"}`)
+            }))
+            defer authServer.Close()
+            t.Setenv("ZHUGE_SUPABASE_URL", authServer.URL)
+            t.Setenv("ZHUGE_SUPABASE_ANON_KEY", "review-anon-key")
+
+            router, _ := NewRouterWithOptions(nil, nil, nil, analytics.NoopClient{}, nil, RouterOptions{})
+            malformed := httptest.NewRequest(http.MethodPost, "/auth/zhuge", strings.NewReader("{"))
+            malformed.Header.Set("Content-Type", "application/json")
+            malformedResponse := httptest.NewRecorder()
+            router.ServeHTTP(malformedResponse, malformed)
+            if malformedResponse.Code != http.StatusBadRequest || !strings.Contains(malformedResponse.Body.String(), "invalid request body") {
+              t.Fatalf("malformed Zhuge login body must fail safely with 400, got %d: %s", malformedResponse.Code, malformedResponse.Body.String())
+            }
+
+            invalid := httptest.NewRequest(http.MethodPost, "/auth/zhuge", strings.NewReader(`{"access_token":"review-invalid-or-expired-token"}`))
+            invalid.Header.Set("Content-Type", "application/json")
+            invalidResponse := httptest.NewRecorder()
+            router.ServeHTTP(invalidResponse, invalid)
+            if invalidResponse.Code != http.StatusForbidden || !strings.Contains(invalidResponse.Body.String(), "Zhuge identity is not authorized") {
+              t.Fatalf("identity provider rejection must not create a TaskFlow session, got %d: %s", invalidResponse.Code, invalidResponse.Body.String())
+            }
+            if authCalls != 1 { t.Fatalf("identity provider calls = %d, want one rejected-token verification", authCalls) }
+          }
+          GO
+          set -o pipefail
+          docker run --rm --entrypoint /bin/sh \
+            --mount type=bind,src=/tmp/taskflow-router-review-negative_test.go,dst=/src/server/cmd/server/taskflow_router_review_negative_test.go,readonly \
+            taskflow-p0-login-backend-builder:review \
+            -lc 'cd /src/server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test -v ./cmd/server -run "^(TestTaskFlowZhugeRoutesInFinalRouter|TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken)$" -count=1' 2>&1 | tee /tmp/taskflow-router-contract-test.log
+          grep -F -- '--- PASS: TestTaskFlowZhugeRoutesInFinalRouter' /tmp/taskflow-router-contract-test.log
+          grep -F -- '--- PASS: TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken' /tmp/taskflow-router-contract-test.log
+
+      - name: Build complete TaskFlow backend image without cache
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --no-cache --progress=plain \
+            -f labs/taskflow/Dockerfile.backend \
+            -t taskflow-p0-login-backend:review . 2>&1 | tee /tmp/taskflow-backend-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-build.log; then
+            echo 'Unexpected Multica application-source clone in backend image log' >&2
+            exit 1
+          fi
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/taskflow-backend-build.log
+          grep -F "TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1" /tmp/taskflow-backend-build.log
+          if grep -Eiq '\[no tests to run\]' /tmp/taskflow-backend-build.log; then
+            echo 'Final router Go test did not match a test case' >&2
+            exit 1
+          fi
+
+      - name: Build complete TaskFlow web image without cache
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --no-cache --progress=plain \
+            -f labs/taskflow/Dockerfile.web \
+            -t taskflow-p0-login-web:review . 2>&1 | tee /tmp/taskflow-web-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-web-build.log; then
+            echo 'Unexpected Multica application-source clone in web image log' >&2
+            exit 1
+          fi
+          grep -F 'TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled' /tmp/taskflow-web-build.log
+
+      - name: Upload exact-source build and test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskflow-p0-login-0.9.31-review-parity
+          path: |
+            /tmp/taskflow-run-context.txt
+            /tmp/taskflow-changed-files.txt
+            /tmp/taskflow-python.log
+            /tmp/taskflow-node.log
+            /tmp/taskflow-backend-builder-build.log
+            /tmp/taskflow-router-contract-test.log
+            /tmp/taskflow-backend-build.log
+            /tmp/taskflow-web-build.log
+          if-no-files-found: warn
+          retention-days: 14
