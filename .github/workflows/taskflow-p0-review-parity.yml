@@ -146,7 +146,7 @@ jobs:
           docker run --rm --entrypoint /bin/sh \
             --mount type=bind,src=/tmp/taskflow-router-review-negative_test.go,dst=/src/server/cmd/server/taskflow_router_review_negative_test.go,readonly \
             taskflow-p0-login-backend-builder:review \
-            -lc 'cd /src/server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test -v ./cmd/server -run "^(TestTaskFlowZhugeRoutesInFinalRouter|TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken)$" -count=1' 2>&1 | tee /tmp/taskflow-router-contract-test.log
+            -c 'cd /src/server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test -v ./cmd/server -run "^(TestTaskFlowZhugeRoutesInFinalRouter|TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken)$" -count=1' 2>&1 | tee /tmp/taskflow-router-contract-test.log
           grep -F -- '--- PASS: TestTaskFlowZhugeRoutesInFinalRouter' /tmp/taskflow-router-contract-test.log
           grep -F -- '--- PASS: TestTaskFlowZhugeRouteRejectsMalformedAndProviderRejectedToken' /tmp/taskflow-router-contract-test.log
 
