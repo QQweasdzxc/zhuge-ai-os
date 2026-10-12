@@ -114,7 +114,7 @@
   },
   "slash_command": {
     "no_skills_configured": "暫無設定的技能",
-    "no_results": "沒有匹配的技能",
+    "no_results": "找不到符合條件的技能",
     "commands": {
       "note": "新增備註——不觸發任何 Agent"
     }

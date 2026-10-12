@@ -28,10 +28,10 @@
       "description": "建立或匯入一個 skill。"
     },
     "no_matches": {
-      "title": "無匹配",
-      "with_query": "沒有 skill 匹配 \"{{query}}\"{{filterSuffix}}。",
+      "title": "找不到符合項目",
+      "with_query": "找不到符合「{{query}}」{{filterSuffix}}的 skill。",
       "with_query_filter_suffix": "（在目前篩選下）",
-      "filter_only": "目前篩選下沒有匹配的 skill。",
+      "filter_only": "目前篩選條件下找不到符合的 skill。",
       "try_different": " 換個關鍵詞試試。"
     },
     "intro_banner": {
@@ -72,7 +72,7 @@
     "other_agents": "其他 Agent",
     "no_agents": "暫無可用 Agent",
     "search_placeholder": "搜尋 Agent…",
-    "no_agents_match": "沒有匹配的 Agent。",
+    "no_agents_match": "找不到符合條件的 Agent。",
     "has_partial": "已有 {{owned}}/{{total}}",
     "added_toast": "已新增到 {{name}}",
     "add_failed_toast": "新增 skill 失敗",
@@ -330,7 +330,7 @@
     "not_supported": "這個 provider 暫不支援本地 skill 清單。",
     "no_skills_title": "未找到本地 skill",
     "search_placeholder": "搜尋本地 skill",
-    "no_search_results_hint": "沒有本地 skill 匹配 \"{{query}}\"。",
+    "no_search_results_hint": "在本機找不到符合「{{query}}」的 skill。",
     "ignored_files_hint": "匯入時會忽略軟鏈、不可讀檔案、超大檔案以及超大目錄。",
     "ready": "準備匯入",
     "into_workspace": "到工作區。",

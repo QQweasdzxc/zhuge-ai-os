@@ -65,7 +65,7 @@
     },
     "categories": {
       "unstarted": "尚未開始的工作，包括待規劃和已規劃的任務。",
-      "started": "正在進行、稽核中或已阻塞的工作。",
+      "started": "進行中、審查中或受阻的工作。",
       "done": "已經完成的工作。",
       "closed": "不再繼續的工作。"
     },
@@ -73,7 +73,7 @@
       "backlog": "擱置。把任務移到這裡不會啟動 Agent。",
       "todo": "排隊中。把任務移到這裡會啟動指派的 Agent。",
       "in_progress": "正在進行。",
-      "in_review": "已交付，等待人工稽核。會結束自動化執行。",
+      "in_review": "已交付，等待人工審查。此狀態會結束自動化執行。",
       "blocked": "被外部依賴阻塞。",
       "done": "已完成。",
       "cancelled": "決定不做。"
@@ -105,7 +105,7 @@
     "add": "新增快捷操作",
     "search_placeholder": "搜尋快捷操作",
     "loading": "正在載入快捷操作…",
-    "no_results": "沒有匹配的快捷操作",
+    "no_results": "找不到符合搜尋條件的快捷操作",
     "actions_open": "開啟\"{{name}}\"的操作選單",
     "columns": {
       "name": "名稱",
@@ -174,7 +174,7 @@
       "hint": "用於所有工作區的日期和圖表。",
       "sync_failed": "儲存時區偏好失敗。",
       "search": "搜尋時區...",
-      "empty": "沒有匹配的時區"
+      "empty": "找不到符合條件的時區"
     },
     "sticky_comment_bar": {
       "title": "固定底部評論欄"
@@ -203,7 +203,7 @@
     "reset_all": "恢復預設設定",
     "reset_confirm": {
       "title": "恢復所有快捷鍵的預設設定？",
-      "description": "這會清除目前裝置上的所有自定義快捷鍵，並恢復預設設定。",
+      "description": "這會清除目前裝置上的所有自訂快捷鍵，並還原預設設定。",
       "cancel": "取消",
       "confirm": "恢復全部預設設定"
     },
@@ -215,7 +215,7 @@
     "recording": "請按鍵",
     "record_hint": "Esc 取消 · Delete 清除",
     "unassigned": "未設定",
-    "no_results": "沒有匹配的快捷鍵操作。",
+    "no_results": "找不到符合條件的快捷鍵操作。",
     "conflict_error": "已被\"{{action}}\"使用。",
     "reserved_error": "該快捷鍵已被瀏覽器或桌面視窗占用。",
     "send_error": "傳送只能使用 Enter 或 Mod + Enter。",
@@ -317,7 +317,7 @@
     },
     "fixed": {
       "title": "固定的系統快捷鍵",
-      "description": "不可自定義；縮放和標籤頁快捷鍵僅用於桌面端。",
+      "description": "無法自訂。縮放與分頁標籤快捷鍵僅適用於桌面版。",
       "open_settings": "開啟設定",
       "close_tab": "關閉目前標籤頁",
       "select_tab_1_to_8": "選擇第 1–8 個標籤頁",
@@ -417,7 +417,7 @@
     "navigate": "前往設定頁面",
     "search": "搜尋設定",
     "search_clear": "清除搜尋",
-    "search_empty": "沒有匹配的設定",
+    "search_empty": "找不到符合條件的設定",
     "search_results_other": "{{count}} 個結果",
     "admin_only": "只有所有者和管理員可以修改",
     "search_results_one": "{{count}} 個結果"
@@ -455,17 +455,17 @@
       "new_scope": "新增"
     },
     "schedule": {
-      "title": "自動執行計劃",
+      "title": "自動排程",
       "consent_title": "該 Plugin 將自動執行 hook",
-      "consent_description": "安裝或升級後會啟用以下計劃。錯過多個時間點時，只補跑最近一次。",
+      "consent_description": "安裝或升級後會啟用這些排程。如果錯過多個執行時間，只會補送最近一次到期的執行。",
       "next_run": "下次：{{time}}",
       "activity_title": "最近投遞",
-      "activity_last": "{{status}} · 計劃 {{planned}} · 發出 {{actual}} · 第 {{attempt}} 次嘗試",
+      "activity_last": "{{status}} · 預定 {{planned}} · 已送出 {{actual}} · 第 {{attempt}} 次嘗試",
       "activity_empty": "尚未投遞",
       "frequency_minutes_other": "每 {{count}} 分鐘",
       "frequency_hourly": "每小時第 {{minute}} 分鐘",
       "frequency_daily": "每天 {{hour}}:{{minute}}",
-      "frequency_custom": "自定義週期",
+      "frequency_custom": "自訂週期",
       "frequency_minutes_one": "每分鐘"
     },
     "config": {
@@ -515,7 +515,7 @@
   },
   "properties": {
     "title": "屬性",
-    "description": "為任務新增自定義欄位。",
+    "description": "為任務新增自訂欄位。",
     "search_placeholder": "按名稱篩選...",
     "new_property": "新增屬性",
     "show_archived": "顯示已封存",
@@ -530,7 +530,7 @@
     "loading": "正在載入屬性...",
     "empty": "還沒有屬性",
     "empty_hint": "例如嚴重程度、環境。",
-    "no_results": "沒有匹配的屬性",
+    "no_results": "找不到符合條件的屬性",
     "save_failed": "儲存屬性失敗",
     "limit_hint": "{{count}}/{{max}} 個啟用中屬性",
     "archived_badge": "已封存",
@@ -601,7 +601,7 @@
     "usage_count": "已使用 {{count}} 次",
     "loading": "正在載入標籤...",
     "empty": "暫無 {{scope}} 標籤",
-    "no_results": "沒有匹配的標籤",
+    "no_results": "找不到符合條件的標籤",
     "save_failed": "無法儲存標籤",
     "actions": {
       "open": "{{name}} 的操作",
@@ -1186,7 +1186,7 @@
     "github_loading": "正在載入儲存庫…",
     "github_load_failed": "無法從 GitHub 載入儲存庫，請檢查安裝權限後重試。",
     "github_empty": "該安裝下沒有可存取的儲存庫。",
-    "github_no_search_results": "已載入的儲存庫中沒有匹配項。",
+    "github_no_search_results": "找不到符合搜尋條件的已載入儲存庫。",
     "github_private": "私有",
     "github_archived": "已封存",
     "github_added": "已新增",
@@ -1294,7 +1294,7 @@
       "runtime_count_other": "{{count}} 個執行時",
       "more_repeated": "另有 {{count}} 條\"{{message}}\"——點選展開",
       "collapse_repeated": "收起 {{count}} 條重複日誌",
-      "no_matching_logs": "沒有匹配的日誌",
+      "no_matching_logs": "找不到符合條件的日誌",
       "no_matching_logs_description": "請更換搜尋詞或日誌級別。",
       "not_running": "守護程序未執行",
       "not_running_description": "啟動守護程序後，日誌會顯示在這裡。",
@@ -1377,7 +1377,7 @@
     "share_links_label": "分享連結",
     "share_links_description": "拿到連結的人都可以以所選角色加入，直到連結過期或被撤銷。",
     "search_placeholder": "搜尋姓名或郵箱",
-    "no_results": "沒有匹配的成員。",
+    "no_results": "找不到符合條件的成員。",
     "no_invitations": "沒有待接受的邀請。",
     "no_share_links": "還沒有分享連結。",
     "email_label": "郵箱",
@@ -1398,7 +1398,7 @@
     "status_unknown": "狀態暫不可用"
   },
   "pr_merge_status": {
-    "label": "PR 合併後，任務狀態改為",
+    "label": "PR 合併後，將任務狀態更新為",
     "description": "關聯的 PR 全部合併後生效，隻影響之後合併的 PR。",
     "none": "不改變"
   },

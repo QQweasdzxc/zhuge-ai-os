@@ -21,7 +21,7 @@
       "hint": "為你的 Agent 安排週期性工作。從模板選一個，或從空白開始。"
     },
     "scope_all": "全部",
-    "no_matches": "沒有匹配的自動化",
+    "no_matches": "找不到符合條件的自動化",
     "retry": "重試"
   },
   "status": {
@@ -306,7 +306,7 @@
     "subscribers_empty": "暫無訂閱者——新增成員後，每次觸發都會通知到他",
     "subscribers_add": "新增訂閱者",
     "subscribers_search_placeholder": "按名稱搜尋成員……",
-    "subscribers_no_results": "沒有匹配的成員",
+    "subscribers_no_results": "找不到符合條件的成員",
     "subscribers_remove_tooltip": "移除",
     "section_schedule": "時間表",
     "section_trigger_kind": "觸發方式",
@@ -325,7 +325,7 @@
     "event_filter_actions_placeholder": "completed, failed",
     "event_filter_add": "新增",
     "event_filter_remove_label": "移除過濾條件",
-    "event_filter_hint": "只處理匹配這些事件的 webhook。留空則接受所有事件。",
+    "event_filter_hint": "只處理符合這些條件的 webhook。留白時會接受所有事件。",
     "schedule_multiple_notice": "該自動化有 {{count}} 條時間表。關閉此彈窗，在下方「觸發器」中逐條編輯。",
     "schedule_empty": "還沒有時間表——這個自動化只在手動觸發時執行。",
     "schedule_add": "新增時間表",
@@ -515,7 +515,7 @@
       "paused": "已暫停"
     },
     "target_agent": "喚醒物件",
-    "empty_filtered": "沒有匹配的喚醒",
+    "empty_filtered": "找不到符合條件的喚醒",
     "clear_filters": "清除篩選",
     "batch_success": "已關閉 {{count}} 條喚醒",
     "batch_partial": "已關閉 {{succeeded}} 條，{{failed}} 條失敗；失敗項仍保留選中，可重試。",

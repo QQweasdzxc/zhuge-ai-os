@@ -38,11 +38,14 @@ The TaskFlow build overlay replaces the frozen Multica `ko` locale with
 The overlay supplies the same 25 namespaces as the English locale. English is
 the canonical source for namespace/key and interpolation parity checks. The
 Traditional Chinese text was adapted from the existing Simplified Chinese
-locale as a draft, then converted and normalized with a Taiwan terminology
-pass (for example `專案`, `任務`, `工作區`, `負責人`, `到期日`, `看板`, `清單`,
-`表格`, `時間軸`, `泳道`, `搜尋`, and `篩選`). It is not presented as a
-line-by-line human translation from English; the candidate QA checks structural
-parity, while final editorial review remains part of GPT/CTO review.
+locale as a draft. The high-use surfaces (Settings and Preferences,
+Project/Task/Issue, the five Views, Search/Filter/Status, account and permission
+controls, dialogs, toasts, and errors) were then checked against their English
+source strings and edited for Taiwan usage. Terms include `設定`, `偏好設定`,
+`專案`, `任務`, `工作區`, `負責人`, `到期日`, `看板`, `清單`, `表格`, `時間軸`,
+`泳道`, `搜尋`, `篩選`, `自訂`, and contextual `符合` wording. This was a
+targeted editorial pass, not a claim that every string was independently
+translated line-by-line from English; key and interpolation parity are tested.
 
 Settings, shared actions, projects, tasks, the five native views, agents,
 dialogs, toasts, error states, and empty states use the 25 registered bundles.

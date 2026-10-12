@@ -3,7 +3,7 @@
     "title": "小隊",
     "new_button": "新增小隊",
     "empty_no_squads": "暫無小隊。",
-    "empty_no_match": "沒有匹配篩選條件的小隊。",
+    "empty_no_match": "找不到符合篩選條件的小隊。",
     "table": {
       "name": "小隊",
       "leader": "隊長",
@@ -11,7 +11,7 @@
       "creator": "建立者",
       "created": "建立時間"
     },
-    "no_matches": "沒有匹配的小隊",
+    "no_matches": "找不到符合條件的小隊",
     "row_menu": "小隊操作",
     "archive_action": "封存"
   },

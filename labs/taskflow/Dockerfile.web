@@ -45,6 +45,7 @@ COPY labs/taskflow/patches/apply-taskflow-zh-hant.py /tmp/apply-taskflow-zh-hant
 COPY labs/taskflow/tests/test_taskflow_zh_hant_overlay.py /tmp/test_taskflow_zh_hant_overlay.py
 COPY labs/taskflow/overrides/locales/zh-Hant/ /taskflow-zh-hant/locales/zh-Hant/
 COPY labs/taskflow/overrides/workspace-names-zh-Hant.json /taskflow-zh-hant/workspace-names-zh-Hant.json
+COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant/taskflow_zh_hant_language_test.go
 RUN TASKFLOW_ZH_HANT_ROOT=/src \
     TASKFLOW_ZH_HANT_OVERLAY_ROOT=/taskflow-zh-hant \
     TASKFLOW_ZH_HANT_PATCH_SCRIPT=/tmp/apply-taskflow-zh-hant.py \

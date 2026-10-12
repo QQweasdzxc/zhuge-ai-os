@@ -168,7 +168,7 @@
       "label": "推薦一個操作",
       "prompt": "根據你對我的工作區的瞭解，推薦一個有用的初始操作。"
     },
-    "customize": "自定義開場建議"
+    "customize": "自訂開場建議"
   },
   "onboarding_cards": {
     "aria_label": "開始方式",

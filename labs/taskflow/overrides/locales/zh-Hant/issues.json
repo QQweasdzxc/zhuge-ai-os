@@ -180,7 +180,7 @@
     "date_today": "今天",
     "date_last_3_days": "最近 3 天",
     "date_last_7_days": "最近 7 天",
-    "date_custom_range": "自定義日期或範圍",
+    "date_custom_range": "自訂日期或日期範圍",
     "date_apply": "應用",
     "date_clear": "清除日期篩選",
     "members_group": "成員",
@@ -266,7 +266,7 @@
     "quick_create_failed": "建立任務失敗",
     "no_value": "未設定",
     "unassigned": "未分配",
-    "empty": "目前檢視沒有匹配的任務。",
+    "empty": "此檢視中沒有符合條件的任務。",
     "search_placeholder": "搜尋標題或任務編號…",
     "search_clear": "清除搜尋",
     "load_failed": "載入任務失敗。",
@@ -290,9 +290,9 @@
     "columns": {
       "section": "列",
       "system_section": "任務屬性",
-      "property_section": "自定義屬性",
+      "property_section": "自訂屬性",
       "search_placeholder": "搜尋列…",
-      "no_results": "沒有匹配的列",
+      "no_results": "找不到符合條件的欄位",
       "add": "新增列",
       "hide": "隱藏列",
       "reorder": "重新排列 {{column}} 列",
@@ -348,7 +348,7 @@
       }
     },
     "search_placeholder": "搜尋任務...",
-    "search_empty": "沒有匹配的任務。"
+    "search_empty": "找不到符合搜尋條件的任務。"
   },
   "list": {
     "empty_status": "無任務",
@@ -368,7 +368,7 @@
     "show_column": "顯示列",
     "add_issue_tooltip": "新增任務",
     "empty_column": "無任務",
-    "empty_grouping": "沒有匹配的任務",
+    "empty_grouping": "沒有符合條件的任務",
     "no_value": "未設定",
     "ordered_by": "按{{field}}排序",
     "manual_reorder_hint": "切換到“手動”排序後，才能調整同一列內的順序。"
@@ -468,7 +468,7 @@
     "find": {
       "placeholder": "在任務中查詢...",
       "count": "{{current}}/{{total}}",
-      "no_matches": "無匹配結果",
+      "no_matches": "找不到符合項目",
       "previous": "上一個",
       "next": "下一個",
       "close": "關閉查詢"
@@ -960,7 +960,7 @@
     "visibility_private": "僅自己可見",
     "visibility_workspace": "工作區成員可見",
     "filters_label": "篩選",
-    "custom_property": "自定義屬性",
+    "custom_property": "自訂屬性",
     "create": "建立檢視",
     "layout_label": "佈局",
     "display_defaults": "預設顯示",
@@ -1196,12 +1196,12 @@
       "cond_reply_hint": "任何人或指定的人",
       "cond_run_end": "Agent 的執行結束",
       "cond_run_end_hint": "成功、失敗或取消",
-      "cond_custom": "自定義事件…",
+      "cond_custom": "自訂事件…",
       "cond_custom_hint": "{{count}} 種原始事件",
       "at_10m": "10 分鐘後",
       "at_1h": "1 小時後",
       "at_tomorrow": "明天 09:00",
-      "at_custom": "自定義時間",
+      "at_custom": "選擇時間",
       "hourly": "每小時",
       "daily": "每天 09:00",
       "weekdays": "工作日 09:00",

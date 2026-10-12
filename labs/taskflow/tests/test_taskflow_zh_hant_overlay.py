@@ -99,12 +99,21 @@ def placeholders(value) -> tuple[str, ...]:
 class TaskFlowTraditionalChineseOverlayTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.repo = Path(os.environ.get("TASKFLOW_ZH_HANT_ROOT", "/src")).resolve()
+        cls.repo_root = Path(__file__).resolve().parents[3]
+        cls.repo = Path(
+            os.environ.get("TASKFLOW_ZH_HANT_ROOT", str(cls.repo_root / "third_party/multica"))
+        ).resolve()
         cls.overlay = Path(
-            os.environ.get("TASKFLOW_ZH_HANT_OVERLAY_ROOT", "/taskflow-zh-hant")
+            os.environ.get(
+                "TASKFLOW_ZH_HANT_OVERLAY_ROOT",
+                str(cls.repo_root / "labs/taskflow/overrides"),
+            )
         ).resolve()
         cls.patcher_path = Path(
-            os.environ.get("TASKFLOW_ZH_HANT_PATCH_SCRIPT", "/tmp/apply-taskflow-zh-hant.py")
+            os.environ.get(
+                "TASKFLOW_ZH_HANT_PATCH_SCRIPT",
+                str(cls.repo_root / "labs/taskflow/patches/apply-taskflow-zh-hant.py"),
+            )
         ).resolve()
         cls.patcher = load_patcher(cls.patcher_path)
 
