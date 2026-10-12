@@ -252,6 +252,12 @@ def patch_sidebar_tests(source: str) -> str:
     )
     source = replace_once(
         source,
+        '    projectDetail: (id: string) => `/acme/projects/${id}`,',
+        '    projectDetail: (id: string) => `/${taskflowNav.workspace.current.slug}/projects/${id}`,',
+        "workspace-aware project route test mock",
+    )
+    source = replace_once(
+        source,
         'vi.mock("@multica/core/projects/queries", () => ({ projectDetailOptions: () => ({ queryKey: ["project"] }) }));',
         'vi.mock("@multica/core/projects/queries", () => ({\n'
         '  projectDetailOptions: () => ({ queryKey: ["project"] }),\n'
