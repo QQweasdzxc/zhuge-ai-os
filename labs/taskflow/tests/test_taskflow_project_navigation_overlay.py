@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 
 
-REPO = Path(__file__).resolve().parents[3]
+_TEST_PATH = Path(__file__).resolve()
+REPO = _TEST_PATH.parents[3] if len(_TEST_PATH.parents) > 3 else Path.cwd()
 SOURCE_ROOT = Path(__import__("os").environ.get("TASKFLOW_PROJECT_NAV_SOURCE", REPO / "third_party/multica")).resolve()
 PATCH_PATH = Path(__import__("os").environ.get(
     "TASKFLOW_PROJECT_NAV_PATCH",
