@@ -178,7 +178,9 @@ test("handoff validates same-origin destination before storing the TaskFlow toke
   const handoff = read("labs/taskflow/overrides/zhuge-handoff.html");
   assert.match(handoff, /resolved\.origin !== window\.location\.origin/);
   assert.ok(handoff.indexOf('if (resolved.origin !== window.location.origin)') < handoff.indexOf('window.localStorage.setItem("multica_token", token)'));
-  assert.ok(handoff.indexOf("window.history.replaceState") < handoff.indexOf('window.localStorage.setItem("multica_token", token)'));
+  assert.ok(handoff.indexOf("new URLSearchParams(window.location.hash.slice(1))") < handoff.indexOf("window.history.replaceState"));
+  assert.ok(handoff.indexOf("window.history.replaceState") < handoff.indexOf('if (!token || token.length > 16384)'));
+  assert.ok(handoff.indexOf('if (!token || token.length > 16384)') < handoff.indexOf('window.localStorage.setItem("multica_token", token)'));
   assert.match(handoff, /window\.location\.replace\(safeDestination\)/);
   assert.match(handoff, /document\.documentElement\.dataset\.handoffState = "accepted"/);
 });

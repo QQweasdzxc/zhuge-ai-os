@@ -125,3 +125,52 @@ test("expired token remains rejected and is removed after a real browser 401", a
   assert.deepEqual(requests, ["Bearer expired-test-token"]);
   assert.equal(await page.evaluate(() => localStorage.getItem("multica_token")), null);
 });
+
+test("rejected handoffs clear the fragment before validation and never persist the token", async (t) => {
+  const server = createServer((request, response) => {
+    const url = new URL(request.url || "/", "http://127.0.0.1");
+    if (url.pathname === "/zhuge-handoff.html") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(handoffHtml);
+      return;
+    }
+    response.writeHead(404);
+    response.end();
+  });
+
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  t.after(() => new Promise((resolveClose) => server.close(resolveClose)));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  });
+  t.after(() => browser.close());
+
+  const page = await browser.newPage();
+  const cases = [
+    {
+      name: "valid token with cross-origin destination",
+      hash: new URLSearchParams({
+        zhuge_token: validToken,
+        zhuge_dest: "https://attacker.example/steal",
+      }).toString(),
+    },
+    {
+      name: "empty token",
+      hash: new URLSearchParams({
+        zhuge_token: "",
+        zhuge_dest: "/workspace/issues",
+      }).toString(),
+    },
+  ];
+
+  for (const [index, entry] of cases.entries()) {
+    await page.goto(`http://127.0.0.1:${address.port}/zhuge-handoff.html?case=${index}#${entry.hash}`);
+    await page.waitForFunction(() => document.documentElement.dataset.handoffState === "rejected");
+    assert.equal(new URL(page.url()).hash, "", `${entry.name}: fragment must be removed`);
+    assert.equal(await page.evaluate(() => localStorage.getItem("multica_token")), null, `${entry.name}: token must not be stored`);
+  }
+});

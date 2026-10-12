@@ -39,6 +39,10 @@
 
       try {
         const params = new URLSearchParams(window.location.hash.slice(1));
+        // The fragment may contain a bearer credential. Remove it before any
+        // validation can reject the handoff, so failure paths do not retain it
+        // in the visible URL or browser history either.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
         const token = params.get("zhuge_token") || "";
         const destination = params.get("zhuge_dest") || "";
         if (!token || token.length > 16384) {
@@ -57,9 +61,8 @@
         }
 
         const safeDestination = resolved.pathname + resolved.search + resolved.hash;
-        // Remove the credential from the visible URL/history before persisting
-        // it. The next document then initializes CoreProvider in token mode.
-        window.history.replaceState(null, "", window.location.pathname);
+        // The next document initializes CoreProvider only after token mode is
+        // ready, preventing the unauthenticated cookie-mode `/api/me` probe.
         window.localStorage.setItem("multica_token", token);
         document.documentElement.dataset.handoffState = "accepted";
         window.location.replace(safeDestination);
