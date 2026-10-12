@@ -76,9 +76,9 @@ def main():
         raise SystemExit("TaskFlow CLI handler test overlay is missing")
     Path("/src/server/internal/handler/zhuge_auth_cli_test.go").write_text(cli_test_source.read_text())
 
-    handoff = Path("/src/apps/web/app/(auth)/zhuge-handoff")
-    handoff.mkdir(parents=True, exist_ok=True)
-    handoff.joinpath("page.tsx").write_text(Path("/tmp/zhuge-handoff-page.tsx").read_text())
+    handoff = Path("/src/apps/web/public/zhuge-handoff.html")
+    handoff.parent.mkdir(parents=True, exist_ok=True)
+    handoff.write_text(Path("/tmp/zhuge-handoff.html").read_text())
 
     ready_source = Path("/tmp/zhuge-ready-route.ts")
     if ready_source.exists():

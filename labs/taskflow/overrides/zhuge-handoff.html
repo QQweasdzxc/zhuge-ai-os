@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TaskFlow 身分交接 · Multica</title>
+  <style>
+    :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0%,#132640 0,#07111f 66%);color:#e5edf8}
+    main{width:min(540px,100%);padding:clamp(24px,6vw,40px);border:1px solid #253550;border-radius:20px;background:rgba(15,27,45,.96);box-shadow:0 24px 72px #0005;text-align:center}
+    .brand{font-weight:750;letter-spacing:.01em}
+    h1{margin:24px 0 12px;font-size:clamp(22px,5vw,30px)}
+    p{color:#aab8ca;line-height:1.65}
+    footer{margin-top:24px;padding-top:18px;border-top:1px solid #253550;font-size:12px;color:#aab8ca}
+    a{color:#bfdbfe}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand" aria-label="Multica">Multica</div>
+    <h1>正在完成 Zhuge 身分交接</h1>
+    <p id="handoff-status" role="status" aria-live="polite">正在安全開啟工作區…</p>
+    <footer>
+      Powered by <strong>Multica</strong> · © <span id="copyright-year"></span> Multica. All rights reserved. ·
+      <a href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer">Source and attribution</a>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+      const status = document.getElementById("handoff-status");
+      document.getElementById("copyright-year").textContent = String(new Date().getFullYear());
+
+      const fail = (message) => {
+        status.textContent = message;
+        document.documentElement.dataset.handoffState = "rejected";
+      };
+
+      try {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const token = params.get("zhuge_token") || "";
+        const destination = params.get("zhuge_dest") || "";
+        if (!token || token.length > 16384) {
+          fail("沒有收到有效的 Zhuge 身分。請從 Zhuge AI OS 重新進入 TaskFlow。");
+          return;
+        }
+        if (!destination.startsWith("/") || destination.startsWith("//") || destination.includes("\\")) {
+          fail("返回路徑無效。請從 Zhuge AI OS 重新進入 TaskFlow。");
+          return;
+        }
+
+        const resolved = new URL(destination, window.location.origin);
+        if (resolved.origin !== window.location.origin) {
+          fail("返回路徑不安全。請從 Zhuge AI OS 重新進入 TaskFlow。");
+          return;
+        }
+
+        const safeDestination = resolved.pathname + resolved.search + resolved.hash;
+        // Remove the credential from the visible URL/history before persisting
+        // it. The next document then initializes CoreProvider in token mode.
+        window.history.replaceState(null, "", window.location.pathname);
+        window.localStorage.setItem("multica_token", token);
+        document.documentElement.dataset.handoffState = "accepted";
+        window.location.replace(safeDestination);
+      } catch {
+        fail("Zhuge 身分交接失敗。請從 Zhuge AI OS 重新進入 TaskFlow。");
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -21,7 +21,7 @@ COPY labs/taskflow/overrides/zhuge_cli_grant_test.go /tmp/zhuge_cli_grant_test.g
 COPY labs/taskflow/overrides/zhuge_cli_middleware_test.go /tmp/zhuge_cli_middleware_test.go
 COPY labs/taskflow/patches/patch-cli-auth-middleware.py /tmp/patch-cli-auth-middleware.py
 COPY labs/taskflow/cli-sso.js /tmp/zhuge-cli-sso.js
-COPY labs/taskflow/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/taskflow/overrides/zhuge-handoff.html /tmp/zhuge-handoff.html
 COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
 COPY labs/taskflow/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx
 COPY labs/taskflow/overrides/zhuge-help-launcher.tsx /tmp/zhuge-help-launcher.tsx

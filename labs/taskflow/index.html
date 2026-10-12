@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#07111f" />
   <title>TaskFlow · Multica · Zhuge AI OS</title>
-  <script src="./runtime-config.js?v=20261012-0830"></script>
-  <script src="./cli-sso.js?v=20261012-0830"></script>
+  <script src="./runtime-config.js?v=20261012-1115"></script>
+  <script src="./cli-sso.js?v=20261012-1115"></script>
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
     *{box-sizing:border-box}
@@ -229,7 +229,10 @@
           status.textContent = "身份確認完成，正在載入 Multica 工作區…";
           const destination = await fetchBoardDestination(api, payload.token);
           if (!destination) return;
-          const handoff = new URL("/zhuge-handoff", web);
+          // Use a standalone static document so the Multica React/CoreProvider
+          // tree cannot issue its cookie-mode `/api/me` probe before the
+          // Zhuge bearer token has been persisted on the Web origin.
+          const handoff = new URL("/zhuge-handoff.html", web);
           const safeDestination = cliIntent.status === "valid"
             ? cliSSO.buildTaskFlowLoginDestination(cliIntent)
             : cliSSO?.safeTaskFlowDestination(destination, web);

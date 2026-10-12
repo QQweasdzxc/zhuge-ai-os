@@ -50,7 +50,7 @@ async function configureEntry(page, apiOrigin, webOrigin, { authStatus = 200, re
     return route.fulfill({ status: 404, headers: cors, body: "not found" });
   });
   await page.route(webOrigin + "/zhuge-ready", route => route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ status: "ok" }) }));
-  await page.route(webOrigin + "/zhuge-handoff**", route => route.fulfill({
+  await page.route(webOrigin + "/zhuge-handoff.html**", route => route.fulfill({
     status: 200,
     contentType: "text/html",
     body: "<!doctype html><title>Multica handoff</title><main>Multica handoff</main>"
@@ -86,7 +86,7 @@ test("TaskFlow entry hands Zhuge session to API and opens the Multica handoff on
     assert.ok(layout.scrollWidth <= layout.width, JSON.stringify(layout));
     assert.ok(layout.actionHeight >= 44, JSON.stringify(layout));
     assert.equal(await page.locator(".secondary").getAttribute("href"), AIOS_LOGIN);
-    await page.waitForURL(url => url.hostname === "taskflow-web.example" && url.pathname === "/zhuge-handoff", { timeout: 10000 });
+    await page.waitForURL(url => url.hostname === "taskflow-web.example" && url.pathname === "/zhuge-handoff.html", { timeout: 10000 });
     const handoffUrl = new URL(page.url());
     assert.equal(handoffUrl.search, "");
     assert.match(handoffUrl.hash, /zhuge_token=isolated-taskflow-jwt/);
@@ -111,7 +111,7 @@ test("authenticated Multica CLI login reaches TaskFlow authorization without exp
   const callback = "http://127.0.0.1:43127/callback";
   const state = "0123456789abcdef0123456789abcdef";
   await page.goto(entry + "#" + new URLSearchParams({ cli_callback: callback, cli_state: state }).toString(), { waitUntil: "load" });
-  await page.waitForURL(url => url.hostname === "taskflow-web.example" && url.pathname === "/zhuge-handoff", { timeout: 10000 });
+  await page.waitForURL(url => url.hostname === "taskflow-web.example" && url.pathname === "/zhuge-handoff.html", { timeout: 10000 });
   const handoffUrl = new URL(page.url());
   assert.equal(handoffUrl.search, "");
   const handoff = new URLSearchParams(handoffUrl.hash.slice(1));

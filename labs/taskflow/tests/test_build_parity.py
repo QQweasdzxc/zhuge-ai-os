@@ -255,13 +255,22 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         for name in (
             "zhuge-root-page.tsx",
             "zhuge-login-page.tsx",
-            "zhuge-handoff-page.tsx",
         ):
             text = (TASKFLOW / "overrides" / name).read_text()
             self.assertIn("MulticaBrandMark", text, name)
             self.assertIn("multica", text.lower(), name)
             self.assertIn("All rights reserved.", text, name)
             self.assertIn("https://github.com/multica-ai/multica", text, name)
+        handoff = (TASKFLOW / "overrides/zhuge-handoff.html").read_text()
+        self.assertIn("localStorage.setItem(\"multica_token\", token)", handoff)
+        self.assertIn("history.replaceState", handoff)
+        self.assertIn("location.replace(safeDestination)", handoff)
+        self.assertIn("All rights reserved.", handoff)
+        self.assertIn("https://github.com/multica-ai/multica", handoff)
+        self.assertIn('new URL("/zhuge-handoff.html", web)', (TASKFLOW / "index.html").read_text())
+        identity_patch = (TASKFLOW / "patches/apply-zhuge-identity.py").read_text()
+        self.assertIn("/src/apps/web/public/zhuge-handoff.html", identity_patch)
+        self.assertNotIn("app/(auth)/zhuge-handoff", identity_patch)
         self.assertIn(
             "MulticaIcon",
             (TASKFLOW / "overrides/multica-brand-mark.tsx").read_text(),

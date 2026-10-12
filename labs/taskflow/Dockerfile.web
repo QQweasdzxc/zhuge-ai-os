@@ -12,7 +12,7 @@ RUN test "${MULTICA_SOURCE_SHA}" = "8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec" \
  && test -f /src/NOTICE \
  && echo "TASKFLOW_SOURCE_MODE=vendored SHA=${MULTICA_SOURCE_SHA}; upstream application source clone=disabled"
 
-COPY labs/taskflow/overrides/zhuge-handoff-page.tsx /tmp/zhuge-handoff-page.tsx
+COPY labs/taskflow/overrides/zhuge-handoff.html /tmp/zhuge-handoff.html
 COPY labs/taskflow/overrides/zhuge-ready-route.ts /tmp/zhuge-ready-route.ts
 COPY labs/taskflow/overrides/zhuge-root-page.tsx /tmp/zhuge-root-page.tsx
 COPY labs/taskflow/overrides/zhuge-login-page.tsx /tmp/zhuge-login-page.tsx

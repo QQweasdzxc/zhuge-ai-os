@@ -175,8 +175,10 @@ test("CLI overlay uses Zhuge-authenticated identity and five-minute native grant
 });
 
 test("handoff validates same-origin destination before storing the TaskFlow token", () => {
-  const handoff = read("labs/taskflow/overrides/zhuge-handoff-page.tsx");
-  assert.match(handoff, /resolved\.origin === window\.location\.origin/);
-  assert.ok(handoff.indexOf("if (!safeDestination)") < handoff.indexOf('localStorage.setItem("multica_token"'));
+  const handoff = read("labs/taskflow/overrides/zhuge-handoff.html");
+  assert.match(handoff, /resolved\.origin !== window\.location\.origin/);
+  assert.ok(handoff.indexOf('if (resolved.origin !== window.location.origin)') < handoff.indexOf('window.localStorage.setItem("multica_token", token)'));
+  assert.ok(handoff.indexOf("window.history.replaceState") < handoff.indexOf('window.localStorage.setItem("multica_token", token)'));
   assert.match(handoff, /window\.location\.replace\(safeDestination\)/);
+  assert.match(handoff, /document\.documentElement\.dataset\.handoffState = "accepted"/);
 });
