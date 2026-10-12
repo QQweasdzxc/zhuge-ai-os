@@ -99,7 +99,20 @@ def placeholders(value) -> tuple[str, ...]:
 class TaskFlowTraditionalChineseOverlayTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.repo_root = Path(__file__).resolve().parents[3]
+        configured_repo_root = os.environ.get("TASKFLOW_ZH_HANT_REPO_ROOT")
+        if configured_repo_root:
+            cls.repo_root = Path(configured_repo_root).resolve()
+        else:
+            test_path = Path(__file__).resolve()
+            cls.repo_root = next(
+                (
+                    parent
+                    for parent in test_path.parents
+                    if (parent / "third_party/multica").is_dir()
+                    and (parent / "labs/taskflow").is_dir()
+                ),
+                Path.cwd().resolve(),
+            )
         cls.repo = Path(
             os.environ.get("TASKFLOW_ZH_HANT_ROOT", str(cls.repo_root / "third_party/multica"))
         ).resolve()
