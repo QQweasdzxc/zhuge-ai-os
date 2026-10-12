@@ -29,6 +29,13 @@ COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rul
 RUN python3 /tmp/apply-zhuge-identity.py \
  && python3 /tmp/apply-zhuge-house-rules.py
 
+COPY labs/taskflow/patches/apply-taskflow-project-navigation.py /tmp/apply-taskflow-project-navigation.py
+COPY labs/taskflow/tests/test_taskflow_project_navigation_overlay.py /tmp/test_taskflow_project_navigation_overlay.py
+RUN TASKFLOW_PROJECT_NAV_SOURCE=/src \
+    TASKFLOW_PROJECT_NAV_PATCH=/tmp/apply-taskflow-project-navigation.py \
+    python3 /tmp/test_taskflow_project_navigation_overlay.py \
+ && python3 /tmp/apply-taskflow-project-navigation.py --root /src
+
 COPY labs/taskflow/patches/apply-taskflow-stability.py /tmp/apply-taskflow-stability.py
 COPY labs/taskflow/tests/test_taskflow_stability_overlay.py /tmp/test_taskflow_stability_overlay.py
 COPY labs/taskflow/overrides/taskflow-row-query.test.ts /taskflow-stability-overlays/taskflow-row-query.test.ts
@@ -85,6 +92,7 @@ RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.ts \
  && pnpm --filter @multica/core exec vitest run i18n/pick-locale.test.ts i18n/user-locale-sync.test.tsx i18n/taskflow-locale.test.ts i18n/taskflow-locale-browser.test.ts i18n/taskflow-locale-sync.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-list-load-more-footer.test.tsx \
+ && pnpm --filter @multica/views exec vitest run layout/app-sidebar.test.tsx \
  && pnpm --filter @multica/views exec vitest run settings/components/preferences-tab.test.tsx locales/mcp.test.ts agents/components/tabs/task-failure.test.ts onboarding/templates/index.test.ts workspace/slug.test.ts common/docs-locale.test.ts runtimes/components/runtime-docs.test.ts \
  && pnpm --filter @multica/views exec vitest run issues/surface/taskflow-pagination-recovery.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx

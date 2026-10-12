@@ -146,6 +146,17 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertNotIn("TaskFlow migrator has cron mutation privileges", migrator)
         self.assertIn("exec /app/migrate up", migrator)
 
+    def test_web_image_applies_the_taskflow_owned_project_navigation_overlay(self):
+        web = (TASKFLOW / "Dockerfile.web").read_text()
+        patch = (TASKFLOW / "patches/apply-taskflow-project-navigation.py").read_text()
+        self.assertIn("apply-taskflow-project-navigation.py", web)
+        self.assertIn("test_taskflow_project_navigation_overlay.py", web)
+        self.assertIn("python3 /tmp/apply-taskflow-project-navigation.py --root /src", web)
+        self.assertIn('"packages/views/layout/app-sidebar.tsx"', patch)
+        self.assertIn("expected one upstream marker", patch)
+        self.assertIn("workspace project list query import", patch)
+        self.assertIn("Work navigation project menu", patch)
+
     def test_taskflow_overlay_is_taskflow_owned_and_separate_from_native_lab(self):
         native_entry = NATIVE_ENTRY.read_text()
         self.assertIn("Multica Agent Lab", native_entry)
