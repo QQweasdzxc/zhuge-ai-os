@@ -18,7 +18,7 @@ PM 確認日期：2026-10-13（Asia/Taipei）。本日誌追蹤「PM 決定什�
 | --- | --- | --- | --- |
 | P-20261013-01 | Zhuge AI OS 是產品名稱，**TaskFlow 作為新的主入口、主要操作平台與未來首頁**；舊 AI OS 不再作主要入口。 | #47 | DECIDED；未上線 |
 | P-20261013-02 | 原 AI OS 的 WorkLog／Investment 等收進 TaskFlow **Apps**：A 先入口連結與安全返回；B 逐步整合 UI／資料讀取，保留模組業務邏輯。不直接全站重寫。 | #47 | A Candidate GO；B 先設計及隔離驗證 |
-| P-20261013-03 | 首頁回答「今天要做什麼？」：待處理、待追蹤、到期、日曆、WorkLog 摘要、Apps。**不放 Token、AI 成本、Agent 執行分析**。 | 首頁原型另議 | 需求 DECIDED；版型 DISCUSSING／Coding HOLD |
+| P-20261013-03 | 首頁回答「今天要做什麼？」：待處理、待追蹤、到期、日曆、**Investment**、WorkLog 摘要、Apps。**不放 Token、AI 成本、Agent 執行分析**。PM 已核准原型，開始隔離候選開發。 | [#49](https://github.com/QQweasdzxc/zhuge-ai-os/issues/49) | **版型 DECIDED／CANDIDATE GO；尚未開發或上線** |
 | P-20261013-04 | **Google 登入成功不等於使用權核准**。新帳號要申請，Email 來自 Google，填姓名／外號與原因；Creator／Owner 核准才可進 TaskFlow 和 Apps；可駁回、重申請，保留歷史。 | AI OS App Access Source、#47 | 原 AI OS 已有；TF 安全整合待驗證 |
 | P-20261013-05 | WorkLog 原工時、日曆、分析、ECP 匯出及歷史要完整保留。TF 任務日期和 WorkLog 已完成工時可在統一日曆分圖層顯示，**資料 Authority 不合併**。 | #46、#47 | DECIDED；整合候選待開發 |
 | P-20261013-06 | **所有有日期 TF Issue** 單向自動同步至 PM 個人 Google 的「Zhuge AI OS」次要日曆，Cloud 背景補漏和冪等。WorkLog 已完成工時預設不外送。 | #46 | Candidate GO；真實 OAuth／Calendar HOLD |
@@ -27,6 +27,8 @@ PM 確認日期：2026-10-13（Asia/Taipei）。本日誌追蹤「PM 決定什�
 | P-20261013-09 | PDF／圖片預覽授權優先修復且保留下載，大型 PPTX HTTP 500 另查 Root Cause。 | #45 | Candidate GO；未上線 |
 | P-20261013-10 | 使用**產品全景圖＋使用流程圖＋決策／交付狀態**溝通；新需求先查既有定義、列變更影響，再形成 PM 正式決策。 | 本文件 | DECIDED；治理文件首版候選 |
 
+| P-20261013-11 | 首頁採 PM 核准的深色側邊欄／淺色卡片佈局，含 TF 待辦、追蹤、日曆、到期、**Investment 真實投資摘要**、WorkLog、Apps；支援 Widget 開關、排序、尺寸並保存每位使用者設定，Mac／iPhone 適配。 | [#49](https://github.com/QQweasdzxc/zhuge-ai-os/issues/49) | **CANDIDATE GO／Production HOLD**；不得使用示意數值 |
+
 ## 容易漏接的跨議題關係
 
 1. **首頁入口反轉**不代表舊 AI OS 模組、OAuth、Supabase 資料與身份授權可以刪除；要先 A，再 B。舊 Module A／C、EP-039 等正式治理規則仍需 ADR 審查，不能默默作廢。
@@ -34,7 +36,7 @@ PM 確認日期：2026-10-13（Asia/Taipei）。本日誌追蹤「PM 決定什�
 3. **Issue #46** 先受 Issue #47 的 WorkLog 日曆重用評估約束，不能再建一套重複工時日曆。任務期限是日期，廠商會議是未來的時段，工時又是完成紀錄。
 4. **Issue #42** 的 Co 原回覆為 BLOCKED；PM 後續已決定繼續尋找最小 Connector SQL-only 候選。接受單人環境不等於 PM 批准 Production 即時寫入。
 5. **Issue #47** 初版文字只允許唯讀評估；PM 在後續對話核准 Phase A 隔離候選開發、B 階段先做設計驗證。實際 Co 工作前須將 GitHub Issue 和指令的授權範圍對齊，不能擴充成全面重寫。
-6. **Usage Dashboard** 是原生 AI 使用分析，不是 PM 想要的工作首頁。主頁 UI 尚未最終批准，不能以示意圖取代需求審查。
+6. **Usage Dashboard** 是原生 AI 使用分析，不是 PM 要的工作首頁。PM 2026-10-13 已選定新首頁原型並授權 #49 候選 Coding；不代表可直接把原型示意股價／總市值／工作量當正式資料。
 
 ## 每一次新增決策，請維持這個格式
 
