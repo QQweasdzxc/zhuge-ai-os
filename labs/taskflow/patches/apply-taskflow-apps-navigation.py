@@ -122,12 +122,14 @@ describe("TaskFlow Apps navigation", () => {
   it("uses the Zhuge origin and marks experimental or parked modules truthfully", () => {
     const { container } = render(<AppSidebar />);
     expect(screen.getByText("Apps")).toBeInTheDocument();
-    expect(container.querySelector('a[href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=worklog"]')).toBeTruthy();
-    expect(container.querySelector('a[href="https://qqweasdzxc.github.io/zhuge-ai-os/app/dashboard/"]')).toBeTruthy();
-    expect(container.querySelector('a[href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/"]')).toBeTruthy();
+    const hasAppHref = (href: string) =>
+      Array.from(container.querySelectorAll<HTMLButtonElement>("button[data-href]")).some((item) => item.dataset.href === href);
+    expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=worklog")).toBe(true);
+    expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/app/dashboard/")).toBe(true);
+    expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/")).toBe(true);
     expect(screen.getByText("Experimental")).toBeInTheDocument();
     expect(screen.getByText("Parked")).toBeInTheDocument();
-    expect(container.querySelector('a[href="https://zhuge-taskflow-web.onrender.com/"]')).toBeNull();
+    expect(hasAppHref("https://zhuge-taskflow-web.onrender.com/")).toBe(false);
   });
 });
 '''
