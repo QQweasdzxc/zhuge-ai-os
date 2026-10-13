@@ -79,6 +79,7 @@ class TaskFlowConnectorIssueSqlTests(unittest.TestCase):
         self.assertIn("issue42_postgres_assertions.sql", runner)
         self.assertIn("issue42_connector_create_issue_rollback.sql", runner)
         self.assertIn("Disposable postgres service only", runner)
+        self.assertIn("ISSUE42_CONCURRENT_DUPLICATE=PASS", runner)
 
     def test_rollback_disables_functions_but_preserves_cards_and_ledger(self) -> None:
         self.assertIn("DROP FUNCTION IF EXISTS", self.rollback)

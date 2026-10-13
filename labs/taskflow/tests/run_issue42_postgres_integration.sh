@@ -123,6 +123,35 @@ if [[ -z "$identifier_a" || -z "$identifier_b" || "$identifier_a" == "$identifie
 fi
 echo "ISSUE42_CONCURRENT_ALLOCATOR=PASS ${identifier_a} ${identifier_b}"
 
+# Simultaneous normalized-title requests must serialize on the same native
+# advisory key: one writes, the other receives the duplicate rejection.
+psql "$CONNECTOR_URL" -v ON_ERROR_STOP=1 -c \
+  "SELECT * FROM taskflow.sb_connector_create_issue('40000000-0000-4000-8000-000000000031','30000000-0000-4000-8000-000000000001','Concurrent same-title QA',NULL,'todo','none',NULL,NULL)" \
+  >/tmp/issue42-duplicate-a.out 2>/tmp/issue42-duplicate-a.err & duplicate_a=$!
+psql "$CONNECTOR_URL" -v ON_ERROR_STOP=1 -c \
+  "SELECT * FROM taskflow.sb_connector_create_issue('40000000-0000-4000-8000-000000000032','30000000-0000-4000-8000-000000000001','  Concurrent   same-title QA  ',NULL,'todo','none',NULL,NULL)" \
+  >/tmp/issue42-duplicate-b.out 2>/tmp/issue42-duplicate-b.err & duplicate_b=$!
+if wait "$duplicate_a"; then duplicate_status_a=0; else duplicate_status_a=$?; fi
+if wait "$duplicate_b"; then duplicate_status_b=0; else duplicate_status_b=$?; fi
+if [[ "$duplicate_status_a" == "$duplicate_status_b" ]]; then
+  echo "Issue #42 concurrent duplicate requests must have exactly one winner" >&2
+  cat /tmp/issue42-duplicate-a.err /tmp/issue42-duplicate-b.err >&2
+  exit 1
+fi
+if [[ "$duplicate_status_a" != "0" ]]; then duplicate_error=/tmp/issue42-duplicate-a.err; else duplicate_error=/tmp/issue42-duplicate-b.err; fi
+if ! grep -Fq "active duplicate issue exists" "$duplicate_error"; then
+  cat /tmp/issue42-duplicate-a.err /tmp/issue42-duplicate-b.err >&2
+  echo "Issue #42 concurrent loser did not fail through the duplicate guard" >&2
+  exit 1
+fi
+duplicate_count="$(psql "$CONNECTOR_URL" -At -v ON_ERROR_STOP=1 -c \
+  "SELECT count(*) FROM taskflow.issue WHERE project_id='30000000-0000-4000-8000-000000000001' AND title='Concurrent same-title QA'")"
+if [[ "$duplicate_count" != "1" ]]; then
+  echo "Issue #42 concurrent normalized duplicate count was ${duplicate_count}, expected 1" >&2
+  exit 1
+fi
+echo "ISSUE42_CONCURRENT_DUPLICATE=PASS exactly_one_created"
+
 # Roll back and reinstall on the same isolated DB. The committed issue and
 # ledger entry must remain; replay after reinstall must not create another row.
 psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$ROOT/labs/taskflow/sql/issue42_connector_create_issue_rollback.sql"

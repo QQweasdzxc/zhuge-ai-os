@@ -109,8 +109,9 @@ concurrent allocation, and rollback/reinstall assertions. The CI service is
 disposable, uses synthetic data only, and is not connected to Supabase or
 Production.
 
-The required evidence is the `backend-image` job's full staged-migration step
-and `ISSUE42_POSTGRES_INTEGRATION=PASS` output on the final Review Branch SHA.
+The required evidence is the `backend-image` job's full staged-migration step,
+the concurrent allocator and duplicate-race PASS markers, and
+`ISSUE42_POSTGRES_INTEGRATION=PASS` output on the final Review Branch SHA.
 No runtime/PostgreSQL PASS should be reported until that job completes
 successfully. The test proves the function against the pinned, staged TaskFlow
 schema in PostgreSQL 17; it is not a Production canary or live TaskFlow Browser
