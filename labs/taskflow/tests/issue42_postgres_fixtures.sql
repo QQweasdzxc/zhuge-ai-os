@@ -19,17 +19,17 @@ INSERT INTO taskflow.project (id, workspace_id, title) VALUES
     ('30000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002', 'Issue 42 Workspace B Project');
 
 INSERT INTO taskflow.issue_status (workspace_id, key, name, description, category, color, is_system, position)
-SELECT w.id, s.key, s.name, '', s.key, s.color, TRUE, s.position
+SELECT w.id, s.key, s.name, '', s.category, s.color, TRUE, s.position
   FROM taskflow.workspace AS w
  CROSS JOIN (VALUES
-    ('backlog', 'Backlog', '#6b7280', 0::DOUBLE PRECISION),
-    ('todo', 'Todo', '#6b7280', 1::DOUBLE PRECISION),
-    ('in_progress', 'In Progress', '#f59e0b', 2::DOUBLE PRECISION),
-    ('in_review', 'In Review', '#22c55e', 3::DOUBLE PRECISION),
-    ('done', 'Done', '#3b82f6', 4::DOUBLE PRECISION),
-    ('blocked', 'Blocked', '#ef4444', 5::DOUBLE PRECISION),
-    ('cancelled', 'Cancelled', '#6b7280', 6::DOUBLE PRECISION)
- ) AS s(key, name, color, position)
+    ('backlog', 'Backlog', 'unstarted', '#6b7280', 0::DOUBLE PRECISION),
+    ('todo', 'Todo', 'unstarted', '#6b7280', 1::DOUBLE PRECISION),
+    ('in_progress', 'In Progress', 'started', '#f59e0b', 2::DOUBLE PRECISION),
+    ('in_review', 'In Review', 'started', '#22c55e', 3::DOUBLE PRECISION),
+    ('done', 'Done', 'done', '#3b82f6', 4::DOUBLE PRECISION),
+    ('blocked', 'Blocked', 'started', '#ef4444', 5::DOUBLE PRECISION),
+    ('cancelled', 'Cancelled', 'closed', '#6b7280', 6::DOUBLE PRECISION)
+ ) AS s(key, name, category, color, position)
  WHERE w.id IN (
     '10000000-0000-4000-8000-000000000001',
     '10000000-0000-4000-8000-000000000002'
