@@ -10,7 +10,8 @@ import unittest
 from pathlib import Path
 
 
-REPO = Path(os.environ.get("TASKFLOW_PROJECT_STATUS_REPO_ROOT", Path(__file__).resolve().parents[3])).resolve()
+REPO_ROOT = os.environ.get("TASKFLOW_PROJECT_STATUS_REPO_ROOT")
+REPO = Path(REPO_ROOT).resolve() if REPO_ROOT else Path(__file__).resolve().parents[3]
 VENDOR = Path(os.environ.get("TASKFLOW_PROJECT_STATUS_VENDOR_ROOT", REPO / "third_party/multica")).resolve()
 PATCH_PATH = Path(os.environ.get("TASKFLOW_PROJECT_STATUS_PATCH", REPO / "labs/taskflow/patches/apply-taskflow-project-status.py")).resolve()
 OVERLAY = Path(os.environ.get("TASKFLOW_PROJECT_STATUS_OVERLAY_ROOT", REPO / "labs/taskflow/overrides")).resolve()
