@@ -8,6 +8,7 @@ on:
       - review/taskflow-desktop-login-20261012
       - review/taskflow-sidebar-project-nav-20261012
       - review/taskflow-issues-42-44-20261013
+      - review/taskflow-issue-42-20261014
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -37,6 +38,19 @@ jobs:
 
   backend-image:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: ci_admin
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_admin -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - name: Build TaskFlow backend from repository-root context
@@ -51,6 +65,10 @@ jobs:
             exit 1
           fi
           grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-backend-build.log
+      - name: Run full staged TaskFlow migrations and Issue 42 SQL against disposable PostgreSQL
+        env:
+          TASKFLOW_ISSUE42_TEST_IMAGE: taskflow-multica-backend:parity
+        run: bash labs/taskflow/tests/run_issue42_postgres_integration.sh
 
   web-image:
     runs-on: ubuntu-latest

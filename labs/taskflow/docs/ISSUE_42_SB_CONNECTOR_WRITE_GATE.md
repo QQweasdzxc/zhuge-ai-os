@@ -1,130 +1,140 @@
-# Issue #42 — trusted Supabase Connector issue operations
+# Issue #42 — controlled TaskFlow issue operations through the SB Connector
 
-## Candidate decision
+## Candidate boundary
 
-PM accepted the existing Supabase Connector as a trusted single-operator
-management channel. This changes the previous implementation assessment from
-"permanently blocked" to "candidate implementation permitted". It does not
-turn the shared `postgres` role into proof of a human identity: the database
-cannot distinguish a PM-directed call from any other use of that connector.
-That is an explicit operator trust boundary accepted for this single-user
-workflow. No privilege is granted to `anon`, `authenticated`, `service_role`,
-or `taskflow_runtime` by this candidate.
+This is an isolated candidate, not an automatic app migration and not installed
+in Production. PM has accepted the existing Supabase SQL Connector running as
+`postgres` as a trusted single-operator management channel. The database
+cannot prove which human requested a query made through that shared login. The
+Connector is therefore an explicit operator trust boundary, not a user JWT or
+per-user authorization proof. No table DML is granted to `postgres`, and no
+new OAuth, API, MCP, account, or database role is introduced.
 
-The SQL candidate is in
-`labs/taskflow/sql/issue42_connector_create_issue_candidate.sql`; the disable
-script is `labs/taskflow/sql/issue42_connector_create_issue_rollback.sql`.
-Neither file is an automatic migration. They are not applied to Production.
+The candidate SQL is
+`labs/taskflow/sql/issue42_connector_create_issue_candidate.sql`. It must be
+installed by the existing `taskflow_migrator` principal after the TaskFlow
+migrations are already applied. The migration identity must own schema
+`taskflow` and the TaskFlow tables. The candidate refuses elevated migrator
+attributes, unexpected existing function owners, or drift in the installed
+function security contract.
 
-## Function contract
+## Function and role matrix
 
-The install script creates two `SECURITY INVOKER` functions in `taskflow`,
-revokes their default `PUBLIC` execute permission, and grants execution only to
-the existing trusted `postgres` Connector role:
+| Principal | Schema / table rights added by this candidate | Function execution |
+| --- | --- | --- |
+| `taskflow_migrator` | None; owns the ledger/functions by existing migration boundary | No Connector entry path; direct session rejected |
+| `postgres` Connector | No schema or table DML; its existing schema usage/read grants remain unchanged | `EXECUTE` on the two fixed TaskFlow functions only |
+| `taskflow_runtime` | No change | Explicitly revoked |
+| `anon`, `authenticated`, `service_role` | No change | Explicitly revoked |
+| PostgreSQL `PUBLIC` | No change to shared schema/table ACLs | Explicitly revoked on candidate functions |
 
-- `taskflow.sb_connector_create_issue(...)`
-- `taskflow.sb_connector_update_issue(...)`
+Both functions are `SECURITY DEFINER`, owned by `taskflow_migrator`, and use
+the fixed path `pg_catalog, taskflow, extensions, pg_temp`. Each function
+checks that the immutable login is exactly `postgres` and the effective
+definer is exactly `taskflow_migrator`. The table-owner identity is necessary
+because the Connector has no direct DML. There are no dynamic SQL statements
+or caller-selected object names.
 
-The create path takes a Project ID and derives the Workspace from
-`taskflow.project`; it requires exactly one `owner` member in that Workspace
-and attributes creation/activity to that owner. It verifies an active native
-status key, a valid priority and a nonblank title. Within one transaction it
-locks the Workspace counter, allocates the next `issue.number`, positions the
-new card at the top of its Workspace/status column, inserts the Issue, adds the
-creator subscription, records a `created` activity row and stores a request ID
-plus exact payload in the idempotency ledger. Repeating the same request ID
-and payload returns the same Issue; reusing that ID with another payload is
-rejected.
+The install transaction verifies the schema owner, function owner, definer
+flag, stored search path, denied app-role grants, and Connector execute grant
+before commit. `taskflow.sb_connector_issue_request` is owned by
+`taskflow_migrator`; the candidate gives no Connector or runtime access to its
+payloads or issue mapping.
 
-In addition to request-key replay protection, the create path mirrors the
-native active-title guard for top-level Project issues: normalized duplicate
-titles in the same Project are rejected while terminal issues and items still
-pending in Triage do not block a new issue. This is intentionally not a
-replacement for `IssueService.Create` and does not implement its
-`allow_duplicate` override.
+## Create/update behavior
 
-The update path is intentionally snapshot-based: the caller first reads the
-Issue and supplies all editable fields and the observed `revision`. Stale
-revisions fail with a conflict instead of overwriting newer state. The update
-repositions a status move and writes native-shaped activity rows for changed
-title, description, status, priority and dates. It uses the same request ledger
-for idempotent retries. Readback uses the existing `taskflow.issue` and
-`taskflow.project` tables.
+`taskflow.sb_connector_create_issue(...)` accepts a Project, title, description,
+status, priority, optional dates, and caller-generated UUID request ID. It
+derives the Workspace from the selected Project; validates an active status and
+allowed priority; requires exactly one Workspace owner for attribution; and
+uses that owner as creator. In one transaction it shares the native advisory
+duplicate lock key, checks the normalized active-title duplicate rule scoped
+to Project/root issues, increments the Workspace issue counter, picks the top
+position for the Workspace/status column, inserts the Issue, creator
+subscription, `created` activity row, and idempotency ledger entry.
 
-The SQL scopes every application relation to `taskflow` and fixes the function
-search path. The Connector calls as the existing privileged `postgres` role,
-so `SECURITY INVOKER` is sufficient and avoids introducing an unnecessary
-RLS-bypassing definer context. The Connector already has broad privileges as
-`postgres`; this SQL does not extend those privileges. Consequently, the
-function is an operationally controlled entry point, not a defense against
-misuse of the trusted Connector.
+Repeating the same request ID and exact payload returns the same Issue. The
+same ID with a changed payload is rejected. Since IDs are scoped globally in
+the ledger, an ID cannot be reused across create/update operations. A deleted
+Issue whose request ledger entry remains is not recreated on retry.
 
-## Native EventBus difference
+`taskflow.sb_connector_update_issue(...)` takes the Project and Issue IDs, the
+observed Issue `revision`, a complete editable snapshot, and a fresh request
+ID. It rejects Project mismatch (including a different Project in the same
+Workspace), cross-Workspace mismatch, inactive status, duplicate active title,
+and stale revision. It uses the same native duplicate advisory key for a title
+rename or activation. It records changed fields in `activity_log` and stores
+the idempotency record in the same transaction. Same-request retries return
+the existing Issue without a second update or duplicate activity.
 
-The candidate covers the minimum durable records needed for TaskFlow to read
-and display a created/updated card:
+This entry point derives attribution from the selected Workspace owner; it
+does not accept a caller-supplied UUID. Because the Connector is a shared
+trusted operator role, it cannot independently verify that the human behind a
+query is the PM or that the PM has a JWT membership in the selected Project.
+Production use must remain restricted to the PM-controlled Connector and a
+PM-selected Project. If TaskFlow later becomes multi-user or the Connector is
+shared beyond that operator, replace this trust boundary with authenticated
+user-bound authorization before enabling the functions.
 
-- issue identity, Workspace/Project association, native status, position and
-  sequential issue number;
-- creator attribution and creator subscription;
-- activity-log entries;
-- exact request idempotency and revision-checked updates.
+## Native API parity and limitations
 
-Direct SQL does **not** publish Multica's in-process EventBus events. It cannot
-trigger websocket broadcasts, notification delivery, plugin/automation hooks,
-analytics, Cloud entitlement checks, agent assignment dispatch, or other
-listeners. Therefore the safe first candidate excludes agent assignment and
-may require a TaskFlow refresh before the card appears. These effects can be
-deferred for the PM's single-operator manual card workflow; if immediate live
-updates or automations become required, the native API is the correct write
-path.
+The SQL preserves the durable records required for a TaskFlow read: Issue ID,
+Project/Workspace relation, ZG-style number, status, priority, dates, position,
+revision, creator, creator subscription, activity, and retry ledger. The
+Workspace-row counter update serializes number allocation with the native
+allocator. The integration suite tests both same-title advisory locking and
+concurrent distinct-title allocation.
 
-## Isolated SQL exercise and first Production write
+PostgreSQL triggers installed by TaskFlow migrations still run for the
+function's inserts/updates (for example search-index, usage-dirty, and
+collaboration/wakeup capture triggers). Direct SQL does not publish the
+Multica in-process EventBus message. Consequently it does not immediately
+broadcast websocket state or run app-side notifications, plugins, analytics,
+Cloud entitlement checks, or agent dispatch. The UI may need a normal refresh
+to see a Connector-created card. Agent assignment/run is intentionally outside
+this function. For the current single-operator manual-card use, these are
+accepted limits; use the native API if live event delivery or automation is a
+requirement.
 
-There is no isolated Supabase database available to this candidate, so no live
-TaskFlow-schema write/readback was attempted. No Production data or privileges
-were modified. An earlier `SECURITY DEFINER` draft was exercised in a local
-PostgreSQL 17 container isolated with `--network none` against a synthetic
-schema containing two Projects in one Workspace, one owner, native status
-rows, and the relevant TaskFlow table columns/constraints. That earlier draft
-verified sequential `ZG-*` allocation, exact request replay, changed-payload
-and normalized-active-title rejection, revision-checked updates, activity
-rows, and ACL behavior. It did not test Project-mismatch rejection.
+## Isolated PostgreSQL verification
 
-The final candidate changed both functions to `SECURITY INVOKER` to avoid an
-unnecessary RLS-bypassing owner context. The isolated PostgreSQL exercise was
-not rerun against that exact final SQL: the retry was blocked by the local
-container host's `No space left on device` condition. For the final candidate,
-SQL evidence is limited to static contract tests asserting `SECURITY INVOKER`,
-the fixed search path, grants/revokes, and Project predicates. The final SQL's
-runtime behavior, ACL execution under the Connector role, Project-mismatch
-rejection, and compatibility with the real TaskFlow schema remain
-**NOT VERIFIED**. No real TaskFlow or live Supabase schema was available.
+The `taskflow-build-parity.yml` backend job builds the TaskFlow backend image,
+then runs its actual `taskflow-migrate.sh` against an ephemeral
+`pgvector/pgvector:pg17` PostgreSQL service. It applies the final candidate SQL
+as `taskflow_migrator`, creates synthetic owner/Workspace/Project/status
+fixtures, and executes create/update/readback, request replay, duplicate,
+revision, invalid-status, same-Workspace Project mismatch, cross-Workspace
+mismatch, direct-DML denial, app-role execute denial, runtime readback,
+concurrent allocation, and rollback/reinstall assertions. The CI service is
+disposable, uses synthetic data only, and is not connected to Supabase or
+Production.
 
-Before the first Production write, a PM-approved one-card canary must:
+The required evidence is the `backend-image` job's full staged-migration step
+and `ISSUE42_POSTGRES_INTEGRATION=PASS` output on the final Review Branch SHA.
+No runtime/PostgreSQL PASS should be reported until that job completes
+successfully. The test proves the function against the pinned, staged TaskFlow
+schema in PostgreSQL 17; it is not a Production canary or live TaskFlow Browser
+test.
 
-1. Read the selected Project/Workspace, sole owner member, current prefix and
-   counter, active status, and current Issue count without changing data.
-2. Install the SQL as a separately reviewed operator change (not app startup
-   migration), verify the function ACL, `SECURITY INVOKER`, fixed search path
-   and `postgres` ownership, and confirm no API role gained execute or table
-   privileges.
-3. Call create with a fresh UUID request key and a clearly marked canary title
-   in a PM-selected Project; read back the returned Issue ID, ZG identifier,
-   Project, Workspace, status, activity and subscription through the Connector.
-4. Refresh TaskFlow and verify the native card. Retry the exact same request and
-   verify the same Issue is returned; try a different payload under that key
-   and verify it is rejected.
-5. Read the card, use the returned revision for one controlled update, read it
-   back, repeat that update request, and verify no duplicate activity/change.
-6. Test a non-member Project through the function's derived owner/project
-   checks and verify rejection. The function itself does not accept a caller
-   UUID, so it cannot be made to impersonate an arbitrary UUID.
+## Rollback and Production canary gate
 
-Rollback revokes the two `postgres` execute grants and drops the functions.
-Keep the idempotency ledger (a request-ID tombstone) and keep any already
-created card unless the PM separately requests its deletion through TaskFlow.
+The candidate disable script is
+`labs/taskflow/sql/issue42_connector_create_issue_rollback.sql`. Run it only
+with a separately approved operator change as `taskflow_migrator`. It drops
+the Connector functions but does not drop the ledger or delete cards,
+activities, subscriptions, numbers, or other product data. A reinstallation
+keeps request IDs consumed, so retries remain idempotent. Rollback does not
+undo already-created card content; normal TaskFlow operations manage that data.
 
-**Approval required:** Production SQL installation and the one-card Production
-canary are separate from this candidate coding GO. No Production write is
-authorized by this document.
+Before a future first Production write, PM must separately approve function
+installation and one canary. The operator should first read the chosen
+Workspace/Project, sole owner, active status, prefix/counter and current issue
+count; record the pre-install function/schema ACL state; install using the
+controlled migrator connection; verify function owner/ACL/search path and no
+new table DML; create one clearly labelled card with a fresh request ID; read
+back Issue, identifier, Project/Workspace, activity and subscription through
+both the Connector and TaskFlow UI; retry the same request; and test a
+revision-checked update. If any check fails, drop only these entry-point
+functions and leave the canary row/ledger intact for an explicit UI cleanup.
+No Production installation, canary, DB permission change, or deployment is
+authorized by this candidate.
