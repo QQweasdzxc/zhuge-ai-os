@@ -83,21 +83,23 @@ path.
 
 There is no isolated Supabase database available to this candidate, so no live
 TaskFlow-schema write/readback was attempted. No Production data or privileges
-were modified.
-The candidate SQL was applied to a local PostgreSQL 17 container isolated with
-`--network none` and a synthetic schema containing two Projects in one
-Workspace, one owner, native status rows, and the relevant TaskFlow table
-columns/constraints. That exercise verified: two Projects each received a
-different sequential `ZG-*` issue; identical request replay returned the same
-Issue; a changed payload under that key and a normalized active duplicate were
-rejected; update replay returned the same Issue; a stale revision update was
-rejected; durable activity rows were written; and the function ACL allowed
-only `postgres` among `postgres`,
-`anon`, `authenticated`, and `taskflow_runtime`. The synthetic SQL exercise
-did not test Project-mismatch rejection, and no real TaskFlow or live Supabase
-schema was available. Source contract checks verify the Project predicate, but
-do not replace that runtime case or prove the SQL against the live TaskFlow
-schema and Connector execution context.
+were modified. An earlier `SECURITY DEFINER` draft was exercised in a local
+PostgreSQL 17 container isolated with `--network none` against a synthetic
+schema containing two Projects in one Workspace, one owner, native status
+rows, and the relevant TaskFlow table columns/constraints. That earlier draft
+verified sequential `ZG-*` allocation, exact request replay, changed-payload
+and normalized-active-title rejection, revision-checked updates, activity
+rows, and ACL behavior. It did not test Project-mismatch rejection.
+
+The final candidate changed both functions to `SECURITY INVOKER` to avoid an
+unnecessary RLS-bypassing owner context. The isolated PostgreSQL exercise was
+not rerun against that exact final SQL: the retry was blocked by the local
+container host's `No space left on device` condition. For the final candidate,
+SQL evidence is limited to static contract tests asserting `SECURITY INVOKER`,
+the fixed search path, grants/revokes, and Project predicates. The final SQL's
+runtime behavior, ACL execution under the Connector role, Project-mismatch
+rejection, and compatibility with the real TaskFlow schema remain
+**NOT VERIFIED**. No real TaskFlow or live Supabase schema was available.
 
 Before the first Production write, a PM-approved one-card canary must:
 
