@@ -17,9 +17,10 @@ change-governance aids, not replacements for existing runtime authorities.
 
 **Before any new planning or Co instructions:** consult all four, check the
 latest Source/Cloud/Issues, identify changed dependencies, then update the
-affected diagram, decision log and delivery status. Treat these as a candidate
-until PM approves their integration into main. Dashboard UI remains discussion-
-only and is not authorized for coding by these documents.
+affected diagram, decision log and delivery status. Treat these as a candidate until PM approves their integration into main.
+The PM subsequently approved the home-screen prototype and authorized **candidate
+coding only** under [Issue #49](https://github.com/QQweasdzxc/zhuge-ai-os/issues/49).
+This does not authorize a production deploy, database change or main merge.
 
 ## Current map
 
