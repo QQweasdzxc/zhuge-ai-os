@@ -51,7 +51,7 @@ RETURNS TABLE (
     replayed BOOLEAN
 )
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, taskflow, extensions, pg_temp
 AS $function$
 DECLARE
@@ -272,7 +272,7 @@ RETURNS TABLE (
     replayed BOOLEAN
 )
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, taskflow, extensions, pg_temp
 AS $function$
 DECLARE

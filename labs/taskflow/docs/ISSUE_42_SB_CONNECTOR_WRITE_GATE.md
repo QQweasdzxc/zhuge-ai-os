@@ -18,7 +18,7 @@ Neither file is an automatic migration. They are not applied to Production.
 
 ## Function contract
 
-The install script creates two `SECURITY DEFINER` functions in `taskflow`,
+The install script creates two `SECURITY INVOKER` functions in `taskflow`,
 revokes their default `PUBLIC` execute permission, and grants execution only to
 the existing trusted `postgres` Connector role:
 
@@ -52,11 +52,12 @@ for idempotent retries. Readback uses the existing `taskflow.issue` and
 `taskflow.project` tables.
 
 The SQL scopes every application relation to `taskflow` and fixes the function
-search path. The function owner remains the existing install identity (`postgres`)
-because the restricted runtime role must not receive schema CREATE privileges.
-The Connector already has broad privileges as `postgres`; this SQL does not
-extend those privileges. Consequently, the function is an operationally
-controlled entry point, not a defense against misuse of the trusted Connector.
+search path. The Connector calls as the existing privileged `postgres` role,
+so `SECURITY INVOKER` is sufficient and avoids introducing an unnecessary
+RLS-bypassing definer context. The Connector already has broad privileges as
+`postgres`; this SQL does not extend those privileges. Consequently, the
+function is an operationally controlled entry point, not a defense against
+misuse of the trusted Connector.
 
 ## Native EventBus difference
 
@@ -103,8 +104,9 @@ Before the first Production write, a PM-approved one-card canary must:
 1. Read the selected Project/Workspace, sole owner member, current prefix and
    counter, active status, and current Issue count without changing data.
 2. Install the SQL as a separately reviewed operator change (not app startup
-   migration), verify the function ACL, fixed search path and `postgres`
-   owner, and confirm no API role gained execute or table privileges.
+   migration), verify the function ACL, `SECURITY INVOKER`, fixed search path
+   and `postgres` ownership, and confirm no API role gained execute or table
+   privileges.
 3. Call create with a fresh UUID request key and a clearly marked canary title
    in a PM-selected Project; read back the returned Issue ID, ZG identifier,
    Project, Workspace, status, activity and subscription through the Connector.

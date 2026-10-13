@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 
-REPO = Path(os.environ.get("TASKFLOW_ATTACHMENT_REPO", Path(__file__).resolve().parents[3])).resolve()
+REPO = Path(os.environ["TASKFLOW_ATTACHMENT_REPO"]).resolve() if os.environ.get("TASKFLOW_ATTACHMENT_REPO") else Path(__file__).resolve().parents[3].resolve()
 VENDOR = Path(os.environ.get("TASKFLOW_ATTACHMENT_VENDOR", REPO / "third_party/multica")).resolve()
 PATCH_PATH = Path(os.environ.get(
     "TASKFLOW_ATTACHMENT_PATCH",

@@ -15,7 +15,10 @@ class TaskFlowConnectorIssueSqlTests(unittest.TestCase):
         cls.rollback = ROLLBACK.read_text()
 
     def test_functions_are_taskflow_scoped_and_execute_is_connector_only(self) -> None:
-        self.assertIn("SECURITY DEFINER", self.sql)
+        # The trusted Connector calls as the already-privileged postgres role,
+        # so the function must not add an unnecessary RLS-bypassing definer context.
+        self.assertEqual(self.sql.count("SECURITY INVOKER"), 2)
+        self.assertNotIn("SECURITY DEFINER", self.sql)
         self.assertIn("SET search_path = pg_catalog, taskflow, extensions, pg_temp", self.sql)
         self.assertNotRegex(self.sql, r"\bpublic\s*\.")
         self.assertNotRegex(self.sql, r"GRANT\s+(?:ALL|SELECT|INSERT|UPDATE|DELETE).*\b(?:anon|authenticated|service_role|taskflow_runtime)\b")
