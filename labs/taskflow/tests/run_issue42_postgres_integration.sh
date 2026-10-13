@@ -145,7 +145,7 @@ if ! grep -Fq "active duplicate issue exists" "$duplicate_error"; then
   exit 1
 fi
 duplicate_count="$(psql "$CONNECTOR_URL" -At -v ON_ERROR_STOP=1 -c \
-  "SELECT count(*) FROM taskflow.issue WHERE project_id='30000000-0000-4000-8000-000000000001' AND title='Concurrent same-title QA'")"
+  "SELECT count(*) FROM taskflow.issue WHERE project_id='30000000-0000-4000-8000-000000000001' AND lower(btrim(regexp_replace(title, '[[:space:]]+', ' ', 'g')))='concurrent same-title qa'")"
 if [[ "$duplicate_count" != "1" ]]; then
   echo "Issue #42 concurrent normalized duplicate count was ${duplicate_count}, expected 1" >&2
   exit 1
