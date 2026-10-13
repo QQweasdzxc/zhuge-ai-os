@@ -17,7 +17,7 @@
 | TF 附件 | 使用者回報 PDF／圖片 Preview missing authorization；下載可用，另有 13.5 MB PPTX 500。 | 預覽、下載、安全授權正常。 | #45 修 Preview；PPTX 另查。 |
 | 統一日曆 | WorkLog 已有成熟月曆；TF Issue 有日期欄位。 | 任務日期／工時分圖層整合；後續 Google 同步。 | #47 WorkLog reuse assessment → #46 Calendar candidate。 |
 | Google Calendar | 目前沒有證據證明 PM 個人「Zhuge AI OS」次要日曆已接上自動同步。 | TF 有日期卡全部單向、Cloud 背景補漏。 | 隔離 OAuth／Google QA；正式 PM 帳號 HOLD。 |
-| 工作首頁 Dashboard | TF 原生 /usage 是 Usage／Errors 分析，另有簡單 Project 進度；非工作首頁。 | 今日待辦、追蹤、到期、行程、Apps。 | **先跟 PM 定 UI 原型，Coding HOLD**。 |
+| 工作首頁 Dashboard | TF 原生 /usage 是 Usage／Errors 分析，另有簡單 Project 進度；非工作首頁。 | PM 已選定深色側欄＋淺色卡片原型：今日待辦、追蹤、行事曆、到期、Investment、WorkLog、Apps，Widget 可個人化。 | [#49](https://github.com/QQweasdzxc/zhuge-ai-os/issues/49) 候選 Coding GO；真資料／授權／Mobile QA／正式發布仍 HOLD。 |
 
 ## 二、截至快照的 GitHub 身分與候選
 
@@ -38,7 +38,7 @@
 | [#45](https://github.com/QQweasdzxc/zhuge-ai-os/issues/45) | Preview／Upload | 隔離修復 GO | PDF／圖片／大 PPTX 的實際 Runtime QA |
 | [#46](https://github.com/QQweasdzxc/zhuge-ai-os/issues/46) | TF + WorkLog Calendar／Google | 以 #47 可重用性為前置，候選／隔離 QA GO | 日期語意、OAuth 測試、Cloud reconciliation、PM Google 真實寫入 |
 | [#47](https://github.com/QQweasdzxc/zhuge-ai-os/issues/47) | TF 主入口、Apps／WorkLog | 初始 Issue 唯讀 Gate；**PM 後續核准 A 候選 GO、B 先驗證** | Issue 文案與 PM 最新授權同步、SSO/跨來源驗證、避免全面重寫 |
-| 首頁 UI | 產品設計 | 需求確認，**UI／Coding HOLD** | PM 同意線框圖與 UX 設計後再 Candidate GO |
+| [#49](https://github.com/QQweasdzxc/zhuge-ai-os/issues/49) | 工作首頁 Dashboard | **PM 已同意原型，候選開發 GO** | 真資料、Investment、WorkLog、Widget 偏好與 Desktop/Mobile QA；Production HOLD |
 
 **授權重要說明**：上表的「GO」只授權非正式候選、文件及隔離 QA；沒有任何一列等於 PM 授權修改正式 Supabase Auth/RLS/GRANT、PM Google Calendar、合併 main 或部署 Render。
 
