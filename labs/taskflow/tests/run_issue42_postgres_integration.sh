@@ -174,7 +174,7 @@ $$;
 SQL
 psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$ROOT/labs/taskflow/sql/issue42_connector_create_issue_candidate.sql"
 psql "$CONNECTOR_URL" -At -v ON_ERROR_STOP=1 -c \
-  "SELECT issue_id::text || '|' || replayed::text FROM taskflow.sb_connector_update_issue('40000000-0000-4000-8000-000000000004','30000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-000000000001',1,'Issue42 updated path','Updated synthetic description','in_progress','high','2026-10-13','2026-10-20')" \
+  "SELECT issue_id::text || '|' || replayed::text FROM taskflow.sb_connector_update_issue('40000000-0000-4000-8000-000000000004','30000000-0000-4000-8000-000000000001',(SELECT issue_id FROM taskflow.sb_connector_issue_request WHERE request_id='40000000-0000-4000-8000-000000000004'),1,'Issue42 updated path','Updated synthetic description','in_progress','high','2026-10-13','2026-10-20')" \
   >/tmp/issue42-reinstall-replay.log
 if ! grep -Eq '\|true$' /tmp/issue42-reinstall-replay.log; then
   cat /tmp/issue42-reinstall-replay.log >&2
