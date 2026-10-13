@@ -1,0 +1,122 @@
+{
+  "en": {
+    "button": "Project statuses",
+    "title": "Project statuses and fields",
+    "description": "Status columns are configured for this project. Hidden columns stay available in the Hidden columns panel and can be restored without deleting tasks. The seven built-in statuses are preserved.",
+    "fields": "Project status fields",
+    "visibility": "Show {{name}} status column",
+    "built_in": "Built-in",
+    "new_status": "New status name",
+    "edit_status": "Edit status name",
+    "save_status": "Save status name",
+    "cancel_edit": "Cancel editing",
+    "category": "Status category",
+    "categories": {
+      "unstarted": "Not started",
+      "started": "In progress",
+      "done": "Completed",
+      "closed": "Closed"
+    },
+    "add": "Add status",
+    "admin_required": "Only workspace owners and admins can add a status.",
+    "restore_defaults": "Restore default columns",
+    "done": "Done",
+    "save_failed": "Couldn't save project status settings. Try again."
+  },
+  "zh-Hant": {
+    "button": "專案狀態",
+    "title": "專案狀態與欄位",
+    "description": "狀態欄只套用於此專案。隱藏欄位仍可在「隱藏欄位」面板中還原，不會刪除任務。七種內建狀態都會保留。",
+    "fields": "專案狀態欄位",
+    "visibility": "顯示「{{name}}」狀態欄",
+    "built_in": "內建",
+    "new_status": "新狀態名稱",
+    "edit_status": "編輯狀態名稱",
+    "save_status": "儲存狀態名稱",
+    "cancel_edit": "取消編輯",
+    "category": "狀態類別",
+    "categories": {
+      "unstarted": "尚未開始",
+      "started": "進行中",
+      "done": "已完成",
+      "closed": "已關閉"
+    },
+    "add": "新增狀態",
+    "admin_required": "只有工作空間擁有者與管理員可以新增狀態。",
+    "restore_defaults": "還原預設欄位",
+    "done": "完成",
+    "save_failed": "無法儲存專案狀態設定，請再試一次。"
+  },
+  "zh-Hans": {
+    "button": "项目状态",
+    "title": "项目状态与字段",
+    "description": "状态列仅应用于此项目。隐藏列仍可在“隐藏列”面板中恢复，不会删除任务。七种内置状态都会保留。",
+    "fields": "项目状态字段",
+    "visibility": "显示“{{name}}”状态列",
+    "built_in": "内置",
+    "new_status": "新状态名称",
+    "edit_status": "编辑状态名称",
+    "save_status": "保存状态名称",
+    "cancel_edit": "取消编辑",
+    "category": "状态类别",
+    "categories": {
+      "unstarted": "未开始",
+      "started": "进行中",
+      "done": "已完成",
+      "closed": "已关闭"
+    },
+    "add": "新增状态",
+    "admin_required": "只有工作空间所有者和管理员可以新增状态。",
+    "restore_defaults": "恢复默认字段",
+    "done": "完成",
+    "save_failed": "无法保存项目状态设置，请重试。"
+  },
+  "ja": {
+    "button": "プロジェクトのステータス",
+    "title": "プロジェクトのステータスと項目",
+    "description": "ステータス列の設定はこのプロジェクトだけに適用されます。非表示の列は「非表示の列」パネルから復元でき、タスクは削除されません。組み込みの7種類のステータスは保持されます。",
+    "fields": "プロジェクトのステータス項目",
+    "visibility": "「{{name}}」ステータス列を表示",
+    "built_in": "組み込み",
+    "new_status": "新しいステータス名",
+    "edit_status": "ステータス名を編集",
+    "save_status": "ステータス名を保存",
+    "cancel_edit": "編集をキャンセル",
+    "category": "ステータス分類",
+    "categories": {
+      "unstarted": "未着手",
+      "started": "進行中",
+      "done": "完了",
+      "closed": "終了"
+    },
+    "add": "ステータスを追加",
+    "admin_required": "ステータスを追加できるのはワークスペースのオーナーと管理者のみです。",
+    "restore_defaults": "既定の列に戻す",
+    "done": "完了",
+    "save_failed": "プロジェクトのステータス設定を保存できませんでした。もう一度お試しください。"
+  },
+  "fr": {
+    "button": "Statuts du projet",
+    "title": "Statuts et champs du projet",
+    "description": "Les colonnes de statut sont configurées pour ce projet. Les colonnes masquées restent disponibles dans le panneau « Colonnes masquées » et peuvent être restaurées sans supprimer les tâches. Les sept statuts intégrés sont conservés.",
+    "fields": "Champs de statut du projet",
+    "visibility": "Afficher la colonne de statut « {{name}} »",
+    "built_in": "Intégré",
+    "new_status": "Nom du nouveau statut",
+    "edit_status": "Modifier le nom du statut",
+    "save_status": "Enregistrer le nom du statut",
+    "cancel_edit": "Annuler la modification",
+    "category": "Catégorie du statut",
+    "categories": {
+      "unstarted": "Pas commencé",
+      "started": "En cours",
+      "done": "Terminé",
+      "closed": "Clos"
+    },
+    "add": "Ajouter un statut",
+    "admin_required": "Seuls les propriétaires et les administrateurs de l’espace peuvent ajouter un statut.",
+    "restore_defaults": "Restaurer les colonnes par défaut",
+    "done": "Terminé",
+    "save_failed": "Impossible d’enregistrer les paramètres de statut du projet. Réessayez."
+  }
+}
