@@ -19,7 +19,7 @@ flowchart TB
   R -->|"駁回"| A
   G -->|"APPROVED"| T["TaskFlow｜主要操作平台（目標）"]
 
-  T --> H["首頁：今日待處理／待追蹤／行事曆（UI 待定）"]
+  T --> H["首頁：今日待辦／待追蹤／行事曆／Investment／WorkLog／Apps（候選 GO）"]
   T --> I["Projects／Issues／看板"]
   T --> C["統一日曆（規劃）"]
   T --> M["Apps 導覽"]
@@ -40,7 +40,7 @@ flowchart TB
 
 | 區塊 | PM 使用目的 | 目前定位 |
 | --- | --- | --- |
-| Home | 今天要處理什麼、今日行程、待追蹤、近期到期 | **需求已確認；首頁 UI 未定稿，Coding HOLD** |
+| Home | 今天要處理什麼、行事曆、待追蹤、近期到期、Investment、WorkLog、Apps | **PM 已同意原型；#49 候選 Coding GO，Production HOLD，未上線** |
 | TaskFlow | Project／Issue／看板／工作流程 | 既有原生能力，持續候選修正 |
 | Calendar | TF 任務日期、WorkLog 完成工時不同圖層；未來會議時間 | 架構方向已核准，待分階段整合 |
 | Apps | WorkLog、Investment 等原模組入口 | Phase A 導覽捷徑；Phase B 功能融合 |
@@ -89,7 +89,7 @@ flowchart LR
 4. TF 任務 `start_date`／`due_date` 是 date-only。未來 Google 同步為 **有日期的全部 TF Issue** → 個人次要日曆，第一階段單向、背景補漏；WorkLog 完成工時預設不同步。日期不等於預約時間。
 5. CTO 經現有 Supabase Connector 朝受控 TF 建卡／更新實作；PM 知道共用 postgres 身分邊界，仍須驗證編號、關聯、最小權限、必要紀錄和直接 SQL 的事件差異；**未核准不寫 Production**。
 6. 保護 Frozen Vendor、工作紀錄、現有 Auth／RLS 與已驗證性能；候選開發、正式合併與 Production Release 是不同授權。
-7. 首頁突出今日待辦、待追蹤、行事曆、近期到期、WorkLog 摘要。**Token／成本／Agent 執行分析不出現在首頁**；Dashboard 版型待 PM 討論。
+7. 首頁依 PM 2026-10-13 核准的原型：今日待辦、待追蹤、行事曆、即將到期、**Investment 投資總覽**、WorkLog 摘要及 Apps，固定網格中個人可顯示／隱藏、排序及調整卡片大小。**Token／成本／Agent 執行分析不出現在首頁**。#49 候選 Coding GO，但未部署正式環境。
 
 ## 五、資料與設計權威界線
 
