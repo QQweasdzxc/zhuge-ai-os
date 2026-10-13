@@ -3,6 +3,7 @@ import {
   encodeTaskFlowProjectStatusKey,
   isTaskFlowProjectStatusKey,
   scopeTaskFlowStatusCatalog,
+  taskFlowInternalProjectStatusName,
   taskFlowProjectIdFromStatusKey,
 } from "./taskflow-project-status-scope";
 import { buildIssueStatusCatalog } from "@multica/core/issue-statuses/queries";
@@ -65,5 +66,29 @@ describe("TaskFlow Project status scope", () => {
     // Historical rows still resolve even when their status is not assignable here.
     expect(projectA.entryOf(projectBKey)?.name).toBe(projectBKey);
     expect(projectA.statuses).toHaveLength(builtIns.length + 2);
+  });
+
+  it("allows identical Project labels while keeping the stored native names unique", () => {
+    const keyA = encodeTaskFlowProjectStatusKey(PROJECT_A, "0001");
+    const keyB = encodeTaskFlowProjectStatusKey(PROJECT_B, "0001");
+    const nameA = taskFlowInternalProjectStatusName(keyA);
+    const nameB = taskFlowInternalProjectStatusName(keyB);
+    const catalog = buildIssueStatusCatalog([
+      status("todo", true),
+      { ...status(keyA), name: nameA },
+      { ...status(keyB), name: nameB },
+    ]);
+
+    const projectA = scopeTaskFlowStatusCatalog(catalog, PROJECT_A, { [keyA]: "待確認中" });
+    const projectB = scopeTaskFlowStatusCatalog(catalog, PROJECT_B, { [keyB]: "待確認中" });
+
+    expect(nameA).not.toBe(nameB);
+    expect(nameA).toBe(`TF:${keyA}`);
+    expect(projectA.labelOf(keyA)).toBe("待確認中");
+    expect(projectB.labelOf(keyB)).toBe("待確認中");
+    expect(projectA.entryOf(keyA)?.name).toBe("待確認中");
+    expect(projectB.entryOf(keyB)?.name).toBe("待確認中");
+    expect(projectA.entryOf(keyB)?.name).toBe(nameB);
+    expect(scopeTaskFlowStatusCatalog(catalog, null).labelOf(keyA)).toBe(nameA);
   });
 });

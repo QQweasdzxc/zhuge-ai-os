@@ -39,8 +39,8 @@ def patch_status_hook(source: str) -> str:
   // TASKFLOW_PROJECT_STATUS_SCOPE: project-owned keys are assignable only in
   // their Project surface; all rows remain available for historical labels.
   return useMemo(
-    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId),
-    [catalog, projectStatusSettings.projectId],
+    () => scopeTaskFlowStatusCatalog(catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels),
+    [catalog, projectStatusSettings.projectId, projectStatusSettings.statusLabels],
   );''',
         "scope project-owned status choices",
     )

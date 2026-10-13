@@ -25,9 +25,10 @@ import { useWorkspaceId } from "@multica/core/hooks";
 import { useAuthStore } from "@multica/core/auth";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
-import { useCreateIssueStatus, useUpdateIssueStatus } from "@multica/core/issue-statuses/mutations";
+import { useCreateIssueStatus } from "@multica/core/issue-statuses/mutations";
 import {
   createTaskFlowProjectStatusKey,
+  taskFlowInternalProjectStatusName,
   taskFlowProjectIdFromStatusKey,
   useTaskFlowProjectStatusSettings,
 } from "@multica/core/issue-statuses/taskflow-project-status-scope";
@@ -56,7 +57,6 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
   const statusKeys = useMemo(() => new Set(catalog.statuses.map((status) => status.key)), [catalog.statuses]);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const updateStatus = useUpdateIssueStatus();
 
   if (settings.projectId !== projectId) return null;
 
@@ -75,22 +75,23 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
       const key = createTaskFlowProjectStatusKey(projectId, statusKeys);
       await createStatus.mutateAsync({
         key,
-        name: normalizedName,
+        name: taskFlowInternalProjectStatusName(key),
         description: "",
         category,
         color: "#64748b",
       });
+      await settings.setStatusLabel(key, normalizedName);
       setName("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t(($) => $.taskflow_project_status.save_failed));
     }
   };
 
-  const saveStatusName = async (statusId: string) => {
+  const saveStatusName = async (statusKey: string) => {
     const normalizedName = editingName.trim();
-    if (!normalizedName || normalizedName.length > 64 || updateStatus.isPending) return;
+    if (!normalizedName || normalizedName.length > 64 || settings.isLoading) return;
     try {
-      await updateStatus.mutateAsync({ id: statusId, name: normalizedName });
+      await settings.setStatusLabel(statusKey, normalizedName);
       setEditingKey(null);
       setEditingName("");
     } catch (error) {
@@ -131,7 +132,9 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                     checked={visible}
                     disabled={settings.isLoading}
                     onChange={(event) => void saveVisibility(status.key, event.currentTarget.checked)}
-                    aria-label={t(($) => $.taskflow_project_status.visibility, { name: status.name })}
+                    aria-label={t(($) => $.taskflow_project_status.visibility, {
+                      name: settings.statusLabels[status.key] ?? status.name,
+                    })}
                     className="size-4 shrink-0 accent-primary"
                   />
                   {editingKey === status.key ? (
@@ -141,18 +144,19 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                         onChange={(event) => setEditingName(event.currentTarget.value)}
                         aria-label={t(($) => $.taskflow_project_status.edit_status)}
                         maxLength={64}
-                        disabled={updateStatus.isPending}
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
                             event.preventDefault();
-                            void saveStatusName(status.id);
+                            void saveStatusName(status.key);
                           }
                           if (event.key === "Escape") setEditingKey(null);
                         }}
                       />
                     </div>
                   ) : (
-                    <label htmlFor={checkboxId} className="min-w-0 flex-1 truncate py-1 text-body">{status.name}</label>
+                    <label htmlFor={checkboxId} className="min-w-0 flex-1 truncate py-1 text-body">
+                      {settings.statusLabels[status.key] ?? status.name}
+                    </label>
                   )}
                   {status.is_system && (
                     <span className="shrink-0 text-caption text-muted-foreground">{t(($) => $.taskflow_project_status.built_in)}</span>
@@ -165,8 +169,8 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                           variant="ghost"
                           size="icon-sm"
                           aria-label={t(($) => $.taskflow_project_status.save_status)}
-                          disabled={!editingName.trim() || updateStatus.isPending}
-                          onClick={() => void saveStatusName(status.id)}
+                          disabled={!editingName.trim() || settings.isLoading}
+                          onClick={() => void saveStatusName(status.key)}
                         >
                           <Check className="size-4" />
                         </Button>
@@ -188,7 +192,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                         aria-label={t(($) => $.taskflow_project_status.edit_status)}
                         onClick={() => {
                           setEditingKey(status.key);
-                          setEditingName(status.name);
+                          setEditingName(settings.statusLabels[status.key] ?? status.name);
                         }}
                       >
                         <Pencil className="size-4" />

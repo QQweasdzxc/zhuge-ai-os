@@ -9,10 +9,10 @@ const { execFileSync } = require("node:child_process");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const ARTIFACT_TYPES = Object.freeze({ candidate: "Candidate", review: "Review", "qa-backup": "QA-Backup" });
-// Lab_投資 is an active Product runtime and shares the root Product Build.
-// Keep it under this existing governance authority so its cache-busters cannot
-// drift into a second release identity.
-const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared", "labs/investment"];
+// Active TaskFlow and Lab_投資 runtimes share the root Product Build.
+// Keep their runtime cache-busters under the same governance authority so
+// they cannot drift into separate release identities.
+const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared", "labs/investment", "labs/taskflow"];
 const RUNTIME_EXCLUDED_ROOTS = ["labs/investment/docs", "labs/investment/test"];
 const RUNTIME_EXTENSIONS = new Set([".html", ".js", ".mjs", ".css"]);
 const FORBIDDEN_DIRECTORY_NAMES = new Set([".git", "dist", "node_modules", ".cache", "cache", "tmp", "temp", "browser-profile", "playwright-report", "test-results"]);

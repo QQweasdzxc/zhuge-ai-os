@@ -15,17 +15,21 @@ const DIGITS = "0123456789abcdefghijklmnopqrstuv";
 export interface TaskFlowProjectStatusSettings {
   projectId: string | null;
   hiddenStatusKeys: string[];
+  statusLabels: Record<string, string>;
   isLoading: boolean;
   saveHiddenStatusKeys: (keys: string[] | null) => Promise<void>;
   setStatusVisible: (key: string, visible: boolean) => Promise<void>;
+  setStatusLabel: (key: string, label: string) => Promise<void>;
 }
 
 const EMPTY_SETTINGS: TaskFlowProjectStatusSettings = {
   projectId: null,
   hiddenStatusKeys: [...DEFAULT_HIDDEN_STATUSES],
+  statusLabels: {},
   isLoading: false,
   saveHiddenStatusKeys: async () => undefined,
   setStatusVisible: async () => undefined,
+  setStatusLabel: async () => undefined,
 };
 
 const TaskFlowProjectStatusContext = createContext<TaskFlowProjectStatusSettings>(EMPTY_SETTINGS);
@@ -75,10 +79,22 @@ export function isTaskFlowProjectStatusKey(key: string): boolean {
   return taskFlowProjectIdFromStatusKey(key) !== null;
 }
 
+/**
+ * The native status table enforces active-name uniqueness per Workspace.
+ * Store an opaque, stable native name and keep the Project's display label in
+ * its existing per-user view preference instead. This permits two Projects
+ * to use the same visible label without changing the native schema or index.
+ */
+export function taskFlowInternalProjectStatusName(key: string): string {
+  if (!isTaskFlowProjectStatusKey(key)) throw new Error("Invalid TaskFlow Project status key");
+  return `TF:${key}`;
+}
+
 /** Filter only assignable columns; retain the full label lookup for historic rows. */
 export function scopeTaskFlowStatusCatalog(
   catalog: IssueStatusCatalog,
   projectId: string | null,
+  statusLabels: Record<string, string> = {},
 ): IssueStatusCatalog {
   // A project-owned status must not leak into the workspace-wide surface. A
   // project surface sees the native workspace statuses plus only its own
@@ -89,15 +105,26 @@ export function scopeTaskFlowStatusCatalog(
       ? ownerId === null || ownerId === projectId.toLowerCase()
       : ownerId === null;
   });
-  const scopedKeys = new Set(scopedStatuses.map((entry) => entry.key));
-  const activeStatuses = catalog.activeStatuses.filter((entry) => scopedKeys.has(entry.key));
+  const withProjectLabels = (entry: IssueStatusCatalog["statuses"][number]) => {
+    const ownerId = taskFlowProjectIdFromStatusKey(entry.key);
+    const label = projectId && ownerId === projectId.toLowerCase() ? statusLabels[entry.key] : undefined;
+    return label?.trim() ? { ...entry, name: label.trim() } : entry;
+  };
+  const statuses = scopedStatuses.map(withProjectLabels);
+  const byKey = new Map(statuses.map((entry) => [entry.key, entry]));
+  const scopedKeys = new Set(statuses.map((entry) => entry.key));
+  const activeStatuses = catalog.activeStatuses
+    .filter((entry) => scopedKeys.has(entry.key))
+    .map(withProjectLabels);
   return {
     ...catalog,
     // Keep archived statuses in this Project for historical columns. Other
     // Project labels remain available through entryOf/labelOf, but never add
     // columns or assignment choices to this Project's surface.
-    statuses: scopedStatuses,
+    statuses,
     activeStatuses,
+    entryOf: (statusKey) => byKey.get(statusKey) ?? catalog.entryOf(statusKey),
+    labelOf: (statusKey) => byKey.get(statusKey)?.name ?? catalog.labelOf(statusKey),
     inCategory: (category) => activeStatuses.filter((entry) => entry.category === category),
     hasCustomStatuses: activeStatuses.some((entry) => !entry.is_system),
   };
@@ -129,6 +156,18 @@ export function TaskFlowProjectStatusScopeProvider({
     if (!Array.isArray(saved)) return [...DEFAULT_HIDDEN_STATUSES];
     return [...new Set(saved.filter((key): key is string => typeof key === "string"))];
   }, [query.data]);
+  const statusLabels = useMemo(() => {
+    const saved = query.data?.prefs.taskflow_project_status_labels;
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+    return Object.fromEntries(
+      Object.entries(saved).filter(([key, value]) =>
+        taskFlowProjectIdFromStatusKey(key) === projectId?.toLowerCase()
+        && typeof value === "string"
+        && value.trim().length > 0
+        && value.length <= 64,
+      ),
+    );
+  }, [projectId, query.data]);
 
   const enqueue = useCallback(<T,>(operation: () => Promise<T>) => {
     const result = writeQueue.current.then(operation, operation);
@@ -167,6 +206,32 @@ export function TaskFlowProjectStatusScopeProvider({
     });
     queryClient.setQueryData(issueViewPrefKeys.scope(workspaceId, scope), updated);
   }, [projectId, queryClient, scope, workspaceId]);
+  const persistStatusLabel = useCallback(async (key: string, label: string) => {
+    if (!workspaceId || !projectId || !scope) throw new Error("Project status labels require an active Project");
+    if (taskFlowProjectIdFromStatusKey(key) !== projectId.toLowerCase()) {
+      throw new Error("Status label does not belong to the active Project");
+    }
+    const normalized = label.trim();
+    if (!normalized || normalized.length > 64) throw new Error("Status label must contain 1 to 64 characters");
+    const options = issueViewPreferenceOptions(workspaceId, scope);
+    const current = await queryClient.fetchQuery(options);
+    const prefs: Record<string, unknown> = { ...current.prefs };
+    const stored = prefs.taskflow_project_status_labels;
+    const labels = stored && typeof stored === "object" && !Array.isArray(stored)
+      ? { ...(stored as Record<string, unknown>) }
+      : {};
+    labels[key] = normalized;
+    const updated = await api.putIssueViewPreference({
+      ...scope,
+      prefs: {
+        ...prefs,
+        taskflow_project_status_labels: labels,
+        hidden: current.prefs.hidden,
+        order: current.prefs.order,
+      } as typeof current.prefs,
+    });
+    queryClient.setQueryData(issueViewPrefKeys.scope(workspaceId, scope), updated);
+  }, [projectId, queryClient, scope, workspaceId]);
   const saveHiddenStatusKeys = useCallback(
     (keys: string[] | null) => enqueue(() => persistHiddenStatusKeys({ kind: "replace", keys })),
     [enqueue, persistHiddenStatusKeys],
@@ -175,14 +240,20 @@ export function TaskFlowProjectStatusScopeProvider({
     (key: string, visible: boolean) => enqueue(() => persistHiddenStatusKeys({ kind: "visibility", key, visible })),
     [enqueue, persistHiddenStatusKeys],
   );
+  const setStatusLabel = useCallback(
+    (key: string, label: string) => enqueue(() => persistStatusLabel(key, label)),
+    [enqueue, persistStatusLabel],
+  );
 
   const value = useMemo<TaskFlowProjectStatusSettings>(() => ({
     projectId,
     hiddenStatusKeys,
+    statusLabels,
     isLoading: Boolean(projectId && query.isPending),
     saveHiddenStatusKeys,
     setStatusVisible,
-  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusVisible]);
+    setStatusLabel,
+  }), [hiddenStatusKeys, projectId, query.isPending, saveHiddenStatusKeys, setStatusLabel, setStatusVisible, statusLabels]);
 
   return <TaskFlowProjectStatusContext.Provider value={value}>{children}</TaskFlowProjectStatusContext.Provider>;
 }

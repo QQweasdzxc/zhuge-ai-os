@@ -59,6 +59,16 @@ RUN TASKFLOW_ZH_HANT_ROOT=/src \
     python3 /tmp/test_taskflow_zh_hant_overlay.py \
  && python3 /tmp/apply-taskflow-zh-hant.py --target web --root /src --overlays /taskflow-zh-hant
 
+COPY labs/taskflow/patches/apply-taskflow-apps-navigation.py /tmp/apply-taskflow-apps-navigation.py
+COPY labs/taskflow/tests/test_taskflow_apps_navigation_overlay.py /tmp/test_taskflow_apps_navigation_overlay.py
+COPY labs/taskflow/overrides/locales/zh-Hant/layout.json /tmp/taskflow-apps-zh-Hant-layout.json
+RUN TASKFLOW_APPS_REPO=/ \
+    TASKFLOW_APPS_VENDOR=/src \
+    TASKFLOW_APPS_PATCH=/tmp/apply-taskflow-apps-navigation.py \
+    TASKFLOW_APPS_HANT_LAYOUT=/tmp/taskflow-apps-zh-Hant-layout.json \
+    python3 /tmp/test_taskflow_apps_navigation_overlay.py \
+ && python3 /tmp/apply-taskflow-apps-navigation.py --root /src
+
 COPY labs/taskflow/patches/apply-taskflow-project-status.py /tmp/apply-taskflow-project-status.py
 COPY labs/taskflow/tests/test_taskflow_project_status_overlay.py /tmp/test_taskflow_project_status_overlay.py
 COPY labs/taskflow/overrides/taskflow-project-status-scope.tsx /taskflow-project-status/taskflow-project-status-scope.tsx
@@ -72,6 +82,14 @@ RUN TASKFLOW_PROJECT_STATUS_REPO_ROOT=/ \
     TASKFLOW_PROJECT_STATUS_OVERLAY_ROOT=/taskflow-project-status \
     python3 /tmp/test_taskflow_project_status_overlay.py \
  && python3 /tmp/apply-taskflow-project-status.py --root /src --overlays /taskflow-project-status
+
+COPY labs/taskflow/patches/apply-taskflow-attachment-preview.py /tmp/apply-taskflow-attachment-preview.py
+COPY labs/taskflow/tests/test_taskflow_attachment_preview_overlay.py /tmp/test_taskflow_attachment_preview_overlay.py
+RUN TASKFLOW_ATTACHMENT_REPO=/ \
+    TASKFLOW_ATTACHMENT_VENDOR=/src \
+    TASKFLOW_ATTACHMENT_PATCH=/tmp/apply-taskflow-attachment-preview.py \
+    python3 /tmp/test_taskflow_attachment_preview_overlay.py \
+ && python3 /tmp/apply-taskflow-attachment-preview.py --root /src
 
 FROM node:22-alpine AS deps
 WORKDIR /app

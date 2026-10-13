@@ -14,9 +14,14 @@ that Project. The workspace-wide surface excludes Project-owned keys. Existing
 status lookup closures remain intact so historic issue rows still have labels.
 
 Owner/Admin checks in the UI are only a convenience; the existing native API
-remains the authorization authority for status create/update. Custom status
-names can be edited through the native update mutation. Hiding a status changes
-only the view preference; it does not archive the status or modify issues.
+remains the authorization authority for status creation. Hiding a status
+changes only the view preference; it does not archive the status or modify
+issues. Project display names are stored in the existing per-user Project
+view preference. The native status row uses an internal `TF:<project-key>`
+name, so two Projects in one Workspace can show the same display label without
+violating the native Workspace-unique status-name index. Renaming a Project
+status changes only that Project/user alias and does not update the shared
+native status row.
 
 ## Persistence
 
@@ -27,19 +32,27 @@ preserved when either settings surface writes the whole JSON document. Reset
 removes only the TaskFlow key, restoring the native default hidden status.
 This is the existing per-user/per-Project preference contract, so visibility
 is currently personal to each member rather than shared Project configuration.
+Display aliases use the same preference record under
+`prefs.taskflow_project_status_labels`; they are likewise per-user and per-
+Project. Creating a custom status requires the native status API call followed
+by saving this alias. If the preference write fails after status creation, the
+native row remains with its opaque internal name; the Project owner can retry
+by editing its label. The UI surfaces the write failure and does not delete
+the status or any issue.
 
-The native database also enforces unique active status names per Workspace.
-Therefore two Projects in one Workspace cannot currently create active custom
-statuses with the exact same name. This overlay does not disguise or rewrite
-names to bypass that native constraint.
+The native database still enforces unique active status names per Workspace.
+This overlay deliberately uses unique opaque names in that shared row and
+keeps the requested duplicate display labels in the Project-scoped preference;
+it does not relax or modify the native uniqueness constraint.
 
 ## Important isolation limit for CTO review
 
 The canonical `issue_status` table and native status API are Workspace-scoped;
 they have no `project_id` ownership field. This candidate provides
-Project-scoped behavior in TaskFlow Web, but not a database-enforced boundary:
-other clients and direct API callers can still enumerate Workspace status
-rows, and the API does not validate a status key against an issue's Project.
+Project-scoped behavior and display labels in TaskFlow Web, but not a
+database-enforced boundary: other clients and direct API callers can still
+enumerate Workspace status rows, and the API does not validate a status key
+against an issue's Project.
 The category attached to a custom status retains its native lifecycle behavior.
 Strict server-side Project ownership would require a backend/schema change and
 is intentionally not claimed by this overlay-only candidate.

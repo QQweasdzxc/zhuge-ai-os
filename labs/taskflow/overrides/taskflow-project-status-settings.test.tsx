@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TaskFlowProjectStatusSettings } from "./taskflow-project-status-settings";
 
 const state = vi.hoisted(() => ({
@@ -8,8 +8,8 @@ const state = vi.hoisted(() => ({
   hidden: ["cancelled"] as string[],
   save: vi.fn().mockResolvedValue(undefined),
   setVisible: vi.fn().mockResolvedValue(undefined),
+  setLabel: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue({ key: "project_status" }),
-  update: vi.fn().mockResolvedValue(undefined),
   statuses: [
     ...["backlog", "todo", "in_progress", "in_review", "done", "blocked", "cancelled"].map((key) => ({
       id: `system-${key}`,
@@ -41,7 +41,6 @@ vi.mock("@multica/core/issue-statuses/hooks", () => ({
 }));
 vi.mock("@multica/core/issue-statuses/mutations", () => ({
   useCreateIssueStatus: () => ({ mutateAsync: state.create, isPending: false }),
-  useUpdateIssueStatus: () => ({ mutateAsync: state.update, isPending: false }),
 }));
 vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
   useTaskFlowProjectStatusSettings: () => ({
@@ -50,8 +49,11 @@ vi.mock("@multica/core/issue-statuses/taskflow-project-status-scope", () => ({
     isLoading: false,
     saveHiddenStatusKeys: state.save,
     setStatusVisible: state.setVisible,
+    statusLabels: { [state.ownedKey]: "Waiting for vendor" },
+    setStatusLabel: state.setLabel,
   }),
   createTaskFlowProjectStatusKey: () => "p00000000000000000000000000_0002",
+  taskFlowInternalProjectStatusName: (key: string) => `TF:${key}`,
   taskFlowProjectIdFromStatusKey: (key: string) => key === state.ownedKey ? state.projectId : null,
 }));
 vi.mock("../../i18n", () => ({
@@ -113,8 +115,8 @@ describe("TaskFlow project status controls", () => {
     state.hidden = ["cancelled"];
     state.save.mockClear();
     state.setVisible.mockClear();
+    state.setLabel.mockClear();
     state.create.mockClear();
-    state.update.mockClear();
   });
 
   it("shows the settings in a project-scoped mobile-safe dialog and saves visibility per project", () => {
@@ -127,17 +129,17 @@ describe("TaskFlow project status controls", () => {
     expect(state.setVisible).toHaveBeenCalledWith("done", false);
   });
 
-  it("edits only a Project-owned custom status through the native status mutation", async () => {
+  it("edits only a Project-owned custom status through the project display preference", async () => {
     render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
     fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
     fireEvent.click(screen.getByRole("button", { name: "Edit status name" }));
     const input = screen.getByRole("textbox", { name: "Edit status name" });
     fireEvent.change(input, { target: { value: "Waiting for review" } });
     fireEvent.click(screen.getByRole("button", { name: "Save status name" }));
-    expect(state.update).toHaveBeenCalledWith({ id: "custom-status-1", name: "Waiting for review" });
+    expect(state.setLabel).toHaveBeenCalledWith(state.ownedKey, "Waiting for review");
   });
 
-  it("creates a namespaced custom status without changing its native category", () => {
+  it("creates a namespaced custom status without changing its native category", async () => {
     render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
     fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
     fireEvent.change(screen.getByRole("textbox", { name: "New status name" }), {
@@ -146,9 +148,12 @@ describe("TaskFlow project status controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add status" }));
     expect(state.create).toHaveBeenCalledWith(expect.objectContaining({
       key: "p00000000000000000000000000_0002",
-      name: "Waiting for purchase",
+      name: "TF:p00000000000000000000000000_0002",
       category: "started",
     }));
+    await waitFor(() => {
+      expect(state.setLabel).toHaveBeenCalledWith("p00000000000000000000000000_0002", "Waiting for purchase");
+    });
   });
 
   it("does not render when routed Project context differs", () => {
