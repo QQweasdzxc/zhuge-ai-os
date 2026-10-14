@@ -122,6 +122,9 @@ COPY --from=source /src/package.json /src/turbo.json /src/pnpm-workspace.yaml ./
 COPY --from=source /src/apps/web/ apps/web/
 COPY --from=source /src/packages/ packages/
 RUN pnpm install --frozen-lockfile --offline
+COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx /tmp/taskflow-attachment-preview-token-auth.test.tsx
+RUN cp /tmp/taskflow-attachment-preview-token-auth.test.tsx /app/packages/views/editor/taskflow-attachment-preview-token-auth.test.tsx \
+ && pnpm --filter @multica/views exec vitest run editor/taskflow-attachment-preview-token-auth.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.ts \
  && pnpm --filter @multica/core exec vitest run i18n/pick-locale.test.ts i18n/user-locale-sync.test.tsx i18n/taskflow-locale.test.ts i18n/taskflow-locale-browser.test.ts i18n/taskflow-locale-sync.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-list-load-more-footer.test.tsx \

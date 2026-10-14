@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 TARGET = Path("packages/views/editor/attachment-preview-modal.tsx")
+INLINE_MEDIA_TARGET = Path("packages/views/editor/hooks/use-inline-media-url.ts")
 
 
 def replace_once(source: str, old: str, new: str, label: str) -> str:
@@ -20,13 +21,6 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
 def patch(source: str) -> str:
     if "TASKFLOW_AUTHENTICATED_PDF_PREVIEW" in source:
         raise ValueError("TaskFlow authenticated PDF preview already applied")
-    source = replace_once(
-        source,
-        'import {\n  PreviewTooLargeError,\n  PreviewUnsupportedError,\n} from "@multica/core/api";\n',
-        'import {\n  api,\n  PreviewTooLargeError,\n  PreviewUnsupportedError,\n} from "@multica/core/api";\n'
-        'import { attachmentIdFromDownloadURL } from "@multica/core/types/attachment-url";\n',
-        "authenticated preview imports",
-    )
     source = replace_once(
         source,
         '''  const resigned = useResignedInlineMedia(
@@ -45,21 +39,8 @@ def patch(source: str) -> str:
     state.mediaUrl,
     kind === "image" || boundedPdfBlobFallback,
   );
-  const crossOriginMediaUrl = (() => {
-    if (!/^https?:\\/\\//i.test(state.mediaUrl) || typeof window === "undefined") return false;
-    try {
-      return new URL(state.mediaUrl).origin !== window.location.origin;
-    } catch (_err) {
-      void _err;
-      return false;
-    }
-  })();
   const pdfPreviewUrl = kind === "pdf" ? resigned.url : undefined;
-  const pdfNeedsAuthenticatedFallback = kind === "pdf"
-    && attachmentIdFromDownloadURL(state.mediaUrl) !== undefined
-    && ((api.getBaseUrl?.() ?? "") !== "" || crossOriginMediaUrl)
-    && pdfPreviewUrl === state.mediaUrl
-    && !resigned.pending;''',
+  const pdfNeedsAuthenticatedFallback = kind === "pdf" && resigned.unavailable;''',
         "re-sign PDFs and bound authenticated Blob fallback",
     )
     source = replace_once(
@@ -154,12 +135,124 @@ def patch(source: str) -> str:
       );''',
         "PDF uses authenticated URL or safe fallback",
     )
+    source = replace_once(
+        source,
+        '''  const targetUrl = resigned.pending ? "" : resigned.url;''',
+        '''  // Never let a native media element retry a URL after its authenticated
+  // upgrade was rejected; the UI below offers the authorized download action.
+  const targetUrl = resigned.pending || resigned.unavailable ? "" : resigned.url;''',
+        "do not render protected URL after failed upgrade",
+    )
+    source = replace_once(
+        source,
+        '''          {kind === "image" ? (
+            <ImagePreview
+              state={state}
+              mediaUrl={mediaUrl}
+              canvas={canvas}
+              natural={natural}
+              onNaturalSize={handleNaturalSize}
+              onError={imageLoadError}
+            />
+          ) : (''',
+        '''          {kind === "image" ? (
+            resigned.unavailable ? (
+              <UnsupportedFallback
+                message={t(($) => $.attachment.preview_failed)}
+                onDownload={onDownload}
+              />
+            ) : (
+              <ImagePreview
+                state={state}
+                mediaUrl={mediaUrl}
+                canvas={canvas}
+                natural={natural}
+                onNaturalSize={handleNaturalSize}
+                onError={imageLoadError}
+              />
+            )
+          ) : (''',
+        "images fail closed to a download fallback when authenticated upgrade fails",
+    )
+    return source
+
+
+def patch_inline_media(source: str) -> str:
+    if "TASKFLOW_TOKEN_AUTH_ATTACHMENT_RESIGN" in source:
+        raise ValueError("TaskFlow token-auth attachment re-sign already applied")
+    source = replace_once(
+        source,
+        '''  const needsResign =
+    !!resignAttachmentId &&
+    !!pickedUrl &&
+    idFromPickedUrl !== undefined &&
+    ((api.getBaseUrl?.() ?? "") !== "" || isCrossOriginWebURL);''',
+        '''  // TASKFLOW_TOKEN_AUTH_ATTACHMENT_RESIGN: native media elements cannot
+  // send the Web API client's Bearer header, even when their URL is same-origin.
+  const needsResign =
+    !!resignAttachmentId &&
+    !!pickedUrl &&
+    idFromPickedUrl !== undefined &&
+    ((api.getBaseUrl?.() ?? "") !== "" || isCrossOriginWebURL || !!api.getToken?.());''',
+        "token-only same-origin attachment re-sign",
+    )
+    source = replace_once(
+        source,
+        '''): { url: string; pending: boolean } {''',
+        '''): { url: string; pending: boolean; unavailable: boolean } {''',
+        "inline-media availability result type",
+    )
+    source = replace_once(
+        source,
+        '''  if (!needsResign) return { url: pickedUrl, pending: false };''',
+        '''  if (!needsResign) return { url: pickedUrl, pending: false, unavailable: false };''',
+        "no-upgrade media result",
+    )
+    source = replace_once(
+        source,
+        '''  if (signedUrl) return { url: signedUrl, pending: false };''',
+        '''  if (signedUrl) return { url: signedUrl, pending: false, unavailable: false };''',
+        "signed media result",
+    )
+    source = replace_once(
+        source,
+        '''    blobUrlCache.get(resignAttachmentId) === blobUrl
+  ) {
+    return { url: blobUrl, pending: false };
+  }
+  if (blobUrl && !resignAttachmentId && isAuthenticated) {
+    return { url: blobUrl, pending: false };
+  }''',
+        '''    blobUrlCache.get(resignAttachmentId) === blobUrl
+  ) {
+    return { url: blobUrl, pending: false, unavailable: false };
+  }
+  if (blobUrl && !resignAttachmentId && isAuthenticated) {
+    return { url: blobUrl, pending: false, unavailable: false };
+  }''',
+        "authenticated Blob media result",
+    )
+    source = replace_once(
+        source,
+        '''  const pending = !freshFailed && (!fresh || (blobFallback && !blobFailed));
+  return { url: pickedUrl, pending };''',
+        '''  const pending = !freshFailed && (!fresh || (blobFallback && !blobFailed));
+  const unavailable = needsResign && !pending && (
+    freshFailed ||
+    (!!fresh && !signedUrl && !blobFallback) ||
+    (!!fresh && !signedUrl && blobFallback && blobFailed)
+  );
+  return { url: pickedUrl, pending, unavailable };''',
+        "failed media upgrade result",
+    )
     return source
 
 
 def apply(root: Path) -> None:
     path = root / TARGET
     path.write_text(patch(path.read_text()))
+    hook = root / INLINE_MEDIA_TARGET
+    hook.write_text(patch_inline_media(hook.read_text()))
 
 
 def main() -> None:

@@ -1,47 +1,59 @@
-# Issue #45 — attachment preview / upload candidate
+# Issue #45 — integrated attachment preview candidate
 
-## Preview root cause and candidate fix
+Candidate: `0.9.0-alpha.9.38` / Build `20261014-1040`.
+Base: deployed TaskFlow `.9.37`, Commit `61e4456bf96dd9af263fbc436e6aea4fc21f7896`.
+Source scope: the TaskFlow attachment-preview staged-source overlay and its
+tests, plus the Docker Build Parity invocation for those tests. Standard
+`.9.38` release identity and cache-buster projections are synchronized across
+the root app so clients load one source build; no other module business logic
+changed. The #44 Project Status changes remain as released in the base. No #42
+SQL or Connector changes are included.
 
-The frozen Multica preview modal already resolves authenticated attachment
-metadata with `useResignedInlineMedia`, but the native PDF branch bypassed the
-resolved URL and loaded `state.mediaUrl` directly in an `<iframe>`. A cross-
-origin or split-origin protected `/api/attachments/<id>/download` request
-cannot carry the TaskFlow Bearer header, so the PDF viewer received an
-authorization error even though the existing Download action re-signs through
-the authenticated API.
+## PDF and image preview
 
-The TaskFlow Web build overlay now feeds the PDF iframe the same re-signed URL.
-For proxy-mode PDFs with no signed storage URL, it uses the existing
-authenticated blob fetch only when the attachment metadata reports a size
-from 1 byte through 8 MiB. It does not buffer larger documents into browser
-memory. If a protected URL cannot be upgraded, it renders the existing
-unsupported-preview state and Download action rather than retrying the raw
-protected URL. Images and the native download path are unchanged.
+Frozen Multica's native PDF branch passes `state.mediaUrl` directly to an
+`<iframe>`. The TaskFlow overlay corrects that path to use the resolved media
+URL. The shared `useResignedInlineMedia` hook also skipped a same-origin,
+Bearer-token-only deployment because it only re-signed when an API base URL was
+configured or the URL was cross-origin. Native media elements cannot attach the
+Web API client's Bearer header, so that case could still receive
+`missing authorization`.
 
-The patch is applied only to the staged build copy of
-`packages/views/editor/attachment-preview-modal.tsx`; Frozen Vendor remains
-unchanged. Overlay contract tests verify expected upstream markers, preserved
-vendor hash, the re-signed PDF URL, and the bounded fallback.
+The TaskFlow-owned staged-source patch now:
 
-## Large PPTX upload
+- re-signs protected attachment URLs when a Bearer token is present, including
+  same-origin deployments;
+- supplies the resolved URL to the PDF iframe;
+- uses the existing authenticated Blob fetch for proxy-mode images and PDFs up
+  to 8 MiB;
+- avoids buffering larger proxy-mode PDFs and offers the existing download
+  fallback when no signed preview URL is available;
+- offers a download fallback for images when authenticated URL resolution
+  fails instead of rendering a protected raw URL;
+- continues using the load-intent `download_url`, not the forced-download
+  `attachment_download_url`.
 
-The reported 13.5 MB PPTX HTTP 500 remains **NOT REPRODUCED**. Source checks
-show the browser posts `FormData` to `/api/upload-file`; the backend request
-limit is 100 MiB and the handler then reads the file before calling the
-configured storage adapter. Therefore 13.5 MB is below the application limit,
-but that does not identify the cause of the observed 500. No new backend
-upload failure log or isolated storage reproduction is available in this
-candidate. No upload limit or Storage behavior was changed.
+The patch fails closed if pinned upstream markers drift or if applied twice.
+It modifies only the staged build copy; `third_party/multica/` remains
+unchanged.
 
-The minimum evidence to isolate that separate failure is one failing request's
-timestamp/request ID, response body, and matching API/storage error (with
-credentials and file contents excluded). Until then the upload failure remains
-open; the PDF preview candidate does not claim to fix it.
+## 13.5 MB PPTX HTTP 500
 
-## QA boundary
+The reported failure remains **OPEN / NOT REPRODUCED; root cause unidentified**.
+The application request limit is 100 MiB, so 13.5 MB is below that limit; this
+alone does not identify the cause. No upload limit or storage behavior is
+changed. A correlated failing request timestamp or request ID, sanitized
+response body, and matching API/storage error are still needed.
 
-- Overlay contract tests: PASS (2 tests).
-- Real authenticated PDF preview/download in an isolated browser: NOT VERIFIED.
-- Upload and 13.5 MB PPTX reproduction: NOT VERIFIED.
-- Frozen Vendor: unchanged by the patch; the test compares the vendor source
-  hash before and after applying to a temporary copy.
+## Evidence and limits
+
+- Original #45 candidate `b116610c8da911746b189d3a2225b97abf37ffd1` had GitHub
+  Build Parity Run `38498136734` with overlay-contract, backend-image, and
+  web-image jobs successful. That run covers the exact attachment patch and
+  targeted hook test source ported here.
+- The integrated candidate receives one new GitHub Build Parity run against
+  the exact integrated commit; report its result with the Review Ref.
+- Real authenticated preview/render/download in a browser is **NOT VERIFIED**.
+- The reported 13.5 MB PPTX failure is **NOT REPRODUCED** and remains open.
+- This candidate does not modify Production settings, data, Render services,
+  Supabase, or database schema.
