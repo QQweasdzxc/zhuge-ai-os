@@ -12,14 +12,14 @@ the repository release-governance tool.
 
 ### Confirmed source causes
 
-The native preview modal already called `useResignedInlineMedia`, but its PDF
-branch passed `state.mediaUrl` directly to an `<iframe>` rather than the
-authenticated media URL returned by the hook. Native iframe/image requests
-cannot attach the Web API client's Bearer header. Separately, the shared hook
-only requested fresh attachment metadata for a non-empty API base URL or a
-cross-origin URL; it skipped the same-origin, Bearer-token-only case. These
-two paths could therefore leave PDF/image previews pointed at an endpoint that
-requires authorization.
+Frozen Multica's native PDF branch passes `state.mediaUrl` directly to an
+`<iframe>`. The existing `.9.37` TaskFlow overlay already corrected that path
+to use the resolved media URL. The remaining `.9.37` candidate gap was in the
+shared `useResignedInlineMedia` hook: it requested fresh attachment metadata
+only for a non-empty API base URL or a cross-origin URL, skipping the
+same-origin, Bearer-token-only case. Native iframe/image requests cannot attach
+the Web API client's Bearer header, so that case could still use an endpoint
+that returns `missing authorization`.
 
 ### Candidate behavior
 
@@ -71,5 +71,9 @@ available, the PPTX issue remains open and must not be described as fixed.
 - Authenticated real-browser preview in same-origin, cross-origin, and proxy
   deployments: **NOT VERIFIED** in this candidate environment.
 - Real download and image/PDF rendering in a browser: **NOT VERIFIED**.
+- Local Web Docker build: **BLOCKED** before overlay/build steps because the
+  Alpine package index download for `python3` returned `Permission denied`.
+  GitHub Actions run/status reads returned no accessible result; the GitHub
+  Actions API request was forbidden, so remote Build Parity is **NOT VERIFIED**.
 - Reported 13.5 MB PPTX upload: **NOT REPRODUCED; ROOT CAUSE UNIDENTIFIED**.
 - No Production setting, data, Render service, or database was modified.
