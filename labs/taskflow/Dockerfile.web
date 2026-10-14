@@ -73,6 +73,7 @@ COPY labs/taskflow/patches/apply-taskflow-project-status.py /tmp/apply-taskflow-
 COPY labs/taskflow/tests/test_taskflow_project_status_overlay.py /tmp/test_taskflow_project_status_overlay.py
 COPY labs/taskflow/overrides/taskflow-project-status-scope.tsx /taskflow-project-status/taskflow-project-status-scope.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-scope.test.ts /taskflow-project-status/taskflow-project-status-scope.test.ts
+COPY labs/taskflow/overrides/taskflow-project-status-preferences.test.tsx /taskflow-project-status/taskflow-project-status-preferences.test.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-settings.tsx /taskflow-project-status/taskflow-project-status-settings.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-settings.test.tsx /taskflow-project-status/taskflow-project-status-settings.test.tsx
 COPY labs/taskflow/overrides/taskflow-project-status-locales.json /taskflow-project-status/taskflow-project-status-locales.json
@@ -128,7 +129,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
  && pnpm --filter @multica/views exec vitest run settings/components/preferences-tab.test.tsx locales/mcp.test.ts agents/components/tabs/task-failure.test.ts onboarding/templates/index.test.ts workspace/slug.test.ts common/docs-locale.test.ts runtimes/components/runtime-docs.test.ts \
  && pnpm --filter @multica/views exec vitest run issues/surface/taskflow-pagination-recovery.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
-RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts \
+RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity

@@ -349,6 +349,7 @@ def apply(root: Path, overlay: Path) -> None:
     copy_targets = {
         status_scope: root / "packages/core/issue-statuses/taskflow-project-status-scope.tsx",
         overlay / "taskflow-project-status-scope.test.ts": root / "packages/core/issue-statuses/taskflow-project-status-scope.test.ts",
+        overlay / "taskflow-project-status-preferences.test.tsx": root / "packages/core/issue-statuses/taskflow-project-status-preferences.test.tsx",
         settings_component: root / "packages/views/issues/components/taskflow-project-status-settings.tsx",
         overlay / "taskflow-project-status-settings.test.tsx": root / "packages/views/issues/components/taskflow-project-status-settings.test.tsx",
     }

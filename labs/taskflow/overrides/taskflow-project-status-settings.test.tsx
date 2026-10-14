@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { toast } from "sonner";
 import { TaskFlowProjectStatusSettings } from "./taskflow-project-status-settings";
 
 const state = vi.hoisted(() => ({
@@ -10,6 +11,9 @@ const state = vi.hoisted(() => ({
   setVisible: vi.fn().mockResolvedValue(undefined),
   setLabel: vi.fn().mockResolvedValue(undefined),
   create: vi.fn().mockResolvedValue({ key: "project_status" }),
+  catalogLoaded: true,
+  catalogError: false,
+  retryCatalog: vi.fn(),
   statuses: [
     ...["backlog", "todo", "in_progress", "in_review", "done", "blocked", "cancelled"].map((key) => ({
       id: `system-${key}`,
@@ -37,7 +41,14 @@ vi.mock("@multica/core/auth", () => ({
 }));
 vi.mock("@multica/core/workspace/queries", () => ({ memberListOptions: () => ({ queryKey: ["members"] }) }));
 vi.mock("@multica/core/issue-statuses/hooks", () => ({
-  useIssueStatuses: () => ({ statuses: state.statuses, activeStatuses: state.statuses }),
+  useIssueStatuses: () => ({
+    statuses: state.statuses,
+    activeStatuses: state.statuses,
+    isLoaded: state.catalogLoaded,
+    isPending: false,
+    isError: state.catalogError,
+    retry: state.retryCatalog,
+  }),
 }));
 vi.mock("@multica/core/issue-statuses/mutations", () => ({
   useCreateIssueStatus: () => ({ mutateAsync: state.create, isPending: false }),
@@ -78,6 +89,10 @@ vi.mock("../../i18n", () => ({
           restore_defaults: "Restore default columns",
           done: "Done",
           save_failed: "Save failed",
+          loading_statuses: "Loading statuses…",
+          load_failed: "Statuses couldn't be loaded. No status settings were changed.",
+          retry: "Retry",
+          create_uncertain: "The status result couldn't be confirmed. Refresh and check the status list.",
         },
       };
       const value = resolve(messages);
@@ -116,11 +131,16 @@ describe("TaskFlow project status controls", () => {
     state.save.mockClear();
     state.setVisible.mockClear();
     state.setLabel.mockClear();
-    state.create.mockClear();
+    state.create.mockReset().mockResolvedValue({ id: "created-status", key: "p00000000000000000000000000_0002" });
+    state.catalogLoaded = true;
+    state.catalogError = false;
+    state.retryCatalog.mockClear();
+    vi.mocked(toast.error).mockClear();
   });
 
   it("shows the settings in a project-scoped mobile-safe dialog and saves visibility per project", () => {
     render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
+    expect(screen.getByRole("button", { name: "Project statuses" })).toBeTruthy();
     fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
     expect(screen.getByRole("dialog").className).toContain("max-h-[85dvh]");
     expect(screen.getAllByRole("checkbox")).toHaveLength(8);
@@ -146,14 +166,55 @@ describe("TaskFlow project status controls", () => {
       target: { value: "Waiting for purchase" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add status" }));
-    expect(state.create).toHaveBeenCalledWith(expect.objectContaining({
-      key: "p00000000000000000000000000_0002",
-      name: "TF:p00000000000000000000000000_0002",
-      category: "started",
-    }));
+    await waitFor(() => {
+      expect(state.create).toHaveBeenCalledWith(expect.objectContaining({
+        key: "p00000000000000000000000000_0002",
+        name: "TF:p00000000000000000000000000_0002",
+        category: "started",
+      }));
+    });
     await waitFor(() => {
       expect(state.setLabel).toHaveBeenCalledWith("p00000000000000000000000000_0002", "Waiting for purchase");
     });
+    expect(state.setLabel.mock.invocationCallOrder[0]).toBeLessThan(state.create.mock.invocationCallOrder[0]);
+  });
+
+  it("does not create an opaque native status when saving the Project label fails", async () => {
+    state.setLabel.mockRejectedValueOnce(new Error("preference write failed"));
+    render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
+    fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
+    fireEvent.change(screen.getByRole("textbox", { name: "New status name" }), {
+      target: { value: "Waiting for approval" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add status" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(state.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps an uncertain native create failure safe because its display label was saved first", async () => {
+    state.create.mockRejectedValueOnce(new Error("connection lost after request"));
+    render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
+    fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
+    fireEvent.change(screen.getByRole("textbox", { name: "New status name" }), {
+      target: { value: "Waiting for review" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add status" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(state.setLabel).toHaveBeenCalledWith("p00000000000000000000000000_0002", "Waiting for review");
+    expect(state.setLabel.mock.invocationCallOrder[0]).toBeLessThan(state.create.mock.invocationCallOrder[0]);
+  });
+
+  it("blocks creation when the status catalog fails and offers a retry", () => {
+    state.catalogLoaded = false;
+    state.catalogError = true;
+    render(<TaskFlowProjectStatusSettings projectId={state.projectId} />);
+    fireEvent.click(screen.getByTestId("taskflow-project-status-settings"));
+    expect(screen.getByRole("alert").textContent).toContain("Statuses couldn't be loaded");
+    expect((screen.getByRole("button", { name: "Add status" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(state.retryCatalog).toHaveBeenCalled();
   });
 
   it("does not render when routed Project context differs", () => {

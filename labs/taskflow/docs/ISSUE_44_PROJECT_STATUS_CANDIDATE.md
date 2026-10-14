@@ -34,11 +34,16 @@ This is the existing per-user/per-Project preference contract, so visibility
 is currently personal to each member rather than shared Project configuration.
 Display aliases use the same preference record under
 `prefs.taskflow_project_status_labels`; they are likewise per-user and per-
-Project. Creating a custom status requires the native status API call followed
-by saving this alias. If the preference write fails after status creation, the
-native row remains with its opaque internal name; the Project owner can retry
-by editing its label. The UI surfaces the write failure and does not delete
-the status or any issue.
+Project. The API payload writes the updated label map and preserves existing
+native `hidden` / `order` settings and unrelated preference keys. The failure
+path in the earlier create flow could leave a native workspace status with an
+opaque internal name if the later label-preference write failed. Creating a
+custom status now saves its Project display label before calling the native
+status API. If saving the preference fails, no native status row is created.
+If the status request has an ambiguous transport error, the saved alias remains
+so a row committed by the server before its response was lost can still render
+with the intended label. An unused alias has no status row or issue and is not
+shown as a column.
 
 The native database still enforces unique active status names per Workspace.
 This overlay deliberately uses unique opaque names in that shared row and
@@ -65,9 +70,32 @@ native status presentation rather than status columns.
 ## QA scope
 
 The overlay contract checks temporary-source patching and frozen-vendor hashes.
-Targeted unit/component tests cover status-key roundtrip/length, all seven
-built-ins, two-Project catalog isolation, workspace-wide exclusion, historic
-label lookup, per-Project visibility actions, name edits, and restoring defaults
-without deletion. Full authenticated API persistence and real Desktop/iPhone
-browser behavior still require an isolated TaskFlow runtime; no Production
-write or device session is used by this candidate test.
+Targeted tests cover status-key roundtrip/length, all seven built-ins,
+two-Project catalog isolation, workspace-wide exclusion, historic label lookup,
+per-Project preference persistence, same-name labels in two Projects, hidden /
+restore preference preservation, Project-mismatch rejection, label-before-
+native-create ordering, preference-write failure, catalog retry, and uncertain
+create responses. The Docker web build runs these tests after applying the
+TaskFlow overlay to the frozen source copy. The current candidate has not been
+run against an authenticated isolated TaskFlow API or real Desktop/iPhone
+browser session; those runtime checks remain NOT VERIFIED and require PM
+acceptance. No Production write or device session is used by this candidate.
+
+## Candidate review note — 2026-10-14
+
+The settings button exposes a localized accessible name for desktop and mobile
+discovery. Status management is disabled until the status catalog has loaded; a
+failed catalog request now exposes an explicit retry action. The seven built-in
+status records and all issue rows remain untouched by hide / restore
+operations. A preference-provider regression test covers exact Project scope,
+same display names under distinct Project keys, reload persistence, and
+preservation of the built-in view preference fields.
+
+Manual PM acceptance path: open TaskFlow, select a Project, open its issue
+Board/List surface, choose **專案狀態** beside the view controls, enter a status
+name and select **新增狀態**. Repeat in a second Project using the same visible
+name to confirm the aliases remain independent. In the same dialog, rename the
+status and toggle its visibility; Board/List/Swimlane should reflect the
+Project's status catalog. Refresh and re-enter the Project to confirm saved
+preferences. This candidate has not yet had that authenticated runtime
+acceptance.

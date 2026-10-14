@@ -70,17 +70,26 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
 
   const addStatus = async () => {
     const normalizedName = name.trim();
-    if (!normalizedName || !canManageStatuses || createStatus.isPending) return;
+    if (!normalizedName || !canManageStatuses || createStatus.isPending || settings.isLoading || !catalog.isLoaded || catalog.isError) return;
     try {
       const key = createTaskFlowProjectStatusKey(projectId, statusKeys);
-      await createStatus.mutateAsync({
+      // Save the Project display label first. If that write fails, no native
+      // workspace status is created with an opaque TF:<key> name. A definite
+      // API rejection can leave only an unused preference alias; it cannot
+      // expose an opaque native status. Transport/5xx errors are ambiguous,
+      // so keeping the alias ensures a status that committed before its reply
+      // was lost still renders with the requested label.
+      await settings.setStatusLabel(key, normalizedName);
+      const created = await createStatus.mutateAsync({
         key,
         name: taskFlowInternalProjectStatusName(key),
         description: "",
         category,
         color: "#64748b",
       });
-      await settings.setStatusLabel(key, normalizedName);
+      if (!created.id || created.key !== key) {
+        throw new Error(t(($) => $.taskflow_project_status.create_uncertain));
+      }
       setName("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t(($) => $.taskflow_project_status.save_failed));
@@ -107,6 +116,8 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
         size="sm"
         className="h-8 shrink-0 gap-1.5 text-muted-foreground md:h-7"
         data-testid="taskflow-project-status-settings"
+        aria-label={t(($) => $.taskflow_project_status.button)}
+        title={t(($) => $.taskflow_project_status.button)}
         onClick={() => setOpen(true)}
       >
         <Settings2 className="size-3.5" />
@@ -204,6 +215,20 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
             })}
           </div>
 
+          {catalog.isPending && !catalog.isLoaded && (
+            <p className="text-caption text-muted-foreground" role="status">
+              {t(($) => $.taskflow_project_status.loading_statuses)}
+            </p>
+          )}
+          {catalog.isError && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 p-2" role="alert">
+              <p className="text-caption text-destructive">{t(($) => $.taskflow_project_status.load_failed)}</p>
+              <Button type="button" variant="outline" size="sm" onClick={catalog.retry}>
+                {t(($) => $.taskflow_project_status.retry)}
+              </Button>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row">
             <Input
               value={name}
@@ -211,7 +236,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
               placeholder={t(($) => $.taskflow_project_status.new_status)}
               aria-label={t(($) => $.taskflow_project_status.new_status)}
               maxLength={64}
-              disabled={!canManageStatuses || createStatus.isPending}
+              disabled={!canManageStatuses || createStatus.isPending || settings.isLoading || !catalog.isLoaded || catalog.isError}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
@@ -235,7 +260,7 @@ export function TaskFlowProjectStatusSettings({ projectId }: { projectId: string
                 ))}
               </SelectContent>
             </Select>
-            <Button type="button" onClick={() => void addStatus()} disabled={!canManageStatuses || !name.trim() || createStatus.isPending}>
+            <Button type="button" onClick={() => void addStatus()} disabled={!canManageStatuses || !name.trim() || createStatus.isPending || settings.isLoading || !catalog.isLoaded || catalog.isError}>
               {t(($) => $.taskflow_project_status.add)}
             </Button>
           </div>
