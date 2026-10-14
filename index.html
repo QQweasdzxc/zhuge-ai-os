@@ -12,17 +12,47 @@
     <link rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/">
     <link rel="icon" href="shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
     <title>Zhuge AI OS</title>
-    <link rel="stylesheet" href="shared/theme/public-home.css?v=20261015-0005">
-    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261015-0005">
+    <link rel="stylesheet" href="shared/theme/public-home.css?v=20261015-0057">
+    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261015-0057">
+    <script id="taskflow-home-routing">
+      (() => {
+        "use strict";
+        const current = new URL(window.location.href);
+        if (current.searchParams.has("code") || current.searchParams.has("error") || /(?:^|[&#])access_token=/.test(current.hash)) return;
+
+        const root = new URL(".", current.href);
+        const params = current.searchParams;
+        const workspace = params.get("workspace");
+        const allowedWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "management", "settings"]);
+        const templateView = params.get("templateView");
+        const hasExplicitAiosRoute = params.get("app") === "1" || allowedWorkspaces.has(workspace) || ["navigation", "workspace"].includes(templateView);
+        if (hasExplicitAiosRoute) {
+          const destination = new URL("modules/worklog/", root);
+          destination.searchParams.set("app", "1");
+          if (allowedWorkspaces.has(workspace)) destination.searchParams.set("workspace", workspace);
+          if (["navigation", "workspace"].includes(templateView)) destination.searchParams.set("templateView", templateView);
+          window.location.replace(destination.href);
+          return;
+        }
+
+        try {
+          const hasZhugeSession = ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]
+            .some(key => Boolean(window.localStorage.getItem(key)));
+          if (hasZhugeSession) window.location.replace(new URL("labs/taskflow/", root).href);
+        } catch {
+          // Keep the public home usable when browser storage is unavailable.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="public-home">
       <header class="public-header">
-        <a class="brand" href="./" aria-label="Zhuge AI OS home">
+        <a class="brand" href="labs/taskflow/" aria-label="TaskFlow home">
           <img class="brand-mark" src="shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS logo">
           <span><strong>Zhuge AI OS</strong><small>by Mr. KM</small></span>
         </a>
-        <a class="header-link" href="modules/worklog/?app=1&amp;workspace=dashboard">Continue with Google</a>
+        <a class="header-link" href="labs/taskflow/">Open TaskFlow</a>
       </header>
 
       <main>
@@ -31,11 +61,11 @@
             <p class="eyebrow">AI PRODUCTIVITY PLATFORM</p>
             <h1 id="hero-title">Zhuge AI OS</h1>
             <p class="hero-lead">Zhuge AI OS is an AI-powered productivity platform for personal work management and knowledge organization.</p>
-            <p class="hero-body">Use Google Sign-In to access WorkLog. Google Drive permission is requested separately and only when you explicitly start Knowledge Import and select a file through Google Picker.</p>
+            <p class="hero-body">Open TaskFlow for projects and work. The existing AI OS modules remain available from Apps, with Google Sign-In and Google Drive permissions handled by their original flows.</p>
             <p class="hero-local">Google Sign-In is used only for authentication and session continuity. No background scanning, automatic synchronization, automatic file collection, or data selling.</p>
             <div class="hero-actions">
-              <a class="button primary" href="modules/worklog/?app=1&amp;workspace=dashboard">Continue with Google</a>
-              <a class="button secondary" href="product/">View Product</a>
+              <a class="button primary" href="labs/taskflow/">Open TaskFlow</a>
+              <a class="button secondary" href="modules/worklog/?app=1&amp;workspace=dashboard">Open AI OS</a>
             </div>
           </div>
           <div class="hero-logo-card" aria-label="Zhuge AI OS product identity">
@@ -70,7 +100,7 @@
       </main>
 
       <footer class="public-footer">
-          <div class="footer-brand"><strong>Zhuge AI OS</strong><span>Version 0.9.0-alpha.9.41 · Build 20261015-0005</span></div>
+          <div class="footer-brand"><strong>Zhuge AI OS</strong><span>Version 0.9.0-alpha.9.42 · Build 20261015-0057</span></div>
         <nav aria-label="Legal and support links">
           <a href="product/">Product</a>
           <a href="privacy/">Privacy Policy</a>

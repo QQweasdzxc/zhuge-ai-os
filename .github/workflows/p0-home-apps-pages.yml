@@ -1,0 +1,169 @@
+name: P0 TaskFlow Home and Curated Pages
+
+on:
+  push:
+    branches:
+      - main
+      - review/p0-home-apps-pages-20261015
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  overlay-contract:
+    name: Overlay and route contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check patch whitespace
+        run: git diff HEAD^ HEAD --check
+      - name: Verify TaskFlow overlays fail closed
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Verify navigation and P0 entry routes
+        run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+
+  backend-image:
+    name: TaskFlow backend build parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow backend from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.backend \
+            -t taskflow-multica-backend:parity . 2>&1 | tee /tmp/taskflow-backend-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-build.log; then
+            echo "Unexpected Multica application-source clone in backend build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-backend-build.log
+
+  web-image:
+    name: TaskFlow web build parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow web from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.web \
+            -t taskflow-multica-web:parity . 2>&1 | tee /tmp/taskflow-web-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-web-build.log; then
+            echo "Unexpected Multica application-source clone in web build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-web-build.log
+
+  browser:
+    name: Chromium desktop and mobile browser regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install pinned browser-test dependencies
+        run: npm ci --ignore-scripts
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - name: Export CI Chromium path
+        run: echo "BROWSER_EXECUTABLE=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Run browser regression
+        run: npm run test:browser
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-browser-evidence-${{ github.sha }}
+          path: tests/evidence/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  pages-artifact:
+    name: Curated Pages artifact validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Assemble tracked runtime files only
+        run: node tools/build-pages-site.js "$RUNNER_TEMP/pages-site"
+      - name: Validate P0 routes and excluded source payload
+        run: node tests/pages-publish-artifact.test.js "$RUNNER_TEMP/pages-site"
+      - name: Upload candidate artifact without deploying
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages-site
+          retention-days: 1
+
+  review-package:
+    name: Create verified source review bundle
+    if: startsWith(github.ref, 'refs/heads/review/p0-home-apps-pages-20261015')
+    needs:
+      - overlay-contract
+      - backend-image
+      - web-image
+      - browser
+      - pages-artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read formal main baseline
+        run: git fetch origin main
+      - name: Check candidate source and release identity
+        run: |
+          git diff origin/main...HEAD --check
+          node --test tests/release-consistency.test.js tests/release-governance.test.js
+          node tools/release-governance.js preflight
+      - name: Package reviewed candidate from exact clean SHA
+        run: |
+          node tools/release-governance.js package \
+            --type review \
+            --description P0-TaskFlow-Home-Apps-Pages \
+            --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' \
+            --output-dir "$RUNNER_TEMP/p0-review-package"
+      - name: Upload FullSource review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-fullsource-review-${{ github.sha }}
+          path: ${{ runner.temp }}/p0-review-package/*
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy-pages:
+    name: Publish curated site to GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - overlay-contract
+      - backend-image
+      - web-image
+      - browser
+      - pages-artifact
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy the verified Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -48,7 +48,10 @@ class TaskFlowAppsNavigationOverlayTests(unittest.TestCase):
 
             sidebar = (root / PATCH.SIDEBAR).read_text()
             self.assertIn("TASKFLOW_AIOS_ORIGIN", sidebar)
+            self.assertIn("/modules/worklog/?app=1&workspace=dashboard", sidebar)
             self.assertIn("/modules/worklog/?app=1&workspace=worklog", sidebar)
+            self.assertEqual(PATCH.APPS["en"]["names"]["ai_os"], "AI OS")
+            self.assertEqual(PATCH.APPS["zh-Hant"]["names"]["ai_os"], "AI OS")
             self.assertIn("/app/dashboard/", sidebar)
             self.assertIn("/labs/investment/", sidebar)
             self.assertIn('state: "experimental"', sidebar)
