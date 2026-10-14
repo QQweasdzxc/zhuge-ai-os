@@ -145,7 +145,7 @@ def patch_file_handler(source: str) -> str:
     source = replace_once(
         source,
         '''\tif err != nil {\n\t\tslog.Error("failed to open attachment for preview", "id", attachmentID, "key", key, "error", err)\n\t\twriteError(w, http.StatusNotFound, "attachment object not found")\n\t\treturn\n\t}''',
-        '''\tif err != nil {\n\t\tslog.Error("failed to open attachment for preview", "id", attachmentID, "key", key, "error", err)\n\t\tif !writeTaskFlowStorageError(w, err, http.StatusNotFound, "attachment object not found") {\n\t\t\twriteError(w, http.StatusNotFound, "attachment object not found")\n\t\t}\n\t\treturn\n\t}''',
+        '''\tif err != nil {\n\t\tslog.Error("failed to open attachment for preview", "id", attachmentID, "key", key, "error", err)\n\t\tif !writeTaskFlowStorageError(w, err, http.StatusBadGateway, "private attachment preview is unavailable") {\n\t\t\twriteError(w, http.StatusNotFound, "attachment object not found")\n\t\t}\n\t\treturn\n\t}''',
         "preview storage error mapping",
     )
     return source
@@ -211,6 +211,7 @@ def copy_overlay(overlays: Path, root: Path) -> None:
         "taskflow_storage_identity_middleware.go": "server/internal/middleware/taskflow_storage_identity.go",
         "taskflow_storage_identity_middleware_test.go": "server/internal/middleware/taskflow_storage_identity_test.go",
         "taskflow_supabase_storage_handler.go": "server/internal/handler/taskflow_supabase_storage.go",
+        "taskflow_supabase_storage_handler_test.go": "server/internal/handler/taskflow_supabase_storage_handler_test.go",
     }
     for source_name, target_name in copies.items():
         source = overlays / source_name

@@ -1,74 +1,127 @@
--- Candidate only. Do NOT run against Production before separate PM approval.
--- Adds one private bucket dedicated to TaskFlow attachments and policies that
--- derive the user UUID from the validated Supabase JWT (auth.uid()). The
--- TaskFlow API separately validates that JWT and matches it to X-User-ID.
--- No existing Storage bucket, attachment row, or object is updated or deleted.
+-- TaskFlow-owned Supabase Storage identity helpers.
+--
+-- Run only after taskflow_supabase_storage_schema_bootstrap.sql has created
+-- the app-owned taskflow_storage schema, and connect as taskflow_migrator.
+-- This file does not access or modify the managed storage/auth schemas. Bucket
+-- creation and storage.objects RLS policies are managed through the Supabase
+-- Dashboard, as documented in labs/taskflow/docs/SUPABASE_STORAGE_CANDIDATE.md.
 
 BEGIN;
 
 DO $$
+DECLARE
+    migrator_oid oid;
+    member_rel oid;
+    storage_objects_rel oid;
+    storage_buckets_rel oid;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'taskflow_migrator') THEN
-        RAISE EXCEPTION 'required TaskFlow migration role is missing';
+    IF session_user <> 'taskflow_migrator' OR current_user <> 'taskflow_migrator'
+       OR session_user <> current_user THEN
+        RAISE EXCEPTION 'connect directly as taskflow_migrator; SET ROLE and other identities are not accepted';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-        RAISE EXCEPTION 'required Supabase authenticated role is missing';
+
+    SELECT oid INTO migrator_oid FROM pg_catalog.pg_roles WHERE rolname = 'taskflow_migrator';
+    IF migrator_oid IS NULL OR (SELECT rolsuper OR rolcreaterole FROM pg_catalog.pg_roles WHERE oid = migrator_oid) THEN
+        RAISE EXCEPTION 'taskflow_migrator must remain a non-superuser without role-management privileges';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-        RAISE EXCEPTION 'required Supabase anon role is missing';
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_auth_members am
+          JOIN pg_catalog.pg_roles r ON r.oid = am.roleid
+         WHERE am.member = migrator_oid
+           AND r.rolname IN ('anon', 'authenticated', 'service_role', 'taskflow_runtime', 'multica_lab_runtime')
+    ) THEN
+        RAISE EXCEPTION 'taskflow_migrator has an unexpected role membership';
     END IF;
-    IF NOT has_schema_privilege('authenticated', 'storage', 'USAGE') THEN
-        RAISE EXCEPTION 'authenticated role must already have Storage schema USAGE';
+    IF NOT pg_catalog.has_schema_privilege('taskflow_migrator', 'taskflow_storage', 'USAGE')
+       OR NOT pg_catalog.has_schema_privilege('taskflow_migrator', 'taskflow_storage', 'CREATE') THEN
+        RAISE EXCEPTION 'the TaskFlow-owned helper schema bootstrap is missing';
     END IF;
-    IF NOT has_schema_privilege('authenticated', 'auth', 'USAGE')
-       OR NOT has_function_privilege('authenticated', 'auth.uid()', 'EXECUTE') THEN
-        RAISE EXCEPTION 'authenticated role must already be able to resolve auth.uid()';
+    IF NOT pg_catalog.has_schema_privilege('authenticated', 'taskflow_storage', 'USAGE')
+       OR pg_catalog.has_schema_privilege('anon', 'taskflow_storage', 'USAGE')
+       OR pg_catalog.has_schema_privilege('taskflow_runtime', 'taskflow_storage', 'USAGE') THEN
+        RAISE EXCEPTION 'TaskFlow helper schema ACL differs from the reviewed least-privilege setup';
     END IF;
-    IF NOT has_schema_privilege('taskflow_migrator', 'storage', 'USAGE') THEN
-        RAISE EXCEPTION 'taskflow_migrator must already have Storage schema USAGE';
+    IF pg_catalog.has_schema_privilege('taskflow_migrator', 'storage', 'USAGE')
+       OR pg_catalog.has_schema_privilege('taskflow_migrator', 'storage', 'CREATE')
+       OR pg_catalog.has_schema_privilege('taskflow_migrator', 'auth', 'USAGE') THEN
+        RAISE EXCEPTION 'taskflow_migrator must not use Supabase managed schemas';
     END IF;
-    IF has_schema_privilege('taskflow_migrator', 'storage', 'CREATE') THEN
-        RAISE EXCEPTION 'taskflow_migrator already has Storage CREATE; review before installation';
+    SELECT c.oid INTO member_rel
+      FROM pg_catalog.pg_class AS c
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'taskflow' AND c.relname = 'member';
+    IF member_rel IS NULL OR NOT pg_catalog.has_table_privilege('taskflow_migrator', member_rel, 'SELECT') THEN
+        RAISE EXCEPTION 'TaskFlow membership read access is required for workspace-scoped objects';
     END IF;
-    IF NOT has_table_privilege('taskflow_migrator', 'taskflow.member', 'SELECT') THEN
-        RAISE EXCEPTION 'taskflow_migrator must be able to read TaskFlow membership';
+    SELECT c.oid INTO storage_objects_rel
+      FROM pg_catalog.pg_class AS c
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'storage' AND c.relname = 'objects';
+    SELECT c.oid INTO storage_buckets_rel
+      FROM pg_catalog.pg_class AS c
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'storage' AND c.relname = 'buckets';
+    IF storage_objects_rel IS NULL OR storage_buckets_rel IS NULL THEN
+        RAISE EXCEPTION 'Supabase Storage relations are missing';
     END IF;
-    IF to_regclass('taskflow.member') IS NULL THEN
-        RAISE EXCEPTION 'TaskFlow member relation is missing';
-    END IF;
-    IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
-        RAISE EXCEPTION 'Supabase Storage schema is unavailable';
+    IF pg_catalog.has_table_privilege('taskflow_migrator', storage_objects_rel, 'SELECT')
+       OR pg_catalog.has_table_privilege('taskflow_migrator', storage_objects_rel, 'INSERT')
+       OR pg_catalog.has_table_privilege('taskflow_migrator', storage_objects_rel, 'UPDATE')
+       OR pg_catalog.has_table_privilege('taskflow_migrator', storage_objects_rel, 'DELETE')
+       OR pg_catalog.has_table_privilege('taskflow_runtime', storage_objects_rel, 'SELECT')
+       OR pg_catalog.has_table_privilege('taskflow_runtime', storage_objects_rel, 'INSERT')
+       OR pg_catalog.has_table_privilege('taskflow_runtime', storage_objects_rel, 'UPDATE')
+       OR pg_catalog.has_table_privilege('taskflow_runtime', storage_objects_rel, 'DELETE') THEN
+        RAISE EXCEPTION 'TaskFlow roles must not have direct Storage table DML';
     END IF;
 END
 $$;
 
--- auth.uid() is the only cross-schema identity function used. This narrow
--- schema USAGE grant is for the non-runtime migration/function-owner role;
--- it does not grant access to Auth tables or credentials.
-GRANT USAGE ON SCHEMA auth TO taskflow_migrator;
-GRANT EXECUTE ON FUNCTION auth.uid() TO taskflow_migrator;
--- Avoid granting authenticated USAGE on TaskFlow's whole schema: that schema
--- contains unrelated native functions. Only this two-function Storage boundary
--- is exposed to the authenticated role.
-GRANT CREATE ON SCHEMA storage TO taskflow_migrator;
-
-CREATE FUNCTION storage.taskflow_storage_can_access_object(object_name text)
+-- Supabase PostgREST installs JWT claims in request.jwt.claim.sub. Support the
+-- JSON claims GUC as a compatibility fallback without calling auth.uid() or
+-- requiring taskflow_migrator to use the managed auth schema.
+CREATE OR REPLACE FUNCTION taskflow_storage.taskflow_storage_can_access_object(object_name text)
 RETURNS boolean
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = pg_catalog, taskflow, pg_temp
+SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
     parts text[];
+    claims_json text;
+    subject text;
     v_scope_id uuid;
-    v_user_id uuid := auth.uid();
+    v_user_id uuid;
 BEGIN
-    IF v_user_id IS NULL OR object_name IS NULL OR length(object_name) > 1024 THEN
+    IF object_name IS NULL OR pg_catalog.length(object_name) > 1024 THEN
         RETURN false;
     END IF;
-    parts := string_to_array(object_name, '/');
-    IF cardinality(parts) <> 3 OR parts[3] = '' OR parts[3] IN ('.', '..') THEN
+
+    subject := NULLIF(pg_catalog.current_setting('request.jwt.claim.sub', true), '');
+    IF subject IS NULL THEN
+        claims_json := NULLIF(pg_catalog.current_setting('request.jwt.claims', true), '');
+        IF claims_json IS NULL THEN
+            RETURN false;
+        END IF;
+        BEGIN
+            subject := NULLIF((claims_json::jsonb ->> 'sub'), '');
+        EXCEPTION WHEN others THEN
+            RETURN false;
+        END;
+    END IF;
+    BEGIN
+        v_user_id := subject::uuid;
+    EXCEPTION WHEN invalid_text_representation THEN
+        RETURN false;
+    END;
+    IF v_user_id IS NULL THEN
+        RETURN false;
+    END IF;
+
+    parts := pg_catalog.string_to_array(object_name, '/');
+    IF pg_catalog.cardinality(parts) <> 3 OR parts[3] = '' OR parts[3] IN ('.', '..') THEN
         RETURN false;
     END IF;
     IF parts[2] !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
@@ -76,9 +129,9 @@ BEGIN
     END IF;
     v_scope_id := parts[2]::uuid;
 
-    IF length(parts[3]) < 38
-       OR substring(parts[3] FROM 1 FOR 36) !~* '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-       OR substring(parts[3] FROM 37 FOR 1) <> '.' THEN
+    IF pg_catalog.length(parts[3]) < 38
+       OR pg_catalog.substr(parts[3], 1, 36) !~* '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+       OR pg_catalog.substr(parts[3], 37, 1) <> '.' THEN
         RETURN false;
     END IF;
 
@@ -87,7 +140,7 @@ BEGIN
     ELSIF parts[1] = 'workspaces' THEN
         RETURN EXISTS (
             SELECT 1
-              FROM taskflow.member m
+              FROM taskflow.member AS m
              WHERE m.workspace_id = v_scope_id
                AND m.user_id = v_user_id
         );
@@ -96,29 +149,50 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION storage.taskflow_storage_can_delete_object(object_name text, object_owner_id text)
+CREATE OR REPLACE FUNCTION taskflow_storage.taskflow_storage_can_delete_object(object_name text, object_owner_id text)
 RETURNS boolean
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = pg_catalog, taskflow, pg_temp
+SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
+    claims_json text;
+    subject text;
     parts text[];
     v_scope_id uuid;
-    v_user_id uuid := auth.uid();
+    v_user_id uuid;
 BEGIN
-    IF v_user_id IS NULL OR NOT storage.taskflow_storage_can_access_object(object_name) THEN
+    subject := NULLIF(pg_catalog.current_setting('request.jwt.claim.sub', true), '');
+    IF subject IS NULL THEN
+        claims_json := NULLIF(pg_catalog.current_setting('request.jwt.claims', true), '');
+        IF claims_json IS NULL THEN
+            RETURN false;
+        END IF;
+        BEGIN
+            subject := NULLIF((claims_json::jsonb ->> 'sub'), '');
+        EXCEPTION WHEN others THEN
+            RETURN false;
+        END;
+    END IF;
+    BEGIN
+        v_user_id := subject::uuid;
+    EXCEPTION WHEN invalid_text_representation THEN
+        RETURN false;
+    END;
+    IF v_user_id IS NULL
+       OR NOT taskflow_storage.taskflow_storage_can_access_object(object_name) THEN
         RETURN false;
     END IF;
-    parts := string_to_array(object_name, '/');
+
+    parts := pg_catalog.string_to_array(object_name, '/');
     v_scope_id := parts[2]::uuid;
     IF parts[1] = 'users' THEN
         RETURN v_scope_id = v_user_id AND object_owner_id = v_user_id::text;
     END IF;
     RETURN object_owner_id = v_user_id::text OR EXISTS (
         SELECT 1
-          FROM taskflow.member m
+          FROM taskflow.member AS m
          WHERE m.workspace_id = v_scope_id
            AND m.user_id = v_user_id
            AND m.role IN ('owner', 'admin')
@@ -126,56 +200,9 @@ BEGIN
 END
 $$;
 
-ALTER FUNCTION storage.taskflow_storage_can_access_object(text) OWNER TO taskflow_migrator;
-ALTER FUNCTION storage.taskflow_storage_can_delete_object(text, text) OWNER TO taskflow_migrator;
-REVOKE ALL ON FUNCTION storage.taskflow_storage_can_access_object(text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION storage.taskflow_storage_can_delete_object(text, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION storage.taskflow_storage_can_access_object(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION storage.taskflow_storage_can_access_object(text) TO taskflow_migrator;
-GRANT EXECUTE ON FUNCTION storage.taskflow_storage_can_delete_object(text, text) TO authenticated;
-REVOKE CREATE ON SCHEMA storage FROM taskflow_migrator;
-
-DO $$
-DECLARE
-    existing storage.buckets%ROWTYPE;
-BEGIN
-    SELECT * INTO existing
-      FROM storage.buckets
-     WHERE id = 'taskflow-attachments';
-    IF FOUND THEN
-        IF existing.name <> 'taskflow-attachments'
-           OR existing.public IS DISTINCT FROM false
-           OR existing.file_size_limit IS DISTINCT FROM 104857600
-           OR existing.allowed_mime_types IS NOT NULL THEN
-            RAISE EXCEPTION 'existing taskflow-attachments bucket has unexpected settings; manual review required';
-        END IF;
-    ELSE
-        INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-        VALUES ('taskflow-attachments', 'taskflow-attachments', false, 104857600, NULL);
-    END IF;
-END
-$$;
-
-CREATE POLICY taskflow_attachments_select
-    ON storage.objects FOR SELECT TO authenticated
-    USING (
-        bucket_id = 'taskflow-attachments'
-        AND storage.taskflow_storage_can_access_object(name)
-    );
-
-CREATE POLICY taskflow_attachments_insert
-    ON storage.objects FOR INSERT TO authenticated
-    WITH CHECK (
-        bucket_id = 'taskflow-attachments'
-        AND owner_id = auth.uid()::text
-        AND storage.taskflow_storage_can_access_object(name)
-    );
-
-CREATE POLICY taskflow_attachments_delete
-    ON storage.objects FOR DELETE TO authenticated
-    USING (
-        bucket_id = 'taskflow-attachments'
-        AND storage.taskflow_storage_can_delete_object(name, owner_id)
-    );
+REVOKE ALL ON FUNCTION taskflow_storage.taskflow_storage_can_access_object(text) FROM PUBLIC, anon, taskflow_runtime;
+REVOKE ALL ON FUNCTION taskflow_storage.taskflow_storage_can_delete_object(text, text) FROM PUBLIC, anon, taskflow_runtime;
+GRANT EXECUTE ON FUNCTION taskflow_storage.taskflow_storage_can_access_object(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION taskflow_storage.taskflow_storage_can_delete_object(text, text) TO authenticated;
 
 COMMIT;

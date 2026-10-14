@@ -1,43 +1,54 @@
 # TaskFlow private attachment Storage candidate
 
-Status: candidate source only; no bucket, RLS policy, project setting, secret, or production object was created or changed.
+Status: candidate source only; this revision has not changed Supabase Production, created a bucket, installed Storage policies, deployed an application, or modified any existing attachment row/object.
 
 ## Design
 
-- New writes use one dedicated private Supabase bucket: `taskflow-attachments`.
-- Existing TaskFlow attachment rows remain in `taskflow.attachment`; the existing upload, authorization, metadata, preview, download, and delete handlers remain the application path.
-- Native attachment object keys retain their existing scope shapes: `workspaces/{workspace_uuid}/{attachment_uuid_v7}.{ext}` and, where a request has no workspace, `users/{user_uuid}/{attachment_uuid_v7}.{ext}`. Avatar and non-attachment paths remain on the existing local Storage adapter. Legacy Render-local URLs are marked as legacy and are never mistaken for new Supabase objects.
-- TaskFlow authenticates its API request first. For attachment endpoints only, the browser also forwards the Zhuge Supabase access JWT in `X-Zhuge-Storage-Token`. The API validates it against Supabase Auth `/auth/v1/user`, compares that UUID to the authenticated TaskFlow `X-User-ID`, and adds it to request context only after a match. A TaskFlow API JWT is never treated as a Supabase token.
-- The Supabase JWT is carried only in the handoff URL fragment, which is removed immediately by the static handoff page, stored in tab `sessionStorage`, and sent only as an attachment API header. It is not placed in a query, API log, persistent browser storage, or a signed URL. The API logs neither the header nor upstream response bodies.
-- The adapter uses the existing Supabase URL and anon/publishable key, plus the verified per-user JWT. It rejects Supabase service-role/secret keys. It does not use S3 static credentials, service-role credentials, R2, or Render local storage.
-- Uploads use Supabase TUS resumable upload through the project-specific Storage hostname with 6 MiB chunks, followed by same-user metadata read-back and size comparison. The application and candidate bucket cap retain Multica's existing 100 MiB object limit; the API request parser allows a small multipart-framing margin. The project-wide Supabase Storage upload limit must be verified as at least 100 MiB before installation; this candidate does not change it.
-- Preview/download use short-lived same-origin Supabase signed URLs generated only after the attachment handler's existing TaskFlow membership checks and Supabase RLS checks. Text preview and direct download proxy routes carry the verified user token.
+- New TaskFlow attachment objects use one private Supabase bucket: taskflow-attachments. The reviewed maximum is 100 MiB per object, matching the native TaskFlow limit. The project-wide upload cap must be checked in Dashboard before installation; this candidate does not change it.
+- Existing TaskFlow attachment rows remain in taskflow.attachment. Existing upload, authorization, metadata, preview, download, and delete handlers remain the application path. No attachment record is deleted or rewritten here.
+- Native object keys remain workspaces/{workspace_uuid}/{attachment_uuid_v7}.{ext} or users/{user_uuid}/{attachment_uuid_v7}.{ext}. Avatar, source-context, external integration media, and legacy Render-local paths remain outside this bucket. Legacy local objects are not recoverable from metadata alone.
+- The API first authenticates the TaskFlow request. For attachment endpoints only, the browser forwards the Zhuge Supabase access JWT in X-Zhuge-Storage-Token; the API verifies it against Supabase Auth /auth/v1/user, matches the verified UUID to the TaskFlow identity, and adds it to request context. A TaskFlow API JWT is never treated as a Supabase token.
+- The handoff removes the JWT from the URL fragment before storing it in tab-scoped sessionStorage. The token is sent only in an attachment API header, never in a query, persistent browser storage, application log, or signed URL.
+- The adapter uses the existing Supabase URL and anon/publishable key plus the verified per-user JWT. It rejects service-role/secret keys and has no S3 key, service-role credential, R2, or ephemeral local fallback for TaskFlow attachment keys.
+- Uploads use Supabase TUS resumable upload with 6 MiB chunks and upsert=false, followed by same-user metadata read-back and size comparison. Preview/download use short-lived signed URLs after TaskFlow membership and Supabase RLS checks.
 
-## Authorization boundary
+## Permission-safe installation
 
-`taskflow_supabase_storage_candidate.sql` adds only policies for the `taskflow-attachments` bucket. The `SECURITY DEFINER` helpers live in the existing `storage` schema, derive `auth.uid()` themselves, and never accept a caller-supplied user id. The SQL does not grant authenticated users USAGE on the whole `taskflow` schema. It requires the migrator to have no pre-existing Storage CREATE permission, adds it only inside the transaction to transfer the two helper functions, then revokes it. Workspace paths require a row in `taskflow.member`; user paths require the path UUID to match `auth.uid()`. Both path classes accept only UUIDv7 attachment filenames. Deletion permits the Storage owner for user-scoped files, or the Storage owner/workspace owner/admin for workspace files. No table DML grant is added to `authenticated`, `anon`, `taskflow_runtime`, or `taskflow_migrator`. The Storage helper reveals only a membership boolean for a supplied workspace UUID; it does not return TaskFlow rows.
+The .9.39 install candidate attempted to create functions, bucket rows, and policies inside Supabase-managed storage, and granted taskflow_migrator access to storage/auth. Live read-only preflight instead showed postgres has database CREATE but no storage CREATE; taskflow_migrator has no storage or auth USAGE; Storage relations are owned by supabase_storage_admin.
 
-The SQL also grants `taskflow_migrator` usage on the `auth` schema and execute on the single `auth.uid()` function because the least-privilege helper owner needs to resolve the JWT identity. This is a narrowly scoped candidate privilege and must be reviewed against the current Auth ACL before installation. Installing policies and creating the bucket modifies Supabase's `storage` schema and requires a controlled Supabase database administrator path; it must not be run as `taskflow_runtime` and this candidate did not execute it.
+The corrected installation has three separate authorities:
 
-The private bucket is limited to the native 100 MiB per-object cap, has no MIME allowlist, and is unique to TaskFlow. Existing `board-task-attachments`, `knowledge-sources`, and `worktodo-attachments` are never changed. Existing bucket/project quotas, current storage usage, the project-wide upload limit, plan-specific price, and the production bucket configuration still require a read-only preflight before a separate installation approval. No additional paid service is introduced by the code candidate, but storage consumption may be billable or quota-limited under the existing Supabase plan.
+1. taskflow_supabase_storage_schema_bootstrap.sql runs as the existing postgres login and creates only a new Zhuge-owned taskflow_storage schema. It grants USAGE, CREATE there to taskflow_migrator and USAGE there to authenticated. It does not touch managed schema/table ACLs or owners.
+2. taskflow_supabase_storage_candidate.sql runs through a direct taskflow_migrator login. It rejects SET ROLE, uses only the TaskFlow helper schema and approved catalogs, creates two SECURITY DEFINER boolean helpers with a fixed pg_catalog, pg_temp search path, and grants function execution to authenticated only. The helpers read the JWT subject from PostgREST claim settings and check taskflow.member; they do not access auth or storage.
+3. Bucket creation and RLS policy creation are performed through Supabase Dashboard Storage → Buckets / Policies, because the application migration identities cannot own or create in the managed storage schema. The bucket is private. The SELECT, INSERT, and DELETE policies are scoped to taskflow-attachments; there is no UPDATE policy because uploads use upsert=false. The exact expressions and UI checks are in SUPABASE_STORAGE_INSTALL_PLAN.md.
 
-## Old local attachments and durability
+The helper schema must not be listed under Supabase Project Settings → API → Exposed schemas. The helper functions return only a boolean, but exposing them would create an unnecessary RPC surface. This Dashboard setting cannot be certified by a SQL session GUC, so it is a pre-deployment manual gate.
 
-Render Free's old local filesystem is ephemeral. The reported ZG-9 PDF and ZG-10 images have attachment metadata but no readable local object; this candidate does not recover, rewrite, or delete those records. No separate source copy was confirmed. If the old bytes are absent from all existing Render instances/backups, the metadata alone cannot reconstruct them.
+No permission is added to storage, auth, taskflow.member, or taskflow_runtime; no existing owner is changed. authenticated receives only usage of the new helper schema and execute on its two boolean helpers. Storage object row access remains limited by the bucket-specific RLS policies and the existing JWT identity.
 
-New objects in Supabase Storage survive API/container restarts and do not depend on Render's local disk. This is durable object storage, not a backup/archive guarantee: Storage object versioning and independent backup retention are not established here. Deleting a blob is not automatically reversible. No current objects are migrated by this candidate.
+## Preview, download, and failure behavior
 
-## Rollback and release sequencing
+- Authorized PDF/image preview and download use a short-lived signed URL or the authenticated content route; the user JWT is never embedded in the signed URL.
+- For an object routed to Supabase, every storage failure—including untyped transport errors—must return a safe error response. The handler does not fall through to a direct/public URL or Render-local object path.
+- Upstream response bodies, credentials, and provider details are not returned to the user. Authorization failures map to 403, missing objects to 404, size/throttle errors remain 413/429, and other provider/transport failures map to 502.
+- The candidate tests the error translation and overlay early-return contract. Actual Supabase PDF/image preview, download, resumable upload, and API-restart durability remain NOT VERIFIED until the approved Dashboard installation and runtime acceptance occur.
 
-1. Do not deploy the image until the private bucket and exact RLS policies have passed separate review and installation approval.
-2. Before the first Production upload, preserve the current `.9.38` image/deployment anchor and record a masked non-secret environment snapshot.
-3. Once any attachment row references the Supabase object URL, a rollback to `.9.38`'s Render-local-only adapter will not read that object. Rollback must therefore be forward-compatible: restore the candidate adapter/policies or deploy a reviewed compatibility build that can read the Supabase bucket. Never delete the bucket or blobs during rollback.
-4. The SQL rollback file removes only TaskFlow policies and helper functions. It deliberately leaves bucket and objects intact. It should only be run after application traffic has returned to a compatible provider and a storage inventory confirms no referenced objects depend on these policies.
+## Existing attachment and PPTX status
 
-## Current acceptance limits
+The reported ZG-9 PDF and ZG-10 images had metadata but Render reported local GetReader: no such file or directory. Render Free local files are ephemeral. No alternate byte-for-byte source was confirmed, so the existing file contents are not yet confirmed recoverable. This candidate does not delete, rewrite, or claim to restore those records.
 
-- CI uses isolated HTTP test servers and synthetic identity strings; it does not connect to the real Supabase project or create a bucket.
-- Production PDF/image preview, download, upload, and API-restart survival remain NOT VERIFIED until the approved bucket/RLS setup exists and one controlled runtime acceptance is authorized.
-- The historical 13.5 MiB PPTX HTTP 500 has no reproduced production root cause. TUS provides a synthetic-tested candidate path for that file size, but it does not prove that past 500 was fixed.
-- User-authenticated native attachments (workspace- and user-scoped UUIDv7 keys) are the only paths moved to Supabase. Avatar, source-context and external integration media paths retain the existing local Storage behavior. Agent/daemon workspace attachment uploads lack a Zhuge Supabase user JWT and fail closed; Agent Runtime is deferred, so enabling these later requires a scoped service identity rather than service-role credentials or impersonating a human.
-- Supabase Auth access JWTs expire. This candidate does not retain or forward refresh tokens. After expiration, the user must re-enter TaskFlow through the Zhuge handoff to refresh the tab-scoped Storage JWT.
+The historical 13.5 MiB PPTX HTTP 500 has no reproduced production root cause. TUS is the chosen upload mechanism and supports the candidate size, but that does not prove the past failure is fixed. Preserve the separate investigation item and capture a request ID plus sanitized backend/Storage status during authorized runtime acceptance.
+
+## Rollback
+
+- Before the first new Supabase object is written: stop the release, remove only the three TaskFlow policies through Storage → Policies, drop the helper functions using the Migrator rollback, and optionally remove the empty app-owned helper schema. Keep the private bucket unless a separate inventory confirms it is empty and its removal is approved.
+- After an object is written: do not delete the bucket/blobs and do not roll back to a local-only adapter. The .9.39 application image remains the compatible-code rollback candidate because it uses the same Supabase bucket/object key contract; retain the bucket and policies. If the problem is in Supabase access itself, keep a storage-compatible application version active and forward-fix rather than switching to ephemeral local storage.
+- The SQL rollback drops only TaskFlow-owned helper functions. It refuses a different database identity. The separate schema rollback removes only an empty taskflow_storage schema owned by the expected bootstrap login. Neither rollback deletes attachment metadata or object data.
+
+## Current validation boundary
+
+- Isolated PostgreSQL integration uses separate restricted login roles for schema bootstrap, helper installation, and managed Storage policy installation. It verifies actual RLS access/denial behavior and that managed owners and grants remain unchanged.
+- The test emulates the reviewed hosted ACLs; it does not install against Production or certify Dashboard policy state.
+- Preflight SQL, post-install verification SQL, Dashboard policy steps, and a forward-compatible rollback are provided.
+- Runtime preview/download/upload, Production API health, and survival across Render restart remain NOT VERIFIED pending separate installation/release approval.
+- Supabase Storage is durable object storage, not an independent backup guarantee. Existing Render-local files are not migrated by this candidate.

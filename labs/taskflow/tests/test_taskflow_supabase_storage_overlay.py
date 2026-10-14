@@ -90,23 +90,61 @@ class TaskFlowSupabaseStorageOverlayTests(unittest.TestCase):
 
     def test_storage_candidate_is_private_bucket_scoped_and_never_grants_runtime_dml(self) -> None:
         sql = (ROOT / "labs/taskflow/sql/taskflow_supabase_storage_candidate.sql").read_text()
-        self.assertIn("'taskflow-attachments', 'taskflow-attachments', false, 104857600", sql)
-        self.assertIn("auth.uid()", sql)
-        self.assertIn("bucket_id = 'taskflow-attachments'", sql)
+        self.assertIn("CREATE OR REPLACE FUNCTION taskflow_storage.taskflow_storage_can_access_object", sql)
+        self.assertIn("CREATE OR REPLACE FUNCTION taskflow_storage.taskflow_storage_can_delete_object", sql)
+        self.assertIn("SET search_path = pg_catalog, pg_temp", sql)
+        self.assertIn("session_user <> 'taskflow_migrator'", sql)
         self.assertIn("taskflow.member", sql)
-        self.assertIn("GRANT CREATE ON SCHEMA storage TO taskflow_migrator", sql)
-        self.assertIn("taskflow_migrator already has Storage CREATE", sql)
         self.assertIn("parts[1] = 'users'", sql)
         self.assertIn("parts[1] = 'workspaces'", sql)
-        self.assertIn("REVOKE CREATE ON SCHEMA storage FROM taskflow_migrator", sql)
-        self.assertNotIn("GRANT USAGE ON SCHEMA taskflow TO authenticated", sql)
-        self.assertIn("storage.taskflow_storage_can_access_object(name)", sql)
+        self.assertNotRegex(sql, r"(?im)^\s*(?:CREATE|ALTER|DROP)\s+(?:POLICY|TABLE|FUNCTION|SCHEMA)\s+storage\.")
+        self.assertNotRegex(sql, r"(?im)^\s*GRANT\s+.*\s+ON\s+SCHEMA\s+(?:storage|auth)\b")
         self.assertNotRegex(sql, r"GRANT\s+(?:ALL|INSERT|UPDATE|DELETE|SELECT)\s+ON\s+ALL\s+TABLES")
-        self.assertNotIn("service_role", sql)
+        self.assertNotRegex(sql, r"(?im)^\s*GRANT\s+.*\bservice_role\b")
+
+        bootstrap = (ROOT / "labs/taskflow/sql/taskflow_supabase_storage_schema_bootstrap.sql").read_text()
+        self.assertIn("CREATE SCHEMA taskflow_storage", bootstrap)
+        self.assertIn("GRANT USAGE, CREATE ON SCHEMA taskflow_storage TO taskflow_migrator", bootstrap)
+        self.assertIn("GRANT USAGE ON SCHEMA taskflow_storage TO authenticated", bootstrap)
+        self.assertIn("has_schema_privilege(current_user, 'storage', 'CREATE')", bootstrap)
+        self.assertNotRegex(bootstrap, r"(?im)^\s*(?:GRANT|REVOKE)\s+.*\s+ON\s+SCHEMA\s+(?:storage|auth)\b")
+
+        policies = (ROOT / "labs/taskflow/tests/taskflow_supabase_storage_ci_policies.sql").read_text()
+        self.assertIn("taskflow_storage.taskflow_storage_can_access_object(name)", policies)
+        self.assertIn("taskflow_storage.taskflow_storage_can_delete_object(name, owner_id)", policies)
+        self.assertNotIn("CREATE POLICY taskflow_attachments_update", policies)
+
         rollback = (ROOT / "labs/taskflow/sql/taskflow_supabase_storage_candidate_rollback.sql").read_text()
         self.assertNotIn("DELETE FROM storage.objects", rollback)
         self.assertNotIn("DELETE FROM storage.buckets", rollback)
-        self.assertIn("DROP FUNCTION IF EXISTS storage.taskflow_storage_can_access_object", rollback)
+        self.assertNotIn("DROP POLICY", rollback)
+        self.assertIn("DROP FUNCTION IF EXISTS taskflow_storage.taskflow_storage_can_access_object", rollback)
+
+    def test_storage_errors_fail_closed_in_inline_and_download_response_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="taskflow-storage-handler-") as tmp:
+            root = Path(tmp)
+            for relative in BACKEND_FILES:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(VENDOR / relative, target)
+            PATCH.apply_backend(root, OVERLAYS)
+            handler = (root / BACKEND_FILES[1]).read_text()
+            self.assertGreaterEqual(handler.count("writeTaskFlowStorageError(w, err, http.StatusBadGateway"), 4)
+            for marker in (
+                "private attachment preview is unavailable",
+                "private attachment download is unavailable",
+                "private attachment storage is unavailable",
+            ):
+                self.assertIn(marker, handler)
+            for marker in (
+                "failed to presign inline attachment URL",
+                "failed to presign attachment download URL",
+                "failed to presign attachment download",
+            ):
+                position = handler.index(marker)
+                recovery = handler[position:position + 700]
+                self.assertIn("writeTaskFlowStorageError", recovery)
+                self.assertIn("return", recovery)
 
 
 if __name__ == "__main__":

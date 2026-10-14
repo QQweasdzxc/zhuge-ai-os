@@ -1,20 +1,30 @@
 \set ON_ERROR_STOP on
 
-CREATE ROLE anon NOLOGIN;
-CREATE ROLE authenticated LOGIN PASSWORD 'taskflow-ci-only';
-CREATE ROLE taskflow_migrator NOLOGIN;
-CREATE ROLE taskflow_runtime NOLOGIN;
+-- Synthetic, isolated stand-in for the live Supabase permission boundary.
+-- The service's postgres superuser only provisions this fixture. Bootstrap,
+-- helper installation, and managed Storage policy setup then use separate
+-- restricted logins, mirroring the hosted execution paths.
+CREATE ROLE anon LOGIN NOINHERIT PASSWORD 'taskflow-ci-anon';
+CREATE ROLE authenticated LOGIN NOINHERIT PASSWORD 'taskflow-ci-authenticated';
+CREATE ROLE taskflow_migrator LOGIN NOINHERIT PASSWORD 'taskflow-ci-migrator';
+CREATE ROLE taskflow_runtime NOLOGIN NOINHERIT;
+CREATE ROLE service_role NOLOGIN NOINHERIT;
+CREATE ROLE multica_lab_runtime NOLOGIN NOINHERIT;
+CREATE ROLE supabase_storage_admin LOGIN NOINHERIT PASSWORD 'taskflow-ci-storage-admin';
+CREATE ROLE taskflow_bootstrap LOGIN NOINHERIT PASSWORD 'taskflow-ci-bootstrap';
+GRANT CREATE ON DATABASE postgres TO taskflow_bootstrap;
 
-CREATE SCHEMA auth;
-CREATE SCHEMA storage;
+CREATE SCHEMA auth AUTHORIZATION supabase_storage_admin;
+CREATE SCHEMA storage AUTHORIZATION supabase_storage_admin;
 CREATE SCHEMA taskflow AUTHORIZATION taskflow_migrator;
 
 CREATE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
+SET search_path = pg_catalog
 AS $$
-  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
@@ -32,9 +42,18 @@ CREATE TABLE storage.objects (
   name text NOT NULL,
   owner_id text
 );
+ALTER TABLE storage.buckets OWNER TO supabase_storage_admin;
+ALTER TABLE storage.objects OWNER TO supabase_storage_admin;
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-GRANT USAGE ON SCHEMA storage TO authenticated, taskflow_migrator;
-GRANT SELECT, INSERT, DELETE ON storage.objects TO authenticated;
+GRANT USAGE ON SCHEMA storage TO authenticated, anon;
+-- Mirrors the existing hosted postgres role's read/write baseline without
+-- managed-schema CREATE. This restricted CI login is not an application role.
+GRANT USAGE ON SCHEMA storage TO taskflow_bootstrap;
+GRANT SELECT ON storage.buckets TO authenticated, anon;
+GRANT SELECT ON storage.buckets TO taskflow_bootstrap;
+GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO taskflow_bootstrap;
+GRANT SELECT ON storage.objects TO anon;
 
 CREATE TABLE taskflow.member (
   workspace_id uuid NOT NULL,
@@ -42,6 +61,7 @@ CREATE TABLE taskflow.member (
   role text NOT NULL
 );
 ALTER TABLE taskflow.member OWNER TO taskflow_migrator;
+GRANT USAGE ON SCHEMA taskflow TO taskflow_migrator;
 GRANT SELECT ON taskflow.member TO taskflow_migrator;
 
 INSERT INTO taskflow.member(workspace_id, user_id, role) VALUES

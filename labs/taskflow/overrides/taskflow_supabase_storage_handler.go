@@ -6,31 +6,31 @@ import (
 	"os"
 )
 
-// writeTaskFlowStorageError translates only the TaskFlow Supabase adapter's
-// typed errors. It never reflects provider response bodies or credentials.
+// writeTaskFlowStorageError handles every Supabase-backed attachment failure.
+// Returning true even for an untyped transport error is essential: callers
+// must not fall through to a local/public attachment path. Provider details,
+// response bodies, object paths, and credentials are never reflected.
 func writeTaskFlowStorageError(w http.ResponseWriter, err error, fallback int, message string) bool {
 	if os.Getenv("TASKFLOW_STORAGE_PROVIDER") != "supabase" {
 		return false
 	}
 	var statusError interface{ HTTPStatusCode() int }
-	if !errors.As(err, &statusError) {
-		return false
+	status := fallback
+	if errors.As(err, &statusError) {
+		status = statusError.HTTPStatusCode()
 	}
-	status := statusError.HTTPStatusCode()
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
 		status = http.StatusForbidden
 	case http.StatusNotFound, http.StatusRequestEntityTooLarge, http.StatusTooManyRequests:
 		// Preserve a meaningful object miss, size rejection or provider throttle.
-	case 0:
-		status = http.StatusBadGateway
 	default:
-		if status >= 500 || status < 400 || status > 499 {
+		if status < 400 || status > 499 {
 			status = http.StatusBadGateway
 		}
 	}
-	if status < 400 {
-		status = fallback
+	if status < 400 || status > 499 {
+		status = http.StatusBadGateway
 	}
 	writeError(w, status, message)
 	return true

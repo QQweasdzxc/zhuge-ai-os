@@ -73,6 +73,7 @@ COPY labs/taskflow/overrides/taskflow_supabase_identity_test.go /taskflow-supaba
 COPY labs/taskflow/overrides/taskflow_storage_identity_middleware.go /taskflow-supabase-overlays/taskflow_storage_identity_middleware.go
 COPY labs/taskflow/overrides/taskflow_storage_identity_middleware_test.go /taskflow-supabase-overlays/taskflow_storage_identity_middleware_test.go
 COPY labs/taskflow/overrides/taskflow_supabase_storage_handler.go /taskflow-supabase-overlays/taskflow_supabase_storage_handler.go
+COPY labs/taskflow/overrides/taskflow_supabase_storage_handler_test.go /taskflow-supabase-overlays/taskflow_supabase_storage_handler_test.go
 RUN python3 /tmp/apply-taskflow-supabase-storage.py --target backend --root /src --overlays /taskflow-supabase-overlays
 
 FROM golang:1.26-alpine AS builder
@@ -84,6 +85,7 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
+RUN cd server && CGO_ENABLED=0 go test ./internal/handler -run '^TestWriteTaskFlowStorageError' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
