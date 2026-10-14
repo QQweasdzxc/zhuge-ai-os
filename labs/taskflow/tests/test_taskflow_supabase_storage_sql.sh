@@ -11,12 +11,13 @@ user_a=11111111-1111-4111-8111-111111111111
 user_b=33333333-3333-4333-8333-333333333333
 workspace=22222222-2222-4222-8222-222222222222
 export PGPASSWORD=taskflow-ci-only
-export PGUSER=authenticated
 
 as_user() {
   local user_id="$1"
   local sql="$2"
-  psql -U authenticated "$TASKFLOW_STORAGE_TEST_DATABASE_URL" -qAt -v ON_ERROR_STOP=1 \
+  # Do not pass the admin DATABASE_URL here: a username embedded in a URI
+  # takes precedence over -U and would silently test as postgres.
+  psql -h localhost -p 5432 -U authenticated -d postgres -qAt -v ON_ERROR_STOP=1 \
     -c "SET request.jwt.claim.sub = '$user_id'" \
     -c "$sql"
 }
