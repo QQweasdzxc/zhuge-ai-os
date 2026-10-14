@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const TaskFlowPostLogin = require("../labs/taskflow/taskflow-post-login.js");
 const ReleaseGovernance = require("../tools/release-governance.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -55,7 +56,7 @@ test("TaskFlow CLI login return uses same-origin Zhuge login and the guarded one
   const entry = read("labs/taskflow/index.html");
   const worklog = read("modules/worklog/index.html");
   const helper = read("labs/taskflow/cli-sso.js");
-  assert.match(entry, /new URL\(aiosBasePath \+ "\/modules\/worklog\/\?app=1&workspace=dashboard", window\.location\.origin\)/);
+  assert.match(entry, /new URL\(aiosBasePath \+ "\/modules\/worklog\/\?app=1&workspace=dashboard&taskflowReturn=1", window\.location\.origin\)/);
   assert.match(entry, /storePendingCliIntent\(cliIntent, window\.sessionStorage\)/);
   assert.match(entry, /history\.replaceState\(null, "", window\.location\.pathname \+ window\.location\.search\)/);
   assert.match(entry, /buildTaskFlowLoginDestination\(cliIntent\)/);
@@ -65,4 +66,76 @@ test("TaskFlow CLI login return uses same-origin Zhuge login and the guarded one
   assert.match(helper, /consumePendingCliIntent/);
   assert.match(helper, /claims\.exp/);
   assert.doesNotMatch(worklog, /cli_callback=.*(?:access_token|refresh_token)/i);
+});
+
+test("TaskFlow post-login return is same-origin, one-shot, and waits for approved WorkLog runtime", () => {
+  const values = new Map();
+  const storage = {
+    getItem: key => values.has(key) ? values.get(key) : null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key)
+  };
+  const now = 1_800_000_000_000;
+  const loginLocation = {
+    href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard&taskflowReturn=1",
+    search: "?app=1&workspace=dashboard&taskflowReturn=1"
+  };
+  assert.equal(TaskFlowPostLogin.capture(loginLocation, storage, now), true);
+  assert.equal(JSON.parse(values.get(TaskFlowPostLogin.storageKey)).intent, "taskflow");
+
+  const navigations = [];
+  const callbackLocation = {
+    href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1",
+    replace: url => navigations.push(url)
+  };
+  assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: false, runtimeReady: true, location: callbackLocation, storage, now: now + 1 }), false);
+  assert.deepEqual(navigations, []);
+  assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: callbackLocation, storage, now: now + 1 }), true);
+  assert.deepEqual(navigations, ["https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/"]);
+  assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
+  assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: callbackLocation, storage, now: now + 2 }), false);
+});
+
+test("TaskFlow authentication failure cannot bounce repeatedly between AIOS login and TaskFlow", () => {
+  const values = new Map();
+  const storage = {
+    getItem: key => values.has(key) ? values.get(key) : null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key)
+  };
+  const now = 1_800_000_000_000;
+  const taskflowLoginReturn = { search: "?app=1&workspace=dashboard&taskflowReturn=1" };
+  const taskflowLocation = {
+    href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/",
+    replace() {}
+  };
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now), true);
+  assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: taskflowLocation, storage, now: now + 100 }), true);
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 101), false);
+  assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 2 * 60 * 1000 + 101), true);
+});
+
+test("expired or malformed post-login intent is removed without redirect", () => {
+  const values = new Map([[TaskFlowPostLogin.storageKey, JSON.stringify({ intent: "taskflow", expiresAt: 100 })]]);
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key)
+  };
+  const navigations = [];
+  const args = { authenticated: true, accessApproved: true, runtimeReady: true, location: { href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/", replace: url => navigations.push(url) }, storage, now: 101 };
+  assert.equal(TaskFlowPostLogin.complete(args), false);
+  assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
+  values.set(TaskFlowPostLogin.storageKey, "malformed");
+  assert.equal(TaskFlowPostLogin.complete(args), false);
+  assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
+  assert.deepEqual(navigations, []);
+});
+
+test("WorkLog deep links do not create a TaskFlow return intent", () => {
+  const values = new Map();
+  const storage = { setItem: (key, value) => values.set(key, value) };
+  assert.equal(TaskFlowPostLogin.capture({ search: "?app=1&workspace=management" }, storage), false);
+  assert.equal(values.size, 0);
 });

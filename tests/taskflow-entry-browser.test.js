@@ -14,6 +14,45 @@ const cors = {
   "access-control-allow-methods": "GET,POST,OPTIONS"
 };
 
+test("AIOS home opens TaskFlow for authenticated users and keeps explicit AIOS routes on desktop and mobile", async t => {
+  const browser = await launch(t);
+  const root = await fixtureURL(path.join(ROOT, "index.html"));
+  const scenarios = [
+    { name: "desktop", viewport: { width: 1440, height: 900 } },
+    { name: "mobile", viewport: { width: 390, height: 844 } }
+  ];
+
+  for (const scenario of scenarios) {
+    const publicPage = await browser.newPage({ viewport: scenario.viewport });
+    await publicPage.goto(root, { waitUntil: "load" });
+    assert.equal(new URL(publicPage.url()).pathname, new URL(root).pathname, `${scenario.name}: unauthenticated public home remains available`);
+    assert.equal(await publicPage.getByRole("link", { name: "TaskFlow home" }).getAttribute("href"), "labs/taskflow/");
+    assert.equal(await publicPage.getByRole("link", { name: "Open TaskFlow" }).first().getAttribute("href"), "labs/taskflow/");
+    const publicLayout = await publicPage.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(publicLayout.scrollWidth <= publicLayout.width, `${scenario.name}: ${JSON.stringify(publicLayout)}`);
+    await publicPage.close();
+
+    const authenticatedPage = await browser.newPage({ viewport: scenario.viewport });
+    await authenticatedPage.addInitScript(() => localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })));
+    await authenticatedPage.route("**/labs/taskflow/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>TaskFlow</title><main>TaskFlow entry</main>" }));
+    await authenticatedPage.goto(root, { waitUntil: "domcontentloaded" });
+    await authenticatedPage.waitForURL(url => url.pathname.endsWith("/labs/taskflow/"), { timeout: 5000 });
+    assert.equal(new URL(authenticatedPage.url()).search, "");
+    assert.equal(new URL(authenticatedPage.url()).hash, "");
+    await authenticatedPage.close();
+
+    const deepLinkPage = await browser.newPage({ viewport: scenario.viewport });
+    await deepLinkPage.addInitScript(() => localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })));
+    await deepLinkPage.route("**/modules/worklog/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>WorkLog</title><main>WorkLog</main>" }));
+    await deepLinkPage.goto(root + "?app=1&workspace=management", { waitUntil: "domcontentloaded" });
+    await deepLinkPage.waitForURL(url => url.pathname.endsWith("/modules/worklog/"), { timeout: 5000 });
+    const preserved = new URL(deepLinkPage.url());
+    assert.equal(preserved.searchParams.get("app"), "1");
+    assert.equal(preserved.searchParams.get("workspace"), "management");
+    await deepLinkPage.close();
+  }
+});
+
 async function launch(t) {
   const executablePath = resolveBrowserExecutable();
   assert.ok(executablePath, "CI Chromium is required for TaskFlow browser regression");
@@ -201,7 +240,7 @@ test("expired or forbidden Zhuge session is rejected and returned to Zhuge Login
     assert.equal(new URL(authRequest.url).search, "");
     assert.equal(JSON.parse(authRequest.body).access_token, "expired-test-session-token");
     const loginUrl = new URL(page.url());
-    assert.equal(loginUrl.search, "?app=1&workspace=dashboard");
+    assert.equal(loginUrl.search, "?app=1&workspace=dashboard&taskflowReturn=1");
     assert.equal(loginUrl.hash, "");
     await page.close();
   }
