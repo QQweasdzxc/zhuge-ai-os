@@ -44,7 +44,7 @@ function htmlFiles(directory, prefix = "") {
   return files;
 }
 
-test("curated Pages payload keeps the P0 home, Apps, legacy routes, and release identity", () => {
+test("curated Pages payload restores the prior home behavior, Apps routes, and .9.43 release identity", () => {
   const required = [
     "index.html", "version.json", ".nojekyll", "googlea760c88b64a73d97.html",
     "labs/taskflow/index.html", "labs/taskflow/runtime-config.js", "labs/taskflow/cli-sso.js",
@@ -58,11 +58,11 @@ test("curated Pages payload keeps the P0 home, Apps, legacy routes, and release 
   }
 
   const manifest = JSON.parse(fs.readFileSync(path.join(site, "version.json"), "utf8"));
-  assert.equal(manifest.version, "0.9.0-alpha.9.42");
-  assert.match(manifest.build, /^202\d{5}-\d{4}$/);
+  assert.equal(manifest.version, "0.9.0-alpha.9.43");
+  assert.equal(manifest.build, "20261015-0612");
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
-  assert.match(home, /href=["']labs\/taskflow\//);
+  assert.doesNotMatch(home, /href=["']labs\/taskflow\//);
   assert.match(home, /href=["']modules\/worklog\//);
   assert.match(home, new RegExp("Version 0\\.9\\.0-alpha\\.9\\.42 · Build " + manifest.build));
   assertLocalReferencesResolve(home, "index.html");
