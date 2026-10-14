@@ -44,7 +44,7 @@ function htmlFiles(directory, prefix = "") {
   return files;
 }
 
-test("curated Pages payload restores the prior home behavior, Apps routes, and .9.43 release identity", () => {
+test("curated Pages payload restores the prior home behavior, Apps routes, and release identity", () => {
   const required = [
     "index.html", "version.json", ".nojekyll", "googlea760c88b64a73d97.html",
     "labs/taskflow/index.html", "labs/taskflow/runtime-config.js", "labs/taskflow/cli-sso.js",
@@ -58,13 +58,15 @@ test("curated Pages payload restores the prior home behavior, Apps routes, and .
   }
 
   const manifest = JSON.parse(fs.readFileSync(path.join(site, "version.json"), "utf8"));
-  assert.equal(manifest.version, "0.9.0-alpha.9.43");
-  assert.equal(manifest.build, "20261015-0612");
+  assert.equal(typeof manifest.version, "string");
+  assert.ok(manifest.version.length > 0, "version.json must declare a release version");
+  assert.equal(typeof manifest.build, "string");
+  assert.ok(manifest.build.length > 0, "version.json must declare a build identity");
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
   assert.doesNotMatch(home, /href=["']labs\/taskflow\//);
   assert.match(home, /href=["']modules\/worklog\//);
-  assert.match(home, new RegExp("Version 0\\.9\\.0-alpha\\.9\\.42 · Build " + manifest.build));
+  assert.ok(home.includes("Version " + manifest.version + " · Build " + manifest.build), "homepage Version and Build must match version.json");
   assertLocalReferencesResolve(home, "index.html");
 
   const taskflow = fs.readFileSync(path.join(site, "labs/taskflow/index.html"), "utf8");
