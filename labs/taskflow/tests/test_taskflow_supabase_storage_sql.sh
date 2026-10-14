@@ -32,8 +32,13 @@ as_user "$user_a" "INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES (
 expect_denied() {
   local label="$1"
   local sql="$2"
-  if as_user "$user_a" "$sql" >/dev/null 2>&1; then
+  local output
+  if output="$(as_user "$user_a" "$sql" 2>&1)"; then
     echo "Expected Storage RLS rejection did not occur: $label" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"row-level security policy"* ]]; then
+    echo "Expected an RLS policy rejection for $label, got: $output" >&2
     exit 1
   fi
 }
