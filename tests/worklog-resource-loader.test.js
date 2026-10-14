@@ -19,13 +19,7 @@ function readArray(name) {
 
 const APP_STYLES = readArray("appStyles");
 const RUNTIME_FILES = readArray("runtimeFiles");
-const TASKFLOW_POST_LOGIN_INDEX = RUNTIME_FILES.indexOf("../../labs/taskflow/taskflow-post-login.js");
-const WORKLOG_APP_INDEX = RUNTIME_FILES.indexOf("worklog-app.js");
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-assert.equal(RUNTIME_FILES.length, 59, "TaskFlow post-login handoff helper is one additional ordered WorkLog runtime resource");
-assert.ok(TASKFLOW_POST_LOGIN_INDEX >= 0, "WorkLog must capture TaskFlow return intent before application initialization");
-assert.ok(TASKFLOW_POST_LOGIN_INDEX < WORKLOG_APP_INDEX, "TaskFlow return intent must load before the WorkLog app bootstraps");
 
 async function runLoader({ networkDelayMs = 60, executionDelayMs = 1, failStyle = "", failPreload = "", failScript = "", search = "?app=1&workspace=dashboard" } = {}) {
   const head = { children: [] };
@@ -121,14 +115,14 @@ test("WorkLog starts CSS and script downloads together while retaining CSS and e
   assert.deepEqual(JSON.parse(JSON.stringify(preloads.map((element) => element.href))), JSON.parse(JSON.stringify(RUNTIME_FILES.map((file) => file.includes("://") ? file : `${file}?v=${BUILD}`))));
   assert.deepEqual(result.runtimeScripts.map((element) => element.src), preloads.map((element) => element.href));
   assert.ok(result.runtimeScripts.every((element) => element.async === false));
-  assert.equal(result.runtimeScripts.length, RUNTIME_FILES.length);
+  assert.equal(result.runtimeScripts.length, 58);
   assert.equal(result.publicHomeStylesRemoved, true);
 
   const starts = result.events.filter((event) => event.kind === "stylesheet" || event.kind === "preload");
   const styleStarts = starts.filter((event) => event.kind === "stylesheet");
   const preloadStarts = starts.filter((event) => event.kind === "preload");
   assert.equal(styleStarts.length, 16);
-  assert.equal(preloadStarts.length, RUNTIME_FILES.length);
+  assert.equal(preloadStarts.length, 58);
   assert.ok(Math.max(...starts.map((event) => event.start)) - Math.min(...starts.map((event) => event.start)) < 20,
     "CSS and JavaScript resource requests should begin in parallel, not as serial chains");
 

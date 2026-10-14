@@ -14,34 +14,33 @@ LOCALE_PATHS = [Path(f"packages/views/locales/{locale}/layout.json") for locale 
 APPS = {
     "en": {
         "group": "Apps",
-        "names": {"ai_os": "AI OS", "legacy_dashboard": "AIOS Dashboard", "worklog": "WorkLog", "knowledge": "Knowledge (WorkLog)", "management": "Management (WorkLog)", "labs": "Lab Center", "investment_lab": "Investment Lab", "investment_legacy": "Official Investment", "skyeye": "SkyEye"},
+        "names": {"legacy_dashboard": "AIOS Dashboard", "worklog": "WorkLog", "knowledge": "Knowledge (WorkLog)", "management": "Management (WorkLog)", "labs": "Lab Center", "investment_lab": "Investment Lab", "investment_legacy": "Official Investment", "skyeye": "SkyEye"},
         "states": {"available": "Available", "transition": "Transition", "experimental": "Experimental", "parked": "Parked", "unverified": "Not verified"},
     },
     "zh-Hant": {
         "group": "應用程式",
-        "names": {"ai_os": "AI OS", "legacy_dashboard": "AIOS 儀表板", "worklog": "WorkLog", "knowledge": "知識庫（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab 實驗室", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "天眼"},
+        "names": {"legacy_dashboard": "AIOS 儀表板", "worklog": "WorkLog", "knowledge": "知識庫（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab 實驗室", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "天眼"},
         "states": {"available": "可使用", "transition": "過渡入口", "experimental": "實驗中", "parked": "已暫停", "unverified": "尚未驗證"},
     },
     "zh-Hans": {
         "group": "应用程序",
-        "names": {"ai_os": "AI OS", "legacy_dashboard": "AIOS 仪表板", "worklog": "WorkLog", "knowledge": "知识库（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab 实验室", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "天眼"},
+        "names": {"legacy_dashboard": "AIOS 仪表板", "worklog": "WorkLog", "knowledge": "知识库（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab 实验室", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "天眼"},
         "states": {"available": "可用", "transition": "过渡入口", "experimental": "实验中", "parked": "已暂停", "unverified": "尚未验证"},
     },
     "ja": {
         "group": "アプリ",
-        "names": {"ai_os": "AI OS", "legacy_dashboard": "AIOS ダッシュボード", "worklog": "WorkLog", "knowledge": "ナレッジ（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab センター", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "SkyEye"},
+        "names": {"legacy_dashboard": "AIOS ダッシュボード", "worklog": "WorkLog", "knowledge": "ナレッジ（WorkLog）", "management": "管理（WorkLog）", "labs": "Lab センター", "investment_lab": "Investment Lab", "investment_legacy": "正式 Investment", "skyeye": "SkyEye"},
         "states": {"available": "利用可能", "transition": "移行中", "experimental": "実験中", "parked": "停止中", "unverified": "未確認"},
     },
     "fr": {
         "group": "Applications",
-        "names": {"ai_os": "AI OS", "legacy_dashboard": "Tableau de bord AIOS", "worklog": "WorkLog", "knowledge": "Connaissances (WorkLog)", "management": "Gestion (WorkLog)", "labs": "Centre Lab", "investment_lab": "Investment Lab", "investment_legacy": "Investment officiel", "skyeye": "SkyEye"},
+        "names": {"legacy_dashboard": "Tableau de bord AIOS", "worklog": "WorkLog", "knowledge": "Connaissances (WorkLog)", "management": "Gestion (WorkLog)", "labs": "Centre Lab", "investment_lab": "Investment Lab", "investment_legacy": "Investment officiel", "skyeye": "SkyEye"},
         "states": {"available": "Disponible", "transition": "Transition", "experimental": "Expérimental", "parked": "Suspendu", "unverified": "Non vérifié"},
     },
 }
 
 SIDEBAR_CONSTANT = '''const TASKFLOW_AIOS_ORIGIN = "https://qqweasdzxc.github.io/zhuge-ai-os";
 const TASKFLOW_APP_LINKS = [
-  { key: "ai_os", path: "/modules/worklog/?app=1&workspace=dashboard", state: "available" },
   { key: "legacy_dashboard", path: "/app/dashboard/", state: "transition" },
   { key: "worklog", path: "/modules/worklog/?app=1&workspace=worklog", state: "available" },
   { key: "knowledge", path: "/modules/worklog/?app=1&workspace=library", state: "available" },
@@ -126,7 +125,6 @@ describe("TaskFlow Apps navigation", () => {
     const hasAppHref = (href: string) =>
       Array.from(container.querySelectorAll<HTMLButtonElement>("button[data-href]")).some((item) => item.dataset.href === href);
     expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=worklog")).toBe(true);
-    expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard")).toBe(true);
     expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/app/dashboard/")).toBe(true);
     expect(hasAppHref("https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/")).toBe(true);
     expect(screen.getByText("Experimental")).toBeInTheDocument();

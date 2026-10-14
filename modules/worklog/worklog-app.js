@@ -82,13 +82,6 @@ async function initializeApprovedWorklogRuntime(reason = "app-access-approved") 
     worklogRuntimeReady = true;
   }
   render(reason);
-  globalThis.ZhugeTaskFlowPostLogin?.complete({
-    authenticated: Boolean(session?.access_token || session?.uuid || session?.user_uuid),
-    accessApproved: String(appAccessState?.status || "").toUpperCase() === "APPROVED",
-    runtimeReady: worklogRuntimeReady,
-    location: window.location,
-    storage: window.sessionStorage
-  });
   return true;
 }
 
