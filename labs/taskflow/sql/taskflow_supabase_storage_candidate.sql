@@ -61,10 +61,10 @@ SET search_path = pg_catalog, taskflow, pg_temp
 AS $$
 DECLARE
     parts text[];
-    scope_id uuid;
-    user_id uuid := auth.uid();
+    v_scope_id uuid;
+    v_user_id uuid := auth.uid();
 BEGIN
-    IF user_id IS NULL OR object_name IS NULL OR length(object_name) > 1024 THEN
+    IF v_user_id IS NULL OR object_name IS NULL OR length(object_name) > 1024 THEN
         RETURN false;
     END IF;
     parts := string_to_array(object_name, '/');
@@ -74,7 +74,7 @@ BEGIN
     IF parts[2] !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
         RETURN false;
     END IF;
-    scope_id := parts[2]::uuid;
+    v_scope_id := parts[2]::uuid;
 
     IF length(parts[3]) < 38
        OR substring(parts[3] FROM 1 FOR 36) !~* '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
@@ -83,13 +83,13 @@ BEGIN
     END IF;
 
     IF parts[1] = 'users' THEN
-        RETURN scope_id = user_id;
+        RETURN v_scope_id = v_user_id;
     ELSIF parts[1] = 'workspaces' THEN
         RETURN EXISTS (
             SELECT 1
               FROM taskflow.member m
-             WHERE m.workspace_id = scope_id
-               AND m.user_id = user_id
+             WHERE m.workspace_id = v_scope_id
+               AND m.user_id = v_user_id
         );
     END IF;
     RETURN false;
@@ -105,22 +105,22 @@ SET search_path = pg_catalog, taskflow, pg_temp
 AS $$
 DECLARE
     parts text[];
-    scope_id uuid;
-    user_id uuid := auth.uid();
+    v_scope_id uuid;
+    v_user_id uuid := auth.uid();
 BEGIN
-    IF user_id IS NULL OR NOT storage.taskflow_storage_can_access_object(object_name) THEN
+    IF v_user_id IS NULL OR NOT storage.taskflow_storage_can_access_object(object_name) THEN
         RETURN false;
     END IF;
     parts := string_to_array(object_name, '/');
-    scope_id := parts[2]::uuid;
+    v_scope_id := parts[2]::uuid;
     IF parts[1] = 'users' THEN
-        RETURN scope_id = user_id AND object_owner_id = user_id::text;
+        RETURN v_scope_id = v_user_id AND object_owner_id = v_user_id::text;
     END IF;
-    RETURN object_owner_id = user_id::text OR EXISTS (
+    RETURN object_owner_id = v_user_id::text OR EXISTS (
         SELECT 1
           FROM taskflow.member m
-         WHERE m.workspace_id = scope_id
-           AND m.user_id = user_id
+         WHERE m.workspace_id = v_scope_id
+           AND m.user_id = v_user_id
            AND m.role IN ('owner', 'admin')
     );
 END
