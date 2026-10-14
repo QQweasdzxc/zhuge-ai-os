@@ -8,6 +8,7 @@ on:
       - review/taskflow-desktop-login-20261012
       - review/taskflow-sidebar-project-nav-20261012
       - review/taskflow-issues-42-44-20261013
+      - review/taskflow-issue-45-20261014
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
