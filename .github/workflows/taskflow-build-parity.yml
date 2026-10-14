@@ -10,6 +10,7 @@ on:
       - review/taskflow-issues-42-44-20261013
       - review/taskflow-issue-44-20261014
       - review/taskflow-issue-45-integrated-20261014
+      - review/taskflow-home-apps-20261014
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
