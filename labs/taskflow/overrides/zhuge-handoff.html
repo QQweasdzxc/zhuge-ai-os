@@ -44,9 +44,14 @@
         // in the visible URL or browser history either.
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         const token = params.get("zhuge_token") || "";
+        const storageToken = params.get("zhuge_storage_token") || "";
         const destination = params.get("zhuge_dest") || "";
         if (!token || token.length > 16384) {
           fail("沒有收到有效的 Zhuge 身分。請從 Zhuge AI OS 重新進入 TaskFlow。");
+          return;
+        }
+        if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(storageToken) || storageToken.length > 16384) {
+          fail("Zhuge Storage 身分無效。請從 Zhuge AI OS 重新進入 TaskFlow。");
           return;
         }
         if (!destination.startsWith("/") || destination.startsWith("//") || destination.includes("\\")) {
@@ -63,10 +68,13 @@
         const safeDestination = resolved.pathname + resolved.search + resolved.hash;
         // The next document initializes CoreProvider only after token mode is
         // ready, preventing the unauthenticated cookie-mode `/api/me` probe.
+        window.sessionStorage.setItem("zhuge_storage_access_token", storageToken);
         window.localStorage.setItem("multica_token", token);
         document.documentElement.dataset.handoffState = "accepted";
         window.location.replace(safeDestination);
       } catch {
+        try { window.sessionStorage.removeItem("zhuge_storage_access_token"); } catch { /* fail closed */ }
+        try { window.localStorage.removeItem("multica_token"); } catch { /* fail closed */ }
         fail("Zhuge 身分交接失敗。請從 Zhuge AI OS 重新進入 TaskFlow。");
       }
     })();

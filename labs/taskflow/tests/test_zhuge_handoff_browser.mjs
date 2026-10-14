@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 const here = dirname(fileURLToPath(import.meta.url));
 const handoffHtml = await readFile(resolve(here, "../overrides/zhuge-handoff.html"), "utf8");
 const validToken = "isolated-browser-test-token";
+const validStorageToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.signature";
 
 function workspaceHtml() {
   return `<!doctype html><html><body><main id="workspace">Workspace loading</main><script>
@@ -75,6 +76,7 @@ test("browser handoff persists Zhuge token before the first authenticated app re
   const page = await browser.newPage();
   const hash = new URLSearchParams({
     zhuge_token: validToken,
+    zhuge_storage_token: validStorageToken,
     zhuge_dest: "/workspace/issues",
   }).toString();
   await page.goto(`${origin}/zhuge-handoff.html#${hash}`, { waitUntil: "domcontentloaded" });
@@ -83,6 +85,8 @@ test("browser handoff persists Zhuge token before the first authenticated app re
   assert.equal(new URL(page.url()).pathname, "/workspace/issues");
   assert.equal(new URL(page.url()).hash, "", "credential fragment must not remain in the final URL");
   assert.equal(await page.evaluate(() => localStorage.getItem("multica_token")), validToken);
+  assert.equal(await page.evaluate(() => sessionStorage.getItem("zhuge_storage_access_token")), validStorageToken);
+  assert.equal(await page.evaluate(() => new URL(location.href).search.includes("storage_token")), false);
   assert.deepEqual(requests, [{ path: "/api/me", authorization: `Bearer ${validToken}` }]);
 });
 
@@ -155,6 +159,7 @@ test("rejected handoffs clear the fragment before validation and never persist t
       name: "valid token with cross-origin destination",
       hash: new URLSearchParams({
         zhuge_token: validToken,
+        zhuge_storage_token: validStorageToken,
         zhuge_dest: "https://attacker.example/steal",
       }).toString(),
     },
@@ -162,6 +167,15 @@ test("rejected handoffs clear the fragment before validation and never persist t
       name: "empty token",
       hash: new URLSearchParams({
         zhuge_token: "",
+        zhuge_storage_token: validStorageToken,
+        zhuge_dest: "/workspace/issues",
+      }).toString(),
+    },
+    {
+      name: "invalid Storage token",
+      hash: new URLSearchParams({
+        zhuge_token: validToken,
+        zhuge_storage_token: "not-a-jwt",
         zhuge_dest: "/workspace/issues",
       }).toString(),
     },
@@ -172,5 +186,6 @@ test("rejected handoffs clear the fragment before validation and never persist t
     await page.waitForFunction(() => document.documentElement.dataset.handoffState === "rejected");
     assert.equal(new URL(page.url()).hash, "", `${entry.name}: fragment must be removed`);
     assert.equal(await page.evaluate(() => localStorage.getItem("multica_token")), null, `${entry.name}: token must not be stored`);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("zhuge_storage_access_token")), null, `${entry.name}: Storage token must not be stored`);
   }
 });

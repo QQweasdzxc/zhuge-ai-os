@@ -63,6 +63,18 @@ COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant
 RUN python3 /tmp/apply-taskflow-zh-hant.py --target backend --root /src --overlays /taskflow-zh-hant \
  && test -f /src/server/internal/handler/taskflow_zh_hant_language_test.go
 
+COPY labs/taskflow/patches/apply-taskflow-supabase-storage.py /tmp/apply-taskflow-supabase-storage.py
+COPY labs/taskflow/overrides/taskflow_supabase_storage.go /taskflow-supabase-overlays/taskflow_supabase_storage.go
+COPY labs/taskflow/overrides/taskflow_scoped_storage.go /taskflow-supabase-overlays/taskflow_scoped_storage.go
+COPY labs/taskflow/overrides/taskflow_scoped_storage_test.go /taskflow-supabase-overlays/taskflow_scoped_storage_test.go
+COPY labs/taskflow/overrides/taskflow_supabase_identity.go /taskflow-supabase-overlays/taskflow_supabase_identity.go
+COPY labs/taskflow/overrides/taskflow_supabase_storage_test.go /taskflow-supabase-overlays/taskflow_supabase_storage_test.go
+COPY labs/taskflow/overrides/taskflow_supabase_identity_test.go /taskflow-supabase-overlays/taskflow_supabase_identity_test.go
+COPY labs/taskflow/overrides/taskflow_storage_identity_middleware.go /taskflow-supabase-overlays/taskflow_storage_identity_middleware.go
+COPY labs/taskflow/overrides/taskflow_storage_identity_middleware_test.go /taskflow-supabase-overlays/taskflow_storage_identity_middleware_test.go
+COPY labs/taskflow/overrides/taskflow_supabase_storage_handler.go /taskflow-supabase-overlays/taskflow_supabase_storage_handler.go
+RUN python3 /tmp/apply-taskflow-supabase-storage.py --target backend --root /src --overlays /taskflow-supabase-overlays
+
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
@@ -76,6 +88,9 @@ RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudge
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
  && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/storage -run '^Test(TaskFlowSupabase|VerifyTaskFlowSupabase)' -count=1 \
+ && CGO_ENABLED=0 go test ./internal/storage -run '^TestTaskFlow(TUSBaseURL|Workspace|User|Legacy)' -count=1 \
+ && CGO_ENABLED=0 go test ./internal/middleware -run '^TestTaskFlowStorageIdentity' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
@@ -102,6 +117,7 @@ COPY labs/taskflow/overrides/taskflow-migrate.sh ./taskflow-migrate.sh
 RUN sed -i 's/\r$//' taskflow-entrypoint.sh taskflow-migrate.sh \
  && chmod +x taskflow-entrypoint.sh taskflow-migrate.sh
 ENV DISABLE_WORKSPACE_CREATION=true \
+    TASKFLOW_STORAGE_PROVIDER=supabase \
     MULTICA_CLOUD_URL= \
     DO_NOT_TRACK=1 \
     ANALYTICS_DISABLED=true

@@ -10,6 +10,7 @@ on:
       - review/taskflow-issues-42-44-20261013
       - review/taskflow-issue-44-20261014
       - review/taskflow-issue-45-integrated-20261014
+      - review/taskflow-issue-45-supabase-storage-20261014
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -36,6 +37,31 @@ jobs:
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
       - name: Verify TaskFlow navigation and authenticated entry contract
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+
+  storage-sql-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: taskflow-ci-postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Execute candidate SQL against isolated PostgreSQL and verify RLS
+        env:
+          TASKFLOW_STORAGE_TEST_DATABASE_URL: postgresql://postgres:taskflow-ci-postgres@localhost:5432/postgres?sslmode=disable
+        run: bash labs/taskflow/tests/test_taskflow_supabase_storage_sql.sh
 
   backend-image:
     runs-on: ubuntu-latest

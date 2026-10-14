@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#07111f" />
   <title>TaskFlow · Multica · Zhuge AI OS</title>
-  <script src="./runtime-config.js?v=20261014-1040"></script>
-  <script src="./cli-sso.js?v=20261014-1040"></script>
+  <script src="./runtime-config.js?v=20261014-1307"></script>
+  <script src="./cli-sso.js?v=20261014-1307"></script>
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
     *{box-sizing:border-box}
@@ -237,7 +237,11 @@
             ? cliSSO.buildTaskFlowLoginDestination(cliIntent)
             : cliSSO?.safeTaskFlowDestination(destination, web);
           if (!safeDestination) throw new Error("TaskFlow return route rejected");
-          handoff.hash = new URLSearchParams({ zhuge_token: payload.token, zhuge_dest: safeDestination }).toString();
+          handoff.hash = new URLSearchParams({
+            zhuge_token: payload.token,
+            zhuge_storage_token: accessToken,
+            zhuge_dest: safeDestination,
+          }).toString();
           window.location.replace(handoff.toString());
         } catch (error) {
           if (error?.code === "TASKFLOW_HTTP") {

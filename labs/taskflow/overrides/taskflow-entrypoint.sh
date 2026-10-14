@@ -3,6 +3,16 @@ set -eu
 
 : "${DATABASE_URL:?TaskFlow requires its restricted runtime database role}"
 
+# TaskFlow attachment blobs live in the isolated private Supabase bucket.
+# An empty provider setting defaults to that provider; any attempted provider
+# override fails closed instead of falling back to Render's ephemeral disk.
+TASKFLOW_STORAGE_PROVIDER="${TASKFLOW_STORAGE_PROVIDER:-supabase}"
+if [ "$TASKFLOW_STORAGE_PROVIDER" != "supabase" ]; then
+  echo "TaskFlow requires TASKFLOW_STORAGE_PROVIDER=supabase" >&2
+  exit 1
+fi
+export TASKFLOW_STORAGE_PROVIDER
+
 # Optional one-shot bootstrap. The migration wrapper verifies and uses the
 # separate taskflow_migrator URL; the API process starts only with DATABASE_URL.
 if [ "${TASKFLOW_MIGRATE_BEFORE_START:-false}" = "true" ]; then

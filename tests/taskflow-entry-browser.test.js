@@ -90,6 +90,7 @@ test("TaskFlow entry hands Zhuge session to API and opens the Multica handoff on
     const handoffUrl = new URL(page.url());
     assert.equal(handoffUrl.search, "");
     assert.match(handoffUrl.hash, /zhuge_token=isolated-taskflow-jwt/);
+    assert.match(handoffUrl.hash, /zhuge_storage_token=isolated-test-session-token/);
     assert.match(decodeURIComponent(handoffUrl.hash), /zhuge_dest=\/pm-workspace\/issues/);
     const authRequest = readCaptured();
     assert.ok(authRequest);
@@ -116,6 +117,7 @@ test("authenticated Multica CLI login reaches TaskFlow authorization without exp
   assert.equal(handoffUrl.search, "");
   const handoff = new URLSearchParams(handoffUrl.hash.slice(1));
   assert.equal(handoff.get("zhuge_token"), TEST_TASKFLOW_TOKEN);
+  assert.equal(handoff.get("zhuge_storage_token"), TEST_SESSION_TOKEN);
   assert.equal(handoff.get("zhuge_dest"), "/login#" + new URLSearchParams({ cli_callback: callback, cli_state: state }).toString());
   assert.doesNotMatch(page.url(), /access_token|refresh_token/);
   await page.close();
