@@ -11,10 +11,10 @@ afterEach(() => {
 describe("TaskFlow private Supabase attachment bridge", () => {
   it("uses the verified Zhuge storage token only on attachment requests", async () => {
     window.sessionStorage.setItem("zhuge_storage_access_token", "supabase.user.jwt");
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "att-1" }), {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ id: "att-1" }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
-    }));
+    })));
     vi.stubGlobal("fetch", fetchMock);
     const client = new ApiClient("https://api.example.test");
     client.setToken("taskflow.api.jwt");
