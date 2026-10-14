@@ -1,10 +1,12 @@
 # Issue #45 — attachment preview and large PPTX upload
 
-Candidate base: `.9.37` (`6df9f12ae5433048776db400a441d365bb99955f`).
+Candidate: `0.9.0-alpha.9.37` / Build `20261014-0949`.
+Base: `.9.37` source (`6df9f12ae5433048776db400a441d365bb99955f`).
 This candidate changes only the TaskFlow attachment preview build overlay, its
 tests, and the Build Parity branch trigger. Frozen Multica source is unchanged.
-The TaskFlow product version remains `0.9.0-alpha.9.37`; a new Build ID is
-required for this source change and will be recorded before candidate handoff.
+The product version remains `.9.37`; this source change uses a new synchronized
+Build ID. Standard generated Build identity projections were synchronized by
+the repository release-governance tool.
 
 ## PDF and image preview
 
