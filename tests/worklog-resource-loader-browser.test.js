@@ -66,8 +66,8 @@ test("WorkLog starts its real CSS/JS loader in parallel on desktop and mobile an
   for (const viewport of [{ name: "desktop", width: 1440, height: 900 }, { name: "mobile-emulation", width: 390, height: 844 }]) {
     const first = await openApp(browser, entryUrl, { width: viewport.width, height: viewport.height });
     assert.equal(first.metrics.cssCount, 16, `${viewport.name} should load all app styles`);
-    assert.equal(first.metrics.preloadCount, 58, `${viewport.name} should start all script preloads`);
-    assert.equal(first.metrics.executableRuntimeScriptCount, 58, `${viewport.name} should execute all runtime scripts`);
+    assert.equal(first.metrics.preloadCount, 59, `${viewport.name} should start all script preloads including the TaskFlow return-intent helper`);
+    assert.equal(first.metrics.executableRuntimeScriptCount, 59, `${viewport.name} should execute all runtime scripts`);
     assert.ok(first.metrics.firstPaintMs !== null, `${viewport.name} should paint the boot shell before runtime completes`);
     assert.ok(first.metrics.cssRequestStartSpanMs < 250, JSON.stringify(first.metrics));
     assert.ok(first.metrics.jsRequestStartSpanMs < 250, JSON.stringify(first.metrics));
@@ -82,7 +82,7 @@ test("WorkLog starts its real CSS/JS loader in parallel on desktop and mobile an
       text: document.getElementById("app")?.innerText.slice(0, 140) ?? ""
     }));
     assert.equal(reload.css, 16);
-    assert.equal(reload.scripts, 58);
+    assert.equal(reload.scripts, 59);
     assert.doesNotMatch(reload.text, /工作空間暫時無法開啟/);
     await first.context.close();
   }
