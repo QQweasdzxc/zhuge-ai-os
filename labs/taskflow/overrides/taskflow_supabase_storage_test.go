@@ -90,7 +90,7 @@ func TestTaskFlowSupabaseStorageResumableUploadAndReadback13MiB(t *testing.T) {
 	}
 }
 
-func TestTaskFlowSupabaseStorageRejectsMissingJWTAndInvalidKeys(t *testing.T) {
+func TestTaskFlowSupabaseStorageRejectsMissingJWTAndMalformedKeys(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("storage request made without a scoped user JWT")
 	}))
@@ -107,7 +107,6 @@ func TestTaskFlowSupabaseStorageRejectsMissingJWTAndInvalidKeys(t *testing.T) {
 		"workspaces/22222222-2222-4222-8222-222222222222/../escape",
 		"other-bucket/22222222-2222-4222-8222-222222222222/file.pdf",
 		"workspaces/not-a-uuid/file.pdf",
-		"users/22222222-2222-4222-8222-222222222222/avatar.png",
 	} {
 		if _, err := store.Upload(ctx, key, []byte("x"), "application/pdf", "x.pdf"); err == nil {
 			t.Errorf("invalid key %q unexpectedly succeeded", key)

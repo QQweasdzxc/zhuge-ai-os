@@ -17,11 +17,15 @@ as_user() {
   local user_id="$1"
   local sql="$2"
   psql -U authenticated "$TASKFLOW_STORAGE_TEST_DATABASE_URL" -qAt -v ON_ERROR_STOP=1 \
-    -c "SET request.jwt.claim.sub = '$user_id'; $sql"
+    -c "SET request.jwt.claim.sub = '$user_id'" \
+    -c "$sql"
 }
 
-identity="$(as_user "$user_a" "SELECT current_user || '|' || auth.uid()::text")"
-[[ "$identity" == "authenticated|$user_a" ]]
+identity="$(as_user "$user_a" "SELECT session_user || '|' || current_user || '|' || auth.uid()::text")"
+[[ "$identity" == "authenticated|authenticated|$user_a" ]] || {
+  echo "Unexpected isolated Storage test identity: $identity" >&2
+  exit 1
+}
 as_user "$user_a" "INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES ('taskflow-attachments','workspaces/$workspace/018f0000-0000-7000-8000-000000000001.pdf','$user_a')" >/dev/null
 as_user "$user_a" "INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES ('taskflow-attachments','users/$user_a/018f0000-0000-7000-8000-000000000002.png','$user_a')" >/dev/null
 
@@ -40,8 +44,11 @@ expect_denied "unrelated bucket" "INSERT INTO storage.objects(bucket_id,name,own
 visible_a="$(as_user "$user_a" "SELECT count(*) FROM storage.objects WHERE bucket_id='taskflow-attachments'")"
 [[ "$visible_a" == "2" ]]
 
-identity="$(as_user "$user_b" "SELECT current_user || '|' || auth.uid()::text")"
-[[ "$identity" == "authenticated|$user_b" ]]
+identity="$(as_user "$user_b" "SELECT session_user || '|' || current_user || '|' || auth.uid()::text")"
+[[ "$identity" == "authenticated|authenticated|$user_b" ]] || {
+  echo "Unexpected isolated Storage test identity: $identity" >&2
+  exit 1
+}
 as_user "$user_b" "INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES ('taskflow-attachments','workspaces/$workspace/018f0000-0000-7000-8000-000000000006.pdf','$user_b')" >/dev/null
 visible_b="$(as_user "$user_b" "SELECT count(*) FROM storage.objects WHERE bucket_id='taskflow-attachments'")"
 [[ "$visible_b" == "2" ]]
