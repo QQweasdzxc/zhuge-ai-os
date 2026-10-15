@@ -1,17 +1,24 @@
 # Issue #45 — attachment management review candidate
 
-Version `0.9.0-alpha.9.46`, Build `20261015-1303` (Asia/Taipei).
-Continues `review/issue45-supabase-lifecycle-20261015` from `d3787336`,
-based on main `802f820e`. No Production access, deployment, cleanup, secret
-change, formal TASK allocation, or Frozen Multica edit is part of this work.
+Version `0.9.0-alpha.9.47`, Build `20261015-1436` (Asia/Taipei).
+Continues `review/issue45-supabase-lifecycle-20261015` from the reviewed PR #50
+source `199ea823`, based on main `802f820e`. No Production access, deployment,
+cleanup, secret change, formal TASK allocation, or Frozen Multica edit is part
+of this work.
 
 ## Source map
 
 | Module | Authoritative completion | Ownership / metadata | Bytes and application integration |
 | --- | --- | --- | --- |
 | TaskFlow | `taskflow.issue.status` joins native `issue_status(workspace_id,key).category = 'done'`; custom project status still uses its canonical native status | Existing `taskflow.attachment`, comment-to-issue resolution, verified workspace membership | Existing private `taskflow-attachments` adapter; Docker stages Zhuge overlays, Web handoff supplies a separate verified Supabase JWT; API never receives a service key |
-| Board | Canonical `public.board_tasks.status = 'done'` | Existing `board_task_attachments` and Board-instance ACLs | Existing `board-task-attachments`, same keys, no upsert or metadata rewrite |
-| WorkTodo | Same canonical card status, including its Board instance scope | Existing canonical attachments and task/instance owner ACLs | Same shared bucket and same action adapters |
+| Board | `public.board_tasks.status = 'done'`, or the exact current step bound to the registered Board workflow has `is_completion = true` | Existing `board_task_attachments` and Board-instance ACLs | Existing `board-task-attachments`, same keys, no upsert or metadata rewrite |
+| WorkTodo | Native `public.board_tasks.status = 'completed'`; a generic `done` value is not treated as WorkTodo completion | Existing canonical attachments and WorkTodo Board-instance/owner ACLs | Same shared bucket and shared action adapters |
+
+For Board instances, scope comes from the registered instance's exact
+`legacy_application_scope` and must agree with the card's compatible scope.
+`IVTK` Investment instances, unknown scopes, and unbound `c`/null-scope rows are
+excluded. A generic Board `completed` status starts a timer only when that
+card's currently bound Board workflow step is explicitly marked as completion.
 
 Investment/WorkLog consumers sharing the canonical table/bucket are excluded
 from this lifecycle; their original Storage policies remain effective.
@@ -38,12 +45,23 @@ Knowledge and other buckets are counted for capacity but never cleaned here.
   After 72h, a reopen may briefly fail with "deletion in progress" until recovery.
   Sticky claims survive crashes; retrying the same immutable key is idempotent.
 - Cleanup uses Storage DELETE and then verifies object-info returns 404 before
-  finalizing the tombstone/releasing reserved space. Failure retains the claim,
-  records a sanitized audit event, and is retried by later scheduler runs.
+  setting the existing `board_task_attachments.deletion_status/deleted_at/
+  deleted_by` tombstone or releasing reserved space. The metadata row and its
+  user-authored fields remain intact. Failure retains the claim, records a
+  sanitized audit event, and is retried by later scheduler runs.
 - Capacity page: actual aggregate Storage usage plus nonduplicated reservations,
   per-module/other breakdown, largest 100 accessible attachments and owning
   cards, deadlines/estimated release, last cleanup outcome, 70/90% warnings,
   and explicitly confirmed manual delete. Original attachment records remain.
+  Unknown, null, non-integer, negative, or unmeasurable Storage size metadata
+  fails the capacity read and reservation closed; existing objects are never
+  deleted to make room.
+- The shared drawer invokes lifecycle status/access/delete only for exact
+  managed Board/WorkTodo scopes (including the scope resolved from a Board
+  instance). Investment, WorkLog, and other unmanaged attachments retain their
+  legacy path. A managed lifecycle outage fails closed. At 24–72 hours the card
+  itself shows the server-scheduled 72-hour delete time, disables preview, and
+  leaves a separate download action available.
 - Optional scheduling is Free-compatible pg_cron/pg_net; source is separate and
   not installed automatically. Each sweep is bounded to 25 objects, with indexed
   due-card/state lookups. It is disabled by default.

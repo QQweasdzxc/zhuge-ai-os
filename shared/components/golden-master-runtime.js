@@ -532,6 +532,16 @@
   function isWorkTodoTask(task) {
     return state.cNativeWorkTodo || state.applicationScope !== "c" && (state.applicationScope === "worktodo" || String(task?.applicationScope || "") === "worktodo");
   }
+  function isAttachmentTaskCompleted(task) {
+    if (!task) return false;
+    if (isWorkTodoTask(task)) return workTodoStatus(task) === "completed";
+    const status = String(task.rawStatus || task.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (status === "done") return true;
+    const stepId = String(task.currentWorkflowStepId || task.current_workflow_step_id || "");
+    const currentStep = state.workflowData?.published?.steps?.find(step => String(step.id || step.stepId || step.step_id || "") === stepId)
+      || state.workflowData?.workflow?.steps?.find(step => String(step.id || step.stepId || step.step_id || "") === stepId);
+    return Boolean(stepId && (currentStep?.isCompletion === true || currentStep?.is_completion === true));
+  }
   function workItemLabel(task) {
     return state.applicationScope === "c" ? String(state.taskCodePrefix || (state.boardIsTemplate ? "MDTK" : "C")).toUpperCase() : state.applicationScope === "procurement" ? "GAS" : isWorkTodoTask(task) ? "WLTK" : "TASK";
   }
@@ -2531,6 +2541,16 @@
   function activityKindLabel(kind) {
     return ({ status: "Status", workspace: "Workspace Move", evidence: "Evidence", acceptance: "PM Acceptance", system: "System Activity" })[kind] || "System Activity";
   }
+  function taskAttachmentLifecycleNotice(item = {}) {
+    if (item.lifecycleStatusUnavailable === true) return "附件期限資訊暫時無法取得，請稍後重新整理。";
+    if (item.lifecycleManaged !== true) return "";
+    if (item.lifecyclePreviewAvailable === false && item.lifecycleDownloadAvailable === true && item.lifecycleDeleteDueAt) {
+      const due = new Date(item.lifecycleDeleteDueAt);
+      if (!Number.isNaN(due.getTime())) return `預計於 ${due.toLocaleString("zh-TW", { hour12: false })} 永久刪除；目前仍可下載。`;
+    }
+    if (item.lifecycleDownloadAvailable === false) return "附件已到永久刪除期限，無法下載。";
+    return "";
+  }
   function progressAttachmentIcon(file) {
     const mime = String(file?.mimeType || file?.mime_type || "").toLowerCase();
     const filename = String(file?.filename || "").toLowerCase();
@@ -2579,7 +2599,7 @@
         ? `<span class="shared-task-progress-note-attachment-badge" title="此筆工作進度有 ${noteAttachments.length} 個附件">📎 ${noteAttachments.length}</span>`
         : "";
       const attachmentMarkupForNote = noteAttachments.length
-        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview title="${esc(file.filename || "附件")}">${progressAttachmentIcon(file)}</span><strong>${esc(file.filename)}</strong>${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-shared-attachment-delete="${esc(file.attachmentId)}" data-shared-attachment-scope="progress_note" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`).join("")}</div>`
+        ? `<div class="shared-task-progress-attachment-list">${noteAttachments.map(file => { const notice = taskAttachmentLifecycleNotice(file); return `<div class="shared-task-progress-attachment-row" data-progress-attachment-id="${esc(file.attachmentId)}" data-progress-attachment-path="${esc(file.storagePath)}" data-progress-attachment-mime="${esc(file.mimeType)}"><span data-progress-attachment-preview title="${esc(file.filename || "附件")}">${progressAttachmentIcon(file)}</span><strong>${esc(file.filename)}</strong>${notice ? `<small class="shared-task-attachment-expiry" role="status">${esc(notice)}</small>` : ""}${canManage ? `<button class="shared-task-icon-button shared-task-attachment-delete" type="button" data-shared-attachment-delete="${esc(file.attachmentId)}" data-shared-attachment-scope="progress_note" aria-label="刪除進度附件：${esc(file.filename || "未命名附件")}" title="刪除附件">🗑️</button>` : ""}</div>`; }).join("")}</div>`
         : "";
       const controls = canManage
         ? `<div class="shared-task-progress-note-actions"><button class="shared-task-icon-button" type="button" data-progress-note-edit="${esc(item.id)}" aria-label="編輯工作進度" title="編輯工作進度">✏️</button><button class="shared-task-icon-button shared-task-progress-note-delete" type="button" data-progress-note-delete="${esc(item.id)}" aria-label="刪除工作進度" title="刪除工作進度">🗑️</button></div>`
@@ -2624,16 +2644,24 @@
     const attachmentRows = rows.map(item => {
       const isImage = String(item.mimeType || "").startsWith("image/");
       const attachmentId = item.attachmentId || item.id || "";
-      const contextAction = `<button type="button" data-attachment-menu-action="context">🤖 讀取給 AI</button>`;
-      const editableActions = archiveOnly ? "" : `<button type="button" data-attachment-menu-action="preview">👁 預覽</button><button type="button" data-attachment-menu-action="download">⬇ 下載</button><button type="button" data-attachment-menu-action="rename">✏️ 重新命名</button><button type="button" data-attachment-menu-action="note">📝 附註</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button>`;
+      const statusUnavailable = item.lifecycleStatusUnavailable === true;
+      const managed = item.lifecycleManaged === true;
+      const previewAvailable = !managed && !statusUnavailable || item.lifecyclePreviewAvailable !== false && !statusUnavailable;
+      const downloadAvailable = !managed && !statusUnavailable || item.lifecycleDownloadAvailable !== false;
+      const lifecycleNotice = taskAttachmentLifecycleNotice(item);
+      const contextAction = previewAvailable ? `<button type="button" data-attachment-menu-action="context">🤖 讀取給 AI</button>` : "";
+      const lifecycleActions = `${previewAvailable ? `<button type="button" data-attachment-menu-action="preview">👁 預覽</button>` : ""}${downloadAvailable ? `<button type="button" data-attachment-menu-action="download">⬇ 下載</button>` : ""}`;
+      const editActions = archiveOnly ? "" : `<button type="button" data-attachment-menu-action="rename">✏️ 重新命名</button><button type="button" data-attachment-menu-action="note">📝 附註</button><button class="is-danger" type="button" data-shared-attachment-delete="${esc(attachmentId)}" data-shared-attachment-scope="task">🗑 移除</button>`;
+      const editableActions = `${lifecycleActions}${editActions}`;
       const remove = `<details class="shared-task-attachment-menu"><summary aria-label="附件操作：${esc(item.filename || "未命名附件")}" title="附件操作">⋯</summary><div class="shared-task-attachment-menu-popover">${contextAction}${editableActions}</div></details>`;
       const metadata = `<small class="shared-task-attachment-meta">📎 附件 · ${esc(shortTimestampLabel(item.createdAt))}</small>`;
       const note = item.note ? `<small class="shared-task-attachment-note">📝 ${esc(item.note)}</small>` : "";
-      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}${note}</span>${remove}</article>`;
+      const expiry = lifecycleNotice ? `<small class="shared-task-attachment-expiry" role="status">${esc(lifecycleNotice)}</small>` : "";
+      return `<article class="shared-task-attachment" data-task-attachment-id="${esc(attachmentId)}" data-task-attachment-path="${esc(item.storagePath)}" data-task-attachment-mime="${esc(item.mimeType)}"><div class="shared-task-attachment-preview" data-task-attachment-preview>${isImage ? "載入預覽…" : "📄"}</div><span class="shared-task-attachment-copy"><strong>${esc(item.filename || "未命名附件")}</strong>${metadata}${note}${expiry}</span>${remove}</article>`;
     }).join("");
     const artifactsMarkup = artifactRows.map(item => `<article class="shared-task-attachment shared-task-attachment-artifact"><span class="shared-task-attachment-icon" aria-hidden="true">📦</span><span class="shared-task-attachment-copy"><strong>${esc(item.filename || item.artifactId || "未命名交付物")}</strong><small>${esc(item.artifactType || "交付物")} · ${esc(item.productVersion || "版本未提供")} · Build ${esc(item.runtimeBuild || "未提供")}</small></span></article>`).join("");
     const empty = !attachmentRows.length && !artifactsMarkup ? `<div class="shared-task-attachment-empty">目前沒有附件</div>` : "";
-    const add = archiveOnly ? "" : `<div class="shared-task-attachment-dropzone" data-task-attachment-dropzone tabindex="0" aria-label="拖曳檔案到這裡上傳"><span class="shared-task-attachment-drop-icon" aria-hidden="true">📎</span><span><strong>拖曳檔案到這裡直接上傳</strong><small>或使用下方按鈕選擇檔案；支援一次多個檔案</small></span></div><label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
+    const add = archiveOnly || options.completed ? "" : `<div class="shared-task-attachment-dropzone" data-task-attachment-dropzone tabindex="0" aria-label="拖曳檔案到這裡上傳"><span class="shared-task-attachment-drop-icon" aria-hidden="true">📎</span><span><strong>拖曳檔案到這裡直接上傳</strong><small>或使用下方按鈕選擇檔案；支援一次多個檔案</small></span></div><label class="btn2 shared-task-attachment-add" for="taskAttachmentsInput">＋新增附件<input id="taskAttachmentsInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small id="taskAttachmentHint" class="shared-task-attachment-hint">圖片可預覽；文件顯示檔名與類型</small>`;
     return `<div class="shared-task-attachment-zone" data-task-attachments-zone aria-label="附件">${errorMarkup}${attachmentRows || artifactsMarkup ? `<div class="shared-task-attachment-list">${attachmentRows}${artifactsMarkup}</div>` : empty}${add}<section class="shared-attachment-context-result" data-shared-attachment-context-result hidden aria-live="polite"></section></div>`;
   }
   function formatByteSize(bytes) {
@@ -2792,7 +2820,7 @@
     }
   }
   async function uploadAttachmentFiles(task, files, options = {}) {
-    if (task.status === "done") throw new Error("已完成卡片禁止新增附件；請先重新開啟卡片。");
+    if (isAttachmentTaskCompleted(task)) throw new Error("已完成卡片禁止新增附件；請先重新開啟卡片。");
     const selected = Array.from(files || []).filter(file => file && file.size > 0);
     for (const file of selected) {
       await executeSharedTaskAction(
@@ -2926,7 +2954,6 @@
   }
   function wireTaskAttachments(task, archiveOnly, options = {}) {
     hydrateTaskAttachmentPreviews();
-    if (archiveOnly) return;
     const input = document.getElementById("taskAttachmentsInput");
     const hint = document.getElementById("taskAttachmentHint");
     const saveGeneralAttachments = async (files, source = "picker") => {
@@ -3581,9 +3608,10 @@
     const itemLabel = workItemLabel(task);
     const title = task.title || "未命名 " + itemLabel;
     const titleCode = task.workCode || itemLabel;
+    const taskCompleted = isAttachmentTaskCompleted(task);
     const progressComposer = workTodo || cTemplate
-      ? progressNoteComposerMarkup(archiveOnly, { workTodo: true, cTemplate, completed: task.status === "done" })
-      : progressNoteComposerMarkup(archiveOnly, { completed: task.status === "done" });
+      ? progressNoteComposerMarkup(archiveOnly, { workTodo: true, cTemplate, completed: taskCompleted })
+      : progressNoteComposerMarkup(archiveOnly, { completed: taskCompleted });
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
@@ -3682,7 +3710,7 @@
       }
       const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
       const attachmentZone = document.getElementById("taskAttachments");
-      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentError, archiveOnly || task.status === "done", { workTodo: workTodo || cTemplate });
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentError, archiveOnly, { workTodo: workTodo || cTemplate, completed: taskCompleted });
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = false;
       const humanNotes = humanNotesMarkup(drawerTask);

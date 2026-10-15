@@ -1,6 +1,7 @@
 -- REVIEW CANDIDATE ONLY. Not included in automatic application migrations.
--- Install with a separately approved database owner; never changes attachment rows,
--- managed Storage owners/grants, existing buckets, or application business statuses.
+-- Install with a separately approved database owner; preserves attachment identity
+-- and user metadata while writing only the existing deletion tombstone fields after
+-- Storage confirms a physical delete. Never changes Storage owners/grants/buckets.
 begin;
 create schema if not exists attachment_lifecycle;
 revoke all on schema attachment_lifecycle from public, anon, authenticated;
@@ -42,21 +43,49 @@ alter table attachment_lifecycle.audit enable row level security;
 -- Shared storage also contains unrelated consumers. Preserve their behavior.
 create function attachment_lifecycle.board_module(p_id uuid) returns text
 language sql stable security definer set search_path = pg_catalog, pg_temp as $$
- select case when coalesce(t.application_scope,b.legacy_application_scope)='worktodo' then 'worktodo' else 'board' end
+ select case
+   when b.id is not null and b.legacy_application_scope='worktodo'
+        and coalesce(t.application_scope,'c') in ('c','board','worktodo') then 'worktodo'
+   when b.id is not null and b.legacy_application_scope='ai_board'
+        and coalesce(t.application_scope,'c') in ('c','board','ai_board') then 'board'
+   when b.id is null and t.application_scope='worktodo' then 'worktodo'
+   when b.id is null and t.application_scope in ('ai_board','board') then 'board'
+   else null end
  from public.board_tasks t left join public.board_instances b on b.id=t.board_instance_id
- where t.id=p_id and coalesce(t.application_scope,b.legacy_application_scope,'board') in ('ai_board','worktodo','board','c')
- and coalesce(b.task_code_prefix,'')<>'IVTK'
+ where t.id=p_id and coalesce(b.task_code_prefix,'')<>'IVTK'
+$$;
+
+-- WorkTodo owns the `completed` value. Board cards use their native `done`
+-- status, plus a completion step only when the registered C workflow marks
+-- that exact current step as complete. This does not infer completion from a
+-- generic `completed` string on an unrelated or unbound task.
+create function attachment_lifecycle.board_is_complete(p_id uuid,p_status text,p_step uuid) returns boolean
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+ select case
+   when attachment_lifecycle.board_module(p_id)='worktodo' then lower(coalesce(p_status,''))='completed'
+   when attachment_lifecycle.board_module(p_id)='board' then lower(coalesce(p_status,''))='done'
+     or (p_step is not null and exists(select 1 from public.board_workflow_steps s where s.id=p_step and s.is_completion))
+   else false end
 $$;
 
 -- Includes unmanaged buckets and counts reserved uploads once. Never removes
 -- existing objects to make room. Every reservation takes this same lock.
 create function attachment_lifecycle.used_bytes() returns bigint
-language sql stable security definer set search_path = pg_catalog, pg_temp as $$
- select coalesce((select sum(greatest(coalesce((metadata->>'size')::bigint,0),0)) from storage.objects),0)
- + coalesce((select sum(o.byte_size) from attachment_lifecycle.objects o
+language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $$
+declare actual_bytes numeric; reserved_bytes numeric;
+begin
+ if exists(select 1 from storage.objects where coalesce(metadata->>'size','') !~ '^[0-9]+$') then
+   raise exception using errcode='53100',message='storage size metadata unavailable; capacity is fail-closed';
+ end if;
+ select coalesce(sum((metadata->>'size')::numeric),0) into actual_bytes from storage.objects;
+ select coalesce(sum(o.byte_size),0) into reserved_bytes from attachment_lifecycle.objects o
    where o.state <> 'deleted' and not exists(select 1 from storage.objects s
-     where s.bucket_id=o.bucket and s.name=o.object_key)),0)
-$$;
+     where s.bucket_id=o.bucket and s.name=o.object_key);
+ if actual_bytes+reserved_bytes > 9223372036854775807 then
+   raise exception using errcode='53100',message='storage usage exceeds measurable capacity';
+ end if;
+ return (actual_bytes+reserved_bytes)::bigint;
+end $$;
 
 create function attachment_lifecycle.reserve(p_module text,p_id uuid,p_card uuid,p_bucket text,p_key text,p_name text,p_size bigint,p_state text)
 returns void language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -84,13 +113,16 @@ end $$;
 
 create function attachment_lifecycle.track_card() returns trigger
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare m text; done boolean; previous_done boolean; old_time timestamptz;
+declare m text; done boolean; old_time timestamptz;
 begin
  if not (select enabled from attachment_lifecycle.config where singleton) then return new; end if;
  if tg_table_schema='taskflow' then
    m:='taskflow';
    select category='done' into done from taskflow.issue_status where key=new.status and workspace_id=new.workspace_id;
- else m:=attachment_lifecycle.board_module(new.id); if m is null then return new; end if; done:=new.status='done'; end if;
+ else
+   m:=attachment_lifecycle.board_module(new.id); if m is null then return new; end if;
+   done:=attachment_lifecycle.board_is_complete(new.id,new.status,new.current_workflow_step_id);
+ end if;
  select completed_at into old_time from attachment_lifecycle.cards where module=m and card_id=new.id for update;
  if found and (old_time is not null)=coalesce(done,false) then return new; end if;
  -- An irreversible Storage call can already be in flight. Claims are possible
@@ -103,7 +135,7 @@ begin
  on conflict(module,card_id) do update set completed_at=excluded.completed_at,generation=gen_random_uuid();
  return new;
 end $$;
-create trigger attachment_lifecycle_board_status after insert or update of status on public.board_tasks
+create trigger attachment_lifecycle_board_status after insert or update of status,current_workflow_step_id on public.board_tasks
  for each row execute function attachment_lifecycle.track_card();
 create trigger attachment_lifecycle_taskflow_status after insert or update of status on taskflow.issue
  for each row execute function attachment_lifecycle.track_card();
@@ -140,7 +172,8 @@ begin
  lock table public.board_tasks,taskflow.issue,public.board_task_attachments,taskflow.attachment in share row exclusive mode;
  if (select enabled from attachment_lifecycle.config where singleton) then raise exception 'already active'; end if;
  insert into attachment_lifecycle.cards(module,card_id,completed_at)
- select attachment_lifecycle.board_module(id),id,case when status='done' then activated end from public.board_tasks where attachment_lifecycle.board_module(id) is not null;
+ select attachment_lifecycle.board_module(id),id,case when attachment_lifecycle.board_is_complete(id,status,current_workflow_step_id) then activated end
+ from public.board_tasks where attachment_lifecycle.board_module(id) is not null;
  insert into attachment_lifecycle.cards(module,card_id,completed_at)
  select 'taskflow',i.id,case when s.category='done' then activated end from taskflow.issue i join taskflow.issue_status s on s.key=i.status and s.workspace_id=i.workspace_id;
  insert into attachment_lifecycle.objects(module,attachment_id,card_id,bucket,object_key,filename,byte_size,state)
@@ -198,13 +231,29 @@ begin
 end $$;
 create function public.attachment_status(p_module text,p_id uuid) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare result jsonb;
+declare result jsonb; resolved text;
 begin
+ if p_module='board' then
+   select attachment_lifecycle.board_module(t.id) into resolved
+   from public.board_task_attachments a join public.board_tasks t on t.id=a.task_id where a.id=p_id;
+   if not found then raise exception 'attachment unavailable'; end if;
+   if resolved is null then
+     if attachment_lifecycle.can_read('board',p_id) then return jsonb_build_object('enabled',false); end if;
+     raise exception using errcode='42501',message='attachment unavailable';
+   end if;
+   p_module:=resolved;
+ end if;
  if not attachment_lifecycle.can_read(p_module,p_id) then raise exception using errcode='42501',message='attachment unavailable'; end if;
- select jsonb_build_object('state',o.state,'card_id',o.card_id,'completed_at',c.completed_at,'delete_due_at',c.completed_at+interval '72 hours') into result
+ if not (select enabled from attachment_lifecycle.config where singleton) then return jsonb_build_object('enabled',false); end if;
+ select jsonb_build_object(
+   'state',o.state,'card_id',o.card_id,'completed_at',c.completed_at,
+   'preview_available',c.completed_at is null or clock_timestamp()<c.completed_at+interval '24 hours',
+   'download_available',c.completed_at is null or clock_timestamp()<c.completed_at+interval '72 hours',
+   'delete_due_at',c.completed_at+interval '72 hours') into result
  from attachment_lifecycle.objects o left join attachment_lifecycle.cards c using(module,card_id)
  where o.module=p_module and o.attachment_id=p_id;
- return result;
+ if result is null then return jsonb_build_object('enabled',false); end if;
+ return result||jsonb_build_object('enabled',true,'module',p_module);
 end $$;
 create function public.attachment_capacity() returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -250,10 +299,19 @@ begin
 end $$;
 create function public.attachment_finish_delete(p_module text,p_id uuid,p_token uuid) returns void
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
+declare actor_id uuid;
 begin
  update attachment_lifecycle.objects set state='deleted',deleted_at=clock_timestamp()
  where module=p_module and attachment_id=p_id and state='deleting' and delete_token=p_token;
- if found then insert into attachment_lifecycle.audit(module,attachment_id,action) values(p_module,p_id,'object_deleted'); end if;
+ if not found then return; end if;
+ if p_module in ('board','worktodo') then
+   select actor into actor_id from attachment_lifecycle.audit
+    where module=p_module and attachment_id=p_id and action='manual_delete_confirmed'
+    order by id desc limit 1;
+   update public.board_task_attachments set deletion_status='deleted',deleted_at=clock_timestamp(),deleted_by=actor_id
+    where id=p_id and coalesce(deletion_status,'active')<>'deleted';
+ end if;
+ insert into attachment_lifecycle.audit(module,attachment_id,action) values(p_module,p_id,'object_deleted');
 end $$;
 create function public.attachment_record_failure(p_module text,p_id uuid,p_token uuid) returns void
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$

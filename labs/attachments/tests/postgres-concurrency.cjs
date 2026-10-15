@@ -15,7 +15,7 @@ const sql=text=>execFileSync('docker',[...dockerArgs,...args],{input:text,encodi
  child.stdin.end(`begin;update board_tasks set status='ready' where id='${card}';select 'LOCKED';select pg_sleep(1);commit;`);
  await locked;assert.equal(sql('select attachment_claim_expired() is null'),'t','cleanup skips concurrent reopen, never deletes prior generation');await finished;
  assert.equal(sql("select completed_at is null from attachment_lifecycle.cards where module='worktodo'"),'t');
- sql(`update board_tasks set status='done' where id='${card}'`);assert.equal(sql('select attachment_claim_expired() is null'),'t','new generation receives full grace');
+ sql(`update board_tasks set status='completed' where id='${card}'`);assert.equal(sql('select attachment_claim_expired() is null'),'t','new generation receives full grace');
  sql("update attachment_lifecycle.cards set completed_at=clock_timestamp()-interval '72 hours' where module='worktodo'");
  const claim=JSON.parse(sql('select attachment_claim_expired()'));assert.equal(claim.state,'deleting');assert.equal(claim.delete_generation,sql("select generation from attachment_lifecycle.cards where module='worktodo'"));
  assert.throws(()=>sql(`update board_tasks set status='ready' where id='${card}'`),/Command failed/);

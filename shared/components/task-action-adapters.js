@@ -34,6 +34,13 @@
     };
   }
 
+  function lifecycleModuleForScope(scope) {
+    const value = String(scope || "").trim().toLowerCase();
+    if (value === "ai_board" || value === "board") return "board";
+    if (value === "worktodo") return "worktodo";
+    return null;
+  }
+
   function moveThroughCWorkflow(workflowCapability, taskId, payload = {}) {
     const move = workflowCapability?.moveWorkspaceDecision || workflowCapability?.reconcileWorkspaceDecision;
     if (typeof move !== "function") {
@@ -93,8 +100,8 @@
         },
         updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
-          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
-          : required(service, "deleteTaskAttachment")(payload.attachmentId),
+          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId }, { lifecycleModule: "board" })
+          : required(service, "deleteTaskAttachment")(payload.attachmentId, { lifecycleModule: "board" }),
         addChecklist: payload => required(service, "addTaskChecklistItem")({ taskId: payload.taskId || taskId, label: payload.label, sortOrder: payload.sortOrder }),
         updateChecklist: payload => required(service, "updateTaskChecklistItem")({ id: payload.id, completed: payload.completed, label: payload.label, sortOrder: payload.sortOrder }),
         deleteChecklist: payload => required(service, "deleteTaskChecklistItem")(payload.id),
@@ -109,9 +116,9 @@
       },
       read: {
         activity: payload => required(service, "loadActivity")(payload.taskId || taskId, payload.options || {}),
-        attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId),
+        attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId, { lifecycleModule: "board" }),
         checklist: payload => required(service, "loadTaskChecklist")(payload.taskId || taskId),
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview", lifecycleModule: "board" })
       }
     };
   }
@@ -160,8 +167,8 @@
         },
         updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
-          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
-          : required(service, "deleteTaskAttachment")(payload.attachmentId),
+          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId }, { lifecycleModule: "worktodo" })
+          : required(service, "deleteTaskAttachment")(payload.attachmentId, { lifecycleModule: "worktodo" }),
         // General Task Checklist is shared canonical data for both consumers.
         // WorkTodo must not route this capability through the legacy
         // user_tasks/worktodo_checklist_items contract.
@@ -186,20 +193,21 @@
           const currentTaskId = payload.taskId || taskId;
           const [checklist, attachments] = await Promise.all([
             required(service, "loadTaskChecklist")(currentTaskId),
-            required(service, "loadTaskAttachments")(currentTaskId)
+            required(service, "loadTaskAttachments")(currentTaskId, { lifecycleModule: "worktodo" })
           ]);
           return {
             checklist: Array.isArray(checklist) ? checklist : [],
             attachments: Array.isArray(attachments) ? attachments : []
           };
         },
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview", lifecycleModule: "worktodo" })
       }
     };
   }
 
   function createCTemplateAdapter({ task, service, workflowCapability } = {}) {
     const taskId = task?.id;
+    const lifecycleModule = lifecycleModuleForScope(task?.applicationScope || task?.application_scope);
     return {
       consumer: "c_mdtk",
       sharedDrawerContract: Object.freeze({ ownsDrawer: false, viewModel: "toSharedViewModel" }),
@@ -239,8 +247,8 @@
         },
         updateAttachmentMetadata: payload => required(service, "updateTaskAttachmentMetadata")({ attachmentId: payload.attachmentId, displayName: payload.displayName, note: payload.note }),
         deleteAttachment: payload => payload.scope === "progress_note"
-          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId })
-          : required(service, "deleteTaskAttachment")(payload.attachmentId),
+          ? required(service, "deleteProgressNoteAttachment")({ attachmentId: payload.attachmentId, taskId: payload.taskId || taskId, activityId: payload.activityId }, { lifecycleModule })
+          : required(service, "deleteTaskAttachment")(payload.attachmentId, { lifecycleModule }),
         addChecklist: payload => required(service, "addTaskChecklistItem")({ taskId: payload.taskId || taskId, label: payload.label, sortOrder: payload.sortOrder }),
         updateChecklist: payload => required(service, "updateTaskChecklistItem")({ id: payload.id, completed: payload.completed, label: payload.label, sortOrder: payload.sortOrder }),
         deleteChecklist: payload => required(service, "deleteTaskChecklistItem")(payload.id),
@@ -256,9 +264,9 @@
       },
       read: {
         activity: payload => required(service, "loadActivity")(payload.taskId || taskId, payload.options || {}),
-        attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId),
+        attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId, { lifecycleModule }),
         checklist: payload => required(service, "loadTaskChecklist")(payload.taskId || taskId),
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview", lifecycleModule })
       }
     };
   }

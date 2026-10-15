@@ -1,7 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import http from 'node:http';import {readFile} from 'node:fs/promises';import {chromium} from 'playwright';import {createGateway} from '../gateway.mjs';import fixtureModule from './fixture.cjs';
 const {fixture,id,card,owner}=fixtureModule;
 test('desktop/iPhone dashboard: real SQL capacity, safe names, explicit-confirmation delete and retained metadata',async()=>{
- const db=await fixture();let origin;const objects=new Map([[`${card}/${id}/a.pdf`,Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF')]]);
+ const db=await fixture();await db.exec(`delete from attachment_lifecycle.objects where attachment_id<>'${id}';delete from board_task_attachments where id<>'${id}'`);let origin;const objects=new Map([[`${card}/${id}/a.pdf`,Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF')]]);
  const localFetch=async(url,options)=>{
   const path=new URL(url).pathname;
   if(path==='/auth/v1/user')return options.headers.Authorization==='Bearer isolated-user'?Response.json({id:owner}):new Response(null,{status:401});

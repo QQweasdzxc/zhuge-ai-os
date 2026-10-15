@@ -1,4 +1,41 @@
-# Issue #45 isolated QA — .9.46 / 20261015-1303
+# Issue #45 isolated QA — .9.47 / 20261015-1436
+
+## GPT / CTO rework verification
+
+- WorkTodo now recognizes its native `completed` status; AI Board completion
+  remains exact to native `done` or the current Board workflow's explicitly
+  designated completion step. Unbound/null scope and Investment/WorkLog remain
+  outside lifecycle cleanup.
+- Confirmed physical deletion now writes the existing canonical attachment
+  tombstone only after Storage deletion is acknowledged; the source row and
+  user-authored metadata remain for audit, while refreshed active lists exclude
+  it. Capacity measurement rejects unknown/invalid object sizes, managed
+  Board/WorkTodo paths fail closed on gateway outage, and unmanaged scopes keep
+  their legacy access path. Cards show the server-provided 72-hour deadline
+  while preserving the allowed download window after preview expires.
+- `node --test labs/attachments/tests/*.test.*`: **12 PASS, 0 fail, 0 skip**.
+  This covers native completion classification, historical grace, reopen/reset,
+  24/72-hour boundaries, upload denial, manual/automatic tombstones, reload,
+  quota fail-closed behavior, Edge outage/disabled/unmanaged routing, and card
+  deadline/preview/download UI.
+- `node labs/attachments/tests/postgres-concurrency.cjs`: **PASS** against an
+  isolated disposable PostgreSQL 16; concurrent reopen/cleanup retained the
+  fresh generation and deleted no bytes.
+- `BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser`: **75 PASS,
+  0 fail, 0 skip**, including TaskFlow entry, Apps/SSO, desktop/mobile, and
+  WorkTodo shared drawer flows.
+- The root suite, excluding its argument-dependent Pages artifact script:
+  **968 PASS, 0 fail, 0 skip**. Pages was built separately and its required
+  output-path invocation is recorded above as **2 PASS**.
+- Pages source builder included 300 files; the correctly parameterized Pages
+  artifact suite: **2 PASS, 0 fail**. JavaScript syntax checks and
+  `git diff --check` pass.
+- No Production database, Storage, secrets, Render, deployed API, automatic
+  cleanup, or irreversible deletion was accessed or run. Full original Docker
+  and Next builds are not claimed here; the prior local environment blockers
+  and unverified hosted acceptance gates remain below.
+
+## Prior .9.46 regression evidence
 
 ## PASS
 
