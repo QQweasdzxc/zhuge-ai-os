@@ -1,6 +1,6 @@
 # Zhuge AI OS — Cloud Handoff v1 (Issue #51)
 
-**Candidate component:** 0.9.0-alpha.9.47 / Build 20261015-1402.
+**Candidate component:** 0.9.0-alpha.9.48 / Build 20261015-1425.
 **Status:** Isolated source and CI review only. NOT TaskFlow native Runtime, NOT deployed, and NOT a Codex/Gemini connection. Production remains .9.45. #45 .9.46 / Draft PR #50 remains on hold.
 
 ## Why this exists
@@ -60,3 +60,7 @@ The dedicated GitHub Actions workflow generates a read-only handoff brief and ga
 5. Run a real cloud E2E with permission checks, competing writers, quota exhaustion, checkpoint, stale revision, rollback and provider revocation; only then seek separate Production GO.
 
 This Review branch has NOT started any cloud AI job, moved main, enabled paid services, installed Schema/Daemon or deployed Production.
+
+## GitHub CAS adapter — candidate, not connected to Production
+
+The server-only [github-cas.mjs](github-cas.mjs) can read an isolated handoff JSON object from a dedicated review ledger branch and propose an atomic GitHub Contents compare-and-swap (old blob SHA). Before PUT it rechecks the live *code branch* SHA; a lost race (409/422) never launches another provider. The transport takes a short-lived server GitHub token only, which must never be embedded in browser code or stored in the manifest. A separate cloud authorization layer still must verify the claimed actor, ledger branch identity and worker-stop receipt. CI uses simulated GitHub HTTP responses only and never writes a live lease. This is an opt-in backend adapter, not a new GitHub Actions bot with write privileges.
