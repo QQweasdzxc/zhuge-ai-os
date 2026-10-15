@@ -34,8 +34,9 @@ export async function dispatchTaskflowCodex({
   return dispatchCloud({
     snapshot,actor:"co",now,leaseId,leaseUntil,dispatchId,
     verifyGitHead,verifyWorkerStopped,claimWithCas,
-    launchProvider:({manifest,sha,task})=>launchGithubMention({
-      manifest,sha,task,approvalId,nativeIssue,githubIssue:snapshot.task.github_issue
+    launchProvider:({manifest,sha,task,dispatchId:claimedDispatchId})=>launchGithubMention({
+      manifest,sha,task,approvalId,nativeIssue,githubIssue:snapshot.task.github_issue,
+      dispatchId:claimedDispatchId
     })
   });
 }
