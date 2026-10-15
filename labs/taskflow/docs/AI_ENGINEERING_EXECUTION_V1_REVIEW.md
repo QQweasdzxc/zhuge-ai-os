@@ -1,4 +1,4 @@
-# TaskFlow AI 工程執行 v1 — isolated Review source (.9.52 / 20261015-2229)
+# TaskFlow AI 工程執行 v1 — isolated Review source (.9.52 / 20261016-0645)
 
 ## Source identity and reconstruction boundary
 
