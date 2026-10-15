@@ -13,7 +13,7 @@ import { dispatchCloud } from "./dispatcher.mjs";
 export async function dispatchTaskflowCodex({
   snapshot,workspaceId,projectId,expectedTaskflowRevision,
   readTaskflowIssue,authorizePM,verifyApprovalRef,approvalId,
-  now,leaseId,leaseUntil,
+  now,leaseId,leaseUntil,dispatchId,
   verifyGitHead,verifyWorkerStopped,claimWithCas,
   launchGithubMention
 }){
@@ -32,7 +32,7 @@ export async function dispatchTaskflowCodex({
     throw Error("taskflow codex: PM dispatch approval not verified");
   }
   return dispatchCloud({
-    snapshot,actor:"co",now,leaseId,leaseUntil,
+    snapshot,actor:"co",now,leaseId,leaseUntil,dispatchId,
     verifyGitHead,verifyWorkerStopped,claimWithCas,
     launchProvider:({manifest,sha,task})=>launchGithubMention({
       manifest,sha,task,approvalId,nativeIssue,githubIssue:snapshot.task.github_issue

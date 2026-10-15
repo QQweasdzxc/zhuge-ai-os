@@ -9,6 +9,7 @@ export const PHASES = Object.freeze([
   "RUNNING", "REVIEW_PENDING", "ACCEPTED"
 ]);
 const SHA = /^[a-f0-9]{40}$/;
+const DISPATCH_ID = /^[a-f0-9]{32}$/;
 const ACTORS = new Set(["co", "gem"]);
 const iso = value => typeof value === "string" && !Number.isNaN(Date.parse(value));
 function insist(condition, message) {
@@ -42,6 +43,13 @@ export function validateHandoff(record) {
   insist(PHASES.includes(record.phase), "unsupported phase");
   insist(Number.isInteger(record.revision) && record.revision >= 0, "invalid revision");
   insist(record.owner === null || ACTORS.has(record.owner), "invalid owner");
+  // Dispatch correlation must be stored in the durable CAS manifest BEFORE
+  // the remote GitHub POST. A process-local nonce is not recoverable on timeout.
+  if (record.dispatch !== undefined && record.dispatch !== null) {
+    insist(DISPATCH_ID.test(record.dispatch?.id), "invalid persisted dispatch ID");
+    insist(Number.isInteger(record.dispatch?.claimed_revision) &&
+      record.dispatch.claimed_revision >= 1, "invalid persisted claim revision");
+  }
   insist(record.next_actor === null || ACTORS.has(record.next_actor), "invalid next actor");
   insist(record.lease === null || (typeof record.lease?.id === "string" && record.lease.id.length >= 16 && iso(record.lease.until)), "invalid lease");
   insist(Array.isArray(record.remaining) && record.remaining.every(x => typeof x === "string" && x.length > 0 && x.length <= 500), "remaining work list required");
@@ -131,6 +139,15 @@ export function transitionHandoff(snapshot, command) {
       // verify actor, stop evidence, and GitHub CAS before persisting a claim.
       record.owner = actor;
       record.lease = { id: command.lease_id, until: command.lease_until };
+      if (actor === "co") {
+        insist(DISPATCH_ID.test(command.dispatch_id), "trusted dispatch ID required");
+        record.dispatch = {
+          id: command.dispatch_id, claimed_revision: record.revision + 1
+        };
+      } else {
+        // Do not reuse a Co dispatch ID for the next engineer.
+        record.dispatch = null;
+      }
       record.phase = "CLAIMED";
       break;
     case "start":

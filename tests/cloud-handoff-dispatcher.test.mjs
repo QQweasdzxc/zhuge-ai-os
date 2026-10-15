@@ -65,16 +65,21 @@ test("unknown provider launch result quarantines existing claim; no implicit ret
   assert.equal(claims, 1);
 });
 test("GitHub comment receipt is pending acknowledgement, never a launched Codex job", async () => {
+  const snapshot=ready();
+  snapshot.next_actor="co";
+  const dispatchId="0123456789abcdef0123456789abcdef";
   const a = args({
-    launchProvider: async () => ({
+    snapshot,actor:"co",dispatchId,
+    launchProvider: async ({manifest}) => ({
       state: "PENDING_ACK", receiptId: "github-comment-6188874242",
-      commentId: 6188874242, providerTaskId: null
+      commentId: 6188874242, providerTaskId: null,
+      dispatchId:manifest.dispatch.id
     })
   });
   const result = await dispatchCloud(a);
   assert.deepEqual(result, {
     state: "PENDING_PROVIDER_ACK", dispatchReceipt: "github-comment-6188874242",
-    claimedRevision: 2
+    dispatchId,claimedRevision: 2
   });
 });
 test("missing trusted adapter cannot execute a cloud task", async () => {

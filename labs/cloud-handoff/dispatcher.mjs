@@ -7,7 +7,7 @@
 import { canDispatch, transitionHandoff } from "./contract.mjs";
 
 export async function dispatchCloud({
-  snapshot, actor, now, leaseId, leaseUntil,
+  snapshot, actor, now, leaseId, leaseUntil, dispatchId,
   verifyGitHead, verifyWorkerStopped, claimWithCas, launchProvider
 }) {
   const gate = canDispatch(snapshot);
@@ -30,7 +30,7 @@ export async function dispatchCloud({
   if (workerStopped !== true) throw new Error("cloud dispatch blocked: previous agent may still write");
   const next = transitionHandoff(snapshot, {
     action: "claim", actor, expected_revision: snapshot.revision, at: now,
-    lease_id: leaseId, lease_until: leaseUntil,
+    lease_id: leaseId, lease_until: leaseUntil, dispatch_id: dispatchId,
     verified_git_sha: snapshot.source.head_sha
   });
   // compare-and-swap must be against durable GitHub/TaskFlow state, never
@@ -45,15 +45,19 @@ export async function dispatchCloud({
   try {
     const run = await launchProvider({
       actor, manifest: next, branch: snapshot.source.branch,
-      sha: snapshot.source.head_sha, task: snapshot.task.id
+      sha: snapshot.source.head_sha, task: snapshot.task.id,
+      dispatchId: next.dispatch?.id ?? null
     });
     // GitHub comment creation is a dispatch RECEIPT, not a Codex Cloud ACK.
     // Keep the CLAIMED lease and wait for trustworthy provider reconciliation.
     if (run?.state === "PENDING_ACK" &&
         typeof run.receiptId === "string" && /^github-comment-[1-9][0-9]*$/.test(run.receiptId) &&
         Number.isInteger(run.commentId) && run.commentId > 0 && run.providerTaskId === null) {
+      if (run.dispatchId !== next.dispatch?.id) {
+        throw new Error("dispatch identity mismatch");
+      }
       return { state: "PENDING_PROVIDER_ACK", dispatchReceipt: run.receiptId,
-        claimedRevision: next.revision };
+        dispatchId: next.dispatch.id, claimedRevision: next.revision };
     }
     if (typeof run?.runId !== "string" || !run.runId) {
       throw new Error("provider did not return a run id");

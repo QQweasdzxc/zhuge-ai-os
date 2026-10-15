@@ -1,7 +1,7 @@
 # Zhuge AI OS — Cloud Handoff v1 (Issue #51)
 
-**Candidate component:** 0.9.0-alpha.9.49 / Build 20261015-1740.
-**Status:** Isolated source and CI review only. NOT TaskFlow native Runtime, NOT deployed, and NOT a Codex/Gemini connection. Production remains .9.45. #45 .9.46 / Draft PR #50 remains on hold.
+**Candidate component:** 0.9.0-alpha.9.50 / Build 20261015-1830.
+**Status:** Isolated source and CI review only. Official GitHub @codex PM-approved read-only trigger verified separately; TaskFlow native live dispatch, runtime and Gemini connection NOT deployed or verified. Production remains .9.45. #45 .9.46 / Draft PR #50 remains on hold.
 
 ## Why this exists
 
@@ -86,3 +86,17 @@ The server-only [github-cas.mjs](github-cas.mjs) can read an isolated handoff JS
 5. Gemini requires its own separate cloud runner identity/usage ceiling and a complete cancellation/rollback E2E. No Gemini token or new service is installed here.
 
 **Nothing in .9.49 is deployed or calls the live TaskFlow API or Codex provider.** GitHub CI uses fake HTTP responses and no provider/billing secrets. Production and main remain untouched.
+
+## Phase 3 candidate — official Codex ACK correlation (.9.50)
+
+**The official GitHub mention succeeded on a previous real, single-authorized PM run** (see PR #52 bot proof above), but the bot did not provide a machine-verifiable dispatch nonce in its report. Historical evidence CANNOT be retroactively treated as a fully correlated acknowledgement.
+
+This candidate adds a **future dispatch protocol** without launching any new agent:
+
+- **Durable 128-bit dispatch ID:** a trusted coordinator must securely generate a unique lower-case 32-character random hex value. It is written into the existing durable GitHub/TaskFlow CAS manifest in the `CLAIMED` revision **before** posting a PR comment; no process-local-only nonce and no reuse for Gem. CI uses a deterministic fake ID; Production entropy generation and dedicated CAS ledger remain a release gate.
+- **Explicit reply contract:** `codex-github-mention.mjs` includes the nonce plus the exact Git SHA and asks the official Codex bot to begin its response with a strict `ZHUGE_CODEX_ACK_V1` structured HTML comment. If Codex does not echo the marker, the status remains `PENDING_PROVIDER_ACK`; never hallucinate a thread ID.
+- **Authenticated, read-only reconciliation:** `codex-ack-reconciler.mjs` GETs the originally posted comment, the entire bounded GitHub PR comment history, and the current PR through the official GitHub REST API using a **server-only read credential**. It rejects any altered request receipt, wrong PR, wrong actor (`chatgpt-codex-connector[bot]` must have GitHub `Bot` identity), stale timestamp, unmatched nonce, wrong checkpoint SHA, duplicate claims, incomplete pagination, or changed PR HEAD. No webhook body by itself is trusted.
+- **Status semantics:** a unique match returns `PROVIDER_ACK_OBSERVED` or `PROVIDER_BLOCKED_OBSERVED`, *not* `RUNNING`. The text is a **bot-reported statement**, not cryptographic proof of provider activity, and may not mark TaskFlow Run started until a separate trusted native API write + durable revision/lease + provider verification gate. Conflicting evidence stays quarantined. This code does not invoke an external AI.
+- New negative / adversarial tests cover spoofed bots, same nonce with wrong SHA, duplicate valid replies, 403, 500-comment pagination cap, wrong scope, missing marker, forged request, and PR SHA drift. No secrets, extra subscriptions, or production changes.
+
+**Open authorization requirements:** do not enable GitHub comment writes automatically. Need legitimate TaskFlow server identity and workspace permission, PM task-scoped approval, server GitHub App installation credential with least privilege, confirmed durable CAS + receipt persistence, bot report polling policy/rate bound, native Run update contract, provider status validation and cancellation handling. GitHub PR comments are not a substitute for TaskFlow authority. No auto-dispatch/auto-failover until an explicitly approved live isolated E2E.

@@ -14,6 +14,7 @@ const PROJECT="33333333-3333-4333-8333-333333333333";
 const SHA="199ea823af0692ca99e222b024ee3238cbc3a9fc";
 const REPO="QQweasdzxc/zhuge-ai-os";
 const APPROVAL="PMAPPROVED-20261015-001";
+const DISPATCH="0123456789abcdef0123456789abcdef";
 function native(){
   return {id:ISSUE,workspace_id:WORKSPACE,project_id:PROJECT,revision:7,
     identifier:"LAB-51",title:"Co/Gem cloud dispatch",status:"in_progress",
@@ -40,6 +41,7 @@ function safeAdapters(overrides={}){
     assert.equal(options.method,"POST");
     assert.match(JSON.parse(options.body).body,/^@codex/);
     assert.match(JSON.parse(options.body).body,/Checkpoint SHA: 199ea823/);
+    assert.match(JSON.parse(options.body).body,/Dispatch ID: 0123456789abcdef/);
     return Response.json({id:999881,html_url:"https://github.com/"+REPO+"/pull/52#issuecomment-999881"},{status:201});
   };
   const launchGithubMention=createCodexGithubMentionAdapter({
@@ -51,7 +53,7 @@ function safeAdapters(overrides={}){
     snapshot:ready(),workspaceId:WORKSPACE,projectId:PROJECT,
     expectedTaskflowRevision:7,readTaskflowIssue:nativeReader(),
     authorizePM:async()=>true,verifyApprovalRef:async()=>true,approvalId:APPROVAL,
-    now:"2026-10-15T10:01:00Z",leaseId:"unique-trusted-claim-id-123",
+    now:"2026-10-15T10:01:00Z",leaseId:"unique-trusted-claim-id-123",dispatchId:DISPATCH,
     leaseUntil:"2026-10-15T11:01:00Z",
     verifyGitHead:async()=>true,verifyWorkerStopped:async()=>true,
     claimWithCas:async({next})=>({committed:true,revision:next.revision}),
@@ -116,7 +118,7 @@ test("authorized TF→GitHub simulation creates exactly one comment but no provi
   const {args,getPosts}=safeAdapters();
   const output=await dispatchTaskflowCodex(args);
   assert.deepEqual(output,{
-    state:"PENDING_PROVIDER_ACK",dispatchReceipt:"github-comment-999881",claimedRevision:2
+    state:"PENDING_PROVIDER_ACK",dispatchReceipt:"github-comment-999881",dispatchId:DISPATCH,claimedRevision:2
   });
   assert.equal(getPosts(),1);
 });
@@ -127,7 +129,8 @@ test("unauthorized PM, stale TF revision and wrong assigned actor never post",as
     {verifyApprovalRef:async()=>false},
     {expectedTaskflowRevision:8},
     {snapshot:{...ready(),next_actor:"gem"}},
-    {approvalId:"short"}
+    {approvalId:"short"},
+    {dispatchId:"not-a-valid-persisted-random-id"}
   ]){
     const {args,getPosts}=safeAdapters(override);
     await assert.rejects(dispatchTaskflowCodex(args));
@@ -185,10 +188,12 @@ test("comment failure AFTER CAS is quarantined; no retry is attempted",async()=>
 test("mention text preview is deterministic and does not contain token or TaskFlow private context",()=>{
   const p=previewCodexMention({
     repository:REPO,prNumber:52,issueNumber:51,sha:SHA,
-    taskflowIdentifier:"LAB-51",approvalId:APPROVAL
+    taskflowIdentifier:"LAB-51",approvalId:APPROVAL,dispatchId:DISPATCH
   });
   assert.match(p.body,/@codex/);
   assert.match(p.body,/Draft PR #52/);
   assert.match(p.body,/Issue #51/);
+  assert.match(p.body,/Dispatch ID: 0123456789abcdef/);
+  assert.match(p.body,/ZHUGE_CODEX_ACK_V1/);
   assert.doesNotMatch(p.body,/test-only-fake-token/);
 });
