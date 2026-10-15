@@ -99,6 +99,13 @@
   const WORKTODO_SELF_PREFIX_SENTINEL = "SELF";
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+  function lifecycleModuleForScope(scope) {
+    const value = String(scope || "").trim().toLowerCase();
+    if (value === "ai_board" || value === "board") return "board";
+    if (value === "worktodo") return "worktodo";
+    return null;
+  }
+
   // P2 establishes the instance-scoped lifecycle context.  Workflow is an
   // optional capability: a Board may instead expose an explicit completion
   // designation and still use the same C lifecycle writer.
@@ -596,7 +603,15 @@
       deletedBy: String(row.deleted_by || ""),
       createdBy: String(row.created_by || ""),
       createdAt: row.created_at || null,
-      completedAt: row.completed_at || null
+      completedAt: row.completed_at || null,
+      lifecycleModule: String(row.lifecycleModule || row.lifecycle_module || ""),
+      lifecycleManaged: row.lifecycleManaged === true || row.lifecycle_managed === true,
+      lifecycleState: String(row.lifecycleState || row.lifecycle_state || ""),
+      lifecycleCompletedAt: row.lifecycleCompletedAt || row.lifecycle_completed_at || null,
+      lifecycleDeleteDueAt: row.lifecycleDeleteDueAt || row.lifecycle_delete_due_at || null,
+      lifecyclePreviewAvailable: typeof row.lifecyclePreviewAvailable === "boolean" ? row.lifecyclePreviewAvailable : null,
+      lifecycleDownloadAvailable: typeof row.lifecycleDownloadAvailable === "boolean" ? row.lifecycleDownloadAvailable : null,
+      lifecycleStatusUnavailable: row.lifecycleStatusUnavailable === true
     });
   }
 
@@ -942,12 +957,37 @@
 
   async function loadTaskAttachments(taskId, options = {}) {
     const gateway = options.gateway || requireGateway();
+    const lifecycleModule = lifecycleModuleForScope(options.lifecycleModule);
     const encoded = encodeURIComponent(String(taskId || ""));
     const rows = await gateway.select(
       "board_task_attachments",
       `?select=id,task_id,activity_id,attachment_scope,filename,display_name,note,mime_type,byte_size,storage_bucket,storage_path,upload_status,deletion_status,deleted_at,deleted_by,created_by,created_at,completed_at&task_id=eq.${encoded}&upload_status=eq.ready&deletion_status=eq.active&order=created_at.desc`
     );
-    return (Array.isArray(rows) ? rows : []).map(normalizeTaskAttachment);
+    const attachments = (Array.isArray(rows) ? rows : []).map(row => normalizeTaskAttachment({ ...row, lifecycleModule: lifecycleModule || "" }));
+    if (!lifecycleModule) return attachments;
+    return Promise.all(attachments.map(async attachment => {
+      if (typeof gateway.invokeFunction !== "function") {
+        return normalizeTaskAttachment({ ...attachment, lifecycleStatusUnavailable: true });
+      }
+      try {
+        const status = await gateway.invokeFunction("attachment-lifecycle", {
+          action: "status", module: lifecycleModule, id: attachment.attachmentId
+        });
+        if (status?.enabled !== true) return normalizeTaskAttachment({ ...attachment, lifecycleManaged: false });
+        return normalizeTaskAttachment({
+          ...attachment,
+          lifecycleModule,
+          lifecycleManaged: true,
+          lifecycleState: status.state,
+          lifecycleCompletedAt: status.completed_at,
+          lifecycleDeleteDueAt: status.delete_due_at,
+          lifecyclePreviewAvailable: status.preview_available,
+          lifecycleDownloadAvailable: status.download_available
+        });
+      } catch {
+        return normalizeTaskAttachment({ ...attachment, lifecycleStatusUnavailable: true });
+      }
+    }));
   }
 
   function healthFinding(type, severity, title, detail, records = []) {
@@ -1970,8 +2010,16 @@
     }).then(normalizeTaskAttachment);
   }
 
+  async function deleteLifecycleAttachment(gateway, attachmentId, lifecycleModule) {
+    if (!lifecycleModule) return false;
+    if (typeof gateway.invokeFunction !== "function") throw new Error("附件生命週期服務暫時無法使用；請稍後重試。");
+    const result = await gateway.invokeFunction("attachment-lifecycle", { action: "delete", module: lifecycleModule, id: attachmentId, confirm: true });
+    return result?.enabled !== false;
+  }
+
   async function deleteTaskAttachment(attachmentId, options = {}) {
     const gateway = options.gateway || requireGateway();
+    if (await deleteLifecycleAttachment(gateway, attachmentId, lifecycleModuleForScope(options.lifecycleModule))) return normalizeTaskAttachment({ id: attachmentId, deletion_status: "deleted" });
     const requested = await gateway.rpc("board_request_delete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
     try {
       if (typeof gateway.removeStorageObject !== "function") {
@@ -1988,6 +2036,7 @@
   async function deleteProgressNoteAttachment(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     const attachmentId = input.attachmentId || input.id;
+    if (await deleteLifecycleAttachment(gateway, input.attachmentId || input.id, lifecycleModuleForScope(options.lifecycleModule))) return normalizeTaskAttachment({ id: input.attachmentId || input.id, deletion_status: "deleted" });
     const requested = await gateway.rpc("board_request_delete_progress_attachment", {
       p_attachment_id: attachmentId
     }).then(normalizeTaskAttachment);
@@ -2007,8 +2056,22 @@
 
   async function taskAttachmentUrl(attachment, options = {}) {
     const gateway = options.gateway || requireGateway();
-    if (!attachment?.storageBucket || !attachment?.storagePath || typeof gateway.createStorageSignedUrl !== "function") return "";
-    return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 3600);
+    if (!attachment?.storageBucket || !attachment?.storagePath) return "";
+    const lifecycleModule = lifecycleModuleForScope(options.lifecycleModule || attachment.lifecycleModule);
+    if (lifecycleModule) {
+      if (typeof gateway.invokeFunction !== "function") throw new Error("附件生命週期服務暫時無法使用；請稍後重試。");
+      const result = await gateway.invokeFunction("attachment-lifecycle", {
+        module: lifecycleModule,
+        id: attachment.attachmentId || attachment.id,
+        intent: options.intent || "preview"
+      });
+      if (result?.enabled !== false) {
+        if (!result?.url) throw new Error("附件已到期或無法使用。");
+        return result.url;
+      }
+    }
+    if (typeof gateway.createStorageSignedUrl !== "function") return "";
+    return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 60);
   }
 
   // Template C is a registered board instance.  Keep its data wiring in this
@@ -2050,7 +2113,7 @@
     const normalizeInstanceWorkspace = row => normalizeWorkspace({ ...row, application_scope: "c", applicationScope: "c" });
     const normalizeInstanceTask = row => normalizeTask({ ...row, application_scope: "c", applicationScope: "c" });
     const normalizeInstanceActivity = row => normalizeActivity(row);
-    const normalizeInstanceAttachment = row => normalizeTaskAttachment(row);
+    const normalizeInstanceAttachment = row => normalizeTaskAttachment({ ...row, lifecycleModule: lifecycleModuleForScope(legacyApplicationScope) || "" });
     const workflow = createWorkflowCapability({
       gateway,
       templateKey,
@@ -2453,7 +2516,9 @@
       }).then(normalizeInstanceAttachment);
     }
     async function instanceDeleteAttachment(attachmentId) {
-      await resolveInstance();
+      const instance = await resolveInstance();
+      const lifecycleModule = lifecycleModuleForScope(instance.legacy_application_scope || legacyApplicationScope);
+      if (await deleteLifecycleAttachment(gateway, attachmentId, lifecycleModule)) return normalizeInstanceAttachment({ id: attachmentId, deletion_status: "deleted" });
       const requested = await gateway.rpc("board_instance_request_attachment_delete", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
       try {
         if (typeof gateway.removeStorageObject !== "function") throw new Error("Shared Supabase Gateway 尚未支援受控附件刪除。");
@@ -2467,8 +2532,13 @@
     async function instanceUploadAttachment(attachment, file) {
       return uploadTaskAttachment(attachment, file, withGateway());
     }
-    async function instanceTaskAttachmentUrl(attachment) {
-      return taskAttachmentUrl(attachment, withGateway());
+    async function instanceTaskAttachmentUrl(attachment, options) {
+      const instance = await resolveInstance();
+      return taskAttachmentUrl(attachment, { ...withGateway(options), lifecycleModule: lifecycleModuleForScope(instance.legacy_application_scope || legacyApplicationScope) });
+    }
+    async function instanceLoadTaskAttachments(taskId, options) {
+      const instance = await resolveInstance();
+      return loadTaskAttachments(taskId, { ...withGateway(options), lifecycleModule: lifecycleModuleForScope(instance.legacy_application_scope || legacyApplicationScope) });
     }
     async function instanceGovernanceAction() {
       const error = new Error("C 母版不支援未定義的跨網域治理動作。");
@@ -2509,7 +2579,7 @@
       loadMovementHistory: (taskId, options) => loadMovementHistory(taskId, withGateway(options)),
       loadActivity: (taskId, options) => loadActivity(taskId, withGateway(options)),
       loadArtifacts: (task, options) => loadArtifacts(task, withGateway(options)),
-      loadTaskAttachments: (taskId, options) => loadTaskAttachments(taskId, withGateway(options)),
+      loadTaskAttachments: instanceLoadTaskAttachments,
       runHealthCheck: options => runHealthCheck(withGateway(options)),
       subscribe: (callback, options) => resolveInstance().then(instance => subscribe(callback, { ...(options || {}), gateway, boardInstanceId: instance.id })),
       normalizeStatus,
