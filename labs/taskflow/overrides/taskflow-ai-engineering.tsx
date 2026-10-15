@@ -63,7 +63,7 @@ export function TaskFlowAIIssueSection({
     </button>
     {open && <div id={"taskflow-ai-" + issueId} className="space-y-2 rounded-md border border-dashed p-2 text-caption">
       <label className="flex items-center justify-between gap-2">
-        <span>啟用本任務 AI 派工（尚未開放）</span>
+        <span>標記本任務使用 AI 工程師（尚未儲存）</span>
         <input type="checkbox" className="size-4 accent-primary" checked={card.enabled}
           onChange={event => card.setEnabled(event.currentTarget.checked)}
           aria-label="任務卡 AI 工程師選項（不會儲存、不派工）" />
