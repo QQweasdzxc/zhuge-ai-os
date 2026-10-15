@@ -4,7 +4,7 @@ Status: candidate source only; this revision has not changed Supabase Production
 
 ## Design
 
-- New TaskFlow attachment objects use one private Supabase bucket: taskflow-attachments. The reviewed maximum is 100 MiB per object, matching the native TaskFlow limit. The project-wide upload cap must be checked in Dashboard before installation; this candidate does not change it.
+- New TaskFlow attachment objects use one private Supabase bucket: taskflow-attachments. The reviewed maximum is 50 MB (50,000,000 bytes) per object, matching the native TaskFlow limit. The project-wide upload cap must be checked in Dashboard before installation; this candidate does not change it.
 - Existing TaskFlow attachment rows remain in taskflow.attachment. Existing upload, authorization, metadata, preview, download, and delete handlers remain the application path. No attachment record is deleted or rewritten here.
 - Native object keys remain workspaces/{workspace_uuid}/{attachment_uuid_v7}.{ext} or users/{user_uuid}/{attachment_uuid_v7}.{ext}. Avatar, source-context, external integration media, and legacy Render-local paths remain outside this bucket. Legacy local objects are not recoverable from metadata alone.
 - The API first authenticates the TaskFlow request. For attachment endpoints only, the browser forwards the Zhuge Supabase access JWT in X-Zhuge-Storage-Token; the API verifies it against Supabase Auth /auth/v1/user, matches the verified UUID to the TaskFlow identity, and adds it to request context. A TaskFlow API JWT is never treated as a Supabase token.

@@ -98,11 +98,11 @@ def patch_router(source: str) -> str:
 
 
 def patch_file_handler(source: str) -> str:
-    source = replace_once(source, "const maxUploadSize = 100 << 20 // 100 MB", "const maxUploadSize = 101 << 20 // 100 MiB object cap plus multipart framing", "TaskFlow request cap")
+    source = replace_once(source, "const maxUploadSize = 100 << 20 // 100 MB", "const maxUploadSize = 51_000_000 // 50 MB object cap plus multipart framing", "TaskFlow request cap")
     source = replace_once(
         source,
         '''\tif err := r.ParseMultipartForm(maxUploadSize); err != nil {\n\t\twriteError(w, http.StatusBadRequest, "file too large or invalid multipart form")\n\t\treturn\n\t}''',
-        '''\tif err := r.ParseMultipartForm(maxUploadSize); err != nil {\n\t\tvar maxBytesError *http.MaxBytesError\n\t\tif errors.As(err, &maxBytesError) {\n\t\t\twriteError(w, http.StatusRequestEntityTooLarge, "attachment exceeds the TaskFlow 100 MiB limit")\n\t\t} else {\n\t\t\twriteError(w, http.StatusBadRequest, "invalid multipart attachment request")\n\t\t}\n\t\treturn\n\t}''',
+        '''\tif err := r.ParseMultipartForm(maxUploadSize); err != nil {\n\t\tvar maxBytesError *http.MaxBytesError\n\t\tif errors.As(err, &maxBytesError) {\n\t\t\twriteError(w, http.StatusRequestEntityTooLarge, "attachment exceeds the TaskFlow 50 MB limit")\n\t\t} else {\n\t\t\twriteError(w, http.StatusBadRequest, "invalid multipart attachment request")\n\t\t}\n\t\treturn\n\t}''',
         "TaskFlow upload error status",
     )
     upload_error_pattern = re.compile(
@@ -228,7 +228,31 @@ def apply_backend(root: Path, overlays: Path) -> None:
     file_handler.write_text(patch_file_handler(file_handler.read_text()))
 
 
+def patch_web_upload_limit(root: Path) -> None:
+    # Keep the native upload UX while respecting Supabase Free's decimal 50 MB
+    # cap. All changes are staged under /src; frozen vendor stays unchanged.
+    edits = (
+        ("packages/core/constants/upload.ts",
+         "export const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB",
+         "export const MAX_FILE_SIZE = 50_000_000; // Supabase Free: 50 MB"),
+        ("packages/core/hooks/use-file-upload.ts",
+         "File exceeds 100 MB limit", "File exceeds 50 MB limit"),
+        ("packages/core/hooks/use-file-upload.test.ts",
+         "/100 MB/", "/50 MB/"),
+        ("packages/views/editor/use-coordinated-uploads.ts",
+         "File exceeds 100 MB limit", "File exceeds 50 MB limit"),
+        ("packages/views/editor/use-editor-upload.test.tsx",
+         "File exceeds 100 MB limit", "File exceeds 50 MB limit"),
+    )
+    for relative, before, after in edits:
+        filename = root / relative
+        filename.write_text(
+            replace_once(filename.read_text(), before, after, relative)
+        )
+
+
 def apply_web(root: Path, overlays: Path) -> None:
+    patch_web_upload_limit(root)
     client = root / "packages/core/api/client.ts"
     client.write_text(patch_api_client(client.read_text()))
     handoff = root / "apps/web/public/zhuge-handoff.html"
