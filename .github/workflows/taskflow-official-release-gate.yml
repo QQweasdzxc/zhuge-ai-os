@@ -1,0 +1,73 @@
+name: TaskFlow Official Site Release Gate
+
+on:
+  push:
+    branches:
+      - release/taskflow-ai-visible-20261016
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-identity:
+    name: Identity, Overlay, and source regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify formal main baseline and source diff
+        run: |
+          git fetch --no-tags origin main
+          git diff --check origin/main...HEAD
+          node tools/release-governance.js preflight
+      - name: Verify native TaskFlow overlay and fail-closed dispatch
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+          node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+      - name: Run root source regression suite
+        shell: bash
+        run: |
+          mapfile -d '' tests < <(find tests -maxdepth 1 -type f -name '*.test.js' -print0)
+          if [ "${#tests[@]}" -eq 0 ]; then echo 'No root regression tests'; exit 1; fi
+          node --test "${tests[@]}"
+
+  browser:
+    name: Desktop and Mobile browser regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+  fullsource:
+    name: Governed FullSource package (no deploy)
+    needs: [source-identity, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package exact clean source and verify archive
+        run: |
+          git fetch --no-tags origin main
+          node tools/release-governance.js preflight
+          node tools/release-governance.js package --type candidate --description TaskFlow-AI-Panel-Visible --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taskflow-official-fullsource
+          path: |
+            dist/*FullSource-Candidate.zip
+            dist/*FullSource-Candidate.zip.manifest.json
+            dist/*FullSource-Candidate.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
