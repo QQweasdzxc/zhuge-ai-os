@@ -19,6 +19,14 @@ restricted() {
 
 admin -f "$root/labs/taskflow/tests/taskflow_supabase_storage_ci_fixture.sql" >/dev/null
 
+# Run the ACTUAL production preflight before helper-schema bootstrap. A missing
+# taskflow_storage schema is expected on first install and must not raise 3F000.
+[[ "$(admin -qAt -c "SELECT to_regnamespace('taskflow_storage') IS NULL")" == "t" ]] || {
+  echo "Expected helper schema to be absent before preflight" >&2
+  exit 1
+}
+admin -f "$root/labs/taskflow/sql/taskflow_supabase_storage_preflight.sql" >/dev/null
+
 # The bootstrap uses a direct, non-superuser database-CREATE login with no
 # managed-schema privileges. Production uses its existing postgres login,
 # which has the same relevant capability boundary.

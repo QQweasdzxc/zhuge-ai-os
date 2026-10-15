@@ -16,7 +16,10 @@ SELECT
 SELECT role_name,
        pg_catalog.has_schema_privilege(role_name, 'taskflow', 'USAGE') AS taskflow_usage,
        pg_catalog.has_schema_privilege(role_name, 'taskflow', 'CREATE') AS taskflow_create,
-       pg_catalog.has_schema_privilege(role_name, 'taskflow_storage', 'USAGE') AS helper_schema_usage,
+       CASE WHEN pg_catalog.to_regnamespace('taskflow_storage') IS NULL
+            THEN FALSE
+            ELSE pg_catalog.has_schema_privilege(role_name, 'taskflow_storage', 'USAGE')
+       END AS helper_schema_usage,
        pg_catalog.has_schema_privilege(role_name, 'storage', 'USAGE') AS storage_usage,
        pg_catalog.has_schema_privilege(role_name, 'storage', 'CREATE') AS storage_create,
        pg_catalog.has_schema_privilege(role_name, 'auth', 'USAGE') AS auth_usage,
@@ -58,4 +61,4 @@ SELECT policyname, roles, cmd, qual, with_check
 -- The session setting above is not authoritative when PostgREST reads its
 -- configuration from service settings. Before release, separately verify in
 -- Supabase Dashboard > API Settings that taskflow_storage is NOT exposed.
--- Verify the project-wide upload limit is at least 100 MiB in Storage settings.
+-- Verify the project-wide upload limit is at least 50 MB (or reduce the app cap accordingly) in Storage settings.

@@ -23,10 +23,9 @@ import (
 )
 
 const TaskFlowSupabaseAttachmentBucket = "taskflow-attachments"
-// Match the upstream 100 MiB attachment limit. The server request parser gets
-// a small additional allowance for multipart framing; object bytes remain
-// capped at this native limit.
-const TaskFlowSupabaseAttachmentMaxBytes int64 = 100 << 20
+// Supabase Free supports at most 50 MB per uploaded file (decimal bytes).
+// The project or bucket may impose a lower limit; Storage still enforces it.
+const TaskFlowSupabaseAttachmentMaxBytes int64 = 50_000_000
 
 type taskFlowSupabaseJWTContextKey struct{}
 

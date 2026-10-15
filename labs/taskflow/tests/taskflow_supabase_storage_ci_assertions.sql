@@ -11,7 +11,7 @@ DECLARE
 BEGIN
   SELECT * INTO bucket FROM storage.buckets WHERE id = 'taskflow-attachments';
   IF NOT FOUND OR bucket.public IS DISTINCT FROM false
-     OR bucket.file_size_limit IS DISTINCT FROM 104857600
+     OR bucket.file_size_limit IS DISTINCT FROM 50000000
      OR bucket.allowed_mime_types IS NOT NULL THEN
     RAISE EXCEPTION 'private TaskFlow bucket settings do not match the reviewed cap';
   END IF;

@@ -4,7 +4,7 @@
 -- Policies. Production uses the Dashboard; this file is never run against the
 -- hosted project.
 INSERT INTO storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('taskflow-attachments', 'taskflow-attachments', false, 104857600, NULL);
+VALUES ('taskflow-attachments', 'taskflow-attachments', false, 50000000, NULL);
 
 CREATE POLICY taskflow_attachments_select
     ON storage.objects FOR SELECT TO authenticated
