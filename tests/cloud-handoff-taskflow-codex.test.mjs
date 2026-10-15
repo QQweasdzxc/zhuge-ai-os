@@ -126,12 +126,25 @@ test("unauthorized PM, stale TF revision and wrong assigned actor never post",as
     {authorizePM:async()=>false},
     {expectedTaskflowRevision:8},
     {snapshot:{...ready(),next_actor:"gem"}},
-    {approvalId:"not-an-approved-ref"}
+    {approvalId:"short"}
   ]){
     const {args,getPosts}=safeAdapters(override);
     await assert.rejects(dispatchTaskflowCodex(args));
     assert.equal(getPosts(),0);
   }
+});
+
+test("opaque PM reference alone is not approval: transport checks the trusted authority",async()=>{
+  let posts=0;
+  const adapter=createCodexGithubMentionAdapter({
+    repository:REPO,prNumber:52,token:"test-only-fake-token",
+    writeEnabled:true,approvalVerifier:async()=>false,
+    liveHeadVerifier:async()=>true,
+    fetcher:async()=>{posts++;return Response.json({id:123,html_url:"incorrect"},{status:201});}
+  });
+  const {args}=safeAdapters({launchGithubMention:adapter});
+  await assert.rejects(dispatchTaskflowCodex(args),/PM approval/);
+  assert.equal(posts,0);
 });
 
 test("disabled adapter, changed live PR head and stale CAS cannot trigger Codex",async()=>{
