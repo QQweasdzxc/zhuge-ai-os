@@ -1,0 +1,40 @@
+name: TaskFlow AI Execution v1 Review (no dispatch)
+
+on:
+  push:
+    branches:
+      - review/taskflow-ai-execution-v1-20261015
+    paths:
+      - "labs/taskflow/**"
+      - ".github/workflows/taskflow-ai-execution-review.yml"
+      - "version.json"
+  pull_request:
+    paths:
+      - "labs/taskflow/**"
+      - ".github/workflows/taskflow-ai-execution-review.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ai-overlay-review:
+    name: Frozen-overlay / safety policy validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact Review SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm review-only overlay and fail-closed negative tests
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest labs.taskflow.tests.test_taskflow_ai_engineering_overlay -v
+      - name: Verify branch patch whitespace
+        run: git diff HEAD^ HEAD --check
+      - name: Confirm no accidental live AI transport
+        run: |
+          if grep -RniE 'fetch\(|@codex |localStorage|GH_TOKEN|DATABASE_URL' \
+            labs/taskflow/overrides/taskflow-ai-engineering.tsx \
+            labs/taskflow/overrides/taskflow-ai-preview-store.ts; then
+            echo "Unexpected transport, browser storage, or credentials in AI preview" >&2
+            exit 1
+          fi
