@@ -19,19 +19,24 @@ Codex UI code.
 - Project has default-OFF "啟用 AI 工程師" preview option. The preview value is
   stored in in-memory JS only; it disappears on refresh and is **not** a server
   preference. Only workspace owner/admin may change this preview.
-- If project preview is OFF, native issue detail is unchanged. If project
-  preview is ON, each issue has an independent opt-in, default OFF; Co is the
-  default, Gem can be manually selected. Neither selection invokes a provider.
+- The AI execution section is always visible in the **existing official TaskFlow
+  issue sidebar** (including Mobile when its native sidebar is opened), with
+  default-expanded informational status. Project/card opt-in is still OFF by
+  default. Co is the default, Gem may be selected, and **neither selection
+  invokes a provider**. Showing a panel never implies authorized execution.
 - The issue pane is separate from human Assignee and placed after native
   Wakeups / PluginPanel and before native Pull Requests; its disclosure is
-  collapsed by default. Existing Wakeups, PR section and execution log remain.
+  expanded by default. Existing Wakeups, PR section and execution log remain.
+- Product rule: **one official Production website only**. Source/CI checks are
+  internal engineering gates, not customer-facing test areas, parallel sites,
+  or alternate PM URLs. No website deployment is claimed by this source change.
 - There is **no** TaskFlow native Run persistence, service identity, GitHub API
   write, Codex/Gemini trigger, quota API, dispatch worker, secret, background
   process or cost. The "確認並派工" control is always disabled. Unknown quota,
   unknown GitHub SHA/CI, missing Run status and lack of PM approval are explicit.
 - `evaluateAIExecution` is a pure, strict prerequisite checker, whose best
   outcome is `DISPATCH_PENDING`, never a claim that Provider has started.
-- No migration, no TaskFlow Production issue ZG-6 modification, no main merge,
+- No migration, no TaskFlow Production issue ZG-6 data modification, no main merge,
   no auto fallback, no vendor content modification.
 - Existing `third_party/multica` must remain frozen; build patches copied
   sources only. The overlay refuses to apply when upstream source markers move.
