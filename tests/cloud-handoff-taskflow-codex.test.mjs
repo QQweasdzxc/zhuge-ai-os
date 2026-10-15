@@ -50,7 +50,7 @@ function safeAdapters(overrides={}){
   const args={
     snapshot:ready(),workspaceId:WORKSPACE,projectId:PROJECT,
     expectedTaskflowRevision:7,readTaskflowIssue:nativeReader(),
-    authorizePM:async()=>true,approvalId:APPROVAL,
+    authorizePM:async()=>true,verifyApprovalRef:async()=>true,approvalId:APPROVAL,
     now:"2026-10-15T10:01:00Z",leaseId:"unique-trusted-claim-id-123",
     leaseUntil:"2026-10-15T11:01:00Z",
     verifyGitHead:async()=>true,verifyWorkerStopped:async()=>true,
@@ -124,6 +124,7 @@ test("authorized TF→GitHub simulation creates exactly one comment but no provi
 test("unauthorized PM, stale TF revision and wrong assigned actor never post",async()=>{
   for(const override of [
     {authorizePM:async()=>false},
+    {verifyApprovalRef:async()=>false},
     {expectedTaskflowRevision:8},
     {snapshot:{...ready(),next_actor:"gem"}},
     {approvalId:"short"}
@@ -143,7 +144,9 @@ test("opaque PM reference alone is not approval: transport checks the trusted au
     fetcher:async()=>{posts++;return Response.json({id:123,html_url:"incorrect"},{status:201});}
   });
   const {args}=safeAdapters({launchGithubMention:adapter});
-  await assert.rejects(dispatchTaskflowCodex(args),/PM approval/);
+  // The initial approval was valid and CAS already committed. Revocation
+  // between claim and comment is quarantined, never silently retried.
+  await assert.rejects(dispatchTaskflowCodex(args),/needs reconciliation/);
   assert.equal(posts,0);
 });
 

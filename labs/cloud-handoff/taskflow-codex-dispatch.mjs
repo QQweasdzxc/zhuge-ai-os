@@ -12,7 +12,7 @@ import { dispatchCloud } from "./dispatcher.mjs";
 
 export async function dispatchTaskflowCodex({
   snapshot,workspaceId,projectId,expectedTaskflowRevision,
-  readTaskflowIssue,authorizePM,approvalId,
+  readTaskflowIssue,authorizePM,verifyApprovalRef,approvalId,
   now,leaseId,leaseUntil,
   verifyGitHead,verifyWorkerStopped,claimWithCas,
   launchGithubMention
@@ -24,6 +24,13 @@ export async function dispatchTaskflowCodex({
     snapshot,workspaceId,projectId,expectedRevision:expectedTaskflowRevision,
     readIssue:readTaskflowIssue,authorizePM
   });
+  // Before acquiring the durable writer lease, confirm the exact, unexpired
+  // PM dispatch approval. The GitHub transport independently rechecks it
+  // immediately before issuing the potentially billable @codex comment.
+  if (typeof verifyApprovalRef !== "function" ||
+      await verifyApprovalRef({approvalId,issue:nativeIssue,task:snapshot.task.id,sha:snapshot.source.head_sha}) !== true) {
+    throw Error("taskflow codex: PM dispatch approval not verified");
+  }
   return dispatchCloud({
     snapshot,actor:"co",now,leaseId,leaseUntil,
     verifyGitHead,verifyWorkerStopped,claimWithCas,
