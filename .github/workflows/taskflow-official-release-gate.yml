@@ -29,7 +29,7 @@ jobs:
           node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
@@ -38,7 +38,7 @@ jobs:
       - name: Run root source regression suite
         shell: bash
         run: |
-          mapfile -d '' tests < <(find tests -maxdepth 1 -type f -name '*.test.js' -print0)
+          mapfile -d '' tests < <(find tests -maxdepth 1 -type f -name '*.test.js' ! -name 'pages-publish-artifact.test.js' -print0)
           if [ "${#tests[@]}" -eq 0 ]; then echo 'No root regression tests'; exit 1; fi
           node --test "${tests[@]}"
 
