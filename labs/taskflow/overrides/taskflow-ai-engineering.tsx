@@ -16,7 +16,7 @@ export function TaskFlowAIProjectSettings({
         checked={setting.enabled}
         disabled={!canManage}
         onChange={event => setting.setEnabled(event.currentTarget.checked)}
-        aria-label="專案 AI 工程師預覽開關（不會儲存）" />
+        aria-label="專案 AI 工程師選項（尚未連接儲存）" />
     </label>
     <p className="text-caption text-muted-foreground">
       設定尚未連接正式儲存，重新整理後會恢復預設值；不會派工或產生費用。
@@ -63,14 +63,14 @@ export function TaskFlowAIIssueSection({
     </button>
     {open && <div id={"taskflow-ai-" + issueId} className="space-y-2 rounded-md border border-dashed p-2 text-caption">
       <label className="flex items-center justify-between gap-2">
-        <span>顯示本任務的 AI 工程師選項</span>
+        <span>啟用本任務 AI 派工（尚未開放）</span>
         <input type="checkbox" className="size-4 accent-primary" checked={card.enabled}
           onChange={event => card.setEnabled(event.currentTarget.checked)}
           aria-label="任務卡 AI 工程師選項（不會儲存、不派工）" />
       </label>
-      {card.enabled && <>
+      <div className="space-y-2">
         <label className="flex items-center justify-between gap-2">
-          <span>本輪工程師</span>
+          <span>指定工程師</span>
           <select value={engineer} className="max-w-[55%] rounded border bg-background px-2 py-1"
             aria-label="選擇 AI 工程師（不會派工）"
             onChange={event => setEngineer(event.target.value === "gem" ? "gem" : "co")}>
@@ -87,7 +87,7 @@ export function TaskFlowAIIssueSection({
           className="w-full cursor-not-allowed rounded-md border p-2 text-muted-foreground">
           確認並派工（尚未開放）
         </button>
-      </>}
+      </div>
       <p className="text-muted-foreground">
         此區位於正式 TaskFlow 任務側欄。目前不儲存設定、不取代真人負責人、不執行 Co／Gem；正式派工須先接通 TaskFlow API 並取得 PM 核准。
       </p>
