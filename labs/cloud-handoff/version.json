@@ -1,7 +1,7 @@
 {
   "component": "multi-agent-cloud-handoff-v1",
-  "candidate_version": "0.9.0-alpha.9.50",
-  "candidate_build": "20261015-1830",
+  "candidate_version": "0.9.0-alpha.9.51",
+  "candidate_build": "20261015-1920",
   "base_product_version": "0.9.0-alpha.9.45",
   "base_sha": "802f820ec571a8efc20e0e653004d400f67dfd7a",
   "status": "REVIEW_ONLY_NOT_DEPLOYED",

@@ -12,8 +12,14 @@ export function validateTaskflowIssue(issue,{issueId,workspaceId,projectId,revis
   must(UUID.test(issue.project_id||"")&&issue.project_id===projectId,"native project mapping mismatch");
   must(Number.isInteger(issue.revision)&&issue.revision===revision,"stale native issue revision");
   must(typeof issue.identifier==="string"&&issue.identifier.length>0&&typeof issue.title==="string"&&issue.title.length>0,"incomplete native issue");
-  must(typeof issue.status_category==="string"&&issue.status_category.length>0,"status category unresolved");
-  must(!["done","cancelled"].includes(issue.status_category),"closed/cancelled task cannot be dispatched");
+  // TaskFlow WireCategory sends built-in status keys (backlog/todo/etc)
+  // or new four-category lifecycle keys. Fail CLOSED on unknown/blocked/
+  // terminal values; never infer open state from an arbitrary string.
+  const dispatchableCategories=new Set([
+    "backlog","todo","in_progress","in_review","unstarted","started"
+  ]);
+  must(dispatchableCategories.has(issue.status_category),
+    "unsupported, blocked or terminal TaskFlow status cannot be dispatched");
   must(typeof issue.status==="string"&&issue.status.length>0,"missing status");
   must(!issue.duplicate_of,"duplicate native task cannot launch another writer");
   return {id:issue.id,workspace_id:issue.workspace_id,project_id:issue.project_id,

@@ -1,6 +1,6 @@
 # Zhuge AI OS — Cloud Handoff v1 (Issue #51)
 
-**Candidate component:** 0.9.0-alpha.9.50 / Build 20261015-1830.
+**Candidate component:** 0.9.0-alpha.9.51 / Build 20261015-1920.
 **Status:** Isolated source and CI review only. Official GitHub @codex PM-approved read-only trigger verified separately; TaskFlow native live dispatch, runtime and Gemini connection NOT deployed or verified. Production remains .9.45. #45 .9.46 / Draft PR #50 remains on hold.
 
 ## Why this exists
@@ -100,3 +100,8 @@ This candidate adds a **future dispatch protocol** without launching any new age
 - New negative / adversarial tests cover spoofed bots, same nonce with wrong SHA, duplicate valid replies, 403, 500-comment pagination cap, wrong scope, missing marker, forged request, and PR SHA drift. No secrets, extra subscriptions, or production changes.
 
 **Open authorization requirements:** do not enable GitHub comment writes automatically. Need legitimate TaskFlow server identity and workspace permission, PM task-scoped approval, server GitHub App installation credential with least privilege, confirmed durable CAS + receipt persistence, bot report polling policy/rate bound, native Run update contract, provider status validation and cancellation handling. GitHub PR comments are not a substitute for TaskFlow authority. No auto-dispatch/auto-failover until an explicitly approved live isolated E2E.
+
+### Release-candidate hardening (.9.51)
+
+- TF native issue status is fail-closed against the actual upstream TaskFlow/MultiCA `issuestatus.WireCategory` contract: only known open categories (`backlog`,`todo`,`in_progress`,`in_review`,`unstarted`,`started`) can pass the gateway. Reject blocked, done, closed, cancelled, legacy completed and *all unknown* values, including future unrecognized categories. The GitHub adapter must not launch an agent from a TaskFlow issue in an ambiguous lifecycle state.
+- All cloud-provider calls remain disabled. Distinguish the separately verified earlier GitHub @codex read-only job from this release-candidate offline ACK simulation.

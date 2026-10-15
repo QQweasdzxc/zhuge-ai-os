@@ -89,6 +89,11 @@ test("cross-workspace, wrong project, stale revision and completed native tasks 
     x=>{x.project_id=WORKSPACE;},
     x=>{x.revision=6;},
     x=>{x.status_category="done";},
+    x=>{x.status_category="cancelled";},
+    x=>{x.status_category="closed";},
+    x=>{x.status_category="completed";},
+    x=>{x.status_category="blocked";},
+    x=>{x.status_category="unknown_state";},
     x=>{x.status_category="";},
     x=>{x.duplicate_of={id:"another"};}
   ]){
