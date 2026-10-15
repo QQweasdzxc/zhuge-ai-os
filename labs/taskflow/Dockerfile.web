@@ -92,6 +92,18 @@ RUN TASKFLOW_ATTACHMENT_REPO=/ \
     python3 /tmp/test_taskflow_attachment_preview_overlay.py \
  && python3 /tmp/apply-taskflow-attachment-preview.py --root /src
 
+# TaskFlow AI execution v1: optional, fail-closed preview on copied source.
+# No provider credentials, migrations, native Run writes, or external AI calls.
+COPY labs/taskflow/patches/apply-taskflow-ai-engineering.py /tmp/apply-taskflow-ai-engineering.py
+COPY labs/taskflow/tests/test_taskflow_ai_engineering_overlay.py /tmp/test_taskflow_ai_engineering_overlay.py
+COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.ts /taskflow-ai/taskflow-ai-engineering-policy.ts
+COPY labs/taskflow/overrides/taskflow-ai-preview-store.ts /taskflow-ai/taskflow-ai-preview-store.ts
+COPY labs/taskflow/overrides/taskflow-ai-engineering.tsx /taskflow-ai/taskflow-ai-engineering.tsx
+COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.test.ts /taskflow-ai/taskflow-ai-engineering-policy.test.ts
+RUN TASKFLOW_AI_REPO=/src TASKFLOW_AI_VENDOR=/src TASKFLOW_AI_OVERLAYS=/taskflow-ai TASKFLOW_AI_PATCH=/tmp/apply-taskflow-ai-engineering.py \
+    python3 /tmp/test_taskflow_ai_engineering_overlay.py \
+ && python3 /tmp/apply-taskflow-ai-engineering.py --root /src --overlays /taskflow-ai
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -134,6 +146,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
+RUN pnpm --filter @multica/views exec vitest run common/taskflow-ai-engineering-policy.test.ts
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
