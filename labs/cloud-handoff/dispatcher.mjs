@@ -47,6 +47,14 @@ export async function dispatchCloud({
       actor, manifest: next, branch: snapshot.source.branch,
       sha: snapshot.source.head_sha, task: snapshot.task.id
     });
+    // GitHub comment creation is a dispatch RECEIPT, not a Codex Cloud ACK.
+    // Keep the CLAIMED lease and wait for trustworthy provider reconciliation.
+    if (run?.state === "PENDING_ACK" &&
+        typeof run.receiptId === "string" && /^github-comment-[1-9][0-9]*$/.test(run.receiptId) &&
+        Number.isInteger(run.commentId) && run.commentId > 0 && run.providerTaskId === null) {
+      return { state: "PENDING_PROVIDER_ACK", dispatchReceipt: run.receiptId,
+        claimedRevision: next.revision };
+    }
     if (typeof run?.runId !== "string" || !run.runId) {
       throw new Error("provider did not return a run id");
     }

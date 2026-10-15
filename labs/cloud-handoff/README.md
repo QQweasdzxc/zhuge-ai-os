@@ -1,11 +1,11 @@
 # Zhuge AI OS — Cloud Handoff v1 (Issue #51)
 
-**Candidate component:** 0.9.0-alpha.9.48 / Build 20261015-1425.
+**Candidate component:** 0.9.0-alpha.9.49 / Build 20261015-1740.
 **Status:** Isolated source and CI review only. NOT TaskFlow native Runtime, NOT deployed, and NOT a Codex/Gemini connection. Production remains .9.45. #45 .9.46 / Draft PR #50 remains on hold.
 
 ## Why this exists
 
-At the end of Codex Cloud Issue #45, Co exhausted the usage window with **four modified files visible only in its cloud worktree**. Last verified GitHub PR #50 SHA: 199ea823af0692ca99e222b024ee3238cbc3a9fc. There is NO proof the later four edits reached GitHub. A second engineer MUST NOT assume they did.
+During an earlier Codex Cloud Issue #45 run, Co exhausted the usage window with **four modified files visible only in its cloud worktree**. Historical first checkpoint GitHub PR #50 SHA: 199ea823af0692ca99e222b024ee3238cbc3a9fc. **This is a frozen negative test fixture, not current live state.** Co subsequently pushed SHA ca6559f981edaf8ceeb7822d0aaee4af53dfa7a9; PR #50 remains Draft. A new handoff must read the live HEAD and verify a fresh clean worktree / stop receipt. A second engineer MUST NOT assume they did.
 
 The sample [examples/issue45-quota-blocked.json](examples/issue45-quota-blocked.json) is intentionally BLOCKED_CHECKPOINT, owner Co, dirty_files=4 and cannot launch Gem.
 
@@ -49,7 +49,7 @@ If neither condition holds, status remains BLOCKED_CHECKPOINT and Gem does not r
     node labs/cloud-handoff/cli.mjs gate labs/cloud-handoff/examples/issue45-quota-blocked.json
     node labs/cloud-handoff/cli.mjs brief labs/cloud-handoff/examples/issue45-quota-blocked.json
 
-The dedicated GitHub Actions workflow generates a read-only handoff brief and gate result artifact. It calls NO AI providers and stores NO new credentials.
+The dedicated GitHub Actions workflow tests the native TaskFlow read-only bridge and GitHub @codex transport using mocked HTTP, and generates a read-only handoff brief and gate result artifact. It calls NO AI providers and stores NO new credentials.
 
 ## Further gates — NOT yet implemented
 
@@ -64,3 +64,25 @@ This Review branch has NOT started any cloud AI job, moved main, enabled paid se
 ## GitHub CAS adapter — candidate, not connected to Production
 
 The server-only [github-cas.mjs](github-cas.mjs) can read an isolated handoff JSON object from a dedicated review ledger branch and propose an atomic GitHub Contents compare-and-swap (old blob SHA). Before PUT it rechecks the live *code branch* SHA; a lost race (409/422) never launches another provider. The transport takes a short-lived server GitHub token only, which must never be embedded in browser code or stored in the manifest. A separate cloud authorization layer still must verify the claimed actor, ledger branch identity and worker-stop receipt. CI uses simulated GitHub HTTP responses only and never writes a live lease. This is an opt-in backend adapter, not a new GitHub Actions bot with write privileges.
+
+## Phase 2 slice: TaskFlow → GitHub → Codex (Review-only, .9.49)
+
+**Actual verified entry:** PM created a legacy Codex Cloud environment in the official UI named `zhuge-ai-os-github`, bound to `QQweasdzxc/zhuge-ai-os`. One authorized GitHub `@codex` PR comment on Draft PR #52 started an actual Codex Cloud read-only task, thread `01a13ee3-8cb4-7e81-9cac-b26a6cebf570`. Provider returned correct PR HEAD SHA `738690a3d19d453d250470aa5a60c02184b64989`; worktree clean. Evidence: https://github.com/QQweasdzxc/zhuge-ai-os/pull/52#issuecomment-6188911571 . Actual environment ID/name not exposed; GitHub CLI in the provider job was unauthenticated, Issue #51 complete body could not be directly read. **These are known limits, not guessed away.**
+
+### This candidate actually adds source and offline tests
+
+- [taskflow-bridge.mjs](taskflow-bridge.mjs) performs read-only `GET /api/issues/{uuid}/?workspace_id={uuid}` through TaskFlow's **existing workspace-authenticated endpoint**, using an already-authorized server-side bearer principal, not direct SQL. Checks exact native UUID, project, workspace, revision and non-terminal issue status/category. Rejects missing native map and duplicate.
+- [taskflow-codex-dispatch.mjs](taskflow-codex-dispatch.mjs) requires the native TaskFlow Issue to exist, approved server-side PM scope, and exact issue revision before running existing single-writer, old-agent-stop, Git HEAD and CAS protocol. **No TF API write is implemented** — do not claim native Run/Agent registration.
+- [codex-github-mention.mjs](codex-github-mention.mjs) builds a bounded `@codex` PR comment payload and transports it through the official GitHub Issues comments API using a server-only authorized GitHub token. **writeEnabled defaults OFF**; the CI test simulates POST and never actually writes GitHub or invokes AI. It rechecks PM approval and exact live PR HEAD.
+- A GitHub 201 comment is **PENDING_PROVIDER_ACK**, not RUNNING or a verified Codex task ID. The dispatcher remains CLAIMED, does not auto-retry, and needs a separately verified bot thread ID/receipt before an actual TF Run status update. A bot Issue-comment near the triggering comment is not by itself cryptographically linked to a dispatch request; exact secure reconciliation design remains open.
+- [tests/cloud-handoff-taskflow-codex.test.mjs](../../tests/cloud-handoff-taskflow-codex.test.mjs) covers native TaskFlow GET path, auth, wrong workspace/project, stale revision, custom unresolved statuses, PM denial, safe comment payload, CAS race, disabled transport, PR SHA drift and ambiguous failure.
+
+### Remaining mandatory gates before any TaskFlow auto-dispatch
+
+1. Native TF human PM session / delegated service permission verified against TaskFlow's real workspace role. The read bridge must run only as a backend and obtain identity through TaskFlow's existing Auth; never stash human bearer in a public frontend or GitHub workflow.
+2. A real durable, access-controlled CAS ledger + seeded TaskFlow Issue mapping + secure lease generation and stop evidence; current GitHub CAS adapter is only HTTP-mocked. A GitHub comment MUST NOT fire before CAS commits.
+3. Explicit per-task PM approval, authorized GitHub App installation identity and non-Production dry-run with isolated tasks; do not reuse this ChatGPT connector's private credentials or assume an app token is automatically available inside TaskFlow.
+4. Correlate official Codex bot ACK to the exact dispatch receipt/approved SHA/task and update TF native Run via sanctioned API only. The prior bot returned a task/thread ID but no environment ID; verify provider status and prevent duplicate writes. No default re-dispatch on silent timeout.
+5. Gemini requires its own separate cloud runner identity/usage ceiling and a complete cancellation/rollback E2E. No Gemini token or new service is installed here.
+
+**Nothing in .9.49 is deployed or calls the live TaskFlow API or Codex provider.** GitHub CI uses fake HTTP responses and no provider/billing secrets. Production and main remain untouched.
