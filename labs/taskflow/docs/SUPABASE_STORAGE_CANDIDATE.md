@@ -1,3 +1,5 @@
+> Continuation: `.9.46` lifecycle, capacity, integration and activation/rollback plan are in `../../attachments/REVIEW.md`. The underlying private Storage installation authority split below remains in effect.
+
 # TaskFlow private attachment Storage candidate
 
 Status: candidate source only; this revision has not changed Supabase Production, created a bucket, installed Storage policies, deployed an application, or modified any existing attachment row/object.

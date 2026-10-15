@@ -16,6 +16,9 @@ const ROUTE_ROOTS = new Set([
   "privacy", "product", "public", "scopes", "shared", "support", "terms"
 ]);
 const EXCLUDED_RUNTIME_PATHS = [
+  /^labs\/attachments\/(?:sql|tests)(?:\/|$)/,
+  /^labs\/attachments\/(?:gateway|cleanup-worker)\.mjs$/,
+  /^labs\/attachments\/[^/]+\.md$/,
   /^labs\/investment\/(?:docs|test|tests)(?:\/|$)/,
   /^labs\/taskflow\/(?:docs|overrides|patches|sql|tests)(?:\/|$)/,
   /^labs\/taskflow\/(?:Dockerfile(?:\..*)?|build-dev-(?:entry|shell)\.mjs|[^/]+\.md)$/

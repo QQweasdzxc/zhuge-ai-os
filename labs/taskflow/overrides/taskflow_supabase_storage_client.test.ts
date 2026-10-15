@@ -30,8 +30,8 @@ describe("TaskFlow private Supabase attachment bridge", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("supabase.user.jwt");
   });
 
-  it("accepts 13.5 MiB files while preserving the native 100 MiB application cap", () => {
-    expect(MAX_FILE_SIZE).toBe(100 * 1024 * 1024);
+  it("accepts 13.5 MiB files while respecting the Supabase Free 50 MB cap", () => {
+    expect(MAX_FILE_SIZE).toBe(50_000_000);
     expect((13 * 1024 * 1024) + (512 * 1024)).toBeLessThan(MAX_FILE_SIZE);
   });
 

@@ -2599,7 +2599,7 @@
   }
   function progressNoteComposerMarkup(archiveOnly, options = {}) {
     if (archiveOnly) return "";
-    const attachment = `<label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small>`;
+    const attachment = options.completed ? "" : `<label class="shared-task-progress-attachment" for="taskProgressAttachments" title="附加圖片或文件" aria-label="附加圖片或文件"><span class="shared-task-progress-attachment-icon" aria-hidden="true">＋</span><input id="taskProgressAttachments" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"></label><small class="shared-task-progress-file-hint" id="taskProgressAttachmentHint">可選擇圖片／文件附件</small>`;
     const persistenceHint = options.cTemplate
       ? "工作進度保存至 C 母版 Cloud 資料；工作進度內容不可為空白。"
       : "由目前登入的 QJC／owner 身分保存至正式 Cloud；工作進度內容不可為空白。";
@@ -2792,6 +2792,7 @@
     }
   }
   async function uploadAttachmentFiles(task, files, options = {}) {
+    if (task.status === "done") throw new Error("已完成卡片禁止新增附件；請先重新開啟卡片。");
     const selected = Array.from(files || []).filter(file => file && file.size > 0);
     for (const file of selected) {
       await executeSharedTaskAction(
@@ -2811,40 +2812,44 @@
     await Promise.all(Array.from(rows).map(async preview => {
       const article = preview.closest("[data-task-attachment-path], [data-progress-attachment-path]");
       if (!article) return;
+      const attachment = {
+        id: article.dataset.taskAttachmentId || article.dataset.progressAttachmentId,
+        attachmentId: article.dataset.taskAttachmentId || article.dataset.progressAttachmentId,
+        storagePath: article.dataset.taskAttachmentPath || article.dataset.progressAttachmentPath,
+        storageBucket: article.dataset.taskAttachmentBucket || "board-task-attachments"
+      };
+      const download = document.createElement("button");
+      download.type = "button";
+      download.textContent = "下載附件";
+      download.onclick = async () => {
+        download.disabled = true;
+        // Open synchronously for browsers with popup protection; use a fresh
+        // download capability at click time, never a persisted preview URL.
+        const tab = window.open("about:blank", "_blank");
+        if (tab) tab.opener = null;
+        try {
+          const url = await attachmentContract.read("attachmentUrl", { attachment, intent: "download" });
+          if (!url) throw new Error("附件無法下載");
+          if (tab) tab.location.replace(url); else window.location.assign(url);
+        } catch { tab?.close(); download.textContent = "無法下載；請重新登入後重試"; }
+        finally { download.disabled = false; }
+      };
+      preview.replaceChildren(download);
       try {
-        const storagePath = article.dataset.taskAttachmentPath || article.dataset.progressAttachmentPath;
-        const url = attachmentContract
-          ? await attachmentContract.read("attachmentUrl", { attachment: {
-            id: article.dataset.taskAttachmentId || article.dataset.progressAttachmentId,
-            attachmentId: article.dataset.taskAttachmentId || article.dataset.progressAttachmentId,
-            storagePath,
-            storage_path: storagePath,
-            storageBucket: article.dataset.taskAttachmentBucket || "board-task-attachments",
-            storage_bucket: article.dataset.taskAttachmentBucket || "board-task-attachments"
-          } })
-          : "";
+        const url = attachmentContract ? await attachmentContract.read("attachmentUrl", { attachment, intent: "preview" }) : "";
         if (!url) return;
-        article.dataset.attachmentResolvedUrl = url;
         const mime = article.dataset.taskAttachmentMime || article.dataset.progressAttachmentMime || "";
-        const openLink = document.createElement("a");
-        openLink.className = "shared-task-attachment-open";
-        openLink.href = url;
-        openLink.target = "_blank";
-        openLink.rel = "noopener noreferrer";
-        openLink.setAttribute("aria-label", `開啟附件：${article.querySelector("strong")?.textContent || "未命名附件"}`);
         if (mime.startsWith("image/")) {
           const image = document.createElement("img");
           image.src = url;
           image.alt = article.querySelector("strong")?.textContent || "附件預覽";
           image.loading = "lazy";
-          openLink.appendChild(image);
-          preview.replaceChildren(openLink);
-        } else {
-          openLink.textContent = "開啟／下載";
-          preview.replaceChildren(openLink);
+          preview.prepend(image);
         }
       } catch {
-        preview.textContent = "預覽不可用";
+        const message = document.createElement("small");
+        message.textContent = "預覽已停止或無法使用；仍可嘗試下載。";
+        preview.prepend(message);
       }
     }));
   }
@@ -2984,7 +2989,7 @@
         const row = button.closest("[data-task-attachment-id]");
         const action = button.dataset.attachmentMenuAction;
         const link = row?.querySelector(".shared-task-attachment-open");
-        const url = row?.dataset.attachmentResolvedUrl || link?.href || "";
+        let url = row?.dataset.attachmentResolvedUrl || link?.href || "";
         const filename = row?.querySelector(".shared-task-attachment-copy strong")?.textContent || "附件";
         button.closest("details")?.removeAttribute("open");
         const attachmentId = row?.dataset.taskAttachmentId || "";
@@ -3025,6 +3030,10 @@
             onError: error => setBanner("附件資料保存失敗：" + esc(error?.message || "Cloud 未接受這次修改。"), "error")
           });
           return;
+        }
+        if (action === "preview" || action === "download") {
+          try { url = await actionContract.read("attachmentUrl", { attachment: { ...item, id: attachmentId, attachmentId, storagePath: item.storagePath || row?.dataset.taskAttachmentPath, storageBucket: item.storageBucket || "board-task-attachments" }, intent: action }); }
+          catch { return setBanner("附件已到期或無法使用；預覽停止後仍可嘗試下載。", "error"); }
         }
         if (!url) return setBanner("附件連結尚未準備完成，請稍後再試。", "error");
         if (action === "preview") window.open(url, "_blank", "noopener,noreferrer");
@@ -3573,8 +3582,8 @@
     const title = task.title || "未命名 " + itemLabel;
     const titleCode = task.workCode || itemLabel;
     const progressComposer = workTodo || cTemplate
-      ? progressNoteComposerMarkup(archiveOnly, { workTodo: true, cTemplate })
-      : progressNoteComposerMarkup(archiveOnly);
+      ? progressNoteComposerMarkup(archiveOnly, { workTodo: true, cTemplate, completed: task.status === "done" })
+      : progressNoteComposerMarkup(archiveOnly, { completed: task.status === "done" });
     const properties = [
       { key: "workspace", icon: "📍", label: "工作區", value: workspaceLabel(task) },
       { key: "status", icon: "◉", label: "目前狀態", value: readableWorkStatus(task) },
@@ -3673,7 +3682,7 @@
       }
       const attachmentSection = body.querySelector('[data-shared-task-drawer-section="attachments"]');
       const attachmentZone = document.getElementById("taskAttachments");
-      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentError, archiveOnly, { workTodo: workTodo || cTemplate });
+      const attachmentHtml = attachmentMarkup(attachments, artifacts, attachmentError, archiveOnly || task.status === "done", { workTodo: workTodo || cTemplate });
       if (attachmentZone) attachmentZone.innerHTML = attachmentHtml;
       if (attachmentSection) attachmentSection.hidden = false;
       const humanNotes = humanNotesMarkup(drawerTask);

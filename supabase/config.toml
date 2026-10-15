@@ -1,0 +1,6 @@
+project_id = "zhuge-ai-os"
+
+# Native media GETs use an HMAC capability; every POST verifies Auth itself.
+# This is source configuration only, never applied automatically.
+[functions.attachment-lifecycle]
+verify_jwt = false

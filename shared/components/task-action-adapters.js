@@ -111,7 +111,7 @@
         activity: payload => required(service, "loadActivity")(payload.taskId || taskId, payload.options || {}),
         attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId),
         checklist: payload => required(service, "loadTaskChecklist")(payload.taskId || taskId),
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment)
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
       }
     };
   }
@@ -193,7 +193,7 @@
             attachments: Array.isArray(attachments) ? attachments : []
           };
         },
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment)
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
       }
     };
   }
@@ -258,7 +258,7 @@
         activity: payload => required(service, "loadActivity")(payload.taskId || taskId, payload.options || {}),
         attachments: payload => required(service, "loadTaskAttachments")(payload.taskId || taskId),
         checklist: payload => required(service, "loadTaskChecklist")(payload.taskId || taskId),
-        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment)
+        attachmentUrl: payload => required(service, "taskAttachmentUrl")(payload.attachment, { intent: payload.intent || "preview" })
       }
     };
   }

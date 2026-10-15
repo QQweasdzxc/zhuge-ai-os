@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"path"
@@ -205,4 +206,30 @@ func (s *TaskFlowScopedStorage) PresignGetWithContentDisposition(ctx context.Con
 		return presigner.PresignGetWithContentDisposition(ctx, key, ttl, disposition)
 	}
 	return "", errors.New("existing Storage backend does not support signed downloads")
+}
+
+// LifecycleDelete preserves native metadata and reports Storage failures.
+func (s *TaskFlowScopedStorage) LifecycleDelete(ctx context.Context, key string) error {
+	clean, ok := markedTaskFlowSupabaseKey(key)
+	if !ok {
+		return errors.New("not a lifecycle object")
+	}
+	_, err := s.attachments.lifecycleRequest(ctx, map[string]any{"action": "delete", "module": "taskflow", "id": strings.TrimSuffix(path.Base(clean), path.Ext(clean)), "confirm": true})
+	return err
+}
+
+func (s *TaskFlowScopedStorage) LifecycleStatus(ctx context.Context, key string) map[string]any {
+	clean, ok := markedTaskFlowSupabaseKey(key)
+	if !ok {
+		return nil
+	}
+	data, err := s.attachments.lifecycleRequest(ctx, map[string]any{"action": "status", "module": "taskflow", "id": strings.TrimSuffix(path.Base(clean), path.Ext(clean))})
+	if err != nil {
+		return nil
+	}
+	var status map[string]any
+	if json.Unmarshal(data, &status) != nil {
+		return nil
+	}
+	return status
 }

@@ -23,6 +23,7 @@ import (
 )
 
 const TaskFlowSupabaseAttachmentBucket = "taskflow-attachments"
+
 // Supabase Free supports at most 50 MB per uploaded file (decimal bytes).
 // The project or bucket may impose a lower limit; Storage still enforces it.
 const TaskFlowSupabaseAttachmentMaxBytes int64 = 50_000_000
@@ -71,6 +72,7 @@ type TaskFlowSupabaseStorage struct {
 	tusBaseURL string
 	anonKey    string
 	client     *http.Client
+	maxBytes   int64
 }
 
 // NewTaskFlowSupabaseStorageFromEnv is used only by the TaskFlow build
@@ -82,12 +84,23 @@ func NewTaskFlowSupabaseStorageFromEnv() (*TaskFlowSupabaseStorage, error) {
 	if baseURL == "" || anonKey == "" {
 		return nil, errors.New("TaskFlow Supabase Storage requires the existing Zhuge Supabase URL and anon key")
 	}
-	return NewTaskFlowSupabaseStorage(baseURL, anonKey, &http.Client{
+	adapter, err := NewTaskFlowSupabaseStorage(baseURL, anonKey, &http.Client{
 		Timeout: 90 * time.Second,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+	if configured := strings.TrimSpace(os.Getenv("TASKFLOW_STORAGE_MAX_BYTES")); configured != "" {
+		limit, parseErr := strconv.ParseInt(configured, 10, 64)
+		if parseErr != nil || limit < 1 || limit > TaskFlowSupabaseAttachmentMaxBytes {
+			return nil, errors.New("TaskFlow object cap must be between 1 and 50000000 bytes")
+		}
+		adapter.maxBytes = limit
+	}
+	return adapter, nil
 }
 
 func NewTaskFlowSupabaseStorage(baseURL, anonKey string, client *http.Client) (*TaskFlowSupabaseStorage, error) {
@@ -113,6 +126,7 @@ func NewTaskFlowSupabaseStorage(baseURL, anonKey string, client *http.Client) (*
 		baseURL:    strings.TrimRight(parsed.String(), "/"),
 		tusBaseURL: taskFlowTUSBaseURL(parsed),
 		anonKey:    strings.TrimSpace(anonKey),
+		maxBytes:   TaskFlowSupabaseAttachmentMaxBytes,
 		client:     client,
 	}, nil
 }
@@ -293,11 +307,16 @@ func (s *TaskFlowSupabaseStorage) Upload(ctx context.Context, key string, data [
 	if err != nil {
 		return "", err
 	}
-	if int64(len(data)) > TaskFlowSupabaseAttachmentMaxBytes {
+	if int64(len(data)) > s.maxBytes {
 		return "", &TaskFlowSupabaseStorageError{Status: http.StatusRequestEntityTooLarge, Cause: "object exceeds TaskFlow bucket limit"}
 	}
 	if contentType == "" {
 		contentType = "application/octet-stream"
+	}
+	if taskFlowLifecycleEnabled() {
+		if err := s.lifecycleReserve(ctx, clean, filename, len(data)); err != nil {
+			return "", err
+		}
 	}
 	if err := s.uploadResumable(ctx, clean, data, contentType); err != nil {
 		return "", err
@@ -414,6 +433,17 @@ type taskFlowObjectInfo struct {
 }
 
 func (s *TaskFlowSupabaseStorage) objectInfo(ctx context.Context, key string) (taskFlowObjectInfo, error) {
+	if taskFlowLifecycleEnabled() {
+		data, err := s.lifecycleRequest(ctx, map[string]string{"module": "taskflow", "id": strings.TrimSuffix(path.Base(key), path.Ext(key)), "intent": "verify"})
+		if err != nil {
+			return taskFlowObjectInfo{}, err
+		}
+		var info taskFlowObjectInfo
+		if json.Unmarshal(data, &info) != nil {
+			return info, &TaskFlowSupabaseStorageError{Cause: "invalid verification"}
+		}
+		return info, nil
+	}
 	resp, err := s.request(ctx, http.MethodGet, s.objectEndpoint("info/", key), nil, "")
 	if err != nil {
 		return taskFlowObjectInfo{}, err
@@ -451,6 +481,21 @@ func (s *TaskFlowSupabaseStorage) GetReader(ctx context.Context, key string) (io
 	if err != nil {
 		return nil, err
 	}
+	if taskFlowLifecycleEnabled() {
+		signed, err := s.lifecycleAccess(ctx, clean, "preview")
+		if err != nil {
+			return nil, err
+		}
+		response, err := s.requestURL(ctx, http.MethodGet, signed, nil, "")
+		if err != nil {
+			return nil, err
+		}
+		if response.StatusCode != 200 {
+			response.Body.Close()
+			return nil, &TaskFlowSupabaseStorageError{Status: response.StatusCode, Cause: "attachment unavailable"}
+		}
+		return response.Body, nil
+	}
 	resp, err := s.request(ctx, http.MethodGet, s.objectEndpoint("authenticated/", clean), nil, "")
 	if err != nil {
 		return nil, err
@@ -466,6 +511,9 @@ func (s *TaskFlowSupabaseStorage) PresignGet(ctx context.Context, key string, tt
 	clean, err := normalizeTaskFlowStorageKey(key)
 	if err != nil {
 		return "", err
+	}
+	if taskFlowLifecycleEnabled() {
+		return s.lifecycleAccess(ctx, clean, "preview")
 	}
 	seconds := int64(ttl.Seconds())
 	if seconds < 1 || seconds > int64((24*time.Hour).Seconds()) {
@@ -505,6 +553,13 @@ func (s *TaskFlowSupabaseStorage) normalizeSignedURL(raw string) (string, error)
 }
 
 func (s *TaskFlowSupabaseStorage) PresignGetWithContentDisposition(ctx context.Context, key string, ttl time.Duration, contentDisposition string) (string, error) {
+	if taskFlowLifecycleEnabled() {
+		intent := "preview"
+		if strings.HasPrefix(contentDisposition, "attachment") {
+			intent = "download"
+		}
+		return s.lifecycleAccess(ctx, key, intent)
+	}
 	signed, err := s.PresignGet(ctx, key, ttl)
 	if err != nil {
 		return "", err

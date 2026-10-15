@@ -43,9 +43,9 @@ BEGIN
 
     SELECT * INTO bucket_row FROM storage.buckets WHERE id = 'taskflow-attachments';
     IF NOT FOUND OR bucket_row.public IS DISTINCT FROM false
-       OR bucket_row.file_size_limit IS DISTINCT FROM 104857600
+       OR (bucket_row.file_size_limit IS NULL OR bucket_row.file_size_limit <= 0 OR bucket_row.file_size_limit > 50000000)
        OR bucket_row.allowed_mime_types IS NOT NULL THEN
-        RAISE EXCEPTION 'TaskFlow bucket settings do not match the reviewed private 100 MiB configuration';
+        RAISE EXCEPTION 'TaskFlow bucket settings do not match the reviewed private Supabase Free <=50 MB configuration';
     END IF;
     IF NOT (SELECT c.relrowsecurity FROM pg_catalog.pg_class AS c WHERE c.oid = 'storage.objects'::regclass) THEN
         RAISE EXCEPTION 'Storage object RLS is disabled';

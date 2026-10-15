@@ -92,6 +92,11 @@ RUN TASKFLOW_ATTACHMENT_REPO=/ \
     python3 /tmp/test_taskflow_attachment_preview_overlay.py \
  && python3 /tmp/apply-taskflow-attachment-preview.py --root /src
 
+# Apply Zhuge-owned private Storage overlay to the staged vendor copy only.
+COPY labs/taskflow/patches/apply-taskflow-supabase-storage.py /tmp/apply-taskflow-supabase-storage.py
+COPY labs/taskflow/overrides/ /taskflow-storage-overlays/
+RUN python3 /tmp/apply-taskflow-supabase-storage.py --target web --root /src --overlays /taskflow-storage-overlays
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -135,9 +140,12 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
+ARG NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES=50000000
+ENV NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES=${NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES}
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
     STANDALONE=true
+RUN pnpm --filter @multica/core exec vitest run api/taskflow_supabase_storage_client.test.ts
 RUN pnpm --filter @multica/web build
 
 FROM node:22-alpine AS runtime

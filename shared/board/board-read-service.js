@@ -1970,8 +1970,15 @@
     }).then(normalizeTaskAttachment);
   }
 
+  async function deleteLifecycleAttachment(gateway, attachmentId) {
+    if (typeof gateway.invokeFunction !== "function") return false;
+    const result = await gateway.invokeFunction("attachment-lifecycle", { action: "delete", module: "board", id: attachmentId, confirm: true });
+    return result?.enabled !== false;
+  }
+
   async function deleteTaskAttachment(attachmentId, options = {}) {
     const gateway = options.gateway || requireGateway();
+    if (await deleteLifecycleAttachment(gateway, attachmentId)) return normalizeTaskAttachment({ id: attachmentId, deletion_status: "deleted" });
     const requested = await gateway.rpc("board_request_delete_task_attachment", { p_attachment_id: attachmentId }).then(normalizeTaskAttachment);
     try {
       if (typeof gateway.removeStorageObject !== "function") {
@@ -1988,6 +1995,7 @@
   async function deleteProgressNoteAttachment(input = {}, options = {}) {
     const gateway = options.gateway || requireGateway();
     const attachmentId = input.attachmentId || input.id;
+    if (await deleteLifecycleAttachment(gateway, input.attachmentId || input.id)) return normalizeTaskAttachment({ id: input.attachmentId || input.id, deletion_status: "deleted" });
     const requested = await gateway.rpc("board_request_delete_progress_attachment", {
       p_attachment_id: attachmentId
     }).then(normalizeTaskAttachment);
@@ -2008,7 +2016,18 @@
   async function taskAttachmentUrl(attachment, options = {}) {
     const gateway = options.gateway || requireGateway();
     if (!attachment?.storageBucket || !attachment?.storagePath || typeof gateway.createStorageSignedUrl !== "function") return "";
-    return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 3600);
+    if (typeof gateway.invokeFunction === "function") {
+      const result = await gateway.invokeFunction("attachment-lifecycle", {
+        module: attachment.lifecycleModule || "board",
+        id: attachment.attachmentId || attachment.id,
+        intent: options.intent || "preview"
+      });
+      if (result?.enabled !== false) {
+        if (!result?.url) throw new Error("附件已到期或無法使用。");
+        return result.url;
+      }
+    }
+    return gateway.createStorageSignedUrl(attachment.storageBucket, attachment.storagePath, 60);
   }
 
   // Template C is a registered board instance.  Keep its data wiring in this
@@ -2454,6 +2473,7 @@
     }
     async function instanceDeleteAttachment(attachmentId) {
       await resolveInstance();
+      if (await deleteLifecycleAttachment(gateway, attachmentId)) return normalizeInstanceAttachment({ id: attachmentId, deletion_status: "deleted" });
       const requested = await gateway.rpc("board_instance_request_attachment_delete", { p_attachment_id: attachmentId }).then(normalizeInstanceAttachment);
       try {
         if (typeof gateway.removeStorageObject !== "function") throw new Error("Shared Supabase Gateway 尚未支援受控附件刪除。");
@@ -2467,8 +2487,8 @@
     async function instanceUploadAttachment(attachment, file) {
       return uploadTaskAttachment(attachment, file, withGateway());
     }
-    async function instanceTaskAttachmentUrl(attachment) {
-      return taskAttachmentUrl(attachment, withGateway());
+    async function instanceTaskAttachmentUrl(attachment, options) {
+      return taskAttachmentUrl(attachment, withGateway(options));
     }
     async function instanceGovernanceAction() {
       const error = new Error("C 母版不支援未定義的跨網域治理動作。");

@@ -148,6 +148,16 @@ def patch_file_handler(source: str) -> str:
         '''\tif err != nil {\n\t\tslog.Error("failed to open attachment for preview", "id", attachmentID, "key", key, "error", err)\n\t\tif !writeTaskFlowStorageError(w, err, http.StatusBadGateway, "private attachment preview is unavailable") {\n\t\t\twriteError(w, http.StatusNotFound, "attachment object not found")\n\t\t}\n\t\treturn\n\t}''',
         "preview storage error mapping",
     )
+    source = replace_once(source,
+        '\t\tlink, err := h.Storage.Upload(r.Context(), key, data, contentType, header.Filename)',
+        '\t\tparent := uuidToString(params.IssueID)\n\t\tif params.CommentID.Valid {\n\t\t\tcomment, loadErr := h.Queries.GetComment(r.Context(), params.CommentID)\n\t\t\tif loadErr != nil { writeError(w, http.StatusNotFound, "attachment parent unavailable"); return }\n\t\t\tparent = uuidToString(comment.IssueID)\n\t\t}\n\t\tif !params.IssueID.Valid && !params.CommentID.Valid { parent = "" }\n\t\tr = r.WithContext(storage.WithTaskFlowAttachmentCard(r.Context(), parent))\n\t\tlink, err := h.Storage.Upload(r.Context(), key, data, contentType, header.Filename)',
+        "server-resolved attachment card")
+    source = replace_once(source, 'type AttachmentResponse struct {', 'type AttachmentResponse struct {\n PreviewAvailable bool `json:"preview_available"`\n Lifecycle map[string]any `json:"lifecycle,omitempty"`', "lifecycle preview metadata")
+    source = replace_once(source, "resp := AttachmentResponse{", "resp := AttachmentResponse{\n PreviewAvailable: true,", "default legacy preview")
+    marker = 'func (h *Handler) GetAttachmentByID(w http.ResponseWriter, r *http.Request) {\n\tatt, ok := h.loadAttachmentForRequest(w, r)\n\tif !ok {\n\t\treturn\n\t}'
+    source = replace_once(source, marker, marker + '\n\tif h.taskFlowLifecycleMetadata(w,r,att) {return}', "lifecycle metadata intent")
+    source = replace_once(source, "func (h *Handler) resolveAttachmentDownloadMode(rawURL string) attachmentDownloadMode {", "func (h *Handler) resolveAttachmentDownloadMode(rawURL string) attachmentDownloadMode {\n if taskFlowLifecycleObject(rawURL) {return attachmentDownloadModePresign}", "lifecycle download mode")
+    source = replace_once(source, "\tvar deleted db.DeleteAttachmentRow", "\tif h.taskFlowLifecycleDelete(w,r,att) {return}\n\tvar deleted db.DeleteAttachmentRow", "retained lifecycle delete metadata")
     return source
 
 
@@ -203,6 +213,8 @@ def patch_handoff(source: str) -> str:
 def copy_overlay(overlays: Path, root: Path) -> None:
     copies = {
         "taskflow_supabase_storage.go": "server/internal/storage/taskflow_supabase_storage.go",
+        "taskflow_attachment_lifecycle.go": "server/internal/storage/taskflow_attachment_lifecycle.go",
+        "taskflow_attachment_lifecycle_test.go": "server/internal/storage/taskflow_attachment_lifecycle_test.go",
         "taskflow_scoped_storage.go": "server/internal/storage/taskflow_scoped_storage.go",
         "taskflow_supabase_identity.go": "server/internal/storage/taskflow_supabase_identity.go",
         "taskflow_supabase_storage_test.go": "server/internal/storage/taskflow_supabase_storage_test.go",
@@ -211,6 +223,7 @@ def copy_overlay(overlays: Path, root: Path) -> None:
         "taskflow_storage_identity_middleware.go": "server/internal/middleware/taskflow_storage_identity.go",
         "taskflow_storage_identity_middleware_test.go": "server/internal/middleware/taskflow_storage_identity_test.go",
         "taskflow_supabase_storage_handler.go": "server/internal/handler/taskflow_supabase_storage.go",
+        "taskflow_lifecycle_handler.go": "server/internal/handler/taskflow_lifecycle_handler.go",
         "taskflow_supabase_storage_handler_test.go": "server/internal/handler/taskflow_supabase_storage_handler_test.go",
     }
     for source_name, target_name in copies.items():
@@ -234,7 +247,7 @@ def patch_web_upload_limit(root: Path) -> None:
     edits = (
         ("packages/core/constants/upload.ts",
          "export const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB",
-         "export const MAX_FILE_SIZE = 50_000_000; // Supabase Free: 50 MB"),
+         "const configuredTaskFlowMax = Number(process.env.NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES || 50_000_000);\nif (!Number.isSafeInteger(configuredTaskFlowMax) || configuredTaskFlowMax < 1 || configuredTaskFlowMax > 50_000_000) throw new Error('Invalid TaskFlow upload policy');\nexport const MAX_FILE_SIZE = configuredTaskFlowMax; // Supabase Free: <=50 MB"),
         ("packages/core/hooks/use-file-upload.ts",
          "File exceeds 100 MB limit", "File exceeds 50 MB limit"),
         ("packages/core/hooks/use-file-upload.test.ts",
@@ -246,9 +259,10 @@ def patch_web_upload_limit(root: Path) -> None:
     )
     for relative, before, after in edits:
         filename = root / relative
-        filename.write_text(
-            replace_once(filename.read_text(), before, after, relative)
-        )
+        updated = replace_once(filename.read_text(), before, after, relative)
+        if relative.endswith(("hooks/use-file-upload.ts", "editor/use-coordinated-uploads.ts")):
+            updated = updated.replace('"File exceeds 50 MB limit"', '`File exceeds ${MAX_FILE_SIZE / 1_000_000} MB limit`')
+        filename.write_text(updated)
 
 
 def apply_web(root: Path, overlays: Path) -> None:
@@ -257,6 +271,35 @@ def apply_web(root: Path, overlays: Path) -> None:
     client.write_text(patch_api_client(client.read_text()))
     handoff = root / "apps/web/public/zhuge-handoff.html"
     handoff.write_text(patch_handoff(handoff.read_text()))
+    types = root / "packages/core/types/attachment.ts"
+    types.write_text(replace_once(types.read_text(), "export interface Attachment {", "export interface Attachment {\n  preview_available?: boolean;\n  lifecycle?: { state: string; card_id: string | null; completed_at: string | null; delete_due_at: string | null };", "preview availability type"))
+    hook = root / "packages/views/editor/hooks/use-inline-media-url.ts"
+    hook.write_text(replace_once(hook.read_text(), "queryFn: () => api.getAttachment(resignAttachmentId as string),", "queryFn: async () => { const attachment = await api.getAttachment(resignAttachmentId as string); if (attachment.preview_available === false) throw new Error('附件預覽已停止；請下載附件。'); return attachment; },", "bounded lifecycle preview rejection"))
+    modal = root / "packages/views/editor/attachment-preview-modal.tsx"
+    text = modal.read_text()
+    start = text.index("export function AttachmentPreviewStandalone(")
+    before, standalone = text[:start], text[start:]
+    standalone = replace_once(standalone, "  return (", """  if (attachment.preview_available === false) return (
+    <main className="flex h-full flex-col items-center justify-center gap-4 p-6" role="status">
+      <h1>{attachment.filename}</h1>
+      <p>{attachment.size_bytes.toLocaleString()} bytes · {attachment.lifecycle?.card_id || attachment.issue_id}</p>
+      <p>{attachment.attachment_download_url ? '預覽已停止，仍可下載附件。' : '附件已到期或暫時無法使用。'}</p>
+      {attachment.lifecycle?.delete_due_at && <p>預定刪除：{new Date(attachment.lifecycle.delete_due_at).toLocaleString()}</p>}
+      <button disabled={!attachment.attachment_download_url} onClick={() => void download(attachment.id)}>下載附件</button>
+    </main>
+  );
+  return (""", "expired native preview UI")
+    modal.write_text(before + standalone)
+    page_test = root / "packages/views/attachments/attachment-preview-page.test.tsx"
+    page_test.write_text(page_test.read_text() + """
+it("TaskFlow lifecycle stops the native frame and retains the download action", async () => {
+  getAttachmentMock.mockResolvedValue(makeAttachment({ preview_available: false, attachment_download_url: "https://signed.example/download", lifecycle: { state: "ready", card_id: "card", completed_at: "2026-10-15T00:00:00Z", delete_due_at: "2026-10-18T00:00:00Z" } }));
+  renderPage(<AttachmentPreviewPage attachmentId="att-1" />);
+  await screen.findByText("預覽已停止，仍可下載附件。");
+  expect(document.querySelector("iframe")).toBeNull();
+  expect(screen.getByRole("button", { name: "下載附件" }).getAttribute("disabled")).toBeNull();
+});
+""")
     client_test = root / "packages/core/api/taskflow_supabase_storage_client.test.ts"
     shutil.copy2(overlays / "taskflow_supabase_storage_client.test.ts", client_test)
 

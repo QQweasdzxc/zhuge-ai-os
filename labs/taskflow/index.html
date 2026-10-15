@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#07111f" />
   <title>TaskFlow · Multica · Zhuge AI OS</title>
-  <script src="./runtime-config.js?v=20261015-0654"></script>
-  <script src="./cli-sso.js?v=20261015-0654"></script>
+  <script src="./runtime-config.js?v=20261015-1303"></script>
+  <script src="./cli-sso.js?v=20261015-1303"></script>
   <style>
     :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e5edf8}
     *{box-sizing:border-box}
@@ -39,6 +39,7 @@
       <p>以 Zhuge AI OS 身分進入 Multica TaskFlow。Task、Project、Agents、Runs 與 Runtime 沿用 Multica 原生體驗；人類身分與 UUID 由 Zhuge 管理。</p>
       <div class="journey">Task / Project / Board<br>Assign Agent → Run → Runtime / Progress<br>Blocked / Retry → Result</div>
       <div class="actions">
+        <a class="button capacity" href="../attachments/">附件容量</a>
         <button id="enterTaskFlow" type="button" disabled>驗證 Zhuge Session…</button>
         <a class="button secondary" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">回到 Zhuge AI OS</a>
       </div>
@@ -237,7 +238,7 @@
             ? cliSSO.buildTaskFlowLoginDestination(cliIntent)
             : cliSSO?.safeTaskFlowDestination(destination, web);
           if (!safeDestination) throw new Error("TaskFlow return route rejected");
-          handoff.hash = new URLSearchParams({ zhuge_token: payload.token, zhuge_dest: safeDestination }).toString();
+          handoff.hash = new URLSearchParams({ zhuge_token: payload.token, zhuge_storage_token: accessToken, zhuge_dest: safeDestination }).toString();
           window.location.replace(handoff.toString());
         } catch (error) {
           if (error?.code === "TASKFLOW_HTTP") {

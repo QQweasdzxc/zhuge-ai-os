@@ -22,6 +22,10 @@ BACKEND_FILES = [
     "server/internal/handler/file.go",
 ]
 WEB_FILES = [
+    "packages/views/attachments/attachment-preview-page.test.tsx",
+    "packages/views/editor/attachment-preview-modal.tsx",
+    "packages/core/types/attachment.ts",
+    "packages/views/editor/hooks/use-inline-media-url.ts",
     "packages/core/api/client.ts",
     "packages/core/constants/upload.ts",
     "packages/core/hooks/use-file-upload.ts",
@@ -72,7 +76,7 @@ class TaskFlowSupabaseStorageOverlayTests(unittest.TestCase):
             self.assertIn('"X-Zhuge-Storage-Token"', client)
             self.assertIn('zhuge_storage_access_token', client)
             self.assertIn("50_000_000", (root / "packages/core/constants/upload.ts").read_text())
-            self.assertIn("File exceeds 50 MB limit", (root / "packages/core/hooks/use-file-upload.ts").read_text())
+            self.assertIn("${MAX_FILE_SIZE / 1_000_000} MB limit", (root / "packages/core/hooks/use-file-upload.ts").read_text())
             self.assertIn('params.get("zhuge_storage_token")', handoff)
             self.assertIn('window.sessionStorage.setItem("zhuge_storage_access_token", storageToken)', handoff)
             self.assertLess(handoff.index("window.history.replaceState"), handoff.index('params.get("zhuge_storage_token")'))

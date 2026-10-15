@@ -1,0 +1,44 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+const {fixture,owner,other,card,workspace,id}=require('./fixture.cjs');
+const q=async(db,sql,args=[])=>(await db.query(sql,args)).rows;
+test('actual SQL: activation grace, exact boundaries, reopening, quota, auth, cleanup and retained records',async()=>{const db=await fixture();try{
+const access=async(module,intent='preview')=>q(db,'select attachment_access($1,$2,$3) value',[module,id,intent]);
+const when=async(hours)=>db.exec(`update attachment_lifecycle.cards set completed_at=clock_timestamp()-interval '${hours} hours' where module='worktodo'`);
+const initialGeneration=(await q(db,"select generation from attachment_lifecycle.cards where module='worktodo'"))[0].generation;
+assert.equal((await access('worktodo'))[0].value.enabled,true,'historical completed card starts full grace at activation');
+await when(24);await assert.rejects(access('worktodo'),/preview expired/);assert.ok((await access('worktodo','download'))[0].value.ttl>0);
+await when(71);await db.exec(`update board_tasks set status='ready' where id='${card}'`);assert.equal((await q(db,"select completed_at from attachment_lifecycle.cards where module='worktodo'"))[0].completed_at,null);assert.equal((await access('worktodo'))[0].value.ttl,60);
+await db.exec(`update board_tasks set status='done' where id='${card}'`);assert.ok(Date.now()-new Date((await q(db,"select completed_at from attachment_lifecycle.cards where module='worktodo'"))[0].completed_at)<2000);
+assert.notEqual((await q(db,"select generation from attachment_lifecycle.cards where module='worktodo'"))[0].generation,initialGeneration);
+await assert.rejects(db.exec(`insert into board_task_attachments values(gen_random_uuid(),'${card}','board-task-attachments','new','new',1,'uploading','active')`),/completed cards/);
+await when(72);await assert.rejects(access('worktodo','download'),/expired/);
+await db.exec(`set request.jwt.claim.sub='${other}'`);await assert.rejects(access('worktodo'),/unavailable/);await assert.rejects(q(db,'select attachment_capacity()'),/owner required/);
+await db.exec(`set request.jwt.claim.sub='${owner}'`);await assert.rejects(q(db,'select attachment_request_delete($1,$2,false)',['worktodo',id]),/confirmed owner/);
+let claim=(await q(db,'select attachment_claim_expired() value'))[0].value;assert.equal(claim.state,'deleting');assert.equal((await q(db,'select attachment_claim_expired() value'))[0].value.delete_token,claim.delete_token,'crash retries immutable claim');
+await assert.rejects(db.exec(`update board_tasks set status='ready' where id='${card}'`),/deletion in progress/);
+await q(db,'select attachment_finish_delete($1,$2,$3)',['worktodo',id,other]);assert.equal((await q(db,"select state from attachment_lifecycle.objects"))[0].state,'deleting','wrong token cannot finalize');
+await q(db,'select attachment_finish_delete($1,$2,$3)',['worktodo',id,claim.delete_token]);assert.equal((await q(db,'select count(*)::int n from board_task_attachments'))[0].n,1,'metadata preserved');assert.equal((await q(db,'select count(*)::int n from attachment_lifecycle.audit'))[0].n,2);
+await db.exec(`update board_tasks set status='ready' where id='${card}';update attachment_lifecycle.config set capacity_bytes=100;insert into storage.objects values('unmanaged','big','{"size":95}');`);
+assert.equal((await q(db,'select attachment_capacity() value'))[0].value.warning,90);
+await db.exec(`update storage.objects set metadata='{"size":70}'`);assert.equal((await q(db,'select attachment_capacity() value'))[0].value.warning,70);await db.exec(`update storage.objects set metadata='{"size":95}'`);
+await assert.rejects(db.exec(`insert into board_task_attachments values(gen_random_uuid(),'${card}','board-task-attachments','large','large',6,'uploading','active')`),/capacity exhausted/);
+assert.equal((await q(db,'select count(*)::int n from storage.objects'))[0].n,1,'capacity rejection never deletes existing bytes');
+// TaskFlow uses catalog category, not hard-coded status name or upload time.
+await db.exec(`update attachment_lifecycle.config set capacity_bytes=10000;update taskflow.issue set status='todo' where id='${card}'`);
+const key=`workspaces/${workspace}/${id}.pdf`;
+await q(db,'select attachment_reserve_taskflow($1,$2,$3,$4,$5,$6)',[id,card,workspace,key,'fixture.pdf',12]);
+await db.exec(`insert into taskflow.attachment values('${id}','${card}',null,'${workspace}','https://unit.supabase.co/storage/v1/object/authenticated/taskflow-attachments/${key}','fixture.pdf',12,'${owner}');update taskflow.issue set status='finished' where id='${card}'`);
+assert.ok((await access('taskflow'))[0].value.ttl>0);await db.exec("update attachment_lifecycle.cards set completed_at=clock_timestamp()-interval '24 hours' where module='taskflow'");await assert.rejects(access('taskflow'),/preview expired/);assert.ok((await access('taskflow','download'))[0].value.ttl>0);
+await db.exec(`update taskflow.issue set status='todo' where id='${card}'`);assert.ok((await access('taskflow'))[0].value.ttl>0);
+// Excluded Investment/WorkLog consumers sharing the bucket retain original access.
+await db.exec(`insert into board_tasks(id,application_scope,status,owner_uuid) values('${other}','investment','done','${owner}');insert into board_task_attachments values('${other}','${other}','board-task-attachments','investment/file','keep.pdf',5,'ready','active');`);
+assert.equal((await q(db,'select attachment_access($1,$2,$3) value',['board',other,'preview']))[0].value.enabled,false);
+assert.equal((await q(db,'select count(*)::int n from attachment_lifecycle.objects where attachment_id=$1',[other]))[0].n,0);
+await db.exec(`alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,delete on storage.objects to authenticated;create policy fixture_storage on storage.objects for all to authenticated using(true) with check(true);insert into storage.objects values('board-task-attachments','investment/file','{"size":5}');insert into storage.objects values('taskflow-attachments','${key}','{"size":12}');`);
+await db.exec(fs.readFileSync('labs/attachments/sql/storage_policies_candidate.sql','utf8'));
+await db.exec('set role authenticated');
+assert.equal((await q(db,"select count(*)::int n from storage.objects where bucket_id='taskflow-attachments'"))[0].n,0,'direct signing/read bypass is closed');
+assert.equal((await q(db,"select count(*)::int n from storage.objects where name='investment/file'"))[0].n,1,'unrelated shared bytes remain accessible');
+await assert.rejects(db.exec("insert into storage.objects values('taskflow-attachments','arbitrary','{}')"),/row-level security/);
+await assert.rejects(q(db,'select attachment_claim_expired()'),/permission denied/);await assert.rejects(q(db,'select * from attachment_lifecycle.objects'),/permission denied/);await db.exec('reset role');
+}finally{await db.close()}});
