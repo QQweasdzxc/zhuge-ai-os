@@ -30,11 +30,8 @@ jobs:
       - name: Probe official Render API CORS (read-only; no credentials)
         run: |
           node labs/taskflow/pages-client/cors-probe.mjs
-      - name: Assert prototype is not wired to production root or deploy workflow
+      - name: Verify canonical homepage is the real native TaskFlow read-only client
         run: |
-          node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8');if(!s.includes('window.location.replace(\"https://zhuge-taskflow-web.onrender.com/\")'))process.exit(1);const p=fs.readFileSync('labs/taskflow/pages-client/index.html','utf8');if(!p.includes('./app.mjs'))process.exit(1);"
-      - name: Fail-closed readiness evidence (expected not ready)
-        run: |
-          node tools/taskflow-pages-feasibility.js > /tmp/tf-pages-readiness.json
-          cat /tmp/tf-pages-readiness.json
-          node -e "const r=require('/tmp/tf-pages-readiness.json');if(r.status!=='BLOCKED_NOT_READY'||r.deploymentAllowed||r.githubAppAllowed)process.exit(1)"
+          node --test tests/pages-public-home-routing.test.js
+          node tools/taskflow-pages-feasibility.js --require-home-code
+          node -e "const r=require('./tools/taskflow-pages-feasibility.js').assess();if(r.status!=='HOME_CANDIDATE_READY_FOR_RUNTIME_QA'||r.deploymentAllowed||r.githubAppAllowed)process.exit(1)"
