@@ -44,4 +44,3 @@ node labs/cloud-handoff/cli.mjs gate labs/cloud-handoff/examples/issue45-quota-b
 - Gemini CLI 帳號登入 vs headless： https://geminicli.com/docs/get-started/authentication/
 - Gemini CLI 方案與 Google AI Plus： https://geminicli.com/docs/resources/quota-and-pricing/
 - Google 官方 GitHub Action： https://github.com/google-github-actions/run-gemini-cli
-
