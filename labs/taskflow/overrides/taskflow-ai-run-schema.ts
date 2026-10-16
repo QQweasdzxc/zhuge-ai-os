@@ -33,6 +33,8 @@ export const TaskFlowAIEngineeringRunSchema = z.object({
   created_at: z.string(),
   approval_expires_at: z.string(),
   provider_thread_id: z.string().nullable(),
+  github_dispatch_url: z.string().url().nullable(),
+  result_summary: z.string().max(4000).nullable(),
   last_evidence_sha: z.string().regex(/^[a-f0-9]{40}$/).nullable(),
   revision: z.number().int().safe().positive(),
   events: z.array(TaskFlowAIEngineeringEventSchema),
@@ -40,7 +42,7 @@ export const TaskFlowAIEngineeringRunSchema = z.object({
 
 export const TaskFlowAIEngineeringRunListSchema = z.object({
   runs: z.array(TaskFlowAIEngineeringRunSchema).max(20),
-  dispatch_enabled: z.literal(false),
+  dispatch_enabled: z.boolean(),
 });
 
 export type TaskFlowAIEngineeringRun = z.infer<typeof TaskFlowAIEngineeringRunSchema>;

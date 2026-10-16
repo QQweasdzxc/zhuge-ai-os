@@ -1,5 +1,5 @@
 "use client";
-/** TaskFlow approval intent, linked GitHub evidence and audit readback. It never starts a provider. */
+/** TaskFlow approval, gated GitHub @codex handoff, and persisted execution evidence. */
 import { useEffect, useRef, useState } from "react";
 import { api } from "@multica/core/api";
 import {
@@ -33,7 +33,7 @@ const EVENT_LABEL: Record<string, string> = {
   github_pr_updated: "GitHub PR 更新已保存",
   github_pr_merged: "GitHub PR 合併已保存",
 };
-type View = { phase: "loading" | "unavailable" | "ready"; runs: TaskFlowAIEngineeringRun[] };
+type View = { phase: "loading" | "unavailable" | "ready"; runs: TaskFlowAIEngineeringRun[]; dispatchEnabled: boolean };
 type ApprovalView = "idle" | "submitting" | "created" | "unavailable" | "denied" | "conflict" | "failed";
 
 function newIdempotencyKey(): string {
@@ -43,17 +43,18 @@ function newIdempotencyKey(): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
-  workspaceId: string; issueId: string; issueRevision: number;
+export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision, enabledForDispatch }: {
+  workspaceId: string; issueId: string; issueRevision: number; enabledForDispatch: boolean;
 }) {
   const [reload, setReload] = useState(0);
-  const [view, setView] = useState<View>({ phase: "loading", runs: [] });
+  const [view, setView] = useState<View>({ phase: "loading", runs: [], dispatchEnabled: false });
   const [approval, setApproval] = useState<ApprovalView>("idle");
   const [approvalMessage, setApprovalMessage] = useState("");
+  const [acceptingRun, setAcceptingRun] = useState<string | null>(null);
   const requestKey = useRef<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    setView({ phase: "loading", runs: [] });
+    setView(current => ({ phase: "loading", runs: [], dispatchEnabled: current.dispatchEnabled }));
     const run = async () => {
       try {
         const base = api.getBaseUrl();
@@ -71,16 +72,20 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
         if (response.status !== 200) throw Error("native Run API not available");
         const parsed = TaskFlowAIEngineeringRunListSchema.safeParse(await response.json());
         if (!parsed.success) throw Error("invalid native Run evidence");
-        if (!controller.signal.aborted) setView({ phase: "ready", runs: parsed.data.runs });
+        if (!controller.signal.aborted) setView({ phase: "ready", runs: parsed.data.runs,
+          dispatchEnabled: parsed.data.dispatch_enabled });
       } catch {
-        if (!controller.signal.aborted) setView({ phase: "unavailable", runs: [] });
+        if (!controller.signal.aborted) setView(current => ({ phase: "unavailable", runs: [],
+          dispatchEnabled: current.dispatchEnabled }));
       }
     };
     void run();
     return () => controller.abort();
   }, [workspaceId, issueId, reload]);
-  const approveWithoutDispatch = async () => {
+  const approveAndMaybeDispatch = async () => {
     if (approval === "submitting" || !Number.isSafeInteger(issueRevision) || issueRevision <= 0) return;
+    const dispatch = enabledForDispatch && view.phase === "ready" && view.dispatchEnabled;
+    if (dispatch && !window.confirm("將此任務標題與描述張貼到公開 GitHub PR，並要求 Codex Cloud 執行。請先確認內容不含密碼、Token、個資或其他機密。")) return;
     setApproval("submitting");
     setApprovalMessage("");
     try {
@@ -96,14 +101,21 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
       target.searchParams.set("workspace_id", workspaceId);
       const response = await fetch(target.toString(), {
         method: "POST", headers, credentials: "include", cache: "no-store",
-        body: JSON.stringify({ expected_issue_revision: issueRevision, idempotency_key: requestKey.current }),
+        body: JSON.stringify({ expected_issue_revision: issueRevision, idempotency_key: requestKey.current,
+          confirm_public_github_dispatch: dispatch }),
       });
-      if (response.status === 201 || response.status === 200) {
-        const result = await response.json() as { dispatch_started?: boolean; taskflow_identifier?: string; state?: string };
-        if (result.dispatch_started !== false) throw Error("unexpected dispatch state");
+      if (response.status === 201 || response.status === 200 || response.status === 202) {
+        const result = await response.json() as { dispatch_started?: boolean; dispatch_request_posted?: boolean;
+          dispatch_outcome_unknown?: boolean; github_dispatch_url?: string; taskflow_identifier?: string;
+          state?: string; provider_status?: string };
         setApproval("created");
-        setApprovalMessage((result.taskflow_identifier ?? "TaskFlow 任務") +
-          (result.state === "expired" ? " 的核准已逾期；Codex 未接單。" : " 已記錄 PM 核准；Codex 尚未接單。"));
+        const taskLabel = result.taskflow_identifier ?? "TaskFlow 任務";
+        setApprovalMessage(dispatch
+          ? taskLabel + (result.dispatch_started ? " 已收到 Codex 接單確認。"
+            : result.dispatch_outcome_unknown ? "派工連線結果不確定，系統不會自動重送；等待 GitHub 回呼核對。"
+            : result.dispatch_request_posted ? "已送出 GitHub 派工要求；等待 Codex 官方接單確認。"
+            : "派工受阻：" + (result.provider_status ?? result.state ?? "未知狀態") + "。")
+          : taskLabel + (result.state === "expired" ? " 的核准已逾期；Codex 未接單。" : " 已記錄 PM 核准；雲端派工目前未啟用。"));
         requestKey.current = null;
         setReload(value => value + 1);
         return;
@@ -121,7 +133,7 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
         setReload(value => value + 1);
       } else if (response.status === 404 || response.status === 503) {
         setApproval("unavailable");
-        setApprovalMessage("Run 核准服務尚未啟用；目前不會派工或產生費用。");
+        setApprovalMessage("Run 或 Codex 派工服務尚未啟用；目前不會送出派工。");
       } else {
         setApproval("failed");
         setApprovalMessage("核准紀錄未完成；可安全重試相同請求。");
@@ -129,6 +141,27 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
     } catch {
       setApproval("failed");
       setApprovalMessage("無法確認核准結果；重試會沿用同一個冪等請求，不會重複建立。");
+    }
+  };
+  const acceptRun = async (run: TaskFlowAIEngineeringRun) => {
+    if (acceptingRun) return;
+    setAcceptingRun(run.id);
+    try {
+      const base = api.getBaseUrl();
+      const token = api.getToken();
+      if (!base || !token) throw Error("API unavailable");
+      const target = new URL(base.replace(/\/$/, "") + "/api/issues/" + encodeURIComponent(issueId) + "/zhuge-ai/accept");
+      target.searchParams.set("workspace_id", workspaceId);
+      const response = await fetch(target.toString(), { method: "POST", credentials: "include", cache: "no-store",
+        headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ expected_run_revision: run.revision }) });
+      if (!response.ok) throw Error("acceptance was not saved");
+      setApprovalMessage(run.task_identifier + " 已由 PM 驗收。 ");
+      setReload(value => value + 1);
+    } catch {
+      setApprovalMessage("PM 驗收結果尚未保存，請更新 Run 狀態後再確認。");
+    } finally {
+      setAcceptingRun(null);
     }
   };
   return <section aria-label="TaskFlow 原生 AI Run 紀錄" className="space-y-1">
@@ -140,9 +173,10 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
       </button>
     </div>
     <button type="button" className="w-full rounded-md border px-2 py-1 text-left disabled:opacity-60"
-      disabled={approval === "submitting" || !Number.isSafeInteger(issueRevision) || issueRevision <= 0}
-      onClick={() => void approveWithoutDispatch()}>
-      {approval === "submitting" ? "正在記錄 PM 核准…" : "記錄 PM 核准（不派工、不產生費用）"}
+      disabled={!enabledForDispatch || view.phase !== "ready" || approval === "submitting" || !Number.isSafeInteger(issueRevision) || issueRevision <= 0}
+      onClick={() => void approveAndMaybeDispatch()}>
+      {approval === "submitting" ? "正在核准並派工…" : !enabledForDispatch ? "先啟用專案與本任務的 Co 工程師" :
+        view.phase !== "ready" ? "正在確認派工設定…" : view.dispatchEnabled ? "確認並派工至 Codex Cloud" : "記錄 PM 核准（Codex 派工待啟用）"}
     </button>
     {approvalMessage && <p role={approval === "created" ? "status" : "alert"}
       className="text-muted-foreground">{approvalMessage}</p>}
@@ -163,6 +197,11 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision }: {
           {index ? " · " : ""}{EVENT_LABEL[event.kind]}
         </span>)}
       </div>
+      {item.github_dispatch_url && <a className="underline" href={item.github_dispatch_url} target="_blank" rel="noreferrer">查看 GitHub 派工留言</a>}
+      {item.provider_thread_id && <div>Codex Cloud Thread：{item.provider_thread_id}</div>}
+      {item.result_summary && <div className="whitespace-pre-wrap">執行結果：{item.result_summary}</div>}
+      {item.state === "review_pending" && <button type="button" className="rounded-md border px-2 py-1"
+        onClick={() => void acceptRun(item)} disabled={acceptingRun === item.id}>PM 驗收完成</button>}
     </div>)}
     <p className="text-muted-foreground">此紀錄只顯示持久化的 TaskFlow 狀態；核准或 GitHub 註解不代表 Codex 已執行。</p>
   </section>;

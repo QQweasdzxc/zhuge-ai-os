@@ -54,7 +54,8 @@ for migration in \
     594_zhuge_ai_event_delivery_once_index.up.sql \
     595_zhuge_ai_run_issue_history_index.up.sql \
     596_zhuge_ai_event_run_index.up.sql \
-    597_zhuge_ai_settings.up.sql; do
+    597_zhuge_ai_settings.up.sql \
+    598_zhuge_ai_codex_dispatch.up.sql; do
     psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/$migration"
 done
 
@@ -82,7 +83,8 @@ BEGIN
         RAISE EXCEPTION 'runtime table grants are incorrect';
     END IF;
     IF NOT has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','state','UPDATE')
-       OR has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','provider_thread_id','UPDATE')
+       OR NOT has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','provider_thread_id','UPDATE')
+       OR has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','requested_by','UPDATE')
        OR NOT has_column_privilege('taskflow_runtime','taskflow.github_webhook_delivery','processing_state','UPDATE') THEN
         RAISE EXCEPTION 'runtime column-level update grants are incorrect';
     END IF;
@@ -141,6 +143,20 @@ VALUES
      '00000000-0000-0000-0000-000000000002','ZG-1','00000000-0000-0000-0000-000000000004',
      'co',1,'QQweasdzxc/zhuge-ai-os','0123456789abcdef0123456789abcdef','approved',now()+interval '5 minutes')
 ON CONFLICT DO NOTHING;
+UPDATE taskflow.zhuge_ai_engineering_run
+   SET state='dispatch_pending',provider_dispatch_id='00000000-0000-0000-0000-000000000005',
+       github_pr_number=60,github_dispatch_head_sha=repeat('a',40)
+ WHERE id=(SELECT id FROM taskflow.zhuge_ai_engineering_run ORDER BY created_at LIMIT 1);
+UPDATE taskflow.zhuge_ai_engineering_run
+   SET state='provider_ack_pending',github_dispatch_comment_id=6188874242,
+       github_dispatch_comment_url='https://github.com/QQweasdzxc/zhuge-ai-os/pull/60#issuecomment-6188874242'
+ WHERE provider_dispatch_id='00000000-0000-0000-0000-000000000005';
+UPDATE taskflow.zhuge_ai_engineering_run
+   SET state='running',provider_thread_id='00000000-0000-0000-0000-000000000006'
+ WHERE provider_dispatch_id='00000000-0000-0000-0000-000000000005';
+UPDATE taskflow.zhuge_ai_engineering_run
+   SET state='review_pending',last_evidence_sha=repeat('b',40),result_summary='Isolated result verified'
+ WHERE provider_dispatch_id='00000000-0000-0000-0000-000000000005';
 DO $$
 DECLARE run_count integer; v_run_id uuid;
 BEGIN
@@ -160,6 +176,10 @@ BEGIN
         (delivery_id,event_type,action,repo_owner,repo_name,pr_number,payload_sha256,processing_state,mirror_rows,linked_issue_rows)
     VALUES ('2f7d9c65-9a5f-4a22-bf8c-0fbb4f61cd42','pull_request','opened','QQweasdzxc',
         'zhuge-ai-os',1,repeat('b',64),'persisted',1,1);
+    INSERT INTO taskflow.github_webhook_delivery
+        (delivery_id,event_type,action,repo_owner,repo_name,pr_number,payload_sha256,processing_state,mirror_rows,linked_issue_rows)
+    VALUES ('3f7d9c65-9a5f-4a22-bf8c-0fbb4f61cd42','issue_comment','created','QQweasdzxc',
+        'zhuge-ai-os',60,repeat('c',64),'persisted',1,1);
     INSERT INTO taskflow.zhuge_ai_project_setting(workspace_id,project_id,enabled,updated_by)
     VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',true,
             '00000000-0000-0000-0000-000000000004');
@@ -185,6 +205,12 @@ psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -Atc \
 if psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/597_zhuge_ai_settings.down.sql" \
     >/dev/null 2>/dev/null; then
     echo "settings rollback guard unexpectedly allowed dropping saved settings" >&2
+    exit 1
+fi
+
+if psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/598_zhuge_ai_codex_dispatch.down.sql" \
+    >/dev/null 2>/dev/null; then
+    echo "Codex rollback guard unexpectedly allowed dropping dispatch evidence" >&2
     exit 1
 fi
 

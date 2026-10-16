@@ -18,7 +18,13 @@ import (
 )
 
 func (h *Handler) HandleTaskflowGitHubWebhook(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-GitHub-Event") != "pull_request" {
+	switch r.Header.Get("X-GitHub-Event") {
+	case "issue_comment":
+		h.HandleTaskflowCodexCommentWebhook(w, r)
+		return
+	case "pull_request":
+		// TaskFlow records the native PR snapshot and link below.
+	default:
 		// Other native events (including check_run/check_suite) continue through
 		// the upstream handler. Its 202 means accepted for refresh, not a
 		// persisted check snapshot; only pull_request receipts are labeled below.

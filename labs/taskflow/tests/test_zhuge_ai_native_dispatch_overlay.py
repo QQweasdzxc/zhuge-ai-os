@@ -41,6 +41,7 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertIn('r.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutIssueAISettings)',after)
             self.assertIn('r.With(handler.RequireHumanActor).Get("/zhuge-ai/runs"',after)
             self.assertIn('r.With(handler.RequireHumanActor).Post("/zhuge-ai/approve"',after)
+            self.assertIn('r.With(handler.RequireHumanActor).Post("/zhuge-ai/accept"',after)
             self.assertIn('r.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetProjectAISettings)',after)
             self.assertIn('r.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutProjectAISettings)',after)
             self.assertIn(mod.WEBHOOK_ROUTE_PATCHED,after)
@@ -51,11 +52,18 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             for name in mod.MIGRATIONS:
                 self.assertTrue((migrations/name).is_file(),name)
             self.assertTrue((tmp/"server/internal/handler/zhuge_github_webhook.go").exists())
+            self.assertTrue((tmp/"server/internal/handler/zhuge_ai_codex.go").exists())
+            self.assertTrue((tmp/"server/internal/handler/zhuge_codex_webhook.go").exists())
+            self.assertTrue((tmp/"server/internal/handler/zhuge_ai_codex_test.go").exists())
+            self.assertTrue((tmp/"server/internal/handler/zhuge_codex_webhook_test.go").exists())
             contract=(tmp/"server/internal/handler/taskflowcontract")
             self.assertTrue((contract/"zhuge_ai_contract.go").exists())
             self.assertTrue((contract/"zhuge_ai_contract_test.go").exists())
             dispatch=(tmp/"server/internal/handler/zhuge_ai_dispatch.go").read_text()
             webhook=(tmp/"server/internal/handler/zhuge_github_webhook.go").read_text()
+            codex=(tmp/"server/internal/handler/zhuge_ai_codex.go").read_text()
+            callback=(tmp/"server/internal/handler/zhuge_codex_webhook.go").read_text()
+            dispatch_receipt = codex[codex.index("WITH changed AS"):codex.index("var currentState string")]
             self.assertEqual(webhook.count("h.HandleGitHubWebhookNative("),3)
             self.assertNotIn("h.HandleGitHubWebhook(",webhook)
             self.assertIn("func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request)",webhook)
@@ -67,6 +75,13 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertIn("func (h *Handler) GetIssueAISettings",dispatch)
             self.assertIn("func (h *Handler) PutIssueAISettings",dispatch)
             self.assertIn("project and task AI opt-in with Co selection required",dispatch)
+            self.assertIn("provider_ack_pending",codex)
+            self.assertIn("github_dispatch_comment_id=$3",dispatch_receipt)
+            self.assertNotIn("provider_receipt_id=",dispatch_receipt)
+            self.assertIn("provider_dispatch_id",callback)
+            self.assertIn("run.github_pr_number=$2",callback)
+            self.assertIn("codexMarkerCount(payload.Comment.Body) != 1",callback)
+            self.assertIn("codexGitHubBotLogin",callback)
             native_github=(VENDOR/mod.GITHUB).read_text()
             closing_pattern=re.search(r"var closingIdentifierRe = regexp.MustCompile\(\s*`([^`]+)`",native_github)
             self.assertIsNotNone(closing_pattern)
@@ -123,6 +138,16 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
                 self.assertIn("REVOKE ALL ON TABLE",sql)
             if version == 597 and name.endswith(".down.sql"):
                 self.assertIn("AI engineering settings exist",sql)
+            if version == 598 and name.endswith(".up.sql"):
+                self.assertIn("provider_dispatch_id uuid",sql)
+                self.assertIn("github_dispatch_comment_id bigint",sql)
+                self.assertIn("result_summary text",sql)
+                self.assertIn("event_type IN ('pull_request', 'issue_comment')",sql)
+                self.assertIn("GRANT UPDATE (provider_dispatch_id",sql)
+                self.assertNotIn("GRANT UPDATE ON TABLE zhuge_ai_engineering_run",sql)
+            if version == 598 and name.endswith(".down.sql"):
+                self.assertIn("Codex dispatch evidence exists",sql)
+                self.assertIn("DROP COLUMN provider_dispatch_id",sql)
 
     def test_rejects_missing_authenticated_issue_scope(self):
         vendor=(VENDOR/mod.ROUTE).read_text()

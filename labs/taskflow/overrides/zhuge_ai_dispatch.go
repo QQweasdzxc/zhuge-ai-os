@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -27,8 +28,9 @@ const zhugeAIRepo = "QQweasdzxc/zhuge-ai-os"
 // The server ignores client-supplied user, role, workspace, Run state, cost
 // allowance, provider receipt or worker stop claims. Those never appear here.
 type zhugeAIApproveRequest struct {
-	ExpectedRevision int64  `json:"expected_issue_revision"`
-	IdempotencyKey   string `json:"idempotency_key"`
+	ExpectedRevision            int64  `json:"expected_issue_revision"`
+	IdempotencyKey              string `json:"idempotency_key"`
+	ConfirmPublicGitHubDispatch bool   `json:"confirm_public_github_dispatch"`
 }
 
 type zhugeAIRunListItem struct {
@@ -45,6 +47,8 @@ type zhugeAIRunListItem struct {
 	CreatedAt         time.Time      `json:"created_at"`
 	ApprovalExpiresAt time.Time      `json:"approval_expires_at"`
 	ProviderThreadID  *string        `json:"provider_thread_id"`
+	GitHubDispatchURL *string        `json:"github_dispatch_url"`
+	ResultSummary     *string        `json:"result_summary"`
 	EvidenceSHA       *string        `json:"last_evidence_sha"`
 	Revision          int64          `json:"revision"`
 	Events            []zhugeAIEvent `json:"events"`
@@ -282,7 +286,8 @@ func (h *Handler) ZhugeAIListRuns(w http.ResponseWriter, r *http.Request) {
 		"SELECT r.id::text,r.task_identifier,r.engineer,"+
 			"CASE WHEN r.state='approved' AND r.approval_expires_at<=now() THEN 'expired' ELSE r.state END,"+
 			"pr.pr_number,pr.state,pr.checks_rollup_state,pr.head_sha,pr.snapshot_head_sha,pr.snapshot_fetched_at,"+
-			"r.created_at,r.approval_expires_at,r.provider_thread_id,r.last_evidence_sha,r.revision "+
+			"r.created_at,r.approval_expires_at,r.provider_thread_id,r.last_evidence_sha,r.revision,"+
+			"r.github_dispatch_comment_url,r.result_summary "+
 			"FROM taskflow.zhuge_ai_engineering_run r "+
 			"LEFT JOIN LATERAL (SELECT ghpr.pr_number,ghpr.state,ghpr.checks_rollup_state,ghpr.head_sha,"+
 			"ghpr.snapshot_head_sha,ghpr.snapshot_fetched_at FROM taskflow.issue_pull_request ipr "+
@@ -304,9 +309,11 @@ func (h *Handler) ZhugeAIListRuns(w http.ResponseWriter, r *http.Request) {
 		var pr pgtype.Int4
 		var prState, checksState, headSHA, snapshotSHA pgtype.Text
 		var snapshotFetchedAt pgtype.Timestamptz
+		var dispatchURL, resultSummary pgtype.Text
 		if err := rows.Scan(&x.ID, &x.TaskIdentifier, &x.Engineer, &x.State, &pr,
 			&prState, &checksState, &headSHA, &snapshotSHA, &snapshotFetchedAt,
-			&x.CreatedAt, &x.ApprovalExpiresAt, &x.ProviderThreadID, &x.EvidenceSHA, &x.Revision); err != nil {
+			&x.CreatedAt, &x.ApprovalExpiresAt, &x.ProviderThreadID, &x.EvidenceSHA, &x.Revision,
+			&dispatchURL, &resultSummary); err != nil {
 			writeError(w, http.StatusServiceUnavailable, "AI Run readback unavailable")
 			return
 		}
@@ -328,6 +335,12 @@ func (h *Handler) ZhugeAIListRuns(w http.ResponseWriter, r *http.Request) {
 		}
 		if snapshotFetchedAt.Valid {
 			x.GithubSnapshotAt = &snapshotFetchedAt.Time
+		}
+		if dispatchURL.Valid {
+			x.GitHubDispatchURL = &dispatchURL.String
+		}
+		if resultSummary.Valid {
+			x.ResultSummary = &resultSummary.String
 		}
 		x.Events = make([]zhugeAIEvent, 0)
 		byID[x.ID] = len(items)
@@ -365,7 +378,7 @@ func (h *Handler) ZhugeAIListRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store, private")
-	writeJSON(w, http.StatusOK, map[string]any{"runs": items, "dispatch_enabled": false,
+	writeJSON(w, http.StatusOK, map[string]any{"runs": items, "dispatch_enabled": taskflowCodexDispatchEnabled(),
 		"message": "Run evidence is authoritative only after verified provider receipt"})
 }
 
@@ -449,6 +462,37 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, why)
 		return
 	}
+	dispatchRequested := req.ConfirmPublicGitHubDispatch
+	var target codexDispatchTarget
+	dispatchID := ""
+	initialState := "approved"
+	if dispatchRequested {
+		if !taskflowCodexDispatchEnabled() {
+			writeError(w, http.StatusServiceUnavailable, "Codex dispatch and signed callback are not enabled")
+			return
+		}
+		if issue.Description.Valid && len(issue.Description.String) > 12000 || len(issue.Title) > 1000 {
+			writeError(w, http.StatusBadRequest, "Task content is too long for public GitHub dispatch")
+			return
+		}
+		err := h.DB.QueryRow(r.Context(), `
+		SELECT gi.installation_id,pr.repo_owner,pr.repo_name,pr.pr_number,pr.head_sha,pr.html_url
+		FROM taskflow.issue_pull_request ipr
+		JOIN taskflow.github_pull_request pr ON pr.id=ipr.pull_request_id
+		JOIN taskflow.github_installation gi ON gi.installation_id=pr.installation_id
+		  AND gi.workspace_id=pr.workspace_id
+		WHERE ipr.issue_id=$1::uuid AND pr.workspace_id=$2::uuid
+		  AND pr.repo_owner=$3 AND pr.repo_name=$4 AND pr.state IN ('open','draft')
+		ORDER BY pr.pr_updated_at DESC,pr.pr_number DESC LIMIT 1`,
+			uuidToString(issue.ID), workspaceID, "QQweasdzxc", "zhuge-ai-os").Scan(
+			&target.InstallationID, &target.Owner, &target.Repository, &target.Number, &target.HeadSHA, &target.URL)
+		if err != nil || target.InstallationID <= 0 || target.Number <= 0 || !taskflowcontract.ValidGitHubHeadSHA(target.HeadSHA) {
+			writeError(w, http.StatusConflict, "an open TaskFlow-linked GitHub PR is required for Codex dispatch")
+			return
+		}
+		dispatchID = uuid.NewString()
+		initialState = "dispatch_pending"
+	}
 	// The supplied revision is rechecked INSIDE the SQL statement, closing
 	// the gap between the native read and the approval write.
 	userID := requestUserID(r)
@@ -486,40 +530,41 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter, r *http.Request) {
 	err := tx.QueryRow(r.Context(), `
  INSERT INTO taskflow.zhuge_ai_engineering_run
  (workspace_id,issue_id,project_id,task_identifier,requested_by,engineer,issue_revision,
- github_repo,idempotency_key,state,approval_expires_at)
- SELECT i.workspace_id,i.id,i.project_id,$4,$5::uuid,'co',i.revision,
- $6,$7,'approved',now()+interval '5 minutes'
+	 github_repo,idempotency_key,state,approval_expires_at,provider_dispatch_id,github_pr_number,github_dispatch_head_sha)
+	 SELECT i.workspace_id,i.id,i.project_id,$4,$5::uuid,'co',i.revision,
+	 $6,$7,$8,now()+interval '5 minutes',$9::uuid,$10::integer,$11::text
  FROM taskflow.issue i
 		WHERE i.id=$1::uuid AND i.workspace_id=$2::uuid AND
-		       i.project_id=$3::uuid AND i.revision=$8::bigint AND
+			       i.project_id=$3::uuid AND i.revision=$12::bigint AND
 		       EXISTS (SELECT 1 FROM taskflow.project p WHERE p.id=i.project_id AND p.workspace_id=i.workspace_id) AND
 		       i.status = ANY(ARRAY['backlog','todo','in_progress','in_review','unstarted','started']::text[])
  ON CONFLICT (workspace_id,issue_id,requested_by,idempotency_key) DO NOTHING
  RETURNING id::text
- `, uuidToString(issue.ID), workspaceID, uuidToString(issue.ProjectID), taskIdentifier, userID,
-		zhugeAIRepo, req.IdempotencyKey, req.ExpectedRevision).Scan(&id)
+	 `, uuidToString(issue.ID), workspaceID, uuidToString(issue.ProjectID), taskIdentifier, userID,
+		zhugeAIRepo, req.IdempotencyKey, initialState, nullableCodexDispatchID(dispatchID), nullableCodexPR(target.Number, dispatchRequested), nullableCodexHead(target.HeadSHA, dispatchRequested), req.ExpectedRevision).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Idempotency replay is allowed only for the same native issue revision.
 		var previous struct {
 			ID, TaskIdentifier, Engineer, State string
 			IssueRevision                       int64
+			Dispatched                          bool
 		}
 		same := tx.QueryRow(r.Context(), `
-    SELECT id::text,task_identifier,engineer,state,issue_revision
+    SELECT id::text,task_identifier,engineer,state,issue_revision,provider_dispatch_id IS NOT NULL
     FROM taskflow.zhuge_ai_engineering_run
     WHERE workspace_id=$1::uuid AND issue_id=$2::uuid AND requested_by=$3::uuid
       AND idempotency_key=$4
    `, workspaceID, uuidToString(issue.ID), userID, req.IdempotencyKey).Scan(
-			&previous.ID, &previous.TaskIdentifier, &previous.Engineer, &previous.State, &previous.IssueRevision)
+			&previous.ID, &previous.TaskIdentifier, &previous.Engineer, &previous.State, &previous.IssueRevision, &previous.Dispatched)
 		if same == nil && previous.TaskIdentifier == taskIdentifier &&
-			previous.Engineer == "co" && previous.IssueRevision == req.ExpectedRevision {
+			previous.Engineer == "co" && previous.IssueRevision == req.ExpectedRevision && previous.Dispatched == dispatchRequested {
 			if err := tx.Commit(r.Context()); err != nil {
 				writeError(w, http.StatusServiceUnavailable, "AI approval replay could not be read")
 				return
 			}
 			w.Header().Set("Cache-Control", "no-store, private")
 			writeJSON(w, http.StatusOK, map[string]any{"id": previous.ID, "state": previous.State,
-				"taskflow_identifier": taskIdentifier, "dispatch_started": false, "idempotent_replay": true,
+				"taskflow_identifier": taskIdentifier, "dispatch_started": previous.State == "running" || previous.State == "review_pending" || previous.State == "completed", "idempotent_replay": true,
 				"pull_request_link_instruction": taskflowcontract.ClosingMarker(taskIdentifier)})
 			return
 		}
@@ -545,14 +590,79 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "AI approval audit unavailable")
 		return
 	}
+	if dispatchRequested {
+		if _, auditErr = tx.Exec(r.Context(), `
+		INSERT INTO taskflow.zhuge_ai_engineering_event(run_id,state,event_kind)
+		VALUES($1::uuid,'dispatch_pending','provider_pending')`, id); auditErr != nil {
+			writeError(w, http.StatusServiceUnavailable, "Codex dispatch audit unavailable")
+			return
+		}
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusServiceUnavailable, "AI approval transaction could not be committed")
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store, private")
+	if dispatchRequested {
+		h.dispatchApprovedCodexRun(w, r, id, dispatchID, taskIdentifier, issue.Title, issue.Description.String, target)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id": id, "taskflow_identifier": taskIdentifier, "state": "approved", "dispatch_started": false,
-		"provider_status":               "not_configured",
-		"pull_request_link_instruction": taskflowcontract.ClosingMarker(taskIdentifier),
-		"message":                       "PM approval recorded; no Codex task was launched"})
+		"provider_status": "not_configured", "pull_request_link_instruction": taskflowcontract.ClosingMarker(taskIdentifier),
+		"message": "PM approval recorded; Codex dispatch is disabled"})
+}
+
+type zhugeAIAcceptRequest struct {
+	ExpectedRunRevision int64 `json:"expected_run_revision"`
+}
+
+// Only the authenticated workspace owner can mark a verified result accepted.
+func (h *Handler) ZhugeAIAcceptRun(w http.ResponseWriter, r *http.Request) {
+	issue, ok := h.loadIssueForUser(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+	workspaceID := uuidToString(issue.WorkspaceID)
+	if _, ok := h.requireWorkspaceRole(w, r, workspaceID, "workspace not found", "owner"); !ok {
+		return
+	}
+	if h.DB == nil || h.TxStarter == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI acceptance authority unavailable")
+		return
+	}
+	var req zhugeAIAcceptRequest
+	if !decodeZhugeAISettings(w, r, &req) || req.ExpectedRunRevision <= 0 {
+		return
+	}
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI acceptance transaction unavailable")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var runID string
+	err = tx.QueryRow(r.Context(), `
+	UPDATE taskflow.zhuge_ai_engineering_run
+	SET state='completed',revision=revision+1,updated_at=now()
+	WHERE workspace_id=$1::uuid AND issue_id=$2::uuid AND state='review_pending'
+	  AND revision=$3::bigint AND provider_thread_id IS NOT NULL AND last_evidence_sha IS NOT NULL
+	RETURNING id::text`, workspaceID, uuidToString(issue.ID), req.ExpectedRunRevision).Scan(&runID)
+	if err != nil {
+		writeError(w, http.StatusConflict, "no current verified Codex result is waiting for PM acceptance")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `
+	INSERT INTO taskflow.zhuge_ai_engineering_event(run_id,state,event_kind)
+	VALUES($1::uuid,'completed','completed')`, runID); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI acceptance audit unavailable")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI acceptance could not be saved")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
+	writeJSON(w, http.StatusOK, map[string]any{"id": runID, "state": "completed", "accepted": true})
 }

@@ -2,7 +2,8 @@
 """Source-only pinned vendor TaskFlow AI execution API extension.
 
 A single TaskFlow site; native workspace membership and issue are the authority.
-This patch does not dispatch Co, deploy, apply migrations, or change production.
+Outbound dispatch is opt-in and requires explicit runtime gates. This patch
+does not deploy, apply migrations, or change production.
 """
 import argparse
 from pathlib import Path
@@ -15,14 +16,21 @@ NEW = (ANCHOR +
     '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetIssueAISettings)' +
     '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutIssueAISettings)' +
     '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/runs", h.ZhugeAIListRuns)' +
-    '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/zhuge-ai/approve", h.ZhugeAIApproveRun)')
+    '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/zhuge-ai/approve", h.ZhugeAIApproveRun)' +
+    '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/zhuge-ai/accept", h.ZhugeAIAcceptRun)')
 PROJECT_ANCHOR = '\t\t\t\tr.Route("/{id}", func(r chi.Router) {\n\t\t\t\t\tr.Get("/", h.GetProject)'
 PROJECT_NEW = (PROJECT_ANCHOR +
     '\n\t\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetProjectAISettings)' +
     '\n\t\t\t\t\t\tr.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutProjectAISettings)')
 HANDLER_OVERLAYS = (
     "zhuge_ai_dispatch.go",
+    "zhuge_ai_codex.go",
+    "zhuge_codex_webhook.go",
     "zhuge_github_webhook.go",
+)
+HANDLER_TEST_OVERLAYS = (
+    "zhuge_ai_codex_test.go",
+    "zhuge_codex_webhook_test.go",
 )
 CONTRACT_OVERLAYS = (
     "zhuge_ai_contract.go",
@@ -43,6 +51,8 @@ MIGRATIONS = (
     "596_zhuge_ai_event_run_index.down.sql",
     "597_zhuge_ai_settings.up.sql",
     "597_zhuge_ai_settings.down.sql",
+    "598_zhuge_ai_codex_dispatch.up.sql",
+    "598_zhuge_ai_codex_dispatch.down.sql",
 )
 WEBHOOK_METHOD = "func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {"
 WEBHOOK_METHOD_RENAMED = "func (h *Handler) HandleGitHubWebhookNative(w http.ResponseWriter, r *http.Request) {"
@@ -88,6 +98,8 @@ def apply(root,overlays,migrations):
     verify_webhook(github_source, source)
     outputs = [root/"server/internal/handler"/name for name in HANDLER_OVERLAYS]
     sources = [overlays/name for name in HANDLER_OVERLAYS]
+    outputs += [root/"server/internal/handler"/name for name in HANDLER_TEST_OVERLAYS]
+    sources += [overlays/name for name in HANDLER_TEST_OVERLAYS]
     outputs += [root/"server/internal/handler/taskflowcontract"/name for name in CONTRACT_OVERLAYS]
     sources += [overlays/name for name in CONTRACT_OVERLAYS]
     outputs += [migrations/name for name in MIGRATIONS]
@@ -100,7 +112,7 @@ def apply(root,overlays,migrations):
     for src,target in zip(sources,outputs):
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(src.read_bytes())
-    print("TaskFlow Run approval/readback and GitHub delivery receipt staged; provider launch remains disabled")
+    print("TaskFlow Run approval/readback, gated GitHub @codex dispatch and signed callback receipt staged")
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()

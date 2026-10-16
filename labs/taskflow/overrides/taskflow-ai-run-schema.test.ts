@@ -15,6 +15,8 @@ const run = {
   created_at: "2026-10-16T00:00:00Z",
   approval_expires_at: "2026-10-16T00:05:00Z",
   provider_thread_id: null,
+  github_dispatch_url: null,
+  result_summary: null,
   last_evidence_sha: null,
   revision: 1,
   events: [{
@@ -27,16 +29,17 @@ const run = {
 };
 
 describe("TaskFlow AI Run readback contract", () => {
-  it("accepts only persisted Run evidence with dispatch disabled", () => {
+  it("accepts persisted Run evidence with dispatch disabled or explicitly enabled", () => {
     expect(TaskFlowAIEngineeringRunListSchema.safeParse({
       runs: [run], dispatch_enabled: false, message: "provider is not connected",
     }).success).toBe(true);
+    expect(TaskFlowAIEngineeringRunListSchema.safeParse({
+      runs: [{ ...run, github_dispatch_url: "https://github.com/QQweasdzxc/zhuge-ai-os/pull/52#issuecomment-1",
+        result_summary: "Awaiting signed Codex acknowledgement" }], dispatch_enabled: true,
+    }).success).toBe(true);
   });
 
-  it("rejects provider-enabled or malformed Run payloads", () => {
-    expect(TaskFlowAIEngineeringRunListSchema.safeParse({
-      runs: [run], dispatch_enabled: true,
-    }).success).toBe(false);
+  it("rejects malformed Run payloads", () => {
     expect(TaskFlowAIEngineeringRunListSchema.safeParse({
       runs: [{ ...run, task_identifier: "not-a-task" }], dispatch_enabled: false,
     }).success).toBe(false);

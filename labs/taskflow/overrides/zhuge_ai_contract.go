@@ -3,6 +3,7 @@ package taskflowcontract
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/google/uuid"
 	"regexp"
 )
 
@@ -40,6 +41,18 @@ func ClosingMarker(identifier string) string {
 func ValidGitHubDeliveryID(value string) bool { return githubDeliveryPattern.MatchString(value) }
 
 func ValidGitHubHeadSHA(value string) bool { return githubHeadSHAPattern.MatchString(value) }
+
+func ValidCodexDispatch(runID, dispatchID, taskIdentifier string, prNumber int32, checkpointSHA string) bool {
+	_, runErr := uuid.Parse(runID)
+	_, dispatchErr := uuid.Parse(dispatchID)
+	return runErr == nil && dispatchErr == nil && taskIdentifierPattern.MatchString(taskIdentifier) &&
+		prNumber > 0 && ValidGitHubHeadSHA(checkpointSHA)
+}
+
+func ValidCodexThreadID(value string) bool {
+	_, err := uuid.Parse(value)
+	return err == nil
+}
 
 func PayloadSHA256(body []byte) string {
 	digest := sha256.Sum256(body)

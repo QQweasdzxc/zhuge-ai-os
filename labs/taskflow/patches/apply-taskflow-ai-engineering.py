@@ -41,18 +41,13 @@ def patch_issue(text: str) -> str:
         'import { TaskFlowAIIssueSection } from "../../common/taskflow-ai-engineering";',
         "native issue import")
     text = replace_exact(text,
-        'import { TaskFlowAIIssueSection } from "../../common/taskflow-ai-engineering";',
-        'import { TaskFlowAIIssueSection } from "../../common/taskflow-ai-engineering";\n'
-        'import { TaskFlowAIRunReadback } from "../../common/taskflow-ai-run-readback";',
-        "native Run readback import")
-    text = replace_exact(text,
         '      <PluginPanelSection issueId={issue.id} />',
         '      <PluginPanelSection issueId={issue.id} />\n'
         '      {/* TASKFLOW_AI_EXECUTION_V1: optional panel, not an assignee or Wakeup. */}\n'
         '      <TaskFlowAIIssueSection workspaceId={wsId} projectId={issue.project_id}'
-        ' issueId={issue.id} canManage={currentUserRole === "owner" || currentUserRole === "admin"} />\n'
-        '      <TaskFlowAIRunReadback workspaceId={wsId} issueId={issue.id}'
-        ' issueRevision={issue.revision ?? 0} />',
+        ' issueId={issue.id} issueRevision={issue.revision ?? 0}'
+        ' canManage={currentUserRole === "owner" || currentUserRole === "admin"}'
+        ' canApprove={currentUserRole === "owner"} />',
         "native sidebar between Wakeups and PR")
     return text
 

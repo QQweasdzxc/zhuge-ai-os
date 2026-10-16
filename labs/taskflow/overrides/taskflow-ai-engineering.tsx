@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Bot, ChevronRight } from "lucide-react";
 import { evaluateAIExecution } from "./taskflow-ai-engineering-policy";
 import { useTaskFlowAIProjectSettings, useTaskFlowAIIssueSettings } from "./taskflow-ai-settings-store";
+import { TaskFlowAIRunReadback } from "./taskflow-ai-run-readback";
 
 /** Project-scoped, default-OFF preference saved by the authenticated TaskFlow API. */
 export function TaskFlowAIProjectSettings({
@@ -29,8 +30,8 @@ export function TaskFlowAIProjectSettings({
 
 /** Independent issue-sidebar section. Does not alter human assignee or Wakeups. */
 export function TaskFlowAIIssueSection({
-  workspaceId, projectId, issueId, canManage,
-}: { workspaceId: string; projectId: string | null; issueId: string; canManage: boolean }) {
+  workspaceId, projectId, issueId, issueRevision, canManage, canApprove,
+}: { workspaceId: string; projectId: string | null; issueId: string; issueRevision: number; canManage: boolean; canApprove: boolean }) {
   const project = useTaskFlowAIProjectSettings(workspaceId, projectId ?? "");
   const card = useTaskFlowAIIssueSettings(workspaceId, issueId);
   const [open, setOpen] = useState(true);
@@ -89,13 +90,11 @@ export function TaskFlowAIIssueSection({
         <p>額度：未知　Cloud Run：尚未建立</p>
         <p>GitHub PR／Commit SHA／CI：尚未連接正式證據</p>
         <p>工作紀錄：尚無經 TaskFlow 驗證的 Run 事件</p>
-        <button type="button" disabled aria-disabled="true"
-          className="w-full cursor-not-allowed rounded-md border p-2 text-muted-foreground">
-          確認並派工（尚未開放）
-        </button>
+        <TaskFlowAIRunReadback workspaceId={workspaceId} issueId={issueId} issueRevision={issueRevision}
+          enabledForDispatch={canApprove && project.enabled && card.enabled && card.engineer === "co"} />
       </div>
       <p className="text-muted-foreground">
-        此設定不取代真人負責人。PM 核准目前只會寫入 TaskFlow Run 紀錄；Codex Cloud 尚未接通，因此不會啟動 Co／Gem。
+        此設定不取代真人負責人。派工只會透過已連結的公開 GitHub PR 要求 Codex；沒有收到簽章接單回呼前不會標記為執行中。
       </p>
     </div>}
   </section>;
