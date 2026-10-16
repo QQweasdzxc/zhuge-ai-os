@@ -27,6 +27,9 @@ jobs:
       - name: Browser QA for real API contract and unchanged URL
         run: |
           BROWSER_EXECUTABLE="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" node --test tests/taskflow-pages-client-browser.test.mjs
+      - name: Probe official Render API CORS (read-only; no credentials)
+        run: |
+          node labs/taskflow/pages-client/cors-probe.mjs
       - name: Assert prototype is not wired to production root or deploy workflow
         run: |
           node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8');if(!s.includes('window.location.replace(\"https://zhuge-taskflow-web.onrender.com/\")'))process.exit(1);const p=fs.readFileSync('labs/taskflow/pages-client/index.html','utf8');if(!p.includes('./app.mjs'))process.exit(1);"
