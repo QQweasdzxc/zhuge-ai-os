@@ -28,7 +28,7 @@ export async function inspectTaskflowCoReadiness({
       {workspaceId,projectId,issueId,revision}
     );
     const manifest=validateHandoff(await loadHandoff({workspaceId,issueId,projectId}));
-    if(manifest.task.taskflow_issue_id!==issueId || manifest.task.taskflow_project_id!==projectId)
+    if(manifest.task.taskflow_issue_id!==issueId)
       return refuse("HANDOFF_TASKFLOW_MAPPING_MISMATCH");
     const gate=canDispatch(manifest);
     if(!gate.ready)return refuse("HANDOFF_"+String(gate.reason||"NOT_READY").replace(/[^A-Z0-9_]/gi,"_").toUpperCase().slice(0,70));
