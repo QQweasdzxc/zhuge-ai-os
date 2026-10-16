@@ -15,6 +15,7 @@ API_INDEX = "packages/core/api/index.ts"
 MODULES = (
     "taskflow-ai-engineering-policy.ts",
     "taskflow-ai-settings-store.ts",
+    "taskflow-ai-settings-store.test.tsx",
     "taskflow-ai-engineering.tsx",
     "taskflow-ai-engineering-policy.test.ts",
     "taskflow-ai-run-readback.tsx",

@@ -50,9 +50,6 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertIn("CREATE TABLE github_webhook_delivery",(migrations/"591_zhuge_ai_engineering_run.up.sql").read_text())
             for name in mod.MIGRATIONS:
                 self.assertTrue((migrations/name).is_file(),name)
-            dockerfile=(REPO/"labs/taskflow/Dockerfile.backend").read_text()
-            self.assertIn("597_zhuge_ai_settings.up.sql",dockerfile)
-            self.assertIn("597_zhuge_ai_settings.down.sql",dockerfile)
             self.assertTrue((tmp/"server/internal/handler/zhuge_github_webhook.go").exists())
             contract=(tmp/"server/internal/handler/taskflowcontract")
             self.assertTrue((contract/"zhuge_ai_contract.go").exists())

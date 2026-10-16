@@ -98,6 +98,7 @@ COPY labs/taskflow/patches/apply-taskflow-ai-engineering.py /tmp/apply-taskflow-
 COPY labs/taskflow/tests/test_taskflow_ai_engineering_overlay.py /tmp/test_taskflow_ai_engineering_overlay.py
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.ts /taskflow-ai/taskflow-ai-engineering-policy.ts
 COPY labs/taskflow/overrides/taskflow-ai-settings-store.ts /taskflow-ai/taskflow-ai-settings-store.ts
+COPY labs/taskflow/overrides/taskflow-ai-settings-store.test.tsx /taskflow-ai/taskflow-ai-settings-store.test.tsx
 COPY labs/taskflow/overrides/taskflow-ai-engineering.tsx /taskflow-ai/taskflow-ai-engineering.tsx
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.test.ts /taskflow-ai/taskflow-ai-engineering-policy.test.ts
 COPY labs/taskflow/overrides/taskflow-ai-run-readback.tsx /taskflow-ai/taskflow-ai-run-readback.tsx
@@ -140,6 +141,7 @@ COPY --from=source /src/packages/ packages/
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter @multica/core exec vitest run api/taskflow-ai-run-schema.test.ts
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-ai-run-readback.test.tsx
+RUN pnpm --filter @multica/views exec vitest run common/taskflow-ai-settings-store.test.tsx
 COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx /tmp/taskflow-attachment-preview-token-auth.test.tsx
 RUN cp /tmp/taskflow-attachment-preview-token-auth.test.tsx /app/packages/views/editor/taskflow-attachment-preview-token-auth.test.tsx \
  && pnpm --filter @multica/views exec vitest run editor/taskflow-attachment-preview-token-auth.test.tsx

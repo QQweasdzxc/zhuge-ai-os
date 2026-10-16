@@ -51,6 +51,12 @@ ZHUGE_PUBLIC_FUNCTIONS = (
 
 
 class TaskFlowBuildParityTests(unittest.TestCase):
+    def test_ai_settings_migration_is_staged_by_backend_build(self):
+        backend = (TASKFLOW / "Dockerfile.backend").read_text()
+        for name in ("597_zhuge_ai_settings.up.sql", "597_zhuge_ai_settings.down.sql"):
+            self.assertIn(name, backend)
+            self.assertTrue((TASKFLOW / "overrides/migrations" / name).is_file())
+
     def test_wrappers_copy_the_pinned_vendor_and_do_not_clone_application_source(self):
         for wrapper in ("Dockerfile.backend", "Dockerfile.web"):
             text = (TASKFLOW / wrapper).read_text()
