@@ -99,6 +99,7 @@ COPY labs/taskflow/tests/test_taskflow_ai_engineering_overlay.py /tmp/test_taskf
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.ts /taskflow-ai/taskflow-ai-engineering-policy.ts
 COPY labs/taskflow/overrides/taskflow-ai-preview-store.ts /taskflow-ai/taskflow-ai-preview-store.ts
 COPY labs/taskflow/overrides/taskflow-ai-engineering.tsx /taskflow-ai/taskflow-ai-engineering.tsx
+COPY labs/taskflow/overrides/taskflow-ai-run-readback.tsx /taskflow-ai/taskflow-ai-run-readback.tsx
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.test.ts /taskflow-ai/taskflow-ai-engineering-policy.test.ts
 RUN TASKFLOW_AI_REPO=/src TASKFLOW_AI_VENDOR=/src TASKFLOW_AI_OVERLAYS=/taskflow-ai TASKFLOW_AI_PATCH=/tmp/apply-taskflow-ai-engineering.py \
     python3 /tmp/test_taskflow_ai_engineering_overlay.py \
