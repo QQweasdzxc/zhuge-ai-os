@@ -1,5 +1,5 @@
 -- Zhuge AI engineering run metadata ONLY; native taskflow.issue stays the task SSOT.
--- Migration to be applied by taskflow_migrator after approval, never directly through Supabase public.
+-- Migration to be applied by taskflow_migrator after approval, never through the shared Supabase schema.
 CREATE TABLE zhuge_ai_engineering_run (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  workspace_id uuid NOT NULL REFERENCES workspace(id) ON DELETE RESTRICT,
