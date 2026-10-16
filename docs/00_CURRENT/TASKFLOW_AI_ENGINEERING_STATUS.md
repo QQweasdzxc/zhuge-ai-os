@@ -119,3 +119,11 @@
 - **目前重新凍結的候選：** `0.9.0-alpha.9.70` / Build `20261017-0737`。候選 SHA 以 [PR #60 最新 Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 讀回為準；Build Parity 與 Browser Regression 必須在該 SHA 完成後才能判定。此 Build 只包含 UI 空格修正、Go unused import 修正及正式版本/Build 身分同步。
 - 本地 Python Overlay/Build parity 23/23 PASS、入口/CLI SSO Node 18/18 PASS、Go formatting / shell syntax / `git diff --check` PASS。Remote PostgreSQL test 僅在 `.9.69` 通過；`.9.70` 仍需以新精確 SHA 重跑遠端必要 Gate。
 - Source 仍只在 Review Branch；沒有真實 Codex 派工/ACK/Run/thread/result、Production Migration 或 Deploy。兩個 runtime dispatch gates 繼續 OFF。`BACKUP NOT SAVED`；最終 SHA 的 FullSource ZIP/Manifest/SHA256 必須在遠端 CI 完成後重建，Release binary upload 能力仍未提供。
+
+
+### `.9.70` exact-SHA CI failure and `.9.71` recheck (append-only)
+
+- `.9.70` exact Review SHA `74c2a7f7952635655806a2c2b11a23fbe3a773fb`, Build `20261017-0737`: TaskFlow Build Parity Run [38982532178](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982532178); Overlay Contract and isolated PostgreSQL Migration Integration PASS; Backend Image FAIL because `zhuge_ai_codex_test.go` imported unused `os`; Web job status at checkpoint was still in progress. Browser Regression Run [38982535645](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982535645) Desktop/Mobile Chromium PASS (not iPhone Safari).
+- Removed only the unused test import in checkpoint `648f9cdf493483767cd17e25b87beca545663835`; this is a Go test build correction, not runtime behavior.
+- New candidate `.9.71` / Build `20261017-0741`; exact SHA is the PR #60 Review head. Its exact-SHA Build Parity and Browser Regression must pass before it can be reviewed as a complete candidate.
+- Dispatch gates remain OFF; no actual Codex Cloud run, provider ACK/thread/result, Production migration/deploy, or permanent FullSource asset is claimed.

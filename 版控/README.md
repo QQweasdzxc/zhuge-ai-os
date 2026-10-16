@@ -66,3 +66,13 @@
 | `.9.70` | [PR #60 latest Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) / Build `20261017-0737` | 修正 `.9.69` 兩個實際 Gate 缺陷；本機 targeted PASS，精確 SHA 的 GitHub Build Parity/Browser Regression 待完成 | **BACKUP NOT SAVED** |
 
 正式 Codex Cloud Run 尚未真實驗證，dispatch 預設關閉；沒有 Production Migration/Deploy。固定交接與實際證據見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。
+
+
+### PR #60 `.9.70` CI 結果與 `.9.71` 重驗（append-only）
+
+| Candidate | Source / Build | Gate 結果 | 封存 |
+| --- | --- | --- | --- |
+| `.9.70` | `74c2a7f7952635655806a2c2b11a23fbe3a773fb` / `20261017-0737` | Build Parity Run [38982532178](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982532178)：Overlay、隔離 PostgreSQL PASS；Backend 因測試檔未使用 `os` import FAIL；Web 當時執行中。Browser Regression [38982535645](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982535645) Desktop/Mobile Chromium PASS | 未完成永久 FullSource 封存 |
+| `.9.71` | PR #60 Review head / Build `20261017-0741` | 移除未使用測試 import；新精確 SHA 遠端 Build/Browser Gate 待執行 | **BACKUP NOT SAVED** |
+
+真實 Codex Cloud E2E、Production Migration/deploy 未執行；dispatch gates 維持關閉。固定狀態與後續證據見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。
