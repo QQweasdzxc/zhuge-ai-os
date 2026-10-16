@@ -97,7 +97,7 @@ RUN TASKFLOW_ATTACHMENT_REPO=/ \
 COPY labs/taskflow/patches/apply-taskflow-ai-engineering.py /tmp/apply-taskflow-ai-engineering.py
 COPY labs/taskflow/tests/test_taskflow_ai_engineering_overlay.py /tmp/test_taskflow_ai_engineering_overlay.py
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.ts /taskflow-ai/taskflow-ai-engineering-policy.ts
-COPY labs/taskflow/overrides/taskflow-ai-preview-store.ts /taskflow-ai/taskflow-ai-preview-store.ts
+COPY labs/taskflow/overrides/taskflow-ai-settings-store.ts /taskflow-ai/taskflow-ai-settings-store.ts
 COPY labs/taskflow/overrides/taskflow-ai-engineering.tsx /taskflow-ai/taskflow-ai-engineering.tsx
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.test.ts /taskflow-ai/taskflow-ai-engineering-policy.test.ts
 COPY labs/taskflow/overrides/taskflow-ai-run-readback.tsx /taskflow-ai/taskflow-ai-run-readback.tsx

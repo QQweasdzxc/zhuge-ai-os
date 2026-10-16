@@ -53,7 +53,8 @@ for migration in \
     593_zhuge_ai_run_idempotency_index.up.sql \
     594_zhuge_ai_event_delivery_once_index.up.sql \
     595_zhuge_ai_run_issue_history_index.up.sql \
-    596_zhuge_ai_event_run_index.up.sql; do
+    596_zhuge_ai_event_run_index.up.sql \
+    597_zhuge_ai_settings.up.sql; do
     psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/$migration"
 done
 
@@ -68,9 +69,10 @@ BEGIN
       FROM pg_catalog.pg_class c
       JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
      WHERE n.nspname='taskflow'
-       AND c.relname IN ('zhuge_ai_engineering_run','zhuge_ai_engineering_event','github_webhook_delivery')
+       AND c.relname IN ('zhuge_ai_engineering_run','zhuge_ai_engineering_event','github_webhook_delivery',
+                         'zhuge_ai_project_setting','zhuge_ai_issue_setting')
        AND c.relowner='taskflow_migrator'::regrole;
-    IF owned_count <> 3 THEN RAISE EXCEPTION 'migration tables are not migrator-owned'; END IF;
+    IF owned_count <> 5 THEN RAISE EXCEPTION 'migration tables are not migrator-owned'; END IF;
     IF NOT has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','SELECT')
        OR NOT has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','INSERT')
        OR has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_engineering_run','UPDATE')
@@ -91,6 +93,14 @@ BEGIN
     IF has_schema_privilege('taskflow_runtime','public','CREATE')
        OR has_schema_privilege('taskflow_runtime','lab_multica','CREATE') THEN
         RAISE EXCEPTION 'runtime can create in a protected schema';
+    END IF;
+    IF NOT has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_project_setting','SELECT')
+       OR NOT has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_project_setting','INSERT')
+       OR has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_project_setting','DELETE')
+       OR NOT has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_project_setting','enabled','UPDATE')
+       OR has_column_privilege('taskflow_runtime','taskflow.zhuge_ai_project_setting','project_id','UPDATE')
+       OR has_table_privilege('taskflow_runtime','taskflow.zhuge_ai_issue_setting','DELETE') THEN
+        RAISE EXCEPTION 'AI settings runtime grants are incorrect';
     END IF;
 END
 $$;
@@ -150,9 +160,33 @@ BEGIN
         (delivery_id,event_type,action,repo_owner,repo_name,pr_number,payload_sha256,processing_state,mirror_rows,linked_issue_rows)
     VALUES ('2f7d9c65-9a5f-4a22-bf8c-0fbb4f61cd42','pull_request','opened','QQweasdzxc',
         'zhuge-ai-os',1,repeat('b',64),'persisted',1,1);
+    INSERT INTO taskflow.zhuge_ai_project_setting(workspace_id,project_id,enabled,updated_by)
+    VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002',true,
+            '00000000-0000-0000-0000-000000000004');
+    INSERT INTO taskflow.zhuge_ai_issue_setting(workspace_id,issue_id,enabled,engineer,updated_by)
+    VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003',true,'co',
+            '00000000-0000-0000-0000-000000000004');
+    UPDATE taskflow.zhuge_ai_issue_setting SET engineer='gem'
+      WHERE workspace_id='00000000-0000-0000-0000-000000000001'
+        AND issue_id='00000000-0000-0000-0000-000000000003';
 END
 $$;
 SQL
+
+if psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -c "UPDATE taskflow.zhuge_ai_issue_setting SET engineer='unknown'" \
+    >/dev/null 2>/dev/null; then
+    echo "unsupported AI engineer value was accepted" >&2
+    exit 1
+fi
+
+psql "$RUNTIME_URL" -v ON_ERROR_STOP=1 -Atc \
+    "SELECT enabled::text || ':' || engineer FROM taskflow.zhuge_ai_issue_setting" | grep -qx 'true:gem'
+
+if psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/597_zhuge_ai_settings.down.sql" \
+    >/dev/null 2>/dev/null; then
+    echo "settings rollback guard unexpectedly allowed dropping saved settings" >&2
+    exit 1
+fi
 
 if psql "$MIGRATOR_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_DIR/596_zhuge_ai_event_run_index.down.sql" \
     >/dev/null 2>/dev/null; then
@@ -162,4 +196,4 @@ fi
 psql "$TASKFLOW_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
     "SELECT CASE WHEN to_regclass('taskflow.zhuge_ai_event_run') IS NOT NULL THEN 'rollback-guard-pass' ELSE 'rollback-guard-fail' END" \
     | grep -Fx rollback-guard-pass
-echo "TaskFlow AI migration integration: PASS (isolated PostgreSQL, migrator install, runtime ACL, idempotency, rollback guard)"
+echo "TaskFlow AI migration integration: PASS (isolated PostgreSQL, migrator install, runtime ACL, idempotency, settings persistence, rollback guard)"

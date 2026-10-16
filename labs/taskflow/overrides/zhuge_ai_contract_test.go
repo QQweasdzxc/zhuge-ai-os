@@ -52,6 +52,19 @@ func TestNativeStatusAndTaskIdentityContract(t *testing.T) {
 	}
 }
 
+func TestEngineerAllowlist(t *testing.T) {
+	for _, engineer := range []string{"co", "gem"} {
+		if !ValidEngineer(engineer) {
+			t.Errorf("configured engineer %q rejected", engineer)
+		}
+	}
+	for _, engineer := range []string{"", "codex", "gemini", "admin", "Co"} {
+		if ValidEngineer(engineer) {
+			t.Errorf("unsupported engineer %q accepted", engineer)
+		}
+	}
+}
+
 func TestSignedWebhookDeliveryContract(t *testing.T) {
 	for _, id := range []string{"2f7d9c65-9a5f-4a22-bf8c-0fbb4f61cd42", "A12B3456-7890-4ABC-8DEF-1234567890AB"} {
 		if !ValidGitHubDeliveryID(id) {

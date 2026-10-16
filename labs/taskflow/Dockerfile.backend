@@ -61,6 +61,8 @@ COPY labs/taskflow/overrides/migrations/595_zhuge_ai_run_issue_history_index.up.
 COPY labs/taskflow/overrides/migrations/595_zhuge_ai_run_issue_history_index.down.sql /taskflow-ai-dispatch/migrations/595_zhuge_ai_run_issue_history_index.down.sql
 COPY labs/taskflow/overrides/migrations/596_zhuge_ai_event_run_index.up.sql /taskflow-ai-dispatch/migrations/596_zhuge_ai_event_run_index.up.sql
 COPY labs/taskflow/overrides/migrations/596_zhuge_ai_event_run_index.down.sql /taskflow-ai-dispatch/migrations/596_zhuge_ai_event_run_index.down.sql
+COPY labs/taskflow/overrides/migrations/597_zhuge_ai_settings.up.sql /taskflow-ai-dispatch/migrations/597_zhuge_ai_settings.up.sql
+COPY labs/taskflow/overrides/migrations/597_zhuge_ai_settings.down.sql /taskflow-ai-dispatch/migrations/597_zhuge_ai_settings.down.sql
 COPY labs/taskflow/patches/apply-taskflow-ai-dispatch.py /tmp/apply-taskflow-ai-dispatch.py
 COPY labs/taskflow/tests/test_zhuge_ai_native_dispatch_overlay.py /tmp/test_zhuge_ai_native_dispatch_overlay.py
 RUN TASKFLOW_AI_DISPATCH_REPO=/ \

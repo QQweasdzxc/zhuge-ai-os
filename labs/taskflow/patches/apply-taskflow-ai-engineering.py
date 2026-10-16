@@ -14,7 +14,7 @@ COMMON = "packages/views/common"
 API_INDEX = "packages/core/api/index.ts"
 MODULES = (
     "taskflow-ai-engineering-policy.ts",
-    "taskflow-ai-preview-store.ts",
+    "taskflow-ai-settings-store.ts",
     "taskflow-ai-engineering.tsx",
     "taskflow-ai-engineering-policy.test.ts",
     "taskflow-ai-run-readback.tsx",
@@ -49,7 +49,7 @@ def patch_issue(text: str) -> str:
         '      <PluginPanelSection issueId={issue.id} />\n'
         '      {/* TASKFLOW_AI_EXECUTION_V1: optional panel, not an assignee or Wakeup. */}\n'
         '      <TaskFlowAIIssueSection workspaceId={wsId} projectId={issue.project_id}'
-        ' issueId={issue.id} />\n'
+        ' issueId={issue.id} canManage={currentUserRole === "owner" || currentUserRole === "admin"} />\n'
         '      <TaskFlowAIRunReadback workspaceId={wsId} issueId={issue.id}'
         ' issueRevision={issue.revision ?? 0} />',
         "native sidebar between Wakeups and PR")
@@ -65,7 +65,7 @@ def patch_project(text: str) -> str:
         "native project import")
     text = replace_exact(text,
         '      {/* Progress */}',
-        '      {/* TASKFLOW_AI_PROJECT_V1: ephemeral setting, default OFF. */}\n'
+        '      {/* TASKFLOW_AI_PROJECT_V1: persisted setting, default OFF. */}\n'
         '      <TaskFlowAIProjectSettings workspaceId={wsId} projectId={projectId}'
         ' canManage={isWorkspaceAdmin} />\n\n'
         '      {/* Progress */}',

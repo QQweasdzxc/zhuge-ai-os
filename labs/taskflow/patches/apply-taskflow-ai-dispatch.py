@@ -12,8 +12,14 @@ GITHUB = "server/internal/handler/github.go"
 ANCHOR = '\t\t\t\t\tr.Get("/", h.GetIssue)'
 NEW = (ANCHOR +
     '\n\t\t\t\t\t// Zhuge AI execution: native issue and human member authority.' +
+    '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetIssueAISettings)' +
+    '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutIssueAISettings)' +
     '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/runs", h.ZhugeAIListRuns)' +
     '\n\t\t\t\t\tr.With(handler.RequireHumanActor).Post("/zhuge-ai/approve", h.ZhugeAIApproveRun)')
+PROJECT_ANCHOR = '\t\t\t\tr.Route("/{id}", func(r chi.Router) {\n\t\t\t\t\tr.Get("/", h.GetProject)'
+PROJECT_NEW = (PROJECT_ANCHOR +
+    '\n\t\t\t\t\t\tr.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetProjectAISettings)' +
+    '\n\t\t\t\t\t\tr.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutProjectAISettings)')
 HANDLER_OVERLAYS = (
     "zhuge_ai_dispatch.go",
     "zhuge_github_webhook.go",
@@ -35,6 +41,8 @@ MIGRATIONS = (
     "595_zhuge_ai_run_issue_history_index.down.sql",
     "596_zhuge_ai_event_run_index.up.sql",
     "596_zhuge_ai_event_run_index.down.sql",
+    "597_zhuge_ai_settings.up.sql",
+    "597_zhuge_ai_settings.down.sql",
 )
 WEBHOOK_METHOD = "func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {"
 WEBHOOK_METHOD_RENAMED = "func (h *Handler) HandleGitHubWebhookNative(w http.ResponseWriter, r *http.Request) {"
@@ -52,6 +60,15 @@ def verify(text):
         raise ValueError("native member-authenticated issue scope missing")
     return True
 
+def verify_projects(text):
+    top = text.index('r.Route("/api/projects", func(r chi.Router) {')
+    route = text.index(PROJECT_ANCHOR, top)
+    if text.count(PROJECT_ANCHOR) != 1 or "GetProjectAISettings" in text:
+        raise ValueError("native project route changed, ambiguous or already patched")
+    if route - top > 1200:
+        raise ValueError("native project detail route is not inside /api/projects")
+    return True
+
 def verify_webhook(text, router):
     if text.count(WEBHOOK_METHOD) != 1 or WEBHOOK_METHOD_RENAMED in text:
         raise ValueError("GitHub webhook method changed, ambiguous or already wrapped")
@@ -65,6 +82,7 @@ def apply(root,overlays,migrations):
     router = root / ROUTE
     source = router.read_text()
     verify(source)
+    verify_projects(source)
     github = root / GITHUB
     github_source = github.read_text()
     verify_webhook(github_source, source)
@@ -77,7 +95,7 @@ def apply(root,overlays,migrations):
     for src,target in zip(sources,outputs):
         if not src.is_file() or target.exists():
             raise ValueError(f"missing overlay or duplicate patch target: {src}, {target}")
-    router.write_text(source.replace(ANCHOR,NEW,1).replace(WEBHOOK_ROUTE,WEBHOOK_ROUTE_PATCHED,1))
+    router.write_text(source.replace(ANCHOR,NEW,1).replace(PROJECT_ANCHOR,PROJECT_NEW,1).replace(WEBHOOK_ROUTE,WEBHOOK_ROUTE_PATCHED,1))
     github.write_text(github_source.replace(WEBHOOK_METHOD,WEBHOOK_METHOD_RENAMED,1))
     for src,target in zip(sources,outputs):
         target.parent.mkdir(parents=True,exist_ok=True)

@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/handler/taskflowcontract"
+	"github.com/multica-ai/multica/server/internal/util"
 )
 
 const zhugeAIRepo = "QQweasdzxc/zhuge-ai-os"
@@ -55,6 +56,205 @@ type zhugeAIEvent struct {
 	State     string    `json:"state"`
 	GitHubSHA *string   `json:"github_sha"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type zhugeAIProjectSettingRequest struct {
+	Enabled *bool `json:"enabled"`
+}
+
+type zhugeAIIssueSettingRequest struct {
+	Enabled  *bool   `json:"enabled"`
+	Engineer *string `json:"engineer"`
+}
+
+func decodeZhugeAISettings(w http.ResponseWriter, r *http.Request, target any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid AI engineering settings")
+		return false
+	}
+	var trailing any
+	if !errors.Is(decoder.Decode(&trailing), io.EOF) {
+		writeError(w, http.StatusBadRequest, "invalid or oversized AI engineering settings")
+		return false
+	}
+	return true
+}
+
+func validAISettingsIDs(projectID, workspaceID string) bool {
+	if _, err := util.ParseUUID(projectID); err != nil {
+		return false
+	}
+	if _, err := util.ParseUUID(workspaceID); err != nil {
+		return false
+	}
+	return true
+}
+
+// Project AI opt-in is stored separately from native Project data. Any member
+// may read it; only a workspace owner/admin may change it.
+func (h *Handler) GetProjectAISettings(w http.ResponseWriter, r *http.Request) {
+	projectID, workspaceID := chi.URLParam(r, "id"), h.resolveWorkspaceID(r)
+	if workspaceID == "" || !validAISettingsIDs(projectID, workspaceID) {
+		writeError(w, http.StatusBadRequest, "project and workspace identifiers are required")
+		return
+	}
+	if _, ok := h.requireWorkspaceMember(w, r, workspaceID, "project not found"); !ok {
+		return
+	}
+	if h.DB == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings authority not configured")
+		return
+	}
+	var enabled bool
+	err := h.DB.QueryRow(r.Context(), `
+		SELECT COALESCE(s.enabled, false)
+		FROM taskflow.project p
+		LEFT JOIN taskflow.zhuge_ai_project_setting s
+		  ON s.workspace_id=p.workspace_id AND s.project_id=p.id
+		WHERE p.id=$1::uuid AND p.workspace_id=$2::uuid`, projectID, workspaceID).Scan(&enabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings readback unavailable")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "engineer": "co"})
+}
+
+func (h *Handler) PutProjectAISettings(w http.ResponseWriter, r *http.Request) {
+	projectID, workspaceID := chi.URLParam(r, "id"), h.resolveWorkspaceID(r)
+	if workspaceID == "" || !validAISettingsIDs(projectID, workspaceID) {
+		writeError(w, http.StatusBadRequest, "project and workspace identifiers are required")
+		return
+	}
+	if _, ok := h.requireWorkspaceRole(w, r, workspaceID, "project not found", "owner", "admin"); !ok {
+		return
+	}
+	var req zhugeAIProjectSettingRequest
+	if !decodeZhugeAISettings(w, r, &req) {
+		return
+	}
+	if req.Enabled == nil {
+		writeError(w, http.StatusBadRequest, "enabled is required")
+		return
+	}
+	if h.DB == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings authority not configured")
+		return
+	}
+	var enabled bool
+	err := h.DB.QueryRow(r.Context(), `
+		INSERT INTO taskflow.zhuge_ai_project_setting
+		    (workspace_id,project_id,enabled,updated_by,updated_at)
+		SELECT p.workspace_id,p.id,$3,$4::uuid,now()
+		FROM taskflow.project p
+		WHERE p.id=$1::uuid AND p.workspace_id=$2::uuid
+		ON CONFLICT (workspace_id,project_id) DO UPDATE
+		SET enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,updated_at=now()
+		RETURNING enabled`, projectID, workspaceID, *req.Enabled, requestUserID(r)).Scan(&enabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings could not be saved")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "engineer": "co"})
+}
+
+// Issue AI opt-in is scoped to one native Issue. It never changes the human
+// assignee or issue lifecycle; Gem can be selected but remains non-dispatchable.
+func (h *Handler) GetIssueAISettings(w http.ResponseWriter, r *http.Request) {
+	issue, ok := h.loadIssueForUser(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+	if !issue.ProjectID.Valid {
+		writeError(w, http.StatusConflict, "project-linked TaskFlow issue required")
+		return
+	}
+	if h.DB == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings authority not configured")
+		return
+	}
+	var enabled bool
+	var engineer string
+	err := h.DB.QueryRow(r.Context(), `
+		SELECT COALESCE(s.enabled,false),COALESCE(s.engineer,'co')
+		FROM taskflow.issue i
+		LEFT JOIN taskflow.zhuge_ai_issue_setting s
+		  ON s.workspace_id=i.workspace_id AND s.issue_id=i.id
+		WHERE i.id=$1::uuid AND i.workspace_id=$2::uuid AND i.project_id IS NOT NULL`,
+		uuidToString(issue.ID), uuidToString(issue.WorkspaceID)).Scan(&enabled, &engineer)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings readback unavailable")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "engineer": engineer})
+}
+
+func (h *Handler) PutIssueAISettings(w http.ResponseWriter, r *http.Request) {
+	issue, ok := h.loadIssueForUser(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+	workspaceID := uuidToString(issue.WorkspaceID)
+	if _, ok := h.requireWorkspaceRole(w, r, workspaceID, "issue not found", "owner", "admin"); !ok {
+		return
+	}
+	if !issue.ProjectID.Valid {
+		writeError(w, http.StatusConflict, "project-linked TaskFlow issue required")
+		return
+	}
+	var req zhugeAIIssueSettingRequest
+	if !decodeZhugeAISettings(w, r, &req) {
+		return
+	}
+	if req.Enabled == nil || req.Engineer == nil || !taskflowcontract.ValidEngineer(*req.Engineer) {
+		writeError(w, http.StatusBadRequest, "enabled and a supported engineer are required")
+		return
+	}
+	if h.DB == nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings authority not configured")
+		return
+	}
+	var enabled bool
+	var engineer string
+	err := h.DB.QueryRow(r.Context(), `
+		INSERT INTO taskflow.zhuge_ai_issue_setting
+		    (workspace_id,issue_id,enabled,engineer,updated_by,updated_at)
+		SELECT i.workspace_id,i.id,$3,$4,$5::uuid,now()
+		FROM taskflow.issue i
+		WHERE i.id=$1::uuid AND i.workspace_id=$2::uuid AND i.project_id IS NOT NULL
+		  AND EXISTS (SELECT 1 FROM taskflow.project p WHERE p.id=i.project_id AND p.workspace_id=i.workspace_id)
+		ON CONFLICT (workspace_id,issue_id) DO UPDATE
+		SET enabled=EXCLUDED.enabled,engineer=EXCLUDED.engineer,
+		    updated_by=EXCLUDED.updated_by,updated_at=now()
+		RETURNING enabled,engineer`, uuidToString(issue.ID), workspaceID, *req.Enabled, *req.Engineer,
+		requestUserID(r)).Scan(&enabled, &engineer)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "issue not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "AI settings could not be saved")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store, private")
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "engineer": engineer})
 }
 
 func validateZhugeAIApprove(req zhugeAIApproveRequest, revision int64) string {
@@ -206,6 +406,30 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.DB == nil {
 		writeError(w, http.StatusServiceUnavailable, "AI approval database unavailable")
+		return
+	}
+	var settingsReady bool
+	settingsErr := h.DB.QueryRow(r.Context(), `
+		SELECT COALESCE(ps.enabled,false) AND COALESCE(iset.enabled,false)
+		       AND COALESCE(iset.engineer,'co')='co'
+		FROM taskflow.issue i
+		LEFT JOIN taskflow.zhuge_ai_project_setting ps
+		  ON ps.workspace_id=i.workspace_id AND ps.project_id=i.project_id
+	LEFT JOIN taskflow.zhuge_ai_issue_setting iset
+		  ON iset.workspace_id=i.workspace_id AND iset.issue_id=i.id
+		WHERE i.id=$1::uuid AND i.workspace_id=$2::uuid AND i.project_id=$3::uuid
+		  AND EXISTS (SELECT 1 FROM taskflow.project p WHERE p.id=i.project_id AND p.workspace_id=i.workspace_id)`,
+		uuidToString(issue.ID), workspaceID, uuidToString(issue.ProjectID)).Scan(&settingsReady)
+	if settingsErr != nil {
+		if errors.Is(settingsErr, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "issue not found")
+		} else {
+			writeError(w, http.StatusServiceUnavailable, "AI settings authority unavailable")
+		}
+		return
+	}
+	if !settingsReady {
+		writeError(w, http.StatusConflict, "project and task AI opt-in with Co selection required")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)

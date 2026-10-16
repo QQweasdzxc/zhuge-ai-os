@@ -26,6 +26,10 @@ func StatusEligible(status string) bool {
 	}
 }
 
+func ValidEngineer(engineer string) bool {
+	return engineer == "co" || engineer == "gem"
+}
+
 func ClosingMarker(identifier string) string {
 	if !taskIdentifierPattern.MatchString(identifier) {
 		return ""

@@ -37,8 +37,12 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             migrations=tmp/"staged_migrations"
             mod.apply(tmp,overlays,migrations)
             after=router.read_text()
+            self.assertIn('r.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetIssueAISettings)',after)
+            self.assertIn('r.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutIssueAISettings)',after)
             self.assertIn('r.With(handler.RequireHumanActor).Get("/zhuge-ai/runs"',after)
             self.assertIn('r.With(handler.RequireHumanActor).Post("/zhuge-ai/approve"',after)
+            self.assertIn('r.With(handler.RequireHumanActor).Get("/zhuge-ai/settings", h.GetProjectAISettings)',after)
+            self.assertIn('r.With(handler.RequireHumanActor).Put("/zhuge-ai/settings", h.PutProjectAISettings)',after)
             self.assertIn(mod.WEBHOOK_ROUTE_PATCHED,after)
             self.assertIn('r.Use(middleware.RequireWorkspaceMember(queries))',after)
             self.assertTrue((migrations/"591_zhuge_ai_engineering_run.up.sql").exists())
@@ -46,6 +50,9 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertIn("CREATE TABLE github_webhook_delivery",(migrations/"591_zhuge_ai_engineering_run.up.sql").read_text())
             for name in mod.MIGRATIONS:
                 self.assertTrue((migrations/name).is_file(),name)
+            dockerfile=(REPO/"labs/taskflow/Dockerfile.backend").read_text()
+            self.assertIn("597_zhuge_ai_settings.up.sql",dockerfile)
+            self.assertIn("597_zhuge_ai_settings.down.sql",dockerfile)
             self.assertTrue((tmp/"server/internal/handler/zhuge_github_webhook.go").exists())
             contract=(tmp/"server/internal/handler/taskflowcontract")
             self.assertTrue((contract/"zhuge_ai_contract.go").exists())
@@ -58,6 +65,11 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertIn("server/internal/handler/taskflowcontract",dispatch)
             self.assertIn("server/internal/handler/taskflowcontract",webhook)
             self.assertIn("taskflowcontract.ClosingMarker(taskIdentifier)",dispatch)
+            self.assertIn("func (h *Handler) GetProjectAISettings",dispatch)
+            self.assertIn("func (h *Handler) PutProjectAISettings",dispatch)
+            self.assertIn("func (h *Handler) GetIssueAISettings",dispatch)
+            self.assertIn("func (h *Handler) PutIssueAISettings",dispatch)
+            self.assertIn("project and task AI opt-in with Co selection required",dispatch)
             native_github=(VENDOR/mod.GITHUB).read_text()
             closing_pattern=re.search(r"var closingIdentifierRe = regexp.MustCompile\(\s*`([^`]+)`",native_github)
             self.assertIsNotNone(closing_pattern)
@@ -97,15 +109,23 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
         for name in mod.MIGRATIONS:
             sql=(MIGRATIONS/name).read_text()
             self.assertNotRegex(sql,r"(?i)\b(?:public|lab_multica|cron|auth|storage|realtime|private)\s*\.",name)
-            if name.endswith(".up.sql") and int(name.split("_",1)[0]) >= 592:
+            version=int(name.split("_",1)[0])
+            if name.endswith(".up.sql") and 592 <= version <= 596:
                 statement=sql.strip()
                 self.assertEqual(statement.count(";"),1,name)
                 self.assertRegex(statement,r"(?i)^CREATE (?:UNIQUE )?INDEX ")
                 self.assertNotIn("CONCURRENTLY",statement,name)
-            if name.endswith(".down.sql") and int(name.split("_",1)[0]) >= 592:
+            if name.endswith(".down.sql") and 592 <= version <= 596:
                 statement=sql
                 self.assertIn("TaskFlow AI Run evidence exists",statement,name)
                 self.assertNotIn("CONCURRENTLY",statement,name)
+            if version == 597 and name.endswith(".up.sql"):
+                self.assertIn("CREATE TABLE zhuge_ai_project_setting",sql)
+                self.assertIn("CREATE TABLE zhuge_ai_issue_setting",sql)
+                self.assertIn("GRANT UPDATE (enabled, engineer, updated_by, updated_at)",sql)
+                self.assertIn("REVOKE ALL ON TABLE",sql)
+            if version == 597 and name.endswith(".down.sql"):
+                self.assertIn("AI engineering settings exist",sql)
 
     def test_rejects_missing_authenticated_issue_scope(self):
         vendor=(VENDOR/mod.ROUTE).read_text()
