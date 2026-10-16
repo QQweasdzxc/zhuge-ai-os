@@ -52,7 +52,8 @@ function safeAdapters(overrides={}){
   const args={
     snapshot:ready(),workspaceId:WORKSPACE,projectId:PROJECT,
     expectedTaskflowRevision:7,readTaskflowIssue:nativeReader(),
-    authorizePM:async()=>true,verifyApprovalRef:async()=>true,approvalId:APPROVAL,
+    authorizePM:async()=>true,verifyApprovalRef:async()=>true,
+    verifyZeroAdditionalCost:async()=>true,approvalId:APPROVAL,
     now:"2026-10-15T10:01:00Z",leaseId:"unique-trusted-claim-id-123",dispatchId:DISPATCH,
     leaseUntil:"2026-10-15T11:01:00Z",
     verifyGitHead:async()=>true,verifyWorkerStopped:async()=>true,
@@ -188,6 +189,23 @@ test("comment failure AFTER CAS is quarantined; no retry is attempted",async()=>
   const {args}=safeAdapters({launchGithubMention:adapter});
   await assert.rejects(dispatchTaskflowCodex(args),/needs reconciliation/);
   assert.equal(attempts,1);
+});
+
+test("cost check is independent of PM approval and blocks any GitHub dispatch",async()=>{
+  for(const check of [null,async()=>false,async()=>{throw Error("quota unknown")}]) {
+    const {args,getPosts}=safeAdapters({verifyZeroAdditionalCost:check});
+    await assert.rejects(dispatchTaskflowCodex(args));
+    assert.equal(getPosts(),0);
+  }
+});
+test("cost may be revoked AFTER CAS: hold the claim, do not launch or retry",async()=>{
+  let count=0;
+  const {args,getPosts}=safeAdapters({
+    verifyZeroAdditionalCost:async({stage})=>{count++;return stage==="preclaim";}
+  });
+  await assert.rejects(dispatchTaskflowCodex(args),/needs reconciliation/);
+  assert.equal(count,2);
+  assert.equal(getPosts(),0);
 });
 
 test("mention text preview is deterministic and does not contain token or TaskFlow private context",()=>{
