@@ -112,9 +112,9 @@ export function TaskFlowAIRunReadback({ workspaceId, issueId, issueRevision, ena
         const taskLabel = result.taskflow_identifier ?? "TaskFlow 任務";
         setApprovalMessage(dispatch
           ? taskLabel + (result.dispatch_started ? " 已收到 Codex 接單確認。"
-            : result.dispatch_outcome_unknown ? "派工連線結果不確定，系統不會自動重送；等待 GitHub 回呼核對。"
-            : result.dispatch_request_posted ? "已送出 GitHub 派工要求；等待 Codex 官方接單確認。"
-            : "派工受阻：" + (result.provider_status ?? result.state ?? "未知狀態") + "。")
+            : result.dispatch_outcome_unknown ? " 派工連線結果不確定，系統不會自動重送；等待 GitHub 回呼核對。"
+            : result.dispatch_request_posted ? " 已送出 GitHub 派工要求；等待 Codex 官方接單確認。"
+            : " 派工受阻：" + (result.provider_status ?? result.state ?? "未知狀態") + "。")
           : taskLabel + (result.state === "expired" ? " 的核准已逾期；Codex 未接單。" : " 已記錄 PM 核准；雲端派工目前未啟用。"));
         requestKey.current = null;
         setReload(value => value + 1);
