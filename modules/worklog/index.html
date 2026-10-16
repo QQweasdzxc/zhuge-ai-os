@@ -249,5 +249,11 @@
         });
       })();
     </script>
+    <script type="module">
+      // One-time explicit Pages TaskFlow login handoff. Existing WorkLog/OAuth
+      // continues to own authentication and the storage on this exact origin.
+      import {startReturnMonitor} from "../../labs/taskflow/pages-client/login-return.mjs";
+      startReturnMonitor();
+    </script>
   </body>
 </html>
