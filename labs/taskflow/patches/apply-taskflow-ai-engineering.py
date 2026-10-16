@@ -15,6 +15,7 @@ MODULES = (
     "taskflow-ai-engineering-policy.ts",
     "taskflow-ai-preview-store.ts",
     "taskflow-ai-engineering.tsx",
+    "taskflow-ai-run-readback.tsx",
     "taskflow-ai-engineering-policy.test.ts",
 )
 
