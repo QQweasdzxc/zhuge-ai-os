@@ -20,6 +20,13 @@ jobs:
           node --test tests/taskflow-pages-client-api.test.mjs tests/taskflow-pages-feasibility.test.js
           node --check labs/taskflow/pages-client/taskflow-api.mjs
           node --check labs/taskflow/pages-client/app.mjs
+      - name: Install Playwright test fixture dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Browser QA for real API contract and unchanged URL
+        run: |
+          BROWSER_EXECUTABLE="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')" node --test tests/taskflow-pages-client-browser.test.mjs
       - name: Assert prototype is not wired to production root or deploy workflow
         run: |
           node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8');if(!s.includes('window.location.replace(\"https://zhuge-taskflow-web.onrender.com/\")'))process.exit(1);const p=fs.readFileSync('labs/taskflow/pages-client/index.html','utf8');if(!p.includes('./app.mjs'))process.exit(1);"
