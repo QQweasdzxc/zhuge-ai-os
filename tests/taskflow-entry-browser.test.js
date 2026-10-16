@@ -14,45 +14,55 @@ const cors = {
   "access-control-allow-methods": "GET,POST,OPTIONS"
 };
 
-test("canonical AIOS URL always opens the official TaskFlow home and preserves explicit AIOS routes on desktop and mobile", async t => {
-  const browser = await launch(t);
-  const root = await fixtureURL(path.join(ROOT, "index.html"));
-  const official = "https://zhuge-taskflow-web.onrender.com/";
-  const scenarios = [
-    { name: "desktop", viewport: { width: 1440, height: 900 } },
-    { name: "mobile", viewport: { width: 390, height: 844 } }
-  ];
+test("canonical AIOS URL serves the real authenticated TaskFlow Dashboard without moving away from Pages",async t=>{
+  const browser=await launch(t);
+  const root=await fixtureURL(path.join(ROOT,"index.html"));
+  const officialApi="https://zhuge-taskflow-api.onrender.com";
+  for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
+    const anonymous=await browser.newPage({viewport});
+    await anonymous.goto(root,{waitUntil:"load"});
+    await anonymous.getByText("需要先登入 Zhuge AI OS").waitFor({timeout:7000});
+    assert.equal(anonymous.url(),root,"anonymous homepage does not redirect");
+    assert.equal(await anonymous.locator(".tf-issue").count(),0,"no fake tasks");
+    await anonymous.close();
 
-  for (const scenario of scenarios) {
-    for (const authenticated of [false, true]) {
-      const page = await browser.newPage({ viewport: scenario.viewport });
-      if (authenticated) {
-        await page.addInitScript(() => localStorage.setItem(
-          "zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })
-        ));
-      }
-      await page.route("https://zhuge-taskflow-web.onrender.com/**", route =>
-        route.fulfill({ status: 200, contentType: "text/html",
-          body: "<!doctype html><title>Official TaskFlow</title><main>TaskFlow</main>" })
-      );
-      await page.goto(root, { waitUntil: "load" });
-      await page.waitForURL(url => url.origin === new URL(official).origin && url.pathname === "/", {timeout: 5000});
-      assert.equal(page.url(), official, scenario.name + ": root opens official TaskFlow directly");
-      assert.equal(await page.getByText("TaskFlow", {exact: true}).isVisible(), true);
-      assert.ok((await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)),
-        scenario.name + ": official TaskFlow home fits viewport");
-      await page.close();
-    }
+    const page=await browser.newPage({viewport});
+    await page.addInitScript(()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",
+      JSON.stringify({access_token:"test-pages-supabase-session"})));
+    const apiCalls=[];
+    await page.route(officialApi+"/**",route=>{
+      const request=route.request(),u=new URL(request.url());
+      apiCalls.push({path:u.pathname,headers:request.headers()});
+      const headers={"content-type":"application/json","access-control-allow-origin":"*",
+        "access-control-allow-headers":"authorization,content-type,x-workspace-slug",
+        "access-control-allow-methods":"GET,POST,OPTIONS"};
+      if(request.method()==="OPTIONS")return route.fulfill({status:204,headers});
+      let body;
+      if(u.pathname==="/auth/zhuge")body={token:"taskflow-in-memory-jwt"};
+      else if(u.pathname==="/api/workspaces")body=[{id:"ws1",slug:"pm-team",name:"PM Team"}];
+      else if(u.pathname==="/api/issues")body={issues:[{id:"abc",title:"TaskFlow source issue",identifier:"ZG-1",status:"todo"}],total:1};
+      else if(u.pathname==="/api/projects")body={projects:[]};
+      else if(u.pathname==="/api/issue-statuses")body={statuses:[]};
+      else return route.fulfill({status:404,headers,body:"{}"});
+      return route.fulfill({status:200,headers,body:JSON.stringify(body)});
+    });
+    await page.goto(root,{waitUntil:"load"});
+    await page.getByText("TaskFlow source issue").waitFor({timeout:8000});
+    assert.equal(page.url(),root,"authenticated Dashboard origin stays on GitHub Pages");
+    assert.equal(apiCalls.find(x=>x.path==="/api/issues").headers["x-workspace-slug"],"pm-team");
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"responsive homepage");
+    await page.close();
 
-    const deepLinkPage = await browser.newPage({ viewport: scenario.viewport });
-    await deepLinkPage.addInitScript(() => localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })));
-    await deepLinkPage.route("**/modules/worklog/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>WorkLog</title><main>WorkLog</main>" }));
-    await deepLinkPage.goto(root + "?app=1&workspace=management", { waitUntil: "domcontentloaded" });
-    await deepLinkPage.waitForURL(url => url.pathname.endsWith("/modules/worklog/"), { timeout: 5000 });
-    const preserved = new URL(deepLinkPage.url());
-    assert.equal(preserved.searchParams.get("app"), "1");
-    assert.equal(preserved.searchParams.get("workspace"), "management");
-    await deepLinkPage.close();
+    const explicit=await browser.newPage({viewport});
+    await explicit.route("**/modules/worklog/**",route=>route.fulfill({
+      status:200,contentType:"text/html",body:"<!doctype html><title>WorkLog</title>"
+    }));
+    await explicit.goto(root+"?app=1&workspace=management",{waitUntil:"domcontentloaded"});
+    await explicit.waitForURL(url=>url.pathname.endsWith("/modules/worklog/"),{timeout:6000});
+    const finalUrl=new URL(explicit.url());
+    assert.equal(finalUrl.searchParams.get("workspace"),"management");
+    assert.equal(finalUrl.searchParams.get("app"),"1");
+    await explicit.close();
   }
 });
 
