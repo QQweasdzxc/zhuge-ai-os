@@ -35,21 +35,21 @@
           return;
         }
 
-        // The canonical GitHub Pages root is a public landing page, even if
-        // an old or valid Zhuge session exists in browser storage. Never
-        // force visitors into TaskFlow based solely on stale localStorage.
-        // The explicit Open TaskFlow / Open AI OS links own that navigation.
+        // Canonical product entry: always open the ONE official TaskFlow
+        // website, regardless of any stale GitHub Pages localStorage.
+        // Keep explicit AI OS links and OAuth callbacks in their own paths.
+        window.location.replace("https://zhuge-taskflow-web.onrender.com/");
       })();
     </script>
   </head>
   <body>
     <div id="public-home">
       <header class="public-header">
-        <a class="brand" href="./" aria-label="Zhuge AI OS 首頁">
+        <a class="brand" href="https://zhuge-taskflow-web.onrender.com/" aria-label="TaskFlow 正式首頁">
           <img class="brand-mark" src="shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS logo">
           <span><strong>Zhuge AI OS</strong><small>by Mr. KM</small></span>
         </a>
-        <a class="header-link" href="labs/taskflow/">Open TaskFlow</a>
+        <a class="header-link" href="https://zhuge-taskflow-web.onrender.com/">Open TaskFlow</a>
       </header>
 
       <main>
@@ -61,7 +61,7 @@
             <p class="hero-body">Open TaskFlow for projects and work. The existing AI OS modules remain available from Apps, with Google Sign-In and Google Drive permissions handled by their original flows.</p>
             <p class="hero-local">Google Sign-In is used only for authentication and session continuity. No background scanning, automatic synchronization, automatic file collection, or data selling.</p>
             <div class="hero-actions">
-              <a class="button primary" href="labs/taskflow/">Open TaskFlow</a>
+              <a class="button primary" href="https://zhuge-taskflow-web.onrender.com/">Open TaskFlow</a>
               <a class="button secondary" href="modules/worklog/?app=1&amp;workspace=dashboard">Open AI OS</a>
             </div>
           </div>
