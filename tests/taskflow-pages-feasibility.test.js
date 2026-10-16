@@ -1,12 +1,14 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const {assess}=require("../tools/taskflow-pages-feasibility");
-test("current redirect-only root is not mislabeled complete native TaskFlow dashboard",()=>{
+test("home-only native TaskFlow candidate is implemented without expanding to inner pages",()=>{
  const r=assess();
- assert.equal(r.status,"BLOCKED_NOT_READY");
- assert.equal(r.gates["canonical-root-preserves-pages-origin"],false);
- assert.equal(r.gates["full-taskflow-client-available"],false);
+ assert.equal(r.scope,"HOME_ONLY");
+ assert.equal(r.status,"HOME_CANDIDATE_READY_FOR_RUNTIME_QA");
+ for(const [name,pass] of Object.entries(r.gates))assert.equal(pass,true,name);
+ assert.equal(r.deploymentAllowed,false,"release requires published runtime QA and PM acceptance");
+ assert.equal(r.pmRuntimeQARequired,true);
+ assert.equal(r.otherPagesOutsideScope,true);
  assert.equal(r.githubAppAllowed,false);
- assert.equal(r.deploymentAllowed,false);
  assert.equal(r.taskflowLiveDispatchAllowed,false);
 });
