@@ -19,7 +19,7 @@ describe("persisted TaskFlow AI settings", () => {
       .mockResolvedValueOnce(response(200, { enabled: false, engineer: "co" }))
       .mockResolvedValueOnce(response(200, { enabled: true, engineer: "co" }))
       .mockResolvedValueOnce(response(200, { enabled: false, engineer: "co" }))
-      .mockResolvedValueOnce(response(200, { enabled: true, engineer: "gem" }));
+      .mockResolvedValueOnce(response(200, { enabled: false, engineer: "gem" }));
     vi.stubGlobal("fetch", fetchMock);
 
     const project = renderHook(() => useTaskFlowAIProjectSettings(
@@ -32,7 +32,7 @@ describe("persisted TaskFlow AI settings", () => {
       "00000000-0000-0000-0000-000000000010", "00000000-0000-0000-0000-000000000030"));
     await waitFor(() => expect(issue.result.current.phase).toBe("ready"));
     await act(async () => expect(await issue.result.current.setEngineer("gem")).toBe(true));
-    expect(issue.result.current).toMatchObject({ enabled: true, engineer: "gem", phase: "ready" });
+    expect(issue.result.current).toMatchObject({ enabled: false, engineer: "gem", phase: "ready" });
 
     const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
     expect(calls.map(([url, init]) => [new URL(url).pathname, init.method])).toEqual([
@@ -47,7 +47,7 @@ describe("persisted TaskFlow AI settings", () => {
       expect(url).not.toMatch(/token|jwt/i);
     }
     expect(JSON.parse(String(calls[1][1].body))).toEqual({ enabled: true, engineer: "co" });
-    expect(JSON.parse(String(calls[3][1].body))).toEqual({ enabled: true, engineer: "gem" });
+    expect(JSON.parse(String(calls[3][1].body))).toEqual({ enabled: false, engineer: "gem" });
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
