@@ -39,7 +39,7 @@ function errMessage(error) {
 function fail(error) {
  setStatus(errMessage(error),"error");
  refs.meta.textContent="資料讀取失敗，未顯示模擬資料。";
- if(error.code==="UNAUTHORIZED")refs.login.hidden=false;
+ if(["UNAUTHORIZED","SIGN_IN_REQUIRED","AUTH_REQUIRED"].includes(error?.code))refs.login.hidden=false;
 }
 function routeFor({section="issues",issueId=null}={}) {
  const u=new URL(location.href);
