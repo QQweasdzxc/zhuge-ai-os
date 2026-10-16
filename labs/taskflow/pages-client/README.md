@@ -26,6 +26,15 @@
 `tests/taskflow-pages-native-client.test.mjs` verifies all data is mocked only **inside CI tests**, never in user runtime. Workflow additionally checks production anonymous OPTIONS CORS live without using private keys.
 This is **not the completed Dashboard and is not deployed**.
 
+## Source milestone A2 — implemented and tested (not deployed)
+`taskflow-pages-navigation.mjs` supplies a Pages-origin-only native navigation
+adapter with the Dashboard at the exact root URL; workspace / issue / settings
+deep-links remain on the same github.io host through hash routes. Handles browser
+back, share links, new tab and refresh; rejects raw and percent-encoded dot
+traversal before WHATWG URL path normalization. Offline native-route tests
+validate hostile URLs as well as valid ZG-6 issue deep links. This is a route
+adapter, **not** the native React Dashboard.
+
 ## Milestone B — native view SPA (pending)
 - Build a Vite/browser React host against exact `third_party/multica` source pinned at SHA `8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec`, using shared `@multica/core`, `@multica/ui`, `@multica/views` and native token-mode `CoreProvider`.
 - Adopt React Router with Pages-safe base/hash navigation: root remains EXACT `/zhuge-ai-os/` for Dashboard; hash routes can carry issue/settings destinations and must survive hard refresh.
