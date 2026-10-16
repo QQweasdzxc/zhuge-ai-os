@@ -14,32 +14,35 @@ const cors = {
   "access-control-allow-methods": "GET,POST,OPTIONS"
 };
 
-test("AIOS home opens TaskFlow for authenticated users and keeps explicit AIOS routes on desktop and mobile", async t => {
+test("canonical AIOS URL always opens the official TaskFlow home and preserves explicit AIOS routes on desktop and mobile", async t => {
   const browser = await launch(t);
   const root = await fixtureURL(path.join(ROOT, "index.html"));
+  const official = "https://zhuge-taskflow-web.onrender.com/";
   const scenarios = [
     { name: "desktop", viewport: { width: 1440, height: 900 } },
     { name: "mobile", viewport: { width: 390, height: 844 } }
   ];
 
   for (const scenario of scenarios) {
-    const publicPage = await browser.newPage({ viewport: scenario.viewport });
-    await publicPage.goto(root, { waitUntil: "load" });
-    assert.equal(new URL(publicPage.url()).pathname, new URL(root).pathname, `${scenario.name}: unauthenticated public home remains available`);
-    assert.equal(await publicPage.getByRole("link", { name: "TaskFlow home" }).getAttribute("href"), "labs/taskflow/");
-    assert.equal(await publicPage.getByRole("link", { name: "Open TaskFlow" }).first().getAttribute("href"), "labs/taskflow/");
-    const publicLayout = await publicPage.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
-    assert.ok(publicLayout.scrollWidth <= publicLayout.width, `${scenario.name}: ${JSON.stringify(publicLayout)}`);
-    await publicPage.close();
-
-    const authenticatedPage = await browser.newPage({ viewport: scenario.viewport });
-    await authenticatedPage.addInitScript(() => localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })));
-    await authenticatedPage.route("**/labs/taskflow/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>TaskFlow</title><main>TaskFlow entry</main>" }));
-    await authenticatedPage.goto(root, { waitUntil: "domcontentloaded" });
-    await authenticatedPage.waitForURL(url => url.pathname.endsWith("/labs/taskflow/"), { timeout: 5000 });
-    assert.equal(new URL(authenticatedPage.url()).search, "");
-    assert.equal(new URL(authenticatedPage.url()).hash, "");
-    await authenticatedPage.close();
+    for (const authenticated of [false, true]) {
+      const page = await browser.newPage({ viewport: scenario.viewport });
+      if (authenticated) {
+        await page.addInitScript(() => localStorage.setItem(
+          "zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })
+        ));
+      }
+      await page.route("https://zhuge-taskflow-web.onrender.com/**", route =>
+        route.fulfill({ status: 200, contentType: "text/html",
+          body: "<!doctype html><title>Official TaskFlow</title><main>TaskFlow</main>" })
+      );
+      await page.goto(root, { waitUntil: "load" });
+      await page.waitForURL(url => url.origin === new URL(official).origin && url.pathname === "/", {timeout: 5000});
+      assert.equal(page.url(), official, scenario.name + ": root opens official TaskFlow directly");
+      assert.equal(await page.getByText("TaskFlow", {exact: true}).isVisible(), true);
+      assert.ok((await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)),
+        scenario.name + ": official TaskFlow home fits viewport");
+      await page.close();
+    }
 
     const deepLinkPage = await browser.newPage({ viewport: scenario.viewport });
     await deepLinkPage.addInitScript(() => localStorage.setItem("zhuge_ai_os_google_auth_session_v1", JSON.stringify({ access_token: "isolated-session" })));

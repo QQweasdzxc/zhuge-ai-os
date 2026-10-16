@@ -65,7 +65,8 @@ test("curated Pages payload restores the prior home behavior, Apps routes, and r
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
   assert.match(home, /id=["']taskflow-home-routing["']/);
-  assert.match(home, /href=["']labs\/taskflow\//);
+  assert.match(home, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
+  assert.match(home, /href=["']https:\/\/zhuge-taskflow-web\.onrender\.com\//);
   assert.match(home, /href=["']modules\/worklog\//);
   assert.ok(home.includes("Version " + manifest.version + " · Build " + manifest.build), "homepage Version and Build must match version.json");
   assertLocalReferencesResolve(home, "index.html");
