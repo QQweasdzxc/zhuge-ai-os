@@ -12,7 +12,6 @@ import (
  "net/http"
  "os"
  "regexp"
- "strings"
  "time"
 
  "github.com/go-chi/chi/v5"
@@ -104,7 +103,8 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter,r *http.Request) {
  default:
   writeError(w,http.StatusConflict,"issue status not eligible for dispatch approval");return
  }
- decoder:=json.NewDecoder(io.LimitReader(r.Body,4097))
+ r.Body=http.MaxBytesReader(w,r.Body,4096)
+ decoder:=json.NewDecoder(r.Body)
  decoder.DisallowUnknownFields()
  var req zhugeAIApproveRequest
  if err:=decoder.Decode(&req);err!=nil{
