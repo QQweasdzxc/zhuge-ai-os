@@ -120,8 +120,14 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter,r *http.Request) {
  // The supplied revision is rechecked INSIDE the SQL statement, closing
  // the gap between the native read and the approval write.
  userID:=requestUserID(r)
+ // Approval and immutable first audit event must commit atomically; never
+ // leave an active approval without its first PM-authenticated evidence.
+ if h.TxStarter==nil {writeError(w,http.StatusServiceUnavailable,"AI approval transaction unavailable");return}
+ tx,beginErr:=h.TxStarter.Begin(r.Context())
+ if beginErr!=nil {writeError(w,http.StatusServiceUnavailable,"AI approval transaction unavailable");return}
+ defer tx.Rollback(r.Context())
  var id string
- err:=h.DB.QueryRow(r.Context(),`
+ err:=tx.QueryRow(r.Context(),`
  INSERT INTO taskflow.zhuge_ai_engineering_run
  (workspace_id,issue_id,project_id,requested_by,engineer,issue_revision,
  github_repo,github_pr,checkpoint_sha,idempotency_key,state,approval_expires_at)
@@ -138,7 +144,7 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter,r *http.Request) {
    // Idempotency retry is allowed ONLY when all original immutable request
    // parameters match; otherwise conflict. No second approval is inserted.
    var previous zhugeAIRunListItem
-   same:=h.DB.QueryRow(r.Context(),`
+   same:=tx.QueryRow(r.Context(),`
     SELECT id::text,engineer,state,github_pr,checkpoint_sha,created_at,
       provider_thread_id,last_evidence_sha,revision
     FROM taskflow.zhuge_ai_engineering_run
@@ -167,12 +173,15 @@ func (h *Handler) ZhugeAIApproveRun(w http.ResponseWriter,r *http.Request) {
  }
  // Append-only audit; on write failure the approval remains, but cannot be
  // launched: dispatched processor must require this evidence to exist.
- _,auditErr:=h.DB.Exec(r.Context(),`
+ _,auditErr:=tx.Exec(r.Context(),`
  INSERT INTO taskflow.zhuge_ai_engineering_event(run_id,state,event_kind,github_sha)
  VALUES($1::uuid,'approved','pm_approved',$2)
  `,id,req.CheckpointSHA)
  if auditErr!=nil{
    writeError(w,http.StatusServiceUnavailable,"AI approval audit unavailable");return
+ }
+ if err:=tx.Commit(r.Context());err!=nil{
+   writeError(w,http.StatusServiceUnavailable,"AI approval transaction could not be committed");return
  }
  w.Header().Set("Cache-Control","no-store, private")
  writeJSON(w,http.StatusCreated,map[string]any{
