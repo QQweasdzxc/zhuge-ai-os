@@ -69,5 +69,9 @@ jobs:
         run: |
           cp labs/taskflow/pages-client/taskflow-pages-native-surface.tsx \
              third_party/multica/apps/desktop/src/renderer/src/pages/pages-native-dashboard-source.tsx
+          # The pinned vendor desktop tsconfig excludes imported src/shared
+          # declarations under composite=true. Expand that include only in CI;
+          # keep the immutable vendor snapshot untouched in the repository.
+          node -e 'const fs=require("node:fs");const p="third_party/multica/apps/desktop/tsconfig.web.json";const j=JSON.parse(fs.readFileSync(p,"utf8"));j.include.push("src/shared/**/*");fs.writeFileSync(p,JSON.stringify(j));'
           cd third_party/multica
           corepack pnpm --filter @multica/desktop exec tsc --noEmit -p tsconfig.web.json
