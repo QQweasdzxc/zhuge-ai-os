@@ -12,7 +12,7 @@ import { dispatchCloud } from "./dispatcher.mjs";
 
 export async function dispatchTaskflowCodex({
   snapshot,workspaceId,projectId,expectedTaskflowRevision,
-  readTaskflowIssue,authorizePM,verifyApprovalRef,approvalId,
+  readTaskflowIssue,authorizePM,verifyApprovalRef,verifyZeroAdditionalCost,approvalId,
   now,leaseId,leaseUntil,dispatchId,
   verifyGitHead,verifyWorkerStopped,claimWithCas,
   launchGithubMention
@@ -31,12 +31,28 @@ export async function dispatchTaskflowCodex({
       await verifyApprovalRef({approvalId,issue:nativeIssue,task:snapshot.task.id,sha:snapshot.source.head_sha}) !== true) {
     throw Error("taskflow codex: PM dispatch approval not verified");
   }
+  // Cost authority is separate from the per-task PM approval: no overage,
+  // credit purchase or pay-as-you-go fallback may be inferred from a UI flag.
+  if(typeof verifyZeroAdditionalCost!=="function" ||
+     await verifyZeroAdditionalCost({approvalId,issue:nativeIssue,task:snapshot.task.id,
+       sha:snapshot.source.head_sha,provider:"co",stage:"preclaim"})!==true){
+    throw Error("taskflow codex: zero additional spend not verified");
+  }
   return dispatchCloud({
     snapshot,actor:"co",now,leaseId,leaseUntil,dispatchId,
     verifyGitHead,verifyWorkerStopped,claimWithCas,
-    launchProvider:({manifest,sha,task,dispatchId:claimedDispatchId})=>launchGithubMention({
-      manifest,sha,task,approvalId,nativeIssue,githubIssue:snapshot.task.github_issue,
-      dispatchId:claimedDispatchId
-    })
+    launchProvider:async({manifest,sha,task,dispatchId:claimedDispatchId})=>{
+      // Repeat the cost authorization immediately before requesting Codex.
+      // If it changed after CAS, dispatchCloud quarantines the claim rather
+      // than retrying or launching a second provider.
+      if(await verifyZeroAdditionalCost({approvalId,issue:nativeIssue,task,
+          sha,provider:"co",stage:"prelaunch"})!==true){
+        throw Error("cost authority changed after claim");
+      }
+      return launchGithubMention({
+        manifest,sha,task,approvalId,nativeIssue,githubIssue:snapshot.task.github_issue,
+        dispatchId:claimedDispatchId
+      });
+    }
   });
 }
