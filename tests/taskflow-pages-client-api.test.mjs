@@ -1,0 +1,72 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {createTaskFlowPagesTransport,readZhugeAccessToken,TaskFlowPagesError} from "../labs/taskflow/pages-client/taskflow-api.mjs";
+
+const makeResponse=(status,data)=>({ok:status>=200&&status<300,status,
+  json:async()=>data});
+const ORIGINAL="https://zhuge-taskflow-api.onrender.com";
+function harness({token="zhuge-test-jwt",issue=false}={}){
+  const calls=[];
+  const fetcher=async (url,options)=>{
+    calls.push({url,options});
+    if(url===ORIGINAL+"/auth/zhuge")return makeResponse(200,{token:"taskflow-in-memory-jwt"});
+    if(url===ORIGINAL+"/api/workspaces")return makeResponse(200,[{id:"ws1",slug:"pm-team"}]);
+    if(url.startsWith(ORIGINAL+"/api/issues"))return makeResponse(200,issue?{issues:[],total:0}:{issues:[{id:"abc",title:"Real task"}],total:1});
+    if(url.startsWith(ORIGINAL+"/api/projects"))return makeResponse(200,{projects:[]});
+    return makeResponse(404,{});
+  };
+  return {calls,client:createTaskFlowPagesTransport({fetcher,getAccessToken:()=>token})};
+}
+test("reads legacy Zhuge session without writing it elsewhere",()=>{
+  const store={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:"test-token"}):null};
+  assert.equal(readZhugeAccessToken(store),"test-token");
+  assert.equal(readZhugeAccessToken({getItem:()=>"{invalid"}),null);
+});
+test("only trusted Render API and canonical Pages caller allowed",()=>{
+  assert.throws(()=>createTaskFlowPagesTransport({apiBase:"https://untrusted.example",getAccessToken:()=>""}),/Only the approved/);
+  assert.throws(()=>createTaskFlowPagesTransport({origin:"https://attacker.example",getAccessToken:()=>""}),/Unknown Pages/);
+});
+test("Zhuge token exchange is POSTed to trusted API, TF bearer stays in memory",async()=>{
+  const {calls,client}=harness();
+  assert.equal(client.connected(),false);
+  await client.connect();
+  assert.equal(client.connected(),true);
+  assert.equal(calls[0].url,ORIGINAL+"/auth/zhuge");
+  assert.equal(calls[0].options.method,"POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body),{access_token:"zhuge-test-jwt"});
+  assert.equal(calls[0].options.credentials,"omit");
+  assert.equal(calls[0].options.redirect,"error");
+  const ws=await client.listWorkspaces();
+  assert.equal(ws[0].slug,"pm-team");
+  assert.equal(calls[1].options.headers.Authorization,"Bearer taskflow-in-memory-jwt");
+  client.disconnect();
+  assert.equal(client.connected(),false);
+});
+test("workspace-scoped native API uses allowed slug in header, not a public query",async()=>{
+  const {calls,client}=harness();
+  await client.connect();
+  let list=await client.listIssues("pm-team",{limit:23,query:"release"});
+  assert.equal(list.issues[0].title,"Real task");
+  const c=calls[1];
+  assert.equal(c.options.headers["X-Workspace-Slug"],"pm-team");
+  assert.match(c.url,/\/api\/issues\?limit=23&offset=0&q=release/);
+  assert.doesNotMatch(c.url,/Bearer|taskflow-in-memory/);
+  assert.equal(c.options.headers.Authorization,"Bearer taskflow-in-memory-jwt");
+  await assert.rejects(()=>client.listIssues("a/b"),e=>e.code==="INVALID_WORKSPACE");
+});
+test("auth failure, cross-origin fetch and expired credentials fail closed",async()=>{
+  const noToken=harness({token:null}).client;
+  await assert.rejects(()=>noToken.connect(),e=>e.code==="SIGN_IN_REQUIRED");
+  const client=createTaskFlowPagesTransport({getAccessToken:()=> "sample",fetcher:async()=>{throw Error("network")}});
+  await assert.rejects(()=>client.connect(),e=>e.code==="NETWORK_OR_CORS");
+  const fetcher=async (url)=>url.endsWith("auth/zhuge")?makeResponse(200,{token:"session-mocked-token"}):makeResponse(401,{});
+  const c=createTaskFlowPagesTransport({getAccessToken:()=> "sample",fetcher});
+  await c.connect();
+  await assert.rejects(()=>c.listWorkspaces(),e=>e.code==="UNAUTHORIZED");
+  assert.equal(c.connected(),false);
+});
+test("root and task paths cannot be arbitrary URLs or path traversal",async()=>{
+  const {client}=harness();await client.connect();
+  await assert.rejects(()=>client.getIssue("pm-team","../../admin"),e=>e.code==="INVALID_IDENTIFIER");
+  await assert.rejects(()=>client.listIssues("https://bad"),e=>e.code==="INVALID_WORKSPACE");
+});
