@@ -35,20 +35,17 @@
           return;
         }
 
-        try {
-          const hasZhugeSession = ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]
-            .some(key => Boolean(window.localStorage.getItem(key)));
-          if (hasZhugeSession) window.location.replace(new URL("labs/taskflow/", root).href);
-        } catch {
-          // Keep the public home usable when browser storage is unavailable.
-        }
+        // The canonical GitHub Pages root is a public landing page, even if
+        // an old or valid Zhuge session exists in browser storage. Never
+        // force visitors into TaskFlow based solely on stale localStorage.
+        // The explicit Open TaskFlow / Open AI OS links own that navigation.
       })();
     </script>
   </head>
   <body>
     <div id="public-home">
       <header class="public-header">
-        <a class="brand" href="labs/taskflow/" aria-label="TaskFlow home">
+        <a class="brand" href="./" aria-label="Zhuge AI OS 首頁">
           <img class="brand-mark" src="shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS logo">
           <span><strong>Zhuge AI OS</strong><small>by Mr. KM</small></span>
         </a>
