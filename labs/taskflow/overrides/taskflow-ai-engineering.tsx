@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Bot, ChevronRight } from "lucide-react";
 import { DEFAULT_ENGINEER, evaluateAIExecution, type Engineer } from "./taskflow-ai-engineering-policy";
 import { useTaskFlowAIProjectPreview, useTaskFlowAICardPreview } from "./taskflow-ai-preview-store";
+import { TaskFlowAIRunReadback } from "./taskflow-ai-run-readback";
 
 /** Project-scoped, default-OFF preview. Not a persistent project preference. */
 export function TaskFlowAIProjectSettings({
@@ -82,7 +83,7 @@ export function TaskFlowAIIssueSection({
         <p>執行狀態：{gate.state === "NEEDS_PM_APPROVAL" ? "待 PM 核准" : "未配置／阻擋派工"}</p>
         <p>額度：未知　Cloud Run：尚未建立</p>
         <p>GitHub PR／Commit SHA／CI：尚未連接正式證據</p>
-        <p>工作紀錄：尚無經 TaskFlow 驗證的 Run 事件</p>
+        <TaskFlowAIRunReadback workspaceId={workspaceId} issueId={issueId} />
         <button type="button" disabled aria-disabled="true"
           className="w-full cursor-not-allowed rounded-md border p-2 text-muted-foreground">
           確認並派工（尚未開放）

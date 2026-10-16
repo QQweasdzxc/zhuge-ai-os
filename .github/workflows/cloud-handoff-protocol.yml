@@ -1,0 +1,50 @@
+name: Cloud Handoff Protocol (internal CI)
+
+on:
+  push:
+    branches:
+      - feature/taskflow-cloud-dispatch-v1-20261016
+    paths:
+      - "labs/cloud-handoff/**"
+      - "tests/cloud-handoff-*.test.mjs"
+      - ".github/workflows/cloud-handoff-protocol.yml"
+  pull_request:
+    paths:
+      - "labs/cloud-handoff/**"
+      - "tests/cloud-handoff-*.test.mjs"
+      - ".github/workflows/cloud-handoff-protocol.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-handoff-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-protocol:
+    name: Validate TF-to-GitHub-to-Co dispatch and official bot ACK reconciliation dry-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Protocol and dispatcher safety tests
+        run: node --test tests/cloud-handoff-contract.test.mjs tests/cloud-handoff-dispatcher.test.mjs tests/cloud-handoff-github-cas.test.mjs tests/cloud-handoff-taskflow-codex.test.mjs tests/cloud-handoff-codex-ack.test.mjs tests/cloud-handoff-production-readiness.test.mjs tests/cloud-handoff-provider-cost.test.mjs
+      - name: Validate Co quota-blocked checkpoint
+        run: |
+          node labs/cloud-handoff/cli.mjs validate labs/cloud-handoff/examples/issue45-quota-blocked.json
+          node labs/cloud-handoff/cli.mjs brief labs/cloud-handoff/examples/issue45-quota-blocked.json > cloud-handoff-issue45.md
+          node labs/cloud-handoff/cli.mjs gate labs/cloud-handoff/examples/issue45-quota-blocked.json > cloud-handoff-gate.json
+          grep -q '"ready": false' cloud-handoff-gate.json
+          grep -q 'Uncommitted files: \*\*4\*\*' cloud-handoff-issue45.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue45-handoff-readonly-${{ github.sha }}
+          path: |
+            cloud-handoff-issue45.md
+            cloud-handoff-gate.json
+          retention-days: 7
