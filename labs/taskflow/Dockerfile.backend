@@ -86,6 +86,42 @@ RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudge
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
  && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/handler -run '^TestZhugeAIApprovalInputGate \
+ && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
+ && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/maintenance ./cmd/maintenance
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_task_usage_hourly ./cmd/backfill_task_usage_hourly
+RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_codex_usage_cache ./cmd/backfill_codex_usage_cache
+
+FROM alpine:3.21 AS runtime
+RUN apk add --no-cache ca-certificates postgresql-client tzdata
+WORKDIR /app
+COPY --from=builder /src/server/bin/server .
+COPY --from=builder /src/server/bin/multica .
+COPY --from=builder /src/server/bin/migrate .
+COPY --from=builder /src/server/bin/maintenance .
+COPY --from=builder /src/server/bin/backfill_task_usage_hourly .
+COPY --from=builder /src/server/bin/backfill_codex_usage_cache .
+COPY --from=source /taskflow-staged-migrations/ ./migrations/
+COPY --from=source /src/LICENSE /src/NOTICE ./
+COPY labs/taskflow/overrides/taskflow-entrypoint.sh ./taskflow-entrypoint.sh
+COPY labs/taskflow/overrides/taskflow-migrate.sh ./taskflow-migrate.sh
+RUN sed -i 's/\r$//' taskflow-entrypoint.sh taskflow-migrate.sh \
+ && chmod +x taskflow-entrypoint.sh taskflow-migrate.sh
+ENV DISABLE_WORKSPACE_CREATION=true \
+    MULTICA_CLOUD_URL= \
+    DO_NOT_TRACK=1 \
+    ANALYTICS_DISABLED=true
+LABEL org.opencontainers.image.title="TaskFlow · Multica backend" \
+      org.opencontainers.image.vendor="Index Labs (Hong Kong) Limited" \
+      org.opencontainers.image.source="https://github.com/multica-ai/multica" \
+      org.opencontainers.image.revision="8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec"
+EXPOSE 8080
+ENTRYPOINT ["./taskflow-entrypoint.sh"]
+ -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
