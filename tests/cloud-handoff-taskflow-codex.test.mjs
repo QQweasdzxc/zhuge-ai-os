@@ -15,6 +15,11 @@ const SHA="199ea823af0692ca99e222b024ee3238cbc3a9fc";
 const REPO="QQweasdzxc/zhuge-ai-os";
 const APPROVAL="PMAPPROVED-20261015-001";
 const DISPATCH="0123456789abcdef0123456789abcdef";
+const APP_ID=5342644;
+function verifiedCommentWriter(){return {source:"authenticated_github_app_api",app_id:APP_ID,
+  installation_id:12345,repository_full_name:REPO,repository_selection:"selected",
+  repository_access_confirmed:true,permissions:{metadata:"read",pull_requests:"read",issues:"write"},
+  verified_at:new Date().toISOString()};}
 function native(){
   return {id:ISSUE,workspace_id:WORKSPACE,project_id:PROJECT,revision:7,
     identifier:"LAB-51",title:"Co/Gem cloud dispatch",status:"in_progress",
@@ -46,6 +51,7 @@ function safeAdapters(overrides={}){
   };
   const launchGithubMention=createCodexGithubMentionAdapter({
     repository:REPO,prNumber:52,token:"test-only-fake-token",
+    expectedAppId:APP_ID,readVerifiedGitHubAppPermission:async()=>verifiedCommentWriter(),
     writeEnabled:true,fetcher:mockFetch,
     approvalVerifier:async()=>true,liveHeadVerifier:async()=>true
   });
@@ -148,6 +154,7 @@ test("opaque PM reference alone is not approval: transport checks the trusted au
   let posts=0;
   const adapter=createCodexGithubMentionAdapter({
     repository:REPO,prNumber:52,token:"test-only-fake-token",
+    expectedAppId:APP_ID,readVerifiedGitHubAppPermission:async()=>verifiedCommentWriter(),
     writeEnabled:true,approvalVerifier:async()=>false,
     liveHeadVerifier:async()=>true,
     fetcher:async()=>{posts++;return Response.json({id:123,html_url:"incorrect"},{status:201});}
@@ -165,6 +172,7 @@ test("disabled adapter, changed live PR head and stale CAS cannot trigger Codex"
     const a=safeAdapters();
     const disabled=createCodexGithubMentionAdapter({
       repository:REPO,prNumber:52,token:"test-only-fake-token",
+    expectedAppId:APP_ID,readVerifiedGitHubAppPermission:async()=>verifiedCommentWriter(),
       writeEnabled:false,
       approvalVerifier:async()=>true,liveHeadVerifier:async()=>true,
       fetcher:async()=>{posted++;throw Error("no calls expected");}
@@ -178,10 +186,32 @@ test("disabled adapter, changed live PR head and stale CAS cannot trigger Codex"
   }
 });
 
+test("read-only GitHub App cannot write @codex PR comments, even after PM approval and CAS",async()=>{
+  let calls=0;
+  const adapter=createCodexGithubMentionAdapter({
+    repository:REPO,prNumber:52,token:"test-only-fake-token",writeEnabled:true,
+    expectedAppId:APP_ID,
+    readVerifiedGitHubAppPermission:async()=>({...verifiedCommentWriter(),permissions:{contents:"read",pull_requests:"read",issues:"read"}}),
+    approvalVerifier:async()=>true,liveHeadVerifier:async()=>true,
+    fetcher:async()=>{calls++;throw Error("no write should happen");}
+  });
+  const {args}=safeAdapters({launchGithubMention:adapter});
+  await assert.rejects(dispatchTaskflowCodex(args),/needs reconciliation/);
+  assert.equal(calls,0,"read-only GitHub App never posts a comment");
+});
+
+test("missing authenticated App permission source blocks @codex adapter at construction",()=>{
+  assert.throws(()=>createCodexGithubMentionAdapter({
+    repository:REPO,prNumber:52,token:"test-only-fake-token",writeEnabled:true,
+    approvalVerifier:async()=>true,liveHeadVerifier:async()=>true
+  }),/authenticated GitHub App installation permission reader required/);
+});
+
 test("comment failure AFTER CAS is quarantined; no retry is attempted",async()=>{
   let attempts=0;
   const adapter=createCodexGithubMentionAdapter({
     repository:REPO,prNumber:52,token:"test-only-fake-token",
+    expectedAppId:APP_ID,readVerifiedGitHubAppPermission:async()=>verifiedCommentWriter(),
     writeEnabled:true,
     approvalVerifier:async()=>true,liveHeadVerifier:async()=>true,
     fetcher:async()=>{attempts++;return new Response("unavailable",{status:503});}
