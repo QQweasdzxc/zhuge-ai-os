@@ -52,7 +52,7 @@ test("workspace-scoped native API uses allowed slug in header, not a public quer
   assert.match(c.url,/\/api\/issues\?limit=23&offset=0&q=release/);
   assert.doesNotMatch(c.url,/Bearer|taskflow-in-memory/);
   assert.equal(c.options.headers.Authorization,"Bearer taskflow-in-memory-jwt");
-  await assert.rejects(()=>client.listIssues("a/b"),e=>e.code==="INVALID_WORKSPACE");
+  assert.throws(()=>client.listIssues("a/b"),e=>e.code==="INVALID_WORKSPACE");
 });
 test("auth failure, cross-origin fetch and expired credentials fail closed",async()=>{
   const noToken=harness({token:null}).client;
@@ -67,6 +67,6 @@ test("auth failure, cross-origin fetch and expired credentials fail closed",asyn
 });
 test("root and task paths cannot be arbitrary URLs or path traversal",async()=>{
   const {client}=harness();await client.connect();
-  await assert.rejects(()=>client.getIssue("pm-team","../../admin"),e=>e.code==="INVALID_IDENTIFIER");
-  await assert.rejects(()=>client.listIssues("https://bad"),e=>e.code==="INVALID_WORKSPACE");
+  assert.throws(()=>client.getIssue("pm-team","../../admin"),e=>e.code==="INVALID_IDENTIFIER");
+  assert.throws(()=>client.listIssues("https://bad"),e=>e.code==="INVALID_WORKSPACE");
 });
