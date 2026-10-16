@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: "22"
       - name: Protocol and dispatcher safety tests
-        run: node --test tests/cloud-handoff-contract.test.mjs tests/cloud-handoff-dispatcher.test.mjs tests/cloud-handoff-github-cas.test.mjs tests/cloud-handoff-taskflow-codex.test.mjs tests/cloud-handoff-codex-ack.test.mjs tests/cloud-handoff-production-readiness.test.mjs tests/cloud-handoff-provider-cost.test.mjs
+        run: node --test tests/cloud-handoff-contract.test.mjs tests/cloud-handoff-dispatcher.test.mjs tests/cloud-handoff-github-cas.test.mjs tests/cloud-handoff-taskflow-codex.test.mjs tests/cloud-handoff-codex-ack.test.mjs tests/cloud-handoff-production-readiness.test.mjs tests/cloud-handoff-provider-cost.test.mjs tests/cloud-handoff-github-permission.test.mjs
       - name: Validate Co quota-blocked checkpoint
         run: |
           node labs/cloud-handoff/cli.mjs validate labs/cloud-handoff/examples/issue45-quota-blocked.json
