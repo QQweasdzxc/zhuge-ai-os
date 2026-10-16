@@ -65,9 +65,14 @@ test("curated Pages payload restores the prior home behavior, Apps routes, and r
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
   assert.match(home, /id=["']taskflow-home-routing["']/);
-  assert.match(home, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
-  assert.match(home, /href=["']https:\/\/zhuge-taskflow-web\.onrender\.com\//);
+  assert.match(home, /id=["']tf-issues["']/);
+  assert.match(home, /src=["']labs\/taskflow\/pages-client\/app\.mjs/);
   assert.match(home, /href=["']modules\/worklog\//);
+  assert.doesNotMatch(home, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
+  assert.doesNotMatch(home, /<iframe\b/i);
+  for (const relative of ["labs/taskflow/pages-client/taskflow-api.mjs","labs/taskflow/pages-client/app.mjs","labs/taskflow/pages-client/app.css","labs/taskflow/pages-client/login-return.mjs"]) {
+    assert.ok(fs.existsSync(path.join(site, relative)), "native Pages TaskFlow resource missing: " + relative);
+  }
   assert.ok(home.includes("Version " + manifest.version + " · Build " + manifest.build), "homepage Version and Build must match version.json");
   assertLocalReferencesResolve(home, "index.html");
 
