@@ -48,3 +48,26 @@ jobs:
             test "$allowed" = "$origin" || { echo "TASKFLOW_PAGES_CORS_NOT_AUTHORIZED"; exit 1; }
             rm -f "$headers"
           done
+
+  native-shared-ui-typecheck:
+    name: Original Multica native Dashboard and Issue views (source typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact pinned vendor dependencies without invoking install scripts
+        shell: bash
+        run: |
+          corepack enable
+          cd third_party/multica
+          corepack pnpm install --frozen-lockfile --ignore-scripts
+      - name: Stage native Pages source into the pinned desktop TS project for typecheck only
+        shell: bash
+        run: |
+          cp labs/taskflow/pages-client/taskflow-pages-native-surface.tsx \
+             third_party/multica/apps/desktop/src/renderer/src/pages/pages-native-dashboard-source.tsx
+          cd third_party/multica
+          corepack pnpm --filter @multica/desktop exec tsc --noEmit -p tsconfig.web.json
