@@ -24,7 +24,8 @@ test("genuine issue/project/settings navigation remains same-origin and reloadab
 });
 test("TaskFlow may never create a redirect/link to untrusted host or parent directory",()=>{
  for(const hostile of ["//evil.example/","https://evil.example",
-  "/../../secrets","/zhuge-lab/issues/%2fadmin",
+  "/../../secrets","/zhuge-lab/issues/%2e%2e/secrets",
+  "/zhuge-lab/issues/%2E%2e/secrets","/zhuge-lab/issues/%2fadmin",
   "/zhuge-lab/issues/%5cadmin","/zhuge-lab/issues/%00evil",
   "/zhuge-lab/issues/../../admin","/zhuge-lab/issues/\nadmin"]){
    assert.throws(()=>canonicalTaskFlowHref(hostile),/INVALID_NATIVE_PATH/,hostile);
