@@ -56,3 +56,13 @@
 | `.9.69` | [PR #60 最新 Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60)；基線 `.9.68` `abf1dfb18c568438bb6056f0caef3fdfd647a5e5` | Build `20261017-0732`；本機 Overlay/Build parity 23 PASS、Entry/CLI SSO 18 PASS；精確 Head 的 GitHub Actions / Docker / isolated PostgreSQL / Vitest / Browser 以 PR Checks 讀回為準 | **BACKUP NOT SAVED**；正式 GitHub Release binary 尚未上傳及讀回 |
 
 候選把現有「確認並派工」接到 TaskFlow-owned、預設關閉的 GitHub `@codex` PR comment handoff，並加入簽章驗證的 ACK/RESULT/FAILURE 回寫；目前沒有真實 Codex Cloud Run 證據、沒有 Production Migration/deploy，dispatch gates 保持 OFF。固定交接、來源範圍、風險及測試狀態見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)；精確遠端 SHA/CI 以 [PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 的最新 Head/Checks 為準。
+
+
+### PR #60 `.9.69` Gate 結果與 `.9.70` 續版（append-only）
+
+| Candidate | Source / Build | Gate 結果 | FullSource 永久封存 |
+| --- | --- | --- | --- |
+| `.9.69` | `645be0e041d8b352c058e98ffe2bd5624359babb` / `20261017-0732` | Build Parity Run [38982186025](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982186025)：Overlay/isolated PostgreSQL PASS；Backend unused import FAIL；Web Vitest UI-spacing FAIL。Browser Regression Run [38982189789](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982189789) Chromium Desktop/Mobile PASS | 未上傳；14 天 Browser evidence 不等同 FullSource |
+| `.9.70` | [PR #60 latest Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) / Build `20261017-0737` | 修正 `.9.69` 兩個實際 Gate 缺陷；本機 targeted PASS，精確 SHA 的 GitHub Build Parity/Browser Regression 待完成 | **BACKUP NOT SAVED** |
+
+正式 Codex Cloud Run 尚未真實驗證，dispatch 預設關閉；沒有 Production Migration/Deploy。固定交接與實際證據見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。

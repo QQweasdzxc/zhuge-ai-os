@@ -108,3 +108,14 @@
 - **Source/Runtime 狀態：** 新候選只在 Review Branch；無 main 更新、Production deploy、正式 Migration、Secrets/Env 修改或真實 Codex 派工。iPhone/PM 正式 TaskFlow 驗收未執行。
 - **FullSource 備份：** 正式打包須待最終 SHA 的遠端 CI 證據後執行。GitHub Release binary upload 不在目前可用 Connector 能力內，且本機 `GH_TOKEN` 驗證為無效；在 ZIP/Manifest/SHA256 可從受控永久位置讀回前，仍標 **BACKUP NOT SAVED**，不得以短期 CI Artifact 或工作區 ZIP 宣稱永久保存。
 - **Release/PM Gate：** 真正 Cloud Run 的實際觸發行為、GitHub App `pull_requests:write` 與 `issue_comment` event 設定、Bot 是否接受 App authored `@codex` comment、訂閱/執行費用尚未獲得正式驗證或核准。派工 gate 維持關閉；需要的授權與費用只在最後集中交 PM 決定。
+
+
+### `.9.69` exact-commit CI result and `.9.70` correction (append-only)
+
+- `.9.69` Build `20261017-0732`, remote Review head `645be0e041d8b352c058e98ffe2bd5624359babb`，PR #60 Actions：
+  - Build Parity Run [38982186025](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982186025)：Overlay Contract **PASS**；isolated PostgreSQL migration integration **PASS**（migration 598、runtime column ACL、evidence-preserving rollback guard）；Backend Image **FAIL**（unused `strconv` import）；Web Image **FAIL**（派工回報的任務代碼與提示文字間缺空格，既有 Vitest assertion 捕捉到 UI 缺陷）。`.9.69` 不作為通過候選。
+  - Browser Regression Run [38982189789](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982189789)：Desktop/Mobile Chromium **PASS**；14 個 evidence file，短期 artifact [12081622469](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982189789/artifacts/12081622469)，SHA-256 `4c405b052b759206894621a328a58e522408081ea5c80415ecf0d7b3119a2271`（保留 14 天，並非永久 FullSource 備份，也不是 iPhone Safari）。
+- 以 TaskFlow-owned 最小修正修好 Web 訊息間距，移除造成 Backend compile fail 的 unused import；修正 checkpoint commit `2bff165ed969a7d826a8db08429722dc801dd251`。
+- **目前重新凍結的候選：** `0.9.0-alpha.9.70` / Build `20261017-0737`。候選 SHA 以 [PR #60 最新 Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 讀回為準；Build Parity 與 Browser Regression 必須在該 SHA 完成後才能判定。此 Build 只包含 UI 空格修正、Go unused import 修正及正式版本/Build 身分同步。
+- 本地 Python Overlay/Build parity 23/23 PASS、入口/CLI SSO Node 18/18 PASS、Go formatting / shell syntax / `git diff --check` PASS。Remote PostgreSQL test 僅在 `.9.69` 通過；`.9.70` 仍需以新精確 SHA 重跑遠端必要 Gate。
+- Source 仍只在 Review Branch；沒有真實 Codex 派工/ACK/Run/thread/result、Production Migration 或 Deploy。兩個 runtime dispatch gates 繼續 OFF。`BACKUP NOT SAVED`；最終 SHA 的 FullSource ZIP/Manifest/SHA256 必須在遠端 CI 完成後重建，Release binary upload 能力仍未提供。
