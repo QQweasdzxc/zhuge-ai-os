@@ -64,7 +64,16 @@ export function createPagesRouteController(win){
   if(!win?.location || !win.history || typeof win.addEventListener!=="function")
     throw Error("BROWSER_REQUIRED");
   const listeners=new Set();
-  const notify=()=>{for(const cb of listeners)cb(readPagesNativeRoute(win.location.href));};
+  let cachedHref=null;
+  let cachedView=null;
+  // useSyncExternalStore requires referentially STABLE snapshots; computing a
+  // new object on each getSnapshot() causes an infinite React render loop.
+  const snapshot=()=>{
+    const href=win.location.href;
+    if(href!==cachedHref){cachedHref=href;cachedView=readPagesNativeRoute(href);}
+    return cachedView;
+  };
+  const notify=()=>{for(const cb of listeners)cb(snapshot());};
   const eventHandler=()=>notify();
   win.addEventListener("hashchange",eventHandler);
   win.addEventListener("popstate",eventHandler);
@@ -75,7 +84,7 @@ export function createPagesRouteController(win){
     notify();
   };
   return Object.freeze({
-    snapshot:()=>readPagesNativeRoute(win.location.href),
+    snapshot,
     subscribe(callback){listeners.add(callback);return()=>listeners.delete(callback);},
     push(path){routeWrite(path,false);},
     replace(path){routeWrite(path,true);},
