@@ -51,10 +51,12 @@ test("browser navigation preserves canonical host and supports pop/reload",()=>{
    open(href,target,features){writes.push({type:"newtab",url:href,target,features});}
  };
  const bridge=createPagesRouteController(win);
+ assert.equal(bridge.snapshot(),bridge.snapshot(),"stable React external store snapshot");
  const notifications=[];
  const unwatch=bridge.subscribe(v=>notifications.push(v));
  bridge.push("/zhuge-lab/issues/ZG-6");
  assert.deepEqual(bridge.snapshot(),{state:"route",path:"/zhuge-lab/issues/ZG-6"});
+ assert.equal(bridge.snapshot(),bridge.snapshot(),"same URL must keep stable snapshot");
  assert.equal(writes[0].url,HOME+"#/zhuge-lab/issues/ZG-6");
  bridge.openInNewTab("/zhuge-lab/settings");
  assert.deepEqual(writes[1],{type:"newtab",url:HOME+"#/zhuge-lab/settings",
