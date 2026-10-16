@@ -30,3 +30,18 @@ node labs/cloud-handoff/cli.mjs validate labs/cloud-handoff/examples/issue45-quo
 node labs/cloud-handoff/cli.mjs gate labs/cloud-handoff/examples/issue45-quota-blocked.json
 ```
 全部失敗即停止交付，不產生 provider 請求。
+
+## 2026-10-16 零新增費用的硬性 Gate（候選 .9.56）
+本專案不自動增加 AI 訂閱、使用量付費、預付 Credits、Google Cloud 收費、Render 資源等費用。
+- **Co**：官方 ChatGPT/Codex 現有方案已可手動使用。TaskFlow 真派工除了逐張 PM 批准，還要後端對**同一個 TaskFlow/GitHub checkpoint**核實本次屬已含額度、有足夠可用量、不產生額外付費；開始前與 GitHub 觸發前都驗證。無可信讀取機制時顯示「額度未確認」並阻擋。
+- **Gem**：Google AI Plus 不屬 Google AI Pro/Ultra 的 Gemini CLI 付費升級梯級；Google 個人登入可使用個人免費等級，**但互動登入不等於 GitHub Actions 無人值守服務憑證**。Google 官方 GitHub Action 需要 Gemini API Key 或 Workload Identity 等明確授權；在未確認零新增費用與合法權限前，自動接手必須保持停用。
+- **嚴禁**複製使用者瀏覽器 Cookie、OAuth/CLI 私有快取至 CI、Render、GitHub Artifact、公開前端；嚴禁將 ChatGPT 帳號 Token 與 Gemini Token 交叉使用。
+- 對「額度未知、憑證失效、無法證明舊 Writer 已停止、GitHub checkpoint 不完整」一律 **HOLD**，沒有默認額度、沒有自動切換、沒有偷偷購買 Credits。
+- 工程候選檔案 `provider-cost-policy.mjs` 只是一個離線可驗證的政策判斷器；其中 `verifiedByTrustedServer` 必須由將來受信任的原生後端驗證，**不得相信瀏覽器上傳的 JSON 布林值**。現在沒有可用的正式 Cost/Quota 授權服務，所以正式站仍不得解鎖派工。
+
+官方依據：
+- OpenAI plan Codex 方案： https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan
+- Gemini CLI 帳號登入 vs headless： https://geminicli.com/docs/get-started/authentication/
+- Gemini CLI 方案與 Google AI Plus： https://geminicli.com/docs/resources/quota-and-pricing/
+- Google 官方 GitHub Action： https://github.com/google-github-actions/run-gemini-cli
+
