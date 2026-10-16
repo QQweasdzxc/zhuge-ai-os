@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """TaskFlow AI approval/readback panels layered over frozen Multica source.
 
-Fail closed on upstream drift. Provider dispatch is intentionally not
-configured. This script only changes a copied TaskFlow web build tree.
+Fail closed on upstream drift. The TaskFlow-owned UI can request the
+documented GitHub @codex handoff, but the runtime feature gates remain off
+until the GitHub App callback path is verified. This script only changes a
+copied TaskFlow web build tree.
 """
 from __future__ import annotations
 import argparse

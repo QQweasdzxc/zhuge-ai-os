@@ -47,3 +47,12 @@
 本階段已恢復既有 GitHub push 與遠端讀回，未讀取或輸出任何 Secret。原 `.9.65` commit `02380c1a3226cdd55541cbdc32a1fb91a31ef0df` 及原留言提及的 patch/bundle 在現有工作環境與遠端引用中不可取得，不能宣稱已恢復；`.9.66` 起是從可讀取的 PR #60 `.9.62` source 增量續作，並非原始 `.9.65` 的逐位復原。
 
 目前候選只完成 TaskFlow AI 設定持久化、核准 Run intent/readback 等既有程式的安全續接；`dispatch_enabled=false`。尚無真正 Codex Cloud ACK/Run ID/result callback、無 Production Migration/deploy，無永久 ZIP/manifest/SHA256 Release asset。完整紀錄見[最新 AI 工程交接文件](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。
+
+
+## 2026-10-17 PR #60 Codex Cloud handoff candidate（append-only）
+
+| Candidate | 遠端 Source | Build / QA | 永久 FullSource 備份 |
+| --- | --- | --- | --- |
+| `.9.69` | [PR #60 最新 Review Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60)；基線 `.9.68` `abf1dfb18c568438bb6056f0caef3fdfd647a5e5` | Build `20261017-0732`；本機 Overlay/Build parity 23 PASS、Entry/CLI SSO 18 PASS；精確 Head 的 GitHub Actions / Docker / isolated PostgreSQL / Vitest / Browser 以 PR Checks 讀回為準 | **BACKUP NOT SAVED**；正式 GitHub Release binary 尚未上傳及讀回 |
+
+候選把現有「確認並派工」接到 TaskFlow-owned、預設關閉的 GitHub `@codex` PR comment handoff，並加入簽章驗證的 ACK/RESULT/FAILURE 回寫；目前沒有真實 Codex Cloud Run 證據、沒有 Production Migration/deploy，dispatch gates 保持 OFF。固定交接、來源範圍、風險及測試狀態見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)；精確遠端 SHA/CI 以 [PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 的最新 Head/Checks 為準。

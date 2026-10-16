@@ -93,3 +93,18 @@
 - `.9.67` Web Vitest 的失敗修正後，仍需精確 `.9.68` SHA 的 GitHub Build Parity 和 Browser Regression 結果；真實 Codex Cloud E2E、Production Migration/部署、真實 PM SSO/iPhone 驗收均未執行。
 - PR #60 是唯一 Draft Review 入口；main 基線記錄為 `e053cba43327083649641bd29cfb363ab1e42e80`。沒有 main merge、Production deploy、DB migration 或 Secret 修改。
 - FullSource ZIP、manifest、SHA256 尚未建立並上傳到 GitHub Release，狀態為 **BACKUP NOT SAVED**。只有精確 candidate source CI 完成後才依既有 `tools/release-governance.js` 打包；不得以本地 ZIP 或短期 CI artifact 代替永久封存。
+
+
+## 5. 2026-10-17 Codex Cloud handoff candidate `.9.69` (append-only)
+
+- **基線：** PR #60 `.9.68` Review Branch `review/taskflow-github-codex-phase2-20261016`，父 SHA `abf1dfb18c568438bb6056f0caef3fdfd647a5e5`。
+- **候選 Build：** `0.9.0-alpha.9.69` / `20261017-0732`。候選精確 SHA 以 [PR #60 最新 Head](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 讀回值為準；本分支保持 Draft，不更新 main。
+- **同卡流程：** 沿用現有「AI 工程執行」面板。只有 TaskFlow workspace owner 可核准；原生 Issue、Project、revision、Co opt-in、冪等 Run 仍是唯一權威。勾選明確公開內容確認後，API 才會把任務標題/描述貼到同一個 TaskFlow 已關聯的公開 GitHub PR，並以唯一 Run/dispatch UUID 與核准時的 PR head SHA 綁定。GitHub App 使用短效 installation token；不呼叫 Codex 非公開 API、不讀取瀏覽器 Session。
+- **接單及結果：** 只有經 GitHub webhook 簽章驗證、精確官方 bot 帳號 `chatgpt-codex-connector[bot]`、同一 repository/installation/PR/dispatch/checkpoint SHA 並匹配單一嚴格 ACK/RESULT/FAILURE marker 的回覆才可變更 Run。ACK 保存實際 Cloud thread UUID；完成結果還要由 GitHub API 重新確認目前 PR head SHA，然後將摘要、Commit SHA、狀態及事件保存至原任務卡讀回區。未知派送結果不會自動重送。
+- **安全預設：** dispatch 仍為 **OFF**。需要 `ZHUGE_TASKFLOW_CODEX_DISPATCH_ENABLED=true`、`ZHUGE_TASKFLOW_CODEX_ISSUE_COMMENT_WEBHOOK_ENABLED=true`、有效 GitHub App/write 權限、`issue_comment` webhook 訂閱與簽章 Secret；目前沒有驗證後開啟任何 gate。任務標題/描述會進入公開 PR，UI 有明確確認；不得貼入機密/個資。沒有正式 Codex Cloud ACK、thread、Codex 工作號或結果的實際 E2E 證據，因此目前是候選整合，不是已證明可派工或已上線。
+- **新增資料：** migration `598_zhuge_ai_codex_dispatch` 僅以 TaskFlow migration overlay 擴充派工關聯/回執欄位與 `issue_comment` delivery type，runtime 只增加欄位級 UPDATE；down migration 在存在派工或 comment evidence 時拒絕刪除。Migration 尚未套用至 Production。
+- **本機 Developer QA：** Overlay/Build parity 定向 Python `23/23 PASS`；TaskFlow entry/CLI SSO Node `18/18 PASS`；`bash -n`、`git diff --check` PASS。新增 Go 測試包括短效 GitHub App token、固定 PR head、實際 API comment request、token 撤銷、head 變更拒絕及嚴格 webhook marker；Backend Docker / isolated PostgreSQL integration、Web Vitest、Docker parity、Browser Regression 必須以 PR #60 **最終 Head SHA** 的 GitHub Actions 結果為準。Actions 狀態請於 [PR #60 Checks](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 查看。
+- **本機 Docker 限制：** 當前執行環境的 Alpine `apk` 套件鏡像回應 `Permission denied`，因此本機 Docker parity 未通過；不可把此狀態寫成 PASS。由既有 GitHub Actions 執行遠端 Backend/Web image build 及隔離 PostgreSQL。
+- **Source/Runtime 狀態：** 新候選只在 Review Branch；無 main 更新、Production deploy、正式 Migration、Secrets/Env 修改或真實 Codex 派工。iPhone/PM 正式 TaskFlow 驗收未執行。
+- **FullSource 備份：** 正式打包須待最終 SHA 的遠端 CI 證據後執行。GitHub Release binary upload 不在目前可用 Connector 能力內，且本機 `GH_TOKEN` 驗證為無效；在 ZIP/Manifest/SHA256 可從受控永久位置讀回前，仍標 **BACKUP NOT SAVED**，不得以短期 CI Artifact 或工作區 ZIP 宣稱永久保存。
+- **Release/PM Gate：** 真正 Cloud Run 的實際觸發行為、GitHub App `pull_requests:write` 與 `issue_comment` event 設定、Bot 是否接受 App authored `@codex` comment、訂閱/執行費用尚未獲得正式驗證或核准。派工 gate 維持關閉；需要的授權與費用只在最後集中交 PM 決定。

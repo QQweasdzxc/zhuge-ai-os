@@ -1,9 +1,9 @@
 package handler
 
 // Zhuge AI TaskFlow-native approval/readback: the authenticated native issue
-// and workspace member remain the ONLY business authorities. No provider calls.
-// Approval != Codex ACK != TaskFlow RUNNING. The cloud dispatcher is separately
-// gated until verified durable CAS, GitHub SHA and provider identity exist.
+// and workspace owner remain the business authorities. Codex is requested only
+// through the documented GitHub @codex flow, behind off-by-default gates.
+// Approval != Codex ACK != TaskFlow RUNNING.
 
 import (
 	"encoding/json"
