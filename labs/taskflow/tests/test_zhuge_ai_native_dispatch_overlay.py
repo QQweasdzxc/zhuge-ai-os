@@ -5,7 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REPO=Path(os.environ.get("TASKFLOW_AI_DISPATCH_REPO",Path(__file__).resolve().parents[3])).resolve()
+repo_override = os.environ.get("TASKFLOW_AI_DISPATCH_REPO")
+REPO = Path(repo_override).resolve() if repo_override else Path(__file__).resolve().parents[3]
 VENDOR=Path(os.environ.get("TASKFLOW_AI_DISPATCH_VENDOR",REPO/"third_party/multica")).resolve()
 OVERLAYS=Path(os.environ.get("TASKFLOW_AI_DISPATCH_OVERLAYS",REPO/"labs/taskflow/overrides")).resolve()
 MIGRATIONS=Path(os.environ.get("TASKFLOW_AI_DISPATCH_MIGRATIONS",OVERLAYS/"migrations")).resolve()
