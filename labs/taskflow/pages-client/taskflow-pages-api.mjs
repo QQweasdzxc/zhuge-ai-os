@@ -19,6 +19,28 @@ const UUID = /^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12
 const SLUG = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const IDENTIFIER = /^[a-z0-9][a-z0-9-]{0,30}-[1-9]\d*$/i;
 
+/**
+ * TaskFlow's shared CoreProvider supports a StorageAdapter. Give the
+ * GitHub Pages client a fresh in-memory adapter instead of reusing its
+ * localStorage-backed defaultStorage: the github.io eTLD+1 origin can host
+ * other GitHub Pages paths and must NOT persist an extra TaskFlow bearer.
+ * The source Zulge Google session remains managed by the existing WorkLog.
+ */
+export function createTaskFlowPagesMemoryStorage() {
+  const entries=new Map();
+  return Object.freeze({
+    getItem(key) { return entries.has(key) ? entries.get(key) : null; },
+    setItem(key,value) {
+      if(typeof key!=="string"||typeof value!=="string")
+        throw new TypeError("StorageAdapter accepts strings only");
+      entries.set(key,value);
+    },
+    removeItem(key) { entries.delete(key); },
+    keys() { return [...entries.keys()]; },
+    clear() { entries.clear(); }
+  });
+}
+
 export class TaskFlowPagesError extends Error {
   constructor(code) { super(code); this.name = "TaskFlowPagesError"; this.code = code; }
 }
