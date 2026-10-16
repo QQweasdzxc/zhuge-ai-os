@@ -92,14 +92,18 @@ RUN TASKFLOW_ATTACHMENT_REPO=/ \
     python3 /tmp/test_taskflow_attachment_preview_overlay.py \
  && python3 /tmp/apply-taskflow-attachment-preview.py --root /src
 
-# TaskFlow AI execution v1: native visible, fail-closed panel on copied source.
-# No provider credentials, migrations, native Run writes, or external AI calls.
+# TaskFlow AI execution v1: persisted PM approval/readback on copied source.
+# It records approval only; no Codex provider credentials or external AI calls.
 COPY labs/taskflow/patches/apply-taskflow-ai-engineering.py /tmp/apply-taskflow-ai-engineering.py
 COPY labs/taskflow/tests/test_taskflow_ai_engineering_overlay.py /tmp/test_taskflow_ai_engineering_overlay.py
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.ts /taskflow-ai/taskflow-ai-engineering-policy.ts
 COPY labs/taskflow/overrides/taskflow-ai-preview-store.ts /taskflow-ai/taskflow-ai-preview-store.ts
 COPY labs/taskflow/overrides/taskflow-ai-engineering.tsx /taskflow-ai/taskflow-ai-engineering.tsx
 COPY labs/taskflow/overrides/taskflow-ai-engineering-policy.test.ts /taskflow-ai/taskflow-ai-engineering-policy.test.ts
+COPY labs/taskflow/overrides/taskflow-ai-run-readback.tsx /taskflow-ai/taskflow-ai-run-readback.tsx
+COPY labs/taskflow/overrides/taskflow-ai-run-readback.test.tsx /taskflow-ai/taskflow-ai-run-readback.test.tsx
+COPY labs/taskflow/overrides/taskflow-ai-run-schema.ts /taskflow-ai/taskflow-ai-run-schema.ts
+COPY labs/taskflow/overrides/taskflow-ai-run-schema.test.ts /taskflow-ai/taskflow-ai-run-schema.test.ts
 RUN TASKFLOW_AI_REPO=/src TASKFLOW_AI_VENDOR=/src TASKFLOW_AI_OVERLAYS=/taskflow-ai TASKFLOW_AI_PATCH=/tmp/apply-taskflow-ai-engineering.py \
     python3 /tmp/test_taskflow_ai_engineering_overlay.py \
  && python3 /tmp/apply-taskflow-ai-engineering.py --root /src --overlays /taskflow-ai
@@ -134,6 +138,8 @@ COPY --from=source /src/package.json /src/turbo.json /src/pnpm-workspace.yaml ./
 COPY --from=source /src/apps/web/ apps/web/
 COPY --from=source /src/packages/ packages/
 RUN pnpm install --frozen-lockfile --offline
+RUN pnpm --filter @multica/core exec vitest run api/taskflow-ai-run-schema.test.ts
+RUN pnpm --filter @multica/views exec vitest run common/taskflow-ai-run-readback.test.tsx
 COPY labs/taskflow/overrides/taskflow-attachment-preview-token-auth.test.tsx /tmp/taskflow-attachment-preview-token-auth.test.tsx
 RUN cp /tmp/taskflow-attachment-preview-token-auth.test.tsx /app/packages/views/editor/taskflow-attachment-preview-token-auth.test.tsx \
  && pnpm --filter @multica/views exec vitest run editor/taskflow-attachment-preview-token-auth.test.tsx

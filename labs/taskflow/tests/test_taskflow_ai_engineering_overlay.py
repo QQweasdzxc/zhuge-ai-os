@@ -19,7 +19,7 @@ SPEC.loader.exec_module(PATCH)
 
 class TaskFlowAIEngineeringOverlayTests(unittest.TestCase):
     def test_copy_only_no_vendor_mutation_and_native_sections_preserved(self):
-        upstream = [PATCH.ISSUE, PATCH.PROJECT]
+        upstream = [PATCH.ISSUE, PATCH.PROJECT, PATCH.API_INDEX]
         hashes = {path: hashlib.sha256((VENDOR / path).read_bytes()).hexdigest() for path in upstream}
         with tempfile.TemporaryDirectory(prefix="tf-ai-v1-") as td:
             root = Path(td)
@@ -30,22 +30,32 @@ class TaskFlowAIEngineeringOverlayTests(unittest.TestCase):
             PATCH.apply(root, OVERLAYS)
             issue = (root / PATCH.ISSUE).read_text()
             project = (root / PATCH.PROJECT).read_text()
+            api = (root / PATCH.API_INDEX).read_text()
             self.assertIn("TASKFLOW_AI_EXECUTION_V1", issue)
             self.assertIn("<WakeupsSection", issue)
             self.assertIn("<PullRequestsSection", issue)
             self.assertIn("<PluginPanelSection", issue)
             self.assertIn("TaskFlowAIIssueSection workspaceId={wsId}", issue)
+            self.assertIn("TaskFlowAIRunReadback workspaceId={wsId}", issue)
+            self.assertIn("issueRevision={issue.revision ?? 0}", issue)
             self.assertLess(issue.index("TaskFlowAIIssueSection workspaceId="),issue.index("<PullRequestsSection"))
+            self.assertLess(issue.index("TaskFlowAIRunReadback workspaceId="),issue.index("<PullRequestsSection"))
             self.assertIn("TASKFLOW_AI_PROJECT_V1", project)
             self.assertIn("TaskFlowAIProjectSettings workspaceId={wsId}", project)
             self.assertIn("{/* Properties */}", project)
+            self.assertIn('TaskFlowAIEngineeringRunListSchema } from "./taskflow-ai-run-schema"', api)
             for name in PATCH.MODULES:
                 target = root / PATCH.COMMON / name
+                self.assertEqual(target.read_text(), (OVERLAYS / name).read_text())
+            for name in PATCH.API_MODULES:
+                target = root / "packages/core/api" / name
                 self.assertEqual(target.read_text(), (OVERLAYS / name).read_text())
             with self.assertRaisesRegex(ValueError,"already patched"):
                 PATCH.patch_issue(issue)
             with self.assertRaisesRegex(ValueError,"already patched"):
                 PATCH.patch_project(project)
+            with self.assertRaisesRegex(ValueError,"already patched"):
+                PATCH.patch_api_index(api)
         for path in upstream:
             self.assertEqual(hashes[path], hashlib.sha256((VENDOR / path).read_bytes()).hexdigest())
 
@@ -77,6 +87,22 @@ class TaskFlowAIEngineeringOverlayTests(unittest.TestCase):
         self.assertNotIn("fetch(",store)
         self.assertNotIn("RUNNING",policy.split("return block(")[-1])
         self.assertIn('export const DEFAULT_ENGINEER: Engineer = "co"',policy)
+        readback = (OVERLAYS / "taskflow-ai-run-readback.tsx").read_text()
+        self.assertIn('github_pr_updated: "GitHub PR 更新已保存"', readback)
+        self.assertIn('github_pr_merged: "GitHub PR 合併已保存"', readback)
+        self.assertIn('核准或 GitHub 註解不代表 Codex 已執行', readback)
+        self.assertIn('method: "POST"', readback)
+        self.assertIn('/zhuge-ai/approve', readback)
+        self.assertIn('target.searchParams.set("workspace_id", workspaceId)', readback)
+        self.assertIn('expected_issue_revision: issueRevision', readback)
+        self.assertIn('requestKey.current ??= newIdempotencyKey()', readback)
+        self.assertIn('result.dispatch_started !== false', readback)
+        self.assertNotIn("/codex", readback.lower())
+        self.assertNotIn("provider_thread_id:", readback)
+        self.assertIn("github_checks_state", readback)
+        self.assertIn("item.github_head_sha === item.github_snapshot_head_sha", readback)
+        schema = (OVERLAYS / "taskflow-ai-run-schema.ts").read_text()
+        self.assertIn('dispatch_enabled: z.literal(false)', schema)
 
 if __name__ == "__main__":
     unittest.main()

@@ -42,6 +42,36 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
       --output /taskflow-staged-migrations \
  && python3 /tmp/patch-router-contract-test-main.py
 
+# TaskFlow-owned native Run approval/readback. The provider is deliberately
+# disabled; this stages only authenticated approval evidence and the additive
+# migration, never a Codex request.
+COPY labs/taskflow/overrides/zhuge_ai_dispatch.go /taskflow-ai-dispatch/zhuge_ai_dispatch.go
+COPY labs/taskflow/overrides/zhuge_github_webhook.go /taskflow-ai-dispatch/zhuge_github_webhook.go
+COPY labs/taskflow/overrides/zhuge_ai_contract.go /taskflow-ai-dispatch/zhuge_ai_contract.go
+COPY labs/taskflow/overrides/zhuge_ai_contract_test.go /taskflow-ai-dispatch/zhuge_ai_contract_test.go
+COPY labs/taskflow/overrides/migrations/591_zhuge_ai_engineering_run.up.sql /taskflow-ai-dispatch/migrations/591_zhuge_ai_engineering_run.up.sql
+COPY labs/taskflow/overrides/migrations/591_zhuge_ai_engineering_run.down.sql /taskflow-ai-dispatch/migrations/591_zhuge_ai_engineering_run.down.sql
+COPY labs/taskflow/overrides/migrations/592_zhuge_ai_run_active_issue_index.up.sql /taskflow-ai-dispatch/migrations/592_zhuge_ai_run_active_issue_index.up.sql
+COPY labs/taskflow/overrides/migrations/592_zhuge_ai_run_active_issue_index.down.sql /taskflow-ai-dispatch/migrations/592_zhuge_ai_run_active_issue_index.down.sql
+COPY labs/taskflow/overrides/migrations/593_zhuge_ai_run_idempotency_index.up.sql /taskflow-ai-dispatch/migrations/593_zhuge_ai_run_idempotency_index.up.sql
+COPY labs/taskflow/overrides/migrations/593_zhuge_ai_run_idempotency_index.down.sql /taskflow-ai-dispatch/migrations/593_zhuge_ai_run_idempotency_index.down.sql
+COPY labs/taskflow/overrides/migrations/594_zhuge_ai_event_delivery_once_index.up.sql /taskflow-ai-dispatch/migrations/594_zhuge_ai_event_delivery_once_index.up.sql
+COPY labs/taskflow/overrides/migrations/594_zhuge_ai_event_delivery_once_index.down.sql /taskflow-ai-dispatch/migrations/594_zhuge_ai_event_delivery_once_index.down.sql
+COPY labs/taskflow/overrides/migrations/595_zhuge_ai_run_issue_history_index.up.sql /taskflow-ai-dispatch/migrations/595_zhuge_ai_run_issue_history_index.up.sql
+COPY labs/taskflow/overrides/migrations/595_zhuge_ai_run_issue_history_index.down.sql /taskflow-ai-dispatch/migrations/595_zhuge_ai_run_issue_history_index.down.sql
+COPY labs/taskflow/overrides/migrations/596_zhuge_ai_event_run_index.up.sql /taskflow-ai-dispatch/migrations/596_zhuge_ai_event_run_index.up.sql
+COPY labs/taskflow/overrides/migrations/596_zhuge_ai_event_run_index.down.sql /taskflow-ai-dispatch/migrations/596_zhuge_ai_event_run_index.down.sql
+COPY labs/taskflow/patches/apply-taskflow-ai-dispatch.py /tmp/apply-taskflow-ai-dispatch.py
+COPY labs/taskflow/tests/test_zhuge_ai_native_dispatch_overlay.py /tmp/test_zhuge_ai_native_dispatch_overlay.py
+RUN TASKFLOW_AI_DISPATCH_REPO=/ \
+    TASKFLOW_AI_DISPATCH_VENDOR=/src \
+    TASKFLOW_AI_DISPATCH_OVERLAYS=/taskflow-ai-dispatch \
+    TASKFLOW_AI_DISPATCH_MIGRATIONS=/taskflow-staged-migrations \
+    TASKFLOW_AI_DISPATCH_PATCH=/tmp/apply-taskflow-ai-dispatch.py \
+    python3 /tmp/test_zhuge_ai_native_dispatch_overlay.py \
+ && python3 /tmp/apply-taskflow-ai-dispatch.py --root /src \
+      --overlays /taskflow-ai-dispatch --migrations /taskflow-staged-migrations
+
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
 
@@ -72,8 +102,8 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
-RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
- && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
+RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/handler/taskflowcontract -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
  && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
