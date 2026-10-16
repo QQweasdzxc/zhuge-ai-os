@@ -145,10 +145,11 @@ async function renderDetail(id){
 function renderRoute(){
  if(!state.workspace)return;
  const route=currentRoute();
- refs.detail.hidden=!route.issueId;
- if(route.issueId) {
+ refs.detail.hidden=!(route.section==="issues" && route.issueId);
+ if(route.section==="issues" && route.issueId) {
    void renderDetail(route.issueId);
  }else {
+   refs.detail.hidden=true;
    refs.detail.replaceChildren();
    renderIssues(route.section==="projects"?route.issueId:null);
  }
