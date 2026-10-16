@@ -15,7 +15,7 @@ const STATUS:Record<string,string>={
   approved:"PM 已核准・等待安全派工",
   claim_pending:"正在確認單一工程師工作權",
   provider_ack_pending:"已送出・等待 Codex 官方確認",
-  running:"Co 已啟動・執行中",
+  running:"已啟動・執行中",
   blocked:"執行受阻・等待處理",
   review_pending:"已回報・等待驗收",
   completed:"完成",
