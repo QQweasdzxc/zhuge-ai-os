@@ -18,6 +18,15 @@ export function validateTaskFlowNativePath(value){
   if(typeof value!=="string" || value.length>2048 || !value.startsWith("/") ||
     value.startsWith("//")||BAD.test(value))throw Error("INVALID_NATIVE_PATH");
   const [beforeAnchor]=value.split("#",1);
+  // WHATWG URL normalizes /../ and /%2e%2e/ *before* pathname inspection.
+  // Validate raw segments first, including encoded dot-only segments.
+  const rawPath=beforeAnchor.split("?",1)[0];
+  try {
+    if(rawPath.split("/").some(segment=>{
+      const decoded=decodeURIComponent(segment);
+      return decoded==="."||decoded==="..";
+    }))throw Error("INVALID_NATIVE_PATH");
+  }catch{throw Error("INVALID_NATIVE_PATH");}
   const url=new URL(beforeAnchor,BASE);
   if(url.origin!==BASE.origin || !SAFE_NATIVE.test(url.pathname) ||
       url.pathname.includes(".."))
