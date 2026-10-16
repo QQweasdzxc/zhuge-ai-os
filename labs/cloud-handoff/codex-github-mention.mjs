@@ -4,6 +4,7 @@
  * Keep a durable claim PENDING_ACK until provider receipt reconciles.
  * Disabled by default. Server-side credentials only. No automatic retry.
  */
+import {assessGitHubCodexCommentPermission} from "./github-comment-permission.mjs";
 const GH_ID=/^[1-9][0-9]*$/;
 const DISPATCH_ID=/^[a-f0-9]{32}$/;
 const SHA=/^[a-f0-9]{40}$/;
@@ -38,12 +39,15 @@ export function previewCodexMention({
 }
 export function createCodexGithubMentionAdapter({
   repository,prNumber,token,writeEnabled=false,fetcher=fetch,
-  approvalVerifier,liveHeadVerifier,apiBase="https://api.github.com"
+  approvalVerifier,liveHeadVerifier,readVerifiedGitHubAppPermission,expectedAppId,
+  apiBase="https://api.github.com"
 }){
   must(REPO.test(repository||""),"invalid repository");
   must(GH_ID.test(String(prNumber)),"invalid PR");
   must(typeof token==="string"&&token.length>=12,"server-only GitHub token required");
   must(typeof approvalVerifier==="function"&&typeof liveHeadVerifier==="function","trusted approval/head verifier required");
+  must(typeof readVerifiedGitHubAppPermission==="function"&&Number.isSafeInteger(expectedAppId)&&expectedAppId>0,
+    "authenticated GitHub App installation permission reader required");
   const base=new URL(apiBase);
   must(base.protocol==="https:"&&!base.username&&!base.password&&!base.search&&!base.hash,"HTTPS GitHub endpoint required");
   const endpoint=base.origin+"/repos/"+repository+"/issues/"+prNumber+"/comments";
@@ -60,6 +64,13 @@ export function createCodexGithubMentionAdapter({
     must(approval===true,"no current PM approval for this exact dispatch");
     const head=await liveHeadVerifier({repository,prNumber,sha});
     must(head===true,"live PR head differs from authorized checkpoint");
+    // Refuse to post with a TaskFlow GitHub App that only has read-only
+    // PR/CI access. This is a fresh authenticated server-side capability read,
+    // not a copied UI toggle or a stale webhook. Never attempt a write on
+    // unknown/insufficient permissions (and never auto-retry a 403).
+    const verified=await readVerifiedGitHubAppPermission({repository,prNumber,expectedAppId});
+    const writer=assessGitHubCodexCommentPermission({repository,expectedAppId,evidence:verified});
+    must(writer.allowed,writer.reason);
     const res=await fetcher(endpoint,{
       method:"POST",headers:{
         Authorization:"Bearer "+token,Accept:"application/vnd.github+json",
