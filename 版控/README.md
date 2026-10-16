@@ -34,3 +34,16 @@
 **回復原則：** 找到指定版本與其完整 SHA，確認其 Release ZIP、manifest、sha256 可下載且內容相符後，再依既有正式 Release/DB/PM 權限流程進行回復；**絕不直接 force-push、清空 Production、覆寫其他工作或繞過權限**。
 
 下一個工作：Co 先讓最新「最小補缺」程式與正式 Version/Build **成功上傳 GitHub**，再在此補齊最新版 ZIP/manifest/sha256 和實際發布／驗收連結，始可列「備份完成」。
+
+## 2026-10-17 PR #60 遠端檢查點（append-only）
+
+| Candidate | 遠端 Source | Build / 驗證 | 永久 FullSource 備份 |
+| --- | --- | --- | --- |
+| `.9.66` | [324466aa1585af9b1ba9fce1143b9a87b2e7699c](https://github.com/QQweasdzxc/zhuge-ai-os/commit/324466aa1585af9b1ba9fce1143b9a87b2e7699c) | `20261017-0634`；Build Parity Run [38976633305](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38976633305) 後端鏡像測試失敗（repo-relative fixture path），Browser Run [38976637087](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38976637087) PASS | 未上傳 |
+| `.9.67` | [82690b9d1a4d11d6d050150d3c527648a8c4606a](https://github.com/QQweasdzxc/zhuge-ai-os/commit/82690b9d1a4d11d6d050150d3c527648a8c4606a) | `20261017-0637`；Backend、隔離 PostgreSQL、Overlay PASS；Web Vitest fixture 預期錯誤；Browser Run [38976971720](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38976971720) PASS | 未上傳 |
+| `.9.67` 測試修正檢查點 | [fb22f0def6261b54c2acdb151fb6063ec5d0e731](https://github.com/QQweasdzxc/zhuge-ai-os/commit/fb22f0def6261b54c2acdb151fb6063ec5d0e731) | 只修正 Vitest fixture/assertion，不改應用程式行為；新 SHA CI 待核對 | 未上傳 |
+| `.9.68` | 設定持久化測試修正後的 Review Candidate；納入唯一版本／Build 識別，不改派工/執行行為 | Build `20261017-0640`；commit/push 後待精確 SHA 讀回與 CI | **BACKUP NOT SAVED** |
+
+本階段已恢復既有 GitHub push 與遠端讀回，未讀取或輸出任何 Secret。原 `.9.65` commit `02380c1a3226cdd55541cbdc32a1fb91a31ef0df` 及原留言提及的 patch/bundle 在現有工作環境與遠端引用中不可取得，不能宣稱已恢復；`.9.66` 起是從可讀取的 PR #60 `.9.62` source 增量續作，並非原始 `.9.65` 的逐位復原。
+
+目前候選只完成 TaskFlow AI 設定持久化、核准 Run intent/readback 等既有程式的安全續接；`dispatch_enabled=false`。尚無真正 Codex Cloud ACK/Run ID/result callback、無 Production Migration/deploy，無永久 ZIP/manifest/SHA256 Release asset。完整紀錄見[最新 AI 工程交接文件](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。

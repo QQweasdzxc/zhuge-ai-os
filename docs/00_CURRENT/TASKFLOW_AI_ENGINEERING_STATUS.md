@@ -72,3 +72,24 @@
 - 舊 Issue #57「GitHub Pages 承載完整 TF」以及新建 AI 卡片、重設 GitHub、引入額外付費 AI API、Gem 自動切換等較早方案，均被 PM 更新的**單用戶、現有 Render TF、優先沿用既有功能**決策取代。
 
 **本文件在每次正式保存 checkpoint、候選 Source、正式上線之後，都應與 GitHub 遠端實際 SHA 同步更新；不得只記在聊天／Codex 工作環境。**
+
+## 4. 2026-10-17 雲端保存與 AI 設定接續紀錄（append-only）
+
+### 遠端保存狀態
+- 已確認原 `0.9.0-alpha.9.65` 本地 commit `02380c1a3226cdd55541cbdc32a1fb91a31ef0df` 及原留言提到的 patch/bundle，無法從目前工作環境或 GitHub branch/commit 讀回；不得宣稱已找回或把後續候選當成它的 byte-identical 恢復。原留言只保留了摘要，並非完整原始程式。
+- 已恢復可用的既有 GitHub push 認證途徑，並將 PR #60 Review 分支的 `.9.66` commit `324466aa1585af9b1ba9fce1143b9a87b2e7699c` 與 `.9.67` commit `82690b9d1a4d11d6d050150d3c527648a8c4606a` push 後，使用遠端 ref 及 GitHub 檔案讀取確認 SHA/內容。沒有讀取或輸出任何密鑰。
+- `.9.66` 是從可取得的 PR #60 `.9.62` 源碼續作之增量候選：TaskFlow 專案／Issue AI 工程設定改由已驗證使用者 TaskFlow API 持久化，預設關閉，切換 Co/Gem 不呼叫 Provider；Build `20261017-0634`。它不是遺失 `.9.65` 的原始替代品。
+
+### `.9.66` / `.9.67` QA 與修正
+- `.9.66` TaskFlow Build Parity `38976633305`：Overlay contract 與隔離 PostgreSQL migration integration PASS；Backend image 因一個測試在 Docker `REPO=/` 中讀取不存在的 repo-relative Dockerfile 路徑而 FAIL。Browser Regression `38976637087` Desktop/Mobile Chromium PASS。
+- `.9.67` Build `20261017-0637` 遠端 SHA `82690b9d1a4d11d6d050150d3c527648a8c4606a`：Backend image、隔離 PostgreSQL migration integration、Overlay contract PASS；Web image 中新增設定儲存測試因 fixture 預期值錯誤而 FAIL。該測試先以 `enabled=false` 讀取 Issue 設定，再換工程師；既有程式保留 `false` 是正確行為。Chromium Desktop/Mobile Browser Regression `38976971720` PASS。
+- 後續遠端測試修正 commit `fb22f0def6261b54c2acdb151fb6063ec5d0e731` 只修正該測試的 fixture 與 assertion，驗證切換到 Gem 不會意外將 `enabled` 從 `false` 改為 `true`；沒有改應用程式行為。該提交是 `.9.67` Build 身分下的測試修正檢查點，不能把先前 Web FAIL 改稱 PASS。
+- `.9.68` / Build `20261017-0640` 是本次設定持久化測試修正後的 Review Candidate。Commit/push 後須以 GitHub branch readback 確認精確 SHA，並完成對應 CI 才可標記為已交付／通過。
+
+### 功能邊界（維持 fail-closed）
+- 已有候選程式包含 AI 工程師專案／任務選擇的持久設定 API 與 UI、PM 核准/Run intent 持久化與讀回、Run/event 資料遷移，以及 GitHub PR webhook receipt 基礎。Migration 僅於隔離 PostgreSQL Actions 驗證；Production 未安裝。
+- PM 核准目前只建立 TaskFlow Run 記錄；不代表 Codex 已接單或開始工作。`dispatch_enabled=false`，沒有 Provider dispatcher、真實 Codex ACK、Cloud Run ID 或結果 callback；沒有發起付費 AI 呼叫。
+- 已見 PR #60 程式的 GitHub App token 申請範圍仍為 metadata-read；正式 `@codex` comment/Cloud trigger 的授權、可支援入口與費用尚未核實。Gemini Cloud 執行亦未配置。Writer lease、Co 停止證明與 Gem 接手機制仍未實作，不得聲稱多工程師自動接力完成。
+- `.9.67` Web Vitest 的失敗修正後，仍需精確 `.9.68` SHA 的 GitHub Build Parity 和 Browser Regression 結果；真實 Codex Cloud E2E、Production Migration/部署、真實 PM SSO/iPhone 驗收均未執行。
+- PR #60 是唯一 Draft Review 入口；main 基線記錄為 `e053cba43327083649641bd29cfb363ab1e42e80`。沒有 main merge、Production deploy、DB migration 或 Secret 修改。
+- FullSource ZIP、manifest、SHA256 尚未建立並上傳到 GitHub Release，狀態為 **BACKUP NOT SAVED**。只有精確 candidate source CI 完成後才依既有 `tools/release-governance.js` 打包；不得以本地 ZIP 或短期 CI artifact 代替永久封存。
