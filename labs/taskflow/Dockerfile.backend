@@ -42,6 +42,16 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
       --output /taskflow-staged-migrations \
  && python3 /tmp/patch-router-contract-test-main.py
 
+# Zhuge TaskFlow native AI Run/PM approval API — fail-closed, no provider launch.
+# Only the reviewed pinned source copy is changed; live TaskFlow DB is untouched.
+COPY labs/taskflow/overrides/zhuge_ai_dispatch.go /taskflow-ai-dispatch/zhuge_ai_dispatch.go
+COPY labs/taskflow/overrides/zhuge_ai_dispatch_test.go /taskflow-ai-dispatch/zhuge_ai_dispatch_test.go
+COPY labs/taskflow/overrides/migrations/591_zhuge_ai_engineering_run.up.sql /taskflow-ai-dispatch/migrations/591_zhuge_ai_engineering_run.up.sql
+COPY labs/taskflow/overrides/migrations/591_zhuge_ai_engineering_run.down.sql /taskflow-ai-dispatch/migrations/591_zhuge_ai_engineering_run.down.sql
+COPY labs/taskflow/patches/apply-taskflow-ai-dispatch.py /tmp/apply-taskflow-ai-dispatch.py
+RUN python3 /tmp/apply-taskflow-ai-dispatch.py --root /src \
+  --overlays /taskflow-ai-dispatch --migrations /taskflow-staged-migrations
+
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
 
