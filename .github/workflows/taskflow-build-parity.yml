@@ -11,6 +11,7 @@ on:
       - review/taskflow-issue-44-20261014
       - review/taskflow-issue-45-integrated-20261014
       - release/taskflow-ai-visible-20261016
+      - feature/taskflow-cloud-dispatch-v1-20261016
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
