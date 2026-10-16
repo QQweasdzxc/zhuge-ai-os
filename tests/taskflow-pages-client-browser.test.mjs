@@ -1,0 +1,64 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import {fileURLToPath} from "node:url";
+import {chromium} from "playwright";
+import browserTools from "./browser-executable.js";
+const {resolveBrowserExecutable,fixtureURL}=browserTools;
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+const API="https://zhuge-taskflow-api.onrender.com";
+async function setup(t,{signedIn=true,viewport={width:1440,height:900}}={}){
+ const browser=await chromium.launch({executablePath:resolveBrowserExecutable(),args:["--no-sandbox","--disable-dev-shm-usage"]});
+ t.after(async()=>browser.close());
+ const page=await browser.newPage({viewport});
+ if(signedIn)await page.addInitScript(()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",JSON.stringify({access_token:"test-supabase-access-token"})));
+ const requests=[];
+ await page.route(API+"/**",async route=>{
+   const req=route.request();
+   const u=new URL(req.url());
+   requests.push({pathname:u.pathname,headers:req.headers(),method:req.method(),post:req.postData()});
+   const headers={"access-control-allow-origin":"*","access-control-allow-headers":"authorization,content-type,x-workspace-slug",
+     "access-control-allow-methods":"GET,POST,OPTIONS","content-type":"application/json"};
+   if(req.method()==="OPTIONS")return route.fulfill({status:204,headers});
+   let data,status=200;
+   if(u.pathname==="/auth/zhuge")data={token:"taskflow-test-in-memory-jwt"};
+   else if(u.pathname==="/api/workspaces")data=[{id:"ws1",slug:"test-workspace",name:"Engineering"}];
+   else if(u.pathname==="/api/issues")data={issues:[{id:"issue-1",title:"Native issue from API",identifier:"ZG-1",status:"todo",priority:"high",project_id:"proj1"}],total:1};
+   else if(u.pathname==="/api/projects")data={projects:[{id:"proj1",name:"Native Project"}]};
+   else if(u.pathname==="/api/issue-statuses")data={statuses:[]};
+   else if(u.pathname==="/api/issues/issue-1")data={id:"issue-1",identifier:"ZG-1",title:"Native issue from API",status:"todo",priority:"high",description:"This issue description came from API",project_id:"proj1"};
+   else if(u.pathname==="/api/issues/issue-1/comments")data=[];
+   else {status=404;data={error:"not found"};}
+   return route.fulfill({status,headers,body:JSON.stringify(data)});
+ });
+ const pageURL=await fixtureURL(path.join(root,"labs/taskflow/pages-client/index.html"));
+ await page.goto(pageURL,{waitUntil:"load"});
+ return {page,requests,rootURL:pageURL};
+}
+test("anonymous Pages client never fakes TaskFlow data or redirects to Render",async t=>{
+ const {page,requests,rootURL}=await setup(t,{signedIn:false});
+ await page.getByText("需要先登入 Zhuge AI OS").waitFor();
+ assert.equal(new URL(page.url()).origin,new URL(rootURL).origin);
+ assert.equal(requests.length,0,"no TaskFlow identity exchange without existing Zhuge session");
+ assert.equal(await page.locator(".tf-issue").count(),0);
+ assert.equal(await page.locator("#tf-login").isVisible(),true);
+});
+test("Pages client reads real mocked native API contracts without changing host",async t=>{
+ const {page,requests,rootURL}=await setup(t);
+ await page.getByText("Native issue from API").first().waitFor();
+ assert.equal(new URL(page.url()).origin,new URL(rootURL).origin);
+ assert.ok(requests.some(x=>x.pathname==="/auth/zhuge" && x.method==="POST"));
+ const issues=requests.find(x=>x.pathname==="/api/issues");
+ assert.equal(issues.headers["x-workspace-slug"],"test-workspace");
+ assert.equal(issues.headers.authorization,"Bearer taskflow-test-in-memory-jwt");
+ await page.getByText("Native issue from API").first().click();
+ await page.getByText("This issue description came from API").waitFor();
+ assert.ok(page.url().includes("#/tf/issues/issue-1"));
+ assert.equal(new URL(page.url()).origin,new URL(rootURL).origin);
+});
+test("mobile native TaskFlow Pages client has no horizontal overflow",async t=>{
+ const {page}=await setup(t,{viewport:{width:390,height:844}});
+ await page.getByText("Native issue from API").first().waitFor();
+ const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
+ assert.ok(width.scroll<=width.viewport,JSON.stringify(width));
+});
