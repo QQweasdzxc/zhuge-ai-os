@@ -1,0 +1,50 @@
+name: TaskFlow Pages Native Client Feasibility (source only)
+on:
+  push:
+    branches: [feature/pages-native-taskflow-dashboard-20261016]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-auth-contract:
+    name: Static canonical host, native auth and TaskFlow data contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Offline native API/auth contract tests (zero user data)
+        run: node --test tests/taskflow-pages-native-client.test.mjs
+      - name: Source gates (cannot substitute browser iframe/redirect)
+        run: |
+          ! grep -E 'window\.location\.(assign|replace)|iframe|zhuge-handoff.html|/labs/taskflow/' labs/taskflow/pages-client/taskflow-pages-api.mjs
+          grep -F 'https://qqweasdzxc.github.io/zhuge-ai-os/' labs/taskflow/pages-client/taskflow-pages-api.mjs
+          grep -F 'https://zhuge-taskflow-api.onrender.com' labs/taskflow/pages-client/taskflow-pages-api.mjs
+
+  cross-origin-preflight:
+    name: Production API CORS feasibility (read only; no credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect OPTIONS preflight from existing GitHub Pages origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="https://qqweasdzxc.github.io"
+          for target in "/auth/zhuge" "/api/issues"; do
+            headers="$(mktemp)"
+            status="$(curl -sS -L --max-time 25 -o /dev/null -D "$headers" -X OPTIONS \
+              -H "Origin: $origin" \
+              -H "Access-Control-Request-Method: POST" \
+              -H "Access-Control-Request-Headers: authorization,content-type,x-workspace-slug" \
+              "https://zhuge-taskflow-api.onrender.com$target" -w '%{http_code}')"
+            allowed="$(grep -i '^access-control-allow-origin:' "$headers" | tail -1 | tr -d '\r' | sed 's/^[^:]*:[[:space:]]*//' || true)"
+            echo "preflight target=$target status=$status exact_origin_allowed=$([ "$allowed" = "$origin" ] && echo yes || echo no)"
+            test "$status" -ge 200 && test "$status" -lt 300 || exit 1
+            test "$allowed" = "$origin" || { echo "TASKFLOW_PAGES_CORS_NOT_AUTHORIZED"; exit 1; }
+            rm -f "$headers"
+          done
