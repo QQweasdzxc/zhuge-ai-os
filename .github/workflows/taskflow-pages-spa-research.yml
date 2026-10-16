@@ -17,7 +17,7 @@ jobs:
           node-version: 22
       - name: Verify auth and native API transport without live credentials
         run: |
-          node --test tests/taskflow-pages-client-api.test.mjs tests/taskflow-pages-feasibility.test.js
+          node --test tests/taskflow-pages-client-api.test.mjs tests/taskflow-pages-login-return.test.mjs tests/taskflow-pages-feasibility.test.js
           node --check labs/taskflow/pages-client/taskflow-api.mjs
           node --check labs/taskflow/pages-client/app.mjs
       - name: Install Playwright test fixture dependencies
