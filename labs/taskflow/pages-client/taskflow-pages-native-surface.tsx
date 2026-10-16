@@ -34,7 +34,7 @@ function WorkspaceContext({workspace,children}:{
 export function TaskFlowPagesNativeSurface({workspace,nativePath}:{
  workspace:{id:string;slug:string};nativePath:string
 }){
- const pieces=nativePath.split("?")[0].replace(/^\\/+|\\/+$/g,"").split("/").filter(Boolean);
+ const pieces=nativePath.split("?")[0].replace(/^[/]+|[/]+$/g,"").split("/").filter(Boolean);
  let screen:ReactNode=null;
  if(nativePath==="/" || pieces.length===1 && pieces[0]===workspace.slug){
    screen=<DashboardPage/>;
