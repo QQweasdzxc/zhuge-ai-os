@@ -52,6 +52,8 @@ class CloudApprovalNativeOverlayTest(unittest.TestCase):
             self.assertTrue((contract/"zhuge_ai_contract_test.go").exists())
             dispatch=(tmp/"server/internal/handler/zhuge_ai_dispatch.go").read_text()
             webhook=(tmp/"server/internal/handler/zhuge_github_webhook.go").read_text()
+            self.assertEqual(webhook.count("h.HandleGitHubWebhookNative("),2)
+            self.assertNotIn("h.HandleGitHubWebhook(",webhook)
             self.assertIn("server/internal/handler/taskflowcontract",dispatch)
             self.assertIn("server/internal/handler/taskflowcontract",webhook)
             self.assertIn("taskflowcontract.ClosingMarker(taskIdentifier)",dispatch)

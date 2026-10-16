@@ -22,7 +22,7 @@ func (h *Handler) HandleTaskflowGitHubWebhook(w http.ResponseWriter, r *http.Req
 		// Other native events (including check_run/check_suite) continue through
 		// the upstream handler. Its 202 means accepted for refresh, not a
 		// persisted check snapshot; only pull_request receipts are labeled below.
-		h.HandleGitHubWebhook(w, r)
+		h.HandleGitHubWebhookNative(w, r)
 		return
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, (10<<20)+1))
@@ -133,7 +133,7 @@ func (h *Handler) HandleTaskflowGitHubWebhook(w http.ResponseWriter, r *http.Req
 	nativeRequest := r.Clone(r.Context())
 	nativeRequest.Body = io.NopCloser(bytes.NewReader(body))
 	nativeResponse := httptest.NewRecorder()
-	h.HandleGitHubWebhook(nativeResponse, nativeRequest)
+	h.HandleGitHubWebhookNative(nativeResponse, nativeRequest)
 	if nativeResponse.Code < http.StatusOK || nativeResponse.Code >= http.StatusMultipleChoices {
 		h.failTaskflowGitHubDelivery(r, deliveryID, "native_webhook_rejected")
 		w.Header().Set("Retry-After", "30")
