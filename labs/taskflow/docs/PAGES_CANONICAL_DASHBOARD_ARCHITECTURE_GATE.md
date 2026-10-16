@@ -1,34 +1,31 @@
-# TF Dashboard as the canonical GitHub Pages origin — architecture gate
-Date: 2026-10-16
-Status: **NOT IMPLEMENTED / NOT RELEASE APPROVED**
+# Official GitHub Pages TaskFlow homepage: home-only release scope
+Updated: 2026-10-16
+Scope authority: PM clarified **only fix the homepage now**; inner TaskFlow paths and apps are explicitly NOT in scope and may change in a later milestone.
 
-## Binding PM requirement
-Opening `https://qqweasdzxc.github.io/zhuge-ai-os/` MUST display and operate the **real, authenticated TaskFlow Dashboard** while the browser URL remains on the `qqweasdzxc.github.io` origin. Changes to navigation/task paths may remain under `/zhuge-ai-os/`. It MUST NOT navigate to `zhuge-taskflow-web.onrender.com` or to the WorkLog fallback, embed Render inside an iframe, or render mock task data. Render API and database can remain internal service authorities. GitHub App/Codex integration is a downstream task and is **frozen** until this is tested and accepted.
+## Binding acceptance criteria
+1. When PM opens `https://qqweasdzxc.github.io/zhuge-ai-os/`, the **browser URL stays exactly on the GitHub Pages origin**. Root immediately renders an authenticated, live-data TaskFlow Dashboard (workspace, projects and issues), not the old public landing page, a Render JS redirect or an iframe.
+2. Native TaskFlow dataset stays in the existing Render-backed Workspace/API/DB; no screenshots, mock counts or independent data replicas. No TaskFlow/Co GitHub App integration or extra paid provider.
+3. Existing Zhuge login is reused; expired/absent session is a visible login state, NEVER a fabricated dashboard. The intentional login link preserves a short-lived same-origin return without leaking token in URL; OAuth callback and explicit `?app=1&workspace=...` routes remain intact.
+4. **Do not rewrite or require all inner TaskFlow URLs to stay on GitHub Pages for this release**. Provide clear link through the existing `labs/taskflow/` trusted SSO launcher to the full TaskFlow on Render. Native dashboard issue detail may use same-origin hash navigation, but no claim of full Next.js parity.
+5. Desktop/mobile responsive rendering, CORS origin restricted to `https://qqweasdzxc.github.io`, native Auth + Workspace RBAC, no new storage of backend service tokens. Preserve public legal/privacy pages.
+6. New formal version/build identity, full source/browser release QA and verified Pages deploy. PM's live authenticated visual confirmation required to close release.
+7. **GitHub App / TaskFlow↔Codex is a downstream blocked dependency**, held until homepage acceptance.
 
-## Evidence from current source
-- GitHub Pages is built by `tools/build-pages-site.js` and publishes tracked static HTML/JS/CSS through `.github/workflows/p0-home-apps-pages.yml`.
-- Published `index.html` currently executes `window.location.replace("https://zhuge-taskflow-web.onrender.com/")` (PR #56 release .9.58): **a redirect, not the requested Dashboard**.
-- Actual TaskFlow web is Next.js 16, `third_party/multica/apps/web`, compiled to `standalone` in `labs/taskflow/Dockerfile.web`. It relies on Next proxy/request middleware, server rewrites (`/api`, `/auth`, `/uploads`, `/ws`), the Next App Router and workspace route resolution.
-- Rendering React without a URL change is not enough: real auth/bootstrap, per-workspace RBAC and token storage, multi-route navigation, issue updates, uploads and WebSocket reconnection MUST work.
-- GitHub Pages cannot execute Next.js runtime middleware or act as an authenticated reverse proxy. `next export` is not a drop-in replacement for those server capabilities.
-- The Pages origin cannot set or read HttpOnly cookies scoped to `onrender.com`. No copy/paste of personal OAuth secrets, browser cookies or bearer credentials to public Pages build artifacts.
-- Because TaskFlow uses server-side Next routes, the feasible direction on this *specific hostname* is a separate **real client-side TaskFlow shell / SPA** reusing vendor components or carefully extracted shared views and APIs, served at a `/zhuge-ai-os/` base path. This is substantial product engineering and must be independently validated. Render remains the existing trusted API, DB and realtime authority.
+## Architecture
+- `index.html` = the GitHub Pages root Dashboard entrypoint, loading `labs/taskflow/pages-client/app.mjs` and `app.css`.
+- Pages code calls the existing native `POST https://zhuge-taskflow-api.onrender.com/auth/zhuge` using the existing browser-origin Zhuge session and holds the resulting TaskFlow bearer **in memory only**.
+- Workspace reads `GET /api/workspaces`, `GET /api/issues`, `GET /api/projects`, `GET /api/issue-statuses`; task detail and comments readback use native endpoints + `X-Workspace-Slug`; browser has no privileged service-level app credentials.
+- Existing `labs/taskflow/` maintains the secure launch/handoff for advanced TaskFlow operations and existing app pages.
+- `modules/worklog/` handles Google OAuth and existing AIOS modules and uses scoped explicit return handoff.
+- `tools/build-pages-site.js` publishes tracked static assets through the single existing `P0 TaskFlow Home and Curated Pages` workflow.
+- The existing Render TaskFlow Node/Next.js backend is NOT copied to or run on GitHub Pages. The limitation on SSR and rewrites applies only to inner pages beyond this release scope.
 
-## Mandatory research checks before implementation
-1. Confirm Render API accepts the exact HTTPS GitHub Pages origin under a restricted origin allowlist for REST and WebSocket; confirm preflight and Authorization without exposing tokens. Do not widen CORS to `*`.
-2. Reuse official TaskFlow login flow only if it safely supports Pages as a distinct origin. Existing Next session cookies are not automatically portable. Plan a scoped, audited SSO authorization-code / PKCE bridge if needed; do NOT put tokens in URL query strings.
-3. Validate full SSR/Next dependency inventory, especially App Router, `next/font`, Next Link/navigation, cookies, image optimization, API rewrites, server actions, desktop/Mobile and authenticated root-page path semantics.
-4. Implement real API-backed Dashboard: authenticated workspace list, native issue list, issue detail and updates, project navigation, layout and AI Engineering panel with honest disabled states. No static fake dashboard, no `iframe`, no unconditional Render redirect.
-5. Configure same-origin deep-link fallback using Pages `404.html` SPA strategy without hijacking old `/modules/worklog` and OAuth callback routes; verify refresh and bookmarks.
-6. Test real session, expired session, multi-workspace access denial, CRUD, mobile, WebSocket, files, navigation and direct deep links against **authorized** TaskFlow environment; never use production `ZG-6` as write test without explicit PM task GO.
-7. FullSource, security, regression and PM acceptance MUST pass before main merge or Pages publish. Never deploy exploratory code over the currently working site.
+## Evidence and release decision
+- Source-only no-secret unit/browser tests MUST pass for absence of Render redirect, native API schema, origin retention, mobile, existing WorkLog routes, login return, unauthorized fail-closed and workspace identity.
+- Read-only production OPTIONS preflight from the Pages origin to the Render API must pass; this does not substitute for authorized real-browser session validation.
+- FullSource Build ID and strict Source Regression gate required.
+- No GitHub App/Co/worker/Codex settings or credentials touched.
+- If live login fails in actual PM browser, release stays in runtime QA until diagnosed; do not silently fall back to Render redirect.
 
-## Release gates
-- `PAGES_TF_ORIGIN_STAYS`: root and all routed Dashboard pages preserve `https://qqweasdzxc.github.io/zhuge-ai-os/` prefix; no Render frontend redirect.
-- `PAGES_TF_REAL_DATA`: successful authenticated reads from the existing native TaskFlow API and authorized workspace.
-- `PAGES_TF_AUTH_SAFE`: no session token in URLs or static source, origin-scoped protection, proper expiry/refresh.
-- `PAGES_TF_FUNCTIONAL`: issue/project navigation, detail editing where authorized, WS, and mobile.
-- `PAGES_TF_RELEASE_GOVERNANCE`: all automated security/full regressions and PM visual GO.
-- `CODEX_GITHUB_FROZEN`: do not configure GitHub App, Co/Gem agent credentials or live dispatch until all above are complete.
-
-The correct status until all gates pass is **BLOCKED / in development**; do not call .9.58 the accepted canonical TF Dashboard.
+## Phase 2 (intentionally deferred)
+Full TaskFlow multi-route Next.js parity, native issue mutations, agents, realtime, deep-link server routing, files/attachments and permanent navigation changes. This is later work by PM direction, not acceptance criteria for this homepage-only fix.
