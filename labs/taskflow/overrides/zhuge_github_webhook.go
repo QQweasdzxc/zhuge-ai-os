@@ -258,3 +258,9 @@ func (h *Handler) failTaskflowGitHubDelivery(r *http.Request, deliveryID, code s
 		return
 	}
 }
+
+// Keep the native method name available to TaskFlow's existing handler tests
+// and any in-package callers while the router is wrapped by the overlay.
+func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
+	h.HandleGitHubWebhookNative(w, r)
+}
