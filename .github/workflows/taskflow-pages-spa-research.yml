@@ -1,0 +1,30 @@
+name: TaskFlow Pages Client Research Gate (NO DEPLOY)
+on:
+  push:
+    branches:
+      - feature/gh-pages-taskflow-spa-feasibility-20261016-1335
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proof-of-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify auth and native API transport without live credentials
+        run: |
+          node --test tests/taskflow-pages-client-api.test.mjs tests/taskflow-pages-feasibility.test.js
+          node --check labs/taskflow/pages-client/taskflow-api.mjs
+          node --check labs/taskflow/pages-client/app.mjs
+      - name: Assert prototype is not wired to production root or deploy workflow
+        run: |
+          node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8');if(!s.includes('window.location.replace(\"https://zhuge-taskflow-web.onrender.com/\")'))process.exit(1);const p=fs.readFileSync('labs/taskflow/pages-client/index.html','utf8');if(!p.includes('./app.mjs'))process.exit(1);"
+      - name: Fail-closed readiness evidence (expected not ready)
+        run: |
+          node tools/taskflow-pages-feasibility.js > /tmp/tf-pages-readiness.json
+          cat /tmp/tf-pages-readiness.json
+          node -e "const r=require('/tmp/tf-pages-readiness.json');if(r.status!=='BLOCKED_NOT_READY'||r.deploymentAllowed||r.githubAppAllowed)process.exit(1)"
