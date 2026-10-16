@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   PAGES_CANONICAL,TASKFLOW_API,isCanonicalPagesUrl,readZhugeSessionToken,
-  connectTaskFlowPages,TaskFlowPagesError
+  connectTaskFlowPages,createTaskFlowPagesMemoryStorage,TaskFlowPagesError
 } from "../labs/taskflow/pages-client/taskflow-pages-api.mjs";
 
 const WID="11111111-1111-4111-8111-111111111111";
@@ -95,4 +95,18 @@ test("no login, expired user, blocked CORS and invalid backend payload stay fail
  const client=await connectTaskFlowPages({storage:storage(),fetchImpl});
  await assert.rejects(client.listWorkspaces(),{code:"INVALID_WORKSPACE_REPLY"});
  await assert.rejects(client.listIssues({workspace:WORKSPACE}),{code:"INVALID_ISSUE_REPLY"});
+});
+
+test("native CoreProvider storage adapter keeps bearer only in volatile memory",()=>{
+ const store=createTaskFlowPagesMemoryStorage();
+ assert.equal(store.getItem("multica_token"),null);
+ store.setItem("multica_token",TF_TOKEN);
+ assert.equal(store.getItem("multica_token"),TF_TOKEN);
+ assert.deepEqual(store.keys(),["multica_token"]);
+ store.removeItem("multica_token");
+ assert.equal(store.getItem("multica_token"),null);
+ store.setItem("multica_token",TF_TOKEN);
+ store.clear();
+ assert.deepEqual(store.keys(),[]);
+ assert.equal(store.getItem("multica_token"),null);
 });
