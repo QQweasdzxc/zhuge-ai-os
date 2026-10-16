@@ -4,6 +4,7 @@
  * NOT TaskFlow production parity or an approved launch.
  */
 import {createTaskFlowPagesTransport, readZhugeAccessToken,TaskFlowPagesError} from "./taskflow-api.mjs";
+import {markExplicitReturn} from "./login-return.mjs";
 const ROOT="/zhuge-ai-os/";
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
 const refs={
@@ -201,6 +202,7 @@ refs.workspace.addEventListener("change",async event=>{
  history.replaceState(null,"",routeFor());
  await loadData();
 });
+document.querySelector("#tf-login-action").addEventListener("click",()=>markExplicitReturn(sessionStorage));
 refs.refresh.addEventListener("click",()=>void bootstrap());
 let searchDelay;
 refs.filter.addEventListener("input",()=>{
