@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '24'
       - name: Offline native API/auth contract tests (zero user data)
-        run: node --test tests/taskflow-pages-native-client.test.mjs
+        run: node --test tests/taskflow-pages-native-client.test.mjs tests/taskflow-pages-native-navigation.test.mjs
       - name: Source gates (cannot substitute browser iframe/redirect)
         run: |
           ! grep -E 'window\.location\.(assign|replace)|iframe|zhuge-handoff.html|/labs/taskflow/' labs/taskflow/pages-client/taskflow-pages-api.mjs
