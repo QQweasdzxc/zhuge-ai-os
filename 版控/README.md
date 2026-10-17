@@ -94,3 +94,10 @@ Browser artifact [12082240948](https://github.com/QQweasdzxc/zhuge-ai-os/actions
 | `.9.72` | `20261017-0807` | 僅追加 `.9.71` 已完成 QA 證據並同步唯一 Candidate Version/Build/cache identity；TaskFlow 執行邏輯未變 | 精確 Review SHA 與新 Build/Browser CI 以 PR #60 latest Head/Checks 為準 |
 
 `.9.71` 的根目錄 Node 974/974、TaskFlow Python 47/47、Pages Artifact 2/2、遠端 Build Parity 四 Job 與 Browser Regression 證據見上方及[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。`.9.72` 永久 FullSource ZIP/Manifest/SHA256 尚未封存。
+
+## 2026-10-17 GitHub Connector transport Recovery checkpoint (.9.73 candidate)
+
+- Last verified complete formal backup: .9.72 Review source SHA `9c84531f30a2dcff9f1c9e703facb244e654ecac`, private Google Drive FullSource ZIP / Manifest / SHA256. This source's ZIP hash independently rechecked: `241f7478fe72ad2730d5b194e21f8a7119bec0840ca1cfdf195a7a5e678438c1`.
+- Next candidate: `0.9.0-alpha.9.73 / 20261017-1603`, for controlled GitHub Connector fallback transport, based on the exact .9.72 Source. Its new formal FullSource ZIP/Manifest/SHA256 **has not yet been stored or verified**; status **BACKUP NOT SAVED for .9.73**. Do not use .9.72 backup links as if they cover .9.73.
+- Transport runbook: [GitHub Connector Backup Transport](../docs/30_QA/evidence/GITHUB_CONNECTOR_FALLBACK_TRANSPORT_20261017.md). Subsequent PR CI and exact remote commit evidence must be recorded separately, and the latest confirmed backups linked upon actual successful storage.
+- The Review branch and main must never be equated to formal Render Production deploy; GitHub Git Data blob/commit success alone does not prove TaskFlow GitHub App permission or official Codex Cloud E2E.
