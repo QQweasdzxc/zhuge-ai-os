@@ -14,8 +14,8 @@
   const RELEASE = Object.freeze({
   "schemaVersion": 1,
   "templateId": "c",
-  "developmentVersion": "0.9.0-alpha.9.71",
-  "developmentBuild": "20261017-0741",
+  "developmentVersion": "0.9.0-alpha.9.72",
+  "developmentBuild": "20261017-0807",
   "publishedVersion": "0.9.0-alpha.9.13",
   "publishedBuild": "20260915-1707",
   "templateVersion": "0.9.0-alpha.9.13",
