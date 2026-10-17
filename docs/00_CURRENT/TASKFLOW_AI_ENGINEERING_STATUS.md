@@ -127,3 +127,15 @@
 - Removed only the unused test import in checkpoint `648f9cdf493483767cd17e25b87beca545663835`; this is a Go test build correction, not runtime behavior.
 - New candidate `.9.71` / Build `20261017-0741`; exact SHA is the PR #60 Review head. Its exact-SHA Build Parity and Browser Regression must pass before it can be reviewed as a complete candidate.
 - Dispatch gates remain OFF; no actual Codex Cloud run, provider ACK/thread/result, Production migration/deploy, or permanent FullSource asset is claimed.
+
+
+### `.9.71` exact-SHA final QA evidence (append-only)
+
+- Review Branch `review/taskflow-github-codex-phase2-20261016` exact SHA `128b5ab9eaf2ea7a5b1c50ee1a3ee722aeb2f356`; Version `0.9.0-alpha.9.71`, Build `20261017-0741`; GitHub `version.json` was read back from that branch and matched.
+- TaskFlow Build Parity [Run 38982825162](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982825162): Backend Image **PASS**, Web Image **PASS**, isolated PostgreSQL Migration Integration **PASS**, Overlay Contract **PASS**. Go handler tests included `TestTaskflowCodex`; migration run used isolated PostgreSQL, not Production.
+- Browser Regression [Run 38982828979](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982828979): Playwright Chromium Desktop/Mobile **PASS**. Evidence artifact [12082240948](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982828979/artifacts/12082240948), SHA-256 `e308deb2c2fc851aa7456fb716684f2567dc6eb50a4bc53f7b4d10a19a5179be`; temporary CI retention, not permanent FullSource. This is not physical iPhone Safari.
+- Local root regression, after `npm ci --ignore-scripts --no-audit --no-fund` from committed lockfile: `node --test` over root `*.test.js` except the Pages artifact harness (which requires a generated-site argument) **974/974 PASS**, exit 0. The seven PGlite-dependent test files first lacked the already locked local package, then passed 36/36 after dependency installation.
+- Exact Pages artifact workflow command `node tools/build-pages-site.js /tmp/taskflow-pr60-pages-site && node tests/pages-publish-artifact.test.js /tmp/taskflow-pr60-pages-site`: **2/2 PASS**; site included 304 tracked files, excluded 7,509 non-site tracked files (4,866,090 uncompressed bytes).
+- TaskFlow Python overlay suite **47/47 PASS**; TaskFlow dispatch/build parity targeted suite **23/23 PASS**; TaskFlow entry/CLI SSO Node targeted tests **18/18 PASS**. Release governance preflight and Go formatting/shell syntax/diff checks passed for .9.71.
+- `.9.71` is a review candidate only. No real Codex Cloud ACK/thread/run/result, Production Migration, deployment, or secrets change occurred. Dispatch stays disabled.
+- Durable FullSource package for the exact final candidate is not yet saved; package/upload status must be recorded separately and must not be inferred from the 14-day browser artifact.

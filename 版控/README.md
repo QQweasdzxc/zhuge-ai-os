@@ -76,3 +76,12 @@
 | `.9.71` | PR #60 Review head / Build `20261017-0741` | 移除未使用測試 import；新精確 SHA 遠端 Build/Browser Gate 待執行 | **BACKUP NOT SAVED** |
 
 真實 Codex Cloud E2E、Production Migration/deploy 未執行；dispatch gates 維持關閉。固定狀態與後續證據見[TaskFlow AI 工程狀態](../docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)。
+
+
+### PR #60 `.9.71` 完整候選 QA 證據（append-only）
+
+| Candidate | SHA / Build | 驗證結果 | FullSource 封存 |
+| --- | --- | --- | --- |
+| `.9.71` | `128b5ab9eaf2ea7a5b1c50ee1a3ee722aeb2f356` / `20261017-0741` | Build Parity [38982825162](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982825162) 四項 PASS；Browser Regression [38982828979](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982828979) Chromium Desktop/Mobile PASS；root Node 回歸 974/974；TaskFlow Python 47/47；Pages Artifact 2/2 | 尚未永久保存 |
+
+Browser artifact [12082240948](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/38982828979/artifacts/12082240948) 僅暫存，digest `e308deb2c2fc851aa7456fb716684f2567dc6eb50a4bc53f7b4d10a19a5179be`，不等同永久 FullSource。程式仍只在 Draft PR #60 Review branch，無真實 Codex Cloud Run、Production Migration 或 Deploy。
