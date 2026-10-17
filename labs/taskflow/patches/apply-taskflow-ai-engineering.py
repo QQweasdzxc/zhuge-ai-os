@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Review-only AI execution panels layered over frozen Multica source.
+"""TaskFlow AI approval/readback panels layered over frozen Multica source.
 
-Fail closed on upstream drift. Production provider dispatch is intentionally
-UNSUPPORTED. This script only changes a copied TaskFlow web build tree.
+Fail closed on upstream drift. The TaskFlow-owned UI can request the
+documented GitHub @codex handoff, but the runtime feature gates remain off
+until the GitHub App callback path is verified. This script only changes a
+copied TaskFlow web build tree.
 """
 from __future__ import annotations
 import argparse
@@ -11,11 +13,19 @@ from pathlib import Path
 ISSUE = "packages/views/issues/components/issue-detail.tsx"
 PROJECT = "packages/views/projects/components/project-detail.tsx"
 COMMON = "packages/views/common"
+API_INDEX = "packages/core/api/index.ts"
 MODULES = (
     "taskflow-ai-engineering-policy.ts",
-    "taskflow-ai-preview-store.ts",
+    "taskflow-ai-settings-store.ts",
+    "taskflow-ai-settings-store.test.tsx",
     "taskflow-ai-engineering.tsx",
     "taskflow-ai-engineering-policy.test.ts",
+    "taskflow-ai-run-readback.tsx",
+    "taskflow-ai-run-readback.test.tsx",
+)
+API_MODULES = (
+    "taskflow-ai-run-schema.ts",
+    "taskflow-ai-run-schema.test.ts",
 )
 
 def replace_exact(text: str, old: str, replacement: str, purpose: str) -> str:
@@ -37,7 +47,9 @@ def patch_issue(text: str) -> str:
         '      <PluginPanelSection issueId={issue.id} />\n'
         '      {/* TASKFLOW_AI_EXECUTION_V1: optional panel, not an assignee or Wakeup. */}\n'
         '      <TaskFlowAIIssueSection workspaceId={wsId} projectId={issue.project_id}'
-        ' issueId={issue.id} />',
+        ' issueId={issue.id} issueRevision={issue.revision ?? 0}'
+        ' canManage={currentUserRole === "owner" || currentUserRole === "admin"}'
+        ' canApprove={currentUserRole === "owner"} />',
         "native sidebar between Wakeups and PR")
     return text
 
@@ -51,31 +63,43 @@ def patch_project(text: str) -> str:
         "native project import")
     text = replace_exact(text,
         '      {/* Progress */}',
-        '      {/* TASKFLOW_AI_PROJECT_V1: ephemeral setting, default OFF. */}\n'
+        '      {/* TASKFLOW_AI_PROJECT_V1: persisted setting, default OFF. */}\n'
         '      <TaskFlowAIProjectSettings workspaceId={wsId} projectId={projectId}'
         ' canManage={isWorkspaceAdmin} />\n\n'
         '      {/* Progress */}',
         "native project settings location")
     return text
 
+def patch_api_index(text: str) -> str:
+    marker = 'export { DuplicateIssueErrorBodySchema } from "./schemas";'
+    if "TaskFlowAIEngineeringRunListSchema" in text:
+        raise ValueError("TaskFlow AI Run API exports already patched")
+    return replace_exact(
+        text,
+        marker,
+        marker + '\nexport { TaskFlowAIEngineeringRunListSchema } from "./taskflow-ai-run-schema";'
+        + '\nexport type { TaskFlowAIEngineeringRun, TaskFlowAIEngineeringEvent } from "./taskflow-ai-run-schema";',
+        "TaskFlow API response schema export",
+    )
+
 def apply(root: Path, overlays: Path) -> None:
-    for name in MODULES:
+    for name in (*MODULES, *API_MODULES):
         source = overlays / name
         if not source.is_file():
             raise FileNotFoundError(f"required TaskFlow AI overlay missing: {source}")
-    for relative, transform in ((ISSUE, patch_issue), (PROJECT, patch_project)):
+    for relative, transform in ((ISSUE, patch_issue), (PROJECT, patch_project), (API_INDEX, patch_api_index)):
         target = root / relative
         if not target.is_file():
             raise FileNotFoundError(target)
         result = transform(target.read_text())
         target.write_text(result)
-    dest = root / COMMON
-    dest.mkdir(parents=True, exist_ok=True)
-    for name in MODULES:
-        dst = dest / name
-        if dst.exists():
-            raise ValueError(f"AI source already installed in build copy: {dst}")
-        dst.write_text((overlays / name).read_text())
+    for target_dir, names in ((root / COMMON, MODULES), (root / "packages/core/api", API_MODULES)):
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            dst = target_dir / name
+            if dst.exists():
+                raise ValueError(f"AI source already installed in build copy: {dst}")
+            dst.write_text((overlays / name).read_text())
 
 def main() -> None:
     parser = argparse.ArgumentParser()

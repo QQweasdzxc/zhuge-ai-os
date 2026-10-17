@@ -51,6 +51,24 @@ ZHUGE_PUBLIC_FUNCTIONS = (
 
 
 class TaskFlowBuildParityTests(unittest.TestCase):
+    def test_codex_dispatch_overlay_is_compiled_and_migration_is_staged(self):
+        backend = (TASKFLOW / "Dockerfile.backend").read_text()
+        for name in ("zhuge_ai_codex.go", "zhuge_codex_webhook.go",
+                     "zhuge_ai_codex_test.go", "zhuge_codex_webhook_test.go",
+                     "598_zhuge_ai_codex_dispatch.up.sql", "598_zhuge_ai_codex_dispatch.down.sql"):
+            self.assertIn(name, backend)
+            path = TASKFLOW / "overrides" / ("migrations/" + name if name.endswith(".sql") else name)
+            self.assertTrue(path.is_file(), path)
+        self.assertIn("go test ./internal/handler -run '^TestTaskflowCodex'", backend)
+        patch = (TASKFLOW / "patches/apply-taskflow-ai-dispatch.py").read_text()
+        self.assertIn('Post("/zhuge-ai/accept", h.ZhugeAIAcceptRun)', patch)
+
+    def test_ai_settings_migration_is_staged_by_backend_build(self):
+        backend = (TASKFLOW / "Dockerfile.backend").read_text()
+        for name in ("597_zhuge_ai_settings.up.sql", "597_zhuge_ai_settings.down.sql"):
+            self.assertIn(name, backend)
+            self.assertTrue((TASKFLOW / "overrides/migrations" / name).is_file())
+
     def test_wrappers_copy_the_pinned_vendor_and_do_not_clone_application_source(self):
         for wrapper in ("Dockerfile.backend", "Dockerfile.web"):
             text = (TASKFLOW / wrapper).read_text()

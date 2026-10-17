@@ -43,5 +43,5 @@ export function evaluateAIExecution(x: AIExecutionInput): AIExecutionResult {
   // This evaluator does NOT invoke anything. HTTP 201 / bot text is NOT RUNNING.
   return block("DISPATCH_PENDING", "all_gates_verified_no_execution_performed");
 }
-export const AI_PREVIEW_ONLY = true as const;
+export const AI_DISPATCH_ENABLED = false as const;
 export const DEFAULT_ENGINEER: Engineer = "co";
