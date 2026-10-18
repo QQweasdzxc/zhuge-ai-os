@@ -15,8 +15,8 @@
 .zgf-medal-label{overflow:hidden;text-overflow:ellipsis}
 .zgf-board-note{margin:4px 2px 0;text-align:center;color:#d7ba92;font-size:9px;font-weight:400}
 .zgf-awards[data-open="false"] .zgf-medals,.zgf-awards[data-open="false"] .zgf-board-note{display:none}
-.zgf-rack{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));left:19px;display:flex;align-items:flex-end;gap:8px;padding:4px 8px 2px;background:#1d2834c9;border-top:3px solid #6b5d4b;box-shadow:0 4px 0 #111927;max-width:calc(100vw - 160px)}
-.zgf-device{width:63px;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;text-decoration:none;color:#f6ebcb;background:none;border:0;border-radius:0;padding:1px 1px 3px;cursor:pointer;font:700 10px/1.2 "Courier New",monospace}
+.zgf-rack{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));right:15px;display:flex;align-items:flex-end;gap:3px;padding:4px 6px 2px;background:#1d2834c9;border-top:3px solid #6b5d4b;box-shadow:0 4px 0 #111927;max-width:244px}
+.zgf-device{width:43px;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;text-decoration:none;color:#f6ebcb;background:none;border:0;border-radius:0;padding:1px 1px 3px;cursor:pointer;font:700 8px/1.2 "Courier New",monospace}
 .zgf-device-face{width:40px;height:35px;display:grid;place-items:center;color:#a9f1ef;background:#283e51;border:5px solid #847d6a;box-shadow:3px 3px 0 #12212a,inset 0 0 0 2px #4a8f97;font:900 13px monospace;image-rendering:pixelated}
 .zgf-device:nth-child(2) .zgf-device-face{height:37px;width:32px;border:5px solid #9c764a;background:#f0d6a1;color:#61492d}
 .zgf-device:nth-child(3) .zgf-device-face{background:#225251;color:#d8ec88}
