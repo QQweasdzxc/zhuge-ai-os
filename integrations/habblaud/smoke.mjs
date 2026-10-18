@@ -48,11 +48,35 @@ try {
     return { rooms:s?.rooms?.length || 0, agents:s?.agents?.length || 0, waiting:s?.agents?.filter(a=>a.status==='waiting').length||0 };
   });
   if (snapshot.rooms < 3 || snapshot.agents < 3 || snapshot.waiting < 1) throw new Error('Snapshot did not drive native room/agents: ' + JSON.stringify(snapshot));
+  // P2: three real native-renderer character entries, ALWAYS idle until P3 event producer exists.
+  const crew = await frame.locator('body').evaluate(() => {
+    const s = window.habblaud?.store?.snapshot;
+    const cast = (s?.agents || []).filter(a => a.id.startsWith('zhuge-crew-'));
+    return {
+      rooms: (s?.rooms || []).filter(r => r.id === 'zhuge-room-crew').length,
+      agents: cast.map(a => ({ id:a.id, status:a.status, account:a.account, title:a.title })),
+    };
+  });
+  const castIds = ['zhuge-crew-pm', 'zhuge-crew-codex', 'zhuge-crew-gem'];
+  if (crew.rooms !== 1 || crew.agents.length !== 3 || !castIds.every(id => crew.agents.some(a => a.id === id))) {
+    throw new Error('P2 native cast did not spawn as three stable characters: ' + JSON.stringify(crew));
+  }
+  if (crew.agents.some(a => a.status !== 'idle' || a.account !== 'zhuge-showcase-only' || !a.title.includes('尚無真實工程事件來源'))) {
+    throw new Error('P2 cast faked real CLI work status: ' + JSON.stringify(crew));
+  }
   await frame.locator('#zhuge-aios-hud button').click();
   await frame.locator('#zhuge-decision-panel:not([hidden])').waitFor({timeout:2000});
   const panel = await frame.locator('#zhuge-decision-panel').innerText();
   if (!panel.includes('正式 DB') || !panel.includes('下一步')) throw new Error('decision panel missing blocker/action');
   await frame.locator('#zhuge-decision-panel button').click();
+  await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
+  await frame.locator('#zhuge-aios-hud button').nth(1).click();
+  await frame.locator('.zhuge-role-roster button').last().click();
+  const roleText = await frame.locator('#zhuge-decision-panel').innerText();
+  if (!roleText.includes('Gem｜第二工程師') || !roleText.includes('不是 Co、Gem、PM 的即時 CLI')) {
+    throw new Error('P2 role dossier missing or falsely live: ' + roleText);
+  }
+  await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
@@ -73,6 +97,16 @@ try {
   if (!(await page.locator('.zgf-toast:not([hidden])').innerText()).includes('正式下載來源尚待驗證')) {
     throw new Error('TF-03 failed to disclose unavailable download');
   }
+  // P2 optional medal information; primary medal remains a direct hyperlink.
+  await page.locator('[data-zgf-info="taskflow"]').click();
+  const info = await page.locator('#zgf-work-details:not([hidden])').innerText();
+  if (!info.includes('TaskFlow') || !info.includes('非運行') && !info.includes('不代表程式目前正在執行')) {
+    throw new Error('P2 medal info lacks provenance: ' + info);
+  }
+  const go = await page.locator('#zgf-work-details a').getAttribute('href');
+  if (go !== taskflow) throw new Error('P2 trophy detail changed TaskFlow official URL');
+  await page.locator('.zgf-work-close').click();
+  await page.locator('#zgf-work-details').waitFor({state:'hidden',timeout:2000});
   await page.locator('.zgf-toast').evaluate(element => { element.hidden = true; });
   const shotDir = process.env.PIXEL_SCREENSHOT_DIR;
   if (shotDir) {
@@ -95,7 +129,7 @@ try {
   const docsWorklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
   if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  console.log('PASS real Habblaud Canvas, rooms=' + snapshot.rooms + ', agents=' + snapshot.agents + ', waiting=' + snapshot.waiting + ', HUD drawer, classic, docs entry');
+  console.log('PASS native Habblaud P2 cast PM/Codex/Gem idle, role dossier, medal details, P1 links, desktop/mobile, classic and docs entry');
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));
