@@ -21,3 +21,6 @@
 }
 @media(min-width:701px) and (max-width:1050px) and (orientation:portrait){.office-section{min-height:360px}}
 @media(prefers-reduced-motion:reduce){.cat-heart{animation:none;opacity:1}}
+
+/* The visible pet matches the selected, previously purchased companion. */
+.cat.pet-orange .cat-body{background:#db9859;border-color:#9b592e}.cat.pet-orange .cat-ear{background:#e0a264;border-color:#8a5c32}.cat.pet-calico .cat-body{background:linear-gradient(115deg,#f3dcb5 0 40%,#292b32 40% 64%,#e59e60 64%);border-color:#755842}.cat.pet-calico .cat-ear{background:#eec291;border-color:#755842}
