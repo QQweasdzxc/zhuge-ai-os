@@ -23,7 +23,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           git fetch origin main
           test "$(git show origin/main:version.json | grep -c '0.9.0-alpha.9.59')" -gt 0
-          test "$(node -p 'require("./version.json").version')" = '0.9.0-alpha.9.59'
+          test "$(node -p 'require("./version.json").version')" = '0.9.0-alpha.9.74'
       - name: Generate formal Asia/Taipei Build and synchronize via canonical tool
         run: |
           node tools/release-governance.js new-build-id > "$RUNNER_TEMP/build.json"

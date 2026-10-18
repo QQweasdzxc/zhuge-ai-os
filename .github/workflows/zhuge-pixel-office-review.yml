@@ -62,3 +62,42 @@ jobs:
           name: zhuge-pixel-office-review-site
           path: /tmp/zhuge-pixel-pages
           retention-days: 14
+
+  fullsource-governance:
+    name: Formal source QA and private-source package integrity (NO PUBLIC UPLOAD)
+    needs: pixel-review
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify fresh Product Source and official release baseline
+        run: |
+          git fetch --no-tags origin main
+          git diff --check origin/main...HEAD
+          node tools/release-governance.js preflight
+      - name: Run full browser regression and release identity checks
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          export BROWSER_EXECUTABLE="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')"
+          node --test tests/release-consistency.test.js tests/taskflow-entry.test.js
+          npm run test:browser
+      - name: Package using the only canonical FullSource authority
+        run: |
+          mkdir -p "$RUNNER_TEMP/zhuge-candidate"
+          node tools/release-governance.js package --type candidate --description Pixel-Office-Homepage --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir "$RUNNER_TEMP/zhuge-candidate"
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*FullSource-Candidate.zip' | wc -l)" -eq 1
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.sha256' | wc -l)" -eq 1
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.manifest.json' | wc -l)" -eq 1
+          cd "$RUNNER_TEMP/zhuge-candidate"
+          sha256sum -c -- *.sha256
+          unzip -t -q *FullSource-Candidate.zip
+          echo "FORMAL_SOURCE_SHA=${{ github.sha }}"
+          echo 'FullSource ZIP/Manifest/SHA256 integrity verified in ephemeral runner.'
+          echo 'PRIVATE_DRIVE_BACKUP=PENDING; ZIP is NOT uploaded to PUBLIC Actions artifact.'
