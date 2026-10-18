@@ -48,3 +48,12 @@ test('pinned MIT source with separated candidate artifact, no automatic deployme
   assert.match(flow, /NO DEPLOY/);
   assert.doesNotMatch(flow, /deploy-pages|render deploy|gh-pages/);
 });
+
+test('OAuth callbacks are routed before Pixel iframe loads', () => {
+  for (const p of ['index.html','docs/index.html']) {
+    const source=text(p);
+    assert.ok(source.includes('zhuge-home-router.js"></script>'));
+    assert.ok(!source.includes('<script defer src='));
+  }
+  assert.ok(text('docs/status-classic.html').includes('const root = new URL("..", current.href);'));
+});

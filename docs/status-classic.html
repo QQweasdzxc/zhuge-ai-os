@@ -24,7 +24,7 @@
         // Zhuge origin; never send bearer tokens to the Render front-end.
         if (current.searchParams.has("code") || current.searchParams.has("error") || /(?:^|[&#])access_token=/.test(current.hash)) return;
 
-        const root = new URL(".", current.href);
+        const root = new URL("..", current.href);
         const params = current.searchParams;
         const workspace = params.get("workspace");
         const allowedWorkspaces = new Set(["dashboard", "worklog", "library", "sync", "management", "settings"]);
