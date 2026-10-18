@@ -74,11 +74,32 @@
     medals.id = "zgf-medals";
 
     const works = [
-      { id: "taskflow", title: "TaskFlow", caption: "正式大廳", glyph: "TF" },
-      { id: "worklog", title: "WorkLog", caption: "工時作品", glyph: "WL" },
-      { id: "investment", title: "Investment", caption: "投資作品", glyph: "IV" },
-      { id: "lab", title: "Lab", caption: "實驗室", glyph: "LB" }
+      { id: "taskflow", title: "TaskFlow", caption: "正式大廳", glyph: "TF", note: "AI 工程任務與專案協作的正式作品入口。" },
+      { id: "worklog", title: "WorkLog", caption: "工時作品", glyph: "WL", note: "工時、工作紀錄與待辦管理的作品入口。" },
+      { id: "investment", title: "Investment", caption: "投資作品", glyph: "IV", note: "投資研究與資產觀察的作品入口。" },
+      { id: "lab", title: "Lab", caption: "實驗室", glyph: "LB", note: "Zhuge AI OS Labs 的功能實驗與作品集合。" }
     ];
+    const details = node("section", "zgf-work-details");
+    details.id = "zgf-work-details";
+    details.setAttribute("aria-label", "作品簡介");
+    details.hidden = true;
+    function showMedalInfo(work) {
+      details.replaceChildren();
+      const heading = node("strong", "zgf-work-heading", work.title + "｜" + work.caption);
+      const close = node("button", "zgf-work-close", "×");
+      close.type = "button";
+      close.setAttribute("aria-label", "關閉作品介紹");
+      close.addEventListener("click", function () { details.hidden = true; });
+      const note = node("p", "zgf-work-summary", work.note);
+      const truth = node("p", "zgf-work-truth", "此處是作品入口；不代表程式目前正在執行。");
+      const go = node("a", "zgf-work-go", "↗ 進入作品");
+      go.href = routes[work.id];
+      go.target = "_blank";
+      go.rel = "noopener noreferrer";
+      go.setAttribute("aria-label", "新分頁進入 " + work.title);
+      details.append(heading, close, note, truth, go);
+      details.hidden = false;
+    }
     works.forEach(function (work) {
       const a = node("a", "zgf-medal");
       a.href = routes[work.id];
@@ -88,17 +109,29 @@
       a.title = work.title + "｜" + work.caption;
       a.setAttribute("aria-label", work.title + "：" + work.caption + "，新分頁開啟");
       a.append(node("span", "zgf-medal-face", work.glyph), node("span", "zgf-medal-label", work.title));
-      medals.append(a);
+      const slot = node("div", "zgf-medal-slot");
+      const info = node("button", "zgf-medal-info", "i");
+      info.type = "button";
+      info.dataset.zgfInfo = work.id;
+      info.setAttribute("aria-label", "查看 " + work.title + " 作品介紹");
+      info.setAttribute("aria-controls", "zgf-work-details");
+      info.addEventListener("click", function () { showMedalInfo(work); });
+      slot.append(a, info);
+      medals.append(slot);
     });
     boardHeader.append(toggle);
-    board.append(boardHeader, medals, node("p", "zgf-board-note", "作品連結 · 非即時工作狀態"));
+    board.append(boardHeader, medals, details, node("p", "zgf-board-note", "點獎牌進作品 · 點 i 看介紹"));
     function setBoard(open) {
       board.dataset.open = open ? "true" : "false";
       toggle.setAttribute("aria-expanded", String(open));
       toggle.textContent = open ? "−" : "+";
+      if (!open) details.hidden = true;
     }
     setBoard(!window.matchMedia("(max-width: 700px)").matches);
     toggle.addEventListener("click", function () { setBoard(board.dataset.open !== "true"); });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") details.hidden = true;
+    });
 
     const rack = node("nav", "zgf-rack");
     rack.setAttribute("aria-label", "辦公室設備快速入口");
