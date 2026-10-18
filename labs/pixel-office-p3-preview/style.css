@@ -78,3 +78,38 @@
 .office-art{filter:saturate(1.17) contrast(1.09) drop-shadow(0 9px 12px #10182a)}
 .scene-pan{scrollbar-color:#91b9b9 #183241}
 .scene-shortcuts button:focus-visible,.subtle-button:focus-visible{outline:3px solid #ffda92;outline-offset:3px}
+
+
+/* Iteration 4 — independent local pixel cast, action poses and higher legibility. */
+.agent{width:66px;height:94px;overflow:visible;touch-action:manipulation}
+.agent-figure{width:53px;height:70px;animation:none!important;overflow:visible}
+.agent-figure>.pixel-hair,.agent-figure>.pixel-face,.agent-figure>.pixel-shirt{display:none}
+.person-sprite{width:53px;height:70px;display:block;overflow:visible;image-rendering:pixelated;filter:drop-shadow(1px 4px 1px #152136a8)}
+.sprite-arm-right,.sprite-arm-left,.sprite-leg-left,.sprite-leg-right{transform-box:fill-box;transform-origin:center top}
+.agent.is-walking .person-sprite{animation:p3-step-bob .45s steps(2,end) infinite}
+.agent.is-walking .sprite-leg-left{animation:p3-legstep .42s steps(2,end) infinite}
+.agent.is-walking .sprite-leg-right{animation:p3-legstep .42s steps(2,end) infinite reverse}
+.agent.is-working .sprite-arm-right{animation:p3-typing .38s steps(2,end) infinite}
+.agent.is-meeting .sprite-arm-right{animation:p3-waving .95s steps(2,end) infinite}
+.agent.is-resting .person-sprite{animation:p3-breath 2.6s ease-in-out infinite}
+@keyframes p3-step-bob{50%{transform:translateY(-3px)}}
+@keyframes p3-legstep{50%{transform:translateY(-4px) rotate(8deg)}}
+@keyframes p3-typing{50%{transform:rotate(-17deg) translateY(-3px)}}
+@keyframes p3-waving{50%{transform:rotate(-35deg) translate(-4px,-4px)}}
+@keyframes p3-breath{50%{transform:translateY(-2px)}}
+.activity-pip{position:absolute;top:-4px;left:45px;z-index:3;font-size:19px;line-height:1;display:none;filter:drop-shadow(0 2px 2px #061427bb)}
+.agent.is-working .activity-pip,.agent.is-meeting .activity-pip,.agent.is-resting .activity-pip{display:block}
+.cat{height:84px;overflow:visible}
+.cat-body{width:60px;height:55px;padding:0;background:transparent!important;border:0!important;border-radius:0;animation:none!important;overflow:visible}
+.cat-ear,.cat-eye,.cat-tail{display:none!important}
+.pet-sprite{width:60px;height:55px;overflow:visible;image-rendering:pixelated;filter:drop-shadow(0 3px 2px #06101aaa)}
+.cat.pet-orange .pet-sprite{filter:sepia(.7) saturate(1.8) hue-rotate(335deg) brightness(1.25) drop-shadow(0 3px 2px #06101aaa)}
+.cat.pet-calico .pet-sprite{filter:sepia(.4) saturate(.9) brightness(1.35) drop-shadow(0 3px 2px #06101aaa)}
+.pet-tail{animation:p3-tail .95s steps(2,end) infinite;transform-origin:48px 41px}
+.pet-eyes{animation:p3-blink 6.8s steps(1,end) infinite}
+@keyframes p3-tail{50%{transform:rotate(-14deg)}}
+@keyframes p3-blink{0%,96%,100%{opacity:1}97%,99%{opacity:0}}
+.room-tag{font-size:15px;padding:6px 10px;border-radius:7px}
+@media(max-width:700px){.room-tag{font-size:16px;padding:6px 10px}}
+@media(min-width:1050px){.shops{min-height:110px}.achievement{min-height:60px}.bottom-tabs{min-height:58px}}
+@media(prefers-reduced-motion:reduce){.person-sprite,.sprite-arm-right,.sprite-leg-left,.sprite-leg-right,.pet-tail,.pet-eyes,.activity-pip{animation:none!important}}

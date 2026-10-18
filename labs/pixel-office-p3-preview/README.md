@@ -26,3 +26,6 @@ Added zoom +/−/reset and mobile pinch; four orientation CSS; roaming waypoints
 - Added opt-in **immersive full-scene mode** without removing the standard dashboard; pressing again returns rewards and shops.
 - Added rest/work/meeting quick-focus navigation so mobile users can get to rooms while keeping character scale readable; compliant with reduced-motion preferences.
 - Four-frame Chromium local rendering QA for prior full scene: mobile portrait 390x844, landscape 844x390, desktop landscape 1440x900, desktop portrait 900x1200; no JavaScript page errors. Updated immersive controls still need fresh retest. No claim of real iPhone Safari pass.
+
+## Iteration 4 — Real pixel sprites (not live jobs)
+Includes self-contained `sprites.js` with PM, Co, Gem, and pixel-cat shapes, animated walk/work/meeting/rest visual cues, brighter details and larger desktop camera. State cue labels remain showcase-only, unrelated to any actual TaskFlow dispatch.
