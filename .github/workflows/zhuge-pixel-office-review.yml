@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - review/pixel-office-homepage-20261018
+      - review/pixel-office-furnishings-p1-20261018
   workflow_dispatch:
 permissions:
   contents: read
