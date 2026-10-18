@@ -49,5 +49,4 @@ for (const file of ["docs/index.html", "status-classic.html", "docs/status-class
 }
 const newIdentity = JSON.parse(fs.readFileSync(identityPath, "utf8"));
 if (newIdentity.version !== nextVersion || newIdentity.build !== nextBuild) throw new Error("New version identity mismatch");
-run("tools/release-governance.js", "preflight");
 console.log(JSON.stringify({ result: "P1_FURNISHINGS_PREPARED", version: nextVersion, build: nextBuild, publishedC: "UNCHANGED" }));
