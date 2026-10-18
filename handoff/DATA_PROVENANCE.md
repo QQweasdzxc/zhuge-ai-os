@@ -25,3 +25,26 @@
 `ID / PM 提供日期 / 資料類型 / 標題 / 內容摘要 / 原始檔名與連結 / 穩定來源定位 / 隱私分類 / 使用目的 / TaskFlow 或 PR / Source SHA / 儲存位置 / 檔案備份與讀回狀態 / 處理結果 / 關鍵字`
 
 **安全底線：公開 Handoff 的資料來源 ID 是可回溯標籤，絕不是對私有原文的公開授權。**
+
+
+## PM 補充決策｜單人網站最小安全與 GitHub 原始連結（2026-10-18）
+
+本節為 PM 最新明確偏好。**只用單一正式網站，資料依用途決定是否保護，不採一律加密或企業級流程。** 如與前文不符，以本節為後續操作規範；先前加密備份之完成事實仍保留。
+
+1. 一般 PM 需求、工作筆記、公開 GitHub 原始碼／URL、公開工程資料與非敏感圖片，**不額外加密**；私人文件及 FullSource 備份使用存取權限受限的 Google Drive 即可，**不強制逐檔加密**。既有已驗證的加密備份可以保留，在替代備份完成前不要刪除唯一可還原副本。
+2. 密碼、API Key、OAuth Token、私鑰、.env 機密絕不進公開 GitHub／Handoff。個資、薪資、敏感內部資料仍須存私人位置，且不得把個資列入公開索引。
+3. **不另建測試站。** CI / GitHub PR 是程式碼發版前檢查，不是第二個線上環境；只保留一個正式網站。必要的建置／回復驗證可於 CI 完成。
+4. PM 給的 **GitHub 原始網址必須記錄**，不只記最後做出的 PR；索引欄位：ID、提供日期、原始 URL、名稱、資料類型、用途、相關 GitHub PR/Issue/Commit 連結、固定 SHA（有則填）、結果及來源保存狀態。
+5. 公開 GitHub URL 可登在公開索引；私有 repo URL、私人 Drive 位置、聊天敏感附件只留私人索引。GitHub 連接授權／Token 由平台管理，**不抄 Token 到索引**；保留的是可重新開啟的網址。
+6. 聊天上傳但未另行保存的圖片、PDF、Excel 等，標記 SOURCE_ONLY / 未確認備份；登錄不代表已永久保存原始檔。以後搜尋時需區分原始檔、索引、工程成果。
+
+### 可點擊的原始 GitHub 來源（首批，並非過往所有資料的完整盤點）
+
+| ID | PM 曾提供什麼／日期 | ORIGINAL：原始 GitHub URL | DERIVED：相關成果 | 說明 |
+| --- | --- | --- | --- | --- |
+| IDX-20261018-001 | Habblaud 原始像素辦公室 2026-10-18 | [marmottajr/habblaud.git](https://github.com/marmottajr/habblaud.git) | [PR #61](https://github.com/QQweasdzxc/zhuge-ai-os/pull/61) | 上游來源固定 SHA faa1a012b5fbf632c66dc6801c5383e53a542406；MIT |
+| IDX-20261015-001 | Pixel Crew 像素辦公室參考 2026-10-15 | [juinwei7/Pixel-Crew](https://github.com/juinwei7/Pixel-Crew) | [相關像素辦公室方案 PR #61](https://github.com/QQweasdzxc/zhuge-ai-os/pull/61) | 僅為參考，不表示採用其程式碼 |
+| IDX-20261018-002 | 正式指定 Habblaud 為官方首頁 | [原始模板](https://github.com/marmottajr/habblaud.git) | [PR #61](https://github.com/QQweasdzxc/zhuge-ai-os/pull/61)、[發布計畫](https://github.com/QQweasdzxc/zhuge-ai-os/blob/review/pixel-office-homepage-20261018/docs/40_RELEASES/PIXEL_OFFICE_HOME_P0_RELEASE_PLAN.md) | PM 正式決議與產物分開追溯 |
+| IDX-20261018-003 | 發布、備份與所有提供資料日後可回查 | [本日 Handoff](./20261018-Handoff.md) | [PR #61](https://github.com/QQweasdzxc/zhuge-ai-os/pull/61) | 連結索引不等於備份原檔 |
+
+資料錄入時應盡量保留用戶貼出的**原始 URL 字串**，而不只以新連結取代；需要日後找回時先顯示原始連結、再顯示成果與固定 Commit。
