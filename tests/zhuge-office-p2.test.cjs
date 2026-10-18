@@ -22,13 +22,13 @@ test("P2 native clicking a cast member opens readable role dossier; others retai
   assert.match(entry, /showZhugeRole\(sel\.id\)/);
   assert.match(entry, /showZhugeDecisions/);
   assert.match(hud, /showZhugeRole/);
-  assert.match(hud, /非即時 CLI/);
+  assert.match(hud, /不是 Co、Gem、PM 的即時 CLI/);
   assert.doesNotMatch(hud, /innerHTML/);
   assert.match(hud, /zhuge-role-roster/);
 });
 test("P2 work descriptions preserve P1 primary destination, new-tab security, disabled unknown links", () => {
   const src = read("assets/zhuge-office-furnishings.js");
-  assert.match(src, /data\.zgfInfo = work\.id/);
+  assert.match(src, /info\.dataset\.zgfInfo = work\.id/);
   assert.match(src, /showMedalInfo\(work\)/);
   assert.match(src, /go\.href = routes\[work\.id\]/);
   assert.match(src, /go\.rel = "noopener noreferrer"/);
