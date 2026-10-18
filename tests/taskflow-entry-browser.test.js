@@ -14,9 +14,9 @@ const cors = {
   "access-control-allow-methods": "GET,POST,OPTIONS"
 };
 
-test("canonical AIOS URL serves the real authenticated TaskFlow Dashboard without moving away from Pages",async t=>{
+test("classic status route preserves authenticated TaskFlow Dashboard after pixel homepage migration",async t=>{
   const browser=await launch(t);
-  const root=await fixtureURL(path.join(ROOT,"index.html"));
+  const root=await fixtureURL(path.join(ROOT,"status-classic.html"));
   const officialApi="https://zhuge-taskflow-api.onrender.com";
   for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
     const anonymous=await browser.newPage({viewport});
