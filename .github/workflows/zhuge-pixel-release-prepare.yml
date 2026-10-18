@@ -1,0 +1,51 @@
+name: Pixel Home Formal Version Prep (review only, one-time)
+on:
+  push:
+    branches:
+      - review/pixel-office-homepage-20261018
+    paths:
+      - .github/workflows/zhuge-pixel-release-prepare.yml
+permissions:
+  contents: write
+jobs:
+  version-prep:
+    if: github.repository == 'QQweasdzxc/zhuge-ai-os'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/pixel-office-homepage-20261018
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Confirm review HEAD and baseline
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          git fetch origin main
+          test "$(git show origin/main:version.json | grep -c '0.9.0-alpha.9.59')" -gt 0
+          test "$(node -p 'require("./version.json").version')" = '0.9.0-alpha.9.59'
+      - name: Generate formal Asia/Taipei Build and synchronize via canonical tool
+        run: |
+          node tools/release-governance.js new-build-id > "$RUNNER_TEMP/build.json"
+          BUILD_ID="$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).build' "$RUNNER_TEMP/build.json")"
+          echo "Chosen formal Build (Asia/Taipei): $BUILD_ID"
+          node integrations/habblaud/prepare-release.mjs "$BUILD_ID"
+          git diff --check
+      - name: Single-purpose commit to existing Review branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add version.json index.html docs/index.html status-classic.html docs/status-classic.html shared app modules labs/taskflow labs/investment
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'chore(pixel): formal 0.9.0-alpha.9.74 Product Build sync [review only]'
+          git fetch origin review/pixel-office-homepage-20261018
+          test "$(git rev-parse HEAD^)" = "$(git rev-parse origin/review/pixel-office-homepage-20261018)"
+          git push origin HEAD:refs/heads/review/pixel-office-homepage-20261018
+      - name: Verify exact GitHub remote source and PASS readback
+        run: |
+          git fetch origin review/pixel-office-homepage-20261018
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/review/pixel-office-homepage-20261018)"
+          node tools/release-governance.js preflight
+          echo "PIXEL_REVIEW_FORMAL_SOURCE_SHA=$(git rev-parse HEAD)"
+          echo 'No main merge, no deploy, no Production DB change.'
