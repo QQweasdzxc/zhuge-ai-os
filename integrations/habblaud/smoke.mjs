@@ -55,8 +55,41 @@ try {
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
+  // P1 furniture: actual published paths, functional medals, honest pending items.
+  await page.locator('#zgf-trophy-board').waitFor({timeout:5000});
+  const taskflow = await page.locator('#zgf-trophy-board [data-zgf-work="taskflow"]').getAttribute('href');
+  if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
+  const worklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
+  const investment = await page.locator('#zgf-trophy-board [data-zgf-work="investment"]').getAttribute('href');
+  if (worklog !== base + '/modules/worklog/' || investment !== base + '/modules/investment/') {
+    throw new Error('Product medals resolve outside current Pages root: ' + worklog + ', ' + investment);
+  }
+  await page.locator('.zgf-meeting').click();
+  const message = await page.locator('.zgf-toast:not([hidden])').innerText();
+  if (!message.includes('連結待 PM 補充')) throw new Error('Unverified cockpit URL was not treated as pending');
+  await page.locator('[data-zgf-pending="tools"]').click();
+  if (!(await page.locator('.zgf-toast:not([hidden])').innerText()).includes('正式下載來源尚待驗證')) {
+    throw new Error('TF-03 failed to disclose unavailable download');
+  }
+  const shotDir = process.env.PIXEL_SCREENSHOT_DIR;
+  if (shotDir) {
+    fs.mkdirSync(shotDir, {recursive: true});
+    await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-desktop-1280.png'), fullPage: false});
+  }
+  await page.setViewportSize({width:390,height:844});
+  const toggle = page.locator('.zgf-board-toggle');
+  const beforeToggle = await toggle.getAttribute('aria-expanded');
+  await toggle.click();
+  const afterToggle = await toggle.getAttribute('aria-expanded');
+  if (beforeToggle === afterToggle) throw new Error('Mobile trophy wall cannot expand/collapse');
+  if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-390.png'), fullPage: false});
+  await page.setViewportSize({width:1280,height:780});
   await page.goto(base + '/docs/index.html', { waitUntil:'domcontentloaded' });
   await page.frameLocator('iframe').locator('#zhuge-aios-hud').waitFor({timeout:30000});
+  await page.locator('#zgf-trophy-board').waitFor({timeout:5000});
+  const docsWorklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
+  if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
+  if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
   console.log('PASS real Habblaud Canvas, rooms=' + snapshot.rooms + ', agents=' + snapshot.agents + ', waiting=' + snapshot.waiting + ', HUD drawer, classic, docs entry');
 } finally {
   if (browser) await browser.close();
