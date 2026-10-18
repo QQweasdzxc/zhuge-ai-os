@@ -64,7 +64,7 @@ try {
   if (crew.agents.some(a => a.status !== 'idle' || a.account !== 'zhuge-showcase-only' || !a.title.includes('尚無真實工程事件來源'))) {
     throw new Error('P2 cast faked real CLI work status: ' + JSON.stringify(crew));
   }
-  await frame.locator('#zhuge-aios-hud button').click();
+  await frame.locator('#zhuge-aios-hud button').first().click();
   await frame.locator('#zhuge-decision-panel:not([hidden])').waitFor({timeout:2000});
   const panel = await frame.locator('#zhuge-decision-panel').innerText();
   if (!panel.includes('正式 DB') || !panel.includes('下一步')) throw new Error('decision panel missing blocker/action');
