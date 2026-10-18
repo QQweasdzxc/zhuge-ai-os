@@ -38,6 +38,12 @@ jobs:
         run: |
           node tools/build-pages-site.js /tmp/zhuge-pixel-pages
           node integrations/habblaud/build.mjs /tmp/zhuge-habblaud /tmp/zhuge-pixel-pages
+      - name: Typecheck original Habblaud client with Zhuge overlays
+        run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
+      - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes
+        run: |
+          node /tmp/zhuge-habblaud/node_modules/playwright-core/cli.js install chromium
+          node integrations/habblaud/smoke.mjs /tmp/zhuge-pixel-pages /tmp/zhuge-habblaud
       - name: Verify static routes and generated native game assets
         run: |
           test -s /tmp/zhuge-pixel-pages/index.html

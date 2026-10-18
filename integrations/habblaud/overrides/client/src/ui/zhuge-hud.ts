@@ -54,5 +54,6 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const source = el('span', (live ? 'CLI 即時 + ' : '') + (fresh ? '狀態快照' : '過期狀態快照'));
   const classic = el('a', '經典報表');
   (classic as HTMLAnchorElement).href = new URL('../status-classic.html', location.href).href;
+  (classic as HTMLAnchorElement).target = '_top';
   bar.append(dot, title, phase, milestone, blocked, source, classic);
 }
