@@ -47,14 +47,14 @@ export function showZhugeRole(agentId: string): void {
   panel.replaceChildren();
   const title = el('h2', '三位主角 · 角色介紹');
   const close = el('button', '關閉');
-  close.type = 'button';
+  close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
   const roster = el('nav');
   roster.className = 'zhuge-role-roster';
   roster.setAttribute('aria-label', '切換辦公室角色');
   for (const person of ZHUGE_CAST) {
     const item = el('button', person.name);
-    item.type = 'button';
+    item.setAttribute('type', 'button');
     item.setAttribute('aria-pressed', String(person.id === agentId));
     item.onclick = () => showZhugeRole(person.id);
     roster.append(item);
@@ -86,7 +86,7 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const blocked = el('button', '🙋 ' + (status.blocked_items?.length || 0) + ' 項待裁示');
   blocked.addEventListener('click', () => showZhugeDecisions());
   const roster = el('button', '👥 人員');
-  roster.type = 'button';
+  roster.setAttribute('type', 'button');
   roster.addEventListener('click', () => showZhugeRole(ZHUGE_CAST[0].id));
   const source = el('span', (live ? 'CLI 即時 + ' : '') + (fresh ? '狀態快照' : '過期狀態快照'));
   const classic = el('a', '經典報表');
