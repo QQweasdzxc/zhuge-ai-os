@@ -53,7 +53,7 @@ try {
   const panel = await frame.locator('#zhuge-decision-panel').innerText();
   if (!panel.includes('正式 DB') || !panel.includes('下一步')) throw new Error('decision panel missing blocker/action');
   await frame.locator('#zhuge-decision-panel button').click();
-  await frame.locator('#zhuge-decision-panel[hidden]').waitFor({timeout:2000});
+  await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
