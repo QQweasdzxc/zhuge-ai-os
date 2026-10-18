@@ -19,8 +19,8 @@
     <button type="button" id="claim-reward" class="reward-button">領取獎勵</button>
   </section>
   <main class="main">
-    <section class="office-section" aria-label="可以拖曳查看的互動像素辦公室">
-      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">員工走動 · 工作 · 開會 · 貓咪生活</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
+    <section class="office-section" aria-label="可以拖曳查看的互動像素辦公室"><div class="camera-tools" role="group" aria-label="場景縮放"><button id="zoom-in" type="button" aria-label="放大辦公室">＋</button><button id="zoom-out" type="button" aria-label="縮小辦公室">−</button><button id="zoom-reset" type="button" aria-label="恢復全景">⌗</button></div>
+      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">走動／開會動畫僅供展示 · 非真實派工</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
       <div class="scene-pan" id="scene-pan" tabindex="0" aria-label="像素辦公室主舞台，橫向滑動可以探索完整場景">
         <div class="world-shell" id="world-shell"><div class="world" id="world">
         <svg class="office-art" viewBox="0 0 1100 650" aria-hidden="true">
@@ -75,10 +75,10 @@
         <button class="room-tag" style="left:440px;top:189px" data-zone="工作座位" type="button">▣ 工作座位</button>
         <button class="room-tag" style="left:101px;top:351px" data-zone="Lounge" type="button">♨ Lounge</button>
         <button class="room-tag" style="left:849px;top:363px" data-zone="工具區" type="button">⚒ 工具區</button>
-        <div class="agent" id="agent-pm" data-person="PM" style="left:560px;top:328px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">PM</span></div>
-        <div class="agent cobalt" id="agent-co" data-person="Co" style="left:475px;top:380px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Co</span></div>
-        <div class="agent violet" id="agent-gem" data-person="Gem" style="left:658px;top:370px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Gem</span></div>
-        <button class="cat" id="cat" type="button" style="left:355px;top:276px" aria-label="點擊黑貓，查看寵物資料"><span class="cat-body"><i class="cat-ear left"></i><i class="cat-ear right"></i><i class="cat-eye left"></i><i class="cat-eye right"></i><i class="cat-tail"></i></span><span class="cat-name">🐾 小黑</span></button>
+        <div class="agent" id="agent-pm" role="button" tabindex="0" aria-label="查看 PM 角色介紹" data-person="PM" style="left:560px;top:328px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">PM</span></div>
+        <div class="agent cobalt" id="agent-co" role="button" tabindex="0" aria-label="查看 Co 角色介紹" data-person="Co" style="left:475px;top:380px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Co</span></div>
+        <div class="agent violet" id="agent-gem" role="button" tabindex="0" aria-label="查看 Gem 角色介紹" data-person="Gem" style="left:658px;top:370px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Gem</span></div>
+        <button class="cat" id="cat" type="button" style="left:355px;top:276px" aria-label="點擊黑貓，查看寵物資料"><span class="cat-body"><i class="cat-ear left"></i><i class="cat-ear right"></i><i class="cat-eye left"></i><i class="cat-eye right"></i><i class="cat-tail"></i></span><span class="cat-name">🐾 小黑</span><span class="cat-heart" aria-hidden="true">♥</span></button>
         <div class="decor-sprite" id="decor-sprite" aria-hidden="true"></div>
         </div></div>
       </div>

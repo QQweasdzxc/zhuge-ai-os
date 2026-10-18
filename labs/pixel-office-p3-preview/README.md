@@ -13,3 +13,6 @@ This prototype lives **only** on \`review/pixel-office-p3-isolated-20261018\` an
 ## Preview and adoption
 Hosted via a **read-only public GitHub raw preview proxy** using the exact branch/commit files; not a production deployment or separate official service. Source is public because the upstream repo is public; no private assets or user data included.
 Before PM GO: cross-browser/real iPhone UX, keyboard/accessibility, transparent reward policy, provenance integration, full package QA. Real collaboration requires independent Gate1/TaskFlow permissions.
+
+## Iteration 2
+Added zoom +/−/reset and mobile pinch; four orientation CSS; roaming waypoints; keyboard cast support; pet ownership once + free switching; remains independent WIP and no release authority.
