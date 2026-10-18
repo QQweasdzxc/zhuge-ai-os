@@ -121,6 +121,42 @@
 
     root.append(board, rack, meeting, toast);
     document.body.append(root);
+
+    // Native Habblaud modal must ALWAYS win: do not cover its close/decision controls.
+    // The game iframe shares the same origin, so observe only the decision panel's
+    // hidden attribute and direct body children (not the animated world).
+    const game = document.querySelector("iframe");
+    if (game) {
+      let bodyObserver;
+      let panelObserver;
+      let watchedPanel;
+      function updateVisibility() {
+        try {
+          const panel = game.contentDocument?.getElementById("zhuge-decision-panel") || null;
+          if (panel !== watchedPanel) {
+            if (panelObserver) panelObserver.disconnect();
+            watchedPanel = panel;
+            if (panel) {
+              panelObserver = new MutationObserver(updateVisibility);
+              panelObserver.observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+            }
+          }
+          root.hidden = Boolean(panel && !panel.hidden);
+        } catch { root.hidden = false; }
+      }
+      function watchGame() {
+        try {
+          if (bodyObserver) bodyObserver.disconnect();
+          const body = game.contentDocument?.body;
+          if (!body) return;
+          bodyObserver = new MutationObserver(updateVisibility);
+          bodyObserver.observe(body, { childList: true });
+          updateVisibility();
+        } catch { root.hidden = false; }
+      }
+      game.addEventListener("load", watchGame);
+      try { if (game.contentDocument?.body) watchGame(); } catch { /* same-origin iframe expected */ }
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true });
