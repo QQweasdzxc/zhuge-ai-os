@@ -19,7 +19,7 @@ test("P1 works point to real published locations, placeholders cannot fake links
   const s = read("assets/zhuge-office-furnishings.js");
   assert.match(s, /https:\/\/zhuge-taskflow-web\.onrender\.com\//);
   for (const path of ["modules/worklog/", "modules/investment/", "modules/labs/"]) assert.ok(s.includes(path));
-  assert.match(s, /data\.zgfPending = "cockpit"/);
+  assert.match(s, /dataset\.zgfPending = "cockpit"/);
   assert.match(s, /TF-03.*?下載來源尚待驗證/);
   assert.match(s, /target = "_blank"/);
   assert.match(s, /rel = "noopener noreferrer"/);
