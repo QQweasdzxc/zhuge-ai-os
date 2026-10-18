@@ -1,0 +1,72 @@
+{
+  "project_name": "Zhuge AI OS",
+  "overall_status": "blocked",
+  "current_phase": "Gate 1｜工程準備與安全核對",
+  "current_milestone": "Handoff v1 建立／Gate 2 條件授權待放行",
+  "updated_at": "2026-10-18T08:19:00+08:00",
+  "summary": "本檔是人工核對的靜態專案快照，不是 CLI 即時工作證明。Co 已回覆 Gate 1；正式 DB、Render 及真實派工仍維持 HOLD。",
+  "active_modules": [
+    {
+      "name": "TaskFlow",
+      "status": "blocked",
+      "owner": "Co｜首席",
+      "description": "Gate 1 實證：正式 DB 可復原與 GitHub App 權限尚待核對"
+    },
+    {
+      "name": "戰情室",
+      "status": "pending",
+      "owner": "Gem｜副手",
+      "description": "TF-04 唯讀工程狀態 API 及 BFF 整合待證據"
+    },
+    {
+      "name": "工具下載 TF-03",
+      "status": "pending",
+      "owner": "Gem｜副手",
+      "description": "Frozen Vendor 不改、使用原生 Overlay；FullSource 私人連結"
+    },
+    {
+      "name": "每日交接",
+      "status": "done",
+      "owner": "GPT-CTO",
+      "description": "CURRENT.md + 20261018-Handoff.md 已於獨立分支提交"
+    }
+  ],
+  "blocked_items": [
+    {
+      "title": "正式 DB 可還原證據尚未完成",
+      "reason": "需取得資料庫備份與可復原方案，原始碼 ZIP 不等於資料庫備份。",
+      "module": "TaskFlow"
+    },
+    {
+      "title": "TaskFlow GitHub App 實際寫入／Webhook 未核實",
+      "reason": "必須分清 TaskFlow App 與 GPT GitHub Connector，不以人工留言冒充真實 Codex ACK。",
+      "module": "TaskFlow"
+    }
+  ],
+  "next_actions": [
+    {
+      "title": "檢查 taskflow_migrator 正式備份與回復程序",
+      "assignee": "Co"
+    },
+    {
+      "title": "核實 GitHub App 最小 scope、issue_comment 與 HMAC",
+      "assignee": "Co／GPT"
+    },
+    {
+      "title": "交付 Cockpit safe v1.0.1 真實打包與 TF-03 原生 Overlay",
+      "assignee": "Gem"
+    },
+    {
+      "title": "確認 Gate 1 全 PASS 才依條件授權進 Gate 2",
+      "assignee": "GPT-CTO／PM"
+    }
+  ],
+  "recent_prs": [
+    {
+      "id": "#60",
+      "title": "TaskFlow AI 工程整合候選 .9.73",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/60"
+    }
+  ]
+}

@@ -24,11 +24,15 @@ function localFile(urlValue, fromFile = "index.html") {
 }
 
 function assertLocalReferencesResolve(document, fromFile) {
+  const baseHref = document.match(/<base\s+href=["']([^"']+)["']/i)?.[1];
+  const effectiveSource = baseHref
+    ? new URL(baseHref, new URL(fromFile, "https://qqweasdzxc.github.io/zhuge-ai-os/")).href
+    : fromFile;
   const refs = [...document.matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi)]
     .map(match => match[1])
     .filter(value => !/^(?:#|data:|mailto:|tel:|javascript:)/i.test(value));
   for (const ref of refs) {
-    const resolved = localFile(ref, fromFile);
+    const resolved = localFile(ref, effectiveSource);
     if (resolved) assert.ok(fs.existsSync(resolved), fromFile + " references missing Pages file: " + ref);
   }
 }
@@ -44,14 +48,17 @@ function htmlFiles(directory, prefix = "") {
   return files;
 }
 
-test("curated Pages payload restores the prior home behavior, Apps routes, and release identity", () => {
+test("curated Pages publishes Pixel homepage and retained authenticated TaskFlow classic route", () => {
   const required = [
     "index.html", "version.json", ".nojekyll", "googlea760c88b64a73d97.html",
     "labs/taskflow/index.html", "labs/taskflow/runtime-config.js", "labs/taskflow/cli-sso.js",
     "modules/worklog/index.html", "modules/investment/index.html", "app/dashboard/index.html",
     "app/Board/ai/index.html", "app/Board/worktodo/index.html",
     "app/Board/procurement/index.html", "app/Board/template-preview/index.html",
-    "shared/config/version.js", "shared/auth/app-access-gate.js"
+    "shared/config/version.js", "shared/auth/app-access-gate.js",
+    "pixel-office/index.html", "pixel-office/LICENSE.txt", "status-classic.html",
+    "docs/index.html", "docs/status-classic.html", "status/project-status.json",
+    "docs/status/project-status.json", "docs/pixel-office/index.html"
   ];
   for (const relative of required) {
     assert.ok(fs.existsSync(path.join(site, relative)), "missing live route/resource: " + relative);
@@ -64,12 +71,19 @@ test("curated Pages payload restores the prior home behavior, Apps routes, and r
   assert.ok(manifest.build.length > 0, "version.json must declare a build identity");
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
-  assert.match(home, /id=["']taskflow-home-routing["']/);
-  assert.match(home, /id=["']tf-issues["']/);
-  assert.match(home, /src=["']labs\/taskflow\/pages-client\/app\.mjs/);
-  assert.match(home, /href=["']modules\/worklog\//);
-  assert.doesNotMatch(home, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
-  assert.doesNotMatch(home, /<iframe\b/i);
+  assert.match(home, /pixel-office\/index\.html/);
+  assert.match(home, /<iframe\b/i);
+  assert.match(home, /status-classic\.html/);
+  const classic = fs.readFileSync(path.join(site, "status-classic.html"), "utf8");
+  assert.match(classic, /id=["']taskflow-home-routing["']/);
+  assert.match(classic, /id=["']tf-issues["']/);
+  assert.match(classic, /src=["']labs\/taskflow\/pages-client\/app\.mjs/);
+  assert.match(classic, /href=["']modules\/worklog\//);
+  assert.doesNotMatch(classic, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
+  const docsHome = fs.readFileSync(path.join(site, "docs/index.html"), "utf8");
+  assert.match(docsHome, /pixel-office\/index\.html/);
+  assert.match(docsHome, /status-classic\.html/);
+  assertLocalReferencesResolve(classic, "status-classic.html");
   for (const relative of ["labs/taskflow/pages-client/taskflow-api.mjs","labs/taskflow/pages-client/app.mjs","labs/taskflow/pages-client/app.css","labs/taskflow/pages-client/login-return.mjs"]) {
     assert.ok(fs.existsSync(path.join(site, relative)), "native Pages TaskFlow resource missing: " + relative);
   }
@@ -86,7 +100,7 @@ test("curated Pages payload restores the prior home behavior, Apps routes, and r
 });
 
 test("Pages payload omits non-site repository content and stays within the size guard", () => {
-  const forbidden = ["third_party", "docs", "tests", "supabase", "backlog", "tools", ".github"];
+  const forbidden = ["third_party", "tests", "supabase", "backlog", "tools", ".github"];
   for (const relative of forbidden) {
     assert.equal(fs.existsSync(path.join(site, relative)), false, "non-site content leaked into Pages: " + relative);
   }

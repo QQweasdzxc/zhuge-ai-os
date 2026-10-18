@@ -1,0 +1,136 @@
+name: Zhuge Pixel Office Review (NO DEPLOY)
+on:
+  push:
+    branches:
+      - review/pixel-office-homepage-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zhuge-pixel-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pixel-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bridge and classic route contracts
+        run: |
+          node --test tests/zhuge-pixel-office-contract.test.cjs
+          git diff --check
+      - name: Fetch exact MIT upstream (no moving main or unreviewed source)
+        run: |
+          git init /tmp/zhuge-habblaud
+          git -C /tmp/zhuge-habblaud remote add origin https://github.com/marmottajr/habblaud.git
+          git -C /tmp/zhuge-habblaud fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
+          git -C /tmp/zhuge-habblaud checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/zhuge-habblaud rev-parse HEAD)" = "faa1a012b5fbf632c66dc6801c5383e53a542406"
+      - name: Install exact upstream dependencies
+        run: npm ci --prefix /tmp/zhuge-habblaud --ignore-scripts --no-audit --no-fund
+      - name: Stage existing site then build real Habblaud pixel scene
+        run: |
+          node tools/build-pages-site.js /tmp/zhuge-pixel-pages
+          node integrations/habblaud/build.mjs /tmp/zhuge-habblaud /tmp/zhuge-pixel-pages
+      - name: Typecheck original Habblaud client with Zhuge overlays
+        run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
+      - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes
+        run: |
+          node /tmp/zhuge-habblaud/node_modules/playwright-core/cli.js install chromium
+          node integrations/habblaud/smoke.mjs /tmp/zhuge-pixel-pages /tmp/zhuge-habblaud
+      - name: Verify static routes and generated native game assets
+        run: |
+          test -s /tmp/zhuge-pixel-pages/index.html
+          test -s /tmp/zhuge-pixel-pages/status-classic.html
+          test -s /tmp/zhuge-pixel-pages/docs/status-classic.html
+          test -s /tmp/zhuge-pixel-pages/docs/index.html
+          test -s /tmp/zhuge-pixel-pages/pixel-office/index.html
+          test -s /tmp/zhuge-pixel-pages/docs/pixel-office/index.html
+          test -s /tmp/zhuge-pixel-pages/pixel-office/LICENSE.txt
+          test -s /tmp/zhuge-pixel-pages/status/project-status.json
+          test -s /tmp/zhuge-pixel-pages/docs/status/project-status.json
+          test -n "$(find /tmp/zhuge-pixel-pages/pixel-office/bundle -name '*.js' -print -quit)"
+          cmp /tmp/zhuge-pixel-pages/status/project-status.json /tmp/zhuge-pixel-pages/docs/status/project-status.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zhuge-pixel-office-review-site
+          path: /tmp/zhuge-pixel-pages
+          retention-days: 14
+
+  fullsource-governance:
+    name: Formal source QA and private-source package integrity (NO PUBLIC UPLOAD)
+    needs: pixel-review
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify fresh Product Source and official release baseline
+        run: |
+          git fetch --no-tags origin main
+          git diff --check origin/main...HEAD
+          node tools/release-governance.js preflight
+      - name: Run full browser regression and release identity checks
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          export BROWSER_EXECUTABLE="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')"
+          node --test tests/release-consistency.test.js tests/taskflow-entry.test.js
+          npm run test:browser
+      - name: Independent clean exact-SHA source checkout for governance packager
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: clean-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Package using the only canonical FullSource authority
+        run: |
+          cd "$GITHUB_WORKSPACE/clean-source"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          git fetch --no-tags origin main
+          node tools/release-governance.js preflight
+          mkdir -p "$RUNNER_TEMP/zhuge-candidate"
+          node tools/release-governance.js package --type candidate --description Pixel-Office-Homepage --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir "$RUNNER_TEMP/zhuge-candidate"
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*FullSource-Candidate.zip' | wc -l)" -eq 1
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.sha256' | wc -l)" -eq 1
+          test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.manifest.json' | wc -l)" -eq 1
+          cd "$RUNNER_TEMP/zhuge-candidate"
+          sha256sum -c -- *.sha256
+          unzip -t -q *FullSource-Candidate.zip
+          echo "FORMAL_SOURCE_SHA=${{ github.sha }}"
+          echo 'FullSource ZIP/Manifest/SHA256 integrity verified in ephemeral runner.'
+          echo 'PRIVATE_DRIVE_BACKUP=PENDING; ZIP is NOT uploaded to PUBLIC Actions artifact.'
+
+      - name: Seal fullsource ZIP and sidecars with PM public-key certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zhuge-sealed"
+          tar -czf "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -C "$RUNNER_TEMP/zhuge-candidate" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -out "$RUNNER_TEMP/zhuge-sealed/PixelOffice-${{ github.sha }}-FullSource-SEALED.p7m" -outform DER integrations/habblaud/backup-recovery-public.pem
+          rm -f "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz"
+          cd "$RUNNER_TEMP/zhuge-sealed"
+          sha256sum ./*.p7m > ciphertext.sha256
+          printf '%s\n' 'Zhuge AI OS privately recoverable FullSource (CMS AES-256).' 'Only ciphertext is uploaded to public GitHub Actions, not the private ZIP.' 'Keep the PM-only RSA private key separately and securely.' 'Decrypt with: openssl cms -decrypt -binary -inform DER -in FILE.p7m -recip backup-recovery-public.pem -inkey PM-private-key.pem -out restored.tar.gz' 'Then: tar -xzf restored.tar.gz; sha256sum -c -- *.sha256' 'Source SHA: ${{ github.sha }}' > RESTORE-README.txt
+          test "$(find . -name '*.p7m' | wc -l)" -eq 1
+          test "$(find . -name '*.zip' | wc -l)" -eq 0
+          test "$(find . -name '*.pem' | wc -l)" -eq 0
+      - name: Upload ciphertext-only one-day transfer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-official-fullsource-SEALED-${{ github.sha }}
+          path: ${{ runner.temp }}/zhuge-sealed/
+          if-no-files-found: error
+          retention-days: 1
