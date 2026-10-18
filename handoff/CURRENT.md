@@ -62,6 +62,10 @@
 - **PM 授權的獨立唯讀派工（GitHub Issue 建立，不等於 Provider ACK）:** [#66 UX/Device QA](https://github.com/QQweasdzxc/zhuge-ai-os/issues/66)、[#67 #64/#65 Architecture Audit](https://github.com/QQweasdzxc/zhuge-ai-os/issues/67)、[#68 Status/Rewards/Security Audit](https://github.com/QQweasdzxc/zhuge-ai-os/issues/68)，均 `QUEUED / ACK_PENDING`，沒有已確認之 AI 執行者；禁止自動觸發 Co 或繞 TaskFlow Gate。
 - **TaskFlow 派工正式環境：** [PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 仍 Draft，`GATE1_BLOCKED / G2_CONDITIONALLY_AUTHORIZED / PRODUCTION_HOLD`。候選已完成 ≠ 正式 API/DB E2E 已成功。
 
+## Multi-Agent 協作派工追蹤
+
+**2026-10-19 實際登記：** [Agent 工作隊列（JSON）](./AGENT_TASK_QUEUE.json) ／ [協作派工規則（Markdown）](./AGENT_DISPATCH_V1.md)。[#66](https://github.com/QQweasdzxc/zhuge-ai-os/issues/66)、[#67](https://github.com/QQweasdzxc/zhuge-ai-os/issues/67)、[#68](https://github.com/QQweasdzxc/zhuge-ai-os/issues/68) 已有 **GPT-CTO 唯讀首輪審查的來源留言**；獨立 Agent 仍無受指派帳號、ACK 或 Session，維持 `QUEUED_UNASSIGNED`；不得當作三個 Agent 已接單。Co/Gem P3 開發主線和 TaskFlow Production Gate 保持獨立。
+
 ## PM 資料來源可追溯
 
 [DATA_PROVENANCE.md](./DATA_PROVENANCE.md) 提供公開版索引規範；有敏感內容的完整資料索引只存 PM 未共用 Google Drive。
