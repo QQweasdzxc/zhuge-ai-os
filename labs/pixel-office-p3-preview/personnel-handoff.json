@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-18T22:50:37Z",
+  "agentUpdates": [
+    {
+      "roleId": "co",
+      "state": "working",
+      "label": "整合人員動態資料契約、真實來源與四視窗驗收",
+      "updatedAt": "2026-10-18T22:50:37Z",
+      "validUntil": "2026-10-18T23:20:37.000Z",
+      "ref": "P3 Pixel Office · Draft PR #65",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65"
+    },
+    {
+      "roleId": "gem",
+      "state": "completed",
+      "label": "角色外觀、人員動態欄與人物詳情已交付 Co 整合",
+      "updatedAt": "2026-10-18T22:36:47Z",
+      "validUntil": "2026-10-18T23:06:47.000Z",
+      "ref": "Gem 前端交付 · Draft PR #65",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65"
+    }
+  ]
+}

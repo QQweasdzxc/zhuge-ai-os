@@ -1,0 +1,56 @@
+name: P3 Pixel Office Personnel QA (NO DEPLOY)
+
+on:
+  push:
+    branches:
+      - review/pixel-office-p3-isolated-20261018
+    paths:
+      - "labs/pixel-office-p3-preview/**"
+      - "tests/pixel-office-personnel-*"
+      - ".github/workflows/pixel-office-p3-review.yml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "labs/pixel-office-p3-preview/**"
+      - "tests/pixel-office-personnel-*"
+      - ".github/workflows/pixel-office-p3-review.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixel-office-p3-personnel-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-personnel-qa:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref == 'review/pixel-office-p3-isolated-20261018'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked QA dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium for isolated viewport QA
+        run: npx playwright install --with-deps chromium
+      - name: Validate handoff evidence contract
+        run: node --test tests/pixel-office-personnel-evidence.test.cjs
+      - name: Run desktop and mobile-form-factor Chromium smoke tests
+        env:
+          P3_SCREENSHOT_DIR: ${{ runner.temp }}/p3-personnel-screenshots
+        run: node tests/pixel-office-personnel-browser.cjs
+      - name: Upload P3 visual QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3-personnel-viewports-${{ github.sha }}
+          path: ${{ runner.temp }}/p3-personnel-screenshots/
+          if-no-files-found: ignore
+          retention-days: 7

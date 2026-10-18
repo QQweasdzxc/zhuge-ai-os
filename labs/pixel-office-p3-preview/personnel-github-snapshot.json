@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "repository": "QQweasdzxc/zhuge-ai-os",
+  "verifiedAt": "2026-10-18T22:35:43Z",
+  "prNumber": 65,
+  "headSha": "23dca6b0908a911b3693d40dbfe353c692562198",
+  "prUpdatedAt": "2026-10-18T22:02:05Z",
+  "events": [
+    {
+      "id": "pr-65-2026-10-18T22:02:05Z",
+      "label": "PR #65 · WIP(P3 LAB): isolated interactive pixel office with cat, rewards, daily shops — NO DEPLOY",
+      "detail": "狀態：open · Draft · 靜態快照 HEAD 23dca6b0908a911b3693d40dbfe353c692562198",
+      "roleId": null,
+      "sourceType": "github_pr",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65",
+      "updatedAt": "2026-10-18T22:02:05Z",
+      "ref": "PR #65 · 23dca6b0908a911b3693d40dbfe353c692562198",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "comment-6255687824",
+      "label": "PR #65 交接／審查留言",
+      "detail": "Pixel Office P3 **Iteration 4** has been committed to the isolated LAB branch only. Review HEAD `23dca6b0908a911b3693d40dbfe353c692562198` (program SHA `7c8b2f3b4a33c15f4deae586d8886049e05b711c`). New self-contained character sprites for PM / Co / Gem and black cat, CSS walk/type/meet/rest showcase animations, larger desktop camera. Exact-source Chromium verification: 390x844, 844x390, 1440x900, 900x1200 PASS; no page JavaScript errors. One-time +500 reward, pet buy/re-equip idempotency, pet vis",
+      "roleId": null,
+      "sourceType": "github_comment",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65#issuecomment-6255687824",
+      "updatedAt": "2026-10-18T22:02:04Z",
+      "ref": "PR #65",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-23dca6b0908a911b3693d40dbfe353c692562198",
+      "label": "Commit · test(p3-lab): record four-viewport sprite and economy regression evidence",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/23dca6b0908a911b3693d40dbfe353c692562198",
+      "updatedAt": "2026-10-19T05:59:30+08:00",
+      "ref": "23dca6b0908a911b3693d40dbfe353c692562198",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-7c8b2f3b4a33c15f4deae586d8886049e05b711c",
+      "label": "Commit · feat(p3-lab): richer PM/Co/Gem and pet sprites, animated showcase states, larger desktop view",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/7c8b2f3b4a33c15f4deae586d8886049e05b711c",
+      "updatedAt": "2026-10-19T05:55:12+08:00",
+      "ref": "7c8b2f3b4a33c15f4deae586d8886049e05b711c",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-a9be758e8c3303bd9d9800aa0a853b1485678479",
+      "label": "Commit · feat(p3-lab): add architectural depth, glass reflections and desk shadows",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/a9be758e8c3303bd9d9800aa0a853b1485678479",
+      "updatedAt": "2026-10-19T05:51:56+08:00",
+      "ref": "a9be758e8c3303bd9d9800aa0a853b1485678479",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "comment-6252303968",
+      "label": "PR #65 交接／審查留言",
+      "detail": "P3 Lab Visual Iteration + actual Chromium QA complete. HEAD `019b43ba0c1a819d818d31ed484ed31766c0eb71`; independent preview: https://cdn.githubraw.com/QQweasdzxc/zhuge-ai-os/019b43ba0c1a819d818d31ed484ed31766c0eb71/labs/pixel-office-p3-preview/index.html . Four viewports (390×844, 844×390, 1440×900, 900×1200) passed locally with no page JS errors, preview scene 72 SVG sublayers rendered, reward/idempotency, pet purchase/reselect, viewport quick camera, immersive toggle pass. See `labs/pixel-offi",
+      "roleId": null,
+      "sourceType": "github_comment",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65#issuecomment-6252303968",
+      "updatedAt": "2026-10-18T16:29:21Z",
+      "ref": "PR #65",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-019b43ba0c1a819d818d31ed484ed31766c0eb71",
+      "label": "Commit · test(p3-lab): record four-viewport Chromium visual and immersive interaction QA",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/019b43ba0c1a819d818d31ed484ed31766c0eb71",
+      "updatedAt": "2026-10-19T00:28:34+08:00",
+      "ref": "019b43ba0c1a819d818d31ed484ed31766c0eb71",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-27fbbe9544bd9a24bff32f19ffd0a00be9e236eb",
+      "label": "Commit · feat(p3-lab): immersive office mode, room camera shortcuts and responsive game framing",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/27fbbe9544bd9a24bff32f19ffd0a00be9e236eb",
+      "updatedAt": "2026-10-19T00:25:02+08:00",
+      "ref": "27fbbe9544bd9a24bff32f19ffd0a00be9e236eb",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "commit-4e9b3f3c8feb6e156e61e657867d0b4d75f13677",
+      "label": "Commit · feat(pixel-p3-lab): enrich office scenery with warm lighting, detailed furnishings and glass architecture",
+      "detail": "由已讀回的 P3 Review Branch Git 歷程取得；未據此推斷工程師目前狀態。",
+      "roleId": null,
+      "sourceType": "github_commit",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/commit/4e9b3f3c8feb6e156e61e657867d0b4d75f13677",
+      "updatedAt": "2026-10-19T00:18:30+08:00",
+      "ref": "4e9b3f3c8feb6e156e61e657867d0b4d75f13677",
+      "taskId": null,
+      "freshness": "fresh"
+    },
+    {
+      "id": "comment-6252062781",
+      "label": "PR #65 交接／審查留言",
+      "detail": "P3 independent Lab iteration 2 ready for hands-on PM review. HEAD `5737ed0af429fbc11d6c9a3e68fe8074dc0b688d`; Preview: https://cdn.githubraw.com/QQweasdzxc/zhuge-ai-os/5737ed0af429fbc11d6c9a3e68fe8074dc0b688d/labs/pixel-office-p3-preview/index.html . Functional simulated-DOM preflight: PASS (reward once, pet free re-equip, camera zoom, waypoint movement, keyboard). 4-orientation real device/visual and Safari: NOT VERIFIED. No real task dispatch; no main merge or production deploy. QA: `labs/pixe",
+      "roleId": null,
+      "sourceType": "github_comment",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65#issuecomment-6252062781",
+      "updatedAt": "2026-10-18T16:05:44Z",
+      "ref": "PR #65",
+      "taskId": null,
+      "freshness": "fresh"
+    }
+  ]
+}

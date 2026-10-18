@@ -5,14 +5,22 @@ const r=(x,y,w,h,c)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fil
 const crew={
 "agent-pm":{hair:"#704432",shade:"#422d32",shine:"#aa795c",coat:"#eee2cd",edge:"#997e68",pants:"#566278",skin:"#f0c59e",tie:"#d8b166",spec:false,ponytail:false},
 "agent-co":{hair:"#27384c",shade:"#18273d",shine:"#69849b",coat:"#79a6ce",edge:"#426e9a",pants:"#3b5369",skin:"#efbe9f",tie:"#e6e6dd",spec:true,ponytail:false},
-"agent-gem":{hair:"#7876b4",shade:"#45456a",shine:"#b1afd5",coat:"#c5afd6",edge:"#7f72ae",pants:"#615a86",skin:"#f5cdb3",tie:"#ead7f3",spec:false,ponytail:true}
+"agent-gem":{hair:"#7876b4",shade:"#45456a",shine:"#b1afd5",coat:"#c5afd6",edge:"#7f72ae",pants:"#615a86",skin:"#f5cdb3",tie:"#ead7f3",spec:false,ponytail:true},
+"agent-gpt":{hair:"#36c6c9",shade:"#245566",shine:"#b6ffff",coat:"#4a8497",edge:"#286071",pants:"#314f67",skin:"#e9c5a7",tie:"#9ff4e8",spec:false,ponytail:false,badge:true,hairStyle:"short"},
+"agent-betty":{hair:"#9a5746",shade:"#573742",shine:"#d18b68",coat:"#db9b86",edge:"#a96770",pants:"#70516a",skin:"#f4c8aa",tie:"#f2d1ad",spec:false,ponytail:false,hairStyle:"long",clip:"#f4d27c"},
+"agent-anan":{hair:"#354b42",shade:"#24373a",shine:"#769879",coat:"#83b39c",edge:"#4e806f",pants:"#405c57",skin:"#eed0b0",tie:"#e6cb86",spec:true,ponytail:false,hairStyle:"bob",book:"#e8b66c"},
+"agent-kaka":{hair:"#d17a4e",shade:"#784744",shine:"#ffd08d",coat:"#df9d67",edge:"#a9575f",pants:"#66516f",skin:"#f5c5a0",tie:"#8fd2ad",spec:false,ponytail:false,hairStyle:"pigtails",clip:"#85dec7"}
 };
 const head=(p)=>[
 r(12,14,26,23,p.shade),r(15,17,22,20,p.skin),r(11,8,29,12,p.shade),r(12,5,26,11,p.hair),
 r(13,7,12,3,p.shine),r(29,7,5,3,p.shine),r(9,15,8,14,p.shade),r(36,12,6,14,p.shade),
 p.ponytail?r(39,18,7,31,p.shade)+r(40,19,5,26,p.hair):"",
+p.hairStyle==="long"?r(10,15,8,28,p.shade)+r(11,18,5,23,p.hair)+r(35,15,8,27,p.shade)+r(36,18,5,22,p.hair):"",
+p.hairStyle==="bob"?r(10,16,8,18,p.shade)+r(11,18,5,15,p.hair)+r(34,15,9,19,p.shade)+r(35,18,6,15,p.hair):"",
+p.hairStyle==="pigtails"?r(4,17,9,17,p.shade)+r(5,19,6,13,p.hair)+r(37,17,9,17,p.shade)+r(38,19,6,13,p.hair)+r(4,30,7,9,p.shine)+r(38,30,7,9,p.shine):"",
+p.clip?r(33,12,5,4,p.clip):"",
 r(18,25,3,3,"#24334c"),r(31,25,3,3,"#24334c"),r(16,30,5,2,"#e9a39b"),r(33,30,4,2,"#e9a39b"),
-r(25,32,4,2,"#b87969"),p.spec?'<path d="M15 24H26V31H15Z M28 24H39V31H28Z M26 26H28" stroke="#37465a" stroke-width="2" fill="none"/>':""
+r(25,32,4,2,"#b87969"),p.spec?"<path d=\"M15 24H26V31H15Z M28 24H39V31H28Z M26 26H28\" stroke=\"#37465a\" stroke-width=\"2\" fill=\"none\"/>":""
 ].join("");
 function render(p){
 return ['<svg class="person-sprite" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 66" aria-hidden="true" shape-rendering="crispEdges">',
@@ -21,6 +29,8 @@ return ['<svg class="person-sprite" xmlns="http://www.w3.org/2000/svg" viewBox="
 '<g class="sprite-leg-right">',r(28,47,10,12,p.pants),r(28,57,13,5,"#263248"),'</g>',
 r(12,35,27,18,p.coat),r(12,35,5,18,p.edge),r(35,35,4,18,p.edge),
 r(20,36,11,16,"#fff5de"),r(24,37,3,14,p.tie),
+p.badge?r(31,39,5,5,"#9cf1e7")+r(32,40,3,3,"#285f70"):"",
+p.book?r(34,43,10,11,p.book)+r(35,44,8,1,"#fff0c8")+r(35,47,8,1,"#fff0c8"):"",
 '<g class="sprite-arm-left">',r(6,38,8,13,p.coat),r(8,48,6,5,p.skin),'</g>',
 '<g class="sprite-arm-right">',r(37,38,8,13,p.coat),r(37,48,7,5,p.skin),'</g>',
 r(20,31,10,7,p.skin),head(p),

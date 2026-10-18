@@ -19,8 +19,9 @@
     <button type="button" id="claim-reward" class="reward-button">領取獎勵</button>
   </section>
   <main class="main">
+    <div class="office-layout">
     <section class="office-section" aria-label="可以拖曳查看的互動像素辦公室"><div class="camera-tools" role="group" aria-label="場景縮放"><button id="zoom-in" type="button" aria-label="放大辦公室">＋</button><button id="zoom-out" type="button" aria-label="縮小辦公室">−</button><button id="zoom-reset" type="button" aria-label="恢復全景">⌗</button></div>
-      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">走動／開會動畫僅供展示 · 非真實派工</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="immersive-toggle" class="subtle-button" aria-pressed="false">⛶ 全景</button><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
+      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">走動／開會動畫僅供展示 · 非真實派工</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="personnel-toggle" class="subtle-button personnel-toggle" aria-controls="personnel-panel" aria-expanded="true" aria-label="收合人員動態">👥 <span class="personnel-toggle-label">動態</span></button><button type="button" id="immersive-toggle" class="subtle-button" aria-pressed="false">⛶ 全景</button><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
       <div class="scene-pan" id="scene-pan" tabindex="0" aria-label="像素辦公室主舞台，橫向滑動可以探索完整場景">
         <div class="world-shell" id="world-shell"><div class="world" id="world">
         <svg class="office-art" viewBox="0 0 1100 650" aria-hidden="true">
@@ -163,25 +164,39 @@
         <button class="room-tag" style="left:440px;top:189px" data-zone="工作座位" type="button">▣ 工作座位</button>
         <button class="room-tag" style="left:101px;top:351px" data-zone="Lounge" type="button">♨ Lounge</button>
         <button class="room-tag" style="left:849px;top:363px" data-zone="工具區" type="button">⚒ 工具區</button>
-        <div class="agent" id="agent-pm" role="button" tabindex="0" aria-label="查看 PM 角色介紹" data-person="PM" style="left:560px;top:328px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">PM</span></div>
-        <div class="agent cobalt" id="agent-co" role="button" tabindex="0" aria-label="查看 Co 角色介紹" data-person="Co" style="left:475px;top:380px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Co</span></div>
-        <div class="agent violet" id="agent-gem" role="button" tabindex="0" aria-label="查看 Gem 角色介紹" data-person="Gem" style="left:658px;top:370px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Gem</span></div>
+        <div class="agent" id="agent-pm" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看 PM 角色與已驗證動態" data-person="PM" data-person-id="pm" style="left:560px;top:328px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">PM</span></div>
+        <div class="agent cobalt" id="agent-co" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看 Co 角色與已驗證動態" data-person="Co" data-person-id="co" style="left:475px;top:380px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Co</span></div>
+        <div class="agent violet" id="agent-gem" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看 Gem 角色與已驗證動態" data-person="Gem" data-person-id="gem" style="left:658px;top:370px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">Gem</span></div>
+        <div class="agent gpt-agent" id="agent-gpt" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看 GPT 角色與已驗證動態" data-person="GPT" data-person-id="gpt" style="left:723px;top:382px"><span class="agent-figure"><i class="pixel-hair"></i><i class="pixel-face"></i><i class="pixel-shirt"></i></span><span class="agent-name">GPT</span></div>
+        <div class="agent resident resident-betty" id="agent-betty" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看 Betty 虛擬角色介紹" data-person="Betty" data-person-id="betty" style="left:138px;top:196px"><span class="agent-figure"></span><span class="agent-name">Betty</span></div>
+        <div class="agent resident resident-anan" id="agent-anan" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看安安虛擬角色介紹" data-person="安安" data-person-id="anan" style="left:234px;top:460px"><span class="agent-figure"></span><span class="agent-name">安安</span></div>
+        <div class="agent resident resident-kaka" id="agent-kaka" role="button" tabindex="0" aria-controls="personnel-detail" aria-label="查看卡卡虛擬角色介紹" data-person="卡卡" data-person-id="kaka" style="left:294px;top:394px"><span class="agent-figure"></span><span class="agent-name">卡卡</span></div>
         <button class="cat" id="cat" type="button" style="left:355px;top:276px" aria-label="點擊黑貓，查看寵物資料"><span class="cat-body"><i class="cat-ear left"></i><i class="cat-ear right"></i><i class="cat-eye left"></i><i class="cat-eye right"></i><i class="cat-tail"></i></span><span class="cat-name">🐾 小黑</span><span class="cat-heart" aria-hidden="true">♥</span></button>
         <div class="decor-sprite" id="decor-sprite" aria-hidden="true"></div>
         </div></div>
       </div>
       <div class="scene-shortcuts" role="group" aria-label="快速前往辦公室分區"><button data-focus-room="休息區" type="button">☕ 休息</button><button data-focus-room="工作座位" type="button">▣ 工作</button><button data-focus-room="會議室" type="button">♟ 會議</button></div>
-      <div class="scene-footer"><span>● <b id="scene-state">3 位角色 · 展示動畫</b></span><span>畫面可拖曳 · 點擊人物、房間與黑貓</span></div>
+      <div class="scene-footer"><span>● <b id="scene-state">7 位角色 · 展示動畫非工作狀態</b></span><span>畫面可拖曳 · 點擊人物、房間與黑貓</span></div>
     </section>
+    <aside class="personnel-panel" id="personnel-panel" aria-labelledby="personnel-title" aria-label="人員動態唯讀面板">
+      <div class="personnel-head"><div><h2 id="personnel-title">人員動態</h2><p>僅呈現具來源的工程證據</p></div><button type="button" class="personnel-collapse" id="personnel-collapse" aria-label="收合人員動態">−</button></div>
+      <div class="personnel-source" id="personnel-source" role="status" aria-live="polite">讀取唯讀事件來源中；不以角色動畫推定工作狀態。</div>
+      <div class="personnel-profile" id="personnel-detail" hidden></div>
+      <section class="personnel-section" aria-labelledby="personnel-list-title"><h3 id="personnel-list-title">角色狀態</h3><div class="personnel-roster" id="personnel-list"></div></section>
+      <section class="personnel-section personnel-events-section" aria-labelledby="personnel-events-title"><h3 id="personnel-events-title">近期工程事件</h3><div class="personnel-timeline" id="personnel-events"></div></section>
+      <p class="personnel-updated" id="personnel-updated">狀態依來源時間與有效期限判斷。</p>
+    </aside>
+    </div>
     <section class="shops" aria-label="每日商店與寵物商店">
       <button class="shop-card purple" type="button" id="daily-shop"><span class="shop-icon">🏪</span><span class="shop-copy"><strong>每日商店</strong><small id="daily-summary">今日精選 · 家具與裝飾</small></span><span class="shop-items">🪴　🛋️　💡</span><span class="shop-arrow">›</span></button>
       <button class="shop-card green" type="button" id="pet-shop"><span class="shop-icon">🐾</span><span class="shop-copy"><strong>寵物商店</strong><small>黑貓、橘貓與神祕夥伴</small></span><span class="shop-items">🐈‍⬛　🐈　🎁</span><span class="shop-arrow">›</span></button>
     </section>
   </main>
-  <nav class="bottom-tabs" aria-label="測試區功能"><button class="active" type="button" id="nav-office">▥<span>辦公室</span></button><button type="button" id="nav-roles">☷<span>員工</span></button><button type="button" id="nav-shop">♧<span>商店</span></button><button type="button" id="nav-pets">♡<span>寵物</span></button><button type="button" id="nav-info">ⓘ<span>說明</span></button></nav>
+  <nav class="p3-office-nav" aria-label="測試區功能"><button class="active" type="button" id="nav-office">▥<span>辦公室</span></button><button type="button" id="nav-roles">☷<span>員工</span></button><button type="button" id="nav-shop">♧<span>商店</span></button><button type="button" id="nav-pets">♡<span>寵物</span></button><button type="button" id="nav-info">ⓘ<span>說明</span></button></nav>
 </div>
 <dialog id="panel" class="panel"><div class="dialog-top"><h2 id="dialog-title">商店</h2><button class="close-btn" id="panel-close" type="button" aria-label="關閉">✕</button></div><div class="dialog-content" id="dialog-content"></div></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="./sprites.js" defer></script>
+<script src="./personnel-evidence.js" defer></script>
 <script src="./app.js" defer></script>
 </body></html>
