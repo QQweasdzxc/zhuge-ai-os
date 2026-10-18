@@ -52,6 +52,8 @@ try {
   await frame.locator('#zhuge-decision-panel:not([hidden])').waitFor({timeout:2000});
   const panel = await frame.locator('#zhuge-decision-panel').innerText();
   if (!panel.includes('正式 DB') || !panel.includes('下一步')) throw new Error('decision panel missing blocker/action');
+  await frame.locator('#zhuge-decision-panel button').click();
+  await frame.locator('#zhuge-decision-panel[hidden]').waitFor({timeout:2000});
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
@@ -71,6 +73,7 @@ try {
   if (!(await page.locator('.zgf-toast:not([hidden])').innerText()).includes('正式下載來源尚待驗證')) {
     throw new Error('TF-03 failed to disclose unavailable download');
   }
+  await page.locator('.zgf-toast').evaluate(element => { element.hidden = true; });
   const shotDir = process.env.PIXEL_SCREENSHOT_DIR;
   if (shotDir) {
     fs.mkdirSync(shotDir, {recursive: true});
@@ -83,6 +86,8 @@ try {
   const afterToggle = await toggle.getAttribute('aria-expanded');
   if (beforeToggle === afterToggle) throw new Error('Mobile trophy wall cannot expand/collapse');
   if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-390.png'), fullPage: false});
+  await toggle.click();
+  if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-expanded-390.png'), fullPage: false});
   await page.setViewportSize({width:1280,height:780});
   await page.goto(base + '/docs/index.html', { waitUntil:'domcontentloaded' });
   await page.frameLocator('iframe').locator('#zhuge-aios-hud').waitFor({timeout:30000});
