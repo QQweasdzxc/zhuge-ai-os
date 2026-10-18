@@ -112,3 +112,26 @@ jobs:
           echo "FORMAL_SOURCE_SHA=${{ github.sha }}"
           echo 'FullSource ZIP/Manifest/SHA256 integrity verified in ephemeral runner.'
           echo 'PRIVATE_DRIVE_BACKUP=PENDING; ZIP is NOT uploaded to PUBLIC Actions artifact.'
+
+      - name: Seal fullsource ZIP and sidecars with PM public-key certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zhuge-sealed"
+          tar -czf "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -C "$RUNNER_TEMP/zhuge-candidate" .
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -out "$RUNNER_TEMP/zhuge-sealed/PixelOffice-${{ github.sha }}-FullSource-SEALED.p7m" -outform DER integrations/habblaud/backup-recovery-public.pem
+          rm -f "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz"
+          cd "$RUNNER_TEMP/zhuge-sealed"
+          sha256sum ./*.p7m > ciphertext.sha256
+          printf '%s\n' 'Zhuge AI OS privately recoverable FullSource (CMS AES-256).' 'Only ciphertext is uploaded to public GitHub Actions, not the private ZIP.' 'Keep the PM-only RSA private key separately and securely.' 'Decrypt with: openssl cms -decrypt -binary -inform DER -in FILE.p7m -recip backup-recovery-public.pem -inkey PM-private-key.pem -out restored.tar.gz' 'Then: tar -xzf restored.tar.gz; sha256sum -c -- *.sha256' 'Source SHA: ${{ github.sha }}' > RESTORE-README.txt
+          test "$(find . -name '*.p7m' | wc -l)" -eq 1
+          test "$(find . -name '*.zip' | wc -l)" -eq 0
+          test "$(find . -name '*.pem' | wc -l)" -eq 0
+      - name: Upload ciphertext-only one-day transfer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-official-fullsource-SEALED-${{ github.sha }}
+          path: ${{ runner.temp }}/zhuge-sealed/
+          if-no-files-found: error
+          retention-days: 1
+
