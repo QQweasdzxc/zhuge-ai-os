@@ -55,6 +55,10 @@
 | GOV-01 | .9.73 Candidate GitHub Exact-SHA QA PASS，**不是部署** | [Official Release Gate](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/39020087233) |
 | GOV-02 | .9.73 FullSource 私人 Drive 已保存且讀回校驗 PASS；**不是 DB 備份** | [備份驗證決議](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51#issuecomment-6231860344) |
 
+## PM 資料來源可追溯
+
+[DATA_PROVENANCE.md](./DATA_PROVENANCE.md) 提供公開版索引規範；有敏感內容的完整資料索引只存 PM 未共用 Google Drive。
+
 ## 快速入口
 
 - [今日 Handoff](./20261018-Handoff.md)
