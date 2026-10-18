@@ -6,7 +6,7 @@
 
 ## 目前的每日交接入口
 
-**今日（2026-10-18）：** [20261018-Handoff.md](./20261018-Handoff.md)
+**今日（2026-10-19）：** [20261019-Handoff.md](./20261019-Handoff.md)
 
 新的一天由**當天第一個實際工程／督導工作階段**建立新的日期檔案，再將此 `CURRENT.md` 指向新檔；**尚未設置定時自動建立、背景推送或 AI 自動啟動**。不預先宣稱明日檔案已存在。
 
@@ -55,13 +55,20 @@
 | GOV-01 | .9.73 Candidate GitHub Exact-SHA QA PASS，**不是部署** | [Official Release Gate](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/39020087233) |
 | GOV-02 | .9.73 FullSource 私人 Drive 已保存且讀回校驗 PASS；**不是 DB 備份** | [備份驗證決議](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51#issuecomment-6231860344) |
 
+## 最新實際確認補註（2026-10-19，請以遠端來源為準）
+
+- **正式 Pixel Office:** `main` exact SHA `a9db9b2fe3051e22d59e52ad083c8d54d12dba62`，版本 `0.9.0-alpha.9.76`，P2 已經正式 Pages 上線；此項目與下面 2026-10-18「建立時快照」不同時點，不能混用。
+- **P3 Lab:** [PR #64](https://github.com/QQweasdzxc/zhuge-ai-os/pull/64) 和 [PR #65](https://github.com/QQweasdzxc/zhuge-ai-os/pull/65) 仍是 Draft/NO DEPLOY；兩種測試路線重疊，Co 的既有開發不被獨立 QA 派工取代。
+- **PM 授權的獨立唯讀派工（GitHub Issue 建立，不等於 Provider ACK）:** [#66 UX/Device QA](https://github.com/QQweasdzxc/zhuge-ai-os/issues/66)、[#67 #64/#65 Architecture Audit](https://github.com/QQweasdzxc/zhuge-ai-os/issues/67)、[#68 Status/Rewards/Security Audit](https://github.com/QQweasdzxc/zhuge-ai-os/issues/68)，均 `QUEUED / ACK_PENDING`，沒有已確認之 AI 執行者；禁止自動觸發 Co 或繞 TaskFlow Gate。
+- **TaskFlow 派工正式環境：** [PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60) 仍 Draft，`GATE1_BLOCKED / G2_CONDITIONALLY_AUTHORIZED / PRODUCTION_HOLD`。候選已完成 ≠ 正式 API/DB E2E 已成功。
+
 ## PM 資料來源可追溯
 
 [DATA_PROVENANCE.md](./DATA_PROVENANCE.md) 提供公開版索引規範；有敏感內容的完整資料索引只存 PM 未共用 Google Drive。
 
 ## 快速入口
 
-- [今日 Handoff](./20261018-Handoff.md)
+- [今日 Handoff](./20261019-Handoff.md)
 - [PM 決策與持續交接：Issue #51](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51)
 - [Co 源碼工程主線：PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60)
 - [產品最新候選狀態文件（PR #60 分支；可能落後 GitHub 新留言）](https://github.com/QQweasdzxc/zhuge-ai-os/blob/review/taskflow-github-codex-phase2-20261016/docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)
