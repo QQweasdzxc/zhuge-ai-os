@@ -16,3 +16,8 @@ Before PM GO: cross-browser/real iPhone UX, keyboard/accessibility, transparent 
 
 ## Iteration 2
 Added zoom +/−/reset and mobile pinch; four orientation CSS; roaming waypoints; keyboard cast support; pet ownership once + free switching; remains independent WIP and no release authority.
+
+## Iteration 3 — Visual fidelity pass (no generated game state)
+- Added SVG interior detail layers: meeting-room glass, raised flooring/walls, pixel desks/keyboards/mugs, chairs, houseplants, sofa, bookshelf, art, warm lighting and decorated storage. Internal SVG only, no external assets, login, or credentials.
+- Enlarged scene typography and premium dark UI accents across mobile, tablet and desktop.
+- Current P3 Lab is still **not an original Habblaud integration**, not a production page, and needs PM side-by-side visual review against the user-approved reference as well as Safari and Chromium screenshots.

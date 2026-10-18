@@ -24,3 +24,28 @@
 
 /* The visible pet matches the selected, previously purchased companion. */
 .cat.pet-orange .cat-body{background:#db9859;border-color:#9b592e}.cat.pet-orange .cat-ear{background:#e0a264;border-color:#8a5c32}.cat.pet-calico .cat-body{background:linear-gradient(115deg,#f3dcb5 0 40%,#292b32 40% 64%,#e59e60 64%);border-color:#755842}.cat.pet-calico .cat-ear{background:#eec291;border-color:#755842}
+
+
+/* P3 Iteration 3: premium scene art and game-like touch chrome, no production dependencies */
+.office-art{image-rendering:auto;filter:saturate(1.13) contrast(1.07) drop-shadow(0 8px 10px #10182a)}
+.office-section{background:linear-gradient(135deg,#213448,#0a1e2b);border:1px solid #55718a;box-shadow:0 2px 0 #7ca4b248 inset,0 20px 38px #020a165c}
+.office-section::after{content:"";position:absolute;z-index:3;pointer-events:none;inset:0;border-radius:inherit;box-shadow:inset 0 0 16px #040a1588}
+.scene-pan{background:radial-gradient(circle at 55% 15%,#44645d,#173b43 52%,#10232f 100%)}
+.room-tag{font-size:19px;border:1px solid #cebda380;border-bottom:3px solid #090e2588;background:linear-gradient(#273e55ed,#102436ef);color:#fff5e1;box-shadow:0 5px 11px #07101d77;padding:9px 14px;letter-spacing:.015em}
+.agent-name,.cat-name{background:#0e233ee8;border:1px solid #d6c4a266;color:#fff9ee;padding:3px 8px}
+.achievement{border-color:#d4a15e;box-shadow:0 0 0 2px #8c62366b inset,0 4px 25px #d3a05a20}
+.reward-button{box-shadow:inset 0 2px 1px #ffe9b7,0 0 18px #f3bc6488}
+.shop-card{border-bottom-width:3px;box-shadow:0 5px 18px #0208186b,inset 0 1px 0 #ffffff28}
+.shop-card.green{background:linear-gradient(125deg,#123d43,#102e35)}
+.shop-card.purple{background:linear-gradient(125deg,#33214d,#18213e)}
+.wallet{box-shadow:inset 0 2px 1px #9cb9df22,0 5px 12px #01091655}
+.bottom-tabs{box-shadow:0 -4px 15px #030d1bb2}
+.agent-figure{filter:drop-shadow(0 1px 1px #1c2840);transform-origin:center bottom}
+@media (max-width:700px){
+  .office-section{border-radius:17px}
+  .room-tag{font-size:20px}
+  .shops{min-height:110px}
+  .shop-card{border-radius:14px}
+}
+@media (orientation:landscape) and (max-height:560px){.shops{min-height:0;height:42px}.office-section{border-radius:12px}.room-tag{font-size:19px}}
+@media (prefers-reduced-motion:reduce){.agent-figure,.cat-body{animation:none!important}}
