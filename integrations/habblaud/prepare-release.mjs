@@ -15,7 +15,7 @@ if (!/^202\d{5}-\d{4}$/.test(build || '')) throw new Error('Missing approved new
 const identity = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
 if(identity.version !== '0.9.0-alpha.9.74')throw new Error('Release version changed: stop');
-if(identity.build !== '20261018-1050')throw new Error('Unexpected previous Build: stop');
+if(identity.build !== '20261018-1131')throw new Error('Unexpected previous Build: stop');
 // This follow-up is a NEW Formal Build, because CI packaging workflow is material Source.
 const result = execFileSync(process.execPath, [
   'tools/release-governance.js','sync-build','--build',build
