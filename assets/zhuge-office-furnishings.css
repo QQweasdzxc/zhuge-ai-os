@@ -52,3 +52,23 @@
 }
 @media(max-height:520px) and (min-width:701px){.zgf-awards{top:62px}.zgf-meeting{top:210px}.zgf-rack{bottom:4px}.zgf-device{min-height:50px}}
 @media(prefers-reduced-motion:reduce){.zgf-device-face,.zgf-door-art,.zgf-medal-face{transition:none}}
+
+/* P2: small medal information tab without replacing P1's one-click work link. */
+.zgf-medal-slot{display:flex;align-items:center;min-width:0;gap:3px}
+.zgf-medal-slot .zgf-medal{flex:1;min-width:0}
+.zgf-medal-info{flex:0 0 18px;width:18px;height:20px;margin:0;padding:0;border:2px solid #bd985b;border-radius:0;background:#6b4932;color:#fbe7b7;font:900 10px/16px "Courier New",monospace;cursor:pointer}
+.zgf-medal-info:hover,.zgf-medal-info:focus-visible{background:#ad7d44;color:#fff}
+.zgf-work-details{position:relative;margin:7px 1px 2px;padding:9px 9px 8px;background:#213a3a;border:3px solid #c89f60;box-shadow:2px 2px 0 #201d22;font:normal 11px/1.5 system-ui,sans-serif}
+.zgf-work-details[hidden]{display:none}
+.zgf-work-heading{display:block;margin-right:20px;color:#fae4ac;font-size:12px}
+.zgf-work-close{position:absolute;right:5px;top:5px;width:20px;height:20px;padding:0;background:#695040;border:2px solid #d0a06d;border-radius:0;color:#fff;cursor:pointer}
+.zgf-work-summary{margin:8px 0 5px;color:#f4e9d5}
+.zgf-work-truth{font-size:10px;color:#b8d5c8;margin:4px 0 8px}
+.zgf-work-go{display:inline-block;color:#fbe9b7;text-decoration:underline;font-weight:700}
+.zgf-awards[data-open="false"] .zgf-work-details{display:none}
+@media(max-width:700px){
+ .zgf-medal-slot{gap:1px}
+ .zgf-medal-info{flex-basis:15px;width:15px;height:18px;font-size:9px;line-height:14px}
+ .zgf-medal-slot .zgf-medal{gap:1px}
+ .zgf-work-details{padding:7px;font-size:10px}
+}
