@@ -73,3 +73,8 @@
 .scene-shortcuts{bottom:24px;left:6px}
 .scene-shortcuts button{font-size:9px;padding:2px 6px}
 }
+
+/* P3 visual pass 4: stronger material separation and visual depth without changing controls */
+.office-art{filter:saturate(1.17) contrast(1.09) drop-shadow(0 9px 12px #10182a)}
+.scene-pan{scrollbar-color:#91b9b9 #183241}
+.scene-shortcuts button:focus-visible,.subtle-button:focus-visible{outline:3px solid #ffda92;outline-offset:3px}
