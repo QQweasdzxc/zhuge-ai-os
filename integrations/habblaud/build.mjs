@@ -78,7 +78,7 @@ function fixAssets(dir) {
     if (d.isDirectory()) fixAssets(p);
     else if (/\.(?:ts|tsx|js|css|html)$/.test(d.name)) {
       const before = fs.readFileSync(p, 'utf8');
-      const after = before.replace(/(["'])\/assets\//g, '$1./assets/');
+      const after = before.replace(/(["'])\/assets\//g, '$1./assets/').replaceAll('`/assets/', '`./assets/').replaceAll('url(/assets/', 'url(./assets/');
       if (after !== before) fs.writeFileSync(p, after);
     }
   }
