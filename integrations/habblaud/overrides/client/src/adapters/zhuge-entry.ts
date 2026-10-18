@@ -2,7 +2,7 @@ import type { OfficeSnapshot } from '../../../shared/types';
 import type { OfficeStore, EventSourceLike } from '../net/store';
 import type { WorldApi } from '../world/api';
 import { fallbackProjectStatus, syncAiOsStatus, toOfficeSnapshot, type ZhugeProjectStatus } from './zhuge-bridge';
-import { mountZhugeHud, showZhugeDecisions } from '../ui/zhuge-hud';
+import { mountZhugeHud, showZhugeDecisions, showZhugeRole } from '../ui/zhuge-hud';
 
 /** Habblaud-compatible SSE facade. Static JSON is read every 15s, and real CLI SSE is merged if present. */
 class ZhugeStream implements EventSourceLike {
@@ -89,6 +89,8 @@ export function createZhugeStream(url: string): EventSourceLike {
 }
 export function bootAiOsPixelHomepage(_store: OfficeStore, world: WorldApi): void {
   world.onSelect(sel => {
-    if (sel?.type === 'agent' && sel.id.startsWith('zhuge-')) showZhugeDecisions();
+    if (sel?.type !== 'agent') return;
+    if (sel.id.startsWith('zhuge-crew-')) showZhugeRole(sel.id);
+    else if (sel.id.startsWith('zhuge-')) showZhugeDecisions();
   });
 }

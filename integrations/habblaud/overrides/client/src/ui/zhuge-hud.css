@@ -8,3 +8,10 @@
 #zhuge-decision-panel article{padding:10px;margin:10px 0;border-left:3px solid #fb7185;background:#1f304a}
 #zhuge-decision-panel h2{font-size:18px}#zhuge-decision-panel h3{font-size:16px}#zhuge-decision-panel li{margin:8px 0}
 @media(max-width:660px){#zhuge-aios-hud{left:7px;right:7px;transform:none;max-width:none;font-size:11px;padding:7px 9px}}
+
+/* P2 lightweight character dossier, shared with native decision drawer. */
+#zhuge-decision-panel .zhuge-role-roster{display:flex;gap:7px;clear:both;margin:18px 0 15px;flex-wrap:wrap}
+#zhuge-decision-panel .zhuge-role-roster button{float:none;min-width:62px;cursor:pointer;background:#3c5369}
+#zhuge-decision-panel .zhuge-role-roster button[aria-pressed="true"]{background:#8b622c;color:#fff1c9;box-shadow:inset 0 0 0 2px #dfba75}
+#zhuge-decision-panel .zhuge-role-label{padding:8px 10px;background:#31453a;border-left:3px solid #b1dc88}
+#zhuge-decision-panel .zhuge-role-provenance{font-size:12px;line-height:1.6;color:#c5d5e4}

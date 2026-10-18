@@ -104,6 +104,13 @@ export function convertStatusToPixelRooms(status: ZhugeProjectStatus, now = Date
   return rooms;
 }
 
+/** Three decorative team characters. Not a provider, session, or work-status authority. */
+export const ZHUGE_CAST = [
+  { id: 'zhuge-crew-pm', name: 'PM', duty: '諸葛 AI OS 決策者', intro: '負責方向、裁示與作品驗收；點選可查看角色設定。' },
+  { id: 'zhuge-crew-codex', name: 'Codex', duty: '首席工程師／組長', intro: '負責主要開發與工程交付；雲端小幫手須等 P3 接上真實事件才能增生。' },
+  { id: 'zhuge-crew-gem', name: 'Gem', duty: '第二工程師／組長', intro: '負責獨立任務、前端與協作；此角色不代表 Gemini API 已連線。' },
+] as const;
+
 function nativeStatus(v: HabblaudRoomPayload['agents'][number]['status']): AgentStatus {
   if (v === 'waiting_permission' || v === 'waiting_input') return 'waiting';
   if (v === 'running_cmd') return 'shell';
@@ -139,10 +146,34 @@ export function toOfficeSnapshot(
       seed: seed(a.id),
     } satisfies AgentInfo;
   }));
+  // P2 fixed cast is a native Habblaud room, always idle even when the manual
+  // JSON looks fresh. Do not interpret an idle sprite as an authenticated CLI.
+  const crewRoomId = 'zhuge-room-crew';
+  const crewRoom: RoomInfo = {
+    id: crewRoomId, name: '諸葛 AI OS｜角色辦公桌', path: '/zhuge-ai-os/crew',
+    slot: startSlot + mappedRooms.length, seed: seed(crewRoomId), createdAt: sessionStartedAt,
+  };
+  const crewAgents: AgentInfo[] = ZHUGE_CAST.map(member => ({
+    id: member.id, kind: 'main', provider: 'codex',
+    roomId: crewRoomId, name: member.name, look: 'm',
+    role: '展示角色（非 CLI 真實連線）｜' + member.duty,
+    title: '待命展示｜尚無真實工程事件來源',
+    sessionId: 'zhuge-showcase-' + member.id, account: 'zhuge-showcase-only',
+    status: 'idle',
+    activity: {
+      id: 'zhuge-showcase-intro-' + member.id,
+      kind: 'plan', icon: '👋', text: '待命展示｜非實際執行',
+      detail: member.intro, at: sessionStartedAt,
+    },
+    recent: [], tasks: [], startedAt: sessionStartedAt,
+    lastEventAt: sessionStartedAt, statusSince: sessionStartedAt,
+    stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
+    seed: seed(member.id),
+  }));
   return {
     rev, serverTime: now,
-    rooms: [...(live?.rooms || []), ...mappedRooms],
-    agents: [...(live?.agents || []), ...mappedAgents],
+    rooms: [...(live?.rooms || []), ...mappedRooms, crewRoom],
+    agents: [...(live?.agents || []), ...mappedAgents, ...crewAgents],
     accounts: live?.accounts || [],
     meta: live ? { ...live.meta, terminal: false, messages: false } : {
       demo: false, sources: [], startedAt: sessionStartedAt, version: 'Zhuge Pixel v1 (snapshot)',
