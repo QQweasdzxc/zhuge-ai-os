@@ -24,7 +24,7 @@ function localFile(urlValue, fromFile = "index.html") {
 }
 
 function assertLocalReferencesResolve(document, fromFile) {
-  const baseHref = document.match(/<base\\s+href=["']([^"']+)["']/i)?.[1];
+  const baseHref = document.match(/<base\s+href=["']([^"']+)["']/i)?.[1];
   const effectiveSource = baseHref
     ? new URL(baseHref, new URL(fromFile, "https://qqweasdzxc.github.io/zhuge-ai-os/")).href
     : fromFile;
