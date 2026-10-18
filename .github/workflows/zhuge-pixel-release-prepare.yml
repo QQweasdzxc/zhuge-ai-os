@@ -5,6 +5,7 @@ on:
       - review/pixel-office-homepage-20261018
     paths:
       - .github/workflows/zhuge-pixel-release-prepare.yml
+      - integrations/habblaud/prepare-release.mjs
 permissions:
   contents: write
 jobs:
