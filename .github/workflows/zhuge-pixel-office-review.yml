@@ -1,0 +1,58 @@
+name: Zhuge Pixel Office Review (NO DEPLOY)
+on:
+  push:
+    branches:
+      - review/pixel-office-homepage-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zhuge-pixel-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pixel-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bridge and classic route contracts
+        run: |
+          node --test tests/zhuge-pixel-office-contract.test.cjs
+          git diff --check
+      - name: Fetch exact MIT upstream (no moving main or unreviewed source)
+        run: |
+          git init /tmp/zhuge-habblaud
+          git -C /tmp/zhuge-habblaud remote add origin https://github.com/marmottajr/habblaud.git
+          git -C /tmp/zhuge-habblaud fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
+          git -C /tmp/zhuge-habblaud checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/zhuge-habblaud rev-parse HEAD)" = "faa1a012b5fbf632c66dc6801c5383e53a542406"
+      - name: Install exact upstream dependencies
+        run: npm ci --prefix /tmp/zhuge-habblaud --ignore-scripts --no-audit --no-fund
+      - name: Stage existing site then build real Habblaud pixel scene
+        run: |
+          node tools/build-pages-site.js /tmp/zhuge-pixel-pages
+          node integrations/habblaud/build.mjs /tmp/zhuge-habblaud /tmp/zhuge-pixel-pages
+      - name: Verify static routes and generated native game assets
+        run: |
+          test -s /tmp/zhuge-pixel-pages/index.html
+          test -s /tmp/zhuge-pixel-pages/status-classic.html
+          test -s /tmp/zhuge-pixel-pages/docs/status-classic.html
+          test -s /tmp/zhuge-pixel-pages/docs/index.html
+          test -s /tmp/zhuge-pixel-pages/pixel-office/index.html
+          test -s /tmp/zhuge-pixel-pages/docs/pixel-office/index.html
+          test -s /tmp/zhuge-pixel-pages/pixel-office/LICENSE.txt
+          test -s /tmp/zhuge-pixel-pages/status/project-status.json
+          test -s /tmp/zhuge-pixel-pages/docs/status/project-status.json
+          test -n "$(find /tmp/zhuge-pixel-pages/pixel-office/bundle -name '*.js' -print -quit)"
+          cmp /tmp/zhuge-pixel-pages/status/project-status.json /tmp/zhuge-pixel-pages/docs/status/project-status.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zhuge-pixel-office-review-site
+          path: /tmp/zhuge-pixel-pages
+          retention-days: 14

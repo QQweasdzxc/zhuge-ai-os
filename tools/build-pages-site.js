@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "..");
 const ROOT_FILES = new Set([
   ".nojekyll",
   "index.html",
+  "status-classic.html",
   "version.json",
   "googlea760c88b64a73d97.html"
 ]);
