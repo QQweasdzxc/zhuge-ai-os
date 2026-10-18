@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101828">
+  <meta name="description" content="Zhuge AI OS P3 獨立測試版｜像素辦公室與寵物商店；不影響正式首頁">
+  <title>Zhuge AI OS｜P3 Sandbox</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand"><span class="logo" aria-hidden="true">▥</span><div><strong>Zhuge AI OS</strong><small>P3 Preview · 獨立測試版</small></div></div>
+      <div class="wallet"><span aria-hidden="true">🪙</span> <output id="balance" aria-label="測試金幣餘額">0</output></div>
+    </header>
+
+    <section class="reward" aria-label="里程碑獎勵">
+      <span class="trophy" aria-hidden="true">🏆</span>
+      <div><strong>P2 正式上線獎勵</strong><small id="reward-status">正在驗證 GitHub 發布紀錄…</small></div>
+      <button id="claim" disabled type="button">驗證中</button>
+    </section>
+
+    <main>
+      <div class="scene-heading"><div><h1>AI 員工辦公室</h1><p>放大觀察 · 拖曳移動 · 點擊人物和貓咪</p></div><span class="truth">展示動畫 ≠ 真實執行</span></div>
+      <section class="scene" id="scene" aria-label="可移動畫面的大型像素辦公室">
+        <div class="scene-camera" id="camera">
+          <iframe id="office-frame" title="原生 Habblaud 像素辦公室 P2" src="https://qqweasdzxc.github.io/zhuge-ai-os/pixel-office/index.html" loading="eager" tabindex="-1" referrerpolicy="no-referrer"></iframe>
+        </div>
+        <div class="scene-wash" aria-hidden="true"></div>
+        <button id="cat" class="cat" type="button" aria-label="黑貓：米粒。點擊互動"><span class="tail"></span><span class="ear left"></span><span class="ear right"></span><span class="face"><i></i><i></i></span><span class="cat-label">米粒 🐈‍⬛</span></button>
+        <div class="characters" id="characters" aria-label="角色介紹">
+          <button class="actor co" data-person="co" type="button"><span>🧑🏻‍💻</span><b>Co</b></button>
+          <button class="actor gem" data-person="gem" type="button"><span>👩🏻‍💻</span><b>Gem</b></button>
+          <button class="actor pm" data-person="pm" type="button"><span>🧑🏻‍💼</span><b>PM</b></button>
+        </div>
+        <div class="scene-tools"><button type="button" id="zoom-in" aria-label="放大場景">＋</button><button type="button" id="zoom-out" aria-label="縮小場景">－</button><button type="button" id="recenter" aria-label="場景置中">⌖</button></div>
+        <div class="scene-caption">原生 Habblaud 場景 · P3 互動功能測試層</div>
+      </section>
+
+      <section class="shops" aria-label="辦公室商店">
+        <button id="daily-shop-button" class="shop-card" type="button">
+          <span class="shop-ico">🏪</span><span class="shop-copy"><strong>每日商店</strong><small id="daily-teaser">每日台北時間更新</small></span><span class="arrow">›</span>
+        </button>
+        <button id="pet-shop-button" class="shop-card pets" type="button">
+          <span class="shop-ico">🐾</span><span class="shop-copy"><strong>寵物商店</strong><small>黑貓 · 隨機寵物</small></span><span class="arrow">›</span>
+        </button>
+      </section>
+      <p class="preview-note">測試金幣只存在這台裝置，不涉及現金、付款或 AI 工作效率。真實 TaskFlow 派工尚未接通。</p>
+    </main>
+
+    <nav class="bottom-nav" aria-label="功能導覽"><button class="active" id="office-tab" type="button">🏢<span>辦公室</span></button><button id="staff-tab" type="button">👥<span>員工</span></button><button id="shop-tab" type="button">🛒<span>商店</span></button><a href="https://qqweasdzxc.github.io/zhuge-ai-os/" target="_blank" rel="noopener noreferrer">↗<span>正式首頁</span></a></nav>
+  </div>
+
+  <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">每日商店</h2><button type="button" id="close-dialog" aria-label="關閉">✕</button></div><div id="dialog-content"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
