@@ -88,8 +88,19 @@ jobs:
           export BROWSER_EXECUTABLE="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')"
           node --test tests/release-consistency.test.js tests/taskflow-entry.test.js
           npm run test:browser
+      - name: Independent clean exact-SHA source checkout for governance packager
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: clean-source
+          fetch-depth: 0
+          persist-credentials: false
       - name: Package using the only canonical FullSource authority
         run: |
+          cd "$GITHUB_WORKSPACE/clean-source"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          git fetch --no-tags origin main
+          node tools/release-governance.js preflight
           mkdir -p "$RUNNER_TEMP/zhuge-candidate"
           node tools/release-governance.js package --type candidate --description Pixel-Office-Homepage --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir "$RUNNER_TEMP/zhuge-candidate"
           test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*FullSource-Candidate.zip' | wc -l)" -eq 1

@@ -24,11 +24,15 @@ function localFile(urlValue, fromFile = "index.html") {
 }
 
 function assertLocalReferencesResolve(document, fromFile) {
+  const baseHref = document.match(/<base\\s+href=["']([^"']+)["']/i)?.[1];
+  const effectiveSource = baseHref
+    ? new URL(baseHref, new URL(fromFile, "https://qqweasdzxc.github.io/zhuge-ai-os/")).href
+    : fromFile;
   const refs = [...document.matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi)]
     .map(match => match[1])
     .filter(value => !/^(?:#|data:|mailto:|tel:|javascript:)/i.test(value));
   for (const ref of refs) {
-    const resolved = localFile(ref, fromFile);
+    const resolved = localFile(ref, effectiveSource);
     if (resolved) assert.ok(fs.existsSync(resolved), fromFile + " references missing Pages file: " + ref);
   }
 }
