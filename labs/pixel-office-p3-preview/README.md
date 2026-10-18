@@ -21,3 +21,8 @@ Added zoom +/−/reset and mobile pinch; four orientation CSS; roaming waypoints
 - Added SVG interior detail layers: meeting-room glass, raised flooring/walls, pixel desks/keyboards/mugs, chairs, houseplants, sofa, bookshelf, art, warm lighting and decorated storage. Internal SVG only, no external assets, login, or credentials.
 - Enlarged scene typography and premium dark UI accents across mobile, tablet and desktop.
 - Current P3 Lab is still **not an original Habblaud integration**, not a production page, and needs PM side-by-side visual review against the user-approved reference as well as Safari and Chromium screenshots.
+
+## Iteration 3.1 — Camera and viewport completion
+- Added opt-in **immersive full-scene mode** without removing the standard dashboard; pressing again returns rewards and shops.
+- Added rest/work/meeting quick-focus navigation so mobile users can get to rooms while keeping character scale readable; compliant with reduced-motion preferences.
+- Four-frame Chromium local rendering QA for prior full scene: mobile portrait 390x844, landscape 844x390, desktop landscape 1440x900, desktop portrait 900x1200; no JavaScript page errors. Updated immersive controls still need fresh retest. No claim of real iPhone Safari pass.

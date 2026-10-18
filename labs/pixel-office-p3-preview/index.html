@@ -20,7 +20,7 @@
   </section>
   <main class="main">
     <section class="office-section" aria-label="可以拖曳查看的互動像素辦公室"><div class="camera-tools" role="group" aria-label="場景縮放"><button id="zoom-in" type="button" aria-label="放大辦公室">＋</button><button id="zoom-out" type="button" aria-label="縮小辦公室">−</button><button id="zoom-reset" type="button" aria-label="恢復全景">⌗</button></div>
-      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">走動／開會動畫僅供展示 · 非真實派工</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
+      <div class="section-head"><span class="live-bullet"></span><strong>辦公室</strong><span class="section-sub">走動／開會動畫僅供展示 · 非真實派工</span><span class="scene-hint" id="scene-hint">↔ 左右滑動探索</span><button type="button" id="immersive-toggle" class="subtle-button" aria-pressed="false">⛶ 全景</button><button type="button" id="motion-toggle" class="subtle-button">⏸ 暫停動畫</button></div>
       <div class="scene-pan" id="scene-pan" tabindex="0" aria-label="像素辦公室主舞台，橫向滑動可以探索完整場景">
         <div class="world-shell" id="world-shell"><div class="world" id="world">
         <svg class="office-art" viewBox="0 0 1100 650" aria-hidden="true">
@@ -170,6 +170,7 @@
         <div class="decor-sprite" id="decor-sprite" aria-hidden="true"></div>
         </div></div>
       </div>
+      <div class="scene-shortcuts" role="group" aria-label="快速前往辦公室分區"><button data-focus-room="休息區" type="button">☕ 休息</button><button data-focus-room="工作座位" type="button">▣ 工作</button><button data-focus-room="會議室" type="button">♟ 會議</button></div>
       <div class="scene-footer"><span>● <b id="scene-state">3 位角色 · 展示動畫</b></span><span>畫面可拖曳 · 點擊人物、房間與黑貓</span></div>
     </section>
     <section class="shops" aria-label="每日商店與寵物商店">

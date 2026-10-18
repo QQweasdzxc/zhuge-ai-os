@@ -49,3 +49,27 @@
 }
 @media (orientation:landscape) and (max-height:560px){.shops{min-height:0;height:42px}.office-section{border-radius:12px}.room-tag{font-size:19px}}
 @media (prefers-reduced-motion:reduce){.agent-figure,.cat-body{animation:none!important}}
+
+
+/* Immersive office is opt-in, never replaces the normal single-screen dashboard. */
+.scene-shortcuts{position:absolute;bottom:42px;left:13px;display:flex;gap:5px;z-index:5;max-width:calc(100% - 26px)}
+.scene-shortcuts button{border:1px solid #86b4b9a8;border-radius:8px;padding:5px 9px;background:#152b40e8;box-shadow:0 3px 7px #08101dac;color:#e6f4e6;font-size:12px;font-weight:700;backdrop-filter:blur(7px)}
+.scene-shortcuts button:active{background:#477483}
+.app.is-immersive{gap:7px}
+.app.is-immersive .achievement,.app.is-immersive .shops,.app.is-immersive .bottom-tabs{display:none}
+.app.is-immersive .office-section{flex:1}
+.app.is-immersive .scene-pan{background:radial-gradient(circle at 50% 34%,#3a6158,#14383d 68%,#102534)}
+.app.is-immersive .scene-shortcuts{bottom:44px}
+.scene-pan{background-color:#1a343e;background-image:radial-gradient(circle at 28px 26px,#2e59526a 0 10px,transparent 11px),radial-gradient(circle at 91px 83px,#47736042 0 16px,transparent 17px),linear-gradient(140deg,#1c3b3d,#102b3d 74%,#0b2336);background-size:143px 122px,183px 143px,auto}
+@media(max-width:700px){
+.section-head{gap:5px}
+.section-head .subtle-button{font-size:10px;min-width:52px}
+.scene-hint{display:none}
+.scene-shortcuts{bottom:38px;left:7px;gap:4px}
+.scene-shortcuts button{font-size:11px;padding:5px 7px}
+}
+@media(orientation:landscape) and (max-height:560px){
+.section-head .subtle-button{font-size:9px}
+.scene-shortcuts{bottom:24px;left:6px}
+.scene-shortcuts button{font-size:9px;padding:2px 6px}
+}

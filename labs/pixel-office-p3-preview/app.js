@@ -44,7 +44,25 @@ let userScale=null;
 function fitScale(){const w=Math.max(1,pan.clientWidth),h=Math.max(1,pan.clientHeight);const portrait=w<650&&innerHeight>innerWidth;const fit=Math.min(w/1100,h/650);return portrait?Math.max(.82,Math.min(1.04,h/620)):Math.max(.58,Math.min(1.6,fit));}
 function setScale(value,keepCenter=true){const w=pan.clientWidth,h=pan.clientHeight;if(!w||!h)return;const previous=Number(world.dataset.scale||0),cx=keepCenter&&previous?(pan.scrollLeft+w/2)/previous:550,cy=keepCenter&&previous?(pan.scrollTop+h/2)/previous:325,scale=Math.max(.45,Math.min(2.15,value));world.dataset.scale=scale.toFixed(3);world.style.transform="scale("+scale+")";shell.style.width=Math.ceil(1100*scale)+"px";shell.style.height=Math.ceil(650*scale)+"px";pan.scrollLeft=Math.max(0,cx*scale-w/2);pan.scrollTop=Math.max(0,cy*scale-h/2);document.getElementById("scene-hint").hidden=shell.clientWidth<=w+4;}
 function resize(){setScale(userScale??fitScale());}
-new ResizeObserver(resize).observe(pan);window.addEventListener("orientationchange",()=>setTimeout(()=>{userScale=null;resize();},90));
+new ResizeObserver(resize).observe(pan);
+const immersiveButton=document.getElementById("immersive-toggle");
+immersiveButton.addEventListener("click",()=>{
+ const enabled=ROOT.classList.toggle("is-immersive");
+ immersiveButton.textContent=enabled?"⛶ 返回一般":"⛶ 全景";
+ immersiveButton.setAttribute("aria-pressed",String(enabled));
+ userScale=null;
+ requestAnimationFrame(()=>{resize();tell(enabled?"🏙 已開啟大畫面辦公室":"已返回一般版型");});
+});
+const roomFocus={"休息區":[188,198],"工作座位":[565,350],"會議室":[929,212]};
+for(const button of document.querySelectorAll("[data-focus-room]")){
+ button.addEventListener("click",()=>{
+  const xy=roomFocus[button.dataset.focusRoom]; if(!xy)return;
+  const scale=Number(world.dataset.scale||fitScale());
+  pan.scrollTo({left:Math.max(0,xy[0]*scale-pan.clientWidth/2),top:Math.max(0,xy[1]*scale-pan.clientHeight/2),behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+  tell("📍 "+button.dataset.focusRoom+" · 展示場景");
+ });
+}
+window.addEventListener("orientationchange",()=>setTimeout(()=>{userScale=null;resize();},90));
 for(const [id,delta] of [["zoom-in",.16],["zoom-out",-.16]])document.getElementById(id).addEventListener("click",()=>{userScale=Math.max(.45,Math.min(2.15,Number(world.dataset.scale||fitScale())+delta));setScale(userScale);});
 document.getElementById("zoom-reset").addEventListener("click",()=>{userScale=null;setScale(fitScale(),false);tell("已恢復適合比例");});
 pan.addEventListener("keydown",ev=>{if(ev.target!==pan)return;if(ev.key==="+"||ev.key==="="){document.getElementById("zoom-in").click();ev.preventDefault();}if(ev.key==="-"){document.getElementById("zoom-out").click();ev.preventDefault();}});
