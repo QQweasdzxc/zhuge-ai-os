@@ -1,0 +1,38 @@
+name: Pixel Office P3 Sandbox UI NO DEPLOY
+on:
+  push:
+    branches:
+      - review/pixel-office-p3-ui-prototype-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  p3-sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Syntax and whitespace
+        run: |
+          node --check experiments/pixel-office-p3/app.js
+          node --check experiments/pixel-office-p3/smoke.cjs
+          git diff --check HEAD^ HEAD
+      - name: Pinned browser tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Browser smoke with public API fixtures
+        run: node experiments/pixel-office-p3/smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pixel-p3-sandbox-ui
+          path: experiments/pixel-office-p3/evidence/
+          if-no-files-found: ignore
+          retention-days: 14
