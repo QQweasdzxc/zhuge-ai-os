@@ -1,0 +1,36 @@
+name: Pixel P2 Roles and Medals Formal Review Identity Prepare
+on:
+  push:
+    branches:
+      - review/pixel-office-roles-p2-20261018
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare P2 new Version/Build with Published C unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test "$(node -p 'require("./version.json").version')" = "0.9.0-alpha.9.76"; then
+            node tools/release-governance.js preflight
+            echo "P2_ALREADY_PREPARED"
+            exit 0
+          fi
+          node tools/prepare-pixel-p2-release.mjs
+          git diff --check
+          git config user.name "zhuge-release-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "chore(release): formal Pixel P2 Roles 0.9.0-alpha.9.76 new Build"
+          node tools/release-governance.js preflight
+          git push origin HEAD:refs/heads/review/pixel-office-roles-p2-20261018

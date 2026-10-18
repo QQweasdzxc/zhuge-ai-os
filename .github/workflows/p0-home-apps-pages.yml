@@ -7,6 +7,7 @@ on:
       - review/p0-home-apps-pages-20261015
       - review/pixel-office-homepage-20261018
       - review/pixel-office-furnishings-p1-20261018
+      - review/pixel-office-roles-p2-20261018
 
 permissions:
   contents: read

@@ -4,6 +4,7 @@ on:
     branches:
       - review/pixel-office-homepage-20261018
       - review/pixel-office-furnishings-p1-20261018
+      - review/pixel-office-roles-p2-20261018
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,7 +25,7 @@ jobs:
           node-version: '24'
       - name: Validate bridge and classic route contracts
         run: |
-          node --test tests/zhuge-pixel-office-contract.test.cjs tests/zhuge-office-furnishings.test.cjs
+          node --test tests/zhuge-pixel-office-contract.test.cjs tests/zhuge-office-furnishings.test.cjs tests/zhuge-office-p2.test.cjs
           git diff --check
       - name: Fetch exact MIT upstream (no moving main or unreviewed source)
         run: |
@@ -45,11 +46,11 @@ jobs:
         run: |
           node /tmp/zhuge-habblaud/node_modules/playwright-core/cli.js install chromium
           PIXEL_SCREENSHOT_DIR="$RUNNER_TEMP/pixel-furnishings-screenshots" node integrations/habblaud/smoke.mjs /tmp/zhuge-pixel-pages /tmp/zhuge-habblaud
-      - name: Attach Pixel P1 desktop/mobile visual evidence
+      - name: Attach Pixel P2 character/medal desktop/mobile visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-p1-furnishings-visual-${{ github.sha }}
+          name: pixel-p2-characters-visual-${{ github.sha }}
           path: ${{ runner.temp }}/pixel-furnishings-screenshots/
           if-no-files-found: ignore
           retention-days: 14
