@@ -1,0 +1,269 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">Zhuge AI OS P3 單樓層辦公室桌機平面設計參考</title>
+  <desc id="description">完整室內辦公室。南側中央入口連接接待大廳與室內獎牌牆；中央主走道通往開放工作區、封閉會議室、工具區、Lounge 與閱讀休息區。會議室有完整牆面、門洞、會議桌和六張椅子。此 SVG 是美術與格局參考，不是互動或資料來源。</desc>
+  <defs>
+    <pattern id="tile" width="18" height="18" patternUnits="userSpaceOnUse">
+      <rect width="18" height="18" fill="#d7d2c5"/>
+      <path d="M18 0H0V18" fill="none" stroke="#c5c1b6" stroke-width="1"/>
+      <circle cx="3" cy="3" r=".65" fill="#eee9dc" opacity=".8"/>
+    </pattern>
+    <pattern id="wood" width="36" height="18" patternUnits="userSpaceOnUse">
+      <rect width="36" height="18" fill="#b98761"/>
+      <path d="M0 17.5H36M18 0V8M5 9V17" stroke="#865c49" stroke-opacity=".35" stroke-width="1"/>
+    </pattern>
+    <pattern id="work-floor" width="36" height="36" patternUnits="userSpaceOnUse">
+      <rect width="36" height="36" fill="#d4dfd8"/>
+      <path d="M0 35.5H36M35.5 0V36" stroke="#bdcdc5" stroke-width="1"/>
+      <path d="M4 4H13M22 22H31" stroke="#e9eee8" stroke-width="2" opacity=".75"/>
+    </pattern>
+    <pattern id="lounge-floor" width="18" height="18" patternUnits="userSpaceOnUse">
+      <rect width="18" height="18" fill="#77688d"/>
+      <path d="M0 0L18 18M-9 9L9 27" stroke="#a090b2" stroke-opacity=".32" stroke-width="2"/>
+    </pattern>
+    <pattern id="library-floor" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#b9c6c1"/>
+      <path d="M0 23.5H24M23.5 0V24" stroke="#95a9a5" stroke-width="1"/>
+      <path d="M4 5H9M14 17H20" stroke="#dce3d9" stroke-width="2"/>
+    </pattern>
+    <pattern id="tool-floor" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#c6c4b8"/>
+      <path d="M0 12H24M12 0V24" stroke="#aaa99f" stroke-opacity=".32" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#192334" flood-opacity=".25"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#55d8b0"/>
+    </marker>
+    <style>
+      text{font-family:ui-sans-serif,system-ui,-apple-system,"Noto Sans TC",sans-serif;fill:#edf4f2}
+      .small{font-size:13px;letter-spacing:.03em}.label{font-size:17px;font-weight:800;letter-spacing:.08em}
+      .sub{font-size:12px;fill:#b8c8c7}.wall{fill:none;stroke:#39404b;stroke-width:16;stroke-linecap:square;stroke-linejoin:miter}
+      .wall-hi{fill:none;stroke:#e7c995;stroke-width:4;stroke-linecap:square}.partition{fill:none;stroke:#687a7d;stroke-width:8}
+      .furn{stroke:#4a4650;stroke-width:3;stroke-linejoin:round}.walk{fill:none;stroke:#55d8b0;stroke-width:4;stroke-dasharray:9 8;opacity:.78;marker-end:url(#arrow)}
+      .zone-tag{fill:#182536;stroke:#445968;stroke-width:1.5}.room-icon{fill:#f4d28e}
+    </style>
+  </defs>
+
+  <rect width="1440" height="900" fill="#101925"/>
+  <text x="72" y="36" font-size="22" font-weight="850" letter-spacing=".06em">Zhuge AI OS · P3 完整單樓層辦公室</text>
+  <text x="72" y="59" class="sub">桌機空間參考｜72 × 42 tiles｜入口在南側｜原生 Habblaud Canvas 轉譯目標</text>
+  <g transform="translate(1234 27)">
+    <rect width="132" height="34" rx="7" fill="#1a3040" stroke="#3e6871"/>
+    <text x="66" y="22" text-anchor="middle" class="small" font-weight="700">N ↑ 北側</text>
+  </g>
+
+  <!-- One continuous indoor floor, 72 × 42 logical 16px tiles (reference scale 18 SVG px / tile). -->
+  <rect x="72" y="90" width="1296" height="756" rx="5" fill="url(#tile)" stroke="#d4c49f" stroke-width="7"/>
+
+  <!-- Interior zone floors. Zone changes are finish changes, not disconnected rooms. -->
+  <rect x="108" y="144" width="324" height="270" fill="url(#tool-floor)"/>
+  <rect x="450" y="144" width="504" height="270" fill="url(#work-floor)"/>
+  <rect x="972" y="144" width="360" height="270" fill="#b8c9c6"/>
+  <rect x="108" y="522" width="342" height="306" fill="url(#lounge-floor)"/>
+  <rect x="468" y="522" width="504" height="306" fill="url(#wood)"/>
+  <rect x="972" y="522" width="360" height="306" fill="url(#library-floor)"/>
+  <rect x="90" y="414" width="1260" height="108" fill="#c8c7bd"/>
+  <path d="M90 468H1350" stroke="#e5dfcf" stroke-width="54" opacity=".65"/>
+  <path d="M720 414V828" stroke="#e5dfcf" stroke-width="54" opacity=".5"/>
+
+  <!-- Quiet zone divisions: low open partitions preserve sightlines and connected paths. -->
+  <path d="M432 160V344M432 390V414M954 160V186M954 232V414" class="partition"/>
+  <path d="M450 540V564M450 612V810M972 540V568M972 616V810" class="partition"/>
+  <path d="M108 414H198M270 414H432M450 414H684M756 414H954" class="partition"/>
+  <path d="M108 522H198M270 522H450M468 522H684M756 522H972M990 522H1116M1188 522H1332" class="partition"/>
+
+  <!-- Fully enclosed meeting room: three continuous walls, south wall with a real doorway gap. -->
+  <path d="M972 144H1332V414H1198M1110 414H972V144" class="wall"/>
+  <path d="M980 151H1324V407H1200M1108 407H980V151" class="wall-hi"/>
+  <path d="M1110 414A88 88 0 0 1 1198 326" fill="none" stroke="#e8c995" stroke-width="3" stroke-dasharray="7 5"/>
+  <path d="M1110 414V326" stroke="#a67b56" stroke-width="8" stroke-linecap="round"/>
+  <g transform="translate(990 164)">
+    <rect class="zone-tag" width="206" height="34" rx="6"/>
+    <text x="103" y="22" text-anchor="middle" class="label">會議室 · 獨立房間</text>
+  </g>
+  <text x="1154" y="403" text-anchor="middle" class="small" fill="#a7f1d9">門洞 4 tiles · 連接主走道</text>
+
+  <!-- Entry: a real opening in the south outer wall, aligned to the lobby spine. -->
+  <path d="M72 90H1368V846H756M684 846H72V90" fill="none" stroke="#283747" stroke-width="17" stroke-linejoin="miter"/>
+  <path d="M79 97H1361V839H756M684 839H79V97" fill="none" stroke="#e7c995" stroke-width="3"/>
+  <path d="M684 846A72 72 0 0 0 756 774" fill="none" stroke="#b98c60" stroke-width="3" stroke-dasharray="6 5"/>
+  <path d="M684 846V774" stroke="#9b704f" stroke-width="8" stroke-linecap="round"/>
+  <text x="720" y="875" text-anchor="middle" class="small" font-weight="750">主入口 · 南側四格門洞</text>
+
+  <!-- Lobby: the award display is mounted on the interior west wall, not a floating panel. -->
+  <g id="interior-medal-wall" aria-label="接待大廳室內作品獎牌展示牆">
+    <rect x="480" y="562" width="35" height="202" rx="3" fill="#705449" stroke="#392f35" stroke-width="5" filter="url(#shadow)"/>
+    <rect x="486" y="568" width="23" height="190" fill="#8e6854" stroke="#d2aa72" stroke-width="2"/>
+    <text x="498" y="657" transform="rotate(-90 498 657)" text-anchor="middle" font-size="13" font-weight="850" letter-spacing=".14em">作品獎牌牆 · 室內展示</text>
+    <g transform="translate(526 578)" filter="url(#shadow)">
+      <rect width="300" height="104" rx="5" fill="#674b42" stroke="#d6b37a" stroke-width="4"/>
+      <rect x="8" y="8" width="284" height="88" fill="#e2cfaa" stroke="#443a40" stroke-width="3"/>
+      <path d="M12 32H288" stroke="#b39770" stroke-width="2"/>
+      <text x="150" y="25" text-anchor="middle" font-size="13" font-weight="850" fill="#53423d">Zhuge AI OS · 作品與里程碑</text>
+      <g transform="translate(27 42)">
+        <g><path d="M13 0L20 9L13 18L6 9Z" fill="#e5b949" stroke="#976d34" stroke-width="2"/><path d="M9 17L5 34L13 29L21 34L17 17" fill="#be7e44" stroke="#805638" stroke-width="2"/><text x="13" y="51" text-anchor="middle" font-size="9" fill="#4e4240">TF</text></g>
+        <g transform="translate(64)"><path d="M13 0L20 9L13 18L6 9Z" fill="#9dc5d0" stroke="#5d7c85" stroke-width="2"/><path d="M9 17L5 34L13 29L21 34L17 17" fill="#788f9d" stroke="#536776" stroke-width="2"/><text x="13" y="51" text-anchor="middle" font-size="9" fill="#4e4240">WL</text></g>
+        <g transform="translate(128)"><path d="M13 0L20 9L13 18L6 9Z" fill="#d88a78" stroke="#90574f" stroke-width="2"/><path d="M9 17L5 34L13 29L21 34L17 17" fill="#ac6c58" stroke="#725047" stroke-width="2"/><text x="13" y="51" text-anchor="middle" font-size="9" fill="#4e4240">IV</text></g>
+        <g transform="translate(192)"><path d="M13 0L20 9L13 18L6 9Z" fill="#b6a1ce" stroke="#76668d" stroke-width="2"/><path d="M9 17L5 34L13 29L21 34L17 17" fill="#8875a1" stroke="#5e5274" stroke-width="2"/><text x="13" y="51" text-anchor="middle" font-size="9" fill="#4e4240">LAB</text></g>
+      </g>
+    </g>
+  </g>
+  <g id="lobby-reception" filter="url(#shadow)">
+    <rect x="827" y="664" width="98" height="48" rx="7" class="furn" fill="#996b52"/>
+    <rect x="819" y="651" width="114" height="24" rx="5" class="furn" fill="#d0a778"/>
+    <text x="876" y="692" text-anchor="middle" class="small" font-weight="800">接待櫃台</text>
+  </g>
+  <g transform="translate(544 710)">
+    <rect width="248" height="44" rx="8" fill="#192b37" stroke="#77918e" stroke-width="2"/>
+    <text x="124" y="19" text-anchor="middle" class="label">入口大廳 · Reception</text>
+    <text x="124" y="35" text-anchor="middle" class="sub">室內展示牆｜通往各區的主軸</text>
+  </g>
+
+  <!-- Open work area: desk pods are islands; routes remain wide and continuous. -->
+  <g id="open-work-area">
+    <g transform="translate(522 218)" filter="url(#shadow)">
+      <rect x="0" y="0" width="162" height="60" rx="5" fill="#9c765d" class="furn"/>
+      <rect x="19" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M27 18H62M27 25H56" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="93" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M101 18H136M101 25H130" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="56" y="62" width="48" height="20" rx="5" fill="#586a74" stroke="#364853" stroke-width="3"/>
+    </g>
+    <g transform="translate(730 218)" filter="url(#shadow)">
+      <rect x="0" y="0" width="162" height="60" rx="5" fill="#9c765d" class="furn"/>
+      <rect x="19" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M27 18H62M27 25H56" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="93" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M101 18H136M101 25H130" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="56" y="62" width="48" height="20" rx="5" fill="#586a74" stroke="#364853" stroke-width="3"/>
+    </g>
+    <g transform="translate(522 324)" filter="url(#shadow)">
+      <rect x="0" y="0" width="162" height="60" rx="5" fill="#9c765d" class="furn"/>
+      <rect x="19" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M27 18H62M27 25H56" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="93" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M101 18H136M101 25H130" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="56" y="62" width="48" height="20" rx="5" fill="#586a74" stroke="#364853" stroke-width="3"/>
+    </g>
+    <g transform="translate(730 324)" filter="url(#shadow)">
+      <rect x="0" y="0" width="162" height="60" rx="5" fill="#9c765d" class="furn"/>
+      <rect x="19" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M27 18H62M27 25H56" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="93" y="8" width="52" height="35" rx="3" fill="#304d60" stroke="#293c50" stroke-width="3"/>
+      <path d="M101 18H136M101 25H130" stroke="#78dbc5" stroke-width="3"/>
+      <rect x="56" y="62" width="48" height="20" rx="5" fill="#586a74" stroke="#364853" stroke-width="3"/>
+    </g>
+    <g transform="translate(548 162)">
+      <rect class="zone-tag" width="380" height="34" rx="6"/>
+      <text x="190" y="22" text-anchor="middle" class="label">開放工作區 · 4 個雙人工作島</text>
+    </g>
+  </g>
+
+  <!-- Meeting table, six chairs, with clear path to the south door. -->
+  <g id="meeting-furniture" filter="url(#shadow)">
+    <rect x="1050" y="236" width="198" height="104" rx="10" fill="#9d7457" class="furn"/>
+    <rect x="1062" y="248" width="174" height="80" rx="7" fill="#c59b70" stroke="#715847" stroke-width="2"/>
+    <path d="M1080 260H1218M1080 271H1188" stroke="#e6d2ad" stroke-width="3" opacity=".7"/>
+    <g fill="#586a74" stroke="#364853" stroke-width="3">
+      <rect x="1067" y="208" width="38" height="22" rx="7"/><rect x="1130" y="208" width="38" height="22" rx="7"/><rect x="1193" y="208" width="38" height="22" rx="7"/>
+      <rect x="1067" y="346" width="38" height="22" rx="7"/><rect x="1130" y="346" width="38" height="22" rx="7"/><rect x="1193" y="346" width="38" height="22" rx="7"/>
+    </g>
+    <text x="1149" y="294" text-anchor="middle" class="small" font-weight="800">會議桌 · 六席</text>
+  </g>
+
+  <!-- Tool area: shelves and equipment against perimeter; center aisle stays open. -->
+  <g id="tool-zone" filter="url(#shadow)">
+    <g transform="translate(140 174)">
+      <rect width="202" height="48" rx="3" fill="#6d584c" stroke="#443b3b" stroke-width="4"/>
+      <path d="M0 24H202M68 0V48M136 0V48" stroke="#c09b70" stroke-width="4"/>
+      <rect x="9" y="6" width="17" height="12" fill="#70aeb4"/><rect x="32" y="5" width="19" height="13" fill="#dda66d"/><rect x="77" y="5" width="15" height="14" fill="#83a781"/><rect x="101" y="6" width="21" height="12" fill="#bd7b71"/><rect x="146" y="5" width="14" height="14" fill="#83a781"/><rect x="169" y="5" width="20" height="14" fill="#70aeb4"/>
+      <rect x="12" y="30" width="37" height="12" fill="#c6af8c"/><rect x="78" y="30" width="42" height="12" fill="#c6af8c"/><rect x="146" y="30" width="40" height="12" fill="#c6af8c"/>
+    </g>
+    <g transform="translate(350 286)">
+      <rect width="50" height="43" rx="4" fill="#d5d5cb" stroke="#535b5a" stroke-width="4"/>
+      <rect x="8" y="7" width="34" height="17" fill="#677883"/><path d="M9 31H41" stroke="#65706f" stroke-width="4"/>
+      <text x="25" y="59" text-anchor="middle" class="small">工具／列印</text>
+    </g>
+    <g transform="translate(146 300)">
+      <rect width="162" height="34" rx="5" fill="#8d6d55" stroke="#504442" stroke-width="3"/>
+      <path d="M16 10H144M16 20H144" stroke="#d1ad7d" stroke-width="3"/>
+      <text x="81" y="58" text-anchor="middle" class="small">工作工具與耗材</text>
+    </g>
+    <g transform="translate(139 158)">
+      <rect class="zone-tag" width="246" height="32" rx="6"/>
+      <text x="123" y="21" text-anchor="middle" class="label">工具區 · 檔案與列印</text>
+    </g>
+  </g>
+
+  <!-- Lounge and reading room use open thresholds and furniture-defined behavior zones. -->
+  <g id="lounge-zone" filter="url(#shadow)">
+    <g transform="translate(150 612)">
+      <rect x="0" y="17" width="204" height="62" rx="12" fill="#775965" stroke="#413d4d" stroke-width="4"/>
+      <rect x="-8" y="0" width="220" height="35" rx="12" fill="#c88673" stroke="#513f4b" stroke-width="4"/>
+      <path d="M66 6V28M137 6V28" stroke="#8f5e67" stroke-width="4"/>
+      <rect x="60" y="112" width="98" height="42" rx="5" fill="#8b654e" stroke="#4d4241" stroke-width="4"/>
+      <ellipse cx="109" cy="108" rx="53" ry="15" fill="#d1ab7d" stroke="#6b5045" stroke-width="3"/>
+      <text x="103" y="182" text-anchor="middle" class="small">沙發｜茶几｜自由活動空地</text>
+    </g>
+    <g transform="translate(358 648)">
+      <rect width="44" height="52" rx="9" fill="#8d765d" stroke="#504746" stroke-width="3"/>
+      <ellipse cx="22" cy="4" rx="23" ry="8" fill="#baa17d" stroke="#504746" stroke-width="3"/>
+    </g>
+    <g transform="translate(136 552)">
+      <rect class="zone-tag" width="216" height="32" rx="6"/>
+      <text x="108" y="21" text-anchor="middle" class="label">Lounge · 交誼休息</text>
+    </g>
+  </g>
+  <g id="reading-zone" filter="url(#shadow)">
+    <g transform="translate(1170 574)">
+      <rect width="120" height="54" rx="3" fill="#765a4a" stroke="#433c3a" stroke-width="4"/>
+      <path d="M0 18H120M0 36H120M38 0V54M80 0V54" stroke="#c2a077" stroke-width="3"/>
+      <rect x="9" y="5" width="12" height="10" fill="#78a8a1"/><rect x="24" y="5" width="10" height="10" fill="#dba46e"/><rect x="48" y="23" width="23" height="11" fill="#b78472"/><rect x="87" y="41" width="21" height="11" fill="#739083"/>
+      <text x="60" y="74" text-anchor="middle" class="small">閱讀書架</text>
+    </g>
+    <g transform="translate(1016 680)">
+      <path d="M7 24Q7 0 33 0H53Q79 0 79 24V51H7Z" fill="#647f7c" stroke="#405453" stroke-width="4"/>
+      <path d="M0 31Q0 8 14 8M72 8Q88 8 88 31" fill="none" stroke="#9fb5a8" stroke-width="7"/>
+      <ellipse cx="42" cy="53" rx="47" ry="12" fill="#a99b7f" stroke="#575046" stroke-width="3"/>
+    </g>
+    <g transform="translate(1000 550)">
+      <rect class="zone-tag" width="280" height="32" rx="6"/>
+      <text x="140" y="21" text-anchor="middle" class="label">閱讀／休息區 · 安靜活動</text>
+    </g>
+  </g>
+
+  <!-- Clear circulation loop (design intent): >= 3 tiles throughout, furniture stays outside lanes. -->
+  <g id="circulation-paths" aria-label="至少三格寬的連續步行動線">
+    <path class="walk" d="M720 812V570V468H300V414M720 468V414M720 468H1149V414M300 468V414M1149 468V414"/>
+    <path d="M677 463H763M691 514H749" stroke="#55d8b0" stroke-opacity=".22" stroke-width="3" stroke-dasharray="6 7"/>
+    <g transform="translate(766 476)"><rect width="180" height="28" rx="6" fill="#17382f" stroke="#4bbf9b"/><text x="90" y="19" text-anchor="middle" class="small" font-weight="750">主走道 · 淨寬 ≥ 3 tiles</text></g>
+    <g transform="translate(756 748)"><rect width="168" height="28" rx="6" fill="#17382f" stroke="#4bbf9b"/><text x="84" y="19" text-anchor="middle" class="small" font-weight="750">大廳動線 · 淨寬 ≥ 3 tiles</text></g>
+  </g>
+
+  <!-- Doors connect rooms to the continuous circulation loop. -->
+  <g id="door-openings" fill="none" stroke="#f1d29a" stroke-width="3">
+    <path d="M198 414A72 72 0 0 1 270 486M198 414V486" stroke-dasharray="6 5"/>
+    <path d="M684 414A72 72 0 0 1 756 486M684 414V486" stroke-dasharray="6 5"/>
+    <path d="M1116 414A72 72 0 0 1 1188 486M1116 414V486" stroke-dasharray="6 5"/>
+    <path d="M198 522A72 72 0 0 0 270 450M198 522V450" stroke-dasharray="6 5"/>
+    <path d="M684 522A72 72 0 0 0 756 450M684 522V450" stroke-dasharray="6 5"/>
+    <path d="M1116 522A72 72 0 0 0 1188 450M1116 522V450" stroke-dasharray="6 5"/>
+  </g>
+
+  <!-- Zone captions sit in the art as orientation labels; they are not interactive overlays. -->
+  <g transform="translate(482 548)">
+    <rect class="zone-tag" width="194" height="32" rx="6"/>
+    <text x="97" y="21" text-anchor="middle" class="label">入口大廳 · 接待</text>
+  </g>
+  <g transform="translate(1200 816)"><circle r="5" fill="#55d8b0"/><text x="12" y="4" class="small">家具外側保留行走區</text></g>
+
+  <!-- Footer legend -->
+  <g transform="translate(72 884)">
+    <rect width="12" height="12" fill="#d4dfd8" stroke="#8b9a90"/><text x="19" y="11" class="small">工作區</text>
+    <rect x="102" width="12" height="12" fill="#77688d" stroke="#a090b2"/><text x="121" y="11" class="small">Lounge</text>
+    <rect x="214" width="12" height="12" fill="#b9c6c1" stroke="#95a9a5"/><text x="233" y="11" class="small">閱讀／休息</text>
+    <path d="M356 6H402" stroke="#55d8b0" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#arrow)"/><text x="414" y="11" class="small">連續步行動線（最窄 ≥ 3 tiles）</text>
+    <text x="1368" y="11" text-anchor="end" class="sub">設計參考｜不含即時狀態或互動程式</text>
+  </g>
+</svg>

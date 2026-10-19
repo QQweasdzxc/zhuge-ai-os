@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Pixel Office｜原生場景</title>
+  <link rel="stylesheet" href="./p3-native-shell.css">
+</head>
+<body>
+  <main class="p3-shell" aria-label="Pixel Office 原生辦公室">
+    <header class="p3-shell__header">
+      <div>
+        <p class="p3-shell__eyebrow">ZHUge AI OS · P3 PREVIEW</p>
+        <h1>Pixel Office</h1>
+      </div>
+      <p class="p3-shell__header-note">原生 Habblaud 場景</p>
+    </header>
+
+    <nav class="p3-shell__nav" aria-label="Zhuge AI OS 應用程式導覽">
+      <a class="p3-shell__nav-link p3-shell__nav-link--taskflow" href="https://zhuge-taskflow-web.onrender.com/" target="_blank" rel="noopener noreferrer">
+        <span aria-hidden="true">✦</span> TaskFlow
+      </a>
+      <a class="p3-shell__nav-link" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=worklog" target="_blank" rel="noopener noreferrer">
+        <span aria-hidden="true">✎</span> WorkLog
+      </a>
+      <a class="p3-shell__nav-link" href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/" target="_blank" rel="noopener noreferrer">
+        <span aria-hidden="true">↗</span> Investment
+      </a>
+      <a class="p3-shell__nav-link" href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/" target="_blank" rel="noopener noreferrer">
+        <span aria-hidden="true">◇</span> Lab
+      </a>
+      <a class="p3-shell__nav-link" href="https://qqweasdzxc.github.io/zhuge-ai-os/app/Board/ai/" target="_blank" rel="noopener noreferrer">
+        <span aria-hidden="true">▦</span> Classic
+      </a>
+    </nav>
+
+    <div class="p3-shell__workspace">
+      <section class="p3-shell__scene" aria-label="辦公室場景">
+        <div class="p3-shell__scene-frame">
+          <iframe
+            id="p3-native-scene"
+            class="p3-shell__iframe"
+            title="原生 Habblaud 像素辦公室場景"
+            referrerpolicy="no-referrer"
+            loading="eager"
+            hidden
+          ></iframe>
+          <div id="p3-scene-placeholder" class="p3-shell__scene-placeholder" role="status" aria-live="polite">
+            <span class="p3-shell__scene-mark" aria-hidden="true">P3</span>
+            <strong>原生場景尚未連線</strong>
+            <span>等待整合控制器提供受信任的同源場景路徑。</span>
+          </div>
+        </div>
+      </section>
+
+      <details id="p3-roster-panel" class="p3-shell__roster" open>
+        <summary class="p3-shell__roster-summary">
+          <span class="p3-shell__roster-title">人員動態</span>
+          <span class="p3-shell__roster-hint">展開／收合</span>
+        </summary>
+        <div class="p3-shell__roster-content">
+          <ul class="p3-shell__people" aria-label="角色清單">
+            <li><button class="p3-shell__person" type="button" data-role-id="pm" aria-pressed="true"><span class="p3-shell__avatar" aria-hidden="true">PM</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">PM</span><span class="p3-shell__person-role">產品決策</span><span class="p3-shell__person-status" data-person-status="pm">尚無可驗證的最新狀態</span></span></button></li>
+            <li><button class="p3-shell__person" type="button" data-role-id="co" aria-pressed="false"><span class="p3-shell__avatar" aria-hidden="true">Co</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">Co</span><span class="p3-shell__person-role">首席工程師</span><span class="p3-shell__person-status" data-person-status="co">尚無可驗證的最新狀態</span></span></button></li>
+            <li><button class="p3-shell__person" type="button" data-role-id="gem" aria-pressed="false"><span class="p3-shell__avatar" aria-hidden="true">Ge</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">Gem</span><span class="p3-shell__person-role">第二工程師</span><span class="p3-shell__person-status" data-person-status="gem">尚無可驗證的最新狀態</span></span></button></li>
+            <li><button class="p3-shell__person" type="button" data-role-id="gpt" aria-pressed="false"><span class="p3-shell__avatar" aria-hidden="true">GPT</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">GPT</span><span class="p3-shell__person-role">PM 助理／CTO 審查</span><span class="p3-shell__person-status" data-person-status="gpt">尚無可驗證的最新狀態</span></span></button></li>
+            <li><button class="p3-shell__person p3-shell__person--resident" type="button" data-role-id="betty" aria-pressed="false"><span class="p3-shell__avatar p3-shell__avatar--resident" aria-hidden="true">B</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">Betty</span><span class="p3-shell__person-role">虛擬居民</span><span class="p3-shell__person-status" data-person-status="betty">虛擬生活角色；不代表真人位置或工作狀態</span></span></button></li>
+            <li><button class="p3-shell__person p3-shell__person--resident" type="button" data-role-id="anan" aria-pressed="false"><span class="p3-shell__avatar p3-shell__avatar--resident" aria-hidden="true">安</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">安安</span><span class="p3-shell__person-role">虛擬居民</span><span class="p3-shell__person-status" data-person-status="anan">虛擬生活角色；不代表真人位置或工作狀態</span></span></button></li>
+            <li><button class="p3-shell__person p3-shell__person--resident" type="button" data-role-id="kaka" aria-pressed="false"><span class="p3-shell__avatar p3-shell__avatar--resident" aria-hidden="true">卡</span><span class="p3-shell__person-copy"><span class="p3-shell__person-name">卡卡</span><span class="p3-shell__person-role">虛擬居民</span><span class="p3-shell__person-status" data-person-status="kaka">虛擬生活角色；不代表真人位置或工作狀態</span></span></button></li>
+          </ul>
+
+          <section class="p3-shell__detail" aria-labelledby="p3-detail-name">
+            <p class="p3-shell__detail-label">角色資訊</p>
+            <h2 id="p3-detail-name">PM</h2>
+            <p id="p3-detail-role" class="p3-shell__detail-role">產品決策</p>
+            <p id="p3-resident-note" class="p3-shell__resident-note" hidden>虛擬生活角色，不追蹤或呈現真人位置、活動或工作資訊。</p>
+            <p id="p3-resident-activity" class="p3-shell__resident-activity" hidden></p>
+            <div class="p3-shell__evidence" aria-live="polite" aria-atomic="true">
+              <span class="p3-shell__evidence-label">最新狀態</span>
+              <p id="p3-detail-status">尚無可驗證的最新狀態</p>
+              <dl id="p3-detail-meta" class="p3-shell__evidence-meta" hidden>
+                <div><dt>資料來源</dt><dd id="p3-detail-source"></dd></div>
+                <div><dt>最後更新</dt><dd id="p3-detail-updated"></dd></div>
+                <div id="p3-detail-ref-row" hidden><dt>關聯</dt><dd id="p3-detail-ref"></dd></div>
+              </dl>
+              <a id="p3-detail-link" class="p3-shell__source-link" hidden rel="noopener noreferrer" target="_blank">開啟來源紀錄</a>
+            </div>
+            <section id="p3-co-handoff" class="p3-shell__handoff" aria-labelledby="p3-co-handoff-title" hidden>
+              <h3 id="p3-co-handoff-title">Co 工作交接（已驗證且具時效）</h3>
+              <p id="p3-co-handoff-status">尚無可驗證的有效 Co 交接</p>
+              <dl id="p3-co-handoff-meta" hidden>
+                <div><dt>資料來源</dt><dd id="p3-co-handoff-source"></dd></div>
+                <div><dt>更新時間</dt><dd id="p3-co-handoff-updated"></dd></div>
+                <div><dt>有效至</dt><dd id="p3-co-handoff-expiry"></dd></div>
+                <div id="p3-co-handoff-ref-row" hidden><dt>關聯</dt><dd id="p3-co-handoff-ref"></dd></div>
+              </dl>
+              <a id="p3-co-handoff-link" class="p3-shell__source-link" hidden rel="noopener noreferrer" target="_blank">開啟交接來源</a>
+            </section>
+            <section id="p3-engineering-events" class="p3-shell__events" aria-labelledby="p3-engineering-events-title" hidden>
+              <h3 id="p3-engineering-events-title">近期 GitHub 工程事件（未歸屬於個人）</h3>
+              <p class="p3-shell__events-note">這些紀錄只代表儲存庫活動，無法證明所選角色本人正在處理該事項。</p>
+              <p id="p3-events-empty">尚無可驗證的 GitHub 工程事件</p>
+              <ul id="p3-events-list" aria-live="polite"></ul>
+            </section>
+          </section>
+        </div>
+      </details>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const roleInfo = {
+        pm: { name: 'PM', role: '產品決策', resident: false },
+        co: { name: 'Co', role: '首席工程師', resident: false },
+        gem: { name: 'Gem', role: '第二工程師', resident: false },
+        gpt: { name: 'GPT', role: 'PM 助理／CTO 審查', resident: false },
+        betty: { name: 'Betty', role: '虛擬居民', resident: true, activity: '偏好在 Lounge 與休息區活動（虛擬生活設定）' },
+        anan: { name: '安安', role: '虛擬居民', resident: true, activity: '偏好閱讀與休閒互動（虛擬生活設定）' },
+        kaka: { name: '卡卡', role: '虛擬居民', resident: true, activity: '偏好活潑走動與休閒互動（虛擬生活設定）' }
+      };
+      const panel = document.getElementById('p3-roster-panel');
+      const frame = document.getElementById('p3-native-scene');
+      const scenePlaceholder = document.getElementById('p3-scene-placeholder');
+      const buttons = [...document.querySelectorAll('[data-role-id]')];
+      const detailName = document.getElementById('p3-detail-name');
+      const detailRole = document.getElementById('p3-detail-role');
+      const detailStatus = document.getElementById('p3-detail-status');
+      const residentNote = document.getElementById('p3-resident-note');
+      const residentActivity = document.getElementById('p3-resident-activity');
+      const handoffPanel = document.getElementById('p3-co-handoff');
+      const handoffStatus = document.getElementById('p3-co-handoff-status');
+      const handoffMeta = document.getElementById('p3-co-handoff-meta');
+      const handoffSource = document.getElementById('p3-co-handoff-source');
+      const handoffUpdated = document.getElementById('p3-co-handoff-updated');
+      const handoffExpiry = document.getElementById('p3-co-handoff-expiry');
+      const handoffRefRow = document.getElementById('p3-co-handoff-ref-row');
+      const handoffRef = document.getElementById('p3-co-handoff-ref');
+      const handoffLink = document.getElementById('p3-co-handoff-link');
+      const eventsPanel = document.getElementById('p3-engineering-events');
+      const eventsList = document.getElementById('p3-events-list');
+      const eventsEmpty = document.getElementById('p3-events-empty');
+      const meta = document.getElementById('p3-detail-meta');
+      const source = document.getElementById('p3-detail-source');
+      const updated = document.getElementById('p3-detail-updated');
+      const refRow = document.getElementById('p3-detail-ref-row');
+      const refText = document.getElementById('p3-detail-ref');
+      const sourceLink = document.getElementById('p3-detail-link');
+      const allowedRoleIds = new Set(['pm', 'co', 'gem', 'gpt', 'betty', 'anan', 'kaka']);
+      const statuses = new Map();
+      let engineeringEvents = [];
+      let coHandoff = null;
+      let handoffExpiryTimer = null;
+      let selectedRole = 'pm';
+      let sceneOrigin = null;
+      let pendingRoleId = selectedRole;
+
+      // Keep the roster open on desktop and initially tucked away on phones.
+      const mobile = window.matchMedia('(max-width: 760px), (max-height: 600px) and (max-width: 1000px)');
+      const syncPanelDefault = () => { panel.open = !mobile.matches; };
+      syncPanelDefault();
+      mobile.addEventListener?.('change', syncPanelDefault);
+
+      function resetDetail() {
+        meta.hidden = true;
+        sourceLink.hidden = true;
+        refRow.hidden = true;
+        source.textContent = '';
+        updated.textContent = '';
+        refText.textContent = '';
+        detailStatus.textContent = roleInfo[selectedRole].resident
+          ? '虛擬生活角色；不代表真人位置或工作狀態'
+          : '尚無可驗證的最新狀態';
+      }
+
+      function renderSelection() {
+        const info = roleInfo[selectedRole];
+        detailName.textContent = info.name;
+        detailRole.textContent = info.role;
+        residentNote.hidden = !info.resident;
+        residentActivity.hidden = !info.resident;
+        residentActivity.textContent = info.resident ? info.activity : '';
+        handoffPanel.hidden = selectedRole !== 'co';
+        eventsPanel.hidden = info.resident;
+        buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.roleId === selectedRole)));
+        resetDetail();
+        const evidence = statuses.get(selectedRole);
+        if (evidence && !info.resident) {
+          detailStatus.textContent = evidence.summary;
+          source.textContent = evidence.source;
+          updated.textContent = new Date(evidence.updatedAt).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
+          if (evidence.ref) {
+            refText.textContent = evidence.ref;
+            refRow.hidden = false;
+          }
+          if (evidence.sourceUrl) {
+            sourceLink.href = evidence.sourceUrl;
+            sourceLink.hidden = false;
+          }
+          meta.hidden = false;
+        }
+        renderEvents();
+        renderCoHandoff();
+      }
+
+      function selectRole(roleId, notifyScene) {
+        if (!allowedRoleIds.has(roleId) || !roleInfo[roleId]) return false;
+        selectedRole = roleId;
+        pendingRoleId = roleId;
+        renderSelection();
+        if (notifyScene) postSelectionToScene(roleId);
+        return true;
+      }
+
+      function postSelectionToScene(roleId) {
+        if (!sceneOrigin || !allowedRoleIds.has(roleId) || !frame.contentWindow) return;
+        frame.contentWindow.postMessage({ type: 'p3:select-agent', roleId }, sceneOrigin);
+      }
+
+      buttons.forEach(button => button.addEventListener('click', () => {
+        selectRole(button.dataset.roleId, true);
+      }));
+
+      frame.addEventListener('load', () => {
+        if (sceneOrigin) postSelectionToScene(pendingRoleId);
+      });
+
+      // Scene routes are supplied at runtime by the ready controller and limited to this origin.
+      function connectScene(raw) {
+        if (typeof raw !== 'string' || !raw.trim()) return;
+        try {
+          const url = new URL(raw, window.location.href);
+          if (!['http:', 'https:'].includes(url.protocol) || url.origin !== window.location.origin || url.username || url.password) return;
+          if ([...url.searchParams.keys()].some(key => /token|jwt|session|auth|code/i.test(key))) return;
+          if (frame.src === url.href && !frame.hidden) return;
+          sceneOrigin = url.origin;
+          frame.src = url.href;
+          frame.hidden = false;
+          scenePlaceholder.hidden = true;
+        } catch (_) { /* Invalid scene route: retain the explicit disconnected state. */ }
+      }
+
+      window.addEventListener('p3-native-shell:scene-src', event => connectScene(event.detail?.src));
+      window.addEventListener('message', event => {
+        // The parent can provide the route after receiving the shell-ready message.
+        if (event.source === window.parent && event.origin === window.location.origin && event.data?.type === 'p3-native-shell:scene-src') {
+          connectScene(event.data.src);
+          return;
+        }
+        // Only the active same-origin native iframe can select a role.
+        if (event.source !== frame.contentWindow || event.origin !== sceneOrigin || !sceneOrigin || event.data?.type !== 'p3:agent-selected') return;
+        if (!allowedRoleIds.has(event.data.roleId)) return;
+        selectRole(event.data.roleId, false);
+      });
+
+      // Only controller-verified evidence with source and timestamp is shown as work status.
+      window.addEventListener('p3-native-shell:evidence', event => {
+        const item = event.detail;
+        if (!item || item.verified !== true || !roleInfo[item.roleId] || roleInfo[item.roleId].resident) return;
+        if (typeof item.summary !== 'string' || !item.summary.trim() || item.summary.length > 500) return;
+        if (typeof item.source !== 'string' || !item.source.trim() || item.source.length > 160) return;
+        const timestamp = Date.parse(item.updatedAt);
+        if (!Number.isFinite(timestamp)) return;
+        let sourceUrl;
+        if (typeof item.sourceUrl === 'string' && item.sourceUrl.trim()) {
+          try {
+            const url = new URL(item.sourceUrl, window.location.href);
+            if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && ![...url.searchParams.keys()].some(key => /token|jwt|session|auth|code/i.test(key))) sourceUrl = url.href;
+          } catch (_) { /* Source text remains visible without an unsafe link. */ }
+        }
+        const evidence = {
+          summary: item.summary.trim(), source: item.source.trim(), updatedAt: new Date(timestamp).toISOString(),
+          ref: typeof item.ref === 'string' ? item.ref.slice(0, 160) : '', sourceUrl
+        };
+        statuses.set(item.roleId, evidence);
+        const rowStatus = document.querySelector(`[data-person-status="${item.roleId}"]`);
+        if (rowStatus) rowStatus.textContent = evidence.summary;
+        if (selectedRole === item.roleId) renderSelection();
+      });
+
+      function formatTimestamp(value) {
+        return new Date(value).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function isAllowedGithubRepoUrl(value) {
+        if (typeof value !== 'string' || value.length > 500) return false;
+        try {
+          const url = new URL(value);
+          if (url.protocol !== 'https:' || url.hostname !== 'github.com' || url.username || url.password || url.port) return false;
+          if ([...url.searchParams.keys()].some(key => /token|jwt|session|auth|code/i.test(key))) return false;
+          const segments = url.pathname.split('/').filter(Boolean);
+          return segments.length >= 2 && segments.slice(0, 2).every(segment => /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== '.' && segment !== '..');
+        } catch (_) { return false; }
+      }
+
+      function validateEngineeringEvents(records) {
+        if (!Array.isArray(records) || records.length > 12) return null;
+        const normalized = [];
+        for (const item of records) {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+          const keys = Object.keys(item);
+          if (keys.some(key => !['label', 'sourceUrl', 'updatedAt', 'ref'].includes(key))) return null;
+          if (typeof item.label !== 'string' || !item.label.trim() || item.label.length > 120) return null;
+          if (typeof item.ref !== 'string' || !item.ref.trim() || item.ref.length > 120) return null;
+          if (typeof item.updatedAt !== 'string' || item.updatedAt.length > 64 || !Number.isFinite(Date.parse(item.updatedAt))) return null;
+          if (!isAllowedGithubRepoUrl(item.sourceUrl)) return null;
+          normalized.push({ label: item.label.trim(), sourceUrl: new URL(item.sourceUrl).href, updatedAt: new Date(item.updatedAt).toISOString(), ref: item.ref.trim() });
+        }
+        return normalized.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+      }
+
+      function renderEvents() {
+        eventsList.replaceChildren();
+        eventsEmpty.hidden = engineeringEvents.length > 0;
+        if (roleInfo[selectedRole].resident) {
+          eventsPanel.hidden = true;
+          return;
+        }
+        eventsPanel.hidden = false;
+        engineeringEvents.forEach(item => {
+          const li = document.createElement('li');
+          const link = document.createElement('a');
+          const time = document.createElement('time');
+          link.href = item.sourceUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = item.label;
+          time.dateTime = item.updatedAt;
+          time.textContent = formatTimestamp(item.updatedAt);
+          const ref = document.createElement('span');
+          ref.className = 'p3-shell__event-ref';
+          ref.textContent = item.ref;
+          li.append(link, ref, time);
+          eventsList.append(li);
+        });
+      }
+
+      function clearCoHandoff() {
+        coHandoff = null;
+        if (handoffExpiryTimer) window.clearTimeout(handoffExpiryTimer);
+        handoffExpiryTimer = null;
+        handoffStatus.textContent = '尚無可驗證的有效 Co 交接';
+        handoffMeta.hidden = true;
+        handoffRefRow.hidden = true;
+        handoffLink.hidden = true;
+        handoffSource.textContent = '';
+        handoffUpdated.textContent = '';
+        handoffExpiry.textContent = '';
+        handoffRef.textContent = '';
+      }
+
+      function renderCoHandoff() {
+        handoffPanel.hidden = selectedRole !== 'co';
+        if (selectedRole !== 'co') return;
+        if (!coHandoff || Date.parse(coHandoff.expiresAt) <= Date.now()) {
+          if (coHandoff) clearCoHandoff();
+          return;
+        }
+        handoffStatus.textContent = coHandoff.summary;
+        handoffSource.textContent = coHandoff.source;
+        handoffUpdated.textContent = formatTimestamp(coHandoff.updatedAt);
+        handoffExpiry.textContent = formatTimestamp(coHandoff.expiresAt);
+        if (coHandoff.ref) {
+          handoffRef.textContent = coHandoff.ref;
+          handoffRefRow.hidden = false;
+        }
+        if (coHandoff.sourceUrl) {
+          handoffLink.href = coHandoff.sourceUrl;
+          handoffLink.hidden = false;
+        }
+        handoffMeta.hidden = false;
+      }
+
+      window.addEventListener('p3-native-shell:events', event => {
+        const records = validateEngineeringEvents(event.detail);
+        if (!records) return;
+        engineeringEvents = records;
+        renderEvents();
+      });
+
+      // Co handoff is a separate, verified and expiring channel; GitHub event rows never set it.
+      window.addEventListener('p3-native-shell:handoff', event => {
+        const item = event.detail;
+        if (!item || item.roleId !== 'co' || item.verified !== true) return;
+        if (typeof item.summary !== 'string' || !item.summary.trim() || item.summary.length > 300) return;
+        if (typeof item.source !== 'string' || !item.source.trim() || item.source.length > 120) return;
+        if (typeof item.updatedAt !== 'string' || typeof item.expiresAt !== 'string') return;
+        const updatedMs = Date.parse(item.updatedAt), expiresMs = Date.parse(item.expiresAt), now = Date.now();
+        if (!Number.isFinite(updatedMs) || !Number.isFinite(expiresMs) || updatedMs > now + 5 * 60 * 1000 || expiresMs <= now || expiresMs <= updatedMs || expiresMs - updatedMs > 72 * 60 * 60 * 1000) return;
+        if (item.sourceUrl && !isAllowedGithubRepoUrl(item.sourceUrl)) return;
+        coHandoff = { roleId: 'co', verified: true, summary: item.summary.trim(), source: item.source.trim(), updatedAt: new Date(updatedMs).toISOString(), expiresAt: new Date(expiresMs).toISOString(), ref: typeof item.ref === 'string' ? item.ref.slice(0, 120) : '', sourceUrl: item.sourceUrl || '' };
+        if (handoffExpiryTimer) window.clearTimeout(handoffExpiryTimer);
+        handoffExpiryTimer = window.setTimeout(() => { clearCoHandoff(); renderCoHandoff(); }, Math.max(0, expiresMs - now));
+        renderCoHandoff();
+      });
+
+      renderSelection();
+
+      // Signal that the scene-src listener is ready; no scene URL or credential is included.
+      window.dispatchEvent(new CustomEvent('p3-native-shell:ready', { detail: { sceneEvent: 'p3-native-shell:scene-src' } }));
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'p3-native-shell:ready', sceneEvent: 'p3-native-shell:scene-src' }, window.location.origin);
+      }
+    })();
+  </script>
+</body>
+</html>

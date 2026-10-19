@@ -29,7 +29,8 @@ const address = server.address();
 const base = 'http://127.0.0.1:' + address.port;
 let browser;
 try {
-  browser = await playwright.chromium.launch({ headless:true, args:['--no-sandbox'] });
+  const executablePath = process.env.P3_CHROMIUM_EXECUTABLE_PATH;
+  browser = await playwright.chromium.launch({ headless:true, args:['--no-sandbox'], ...(executablePath ? { executablePath } : {}) });
   const page = await browser.newPage({ viewport:{ width:1280,height:780 }, locale:'zh-TW' });
   const failures = [];
   page.on('pageerror', error => failures.push(error.message));

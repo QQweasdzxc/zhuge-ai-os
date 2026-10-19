@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Zhuge AI OS｜Pixel Office P3</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body, main, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+    html, body { min-width: 320px; overflow: hidden; background: #111715; }
+    main { height: 100vh; height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    iframe { display: block; background: #111715; }
+  </style>
+</head>
+<body>
+  <main aria-label="Zhuge AI OS P3 Pixel Office preview">
+    <iframe id="p3-shell" src="./p3-native-shell.html" title="P3 Pixel Office 人員動態與原生 Habblaud 場景" referrerpolicy="no-referrer"></iframe>
+  </main>
+  <script src="./personnel-evidence.js"></script>
+  <script>
+    (() => {
+      'use strict';
+      const shell = document.getElementById('p3-shell');
+      const sameOrigin = window.location.origin;
+      const sceneUrl = new URL('./native/index.html?p3=1', window.location.href).href;
+      let sceneConnected = false;
+      let shellReady = false;
+      let pendingEvidence = null;
+
+      function emitToShell(type, detail) {
+        const target = shell.contentWindow;
+        if (!target || !target.document) return false;
+        target.dispatchEvent(new target.CustomEvent(type, { detail }));
+        return true;
+      }
+
+      function connectNativeScene() {
+        if (sceneConnected) return;
+        const target = shell.contentWindow;
+        if (!target || !target.document) return;
+        emitToShell('p3-native-shell:scene-src', { src: sceneUrl });
+        sceneConnected = true;
+      }
+
+      function onReady(event) {
+        if (event.source !== shell.contentWindow || event.origin !== sameOrigin || event.data?.type !== 'p3-native-shell:ready') return;
+        shellReady = true;
+        connectNativeScene();
+        if (pendingEvidence) publishEvidence(pendingEvidence);
+      }
+      window.addEventListener('message', onReady);
+      shell.addEventListener('load', connectNativeScene);
+
+      function publishEvidence(payload) {
+        if (!payload) return;
+        if (!shellReady) { pendingEvidence = payload; return; }
+        pendingEvidence = null;
+        for (const role of payload.roles || []) {
+          const item = role.statusEvidence;
+          if (!item || item.freshness !== 'fresh' || !['co', 'gem', 'gpt'].includes(role.id)) continue;
+          emitToShell('p3-native-shell:evidence', {
+            verified: true,
+            roleId: role.id,
+            summary: item.label,
+            source: item.sourceType,
+            updatedAt: item.updatedAt,
+            ref: item.ref,
+            sourceUrl: item.sourceUrl
+          });
+          if (role.id === 'co' && item.validUntil) {
+            emitToShell('p3-native-shell:handoff', {
+              verified: true,
+              roleId: 'co',
+              summary: item.label,
+              source: item.sourceType,
+              updatedAt: item.updatedAt,
+              expiresAt: item.validUntil,
+              ref: item.ref,
+              sourceUrl: item.sourceUrl
+            });
+          }
+        }
+        emitToShell('p3-native-shell:events', payload.events || []);
+      }
+
+      async function refreshEvidence() {
+        try {
+          const payload = await window.P3PersonnelEvidence?.load?.();
+          publishEvidence(payload);
+        } catch { /* The shell remains in its explicit unknown/unavailable state. */ }
+      }
+      void refreshEvidence();
+      window.setInterval(() => void refreshEvidence(), 5 * 60 * 1000);
+    })();
+  </script>
+</body>
+</html>

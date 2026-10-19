@@ -1,0 +1,93 @@
+name: Pixel Office P3 Native Review (NO DEPLOY)
+
+on:
+  push:
+    branches:
+      - review/pixel-office-p3-native-20261019
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixel-office-p3-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  p3-native-review:
+    if: github.event_name != 'pull_request' || github.head_ref == 'review/pixel-office-p3-native-20261019'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify scoped source and untouched frozen vendor
+        run: |
+          git diff --check origin/main...HEAD
+          if git diff --name-only origin/main...HEAD | grep -q '^third_party/multica/'; then
+            echo 'Frozen Multica source changed.' >&2
+            exit 1
+          fi
+          node --test \
+            tests/pixel-office-personnel-evidence.test.cjs \
+            tests/zhuge-pixel-office-contract.test.cjs \
+            tests/zhuge-office-furnishings.test.cjs \
+            tests/zhuge-office-p2.test.cjs
+
+      - name: Fetch exact pinned Habblaud MIT source
+        run: |
+          git init /tmp/habblaud-p3
+          git -C /tmp/habblaud-p3 remote add origin https://github.com/marmottajr/habblaud.git
+          git -C /tmp/habblaud-p3 fetch --depth=1 origin faa1a012b5fbf632c66dc6801c5383e53a542406
+          git -C /tmp/habblaud-p3 checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/habblaud-p3 rev-parse HEAD)" = "faa1a012b5fbf632c66dc6801c5383e53a542406"
+
+      - name: Install pinned Habblaud dependencies
+        run: npm ci --prefix /tmp/habblaud-p3 --ignore-scripts --no-audit --no-fund
+
+      - name: Build isolated Pages artifact and native Habblaud scene
+        run: |
+          node tools/build-pages-site.js /tmp/p3-native-pages
+          node integrations/habblaud/build.mjs /tmp/habblaud-p3 /tmp/p3-native-pages
+          /tmp/habblaud-p3/node_modules/.bin/tsx integrations/habblaud/p3-layout-smoke.mjs /tmp/habblaud-p3
+          /tmp/habblaud-p3/node_modules/.bin/tsc --noEmit -p /tmp/habblaud-p3/tsconfig.json
+
+      - name: Run original P2 regression and P3 five-viewport browser QA
+        run: |
+          node /tmp/habblaud-p3/node_modules/playwright-core/cli.js install --with-deps chromium
+          PIXEL_SCREENSHOT_DIR="$RUNNER_TEMP/p2-regression" node integrations/habblaud/smoke.mjs /tmp/p3-native-pages /tmp/habblaud-p3
+          P3_SCREENSHOT_DIR="$RUNNER_TEMP/p3-native" node integrations/habblaud/p3-browser-smoke.mjs /tmp/p3-native-pages /tmp/habblaud-p3
+
+      - name: Verify preview, core links and license are in the build
+        run: |
+          diff -qr labs/pixel-office-p3-preview/native /tmp/p3-native-pages/labs/pixel-office-p3-preview/native
+          test -s /tmp/p3-native-pages/labs/pixel-office-p3-preview/index.html
+          test -s /tmp/p3-native-pages/labs/pixel-office-p3-preview/p3-native-shell.html
+          test -s /tmp/p3-native-pages/labs/pixel-office-p3-preview/native/index.html
+          test -s /tmp/p3-native-pages/labs/pixel-office-p3-preview/native/LICENSE.txt
+          grep -q 'zhuge-taskflow-web.onrender.com' /tmp/p3-native-pages/labs/pixel-office-p3-preview/p3-native-shell.html
+          grep -q 'modules/worklog/?app=1&amp;workspace=worklog' /tmp/p3-native-pages/labs/pixel-office-p3-preview/p3-native-shell.html
+          grep -q 'app/Board/ai/' /tmp/p3-native-pages/labs/pixel-office-p3-preview/p3-native-shell.html
+          ! grep -q 'AIza' /tmp/p3-native-pages/labs/pixel-office-p3-preview/index.html
+
+      - name: Upload desktop and compact-browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-office-p3-native-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/p2-regression/
+            ${{ runner.temp }}/p3-native/
+            /tmp/p3-native-pages/labs/pixel-office-p3-preview/
+          if-no-files-found: ignore
+          retention-days: 14
