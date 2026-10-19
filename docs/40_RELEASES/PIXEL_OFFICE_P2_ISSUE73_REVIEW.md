@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Baseline: `0.9.0-alpha.9.82` / `20261019-1520` / `3ff6183180519fbd1bac7ffa4124969d24ae423e` (#72 candidate)
-- Candidate: `0.9.0-alpha.9.83` / `20261019-1707`
+- Candidate: `0.9.0-alpha.9.83` / `20261019-1715`
 - Branch: `review/p2-issue-73-weather-20261019`
 - Release scope: P2 weather data contract and Pixel Office overlay only. No formal deployment or DB migration.
 
@@ -18,13 +18,14 @@
 
 ## QA evidence
 
-- CWA weather contract fixtures: 5/5 PASS (condition mapping, independent rainfall, stale/malformed, official warning provenance, city allowlist).
+- CWA weather contract fixtures: 6/6 PASS (condition mapping, independent rainfall, stale/malformed, official warning provenance, city allowlist, auth/key boundary).
 - P2/P1 Habblaud contract regression: 20/20 PASS.
 - Product browser regression: 75/75 tests PASS, plus all 16 Investment browser capability checks PASS; zero skipped.
 - Pinned upstream Habblaud commit `faa1a012b5fbf632c66dc6801c5383e53a542406` build: PASS.
-- Habblaud targeted Vitest, including weather adapter: 8 files / 85 tests PASS.
+- Habblaud CI-selected Vitest, including weather adapter and native route/path tests: 8 files / 85 tests PASS.
 - Habblaud TypeScript: PASS.
 - Chromium Canvas smoke, desktop and mobile viewports: PASS for Taipei default, honest unknown state without a gateway, city selection, and panel bounds. This is Chromium viewport coverage, not real iPhone Safari.
+- An additional unfiltered upstream Vitest attempt did not pass: three failures occurred in unchanged `statusline`, `hooks-install`, and shared protocol test modules. The P2 CI-selected suite passed; these unrelated modules were not modified.
 - Frozen vendor: no tracked changes under `third_party/multica`.
 - Official CWA endpoints: source URLs are fixed to CWA Open Data; direct unauthenticated endpoint read returned HTTP 403, so no live payload/schema claim is made.
 
