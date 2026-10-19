@@ -62,6 +62,7 @@ jobs:
           client/src/world/city/layout.test.ts
           client/src/adapters/zhuge-weather.test.ts
           client/src/adapters/zhuge-taskflow-run-status.test.ts
+          client/src/adapters/zhuge-gpt-helper-lifecycle.test.ts
       - name: Typecheck original Habblaud client with Zhuge overlays
         run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
       - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes

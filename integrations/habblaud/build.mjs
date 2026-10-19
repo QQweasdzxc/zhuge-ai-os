@@ -33,6 +33,7 @@ const overlay = path.join(ROOT, 'integrations/habblaud/overrides/client/src');
 for (const r of [
   'adapters/zhuge-bridge.ts', 'adapters/zhuge-entry.ts', 'adapters/zhuge-weather.ts', 'adapters/zhuge-weather.test.ts',
   'adapters/zhuge-taskflow-run-status.ts', 'adapters/zhuge-taskflow-run-status.test.ts',
+  'adapters/zhuge-gpt-helper-lifecycle.ts', 'adapters/zhuge-gpt-helper-lifecycle.test.ts',
   'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts',
   'world/layout/zhuge-reception.ts', 'world/layout/zhuge-reception.test.ts',
   'world/sim/zhuge-safe-path.test.ts',
