@@ -4,11 +4,12 @@ Date: 2026-10-19 (UTC)
 
 ## Candidate identity and boundary
 
-- Candidate: `0.9.0-alpha.9.78` (review candidate; Build is generated after the source commit and recorded in the final identity commit).
+- Candidate: `0.9.0-alpha.9.78`, Build `20261019-1154`.
 - Base: P2 main `a9db9b2fe3051e22d59e52ad083c8d54d12dba62` (`0.9.0-alpha.9.76`, Build `20261018-1932`).
 - This is an isolated review candidate. It does not change `main`, Pages, Render, Production DB/Auth, or Native Lab.
 - Frozen `third_party/multica/` is unchanged. Habblaud is fetched into a temporary build checkout at pinned MIT source commit `faa1a012b5fbf632c66dc6801c5383e53a542406`; the resulting preview bundle and its license are included under `native/`.
 - The exact GitHub review branch head is the source identity for this document; this file intentionally does not embed a self-referential commit SHA.
+- The version/build identity commit synchronizes the root identity and existing module/runtime/cache-buster projections. Those cross-module edits are version metadata/cache invalidation only; they do not change WorkLog, Investment, TaskFlow, or other module behavior. Published C identity is preserved.
 
 ## Architecture decision
 
