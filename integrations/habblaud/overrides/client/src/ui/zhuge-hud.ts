@@ -1,8 +1,17 @@
 import type { ZhugeProjectStatus } from '../adapters/zhuge-bridge';
 import { isFreshStatus, ZHUGE_CAST } from '../adapters/zhuge-bridge';
+import { WEATHER_CITIES, toWeatherVisualContract, type WeatherCity, type WeatherState } from '../adapters/zhuge-weather';
 import './zhuge-hud.css';
 
 let current: ZhugeProjectStatus | null = null;
+let currentLive = false;
+let weatherAdapter: {
+  getCity(): WeatherCity;
+  getState(): WeatherState;
+  selectCity(cityId: string): void;
+  subscribe(listener: (state: WeatherState) => void): () => void;
+} | null = null;
+let stopWeatherSubscription: (() => void) | null = null;
 function el(tag: string, value = ''): HTMLElement {
   const e = document.createElement(tag);
   e.textContent = value;
@@ -18,7 +27,7 @@ export function showZhugeDecisions(): void {
   }
   panel.replaceChildren();
   const heading = el('h2', '待裁示事項');
-  const close = el('button', '關閉');
+  const close = el('button', '關閉') as HTMLButtonElement;
   close.onclick = () => { if (panel) panel.hidden = true; };
   panel.append(heading, close);
   for (const blocked of current.blocked_items || []) {
@@ -44,7 +53,7 @@ export function showZhugeStatus(): void {
     document.body.append(panel);
   }
   panel.replaceChildren();
-  const close = el('button', '關閉');
+  const close = el('button', '關閉') as HTMLButtonElement;
   close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
   const updated = Date.parse(current.updated_at);
@@ -117,8 +126,100 @@ export function showZhugeRole(agentId: string): void {
   panel.append(title, close, roster, name, content, status, truth);
   panel.hidden = false;
 }
+
+function readableWeather(state: WeatherState): string {
+  if (state.freshness !== 'fresh' || state.condition === 'unknown') return '尚無可驗證的最新天氣狀態';
+  return ({ sunny: '晴', cloudy: '陰／多雲', rainy: '雨', unknown: '尚無可驗證的最新天氣狀態' } as const)[state.condition];
+}
+
+function renderWeatherPanel(): void {
+  if (!weatherAdapter) return;
+  let panel = document.getElementById('zhuge-weather-panel');
+  if (!panel) {
+    panel = el('aside');
+    panel.id = 'zhuge-weather-panel';
+    document.body.append(panel);
+  }
+  const wasOpen = !panel.hidden;
+  const state = weatherAdapter.getState();
+  const city = weatherAdapter.getCity();
+  const visual = toWeatherVisualContract(state);
+  panel.replaceChildren();
+  panel.hidden = !wasOpen;
+  const heading = el('h2', '像素辦公室環境｜唯讀資料');
+  const close = el('button', '關閉') as HTMLButtonElement;
+  close.type = 'button';
+  close.addEventListener('click', () => { if (panel) panel.hidden = true; });
+  const label = el('label', '觀察城市') as HTMLLabelElement;
+  label.htmlFor = 'zhuge-weather-city';
+  const select = document.createElement('select');
+  select.id = 'zhuge-weather-city';
+  select.setAttribute('aria-label', '觀察城市');
+  for (const item of WEATHER_CITIES) {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.textContent = item.name;
+    option.selected = item.id === city.id;
+    select.append(option);
+  }
+  select.addEventListener('change', () => {
+    weatherAdapter?.selectCity(select.value);
+    // Keep the city/source label in sync even if an asynchronous gateway
+    // refresh is still resolving for the previous selection.
+    renderWeatherPanel();
+  });
+  const freshness = state.freshness === 'fresh' ? '資料有效' : state.freshness === 'stale' ? '資料已過期' : '尚未取得資料';
+  const conditionText = state.freshness === 'stale' ? '資料無法更新；目前天氣未知。' : readableWeather(state);
+  const temperature = visual.temperatureC === null ? '氣溫未知' : `氣溫 ${visual.temperatureC.toFixed(1)}°C`;
+  const precipitation = visual.precipitationMm === null ? '降水未知' : `近 10 分鐘降水 ${visual.precipitationMm.toFixed(1)} mm`;
+  const observed = Date.parse(state.observedAt);
+  const fetched = Date.parse(state.fetchedAt);
+  const observedText = Number.isFinite(observed) ? new Date(observed).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '無觀測時間';
+  const fetchedText = Number.isFinite(fetched) ? new Date(fetched).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '尚未取得';
+  const warning = state.typhoonWarning.status === 'active' && state.freshness === 'fresh'
+    ? 'CWA 官方資料顯示颱風警報發布中。'
+    : state.typhoonWarning.status === 'none' && state.freshness === 'fresh'
+      ? 'CWA 官方資料未列出目前颱風警報。'
+      : '颱風警報狀態未知；不以雨勢推斷。';
+  const wind = state.strongWind.status === 'active' && state.freshness === 'fresh'
+    ? 'CWA 官方陸上強風特報發布中。'
+    : state.strongWind.status === 'none' && state.freshness === 'fresh'
+      ? 'CWA 官方資料未列出目前陸上強風特報。'
+      : '強風警示狀態未知。';
+  panel.append(heading, close, label, select,
+    el('p', `${city.name}｜${conditionText}`),
+    el('p', `${temperature}｜${precipitation}`),
+    el('p', `狀態：${freshness}｜觀測：${observedText}｜讀取：${fetchedText}`),
+    el('p', `降水：${visual.precipitation === 'yes' ? '觀測到' : visual.precipitation === 'no' ? '觀測為零' : '未知'}｜${wind}`),
+    el('p', warning),
+    el('p', `日夜：${visual.dayNight === 'day' ? '白天' : visual.dayNight === 'night' ? '夜間' : '未知'}（${visual.sun.sunriseLocal || '--:--'} 日出／${visual.sun.sunsetLocal || '--:--'} 日落，天文近似，${visual.sun.timezone}）`),
+    el('p', `來源：${state.source}｜${state.sourceUrl}`),
+    el('p', state.errorCode ? `資料狀態碼：${state.errorCode}` : '只在來源有效且資料新鮮時提供天氣視覺狀態。'));
+  panel.hidden = false;
+}
+
+export function mountZhugeWeatherControl(adapter: NonNullable<typeof weatherAdapter>): void {
+  stopWeatherSubscription?.();
+  weatherAdapter = adapter;
+  stopWeatherSubscription = adapter.subscribe(state => {
+    const visual = toWeatherVisualContract(state);
+    document.documentElement.dataset.zhugeWeather = visual.condition;
+    document.documentElement.dataset.zhugeDaynight = visual.dayNight;
+    window.dispatchEvent(new CustomEvent('zhuge:weather-state', { detail: visual }));
+    const panel = document.getElementById('zhuge-weather-panel');
+    if (panel && !panel.hidden) renderWeatherPanel();
+    if (current) mountZhugeHud(current, currentLive);
+  });
+}
+
+function weatherLabel(): string {
+  if (!weatherAdapter) return '🌦 天氣未知';
+  return `🌦 ${weatherAdapter.getCity().name}｜${readableWeather(weatherAdapter.getState())}`;
+}
+
 export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   current = status;
+  currentLive = live;
   let bar = document.getElementById('zhuge-aios-hud');
   if (!bar) {
     bar = el('header');
@@ -140,9 +241,17 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const roster = el('button', '👥 人員');
   roster.setAttribute('type', 'button');
   roster.addEventListener('click', () => showZhugeRole(ZHUGE_CAST[0].id));
+  const weather = el('button', weatherLabel());
+  weather.setAttribute('type', 'button');
+  weather.setAttribute('aria-label', '查看唯讀天氣與日夜資料');
+  weather.addEventListener('click', () => {
+    renderWeatherPanel();
+    const panel = document.getElementById('zhuge-weather-panel');
+    if (panel) panel.hidden = false;
+  });
   const source = el('span', (live ? 'CLI 即時 + ' : '') + (fresh ? '狀態快照' : '過期狀態快照'));
   const classic = el('a', '經典報表');
   (classic as HTMLAnchorElement).href = new URL('../status-classic.html', location.href).href;
   (classic as HTMLAnchorElement).target = '_top';
-  bar.append(dot, title, phase, milestone, blocked, project, roster, source, classic);
+  bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic);
 }

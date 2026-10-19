@@ -122,6 +122,22 @@ try {
   }
   await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
+  await frame.locator('#zhuge-aios-hud button').nth(3).click();
+  await frame.locator('#zhuge-weather-panel:not([hidden])').waitFor({timeout:2000});
+  const unknownWeather = await frame.locator('#zhuge-weather-panel').innerText();
+  if (!unknownWeather.includes('臺北市') || !unknownWeather.includes('尚無可驗證') || !unknownWeather.includes('颱風警報狀態未知')) {
+    throw new Error('Unauthenticated static Pages must show Taipei and unknown weather, never mock conditions: ' + unknownWeather);
+  }
+  await frame.locator('#zhuge-weather-city').selectOption('newTaipei');
+  await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.localStorage.getItem('zhuge-pixel-weather-city-v1') === 'newTaipei');
+  const selectedWeather = await frame.locator('#zhuge-weather-panel').innerText();
+  if (!selectedWeather.includes('新北市') || !selectedWeather.includes('尚無可驗證')) {
+    throw new Error('Manual city selection changed to false weather instead of an explicit unknown state: ' + selectedWeather);
+  }
+  const weatherBox = await frame.locator('#zhuge-weather-panel').boundingBox();
+  if (!weatherBox || weatherBox.x < 0 || weatherBox.x + weatherBox.width > 1280) throw new Error('Desktop weather panel is clipped: ' + JSON.stringify(weatherBox));
+  await frame.locator('#zhuge-weather-panel > button').click();
+  await frame.locator('#zhuge-weather-panel').waitFor({state:'hidden',timeout:2000});
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
@@ -196,6 +212,15 @@ try {
   }
   await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
+  await frame.locator('#zhuge-aios-hud button').nth(3).click();
+  await frame.locator('#zhuge-weather-panel:not([hidden])').waitFor({timeout:2000});
+  const mobileWeatherBox = await frame.locator('#zhuge-weather-panel').boundingBox();
+  const mobileWeatherText = await frame.locator('#zhuge-weather-panel').innerText();
+  if (!mobileWeatherBox || mobileWeatherBox.x < 0 || mobileWeatherBox.x + mobileWeatherBox.width > 390 || !mobileWeatherText.includes('新北市') || !mobileWeatherText.includes('天文近似')) {
+    throw new Error('Mobile weather/city panel is clipped or missing truthful contract: ' + JSON.stringify({ mobileWeatherBox, mobileWeatherText }));
+  }
+  await frame.locator('#zhuge-weather-panel > button').click();
+  await frame.locator('#zhuge-weather-panel').waitFor({state:'hidden',timeout:2000});
   await frame.locator('#zhuge-aios-hud button').nth(2).click();
   const mobileRoleText = await frame.locator('#zhuge-decision-panel').innerText();
   if (!mobileRoleText.includes('Jackal') || !mobileRoleText.includes('GPT')) {
@@ -210,7 +235,7 @@ try {
   const docsWorklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
   if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, static status is not people, read-only project/PR panel, role dossier, medal details, P1 links, desktop/mobile, classic and docs entry');
+  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal details, P1 links, classic and docs entry');
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));

@@ -9,6 +9,14 @@
 #zhuge-decision-panel h2{font-size:18px}#zhuge-decision-panel h3{font-size:16px}#zhuge-decision-panel li{margin:8px 0}
 @media(max-width:660px){#zhuge-aios-hud{left:7px;right:7px;transform:none;max-width:none;font-size:11px;padding:7px 9px}}
 
+#zhuge-weather-panel{position:fixed;z-index:10000;left:10px;top:max(70px,env(safe-area-inset-top) + 64px);bottom:12px;overflow:auto;width:min(370px,calc(100vw - 20px));box-sizing:border-box;padding:16px;background:#122039;border:2px solid #38bdf8;border-radius:15px;color:#f8fafc;font:14px/1.55 system-ui,sans-serif;box-shadow:0 12px 35px #000b}
+#zhuge-weather-panel[hidden]{display:none}
+#zhuge-weather-panel h2{font-size:17px;margin:0 72px 15px 0}
+#zhuge-weather-panel button{float:right;padding:7px 12px;border:0;border-radius:8px;color:white;background:#37516d;cursor:pointer}
+#zhuge-weather-panel label{display:block;margin:14px 0 6px;color:#c5d5e4}
+#zhuge-weather-panel select{width:100%;padding:9px;border-radius:8px;border:1px solid #64748b;background:#0f172a;color:#f8fafc;font:inherit}
+#zhuge-weather-panel p{overflow-wrap:anywhere;margin:10px 0;color:#d7e2ef}
+
 /* P2 lightweight character dossier, shared with native decision drawer. */
 #zhuge-decision-panel .zhuge-role-roster{display:flex;gap:7px;clear:both;margin:18px 0 15px;flex-wrap:wrap}
 #zhuge-decision-panel .zhuge-role-roster button{float:none;min-width:62px;cursor:pointer;background:#3c5369}

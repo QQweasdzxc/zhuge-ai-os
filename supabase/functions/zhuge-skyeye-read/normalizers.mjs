@@ -78,6 +78,42 @@ function weatherElementValue(value, names) {
   return null;
 }
 
+function firstText(value, keys) {
+  if (!value || typeof value !== "object") return "";
+  const wanted = new Set(keys.map(key => key.toLowerCase()));
+  for (const [key, item] of Object.entries(value)) {
+    if (wanted.has(key.toLowerCase())) {
+      if (typeof item === "string" || typeof item === "number") return text(item, 120);
+      if (item && typeof item === "object") {
+        const nested = firstText(item, ["value", "Value", "Weather", "Text"]);
+        if (nested) return nested;
+      }
+    }
+  }
+  return "";
+}
+
+function weatherElementText(value, names) {
+  for (const item of nestedValues(value)) {
+    if (!item || typeof item !== "object") continue;
+    const elementName = text(item.ElementName || item.elementName || item.Name || item.name, 80).toLowerCase();
+    if (elementName && names.some(name => elementName.includes(name.toLowerCase()))) {
+      const result = firstText(item.ElementValue || item.elementValue || item.Value || item.value, ["value", "Value", "Weather", "Text"]);
+      if (result) return result;
+    }
+  }
+  return "";
+}
+
+export function weatherCondition(value, precipitationMm = null) {
+  const normalized = text(value, 120).toLowerCase();
+  if (/(雷|雨|陣雨|毛毛雨|霰|snow|rain|shower|drizzle|thunder)/i.test(normalized)) return "rainy";
+  if (/(多雲|陰|雲|cloud|overcast)/i.test(normalized)) return "cloudy";
+  if (/(晴|sunny|clear)/i.test(normalized)) return "sunny";
+  if (number(precipitationMm) !== null && number(precipitationMm) > 0) return "rainy";
+  return "unknown";
+}
+
 export function weatherTemperature(row) {
   return firstNumber(row, ["Temperature", "temperature", "AirTemperature"])
     ?? firstNumberDeep(row?.WeatherElement || row?.weatherElement || row?.Observation, ["Temperature", "temperature", "AirTemperature"])
@@ -153,6 +189,16 @@ export function normalizeWeatherRows(payload, retrievedAt) {
     if (point.lat === null || point.lng === null) return null;
     const station = text(row.StationName || row.LocationName || row.name || `weather-${index + 1}`, 120);
     const temperature = weatherTemperature(row);
+    const elements = row.WeatherElement || row.weatherElement || row.Observation || row.observation || {};
+    const conditionText = firstText(row, ["Weather", "weather", "Condition", "condition"])
+      || firstText(elements, ["Weather", "weather", "Condition", "condition"])
+      || weatherElementText(elements, ["weather", "condition"]);
+    const precipitation = firstNumber(row, ["Precipitation", "precipitation", "Rainfall", "rainfall"])
+      ?? firstNumberDeep(elements, ["Precipitation", "precipitation", "Rainfall", "rainfall"])
+      ?? weatherElementValue(elements, ["precipitation", "rainfall"]);
+    const windSpeed = firstNumber(row, ["WindSpeed", "windSpeed", "wind_speed"])
+      ?? firstNumberDeep(elements, ["WindSpeed", "windSpeed", "wind_speed"])
+      ?? weatherElementValue(elements, ["windspeed"]);
     return {
       id: `cwa-weather-${text(row.StationId || row.stationId || row.StationID || index, 60)}`,
       kind: "weather",
@@ -163,6 +209,34 @@ export function normalizeWeatherRows(payload, retrievedAt) {
       observed_at: rowTimestamp(row, ["ObsTime", "observedAt", "ObservationTime", "observationTime"]),
       value: temperature,
       unit: temperature === null ? "" : "°C",
+      condition_text: conditionText,
+      condition: weatherCondition(conditionText, precipitation),
+      precipitation_mm: precipitation,
+      wind_speed_mps: windSpeed,
+      source: "CWA"
+    };
+  }).filter(Boolean);
+  return { ...result, markers };
+}
+
+export function normalizeRainfallRows(payload) {
+  const result = rowsFrom(payload, ["Station", "station", "location", "Location"]);
+  const markers = result.rows.map((row, index) => {
+    const point = coordinate(row);
+    if (point.lat === null || point.lng === null) return null;
+    const elements = row.RainfallElement || row.rainfallElement || row.Rainfall || row.rainfall || {};
+    const tenMinute = elements.Past10Min || elements.past10Min || elements.Now || elements.now || {};
+    const precipitation = firstNumber(row, ["Precipitation", "precipitation", "Rainfall", "rainfall"])
+      ?? firstNumber(tenMinute, ["Precipitation", "precipitation", "Rainfall", "rainfall", "value", "Value"]);
+    return {
+      id: `cwa-rainfall-${text(row.StationId || row.stationId || row.StationID || index, 60)}`,
+      kind: "rainfall",
+      label: text(row.StationName || row.LocationName || row.name || `rainfall-${index + 1}`, 120),
+      lat: point.lat,
+      lng: point.lng,
+      observed_at: rowTimestamp(row, ["ObsTime", "obsTime", "observedAt", "ObservationTime", "observationTime"])
+        || rowTimestamp(tenMinute, ["DateTime", "dateTime", "DataTime", "dataTime", "Time", "time"]),
+      precipitation_mm: precipitation,
       source: "CWA"
     };
   }).filter(Boolean);

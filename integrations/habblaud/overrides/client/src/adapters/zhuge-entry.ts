@@ -2,7 +2,8 @@ import type { OfficeSnapshot } from '../../../shared/types';
 import type { OfficeStore, EventSourceLike } from '../net/store';
 import type { WorldApi } from '../world/api';
 import { fallbackProjectStatus, syncAiOsStatus, toOfficeSnapshot, verifiedHabblaudSnapshot, type ZhugeProjectStatus } from './zhuge-bridge';
-import { mountZhugeHud, showZhugeDecisions, showZhugeRole, showZhugeStatus } from '../ui/zhuge-hud';
+import { createWeatherAdapter, type WeatherGateway } from './zhuge-weather';
+import { mountZhugeHud, mountZhugeWeatherControl, showZhugeDecisions, showZhugeRole, showZhugeStatus } from '../ui/zhuge-hud';
 
 /** Habblaud-compatible SSE facade. Static JSON is read every 15s, and real CLI SSE is merged if present. */
 class ZhugeStream implements EventSourceLike {
@@ -86,12 +87,35 @@ class ZhugeStream implements EventSourceLike {
   }
 }
 let lastStream: ZhugeStream | null = null;
+let stopWeather: (() => void) | null = null;
+
+function sharedWeatherGateway(): WeatherGateway | null {
+  try {
+    const origin = window.location.origin;
+    if (window.parent.location.origin !== origin) return null;
+    const parentApi = (window.parent as Window & { ZhugeSupabaseGateway?: { createDataGateway?: () => WeatherGateway } }).ZhugeSupabaseGateway;
+    const ownApi = (window as Window & { ZhugeSupabaseGateway?: { createDataGateway?: () => WeatherGateway } }).ZhugeSupabaseGateway;
+    const api = parentApi || ownApi;
+    return api?.createDataGateway?.() || null;
+  } catch {
+    // Cross-origin parents and unauthenticated static builds intentionally fail closed.
+    return null;
+  }
+}
+
 export function createZhugeStream(url: string): EventSourceLike {
   lastStream?.close();
+  stopWeather?.();
   lastStream = new ZhugeStream(url);
   return lastStream;
 }
 export function bootAiOsPixelHomepage(_store: OfficeStore, world: WorldApi): void {
+  const weather = createWeatherAdapter({
+    getGateway: sharedWeatherGateway,
+    storage: (() => { try { return window.localStorage; } catch { return null; } })(),
+  });
+  mountZhugeWeatherControl(weather);
+  stopWeather = weather.start();
   world.onSelect(sel => {
     if (sel?.type !== 'agent') return;
     if (sel.id.startsWith('zhuge-crew-')) showZhugeRole(sel.id);

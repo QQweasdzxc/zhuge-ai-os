@@ -20,6 +20,7 @@ import {
   normalizeWeatherRows,
   text
 } from "./normalizers.mjs";
+import { normalizeCityWeather, unknownWeatherState, WEATHER_CITIES, WEATHER_SOURCE } from "./weather-state.mjs";
 
 type JsonObject = Record<string, unknown>;
 type LayerName = "weather" | "radar" | "earthquake" | "aqi" | "cctv";
@@ -41,6 +42,8 @@ const MOENV_AQI_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_432";
 const CWA_RADAR_BASE = "https://www.cwa.gov.tw/Data/radar/CV1_3600_";
 const GEOCODE_URL = "https://nominatim.openstreetmap.org/search";
 const GEOCODE_SOURCE = "Nominatim / OpenStreetMap";
+const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
+const weatherResponseCache = new Map<string, { cachedAt: number; value: JsonObject }>();
 
 class ReadError extends Error {
   code: string;
@@ -277,6 +280,36 @@ async function loadWeather(now: number, location: JsonObject | null) {
   }
 }
 
+async function loadCityWeather(cityId: string, now: number): Promise<JsonObject> {
+  if (!Object.prototype.hasOwnProperty.call(WEATHER_CITIES, cityId)) {
+    return unknownWeatherState("taipei", new Date(now).toISOString(), "CITY_NOT_SUPPORTED") as JsonObject;
+  }
+  const cached = weatherResponseCache.get(cityId);
+  if (cached && now - cached.cachedAt < WEATHER_CACHE_TTL_MS) return cached.value;
+  const fetchedAt = new Date(now).toISOString();
+  const apiKey = text(Deno.env.get("CWA_API_KEY"), 400);
+  if (!apiKey) return unknownWeatherState(cityId, fetchedAt, "CWA_API_KEY_UNAVAILABLE") as JsonObject;
+  const get = (url: string) => fetchJson(url, { headers: { accept: "application/json", Authorization: apiKey } });
+  const [observationResult, rainfallResult, typhoonResult, strongWindResult] = await Promise.allSettled([
+    get(WEATHER_SOURCE.observation), get(WEATHER_SOURCE.rainfall), get(WEATHER_SOURCE.typhoon), get(WEATHER_SOURCE.strongWind)
+  ]);
+  if (observationResult.status !== "fulfilled") {
+    return unknownWeatherState(cityId, fetchedAt, "CWA_WEATHER_UNAVAILABLE") as JsonObject;
+  }
+  const value = normalizeCityWeather({
+    cityId,
+    observationPayload: observationResult.value,
+    rainfallPayload: rainfallResult.status === "fulfilled" ? rainfallResult.value : null,
+    typhoonPayload: typhoonResult.status === "fulfilled" ? typhoonResult.value : null,
+    strongWindPayload: strongWindResult.status === "fulfilled" ? strongWindResult.value : null,
+    fetchedAt,
+    now
+  }) as JsonObject;
+  weatherResponseCache.set(cityId, { cachedAt: now, value });
+  if (weatherResponseCache.size > 32) weatherResponseCache.delete(weatherResponseCache.keys().next().value!);
+  return value;
+}
+
 async function loadEarthquake(now: number, location: JsonObject | null) {
   const source = "CWA earthquake reports";
   const apiKey = text(Deno.env.get("CWA_API_KEY"), 400);
@@ -471,7 +504,11 @@ Deno.serve(async request => {
     await requireAuth(request);
     const input = await request.json().catch(() => ({})) as JsonObject;
     const now = Date.now();
-    if (text(input.operation || input.action, 40).toLowerCase() === "geocode") {
+    const operation = text(input.operation || input.action, 40).toLowerCase();
+    if (operation === "weather") {
+      return json(await loadCityWeather(text(input.city_id || input.cityId, 60) || "taipei", now), 200, origin);
+    }
+    if (operation === "geocode") {
       return json(await geocode(text(input.query, 180), now), 200, origin);
     }
     const layers = requestedLayers(input);

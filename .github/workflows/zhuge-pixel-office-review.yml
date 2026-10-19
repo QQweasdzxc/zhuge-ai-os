@@ -44,6 +44,8 @@ jobs:
         run: npm ci --prefix /tmp/zhuge-habblaud --ignore-scripts --no-audit --no-fund
       - name: Verify fixed-role and live-source authority contract
         run: node integrations/habblaud/bridge-test.mjs /tmp/zhuge-habblaud
+      - name: Verify CWA weather data contract and fail-closed behavior
+        run: node --test tests/skyeye-weather-contract.test.js
       - name: Stage existing site then build real Habblaud pixel scene
         run: |
           node tools/build-pages-site.js /tmp/zhuge-pixel-pages
@@ -58,6 +60,7 @@ jobs:
           client/src/world/sim/sim.test.ts
           client/src/world/sim/world-visit.test.ts
           client/src/world/city/layout.test.ts
+          client/src/adapters/zhuge-weather.test.ts
       - name: Typecheck original Habblaud client with Zhuge overlays
         run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
       - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes
