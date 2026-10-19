@@ -147,8 +147,9 @@ try {
   if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
   const worklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
   const investment = await page.locator('#zgf-trophy-board [data-zgf-work="investment"]').getAttribute('href');
-  if (worklog !== base + '/modules/worklog/' || investment !== base + '/modules/investment/') {
-    throw new Error('Product medals resolve outside current Pages root: ' + worklog + ', ' + investment);
+  const lab = await page.locator('#zgf-trophy-board [data-zgf-work="lab"]').getAttribute('href');
+  if (worklog !== base + '/modules/worklog/' || investment !== base + '/modules/investment/' || lab !== base + '/modules/labs/') {
+    throw new Error('Product medals resolve outside current Pages root: ' + worklog + ', ' + investment + ', ' + lab);
   }
   if (await page.locator('.zgf-meeting, .zgf-door-art').count()) throw new Error('old floating meeting-room mock remains');
   const awardWall = await page.locator('#zgf-trophy-board').boundingBox();
@@ -228,6 +229,44 @@ try {
   }
   await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
+  await page.setViewportSize({width:844,height:390});
+  const landscapeMetrics = await page.evaluate(() => {
+    const box = selector => {
+      const item = document.querySelector(selector);
+      if (!item) return null;
+      const rect = item.getBoundingClientRect();
+      return {x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,width:rect.width,height:rect.height};
+    };
+    return {
+      viewport:{width:innerWidth,height:innerHeight},
+      document:{width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,height:document.documentElement.clientHeight,scrollHeight:document.documentElement.scrollHeight},
+      iframe:box('iframe'),
+      devices:[...document.querySelectorAll('.zgf-device')].map(item=>{
+        const rect=item.getBoundingClientRect();
+        return {name:item.getAttribute('aria-label'),x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,width:rect.width,height:rect.height};
+      })
+    };
+  });
+  if (landscapeMetrics.viewport.width !== 844 || landscapeMetrics.viewport.height !== 390 ||
+      landscapeMetrics.document.scrollWidth > 845 || landscapeMetrics.document.scrollHeight > 392 ||
+      !landscapeMetrics.iframe || landscapeMetrics.iframe.x < 0 || landscapeMetrics.iframe.right > 845 ||
+      landscapeMetrics.devices.length !== 6 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
+    throw new Error('Mobile landscape office is clipped, overflowing or has inaccessible product links: ' + JSON.stringify(landscapeMetrics));
+  }
+  const landscapeCanvas = await frame.locator('canvas#world').boundingBox();
+  const landscapeHud = await frame.locator('#zhuge-aios-hud').boundingBox();
+  const landscapeAwards = await page.locator('#zgf-trophy-board').boundingBox();
+  if (!landscapeCanvas || landscapeCanvas.width <= 0 || landscapeCanvas.height <= 0 ||
+      !landscapeHud || landscapeHud.x < 0 || landscapeHud.y < 0 || landscapeHud.x + landscapeHud.width > 844 || landscapeHud.y + landscapeHud.height > 390 ||
+      !landscapeAwards || landscapeAwards.x < 0 || landscapeAwards.y < 0 || landscapeAwards.x + landscapeAwards.width > 844 || landscapeAwards.y + landscapeAwards.height > 390) {
+    throw new Error('Mobile landscape native scene or HUD is not visible inside the viewport: ' + JSON.stringify({landscapeCanvas,landscapeHud,landscapeAwards}));
+  }
+  const landscapeToggle = page.locator('.zgf-board-toggle');
+  await landscapeToggle.click();
+  if (await landscapeToggle.getAttribute('aria-expanded') !== 'true') throw new Error('Mobile landscape award wall cannot expand');
+  await landscapeToggle.click();
+  if (await landscapeToggle.getAttribute('aria-expanded') !== 'false') throw new Error('Mobile landscape award wall cannot collapse');
+  if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-p2-mobile-landscape-844x390.png'), fullPage:false});
   await page.setViewportSize({width:1280,height:780});
   await page.goto(base + '/docs/index.html', { waitUntil:'domcontentloaded' });
   await page.frameLocator('iframe').locator('#zhuge-aios-hud').waitFor({timeout:30000});

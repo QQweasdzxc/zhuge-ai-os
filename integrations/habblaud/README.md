@@ -29,7 +29,7 @@ Review workflow `zhuge-pixel-office-review.yml` 在分支 `review/pixel-office-h
 - 獎牌使用原生 `wallItems` 掛在接待大廳北側室內牆；東側會議室使用原生牆段、雙格門洞、碰撞格、桌椅及互動 Spot，兩者不共用浮動門牌或第二套 Canvas。
 - 原本可用的作品入口與說明按鈕保留。會議室／AI 指揮艙入口仍明確顯示連結待補，不猜測 URL。
 - 首頁作品說明面板預設收合，避免遮住原生場景；使用者仍可展開查看作品連結與說明。
-- 隔離 QA：Habblaud reception layout Vitest、原生 TypeScript、Chromium Canvas Smoke（1280×780、1440×900、1920×1080、390×844）、Issue 70/71 TaskFlow-owned 合約測試。此候選未部署，沒有 PM 真實桌機／Safari 驗收。
+- 隔離 QA：Habblaud reception layout Vitest、原生 TypeScript、Chromium Canvas Smoke（1280×780、1440×900、1920×1080、390×844、844×390）、Issue 70/71 TaskFlow-owned 合約測試。此候選未部署，沒有 PM 真實桌機／Safari 驗收。
 
 正式狀態 JSON 不代表 CLI 工程師正在運作。超過 5 分鐘的快照標示為**過期**；靜態快照不建立場景人物，也不把 `working` 狀態轉成角色活動。JSON 缺失時，固定像素角色仍只保持 idle，不捏造即時 AI 工作。
 
