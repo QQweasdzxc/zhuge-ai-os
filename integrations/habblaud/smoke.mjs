@@ -27,6 +27,62 @@ const server = createServer((req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const address = server.address();
 const base = 'http://127.0.0.1:' + address.port;
+async function waitForNativeReady(page) {
+  const embedded = await page.locator('iframe').count() > 0;
+  const scene = embedded ? page.frameLocator('iframe') : page;
+  await scene.locator('#zhuge-aios-hud').waitFor({timeout:30000});
+  await scene.locator('canvas#world').waitFor({state:'visible',timeout:30000});
+  await page.waitForFunction(() => {
+    const iframe = document.querySelector('iframe');
+    const win = iframe?.contentWindow ?? window;
+    const doc = iframe?.contentDocument ?? document;
+    const app = win.habblaud;
+    const debug = app?.world?.debug;
+    const splash = doc.querySelector('.ui-splash');
+    const splashHidden = !splash || (
+      splash.classList.contains('is-hidden') &&
+      Number.parseFloat(getComputedStyle(splash).opacity) <= 0.01 &&
+      getComputedStyle(splash).pointerEvents === 'none'
+    );
+    return !!(
+      app?.store?.snapshot && debug?.sim?.initialized &&
+      debug?.sim?.building?.core?.length >= 4 && doc.querySelector('canvas#world') &&
+      splashHidden
+    );
+  }, null, {timeout:45000});
+  // Wait for the native renderer to paint after its real snapshot/splash-ready signal.
+  await page.evaluate(() => new Promise(resolve => {
+    const win = document.querySelector('iframe')?.contentWindow ?? window;
+    win.requestAnimationFrame(() => win.requestAnimationFrame(resolve));
+  }));
+  return scene;
+}
+async function waitForNativeViewport(page, width, height) {
+  const expected = {width, height};
+  await page.waitForFunction(({width, height}) => {
+    const win = document.querySelector('iframe')?.contentWindow ?? window;
+    const camera = win.habblaud?.world?.debug?.camera;
+    return camera?.viewW === width && camera.viewH === height && camera.insets.top > 0 && camera.zoom > 0;
+  }, expected, {timeout:30000});
+  // Camera framing can animate after the viewport/safe-area observers update.
+  // Require three stable animation frames instead of sleeping a guessed duration.
+  await page.waitForFunction(({width, height}) => new Promise(resolve => {
+    let previous = null;
+    let stable = 0;
+    const sample = () => {
+      const win = document.querySelector('iframe')?.contentWindow ?? window;
+      const camera = win.habblaud?.world?.debug?.camera;
+      const matches = camera?.viewW === width && camera.viewH === height && camera.insets.top > 0;
+      const current = matches ? [camera.x, camera.y, camera.zoom, camera.insets.top, camera.insets.bottom].map(v => Number(v).toFixed(3)).join('|') : null;
+      if (current && current === previous) stable += 1;
+      else stable = 0;
+      previous = current;
+      if (stable >= 2) return resolve(true);
+      win.requestAnimationFrame(sample);
+    };
+    sample();
+  }), expected, {timeout:30000});
+}
 let browser;
 try {
   const executablePath = process.env.BROWSER_EXECUTABLE || undefined;
@@ -37,61 +93,58 @@ try {
   const phone = await browser.newPage({ viewport:{width:390,height:844}, locale:'zh-TW' });
   phone.on('pageerror', error => failures.push('native-phone: ' + error.message));
   await phone.goto(base + '/pixel-office/index.html', { waitUntil:'domcontentloaded' });
-  await phone.locator('#zhuge-aios-hud').waitFor({timeout:30000});
-  await phone.waitForFunction(() => {
-    const d = window.habblaud?.world?.debug;
-    return !!(d?.sim?.initialized && d?.sim?.building?.cols >= 3 && d?.camera?.zoom > 0);
-  }, null, {timeout:30000});
-  const cameraAudit = await phone.evaluate(() => {
+  await waitForNativeReady(phone);
+  await waitForNativeViewport(phone,390,844);
+  const readPortraitCamera = async () => phone.evaluate(() => {
     const d = window.habblaud.world.debug;
     const c = d.camera;
     // Pinned native constants: COL_W=16, TILE=16, BUILDING_H=29.
     const fullZoom = c.fitZoom({x:0,y:0,w:d.sim.building.cols*16*16,h:29*16},16);
-    return {zoom:c.zoom,fullZoom,cols:d.sim.building.cols,lang:document.documentElement.lang};
+    const range = {left:c.x-c.viewW/(2*c.zoom),right:c.x+c.viewW/(2*c.zoom)};
+    const room = id => d.sim.building.core.find(a=>a.id===id)?.rect;
+    const visibleRoomShare = id => {
+      const r=room(id); if(!r) return 0;
+      const left=r.x*16,right=(r.x+r.w)*16;
+      return Math.max(0,Math.min(range.right,right)-Math.max(range.left,left))/(range.right-range.left);
+    };
+    const visibleFeatureShare = (left,right) => Math.max(0,Math.min(range.right,right)-Math.max(range.left,left))/(right-left);
+    const reception=room('core:recepcao');
+    const x=reception?.x||0;
+    return {
+      zoom:c.zoom,fullZoom,cols:d.sim.building.cols,lang:document.documentElement.lang,
+      visibleLeft:range.left,visibleRight:range.right,
+      cafeShare:visibleRoomShare('core:copa'),restroomShare:visibleRoomShare('core:banheiros'),loungeShare:visibleRoomShare('core:lounge'),
+      awardsVisible:visibleFeatureShare((x+9.2)*16,(x+13.8)*16),
+      meetingVisible:visibleFeatureShare((x+8.5)*16,(x+15.5)*16),
+    };
   });
+  const cameraAudit = await readPortraitCamera();
   if (cameraAudit.lang !== 'zh-TW' || cameraAudit.zoom <= cameraAudit.fullZoom * 1.03) {
     throw new Error('Native phone does not start focused on the office, or is not zh-TW: ' + JSON.stringify(cameraAudit));
   }
-  // The topbar recalculates native Camera insets after startup. Detect if this
-  // asynchronous update quietly undoes portrait framing (previous .9.89 bug).
-  await phone.waitForTimeout(2700);
-  const stableCameraAudit = await phone.evaluate(() => {
-    const d = window.habblaud.world.debug;
-    const c = d.camera;
-    const reception = d.sim.building.core.find(a => a.id === 'core:recepcao');
-    const visibleLeft = c.x - c.viewW / (2 * c.zoom);
-    const visibleRight = c.x + c.viewW / (2 * c.zoom);
-    return {
-      zoom:c.zoom,
-      fullZoom:c.fitZoom({x:0,y:0,w:d.sim.building.cols*16*16,h:29*16},16),
-      cols:d.sim.building.cols,
-      lang:document.documentElement.lang,
-      visibleLeft,
-      visibleRight,
-      awards:{left:(reception.rect.x + 9.2) * 16,right:(reception.rect.x + 13.8) * 16},
-      meeting:{left:(reception.rect.x + 8.5) * 16,right:(reception.rect.x + 15.5) * 16},
-    };
-  });
+  // Recheck after native safe-area observers settle, using camera state rather than a guessed delay.
+  await waitForNativeViewport(phone,390,844);
+  const stableCameraAudit = await readPortraitCamera();
   if (stableCameraAudit.lang !== 'zh-TW' || stableCameraAudit.zoom <= stableCameraAudit.fullZoom * 1.03) {
     throw new Error('Office closeup was lost after delayed HUD/topbar inset update: ' + JSON.stringify({initial:cameraAudit,stable:stableCameraAudit}));
   }
-  // Visual quality target: 390px portrait room height fills most of the screen,
-  // instead of a 3-column building strip surrounded by grass.
-  if (stableCameraAudit.zoom < 1.13) {
-    throw new Error('Phone office is still too small to read: ' + JSON.stringify(stableCameraAudit));
+  // Visual quality target: work/cafe and lounge dominate, while Reception's real
+  // awards/meeting remain visible and the restroom is not the dominant room.
+  if (stableCameraAudit.zoom < 1.13 || stableCameraAudit.cafeShare < 0.60 || stableCameraAudit.restroomShare > 0.40 ||
+      stableCameraAudit.loungeShare < 0.60 || stableCameraAudit.awardsVisible < 0.80 || stableCameraAudit.meetingVisible < 0.75) {
+    throw new Error('Portrait home frame must balance work/living space with findable native awards and meeting room: ' + JSON.stringify(stableCameraAudit));
   }
-  if (stableCameraAudit.visibleLeft > stableCameraAudit.awards.left ||
-      stableCameraAudit.visibleRight < stableCameraAudit.awards.right ||
-      stableCameraAudit.visibleLeft > stableCameraAudit.meeting.left ||
-      stableCameraAudit.visibleRight < stableCameraAudit.meeting.right) {
-    throw new Error('Portrait home frame must show the native indoor awards and enclosed meeting room: ' + JSON.stringify(stableCameraAudit));
-  }
+  console.log('PASS portrait composition audit ' + JSON.stringify(stableCameraAudit));
   const phoneShots = process.env.PIXEL_SCREENSHOT_DIR;
   if (phoneShots) {
     fs.mkdirSync(phoneShots,{recursive:true});
     await phone.screenshot({path:path.join(phoneShots,'pixel-p2-first-screen-day-390x844.png'),fullPage:false});
-    await phone.evaluate(() => window.habblaud.world.debug.setHour(23));
-    await phone.waitForTimeout(1000);
+    // Use the native documented hour query for a fresh renderer. Its first lighting
+    // snapshot is initialized at night, so the screenshot does not capture a half-fade.
+    await phone.goto(base + '/pixel-office/index.html?hora=23', {waitUntil:'domcontentloaded'});
+    await waitForNativeReady(phone);
+    await waitForNativeViewport(phone,390,844);
+    await phone.waitForFunction(() => new URL(location.href).searchParams.get('hora') === '23');
     await phone.screenshot({path:path.join(phoneShots,'pixel-p2-first-screen-night-390x844.png'),fullPage:false});
   }
   await phone.close();
@@ -100,8 +153,8 @@ try {
     if (response.status() >= 400 && !response.url().includes('/api/')) failures.push('HTTP ' + response.status() + ' ' + response.url());
   });
   await page.goto(base + '/', { waitUntil:'domcontentloaded' });
-  const frame = page.frameLocator('iframe');
-  await frame.locator('#zhuge-aios-hud').waitFor({ timeout:30000 });
+  const frame = await waitForNativeReady(page);
+  await waitForNativeViewport(page,1280,780);
   const hud = await frame.locator('#zhuge-aios-hud').innerText();
   if (!hud.includes('Zhuge AI OS') || !hud.includes('待裁示')) throw new Error('HUD not rendered: ' + hud);
   const rendered = await frame.locator('canvas#world').count();
@@ -258,6 +311,7 @@ try {
   }
   for (const viewport of [{width:1440,height:900},{width:1920,height:1080}]) {
     await page.setViewportSize(viewport);
+    await waitForNativeViewport(page,viewport.width,viewport.height);
     const boardBox = await page.locator('#zgf-trophy-board').boundingBox();
     if (!boardBox || boardBox.x + boardBox.width > viewport.width || boardBox.x < 0 || await frame.locator('canvas#world').count() !== 1) {
       throw new Error('desktop native room/award panel is clipped at ' + JSON.stringify(viewport));
@@ -267,12 +321,8 @@ try {
   const tablet = await browser.newPage({viewport:{width:900,height:1200},locale:'zh-TW'});
   tablet.on('pageerror', error => failures.push('native-tablet: ' + error.message));
   await tablet.goto(base + '/', {waitUntil:'domcontentloaded'});
-  const tabletFrameLocator = tablet.frameLocator('iframe');
-  await tabletFrameLocator.locator('#zhuge-aios-hud').waitFor({timeout:30000});
-  await tablet.waitForFunction(() => {
-    const camera = document.querySelector('iframe')?.contentWindow?.habblaud?.world?.debug?.camera;
-    return camera?.viewW === 900 && camera.zoom >= 1.13;
-  }, null, {timeout:30000});
+  const tabletFrameLocator = await waitForNativeReady(tablet);
+  await waitForNativeViewport(tablet,900,1200);
   const tabletAudit = await tablet.evaluate(() => {
     const rect = selector => {
       const element = document.querySelector(selector);
@@ -309,10 +359,8 @@ try {
   await tablet.close();
   await page.setViewportSize({width:1280,height:780});
   await page.setViewportSize({width:390,height:844});
-  // The phone's native first frame prioritizes the indoor awards and meeting room.
+  await waitForNativeViewport(page,390,844);
   // Do not assert pixel-perfect zoom levels: use the real native renderer camera.
-  await frame.locator('canvas#world').waitFor({state:'visible'});
-  await page.waitForTimeout(600);
   const initialMobileCamera = await frame.locator('body').evaluate(() => {
     const c = window.habblaud?.world?.debug?.camera;
     return c ? {zoom:c.zoom,viewW:c.viewW,viewH:c.viewH} : null;
@@ -361,6 +409,7 @@ try {
   await hudMenu.click();
   if (await hudMenu.getAttribute('aria-expanded') !== 'false') throw new Error('Mobile engineering HUD cannot collapse');
   await page.setViewportSize({width:844,height:390});
+  await waitForNativeViewport(page,844,390);
   const landscapeMetrics = await page.evaluate(() => {
     const box = selector => {
       const item = document.querySelector(selector);
@@ -405,12 +454,13 @@ try {
   if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-p2-mobile-landscape-844x390.png'), fullPage:false});
   await page.setViewportSize({width:1280,height:780});
   await page.goto(base + '/docs/index.html', { waitUntil:'domcontentloaded' });
-  await page.frameLocator('iframe').locator('#zhuge-aios-hud').waitFor({timeout:30000});
+  await waitForNativeReady(page);
+  await waitForNativeViewport(page,1280,780);
   await page.locator('#zgf-trophy-board').waitFor({timeout:5000});
   const docsWorklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
   if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, zh-TW visible controls, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal details, entrance camera shows awards+meeting room on phone/tablet portrait, compact landscape HUD, P1 links, classic and docs entry');
+  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, zh-TW visible controls, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal details, balanced work/living with findable awards/meeting on portrait, stable ready-state day/night screenshots, compact landscape HUD, P1 links, classic and docs entry');
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));

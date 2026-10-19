@@ -35,3 +35,15 @@ test('original Portuguese room labels have explicit zh-TW mappings without vendo
   for (const title of ['Recepção','Copa','Banheiros','Lounge']) assert.ok(dict.includes("'"+title+"':"));
   assert.match(build, /faa1a012b5fbf632c66dc6801c5383e53a542406/);
 });
+
+test('visual screenshots wait for native snapshot, initialized scene and hidden Habblaud splash', () => {
+  const smoke = text('integrations/habblaud/smoke.mjs');
+  assert.match(smoke, /async function waitForNativeReady/);
+  assert.match(smoke, /\.ui-splash/);
+  assert.match(smoke, /pointerEvents === 'none'/);
+  assert.match(smoke, /sim\?\.initialized/);
+  assert.match(smoke, /store\?\.snapshot/);
+  assert.match(smoke, /pixel-office\/index\.html\?hora=23/);
+  assert.match(smoke, /waitForNativeViewport\(phone,390,844\)/);
+  assert.match(smoke, /requestAnimationFrame/);
+});

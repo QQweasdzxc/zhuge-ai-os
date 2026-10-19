@@ -48,16 +48,17 @@ change('client/src/world/layout/core.ts',
 change('client/src/world/layout/core.ts',
   "  return a;\n}\n\nexport function layoutRestroom()",
   "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
-// P2 #91: portrait starts on the native Reception awards + enclosed meeting room,
-// while preserving native pan/pinch/overview access to the rest of the campus.
+// P2 #91: portrait balances the Reception entrance with the cafe/work and lounge
+// rooms. The native awards/meeting room remain visible and fully reachable by pan.
 change('client/src/world/index.ts',
   "  const overview = (animate = true) => {",
   `  const firstScreenOfficeTarget = () => {
     const b = buildingRect();
-    // Reception is the entrance and contains the real award wall and conference room.
-    // Its full 16-tile width fits at native detail scale; other rooms remain reachable by pan.
-    const focus = { x: 0, y: b.y, w: COL_W * TILE, h: b.h };
-    // Fill the usable portrait height with the real room without cropping small screens.
+    // Show the east side of Reception plus most of the adjacent cafe/work and lounge
+    // column. This keeps the awards/meeting room findable without making the restroom
+    // the mobile home screen's largest room.
+    const focus = { x: COL_W * TILE * 0.60, y: b.y - TILE * 0.75, w: COL_W * TILE * 1.14, h: b.h };
+    // Fill the usable portrait height with the real rooms without cropping small screens.
     const freeHeight = Math.max(240, camera.viewH - camera.insets.top - camera.insets.bottom - 32);
     const detailZoom = Math.min(1.30, freeHeight / b.h);
     const z = Math.min(2.5, Math.max(camera.minZoom, detailZoom, camera.fitZoom(focus, 14)));

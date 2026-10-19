@@ -5,12 +5,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const build = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/build.mjs'),'utf8');
 const furnishings = fs.readFileSync(path.join(__dirname, '..', 'assets/zhuge-office-furnishings.js'),'utf8');
-test('native camera starts mobile portrait focused without replacing overview controls',()=>{
+test('native camera balances Reception with work and lounge rooms on portrait home',()=>{
   assert.match(build,/firstScreenOfficeTarget/);
-  assert.match(build, /const focus = \{ x: 0, y: b\.y, w: COL_W \* TILE, h: b\.h \}/);
+  assert.match(build, /const focus = \{ x: COL_W \* TILE \* 0\.60, y: b\.y - TILE \* 0\.75, w: COL_W \* TILE \* 1\.14, h: b\.h \}/);
   assert.match(build, /const detailZoom = Math\.min\(1\.30, freeHeight \/ b\.h\)/);
   assert.match(build,/if \(!userMoved && framed\) firstScreenOffice\(true\)/);
   const smokeText = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/smoke.mjs'),'utf8');
+  assert.match(smokeText,/waitForNativeReady/);
+  assert.match(smokeText,/ui-splash/);
+  assert.match(smokeText,/restroomShare/);
+  assert.match(smokeText,/cafeShare/);
   assert.match(smokeText,/stableCameraAudit/);
   const flow = fs.readFileSync(path.join(__dirname, '..', '.github/workflows/zhuge-pixel-office-review.yml'),'utf8');
   assert.match(flow, /  pull_request:/);
