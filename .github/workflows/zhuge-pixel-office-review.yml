@@ -5,6 +5,7 @@ on:
       - review/pixel-office-homepage-20261018
       - review/pixel-office-furnishings-p1-20261018
       - review/pixel-office-roles-p2-20261018
+      - review/p2-issue-70-role-authority-20261019
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +37,8 @@ jobs:
           test "$(git -C /tmp/zhuge-habblaud rev-parse HEAD)" = "faa1a012b5fbf632c66dc6801c5383e53a542406"
       - name: Install exact upstream dependencies
         run: npm ci --prefix /tmp/zhuge-habblaud --ignore-scripts --no-audit --no-fund
+      - name: Verify fixed-role and live-source authority contract
+        run: node integrations/habblaud/bridge-test.mjs /tmp/zhuge-habblaud
       - name: Stage existing site then build real Habblaud pixel scene
         run: |
           node tools/build-pages-site.js /tmp/zhuge-pixel-pages

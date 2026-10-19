@@ -1,4 +1,4 @@
-import type { AgentInfo, AgentStatus, OfficeSnapshot, RoomInfo } from '../../../shared/types';
+import type { AgentInfo, OfficeSnapshot, RoomInfo } from '../../../shared/types';
 
 export interface ZhugeProjectStatus {
   project_name: string;
@@ -47,75 +47,20 @@ function seed(v: string): number {
 }
 
 export function convertStatusToPixelRooms(status: ZhugeProjectStatus, now = Date.now()): HabblaudRoomPayload[] {
-  const fresh = isFreshStatus(status, now);
-  const modules = Array.isArray(status.active_modules) ? status.active_modules.slice(0, 24) : [];
-  const blocked = Array.isArray(status.blocked_items) ? status.blocked_items : [];
-  const prs = Array.isArray(status.recent_prs) ? status.recent_prs.slice(0, 24) : [];
-  const rooms = modules.map((mod, index) => {
-    const name = safe(mod.name, 90) || '未命名模組';
-    const hold = blocked.find(b => b.module === name) || (index === 0 ? blocked.find(b => !b.module) : undefined);
-    const pr = prs[index];
-    const running = mod.status === 'running' || mod.status === 'working';
-    const statusLabel: HabblaudRoomPayload['agents'][number]['status'] =
-      hold ? 'waiting_input' : fresh && running ? 'working'
-      : mod.status === 'done' ? 'done' : 'idle';
-    const agent = {
-      id: 'zhuge-module-' + stableId(name),
-      name: safe(mod.owner, 80) || 'AI OS 狀態觀察員',
-      provider: 'codex' as const,
-      isSubagent: false,
-      status: statusLabel,
-      currentTask: hold ? '待裁示：' + safe(hold.title) : safe(mod.description) || name + '｜' + safe(mod.status),
-      detailText: hold ? '原因：' + safe(hold.reason) : '階段：' + safe(status.current_phase) + '／里程碑：' + safe(status.current_milestone),
-    };
-    const agents: HabblaudRoomPayload['agents'] = [agent];
-    if (pr && safe(pr.id)) {
-      agents.push({
-        id: 'zhuge-pr-' + stableId(pr.id),
-        name: 'PR 紀錄員 ' + safe(pr.id, 32),
-        provider: 'codex',
-        isSubagent: true,
-        status: pr.status === 'merged' ? 'done' : 'idle',
-        currentTask: '📦 PR 紀錄：' + safe(pr.title),
-        detailText: '上次同步狀態：' + safe(pr.status),
-        hasPackage: true,
-      });
-    }
-    return {
-      id: 'zhuge-room-' + stableId(name),
-      projectName: name,
-      // The native scene controls visible lights from agent presence/status.
-      lightsOn: !!hold || (fresh && running),
-      agents,
-    };
-  });
-  if (!rooms.length) {
-    const first = blocked[0];
-    rooms.push({
-      id: 'zhuge-room-hq', projectName: safe(status.project_name) || 'AI OS 指揮總部', lightsOn: true,
-      agents: [{
-        id: 'zhuge-hq-observer', name: 'AI OS 狀態觀察員', provider: 'codex',
-        isSubagent: false, status: first ? 'waiting_input' : 'idle',
-        currentTask: first ? '待裁示：' + safe(first.title) : safe(status.summary) || '等待下一次狀態更新',
-        detailText: first ? safe(first.reason) : '靜態狀態快照，不代表 CLI 已接單',
-      }],
-    });
-  }
-  return rooms;
+  // Project/PR snapshots are information, not evidence of a person or live
+  // session. They are deliberately rendered in the read-only HUD panel only.
+  void status;
+  void now;
+  return [];
 }
 
-/** Three decorative team characters. Not a provider, session, or work-status authority. */
+/** Fixed cast identity. These are scene roles, never provider/session/work evidence. */
 export const ZHUGE_CAST = [
-  { id: 'zhuge-crew-pm', name: 'PM', duty: '諸葛 AI OS 決策者', intro: '負責方向、裁示與作品驗收；點選可查看角色設定。' },
-  { id: 'zhuge-crew-codex', name: 'Codex', duty: '首席工程師／組長', intro: '負責主要開發與工程交付；雲端小幫手須等 P3 接上真實事件才能增生。' },
-  { id: 'zhuge-crew-gem', name: 'Gem', duty: '第二工程師／組長', intro: '負責獨立任務、前端與協作；此角色不代表 Gemini API 已連線。' },
+  { id: 'zhuge-crew-pm', name: 'Jackal', duty: 'PM／諸葛 AI OS 決策者', intro: '負責方向、裁示與作品驗收；這是固定像素角色。' },
+  { id: 'zhuge-crew-gpt', name: 'GPT', duty: 'PM 助理／協作 AI', intro: '負責規劃與審查；此固定角色不代表目前有背景工作正在執行。' },
+  { id: 'zhuge-crew-codex', name: 'Codex', duty: '首席工程師', intro: '負責主要開發交付；此固定角色不代表目前有 Codex Run 正在執行。' },
+  { id: 'zhuge-crew-gem', name: 'Gem', duty: '第二工程師', intro: '負責協作開發；此固定角色不代表 Gemini Provider 已連線。' },
 ] as const;
-
-function nativeStatus(v: HabblaudRoomPayload['agents'][number]['status']): AgentStatus {
-  if (v === 'waiting_permission' || v === 'waiting_input') return 'waiting';
-  if (v === 'running_cmd') return 'shell';
-  return v;
-}
 
 /** Convert to Habblaud's actual OfficeSnapshot contract so the procedural pixel renderer receives real room/agent data. */
 export function toOfficeSnapshot(
@@ -124,45 +69,27 @@ export function toOfficeSnapshot(
   rev: number,
   now = Date.now(),
   sessionStartedAt = now,
+  streamOpen = false,
 ): OfficeSnapshot {
-  const rooms = convertStatusToPixelRooms(status, now);
-  const startSlot = Math.max(-1, ...(live?.rooms || []).map(r => r.slot)) + 1;
-  const mappedRooms: RoomInfo[] = rooms.map((r, i) => ({
-    id: r.id, name: r.projectName, path: '/zhuge-ai-os/status/' + r.id,
-    slot: startSlot + i, seed: seed(r.id), createdAt: sessionStartedAt,
-  }));
-  const mappedAgents: AgentInfo[] = rooms.flatMap(room => room.agents.map(a => {
-    const s = nativeStatus(a.status);
-    const taskText = (isFreshStatus(status, now) ? '[狀態快照] ' : '[過期快照] ') + a.currentTask;
-    return {
-      id: a.id, kind: a.isSubagent ? 'sub' : 'main', provider: a.provider,
-      ...(a.isSubagent ? { parentId: room.agents[0].id } : {}),
-      roomId: room.id, name: a.name, look: 'm', role: a.isSubagent ? 'PR 狀態紀錄' : 'AI OS 狀態代理（非 CLI 真實連線）',
-      title: taskText, sessionId: 'zhuge-status-' + stableId(a.id), account: 'zhuge-status',
-      status: s, ...(s === 'waiting' ? { waitingFor: a.detailText } : {}),
-      activity: { id: a.id + '-' + rev, kind: s === 'waiting' ? 'ask' : 'plan', icon: s === 'waiting' ? '🙋' : '📋', text: taskText, detail: a.detailText, at: now },
-      recent: [], tasks: [], startedAt: sessionStartedAt, lastEventAt: now, statusSince: now,
-      stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
-      seed: seed(a.id),
-    } satisfies AgentInfo;
-  }));
-  // P2 fixed cast is a native Habblaud room, always idle even when the manual
-  // JSON looks fresh. Do not interpret an idle sprite as an authenticated CLI.
+  const verified = verifiedHabblaudSnapshot(live, streamOpen, now);
+  const startSlot = Math.max(-1, ...(verified?.rooms || []).map(r => r.slot)) + 1;
+  // Fixed roles are renderer characters, not connected CLI agents. Their
+  // account/session identifiers are explicitly synthetic and status is fixed idle.
   const crewRoomId = 'zhuge-room-crew';
   const crewRoom: RoomInfo = {
-    id: crewRoomId, name: '諸葛 AI OS｜角色辦公桌', path: '/zhuge-ai-os/crew',
-    slot: startSlot + mappedRooms.length, seed: seed(crewRoomId), createdAt: sessionStartedAt,
+    id: crewRoomId, name: '諸葛 AI OS｜固定角色', path: '/zhuge-ai-os/crew',
+    slot: startSlot, seed: seed(crewRoomId), createdAt: sessionStartedAt,
   };
   const crewAgents: AgentInfo[] = ZHUGE_CAST.map(member => ({
-    id: member.id, kind: 'main', provider: 'codex',
+    id: member.id, kind: 'main',
     roomId: crewRoomId, name: member.name, look: 'm',
-    role: '展示角色（非 CLI 真實連線）｜' + member.duty,
-    title: '待命展示｜尚無真實工程事件來源',
-    sessionId: 'zhuge-showcase-' + member.id, account: 'zhuge-showcase-only',
+    role: '固定像素角色（非真人位置／非 Provider Session）｜' + member.duty,
+    title: '固定角色｜尚無可驗證的即時工作狀態',
+    sessionId: 'zhuge-role-' + member.id, account: 'zhuge-fixed-cast',
     status: 'idle',
     activity: {
-      id: 'zhuge-showcase-intro-' + member.id,
-      kind: 'plan', icon: '👋', text: '待命展示｜非實際執行',
+      id: 'zhuge-role-intro-' + member.id,
+      kind: 'plan', icon: '👋', text: '固定像素角色｜非實際工作狀態',
       detail: member.intro, at: sessionStartedAt,
     },
     recent: [], tasks: [], startedAt: sessionStartedAt,
@@ -172,12 +99,69 @@ export function toOfficeSnapshot(
   }));
   return {
     rev, serverTime: now,
-    rooms: [...(live?.rooms || []), ...mappedRooms, crewRoom],
-    agents: [...(live?.agents || []), ...mappedAgents, ...crewAgents],
-    accounts: live?.accounts || [],
-    meta: live ? { ...live.meta, terminal: false, messages: false } : {
+    rooms: [...(verified?.rooms || []), crewRoom],
+    agents: [...(verified?.agents || []), ...crewAgents],
+    accounts: verified?.accounts || [],
+    meta: verified ? { ...verified.meta, terminal: false, messages: false } : {
       demo: false, sources: [], startedAt: sessionStartedAt, version: 'Zhuge Pixel v1 (snapshot)',
       terminal: false, messages: false,
+    },
+  };
+}
+
+/**
+ * A live Habblaud session is accepted only while its SSE is open and the
+ * payload proves a non-demo, active source + matching account + main agent.
+ * Static project status, demo snapshots, subagents and stale API snapshots
+ * cannot create people or change their work status.
+ */
+export function verifiedHabblaudSnapshot(
+  input: OfficeSnapshot | null,
+  streamOpen: boolean,
+  now = Date.now(),
+): OfficeSnapshot | null {
+  if (!streamOpen || !input || input.meta?.demo !== false ||
+      !Array.isArray(input.rooms) || !Array.isArray(input.agents) ||
+      !Array.isArray(input.accounts) || !Array.isArray(input.meta?.sources)) return null;
+  const serverTime = input.serverTime;
+  if (!Number.isFinite(serverTime) || serverTime > now + 60_000 || now - serverTime > 60_000) return null;
+  const accounts = new Map(input.accounts
+    .filter(a => a && typeof a.id === 'string' && a.id && !a.id.startsWith('demo:') && Number.isFinite(a.sessions) && a.sessions > 0)
+    .map(a => [a.id, a] as const));
+  const sources = new Map(input.meta.sources
+    .filter(s => s && s.ok === true && typeof s.label === 'string' && s.label &&
+      !s.label.startsWith('demo:') && Number.isFinite(s.sessions) && s.sessions > 0)
+    .map(s => [s.label, s] as const));
+  const agents = input.agents.filter(a => {
+    if (!a || a.kind !== 'main' || typeof a.id !== 'string' || !a.id || a.id.startsWith('demo:') ||
+        typeof a.roomId !== 'string' || !a.roomId || a.roomId.startsWith('demo:') ||
+        typeof a.sessionId !== 'string' || !a.sessionId || a.sessionId.startsWith('demo:') ||
+        typeof a.account !== 'string' || !a.account || a.status === 'offline' ||
+        !['working', 'waiting', 'idle', 'shell', 'done', 'offline'].includes(a.status) ||
+        (a.provider !== undefined && a.provider !== 'claude' && a.provider !== 'codex')) return false;
+    const account = accounts.get(a.account);
+    const source = sources.get(a.account);
+    const provider = a.provider ?? 'claude';
+    return !!account && !!source && (account.provider ?? 'claude') === provider &&
+      (source.provider ?? 'claude') === provider;
+  });
+  if (!agents.length) return null;
+  const roomIds = new Set(agents.map(a => a.roomId));
+  const accountIds = new Set(agents.map(a => a.account));
+  return {
+    ...input,
+    rooms: input.rooms.filter(r => roomIds.has(r.id) && !r.id.startsWith('demo:')),
+    agents,
+    accounts: input.accounts.filter(a => accountIds.has(a.id)).map(a => ({
+      ...a, email: undefined, organization: undefined, configDir: '',
+    })),
+    meta: {
+      ...input.meta,
+      sources: input.meta.sources.filter(s => sources.has(s.label) && accountIds.has(s.label)).map(s => ({
+        ...s, path: '', error: undefined,
+      })),
+      terminal: false,
+      messages: false,
     },
   };
 }

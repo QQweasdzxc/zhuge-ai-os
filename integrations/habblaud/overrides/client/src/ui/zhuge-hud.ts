@@ -34,6 +34,55 @@ export function showZhugeDecisions(): void {
   panel.append(list);
   panel.hidden = false;
 }
+/** Static modules and PRs remain a read-only project summary, never scene people. */
+export function showZhugeStatus(): void {
+  if (!current) return;
+  let panel = document.getElementById('zhuge-decision-panel');
+  if (!panel) {
+    panel = el('aside');
+    panel.id = 'zhuge-decision-panel';
+    document.body.append(panel);
+  }
+  panel.replaceChildren();
+  const close = el('button', '關閉');
+  close.setAttribute('type', 'button');
+  close.onclick = () => { if (panel) panel.hidden = true; };
+  const updated = Date.parse(current.updated_at);
+  const freshness = isFreshStatus(current) ? '快照仍在有效時間內' : '快照已過期';
+  const observed = Number.isFinite(updated) ? new Date(updated).toLocaleString('zh-TW') : '時間無效';
+  panel.append(el('h2', '專案狀態｜唯讀快照'), close,
+    el('p', current.project_name + '｜' + current.overall_status),
+    el('p', '最後更新：' + observed + '｜' + freshness),
+    el('p', '來源：status/project-status.json。這是靜態專案紀錄，不代表任何人或 AI 正在工作。'),
+    el('p', current.summary || '尚無摘要。'));
+  panel.append(el('h3', '模組資訊'));
+  if (current.active_modules.length) {
+    const modules = el('ul');
+    for (const item of current.active_modules) {
+      const row = el('li', item.name + '｜' + item.status + (item.description ? '｜' + item.description : ''));
+      modules.append(row);
+    }
+    panel.append(modules);
+  } else panel.append(el('p', '尚無模組快照。'));
+  panel.append(el('h3', 'GitHub PR 紀錄'));
+  if (current.recent_prs.length) {
+    const prs = el('ul');
+    for (const item of current.recent_prs) {
+      const row = el('li');
+      row.append(el('span', item.id + '｜' + item.title + '｜' + item.status));
+      if (item.url && /^https:\/\/github\.com\//.test(item.url)) {
+        const link = el('a', ' 開啟 GitHub');
+        (link as HTMLAnchorElement).href = item.url;
+        (link as HTMLAnchorElement).target = '_blank';
+        (link as HTMLAnchorElement).rel = 'noopener noreferrer';
+        row.append(link);
+      }
+      prs.append(row);
+    }
+    panel.append(prs);
+  } else panel.append(el('p', '尚無 PR 紀錄。'));
+  panel.hidden = false;
+}
 /** Accessible roster uses the existing modal; it never overrides runtime status. */
 export function showZhugeRole(agentId: string): void {
   const role = ZHUGE_CAST.find(candidate => candidate.id === agentId);
@@ -45,7 +94,7 @@ export function showZhugeRole(agentId: string): void {
     document.body.append(panel);
   }
   panel.replaceChildren();
-  const title = el('h2', '三位主角 · 角色介紹');
+  const title = el('h2', '固定角色 · 角色介紹');
   const close = el('button', '關閉');
   close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
@@ -63,7 +112,7 @@ export function showZhugeRole(agentId: string): void {
   const content = el('p', role.intro);
   const status = el('p', '目前呈現：角色待命（場景裝飾）');
   status.className = 'zhuge-role-label';
-  const truth = el('p', '資料說明：這不是 Co、Gem、PM 的即時 CLI／任務執行證明。真正自動狀態與雲端小幫手會在 P3 接通事件後才顯示。');
+  const truth = el('p', '資料說明：固定像素角色不是真人位置或 Provider Session，也不代表 AI 正在工作。即時工程狀態只在可信來源驗證成功時顯示。');
   truth.className = 'zhuge-role-provenance';
   panel.append(title, close, roster, name, content, status, truth);
   panel.hidden = false;
@@ -85,6 +134,9 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const milestone = el('span', '里程碑：' + status.current_milestone);
   const blocked = el('button', '🙋 ' + (status.blocked_items?.length || 0) + ' 項待裁示');
   blocked.addEventListener('click', () => showZhugeDecisions());
+  const project = el('button', '📋 專案狀態');
+  project.setAttribute('type', 'button');
+  project.addEventListener('click', () => showZhugeStatus());
   const roster = el('button', '👥 人員');
   roster.setAttribute('type', 'button');
   roster.addEventListener('click', () => showZhugeRole(ZHUGE_CAST[0].id));
@@ -92,5 +144,5 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const classic = el('a', '經典報表');
   (classic as HTMLAnchorElement).href = new URL('../status-classic.html', location.href).href;
   (classic as HTMLAnchorElement).target = '_top';
-  bar.append(dot, title, phase, milestone, blocked, roster, source, classic);
+  bar.append(dot, title, phase, milestone, blocked, project, roster, source, classic);
 }

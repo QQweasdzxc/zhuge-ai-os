@@ -5,24 +5,37 @@ const fs = require("node:fs");
 const path = require("node:path");
 const read = p => fs.readFileSync(path.resolve(__dirname, "..", p), "utf8");
 
-test("P2 three named native roles with stable idle/synthetic provenance", () => {
+test("P2 fixed cast authority is Jackal/GPT/Codex/Gem and never impersonates a Provider session", () => {
   const bridge = read("integrations/habblaud/overrides/client/src/adapters/zhuge-bridge.ts");
-  for (const id of ["zhuge-crew-pm", "zhuge-crew-codex", "zhuge-crew-gem"])
+  for (const id of ["zhuge-crew-pm", "zhuge-crew-gpt", "zhuge-crew-codex", "zhuge-crew-gem"])
     assert.ok(bridge.includes(id), "missing crew character " + id);
   assert.match(bridge, /crewRoom: RoomInfo/);
   assert.match(bridge, /crewAgents: AgentInfo\[\]/);
   assert.match(bridge, /status: 'idle'/);
-  assert.match(bridge, /zhuge-showcase-only/);
-  assert.match(bridge, /尚無真實工程事件來源/);
+  assert.match(bridge, /name: 'Jackal'/);
+  assert.match(bridge, /name: 'GPT'/);
+  assert.match(bridge, /zhuge-fixed-cast/);
+  assert.match(bridge, /尚無可驗證的即時工作狀態/);
+  assert.match(bridge, /固定像素角色（非真人位置／非 Provider Session）/);
+  assert.doesNotMatch(bridge, /zhuge-module-|zhuge-pr-|AI OS 狀態觀察員/);
+  assert.match(bridge, /verifiedHabblaudSnapshot/);
+  assert.match(bridge, /input\.meta\?\.demo !== false/);
+  assert.match(bridge, /streamOpen/);
   assert.doesNotMatch(bridge.slice(bridge.indexOf("const crewAgents"),bridge.indexOf("return {",bridge.indexOf("const crewAgents"))), /status:\s*['"]working['"]/);
 });
-test("P2 native clicking a cast member opens readable role dossier; others retain decisions", () => {
+test("P2 static modules/PRs are visible as read-only information; people statuses require a verified live source", () => {
   const entry = read("integrations/habblaud/overrides/client/src/adapters/zhuge-entry.ts");
   const hud = read("integrations/habblaud/overrides/client/src/ui/zhuge-hud.ts");
+  const bridge = read("integrations/habblaud/overrides/client/src/adapters/zhuge-bridge.ts");
   assert.match(entry, /showZhugeRole\(sel\.id\)/);
   assert.match(entry, /showZhugeDecisions/);
+  assert.match(entry, /showZhugeStatus/);
+  assert.match(entry, /this\.native\?\.readyState === EventSource\.OPEN/);
   assert.match(hud, /showZhugeRole/);
-  assert.match(hud, /不是 Co、Gem、PM 的即時 CLI/);
+  assert.match(hud, /showZhugeStatus/);
+  assert.match(hud, /靜態專案紀錄，不代表任何人或 AI 正在工作/);
+  assert.match(hud, /noopener noreferrer/);
+  assert.match(bridge, /return \[\];/);
   assert.doesNotMatch(hud, /innerHTML/);
   assert.match(hud, /zhuge-role-roster/);
 });

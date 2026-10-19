@@ -1,8 +1,8 @@
 import type { OfficeSnapshot } from '../../../shared/types';
 import type { OfficeStore, EventSourceLike } from '../net/store';
 import type { WorldApi } from '../world/api';
-import { fallbackProjectStatus, syncAiOsStatus, toOfficeSnapshot, type ZhugeProjectStatus } from './zhuge-bridge';
-import { mountZhugeHud, showZhugeDecisions, showZhugeRole } from '../ui/zhuge-hud';
+import { fallbackProjectStatus, syncAiOsStatus, toOfficeSnapshot, verifiedHabblaudSnapshot, type ZhugeProjectStatus } from './zhuge-bridge';
+import { mountZhugeHud, showZhugeDecisions, showZhugeRole, showZhugeStatus } from '../ui/zhuge-hud';
 
 /** Habblaud-compatible SSE facade. Static JSON is read every 15s, and real CLI SSE is merged if present. */
 class ZhugeStream implements EventSourceLike {
@@ -26,8 +26,11 @@ class ZhugeStream implements EventSourceLike {
     this.listeners.get(type)?.forEach(fn => fn(event));
   }
   private publish(): void {
-    this.emit('snapshot', toOfficeSnapshot(this.status, this.live, ++this.rev, Date.now(), this.startedAt));
-    mountZhugeHud(this.status, !!this.live);
+    const now = Date.now();
+    const connected = verifiedHabblaudSnapshot(this.live, this.native?.readyState === EventSource.OPEN, now);
+    this.emit('snapshot', toOfficeSnapshot(this.status, this.live, ++this.rev, now, this.startedAt,
+      this.native?.readyState === EventSource.OPEN));
+    mountZhugeHud(this.status, !!connected);
   }
   private async refresh(): Promise<void> {
     await syncAiOsStatus('../status/project-status.json', status => {
@@ -46,6 +49,7 @@ class ZhugeStream implements EventSourceLike {
         if (Array.isArray(candidate.rooms) && Array.isArray(candidate.agents) && candidate.meta) {
           this.live = candidate;
           this.native = new EventSource(this.url);
+          this.native.addEventListener('open', () => this.publish());
           this.native.addEventListener('snapshot', event => {
             try {
               const v: OfficeSnapshot = JSON.parse((event as MessageEvent).data);
