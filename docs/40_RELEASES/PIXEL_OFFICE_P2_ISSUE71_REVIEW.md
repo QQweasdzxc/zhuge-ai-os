@@ -2,8 +2,8 @@
 
 ## Identity
 
-- Version: `0.9.0-alpha.9.80`
-- Build: `20261019-1458`
+- Version: `0.9.0-alpha.9.81`
+- Build: `20261019-1512`
 - Base: Issue #70 candidate `6136841e9a3f1e51b0cfc18b0a2dd87b15f31c6d`
 - Upstream Habblaud: `faa1a012b5fbf632c66dc6801c5383e53a542406` (MIT; unchanged)
 - Status: isolated candidate only; no main merge or production deployment.
