@@ -33,11 +33,18 @@ const overlay = path.join(ROOT, 'integrations/habblaud/overrides/client/src');
 for (const r of [
   'adapters/zhuge-bridge.ts', 'adapters/zhuge-entry.ts',
   'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts',
+  'world/layout/zhuge-reception.ts', 'world/layout/zhuge-reception.test.ts',
 ]) {
   const target = file('client/src/' + r);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(path.join(overlay, r), target);
 }
+change('client/src/world/layout/core.ts',
+  "import type { WallStyle } from '../../art/api';",
+  "import type { WallStyle } from '../../art/api';\nimport { integrateZhugeReception } from './zhuge-reception';");
+change('client/src/world/layout/core.ts',
+  "  return a;\n}\n\nexport function layoutRestroom()",
+  "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
 change('client/src/app.ts',
   "import { OfficeStore } from './net/store';",
   "import { OfficeStore } from './net/store';\nimport { createZhugeStream, bootAiOsPixelHomepage } from './adapters/zhuge-entry';");

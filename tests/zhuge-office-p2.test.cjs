@@ -3,6 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const root = path.resolve(__dirname, "..");
 const read = p => fs.readFileSync(path.resolve(__dirname, "..", p), "utf8");
 
 test("P2 fixed cast authority is Jackal/GPT/Codex/Gem and never impersonates a Provider session", () => {
@@ -52,4 +53,16 @@ test("P2 work descriptions preserve P1 primary destination, new-tab security, di
   assert.match(css, /\.zgf-work-details\[hidden\]/);
   assert.match(css, /\.zgf-medal-info/);
   assert.match(css, /max-width:700px/);
+});
+test("P2 native room overlay is applied only to the pinned upstream Reception and keeps the vendor untouched", () => {
+  const build = read("integrations/habblaud/build.mjs");
+  const overlay = read("integrations/habblaud/overrides/client/src/world/layout/zhuge-reception.ts");
+  assert.match(build, /integrateZhugeReception\(a, wall\)/);
+  assert.match(build, /world\/layout\/zhuge-reception\.ts/);
+  assert.match(overlay, /core:recepcao/);
+  assert.match(overlay, /b\.cap\(8\.5, 2, 0\.5, 7, wall\)/);
+  assert.match(overlay, /b\.south\(8\.5, 7, 9, wall, \[\{ lx: 11, w: 2 \}\]\)/);
+  assert.match(overlay, /b\.block\(8, 2, 1, 7\)/);
+  assert.match(overlay, /'meeting_table'/);
+  assert.equal(require("node:child_process").execFileSync("git", ["status", "--short", "third_party/multica"], { cwd: root, encoding: "utf8" }), "");
 });

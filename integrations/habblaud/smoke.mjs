@@ -106,7 +106,16 @@ try {
   if (worklog !== base + '/modules/worklog/' || investment !== base + '/modules/investment/') {
     throw new Error('Product medals resolve outside current Pages root: ' + worklog + ', ' + investment);
   }
-  await page.locator('.zgf-meeting').click();
+  if (await page.locator('.zgf-meeting, .zgf-door-art').count()) throw new Error('old floating meeting-room mock remains');
+  const awardWall = await page.locator('#zgf-trophy-board').boundingBox();
+  if (!awardWall || awardWall.x < 0 || awardWall.x + awardWall.width > 1280 || awardWall.x > 1280 * 0.6 || await page.locator('#zgf-trophy-board').getAttribute('data-scene-anchor') !== 'core:recepcao') {
+    throw new Error('award information is no longer anchored to the indoor Reception: ' + JSON.stringify(awardWall));
+  }
+  const desktopToggle = page.locator('.zgf-board-toggle');
+  if (await desktopToggle.getAttribute('aria-expanded') !== 'false') throw new Error('award info board must start collapsed so the native room is visible');
+  await desktopToggle.click();
+  if (await desktopToggle.getAttribute('aria-expanded') !== 'true') throw new Error('desktop award info board did not expand');
+  await page.locator('.zgf-rack [data-zgf-pending="cockpit"]').click();
   const message = await page.locator('.zgf-toast:not([hidden])').innerText();
   if (!message.includes('連結待 PM 補充')) throw new Error('Unverified cockpit URL was not treated as pending');
   await page.locator('[data-zgf-pending="tools"]').click();
@@ -124,20 +133,32 @@ try {
   await page.locator('.zgf-work-close').click();
   await page.locator('#zgf-work-details').waitFor({state:'hidden',timeout:2000});
   await page.locator('.zgf-toast').evaluate(element => { element.hidden = true; });
+  await desktopToggle.click();
+  if (await desktopToggle.getAttribute('aria-expanded') !== 'false') throw new Error('desktop award info board did not collapse');
   const shotDir = process.env.PIXEL_SCREENSHOT_DIR;
   if (shotDir) {
     fs.mkdirSync(shotDir, {recursive: true});
     await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-desktop-1280.png'), fullPage: false});
   }
+  for (const viewport of [{width:1440,height:900},{width:1920,height:1080}]) {
+    await page.setViewportSize(viewport);
+    const boardBox = await page.locator('#zgf-trophy-board').boundingBox();
+    if (!boardBox || boardBox.x + boardBox.width > viewport.width || boardBox.x < 0 || await frame.locator('canvas#world').count() !== 1) {
+      throw new Error('desktop native room/award panel is clipped at ' + JSON.stringify(viewport));
+    }
+    if (shotDir) await page.screenshot({path: path.join(shotDir, `pixel-p2-71-desktop-${viewport.width}x${viewport.height}.png`), fullPage:false});
+  }
+  await page.setViewportSize({width:1280,height:780});
   await page.setViewportSize({width:390,height:844});
   const toggle = page.locator('.zgf-board-toggle');
   const beforeToggle = await toggle.getAttribute('aria-expanded');
+  if (beforeToggle !== 'false') throw new Error('mobile award information should start collapsed');
+  if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-390.png'), fullPage: false});
   await toggle.click();
   const afterToggle = await toggle.getAttribute('aria-expanded');
   if (beforeToggle === afterToggle) throw new Error('Mobile trophy wall cannot expand/collapse');
-  if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-390.png'), fullPage: false});
-  await toggle.click();
   if (shotDir) await page.screenshot({path: path.join(shotDir, 'pixel-furnishings-mobile-expanded-390.png'), fullPage: false});
+  await toggle.click();
   await frame.locator('#zhuge-aios-hud button').nth(1).click();
   await frame.locator('#zhuge-decision-panel:not([hidden])').waitFor({timeout:2000});
   const mobileStatusBox = await frame.locator('#zhuge-decision-panel').boundingBox();

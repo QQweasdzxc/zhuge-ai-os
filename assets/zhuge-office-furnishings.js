@@ -13,7 +13,7 @@
   // AI Command Cockpit and TF-03 download have NOT been supplied or verified by PM.
   // Do not guess a URL or turn a placeholder into a fake download.
   const pending = Object.freeze({
-    cockpit: "AI 指揮艙正式連結待 PM 補充，會議室已保留位置。",
+    cockpit: "接待區內已設置獨立會議室；AI 指揮艙正式連結待 PM 補充。",
     tools: "TF-03 駕駛艙 v1.0.1 正式下載來源尚待驗證，不提供假下載。"
   });
 
@@ -63,6 +63,7 @@
 
     const board = node("section", "zgf-awards");
     board.id = "zgf-trophy-board";
+    board.dataset.sceneAnchor = "core:recepcao";
     board.setAttribute("aria-label", "Zhuge AI OS 作品獎牌牆");
     const boardHeader = node("div", "zgf-board-header");
     boardHeader.append(node("span", "zgf-board-title", "★ 作品獎牌牆"));
@@ -127,7 +128,9 @@
       toggle.textContent = open ? "−" : "+";
       if (!open) details.hidden = true;
     }
-    setBoard(!window.matchMedia("(max-width: 700px)").matches);
+    // Keep the native Habblaud room visible on first paint. The real award
+    // plaques live on its interior wall; open this compact info board on demand.
+    setBoard(false);
     toggle.addEventListener("click", function () { setBoard(board.dataset.open !== "true"); });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") details.hidden = true;
@@ -140,19 +143,10 @@
       furniture("打卡鐘", "WL", "WorkLog 工時", routes.worklog, "worklog"),
       furniture("行情電視", "IV", "Investment 投資", routes.investment, "investment"),
       furniture("工具櫃", "03", "TF-03 待補下載", null, "tools"),
-      furniture("檔案櫃", "檔", "經典狀態報表", routes.classic, "classic")
+      furniture("檔案櫃", "檔", "經典狀態報表", routes.classic, "classic"),
+      furniture("會議室", "會", "AI 指揮艙連結待補", null, "cockpit")
     );
-
-    const meeting = node("button", "zgf-meeting");
-    meeting.type = "button";
-    meeting.dataset.zgfPending = "cockpit";
-    meeting.setAttribute("aria-label", "會議室：AI 指揮艙連結待 PM 補充");
-    meeting.setAttribute("aria-description", "目前只有門牌，不會開啟其他頁面");
-    meeting.title = "會議室｜AI 指揮艙（連結待補）";
-    meeting.append(node("span", "zgf-door-sign", "會議室"), node("span", "zgf-door-art"), node("span", "zgf-door-caption", "指揮艙 · 待補"));
-    meeting.addEventListener("click", function () { tell(pending.cockpit); });
-
-    root.append(board, rack, meeting, toast);
+    root.append(board, rack, toast);
     document.body.append(root);
 
     // Native Habblaud modal must ALWAYS win: do not cover its close/decision controls.
