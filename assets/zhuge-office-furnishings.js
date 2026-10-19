@@ -144,7 +144,7 @@
       furniture("行情電視", "IV", "Investment 投資", routes.investment, "investment"),
       furniture("工具櫃", "03", "TF-03 待補下載", null, "tools"),
       furniture("檔案櫃", "檔", "經典狀態報表", routes.classic, "classic"),
-      furniture("會議室", "會", "AI 指揮艙連結待補", null, "cockpit")
+      furniture("AI 指揮艙", "艙", "正式連結待補，主樓內另有原生會議室", null, "cockpit")
     );
     root.append(board, rack, toast);
     document.body.append(root);

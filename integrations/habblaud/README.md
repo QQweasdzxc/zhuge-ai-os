@@ -41,3 +41,10 @@ Review workflow `zhuge-pixel-office-review.yml` 在分支 `review/pixel-office-h
 - 將 `docs/status/project-status.json` 由真實且已核准的來源自動更新；目前為初始靜態快照，過期後要顯示 stale。
 
 **不要把 Review 分支已提交當成正式網站已改版。**
+
+## P2 #91｜Native Mobile Camera/入口文案（.9.89 Review）
+
+- 延用 pinned Habblaud 原生 Camera / WalkGrid / Room，手機直式第一次進站聚焦約 2.55 欄核心辦公區，減少遠端草地視覺；原生 `overview` 按鈕仍提供全棟總覽，原生平移與縮放保留，橫式回到全樓概覽。
+- 可見的底部 `AI 指揮艙` 尚未取得已核實目的網址，保持 PENDING；主樓東側已有真正 Habblaud 原生會議室，前述待補入口不得稱為第二個會議室。
+- 本次尚未完成全面房間美術改造或新像素素材；ClawLibrary 為空間設計參考，不改成 Phaser，也不直接搬用其受限素材。
+- 實際手機 Safari、原生房間標籤完成度、夜間畫面品質，必須用新正式 Build 的 screenshot / runtime QA 驗證，不得用來源合約測試冒稱 visually accepted。

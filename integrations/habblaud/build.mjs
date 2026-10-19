@@ -48,6 +48,38 @@ change('client/src/world/layout/core.ts',
 change('client/src/world/layout/core.ts',
   "  return a;\n}\n\nexport function layoutRestroom()",
   "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
+// P2 #91: phone portrait starts with a native camera closeup, not an entire zoomed-out campus.
+// Keep the existing world, all tiles, user pan/pinch controls and the native Overview button.
+change('client/src/world/index.ts',
+  "  const overview = (animate = true) => {",
+  `  const firstScreenOfficeTarget = () => {
+    const b = buildingRect();
+    // Approx. 2.5 columns: show the original common rooms plus adjacent work areas.
+    const focus = { x: COL_W * TILE * 0.35, y: b.y, w: COL_W * TILE * 2.55, h: b.h };
+    const z = Math.min(2.5, Math.max(camera.minZoom, camera.fitZoom(focus, 18)));
+    const c = camera.centerFor(focus.x + focus.w / 2, focus.y + focus.h / 2, z);
+    return { x: c.x, y: c.y, zoom: z };
+  };
+  const firstScreenPortrait = () => camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;
+  const firstScreenOffice = (animate = false) => {
+    camera.follow = null;
+    const o = firstScreenPortrait() ? firstScreenOfficeTarget() : overviewTarget();
+    if (animate) camera.animateTo(o.x, o.y, o.zoom, Date.now(), 420);
+    else {
+      camera.stop(); camera.x = o.x; camera.y = o.y; camera.zoom = o.zoom; camera.clamp();
+    }
+  };
+
+  const overview = (animate = true) => {`);
+change('client/src/world/index.ts',
+  "          overview(false);\n          framed = true;",
+  "          firstScreenOffice(false);\n          framed = true;");
+change('client/src/world/index.ts',
+  "        } else if (!userMoved) overview(true);",
+  "        } else if (!userMoved) firstScreenOffice(true);");
+change('client/src/world/index.ts',
+  "    camera.setView(w, h, dpr);\n    updateBounds();",
+  "    const oldPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    camera.setView(w, h, dpr);\n    updateBounds();\n    const newPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    if (framed && !userMoved && oldPortrait !== newPortrait) firstScreenOffice(false);");
 // Native A* already follows the real WalkGrid. Its no-path fallback teleported
 // a character onto an unreachable goal; keep the Habblaud Sim, but fail closed.
 change('client/src/world/sim/sim.ts',

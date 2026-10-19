@@ -195,6 +195,17 @@ try {
   }
   await page.setViewportSize({width:1280,height:780});
   await page.setViewportSize({width:390,height:844});
+  // The phone's native first frame focuses a legible part of the office.
+  // Do not assert pixel-perfect zoom levels: use the real native renderer camera.
+  await frame.locator('canvas#world').waitFor({state:'visible'});
+  await page.waitForTimeout(600);
+  const initialMobileCamera = await frame.locator('body').evaluate(() => {
+    const c = window.habblaud?.world?.debug?.camera;
+    return c ? {zoom:c.zoom,viewW:c.viewW,viewH:c.viewH} : null;
+  });
+  if (initialMobileCamera && (initialMobileCamera.zoom <= 0 || initialMobileCamera.viewW <= 0)) {
+    throw new Error('Invalid mobile native office camera: ' + JSON.stringify(initialMobileCamera));
+  }
   const hudMenu = frame.locator('.zhuge-hud-menu-toggle');
   if (await hudMenu.getAttribute('aria-expanded') !== 'false') throw new Error('Mobile engineering HUD must start compact');
   await hudMenu.click();
