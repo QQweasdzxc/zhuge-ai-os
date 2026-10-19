@@ -2,8 +2,8 @@
 (function (global) {
   const config = global.ZhugeFoundationConfig || {};
   config.version = Object.freeze({
-    version: "0.9.0-alpha.9.83",
-    build: "20261019-1715",
+    version: "0.9.0-alpha.9.84",
+    build: "20261019-1724",
     foundation: "1.0",
     module: "Zhuge AI OS",
     moduleVersion: "0.9",
