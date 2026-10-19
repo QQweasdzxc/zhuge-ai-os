@@ -11,6 +11,7 @@ on:
       - review/p2-issue-73-weather-20261019
       - review/p2-issue-74-ai-work-status-20261019
       - review/p2-issue-75-helper-lifecycle-20261019
+      - review/p2-issue-75-gpt-helper-lifecycle-20261019
   workflow_dispatch:
 permissions:
   contents: read

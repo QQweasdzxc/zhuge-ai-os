@@ -1,6 +1,6 @@
 # P2 Issue #75 — GPT Helper Lifecycle Candidate
 
-- Version / Build: `0.9.0-alpha.9.85` / `20261019-1737`
+- Version / Build: `0.9.0-alpha.9.86` / `20261019-1745`
 - Parent candidate: #74 `306179accb87742a5afc08802ea968f7969cfd70` (`.9.84`)
 - Formal baseline: main `.9.76` `a9db9b2fe3051e22d59e52ad083c8d54d12dba62`
 
