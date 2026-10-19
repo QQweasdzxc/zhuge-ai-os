@@ -58,11 +58,18 @@ try {
   const stableCameraAudit = await phone.evaluate(() => {
     const d = window.habblaud.world.debug;
     const c = d.camera;
+    const reception = d.sim.building.core.find(a => a.id === 'core:recepcao');
+    const visibleLeft = c.x - c.viewW / (2 * c.zoom);
+    const visibleRight = c.x + c.viewW / (2 * c.zoom);
     return {
       zoom:c.zoom,
       fullZoom:c.fitZoom({x:0,y:0,w:d.sim.building.cols*16*16,h:29*16},16),
       cols:d.sim.building.cols,
       lang:document.documentElement.lang,
+      visibleLeft,
+      visibleRight,
+      awards:{left:(reception.rect.x + 9.2) * 16,right:(reception.rect.x + 13.8) * 16},
+      meeting:{left:(reception.rect.x + 8.5) * 16,right:(reception.rect.x + 15.5) * 16},
     };
   });
   if (stableCameraAudit.lang !== 'zh-TW' || stableCameraAudit.zoom <= stableCameraAudit.fullZoom * 1.03) {
@@ -72,6 +79,12 @@ try {
   // instead of a 3-column building strip surrounded by grass.
   if (stableCameraAudit.zoom < 1.13) {
     throw new Error('Phone office is still too small to read: ' + JSON.stringify(stableCameraAudit));
+  }
+  if (stableCameraAudit.visibleLeft > stableCameraAudit.awards.left ||
+      stableCameraAudit.visibleRight < stableCameraAudit.awards.right ||
+      stableCameraAudit.visibleLeft > stableCameraAudit.meeting.left ||
+      stableCameraAudit.visibleRight < stableCameraAudit.meeting.right) {
+    throw new Error('Portrait home frame must show the native indoor awards and enclosed meeting room: ' + JSON.stringify(stableCameraAudit));
   }
   const phoneShots = process.env.PIXEL_SCREENSHOT_DIR;
   if (phoneShots) {
@@ -98,6 +111,15 @@ try {
     return { rooms:s?.rooms?.length || 0, agents:s?.agents?.length || 0, waiting:s?.agents?.filter(a=>a.status==='waiting').length||0 };
   });
   if (snapshot.rooms !== 1 || snapshot.agents !== 4 || snapshot.waiting !== 0) throw new Error('Static project status created people or changed work state: ' + JSON.stringify(snapshot));
+  const localizedNativeControls = await frame.locator('body').evaluate(() => ({
+    searchPlaceholder: document.querySelector('.ui-search__input')?.getAttribute('placeholder'),
+    feedEmpty: document.querySelector('.ui-feed__empty')?.textContent?.trim(),
+  }));
+  if (localizedNativeControls.searchPlaceholder !== '搜尋人員、專案或帳號' ||
+      localizedNativeControls.feedEmpty !== '工程動態會在事件發生後顯示於此。' ||
+      /Buscar agente|Os eventos dos agentes/.test(JSON.stringify(localizedNativeControls))) {
+    throw new Error('Native Habblaud high-visibility controls must be fully localized in zh-TW: ' + JSON.stringify(localizedNativeControls));
+  }
   // P2: four fixed native-renderer role characters, ALWAYS idle and explicitly non-provider.
   const crew = await frame.locator('body').evaluate(() => {
     const s = window.habblaud?.store?.snapshot;
@@ -242,9 +264,52 @@ try {
     }
     if (shotDir) await page.screenshot({path: path.join(shotDir, `pixel-p2-71-desktop-${viewport.width}x${viewport.height}.png`), fullPage:false});
   }
+  const tablet = await browser.newPage({viewport:{width:900,height:1200},locale:'zh-TW'});
+  tablet.on('pageerror', error => failures.push('native-tablet: ' + error.message));
+  await tablet.goto(base + '/', {waitUntil:'domcontentloaded'});
+  const tabletFrameLocator = tablet.frameLocator('iframe');
+  await tabletFrameLocator.locator('#zhuge-aios-hud').waitFor({timeout:30000});
+  await tablet.waitForFunction(() => {
+    const camera = document.querySelector('iframe')?.contentWindow?.habblaud?.world?.debug?.camera;
+    return camera?.viewW === 900 && camera.zoom >= 1.13;
+  }, null, {timeout:30000});
+  const tabletAudit = await tablet.evaluate(() => {
+    const rect = selector => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const r = element.getBoundingClientRect();
+      return {x:r.x,right:r.right};
+    };
+    const d = document.querySelector('iframe')?.contentWindow?.habblaud?.world?.debug;
+    const c = d?.camera;
+    const reception = d?.sim?.building?.core?.find(a => a.id === 'core:recepcao');
+    return {
+      viewport:{width:innerWidth,height:innerHeight},
+      scrollWidth:document.documentElement.scrollWidth,
+      iframe:rect('iframe'),
+      awards:rect('#zgf-trophy-board'),
+      camera:c && reception ? {
+        zoom:c.zoom,
+        portrait:c.viewH > c.viewW * 1.12,
+        visibleLeft:c.x - c.viewW / (2 * c.zoom),
+        visibleRight:c.x + c.viewW / (2 * c.zoom),
+        awardsLeft:(reception.rect.x + 9.2) * 16,
+        awardsRight:(reception.rect.x + 13.8) * 16,
+      } : null,
+    };
+  });
+  if (tabletAudit.viewport.width !== 900 || tabletAudit.scrollWidth > 901 ||
+      !tabletAudit.iframe || tabletAudit.iframe.x < 0 || tabletAudit.iframe.right > 901 ||
+      !tabletAudit.awards || tabletAudit.awards.x < 0 || tabletAudit.awards.right > 901 ||
+      !tabletAudit.camera?.portrait || tabletAudit.camera.zoom < 1.13 ||
+      tabletAudit.camera.visibleLeft > tabletAudit.camera.awardsLeft || tabletAudit.camera.visibleRight < tabletAudit.camera.awardsRight) {
+    throw new Error('Portrait tablet must show the native awards in a legible, non-overflowing frame: ' + JSON.stringify(tabletAudit));
+  }
+  if (shotDir) await tablet.screenshot({path:path.join(shotDir,'pixel-p2-narrow-desktop-900x1200.png'),fullPage:false});
+  await tablet.close();
   await page.setViewportSize({width:1280,height:780});
   await page.setViewportSize({width:390,height:844});
-  // The phone's native first frame focuses a legible part of the office.
+  // The phone's native first frame prioritizes the indoor awards and meeting room.
   // Do not assert pixel-perfect zoom levels: use the real native renderer camera.
   await frame.locator('canvas#world').waitFor({state:'visible'});
   await page.waitForTimeout(600);
@@ -327,6 +392,11 @@ try {
       !landscapeAwards || landscapeAwards.x < 0 || landscapeAwards.y < 0 || landscapeAwards.x + landscapeAwards.width > 844 || landscapeAwards.y + landscapeAwards.height > 390) {
     throw new Error('Mobile landscape native scene or HUD is not visible inside the viewport: ' + JSON.stringify({landscapeCanvas,landscapeHud,landscapeAwards}));
   }
+  const landscapeMenu = frame.locator('.zhuge-hud-menu-toggle');
+  const landscapeMenuBox = await landscapeMenu.boundingBox();
+  if (!landscapeMenuBox || await landscapeMenu.getAttribute('aria-expanded') !== 'false') {
+    throw new Error('Short landscape viewport must use the collapsed HUD instead of clipping the long status bar');
+  }
   const landscapeToggle = page.locator('.zgf-board-toggle');
   await landscapeToggle.click();
   if (await landscapeToggle.getAttribute('aria-expanded') !== 'true') throw new Error('Mobile landscape award wall cannot expand');
@@ -340,7 +410,7 @@ try {
   const docsWorklog = await page.locator('#zgf-trophy-board [data-zgf-work="worklog"]').getAttribute('href');
   if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal details, P1 links, classic and docs entry');
+  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, zh-TW visible controls, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal details, entrance camera shows awards+meeting room on phone/tablet portrait, compact landscape HUD, P1 links, classic and docs entry');
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));

@@ -7,7 +7,7 @@ const build = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/
 const furnishings = fs.readFileSync(path.join(__dirname, '..', 'assets/zhuge-office-furnishings.js'),'utf8');
 test('native camera starts mobile portrait focused without replacing overview controls',()=>{
   assert.match(build,/firstScreenOfficeTarget/);
-  assert.match(build, /COL_W \* TILE \* 1\.65/);
+  assert.match(build, /const focus = \{ x: 0, y: b\.y, w: COL_W \* TILE, h: b\.h \}/);
   assert.match(build, /const detailZoom = Math\.min\(1\.30, freeHeight \/ b\.h\)/);
   assert.match(build,/if \(!userMoved && framed\) firstScreenOffice\(true\)/);
   const smokeText = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/smoke.mjs'),'utf8');
@@ -19,6 +19,7 @@ test('native camera starts mobile portrait focused without replacing overview co
   assert.match(smoke,/pixel-p2-first-screen-day-390x844/);
   assert.match(smoke,/cameraAudit\.fullZoom/);
   assert.match(build,/firstScreenPortrait/);
+  assert.match(build,/camera\.viewW <= 980 && camera\.viewH > camera\.viewW \* 1\.12/);
   assert.match(build,/firstScreenOffice\(false\)/);
   assert.match(build,/if \(framed && !userMoved && oldPortrait !== newPortrait\) firstScreenOffice\(false\)/);
   assert.match(build,/const overview = \(animate = true\)/);

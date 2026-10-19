@@ -14,6 +14,7 @@ test('mobile HUD is compact by default, expandable and keeps real engineering co
   assert.match(ts, /showZhugeDecisions/);
   assert.match(ts, /showZhugeRole/);
   assert.match(css, /@media\(max-width:700px\)/);
+  assert.match(css, /max-height:520px\) and \(max-width:900px/);
   assert.match(css, /data-open="true"/);
   assert.match(css, /safe-area-inset-top/);
 });

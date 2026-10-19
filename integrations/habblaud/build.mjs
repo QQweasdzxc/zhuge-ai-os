@@ -48,15 +48,15 @@ change('client/src/world/layout/core.ts',
 change('client/src/world/layout/core.ts',
   "  return a;\n}\n\nexport function layoutRestroom()",
   "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
-// P2 #91: phone portrait starts with a native camera closeup, not an entire zoomed-out campus.
-// Keep the existing world, all tiles, user pan/pinch controls and the native Overview button.
+// P2 #91: portrait starts on the native Reception awards + enclosed meeting room,
+// while preserving native pan/pinch/overview access to the rest of the campus.
 change('client/src/world/index.ts',
   "  const overview = (animate = true) => {",
   `  const firstScreenOfficeTarget = () => {
     const b = buildingRect();
-    // A phone needs a legible working room, not a distant overview of 2.5 columns.
-    // Favor the tea-room/work-area edge; users can pan back to the Reception awards.
-    const focus = { x: COL_W * TILE * 1.10, y: b.y, w: COL_W * TILE * 1.65, h: b.h };
+    // Reception is the entrance and contains the real award wall and conference room.
+    // Its full 16-tile width fits at native detail scale; other rooms remain reachable by pan.
+    const focus = { x: 0, y: b.y, w: COL_W * TILE, h: b.h };
     // Fill the usable portrait height with the real room without cropping small screens.
     const freeHeight = Math.max(240, camera.viewH - camera.insets.top - camera.insets.bottom - 32);
     const detailZoom = Math.min(1.30, freeHeight / b.h);
@@ -64,7 +64,7 @@ change('client/src/world/index.ts',
     const c = camera.centerFor(focus.x + focus.w / 2, focus.y + focus.h / 2, z);
     return { x: c.x, y: c.y, zoom: z };
   };
-  const firstScreenPortrait = () => camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;
+  const firstScreenPortrait = () => camera.viewW <= 980 && camera.viewH > camera.viewW * 1.12;
   const firstScreenOffice = (animate = false) => {
     camera.follow = null;
     const o = firstScreenPortrait() ? firstScreenOfficeTarget() : overviewTarget();
@@ -86,7 +86,7 @@ change('client/src/world/index.ts',
   "      if (!userMoved && framed) firstScreenOffice(true);");
 change('client/src/world/index.ts',
   "    camera.setView(w, h, dpr);\n    updateBounds();",
-  "    const oldPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    camera.setView(w, h, dpr);\n    updateBounds();\n    const newPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    if (framed && !userMoved && oldPortrait !== newPortrait) firstScreenOffice(false);");
+  "    const oldPortrait = camera.viewW <= 980 && camera.viewH > camera.viewW * 1.12;\n    camera.setView(w, h, dpr);\n    updateBounds();\n    const newPortrait = camera.viewW <= 980 && camera.viewH > camera.viewW * 1.12;\n    if (framed && !userMoved && oldPortrait !== newPortrait) firstScreenOffice(false);");
 // Native A* already follows the real WalkGrid. Its no-path fallback teleported
 // a character onto an unreachable goal; keep the Habblaud Sim, but fail closed.
 change('client/src/world/sim/sim.ts',
