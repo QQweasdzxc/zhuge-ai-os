@@ -13,6 +13,13 @@ on:
       - review/p2-issue-75-helper-lifecycle-20261019
       - review/p2-issue-75-gpt-helper-lifecycle-20261019
       - review/p2-visual-ux-office-mobile-20261019
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - 'integrations/habblaud/**'
+      - 'assets/zhuge-office-furnishings.*'
+      - '.github/workflows/zhuge-pixel-office-review.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,6 +35,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -75,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-p2-walkgrid-visual-${{ github.sha }}
+          name: pixel-p2-walkgrid-visual-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/pixel-furnishings-screenshots/
           if-no-files-found: ignore
           retention-days: 14
@@ -108,6 +116,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -126,14 +135,14 @@ jobs:
       - name: Independent clean exact-SHA source checkout for governance packager
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: clean-source
           fetch-depth: 0
           persist-credentials: false
       - name: Package using the only canonical FullSource authority
         run: |
           cd "$GITHUB_WORKSPACE/clean-source"
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           git fetch --no-tags origin main
           node tools/release-governance.js preflight
           mkdir -p "$RUNNER_TEMP/zhuge-candidate"
@@ -144,7 +153,7 @@ jobs:
           cd "$RUNNER_TEMP/zhuge-candidate"
           sha256sum -c -- *.sha256
           unzip -t -q *FullSource-Candidate.zip
-          echo "FORMAL_SOURCE_SHA=${{ github.sha }}"
+          echo "FORMAL_SOURCE_SHA=${{ github.event.pull_request.head.sha || github.sha }}"
           echo 'FullSource ZIP/Manifest/SHA256 integrity verified in ephemeral runner.'
           echo 'PRIVATE_DRIVE_BACKUP=PENDING; ZIP is NOT uploaded to PUBLIC Actions artifact.'
 
@@ -154,18 +163,18 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/zhuge-sealed"
           tar -czf "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -C "$RUNNER_TEMP/zhuge-candidate" .
-          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -out "$RUNNER_TEMP/zhuge-sealed/PixelOffice-${{ github.sha }}-FullSource-SEALED.p7m" -outform DER integrations/habblaud/backup-recovery-public.pem
+          openssl cms -encrypt -binary -aes-256-cbc -in "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz" -out "$RUNNER_TEMP/zhuge-sealed/PixelOffice-${{ github.event.pull_request.head.sha || github.sha }}-FullSource-SEALED.p7m" -outform DER integrations/habblaud/backup-recovery-public.pem
           rm -f "$RUNNER_TEMP/zhuge-fullsource-temporary.tar.gz"
           cd "$RUNNER_TEMP/zhuge-sealed"
           sha256sum ./*.p7m > ciphertext.sha256
-          printf '%s\n' 'Zhuge AI OS privately recoverable FullSource (CMS AES-256).' 'Only ciphertext is uploaded to public GitHub Actions, not the private ZIP.' 'Keep the PM-only RSA private key separately and securely.' 'Decrypt with: openssl cms -decrypt -binary -inform DER -in FILE.p7m -recip backup-recovery-public.pem -inkey PM-private-key.pem -out restored.tar.gz' 'Then: tar -xzf restored.tar.gz; sha256sum -c -- *.sha256' 'Source SHA: ${{ github.sha }}' > RESTORE-README.txt
+          printf '%s\n' 'Zhuge AI OS privately recoverable FullSource (CMS AES-256).' 'Only ciphertext is uploaded to public GitHub Actions, not the private ZIP.' 'Keep the PM-only RSA private key separately and securely.' 'Decrypt with: openssl cms -decrypt -binary -inform DER -in FILE.p7m -recip backup-recovery-public.pem -inkey PM-private-key.pem -out restored.tar.gz' 'Then: tar -xzf restored.tar.gz; sha256sum -c -- *.sha256' 'Source SHA: ${{ github.event.pull_request.head.sha || github.sha }}' > RESTORE-README.txt
           test "$(find . -name '*.p7m' | wc -l)" -eq 1
           test "$(find . -name '*.zip' | wc -l)" -eq 0
           test "$(find . -name '*.pem' | wc -l)" -eq 0
       - name: Upload ciphertext-only one-day transfer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-official-fullsource-SEALED-${{ github.sha }}
+          name: pixel-official-fullsource-SEALED-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/zhuge-sealed/
           if-no-files-found: error
           retention-days: 1
