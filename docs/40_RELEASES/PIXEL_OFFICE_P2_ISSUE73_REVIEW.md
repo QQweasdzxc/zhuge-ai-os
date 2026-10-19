@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Baseline: `0.9.0-alpha.9.82` / `20261019-1520` / `3ff6183180519fbd1bac7ffa4124969d24ae423e` (#72 candidate)
-- Candidate: `0.9.0-alpha.9.83` / `20261019-1646`
+- Candidate: `0.9.0-alpha.9.83` / `20261019-1706`
 - Branch: `review/p2-issue-73-weather-20261019`
 - Release scope: P2 weather data contract and Pixel Office overlay only. No formal deployment or DB migration.
 

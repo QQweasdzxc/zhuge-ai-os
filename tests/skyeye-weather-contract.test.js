@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const load = () => import("../supabase/functions/zhuge-skyeye-read/weather-state.mjs");
 const NOW = Date.parse("2026-10-19T08:05:00.000Z");
@@ -83,4 +85,14 @@ test("current rainfall is independent evidence and stale rain is not presented a
   assert.equal(value.precipitationMm, 1.2);
   assert.equal(value.condition, "rainy");
   assert.equal(value.precipitationObservedAt, "2026-10-19T08:00:00.000Z");
+});
+
+test("weather operation remains behind Zhuge Auth and keeps the CWA key server-side", () => {
+  const edgeSource = fs.readFileSync(path.join(__dirname, "../supabase/functions/zhuge-skyeye-read/index.ts"), "utf8");
+  const authGate = edgeSource.indexOf("await requireAuth(request);");
+  const weatherOperation = edgeSource.indexOf('if (operation === "weather")');
+  assert.ok(authGate >= 0 && weatherOperation > authGate, "all Edge operations, including city weather, require the existing authenticated session");
+  assert.match(edgeSource, /Deno\.env\.get\("CWA_API_KEY"\)/);
+  assert.match(edgeSource, /get\(WEATHER_SOURCE\.rainfall\)/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, "../integrations/habblaud/overrides/client/src/adapters/zhuge-weather.ts"), "utf8"), /CWA_API_KEY|SUPABASE_ANON_KEY|access_token/);
 });
