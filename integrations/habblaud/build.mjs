@@ -78,6 +78,9 @@ change('client/src/world/index.ts',
   "        } else if (!userMoved) overview(true);",
   "        } else if (!userMoved) firstScreenOffice(true);");
 change('client/src/world/index.ts',
+  "      if (!userMoved && framed) overview(true);",
+  "      if (!userMoved && framed) firstScreenOffice(true);");
+change('client/src/world/index.ts',
   "    camera.setView(w, h, dpr);\n    updateBounds();",
   "    const oldPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    camera.setView(w, h, dpr);\n    updateBounds();\n    const newPortrait = camera.viewW <= 700 && camera.viewH > camera.viewW * 1.12;\n    if (framed && !userMoved && oldPortrait !== newPortrait) firstScreenOffice(false);");
 // Native A* already follows the real WalkGrid. Its no-path fallback teleported

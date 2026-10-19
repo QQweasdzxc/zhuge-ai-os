@@ -75,6 +75,11 @@ jobs:
           client/src/adapters/zhuge-gpt-helper-lifecycle.test.ts
       - name: Typecheck original Habblaud client with Zhuge overlays
         run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
+      - name: Install Traditional Chinese font for authentic CI screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-match 'Noto Sans CJK TC'
       - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes
         run: |
           node /tmp/zhuge-habblaud/node_modules/playwright-core/cli.js install chromium

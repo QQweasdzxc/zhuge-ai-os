@@ -52,6 +52,22 @@ try {
   if (cameraAudit.lang !== 'zh-TW' || cameraAudit.zoom <= cameraAudit.fullZoom * 1.03) {
     throw new Error('Native phone does not start focused on the office, or is not zh-TW: ' + JSON.stringify(cameraAudit));
   }
+  // The topbar recalculates native Camera insets after startup. Detect if this
+  // asynchronous update quietly undoes portrait framing (previous .9.89 bug).
+  await phone.waitForTimeout(2700);
+  const stableCameraAudit = await phone.evaluate(() => {
+    const d = window.habblaud.world.debug;
+    const c = d.camera;
+    return {
+      zoom:c.zoom,
+      fullZoom:c.fitZoom({x:0,y:0,w:d.sim.building.cols*16*16,h:29*16},16),
+      cols:d.sim.building.cols,
+      lang:document.documentElement.lang,
+    };
+  });
+  if (stableCameraAudit.lang !== 'zh-TW' || stableCameraAudit.zoom <= stableCameraAudit.fullZoom * 1.03) {
+    throw new Error('Office closeup was lost after delayed HUD/topbar inset update: ' + JSON.stringify({initial:cameraAudit,stable:stableCameraAudit}));
+  }
   const phoneShots = process.env.PIXEL_SCREENSHOT_DIR;
   if (phoneShots) {
     fs.mkdirSync(phoneShots,{recursive:true});
