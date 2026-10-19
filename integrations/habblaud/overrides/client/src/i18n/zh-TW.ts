@@ -1,6 +1,15 @@
 /** Habblaud MIT upstream strings are Portuguese. This dictionary covers Zhuge's Chinese-first control surface. */
 export const zhTW: Readonly<Record<string, string>> = {
   office_title: 'AI OS 像素辦公室指揮中心',
+  // Original Habblaud native room titles: the core office is Taiwanese Chinese by default.
+  'Recepção': '接待區',
+  'Copa': '茶水間',
+  'Banheiros': '洗手間',
+  'Lounge': '休息區',
+  'Sala de reuniões': '會議室',
+  'Sala de reunião': '會議室',
+  'Ferramentas': '工具區',
+  'Entregas diárias': '每日交接',
   waiting_approval: '🙋 舉手等待裁示',
   waiting_input: '💬 等待您的回覆',
   running_command: '⚡ 終端機指令執行中',

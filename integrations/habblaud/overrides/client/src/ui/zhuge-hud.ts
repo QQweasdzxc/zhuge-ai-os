@@ -229,8 +229,9 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   bar.replaceChildren();
   const fresh = isFreshStatus(status);
   const dot = el('span', '●');
-  dot.className = 'zhuge-light-' + (fresh ? status.overall_status : 'stale');
+  dot.className = 'zhuge-hud-dot zhuge-light-' + (fresh ? status.overall_status : 'stale');
   const title = el('strong', status.project_name || 'AI OS');
+  title.className = 'zhuge-hud-title';
   const phase = el('span', '階段：' + status.current_phase);
   const milestone = el('span', '里程碑：' + status.current_milestone);
   const blocked = el('button', '🙋 ' + (status.blocked_items?.length || 0) + ' 項待裁示');
@@ -253,5 +254,16 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const classic = el('a', '經典報表');
   (classic as HTMLAnchorElement).href = new URL('../status-classic.html', location.href).href;
   (classic as HTMLAnchorElement).target = '_top';
-  bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic);
+  // Keep the native HUD actions, but let phone users explore the scene before opening engineering details.
+  // Preserve open state when the read-only snapshot refreshes every 15 seconds.
+  const menu = el('button', '☰') as HTMLButtonElement;
+  menu.className = 'zhuge-hud-menu-toggle';
+  menu.type = 'button';
+  menu.setAttribute('aria-label', '展開或收合辦公室資訊');
+  menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
+  menu.addEventListener('click', () => {
+    bar.dataset.open = bar.dataset.open === 'true' ? 'false' : 'true';
+    menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
+  });
+  bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic, menu);
 }

@@ -195,6 +195,10 @@ try {
   }
   await page.setViewportSize({width:1280,height:780});
   await page.setViewportSize({width:390,height:844});
+  const hudMenu = frame.locator('.zhuge-hud-menu-toggle');
+  if (await hudMenu.getAttribute('aria-expanded') !== 'false') throw new Error('Mobile engineering HUD must start compact');
+  await hudMenu.click();
+  if (await hudMenu.getAttribute('aria-expanded') !== 'true') throw new Error('Mobile engineering HUD cannot expand');
   const toggle = page.locator('.zgf-board-toggle');
   const beforeToggle = await toggle.getAttribute('aria-expanded');
   if (beforeToggle !== 'false') throw new Error('mobile award information should start collapsed');
@@ -229,6 +233,8 @@ try {
   }
   await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
+  await hudMenu.click();
+  if (await hudMenu.getAttribute('aria-expanded') !== 'false') throw new Error('Mobile engineering HUD cannot collapse');
   await page.setViewportSize({width:844,height:390});
   const landscapeMetrics = await page.evaluate(() => {
     const box = selector => {

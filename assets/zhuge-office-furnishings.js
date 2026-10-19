@@ -125,7 +125,7 @@
     function setBoard(open) {
       board.dataset.open = open ? "true" : "false";
       toggle.setAttribute("aria-expanded", String(open));
-      toggle.textContent = open ? "−" : "+";
+      toggle.textContent = open ? "−" : "🏆";
       if (!open) details.hidden = true;
     }
     // Keep the native Habblaud room visible on first paint. The real award

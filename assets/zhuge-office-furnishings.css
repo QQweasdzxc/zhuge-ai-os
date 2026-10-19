@@ -61,3 +61,15 @@
  .zgf-medal-slot .zgf-medal{gap:1px}
  .zgf-work-details{padding:7px;font-size:10px}
 }
+
+/* The real awards remain on the native Reception wall. The floating UI is only a small on-demand inspector. */
+.zgf-awards[data-open="false"]{width:41px;min-width:41px;padding:2px;background:#24343dcc;border:2px solid #b98b56;box-shadow:0 2px 8px #0006}
+.zgf-awards[data-open="false"] .zgf-board-header{border:0;padding:0}
+.zgf-awards[data-open="false"] .zgf-board-title{display:none}
+.zgf-awards[data-open="false"] .zgf-board-toggle{width:33px;height:30px;border:0;background:none;font-size:17px;line-height:1}
+@media(max-width:700px){
+  .zgf-awards{top:max(58px,env(safe-area-inset-top) + 52px);left:8px;right:auto}
+  .zgf-awards[data-open="true"]{left:8px;right:auto;width:min(270px,calc(100vw - 16px));max-height:min(50dvh,360px);overflow:auto}
+  .zgf-awards[data-open="false"]{width:38px;min-width:38px;padding:2px}
+  .zgf-awards[data-open="false"] .zgf-board-toggle{width:30px;height:29px}
+}
