@@ -54,9 +54,13 @@ change('client/src/world/index.ts',
   "  const overview = (animate = true) => {",
   `  const firstScreenOfficeTarget = () => {
     const b = buildingRect();
-    // Approx. 2.5 columns: show the original common rooms plus adjacent work areas.
-    const focus = { x: COL_W * TILE * 0.35, y: b.y, w: COL_W * TILE * 2.55, h: b.h };
-    const z = Math.min(2.5, Math.max(camera.minZoom, camera.fitZoom(focus, 18)));
+    // A phone needs a legible working room, not a distant overview of 2.5 columns.
+    // Favor the tea-room/work-area edge; users can pan back to the Reception awards.
+    const focus = { x: COL_W * TILE * 1.10, y: b.y, w: COL_W * TILE * 1.65, h: b.h };
+    // Fill the usable portrait height with the real room without cropping small screens.
+    const freeHeight = Math.max(240, camera.viewH - camera.insets.top - camera.insets.bottom - 32);
+    const detailZoom = Math.min(1.30, freeHeight / b.h);
+    const z = Math.min(2.5, Math.max(camera.minZoom, detailZoom, camera.fitZoom(focus, 14)));
     const c = camera.centerFor(focus.x + focus.w / 2, focus.y + focus.h / 2, z);
     return { x: c.x, y: c.y, zoom: z };
   };

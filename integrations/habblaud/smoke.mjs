@@ -68,6 +68,11 @@ try {
   if (stableCameraAudit.lang !== 'zh-TW' || stableCameraAudit.zoom <= stableCameraAudit.fullZoom * 1.03) {
     throw new Error('Office closeup was lost after delayed HUD/topbar inset update: ' + JSON.stringify({initial:cameraAudit,stable:stableCameraAudit}));
   }
+  // Visual quality target: 390px portrait room height fills most of the screen,
+  // instead of a 3-column building strip surrounded by grass.
+  if (stableCameraAudit.zoom < 1.13) {
+    throw new Error('Phone office is still too small to read: ' + JSON.stringify(stableCameraAudit));
+  }
   const phoneShots = process.env.PIXEL_SCREENSHOT_DIR;
   if (phoneShots) {
     fs.mkdirSync(phoneShots,{recursive:true});

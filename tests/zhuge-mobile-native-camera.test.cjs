@@ -7,6 +7,8 @@ const build = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/
 const furnishings = fs.readFileSync(path.join(__dirname, '..', 'assets/zhuge-office-furnishings.js'),'utf8');
 test('native camera starts mobile portrait focused without replacing overview controls',()=>{
   assert.match(build,/firstScreenOfficeTarget/);
+  assert.match(build, /COL_W \* TILE \* 1\.65/);
+  assert.match(build, /const detailZoom = Math\.min\(1\.30, freeHeight \/ b\.h\)/);
   assert.match(build,/if \(!userMoved && framed\) firstScreenOffice\(true\)/);
   const smokeText = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/smoke.mjs'),'utf8');
   assert.match(smokeText,/stableCameraAudit/);
