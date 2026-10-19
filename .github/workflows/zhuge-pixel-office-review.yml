@@ -7,6 +7,10 @@ on:
       - review/pixel-office-roles-p2-20261018
       - review/p2-issue-70-role-authority-20261019
       - review/p2-issue-71-awards-meeting-20261019
+      - review/p2-issue-72-walkgrid-20261019
+      - review/p2-issue-73-weather-20261019
+      - review/p2-issue-74-ai-work-status-20261019
+      - review/p2-issue-75-helper-lifecycle-20261019
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,8 +48,16 @@ jobs:
         run: |
           node tools/build-pages-site.js /tmp/zhuge-pixel-pages
           node integrations/habblaud/build.mjs /tmp/zhuge-habblaud /tmp/zhuge-pixel-pages
-      - name: Verify native meeting-room door, walk grid and award wall
-        run: cd /tmp/zhuge-habblaud && ./node_modules/.bin/vitest run client/src/world/layout/zhuge-reception.test.ts
+      - name: Verify native walk grid, no-path recovery, doorway and city boundary
+        run: >-
+          cd /tmp/zhuge-habblaud && ./node_modules/.bin/vitest run
+          client/src/world/layout/zhuge-reception.test.ts
+          client/src/world/layout/layout.test.ts
+          client/src/world/path/astar.test.ts
+          client/src/world/sim/zhuge-safe-path.test.ts
+          client/src/world/sim/sim.test.ts
+          client/src/world/sim/world-visit.test.ts
+          client/src/world/city/layout.test.ts
       - name: Typecheck original Habblaud client with Zhuge overlays
         run: /tmp/zhuge-habblaud/node_modules/.bin/tsc --noEmit -p /tmp/zhuge-habblaud/tsconfig.json
       - name: Install Chromium and smoke-test actual pixel Canvas on Pages routes
@@ -56,7 +68,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-p2-issue71-room-visual-${{ github.sha }}
+          name: pixel-p2-walkgrid-visual-${{ github.sha }}
           path: ${{ runner.temp }}/pixel-furnishings-screenshots/
           if-no-files-found: ignore
           retention-days: 14
@@ -118,7 +130,7 @@ jobs:
           git fetch --no-tags origin main
           node tools/release-governance.js preflight
           mkdir -p "$RUNNER_TEMP/zhuge-candidate"
-          node tools/release-governance.js package --type candidate --description Pixel-Office-Homepage --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir "$RUNNER_TEMP/zhuge-candidate"
+          node tools/release-governance.js package --type candidate --description Pixel-Office-P2 --regression-json '{"governance":"PASS","checklist":"PASS","full":"PASS","gitDiffCheck":"PASS","browser":"PASS"}' --output-dir "$RUNNER_TEMP/zhuge-candidate"
           test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*FullSource-Candidate.zip' | wc -l)" -eq 1
           test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.sha256' | wc -l)" -eq 1
           test "$(find "$RUNNER_TEMP/zhuge-candidate" -name '*.manifest.json' | wc -l)" -eq 1

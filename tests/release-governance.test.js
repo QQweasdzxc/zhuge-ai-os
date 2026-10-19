@@ -73,6 +73,9 @@ function fixture({
   write(root, "version.json", JSON.stringify({ module: "Zhuge AI OS", version: VERSION, build: candidateBuild }));
   write(root, "labs/investment/version.json", JSON.stringify({ name: "Lab_投資", version: VERSION, build: candidateBuild }));
   write(root, "index.html", `<!doctype html><script src="shared/config/template-release.js?v=${publishedLoaderBuild}"></script><link rel="stylesheet" href="shared/site.css?v=${cacheBuild}"><span>Version ${VERSION} · Build ${runtimeBuild}</span>`);
+  write(root, "status-classic.html", `<link rel="stylesheet" href="shared/site.css?v=${cacheBuild}"><span>Version ${VERSION} · Build ${runtimeBuild}</span>`);
+  write(root, "docs/index.html", `<footer>Version ${VERSION} · Build ${runtimeBuild}</footer>`);
+  write(root, "docs/status-classic.html", `<link rel="stylesheet" href="../shared/site.css?v=${cacheBuild}"><span>Version ${VERSION} · Build ${runtimeBuild}</span>`);
   write(root, "shared/site.css", `/* Historical annotation 20260916-1334 is not a Build Identity. */\nbody { color: black; }`);
   write(root, "shared/app-config.js", `const VERSION = "${VERSION}";\nconst BUILD_TIME = "${runtimeBuild}";`);
   write(root, "shared/config/version.js", `globalThis.version = { version: "${VERSION}", build: "${runtimeBuild}" };`);
@@ -848,10 +851,17 @@ test("new synchronized Build accepts material Source and preserves Published C e
     assert.deepEqual(after.publishedSnapshotLoaders, publishedLoader);
     assert.deepEqual(after.developmentCIdentity, { version: VERSION, build: nextBuild });
     assert.equal(after.runtimeUi.rootFooter.build, nextBuild);
+    assert.equal(after.runtimeUi.classicFooters["status-classic.html"].build, nextBuild);
+    assert.equal(after.runtimeUi.classicFooters["docs/index.html"].build, nextBuild);
+    assert.equal(after.runtimeUi.classicFooters["docs/status-classic.html"].build, nextBuild);
     assert.equal(after.runtimeUi.dashboardFallback.build, nextBuild);
     assert.equal(after.appConfig.build, nextBuild);
     assert.equal(after.sharedVersion.build, nextBuild);
     assert.ok(after.cacheBusters.every(item => item.build === nextBuild));
+    for (const file of ["status-classic.html", "docs/status-classic.html"]) {
+      const source = fs.readFileSync(path.join(root, file), "utf8");
+      assert.match(source, new RegExp(`\\?v=${nextBuild}`));
+    }
     execFileSync("git", ["add", "."], { cwd: root });
     execFileSync("git", ["commit", "-qm", "new synchronized Formal Build"], { cwd: root });
     const gate = Governance.assertMaterialBuildIdentity(root);

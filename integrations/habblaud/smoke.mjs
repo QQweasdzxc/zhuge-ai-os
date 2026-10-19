@@ -65,6 +65,34 @@ try {
   if (crew.agents.some(a => a.status !== 'idle' || a.provider !== undefined || a.account !== 'zhuge-fixed-cast' || !a.title.includes('尚無可驗證的即時工作狀態'))) {
     throw new Error('P2 cast faked real CLI work status: ' + JSON.stringify(crew));
   }
+  // #72: exercise the native browser simulation, not a mocked coordinate list.
+  // Idle outings are presentation behavior only and must never imply provider work.
+  const beforeRoam = await frame.locator('body').evaluate(() => {
+    const world = window.habblaud?.world;
+    if (!world?.debug?.wanderNow || !world?.debug?.state) throw new Error('native Habblaud roam debug API missing');
+    const chars = world.debug.state().chars;
+    const initial = Object.fromEntries(chars.map(c => [c.id, c.tile.join(',')]));
+    world.debug.wanderNow();
+    return initial;
+  });
+  await page.waitForFunction((initial) => {
+    const world = document.querySelector('iframe')?.contentWindow?.habblaud?.world;
+    if (!world?.debug?.state || !world?.debug?.sim?.building?.grid?.walkable) return false;
+    const chars = world.debug.state().chars;
+    const moved = chars.some(c => initial[c.id] && initial[c.id] !== c.tile.join(','));
+    const safe = chars.every(c => c.mode === 'idle' && world.debug.sim.building.grid.walkable(c.tile[0], c.tile[1]));
+    return moved && safe;
+  }, beforeRoam, { timeout:15000 });
+  const roamAudit = await frame.locator('body').evaluate(() => {
+    const world = window.habblaud.world;
+    return world.debug.state().chars.map(c => ({
+      id: c.id, tile: c.tile, mode: c.mode,
+      walkable: world.debug.sim.building.grid.walkable(c.tile[0], c.tile[1]),
+    }));
+  });
+  if (!roamAudit.some(c => beforeRoam[c.id] !== c.tile.join(',')) || roamAudit.some(c => c.mode !== 'idle' || !c.walkable)) {
+    throw new Error('Native idle roaming left the WalkGrid or changed role into work: ' + JSON.stringify(roamAudit));
+  }
   if (await frame.locator('body').evaluate(() => (window).habblaud.store.snapshot.agents.some(a => a.id.startsWith('zhuge-module-') || a.id.startsWith('zhuge-pr-')))) {
     throw new Error('Static module/PR status was incorrectly rendered as scene people');
   }

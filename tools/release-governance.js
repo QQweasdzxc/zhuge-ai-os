@@ -12,7 +12,7 @@ const ARTIFACT_TYPES = Object.freeze({ candidate: "Candidate", review: "Review",
 // Active TaskFlow and Lab_投資 runtimes share the root Product Build.
 // Keep their runtime cache-busters under the same governance authority so
 // they cannot drift into separate release identities.
-const RUNTIME_SCAN_ROOTS = ["index.html", "app", "modules", "shared", "labs/investment", "labs/taskflow"];
+const RUNTIME_SCAN_ROOTS = ["index.html", "status-classic.html", "docs/index.html", "docs/status-classic.html", "app", "modules", "shared", "labs/investment", "labs/taskflow"];
 const RUNTIME_EXCLUDED_ROOTS = ["labs/investment/docs", "labs/investment/test"];
 const RUNTIME_EXTENSIONS = new Set([".html", ".js", ".mjs", ".css"]);
 const FORBIDDEN_DIRECTORY_NAMES = new Set([".git", "dist", "node_modules", ".cache", "cache", "tmp", "temp", "browser-profile", "playwright-report", "test-results"]);
@@ -180,6 +180,9 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
   const appConfigSource = readText(resolvedRoot, "shared/app-config.js");
   const sharedVersionSource = readText(resolvedRoot, "shared/config/version.js");
   const rootIndexSource = readText(resolvedRoot, "index.html");
+  const classicStatusSource = readText(resolvedRoot, "status-classic.html");
+  const docsIndexSource = readText(resolvedRoot, "docs/index.html");
+  const docsClassicStatusSource = readText(resolvedRoot, "docs/status-classic.html");
   const dashboardSource = readText(resolvedRoot, "app/dashboard/zhuge-dashboard.js");
   const dashboardIndexSource = readText(resolvedRoot, "app/dashboard/index.html");
   const modules = productVersionFiles(resolvedRoot).map(relative => ({
@@ -235,6 +238,14 @@ function readIdentitySnapshot(root = PROJECT_ROOT) {
           /Version\s+[^<·]+?\s*·\s*Build\s+(202\d{5}-\d{4})/,
           "Build footer", "index.html")
       },
+      classicFooters: Object.fromEntries([
+        ["status-classic.html", classicStatusSource],
+        ["docs/index.html", docsIndexSource],
+        ["docs/status-classic.html", docsClassicStatusSource]
+      ].map(([file, source]) => [file, {
+        version: matchOne(source, /Version\s+([^<·]+?)\s*·\s*Build\s+202\d{5}-\d{4}/, "Version footer", file).trim(),
+        build: matchOne(source, /Version\s+[^<·]+?\s*·\s*Build\s+(202\d{5}-\d{4})/, "Build footer", file)
+      }])),
       dashboardMetaVersion: matchOne(dashboardIndexSource,
         /name=["']application-version["']\s+content=["']([^"']+)["']/,
         "application-version", "app/dashboard/index.html"),
@@ -324,7 +335,11 @@ function assertSourceIdentity(snapshot, { allowStaleRuntimeReferences = false } 
     ["shared/config/version.js version", snapshot.sharedVersion.version, version],
     ["shared/config/version.js build", snapshot.sharedVersion.build, build],
     ["index.html footer version", snapshot.runtimeUi.rootFooter.version, version],
-    ["index.html footer build", snapshot.runtimeUi.rootFooter.build, build],
+    ...(!allowStaleRuntimeReferences ? [["index.html footer build", snapshot.runtimeUi.rootFooter.build, build]] : []),
+    ...Object.entries(snapshot.runtimeUi.classicFooters).flatMap(([file, identity]) => [
+      [`${file} footer version`, identity.version, version],
+      ...(!allowStaleRuntimeReferences ? [[`${file} footer build`, identity.build, build]] : [])
+    ]),
     ["app/dashboard/index.html application-version", snapshot.runtimeUi.dashboardMetaVersion, version],
     ["app/dashboard/zhuge-dashboard.js fallback version", snapshot.runtimeUi.dashboardFallback.version, version],
     ["app/dashboard/zhuge-dashboard.js fallback build", snapshot.runtimeUi.dashboardFallback.build, build]
@@ -534,6 +549,9 @@ function synchronizeBuildIdentity({ root = PROJECT_ROOT, build, allowCurrentBuil
   update("shared/config/version.js", source => source.replace(/(\bbuild\s*:\s*["'])[^"]+?(["'])/, `$1${build}$2`));
   update("shared/config/template-release.js", source => source.replace(/("developmentBuild"\s*:\s*")[^"]+("+)/, `$1${build}$2`));
   update("index.html", source => source.replace(/(Version\s+[^<·]+?\s*·\s*Build\s+)202\d{5}-\d{4}/, `$1${build}`));
+  for (const relative of ["status-classic.html", "docs/index.html", "docs/status-classic.html"]) {
+    update(relative, source => source.replace(/(Version\s+[^<·]+?\s*·\s*Build\s+)202\d{5}-\d{4}/, `$1${build}`));
+  }
   update("app/dashboard/zhuge-dashboard.js", source => source.replace(/(const\s+build\s*=\s*typeof\s+BUILD_TIME\s*!==\s*["']undefined["']\s*\?\s*BUILD_TIME\s*:\s*["'])202\d{5}-\d{4}(["'])/, `$1${build}$2`));
   const runtimeFiles = new Set([...snapshot.cacheBusters, ...snapshot.runtimeBuildIdentityLiterals].map(item => item.file));
   for (const relative of runtimeFiles) {

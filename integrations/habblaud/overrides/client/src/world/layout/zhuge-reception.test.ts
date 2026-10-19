@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assembleBuilding, coreAreas } from './building';
 import { NORTH_Y, TILE } from '../constants';
+import { PathFinder } from '../path/astar';
 
 describe('Zhuge reception native meeting-room overlay', () => {
   it('keeps the meeting room enclosed while preserving a walkable two-tile door', () => {
@@ -17,6 +18,25 @@ describe('Zhuge reception native meeting-room overlay', () => {
     expect(grid.walkable(12, NORTH_Y + 9)).toBe(true);
     expect(idx(11, NORTH_Y + 7)).toBe(1); // reachable room interior
     expect(grid.get(11, NORTH_Y + 4)).toBe(0); // table footprint blocks movement
+  });
+
+  it('routes through the real doorway without crossing walls or furniture', () => {
+    const grid = assembleBuilding(1, []).grid;
+    const path: number[] = [];
+    const start = { x: 12, y: NORTH_Y + 10 };
+    const goal = { x: 11, y: NORTH_Y + 7 };
+    expect(new PathFinder(grid).find(start.x, start.y, goal.x, goal.y, path)).toBe(true);
+    let previous = start;
+    let usedDoor = false;
+    for (let i = 0; i < path.length; i += 2) {
+      const tile = { x: path[i]!, y: path[i + 1]! };
+      expect(Math.abs(tile.x - previous.x) + Math.abs(tile.y - previous.y)).toBe(1);
+      expect(grid.walkable(tile.x, tile.y)).toBe(true);
+      if (tile.y === NORTH_Y + 9 && (tile.x === 11 || tile.x === 12)) usedDoor = true;
+      previous = tile;
+    }
+    expect(previous).toEqual(goal);
+    expect(usedDoor).toBe(true);
   });
 
   it('mounts four native award plaques on the meeting-room wall and keeps native links', () => {

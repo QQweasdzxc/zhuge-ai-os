@@ -34,6 +34,7 @@ for (const r of [
   'adapters/zhuge-bridge.ts', 'adapters/zhuge-entry.ts',
   'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts',
   'world/layout/zhuge-reception.ts', 'world/layout/zhuge-reception.test.ts',
+  'world/sim/zhuge-safe-path.test.ts',
 ]) {
   const target = file('client/src/' + r);
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -45,6 +46,11 @@ change('client/src/world/layout/core.ts',
 change('client/src/world/layout/core.ts',
   "  return a;\n}\n\nexport function layoutRestroom()",
   "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
+// Native A* already follows the real WalkGrid. Its no-path fallback teleported
+// a character onto an unreachable goal; keep the Habblaud Sim, but fail closed.
+change('client/src/world/sim/sim.ts',
+  "      if (!this.findPath(ch.tx, ch.ty, s.tx, s.ty, s.path)) {\n        // sem caminho (não deveria acontecer): teletransporta para não travar\n        ch.placeAtTile(s.tx, s.ty);\n        s.path.length = 0;\n      }",
+  "      if (!this.findPath(ch.tx, ch.ty, s.tx, s.ty, s.path)) {\n        // P2 #72: no legal route means remain at the current tile. Release any\n        // temporary activity reservation and retry after a short bounded pause.\n        this.clearPlan(ch);\n        ch.thinkAt = this.now + 1500;\n        ch.setPose('stand', 'none');\n        return true;\n      }");
 change('client/src/app.ts',
   "import { OfficeStore } from './net/store';",
   "import { OfficeStore } from './net/store';\nimport { createZhugeStream, bootAiOsPixelHomepage } from './adapters/zhuge-entry';");
