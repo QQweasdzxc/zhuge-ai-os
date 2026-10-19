@@ -12,6 +12,7 @@ on:
       - review/p2-issue-74-ai-work-status-20261019
       - review/p2-issue-75-helper-lifecycle-20261019
       - review/p2-issue-75-gpt-helper-lifecycle-20261019
+      - review/p2-visual-ux-office-mobile-20261019
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
           node-version: '24'
       - name: Validate bridge and classic route contracts
         run: |
-          node --test tests/zhuge-pixel-office-contract.test.cjs tests/zhuge-office-furnishings.test.cjs tests/zhuge-office-p2.test.cjs
+          node --test tests/zhuge-pixel-office-contract.test.cjs tests/zhuge-office-furnishings.test.cjs tests/zhuge-office-p2.test.cjs tests/zhuge-visual-first-screen.test.cjs tests/zhuge-mobile-native-camera.test.cjs
           git diff --check
       - name: Fetch exact MIT upstream (no moving main or unreviewed source)
         run: |

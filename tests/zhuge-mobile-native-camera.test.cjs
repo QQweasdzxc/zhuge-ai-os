@@ -7,6 +7,9 @@ const build = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/
 const furnishings = fs.readFileSync(path.join(__dirname, '..', 'assets/zhuge-office-furnishings.js'),'utf8');
 test('native camera starts mobile portrait focused without replacing overview controls',()=>{
   assert.match(build,/firstScreenOfficeTarget/);
+  const smoke = fs.readFileSync(path.join(__dirname, '..', 'integrations/habblaud/smoke.mjs'),'utf8');
+  assert.match(smoke,/pixel-p2-first-screen-day-390x844/);
+  assert.match(smoke,/cameraAudit\.fullZoom/);
   assert.match(build,/firstScreenPortrait/);
   assert.match(build,/firstScreenOffice\(false\)/);
   assert.match(build,/if \(framed && !userMoved && oldPortrait !== newPortrait\) firstScreenOffice\(false\)/);

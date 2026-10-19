@@ -33,6 +33,34 @@ try {
   browser = await playwright.chromium.launch({ headless:true, args:['--no-sandbox'], ...(executablePath ? { executablePath } : {}) });
   const page = await browser.newPage({ viewport:{ width:1280,height:780 }, locale:'zh-TW' });
   const failures = [];
+  // Fresh mobile startup verifies actual native camera focus, not a desktop-derived viewport.
+  const phone = await browser.newPage({ viewport:{width:390,height:844}, locale:'zh-TW' });
+  phone.on('pageerror', error => failures.push('native-phone: ' + error.message));
+  await phone.goto(base + '/pixel-office/index.html', { waitUntil:'domcontentloaded' });
+  await phone.locator('#zhuge-aios-hud').waitFor({timeout:30000});
+  await phone.waitForFunction(() => {
+    const d = window.habblaud?.world?.debug;
+    return !!(d?.sim?.initialized && d?.sim?.building?.cols >= 3 && d?.camera?.zoom > 0);
+  }, null, {timeout:30000});
+  const cameraAudit = await phone.evaluate(() => {
+    const d = window.habblaud.world.debug;
+    const c = d.camera;
+    // Pinned native constants: COL_W=16, TILE=16, BUILDING_H=29.
+    const fullZoom = c.fitZoom({x:0,y:0,w:d.sim.building.cols*16*16,h:29*16},16);
+    return {zoom:c.zoom,fullZoom,cols:d.sim.building.cols,lang:document.documentElement.lang};
+  });
+  if (cameraAudit.lang !== 'zh-TW' || cameraAudit.zoom <= cameraAudit.fullZoom * 1.03) {
+    throw new Error('Native phone does not start focused on the office, or is not zh-TW: ' + JSON.stringify(cameraAudit));
+  }
+  const phoneShots = process.env.PIXEL_SCREENSHOT_DIR;
+  if (phoneShots) {
+    fs.mkdirSync(phoneShots,{recursive:true});
+    await phone.screenshot({path:path.join(phoneShots,'pixel-p2-first-screen-day-390x844.png'),fullPage:false});
+    await phone.evaluate(() => window.habblaud.world.debug.setHour(23));
+    await phone.waitForTimeout(1000);
+    await phone.screenshot({path:path.join(phoneShots,'pixel-p2-first-screen-night-390x844.png'),fullPage:false});
+  }
+  await phone.close();
   page.on('pageerror', error => failures.push(error.message));
   page.on('response', response => {
     if (response.status() >= 400 && !response.url().includes('/api/')) failures.push('HTTP ' + response.status() + ' ' + response.url());
