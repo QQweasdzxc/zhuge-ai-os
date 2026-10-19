@@ -10,6 +10,11 @@ const site = path.resolve(process.argv[2] || '');
 const upstream = path.resolve(process.argv[3] || '');
 const output = path.resolve(process.env.P3_SCREENSHOT_DIR || '/tmp/p3-native-screenshots');
 if (!process.argv[2] || !process.argv[3]) throw new Error('usage: p3-browser-smoke.mjs <pages-artifact> <pinned-habblaud-checkout>');
+const localeBundleDir = path.join(site, 'labs/pixel-office-p3-preview/native/bundle');
+const localeBundleNames = fs.readdirSync(localeBundleDir).filter(name => /^zh-TW-.+\.js$/.test(name));
+assert.ok(localeBundleNames.length > 0, 'built Habblaud bundle includes a zh-TW chunk');
+const localeBundle = localeBundleNames.map(name => fs.readFileSync(path.join(localeBundleDir, name), 'utf8')).join('\n');
+for (const label of ['接待大廳', '洗手間', '茶水間']) assert.ok(localeBundle.includes(label), `native room label is localized: ${label}`);
 const { chromium } = await import(pathToFileURL(path.join(upstream, 'node_modules/playwright-core/index.mjs')).href);
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff' };
 const server = http.createServer((req, res) => {
@@ -145,6 +150,67 @@ try {
     const pageMetrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
     assert.ok(pageMetrics.width <= scenario.width + 2, `${scenario.name}: no horizontal page overflow`);
 
+    if (scenario.name === 'desktop-1920x1080') {
+      const projectLinks = {
+        taskflow: { title: 'TaskFlow', href: 'https://zhuge-taskflow-web.onrender.com/' },
+        worklog: { title: 'WorkLog', href: 'https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=worklog' },
+        investment: { title: 'Investment', href: 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/' }
+      };
+      const frameBox = await shell.locator('#p3-native-scene').boundingBox();
+      assert.ok(frameBox, 'native frame has a desktop position');
+      for (const [awardId, expected] of Object.entries(projectLinks)) {
+        const point = await scene.locator('body').evaluate((_body, id) => {
+          const api = window.habblaud;
+          const area = api?.world?.debug?.sim?.building?.core?.find(item => item.id === 'core:recepcao');
+          const variant = { taskflow: 'award_gold', worklog: 'award_silver', investment: 'award_bronze' }[id];
+          const item = area?.wallItems?.find(wallItem => wallItem.variant === variant);
+          const canvas = document.querySelector('canvas#world');
+          if (!item || !canvas) return null;
+          const rect = canvas.getBoundingClientRect();
+          const screen = api.world.debug.camera.worldToScreen(item.cx, item.baseY - 20);
+          return { x: rect.left + screen.x, y: rect.top + screen.y };
+        }, awardId);
+        assert.ok(point, `${awardId} native poster position is exposed by the actual scene`);
+        await page.mouse.click(frameBox.x + point.x, frameBox.y + point.y);
+        const awardPanel = shell.locator('#p3-award-details');
+        await awardPanel.waitFor({ state: 'visible', timeout: 3000 });
+        assert.equal((await shell.locator('#p3-award-title').innerText()).trim(), expected.title, `${awardId} wall poster opens its matching result`);
+        const awardLink = shell.locator('#p3-award-link');
+        assert.equal(await awardLink.getAttribute('href'), expected.href, `${awardId} resolves to its existing published product URL`);
+        assert.equal(await awardLink.getAttribute('target'), '_blank');
+        assert.match(await awardLink.getAttribute('rel'), /noopener/);
+        await shell.locator('#p3-award-close').click();
+        await awardPanel.waitFor({ state: 'hidden', timeout: 2000 });
+      }
+
+      await scene.locator('body').evaluate(() => window.parent.postMessage({ type: 'p3:award-selected', awardId: 'https://example.invalid' }, window.location.origin));
+      assert.equal(await shell.locator('#p3-award-details').isVisible(), false, 'unrecognized award IDs cannot create arbitrary links');
+
+      const beforeZoom = await scene.locator('body').evaluate(() => window.habblaud.world.debug.camera.zoom);
+      const meetingPoint = await scene.locator('body').evaluate(() => {
+        const api = window.habblaud;
+        const room = api?.world?.debug?.sim?.rooms?.get('p3-room-meeting');
+        const canvas = document.querySelector('canvas#world');
+        if (!room || !canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        const tile = 16;
+        const screen = api.world.debug.camera.worldToScreen((room.layout.rect.x + 13) * tile, (room.layout.rect.y + 4) * tile);
+        return { x: rect.left + screen.x, y: rect.top + screen.y, rect: room.layout.rect, camera: { zoom: api.world.debug.camera.zoom, minZoom: api.world.debug.camera.minZoom, viewW: api.world.debug.camera.viewW, viewH: api.world.debug.camera.viewH, fit: api.world.debug.camera.fitZoom({ x: room.layout.rect.x * tile, y: room.layout.rect.y * tile - 8, w: room.layout.rect.w * tile, h: room.layout.rect.h * tile + 16 }, 40) } };
+      });
+      assert.ok(meetingPoint, 'meeting-room interior coordinate is available from the active native layout');
+      await page.mouse.click(frameBox.x + meetingPoint.x, frameBox.y + meetingPoint.y);
+      await page.waitForFunction(() => {
+        const shellFrame = document.querySelector('#p3-shell');
+        const sceneFrame = shellFrame?.contentDocument?.querySelector('#p3-native-scene');
+        const selection = sceneFrame?.contentWindow?.habblaud?.world?.getSelection?.();
+        return selection?.type === 'room' && selection.id === 'p3-room-meeting';
+      }, null, { timeout: 3000 });
+      await scene.locator('body').evaluate(() => window.habblaud.world.focusRoom('p3-room-meeting'));
+      await page.waitForTimeout(500);
+      const afterZoom = await scene.locator('body').evaluate(() => window.habblaud.world.debug.camera.zoom);
+      assert.ok(afterZoom > beforeZoom, 'native room-focus command can enter/focus the reachable meeting room');
+    }
+
     if (!scenario.desktop) {
       await shell.locator('.p3-shell__roster-summary').click();
       assert.equal(await roster.evaluate(el => el.open), true, `${scenario.name}: personnel drawer opens on demand`);
@@ -164,7 +230,7 @@ try {
     assert.equal(failedLocal.length, 0, `${scenario.name}: no failed local assets ${failedLocal.join(', ')}`);
     assert.ok([...externalHosts].every(host => host === 'api.github.com'), `${scenario.name}: only public GitHub read-only evidence may leave the preview`);
     await page.screenshot({ path: path.join(output, `${scenario.name}-interaction.png`), fullPage: false });
-    results.push({ ...scenario, nativeOverview: overview.camera, buildingColumns: overview.cols, floorHeightRatio: Number(floorHeightRatio.toFixed(2)), canvas: data.canvas, scene: { width: Math.round(frameBox.width), height: Math.round(frameBox.height) }, externalHosts: [...externalHosts], noApiCalls: true });
+    results.push({ ...scenario, nativeOverview: overview.camera, buildingColumns: overview.cols, floorHeightRatio: Number(floorHeightRatio.toFixed(2)), canvas: data.canvas, scene: { width: Math.round(frameBox.width), height: Math.round(frameBox.height) }, externalHosts: [...externalHosts], noApiCalls: true, localizedCoreRooms: true, desktopAwardClicks: scenario.name === 'desktop-1920x1080', nativeMeetingDoorFocus: scenario.name === 'desktop-1920x1080' });
     await context.close();
   }
   if (failures.length) throw new Error(`Browser page errors: ${failures.join('; ')}`);

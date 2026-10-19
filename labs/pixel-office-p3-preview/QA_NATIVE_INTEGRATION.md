@@ -4,7 +4,7 @@ Date: 2026-10-19 (UTC)
 
 ## Candidate identity and boundary
 
-- Candidate: `0.9.0-alpha.9.77`, Build `20261019-1007`.
+- Candidate: `0.9.0-alpha.9.78` (review candidate; Build is generated after the source commit and recorded in the final identity commit).
 - Base: P2 main `a9db9b2fe3051e22d59e52ad083c8d54d12dba62` (`0.9.0-alpha.9.76`, Build `20261018-1932`).
 - This is an isolated review candidate. It does not change `main`, Pages, Render, Production DB/Auth, or Native Lab.
 - Frozen `third_party/multica/` is unchanged. Habblaud is fetched into a temporary build checkout at pinned MIT source commit `faa1a012b5fbf632c66dc6801c5383e53a542406`; the resulting preview bundle and its license are included under `native/`.
@@ -25,7 +25,7 @@ Use the existing P2 Habblaud Canvas and interaction engine as the only office sc
 
 The single connected floor has an indoor reception award wall, engineering/tools area, enclosed meeting room with wall, doorway, table and four seats, plus lounge/reading space and connecting walkways. The upstream outdoor campus, trees and road remain visible around the office footprint; therefore the target is a connected indoor office layout, but a fully enclosed single-floor visual is only **PARTIAL**. Meeting-room lettering is close to its doorway, and some role labels are small at narrow desktop height.
 
-Chromium viewport smoke was run at:
+Chromium viewport smoke was rerun after Gem’s desktop refinement and the native award/room interaction fixes:
 
 | Viewport | Result | Notes |
 |---|---|---|
@@ -35,7 +35,7 @@ Chromium viewport smoke was run at:
 | 390×844 | PASS, smoke only | No crash or horizontal page overflow; mobile art refinement is deferred. |
 | 844×390 | PASS, smoke only | No crash or horizontal page overflow; mobile art refinement is deferred. |
 
-These are Chromium runs. Real iPhone Safari is **NOT VERIFIED** and remains PM acceptance. The screenshots from the final candidate run are available in the review artifact/local evidence set:
+The final candidate produces `desktop-1920x1080-overview.png` and `desktop-1440x900-overview.png` at the requested desktop sizes. These are Chromium screenshots, not PM device acceptance. Real iPhone Safari is **NOT VERIFIED** and remains PM acceptance. The final GitHub Actions run uploads the viewport screenshots and built isolated preview as an artifact with 14-day retention. Local copies from the current review run are at `/workspace/artifacts/p3-native-final/`:
 
 - `desktop-1920x1080-overview.png`
 - `desktop-1440x900-overview.png`
@@ -46,16 +46,16 @@ These are Chromium runs. Real iPhone Safari is **NOT VERIFIED** and remains PM a
 ## QA evidence
 
 - P3 evidence-contract, P2 office-contract, furnishing and P2 core tests: **25 passed, 0 failed** (`tests/pixel-office-personnel-evidence.test.cjs`, `tests/zhuge-pixel-office-contract.test.cjs`, `tests/zhuge-office-furnishings.test.cjs`, `tests/zhuge-office-p2.test.cjs`).
-- P3 Chromium smoke: **PASS** across all five viewports above. Verified native Habblaud canvas, seven roles, shell/scene selection synchronization, resident-vs-agent behavior, explicit TaskFlow disconnected state, no TaskFlow/Supabase/Render requests, no page errors and no horizontal page overflow.
+- P3 Chromium smoke: **PASS** across all five viewports above. Verified native Habblaud canvas, seven roles, shell/scene selection synchronization, resident-vs-agent behavior, localized native room labels, three medal clicks and fixed product links at 1920×1080, meeting room selection/focus, explicit TaskFlow disconnected state, no TaskFlow/Supabase/Render requests, no page errors and no horizontal page overflow.
 - Original P2 Habblaud browser smoke: **PASS** for cast, role dossier, medal detail, P1 links, desktop/mobile, classic/docs.
-- P3 layout smoke: **PASS** for seven roles, three P3 interior zones, P2 core preservation, indoor award sprites, meeting-room wall/door, and walkable doorway tiles.
+- P3 layout smoke: **PASS** for seven roles, three P3 interior zones, P2 core preservation, indoor award sprites, meeting-room wall/door, corridor-to-room A* path through the real doorway, and furniture avoidance.
 - Pinned upstream Habblaud TypeScript check: `tsc --noEmit -p tsconfig.json`, **PASS** (exit 0).
 - Pinned upstream production client/server build: **PASS**, 214 modules; Vite reports its existing large-bundle advisory (~739 KB), not a build failure.
 - Compiled native preview output compared with committed `native/` output using `diff -qr`: **PASS**, no differences.
-- Full upstream Vitest run reported 1,881 passed, 2 skipped and one 5-second timeout in `client/src/art/art.test.ts` while other CPU-heavy checks were concurrent. The exact timed-out test (`blocos de piso são opacos e determinísticos`) was rerun alone: **1 passed, 56 skipped**. The whole upstream suite was not rerun after that isolated pass.
+- Full pinned-upstream Vitest rerun with `--no-file-parallelism --maxWorkers 1`: **1,879 passed, 2 skipped, 3 failed** across 158 files. The three failures are unrelated file-mode assertions in `server/test/statusline.test.ts` (2) and `server/test/hooks-install.test.ts` (1): this environment creates the atomically replaced settings files as `0600`, while those tests expect `0644`. Re-running those two files alone reproduced the same three failures (29 passed, 1 skipped). The P3 candidate does not change these upstream server installers, and Frozen Vendor is not modified. An earlier parallel full run had a 5-second art-test timeout; the exact `blocos de piso são opacos e determinísticos` test passed when rerun alone, and the serialized full run had no timeout.
 - Repository browser regression (`BROWSER_EXECUTABLE=/usr/bin/chromium npm run test:browser`): **PASS**, 25 browser test files, 16 standalone checks, 0 skipped, 0 page errors, 0 console errors, 0 provider CORS errors. Results include existing TaskFlow, WorkLog, navigation, Module C and SkyEye paths. Test-generated screenshots under `docs/qa/**/screenshots` and `tests/evidence` were restored and are not part of this candidate.
-- `git diff --check`: **PASS** before final documentation and commit review.
-- No real iPhone Safari, authenticated Zhuge session, TaskFlow live connection, collision/pathfinding interaction browser proof, or production deployment was performed.
+- `git diff --check`: **PASS** after the final source and documentation edits.
+- No real iPhone Safari, authenticated Zhuge session, TaskFlow live connection, live actor movement into/out of the meeting room, public HTTPS preview, or production deployment was performed. The native A* path itself is tested, but that does not prove an animated character completes the route.
 
 ## Source ownership and release state
 

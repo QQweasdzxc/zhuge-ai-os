@@ -1,6 +1,6 @@
 # P3 人員動態資料契約
 
-此契約只供 Draft PR #65 的隔離測試頁使用，不是正式 TaskFlow API 或正式像素辦公室的接入宣告。
+此契約供 PR #69 的隔離 P3 測試頁使用，不是正式 TaskFlow API 或正式像素辦公室的接入宣告。PR #65 僅是早期人員面板設計與歷史快照的來源，不是目前契約或即時狀態的權威。
 
 ## 角色分類
 
@@ -28,9 +28,9 @@
     "statusEvidence": {
       "label": "短效狀態文字",
       "sourceType": "confirmed_handoff",
-      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/65",
+      "sourceUrl": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/69",
       "updatedAt": "ISO-8601",
-      "ref": "PR #65",
+      "ref": "PR #69",
       "taskId": null,
       "freshnessMs": 0,
       "validUntil": "ISO-8601",
@@ -52,8 +52,8 @@
 
 ## Read-only source behavior
 
-- The test page reads only its local handoff JSON and public GitHub REST resources for PR #65, commits, issue comments and check runs. Public GitHub API refreshes are cached for five minutes to avoid exhausting the unauthenticated 60-request/hour allowance.
-- If the browser cannot reach GitHub, it may show `personnel-github-snapshot.json`, which is a clearly labelled, read-only snapshot built from a verified GitHub Connector PR/comments read and the fetched PR branch history. The snapshot pins the exact PR head and verification time. Snapshot events never identify an individual engineer; after the live API becomes available, live data replaces the snapshot.
+- The isolated PR #69 page reads only its local handoff JSON and public GitHub REST resources for the explicitly configured review PR, commits, issue comments and check runs. Public GitHub API refreshes are cached for five minutes to avoid exhausting the unauthenticated 60-request/hour allowance.
+- If the browser cannot reach GitHub, a static snapshot is eligible only when its pinned PR number matches the explicitly configured PR. The repository snapshot is pinned to PR #65, so it is not eligible for PR #69 and must never replace PR #69's live status. When eligible, the read-only historical snapshot pins its exact PR head and verification time, and events remain unattributed; it never identifies an individual engineer.
 - Requests omit credentials. No GitHub token, browser session, TaskFlow token, Supabase key, or private data is sent or read.
 - TaskFlow remains explicitly `not-connected` until a separately authorized read-only interface exists. This P3 code does not probe or bypass TaskFlow gates.
 - GitHub author identity, commit activity, animation, timestamps, or an empty queue are never used to infer that Co, Gem, GPT, or PM is working, idle, waiting, or in a meeting.

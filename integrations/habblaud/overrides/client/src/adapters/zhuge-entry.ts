@@ -1,8 +1,10 @@
 import type { OfficeSnapshot } from '../../../shared/types';
 import type { OfficeStore, EventSourceLike } from '../net/store';
 import type { WorldApi } from '../world/api';
+import type { WorldDebug } from '../world';
 import { fallbackProjectStatus, syncAiOsStatus, toOfficeSnapshot, type ZhugeProjectStatus } from './zhuge-bridge';
 import { isP3RoleId, p3AgentId, toP3OfficeSnapshot } from './zhuge-p3-bridge';
+import { p3AwardAtWorldPoint } from '../world/layout/zhuge-p3-layout';
 import { mountZhugeHud, showZhugeDecisions, showZhugeRole } from '../ui/zhuge-hud';
 
 /** Habblaud-compatible SSE facade. Static JSON is read every 15s, and real CLI SSE is merged if present. */
@@ -131,6 +133,7 @@ export function bootAiOsPixelHomepage(store: OfficeStore, world: WorldApi): void
     const ui = document.getElementById('ui');
     if (ui) ui.hidden = true;
     world.setOptions({ followSelected: false, theme: 'none' });
+    installP3AwardHitTesting(world);
     let framed = false;
     store.on('snapshot', snap => {
       if (framed || snap.meta.version !== 'Zhuge Pixel P3') return;
@@ -156,4 +159,27 @@ export function bootAiOsPixelHomepage(store: OfficeStore, world: WorldApi): void
     if (sel.id.startsWith('zhuge-crew-')) showZhugeRole(sel.id);
     else if (sel.id.startsWith('zhuge-')) showZhugeDecisions();
   });
+}
+
+/** Add a small, explicit native-canvas hit test for the P3 wall-art links. */
+function installP3AwardHitTesting(world: WorldApi): void {
+  const canvas = document.querySelector<HTMLCanvasElement>('canvas#world');
+  const camera = (world as WorldApi & { debug?: Pick<WorldDebug, 'camera'> }).debug?.camera;
+  if (!canvas || !camera || !window.parent || window.parent === window || window.location.origin === 'null') return;
+  const pointers = new Map<number, { x: number; y: number }>();
+  const onDown = (event: PointerEvent) => pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  const onCancel = (event: PointerEvent) => pointers.delete(event.pointerId);
+  const onUp = (event: PointerEvent) => {
+    const start = pointers.get(event.pointerId);
+    pointers.delete(event.pointerId);
+    // Match Habblaud's 5px drag threshold so panning never activates a wall link.
+    if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 5) return;
+    const bounds = canvas.getBoundingClientRect();
+    const point = camera.screenToWorld(event.clientX - bounds.left, event.clientY - bounds.top);
+    const awardId = p3AwardAtWorldPoint(point.x, point.y);
+    if (awardId) window.parent.postMessage({ type: 'p3:award-selected', awardId }, window.location.origin);
+  };
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointercancel', onCancel);
 }

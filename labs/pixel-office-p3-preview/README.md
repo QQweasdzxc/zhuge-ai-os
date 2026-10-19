@@ -12,6 +12,22 @@
 - PR #65's black-cat/pet shop is deferred: the pinned native character contract currently represents human sprites, and adding a second pet animation/economy subsystem would widen this room/layout change. Existing P2 functions and links remain unchanged.
 - Older `app.js`, `sprites.js`, and `style.css` P3 standalone-engine files were removed from the active preview. `art/` and iteration QA notes are retained as reference/history, not runtime assets.
 
+## P2/P3 feature disposition
+
+| Area | Decision | Evidence / boundary |
+|---|---|---|
+| P2 Habblaud Canvas, rooms, characters, doors, walk grid, furniture, camera and original interaction engine | **KEEP** | Remains the only scene engine; P2 smoke passes for cast/profile, decision panel, medals, navigation, desktop/mobile, Classic and docs.
+| P2 wallet/reward authority and native coin mechanics | **KEEP** | No second P3 wallet is introduced. P3 does not change the pinned Habblaud reward/simulation code.
+| P3 seven roles, evidence-backed personnel panel, role details and resident/agent separation | **KEEP** | Included in the isolated shell. Without verified evidence, engineer status remains unknown; resident animation is fictional only.
+| P3 indoor medal wall and product links | **KEEP** | Native Habblaud poster sprites are clickable and resolve only to the existing TaskFlow, WorkLog and Investment routes.
+| Meeting room, lounge, engineering/tools room and shared walk grid | **KEEP** | Layout and corridor A* doorway route are tested; physical actor movement is not claimed.
+| PR #64 reward-event idempotency proposal | **DEFER** | Revisit only if a separately approved reward integration uses one authoritative reward path.
+| PR #65 standalone SVG office engine, local +500 wallet/shop, pet-shop economy and black-cat/pet subsystem | **DEFER** | Not merged into the Habblaud engine. The P3 changes do not alter these; P2 source-level reward logic is retained, but black-cat/pet gameplay is not verified by this candidate's browser regression.
+| Full enclosed single-floor appearance with exterior/campus removed | **DEFER / PARTIAL** | Habblaud's outdoor campus remains around its native building footprint. Current interior zones are connected but the target fully enclosed look is not complete.
+| Live TaskFlow event feed and authenticated personnel status | **MISSING / NOT CONNECTED** | No TaskFlow, Supabase or Render requests are made by this isolated preview.
+| Agent physically entering/exiting the meeting room in live simulation | **NOT VERIFIED** | Native pathfinder reaches the room through the door while avoiding blocked furniture; actor movement through the route has not been observed in browser.
+| Real iPhone Safari and public HTTPS preview | **NOT VERIFIED / BLOCKED** | Chromium viewports pass; no live HTTPS preview host is authorized or configured.
+
 ## Source ownership and runtime contract
 
 - Co owns the Habblaud adapter, room geometry, build patch, evidence contract, and regression gates under `integrations/habblaud/`.
@@ -23,6 +39,8 @@
 ## QA status
 
 The current QA run is defined by the candidate's `integrations/habblaud/p3-layout-smoke.mjs`, `integrations/habblaud/p3-browser-smoke.mjs`, the unchanged P2 Habblaud smoke, evidence contract tests, pinned upstream typecheck/build, and workflow artifact. Results are recorded in `QA_NATIVE_INTEGRATION.md` after the candidate is frozen. Desktop Chromium at 1920×1080, 1440×900, and 900×1200 is the primary target; mobile Chromium checks are no-crash/layout smoke only. Real iPhone Safari is a PM acceptance item, never inferred from Chromium emulation.
+
+The review workflow uploads its screenshots and built isolated preview as a GitHub Actions artifact retained for 14 days. There is no live HTTPS preview URL yet: the workflow intentionally does not deploy, and no isolated preview host has been authorized/configured. The candidate must not be presented as publicly deployed.
 
 ## Review / release boundary
 

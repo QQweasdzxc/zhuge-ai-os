@@ -16,6 +16,24 @@ const P3_WALL: WallStyle = { base: '#e8e7e0', trim: '#8a99a8', pattern: 'plain' 
 const MEETING_WALL: WallStyle = { base: '#cfe4e8', trim: '#61828d', pattern: 'glass' };
 const ENTRY_DOOR = { lx: 7, w: 2 };
 
+/** Real, already published Zhuge product routes represented by the indoor award art. */
+export const P3_AWARDS = [
+  { id: 'taskflow', variant: 'award_gold', localX: 11.5 },
+  { id: 'worklog', variant: 'award_silver', localX: 12.8 },
+  { id: 'investment', variant: 'award_bronze', localX: 14.1 },
+] as const;
+
+/** Hit boxes follow the rendered 12×16 native poster sprite, with a small 2px accessibility margin. */
+export function p3AwardAtWorldPoint(x: number, y: number): (typeof P3_AWARDS)[number]['id'] | null {
+  const area = layoutP3Reception();
+  for (const award of P3_AWARDS) {
+    const item = area.wallItems.find((wallItem) => wallItem.variant === award.variant);
+    if (!item) continue;
+    if (x >= item.cx - 8 && x <= item.cx + 8 && y >= item.baseY - 30 && y <= item.baseY - 10) return award.id;
+  }
+  return null;
+}
+
 function seedOf(id: string): number {
   let value = 2166136261;
   for (let i = 0; i < id.length; i++) value = Math.imul(value ^ id.charCodeAt(i), 16777619);
@@ -41,9 +59,7 @@ export function layoutP3Reception(): AreaLayout {
   b.wall('clock', 10, undefined, { order: 0.7 });
 
   // Portfolio medals are actual Habblaud wall furniture inside reception, not an external DOM wall.
-  b.wall('poster', 11.5, 'award_gold', { order: 0.5 });
-  b.wall('poster', 12.8, 'award_silver', { order: 0.51 });
-  b.wall('poster', 14.1, 'award_bronze', { order: 0.52 });
+  P3_AWARDS.forEach((award, index) => b.wall('poster', award.localX, award.variant, { order: 0.5 + index / 100 }));
 
   b.furn('plant_tall', 1, 2, 'monstera', { order: 0.2 });
   b.furn('plant_tall', 14, 4, 'ficus', { order: 0.21 });

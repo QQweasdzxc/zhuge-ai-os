@@ -37,9 +37,9 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 .p3-shell__nav-link:hover { border-color: #8c9d77; background: #26372b; }
 .p3-shell__nav-link > span { color: var(--p3-shell-accent); font-size: 14px; }
 .p3-shell__nav-link--taskflow { border-color: #667750; background: linear-gradient(120deg, #2c3e2d, #1d2b22); color: #f3f2df; }
-.p3-shell__workspace { display: grid; grid-template-columns: minmax(0, 1fr) 328px; gap: 12px; min-height: 0; }
+.p3-shell__workspace { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: 14px; min-height: 0; }
 .p3-shell__scene { min-width: 0; min-height: 0; }
-.p3-shell__scene-frame { position: relative; width: 100%; height: 100%; min-height: 520px; overflow: hidden; border: 1px solid var(--p3-shell-line); border-radius: var(--p3-shell-radius); background: #131b17; box-shadow: 0 18px 48px #0005, inset 0 0 0 1px #ffffff05; }
+.p3-shell__scene-frame { position: relative; width: 100%; height: 100%; min-height: 520px; overflow: hidden; border: 1px solid #455b4d; border-radius: var(--p3-shell-radius); background: #131b17; box-shadow: 0 18px 48px #0006, inset 0 0 0 1px #ffffff08; }
 .p3-shell__iframe { display: block; width: 100%; height: 100%; min-height: 520px; border: 0; background: #131b17; }
 .p3-shell__scene-placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 30px; text-align: center; color: var(--p3-shell-muted); }
 .p3-shell__scene-placeholder[hidden] { display: none; }
@@ -48,26 +48,34 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 .p3-shell__scene-mark { display: grid; width: 54px; height: 54px; place-items: center; border: 1px solid #647767; border-radius: 16px; background: linear-gradient(145deg, #2b4235, #1a2720); color: var(--p3-shell-accent); font-size: 15px; font-weight: 800; letter-spacing: .08em; }
 
 .p3-shell__roster { min-width: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--p3-shell-line); border-radius: var(--p3-shell-radius); background: color-mix(in srgb, var(--p3-shell-panel) 96%, transparent); box-shadow: 0 18px 48px #0004; }
-.p3-shell__roster-summary { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px; cursor: pointer; list-style: none; border-bottom: 1px solid var(--p3-shell-line); }
+.p3-shell__roster-summary { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 17px; cursor: pointer; list-style: none; border-bottom: 1px solid var(--p3-shell-line); background: linear-gradient(100deg, #ffffff06, transparent 70%); }
 .p3-shell__roster-summary::-webkit-details-marker { display: none; }
 .p3-shell__roster-summary::after { content: "⌄"; color: var(--p3-shell-accent); transition: transform .18s ease; }
 .p3-shell__roster:not([open]) .p3-shell__roster-summary::after { transform: rotate(90deg); }
-.p3-shell__roster-title { font-size: 14px; font-weight: 750; }
+.p3-shell__roster-title { font-size: 15px; font-weight: 780; }
 .p3-shell__roster-hint { margin-left: auto; color: var(--p3-shell-muted); font-size: 11px; }
 .p3-shell__roster-content { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; }
 .p3-shell__people { display: grid; gap: 4px; margin: 0; padding: 10px; list-style: none; }
-.p3-shell__person { width: 100%; min-height: 66px; display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.p3-shell__person { width: 100%; min-height: 72px; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 11px; padding: 9px 10px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .p3-shell__person:hover { background: #ffffff08; }
 .p3-shell__person[aria-pressed="true"] { border-color: #63775e; background: #8da17d12; }
-.p3-shell__avatar { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #647469; border-radius: 50%; background: linear-gradient(145deg, #34483b, #202a24); color: #edf0e8; font-size: 11px; font-weight: 800; }
+.p3-shell__avatar { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #718875; border-radius: 50%; background: linear-gradient(145deg, #405b47, #202a24); color: #f2f5ed; font-size: 12px; font-weight: 800; box-shadow: inset 0 1px 0 #ffffff20, 0 3px 10px #0003; }
 .p3-shell__avatar--resident { border-color: #836d88; background: linear-gradient(145deg, #503e58, #2a2530); color: #f2dbf1; }
-.p3-shell__person-copy { min-width: 0; display: grid; gap: 2px; }
-.p3-shell__person-name { color: var(--p3-shell-text); font-size: 12px; font-weight: 750; }
-.p3-shell__person-role { color: var(--p3-shell-muted); font-size: 10px; }
-.p3-shell__person-status { overflow: hidden; color: #c1cabe; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.p3-shell__person-copy { min-width: 0; display: grid; gap: 3px; }
+.p3-shell__person-name { color: var(--p3-shell-text); font-size: 14px; font-weight: 780; letter-spacing: .01em; }
+.p3-shell__person-role { color: #bac7bb; font-size: 11px; line-height: 1.35; }
+.p3-shell__person-status { overflow: hidden; color: #d0d9d0; font-size: 11px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .p3-shell__person--resident .p3-shell__person-status { color: #d9c4dd; }
 
 .p3-shell__detail { margin: 4px 12px 12px; padding: 14px; border: 1px solid #37473e; border-radius: 12px; background: var(--p3-shell-panel-raised); }
+.p3-shell__award-details { margin: 0 12px 12px; padding: 14px; border: 1px solid #86734d; border-radius: 12px; background: linear-gradient(145deg, #342e21, #202b26); }
+.p3-shell__award-details[hidden] { display: none; }
+.p3-shell__award-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.p3-shell__award-heading .p3-shell__detail-label { margin-bottom: 5px; }
+.p3-shell__award-heading h2 { margin: 0; font-size: 16px; }
+.p3-shell__award-close { width: 32px; height: 32px; border: 1px solid #8a7650; border-radius: 8px; background: #171d18; color: var(--p3-shell-text); font-size: 20px; cursor: pointer; }
+.p3-shell__award-description, .p3-shell__award-truth { margin: 10px 0 0; color: var(--p3-shell-text); font-size: 12px; line-height: 1.5; }
+.p3-shell__award-truth { color: var(--p3-shell-muted); font-size: 10px; }
 .p3-shell__detail-label, .p3-shell__evidence-label { margin: 0 0 7px; color: var(--p3-shell-accent); font-size: 10px; font-weight: 750; letter-spacing: .08em; }
 .p3-shell__detail h2 { margin: 0; font-size: 17px; }
 .p3-shell__detail-role { margin: 4px 0 12px; color: var(--p3-shell-muted); font-size: 12px; }
@@ -93,12 +101,14 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 .p3-shell__event-ref, .p3-shell__events time { color: var(--p3-shell-muted); font-size: 9px; overflow-wrap: anywhere; }
 
 @media (min-width: 1600px) {
-  .p3-shell__workspace { grid-template-columns: minmax(0, 1fr) 360px; }
-  .p3-shell__person { min-height: 72px; }
-  .p3-shell__person-status { font-size: 11px; }
+  .p3-shell__workspace { grid-template-columns: minmax(0, 1fr) 392px; gap: 16px; }
+  .p3-shell__person { min-height: 76px; grid-template-columns: 48px minmax(0, 1fr); }
+  .p3-shell__avatar { width: 46px; height: 46px; }
+  .p3-shell__person-name { font-size: 15px; }
+  .p3-shell__person-role, .p3-shell__person-status { font-size: 12px; }
 }
 @media (max-width: 1100px) and (min-width: 761px) {
-  .p3-shell__workspace { grid-template-columns: minmax(0, 1fr) 290px; }
+  .p3-shell__workspace { grid-template-columns: minmax(0, 1fr) 310px; }
   .p3-shell__person { min-height: 62px; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 6px; }
   .p3-shell__avatar { width: 32px; height: 32px; }
   .p3-shell__person-status { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

@@ -5,12 +5,13 @@ import { pathToFileURL } from 'node:url';
 const upstream = path.resolve(process.argv[2] || '');
 assert.ok(process.argv[2], 'usage: p3-layout-smoke.mjs <pinned-habblaud-checkout>');
 const load = relative => import(pathToFileURL(path.join(upstream, relative)).href);
-const [{ assembleP3Building, layoutP3Reception, layoutP3ProjectRoom }, { toP3OfficeSnapshot }, { FURNITURE }, { poster }, { coreAreas }] = await Promise.all([
+const [{ assembleP3Building, layoutP3Reception, layoutP3ProjectRoom, P3_AWARDS, p3AwardAtWorldPoint }, { toP3OfficeSnapshot }, { FURNITURE }, { poster }, { coreAreas }, { PathFinder }] = await Promise.all([
   load('client/src/world/layout/zhuge-p3-layout.ts'),
   load('client/src/adapters/zhuge-p3-bridge.ts'),
   load('client/src/art/api.ts'),
   load('client/src/art/furniture/wall.ts'),
   load('client/src/world/layout/building.ts'),
+  load('client/src/world/path/astar.ts'),
 ]);
 
 const snapshot = toP3OfficeSnapshot(1, 1_800_000_000_000, 1_800_000_000_000);
@@ -38,8 +39,15 @@ assert.ok(lounge.furniture.some(item => item.kind === 'sofa') && lounge.furnitur
 const reception = layoutP3Reception();
 const medalVariants = reception.wallItems.filter(item => item.kind === 'poster').map(item => item.variant);
 assert.deepEqual(medalVariants, ['award_gold', 'award_silver', 'award_bronze'], 'medal wall is indoor native wall furniture');
+assert.deepEqual(P3_AWARDS.map(item => item.id), ['taskflow', 'worklog', 'investment'], 'medal links map only to existing published Zhuge products');
 assert.ok(medalVariants.every(variant => FURNITURE.poster.variants.includes(variant)));
 for (const variant of medalVariants) assert.ok(poster(variant).base.buf, `native poster sprite renders ${variant}`);
+for (const award of P3_AWARDS) {
+  const item = reception.wallItems.find(wallItem => wallItem.variant === award.variant);
+  assert.ok(item, `${award.id} poster has a native wall position`);
+  assert.equal(p3AwardAtWorldPoint(item.cx, item.baseY - 20), award.id, `${award.id} poster hit box resolves to its real product`);
+  assert.equal(p3AwardAtWorldPoint(item.cx + 10, item.baseY - 20), null, `${award.id} hit box does not extend into adjacent wall items`);
+}
 
 const core = coreAreas();
 const building = assembleP3Building(4, areas, 1);
@@ -52,4 +60,20 @@ for (const area of [work, meeting, lounge]) {
     for (let x = area.door.x; x < area.door.x + area.door.w; x++) assert.ok(building.grid.walkable(x, y), `${area.id} door tile ${x},${y} remains walkable`);
   }
 }
-console.log('P3 native layout smoke PASS: 7 visual roles, 3 interior zones, preserved Habblaud core, indoor award sprites and walkable doors.');
+
+// Exercise the pinned Habblaud A* implementation through the meeting doorway and around
+// real blocking furniture; this proves the room is reachable on the same native WalkGrid.
+const start = { x: meeting.door.x, y: meeting.rect.y - 1 };
+const goal = { x: meeting.rect.x + 13, y: meeting.rect.y + 4 };
+assert.ok(building.grid.walkable(start.x, start.y), 'meeting approach tile in the corridor is walkable');
+assert.ok(building.grid.walkable(goal.x, goal.y), 'meeting destination tile is walkable');
+const finder = new PathFinder(building.grid);
+const route = [];
+assert.ok(finder.find(start.x, start.y, goal.x, goal.y, route), 'native A* reaches the meeting room from the corridor');
+const tiles = [];
+for (let index = 0; index < route.length; index += 2) tiles.push({ x: route[index], y: route[index + 1] });
+assert.ok(tiles.some(tile => tile.x >= meeting.door.x && tile.x < meeting.door.x + meeting.door.w && tile.y >= meeting.door.y && tile.y < meeting.door.y + meeting.door.h), 'route crosses the real meeting doorway');
+assert.ok(tiles.every(tile => building.grid.walkable(tile.x, tile.y)), 'meeting route never crosses a blocked wall or furniture tile');
+const allTiles = [start, ...tiles];
+assert.ok(allTiles.slice(1).every((tile, index) => Math.abs(tile.x - allTiles[index].x) + Math.abs(tile.y - allTiles[index].y) === 1), 'native A* route uses continuous 4-direction steps');
+console.log('P3 native layout smoke PASS: seven roles, indoor award hit targets, meeting-room doorway A* route, furniture avoidance and original core.');

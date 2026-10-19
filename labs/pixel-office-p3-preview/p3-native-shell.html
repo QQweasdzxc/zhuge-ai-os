@@ -11,7 +11,7 @@
   <main class="p3-shell" aria-label="Pixel Office 原生辦公室">
     <header class="p3-shell__header">
       <div>
-        <p class="p3-shell__eyebrow">ZHUge AI OS · P3 PREVIEW</p>
+        <p class="p3-shell__eyebrow">ZHUGE AI OS · P3 PREVIEW</p>
         <h1>Pixel Office</h1>
       </div>
       <p class="p3-shell__header-note">原生 Habblaud 場景</p>
@@ -104,6 +104,18 @@
               <ul id="p3-events-list" aria-live="polite"></ul>
             </section>
           </section>
+          <section id="p3-award-details" class="p3-shell__award-details" aria-live="polite" aria-labelledby="p3-award-title" hidden>
+            <div class="p3-shell__award-heading">
+              <div>
+                <p class="p3-shell__detail-label">作品入口</p>
+                <h2 id="p3-award-title"></h2>
+              </div>
+              <button id="p3-award-close" class="p3-shell__award-close" type="button" aria-label="關閉作品資訊">×</button>
+            </div>
+            <p id="p3-award-description" class="p3-shell__award-description"></p>
+            <p class="p3-shell__award-truth">這是既有產品入口，不代表系統目前的運作狀態。</p>
+            <a id="p3-award-link" class="p3-shell__source-link" target="_blank" rel="noopener noreferrer">開啟作品</a>
+          </section>
         </div>
       </details>
     </div>
@@ -147,6 +159,16 @@
       const refRow = document.getElementById('p3-detail-ref-row');
       const refText = document.getElementById('p3-detail-ref');
       const sourceLink = document.getElementById('p3-detail-link');
+      const awardPanel = document.getElementById('p3-award-details');
+      const awardTitle = document.getElementById('p3-award-title');
+      const awardDescription = document.getElementById('p3-award-description');
+      const awardLink = document.getElementById('p3-award-link');
+      const rosterContent = document.querySelector('.p3-shell__roster-content');
+      const awards = Object.freeze({
+        taskflow: { title: 'TaskFlow', description: '正式任務與專案工作平台。', href: 'https://zhuge-taskflow-web.onrender.com/' },
+        worklog: { title: 'WorkLog', description: '既有工時登錄與工作紀錄入口。', href: 'https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=worklog' },
+        investment: { title: 'Investment', description: '既有投資研究與資產觀察入口。', href: 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/investment/' }
+      });
       const allowedRoleIds = new Set(['pm', 'co', 'gem', 'gpt', 'betty', 'anan', 'kaka']);
       const statuses = new Map();
       let engineeringEvents = [];
@@ -173,6 +195,25 @@
           ? '虛擬生活角色；不代表真人位置或工作狀態'
           : '尚無可驗證的最新狀態';
       }
+
+      function hideAward() {
+        awardPanel.hidden = true;
+        awardTitle.textContent = '';
+        awardDescription.textContent = '';
+        awardLink.removeAttribute('href');
+      }
+
+      function showAward(awardId) {
+        if (typeof awardId !== 'string' || !Object.hasOwn(awards, awardId)) return;
+        const award = awards[awardId];
+        awardTitle.textContent = award.title;
+        awardDescription.textContent = award.description;
+        awardLink.href = award.href;
+        awardPanel.hidden = false;
+        rosterContent.scrollTop = rosterContent.scrollHeight;
+      }
+
+      document.getElementById('p3-award-close').addEventListener('click', hideAward);
 
       function renderSelection() {
         const info = roleInfo[selectedRole];
@@ -206,6 +247,7 @@
 
       function selectRole(roleId, notifyScene) {
         if (!allowedRoleIds.has(roleId) || !roleInfo[roleId]) return false;
+        hideAward();
         selectedRole = roleId;
         pendingRoleId = roleId;
         renderSelection();
@@ -248,10 +290,13 @@
           connectScene(event.data.src);
           return;
         }
-        // Only the active same-origin native iframe can select a role.
-        if (event.source !== frame.contentWindow || event.origin !== sceneOrigin || !sceneOrigin || event.data?.type !== 'p3:agent-selected') return;
-        if (!allowedRoleIds.has(event.data.roleId)) return;
-        selectRole(event.data.roleId, false);
+        // Only the active same-origin native iframe can send role and award actions.
+        if (event.source !== frame.contentWindow || event.origin !== sceneOrigin || !sceneOrigin) return;
+        if (event.data?.type === 'p3:agent-selected') {
+          if (allowedRoleIds.has(event.data.roleId)) selectRole(event.data.roleId, false);
+          return;
+        }
+        if (event.data?.type === 'p3:award-selected') showAward(event.data.awardId);
       });
 
       // Only controller-verified evidence with source and timestamp is shown as work status.
