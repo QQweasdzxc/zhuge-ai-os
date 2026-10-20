@@ -33,15 +33,16 @@ export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt =
 }
 export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
   const metadata = metadataOf(issue);
+  const runtime = issue?.dispatch_runtime || issue?.runtime_read_model || metadata.zhuge_runtime_read_model || null;
   const run = Array.isArray(runs) ? runs.find(item => item && item.id) : null;
-  const providerRunId = text(metadata[META.runId] || run?.provider_run_id);
-  const heartbeatAt = text(metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
-  const observedAt = text(metadata[META.observedAt] || run?.observed_at || run?.updated_at);
-  const rawStatus = text(metadata[META.status] || run?.status || issue?.status);
+  const providerRunId = text(runtime?.provider_run_id || metadata[META.runId] || run?.provider_run_id);
+  const heartbeatAt = text(runtime?.last_heartbeat_at || metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
+  const observedAt = text(runtime?.observed_at || metadata[META.observedAt] || run?.observed_at || run?.updated_at);
+  const rawStatus = text(runtime?.state || metadata[META.status] || run?.status || issue?.status);
   let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now });
   if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
   const reason = status === "STALE" ? "heartbeat 或 observed_at 已過期" : status === "UNKNOWN" ? "缺少可信 Provider Run ID／觀測證據" : status === "BLOCKED" || status === "FAILED" ? text(metadata[META.blockReason]) || "原生執行證據回報阻擋或失敗" : "";
-  return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(metadata[META.workCode]), owner: normalizeExecutor(metadata[META.owner]), authorizedBy: text(metadata[META.authorizedBy]), executor: normalizeExecutor(metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee), status, reason, providerRunId, taskId: text(metadata[META.taskId] || run?.id), checkpoint: text(metadata[META.checkpoint] || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), pmDecisionRequired: metadata[META.pmDecision] === true || text(metadata[META.pmDecision]).toLowerCase() === "true", raw: issue };
+  return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(runtime?.work_code || metadata[META.workCode]), owner: normalizeExecutor(runtime?.executor_id || metadata[META.owner]), authorizedBy: text(runtime?.authorization || metadata[META.authorizedBy]), executor: normalizeExecutor(runtime?.executor_id || metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee), provider: text(runtime?.provider || metadata.zhuge_provider), status, reason: reason || text(runtime?.evidence?.blocked_reason), providerRunId, providerRunIdSource: text(runtime?.provider_run_id_source || runtime?.evidence?.provider_run_id_source), taskId: text(runtime?.task_id || metadata[META.taskId] || run?.id), checkpoint: text(runtime?.checkpoint_ref || metadata[META.checkpoint] || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), quotaState: text(runtime?.quota_state), providerAck: text(runtime?.evidence?.provider_ack), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), evidenceSource: runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : (run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), pmDecisionRequired: metadata[META.pmDecision] === true || text(metadata[META.pmDecision]).toLowerCase() === "true", raw: issue };
 }
 export function validateEvidence(issue, runs = []) {
   const metadata = metadataOf(issue);
