@@ -14,7 +14,7 @@
 
 **正式交接：[20261020-Handoff.md](./20261020-Handoff.md)**；原則候選：[PR #100](https://github.com/QQweasdzxc/zhuge-ai-os/pull/100)；權威 PM 決策：[Issue #51](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51#issuecomment-6285091395)。
 
-- **CTO-01（GPT）是唯一派工、改派、工程進度回收、技術審查、整合總管**，CO-01／CO-02／GEM-01／GH-HELPER-* 同層平行；CO-03 仍須核實身分，不能默認是 GEM-01。
+- **CTO-01（GPT）是唯一派工、改派、工程進度回收、技術審查、整合總管**。本輪四位獨立工程師：**CO-01（Codex-01）、CO-02（Codex-02）、CO-03（Codex-03）、GEM-01（Gem）**，全部平行無上下級；GH-HELPER-* 為另外可調用的資源。CO-03 ≠ GEM-01，其實際 Provider 身分／接線仍需核實，不能把貼指令當 ACK。
 - CTO 可以自主安排 CO-01 或具操作權的 CTO 在唯一 Production 發布，**不需每版重新向 PM 申請 exact-SHA GO**；仍須 exact-SHA CI、新 Version／Build、FullSource、安全與回復檢查。
 - 新增付費、重大權限／Secrets／DB ACL、不可逆資料操作，仍須 PM 事前批准；PM 只在正式上線後進行功能審測。
 - **唯一 P0：AI 派工管理核心**（TaskFlow DM-00～DM-03 + DM-04）；其他主線 HOLD。不另設 staging／測試網站。
@@ -31,7 +31,7 @@
 
 ## 協作規則（2026-10-20 生效；舊三方職稱表僅歷史）
 
-**當前正確執行者：** CTO 主管理；CO-01、CO-02、GEM-01、GH-HELPER-* 同層平行。CO-03 待確認 Registry 與任務身分，禁止假定與 Gem 同一人。即時 Runtime 證據優先於 Handoff 快照。
+**當前正確執行者：** CTO 主管理；PM 最新指定 **CO-01、CO-02、CO-03、GEM-01 四名平行接案工程師**，GH-HELPER-* 為額外獨立資源。CO-03 已有人員代碼但 Provider Registry 與實際 ACK 未確認，絕不能假定 CO-03 = GEM-01。即時 Runtime 證據優先於 Handoff 快照。
 
 ### 歷史三方表（2026-10-18～19，現已被取代）
 
@@ -86,7 +86,7 @@
 
 ## 快速入口
 
-- [今日 Handoff](./20261020-Handoff.md)
+- [今日 Handoff（四位工程師／最新分工）](./20261020-Handoff.md)
 - [PM 決策與持續交接：Issue #51](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51)
 - [Co 源碼工程主線：PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60)
 - [產品最新候選狀態文件（PR #60 分支；可能落後 GitHub 新留言）](https://github.com/QQweasdzxc/zhuge-ai-os/blob/review/taskflow-github-codex-phase2-20261016/docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)
