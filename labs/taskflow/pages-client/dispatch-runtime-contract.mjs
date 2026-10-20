@@ -56,6 +56,24 @@ export function acceptProviderEvent(event, lease, now = Date.now()) {
   return {accepted:true, state:mapped[text(event.status).toLowerCase()] || "UNKNOWN", provider_run_id:text(event.provider_run_id), observed_at:now};
 }
 
+export function acceptHeartbeat(heartbeat, lease, now = Date.now()) {
+  if (!lease?.ok) return {accepted:false, state:"BLOCKED", reason:"NO_ACTIVE_LEASE"};
+  if (lease.expires_at <= now || !Number.isFinite(Number(heartbeat?.observed_at)) || now - Number(heartbeat.observed_at) > 60_000) {
+    return {accepted:false, state:"OVERDUE", reason:"HEARTBEAT_STALE"};
+  }
+  if (text(heartbeat?.fencing_token) !== lease.fencing_token) return {accepted:false, state:"BLOCKED", reason:"FENCING_TOKEN_MISMATCH"};
+  return {accepted:true, state:"RUNNING", observed_at:now};
+}
+
+export function acceptUniqueProviderEvent(event, lease, seenEventIds = new Set(), now = Date.now()) {
+  const eventId = text(event?.event_id);
+  if (!eventId) return {accepted:false, state:"UNKNOWN", reason:"PROVIDER_EVENT_ID_MISSING"};
+  if (seenEventIds.has(eventId)) return {accepted:false, state:"UNKNOWN", reason:"PROVIDER_EVENT_REPLAY"};
+  const result = acceptProviderEvent(event, lease, now);
+  if (result.accepted) seenEventIds.add(eventId);
+  return result;
+}
+
 export function resolveDuplicateIntent(existing, incoming) {
   if (!existing) return {action:"CREATE"};
   if (existing.idempotency_key !== incoming.idempotency_key) return {action:"CONFLICT", reason:"IDEMPOTENCY_KEY_MISMATCH"};
