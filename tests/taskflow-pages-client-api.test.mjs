@@ -70,3 +70,30 @@ test("root and task paths cannot be arbitrary URLs or path traversal",async()=>{
   assert.throws(()=>client.getIssue("pm-team","../../admin"),e=>e.code==="INVALID_IDENTIFIER");
   assert.throws(()=>client.listIssues("https://bad"),e=>e.code==="INVALID_WORKSPACE");
 });
+
+test("DM transport uses native TaskFlow issue, metadata, agent, run and PR endpoints",async()=>{
+  const calls=[];
+  const fetcher=async (url,options)=>{
+    calls.push({url,options});
+    if(url===ORIGINAL+"/auth/zhuge")return makeResponse(200,{token:"taskflow-in-memory-jwt"});
+    return makeResponse(200, url.includes("/task-runs")?[{id:"task-1",status:"queued"}]:url.includes("/pull-requests")?{pull_requests:[]}:{});
+  };
+  const client=createTaskFlowPagesTransport({fetcher,getAccessToken:()=>"zhuge-test-jwt"});
+  await client.connect();
+  await client.listAgents("pm-team");
+  await client.createIssue("pm-team",{title:"DM-00｜native card"});
+  await client.updateIssue("pm-team","abc",{assignee_type:"agent",assignee_id:"agent-1",suppress_run:true});
+  await client.getMetadata("pm-team","abc");
+  await client.setMetadata("pm-team","abc","zhuge_work_code","DM-00");
+  await client.listTaskRuns("pm-team","abc",{active:true});
+  await client.requestStart("pm-team","abc",{});
+  await client.listPullRequests("pm-team","abc");
+  await client.linkPullRequest("pm-team","abc","https://github.com/org/repo/pull/1");
+  await client.deleteMetadata("pm-team","abc","zhuge_provider_run_id");
+  const apiCalls=calls.slice(1);
+  assert.deepEqual(apiCalls.map(call=>call.options.method||"GET"),["GET","POST","PUT","GET","PUT","GET","POST","GET","POST","DELETE"]);
+  assert.match(apiCalls[5].url,/\/task-runs\?active=true$/);
+  assert.deepEqual(JSON.parse(apiCalls[6].options.body),{});
+  assert.deepEqual(JSON.parse(apiCalls[8].options.body),{url:"https://github.com/org/repo/pull/1"});
+  for(const call of apiCalls)assert.equal(call.options.headers["X-Workspace-Slug"],"pm-team");
+});

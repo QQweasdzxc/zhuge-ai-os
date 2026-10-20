@@ -49,6 +49,7 @@ test("classic status route preserves authenticated TaskFlow Dashboard after pixe
     await page.goto(root,{waitUntil:"load"});
     await page.getByText("TaskFlow source issue").waitFor({timeout:8000});
     assert.equal(page.url(),root,"authenticated Dashboard origin stays on GitHub Pages");
+    assert.equal(await page.locator("#tf-create-open").isVisible(),true,"canonical Dashboard exposes the native DM entry");
     assert.equal(apiCalls.find(x=>x.path==="/api/issues").headers["x-workspace-slug"],"pm-team");
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"responsive homepage");
     await page.close();

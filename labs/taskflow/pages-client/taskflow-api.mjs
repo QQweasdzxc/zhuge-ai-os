@@ -57,7 +57,16 @@ export function createTaskFlowPagesTransport({
       throw new TaskFlowPagesError("Your session is invalid or workspace access was denied", reply.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",reply.status);
     }
     if (!reply.ok) {
-      throw new TaskFlowPagesError("TaskFlow API returned HTTP "+reply.status,"HTTP_ERROR",reply.status);
+      let detail = "";
+      try {
+        const body = await reply.json();
+        detail = typeof body?.error === "string" ? body.error : typeof body?.message === "string" ? body.message : "";
+      } catch { /* an HTTP status is still enough to fail closed */ }
+      throw new TaskFlowPagesError(
+        detail || "TaskFlow API returned HTTP "+reply.status,
+        "HTTP_ERROR",
+        reply.status
+      );
     }
     if (reply.status === 204) return null;
     try { return await reply.json(); }
@@ -91,6 +100,15 @@ export function createTaskFlowPagesTransport({
     return true;
   }
   function disconnect(){bearer=null;}
+  function issuePath(id,suffix="") {
+    return "/api/issues/"+encodeURIComponent(requiredId(id))+suffix;
+  }
+  function requiredMetadataKey(key) {
+    if (typeof key !== "string" || !/^[a-zA-Z_][a-zA-Z0-9_.-]{0,63}$/.test(key)) {
+      throw new TaskFlowPagesError("Valid TaskFlow metadata key required", "INVALID_METADATA_KEY");
+    }
+    return key;
+  }
   async function api(path,{workspace,method="GET",body,signal}={}) {
     if(!bearer)throw new TaskFlowPagesError("TaskFlow identity not connected","AUTH_REQUIRED");
     if(typeof path!=="string"||!path.startsWith("/api/")||path.startsWith("//")||path.includes("..")){
@@ -119,10 +137,20 @@ export function createTaskFlowPagesTransport({
       if(query)search.set("q",query.trim().slice(0,200));
       return api("/api/issues?"+search.toString(),{workspace});
     },
-    getIssue:(workspace,id)=>api("/api/issues/"+encodeURIComponent(requiredId(id)),{workspace}),
+    getIssue:(workspace,id)=>api(issuePath(id),{workspace}),
+    createIssue:(workspace,body)=>api("/api/issues",{workspace,method:"POST",body}),
+    updateIssue:(workspace,id,body)=>api(issuePath(id),{workspace,method:"PUT",body}),
     listProjects:(workspace)=>api("/api/projects",{workspace}),
     listStatuses:(workspace)=>api("/api/issue-statuses",{workspace}),
-    listComments:(workspace,id)=>api("/api/issues/"+encodeURIComponent(requiredId(id))+"/comments",{workspace}),
+    listAgents:(workspace)=>api("/api/agents",{workspace}),
+    listComments:(workspace,id)=>api(issuePath(id,"/comments"),{workspace}),
+    getMetadata:(workspace,id)=>api(issuePath(id,"/metadata"),{workspace}),
+    setMetadata:(workspace,id,key,value)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"PUT",body:{value}}),
+    deleteMetadata:(workspace,id,key)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"DELETE"}),
+    listTaskRuns:(workspace,id,{active=false}={})=>api(issuePath(id,"/task-runs?active="+(active?"true":"false")),{workspace}),
+    requestStart:(workspace,id,body={})=>api(issuePath(id,"/rerun"),{workspace,method:"POST",body}),
+    listPullRequests:(workspace,id)=>api(issuePath(id,"/pull-requests"),{workspace}),
+    linkPullRequest:(workspace,id,url)=>api(issuePath(id,"/pull-requests"),{workspace,method:"POST",body:{url}}),
     connected:()=>Boolean(bearer)
   });
 }
