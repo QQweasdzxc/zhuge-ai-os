@@ -154,6 +154,11 @@ function acceptProviderEventInternal(record, event, now) {
   const runReason = requireProviderRun(record, event);
   if (runReason) return failure(record, event, runReason, runReason === "PROVIDER_RUN_ID_MISSING" ? "UNKNOWN" : "BLOCKED");
   const status = text(event.status).toLowerCase();
+  const isAckStatus = status === "queued" || status === "acknowledged";
+  if (isAckStatus && record.provider_acknowledged
+      && (record.provider_event_status === status || record.provider_event_status === "acknowledged")) {
+    return failure(record, event, "DUPLICATE_PROVIDER_ACK", "ACK_PENDING");
+  }
   const next = clone(record);
   next.provider_run_id = text(event.provider_run_id);
   next.provider_run_id_source = "provider_event";
@@ -205,6 +210,10 @@ function acceptProviderBoundaryEvent(record, event, now, reason, state = "BLOCKE
   next.blocked_reason = reason;
   next.quota_state = reason === "PROVIDER_QUOTA_EXHAUSTED" ? "EXHAUSTED" : next.quota_state;
   next.error = text(event.error) || reason;
+  // A provider boundary event is the stop evidence for the current writer.
+  // Release the lease before retry/reassign so a later writer cannot overlap
+  // the failed or unavailable provider attempt.
+  next.lease_active = false;
   return success(record, event, next);
 }
 

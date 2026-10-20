@@ -74,6 +74,33 @@ test("durable record survives serialization and rejects duplicate provider runs"
   assert.equal(duplicate.state, "BLOCKED");
 });
 
+test("a second provider ACK is rejected and retained as an audit event", () => {
+  const record = durableRecordFromIntent(intentInput, {createdAt: new Date(NOW).toISOString()});
+  const acknowledged = applyDurableDispatchEvent(lease(record).record, event(lease(record).record, {
+    event_id: "provider-ack-once",
+    type: "PROVIDER_EVENT",
+    provider: "codex",
+    provider_run_id: "codex-run-ack",
+    status: "acknowledged",
+    fencing_token: "fence-a"
+  }), NOW);
+  const duplicate = applyDurableDispatchEvent(acknowledged.record, event(acknowledged.record, {
+    event_id: "provider-ack-duplicate",
+    type: "PROVIDER_EVENT",
+    provider: "codex",
+    provider_run_id: "codex-run-ack",
+    status: "acknowledged",
+    fencing_token: "fence-a"
+  }), NOW);
+
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.reason, "DUPLICATE_PROVIDER_ACK");
+  assert.equal(duplicate.state, "ACK_PENDING");
+  assert.equal(duplicate.record.provider_run_id, "codex-run-ack");
+  assert.ok(duplicate.record.rejected_event_ids.includes("provider-ack-duplicate"));
+  assert.equal(duplicate.record.audit_log.at(-1).reason, "DUPLICATE_PROVIDER_ACK");
+});
+
 test("replay and persisted version conflicts fail closed across a restart", () => {
   let record = lease(durableRecordFromIntent(intentInput, {createdAt: new Date(NOW).toISOString()})).record;
   const first = applyDurableDispatchEvent(record, event(record, {
@@ -194,6 +221,80 @@ test("heartbeat, checkpoint and quota boundaries retain evidence without claimin
   assert.equal(quota.state, "BLOCKED");
   assert.equal(quota.record.quota_state, "EXHAUSTED");
   assert.equal(quota.record.checkpoint_ref, "provider-checkpoint-1");
+});
+
+test("stale heartbeat and wrong Run ID callbacks fail closed with traceable state", () => {
+  let record = lease(durableRecordFromIntent(intentInput, {createdAt: new Date(NOW).toISOString()})).record;
+  record = applyDurableDispatchEvent(record, event(record, {
+    event_id: "provider-running-heartbeat-boundary",
+    type: "PROVIDER_EVENT",
+    provider: "codex",
+    provider_run_id: "codex-run-heartbeat",
+    status: "running",
+    fencing_token: "fence-a"
+  }), NOW).record;
+  const stale = applyDurableDispatchEvent(record, event(record, {
+    event_id: "heartbeat-stale-1",
+    type: "HEARTBEAT",
+    provider: "codex",
+    provider_run_id: "codex-run-heartbeat",
+    fencing_token: "fence-a",
+    observed_at: new Date(NOW - 61_000).toISOString()
+  }), NOW);
+  assert.equal(stale.reason, "HEARTBEAT_STALE");
+  assert.equal(stale.state, "OVERDUE");
+  assert.equal(stale.record.provider_run_id, "codex-run-heartbeat");
+
+  const wrongRun = applyDurableDispatchEvent(record, event(record, {
+    event_id: "heartbeat-wrong-run-1",
+    type: "HEARTBEAT",
+    provider: "codex",
+    provider_run_id: "codex-run-forged",
+    fencing_token: "fence-a"
+  }), NOW);
+  assert.equal(wrongRun.reason, "MULTIPLE_PROVIDER_RUNS");
+  assert.equal(wrongRun.state, "BLOCKED");
+});
+
+test("quota exhaustion keeps evidence and only a matching retry can clear the run binding", () => {
+  let record = lease(durableRecordFromIntent(intentInput, {createdAt: new Date(NOW).toISOString()})).record;
+  record = applyDurableDispatchEvent(record, event(record, {
+    event_id: "provider-running-quota-boundary",
+    type: "PROVIDER_EVENT",
+    provider: "codex",
+    provider_run_id: "codex-run-quota",
+    status: "running",
+    fencing_token: "fence-a"
+  }), NOW).record;
+  const exhausted = applyDurableDispatchEvent(record, event(record, {
+    event_id: "quota-exhausted-retry-1",
+    type: "PROVIDER_QUOTA_EXHAUSTED",
+    provider: "codex",
+    provider_run_id: "codex-run-quota",
+    fencing_token: "fence-a"
+  }), NOW);
+  assert.equal(exhausted.state, "BLOCKED");
+  assert.equal(exhausted.record.quota_state, "EXHAUSTED");
+
+  const wrongRetry = applyDurableDispatchEvent(exhausted.record, event(exhausted.record, {
+    event_id: "retry-wrong-source-1",
+    type: "RETRY_REQUESTED",
+    retry_of_provider_run_id: "codex-run-other"
+  }), NOW);
+  assert.equal(wrongRetry.reason, "RETRY_SOURCE_RUN_MISMATCH");
+  assert.equal(wrongRetry.state, "BLOCKED");
+
+  const retry = applyDurableDispatchEvent(wrongRetry.record, event(wrongRetry.record, {
+    event_id: "retry-matching-source-1",
+    type: "RETRY_REQUESTED",
+    retry_of_provider_run_id: "codex-run-quota"
+  }), NOW);
+  assert.equal(retry.accepted, true);
+  assert.equal(retry.state, "ACK_PENDING");
+  assert.equal(retry.record.provider_run_id, null);
+  assert.equal(retry.record.attempt, 2);
+  assert.equal(retry.record.run_history[0].provider_run_id, "codex-run-quota");
+  assert.equal(retry.record.quota_state, "EXHAUSTED");
 });
 
 test("resume and reassign require provider ACK, checkpoint and stop evidence", () => {
