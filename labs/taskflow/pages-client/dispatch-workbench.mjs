@@ -97,13 +97,16 @@ export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt =
   if (value === "ASSIGNED") return "ASSIGNED";
   return "UNKNOWN";
 }
-export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
+export function normalizeDispatchIssue(issue, runs = [], now = Date.now(), trustedRuntime = null) {
   const metadata = metadataOf(issue);
-  const runtime = issue?.dispatch_runtime || issue?.runtime_read_model || metadata.zhuge_runtime_read_model || null;
+  // Runtime evidence is accepted only when supplied by the protected
+  // TaskFlow readback endpoint. Issue metadata and runtime-shaped fields are
+  // mutable client context and must never establish Provider execution.
+  const runtime = trustedRuntime && typeof trustedRuntime === "object" ? trustedRuntime : null;
   const run = Array.isArray(runs) ? runs.find(item => item && item.id) : null;
-  const providerRunId = text(runtime?.provider_run_id || metadata[META.runId] || run?.provider_run_id);
-  const heartbeatAt = text(runtime?.last_heartbeat_at || runtime?.heartbeat_at || metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
-  const observedAt = text(runtime?.observed_at || runtime?.last_observed_at || metadata[META.observedAt] || run?.observed_at || run?.updated_at);
+  const providerRunId = text(runtime ? runtime.provider_run_id : metadata[META.runId] || run?.provider_run_id);
+  const heartbeatAt = text(runtime ? runtime.last_heartbeat_at || runtime.heartbeat_at : metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
+  const observedAt = text(runtime ? runtime.observed_at || runtime.last_observed_at : metadata[META.observedAt] || run?.observed_at || run?.updated_at);
   const rawStatus = text(runtime?.state || metadata[META.status] || run?.status || issue?.status);
   const runningEvidence = ["RUNNING", "IN_PROGRESS"].includes(rawStatus.toUpperCase().replace(/[- ]/g, "_"))
     ? verifyRunningEvidence(issue, runtime, runs, now)
@@ -111,10 +114,10 @@ export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
   let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now, runningEvidence });
   if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
   const evidenceReason = text(metadata[META.blockReason]) || text(runtime?.evidence?.blocked_reason);
-  const reason = status === "STALE" ? (runningEvidence?.reason || "heartbeat 或 observed_at 已過期") : status === "UNKNOWN" ? (runningEvidence?.reason || "缺少可信 Provider Run ID／觀測證據") : status === "BLOCKED" || status === "FAILED" ? evidenceReason || "原生執行證據回報阻擋或失敗" : "";
-  const executor = normalizeExecutor(runtime?.executor_id || metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee);
+  const reason = status === "STALE" ? (runningEvidence?.reason || "heartbeat 或 observed_at 已過期") : status === "UNKNOWN" ? (runningEvidence?.reason || evidenceReason || "缺少可信 Provider Run ID／觀測證據") : status === "BLOCKED" || status === "FAILED" ? evidenceReason || "原生執行證據回報阻擋或失敗" : "";
+  const executor = normalizeExecutor(runtime?.executor_id) || normalizeExecutor(metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee);
   const pmDecisionRequired = booleanValue(runtime?.pm_decision_required) || booleanValue(runtime?.pmDecisionRequired) || booleanValue(metadata[META.pmDecision]);
-  return { id: text(issue?.id), identifier: text(issue?.identifier || issue?.key), title: text(issue?.title) || "未命名案件", workCode: text(runtime?.work_code || metadata[META.workCode]), owner: normalizeExecutor(runtime?.executor_id || metadata[META.owner]), authorizedBy: text(runtime?.authorization || metadata[META.authorizedBy]), executor, provider: text(runtime?.provider || metadata.zhuge_provider), status, rawState: text(rawStatus).toUpperCase().replace(/[- ]/g, "_"), reason: reason || evidenceReason, providerRunId, providerRunIdSource: text(runtime?.provider_run_id_source || runtime?.evidence?.provider_run_id_source), taskId: text(runtime?.task_id || metadata[META.taskId] || run?.id), checkpoint: text(runtime?.checkpoint_ref || metadata[META.checkpoint] || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), quotaState: text(runtime?.quota_state), providerAck: text(runtime?.evidence?.provider_ack || metadata.zhuge_provider_ack), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), statusSource: text(runtime?.status_source || metadata[META.source]) || (runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), evidenceSource: runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : (run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), pmDecisionRequired, raw: issue };
+  return { id: text(issue?.id), identifier: text(issue?.identifier || issue?.key), title: text(issue?.title) || "未命名案件", workCode: text(runtime?.work_code || metadata[META.workCode]), owner: normalizeExecutor(runtime?.executor_id) || normalizeExecutor(metadata[META.owner]), authorizedBy: text(runtime ? runtime.authorization : metadata[META.authorizedBy]), executor, provider: text(runtime ? runtime.provider : metadata.zhuge_provider), status, rawState: text(rawStatus).toUpperCase().replace(/[- ]/g, "_"), reason: reason || evidenceReason, providerRunId, providerRunIdSource: text(runtime?.provider_run_id_source || runtime?.evidence?.provider_run_id_source), taskId: text(runtime?.task_id || (runtime ? "" : metadata[META.taskId]) || run?.id), checkpoint: text(runtime?.checkpoint_ref || (runtime ? "" : metadata[META.checkpoint]) || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), quotaState: text(runtime?.quota_state), providerAck: text(runtime ? runtime.evidence?.provider_ack : metadata.zhuge_provider_ack), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), statusSource: text(runtime?.status_source || metadata[META.source]) || (runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), evidenceSource: runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : (run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), pmDecisionRequired, raw: issue };
 }
 
 /** Return true only when a native issue carries dispatch evidence. Ordinary
@@ -171,26 +174,46 @@ export function validateEvidence(issue, runs = []) {
 }
 export function createDispatchAdapter(transport) {
   if (!transport || typeof transport.listIssues !== "function") throw new TypeError("TaskFlow transport required");
+  function runtimeModel(value) {
+    const model = value?.runtime || value?.read_model || value;
+    if (!model || typeof model !== "object") throw new Error("TaskFlow Runtime Readback response invalid");
+    return model;
+  }
+  async function readRuntime(workspace, issue) {
+    if (typeof transport.getDispatchRuntime !== "function") throw new Error("TaskFlow Runtime Readback endpoint unavailable");
+    return runtimeModel(await transport.getDispatchRuntime(workspace, issue.id));
+  }
   return Object.freeze({
     async list(workspace, { executor = "", query = "" } = {}) {
       const response = await transport.listIssues(workspace, { limit: 100, query });
       const issues = Array.isArray(response) ? response : response?.issues;
       if (!Array.isArray(issues)) throw new Error("TaskFlow issue response invalid");
       const selected = normalizeExecutor(executor);
-      return issues.filter(issue => {
+      const candidates = issues.filter(issue => {
         const item = normalizeDispatchIssue(issue);
         return !selected || item.executor === selected;
-      }).map(issue => normalizeDispatchIssue(issue));
+      });
+      // Keep the native issue list intact for the workbench, but only query
+      // the protected readback route for issues that carry explicit dispatch
+      // evidence. Ordinary TaskFlow issues remain visible without being
+      // relabeled as dispatch work or causing an unnecessary API fan-out.
+      const readbacks = await Promise.all(candidates.map(issue => {
+        const item = normalizeDispatchIssue(issue);
+        return hasDispatchEvidence(item) ? readRuntime(workspace, issue) : null;
+      }));
+      return candidates.map((issue, index) => normalizeDispatchIssue(issue, [], Date.now(), readbacks[index]));
     },
     async detail(workspace, id) {
       const issue = await transport.getIssue(workspace, id);
-      const [runs, pullRequests] = await Promise.allSettled([
+      const [runs, pullRequests, runtime] = await Promise.allSettled([
         transport.listTaskRuns?.(workspace, id, { active: false }),
-        transport.listPullRequests?.(workspace, id)
+        transport.listPullRequests?.(workspace, id),
+        readRuntime(workspace, issue)
       ]);
+      if (runtime.status === "rejected") throw runtime.reason;
       const runList = runs.status === "fulfilled" ? (Array.isArray(runs.value) ? runs.value : runs.value?.tasks || []) : [];
       const prs = pullRequests.status === "fulfilled" ? (Array.isArray(pullRequests.value) ? pullRequests.value : pullRequests.value?.pull_requests || []) : [];
-      return { ...normalizeDispatchIssue(issue, runList), runs: runList, pullRequests: prs, runtimeEvidence: runs.status === "fulfilled" };
+      return { ...normalizeDispatchIssue(issue, runList, Date.now(), runtime.value), runs: runList, pullRequests: prs, runtimeEvidence: true };
     }
   });
 }

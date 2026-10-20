@@ -28,12 +28,14 @@ class TaskFlowCTODispatchOverlayTests(unittest.TestCase):
             patched = router.read_text()
 
         self.assertEqual(patched.count('r.Post("/dispatch", h.CTODispatchIssue)'), 1)
+        self.assertEqual(patched.count('r.Get("/dispatch-runtime", h.GetDispatchRuntime)'), 1)
         self.assertIn('r.Post("/rerun", h.RerunIssue)', patched)
 
     def test_overlay_fails_closed_for_reapplication_or_marker_drift(self):
         patched = (
             'r.Post("/rerun", h.RerunIssue)\n'
             '\t\t\t\tr.Post("/dispatch", h.CTODispatchIssue)\n'
+            '\t\t\t\tr.Get("/dispatch-runtime", h.GetDispatchRuntime)\n'
         )
         with tempfile.TemporaryDirectory(prefix="taskflow-cto-dispatch-") as temporary:
             router = Path(temporary) / "router.go"
@@ -47,9 +49,13 @@ class TaskFlowCTODispatchOverlayTests(unittest.TestCase):
     def test_source_keeps_authority_overlay_outside_frozen_vendor(self):
         authority = (REPO / "labs/taskflow/overrides/taskflow_dispatch_authority.go").read_text()
         handler = (REPO / "labs/taskflow/overrides/taskflow_cto_dispatch.go").read_text()
+        runtime = (REPO / "labs/taskflow/overrides/taskflow_dispatch_runtime.go").read_text()
         self.assertIn("AuthorizeCTODispatchRequest", authority)
         self.assertIn("TASKFLOW_CTO_ALLOWLIST_USER_IDS", handler)
         self.assertIn("RerunIssue(w, r)", handler)
+        self.assertIn("GetDispatchRuntime", runtime)
+        self.assertIn("PROVIDER_RUNTIME_NOT_BOUND", runtime)
+        self.assertNotIn("r.URL.Query().Get(\"authorization\")", runtime)
 
 
 if __name__ == "__main__":

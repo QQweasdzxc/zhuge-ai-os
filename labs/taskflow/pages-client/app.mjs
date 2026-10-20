@@ -336,9 +336,9 @@ function appendEvidenceRow(box,label,value,{link=false}={}){
   if(link)row.lastChild.replaceChildren(linkNode(value));
   box.append(row);
 }
-function renderDispatchEvidence(container,issue,runs){
+function renderDispatchEvidence(container,issue,runs,trustedRuntime){
   const evidence=evidenceSummary(issue);
-  const runtime=normalizeDispatchIssue(issue,runs);
+  const runtime=normalizeDispatchIssue(issue,runs,Date.now(),trustedRuntime);
   const status=runtime.status;
   const panel=element("section",{className:"tf-subpanel",attrs:{"aria-label":"TaskFlow 派工與執行證據"}});
   const heading=element("div",{className:"tf-subpanel-heading"});
@@ -505,11 +505,15 @@ async function renderDetail(id){
     const issue=await transport.getIssue(workspaceSlug(),id);
     if(currentRoute().issueId!==id)return;
     await ensureAgents({silent:true});
-    const [commentsResult,runsResult,prsResult]=await Promise.allSettled([
+    const [commentsResult,runsResult,prsResult,runtimeResult]=await Promise.allSettled([
       transport.listComments(workspaceSlug(),id),
       transport.listTaskRuns(workspaceSlug(),id,{active:false}),
-      transport.listPullRequests(workspaceSlug(),id)
+      transport.listPullRequests(workspaceSlug(),id),
+      transport.getDispatchRuntime(workspaceSlug(),id)
     ]);
+    if(runtimeResult.status!=="fulfilled")throw runtimeResult.reason;
+    const trustedRuntime=runtimeResult.value?.runtime||runtimeResult.value?.read_model||runtimeResult.value;
+    if(!trustedRuntime||typeof trustedRuntime!=="object")throw new TaskFlowPagesError("TaskFlow Runtime Readback response invalid","INVALID_RESPONSE");
     const comments=commentsResult.status==="fulfilled"?responseArray(commentsResult.value,"comments"):[];
     const runs=runsResult.status==="fulfilled"?responseArray(runsResult.value,"tasks"):[];
     const pullRequests=prsResult.status==="fulfilled"?responseArray(prsResult.value,"pull_requests"):[];
@@ -521,7 +525,7 @@ async function renderDetail(id){
     refs.detail.append(element("h2",{text:issue.title||"未命名任務"}));
     const info=element("div",{className:"tf-issue-info"});
     const assignedAgent=state.agents.find(agent=>agent.id===issue.assignee_id);
-    const dispatchState=normalizeDispatchIssue(issue,runs).status;
+    const dispatchState=normalizeDispatchIssue(issue,runs,Date.now(),trustedRuntime).status;
     for(const [label,value] of [
       ["原生狀態",issue.status_name||issue.status],
       ["派工狀態",DISPATCH_STATE_LABELS[dispatchState]||dispatchState],
@@ -533,7 +537,7 @@ async function renderDetail(id){
     refs.detail.append(info);
     refs.detail.append(element("h3",{text:"任務說明"}));
     refs.detail.append(element("div",{text:issue.description||"尚無說明",className:"tf-description"}));
-    renderDispatchEvidence(refs.detail,issue,runs);
+    renderDispatchEvidence(refs.detail,issue,runs,trustedRuntime);
     await renderAssignment(refs.detail,issue);
     renderGithubEvidence(refs.detail,issue,pullRequests);
     refs.detail.append(element("h3",{text:"TaskFlow 執行歷史"}));

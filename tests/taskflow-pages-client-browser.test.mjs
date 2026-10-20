@@ -32,6 +32,7 @@ async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList
    else if(u.pathname==="/api/projects")data={projects:[{id:"proj1",name:"Native Project"}]};
    else if(u.pathname==="/api/issue-statuses")data={statuses:[]};
    else if(/^\/api\/issues\/[^/]+$/.test(u.pathname))data=issueDetail||{id:"issue-1",identifier:"ZG-1",title:"Native issue from API",status:"todo",priority:"high",description:"This issue description came from API",project_id:"proj1"};
+   else if(/^\/api\/issues\/[^/]+\/dispatch-runtime$/.test(u.pathname))data={runtime:{schema:"zhuge-taskflow-dispatch-persistence-v1",status_source:"TASKFLOW_RUNTIME_READ_MODEL",issue_id:u.pathname.split("/")[3],workspace:"ws1",work_code:"DM-04",executor_id:"CO-02",provider:"UNVERIFIED",state:"UNKNOWN",authorization:"UNVERIFIED",evidence:{provider_ack:"UNVERIFIED",provider_run_id_source:"NOT_AVAILABLE"},provider_run_id_source:"NOT_AVAILABLE"},readback_kind:"NATIVE_TASK_READBACK",provider_binding:"NOT_BOUND",available:true};
    else if(u.pathname==="/api/issues/issue-1/comments")data=[];
    else if(u.pathname==="/api/issues/issue-1/task-runs")data=[];
    else if(u.pathname==="/api/issues/issue-1/pull-requests")data={pull_requests:[]};

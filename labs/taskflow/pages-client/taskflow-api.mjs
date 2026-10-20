@@ -176,6 +176,7 @@ export function createTaskFlowPagesTransport({
     setMetadata:(workspace,id,key,value)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"PUT",body:{value}}),
     deleteMetadata:(workspace,id,key)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"DELETE"}),
     listTaskRuns:(workspace,id,{active=false}={})=>api(issuePath(id,"/task-runs?active="+(active?"true":"false")),{workspace}),
+    getDispatchRuntime:(workspace,id)=>api(issuePath(id,"/dispatch-runtime"),{workspace}),
     requestCTODispatch:(workspace,id,body)=>api(issuePath(id,"/dispatch"),{workspace,method:"POST",body:buildNativeCTODispatchBody(body)}),
     requestStart:(workspace,id,body={})=>api(issuePath(id,"/rerun"),{workspace,method:"POST",body}),
     listPullRequests:(workspace,id)=>api(issuePath(id,"/pull-requests"),{workspace}),

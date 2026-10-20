@@ -115,3 +115,20 @@ test("DM transport uses native TaskFlow issue, metadata, agent, run and PR endpo
   assert.deepEqual(JSON.parse(apiCalls[8].options.body),{url:"https://github.com/org/repo/pull/1"});
   for(const call of apiCalls)assert.equal(call.options.headers["X-Workspace-Slug"],"pm-team");
 });
+
+test("runtime readback uses the protected issue endpoint and never accepts client evidence",async()=>{
+  const calls=[];
+  const fetcher=async (url,options)=>{
+    calls.push({url,options});
+    if(url===ORIGINAL+"/auth/zhuge")return makeResponse(200,{token:"taskflow-in-memory-jwt"});
+    return makeResponse(200,{runtime:{state:"UNKNOWN",authorization:"UNVERIFIED",evidence:{provider_ack:"UNVERIFIED"}}});
+  };
+  const client=createTaskFlowPagesTransport({fetcher,getAccessToken:()=>"zhuge-test-jwt"});
+  await client.connect();
+  const value=await client.getDispatchRuntime("pm-team","issue-1");
+  assert.equal(value.runtime.state,"UNKNOWN");
+  assert.equal(calls[1].url,ORIGINAL+"/api/issues/issue-1/dispatch-runtime");
+  assert.equal(calls[1].options.method,"GET");
+  assert.equal(calls[1].options.headers["X-Workspace-Slug"],"pm-team");
+  assert.equal(calls[1].options.body,undefined);
+});

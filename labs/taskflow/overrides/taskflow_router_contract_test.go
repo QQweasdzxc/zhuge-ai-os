@@ -32,6 +32,7 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 
 	assertRouteCount(http.MethodPost, "/auth/zhuge")
 	assertRouteCount(http.MethodPost, "/api/cli-token")
+	assertRouteCount(http.MethodGet, "/api/issues/{id}/dispatch-runtime")
 
 	loginRequest := httptest.NewRequest(http.MethodPost, "/auth/zhuge", strings.NewReader(`{"access_token":""}`))
 	loginRequest.Header.Set("Content-Type", "application/json")

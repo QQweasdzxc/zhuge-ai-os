@@ -11,10 +11,15 @@ test("DM-04 keeps executor registry and conservative runtime states", async () =
 
 test("DM-04 adapter reads native issues and applies executor filter without fake data", async () => {
   const {createDispatchAdapter} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const runtime = issue => ({runtime: {
+    schema: "zhuge-taskflow-dispatch-persistence-v1", status_source: "TASKFLOW_RUNTIME_READ_MODEL",
+    issue_id: issue.id, workspace: "ws", work_code: "DM-04", executor_id: issue.metadata?.zhuge_executor || "UNVERIFIED",
+    provider: "UNVERIFIED", state: "UNKNOWN", authorization: "UNVERIFIED", evidence: {provider_ack: "UNVERIFIED", provider_run_id_source: "NOT_AVAILABLE"}
+  }});
   const adapter = createDispatchAdapter({listIssues: async () => ({total: 2, issues: [
-    {id: "a", title: "A", metadata: {zhuge_work_code: "DM-04", zhuge_executor: "CO-02", zhuge_dispatch_status: "ASSIGNED"}},
-    {id: "b", title: "B", metadata: {zhuge_work_code: "DM-04", zhuge_executor: "GEM-01", zhuge_dispatch_status: "RUNNING", zhuge_provider_run_id: "r", zhuge_provider_heartbeat_at: new Date().toISOString(), zhuge_observed_at: new Date().toISOString()}}
-  ]})});
+    {id: "a", workspace_id: "ws", title: "A", metadata: {zhuge_work_code: "DM-04", zhuge_executor: "CO-02", zhuge_dispatch_status: "ASSIGNED"}},
+    {id: "b", workspace_id: "ws", title: "B", metadata: {zhuge_work_code: "DM-04", zhuge_executor: "GEM-01", zhuge_dispatch_status: "RUNNING", zhuge_provider_run_id: "r", zhuge_provider_heartbeat_at: new Date().toISOString(), zhuge_observed_at: new Date().toISOString()}}
+  ]}), getDispatchRuntime: async (_workspace, id) => runtime({id, metadata: {zhuge_executor: id === "a" ? "CO-02" : "GEM-01"}})});
   assert.equal((await adapter.list("ws", {executor: "CO-02"})).length, 1);
   assert.equal((await adapter.list("ws", {executor: "GEM-01"}))[0].status, "UNKNOWN");
 });
@@ -44,12 +49,13 @@ test("Phase 2 exposes authorization, checkpoint and conservative failure reasons
 test("Phase 2 accepts CO-02 runtime read-model shape without calling it a fixture", async () => {
   const {normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
   const now = new Date().toISOString();
-  const item = normalizeDispatchIssue({id: "runtime-1", workspace: "workspace-1", runtime_read_model: {
+  const runtime = {
     schema: "zhuge-taskflow-dispatch-persistence-v1", status_source: "TASKFLOW_RUNTIME_READ_MODEL", issue_id: "runtime-1", workspace: "workspace-1", work_code: "DM-04", executor_id: "CO-03",
     provider: "codex", state: "RUNNING", authorization: "AUTHORIZED", task_id: "task-1",
     provider_run_id: "run-1", provider_run_id_source: "provider_event", checkpoint_ref: "cp-1", last_heartbeat_at: now,
     observed_at: now, quota_state: "UNKNOWN", evidence: {provider_ack: "VERIFIED", provider_run_id_source: "provider_event"}
-  }});
+  };
+  const item = normalizeDispatchIssue({id: "runtime-1", workspace: "workspace-1"}, [], Date.now(), runtime);
   assert.equal(item.status, "RUNNING");
   assert.equal(item.evidenceSource, "TASKFLOW_RUNTIME_READ_MODEL");
   assert.equal(item.providerAck, "VERIFIED");
@@ -84,6 +90,22 @@ test("RUNNING guard rejects metadata and forged or incomplete runtime evidence",
   }}).status, "UNKNOWN");
 });
 
+test("protected readback does not display forged metadata as Provider evidence", async () => {
+  const {normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const item = normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", metadata: {
+    zhuge_provider_run_id: "forged-run", zhuge_provider_ack: "VERIFIED", zhuge_dispatch_status: "RUNNING"
+  }}, [], Date.now(), {
+    schema: "zhuge-taskflow-dispatch-persistence-v1", status_source: "TASKFLOW_RUNTIME_READ_MODEL",
+    issue_id: "issue-1", workspace: "workspace-1", state: "UNKNOWN", authorization: "UNVERIFIED",
+    provider: "UNVERIFIED", provider_run_id_source: "NOT_AVAILABLE",
+    evidence: {provider_ack: "UNVERIFIED", provider_run_id_source: "NOT_AVAILABLE", blocked_reason: "PROVIDER_RUNTIME_NOT_BOUND"}
+  });
+  assert.equal(item.status, "UNKNOWN");
+  assert.equal(item.providerRunId, "");
+  assert.equal(item.providerAck, "UNVERIFIED");
+  assert.equal(item.reason, "PROVIDER_RUNTIME_NOT_BOUND");
+});
+
 test("RUNNING guard rejects identity mismatches and marks expired trusted observations STALE", async () => {
   const {normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
   const now = Date.now();
@@ -92,12 +114,12 @@ test("RUNNING guard rejects identity mismatches and marks expired trusted observ
     provider: "codex", state: "RUNNING", authorization: "AUTHORIZED", task_id: "task-1", provider_run_id: "run-1",
     provider_run_id_source: "provider_event", evidence: {provider_ack: "VERIFIED", provider_run_id_source: "provider_event"}
   };
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-2", runtime_read_model: {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}}, [], now).status, "UNKNOWN");
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", runtime_read_model: {...base, issue_id: "other-issue", last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}}, [], now).status, "UNKNOWN");
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", runtime_read_model: {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}}, [{id: "different-task", provider_run_id: "run-1", provider: "codex"}], now).status, "UNKNOWN");
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", runtime_read_model: {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}}, [{id: "task-1", provider_run_id: "run-1", provider: "gemini"}], now).status, "UNKNOWN");
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", runtime_read_model: {...base, last_heartbeat_at: new Date(now - 16 * 60 * 1000).toISOString(), observed_at: new Date(now).toISOString()}}, [], now).status, "STALE");
-  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1", runtime_read_model: {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}}, [], now).status, "RUNNING");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-2"}, [], now, {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}).status, "UNKNOWN");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1"}, [], now, {...base, issue_id: "other-issue", last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}).status, "UNKNOWN");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1"}, [{id: "different-task", provider_run_id: "run-1", provider: "codex"}], now, {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}).status, "UNKNOWN");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1"}, [{id: "task-1", provider_run_id: "run-1", provider: "gemini"}], now, {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}).status, "UNKNOWN");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1"}, [], now, {...base, last_heartbeat_at: new Date(now - 16 * 60 * 1000).toISOString(), observed_at: new Date(now).toISOString()}).status, "STALE");
+  assert.equal(normalizeDispatchIssue({id: "issue-1", workspace: "workspace-1"}, [], now, {...base, last_heartbeat_at: new Date(now).toISOString(), observed_at: new Date(now).toISOString()}).status, "RUNNING");
 });
 
 test("Workbench keeps provider execution fail-closed and classifies PM Inbox from explicit evidence", async () => {

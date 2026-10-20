@@ -76,6 +76,8 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("apply-taskflow-cto-dispatch-route.py", backend)
         self.assertIn("taskflow_cto_dispatch.go", backend)
         self.assertIn("taskflow_cto_dispatch_test.go", backend)
+        self.assertIn("taskflow_dispatch_runtime.go", backend)
+        self.assertIn("taskflow_dispatch_runtime_test.go", backend)
         self.assertIn("/taskflow-staged-migrations/ ./migrations/", backend)
         self.assertIn("taskflow-entrypoint.sh", backend)
         self.assertIn("taskflow-migrate.sh", backend)
