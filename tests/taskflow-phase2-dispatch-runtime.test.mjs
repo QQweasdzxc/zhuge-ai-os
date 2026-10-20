@@ -12,6 +12,7 @@ import {
 } from "../labs/taskflow/pages-client/dispatch-persistence-contract.mjs";
 import {
   buildProviderDispatchRequest,
+  buildProviderCallbackAcceptanceDecision,
   createProviderAdapter,
   normalizeProviderEvent,
   PHASE2_PROVIDER_CAPABILITY_MATRIX
@@ -223,6 +224,81 @@ test("provider adapter only accepts signed evidence when capability is explicitl
   const evidence = normalizeProviderEvent({provider: "codex", event_id: "event-1", provider_run_id: "provider-run-1", status: "running", observed_at: new Date(NOW).toISOString(), signature_verified: true}, {capabilities: verified});
   assert.equal(evidence.ok, true);
   assert.equal(evidence.evidence.provider_run_id, "provider-run-1");
+});
+
+test("provider callback gate binds native identity and rejects replay or run ID confusion", () => {
+  const verified = {
+    codex: {
+      ...PHASE2_PROVIDER_CAPABILITY_MATRIX.codex,
+      dispatch: "VERIFIED",
+      ack: "VERIFIED",
+      run_lookup: "VERIFIED",
+      callback_signature: "VERIFIED"
+    }
+  };
+  const expected = {
+    authority_result: "AUTHORIZED",
+    provider: "codex",
+    workspace: "zhuge-ai-os",
+    issue_id: "issue-1",
+    task_id: "task-1",
+    idempotency_key: "intent-1"
+  };
+  const callback = {
+    ...expected,
+    event_id: "provider-event-1",
+    provider_run_id: "codex-run-1",
+    status: "running",
+    observed_at: new Date(NOW).toISOString(),
+    signature_verified: true
+  };
+  const accepted = buildProviderCallbackAcceptanceDecision(callback, {capabilities: verified, expected});
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.evidence.task_id, "task-1");
+  assert.equal(accepted.evidence.replay_protection, "persisted_event_id_and_idempotency_key");
+  assert.equal(buildProviderCallbackAcceptanceDecision(callback, {capabilities: verified, expected, seenEventIds: ["provider-event-1"]}).reason, "EVENT_REPLAY");
+  assert.equal(buildProviderCallbackAcceptanceDecision({...callback, provider_run_id: "task-1"}, {capabilities: verified, expected}).reason, "PROVIDER_RUN_TASK_ID_COLLISION");
+  assert.equal(buildProviderCallbackAcceptanceDecision({...callback, workspace: "other-workspace"}, {capabilities: verified, expected}).reason, "PROVIDER_CALLBACK_WORKSPACE_MISMATCH");
+  assert.equal(buildProviderCallbackAcceptanceDecision({...callback, signature_verified: false}, {capabilities: verified, expected}).reason, "PROVIDER_SIGNATURE_UNVERIFIED");
+});
+
+test("provider callback gate keeps checkpoint, heartbeat and quota capabilities fail-closed", () => {
+  const verified = {
+    codex: {
+      ...PHASE2_PROVIDER_CAPABILITY_MATRIX.codex,
+      ack: "VERIFIED",
+      run_lookup: "VERIFIED",
+      callback_signature: "VERIFIED"
+    }
+  };
+  const expected = {
+    authority_result: "AUTHORIZED",
+    provider: "codex",
+    workspace: "zhuge-ai-os",
+    issue_id: "issue-1",
+    task_id: "task-1",
+    idempotency_key: "intent-2"
+  };
+  const base = {
+    ...expected,
+    event_id: "provider-event-2",
+    provider_run_id: "codex-run-2",
+    status: "running",
+    observed_at: new Date(NOW).toISOString(),
+    signature_verified: true
+  };
+  assert.equal(buildProviderCallbackAcceptanceDecision({...base, event_type: "HEARTBEAT"}, {capabilities: verified, expected}).reason, "PROVIDER_HEARTBEAT_UNVERIFIED");
+  assert.equal(buildProviderCallbackAcceptanceDecision({...base, event_id: "provider-event-3", event_type: "CHECKPOINT", checkpoint_ref: "cp-1"}, {capabilities: verified, expected}).reason, "PROVIDER_CHECKPOINT_UNVERIFIED");
+  assert.equal(buildProviderCallbackAcceptanceDecision({...base, event_id: "provider-event-4", event_type: "PROVIDER_QUOTA_EXHAUSTED"}, {capabilities: verified, expected}).reason, "PROVIDER_QUOTA_UNVERIFIED");
+  const complete = {
+    ...verified.codex,
+    heartbeat: "VERIFIED",
+    checkpoint: "VERIFIED",
+    quota: "VERIFIED"
+  };
+  const completeCapabilities = {codex: complete};
+  assert.equal(buildProviderCallbackAcceptanceDecision({...base, event_type: "HEARTBEAT"}, {capabilities: completeCapabilities, expected}).ok, true);
+  assert.equal(buildProviderCallbackAcceptanceDecision({...base, event_id: "provider-event-5", event_type: "CHECKPOINT", checkpoint_ref: "cp-1"}, {capabilities: completeCapabilities, expected}).ok, true);
 });
 
 test("unauthorized durable intents remain blocked even if a client claims CTO", () => {

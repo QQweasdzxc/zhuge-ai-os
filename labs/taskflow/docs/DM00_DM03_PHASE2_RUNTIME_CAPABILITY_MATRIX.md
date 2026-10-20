@@ -31,6 +31,20 @@ ID、GitHub comment、動畫或前端 metadata 當成 Provider ACK／Run。
 Provider 呼叫。即使呼叫端把 `credentialStatus` 標成 `CONFIGURED`，未把某一
 Provider 能力明確升為 `VERIFIED` 時仍會回 `BLOCKED`。
 
+### Callback security gate
+
+[`buildProviderCallbackAcceptanceDecision`](../pages-client/provider-adapter-contract.mjs)
+是 Provider event 寫入 native reducer 前的第二道純函式閘門。它要求：
+
+- dispatch record 的 `authority_result` 必須是 `AUTHORIZED`，且 provider、workspace、issue、TaskFlow task 和 `idempotency_key` 逐一相等；
+- callback signature 已由正式 Provider adapter 驗證，event ID 尚未在 native record 的 replay ledger 出現；
+- `provider_run_id` 必須是 Provider 回報，且不得等於 TaskFlow `task_id`；HTTP 202、task ID、GitHub comment 都不合格；
+- `observed_at`、status、callback nonce（若 binding 配置）和事件類型符合安全契約；heartbeat、checkpoint、quota、resume 各自還要有對應的 Provider capability `VERIFIED`。
+
+目前三個通道的 `callback_signature`／`resume` 仍是 `UNVERIFIED` 或
+`UNSUPPORTED`，所以這個 gate 只提供可測試的 fail-closed 路徑，不代表已有真實
+callback 或 Provider Run。
+
 ## TaskFlow 原生執行接線
 
 | 生命週期 | 現有原生接線 | 可以證明什麼 | 尚不能證明什麼 |
@@ -66,6 +80,12 @@ Phase 2 加入可序列化的
 的最小候選；Review 測試以 injected lock-aware fake 驗證併發、rollback、重啟和
 replay。它沒有新增 migration、table 或 ACL，也不假稱已接上正式 DB。正式 DB
 readback、跨程序 fencing 和 audit 寫入仍需 CTO 指定的 native adapter 實作。
+
+本輪 adapter 另加入 `NATIVE_TRANSACTION_AUDIT_CONTRACT`：正常 reducer event 的
+audit 由同一筆 native record 的 `audit_log` 持久化；版本衝突、交易 rollback 或
+adapter precondition rejection 可送至 review-only `auditSink`，並在回應中明確標為
+`REVIEW_SINK_RECORDED` 或 `UNVERIFIED`。這個 sink 不會被當成正式 audit store，正式
+環境仍必須由 native transaction／audit authority 注入。
 
 ## CO-01／CO-03 交接欄位
 
