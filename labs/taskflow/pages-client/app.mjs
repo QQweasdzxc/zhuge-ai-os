@@ -17,8 +17,10 @@ import {
   requiredGithubUrl,
   requiredHttpsUrl
 } from "./dispatch-contract.mjs";
+import {createDispatchAdapter} from "./dispatch-workbench.mjs";
 
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
+const dispatchAdapter=createDispatchAdapter(transport);
 const refs={
   status:document.querySelector("#tf-status"),
   workspace:document.querySelector("#tf-workspace"),
@@ -34,7 +36,12 @@ const refs={
   create:document.querySelector("#tf-create"),
   createForm:document.querySelector("#tf-create-form"),
   createCancel:document.querySelector("#tf-create-cancel"),
-  createStatus:document.querySelector("#tf-create-status")
+  createStatus:document.querySelector("#tf-create-status"),
+  dispatch:document.querySelector("#tf-dispatch"),
+  dispatchCards:document.querySelector("#tf-dispatch-cards"),
+  dispatchMeta:document.querySelector("#tf-dispatch-meta"),
+  dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
+  dispatchNotice:document.querySelector("#tf-dispatch-notice")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
 if(refs.createOpen)refs.createOpen.hidden=true;
@@ -75,7 +82,7 @@ function routeFor({section="issues",issueId=null}={}){
 }
 function currentRoute(){
   const hash=decodeURIComponent(location.hash||"");
-  const match=hash.match(/^#\/tf\/(issues|projects)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
+  const match=hash.match(/^#\/tf\/(issues|projects|dispatch)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
   return match?{section:match[1],issueId:match[2]||null}:{section:"issues",issueId:null};
 }
 function workspaceSlug(){return state.workspace?.slug||"";}
@@ -95,6 +102,29 @@ function issueDispatchStatus(issue){
 function linkNode(href,label){
   if(!href)return element("span",{text:"—"});
   return element("a",{text:label||href,className:"tf-evidence-link",attrs:{href,target:"_blank",rel:"noreferrer"}});
+}
+function renderDispatchCards(items){
+  refs.dispatchCards.replaceChildren();
+  if(!items.length){refs.dispatchCards.append(element("p",{text:"目前沒有可顯示的真實派工案件；未顯示模擬資料。",className:"tf-empty"}));return;}
+  for(const item of items){
+    const card=element("article",{className:"tf-dispatch-card"});
+    card.append(element("strong",{text:item.title}));
+    card.append(element("span",{text:`${item.status} · ${item.executor||"Executor 未確認"}`,className:"tf-status-tag"}));
+    card.append(element("small",{text:`Provider Run ID：${item.providerRunId||"未取得"} · task：${item.taskId||"未取得"}`,className:"tf-id"}));
+    refs.dispatchCards.append(card);
+  }
+}
+async function loadDispatch(){
+  if(!state.workspace||!refs.dispatchCards)return;
+  refs.dispatchNotice.textContent="僅顯示原生 TaskFlow API 證據；沒有 Provider ACK 不顯示執行中。";
+  try{
+    const items=await dispatchAdapter.list(workspaceSlug(),{executor:refs.dispatchExecutor?.value||""});
+    renderDispatchCards(items);
+    refs.dispatchMeta.textContent=`已讀取 ${items.length} 筆原生案件；Provider 狀態未經 ACK 不會推論。`;
+  }catch(error){
+    refs.dispatchCards.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
+    refs.dispatchMeta.textContent="資料讀取失敗，未顯示模擬資料。";
+  }
 }
 function renderWorkspaceSelect(){
   refs.workspace.replaceChildren();
@@ -475,6 +505,13 @@ async function renderDetail(id){
 function renderRoute(){
   if(!state.workspace)return;
   const route=currentRoute();
+  if(refs.dispatch)refs.dispatch.hidden=route.section!=="dispatch";
+  if(route.section==="dispatch"){
+    refs.detail.hidden=true;
+    refs.detail.replaceChildren();
+    void loadDispatch();
+    return;
+  }
   refs.detail.hidden=!(route.section==="issues"&&route.issueId);
   if(route.section==="issues"&&route.issueId)void renderDetail(route.issueId);
   else{refs.detail.hidden=true;refs.detail.replaceChildren();renderIssues(route.section==="projects"?route.issueId:null);}
@@ -532,6 +569,7 @@ refs.refresh.addEventListener("click",()=>void bootstrap());
 refs.createOpen?.addEventListener("click",openCreate);
 refs.createCancel?.addEventListener("click",closeCreate);
 refs.createForm?.addEventListener("submit",event=>void createNativeIssue(event));
+refs.dispatchExecutor?.addEventListener("change",()=>void loadDispatch());
 let searchDelay;
 refs.filter.addEventListener("input",()=>{
   clearTimeout(searchDelay);
