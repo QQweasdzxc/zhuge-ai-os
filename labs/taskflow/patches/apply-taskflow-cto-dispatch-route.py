@@ -2,7 +2,8 @@ from pathlib import Path
 import os
 
 
-VENDOR_ROOT = Path(os.environ.get("TASKFLOW_VENDOR_ROOT", Path(__file__).resolve().parents[3] / "third_party" / "multica"))
+_vendor_root = os.environ.get("TASKFLOW_VENDOR_ROOT")
+VENDOR_ROOT = Path(_vendor_root) if _vendor_root else Path(__file__).resolve().parents[3] / "third_party" / "multica"
 ROUTER = VENDOR_ROOT / "server" / "cmd" / "server" / "router.go"
 MARKER = 'r.Post("/rerun", h.RerunIssue)'
 INSERTION = MARKER + '\n\t\t\t\t\tr.Post("/dispatch", h.CTODispatchIssue)'
