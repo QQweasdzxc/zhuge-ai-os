@@ -39,15 +39,18 @@ describe('Zhuge reception native meeting-room overlay', () => {
     expect(usedDoor).toBe(true);
   });
 
-  it('mounts four native award plaques on the meeting-room wall and keeps native links', () => {
+  it('keeps the reception sign and meeting room native while removing visible medal plaques', () => {
     const reception = coreAreas().find((area) => area.id === 'core:recepcao');
     expect(reception).toBeDefined();
-    const plaques = reception!.wallItems.filter((item) => item.kind === 'poster');
-    expect(plaques.map((item) => item.variant)).toEqual(['ship_it', 'rocket', 'code', 'bug']);
-    expect(plaques.every((item) => item.on === 'face' && item.baseY === 2 * TILE)).toBe(true);
+    expect(reception!.wallItems.some((item) => item.kind === 'sign')).toBe(true);
+    expect(reception!.wallItems.some((item) => item.kind === 'poster' && ['ship_it', 'rocket', 'code', 'bug'].includes(item.variant ?? ''))).toBe(false);
     const meetingTable = reception!.furniture.find((item) => item.kind === 'meeting_table');
     expect(meetingTable).toBeDefined();
     expect(reception!.wallItems.some((item) => item.kind === 'poster' && item.on === 'south')).toBe(false);
     expect(reception!.walls.some((wall) => wall.kind === 'south' && wall.doorways?.some((door) => door.w === 2 * TILE))).toBe(true);
+    const sign = reception!.wallItems.find((item) => item.kind === 'sign');
+    expect(sign).toBeDefined();
+    expect(sign!.cx).toBeLessThan(8.5 * TILE); // public lobby side, not the meeting-room bay
+    expect(sign!.cx).toBeGreaterThan(6.5 * TILE); // clear of the elevator landing
   });
 });

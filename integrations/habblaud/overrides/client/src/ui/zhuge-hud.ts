@@ -1,10 +1,13 @@
 import type { ZhugeProjectStatus } from '../adapters/zhuge-bridge';
 import { isFreshStatus, ZHUGE_CAST } from '../adapters/zhuge-bridge';
+import { ZHUGE_FAMILY_RESIDENTS } from '../adapters/zhuge-family';
 import { WEATHER_CITIES, toWeatherVisualContract, type WeatherCity, type WeatherState } from '../adapters/zhuge-weather';
 import './zhuge-hud.css';
 
 let current: ZhugeProjectStatus | null = null;
 let currentLive = false;
+const HUD_PREFERENCE_KEY = 'zhuge-office-hud-v1';
+let hudAutoCollapseTimer: number | undefined;
 let weatherAdapter: {
   getCity(): WeatherCity;
   getState(): WeatherState;
@@ -94,7 +97,14 @@ export function showZhugeStatus(): void {
 }
 /** Accessible roster uses the existing modal; it never overrides runtime status. */
 export function showZhugeRole(agentId: string): void {
-  const role = ZHUGE_CAST.find(candidate => candidate.id === agentId);
+  const rosterData: Array<{ id: string; name: string; duty: string; intro: string; resident?: 'family' | 'pet' }> = [
+    ...ZHUGE_CAST.map((person) => ({ ...person, resident: undefined })),
+    ...ZHUGE_FAMILY_RESIDENTS.map((resident) => ({
+      id: resident.id, name: resident.name, duty: resident.role, intro: resident.intro,
+      resident: resident.kind,
+    })),
+  ];
+  const role = rosterData.find(candidate => candidate.id === agentId);
   if (!role) return;
   let panel = document.getElementById('zhuge-decision-panel');
   if (!panel) {
@@ -103,25 +113,31 @@ export function showZhugeRole(agentId: string): void {
     document.body.append(panel);
   }
   panel.replaceChildren();
-  const title = el('h2', '固定角色 · 角色介紹');
+  const title = el('h2', role.resident === 'pet' ? '寵物角色 · 角色介紹' : role.resident === 'family' ? '家庭生活角色 · 角色介紹' : '固定角色 · 角色介紹');
   const close = el('button', '關閉');
   close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
   const roster = el('nav');
   roster.className = 'zhuge-role-roster';
   roster.setAttribute('aria-label', '切換辦公室角色');
-  for (const person of ZHUGE_CAST) {
-    const item = el('button', person.name);
+  for (const person of rosterData) {
+    const prefix = person.resident === 'pet' ? '🐾 ' : person.resident === 'family' ? '🏠 ' : '👤 ';
+    const item = el('button', prefix + person.name);
     item.setAttribute('type', 'button');
+    item.setAttribute('aria-label', person.resident === 'pet' ? `${person.name}（寵物）` : person.resident === 'family' ? `${person.name}（家庭生活角色）` : person.name);
     item.setAttribute('aria-pressed', String(person.id === agentId));
     item.onclick = () => showZhugeRole(person.id);
     roster.append(item);
   }
   const name = el('h3', role.name + '｜' + role.duty);
   const content = el('p', role.intro);
-  const status = el('p', '目前呈現：角色待命（場景裝飾）');
+  const status = el('p', role.resident
+    ? (role.resident === 'pet' ? '目前呈現：虛擬寵物（非 AI Worker、非工程工作狀態）' : '目前呈現：虛擬家庭生活角色（非 AI Worker、非工程工作狀態）')
+    : '目前呈現：角色待命（場景裝飾）');
   status.className = 'zhuge-role-label';
-  const truth = el('p', '資料說明：固定像素角色不是真人位置或 Provider Session，也不代表 AI 正在工作。即時工程狀態只在可信來源驗證成功時顯示。');
+  const truth = el('p', role.resident
+    ? '資料說明：家庭角色與寵物只使用固定像素設定，不收集或推斷真人個資、位置或工作紀錄。'
+    : '資料說明：固定像素角色不是真人位置或 Provider Session，也不代表 AI 正在工作。即時工程狀態只在可信來源驗證成功時顯示。');
   truth.className = 'zhuge-role-provenance';
   panel.append(title, close, roster, name, content, status, truth);
   panel.hidden = false;
@@ -225,21 +241,35 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
     bar = el('header');
     bar.id = 'zhuge-aios-hud';
     document.body.append(bar);
+    const saved = (() => { try { return localStorage.getItem(HUD_PREFERENCE_KEY); } catch { return null; } })();
+    const mobile = window.matchMedia('(max-width: 700px), (max-height: 520px) and (max-width: 900px)').matches;
+    // First desktop visit gets a short orientation window; mobile starts compact.
+    bar.dataset.open = saved === 'expanded' ? 'true' : saved === 'compact' || mobile ? 'false' : 'true';
+    if (!saved && !mobile) {
+      hudAutoCollapseTimer = window.setTimeout(() => {
+        const liveBar = document.getElementById('zhuge-aios-hud');
+        if (liveBar && liveBar.dataset.userToggled !== 'true') liveBar.dataset.open = 'false';
+      }, 7000);
+    }
   }
   bar.replaceChildren();
   const fresh = isFreshStatus(status);
   const dot = el('span', '●');
-  dot.className = 'zhuge-light-' + (fresh ? status.overall_status : 'stale');
+  dot.className = 'zhuge-hud-dot zhuge-light-' + (fresh ? status.overall_status : 'stale');
   const title = el('strong', status.project_name || 'AI OS');
+  title.className = 'zhuge-hud-title';
   const phase = el('span', '階段：' + status.current_phase);
   const milestone = el('span', '里程碑：' + status.current_milestone);
   const blocked = el('button', '🙋 ' + (status.blocked_items?.length || 0) + ' 項待裁示');
+  blocked.className = 'zhuge-hud-decision-pill';
+  blocked.setAttribute('type', 'button');
   blocked.addEventListener('click', () => showZhugeDecisions());
   const project = el('button', '📋 專案狀態');
   project.setAttribute('type', 'button');
   project.addEventListener('click', () => showZhugeStatus());
-  const roster = el('button', '👥 人員');
+  const roster = el('button', '👥 角色名冊');
   roster.setAttribute('type', 'button');
+  roster.setAttribute('aria-label', '開啟角色名冊（含家人與黑灰色小貓）');
   roster.addEventListener('click', () => showZhugeRole(ZHUGE_CAST[0].id));
   const weather = el('button', weatherLabel());
   weather.setAttribute('type', 'button');
@@ -253,5 +283,21 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const classic = el('a', '經典報表');
   (classic as HTMLAnchorElement).href = new URL('../status-classic.html', location.href).href;
   (classic as HTMLAnchorElement).target = '_top';
-  bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic);
+  // Keep the native HUD actions, but let phone users explore the scene before opening engineering details.
+  // Preserve open state when the read-only snapshot refreshes every 15 seconds.
+  const menu = el('button', bar.dataset.open === 'true' ? '收合' : '☰') as HTMLButtonElement;
+  menu.className = 'zhuge-hud-menu-toggle';
+  menu.type = 'button';
+  menu.setAttribute('aria-label', bar.dataset.open === 'true' ? '收合辦公室資訊' : '展開辦公室資訊');
+  menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
+  menu.addEventListener('click', () => {
+    bar.dataset.open = bar.dataset.open === 'true' ? 'false' : 'true';
+    bar.dataset.userToggled = 'true';
+    if (hudAutoCollapseTimer !== undefined) window.clearTimeout(hudAutoCollapseTimer);
+    try { localStorage.setItem(HUD_PREFERENCE_KEY, bar.dataset.open === 'true' ? 'expanded' : 'compact'); } catch { /* Private browsing may disable storage. */ }
+    menu.textContent = bar.dataset.open === 'true' ? '收合' : '☰';
+    menu.setAttribute('aria-label', bar.dataset.open === 'true' ? '收合辦公室資訊' : '展開辦公室資訊');
+    menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
+  });
+  bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic, menu);
 }

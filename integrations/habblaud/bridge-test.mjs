@@ -11,8 +11,15 @@ if (!upstreamRoot) throw new Error('usage bridge-test.mjs <pinned-upstream-root>
 const require = createRequire(path.join(path.resolve(upstreamRoot), 'package.json'));
 const esbuild = require('esbuild');
 const bridgePath = path.resolve('integrations/habblaud/overrides/client/src/adapters/zhuge-bridge.ts');
-const source = fs.readFileSync(bridgePath, 'utf8');
-const { code } = await esbuild.transform(source, { loader: 'ts', format: 'esm', target: 'es2022' });
+const { outputFiles } = await esbuild.build({
+  entryPoints: [bridgePath],
+  bundle: true,
+  format: 'esm',
+  platform: 'node',
+  target: 'es2022',
+  write: false,
+});
+const code = outputFiles[0].text;
 const bridge = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 
 const now = Date.now();
@@ -42,9 +49,10 @@ const status = {
 assert.equal(bridge.convertStatusToPixelRooms(status, now).length, 0, 'static project and PR snapshots must never create people');
 const staticOnly = bridge.toOfficeSnapshot(status, null, 1, now, now, false);
 assert.equal(staticOnly.rooms.length, 1);
-assert.equal(staticOnly.agents.length, 4);
-assert.deepEqual(Array.from(staticOnly.agents, a => a.name), ['Jackal', 'GPT', 'Codex', 'Gem']);
-assert.ok(staticOnly.agents.every(a => a.status === 'idle' && a.provider === undefined && a.account === 'zhuge-fixed-cast'));
+assert.equal(staticOnly.agents.length, 8);
+assert.deepEqual(Array.from(staticOnly.agents, a => a.name), ['Jackal', 'GPT', 'Codex', 'Gem', '背地裡', '安安', '卡卡', '黑灰色小貓']);
+assert.ok(staticOnly.agents.slice(0, 4).every(a => a.status === 'idle' && a.provider === undefined && a.account === 'zhuge-fixed-cast'));
+assert.ok(staticOnly.agents.slice(4).every(a => a.status === 'idle' && a.provider === undefined && a.account === 'zhuge-family-cast' && a.zhugeResident));
 
 assert.equal(bridge.verifiedHabblaudSnapshot(snapshot(), false, now), null, 'closed SSE fails closed');
 assert.equal(bridge.verifiedHabblaudSnapshot(snapshot({ meta: { demo: true, sources: [], startedAt: now, version: 'demo' } }), true, now), null, 'demo data fails closed');
