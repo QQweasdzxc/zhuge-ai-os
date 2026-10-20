@@ -51,3 +51,18 @@ test("Phase 2 exposes authorization, checkpoint and conservative failure reasons
   assert.equal(item.reason, "quota exhausted");
   assert.equal(item.nextStep, "request quota");
 });
+
+test("Phase 2 accepts CO-02 runtime read-model shape without calling it a fixture", async () => {
+  const {normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const now = new Date().toISOString();
+  const item = normalizeDispatchIssue({id: "runtime-1", runtime_read_model: {
+    schema: "zhuge-taskflow-dispatch-persistence-v1", work_code: "DM-04", executor_id: "CO-03",
+    provider: "codex", state: "RUNNING", authorization: "AUTHORIZED", task_id: "task-1",
+    provider_run_id: "run-1", checkpoint_ref: "cp-1", last_heartbeat_at: now,
+    observed_at: now, quota_state: "UNKNOWN", evidence: {provider_ack: "VERIFIED", provider_run_id_source: "provider_event"}
+  }});
+  assert.equal(item.status, "RUNNING");
+  assert.equal(item.evidenceSource, "TASKFLOW_RUNTIME_READ_MODEL");
+  assert.equal(item.providerAck, "VERIFIED");
+  assert.equal(item.providerRunIdSource, "provider_event");
+});
