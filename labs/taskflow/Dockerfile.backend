@@ -32,6 +32,9 @@ COPY labs/taskflow/patches/patch-router-contract-test-main.py /tmp/patch-router-
 COPY labs/taskflow/patches/apply-taskflow-github-head-sha.py /tmp/apply-taskflow-github-head-sha.py
 COPY labs/taskflow/overrides/taskflow_dispatch_authority.go /tmp/taskflow_dispatch_authority.go
 COPY labs/taskflow/overrides/taskflow_dispatch_authority_test.go /tmp/taskflow_dispatch_authority_test.go
+COPY labs/taskflow/overrides/taskflow_cto_dispatch.go /tmp/taskflow_cto_dispatch.go
+COPY labs/taskflow/overrides/taskflow_cto_dispatch_test.go /tmp/taskflow_cto_dispatch_test.go
+COPY labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py /tmp/apply-taskflow-cto-dispatch-route.py
 COPY labs/taskflow/patches/apply-taskflow-db-boundary.py /tmp/apply-taskflow-db-boundary.py
 COPY labs/taskflow/patches/stage-migrations.py /tmp/stage-migrations.py
 RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
@@ -44,8 +47,11 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
       --source /src/server/migrations \
       --output /taskflow-staged-migrations \
  && TASKFLOW_VENDOR_ROOT=/src python3 /tmp/apply-taskflow-github-head-sha.py \
+ && TASKFLOW_VENDOR_ROOT=/src python3 /tmp/apply-taskflow-cto-dispatch-route.py \
  && cp /tmp/taskflow_dispatch_authority.go /src/server/internal/handler/taskflow_dispatch_authority.go \
  && cp /tmp/taskflow_dispatch_authority_test.go /src/server/internal/handler/taskflow_dispatch_authority_test.go \
+ && cp /tmp/taskflow_cto_dispatch.go /src/server/internal/handler/taskflow_cto_dispatch.go \
+ && cp /tmp/taskflow_cto_dispatch_test.go /src/server/internal/handler/taskflow_cto_dispatch_test.go \
  && python3 /tmp/patch-router-contract-test-main.py
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
@@ -78,7 +84,9 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
-RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
+RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go \
+ && gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go \
+ && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \

@@ -14,6 +14,7 @@ on:
       - review/dm00-dm03-taskflow-dispatch-20261020
       - review/dm00-dm03-core-runtime-20261020
       - review/dm00-dm03-phase2-dispatch-runtime-20261020
+      - review/dm00-dm03-phase2-runtime-advance-20261020
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -89,11 +90,15 @@ jobs:
       - name: Verify Go formatting
         run: |
           python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
+          python3 ../../../labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch_test.go internal/handler/taskflow_cto_dispatch_test.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
-          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
+          gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...
       - name: Build backend binaries

@@ -21,9 +21,9 @@ ID、GitHub comment、動畫或前端 metadata 當成 Provider ACK／Run。
 
 | Provider／執行資源 | Dispatch | ACK | Run lookup | Heartbeat | Checkpoint | 安全改派 | Quota | Review 判定 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Codex Cloud (`codex`) | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | 沒有核准的官方 runtime binding、credential、callback signature 或 readback |
-| Gemini (`gemini`) | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | 沒有核准的官方 runtime binding、credential、callback signature 或 readback |
-| GH Helper (`github`) | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNVERIFIED` | GitHub mirror 可提供 PR／SHA／CI 證據，但不啟動 Agent、不建立 Provider Run |
+| Codex Cloud (`codex`) | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | [官方 Cloud 文件](https://developers.openai.com/codex/cloud/)描述 ChatGPT Cloud environment 的 GitHub/task/review flow；本專案沒有可核驗的 backend dispatch binding、callback 或 Run readback |
+| Gemini (`gemini`) | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | `UNVERIFIED` | [官方 Interactions API](https://ai.google.dev/gemini-api/docs/interactions)與 managed agent 文件存在；本專案沒有核准的 identity、API key binding、callback 或 Run readback |
+| GH Helper (`github`) | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNSUPPORTED` | `UNVERIFIED` | [GitHub App 文件](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps)支援 repository automation；GitHub mirror 可提供 PR／SHA／CI 證據，但不啟動 Agent、不建立 Provider Run |
 
 程式化矩陣位於
 [`provider-adapter-contract.mjs`](../pages-client/provider-adapter-contract.mjs)。
@@ -37,7 +37,8 @@ Provider 能力明確升為 `VERIFIED` 時仍會回 `BLOCKED`。
 | --- | --- | --- | --- |
 | CTO → native issue | `POST /api/issues`，既有 Auth、workspace member 和 issue permission | 原生 TaskFlow issue 已建立 | CTO Allowlist 尚未接入正式 mutation handler |
 | executor binding | issue `assignee_type`／`assignee_id` 加 `zhuge_owner`／`zhuge_provider` metadata | 責任代碼和原生 assignee 可讀回 | 不代表 Provider 已在線或可接受工作 |
-| dispatch request | `POST /api/issues/{id}/rerun` | TaskFlow 回傳原生 task queue record／task ID | 不代表外部 Provider ACK 或 Provider Run ID |
+| dispatch request | `POST /api/issues/{id}/dispatch`（TaskFlow-owned Review candidate；內部再使用既有 native mutation） | CTO Allowlist、authenticated workspace、executor/provider registry 在 server side 通過後，TaskFlow 可建立原生 task queue record／task ID | Allowlist 未配置時回 `503`；原生 task `202` 不代表外部 Provider ACK 或 Provider Run ID |
+| legacy task mutation | `POST /api/issues/{id}/rerun` | 既有 TaskFlow native rerun 行為 | 不繞過 CTO candidate gate，也不代表 Cloud Provider 已接單 |
 | task readback | `GET /api/issues/{id}/task-runs` | 原生 queue 的狀態與歷史 | 不代表 Cloud Provider 的獨立 Run 狀態 |
 | GitHub evidence | `GET/POST /api/issues/{id}/pull-requests` 加 native metadata | TaskFlow 可讀回 PR 關聯，並保存 exact SHA／CI URL | GitHub event/comment 不可授權派工或建立 Run |
 | CTO Review／PM acceptance | native issue status、GitHub exact SHA／CI 和驗收 reference | 可形成 Review read model | 尚未有正式 PM acceptance runtime write gate |
@@ -57,10 +58,14 @@ Phase 2 加入可序列化的
 - `provider_run_id`、Run source、`processed_event_ids`、`rejected_event_ids`。
 - `checkpoint_ref`、heartbeat、quota、retry attempt、run history 和 audit log。
 
-目前交付的是跨程序可 hydrate／replay 的 reducer 及負向測試，不是假稱已經
-接上正式 DB。正式 TaskFlow 仍未新增 migration、table 或 ACL；要啟用跨程序
-持久化，下一 Gate 必須由 CTO／PM 指定既有 native store 的 transaction／row
-lock adapter，並用正式 DB readback 驗證版本衝突和 fencing。
+目前交付的是跨程序可 hydrate／replay 的 reducer、
+[`runtime-read-model-projector.mjs`](../pages-client/runtime-read-model-projector.mjs)
+及實際載入 JSON Schema 的驗證測試。另提供
+[`native-persistence-adapter-contract.mjs`](../pages-client/native-persistence-adapter-contract.mjs)
+作為既有 native issue／`agent_task_queue` transaction 與 `FOR UPDATE` row-lock
+的最小候選；Review 測試以 injected lock-aware fake 驗證併發、rollback、重啟和
+replay。它沒有新增 migration、table 或 ACL，也不假稱已接上正式 DB。正式 DB
+readback、跨程序 fencing 和 audit 寫入仍需 CTO 指定的 native adapter 實作。
 
 ## CO-01／CO-03 交接欄位
 
@@ -68,25 +73,34 @@ DM-04 工作台和整合者只需要讀取同一份 native read model：
 
 ```json
 {
+  "schema": "zhuge-taskflow-dispatch-persistence-v1",
+  "intent_id": "<dispatch intent>",
+  "idempotency_key": "<stable key>",
+  "issuer_user_id": "<authenticated issuer>",
+  "workspace": "<native workspace id>",
   "issue_id": "<native issue id>",
   "work_code": "DM-02",
   "executor_id": "CO-02",
   "provider": "codex",
   "task_id": "<TaskFlow task id>",
   "provider_run_id": null,
-  "dispatch_state": "ACK_PENDING",
+  "provider_run_id_source": null,
+  "state": "ACK_PENDING",
   "authorization": "UNVERIFIED",
-  "observed_at": "<ISO-8601>",
-  "lease": {
-    "writer_id": "<writer>",
-    "fencing_epoch": 1,
-    "expires_at": "<ISO-8601>"
-  },
+  "writer_id": null,
+  "fencing_epoch": 0,
+  "lease_active": false,
+  "lease_expires_at": null,
+  "checkpoint_ref": null,
+  "last_heartbeat_at": null,
+  "quota_state": "UNKNOWN",
+  "version": 1,
   "evidence": {
     "provider_ack": "UNVERIFIED",
     "provider_run_id_source": "UNVERIFIED",
     "github_sha_source": "native_github_mirror",
-    "blocked_reason": "PROVIDER_RUNTIME_UNVERIFIED"
+    "blocked_reason": "PROVIDER_RUNTIME_UNVERIFIED",
+    "error": null
   }
 }
 ```
@@ -99,10 +113,26 @@ DM-04 工作台和整合者只需要讀取同一份 native read model：
 ## 下一個真正 Gate
 
 1. CTO 提供正式 Allowlist 的 server-side readback，並把 authorization check
-   接到受控 mutation path。
+   接到受控 mutation path。Review candidate 已接到
+   `POST /api/issues/{id}/dispatch`；部署環境沒有
+   `TASKFLOW_CTO_ALLOWLIST_USER_IDS` 時固定拒絕。
 2. PM 額外核准 Provider binding、credential scope 和是否允許付費服務。
 3. Provider 提供官方支援證據、signed callback、實際 ACK／Run readback、
    heartbeat／checkpoint 和 quota response。
 4. 指定既有 TaskFlow native store 的持久化 adapter；不新增第二套 Task DB。
 5. 於隔離 Review workspace 做一次可回放的 end-to-end dispatch，完成后才可
    將 `UNVERIFIED` 改為 `VERIFIED`。
+
+## Phase 2 advance 的實作邊界
+
+- `runtime-read-model-projector.mjs` 將 durable record、native task readback、
+  native GitHub exact SHA readback 投影成上方 schema；它不會把 TaskFlow
+  `task_id` 映射成 `provider_run_id`。
+- `taskflow_cto_dispatch.go` 是 TaskFlow-owned handler overlay。它只讀受保護
+  的 `TASKFLOW_CTO_ALLOWLIST_USER_IDS`，再驗證 authenticated user、native
+  workspace、executor 和 provider，最後交給既有 `RerunIssue` native service。
+  目前不配置 Allowlist，也不寫正式 ACL。
+- `native-persistence-adapter-contract.mjs` 要求 issue row → native
+  `agent_task_queue` row 的固定 `FOR UPDATE` 鎖定順序，並在同一 transaction
+  驗證 idempotency、expected version 和 reducer 結果。Review fake 已驗證；
+  正式 DB adapter 尚是 `UNVERIFIED`。
