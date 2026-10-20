@@ -33,6 +33,7 @@ func vcsPullRequestToResponse(p db.VcsPullRequest) GitHubPullRequestResponse {
 		State:            p.State,
 		HtmlURL:          p.HtmlUrl,
 		Branch:           textToPtr(p.Branch),
+		HeadSHA:          p.HeadSha,
 		AuthorLogin:      textToPtr(p.AuthorLogin),
 		AuthorAvatarURL:  textToPtr(p.AuthorAvatarUrl),
 		MergedAt:         timestampToPtr(p.MergedAt),

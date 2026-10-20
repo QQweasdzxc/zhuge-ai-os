@@ -12,8 +12,8 @@
     <link rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/">
     <link rel="icon" href="shared/assets/logo/zhuge-ai-os.svg" type="image/svg+xml">
     <title>TaskFlow Dashboard · Zhuge AI OS</title>
-    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261019-1949">
-    <link rel="stylesheet" href="labs/taskflow/pages-client/app.css?v=20261019-1949">
+    <link rel="stylesheet" href="shared/theme/responsive-modernization.css?v=20261020-1123">
+    <link rel="stylesheet" href="labs/taskflow/pages-client/app.css?v=20261020-1123">
     <script id="taskflow-home-routing">
       (() => {
         "use strict";
@@ -60,7 +60,7 @@
       <main class="tf-main">
         <header class="tf-toolbar">
           <div><div class="tf-eyebrow">Zhuge AI OS / TaskFlow</div><h1 id="tf-title">TaskFlow Dashboard</h1></div>
-          <div class="tf-header-actions"><button type="button" id="tf-refresh">重新連線 / 更新</button></div>
+          <div class="tf-header-actions"><button type="button" id="tf-create-open" class="tf-primary">新增 DM 任務</button><button type="button" id="tf-refresh">重新連線 / 更新</button></div>
         </header>
         <div id="tf-status" role="status" aria-live="polite" class="tf-notice">正在驗證正式 TaskFlow 身分…</div>
         <div id="tf-login" hidden class="tf-login">
@@ -68,6 +68,7 @@
           <p>請用既有 Google 登入入口驗證，登入後返回此 TaskFlow Dashboard。</p>
           <a id="tf-login-action" href="modules/worklog/?app=1&amp;workspace=dashboard&amp;tfPagesReturn=1">使用既有 Zhuge AI OS 登入</a>
         </div>
+        <section id="tf-create" hidden class="tf-create tf-panel" aria-label="建立原生 TaskFlow DM 任務"><div class="tf-filter"><div><h2>新增原生 TaskFlow DM 任務</h2><p>直接建立既有工作區的 native issue；不建立第二套任務卡。</p></div><button type="button" id="tf-create-cancel">取消</button></div><form id="tf-create-form" class="tf-create-form"><label class="tf-form-field"><span>工作編號</span><select name="workCode" required><option value="DM-00">DM-00｜待辦收件匣</option><option value="DM-01">DM-01｜任務指派與接單</option><option value="DM-02">DM-02｜雲端 Agent Dispatcher</option><option value="DM-03">DM-03｜GitHub 與 TaskFlow 同步</option></select></label><label class="tf-form-field tf-form-wide"><span>任務標題</span><input name="title" required maxlength="200" placeholder="例如：建立原生派工卡入口" autocomplete="off"></label><label class="tf-form-field"><span>負責人代碼</span><select name="owner" required><option value="CO-02">CO-02</option><option value="CO-01">CO-01</option><option value="GEM-01">GEM-01</option><option value="GPT-CTO">GPT-CTO</option></select></label><label class="tf-form-field"><span>優先順序</span><select name="priority" required><option value="urgent">urgent / P0</option><option value="high" selected>high / P1</option><option value="medium">medium</option><option value="low">low</option><option value="none">none</option></select></label><label class="tf-form-field tf-form-wide"><span>原生 Agent（選填）</span><select name="agentId"><option value="">正在載入原生 Agent…</option></select></label><label class="tf-form-field tf-form-wide"><span>下一步</span><input name="nextStep" required maxlength="500" placeholder="下一個可執行步驟" autocomplete="off"></label><label class="tf-form-field tf-form-wide"><span>來源證據 URL</span><input name="sourceEvidence" type="url" required placeholder="https://github.com/.../issues/..." autocomplete="url"></label><label class="tf-form-field tf-form-wide"><span>驗收條件</span><textarea name="acceptance" required maxlength="1000" rows="3" placeholder="PM 可如何確認這張卡完成"></textarea></label><div class="tf-form-actions tf-form-wide"><button type="submit" class="tf-primary">建立原生 TaskFlow 卡</button><p id="tf-create-status" role="status" aria-live="polite" class="tf-help"></p></div></form></section>
         <section class="tf-panel" aria-label="真實 TaskFlow 任務資料">
           <div class="tf-filter">
             <div><h2>任務</h2><p id="tf-meta">登入後讀取原生 TaskFlow 資料，不顯示模擬任務。</p></div>
@@ -77,7 +78,7 @@
         </section>
         <section id="tf-detail" hidden class="tf-detail" aria-label="原生 TaskFlow 任務明細"></section>
         <footer class="tf-footer">
-          <p>© Zhuge AI OS · Version 0.9.0-alpha.9.87 · Build 20261019-1949</p>
+          <p>© Zhuge AI OS · Version 0.9.0-alpha.9.87 · Build 20261020-1123</p>
           <nav aria-label="Legal and support links">
             <a href="product/">Product</a>
             <a href="privacy/">Privacy Policy</a>
@@ -90,6 +91,6 @@
         </footer>
       </main>
     </div>
-    <script type="module" src="labs/taskflow/pages-client/app.mjs?v=20261019-1949"></script>
+    <script type="module" src="labs/taskflow/pages-client/app.mjs?v=20261020-1123"></script>
   </body>
 </html>

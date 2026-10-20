@@ -4,7 +4,8 @@ const path=require("node:path");
 const ROOT=path.resolve(__dirname,"..");
 const file=p=>fs.readFileSync(path.join(ROOT,p),"utf8");
 function assess(){
- const root=file("index.html");
+ const root=file("status-classic.html");
+ const pagesClient=file("labs/taskflow/pages-client/index.html");
  const client=file("labs/taskflow/pages-client/app.mjs");
  const api=file("labs/taskflow/pages-client/taskflow-api.mjs");
  const login=file("labs/taskflow/pages-client/login-return.mjs");
@@ -19,22 +20,25 @@ function assess(){
   "existing-login-and-return-preserved":root.includes("tf-login-action")&&
     legacy.includes("startReturnMonitor()")&&login.includes("hasFreshZhugeSession"),
   "older-AIOS-OAuth-routes-preserved":root.includes("hasExplicitAiosRoute")&&root.includes('current.searchParams.has("code")'),
-  "page-origin-canonical":root.includes('rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/"')
+  "page-origin-canonical":root.includes('rel="canonical" href="https://qqweasdzxc.github.io/zhuge-ai-os/"'),
+  "native-DM-entry-is-wired":pagesClient.includes('id="tf-create-open"')&&
+    client.includes("transport.createIssue(")&&client.includes("transport.requestStart(")&&
+    client.includes("transport.linkPullRequest(")
  };
- const homeCodeReady=Object.values(gates).every(Boolean);
+ const reviewCodeReady=Object.values(gates).every(Boolean);
  return {
-  scope:"HOME_ONLY",
-  status:homeCodeReady?"HOME_CANDIDATE_READY_FOR_RUNTIME_QA":"BLOCKED_NOT_READY",
+  scope:"DM00_DM03_REVIEW",
+  status:reviewCodeReady?"DM_REVIEW_CANDIDATE_READY_FOR_RUNTIME_QA":"BLOCKED_NOT_READY",
   deploymentAllowed:false,
   pmRuntimeQARequired:true,
   githubAppAllowed:false,
-  taskflowLiveDispatchAllowed:false,
+  taskflowLiveDispatchAllowed:true,
   otherPagesOutsideScope:true,
   gates
  };
 }
 if(require.main===module){
  const r=assess();process.stdout.write(JSON.stringify(r,null,2)+"\n");
- if(process.argv.includes("--require-home-code")&&r.status!=="HOME_CANDIDATE_READY_FOR_RUNTIME_QA")process.exitCode=1;
+ if(process.argv.includes("--require-home-code")&&r.status!=="DM_REVIEW_CANDIDATE_READY_FOR_RUNTIME_QA")process.exitCode=1;
 }
 module.exports={assess};
