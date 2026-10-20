@@ -40,18 +40,20 @@ test("P2 static modules/PRs are visible as read-only information; people statuse
   assert.doesNotMatch(hud, /innerHTML/);
   assert.match(hud, /zhuge-role-roster/);
 });
-test("P2 work descriptions preserve P1 primary destination, new-tab security, disabled unknown links", () => {
+test("P2 quick links preserve award records, primary destinations, safe links, and pending unknown links without a wall", () => {
   const src = read("assets/zhuge-office-furnishings.js");
-  assert.match(src, /info\.dataset\.zgfInfo = work\.id/);
-  assert.match(src, /showMedalInfo\(work\)/);
-  assert.match(src, /go\.href = routes\[work\.id\]/);
-  assert.match(src, /go\.rel = "noopener noreferrer"/);
-  assert.match(src, /slot\.append\(a, info\)/);
+  assert.match(src, /window, "ZhugeOfficeAwards"/);
+  assert.match(src, /note: "AI 工程任務與專案協作的正式作品入口。"/);
+  assert.match(src, /element\.dataset\.zgfWork = key/);
+  assert.match(src, /furniture\("TaskFlow"/);
+  assert.match(src, /furniture\("打卡鐘"/);
+  assert.match(src, /furniture\("行情電視"/);
+  assert.match(src, /target = "_blank"/);
+  assert.match(src, /rel = "noopener noreferrer"/);
   assert.match(src, /PENDING|待補/);
   assert.doesNotMatch(src, /innerHTML/);
   const css = read("assets/zhuge-office-furnishings.css");
-  assert.match(css, /\.zgf-work-details\[hidden\]/);
-  assert.match(css, /\.zgf-medal-info/);
+  assert.doesNotMatch(css, /zgf-awards|zgf-medal|trophy-board/);
   assert.match(css, /max-width:700px/);
 });
 test("P2 native room overlay is applied only to the pinned upstream Reception and keeps the vendor untouched", () => {

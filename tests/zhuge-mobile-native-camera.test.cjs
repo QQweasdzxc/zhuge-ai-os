@@ -33,5 +33,5 @@ test('native camera balances Reception with work and lounge rooms on portrait ho
 test('Cockpit pending shortcut no longer claims to be a second meeting room',()=>{
   assert.match(furnishings,/furniture\("AI 指揮艙", "艙"/);
   assert.doesNotMatch(furnishings,/furniture\("會議室"/);
-  assert.match(furnishings,/cockpit: "接待區內已設置獨立會議室/);
+  assert.match(furnishings,/cockpit: "AI 指揮艙正式連結待 PM 補充/);
 });

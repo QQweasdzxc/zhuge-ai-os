@@ -19,13 +19,14 @@ test('mobile HUD is compact by default, expandable and keeps real engineering co
   assert.match(css, /safe-area-inset-top/);
 });
 
-test('real native awards remain and compact inspector opens only on demand', () => {
+test('native award data remains available while the floating award wall is removed', () => {
   const js = text('assets/zhuge-office-furnishings.js');
   const css = text('assets/zhuge-office-furnishings.css');
-  assert.match(js, /setBoard\(false\)/);
-  assert.match(js, /toggle\.textContent = open \? "−" : "🏆"/);
-  assert.match(css, /\.zgf-awards\[data-open="false"\]/);
-  assert.match(js, /dataset\.sceneAnchor = "core:recepcao"/);
+  assert.match(js, /ZhugeOfficeAwards/);
+  assert.match(js, /value:\s*works/);
+  assert.match(js, /const works = Object\.freeze\(\[/);
+  assert.doesNotMatch(js, /zgf-trophy-board|zgf-awards|zgf-medal/);
+  assert.doesNotMatch(css, /zgf-awards|zgf-medal|trophy-board/);
   for (const key of ['taskflow','worklog','investment','lab']) assert.ok(js.includes('id: "'+key+'"'));
 });
 
