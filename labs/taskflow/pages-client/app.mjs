@@ -25,6 +25,7 @@ const refs={
   dispatchMeta:document.querySelector("#tf-dispatch-meta"),
   dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
   dispatchNotice:document.querySelector("#tf-dispatch-notice")
+  ,pmInbox:document.querySelector("#tf-pm-inbox")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false};
 function element(tag,{text,className,attrs}={}){
@@ -156,7 +157,9 @@ function renderDispatchCards(items){
   for(const item of items){
     const card=element("article",{className:"tf-dispatch-card"});
     const head=element("div",{className:"tf-dispatch-card-head"});
-    head.append(element("strong",{text:item.title}),element("span",{text:item.status,className:"tf-status-tag"}));
+    const title=element("a",{text:item.title,className:"tf-dispatch-title",attrs:{href:routeFor({issueId:item.id})}});
+    title.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",title.href);renderRoute();});
+    head.append(title,element("span",{text:item.status,className:"tf-status-tag"}));
     card.append(head);
     card.append(element("p",{text:`${item.workCode||"工作編號未取得"} · ${item.executor||"Executor 未確認"}`}));
     card.append(element("small",{text:`Provider Run ID：${item.providerRunId||"未取得"} · task：${item.taskId||"未取得"}`,className:"tf-id"}));
@@ -171,6 +174,8 @@ async function loadDispatch(){
   try{
     const items=await dispatchAdapter.list(state.workspace.slug,{executor:refs.dispatchExecutor.value,query:refs.filter.value||""});
     renderDispatchCards(items);
+    const inbox=items.filter(item=>["REVIEW","BLOCKED"].includes(item.status));
+    if(refs.pmInbox)refs.pmInbox.textContent=inbox.length?`${inbox.length} 筆需要 PM／CTO 注意：${inbox.map(item=>`${item.workCode||item.id}（${item.status}）`).join("、")}`:"沒有待 PM 裁示事項。工程阻擋與 CTO 待審事項會在此列出。";
     refs.dispatchMeta.textContent=`已讀取 ${items.length} 筆原生案件 · Provider 證據狀態由 heartbeat/觀測時間判定`;
   }catch(error){
     refs.dispatchCards.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
@@ -180,8 +185,9 @@ async function loadDispatch(){
 function renderRoute(){
  if(!state.workspace)return;
  const route=currentRoute();
- refs.dispatch.hidden=route.section!=="dispatch";
+ if(refs.dispatch)refs.dispatch.hidden=route.section!=="dispatch";
  if(route.section==="dispatch"){
+   if(!refs.dispatch)return;
    refs.detail.hidden=true;
    refs.detail.replaceChildren();
    void loadDispatch();

@@ -1,6 +1,6 @@
 /** DM-04 read-only workbench adapter. Native TaskFlow is the source of truth. */
 export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "GEM-01", "GH-HELPER"]);
-export const DISPATCH_STATES = Object.freeze(["ACK_PENDING", "ASSIGNED", "RUNNING", "FAILED", "BLOCKED", "STALE", "UNKNOWN", "COMPLETED"]);
+export const DISPATCH_STATES = Object.freeze(["ACK_PENDING", "ASSIGNED", "RUNNING", "BLOCKED", "REVIEW", "DONE", "FAILED", "STALE", "UNKNOWN"]);
 const META = Object.freeze({ workCode: "zhuge_work_code", status: "zhuge_dispatch_status", runId: "zhuge_provider_run_id", observedAt: "zhuge_observed_at", executor: "zhuge_executor", heartbeat: "zhuge_provider_heartbeat_at", source: "zhuge_status_source", taskId: "zhuge_task_id", pr: "zhuge_github_pr_url", sha: "zhuge_github_sha", ci: "zhuge_github_ci_url" });
 const text = value => typeof value === "string" ? value.trim() : "";
 const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
@@ -19,7 +19,8 @@ export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt =
   const value = text(raw).toUpperCase().replace(/[- ]/g, "_");
   if (["FAILED", "ERROR"].includes(value)) return "FAILED";
   if (["BLOCKED", "QUOTA_EXHAUSTED", "UNSUPPORTED"].includes(value)) return "BLOCKED";
-  if (["COMPLETED", "DONE", "SUCCESS"].includes(value)) return "COMPLETED";
+  if (["COMPLETED", "DONE", "SUCCESS"].includes(value)) return "DONE";
+  if (["REVIEW", "IN_REVIEW"].includes(value)) return "REVIEW";
   if (value === "STALE") return "STALE";
   if (["RUNNING", "IN_PROGRESS"].includes(value)) {
     if (!providerRunId) return "UNKNOWN";
