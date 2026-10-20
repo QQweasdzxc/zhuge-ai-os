@@ -31,17 +31,24 @@ function change(relative, oldPart, newPart) {
 }
 const overlay = path.join(ROOT, 'integrations/habblaud/overrides/client/src');
 for (const r of [
-  'adapters/zhuge-bridge.ts', 'adapters/zhuge-entry.ts', 'adapters/zhuge-weather.ts', 'adapters/zhuge-weather.test.ts',
+  'adapters/zhuge-bridge.ts', 'adapters/zhuge-family.ts', 'adapters/zhuge-family.test.ts', 'adapters/zhuge-entry.ts', 'adapters/zhuge-weather.ts', 'adapters/zhuge-weather.test.ts',
   'adapters/zhuge-taskflow-run-status.ts', 'adapters/zhuge-taskflow-run-status.test.ts',
   'adapters/zhuge-gpt-helper-lifecycle.ts', 'adapters/zhuge-gpt-helper-lifecycle.test.ts',
   'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts', 'i18n/zh-TW.test.ts',
   'world/layout/zhuge-reception.ts', 'world/layout/zhuge-reception.test.ts',
+  'world/residents/zhuge-resident-sprite.ts',
   'world/sim/zhuge-safe-path.test.ts',
 ]) {
   const target = file('client/src/' + r);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(path.join(overlay, r), target);
 }
+// Family/pet residents use an additive local marker on the native snapshot
+// protocol. This modifies only the pinned temporary build tree; the upstream
+// vendor checkout and its source remain untouched.
+change('shared/types.ts',
+  'export interface AgentInfo {',
+  "export interface AgentInfo {\n  /** Zhuge local resident marker; residents are never Provider workers. */\n  zhugeResident?: 'family' | 'pet';");
 // UI-only locales can exceed the independently versioned Habblaud World wire
 // protocol. Keep zh-TW local while sending a protocol-supported locale outward.
 for (const r of ['world/locale.ts', 'world/locale.test.ts']) {
@@ -209,6 +216,14 @@ change('client/src/world/index.ts',
 change('client/src/world/sim/sim.ts',
   "      if (!this.findPath(ch.tx, ch.ty, s.tx, s.ty, s.path)) {\n        // sem caminho (não deveria acontecer): teletransporta para não travar\n        ch.placeAtTile(s.tx, s.ty);\n        s.path.length = 0;\n      }",
   "      if (!this.findPath(ch.tx, ch.ty, s.tx, s.ty, s.path)) {\n        // P2 #72: no legal route means remain at the current tile. Release any\n        // temporary activity reservation and retry after a short bounded pause.\n        this.clearPlan(ch);\n        ch.thinkAt = this.now + 1500;\n        ch.setPose('stand', 'none');\n        return true;\n      }");
+// P2 #78: the black/gray cat uses the same native Renderer and Sprite contract
+// as every other character; only its appearance is specialized.
+change('client/src/world/render/renderer.ts',
+  "import { buildAnim, furnitureScale, NO_ANIM, sweepDelay, type BuildAnim } from './anim';",
+  "import { buildAnim, furnitureScale, NO_ANIM, sweepDelay, type BuildAnim } from './anim';\nimport { zhugeResidentSprite } from '../residents/zhuge-resident-sprite';");
+change('client/src/world/render/renderer.ts',
+  "    try {\n      sprite = this.charSprite(req, ch.animT);\n    } catch {",
+  "    try {\n      const resident = ch.info.zhugeResident;\n      sprite = resident === 'pet' ? zhugeResidentSprite(resident, req, ch.animT) : null;\n      if (!sprite) sprite = this.charSprite(req, ch.animT);\n    } catch {");
 change('client/src/app.ts',
   "import { OfficeStore } from './net/store';",
   "import { OfficeStore } from './net/store';\nimport { createZhugeStream, bootAiOsPixelHomepage } from './adapters/zhuge-entry';");

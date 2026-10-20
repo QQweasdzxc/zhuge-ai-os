@@ -4,6 +4,7 @@ import type { Appearance, ArtModule, RoomTheme } from '../../art/api';
 import { DEFAULT_WORLD_OPTIONS } from '../api';
 import { BLOCKED, FREE } from '../path/grid';
 import { fallbackProjectStatus, toOfficeSnapshot, ZHUGE_CAST } from '../../adapters/zhuge-bridge';
+import { ZHUGE_FAMILY_RESIDENTS } from '../../adapters/zhuge-family';
 import { Sim } from './sim';
 
 const T0 = 1_800_000_000_000;
@@ -41,7 +42,10 @@ describe('P2 #72 native simulation no-path guard', () => {
     const sim = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS, liveliness: 'lively' }), null);
     const snapshot = toOfficeSnapshot(fallbackProjectStatus(T0), null, 1, T0, T0, false);
     sim.applySnapshot(snapshot, T0);
-    expect([...sim.chars.values()].map((ch) => ch.id)).toEqual(ZHUGE_CAST.map((member) => member.id));
+    expect([...sim.chars.values()].map((ch) => ch.id)).toEqual([
+      ...ZHUGE_CAST.map((member) => member.id),
+      ...ZHUGE_FAMILY_RESIDENTS.map((member) => member.id),
+    ]);
 
     let observedIdleRoam = false;
     let now = T0;
@@ -51,6 +55,7 @@ describe('P2 #72 native simulation no-path guard', () => {
       sim.update(1 / 30, now);
       for (const ch of sim.chars.values()) {
         expect(ch.mode).toBe('idle');
+        if (ch.info.zhugeResident) expect(ch.info.status).toBe('idle');
         const before = previous.get(ch.id)!;
         if (ch.x !== before.x || ch.y !== before.y) observedIdleRoam = true;
         if (!ch.inside && !ch.atSpot) expect(sim.building.grid.walkable(ch.tx, ch.ty)).toBe(true);

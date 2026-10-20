@@ -230,7 +230,7 @@ try {
     const s = (window).habblaud?.store?.snapshot;
     return { rooms:s?.rooms?.length || 0, agents:s?.agents?.length || 0, waiting:s?.agents?.filter(a=>a.status==='waiting').length||0 };
   });
-  if (snapshot.rooms !== 1 || snapshot.agents !== 4 || snapshot.waiting !== 0) throw new Error('Static project status created people or changed work state: ' + JSON.stringify(snapshot));
+  if (snapshot.rooms !== 1 || snapshot.agents !== 8 || snapshot.waiting !== 0) throw new Error('Static project status created people or changed work state: ' + JSON.stringify(snapshot));
   const localizedNativeControls = await frame.locator('body').evaluate(() => ({
     searchPlaceholder: document.querySelector('.ui-search__input')?.getAttribute('placeholder'),
     feedEmpty: document.querySelector('.ui-feed__empty')?.textContent?.trim(),
@@ -276,6 +276,18 @@ try {
   }
   if (crew.agents.some(a => a.status !== 'idle' || a.provider !== undefined || a.account !== 'zhuge-fixed-cast' || !a.title.includes('尚無可驗證的即時工作狀態'))) {
     throw new Error('P2 cast faked real CLI work status: ' + JSON.stringify(crew));
+  }
+  // #78: family residents and the cat are native idle residents, never AI workers.
+  const family = await frame.locator('body').evaluate(() => {
+    const s = window.habblaud?.store?.snapshot;
+    const ids = ['zhuge-family-beidili', 'zhuge-family-anan', 'zhuge-family-kaka', 'zhuge-pet-blackgray-cat'];
+    return ids.map(id => {
+      const agent = (s?.agents || []).find(a => a.id === id);
+      return agent ? { id: agent.id, name: agent.name, status: agent.status, provider: agent.provider, account: agent.account, resident: agent.zhugeResident, tasks: agent.tasks?.length || 0 } : null;
+    });
+  });
+  if (family.some(a => !a || a.status !== 'idle' || a.provider !== undefined || a.account !== 'zhuge-family-cast' || !a.resident || a.tasks !== 0)) {
+    throw new Error('P2 family/pet residents must remain non-worker idle characters: ' + JSON.stringify(family));
   }
   // #72: exercise the native browser simulation, not a mocked coordinate list.
   // Idle outings are presentation behavior only and must never imply provider work.
@@ -327,7 +339,9 @@ try {
   await frame.locator('#zhuge-decision-panel > button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
   await frame.locator('#zhuge-aios-hud button').nth(2).click();
-  await frame.locator('.zhuge-role-roster button').last().click();
+  // The resident roster is appended after the four fixed engineering roles;
+  // keep this assertion pinned to Gem rather than assuming it is the last row.
+  await frame.locator('.zhuge-role-roster button').nth(3).click();
   const roleText = await frame.locator('#zhuge-decision-panel').innerText();
   if (!roleText.includes('Gem｜第二工程師') || !roleText.includes('固定像素角色不是真人位置或 Provider Session')) {
     throw new Error('P2 role dossier missing or falsely live: ' + roleText);

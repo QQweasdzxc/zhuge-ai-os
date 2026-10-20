@@ -1,5 +1,6 @@
 import type { ZhugeProjectStatus } from '../adapters/zhuge-bridge';
 import { isFreshStatus, ZHUGE_CAST } from '../adapters/zhuge-bridge';
+import { ZHUGE_FAMILY_RESIDENTS } from '../adapters/zhuge-family';
 import { WEATHER_CITIES, toWeatherVisualContract, type WeatherCity, type WeatherState } from '../adapters/zhuge-weather';
 import './zhuge-hud.css';
 
@@ -96,7 +97,14 @@ export function showZhugeStatus(): void {
 }
 /** Accessible roster uses the existing modal; it never overrides runtime status. */
 export function showZhugeRole(agentId: string): void {
-  const role = ZHUGE_CAST.find(candidate => candidate.id === agentId);
+  const rosterData: Array<{ id: string; name: string; duty: string; intro: string; resident?: 'family' | 'pet' }> = [
+    ...ZHUGE_CAST.map((person) => ({ ...person, resident: undefined })),
+    ...ZHUGE_FAMILY_RESIDENTS.map((resident) => ({
+      id: resident.id, name: resident.name, duty: resident.role, intro: resident.intro,
+      resident: resident.kind,
+    })),
+  ];
+  const role = rosterData.find(candidate => candidate.id === agentId);
   if (!role) return;
   let panel = document.getElementById('zhuge-decision-panel');
   if (!panel) {
@@ -105,14 +113,14 @@ export function showZhugeRole(agentId: string): void {
     document.body.append(panel);
   }
   panel.replaceChildren();
-  const title = el('h2', '固定角色 · 角色介紹');
+  const title = el('h2', role.resident ? '家庭生活角色 · 角色介紹' : '固定角色 · 角色介紹');
   const close = el('button', '關閉');
   close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
   const roster = el('nav');
   roster.className = 'zhuge-role-roster';
   roster.setAttribute('aria-label', '切換辦公室角色');
-  for (const person of ZHUGE_CAST) {
+  for (const person of rosterData) {
     const item = el('button', person.name);
     item.setAttribute('type', 'button');
     item.setAttribute('aria-pressed', String(person.id === agentId));
@@ -121,9 +129,13 @@ export function showZhugeRole(agentId: string): void {
   }
   const name = el('h3', role.name + '｜' + role.duty);
   const content = el('p', role.intro);
-  const status = el('p', '目前呈現：角色待命（場景裝飾）');
+  const status = el('p', role.resident
+    ? '目前呈現：虛擬生活角色（非 AI Worker、非工程工作狀態）'
+    : '目前呈現：角色待命（場景裝飾）');
   status.className = 'zhuge-role-label';
-  const truth = el('p', '資料說明：固定像素角色不是真人位置或 Provider Session，也不代表 AI 正在工作。即時工程狀態只在可信來源驗證成功時顯示。');
+  const truth = el('p', role.resident
+    ? '資料說明：家庭角色與寵物只使用固定像素設定，不收集或推斷真人個資、位置或工作紀錄。'
+    : '資料說明：固定像素角色不是真人位置或 Provider Session，也不代表 AI 正在工作。即時工程狀態只在可信來源驗證成功時顯示。');
   truth.className = 'zhuge-role-provenance';
   panel.append(title, close, roster, name, content, status, truth);
   panel.hidden = false;

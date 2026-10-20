@@ -1,4 +1,5 @@
 import type { AgentInfo, OfficeSnapshot, RoomInfo } from '../../../shared/types';
+import { residentAgent, ZHUGE_FAMILY_RESIDENTS } from './zhuge-family';
 
 export interface ZhugeProjectStatus {
   project_name: string;
@@ -97,10 +98,11 @@ export function toOfficeSnapshot(
     stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
     seed: seed(member.id),
   }));
+  const familyAgents = ZHUGE_FAMILY_RESIDENTS.map((resident) => residentAgent(resident, crewRoomId, sessionStartedAt));
   return {
     rev, serverTime: now,
     rooms: [...(verified?.rooms || []), crewRoom],
-    agents: [...(verified?.agents || []), ...crewAgents],
+    agents: [...(verified?.agents || []), ...crewAgents, ...familyAgents],
     accounts: verified?.accounts || [],
     meta: verified ? { ...verified.meta, terminal: false, messages: false } : {
       demo: false, sources: [], startedAt: sessionStartedAt, version: 'Zhuge Pixel v1 (snapshot)',

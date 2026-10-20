@@ -118,7 +118,7 @@ export function bootAiOsPixelHomepage(_store: OfficeStore, world: WorldApi): voi
   stopWeather = weather.start();
   world.onSelect(sel => {
     if (sel?.type !== 'agent') return;
-    if (sel.id.startsWith('zhuge-crew-')) showZhugeRole(sel.id);
+    if (sel.id.startsWith('zhuge-crew-') || sel.id.startsWith('zhuge-family-') || sel.id.startsWith('zhuge-pet-')) showZhugeRole(sel.id);
     else if (sel.id.startsWith('zhuge-')) showZhugeDecisions();
   });
 }
