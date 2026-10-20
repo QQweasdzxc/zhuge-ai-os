@@ -85,7 +85,9 @@ jobs:
           go-version-file: third_party/multica/server/go.mod
           cache: true
       - name: Verify Go formatting
-        run: test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
+        run: |
+          python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...
       - name: Build backend binaries

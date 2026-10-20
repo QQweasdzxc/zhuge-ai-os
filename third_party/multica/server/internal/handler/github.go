@@ -76,10 +76,6 @@ type GitHubPullRequestResponse struct {
 	State           string  `json:"state"`
 	HtmlURL         string  `json:"html_url"`
 	Branch          *string `json:"branch"`
-	// HeadSHA is the exact commit currently mirrored for this pull request.
-	// It lets TaskFlow expose traceable review evidence without asking a Pages
-	// client to call GitHub directly.
-	HeadSHA         string  `json:"head_sha,omitempty"`
 	AuthorLogin     *string `json:"author_login"`
 	AuthorAvatarURL *string `json:"author_avatar_url"`
 	MergedAt        *string `json:"merged_at"`
@@ -208,7 +204,6 @@ func githubPullRequestToResponse(p db.GithubPullRequest, snapshotEnabled bool) G
 		State:             p.State,
 		HtmlURL:           p.HtmlUrl,
 		Branch:            textToPtr(p.Branch),
-		HeadSHA:           p.HeadSha,
 		AuthorLogin:       textToPtr(p.AuthorLogin),
 		AuthorAvatarURL:   textToPtr(p.AuthorAvatarUrl),
 		MergedAt:          timestampToPtr(p.MergedAt),
@@ -257,7 +252,6 @@ func issuePullRequestRowToResponse(p db.ListPullRequestsByIssueRow, snapshotEnab
 		State:             p.State,
 		HtmlURL:           p.HtmlUrl,
 		Branch:            textToPtr(p.Branch),
-		HeadSHA:           p.HeadSha,
 		AuthorLogin:       textToPtr(p.AuthorLogin),
 		AuthorAvatarURL:   textToPtr(p.AuthorAvatarUrl),
 		MergedAt:          timestampToPtr(p.MergedAt),
