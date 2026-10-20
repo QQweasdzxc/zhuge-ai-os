@@ -28,6 +28,13 @@ CO-03 的 PR #103 或正式 TaskFlow DB／Secrets。
   executor_id, provider}` to the existing `POST /api/issues/{id}/dispatch` candidate;
   client CTO labels and authority metadata are rejected before transport. Server-side
   authorization remains mandatory.
+- [`runtime-read-model-projector.mjs`](../pages-client/runtime-read-model-projector.mjs)
+  now exposes the read-only Workbench envelope. It binds the native Issue ID and
+  workspace to the durable record, runtime read model, native task readback and native
+  GitHub readback without creating another task store. The checked-in contract is
+  [`DM00_DM03_PHASE2_RUNTIME_WORKBENCH_SCHEMA.json`](./DM00_DM03_PHASE2_RUNTIME_WORKBENCH_SCHEMA.json).
+- Provider permission, credential, callback, quota and cost prerequisites are recorded in
+  [`DM00_DM03_PHASE2_PROVIDER_DECISION_MATRIX.md`](./DM00_DM03_PHASE2_PROVIDER_DECISION_MATRIX.md).
 
 ## Native API contract for CO-01
 
@@ -54,6 +61,8 @@ or native Provider readback is accepted.
 The Review tests cover:
 
 - concurrent native row-lock mutations and persisted version conflict;
+- independent process identities, fixed issue→task lock order, commit failure rollback,
+  restart recovery and process-scoped transaction evidence;
 - replay with no second write;
 - restart lease expiry and explicit reassignment review;
 - stale fencing token rejection and active-writer rewrite rejection;
@@ -61,7 +70,9 @@ The Review tests cover:
 - missing CTO authority, wrong workspace, unknown executor, provider mismatch and forged
   client authority fields;
 - callback signature, identity binding, replay, Run ID collision, heartbeat/checkpoint/quota
-  capability gates.
+  capability gates, duplicate ACK, stale heartbeat, wrong Run ID and retry source binding;
+- Native Issue → Dispatch Intent → Runtime Read Model → Workbench identity and schema
+  validation.
 
 The injected transaction fake proves the contract only. Formal native DB transaction
 injection, cross-process lock readback, CTO allowlist provisioning and audit persistence

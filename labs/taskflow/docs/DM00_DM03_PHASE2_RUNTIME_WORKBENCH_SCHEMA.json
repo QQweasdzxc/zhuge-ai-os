@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "zhuge-taskflow-phase2-runtime-workbench-v1",
+  "title": "TaskFlow Phase 2 Runtime Workbench Read-only Envelope",
+  "type": "object",
+  "required": ["schema", "issue", "read_model", "provenance"],
+  "properties": {
+    "schema": {"const": "zhuge-taskflow-phase2-runtime-workbench-v1"},
+    "issue": {
+      "type": "object",
+      "required": ["id", "workspace"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "identifier": {"type": ["string", "null"]},
+        "title": {"type": ["string", "null"]},
+        "status": {"type": ["string", "null"]},
+        "workspace": {"type": "string", "minLength": 1}
+      }
+    },
+    "read_model": {
+      "type": "object",
+      "required": ["schema", "intent_id", "issue_id", "state", "authorization", "evidence"]
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["issue", "dispatch_intent", "runtime", "provider_run_id_rule", "workbench"],
+      "properties": {
+        "issue": {"const": "taskflow_native_issue"},
+        "dispatch_intent": {"const": "taskflow_native_durable_record"},
+        "runtime": {"const": "taskflow_runtime_read_model_projector"},
+        "task_runs": {"const": "taskflow_native_task_run_readback"},
+        "github": {"const": "taskflow_native_github_readback"},
+        "provider_run_id_rule": {"const": "official_provider_event_only"},
+        "workbench": {"const": "read_only_projection"}
+      }
+    }
+  }
+}

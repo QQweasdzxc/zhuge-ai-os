@@ -24,10 +24,13 @@ function initialRecord() {
 }
 
 class NativeStore {
-  constructor(record) {
+  constructor(record, {commitError = ""} = {}) {
     this.record = clone(record);
     this.queue = Promise.resolve();
     this.writeCount = 0;
+    this.commitError = commitError;
+    this.operations = [];
+    this.transactions = [];
   }
 
   async acquire() {
@@ -38,14 +41,17 @@ class NativeStore {
     return release;
   }
 
-  beginTransaction() {
-    return Promise.resolve(new NativeTransaction(this));
+  beginTransaction(context = {}) {
+    const transaction = new NativeTransaction(this, {...context, transaction_id: `tx-${this.transactions.length + 1}`});
+    this.transactions.push(transaction);
+    return Promise.resolve(transaction);
   }
 }
 
 class NativeTransaction {
-  constructor(store) {
+  constructor(store, context) {
     this.store = store;
+    this.context = {...context};
     this.release = null;
     this.pending = null;
     this.finished = false;
@@ -53,32 +59,42 @@ class NativeTransaction {
 
   async lockIssue(issueId) {
     assert.equal(issueId, "issue-1");
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "issue_lock", issue_id: issueId});
     this.release = await this.store.acquire();
   }
 
   async lockTask(taskId) {
     assert.equal(taskId, "task-1");
     assert.ok(this.release, "task row must be locked after issue row");
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "task_lock", task_id: taskId});
   }
 
   async readRecord() {
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "read"});
     return clone(this.store.record);
   }
 
   async writeRecord(record) {
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "write"});
     this.pending = clone(record);
   }
 
   async commit() {
+    if (this.store.commitError) {
+      this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "commit_failed"});
+      throw new Error(this.store.commitError);
+    }
     if (this.pending) {
       this.store.record = this.pending;
       this.store.writeCount += 1;
     }
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "commit"});
     this.finish();
   }
 
   async rollback() {
     this.pending = null;
+    this.store.operations.push({transaction_id: this.context.transaction_id, process_id: this.context.process_id, step: "rollback"});
     this.finish();
   }
 
@@ -90,7 +106,10 @@ class NativeTransaction {
 }
 
 function adapterFor(store, options = {}) {
-  return createNativePersistenceAdapter({beginTransaction: () => store.beginTransaction(), ...options});
+  return createNativePersistenceAdapter({
+    ...options,
+    beginTransaction: context => store.beginTransaction(context)
+  });
 }
 
 function leaseEvent(expectedVersion = 1) {
@@ -132,6 +151,46 @@ test("native adapter serializes concurrent writers with the native row-lock cont
   assert.equal(store.writeCount, 1);
   assert.equal(auditEvents.length, 1);
   assert.equal(auditEvents[0].reason, "PERSISTED_VERSION_CONFLICT");
+  for (const transactionId of new Set(store.operations.map(operation => operation.transaction_id))) {
+    assert.deepEqual(
+      store.operations.filter(operation => operation.transaction_id === transactionId && ["issue_lock", "task_lock"].includes(operation.step)).map(operation => operation.step),
+      ["issue_lock", "task_lock"]
+    );
+  }
+});
+
+test("independent process adapters serialize through the native authority and retain process evidence", async () => {
+  const store = new NativeStore(initialRecord());
+  const auditEvents = [];
+  const firstAdapter = adapterFor(store, {processId: "process-a", auditSink: entry => auditEvents.push(entry)});
+  const secondAdapter = adapterFor(store, {processId: "process-b", auditSink: entry => auditEvents.push(entry)});
+  const input = {
+    issueId: "issue-1",
+    taskId: "task-1",
+    idempotencyKey: store.record.idempotency_key,
+    event: leaseEvent(),
+    mutate: (current, event) => applyDurableDispatchEvent(current, event, NOW)
+  };
+
+  const [first, second] = await Promise.all([
+    firstAdapter.runAtomicMutation(input),
+    secondAdapter.runAtomicMutation(input)
+  ]);
+  const accepted = first.accepted ? first : second;
+  const rejected = first.accepted ? second : first;
+
+  assert.equal(accepted.committed, true);
+  assert.equal(rejected.reason, "PERSISTED_VERSION_CONFLICT");
+  assert.equal(store.writeCount, 1);
+  assert.ok(["process-a", "process-b"].includes(accepted.transaction_evidence.process_id));
+  assert.ok(["process-a", "process-b"].includes(auditEvents[0].process_id));
+  assert.notEqual(accepted.transaction_evidence.process_id, auditEvents[0].process_id);
+  for (const transactionId of new Set(store.operations.map(operation => operation.transaction_id))) {
+    assert.deepEqual(
+      store.operations.filter(operation => operation.transaction_id === transactionId && ["issue_lock", "task_lock"].includes(operation.step)).map(operation => operation.step),
+      ["issue_lock", "task_lock"]
+    );
+  }
 });
 
 test("replayed provider events commit without a second write", async () => {
@@ -169,6 +228,26 @@ test("a reducer failure rolls back and leaves the native record unchanged", asyn
   assert.equal(store.writeCount, 0);
 });
 
+test("a native commit failure rolls back the pending write and records the process evidence", async () => {
+  const store = new NativeStore(initialRecord(), {commitError: "simulated commit outage"});
+  const auditEvents = [];
+  const adapter = adapterFor(store, {processId: "process-commit-failure", auditSink: entry => auditEvents.push(entry)});
+  const before = clone(store.record);
+  const result = await adapter.runAtomicMutation({
+    issueId: "issue-1", taskId: "task-1", idempotencyKey: before.idempotency_key,
+    event: leaseEvent(), mutate: (current, event) => applyDurableDispatchEvent(current, event, NOW)
+  });
+
+  assert.equal(result.reason, "NATIVE_TRANSACTION_ROLLBACK");
+  assert.match(result.detail, /simulated commit outage/);
+  assert.deepEqual(store.record, before);
+  assert.equal(store.writeCount, 0);
+  assert.equal(result.transaction_evidence.process_id, "process-commit-failure");
+  assert.equal(auditEvents[0].reason, "NATIVE_TRANSACTION_ROLLBACK");
+  assert.equal(auditEvents[0].process_id, "process-commit-failure");
+  assert.ok(store.operations.some(operation => operation.step === "rollback"));
+});
+
 test("a new adapter instance can recover an expired lease from the persisted native record", async () => {
   const store = new NativeStore(initialRecord());
   const firstAdapter = adapterFor(store);
@@ -177,7 +256,8 @@ test("a new adapter instance can recover an expired lease from the persisted nat
     event: leaseEvent(), mutate: (current, event) => applyDurableDispatchEvent(current, event, NOW)
   });
 
-  const restartedAdapter = adapterFor(store);
+  const restartedAuthority = new NativeStore(store.record);
+  const restartedAdapter = adapterFor(restartedAuthority, {processId: "process-after-restart"});
   const result = await restartedAdapter.runAtomicMutation({
     issueId: "issue-1", taskId: "task-1", idempotencyKey: store.record.idempotency_key,
     event: {
@@ -191,9 +271,10 @@ test("a new adapter instance can recover an expired lease from the persisted nat
   });
 
   assert.equal(result.accepted, true);
-  assert.equal(store.record.state, "OVERDUE");
-  assert.equal(store.record.lease_active, false);
-  assert.equal(store.record.version, 3);
+  assert.equal(restartedAuthority.record.state, "OVERDUE");
+  assert.equal(restartedAuthority.record.lease_active, false);
+  assert.equal(restartedAuthority.record.version, 3);
+  assert.equal(result.transaction_evidence.process_id, "process-after-restart");
 });
 
 test("native adapter persists fencing rejection audit without changing the active writer", async () => {

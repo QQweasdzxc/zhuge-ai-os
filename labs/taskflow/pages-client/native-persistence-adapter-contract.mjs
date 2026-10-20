@@ -85,10 +85,18 @@ function mutationContractError(current, result, event) {
   }
   if (!Number.isInteger(next.version) || next.version < current.version) return "MUTATION_VERSION_INVALID";
   if (!Number.isInteger(next.fencing_epoch) || next.fencing_epoch < current.fencing_epoch) return "FENCING_EPOCH_REGRESSION";
+  if (text(event?.type) !== "LEASE_ACQUIRED" && next.fencing_epoch !== current.fencing_epoch) {
+    return "FENCING_EPOCH_MUTATION_UNAUTHORIZED";
+  }
   if (result.reason === "EVENT_REPLAY") {
     return next.version === current.version ? null : "REPLAY_VERSION_ADVANCED";
   }
   if (next.version !== current.version + 1) return "MUTATION_VERSION_NOT_ADVANCED_ONCE";
+  const writerChanged = next.writer_id !== current.writer_id || next.fencing_token !== current.fencing_token;
+  if (writerChanged && text(event?.type) === "LEASE_ACQUIRED"
+      && (!Number.isInteger(next.fencing_epoch) || next.fencing_epoch <= current.fencing_epoch)) {
+    return "WRITER_FENCING_EPOCH_NOT_ADVANCED";
+  }
   if (current.lease_active && (next.writer_id !== current.writer_id || next.fencing_token !== current.fencing_token)) {
     return "WRITER_LEASE_MUTATION_UNAUTHORIZED";
   }
@@ -119,8 +127,9 @@ async function rollbackQuietly(tx) {
  * No database client is imported here: the real handler injects the native
  * transaction implementation, while Review tests inject a lock-aware fake.
  */
-export function createNativePersistenceAdapter({beginTransaction, auditSink} = {}) {
+export function createNativePersistenceAdapter({beginTransaction, auditSink, processId = "review-process"} = {}) {
   const configured = typeof beginTransaction === "function";
+  const transactionProcessId = text(processId) || "review-process";
 
   async function runAtomicMutation({
     issueId,
@@ -139,11 +148,12 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
       tx = await beginTransaction({
         issue_id: text(issueId),
         task_id: text(taskId) || null,
+        process_id: transactionProcessId,
         lock_contract: NATIVE_ROW_LOCK_CONTRACT
       });
       if (!transactionMethodsAvailable(tx)) {
         await rollbackQuietly(tx);
-        return blockedWithAudit("NATIVE_TRANSACTION_INTERFACE_INVALID", "", event, auditSink);
+        return blockedWithAudit("NATIVE_TRANSACTION_INTERFACE_INVALID", "", event, auditSink, {process_id: transactionProcessId});
       }
 
       // Every mutation locks the native issue first, then its task queue row.
@@ -154,16 +164,17 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
       const current = await tx.readRecord({issueId: text(issueId), taskId: text(taskId) || null});
       if (!current) {
         await rollbackQuietly(tx);
-        return blockedWithAudit("NATIVE_DISPATCH_RECORD_NOT_FOUND", "", event, auditSink);
+        return blockedWithAudit("NATIVE_DISPATCH_RECORD_NOT_FOUND", "", event, auditSink, {process_id: transactionProcessId});
       }
       if (text(current.idempotency_key) !== text(idempotencyKey)) {
         await rollbackQuietly(tx);
-        return blockedWithAudit("IDEMPOTENCY_KEY_MISMATCH", "", event, auditSink, {issue_id: text(issueId)});
+        return blockedWithAudit("IDEMPOTENCY_KEY_MISMATCH", "", event, auditSink, {issue_id: text(issueId), process_id: transactionProcessId});
       }
       if (current.version !== event.expected_version) {
         await rollbackQuietly(tx);
         return blockedWithAudit("PERSISTED_VERSION_CONFLICT", "", event, auditSink, {
           issue_id: text(issueId),
+          process_id: transactionProcessId,
           expected_version: event.expected_version,
           observed_version: current.version
         });
@@ -173,7 +184,7 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
       const contractError = mutationContractError(current, result, event);
       if (contractError) {
         await rollbackQuietly(tx);
-        return blockedWithAudit(contractError, "", event, auditSink, {issue_id: text(issueId)});
+        return blockedWithAudit(contractError, "", event, auditSink, {issue_id: text(issueId), process_id: transactionProcessId});
       }
 
       // A replay is already represented by the existing event history. Do
@@ -186,6 +197,7 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
         storage: NATIVE_ROW_LOCK_CONTRACT.storage,
         lock_contract: NATIVE_ROW_LOCK_CONTRACT,
         transaction_evidence: {
+          process_id: transactionProcessId,
           issue_locked: true,
           task_locked: Boolean(text(taskId)),
           expected_version: event.expected_version,
@@ -197,8 +209,8 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
     } catch (error) {
       await rollbackQuietly(tx);
       return {
-        ...await blockedWithAudit("NATIVE_TRANSACTION_ROLLBACK", error instanceof Error ? error.message : String(error), event, auditSink, {issue_id: text(issueId)}),
-        transaction_evidence: {issue_locked: Boolean(tx), task_locked: Boolean(text(taskId)), write: "ROLLED_BACK"}
+        ...await blockedWithAudit("NATIVE_TRANSACTION_ROLLBACK", error instanceof Error ? error.message : String(error), event, auditSink, {issue_id: text(issueId), process_id: transactionProcessId}),
+        transaction_evidence: {process_id: transactionProcessId, issue_locked: Boolean(tx), task_locked: Boolean(text(taskId)), write: "ROLLED_BACK"}
       };
     }
   }
@@ -207,6 +219,7 @@ export function createNativePersistenceAdapter({beginTransaction, auditSink} = {
     version: NATIVE_PERSISTENCE_ADAPTER_VERSION,
     contract: NATIVE_ROW_LOCK_CONTRACT,
     audit_contract: NATIVE_TRANSACTION_AUDIT_CONTRACT,
+    process_id: transactionProcessId,
     configured,
     runAtomicMutation
   });

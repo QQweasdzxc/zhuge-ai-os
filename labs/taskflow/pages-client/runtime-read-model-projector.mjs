@@ -180,3 +180,51 @@ export function projectAndValidateDispatchRuntimeReadModel(input, schema) {
   if (!result.valid) throw new Error(`runtime read model schema validation failed: ${result.errors.join("; ")}`);
   return model;
 }
+
+export const RUNTIME_WORKBENCH_SCHEMA_ID = "zhuge-taskflow-phase2-runtime-workbench-v1";
+
+/**
+ * Compose the read-only Workbench envelope from the existing native Issue,
+ * durable TaskFlow record and native readbacks. This is a projection over the
+ * existing authority, not a second task store or a new mutation endpoint.
+ */
+export function buildRuntimeWorkbenchEnvelope({issue, record, nativeTaskRuns = [], nativePullRequests = [], authorizationResult} = {}, schema, runtimeSchema = null) {
+  const nativeIssueId = nullableText(issue?.id);
+  const workbenchSchema = schema?.$id === RUNTIME_WORKBENCH_SCHEMA_ID ? schema : null;
+  const readModelSchema = runtimeSchema || (workbenchSchema ? null : schema);
+  if (!nativeIssueId) throw new Error("native TaskFlow issue identity is required");
+  const model = projectAndValidateDispatchRuntimeReadModel({
+    record,
+    nativeTaskRuns,
+    nativePullRequests,
+    authorizationResult
+  }, readModelSchema);
+  if (nativeIssueId !== model.issue_id) throw new Error("native issue and runtime read model identities differ");
+  const nativeWorkspace = nullableText(issue?.workspace_id ?? issue?.workspace);
+  if (nativeWorkspace && nativeWorkspace !== model.workspace) throw new Error("native issue and runtime workspace identities differ");
+  const envelope = {
+    schema: RUNTIME_WORKBENCH_SCHEMA_ID,
+    issue: {
+      id: nativeIssueId,
+      identifier: nullableText(issue?.identifier),
+      title: nullableText(issue?.title),
+      status: nullableText(issue?.status),
+      workspace: nativeWorkspace || model.workspace
+    },
+    read_model: model,
+    provenance: {
+      issue: "taskflow_native_issue",
+      dispatch_intent: "taskflow_native_durable_record",
+      runtime: "taskflow_runtime_read_model_projector",
+      task_runs: "taskflow_native_task_run_readback",
+      github: "taskflow_native_github_readback",
+      provider_run_id_rule: "official_provider_event_only",
+      workbench: "read_only_projection"
+    }
+  };
+  if (workbenchSchema) {
+    const result = validateJsonSchema(envelope, workbenchSchema);
+    if (result.length) throw new Error(`runtime Workbench schema validation failed: ${result.join("; ")}`);
+  }
+  return envelope;
+}

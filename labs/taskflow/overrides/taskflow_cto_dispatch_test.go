@@ -18,6 +18,24 @@ func TestParseCTODispatchMutationRequestRejectsClientAuthorityFields(t *testing.
 	}
 }
 
+func TestParseCTODispatchMutationRequestRejectsAllClientAuthorityProjections(t *testing.T) {
+	for _, field := range []string{
+		"authority_result", "authorization", "workspace_id", "role", "provider_run_id", "cto_user_id",
+	} {
+		body := []byte(`{"executor_id":"CO-02","provider":"codex","` + field + `":"forged"}`)
+		if _, err := parseCTODispatchMutationRequest(body); err == nil {
+			t.Fatalf("expected client authority field %q to be rejected", field)
+		}
+	}
+}
+
+func TestParseCTODispatchMutationRequestRejectsDuplicateJSONValues(t *testing.T) {
+	body := []byte(`{"executor_id":"CO-02","provider":"codex"}{"executor_id":"CO-02","provider":"codex"}`)
+	if _, err := parseCTODispatchMutationRequest(body); err == nil {
+		t.Fatal("expected duplicate JSON values to be rejected")
+	}
+}
+
 func TestParseCTODispatchMutationRequestRequiresExecutorAndProvider(t *testing.T) {
 	if _, err := parseCTODispatchMutationRequest([]byte(`{"executor_id":"CO-02"}`)); err == nil {
 		t.Fatal("expected missing provider to be rejected")
