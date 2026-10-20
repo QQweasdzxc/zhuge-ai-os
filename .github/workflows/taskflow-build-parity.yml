@@ -13,6 +13,7 @@ on:
       - release/taskflow-ai-visible-20261016
       - review/dm00-dm03-taskflow-dispatch-20261020
       - review/dm00-dm03-core-runtime-20261020
+      - review/dm00-dm03-phase2-dispatch-runtime-20261020
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
