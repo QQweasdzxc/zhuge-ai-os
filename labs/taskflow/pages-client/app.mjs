@@ -5,8 +5,10 @@
  */
 import {createTaskFlowPagesTransport, readZhugeAccessToken,TaskFlowPagesError} from "./taskflow-api.mjs";
 import {markExplicitReturn} from "./login-return.mjs";
+import {createDispatchAdapter, DISPATCH_EXECUTORS} from "./dispatch-workbench.mjs";
 const ROOT="/zhuge-ai-os/";
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
+const dispatchAdapter=createDispatchAdapter(transport);
 const refs={
   status:document.querySelector("#tf-status"),
   workspace:document.querySelector("#tf-workspace"),
@@ -17,7 +19,12 @@ const refs={
   filter:document.querySelector("#tf-search"),
   refresh:document.querySelector("#tf-refresh"),
   login:document.querySelector("#tf-login"),
-  projects:document.querySelector("#tf-projects")
+  projects:document.querySelector("#tf-projects"),
+  dispatch:document.querySelector("#tf-dispatch"),
+  dispatchCards:document.querySelector("#tf-dispatch-cards"),
+  dispatchMeta:document.querySelector("#tf-dispatch-meta"),
+  dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
+  dispatchNotice:document.querySelector("#tf-dispatch-notice")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false};
 function element(tag,{text,className,attrs}={}){
@@ -51,7 +58,7 @@ function routeFor({section="issues",issueId=null}={}) {
 }
 function currentRoute() {
  const hash=decodeURIComponent(location.hash||"");
- const match=hash.match(/^#\/tf\/(issues|projects)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
+ const match=hash.match(/^#\/tf\/(issues|projects|dispatch)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
  return match?{section:match[1],issueId:match[2]||null}:{section:"issues",issueId:null};
 }
 function renderWorkspaceSelect(){
@@ -143,9 +150,43 @@ async function renderDetail(id){
    refs.detail.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
  }
 }
+function renderDispatchCards(items){
+  refs.dispatchCards.replaceChildren();
+  if(!items.length){ refs.dispatchCards.append(element("p",{text:"此工作區沒有可顯示的派工案件；未顯示模擬資料。",className:"tf-empty"})); return; }
+  for(const item of items){
+    const card=element("article",{className:"tf-dispatch-card"});
+    const head=element("div",{className:"tf-dispatch-card-head"});
+    head.append(element("strong",{text:item.title}),element("span",{text:item.status,className:"tf-status-tag"}));
+    card.append(head);
+    card.append(element("p",{text:`${item.workCode||"工作編號未取得"} · ${item.executor||"Executor 未確認"}`}));
+    card.append(element("small",{text:`Provider Run ID：${item.providerRunId||"未取得"} · task：${item.taskId||"未取得"}`,className:"tf-id"}));
+    if(item.sha)card.append(element("small",{text:`SHA：${item.sha}`,className:"tf-id"}));
+    refs.dispatchCards.append(card);
+  }
+}
+async function loadDispatch(){
+  if(!state.workspace)return;
+  refs.dispatchNotice.textContent="DAILY 尚未接通；此頁不顯示假快照。資料僅來自原生 TaskFlow API。";
+  refs.dispatchMeta.textContent="正在讀取原生 /api/issues 與 task-runs…";
+  try{
+    const items=await dispatchAdapter.list(state.workspace.slug,{executor:refs.dispatchExecutor.value,query:refs.filter.value||""});
+    renderDispatchCards(items);
+    refs.dispatchMeta.textContent=`已讀取 ${items.length} 筆原生案件 · Provider 證據狀態由 heartbeat/觀測時間判定`;
+  }catch(error){
+    refs.dispatchCards.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
+    refs.dispatchMeta.textContent="資料讀取失敗，未顯示模擬資料。";
+  }
+}
 function renderRoute(){
  if(!state.workspace)return;
  const route=currentRoute();
+ refs.dispatch.hidden=route.section!=="dispatch";
+ if(route.section==="dispatch"){
+   refs.detail.hidden=true;
+   refs.detail.replaceChildren();
+   void loadDispatch();
+   return;
+ }
  refs.detail.hidden=!(route.section==="issues" && route.issueId);
  if(route.section==="issues" && route.issueId) {
    void renderDetail(route.issueId);
@@ -204,6 +245,7 @@ refs.workspace.addEventListener("change",async event=>{
 });
 document.querySelector("#tf-login-action").addEventListener("click",()=>markExplicitReturn(sessionStorage));
 refs.refresh.addEventListener("click",()=>void bootstrap());
+refs.dispatchExecutor?.addEventListener("change",()=>void loadDispatch());
 let searchDelay;
 refs.filter.addEventListener("input",()=>{
  clearTimeout(searchDelay);

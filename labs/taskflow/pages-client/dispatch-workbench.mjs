@@ -1,0 +1,68 @@
+/** DM-04 read-only workbench adapter. Native TaskFlow is the source of truth. */
+export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "GEM-01", "GH-HELPER"]);
+export const DISPATCH_STATES = Object.freeze(["ACK_PENDING", "ASSIGNED", "RUNNING", "FAILED", "BLOCKED", "STALE", "UNKNOWN", "COMPLETED"]);
+const META = Object.freeze({ workCode: "zhuge_work_code", status: "zhuge_dispatch_status", runId: "zhuge_provider_run_id", observedAt: "zhuge_observed_at", executor: "zhuge_executor", heartbeat: "zhuge_provider_heartbeat_at", source: "zhuge_status_source", taskId: "zhuge_task_id", pr: "zhuge_github_pr_url", sha: "zhuge_github_sha", ci: "zhuge_github_ci_url" });
+const text = value => typeof value === "string" ? value.trim() : "";
+const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
+export function metadataKeys() { return META; }
+export function normalizeExecutor(value) {
+  const v = text(value).toUpperCase();
+  if (DISPATCH_EXECUTORS.includes(v)) return v;
+  if (/^GH-HELPER(?:-|$)/.test(v)) return "GH-HELPER";
+  return "";
+}
+export function heartbeatFresh(value, now = Date.now(), ttlMs = 15 * 60 * 1000) {
+  const time = Date.parse(value || "");
+  return Number.isFinite(time) && time <= now && now - time <= ttlMs;
+}
+export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt = "", observedAt = "", now = Date.now() } = {}) {
+  const value = text(raw).toUpperCase().replace(/[- ]/g, "_");
+  if (["FAILED", "ERROR"].includes(value)) return "FAILED";
+  if (["BLOCKED", "QUOTA_EXHAUSTED", "UNSUPPORTED"].includes(value)) return "BLOCKED";
+  if (["COMPLETED", "DONE", "SUCCESS"].includes(value)) return "COMPLETED";
+  if (value === "STALE") return "STALE";
+  if (["RUNNING", "IN_PROGRESS"].includes(value)) {
+    if (!providerRunId) return "UNKNOWN";
+    if (!heartbeatFresh(heartbeatAt, now) || !heartbeatFresh(observedAt, now, 60 * 60 * 1000)) return "STALE";
+    return "RUNNING";
+  }
+  if (["ACK_PENDING", "DISPATCH_PENDING", "QUEUED", "DISPATCHED"].includes(value)) return "ACK_PENDING";
+  if (value === "ASSIGNED") return "ASSIGNED";
+  return "UNKNOWN";
+}
+export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
+  const metadata = metadataOf(issue);
+  const run = Array.isArray(runs) ? runs.find(item => item && item.id) : null;
+  const providerRunId = text(metadata[META.runId] || run?.provider_run_id);
+  const heartbeatAt = text(metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
+  const observedAt = text(metadata[META.observedAt] || run?.observed_at || run?.updated_at);
+  const rawStatus = text(metadata[META.status] || run?.status || issue?.status);
+  let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now });
+  if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
+  return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(metadata[META.workCode]), executor: normalizeExecutor(metadata[META.executor] || issue?.assignee_id || issue?.assignee), status, providerRunId, taskId: text(metadata[META.taskId] || run?.id), observedAt, heartbeatAt, prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), raw: issue };
+}
+export function createDispatchAdapter(transport) {
+  if (!transport || typeof transport.listIssues !== "function") throw new TypeError("TaskFlow transport required");
+  return Object.freeze({
+    async list(workspace, { executor = "", query = "" } = {}) {
+      const response = await transport.listIssues(workspace, { limit: 100, query });
+      const issues = Array.isArray(response) ? response : response?.issues;
+      if (!Array.isArray(issues)) throw new Error("TaskFlow issue response invalid");
+      const selected = normalizeExecutor(executor);
+      return issues.filter(issue => {
+        const item = normalizeDispatchIssue(issue);
+        return (!item.workCode || item.workCode.startsWith("DM-")) && (!selected || item.executor === selected);
+      }).map(issue => normalizeDispatchIssue(issue));
+    },
+    async detail(workspace, id) {
+      const issue = await transport.getIssue(workspace, id);
+      const [runs, pullRequests] = await Promise.allSettled([
+        transport.listTaskRuns?.(workspace, id, { active: false }),
+        transport.listPullRequests?.(workspace, id)
+      ]);
+      const runList = runs.status === "fulfilled" ? (Array.isArray(runs.value) ? runs.value : runs.value?.tasks || []) : [];
+      const prs = pullRequests.status === "fulfilled" ? (Array.isArray(pullRequests.value) ? pullRequests.value : pullRequests.value?.pull_requests || []) : [];
+      return { ...normalizeDispatchIssue(issue, runList), runs: runList, pullRequests: prs, runtimeEvidence: runs.status === "fulfilled" };
+    }
+  });
+}

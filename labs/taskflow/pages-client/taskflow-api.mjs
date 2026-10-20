@@ -123,6 +123,8 @@ export function createTaskFlowPagesTransport({
     listProjects:(workspace)=>api("/api/projects",{workspace}),
     listStatuses:(workspace)=>api("/api/issue-statuses",{workspace}),
     listComments:(workspace,id)=>api("/api/issues/"+encodeURIComponent(requiredId(id))+"/comments",{workspace}),
+    listTaskRuns:(workspace,id,{active=false}={})=>api("/api/issues/"+encodeURIComponent(requiredId(id))+"/task-runs?active="+(active?"true":"false"),{workspace}),
+    listPullRequests:(workspace,id)=>api("/api/issues/"+encodeURIComponent(requiredId(id))+"/pull-requests",{workspace}),
     connected:()=>Boolean(bearer)
   });
 }
