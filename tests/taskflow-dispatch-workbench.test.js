@@ -18,3 +18,13 @@ test("DM-04 adapter reads native issues and applies executor filter without fake
   assert.equal((await adapter.list("ws", {executor: "CO-02"})).length, 1);
   assert.equal((await adapter.list("ws", {executor: "GEM-01"}))[0].status, "RUNNING");
 });
+
+test("DM-04 evidence rejects mismatched identities, duplicate active runs, and bad SHA", async () => {
+  const {validateEvidence} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const issue = {id: "issue-1", assignee_id: "CO-02", metadata: {
+    zhuge_executor: "CO-02", zhuge_task_id: "task-1", zhuge_provider_run_id: "run-1", zhuge_github_sha: "bad-sha"
+  }};
+  const result = validateEvidence(issue, [{id: "task-1", provider_run_id: "run-2", status: "running"}, {id: "task-2", provider_run_id: "run-2", status: "running"}]);
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors.sort(), ["DUPLICATE_ACTIVE_RUN", "INVALID_GITHUB_SHA", "PROVIDER_RUN_ID_MISMATCH"].sort());
+});

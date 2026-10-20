@@ -41,6 +41,26 @@ export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
   if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
   return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(metadata[META.workCode]), executor: normalizeExecutor(metadata[META.executor] || issue?.assignee_id || issue?.assignee), status, providerRunId, taskId: text(metadata[META.taskId] || run?.id), observedAt, heartbeatAt, prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), raw: issue };
 }
+export function validateEvidence(issue, runs = []) {
+  const metadata = metadataOf(issue);
+  const list = Array.isArray(runs) ? runs : [];
+  const errors = [];
+  const issueId = text(issue?.id);
+  const taskId = text(metadata[META.taskId]);
+  const providerRunId = text(metadata[META.runId]);
+  const executor = normalizeExecutor(metadata[META.executor] || issue?.assignee_id || issue?.assignee);
+  const matchingTask = taskId ? list.filter(run => text(run?.id) === taskId) : [];
+  const matchingRun = providerRunId ? list.filter(run => text(run?.provider_run_id) === providerRunId) : [];
+  if (!issueId) errors.push("MISSING_TASK_ID");
+  if (!executor) errors.push("UNKNOWN_EXECUTOR");
+  if (taskId && matchingTask.length !== 1) errors.push("TASK_ID_MISMATCH");
+  if (providerRunId && matchingRun.length !== 1) errors.push("PROVIDER_RUN_ID_MISMATCH");
+  const active = list.filter(run => ["queued", "dispatched", "running", "in_progress"].includes(String(run?.status).toLowerCase()));
+  if (active.length > 1) errors.push("DUPLICATE_ACTIVE_RUN");
+  const sha = text(metadata.zhuge_github_sha);
+  if (sha && !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(sha)) errors.push("INVALID_GITHUB_SHA");
+  return {valid: errors.length === 0, errors, issueId, taskId, providerRunId, executor};
+}
 export function createDispatchAdapter(transport) {
   if (!transport || typeof transport.listIssues !== "function") throw new TypeError("TaskFlow transport required");
   return Object.freeze({
