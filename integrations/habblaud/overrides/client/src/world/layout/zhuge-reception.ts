@@ -2,6 +2,7 @@
 import { AreaBuilder } from './builder';
 import type { AreaLayout } from './types';
 import type { WallStyle } from '../../art/api';
+import { TILE } from '../constants';
 
 const RECEPTION_ID = 'core:recepcao';
 
@@ -26,10 +27,12 @@ export function integrateZhugeReception(area: AreaLayout, wall: WallStyle): Area
   const removedIds = new Set(remove.map((f) => f.id));
   area.furniture = area.furniture.filter((f) => !removedIds.has(f.id));
   area.spots = area.spots.filter((s) => !s.furnitureId || !removedIds.has(s.furnitureId));
-  // Replace the reception's generic wall art with the four project award plaques.
-  // They are rendered by Habblaud on the interior north-facing wall, separate
-  // from the east-end meeting room partition and its door.
-  area.wallItems = area.wallItems.filter((item) => !['sign', 'clock', 'painting'].includes(item.kind));
+  // Keep the native reception sign, but move it to the public lobby side of
+  // the partition. The old x=11 placement put it inside the meeting room.
+  const receptionSign = area.wallItems.find((item) => item.kind === 'sign');
+  if (receptionSign) receptionSign.cx = Math.round(7.35 * TILE);
+  // Remove only decorative clock/painting props that intersect the meeting bay.
+  area.wallItems = area.wallItems.filter((item) => !['clock', 'painting'].includes(item.kind));
 
   const b = new AreaBuilder(`${RECEPTION_ID}#zhuge-meeting`, area.kind, area.rect);
 
@@ -55,13 +58,6 @@ export function integrateZhugeReception(area: AreaLayout, wall: WallStyle): Area
   b.seat('stool', 'stool', 9, 6, 'right', undefined, { order: 0.64 });
   b.seat('stool', 'stool', 13, 6, 'left', undefined, { order: 0.65 });
   b.furn('plant_small', 14, 3, 'fern', { order: 0.2 });
-
-  // Mount awards on the reception's interior north wall. Native award details
-  // and existing links remain available from the compactible information board.
-  b.wall('poster', 9.2, 'ship_it', { ly: 2, on: 'face', order: 0.7 });
-  b.wall('poster', 10.4, 'rocket', { ly: 2, on: 'face', order: 0.71 });
-  b.wall('poster', 11.6, 'code', { ly: 2, on: 'face', order: 0.72 });
-  b.wall('poster', 12.8, 'bug', { ly: 2, on: 'face', order: 0.73 });
 
   const addition = b.build();
   area.walls.push(...addition.walls);

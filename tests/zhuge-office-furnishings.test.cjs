@@ -2,44 +2,52 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const root = require("node:path").resolve(__dirname, "..");
-const read = file => fs.readFileSync(require("node:path").join(root, file), "utf8");
-test("P1 furniture is an overlay on original Habblaud; root/docs use correct relative paths", () => {
-  for (const p of ["index.html", "docs/index.html"]) {
-    const s = read(p);
-    assert.match(s, /pixel-office\/index\.html/);
-    assert.match(s, /zhuge-office-furnishings\.js/);
-    assert.match(s, /zhuge-office-furnishings\.css/);
-    assert.match(s, /status-classic\.html/);
+const path = require("node:path");
+const root = path.resolve(__dirname, "..");
+const read = file => fs.readFileSync(path.join(root, file), "utf8");
+
+test("P1 home entries remain attached to the native Habblaud office", () => {
+  for (const file of ["index.html", "docs/index.html"]) {
+    const html = read(file);
+    assert.match(html, /pixel-office\/index\.html/);
+    assert.match(html, /zhuge-office-furnishings\.js/);
+    assert.match(html, /zhuge-office-furnishings\.css/);
+    assert.match(html, /status-classic\.html/);
   }
-  assert.match(read("index.html"), /src="\.\/assets\/zhuge-office-furnishings\.js"/);
-  assert.match(read("docs/index.html"), /src="\.\.\/assets\/zhuge-office-furnishings\.js"/);
 });
-test("P1 works point to real published locations, placeholders cannot fake links", () => {
-  const s = read("assets/zhuge-office-furnishings.js");
-  assert.match(s, /https:\/\/zhuge-taskflow-web\.onrender\.com\//);
-  for (const path of ["modules/worklog/", "modules/investment/", "modules/labs/"]) assert.ok(s.includes(path));
-  assert.match(s, /dataset\.zgfPending = key/);
-  assert.match(s, /furniture\("AI 指揮艙", "艙", "正式連結待補，主樓內另有原生會議室", null, "cockpit"\)/);
-  assert.match(s, /TF-03.*?下載來源尚待驗證/);
-  assert.match(s, /target = "_blank"/);
-  assert.match(s, /rel = "noopener noreferrer"/);
-  assert.doesNotMatch(s, /\/api\/(snapshot|stream)/);
-  assert.doesNotMatch(s, /innerHTML/);
+
+test("floating medal wall is absent while original medal records and destinations remain available", () => {
+  const js = read("assets/zhuge-office-furnishings.js");
+  assert.match(js, /ZhugeOfficeAwards/);
+  for (const id of ["taskflow", "worklog", "investment", "lab"]) assert.match(js, new RegExp(`id: "${id}"`));
+  assert.match(js, /const works = Object\.freeze\(\[/);
+  assert.match(js, /value:\s*works/);
+  assert.doesNotMatch(js, /zgf-trophy-board|zgf-awards|zgf-medal/);
+  assert.match(js, /https:\/\/zhuge-taskflow-web\.onrender\.com\//);
+  for (const path of ["modules/worklog/", "modules/investment/", "modules/labs/"]) assert.ok(js.includes(path));
+  assert.match(js, /dataset\.zgfPending = key/);
+  assert.match(js, /TF-03 駕駛艙正式下載來源尚待驗證/);
+  assert.match(js, /target = "_blank"/);
+  assert.match(js, /rel = "noopener noreferrer"/);
+  assert.doesNotMatch(js, /\/api\/(snapshot|stream)|innerHTML/);
 });
-test("P1 does not alter original canvas or fabricate current agent status", () => {
-  const c = read("assets/zhuge-office-furnishings.css");
-  assert.match(c, /\.zgf-root/);
-  assert.match(c, /pointer-events:none/);
-  assert.match(c, /max-width:700px/);
-  assert.match(c, /focus-visible/);
-  assert.doesNotMatch(read("assets/zhuge-office-furnishings.js"), /status\s*:\s*["']working["']/);
-});
-test("P2 cockpit shortcut is honestly pending and separate from the native meeting room", () => {
-  const s = read("assets/zhuge-office-furnishings.js");
-  assert.match(s, /furniture\("AI 指揮艙", "艙", "正式連結待補，主樓內另有原生會議室", null, "cockpit"\)/);
-  assert.match(s, /接待區內已設置獨立會議室/);
-  assert.doesNotMatch(s, /zgf-door-art|zgf-door-sign|class", "zgf-meeting/);
+
+test("quick links remain the only visible furnishing overlay and preserve native-modal priority", () => {
+  const js = read("assets/zhuge-office-furnishings.js");
   const css = read("assets/zhuge-office-furnishings.css");
-  assert.doesNotMatch(css, /\.zgf-meeting|\.zgf-door-art/);
+  assert.match(js, /zgf-rack/);
+  assert.match(js, /zhuge-decision-panel/);
+  assert.doesNotMatch(css, /zgf-awards|zgf-medal|trophy-board/);
+  assert.match(css, /\.zgf-rack/);
+  assert.match(css, /max-width:700px/);
+  assert.match(css, /focus-visible/);
+  assert.doesNotMatch(js, /status\s*:\s*["']working["']/);
+});
+
+test("unverified destinations are explicitly pending and links use safe new-tab attributes", () => {
+  const js = read("assets/zhuge-office-furnishings.js");
+  assert.match(js, /AI 指揮艙正式連結待 PM 補充/);
+  assert.match(js, /TF-03 駕駛艙正式下載來源尚待驗證/);
+  assert.match(js, /noopener noreferrer/);
+  assert.doesNotMatch(js, /status\s*:\s*["']working["']|正在開發中/);
 });

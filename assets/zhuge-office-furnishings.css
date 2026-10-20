@@ -1,75 +1,26 @@
-/* P1: light NES-inspired pixel furnishings placed at the EDGE of the existing Habblaud scene.
- * Do not replace the native canvas, edit frozen vendor, or show invented live agent states. */
+/* P1: lightweight entry rack at the scene edge; Habblaud's native canvas stays in control. */
 .zgf-root{position:fixed;inset:0;z-index:6000;pointer-events:none;color:#faeac9;font:700 11px/1.35 "Courier New",monospace;letter-spacing:.1px}
 .zgf-root *{box-sizing:border-box}
 .zgf-root a,.zgf-root button{pointer-events:auto}
 .zgf-root :is(a,button):focus-visible{outline:3px solid #ffe788;outline-offset:3px}
-.zgf-awards{position:absolute;top:96px;left:calc(50% - 214px);right:auto;width:208px;padding:6px 7px 5px;background:#43302a;border:4px solid #95613d;box-shadow:0 0 0 3px #241b23,4px 5px 0 #0b1222b8,inset 0 0 0 2px #c39356}
-.zgf-board-header{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:1px 2px 5px;border-bottom:2px dotted #d0a06d}
-.zgf-board-title{color:#ffe3a7;text-shadow:1px 2px 0 #352422;font-size:12px}
-.zgf-board-toggle{min-width:23px;height:23px;padding:0;background:#795038;color:#fff0c0;border:2px solid #dbad71;border-radius:0;font:700 14px monospace;cursor:pointer}
-.zgf-medals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 8px;padding:9px 1px 4px}
-.zgf-medal{display:flex;align-items:center;gap:5px;text-decoration:none;color:#fff0d0;min-width:0;font-size:10px}
-.zgf-medal:hover .zgf-medal-face,.zgf-medal:focus-visible .zgf-medal-face{transform:translateY(-2px);filter:brightness(1.2)}
-.zgf-medal-face{flex:0 0 29px;height:28px;display:grid;place-items:center;background:#e1ad4c;color:#553924;border:3px solid #f6d786;box-shadow:2px 3px 0 #9a6335,inset -2px -2px 0 #c28a37;font:900 10px monospace;clip-path:polygon(0 17%,20% 17%,20% 0,80% 0,80% 17%,100% 17%,100% 83%,80% 83%,80% 100%,20% 100%,20% 83%,0 83%)}
-.zgf-medal-label{overflow:hidden;text-overflow:ellipsis}
-.zgf-board-note{margin:4px 2px 0;text-align:center;color:#d7ba92;font-size:9px;font-weight:400}
-.zgf-awards[data-open="false"] .zgf-medals,.zgf-awards[data-open="false"] .zgf-board-note{display:none}
 .zgf-rack{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));right:15px;display:flex;align-items:flex-end;gap:3px;padding:4px 6px 2px;background:#1d2834c9;border-top:3px solid #6b5d4b;box-shadow:0 4px 0 #111927;max-width:318px}
 .zgf-device{width:47px;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;text-decoration:none;color:#f6ebcb;background:none;border:0;border-radius:0;padding:1px 1px 3px;cursor:pointer;font:700 8px/1.2 "Courier New",monospace}
-.zgf-device-face{width:40px;height:35px;display:grid;place-items:center;color:#a9f1ef;background:#283e51;border:5px solid #847d6a;box-shadow:3px 3px 0 #12212a,inset 0 0 0 2px #4a8f97;font:900 13px monospace;image-rendering:pixelated}
+.zgf-device-face{width:40px;height:35px;display:grid;place-items:center;color:#a9f1ef;background:#283e51;border:5px solid #847d6a;box-shadow:3px 3px 0 #12212a,inset 0 0 0 2px #4a8f97;font:900 13px monospace;image-rendering:pixelated;transition:transform .12s ease,filter .12s ease}
 .zgf-device:nth-child(2) .zgf-device-face{height:37px;width:32px;border:5px solid #9c764a;background:#f0d6a1;color:#61492d}
 .zgf-device:nth-child(3) .zgf-device-face{background:#225251;color:#d8ec88}
 .zgf-device:nth-child(4) .zgf-device-face{background:#725439;color:#f0d3a0;border-color:#ad8b58}
 .zgf-device:nth-child(5) .zgf-device-face{background:#71523e;color:#f0d29b;border-color:#9e7a55}
 .zgf-device:hover .zgf-device-face,.zgf-device:focus-visible .zgf-device-face{transform:translateY(-4px);box-shadow:3px 6px 0 #101c22;filter:brightness(1.18)}
 .zgf-device-name{display:block;max-width:65px;text-align:center;text-shadow:1px 2px 1px #071018}
-.zgf-toast{position:absolute;bottom:106px;left:50%;transform:translateX(-50%);margin:0;width:max-content;max-width:min(85vw,480px);padding:9px 12px;text-align:center;color:#fff0b7;background:#25364b;border:3px solid #ddaf68;box-shadow:4px 5px 0 #121924;font:700 12px/1.5 "Courier New",monospace;pointer-events:auto}
+.zgf-toast{position:absolute;bottom:106px;left:50%;transform:translateX(-50%);margin:0;width:max-content;max-width:min(85vw,480px);padding:9px 12px;text-align:center;color:#fff0b7;background:#25364b;border:3px solid #ddaf68;box-shadow:4px 5px 0 #121924;font:700 12px/1.5 system-ui,sans-serif;pointer-events:auto}
 .zgf-toast[hidden]{display:none}
 @media(max-width:700px){
   .zgf-root{font-size:10px}
-  .zgf-awards{top:max(67px,env(safe-area-inset-top) + 57px);right:9px;left:auto;width:186px;padding:5px 6px;border-width:3px;box-shadow:0 0 0 2px #241b23,3px 4px 0 #0b1222b8}
-  .zgf-board-title{font-size:10px}
-  .zgf-medals{gap:5px 3px}
-  .zgf-medal{font-size:9px;gap:2px}
-  .zgf-medal-face{flex-basis:23px;height:23px;font-size:8px}
   .zgf-rack{left:4px;right:4px;bottom:max(6px,env(safe-area-inset-bottom));max-width:none;justify-content:space-around;gap:1px;padding:3px 2px 0}
   .zgf-device{width:16%;min-height:57px;font-size:8px;padding-bottom:3px}
   .zgf-device-face{width:31px;height:29px;font-size:9px;border-width:4px}
   .zgf-device:nth-child(2) .zgf-device-face{height:30px;width:27px;border-width:4px}
   .zgf-toast{bottom:154px;font-size:10px}
 }
-@media(max-height:520px) and (min-width:701px){.zgf-awards{top:62px}.zgf-rack{bottom:4px}.zgf-device{min-height:50px}}
-@media(prefers-reduced-motion:reduce){.zgf-device-face,.zgf-medal-face{transition:none}}
-
-/* P2: small medal information tab without replacing P1's one-click work link. */
-.zgf-medal-slot{display:flex;align-items:center;min-width:0;gap:3px}
-.zgf-medal-slot .zgf-medal{flex:1;min-width:0}
-.zgf-medal-info{flex:0 0 18px;width:18px;height:20px;margin:0;padding:0;border:2px solid #bd985b;border-radius:0;background:#6b4932;color:#fbe7b7;font:900 10px/16px "Courier New",monospace;cursor:pointer}
-.zgf-medal-info:hover,.zgf-medal-info:focus-visible{background:#ad7d44;color:#fff}
-.zgf-work-details{position:relative;margin:7px 1px 2px;padding:9px 9px 8px;background:#213a3a;border:3px solid #c89f60;box-shadow:2px 2px 0 #201d22;font:normal 11px/1.5 system-ui,sans-serif}
-.zgf-work-details[hidden]{display:none}
-.zgf-work-heading{display:block;margin-right:20px;color:#fae4ac;font-size:12px}
-.zgf-work-close{position:absolute;right:5px;top:5px;width:20px;height:20px;padding:0;background:#695040;border:2px solid #d0a06d;border-radius:0;color:#fff;cursor:pointer}
-.zgf-work-summary{margin:8px 0 5px;color:#f4e9d5}
-.zgf-work-truth{font-size:10px;color:#b8d5c8;margin:4px 0 8px}
-.zgf-work-go{display:inline-block;color:#fbe9b7;text-decoration:underline;font-weight:700}
-.zgf-awards[data-open="false"] .zgf-work-details{display:none}
-@media(max-width:700px){
- .zgf-medal-slot{gap:1px}
- .zgf-medal-info{flex-basis:15px;width:15px;height:18px;font-size:9px;line-height:14px}
- .zgf-medal-slot .zgf-medal{gap:1px}
- .zgf-work-details{padding:7px;font-size:10px}
-}
-
-/* The real awards remain on the native Reception wall. The floating UI is only a small on-demand inspector. */
-.zgf-awards[data-open="false"]{width:41px;min-width:41px;padding:2px;background:#24343dcc;border:2px solid #b98b56;box-shadow:0 2px 8px #0006}
-.zgf-awards[data-open="false"] .zgf-board-header{border:0;padding:0}
-.zgf-awards[data-open="false"] .zgf-board-title{display:none}
-.zgf-awards[data-open="false"] .zgf-board-toggle{width:33px;height:30px;border:0;background:none;font-size:17px;line-height:1}
-@media(max-width:700px){
-  .zgf-awards{top:max(58px,env(safe-area-inset-top) + 52px);left:8px;right:auto}
-  .zgf-awards[data-open="true"]{left:8px;right:auto;width:min(270px,calc(100vw - 16px));max-height:min(50dvh,360px);overflow:auto}
-  .zgf-awards[data-open="false"]{width:38px;min-width:38px;padding:2px}
-  .zgf-awards[data-open="false"] .zgf-board-toggle{width:30px;height:29px}
-}
+@media(max-height:520px) and (min-width:701px){.zgf-rack{bottom:4px}.zgf-device{min-height:50px}}
+@media(prefers-reduced-motion:reduce){.zgf-device-face{transition:none}}

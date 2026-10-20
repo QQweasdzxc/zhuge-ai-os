@@ -34,7 +34,7 @@ for (const r of [
   'adapters/zhuge-bridge.ts', 'adapters/zhuge-entry.ts', 'adapters/zhuge-weather.ts', 'adapters/zhuge-weather.test.ts',
   'adapters/zhuge-taskflow-run-status.ts', 'adapters/zhuge-taskflow-run-status.test.ts',
   'adapters/zhuge-gpt-helper-lifecycle.ts', 'adapters/zhuge-gpt-helper-lifecycle.test.ts',
-  'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts',
+  'ui/zhuge-hud.ts', 'ui/zhuge-hud.css', 'i18n/zh-TW.ts', 'i18n/zh-TW.test.ts',
   'world/layout/zhuge-reception.ts', 'world/layout/zhuge-reception.test.ts',
   'world/sim/zhuge-safe-path.test.ts',
 ]) {
@@ -42,12 +42,128 @@ for (const r of [
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(path.join(overlay, r), target);
 }
+// UI-only locales can exceed the independently versioned Habblaud World wire
+// protocol. Keep zh-TW local while sending a protocol-supported locale outward.
+for (const r of ['world/locale.ts', 'world/locale.test.ts']) {
+  const target = file('shared/' + r);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, 'integrations/habblaud/overrides/shared', r), target);
+}
+change('client/src/ui/world/settings-world.ts',
+  "import { getLocale, intlLocale, tr } from '../../../../shared/i18n';",
+  "import { getLocale, intlLocale, tr } from '../../../../shared/i18n';\nimport { toWorldLocale } from '../../../../shared/world/locale';");
+change('client/src/ui/world/settings-world.ts',
+  "locale: getLocale() }), email.input);",
+  "locale: toWorldLocale(getLocale()) }), email.input);");
+change('server/index.ts',
+  "import type { WorldLocale } from '../shared/world/protocol';",
+  "import type { WorldLocale } from '../shared/world/protocol';\nimport { toWorldLocale } from '../shared/world/locale';");
+change('server/index.ts',
+  "locale: () => getLocale() as WorldLocale,",
+  "locale: () => toWorldLocale(getLocale()),");
+change('server/world/service.ts',
+  "import { getLocale, tr } from '../../shared/i18n';",
+  "import { getLocale, tr } from '../../shared/i18n';\nimport { toWorldLocale } from '../../shared/world/locale';");
+change('server/world/service.ts',
+  "const locale = input.locale ?? this.o.locale?.() ?? (getLocale() as WorldLocale);",
+  "const locale = input.locale ?? this.o.locale?.() ?? toWorldLocale(getLocale());");
+change('shared/world/protocol.test.ts',
+  "it('ids fixos do contrato: 14 traços, 5 pares que não combinam, 20 frases, 10 cumprimentos, 4 idiomas', () => {",
+  "it('ids fixos do contrato: 14 traços, 5 pares que não combinam, 20 frases, 10 cumprimentos e idiomas do protocolo', () => {");
+change('shared/world/protocol.test.ts',
+  "expect([...WORLD_LOCALES]).toEqual(UI_LOCALES.map((l) => l.id));",
+  "expect([...WORLD_LOCALES].every((locale) => UI_LOCALES.some((ui) => ui.id === locale))).toBe(true);\n    // zh-TW is a local UI locale; it is normalized to a supported World locale at the boundary.\n    expect(UI_LOCALES.some((ui) => ui.id === 'zh-TW')).toBe(true);");
 change('client/src/world/layout/core.ts',
   "import type { WallStyle } from '../../art/api';",
   "import type { WallStyle } from '../../art/api';\nimport { integrateZhugeReception } from './zhuge-reception';");
 change('client/src/world/layout/core.ts',
   "  return a;\n}\n\nexport function layoutRestroom()",
   "  return integrateZhugeReception(a, wall);\n}\n\nexport function layoutRestroom()");
+change('client/src/ui/help.ts',
+  "h('section', {}, h('h3', { text: 'Status' }), statusList),",
+  "h('section', {}, h('h3', { text: tr('Status') }), statusList),");
+// P0: expose the actual lighting state for deterministic visual regression.
+change('client/src/world/debug.ts',
+  "  readonly camera: Camera;",
+  "  readonly camera: Camera;\n  /** Effective testable daylight state from the real native renderer. */\n  lightingSnapshot(): { hourOverride: number | null; renderedHour: number; ambientNight: number };");
+change('client/src/world/debug.ts',
+  "    sim,\n    camera,\n  };",
+  "    sim,\n    camera,\n    lightingSnapshot: () => ({ hourOverride: renderer.hourOverride, renderedHour: renderer.lighting.ambient.hour, ambientNight: renderer.night }),\n  };");
+// P0: restore accurate labels on Habblaud's existing native core rooms.
+change('client/src/world/render/overlay.ts',
+  "import { tr } from '../../../../shared/i18n';",
+  "import { tr } from '../../../../shared/i18n';\nimport { activityTextForLocale } from '../../i18n/zh-TW';");
+change('client/src/world/render/overlay.ts',
+  "const text = room ? room.info.name : vis.id === 'core:recepcao' ? 'Habblaud' : null;",
+  "const text = room ? room.info.name : CORE_NAMES[vis.id] ?? null;");
+change('client/src/world/render/overlay.ts',
+  "if (room ? readable : zoom >= 1.4) continue;",
+  "if (vis.id === 'core:recepcao' && zoom >= 0.75) {\n        // The meeting room is a real partitioned bay inside Reception. Place its\n        // label just inside the north wall, away from the doorway and furniture.\n        const mx = this.sx((r.x + 12) * TILE);\n        const my = this.sy((r.y + 2.65) * TILE);\n        if (mx > -120 && mx < vw + 120 && my > -30 && my < vh + 30) this.drawCorePill(tr('Sala de reuniões'), mx, my, 7 * TILE * zoom - 8);\n      }\n      if (room ? readable : readable || zoom < 0.55) continue;");
+change('client/src/world/render/overlay.ts',
+  "        this.drawCorePill(CORE_NAMES[vis.id], cx, cy, colW - 8);\n      }\n    }\n  }",
+  "        this.drawCorePill(CORE_NAMES[vis.id], cx, cy, colW - 8);\n      }\n    }\n  }");
+change('client/src/world/render/overlay.ts',
+  "this.takeBubble(ch, head, act.icon, act.text,",
+  "this.takeBubble(ch, head, act.icon, activityTextForLocale(act),");
+change('client/src/world/render/overlay.ts',
+  "this.takeBubble(ch, head, act.icon, act.text,",
+  "this.takeBubble(ch, head, act.icon, activityTextForLocale(act),");
+change('client/src/world/render/overlay.ts',
+  "this.takeBubble(ch, head, act.icon, act.text,",
+  "this.takeBubble(ch, head, act.icon, activityTextForLocale(act),");
+change('client/src/world/render/overlay.ts',
+  "this.takeBubble(ch, head, act.icon, act.text,",
+  "this.takeBubble(ch, head, act.icon, activityTextForLocale(act),");
+// Localize actual event summaries across native UI surfaces. Raw user-authored
+// terminal transcripts remain untouched; zh-TW omits untranslated PT details.
+change('client/src/ui/feed.ts',
+  "import { tr } from '../../../shared/i18n';",
+  "import { tr } from '../../../shared/i18n';\nimport { activityDetailForLocale, activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/feed.ts',
+  "latest.activity.icon} ${latest.activity.text}` : ''",
+  "latest.activity.icon} ${activityTextForLocale(latest.activity)}` : ''");
+change('client/src/ui/feed.ts', "setText(text, f.activity.text);", "setText(text, activityTextForLocale(f.activity));");
+change('client/src/ui/feed.ts',
+  "setTitle(btn, `${formatClock(f.activity.at)} · ${f.agentName} em ${f.roomName}\\n${f.activity.text}${f.activity.detail ? `\\n${f.activity.detail}` : ''}`);",
+  "const activityText = activityTextForLocale(f.activity);\n    const detail = activityDetailForLocale(f.activity);\n    setTitle(btn, `${formatClock(f.activity.at)} · ${f.agentName} em ${f.roomName}\\n${activityText}${detail ? `\\n${detail}` : ''}`);");
+change('client/src/ui/widgets.ts',
+  "import { tr } from '../../../shared/i18n';",
+  "import { tr } from '../../../shared/i18n';\nimport { activityDetailForLocale, activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/widgets.ts', "setText(text, activity?.text ?? fallback);", "setText(text, activity ? activityTextForLocale(activity) : fallback);");
+change('client/src/ui/widgets.ts',
+  "setTitle(el, activity ? (activity.detail ? `${activity.text}\\n${activity.detail}` : activity.text) : fallback);",
+  "const summary = activity ? activityTextForLocale(activity) : fallback;\n  const detail = activity ? activityDetailForLocale(activity) : undefined;\n  setTitle(el, activity ? (detail ? `${summary}\\n${detail}` : summary) : fallback);");
+change('client/src/ui/drawer.ts',
+  "import { roomTheme } from '../art';",
+  "import { roomTheme } from '../art';\nimport { activityDetailForLocale, activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/drawer.ts',
+  "setText(this.actText, act?.text ?? activityFallback(a));",
+  "setText(this.actText, act ? activityTextForLocale(act) : activityFallback(a));");
+change('client/src/ui/drawer.ts', "const detail = act?.detail ?? '';", "const detail = act ? activityDetailForLocale(act) ?? '' : '';");
+change('client/src/ui/drawer.ts',
+  "setText(text, who ? `${who}: ${a.text}` : a.text);",
+  "setText(text, who ? `${who}: ${activityTextForLocale(a)}` : activityTextForLocale(a));");
+change('client/src/ui/drawer.ts',
+  "setTitle(li, `${formatClock(a.at)} · ${a.text}${a.detail ? `\\n${a.detail}` : ''}`);",
+  "const activityText = activityTextForLocale(a);\n  const detail = activityDetailForLocale(a);\n  setTitle(li, `${formatClock(a.at)} · ${activityText}${detail ? `\\n${detail}` : ''}`);");
+change('client/src/ui/termtabs.ts',
+  "import { tr } from '../../../shared/i18n';",
+  "import { tr } from '../../../shared/i18n';\nimport { activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/termtabs.ts',
+  "return a.activity?.text ?? activityFallback(a);",
+  "return a.activity ? activityTextForLocale(a.activity) : activityFallback(a);");
+change('client/src/ui/rows.ts',
+  "import { tr } from '../../../shared/i18n';",
+  "import { tr } from '../../../shared/i18n';\nimport { activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/rows.ts',
+  "agent.activity?.text;",
+  "agent.activity ? activityTextForLocale(agent.activity) : undefined;");
+change('client/src/ui/terminal.ts',
+  "import { intlLocale, tr } from '../../../shared/i18n';",
+  "import { intlLocale, tr } from '../../../shared/i18n';\nimport { activityTextForLocale } from '../i18n/zh-TW';");
+change('client/src/ui/terminal.ts',
+  "const act = agent.activity?.text?.trim().replace(/(?:…|\\.{1,3})$/, '');",
+  "const act = agent.activity ? activityTextForLocale(agent.activity).trim().replace(/(?:…|\\.{1,3})$/, '') : undefined;");
 // P2 #91: portrait balances the Reception entrance with the cafe/work and lounge
 // rooms. The native awards/meeting room remain visible and fully reachable by pan.
 change('client/src/world/index.ts',

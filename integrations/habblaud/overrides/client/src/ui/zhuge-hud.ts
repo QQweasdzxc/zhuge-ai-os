@@ -5,6 +5,8 @@ import './zhuge-hud.css';
 
 let current: ZhugeProjectStatus | null = null;
 let currentLive = false;
+const HUD_PREFERENCE_KEY = 'zhuge-office-hud-v1';
+let hudAutoCollapseTimer: number | undefined;
 let weatherAdapter: {
   getCity(): WeatherCity;
   getState(): WeatherState;
@@ -225,6 +227,16 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
     bar = el('header');
     bar.id = 'zhuge-aios-hud';
     document.body.append(bar);
+    const saved = (() => { try { return localStorage.getItem(HUD_PREFERENCE_KEY); } catch { return null; } })();
+    const mobile = window.matchMedia('(max-width: 700px), (max-height: 520px) and (max-width: 900px)').matches;
+    // First desktop visit gets a short orientation window; mobile starts compact.
+    bar.dataset.open = saved === 'expanded' ? 'true' : saved === 'compact' || mobile ? 'false' : 'true';
+    if (!saved && !mobile) {
+      hudAutoCollapseTimer = window.setTimeout(() => {
+        const liveBar = document.getElementById('zhuge-aios-hud');
+        if (liveBar && liveBar.dataset.userToggled !== 'true') liveBar.dataset.open = 'false';
+      }, 7000);
+    }
   }
   bar.replaceChildren();
   const fresh = isFreshStatus(status);
@@ -235,6 +247,8 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const phase = el('span', '階段：' + status.current_phase);
   const milestone = el('span', '里程碑：' + status.current_milestone);
   const blocked = el('button', '🙋 ' + (status.blocked_items?.length || 0) + ' 項待裁示');
+  blocked.className = 'zhuge-hud-decision-pill';
+  blocked.setAttribute('type', 'button');
   blocked.addEventListener('click', () => showZhugeDecisions());
   const project = el('button', '📋 專案狀態');
   project.setAttribute('type', 'button');
@@ -256,13 +270,18 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   (classic as HTMLAnchorElement).target = '_top';
   // Keep the native HUD actions, but let phone users explore the scene before opening engineering details.
   // Preserve open state when the read-only snapshot refreshes every 15 seconds.
-  const menu = el('button', '☰') as HTMLButtonElement;
+  const menu = el('button', bar.dataset.open === 'true' ? '收合' : '☰') as HTMLButtonElement;
   menu.className = 'zhuge-hud-menu-toggle';
   menu.type = 'button';
-  menu.setAttribute('aria-label', '展開或收合辦公室資訊');
+  menu.setAttribute('aria-label', bar.dataset.open === 'true' ? '收合辦公室資訊' : '展開辦公室資訊');
   menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
   menu.addEventListener('click', () => {
     bar.dataset.open = bar.dataset.open === 'true' ? 'false' : 'true';
+    bar.dataset.userToggled = 'true';
+    if (hudAutoCollapseTimer !== undefined) window.clearTimeout(hudAutoCollapseTimer);
+    try { localStorage.setItem(HUD_PREFERENCE_KEY, bar.dataset.open === 'true' ? 'expanded' : 'compact'); } catch { /* Private browsing may disable storage. */ }
+    menu.textContent = bar.dataset.open === 'true' ? '收合' : '☰';
+    menu.setAttribute('aria-label', bar.dataset.open === 'true' ? '收合辦公室資訊' : '展開辦公室資訊');
     menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
   });
   bar.append(dot, title, phase, milestone, blocked, project, roster, weather, source, classic, menu);
