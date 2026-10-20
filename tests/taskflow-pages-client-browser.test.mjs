@@ -62,3 +62,10 @@ test("mobile native TaskFlow Pages client has no horizontal overflow",async t=>{
  const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
  assert.ok(width.scroll<=width.viewport,JSON.stringify(width));
 });
+test("native TaskFlow Pages client stays usable in mobile landscape",async t=>{
+ const {page}=await setup(t,{viewport:{width:844,height:390}});
+ await page.getByText("Native issue from API").first().waitFor();
+ const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
+ assert.ok(width.scroll<=width.viewport,JSON.stringify(width));
+ assert.equal(await page.locator("#tf-dispatch-executor").count(),1);
+});

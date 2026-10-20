@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 test("DM-04 keeps executor registry and conservative runtime states", async () => {
   const mod = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
-  assert.deepEqual(mod.DISPATCH_EXECUTORS, ["CO-01", "CO-02", "GEM-01", "GH-HELPER"]);
+  assert.deepEqual(mod.DISPATCH_EXECUTORS, ["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"]);
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {providerRunId: "run-1", heartbeatAt: new Date().toISOString(), observedAt: new Date().toISOString()}), "RUNNING");
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {providerRunId: "run-1"}), "STALE");
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {heartbeatAt: new Date().toISOString(), observedAt: new Date().toISOString()}), "UNKNOWN");
@@ -17,6 +17,17 @@ test("DM-04 adapter reads native issues and applies executor filter without fake
   ]})});
   assert.equal((await adapter.list("ws", {executor: "CO-02"})).length, 1);
   assert.equal((await adapter.list("ws", {executor: "GEM-01"}))[0].status, "RUNNING");
+});
+
+test("canonical zhuge_owner takes precedence and unrelated work codes remain visible", async () => {
+  const {createDispatchAdapter} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const adapter = createDispatchAdapter({listIssues: async () => ({issues: [
+    {id: "co3", title: "CO-03 task", metadata: {zhuge_work_code: "PROJECT-99", zhuge_owner: "CO-03", zhuge_executor: "CO-01"}}
+  ], total: 1})});
+  const items = await adapter.list("ws", {executor: "CO-03"});
+  assert.equal(items.length, 1);
+  assert.equal(items[0].owner, "CO-03");
+  assert.equal(items[0].executor, "CO-03");
 });
 
 test("DM-04 evidence rejects mismatched identities, duplicate active runs, and bad SHA", async () => {

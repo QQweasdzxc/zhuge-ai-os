@@ -136,6 +136,13 @@ async function renderDetail(id){
    refs.detail.append(info);
    refs.detail.append(element("h3",{text:"任務說明"}));
    refs.detail.append(element("div",{text:issue.description||"尚無說明",className:"tf-description"}));
+   const evidence=await dispatchAdapter.detail(state.workspace.slug,id);
+   const evidenceBox=element("section",{className:"tf-subpanel",attrs:{"aria-label":"派工證據"}});
+   evidenceBox.append(element("h3",{text:"派工與交付證據"}));
+   evidenceBox.append(element("p",{text:`狀態：${evidence.status} · Executor：${evidence.executor||"未確認"} · Provider Run ID：${evidence.providerRunId||"未取得"}`}));
+   evidenceBox.append(element("p",{text:`最後有效觀測：${evidence.observedAt||"未取得"} · Heartbeat：${evidence.heartbeatAt||"未取得"}`}));
+   evidenceBox.append(element("p",{text:`Task-Runs：${evidence.runs.length} 筆 · GitHub PR：${evidence.pullRequests.length} 筆 · runtime evidence：${evidence.runtimeEvidence?"可讀取":"不可讀取"}`}));
+   refs.detail.append(evidenceBox);
    refs.detail.append(element("h3",{text:"留言"}));
    const commentsBox=element("div",{className:"tf-comments"});
    refs.detail.append(commentsBox);
@@ -174,8 +181,9 @@ async function loadDispatch(){
   try{
     const items=await dispatchAdapter.list(state.workspace.slug,{executor:refs.dispatchExecutor.value,query:refs.filter.value||""});
     renderDispatchCards(items);
-    const inbox=items.filter(item=>["REVIEW","BLOCKED"].includes(item.status));
-    if(refs.pmInbox)refs.pmInbox.textContent=inbox.length?`${inbox.length} 筆需要 PM／CTO 注意：${inbox.map(item=>`${item.workCode||item.id}（${item.status}）`).join("、")}`:"沒有待 PM 裁示事項。工程阻擋與 CTO 待審事項會在此列出。";
+    const inbox=items.filter(item=>item.pmDecisionRequired || item.status==="REVIEW");
+    const blocked=items.filter(item=>item.status==="BLOCKED" || item.status==="FAILED");
+    if(refs.pmInbox)refs.pmInbox.textContent=inbox.length||blocked.length?`PM／CTO 待裁示或驗收：${inbox.length} 筆；工程阻擋／技術失敗：${blocked.length} 筆。`:"沒有待 PM 裁示事項。工程阻擋與 CTO 待審事項會在此列出。";
     refs.dispatchMeta.textContent=`已讀取 ${items.length} 筆原生案件 · Provider 證據狀態由 heartbeat/觀測時間判定`;
   }catch(error){
     refs.dispatchCards.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
