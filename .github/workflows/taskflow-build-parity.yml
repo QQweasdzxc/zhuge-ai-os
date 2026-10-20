@@ -11,6 +11,7 @@ on:
       - review/taskflow-issue-44-20261014
       - review/taskflow-issue-45-integrated-20261014
       - release/taskflow-ai-visible-20261016
+      - review/dm00-dm03-taskflow-dispatch-20261020
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -71,3 +72,23 @@ jobs:
             exit 1
           fi
           grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-web-build.log
+
+  backend-go-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: third_party/multica/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: third_party/multica/server/go.mod
+          cache: true
+      - name: Verify Go formatting
+        run: test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
+      - name: Run backend tests
+        run: CGO_ENABLED=0 go test ./...
+      - name: Build backend binaries
+        run: |
+          CGO_ENABLED=0 go build ./cmd/server
+          CGO_ENABLED=0 go build ./cmd/multica
