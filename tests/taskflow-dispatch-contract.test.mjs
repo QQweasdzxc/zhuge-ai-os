@@ -64,3 +64,10 @@ test("source and GitHub evidence reject unsafe or incomplete references",()=>{
   assert.equal(isExactSha("0123456789abcdef0123456789abcdef01234567"),true);
   assert.equal(isExactSha("0123456"),false);
 });
+
+test("dispatch contract accepts stable cross-module work codes and truthful terminal states",()=>{
+  assert.doesNotThrow(()=>buildIssuePayload({workCode:"OPS-001",title:"Ops",owner:"CO-02",priority:"high"}));
+  assert.equal(deriveDispatchState({metadata:{zhuge_dispatch_status:"FAILED",zhuge_observed_at:new Date().toISOString()}},[{status:"failed"}]),"FAILED");
+  assert.equal(deriveDispatchState({metadata:{zhuge_dispatch_status:"RUNNING",zhuge_observed_at:new Date(Date.now()-31*60*1000).toISOString()}},[]),"STALE");
+  assert.equal(deriveDispatchState(null,[]),"UNKNOWN");
+});

@@ -1,4 +1,5 @@
 export const DISPATCH_WORK_CODES = Object.freeze(["DM-00", "DM-01", "DM-02", "DM-03"]);
+export const WORK_CODE_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{2,}$/;
 export const DISPATCH_OWNER_CODES = Object.freeze(["CO-01", "CO-02", "GEM-01", "GPT-CTO"]);
 export const DISPATCH_PRIORITIES = Object.freeze(["urgent", "high", "medium", "low", "none"]);
 export const DISPATCH_STATES = Object.freeze([
@@ -8,7 +9,10 @@ export const DISPATCH_STATES = Object.freeze([
   "RUNNING",
   "BLOCKED",
   "REVIEW",
-  "DONE"
+  "DONE",
+  "UNKNOWN",
+  "STALE",
+  "FAILED"
 ]);
 
 export const DISPATCH_STATE_LABELS = Object.freeze({
@@ -18,7 +22,10 @@ export const DISPATCH_STATE_LABELS = Object.freeze({
   RUNNING: "執行中",
   BLOCKED: "阻擋",
   REVIEW: "待驗收",
-  DONE: "完成"
+  DONE: "完成",
+  UNKNOWN: "未知",
+  STALE: "過期",
+  FAILED: "失敗"
 });
 
 export const DISPATCH_METADATA_KEYS = Object.freeze({
@@ -91,7 +98,7 @@ export function buildIssuePayload(form) {
   const title = text(form.title);
   const owner = text(form.owner);
   const priority = text(form.priority) || "medium";
-  if (!DISPATCH_WORK_CODES.includes(workCode)) throw new Error("工作編號必須是 DM-00～DM-03");
+  if (!WORK_CODE_PATTERN.test(workCode)) throw new Error("工作編號必須符合跨模組格式，例如 DM-00、OPS-001");
   if (!title) throw new Error("任務標題不可空白");
   if (!DISPATCH_OWNER_CODES.includes(owner)) throw new Error("請選擇有效負責人");
   if (!DISPATCH_PRIORITIES.includes(priority)) throw new Error("優先順序不合法");
@@ -152,8 +159,14 @@ export function deriveDispatchState(issue, runs = []) {
   const taskStatus = String(task?.status || "").toLowerCase();
   if (["running", "in_progress"].includes(taskStatus)) return "RUNNING";
   if (["queued", "dispatched"].includes(taskStatus)) return "ACK_PENDING";
+  if (["failed", "error", "cancelled", "canceled"].includes(taskStatus)) return "FAILED";
   const metadataState = text(issue?.metadata?.[DISPATCH_METADATA_KEYS.dispatchStatus]).toUpperCase();
-  if (DISPATCH_STATES.includes(metadataState)) return metadataState;
+  if (DISPATCH_STATES.includes(metadataState)) {
+    const observed = Date.parse(text(issue?.metadata?.[DISPATCH_METADATA_KEYS.observedAt]));
+    if (Number.isFinite(observed) && Date.now() - observed > 30 * 60 * 1000 && !["DONE", "FAILED", "BLOCKED"].includes(metadataState)) return "STALE";
+    return metadataState;
+  }
+  if (!issue) return "UNKNOWN";
   if (issue?.status === "done" || issue?.status === "completed") return "DONE";
   if (issue?.status === "in_review") return "REVIEW";
   if (issue?.status === "blocked") return "BLOCKED";
