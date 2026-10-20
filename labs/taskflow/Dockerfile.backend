@@ -74,6 +74,7 @@ RUN apk add --no-cache git
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
+RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \

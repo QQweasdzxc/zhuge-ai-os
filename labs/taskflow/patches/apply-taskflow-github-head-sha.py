@@ -1,7 +1,8 @@
 from pathlib import Path
 import re
 import os
-ROOT = Path(os.environ.get("TASKFLOW_VENDOR_ROOT", str(Path(__file__).resolve().parents[3] / "third_party" / "multica"))) / "server" / "internal" / "handler"
+vendor_root = os.environ.get("TASKFLOW_VENDOR_ROOT")
+ROOT = (Path(vendor_root) if vendor_root else Path(__file__).resolve().parents[3] / "third_party" / "multica") / "server" / "internal" / "handler"
 def patch(path, field_count):
     p = ROOT / path; s = p.read_text()
     if path == "github.go" and "HeadSHA string `json:\"head_sha,omitempty\"`" not in s:

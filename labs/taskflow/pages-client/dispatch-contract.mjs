@@ -1,6 +1,13 @@
 export const DISPATCH_WORK_CODES = Object.freeze(["DM-00", "DM-01", "DM-02", "DM-03"]);
 export const WORK_CODE_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{2,}$/;
-export const DISPATCH_OWNER_CODES = Object.freeze(["CO-01", "CO-02", "GEM-01", "GPT-CTO"]);
+export const DISPATCH_OWNER_CODES = Object.freeze(["CO-01", "CO-02", "CO-03", "GEM-01", "GPT-CTO", "GH-HELPER"]);
+export const DISPATCH_EXECUTORS = Object.freeze([
+  {id:"CO-01", kind:"engineer", provider:"codex", assignable:true},
+  {id:"CO-02", kind:"engineer", provider:"codex", assignable:true},
+  {id:"CO-03", kind:"engineer", provider:"codex", assignable:true},
+  {id:"GEM-01", kind:"engineer", provider:"gemini", assignable:true},
+  {id:"GH-HELPER", kind:"helper", provider:"github", assignable:true}
+]);
 export const DISPATCH_PRIORITIES = Object.freeze(["urgent", "high", "medium", "low", "none"]);
 export const DISPATCH_STATES = Object.freeze([
   "CREATED",
@@ -46,7 +53,9 @@ export const DISPATCH_METADATA_KEYS = Object.freeze({
   githubCommitUrl: "zhuge_github_commit_url",
   githubCiUrl: "zhuge_github_ci_url",
   githubSha: "zhuge_github_sha",
-  githubShaSource: "zhuge_github_sha_source"
+  githubShaSource: "zhuge_github_sha_source",
+  authorizationResult: "zhuge_cto_authorization_result",
+  authorizationEvidence: "zhuge_cto_authorization_evidence"
 });
 
 function text(value) {
@@ -125,7 +134,9 @@ export function buildMetadata(form, {taskId = "", provider = "", providerRunId =
     [DISPATCH_METADATA_KEYS.acceptance]: text(form.acceptance),
     [DISPATCH_METADATA_KEYS.dispatchStatus]: text(dispatchStatus) || "ASSIGNED",
     [DISPATCH_METADATA_KEYS.statusSource]: "taskflow_native",
-    [DISPATCH_METADATA_KEYS.observedAt]: text(observedAt) || new Date().toISOString()
+    [DISPATCH_METADATA_KEYS.observedAt]: text(observedAt) || new Date().toISOString(),
+    [DISPATCH_METADATA_KEYS.authorizationResult]: "UNVERIFIED",
+    [DISPATCH_METADATA_KEYS.authorizationEvidence]: "CTO runtime authorization readback pending"
   };
   for (const [key, value] of [
     [DISPATCH_METADATA_KEYS.taskId, taskId],

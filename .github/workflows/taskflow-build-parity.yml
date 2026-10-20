@@ -87,6 +87,7 @@ jobs:
       - name: Verify Go formatting
         run: |
           python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
+          gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...

@@ -48,17 +48,15 @@
           <button type="button" id="tf-create-cancel">取消</button>
         </div>
         <form id="tf-create-form" class="tf-create-form">
-          <label class="tf-form-field"><span>工作編號</span><select name="workCode" required>
-            <option value="DM-00">DM-00｜待辦收件匣</option>
-            <option value="DM-01">DM-01｜任務指派與接單</option>
-            <option value="DM-02">DM-02｜雲端 Agent Dispatcher</option>
-            <option value="DM-03">DM-03｜GitHub 與 TaskFlow 同步</option>
-          </select></label>
+          <label class="tf-form-field"><span>工作編號</span><input name="workCode" required pattern="[A-Z][A-Z0-9]*-[0-9]{2,}" placeholder="DM-00 或 OPS-001" autocomplete="off">
+          </label>
           <label class="tf-form-field tf-form-wide"><span>任務標題</span><input name="title" required maxlength="200" placeholder="例如：建立原生派工卡入口" autocomplete="off"></label>
           <label class="tf-form-field"><span>負責人代碼</span><select name="owner" required>
             <option value="CO-02">CO-02</option>
             <option value="CO-01">CO-01</option>
             <option value="GEM-01">GEM-01</option>
+            <option value="CO-03">CO-03</option>
+            <option value="GH-HELPER">GH-HELPER</option>
             <option value="GPT-CTO">GPT-CTO</option>
           </select></label>
           <label class="tf-form-field"><span>優先順序</span><select name="priority" required>
