@@ -15,6 +15,7 @@ on:
       - review/dm00-dm03-core-runtime-20261020
       - review/dm00-dm03-phase2-dispatch-runtime-20261020
       - review/dm00-dm03-phase2-runtime-advance-20261020
+      - review/dm00-dm03-phase2-runtime-hardening-20261020
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -41,6 +42,8 @@ jobs:
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
       - name: Verify TaskFlow navigation and authenticated entry contract
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+      - name: Verify Phase 2 runtime contracts
+        run: node --test tests/taskflow-phase2-dispatch-runtime.test.mjs tests/taskflow-native-persistence-adapter.test.mjs tests/taskflow-pages-client-api.test.mjs tests/taskflow-phase2-runtime-read-model.test.mjs
 
   backend-image:
     runs-on: ubuntu-latest

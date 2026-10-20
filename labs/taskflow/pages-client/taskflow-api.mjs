@@ -18,6 +18,34 @@ export class TaskFlowPagesError extends Error {
     this.status = status;
   }
 }
+
+/**
+ * The native CTO dispatch route accepts only TaskFlow task identity and the
+ * server-side executor/provider pair. Client authority labels are rejected
+ * here as an early contract guard; authorization is still rechecked by the
+ * backend handler and never delegated to this Pages adapter.
+ */
+export function buildNativeCTODispatchBody(input = {}) {
+  const body = input && typeof input === "object" ? input : {};
+  const allowedKeys = new Set(["task_id", "executor_id", "provider"]);
+  if (Object.keys(body).some(key => !allowedKeys.has(key))) {
+    throw new TaskFlowPagesError("Client authority fields are not accepted", "INVALID_DISPATCH_REQUEST");
+  }
+  const {task_id = "", executor_id = "", provider = ""} = body;
+  const allowedExecutor = typeof executor_id === "string" && /^[A-Z0-9-]{2,32}$/.test(executor_id.trim());
+  const allowedProvider = typeof provider === "string" && /^[a-z][a-z0-9-]{1,31}$/.test(provider.trim());
+  if (!allowedExecutor || !allowedProvider) {
+    throw new TaskFlowPagesError("Executor and provider are required", "INVALID_DISPATCH_REQUEST");
+  }
+  if (task_id !== "" && (typeof task_id !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(task_id.trim()))) {
+    throw new TaskFlowPagesError("Valid native TaskFlow task ID required", "INVALID_DISPATCH_REQUEST");
+  }
+  return {
+    ...(task_id ? {task_id: task_id.trim()} : {}),
+    executor_id: executor_id.trim(),
+    provider: provider.trim()
+  };
+}
 export function readZhugeAccessToken(store) {
   for (const key of [TOKEN_KEY, SECONDARY_KEY]) {
     try {
@@ -148,6 +176,7 @@ export function createTaskFlowPagesTransport({
     setMetadata:(workspace,id,key,value)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"PUT",body:{value}}),
     deleteMetadata:(workspace,id,key)=>api(issuePath(id,"/metadata/"+encodeURIComponent(requiredMetadataKey(key))),{workspace,method:"DELETE"}),
     listTaskRuns:(workspace,id,{active=false}={})=>api(issuePath(id,"/task-runs?active="+(active?"true":"false")),{workspace}),
+    requestCTODispatch:(workspace,id,body)=>api(issuePath(id,"/dispatch"),{workspace,method:"POST",body:buildNativeCTODispatchBody(body)}),
     requestStart:(workspace,id,body={})=>api(issuePath(id,"/rerun"),{workspace,method:"POST",body}),
     listPullRequests:(workspace,id)=>api(issuePath(id,"/pull-requests"),{workspace}),
     linkPullRequest:(workspace,id,url)=>api(issuePath(id,"/pull-requests"),{workspace,method:"POST",body:{url}}),

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createTaskFlowPagesTransport,readZhugeAccessToken,TaskFlowPagesError} from "../labs/taskflow/pages-client/taskflow-api.mjs";
+import {buildNativeCTODispatchBody,createTaskFlowPagesTransport,readZhugeAccessToken,TaskFlowPagesError} from "../labs/taskflow/pages-client/taskflow-api.mjs";
 
 const makeResponse=(status,data)=>({ok:status>=200&&status<300,status,
   json:async()=>data});
@@ -69,6 +69,24 @@ test("root and task paths cannot be arbitrary URLs or path traversal",async()=>{
   const {client}=harness();await client.connect();
   assert.throws(()=>client.getIssue("pm-team","../../admin"),e=>e.code==="INVALID_IDENTIFIER");
   assert.throws(()=>client.listIssues("https://bad"),e=>e.code==="INVALID_WORKSPACE");
+});
+
+test("native CTO dispatch adapter sends only the versioned TaskFlow mutation fields",async()=>{
+  const calls=[];
+  const fetcher=async (url,options)=>{
+    calls.push({url,options});
+    if(url===ORIGINAL+"/auth/zhuge")return makeResponse(200,{token:"taskflow-in-memory-jwt"});
+    return makeResponse(202,{task_id:"native-task-1"});
+  };
+  const client=createTaskFlowPagesTransport({fetcher,getAccessToken:()=>"zhuge-test-jwt"});
+  await client.connect();
+  await client.requestCTODispatch("pm-team","abc",{task_id:"native-task-1",executor_id:"CO-02",provider:"codex"});
+  const dispatch=calls[1];
+  assert.equal(dispatch.url,ORIGINAL+"/api/issues/abc/dispatch");
+  assert.equal(dispatch.options.method,"POST");
+  assert.deepEqual(JSON.parse(dispatch.options.body),{task_id:"native-task-1",executor_id:"CO-02",provider:"codex"});
+  assert.throws(()=>buildNativeCTODispatchBody({executor_id:"CO-02",provider:"codex",cto_user_id:"forged"}),e=>e.code==="INVALID_DISPATCH_REQUEST");
+  assert.throws(()=>buildNativeCTODispatchBody({executor_id:"co-02",provider:"codex"}),e=>e.code==="INVALID_DISPATCH_REQUEST");
 });
 
 test("DM transport uses native TaskFlow issue, metadata, agent, run and PR endpoints",async()=>{
