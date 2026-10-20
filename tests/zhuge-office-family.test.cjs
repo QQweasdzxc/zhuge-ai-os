@@ -35,3 +35,14 @@ test("P2 #78 leaves the frozen Multica vendor untouched", () => {
   const { execFileSync } = require("node:child_process");
   assert.equal(execFileSync("git", ["status", "--short", "third_party/multica"], { cwd: root, encoding: "utf8" }), "");
 });
+
+test("P2 #78 roster direction labels family and pet without worker state", () => {
+  const hud = read("integrations/habblaud/overrides/client/src/ui/zhuge-hud.ts");
+  assert.match(hud, /家庭生活角色 · 角色介紹/);
+  assert.match(hud, /寵物角色 · 角色介紹/);
+  assert.match(hud, /\$\{person\.name\}（家庭生活角色）/);
+  assert.match(hud, /\$\{person\.name\}（寵物）/);
+  assert.match(hud, /虛擬家庭生活角色（非 AI Worker、非工程工作狀態）/);
+  assert.match(hud, /虛擬寵物（非 AI Worker、非工程工作狀態）/);
+  assert.doesNotMatch(hud, /resident[^\n]*主要代理|resident[^\n]*正在規劃工作/);
+});
