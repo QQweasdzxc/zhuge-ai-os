@@ -61,3 +61,5 @@ GEM-01 的 read-only schema 參見同目錄 `DM00_DM03_NATIVE_API_SCHEMA.json`�
 ## Gate
 
 本分支已實作：原生卡／metadata／run／GitHub readback、跨模組 Work Code、Executor Registry、fail-closed CTO authority primitive、Overlay patch、CI contract。正式 Runtime 尚待驗證：受控 allowlist 配置與 readback、Provider ACK／Provider Run ID、重複派工與錯誤改派的 live DB 競態測試。未改正式 DB、Secrets、Production、Render 設定或 #42 candidate SQL。
+
+`dispatch-runtime-contract.mjs` 定義不依賴 Provider 的安全邊界：Dispatch Intent 冪等鍵、CTO 授權結果、Writer lease、fencing token、租約逾期、Provider Run ID 必須來自事件回報，以及 duplicate/replay 的拒絕規則。Provider 能力矩陣目前以 `UNVERIFIED`／`UNSUPPORTED` 表示；沒有官方 runtime evidence 時不會轉成 ACK 或 RUNNING。
