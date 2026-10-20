@@ -113,7 +113,7 @@ export function showZhugeRole(agentId: string): void {
     document.body.append(panel);
   }
   panel.replaceChildren();
-  const title = el('h2', role.resident ? '家庭生活角色 · 角色介紹' : '固定角色 · 角色介紹');
+  const title = el('h2', role.resident === 'pet' ? '寵物角色 · 角色介紹' : role.resident === 'family' ? '家庭生活角色 · 角色介紹' : '固定角色 · 角色介紹');
   const close = el('button', '關閉');
   close.setAttribute('type', 'button');
   close.onclick = () => { if (panel) panel.hidden = true; };
@@ -121,8 +121,10 @@ export function showZhugeRole(agentId: string): void {
   roster.className = 'zhuge-role-roster';
   roster.setAttribute('aria-label', '切換辦公室角色');
   for (const person of rosterData) {
-    const item = el('button', person.name);
+    const prefix = person.resident === 'pet' ? '🐾 ' : person.resident === 'family' ? '🏠 ' : '👤 ';
+    const item = el('button', prefix + person.name);
     item.setAttribute('type', 'button');
+    item.setAttribute('aria-label', person.resident === 'pet' ? `${person.name}（寵物）` : person.resident === 'family' ? `${person.name}（家庭生活角色）` : person.name);
     item.setAttribute('aria-pressed', String(person.id === agentId));
     item.onclick = () => showZhugeRole(person.id);
     roster.append(item);
@@ -130,7 +132,7 @@ export function showZhugeRole(agentId: string): void {
   const name = el('h3', role.name + '｜' + role.duty);
   const content = el('p', role.intro);
   const status = el('p', role.resident
-    ? '目前呈現：虛擬生活角色（非 AI Worker、非工程工作狀態）'
+    ? (role.resident === 'pet' ? '目前呈現：虛擬寵物（非 AI Worker、非工程工作狀態）' : '目前呈現：虛擬家庭生活角色（非 AI Worker、非工程工作狀態）')
     : '目前呈現：角色待命（場景裝飾）');
   status.className = 'zhuge-role-label';
   const truth = el('p', role.resident
@@ -265,8 +267,9 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   const project = el('button', '📋 專案狀態');
   project.setAttribute('type', 'button');
   project.addEventListener('click', () => showZhugeStatus());
-  const roster = el('button', '👥 人員');
+  const roster = el('button', '👥 角色名冊');
   roster.setAttribute('type', 'button');
+  roster.setAttribute('aria-label', '開啟角色名冊（含家人與黑灰色小貓）');
   roster.addEventListener('click', () => showZhugeRole(ZHUGE_CAST[0].id));
   const weather = el('button', weatherLabel());
   weather.setAttribute('type', 'button');
