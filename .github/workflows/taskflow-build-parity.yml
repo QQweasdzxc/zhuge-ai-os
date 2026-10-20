@@ -12,6 +12,8 @@ on:
       - review/taskflow-issue-45-integrated-20261014
       - release/taskflow-ai-visible-20261016
       - review/dm00-dm03-taskflow-dispatch-20261020
+      - review/dm00-dm03-core-runtime-20261020
+      - review/dm00-dm03-phase2-dispatch-runtime-20261020
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -87,7 +89,10 @@ jobs:
       - name: Verify Go formatting
         run: |
           python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority.go
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
+          gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
           test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...

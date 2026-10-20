@@ -50,7 +50,7 @@ Metadata 遵守既有原生限制：單值只能是 string、number 或 boolean�
 - DM-02：`POST /api/issues/{id}/rerun` 建立原生 TaskFlow run；`GET /api/issues/{id}/task-runs?active=true` 讀取活動與歷史。沒有實際 Agent、runtime 或 provider capability 時顯示 `BLOCKED`／`UNSUPPORTED` 與原生原因。
 - DM-03：`POST /api/issues/{id}/pull-requests` 只關聯已由 TaskFlow mirror 的 GitHub PR；Issue、commit URL、CI URL 與輸入的完整 SHA 以原生 issue metadata 保存。PR list 的 `head_sha` 是 native readback；在尚未有 native readback 前，手動輸入的 SHA 標記為待驗證，不得冒充已驗證。
 
-所有 endpoint 都走既有 Zhuge token exchange、workspace header 與 TaskFlow member permission。派工 mutation 另外必須由後端解析已驗證的 CTO authority；`GPT-CTO` metadata、UI label、GitHub comment 或 client body 都不能授權派工。Pages client 不保存 bearer、不呼叫 GitHub 私有 API、不包含 secrets。
+所有 endpoint 都走既有 Zhuge token exchange、workspace header 與 TaskFlow member permission。派工 mutation 另外必須由後端以 authenticated `user_id` 對受控 CTO user-ID allowlist 驗證；`GPT-CTO` metadata、UI label、GitHub comment 或 client body 都不能授權派工。allowlist 尚未配置時，後端固定回 `UNVERIFIED/BLOCKED`。Pages client 不保存 bearer、不呼叫 GitHub 私有 API、不包含 secrets。
 
 ## GEM-01 interface
 
@@ -60,4 +60,13 @@ GEM-01 的 read-only schema 參見同目錄 `DM00_DM03_NATIVE_API_SCHEMA.json`�
 
 ## Gate
 
-本分支已實作：原生卡／metadata／run／GitHub readback、跨模組 Work Code、Overlay patch、CI contract。候選：Executor Registry 與後端 CTO authority handler。正式 Runtime 尚待驗證：Provider ACK／Provider Run ID、授權 readback、重複派工與錯誤改派的 live DB 競態測試。未改正式 DB、Secrets、Production、Render 設定或 #42 candidate SQL。
+本分支已實作：原生卡／metadata／run／GitHub readback、跨模組 Work Code、Executor Registry、fail-closed CTO authority primitive、Overlay patch、CI contract。正式 Runtime 尚待驗證：受控 allowlist 配置與 readback、Provider ACK／Provider Run ID、重複派工與錯誤改派的 live DB 競態測試。未改正式 DB、Secrets、Production、Render 設定或 #42 candidate SQL。
+
+`dispatch-runtime-contract.mjs` 定義不依賴 Provider 的安全邊界：Dispatch Intent 冪等鍵、CTO 授權結果、Writer lease、fencing token、租約逾期、Provider Run ID 必須來自事件回報，以及 duplicate/replay 的拒絕規則。Provider 能力矩陣目前以 `UNVERIFIED`／`UNSUPPORTED` 表示；沒有官方 runtime evidence 時不會轉成 ACK 或 RUNNING。
+
+Phase 2 的跨程序恢復、事件版本、checkpoint、quota、Provider adapter 和原生
+接線核對見：
+
+- [`DM00_DM03_PHASE2_RUNTIME_CAPABILITY_MATRIX.md`](./DM00_DM03_PHASE2_RUNTIME_CAPABILITY_MATRIX.md)
+- [`DM00_DM03_PHASE2_NATIVE_WIRING_AUDIT.md`](./DM00_DM03_PHASE2_NATIVE_WIRING_AUDIT.md)
+- [`DM00_DM03_PHASE2_RUNTIME_SCHEMA.json`](./DM00_DM03_PHASE2_RUNTIME_SCHEMA.json)
