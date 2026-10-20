@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "zhuge-taskflow-native-dispatch-v1.1",
+  "title": "TaskFlow Native Dispatch Read Model",
+  "type": "object",
+  "required": ["issue_id", "work_code", "dispatch_state", "authorization", "evidence"],
+  "properties": {
+    "issue_id": {"type": "string"},
+    "work_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*-[0-9]{2,}$"},
+    "executor_id": {"type": ["string", "null"]},
+    "provider": {"type": ["string", "null"]},
+    "task_id": {"type": ["string", "null"]},
+    "provider_run_id": {"type": ["string", "null"]},
+    "dispatch_state": {"enum": ["CREATED", "ASSIGNED", "ACK_PENDING", "RUNNING", "BLOCKED", "REVIEW", "DONE", "FAILED", "UNKNOWN", "STALE"]},
+    "observed_at": {"type": ["string", "null"], "format": "date-time"},
+    "authorization": {"enum": ["AUTHORIZED", "DENIED", "UNVERIFIED"]},
+    "evidence": {
+      "type": "object",
+      "required": ["provider_ack", "provider_run_id_source", "github_sha_source"],
+      "properties": {
+        "provider_ack": {"enum": ["VERIFIED", "UNVERIFIED", "NOT_AVAILABLE"]},
+        "provider_run_id_source": {"enum": ["provider_readback", "UNVERIFIED", "NOT_AVAILABLE"]},
+        "github_sha_source": {"enum": ["native_github_mirror", "manual_record_pending_native_readback", "NOT_AVAILABLE"]},
+        "error": {"type": ["string", "null"]},
+        "blocked_reason": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

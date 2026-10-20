@@ -56,6 +56,8 @@ Metadata 遵守既有原生限制：單值只能是 string、number 或 boolean�
 
 DM-04 前端／BFF 讀取同一張 issue：`identifier`、`metadata.zhuge_*`、`assignee_id`、`task-runs`、`pull_requests`。UI 可只依 `zhuge_dispatch_status` 顯示狀態，但 provider evidence 要同時顯示 `zhuge_task_id`、`zhuge_provider_run_id`、`zhuge_observed_at` 與錯誤。後續工作台不另建卡片 store 或第二個任務 ID。
 
+GEM-01 的 read-only schema 參見同目錄 `DM00_DM03_NATIVE_API_SCHEMA.json`。目前已可讀取的原生 endpoint 是 `GET /api/workspaces`、`GET /api/issues`、`GET /api/issues/{id}`、`GET /metadata`、`GET /task-runs`、`GET /pull-requests`；認證是既有 Zhuge session exchange 後的 in-memory TaskFlow bearer 與 `X-Workspace-Slug`。`POST /issues`、`PUT /metadata`、`POST /rerun` 與 assignment mutation 均受正式 runtime authority／member ACL Gate 約束。
+
 ## Gate
 
 本分支已實作：原生卡／metadata／run／GitHub readback、跨模組 Work Code、Executor Registry、fail-closed CTO authority primitive、Overlay patch、CI contract。正式 Runtime 尚待驗證：受控 allowlist 配置與 readback、Provider ACK／Provider Run ID、重複派工與錯誤改派的 live DB 競態測試。未改正式 DB、Secrets、Production、Render 設定或 #42 candidate SQL。
