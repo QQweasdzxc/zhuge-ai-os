@@ -139,8 +139,9 @@ async function renderDetail(id){
    const evidence=await dispatchAdapter.detail(state.workspace.slug,id);
    const evidenceBox=element("section",{className:"tf-subpanel",attrs:{"aria-label":"派工證據"}});
    evidenceBox.append(element("h3",{text:"派工與交付證據"}));
-   evidenceBox.append(element("p",{text:`狀態：${evidence.status} · Executor：${evidence.executor||"未確認"} · Provider Run ID：${evidence.providerRunId||"未取得"}`}));
-   evidenceBox.append(element("p",{text:`最後有效觀測：${evidence.observedAt||"未取得"} · Heartbeat：${evidence.heartbeatAt||"未取得"}`}));
+   evidenceBox.append(element("p",{text:`狀態：${evidence.status}${evidence.reason?`（${evidence.reason}）`:""} · Owner：${evidence.owner||"未確認"} · Executor：${evidence.executor||"未確認"}`}));
+   evidenceBox.append(element("p",{text:`CTO 授權來源：${evidence.authorizedBy||"未取得"} · Provider Run ID：${evidence.providerRunId||"未取得"} · Checkpoint：${evidence.checkpoint||"未取得"}`}));
+   evidenceBox.append(element("p",{text:`最後有效觀測：${evidence.observedAt||"未取得"} · Heartbeat：${evidence.heartbeatAt||"未取得"} · 下一步：${evidence.nextStep||"未取得"}`}));
    evidenceBox.append(element("p",{text:`Task-Runs：${evidence.runs.length} 筆 · GitHub PR：${evidence.pullRequests.length} 筆 · runtime evidence：${evidence.runtimeEvidence?"可讀取":"不可讀取"}`}));
    refs.detail.append(evidenceBox);
    refs.detail.append(element("h3",{text:"留言"}));
