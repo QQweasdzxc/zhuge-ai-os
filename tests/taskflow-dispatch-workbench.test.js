@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 test("DM-04 keeps executor registry and conservative runtime states", async () => {
   const mod = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
-  assert.deepEqual(mod.DISPATCH_EXECUTORS, ["CO-01", "CO-02", "GEM-01", "GH-HELPER"]);
+  assert.deepEqual(mod.DISPATCH_EXECUTORS, ["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"]);
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {providerRunId: "run-1", heartbeatAt: new Date().toISOString(), observedAt: new Date().toISOString()}), "RUNNING");
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {providerRunId: "run-1"}), "STALE");
   assert.equal(mod.normalizeDispatchStatus("RUNNING", {heartbeatAt: new Date().toISOString(), observedAt: new Date().toISOString()}), "UNKNOWN");

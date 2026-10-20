@@ -17,7 +17,7 @@ import {
   requiredGithubUrl,
   requiredHttpsUrl
 } from "./dispatch-contract.mjs";
-import {createDispatchAdapter} from "./dispatch-workbench.mjs";
+import {createDispatchAdapter, normalizeDispatchIssue} from "./dispatch-workbench.mjs";
 
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
 const dispatchAdapter=createDispatchAdapter(transport);
@@ -297,7 +297,8 @@ function appendEvidenceRow(box,label,value,{link=false}={}){
 }
 function renderDispatchEvidence(container,issue,runs){
   const evidence=evidenceSummary(issue);
-  const status=deriveDispatchState(issue,runs);
+  const runtime=normalizeDispatchIssue(issue,runs);
+  const status=runtime.evidenceSource==="TASKFLOW_RUNTIME_READ_MODEL"?runtime.status:deriveDispatchState(issue,runs);
   const panel=element("section",{className:"tf-subpanel",attrs:{"aria-label":"TaskFlow 派工與執行證據"}});
   const heading=element("div",{className:"tf-subpanel-heading"});
   heading.append(element("h3",{text:"派工與執行證據"}));
@@ -313,6 +314,12 @@ function renderDispatchEvidence(container,issue,runs){
   appendEvidenceRow(grid,"Provider",evidence.provider);
   appendEvidenceRow(grid,"Provider Run ID",evidence.providerRunId||"未取得（不可用 TaskFlow task ID 代替）");
   appendEvidenceRow(grid,"觀測時間",issue.metadata?.[DISPATCH_METADATA_KEYS.observedAt]);
+  appendEvidenceRow(grid,"CTO 授權",runtime.authorizedBy||issue.metadata?.[DISPATCH_METADATA_KEYS.authorizationResult]||"未取得");
+  appendEvidenceRow(grid,"Provider ACK",runtime.providerAck||"未驗證");
+  appendEvidenceRow(grid,"Quota",runtime.quotaState||"未取得");
+  appendEvidenceRow(grid,"Checkpoint",runtime.checkpoint||"未取得");
+  appendEvidenceRow(grid,"Evidence Source",runtime.evidenceSource||"未取得");
+  if(runtime.reason)appendEvidenceRow(grid,"阻擋原因",runtime.reason);
   if(evidence.providerError)appendEvidenceRow(grid,"錯誤",evidence.providerError);
   panel.append(grid);
   const actions=element("div",{className:"tf-inline-actions"});
