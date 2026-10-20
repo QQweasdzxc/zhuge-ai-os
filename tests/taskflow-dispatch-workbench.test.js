@@ -55,3 +55,32 @@ test("Phase 2 accepts CO-02 runtime read-model shape without calling it a fixtur
   assert.equal(item.providerAck, "VERIFIED");
   assert.equal(item.providerRunIdSource, "provider_event");
 });
+
+test("Workbench keeps provider execution fail-closed and classifies PM Inbox from explicit evidence", async () => {
+  const {buildPmInboxEntries, normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const now = new Date().toISOString();
+  const items = [
+    normalizeDispatchIssue({id: "decision", title: "需要 CTO 裁示", metadata: {
+      zhuge_work_code: "DM-01", zhuge_dispatch_status: "ASSIGNED", zhuge_pm_decision_required: "true"
+    }}),
+    normalizeDispatchIssue({id: "acceptance", title: "待 PM 驗收", metadata: {
+      zhuge_work_code: "DM-02", zhuge_dispatch_status: "REVIEW", zhuge_observed_at: now
+    }}),
+    normalizeDispatchIssue({id: "blocked", title: "Provider 尚未授權", runtime_read_model: {
+      work_code: "DM-03", executor_id: "CO-02", state: "BLOCKED", observed_at: now,
+      evidence: {blocked_reason: "PROVIDER_NOT_AUTHORIZED"}
+    }}),
+    normalizeDispatchIssue({id: "failed", title: "執行失敗", metadata: {
+      zhuge_work_code: "DM-04", zhuge_dispatch_status: "FAILED"
+    }}),
+    normalizeDispatchIssue({id: "ordinary", title: "一般 TaskFlow 任務", status: "todo"})
+  ];
+  assert.equal(normalizeDispatchIssue({id: "unverified", runtime_read_model: {
+    work_code: "DM-05", executor_id: "CO-01", state: "RUNNING", observed_at: now
+  }}).status, "UNKNOWN");
+  const entries = buildPmInboxEntries(items);
+  assert.deepEqual(entries.map(entry => entry.category), [
+    "PM_DECISION", "PM_ACCEPTANCE", "ENGINEERING_BLOCKED", "ENGINEERING_FAILED"
+  ]);
+  assert.equal(entries.some(entry => entry.id === "ordinary"), false);
+});

@@ -11,13 +11,12 @@ import {
   buildGithubMetadata,
   buildIssuePayload,
   buildMetadata,
-  deriveDispatchState,
   evidenceSummary,
   isExactSha,
   requiredGithubUrl,
   requiredHttpsUrl
 } from "./dispatch-contract.mjs";
-import {createDispatchAdapter, normalizeDispatchIssue} from "./dispatch-workbench.mjs";
+import {buildPmInboxEntries, createDispatchAdapter, normalizeDispatchIssue} from "./dispatch-workbench.mjs";
 
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
 const dispatchAdapter=createDispatchAdapter(transport);
@@ -41,7 +40,8 @@ const refs={
   dispatchCards:document.querySelector("#tf-dispatch-cards"),
   dispatchMeta:document.querySelector("#tf-dispatch-meta"),
   dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
-  dispatchNotice:document.querySelector("#tf-dispatch-notice")
+  dispatchNotice:document.querySelector("#tf-dispatch-notice"),
+  pmInbox:document.querySelector("#tf-pm-inbox")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
 if(refs.createOpen)refs.createOpen.hidden=true;
@@ -108,11 +108,50 @@ function renderDispatchCards(items){
   if(!items.length){refs.dispatchCards.append(element("p",{text:"目前沒有可顯示的真實派工案件；未顯示模擬資料。",className:"tf-empty"}));return;}
   for(const item of items){
     const card=element("article",{className:"tf-dispatch-card"});
-    card.append(element("strong",{text:item.title}));
-    card.append(element("span",{text:`${item.status} · ${item.executor||"Executor 未確認"}`,className:"tf-status-tag"}));
-    card.append(element("small",{text:`Provider Run ID：${item.providerRunId||"未取得"} · task：${item.taskId||"未取得"}`,className:"tf-id"}));
+    const issueLink=item.id?element("a",{className:"tf-dispatch-card-link",attrs:{href:routeFor({issueId:item.id}),"aria-label":`開啟 ${item.title} 的原生 TaskFlow 任務明細`}}):null;
+    const head=element("div",{className:"tf-dispatch-card-head"});
+    const identity=element("div");
+    identity.append(element("small",{text:item.identifier||item.workCode||item.id||"TaskFlow issue",className:"tf-id"}));
+    identity.append(element("strong",{text:item.title}));
+    head.append(identity,element("span",{text:DISPATCH_STATE_LABELS[item.status]||item.status||"未知",className:"tf-status-tag"}));
+    if(issueLink){issueLink.append(head,element("p",{text:`Executor：${item.executor||"未確認"}`}));issueLink.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",issueLink.href);renderRoute();});card.append(issueLink);}
+    else card.append(head);
+    const evidence=element("div",{className:"tf-dispatch-card-evidence"});
+    evidence.append(element("small",{text:`Executor：${item.executor||"未確認"}`}));
+    evidence.append(element("small",{text:`TaskFlow task ID：${item.taskId||"未取得"} · Provider Run ID：${item.providerRunId||"未取得"}`}));
+    evidence.append(element("small",{text:`Provider ACK：${item.providerAck||"未驗證"} · Source：${item.evidenceSource||"未取得"}`}));
+    if(item.reason)evidence.append(element("small",{text:`原因：${item.reason}`,className:"tf-error"}));
+    const links=element("div",{className:"tf-dispatch-evidence-links"});
+    if(item.prUrl)links.append(linkNode(item.prUrl,"GitHub PR"));
+    if(item.ciUrl)links.append(linkNode(item.ciUrl,"CI 證據"));
+    if(item.sha)links.append(element("code",{text:item.sha}));
+    if(links.childNodes.length)evidence.append(links);
+    card.append(evidence);
     refs.dispatchCards.append(card);
   }
+}
+function renderPmInbox(items,{error=null}={}){
+  if(!refs.pmInbox)return;
+  refs.pmInbox.replaceChildren();
+  refs.pmInbox.dataset.state=error?"error":"ready";
+  if(error){
+    refs.pmInbox.append(element("p",{text:`PM Inbox 讀取失敗：${errMessage(error)}；未以空資料取代錯誤。`,className:"tf-error"}));
+    return;
+  }
+  const entries=buildPmInboxEntries(items);
+  if(!entries.length){refs.pmInbox.append(element("p",{text:"目前沒有可驗證的 PM 待處理案件；未顯示模擬資料。",className:"tf-empty"}));return;}
+  const summary=element("p",{text:`${entries.length} 筆待處理案件（僅依原生 TaskFlow／Runtime 證據分類）。`,className:"tf-inbox-summary"});
+  refs.pmInbox.append(summary);
+  const list=element("ul",{className:"tf-inbox-list"});
+  for(const item of entries){
+    const row=element("li",{className:"tf-inbox-item"});
+    const link=item.id?element("a",{text:`${item.identifier||item.workCode||item.id}｜${item.title}`,className:"tf-inbox-link",attrs:{href:routeFor({issueId:item.id}),"aria-label":`開啟 ${item.title} 的 PM 待處理案件`}}):element("span",{text:item.title});
+    if(item.id)link.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",link.href);renderRoute();});
+    row.append(link,element("span",{text:item.categoryLabel,className:"tf-status-tag"}));
+    if(item.reason)row.append(element("small",{text:item.reason,className:"tf-help"}));
+    list.append(row);
+  }
+  refs.pmInbox.append(list);
 }
 async function loadDispatch(){
   if(!state.workspace||!refs.dispatchCards)return;
@@ -120,9 +159,11 @@ async function loadDispatch(){
   try{
     const items=await dispatchAdapter.list(workspaceSlug(),{executor:refs.dispatchExecutor?.value||""});
     renderDispatchCards(items);
+    renderPmInbox(items);
     refs.dispatchMeta.textContent=`已讀取 ${items.length} 筆原生案件；Provider 狀態未經 ACK 不會推論。`;
   }catch(error){
     refs.dispatchCards.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));
+    renderPmInbox([], {error});
     refs.dispatchMeta.textContent="資料讀取失敗，未顯示模擬資料。";
   }
 }
@@ -298,7 +339,7 @@ function appendEvidenceRow(box,label,value,{link=false}={}){
 function renderDispatchEvidence(container,issue,runs){
   const evidence=evidenceSummary(issue);
   const runtime=normalizeDispatchIssue(issue,runs);
-  const status=runtime.evidenceSource==="TASKFLOW_RUNTIME_READ_MODEL"?runtime.status:deriveDispatchState(issue,runs);
+  const status=runtime.status;
   const panel=element("section",{className:"tf-subpanel",attrs:{"aria-label":"TaskFlow 派工與執行證據"}});
   const heading=element("div",{className:"tf-subpanel-heading"});
   heading.append(element("h3",{text:"派工與執行證據"}));
@@ -480,7 +521,7 @@ async function renderDetail(id){
     refs.detail.append(element("h2",{text:issue.title||"未命名任務"}));
     const info=element("div",{className:"tf-issue-info"});
     const assignedAgent=state.agents.find(agent=>agent.id===issue.assignee_id);
-    const dispatchState=deriveDispatchState(issue,runs);
+    const dispatchState=normalizeDispatchIssue(issue,runs).status;
     for(const [label,value] of [
       ["原生狀態",issue.status_name||issue.status],
       ["派工狀態",DISPATCH_STATE_LABELS[dispatchState]||dispatchState],

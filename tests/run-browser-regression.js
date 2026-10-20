@@ -9,6 +9,7 @@ const browserTests = [
   "tests/taskflow-cli-sso.test.js",
   "tests/worklog-resource-loader.test.js",
   "tests/taskflow-entry-browser.test.js",
+  "tests/taskflow-pages-client-browser.test.mjs",
   "tests/worklog-resource-loader-browser.test.js",
   "tests/functional-tabs-browser.test.js",
   "tests/functional-tabs-visual-conformance-browser.test.js",

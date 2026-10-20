@@ -32,7 +32,8 @@ export const DISPATCH_STATE_LABELS = Object.freeze({
   DONE: "完成",
   UNKNOWN: "未知",
   STALE: "過期",
-  FAILED: "失敗"
+  FAILED: "失敗",
+  CANCELLED: "已取消"
 });
 
 export const DISPATCH_METADATA_KEYS = Object.freeze({
