@@ -6,9 +6,19 @@
 
 ## 目前的每日交接入口
 
-**今日（2026-10-19）：** [20261019-Handoff.md](./20261019-Handoff.md)
+**今日（2026-10-20）：** [20261020-Handoff.md](./20261020-Handoff.md)
 
 新的一天由**當天第一個實際工程／督導工作階段**建立新的日期檔案，再將此 `CURRENT.md` 指向新檔；**尚未設置定時自動建立、背景推送或 AI 自動啟動**。不預先宣稱明日檔案已存在。
+
+## 2026-10-20 PM 最新授權（取代下列歷史截圖與逐版 PM GO）
+
+**正式交接：[20261020-Handoff.md](./20261020-Handoff.md)**；原則候選：[PR #100](https://github.com/QQweasdzxc/zhuge-ai-os/pull/100)；權威 PM 決策：[Issue #51](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51#issuecomment-6285091395)。
+
+- **CTO-01（GPT）是唯一派工、改派、工程進度回收、技術審查、整合總管**，CO-01／CO-02／GEM-01／GH-HELPER-* 同層平行；CO-03 仍須核實身分，不能默認是 GEM-01。
+- CTO 可以自主安排 CO-01 或具操作權的 CTO 在唯一 Production 發布，**不需每版重新向 PM 申請 exact-SHA GO**；仍須 exact-SHA CI、新 Version／Build、FullSource、安全與回復檢查。
+- 新增付費、重大權限／Secrets／DB ACL、不可逆資料操作，仍須 PM 事前批准；PM 只在正式上線後進行功能審測。
+- **唯一 P0：AI 派工管理核心**（TaskFlow DM-00～DM-03 + DM-04）；其他主線 HOLD。不另設 staging／測試網站。
+- 下方 10/18～10/19 歷史快照保留以供追溯；它們的舊 Gate／角色描述／版本**不得取代今日授權與最新遠端證據**。
 
 ## 最高層真相與優先順序
 
@@ -19,7 +29,11 @@
 
 **正式版本規範：** 產品 Source 修改仍遵守 `docs/10_GOVERNANCE/RELEASE.md` 的新 Version／Build、QA、FullSource。此 `ops/handoff` 分支僅保存不含機密的日誌，**不合併進 `main`、不進正式 Release Source、不直接觸發 Render／資料庫變更**。若未來改規則，需 PM 另行審查。每日 Handoff Git commit SHA **不是** 產品 Source SHA。
 
-## 三方共用規則（v1）
+## 協作規則（2026-10-20 生效；舊三方職稱表僅歷史）
+
+**當前正確執行者：** CTO 主管理；CO-01、CO-02、GEM-01、GH-HELPER-* 同層平行。CO-03 待確認 Registry 與任務身分，禁止假定與 Gem 同一人。即時 Runtime 證據優先於 Handoff 快照。
+
+### 歷史三方表（2026-10-18～19，現已被取代）
 
 | 角色 | 工作 | 不能做 |
 | --- | --- | --- |
@@ -30,7 +44,7 @@
 
 ### 日常交接程序
 
-1. 各自開始工作，先打開**固定 CURRENT → 今日檔案**，再讀 GitHub PR #60／Issue #51 和最新遠端 SHA；每日檔過期時以實際來源為準。
+1. 各自開始工作，先打開**固定 CURRENT → 今日檔案**，再讀最新 Issue #51 授權、GitHub main／PR #97／PR #98 和精確遠端 SHA；每日檔過期時以實際來源為準。
 2. Co／Gem 在有**實際重要完成、阻塞、決策或交棒**時，向既有 PR／Issue 交付簡短 `[HANDOFF][Co/Gem][YYYYMMDD]` 回報，或由 PM 在對話提供原始資訊；回報包括「做了什麼、證據 URL、產品 Version/Build/SHA、是否已部署、阻塞、下一棒、所需 PM 決策」。
 3. GPT 驗證資料源，在**今日同一份檔案**按角色更新現況，保留證據連結；更新 `ops/handoff` 必須 Commit／Push／GitHub 遠端 SHA 與檔案讀回。多方同時寫時採單一整合者，使用 fast-forward／expected-ref，禁止 force-push 覆蓋。
 4. **ACK 不是 GitHub 留言寫入成功**：需要對應工程師實際回應或其他可驗證工作憑證。Handoff 更新本身**不觸發 Provider**、不算 Co/Gem 已接單、也不允許重複下發工作。
@@ -72,10 +86,10 @@
 
 ## 快速入口
 
-- [今日 Handoff](./20261019-Handoff.md)
+- [今日 Handoff](./20261020-Handoff.md)
 - [PM 決策與持續交接：Issue #51](https://github.com/QQweasdzxc/zhuge-ai-os/issues/51)
 - [Co 源碼工程主線：PR #60](https://github.com/QQweasdzxc/zhuge-ai-os/pull/60)
 - [產品最新候選狀態文件（PR #60 分支；可能落後 GitHub 新留言）](https://github.com/QQweasdzxc/zhuge-ai-os/blob/review/taskflow-github-codex-phase2-20261016/docs/00_CURRENT/TASKFLOW_AI_ENGINEERING_STATUS.md)
 - [產品版本治理](https://github.com/QQweasdzxc/zhuge-ai-os/blob/main/docs/10_GOVERNANCE/RELEASE.md)
 
-**下個工作階段先核對原始來源的即時狀態，再更新每日 Handoff；禁止只用這裡的快照判斷是否可上線。**
+**下個工作階段先核對原始來源的即時狀態，再更新每日 Handoff；禁止只用這裡的歷史快照判斷是否可上線。2026-10-20 授權優先於舊的逐版 PM GO。**
