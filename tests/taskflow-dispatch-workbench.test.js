@@ -28,3 +28,15 @@ test("DM-04 evidence rejects mismatched identities, duplicate active runs, and b
   assert.equal(result.valid, false);
   assert.deepEqual(result.errors.sort(), ["DUPLICATE_ACTIVE_RUN", "INVALID_GITHUB_SHA", "PROVIDER_RUN_ID_MISMATCH"].sort());
 });
+
+test("Phase 2 exposes authorization, checkpoint and conservative failure reasons", async () => {
+  const {normalizeDispatchIssue} = await import("../labs/taskflow/pages-client/dispatch-workbench.mjs");
+  const item = normalizeDispatchIssue({id: "blocked", metadata: {
+    zhuge_owner: "CO-03", zhuge_authorized_by: "CTO-01", zhuge_dispatch_status: "BLOCKED",
+    zhuge_block_reason: "quota exhausted", zhuge_provider_checkpoint: "checkpoint-7", zhuge_next_step: "request quota"
+  }});
+  assert.equal(item.authorizedBy, "CTO-01");
+  assert.equal(item.checkpoint, "checkpoint-7");
+  assert.equal(item.reason, "quota exhausted");
+  assert.equal(item.nextStep, "request quota");
+});

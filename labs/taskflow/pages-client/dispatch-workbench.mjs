@@ -1,7 +1,7 @@
 /** DM-04 read-only workbench adapter. Native TaskFlow is the source of truth. */
-export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "GEM-01", "GH-HELPER"]);
+export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"]);
 export const DISPATCH_STATES = Object.freeze(["ACK_PENDING", "ASSIGNED", "RUNNING", "BLOCKED", "REVIEW", "DONE", "FAILED", "STALE", "UNKNOWN"]);
-const META = Object.freeze({ workCode: "zhuge_work_code", status: "zhuge_dispatch_status", runId: "zhuge_provider_run_id", observedAt: "zhuge_observed_at", executor: "zhuge_executor", heartbeat: "zhuge_provider_heartbeat_at", source: "zhuge_status_source", taskId: "zhuge_task_id", pr: "zhuge_github_pr_url", sha: "zhuge_github_sha", ci: "zhuge_github_ci_url" });
+const META = Object.freeze({ workCode: "zhuge_work_code", owner: "zhuge_owner", authorizedBy: "zhuge_authorized_by", status: "zhuge_dispatch_status", runId: "zhuge_provider_run_id", observedAt: "zhuge_observed_at", executor: "zhuge_executor", heartbeat: "zhuge_provider_heartbeat_at", checkpoint: "zhuge_provider_checkpoint", blockReason: "zhuge_block_reason", nextStep: "zhuge_next_step", source: "zhuge_status_source", taskId: "zhuge_task_id", pr: "zhuge_github_pr_url", sha: "zhuge_github_sha", ci: "zhuge_github_ci_url", pmDecision: "zhuge_pm_decision_required" });
 const text = value => typeof value === "string" ? value.trim() : "";
 const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
 export function metadataKeys() { return META; }
@@ -40,7 +40,8 @@ export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
   const rawStatus = text(metadata[META.status] || run?.status || issue?.status);
   let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now });
   if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
-  return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(metadata[META.workCode]), executor: normalizeExecutor(metadata[META.executor] || issue?.assignee_id || issue?.assignee), status, providerRunId, taskId: text(metadata[META.taskId] || run?.id), observedAt, heartbeatAt, prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), raw: issue };
+  const reason = status === "STALE" ? "heartbeat 或 observed_at 已過期" : status === "UNKNOWN" ? "缺少可信 Provider Run ID／觀測證據" : status === "BLOCKED" || status === "FAILED" ? text(metadata[META.blockReason]) || "原生執行證據回報阻擋或失敗" : "";
+  return { id: text(issue?.id), title: text(issue?.title) || "未命名案件", workCode: text(metadata[META.workCode]), owner: normalizeExecutor(metadata[META.owner]), authorizedBy: text(metadata[META.authorizedBy]), executor: normalizeExecutor(metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee), status, reason, providerRunId, taskId: text(metadata[META.taskId] || run?.id), checkpoint: text(metadata[META.checkpoint] || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), pmDecisionRequired: metadata[META.pmDecision] === true || text(metadata[META.pmDecision]).toLowerCase() === "true", raw: issue };
 }
 export function validateEvidence(issue, runs = []) {
   const metadata = metadataOf(issue);
@@ -49,7 +50,7 @@ export function validateEvidence(issue, runs = []) {
   const issueId = text(issue?.id);
   const taskId = text(metadata[META.taskId]);
   const providerRunId = text(metadata[META.runId]);
-  const executor = normalizeExecutor(metadata[META.executor] || issue?.assignee_id || issue?.assignee);
+  const executor = normalizeExecutor(metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee);
   const matchingTask = taskId ? list.filter(run => text(run?.id) === taskId) : [];
   const matchingRun = providerRunId ? list.filter(run => text(run?.provider_run_id) === providerRunId) : [];
   if (!issueId) errors.push("MISSING_TASK_ID");
@@ -72,7 +73,7 @@ export function createDispatchAdapter(transport) {
       const selected = normalizeExecutor(executor);
       return issues.filter(issue => {
         const item = normalizeDispatchIssue(issue);
-        return (!item.workCode || item.workCode.startsWith("DM-")) && (!selected || item.executor === selected);
+        return !selected || item.executor === selected;
       }).map(issue => normalizeDispatchIssue(issue));
     },
     async detail(workspace, id) {
