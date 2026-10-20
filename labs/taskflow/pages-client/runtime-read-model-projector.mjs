@@ -97,6 +97,7 @@ export function projectDispatchRuntimeReadModel({record: snapshot, nativeTaskRun
     work_code: record.work_code,
     executor_id: record.executor_id,
     provider: record.provider,
+    status_source: "TASKFLOW_RUNTIME_READ_MODEL",
     task_id: taskId,
     provider_run_id: providerRunId,
     provider_run_id_source: providerRunSource,

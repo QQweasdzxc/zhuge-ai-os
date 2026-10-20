@@ -13,6 +13,7 @@ CO-03 的工作台只讀下列版本化 read model，不自行重建後端欄位
 | `schema` | 固定為 `zhuge-taskflow-dispatch-persistence-v1`；schema 文件為 `DM00_DM03_PHASE2_RUNTIME_SCHEMA.json` |
 | `intent_id`, `idempotency_key`, `workspace`, `issue_id`, `work_code` | TaskFlow durable Dispatch Intent；workspace 由 server middleware／native issue 決定 |
 | `executor_id`, `provider` | server-side Executor Registry；不得相信 UI label |
+| `status_source` | 固定為 `TASKFLOW_RUNTIME_READ_MODEL`；前端不得以 issue metadata 或 task-run 欄位升級成 RUNNING |
 | `task_id` | TaskFlow native task queue readback；可為 `null` |
 | `provider_run_id` | 只有 signed／官方 Provider event 或官方 Provider readback 才可填；沒有時必須是 `null` |
 | `provider_run_id_source` | `provider_event`、`native_readback` 或 `null`；TaskFlow task ID、HTTP 202、GitHub comment 不合資格 |

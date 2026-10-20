@@ -1,6 +1,11 @@
 /** DM-04 read-only workbench adapter. Native TaskFlow is the source of truth. */
 export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"]);
 export const DISPATCH_STATES = Object.freeze(["CREATED", "ACK_PENDING", "ASSIGNED", "RUNNING", "BLOCKED", "REVIEW", "DONE", "FAILED", "STALE", "UNKNOWN", "CANCELLED"]);
+export const CANONICAL_RUNTIME_SCHEMA = "zhuge-taskflow-dispatch-persistence-v1";
+export const CANONICAL_RUNTIME_SOURCE = "TASKFLOW_RUNTIME_READ_MODEL";
+const VERIFIED_PROVIDER_RUN_SOURCES = new Set(["provider_event", "native_readback"]);
+const HEARTBEAT_TTL_MS = 15 * 60 * 1000;
+const OBSERVED_TTL_MS = 60 * 60 * 1000;
 const META = Object.freeze({ workCode: "zhuge_work_code", owner: "zhuge_owner", authorizedBy: "zhuge_authorized_by", status: "zhuge_dispatch_status", runId: "zhuge_provider_run_id", observedAt: "zhuge_observed_at", executor: "zhuge_executor", heartbeat: "zhuge_provider_heartbeat_at", checkpoint: "zhuge_provider_checkpoint", blockReason: "zhuge_block_reason", nextStep: "zhuge_next_step", source: "zhuge_status_source", taskId: "zhuge_task_id", pr: "zhuge_github_pr_url", sha: "zhuge_github_sha", ci: "zhuge_github_ci_url", pmDecision: "zhuge_pm_decision_required" });
 const text = value => typeof value === "string" ? value.trim() : "";
 const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
@@ -16,7 +21,63 @@ export function heartbeatFresh(value, now = Date.now(), ttlMs = 15 * 60 * 1000) 
   const time = Date.parse(value || "");
   return Number.isFinite(time) && time <= now && now - time <= ttlMs;
 }
-export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt = "", observedAt = "", now = Date.now() } = {}) {
+function observationState(value, now, ttlMs) {
+  const time = Date.parse(value || "");
+  if (!Number.isFinite(time) || time > now) return "INVALID";
+  return now - time <= ttlMs ? "FRESH" : "STALE";
+}
+function runtimeSource(runtime) {
+  return text(runtime?.status_source || runtime?.source || runtime?.provenance?.source || runtime?.provenance?.runtime);
+}
+function runtimeIdentityMatches(issue, runtime) {
+  const issueId = text(issue?.id);
+  const issueWorkspace = text(issue?.workspace_id || issue?.workspace);
+  const runtimeIssueId = text(runtime?.issue_id);
+  const runtimeWorkspace = text(runtime?.workspace);
+  const taskId = text(runtime?.task_id);
+  const provider = text(runtime?.provider);
+  return Boolean(
+    issueId && runtimeIssueId && runtimeIssueId === issueId &&
+    issueWorkspace && runtimeWorkspace && runtimeWorkspace === issueWorkspace &&
+    taskId && provider
+  );
+}
+export function verifyRunningEvidence(issue, runtime, runs = [], now = Date.now()) {
+  const evidence = runtime?.evidence && typeof runtime.evidence === "object" ? runtime.evidence : {};
+  const providerRunId = text(runtime?.provider_run_id);
+  const providerRunIdSource = text(runtime?.provider_run_id_source || evidence.provider_run_id_source).toLowerCase();
+  const heartbeatAt = text(runtime?.last_heartbeat_at || runtime?.heartbeat_at);
+  const observedAt = text(runtime?.observed_at || runtime?.last_observed_at || runtime?.observed_time || heartbeatAt);
+  const canonical = runtime?.schema === CANONICAL_RUNTIME_SCHEMA && runtimeSource(runtime) === CANONICAL_RUNTIME_SOURCE;
+  const authorization = text(runtime?.authorization).toUpperCase();
+  const providerAck = text(evidence.provider_ack).toUpperCase();
+  const identity = runtimeIdentityMatches(issue, runtime);
+  const taskId = text(runtime?.task_id);
+  const matchingNativeRuns = Array.isArray(runs) && runs.length
+    ? runs.filter(run => text(run?.id || run?.task_id) === taskId)
+    : [];
+  const taskAssociation = !Array.isArray(runs) || !runs.length || matchingNativeRuns.length > 0;
+  const runAssociation = matchingNativeRuns.every(run => {
+    const nativeProviderRunId = text(run?.provider_run_id);
+    const nativeProvider = text(run?.provider);
+    return (!nativeProviderRunId || nativeProviderRunId === providerRunId) && (!nativeProvider || nativeProvider === text(runtime?.provider));
+  });
+  const baseValid = canonical && identity && authorization === "AUTHORIZED" && providerAck === "VERIFIED" &&
+    providerRunId && providerRunId !== taskId && VERIFIED_PROVIDER_RUN_SOURCES.has(providerRunIdSource) && taskAssociation && runAssociation;
+  if (!baseValid) {
+    return {state: "UNKNOWN", reason: "缺少可信的 canonical Runtime／授權／Provider ACK／Run 綁定", providerRunId, providerRunIdSource, heartbeatAt, observedAt};
+  }
+  const heartbeatState = observationState(heartbeatAt, now, HEARTBEAT_TTL_MS);
+  const observedState = observationState(observedAt, now, OBSERVED_TTL_MS);
+  if (heartbeatState === "STALE" || observedState === "STALE") {
+    return {state: "STALE", reason: "heartbeat 或 observed_at 已過期", providerRunId, providerRunIdSource, heartbeatAt, observedAt};
+  }
+  if (heartbeatState !== "FRESH" || observedState !== "FRESH") {
+    return {state: "UNKNOWN", reason: "heartbeat／observed_at 無效或缺失", providerRunId, providerRunIdSource, heartbeatAt, observedAt};
+  }
+  return {state: "RUNNING", reason: "canonical Runtime、Provider ACK、Run 綁定及觀測時間均已驗證", providerRunId, providerRunIdSource, heartbeatAt, observedAt};
+}
+export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt = "", observedAt = "", now = Date.now(), runningEvidence = null } = {}) {
   const value = text(raw).toUpperCase().replace(/[- ]/g, "_");
   if (["CREATED", "INTENT_CREATED"].includes(value)) return "CREATED";
   if (["FAILED", "ERROR"].includes(value)) return "FAILED";
@@ -28,9 +89,9 @@ export function normalizeDispatchStatus(raw, { providerRunId = "", heartbeatAt =
   if (value === "OVERDUE") return "STALE";
   if (value === "STALE") return "STALE";
   if (["RUNNING", "IN_PROGRESS"].includes(value)) {
-    if (!providerRunId) return "UNKNOWN";
-    if (!heartbeatFresh(heartbeatAt, now) || !heartbeatFresh(observedAt, now, 60 * 60 * 1000)) return "STALE";
-    return "RUNNING";
+    if (runningEvidence?.state === "RUNNING") return "RUNNING";
+    if (runningEvidence?.state === "STALE") return "STALE";
+    return "UNKNOWN";
   }
   if (["ACK_PENDING", "DISPATCH_PENDING", "QUEUED", "DISPATCHED"].includes(value)) return "ACK_PENDING";
   if (value === "ASSIGNED") return "ASSIGNED";
@@ -41,13 +102,16 @@ export function normalizeDispatchIssue(issue, runs = [], now = Date.now()) {
   const runtime = issue?.dispatch_runtime || issue?.runtime_read_model || metadata.zhuge_runtime_read_model || null;
   const run = Array.isArray(runs) ? runs.find(item => item && item.id) : null;
   const providerRunId = text(runtime?.provider_run_id || metadata[META.runId] || run?.provider_run_id);
-  const heartbeatAt = text(runtime?.last_heartbeat_at || metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
-  const observedAt = text(runtime?.observed_at || metadata[META.observedAt] || run?.observed_at || run?.updated_at);
+  const heartbeatAt = text(runtime?.last_heartbeat_at || runtime?.heartbeat_at || metadata[META.heartbeat] || run?.heartbeat_at || run?.last_heartbeat_at);
+  const observedAt = text(runtime?.observed_at || runtime?.last_observed_at || metadata[META.observedAt] || run?.observed_at || run?.updated_at);
   const rawStatus = text(runtime?.state || metadata[META.status] || run?.status || issue?.status);
-  let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now });
+  const runningEvidence = ["RUNNING", "IN_PROGRESS"].includes(rawStatus.toUpperCase().replace(/[- ]/g, "_"))
+    ? verifyRunningEvidence(issue, runtime, runs, now)
+    : null;
+  let status = normalizeDispatchStatus(rawStatus, { providerRunId, heartbeatAt, observedAt, now, runningEvidence });
   if (run?.status && ["failed", "error"].includes(String(run.status).toLowerCase())) status = "FAILED";
   const evidenceReason = text(metadata[META.blockReason]) || text(runtime?.evidence?.blocked_reason);
-  const reason = status === "STALE" ? "heartbeat 或 observed_at 已過期" : status === "UNKNOWN" ? "缺少可信 Provider Run ID／觀測證據" : status === "BLOCKED" || status === "FAILED" ? evidenceReason || "原生執行證據回報阻擋或失敗" : "";
+  const reason = status === "STALE" ? (runningEvidence?.reason || "heartbeat 或 observed_at 已過期") : status === "UNKNOWN" ? (runningEvidence?.reason || "缺少可信 Provider Run ID／觀測證據") : status === "BLOCKED" || status === "FAILED" ? evidenceReason || "原生執行證據回報阻擋或失敗" : "";
   const executor = normalizeExecutor(runtime?.executor_id || metadata[META.owner] || metadata[META.executor] || issue?.assignee_id || issue?.assignee);
   const pmDecisionRequired = booleanValue(runtime?.pm_decision_required) || booleanValue(runtime?.pmDecisionRequired) || booleanValue(metadata[META.pmDecision]);
   return { id: text(issue?.id), identifier: text(issue?.identifier || issue?.key), title: text(issue?.title) || "未命名案件", workCode: text(runtime?.work_code || metadata[META.workCode]), owner: normalizeExecutor(runtime?.executor_id || metadata[META.owner]), authorizedBy: text(runtime?.authorization || metadata[META.authorizedBy]), executor, provider: text(runtime?.provider || metadata.zhuge_provider), status, rawState: text(rawStatus).toUpperCase().replace(/[- ]/g, "_"), reason: reason || evidenceReason, providerRunId, providerRunIdSource: text(runtime?.provider_run_id_source || runtime?.evidence?.provider_run_id_source), taskId: text(runtime?.task_id || metadata[META.taskId] || run?.id), checkpoint: text(runtime?.checkpoint_ref || metadata[META.checkpoint] || run?.checkpoint), observedAt, heartbeatAt, nextStep: text(metadata[META.nextStep]), quotaState: text(runtime?.quota_state), providerAck: text(runtime?.evidence?.provider_ack || metadata.zhuge_provider_ack), prUrl: text(metadata[META.pr]), sha: text(metadata[META.sha]), ciUrl: text(metadata[META.ci]), statusSource: text(runtime?.status_source || metadata[META.source]) || (runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), evidenceSource: runtime ? "TASKFLOW_RUNTIME_READ_MODEL" : (run ? "TASKFLOW_TASK_RUN" : "TASKFLOW_ISSUE_METADATA"), pmDecisionRequired, raw: issue };
