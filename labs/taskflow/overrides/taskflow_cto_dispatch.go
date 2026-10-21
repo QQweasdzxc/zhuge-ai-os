@@ -66,7 +66,7 @@ func ctoDispatchMutationHTTPError(err error) (int, string) {
 // delegating task creation to the existing RerunIssue service. An empty
 // allowlist fails closed. The native service response is a TaskFlow task, not
 // a Provider ACK or Provider Run ID.
-func issueIDString(issue db.Issue) string {\n\treturn uuidToString(issue.ID)\n}\n\n// CTODispatchIssue is the protected dispatch outlet.\nfunc (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
+// CTODispatchIssue is the protected dispatch outlet.\nfunc (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	issue, ok := h.loadIssueForUser(w, r, id)
 	if !ok {
