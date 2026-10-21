@@ -124,11 +124,14 @@ jobs:
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch_test.go internal/handler/taskflow_cto_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_dispatch_test.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime_test.go internal/handler/taskflow_dispatch_runtime_test.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
           gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go
           gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
           test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go)"
       - name: Run backend tests
