@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { useCurrentWorkspace, useWorkspacePaths, useWorkspaceSlug } from "@multica/core/paths";
 import { AppLink } from "../navigation";
-import { DISPATCH_EXECUTORS, normalizeDispatchIssue, hasDispatchEvidence, buildPmInboxEntries } from "./taskflow-dispatch-logic.mjs";
+import { DISPATCH_EXECUTORS, normalizeDispatchIssue, hasDispatchEvidence, buildPmInboxEntries, nativeTaskStateKey, nativeTaskStateLabel } from "./taskflow-dispatch-logic.mjs";
 
 const PAGE_SIZE = 20;
 const stateLabels: Record<string, string> = { UNKNOWN: "未驗證", STALE: "觀測已過期", BLOCKED: "工程阻擋", FAILED: "失敗", DONE: "完成", ACK_PENDING: "等待 Provider 接單", RUNNING: "正在執行", CANCELLED: "已取消", REVIEW: "待驗收" };
@@ -36,9 +36,10 @@ async function listAllWorkspaceIssues(workspaceId: string): Promise<WorkspaceIss
 }
 
 function workloadState(assigned: any[]): string {
-  if (!assigned.length) return "目前沒有派工案件";
-  if (assigned.some(item => item.status === "RUNNING")) return "已驗證執行中";
-  if (assigned.every(item => item.status === "UNKNOWN")) return "Runtime 未驗證";
+  if (!assigned.length) return "目前沒有進行中的 TF 工作";
+  if (assigned.some(item => item.status === "RUNNING")) return "已驗證 Provider 執行中";
+  if (assigned.some(item => ["IN_PROGRESS", "RUNNING"].includes(nativeTaskStateKey(item)))) return "有 TF 進行中的工作；Provider 未驗證";
+  if (assigned.every(item => ["UNKNOWN", "UNVERIFIED"].includes(item.status))) return "TF 有工作；Provider Runtime 未驗證";
   if (assigned.some(item => item.status === "STALE")) return "觀測已過期";
   return "目前無可驗證的執行中案件";
 }
@@ -86,11 +87,14 @@ export function TaskFlowDispatchCenter() {
   const items = (query.data?.issues || []).map(issue => normalizeDispatchIssue(issue)).filter(hasDispatchEvidence);
   const visible = items.filter(item => (!executor || item.executor === executor) && (!search || item.title.toLowerCase().includes(search.toLowerCase())));
   const pageVisible = visible.slice(offset, offset + PAGE_SIZE);
-  const inbox = buildPmInboxEntries(visible);
+  const inbox = buildPmInboxEntries(items);
+  const filteredInbox = buildPmInboxEntries(visible);
   const workload = DISPATCH_EXECUTORS.map(value => {
     const assigned = items.filter(item => item.executor === value);
     const running = assigned.filter(item => item.status === "RUNNING");
-    return { value, assigned, running, state: workloadState(assigned) };
+    const notStarted = assigned.filter(item => ["TODO", "CREATED", "NEW", "BACKLOG", "PENDING", "ASSIGNED"].includes(nativeTaskStateKey(item)));
+    const reviewOrBlocked = assigned.filter(item => ["REVIEW", "BLOCKED", "FAILED", "STALE"].includes(nativeTaskStateKey(item)) || ["BLOCKED", "FAILED", "STALE"].includes(item.status));
+    return { value, assigned, running, notStarted, reviewOrBlocked, state: workloadState(assigned) };
   });
   return <main data-testid="taskflow-native-dispatch-center" className="h-full min-w-0 overflow-y-auto p-4 md:p-6">
     <div className="mx-auto max-w-6xl space-y-4">
@@ -100,11 +104,13 @@ export function TaskFlowDispatchCenter() {
       {query.data?.complete && <p className="text-sm text-muted-foreground">已載入 Workspace 全部 {items.length} 件 AI 派工案件（原生 Issue {query.data.total} 件）；統計與 PM Inbox 不受每頁 20 件限制。展開單一案件才讀取 Runtime，避免逐卡背景請求。</p>}
       {query.data && !query.data.complete && <p role="status" className="text-sm text-amber-700">工作總覽尚未完成，暫不顯示全 Workspace 統計。</p>}
       {query.isError ? <div role="alert">案件讀取失敗：{query.error.message}。請確認登入與 Workspace 權限後重新整理。</div> : query.isPending ? <p role="status">載入案件…</p> : <>
-        <WorkloadPanel workload={workload} />
-        <section className={panel} aria-label="PM Inbox"><h2 className="font-semibold">PM Inbox · 全 Workspace {inbox.length} 件</h2><p className="text-sm text-muted-foreground">AI 派工待裁示／待驗收清單，與 TF 通知 Inbox 分開。填報狀態尚待受保護證據核實。</p>{inbox.length ? <ul>{inbox.map(item => <li key={item.id} className="py-2"><AppLink href={paths.issueDetail(item.id)}>{item.categoryLabel} · {item.title}</AppLink></li>)}</ul> : <p>本 Workspace 沒有待處理 AI 案件。</p>}</section>
+        {query.data?.complete ? <>
+          <WorkloadPanel workload={workload} paths={paths} />
+          <section className={panel} aria-label="PM Inbox"><h2 className="font-semibold">PM Inbox · Workspace 總數 {inbox.length} 件</h2><p className="text-sm text-muted-foreground">目前篩選結果 {filteredInbox.length} 件；總數不受 Executor／搜尋篩選改寫。AI 派工待裁示／待驗收清單，與 TF 通知 Inbox 分開。</p>{inbox.length ? <ul>{inbox.map(item => <li key={item.id} className="py-2"><AppLink href={paths.issueDetail(item.id)}>{item.categoryLabel} · {item.title}</AppLink></li>)}</ul> : <p>本 Workspace 沒有待處理 AI 案件。</p>}</section>
+        </> : null}
         <section aria-label="AI 任務總覽" className="grid min-w-0 gap-3 md:grid-cols-2">{pageVisible.map(item => <article key={item.id} className={panel}>
           <AppLink className="block break-words font-medium underline-offset-4 hover:underline" href={paths.issueDetail(item.id)}>{item.identifier || item.workCode || item.id} · {item.title}</AppLink>
-          <p className="my-2 text-sm">Executor：{item.executor || "未指定"} · 狀態：未驗證</p>
+          <p className="my-2 break-words text-sm">Executor：{item.executor || "未指定"} · TF 原生狀態：{nativeTaskStateLabel(item)} · Provider Runtime：{stateLabels[item.status] || item.status || "未驗證"}</p>
           <GitHubEvidence label="PR" value={item.prUrl} /><GitHubEvidence label="CI" value={item.ciUrl} />{item.sha && <p className="break-all text-xs">SHA（填報證據）：{item.sha}</p>}
           <button className="mt-3 min-h-10 rounded border px-3" aria-expanded={expanded === item.id} onClick={() => setExpanded(expanded === item.id ? "" : item.id)}>查看執行證據</button>
           {expanded === item.id && <TaskFlowDispatchRuntime key={workspace?.id + item.id} issueId={item.id} />}
@@ -117,8 +123,9 @@ export function TaskFlowDispatchCenter() {
   </main>;
 }
 
-function WorkloadPanel({ workload }: { workload: Array<{ value: string; assigned: any[]; running: any[]; state: string }> }) {
-  return <section className={`${panel} grid gap-3 md:grid-cols-2`} aria-label="Workspace 工作負載"><h2 className="md:col-span-2 font-semibold">Workspace 工作負載</h2>{workload.map(entry => <article key={entry.value} className="rounded border p-3"><h3 className="font-medium">{entry.value}</h3><p className="text-sm">負責案件：{entry.assigned.length} · {entry.state}</p>{entry.running.length ? <ul className="mt-1 list-disc pl-5 text-sm">{entry.running.map(item => <li key={item.id}>{item.identifier || item.id} · {item.title}</li>)}</ul> : <p className="mt-1 text-sm text-muted-foreground">沒有可驗證的進行中案件；Provider Runtime 未綁定時不推論 AI 正在工作。</p>}</article>)}</section>;
+function WorkloadPanel({ workload, paths }: { workload: Array<{ value: string; assigned: any[]; running: any[]; notStarted: any[]; reviewOrBlocked: any[]; state: string }>; paths: any }) {
+  const [expandedExecutor, setExpandedExecutor] = useState("");
+  return <section className={`${panel} grid gap-3 md:grid-cols-2`} aria-label="Workspace 工作負載"><h2 className="md:col-span-2 font-semibold">Workspace 工作負載</h2>{workload.map(entry => <article key={entry.value} className="min-w-0 rounded border p-3"><h3 className="break-words font-medium">{entry.value}{entry.value === "GH-HELPER" ? "（GitHub 輔助角色）" : ""}</h3><p className="break-words text-sm">負責工作：{entry.assigned.length} · TF 進行中：{entry.assigned.filter(item => ["IN_PROGRESS", "RUNNING"].includes(nativeTaskStateKey(item))).length} · 尚未開始：{entry.notStarted.length} · 待驗收／阻擋：{entry.reviewOrBlocked.length}</p><p className="break-words text-sm text-muted-foreground">{entry.state}</p><button className="mt-2 min-h-10 rounded border px-3" aria-expanded={expandedExecutor === entry.value} onClick={() => setExpandedExecutor(expandedExecutor === entry.value ? "" : entry.value)}>{expandedExecutor === entry.value ? "收合工作清單" : "查看工作清單"}</button>{expandedExecutor === entry.value && (entry.assigned.length ? <ul className="mt-2 space-y-2 text-sm">{entry.assigned.map(item => <li key={item.id} className="min-w-0 break-words"><AppLink href={paths.issueDetail(item.id)}>{item.identifier || item.id} · {item.title}</AppLink><span className="ml-1 text-muted-foreground">（TF：{nativeTaskStateLabel(item)}）</span></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">目前沒有可列出的 TF 工作。</p>)}</article>)}</section>;
 }
 
 function GitHubEvidence({ label, value }: { label: string; value: string }) {

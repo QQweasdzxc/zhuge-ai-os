@@ -25,6 +25,13 @@ workspace membership remain unchanged. Frozen Multica source is not edited.
   complete loaded set; an incomplete read is explicitly marked incomplete.
 - PM Inbox distinguishes PM decision/acceptance from engineering failure or
   blockage. Metadata-derived requests are labelled as awaiting verification.
+- Every card renders the native TaskFlow status separately from the protected
+  Provider Runtime status. A mutable metadata RUNNING value never upgrades the
+  Provider state.
+- Workspace workload cards expose total assigned, native in-progress,
+  not-started, review/blocked counts and expandable links to each native Issue.
+  The PM Inbox total is calculated from the complete Workspace set and is not
+  rewritten by executor/search filters.
 - Native terminal task status is labelled TaskFlow native task evidence and
   cannot imply official Provider success. Missing binding stays unverified.
 - Start/dispatch controls in the new center remain disabled. No costs, quota,

@@ -3,6 +3,11 @@ export const DISPATCH_EXECUTORS = Object.freeze(["CO-01", "CO-02", "CO-03", "GEM
 export const DISPATCH_STATES = Object.freeze(["CREATED", "ACK_PENDING", "ASSIGNED", "RUNNING", "BLOCKED", "REVIEW", "DONE", "FAILED", "STALE", "UNKNOWN", "CANCELLED"]);
 export const CANONICAL_RUNTIME_SCHEMA = "zhuge-taskflow-dispatch-persistence-v1";
 export const CANONICAL_RUNTIME_SOURCE = "TASKFLOW_RUNTIME_READ_MODEL";
+export const NATIVE_TASK_STATE_LABELS = Object.freeze({
+  TODO: "待處理", CREATED: "待處理", NEW: "待處理", BACKLOG: "待處理", PENDING: "待處理",
+  IN_PROGRESS: "進行中", RUNNING: "進行中", BLOCKED: "阻擋", REVIEW: "待驗收",
+  DONE: "完成", COMPLETED: "完成", CANCELLED: "已取消", CANCELED: "已取消",
+});
 const VERIFIED_PROVIDER_RUN_SOURCES = new Set(["provider_event", "native_readback"]);
 const HEARTBEAT_TTL_MS = 15 * 60 * 1000;
 const OBSERVED_TTL_MS = 60 * 60 * 1000;
@@ -10,6 +15,13 @@ const META = Object.freeze({ workCode: "zhuge_work_code", owner: "zhuge_owner", 
 const text = value => typeof value === "string" ? value.trim() : "";
 const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
 const booleanValue = value => value === true || ["true", "1", "yes"].includes(text(value).toLowerCase());
+export function nativeTaskStateKey(item) {
+  return text(item?.raw?.status || item?.rawState || item?.status).toUpperCase().replace(/[- ]/g, "_") || "UNKNOWN";
+}
+export function nativeTaskStateLabel(item) {
+  const key = nativeTaskStateKey(item);
+  return NATIVE_TASK_STATE_LABELS[key] || text(item?.raw?.status || item?.rawState) || "未提供";
+}
 export function metadataKeys() { return META; }
 export function normalizeExecutor(value) {
   const v = text(value).toUpperCase();
