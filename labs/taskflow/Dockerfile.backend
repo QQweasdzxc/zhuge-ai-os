@@ -34,6 +34,8 @@ COPY labs/taskflow/overrides/taskflow_dispatch_authority.go /tmp/taskflow_dispat
 COPY labs/taskflow/overrides/taskflow_dispatch_authority_test.go /tmp/taskflow_dispatch_authority_test.go
 COPY labs/taskflow/overrides/taskflow_cto_dispatch.go /tmp/taskflow_cto_dispatch.go
 COPY labs/taskflow/overrides/taskflow_cto_dispatch_test.go /tmp/taskflow_cto_dispatch_test.go
+COPY labs/taskflow/overrides/taskflow_provider_dispatch.go /tmp/taskflow_provider_dispatch.go
+COPY labs/taskflow/overrides/taskflow_provider_dispatch_test.go /tmp/taskflow_provider_dispatch_test.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime.go /tmp/taskflow_dispatch_runtime.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime_test.go /tmp/taskflow_dispatch_runtime_test.go
 COPY labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py /tmp/apply-taskflow-cto-dispatch-route.py
@@ -54,6 +56,8 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_dispatch_authority_test.go /src/server/internal/handler/taskflow_dispatch_authority_test.go \
  && cp /tmp/taskflow_cto_dispatch.go /src/server/internal/handler/taskflow_cto_dispatch.go \
  && cp /tmp/taskflow_cto_dispatch_test.go /src/server/internal/handler/taskflow_cto_dispatch_test.go \
+ && cp /tmp/taskflow_provider_dispatch.go /src/server/internal/handler/taskflow_provider_dispatch.go \
+ && cp /tmp/taskflow_provider_dispatch_test.go /src/server/internal/handler/taskflow_provider_dispatch_test.go \
  && cp /tmp/taskflow_dispatch_runtime.go /src/server/internal/handler/taskflow_dispatch_runtime.go \
  && cp /tmp/taskflow_dispatch_runtime_test.go /src/server/internal/handler/taskflow_dispatch_runtime_test.go \
  && python3 /tmp/patch-router-contract-test-main.py
@@ -90,10 +94,11 @@ COPY --from=source /src /src
 RUN cd server && go mod download
 RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go \
  && gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go \
- && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go \
+ && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go \
  && gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
- && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
+ && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1 \
+ && CGO_ENABLED=0 go test ./internal/handler -run '^TestDispatchToProvider' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
  && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
