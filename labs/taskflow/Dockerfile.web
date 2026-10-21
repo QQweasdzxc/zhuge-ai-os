@@ -2,9 +2,8 @@
 # Multica source is copied from the immutable local vendor snapshot; no source clone.
 ARG MULTICA_SOURCE_SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec
 
-FROM alpine:3.21 AS source
+FROM python:3.12-alpine AS source
 ARG MULTICA_SOURCE_SHA
-RUN apk add --no-cache python3
 WORKDIR /
 COPY third_party/multica/ /src/
 RUN test "${MULTICA_SOURCE_SHA}" = "8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec" \
