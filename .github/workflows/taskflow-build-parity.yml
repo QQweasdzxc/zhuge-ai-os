@@ -17,6 +17,7 @@ on:
       - review/dm00-dm03-phase2-runtime-advance-20261020
       - review/dm00-dm03-phase2-runtime-hardening-20261020
       - review/co01-phase2-integration-20261020
+      - review/issue-115-live-dispatch-20261021
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
