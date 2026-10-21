@@ -11,32 +11,40 @@ const PAGE_SIZE = 20;
 const stateLabels: Record<string, string> = { UNKNOWN: "未驗證", STALE: "觀測已過期", BLOCKED: "工程阻擋", FAILED: "失敗", DONE: "完成", ACK_PENDING: "等待 Provider 接單", RUNNING: "正在執行", CANCELLED: "已取消", REVIEW: "待驗收" };
 const panel = "min-w-0 rounded-lg border bg-card p-4 text-card-foreground";
 
-type WorkspaceIssues = { issues: any[]; total: number; complete: boolean };
+type WorkspaceIssues = { issues: any[]; total: number; complete: boolean; observedAt: string };
 
-/** Read every permitted page once so workload and Inbox counts are not page-scoped. */
+/** Read all permitted pages; fail closed on observable drift. Native offset
+ * pagination has NO snapshot token: successful reads remain non-atomic. */
 async function listAllWorkspaceIssues(workspaceId: string): Promise<WorkspaceIssues> {
   const issues: any[] = [];
   const seen = new Set<string>();
   let offset = 0;
-  let total = 0;
+  let expectedTotal: number | null = null;
   while (true) {
     const response = await api.listIssues({ workspace_id: workspaceId, limit: PAGE_SIZE, offset });
-    total = Math.max(total, Number(response.total) || 0);
-    for (const issue of response.issues) {
-      if (issue.workspace_id !== workspaceId) throw new Error("案件工作空間不一致");
+    const total = response?.total;
+    const page = response?.issues;
+    if (!Number.isSafeInteger(total) || total < 0 || !Array.isArray(page) || page.length > PAGE_SIZE)
+      throw new Error("案件分頁資料與總數不一致");
+    if (expectedTotal !== null && total !== expectedTotal)
+      throw new Error("案件總數於分頁讀取期間變動，請重新整理");
+    expectedTotal = total;
+    if (page.length !== Math.min(PAGE_SIZE, total - offset))
+      throw new Error("案件分頁提早結束或數量不一致，無法顯示全量統計");
+    for (const issue of page) {
+      if (!issue?.id || issue.workspace_id !== workspaceId) throw new Error("案件工作空間不一致");
       if (seen.has(issue.id)) throw new Error("案件分頁重複，工作總覽未完成");
       seen.add(issue.id);
       issues.push(issue);
     }
-    const pageSize = response.issues.length;
-    if (issues.length >= total || pageSize === 0 || pageSize < PAGE_SIZE) break;
-    offset += pageSize;
+    offset += page.length;
+    if (offset === total) break;
   }
-  return { issues, total, complete: issues.length >= total };
+  return { issues, total: expectedTotal!, complete: true, observedAt: new Date().toISOString() };
 }
 
 function workloadState(assigned: any[]): string {
-  if (!assigned.length) return "目前沒有進行中的 TF 工作";
+  if (!assigned.length) return "本次讀取未發現指派的 TF 工作；Provider 是否在線仍未驗證";
   if (assigned.some(item => item.status === "RUNNING")) return "已驗證 Provider 執行中";
   if (assigned.some(item => ["IN_PROGRESS", "RUNNING"].includes(nativeTaskStateKey(item)))) return "有 TF 進行中的工作；Provider 未驗證";
   if (assigned.every(item => ["UNKNOWN", "UNVERIFIED"].includes(item.status))) return "TF 有工作；Provider Runtime 未驗證";
@@ -101,9 +109,9 @@ export function TaskFlowDispatchCenter() {
       <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold">AI 派工中心</h1><p className="text-sm text-muted-foreground">{workspace?.name} · 共用 TaskFlow 原生案件</p></div><button className="min-h-10 rounded-md border px-4" disabled={query.isFetching} onClick={() => void query.refetch()}>重新整理</button></header>
       <p className="rounded-md border p-3 text-sm">正式 Provider 尚未綁定。派工執行、ACK、成本與額度尚未接通。</p>
       <div className="flex flex-wrap gap-3"><label>Executor <select aria-label="Executor" className="min-h-10 rounded border bg-background px-2" value={executor} onChange={e => { setExecutor(e.target.value); setOffset(0); }}><option value="">全部五位 Executor</option>{DISPATCH_EXECUTORS.map(value => <option key={value}>{value}</option>)}</select></label><label>搜尋 Workspace 工作 <input aria-label="搜尋 Workspace 工作" className="min-h-10 max-w-full rounded border bg-background px-2" value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /></label></div>
-      {query.data?.complete && <p className="text-sm text-muted-foreground">已載入 Workspace 全部 {items.length} 件 AI 派工案件（原生 Issue {query.data.total} 件）；統計與 PM Inbox 不受每頁 20 件限制。展開單一案件才讀取 Runtime，避免逐卡背景請求。</p>}
+      {query.data?.complete && <p className="text-sm text-muted-foreground">本次讀取 Workspace 可見的 {items.length} 件 AI 派工案件（原生 Issue {query.data.total} 件）；觀測時間：{new Date(query.data.observedAt).toLocaleString("zh-TW")}。分頁非原子快照，可能受到讀取期間卡片變動影響，非即時精確總數。展開單一案件才讀取 Runtime。</p>}
       {query.data && !query.data.complete && <p role="status" className="text-sm text-amber-700">工作總覽尚未完成，暫不顯示全 Workspace 統計。</p>}
-      {query.isError ? <div role="alert">案件讀取失敗：{query.error.message}。請確認登入與 Workspace 權限後重新整理。</div> : query.isPending ? <p role="status">載入案件…</p> : <>
+      {query.isError ? <div role="alert">案件讀取失敗：{query.error.message}。本次資料不完整，無法顯示全量結論。請確認登入與 Workspace 權限後重新整理。<button className="ml-2 min-h-10 rounded border px-3" onClick={() => void query.refetch()}>重試</button></div> : query.isPending ? <p role="status">載入案件…</p> : <>
         {query.data?.complete ? <>
           <WorkloadPanel workload={workload} paths={paths} />
           <section className={panel} aria-label="PM Inbox"><h2 className="font-semibold">PM Inbox · Workspace 總數 {inbox.length} 件</h2><p className="text-sm text-muted-foreground">目前篩選結果 {filteredInbox.length} 件；總數不受 Executor／搜尋篩選改寫。AI 派工待裁示／待驗收清單，與 TF 通知 Inbox 分開。</p>{inbox.length ? <ul>{inbox.map(item => <li key={item.id} className="py-2"><AppLink href={paths.issueDetail(item.id)}>{item.categoryLabel} · {item.title}</AppLink></li>)}</ul> : <p>本 Workspace 沒有待處理 AI 案件。</p>}</section>

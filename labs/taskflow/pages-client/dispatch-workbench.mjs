@@ -15,12 +15,30 @@ const META = Object.freeze({ workCode: "zhuge_work_code", owner: "zhuge_owner", 
 const text = value => typeof value === "string" ? value.trim() : "";
 const metadataOf = issue => issue?.metadata && typeof issue.metadata === "object" ? issue.metadata : {};
 const booleanValue = value => value === true || ["true", "1", "yes"].includes(text(value).toLowerCase());
+const BUILT_IN_NATIVE_STATE = Object.freeze({
+  BACKLOG: "BACKLOG", TODO: "TODO", IN_PROGRESS: "IN_PROGRESS", IN_REVIEW: "REVIEW",
+  BLOCKED: "BLOCKED", DONE: "DONE", CANCELLED: "CANCELLED",
+});
+const CATEGORY_NATIVE_STATE = Object.freeze({
+  unstarted: "TODO", started: "IN_PROGRESS", done: "DONE", closed: "CANCELLED",
+  completed: "DONE", canceled: "CANCELLED",
+});
 export function nativeTaskStateKey(item) {
-  return text(item?.raw?.status || item?.rawState || item?.status).toUpperCase().replace(/[- ]/g, "_") || "UNKNOWN";
+  const issue = item?.raw || item || {};
+  const status = text(issue?.status).toUpperCase().replace(/[- ]/g, "_");
+  // Built-in keys are more specific than their lifecycle category.
+  if (Object.hasOwn(BUILT_IN_NATIVE_STATE, status)) return BUILT_IN_NATIVE_STATE[status];
+  // Custom keys must use the server-resolved category, never guess from labels.
+  const category = text(issue?.status_category).toLowerCase();
+  return CATEGORY_NATIVE_STATE[category] || "UNKNOWN";
 }
 export function nativeTaskStateLabel(item) {
+  const issue = item?.raw || item || {};
+  const rawStatus = text(issue?.status);
   const key = nativeTaskStateKey(item);
-  return NATIVE_TASK_STATE_LABELS[key] || text(item?.raw?.status || item?.rawState) || "未提供";
+  if (Object.hasOwn(BUILT_IN_NATIVE_STATE, rawStatus.toUpperCase().replace(/[- ]/g, "_")))
+    return NATIVE_TASK_STATE_LABELS[key] || rawStatus;
+  return text(issue?.status_name) || rawStatus || "未提供";
 }
 export function metadataKeys() { return META; }
 export function normalizeExecutor(value) {

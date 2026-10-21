@@ -22,12 +22,13 @@ workspace membership remain unchanged. Frozen Multica source is not edited.
   selected Workspace's reported total is reached. Duplicate IDs and
   cross-Workspace records fail closed. The UI still renders 20 cards at a
   time, but executor workload and PM Inbox counts are calculated from the
-  complete loaded set; an incomplete read is explicitly marked incomplete.
+  complete loaded set; page totals, short/early pages and duplicates fail closed. Because native offset pages and COUNT(*) have no shared snapshot token, even a consistent read is labelled as a non-atomic, as-of observation, not a guaranteed instantaneous total.
 - PM Inbox distinguishes PM decision/acceptance from engineering failure or
   blockage. Metadata-derived requests are labelled as awaiting verification.
 - Every card renders the native TaskFlow status separately from the protected
   Provider Runtime status. A mutable metadata RUNNING value never upgrades the
   Provider state.
+- Native custom status keys use the server-resolved status_category for lifecycle grouping; their status_name is retained for display, and unresolved custom categories remain UNKNOWN.
 - Workspace workload cards expose total assigned, native in-progress,
   not-started, review/blocked counts and expandable links to each native Issue.
   The PM Inbox total is calculated from the complete Workspace set and is not
