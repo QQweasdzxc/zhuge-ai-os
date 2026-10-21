@@ -18,8 +18,11 @@ workspace membership remain unchanged. Frozen Multica source is not edited.
 - Runtime is read only from `GET /api/issues/{id}/dispatch-runtime`, on demand
   for an expanded card or the native Issue Detail panel. No per-card background
   runtime requests or invented Workspace totals are used.
-- Twenty native Issues are loaded per page. Executor/search/PM Inbox counts
-  explicitly apply to that page; pagination preserves access to later Issues.
+- The protected read uses the native paginated Issue API sequentially until the
+  selected Workspace's reported total is reached. Duplicate IDs and
+  cross-Workspace records fail closed. The UI still renders 20 cards at a
+  time, but executor workload and PM Inbox counts are calculated from the
+  complete loaded set; an incomplete read is explicitly marked incomplete.
 - PM Inbox distinguishes PM decision/acceptance from engineering failure or
   blockage. Metadata-derived requests are labelled as awaiting verification.
 - Native terminal task status is labelled TaskFlow native task evidence and
@@ -32,8 +35,8 @@ workspace membership remain unchanged. Frozen Multica source is not edited.
 
 Overlay drift tests verify the route/sidebar/API patch and Frozen Vendor hashes.
 Native component tests cover single-Issue links, five executors, no runtime
-fan-out, forged metadata, identity mismatch, permissions, empty data and native
-terminal status. The browser fixture mounts the same native React component,
+fan-out, forged metadata, identity mismatch, permissions, empty data, native
+terminal status, and a 45-Issue/three-page Workspace read. The browser fixture mounts the same native React component,
 native ApiClient, Workspace context and navigation with intercepted API data;
 it is isolated QA, not a real-user session or Provider E2E result.
 
