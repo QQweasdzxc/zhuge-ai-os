@@ -46,14 +46,14 @@ func parseCTODispatchMutationRequest(body []byte) (CTODispatchMutationRequest, e
 }
 
 func ctoDispatchProviderHTTPError(err error) (int, string) {
-\tswitch {
-\tcase errors.Is(err, ErrTaskFlowProviderUnavailable):
-\t\treturn http.StatusServiceUnavailable, "provider dispatch is not bound"
-\tcase errors.Is(err, ErrTaskFlowProviderAckInvalid):
-\t\treturn http.StatusBadGateway, "provider ACK is not verified"
-\tdefault:
-\t\treturn http.StatusBadGateway, "provider dispatch failed"
-\t}
+	switch {
+	case errors.Is(err, ErrTaskFlowProviderUnavailable):
+		return http.StatusServiceUnavailable, "provider dispatch is not bound"
+	case errors.Is(err, ErrTaskFlowProviderAckInvalid):
+		return http.StatusBadGateway, "provider ACK is not verified"
+	default:
+		return http.StatusBadGateway, "provider dispatch failed"
+	}
 }
 
 func ctoDispatchMutationHTTPError(err error) (int, string) {
@@ -120,21 +120,21 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Do not create a native task until an officially supported provider has
-\t// returned a verified ACK and Provider Run ID. The default dispatcher is
-\t// fail-closed, so this endpoint cannot imply provider execution.
-\t_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{
-\t\tIssueID: uuidToString(issue.ID),
-\t\tWorkspaceID: workspaceID,
-\t\tAuthenticatedUserID: userID,
-\t\tTaskID: request.TaskID,
-\t\tExecutorID: request.Executor,
-\t\tProvider: request.Provider,
-\t})
-\tif err != nil {
-\t\tstatus, message := ctoDispatchProviderHTTPError(err)
-\t\twriteError(w, status, message)
-\t\treturn
-\t}
+	// returned a verified ACK and Provider Run ID. The default dispatcher is
+	// fail-closed, so this endpoint cannot imply provider execution.
+	_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{
+		IssueID: uuidToString(issue.ID),
+		WorkspaceID: workspaceID,
+		AuthenticatedUserID: userID,
+		TaskID: request.TaskID,
+		ExecutorID: request.Executor,
+		Provider: request.Provider,
+	})
+	if err != nil {
+		status, message := ctoDispatchProviderHTTPError(err)
+		writeError(w, status, message)
+		return
+	}
 
 	// RerunIssue is the existing native TaskFlow mutation. Strip the
 	// authorization-only fields before delegating so the frozen handler sees
