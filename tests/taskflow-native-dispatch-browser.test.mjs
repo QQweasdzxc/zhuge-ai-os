@@ -34,7 +34,9 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
  const request=requests.find(r=>r.path.endsWith("/dispatch-runtime")); assert.equal(request.headers["x-workspace-slug"],"alpha"); assert.match(request.headers.authorization,/Bearer isolated-browser/);
  const size=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth})); assert.ok(size.scroll<=size.width,JSON.stringify(size));
  await mkdir(screenshotDir,{recursive:true}); await page.screenshot({path:`${screenshotDir}/native-dispatch-${viewport.width}x${viewport.height}.png`,fullPage:true});
- await page.getByRole("link",{name:/ZG-42/}).click(); assert.equal(await page.getByLabel("原生導覽路徑").innerText(),"/alpha/issues/issue-a");
+ await page.getByRole("link",{name:/ZG-42/}).click();
+ await page.waitForFunction(expected => document.querySelector('[aria-label="原生導覽路徑"]')?.textContent === expected, "/alpha/issues/issue-a");
+ assert.equal(await page.getByLabel("原生導覽路徑").innerText(),"/alpha/issues/issue-a");
  await page.getByRole("button",{name:"切換 Beta"}).click(); await page.getByText("本頁沒有符合條件的 AI 工作。").waitFor(); assert.equal(await page.getByRole("link",{name:/ZG-42/}).count(),0);
 });
 for(const status of [401,403,503])test(`native dispatch API ${status} remains error`,{skip:!URL_BASE},async t=>{const {page}=await setup(t,{status}); await page.getByRole("alert").waitFor(); assert.equal(await page.getByText("本頁沒有符合條件的 AI 工作。").count(),0);});
