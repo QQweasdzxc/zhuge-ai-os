@@ -23,6 +23,6 @@ test("PM Inbox has truthful success, empty and API-error branches", () => {
 });
 
 test("detail status uses conservative runtime normalization instead of native task-run inference", () => {
-  assert.match(app, /const dispatchState=normalizeDispatchIssue\(issue,runs\)\.status/);
+  assert.match(app, /normalizeDispatchIssue\(issue,runs,Date\.now\(\),trustedRuntime\)\.status/);
   assert.match(app, /const status=runtime\.status/);
 });
