@@ -43,7 +43,9 @@ describe("native dispatch center", () => {
     state.list.mockResolvedValue({ issues: [unknown], total: 1 });
     mount();
     await screen.findByText(/TF 原生狀態：作業進行中/);
-    expect(screen.getByText(/TF 進行中：0/)).toBeTruthy();
+    const card = screen.getByRole("heading", { name: "CO-03" }).closest("article");
+    expect(card).toBeTruthy();
+    expect(within(card!).getByText(/TF 進行中：0/)).toBeTruthy();
   });
   it("fails closed when pagination total changes across pages", async () => {
     const all = Array.from({ length: 21 }, (_, i) => ({ ...issue, id: `issue-${i}` }));

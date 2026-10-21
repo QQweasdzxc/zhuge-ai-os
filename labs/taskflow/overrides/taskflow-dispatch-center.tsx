@@ -24,15 +24,23 @@ async function listAllWorkspaceIssues(workspaceId: string): Promise<WorkspaceIss
     const response = await api.listIssues({ workspace_id: workspaceId, limit: PAGE_SIZE, offset });
     const total = response?.total;
     const page = response?.issues;
-    if (!Number.isSafeInteger(total) || total < 0 || !Array.isArray(page) || page.length > PAGE_SIZE)
+    if (!Array.isArray(page) || page.length > PAGE_SIZE)
+      throw new Error("案件分頁資料與總數不一致");
+    // Workspace mismatch takes priority over a malformed/missing count: do not
+    // mask authorization and identity errors as a pagination problem.
+    for (const issue of page) {
+      if (!issue?.id || issue.workspace_id !== workspaceId) throw new Error("案件工作空間不一致");
+    }
+    if (!Number.isSafeInteger(total) || total < 0)
       throw new Error("案件分頁資料與總數不一致");
     if (expectedTotal !== null && total !== expectedTotal)
       throw new Error("案件總數於分頁讀取期間變動，請重新整理");
     expectedTotal = total;
-    if (page.length !== Math.min(PAGE_SIZE, total - offset))
+    if (page.length > total - offset)
+      throw new Error("案件分頁資料與總數不一致");
+    if (page.length < Math.min(PAGE_SIZE, total - offset))
       throw new Error("案件分頁提早結束或數量不一致，無法顯示全量統計");
     for (const issue of page) {
-      if (!issue?.id || issue.workspace_id !== workspaceId) throw new Error("案件工作空間不一致");
       if (seen.has(issue.id)) throw new Error("案件分頁重複，工作總覽未完成");
       seen.add(issue.id);
       issues.push(issue);
