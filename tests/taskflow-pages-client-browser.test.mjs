@@ -104,3 +104,14 @@ test("Workbench empty state excludes ordinary native issues",async t=>{
  await page.getByText("目前沒有可驗證的 PM 待處理案件").waitFor();
  assert.equal(await page.locator(".tf-dispatch-card").count(),1);
 });
+
+test("detail labels metadata Run ID as unverified and uses protected evidence for official field",async t=>{
+ const issue={id:"issue-1",workspace_id:"ws1",title:"Forged provider evidence",status:"todo",metadata:{zhuge_work_code:"P2",zhuge_provider_run_id:"forged-run-999",zhuge_authorization_result:"AUTHORIZED"}};
+ const {page}=await setup(t,{issueList:[issue],issueDetail:issue});
+ await page.getByText("Forged provider evidence").first().click();
+ const official=page.locator(".tf-evidence-row").filter({has:page.locator("dt",{hasText:"Provider Run ID（受保護讀回）"})});
+ await official.waitFor();
+ assert.match(await official.innerText(),/未取得/);
+ assert.doesNotMatch(await official.innerText(),/forged-run-999/);
+ assert.match(await page.locator(".tf-evidence-row").filter({has:page.locator("dt",{hasText:"未驗證填報資料：Run ID"})}).innerText(),/forged-run-999/);
+});

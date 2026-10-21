@@ -352,10 +352,11 @@ function renderDispatchEvidence(container,issue,runs,trustedRuntime){
   appendEvidenceRow(grid,"來源證據",evidence.sourceEvidence,{link:true});
   appendEvidenceRow(grid,"驗收條件",evidence.acceptance);
   appendEvidenceRow(grid,"TaskFlow task ID",evidence.taskId);
-  appendEvidenceRow(grid,"Provider",evidence.provider);
-  appendEvidenceRow(grid,"Provider Run ID",evidence.providerRunId||"未取得（不可用 TaskFlow task ID 代替）");
-  appendEvidenceRow(grid,"觀測時間",issue.metadata?.[DISPATCH_METADATA_KEYS.observedAt]);
-  appendEvidenceRow(grid,"CTO 授權",runtime.authorizedBy||issue.metadata?.[DISPATCH_METADATA_KEYS.authorizationResult]||"未取得");
+  appendEvidenceRow(grid,"Provider（受保護讀回）",runtime.provider||"未驗證");
+  appendEvidenceRow(grid,"Provider Run ID（受保護讀回）",runtime.providerRunId||"未取得（不可用 TaskFlow task ID 代替）");
+  if(evidence.providerRunId)appendEvidenceRow(grid,"未驗證填報資料：Run ID",evidence.providerRunId);
+  appendEvidenceRow(grid,"觀測時間（受保護讀回）",runtime.observedAt);
+  appendEvidenceRow(grid,"CTO 授權（受保護讀回）",runtime.authorizedBy||"未驗證");
   appendEvidenceRow(grid,"Provider ACK",runtime.providerAck||"未驗證");
   appendEvidenceRow(grid,"Quota",runtime.quotaState||"未取得");
   appendEvidenceRow(grid,"Checkpoint",runtime.checkpoint||"未取得");

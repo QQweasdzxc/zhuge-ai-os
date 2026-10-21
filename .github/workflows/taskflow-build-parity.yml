@@ -79,6 +79,30 @@ jobs:
             exit 1
           fi
           grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-web-build.log
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Native dispatch component Browser QA (isolated API fixtures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --target builder -f labs/taskflow/Dockerfile.web -t taskflow-native-qa:builder .
+          docker create --name taskflow-native-qa -p 127.0.0.1:4173:4173 taskflow-native-qa:builder node /app/packages/views/dispatch-browser/start.mjs
+          docker cp labs/taskflow/tests/native-dispatch-browser taskflow-native-qa:/app/packages/views/dispatch-browser
+          docker start taskflow-native-qa
+          npm ci
+          npx playwright install --with-deps chromium
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 2
+          done
+          TASKFLOW_NATIVE_BROWSER_URL=http://127.0.0.1:4173 TASKFLOW_NATIVE_SCREENSHOTS=/tmp/native-dispatch-screenshots node --test tests/taskflow-native-dispatch-browser.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-dispatch-browser-screenshots
+          path: /tmp/native-dispatch-screenshots
+          if-no-files-found: ignore
 
   backend-go-ci:
     runs-on: ubuntu-latest

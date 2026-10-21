@@ -1,0 +1,11 @@
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+const here = dirname(fileURLToPath(import.meta.url));
+const fromViews = createRequire(resolve(here, "../package.json"));
+const fromVitest = createRequire(fromViews.resolve("vitest/config"));
+const viteRoot = dirname(fromVitest.resolve("vite/package.json"));
+const { createServer } = await import(pathToFileURL(resolve(viteRoot, "dist/node/index.js")).href);
+const server = await createServer({ configFile: resolve(here, "vite.config.mts") });
+await server.listen();
+server.printUrls();
