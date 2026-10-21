@@ -111,7 +111,23 @@ export function validateAgentReportEvent(input, context = {}, now = Date.now()) 
 }
 
 function redact(value) {
-  return text(value).replace(/(bearer\s+|password\s*[=:]\s*|secret\s*[=:]\s*|api[_-]?key\s*[=:]\s*|token\s*[=:]\s*)([^\s,;]+)/gi, "$1[REDACTED]").slice(0, 2000);
+  let result = text(value);
+  for (const pattern of [
+    /(bearer\s+)[^\s,;]+/gi,
+    /(password\s*[=:]\s*)[^\s,;]+/gi,
+    /(secret\s*[=:]\s*)[^\s,;]+/gi,
+    /(api[_-]?key\s*[=:]\s*)[^\s,;]+/gi,
+    /(token\s*[=:]\s*)[^\s,;]+/gi,
+    /(authorization\s*[=:]\s*)[^\s,;]+/gi
+  ]) result = result.replace(pattern, "$1[REDACTED]");
+  return result.slice(0, 2000);
+}
+
+function protectedDetailRef(value, label) {
+  const source = `${label}:${text(value)}`;
+  let hash = 2166136261;
+  for (const char of source) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return `protected:${label}:${(hash >>> 0).toString(16)}`;
 }
 
 function readableReport(event, state) {
@@ -130,7 +146,13 @@ function readableReport(event, state) {
 export function buildNativeAgentReportMutation(validation) {
   if (!validation?.accepted || !validation.event) throw new Error("validated Agent report required");
   const event = validation.event;
-  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, next_step: event.next_step || null};
+  const detailRefs = Object.fromEntries([
+    ["progress_summary", event.progress_summary], ["question", event.question],
+    ["blocked_reason", event.blocked_reason], ["checkpoint_ref", event.checkpoint_ref],
+    ["stop_evidence", event.stop_evidence], ["review_evidence", event.review_evidence],
+    ["completion_evidence", event.completion_evidence], ["next_step", event.next_step]
+  ].filter(([, value]) => value).map(([label, value]) => [label, protectedDetailRef(value, label)]));
+  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_refs: detailRefs};
   return {
     issue_id: event.issue_id, workspace_id: event.workspace_id,
     atomic_event_claim: {event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch},
@@ -145,9 +167,26 @@ export function authorizeCtoCompletion(input, context = {}) {
   if (context.server_authority !== "CTO_ALLOWLIST_VERIFIED") return reject("CTO_AUTHORIZATION_UNVERIFIED", review);
   if (context.native_status !== "in_review") return reject("CTO_REVIEW_REQUIRED", review);
   if (text(context.issue_id) !== text(review.issue_id) || text(context.completion_event_id) !== text(review.completion_event_id)) return reject("REVIEW_SCOPE_MISMATCH", review);
-  if (!text(review.review_event_id) || !text(review.reviewer_user_id) || !text(review.reviewed_at)) return reject("CTO_REVIEW_EVIDENCE_INCOMPLETE", review);
-  if (context.atomic_event_claim?.status !== "CLAIMED" || context.atomic_event_claim.event_id !== text(review.review_event_id)) return reject("ATOMIC_REVIEW_CLAIM_REQUIRED", review);
-  return {accepted: true, state: "DONE", native_status: "done", reason: "CTO_COMPLETION_AUTHORIZED", review: {issue_id: text(review.issue_id), completion_event_id: text(review.completion_event_id), review_event_id: text(review.review_event_id), reviewer_user_id: text(review.reviewer_user_id), reviewed_at: text(review.reviewed_at)}};
+  const principal = context.server_reviewer_principal;
+  if (!principal || principal.verified !== true || principal.source !== "TASKFLOW_AUTHORITY" || principal.allowlisted !== true || principal.role !== "CTO") return reject("CTO_REVIEWER_IDENTITY_UNVERIFIED", review);
+  if (text(principal.user_id) !== text(review.reviewer_user_id)) return reject("CTO_REVIEWER_IDENTITY_MISMATCH", review);
+  if (text(principal.workspace_id) !== text(review.workspace_id || context.workspace_id) || text(context.workspace_id) !== text(review.workspace_id || context.workspace_id)) return reject("REVIEW_WORKSPACE_MISMATCH", review);
+  if (!text(review.review_event_id) || !text(review.reviewer_user_id) || !text(review.reviewed_at) || !Number.isInteger(review.task_revision)) return reject("CTO_REVIEW_EVIDENCE_INCOMPLETE", review);
+  if (!Number.isInteger(context.issue_revision) || context.issue_revision !== review.task_revision) return reject("REVIEW_REVISION_MISMATCH", review);
+  const reviewedAt = timeValue(review.reviewed_at), now = timeValue(context.server_now) ?? Date.now();
+  if (reviewedAt === null || reviewedAt > now + 5 * 60 * 1000 || now - reviewedAt > 24 * 60 * 60 * 1000) return reject("REVIEW_EXPIRED", review);
+  const claim = context.atomic_event_claim;
+  if (claim?.status !== "CLAIMED" || claim.event_id !== text(review.review_event_id) || claim.task_revision !== review.task_revision || claim.replayed === true) return reject("ATOMIC_REVIEW_CLAIM_REQUIRED", review);
+  if (context.review_replay_claimed === true) return reject("REVIEW_EVENT_REPLAY", review);
+  return {accepted: true, state: "CTO_REVIEW_AUTHORIZED", native_status: "done", reason: "CTO_COMPLETION_AUTHORIZED", review: {issue_id: text(review.issue_id), workspace_id: text(review.workspace_id || context.workspace_id), task_revision: review.task_revision, completion_event_id: text(review.completion_event_id), review_event_id: text(review.review_event_id), reviewer_user_id: text(review.reviewer_user_id), reviewed_at: text(review.reviewed_at)}};
+}
+
+export async function commitCtoCompletion(authorization, nativeAdapter) {
+  if (!authorization?.accepted) return authorization || reject("CTO_REVIEW_REQUIRED");
+  if (!nativeAdapter || typeof nativeAdapter.applyCtoCompletion !== "function") return reject("NATIVE_WRITE_UNWIRED", authorization.review);
+  const result = await nativeAdapter.applyCtoCompletion({issue_id: authorization.review.issue_id, workspace_id: authorization.review.workspace_id, task_revision: authorization.review.task_revision, completion_event_id: authorization.review.completion_event_id, review_event_id: authorization.review.review_event_id, reviewer_user_id: authorization.review.reviewer_user_id, atomic: true});
+  if (result?.committed !== true || result.status !== "done" || result.review_event_id !== authorization.review.review_event_id || result.atomic !== true) return reject("NATIVE_COMPLETION_NOT_ATOMIC", authorization.review);
+  return {accepted: true, state: "DONE", native_status: "done", reason: "CTO_COMPLETION_COMMITTED", result};
 }
 
 export async function commitNativeAgentReport(validation, nativeAdapter) {

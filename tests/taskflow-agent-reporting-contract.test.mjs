@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {authorizeCtoCompletion, buildNativeAgentReportMutation, commitNativeAgentReport, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");
 const context = {
@@ -26,11 +26,19 @@ test("completed is review request, never native DONE", () => {
   assert.notEqual(result.native_status, "done");
 });
 
-test("only independent CTO review can authorize DONE", () => {
-  const completion = authorizeCtoCompletion({issue_id: "issue-113", completion_event_id: "event-completed", review_event_id: "cto-review-1", reviewer_user_id: "cto-1", reviewed_at: new Date(NOW).toISOString()}, {server_authority: "CTO_ALLOWLIST_VERIFIED", native_status: "in_review", issue_id: "issue-113", completion_event_id: "event-completed", atomic_event_claim: {status: "CLAIMED", event_id: "cto-review-1"}});
+test("only server-bound CTO review can authorize DONE", async () => {
+  const review = {issue_id: "issue-113", workspace_id: "ws-1", task_revision: 7, completion_event_id: "event-completed", review_event_id: "cto-review-1", reviewer_user_id: "cto-1", reviewed_at: new Date(NOW).toISOString()};
+  const base = {server_authority: "CTO_ALLOWLIST_VERIFIED", native_status: "in_review", issue_id: "issue-113", workspace_id: "ws-1", completion_event_id: "event-completed", issue_revision: 7, server_now: NOW, server_reviewer_principal: {verified: true, source: "TASKFLOW_AUTHORITY", allowlisted: true, role: "CTO", user_id: "cto-1", workspace_id: "ws-1"}, atomic_event_claim: {status: "CLAIMED", event_id: "cto-review-1", task_revision: 7}};
+  const completion = authorizeCtoCompletion(review, base);
   assert.equal(completion.accepted, true);
-  assert.equal(completion.native_status, "done");
-  assert.equal(authorizeCtoCompletion({issue_id: "issue-113", completion_event_id: "event-completed"}, {server_authority: "CTO_ALLOWLIST_VERIFIED", native_status: "in_review", issue_id: "issue-113", completion_event_id: "event-completed"}).reason, "CTO_REVIEW_EVIDENCE_INCOMPLETE");
+  assert.equal(completion.state, "CTO_REVIEW_AUTHORIZED");
+  assert.equal((await commitCtoCompletion(completion, null)).reason, "NATIVE_WRITE_UNWIRED");
+  const committed = await commitCtoCompletion(completion, {applyCtoCompletion: async () => ({committed: true, status: "done", review_event_id: "cto-review-1", atomic: true})});
+  assert.equal(committed.native_status, "done");
+  assert.equal(authorizeCtoCompletion({...review, reviewer_user_id: "attacker"}, base).reason, "CTO_REVIEWER_IDENTITY_MISMATCH");
+  assert.equal(authorizeCtoCompletion(review, {...base, server_reviewer_principal: {...base.server_reviewer_principal, verified: false}}).reason, "CTO_REVIEWER_IDENTITY_UNVERIFIED");
+  assert.equal(authorizeCtoCompletion(review, {...base, issue_revision: 6}).reason, "REVIEW_REVISION_MISMATCH");
+  assert.equal(authorizeCtoCompletion(review, {...base, review_replay_claimed: true}).reason, "REVIEW_EVENT_REPLAY");
 });
 
 test("readable reports contain summary, blockers, questions, checkpoint, stop and next step without secrets", () => {
@@ -43,6 +51,17 @@ test("readable reports contain summary, blockers, questions, checkpoint, stop an
   assert.doesNotMatch(mutation.comment.content, /secret-value/);
   assert.match(mutation.comment.content, /event-blocked/);
   assert.match(mutation.comment.content, /run-113/);
+  assert.doesNotMatch(mutation.comment.content, /secret-value/);
+  assert.deepEqual(Object.keys(mutation.audit).sort(), ["detail_refs", "dispatch_id", "event_id", "executor_id", "fencing_epoch", "issue_id", "observed_at", "provider", "provider_run_id", "schema", "sequence", "session_id", "source", "state", "type", "workspace_id"].sort());
+});
+
+test("full public comment never re-emits credential values in audit JSON", () => {
+  for (const [label, value] of [["Token", "token=private-token-113"], ["Password", "password=private-password-113"], ["API Key", "api_key=private-api-key-113"], ["Secret", "secret=private-secret-113"]]) {
+    const result = validateAgentReportEvent(event("blocked", {progress_summary: `${label} ${value}`, blocked_reason: value, next_step: value, checkpoint_ref: value}), trustedContext("blocked"), NOW);
+    const comment = buildNativeAgentReportMutation(result).comment.content;
+    assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
+    assert.match(comment, /protected:/);
+  }
 });
 
 test("client signature and stop strings cannot establish trust", () => {
@@ -81,4 +100,13 @@ test("native mutation remains blocked without atomic commit evidence", async () 
   assert.equal((await commitNativeAgentReport(validation, {applyAgentReportMutation: async () => ({committed: true, event_id: "wrong", atomic_event_claimed: false})})).reason, "NATIVE_MUTATION_NOT_ATOMIC");
   const committed = await commitNativeAgentReport(validation, {applyAgentReportMutation: async mutation => ({committed: true, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: true})});
   assert.equal(committed.accepted, true);
+});
+
+test("CO-01 compatibility fixture keeps unsupported runtime evidence fail-closed", async () => {
+  const result = validateAgentReportEvent(event("progress", {progress_percent: 20}), trustedContext("progress"), NOW);
+  assert.equal(result.accepted, true);
+  assert.equal(result.event.dispatch_id, "dispatch-113");
+  assert.equal(result.event.provider_run_id, "run-113");
+  assert.equal(result.event.session_id, "session-113");
+  assert.equal((await commitCtoCompletion({accepted: true, review: {issue_id: "issue-113", workspace_id: "ws-1", task_revision: 1, completion_event_id: "done-1", review_event_id: "review-1", reviewer_user_id: "cto-1"}}, null)).reason, "NATIVE_WRITE_UNWIRED");
 });
