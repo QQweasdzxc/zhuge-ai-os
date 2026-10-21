@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -44,7 +45,7 @@ func parseCTODispatchMutationRequest(body []byte) (CTODispatchMutationRequest, e
 	return request, nil
 }
 
-func ctoDispatchMutationHTTPError(err error) (int, string) {
+func ctoDispatchProviderHTTPError(err error) (int, string) {\n\tswitch {\n\tcase errors.Is(err, ErrTaskFlowProviderUnavailable):\n\t\treturn http.StatusServiceUnavailable, "provider dispatch is not bound"\n\tcase errors.Is(err, ErrTaskFlowProviderAckInvalid):\n\t\treturn http.StatusBadGateway, "provider ACK is not verified"\n\tdefault:\n\t\treturn http.StatusBadGateway, "provider dispatch failed"\n\t}\n}\n\nfunc ctoDispatchMutationHTTPError(err error) (int, string) {
 	switch {
 	case errors.Is(err, ErrCTODispatchAuthorityUnavailable):
 		return http.StatusServiceUnavailable, "cto dispatch authority is unavailable"
@@ -106,7 +107,7 @@ func ctoDispatchMutationHTTPError(err error) (int, string) {
 		return
 	}
 
-	// RerunIssue is the existing native TaskFlow mutation. Strip the
+	// Do not create a native task until an officially supported provider has\n\t// returned a verified ACK and Provider Run ID. The default dispatcher is\n\t// fail-closed, so this endpoint cannot imply provider execution.\n\t_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{\n\t\tIssueID: uuidToString(issue.ID),\n\t\tWorkspaceID: workspaceID,\n\t\tAuthenticatedUserID: userID,\n\t\tTaskID: request.TaskID,\n\t\tExecutorID: request.Executor,\n\t\tProvider: request.Provider,\n\t})\n\tif err != nil {\n\t\tstatus, message := ctoDispatchProviderHTTPError(err)\n\t\twriteError(w, status, message)\n\t\treturn\n\t}\n\n	// RerunIssue is the existing native TaskFlow mutation. Strip the
 	// authorization-only fields before delegating so the frozen handler sees
 	// only its established request contract.
 	nativeBody, err := json.Marshal(RerunIssueRequest{TaskID: request.TaskID})
