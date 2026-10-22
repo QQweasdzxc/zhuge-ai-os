@@ -119,9 +119,21 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Do not create a native task until an officially supported provider has
-	// returned a verified ACK and Provider Run ID. The default dispatcher is
-	// fail-closed, so this endpoint cannot imply provider execution.
+	// Resolve both route and durable claim server-side. The default resolvers
+	// are unbound, so no native task/provider run can be created accidentally.
+	route, err := resolveProviderConversationRoute(context.Background(), request.Executor, workspaceID, request.Provider)
+	if err != nil {
+		status, message := ctoDispatchProviderHTTPError(err)
+		writeError(w, status, message)
+		return
+	}
+	dispatchID := strings.TrimSpace(request.TaskID)
+	correlation, err := resolveProviderDispatchCorrelation(context.Background(), dispatchID, workspaceID, uuidToString(issue.ID))
+	if err != nil {
+		status, message := ctoDispatchProviderHTTPError(err)
+		writeError(w, status, message)
+		return
+	}
 	_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{
 		IssueID: uuidToString(issue.ID),
 		WorkspaceID: workspaceID,
@@ -129,6 +141,8 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		TaskID: request.TaskID,
 		ExecutorID: request.Executor,
 		Provider: request.Provider,
+		Correlation: correlation,
+		Route: route.Route,
 	})
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
