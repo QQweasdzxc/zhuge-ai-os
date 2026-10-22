@@ -18,6 +18,7 @@ on:
       - review/dm00-dm03-phase2-runtime-hardening-20261020
       - review/co01-phase2-integration-20261020
       - review/issue-115-live-dispatch-20261021
+      - review/p0-three-lane-integration-20261022
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
@@ -143,3 +144,15 @@ jobs:
         run: |
           CGO_ENABLED=0 go build ./cmd/server
           CGO_ENABLED=0 go build ./cmd/multica
+
+  postgres-native-authority:
+    name: PostgreSQL 16 Native Authority integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - name: Run assertive PostgreSQL 16 isolation tests
+        run: python3 -B labs/taskflow/tests/test_native_dispatch_authority_postgres.py
