@@ -409,3 +409,5 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
     min-height: 0;
   }
 }
+
+.shared-office-return{display:flex;align-items:center;min-height:44px;padding:8px 12px;color:inherit;text-decoration:none;border-radius:8px}.shared-office-return:focus-visible{outline:2px solid currentColor;outline-offset:-2px}

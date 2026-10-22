@@ -8,10 +8,12 @@
 
   function capture(location = root.location, storage = root.sessionStorage, now = Date.now()) {
     try {
-      if (new URLSearchParams(location.search).get("taskflowReturn") !== "1") return false;
+      const params = new URLSearchParams(location.search);
+      const intent = params.get("officeReturn") === "1" ? "office" : params.get("taskflowReturn") === "1" ? "taskflow" : null;
+      if (!intent) return false;
       const recentReturnAt = Number(storage.getItem(RECENT_RETURN_KEY));
       if (Number.isFinite(recentReturnAt) && recentReturnAt > 0 && (now < recentReturnAt || now - recentReturnAt < REDIRECT_LOOP_GUARD_MS)) return false;
-      storage.setItem(STORAGE_KEY, JSON.stringify({ intent: "taskflow", expiresAt: now + POST_LOGIN_INTENT_TTL_MS }));
+      storage.setItem(STORAGE_KEY, JSON.stringify({ intent, expiresAt: now + POST_LOGIN_INTENT_TTL_MS }));
       return true;
     } catch {
       return false;
@@ -25,11 +27,11 @@
       if (!serialized) return false;
       let pending;
       try { pending = JSON.parse(serialized); } catch { pending = null; }
-      if (pending?.intent !== "taskflow" || !Number.isFinite(pending.expiresAt) || pending.expiresAt <= now) {
+      if (!["taskflow", "office"].includes(pending?.intent) || !Number.isFinite(pending.expiresAt) || pending.expiresAt <= now) {
         storage.removeItem(STORAGE_KEY);
         return false;
       }
-      const destination = new URL("../../labs/taskflow/", location.href);
+      const destination = new URL(pending.intent === "office" ? "../../" : "../../labs/taskflow/", location.href);
       storage.removeItem(STORAGE_KEY);
       storage.setItem(RECENT_RETURN_KEY, String(now));
       location.replace(destination.href);

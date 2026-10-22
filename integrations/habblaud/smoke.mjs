@@ -379,7 +379,7 @@ try {
     throw new Error('Floating award wall must be absent while source records and the quick-link rack remain: ' + JSON.stringify({wall:!!awards.wall,records:awards.records?.map(item=>item.id),rack:!!awards.rack}));
   }
   const taskflow = await page.locator('.zgf-rack [data-zgf-work="taskflow"]').getAttribute('href');
-  if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
+  if (taskflow !== base + '/labs/taskflow/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
   const worklog = await page.locator('.zgf-rack [data-zgf-work="worklog"]').getAttribute('href');
   const investment = await page.locator('.zgf-rack [data-zgf-work="investment"]').getAttribute('href');
   const classicQuickLink = await page.locator('.zgf-rack [data-zgf-work="classic"]').getAttribute('href');
@@ -512,7 +512,7 @@ try {
   if (landscapeMetrics.viewport.width !== 844 || landscapeMetrics.viewport.height !== 390 ||
       landscapeMetrics.document.scrollWidth > 845 || landscapeMetrics.document.scrollHeight > 392 ||
       !landscapeMetrics.iframe || landscapeMetrics.iframe.x < 0 || landscapeMetrics.iframe.right > 845 ||
-      landscapeMetrics.devices.length !== 6 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
+      landscapeMetrics.devices.length !== 8 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
     throw new Error('Mobile landscape office is clipped, overflowing or has inaccessible product links: ' + JSON.stringify(landscapeMetrics));
   }
   const landscapeCanvas = await frame.locator('canvas#world').boundingBox();
