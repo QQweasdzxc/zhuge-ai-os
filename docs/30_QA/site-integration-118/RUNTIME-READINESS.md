@@ -1,6 +1,6 @@
 # Issue #118｜Runtime Readiness／PM UAT 決策包
 
-基準：PR #120 `6c76be5254ce3c9a89106cb2ac0552d42e262309`（`.9.139` 候選）  
+基準：PR #120 `6c76be5254ce3c9a89106cb2ac0552d42e262309`（`.9.139` 候選）\
 本文件只描述可供 PM 操作驗收的流程與閘門；它不授予任何 OAuth、ACL、Secrets 或 Production 權限。
 
 ## 目前決策
