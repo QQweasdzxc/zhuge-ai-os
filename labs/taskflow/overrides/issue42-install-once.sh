@@ -9,7 +9,8 @@ EXPECTED_SHA=50b716e38fe2703607fe19880f60c298c7af1bac
 test "$(git cat-file -t "$EXPECTED_SHA")" = commit
 EXPECTED_FILE_SHA=b2a8fa1f986efab3e27997fd02b04613fef3d31aea68665f77192ba8a227b6cc
 SQL_FILE=$(mktemp)
-trap 'rm -f "$SQL_FILE"' EXIT
+BASELINE_FILE=$(mktemp)
+trap 'rm -f "$SQL_FILE" "$BASELINE_FILE"' EXIT
 git show "$EXPECTED_SHA:$SQL_PATH" > "$SQL_FILE"
 test "$(sha256sum "$SQL_FILE" | awk '{print $1}')" = "$EXPECTED_FILE_SHA"
 
@@ -37,6 +38,10 @@ BEGIN
   END IF;
 END $$;
 SQL
+
+# Capture existing runtime DML ACLs before installation; these are expected
+# TaskFlow API privileges and must remain unchanged, not be revoked.
+psql_migrator -Atc "SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'), has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$BASELINE_FILE"
 
 # The candidate SQL performs its own owner/SECURITY DEFINER/ACL assertions.
 if ! psql_migrator -f "$SQL_FILE" >/dev/null; then
@@ -70,18 +75,22 @@ BEGIN
    WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request';
   IF ledger_owner <> 'taskflow_migrator' THEN RAISE EXCEPTION 'POSTFLIGHT_FAILED: ledger owner'; END IF;
   IF NOT has_function_privilege('postgres','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+     OR NOT has_function_privilege('postgres','taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)','EXECUTE')
+     OR has_function_privilege('public','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
      OR has_function_privilege('taskflow_runtime','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
-     OR has_table_privilege('taskflow_runtime','taskflow.sb_connector_issue_request','INSERT') THEN
+     OR has_function_privilege('taskflow_migrator','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+     OR has_table_privilege('taskflow_runtime','taskflow.sb_connector_issue_request','INSERT')
+     OR has_table_privilege('postgres','taskflow.sb_connector_issue_request','SELECT') THEN
     RAISE EXCEPTION 'POSTFLIGHT_FAILED: function/ledger ACL boundary';
-  END IF;
-  IF has_table_privilege('taskflow_runtime','taskflow.issue','INSERT')
-     OR has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE') THEN
-    RAISE EXCEPTION 'POSTFLIGHT_FAILED: native issue DML boundary';
   END IF;
 END $$;
 SQL
 then
   echo "INSTALLED_BUT_POSTFLIGHT_FAILED: SQL committed; do not claim rollback" >&2
+  exit 2
+fi
+if [ "$(cat "$BASELINE_FILE")" != "$(psql_migrator -Atc "SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'), has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')")" ]; then
+  echo "INSTALLED_BUT_POSTFLIGHT_FAILED: existing runtime DML ACL changed" >&2
   exit 2
 fi
 echo "ISSUE42_INSTALL_ONLY_READY: no card creation performed"
