@@ -9,7 +9,9 @@ test("AI project and task centers use native TaskFlow routes and the same Issue 
   assert.match(html, /#\/tf\/ai-projects/);
   assert.match(html, /#\/tf\/ai-tasks/);
   assert.match(html, /tf-ai-kanban/);
-  assert.match(app, /dispatchAdapter\.list\(workspaceSlug\(\),\{executor:refs\.aiExecutor/);
+  for(const executor of ["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"]) assert.match(app, new RegExp(`"${executor}"`));
+  assert.match(app, /const executor=route\.section===\"ai-projects\"/);
+  assert.match(app, /dispatchAdapter\.list\(workspaceSlug\(\),\{executor\}\)/);
   assert.match(app, /routeFor\(\{issueId:item\.id\}\)/);
   assert.match(app, /原生 AI Issue/);
 });

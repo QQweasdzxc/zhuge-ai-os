@@ -20,6 +20,7 @@
       <div class="tf-nav-label">DISPATCH</div>
       <a class="tf-project" href="#/tf/ai-projects">AI 派工中心（原生專案）</a>
       <a class="tf-project" href="#/tf/ai-tasks">AI 任務中心（原生任務）</a>
+      <a class="tf-project" href="#/tf/dispatch">AI 派工 Workbench（相容入口）</a>
       <div class="tf-nav-bottom">
         <small>API / Runtime: Render</small>
         <small>網址 / Dashboard: GitHub Pages</small>
@@ -113,6 +114,10 @@
         </div>
         <div id="tf-ai-board-notice" class="tf-notice">只顯示具備原生派工證據的 Issue；一般人類任務不會被轉成 AI 案件。</div>
         <div id="tf-ai-kanban" class="tf-ai-kanban"></div>
+      </section>
+      <section id="tf-ai-projects" hidden class="tf-panel" aria-label="AI 原生專案入口">
+        <h2>AI 派工中心｜原生專案</h2><p class="tf-help">以下入口只代表目前可由原生派工證據辨識的 Executor；點選後仍讀取同一 Workspace 的原生 Issue。</p>
+        <div id="tf-ai-project-entries" class="tf-ai-project-entries"></div>
       </section>
     </main>
   </div>

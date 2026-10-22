@@ -46,7 +46,9 @@ const refs={
   aiBoardTitle:document.querySelector("#tf-ai-board-title"),
   aiBoardNotice:document.querySelector("#tf-ai-board-notice"),
   aiKanban:document.querySelector("#tf-ai-kanban"),
-  aiExecutor:document.querySelector("#tf-ai-executor")
+  aiExecutor:document.querySelector("#tf-ai-executor"),
+  aiProjects:document.querySelector("#tf-ai-projects"),
+  aiProjectEntries:document.querySelector("#tf-ai-project-entries")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
 if(refs.createOpen)refs.createOpen.hidden=true;
@@ -587,16 +589,31 @@ function renderAiKanban(items){
 async function loadAiBoard(){
   if(!state.workspace)return;
   try{
-    const items=await dispatchAdapter.list(workspaceSlug(),{executor:refs.aiExecutor?.value||""});
+    const route=currentRoute();
+    const executor=route.section==="ai-projects"&&route.issueId?route.issueId:(refs.aiExecutor?.value||"");
+    const items=await dispatchAdapter.list(workspaceSlug(),{executor});
     renderAiKanban(items);
     refs.aiBoardNotice.textContent=`已讀取 ${items.length} 張原生 AI Issue；專案與任務入口共用相同 Issue ID。`;
   }catch(error){refs.aiKanban.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));refs.aiBoardNotice.textContent="原生 TaskFlow API 讀取失敗，未顯示模擬看板。";}
+}
+function renderAiProjectEntries(){
+  const executors=["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"];
+  refs.aiProjectEntries.replaceChildren();
+  for(const executor of executors){
+    const link=element("a",{className:"tf-ai-project-entry",attrs:{href:routeFor({section:"ai-projects",issueId:executor}),"aria-label":`開啟 ${executor} 原生專案`}});
+    link.append(element("strong",{text:executor}),element("span",{text:"TaskFlow 原生專案入口；點選查看同一批 Issue"}));
+    link.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",link.href);renderRoute();});
+    refs.aiProjectEntries.append(link);
+  }
 }
 function renderRoute(){
   if(!state.workspace)return;
   const route=currentRoute();
   if(refs.dispatch)refs.dispatch.hidden=route.section!=="dispatch";
+  if(refs.aiProjects)refs.aiProjects.hidden=!(route.section==="ai-projects"&&!route.issueId);
+  if(route.section==="ai-projects"&&!route.issueId)renderAiProjectEntries();
   if(refs.aiBoard)refs.aiBoard.hidden=!(["ai-projects","ai-tasks"].includes(route.section));
+  if(refs.aiBoard&&route.section==="ai-projects"&&!route.issueId)refs.aiBoard.hidden=true;
   if(refs.aiBoard&&["ai-projects","ai-tasks"].includes(route.section)){refs.aiBoardTitle.textContent=route.section==="ai-projects"?"AI 派工中心｜原生專案":"AI 任務中心｜原生任務";void loadAiBoard();}
   if(route.section==="dispatch"){
     refs.detail.hidden=true;
