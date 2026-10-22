@@ -98,6 +98,15 @@ test("Workbench shows truthful empty state and permission errors",async t=>{
  assert.match(await page.locator("#tf-pm-inbox").innerText(),/沒有以空資料取代錯誤|未以空資料取代錯誤/);
 });
 
+test("AI project center fails closed without authorized native project mapping",async t=>{
+ const {page}=await setup(t);
+ await page.getByRole("link",{name:"AI 派工中心（原生專案）"}).click();
+ await page.locator("#tf-ai-project-entries").waitFor();
+ assert.equal(await page.locator(".tf-ai-project-entry").count(),5);
+ assert.equal(await page.locator(".tf-ai-project-entry-disabled").count(),5);
+ assert.match(await page.locator("#tf-ai-projects").innerText(),/mapping/);
+});
+
 
 test("Workbench empty state excludes ordinary native issues",async t=>{
  const {page}=await setup(t,{issueList:[{id:"ordinary-1",identifier:"ZG-99",title:"一般 TaskFlow 任務",status:"todo"}]});
