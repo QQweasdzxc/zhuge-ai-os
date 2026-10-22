@@ -21,6 +21,6 @@ test("AI board keeps ordinary TaskFlow issues out of the AI projection",()=>{
   assert.match(app, /未將一般 TaskFlow 任務偽裝成 AI 案件/);
   assert.match(app, /專案與任務入口共用相同 Issue ID/);
   assert.match(app, /Native Project：/);
-  assert.match(app, /GAP：API 尚未提供此 Executor 的 Native Project ID/);
+  assert.match(app, /GAP：Executor、Workspace、ACL 的 Native Project 對應缺失或不唯一/);
   assert.match(app, /zhuge-taskflow-web\.onrender\.com/);
 });
