@@ -44,3 +44,24 @@ func resolveProviderConversationRoute(ctx context.Context, engineerID, workspace
     }
     return resolution, nil
 }
+
+
+type ProviderDispatchCorrelationResolver interface {
+    Resolve(context.Context, string, string, string) (ProviderDispatchCorrelation, error)
+}
+
+type unboundProviderDispatchCorrelationResolver struct{}
+
+func (unboundProviderDispatchCorrelationResolver) Resolve(context.Context, string, string, string) (ProviderDispatchCorrelation, error) {
+    return ProviderDispatchCorrelation{}, ErrTaskFlowProviderUnavailable
+}
+
+var taskflowProviderDispatchCorrelationResolver ProviderDispatchCorrelationResolver = unboundProviderDispatchCorrelationResolver{}
+
+func resolveProviderDispatchCorrelation(ctx context.Context, dispatchID, workspaceID, issueID string) (ProviderDispatchCorrelation, error) {
+    correlation, err := taskflowProviderDispatchCorrelationResolver.Resolve(ctx, dispatchID, workspaceID, issueID)
+    if err != nil || correlation.DispatchID != dispatchID || correlation.FencingEpoch <= 0 || correlation.LeaseID == "" {
+        return ProviderDispatchCorrelation{}, ErrTaskFlowProviderUnavailable
+    }
+    return correlation, nil
+}
