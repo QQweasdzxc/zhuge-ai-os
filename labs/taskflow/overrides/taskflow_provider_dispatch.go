@@ -11,40 +11,49 @@ var (
 	ErrTaskFlowProviderAckInvalid  = errors.New("taskflow provider ACK is not verified")
 )
 
-// ProviderDispatchRequest is the only input a future official provider adapter
-// receives. Identity and workspace are resolved by the protected handler; no
-// client-supplied authorization or ACK fields are accepted.
 type ProviderDispatchCorrelation struct {
-	DispatchID	 string
-	LeaseID		string
-	FencingEpoch   int64
-	ProviderRunID  string
-	SessionID	  string
-	AckEventID	 string
+	DispatchID   string
+	LeaseID      string
+	FencingEpoch int64
+	ProviderRunID string
+	SessionID    string
+	AckEventID   string
 }
 
 type ProviderConversationRoute struct {
-	EngineerID			string
+	EngineerID            string
 	ProviderAccountPoolID string
 	ConversationReference string
-	OfficialSessionID	 string
-	VerificationStatus	string
-	WorkspaceScope		string
+	OfficialSessionID     string
+	VerificationStatus    string
+	WorkspaceScope        string
 }
 
 type ProviderDispatchRequest struct {
-	IssueID			 string
-	WorkspaceID		 string
+	IssueID             string
+	WorkspaceID         string
 	AuthenticatedUserID string
-	TaskID			  string
-	ExecutorID		  string
-	Provider			string
-	Correlation		 ProviderDispatchCorrelation
-	Route			   ProviderConversationRoute
+	TaskID              string
+	ExecutorID          string
+	Provider            string
+	DispatchClaim       ProviderDispatchClaim
+	Correlation         ProviderDispatchCorrelation
+	Route               ProviderConversationRoute
 }
 
 func validateProviderDispatchContract(request ProviderDispatchRequest) error {
-	if strings.TrimSpace(request.Correlation.DispatchID) == "" ||
+	if !request.DispatchClaim.Active ||
+		strings.TrimSpace(request.DispatchClaim.DispatchID) == "" ||
+		strings.TrimSpace(request.DispatchClaim.LeaseID) == "" ||
+		request.DispatchClaim.FencingEpoch <= 0 ||
+		request.DispatchClaim.DispatchID != request.Correlation.DispatchID ||
+		request.DispatchClaim.LeaseID != request.Correlation.LeaseID ||
+		request.DispatchClaim.FencingEpoch != request.Correlation.FencingEpoch ||
+		request.DispatchClaim.WorkspaceID != request.WorkspaceID ||
+		request.DispatchClaim.IssueID != request.IssueID ||
+		request.DispatchClaim.ExecutorID != request.ExecutorID ||
+		request.DispatchClaim.Provider != request.Provider ||
+		strings.TrimSpace(request.Correlation.DispatchID) == "" ||
 		strings.TrimSpace(request.Correlation.LeaseID) == "" ||
 		request.Correlation.FencingEpoch <= 0 ||
 		strings.TrimSpace(request.Route.EngineerID) == "" ||
@@ -61,16 +70,11 @@ func validateProviderDispatchContract(request ProviderDispatchRequest) error {
 	return nil
 }
 
-// ProviderDispatchResult must contain an official provider run identifier and
-// a verified ACK before native TaskFlow persistence is attempted.
 type ProviderDispatchResult struct {
 	ProviderRunID string
 	AckVerified   bool
 }
 
-// TaskFlowProviderDispatcher is an explicit seam for an officially supported
-// provider adapter. Production remains fail-closed until such an adapter is
-// configured; tests may inject a deterministic adapter without starting an AI.
 type TaskFlowProviderDispatcher interface {
 	Dispatch(context.Context, ProviderDispatchRequest) (ProviderDispatchResult, error)
 }
