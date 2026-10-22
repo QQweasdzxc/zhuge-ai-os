@@ -127,7 +127,7 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, message)
 		return
 	}
-	dispatchID := strings.TrimSpace(request.TaskID)
+	// Dispatch ID must come from a server-owned durable claim, never from TaskID/client metadata.\n\tdispatchID := ""
 	correlation, err := resolveProviderDispatchCorrelation(context.Background(), dispatchID, workspaceID, uuidToString(issue.ID))
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
