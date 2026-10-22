@@ -36,3 +36,13 @@ func TestResolveProviderConversationRouteBindsEngineerAndWorkspace(t *testing.T)
         t.Fatalf("wrong engineer accepted: %v", err)
     }
 }
+
+
+func TestResolveProviderDispatchCorrelationFailsClosedWithoutDurableClaim(t *testing.T) {
+    original := taskflowProviderDispatchCorrelationResolver
+    taskflowProviderDispatchCorrelationResolver = unboundProviderDispatchCorrelationResolver{}
+    t.Cleanup(func() { taskflowProviderDispatchCorrelationResolver = original })
+    if _, err := resolveProviderDispatchCorrelation(context.Background(), "dispatch-1", "workspace-1", "issue-1"); !errors.Is(err, ErrTaskFlowProviderUnavailable) {
+        t.Fatalf("unbound correlation accepted: %v", err)
+    }
+}
