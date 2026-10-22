@@ -18,7 +18,9 @@
       <div class="tf-nav-label">PROJECTS</div>
       <nav id="tf-projects" aria-label="正式工作區專案"></nav>
       <div class="tf-nav-label">DISPATCH</div>
-      <a class="tf-project" href="#/tf/dispatch">AI 派工 Workbench</a>
+      <a class="tf-project" href="#/tf/ai-projects">AI 派工中心（原生專案）</a>
+      <a class="tf-project" href="#/tf/ai-tasks">AI 任務中心（原生任務）</a>
+      <a class="tf-project" href="#/tf/dispatch">AI 派工 Workbench（相容入口）</a>
       <div class="tf-nav-bottom">
         <small>API / Runtime: Render</small>
         <small>網址 / Dashboard: GitHub Pages</small>
@@ -105,6 +107,17 @@
         <div id="tf-dispatch-notice" class="tf-notice">DAILY 尚未接通；不顯示假快照。</div>
         <section class="tf-subpanel" aria-label="PM Inbox"><h3>PM Inbox</h3><div id="tf-pm-inbox" data-state="loading"><p>正在讀取原生 TaskFlow／Runtime 證據…</p></div></section>
         <div id="tf-dispatch-cards" class="tf-dispatch-cards"></div>
+      </section>
+      <section id="tf-ai-board" hidden class="tf-panel" aria-label="AI 原生 Kanban 看板">
+        <div class="tf-filter"><div><h2 id="tf-ai-board-title">AI 派工中心</h2><p>沿用同一批原生 TaskFlow Issue；狀態與任務詳情不另存副本。</p></div>
+          <label class="tf-search"><span class="tf-field-label">Executor</span><select id="tf-ai-executor"><option value="">全部 AI</option><option>CO-01</option><option>CO-02</option><option>CO-03</option><option>GEM-01</option><option>GH-HELPER</option></select></label>
+        </div>
+        <div id="tf-ai-board-notice" class="tf-notice">只顯示具備原生派工證據的 Issue；一般人類任務不會被轉成 AI 案件。</div>
+        <div id="tf-ai-kanban" class="tf-ai-kanban"></div>
+      </section>
+      <section id="tf-ai-projects" hidden class="tf-panel" aria-label="AI 原生專案入口">
+        <h2>AI 派工中心｜原生專案</h2><p class="tf-help">以下入口只代表目前可由原生派工證據辨識的 Executor；點選後仍讀取同一 Workspace 的原生 Issue。</p>
+        <div id="tf-ai-project-entries" class="tf-ai-project-entries"></div>
       </section>
     </main>
   </div>

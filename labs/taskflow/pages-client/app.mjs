@@ -41,7 +41,14 @@ const refs={
   dispatchMeta:document.querySelector("#tf-dispatch-meta"),
   dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
   dispatchNotice:document.querySelector("#tf-dispatch-notice"),
-  pmInbox:document.querySelector("#tf-pm-inbox")
+  pmInbox:document.querySelector("#tf-pm-inbox"),
+  aiBoard:document.querySelector("#tf-ai-board"),
+  aiBoardTitle:document.querySelector("#tf-ai-board-title"),
+  aiBoardNotice:document.querySelector("#tf-ai-board-notice"),
+  aiKanban:document.querySelector("#tf-ai-kanban"),
+  aiExecutor:document.querySelector("#tf-ai-executor"),
+  aiProjects:document.querySelector("#tf-ai-projects"),
+  aiProjectEntries:document.querySelector("#tf-ai-project-entries")
 };
 let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
 if(refs.createOpen)refs.createOpen.hidden=true;
@@ -82,7 +89,7 @@ function routeFor({section="issues",issueId=null}={}){
 }
 function currentRoute(){
   const hash=decodeURIComponent(location.hash||"");
-  const match=hash.match(/^#\/tf\/(issues|projects|dispatch)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
+  const match=hash.match(/^#\/tf\/(issues|projects|dispatch|ai-projects|ai-tasks)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
   return match?{section:match[1],issueId:match[2]||null}:{section:"issues",issueId:null};
 }
 function workspaceSlug(){return state.workspace?.slug||"";}
@@ -555,10 +562,66 @@ async function renderDetail(id){
     refs.detail.append(commentsBox);
   }catch(error){refs.detail.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));}
 }
+function nativeStatusLabel(status){
+  const key=String(status||"").toLowerCase();
+  const found=state.statuses.find(item=>String(item.id||item.slug||item.key||"").toLowerCase()===key||String(item.name||item.title||"").toLowerCase()===key);
+  return found?.name||found?.title||status||"未分類";
+}
+function renderAiKanban(items){
+  refs.aiKanban.replaceChildren();
+  const columns=state.statuses.map(item=>({id:item.id||item.slug||item.key,name:item.name||item.title||item.id}));
+  const groups=columns.length?columns:["待規劃","待辦","進行中","稽核中","已阻塞","已完成"].map(name=>({id:name,name}));
+  for(const group of groups){
+    const column=element("section",{className:"tf-ai-column",attrs:{"aria-label":group.name}});
+    column.append(element("h3",{text:group.name}));
+    const cards=items.filter(item=>String(item.raw?.status_id||item.raw?.status||item.raw?.status_name||"").toLowerCase()===String(group.id).toLowerCase()||nativeStatusLabel(item.raw?.status_name||item.raw?.status)===group.name);
+    if(!cards.length)column.append(element("p",{text:"沒有原生卡",className:"tf-empty"}));
+    for(const item of cards){
+      const card=element("a",{className:"tf-ai-card",attrs:{href:routeFor({issueId:item.id}),"aria-label":`開啟 ${item.title} 原生任務`}});
+      card.append(element("small",{text:item.identifier||item.id,className:"tf-id"}),element("strong",{text:item.title}),element("span",{text:`負責 AI：${item.executor||"未確認"}`,className:"tf-ai-owner"}));
+      card.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",card.href);renderRoute();});
+      column.append(card);
+    }
+    refs.aiKanban.append(column);
+  }
+  if(!items.length)refs.aiBoardNotice.textContent="目前沒有具備原生 AI 派工證據的 Issue；未將一般 TaskFlow 任務偽裝成 AI 案件。";
+}
+async function loadAiBoard(){
+  if(!state.workspace)return;
+  try{
+    const route=currentRoute();
+    const executor=route.section==="ai-projects"&&route.issueId?route.issueId:(refs.aiExecutor?.value||"");
+    const items=await dispatchAdapter.list(workspaceSlug(),{executor});
+    renderAiKanban(items);
+    refs.aiBoardNotice.textContent=`已讀取 ${items.length} 張原生 AI Issue；專案與任務入口共用相同 Issue ID。`;
+  }catch(error){refs.aiKanban.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));refs.aiBoardNotice.textContent="原生 TaskFlow API 讀取失敗，未顯示模擬看板。";}
+}
+function renderAiProjectEntries(){
+  const executors=["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"];
+  refs.aiProjectEntries.replaceChildren();
+  for(const executor of executors){
+    const project=state.projects.find(item=>[item.name,item.title,item.slug,item.key].some(value=>String(value||"").trim().toUpperCase()===executor));
+    if(!project){
+      const missing=element("div",{className:"tf-ai-project-entry tf-ai-project-entry-disabled",attrs:{"aria-label":`${executor} 原生專案尚未接通`}});
+      missing.append(element("strong",{text:executor}),element("span",{text:"GAP：API 尚未提供此 Executor 的 Native Project ID"}));
+      refs.aiProjectEntries.append(missing); continue;
+    }
+    const webUrl=globalThis.ZhugeTaskFlowConfig?.webUrl||"https://zhuge-taskflow-web.onrender.com";
+    const href=`${webUrl}/${encodeURIComponent(workspaceSlug())}/projects/${encodeURIComponent(project.id)}`;
+    const link=element("a",{className:"tf-ai-project-entry",attrs:{href,"aria-label":`開啟 ${executor} 原生專案`}});
+    link.append(element("strong",{text:executor}),element("span",{text:`Native Project：${project.id}`}));
+    refs.aiProjectEntries.append(link);
+  }
+}
 function renderRoute(){
   if(!state.workspace)return;
   const route=currentRoute();
   if(refs.dispatch)refs.dispatch.hidden=route.section!=="dispatch";
+  if(refs.aiProjects)refs.aiProjects.hidden=!(route.section==="ai-projects"&&!route.issueId);
+  if(route.section==="ai-projects"&&!route.issueId)renderAiProjectEntries();
+  if(refs.aiBoard)refs.aiBoard.hidden=!(["ai-projects","ai-tasks"].includes(route.section));
+  if(refs.aiBoard&&route.section==="ai-projects"&&!route.issueId)refs.aiBoard.hidden=true;
+  if(refs.aiBoard&&["ai-projects","ai-tasks"].includes(route.section)){refs.aiBoardTitle.textContent=route.section==="ai-projects"?"AI 派工中心｜原生專案":"AI 任務中心｜原生任務";void loadAiBoard();}
   if(route.section==="dispatch"){
     refs.detail.hidden=true;
     refs.detail.replaceChildren();
@@ -623,6 +686,7 @@ refs.createOpen?.addEventListener("click",openCreate);
 refs.createCancel?.addEventListener("click",closeCreate);
 refs.createForm?.addEventListener("submit",event=>void createNativeIssue(event));
 refs.dispatchExecutor?.addEventListener("change",()=>void loadDispatch());
+refs.aiExecutor?.addEventListener("change",()=>void loadAiBoard());
 let searchDelay;
 refs.filter.addEventListener("input",()=>{
   clearTimeout(searchDelay);

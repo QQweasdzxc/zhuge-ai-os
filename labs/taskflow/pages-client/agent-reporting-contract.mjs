@@ -100,6 +100,8 @@ export function validateAgentReportEvent(input, context = {}, now = Date.now()) 
     accepted: true,
     state: type === "completed" || type === "review_requested" ? "REVIEW" : type === "question_to_cto" ? "WAITING_CTO_DECISION" : type === "blocked" || type === "interrupted_by_pm" ? "BLOCKED" : "RUNNING",
     native_status: AGENT_REPORT_NATIVE_STATUS[type], schema: AGENT_REPORTING_SCHEMA,
+    expected_version: Number.isInteger(context.expected_version) ? context.expected_version : Number.isInteger(context.issue_revision) ? context.issue_revision : null,
+    idempotency_key: text(context.idempotency_key), lease_id: text(context.lease_id),
     event: {
       event_id: eventId, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type, issue_id: issueId, workspace_id: workspaceId,
       executor_id: executorId, dispatch_id: dispatchId, provider, provider_run_id: runId, session_id: sessionId, observed_at: new Date(observedAt).toISOString(),
@@ -123,13 +125,6 @@ function redact(value) {
   return result.slice(0, 2000);
 }
 
-function opaqueDetailRef(value, label) {
-  const source = `${label}:${text(value)}`;
-  let hash = 2166136261;
-  for (const char of source) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return `opaque-hash-placeholder:${label}:${(hash >>> 0).toString(16)}`;
-}
-
 function readableReport(event, state) {
   const labels = {accepted: "Agent 已接單並開始執行", progress: "Agent 工作進度", question_to_cto: "Agent 等待 CTO 回答", blocked: "Agent 回報工程卡關", checkpoint: "Agent 保存 Checkpoint", interrupted_by_pm: "PM 已中斷，Agent 已提交停止回報", review_requested: "Agent 申請 CTO 稽核", completed: "Agent 回報完成，等待 CTO 稽核"};
   const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `摘要：${redact(event.progress_summary) || "未提供"}`];
@@ -146,13 +141,8 @@ function readableReport(event, state) {
 export function buildNativeAgentReportMutation(validation) {
   if (!validation?.accepted || !validation.event) throw new Error("validated Agent report required");
   const event = validation.event;
-  const detailRefs = Object.fromEntries([
-    ["progress_summary", event.progress_summary], ["question", event.question],
-    ["blocked_reason", event.blocked_reason], ["checkpoint_ref", event.checkpoint_ref],
-    ["stop_evidence", event.stop_evidence], ["review_evidence", event.review_evidence],
-    ["completion_evidence", event.completion_evidence], ["next_step", event.next_step]
-  ].filter(([, value]) => value).map(([label, value]) => [label, opaqueDetailRef(value, label)]));
-  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_ref_mode: "HASH_PLACEHOLDER_UNWIRED", detail_refs: detailRefs};
+  const detailRefs = validation.protected_detail_refs && typeof validation.protected_detail_refs === "object" ? validation.protected_detail_refs : null;
+  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_ref_mode: detailRefs ? "PROTECTED_STORE" : "UNWIRED_NO_REFERENCE", detail_refs: detailRefs};
   return {
     issue_id: event.issue_id, workspace_id: event.workspace_id,
     expected_version: Number.isInteger(validation.expected_version) ? validation.expected_version : null,
@@ -190,6 +180,20 @@ export async function commitCtoCompletion(authorization, nativeAdapter) {
   return {accepted: true, state: "DONE", native_status: "done", reason: "CTO_COMPLETION_COMMITTED", result};
 }
 
+export async function attachProtectedDetailRefs(validation, detailStore, scope) {
+  if (!validation?.accepted || !validation.event) return validation || reject("VALIDATION_REQUIRED");
+  if (!detailStore || typeof detailStore.putDetail !== "function") return {...validation, protected_detail_refs: null, detail_store_state: "DETAIL_STORE_UNWIRED"};
+  const event = validation.event;
+  const values = Object.entries({progress_summary: event.progress_summary, question: event.question, blocked_reason: event.blocked_reason, checkpoint_ref: event.checkpoint_ref, stop_evidence: event.stop_evidence, review_evidence: event.review_evidence, completion_evidence: event.completion_evidence, next_step: event.next_step}).filter(([, value]) => value);
+  const refs = {};
+  for (const [label, value] of values) {
+    const stored = await detailStore.putDetail({scope: {...scope, event_id: event.event_id, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id}, label, value});
+    if (!stored?.accepted || !text(stored.protected_ref)) return {...validation, protected_detail_refs: null, detail_store_state: stored?.reason || "DETAIL_STORE_WRITE_UNVERIFIED"};
+    refs[label] = stored.protected_ref;
+  }
+  return {...validation, protected_detail_refs: refs, detail_store_state: "PROTECTED_STORE"};
+}
+
 export const NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION = "1.0";
 export const NATIVE_AGENT_ATOMIC_WRITE_CONTRACT = Object.freeze({
   version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION,
@@ -212,7 +216,7 @@ export function createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter, i
   const run = (event, mutate) => nativePersistenceAdapter.runAtomicMutation({issueId, taskId, idempotencyKey, event: {...event, expected_version: expectedVersion, fencing_token: fencingToken}, mutate});
   return Object.freeze({
     version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION, configured: true, contract: NATIVE_AGENT_ATOMIC_WRITE_CONTRACT,
-    applyAgentReportMutation: mutation => run({event_id: mutation.atomic_event_claim.event_id, type: "AGENT_REPORT", expected_version: mutation.expected_version}, (current, event) => ({record: {...current, version: current.version + 1, audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "AGENT_REPORT_COMMITTED"})),
+    applyAgentReportMutation: mutation => run({event_id: mutation.atomic_event_claim.event_id, type: mutation.issue_update?.status || "AGENT_REPORT", expected_version: mutation.expected_version}, (current, event) => ({record: {...current, version: current.version + 1, status: mutation.issue_update?.status || current.status, audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "AGENT_REPORT_COMMITTED"})).then(result => ({...result, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: result.committed === true})),
     applyCtoCompletion: completion => run({event_id: completion.review_event_id, type: "CTO_COMPLETION", expected_version: expectedVersion}, (current, event) => ({record: {...current, version: current.version + 1, status: "done", audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "CTO_COMPLETION_COMMITTED"})).then(result => ({...result, status: result.committed ? "done" : "BLOCKED", review_event_id: completion.review_event_id, atomic: result.committed === true}))
   });
 }

@@ -98,6 +98,7 @@ test("Workbench shows truthful empty state and permission errors",async t=>{
  assert.match(await page.locator("#tf-pm-inbox").innerText(),/沒有以空資料取代錯誤|未以空資料取代錯誤/);
 });
 
+
 test("Workbench empty state excludes ordinary native issues",async t=>{
  const {page}=await setup(t,{issueList:[{id:"ordinary-1",identifier:"ZG-99",title:"一般 TaskFlow 任務",status:"todo"}]});
  await page.getByRole("link",{name:"AI 派工 Workbench"}).click();
