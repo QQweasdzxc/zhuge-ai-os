@@ -212,6 +212,16 @@ jobs:
           TASKFLOW_MIGRATION_PG_SERVICE: taskflow_migrator
           PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
         run: sh labs/taskflow/overrides/issue42-install-once.sh
+      - name: Execute the same runner a second time and compare ACL/function snapshots
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: taskflow_migrator
+          PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
+          PGPASSWORD: ci-bootstrap
+        run: |
+          psql -h 127.0.0.1 -U bootstrap -d postgres -Atc "SELECT p.proname,pg_get_userbyid(p.proowner),p.prosecdef,coalesce(array_to_string(p.proconfig,','),'NULL') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue') ORDER BY 1; SELECT pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request'; SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'),has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$RUNNER_TEMP/m1a-before-second.txt"
+          sh labs/taskflow/overrides/issue42-install-once.sh
+          psql -h 127.0.0.1 -U bootstrap -d postgres -Atc "SELECT p.proname,pg_get_userbyid(p.proowner),p.prosecdef,coalesce(array_to_string(p.proconfig,','),'NULL') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue') ORDER BY 1; SELECT pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request'; SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'),has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$RUNNER_TEMP/m1a-after-second.txt"
+          diff -u "$RUNNER_TEMP/m1a-before-second.txt" "$RUNNER_TEMP/m1a-after-second.txt"
       - name: Verify wrong identity, wrong SHA and permission failures
         env:
           PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
