@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,13 +13,10 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// CTODispatchMutationRequest is the client portion of the candidate native
-// dispatch mutation. The client cannot provide a CTO identity, workspace
-// authority, or authorization result; those values are resolved server-side.
 type CTODispatchMutationRequest struct {
-	TaskID    string `json:"task_id,omitempty"`
-	Executor  string `json:"executor_id"`
-	Provider  string `json:"provider"`
+	TaskID   string `json:"task_id,omitempty"`
+	Executor string `json:"executor_id"`
+	Provider string `json:"provider"`
 }
 
 func parseCTODispatchMutationRequest(body []byte) (CTODispatchMutationRequest, error) {
@@ -73,12 +70,9 @@ func ctoDispatchMutationHTTPError(err error) (int, string) {
 	}
 }
 
-// CTODispatchIssue is a TaskFlow-owned candidate mutation boundary. It
-// checks the protected deployment allowlist and native workspace before
-// delegating task creation to the existing RerunIssue service. An empty
-// allowlist fails closed. The native service response is a TaskFlow task, not
-// a Provider ACK or Provider Run ID.
-// CTODispatchIssue is the protected dispatch outlet.
+// CTODispatchIssue is the protected dispatch outlet. Route and durable claim
+// resolution are server-owned; clients cannot provide a DispatchID, lease,
+// fencing epoch, session or ACK.
 func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	issue, ok := h.loadIssueForUser(w, r, id)
@@ -106,6 +100,7 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workspaceID := uuidToString(issue.WorkspaceID)
+	issueID := uuidToString(issue.ID)
 	if err := AuthorizeCTODispatchRequest(CTODispatchRequest{
 		AuthenticatedUserID:      userID,
 		ConfiguredCTOUserIDs:     ParseCTOAllowlist(os.Getenv("TASKFLOW_CTO_ALLOWLIST_USER_IDS")),
@@ -119,31 +114,38 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve both route and durable claim server-side. The default resolvers
-	// are unbound, so no native task/provider run can be created accidentally.
 	route, err := resolveProviderConversationRoute(context.Background(), request.Executor, workspaceID, request.Provider)
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
 		writeError(w, status, message)
 		return
 	}
-	// Dispatch ID must come from a server-owned durable claim, never from TaskID/client metadata.
-	dispatchID := ""
-	correlation, err := resolveProviderDispatchCorrelation(context.Background(), dispatchID, workspaceID, uuidToString(issue.ID))
+
+	// Claim is an atomic, server-owned operation. It must be obtained before
+	// crossing the provider boundary; TaskID and client metadata are not claims.
+	claim, err := resolveProviderDispatchClaim(context.Background(), workspaceID, issueID, request.Executor, request.Provider)
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
 		writeError(w, status, message)
 		return
 	}
+	correlation, err := resolveProviderDispatchCorrelation(context.Background(), claim.DispatchID, workspaceID, issueID)
+	if err != nil {
+		status, message := ctoDispatchProviderHTTPError(err)
+		writeError(w, status, message)
+		return
+	}
+
 	_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{
-		IssueID: uuidToString(issue.ID),
-		WorkspaceID: workspaceID,
+		IssueID:             issueID,
+		WorkspaceID:         workspaceID,
 		AuthenticatedUserID: userID,
-		TaskID: request.TaskID,
-		ExecutorID: request.Executor,
-		Provider: request.Provider,
-		Correlation: correlation,
-		Route: route.Route,
+		TaskID:              request.TaskID,
+		ExecutorID:          request.Executor,
+		Provider:            request.Provider,
+		Correlation:         correlation,
+		Route:               route.Route,
+		DispatchClaim:       claim,
 	})
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
@@ -151,9 +153,6 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// RerunIssue is the existing native TaskFlow mutation. Strip the
-	// authorization-only fields before delegating so the frozen handler sees
-	// only its established request contract.
 	nativeBody, err := json.Marshal(RerunIssueRequest{TaskID: request.TaskID})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to prepare native dispatch")
