@@ -15,6 +15,8 @@ def test_candidate_is_server_owned_and_fail_closed_by_default():
     assert "request_payload_hash" in DDL
     assert "renew_dispatch_lease" in DDL
     assert "record_dispatch_reconciliation" in DDL
+    assert "confirm_dispatch_stop" in DDL
+    assert "p_lease_seconds > 3600" in DDL
     assert "PROVIDER" not in DDL.upper() or "provider" in DDL
     assert "GRANT" not in DDL.upper()
 
@@ -34,3 +36,4 @@ def test_stop_fences_old_writer_and_rollback_is_explicit():
     assert "AND fencing_epoch = p_fencing_epoch" in DDL
     assert "DROP TABLE IF EXISTS taskflow.dispatch_intent" in ROLLBACK
     assert "refusing destructive rollback" in ROLLBACK
+    assert "provider_stop_verified" in DDL

@@ -22,9 +22,12 @@ CREATE TABLE IF NOT EXISTS taskflow.dispatch_intent (
     fencing_epoch BIGINT NOT NULL DEFAULT 1 CHECK (fencing_epoch > 0),
     provider_run_id TEXT,
     provider_ack_event_id TEXT,
+    cto_principal TEXT NOT NULL,
     native_write_state TEXT NOT NULL DEFAULT 'pending'
         CHECK (native_write_state IN ('pending', 'committed', 'failed')),
     stop_reason TEXT,
+    stop_requested_at TIMESTAMPTZ,
+    provider_stop_verified BOOLEAN NOT NULL DEFAULT false,
     reconciliation_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -46,6 +49,7 @@ CREATE OR REPLACE FUNCTION taskflow.claim_dispatch_intent(
     p_workspace_id UUID,
     p_executor_id TEXT,
     p_provider TEXT,
+    p_cto_principal TEXT,
     p_lease_seconds INTEGER DEFAULT 300
 ) RETURNS taskflow.dispatch_intent
 LANGUAGE plpgsql
@@ -55,7 +59,8 @@ AS $$
 DECLARE
     existing taskflow.dispatch_intent;
 BEGIN
-    IF p_request_key IS NULL OR btrim(p_request_key) = '' OR p_lease_seconds <= 0 THEN
+    IF p_request_key IS NULL OR btrim(p_request_key) = '' OR btrim(coalesce(p_cto_principal, '')) = ''
+       OR p_lease_seconds <= 0 OR p_lease_seconds > 3600 THEN
         RAISE EXCEPTION 'invalid dispatch claim request';
     END IF;
 
@@ -70,6 +75,9 @@ BEGIN
         )), 'hex') THEN
             RAISE EXCEPTION 'dispatch request key payload mismatch';
         END IF;
+        IF existing.state IN ('failed', 'completed', 'stopped') OR existing.lease_expires_at <= now() THEN
+            RAISE EXCEPTION 'dispatch request key is terminal or expired';
+        END IF;
         RETURN existing;
     END IF;
 
@@ -81,12 +89,12 @@ BEGIN
     END IF;
 
     INSERT INTO taskflow.dispatch_intent (
-        request_key, request_payload_hash, issue_id, workspace_id, executor_id, provider,
+        request_key, request_payload_hash, issue_id, workspace_id, executor_id, provider, cto_principal,
         lease_expires_at
     ) VALUES (
         p_request_key,
         encode(sha256(convert_to(p_issue_id::text || ':' || p_workspace_id::text || ':' || p_executor_id || ':' || p_provider, 'UTF8')), 'hex'),
-        p_issue_id, p_workspace_id, p_executor_id, p_provider,
+        p_issue_id, p_workspace_id, p_executor_id, p_provider, p_cto_principal,
         now() + make_interval(secs => p_lease_seconds)
     )
     RETURNING * INTO existing;
@@ -144,13 +152,32 @@ SET search_path = taskflow, pg_catalog
 AS $$
 BEGIN
     UPDATE taskflow.dispatch_intent
-       SET state = 'stopped',
+       SET state = 'reconcile_required',
            stop_reason = NULLIF(btrim(p_reason), ''),
+           stop_requested_at = now(),
            fencing_epoch = fencing_epoch + 1,
            updated_at = now()
      WHERE id = p_dispatch_id
        AND fencing_epoch = p_fencing_epoch
        AND state IN ('claimed', 'provider_started', 'reconcile_required');
+    RETURN FOUND;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION taskflow.confirm_dispatch_stop(
+    p_dispatch_id UUID, p_fencing_epoch BIGINT, p_provider_stop_verified BOOLEAN
+) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = taskflow, pg_catalog
+AS $$
+BEGIN
+    IF NOT p_provider_stop_verified THEN
+        RETURN false;
+    END IF;
+    UPDATE taskflow.dispatch_intent
+       SET state = 'stopped', provider_stop_verified = true, updated_at = now()
+     WHERE id = p_dispatch_id AND fencing_epoch = p_fencing_epoch
+       AND state = 'reconcile_required' AND stop_requested_at IS NOT NULL;
     RETURN FOUND;
 END;
 $$;
