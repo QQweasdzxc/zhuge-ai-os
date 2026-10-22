@@ -512,7 +512,7 @@ try {
   if (landscapeMetrics.viewport.width !== 844 || landscapeMetrics.viewport.height !== 390 ||
       landscapeMetrics.document.scrollWidth > 845 || landscapeMetrics.document.scrollHeight > 392 ||
       !landscapeMetrics.iframe || landscapeMetrics.iframe.x < 0 || landscapeMetrics.iframe.right > 845 ||
-      landscapeMetrics.devices.length !== 6 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
+      landscapeMetrics.devices.length !== 8 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
     throw new Error('Mobile landscape office is clipped, overflowing or has inaccessible product links: ' + JSON.stringify(landscapeMetrics));
   }
   const landscapeCanvas = await frame.locator('canvas#world').boundingBox();

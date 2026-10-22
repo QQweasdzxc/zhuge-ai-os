@@ -149,7 +149,9 @@
       furniture("檔案櫃", "檔", "經典狀態報表", routes.classic, "classic"),
       furniture("會議室", "會", "AI 指揮艙連結待補", null, "cockpit")
     );
-    root.append(board, rack, toast);
+    // Keep award data for the native room without restoring the retired floating wall.
+    window.ZhugeOfficeAwards = Object.freeze(works.map(work => Object.freeze({ ...work })));
+    root.append(rack, toast);
     document.body.append(root);
 
     // Native Habblaud modal must ALWAYS win: do not cover its close/decision controls.

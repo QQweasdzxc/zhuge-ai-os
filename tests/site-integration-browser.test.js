@@ -16,6 +16,8 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
   await page.route('**/pixel-office/index.html',route=>route.fulfill({contentType:'text/html',body:'<main>SCENE_FIXTURE_ONLY</main>'}));
   await page.goto(await fixtureURL(path.join(root,'index.html')));
   const rack=page.locator('.zgf-rack');await rack.waitFor();
+  assert.equal(await page.locator('#zgf-trophy-board').count(),0);
+  assert.equal(await page.evaluate(()=>Object.isFrozen(window.ZhugeOfficeAwards)),true);
   const origin=new URL(page.url()).origin;
   assert.equal(await rack.locator('[data-zgf-work=taskflow]').getAttribute('href'),origin+'/labs/taskflow/');
   assert.equal(await rack.locator('[data-zgf-work=apps]').getAttribute('href'),origin+'/labs/taskflow/');

@@ -42,6 +42,10 @@ GAP: live OAuth/App Access, real iPhone Safari and production deployment are unv
 
 Changes are limited to root furniture, shared navigation, existing login-return routing helper, static WL/TF return links, TF Apps navigation overlay, tests/workflows and formal release projections in this isolated branch. No SQL, Backend Handler, CO-02 reporting or Frozen Vendor edits. CO-01 should integrate reviewed source delta and resolve Version/Build centrally; never copy this review's identity over a newer release.
 
+## Existing Pixel build integration repair
+
+The re-enabled pinned Pixel CI exposed an existing mismatch: smoke expects the retired floating awards wall absent and immutable `ZhugeOfficeAwards` records available, but baseline furniture still mounted the wall. Keep the existing records read-only and retain the native awards room; mount only the quick-entry rack. Landscape assertions now require all eight actual controls rather than the former six.
+
 ## BLOCKERS / PM_RUNTIME_QA_NEEDS
 
 AUTH_RUNTIME_NOT_VERIFIED / PRODUCTION_NOT_DEPLOYED. PM must test real approved and denied accounts in Safari: clock → existing login → ACL approval → office, logout → office link, TF workspace selection and Apps return. No credentials, cloud role, OAuth configuration or production data were changed. No paid provider started.
