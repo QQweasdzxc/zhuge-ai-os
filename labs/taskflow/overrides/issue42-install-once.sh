@@ -6,7 +6,7 @@ set -eu
 : "${TASKFLOW_MIGRATION_DATABASE_URL:?Set the one-shot migrator URL in a private runtime only}"
 SQL_PATH=labs/taskflow/sql/issue42_connector_create_issue_candidate.sql
 EXPECTED_SHA=50b716e38fe2703607fe19880f60c298c7af1bac
-test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+test "$(git cat-file -t "$EXPECTED_SHA")" = commit
 EXPECTED_FILE_SHA=b2a8fa1f986efab3e27997fd02b04613fef3d31aea68665f77192ba8a227b6cc
 SQL_FILE=$(mktemp)
 trap 'rm -f "$SQL_FILE"' EXIT
