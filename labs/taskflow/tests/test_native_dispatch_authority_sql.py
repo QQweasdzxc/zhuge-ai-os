@@ -21,7 +21,7 @@ def test_candidate_is_server_owned_and_fail_closed_by_default():
 
 def test_claim_does_not_accept_client_identity_or_provider_ack():
     claim_body = DDL.split("CREATE OR REPLACE FUNCTION taskflow.claim_dispatch_intent", 1)[1].split(
-        "CREATE OR REPLACE FUNCTION taskflow.stop_dispatch_intent", 1
+        "CREATE OR REPLACE FUNCTION taskflow.renew_dispatch_lease", 1
     )[0]
     assert "p_dispatch_id" not in claim_body
     assert "p_lease_id" not in claim_body
