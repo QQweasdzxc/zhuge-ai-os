@@ -66,7 +66,7 @@ SELECT CASE WHEN f.count_ok AND f.security_ok AND l.ledger_ok
  AND NOT has_function_privilege('taskflow_runtime','taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)','EXECUTE')
  AND NOT has_table_privilege('taskflow_runtime','taskflow.sb_connector_issue_request','INSERT')
  AND NOT has_table_privilege('postgres','taskflow.sb_connector_issue_request','SELECT')
- THEN 'READY' ELSE 'NOT_READY' END FROM f,l")"
+ THEN 'READY' ELSE 'NOT_READY' END FROM f,l")
 if [ "$existing_contract" = READY ]; then
   echo "ISSUE42_ALREADY_INSTALLED: complete contract verified; no SQL re-install performed"
   exit 0
