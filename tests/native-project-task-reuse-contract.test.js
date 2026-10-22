@@ -7,7 +7,13 @@ const matrix=fs.readFileSync("docs/30_QA/site-integration-118/NATIVE-PROJECT-TAS
 
 test("native project mapping is explicit and fail-closed when IDs are absent",()=>{
   assert.match(app,/const executors=\["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"\]/);
-  assert.match(app,/GAP：API 尚未提供此 Executor 的 Native Project ID/);
+  assert.match(app,/GAP：Executor、Workspace、ACL 的 Native Project 對應缺失或不唯一/);
+  assert.match(app,/item\?\.executor_id\|\|item\?\.executor/);
+  assert.match(app,/item\?\.acl_allowed===true/);
+  assert.match(app,/item\?\.access_allowed===true/);
+  assert.match(app,/item\?\.workspace_id\|\|""\)===workspaceId/);
+  assert.match(app,/matches\.length===1\?matches\[0\]:null/);
+  assert.doesNotMatch(app,/item\.name,item\.title,item\.slug,item\.key/);
   assert.match(app,/project\.id/);
   assert.match(app,/workspaceSlug\(\)/);
 });

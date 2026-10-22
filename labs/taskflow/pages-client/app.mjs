@@ -598,12 +598,19 @@ async function loadAiBoard(){
 }
 function renderAiProjectEntries(){
   const executors=["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"];
+  const workspaceId=String(state.workspace?.id||"");
   refs.aiProjectEntries.replaceChildren();
   for(const executor of executors){
-    const project=state.projects.find(item=>[item.name,item.title,item.slug,item.key].some(value=>String(value||"").trim().toUpperCase()===executor));
+    const matches=state.projects.filter(item=>{
+      const mappedExecutor=String(item?.executor_id||item?.executor||"").trim().toUpperCase();
+      return mappedExecutor===executor && Boolean(item?.id) && workspaceId &&
+        String(item?.workspace_id||"")===workspaceId &&
+        item?.acl_allowed===true && item?.access_allowed===true;
+    });
+    const project=matches.length===1?matches[0]:null;
     if(!project){
       const missing=element("div",{className:"tf-ai-project-entry tf-ai-project-entry-disabled",attrs:{"aria-label":`${executor} 原生專案尚未接通`}});
-      missing.append(element("strong",{text:executor}),element("span",{text:"GAP：API 尚未提供此 Executor 的 Native Project ID"}));
+      missing.append(element("strong",{text:executor}),element("span",{text:"GAP：Executor、Workspace、ACL 的 Native Project 對應缺失或不唯一"}));
       refs.aiProjectEntries.append(missing); continue;
     }
     const webUrl=globalThis.ZhugeTaskFlowConfig?.webUrl||"https://zhuge-taskflow-web.onrender.com";

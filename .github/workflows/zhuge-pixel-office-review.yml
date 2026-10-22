@@ -14,6 +14,7 @@ on:
       - review/p2-issue-75-helper-lifecycle-20261019
       - review/p2-issue-75-gpt-helper-lifecycle-20261019
       - review/p0-three-lane-integration-20261022
+      - review/p0-native-ai-integration-20261022
   workflow_dispatch:
 permissions:
   contents: read
