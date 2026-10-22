@@ -61,3 +61,6 @@
  .zgf-medal-slot .zgf-medal{gap:1px}
  .zgf-work-details{padding:7px;font-size:10px}
 }
+
+/* Keep every quick entry reachable at phone widths without shrinking touch targets. */
+.zgf-rack{max-width:min(410px,calc(100vw - 30px));flex-wrap:wrap;justify-content:flex-end}.zgf-rack .zgf-device{flex:0 0 44px;min-width:44px;min-height:60px}

@@ -4,10 +4,11 @@
   const current = new URL(location.href);
   const siteRoot = new URL(/\/docs\//.test(current.pathname) ? "../" : "./", current.href);
   const routes = Object.freeze({
-    taskflow: "https://zhuge-taskflow-web.onrender.com/",
+    taskflow: new URL("labs/taskflow/", siteRoot).href,
     worklog: new URL("modules/worklog/", siteRoot).href,
     investment: new URL("modules/investment/", siteRoot).href,
     lab: new URL("modules/labs/", siteRoot).href,
+    login: new URL("modules/worklog/?app=1&workspace=dashboard&officeReturn=1", siteRoot).href,
     classic: new URL("status-classic.html", /\/docs\//.test(current.pathname) ? new URL("./", current.href) : siteRoot).href
   });
   // AI Command Cockpit and TF-03 download have NOT been supplied or verified by PM.
@@ -49,7 +50,7 @@
       element.title = name + "｜" + caption;
       if (href) {
         element.href = href;
-        element.target = "_blank";
+        if (key !== "login") element.target = "_blank";
         element.rel = "noopener noreferrer";
       } else {
         element.type = "button";
@@ -140,7 +141,9 @@
     rack.setAttribute("aria-label", "辦公室設備快速入口");
     rack.append(
       furniture("TaskFlow", "TF", "正式大廳", routes.taskflow, "taskflow"),
-      furniture("打卡鐘", "WL", "WorkLog 工時", routes.worklog, "worklog"),
+      furniture("打卡鐘", "登入", "既有登入，核准後返回辦公室", routes.login, "login"),
+      furniture("WorkLog", "WL", "工作紀錄", routes.worklog, "worklog"),
+      furniture("Apps", "AP", "TaskFlow 內的既有應用程式選單", routes.taskflow, "apps"),
       furniture("行情電視", "IV", "Investment 投資", routes.investment, "investment"),
       furniture("工具櫃", "03", "TF-03 待補下載", null, "tools"),
       furniture("檔案櫃", "檔", "經典狀態報表", routes.classic, "classic"),

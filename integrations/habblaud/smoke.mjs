@@ -379,7 +379,7 @@ try {
     throw new Error('Floating award wall must be absent while source records and the quick-link rack remain: ' + JSON.stringify({wall:!!awards.wall,records:awards.records?.map(item=>item.id),rack:!!awards.rack}));
   }
   const taskflow = await page.locator('.zgf-rack [data-zgf-work="taskflow"]').getAttribute('href');
-  if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
+  if (taskflow !== base + '/labs/taskflow/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
   const worklog = await page.locator('.zgf-rack [data-zgf-work="worklog"]').getAttribute('href');
   const investment = await page.locator('.zgf-rack [data-zgf-work="investment"]').getAttribute('href');
   const classicQuickLink = await page.locator('.zgf-rack [data-zgf-work="classic"]').getAttribute('href');
