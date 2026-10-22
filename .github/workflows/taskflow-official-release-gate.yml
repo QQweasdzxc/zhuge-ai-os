@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: 'Exact reviewed candidate SHA (must be .9.148)'
+        description: 'Exact reviewed candidate SHA (must be .9.149)'
         required: true
-        default: a4a6a15d836ddd790d65d1a36eacc433e9dcb460
+        default: 475db004be05d73177f677c7d0f5f05cd07c1fd9
         type: string
 
 permissions:
@@ -93,7 +93,7 @@ jobs:
 
   issue42-production-install:
     name: Issue #42 production INSTALL ONLY (manual, protected)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha == 'a4a6a15d836ddd790d65d1a36eacc433e9dcb460' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha == '475db004be05d73177f677c7d0f5f05cd07c1fd9' }}
     environment:
       name: production-migration
     runs-on: ubuntu-latest
@@ -111,7 +111,7 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test "$CANDIDATE_SHA" = "a4a6a15d836ddd790d65d1a36eacc433e9dcb460"
+          test "$CANDIDATE_SHA" = "475db004be05d73177f677c7d0f5f05cd07c1fd9"
           test "$(git cat-file -t 50b716e38fe2703607fe19880f60c298c7af1bac)" = commit
           test "$(git hash-object labs/taskflow/sql/issue42_connector_create_issue_candidate.sql)" = "$(git rev-parse 50b716e38fe2703607fe19880f60c298c7af1bac:labs/taskflow/sql/issue42_connector_create_issue_candidate.sql)"
 
