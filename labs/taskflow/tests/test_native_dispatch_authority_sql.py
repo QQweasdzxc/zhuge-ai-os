@@ -12,6 +12,9 @@ def test_candidate_is_server_owned_and_fail_closed_by_default():
     assert "SECURITY INVOKER" in DDL
     assert "SET search_path = taskflow, pg_catalog" in DDL
     assert "p_request_key" in DDL and "fencing_epoch" in DDL
+    assert "request_payload_hash" in DDL
+    assert "renew_dispatch_lease" in DDL
+    assert "record_dispatch_reconciliation" in DDL
     assert "PROVIDER" not in DDL.upper() or "provider" in DDL
     assert "GRANT" not in DDL.upper()
 
@@ -30,3 +33,4 @@ def test_stop_fences_old_writer_and_rollback_is_explicit():
     assert "fencing_epoch = fencing_epoch + 1" in DDL
     assert "AND fencing_epoch = p_fencing_epoch" in DDL
     assert "DROP TABLE IF EXISTS taskflow.dispatch_intent" in ROLLBACK
+    assert "refusing destructive rollback" in ROLLBACK
