@@ -165,17 +165,18 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION taskflow.confirm_dispatch_stop(
-    p_dispatch_id UUID, p_fencing_epoch BIGINT, p_provider_stop_verified BOOLEAN
+    p_dispatch_id UUID, p_fencing_epoch BIGINT, p_provider_stop_event_id TEXT
 ) RETURNS BOOLEAN
 LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = taskflow, pg_catalog
 AS $$
 BEGIN
-    IF NOT p_provider_stop_verified THEN
+    IF btrim(coalesce(p_provider_stop_event_id, '')) = '' THEN
         RETURN false;
     END IF;
     UPDATE taskflow.dispatch_intent
-       SET state = 'stopped', provider_stop_verified = true, updated_at = now()
+       SET state = 'stopped', provider_stop_verified = true,
+           provider_ack_event_id = p_provider_stop_event_id, updated_at = now()
      WHERE id = p_dispatch_id AND fencing_epoch = p_fencing_epoch
        AND state = 'reconcile_required' AND stop_requested_at IS NOT NULL;
     RETURN FOUND;
