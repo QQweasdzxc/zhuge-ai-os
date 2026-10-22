@@ -3,7 +3,7 @@
 # migration. It is intentionally manual and requires an explicit SQL file.
 set -eu
 
-: "${TASKFLOW_MIGRATION_DATABASE_URL:?Set the one-shot migrator URL in a private runtime only}"
+: "${TASKFLOW_MIGRATION_PG_SERVICE:?Set a private libpq service name; never pass a DSN on the command line}"
 SQL_PATH=labs/taskflow/sql/issue42_connector_create_issue_candidate.sql
 EXPECTED_SHA=50b716e38fe2703607fe19880f60c298c7af1bac
 test "$(git cat-file -t "$EXPECTED_SHA")" = commit
@@ -15,7 +15,9 @@ test "$(sha256sum "$SQL_FILE" | awk '{print $1}')" = "$EXPECTED_FILE_SHA"
 
 # Never print the connection URL. The preflight is read-only and rejects the
 # runtime role, superuser/bypass roles, shared-schema access and bad search path.
-psql "$TASKFLOW_MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At <<'SQL'
+psql_migrator() { PGSERVICE="$TASKFLOW_MIGRATION_PG_SERVICE" psql -X -v ON_ERROR_STOP=1 "$@"; }
+
+psql_migrator -At <<'SQL'
 DO $$
 BEGIN
   IF session_user <> 'taskflow_migrator' OR current_user <> 'taskflow_migrator' THEN
@@ -37,15 +39,49 @@ END $$;
 SQL
 
 # The candidate SQL performs its own owner/SECURITY DEFINER/ACL assertions.
-psql "$TASKFLOW_MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$SQL_FILE" >/dev/null
+if ! psql_migrator -f "$SQL_FILE" >/dev/null; then
+  echo "INSTALL_FAILED: SQL transaction rolled back" >&2
+  exit 1
+fi
 
 # Read-only postflight; output contains metadata only, never secrets or data.
-psql "$TASKFLOW_MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At <<'SQL'
-SELECT 'INSTALL_ONLY_POSTFLIGHT',
-       count(*) FILTER (WHERE p.proname='sb_connector_create_issue'),
-       count(*) FILTER (WHERE p.proname='sb_connector_update_issue')
-  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname='taskflow';
-SELECT 'LEDGER_EXISTS', to_regclass('taskflow.sb_connector_issue_request') IS NOT NULL;
+if ! psql_migrator -At <<'SQL'
+DO $$
+DECLARE f record; ledger_owner text;
+BEGIN
+  FOR f IN
+    SELECT p.oid, p.proname, pg_get_userbyid(p.proowner) owner,
+           p.prosecdef, p.proconfig
+      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+     WHERE n.nspname='taskflow'
+       AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue')
+  LOOP
+    IF f.owner <> 'taskflow_migrator' OR NOT f.prosecdef
+       OR NOT (f.proconfig @> ARRAY['search_path=pg_catalog, taskflow, extensions, pg_temp']) THEN
+      RAISE EXCEPTION 'POSTFLIGHT_FAILED: function security contract';
+    END IF;
+  END LOOP;
+  IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue')) <> 2 THEN
+    RAISE EXCEPTION 'POSTFLIGHT_FAILED: controlled function count';
+  END IF;
+  SELECT pg_get_userbyid(c.relowner) INTO ledger_owner FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+   WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request';
+  IF ledger_owner <> 'taskflow_migrator' THEN RAISE EXCEPTION 'POSTFLIGHT_FAILED: ledger owner'; END IF;
+  IF NOT has_function_privilege('postgres','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+     OR has_function_privilege('taskflow_runtime','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+     OR has_table_privilege('taskflow_runtime','taskflow.sb_connector_issue_request','INSERT') THEN
+    RAISE EXCEPTION 'POSTFLIGHT_FAILED: function/ledger ACL boundary';
+  END IF;
+  IF has_table_privilege('taskflow_runtime','taskflow.issue','INSERT')
+     OR has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE') THEN
+    RAISE EXCEPTION 'POSTFLIGHT_FAILED: native issue DML boundary';
+  END IF;
+END $$;
 SQL
+then
+  echo "INSTALLED_BUT_POSTFLIGHT_FAILED: SQL committed; do not claim rollback" >&2
+  exit 2
+fi
 echo "ISSUE42_INSTALL_ONLY_READY: no card creation performed"
