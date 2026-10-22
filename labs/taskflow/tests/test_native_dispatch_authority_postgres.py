@@ -40,9 +40,11 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
         expect_error("SELECT taskflow.claim_dispatch_intent('bad-ttl','00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000001','CO-01','codex','cto-1',3601);", "invalid dispatch claim request")
         dispatch, lease, epoch = sql("SELECT id || ',' || lease_id || ',' || fencing_epoch FROM taskflow.dispatch_intent;").stdout.strip().split(',')
         assert sql(f"SELECT taskflow.renew_dispatch_lease('{dispatch}','{lease}',{epoch},60);").stdout.strip() == "t"
+        sql(f"UPDATE taskflow.dispatch_intent SET provider_run_id='run-1', state='provider_started' WHERE id='{dispatch}';")
         assert sql(f"SELECT taskflow.stop_dispatch_intent('{dispatch}',{epoch},'requested');").stdout.strip() == "t"
-        assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},NULL);").stdout.strip() == "f"
-        assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},'provider-event-1');").stdout.strip() == "t"
+        assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},NULL,NULL);").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},'wrong-run','provider-event-1');").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},'run-1','provider-event-1');").stdout.strip() == "t"
         expect_error(f"SELECT {claim};", "terminal or expired")
         sql("TRUNCATE taskflow.dispatch_intent;")
         results = []

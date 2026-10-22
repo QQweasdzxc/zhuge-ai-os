@@ -60,7 +60,7 @@ DECLARE
     existing taskflow.dispatch_intent;
 BEGIN
     IF p_request_key IS NULL OR btrim(p_request_key) = '' OR btrim(coalesce(p_cto_principal, '')) = ''
-       OR p_lease_seconds <= 0 OR p_lease_seconds > 3600 THEN
+       OR p_lease_seconds IS NULL OR p_lease_seconds <= 0 OR p_lease_seconds > 3600 THEN
         RAISE EXCEPTION 'invalid dispatch claim request';
     END IF;
 
@@ -114,6 +114,9 @@ LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = taskflow, pg_catalog
 AS $$
 BEGIN
+    IF p_lease_seconds IS NULL OR p_lease_seconds <= 0 OR p_lease_seconds > 3600 THEN
+        RETURN false;
+    END IF;
     UPDATE taskflow.dispatch_intent
        SET lease_expires_at = now() + make_interval(secs => p_lease_seconds), updated_at = now()
      WHERE id = p_dispatch_id AND lease_id = p_lease_id
@@ -165,19 +168,26 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION taskflow.confirm_dispatch_stop(
-    p_dispatch_id UUID, p_fencing_epoch BIGINT, p_provider_stop_event_id TEXT
+    p_dispatch_id UUID, p_fencing_epoch BIGINT, p_provider_run_id TEXT,
+    p_provider_stop_event_id TEXT
 ) RETURNS BOOLEAN
 LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = taskflow, pg_catalog
 AS $$
 BEGIN
-    IF btrim(coalesce(p_provider_stop_event_id, '')) = '' THEN
+    -- A free-form client event is never sufficient.  The server-owned
+    -- provider attestation adapter must supply the exact run id recorded on
+    -- this dispatch and a non-empty provider event reference.  Until that
+    -- adapter is bound, the public handler remains fail-closed.
+    IF btrim(coalesce(p_provider_run_id, '')) = ''
+       OR btrim(coalesce(p_provider_stop_event_id, '')) = '' THEN
         RETURN false;
     END IF;
     UPDATE taskflow.dispatch_intent
        SET state = 'stopped', provider_stop_verified = true,
            provider_ack_event_id = p_provider_stop_event_id, updated_at = now()
      WHERE id = p_dispatch_id AND fencing_epoch = p_fencing_epoch
+       AND provider_run_id = p_provider_run_id
        AND state = 'reconcile_required' AND stop_requested_at IS NOT NULL;
     RETURN FOUND;
 END;
