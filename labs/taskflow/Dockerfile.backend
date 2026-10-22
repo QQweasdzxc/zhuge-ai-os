@@ -36,6 +36,8 @@ COPY labs/taskflow/overrides/taskflow_cto_dispatch.go /tmp/taskflow_cto_dispatch
 COPY labs/taskflow/overrides/taskflow_cto_dispatch_test.go /tmp/taskflow_cto_dispatch_test.go
 COPY labs/taskflow/overrides/taskflow_provider_dispatch.go /tmp/taskflow_provider_dispatch.go
 COPY labs/taskflow/overrides/taskflow_provider_dispatch_test.go /tmp/taskflow_provider_dispatch_test.go
+COPY labs/taskflow/overrides/taskflow_provider_route.go /tmp/taskflow_provider_route.go
+COPY labs/taskflow/overrides/taskflow_provider_route_test.go /tmp/taskflow_provider_route_test.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime.go /tmp/taskflow_dispatch_runtime.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime_test.go /tmp/taskflow_dispatch_runtime_test.go
 COPY labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py /tmp/apply-taskflow-cto-dispatch-route.py
@@ -58,6 +60,8 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_cto_dispatch_test.go /src/server/internal/handler/taskflow_cto_dispatch_test.go \
  && cp /tmp/taskflow_provider_dispatch.go /src/server/internal/handler/taskflow_provider_dispatch.go \
  && cp /tmp/taskflow_provider_dispatch_test.go /src/server/internal/handler/taskflow_provider_dispatch_test.go \
+ && cp /tmp/taskflow_provider_route.go /src/server/internal/handler/taskflow_provider_route.go \
+ && cp /tmp/taskflow_provider_route_test.go /src/server/internal/handler/taskflow_provider_route_test.go \
  && cp /tmp/taskflow_dispatch_runtime.go /src/server/internal/handler/taskflow_dispatch_runtime.go \
  && cp /tmp/taskflow_dispatch_runtime_test.go /src/server/internal/handler/taskflow_dispatch_runtime_test.go \
  && python3 /tmp/patch-router-contract-test-main.py
