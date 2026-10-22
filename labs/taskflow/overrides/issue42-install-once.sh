@@ -43,6 +43,35 @@ SQL
 # TaskFlow API privileges and must remain unchanged, not be revoked.
 psql_migrator -Atc "SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'), has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$BASELINE_FILE"
 
+# A repeat invocation must not re-run CREATE OR REPLACE/ACL churn. It is only
+# idempotent when the complete installed contract is already true.
+existing_contract=$(psql_migrator -Atc "
+WITH f AS (
+ SELECT count(*)=2 AS count_ok,
+        bool_and(pg_get_userbyid(p.proowner)='taskflow_migrator' AND p.prosecdef
+          AND p.proconfig @> ARRAY['search_path=pg_catalog, taskflow, extensions, pg_temp']) AS security_ok
+   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue')
+), l AS (
+ SELECT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request'
+    AND pg_get_userbyid(c.relowner)='taskflow_migrator') AS ledger_ok
+)
+SELECT CASE WHEN f.count_ok AND f.security_ok AND l.ledger_ok
+ AND has_function_privilege('postgres','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+ AND has_function_privilege('postgres','taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)','EXECUTE')
+ AND NOT has_function_privilege('public','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+ AND NOT has_function_privilege('public','taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)','EXECUTE')
+ AND NOT has_function_privilege('taskflow_runtime','taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)','EXECUTE')
+ AND NOT has_function_privilege('taskflow_runtime','taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)','EXECUTE')
+ AND NOT has_table_privilege('taskflow_runtime','taskflow.sb_connector_issue_request','INSERT')
+ AND NOT has_table_privilege('postgres','taskflow.sb_connector_issue_request','SELECT')
+ THEN 'READY' ELSE 'NOT_READY' END FROM f,l")"
+if [ "$existing_contract" = READY ]; then
+  echo "ISSUE42_ALREADY_INSTALLED: complete contract verified; no SQL re-install performed"
+  exit 0
+fi
+
 # The candidate SQL performs its own owner/SECURITY DEFINER/ACL assertions.
 if ! psql_migrator -f "$SQL_FILE" >/dev/null; then
   echo "INSTALL_FAILED: SQL transaction rolled back" >&2
