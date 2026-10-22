@@ -19,6 +19,8 @@ The Native Authority must create the scope object; clients cannot submit it. It 
 
 Without those proofs, the required results are `DETAIL_STORE_UNWIRED`, `DETAIL_SCOPE_UNVERIFIED`, `NATIVE_WRITE_UNWIRED`, or `NATIVE_TRANSACTION_INTERFACE_INVALID`.
 
+The Node-only reference is excluded from browser entrypoints by `tests/taskflow-detail-store-browser-boundary.test.mjs`. Production persistence, KMS, ACL, recovery, and atomic binding requirements are specified in `CO02_PROTECTED_DETAIL_STORE_PRODUCTION_INTERFACE.md`.
+
 ## Correlation and error matrix
 
 | Condition | Required result |
