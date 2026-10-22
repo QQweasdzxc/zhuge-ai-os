@@ -600,9 +600,16 @@ function renderAiProjectEntries(){
   const executors=["CO-01","CO-02","CO-03","GEM-01","GH-HELPER"];
   refs.aiProjectEntries.replaceChildren();
   for(const executor of executors){
-    const link=element("a",{className:"tf-ai-project-entry",attrs:{href:routeFor({section:"ai-projects",issueId:executor}),"aria-label":`開啟 ${executor} 原生專案`}});
-    link.append(element("strong",{text:executor}),element("span",{text:"TaskFlow 原生專案入口；點選查看同一批 Issue"}));
-    link.addEventListener("click",event=>{event.preventDefault();history.pushState(null,"",link.href);renderRoute();});
+    const project=state.projects.find(item=>[item.name,item.title,item.slug,item.key].some(value=>String(value||"").trim().toUpperCase()===executor));
+    if(!project){
+      const missing=element("div",{className:"tf-ai-project-entry tf-ai-project-entry-disabled",attrs:{"aria-label":`${executor} 原生專案尚未接通`}});
+      missing.append(element("strong",{text:executor}),element("span",{text:"GAP：API 尚未提供此 Executor 的 Native Project ID"}));
+      refs.aiProjectEntries.append(missing); continue;
+    }
+    const webUrl=globalThis.ZhugeTaskFlowConfig?.webUrl||"https://zhuge-taskflow-web.onrender.com";
+    const href=`${webUrl}/${encodeURIComponent(workspaceSlug())}/projects/${encodeURIComponent(project.id)}`;
+    const link=element("a",{className:"tf-ai-project-entry",attrs:{href,"aria-label":`開啟 ${executor} 原生專案`}});
+    link.append(element("strong",{text:executor}),element("span",{text:`Native Project：${project.id}`}));
     refs.aiProjectEntries.append(link);
   }
 }
