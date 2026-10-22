@@ -123,6 +123,12 @@ jobs:
           command -v psql
           test -n "$MIGRATION_SERVICE"
           test -n "$MIGRATION_SERVICE_FILE"
+          case "$MIGRATION_SERVICE" in
+            *$'\r'*|*$'\n'*|*[!A-Za-z0-9_.-]*)
+              echo 'INSTALL BLOCKED: invalid PGSERVICE name' >&2
+              exit 1
+              ;;
+          esac
           service_file="$RUNNER_TEMP/taskflow-migrator.pgservice"
           umask 077
           printf '%s' "$MIGRATION_SERVICE_FILE" > "$service_file"
@@ -135,7 +141,10 @@ jobs:
 
       - name: Verify migrator identity before install
         run: |
-          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN session_user='taskflow_migrator' AND current_user='taskflow_migrator' THEN 'IDENTITY_OK' ELSE 'IDENTITY_REJECTED' END" | grep -qx IDENTITY_OK
+          test -n "$TASKFLOW_MIGRATION_PG_SERVICE"
+          test -n "$PGSERVICEFILE"
+          PGSERVICE="$TASKFLOW_MIGRATION_PG_SERVICE" PGSERVICEFILE="$PGSERVICEFILE" \
+            psql -X -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN session_user='taskflow_migrator' AND current_user='taskflow_migrator' THEN 'IDENTITY_OK' ELSE 'IDENTITY_REJECTED' END" | grep -qx IDENTITY_OK
 
       - name: Run SHA-locked Issue #42 INSTALL ONLY runner
         run: sh labs/taskflow/overrides/issue42-install-once.sh
