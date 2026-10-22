@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");
 const context = {
@@ -52,7 +52,7 @@ test("readable reports contain summary, blockers, questions, checkpoint, stop an
   assert.match(mutation.comment.content, /event-blocked/);
   assert.match(mutation.comment.content, /run-113/);
   assert.doesNotMatch(mutation.comment.content, /secret-value/);
-  assert.deepEqual(Object.keys(mutation.audit).sort(), ["detail_refs", "dispatch_id", "event_id", "executor_id", "fencing_epoch", "issue_id", "observed_at", "provider", "provider_run_id", "schema", "sequence", "session_id", "source", "state", "type", "workspace_id"].sort());
+  assert.deepEqual(Object.keys(mutation.audit).sort(), ["detail_ref_mode", "detail_refs", "dispatch_id", "event_id", "executor_id", "fencing_epoch", "issue_id", "observed_at", "provider", "provider_run_id", "schema", "sequence", "session_id", "source", "state", "type", "workspace_id"].sort());
 });
 
 test("full public comment never re-emits credential values in audit JSON", () => {
@@ -60,7 +60,7 @@ test("full public comment never re-emits credential values in audit JSON", () =>
     const result = validateAgentReportEvent(event("blocked", {progress_summary: `${label} ${value}`, blocked_reason: value, next_step: value, checkpoint_ref: value}), trustedContext("blocked"), NOW);
     const comment = buildNativeAgentReportMutation(result).comment.content;
     assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
-    assert.match(comment, /protected:/);
+    assert.match(comment, /opaque-hash-placeholder:/);
   }
 });
 
@@ -109,4 +109,12 @@ test("CO-01 compatibility fixture keeps unsupported runtime evidence fail-closed
   assert.equal(result.event.provider_run_id, "run-113");
   assert.equal(result.event.session_id, "session-113");
   assert.equal((await commitCtoCompletion({accepted: true, review: {issue_id: "issue-113", workspace_id: "ws-1", task_revision: 1, completion_event_id: "done-1", review_event_id: "review-1", reviewer_user_id: "cto-1"}}, null)).reason, "NATIVE_WRITE_UNWIRED");
+});
+
+
+test("native atomic write adapter exposes the TaskFlow Authority seam and fails closed when unwired", async () => {
+  const unwired = createNativeAgentAtomicWriteAdapter({issueId: "issue-113", idempotencyKey: "idem-113", expectedVersion: 1});
+  assert.equal(unwired.configured, false);
+  assert.equal((await unwired.applyAgentReportMutation({})).reason, "NATIVE_WRITE_UNWIRED");
+  assert.equal(unwired.contract.authority, "existing_taskflow_native_issue_and_agent_task_queue");
 });
