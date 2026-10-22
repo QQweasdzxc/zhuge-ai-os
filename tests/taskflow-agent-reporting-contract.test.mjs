@@ -60,7 +60,7 @@ test("full public comment never re-emits credential values in audit JSON", () =>
     const result = validateAgentReportEvent(event("blocked", {progress_summary: `${label} ${value}`, blocked_reason: value, next_step: value, checkpoint_ref: value}), trustedContext("blocked"), NOW);
     const comment = buildNativeAgentReportMutation(result).comment.content;
     assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
-    assert.match(comment, /opaque-hash-placeholder:/);
+    assert.match(comment, /detail_ref_mode\":\"UNWIRED_NO_REFERENCE/);
   }
 });
 

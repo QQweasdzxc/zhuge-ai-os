@@ -123,13 +123,6 @@ function redact(value) {
   return result.slice(0, 2000);
 }
 
-function opaqueDetailRef(value, label) {
-  const source = `${label}:${text(value)}`;
-  let hash = 2166136261;
-  for (const char of source) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return `opaque-hash-placeholder:${label}:${(hash >>> 0).toString(16)}`;
-}
-
 function readableReport(event, state) {
   const labels = {accepted: "Agent 已接單並開始執行", progress: "Agent 工作進度", question_to_cto: "Agent 等待 CTO 回答", blocked: "Agent 回報工程卡關", checkpoint: "Agent 保存 Checkpoint", interrupted_by_pm: "PM 已中斷，Agent 已提交停止回報", review_requested: "Agent 申請 CTO 稽核", completed: "Agent 回報完成，等待 CTO 稽核"};
   const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `摘要：${redact(event.progress_summary) || "未提供"}`];
@@ -146,13 +139,8 @@ function readableReport(event, state) {
 export function buildNativeAgentReportMutation(validation) {
   if (!validation?.accepted || !validation.event) throw new Error("validated Agent report required");
   const event = validation.event;
-  const detailRefs = Object.fromEntries([
-    ["progress_summary", event.progress_summary], ["question", event.question],
-    ["blocked_reason", event.blocked_reason], ["checkpoint_ref", event.checkpoint_ref],
-    ["stop_evidence", event.stop_evidence], ["review_evidence", event.review_evidence],
-    ["completion_evidence", event.completion_evidence], ["next_step", event.next_step]
-  ].filter(([, value]) => value).map(([label, value]) => [label, opaqueDetailRef(value, label)]));
-  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_ref_mode: "HASH_PLACEHOLDER_UNWIRED", detail_refs: detailRefs};
+  const detailRefs = validation.protected_detail_refs && typeof validation.protected_detail_refs === "object" ? validation.protected_detail_refs : null;
+  const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_ref_mode: detailRefs ? "PROTECTED_STORE" : "UNWIRED_NO_REFERENCE", detail_refs: detailRefs};
   return {
     issue_id: event.issue_id, workspace_id: event.workspace_id,
     expected_version: Number.isInteger(validation.expected_version) ? validation.expected_version : null,

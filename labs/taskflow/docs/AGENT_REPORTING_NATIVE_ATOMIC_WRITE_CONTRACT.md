@@ -16,6 +16,6 @@ The injected adapter must expose:
 - `applyAgentReportMutation(mutation)`
 - `applyCtoCompletion(completion)`
 
-The wrapper only reports committed when the injected Native Authority returns a committed transaction result. Without that adapter it returns `NATIVE_WRITE_UNWIRED`. An opaque hash in a public comment is only a non-secret correlation placeholder; it is not protected storage and must not be treated as evidence retrieval.
+The wrapper only reports committed when the injected Native Authority returns a committed transaction result. Without that adapter it returns `NATIVE_WRITE_UNWIRED`. Sensitive detail must use the injected Agent Protected Detail Store contract. Without it, public comments contain no detail reference and the mutation remains unconnected to protected evidence storage.
 
 Required correlation is preserved across both operations: Issue ID, Workspace, Dispatch ID, Executor, Provider, Provider Run ID, Session ID, Event ID, Lease ID, Fencing Epoch, expected revision, and audit event. Provider ACK/Run and STOP/Handoff remain unverified unless supplied by their server-side authoritative source.
