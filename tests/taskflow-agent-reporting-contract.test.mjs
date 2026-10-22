@@ -122,7 +122,7 @@ test("native atomic write adapter exposes the TaskFlow Authority seam and fails 
 
 test("validated reports can attach server protected references before native mutation", async () => {
   const validation = validateAgentReportEvent(event("blocked", {blocked_reason: "waiting for protected provider detail", next_step: "ask CTO"}), trustedContext("blocked", {expected_version: 3}), NOW);
-  const attached = await attachProtectedDetailRefs(validation, {putDetail: async ({label}) => ({accepted: true, protected_ref: `vault://event/${label}`})}, {verified: true, source: "TASKFLOW_AUTHORITY"});
+  const attached = await attachProtectedDetailRefs(validation, {putDetail: async ({label}) => ({accepted: true, protected_ref: `vault://event/${label}`})}, {authority_scope: "TASKFLOW_AUTHORITY_VERIFIED", server_principal: {verified: true, source: "TASKFLOW_AUTHORITY", user_id: "agent-1"}, workspace_acl: "ALLOW", issue_acl: "ALLOW"});
   assert.equal(attached.detail_store_state, "PROTECTED_STORE");
   const mutation = buildNativeAgentReportMutation(attached);
   assert.equal(mutation.audit.detail_ref_mode, "PROTECTED_STORE");

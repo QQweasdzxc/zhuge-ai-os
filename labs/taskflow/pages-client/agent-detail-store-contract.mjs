@@ -10,7 +10,14 @@ export const AGENT_DETAIL_STORE_CONTRACT = Object.freeze({
 const text = value => typeof value === "string" ? value.trim() : "";
 const blocked = reason => ({accepted: false, state: "BLOCKED", reason, contract: AGENT_DETAIL_STORE_CONTRACT});
 function serverScope(scope) {
-  return scope?.verified === true && scope.source === "TASKFLOW_AUTHORITY" && text(scope.issue_id) && text(scope.workspace_id) && text(scope.event_id) && text(scope.executor_id);
+  const principal = scope?.server_principal;
+  return scope?.authority_scope === "TASKFLOW_AUTHORITY_VERIFIED"
+    && principal?.verified === true
+    && principal.source === "TASKFLOW_AUTHORITY"
+    && principal.user_id
+    && scope?.workspace_acl === "ALLOW"
+    && scope?.issue_acl === "ALLOW"
+    && text(scope.issue_id) && text(scope.workspace_id) && text(scope.event_id) && text(scope.executor_id);
 }
 
 /**
