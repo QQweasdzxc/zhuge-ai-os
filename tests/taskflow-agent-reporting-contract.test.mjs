@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {attachProtectedDetailRefs, authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");
 const context = {
@@ -117,4 +117,15 @@ test("native atomic write adapter exposes the TaskFlow Authority seam and fails 
   assert.equal(unwired.configured, false);
   assert.equal((await unwired.applyAgentReportMutation({})).reason, "NATIVE_WRITE_UNWIRED");
   assert.equal(unwired.contract.authority, "existing_taskflow_native_issue_and_agent_task_queue");
+});
+
+
+test("validated reports can attach server protected references before native mutation", async () => {
+  const validation = validateAgentReportEvent(event("blocked", {blocked_reason: "waiting for protected provider detail", next_step: "ask CTO"}), trustedContext("blocked", {expected_version: 3}), NOW);
+  const attached = await attachProtectedDetailRefs(validation, {putDetail: async ({label}) => ({accepted: true, protected_ref: `vault://event/${label}`})}, {verified: true, source: "TASKFLOW_AUTHORITY"});
+  assert.equal(attached.detail_store_state, "PROTECTED_STORE");
+  const mutation = buildNativeAgentReportMutation(attached);
+  assert.equal(mutation.audit.detail_ref_mode, "PROTECTED_STORE");
+  assert.match(mutation.audit.detail_refs.blocked_reason, /^vault:\/\//);
+  assert.equal(mutation.expected_version, 3);
 });

@@ -100,6 +100,8 @@ export function validateAgentReportEvent(input, context = {}, now = Date.now()) 
     accepted: true,
     state: type === "completed" || type === "review_requested" ? "REVIEW" : type === "question_to_cto" ? "WAITING_CTO_DECISION" : type === "blocked" || type === "interrupted_by_pm" ? "BLOCKED" : "RUNNING",
     native_status: AGENT_REPORT_NATIVE_STATUS[type], schema: AGENT_REPORTING_SCHEMA,
+    expected_version: Number.isInteger(context.expected_version) ? context.expected_version : Number.isInteger(context.issue_revision) ? context.issue_revision : null,
+    idempotency_key: text(context.idempotency_key), lease_id: text(context.lease_id),
     event: {
       event_id: eventId, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type, issue_id: issueId, workspace_id: workspaceId,
       executor_id: executorId, dispatch_id: dispatchId, provider, provider_run_id: runId, session_id: sessionId, observed_at: new Date(observedAt).toISOString(),
@@ -178,6 +180,20 @@ export async function commitCtoCompletion(authorization, nativeAdapter) {
   return {accepted: true, state: "DONE", native_status: "done", reason: "CTO_COMPLETION_COMMITTED", result};
 }
 
+export async function attachProtectedDetailRefs(validation, detailStore, scope) {
+  if (!validation?.accepted || !validation.event) return validation || reject("VALIDATION_REQUIRED");
+  if (!detailStore || typeof detailStore.putDetail !== "function") return {...validation, protected_detail_refs: null, detail_store_state: "DETAIL_STORE_UNWIRED"};
+  const event = validation.event;
+  const values = Object.entries({progress_summary: event.progress_summary, question: event.question, blocked_reason: event.blocked_reason, checkpoint_ref: event.checkpoint_ref, stop_evidence: event.stop_evidence, review_evidence: event.review_evidence, completion_evidence: event.completion_evidence, next_step: event.next_step}).filter(([, value]) => value);
+  const refs = {};
+  for (const [label, value] of values) {
+    const stored = await detailStore.putDetail({scope: {...scope, event_id: event.event_id, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id}, label, value});
+    if (!stored?.accepted || !text(stored.protected_ref)) return {...validation, protected_detail_refs: null, detail_store_state: stored?.reason || "DETAIL_STORE_WRITE_UNVERIFIED"};
+    refs[label] = stored.protected_ref;
+  }
+  return {...validation, protected_detail_refs: refs, detail_store_state: "PROTECTED_STORE"};
+}
+
 export const NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION = "1.0";
 export const NATIVE_AGENT_ATOMIC_WRITE_CONTRACT = Object.freeze({
   version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION,
@@ -200,7 +216,7 @@ export function createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter, i
   const run = (event, mutate) => nativePersistenceAdapter.runAtomicMutation({issueId, taskId, idempotencyKey, event: {...event, expected_version: expectedVersion, fencing_token: fencingToken}, mutate});
   return Object.freeze({
     version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION, configured: true, contract: NATIVE_AGENT_ATOMIC_WRITE_CONTRACT,
-    applyAgentReportMutation: mutation => run({event_id: mutation.atomic_event_claim.event_id, type: "AGENT_REPORT", expected_version: mutation.expected_version}, (current, event) => ({record: {...current, version: current.version + 1, audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "AGENT_REPORT_COMMITTED"})),
+    applyAgentReportMutation: mutation => run({event_id: mutation.atomic_event_claim.event_id, type: mutation.issue_update?.status || "AGENT_REPORT", expected_version: mutation.expected_version}, (current, event) => ({record: {...current, version: current.version + 1, status: mutation.issue_update?.status || current.status, audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "AGENT_REPORT_COMMITTED"})).then(result => ({...result, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: result.committed === true})),
     applyCtoCompletion: completion => run({event_id: completion.review_event_id, type: "CTO_COMPLETION", expected_version: expectedVersion}, (current, event) => ({record: {...current, version: current.version + 1, status: "done", audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "CTO_COMPLETION_COMMITTED"})).then(result => ({...result, status: result.committed ? "done" : "BLOCKED", review_event_id: completion.review_event_id, atomic: result.committed === true}))
   });
 }
