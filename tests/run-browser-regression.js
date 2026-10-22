@@ -7,6 +7,7 @@ const browserTests = [
   "tests/site-integration-browser.test.js",
   "tests/site-integration-contract.test.js",
   "tests/ai-native-project-task-ui.test.js",
+  "tests/native-project-task-reuse-contract.test.js",
   "tests/release-consistency.test.js",
   "tests/taskflow-entry.test.js",
   "tests/taskflow-cli-sso.test.js",
