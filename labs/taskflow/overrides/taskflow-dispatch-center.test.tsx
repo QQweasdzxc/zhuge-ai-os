@@ -28,7 +28,7 @@ describe("TaskFlow native AI readback", () => {
     expect(screen.getByText(/TaskFlow Queue：queued · Provider Runtime：未驗證/)).toBeTruthy();
   });
   it("shows missing native mappings as GAP and provides no fabricated project route", async () => {
-    mount(); await screen.findByText(/GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證/);
+    mount(); expect(await screen.findAllByText(/GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證/)).toHaveLength(5);
     expect(screen.queryByRole("link", { name: /CO-01 原生專案/ })).toBeNull();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
   });
@@ -63,7 +63,7 @@ describe("TaskFlow native AI readback", () => {
     expect(state.tasks.mock.calls.map(([slug, args]) => [slug, args.offset])).toEqual([["alpha", 0], ["alpha", 20], ["alpha", 40]]);
     const co03 = screen.getByRole("heading", { name: "CO-03" }).closest("article");
     expect(co03).toBeTruthy(); fireEvent.click(within(co03!).getByRole("button", { name: "查看原生 Issue" }));
-    expect(within(co03!).getAllByRole("link", { name: /TaskFlow 工作/ })).toHaveLength(20);
+    expect(within(co03!).getAllByRole("link", { name: /TaskFlow 工作/ })).toHaveLength(45);
   });
   it("shows native queue and protected runtime as separate evidence", async () => {
     mount(); await screen.findByRole("button", { name: "查看受保護執行證據" });
