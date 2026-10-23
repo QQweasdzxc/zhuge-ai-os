@@ -54,6 +54,8 @@ jobs:
         run: node --test tests/native-project-task-reuse-contract.test.js tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-detail-store-browser-boundary.test.mjs tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-server-protected-detail-store.test.mjs
       - name: Verify isolated Cloud Handoff lease, CAS and provider STOP contracts
         run: node --test tests/cloud-handoff-*.test.mjs
+      - name: Verify formal release version and source identity (no deploy)
+        run: node tools/release-governance.js preflight
 
   backend-image:
     runs-on: ubuntu-latest
