@@ -29,6 +29,7 @@ on:
       - "tests/taskflow-cli-sso.test.js"
       - "tests/taskflow-native-dispatch-browser.test.mjs"
       - ".github/workflows/taskflow-build-parity.yml"
+      - "integrations/habblaud/smoke.mjs"
   workflow_dispatch:
 
 permissions:

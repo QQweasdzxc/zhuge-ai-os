@@ -369,14 +369,18 @@ try {
   const classic = await frame.locator('#zhuge-aios-hud a').getAttribute('href');
   if (!classic?.endsWith('/status-classic.html')) throw new Error('classic route broken: ' + classic);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  // P0 removes the floating medal wall while preserving the original immutable data.
+  // Match the approved .9.164 Pixel Office scene: the compact award board is
+  // intentionally preserved but collapsed on first paint; all four native
+  // work links and the separate quick-link rack must remain available.
   const awards = await page.evaluate(() => ({
-    wall: document.querySelector('#zgf-trophy-board, .zgf-awards, .zgf-medal'),
-    records: window.ZhugeOfficeAwards,
-    rack: document.querySelector('.zgf-rack'),
+    wall: !!document.querySelector('#zgf-trophy-board'),
+    open: document.querySelector('#zgf-trophy-board')?.dataset.open,
+    medals: [...document.querySelectorAll('#zgf-trophy-board .zgf-medal')].map(item => item.dataset.zgfWork),
+    rack: !!document.querySelector('.zgf-rack'),
   }));
-  if (awards.wall || !awards.rack || !Array.isArray(awards.records) || !['taskflow','worklog','investment','lab'].every(id => awards.records.some(item => item.id === id))) {
-    throw new Error('Floating award wall must be absent while source records and the quick-link rack remain: ' + JSON.stringify({wall:!!awards.wall,records:awards.records?.map(item=>item.id),rack:!!awards.rack}));
+  if (!awards.wall || awards.open !== 'false' || !awards.rack ||
+      !['taskflow','worklog','investment','lab'].every(id => awards.medals.includes(id))) {
+    throw new Error('Approved collapsed medal board and four verified work links must coexist with the rack: ' + JSON.stringify(awards));
   }
   const taskflow = await page.locator('.zgf-rack [data-zgf-work="taskflow"]').getAttribute('href');
   if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
