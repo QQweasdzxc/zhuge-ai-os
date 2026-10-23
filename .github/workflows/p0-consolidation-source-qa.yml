@@ -24,8 +24,9 @@ jobs:
         run: node --test tests/cloud-handoff-*.test.mjs
       - name: Run selected native Agent / Project / detail-store contract tests
         run: node --test tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-agent-detail-store.test.mjs tests/taskflow-server-protected-detail-store.test.mjs tests/taskflow-detail-store-browser-boundary.test.mjs tests/native-project-task-reuse-contract.test.js
-      - name: Run live-provider-denied and UI read-only evidence boundary tests
-        run: node --test tests/ai-native-project-task-ui.test.js tests/taskflow-native-dispatch-browser.test.mjs
+      - name: Run live-provider-denied and AI-only read-only evidence boundary tests
+        run: node --test tests/ai-native-project-task-ui.test.js
+      # Playwright runs in dedicated Browser Regression with pinned Chromium setup.
 
   # Only isolated tests. No Production database credentials, deployments,
   # migration workflow_dispatch, provider dispatch, or paid service calls.
