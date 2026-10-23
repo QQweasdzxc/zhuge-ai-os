@@ -383,7 +383,7 @@ try {
     throw new Error('Approved collapsed medal board and four verified work links must coexist with the rack: ' + JSON.stringify(awards));
   }
   const taskflow = await page.locator('.zgf-rack [data-zgf-work="taskflow"]').getAttribute('href');
-  if (taskflow !== 'https://zhuge-taskflow-web.onrender.com/') throw new Error('TaskFlow medal points to wrong official hall: ' + taskflow);
+  if (taskflow !== base + '/labs/taskflow/') throw new Error('TaskFlow must use the approved same-origin SSO entry: ' + taskflow);
   const worklog = await page.locator('.zgf-rack [data-zgf-work="worklog"]').getAttribute('href');
   const investment = await page.locator('.zgf-rack [data-zgf-work="investment"]').getAttribute('href');
   const classicQuickLink = await page.locator('.zgf-rack [data-zgf-work="classic"]').getAttribute('href');
@@ -407,8 +407,8 @@ try {
   for (const viewport of [{width:1440,height:900},{width:1920,height:1080}]) {
     await page.setViewportSize(viewport);
     await waitForNativeViewport(page,viewport.width,viewport.height);
-    if (await page.locator('#zgf-trophy-board').count() || await frame.locator('canvas#world').count() !== 1) {
-      throw new Error('desktop native office should keep the medal wall removed at ' + JSON.stringify(viewport));
+    if (await page.locator('#zgf-trophy-board[data-open="false"]').count() !== 1 || await frame.locator('canvas#world').count() !== 1) {
+      throw new Error('approved desktop office must retain a collapsed medal board and native Canvas at ' + JSON.stringify(viewport));
     }
     if (shotDir) await page.screenshot({path: path.join(shotDir, `pixel-p2-71-desktop-${viewport.width}x${viewport.height}.png`), fullPage:false});
   }
@@ -516,15 +516,15 @@ try {
   if (landscapeMetrics.viewport.width !== 844 || landscapeMetrics.viewport.height !== 390 ||
       landscapeMetrics.document.scrollWidth > 845 || landscapeMetrics.document.scrollHeight > 392 ||
       !landscapeMetrics.iframe || landscapeMetrics.iframe.x < 0 || landscapeMetrics.iframe.right > 845 ||
-      landscapeMetrics.devices.length !== 6 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
+      landscapeMetrics.devices.length !== 8 || landscapeMetrics.devices.some(item => item.x < 0 || item.y < 0 || item.right > 845 || item.bottom > 392 || item.width <= 0 || item.height <= 0)) {
     throw new Error('Mobile landscape office is clipped, overflowing or has inaccessible product links: ' + JSON.stringify(landscapeMetrics));
   }
   const landscapeCanvas = await frame.locator('canvas#world').boundingBox();
   const landscapeHud = await frame.locator('#zhuge-aios-hud').boundingBox();
   if (!landscapeCanvas || landscapeCanvas.width <= 0 || landscapeCanvas.height <= 0 ||
       !landscapeHud || landscapeHud.x < 0 || landscapeHud.y < 0 || landscapeHud.x + landscapeHud.width > 844 || landscapeHud.y + landscapeHud.height > 390 ||
-      await page.locator('#zgf-trophy-board').count()) {
-    throw new Error('Mobile landscape native scene or HUD is not visible, or floating medals returned: ' + JSON.stringify({landscapeCanvas,landscapeHud}));
+      await page.locator('#zgf-trophy-board[data-open="false"]').count() !== 1) {
+    throw new Error('Mobile landscape native scene, HUD or approved collapsed award board failed: ' + JSON.stringify({landscapeCanvas,landscapeHud}));
   }
   const landscapeMenu = frame.locator('.zhuge-hud-menu-toggle');
   const landscapeMenuBox = await landscapeMenu.boundingBox();
@@ -536,11 +536,11 @@ try {
   await page.goto(base + '/docs/index.html', { waitUntil:'domcontentloaded' });
   await waitForNativeReady(page);
   await waitForNativeViewport(page,1280,780);
-  if (await page.locator('#zgf-trophy-board').count()) throw new Error('docs entry must also omit the floating medal wall');
+  if (await page.locator('#zgf-trophy-board[data-open="false"]').count() !== 1) throw new Error('Docs entry must preserve the same approved collapsed award board');
   const docsWorklog = await page.locator('.zgf-rack [data-zgf-work="worklog"]').getAttribute('href');
   if (docsWorklog !== base + '/modules/worklog/') throw new Error('docs home shifted WorkLog to /docs/: ' + docsWorklog);
   if (failures.length) throw new Error('Browser errors: ' + failures.slice(0,8).join('; '));
-  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, zh-TW visible controls, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, medal records retained with no floating wall, balanced work/living with meeting room on portrait, stable ready-state day/night screenshots, compact landscape HUD, P1 links, classic and docs entry');
+  console.log('PASS native Habblaud P2 cast Jackal/GPT/Codex/Gem idle, zh-TW visible controls, static status is not people, weather contract unknown-state/manual-city/desktop-mobile, read-only project/PR panel, role dossier, approved compact medal wall and eight device links retained, balanced work/living with meeting room on portrait, stable ready-state day/night screenshots, compact landscape HUD, P1 links, classic and docs entry');
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));
