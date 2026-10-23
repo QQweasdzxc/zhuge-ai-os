@@ -20,6 +20,10 @@ jobs:
           node-version: '20'
       - name: Source diff hygiene
         run: git diff HEAD^ HEAD --check
+      - name: Install pinned dependencies for isolated PGlite lifecycle tests
+        run: npm ci --ignore-scripts
+      - name: Verify attachment lifecycle SQL against isolated in-memory PostgreSQL and negative workflow-version tests
+        run: node --test labs/attachments/tests/lifecycle.test.cjs
       - name: Run original Cloud Co/Gem handoff protocol tests
         run: node --test tests/cloud-handoff-*.test.mjs
       - name: Run selected native Agent / Project / detail-store contract tests
