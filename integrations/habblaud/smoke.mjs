@@ -334,7 +334,7 @@ try {
   if (!projectStatus.includes('專案狀態') || !projectStatus.includes('靜態專案紀錄') || !projectStatus.includes('TaskFlow')) {
     throw new Error('Read-only project/PR panel missing or lacks provenance: ' + projectStatus);
   }
-  const prLink = frame.locator('#zhuge-decision-panel a[href="https://github.com/QQweasdzxc/zhuge-ai-os/pull/60"]');
+  const prLink = frame.locator('#zhuge-decision-panel a[href="https://github.com/QQweasdzxc/zhuge-ai-os/pull/126"]');
   if (await prLink.count() !== 1 || await prLink.getAttribute('rel') !== 'noopener noreferrer') {
     throw new Error('Verified GitHub PR source link missing or unsafe');
   }
