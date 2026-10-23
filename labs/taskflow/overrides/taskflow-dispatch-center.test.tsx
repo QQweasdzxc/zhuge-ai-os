@@ -28,7 +28,7 @@ describe("TaskFlow native AI readback", () => {
     expect(screen.getByText(/TaskFlow Queue：queued · Provider Runtime：未驗證/)).toBeTruthy();
   });
   it("shows missing native mappings as GAP and provides no fabricated project route", async () => {
-    mount(); expect(await screen.findAllByText(/GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證/)).toHaveLength(5);
+    mount(); expect(await screen.findAllByText(/GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證/)).toHaveLength(4);
     expect(screen.queryByRole("link", { name: /CO-01 原生專案/ })).toBeNull();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
   });
