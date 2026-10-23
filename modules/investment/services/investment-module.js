@@ -1,6 +1,9 @@
 (function (global) {
   "use strict";
 
+  const INVESTMENT_LOGIN_HREF = "../worklog/?app=1&workspace=dashboard&investmentReturn=1";
+  const PIXEL_OFFICE_ACTION = '<a class="btn2 investment-office-return" href="../../" aria-label="返回 Pixel Office" title="返回 Pixel Office">⌂ Pixel Office</a>';
+
   const pageRegistry = Object.freeze({
     overview: global.InvestmentOverviewPage,
     portfolio: global.InvestmentPortfolioPage,
@@ -178,7 +181,7 @@
     if (header && global.ZhugeSharedShell) {
       const foundation = global.ZhugeFoundationConfig || {};
       const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
-      global.ZhugeSharedShell.mountHeader(header, { title: options.title || "Investment", description: options.description || "投資模組｜受保護的工作空間", version: release.version, build: release.build });
+      global.ZhugeSharedShell.mountHeader(header, { title: options.title || "Investment", description: options.description || "投資模組｜受保護的工作空間", version: release.version, build: release.build, actionMarkup: PIXEL_OFFICE_ACTION });
     }
   }
 
@@ -186,7 +189,7 @@
     const reason = result.code === "SESSION_EXPIRED"
       ? "登入狀態已過期，請重新登入。"
       : "請先使用 Google 帳號登入 Zhuge AI OS，再開啟投資模組。";
-    return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">Zhuge AI OS › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="../worklog/?app=1">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
+    return accessShell(`<div class="investment-access-panel"><img src="../../shared/assets/logo/zhuge-ai-os.svg" alt="Zhuge AI OS"><p class="investment-eyebrow">Zhuge AI OS › 投資</p><h1>請先登入</h1><p>${global.InvestmentSafeHtml.escape(reason)}</p><div><a class="investment-primary-link" href="${global.InvestmentSafeHtml.escape(INVESTMENT_LOGIN_HREF)}">使用 Google 帳號登入</a><a class="investment-secondary-link" href="../../app/dashboard/">返回 AI OS 首頁</a></div></div>`, { title: "Investment", description: "投資模組｜登入後即可使用投資工作空間" });
   }
 
   function appAccessScreen(access, context) {
@@ -194,7 +197,7 @@
     const session = context?.session?.getSnapshot?.() || {};
     const email = String(access?.email || session.email || "").trim();
     const content = gate?.render
-      ? gate.render(access, { email, loginHref: "../../?app=1" })
+      ? gate.render(access, { email, loginHref: INVESTMENT_LOGIN_HREF })
       : `<div class="investment-access-panel"><p class="investment-eyebrow">Zhuge AI OS · App Access</p><h1>目前無法確認使用權</h1><p>App Access 服務尚未載入，請重新整理後再試。</p></div>`;
     return accessShell(content, { title: "Investment｜使用權", description: "Investment 模組｜App Access" });
   }
@@ -423,7 +426,7 @@
         identity,
         version: release.version,
         build: release.build,
-        actionMarkup: '<button class="btn" type="button" data-investment-refresh>↻ 重新整理</button>'
+        actionMarkup: `${PIXEL_OFFICE_ACTION}<button class="btn" type="button" data-investment-refresh>↻ 重新整理</button>`
       });
     }
     renderSharedHeader(activePage);

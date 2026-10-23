@@ -33,6 +33,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   assert.doesNotMatch(investmentShell, /investment-local-nav/);
   for (const label of ["WorkLog", "工作待辦", "AI Board", "工程準則", "系統藍圖", "Knowledge", "Lab 實驗室", "控制台", "設定"]) assert.match(nav, new RegExp(label));
   assert.match(nav, /investment: \{[^}]*visible: false/);
+  assert.match(nav, /registry\.investment\.visible = isCreator/);
   assert.match(nav, /label: "Lab 實驗室"/);
   assert.match(nav, /data-zhuge-shared-navigation/);
   assert.match(nav, /function wireSidebar\(\)/);
@@ -90,7 +91,7 @@ test("AI Board and WorkLog use the same Zhuge AI OS Shared Navigation component"
   );
   assert.doesNotMatch(nav, /工作待辦（舊）/);
   assert.doesNotMatch(read("shared/app-config.js"), /工作待辦（舊）/);
-  assert.match(nav, /const campIds = \["taskflow", "worklog", "tasks-new", "procurement", \.\.\.worklogConsumers\]/);
+  assert.match(nav, /const campIds = \["taskflow", "worklog", "tasks-new", "procurement", \.\.\.worklogConsumers, "investment"\]/);
   assert.match(nav, /investmentBoards/);
   assert.ok(worklogIndex.indexOf("./worklog.css") < worklogIndex.indexOf("shared/theme/zhuge-navigation.css"), "WorkLog content CSS must load before canonical navigation CSS");
   const rootBuild = JSON.parse(read("version.json")).build;
@@ -198,7 +199,9 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
   for (const id of ["worklog", "tasks-new", "procurement", "sync", "management", "library", "settings", "labs"]) {
     assert.equal(creatorHtml.includes(`data-shared-nav-item="${id}"`), true, `Creator item ${id} must remain visible`);
   }
-  assert.equal(creatorHtml.includes('data-shared-nav-item="investment"'), false, "official Investment is parked");
+  assert.equal(creatorHtml.includes('data-shared-nav-item="investment"'), true, "Creator navigation reaches the existing Investment module");
+  assert.match(creatorHtml, /data-shared-nav-item="investment"[^>]*href="\.\.\/\.\.\/modules\/investment\/"/);
+  assert.match(creatorHtml, /class="shared-office-return" href="\.\.\/\.\.\/" aria-label="返回 Pixel Office"/);
 
   const generalTarget = {
     isConnected: true,
@@ -230,6 +233,7 @@ test("Creator navigation stays unchanged and non-Creator shell mount ignores Cre
     closest: () => ({ dataset: { sharedNavigationMode: "template-only" } })
   };
   const unresolvedNavigation = loadNavigationForTest({ target: unresolvedTarget });
+  assert.doesNotMatch(unresolvedNavigation.render({ externalRoot: "/" }), /data-shared-nav-item="investment"/);
   unresolvedNavigation.autoMount();
   assert.equal(unresolvedTarget.dataset.zhugeNavigationMounting, undefined);
 });
@@ -249,7 +253,7 @@ test("mobile Shared Navigation owns scroll lock, focus return and keyboard trap"
 });
 
 test("Generic consumers use Board names and project assignment for parent/child placement", () => {
-  const navigation = loadNavigationForTest();
+  const navigation = loadNavigationForTest({ runtime: { isCreator: true } });
   const boards = [
     { id: "assigned-work", name: "Project Tasks", taskCodePrefix: "RANDOM", projectAssignment: "worklog" },
     { id: "assigned-investment", name: "Portfolio Tasks", taskCodePrefix: "RANDOM", projectAssignment: "investment" },
@@ -263,7 +267,7 @@ test("Generic consumers use Board names and project assignment for parent/child 
   assert.ok(position("procurement") < position("consumer-board:assigned-work"));
   assert.ok(position("consumer-board:assigned-work") < html.indexOf('data-nav-group="investment-consumers"'));
   assert.ok(html.indexOf('data-nav-group="investment-consumers"') < position("consumer-board:assigned-investment"));
-  assert.equal(position("investment"), -1, "parked official Investment entry must not render");
+  assert.notEqual(position("investment"), -1, "Creator workspace links to the existing Investment module");
   assert.ok(position("consumer-board:assigned-investment") < html.indexOf('data-nav-group="consumer-boards"'));
   assert.ok(position("consumer-board:unassigned") > html.indexOf('data-nav-group="consumer-boards"'));
   for (const board of boards) {
@@ -283,20 +287,21 @@ test("Generic consumers use Board names and project assignment for parent/child 
 });
 
 test("Official GAS/IVTK compatibility entries and parent visibility remain intact", () => {
-  const navigation = loadNavigationForTest();
+  const navigation = loadNavigationForTest({ runtime: { isCreator: true } });
   const html = navigation.render({ externalRoot: "/", boardInstances: [
     { id: "gas-fixture", name: "Official GAS", taskCodePrefix: "GAS" },
     { id: "ivtk-fixture", name: "Official IVTK", taskCodePrefix: "IVTK" }
   ] });
   assert.match(html, /data-shared-nav-item="tasks-new"[^>]*href="\/app\/Board\/worktodo\/"/);
   assert.match(html, /data-shared-nav-item="procurement"[^>]*href="\/app\/Board\/procurement\/"/);
-  assert.doesNotMatch(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
+  assert.match(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
   assert.match(html, /data-shared-nav-item="labs"/);
   assert.doesNotMatch(html, /consumer-board:(gas-fixture|ivtk-fixture)/);
   const general = loadNavigationForTest({ runtime: { isCreator: false } }).render({ boardInstances: [
     { id: "hidden-investment", name: "Hidden child", projectAssignment: "investment", taskCodePrefix: "OTHER" }
   ] });
   assert.doesNotMatch(general, /consumer-board:hidden-investment/);
+  assert.doesNotMatch(general, /data-shared-nav-item="investment"/);
 });
 
 test("Navigation registry reads only shared canonical service and fails closed without fallback", async () => {

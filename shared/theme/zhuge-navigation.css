@@ -116,6 +116,7 @@ body:has(.zhuge-module-shell) { margin: 0; }
 .zhuge-module-shell.zhuge-nav-collapsed .side-section {
   padding: var(--zhuge-sidebar-collapsed-section-padding-block) var(--zhuge-sidebar-collapsed-section-padding-inline);
 }
+.shared-office-return{display:flex;align-items:center;min-height:44px;padding:8px 12px;color:inherit;text-decoration:none;border-radius:8px}.shared-office-return:focus-visible{outline:2px solid currentColor;outline-offset:-2px}
 .zhuge-module-shell.zhuge-nav-collapsed .side-section h3 {
   justify-content: center;
   margin: 0 0 var(--zhuge-sidebar-collapsed-item-gap);

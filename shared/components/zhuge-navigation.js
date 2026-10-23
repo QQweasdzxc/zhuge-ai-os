@@ -20,7 +20,8 @@
     // Status badges belong to workspace content, not the canonical global rail.
     // Keeping this entry label-only prevents one module from looking different
     // from the rest of the shared navigation.
-    // Official Investment UI is parked; the retained Experiment lives under Lab.
+    // Investment remains hidden until the existing Creator authority is
+    // verified; its module still enforces App Access and MFA after navigation.
     investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, visible: false },
     // Location-centric read surface. The shared registry owns reachability
     // for both desktop and mobile; presentation changes at the breakpoint.
@@ -162,7 +163,12 @@
     const foundation = global.ZhugeFoundationConfig || {};
     const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
     const registry = registryFor(options);
-    const isGeneralUser = resolvedCreatorCapability(options) === false;
+    const creatorCapability = resolvedCreatorCapability(options);
+    const isCreator = creatorCapability === true;
+    const isGeneralUser = creatorCapability === false;
+    // Fail closed when Creator status is unavailable; only the existing
+    // trusted Creator decision makes the direct Investment route visible.
+    if (registry.investment) registry.investment.visible = isCreator;
     if (isGeneralUser) {
       GENERAL_USER_VISIBLE_ITEMS.forEach(id => {
         if (registry[id]) registry[id] = { ...registry[id], visible: true };
@@ -178,12 +184,14 @@
     const consumerItems = consumerBoardItems(options.boardInstances, root, options);
     consumerItems.forEach(item => { registry[item.id] = item; });
     const collapsed = (() => { try { return global.localStorage?.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } })();
+    const officeRoot = root || (document.querySelector?.('script[src*="shared/components/zhuge-navigation.js"]')?.src || "").split("shared/components/")[0] || "/zhuge-ai-os/";
+    const officeLink = `<a class="shared-office-return" href="${esc(officeRoot)}" aria-label="返回 Pixel Office">⌂ Pixel Office</a>`;
     const brand = root
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const worklogConsumers = isVisible(registry.worklog) ? consumerItems.filter(item => item.group === "worklog").map(item => item.id) : [];
-    const investmentConsumers = isGeneralUser ? [] : consumerItems.filter(item => item.group === "investment").map(item => item.id);
-    const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers];
+    const investmentConsumers = isCreator ? consumerItems.filter(item => item.group === "investment").map(item => item.id) : [];
+    const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers, "investment"];
     const childIndexes = campIds.flatMap((id, index) => id === "tasks-new" || id === "procurement" || worklogConsumers.includes(id) ? [index] : []);
     const camp = sectionMarkup("工作空間", "⛺", campIds, registry, { ...options, externalRoot: root }, esc, "camp", childIndexes);
     const investmentBoards = investmentConsumers.length
@@ -209,7 +217,7 @@
     // Module A owns this ordering: Knowledge → Labs → Control Console → Management → Settings.
     // Management is a peer of the Console, not content embedded inside it.
     const system = `<div class="side-section" data-nav-group="system"><h3><span class="nav-section-icon" aria-hidden="true">⚙️</span><span class="nav-section-label">系統</span></h3>${systemItems[0]}${systemItems[1]}${control}${systemItems[2]}${systemItems[3]}</div>`;
-    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${camp}${investmentBoards}${liveTools}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
+    return `<aside id="zhugeSharedNavigationPanel" class="os-sidebar ${collapsed ? "zhuge-nav-is-collapsed" : ""}" data-zhuge-shared-navigation="true" data-shared-nav-collapsed="${collapsed ? "true" : "false"}" aria-label="全站導覽${collapsed ? "（已收合）" : ""}"><div class="sidebar-brand"><div class="brand-row">${brand}</div><button class="mini sidebar-close" data-close-sidebar="1" aria-label="關閉選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">×</button><button class="mini sidebar-menu-mark" type="button" data-toggle-sidebar="1" aria-label="開啟選單" aria-expanded="false" aria-controls="zhugeSharedNavigationPanel">☰</button><button class="mini shared-nav-collapse" type="button" data-shared-nav-collapse="1" aria-label="${collapsed ? "展開導覽" : "收合導覽"}" title="${collapsed ? "展開導覽" : "收合導覽"}" aria-expanded="${collapsed ? "false" : "true"}" aria-controls="zhugeSharedNavigationPanel">${collapsed ? "›" : "‹"}</button></div><div class="sidebar-scroll">${officeLink}${camp}${investmentBoards}${liveTools}${consumerBoards}${system}</div><div class="developer-build-info"><div class="sidebar-sync-summary" id="developerCloudSyncStatus" data-retry-cloud-sync="1"><strong>${esc(syncLabel)}</strong><span>最後同步</span><time>${esc(syncTime)}</time></div><div class="sidebar-build-summary"><span>Build</span><strong>${esc(build)}</strong></div></div></aside>`;
   }
 
   function shellFor(node) { return node?.closest(".os-shell,.zhuge-module-shell") || document.querySelector(".os-shell,.zhuge-module-shell"); }
