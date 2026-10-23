@@ -337,4 +337,3 @@ func (h *Handler) ListZhugeNativeAITasks(w http.ResponseWriter, r *http.Request)
 		"consistency": "NON_ATOMIC_OFFSET", "provider_runtime_state": "UNVERIFIED",
 	})
 }
-
