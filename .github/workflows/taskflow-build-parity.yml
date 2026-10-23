@@ -41,7 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Release Governance compares this candidate with origin/main and
+          # verifies ancestry. A shallow checkout makes a real ancestor look
+          # divergent even after fetching the main ref.
+          fetch-depth: 0
       - name: Check patch whitespace
         run: git diff HEAD^ HEAD --check
       - name: Verify TaskFlow overlay and fail-closed patch contract
