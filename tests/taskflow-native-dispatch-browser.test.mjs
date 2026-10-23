@@ -32,7 +32,7 @@ async function setup(t,{viewport={width:1440,height:900},status=200}={}) {
     data=url.pathname.endsWith("project-mappings")?mappingsFor(workspaceId):taskResponse(workspaceId);
   }
   else if(url.pathname===`/api/issues/${issueId}`) data=issue;
-  else if(url.pathname.endsWith("/dispatch-runtime"))data={runtime:{schema:"zhuge-taskflow-dispatch-persistence-v1",status_source:"TASKFLOW_RUNTIME_READ_MODEL",issue_id,workspace:workspaceA,state:"UNKNOWN",authorization:"UNVERIFIED",evidence:{provider_ack:"UNVERIFIED",blocked_reason:"PROVIDER_RUNTIME_NOT_BOUND"}},readback_kind:"NATIVE_TASK_READBACK",provider_binding:"NOT_BOUND"};
+  else if(url.pathname.endsWith("/dispatch-runtime"))data={runtime:{schema:"zhuge-taskflow-dispatch-persistence-v1",status_source:"TASKFLOW_RUNTIME_READ_MODEL",issue_id:issueId,workspace:workspaceA,state:"UNKNOWN",authorization:"UNVERIFIED",evidence:{provider_ack:"UNVERIFIED",blocked_reason:"PROVIDER_RUNTIME_NOT_BOUND"}},readback_kind:"NATIVE_TASK_READBACK",provider_binding:"NOT_BOUND"};
   else return route.fulfill({status:404,headers,body:'{"error":"not found"}'});
   return route.fulfill({status:200,headers,body:JSON.stringify(data)});
  });
