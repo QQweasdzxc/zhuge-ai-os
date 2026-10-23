@@ -204,16 +204,24 @@ describe("TaskFlow native AI navigation", () => {
     expect(screen.queryByRole("button", { name: /^CO-01 —/ })).not.toBeInTheDocument();
     fireEvent.click(toggle);
     expect(screen.getByRole("button", { name: "CO-01 — 尚未接通" })).toBeDisabled();
-    expect(container.querySelector('button[data-href^="/acme/projects/"]')).toBeNull();
+    for (const executor of ["CO-01", "CO-02", "GEM-01", "GH-HELPER"]) {
+      expect(screen.getByRole("button", { name: `${executor} — 尚未接通` })).toBeDisabled();
+    }
+    expect(container.querySelector('button[data-href="/acme/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]')).toBeInTheDocument();
   });
 
   it("rejects duplicate Native Project IDs even when both rows claim verification", () => {
     const data = taskflowNav.aiMappingsByWorkspace["ws-1"] as { mappings: Array<Record<string, unknown>> };
-    data.mappings[4] = { ...data.mappings[4], state: "VERIFIED", project_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", project_title: "Repeated Project", workspace_access: "ALLOW", project_access: "ALLOW" };
-    const { container } = render(<AppSidebar />);
-    expect(container.querySelector('button[data-href="/acme/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]')).toBeNull();
-    expect(screen.getByRole("button", { name: "CO-03 — 尚未接通" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "GH-HELPER — 尚未接通" })).toBeDisabled();
+    const priorMapping = data.mappings[4];
+    try {
+      data.mappings[4] = { ...priorMapping, state: "VERIFIED", project_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", project_title: "Repeated Project", workspace_access: "ALLOW", project_access: "ALLOW" };
+      const { container } = render(<AppSidebar />);
+      expect(container.querySelector('button[data-href="/acme/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]')).toBeNull();
+      expect(screen.getByRole("button", { name: "CO-03 — 尚未接通" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "GH-HELPER — 尚未接通" })).toBeDisabled();
+    } finally {
+      data.mappings[4] = priorMapping;
+    }
   });
 
   it("selects mappings for the active Workspace and never retains another Workspace project", () => {
