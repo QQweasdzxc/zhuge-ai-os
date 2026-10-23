@@ -17,6 +17,7 @@ import {
   requiredHttpsUrl
 } from "./dispatch-contract.mjs";
 import {buildPmInboxEntries, createDispatchAdapter, normalizeDispatchIssue} from "./dispatch-workbench.mjs";
+import {nativeTaskFlowProjectPath, resolveNativeExecutorProjectMappings} from "./native-project-mapping-contract.mjs";
 
 const transport=createTaskFlowPagesTransport({getAccessToken:()=>readZhugeAccessToken(localStorage)});
 const dispatchAdapter=createDispatchAdapter(transport);
@@ -41,9 +42,16 @@ const refs={
   dispatchMeta:document.querySelector("#tf-dispatch-meta"),
   dispatchExecutor:document.querySelector("#tf-dispatch-executor"),
   dispatchNotice:document.querySelector("#tf-dispatch-notice"),
-  pmInbox:document.querySelector("#tf-pm-inbox")
+  pmInbox:document.querySelector("#tf-pm-inbox"),
+  aiBoard:document.querySelector("#tf-ai-board"),
+  aiBoardTitle:document.querySelector("#tf-ai-board-title"),
+  aiBoardNotice:document.querySelector("#tf-ai-board-notice"),
+  aiTaskState:document.querySelector("#tf-ai-task-state"),
+  nativeIssuesPanel:document.querySelector("#tf-native-issues-panel"),
+  aiProjects:document.querySelector("#tf-ai-projects"),
+  aiProjectEntries:document.querySelector("#tf-ai-project-entries")
 };
-let state={workspace:null,workspaces:[],issues:[],projects:[],statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
+let state={workspace:null,workspaces:[],issues:[],projects:[],nativeProjectMappingEnvelope:null,statuses:[],total:0,loading:false,agents:[],agentsWorkspace:null,agentsError:null};
 if(refs.createOpen)refs.createOpen.hidden=true;
 
 function element(tag,{text,className,attrs}={}){
@@ -82,7 +90,7 @@ function routeFor({section="issues",issueId=null}={}){
 }
 function currentRoute(){
   const hash=decodeURIComponent(location.hash||"");
-  const match=hash.match(/^#\/tf\/(issues|projects|dispatch)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
+  const match=hash.match(/^#\/tf\/(issues|projects|dispatch|ai-projects|ai-tasks)(?:\/([a-zA-Z0-9_-]{1,100}))?$/);
   return match?{section:match[1],issueId:match[2]||null}:{section:"issues",issueId:null};
 }
 function workspaceSlug(){return state.workspace?.slug||"";}
@@ -555,10 +563,58 @@ async function renderDetail(id){
     refs.detail.append(commentsBox);
   }catch(error){refs.detail.replaceChildren(element("p",{text:errMessage(error),className:"tf-error"}));}
 }
+function renderAiProjectEntries(){
+  const mappings=resolveNativeExecutorProjectMappings(state.nativeProjectMappingEnvelope,{workspaceId:String(state.workspace?.id||"")});
+  refs.aiProjectEntries.replaceChildren();
+  for(const mapping of mappings){
+    if(mapping.state!=="VERIFIED"){
+      const missing=element("div",{className:"tf-ai-project-entry tf-ai-project-entry-disabled",attrs:{"aria-label":`${mapping.executorId} 原生專案尚未接通`}});
+      missing.append(element("strong",{text:mapping.executorId}),element("span",{text:`GAP：TaskFlow 後端尚未提供可驗證的唯一 Project／Workspace／ACL 對應（${mapping.reason}）`}));
+      refs.aiProjectEntries.append(missing); continue;
+    }
+    const webUrl=globalThis.ZhugeTaskFlowConfig?.webUrl||"https://zhuge-taskflow-web.onrender.com";
+    const projectPath=nativeTaskFlowProjectPath(workspaceSlug(),mapping.projectId);
+    let href="";
+    try{
+      const target=new URL(projectPath,webUrl);
+      if(target.origin==="https://zhuge-taskflow-web.onrender.com")href=target.href;
+    }catch{/* Invalid configured route remains a visible GAP. */}
+    if(!href){
+      const missing=element("div",{className:"tf-ai-project-entry tf-ai-project-entry-disabled",attrs:{"aria-label":`${mapping.executorId} 原生專案路由尚未驗證`}});
+      missing.append(element("strong",{text:mapping.executorId}),element("span",{text:"GAP：TaskFlow 原生 Project Route 未通過主機／ID 驗證"}));
+      refs.aiProjectEntries.append(missing); continue;
+    }
+    const link=element("a",{className:"tf-ai-project-entry",attrs:{href,"aria-label":`開啟 ${mapping.executorId} 原生專案`}});
+    link.append(element("strong",{text:mapping.executorId}),element("span",{text:`TaskFlow Native Project：${mapping.projectId}`}));
+    refs.aiProjectEntries.append(link);
+  }
+}
+function renderAiTaskCenter(){
+  if(refs.aiBoardTitle)refs.aiBoardTitle.textContent="AI 任務中心｜TaskFlow 原生 Tasks";
+  if(refs.aiBoardNotice)refs.aiBoardNotice.textContent="BLOCKED：目前沒有可驗證的 TaskFlow 原生 AI-managed Tasks 篩選介面。為避免混入一般人類 Issue，不載入未過濾任務。";
+  if(refs.aiTaskState){
+    refs.aiTaskState.replaceChildren(element("p",{text:"原生 Tasks View／AI 範圍篩選尚未接通（GAP）。AI 派工中心與 AI 任務中心尚不能證明使用同一筆原生 Issue、Status 與 History。此頁不建立第二套 Kanban，也不顯示一般人類任務。",className:"tf-empty"}));
+    refs.aiTaskState.dataset.state="blocked";
+  }
+}
 function renderRoute(){
   if(!state.workspace)return;
   const route=currentRoute();
   if(refs.dispatch)refs.dispatch.hidden=route.section!=="dispatch";
+  if(refs.aiProjects)refs.aiProjects.hidden=!(route.section==="ai-projects"&&!route.issueId);
+  if(refs.aiBoard)refs.aiBoard.hidden=route.section!=="ai-tasks";
+  if(refs.nativeIssuesPanel)refs.nativeIssuesPanel.hidden=["dispatch","ai-projects","ai-tasks"].includes(route.section);
+  if(route.section==="ai-projects"){
+    refs.detail.hidden=true; refs.detail.replaceChildren();
+    if(!route.issueId)renderAiProjectEntries();
+    else refs.aiProjectEntries.replaceChildren(element("p",{text:"此 AI Project 入口尚未通過後端 Mapping 驗證。",className:"tf-error"}));
+    return;
+  }
+  if(route.section==="ai-tasks"){
+    refs.detail.hidden=true; refs.detail.replaceChildren();
+    renderAiTaskCenter();
+    return;
+  }
   if(route.section==="dispatch"){
     refs.detail.hidden=true;
     refs.detail.replaceChildren();
@@ -585,6 +641,7 @@ async function loadData(){
     state.issues=issues.issues;
     state.total=issues.total;
     state.projects=Array.isArray(projects)?projects:Array.isArray(projects?.projects)?projects.projects:[];
+    state.nativeProjectMappingEnvelope=!Array.isArray(projects)&&projects&&typeof projects==="object"?projects.native_executor_project_mappings||null:null;
     state.statuses=Array.isArray(statuses)?statuses:Array.isArray(statuses?.statuses)?statuses.statuses:[];
     refs.meta.textContent="已載入 "+issues.issues.length+" / "+issues.total+" 筆任務 · 原生 TaskFlow API · 可建立 DM-00～DM-03 原生卡";
     renderProjects();

@@ -1,0 +1,37 @@
+{
+  "protocol": "zhuge.cloud-handoff.v1",
+  "task": {
+    "id": "GH-45",
+    "github_issue": 45,
+    "taskflow_issue_id": null
+  },
+  "repo": "QQweasdzxc/zhuge-ai-os",
+  "source": {
+    "branch": "review/issue45-supabase-lifecycle-20261015",
+    "base_sha": "802f820ec571a8efc20e0e653004d400f67dfd7a",
+    "head_sha": "199ea823af0692ca99e222b024ee3238cbc3a9fc",
+    "clean": false,
+    "dirty_files": 4,
+    "checkpoint": {
+      "kind": "commit",
+      "sha": "199ea823af0692ca99e222b024ee3238cbc3a9fc",
+      "verified_sha": "199ea823af0692ca99e222b024ee3238cbc3a9fc",
+      "verified_at": "2026-10-15T05:41:53Z"
+    },
+    "executor_stopped": false,
+    "stop_evidence": null
+  },
+  "phase": "BLOCKED_CHECKPOINT",
+  "revision": 0,
+  "owner": "co",
+  "next_actor": "gem",
+  "lease": null,
+  "block_reason": "Codex Cloud quota reached with four edited files visible in session; their content is not verified in the GitHub PR branch.",
+  "remaining": [
+    "Recover or explicitly account for the four uncommitted Codex Cloud file edits; do not imply GitHub contains them.",
+    "Fix WorkTodo completed status mapping and Board/WorkTodo deletion read-model consistency in PR #50.",
+    "Re-run targeted and full CI; provide exact SHA and review evidence.",
+    "Keep Draft PR #50 and all production operations on HOLD until CTO/PM gates."
+  ],
+  "events": []
+}

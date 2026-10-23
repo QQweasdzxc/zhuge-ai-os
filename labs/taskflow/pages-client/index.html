@@ -18,7 +18,9 @@
       <div class="tf-nav-label">PROJECTS</div>
       <nav id="tf-projects" aria-label="正式工作區專案"></nav>
       <div class="tf-nav-label">DISPATCH</div>
-      <a class="tf-project" href="#/tf/dispatch">AI 派工 Workbench</a>
+      <a class="tf-project" href="#/tf/ai-projects">AI 派工中心（原生專案）</a>
+      <a class="tf-project" href="#/tf/ai-tasks">AI 任務中心（原生任務）</a>
+      <a class="tf-project" href="#/tf/dispatch">AI 派工 Workbench（相容入口）</a>
       <div class="tf-nav-bottom">
         <small>API / Runtime: Render</small>
         <small>網址 / Dashboard: GitHub Pages</small>
@@ -84,7 +86,7 @@
           <div class="tf-form-actions tf-form-wide"><button type="submit" class="tf-primary">建立原生 TaskFlow 卡</button><p id="tf-create-status" role="status" aria-live="polite" class="tf-help"></p></div>
         </form>
       </section>
-      <section class="tf-panel" aria-label="正式 TaskFlow 任務資料">
+      <section id="tf-native-issues-panel" class="tf-panel" aria-label="正式 TaskFlow 任務資料">
         <div class="tf-filter">
           <div>
             <h2>任務</h2>
@@ -105,6 +107,15 @@
         <div id="tf-dispatch-notice" class="tf-notice">DAILY 尚未接通；不顯示假快照。</div>
         <section class="tf-subpanel" aria-label="PM Inbox"><h3>PM Inbox</h3><div id="tf-pm-inbox" data-state="loading"><p>正在讀取原生 TaskFlow／Runtime 證據…</p></div></section>
         <div id="tf-dispatch-cards" class="tf-dispatch-cards"></div>
+      </section>
+      <section id="tf-ai-board" hidden class="tf-panel" aria-label="AI 任務中心原生 Tasks 整合狀態">
+        <h2 id="tf-ai-board-title">AI 任務中心｜TaskFlow 原生 Tasks</h2>
+        <p id="tf-ai-board-notice" class="tf-notice">等待原生 Tasks AI 篩選契約。</p>
+        <div id="tf-ai-task-state" role="status" aria-live="polite" data-state="blocked"></div>
+      </section>
+      <section id="tf-ai-projects" hidden class="tf-panel" aria-label="AI 原生專案入口">
+        <h2>AI 派工中心｜TaskFlow 原生專案</h2><p class="tf-help">只有 TaskFlow 後端回傳唯一 Project ID、Workspace scope 與原生 ACL 判定時，才會顯示通往原生 Project 頁面的入口。</p>
+        <div id="tf-ai-project-entries" class="tf-ai-project-entries"></div>
       </section>
     </main>
   </div>
