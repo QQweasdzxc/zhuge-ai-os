@@ -49,7 +49,7 @@ test("Module A exposes Management as a peer of Control Console and keeps GAS iso
   assert.match(item("procurement").attrs, /href="\/app\/Board\/procurement\/"/);
   assert.ok(item("procurement").index > item("worklog").index);
   assert.equal(nav.DEFAULT_REGISTRY.investment.visible, false);
-  assert.doesNotMatch(html, /data-shared-nav-item="investment"/);
+  assert.match(html, /data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
   assert.ok(!html.includes('consumer-board:qa-official-gas'), "GAS has no duplicate Generic entry");
   assert.match(item("consumer-board:qa-work").attrs, /side-item-child/);
   assert.ok(item("consumer-board:qa-work").index > item("worklog").index);

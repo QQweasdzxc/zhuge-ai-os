@@ -20,6 +20,8 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
   assert.equal(await page.evaluate(()=>Object.isFrozen(window.ZhugeOfficeAwards)),true);
   const origin=new URL(page.url()).origin;
   assert.equal(await rack.locator('[data-zgf-work=taskflow]').getAttribute('href'),origin+'/labs/taskflow/');
+  assert.equal(await rack.locator('[data-zgf-work=worklog]').getAttribute('href'),origin+'/modules/worklog/');
+  assert.equal(await rack.locator('[data-zgf-work=investment]').getAttribute('href'),origin+'/modules/investment/');
   assert.equal(await rack.locator('[data-zgf-work=apps]').getAttribute('href'),origin+'/labs/taskflow/');
   const clock=rack.locator('[data-zgf-work=login]');
   const login=new URL(await clock.getAttribute('href'));
@@ -46,8 +48,19 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
   await page.addScriptTag({path:path.join(root,'shared/components/zhuge-navigation.js')});
   const map=await page.evaluate(()=>window.ZhugeSharedNavigation.siteMap('/'));
   for(const entry of map){assert.equal(entry.runtime,'NOT_RUNTIME_VERIFIED');if(['hr','travel'].includes(entry.id))assert.equal(entry.href,null);}
-  const returnHtml=await page.evaluate(()=>window.ZhugeSharedNavigation.render({externalRoot:'/'}));
+  const returnHtml=await page.evaluate(()=>window.ZhugeSharedNavigation.render({externalRoot:'/',isCreator:true}));
   assert.match(returnHtml,/aria-label="返回 Pixel Office"/);
+  assert.match(returnHtml,/data-shared-nav-item="investment"[^>]*href="\/modules\/investment\/"/);
+  const investmentLoginResult=await page.evaluate(({login})=>{
+   const helper=window.ZhugeTaskFlowPostLogin;const values=new Map();
+   const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};
+   helper.capture(new URL(login),storage,2000);
+   const navigations=[];const location={href:login,replace:url=>navigations.push(url)};
+   const approved=helper.complete({authenticated:true,accessApproved:true,runtimeReady:true,location,storage,now:2001});
+   const replay=helper.complete({authenticated:true,accessApproved:true,runtimeReady:true,location,storage,now:2002});
+   return {approved,replay,navigations};
+  },{login:origin+'/modules/worklog/?app=1&workspace=dashboard&investmentReturn=1'});
+  assert.deepEqual(investmentLoginResult,{approved:true,replay:false,navigations:[origin+'/modules/investment/']});
   fs.mkdirSync(path.join(root,'tests/evidence/site-integration'),{recursive:true});
   await page.screenshot({path:path.join(root,`tests/evidence/site-integration/office-shell-${viewport.width}x${viewport.height}.png`)});
   assert.deepEqual(errors,[]);

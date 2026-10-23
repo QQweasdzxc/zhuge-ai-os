@@ -20,7 +20,8 @@
     // Status badges belong to workspace content, not the canonical global rail.
     // Keeping this entry label-only prevents one module from looking different
     // from the rest of the shared navigation.
-    // Official Investment UI is parked; the retained Experiment lives under Lab.
+    // Investment remains hidden until the existing Creator authority is
+    // verified; its module still enforces App Access and MFA after navigation.
     investment: { icon: "📈", label: "Investment", group: "camp", enabled: true, visible: false },
     // Location-centric read surface. The shared registry owns reachability
     // for both desktop and mobile; presentation changes at the breakpoint.
@@ -172,7 +173,12 @@
     const foundation = global.ZhugeFoundationConfig || {};
     const release = foundation.version && typeof foundation.version === "object" ? foundation.version : foundation;
     const registry = registryFor(options);
-    const isGeneralUser = resolvedCreatorCapability(options) === false;
+    const creatorCapability = resolvedCreatorCapability(options);
+    const isCreator = creatorCapability === true;
+    const isGeneralUser = creatorCapability === false;
+    // Fail closed when Creator status is unavailable; only the existing
+    // trusted Creator decision makes the direct Investment route visible.
+    if (registry.investment) registry.investment.visible = isCreator;
     if (isGeneralUser) {
       GENERAL_USER_VISIBLE_ITEMS.forEach(id => {
         if (registry[id]) registry[id] = { ...registry[id], visible: true };
@@ -194,8 +200,8 @@
       ? `<a class="brand-stack" href="${destination("dashboard", root)}" data-shared-nav-item="dashboard" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></a>`
       : `<div class="brand-stack" data-open-workspace="dashboard" role="button" tabindex="0" aria-label="返回 Zhuge AI OS 首頁"><h1><span class="brand-mark" aria-hidden="true">🪶</span><span class="brand-name"> Zhuge AI OS</span></h1><span class="brand-companion">by Mr. KM</span></div>`;
     const worklogConsumers = isVisible(registry.worklog) ? consumerItems.filter(item => item.group === "worklog").map(item => item.id) : [];
-    const investmentConsumers = isGeneralUser ? [] : consumerItems.filter(item => item.group === "investment").map(item => item.id);
-    const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers];
+    const investmentConsumers = isCreator ? consumerItems.filter(item => item.group === "investment").map(item => item.id) : [];
+    const campIds = ["taskflow", "worklog", "tasks-new", "procurement", ...worklogConsumers, "investment"];
     const childIndexes = campIds.flatMap((id, index) => id === "tasks-new" || id === "procurement" || worklogConsumers.includes(id) ? [index] : []);
     const camp = sectionMarkup("工作空間", "⛺", campIds, registry, { ...options, externalRoot: root }, esc, "camp", childIndexes);
     const investmentBoards = investmentConsumers.length

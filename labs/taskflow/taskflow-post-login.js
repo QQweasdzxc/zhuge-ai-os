@@ -5,11 +5,23 @@
   const RECENT_RETURN_KEY = "zhuge_taskflow_post_login_recent_return_v1";
   const POST_LOGIN_INTENT_TTL_MS = 10 * 60 * 1000;
   const REDIRECT_LOOP_GUARD_MS = 2 * 60 * 1000;
+  const RETURN_PATHS = Object.freeze({
+    office: "../../",
+    taskflow: "../../labs/taskflow/",
+    investment: "../../modules/investment/"
+  });
+
+  function requestedIntent(params) {
+    if (params.get("officeReturn") === "1") return "office";
+    if (params.get("taskflowReturn") === "1") return "taskflow";
+    if (params.get("investmentReturn") === "1") return "investment";
+    return null;
+  }
 
   function capture(location = root.location, storage = root.sessionStorage, now = Date.now()) {
     try {
       const params = new URLSearchParams(location.search);
-      const intent = params.get("officeReturn") === "1" ? "office" : params.get("taskflowReturn") === "1" ? "taskflow" : null;
+      const intent = requestedIntent(params);
       if (!intent) return false;
       const recentReturnAt = Number(storage.getItem(RECENT_RETURN_KEY));
       if (Number.isFinite(recentReturnAt) && recentReturnAt > 0 && (now < recentReturnAt || now - recentReturnAt < REDIRECT_LOOP_GUARD_MS)) return false;
@@ -27,11 +39,11 @@
       if (!serialized) return false;
       let pending;
       try { pending = JSON.parse(serialized); } catch { pending = null; }
-      if (!["taskflow", "office"].includes(pending?.intent) || !Number.isFinite(pending.expiresAt) || pending.expiresAt <= now) {
+      if (!Object.hasOwn(RETURN_PATHS, pending?.intent) || !Number.isFinite(pending.expiresAt) || pending.expiresAt <= now) {
         storage.removeItem(STORAGE_KEY);
         return false;
       }
-      const destination = new URL(pending.intent === "office" ? "../../" : "../../labs/taskflow/", location.href);
+      const destination = new URL(RETURN_PATHS[pending.intent], location.href);
       storage.removeItem(STORAGE_KEY);
       storage.setItem(RECENT_RETURN_KEY, String(now));
       location.replace(destination.href);
