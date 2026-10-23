@@ -2,7 +2,7 @@ name: Browser Regression
 
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'review/navigation-only-release-20261023']
   pull_request:
   workflow_dispatch:
 
