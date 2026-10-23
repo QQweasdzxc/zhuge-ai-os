@@ -94,9 +94,10 @@ async function readAllNativeAITasks(workspaceSlug: string, workspaceId: string, 
     if (!Array.isArray(page) || page.length > PAGE_SIZE || !Number.isSafeInteger(response.total) || response.total < 0 || response.limit !== PAGE_SIZE || response.offset !== offset) {
       throw new Error("TaskFlow 原生 AI Tasks 分頁資料不一致");
     }
-    if (total !== null && total !== response.total) throw new Error("AI Tasks 總數於讀取期間變動，請重新整理");
-    total = response.total;
-    if (page.length > total - offset || page.length < Math.min(PAGE_SIZE, total - offset)) throw new Error("AI Tasks 分頁提早結束或超出總數");
+    const pageTotal = response.total;
+    if (total !== null && total !== pageTotal) throw new Error("AI Tasks 總數於讀取期間變動，請重新整理");
+    total = pageTotal;
+    if (page.length > pageTotal - offset || page.length < Math.min(PAGE_SIZE, pageTotal - offset)) throw new Error("AI Tasks 分頁提早結束或超出總數");
     for (const task of page as NativeAITask[]) {
       const mapping = mappings.find(row => row.executor_id === task.executor_id && row.state === "VERIFIED");
       if (!isUuid(task.issue_id) || !isUuid(task.project_id) || !isUuid(task.taskflow_task_id) || task.workspace_id !== workspaceId || !mapping || mapping.project_id.toLowerCase() !== task.project_id.toLowerCase() || !task.title?.trim() || !task.issue_status?.trim() || !task.taskflow_task_status?.trim() || !Number.isFinite(Date.parse(task.updated_at)) || task.provider_runtime_state !== "UNVERIFIED" || task.provider_ack !== "UNVERIFIED") {
@@ -107,7 +108,7 @@ async function readAllNativeAITasks(workspaceSlug: string, workspaceId: string, 
       tasks.push(task);
     }
     offset += page.length;
-    if (offset === total) break;
+    if (offset === pageTotal) break;
     if (offset >= 10000) throw new Error("原生 AI Tasks 超出目前安全分頁範圍，統計尚未完成");
   }
   return { tasks, total: total || 0 };
