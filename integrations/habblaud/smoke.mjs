@@ -323,7 +323,9 @@ try {
   await frame.locator('#zhuge-aios-hud button').first().click();
   await frame.locator('#zhuge-decision-panel:not([hidden])').waitFor({timeout:2000});
   const panel = await frame.locator('#zhuge-decision-panel').innerText();
-  if (!panel.includes('正式 DB') || !panel.includes('下一步')) throw new Error('decision panel missing blocker/action');
+  if (!panel.includes('待裁示事項') || !panel.includes('Issue #42') || !panel.includes('下一步')) {
+    throw new Error('decision panel missing the current blocker or next-step section');
+  }
   await frame.locator('#zhuge-decision-panel button').click();
   await frame.locator('#zhuge-decision-panel').waitFor({state:'hidden',timeout:2000});
   await frame.locator('#zhuge-aios-hud button').nth(1).click();

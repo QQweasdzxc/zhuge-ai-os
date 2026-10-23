@@ -2,9 +2,9 @@
   "project_name": "Zhuge AI OS",
   "overall_status": "warning",
   "current_phase": "全站狀態更新與既有成果接線",
-  "current_milestone": "PR #126 .9.157 Review 驗證；尚未部署",
-  "updated_at": "2026-10-23T12:12:00+08:00",
-  "summary": "人工核對的版本化狀態快照。main .9.120 與 GitHub Pages／Render Web／API 部署證據已讀回；PR #126 .9.157 尚在 Review。此快照不是即時 TaskFlow／GitHub API，不代表任何角色正在工作，也不代表 PM 已驗收。",
+  "current_milestone": "PR #126 .9.158 Review 驗證；尚未部署",
+  "updated_at": "2026-10-23T12:33:00+08:00",
+  "summary": "人工核對的版本化狀態快照。main .9.120 與 GitHub Pages／Render Web／API 部署證據已讀回；PR #126 .9.158 尚在 Review。此快照不是即時 TaskFlow／GitHub API，不代表任何角色正在工作，也不代表 PM 已驗收。",
   "active_modules": [
     {
       "name": "Pixel Office",
@@ -55,7 +55,7 @@
   "blocked_items": [
     {
       "title": "PR #126 新 Exact-SHA 驗證",
-      "reason": ".9.157 版本投影與狀態文件有變更；.9.156 的 CI 不能替代新 SHA 的 CI。",
+      "reason": ".9.158 有既有 Smoke 測試文字契約修正；新 SHA 的 CI 必須重新完成，不能沿用 .9.157 結果。",
       "module": "Release"
     },
     {
@@ -91,7 +91,7 @@
   ],
   "next_actions": [
     {
-      "title": "在 PR #126 最新 SHA 完成 Browser、Build Parity、PostgreSQL／Runner、Pixel 與 Release Governance 驗證。"
+      "title": "在 PR #126 .9.158 最新 SHA 完成 Browser、Build Parity、PostgreSQL／Runner、Pixel 與 Release Governance 驗證。"
     },
     {
       "title": "由 PM／CTO 決定是否另外開放正式登入、原生 Project／Tasks API 與 Native Atomic Write 的必要授權。"
@@ -133,7 +133,7 @@
     },
     {
       "id": "#126",
-      "title": "全站收編與既有成果接線；Draft Review .9.157",
+      "title": "全站收編與既有成果接線；Draft Review .9.158",
       "status": "draft",
       "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/126"
     }

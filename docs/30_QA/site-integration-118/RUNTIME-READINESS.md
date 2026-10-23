@@ -1,10 +1,10 @@
 # 全站 Runtime／PM UAT Readiness
 
-**資料核對截止：** 2026-10-23 12:12（Asia/Taipei）
-**文件最後整理：** 2026-10-23 12:22（Asia/Taipei）
+**資料核對截止：** 2026-10-23 12:33（Asia/Taipei）
+**文件最後整理：** 2026-10-23 12:33（Asia/Taipei）
 **狀態來源：** [全站收編總帳](./REVIEW.md)
 **Main／Production baseline：** `.9.120 / 12f7676f344bf6dd9d6f4486ef07db097f3642cd`
-**唯一整合 Review：** PR #126；本輪 .9.157 僅為 Review Source。
+**唯一整合 Review：** PR #126；本輪 .9.158 僅為 Review Source。
 **部署限制：** 本輪不建立 Preview／Staging，不 Merge、不 Deploy、不執行正式 SQL／Canary。
 
 ## Runtime 分層
@@ -14,7 +14,7 @@
 | GitHub Pages 部署 | `DEPLOYED_SHA_VERIFIED` | main SHA `12f7676f344bf6dd9d6f4486ef07db097f3642cd`；Pages Workflow #39612304098 的部署 Job success |
 | Render TaskFlow Web/API | `DEPLOYED_SHA_VERIFIED` | Web Deploy `dep-dbccblom7kps73a78it0`、API Deploy `dep-dbcd67rl550s738ci200`，均 main SHA `12f7676f344bf6dd9d6f4486ef07db097f3642cd` |
 | Render Static Shell | `DEPLOYED_SHA_VERIFIED / VERSION_DIVERGED` | `dep-dbbm7gdg1s2s739ep2ug` 為 `c0ea0e3e1f65acfe2d2f3f02e0e48f3fdee919e8`（.9.101），不是目前 main |
-| PR #126 Review Source | `SOURCE_ONLY` | .9.157 新候選；尚未部署。必須依最新 PR HEAD 回讀 Exact SHA |
+| PR #126 Review Source | `SOURCE_ONLY` | .9.158 新候選；尚未部署。必須依最新 PR HEAD 回讀 Exact SHA |
 | 正式登入／Workspace ACL | `AUTH_RUNTIME_NOT_VERIFIED` | Render 控制面 LIVE 不代表 OAuth、Session、Workspace membership 或 API 權限已實際通過 |
 | PM Desktop／iPhone Safari | `PM_ACCEPTANCE_PENDING` | 本輪沒有真實帳號或 iPhone 操作證據；Chromium Browser CI 不能代替 Safari |
 | AI Provider | `BLOCKED / UNVERIFIED` | 無官方 Conversation Route／ACK／Run／STOP 的真實證據；不得派送或顯示 RUNNING |

@@ -1,6 +1,6 @@
 # Zhuge AI OS｜全站收編與既有成果接線總帳
 
-**資料核對截止：** 2026-10-23 12:12（Asia/Taipei）；文件最後整理：2026-10-23 12:27（Asia/Taipei）。
+**資料核對截止：** 2026-10-23 12:33（Asia/Taipei）；文件最後整理：2026-10-23 12:33（Asia/Taipei）。
 **本檔用途：** 唯一人工維護的全站模組／收編總帳；路由權威仍是既有 Shared Navigation、TaskFlow 原生 Router 與 Labs registry。這是版本化快照，不是即時監控。
 
 ## 1. Source、部署與驗收基準
@@ -9,7 +9,7 @@
 | --- | --- | --- | --- |
 | 正式 main | `.9.120` / `12f7676f344bf6dd9d6f4486ef07db097f3642cd` | GitHub main；Pages Workflow #39612304098（head SHA 同為 main，Deploy job success） | `ALREADY_IN_MAIN`、`DEPLOYED_SHA_VERIFIED` |
 | PR #126 整合線（本輪開始） | `.9.156` / `d4110c0691e04b35df322f02dd54e034448df146` | [PR #126](https://github.com/QQweasdzxc/zhuge-ai-os/pull/126)，Draft/open | `INTEGRATED_IN_REVIEW`，未部署 |
-| 本輪文件收編版 | `.9.157` / Build `20261023-1212` | SHA 由 PR #126 最新 head 唯一讀回；本檔不自我引用其 commit SHA | Source 改動後須以新 SHA 完成 Exact-SHA QA |
+| 本輪狀態／測試契約修正版 | `.9.158` / Build `20261023-1233` | Exact SHA 以 PR #126 最新 head 為準；本檔不自我引用其 commit SHA | 新 SHA 的 Exact-SHA CI 待驗證 |
 
 **GitHub Pages：** [正式首頁](https://qqweasdzxc.github.io/zhuge-ai-os/)；Workflow [#39612304098](https://github.com/QQweasdzxc/zhuge-ai-os/actions/runs/39612304098) 的 head SHA 為 `12f7676f344bf6dd9d6f4486ef07db097f3642cd`，`Publish curated site to GitHub Pages` job success。這證明部署流程完成，不等於 PM 已登入或驗收。
 
@@ -21,7 +21,7 @@
 | TaskFlow Web | [zhuge-taskflow-web.onrender.com](https://zhuge-taskflow-web.onrender.com) | `dep-dbccblom7kps73a78it0` | `12f7676f344bf6dd9d6f4486ef07db097f3642cd`（.9.120） | Render 回報 LIVE |
 | TaskFlow API | [zhuge-taskflow-api.onrender.com](https://zhuge-taskflow-api.onrender.com) | `dep-dbcd67rl550s738ci200` | `12f7676f344bf6dd9d6f4486ef07db097f3642cd`（.9.120） | Render 回報 LIVE |
 
-Render 的 `LIVE` 是控制平面部署狀態；本執行環境無法完成公開網站 HTTP／登入探測，故所有使用者 Session、Workspace ACL、業務資料及 PM 裝置驗收均為 `NOT_RUNTIME_VERIFIED`。Production 目前沒有 .9.157。
+Render 的 `LIVE` 是控制平面部署狀態；本執行環境無法完成公開網站 HTTP／登入探測，故所有使用者 Session、Workspace ACL、業務資料及 PM 裝置驗收均為 `NOT_RUNTIME_VERIFIED`。Production 目前沒有 .9.158。
 
 ## 2. 全站 Site Map／Readiness
 
@@ -29,7 +29,7 @@ Render 的 `LIVE` 是控制平面部署狀態；本執行環境無法完成公�
 
 | 模組／入口 | 現有原生路徑與 Source | 層級狀態 | 真正缺口／下一步 |
 | --- | --- | --- | --- |
-| Pixel Office／首頁 | `/`、`docs/index.html`；`integrations/habblaud/build.mjs`、`assets/zhuge-office-furnishings.js` | main .9.120 已部署 Pages；#126 收編既有場景／入口修正；CI .9.156 PASS | 真實瀏覽器／Safari、登入後回返由 PM 驗收；目前 .9.157 尚未部署 |
+| Pixel Office／首頁 | `/`、`docs/index.html`；`integrations/habblaud/build.mjs`、`assets/zhuge-office-furnishings.js` | main .9.120 已部署 Pages；#126 收編既有場景／入口修正；CI .9.156 PASS；.9.157 Pixel Review 暴露過時 Smoke 文案斷言，.9.158 僅修正該測試契約 | 真實瀏覽器／Safari、登入後回返由 PM 驗收；目前 .9.158 尚未部署 |
 | 打卡鐘／登入回返 | `modules/worklog/?app=1&workspace=dashboard&officeReturn=1`；TaskFlow 入口使用 `taskflowReturn=1`；`labs/taskflow/pages-client/login-return.mjs` | Source 已在主線與 Review；#126 瀏覽器 Fixture PASS | OAuth、真實 Session、到期／登出／App Access 仍 `NOT_RUNTIME_VERIFIED` |
 | TaskFlow 原生 Workspace | `labs/taskflow/` SSO shell → Render Web；Render API 為原生資料來源 | main .9.120 已部署 Web/API；原生 Projects、Issues、Settings、Usage 等頁面仍沿用 Vendor | 正式登入／Workspace ACL／原生操作未由本輪實測；Frozen Vendor 不修改 |
 | TaskFlow Apps／Workspace 導覽 | TaskFlow 原生側欄與 `labs/taskflow/` Overlay | 延用 TaskFlow 自有 Apps 入口；不複製一份 Apps Registry | Source／Overlay CI PASS；正式 App Access 與返回 Session 未驗證 |
@@ -62,7 +62,7 @@ Render 的 `LIVE` 是控制平面部署狀態；本執行環境無法完成公�
 - `INTEGRATED_IN_REVIEW`：僅表示相容差額在 PR #126；PR 仍 Draft，不代表 main。
 - `SOURCE_CI_PASS`：該精確 SHA 的自動化測試通過；不代表 Live。
 - `DEPLOYED_SHA_VERIFIED`：Pages／Render 控制平面讀回該 commit。
-- `AUTH_RUNTIME_VERIFIED` 與 `PM_ACCEPTED`：本輪對 .9.120/.9.156/.9.157 均未取得新的登入或 PM 驗收證據；早期 .9.101 的 P1 記錄不能自動移植到新 SHA。
+- `AUTH_RUNTIME_VERIFIED` 與 `PM_ACCEPTED`：本輪對 .9.120/.9.156/.9.157/.9.158 均未取得新的登入或 PM 驗收證據；早期 .9.101 的 P1 記錄不能自動移植到新 SHA。
 - `BLOCKED_MISSING_NATIVE_INTERFACE`：安全完成所需的原生服務端 API／持久化能力不存在或沒有可信讀回，故不製作假代替。
 - `RETIRED_LATER`：本輪無入口被刪除或退役；舊 AI Board／WorkTodo/GAS 先 KEEP。
 
@@ -77,7 +77,7 @@ Render 的 `LIVE` 是控制平面部署狀態；本執行環境無法完成公�
 | #121 | `b7acbfb04d39dcad04476d10e03eba727b0c379b`，.9.145，Draft | 非祖先；已選擇性帶入 Reporting contract／Detail Store boundary／必要測試；共享版本投影未整包覆蓋 | 自身 Build #39794844277、Browser #39794843550 PASS；未證明正式 Atomic Write 或 Detail Store |
 | #122 | `83065504332f6050bec282ab4874baccf71c9ac6`，.9.145，Draft | 非祖先；只吸收 mapping／reuse contract、Task Center fail-closed UI 與測試；不搬入整支分支 | 自身 Browser #39795099751 PASS；未找到該 SHA 的 Build Parity PASS |
 | #124 | `144b1ffb7bcbebfc95adb535d94e572f6aa4939e`，Draft | 未收編；只有手動 Production Migration workflow。Candidate SQL/runner 與 operational workflow 不同一 lineage | 自身 Browser #39775920237 PASS；該 workflow 仍 pin .9.148，且沒有 Production 執行證據，禁止觸發 |
-| #126 | .9.156 `d4110c0691e04b35df322f02dd54e034448df146`（本輪開始時），Draft | 唯一整合入口；本次只刷新 Status/Readiness 並更新靜態快照，未合併其他 PR | Browser #39885464407、Build #39885461184、Pixel/FullSource #39885461245 全 PASS；本輪新 .9.157 必須另取 Exact-SHA CI |
+| #126 | `.9.158`（本輪候選；Draft） | 唯一整合入口；本次只刷新 Status/Readiness、靜態快照與修正既有 Smoke 測試的過時文字斷言 | `.9.157` Browser #39900432120 PASS、Pixel #39900429139 FAIL（既有文案斷言）；Build Parity #39900429032 尚待完成；`.9.158` 必須取得全新 Exact-SHA CI |
 
 PR #121/#122 與 #126 的共同 version projection、App Shell、Workflow、導覽檔存在大量同路徑變更；只能保留 #126 的版本／整合結果。#124 的 Production workflow 不等於候選 SQL已安裝。所有六個 PR 均不得從 Draft 狀態推論部署或 PM 驗收。
 
@@ -108,7 +108,7 @@ PR #126 .9.156 的 Browser／Build Parity／Pixel Review 是對 SHA `d4110c...` 
 
 既有 #126 FullSource ciphertext artifact `12472890578` 預計於 `2026-10-24 09:45（Asia/Taipei）` 到期；本次 .9.157 的 Pixel CI 若成功，會另產生新的限期加密 Artifact。沒有已核准並讀回驗證的 owner-only 長期儲存目的地，因此不能標示永久備份完成。
 
-本輪文件與版本 projection 有 Source 改動，因此舊 .9.156 CI 不可移植。新 .9.157 Exact SHA 的 CI 在本文件 commit 前不存在；交付時以 PR #126 的新 Actions links 和 Artifact Manifest 為準。無正式 PM 登入帳號／實機操作證據時，一律 `NOT_RUNTIME_VERIFIED`。
+本輪文件與版本 projection 有 Source 改動，因此舊 SHA 的 CI 不可移植。`.9.157` Pixel 失敗根因為 Smoke 仍硬編舊阻擋文案；`.9.158` 只將斷言改為檢查現行 Issue #42 阻擋與下一步標題。新 Exact SHA 的 Actions／Artifact 以 PR #126 最終讀回為準。無正式 PM 登入帳號／實機操作證據時，一律 `NOT_RUNTIME_VERIFIED`。
 
 ## 6. Scope、完成度與下一步
 
@@ -118,8 +118,9 @@ PR #126 .9.156 的 Browser／Build Parity／Pixel Review 是對 SHA `d4110c...` 
 | --- | --- | --- | --- | --- |
 | P1 main baseline .9.120 | 已在 main | main 與部署工作流有成功證據 | Pages／Render Web/API SHA 已讀回 | 當前 Auth／iPhone UAT 未在本輪驗證；舊 .9.101 接受不自動延伸 |
 | PR #126 .9.156 | 整合候選 | Exact-SHA PASS | 未部署 | 未作 PM Runtime UAT |
-| PR #126 .9.157 | 狀態文件／Release identity 候選 | 新 SHA 待執行 | 未部署 | 未驗證 |
+| PR #126 .9.157 | 前一個狀態文件候選 | Browser PASS；Pixel 的過時文案斷言 FAIL；Build Parity 尚未完成 | 未部署 | 未驗證 |
+| PR #126 .9.158 | Smoke assertion 修正與狀態文件候選 | 新 Exact-SHA CI 待驗證 | 未部署 | 未驗證 |
 | Issue42 Production install | SQL／隔離 runner source | PostgreSQL CI PASS | 未安裝 | Canary 未建立 |
 | Native AI Project／Task／Reporting／Provider | 部分契約已存在 | 部分隔離合約 PASS | 尚未啟用 | mapping／native write／provider 證據未具備 |
 
-**下一個單一動作：** 對 PR #126 新 head 執行完整 Exact-SHA Browser、TaskFlow Build Parity（含 PostgreSQL／Issue42 runner）、Pixel Office／FullSource Governance；全部完成後停在 Draft CTO／PM Review。其後是否開放 Runtime、Production Migration 或發布，仍是獨立 Gate。
+**下一個單一動作：** 對 PR #126 `.9.158` 新 head 執行完整 Exact-SHA Browser、TaskFlow Build Parity（含 PostgreSQL／Issue42 runner）、Pixel Office／FullSource Governance；全部完成後停在 Draft CTO／PM Review。其後是否開放 Runtime、Production Migration 或發布，仍是獨立 Gate。
