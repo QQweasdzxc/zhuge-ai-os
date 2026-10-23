@@ -26,6 +26,7 @@ on:
       - "tests/shared-navigation.test.js"
       - "tests/taskflow-entry*.test.js"
       - "tests/taskflow-cli-sso.test.js"
+      - "tests/taskflow-native-dispatch-browser.test.mjs"
       - ".github/workflows/taskflow-build-parity.yml"
   workflow_dispatch:
 
