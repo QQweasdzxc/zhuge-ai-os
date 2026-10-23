@@ -84,7 +84,7 @@ describe("TaskFlow native AI Tasks route", () => {
   it("shows the same canonical native Issue and Project IDs without a second board", async () => {
     mount(<TaskFlowNativeAITasks />);
     expect(await screen.findByTestId("taskflow-native-ai-tasks")).toBeTruthy();
-    expect(screen.getByRole("link", { name: new RegExp(`${issueId} · 原生 TaskFlow 工作`) })).toHaveAttribute("href", `/alpha/issues/${issueId}`);
+    expect(await screen.findByRole("link", { name: new RegExp(`${issueId} · 原生 TaskFlow 工作`) })).toHaveAttribute("href", `/alpha/issues/${issueId}`);
     expect(screen.getByRole("link", { name: "CO-03 原生專案" })).toHaveAttribute("href", `/alpha/projects/${projectId}`);
     expect(screen.getByText(/原生狀態：進行中 · Queue：queued/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /拖曳|移動|變更狀態/ })).toBeNull();
