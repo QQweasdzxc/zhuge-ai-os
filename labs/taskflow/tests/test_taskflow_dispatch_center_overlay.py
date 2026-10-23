@@ -28,6 +28,8 @@ class DispatchCenterOverlayTests(unittest.TestCase):
             self.assertTrue((root / "apps/web/app/[workspaceSlug]/(dashboard)/ai-dispatch/page.tsx").is_file())
             self.assertIn("p.aiDispatch()", (root / files[2]).read_text())
             self.assertIn("this.fetch<unknown>", (root / files[1]).read_text())
+            self.assertIn("getZhugeAIProjectMappings", (root / files[1]).read_text())
+            self.assertIn("listZhugeAITasks", (root / files[1]).read_text())
             for name in files:
                 self.assertEqual(hashes[name], hashlib.sha256((VENDOR / name).read_bytes()).hexdigest())
             self.assertFalse((root / "packages/views/dashboard").exists())

@@ -2,6 +2,7 @@ name: Zhuge Pixel Office Review (NO DEPLOY)
 on:
   push:
     branches:
+      - review/p0-native-ai-operational-20261023
       - review/pixel-office-homepage-20261018
       - review/pixel-office-furnishings-p1-20261018
       - review/pixel-office-roles-p2-20261018

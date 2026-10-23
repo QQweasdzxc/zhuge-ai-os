@@ -37,6 +37,8 @@ COPY labs/taskflow/overrides/taskflow_cto_dispatch_test.go /tmp/taskflow_cto_dis
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime.go /tmp/taskflow_dispatch_runtime.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime_test.go /tmp/taskflow_dispatch_runtime_test.go
 COPY labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py /tmp/apply-taskflow-cto-dispatch-route.py
+COPY labs/taskflow/overrides/taskflow_native_ai_readback.go /tmp/taskflow_native_ai_readback.go
+COPY labs/taskflow/patches/apply-taskflow-native-ai-readback.py /tmp/apply-taskflow-native-ai-readback.py
 COPY labs/taskflow/patches/apply-taskflow-db-boundary.py /tmp/apply-taskflow-db-boundary.py
 COPY labs/taskflow/patches/stage-migrations.py /tmp/stage-migrations.py
 RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
@@ -56,6 +58,8 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_cto_dispatch_test.go /src/server/internal/handler/taskflow_cto_dispatch_test.go \
  && cp /tmp/taskflow_dispatch_runtime.go /src/server/internal/handler/taskflow_dispatch_runtime.go \
  && cp /tmp/taskflow_dispatch_runtime_test.go /src/server/internal/handler/taskflow_dispatch_runtime_test.go \
+ && TASKFLOW_VENDOR_ROOT=/src python3 /tmp/apply-taskflow-native-ai-readback.py \
+ && cp /tmp/taskflow_native_ai_readback.go /src/server/internal/handler/taskflow_native_ai_readback.go \
  && python3 /tmp/patch-router-contract-test-main.py
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
@@ -91,7 +95,8 @@ RUN cd server && go mod download
 RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go \
  && gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go \
  && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go \
- && gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
+ && gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go \
+ && gofmt -w internal/handler/taskflow_native_ai_readback.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
 RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \

@@ -21,6 +21,23 @@ def apply(root, overlays, logic):
     });
   }
 
+  async getZhugeAIProjectMappings(workspaceSlug: string): Promise<unknown> {
+    return this.fetch<unknown>(`/api/zhuge/ai/project-mappings`, {
+      headers: { "X-Workspace-Slug": workspaceSlug },
+    });
+  }
+
+  async listZhugeAITasks(workspaceSlug: string, params: { limit?: number; offset?: number } = {}): Promise<unknown> {
+    const query = new URLSearchParams();
+    if (params.limit !== undefined) query.set("limit", String(params.limit));
+    if (params.offset !== undefined) query.set("offset", String(params.offset));
+    const encoded = query.toString();
+    const suffix = encoded ? `?${encoded}` : "";
+    return this.fetch<unknown>(`/api/zhuge/ai/tasks${suffix}`, {
+      headers: { "X-Workspace-Slug": workspaceSlug },
+    });
+  }
+
   // Issues
 '''))
     sidebar = root / "packages/views/layout/app-sidebar.tsx"

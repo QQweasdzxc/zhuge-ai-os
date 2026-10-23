@@ -2,68 +2,80 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TaskFlowDispatchCenter, TaskFlowDispatchRuntime } from "./taskflow-dispatch-center";
-import { DISPATCH_EXECUTORS } from "./taskflow-dispatch-logic.mjs";
 
-const state = vi.hoisted(() => ({ workspace: { id: "ws-a", slug: "alpha", name: "Alpha" }, list: vi.fn(), issue: vi.fn(), runtime: vi.fn() }));
-vi.mock("@multica/core/api", () => ({ api: { listIssues: state.list, getIssue: state.issue, getDispatchRuntime: state.runtime } }));
-vi.mock("@multica/core/paths", () => ({ useCurrentWorkspace: () => state.workspace, useWorkspaceSlug: () => state.workspace.slug, useWorkspacePaths: () => ({ issueDetail: (id: string) => `/${state.workspace.slug}/issues/${id}` }) }));
+const workspaceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const projectId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const issueId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const queueId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const state = vi.hoisted(() => ({ workspace: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", slug: "alpha", name: "Alpha" }, mappings: vi.fn(), tasks: vi.fn(), issue: vi.fn(), runtime: vi.fn() }));
+vi.mock("@multica/core/api", () => ({ api: { getZhugeAIProjectMappings: state.mappings, listZhugeAITasks: state.tasks, getIssue: state.issue, getDispatchRuntime: state.runtime } }));
+vi.mock("@multica/core/paths", () => ({ useCurrentWorkspace: () => state.workspace, useWorkspaceSlug: () => state.workspace.slug, useWorkspacePaths: () => ({ projectDetail: (id: string) => `/${state.workspace.slug}/projects/${id}`, issueDetail: (id: string) => `/${state.workspace.slug}/issues/${id}` }) }));
 vi.mock("../navigation", () => ({ AppLink: ({ href, children, ...props }: any) => <a href={href} {...props}>{children}</a> }));
-const issue = { id: "issue-a", workspace_id: "ws-a", title: "真實案件入口", identifier: "ZG-42", status: "todo", metadata: { zhuge_work_code: "P2", zhuge_executor: "CO-03", zhuge_dispatch_status: "RUNNING", zhuge_provider_run_id: "forged-run", zhuge_pm_decision_required: true, zhuge_runtime_read_model: { authorization: "AUTHORIZED", evidence: { provider_ack: "VERIFIED" }, state: "RUNNING" } } };
+const mappings = () => ({ schema: "taskflow-native-executor-project-mapping-v1", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY", workspace_id: workspaceId, checked_at: new Date().toISOString(), mappings: ["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"].map(executor_id => ({ executor_id, state: executor_id === "CO-03" ? "VERIFIED" : "GAP", reason: executor_id === "CO-03" ? "" : "NATIVE_PROJECT_NOT_BOUND", project_id: executor_id === "CO-03" ? projectId : "", project_title: executor_id === "CO-03" ? "CO-03 原生專案" : "", workspace_id: workspaceId, workspace_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", project_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY" })) });
+const nativeTask = (id = issueId) => ({ issue_id: id, workspace_id: workspaceId, project_id: projectId, project_title: "CO-03 原生專案", title: "原生 TaskFlow 工作", issue_status: "in_progress", executor_id: "CO-03", taskflow_task_id: queueId, taskflow_task_status: "queued", provider_runtime_state: "UNVERIFIED", provider_ack: "UNVERIFIED", updated_at: new Date().toISOString() });
+const taskPage = (tasks = [nativeTask()], total = tasks.length, offset = 0) => ({ schema: "taskflow-native-ai-task-readback-v1", source: "TASKFLOW_NATIVE_ISSUE_AGENT_QUEUE", workspace_id: workspaceId, observed_at: new Date().toISOString(), limit: 20, offset, total, tasks, consistency: "NON_ATOMIC_OFFSET", provider_runtime_state: "UNVERIFIED" });
+const issue = { id: issueId, workspace_id: workspaceId, title: "原生 TaskFlow 工作", identifier: "ZG-42", status: "in_progress", metadata: { zhuge_dispatch_status: "RUNNING", zhuge_provider_run_id: "forged-run", zhuge_runtime_read_model: { authorization: "AUTHORIZED", evidence: { provider_ack: "VERIFIED" }, state: "RUNNING" } } };
 function mount(child = <TaskFlowDispatchCenter />) { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); return render(<QueryClientProvider client={client}>{child}</QueryClientProvider>); }
-beforeEach(() => { state.workspace = { id: "ws-a", slug: "alpha", name: "Alpha" }; state.list.mockReset().mockResolvedValue({ issues: [issue], total: 1 }); state.issue.mockReset().mockResolvedValue(issue); state.runtime.mockReset().mockResolvedValue({ runtime: { issue_id: "issue-a", workspace: "ws-a", state: "UNKNOWN", authorization: "UNVERIFIED", evidence: { provider_ack: "UNVERIFIED" } }, readback_kind: "NATIVE_TASK_READBACK" }); });
+beforeEach(() => { state.workspace = { id: workspaceId, slug: "alpha", name: "Alpha" }; state.mappings.mockReset().mockResolvedValue(mappings()); state.tasks.mockReset().mockResolvedValue(taskPage()); state.issue.mockReset().mockResolvedValue(issue); state.runtime.mockReset().mockResolvedValue({ runtime: { issue_id: issueId, workspace: workspaceId, state: "UNKNOWN", authorization: "UNVERIFIED", evidence: { provider_ack: "UNVERIFIED" } }, readback_kind: "NATIVE_TASK_READBACK" }); });
 afterEach(cleanup);
-describe("native dispatch center", () => {
-  it("separates native TaskFlow status from protected provider status", async () => { mount(); await screen.findByText(/ZG-42/); expect(screen.getByText(/TF 原生狀態：待處理 · Provider Runtime：未驗證/)).toBeTruthy(); expect(screen.getByText("待 PM 裁示 · 真實案件入口")).toBeTruthy(); });
-  it("links the same issue, retains five executors and separates PM Inbox without fan-out", async () => { mount(); await screen.findByText(/ZG-42/); expect(screen.getAllByRole("link").every(link => link.getAttribute("href") === "/alpha/issues/issue-a")).toBe(true); expect(screen.getAllByRole("option")).toHaveLength(6); expect(screen.getByText(/待 PM 裁示/)).toBeTruthy(); expect(state.runtime).not.toHaveBeenCalled(); expect(screen.getByText("派工尚未開放").hasAttribute("disabled")).toBe(true); });
-  it("exposes each executor's native workload and issue links", async () => { mount(); await screen.findByText(/ZG-42/); const card = screen.getByRole("heading", { name: "CO-03" }).closest("article"); expect(card).toBeTruthy(); fireEvent.click(within(card!).getByRole("button", { name: "查看工作清單" })); expect(within(card!).getByRole("link", { name: /ZG-42 · 真實案件入口/ })).toHaveAttribute("href", "/alpha/issues/issue-a"); expect(within(card!).getByText(/（TF：待處理）/)).toBeTruthy(); expect(screen.getAllByRole("button", { name: "查看工作清單" })).toHaveLength(4); });
-  it("never presents forged metadata Run ID as official evidence", async () => { mount(); await screen.findByText(/ZG-42/); fireEvent.click(screen.getByText("查看執行證據")); await screen.findByText(/Provider Run ID（受保護讀回）：未取得/); expect(screen.queryByText(/forged-run/)).toBeNull(); expect(screen.queryByText(/正在執行/)).toBeNull(); expect(state.runtime).toHaveBeenCalledWith("issue-a", "alpha"); });
-  it("rejects mismatched readback identities", async () => { state.runtime.mockResolvedValue({ runtime: { issue_id: "other", workspace: "ws-a", state: "RUNNING" } }); mount(<TaskFlowDispatchRuntime issueId="issue-a" />); expect(await screen.findByRole("alert")).toHaveTextContent("執行證據身分不一致"); });
-  it("keeps API permission failure distinct from empty", async () => { state.list.mockRejectedValue(new Error("403 forbidden")); mount(); expect(await screen.findByRole("alert")).toHaveTextContent("403 forbidden"); expect(screen.queryByText("本 Workspace 沒有符合條件的 AI 工作。")).toBeNull(); });
-  it("rejects cross-workspace issues", async () => { state.list.mockResolvedValue({ issues: [{ ...issue, workspace_id: "ws-b" }] }); mount(); expect(await screen.findByRole("alert")).toHaveTextContent("工作空間不一致"); });
-  it("shows a real empty state", async () => { state.list.mockResolvedValue({ issues: [], total: 0 }); mount(); expect(await screen.findByText("本 Workspace 沒有符合條件的 AI 工作。")).toBeTruthy(); });
-  it("loads all Workspace pages before calculating workload and Inbox", async () => {
-    const all = Array.from({ length: 45 }, (_, index) => ({ ...issue, id: `issue-${index}`, identifier: `ZG-${index}`, metadata: { ...issue.metadata, zhuge_executor: DISPATCH_EXECUTORS[index % DISPATCH_EXECUTORS.length], zhuge_pm_decision_required: index === 0 } }));
-    state.list.mockImplementation(({ offset = 0 }: { offset?: number }) => Promise.resolve({ issues: all.slice(offset, offset + 20), total: all.length }));
+
+describe("TaskFlow native AI readback", () => {
+  it("links a server-verified native Project and the same canonical Issue ID", async () => {
     mount();
-    expect(await screen.findByText(/本次讀取 Workspace 可見的 45 件 AI 派工案件/)).toBeTruthy();
-    expect(state.list.mock.calls.map(([args]) => args.offset)).toEqual([0, 20, 40]);
-    expect(screen.getByRole("heading", { name: /PM Inbox · Workspace 總數/ })).toBeTruthy();
-    expect(screen.getAllByText(/負責工作：9/)).toHaveLength(5);
+    expect(await screen.findByRole("link", { name: "CO-03 原生專案" })).toHaveAttribute("href", `/alpha/projects/${projectId}`);
+    expect(screen.getByRole("link", { name: new RegExp(`${issueId} · 原生 TaskFlow 工作`) })).toHaveAttribute("href", `/alpha/issues/${issueId}`);
+    expect(screen.getByText(/TF 狀態：進行中/)).toBeTruthy();
+    expect(screen.getByText(/TaskFlow Queue：queued · Provider Runtime：未驗證/)).toBeTruthy();
   });
-  it("groups custom native statuses by trusted status_category without guessing from custom labels", async () => {
-    const qa = { ...issue, status: "custom-qa", status_category: "started", status_name: "驗證作業中" };
-    state.list.mockResolvedValue({ issues: [qa], total: 1 });
+  it("shows missing native mappings as GAP and provides no fabricated project route", async () => {
+    mount(); await screen.findByText(/GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證/);
+    expect(screen.queryByRole("link", { name: /CO-01 原生專案/ })).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  });
+  it("does not turn an ordinary human issue or mutable metadata into an AI task", async () => {
+    state.tasks.mockResolvedValue(taskPage([], 0));
     mount();
-    await screen.findByText(/TF 原生狀態：驗證作業中/);
-    expect(screen.getByText(/TF 進行中：1/)).toBeTruthy();
-    expect(screen.getByText(/Provider Runtime：未驗證/)).toBeTruthy();
+    expect(await screen.findByText("目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。")).toBeTruthy();
+    expect(screen.queryByText(/forged-run|正在執行/)).toBeNull();
   });
-  it("keeps unresolved custom status out of in-progress totals", async () => {
-    const unknown = { ...issue, status: "custom-qa", status_category: null, status_name: "作業進行中" };
-    state.list.mockResolvedValue({ issues: [unknown], total: 1 });
+  it("fails closed on cross-Workspace task readback and does not show empty state", async () => {
+    state.tasks.mockResolvedValue(taskPage([{ ...nativeTask(), workspace_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee" }]));
+    mount(); expect(await screen.findByRole("alert")).toHaveTextContent("AI Task 與原生 Issue／Project／Workspace／Provider 狀態不一致");
+    expect(screen.queryByText("目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。")).toBeNull();
+  });
+  it("rejects duplicate Project mapping and Project ID collisions", async () => {
+    const invalid = mappings();
+    invalid.mappings[4] = { ...invalid.mappings[4], state: "VERIFIED", project_id: projectId, project_title: "共用專案", workspace_access: "ALLOW", project_access: "ALLOW" };
+    state.mappings.mockResolvedValue(invalid);
+    state.tasks.mockResolvedValue(taskPage([nativeTask()], 1));
+    mount(); expect(await screen.findByRole("alert")).toHaveTextContent("AI Task 與原生 Issue／Project／Workspace／Provider 狀態不一致");
+  });
+  it("keeps API permission failures separate from an empty native task list", async () => {
+    state.mappings.mockRejectedValue(new Error("403 forbidden"));
+    mount(); expect(await screen.findByRole("alert")).toHaveTextContent("403 forbidden");
+    expect(screen.queryByText("目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。")).toBeNull();
+  });
+  it("loads all native Issue pages before calculating executor workload", async () => {
+    const all = Array.from({ length: 45 }, (_, index) => nativeTask(`00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`));
+    state.tasks.mockImplementation((_slug: string, args: { offset?: number } = {}) => Promise.resolve(taskPage(all.slice(args.offset || 0, (args.offset || 0) + 20), all.length, args.offset || 0)));
     mount();
-    await screen.findByText(/TF 原生狀態：作業進行中/);
-    const card = screen.getByRole("heading", { name: "CO-03" }).closest("article");
-    expect(card).toBeTruthy();
-    expect(within(card!).getByText(/TF 進行中：0/)).toBeTruthy();
+    expect(await screen.findByText(/完整讀回 45 張符合原生 Agent、Project、Issue 與 Task Queue 關聯條件/)).toBeTruthy();
+    expect(state.tasks.mock.calls.map(([slug, args]) => [slug, args.offset])).toEqual([["alpha", 0], ["alpha", 20], ["alpha", 40]]);
+    const co03 = screen.getByRole("heading", { name: "CO-03" }).closest("article");
+    expect(co03).toBeTruthy(); fireEvent.click(within(co03!).getByRole("button", { name: "查看原生 Issue" }));
+    expect(within(co03!).getAllByRole("link", { name: /TaskFlow 工作/ })).toHaveLength(20);
   });
-  it("fails closed when pagination total changes across pages", async () => {
-    const all = Array.from({ length: 21 }, (_, i) => ({ ...issue, id: `issue-${i}` }));
-    state.list.mockImplementation(({ offset = 0 }: { offset?: number }) =>
-      Promise.resolve({ issues: all.slice(offset, offset + 20), total: offset === 0 ? 21 : 22 }));
-    mount();
-    expect(await screen.findByRole("alert")).toHaveTextContent("案件總數於分頁讀取期間變動");
-    expect(screen.queryByRole("heading", { name: /PM Inbox · Workspace 總數/ })).toBeNull();
+  it("shows native queue and protected runtime as separate evidence", async () => {
+    mount(); await screen.findByRole("button", { name: "查看受保護執行證據" });
+    fireEvent.click(screen.getByRole("button", { name: "查看受保護執行證據" }));
+    await screen.findByText(/Provider Run ID（受保護讀回）：未取得/);
+    expect(screen.queryByText(/forged-run/)).toBeNull();
+    expect(screen.queryByText(/正在執行/)).toBeNull();
+    expect(state.runtime).toHaveBeenCalledWith(issueId, "alpha");
   });
-  it("fails closed on inconsistent total zero and rows", async () => {
-    state.list.mockResolvedValue({ issues: [issue], total: 0 });
-    mount();
-    expect(await screen.findByRole("alert")).toHaveTextContent("案件分頁資料與總數不一致");
+  it("rejects mismatched protected Runtime identity", async () => {
+    state.runtime.mockResolvedValue({ runtime: { issue_id: "ffffffff-ffff-4fff-8fff-ffffffffffff", workspace: workspaceId, state: "RUNNING" } });
+    mount(<TaskFlowDispatchRuntime issueId={issueId} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("執行證據身分不一致");
   });
-  it("fails closed on premature short page", async () => {
-    state.list.mockResolvedValue({ issues: [issue], total: 25 });
-    mount();
-    expect(await screen.findByRole("alert")).toHaveTextContent("案件分頁提早結束");
-  });
-  it("keeps native DONE separate from provider success", async () => { state.runtime.mockResolvedValue({ runtime: { issue_id: issue.id, workspace: "ws-a", state: "DONE", evidence: { provider_ack: "UNVERIFIED" } }, readback_kind: "NATIVE_TASK_READBACK" }); mount(<TaskFlowDispatchRuntime issueId="issue-a" />); await screen.findByText("TaskFlow 原生任務狀態：完成"); expect(screen.getByText("原生任務結果不代表官方 Provider 執行結果。")).toBeTruthy(); });
 });
