@@ -48,6 +48,8 @@ jobs:
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
       - name: Verify Phase 2 runtime contracts
         run: node --test tests/taskflow-phase2-dispatch-runtime.test.mjs tests/taskflow-native-persistence-adapter.test.mjs tests/taskflow-pages-client-api.test.mjs tests/taskflow-phase2-runtime-read-model.test.mjs
+      - name: Run Native Project mapping, reporting, and browser-boundary contracts
+        run: node --test tests/native-project-task-reuse-contract.test.js tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-detail-store-browser-boundary.test.mjs
 
   backend-image:
     runs-on: ubuntu-latest

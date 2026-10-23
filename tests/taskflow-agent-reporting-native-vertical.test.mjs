@@ -3,6 +3,9 @@ import test from "node:test";
 import {commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 import {createNativePersistenceAdapter} from "../labs/taskflow/pages-client/native-persistence-adapter-contract.mjs";
 
+// Synthetic contract fixture only: this test does not prove a live Provider
+// event, production TaskFlow database transaction, or durable runtime wiring.
+
 const event = {
   type: "progress", event_id: "evt-progress-1", sequence: 1, issue_id: "issue-113", workspace_id: "ws-1",
   dispatch_id: "dispatch-113", executor_id: "CO-02", provider: "codex_cloud", provider_run_id: "run-113",
@@ -32,7 +35,7 @@ function nativeAuthority(record) {
   };
 }
 
-test("validated Agent progress traverses the Native Authority write seam and preserves one Issue", async () => {
+test("synthetic validated Agent progress traverses the Native Authority write seam and preserves one Issue", async () => {
   const record = makeRecord();
   const validation = validateAgentReportEvent(event, {
     authorization: "AUTHORIZED", issue_id: "issue-113", workspace_id: "ws-1", dispatch_id: "dispatch-113",
