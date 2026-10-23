@@ -17,7 +17,9 @@ test("P1 furniture is an overlay on original Habblaud; root/docs use correct rel
 });
 test("P1 works point to real published locations, placeholders cannot fake links", () => {
   const s = read("assets/zhuge-office-furnishings.js");
-  assert.match(s, /https:\/\/zhuge-taskflow-web\.onrender\.com\//);
+  assert.ok(s.includes('new URL("labs/taskflow/", siteRoot)'));
+  assert.match(s, /officeReturn=1/);
+  assert.match(s, /if \(key !== "login"\) element\.target = "_blank"/);
   for (const path of ["modules/worklog/", "modules/investment/", "modules/labs/"]) assert.ok(s.includes(path));
   assert.match(s, /dataset\.zgfPending = key/);
   assert.match(s, /furniture\("會議室", "會", "AI 指揮艙連結待補", null, "cockpit"\)/);
