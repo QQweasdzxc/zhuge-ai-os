@@ -1,64 +1,41 @@
-# Native AI Project／Task UI reuse matrix
+# Native Project／Task UI Reuse Matrix
 
-基準：PR #122，CO-03 review branch。這份矩陣區分已接通的原生 readback 與尚待 CO-01 提供的正式契約；沒有把本地 Fixture 當成 Product Acceptance。
+**目前權威狀態：** [全站收編總帳](./REVIEW.md)
+**Source scope：** PR #126（Draft）；main .9.120 不變。
+**本文件：** 原生重用契約說明，不是第二套 TaskFlow 資料或 ACL authority。
 
-| PM 要求 | 目前來源 | CO-03 行為 | 狀態 |
+## Capability Matrix
+
+| PM 要求 | 既有 TaskFlow Source／route | PR #126 行為 | Readiness |
 | --- | --- | --- | --- |
-| 五位 Executor 入口 | Pages client registry | 固定列出五位；預設全部 GAP，只有 versioned server mapping envelope 才建立原生路由 | SOURCE CONTRACT / LIVE GAP |
-| Executor → Native Project ID | TaskFlow `/api/projects` 不含已驗證 Executor Registry mapping | 不以 name、slug、lead、Project metadata 或前端 ACL flags 推論；UUID、Workspace、ACL 缺失即 GAP | BLOCKED |
-| Native Project route | TaskFlow 原生 `/{workspaceSlug}/projects/{projectId}` | 只接受 UUID Project ID 並限制至核准 TaskFlow Web host | ROUTE SOURCE VERIFIED / MAPPING GAP |
-| 原生六欄 Project Kanban | TaskFlow Native Project 頁面 | AI 派工中心連結到原生 Project route；不在 Pages client 重做 Kanban | NATIVE REUSE CONTRACT |
-| 原生卡片／Detail | `/api/issues/{id}` readback | 使用原生 Issue ID 與既有 detail route | SOURCE PASS / LIVE AUTH NOT VERIFIED |
-| Status movement／drag | 原生 Project mutation API 未提供 | 不提供前端假更新，保留 GAP | BLOCKED |
-| AI Tasks View / AI scope filter | Native `/{workspaceSlug}/issues` 與 `/{workspaceSlug}/my-issues` 存在；追蹤的 Web App 沒有 `/tasks` route 或 AI-managed scope filter | 一般 Issues／My Issues 不可冒充 AI Tasks filter；AI 任務中心不顯示自製 Kanban、不載入未過濾的人類 Issue，明確顯示 GAP | BLOCKED |
-| AI Issue membership | protected `/api/issues/{id}/dispatch-runtime` readback contract | Fixture helper 只接受 canonical server runtime + Durable Intent + 同一 Issue／Workspace；不能用 metadata、GitHub、assignee 或標題分類 | ISOLATED CONTRACT ONLY |
-| Native Issue ID dedupe | TaskFlow native Issue identity | 相同 ID 完全一致時收斂為一筆；Status／Workspace 衝突時排除 | ISOLATED CONTRACT ONLY |
-| 雙入口同一 Issue | native Issue ID | 正式 Tasks filter 未接通前不展示第二份卡片 | BLOCKED |
-| 改派與歷史 | CO-01 mutation／audit contract 未提供 | 不提供假改派；等待原生 mutation | BLOCKED |
-| Workspace／ACL／401／403 | existing authenticated transport | API／權限錯誤 fail-closed；Client contract 不是 ACL 授權 | SOURCE PASS / LIVE ACL NOT VERIFIED |
+| TaskFlow 原生 Projects | `third_party/multica/apps/web/app/[workspaceSlug]/(dashboard)/projects/` | AI 派工中心只有取得可信 Native Project UUID／Workspace／ACL mapping 才導向原生 route | 原生 UI `ALREADY_IN_MAIN`；Executor mapping `BLOCKED_MISSING_NATIVE_INTERFACE` |
+| 原生 Project Board／Issue Detail | 原生 Project route、`/api/issues/{id}`、原生 Issue detail | 沿用原生 route 與 Issue ID；不重建 Kanban／Detail | Source exists；Review contract/Browser CI PASS；真實登入未驗證 |
+| Status movement／drag／移交 | Project status movement mutation contract 尚未在可追蹤的 TaskFlow Server Source 找到 | 不提供前端假更新；沒有明確受權 mutation／transfer contract 時不顯示成功 | `BLOCKED_MISSING_NATIVE_INTERFACE` |
+| 五位 Executor → Project | `labs/taskflow/pages-client/native-project-mapping-contract.mjs` | 只接受 server-owned、唯一 UUID、同 Workspace、後端 ACL 驗證的 mapping envelope；缺少時顯示 GAP | 合約與負測試存在；API 尚未提供 envelope；五位皆 GAP |
+| AI-managed Issue | Protected Dispatch Runtime Read Model + 原生 Issue ID | 不看 title、assignee、GitHub comment 或可修改 metadata；依可信 authority、Workspace 及 Issue identity | 隔離投影合約／測試通過；Bulk server read model 尚未接線 |
+| AI Tasks 原生 View | 對照原生 `issues`／`my-issues` source route | TaskFlow Server has no safe bulk AI filter today；現有 route 是一般／個人 Issue 清單，不可冒充 AI 專用篩選；不載入未過濾的人類 Issue；PR #126 已移除自製六欄 Kanban，顯示明確 BLOCKED | 原生 Tasks route／AI filter 未在追蹤的 TaskFlow Web Source 中找到 |
+| AI Project／Tasks 同卡一致性 | 原生 Issue ID、Workspace、Status、History | 不複製 Issue；不提供未接通的狀態移動／改派；一般人類 Issues 排除 | Contract tests PASS；無真實 Runtime Mutation 證據 |
+| Workspace／ACL | TaskFlow native Auth、Workspace membership 與 Issue access | 前端 mapping 只做顯示契約，不能授權；API 401／403／錯誤不當作空資料 | Source fail-closed；Production approved-account readback 未驗證 |
 
-## Sprint 03 Source contract
+## 五 Executor 狀態
 
-`native-project-mapping-contract.mjs` defines the required response envelope:
+| Executor | Native Project UUID | Workspace／ACL authority | 狀態 |
+| --- | --- | --- | --- |
+| CO-01 | 未核實 | 未取得 server-owned mapping | GAP |
+| CO-02 | 未核實 | 未取得 server-owned mapping | GAP |
+| CO-03 | 未核實 | 未取得 server-owned mapping | GAP |
+| GEM-01 | 未核實 | 未取得 server-owned mapping | GAP |
+| GH-HELPER | 未核實 | 未取得 server-owned mapping | GAP |
 
-* schema `taskflow-native-executor-project-mapping-v1`;
-* source `TASKFLOW_NATIVE_EXECUTOR_REGISTRY`;
-* Workspace UUID and recent server evaluation time;
-* one row per Executor, with unique Native Project UUID, matching Workspace UUID,
-  `workspace_access=ALLOW` and `project_access=ALLOW` from TaskFlow's native ACL
-  authority.
+不能依名稱／slug／lead 推測 Project；不能分配未歸屬專案；不能以不同 Executor 共用 Project。未取得正式 API 證據前，以上 ID 均刻意留空。
 
-This is a client validation contract only. Current `/api/projects` does not
-provide this server-owned envelope, and no live Executor→Project binding was
-verified. Project `name`, `slug`, `lead`, `executor_id` custom metadata, or
-client booleans are not accepted. No Project has been created or assigned.
+## Remaining Interface Gap
 
-The tracked TaskFlow Next.js routes confirm `/{workspaceSlug}/projects`,
-`/{workspaceSlug}/projects/{id}`, `/{workspaceSlug}/issues`, and
-`/{workspaceSlug}/my-issues`. The latter two are general/workspace or personal
-Issue views; source review found no native `/tasks` route and no server-side
-AI-managed filter. Linking either unfiltered route from AI Tasks would include
-human work, so the UI does not do so.
+1. 後端提供受 TaskFlow Auth 保護的 Executor Registry mapping read API，含唯一 Native Project UUID、Workspace UUID、membership／Project ACL decision、版本與有效時間。
+2. 原生 Project mutation API 契約：Status、drag/drop、Transfer/Reassign、idempotency、history/audit 與 Workspace ACL；目前不假造接口。
+3. 原生 Tasks View 的可信 AI scope filter，且與 Project Issue list 共用同一原生 Issue ID／Status／History。
+4. Reporting Native Atomic Write／Protected Detail Store 由服務端 persistence transaction 承接；現有文件／reference adapter 仍 fail-closed。
 
-`selectVerifiedNativeAIIssues()` is an isolated projection contract for rows
-returned by a future authenticated server-side AI Tasks query. It accepts only
-the canonical TaskFlow Runtime Read Model bound to a durable `intent_id`, the
-same native Issue ID and Workspace, and a registered Executor. The Pages client
-has no safe bulk AI filter today. Therefore the AI Tasks route is deliberately
-blocked and renders no issue cards or custom columns. The isolated contract
-tests do not establish live API or Provider evidence.
+**改派與歷史：** 仍需 TaskFlow Native Issue mutation 的權威契約與可讀回的 Activity／Audit history；完成契約前不展示改派成功。這也是 Project status movement mutation contract 的同一個 Server-side gap。
 
-## 一致性驗收前置條件
-
-CO-01 必須提供：
-
-1. 每個 Executor 的唯一 Native Project ID、Workspace scope、ACL decision 與有效時間。
-2. 原生 Project read route、Issue list/detail route，以及 Project status movement mutation contract。
-3. 改派的原生 Issue mutation、history／audit readback 與 idempotency／fencing 規則。
-4. 隔離 Preview origin、測試 Workspace 與不會自動導向 Production 的登入設定。
-
-收到上述契約後，Browser Journey 才能驗證「同一 Issue、同一 Status、同一 History」的真實 mutation；在此之前，任何 drag、status update 或 reassignment 按鈕都必須保持 BLOCKED。
-
-## Evidence boundary
-
-CI Fixture 可驗證 DOM、route guards、五入口、空 mapping、401／403、Desktop／Portrait／Landscape 版面。它不能證明正式 OAuth、Workspace ACL、Native Project existence、Project mutation 或 PM 真實裝置 UAT。
+以上是已存在原生能力與缺少接口的界線；本輪不新增 Project、不修改 DB／ACL、不建立第二 Kanban，也不建立 Preview。

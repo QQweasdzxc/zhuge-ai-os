@@ -1,72 +1,141 @@
 {
   "project_name": "Zhuge AI OS",
-  "overall_status": "blocked",
-  "current_phase": "Gate 1｜工程準備與安全核對",
-  "current_milestone": "Handoff v1 建立／Gate 2 條件授權待放行",
-  "updated_at": "2026-10-18T08:19:00+08:00",
-  "summary": "本檔是人工核對的靜態專案快照，不是 CLI 即時工作證明。Co 已回覆 Gate 1；正式 DB、Render 及真實派工仍維持 HOLD。",
+  "overall_status": "warning",
+  "current_phase": "全站狀態更新與既有成果接線",
+  "current_milestone": "PR #126 .9.157 Review 驗證；尚未部署",
+  "updated_at": "2026-10-23T12:12:00+08:00",
+  "summary": "人工核對的版本化狀態快照。main .9.120 與 GitHub Pages／Render Web／API 部署證據已讀回；PR #126 .9.157 尚在 Review。此快照不是即時 TaskFlow／GitHub API，不代表任何角色正在工作，也不代表 PM 已驗收。",
   "active_modules": [
     {
-      "name": "TaskFlow",
+      "name": "Pixel Office",
+      "status": "pending",
+      "description": "Pages 部署來源為 main .9.120；PR #126 的 Review Source 尚未部署，PM 桌機／iPhone Safari 驗收未完成。"
+    },
+    {
+      "name": "TaskFlow 原生 Workspace",
+      "status": "pending",
+      "description": "Render Web／API 控制平面為 LIVE 且部署 main .9.120；本輪未驗證登入、Session、Workspace ACL 或資料操作。"
+    },
+    {
+      "name": "AI 派工中心",
       "status": "blocked",
-      "owner": "Co｜首席",
-      "description": "Gate 1 實證：正式 DB 可復原與 GitHub App 權限尚待核對"
+      "description": "PR #126 保留原生 Project fail-closed 入口；五位 Executor 均沒有已驗證 Native Project UUID／Workspace／ACL Mapping。"
     },
     {
-      "name": "戰情室",
+      "name": "AI 任務中心",
+      "status": "blocked",
+      "description": "未找到原生 AI Tasks Route／可信 AI Issue Filter；不顯示一般 Issue，也不以自製 Kanban 替代。"
+    },
+    {
+      "name": "Agent Reporting／PM Inbox",
+      "status": "blocked",
+      "description": "契約與隔離測試已存在；正式 Native Atomic Write、Protected Detail Store 與可信 Provider Event 未接通。"
+    },
+    {
+      "name": "WorkLog",
       "status": "pending",
-      "owner": "Gem｜副手",
-      "description": "TF-04 唯讀工程狀態 API 及 BFF 整合待證據"
+      "description": "既有 Source 保留；正式登入、外部呼叫端影響與完整工作流程本輪未驗證。私有安全證據不放入此公開快照。"
     },
     {
-      "name": "工具下載 TF-03",
+      "name": "Investment／Investment Lab",
       "status": "pending",
-      "owner": "Gem｜副手",
-      "description": "Frozen Vendor 不改、使用原生 Overlay；FullSource 私人連結"
+      "description": "既有模組與 Lab registry 保留；本輪未驗證真實資料、登入或權限。"
     },
     {
-      "name": "每日交接",
-      "status": "done",
-      "owner": "GPT-CTO",
-      "description": "CURRENT.md + 20261018-Handoff.md 已於獨立分支提交"
+      "name": "Apps／SkyEye／Labs",
+      "status": "pending",
+      "description": "既有 route／registry 保留；各服務 Auth、資料來源與 Runtime 未由本輪驗證。"
+    },
+    {
+      "name": "TR／AI 指揮艙",
+      "status": "pending",
+      "description": "沒有已核實的獨立 Route／URL；保持待補，不編造入口。"
     }
   ],
   "blocked_items": [
     {
-      "title": "正式 DB 可還原證據尚未完成",
-      "reason": "需取得資料庫備份與可復原方案，原始碼 ZIP 不等於資料庫備份。",
+      "title": "PR #126 新 Exact-SHA 驗證",
+      "reason": ".9.157 版本投影與狀態文件有變更；.9.156 的 CI 不能替代新 SHA 的 CI。",
+      "module": "Release"
+    },
+    {
+      "title": "Executor → Native Project 權威 Mapping",
+      "reason": "TaskFlow API 未提供可驗證的唯一 Project UUID、Workspace scope 與服務端 ACL 決策。",
       "module": "TaskFlow"
     },
     {
-      "title": "TaskFlow GitHub App 實際寫入／Webhook 未核實",
-      "reason": "必須分清 TaskFlow App 與 GPT GitHub Connector，不以人工留言冒充真實 Codex ACK。",
+      "title": "原生 AI Tasks 篩選與任務讀回",
+      "reason": "追蹤的 TaskFlow Web Source 沒有原生 AI Tasks Route／AI-managed filter；一般 Issues route 不能替代。",
       "module": "TaskFlow"
+    },
+    {
+      "title": "Agent Reporting 持久寫入",
+      "reason": "Native Atomic Write 與受 ACL 保護的持久 Detail Store 未接線。",
+      "module": "TaskFlow"
+    },
+    {
+      "title": "官方 Provider Route／ACK／Run／STOP",
+      "reason": "未取得能驗證官方送達、接單、執行與停止的 Provider 證據；保持 fail-closed。",
+      "module": "AI Dispatch"
+    },
+    {
+      "title": "Issue #42 Production Install／Canary",
+      "reason": "隔離 PostgreSQL Runner 通過；正式安裝與 Canary 沒有執行，仍受獨立正式 Gate 控制。",
+      "module": "TaskFlow"
+    },
+    {
+      "title": "正式登入與裝置驗收",
+      "reason": "本輪沒有有效的 PM 登入／Workspace 測試證據，也沒有真實 iPhone Safari 操作結果。",
+      "module": "全站"
     }
   ],
   "next_actions": [
     {
-      "title": "檢查 taskflow_migrator 正式備份與回復程序",
-      "assignee": "Co"
+      "title": "在 PR #126 最新 SHA 完成 Browser、Build Parity、PostgreSQL／Runner、Pixel 與 Release Governance 驗證。"
     },
     {
-      "title": "核實 GitHub App 最小 scope、issue_comment 與 HMAC",
-      "assignee": "Co／GPT"
+      "title": "由 PM／CTO 決定是否另外開放正式登入、原生 Project／Tasks API 與 Native Atomic Write 的必要授權。"
     },
     {
-      "title": "交付 Cockpit safe v1.0.1 真實打包與 TF-03 原生 Overlay",
-      "assignee": "Gem"
-    },
-    {
-      "title": "確認 Gate 1 全 PASS 才依條件授權進 Gate 2",
-      "assignee": "GPT-CTO／PM"
+      "title": "在正式發布獲准後，分開執行 Production Readback 與 PM Desktop／iPhone Safari 驗收；本輪不部署。"
     }
   ],
   "recent_prs": [
     {
-      "id": "#60",
-      "title": "TaskFlow AI 工程整合候選 .9.73",
+      "id": "#120",
+      "title": "Native Authority／Issue #42 候選",
       "status": "draft",
-      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/60"
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/120"
+    },
+    {
+      "id": "#121",
+      "title": "Agent Reporting 候選",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/121"
+    },
+    {
+      "id": "#122",
+      "title": "Native Project／Task UI 候選",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/122"
+    },
+    {
+      "id": "#124",
+      "title": "Issue #42 Production Installer workflow 候選",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/124"
+    },
+    {
+      "id": "#125",
+      "title": "Issue #42 SECURITY DEFINER SQL 候選",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/125"
+    },
+    {
+      "id": "#126",
+      "title": "全站收編與既有成果接線；Draft Review .9.157",
+      "status": "draft",
+      "url": "https://github.com/QQweasdzxc/zhuge-ai-os/pull/126"
     }
   ]
 }
