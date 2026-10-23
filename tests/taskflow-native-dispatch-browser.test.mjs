@@ -19,7 +19,7 @@ function taskResponse(workspaceId) {
   const tasks=workspaceId===workspaceA?[{issue_id:issueId,workspace_id:workspaceA,project_id:projectId,project_title:"CO-03 原生專案",title:issue.title,issue_status:"todo",executor_id:"CO-03",taskflow_task_id:queueId,taskflow_task_status:"queued",provider_runtime_state:"UNVERIFIED",provider_ack:"UNVERIFIED",updated_at:"2026-10-21T00:00:00Z"}]:[];
   return {schema:"taskflow-native-ai-task-readback-v1",source:"TASKFLOW_NATIVE_ISSUE_AGENT_QUEUE",workspace_id:workspaceId,observed_at:new Date().toISOString(),limit:20,offset:0,total:tasks.length,tasks,consistency:"NON_ATOMIC_OFFSET",provider_runtime_state:"UNVERIFIED"};
 }
-async function setup(t,{viewport={width:1440,height:900},status=200}={}) {
+async function setup(t,{viewport={width:1440,height:900},status=200,route="ai-dispatch"}={}) {
  const browser=await chromium.launch({executablePath:tools.resolveBrowserExecutable()||undefined,args:["--no-sandbox"]}); t.after(()=>browser.close());
  const page=await browser.newPage({viewport}); const requests=[];
  await page.route(URL_BASE.replace(/\/$/,"")+"/api/**",async route=>{
@@ -36,7 +36,8 @@ async function setup(t,{viewport={width:1440,height:900},status=200}={}) {
   else return route.fulfill({status:404,headers,body:'{"error":"not found"}'});
   return route.fulfill({status:200,headers,body:JSON.stringify(data)});
  });
- await page.goto(URL_BASE,{waitUntil:"networkidle"}); return {page,requests};
+ const url=new URL(URL_BASE); if(route==="ai-tasks")url.searchParams.set("view","ai-tasks");
+ await page.goto(url.toString(),{waitUntil:"networkidle"}); return {page,requests};
 }
 for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844,height:390}])test(`native dispatch component browser ${viewport.width}x${viewport.height}`,{skip:!URL_BASE},async t=>{
  const {page,requests}=await setup(t,{viewport}); await page.getByText(/ZG-42|P2 原生 AI 派工整合/).waitFor();
@@ -57,3 +58,23 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
  await page.getByRole("button",{name:"切換 Beta"}).click(); await page.getByText("目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。").waitFor(); assert.equal(await page.getByRole("link",{name:/ZG-42/}).count(),0);
 });
 for(const status of [401,403,503])test(`native dispatch API ${status} remains error`,{skip:!URL_BASE},async t=>{const {page}=await setup(t,{status}); await page.getByRole("alert").waitFor(); assert.equal(await page.getByText("目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。").count(),0);});
+for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844,height:390}])test(`native AI Tasks route ${viewport.width}x${viewport.height}`,{skip:!URL_BASE},async t=>{
+ const {page,requests}=await setup(t,{viewport,route:"ai-tasks"});
+ await page.getByTestId("taskflow-native-ai-tasks").waitFor();
+ assert.equal(await page.getByRole("heading",{name:"AI 任務"}).count(),1);
+ const issueLink=page.getByRole("link",{name:/cccccccc-cccc-4ccc-8ccc-cccccccccccc · P2 原生 AI 派工整合/});
+ assert.equal(await issueLink.getAttribute("href"),`/alpha/issues/${issueId}`);
+ assert.equal(await page.getByRole("link",{name:"CO-03 原生專案"}).getAttribute("href"),`/alpha/projects/${projectId}`);
+ assert.equal(await page.getByText(/原生狀態：待處理 · Queue：queued/).count(),1);
+ assert.equal(await page.getByText(/Provider Route、ACK、Run 與成本未驗證/).count(),1);
+ assert.equal(requests.filter(r=>r.path==="/api/zhuge/ai/project-mappings").length,1);
+ assert.equal(requests.filter(r=>r.path==="/api/zhuge/ai/tasks").length,1);
+ const size=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,width:innerWidth})); assert.ok(size.scroll<=size.width,JSON.stringify(size));
+ await mkdir(screenshotDir,{recursive:true}); await page.screenshot({path:screenshotDir+"/native-ai-tasks-"+viewport.width+"x"+viewport.height+".png",fullPage:true});
+ await issueLink.click();
+ await page.waitForFunction(expected=>document.querySelector('[aria-label="原生導覽路徑"]')?.textContent===expected,"/alpha/issues/"+issueId);
+ assert.equal(await page.getByLabel("原生導覽路徑").innerText(),"/alpha/issues/"+issueId);
+ await page.getByRole("button",{name:"切換 Beta"}).click();
+ await page.getByText("目前沒有符合服務端 AI Agent／Project／Queue 權威條件的原生 Issue。").waitFor();
+ assert.equal(await page.getByRole("link",{name:/ZG-42/}).count(),0);
+});

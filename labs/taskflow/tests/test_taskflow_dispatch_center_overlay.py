@@ -10,12 +10,18 @@ VENDOR = ROOT / "third_party/multica"
 SPEC = importlib.util.spec_from_file_location("dispatch_center", ROOT / "labs/taskflow/patches/apply-taskflow-dispatch-center.py")
 PATCH = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PATCH)
+PROJECT_SPEC = importlib.util.spec_from_file_location("project_navigation", ROOT / "labs/taskflow/patches/apply-taskflow-project-navigation.py")
+PROJECT = importlib.util.module_from_spec(PROJECT_SPEC)
+PROJECT_SPEC.loader.exec_module(PROJECT)
+APPS_SPEC = importlib.util.spec_from_file_location("apps_navigation", ROOT / "labs/taskflow/patches/apply-taskflow-apps-navigation.py")
+APPS = importlib.util.module_from_spec(APPS_SPEC)
+APPS_SPEC.loader.exec_module(APPS)
 
 class DispatchCenterOverlayTests(unittest.TestCase):
     def test_native_route_sidebar_and_auth_only_modify_build_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            files = ["packages/core/paths/paths.ts", "packages/core/api/client.ts", "packages/views/layout/app-sidebar.tsx", "packages/views/package.json"]
+            files = ["packages/core/paths/paths.ts", "packages/core/api/client.ts", "packages/views/layout/app-sidebar.tsx", "packages/views/layout/app-sidebar.test.tsx", "packages/views/package.json"]
             hashes = {name: hashlib.sha256((VENDOR / name).read_bytes()).hexdigest() for name in files}
             for name in files:
                 target = root / name
@@ -24,9 +30,24 @@ class DispatchCenterOverlayTests(unittest.TestCase):
             common = root / "packages/views/common"
             common.mkdir(exist_ok=True)
             shutil.copyfile(ROOT / "labs/taskflow/overrides/taskflow-ai-engineering.tsx", common / "taskflow-ai-engineering.tsx")
+            for locale in ("en", "zh-Hans", "ja", "fr"):
+                name = f"packages/views/locales/{locale}/layout.json"
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(VENDOR / name, target)
+            hant = root / "packages/views/locales/zh-Hant/layout.json"
+            hant.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "labs/taskflow/overrides/locales/zh-Hant/layout.json", hant)
+            PROJECT.apply(root)
+            APPS.apply(root)
             PATCH.apply(root, ROOT / "labs/taskflow/overrides", ROOT / "labs/taskflow/pages-client/dispatch-workbench.mjs")
             self.assertTrue((root / "apps/web/app/[workspaceSlug]/(dashboard)/ai-dispatch/page.tsx").is_file())
+            self.assertTrue((root / "apps/web/app/[workspaceSlug]/(dashboard)/ai-tasks/page.tsx").is_file())
             self.assertIn("p.aiDispatch()", (root / files[2]).read_text())
+            self.assertIn("p.aiTasks()", (root / files[2]).read_text())
+            self.assertIn("TASKFLOW_AI_EXECUTORS", (root / files[2]).read_text())
+            self.assertIn('"尚未接通"', (root / files[2]).read_text())
+            self.assertNotIn("TASKFLOW_NATIVE_AI_WORK_NAV_SLOT", (root / files[2]).read_text())
             self.assertIn("this.fetch<unknown>", (root / files[1]).read_text())
             self.assertIn("getZhugeAIProjectMappings", (root / files[1]).read_text())
             self.assertIn("listZhugeAITasks", (root / files[1]).read_text())
@@ -39,3 +60,6 @@ class DispatchCenterOverlayTests(unittest.TestCase):
     def test_missing_upstream_marker_fails_closed(self):
         with self.assertRaises(ValueError):
             PATCH.replace("changed", "expected", "replacement")
+
+if __name__ == "__main__":
+    unittest.main()

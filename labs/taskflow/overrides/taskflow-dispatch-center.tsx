@@ -191,3 +191,51 @@ export function TaskFlowDispatchCenter() {
     </div>
   </main>;
 }
+
+/** Read-only native TaskFlow issue view. It shares the same server readback and
+ * canonical Issue IDs as the dispatch overview; it intentionally has no second
+ * Kanban, status engine, or mutation path. */
+export function TaskFlowNativeAITasks() {
+  const workspace = useCurrentWorkspace();
+  const slug = useWorkspaceSlug();
+  const paths = useWorkspacePaths();
+  const [executor, setExecutor] = useState("");
+  const [search, setSearch] = useState("");
+  const query = useQuery({
+    queryKey: ["taskflow-native-ai-readback", workspace?.id, slug],
+    queryFn: () => readNativeAI(workspace!.id, slug!),
+    enabled: Boolean(workspace?.id && slug), retry: false,
+  });
+  const visible = (query.data?.tasks || []).filter(item =>
+    (!executor || item.executor_id === executor) && (!search || item.title.toLowerCase().includes(search.toLowerCase()))
+  );
+  return <main data-testid="taskflow-native-ai-tasks" className="h-full min-w-0 overflow-y-auto p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-xl font-semibold">AI 任務</h1><p className="text-sm text-muted-foreground">TaskFlow 原生 Issue 唯讀讀回 · {workspace?.name}</p></div>
+        <button className="min-h-10 rounded-md border px-4" disabled={query.isFetching} onClick={() => void query.refetch()}>重新整理</button>
+      </header>
+      <p className="rounded-md border p-3 text-sm">只呈現服務端確認具 AI Agent／Project／Queue 關聯的原生 Issue。Provider Route、ACK、Run 與成本未驗證時保持 UNKNOWN／UNVERIFIED。</p>
+      <div className="flex min-w-0 flex-wrap gap-3">
+        <label>Executor <select aria-label="AI 任務 Executor" className="min-h-10 max-w-full rounded border bg-background px-2" value={executor} onChange={event => setExecutor(event.target.value)}><option value="">全部五位 Executor</option>{DISPATCH_EXECUTORS.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>搜尋原生 AI 任務 <input aria-label="搜尋原生 AI 任務" className="min-h-10 max-w-full rounded border bg-background px-2" value={search} onChange={event => setSearch(event.target.value)} /></label>
+      </div>
+      {query.isError ? <div role="alert">TaskFlow 原生 AI Tasks 讀取失敗：{query.error.message}。錯誤不會顯示成空清單。<button className="ml-2 min-h-10 rounded border px-3" onClick={() => void query.refetch()}>重試</button></div>
+        : query.isPending ? <p role="status">讀取 TaskFlow 原生 AI Issue…</p>
+          : <>
+            <p className="text-sm text-muted-foreground">目前 Workspace 完整讀回 {query.data?.total || 0} 張原生 AI Issue；資料只讀、非原子分頁，觀測時間 {new Date(query.data!.observedAt).toLocaleString("zh-TW")}。</p>
+            <section aria-label="TaskFlow 原生 AI 任務列表" className="min-w-0 overflow-hidden rounded-lg border">
+              {visible.length ? <ul className="divide-y">
+                {visible.map(item => <li key={item.issue_id} className="grid min-w-0 gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0 space-y-1">
+                    <AppLink className="block break-words font-medium underline-offset-4 hover:underline" href={paths.issueDetail(item.issue_id)}>{item.issue_id} · {item.title}</AppLink>
+                    <p className="break-words text-sm text-muted-foreground">Executor：{item.executor_id}{item.executor_id === "GH-HELPER" ? "（GitHub 輔助角色）" : ""} · 原生狀態：{nativeTaskStateLabel({ status: item.issue_status })} · Queue：{item.taskflow_task_status}</p>
+                  </div>
+                  <AppLink className="min-h-10 whitespace-nowrap rounded border px-3 py-2 text-sm" href={paths.projectDetail(item.project_id)}>{item.project_title}</AppLink>
+                </li>)}
+              </ul> : <p className="p-4 text-sm text-muted-foreground">目前沒有符合服務端 AI Agent／Project／Queue 權威條件的原生 Issue。</p>}
+            </section>
+          </>}
+    </div>
+  </main>;
+}

@@ -50,7 +50,6 @@ def patch_sidebar(source: str) -> str:
         'const workNav: { key: NavKey; labelKey: NavLabelKey }[] = [\n'
         '  { key: "projects", labelKey: "projects" },\n'
         '  { key: "issues", labelKey: "issues" },\n'
-        '  { key: "autopilots", labelKey: "autopilots" },\n'
         '];',
         "Work navigation order",
     )
@@ -170,7 +169,8 @@ def patch_sidebar(source: str) -> str:
                       )}
                     </SidebarMenuItem>
                   );
-                })}'''
+                })}
+                {/* TASKFLOW_NATIVE_AI_WORK_NAV_SLOT */}'''
     return replace_once(source, original_nav_map, taskflow_nav_map, "Work navigation project menu")
 
 
@@ -195,6 +195,10 @@ def patch_sidebar_tests(source: str) -> str:
         '      "ws-1": [{ id: "project-a", workspace_id: "ws-1", title: "Project A", icon: null }],\n'
         '      "ws-2": [{ id: "project-b", workspace_id: "ws-2", title: "QA | Project B", icon: null }],\n'
         '    } as Record<string, { id: string; workspace_id: string; title: string; icon: string | null }[]>,\n'
+        '    aiMappingsByWorkspace: {\n'
+        '      "ws-1": { schema: "taskflow-native-executor-project-mapping-v1", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY", workspace_id: "ws-1", checked_at: new Date().toISOString(), mappings: ["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"].map(executor_id => ({ executor_id, state: executor_id === "CO-03" ? "VERIFIED" : "GAP", reason: "NATIVE_PROJECT_NOT_BOUND", project_id: executor_id === "CO-03" ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : "", project_title: executor_id === "CO-03" ? "Project A" : "", workspace_id: "ws-1", workspace_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", project_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY" })) },\n'
+        '      "ws-2": { schema: "taskflow-native-executor-project-mapping-v1", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY", workspace_id: "ws-2", checked_at: new Date().toISOString(), mappings: ["CO-01", "CO-02", "CO-03", "GEM-01", "GH-HELPER"].map(executor_id => ({ executor_id, state: executor_id === "CO-03" ? "VERIFIED" : "GAP", reason: "NATIVE_PROJECT_NOT_BOUND", project_id: executor_id === "CO-03" ? "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" : "", project_title: executor_id === "CO-03" ? "QA | Project B" : "", workspace_id: "ws-2", workspace_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", project_access: executor_id === "CO-03" ? "ALLOW" : "UNVERIFIED", source: "TASKFLOW_NATIVE_EXECUTOR_REGISTRY" })) },\n'
+        '    } as Record<string, unknown>,\n'
         '  },\n'
         '  pins: {',
         "sidebar project fixtures",
@@ -270,6 +274,9 @@ def patch_sidebar_tests(source: str) -> str:
         '  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {\n'
         '    if (queryKey[0] === "pins") return { data: pins.current };',
         '  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {\n'
+        '    if (queryKey[0] === "taskflow-native-executor-project-mappings") {\n'
+        '      return { data: taskflowNav.aiMappingsByWorkspace[String(queryKey[1])], isPending: false, isError: false };\n'
+        '    }\n'
         '    if (queryKey[0] === "projects" && queryKey[2] === "list") {\n'
         '      return { data: taskflowNav.projectsByWorkspace[String(queryKey[1])] ?? [] };\n'
         '    }\n'
@@ -349,7 +356,7 @@ describe("TaskFlow workspace project navigation", () => {
     rerender(<AppSidebar />);
 
     expect(container.querySelector("ul.max-h-56.overflow-y-auto")).toBeInTheDocument();
-    expect(container.querySelector('button[data-href="/acme/autopilots"]')).toBeInTheDocument();
+    expect(container.querySelector('button[data-href="/acme/autopilots"]')).toBeNull();
   });
 });
 '''

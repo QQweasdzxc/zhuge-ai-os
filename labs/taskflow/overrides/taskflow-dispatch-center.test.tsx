@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TaskFlowDispatchCenter, TaskFlowDispatchRuntime } from "./taskflow-dispatch-center";
+import { TaskFlowDispatchCenter, TaskFlowDispatchRuntime, TaskFlowNativeAITasks } from "./taskflow-dispatch-center";
 
 const workspaceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const projectId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -77,5 +77,31 @@ describe("TaskFlow native AI readback", () => {
     state.runtime.mockResolvedValue({ runtime: { issue_id: "ffffffff-ffff-4fff-8fff-ffffffffffff", workspace: workspaceId, state: "RUNNING" } });
     mount(<TaskFlowDispatchRuntime issueId={issueId} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("執行證據身分不一致");
+  });
+});
+
+describe("TaskFlow native AI Tasks route", () => {
+  it("shows the same canonical native Issue and Project IDs without a second board", async () => {
+    mount(<TaskFlowNativeAITasks />);
+    expect(await screen.findByTestId("taskflow-native-ai-tasks")).toBeTruthy();
+    expect(screen.getByRole("link", { name: new RegExp(`${issueId} · 原生 TaskFlow 工作`) })).toHaveAttribute("href", `/alpha/issues/${issueId}`);
+    expect(screen.getByRole("link", { name: "CO-03 原生專案" })).toHaveAttribute("href", `/alpha/projects/${projectId}`);
+    expect(screen.getByText(/原生狀態：進行中 · Queue：queued/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /拖曳|移動|變更狀態/ })).toBeNull();
+    expect(state.tasks).toHaveBeenCalledWith("alpha", { limit: 20, offset: 0 });
+  });
+
+  it("keeps untrusted or empty server results separate from human Issues", async () => {
+    state.tasks.mockResolvedValue(taskPage([], 0));
+    mount(<TaskFlowNativeAITasks />);
+    expect(await screen.findByText("目前沒有符合服務端 AI Agent／Project／Queue 權威條件的原生 Issue。")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /一般人類任務/ })).toBeNull();
+  });
+
+  it("shows API authorization failures as errors instead of an empty state", async () => {
+    state.tasks.mockRejectedValue(new Error("403 workspace access denied"));
+    mount(<TaskFlowNativeAITasks />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("403 workspace access denied");
+    expect(screen.queryByText("目前沒有符合服務端 AI Agent／Project／Queue 權威條件的原生 Issue。")).toBeNull();
   });
 });
