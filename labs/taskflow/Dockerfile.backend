@@ -93,6 +93,11 @@ COPY labs/taskflow/overrides/taskflow_zh_hant_language_test.go /taskflow-zh-hant
 RUN python3 /tmp/apply-taskflow-zh-hant.py --target backend --root /src --overlays /taskflow-zh-hant \
  && test -f /src/server/internal/handler/taskflow_zh_hant_language_test.go
 
+# Stage reviewed private Storage/attachment guards in the disposable vendor source.
+COPY labs/taskflow/patches/apply-taskflow-supabase-storage.py /tmp/apply-taskflow-supabase-storage.py
+COPY labs/taskflow/overrides/ /taskflow-storage-overlays/
+RUN python3 /tmp/apply-taskflow-supabase-storage.py --target backend --root /src --overlays /taskflow-storage-overlays
+
 FROM golang:1.26-alpine AS builder
 ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
@@ -116,6 +121,7 @@ RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/ser
 RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/storage ./internal/middleware ./internal/handler -run '^TestTaskFlow' -count=1
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate

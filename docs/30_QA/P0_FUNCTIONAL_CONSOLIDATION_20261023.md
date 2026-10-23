@@ -28,3 +28,9 @@ Review the explicit outstanding source: #50 attachments, #60 real Cloud Handoff,
 - Correct `attachment_lifecycle.board_is_complete`: a completion-step only counts when the step and Board task share the same `workflow_version_id`. No unrelated Workflow can start the 72-hour deletion timer.
 - Board trigger listens for `workflow_version_id` changes and invalidates or restarts the old deletion timer; staged PGlite test exercises foreign completion step and version reassignment.
 - Require real Storage TUS/RLS, retention/bucket/permission E2E, release preflight/backup and separate PM acceptance before enabling any irreversible cleanup. Never copy the old #50 branch's global version/nav files or blindly apply Supabase SQL/cron.
+
+## #50 End-to-End Source Assembly
+- Original #50 scoped-Storage overlay is now applied to **both TaskFlow backend and web temporary build copies**, preserving immutable vendor and no direct production schema change.
+- 50MB web limit and TaskFlow storage client test are enforced in Docker.
+- Original #50 CI PostgreSQL16 attachment-lifecycle job (PGlite tests, competing reopen/deletion lock, Storage RLS/restricted-role SQL) is carried unchanged and now runs under consolidated SHA.
+- Real Supabase bucket policies, scheduled deletion, render deployment, backup/rollback and PM UI acceptance remain gated.
