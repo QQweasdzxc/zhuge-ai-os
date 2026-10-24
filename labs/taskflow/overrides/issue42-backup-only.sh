@@ -118,17 +118,40 @@ test -s "$DUMP" || fail empty_dump
 pg_restore --list "$DUMP" >"$WORK_DIR/archive.list" 2>"$WORK_DIR/pg-restore-list.err" || fail archive_validation
 grep -Eq 'SCHEMA - taskflow([[:space:]]|$)' "$WORK_DIR/archive.list" || fail archive_scope
 
+TABLE_NAMES_JSON="$WORK_DIR/table-names.json"
+psql -X -qAt -v ON_ERROR_STOP=1 -d "$SOURCE_CONN" -c \
+  "SELECT coalesce(json_agg(tablename ORDER BY tablename)::text, '[]') FROM pg_catalog.pg_tables WHERE schemaname = 'taskflow'" \
+  >"$TABLE_NAMES_JSON" 2>"$WORK_DIR/source-table-names.err" || fail source_table_list
 COUNTS_SQL="$WORK_DIR/table-counts.sql"
-cat > "$COUNTS_SQL" <<'SQL'
-SELECT format(
-  'SELECT json_build_object(''table'', %L, ''rows'', count(*)::bigint)::text FROM %I.%I',
-  schemaname || '.' || tablename, schemaname, tablename
-)
-FROM pg_catalog.pg_tables
-WHERE schemaname = 'taskflow'
-ORDER BY schemaname, tablename;
-\gexec
-SQL
+python3 - "$TABLE_NAMES_JSON" "$COUNTS_SQL" "$table_count" <<'PY'
+import json, sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    tables = json.load(handle)
+expected_count = int(sys.argv[3])
+if (not isinstance(tables, list) or not tables
+        or not all(isinstance(name, str) and name for name in tables)
+        or len(tables) != expected_count or len(set(tables)) != expected_count):
+    raise SystemExit("invalid_taskflow_table_list")
+
+def quote_identifier(value):
+    return '"' + value.replace('"', '""') + '"'
+
+def quote_literal(value):
+    return "'" + value.replace("'", "''") + "'"
+
+queries = [
+    "SELECT json_build_object('table', "
+    + quote_literal("taskflow." + table)
+    + ", 'rows', count(*)::bigint)::text AS result FROM "
+    + quote_identifier("taskflow") + "." + quote_identifier(table)
+    for table in tables
+]
+sql = "SELECT result FROM (\n" + "\nUNION ALL\n".join(queries)
+sql += "\n) AS table_counts ORDER BY result;\n"
+with open(sys.argv[2], "w", encoding="utf-8") as handle:
+    handle.write(sql)
+PY
 export PGSERVICEFILE="$SOURCE_SERVICE_FILE"
 psql -X -qAt -v ON_ERROR_STOP=1 -d "$SOURCE_CONN" -f "$COUNTS_SQL" \
   >"$WORK_DIR/source-counts.txt" 2>"$WORK_DIR/source-counts.err" || fail source_data_read
