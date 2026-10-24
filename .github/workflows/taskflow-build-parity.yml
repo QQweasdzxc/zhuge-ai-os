@@ -303,7 +303,7 @@ jobs:
           test "$(psql -h 127.0.0.1 -U bootstrap -d postgres -Atc 'SELECT count(*) FROM taskflow.sb_connector_issue_request')" = 0
 
   issue42-backup-postgres17:
-    name: Issue 42 BACKUP ONLY PostgreSQL 17 encrypted restore
+    name: Issue 42 BACKUP ONLY PostgreSQL 17 restore and Drive API contract
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -315,7 +315,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           docker info --format '{{.ServerVersion}}' >/dev/null
-      - name: Install PostgreSQL 17 client and age from verified package sources
+      - name: Install PostgreSQL 17 client from verified package sources
         shell: bash
         run: |
           set -euo pipefail
@@ -329,7 +329,7 @@ jobs:
           printf 'deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
             | sudo tee /etc/apt/sources.list.d/postgresql-pgdg.list >/dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client-17 age
+          sudo apt-get install --yes postgresql-client-17
           pg17_bin=/usr/lib/postgresql/17/bin
           test -x "$pg17_bin/pg_dump"
           test -x "$pg17_bin/pg_restore"
@@ -338,8 +338,7 @@ jobs:
           [[ "$dump_version" == *"(PostgreSQL) 17."* ]]
           [[ "$restore_version" == *"(PostgreSQL) 17."* ]]
           printf '%s\n' "$pg17_bin" >> "$GITHUB_PATH"
-          age --version
-      - name: Run the real synthetic PostgreSQL 17 backup and encrypted restore test
+      - name: Run the real synthetic PostgreSQL 17 backup, restore, and Drive readback test
         env:
           TASKFLOW_BACKUP_CI_REQUIRED: "1"
         run: python3 -B -m unittest discover -s labs/taskflow/tests -p 'test_issue42_backup_only_postgres.py' -v
