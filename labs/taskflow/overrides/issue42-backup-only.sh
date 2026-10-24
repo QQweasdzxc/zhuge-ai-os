@@ -191,18 +191,18 @@ with open(sys.argv[1], encoding="utf-8") as handle:
         try:
             record = json.loads(line)
         except (json.JSONDecodeError, TypeError):
-            raise SystemExit("invalid_table_count")
+            raise SystemExit("invalid_table_count_json")
         table = record.get("table") if isinstance(record, dict) else None
         rows = record.get("rows") if isinstance(record, dict) else None
         if (not isinstance(record, dict) or set(record) != {"table", "rows"}
                 or not isinstance(table, str)
                 or not table.startswith("taskflow.") or table in seen
                 or isinstance(rows, bool) or not isinstance(rows, int) or rows < 0):
-            raise SystemExit("invalid_table_count")
+            raise SystemExit("invalid_table_count_record")
         seen.add(table)
         counts.append({"table": table, "rows": rows})
 if not counts or len(counts) != int(os.environ["TASKFLOW_BACKUP_TABLE_COUNT"]):
-    raise SystemExit("invalid_table_count")
+    raise SystemExit("taskflow_table_count_mismatch")
 manifest = {
     "format": "zhuge-taskflow-schema-backup-v2",
     "scope": "taskflow schema only; not a full Supabase project/database backup",
