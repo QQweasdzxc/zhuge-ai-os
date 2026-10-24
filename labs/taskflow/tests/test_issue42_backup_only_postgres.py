@@ -153,8 +153,8 @@ GRANT SELECT ON taskflow.issue TO taskflow_runtime;
                     "TASKFLOW_BACKUP_EXPECTED_DATABASE": "postgres",
                     "TASKFLOW_BACKUP_OUTPUT_DIR": str(output_dir),
                     "RUNNER_TEMP": temp,
-                    "CANDIDATE_VERSION": "0.9.0-alpha.9.178",
-                    "CANDIDATE_BUILD": "20261024-1950",
+                    "CANDIDATE_VERSION": "0.9.0-alpha.9.179",
+                    "CANDIDATE_BUILD": "20261024-1959",
                     "GITHUB_SHA": subprocess.run(
                         ["git", "rev-parse", "HEAD"], cwd=REPO,
                         check=True, capture_output=True, text=True,
