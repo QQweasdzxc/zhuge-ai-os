@@ -4,12 +4,17 @@ import {readFile} from "node:fs/promises";
 
 const workflow = await readFile(new URL("../.github/workflows/taskflow-official-release-gate.yml", import.meta.url), "utf8");
 const runner = await readFile(new URL("../labs/taskflow/overrides/issue42-install-once.sh", import.meta.url), "utf8");
-const installJob = workflow.split("  issue42-install-only:")[1]?.split("\n  source-identity:")[0] || "";
+const backupRunner = await readFile(new URL("../labs/taskflow/overrides/issue42-backup-only.sh", import.meta.url), "utf8");
+const installJob = workflow.split("  issue42-install-only:")[1]?.split("\n  issue42-backup-only:")[0] || "";
+const backupJob = workflow.split("  issue42-backup-only:")[1]?.split("\n  source-identity:")[0] || "";
 
 test("Issue #42 production install is explicit manual-only and bound to the review candidate", () => {
   assert.match(workflow, /issue42_install_only:[\s\S]*type: boolean[\s\S]*default: false/);
   assert.match(workflow, /expected_candidate_sha:[\s\S]*type: string/);
-  assert.equal((workflow.match(/github\.event_name == 'workflow_dispatch' && inputs\.issue42_install_only == true/g) || []).length, 2);
+  assert.match(workflow, /inputs\.issue42_install_only == true \|\| inputs\.issue42_backup_only == true/);
+  assert.match(workflow, /inputs\.issue42_install_only != inputs\.issue42_backup_only/);
+  assert.match(installJob, /inputs\.issue42_install_only == true && inputs\.issue42_backup_only != true/);
+  assert.match(backupJob, /inputs\.issue42_backup_only == true && inputs\.issue42_install_only != true/);
   assert.match(workflow, /refs\/heads\/review\/p0-functional-consolidation-20261023/);
   assert.match(workflow, /test "\$GITHUB_SHA" = "\$EXPECTED_CANDIDATE_SHA"/);
   assert.match(workflow, /git merge-base --is-ancestor origin\/main/);
@@ -50,4 +55,30 @@ test("service configuration is never printed or passed as a DSN argument", () =>
   assert.doesNotMatch(workflow, /echo\s+.*TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT|printenv|set -x/);
   assert.doesNotMatch(workflow, /psql\s+"\$TASKFLOW_MIGRATION_DATABASE_URL"/);
   assert.match(workflow, /invalid TaskFlow migration service name/);
+});
+
+test("BACKUP ONLY is manual, exact-candidate, protected, schema-scoped, and cannot install SQL", () => {
+  assert.match(workflow, /issue42_backup_only:[\s\S]*type: boolean[\s\S]*default: false/);
+  assert.match(workflow, /backup_age_recipient:[\s\S]*public recipient only; never enter a private key/);
+  assert.match(backupJob, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(backupJob, /needs: \[issue42-install-preflight, source-identity, browser, fullsource\]/);
+  assert.match(backupJob, /name: production-migration/);
+  assert.match(backupJob, /TASKFLOW_MIGRATION_PG_SERVICE: \$\{\{ secrets\.TASKFLOW_MIGRATION_PG_SERVICE \}\}/);
+  assert.match(backupJob, /TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT: \$\{\{ secrets\.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT \}\}/);
+  assert.match(backupJob, /TASKFLOW_BACKUP_AGE_RECIPIENT: \$\{\{ inputs\.backup_age_recipient \}\}/);
+  assert.match(backupJob, /TASKFLOW_BACKUP_EXPECTED_HOST: db\.lenpbbhwxyyfwgvjcozf\.supabase\.co/);
+  assert.match(backupJob, /postgresql-client-17 age/);
+  assert.match(backupJob, /TASKFLOW_BACKUP_RESTORE_PGSERVICEFILE_CONTENT:/);
+  assert.match(backupRunner, /--schema=taskflow --file=\"\$DUMP\"/);
+  assert.match(backupRunner, /age --encrypt --recipient/);
+  assert.match(backupRunner, /restore_server_not_postgresql_17/);
+  assert.match(backupRunner, /test \"\$\(git rev-parse HEAD 2>\/dev\/null\)\" = \"\$GITHUB_SHA\"/);
+  assert.match(backupJob, /run: bash labs\/taskflow\/overrides\/issue42-backup-only\.sh/);
+  assert.match(backupJob, /B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8/);
+  assert.match(backupJob, /retention-days: 1/);
+  assert.match(backupJob, /\*\.dump\.age/);
+  assert.match(backupJob, /\*\.dump\.age\.sha256/);
+  assert.match(backupJob, /manifest\.json/);
+  assert.doesNotMatch(backupJob, /issue42-install-once\.sh|TASKFLOW_BACKUP_AGE_IDENTITY|AGE-SECRET-KEY/);
+  assert.match(workflow, /No Canary card was created by this job\./);
 });

@@ -11,8 +11,17 @@ on:
         type: boolean
         required: false
         default: false
+      issue42_backup_only:
+        description: Run BACKUP ONLY for the TaskFlow schema; never install SQL.
+        type: boolean
+        required: false
+        default: false
       expected_candidate_sha:
         description: Exact review candidate SHA shown in the preflight.
+        type: string
+        required: false
+      backup_age_recipient:
+        description: PM-owned age public recipient only; never enter a private key.
         type: string
         required: false
 
@@ -22,7 +31,7 @@ permissions:
 jobs:
   issue42-install-preflight:
     name: Issue #42 production install preflight (read-only)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_install_only == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.issue42_install_only == true || inputs.issue42_backup_only == true) && inputs.issue42_install_only != inputs.issue42_backup_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -36,8 +45,12 @@ jobs:
       - name: Require the reviewed candidate branch and exact SHA
         env:
           EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+          ISSUE42_INSTALL_ONLY: ${{ inputs.issue42_install_only }}
+          ISSUE42_BACKUP_ONLY: ${{ inputs.issue42_backup_only }}
         run: |
           set -euo pipefail
+          test "$ISSUE42_INSTALL_ONLY" != "$ISSUE42_BACKUP_ONLY" || { echo 'BLOCKED: choose exactly one Issue #42 operation' >&2; exit 1; }
+          test "$ISSUE42_INSTALL_ONLY" = true -o "$ISSUE42_BACKUP_ONLY" = true || { echo 'BLOCKED: select BACKUP ONLY or INSTALL ONLY' >&2; exit 1; }
           test "$GITHUB_REF" = "refs/heads/review/p0-functional-consolidation-20261023"
           [[ "$EXPECTED_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_CANDIDATE_SHA"
@@ -96,7 +109,7 @@ jobs:
 
   issue42-install-only:
     name: Issue #42 INSTALL ONLY (no Canary)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_install_only == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_install_only == true && inputs.issue42_backup_only != true }}
     needs: [issue42-install-preflight, source-identity, browser, fullsource]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -186,6 +199,85 @@ jobs:
             esac
             exit "$status"
           fi
+
+  issue42-backup-only:
+    name: TaskFlow schema BACKUP ONLY (encrypted handoff; no SQL install)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_backup_only == true && inputs.issue42_install_only != true }}
+    needs: [issue42-install-preflight, source-identity, browser, fullsource]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres-restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: backup-restore-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    environment:
+      name: production-migration
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Install PostgreSQL 17 client and age
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/pgdg.asc
+          fingerprint="$(gpg --show-keys --with-colons /tmp/pgdg.asc | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test "$fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -d -m 0755 /usr/share/keyrings
+          gpg --dearmor --output /tmp/pgdg.gpg /tmp/pgdg.asc
+          sudo install -m 0644 /tmp/pgdg.gpg /usr/share/keyrings/postgresql.gpg
+          . /etc/os-release
+          printf 'deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/postgresql-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17 age
+          pg_dump --version | grep -E 'PostgreSQL\) 17\.'
+          pg_restore --version | grep -E 'PostgreSQL\) 17\.'
+          age --version
+      - name: Confirm exact candidate identity for the backup manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node -e 'const v=require("./version.json"); process.stdout.write("CANDIDATE_VERSION="+v.version+"\nCANDIDATE_BUILD="+v.build+"\n")' >> "$GITHUB_ENV"
+      - name: Create and verify the encrypted TaskFlow schema backup
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: ${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}
+          TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT: ${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}
+          TASKFLOW_BACKUP_AGE_RECIPIENT: ${{ inputs.backup_age_recipient }}
+          TASKFLOW_BACKUP_EXPECTED_HOST: db.lenpbbhwxyyfwgvjcozf.supabase.co
+          TASKFLOW_BACKUP_EXPECTED_USER: taskflow_migrator
+          TASKFLOW_BACKUP_EXPECTED_DATABASE: postgres
+          TASKFLOW_BACKUP_RESTORE_PG_SERVICE: taskflow_restore
+          TASKFLOW_BACKUP_RESTORE_PGSERVICEFILE_CONTENT: |
+            [taskflow_restore]
+            host=127.0.0.1
+            port=5432
+            dbname=postgres
+            user=postgres
+            password=backup-restore-ci-only
+            sslmode=disable
+          TASKFLOW_BACKUP_OUTPUT_DIR: ${{ runner.temp }}/issue42-encrypted-backup
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash labs/taskflow/overrides/issue42-backup-only.sh
+      - name: Publish ciphertext-only one-day handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue42-encrypted-taskflow-backup-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/issue42-encrypted-backup/*.dump.age
+            ${{ runner.temp }}/issue42-encrypted-backup/*.dump.age.sha256
+            ${{ runner.temp }}/issue42-encrypted-backup/manifest.json
+          if-no-files-found: error
+          retention-days: 1
 
   source-identity:
     name: Identity, Overlay, and source regression

@@ -15,7 +15,7 @@
   "schemaVersion": 1,
   "templateId": "c",
   "developmentVersion": "0.9.0-alpha.9.177",
-  "developmentBuild": "20261024-0126",
+  "developmentBuild": "20261024-1950",
   "publishedVersion": "0.9.0-alpha.9.13",
   "publishedBuild": "20260915-1707",
   "templateVersion": "0.9.0-alpha.9.13",

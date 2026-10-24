@@ -301,6 +301,42 @@ jobs:
           test "$(psql -h 127.0.0.1 -U bootstrap -d postgres -Atc 'SELECT count(*) FROM taskflow.issue')" = 0
           test "$(psql -h 127.0.0.1 -U bootstrap -d postgres -Atc 'SELECT count(*) FROM taskflow.sb_connector_issue_request')" = 0
 
+  issue42-backup-postgres17:
+    name: Issue 42 BACKUP ONLY PostgreSQL 17 encrypted restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact candidate and Docker runtime
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          docker info --format '{{.ServerVersion}}' >/dev/null
+      - name: Install PostgreSQL 17 client and age from verified package sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$RUNNER_TEMP/pgdg.asc"
+          fingerprint="$(gpg --show-keys --with-colons "$RUNNER_TEMP/pgdg.asc" | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test "$fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -d -m 0755 /usr/share/keyrings
+          gpg --dearmor --output "$RUNNER_TEMP/pgdg.gpg" "$RUNNER_TEMP/pgdg.asc"
+          sudo install -m 0644 "$RUNNER_TEMP/pgdg.gpg" /usr/share/keyrings/postgresql.gpg
+          . /etc/os-release
+          printf 'deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/postgresql-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17 age
+          pg_dump --version | grep -E 'PostgreSQL\) 17\.'
+          pg_restore --version | grep -E 'PostgreSQL\) 17\.'
+          age --version
+      - name: Run the real synthetic PostgreSQL 17 backup and encrypted restore test
+        env:
+          TASKFLOW_BACKUP_CI_REQUIRED: "1"
+        run: python3 -B -m unittest discover -s labs/taskflow/tests -p 'test_issue42_backup_only_postgres.py' -v
+
   attachment-lifecycle:
     runs-on: ubuntu-latest
     services:
