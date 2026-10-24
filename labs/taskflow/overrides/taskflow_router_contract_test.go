@@ -33,6 +33,8 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 	assertRouteCount(http.MethodPost, "/auth/zhuge")
 	assertRouteCount(http.MethodPost, "/api/cli-token")
 	assertRouteCount(http.MethodGet, "/api/issues/{id}/dispatch-runtime")
+	assertRouteCount(http.MethodGet, "/api/zhuge/ai/project-mappings")
+	assertRouteCount(http.MethodGet, "/api/zhuge/ai/tasks")
 
 	loginRequest := httptest.NewRequest(http.MethodPost, "/auth/zhuge", strings.NewReader(`{"access_token":""}`))
 	loginRequest.Header.Set("Content-Type", "application/json")
@@ -63,5 +65,16 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 	router.ServeHTTP(cliResponse, cliRequest)
 	if cliResponse.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthenticated POST /api/cli-token must remain guarded and non-404, got %d", cliResponse.Code)
+	}
+
+	// A client-supplied identity/workspace header must not bypass the Auth group
+	// that contains the native AI readback routes.
+	readbackRequest := httptest.NewRequest(http.MethodGet, "/api/zhuge/ai/project-mappings?workspace_id=11111111-1111-4111-8111-111111111111", nil)
+	readbackRequest.Header.Set("X-User-ID", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+	readbackRequest.Header.Set("X-Workspace-ID", "11111111-1111-4111-8111-111111111111")
+	readbackResponse := httptest.NewRecorder()
+	router.ServeHTTP(readbackResponse, readbackRequest)
+	if readbackResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("native AI readback must reject spoofed identity headers without an authenticated session, got %d", readbackResponse.Code)
 	}
 }

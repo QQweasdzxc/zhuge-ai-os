@@ -44,7 +44,11 @@
         // in the visible URL or browser history either.
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         const token = params.get("zhuge_token") || "";
+        const storageToken = params.get("zhuge_storage_token") || "";
+        // Never retain a previous storage scope after a handoff or failure.
+        window.sessionStorage.removeItem("zhuge_storage_access_token");
         const destination = params.get("zhuge_dest") || "";
+        if (storageToken.length > 16384) { fail("Storage 工作階段無效，請重新進入 TaskFlow。"); return; }
         if (!token || token.length > 16384) {
           fail("沒有收到有效的 Zhuge 身分。請從 Zhuge AI OS 重新進入 TaskFlow。");
           return;
@@ -64,6 +68,8 @@
         // The next document initializes CoreProvider only after token mode is
         // ready, preventing the unauthenticated cookie-mode `/api/me` probe.
         window.localStorage.setItem("multica_token", token);
+        // Keep the optional short-lived Storage credential tab-scoped only.
+        if (storageToken) window.sessionStorage.setItem("zhuge_storage_access_token", storageToken);
         document.documentElement.dataset.handoffState = "accepted";
         window.location.replace(safeDestination);
       } catch {

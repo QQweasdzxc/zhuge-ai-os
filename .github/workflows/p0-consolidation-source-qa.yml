@@ -1,0 +1,38 @@
+name: P0 Native AI + Cloud Handoff Consolidation (NO DEPLOY)
+on:
+  push:
+    branches:
+      - review/p0-functional-consolidation-20261023
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-source-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Source diff hygiene
+        run: git diff HEAD^ HEAD --check
+      - name: Install pinned dependencies for isolated PGlite lifecycle tests
+        run: npm ci --ignore-scripts
+      - name: Verify attachment lifecycle SQL against isolated in-memory PostgreSQL and negative workflow-version tests
+        run: node --test labs/attachments/tests/lifecycle.test.cjs
+      - name: Run original Cloud Co/Gem handoff protocol tests
+        run: node --test tests/cloud-handoff-*.test.mjs
+      - name: Run selected native Agent / Project / detail-store contract tests
+        run: node --test tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-agent-detail-store.test.mjs tests/taskflow-server-protected-detail-store.test.mjs tests/taskflow-detail-store-browser-boundary.test.mjs tests/native-project-task-reuse-contract.test.js
+      - name: Run live-provider-denied and AI-only read-only evidence boundary tests
+        run: node --test tests/ai-native-project-task-ui.test.js
+      - name: Verify the guarded Issue #42 production install workflow
+        run: node --test tests/issue42-production-install-workflow.test.mjs
+      # Playwright runs in dedicated Browser Regression with pinned Chromium setup.
+
+  # Only isolated tests. No Production database credentials, deployments,
+  # migration workflow_dispatch, provider dispatch, or paid service calls.
