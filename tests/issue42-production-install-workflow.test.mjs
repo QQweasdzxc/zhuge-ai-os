@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 
 const workflow = await readFile(new URL("../.github/workflows/taskflow-official-release-gate.yml", import.meta.url), "utf8");
+const buildParity = await readFile(new URL("../.github/workflows/taskflow-build-parity.yml", import.meta.url), "utf8");
 const runner = await readFile(new URL("../labs/taskflow/overrides/issue42-install-once.sh", import.meta.url), "utf8");
 const backupRunner = await readFile(new URL("../labs/taskflow/overrides/issue42-backup-only.sh", import.meta.url), "utf8");
 const installJob = workflow.split("  issue42-install-only:")[1]?.split("\n  issue42-backup-only:")[0] || "";
 const backupJob = workflow.split("  issue42-backup-only:")[1]?.split("\n  source-identity:")[0] || "";
+const parityBackupJob = buildParity.split("  issue42-backup-postgres17:")[1]?.split("\n  attachment-lifecycle:")[0] || "";
 
 test("Issue #42 production install is explicit manual-only and bound to the review candidate", () => {
   assert.match(workflow, /issue42_install_only:[\s\S]*type: boolean[\s\S]*default: false/);
@@ -68,6 +70,14 @@ test("BACKUP ONLY is manual, exact-candidate, protected, schema-scoped, and cann
   assert.match(backupJob, /TASKFLOW_BACKUP_AGE_RECIPIENT: \$\{\{ inputs\.backup_age_recipient \}\}/);
   assert.match(backupJob, /TASKFLOW_BACKUP_EXPECTED_HOST: db\.lenpbbhwxyyfwgvjcozf\.supabase\.co/);
   assert.match(backupJob, /postgresql-client-17 age/);
+  assert.match(backupJob, /pg17_bin=\/usr\/lib\/postgresql\/17\/bin/);
+  assert.match(backupJob, /\[\[ "\$dump_version" == \*"\(PostgreSQL\) 17\."\* \]\]/);
+  assert.match(backupJob, /\[\[ "\$restore_version" == \*"\(PostgreSQL\) 17\."\* \]\]/);
+  assert.match(backupJob, /GITHUB_PATH/);
+  assert.match(parityBackupJob, /pg17_bin=\/usr\/lib\/postgresql\/17\/bin/);
+  assert.match(parityBackupJob, /\[\[ "\$dump_version" == \*"\(PostgreSQL\) 17\."\* \]\]/);
+  assert.match(parityBackupJob, /\[\[ "\$restore_version" == \*"\(PostgreSQL\) 17\."\* \]\]/);
+  assert.match(parityBackupJob, /GITHUB_PATH/);
   assert.match(backupJob, /TASKFLOW_BACKUP_RESTORE_PGSERVICEFILE_CONTENT:/);
   assert.match(backupRunner, /--schema=taskflow --file=\"\$DUMP\"/);
   assert.match(backupRunner, /age --encrypt --recipient/);
