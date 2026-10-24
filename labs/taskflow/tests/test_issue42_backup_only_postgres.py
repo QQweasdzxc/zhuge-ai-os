@@ -450,8 +450,12 @@ GRANT SELECT ON taskflow.issue TO taskflow_runtime;
                         "TASKFLOW_BACKUP_EXPECTED_DATABASE": "postgres",
                         "TASKFLOW_BACKUP_OUTPUT_DIR": str(output_dir),
                         "RUNNER_TEMP": temp,
-                        "CANDIDATE_VERSION": "0.9.0-alpha.9.182",
-                        "CANDIDATE_BUILD": "20261024-2215",
+                        "CANDIDATE_VERSION": json.loads(
+                            (REPO / "version.json").read_text(encoding="utf-8")
+                        )["version"],
+                        "CANDIDATE_BUILD": json.loads(
+                            (REPO / "version.json").read_text(encoding="utf-8")
+                        )["build"],
                         "GITHUB_SHA": source_sha,
                         "GITHUB_RUN_ID": "123456789",
                         "GITHUB_RUN_ATTEMPT": "1",

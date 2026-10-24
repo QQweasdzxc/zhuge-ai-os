@@ -121,7 +121,7 @@ grep -Eq 'SCHEMA - taskflow([[:space:]]|$)' "$WORK_DIR/archive.list" || fail arc
 COUNTS_SQL="$WORK_DIR/table-counts.sql"
 cat > "$COUNTS_SQL" <<'SQL'
 SELECT format(
-  'SELECT %L || ''|'' || count(*)::text FROM %I.%I',
+  'SELECT json_build_object(''table'', %L, ''rows'', count(*)::bigint)::text FROM %I.%I',
   schemaname || '.' || tablename, schemaname, tablename
 )
 FROM pg_catalog.pg_tables
@@ -182,12 +182,27 @@ TASKFLOW_BACKUP_PG_DUMP_VERSION="$(pg_dump --version 2>/dev/null)" \
 python3 - "$WORK_DIR/source-counts.txt" "$TASKFLOW_BACKUP_OUTPUT_DIR/manifest.json" <<'PY'
 import json, os, sys
 counts = []
+seen = set()
 with open(sys.argv[1], encoding="utf-8") as handle:
     for line in handle:
-        table, rows = line.rstrip("\n").split("|", 1)
-        if not rows.isdigit():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
             raise SystemExit("invalid_table_count")
-        counts.append({"table": table, "rows": int(rows)})
+        table = record.get("table") if isinstance(record, dict) else None
+        rows = record.get("rows") if isinstance(record, dict) else None
+        if (not isinstance(record, dict) or set(record) != {"table", "rows"}
+                or not isinstance(table, str)
+                or not table.startswith("taskflow.") or table in seen
+                or isinstance(rows, bool) or not isinstance(rows, int) or rows < 0):
+            raise SystemExit("invalid_table_count")
+        seen.add(table)
+        counts.append({"table": table, "rows": rows})
+if not counts or len(counts) != int(os.environ["TASKFLOW_BACKUP_TABLE_COUNT"]):
+    raise SystemExit("invalid_table_count")
 manifest = {
     "format": "zhuge-taskflow-schema-backup-v2",
     "scope": "taskflow schema only; not a full Supabase project/database backup",
