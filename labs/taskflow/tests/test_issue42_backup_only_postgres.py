@@ -48,7 +48,9 @@ class BackupRunnerPostgres17Test(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="taskflow-backup-ci-") as temp:
             temp_path = Path(temp)
             tls = temp_path / "tls"
-            tls.mkdir(mode=0o700)
+            # The postgres container runs as its postgres user and must be able
+            # to traverse the bind mount directory to read the private key.
+            tls.mkdir(mode=0o755)
             cert = tls / "server.crt"
             key = tls / "server.key"
             subprocess.run([
@@ -86,7 +88,12 @@ class BackupRunnerPostgres17Test(unittest.TestCase):
                         ready = True
                         break
                     time.sleep(1)
-                self.assertTrue(ready, "isolated PostgreSQL 17 did not become ready")
+                if not ready:
+                    logs = subprocess.run(
+                        ["docker", "logs", container], capture_output=True, text=True,
+                        check=False,
+                    ).stdout[-2000:]
+                    self.fail("isolated PostgreSQL 17 did not become ready; container diagnostics: " + logs)
 
                 bootstrap_sql = """
 CREATE ROLE taskflow_migrator LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE
@@ -153,8 +160,8 @@ GRANT SELECT ON taskflow.issue TO taskflow_runtime;
                     "TASKFLOW_BACKUP_EXPECTED_DATABASE": "postgres",
                     "TASKFLOW_BACKUP_OUTPUT_DIR": str(output_dir),
                     "RUNNER_TEMP": temp,
-                    "CANDIDATE_VERSION": "0.9.0-alpha.9.179",
-                    "CANDIDATE_BUILD": "20261024-1959",
+                    "CANDIDATE_VERSION": "0.9.0-alpha.9.181",
+                    "CANDIDATE_BUILD": "20261024-2007",
                     "GITHUB_SHA": subprocess.run(
                         ["git", "rev-parse", "HEAD"], cwd=REPO,
                         check=True, capture_output=True, text=True,
