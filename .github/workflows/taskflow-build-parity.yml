@@ -23,6 +23,7 @@ on:
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
+      - "version.json"
       - "shared/components/zhuge-navigation.js"
       - "tests/shared-navigation.test.js"
       - "tests/taskflow-entry*.test.js"
