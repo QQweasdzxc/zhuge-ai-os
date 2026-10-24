@@ -6,6 +6,7 @@ TASKFLOW_BACKUP_CI_REQUIRED=1, which converts missing prerequisites to failure.
 All database content in this test is synthetic.
 """
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -22,6 +23,10 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 REPO = ROOT.parents[1]
 RUNNER = ROOT / "overrides/issue42-backup-only.sh"
+UPLOADER_PATH = ROOT / "overrides/issue42-backup-drive-upload.py"
+UPLOADER_SPEC = importlib.util.spec_from_file_location("issue42_drive_uploader", UPLOADER_PATH)
+UPLOADER = importlib.util.module_from_spec(UPLOADER_SPEC)
+UPLOADER_SPEC.loader.exec_module(UPLOADER)
 
 
 def command_exists(name):
@@ -31,14 +36,16 @@ def command_exists(name):
 class DriveApiMock:
     """Loopback-only Drive API fixture; it never contacts Google or stores PII."""
     folder_id = "1426lDVU97bSseRVzMLRMzh1C2eAIZ-xU"
-    service_account = "backup-upload@unit-test.iam.gserviceaccount.com"
+    owner_email = "drive-owner@example.com"
+    file_extra_permission = False
 
     def __init__(self):
         self.files = {}
         self.sessions = {}
         self.writable = True
-        self.actor = self.service_account
-        self.shared_drive = True
+        self.actor = self.owner_email
+        self.shared_drive = False
+        self.extra_permission = False
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -82,20 +89,15 @@ class DriveApiMock:
                     return self._send(404)
                 file_id = parsed.path[len(prefix):]
                 if file_id == owner.folder_id:
-                    permissions = []
-                    if owner.writable:
-                        permissions.append({"type": "user", "role": "writer",
-                                           "emailAddress": owner.service_account})
-                    else:
+                    permissions = [{"type": "user", "role": "owner",
+                                    "emailAddress": owner.owner_email}]
+                    if owner.extra_permission:
                         permissions.append({"type": "anyone", "role": "reader"})
-                    if not owner.shared_drive:
-                        permissions = [
-                            {"type": "user", "role": "owner", "emailAddress": "pm@example.com"},
-                        ]
                     folder = {
                         "id": owner.folder_id,
                         "mimeType": "application/vnd.google-apps.folder",
                         "capabilities": {"canAddChildren": owner.writable},
+                        "owners": [{"emailAddress": owner.owner_email}],
                         "permissions": permissions,
                     }
                     if owner.shared_drive:
@@ -154,12 +156,18 @@ class DriveApiMock:
 
     @staticmethod
     def _metadata(file_id, item):
+        permissions = [{"type": "user", "role": "owner",
+                        "emailAddress": DriveApiMock.owner_email}]
+        if DriveApiMock.file_extra_permission:
+            permissions.append({"type": "anyone", "role": "reader"})
         return {
             "id": file_id,
             "name": item["name"],
             "size": str(len(item["content"])),
             "mimeType": item["mimeType"],
             "parents": item["parents"],
+            "owners": [{"emailAddress": DriveApiMock.owner_email}],
+            "permissions": permissions,
             "md5Checksum": hashlib.md5(item["content"]).hexdigest(),
         }
 
@@ -174,6 +182,105 @@ class DriveApiMock:
         self.server.server_close()
         if self.thread:
             self.thread.join(timeout=2)
+
+
+class OAuthTokenMock:
+    """Loopback-only OAuth refresh endpoint using synthetic credentials."""
+    def __init__(self):
+        self.response_status = 200
+        self.scope = UPLOADER.DRIVE_SCOPE
+        self.access_token = "synthetic-oauth-access-token"
+        self.rotate_refresh_token = False
+        self.request_count = 0
+        self.last_form = None
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                if self.path != "/token":
+                    self.send_error(404)
+                    return
+                body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                owner.last_form = urllib.parse.parse_qs(body.decode("ascii"))
+                owner.request_count += 1
+                payload = {
+                    "access_token": owner.access_token,
+                    "token_type": "Bearer",
+                    "expires_in": 3600,
+                    "scope": owner.scope,
+                }
+                if owner.response_status != 200:
+                    payload = {"error": "invalid_grant"}
+                if owner.rotate_refresh_token:
+                    payload["refresh_token"] = "rotated-synthetic-refresh-token"
+                encoded = json.dumps(payload).encode()
+                self.send_response(owner.response_status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.base_url = f"http://127.0.0.1:{self.server.server_port}"
+        self.thread = None
+
+    def __enter__(self):
+        import threading
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *_args):
+        self.server.shutdown()
+        self.server.server_close()
+        if self.thread:
+            self.thread.join(timeout=2)
+
+
+class GoogleUserOAuthTokenProviderTest(unittest.TestCase):
+    def _environment(self, oauth):
+        return {
+            "TASKFLOW_BACKUP_DRIVE_TEST_MODE": "1",
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_API_BASE": oauth.base_url,
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL": DriveApiMock.owner_email,
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID": "synthetic-client-id",
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET": "synthetic-client-secret",
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN": "synthetic-refresh-token",
+        }
+
+    def test_refresh_uses_owner_oauth_and_caches_short_lived_access_token(self):
+        with OAuthTokenMock() as oauth, patch.dict(os.environ, self._environment(oauth)):
+            provider = UPLOADER.GoogleUserOAuthTokenProvider()
+            self.assertEqual(provider.get(), "synthetic-oauth-access-token")
+            self.assertEqual(provider.get(), "synthetic-oauth-access-token")
+            self.assertEqual(oauth.request_count, 1)
+            self.assertEqual(oauth.last_form["grant_type"], ["refresh_token"])
+            self.assertEqual(oauth.last_form["client_id"], ["synthetic-client-id"])
+            self.assertEqual(oauth.last_form["refresh_token"], ["synthetic-refresh-token"])
+            self.assertEqual(set(oauth.last_form), {"grant_type", "client_id", "client_secret", "refresh_token"})
+            provider.expiry_monotonic = 0
+            oauth.access_token = "refreshed-synthetic-oauth-access-token"
+            self.assertEqual(provider.get(), "refreshed-synthetic-oauth-access-token")
+            self.assertEqual(oauth.request_count, 2)
+
+    def test_refresh_rejects_wrong_scope_rotated_refresh_token_and_auth_failure(self):
+        with OAuthTokenMock() as oauth, patch.dict(os.environ, self._environment(oauth)):
+            provider = UPLOADER.GoogleUserOAuthTokenProvider()
+            oauth.scope = "https://www.googleapis.com/auth/drive.file"
+            with self.assertRaisesRegex(UPLOADER.DriveUploadError, "token_contract_invalid"):
+                provider.get()
+            oauth.scope = UPLOADER.DRIVE_SCOPE
+            oauth.rotate_refresh_token = True
+            with self.assertRaisesRegex(UPLOADER.DriveUploadError, "rotation_requires_secret_update"):
+                provider.get()
+            oauth.rotate_refresh_token = False
+            oauth.response_status = 400
+            with self.assertRaisesRegex(UPLOADER.DriveUploadError, "expired_or_revoked"):
+                provider.get()
 
 
 class DriveUploaderContractTest(unittest.TestCase):
@@ -220,7 +327,7 @@ class DriveUploaderContractTest(unittest.TestCase):
         environment = {
             "TASKFLOW_BACKUP_DRIVE_TEST_MODE": "1",
             "TASKFLOW_BACKUP_DRIVE_ACCESS_TOKEN": "synthetic-drive-token",
-            "TASKFLOW_BACKUP_DRIVE_SERVICE_ACCOUNT": DriveApiMock.service_account,
+            "TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL": DriveApiMock.owner_email,
             "TASKFLOW_BACKUP_DRIVE_API_BASE": "",
             "RUNNER_TEMP": str(temp_path),
             "GITHUB_SHA": source_sha,
@@ -246,6 +353,8 @@ class DriveUploaderContractTest(unittest.TestCase):
                     self.assertEqual(uploaded.returncode, 0, uploaded.stderr)
                     self.assertIn("TASKFLOW_BACKUP_DRIVE_READBACK_PASS", uploaded.stdout)
                     self.assertEqual(len(drive.files), 3)
+                    self.assertTrue(all(item["parents"] == [DriveApiMock.folder_id]
+                                        for item in drive.files.values()))
 
                     preflight = subprocess.run(
                         ["python3", str(uploader), "--verify-candidate-backup"],
@@ -283,21 +392,63 @@ class DriveUploaderContractTest(unittest.TestCase):
                     self.assertIn("drive_authenticated_principal_mismatch", wrong_actor.stderr)
                     self.assertEqual(drive.files, {})
 
-    def test_my_drive_folder_is_rejected_before_any_database_access(self):
+    def test_owner_only_my_drive_folder_is_accepted(self):
         uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"
         with tempfile.TemporaryDirectory(prefix="taskflow-drive-my-drive-") as temp:
             with DriveApiMock() as drive:
                 _, _, _, _, environment = self._fixture(Path(temp))
                 environment["TASKFLOW_BACKUP_DRIVE_API_BASE"] = drive.base_url + "/drive/v3"
-                drive.shared_drive = False
                 with patch.dict(os.environ, environment):
-                    rejected = subprocess.run(
+                    accepted = subprocess.run(
                         ["python3", str(uploader), "--check-target-only"],
                         cwd=REPO, capture_output=True, text=True, check=False,
                     )
-                    self.assertNotEqual(rejected.returncode, 0)
-                    self.assertIn("service_account_requires_shared_drive", rejected.stderr)
+                    self.assertEqual(accepted.returncode, 0, accepted.stderr)
+                    self.assertIn("TASKFLOW_DRIVE_TARGET_PASS", accepted.stdout)
                     self.assertEqual(drive.files, {})
+
+    def test_wrong_folder_owner_and_extra_permission_fail_closed(self):
+        uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"
+        with tempfile.TemporaryDirectory(prefix="taskflow-drive-owner-acl-") as temp:
+            with DriveApiMock() as drive:
+                _, _, _, _, environment = self._fixture(Path(temp))
+                environment["TASKFLOW_BACKUP_DRIVE_API_BASE"] = drive.base_url + "/drive/v3"
+                with patch.dict(os.environ, environment):
+                    drive.owner_email = "different-owner@example.com"
+                    wrong_owner = subprocess.run(
+                        ["python3", str(uploader), "--check-target-only"],
+                        cwd=REPO, capture_output=True, text=True, check=False,
+                    )
+                    self.assertNotEqual(wrong_owner.returncode, 0)
+                    self.assertIn("drive_folder_owner_mismatch", wrong_owner.stderr)
+                    drive.owner_email = DriveApiMock.owner_email
+                    drive.actor = DriveApiMock.owner_email
+                    drive.extra_permission = True
+                    unexpected_acl = subprocess.run(
+                        ["python3", str(uploader), "--check-target-only"],
+                        cwd=REPO, capture_output=True, text=True, check=False,
+                    )
+                    self.assertNotEqual(unexpected_acl.returncode, 0)
+                    self.assertIn("drive_folder_has_unexpected_principal", unexpected_acl.stderr)
+                    self.assertEqual(drive.files, {})
+
+    def test_uploaded_file_acl_is_verified_on_readback(self):
+        uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"
+        with tempfile.TemporaryDirectory(prefix="taskflow-drive-file-acl-") as temp:
+            with DriveApiMock() as drive:
+                _, dump, checksum, manifest, environment = self._fixture(Path(temp))
+                environment["TASKFLOW_BACKUP_DRIVE_API_BASE"] = drive.base_url + "/drive/v3"
+                with patch.dict(os.environ, environment):
+                    DriveApiMock.file_extra_permission = True
+                    try:
+                        rejected = subprocess.run(
+                            ["python3", str(uploader), "--upload", str(dump), str(checksum), str(manifest)],
+                            cwd=REPO, capture_output=True, text=True, check=False,
+                        )
+                    finally:
+                        DriveApiMock.file_extra_permission = False
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn("drive_file_acl_readback_mismatch", rejected.stderr)
 
     def test_changed_drive_backup_fails_install_precondition(self):
         uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"
@@ -443,7 +594,7 @@ GRANT SELECT ON taskflow.issue TO taskflow_runtime;
                         "TASKFLOW_BACKUP_RESTORE_PGSERVICEFILE_CONTENT": restore_service,
                         "TASKFLOW_BACKUP_DRIVE_TEST_MODE": "1",
                         "TASKFLOW_BACKUP_DRIVE_ACCESS_TOKEN": "synthetic-drive-token",
-                        "TASKFLOW_BACKUP_DRIVE_SERVICE_ACCOUNT": DriveApiMock.service_account,
+                        "TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL": DriveApiMock.owner_email,
                         "TASKFLOW_BACKUP_DRIVE_API_BASE": drive.base_url + "/drive/v3",
                         "TASKFLOW_BACKUP_EXPECTED_HOST": "localhost",
                         "TASKFLOW_BACKUP_EXPECTED_USER": "taskflow_migrator",

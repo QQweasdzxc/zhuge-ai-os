@@ -20,40 +20,53 @@ is placed in the repository, a GitHub Artifact, or workflow logs. The backup
 is not application-layer encrypted, as authorized by PM; it is stored in the
 restricted Google Drive folder.
 
-The Drive uploader accepts only the approved folder ID and checks its Drive
-container, authenticated principal, write capability, and visible ACL before
-any production database read. Public, domain, group, or unexpected principals
-cause a fail-closed stop. No folder permission is changed by the workflow.
+The Drive uploader accepts only the approved folder ID and checks the OAuth
+principal, folder owner, My Drive container, write capability, and visible
+owner-only ACL before any production database read. It writes files only with
+that folder as their parent, then checks file ownership, ACL, parent, size, and
+full SHA256 on readback. Public, domain, group, shared-drive, or unexpected
+principals cause a fail-closed stop. No Drive permission is changed by the
+workflow. The OAuth grant uses Google's full Drive scope because the approved
+folder is an existing owner-only My Drive folder; protect the refresh token as
+a high-privilege credential. Fixed-folder enforcement and the protected GitHub
+Environment gate do not narrow the token's underlying Drive permissions.
 
-## Current destination blocker
+## One-time owner OAuth setup
 
-The approved folder currently lives in the owner's My Drive (`driveId` is
-absent, `shared=false`) and its ACL contains only the owner. The current GitHub
-OIDC service-account uploader requires a Shared Drive because service accounts
-cannot own files in a personal My Drive. The runner therefore rejects this
-folder with `service_account_requires_shared_drive` before reading production
-data. Do not grant a service account access to this My Drive folder; that does
-not provide a supported storage destination.
+The approved folder is in the owner's My Drive and currently has an owner-only
+ACL. The GitHub Drive connector's OAuth session cannot be exported to Actions.
+The protected workflow therefore requires a separate owner-authorized OAuth
+client and refresh credential stored only in the `production-migration`
+Environment. Required configuration:
 
-To preserve the fixed folder without changing its ACL, the remaining supported
-route is an OAuth user identity for the folder owner. That requires an
-approved OAuth client and owner-authorized refresh credential stored only as
-GitHub Environment Secrets; the GitHub connector's OAuth session cannot be
-exported to Actions. The current workflow does not yet implement that OAuth
-path, and no such credential is configured. The workflow must remain blocked
-until the owner/admin authorizes that credential path and the source is changed
-to use it. Do not put OAuth credentials in chat, repository files, or logs. No
-database connection or backup has been run while this gate is blocked.
+* Variable `TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL`: account that owns the folder.
+* Secrets `TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID`,
+  `TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET`, and
+  `TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN`.
 
-The alternative service-account flow would require moving the destination to a
-Shared Drive. That changes the approved storage destination and is not enabled
-by this runbook.
+The OAuth client must have the Drive API enabled. Authorize the folder owner's
+Google account through Google's OAuth 2.0 Playground using the approved OAuth
+client and the single scope `https://www.googleapis.com/auth/drive`; exchange
+the code for a refresh token and place all three client/refresh values directly
+in the protected GitHub Environment. Set the expected owner email as the
+Environment variable. Do not put credentials in chat, PRs, workflow inputs,
+repository files, or logs. This Drive scope can access that user's Drive; the
+runner restricts its own operations to the exact approved folder and verifies
+its owner-only ACL, but the OAuth token itself is not folder-scoped. The user
+must explicitly accept that Google consent scope.
+
+The workflow validates the returned token scope, authenticated Drive principal,
+folder owner and ACL before reading production data. An expired or revoked
+refresh credential fails closed. If Google's token endpoint rotates the refresh
+token, the job stops and the administrator must replace the Environment secret
+securely before retrying. No database connection or backup is attempted until
+the OAuth preflight passes.
 
 ## Run BACKUP ONLY
 
-**Current status: BLOCKED.** Do not start this operation until a compatible
-Drive identity is authorized and the exact-SHA workflow is updated and passes
-CI. The steps below describe the existing protected workflow inputs only.
+**Current status: awaiting owner OAuth authorization.** The source implements
+the protected OAuth upload path. No production database connection is attempted
+until the owner OAuth and exact-folder preflight pass.
 
 1. Open **Actions → TaskFlow Official Site Release Gate → Run workflow**.
 2. Select `review/p0-functional-consolidation-20261023` and set

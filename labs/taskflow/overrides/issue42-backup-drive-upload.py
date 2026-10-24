@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Upload a verified TaskFlow schema dump directly to the approved Drive folder.
+"""Upload a verified TaskFlow schema dump to the approved private My Drive folder.
 
-Production authentication is a short-lived Google access token minted from the
-protected GitHub Environment's OIDC identity. No Google credential file, bearer
-token, database dump, or upload response body is printed or retained in GitHub
-artifacts. The test mode accepts only a loopback HTTP mock server.
+Production authentication uses an owner-authorized Google user OAuth refresh
+token held only in the protected GitHub Environment. Access tokens stay in
+memory, the token is refreshed as needed, and OAuth/Drive response bodies and
+credentials are never logged. The destination is pinned to the approved folder
+and its owner-only ACL is checked before a production database read. Test mode
+accepts only a loopback HTTP Drive mock.
 """
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ import json
 import os
 import re
 import sys
-import datetime
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -23,7 +25,7 @@ FOLDER_ID = "1426lDVU97bSseRVzMLRMzh1C2eAIZ-xU"
 DEFAULT_API_BASE = "https://www.googleapis.com/drive/v3"
 CHUNK_SIZE = 8 * 1024 * 1024  # multiple of Drive's 256 KiB resumable chunk unit
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-SERVICE_ACCOUNT_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$")
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 
 
@@ -31,39 +33,99 @@ class DriveUploadError(RuntimeError):
     pass
 
 
-class GoogleTokenProvider:
-    """Refresh short-lived GitHub OIDC/WIF credentials without a key file."""
+class GoogleUserOAuthTokenProvider:
+    """Refresh an owner-authorized user token without persisting access tokens."""
 
-    def __init__(self, expected_account: str):
+    def __init__(self):
+        self.client_id = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID", "")
+        self.client_secret = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET", "")
+        self.refresh_token = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN", "")
+        if not self.client_id or not self.client_secret or not self.refresh_token:
+            raise DriveUploadError("google_user_oauth_credentials_missing")
+        if any("\n" in value or "\r" in value for value in
+               (self.client_id, self.client_secret, self.refresh_token)):
+            raise DriveUploadError("google_user_oauth_credentials_invalid")
+        self.api_base = _oauth_api_base()
+        self.access_token = ""
+        self.expiry_monotonic = 0.0
+
+    def _post_form(self, path: str, values: dict[str, str]) -> dict:
+        url = self.api_base + path
+        encoded = urllib.parse.urlencode(values).encode("ascii")
+        parsed = urllib.parse.urlsplit(url)
         try:
-            import google.auth
-            from google.auth.transport.requests import Request
-
-            credentials, _ = google.auth.default(scopes=[DRIVE_SCOPE])
-            account = str(getattr(credentials, "service_account_email", "")).casefold()
-            if account and account != expected_account.casefold():
-                raise DriveUploadError("workload_identity_service_account_mismatch")
-            self.credentials = credentials
-            self.request = Request()
-        except DriveUploadError:
-            raise
+            if os.environ.get("TASKFLOW_BACKUP_DRIVE_TEST_MODE") == "1":
+                connection = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=30)
+            else:
+                connection = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=30)
+            connection.request("POST", parsed.path, body=encoded, headers={
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+            })
+            response = connection.getresponse()
+            body = response.read(128 * 1024 + 1)
+            status = response.status
+            connection.close()
         except Exception:
-            raise DriveUploadError("workload_identity_credentials_unavailable") from None
+            raise DriveUploadError("google_user_oauth_transport_failed") from None
+        if len(body) > 128 * 1024:
+            raise DriveUploadError("google_user_oauth_response_too_large")
+        if status != 200:
+            error_code = ""
+            try:
+                error_code = str(json.loads(body.decode("utf-8")).get("error", ""))
+            except Exception:
+                pass
+            if error_code == "invalid_grant":
+                raise DriveUploadError("google_oauth_refresh_token_expired_or_revoked")
+            if error_code == "invalid_client":
+                raise DriveUploadError("google_oauth_client_configuration_invalid")
+            raise DriveUploadError("google_user_oauth_request_failed")
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except Exception:
+            raise DriveUploadError("google_user_oauth_response_invalid") from None
+        if not isinstance(payload, dict):
+            raise DriveUploadError("google_user_oauth_response_invalid")
+        return payload
 
     def get(self) -> str:
-        try:
-            expiry = getattr(self.credentials, "expiry", None)
-            refresh_window = datetime.datetime.now(expiry.tzinfo or datetime.timezone.utc) + datetime.timedelta(seconds=90) if expiry else None
-            if not self.credentials.valid or (expiry is not None and expiry <= refresh_window):
-                self.credentials.refresh(self.request)
-            token = str(self.credentials.token or "")
-            if not token or "\n" in token or "\r" in token:
-                raise DriveUploadError("workload_identity_token_unavailable")
-            return token
-        except DriveUploadError:
-            raise
-        except Exception:
-            raise DriveUploadError("workload_identity_token_refresh_failed") from None
+        if self.access_token and time.monotonic() < self.expiry_monotonic - 90:
+            return self.access_token
+        response = self._post_form("/token", {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "refresh_token": self.refresh_token,
+            "grant_type": "refresh_token",
+        })
+        token = response.get("access_token", "")
+        token_type = response.get("token_type", "")
+        scope = response.get("scope", "")
+        expires_in = response.get("expires_in")
+        rotated_refresh_token = response.get("refresh_token")
+        if rotated_refresh_token and rotated_refresh_token != self.refresh_token:
+            raise DriveUploadError("google_oauth_refresh_token_rotation_requires_secret_update")
+        if (not isinstance(token, str) or not token or "\n" in token or "\r" in token or
+                not isinstance(token_type, str) or token_type.casefold() != "bearer" or
+                not isinstance(scope, str) or set(scope.split()) != {DRIVE_SCOPE} or
+                not isinstance(expires_in, int) or expires_in < 120 or expires_in > 86400):
+            raise DriveUploadError("google_user_oauth_token_contract_invalid")
+        self.access_token = token
+        self.expiry_monotonic = time.monotonic() + expires_in
+        return self.access_token
+
+
+def _oauth_api_base() -> str:
+    base = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_API_BASE", "https://oauth2.googleapis.com").rstrip("/")
+    parsed = urllib.parse.urlsplit(base)
+    if os.environ.get("TASKFLOW_BACKUP_DRIVE_TEST_MODE") == "1":
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
+            raise DriveUploadError("invalid_test_oauth_origin")
+    elif parsed.scheme != "https" or parsed.hostname != "oauth2.googleapis.com":
+        raise DriveUploadError("invalid_google_oauth_origin")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path:
+        raise DriveUploadError("invalid_oauth_api_base")
+    return base
 
 
 def _fail(stage: str) -> None:
@@ -104,7 +166,7 @@ def _validate_url(url: str, expected_origin: str) -> urllib.parse.SplitResult:
     return parsed
 
 
-def _request(method: str, url: str, token: str | GoogleTokenProvider, headers: dict[str, str] | None = None,
+def _request(method: str, url: str, token: str | GoogleUserOAuthTokenProvider, headers: dict[str, str] | None = None,
              body: bytes | None = None, *, stream_to_hash: bool = False):
     parsed = urllib.parse.urlsplit(url)
     test_mode = os.environ.get("TASKFLOW_BACKUP_DRIVE_TEST_MODE") == "1"
@@ -117,7 +179,7 @@ def _request(method: str, url: str, token: str | GoogleTokenProvider, headers: d
             raise DriveUploadError("invalid_google_request_origin")
         connection = http.client.HTTPSConnection(parsed.hostname, parsed.port or 443, timeout=60)
     target = urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
-    token_value = token.get() if isinstance(token, GoogleTokenProvider) else token
+    token_value = token.get() if isinstance(token, GoogleUserOAuthTokenProvider) else token
     request_headers = {"Authorization": f"Bearer {token_value}", **(headers or {})}
     try:
         connection.request(method, target, body=body, headers=request_headers)
@@ -151,7 +213,7 @@ def _request(method: str, url: str, token: str | GoogleTokenProvider, headers: d
         raise DriveUploadError("drive_transport_failed") from None
 
 
-def _json_request(method: str, url: str, token: str, *, body: dict | None = None,
+def _json_request(method: str, url: str, token: str | GoogleUserOAuthTokenProvider, *, body: dict | None = None,
                   expected: tuple[int, ...] = (200,)) -> dict:
     encoded = None if body is None else json.dumps(body, separators=(",", ":")).encode("utf-8")
     headers = {"Accept": "application/json"}
@@ -166,42 +228,45 @@ def _json_request(method: str, url: str, token: str, *, body: dict | None = None
         raise DriveUploadError("invalid_drive_json") from None
 
 
-def _token_and_account() -> tuple[str | GoogleTokenProvider, str]:
-    account = os.environ.get("TASKFLOW_BACKUP_DRIVE_SERVICE_ACCOUNT", "")
-    if not SERVICE_ACCOUNT_RE.fullmatch(account):
-        raise DriveUploadError("invalid_expected_service_account")
+def _token_and_account() -> tuple[str | GoogleUserOAuthTokenProvider, str]:
+    account = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL", "")
+    if not EMAIL_RE.fullmatch(account):
+        raise DriveUploadError("invalid_expected_drive_owner")
     if os.environ.get("TASKFLOW_BACKUP_DRIVE_TEST_MODE") == "1":
         token = os.environ.get("TASKFLOW_BACKUP_DRIVE_ACCESS_TOKEN", "")
         if not token or "\n" in token or "\r" in token:
             raise DriveUploadError("missing_test_access_token")
         return token, account.casefold()
-    return GoogleTokenProvider(account), account.casefold()
+    return GoogleUserOAuthTokenProvider(), account.casefold()
 
 
-def _get_folder(api_base: str, token: str) -> dict:
-    fields = urllib.parse.quote("id,mimeType,driveId,capabilities(canAddChildren),permissions(type,role,emailAddress,domain,deleted)", safe="(),")
+def _get_folder(api_base: str, token: str | GoogleUserOAuthTokenProvider, expected_account: str) -> dict:
+    fields = urllib.parse.quote("id,mimeType,driveId,owners(emailAddress),capabilities(canAddChildren),permissions(type,role,emailAddress,domain,deleted)", safe="(),")
     url = f"{api_base}/files/{FOLDER_ID}?supportsAllDrives=true&fields={fields}"
     folder = _json_request("GET", url, token)
     if folder.get("id") != FOLDER_ID or folder.get("mimeType") != "application/vnd.google-apps.folder":
         raise DriveUploadError("unexpected_backup_folder")
-    # Google service accounts cannot own My Drive files and have no My Drive
-    # storage quota. Require a Shared Drive before any production DB read.
-    if not folder.get("driveId"):
-        raise DriveUploadError("service_account_requires_shared_drive")
-    if folder.get("capabilities", {}).get("canAddChildren") is not True:
+    if folder.get("driveId"):
+        raise DriveUploadError("approved_destination_must_be_private_my_drive")
+    capabilities = folder.get("capabilities")
+    if not isinstance(capabilities, dict) or capabilities.get("canAddChildren") is not True:
         raise DriveUploadError("drive_folder_not_writable")
-    account = os.environ.get("TASKFLOW_BACKUP_DRIVE_SERVICE_ACCOUNT", "").casefold()
-    permissions = [p for p in folder.get("permissions", []) if p.get("deleted") is not True]
-    uploaders = [p for p in permissions if p.get("type") == "user" and
-                 str(p.get("emailAddress", "")).casefold() == account]
-    if len(uploaders) != 1 or uploaders[0].get("role") != "writer":
-        raise DriveUploadError("drive_folder_acl_not_exact")
-    if len(permissions) != 1:
+    owners = folder.get("owners", [])
+    if (not isinstance(owners, list) or len(owners) != 1 or not isinstance(owners[0], dict) or
+            str(owners[0].get("emailAddress", "")).casefold() != expected_account.casefold()):
+        raise DriveUploadError("drive_folder_owner_mismatch")
+    raw_permissions = folder.get("permissions", [])
+    if not isinstance(raw_permissions, list) or any(not isinstance(p, dict) for p in raw_permissions):
+        raise DriveUploadError("drive_folder_permissions_invalid")
+    permissions = [p for p in raw_permissions if p.get("deleted") is not True]
+    if (len(permissions) != 1 or permissions[0].get("type") != "user" or
+            permissions[0].get("role") != "owner" or
+            str(permissions[0].get("emailAddress", "")).casefold() != expected_account.casefold()):
         raise DriveUploadError("drive_folder_has_unexpected_principal")
     return folder
 
 
-def _verify_drive_actor(api_base: str, token: str | GoogleTokenProvider, expected_account: str) -> None:
+def _verify_drive_actor(api_base: str, token: str | GoogleUserOAuthTokenProvider, expected_account: str) -> None:
     fields = urllib.parse.quote("user(emailAddress)", safe="(),")
     actor = _json_request("GET", f"{api_base}/about?fields={fields}", token)
     email = str(actor.get("user", {}).get("emailAddress", "")).casefold()
@@ -213,8 +278,8 @@ def check_target() -> None:
     api_base = _api_base()
     token, account = _token_and_account()
     _verify_drive_actor(api_base, token, account)
-    _get_folder(api_base, token)
-    print("TASKFLOW_DRIVE_TARGET_PASS folder=approved_private service_account_acl=restricted")
+    _get_folder(api_base, token, account)
+    print("TASKFLOW_DRIVE_TARGET_PASS folder=approved_private_my_drive owner_only=true")
 
 
 def _safe_file(path_text: str, runner_temp: Path) -> Path:
@@ -252,7 +317,7 @@ def _find_existing(api_base: str, token: str, name: str) -> list[dict]:
     return payload.get("files", [])
 
 
-def _download_bytes(api_base: str, token: str | GoogleTokenProvider, file_id: str,
+def _download_bytes(api_base: str, token: str | GoogleUserOAuthTokenProvider, file_id: str,
                     *, limit: int = 1024 * 1024) -> bytes:
     url = f"{api_base}/files/{urllib.parse.quote(file_id, safe='')}?alt=media&supportsAllDrives=true"
     status, _, response, _, _ = _request("GET", url, token, stream_to_hash=False)
@@ -273,7 +338,7 @@ def verify_candidate_backup() -> None:
     api_base = _api_base()
     token, account = _token_and_account()
     _verify_drive_actor(api_base, token, account)
-    _get_folder(api_base, token)
+    _get_folder(api_base, token, account)
     source_sha = os.environ.get("GITHUB_SHA", "")
     version = os.environ.get("CANDIDATE_VERSION", "")
     build = os.environ.get("CANDIDATE_BUILD", "")
@@ -338,18 +403,36 @@ def verify_candidate_backup() -> None:
     print("TASKFLOW_DRIVE_BACKUP_PRECONDITION_PASS exact_candidate_sha=verified scope=taskflow_schema_only restore=PASS readback_sha256=PASS")
 
 
-def _verify_metadata(api_base: str, token: str, file_id: str, name: str,
+def _verify_metadata(api_base: str, token: str | GoogleUserOAuthTokenProvider, file_id: str, name: str,
                      expected_size: int, mime_type: str) -> None:
-    fields = urllib.parse.quote("id,name,size,mimeType,parents", safe=",()")
+    fields = urllib.parse.quote("id,name,size,mimeType,parents,owners(emailAddress),permissions(type,role,emailAddress,domain,deleted)", safe=",()")
     url = f"{api_base}/files/{urllib.parse.quote(file_id, safe='')}?supportsAllDrives=true&fields={fields}"
     item = _json_request("GET", url, token)
+    try:
+        size = int(item.get("size", -1))
+    except (TypeError, ValueError):
+        raise DriveUploadError("drive_metadata_readback_mismatch") from None
     if (item.get("id") != file_id or item.get("name") != name or
-            int(item.get("size", -1)) != expected_size or item.get("mimeType") != mime_type or
+            size != expected_size or item.get("mimeType") != mime_type or
             item.get("parents") != [FOLDER_ID]):
         raise DriveUploadError("drive_metadata_readback_mismatch")
+    owners = item.get("owners", [])
+    if not isinstance(owners, list) or any(not isinstance(owner, dict) for owner in owners):
+        raise DriveUploadError("drive_file_acl_readback_mismatch")
+    raw_permissions = item.get("permissions", [])
+    if not isinstance(raw_permissions, list) or any(not isinstance(permission, dict) for permission in raw_permissions):
+        raise DriveUploadError("drive_file_acl_readback_mismatch")
+    permissions = [permission for permission in raw_permissions if permission.get("deleted") is not True]
+    expected_account = os.environ.get("TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL", "").casefold()
+    if (not expected_account or len(owners) != 1 or
+            str(owners[0].get("emailAddress", "")).casefold() != expected_account or
+            len(permissions) != 1 or permissions[0].get("type") != "user" or
+            permissions[0].get("role") != "owner" or
+            str(permissions[0].get("emailAddress", "")).casefold() != expected_account):
+        raise DriveUploadError("drive_file_acl_readback_mismatch")
 
 
-def _create_upload_session(upload_base: str, api_base: str, token: str, name: str,
+def _create_upload_session(upload_base: str, api_base: str, token: str | GoogleUserOAuthTokenProvider, name: str,
                            size: int, mime_type: str) -> str:
     metadata = {"name": name, "mimeType": mime_type, "parents": [FOLDER_ID]}
     encoded = json.dumps(metadata, separators=(",", ":")).encode("utf-8")
@@ -373,7 +456,7 @@ def _create_upload_session(upload_base: str, api_base: str, token: str, name: st
     return location
 
 
-def _upload_resumable(upload_base: str, api_base: str, token: str, path: Path,
+def _upload_resumable(upload_base: str, api_base: str, token: str | GoogleUserOAuthTokenProvider, path: Path,
                       name: str, mime_type: str, expected_sha: str, size: int) -> str:
     location = _create_upload_session(upload_base, api_base, token, name, size, mime_type)
     final = None
@@ -413,7 +496,7 @@ def _upload_resumable(upload_base: str, api_base: str, token: str, path: Path,
     return file_id
 
 
-def _ensure_uploaded(api_base: str, upload_base: str, token: str, path: Path,
+def _ensure_uploaded(api_base: str, upload_base: str, token: str | GoogleUserOAuthTokenProvider, path: Path,
                      name: str, mime_type: str) -> str:
     expected_sha, expected_size = _file_sha256(path)
     existing = _find_existing(api_base, token, name)
@@ -439,7 +522,7 @@ def upload(paths: list[str]) -> None:
     upload_base = _upload_base(api_base)
     token, account = _token_and_account()
     _verify_drive_actor(api_base, token, account)
-    _get_folder(api_base, token)
+    _get_folder(api_base, token, account)
     runner_temp = Path(os.environ.get("RUNNER_TEMP", "")).resolve(strict=True)
     safe_paths = [_safe_file(value, runner_temp) for value in paths]
     if len(safe_paths) != 3:
@@ -476,9 +559,9 @@ def upload(paths: list[str]) -> None:
     uploaded = []
     for path, name, mime_type in files:
         uploaded.append(_ensure_uploaded(api_base, upload_base, token, path, name, mime_type))
-    _get_folder(api_base, token)
+    _get_folder(api_base, token, account)
     print(f"TASKFLOW_BACKUP_DRIVE_READBACK_PASS scope=taskflow_schema_only sha256={expected_checksum} size={dump.stat().st_size}")
-    print("TASKFLOW_BACKUP_FILES_STORED count=3 location=approved_drive_folder")
+    print("TASKFLOW_BACKUP_FILES_STORED count=3 location=approved_private_my_drive")
 
 
 def main() -> None:

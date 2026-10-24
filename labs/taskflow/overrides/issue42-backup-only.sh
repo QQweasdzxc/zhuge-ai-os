@@ -13,7 +13,7 @@ fail() { printf 'TASKFLOW_BACKUP_FAILED stage=%s\n' "$1" >&2; exit 1; }
 : "${TASKFLOW_BACKUP_EXPECTED_HOST:?missing reviewed source host}"
 : "${TASKFLOW_BACKUP_EXPECTED_USER:?missing reviewed source role}"
 : "${TASKFLOW_BACKUP_EXPECTED_DATABASE:?missing reviewed source database}"
-: "${TASKFLOW_BACKUP_DRIVE_SERVICE_ACCOUNT:?missing restricted Drive service account}"
+: "${TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL:?missing expected private Drive owner identity}"
 : "${TASKFLOW_BACKUP_OUTPUT_DIR:?missing ephemeral output directory}"
 : "${RUNNER_TEMP:?missing ephemeral runner directory}"
 : "${CANDIDATE_VERSION:?missing candidate version}"
