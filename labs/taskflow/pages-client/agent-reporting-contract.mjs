@@ -230,6 +230,21 @@ export async function commitNativeAgentReport(validation, nativeAdapter) {
   return {accepted: true, state: validation.state, reason: "NATIVE_REPORT_COMMITTED", mutation, result};
 }
 
+/**
+ * Single server integration entrypoint for an Agent report.
+ * Provider verification and Native Authority transaction objects remain
+ * injected; this function never synthesizes a Run ID or writes a second task
+ * record. An unwired Detail Store is reported in the result and leaves the
+ * public mutation without protected references.
+ */
+export async function receiveNativeAgentReport({event, context = {}, now = Date.now(), detailStore = null, nativeAdapter = null, detailScope = {}} = {}) {
+  const validation = validateAgentReportEvent(event, context, now);
+  if (!validation.accepted) return validation;
+  const withDetails = await attachProtectedDetailRefs(validation, detailStore, detailScope);
+  const committed = await commitNativeAgentReport(withDetails, nativeAdapter);
+  return {...committed, detail_store_state: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED"};
+}
+
 export function validateAgentHandoff(input, context = {}) {
   const event = input && typeof input === "object" ? input : {};
   const readback = context.server_runtime_readback;

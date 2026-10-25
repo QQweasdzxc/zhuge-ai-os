@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {attachProtectedDetailRefs, authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {attachProtectedDetailRefs, authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, receiveNativeAgentReport, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");
 const context = {
@@ -117,6 +117,14 @@ test("native atomic write adapter exposes the TaskFlow Authority seam and fails 
   assert.equal(unwired.configured, false);
   assert.equal((await unwired.applyAgentReportMutation({})).reason, "NATIVE_WRITE_UNWIRED");
   assert.equal(unwired.contract.authority, "existing_taskflow_native_issue_and_agent_task_queue");
+});
+
+test("native report receiver keeps the existing correlation contract and fails closed without a Provider or Native writer", async () => {
+  const result = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, progress_summary: "進度已保存"}), context: trustedContext("progress"), now: NOW});
+  assert.equal(result.reason, "NATIVE_MUTATION_ADAPTER_UNWIRED");
+  assert.equal(result.detail_store_state, "DETAIL_STORE_UNWIRED");
+  assert.equal(result.mutation.issue_id, "issue-113");
+  assert.equal(result.mutation.atomic_event_claim.event_id, "event-progress");
 });
 
 
