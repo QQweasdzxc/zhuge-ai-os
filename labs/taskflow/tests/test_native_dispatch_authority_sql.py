@@ -13,6 +13,14 @@ def test_candidate_is_server_owned_and_fail_closed_by_default():
     assert "SET search_path = taskflow, pg_catalog" in DDL
     assert "p_request_key" in DDL and "fencing_epoch" in DDL
     assert "request_payload_hash" in DDL
+    claim_body = DDL.split("CREATE OR REPLACE FUNCTION taskflow.claim_dispatch_intent", 1)[1].split(
+        "CREATE OR REPLACE FUNCTION taskflow.begin_dispatch_provider", 1
+    )[0]
+    assert "pg_catalog.hashtextextended" in claim_body
+    assert "pg_catalog.pg_advisory_xact_lock" in claim_body
+    assert "request_lock_id < issue_lock_id" in claim_body
+    assert "provider_start_requested_at" in DDL
+    assert "begin_dispatch_provider" in DDL
     assert "renew_dispatch_lease" in DDL
     assert "record_dispatch_reconciliation" in DDL
     assert "confirm_dispatch_stop" in DDL
@@ -23,7 +31,7 @@ def test_candidate_is_server_owned_and_fail_closed_by_default():
 
 def test_claim_does_not_accept_client_identity_or_provider_ack():
     claim_body = DDL.split("CREATE OR REPLACE FUNCTION taskflow.claim_dispatch_intent", 1)[1].split(
-        "CREATE OR REPLACE FUNCTION taskflow.renew_dispatch_lease", 1
+        "CREATE OR REPLACE FUNCTION taskflow.begin_dispatch_provider", 1
     )[0]
     assert "p_dispatch_id" not in claim_body
     assert "p_lease_id" not in claim_body
@@ -37,3 +45,6 @@ def test_stop_fences_old_writer_and_rollback_is_explicit():
     assert "DROP TABLE IF EXISTS taskflow.dispatch_intent" in ROLLBACK
     assert "refusing destructive rollback" in ROLLBACK
     assert "provider_stop_verified" in DDL
+    stop_body = DDL.split("CREATE OR REPLACE FUNCTION taskflow.confirm_dispatch_stop", 1)[1].split("COMMIT;", 1)[0]
+    assert "RETURN false;" in stop_body
+    assert "begin_dispatch_provider" in ROLLBACK
