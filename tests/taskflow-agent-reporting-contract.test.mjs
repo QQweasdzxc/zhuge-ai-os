@@ -51,6 +51,7 @@ test("readable reports contain summary, blockers, questions, checkpoint, stop an
   assert.match(mutation.comment.content, /event-blocked/);
   assert.match(mutation.comment.content, /run-113/);
   assert.doesNotMatch(mutation.comment.content, /secret-value/);
+  assert.doesNotMatch(mutation.comment.content, /稽核識別|detail_refs|vault:\/\//);
   assert.deepEqual(Object.keys(mutation.audit).sort(), ["detail_ref_mode", "detail_refs", "dispatch_id", "event_id", "executor_id", "fencing_epoch", "issue_id", "observed_at", "provider", "provider_run_id", "schema", "sequence", "session_id", "source", "state", "type", "workspace_id"].sort());
 });
 
@@ -59,7 +60,8 @@ test("full public comment never re-emits credential values in audit JSON", () =>
     const result = validateAgentReportEvent(event("blocked", {progress_summary: `${label} ${value}`, blocked_reason: value, next_step: value, checkpoint_ref: value}), trustedContext("blocked"), NOW);
     const comment = buildNativeAgentReportMutation(result).comment.content;
     assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
-    assert.match(comment, /detail_ref_mode\":\"UNWIRED_NO_REFERENCE/);
+    assert.doesNotMatch(comment, /detail_ref_mode|detail_refs|vault:\/\//);
+    assert.equal(buildNativeAgentReportMutation(result).audit.detail_ref_mode, "UNWIRED_NO_REFERENCE");
   }
 });
 
@@ -68,7 +70,14 @@ test("public comment never exposes natural language, personal data or mixed prot
   const result = validateAgentReportEvent(event("blocked", {progress_summary: privateText, blocked_reason: privateText, question: privateText, next_step: privateText}), trustedContext("blocked"), NOW);
   const comment = buildNativeAgentReportMutation(result).comment.content;
   assert.match(comment, /公開摘要：詳細內容已存於受保護 Detail Store/);
-  assert.doesNotMatch(comment, /王小明|0912-345-678|ming@example.com|production API|private-混合/);
+  assert.doesNotMatch(comment, /王小明|0912-345-678|ming@example.com|production API|private-混合|稽核識別|vault:\/\//);
+});
+
+test("public comment keeps protected references in structured audit only", async () => {
+  const validation = validateAgentReportEvent(event("blocked", {blocked_reason: "private detail"}), trustedContext("blocked"), NOW);
+  const mutation = buildNativeAgentReportMutation({...validation, protected_detail_refs: {blocked_reason: "vault://event/blocked"}});
+  assert.doesNotMatch(mutation.comment.content, /vault:\/\/|detail_refs|稽核識別/);
+  assert.equal(mutation.audit.detail_refs.blocked_reason, "vault://event/blocked");
 });
 
 test("client signature and stop strings cannot establish trust", () => {

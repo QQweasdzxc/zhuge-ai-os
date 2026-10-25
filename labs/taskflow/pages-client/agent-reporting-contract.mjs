@@ -116,7 +116,7 @@ function readableReport(event, state) {
   const labels = {accepted: "Agent 已接單並開始執行", progress: "Agent 工作進度", question_to_cto: "Agent 等待 CTO 回答", blocked: "Agent 回報工程卡關", checkpoint: "Agent 保存 Checkpoint", interrupted_by_pm: "PM 已中斷，Agent 已提交停止回報", review_requested: "Agent 申請 CTO 稽核", completed: "Agent 回報完成，等待 CTO 稽核"};
   const protectedFields = ["progress_summary", "question", "blocked_reason", "checkpoint_ref", "stop_evidence", "review_evidence", "completion_evidence", "next_step"];
   const hasProtectedDetail = protectedFields.some(field => text(event[field]));
-  const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `公開摘要：${hasProtectedDetail ? "詳細內容已存於受保護 Detail Store" : "未提供"}`];
+  const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `事件 ID：${event.event_id}`, `Provider Run ID：${event.provider_run_id}`, `公開摘要：${hasProtectedDetail ? "詳細內容已存於受保護 Detail Store" : "未提供"}`];
   if (hasProtectedDetail) rows.push("詳情：需經授權後由 Detail Store 查閱");
   return rows.join("\n");
 }
@@ -131,7 +131,7 @@ export function buildNativeAgentReportMutation(validation) {
     expected_version: Number.isInteger(validation.expected_version) ? validation.expected_version : null,
     atomic_event_claim: {event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch},
     issue_update: {status: validation.native_status, decision_scope: validation.state === "WAITING_CTO_DECISION" ? "CTO_QUESTION" : validation.state === "REVIEW" ? "CTO_REVIEW" : "AGENT_REPORT"},
-    comment: {type: "comment", content: `${readableReport(event, validation.state)}\n\n---\n稽核識別：${JSON.stringify(audit)}`}, audit
+    comment: {type: "comment", content: readableReport(event, validation.state)}, audit
   };
 }
 
