@@ -230,6 +230,33 @@ export async function commitNativeAgentReport(validation, nativeAdapter) {
   return {accepted: true, state: validation.state, reason: "NATIVE_REPORT_COMMITTED", mutation, result};
 }
 
+/**
+ * Single server integration entrypoint for an Agent report.
+ * Provider verification and Native Authority transaction objects remain
+ * injected; this function never synthesizes a Run ID or writes a second task
+ * record. Events carrying protected details cannot reach Native Mutation
+ * until each detail has a persisted opaque reference from the Detail Store.
+ */
+export async function receiveNativeAgentReport({event, context = {}, now = Date.now(), detailStore = null, nativeAdapter = null, detailScope = {}} = {}) {
+  const validation = validateAgentReportEvent(event, context, now);
+  if (!validation.accepted) return validation;
+  const withDetails = await attachProtectedDetailRefs(validation, detailStore, detailScope);
+  const hasProtectedDetails = ["progress_summary", "question", "blocked_reason", "checkpoint_ref", "stop_evidence", "review_evidence", "completion_evidence", "next_step"]
+    .some(field => text(withDetails.event?.[field]));
+  if (hasProtectedDetails && withDetails.detail_store_state !== "PROTECTED_STORE") {
+    return {
+      accepted: false,
+      state: "BLOCKED",
+      reason: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED",
+      detail_store_state: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED",
+      event_id: withDetails.event.event_id,
+      mutation: null
+    };
+  }
+  const committed = await commitNativeAgentReport(withDetails, nativeAdapter);
+  return {...committed, detail_store_state: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED"};
+}
+
 export function validateAgentHandoff(input, context = {}) {
   const event = input && typeof input === "object" ? input : {};
   const readback = context.server_runtime_readback;

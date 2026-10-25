@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {attachProtectedDetailRefs, authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {attachProtectedDetailRefs, authorizeCtoCompletion, buildNativeAgentReportMutation, commitCtoCompletion, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, receiveNativeAgentReport, validateAgentHandoff, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 
 const NOW = Date.parse("2026-10-22T12:00:00.000Z");
 const context = {
@@ -117,6 +117,69 @@ test("native atomic write adapter exposes the TaskFlow Authority seam and fails 
   assert.equal(unwired.configured, false);
   assert.equal((await unwired.applyAgentReportMutation({})).reason, "NATIVE_WRITE_UNWIRED");
   assert.equal(unwired.contract.authority, "existing_taskflow_native_issue_and_agent_task_queue");
+});
+
+test("native report receiver keeps the existing correlation contract and fails closed without a Provider or Native writer", async () => {
+  const result = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, progress_summary: "進度已保存"}), context: trustedContext("progress"), now: NOW});
+  assert.equal(result.reason, "DETAIL_STORE_UNWIRED");
+  assert.equal(result.detail_store_state, "DETAIL_STORE_UNWIRED");
+  assert.equal(result.mutation, null);
+});
+
+test("native report receiver rejects invalid Provider ACK and unauthorized scope before Native Mutation", async () => {
+  let nativeCalls = 0;
+  const nativeAdapter = {applyAgentReportMutation: async () => { nativeCalls += 1; return {}; }};
+  const cases = [
+    ["missing Provider attestation", {provider_attestation: undefined}, "PROVIDER_ATTESTATION_UNVERIFIED"],
+    ["mismatched Provider Run", {provider_attestation: {...context.provider_attestation, provider_run_id: "run-forged"}}, "PROVIDER_ATTESTATION_MISMATCH"],
+    ["unauthorized reporting principal", {authorization: "DENIED"}, "CTO_AUTHORIZATION_UNVERIFIED"],
+    ["cross-Workspace authority", {workspace_id: "ws-other"}, "TASKFLOW_SCOPE_MISMATCH"]
+  ];
+  for (const [label, overrides, reason] of cases) {
+    const result = await receiveNativeAgentReport({
+      event: event("progress", {progress_percent: 20}),
+      context: trustedContext("progress", overrides), now: NOW, nativeAdapter
+    });
+    assert.equal(result.reason, reason, label);
+    assert.equal(result.accepted, false, label);
+  }
+  assert.equal(nativeCalls, 0);
+});
+
+test("native report receiver writes protected details before allowing Native Mutation", async () => {
+  const order = [];
+  const detailStore = {putDetail: async () => { order.push("detail"); return {accepted: true, protected_ref: "vault://event/event-progress"}; }};
+  const nativeAdapter = {applyAgentReportMutation: async mutation => { order.push("native"); return {committed: true, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: true}; }};
+  const result = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, progress_summary: "進度已保存"}), context: trustedContext("progress"), now: NOW, detailStore, nativeAdapter});
+  assert.equal(result.accepted, true);
+  assert.deepEqual(order, ["detail", "native"]);
+  assert.equal(result.detail_store_state, "PROTECTED_STORE");
+});
+
+test("native report receiver rejects detail write failure and ACL denial without Native Mutation", async () => {
+  for (const detailStore of [
+    null,
+    {putDetail: async () => ({accepted: false, reason: "DETAIL_STORE_WRITE_FAILED"})},
+    {putDetail: async () => ({accepted: false, reason: "DETAIL_SCOPE_UNVERIFIED"})}
+  ]) {
+    let nativeCalled = false;
+    const result = await receiveNativeAgentReport({event: event("blocked", {blocked_reason: "需要受保護證據"}), context: trustedContext("blocked"), now: NOW, detailStore, nativeAdapter: {applyAgentReportMutation: async () => { nativeCalled = true; return {}; }}});
+    assert.equal(nativeCalled, false);
+    assert.equal(result.accepted, false);
+    assert.match(result.reason, /DETAIL_(STORE|SCOPE)/);
+  }
+});
+
+test("native report receiver rejects duplicate or stale events using the authority sequence and fencing fields", async () => {
+  let nativeCalls = 0;
+  const nativeAdapter = {applyAgentReportMutation: async () => { nativeCalls += 1; return {}; }};
+  const duplicate = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30}), context: trustedContext("progress", {last_event_sequence: 1}), now: NOW, nativeAdapter});
+  assert.equal(duplicate.reason, "EVENT_OUT_OF_ORDER");
+  const wrongEpoch = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, fencing_epoch: 9}), context: trustedContext("progress"), now: NOW, nativeAdapter});
+  assert.equal(wrongEpoch.reason, "FENCING_EPOCH_MISMATCH");
+  const wrongToken = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, fencing_token: "forged-token"}), context: trustedContext("progress"), now: NOW, nativeAdapter});
+  assert.equal(wrongToken.reason, "FENCING_TOKEN_MISMATCH");
+  assert.equal(nativeCalls, 0);
 });
 
 
