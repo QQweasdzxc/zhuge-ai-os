@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -14,7 +13,6 @@ import (
 )
 
 type CTODispatchMutationRequest struct {
-	TaskID   string `json:"task_id,omitempty"`
 	Executor string `json:"executor_id"`
 	Provider string `json:"provider"`
 }
@@ -38,7 +36,6 @@ func parseCTODispatchMutationRequest(body []byte) (CTODispatchMutationRequest, e
 	}
 	request.Executor = strings.TrimSpace(request.Executor)
 	request.Provider = strings.TrimSpace(request.Provider)
-	request.TaskID = strings.TrimSpace(request.TaskID)
 	return request, nil
 }
 
@@ -68,6 +65,39 @@ func ctoDispatchMutationHTTPError(err error) (int, string) {
 	default:
 		return http.StatusForbidden, "cto dispatch rejected"
 	}
+}
+
+func dispatchIdempotencyKey(r *http.Request) (string, error) {
+	if r == nil {
+		return "", errors.New("Idempotency-Key is required")
+	}
+	values := r.Header.Values("Idempotency-Key")
+	if len(values) != 1 {
+		return "", errors.New("exactly one Idempotency-Key is required")
+	}
+	key := strings.TrimSpace(values[0])
+	if key == "" || len(key) > 200 || strings.ContainsAny(key, "\r\n") {
+		return "", errors.New("invalid Idempotency-Key")
+	}
+	return key, nil
+}
+
+func nativeDispatchProjectMatchesIssue(mappings []zhugeNativeProjectMapping, executorID, workspaceID, issueProjectID string) bool {
+	if strings.TrimSpace(executorID) == "" || strings.TrimSpace(workspaceID) == "" || strings.TrimSpace(issueProjectID) == "" {
+		return false
+	}
+	var match *zhugeNativeProjectMapping
+	for index := range mappings {
+		if mappings[index].ExecutorID != executorID {
+			continue
+		}
+		if match != nil {
+			return false
+		}
+		match = &mappings[index]
+	}
+	return match != nil && match.State == "VERIFIED" && match.WorkspaceID == workspaceID &&
+		match.ProjectID == issueProjectID && match.ProjectAccess == "ALLOW" && match.agentID.Valid
 }
 
 // CTODispatchIssue is the protected dispatch outlet. Route and durable claim
@@ -114,38 +144,57 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, err := resolveProviderConversationRoute(context.Background(), request.Executor, workspaceID, request.Provider)
+	// Bind the selected executor to the Issue's existing native Project. The
+	// mapping is derived from TaskFlow Agent.system_key/Project.lead and the
+	// authenticated member's ACL; missing or ambiguous mappings stay blocked.
+	if !issue.ProjectID.Valid {
+		writeError(w, http.StatusForbidden, "dispatch issue has no verified native executor project")
+		return
+	}
+	member, ok := h.workspaceMember(w, r, workspaceID)
+	if !ok {
+		return
+	}
+	if uuidToString(member.WorkspaceID) != workspaceID || uuidToString(member.UserID) != userID {
+		writeError(w, http.StatusForbidden, "dispatch workspace membership is invalid")
+		return
+	}
+	mappings, err := h.loadZhugeNativeProjectMappings(r, workspaceID, member)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "native executor project mapping is unavailable")
+		return
+	}
+	if !nativeDispatchProjectMatchesIssue(mappings, request.Executor, workspaceID, uuidToString(issue.ProjectID)) {
+		writeError(w, http.StatusForbidden, "dispatch issue is not in the verified executor project")
+		return
+	}
+
+	requestKey, err := dispatchIdempotencyKey(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "a valid Idempotency-Key header is required")
+		return
+	}
+	ctx := r.Context()
+	route, err := resolveProviderConversationRoute(ctx, request.Executor, workspaceID, request.Provider)
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
 		writeError(w, status, message)
 		return
 	}
 
-	// Claim is an atomic, server-owned operation. It must be obtained before
-	// crossing the provider boundary; TaskID and client metadata are not claims.
-	claim, err := resolveProviderDispatchClaim(context.Background(), workspaceID, issueID, request.Executor, request.Provider)
-	if err != nil {
-		status, message := ctoDispatchProviderHTTPError(err)
-		writeError(w, status, message)
-		return
-	}
-	correlation, err := resolveProviderDispatchCorrelation(context.Background(), claim.DispatchID, workspaceID, issueID)
-	if err != nil {
-		status, message := ctoDispatchProviderHTTPError(err)
-		writeError(w, status, message)
-		return
-	}
-
-	_, err = dispatchToProvider(context.Background(), ProviderDispatchRequest{
+	// Claim and one-time start permission come from TaskFlow's existing DB pool.
+	// The key is only a replay token; Issue and Workspace authority came from
+	// loadIssueForUser and the authenticated server-side principal above.
+	claim, result, err := dispatchWithNativeAuthority(ctx, nativeDispatchAuthorityForHandler(h), NativeDispatchClaimRequest{
+		RequestKey: requestKey, IssueID: issueID, WorkspaceID: workspaceID,
+		ExecutorID: request.Executor, Provider: request.Provider, CTOPrincipal: userID, LeaseSeconds: 300,
+	}, ProviderDispatchRequest{
 		IssueID:             issueID,
 		WorkspaceID:         workspaceID,
 		AuthenticatedUserID: userID,
-		TaskID:              request.TaskID,
 		ExecutorID:          request.Executor,
 		Provider:            request.Provider,
-		Correlation:         correlation,
 		Route:               route.Route,
-		DispatchClaim:       claim,
 	})
 	if err != nil {
 		status, message := ctoDispatchProviderHTTPError(err)
@@ -153,12 +202,15 @@ func (h *Handler) CTODispatchIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nativeBody, err := json.Marshal(RerunIssueRequest{TaskID: request.TaskID})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to prepare native dispatch")
-		return
-	}
-	r.Body = io.NopCloser(bytes.NewReader(nativeBody))
-	r.ContentLength = int64(len(nativeBody))
-	h.RerunIssue(w, r)
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"dispatch_id":         claim.DispatchID,
+		"issue_id":            issueID,
+		"workspace_id":        workspaceID,
+		"executor_id":         request.Executor,
+		"provider":            request.Provider,
+		"provider_session_id": result.SessionID,
+		"provider_run_id":     result.ProviderRunID,
+		"ack_event_id":        result.AckEventID,
+		"status":              "acknowledged",
+	})
 }

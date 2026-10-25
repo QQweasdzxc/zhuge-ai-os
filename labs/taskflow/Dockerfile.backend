@@ -39,6 +39,8 @@ COPY labs/taskflow/overrides/taskflow_provider_dispatch_test.go /tmp/taskflow_pr
 COPY labs/taskflow/overrides/taskflow_provider_route.go /tmp/taskflow_provider_route.go
 COPY labs/taskflow/overrides/taskflow_provider_route_test.go /tmp/taskflow_provider_route_test.go
 COPY labs/taskflow/overrides/taskflow_native_dispatch_authority.go /tmp/taskflow_native_dispatch_authority.go
+COPY labs/taskflow/overrides/taskflow_native_dispatch_postgres.go /tmp/taskflow_native_dispatch_postgres.go
+COPY labs/taskflow/overrides/taskflow_native_dispatch_postgres_test.go /tmp/taskflow_native_dispatch_postgres_test.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime.go /tmp/taskflow_dispatch_runtime.go
 COPY labs/taskflow/overrides/taskflow_dispatch_runtime_test.go /tmp/taskflow_dispatch_runtime_test.go
 COPY labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py /tmp/apply-taskflow-cto-dispatch-route.py
@@ -66,6 +68,8 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_provider_route.go /src/server/internal/handler/taskflow_provider_route.go \
  && cp /tmp/taskflow_provider_route_test.go /src/server/internal/handler/taskflow_provider_route_test.go \
  && cp /tmp/taskflow_native_dispatch_authority.go /src/server/internal/handler/taskflow_native_dispatch_authority.go \
+ && cp /tmp/taskflow_native_dispatch_postgres.go /src/server/internal/handler/taskflow_native_dispatch_postgres.go \
+ && cp /tmp/taskflow_native_dispatch_postgres_test.go /src/server/internal/handler/taskflow_native_dispatch_postgres_test.go \
  && cp /tmp/taskflow_dispatch_runtime.go /src/server/internal/handler/taskflow_dispatch_runtime.go \
  && cp /tmp/taskflow_dispatch_runtime_test.go /src/server/internal/handler/taskflow_dispatch_runtime_test.go \
  && TASKFLOW_VENDOR_ROOT=/src python3 /tmp/apply-taskflow-native-ai-readback.py \
@@ -112,7 +116,7 @@ RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhoo
  && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go \
  && gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go \
  && gofmt -w internal/handler/taskflow_native_ai_readback.go \
- && gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go
+ && gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestDispatchToProvider' -count=1
@@ -122,6 +126,7 @@ RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthoriz
  && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
 RUN cd server && CGO_ENABLED=0 go test ./internal/storage ./internal/middleware ./internal/handler -run '^TestTaskFlow' -count=1
+RUN cd server && CGO_ENABLED=0 go test ./internal/handler -run '^TestNative(PostgresAdapter|DispatchAuthority)' -count=1
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate

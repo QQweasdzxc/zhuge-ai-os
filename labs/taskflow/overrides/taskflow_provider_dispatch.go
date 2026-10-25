@@ -12,12 +12,12 @@ var (
 )
 
 type ProviderDispatchCorrelation struct {
-	DispatchID   string
-	LeaseID      string
-	FencingEpoch int64
+	DispatchID    string
+	LeaseID       string
+	FencingEpoch  int64
 	ProviderRunID string
-	SessionID    string
-	AckEventID   string
+	SessionID     string
+	AckEventID    string
 }
 
 type ProviderConversationRoute struct {
@@ -33,7 +33,6 @@ type ProviderDispatchRequest struct {
 	IssueID             string
 	WorkspaceID         string
 	AuthenticatedUserID string
-	TaskID              string
 	ExecutorID          string
 	Provider            string
 	DispatchClaim       ProviderDispatchClaim
@@ -71,7 +70,10 @@ func validateProviderDispatchContract(request ProviderDispatchRequest) error {
 }
 
 type ProviderDispatchResult struct {
+	Provider      string
+	SessionID     string
 	ProviderRunID string
+	AckEventID    string
 	AckVerified   bool
 }
 
@@ -102,7 +104,8 @@ func dispatchToProvider(ctx context.Context, request ProviderDispatchRequest) (P
 	if err != nil {
 		return ProviderDispatchResult{}, err
 	}
-	if strings.TrimSpace(result.ProviderRunID) == "" || !result.AckVerified {
+	if !result.AckVerified || result.Provider != request.Provider || result.SessionID != request.Route.OfficialSessionID ||
+		strings.TrimSpace(result.ProviderRunID) == "" || strings.TrimSpace(result.AckEventID) == "" {
 		return ProviderDispatchResult{}, ErrTaskFlowProviderAckInvalid
 	}
 	return result, nil

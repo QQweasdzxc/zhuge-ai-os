@@ -53,13 +53,22 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
         expect_error("SELECT taskflow.claim_dispatch_intent('bad-ws','00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000002','CO-01','codex','cto-1',60);", "issue and workspace mismatch")
         expect_error("SELECT taskflow.claim_dispatch_intent('bad-ttl','00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000001','CO-01','codex','cto-1',3601);", "invalid dispatch claim request")
         dispatch, lease, epoch = first.split(',')
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch});").stdout.strip() == "t"
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch});").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "f", "start without binding a verified route must fail"
+        assert sql(f"SELECT taskflow.bind_dispatch_provider_route('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "t"
+        assert sql(f"SELECT taskflow.bind_dispatch_provider_route('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "t", "exact route replay must be idempotent"
+        assert sql(f"SELECT taskflow.bind_dispatch_provider_route('{dispatch}','{lease}',{epoch},'codex','session-other');").stdout.strip() == "f", "route mutation after binding must be rejected"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "t"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "f"
         replay_after_start = sql(f"SELECT id || ',' || lease_id || ',' || fencing_epoch FROM {claim} AS c;").stdout.strip()
         assert replay_after_start == first, "retry after Provider start must resolve to the same durable intent"
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch});").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{epoch},'codex','session-1');").stdout.strip() == "f"
+        assert sql(f"SELECT state='provider_start_requested' AND provider_run_id IS NULL AND provider_ack_event_id IS NULL FROM taskflow.dispatch_intent WHERE id='{dispatch}';").stdout.strip() == "t", "start permission must not be reported as Provider ACK/Run"
         assert sql(f"SELECT taskflow.renew_dispatch_lease('{dispatch}','{lease}',{epoch},60);").stdout.strip() == "t"
-        sql(f"UPDATE taskflow.dispatch_intent SET provider_run_id='run-1', state='provider_started' WHERE id='{dispatch}';")
+        assert sql(f"SELECT taskflow.record_dispatch_provider_ack('{dispatch}','{lease}',{epoch},'codex','session-1','run-1','ack-1');").stdout.strip() == "t"
+        assert sql(f"SELECT taskflow.record_dispatch_provider_ack('{dispatch}','{lease}',{epoch},'codex','session-1','run-1','ack-1');").stdout.strip() == "t", "exact ACK replay must be idempotent"
+        assert sql(f"SELECT taskflow.record_dispatch_provider_ack('{dispatch}','{lease}',{epoch},'gemini','session-1','run-2','ack-2');").stdout.strip() == "f", "wrong provider ACK must be rejected"
+        assert sql(f"SELECT taskflow.record_dispatch_provider_ack('{dispatch}','{lease}',{epoch},'codex','session-2','run-2','ack-2');").stdout.strip() == "f", "wrong session ACK must be rejected"
+        assert sql(f"SELECT state='provider_acknowledged' AND provider='codex' AND provider_session_id='session-1' AND provider_run_id='run-1' AND provider_ack_event_id='ack-1' FROM taskflow.dispatch_intent WHERE id='{dispatch}';").stdout.strip() == "t"
         assert sql(f"SELECT taskflow.stop_dispatch_intent('{dispatch}',{epoch},'requested');").stdout.strip() == "t"
         assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},NULL,NULL);").stdout.strip() == "f"
         assert sql(f"SELECT taskflow.confirm_dispatch_stop('{dispatch}',{int(epoch)+1},'run-1','unverified-client-event');").stdout.strip() == "f"
@@ -68,7 +77,7 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
         expect_error("SELECT taskflow.claim_dispatch_intent('new-after-stop','00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000001','CO-02','codex','cto-1',60);", "active writer")
         replay_after_stop = sql(f"SELECT id || ',' || lease_id || ',' || fencing_epoch FROM {claim} AS c;").stdout.strip()
         assert replay_after_stop == f"{dispatch},{lease},{int(epoch)+1}", "STOP replay must retain the fenced reconciliation record"
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{int(epoch)+1});").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{dispatch}','{lease}',{int(epoch)+1},'codex','session-1');").stdout.strip() == "f"
 
         # The provider start boundary is a compare-and-set. Two concurrent
         # requests using the same idempotency key may both read the intent, but
@@ -78,7 +87,8 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
         concurrent_statement = (
             "WITH c AS MATERIALIZED (SELECT taskflow.claim_dispatch_intent("
             f"'same-key','{issue_concurrent}','{workspaceA}','CO-01','codex','cto-1',60) AS claim), "
-            "s AS (SELECT taskflow.begin_dispatch_provider((claim).id,(claim).lease_id,(claim).fencing_epoch) AS started FROM c) "
+            "b AS MATERIALIZED (SELECT claim, taskflow.bind_dispatch_provider_route((claim).id,(claim).lease_id,(claim).fencing_epoch,'codex','session-1') AS bound FROM c), "
+            "s AS (SELECT CASE WHEN bound THEN taskflow.begin_dispatch_provider((claim).id,(claim).lease_id,(claim).fencing_epoch,'codex','session-1') ELSE false END AS started FROM b) "
             "SELECT started FROM s;"
         )
         sql("TRUNCATE taskflow.dispatch_intent;")
@@ -95,8 +105,8 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
         expect_error(f"SELECT taskflow.claim_dispatch_intent('other-key','{issue_concurrent}','{workspaceA}','CO-02','codex','cto-1',60);", "active writer")
         concurrent_id, concurrent_lease, concurrent_epoch = sql("SELECT id || ',' || lease_id || ',' || fencing_epoch FROM taskflow.dispatch_intent;").stdout.strip().split(',')
         sql(f"SELECT taskflow.stop_dispatch_intent('{concurrent_id}',{concurrent_epoch},'test-stop');")
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{concurrent_id}','{concurrent_lease}',{concurrent_epoch});").stdout.strip() == "f"
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{concurrent_id}','{concurrent_lease}',{int(concurrent_epoch)+1});").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{concurrent_id}','{concurrent_lease}',{concurrent_epoch},'codex','session-1');").stdout.strip() == "f"
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{concurrent_id}','{concurrent_lease}',{int(concurrent_epoch)+1},'codex','session-1');").stdout.strip() == "f"
 
         issue_expired = "00000000-0000-0000-0000-000000000012"
         sql(f"INSERT INTO taskflow.issue VALUES ('{issue_expired}','{workspaceA}');")
@@ -104,9 +114,10 @@ INSERT INTO taskflow.issue VALUES ('00000000-0000-0000-0000-000000000010','00000
             "SELECT id || ',' || lease_id || ',' || fencing_epoch "
             "FROM taskflow.claim_dispatch_intent('expired-key','00000000-0000-0000-0000-000000000012','00000000-0000-0000-0000-000000000001','CO-01','codex','cto-1',1);"
         ).stdout.strip().split(',')
+        assert sql(f"SELECT taskflow.bind_dispatch_provider_route('{expired_id}','{expired_lease}',{expired_epoch},'codex','session-expired');").stdout.strip() == "t"
         run("sleep", "2")
-        assert sql(f"SELECT taskflow.begin_dispatch_provider('{expired_id}','{expired_lease}',{expired_epoch});").stdout.strip() == "f"
-        print("POSTGRES_RUNTIME_VERIFIED: PASS (idempotent claim, single-start CAS, concurrent replay, active writer, expiry, fencing, STOP fail-closed)"); return 0
+        assert sql(f"SELECT taskflow.begin_dispatch_provider('{expired_id}','{expired_lease}',{expired_epoch},'codex','session-expired');").stdout.strip() == "f"
+        print("POSTGRES_RUNTIME_VERIFIED: PASS (idempotent claim, route binding, single-start CAS, ACK provider/session/run persistence, ACK replay/conflict, concurrent replay, active writer, expiry, fencing, STOP fail-closed)"); return 0
     finally:
         run("docker", "rm", "-f", NAME, check=False)
 

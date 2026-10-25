@@ -16,11 +16,12 @@ CREATE TABLE IF NOT EXISTS taskflow.dispatch_intent (
     executor_id TEXT NOT NULL,
     provider TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'claimed'
-        CHECK (state IN ('claimed', 'provider_started', 'stopped', 'failed', 'reconcile_required', 'completed')),
+        CHECK (state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'stopped', 'failed', 'reconcile_required', 'completed')),
     lease_id UUID NOT NULL DEFAULT gen_random_uuid(),
     lease_expires_at TIMESTAMPTZ NOT NULL,
     fencing_epoch BIGINT NOT NULL DEFAULT 1 CHECK (fencing_epoch > 0),
     provider_run_id TEXT,
+    provider_session_id TEXT,
     provider_ack_event_id TEXT,
     provider_start_requested_at TIMESTAMPTZ,
     cto_principal TEXT NOT NULL,
@@ -37,10 +38,21 @@ CREATE TABLE IF NOT EXISTS taskflow.dispatch_intent (
 
 ALTER TABLE taskflow.dispatch_intent
     ADD COLUMN IF NOT EXISTS provider_start_requested_at TIMESTAMPTZ;
+ALTER TABLE taskflow.dispatch_intent
+    ADD COLUMN IF NOT EXISTS provider_session_id TEXT;
 
+-- Preserve compatibility with a previously installed candidate while making
+-- the state distinction explicit: start authorization is not Provider ACK.
+ALTER TABLE taskflow.dispatch_intent
+    DROP CONSTRAINT IF EXISTS dispatch_intent_state_check;
+ALTER TABLE taskflow.dispatch_intent
+    ADD CONSTRAINT dispatch_intent_state_check
+    CHECK (state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'stopped', 'failed', 'reconcile_required', 'completed'));
+
+DROP INDEX IF EXISTS taskflow.dispatch_intent_one_active_writer;
 CREATE UNIQUE INDEX IF NOT EXISTS dispatch_intent_one_active_writer
     ON taskflow.dispatch_intent (issue_id)
-    WHERE state IN ('claimed', 'provider_started', 'reconcile_required');
+    WHERE state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'reconcile_required');
 
 CREATE INDEX IF NOT EXISTS dispatch_intent_issue_history
     ON taskflow.dispatch_intent (workspace_id, issue_id, created_at DESC);
@@ -64,6 +76,7 @@ DECLARE
     existing taskflow.dispatch_intent;
     request_lock_id BIGINT;
     issue_lock_id BIGINT;
+    request_payload_hash TEXT;
 BEGIN
     IF p_request_key IS NULL OR btrim(p_request_key) = '' OR length(p_request_key) > 200
        OR btrim(coalesce(p_cto_principal, '')) = ''
@@ -71,6 +84,11 @@ BEGIN
        OR p_lease_seconds IS NULL OR p_lease_seconds <= 0 OR p_lease_seconds > 3600 THEN
         RAISE EXCEPTION 'invalid dispatch claim request';
     END IF;
+
+    request_payload_hash := encode(sha256(convert_to(
+        p_issue_id::text || ':' || p_workspace_id::text || ':' || p_executor_id || ':' || p_provider || ':' || p_cto_principal,
+        'UTF8'
+    )), 'hex');
 
     -- Serialize requests that share either an idempotency key or an Issue
     -- before touching the unique indexes. Acquire both transaction locks in
@@ -98,10 +116,7 @@ BEGIN
      WHERE workspace_id = p_workspace_id AND request_key = p_request_key
      FOR UPDATE;
     IF FOUND THEN
-        IF existing.request_payload_hash <> encode(sha256(convert_to(
-            p_issue_id::text || ':' || p_workspace_id::text || ':' || p_executor_id || ':' || p_provider || ':' || p_cto_principal,
-            'UTF8'
-        )), 'hex') THEN
+        IF existing.request_payload_hash <> request_payload_hash THEN
             RAISE EXCEPTION 'dispatch request key payload mismatch';
         END IF;
         IF existing.state IN ('failed', 'completed', 'stopped') OR existing.lease_expires_at <= now() THEN
@@ -122,7 +137,7 @@ BEGIN
         lease_expires_at
     ) VALUES (
         p_request_key,
-        encode(sha256(convert_to(p_issue_id::text || ':' || p_workspace_id::text || ':' || p_executor_id || ':' || p_provider || ':' || p_cto_principal, 'UTF8')), 'hex'),
+        request_payload_hash,
         p_issue_id, p_workspace_id, p_executor_id, p_provider, p_cto_principal,
         now() + make_interval(secs => p_lease_seconds)
     )
@@ -141,10 +156,7 @@ BEGIN
      WHERE workspace_id = p_workspace_id AND request_key = p_request_key
      FOR UPDATE;
     IF FOUND THEN
-        IF existing.request_payload_hash <> encode(sha256(convert_to(
-            p_issue_id::text || ':' || p_workspace_id::text || ':' || p_executor_id || ':' || p_provider || ':' || p_cto_principal,
-            'UTF8'
-        )), 'hex') THEN
+        IF existing.request_payload_hash <> request_payload_hash THEN
             RAISE EXCEPTION 'dispatch request key payload mismatch';
         END IF;
         IF existing.state IN ('failed', 'completed', 'stopped') OR existing.lease_expires_at <= now() THEN
@@ -160,13 +172,43 @@ EXCEPTION WHEN unique_violation THEN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION taskflow.bind_dispatch_provider_route(
+    p_dispatch_id UUID,
+    p_lease_id UUID,
+    p_fencing_epoch BIGINT,
+    p_provider TEXT,
+    p_provider_session_id TEXT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = taskflow, pg_catalog
+AS $$
+BEGIN
+    IF p_dispatch_id IS NULL OR p_lease_id IS NULL OR p_fencing_epoch IS NULL OR p_fencing_epoch <= 0
+       OR btrim(coalesce(p_provider, '')) = '' OR btrim(coalesce(p_provider_session_id, '')) = '' THEN
+        RETURN false;
+    END IF;
+    UPDATE taskflow.dispatch_intent
+       SET provider_session_id = p_provider_session_id, updated_at = now()
+     WHERE id = p_dispatch_id AND lease_id = p_lease_id AND fencing_epoch = p_fencing_epoch
+       AND provider = p_provider AND state = 'claimed' AND lease_expires_at > now()
+       AND stop_requested_at IS NULL AND provider_start_requested_at IS NULL
+       AND provider_run_id IS NULL AND provider_ack_event_id IS NULL
+       AND (provider_session_id IS NULL OR provider_session_id = p_provider_session_id);
+    RETURN FOUND;
+END;
+$$;
+
 -- The provider boundary may be crossed only by the first caller holding this
--- live claim. Replayed requests receive the same intent but cannot start a
--- second Provider Run. An ambiguous attempt remains fenced for reconciliation.
+-- live claim and the same server-verified session bound above. Replays receive
+-- the same intent but cannot start a second Provider Run.
+DROP FUNCTION IF EXISTS taskflow.begin_dispatch_provider(UUID, UUID, BIGINT);
 CREATE OR REPLACE FUNCTION taskflow.begin_dispatch_provider(
     p_dispatch_id UUID,
     p_lease_id UUID,
-    p_fencing_epoch BIGINT
+    p_fencing_epoch BIGINT,
+    p_provider TEXT,
+    p_provider_session_id TEXT
 ) RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -174,15 +216,61 @@ SET search_path = taskflow, pg_catalog
 AS $$
 BEGIN
     UPDATE taskflow.dispatch_intent
-       SET state = 'provider_started', provider_start_requested_at = now(), updated_at = now()
+       SET state = 'provider_start_requested', provider_start_requested_at = now(), updated_at = now()
      WHERE id = p_dispatch_id AND lease_id = p_lease_id
        AND fencing_epoch = p_fencing_epoch
+       AND provider = p_provider AND provider_session_id = p_provider_session_id
        AND lease_expires_at > now()
        AND state = 'claimed'
        AND provider_start_requested_at IS NULL
        AND provider_run_id IS NULL
        AND provider_ack_event_id IS NULL
        AND stop_requested_at IS NULL;
+    RETURN FOUND;
+END;
+$$;
+
+-- Provider ACK is persisted only after the trusted server-side Provider
+-- adapter returns a verified Run/Event pair. This row is not written by UI or
+-- client metadata. Replaying the exact ACK is idempotent.
+CREATE OR REPLACE FUNCTION taskflow.record_dispatch_provider_ack(
+    p_dispatch_id UUID,
+    p_lease_id UUID,
+    p_fencing_epoch BIGINT,
+    p_provider TEXT,
+    p_provider_session_id TEXT,
+    p_provider_run_id TEXT,
+    p_provider_ack_event_id TEXT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = taskflow, pg_catalog
+AS $$
+BEGIN
+    IF p_dispatch_id IS NULL OR p_lease_id IS NULL OR p_fencing_epoch IS NULL OR p_fencing_epoch <= 0
+       OR btrim(coalesce(p_provider, '')) = '' OR btrim(coalesce(p_provider_session_id, '')) = ''
+       OR btrim(coalesce(p_provider_run_id, '')) = '' OR btrim(coalesce(p_provider_ack_event_id, '')) = '' THEN
+        RETURN false;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM taskflow.dispatch_intent
+         WHERE id = p_dispatch_id AND lease_id = p_lease_id AND fencing_epoch = p_fencing_epoch
+           AND state = 'provider_acknowledged' AND lease_expires_at > now()
+           AND provider = p_provider AND provider_session_id = p_provider_session_id
+           AND provider_run_id = p_provider_run_id AND provider_ack_event_id = p_provider_ack_event_id
+    ) THEN
+        RETURN true;
+    END IF;
+
+    UPDATE taskflow.dispatch_intent
+       SET state = 'provider_acknowledged', provider_session_id = p_provider_session_id, provider_run_id = p_provider_run_id,
+           provider_ack_event_id = p_provider_ack_event_id, updated_at = now()
+     WHERE id = p_dispatch_id AND lease_id = p_lease_id AND fencing_epoch = p_fencing_epoch
+       AND state = 'provider_start_requested' AND provider_start_requested_at IS NOT NULL
+       AND lease_expires_at > now() AND stop_requested_at IS NULL
+       AND provider = p_provider
+       AND provider_run_id IS NULL AND provider_ack_event_id IS NULL;
     RETURN FOUND;
 END;
 $$;
@@ -202,7 +290,7 @@ BEGIN
        SET lease_expires_at = now() + make_interval(secs => p_lease_seconds), updated_at = now()
      WHERE id = p_dispatch_id AND lease_id = p_lease_id
        AND fencing_epoch = p_fencing_epoch AND lease_expires_at > now()
-       AND state IN ('claimed', 'provider_started', 'reconcile_required');
+       AND state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'reconcile_required');
     RETURN FOUND;
 END;
 $$;
@@ -220,7 +308,7 @@ BEGIN
            reconciliation_reason = NULLIF(btrim(p_reason), ''), updated_at = now()
      WHERE id = p_dispatch_id AND lease_id = p_lease_id
        AND fencing_epoch = p_fencing_epoch
-       AND state IN ('claimed', 'provider_started', 'reconcile_required');
+       AND state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'reconcile_required');
     RETURN FOUND;
 END;
 $$;
@@ -243,7 +331,7 @@ BEGIN
            updated_at = now()
      WHERE id = p_dispatch_id
        AND fencing_epoch = p_fencing_epoch
-       AND state IN ('claimed', 'provider_started', 'reconcile_required');
+       AND state IN ('claimed', 'provider_start_requested', 'provider_acknowledged', 'provider_started', 'reconcile_required');
     RETURN FOUND;
 END;
 $$;
