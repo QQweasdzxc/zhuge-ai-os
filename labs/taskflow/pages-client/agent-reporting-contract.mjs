@@ -241,6 +241,18 @@ export async function receiveNativeAgentReport({event, context = {}, now = Date.
   const validation = validateAgentReportEvent(event, context, now);
   if (!validation.accepted) return validation;
   const withDetails = await attachProtectedDetailRefs(validation, detailStore, detailScope);
+  const hasProtectedDetails = ["progress_summary", "question", "blocked_reason", "checkpoint_ref", "stop_evidence", "review_evidence", "completion_evidence", "next_step"]
+    .some(field => text(withDetails.event?.[field]));
+  if (hasProtectedDetails && withDetails.detail_store_state !== "PROTECTED_STORE") {
+    return {
+      accepted: false,
+      state: "BLOCKED",
+      reason: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED",
+      detail_store_state: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED",
+      event_id: withDetails.event.event_id,
+      mutation: null
+    };
+  }
   const committed = await commitNativeAgentReport(withDetails, nativeAdapter);
   return {...committed, detail_store_state: withDetails.detail_store_state || "DETAIL_STORE_UNWIRED"};
 }
