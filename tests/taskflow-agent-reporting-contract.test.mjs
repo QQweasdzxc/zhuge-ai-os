@@ -170,6 +170,27 @@ test("native report receiver rejects detail write failure and ACL denial without
   }
 });
 
+test("native report receiver rejects a partial protected-detail store before Native Mutation", async () => {
+  const storedLabels = [];
+  let nativeCalls = 0;
+  const detailStore = {putDetail: async ({label}) => {
+    storedLabels.push(label);
+    return label === "progress_summary"
+      ? {accepted: true, protected_ref: "vault://event/progress"}
+      : {accepted: false, reason: "DETAIL_STORE_WRITE_FAILED"};
+  }};
+  const result = await receiveNativeAgentReport({
+    event: event("blocked", {progress_summary: "已安全保存的摘要", blocked_reason: "第二個欄位保存失敗"}),
+    context: trustedContext("blocked"), now: NOW, detailStore,
+    nativeAdapter: {applyAgentReportMutation: async () => { nativeCalls += 1; return {}; }}
+  });
+  assert.deepEqual(storedLabels, ["progress_summary", "blocked_reason"]);
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, "DETAIL_STORE_WRITE_FAILED");
+  assert.equal(result.mutation, null);
+  assert.equal(nativeCalls, 0);
+});
+
 test("native report receiver rejects duplicate or stale events using the authority sequence and fencing fields", async () => {
   let nativeCalls = 0;
   const nativeAdapter = {applyAgentReportMutation: async () => { nativeCalls += 1; return {}; }};
