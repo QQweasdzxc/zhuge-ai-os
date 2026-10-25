@@ -45,10 +45,9 @@ test("readable reports contain summary, blockers, questions, checkpoint, stop an
   const result = validateAgentReportEvent(event("blocked", {progress_percent: 45, progress_summary: "token=secret-value completed analysis", blocked_reason: "waiting for API", next_step: "ask CTO"}), trustedContext("blocked"), NOW);
   const mutation = buildNativeAgentReportMutation(result);
   assert.match(mutation.comment.content, /工作進度|Agent 回報工程卡關/);
-  assert.match(mutation.comment.content, /摘要：token=\[REDACTED\]/);
-  assert.match(mutation.comment.content, /卡關原因：waiting for API/);
-  assert.match(mutation.comment.content, /下一步：ask CTO/);
-  assert.doesNotMatch(mutation.comment.content, /secret-value/);
+  assert.match(mutation.comment.content, /公開摘要：詳細內容已存於受保護 Detail Store/);
+  assert.match(mutation.comment.content, /詳情：需經授權後由 Detail Store 查閱/);
+  assert.doesNotMatch(mutation.comment.content, /waiting for API|ask CTO|secret-value/);
   assert.match(mutation.comment.content, /event-blocked/);
   assert.match(mutation.comment.content, /run-113/);
   assert.doesNotMatch(mutation.comment.content, /secret-value/);
@@ -62,6 +61,14 @@ test("full public comment never re-emits credential values in audit JSON", () =>
     assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
     assert.match(comment, /detail_ref_mode\":\"UNWIRED_NO_REFERENCE/);
   }
+});
+
+test("public comment never exposes natural language, personal data or mixed protected details", () => {
+  const privateText = "客戶王小明 phone=0912-345-678 email=ming@example.com，請 CTO 回答：使用 production API；token=private-混合";
+  const result = validateAgentReportEvent(event("blocked", {progress_summary: privateText, blocked_reason: privateText, question: privateText, next_step: privateText}), trustedContext("blocked"), NOW);
+  const comment = buildNativeAgentReportMutation(result).comment.content;
+  assert.match(comment, /公開摘要：詳細內容已存於受保護 Detail Store/);
+  assert.doesNotMatch(comment, /王小明|0912-345-678|ming@example.com|production API|private-混合/);
 });
 
 test("client signature and stop strings cannot establish trust", () => {
@@ -148,6 +155,19 @@ test("native report receiver rejects detail write failure and ACL denial without
     assert.equal(result.accepted, false);
     assert.match(result.reason, /DETAIL_(STORE|SCOPE)/);
   }
+});
+
+test("native report receiver rolls back the whole report when a later protected detail write fails", async () => {
+  let writes = 0;
+  let nativeCalled = false;
+  const detailStore = {putDetail: async () => {
+    writes += 1;
+    return writes === 1 ? {accepted: true, protected_ref: "vault://first"} : {accepted: false, reason: "DETAIL_STORE_WRITE_FAILED"};
+  }};
+  const result = await receiveNativeAgentReport({event: event("blocked", {blocked_reason: "private blocker", next_step: "private next step"}), context: trustedContext("blocked"), now: NOW, detailStore, nativeAdapter: {applyAgentReportMutation: async () => { nativeCalled = true; return {}; }}});
+  assert.equal(writes, 2);
+  assert.equal(nativeCalled, false);
+  assert.equal(result.reason, "DETAIL_STORE_WRITE_FAILED");
 });
 
 test("native report receiver rejects duplicate or stale events using the authority sequence and fencing fields", async () => {

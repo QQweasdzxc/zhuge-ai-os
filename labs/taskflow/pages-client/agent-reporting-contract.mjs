@@ -112,29 +112,12 @@ export function validateAgentReportEvent(input, context = {}, now = Date.now()) 
   };
 }
 
-function redact(value) {
-  let result = text(value);
-  for (const pattern of [
-    /(bearer\s+)[^\s,;]+/gi,
-    /(password\s*[=:]\s*)[^\s,;]+/gi,
-    /(secret\s*[=:]\s*)[^\s,;]+/gi,
-    /(api[_-]?key\s*[=:]\s*)[^\s,;]+/gi,
-    /(token\s*[=:]\s*)[^\s,;]+/gi,
-    /(authorization\s*[=:]\s*)[^\s,;]+/gi
-  ]) result = result.replace(pattern, "$1[REDACTED]");
-  return result.slice(0, 2000);
-}
-
 function readableReport(event, state) {
   const labels = {accepted: "Agent 已接單並開始執行", progress: "Agent 工作進度", question_to_cto: "Agent 等待 CTO 回答", blocked: "Agent 回報工程卡關", checkpoint: "Agent 保存 Checkpoint", interrupted_by_pm: "PM 已中斷，Agent 已提交停止回報", review_requested: "Agent 申請 CTO 稽核", completed: "Agent 回報完成，等待 CTO 稽核"};
-  const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `摘要：${redact(event.progress_summary) || "未提供"}`];
-  if (event.blocked_reason) rows.push(`卡關原因：${redact(event.blocked_reason)}`);
-  if (event.question) rows.push(`需要 CTO 回答：${redact(event.question)}`);
-  if (event.checkpoint_ref) rows.push(`Checkpoint：${redact(event.checkpoint_ref)}`);
-  if (event.stop_evidence) rows.push(`停止證據參照：${redact(event.stop_evidence)}`);
-  if (event.review_evidence) rows.push(`稽核證據：${redact(event.review_evidence)}`);
-  if (event.completion_evidence) rows.push(`完成證據：${redact(event.completion_evidence)}`);
-  rows.push(`下一步：${redact(event.next_step) || "未提供"}`);
+  const protectedFields = ["progress_summary", "question", "blocked_reason", "checkpoint_ref", "stop_evidence", "review_evidence", "completion_evidence", "next_step"];
+  const hasProtectedDetail = protectedFields.some(field => text(event[field]));
+  const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `公開摘要：${hasProtectedDetail ? "詳細內容已存於受保護 Detail Store" : "未提供"}`];
+  if (hasProtectedDetail) rows.push("詳情：需經授權後由 Detail Store 查閱");
   return rows.join("\n");
 }
 
