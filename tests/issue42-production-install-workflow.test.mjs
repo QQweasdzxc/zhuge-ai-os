@@ -95,6 +95,9 @@ test("BACKUP ONLY is manual, exact-candidate, protected, schema-scoped, and cann
   assert.doesNotMatch(backupRunner, /\bage\b|TASKFLOW_BACKUP_AGE/);
   assert.match(backupUploader, /--verify-candidate-backup/);
   assert.match(backupUploader, /GoogleUserOAuthTokenProvider/);
+  assert.match(backupUploader, /DRIVE_FILE_SCOPE = "https:\/\/www\.googleapis\.com\/auth\/drive\.file"/);
+  assert.match(backupUploader, /drive_folder_not_authorized_to_oauth_app/);
+  assert.doesNotMatch(backupUploader, /https:\/\/www\.googleapis\.com\/auth\/drive"/);
   assert.match(backupUploader, /drive_folder_has_unexpected_principal/);
   assert.match(backupUploader, /approved_destination_must_be_private_my_drive/);
   assert.match(backupUploader, /drive_file_acl_readback_mismatch/);
@@ -110,5 +113,7 @@ test("BACKUP ONLY is manual, exact-candidate, protected, schema-scoped, and cann
   assert.match(workflow, /No Canary card was created by this job\./);
   assert.match(backupRunbook, /Current status: awaiting owner OAuth authorization/);
   assert.match(backupRunbook, /TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN/);
-  assert.match(backupRunbook, /underlying Drive permissions/);
+  assert.match(backupRunbook, /drive\.file/);
+  assert.match(backupRunbook, /existing WorkLog Picker supports file selection but/);
+  assert.match(backupRunbook, /real `drive\.file`[\s\S]*folder compatibility is \*\*NOT VERIFIED\*\*/);
 });

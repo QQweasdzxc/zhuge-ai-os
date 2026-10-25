@@ -26,7 +26,7 @@ DEFAULT_API_BASE = "https://www.googleapis.com/drive/v3"
 CHUNK_SIZE = 8 * 1024 * 1024  # multiple of Drive's 256 KiB resumable chunk unit
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
-DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
+DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 
 
 class DriveUploadError(RuntimeError):
@@ -107,7 +107,7 @@ class GoogleUserOAuthTokenProvider:
             raise DriveUploadError("google_oauth_refresh_token_rotation_requires_secret_update")
         if (not isinstance(token, str) or not token or "\n" in token or "\r" in token or
                 not isinstance(token_type, str) or token_type.casefold() != "bearer" or
-                not isinstance(scope, str) or set(scope.split()) != {DRIVE_SCOPE} or
+                not isinstance(scope, str) or set(scope.split()) != {DRIVE_FILE_SCOPE} or
                 not isinstance(expires_in, int) or expires_in < 120 or expires_in > 86400):
             raise DriveUploadError("google_user_oauth_token_contract_invalid")
         self.access_token = token
@@ -243,7 +243,17 @@ def _token_and_account() -> tuple[str | GoogleUserOAuthTokenProvider, str]:
 def _get_folder(api_base: str, token: str | GoogleUserOAuthTokenProvider, expected_account: str) -> dict:
     fields = urllib.parse.quote("id,mimeType,driveId,owners(emailAddress),capabilities(canAddChildren),permissions(type,role,emailAddress,domain,deleted)", safe="(),")
     url = f"{api_base}/files/{FOLDER_ID}?supportsAllDrives=true&fields={fields}"
-    folder = _json_request("GET", url, token)
+    try:
+        folder = _json_request("GET", url, token)
+    except DriveUploadError as error:
+        # Drive intentionally returns 404 for files the OAuth app cannot see.
+        # With drive.file this means the owner must explicitly grant this
+        # existing folder to this OAuth client through Google Picker.
+        if str(error) == "drive_http_404":
+            raise DriveUploadError("drive_folder_not_authorized_to_oauth_app") from None
+        if str(error) == "drive_http_403":
+            raise DriveUploadError("drive_folder_scope_denied") from None
+        raise
     if folder.get("id") != FOLDER_ID or folder.get("mimeType") != "application/vnd.google-apps.folder":
         raise DriveUploadError("unexpected_backup_folder")
     if folder.get("driveId"):

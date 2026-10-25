@@ -43,6 +43,7 @@ class DriveApiMock:
         self.files = {}
         self.sessions = {}
         self.writable = True
+        self.folder_app_authorized = True
         self.actor = self.owner_email
         self.shared_drive = False
         self.extra_permission = False
@@ -89,6 +90,8 @@ class DriveApiMock:
                     return self._send(404)
                 file_id = parsed.path[len(prefix):]
                 if file_id == owner.folder_id:
+                    if not owner.folder_app_authorized:
+                        return self._send(404, {"error": {"code": 404, "message": "File not found"}})
                     permissions = [{"type": "user", "role": "owner",
                                     "emailAddress": owner.owner_email}]
                     if owner.extra_permission:
@@ -188,7 +191,7 @@ class OAuthTokenMock:
     """Loopback-only OAuth refresh endpoint using synthetic credentials."""
     def __init__(self):
         self.response_status = 200
-        self.scope = UPLOADER.DRIVE_SCOPE
+        self.scope = UPLOADER.DRIVE_FILE_SCOPE
         self.access_token = "synthetic-oauth-access-token"
         self.rotate_refresh_token = False
         self.request_count = 0
@@ -270,10 +273,10 @@ class GoogleUserOAuthTokenProviderTest(unittest.TestCase):
     def test_refresh_rejects_wrong_scope_rotated_refresh_token_and_auth_failure(self):
         with OAuthTokenMock() as oauth, patch.dict(os.environ, self._environment(oauth)):
             provider = UPLOADER.GoogleUserOAuthTokenProvider()
-            oauth.scope = "https://www.googleapis.com/auth/drive.file"
+            oauth.scope = "https://www.googleapis.com/auth/drive"
             with self.assertRaisesRegex(UPLOADER.DriveUploadError, "token_contract_invalid"):
                 provider.get()
-            oauth.scope = UPLOADER.DRIVE_SCOPE
+            oauth.scope = UPLOADER.DRIVE_FILE_SCOPE
             oauth.rotate_refresh_token = True
             with self.assertRaisesRegex(UPLOADER.DriveUploadError, "rotation_requires_secret_update"):
                 provider.get()
@@ -406,6 +409,26 @@ class DriveUploaderContractTest(unittest.TestCase):
                     self.assertEqual(accepted.returncode, 0, accepted.stderr)
                     self.assertIn("TASKFLOW_DRIVE_TARGET_PASS", accepted.stdout)
                     self.assertEqual(drive.files, {})
+
+    def test_drive_file_scope_requires_existing_folder_picker_grant(self):
+        uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"
+        with tempfile.TemporaryDirectory(prefix="taskflow-drive-file-scope-") as temp:
+            with DriveApiMock() as drive:
+                drive.folder_app_authorized = False
+                environment = {
+                    "TASKFLOW_BACKUP_DRIVE_TEST_MODE": "1",
+                    "TASKFLOW_BACKUP_DRIVE_ACCESS_TOKEN": "synthetic-drive-token",
+                    "TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL": DriveApiMock.owner_email,
+                    "TASKFLOW_BACKUP_DRIVE_API_BASE": drive.base_url + "/drive/v3",
+                }
+                with patch.dict(os.environ, environment):
+                    denied = subprocess.run(
+                        ["python3", str(uploader), "--check-target-only"],
+                        cwd=REPO, capture_output=True, text=True, check=False,
+                    )
+                self.assertNotEqual(denied.returncode, 0)
+                self.assertIn("drive_folder_not_authorized_to_oauth_app", denied.stderr)
+                self.assertEqual(drive.files, {}, "preflight must not create a file without explicit folder access")
 
     def test_wrong_folder_owner_and_extra_permission_fail_closed(self):
         uploader = REPO / "labs/taskflow/overrides/issue42-backup-drive-upload.py"

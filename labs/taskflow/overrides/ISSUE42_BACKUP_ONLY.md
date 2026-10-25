@@ -26,10 +26,10 @@ owner-only ACL before any production database read. It writes files only with
 that folder as their parent, then checks file ownership, ACL, parent, size, and
 full SHA256 on readback. Public, domain, group, shared-drive, or unexpected
 principals cause a fail-closed stop. No Drive permission is changed by the
-workflow. The OAuth grant uses Google's full Drive scope because the approved
-folder is an existing owner-only My Drive folder; protect the refresh token as
-a high-privilege credential. Fixed-folder enforcement and the protected GitHub
-Environment gate do not narrow the token's underlying Drive permissions.
+workflow. The OAuth grant is limited to Google's `drive.file` scope. The
+existing folder must first be explicitly opened/shared with this OAuth app
+through Google Picker; owner-only Drive ACL by itself does not grant an app
+specific file scope. The refresh token remains a protected credential.
 
 ## One-time owner OAuth setup
 
@@ -44,16 +44,23 @@ Environment. Required configuration:
   `TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET`, and
   `TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN`.
 
-The OAuth client must have the Drive API enabled. Authorize the folder owner's
-Google account through Google's OAuth 2.0 Playground using the approved OAuth
-client and the single scope `https://www.googleapis.com/auth/drive`; exchange
-the code for a refresh token and place all three client/refresh values directly
-in the protected GitHub Environment. Set the expected owner email as the
-Environment variable. Do not put credentials in chat, PRs, workflow inputs,
-repository files, or logs. This Drive scope can access that user's Drive; the
-runner restricts its own operations to the exact approved folder and verifies
-its owner-only ACL, but the OAuth token itself is not folder-scoped. The user
-must explicitly accept that Google consent scope.
+The OAuth client must have the Drive API enabled and must be the same client
+used for the one-time Google Picker folder grant. The owner must explicitly
+select the approved folder in a Picker configured for folder selection; a
+plain OAuth consent for `drive.file` does not make an existing unselected
+folder accessible. The refresh token must be minted for that same OAuth client
+with the single scope `https://www.googleapis.com/auth/drive.file`. Place the
+Client ID, Client Secret, and refresh token directly in the protected GitHub
+Environment and set the expected owner email as an Environment variable. Do not
+put credentials in chat, PRs, workflow inputs, repository files, or logs. This
+scope does not grant Drive-wide access. If the folder has not been granted to
+the client through Picker, the API returns not-found/permission-denied and the
+runner stops before reading production database data.
+
+**Picker readiness:** the existing WorkLog Picker supports file selection but
+currently disables folder selection. Until an authorized existing Picker
+surface selects this folder using the backup OAuth client, real `drive.file`
+folder compatibility is **NOT VERIFIED** and BACKUP ONLY must not run.
 
 The workflow validates the returned token scope, authenticated Drive principal,
 folder owner and ACL before reading production data. An expired or revoked
@@ -64,9 +71,10 @@ the OAuth preflight passes.
 
 ## Run BACKUP ONLY
 
-**Current status: awaiting owner OAuth authorization.** The source implements
-the protected OAuth upload path. No production database connection is attempted
-until the owner OAuth and exact-folder preflight pass.
+**Current status: awaiting owner OAuth authorization and an app-specific folder
+grant.** The source implements the protected OAuth upload path. No production
+database connection is attempted until the owner OAuth, exact-folder access, and
+owner-only ACL preflight pass.
 
 1. Open **Actions → TaskFlow Official Site Release Gate → Run workflow**.
 2. Select `review/p0-functional-consolidation-20261023` and set
