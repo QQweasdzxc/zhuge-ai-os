@@ -1,4 +1,4 @@
-"""Stage native AI readback source and PG16 test into an isolated Multica copy."""
+"""Stage TaskFlow native AI readback/report write and PG16 tests into an isolated Multica copy."""
 import argparse
 import os
 import shutil
@@ -19,6 +19,8 @@ def stage(server_root: Path) -> None:
     handler.mkdir(parents=True, exist_ok=True)
     command.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT / "labs/taskflow/overrides/taskflow_native_ai_readback.go", handler / "taskflow_native_ai_readback.go")
+    shutil.copyfile(ROOT / "labs/taskflow/overrides/taskflow_native_agent_reporting_write.go", handler / "taskflow_native_agent_reporting_write.go")
+    shutil.copyfile(ROOT / "labs/taskflow/overrides/taskflow_native_agent_reporting_write_test.go", handler / "taskflow_native_agent_reporting_write_test.go")
     for name in ("main.go", "main_test.go"):
         shutil.copyfile(ROOT / "labs/taskflow/tests/native-ai-runtime" / name, command / name)
 

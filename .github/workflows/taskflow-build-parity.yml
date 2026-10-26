@@ -129,6 +129,10 @@ jobs:
         working-directory: third_party/multica/server
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
@@ -152,13 +156,15 @@ jobs:
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime_test.go internal/handler/taskflow_dispatch_runtime_test.go
           python3 ../../../labs/taskflow/patches/apply-taskflow-native-ai-readback.py
           cp ../../../labs/taskflow/overrides/taskflow_native_ai_readback.go internal/handler/taskflow_native_ai_readback.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
           gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
           gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
           gofmt -w internal/handler/taskflow_native_ai_readback.go
+          gofmt -w internal/handler/taskflow_native_agent_reporting_write.go
           gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
-          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go)"
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...
       - name: Build backend binaries
@@ -184,10 +190,14 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
-      - name: Stage TaskFlow-owned readback overlay and runtime test into a temporary vendor copy
+      - name: Stage TaskFlow-owned readback and reporting adapter tests into a temporary vendor copy
         shell: bash
         run: |
           set -euo pipefail
@@ -196,9 +206,11 @@ jobs:
           python3 labs/taskflow/patches/stage-taskflow-native-ai-runtime.py \
             --server-root "$RUNNER_TEMP/multica/server"
           cd "$RUNNER_TEMP/multica/server"
-          gofmt -w internal/handler/taskflow_native_ai_readback.go cmd/taskflow-native-ai-runtime/*.go
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write_test.go cmd/taskflow-native-ai-runtime/*.go
           TASKFLOW_NATIVE_AI_DATABASE_URL='postgres://taskflow_native_ai_ci:isolated-ci-only-password@127.0.0.1:5432/taskflow_native_ai_test?sslmode=disable' \
             go test ./cmd/taskflow-native-ai-runtime -count=1 -v
+          TASKFLOW_NATIVE_AI_DATABASE_URL='postgres://taskflow_native_ai_ci:isolated-ci-only-password@127.0.0.1:5432/taskflow_native_ai_test?sslmode=disable' \
+            go test ./internal/handler -run '^TestTaskFlowNativeAgentReportWritePostgres16$' -count=1 -v
 
   postgres-native-authority:
     name: PostgreSQL 16 Native Authority integration

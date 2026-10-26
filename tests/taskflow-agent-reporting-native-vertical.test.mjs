@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
+import {attachProtectedDetailRefs, commitNativeAgentReport, createNativeAgentAtomicWriteAdapter, validateAgentReportEvent} from "../labs/taskflow/pages-client/agent-reporting-contract.mjs";
 import {createNativePersistenceAdapter} from "../labs/taskflow/pages-client/native-persistence-adapter-contract.mjs";
 
 // Synthetic contract fixture only: this test does not prove a live Provider
@@ -48,7 +48,16 @@ test("synthetic validated Agent progress traverses the Native Authority write se
   assert.equal(validation.accepted, true);
   const persistence = createNativePersistenceAdapter({beginTransaction: context => nativeAuthority(record).beginTransaction(context)});
   const adapter = createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter: persistence, issueId: "issue-113", taskId: "task-113", idempotencyKey: "idem-113", expectedVersion: 1, fencingToken: "fence-1"});
-  const committed = await commitNativeAgentReport(validation, adapter);
+  const withProtectedFixture = await attachProtectedDetailRefs(validation, {
+    putDetail: async ({label}) => ({accepted: true, protected_ref: `synthetic-protected-ref:${label}`})
+  }, {authority_scope: "TASKFLOW_AUTHORITY_VERIFIED", server_principal: {verified: true, source: "TASKFLOW_AUTHORITY"}, workspace_acl: "ALLOW", issue_acl: "ALLOW"});
+  let persistedComment = "";
+  const checkedAdapter = {applyAgentReportMutation: async mutation => {
+    persistedComment = mutation.comment.content;
+    assert.doesNotMatch(persistedComment, /Checkpoint saved|Continue review|synthetic-protected-ref/);
+    return adapter.applyAgentReportMutation(mutation);
+  }};
+  const committed = await commitNativeAgentReport(withProtectedFixture, checkedAdapter);
   assert.equal(committed.accepted, true);
   assert.equal(committed.result.atomic_event_claimed, true);
   assert.equal(record.issue_id, "issue-113");

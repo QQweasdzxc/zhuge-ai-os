@@ -1,0 +1,366 @@
+package handler
+
+import (
+	"context"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
+)
+
+const (
+	reportWorkspace = "12111111-1111-4111-8111-111111111111"
+	reportAgent     = "12aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	reportProject   = "12bbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	reportIssue     = "12cccccc-cccc-4ccc-8ccc-cccccccccccc"
+	reportQueue     = "12dddddd-dddd-4ddd-8ddd-dddddddddddd"
+	reportDispatch  = "12eeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	reportLease     = "12ffffff-ffff-4fff-8fff-ffffffffffff"
+)
+
+func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
+	dsn := os.Getenv("TASKFLOW_NATIVE_AI_DATABASE_URL")
+	if dsn == "" {
+		if os.Getenv("CI") == "true" {
+			t.Fatal("TASKFLOW_NATIVE_AI_DATABASE_URL is required in CI; PostgreSQL writer tests may not skip")
+		}
+		t.Skip("TASKFLOW_NATIVE_AI_DATABASE_URL is unset; PostgreSQL writer test not requested")
+	}
+	ctx := context.Background()
+	probePool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect isolated PostgreSQL: %v", err)
+	}
+	var version int
+	var database string
+	var databaseUser string
+	if err := probePool.QueryRow(ctx, `SELECT current_setting('server_version_num')::int, current_database(), current_user`).Scan(&version, &database, &databaseUser); err != nil {
+		t.Fatal(err)
+	}
+	if version < 160000 || version >= 170000 || database != "taskflow_native_ai_test" || databaseUser != "taskflow_native_ai_ci" {
+		t.Fatalf("refusing non-isolated PostgreSQL target: version=%d database=%q user=%q", version, database, databaseUser)
+	}
+	if _, err := probePool.Exec(ctx, `DROP SCHEMA IF EXISTS native_agent_report_test CASCADE`); err != nil {
+		t.Fatalf("reset isolated reporting schema: %v", err)
+	}
+	if _, err := probePool.Exec(ctx, `CREATE SCHEMA native_agent_report_test`); err != nil {
+		t.Fatalf("create isolated reporting schema: %v", err)
+	}
+	probePool.Close()
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatalf("parse isolated PostgreSQL configuration: %v", err)
+	}
+	config.ConnConfig.RuntimeParams["search_path"] = "native_agent_report_test,public"
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatalf("connect reporting schema in isolated PostgreSQL: %v", err)
+	}
+	defer pool.Close()
+	createNativeAgentReportSchema(t, ctx, pool)
+	seedNativeAgentReportRows(t, ctx, pool)
+	h := &Handler{Queries: db.New(pool), TxStarter: pool}
+
+	good := validNativeAgentReportEvent()
+	if _, err := pool.Exec(ctx, `UPDATE agent_task_queue SET result='{"zhuge_agent_reporting":"invalid"}'::jsonb WHERE id=$1::uuid`, reportQueue); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.applyVerifiedNativeAgentReport(ctx, good); err == nil || err.Error() != errNativeReportProjection.Error() {
+		t.Fatalf("malformed existing native Queue projection must fail closed: err=%v", err)
+	}
+	var malformedRevision int64
+	var malformedComments, malformedAudit int
+	if err := pool.QueryRow(ctx, `SELECT revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&malformedRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&malformedComments, &malformedAudit); err != nil {
+		t.Fatal(err)
+	}
+	if malformedRevision != 1 || malformedComments != 0 || malformedAudit != 0 {
+		t.Fatalf("malformed Queue projection rejection left a partial write: revision=%d comments=%d audit=%d", malformedRevision, malformedComments, malformedAudit)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE agent_task_queue SET result='{}'::jsonb WHERE id=$1::uuid`, reportQueue); err != nil {
+		t.Fatal(err)
+	}
+	result, err := h.applyVerifiedNativeAgentReport(ctx, good)
+	if err != nil || !result.Committed || result.Replay || result.Status != "in_progress" {
+		t.Fatalf("valid report write: result=%+v err=%v", result, err)
+	}
+	var issueStatus string
+	var revision int64
+	if err := pool.QueryRow(ctx, `SELECT status,revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&issueStatus, &revision); err != nil {
+		t.Fatal(err)
+	}
+	if issueStatus != "in_progress" || revision != 2 {
+		t.Fatalf("native Issue was not updated with its comment transaction: status=%s revision=%d", issueStatus, revision)
+	}
+	var queueIssueRevision string
+	if err := pool.QueryRow(ctx, `SELECT result->'zhuge_agent_reporting'->>'issue_revision' FROM agent_task_queue WHERE id=$1::uuid`, reportQueue).Scan(&queueIssueRevision); err != nil {
+		t.Fatal(err)
+	}
+	if queueIssueRevision != "2" {
+		t.Fatalf("native Queue must retain the Issue revision returned by the committed report: issue_revision=%q", queueIssueRevision)
+	}
+	var commentCount, activityCount int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&commentCount, &activityCount); err != nil {
+		t.Fatal(err)
+	}
+	if commentCount != 1 || activityCount != 1 {
+		t.Fatalf("native event must produce exactly one comment and audit row: comments=%d activity=%d", commentCount, activityCount)
+	}
+	var commentContent string
+	var activityDetails []byte
+	if err := pool.QueryRow(ctx, `SELECT content FROM comment WHERE issue_id=$1::uuid`, reportIssue).Scan(&commentContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT details FROM activity_log WHERE issue_id=$1::uuid`, reportIssue).Scan(&activityDetails); err != nil {
+		t.Fatal(err)
+	}
+	if commentContent != "[AI 回報] 進度更新 · 42%" || containsSensitiveReportText(commentContent) || containsSensitiveReportText(string(activityDetails)) {
+		t.Fatalf("raw Agent text must not be persisted to public comment or audit: comment=%q details=%s", commentContent, activityDetails)
+	}
+
+	// Two concurrent replays serialize on the durable Dispatch row; one is the
+	// original commit and the other is an idempotent readback, never a 2nd write.
+	var wait sync.WaitGroup
+	results := make(chan nativeAgentReportWriteResult, 2)
+	errs := make(chan error, 2)
+	for range 2 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			r, e := h.applyVerifiedNativeAgentReport(ctx, good)
+			results <- r
+			errs <- e
+		}()
+	}
+	wait.Wait()
+	close(results)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent replay failed: %v", err)
+		}
+	}
+	for r := range results {
+		if !r.Committed || !r.Replay {
+			t.Fatalf("concurrent duplicate must return idempotent readback: %+v", r)
+		}
+	}
+
+	assertRejected := func(name string, event nativeAgentReportEvent, want error) {
+		t.Helper()
+		if _, err := h.applyVerifiedNativeAgentReport(ctx, event); err == nil || err.Error() != want.Error() {
+			t.Fatalf("%s: error=%v want=%v", name, err, want)
+		}
+		var currentRevision int64
+		var currentComments, currentAudit int
+		if err := pool.QueryRow(ctx, `SELECT revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&currentRevision); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&currentComments, &currentAudit); err != nil {
+			t.Fatal(err)
+		}
+		if currentRevision != revision || currentComments != commentCount || currentAudit != activityCount {
+			t.Fatalf("%s rejection left a partial native mutation: revision=%d comments=%d audit=%d", name, currentRevision, currentComments, currentAudit)
+		}
+	}
+	unverified := good
+	unverified.providerAttestationVerified = false
+	assertRejected("unverified provider", unverified, errNativeReportUnverified)
+	protected := good
+	protected.EventID, protected.Sequence, protected.HasProtectedDetails = "event-protected", 2, true
+	assertRejected("protected detail store missing", protected, errNativeReportProtectedDetail)
+	reusedEventID := good
+	reusedEventID.Sequence = 2
+	assertRejected("reused event ID with changed sequence", reusedEventID, errNativeReportReplay)
+
+	stale := good
+	stale.EventID, stale.Sequence = "event-stale", 1
+	assertRejected("replayed sequence", stale, errNativeReportReplay)
+	wrongFence := good
+	wrongFence.EventID, wrongFence.Sequence, wrongFence.FencingEpoch = "event-mismatched-fence", 2, 2
+	assertRejected("mismatched fencing epoch", wrongFence, errNativeReportScope)
+
+	crossWorkspace := good
+	crossWorkspace.EventID, crossWorkspace.Sequence, crossWorkspace.WorkspaceID = "event-cross-workspace", 2, "12999999-9999-4999-8999-999999999999"
+	assertRejected("cross Workspace", crossWorkspace, errNativeReportScope)
+	wrongRun := good
+	wrongRun.EventID, wrongRun.Sequence, wrongRun.ProviderRunID = "event-wrong-run", 2, "forged-run"
+	assertRejected("mismatched Run", wrongRun, errNativeReportScope)
+	wrongAck := good
+	wrongAck.EventID, wrongAck.Sequence, wrongAck.ProviderAckEventID = "event-wrong-ack", 2, "forged-ack"
+	assertRejected("mismatched Provider ACK", wrongAck, errNativeReportScope)
+	wrongWorkspace := good
+	wrongWorkspace.EventID, wrongWorkspace.Sequence, wrongWorkspace.WorkspaceID = "event-no-issue", 2, "12999999-9999-4999-8999-999999999999"
+	assertRejected("wrong Workspace Issue lookup", wrongWorkspace, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ('12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,$1::uuid,'agent',$2::uuid)`, reportWorkspace, reportAgent); err != nil {
+		t.Fatal(err)
+	}
+	duplicateProject := good
+	duplicateProject.EventID, duplicateProject.Sequence = "event-duplicate-project", 2
+	assertRejected("duplicate native Project mapping", duplicateProject, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `DELETE FROM project WHERE id='12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ('12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee'::uuid,$1::uuid,$2::uuid,'running','{}'::jsonb)`, reportAgent, reportIssue); err != nil {
+		t.Fatal(err)
+	}
+	duplicateQueue := good
+	duplicateQueue.EventID, duplicateQueue.Sequence = "event-duplicate-queue", 2
+	assertRejected("duplicate active native Queue writer", duplicateQueue, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `DELETE FROM agent_task_queue WHERE id='12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee'::uuid`); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET lease_expires_at=now()-interval '1 second' WHERE id=$1::uuid`, reportDispatch); err != nil {
+		t.Fatal(err)
+	}
+	expired := good
+	expired.EventID, expired.Sequence = "event-expired", 2
+	assertRejected("expired Lease", expired, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET lease_expires_at=now()+interval '5 minutes',stop_requested_at=now() WHERE id=$1::uuid`, reportDispatch); err != nil {
+		t.Fatal(err)
+	}
+	stopped := good
+	stopped.EventID, stopped.Sequence = "event-stop", 2
+	assertRejected("STOP blocks old writer", stopped, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET stop_requested_at=NULL WHERE id=$1::uuid`, reportDispatch); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := pool.Exec(ctx, `CREATE OR REPLACE FUNCTION taskflow.fail_native_report_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.details->>'event_id'='event-rollback' THEN RAISE EXCEPTION 'isolated rollback probe'; END IF; RETURN NEW; END $$`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `CREATE TRIGGER fail_native_report_audit BEFORE INSERT ON activity_log FOR EACH ROW EXECUTE FUNCTION taskflow.fail_native_report_audit()`); err != nil {
+		t.Fatal(err)
+	}
+	rollbackEvent := good
+	rollbackEvent.EventID, rollbackEvent.Sequence = "event-rollback", 2
+	if _, err := h.applyVerifiedNativeAgentReport(ctx, rollbackEvent); err == nil {
+		t.Fatal("injected audit write failure unexpectedly committed")
+	}
+	if _, err := pool.Exec(ctx, `DROP TRIGGER fail_native_report_audit ON activity_log`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DROP FUNCTION taskflow.fail_native_report_audit()`); err != nil {
+		t.Fatal(err)
+	}
+	var afterRollbackRevision int64
+	var afterRollbackComments, afterRollbackAudit int
+	if err := pool.QueryRow(ctx, `SELECT revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&afterRollbackRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&afterRollbackComments, &afterRollbackAudit); err != nil {
+		t.Fatal(err)
+	}
+	if afterRollbackRevision != revision || afterRollbackComments != commentCount || afterRollbackAudit != activityCount {
+		t.Fatalf("failed native audit write left a partial mutation: revision=%d comments=%d audit=%d", afterRollbackRevision, afterRollbackComments, afterRollbackAudit)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET fencing_epoch=2 WHERE id=$1::uuid`, reportDispatch); err != nil {
+		t.Fatal(err)
+	}
+	oldFence := good
+	oldFence.EventID, oldFence.Sequence, oldFence.FencingEpoch = "event-old-fence", 2, 1
+	assertRejected("old fencing epoch after authority advanced", oldFence, errNativeReportScope)
+	// A native user edit between Agent events advances the authoritative Issue
+	// revision. The next Agent event must conflict instead of overwriting it.
+	if _, err := pool.Exec(ctx, `UPDATE issue SET revision=revision+1, updated_at=now() WHERE id=$1::uuid`, reportIssue); err != nil {
+		t.Fatal(err)
+	}
+	var externalRevision int64
+	if err := pool.QueryRow(ctx, `SELECT revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&externalRevision); err != nil {
+		t.Fatal(err)
+	}
+	conflictingEvent := good
+	conflictingEvent.EventID, conflictingEvent.Sequence = "event-native-edit-conflict", 2
+	if _, err := h.applyVerifiedNativeAgentReport(ctx, conflictingEvent); err == nil || err.Error() != errNativeReportVersionConflict.Error() {
+		t.Fatalf("Agent report must reject a native Issue revision conflict: err=%v", err)
+	}
+	var afterConflictRevision int64
+	var afterConflictComments, afterConflictAudit int
+	if err := pool.QueryRow(ctx, `SELECT revision FROM issue WHERE id=$1::uuid`, reportIssue).Scan(&afterConflictRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&afterConflictComments, &afterConflictAudit); err != nil {
+		t.Fatal(err)
+	}
+	if afterConflictRevision != externalRevision || afterConflictComments != commentCount || afterConflictAudit != activityCount {
+		t.Fatalf("version conflict changed native data: revision=%d comments=%d audit=%d", afterConflictRevision, afterConflictComments, afterConflictAudit)
+	}
+}
+
+func validNativeAgentReportEvent() nativeAgentReportEvent {
+	return nativeAgentReportEvent{
+		EventID: "event-progress", DispatchID: reportDispatch, IssueID: reportIssue, WorkspaceID: reportWorkspace,
+		ExecutorID: "CO-01", Provider: "codex", ProviderRunID: "official-run-1", SessionID: "session-1",
+		ProviderAckEventID: "official-ack-1", LeaseID: reportLease, EventType: "progress", FencingEpoch: 1,
+		Sequence: 1, ProgressPercent: 42, HasProgress: true, providerAttestationVerified: true,
+	}
+}
+
+func createNativeAgentReportSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	statements := []string{
+		`CREATE SCHEMA IF NOT EXISTS taskflow`,
+		`CREATE TABLE IF NOT EXISTS taskflow.dispatch_intent (id uuid primary key, lease_id uuid not null, fencing_epoch bigint not null, workspace_id uuid not null, issue_id uuid not null, executor_id text not null, provider text not null, state text not null, provider_run_id text, provider_session_id text, provider_ack_event_id text, lease_expires_at timestamptz not null, stop_requested_at timestamptz, provider_stop_verified boolean not null default false, native_write_state text not null default 'pending', updated_at timestamptz not null default now())`,
+		`CREATE TABLE IF NOT EXISTS agent (id uuid primary key, workspace_id uuid not null, system_key text not null, archived_at timestamptz)`,
+		`CREATE TABLE IF NOT EXISTS project (id uuid primary key, workspace_id uuid not null, lead_type text not null, lead_id uuid not null)`,
+		`CREATE TABLE IF NOT EXISTS issue (id uuid primary key, workspace_id uuid not null, project_id uuid not null, status text not null, revision bigint not null default 1, assignee_type text, assignee_id uuid, updated_at timestamptz not null default now(), last_activity_at timestamptz not null default now())`,
+		`CREATE TABLE IF NOT EXISTS agent_task_queue (id uuid primary key, agent_id uuid not null, issue_id uuid not null, status text not null, result jsonb, created_at timestamptz not null default now())`,
+		`CREATE TABLE IF NOT EXISTS comment (id uuid primary key, issue_id uuid not null, workspace_id uuid not null, author_type text not null, author_id uuid not null, content text not null, type text not null, parent_id uuid, source_task_id uuid, quick_action_id uuid, via_plugin_id uuid, suppressed_agent_ids uuid[] not null default '{}', created_at timestamptz not null default now(), updated_at timestamptz not null default now(), resolved_at timestamptz, resolved_by_type text, resolved_by_id uuid)`,
+		`CREATE TABLE IF NOT EXISTS activity_log (id uuid primary key, workspace_id uuid not null, issue_id uuid, actor_type text, actor_id uuid, action text not null, details jsonb not null default '{}', created_at timestamptz not null default now())`,
+	}
+	for _, statement := range statements {
+		if _, err := pool.Exec(ctx, statement); err != nil {
+			t.Fatalf("create isolated native report schema: %v", err)
+		}
+	}
+}
+
+func seedNativeAgentReportRows(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	for _, cleanup := range []struct {
+		query string
+		args  []any
+	}{
+		{`DELETE FROM taskflow.dispatch_intent WHERE id=$1::uuid`, []any{reportDispatch}},
+		{`DELETE FROM comment WHERE issue_id=$1::uuid`, []any{reportIssue}},
+		{`DELETE FROM activity_log WHERE issue_id=$1::uuid`, []any{reportIssue}},
+		{`DELETE FROM agent_task_queue WHERE issue_id=$1::uuid`, []any{reportIssue}},
+		{`DELETE FROM issue WHERE id=$1::uuid`, []any{reportIssue}},
+		{`DELETE FROM project WHERE id=$1::uuid`, []any{reportProject}},
+		{`DELETE FROM agent WHERE id=$1::uuid`, []any{reportAgent}},
+	} {
+		if _, err := pool.Exec(ctx, cleanup.query, cleanup.args...); err != nil {
+			t.Fatalf("clear isolated native report rows: %v", err)
+		}
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO agent(id,workspace_id,system_key) VALUES ($1::uuid,$2::uuid,'CO-01')`, []any{reportAgent, reportWorkspace}},
+		{`INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ($1::uuid,$2::uuid,'agent',$3::uuid)`, []any{reportProject, reportWorkspace, reportAgent}},
+		{`INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, []any{reportIssue, reportWorkspace, reportProject, reportAgent}},
+		{`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, []any{reportQueue, reportAgent, reportIssue}},
+		{`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','codex','provider_acknowledged','official-run-1','session-1','official-ack-1',now()+interval '5 minutes')`, []any{reportDispatch, reportLease, reportWorkspace, reportIssue}},
+	}
+	for _, stmt := range statements {
+		if _, err := pool.Exec(ctx, stmt.query, stmt.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func containsSensitiveReportText(text string) bool {
+	for _, forbidden := range []string{"private", "contract", "secret", "Checkpoint saved", "Continue review"} {
+		if strings.Contains(strings.ToLower(text), strings.ToLower(forbidden)) {
+			return true
+		}
+	}
+	return false
+}

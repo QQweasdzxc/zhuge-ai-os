@@ -112,29 +112,37 @@ export function validateAgentReportEvent(input, context = {}, now = Date.now()) 
   };
 }
 
-function redact(value) {
-  let result = text(value);
-  for (const pattern of [
-    /(bearer\s+)[^\s,;]+/gi,
-    /(password\s*[=:]\s*)[^\s,;]+/gi,
-    /(secret\s*[=:]\s*)[^\s,;]+/gi,
-    /(api[_-]?key\s*[=:]\s*)[^\s,;]+/gi,
-    /(token\s*[=:]\s*)[^\s,;]+/gi,
-    /(authorization\s*[=:]\s*)[^\s,;]+/gi
-  ]) result = result.replace(pattern, "$1[REDACTED]");
-  return result.slice(0, 2000);
+const protectedDetailFields = Object.freeze([
+  "progress_summary", "question", "blocked_reason", "checkpoint_ref",
+  "stop_evidence", "review_evidence", "completion_evidence", "next_step"
+]);
+
+function reportHasProtectedDetails(event) {
+  return protectedDetailFields.some(field => text(event?.[field]));
 }
 
-function readableReport(event, state) {
+function completeProtectedDetailRefs(event, refs) {
+  if (!reportHasProtectedDetails(event)) return true;
+  if (!refs || typeof refs !== "object") return false;
+  return protectedDetailFields.every(field => !text(event[field]) || (
+    typeof refs[field] === "string" && refs[field].trim().length > 0 &&
+    refs[field].length <= 512 && !/[\r\n]/.test(refs[field])
+  ));
+}
+
+function readableReport(event, state, detailRefs) {
   const labels = {accepted: "Agent 已接單並開始執行", progress: "Agent 工作進度", question_to_cto: "Agent 等待 CTO 回答", blocked: "Agent 回報工程卡關", checkpoint: "Agent 保存 Checkpoint", interrupted_by_pm: "PM 已中斷，Agent 已提交停止回報", review_requested: "Agent 申請 CTO 稽核", completed: "Agent 回報完成，等待 CTO 稽核"};
-  const rows = [`## ${labels[event.type] || "Agent 回報"}`, `狀態：${state}`, `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`, `摘要：${redact(event.progress_summary) || "未提供"}`];
-  if (event.blocked_reason) rows.push(`卡關原因：${redact(event.blocked_reason)}`);
-  if (event.question) rows.push(`需要 CTO 回答：${redact(event.question)}`);
-  if (event.checkpoint_ref) rows.push(`Checkpoint：${redact(event.checkpoint_ref)}`);
-  if (event.stop_evidence) rows.push(`停止證據參照：${redact(event.stop_evidence)}`);
-  if (event.review_evidence) rows.push(`稽核證據：${redact(event.review_evidence)}`);
-  if (event.completion_evidence) rows.push(`完成證據：${redact(event.completion_evidence)}`);
-  rows.push(`下一步：${redact(event.next_step) || "未提供"}`);
+  const rows = [
+    `## ${labels[event.type] || "Agent 回報"}`,
+    `狀態：${state}`,
+    `進度：${event.progress_percent === null ? "未提供" : `${event.progress_percent}%`}`,
+    `詳情：${reportHasProtectedDetails(event) ? "已保存至受保護儲存" : "未提供"}`
+  ];
+  // Never copy Agent-controlled free text into a native Issue comment. The
+  // only persisted detail is the opaque reference in the audit payload.
+  if (reportHasProtectedDetails(event) && !completeProtectedDetailRefs(event, detailRefs)) {
+    throw new Error("protected Agent report detail references are required");
+  }
   return rows.join("\n");
 }
 
@@ -142,13 +150,20 @@ export function buildNativeAgentReportMutation(validation) {
   if (!validation?.accepted || !validation.event) throw new Error("validated Agent report required");
   const event = validation.event;
   const detailRefs = validation.protected_detail_refs && typeof validation.protected_detail_refs === "object" ? validation.protected_detail_refs : null;
+  if (reportHasProtectedDetails(event) && (
+    validation.detail_store_state !== "PROTECTED_STORE" ||
+    !completeProtectedDetailRefs(event, detailRefs)
+  )) throw new Error("protected Agent report details are not persisted");
   const audit = {schema: AGENT_REPORTING_SCHEMA, event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch, type: event.type, issue_id: event.issue_id, workspace_id: event.workspace_id, executor_id: event.executor_id, dispatch_id: event.dispatch_id, provider: event.provider, provider_run_id: event.provider_run_id, session_id: event.session_id, observed_at: event.observed_at, source: event.source, state: validation.state, detail_ref_mode: detailRefs ? "PROTECTED_STORE" : "UNWIRED_NO_REFERENCE", detail_refs: detailRefs};
   return {
     issue_id: event.issue_id, workspace_id: event.workspace_id,
     expected_version: Number.isInteger(validation.expected_version) ? validation.expected_version : null,
     atomic_event_claim: {event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch},
     issue_update: {status: validation.native_status, decision_scope: validation.state === "WAITING_CTO_DECISION" ? "CTO_QUESTION" : validation.state === "REVIEW" ? "CTO_REVIEW" : "AGENT_REPORT"},
-    comment: {type: "comment", content: `${readableReport(event, validation.state)}\n\n---\n稽核識別：${JSON.stringify(audit)}`}, audit
+    // Public Issue comments must not contain Agent-controlled free text,
+    // protected-store references, or correlation/audit payloads. The Native
+    // writer stores audit separately under TaskFlow authority.
+    comment: {type: "comment", content: readableReport(event, validation.state, detailRefs)}, audit
   };
 }
 
@@ -223,6 +238,10 @@ export function createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter, i
 
 export async function commitNativeAgentReport(validation, nativeAdapter) {
   if (!validation?.accepted) return validation || reject("VALIDATION_REQUIRED");
+  if (reportHasProtectedDetails(validation.event) && (
+    validation.detail_store_state !== "PROTECTED_STORE" ||
+    !completeProtectedDetailRefs(validation.event, validation.protected_detail_refs)
+  )) return {accepted: false, state: "BLOCKED", reason: validation.detail_store_state || "DETAIL_STORE_UNWIRED", mutation: null};
   if (!nativeAdapter || typeof nativeAdapter.applyAgentReportMutation !== "function") return {accepted: false, state: "BLOCKED", reason: "NATIVE_MUTATION_ADAPTER_UNWIRED", mutation: buildNativeAgentReportMutation(validation)};
   const mutation = buildNativeAgentReportMutation(validation);
   const result = await nativeAdapter.applyAgentReportMutation(mutation);

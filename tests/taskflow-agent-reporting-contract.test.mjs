@@ -41,26 +41,26 @@ test("only server-bound CTO review can authorize DONE", async () => {
   assert.equal(authorizeCtoCompletion(review, {...base, review_replay_claimed: true}).reason, "REVIEW_EVENT_REPLAY");
 });
 
-test("readable reports contain summary, blockers, questions, checkpoint, stop and next step without secrets", () => {
-  const result = validateAgentReportEvent(event("blocked", {progress_percent: 45, progress_summary: "token=secret-value completed analysis", blocked_reason: "waiting for API", next_step: "ask CTO"}), trustedContext("blocked"), NOW);
-  const mutation = buildNativeAgentReportMutation(result);
+test("public comments contain only safe report metadata; free text stays in protected storage", async () => {
+  const privateText = "confidential unreleased contract details token=secret-value";
+  const result = validateAgentReportEvent(event("blocked", {progress_percent: 45, progress_summary: privateText, blocked_reason: "internal deployment host", next_step: "ask CTO privately"}), trustedContext("blocked"), NOW);
+  assert.throws(() => buildNativeAgentReportMutation(result), /protected Agent report details are not persisted/);
+  const stored = await attachProtectedDetailRefs(result, {putDetail: async ({label}) => ({accepted: true, protected_ref: `opaque-ref-${label}`})}, {authority_scope: "TASKFLOW_AUTHORITY_VERIFIED", server_principal: {verified: true, source: "TASKFLOW_AUTHORITY"}, workspace_acl: "ALLOW", issue_acl: "ALLOW"});
+  const mutation = buildNativeAgentReportMutation(stored);
   assert.match(mutation.comment.content, /工作進度|Agent 回報工程卡關/);
-  assert.match(mutation.comment.content, /摘要：token=\[REDACTED\]/);
-  assert.match(mutation.comment.content, /卡關原因：waiting for API/);
-  assert.match(mutation.comment.content, /下一步：ask CTO/);
-  assert.doesNotMatch(mutation.comment.content, /secret-value/);
-  assert.match(mutation.comment.content, /event-blocked/);
-  assert.match(mutation.comment.content, /run-113/);
-  assert.doesNotMatch(mutation.comment.content, /secret-value/);
+  assert.match(mutation.comment.content, /詳情：已保存至受保護儲存/);
+  assert.doesNotMatch(mutation.comment.content, /confidential|internal deployment|ask CTO privately|secret-value|opaque-ref|event-blocked|run-113|detail_refs/);
+  assert.equal(mutation.audit.detail_ref_mode, "PROTECTED_STORE");
   assert.deepEqual(Object.keys(mutation.audit).sort(), ["detail_ref_mode", "detail_refs", "dispatch_id", "event_id", "executor_id", "fencing_epoch", "issue_id", "observed_at", "provider", "provider_run_id", "schema", "sequence", "session_id", "source", "state", "type", "workspace_id"].sort());
 });
 
-test("full public comment never re-emits credential values in audit JSON", () => {
+test("sensitive free text and protected references never enter a public Issue comment", async () => {
   for (const [label, value] of [["Token", "token=private-token-113"], ["Password", "password=private-password-113"], ["API Key", "api_key=private-api-key-113"], ["Secret", "secret=private-secret-113"]]) {
     const result = validateAgentReportEvent(event("blocked", {progress_summary: `${label} ${value}`, blocked_reason: value, next_step: value, checkpoint_ref: value}), trustedContext("blocked"), NOW);
-    const comment = buildNativeAgentReportMutation(result).comment.content;
-    assert.doesNotMatch(comment, /private-(token|password|api-key|secret)-113/);
-    assert.match(comment, /detail_ref_mode\":\"UNWIRED_NO_REFERENCE/);
+    const stored = await attachProtectedDetailRefs(result, {putDetail: async ({label: field}) => ({accepted: true, protected_ref: `opaque-${field}-${value}`})}, {authority_scope: "TASKFLOW_AUTHORITY_VERIFIED", server_principal: {verified: true, source: "TASKFLOW_AUTHORITY"}, workspace_acl: "ALLOW", issue_acl: "ALLOW"});
+    const mutation = buildNativeAgentReportMutation(stored);
+    assert.doesNotMatch(mutation.comment.content, /private-(token|password|api-key|secret)-113|private-progress|opaque-|detail_refs|detail_ref_mode/);
+    assert.match(JSON.stringify(mutation.audit.detail_refs), /opaque-/);
   }
 });
 
@@ -91,7 +91,7 @@ test("question waits for CTO decision and does not enter review", () => {
   const result = validateAgentReportEvent(event("question_to_cto", {question: "Which scope should I use?"}), trustedContext("question_to_cto"), NOW);
   assert.equal(result.state, "WAITING_CTO_DECISION");
   assert.equal(result.native_status, "blocked");
-  assert.equal(buildNativeAgentReportMutation(result).issue_update.decision_scope, "CTO_QUESTION");
+  assert.throws(() => buildNativeAgentReportMutation(result), /protected Agent report details are not persisted/);
 });
 
 test("native mutation remains blocked without atomic commit evidence", async () => {
@@ -149,7 +149,7 @@ test("native report receiver rejects invalid Provider ACK and unauthorized scope
 test("native report receiver writes protected details before allowing Native Mutation", async () => {
   const order = [];
   const detailStore = {putDetail: async () => { order.push("detail"); return {accepted: true, protected_ref: "vault://event/event-progress"}; }};
-  const nativeAdapter = {applyAgentReportMutation: async mutation => { order.push("native"); return {committed: true, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: true}; }};
+  const nativeAdapter = {applyAgentReportMutation: async mutation => { order.push("native"); assert.doesNotMatch(mutation.comment.content, /進度已保存|vault:\/\//); return {committed: true, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: true}; }};
   const result = await receiveNativeAgentReport({event: event("progress", {progress_percent: 30, progress_summary: "進度已保存"}), context: trustedContext("progress"), now: NOW, detailStore, nativeAdapter});
   assert.equal(result.accepted, true);
   assert.deepEqual(order, ["detail", "native"]);
@@ -168,6 +168,16 @@ test("native report receiver rejects detail write failure and ACL denial without
     assert.equal(result.accepted, false);
     assert.match(result.reason, /DETAIL_(STORE|SCOPE)/);
   }
+});
+
+test("unpersisted arbitrary report detail blocks before Native adapter invocation", async () => {
+  let nativeCalls = 0;
+  const validation = validateAgentReportEvent(event("progress", {progress_summary: "private incident response notes"}), trustedContext("progress"), NOW);
+  const result = await commitNativeAgentReport(validation, {applyAgentReportMutation: async () => { nativeCalls += 1; return {}; }});
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, "DETAIL_STORE_UNWIRED");
+  assert.equal(result.mutation, null);
+  assert.equal(nativeCalls, 0);
 });
 
 test("native report receiver rejects a partial protected-detail store before Native Mutation", async () => {

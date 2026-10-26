@@ -17,6 +17,13 @@ STAGE_SPEC.loader.exec_module(STAGE)
 
 
 class NativeAIReadbackOverlayTests(unittest.TestCase):
+    def test_backend_image_stages_native_reporting_writer_and_runtime_test(self):
+        dockerfile = (ROOT / "labs/taskflow/Dockerfile.backend").read_text()
+        self.assertIn("COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write.go /tmp/taskflow_native_agent_reporting_write.go", dockerfile)
+        self.assertIn("COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write_test.go /tmp/taskflow_native_agent_reporting_write_test.go", dockerfile)
+        self.assertIn("cp /tmp/taskflow_native_agent_reporting_write.go /src/server/internal/handler/taskflow_native_agent_reporting_write.go", dockerfile)
+        self.assertIn("cp /tmp/taskflow_native_agent_reporting_write_test.go /src/server/internal/handler/taskflow_native_agent_reporting_write_test.go", dockerfile)
+
     def test_routes_are_installed_only_in_build_copy_and_guarded_as_human(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -49,6 +56,8 @@ class NativeAIReadbackOverlayTests(unittest.TestCase):
             before = hashlib.sha256((VENDOR / "server/cmd/server/router.go").read_bytes()).hexdigest()
             STAGE.stage(server)
             self.assertTrue((server / "internal/handler/taskflow_native_ai_readback.go").is_file())
+            self.assertTrue((server / "internal/handler/taskflow_native_agent_reporting_write.go").is_file())
+            self.assertTrue((server / "internal/handler/taskflow_native_agent_reporting_write_test.go").is_file())
             self.assertTrue((server / "cmd/taskflow-native-ai-runtime/main_test.go").is_file())
             self.assertIn('r.With(handler.RequireHumanActor).Get("/project-mappings", h.ListZhugeNativeExecutorProjects)', router.read_text())
             self.assertEqual(before, hashlib.sha256((VENDOR / "server/cmd/server/router.go").read_bytes()).hexdigest())
