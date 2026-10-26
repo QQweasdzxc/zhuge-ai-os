@@ -157,6 +157,72 @@ export function hasDispatchEvidence(item) {
   return Boolean(item.workCode || item.provider || item.taskId || item.providerRunId || item.pmDecisionRequired || item.raw?.dispatch_runtime || item.raw?.runtime_read_model || item.raw?.metadata?.[META.workCode] || item.raw?.metadata?.[META.status] || item.raw?.metadata?.[META.executor] || item.raw?.metadata?.[META.pmDecision]);
 }
 
+const NATIVE_MANAGEMENT_STATES = new Set([
+  "INTENT_CREATED", "ASSIGNED", "ACK_PENDING", "RUNNING", "OVERDUE", "BLOCKED",
+  "CANCELLED", "FAILED", "REASSIGN_REVIEW", "REVIEW", "DONE", "UNKNOWN", "PM_ACCEPTED"
+]);
+
+/**
+ * Mutable Issue metadata can nominate an Issue for a protected readback, but it
+ * cannot establish AI ownership. This predicate only accepts the canonical
+ * TaskFlow server read model returned by the protected dispatch-runtime API.
+ */
+export function hasVerifiedNativeAIManagementRecord(issue, runtime) {
+  if (!issue || typeof issue !== "object" || !runtime || typeof runtime !== "object") return false;
+  const issueId = text(issue.id);
+  const issueWorkspace = text(issue.workspace_id || issue.workspace);
+  const runtimeWorkspace = text(runtime.workspace);
+  return Boolean(
+    runtime.schema === CANONICAL_RUNTIME_SCHEMA &&
+    runtimeSource(runtime) === CANONICAL_RUNTIME_SOURCE &&
+    text(runtime.intent_id) &&
+    issueId && text(runtime.issue_id) === issueId &&
+    issueWorkspace && runtimeWorkspace && runtimeWorkspace === issueWorkspace &&
+    normalizeExecutor(runtime.executor_id) &&
+    text(runtime.provider) &&
+    NATIVE_MANAGEMENT_STATES.has(text(runtime.state).toUpperCase().replace(/[- ]/g, "_"))
+  );
+}
+
+/**
+ * Isolated projection contract for a future TaskFlow-native AI Tasks filter.
+ * It expects issue/read-model pairs obtained from a protected server-side
+ * query. It does not inspect metadata, titles, assignees, or GitHub evidence.
+ * Conflicting duplicate snapshots are excluded; identical duplicate native
+ * Issue IDs collapse to one row. This helper is not a replacement for a
+ * backend bulk filter or the TaskFlow native Tasks UI.
+ */
+export function selectVerifiedNativeAIIssues(entries, {workspaceId = ""} = {}) {
+  if (!Array.isArray(entries)) return [];
+  const grouped = new Map();
+  for (const entry of entries) {
+    const issue = entry?.issue;
+    const runtime = entry?.runtime;
+    if (!hasVerifiedNativeAIManagementRecord(issue, runtime)) continue;
+    if (workspaceId && text(issue.workspace_id || issue.workspace) !== text(workspaceId)) continue;
+    const id = text(issue.id);
+    if (!grouped.has(id)) grouped.set(id, []);
+    grouped.get(id).push({issue, runtime});
+  }
+  const selected = [];
+  for (const [issueId, copies] of grouped) {
+    const fingerprints = new Set(copies.map(({issue, runtime}) => JSON.stringify([
+      text(issue.workspace_id || issue.workspace), text(issue.project_id), text(issue.status_id || issue.status),
+      text(runtime.executor_id), text(runtime.state).toUpperCase().replace(/[- ]/g, "_")
+    ])));
+    if (fingerprints.size !== 1) continue;
+    const {issue, runtime} = copies[0];
+    selected.push(Object.freeze({
+      issueId,
+      issue,
+      executorId: normalizeExecutor(runtime.executor_id),
+      nativeStatus: text(issue.status_name || issue.status),
+      runtimeState: text(runtime.state).toUpperCase().replace(/[- ]/g, "_")
+    }));
+  }
+  return selected;
+}
+
 /** Classify only observable workbench evidence for the PM Inbox. This never
  * infers work from a title, GitHub PR, or an HTTP 202 response. */
 export function classifyInboxItem(item) {

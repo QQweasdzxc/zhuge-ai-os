@@ -111,6 +111,11 @@ COPY labs/taskflow/overrides/taskflow-dispatch-logic.d.mts /taskflow-dispatch/ta
 COPY labs/taskflow/pages-client/dispatch-workbench.mjs /taskflow-dispatch/dispatch-workbench.mjs
 RUN python3 /tmp/apply-taskflow-dispatch-center.py --root /src --overlays /taskflow-dispatch --logic /taskflow-dispatch/dispatch-workbench.mjs
 
+# Stage reviewed private Storage patch without modifying frozen vendor.
+COPY labs/taskflow/patches/apply-taskflow-supabase-storage.py /tmp/apply-taskflow-supabase-storage.py
+COPY labs/taskflow/overrides/ /taskflow-storage-overlays/
+RUN python3 /tmp/apply-taskflow-supabase-storage.py --target web --root /src --overlays /taskflow-storage-overlays
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
@@ -155,9 +160,12 @@ RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
+ARG NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES=50000000
+ENV NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES=${NEXT_PUBLIC_TASKFLOW_STORAGE_MAX_BYTES}
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
     STANDALONE=true
+RUN pnpm --filter @multica/core exec vitest run api/taskflow_supabase_storage_client.test.ts
 RUN pnpm --filter @multica/web build
 
 FROM node:22-alpine AS runtime

@@ -18,14 +18,19 @@ on:
       - review/dm00-dm03-phase2-runtime-hardening-20261020
       - review/co01-phase2-integration-20261020
       - review/navigation-only-release-20261023
+      - review/p0-native-ai-operational-20261023
+      - review/p0-functional-consolidation-20261023
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
+      - "version.json"
       - "shared/components/zhuge-navigation.js"
       - "tests/shared-navigation.test.js"
       - "tests/taskflow-entry*.test.js"
       - "tests/taskflow-cli-sso.test.js"
+      - "tests/taskflow-native-dispatch-browser.test.mjs"
       - ".github/workflows/taskflow-build-parity.yml"
+      - "integrations/habblaud/smoke.mjs"
   workflow_dispatch:
 
 permissions:
@@ -37,7 +42,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Release Governance compares this candidate with origin/main and
+          # verifies ancestry. A shallow checkout makes a real ancestor look
+          # divergent even after fetching the main ref.
+          fetch-depth: 0
       - name: Check patch whitespace
         run: git diff HEAD^ HEAD --check
       - name: Verify TaskFlow overlay and fail-closed patch contract
@@ -46,6 +54,15 @@ jobs:
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
       - name: Verify Phase 2 runtime contracts
         run: node --test tests/taskflow-phase2-dispatch-runtime.test.mjs tests/taskflow-native-persistence-adapter.test.mjs tests/taskflow-pages-client-api.test.mjs tests/taskflow-phase2-runtime-read-model.test.mjs
+
+      - name: Verify inherited reporting/native reuse and protected-store contracts
+        run: node --test tests/native-project-task-reuse-contract.test.js tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-detail-store-browser-boundary.test.mjs tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-server-protected-detail-store.test.mjs
+      - name: Verify isolated Cloud Handoff lease, CAS and provider STOP contracts
+        run: node --test tests/cloud-handoff-*.test.mjs
+      - name: Fetch exact main baseline for release-governance comparison
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      - name: Verify formal release version and source identity (no deploy)
+        run: node tools/release-governance.js preflight
 
   backend-image:
     runs-on: ubuntu-latest
@@ -112,6 +129,10 @@ jobs:
         working-directory: third_party/multica/server
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
@@ -124,16 +145,246 @@ jobs:
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch_test.go internal/handler/taskflow_cto_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route.go internal/handler/taskflow_provider_route.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route_test.go internal/handler/taskflow_provider_route_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_authority.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres_test.go internal/handler/taskflow_native_dispatch_postgres_test.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime_test.go internal/handler/taskflow_dispatch_runtime_test.go
+          python3 ../../../labs/taskflow/patches/apply-taskflow-native-ai-readback.py
+          cp ../../../labs/taskflow/overrides/taskflow_native_ai_readback.go internal/handler/taskflow_native_ai_readback.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_agent_report_ingress.go internal/handler/taskflow_native_agent_report_ingress.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
           gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
           gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
-          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go)"
+          gofmt -w internal/handler/taskflow_native_ai_readback.go
+          gofmt -w internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_report_ingress.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_report_ingress.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...
       - name: Build backend binaries
         run: |
           CGO_ENABLED=0 go build ./cmd/server
           CGO_ENABLED=0 go build ./cmd/multica
+
+  native-ai-postgres-runtime:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: taskflow_native_ai_test
+          POSTGRES_USER: taskflow_native_ai_ci
+          POSTGRES_PASSWORD: isolated-ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskflow_native_ai_ci -d taskflow_native_ai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Stage TaskFlow-owned readback and reporting adapter tests into a temporary vendor copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/multica"
+          cp -a third_party/multica/server "$RUNNER_TEMP/multica/server"
+          python3 labs/taskflow/patches/stage-taskflow-native-ai-runtime.py \
+            --server-root "$RUNNER_TEMP/multica/server"
+          cd "$RUNNER_TEMP/multica/server"
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write_test.go cmd/taskflow-native-ai-runtime/*.go
+          TASKFLOW_NATIVE_AI_DATABASE_URL='postgres://taskflow_native_ai_ci:isolated-ci-only-password@127.0.0.1:5432/taskflow_native_ai_test?sslmode=disable' \
+            go test ./cmd/taskflow-native-ai-runtime -count=1 -v
+          TASKFLOW_NATIVE_AI_DATABASE_URL='postgres://taskflow_native_ai_ci:isolated-ci-only-password@127.0.0.1:5432/taskflow_native_ai_test?sslmode=disable' \
+          TASKFLOW_NATIVE_AI_REPORTING_TEST_ONLY=1 \
+            go test ./internal/handler -run '^TestTaskFlowNativeAgentReportWritePostgres16$' -count=1 -v
+
+  postgres-native-authority:
+    name: PostgreSQL 16 Native Authority integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checkout SHA
+        run: test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - name: Run assertive PostgreSQL 16 isolation tests
+        run: python3 -B labs/taskflow/tests/test_native_dispatch_authority_postgres.py
+
+  issue42-install-runner:
+    name: Issue 42 one-shot runner PostgreSQL 16 runtime
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bootstrap
+          POSTGRES_PASSWORD: ci-bootstrap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bootstrap"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch and assert the reviewed SQL commit
+        run: |
+          git fetch --no-tags origin 50b716e38fe2703607fe19880f60c298c7af1bac
+          test "$(git cat-file -t 50b716e38fe2703607fe19880f60c298c7af1bac)" = commit
+      - name: Create isolated migrator fixture and preserve runtime ACL baseline
+        env:
+          PGPASSWORD: ci-bootstrap
+        run: |
+          psql -h 127.0.0.1 -U bootstrap -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE postgres NOLOGIN NOSUPERUSER NOBYPASSRLS;
+          CREATE ROLE taskflow_migrator LOGIN PASSWORD 'migrator-ci';
+          CREATE ROLE taskflow_runtime LOGIN PASSWORD 'runtime-ci';
+          CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
+          CREATE SCHEMA extensions;
+          GRANT USAGE ON SCHEMA extensions TO taskflow_migrator;
+          CREATE SCHEMA taskflow AUTHORIZATION taskflow_migrator;
+          GRANT USAGE ON SCHEMA taskflow TO postgres, taskflow_runtime;
+          GRANT USAGE, CREATE ON SCHEMA taskflow TO taskflow_migrator;
+          CREATE TABLE taskflow.issue (id uuid primary key, workspace_id uuid);
+          ALTER TABLE taskflow.issue OWNER TO taskflow_migrator;
+          GRANT INSERT, UPDATE ON taskflow.issue TO taskflow_runtime;
+          SQL
+          psql -h 127.0.0.1 -U bootstrap -d postgres -Atc "SELECT 'ACL_BASELINE runtime_issue_insert='||has_table_privilege('taskflow_runtime','taskflow.issue','INSERT')||' runtime_issue_update='||has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')||' connector_schema_usage='||has_schema_privilege('postgres','taskflow','USAGE')"
+          cat > "$RUNNER_TEMP/pg_service.conf" <<'EOF'
+          [taskflow_migrator]
+          host=127.0.0.1
+          port=5432
+          dbname=postgres
+          user=taskflow_migrator
+          password=migrator-ci
+          options=-c search_path=taskflow,extensions
+          EOF
+      - name: Execute the real SHA-locked runner (no other migrations)
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: taskflow_migrator
+          PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
+        run: sh labs/taskflow/overrides/issue42-install-once.sh
+      - name: Execute the same runner a second time and compare ACL/function snapshots
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: taskflow_migrator
+          PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
+          PGPASSWORD: ci-bootstrap
+        run: |
+          psql -h 127.0.0.1 -U bootstrap -d postgres -Atc "SELECT p.proname,pg_get_userbyid(p.proowner),p.prosecdef,coalesce(array_to_string(p.proconfig,','),'NULL') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue') ORDER BY 1; SELECT pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request'; SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'),has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$RUNNER_TEMP/m1a-before-second.txt"
+          sh labs/taskflow/overrides/issue42-install-once.sh
+          psql -h 127.0.0.1 -U bootstrap -d postgres -Atc "SELECT p.proname,pg_get_userbyid(p.proowner),p.prosecdef,coalesce(array_to_string(p.proconfig,','),'NULL') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='taskflow' AND p.proname IN ('sb_connector_create_issue','sb_connector_update_issue') ORDER BY 1; SELECT pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='taskflow' AND c.relname='sb_connector_issue_request'; SELECT has_table_privilege('taskflow_runtime','taskflow.issue','INSERT'),has_table_privilege('taskflow_runtime','taskflow.issue','UPDATE')" > "$RUNNER_TEMP/m1a-after-second.txt"
+          diff -u "$RUNNER_TEMP/m1a-before-second.txt" "$RUNNER_TEMP/m1a-after-second.txt"
+      - name: Verify wrong identity, wrong SHA and permission failures
+        env:
+          PGSERVICEFILE: ${{ runner.temp }}/pg_service.conf
+          TASKFLOW_MIGRATION_PG_SERVICE: taskflow_migrator
+        run: |
+          sed 's/50b716e38fe2703607fe19880f60c298c7af1bac/0000000000000000000000000000000000000000/' labs/taskflow/overrides/issue42-install-once.sh > "$RUNNER_TEMP/wrong-sha.sh"
+          ! sh "$RUNNER_TEMP/wrong-sha.sh"
+          cat > "$RUNNER_TEMP/postgres.service" <<'EOF'
+          [postgres]
+          host=127.0.0.1
+          port=5432
+          dbname=postgres
+          user=bootstrap
+          password=ci-bootstrap
+          options=-c search_path=taskflow,extensions
+          EOF
+          ! env TASKFLOW_MIGRATION_PG_SERVICE=postgres PGSERVICEFILE="$RUNNER_TEMP/postgres.service" sh labs/taskflow/overrides/issue42-install-once.sh
+          PGPASSWORD=ci-bootstrap psql -h 127.0.0.1 -U bootstrap -d postgres -v ON_ERROR_STOP=1 -c 'REVOKE CREATE ON SCHEMA taskflow FROM taskflow_migrator'
+          ! sh labs/taskflow/overrides/issue42-install-once.sh
+          PGPASSWORD=ci-bootstrap psql -h 127.0.0.1 -U bootstrap -d postgres -c 'GRANT CREATE ON SCHEMA taskflow TO taskflow_migrator'
+      - name: Assert installation created no Issue card
+        env:
+          PGPASSWORD: ci-bootstrap
+        run: |
+          test "$(psql -h 127.0.0.1 -U bootstrap -d postgres -Atc 'SELECT count(*) FROM taskflow.issue')" = 0
+          test "$(psql -h 127.0.0.1 -U bootstrap -d postgres -Atc 'SELECT count(*) FROM taskflow.sb_connector_issue_request')" = 0
+
+  issue42-backup-postgres17:
+    name: Issue 42 BACKUP ONLY PostgreSQL 17 restore and Drive API contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact candidate and Docker runtime
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          docker info --format '{{.ServerVersion}}' >/dev/null
+      - name: Install PostgreSQL 17 client from verified package sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$RUNNER_TEMP/pgdg.asc"
+          fingerprint="$(gpg --show-keys --with-colons "$RUNNER_TEMP/pgdg.asc" | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test "$fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -d -m 0755 /usr/share/keyrings
+          gpg --dearmor --output "$RUNNER_TEMP/pgdg.gpg" "$RUNNER_TEMP/pgdg.asc"
+          sudo install -m 0644 "$RUNNER_TEMP/pgdg.gpg" /usr/share/keyrings/postgresql.gpg
+          . /etc/os-release
+          printf 'deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/postgresql-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          pg17_bin=/usr/lib/postgresql/17/bin
+          test -x "$pg17_bin/pg_dump"
+          test -x "$pg17_bin/pg_restore"
+          dump_version="$("$pg17_bin/pg_dump" --version)"
+          restore_version="$("$pg17_bin/pg_restore" --version)"
+          [[ "$dump_version" == *"(PostgreSQL) 17."* ]]
+          [[ "$restore_version" == *"(PostgreSQL) 17."* ]]
+          printf '%s\n' "$pg17_bin" >> "$GITHUB_PATH"
+      - name: Run the real synthetic PostgreSQL 17 backup, restore, and Drive readback test
+        env:
+          TASKFLOW_BACKUP_CI_REQUIRED: "1"
+        run: python3 -B -m unittest discover -s labs/taskflow/tests -p 'test_issue42_backup_only_postgres.py' -v
+
+  attachment-lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: taskflow-ci-postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Test lifecycle, intent gateway and durable retry contracts
+        run: node --test labs/attachments/tests/*.test.*
+      - name: Real PostgreSQL concurrent reopen versus claim
+        run: node labs/attachments/tests/postgres-concurrency.cjs
+      - name: Test real preflight, restricted roles and bucket RLS
+        env:
+          TASKFLOW_STORAGE_TEST_DATABASE_URL: postgresql://localhost/isolated-ci
+        run: bash labs/taskflow/tests/test_taskflow_supabase_storage_sql.sh
+      - name: Frozen vendor stays unchanged
+        run: git diff --exit-code -- third_party/multica

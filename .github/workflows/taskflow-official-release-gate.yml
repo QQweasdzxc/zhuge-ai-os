@@ -5,11 +5,315 @@ on:
     branches:
       - release/taskflow-ai-visible-20261016
   workflow_dispatch:
-
+    inputs:
+      issue42_install_only:
+        description: Run the reviewed Issue #42 INSTALL ONLY operation.
+        type: boolean
+        required: false
+        default: false
+      issue42_backup_only:
+        description: Run BACKUP ONLY for the TaskFlow schema; never install SQL.
+        type: boolean
+        required: false
+        default: false
+      expected_candidate_sha:
+        description: Exact review candidate SHA shown in the preflight.
+        type: string
+        required: false
 permissions:
   contents: read
 
 jobs:
+  issue42-install-preflight:
+    name: Issue #42 production install preflight (read-only)
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.issue42_install_only == true || inputs.issue42_backup_only == true) && inputs.issue42_install_only != inputs.issue42_backup_only }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Require the reviewed candidate branch and exact SHA
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+          ISSUE42_INSTALL_ONLY: ${{ inputs.issue42_install_only }}
+          ISSUE42_BACKUP_ONLY: ${{ inputs.issue42_backup_only }}
+        run: |
+          set -euo pipefail
+          test "$ISSUE42_INSTALL_ONLY" != "$ISSUE42_BACKUP_ONLY" || { echo 'BLOCKED: choose exactly one Issue #42 operation' >&2; exit 1; }
+          test "$ISSUE42_INSTALL_ONLY" = true -o "$ISSUE42_BACKUP_ONLY" = true || { echo 'BLOCKED: select BACKUP ONLY or INSTALL ONLY' >&2; exit 1; }
+          test "$GITHUB_REF" = "refs/heads/review/p0-functional-consolidation-20261023"
+          [[ "$EXPECTED_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor origin/main "$EXPECTED_CANDIDATE_SHA"
+          git diff --check origin/main..."$EXPECTED_CANDIDATE_SHA"
+          echo "candidate_sha=$EXPECTED_CANDIDATE_SHA"
+          node -e 'const v=require("./version.json"); console.log(`candidate_version=${v.version} candidate_build=${v.build}`)'
+      - name: Verify the exact reviewed Issue #42 SQL and runner pins
+        run: |
+          set -euo pipefail
+          sql_commit=50b716e38fe2703607fe19880f60c298c7af1bac
+          sql_path=labs/taskflow/sql/issue42_connector_create_issue_candidate.sql
+          sql_sha=b2a8fa1f986efab3e27997fd02b04613fef3d31aea68665f77192ba8a227b6cc
+          git fetch --no-tags origin "$sql_commit"
+          test "$(git cat-file -t "$sql_commit")" = commit
+          git show "$sql_commit:$sql_path" > "$RUNNER_TEMP/issue42-reviewed.sql"
+          printf '%s  %s\n' "$sql_sha" "$RUNNER_TEMP/issue42-reviewed.sql" | sha256sum --check --status
+          printf '%s  %s\n' "$sql_sha" "$sql_path" | sha256sum --check --status
+          grep -F "EXPECTED_SHA=$sql_commit" labs/taskflow/overrides/issue42-install-once.sh >/dev/null
+          grep -F "EXPECTED_FILE_SHA=$sql_sha" labs/taskflow/overrides/issue42-install-once.sh >/dev/null
+          ! grep -F '/app/migrate up' labs/taskflow/overrides/issue42-install-once.sh
+          echo 'issue42_sql_source_pin=PASS'
+      - name: Require the existing migration environment to have human approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments?per_page=100" > "$RUNNER_TEMP/production-migration-environments.json"
+          node --input-type=commonjs - "$RUNNER_TEMP/production-migration-environments.json" <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const environment = (payload.environments || []).find((entry) => entry.name === 'production-migration');
+          const protectedByReviewer = Boolean(environment) && (environment.protection_rules || []).some((rule) =>
+            rule.type === 'required_reviewers' && Array.isArray(rule.reviewers) && rule.reviewers.length > 0
+          );
+          if (!protectedByReviewer) process.exit(1);
+          console.log('production_migration_environment_reviewer_gate=PASS');
+          NODE
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/taskflow-build-parity.yml/runs?head_sha=$EXPECTED_CANDIDATE_SHA&per_page=100" > "$RUNNER_TEMP/taskflow-build-parity-runs.json"
+          node --input-type=commonjs - "$RUNNER_TEMP/taskflow-build-parity-runs.json" "$EXPECTED_CANDIDATE_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const expectedSha = process.argv[3];
+          const passed = (payload.workflow_runs || []).some((run) =>
+            run.head_sha === expectedSha &&
+            run.head_branch === 'review/p0-functional-consolidation-20261023' &&
+            run.status === 'completed' &&
+            run.conclusion === 'success'
+          );
+          if (!passed) process.exit(1);
+          console.log('exact_sha_taskflow_build_parity=PASS');
+          NODE
+
+  issue42-install-only:
+    name: Issue #42 INSTALL ONLY (no Canary)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_install_only == true && inputs.issue42_backup_only != true }}
+    needs: [issue42-install-preflight, source-identity, browser, fullsource]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: production-migration
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Require owner-authorized Drive user OAuth configuration
+        env:
+          DRIVE_OAUTH_EMAIL: ${{ vars.TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL }}
+          DRIVE_OAUTH_CLIENT_ID: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID }}
+          DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET }}
+          DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$DRIVE_OAUTH_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo 'BLOCKED: expected Drive owner identity is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_CLIENT_ID" || { echo 'BLOCKED: Drive OAuth client ID is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_CLIENT_SECRET" || { echo 'BLOCKED: Drive OAuth client secret is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_REFRESH_TOKEN" || { echo 'BLOCKED: Drive OAuth refresh token is not configured' >&2; exit 1; }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set exact candidate identity for backup verification
+        run: node -e 'const v=require("./version.json"); process.stdout.write("CANDIDATE_VERSION="+v.version+"\nCANDIDATE_BUILD="+v.build+"\n")' >> "$GITHUB_ENV"
+      - name: Verify matching PostgreSQL 17 backup exists in the approved private My Drive folder
+        env:
+          TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL: ${{ vars.TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN }}
+        run: python labs/taskflow/overrides/issue42-backup-drive-upload.py --verify-candidate-backup
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          psql --version
+      - name: Prepare the restricted libpq service file and verify target identity
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: ${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}
+          TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT: ${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}
+        run: |
+          set -euo pipefail
+          service="$TASKFLOW_MIGRATION_PG_SERVICE"
+          case "$service" in
+            ''|*[!A-Za-z0-9_.-]*) echo 'BLOCKED: invalid TaskFlow migration service name' >&2; exit 1 ;;
+          esac
+          test "${#service}" -le 63 || { echo 'BLOCKED: invalid TaskFlow migration service name' >&2; exit 1; }
+          test -n "$TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT" || { echo 'BLOCKED: migration service file is not configured' >&2; exit 1; }
+          test "${#TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT}" -le 65536 || { echo 'BLOCKED: migration service file exceeds the allowed size' >&2; exit 1; }
+          umask 077
+          service_file="$RUNNER_TEMP/taskflow-migrator-pg-service.conf"
+          printf '%s' "$TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT" > "$service_file"
+          chmod 600 "$service_file"
+          python3 - "$service_file" "$service" <<'PY'
+          import configparser, sys
+          path, name = sys.argv[1], sys.argv[2]
+          parser = configparser.RawConfigParser(interpolation=None, strict=True)
+          try:
+              with open(path, encoding='utf-8') as handle:
+                  parser.read_file(handle)
+              if parser.sections() != [name]: raise ValueError()
+              section = parser[name]
+              allowed = {'host', 'port', 'dbname', 'user', 'password', 'sslmode', 'sslrootcert', 'connect_timeout'}
+              if set(section.keys()) - allowed: raise ValueError()
+              expected = {
+                  'host': 'db.lenpbbhwxyyfwgvjcozf.supabase.co',
+                  'port': '5432',
+                  'dbname': 'postgres',
+                  'user': 'taskflow_migrator',
+                  'sslmode': 'verify-full',
+              }
+              for key, value in expected.items():
+                  if section.get(key) != value: raise ValueError()
+              if not section.get('password'): raise ValueError()
+          except Exception:
+              print('BLOCKED: migration connection target or identity does not match the reviewed TaskFlow project', file=sys.stderr)
+              raise SystemExit(1)
+          PY
+          identity="$(PGSERVICEFILE="$service_file" PGSERVICE="$service" psql -X -qAt -v ON_ERROR_STOP=1 -c "SELECT session_user || '|' || current_user || '|' || current_database()")"
+          test "$identity" = 'taskflow_migrator|taskflow_migrator|postgres' || { echo 'BLOCKED: live PostgreSQL identity check failed' >&2; exit 1; }
+          printf 'PGSERVICEFILE=%s\n' "$service_file" >> "$GITHUB_ENV"
+          printf 'TASKFLOW_MIGRATION_PG_SERVICE=%s\n' "$service" >> "$GITHUB_ENV"
+          echo 'migrator_identity_and_target=PASS'
+      - name: Run only the SHA-locked Issue #42 installer
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/review/p0-functional-consolidation-20261023"
+          test "$GITHUB_SHA" = "$EXPECTED_CANDIDATE_SHA"
+          git fetch --no-tags origin 50b716e38fe2703607fe19880f60c298c7af1bac
+          test "$(git cat-file -t 50b716e38fe2703607fe19880f60c298c7af1bac)" = commit
+          result=''
+          if result="$(sh labs/taskflow/overrides/issue42-install-once.sh 2>&1)"; then
+            case "$result" in
+              *ISSUE42_INSTALL_ONLY_READY*|*ISSUE42_ALREADY_INSTALLED*) ;;
+              *) echo 'INSTALL FAILED: the runner did not return an accepted INSTALL ONLY result' >&2; exit 1 ;;
+            esac
+            printf '%s\n' "$result"
+            echo 'No Canary card was created by this job.'
+          else
+            status=$?
+            case "$result" in
+              *INSTALLED_BUT_POSTFLIGHT_FAILED*) echo 'INSTALL COMMITTED, POSTFLIGHT FAILED; no rollback is claimed.' >&2 ;;
+              *) echo 'INSTALL FAILED; inspect the protected job log and database state before any retry.' >&2 ;;
+            esac
+            exit "$status"
+          fi
+
+  issue42-backup-only:
+    name: TaskFlow schema BACKUP ONLY (private Drive; no SQL install)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.issue42_backup_only == true && inputs.issue42_install_only != true }}
+    needs: [issue42-install-preflight, source-identity, browser, fullsource]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres-restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: backup-restore-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    environment:
+      name: production-migration
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Require owner-authorized Drive user OAuth configuration
+        env:
+          DRIVE_OAUTH_EMAIL: ${{ vars.TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL }}
+          DRIVE_OAUTH_CLIENT_ID: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID }}
+          DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET }}
+          DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$DRIVE_OAUTH_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo 'BLOCKED: expected Drive owner identity is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_CLIENT_ID" || { echo 'BLOCKED: Drive OAuth client ID is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_CLIENT_SECRET" || { echo 'BLOCKED: Drive OAuth client secret is not configured' >&2; exit 1; }
+          test -n "$DRIVE_OAUTH_REFRESH_TOKEN" || { echo 'BLOCKED: Drive OAuth refresh token is not configured' >&2; exit 1; }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL 17 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/pgdg.asc
+          fingerprint="$(gpg --show-keys --with-colons /tmp/pgdg.asc | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test "$fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -d -m 0755 /usr/share/keyrings
+          gpg --dearmor --output /tmp/pgdg.gpg /tmp/pgdg.asc
+          sudo install -m 0644 /tmp/pgdg.gpg /usr/share/keyrings/postgresql.gpg
+          . /etc/os-release
+          printf 'deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/postgresql-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          pg17_bin=/usr/lib/postgresql/17/bin
+          test -x "$pg17_bin/pg_dump"
+          test -x "$pg17_bin/pg_restore"
+          dump_version="$("$pg17_bin/pg_dump" --version)"
+          restore_version="$("$pg17_bin/pg_restore" --version)"
+          [[ "$dump_version" == *"(PostgreSQL) 17."* ]]
+          [[ "$restore_version" == *"(PostgreSQL) 17."* ]]
+          printf '%s\n' "$pg17_bin" >> "$GITHUB_PATH"
+      - name: Confirm exact candidate identity for the backup manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node -e 'const v=require("./version.json"); process.stdout.write("CANDIDATE_VERSION="+v.version+"\nCANDIDATE_BUILD="+v.build+"\n")' >> "$GITHUB_ENV"
+      - name: Create, restore-verify, and upload the TaskFlow schema backup
+        env:
+          TASKFLOW_MIGRATION_PG_SERVICE: ${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}
+          TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT: ${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL: ${{ vars.TASKFLOW_BACKUP_DRIVE_OAUTH_EMAIL }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_ID }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_CLIENT_SECRET }}
+          TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN: ${{ secrets.TASKFLOW_BACKUP_DRIVE_OAUTH_REFRESH_TOKEN }}
+          TASKFLOW_BACKUP_EXPECTED_HOST: db.lenpbbhwxyyfwgvjcozf.supabase.co
+          TASKFLOW_BACKUP_EXPECTED_USER: taskflow_migrator
+          TASKFLOW_BACKUP_EXPECTED_DATABASE: postgres
+          TASKFLOW_BACKUP_RESTORE_PG_SERVICE: taskflow_restore
+          TASKFLOW_BACKUP_RESTORE_PGSERVICEFILE_CONTENT: |
+            [taskflow_restore]
+            host=127.0.0.1
+            port=5432
+            dbname=postgres
+            user=postgres
+            password=backup-restore-ci-only
+            sslmode=disable
+          TASKFLOW_BACKUP_OUTPUT_DIR: ${{ runner.temp }}/issue42-taskflow-backup
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash labs/taskflow/overrides/issue42-backup-only.sh
+      - name: Remove any remaining temporary TaskFlow backup files
+        if: always()
+        run: rm -rf -- "${{ runner.temp }}/issue42-taskflow-backup"
+
   source-identity:
     name: Identity, Overlay, and source regression
     runs-on: ubuntu-latest

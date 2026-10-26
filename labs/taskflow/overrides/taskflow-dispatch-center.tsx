@@ -5,59 +5,120 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@multica/core/api";
 import { useCurrentWorkspace, useWorkspacePaths, useWorkspaceSlug } from "@multica/core/paths";
 import { AppLink } from "../navigation";
-import { DISPATCH_EXECUTORS, normalizeDispatchIssue, hasDispatchEvidence, buildPmInboxEntries, nativeTaskStateKey, nativeTaskStateLabel } from "./taskflow-dispatch-logic.mjs";
+import { DISPATCH_EXECUTORS, normalizeDispatchIssue, nativeTaskStateKey, nativeTaskStateLabel } from "./taskflow-dispatch-logic.mjs";
 
 const PAGE_SIZE = 20;
-const stateLabels: Record<string, string> = { UNKNOWN: "未驗證", STALE: "觀測已過期", BLOCKED: "工程阻擋", FAILED: "失敗", DONE: "完成", ACK_PENDING: "等待 Provider 接單", RUNNING: "正在執行", CANCELLED: "已取消", REVIEW: "待驗收" };
+const DISPLAY_SIZE = 20;
+const MAP_SCHEMA = "taskflow-native-executor-project-mapping-v1";
+const MAP_SOURCE = "TASKFLOW_NATIVE_EXECUTOR_REGISTRY";
+const TASK_SCHEMA = "taskflow-native-ai-task-readback-v1";
+const TASK_SOURCE = "TASKFLOW_NATIVE_ISSUE_AGENT_QUEUE";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const stateLabels: Record<string, string> = { UNKNOWN: "未驗證", UNVERIFIED: "未驗證", STALE: "觀測已過期", BLOCKED: "工程阻擋", FAILED: "失敗", DONE: "完成", ACK_PENDING: "等待 Provider 接單", RUNNING: "正在執行", CANCELLED: "已取消", REVIEW: "待驗收" };
 const panel = "min-w-0 rounded-lg border bg-card p-4 text-card-foreground";
 
-type WorkspaceIssues = { issues: any[]; total: number; complete: boolean; observedAt: string };
+type NativeProjectMapping = {
+  executor_id: string;
+  state: "VERIFIED" | "GAP";
+  reason: string;
+  project_id: string;
+  project_title: string;
+  workspace_id: string;
+  workspace_access: string;
+  project_access: string;
+  source: string;
+};
+type NativeAITask = {
+  issue_id: string;
+  workspace_id: string;
+  project_id: string;
+  project_title: string;
+  title: string;
+  issue_status: string;
+  executor_id: string;
+  taskflow_task_id: string;
+  taskflow_task_status: string;
+  provider_runtime_state: "UNVERIFIED";
+  provider_ack: "UNVERIFIED";
+  updated_at: string;
+};
+type Readback = { mappings: NativeProjectMapping[]; tasks: NativeAITask[]; total: number; observedAt: string };
 
-/** Read all permitted pages; fail closed on observable drift. Native offset
- * pagination has NO snapshot token: successful reads remain non-atomic. */
-async function listAllWorkspaceIssues(workspaceId: string): Promise<WorkspaceIssues> {
-  const issues: any[] = [];
-  const seen = new Set<string>();
-  let offset = 0;
-  let expectedTotal: number | null = null;
-  while (true) {
-    const response = await api.listIssues({ workspace_id: workspaceId, limit: PAGE_SIZE, offset });
-    const total = response?.total;
-    const page = response?.issues;
-    if (!Array.isArray(page) || page.length > PAGE_SIZE)
-      throw new Error("案件分頁資料與總數不一致");
-    // Workspace mismatch takes priority over a malformed/missing count: do not
-    // mask authorization and identity errors as a pagination problem.
-    for (const issue of page) {
-      if (!issue?.id || issue.workspace_id !== workspaceId) throw new Error("案件工作空間不一致");
-    }
-    if (!Number.isSafeInteger(total) || total < 0)
-      throw new Error("案件分頁資料與總數不一致");
-    if (expectedTotal !== null && total !== expectedTotal)
-      throw new Error("案件總數於分頁讀取期間變動，請重新整理");
-    expectedTotal = total;
-    if (page.length > total - offset)
-      throw new Error("案件分頁資料與總數不一致");
-    if (page.length < Math.min(PAGE_SIZE, total - offset))
-      throw new Error("案件分頁提早結束或數量不一致，無法顯示全量統計");
-    for (const issue of page) {
-      if (seen.has(issue.id)) throw new Error("案件分頁重複，工作總覽未完成");
-      seen.add(issue.id);
-      issues.push(issue);
-    }
-    offset += page.length;
-    if (offset === total) break;
-  }
-  return { issues, total: expectedTotal!, complete: true, observedAt: new Date().toISOString() };
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID.test(value);
 }
 
-function workloadState(assigned: any[]): string {
-  if (!assigned.length) return "本次讀取未發現指派的 TF 工作；Provider 是否在線仍未驗證";
-  if (assigned.some(item => item.status === "RUNNING")) return "已驗證 Provider 執行中";
-  if (assigned.some(item => ["IN_PROGRESS", "RUNNING"].includes(nativeTaskStateKey(item)))) return "有 TF 進行中的工作；Provider 未驗證";
-  if (assigned.every(item => ["UNKNOWN", "UNVERIFIED"].includes(item.status))) return "TF 有工作；Provider Runtime 未驗證";
-  if (assigned.some(item => item.status === "STALE")) return "觀測已過期";
-  return "目前無可驗證的執行中案件";
+function verifyMappings(envelope: any, workspaceId: string): NativeProjectMapping[] {
+  if (!envelope || envelope.schema !== MAP_SCHEMA || envelope.source !== MAP_SOURCE || envelope.workspace_id !== workspaceId || !Array.isArray(envelope.mappings)) {
+    throw new Error("TaskFlow 原生 Executor／Project 權威資料格式或 Workspace 不一致");
+  }
+  if (envelope.mappings.length !== DISPATCH_EXECUTORS.length) throw new Error("TaskFlow 原生 Executor 對應數量不完整");
+  const checkedAt = Date.parse(envelope.checked_at || "");
+  if (!Number.isFinite(checkedAt) || checkedAt > Date.now() || Date.now() - checkedAt > 5 * 60 * 1000) {
+    throw new Error("TaskFlow 原生 Project 對應資料已過期，請重新整理");
+  }
+  const counts = new Map<string, number>();
+  for (const row of envelope.mappings) {
+    if (row && typeof row.executor_id === "string") counts.set(row.executor_id, (counts.get(row.executor_id) || 0) + 1);
+  }
+  const mappings = DISPATCH_EXECUTORS.map(executorId => {
+    const matches = envelope.mappings.filter((row: any) => row?.executor_id === executorId);
+    if (matches.length !== 1 || counts.get(executorId) !== 1) {
+      return { executor_id: executorId, state: "GAP", reason: "DUPLICATE_OR_MISSING_EXECUTOR_MAPPING", project_id: "", project_title: "", workspace_id: workspaceId, workspace_access: "UNVERIFIED", project_access: "UNVERIFIED", source: MAP_SOURCE } as NativeProjectMapping;
+    }
+    const row = matches[0] as NativeProjectMapping;
+    if (row.state !== "VERIFIED") return { ...row, state: "GAP" as const, project_id: "" };
+    if (row.source !== MAP_SOURCE || row.workspace_id !== workspaceId || row.workspace_access !== "ALLOW" || row.project_access !== "ALLOW" || !isUuid(row.project_id) || typeof row.project_title !== "string" || !row.project_title.trim()) {
+      return { ...row, state: "GAP" as const, reason: "NATIVE_PROJECT_OR_ACL_UNVERIFIED", project_id: "" };
+    }
+    return row;
+  });
+  const verifiedProjectCounts = new Map<string, number>();
+  for (const row of mappings) if (row.state === "VERIFIED") verifiedProjectCounts.set(row.project_id.toLowerCase(), (verifiedProjectCounts.get(row.project_id.toLowerCase()) || 0) + 1);
+  return mappings.map(row => row.state === "VERIFIED" && verifiedProjectCounts.get(row.project_id.toLowerCase()) !== 1
+    ? { ...row, state: "GAP", reason: "DUPLICATE_PROJECT_BINDING", project_id: "" }
+    : row);
+}
+
+async function readAllNativeAITasks(workspaceSlug: string, workspaceId: string, mappings: NativeProjectMapping[]) {
+  const tasks: NativeAITask[] = [];
+  const seen = new Set<string>();
+  let total: number | null = null;
+  let offset = 0;
+  while (true) {
+    const response = await api.listZhugeAITasks(workspaceSlug, { limit: PAGE_SIZE, offset }) as any;
+    if (!response || response.schema !== TASK_SCHEMA || response.source !== TASK_SOURCE || response.workspace_id !== workspaceId || response.consistency !== "NON_ATOMIC_OFFSET") {
+      throw new Error("TaskFlow 原生 AI Tasks 回應不完整或權威來源不符");
+    }
+    const page = response.tasks;
+    if (!Array.isArray(page) || page.length > PAGE_SIZE || !Number.isSafeInteger(response.total) || response.total < 0 || response.limit !== PAGE_SIZE || response.offset !== offset) {
+      throw new Error("TaskFlow 原生 AI Tasks 分頁資料不一致");
+    }
+    const pageTotal = response.total;
+    if (total !== null && total !== pageTotal) throw new Error("AI Tasks 總數於讀取期間變動，請重新整理");
+    total = pageTotal;
+    if (page.length > pageTotal - offset || page.length < Math.min(PAGE_SIZE, pageTotal - offset)) throw new Error("AI Tasks 分頁提早結束或超出總數");
+    for (const task of page as NativeAITask[]) {
+      const mapping = mappings.find(row => row.executor_id === task.executor_id && row.state === "VERIFIED");
+      if (!isUuid(task.issue_id) || !isUuid(task.project_id) || !isUuid(task.taskflow_task_id) || task.workspace_id !== workspaceId || !mapping || mapping.project_id.toLowerCase() !== task.project_id.toLowerCase() || !task.title?.trim() || !task.issue_status?.trim() || !task.taskflow_task_status?.trim() || !Number.isFinite(Date.parse(task.updated_at)) || task.provider_runtime_state !== "UNVERIFIED" || task.provider_ack !== "UNVERIFIED") {
+        throw new Error("AI Task 與原生 Issue／Project／Workspace／Provider 狀態不一致");
+      }
+      if (seen.has(task.issue_id.toLowerCase())) throw new Error("TaskFlow 原生 Issue 重複，AI Tasks 統計停止顯示");
+      seen.add(task.issue_id.toLowerCase());
+      tasks.push(task);
+    }
+    offset += page.length;
+    if (offset === pageTotal) break;
+    if (offset >= 10000) throw new Error("原生 AI Tasks 超出目前安全分頁範圍，統計尚未完成");
+  }
+  return { tasks, total: total || 0 };
+}
+
+async function readNativeAI(workspaceId: string, workspaceSlug: string): Promise<Readback> {
+  const envelope = await api.getZhugeAIProjectMappings(workspaceSlug);
+  const mappings = verifyMappings(envelope, workspaceId);
+  const result = await readAllNativeAITasks(workspaceSlug, workspaceId, mappings);
+  return { mappings, tasks: result.tasks, total: result.total, observedAt: new Date().toISOString() };
 }
 
 export function TaskFlowDispatchRuntime({ issueId }: { issueId: string }) {
@@ -90,62 +151,91 @@ export function TaskFlowDispatchRuntime({ issueId }: { issueId: string }) {
 
 export function TaskFlowDispatchCenter() {
   const workspace = useCurrentWorkspace();
+  const slug = useWorkspaceSlug();
   const paths = useWorkspacePaths();
   const [offset, setOffset] = useState(0);
   const [executor, setExecutor] = useState("");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState("");
+  const [expandedExecutor, setExpandedExecutor] = useState("");
   const query = useQuery({
-    queryKey: ["taskflow-dispatch-issues", workspace?.id],
-    queryFn: () => listAllWorkspaceIssues(workspace!.id),
-    enabled: Boolean(workspace?.id), retry: false,
+    queryKey: ["taskflow-native-ai-readback", workspace?.id, slug],
+    queryFn: () => readNativeAI(workspace!.id, slug!),
+    enabled: Boolean(workspace?.id && slug), retry: false,
   });
-  const items = (query.data?.issues || []).map(issue => normalizeDispatchIssue(issue)).filter(hasDispatchEvidence);
-  const visible = items.filter(item => (!executor || item.executor === executor) && (!search || item.title.toLowerCase().includes(search.toLowerCase())));
-  const pageVisible = visible.slice(offset, offset + PAGE_SIZE);
-  const inbox = buildPmInboxEntries(items);
-  const filteredInbox = buildPmInboxEntries(visible);
-  const workload = DISPATCH_EXECUTORS.map(value => {
-    const assigned = items.filter(item => item.executor === value);
-    const running = assigned.filter(item => item.status === "RUNNING");
-    const notStarted = assigned.filter(item => ["TODO", "CREATED", "NEW", "BACKLOG", "PENDING", "ASSIGNED"].includes(nativeTaskStateKey(item)));
-    const reviewOrBlocked = assigned.filter(item => ["REVIEW", "BLOCKED", "FAILED", "STALE"].includes(nativeTaskStateKey(item)) || ["BLOCKED", "FAILED", "STALE"].includes(item.status));
-    return { value, assigned, running, notStarted, reviewOrBlocked, state: workloadState(assigned) };
+  const mappings = query.data?.mappings || [];
+  const tasks = query.data?.tasks || [];
+  const visible = tasks.filter(item => (!executor || item.executor_id === executor) && (!search || item.title.toLowerCase().includes(search.toLowerCase())));
+  const pageVisible = visible.slice(offset, offset + DISPLAY_SIZE);
+  const workload = DISPATCH_EXECUTORS.map(executorId => {
+    const mapping = mappings.find(row => row.executor_id === executorId);
+    const assigned = tasks.filter(item => item.executor_id === executorId);
+    const notStarted = assigned.filter(item => ["TODO", "CREATED", "NEW", "BACKLOG", "PENDING", "ASSIGNED"].includes(nativeTaskStateKey({ status: item.issue_status })));
+    const reviewOrBlocked = assigned.filter(item => ["REVIEW", "BLOCKED", "FAILED"].includes(nativeTaskStateKey({ status: item.issue_status })));
+    return { executorId, mapping, assigned, notStarted, reviewOrBlocked };
   });
   return <main data-testid="taskflow-native-dispatch-center" className="h-full min-w-0 overflow-y-auto p-4 md:p-6">
     <div className="mx-auto max-w-6xl space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold">AI 派工中心</h1><p className="text-sm text-muted-foreground">{workspace?.name} · 共用 TaskFlow 原生案件</p></div><button className="min-h-10 rounded-md border px-4" disabled={query.isFetching} onClick={() => void query.refetch()}>重新整理</button></header>
-      <p className="rounded-md border p-3 text-sm">正式 Provider 尚未綁定。派工執行、ACK、成本與額度尚未接通。</p>
-      <div className="flex flex-wrap gap-3"><label>Executor <select aria-label="Executor" className="min-h-10 rounded border bg-background px-2" value={executor} onChange={e => { setExecutor(e.target.value); setOffset(0); }}><option value="">全部五位 Executor</option>{DISPATCH_EXECUTORS.map(value => <option key={value}>{value}</option>)}</select></label><label>搜尋 Workspace 工作 <input aria-label="搜尋 Workspace 工作" className="min-h-10 max-w-full rounded border bg-background px-2" value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /></label></div>
-      {query.data?.complete && <p className="text-sm text-muted-foreground">本次讀取 Workspace 可見的 {items.length} 件 AI 派工案件（原生 Issue {query.data.total} 件）；觀測時間：{new Date(query.data.observedAt).toLocaleString("zh-TW")}。分頁非原子快照，可能受到讀取期間卡片變動影響，非即時精確總數。展開單一案件才讀取 Runtime。</p>}
-      {query.data && !query.data.complete && <p role="status" className="text-sm text-amber-700">工作總覽尚未完成，暫不顯示全 Workspace 統計。</p>}
-      {query.isError ? <div role="alert">案件讀取失敗：{query.error.message}。本次資料不完整，無法顯示全量結論。請確認登入與 Workspace 權限後重新整理。<button className="ml-2 min-h-10 rounded border px-3" onClick={() => void query.refetch()}>重試</button></div> : query.isPending ? <p role="status">載入案件…</p> : <>
-        {query.data?.complete ? <>
-          <WorkloadPanel workload={workload} paths={paths} />
-          <section className={panel} aria-label="PM Inbox"><h2 className="font-semibold">PM Inbox · Workspace 總數 {inbox.length} 件</h2><p className="text-sm text-muted-foreground">目前篩選結果 {filteredInbox.length} 件；總數不受 Executor／搜尋篩選改寫。AI 派工待裁示／待驗收清單，與 TF 通知 Inbox 分開。</p>{inbox.length ? <ul>{inbox.map(item => <li key={item.id} className="py-2"><AppLink href={paths.issueDetail(item.id)}>{item.categoryLabel} · {item.title}</AppLink></li>)}</ul> : <p>本 Workspace 沒有待處理 AI 案件。</p>}</section>
-        </> : null}
-        <section aria-label="AI 任務總覽" className="grid min-w-0 gap-3 md:grid-cols-2">{pageVisible.map(item => <article key={item.id} className={panel}>
-          <AppLink className="block break-words font-medium underline-offset-4 hover:underline" href={paths.issueDetail(item.id)}>{item.identifier || item.workCode || item.id} · {item.title}</AppLink>
-          <p className="my-2 break-words text-sm">Executor：{item.executor || "未指定"} · TF 原生狀態：{nativeTaskStateLabel(item)} · Provider Runtime：{stateLabels[item.status] || item.status || "未驗證"}</p>
-          <GitHubEvidence label="PR" value={item.prUrl} /><GitHubEvidence label="CI" value={item.ciUrl} />{item.sha && <p className="break-all text-xs">SHA（填報證據）：{item.sha}</p>}
-          <button className="mt-3 min-h-10 rounded border px-3" aria-expanded={expanded === item.id} onClick={() => setExpanded(expanded === item.id ? "" : item.id)}>查看執行證據</button>
-          {expanded === item.id && <TaskFlowDispatchRuntime key={workspace?.id + item.id} issueId={item.id} />}
-        </article>)}</section>
-        {!visible.length && <p>本 Workspace 沒有符合條件的 AI 工作。</p>}
-        <nav className="flex gap-3" aria-label="案件分頁"><button className="min-h-10 rounded border px-3" disabled={!offset} onClick={() => { setOffset(Math.max(0, offset - PAGE_SIZE)); setExpanded(""); }}>上一頁</button><button className="min-h-10 rounded border px-3" disabled={offset + PAGE_SIZE >= visible.length} onClick={() => { setOffset(offset + PAGE_SIZE); setExpanded(""); }}>下一頁</button><span className="self-center text-sm text-muted-foreground">{visible.length ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, visible.length)}／${visible.length}` : "0／0"}</span></nav>
+      <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold">AI 派工中心</h1><p className="text-sm text-muted-foreground">{workspace?.name} · TaskFlow 原生 Project／Issue 讀回</p></div><button className="min-h-10 rounded-md border px-4" disabled={query.isFetching} onClick={() => void query.refetch()}>重新整理</button></header>
+      <p className="rounded-md border p-3 text-sm">正式 Provider Route、ACK、Run 與成本尚未接通。所有 Provider 狀態維持 UNKNOWN／UNVERIFIED。</p>
+      <div className="flex flex-wrap gap-3"><label>Executor <select aria-label="Executor" className="min-h-10 rounded border bg-background px-2" value={executor} onChange={e => { setExecutor(e.target.value); setOffset(0); }}><option value="">全部五位 Executor</option>{DISPATCH_EXECUTORS.map(value => <option key={value}>{value}</option>)}</select></label><label>搜尋原生 AI 工作 <input aria-label="搜尋原生 AI 工作" className="min-h-10 max-w-full rounded border bg-background px-2" value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /></label></div>
+      {query.isError ? <div role="alert">TaskFlow 原生 AI 資料讀取失敗：{query.error.message}。資料錯誤不會當成空清單。<button className="ml-2 min-h-10 rounded border px-3" onClick={() => void query.refetch()}>重試</button></div> : query.isPending ? <p role="status">讀取 TaskFlow 原生 Project／Issue…</p> : <>
+        <p className="text-sm text-muted-foreground">完整讀回 {query.data?.total || 0} 張符合原生 Agent、Project、Issue 與 Task Queue 關聯條件的 TaskFlow Issue；分頁為非原子讀取，觀測時間：{new Date(query.data!.observedAt).toLocaleString("zh-TW")}。不代表 Provider 已接單或執行。</p>
+        <section className={`${panel} grid min-w-0 gap-3 md:grid-cols-2`} aria-label="AI 原生專案"> <h2 className="md:col-span-2 font-semibold">AI 原生專案</h2>{workload.map(entry => <article key={entry.executorId} className="min-w-0 rounded border p-3"><h3 className="break-words font-medium">{entry.executorId}{entry.executorId === "GH-HELPER" ? "（GitHub 輔助角色）" : ""}</h3>{entry.mapping?.state === "VERIFIED" ? <><AppLink className="block break-words underline" href={paths.projectDetail(entry.mapping.project_id)}>{entry.mapping.project_title}</AppLink><p className="break-all text-xs text-muted-foreground">Native Project ID：{entry.mapping.project_id}</p><p className="break-words text-sm">原生 Issue：{entry.assigned.length} · 待處理：{entry.notStarted.length} · 待驗收／阻擋：{entry.reviewOrBlocked.length} · Provider 未驗證</p><button className="mt-2 min-h-10 rounded border px-3" aria-expanded={expandedExecutor === entry.executorId} onClick={() => setExpandedExecutor(expandedExecutor === entry.executorId ? "" : entry.executorId)}>{expandedExecutor === entry.executorId ? "收合 Issue" : "查看原生 Issue"}</button>{expandedExecutor === entry.executorId && (entry.assigned.length ? <ul className="mt-2 space-y-2 text-sm">{entry.assigned.map(item => <li key={item.issue_id} className="min-w-0 break-words"><AppLink href={paths.issueDetail(item.issue_id)}>{item.issue_id} · {item.title}</AppLink><span className="ml-1 text-muted-foreground">（TaskFlow：{nativeTaskStateLabel({ status: item.issue_status })}）</span></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">尚無符合原生 AI Agent／Issue Queue 關聯的案件；不能推定 Executor 閒置或 Provider 可接單。</p>)}</> : <p className="break-words text-sm text-amber-700">GAP：原生 Agent／Project／Workspace／ACL 尚未完整驗證（{entry.mapping?.reason || "MAPPING_NOT_VERIFIED"}）。不建立假連結。</p>}</article>)}</section>
+        <section className={panel} aria-label="PM Inbox"><h2 className="font-semibold">PM Inbox</h2><p className="text-sm text-muted-foreground">尚未接通可驗證的 PM 裁示／驗收事件來源；不以一般 Issue metadata 推論待辦。</p></section>
+        <section aria-label="AI 任務總覽" className="grid min-w-0 gap-3 md:grid-cols-2">{pageVisible.map(item => <article key={item.issue_id} className={panel}><AppLink className="block break-words font-medium underline-offset-4 hover:underline" href={paths.issueDetail(item.issue_id)}>{item.issue_id} · {item.title}</AppLink><p className="my-2 break-words text-sm">Executor：{item.executor_id} · Project：{item.project_title} · TF 狀態：{nativeTaskStateLabel({ status: item.issue_status })}</p><p className="break-words text-sm">TaskFlow Queue：{item.taskflow_task_status} · Provider Runtime：{stateLabels[item.provider_runtime_state] || item.provider_runtime_state}</p><button className="mt-3 min-h-10 rounded border px-3" aria-expanded={expanded === item.issue_id} onClick={() => setExpanded(expanded === item.issue_id ? "" : item.issue_id)}>查看受保護執行證據</button>{expanded === item.issue_id && <TaskFlowDispatchRuntime key={workspace?.id + item.issue_id} issueId={item.issue_id} />}</article>)}</section>
+        {!visible.length && <p>目前沒有符合原生 AI Agent／Project／Task Queue 條件的 TaskFlow Issue。</p>}
+        <nav className="flex gap-3" aria-label="原生 AI Issue 分頁"><button className="min-h-10 rounded border px-3" disabled={!offset} onClick={() => { setOffset(Math.max(0, offset - DISPLAY_SIZE)); setExpanded(""); }}>上一頁</button><button className="min-h-10 rounded border px-3" disabled={offset + DISPLAY_SIZE >= visible.length} onClick={() => { setOffset(offset + DISPLAY_SIZE); setExpanded(""); }}>下一頁</button><span className="self-center text-sm text-muted-foreground">{visible.length ? `${offset + 1}–${Math.min(offset + DISPLAY_SIZE, visible.length)}／${visible.length}` : "0／0"}</span></nav>
       </>}
       <button disabled className="min-h-10 rounded border px-4 text-muted-foreground">派工尚未開放</button>
     </div>
   </main>;
 }
 
-function WorkloadPanel({ workload, paths }: { workload: Array<{ value: string; assigned: any[]; running: any[]; notStarted: any[]; reviewOrBlocked: any[]; state: string }>; paths: any }) {
-  const [expandedExecutor, setExpandedExecutor] = useState("");
-  return <section className={`${panel} grid gap-3 md:grid-cols-2`} aria-label="Workspace 工作負載"><h2 className="md:col-span-2 font-semibold">Workspace 工作負載</h2>{workload.map(entry => <article key={entry.value} className="min-w-0 rounded border p-3"><h3 className="break-words font-medium">{entry.value}{entry.value === "GH-HELPER" ? "（GitHub 輔助角色）" : ""}</h3><p className="break-words text-sm">負責工作：{entry.assigned.length} · TF 進行中：{entry.assigned.filter(item => ["IN_PROGRESS", "RUNNING"].includes(nativeTaskStateKey(item))).length} · 尚未開始：{entry.notStarted.length} · 待驗收／阻擋：{entry.reviewOrBlocked.length}</p><p className="break-words text-sm text-muted-foreground">{entry.state}</p><button className="mt-2 min-h-10 rounded border px-3" aria-expanded={expandedExecutor === entry.value} onClick={() => setExpandedExecutor(expandedExecutor === entry.value ? "" : entry.value)}>{expandedExecutor === entry.value ? "收合工作清單" : "查看工作清單"}</button>{expandedExecutor === entry.value && (entry.assigned.length ? <ul className="mt-2 space-y-2 text-sm">{entry.assigned.map(item => <li key={item.id} className="min-w-0 break-words"><AppLink href={paths.issueDetail(item.id)}>{item.identifier || item.id} · {item.title}</AppLink><span className="ml-1 text-muted-foreground">（TF：{nativeTaskStateLabel(item)}）</span></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">目前沒有可列出的 TF 工作。</p>)}</article>)}</section>;
-}
-
-function GitHubEvidence({ label, value }: { label: string; value: string }) {
-  try { const url = new URL(value); if (url.protocol !== "https:" || url.hostname !== "github.com" || url.username || url.password) return null; }
-  catch { return null; }
-  return <p className="text-sm"><a href={value} target="_blank" rel="noopener noreferrer">GitHub {label}（填報來源，非 Provider 執行證明）</a></p>;
+/** Read-only native TaskFlow issue view. It shares the same server readback and
+ * canonical Issue IDs as the dispatch overview; it intentionally has no second
+ * Kanban, status engine, or mutation path. */
+export function TaskFlowNativeAITasks() {
+  const workspace = useCurrentWorkspace();
+  const slug = useWorkspaceSlug();
+  const paths = useWorkspacePaths();
+  const [executor, setExecutor] = useState("");
+  const [search, setSearch] = useState("");
+  const query = useQuery({
+    queryKey: ["taskflow-native-ai-readback", workspace?.id, slug],
+    queryFn: () => readNativeAI(workspace!.id, slug!),
+    enabled: Boolean(workspace?.id && slug), retry: false,
+  });
+  const visible = (query.data?.tasks || []).filter(item =>
+    (!executor || item.executor_id === executor) && (!search || item.title.toLowerCase().includes(search.toLowerCase()))
+  );
+  return <main data-testid="taskflow-native-ai-tasks" className="h-full min-w-0 overflow-y-auto p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-xl font-semibold">AI 任務</h1><p className="text-sm text-muted-foreground">TaskFlow 原生 Issue 唯讀讀回 · {workspace?.name}</p></div>
+        <button className="min-h-10 rounded-md border px-4" disabled={query.isFetching} onClick={() => void query.refetch()}>重新整理</button>
+      </header>
+      <p className="rounded-md border p-3 text-sm">只呈現服務端確認具 AI Agent／Project／Queue 關聯的原生 Issue。Provider Route、ACK、Run 與成本未驗證時保持 UNKNOWN／UNVERIFIED。</p>
+      <div className="flex min-w-0 flex-wrap gap-3">
+        <label>Executor <select aria-label="AI 任務 Executor" className="min-h-10 max-w-full rounded border bg-background px-2" value={executor} onChange={event => setExecutor(event.target.value)}><option value="">全部五位 Executor</option>{DISPATCH_EXECUTORS.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>搜尋原生 AI 任務 <input aria-label="搜尋原生 AI 任務" className="min-h-10 max-w-full rounded border bg-background px-2" value={search} onChange={event => setSearch(event.target.value)} /></label>
+      </div>
+      {query.isError ? <div role="alert">TaskFlow 原生 AI Tasks 讀取失敗：{query.error.message}。錯誤不會顯示成空清單。<button className="ml-2 min-h-10 rounded border px-3" onClick={() => void query.refetch()}>重試</button></div>
+        : query.isPending ? <p role="status">讀取 TaskFlow 原生 AI Issue…</p>
+          : <>
+            <p className="text-sm text-muted-foreground">目前 Workspace 完整讀回 {query.data?.total || 0} 張原生 AI Issue；資料只讀、非原子分頁，觀測時間 {new Date(query.data!.observedAt).toLocaleString("zh-TW")}。</p>
+            <section aria-label="TaskFlow 原生 AI 任務列表" className="min-w-0 overflow-hidden rounded-lg border">
+              {visible.length ? <ul className="divide-y">
+                {visible.map(item => <li key={item.issue_id} className="grid min-w-0 gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0 space-y-1">
+                    <AppLink className="block break-words font-medium underline-offset-4 hover:underline" href={paths.issueDetail(item.issue_id)}>{item.issue_id} · {item.title}</AppLink>
+                    <p className="break-words text-sm text-muted-foreground">Executor：{item.executor_id}{item.executor_id === "GH-HELPER" ? "（GitHub 輔助角色）" : ""} · 原生狀態：{nativeTaskStateLabel({ status: item.issue_status })} · Queue：{item.taskflow_task_status}</p>
+                  </div>
+                  <AppLink className="min-h-10 whitespace-nowrap rounded border px-3 py-2 text-sm" href={paths.projectDetail(item.project_id)}>{item.project_title}</AppLink>
+                </li>)}
+              </ul> : <p className="p-4 text-sm text-muted-foreground">目前沒有符合服務端 AI Agent／Project／Queue 權威條件的原生 Issue。</p>}
+            </section>
+          </>}
+    </div>
+  </main>;
 }

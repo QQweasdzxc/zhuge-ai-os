@@ -7,7 +7,7 @@ import browserTools from "./browser-executable.js";
 const {resolveBrowserExecutable,fixtureURL}=browserTools;
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const API="https://zhuge-taskflow-api.onrender.com";
-async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList=null,issueDetail=null,dispatchErrorStatus=0}={}){
+async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList=null,issueDetail=null,projectList=null,dispatchErrorStatus=0}={}){
  const browser=await chromium.launch({executablePath:resolveBrowserExecutable(),args:["--no-sandbox","--disable-dev-shm-usage"]});
  t.after(async()=>browser.close());
  const page=await browser.newPage({viewport});
@@ -29,7 +29,7 @@ async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList
      if(dispatchErrorStatus && requests.filter(request=>request.pathname==="/api/issues").length>1){status=dispatchErrorStatus;data={error:dispatchErrorStatus===403?"forbidden":"dispatch unavailable"};}
      else data={issues:requestedIssues,total:requestedIssues.length};
    }
-   else if(u.pathname==="/api/projects")data={projects:[{id:"proj1",name:"Native Project"}]};
+   else if(u.pathname==="/api/projects")data=projectList||{projects:[{id:"proj1",name:"Native Project"}]};
    else if(u.pathname==="/api/issue-statuses")data={statuses:[]};
    else if(/^\/api\/issues\/[^/]+$/.test(u.pathname))data=issueDetail||{id:"issue-1",identifier:"ZG-1",title:"Native issue from API",status:"todo",priority:"high",description:"This issue description came from API",project_id:"proj1"};
    else if(/^\/api\/issues\/[^/]+\/dispatch-runtime$/.test(u.pathname))data={runtime:{schema:"zhuge-taskflow-dispatch-persistence-v1",status_source:"TASKFLOW_RUNTIME_READ_MODEL",issue_id:u.pathname.split("/")[3],workspace:"ws1",work_code:"DM-04",executor_id:"CO-02",provider:"UNVERIFIED",state:"UNKNOWN",authorization:"UNVERIFIED",evidence:{provider_ack:"UNVERIFIED",provider_run_id_source:"NOT_AVAILABLE"},provider_run_id_source:"NOT_AVAILABLE"},readback_kind:"NATIVE_TASK_READBACK",provider_binding:"NOT_BOUND",available:true};
@@ -78,6 +78,35 @@ test("native TaskFlow Pages client stays usable in mobile landscape",async t=>{
  assert.equal(await page.locator("#tf-dispatch-executor").count(),1);
 });
 
+test("AI native Project and Tasks journeys stay fail-closed at desktop and both mobile orientations",async t=>{
+ const cases=[
+  {name:"desktop",viewport:{width:1440,height:900}},
+  {name:"mobile portrait",viewport:{width:390,height:844}},
+  {name:"mobile landscape",viewport:{width:844,height:390}}
+ ];
+ for(const scenario of cases){
+  const humanIssue={id:"human-issue-1",identifier:"ZG-101",title:"一般人類任務不得進入 AI 中心",status:"todo",project_id:"proj1",metadata:{zhuge_executor:"CO-01",zhuge_work_code:"FORGED-01"}};
+  const projectList={projects:[{id:"proj1",name:"CO-01",slug:"co-01",executor_id:"CO-01",workspace_id:"ws1",acl_allowed:true,access_allowed:true}]};
+  const {page}=await setup(t,{viewport:scenario.viewport,issueList:[humanIssue],projectList});
+  await page.getByText("一般人類任務不得進入 AI 中心").first().waitFor();
+  await page.getByRole("link",{name:"AI 派工中心（原生專案）"}).click();
+  await page.locator("#tf-ai-project-entries .tf-ai-project-entry").first().waitFor();
+  assert.equal(await page.locator("#tf-ai-project-entries .tf-ai-project-entry").count(),5,scenario.name);
+  assert.equal(await page.locator("#tf-ai-project-entries a").count(),0,scenario.name);
+  assert.match(await page.locator("#tf-ai-projects").innerText(),/GAP：TaskFlow 後端尚未提供可驗證/);
+  assert.equal(await page.locator("#tf-native-issues-panel").isHidden(),true,scenario.name);
+  await page.getByRole("link",{name:"AI 任務中心（原生任務）"}).click();
+  await page.getByText(/原生 Tasks View／AI 範圍篩選尚未接通/).waitFor();
+  assert.equal(await page.locator("#tf-ai-board").isVisible(),true,scenario.name);
+  assert.equal(await page.locator("#tf-ai-board a").count(),0,scenario.name);
+  assert.equal(await page.locator("#tf-ai-board .tf-ai-card, #tf-ai-board .tf-ai-column, #tf-ai-kanban").count(),0,scenario.name);
+  assert.equal(await page.locator("#tf-native-issues-panel").isHidden(),true,scenario.name);
+  assert.doesNotMatch(await page.locator("#tf-ai-board").innerText(),/一般人類任務不得進入 AI 中心/);
+  const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
+  assert.ok(width.scroll<=width.viewport,`${scenario.name}: ${JSON.stringify(width)}`);
+ }
+});
+
 test("Workbench renders native issues, PM Inbox routing, and native detail links",async t=>{
  const dispatchIssue={id:"dispatch-1",identifier:"ZG-42",title:"DM-04｜Workbench 接線",status:"todo",project_id:"proj1",metadata:{zhuge_work_code:"DM-04",zhuge_executor:"CO-02",zhuge_dispatch_status:"REVIEW",zhuge_pm_decision_required:"true",zhuge_task_id:"task-42"}};
  const {page}=await setup(t,{issueList:[dispatchIssue],issueDetail:{...dispatchIssue,description:"Native dispatch evidence"}});
@@ -97,6 +126,7 @@ test("Workbench shows truthful empty state and permission errors",async t=>{
  await page.getByText("PM Inbox 讀取失敗").waitFor();
  assert.match(await page.locator("#tf-pm-inbox").innerText(),/沒有以空資料取代錯誤|未以空資料取代錯誤/);
 });
+
 
 test("Workbench empty state excludes ordinary native issues",async t=>{
  const {page}=await setup(t,{issueList:[{id:"ordinary-1",identifier:"ZG-99",title:"一般 TaskFlow 任務",status:"todo"}]});

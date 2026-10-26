@@ -20,6 +20,62 @@
 
 BEGIN;
 
+-- Install only through the existing restricted TaskFlow migration identity.
+-- This deliberately fails if a privileged Connector role, API role, or ad hoc
+-- SQL Editor session is used to create the SECURITY DEFINER objects.
+DO $install_preflight$
+DECLARE
+    v_is_superuser BOOLEAN;
+    v_bypass_rls BOOLEAN;
+    v_schema_owner TEXT;
+BEGIN
+    IF session_user <> 'taskflow_migrator' OR current_user <> 'taskflow_migrator' THEN
+        RAISE EXCEPTION 'Issue #42 SQL must be installed by taskflow_migrator';
+    END IF;
+    IF NOT has_schema_privilege(current_user, 'taskflow', 'USAGE')
+       OR NOT has_schema_privilege(current_user, 'taskflow', 'CREATE') THEN
+        RAISE EXCEPTION 'taskflow_migrator must own the TaskFlow schema boundary';
+    END IF;
+    SELECT pg_catalog.pg_get_userbyid(n.nspowner)
+      INTO v_schema_owner
+      FROM pg_catalog.pg_namespace AS n
+     WHERE n.nspname = 'taskflow';
+    IF v_schema_owner IS DISTINCT FROM 'taskflow_migrator' THEN
+        RAISE EXCEPTION 'taskflow schema must be owned by taskflow_migrator; got %', v_schema_owner;
+    END IF;
+    IF NOT has_schema_privilege('postgres', 'taskflow', 'USAGE') THEN
+        RAISE EXCEPTION 'the trusted Connector role needs existing taskflow schema USAGE';
+    END IF;
+    SELECT r.rolsuper, r.rolbypassrls
+      INTO v_is_superuser, v_bypass_rls
+      FROM pg_catalog.pg_roles AS r
+     WHERE r.rolname = current_user;
+    IF v_is_superuser OR v_bypass_rls THEN
+        RAISE EXCEPTION 'taskflow_migrator must not be superuser or BYPASSRLS';
+    END IF;
+END
+$install_preflight$;
+
+-- CREATE OR REPLACE preserves the original owner. Refuse to silently leave a
+-- SECURITY DEFINER function owned by a different principal after replacement.
+DO $existing_function_owner_check$
+DECLARE
+    v_wrong_owner TEXT;
+BEGIN
+    SELECT pg_catalog.pg_get_userbyid(p.proowner)
+      INTO v_wrong_owner
+      FROM pg_catalog.pg_proc AS p
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'taskflow'
+       AND p.proname IN ('sb_connector_create_issue', 'sb_connector_update_issue')
+       AND pg_catalog.pg_get_userbyid(p.proowner) <> 'taskflow_migrator'
+     LIMIT 1;
+    IF FOUND THEN
+        RAISE EXCEPTION 'refusing to replace Issue #42 function owned by %', v_wrong_owner;
+    END IF;
+END
+$existing_function_owner_check$;
+
 CREATE TABLE IF NOT EXISTS taskflow.sb_connector_issue_request (
     request_id UUID PRIMARY KEY,
     payload JSONB NOT NULL,
@@ -29,6 +85,28 @@ CREATE TABLE IF NOT EXISTS taskflow.sb_connector_issue_request (
 
 COMMENT ON TABLE taskflow.sb_connector_issue_request IS
     'Idempotency ledger for trusted SB Connector TaskFlow issue creates; do not delete records while retries may occur.';
+
+DO $ledger_owner_check$
+DECLARE
+    v_owner TEXT;
+BEGIN
+    SELECT pg_catalog.pg_get_userbyid(c.relowner)
+      INTO v_owner
+      FROM pg_catalog.pg_class AS c
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'taskflow'
+       AND c.relname = 'sb_connector_issue_request'
+       AND c.relkind = 'r';
+    IF v_owner IS DISTINCT FROM 'taskflow_migrator' THEN
+        RAISE EXCEPTION 'idempotency ledger must be owned by taskflow_migrator; got %', v_owner;
+    END IF;
+END
+$ledger_owner_check$;
+
+-- The ledger is private function state. No Connector or application role gets
+-- direct access to request payloads or issue mappings.
+REVOKE ALL ON TABLE taskflow.sb_connector_issue_request
+    FROM PUBLIC, anon, authenticated, service_role, taskflow_runtime, postgres;
 
 CREATE OR REPLACE FUNCTION taskflow.sb_connector_create_issue(
     p_request_id UUID,
@@ -51,7 +129,7 @@ RETURNS TABLE (
     replayed BOOLEAN
 )
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = pg_catalog, taskflow, extensions, pg_temp
 AS $function$
 DECLARE
@@ -71,6 +149,12 @@ DECLARE
     v_saved_issue_id UUID;
     v_duplicate_id UUID;
 BEGIN
+    -- The shared SB Connector is the accepted operator trust boundary. Check
+    -- the immutable login identity as well as the definer owner: SET ROLE by
+    -- another login must not turn this into an application RPC.
+    IF session_user <> 'postgres' OR current_user <> 'taskflow_migrator' THEN
+        RAISE EXCEPTION 'trusted Supabase Connector role required' USING ERRCODE = '42501';
+    END IF;
     IF p_request_id IS NULL THEN
         RAISE EXCEPTION 'request_id is required' USING ERRCODE = '22023';
     END IF;
@@ -272,7 +356,7 @@ RETURNS TABLE (
     replayed BOOLEAN
 )
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = pg_catalog, taskflow, extensions, pg_temp
 AS $function$
 DECLARE
@@ -294,10 +378,15 @@ DECLARE
     v_old_revision BIGINT;
     v_position DOUBLE PRECISION;
     v_status_category TEXT;
+    v_duplicate_id UUID;
+    v_normalized_title TEXT;
     v_payload JSONB;
     v_saved_payload JSONB;
     v_saved_issue_id UUID;
 BEGIN
+    IF session_user <> 'postgres' OR current_user <> 'taskflow_migrator' THEN
+        RAISE EXCEPTION 'trusted Supabase Connector role required' USING ERRCODE = '42501';
+    END IF;
     IF p_request_id IS NULL OR p_project_id IS NULL OR p_issue_id IS NULL THEN
         RAISE EXCEPTION 'request_id, project_id and issue_id are required' USING ERRCODE = '22023';
     END IF;
@@ -391,6 +480,48 @@ BEGIN
         RAISE EXCEPTION 'status is not active in the target workspace: %', v_status;
     END IF;
 
+    -- The create endpoint and this controlled update share the native duplicate
+    -- lock key. A concurrent native CreateIssue therefore cannot pass its
+    -- duplicate check while this rename/activation is still uncommitted. Lock
+    -- ordering here is issue-row then title-key; native create takes the
+    -- title-key then workspace-counter row, so it never waits on this issue row.
+    IF v_status_category NOT IN ('done', 'closed')
+       AND (v_title IS DISTINCT FROM v_old_title OR v_status IS DISTINCT FROM v_old_status) THEN
+        v_normalized_title := pg_catalog.lower(
+            pg_catalog.btrim(pg_catalog.regexp_replace(v_title, '[[:space:]]+', ' ', 'g'))
+        );
+        PERFORM pg_catalog.pg_advisory_xact_lock(
+            pg_catalog.hashtextextended(
+                'issue-active-duplicate|' || v_workspace_id::TEXT || '|' ||
+                p_project_id::TEXT || '||' || v_normalized_title,
+                0
+            )
+        );
+        SELECT i.id
+          INTO v_duplicate_id
+          FROM taskflow.issue AS i
+         WHERE i.workspace_id = v_workspace_id
+           AND i.project_id = p_project_id
+           AND i.parent_issue_id IS NULL
+           AND i.triage_state IS NULL
+           AND i.id <> p_issue_id
+           AND NOT (i.status = ANY (
+               ARRAY(
+                   SELECT s.key
+                     FROM taskflow.issue_status AS s
+                    WHERE s.workspace_id = v_workspace_id
+                      AND s.category IN ('done', 'closed')
+               )
+           ))
+           AND pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(i.title, '[[:space:]]+', ' ', 'g'))) =
+               v_normalized_title
+         ORDER BY i.created_at ASC
+         LIMIT 1;
+        IF FOUND THEN
+            RAISE EXCEPTION 'active duplicate issue exists: %', v_duplicate_id USING ERRCODE = '23505';
+        END IF;
+    END IF;
+
     IF v_status IS DISTINCT FROM v_old_status THEN
         SELECT COALESCE(pg_catalog.min(i.position), 0) - 1
           INTO v_position
@@ -451,14 +582,61 @@ BEGIN
 END;
 $function$;
 
--- New functions grant EXECUTE to PUBLIC by default. Keep this operation
--- callable only from the already trusted Supabase Connector role. No table
--- privileges are granted to application roles by this candidate.
-REVOKE ALL ON FUNCTION taskflow.sb_connector_create_issue(UUID, UUID, TEXT, TEXT, TEXT, TEXT, DATE, DATE) FROM PUBLIC;
-REVOKE ALL ON FUNCTION taskflow.sb_connector_create_issue(UUID, UUID, TEXT, TEXT, TEXT, TEXT, DATE, DATE) FROM anon, authenticated, service_role, taskflow_runtime;
+-- New functions grant EXECUTE to PUBLIC by default. Revoke the inherited and
+-- application-role grants in the same transaction, then grant only to the
+-- existing trusted SB Connector login. The definer owner retains ownership
+-- rights, but its session_user guard rejects direct taskflow_migrator calls.
+REVOKE ALL ON FUNCTION taskflow.sb_connector_create_issue(UUID, UUID, TEXT, TEXT, TEXT, TEXT, DATE, DATE)
+    FROM PUBLIC, anon, authenticated, service_role, taskflow_runtime, taskflow_migrator;
 GRANT EXECUTE ON FUNCTION taskflow.sb_connector_create_issue(UUID, UUID, TEXT, TEXT, TEXT, TEXT, DATE, DATE) TO postgres;
-REVOKE ALL ON FUNCTION taskflow.sb_connector_update_issue(UUID, UUID, UUID, BIGINT, TEXT, TEXT, TEXT, TEXT, DATE, DATE) FROM PUBLIC;
-REVOKE ALL ON FUNCTION taskflow.sb_connector_update_issue(UUID, UUID, UUID, BIGINT, TEXT, TEXT, TEXT, TEXT, DATE, DATE) FROM anon, authenticated, service_role, taskflow_runtime;
+REVOKE ALL ON FUNCTION taskflow.sb_connector_update_issue(UUID, UUID, UUID, BIGINT, TEXT, TEXT, TEXT, TEXT, DATE, DATE)
+    FROM PUBLIC, anon, authenticated, service_role, taskflow_runtime, taskflow_migrator;
 GRANT EXECUTE ON FUNCTION taskflow.sb_connector_update_issue(UUID, UUID, UUID, BIGINT, TEXT, TEXT, TEXT, TEXT, DATE, DATE) TO postgres;
+
+-- Assert the final installed security contract while the install transaction is
+-- still open. This catches accidental ownership/search_path drift before the
+-- functions become visible to the Connector.
+DO $function_contract_check$
+DECLARE
+    v_bad_function TEXT;
+BEGIN
+    SELECT n.nspname || '.' || p.proname
+      INTO v_bad_function
+      FROM pg_catalog.pg_proc AS p
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'taskflow'
+       AND p.proname IN ('sb_connector_create_issue', 'sb_connector_update_issue')
+       AND (
+           pg_catalog.pg_get_userbyid(p.proowner) <> 'taskflow_migrator'
+           OR NOT p.prosecdef
+           OR NOT coalesce(p.proconfig, ARRAY[]::TEXT[])
+                   @> ARRAY['search_path=pg_catalog, taskflow, extensions, pg_temp']::TEXT[]
+       )
+     LIMIT 1;
+    IF FOUND THEN
+        RAISE EXCEPTION 'Issue #42 function security contract failed for %', v_bad_function;
+    END IF;
+    IF (SELECT count(*) FROM pg_catalog.pg_proc AS p
+         JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'taskflow'
+          AND p.proname IN ('sb_connector_create_issue', 'sb_connector_update_issue')) <> 2 THEN
+        RAISE EXCEPTION 'Issue #42 requires exactly two controlled functions';
+    END IF;
+    IF has_function_privilege('anon', 'taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('service_role', 'taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('taskflow_runtime', 'taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('anon', 'taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('service_role', 'taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)', 'EXECUTE')
+       OR has_function_privilege('taskflow_runtime', 'taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'Issue #42 functions must not be executable by application roles';
+    END IF;
+    IF NOT has_function_privilege('postgres', 'taskflow.sb_connector_create_issue(uuid,uuid,text,text,text,text,date,date)', 'EXECUTE')
+       OR NOT has_function_privilege('postgres', 'taskflow.sb_connector_update_issue(uuid,uuid,uuid,bigint,text,text,text,text,date,date)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'the trusted Connector role must have EXECUTE on both Issue #42 functions';
+    END IF;
+END
+$function_contract_check$;
 
 COMMIT;

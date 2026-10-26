@@ -929,14 +929,46 @@ function bindWorkTodoChecklist(root, task) {
   });
 }
 
-async function workTodoOpenAttachment(attachment) {
+async function workTodoAttachmentUrl(attachment, intent = "preview") {
   const storagePath = attachment?.storagePath || attachment?.storage_path || "";
-  if (!storagePath) return toast("附件尚無正式 Storage Path");
+  if (!storagePath) throw new Error("附件尚無正式 Storage Path");
+  const lifecycleModule = String(attachment?.lifecycleModule || attachment?.lifecycle_module || "").trim().toLowerCase();
+  if (attachment?.lifecycleStatusUnavailable === true) throw new Error("附件期限資訊暫時無法取得；請稍後重新整理。");
+  if (lifecycleModule === "worktodo" || lifecycleModule === "board") {
+    const gateway = globalThis.ZhugeSupabaseGateway?.createDataGateway?.();
+    if (typeof gateway?.invokeFunction !== "function") {
+      if (attachment.lifecycleManaged) throw new Error("附件生命週期服務暫時無法使用；請稍後重試。");
+    } else {
+      const access = await gateway.invokeFunction("attachment-lifecycle", {
+        module: lifecycleModule,
+        id: attachment.id || attachment.attachmentId,
+        intent
+      });
+      if (access?.enabled !== false) {
+        if (!access?.url) throw new Error("附件已到期或無法使用。");
+        return access.url;
+      }
+    }
+  }
+  if (attachment?.lifecycleManaged) throw new Error("附件生命週期服務無法確認此附件；已停止直接存取。");
+  return SupabaseRepository.signedWorkTodoAttachmentUrl(storagePath, 300);
+}
+
+async function workTodoOpenAttachment(attachment) {
   try {
-    const url = await SupabaseRepository.signedWorkTodoAttachmentUrl(storagePath, 300);
+    const url = await workTodoAttachmentUrl(attachment, "preview");
     window.open(url, "_blank", "noopener,noreferrer");
   } catch (error) {
     toast(error.message || "附件開啟失敗");
+  }
+}
+
+async function workTodoDownloadAttachment(attachment) {
+  try {
+    const url = await workTodoAttachmentUrl(attachment, "download");
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    toast(error.message || "附件下載失敗");
   }
 }
 
@@ -972,7 +1004,7 @@ async function workTodoReadAttachmentContext(drawerRoot, attachment) {
   }
   renderWorkTodoAttachmentContextResult(drawerRoot, { status: "unavailable", filename: attachment?.filename || "附件", reason: "ATTACHMENT_CONTEXT_LOADING", nextStep: "正在讀取附件內容…" });
   const result = await reader.read(attachment, {
-    resolveUrl: item => SupabaseRepository.signedWorkTodoAttachmentUrl(item.storage_path || item.storagePath, 300)
+    resolveUrl: item => workTodoAttachmentUrl(item, "preview")
   });
   renderWorkTodoAttachmentContextResult(drawerRoot, result);
   reader.emitAIContext?.(result);
@@ -993,8 +1025,9 @@ function bindWorkTodoAttachments(root, task) {
   const attachments = Array.isArray(data.attachments) ? data.attachments : [];
   attachments.forEach(item => {
     const preview = root.querySelector(`[data-worktodo-attachment-preview="${item.id}"]`);
-    if (preview && String(item.mime_type || item.mimeType || "").startsWith("image/")) {
-      SupabaseRepository.signedWorkTodoAttachmentUrl(item.storage_path || item.storagePath, 300).then(url => {
+    const previewUnavailable = item.lifecycleStatusUnavailable === true || item.lifecycleManaged && item.lifecyclePreviewAvailable === false;
+    if (preview && !previewUnavailable && String(item.mime_type || item.mimeType || "").startsWith("image/")) {
+      workTodoAttachmentUrl(item, "preview").then(url => {
         preview.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.filename || "附件預覽")}">`;
       }).catch(() => {});
     }
@@ -1005,6 +1038,7 @@ function bindWorkTodoAttachments(root, task) {
     dataService: DataService,
     confirm,
     onOpen: workTodoOpenAttachment,
+    onDownload: workTodoDownloadAttachment,
     onReadContext: item => workTodoReadAttachmentContext(root, item),
     onDeleted: async () => {
       await refreshWorkTodoDrawerCapabilities();

@@ -15,15 +15,28 @@ class TaskFlowConnectorIssueSqlTests(unittest.TestCase):
         cls.rollback = ROLLBACK.read_text()
 
     def test_functions_are_taskflow_scoped_and_execute_is_connector_only(self) -> None:
-        # The trusted Connector calls as the already-privileged postgres role,
-        # so the function must not add an unnecessary RLS-bypassing definer context.
-        self.assertEqual(self.sql.count("SECURITY INVOKER"), 2)
-        self.assertNotIn("SECURITY DEFINER", self.sql)
+        # The reviewed Issue #42 install runs as taskflow_migrator and creates
+        # SECURITY DEFINER functions owned by that restricted role. Execution
+        # is granted only to the trusted Connector login (postgres); the
+        # function body independently verifies both session_user and
+        # current_user so an application role cannot inherit this boundary.
+        self.assertEqual(len(re.findall(r"^SECURITY DEFINER$", self.sql, re.MULTILINE)), 2)
+        self.assertEqual(len(re.findall(r"^SECURITY INVOKER$", self.sql, re.MULTILINE)), 0)
         self.assertIn("SET search_path = pg_catalog, taskflow, extensions, pg_temp", self.sql)
         self.assertNotRegex(self.sql, r"\bpublic\s*\.")
         self.assertNotRegex(self.sql, r"GRANT\s+(?:ALL|SELECT|INSERT|UPDATE|DELETE).*\b(?:anon|authenticated|service_role|taskflow_runtime)\b")
         self.assertEqual(len(re.findall(r"GRANT EXECUTE ON FUNCTION .* TO postgres;", self.sql)), 2)
-        self.assertEqual(len(re.findall(r"REVOKE ALL ON FUNCTION .* FROM PUBLIC;", self.sql)), 2)
+        revokes = re.findall(
+            r"REVOKE ALL ON FUNCTION\s+taskflow\.sb_connector_(?:create|update)_issue\([^;]+;",
+            self.sql,
+            re.DOTALL,
+        )
+        self.assertEqual(len(revokes), 2)
+        for role in ("PUBLIC", "anon", "authenticated", "service_role", "taskflow_runtime", "taskflow_migrator"):
+            self.assertTrue(all(re.search(rf"\b{role}\b", revoke) for revoke in revokes), role)
+        self.assertEqual(self.sql.count("session_user <> 'postgres' OR current_user <> 'taskflow_migrator'"), 2)
+        self.assertIn("v_is_superuser OR v_bypass_rls", self.sql)
+        self.assertIn("<> 'taskflow_migrator'", self.sql)
 
     def test_create_path_allocates_native_fields_and_durable_activity(self) -> None:
         for marker in (
