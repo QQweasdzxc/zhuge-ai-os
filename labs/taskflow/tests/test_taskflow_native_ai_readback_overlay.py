@@ -21,8 +21,10 @@ class NativeAIReadbackOverlayTests(unittest.TestCase):
         dockerfile = (ROOT / "labs/taskflow/Dockerfile.backend").read_text()
         self.assertIn("COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write.go /tmp/taskflow_native_agent_reporting_write.go", dockerfile)
         self.assertIn("COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write_test.go /tmp/taskflow_native_agent_reporting_write_test.go", dockerfile)
+        self.assertIn("COPY labs/taskflow/overrides/taskflow_native_agent_report_ingress.go /tmp/taskflow_native_agent_report_ingress.go", dockerfile)
         self.assertIn("cp /tmp/taskflow_native_agent_reporting_write.go /src/server/internal/handler/taskflow_native_agent_reporting_write.go", dockerfile)
         self.assertIn("cp /tmp/taskflow_native_agent_reporting_write_test.go /src/server/internal/handler/taskflow_native_agent_reporting_write_test.go", dockerfile)
+        self.assertIn("cp /tmp/taskflow_native_agent_report_ingress.go /src/server/internal/handler/taskflow_native_agent_report_ingress.go", dockerfile)
 
     def test_routes_are_installed_only_in_build_copy_and_guarded_as_human(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -35,6 +37,7 @@ class NativeAIReadbackOverlayTests(unittest.TestCase):
             source = target.read_text()
             self.assertIn('r.With(handler.RequireHumanActor).Get("/project-mappings", h.ListZhugeNativeExecutorProjects)', source)
             self.assertIn('r.With(handler.RequireHumanActor).Get("/tasks", h.ListZhugeNativeAITasks)', source)
+            self.assertIn('r.Post("/api/provider/taskflow/native-agent-reports", h.ReceiveNativeAgentReport)', source)
             self.assertEqual(original, hashlib.sha256((VENDOR / "server/cmd/server/router.go").read_bytes()).hexdigest())
             with self.assertRaises(SystemExit):
                 PATCH.apply(target)
@@ -50,16 +53,26 @@ class NativeAIReadbackOverlayTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             server = Path(directory) / "multica/server"
             router = server / "cmd/server/router.go"
+            handler_file = server / "internal/handler/handler.go"
+            handler_test_file = server / "internal/handler/handler_test.go"
             router.parent.mkdir(parents=True)
+            handler_file.parent.mkdir(parents=True)
+            handler_test_file.parent.mkdir(parents=True, exist_ok=True)
             (server / "go.mod").write_text("module github.com/multica-ai/multica/server\n")
             shutil.copyfile(VENDOR / "server/cmd/server/router.go", router)
+            shutil.copyfile(VENDOR / "server/internal/handler/handler.go", handler_file)
+            shutil.copyfile(VENDOR / "server/internal/handler/handler_test.go", handler_test_file)
             before = hashlib.sha256((VENDOR / "server/cmd/server/router.go").read_bytes()).hexdigest()
             STAGE.stage(server)
             self.assertTrue((server / "internal/handler/taskflow_native_ai_readback.go").is_file())
             self.assertTrue((server / "internal/handler/taskflow_native_agent_reporting_write.go").is_file())
+            self.assertTrue((server / "internal/handler/taskflow_native_agent_report_ingress.go").is_file())
             self.assertTrue((server / "internal/handler/taskflow_native_agent_reporting_write_test.go").is_file())
             self.assertTrue((server / "cmd/taskflow-native-ai-runtime/main_test.go").is_file())
             self.assertIn('r.With(handler.RequireHumanActor).Get("/project-mappings", h.ListZhugeNativeExecutorProjects)', router.read_text())
+            self.assertIn('r.Post("/api/provider/taskflow/native-agent-reports", h.ReceiveNativeAgentReport)', router.read_text())
+            self.assertIn("NativeAgentReportVerifier NativeAgentReportProviderVerifier", (server / "internal/handler/handler.go").read_text())
+            self.assertIn("TASKFLOW_NATIVE_AI_REPORTING_TEST_ONLY", (server / "internal/handler/handler_test.go").read_text())
             self.assertEqual(before, hashlib.sha256((VENDOR / "server/cmd/server/router.go").read_bytes()).hexdigest())
 
 

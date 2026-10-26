@@ -1,7 +1,15 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
@@ -12,14 +20,70 @@ import (
 )
 
 const (
-	reportWorkspace = "12111111-1111-4111-8111-111111111111"
-	reportAgent     = "12aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-	reportProject   = "12bbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-	reportIssue     = "12cccccc-cccc-4ccc-8ccc-cccccccccccc"
-	reportQueue     = "12dddddd-dddd-4ddd-8ddd-dddddddddddd"
-	reportDispatch  = "12eeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
-	reportLease     = "12ffffff-ffff-4fff-8fff-ffffffffffff"
+	reportWorkspace    = "12111111-1111-4111-8111-111111111111"
+	reportAgent        = "12aaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	reportProject      = "12bbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	reportIssue        = "12cccccc-cccc-4ccc-8ccc-cccccccccccc"
+	reportQueue        = "12dddddd-dddd-4ddd-8ddd-dddddddddddd"
+	reportDispatch     = "12eeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	reportLease        = "12ffffff-ffff-4fff-8fff-ffffffffffff"
+	reportIssueDone    = "12cddddc-dddd-4ddd-8ddd-dddddddddddd"
+	reportQueueDone    = "12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee"
+	reportDispatchDone = "12eeeeee-eeee-4eee-8eee-eeeeeeeeeeef"
+	reportLeaseDone    = "13ffffff-ffff-4fff-8fff-ffffffffffff"
 )
+
+type testNativeAgentReportWire struct {
+	EventID             string `json:"event_id"`
+	DispatchID          string `json:"dispatch_id"`
+	IssueID             string `json:"issue_id"`
+	WorkspaceID         string `json:"workspace_id"`
+	ExecutorID          string `json:"executor_id"`
+	Provider            string `json:"provider"`
+	ProviderRunID       string `json:"provider_run_id"`
+	SessionID           string `json:"session_id"`
+	ProviderAckEventID  string `json:"provider_ack_event_id"`
+	LeaseID             string `json:"lease_id"`
+	EventType           string `json:"event_type"`
+	FencingEpoch        int64  `json:"fencing_epoch"`
+	Sequence            int64  `json:"sequence"`
+	ProgressPercent     int32  `json:"progress_percent"`
+	HasProgress         bool   `json:"has_progress"`
+	ProtectedDetailText string `json:"protected_detail_text,omitempty"`
+}
+
+type testHMACNativeAgentReportVerifier struct{ key []byte }
+
+func (v testHMACNativeAgentReportVerifier) VerifyNativeAgentReport(_ context.Context, headers http.Header, body []byte) (NativeAgentReportAttestation, error) {
+	provided, err := hex.DecodeString(headers.Get("X-Test-Provider-Signature"))
+	if err != nil || len(v.key) == 0 {
+		return NativeAgentReportAttestation{}, errNativeReportUnverified
+	}
+	mac := hmac.New(sha256.New, v.key)
+	_, _ = mac.Write(body)
+	if !hmac.Equal(provided, mac.Sum(nil)) {
+		return NativeAgentReportAttestation{}, errNativeReportUnverified
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var wire testNativeAgentReportWire
+	if err := decoder.Decode(&wire); err != nil {
+		return NativeAgentReportAttestation{}, errNativeReportUnverified
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return NativeAgentReportAttestation{}, errNativeReportUnverified
+	}
+	return NativeAgentReportAttestation{
+		EventID: wire.EventID, DispatchID: wire.DispatchID, IssueID: wire.IssueID,
+		WorkspaceID: wire.WorkspaceID, ExecutorID: wire.ExecutorID, Provider: wire.Provider,
+		ProviderRunID: wire.ProviderRunID, SessionID: wire.SessionID,
+		ProviderAckEventID: wire.ProviderAckEventID, LeaseID: wire.LeaseID,
+		EventType: wire.EventType, FencingEpoch: wire.FencingEpoch, Sequence: wire.Sequence,
+		ProgressPercent: wire.ProgressPercent, HasProgress: wire.HasProgress,
+		HasProtectedDetails: wire.ProtectedDetailText != "",
+	}, nil
+}
 
 func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	dsn := os.Getenv("TASKFLOW_NATIVE_AI_DATABASE_URL")
@@ -62,7 +126,17 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	defer pool.Close()
 	createNativeAgentReportSchema(t, ctx, pool)
 	seedNativeAgentReportRows(t, ctx, pool)
-	h := &Handler{Queries: db.New(pool), TxStarter: pool}
+	h := &Handler{
+		Queries: db.New(pool), TxStarter: pool,
+		NativeAgentReportVerifier: testHMACNativeAgentReportVerifier{key: []byte("isolated-native-report-test-key-only")},
+	}
+	unboundResponse := httptest.NewRecorder()
+	unboundRequest := httptest.NewRequest(http.MethodPost, nativeAgentReportIngressPath, strings.NewReader(`{}`))
+	unboundRequest.Header.Set("Content-Type", "application/json")
+	(&Handler{}).ReceiveNativeAgentReport(unboundResponse, unboundRequest)
+	if unboundResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unbound production provider verifier must fail closed, got %d", unboundResponse.Code)
+	}
 
 	good := validNativeAgentReportEvent()
 	if _, err := pool.Exec(ctx, `UPDATE agent_task_queue SET result='{"zhuge_agent_reporting":"invalid"}'::jsonb WHERE id=$1::uuid`, reportQueue); err != nil {
@@ -85,9 +159,17 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE agent_task_queue SET result='{}'::jsonb WHERE id=$1::uuid`, reportQueue); err != nil {
 		t.Fatal(err)
 	}
-	result, err := h.applyVerifiedNativeAgentReport(ctx, good)
-	if err != nil || !result.Committed || result.Replay || result.Status != "in_progress" {
-		t.Fatalf("valid report write: result=%+v err=%v", result, err)
+	badSignature := signedNativeAgentReportTestRequest(t, h, good, "", strings.Repeat("0", 64))
+	if badSignature.Code != http.StatusUnauthorized || strings.Contains(badSignature.Body.String(), "fixture-run-1") {
+		t.Fatalf("invalid provider signature must be rejected without echoing claims, status=%d body=%s", badSignature.Code, badSignature.Body.String())
+	}
+	result := signedNativeAgentReportTestRequest(t, h, good, "", "")
+	if result.Code != http.StatusCreated || !strings.Contains(result.Body.String(), `"status":"in_progress"`) {
+		t.Fatalf("valid signed test fixture must reach native writer, status=%d body=%s", result.Code, result.Body.String())
+	}
+	duplicateResponse := signedNativeAgentReportTestRequest(t, h, good, "", "")
+	if duplicateResponse.Code != http.StatusOK || !strings.Contains(duplicateResponse.Body.String(), `"replay":true`) {
+		t.Fatalf("duplicate provider event must return idempotent native readback, status=%d body=%s", duplicateResponse.Code, duplicateResponse.Body.String())
 	}
 	var issueStatus string
 	var revision int64
@@ -103,6 +185,13 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	}
 	if queueIssueRevision != "2" {
 		t.Fatalf("native Queue must retain the Issue revision returned by the committed report: issue_revision=%q", queueIssueRevision)
+	}
+	var queueStatus, queueReportState string
+	if err := pool.QueryRow(ctx, `SELECT status, result->'zhuge_agent_reporting'->>'state' FROM agent_task_queue WHERE id=$1::uuid`, reportQueue).Scan(&queueStatus, &queueReportState); err != nil {
+		t.Fatal(err)
+	}
+	if queueStatus != "running" || queueReportState != "in_progress" {
+		t.Fatalf("Agent Task Queue must retain native running status and read back report state: queue_status=%q report_state=%q", queueStatus, queueReportState)
 	}
 	var commentCount, activityCount int
 	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE issue_id=$1::uuid),(SELECT count(*) FROM activity_log WHERE issue_id=$1::uuid)`, reportIssue).Scan(&commentCount, &activityCount); err != nil {
@@ -121,6 +210,20 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	}
 	if commentContent != "[AI 回報] 進度更新 · 42%" || containsSensitiveReportText(commentContent) || containsSensitiveReportText(string(activityDetails)) {
 		t.Fatalf("raw Agent text must not be persisted to public comment or audit: comment=%q details=%s", commentContent, activityDetails)
+	}
+	protectedSecret := "private contract secret body must not leak"
+	protectedEvent := good
+	protectedEvent.EventID, protectedEvent.Sequence = "event-protected-ingress", 2
+	protectedResponse := signedNativeAgentReportTestRequest(t, h, protectedEvent, protectedSecret, "")
+	if protectedResponse.Code != http.StatusConflict || strings.Contains(protectedResponse.Body.String(), protectedSecret) {
+		t.Fatalf("protected detail must fail closed without echoing raw text, status=%d body=%s", protectedResponse.Code, protectedResponse.Body.String())
+	}
+	var leakedRows int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM comment WHERE position($1 in content)>0)+(SELECT count(*) FROM activity_log WHERE details::text LIKE '%' || $1 || '%')`, protectedSecret).Scan(&leakedRows); err != nil {
+		t.Fatal(err)
+	}
+	if leakedRows != 0 {
+		t.Fatalf("protected report text was persisted outside a protected detail store: rows=%d", leakedRows)
 	}
 
 	// Two concurrent replays serialize on the durable Dispatch row; one is the
@@ -260,12 +363,6 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	if afterRollbackRevision != revision || afterRollbackComments != commentCount || afterRollbackAudit != activityCount {
 		t.Fatalf("failed native audit write left a partial mutation: revision=%d comments=%d audit=%d", afterRollbackRevision, afterRollbackComments, afterRollbackAudit)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET fencing_epoch=2 WHERE id=$1::uuid`, reportDispatch); err != nil {
-		t.Fatal(err)
-	}
-	oldFence := good
-	oldFence.EventID, oldFence.Sequence, oldFence.FencingEpoch = "event-old-fence", 2, 1
-	assertRejected("old fencing epoch after authority advanced", oldFence, errNativeReportScope)
 	// A native user edit between Agent events advances the authoritative Issue
 	// revision. The next Agent event must conflict instead of overwriting it.
 	if _, err := pool.Exec(ctx, `UPDATE issue SET revision=revision+1, updated_at=now() WHERE id=$1::uuid`, reportIssue); err != nil {
@@ -291,15 +388,77 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	if afterConflictRevision != externalRevision || afterConflictComments != commentCount || afterConflictAudit != activityCount {
 		t.Fatalf("version conflict changed native data: revision=%d comments=%d audit=%d", afterConflictRevision, afterConflictComments, afterConflictAudit)
 	}
+	revision = externalRevision
+	if _, err := pool.Exec(ctx, `UPDATE taskflow.dispatch_intent SET fencing_epoch=2 WHERE id=$1::uuid`, reportDispatch); err != nil {
+		t.Fatal(err)
+	}
+	oldFence := good
+	oldFence.EventID, oldFence.Sequence, oldFence.FencingEpoch = "event-old-fence", 2, 1
+	assertRejected("old fencing epoch after authority advanced", oldFence, errNativeReportScope)
+	if _, err := pool.Exec(ctx, `INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, reportIssueDone, reportWorkspace, reportProject, reportAgent); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, reportQueueDone, reportAgent, reportIssueDone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-complete-run','fixture-complete-session','fixture-complete-ack',now()+interval '5 minutes')`, reportDispatchDone, reportLeaseDone, reportWorkspace, reportIssueDone); err != nil {
+		t.Fatal(err)
+	}
+	completed := nativeAgentReportEvent{
+		EventID: "event-completed", DispatchID: reportDispatchDone, IssueID: reportIssueDone, WorkspaceID: reportWorkspace,
+		ExecutorID: "CO-01", Provider: "test-provider", ProviderRunID: "fixture-complete-run", SessionID: "fixture-complete-session",
+		ProviderAckEventID: "fixture-complete-ack", LeaseID: reportLeaseDone, EventType: "completed", FencingEpoch: 1, Sequence: 1,
+	}
+	completedResponse := signedNativeAgentReportTestRequest(t, h, completed, "", "")
+	if completedResponse.Code != http.StatusCreated || !strings.Contains(completedResponse.Body.String(), `"status":"in_review"`) {
+		t.Fatalf("completed Agent report must transition to in_review, status=%d body=%s", completedResponse.Code, completedResponse.Body.String())
+	}
+	var completedIssueStatus string
+	if err := pool.QueryRow(ctx, `SELECT status FROM issue WHERE id=$1::uuid`, reportIssueDone).Scan(&completedIssueStatus); err != nil {
+		t.Fatal(err)
+	}
+	if completedIssueStatus != "in_review" {
+		t.Fatalf("Agent completion must await CTO review, got Issue status=%q", completedIssueStatus)
+	}
 }
 
 func validNativeAgentReportEvent() nativeAgentReportEvent {
 	return nativeAgentReportEvent{
 		EventID: "event-progress", DispatchID: reportDispatch, IssueID: reportIssue, WorkspaceID: reportWorkspace,
-		ExecutorID: "CO-01", Provider: "codex", ProviderRunID: "official-run-1", SessionID: "session-1",
-		ProviderAckEventID: "official-ack-1", LeaseID: reportLease, EventType: "progress", FencingEpoch: 1,
+		ExecutorID: "CO-01", Provider: "test-provider", ProviderRunID: "fixture-run-1", SessionID: "fixture-session-1",
+		ProviderAckEventID: "fixture-ack-1", LeaseID: reportLease, EventType: "progress", FencingEpoch: 1,
 		Sequence: 1, ProgressPercent: 42, HasProgress: true, providerAttestationVerified: true,
 	}
+}
+
+func signedNativeAgentReportTestRequest(t *testing.T, h *Handler, event nativeAgentReportEvent, protectedDetail string, signatureOverride string) *httptest.ResponseRecorder {
+	t.Helper()
+	key := []byte("isolated-native-report-test-key-only")
+	wire := testNativeAgentReportWire{
+		EventID: event.EventID, DispatchID: event.DispatchID, IssueID: event.IssueID,
+		WorkspaceID: event.WorkspaceID, ExecutorID: event.ExecutorID, Provider: event.Provider,
+		ProviderRunID: event.ProviderRunID, SessionID: event.SessionID,
+		ProviderAckEventID: event.ProviderAckEventID, LeaseID: event.LeaseID,
+		EventType: event.EventType, FencingEpoch: event.FencingEpoch, Sequence: event.Sequence,
+		ProgressPercent: event.ProgressPercent, HasProgress: event.HasProgress,
+		ProtectedDetailText: protectedDetail,
+	}
+	body, err := json.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(body)
+	signature := hex.EncodeToString(mac.Sum(nil))
+	if signatureOverride != "" {
+		signature = signatureOverride
+	}
+	request := httptest.NewRequest(http.MethodPost, nativeAgentReportIngressPath, bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Test-Provider-Signature", signature)
+	response := httptest.NewRecorder()
+	h.ReceiveNativeAgentReport(response, request)
+	return response
 }
 
 func createNativeAgentReportSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
@@ -327,6 +486,11 @@ func seedNativeAgentReportRows(t *testing.T, ctx context.Context, pool *pgxpool.
 		query string
 		args  []any
 	}{
+		{`DELETE FROM taskflow.dispatch_intent WHERE id=$1::uuid`, []any{reportDispatchDone}},
+		{`DELETE FROM comment WHERE issue_id=$1::uuid`, []any{reportIssueDone}},
+		{`DELETE FROM activity_log WHERE issue_id=$1::uuid`, []any{reportIssueDone}},
+		{`DELETE FROM agent_task_queue WHERE issue_id=$1::uuid`, []any{reportIssueDone}},
+		{`DELETE FROM issue WHERE id=$1::uuid`, []any{reportIssueDone}},
 		{`DELETE FROM taskflow.dispatch_intent WHERE id=$1::uuid`, []any{reportDispatch}},
 		{`DELETE FROM comment WHERE issue_id=$1::uuid`, []any{reportIssue}},
 		{`DELETE FROM activity_log WHERE issue_id=$1::uuid`, []any{reportIssue}},
@@ -347,7 +511,7 @@ func seedNativeAgentReportRows(t *testing.T, ctx context.Context, pool *pgxpool.
 		{`INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ($1::uuid,$2::uuid,'agent',$3::uuid)`, []any{reportProject, reportWorkspace, reportAgent}},
 		{`INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, []any{reportIssue, reportWorkspace, reportProject, reportAgent}},
 		{`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, []any{reportQueue, reportAgent, reportIssue}},
-		{`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','codex','provider_acknowledged','official-run-1','session-1','official-ack-1',now()+interval '5 minutes')`, []any{reportDispatch, reportLease, reportWorkspace, reportIssue}},
+		{`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-run-1','fixture-session-1','fixture-ack-1',now()+interval '5 minutes')`, []any{reportDispatch, reportLease, reportWorkspace, reportIssue}},
 	}
 	for _, stmt := range statements {
 		if _, err := pool.Exec(ctx, stmt.query, stmt.args...); err != nil {

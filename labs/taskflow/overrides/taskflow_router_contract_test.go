@@ -32,6 +32,7 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 
 	assertRouteCount(http.MethodPost, "/auth/zhuge")
 	assertRouteCount(http.MethodPost, "/api/cli-token")
+	assertRouteCount(http.MethodPost, "/api/provider/taskflow/native-agent-reports")
 	assertRouteCount(http.MethodGet, "/api/issues/{id}/dispatch-runtime")
 	assertRouteCount(http.MethodGet, "/api/zhuge/ai/project-mappings")
 	assertRouteCount(http.MethodGet, "/api/zhuge/ai/tasks")
@@ -45,6 +46,14 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 	}
 	if !strings.Contains(loginResponse.Body.String(), "missing Zhuge session") {
 		t.Fatalf("POST /auth/zhuge did not reach the expected ZhugeLogin validation: %s", loginResponse.Body.String())
+	}
+
+	providerReportRequest := httptest.NewRequest(http.MethodPost, "/api/provider/taskflow/native-agent-reports", strings.NewReader(`{}`))
+	providerReportRequest.Header.Set("Content-Type", "application/json")
+	providerReportResponse := httptest.NewRecorder()
+	router.ServeHTTP(providerReportResponse, providerReportRequest)
+	if providerReportResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unbound provider ingress must be registered and fail closed with 503, got %d", providerReportResponse.Code)
 	}
 
 	preflight := httptest.NewRequest(http.MethodOptions, "/auth/zhuge", nil)

@@ -26,10 +26,9 @@ var (
 
 // nativeAgentReportEvent is an internal server-to-server projection. The
 // verifier bit is deliberately unexported: no request decoder or browser DTO
-// can construct an accepted event. A Provider ingress must verify its official
-// signature and the persisted ACK before calling applyVerifiedNativeAgentReport.
-// No Provider ingress is currently registered, so production delivery remains
-// blocked even though the TaskFlow persistence adapter is implemented.
+// can construct an accepted event. ReceiveNativeAgentReport sets it only after
+// the injected provider verifier has authenticated the raw request. The
+// adapter then independently checks the persisted ACK and dispatch authority.
 type nativeAgentReportEvent struct {
 	EventID, DispatchID, IssueID, WorkspaceID string
 	ExecutorID, Provider, ProviderRunID       string

@@ -48,6 +48,7 @@ COPY labs/taskflow/overrides/taskflow_native_ai_readback.go /tmp/taskflow_native
 COPY labs/taskflow/patches/apply-taskflow-native-ai-readback.py /tmp/apply-taskflow-native-ai-readback.py
 COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write.go /tmp/taskflow_native_agent_reporting_write.go
 COPY labs/taskflow/overrides/taskflow_native_agent_reporting_write_test.go /tmp/taskflow_native_agent_reporting_write_test.go
+COPY labs/taskflow/overrides/taskflow_native_agent_report_ingress.go /tmp/taskflow_native_agent_report_ingress.go
 COPY labs/taskflow/patches/apply-taskflow-db-boundary.py /tmp/apply-taskflow-db-boundary.py
 COPY labs/taskflow/patches/stage-migrations.py /tmp/stage-migrations.py
 RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
@@ -78,6 +79,7 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_native_ai_readback.go /src/server/internal/handler/taskflow_native_ai_readback.go \
  && cp /tmp/taskflow_native_agent_reporting_write.go /src/server/internal/handler/taskflow_native_agent_reporting_write.go \
  && cp /tmp/taskflow_native_agent_reporting_write_test.go /src/server/internal/handler/taskflow_native_agent_reporting_write_test.go \
+ && cp /tmp/taskflow_native_agent_report_ingress.go /src/server/internal/handler/taskflow_native_agent_report_ingress.go \
  && python3 /tmp/patch-router-contract-test-main.py
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
@@ -119,7 +121,7 @@ RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhoo
  && gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go \
  && gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go \
  && gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go \
- && gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write_test.go \
+ && gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_native_agent_reporting_write.go internal/handler/taskflow_native_agent_reporting_write_test.go internal/handler/taskflow_native_agent_report_ingress.go \
  && gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
 RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
  && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1 \
