@@ -105,6 +105,13 @@ jobs:
           path: /tmp/native-dispatch-screenshots
           if-no-files-found: ignore
 
+  dispatch-authority-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated PG16/17 dispatch-authority safety suite (disposable containers; no production, DSN, or Provider)
+        run: python3 labs/taskflow/tests/test_native_dispatch_authority_safety_postgres.py
+
   backend-go-ci:
     runs-on: ubuntu-latest
     defaults:
@@ -120,20 +127,93 @@ jobs:
         run: |
           python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
           python3 ../../../labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py
+          python3 ../../../labs/taskflow/patches/apply-taskflow-provider-binding.py
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch.go
           cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch_test.go internal/handler/taskflow_cto_dispatch_test.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime.go
           cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime_test.go internal/handler/taskflow_dispatch_runtime_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_authority.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres_test.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route.go internal/handler/taskflow_provider_route.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route_test.go internal/handler/taskflow_provider_route_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_ai_readback.go internal/handler/taskflow_native_ai_readback.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_binding.go internal/handler/taskflow_provider_binding.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_binding_test.go internal/handler/taskflow_provider_binding_test.go
           gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
           gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
           gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
           gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
-          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go)"
+          gofmt -w internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go)"
       - name: Run backend tests
         run: CGO_ENABLED=0 go test ./...
       - name: Build backend binaries
         run: |
           CGO_ENABLED=0 go build ./cmd/server
           CGO_ENABLED=0 go build ./cmd/multica
+
+  native-dispatch-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: multica
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-parity-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d multica"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Stage overlay into a temporary vendor copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/multica"
+          cp -a third_party/multica/server "$RUNNER_TEMP/multica/server"
+          cd "$RUNNER_TEMP/multica/server"
+          ROOT="$GITHUB_WORKSPACE"
+          export TASKFLOW_VENDOR_ROOT="$RUNNER_TEMP/multica"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-github-head-sha.py"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-provider-binding.py"
+          for f in \
+            taskflow_dispatch_authority.go taskflow_dispatch_authority_test.go \
+            taskflow_cto_dispatch.go taskflow_cto_dispatch_test.go \
+            taskflow_dispatch_runtime.go taskflow_dispatch_runtime_test.go \
+            taskflow_native_dispatch_authority.go taskflow_native_dispatch_postgres.go taskflow_native_dispatch_postgres_test.go \
+            taskflow_provider_dispatch.go taskflow_provider_dispatch_test.go \
+            taskflow_provider_route.go taskflow_provider_route_test.go \
+            taskflow_native_ai_readback.go \
+            taskflow_provider_binding.go taskflow_provider_binding_test.go; do
+            cp "$ROOT/labs/taskflow/overrides/$f" "internal/handler/$f"
+          done
+          gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
+          gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
+          gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
+          gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
+          gofmt -w internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go
+          test -z "$(gofmt -l internal/handler)"
+      - name: Run parity gates against real PostgreSQL 16
+        shell: bash
+        env:
+          PARITY_DATABASE_URL: postgres://postgres:ci-parity-only@127.0.0.1:5432/multica?sslmode=disable
+        run: sh labs/taskflow/patches/run-parity-tests.sh "$RUNNER_TEMP/multica/server" dispatch
