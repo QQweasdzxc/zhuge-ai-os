@@ -14,8 +14,15 @@ class G1WorkflowContract(unittest.TestCase):
  def test_adapter_is_syntax_valid_and_no_delete_restore_or_retry(self):
   source=(ROOT/'labs/taskflow/scripts/g1-workflow-operation.py').read_text();ast.parse(source)
   self.assertNotIn('DELETE FROM',source);self.assertNotIn('DROP TABLE',source);self.assertNotIn('CREATE TABLE',source)
-  for marker in ['G1_STOPPED_COMMIT_UNKNOWN_READONLY_RECONCILE_REQUIRED','G1_STOPPED_POSTFLIGHT_FAILED_RETAIN','G1_READONLY_COMMITTED_EXACT','backup();preflight()','service=os.environ','c.set_session(readonly=readonly)','owner_only(q','gzip.decompress(base64.b64decode','c.commit()']:
+  for marker in ['G1_STOPPED_COMMIT_UNKNOWN_READONLY_RECONCILE_REQUIRED','G1_STOPPED_POSTFLIGHT_FAILED_RETAIN','G1_READONLY_COMMITTED_EXACT','G1_BACKUP_COMMIT_STATE_UNRESOLVED_READONLY_BACKUP_RECONCILE_REQUIRED_NO_MAPPING_ATTEMPT','service=os.environ','c.set_session(readonly=readonly)','owner_only(q','gzip.decompress(base64.b64decode','c.commit()']:
    self.assertIn(marker,source)
+ def test_ledger_absence_and_backup_ack_fail_closed(self):
+  source=(ROOT/'labs/taskflow/scripts/g1-workflow-operation.py').read_text()
+  self.assertIn('G1_LEDGER_ABSENT_UNRESOLVED_NATIVE_IDS_NOT_PROVEN',source)
+  self.assertNotIn('G1_READONLY_NOT_INSTALLED',source)
+  self.assertIn('return 3',source)
+  self.assertIn('G1_BACKUP_APPEND_ATTEMPT_START_SEPARATE_COMMIT',source)
+  self.assertIn('G1_BACKUP_COMMIT_STATE_UNRESOLVED_READONLY_BACKUP_RECONCILE_REQUIRED_NO_MAPPING_ATTEMPT',source)
  def test_reviewed_runner_refuses_wrong_hash_before_database(self):
   with tempfile.NamedTemporaryFile() as f:
    f.write(b'SELECT 1;');f.flush()
