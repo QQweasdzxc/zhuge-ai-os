@@ -105,6 +105,13 @@ jobs:
           path: /tmp/native-dispatch-screenshots
           if-no-files-found: ignore
 
+  dispatch-authority-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated PG16/17 dispatch-authority safety suite (disposable containers; no production, DSN, or Provider)
+        run: python3 labs/taskflow/tests/test_native_dispatch_authority_safety_postgres.py
+
   backend-go-ci:
     runs-on: ubuntu-latest
     defaults:
