@@ -34,7 +34,11 @@ class G1WorkflowContract(unittest.TestCase):
   from types import SimpleNamespace
   from unittest.mock import patch
   p=ROOT/'labs/taskflow/scripts/g1-workflow-operation.py'
-  spec=importlib.util.spec_from_file_location('g1_tls_contract',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+  # Exercise the actual pure guard without importing the DB adapter dependency.
+  # The workflow execution installs psycopg2; overlay contracts need no DB driver.
+  tree=ast.parse(p.read_text());guard=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='client_tls_guard')
+  ns={'ROOT':ROOT,'Path':Path,'hashlib':hashlib,'os':os};exec(compile(ast.Module(body=[guard],type_ignores=[]),str(p),'exec'),ns)
+  m=SimpleNamespace(client_tls_guard=ns['client_tls_guard'])
   ca=ROOT/'labs/taskflow/certs/supabase-prod-ca-2021.crt';pin=hashlib.sha256(ca.read_bytes()).hexdigest()
   for tls,mode,path,digest,ok in [(True,'verify-full',str(ca),pin,True),(False,'verify-full',str(ca),pin,False),(True,'require',str(ca),pin,False),(True,'verify-ca',str(ca),pin,False),(True,'verify-full','',pin,False),(True,'verify-full','/tmp/unreviewed.crt',pin,False),(True,'verify-full',str(ca),'0'*64,False)]:
    c=SimpleNamespace(info=SimpleNamespace(ssl_in_use=tls),get_dsn_parameters=lambda:{'sslmode':mode,'sslrootcert':path,'host':'aws-1-ap-northeast-2.pooler.supabase.com','port':'5432','dbname':'postgres','user':'taskflow_migrator.lenpbbhwxyyfwgvjcozf'})
