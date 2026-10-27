@@ -202,7 +202,7 @@ jobs:
             taskflow_native_dispatch_authority.go taskflow_native_dispatch_postgres.go taskflow_native_dispatch_postgres_test.go \
             taskflow_provider_dispatch.go taskflow_provider_dispatch_test.go \
             taskflow_provider_route.go taskflow_provider_route_test.go \
-            taskflow_native_ai_readback.go \
+            taskflow_native_ai_readback.go taskflow_native_ai_readback_test.go \
             taskflow_provider_binding.go taskflow_provider_binding_test.go; do
             cp "$ROOT/labs/taskflow/overrides/$f" "internal/handler/$f"
           done
