@@ -96,8 +96,18 @@ func nativeDispatchProjectMatchesIssue(mappings []zhugeNativeProjectMapping, exe
 		}
 		match = &mappings[index]
 	}
-	return match != nil && match.State == "VERIFIED" && match.WorkspaceID == workspaceID &&
-		match.ProjectID == issueProjectID && match.ProjectAccess == "ALLOW" && match.agentID.Valid
+	if match == nil || match.State != "VERIFIED" || match.WorkspaceID != workspaceID || match.ProjectAccess != "ALLOW" || !match.agentID.Valid {
+		return false
+	}
+	if len(match.Projects) == 0 {
+		return match.ProjectID == issueProjectID
+	}
+	for _, project := range match.Projects {
+		if project.ID == issueProjectID {
+			return true
+		}
+	}
+	return false
 }
 
 // CTODispatchIssue is the protected dispatch outlet. Route and durable claim
