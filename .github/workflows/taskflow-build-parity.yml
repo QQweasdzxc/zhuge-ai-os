@@ -219,3 +219,46 @@ jobs:
         env:
           PARITY_DATABASE_URL: postgres://postgres:ci-parity-only@127.0.0.1:5432/multica?sslmode=disable
         run: sh labs/taskflow/patches/run-parity-tests.sh "$RUNNER_TEMP/multica/server" dispatch
+
+  native-readback-required:
+    runs-on: ubuntu-latest
+    services:
+      isolated-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: isolated-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Stage actual Docker source copy and route chain
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: Install PostgreSQL fixture client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Install explicitly isolated minimal G1 fixture
+        env:
+          PGUSER: postgres
+          PGPASSWORD: isolated-ci-only
+          G1_TEST_SOCKET: 127.0.0.1
+          G1_TEST_PORT: '5432'
+        run: python3 labs/taskflow/tests/setup_g1_readback_fixture.py
+      - name: Required PostgreSQL readback and final router gates (no skipped fixture allowed)
+        env:
+          G1_READBACK_REQUIRED: '1'
+          G1_READBACK_TEST_URL: postgres://postgres:isolated-ci-only@127.0.0.1:5432/postgres?sslmode=disable&search_path=taskflow,extensions
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+          TASKFLOW_ROUTER_CONTRACT_ONLY: '1'
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./internal/handler -run 'TestG1Native|TestNativeDispatchPlural|TestNativeDispatchRequires' -count=1 -v | tee /tmp/readback.log
+          test "$(grep -c '^--- PASS' /tmp/readback.log)" = 7
+          ! grep -q '^--- SKIP' /tmp/readback.log
+          go test ./cmd/server -run 'TestTaskFlowZhugeRoutesInFinalRouter|TestG1NativeFinalHTTPAuthMemberHumanChain' -count=1 -v | tee /tmp/router.log
+          test "$(grep -c '^--- PASS' /tmp/router.log)" = 2
