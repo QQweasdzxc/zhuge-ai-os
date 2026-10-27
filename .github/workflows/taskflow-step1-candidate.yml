@@ -1,10 +1,28 @@
 name: TaskFlow STEP1 dispatch-authority candidate
 
+# Execution contract (security-reviewed):
+# - workflow_dispatch only, environment production-migration (human approval
+#   gate; never self-approved).
+# - expected_sha must name the exact reviewed commit; SQL file contents are
+#   additionally pinned by sha256 below. Drift aborts before any DB contact.
+# - taskflow_migration_role_guard.sql runs before EVERY action path and fails
+#   closed at the database layer (RAISE) unless the connection is the
+#   restricted taskflow_migrator owner of the taskflow schema.
+# - The backup never leaves the runner unencrypted. It is encrypted with age
+#   to the recipient public key in the TASKFLOW_BACKUP_AGE_RECIPIENT
+#   environment variable; the matching private key must live in the user's
+#   vault, never in this repo, these logs, or beside the artifact. If no
+#   recipient is configured the backup step fails closed and apply/rollback
+#   cannot proceed.
+# - Raw psql/libpq output, the pg_service file, and the plaintext dump are
+#   never printed to logs or uploaded; runner-local copies are shredded in an
+#   always-step.
+
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'STEP1 action: backup+apply+postflight, backup-only, postflight-only, or rollback-guarded'
+        description: 'STEP1 action'
         required: true
         type: choice
         options:
@@ -12,28 +30,49 @@ on:
           - backup-only
           - postflight-only
           - rollback-guarded
+      expected_sha:
+        description: 'Reviewed commit SHA this run is approved to execute'
+        required: true
+        type: string
 
 permissions: {}
+
+env:
+  PIN_CANDIDATE_SHA256: e5c72aa39e059ab7daf0c314d33160752f8f1330a27c54ea5d89056986735949
+  PIN_ROLLBACK_SHA256: 7f7e64036d65cff1a6d312454bf1479f9f4e1e72990342ea5bfb9215e95a7644
+  PIN_POSTFLIGHT_SHA256: fc8ed653fff94d2476bf979dd70eae7c465ee72877fa9b93ebca3246ea192d62
+  PIN_GUARD_SHA256: 16bac864b32eb8e62c0413831408dfeacd2f13c9a7caf43f324a675680e359db
 
 jobs:
   step1-candidate:
     runs-on: ubuntu-latest
     environment: production-migration
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out the reviewed commit only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
 
-      - name: Install PostgreSQL 17 client (prod server_version=17.6)
+      - name: Verify pinned SQL contents
+        run: |
+          set -euo pipefail
+          cd labs/taskflow/sql
+          echo "$PIN_GUARD_SHA256  taskflow_migration_role_guard.sql" | sha256sum -c -
+          echo "$PIN_CANDIDATE_SHA256  taskflow_native_dispatch_authority_candidate.sql" | sha256sum -c -
+          echo "$PIN_ROLLBACK_SHA256  taskflow_native_dispatch_authority_rollback.sql" | sha256sum -c -
+          echo "$PIN_POSTFLIGHT_SHA256  taskflow_native_dispatch_authority_postflight.sql" | sha256sum -c -
+
+      - name: Install PostgreSQL 17 client and age (prod server_version=17.6)
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17 || {
+          sudo apt-get install -y -qq postgresql-client-17 age || {
             echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
             curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
             sudo apt-get update -qq
-            sudo apt-get install -y -qq postgresql-client-17
-          }
-          psql --version
-          pg_dump --version
+            sudo apt-get install -y -qq postgresql-client-17 age
+          } >/dev/null
+          psql --version; pg_dump --version; age --version
 
       - name: Write one-shot migrator pg_service file (never printed)
         run: |
@@ -44,56 +83,81 @@ jobs:
           echo "PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf" >> "$GITHUB_ENV"
           echo "PGSERVICE=${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}" >> "$GITHUB_ENV"
 
-      - name: Verify connection role and restricted attributes (read-only)
+      - name: Database-side role guard (fails closed; required for every action)
         run: |
           set -euo pipefail
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -Atc "
-            SELECT current_user,
-                   (SELECT rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication
-                      FROM pg_catalog.pg_roles WHERE rolname = current_user),
-                   (SELECT nspname FROM pg_catalog.pg_namespace
-                     WHERE nspname='taskflow' AND nspowner = current_user::regrole);"
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -Atc \
-            "SELECT 'role='||current_user; SELECT 'restricted=false' WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication));"
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
+            -f labs/taskflow/sql/taskflow_migration_role_guard.sql 2>"$RUNNER_TEMP/guard.err" \
+            || { echo "role guard failed (details withheld from public logs)"; exit 1; }
+          echo "role guard passed: restricted taskflow_migrator owning taskflow schema"
 
-      - name: Pre-change schema backup (pg_dump taskflow schema)
+      - name: Require an authorized backup destination (fail closed)
         if: inputs.action != 'postflight-only'
         run: |
           set -euo pipefail
-          pg_dump "service=$PGSERVICE" --schema=taskflow --no-owner --no-privileges \
-            --file="$RUNNER_TEMP/taskflow-schema-backup.sql"
-          wc -c "$RUNNER_TEMP/taskflow-schema-backup.sql"
+          if [ -z "${{ vars.TASKFLOW_BACKUP_AGE_RECIPIENT }}" ]; then
+            echo "NO_AUTHORIZED_BACKUP_DESTINATION: set environment variable TASKFLOW_BACKUP_AGE_RECIPIENT to the user's age public key (private key in the user's vault) before running backup/apply/rollback."
+            exit 1
+          fi
+          echo "TASKFLOW_BACKUP_AGE_RECIPIENT=${{ vars.TASKFLOW_BACKUP_AGE_RECIPIENT }}" >> "$GITHUB_ENV"
+
+      - name: Pre-change encrypted schema backup (taskflow schema)
+        if: inputs.action != 'postflight-only'
+        run: |
+          set -euo pipefail
+          pg_dump "service=$PGSERVICE" --schema=taskflow \
+            --file="$RUNNER_TEMP/taskflow-schema-backup.sql" 2>"$RUNNER_TEMP/dump.err" \
+            || { echo "pg_dump failed (details withheld from public logs)"; exit 1; }
+          age -r "$TASKFLOW_BACKUP_AGE_RECIPIENT" -o "$RUNNER_TEMP/taskflow-schema-backup.sql.age" \
+            "$RUNNER_TEMP/taskflow-schema-backup.sql"
+          shred -u "$RUNNER_TEMP/taskflow-schema-backup.sql"
+          wc -c "$RUNNER_TEMP/taskflow-schema-backup.sql.age"
+          sha256sum "$RUNNER_TEMP/taskflow-schema-backup.sql.age" | awk '{print $1}'
+
+      - name: Upload encrypted backup only (age-encrypted; key never beside it)
+        if: inputs.action != 'postflight-only'
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskflow-step1-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/taskflow-schema-backup.sql.age
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Apply dispatch-authority candidate (single transaction, owner-guarded)
         if: inputs.action == 'backup+apply+postflight'
         run: |
           set -euo pipefail
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
-            -f labs/taskflow/sql/taskflow_native_dispatch_authority_candidate.sql
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
+            -f labs/taskflow/sql/taskflow_native_dispatch_authority_candidate.sql 2>"$RUNNER_TEMP/apply.err" \
+            || { echo "candidate apply failed; transaction aborted (details withheld from public logs)"; exit 1; }
+          echo "candidate apply committed"
 
       - name: Guarded rollback (refuses when dispatch history exists)
         if: inputs.action == 'rollback-guarded'
         run: |
           set -euo pipefail
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
-            -f labs/taskflow/sql/taskflow_native_dispatch_authority_rollback.sql
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
+            -f labs/taskflow/sql/taskflow_native_dispatch_authority_rollback.sql 2>"$RUNNER_TEMP/rollback.err" \
+            || { echo "guarded rollback refused or failed (details withheld from public logs)"; exit 1; }
+          echo "guarded rollback committed"
 
       - name: Read-only postflight (metadata only; NOT_READY stays possible)
         if: inputs.action != 'backup-only'
         run: |
           set -euo pipefail
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
+          if psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
             -f labs/taskflow/sql/taskflow_native_dispatch_authority_postflight.sql \
-            > "$RUNNER_TEMP/postflight.txt" 2>&1 || { cat "$RUNNER_TEMP/postflight.txt"; exit 1; }
-          cat "$RUNNER_TEMP/postflight.txt"
+            > "$RUNNER_TEMP/postflight.out" 2>"$RUNNER_TEMP/postflight.err"; then
+            echo "postflight query executed; metadata summary:"
+            grep -cE '.' "$RUNNER_TEMP/postflight.out" | sed 's/^/result rows: /'
+          else
+            echo "postflight returned errors or NOT_READY conditions (details withheld from public logs)"
+            exit 1
+          fi
 
-      - name: Upload backup and postflight evidence (repo-private artifact)
+      - name: Shred sensitive runner-local material
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: taskflow-step1-${{ inputs.action }}-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/taskflow-schema-backup.sql
-            ${{ runner.temp }}/postflight.txt
-          if-no-files-found: warn
-          retention-days: 90
+        run: |
+          shred -u "$RUNNER_TEMP/pg_service.conf" 2>/dev/null || true
+          shred -u "$RUNNER_TEMP/taskflow-schema-backup.sql" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
