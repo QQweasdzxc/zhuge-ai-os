@@ -91,7 +91,16 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq postgresql-client-17
           } >/dev/null
+          # The runner image pre-installs PG16 client tools; PATH/alternatives
+          # mixing yielded psql 17 but pg_dump 16, and pg_dump aborts when the
+          # server major is newer (run 40515940876: pg_dump 16.15 vs server
+          # 17.6). Pin the PG17 toolchain for all later steps and fail closed
+          # on any major mismatch so a mixed install cannot reach backup.
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
           psql --version; pg_dump --version
+          psql --version | grep -qE '^psql \(PostgreSQL\) 17\.' || { echo "toolchain gate: psql major is not 17"; exit 1; }
+          pg_dump --version | grep -qE '^pg_dump \(PostgreSQL\) 17\.' || { echo "toolchain gate: pg_dump major is not 17"; exit 1; }
 
       - name: Write one-shot migrator pg_service file (never printed)
         run: |
