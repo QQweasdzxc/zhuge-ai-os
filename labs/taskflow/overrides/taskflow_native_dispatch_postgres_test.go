@@ -187,3 +187,85 @@ func TestNativeDispatchAuthorityRequiresDatabaseAndIdempotencyKey(t *testing.T) 
 		t.Fatal("nil request unexpectedly produced an idempotency key")
 	}
 }
+
+type preflightVetoDispatcher struct{ calls int }
+
+var errPreflightVetoForTest = errors.New("preflight veto for test")
+
+func (d *preflightVetoDispatcher) Preflight(context.Context, ProviderDispatchRequest) error {
+	d.calls++
+	return errPreflightVetoForTest
+}
+
+func (d *preflightVetoDispatcher) Dispatch(context.Context, ProviderDispatchRequest) (ProviderDispatchResult, error) {
+	return ProviderDispatchResult{}, errors.New("dispatch must not run after preflight veto")
+}
+
+type claimCountingAuthority struct{ claims int }
+
+func (a *claimCountingAuthority) Claim(context.Context, NativeDispatchClaimRequest) (ProviderDispatchClaim, error) {
+	a.claims++
+	return ProviderDispatchClaim{}, errors.New("claim must not run after preflight veto")
+}
+func (a *claimCountingAuthority) BindProviderRoute(context.Context, NativeDispatchProviderStartRequest) (bool, error) {
+	return false, errors.New("bind must not run after preflight veto")
+}
+func (a *claimCountingAuthority) BeginProvider(context.Context, NativeDispatchProviderStartRequest) (bool, error) {
+	return false, errors.New("begin must not run after preflight veto")
+}
+func (a *claimCountingAuthority) RecordProviderAck(context.Context, NativeDispatchProviderAckRequest) (bool, error) {
+	return false, errors.New("ack must not run after preflight veto")
+}
+func (a *claimCountingAuthority) Renew(context.Context, NativeDispatchLeaseRequest) (bool, error) {
+	return false, errors.New("renew must not run after preflight veto")
+}
+func (a *claimCountingAuthority) RequestStop(context.Context, NativeDispatchStopRequest) (bool, error) {
+	return false, errors.New("stop must not run after preflight veto")
+}
+func (a *claimCountingAuthority) ConfirmProviderStop(context.Context, NativeProviderStopAttestation) (bool, error) {
+	return false, errors.New("stop attestation must not run after preflight veto")
+}
+func (a *claimCountingAuthority) Reconcile(context.Context, NativeDispatchReconciliation) (bool, error) {
+	return false, errors.New("reconcile must not run after preflight veto")
+}
+
+func TestNativeDispatchPreflightVetoBlocksClaim(t *testing.T) {
+	previous := taskflowProviderDispatcher
+	t.Cleanup(func() { taskflowProviderDispatcher = previous })
+	veto := &preflightVetoDispatcher{}
+	taskflowProviderDispatcher = veto
+	authority := &claimCountingAuthority{}
+	request := ProviderDispatchRequest{
+		IssueID:             "issue-1",
+		WorkspaceID:         "ws-1",
+		AuthenticatedUserID: "user-1",
+		ExecutorID:          "CO-01",
+		Provider:            "codex",
+		Route: ProviderConversationRoute{
+			EngineerID:            "CO-01",
+			ProviderAccountPoolID: "pool-1",
+			ConversationReference: "conv-1",
+			OfficialSessionID:     "sess-1",
+			VerificationStatus:    ProviderRouteVerified,
+			WorkspaceScope:        "ws-1",
+		},
+	}
+	_, _, err := dispatchWithNativeAuthority(context.Background(), authority, NativeDispatchClaimRequest{
+		RequestKey:   "req-1",
+		IssueID:      "issue-1",
+		WorkspaceID:  "ws-1",
+		ExecutorID:   "CO-01",
+		Provider:     "codex",
+		CTOPrincipal: "user-1",
+		LeaseSeconds: 60,
+	}, request)
+	if !errors.Is(err, errPreflightVetoForTest) {
+		t.Fatalf("expected preflight veto error, got %v", err)
+	}
+	if veto.calls != 1 {
+		t.Fatalf("expected exactly one preflight call, got %d", veto.calls)
+	}
+	if authority.claims != 0 {
+		t.Fatalf("preflight veto must run before the single-writer claim; claims=%d", authority.claims)
+	}
+}
