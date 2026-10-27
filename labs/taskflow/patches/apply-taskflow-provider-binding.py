@@ -6,7 +6,11 @@ copy under /src and supplies TASKFLOW_VENDOR_ROOT=/src.
 from pathlib import Path
 import os
 
-ROOT = Path(os.environ.get("TASKFLOW_VENDOR_ROOT", Path(__file__).resolve().parents[3] / "third_party" / "multica"))
+ROOT = (
+    Path(os.environ["TASKFLOW_VENDOR_ROOT"])
+    if os.environ.get("TASKFLOW_VENDOR_ROOT")
+    else Path(__file__).resolve().parents[3] / "third_party" / "multica"
+)
 ROUTER = ROOT / "server" / "cmd" / "server" / "router.go"
 ANCHOR = '\th := handler.New(queries, pool, hub, bus, emailSvc, store, cfSigner, analyticsClient, signupConfig, daemonHub)'
 INSERTION = ANCHOR + (
