@@ -129,6 +129,27 @@ jobs:
             dump_id bigint PRIMARY KEY, taken_at timestamptz NOT NULL DEFAULT now(),
             sha256 text NOT NULL, gz_bytes bigint NOT NULL, note text NOT NULL
           );
+          REVOKE ALL ON taskflow.step1_schema_backup FROM PUBLIC;
+          REVOKE ALL ON taskflow.step1_schema_backup_meta FROM PUBLIC;
+          DO $backup_acl$
+          DECLARE g text;
+          BEGIN
+            FOR g IN SELECT DISTINCT CASE WHEN ac.grantee = 0 THEN 'PUBLIC' ELSE ac.grantee::regrole::text END
+                     FROM pg_class c
+                     JOIN pg_namespace n ON n.oid = c.relnamespace,
+                     aclexplode(c.relacl) ac
+                     WHERE n.nspname = 'taskflow'
+                       AND c.relname IN ('step1_schema_backup','step1_schema_backup_meta')
+                       AND ac.grantee <> 'taskflow_migrator'::regrole LOOP
+              IF g = 'PUBLIC' THEN
+                EXECUTE 'REVOKE ALL ON taskflow.step1_schema_backup FROM PUBLIC';
+                EXECUTE 'REVOKE ALL ON taskflow.step1_schema_backup_meta FROM PUBLIC';
+              ELSE
+                EXECUTE format('REVOKE ALL ON taskflow.step1_schema_backup FROM %I', g);
+                EXECUTE format('REVOKE ALL ON taskflow.step1_schema_backup_meta FROM %I', g);
+              END IF;
+            END LOOP;
+          END $backup_acl$;
           SQL
           DUMP_ID=$(psql "service=$PGSERVICE" -Atc "SELECT coalesce(max(dump_id),0)+1 FROM taskflow.step1_schema_backup_meta" 2>>"$RUNNER_TEMP/backup.err") \
             || { echo "backup id allocation failed (details withheld)"; exit 1; }
@@ -138,11 +159,12 @@ jobs:
           b64 = base64.b64encode(open(path, "rb").read()).decode()
           csv.writer(sys.stdout, lineterminator="\n").writerow([dump_id, 0, b64])
           PY
-          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
+          psql "service=$PGSERVICE" --single-transaction -v ON_ERROR_STOP=1 -q \
             -c "\\copy taskflow.step1_schema_backup FROM '$RUNNER_TEMP/backup.csv' CSV" \
             -c "INSERT INTO taskflow.step1_schema_backup_meta (dump_id, sha256, gz_bytes, note) VALUES ($DUMP_ID, '$HASH', $GZSIZE, 'step1 pre-change full taskflow schema (gzip+base64 lines)')" \
             2>>"$RUNNER_TEMP/backup.err" || { echo "backup row store failed (details withheld)"; exit 1; }
-          BACK_COUNT=$(psql "service=$PGSERVICE" -Atc "SELECT count(*) FROM taskflow.step1_schema_backup WHERE dump_id=$DUMP_ID")
+          BACK_COUNT=$(psql "service=$PGSERVICE" -Atc "SELECT count(*) FROM taskflow.step1_schema_backup WHERE dump_id=$DUMP_ID" 2>>"$RUNNER_TEMP/backup.err") \
+            || { echo "backup count check failed (details withheld)"; exit 1; }
           echo "in-project backup stored: dump_id=$DUMP_ID rows=$BACK_COUNT gz_bytes=$GZSIZE sha256=$HASH"
 
       - name: Apply dispatch-authority candidate (single transaction, owner-guarded)
