@@ -52,6 +52,7 @@ case "$PROFILE" in
     run_gate webhook 3 env CGO_ENABLED=0 go test ./internal/handler -v -run '^TestTaskFlowWebhook' -count=1
     run_gate router 1 env TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -v -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1
     run_gate locale 1 env TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -v -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
+    run_gate backlog_planning 3 env CGO_ENABLED=0 go test ./internal/handler -v -run '^TestTaskFlowBacklog' -count=1
     run_dispatch_gate
     run_gate cli_auth 2 env CGO_ENABLED=0 go test ./internal/auth -v -run TestZhugeCLIAuthorizationCode -count=1
     run_gate cli_mw 2 env CGO_ENABLED=0 go test ./internal/middleware -v -run TestZhugeCLIAuthorizationCode -count=1

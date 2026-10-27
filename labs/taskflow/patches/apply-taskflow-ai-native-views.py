@@ -13,7 +13,114 @@ def replace(source, marker, value, count=1):
         raise ValueError(f"AI native views upstream drift ({source.count(marker)}x): {marker[:80]}")
     return source.replace(marker, value)
 
+def patch_backlog_assignment(root, overlays):
+    """Allow inert planning only for the fixed native backlog key.
+
+    This does not grant invocation access. The existing owner/invocation
+    decision remains mandatory, and all server execution gates stay unchanged.
+    Unknown status and mixed batches deliberately retain the runtime gate.
+    """
+    picker = root / "packages/views/issues/components/pickers/assignee-picker.tsx"
+    source = picker.read_text()
+    source = replace(source, "  mixed?: boolean;", "  mixed?: boolean;\n  /** Fixed native status only; omitted/mixed remains execution-gated. */\n  issueStatus?: string;")
+    source = replace(source, "  mixed = false,", "  mixed = false,\n  issueStatus,")
+    source = replace(source, "const allowed = decision.allowed && runtimeBound;", 'const allowed = decision.allowed && (issueStatus === "backlog" || runtimeBound);')
+    source = replace(source, ": !runtimeBound\n", ': !runtimeBound && issueStatus !== "backlog"\n')
+    # Squads intentionally keep their existing runtime requirement. This change
+    # is only native agent planning; it adds no new squad routing semantics.
+    picker.write_text(source)
+    # Manual drafts can select an inert agent in backlog and later change
+    # status. Clear that stale assignment on promotion; submit-time recheck also
+    # covers restored drafts/shortcuts. Cache-missing agents fail closed.
+    draft = root / "packages/views/modals/create-issue.tsx"
+    source = draft.read_text()
+    source = replace(source, 'import { issueStatusCategory }', 'import { agentListOptions } from "@multica/core/workspace/queries";\nimport { isAgentRuntimeBound } from "@multica/core/agents";\nimport type { Agent } from "@multica/core/types";\nimport { issueStatusCategory }')
+    source = replace(source,
+        '  const updateStatus = (v: IssueStatus) => { setStatus(v); setManual({ status: v }); };',
+        """  const manualAgentReady = (nextStatus: string) => {
+    if (nextStatus === "backlog" || assigneeType !== "agent") return true;
+    const agents = queryClient.getQueryData<Agent[]>(agentListOptions(wsId).queryKey);
+    const target = agents?.find((agent) => agent.id === assigneeId && !agent.archived_at);
+    return !!target && isAgentRuntimeBound(target);
+  };
+  const updateStatus = (v: IssueStatus) => {
+    setStatus(v);
+    if (!manualAgentReady(v)) {
+      setAssigneeType(undefined); setAssigneeId(undefined);
+      setManual({ status: v, assigneeType: undefined, assigneeId: undefined });
+      toast.error(t(($) => $.create_issue.planning_assignment_cleared));
+      return;
+    }
+    setManual({ status: v });
+  };""")
+    source = replace(source,
+        '    onSubmit: async (): Promise<boolean> => {\n      setUnavailablePropertyRemoved(false);',
+        '    onSubmit: async (): Promise<boolean> => {\n      if (!manualAgentReady(status)) {\n        toast.error(t(($) => $.create_issue.planning_runtime_unverified));\n        return false;\n      }\n      setUnavailablePropertyRemoved(false);')
+    draft.write_text(source)
+    messages = {
+        "en": ("Agent runtime could not be verified; assignment cleared. Keep planning work in backlog.", "Agent runtime could not be verified. Keep work in backlog or remove the assignment."),
+        "zh-Hant": ("無法確認此 Agent 的執行時，已取消指派；規劃工作可保留在待規劃。", "無法確認此 Agent 的執行時。請改為待規劃或取消指派。"),
+        "zh-Hans": ("无法确认此 Agent 的运行时，已取消分配；规划工作可保留在待规划。", "无法确认此 Agent 的运行时。请改为待规划或取消分配。"),
+        "ja": ("Agent のランタイムを確認できないため、割り当てを解除しました。計画中の作業はバックログに残せます。", "Agent のランタイムを確認できません。バックログに戻すか、割り当てを解除してください。"),
+        "fr": ("Impossible de vérifier le runtime de cet agent ; affectation supprimée. Gardez le travail de planification dans le backlog.", "Impossible de vérifier le runtime de cet agent. Gardez le travail dans le backlog ou supprimez l’affectation."),
+    }
+    for locale, (cleared, unverified) in messages.items():
+        path = root / "packages/views/locales" / locale / "modals.json"
+        if not path.exists():
+            continue  # zh-Hant is present after its owning locale overlay.
+        data = json.loads(path.read_text())
+        data["create_issue"]["planning_assignment_cleared"] = cleared
+        data["create_issue"]["planning_runtime_unverified"] = unverified
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    (root / "packages/views/issues/components/pickers/taskflow-backlog-assignment.test.tsx").write_text((overlays / "taskflow-backlog-assignment.test.tsx").read_text())
+    for relative, actor in [
+        ("modals/create-issue.tsx", "draft"),
+        ("issues/components/issue-property-pills.tsx", "issue"),
+        ("issues/components/board-card.tsx", "issue"),
+        ("issues/components/issue-detail.tsx", "detail"),
+        ("issues/components/table-view.tsx", "issue"),
+        ("issues/actions/issue-actions-dropdown.tsx", "issue"),
+        ("issues/actions/issue-actions-context-menu.tsx", "issue"),
+        ("issues/components/batch-action-toolbar.tsx", "batch"),
+    ]:
+        path = root / "packages/views" / relative
+        source = path.read_text()
+        if actor == "detail":
+            source = replace(source, "<AssigneePicker\n", "<AssigneePicker\n            issueStatus={child.status}\n")
+            source = replace(source, "<AssigneePicker assigneeType={issue.assignee_type}", "<AssigneePicker issueStatus={issue.status} assigneeType={issue.assignee_type}")
+        else:
+            value = {"draft": "status", "issue": "issue.status", "batch": 'selectedIssues.length > 0 && selectedIssues.every((issue) => issue.status === "backlog") ? "backlog" : undefined'}[actor]
+            source = replace(source, "<AssigneePicker\n", "<AssigneePicker\n                  issueStatus={" + value + "}\n")
+        path.write_text(source)
+    batch_test = root / "packages/views/issues/components/batch-action-toolbar.test.tsx"
+    source = batch_test.read_text()
+    source = replace(source, "    mixed,\n", "    mixed,\n    issueStatus,\n")
+    source = replace(source, "    mixed?: boolean;", "    mixed?: boolean;\n    issueStatus?: string;")
+    source = replace(source, '      data-testid="assignee-picker"', '      data-testid="assignee-picker"\n      data-issue-status={issueStatus ?? "__unknown__"}')
+    source += """
+// A mixed status batch must not inherit backlog's no-runtime exception.
+describe("TaskFlow batch planning eligibility", () => {
+  it.each([
+    ["backlog", "backlog", "backlog"],
+    ["backlog", "todo", "__unknown__"],
+    ["custom_backlog", "custom_backlog", "__unknown__"],
+  ])("passes exact selection status %s / %s", (a, b, expected) => {
+    selection.selectedIds = new Set(["a", "b"]);
+    render(<BatchActionToolbar issues={[makeIssue({id:"a",status:a}),makeIssue({id:"b",status:b})]} />);
+    expect(screen.getByTestId("assignee-picker")).toHaveAttribute("data-issue-status", expected);
+  });
+});
+"""
+    batch_test.write_text(source)
+    draft_test = root / "packages/views/modals/create-issue.test.tsx"
+    source = draft_test.read_text()
+    source = replace(source, '  StatusPicker: () => <div data-testid="status-picker" />,',
+        '  StatusPicker: ({onUpdate}: {onUpdate: (u: {status: string}) => void}) => <button data-testid="status-picker" onClick={() => onUpdate({status:"todo"})}>Promote draft</button>,')
+    source = replace(source, 'describe("CreateIssueModal", () => {', 'describe("CreateIssueModal", () => {\n  it("blocks a restored active draft with an unbound or unknown agent at submit", async () => {\n    mockDraftStore.draft.manual.assigneeType = "agent";\n    mockDraftStore.draft.manual.assigneeId = "inert-agent";\n    renderModal(<CreateIssueModal onClose={vi.fn()} />);\n    fireEvent.change(screen.getByPlaceholderText("Issue title"), {target:{value:"inert active draft"}});\n    await userEvent.click(screen.getByRole("button", {name:"Create Issue"}));\n    expect(mockCreateIssue).not.toHaveBeenCalled();\n    expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining("backlog"));\n  });\n  it("clears inert assignment when a backlog draft is promoted", async () => {\n    mockDraftStore.draft.manual.status = "backlog" as never;\n    mockDraftStore.draft.manual.assigneeType = "agent";\n    mockDraftStore.draft.manual.assigneeId = "inert-agent";\n    renderModal(<CreateIssueModal onClose={vi.fn()} />);\n    await userEvent.click(screen.getByTestId("status-picker"));\n    expect(mockSetManual).toHaveBeenCalledWith({status:"todo",assigneeType:undefined,assigneeId:undefined});\n    expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining("assignment cleared"));\n  });')
+    draft_test.write_text(source)
+
 def apply(root, overlays):
+    patch_backlog_assignment(root, overlays)
     # A. Routes in the native path helper.
     paths = root / "packages/core/paths/paths.ts"
     paths.write_text(replace(paths.read_text(),

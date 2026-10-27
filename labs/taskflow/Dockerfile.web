@@ -115,6 +115,7 @@ COPY labs/taskflow/patches/apply-taskflow-ai-native-views.py /tmp/apply-taskflow
 COPY labs/taskflow/overrides/taskflow-ai-dispatch-page.tsx /taskflow-ai-native/taskflow-ai-dispatch-page.tsx
 COPY labs/taskflow/overrides/taskflow-ai-tasks-page.tsx /taskflow-ai-native/taskflow-ai-tasks-page.tsx
 COPY labs/taskflow/overrides/taskflow-ai-saved-view-isolation.test.tsx /taskflow-ai-native/taskflow-ai-saved-view-isolation.test.tsx
+COPY labs/taskflow/overrides/taskflow-backlog-assignment.test.tsx /taskflow-ai-native/taskflow-backlog-assignment.test.tsx
 RUN python3 /tmp/apply-taskflow-ai-native-views.py --root /src --overlays /taskflow-ai-native
 
 FROM node:22-alpine AS deps
@@ -160,6 +161,8 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx
+RUN pnpm --filter @multica/views exec vitest run locales/parity.test.ts -t "locale bundle parity"
+RUN pnpm --filter @multica/views exec vitest run modals/create-issue.test.tsx issues/components/pickers/taskflow-backlog-assignment.test.tsx issues/components/pickers/assignee-picker.keyboard.test.tsx issues/components/pickers/deferred-trigger.test.tsx issues/components/batch-action-toolbar.test.tsx issues/components/batch-action-toolbar.confirm.test.tsx
 RUN pnpm --filter @multica/web exec vitest run lib/locale-routing.test.ts lib/taskflow-locale-routing.test.ts lib/docs-href.test.ts app/global-error.test.tsx features/landing/i18n/dictionary.test.ts features/landing/components/inline-links.test.ts features/landing/components/changelog-page-client.test.ts lib/use-case-locale-fallback.test.ts lib/taskflow-html-lang.test.ts
 ARG NEXT_PUBLIC_APP_VERSION=taskflow-parity
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION} \
