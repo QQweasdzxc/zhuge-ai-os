@@ -112,6 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           pg_dump "service=$PGSERVICE" --schema=taskflow \
+            --exclude-table=taskflow.step1_schema_backup \
+            --exclude-table=taskflow.step1_schema_backup_meta \
             --file="$RUNNER_TEMP/backup.sql" 2>"$RUNNER_TEMP/dump.err" \
             || { echo "pg_dump failed (details withheld from public logs)"; exit 1; }
           HASH=$(sha256sum "$RUNNER_TEMP/backup.sql" | awk '{print $1}')
