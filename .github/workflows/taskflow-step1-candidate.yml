@@ -113,24 +113,6 @@ jobs:
           tr -d '\r' < "$RAWC" > "$RUNNER_TEMP/pg_service.conf"
           shred -u "$RAWC" 2>/dev/null || rm -f "$RAWC"
           CONF="$RUNNER_TEMP/pg_service.conf"
-          # Whole-file syntax gate: libpq rejects unknown keys and malformed lines
-          # ("syntax error in service file"). Fail closed with a fixed class
-          # instead of letting the rewrite mask a malformed original.
-          KNOWN_KEYS="application_name channel_binding client_encoding connect_timeout dbname fallback_application_name gssencmode host hostaddr keepalives keepalives_count keepalives_idle keepalives_interval krb_server_hostname options passfile password port replication require_auth requirepeer service ssl_max_protocol_version ssl_min_protocol_version sslcert sslcompression sslcrl sslcrldir sslkey sslmode sslrootcert tcp_user_timeout user"
-          if awk -v keys=" $KNOWN_KEYS " '
-            /^[[:space:]]*$/ { next }
-            /^[[:space:]]*#/ { next }
-            /^[[:space:]]*\[[^]]+\][[:space:]]*$/ { next }
-            {
-              if (match($0, /^[[:space:]]*[A-Za-z_]+=/)) {
-                k = substr($0, RSTART, RLENGTH); gsub(/[[:space:]=]/, "", k)
-                if (index(keys, " " k " ")) next
-              }
-              print "bad"; exit 0
-            }' "$CONF" | grep -q bad; then
-            echo "service-parse: failed class=service_syntax"
-            exit 1
-          fi
           # Section-aware extraction: only the section named by PGSERVICE may
           # supply values, so a legal multi-section file cannot leak another
           # section's password into this connection.
@@ -145,6 +127,23 @@ jobs:
             exit 1
           fi
           SEC="$RUNNER_TEMP/section.conf"
+          # Syntax gate on the TARGET section only: libpq rejects unknown keys and
+          # malformed lines in the section actually used, but ignores them in
+          # other sections (verified on PG16/17 by independent review).
+          KNOWN_KEYS="application_name channel_binding client_encoding connect_timeout dbname fallback_application_name gssencmode host hostaddr keepalives keepalives_count keepalives_idle keepalives_interval krb_server_hostname options passfile password port replication require_auth requirepeer service ssl_max_protocol_version ssl_min_protocol_version sslcert sslcompression sslcrl sslcrldir sslkey sslmode sslrootcert tcp_user_timeout user"
+          if awk -v keys=" $KNOWN_KEYS " '
+            /^[[:space:]]*$/ { next }
+            /^[[:space:]]*#/ { next }
+            {
+              if (match($0, /^[[:space:]]*[A-Za-z_]+=/)) {
+                k = substr($0, RSTART, RLENGTH); gsub(/[[:space:]=]/, "", k)
+                if (index(keys, " " k " ")) next
+              }
+              print "bad"; exit 0
+            }' "$SEC" | grep -q bad; then
+            echo "service-parse: failed class=service_syntax"
+            exit 1
+          fi
           NPW=$(sed -n 's/^[[:space:]]*password=.*/x/p' "$SEC" | wc -l)
           DUPPW=no; [ "$NPW" -gt 1 ] && DUPPW=yes
           # libpq service-file semantics, verified locally on PG17: leading
