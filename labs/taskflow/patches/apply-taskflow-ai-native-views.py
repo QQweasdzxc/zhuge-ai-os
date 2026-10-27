@@ -220,6 +220,9 @@ def apply(root, overlays):
     hdr_src = replace(hdr_src,
         '              builtins={SCOPE_VALUES.map((s) => ({',
         '              builtins={(viewVariant ? SCOPE_VALUES.filter((s) => s === viewVariant) : SCOPE_VALUES).map((s) => ({')
+    hdr_src = replace(hdr_src,
+        '              {SCOPE_VALUES.map((s) => (',
+        '              {(viewVariant ? SCOPE_VALUES.filter((s) => s === viewVariant) : SCOPE_VALUES).map((s) => (')
     hdr.write_text(hdr_src)
 
     # L. Preserve full namespace isolation through create/edit/pin/prefs.
