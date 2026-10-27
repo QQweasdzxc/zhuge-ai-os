@@ -1,34 +1,10 @@
--- TaskFlow G1 Executor Native Mapping (read-only postflight)
---
--- Allow-listed output only: per-executor mapping state, never row payloads.
--- Mirrors the Agent.system_key -> Project.lead contract readback in
--- labs/taskflow/overrides/taskflow_native_ai_readback.go. Run after the
--- candidate; expected end state: 5 rows, all MAPPED with unbound runtimes.
-
-WITH required(executor_id) AS (
-    SELECT unnest(ARRAY['CO-01','CO-02','CO-03','GEM-01','GH-HELPER'])
-), native_agents AS (
-    SELECT id, system_key
-    FROM public.agent
-    WHERE workspace_id = '01a1247f-520e-78eb-aa58-0a0e458185f6'
-      AND system_key = ANY(ARRAY['CO-01','CO-02','CO-03','GEM-01','GH-HELPER'])
-      AND archived_at IS NULL
-)
-SELECT r.executor_id,
-       count(DISTINCT a.id) AS agent_count,
-       count(DISTINCT p.id) AS project_count,
-       CASE
-           WHEN count(DISTINCT a.id) = 1 AND count(DISTINCT p.id) = 1 THEN 'MAPPED'
-           WHEN count(DISTINCT a.id) = 0 THEN 'AGENT_MISSING'
-           WHEN count(DISTINCT a.id) > 1 THEN 'AGENT_DUPLICATE'
-           WHEN count(DISTINCT p.id) = 0 THEN 'PROJECT_MISSING'
-           ELSE 'PROJECT_DUPLICATE'
-       END AS mapping_state
-FROM required r
-LEFT JOIN native_agents a ON a.system_key = r.executor_id
-LEFT JOIN public.project p
-  ON p.workspace_id = '01a1247f-520e-78eb-aa58-0a0e458185f6'
- AND p.lead_type = 'agent'
- AND p.lead_id = a.id
-GROUP BY r.executor_id
-ORDER BY array_position(ARRAY['CO-01','CO-02','CO-03','GEM-01','GH-HELPER'], r.executor_id);
+-- Read-only mapping and privacy/runtime readback. No credential or row payload.
+BEGIN READ ONLY;
+WITH expected(key) AS (VALUES ('CO-01'),('CO-02'),('CO-03'),('GEM-01'),('GH-HELPER'))
+SELECT e.key,count(DISTINCT a.id),count(DISTINCT p.id),
+ CASE WHEN count(DISTINCT a.id)=1 AND count(DISTINCT p.id)=1
+ AND bool_and(a.runtime_id IS NULL AND a.runtime_mode='cloud' AND a.visibility='private' AND a.permission_mode='private' AND a.kind='user' AND a.status='offline' AND a.owner_id='ac5afcc7-f045-41a9-8827-eaf085a04c0d') THEN 'MAPPED_UNBOUND_PRIVATE' ELSE 'NOT_VERIFIED' END
+FROM expected e LEFT JOIN taskflow.agent a ON a.workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND a.system_key=e.key AND a.archived_at IS NULL
+LEFT JOIN taskflow.project p ON p.workspace_id=a.workspace_id AND p.lead_type='agent' AND p.lead_id=a.id
+GROUP BY e.key ORDER BY e.key;
+COMMIT;
