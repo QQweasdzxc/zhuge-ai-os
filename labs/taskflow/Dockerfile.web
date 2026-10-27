@@ -114,6 +114,7 @@ RUN python3 /tmp/apply-taskflow-dispatch-center.py --root /src --overlays /taskf
 COPY labs/taskflow/patches/apply-taskflow-ai-native-views.py /tmp/apply-taskflow-ai-native-views.py
 COPY labs/taskflow/overrides/taskflow-ai-dispatch-page.tsx /taskflow-ai-native/taskflow-ai-dispatch-page.tsx
 COPY labs/taskflow/overrides/taskflow-ai-tasks-page.tsx /taskflow-ai-native/taskflow-ai-tasks-page.tsx
+COPY labs/taskflow/overrides/taskflow-ai-saved-view-isolation.test.tsx /taskflow-ai-native/taskflow-ai-saved-view-isolation.test.tsx
 RUN python3 /tmp/apply-taskflow-ai-native-views.py --root /src --overlays /taskflow-ai-native
 
 FROM node:22-alpine AS deps
