@@ -97,27 +97,49 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          printf '%s' "${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}" > "$RUNNER_TEMP/pg_service.conf"
-          test -s "$RUNNER_TEMP/pg_service.conf"
+          printf '%s' "${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}" > "$RUNNER_TEMP/pg_service.conf.raw"
+          test -s "$RUNNER_TEMP/pg_service.conf.raw"
           echo "PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf" >> "$GITHUB_ENV"
           echo "PGSERVICE=${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}" >> "$GITHUB_ENV"
+          RAWC="$RUNNER_TEMP/pg_service.conf.raw"
+          # Structural facts about the original secret: booleans/counts only, never
+          # values, lengths of values, or hashes. Lets diagnosis distinguish our own
+          # parsing defects from a user-side malformed secret without a new round.
+          CRLF=no; grep -q "$(printf '\r')" "$RAWC" && CRLF=yes
+          LEADWS=no; grep -qE '^[[:space:]]+[A-Za-z_]+=' "$RAWC" && LEADWS=yes
+          NPW=$(sed -n 's/^[[:space:]]*password=.*/x/p' "$RAWC" | wc -l)
+          DUPPW=no; [ "$NPW" -gt 1 ] && DUPPW=yes
+          echo "structure-original: crlf=$CRLF leading_ws_keys=$LEADWS password_key_count=$NPW dup_password_key=$DUPPW"
+          # libpq treats CR as a line terminator and tolerates leading whitespace on
+          # key lines and trailing whitespace in values; normalize CR and extract
+          # with the same tolerance so this pipeline sees the file libpq parses.
+          tr -d '\r' < "$RAWC" > "$RUNNER_TEMP/pg_service.conf"
+          shred -u "$RAWC" 2>/dev/null || rm -f "$RAWC"
           CONF="$RUNNER_TEMP/pg_service.conf"
-          SSLMODE=$(sed -n 's/^sslmode=//p' "$CONF" | head -1)
-          ROOTCERT=$(sed -n 's/^sslrootcert=//p' "$CONF" | head -1)
-          SSLCERT=$(sed -n 's/^sslcert=//p' "$CONF" | head -1)
-          SSLKEY=$(sed -n 's/^sslkey=//p' "$CONF" | head -1)
+          getval() { sed -n "s/^[[:space:]]*$2=//p" "$1" | head -1 | sed 's/[[:space:]]*$//'; }
+          SSLMODE=$(getval "$CONF" sslmode)
+          ROOTCERT=$(getval "$CONF" sslrootcert)
+          SSLCERT=$(getval "$CONF" sslcert)
+          SSLKEY=$(getval "$CONF" sslkey)
+          PASS=$(getval "$CONF" password)
+          PWPRESENT=no; [ "$NPW" -ge 1 ] && PWPRESENT=yes
+          PWNONEMPTY=no; [ -n "$PASS" ] && PWNONEMPTY=yes
+          ULINE=$(getval "$CONF" user)
+          UREF=no; printf '%s' "$ULINE" | grep -q '\.' && UREF=yes
+          echo "structure-keys: password_present=$PWPRESENT password_nonempty=$PWNONEMPTY user_has_ref_suffix=$UREF"
+          unset ULINE
           echo "service-config-original: sslmode=${SSLMODE:-absent} sslrootcert=$([ -n "$ROOTCERT" ] && echo present || echo absent) sslcert=$([ -n "$SSLCERT" ] && echo present || echo absent) sslkey=$([ -n "$SSLKEY" ] && echo present || echo absent)"
-          ORIG_HOST=$(sed -n 's/^host=//p' "$CONF" | head -1)
+          ORIG_HOST=$(getval "$CONF" host)
           if [ -n "$ORIG_HOST" ] && ! getent ahostsv4 "$ORIG_HOST" >/dev/null 2>&1; then
             REF=$(printf '%s' "$ORIG_HOST" | sed -n 's/^db\.\([a-z0-9]*\)\.supabase\.co$/\1/p')
             if [ -z "$REF" ]; then
               echo "connectivity-rewrite: no IPv4 route and host is not a db.<ref>.supabase.co direct host; cannot derive pooler user suffix"
+              unset PASS
               exit 1
             fi
-            ORIG_USER=$(sed -n 's/^user=//p' "$CONF" | head -1); ORIG_USER=${ORIG_USER%%.*}
-            PASS=$(sed -n 's/^password=//p' "$CONF" | head -1)
-            DB=$(sed -n 's/^dbname=//p' "$CONF" | head -1); DB=${DB:-postgres}
-            SVC=$(sed -n 's/^\[\(.*\)\]$/\1/p' "$CONF" | head -1)
+            ORIG_USER=$(getval "$CONF" user); ORIG_USER=${ORIG_USER%%.*}
+            DB=$(getval "$CONF" dbname); DB=${DB:-postgres}
+            SVC=$(sed -n 's/^[[:space:]]*\[\(.*\)\][[:space:]]*$/\1/p' "$CONF" | head -1)
             umask 077
             {
               printf '[%s]\n' "$SVC"
@@ -136,10 +158,11 @@ jobs:
             unset PASS
             echo "service file rewritten to the project's IPv4 session pooler (values withheld)"
           fi
-          SSLMODE2=$(sed -n 's/^sslmode=//p' "$CONF" | head -1)
-          RC2=$(sed -n 's/^sslrootcert=//p' "$CONF" | head -1)
-          SC2=$(sed -n 's/^sslcert=//p' "$CONF" | head -1)
-          SK2=$(sed -n 's/^sslkey=//p' "$CONF" | head -1)
+          unset PASS
+          SSLMODE2=$(getval "$CONF" sslmode)
+          RC2=$(getval "$CONF" sslrootcert)
+          SC2=$(getval "$CONF" sslcert)
+          SK2=$(getval "$CONF" sslkey)
           echo "service-config-effective: sslmode=${SSLMODE2:-absent} sslrootcert=$([ -n "$RC2" ] && echo present || echo absent) sslcert=$([ -n "$SC2" ] && echo present || echo absent) sslkey=$([ -n "$SK2" ] && echo present || echo absent)"
           unset ROOTCERT SSLCERT SSLKEY SSLMODE2 RC2 SC2 SK2
 
@@ -195,7 +218,10 @@ jobs:
             printf '%s' "$t" | grep -qi 'could not open certificate file' && out="$out,clientcert_unreadable"
             printf '%s' "$t" | grep -qi 'SSL connection is required' && out="$out,ssl_required"
             printf '%s' "$t" | grep -qi 'does not support SSL' && out="$out,ssl_unsupported"
-            printf '%s' "$t" | grep -qi 'password authentication failed\|no password supplied\|SASL' && out="$out,auth_failed"
+            printf '%s' "$t" | grep -qi 'password authentication failed' && out="$out,pwd_auth_failed"
+            printf '%s' "$t" | grep -qi 'no password supplied' && out="$out,no_password_supplied"
+            printf '%s' "$t" | grep -qi 'SASL' && out="$out,sasl_error"
+            printf '%s' "$t" | grep -qi 'authentication failed' && printf '%s' "$t" | grep -qvi 'password authentication failed' && out="$out,auth_failed_other"
             printf '%s' "$t" | grep -qi 'no tenant identifier\|Tenant or user not found' && out="$out,tenant"
             printf '%s' "$t" | grep -qi 'definition of service\|no pg_service' && out="$out,service_name"
             printf '%s' "$t" | grep -q 'ERROR:' && out="$out,db_raised_error"
@@ -339,6 +365,6 @@ jobs:
       - name: Shred sensitive runner-local material
         if: always()
         run: |
-          shred -u "$RUNNER_TEMP/pg_service.conf" 2>/dev/null || true
+          shred -u "$RUNNER_TEMP/pg_service.conf" "$RUNNER_TEMP/pg_service.conf.raw" 2>/dev/null || true
           shred -u "$RUNNER_TEMP/backup.sql" "$RUNNER_TEMP/backup.sql.gz" "$RUNNER_TEMP/backup.csv" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/tcp.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
