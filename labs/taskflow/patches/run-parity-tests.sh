@@ -43,7 +43,7 @@ run_gate() {
 PROFILE="${2:-full}"
 
 run_dispatch_gate() {
-  run_gate dispatch 17 env TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -v -run 'DispatchToProvider|NativeDispatch|NativePostgresAdapter|ProviderDispatcher|ProviderBinding|CodexCloudHandoff|AuthorizeCTODispatch' -count=1
+  run_gate dispatch 18 env TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -v -run 'DispatchToProvider|NativeDispatch|NativePostgresAdapter|ProviderDispatcher|ProviderBinding|CodexCloudHandoff|AuthorizeCTODispatch' -count=1
 }
 
 case "$PROFILE" in
@@ -56,11 +56,11 @@ case "$PROFILE" in
     run_gate cli_auth 2 env CGO_ENABLED=0 go test ./internal/auth -v -run TestZhugeCLIAuthorizationCode -count=1
     run_gate cli_mw 2 env CGO_ENABLED=0 go test ./internal/middleware -v -run TestZhugeCLIAuthorizationCode -count=1
     run_gate cli_token 1 env CGO_ENABLED=0 go test ./internal/handler -v -run TestZhugeIssueCliToken -count=1
-    echo "ALL PARITY GATES PASSED (profile=full pool=7 webhook=3 router=1 locale=1 dispatch=17 cli_auth=2 cli_mw=2 cli_token=1)"
+    echo "ALL PARITY GATES PASSED (profile=full pool=7 webhook=3 router=1 locale=1 dispatch=18 cli_auth=2 cli_mw=2 cli_token=1)"
     ;;
   dispatch)
     run_dispatch_gate
-    echo "ALL PARITY GATES PASSED (profile=dispatch dispatch=17)"
+    echo "ALL PARITY GATES PASSED (profile=dispatch dispatch=18)"
     ;;
   *)
     echo "unknown parity gate profile: $PROFILE"
