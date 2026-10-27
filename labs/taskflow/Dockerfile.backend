@@ -45,6 +45,7 @@ COPY labs/taskflow/overrides/taskflow_provider_dispatch_test.go /tmp/taskflow_pr
 COPY labs/taskflow/overrides/taskflow_provider_route.go /tmp/taskflow_provider_route.go
 COPY labs/taskflow/overrides/taskflow_provider_route_test.go /tmp/taskflow_provider_route_test.go
 COPY labs/taskflow/overrides/taskflow_native_ai_readback.go /tmp/taskflow_native_ai_readback.go
+COPY labs/taskflow/overrides/taskflow_native_ai_readback_test.go /tmp/taskflow_native_ai_readback_test.go
 COPY labs/taskflow/overrides/taskflow_provider_binding.go /tmp/taskflow_provider_binding.go
 COPY labs/taskflow/overrides/taskflow_provider_binding_test.go /tmp/taskflow_provider_binding_test.go
 COPY labs/taskflow/patches/apply-taskflow-provider-binding.py /tmp/apply-taskflow-provider-binding.py
@@ -76,6 +77,7 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_provider_route.go /src/server/internal/handler/taskflow_provider_route.go \
  && cp /tmp/taskflow_provider_route_test.go /src/server/internal/handler/taskflow_provider_route_test.go \
  && cp /tmp/taskflow_native_ai_readback.go /src/server/internal/handler/taskflow_native_ai_readback.go \
+ && cp /tmp/taskflow_native_ai_readback_test.go /src/server/internal/handler/taskflow_native_ai_readback_test.go \
  && cp /tmp/taskflow_provider_binding.go /src/server/internal/handler/taskflow_provider_binding.go \
  && cp /tmp/taskflow_provider_binding_test.go /src/server/internal/handler/taskflow_provider_binding_test.go \
  && python3 /tmp/patch-router-contract-test-main.py
