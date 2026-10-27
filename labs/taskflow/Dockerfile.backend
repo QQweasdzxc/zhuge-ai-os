@@ -106,7 +106,7 @@ ARG MULTICA_SOURCE_SHA
 ARG VERSION=taskflow-parity
 ARG COMMIT=${MULTICA_SOURCE_SHA}
 ARG DATE=unknown
-RUN apk add --no-cache git
+RUN apk add --no-cache git postgresql16 postgresql16-contrib postgresql16-client
 WORKDIR /src
 COPY --from=source /src /src
 RUN cd server && go mod download
@@ -117,14 +117,11 @@ RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhoo
  && gofmt -w internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go \
  && gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go \
  && gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go
-RUN cd server && CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowPoolBudget' -count=1 \
- && CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowWebhook' -count=1
-RUN cd server && TASKFLOW_ROUTER_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 \
- && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run '^TestTaskFlowSupportedLocaleReplacement$' -count=1
-RUN cd server && TASKFLOW_LOCALE_CONTRACT_ONLY=1 CGO_ENABLED=0 go test ./internal/handler -run 'DispatchToProvider|NativeDispatch|NativePostgresAdapter|ProviderDispatcher|ProviderBinding' -count=1
-RUN cd server && CGO_ENABLED=0 go test ./internal/auth -run TestZhugeCLIAuthorizationCode -count=1 \
- && CGO_ENABLED=0 go test ./internal/middleware -run TestZhugeCLIAuthorizationCode -count=1 \
- && CGO_ENABLED=0 go test ./internal/handler -run TestZhugeIssueCliToken -count=1
+# Run the phase-2 Go gates against a real PostgreSQL 16 with the full vendored
+# schema. The script starts the server, applies migrations, and requires the
+# exact expected --- PASS count per gate so a skipped TestMain fails the build.
+COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
+RUN sh /tmp/run-parity-tests.sh /src/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" -o bin/multica ./cmd/multica
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
@@ -151,7 +148,7 @@ ENV DISABLE_WORKSPACE_CREATION=true \
     MULTICA_CLOUD_URL= \
     DO_NOT_TRACK=1 \
     ANALYTICS_DISABLED=true
-LABEL org.opencontainers.image.title="TaskFlow · Multica backend" \
+LABEL org.opencontainers.image.title="TaskFlow Â· Multica backend" \
       org.opencontainers.image.vendor="Index Labs (Hong Kong) Limited" \
       org.opencontainers.image.source="https://github.com/multica-ai/multica" \
       org.opencontainers.image.revision="8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec"
