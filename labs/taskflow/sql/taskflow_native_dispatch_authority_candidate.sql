@@ -38,6 +38,8 @@ BEGIN
 END
 $dispatch_owner$;
 
+SELECT (to_regclass('taskflow.dispatch_intent') IS NOT NULL) AS dispatch_ledger_pre_existing \gset
+
 CREATE TABLE IF NOT EXISTS taskflow.dispatch_intent (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_key TEXT NOT NULL,
@@ -87,6 +89,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS dispatch_intent_one_active_writer
 
 CREATE INDEX IF NOT EXISTS dispatch_intent_issue_history
     ON taskflow.dispatch_intent (workspace_id, issue_id, created_at DESC);
+
+-- The live database grants taskflow_runtime DML on every new taskflow table
+-- via ALTER DEFAULT PRIVILEGES, so a ledger created by this transaction
+-- inherits a runtime ACL. The reviewed end state for the ledger is
+-- owner-only: normalize only a ledger this transaction itself creates,
+-- leaving global default privileges and every pre-existing table's ACL
+-- untouched. A pre-existing ledger keeps its ACL and is judged by the drift
+-- guard below, exactly as reviewed. Revoking a grant the role does not hold
+-- is a no-op, so re-runs after a successful install change nothing.
+\if :dispatch_ledger_pre_existing
+\else
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE taskflow.dispatch_intent FROM taskflow_runtime;
+\endif
 
 -- The caller must be the authenticated server-side TaskFlow authority.  The
 -- function never accepts a client-supplied dispatch/lease/fencing identity.
