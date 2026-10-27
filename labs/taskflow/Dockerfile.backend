@@ -84,6 +84,7 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
+COPY labs/taskflow/overrides/taskflow_backlog_assignment_test.go /src/server/internal/handler/taskflow_backlog_assignment_test.go
 
 COPY labs/taskflow/patches/apply-taskflow-stability.py /tmp/apply-taskflow-stability.py
 COPY labs/taskflow/tests/test_taskflow_stability_overlay.py /tmp/test_taskflow_stability_overlay.py
