@@ -66,7 +66,7 @@ jobs:
       - name: Check out the reviewed commit only
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.EXPECTED_SHA }}
+          ref: ${{ inputs.expected_sha }}
 
       - name: Verify pinned SQL contents
         run: |
