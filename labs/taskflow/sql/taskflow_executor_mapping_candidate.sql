@@ -1,5 +1,8 @@
--- G1 native mapping v2. TaskFlow-only. No runtime/provider binding or shared ACL change.
+-- G1 v6 random native IDs, fixed five product system_keys; production STOPPED pending review.
 BEGIN;
+SET LOCAL lock_timeout='3s';
+SET LOCAL statement_timeout='10s';
+SET LOCAL idle_in_transaction_session_timeout='5s';
 -- STEP1 migration connection role guard. Runs before EVERY privileged or
 -- read-only migration-path action (backup, apply, postflight, rollback).
 -- Fails closed at the database layer: any violation raises an exception and
@@ -25,73 +28,120 @@ BEGIN
 END
 $taskflow_migration_role_guard$;
 
-SET LOCAL search_path = taskflow, extensions;
+SET LOCAL search_path=taskflow,extensions;
 
-DO $identity$
-BEGIN
- IF NOT EXISTS (SELECT 1 FROM taskflow.workspace WHERE id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND slug='zhuge-lab-ac5afcc7')
- OR NOT EXISTS (SELECT 1 FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND user_id='ac5afcc7-f045-41a9-8827-eaf085a04c0d' AND role='owner')
- OR (SELECT count(*) FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6') <> 1 THEN
-  RAISE EXCEPTION 'G1 workspace/sole-owner audience mismatch';
- END IF;
-END $identity$;
 
--- Exact creation provenance, not a name-based deletion heuristic.
-CREATE TABLE IF NOT EXISTS taskflow.g1_executor_mapping_provenance (
- executor_key text PRIMARY KEY,
- agent_id uuid NOT NULL UNIQUE,
- project_id uuid NOT NULL UNIQUE,
- agent_snapshot jsonb NOT NULL,
- project_snapshot jsonb NOT NULL,
- table_inventory jsonb NOT NULL
-);
--- Existing per-schema defaults grant runtime table access. Remove grants on
--- THIS NEW TABLE ONLY in the creation transaction, never shared defaults.
-DO $acl$
-DECLARE g record;
+-- Serialize this installer before DDL/existence decisions. This lock is scoped,
+-- not a guarantee against arbitrary SQL writers. Native-table locks guard
+-- membership/identity phantoms. SELECT remains available.
+SELECT pg_advisory_xact_lock(179314,501);
+LOCK TABLE taskflow.member,taskflow.agent,taskflow.project IN SHARE ROW EXCLUSIVE MODE;
+SELECT id FROM taskflow.workspace WHERE id='01a1247f-520e-78eb-aa58-0a0e458185f6' FOR UPDATE;
+DO $native_trigger_guard$
+DECLARE t record; f record;
 BEGIN
- IF (SELECT relowner FROM pg_class WHERE oid='taskflow.g1_executor_mapping_provenance'::regclass) <> current_user::regrole THEN
-  RAISE EXCEPTION 'G1 provenance owner mismatch';
- END IF;
- FOR g IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
- WHERE c.oid='taskflow.g1_executor_mapping_provenance'::regclass AND x.grantee<>c.relowner LOOP
-  IF g.grantee=0 THEN REVOKE ALL ON taskflow.g1_executor_mapping_provenance FROM PUBLIC;
-  ELSE EXECUTE format('REVOKE ALL ON taskflow.g1_executor_mapping_provenance FROM %I',pg_get_userbyid(g.grantee)); END IF;
- END LOOP;
-END $acl$;
-LOCK TABLE taskflow.agent,taskflow.project,taskflow.g1_executor_mapping_provenance IN SHARE ROW EXCLUSIVE MODE;
+ IF current_setting('multica.workspace_teardown',true)='on' OR current_setting('session_replication_role')<>'origin' THEN RAISE EXCEPTION 'G1 unsafe session trigger state'; END IF;
+ SELECT * INTO t FROM pg_trigger WHERE tgrelid='taskflow.project'::regclass AND tgname='trg_project_search_index_change' AND NOT tgisinternal;
+ IF NOT FOUND OR t.tgenabled<>'O' OR t.tgtype<>29 OR t.tgnargs<>1 OR encode(t.tgargs,'escape')<>E'project\\000' THEN RAISE EXCEPTION 'G1 native trigger baseline mismatch'; END IF;
+ IF pg_get_triggerdef(t.oid) NOT IN(
+ 'CREATE TRIGGER trg_project_search_index_change AFTER INSERT OR DELETE OR UPDATE ON taskflow.project FOR EACH ROW WHEN ((current_setting(''multica.workspace_teardown''::text, true) IS DISTINCT FROM ''on''::text)) EXECUTE FUNCTION record_search_index_change(''project'')',
+ 'CREATE TRIGGER trg_project_search_index_change AFTER INSERT OR DELETE OR UPDATE ON taskflow.project FOR EACH ROW WHEN ((current_setting(''multica.workspace_teardown''::text, true) IS DISTINCT FROM ''on''::text)) EXECUTE FUNCTION taskflow.record_search_index_change(''project'')') THEN RAISE EXCEPTION 'G1 native trigger definition mismatch'; END IF;
+ SELECT p.*,l.lanname INTO f FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=t.tgfoid;
+ IF f.pronamespace<>'taskflow'::regnamespace OR f.proname<>'record_search_index_change' OR f.prosecdef OR f.proconfig IS NOT NULL OR f.lanname<>'plpgsql'
+ OR f.prosrc IS DISTINCT FROM $source$
+DECLARE
+    changed_id UUID;
+    changed_workspace_id UUID;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        changed_id := OLD.id;
+        changed_workspace_id := OLD.workspace_id;
+    ELSE
+        changed_id := NEW.id;
+        changed_workspace_id := NEW.workspace_id;
+    END IF;
+
+    INSERT INTO search_index_change (entity_type, entity_id, workspace_id, change_xid, changed_at)
+    VALUES (TG_ARGV[0], changed_id, changed_workspace_id, pg_current_xact_id(), now())
+    ON CONFLICT (entity_type, entity_id) DO UPDATE
+        SET workspace_id = EXCLUDED.workspace_id,
+            change_xid = EXCLUDED.change_xid,
+            changed_at = EXCLUDED.changed_at;
+    RETURN NULL;
+END
+$source$ THEN RAISE EXCEPTION 'G1 native function baseline mismatch'; END IF;
+END $native_trigger_guard$;
 DO $install$
-DECLARE e record; a jsonb; p jsonb; old record; inventory jsonb;
+DECLARE e record; aid uuid; pid uuid; g record;
 BEGIN
- SELECT jsonb_agg(c.relname ORDER BY c.relname) INTO inventory FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='taskflow' AND c.relkind IN ('r','p');
- FOR e IN SELECT * FROM (VALUES
-('CO-01','9a8b5560-909c-5f30-82d7-9e330f5d28fc'::uuid,'343d7763-39f2-5017-9497-4a560cbce86b'::uuid),
-('CO-02','13da7c54-a38a-59fd-a5b5-ae2c4cd38c03'::uuid,'b21a79c1-7113-5b01-adc2-9a11021f536f'::uuid),
-('CO-03','119020a1-6e15-527e-afea-b26f1c56a1f2'::uuid,'fa3c6847-fca0-5633-81f4-00a3470ce537'::uuid),
-('GEM-01','3407ad25-1ef2-5c28-9328-0b443a4b557f'::uuid,'4cb445b1-1a88-51c9-9e2a-1b97e4adbe09'::uuid),
-('GH-HELPER','b0f8b919-eeb8-5c5a-a159-d768691b1dc5'::uuid,'cf02ae8d-38a4-5f35-923a-e9cafab87537'::uuid)
- ) AS expected(key,aid,pid) LOOP
-  SELECT * INTO old FROM taskflow.g1_executor_mapping_provenance WHERE executor_key=e.key;
-  IF FOUND THEN
-   SELECT to_jsonb(t) INTO a FROM taskflow.agent t WHERE id=old.agent_id;
-   SELECT to_jsonb(t) INTO p FROM taskflow.project t WHERE id=old.project_id;
-   IF old.agent_id<>e.aid OR old.project_id<>e.pid OR a IS DISTINCT FROM old.agent_snapshot OR p IS DISTINCT FROM old.project_snapshot THEN
-    RAISE EXCEPTION 'G1 prior provenance drift; no overwrite';
-   END IF;
-   CONTINUE;
-  END IF;
-  IF EXISTS(SELECT 1 FROM taskflow.agent WHERE id=e.aid OR (workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND (system_key=e.key OR name=e.key)))
-  OR EXISTS(SELECT 1 FROM taskflow.project WHERE id=e.pid OR (workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND title=e.key||' 原生專案')) THEN
-   RAISE EXCEPTION 'G1 existing identity collision; no adoption';
-  END IF;
-  INSERT INTO taskflow.agent(id,workspace_id,owner_id,name,description,runtime_id,runtime_mode,visibility,status,kind,system_key,permission_mode)
-  VALUES(e.aid,'01a1247f-520e-78eb-aa58-0a0e458185f6','ac5afcc7-f045-41a9-8827-eaf085a04c0d',e.key,'STEP2 native identity mapping only; provider unbound (STEP3).',NULL,'cloud','private','offline','user',e.key,'private');
-  INSERT INTO taskflow.project(id,workspace_id,title,description,lead_type,lead_id)
-  VALUES(e.pid,'01a1247f-520e-78eb-aa58-0a0e458185f6',e.key||' 原生專案','STEP2 native executor mapping only.','agent',e.aid);
-  SELECT to_jsonb(t) INTO a FROM taskflow.agent t WHERE id=e.aid;
-  SELECT to_jsonb(t) INTO p FROM taskflow.project t WHERE id=e.pid;
-  INSERT INTO taskflow.g1_executor_mapping_provenance VALUES(e.key,e.aid,e.pid,a,p,inventory);
+ IF NOT EXISTS(SELECT 1 FROM taskflow.workspace WHERE id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND slug='zhuge-lab-ac5afcc7')
+ OR (SELECT count(*) FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6')<>1
+ OR NOT EXISTS(SELECT 1 FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND user_id='ac5afcc7-f045-41a9-8827-eaf085a04c0d' AND role='owner')
+ THEN RAISE EXCEPTION 'G1 hard audience invariant'; END IF;
+ IF to_regclass('taskflow.g1_executor_mapping_provenance') IS NOT NULL THEN
+  -- Existing ledger is validated below. Never repair/adopt polluted metadata.
+  RETURN;
+ END IF;
+ IF EXISTS(SELECT 1 FROM taskflow.agent WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND (system_key IN('CO-01','CO-02','CO-03','GEM-01','GH-HELPER') OR name IN('CO-01','CO-02','CO-03','GEM-01','GH-HELPER')))
+ OR EXISTS(SELECT 1 FROM taskflow.project WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND title IN('CO-01 原生專案','CO-02 原生專案','CO-03 原生專案','GEM-01 原生專案','GH-HELPER 原生專案'))
+ THEN RAISE EXCEPTION 'G1 existing identity/project collision; no adoption'; END IF;
+ CREATE TABLE taskflow.g1_executor_mapping_provenance(executor_key text PRIMARY KEY,agent_id uuid NOT NULL UNIQUE,project_id uuid NOT NULL UNIQUE,agent_snapshot jsonb NOT NULL,project_snapshot jsonb NOT NULL);
+ -- Only this newly-created table's inherited grants are removed. Existing
+ -- tables/default ACL are untouched; rerun with polluted ACL fails closed.
+ FOR g IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x WHERE c.oid='taskflow.g1_executor_mapping_provenance'::regclass AND x.grantee<>c.relowner LOOP
+  EXECUTE format('REVOKE ALL ON taskflow.g1_executor_mapping_provenance FROM %s',CASE WHEN g.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(g.grantee)) END);
  END LOOP;
+ FOR e IN SELECT * FROM (VALUES ('CO-01'),('CO-02'),('CO-03'),('GEM-01'),('GH-HELPER')) expected(key) LOOP
+  aid:=gen_random_uuid();pid:=gen_random_uuid();
+  INSERT INTO taskflow.agent(id,workspace_id,owner_id,name,description,runtime_id,runtime_mode,visibility,status,kind,system_key,permission_mode)
+   VALUES(aid,'01a1247f-520e-78eb-aa58-0a0e458185f6','ac5afcc7-f045-41a9-8827-eaf085a04c0d',e.key,'STEP2 native identity mapping only; provider unbound (STEP3).',NULL,'cloud','private','offline','user',e.key,'private');
+  INSERT INTO taskflow.project(id,workspace_id,title,description,lead_type,lead_id)
+   VALUES(pid,'01a1247f-520e-78eb-aa58-0a0e458185f6',e.key||' 原生專案','STEP2 native executor mapping only.','agent',aid);
+  INSERT INTO taskflow.g1_executor_mapping_provenance SELECT e.key,aid,pid,to_jsonb(a),to_jsonb(p) FROM taskflow.agent a CROSS JOIN taskflow.project p WHERE a.id=aid AND p.id=pid;
+ END LOOP;
+ IF EXISTS(SELECT 1 FROM taskflow.g1_executor_mapping_provenance v LEFT JOIN taskflow.search_index_change o ON o.entity_type='project' AND o.entity_id=v.project_id AND o.workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND o.change_xid=pg_current_xact_id() WHERE o.entity_id IS NULL)
+ THEN RAISE EXCEPTION 'G1 first-install native outbox transaction mismatch'; END IF;
 END $install$;
+LOCK TABLE taskflow.g1_executor_mapping_provenance IN SHARE ROW EXCLUSIVE MODE;
+DO $shape_acl$
+BEGIN
+ IF (SELECT relowner<>current_user::regrole OR relkind<>'r' OR relrowsecurity OR relforcerowsecurity FROM pg_class WHERE oid='taskflow.g1_executor_mapping_provenance'::regclass) THEN RAISE EXCEPTION 'G1 provenance owner/kind/rls mismatch'; END IF;
+ IF (SELECT array_agg(attname::text||':'||format_type(atttypid,atttypmod)||':'||attnotnull::text ORDER BY attnum) FROM pg_attribute WHERE attrelid='taskflow.g1_executor_mapping_provenance'::regclass AND attnum>0 AND NOT attisdropped)
+ IS DISTINCT FROM ARRAY['executor_key:text:true','agent_id:uuid:true','project_id:uuid:true','agent_snapshot:jsonb:true','project_snapshot:jsonb:true'] THEN RAISE EXCEPTION 'G1 provenance shape mismatch'; END IF;
+ IF (SELECT count(*) FROM pg_constraint WHERE conrelid='taskflow.g1_executor_mapping_provenance'::regclass AND contype IN('p','u'))<>3
+ OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='taskflow.g1_executor_mapping_provenance'::regclass AND contype='p' AND conkey=ARRAY[1]::smallint[])
+ OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='taskflow.g1_executor_mapping_provenance'::regclass AND contype='u' AND conkey=ARRAY[2]::smallint[])
+ OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='taskflow.g1_executor_mapping_provenance'::regclass AND contype='u' AND conkey=ARRAY[3]::smallint[])
+ THEN RAISE EXCEPTION 'G1 provenance constraint shape mismatch'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x WHERE c.oid='taskflow.g1_executor_mapping_provenance'::regclass AND x.grantee<>c.relowner)
+ OR EXISTS(SELECT 1 FROM pg_attribute a CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE a.attrelid='taskflow.g1_executor_mapping_provenance'::regclass AND x.grantee<>current_user::regrole)
+ THEN RAISE EXCEPTION 'G1 provenance table/column ACL mismatch'; END IF;
+END $shape_acl$;
+DO $hard_invariants$
+DECLARE e record; v record; a jsonb; p jsonb;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM taskflow.workspace WHERE id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND slug='zhuge-lab-ac5afcc7')
+ OR (SELECT count(*) FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6')<>1
+ OR NOT EXISTS(SELECT 1 FROM taskflow.member WHERE workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND user_id='ac5afcc7-f045-41a9-8827-eaf085a04c0d' AND role='owner')
+ THEN RAISE EXCEPTION 'G1 hard audience invariant'; END IF;
+ IF (SELECT count(*) FROM taskflow.g1_executor_mapping_provenance)<>5
+ OR (SELECT count(DISTINCT executor_key) FROM taskflow.g1_executor_mapping_provenance)<>5
+ OR (SELECT count(DISTINCT agent_id) FROM taskflow.g1_executor_mapping_provenance)<>5
+ OR (SELECT count(DISTINCT project_id) FROM taskflow.g1_executor_mapping_provenance)<>5
+ OR EXISTS(SELECT 1 FROM taskflow.g1_executor_mapping_provenance WHERE executor_key NOT IN('CO-01','CO-02','CO-03','GEM-01','GH-HELPER'))
+ THEN RAISE EXCEPTION 'G1 hard exact-five provenance invariant'; END IF;
+ FOR e IN SELECT * FROM (VALUES ('CO-01'),('CO-02'),('CO-03'),('GEM-01'),('GH-HELPER')) expected(key) LOOP
+  SELECT * INTO STRICT v FROM taskflow.g1_executor_mapping_provenance WHERE executor_key=e.key;
+  IF (SELECT count(*) FROM taskflow.agent WHERE id=v.agent_id OR (workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND (system_key=e.key OR name=e.key)))<>1
+  OR NOT EXISTS(SELECT 1 FROM taskflow.agent WHERE id=v.agent_id AND workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND owner_id='ac5afcc7-f045-41a9-8827-eaf085a04c0d'
+   AND name=e.key AND system_key=e.key AND runtime_id IS NULL AND runtime_mode='cloud' AND visibility='private'
+   AND permission_mode='private' AND kind='user' AND status='offline' AND archived_at IS NULL AND archived_by IS NULL
+   AND runtime_config='{}'::jsonb AND custom_env='{}'::jsonb AND custom_args='[]'::jsonb AND mcp_config IS NULL)
+  OR NOT EXISTS(SELECT 1 FROM taskflow.project WHERE id=v.project_id AND workspace_id='01a1247f-520e-78eb-aa58-0a0e458185f6' AND title=e.key||' 原生專案' AND lead_type='agent' AND lead_id=v.agent_id)
+  THEN RAISE EXCEPTION 'G1 hard unique/private/unbound/source-pair invariant: %',e.key; END IF;
+  SELECT to_jsonb(t) INTO a FROM taskflow.agent t WHERE id=v.agent_id;
+  SELECT to_jsonb(t) INTO p FROM taskflow.project t WHERE id=v.project_id;
+  IF a IS DISTINCT FROM v.agent_snapshot OR p IS DISTINCT FROM v.project_snapshot THEN RAISE EXCEPTION 'G1 source row snapshot drift'; END IF;
+ END LOOP;
+END $hard_invariants$;
 COMMIT;
