@@ -1,0 +1,99 @@
+name: TaskFlow STEP1 dispatch-authority candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'STEP1 action: backup+apply+postflight, backup-only, postflight-only, or rollback-guarded'
+        required: true
+        type: choice
+        options:
+          - backup+apply+postflight
+          - backup-only
+          - postflight-only
+          - rollback-guarded
+
+permissions: {}
+
+jobs:
+  step1-candidate:
+    runs-on: ubuntu-latest
+    environment: production-migration
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 17 client (prod server_version=17.6)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 || {
+            echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+            curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client-17
+          }
+          psql --version
+          pg_dump --version
+
+      - name: Write one-shot migrator pg_service file (never printed)
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}" > "$RUNNER_TEMP/pg_service.conf"
+          test -s "$RUNNER_TEMP/pg_service.conf"
+          echo "PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf" >> "$GITHUB_ENV"
+          echo "PGSERVICE=${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}" >> "$GITHUB_ENV"
+
+      - name: Verify connection role and restricted attributes (read-only)
+        run: |
+          set -euo pipefail
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -Atc "
+            SELECT current_user,
+                   (SELECT rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication
+                      FROM pg_catalog.pg_roles WHERE rolname = current_user),
+                   (SELECT nspname FROM pg_catalog.pg_namespace
+                     WHERE nspname='taskflow' AND nspowner = current_user::regrole);"
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -Atc \
+            "SELECT 'role='||current_user; SELECT 'restricted=false' WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND (rolsuper OR rolbypassrls OR rolcreaterole OR rolcreatedb OR rolreplication));"
+
+      - name: Pre-change schema backup (pg_dump taskflow schema)
+        if: inputs.action != 'postflight-only'
+        run: |
+          set -euo pipefail
+          pg_dump "service=$PGSERVICE" --schema=taskflow --no-owner --no-privileges \
+            --file="$RUNNER_TEMP/taskflow-schema-backup.sql"
+          wc -c "$RUNNER_TEMP/taskflow-schema-backup.sql"
+
+      - name: Apply dispatch-authority candidate (single transaction, owner-guarded)
+        if: inputs.action == 'backup+apply+postflight'
+        run: |
+          set -euo pipefail
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
+            -f labs/taskflow/sql/taskflow_native_dispatch_authority_candidate.sql
+
+      - name: Guarded rollback (refuses when dispatch history exists)
+        if: inputs.action == 'rollback-guarded'
+        run: |
+          set -euo pipefail
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
+            -f labs/taskflow/sql/taskflow_native_dispatch_authority_rollback.sql
+
+      - name: Read-only postflight (metadata only; NOT_READY stays possible)
+        if: inputs.action != 'backup-only'
+        run: |
+          set -euo pipefail
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 \
+            -f labs/taskflow/sql/taskflow_native_dispatch_authority_postflight.sql \
+            > "$RUNNER_TEMP/postflight.txt" 2>&1 || { cat "$RUNNER_TEMP/postflight.txt"; exit 1; }
+          cat "$RUNNER_TEMP/postflight.txt"
+
+      - name: Upload backup and postflight evidence (repo-private artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskflow-step1-${{ inputs.action }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/taskflow-schema-backup.sql
+            ${{ runner.temp }}/postflight.txt
+          if-no-files-found: warn
+          retention-days: 90
