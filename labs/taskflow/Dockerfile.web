@@ -111,6 +111,11 @@ COPY labs/taskflow/overrides/taskflow-dispatch-logic.d.mts /taskflow-dispatch/ta
 COPY labs/taskflow/pages-client/dispatch-workbench.mjs /taskflow-dispatch/dispatch-workbench.mjs
 RUN python3 /tmp/apply-taskflow-dispatch-center.py --root /src --overlays /taskflow-dispatch --logic /taskflow-dispatch/dispatch-workbench.mjs
 
+COPY labs/taskflow/patches/apply-taskflow-ai-native-views.py /tmp/apply-taskflow-ai-native-views.py
+COPY labs/taskflow/overrides/taskflow-ai-dispatch-page.tsx /taskflow-ai-native/taskflow-ai-dispatch-page.tsx
+COPY labs/taskflow/overrides/taskflow-ai-tasks-page.tsx /taskflow-ai-native/taskflow-ai-tasks-page.tsx
+RUN python3 /tmp/apply-taskflow-ai-native-views.py --root /src --overlays /taskflow-ai-native
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 \
