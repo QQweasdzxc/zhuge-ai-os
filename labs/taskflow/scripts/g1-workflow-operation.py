@@ -102,7 +102,7 @@ def backup():
         gq.execute("SELECT pg_export_snapshot()")
         snapshot=gq.fetchone()[0]
         env=os.environ.copy()
-        env['PGOPTIONS']='-c default_transaction_read_only=on -c session_replication_role=origin -c multica.workspace_teardown=off -c search_path=taskflow,extensions -c statement_timeout=120000 -c lock_timeout=3000'
+        env['PGOPTIONS']='-c default_transaction_read_only=on -c multica.workspace_teardown=off -c search_path=taskflow,extensions -c statement_timeout=120000 -c lock_timeout=3000'
         with open(os.devnull,'wb') as err:
             subprocess.run(['pg_dump','--role=taskflow_migrator','--snapshot='+snapshot,'--schema=taskflow','--exclude-table=taskflow.step1_schema_backup','--exclude-table=taskflow.step1_schema_backup_meta','--file',str(path)],env=env,stderr=err,check=True,timeout=120)
         guard.rollback()
