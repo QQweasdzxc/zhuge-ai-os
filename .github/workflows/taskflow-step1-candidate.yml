@@ -109,7 +109,6 @@ jobs:
             ORIG_USER=$(sed -n 's/^user=//p' "$CONF" | head -1); ORIG_USER=${ORIG_USER%%.*}
             PASS=$(sed -n 's/^password=//p' "$CONF" | head -1)
             DB=$(sed -n 's/^dbname=//p' "$CONF" | head -1); DB=${DB:-postgres}
-            SSL=$(sed -n 's/^sslmode=//p' "$CONF" | head -1); SSL=${SSL:-require}
             SVC=$(sed -n 's/^\[\(.*\)\]$/\1/p' "$CONF" | head -1)
             umask 077
             {
@@ -119,7 +118,7 @@ jobs:
               printf 'user=%s.%s\n' "$ORIG_USER" "$REF"
               printf 'dbname=%s\n' "$DB"
               printf 'password=%s\n' "$PASS"
-              printf 'sslmode=%s\n' "$SSL"
+              printf 'sslmode=require\n' 
             } > "$CONF"
             unset PASS
             echo "service file rewritten to the project's IPv4 session pooler (values withheld)"
@@ -147,7 +146,11 @@ jobs:
           elif printf '%s' "$ERR" | grep -qi 'connection refused'; then CLASS=refused
           elif printf '%s' "$ERR" | grep -qi 'password authentication failed'; then CLASS=auth
           elif printf '%s' "$ERR" | grep -qi 'definition of service\|no pg_service'; then CLASS=service-name
-          elif printf '%s' "$ERR" | grep -qi 'ssl\|certificate'; then CLASS=tls
+          elif printf '%s' "$ERR" | grep -qi 'root certificate file'; then CLASS=rootcert-missing
+          elif printf '%s' "$ERR" | grep -qi 'certificate verify failed'; then CLASS=cert-verify
+          elif printf '%s' "$ERR" | grep -qi 'SSL connection is required'; then CLASS=ssl-required
+          elif printf '%s' "$ERR" | grep -qi 'no tenant identifier'; then CLASS=tenant
+          elif printf '%s' "$ERR" | grep -qi 'ssl\|certificate'; then CLASS=tls-other
           elif printf '%s' "$ERR" | grep -qi 'timeout\|timed out'; then CLASS=timeout
           fi
           unset ERR
