@@ -48,10 +48,25 @@ jobs:
     runs-on: ubuntu-latest
     environment: production-migration
     steps:
+      - name: Anchor run to the reviewed commit (before any secret or DB use)
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          case "$EXPECTED_SHA" in
+            *[!0-9a-f]*|"") echo "expected_sha must be 40 lowercase hex"; exit 1 ;;
+          esac
+          if [ "${#EXPECTED_SHA}" -ne 40 ]; then echo "expected_sha must be 40 hex chars"; exit 1; fi
+          if [ "$GITHUB_SHA" != "$EXPECTED_SHA" ]; then
+            echo "run head ($GITHUB_SHA) is not the reviewed commit; aborting before any secret or DB use"
+            exit 1
+          fi
+          echo "run anchored to reviewed commit $GITHUB_SHA"
+
       - name: Check out the reviewed commit only
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.expected_sha }}
+          ref: ${{ env.EXPECTED_SHA }}
 
       - name: Verify pinned SQL contents
         run: |
@@ -141,19 +156,25 @@ jobs:
             || { echo "guarded rollback refused or failed (details withheld from public logs)"; exit 1; }
           echo "guarded rollback committed"
 
-      - name: Read-only postflight (metadata only; NOT_READY stays possible)
+      - name: Read-only postflight (allowlisted status/reasons only; NOT_READY stays possible)
         if: inputs.action != 'backup-only'
         run: |
           set -euo pipefail
-          if psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
+          rc=0
+          psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q -At \
             -f labs/taskflow/sql/taskflow_native_dispatch_authority_postflight.sql \
-            > "$RUNNER_TEMP/postflight.out" 2>"$RUNNER_TEMP/postflight.err"; then
-            echo "postflight query executed; metadata summary:"
-            grep -cE '.' "$RUNNER_TEMP/postflight.out" | sed 's/^/result rows: /'
-          else
-            echo "postflight returned errors or NOT_READY conditions (details withheld from public logs)"
+            > "$RUNNER_TEMP/postflight.out" 2>"$RUNNER_TEMP/postflight.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "postflight query failed (details withheld from public logs)"
             exit 1
           fi
+          # Only the designed status vocabulary may reach public logs:
+          # STATUS|reason_token lines with no free text.
+          if ! grep -qE '^(READY|NOT_READY)\|\{[a-z0-9_:,.-]*\}$|^(READY|NOT_READY)\|$' "$RUNNER_TEMP/postflight.out"; then
+            echo "postflight produced no allowlisted status lines (details withheld)"
+            exit 1
+          fi
+          grep -E '^(READY|NOT_READY)\|(\{[a-z0-9_:,.-]*\})?$' "$RUNNER_TEMP/postflight.out"
 
       - name: Shred sensitive runner-local material
         if: always()
