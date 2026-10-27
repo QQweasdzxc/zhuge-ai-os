@@ -9,7 +9,12 @@ name: TaskFlow G1 reviewed executor mapping (manual gate)
         type: choice
         options:
         - readonly-reconcile
+        - readonly-backup-reconcile
         - apply+postflight
+      backup_origin:
+        description: 'For readonly-backup-reconcile only: original GitHub run_id-run_attempt'
+        required: false
+        type: string
       expected_sha:
         description: Exact reviewed commit of this workflow and pinned source
         required: true
@@ -28,7 +33,7 @@ env:
   PIN_CANDIDATE_SHA256: 73ff31cc56afe061c3a09afb018d8b99f065947a434f7830fd22f3bf88d4d9ba
   PIN_POSTFLIGHT_SHA256: d61d60d7f78551262f5d103d9c75749e24469a68e85e6ca53d65da648e81660e
   PIN_RUNNER_SHA256: da6f852a224635c67be3d21b8aacc297b785ef031a2f686a7522ba0e6f961b8a
-  PIN_OPERATION_SHA256: 9c437a181cde87d8f13c5b7e0d75b3996222ea806da551bf4696608a923c98ae
+  PIN_OPERATION_SHA256: babf74441d9591ac92ddfd73f89edaba74f68bf318e9d6c2ba11ccef9c3a7abc
   PIN_GUARD_SHA256: 16bac864b32eb8e62c0413831408dfeacd2f13c9a7caf43f324a675680e359db
   PIN_CA_SHA256: 700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7
 jobs:
@@ -88,6 +93,7 @@ jobs:
     - name: Fresh session, backup, single transaction, postflight or read-only reconciliation
       env:
         G1_ACTION: ${{ inputs.action }}
+        G1_BACKUP_ORIGIN: ${{ inputs.backup_origin }}
       run: 'set -euo pipefail
 
         # system Python uses the distribution psycopg2 package.
@@ -97,8 +103,4 @@ jobs:
         '
     - name: Always remove secret, dump and raw diagnostics
       if: ${{ always() }}
-      run: 'shred -u "$RUNNER_TEMP/pg_service.conf" "$RUNNER_TEMP/pg_service.conf.raw" "$RUNNER_TEMP/section.conf" "$RUNNER_TEMP/section_eff.conf" "$RUNNER_TEMP/section_pf.conf" "$RUNNER_TEMP/g1-backup.sql" 2>/dev/null || true
-
-        rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/tcp.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
-
-        '
+      run: "set -euo pipefail\nfiles=(\"$RUNNER_TEMP/pg_service.conf\" \"$RUNNER_TEMP/pg_service.conf.raw\" \"$RUNNER_TEMP/section.conf\" \"$RUNNER_TEMP/section_eff.conf\" \"$RUNNER_TEMP/section_pf.conf\" \"$RUNNER_TEMP/g1-backup.sql\" \"$RUNNER_TEMP/g1-backup-reference.json\")\nfor f in \"${files[@]}\"; do\n  if [ -e \"$f\" ]; then shred -u -- \"$f\" 2>/dev/null || rm -f -- \"$f\"; fi\n  test ! -e \"$f\" || { echo 'G1_STOPPED_SENSITIVE_CLEANUP_FAILED'; exit 1; }\ndone\n# Redundant removal for diagnostic paths.\nshred -u \"$RUNNER_TEMP/pg_service.conf\" \"$RUNNER_TEMP/pg_service.conf.raw\" \"$RUNNER_TEMP/section.conf\" \"$RUNNER_TEMP/section_eff.conf\" \"$RUNNER_TEMP/section_pf.conf\" \"$RUNNER_TEMP/g1-backup.sql\" 2>/dev/null || true\nrm -f \"$RUNNER_TEMP/guard.err\" \"$RUNNER_TEMP/tcp.err\" \"$RUNNER_TEMP/dump.err\" \"$RUNNER_TEMP/apply.err\" \"$RUNNER_TEMP/rollback.err\" \"$RUNNER_TEMP/postflight.out\" \"$RUNNER_TEMP/postflight.err\"\n"
