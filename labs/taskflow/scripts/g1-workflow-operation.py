@@ -105,14 +105,29 @@ def backup():
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('--action',choices=['apply+postflight','readonly-reconcile'],required=True);args=a.parse_args()
+    if args.action=='readonly-reconcile':
+        # Ledger absence cannot prove absence of randomly identified native rows.
+        # Do not use key/name/title conflict checks to make a rollback claim.
+        c,q=connect()
+        try:
+            q.execute("SELECT to_regclass('taskflow.g1_executor_mapping_provenance') IS NOT NULL")
+            if not q.fetchone()[0]:
+                print('G1_LEDGER_ABSENT_UNRESOLVED_NATIVE_IDS_NOT_PROVEN');return 3
+            c.rollback()
+        finally:c.close()
     exists=preflight()
     if args.action=='readonly-reconcile':
-        if not exists:print('G1_READONLY_NOT_INSTALLED');return 0
+        if not exists:print('G1_LEDGER_ABSENT_UNRESOLVED_NATIVE_IDS_NOT_PROVEN');return 3
         rc=sql_runner('taskflow_executor_mapping_postflight.sql',os.environ['PIN_POSTFLIGHT_SHA256'])
         print('G1_READONLY_COMMITTED_EXACT' if rc==0 else 'G1_STOPPED_RECONCILE_MISMATCH');return rc
     # Never use reconciliation as implicit permission to retry an earlier run.
     if exists:raise ValueError('already installed; readonly-reconcile required')
-    backup();preflight()
+    print('G1_BACKUP_APPEND_ATTEMPT_START_SEPARATE_COMMIT')
+    try:backup()
+    except Exception:
+        print('G1_BACKUP_COMMIT_STATE_UNRESOLVED_READONLY_BACKUP_RECONCILE_REQUIRED_NO_MAPPING_ATTEMPT');return 4
+    print('G1_BACKUP_APPEND_CONFIRMED_MAPPING_NOT_YET_ATTEMPTED')
+    preflight()
     rc=sql_runner('taskflow_executor_mapping_candidate.sql',os.environ['PIN_CANDIDATE_SHA256'])
     if rc:print('G1_STOPPED_COMMIT_UNKNOWN_READONLY_RECONCILE_REQUIRED');return rc
     rc=sql_runner('taskflow_executor_mapping_postflight.sql',os.environ['PIN_POSTFLIGHT_SHA256'])
