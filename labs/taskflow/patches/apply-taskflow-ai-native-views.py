@@ -62,7 +62,7 @@ def patch_backlog_assignment(root, overlays):
         "zh-Hant": ("無法確認此 Agent 的執行時，已取消指派；規劃工作可保留在待規劃。", "無法確認此 Agent 的執行時。請改為待規劃或取消指派。"),
         "zh-Hans": ("无法确认此 Agent 的运行时，已取消分配；规划工作可保留在待规划。", "无法确认此 Agent 的运行时。请改为待规划或取消分配。"),
         "ja": ("Agent のランタイムを確認できないため、割り当てを解除しました。計画中の作業はバックログに残せます。", "Agent のランタイムを確認できません。バックログに戻すか、割り当てを解除してください。"),
-        "ko": ("Agent 런타임을 확인할 수 없어 할당을 해제했습니다. 계획 작업은 백로그에 둘 수 있습니다.", "Agent 런타임을 확인할 수 없습니다. 백로그로 이동하거나 할당을 해제하세요."),
+        "fr": ("Impossible de vérifier le runtime de cet agent ; affectation supprimée. Gardez le travail de planification dans le backlog.", "Impossible de vérifier le runtime de cet agent. Gardez le travail dans le backlog ou supprimez l’affectation."),
     }
     for locale, (cleared, unverified) in messages.items():
         path = root / "packages/views/locales" / locale / "modals.json"
