@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """G1 workflow adapter. No standalone authorization. Never retries unknown COMMIT."""
-import argparse, base64, gzip, hashlib, os, subprocess, sys
+import argparse, base64, gzip, hashlib, os, subprocess, sys, json
 from pathlib import Path
 import psycopg2
 
@@ -30,6 +30,20 @@ def owner_only(q,name,columns):
     if q.fetchall()!=columns:raise ValueError('backup shape mismatch')
     q.execute("SELECT EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x WHERE c.oid=%s AND x.grantee<>c.relowner) OR EXISTS(SELECT 1 FROM pg_attribute a CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE a.attrelid=%s AND x.grantee<>current_user::regrole)",(oid,oid))
     if q.fetchone()[0]:raise ValueError('backup ACL mismatch')
+    q.execute("SELECT attname,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=%s AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",(oid,))
+    if q.fetchall()!=[(x[0],'now()' if x[0]=='taken_at' else None) for x in columns]:raise ValueError('backup default drift')
+    q.execute("SELECT contype,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=%s ORDER BY conname",(oid,))
+    expected='PRIMARY KEY (dump_id, line_no)' if name=='step1_schema_backup' else 'PRIMARY KEY (dump_id)'
+    if q.fetchall()!=[('p',expected)]:raise ValueError('backup constraints drift')
+    q.execute("SELECT count(*) FROM pg_trigger WHERE tgrelid=%s",(oid,))
+    if q.fetchone()[0]:raise ValueError('backup trigger drift')
+    q.execute("SELECT count(*) FROM pg_rewrite WHERE ev_class=%s",(oid,))
+    if q.fetchone()[0]:raise ValueError('backup rewrite drift')
+    q.execute("SELECT reloptions FROM pg_class WHERE oid=%s",(oid,))
+    if q.fetchone()[0] is not None:raise ValueError('backup options drift')
+    q.execute("SELECT pg_get_indexdef(indexrelid) FROM pg_index WHERE indrelid=%s ORDER BY indexrelid",(oid,))
+    expected_index='CREATE UNIQUE INDEX '+name+'_pkey ON taskflow.'+name+' USING btree '+('(dump_id, line_no)' if name=='step1_schema_backup' else '(dump_id)')
+    if q.fetchall()!=[(expected_index,)]:raise ValueError('backup index drift')
 
 
 def preflight():
@@ -76,8 +90,23 @@ def backup():
     # Server17, toolchain17 checked before this. Full schema, backup tables
     # excluded. Dump never printed/uploaded, and is removed by workflow trap.
     path=Path(os.environ['RUNNER_TEMP'])/'g1-backup.sql'
-    with open(os.devnull,'wb') as err:
-        subprocess.run(['pg_dump','--schema=taskflow','--exclude-table=taskflow.step1_schema_backup','--exclude-table=taskflow.step1_schema_backup_meta','--file',str(path)],stderr=err,check=True,timeout=120)
+    # The dump session uses a closed connection contract derived from a fresh
+    # guarded session, with no service options capable of SET ROLE or teardown.
+    # An exported snapshot binds pg_dump to that verified database snapshot.
+    guard,gq=connect()
+    try:
+        dsn=guard.get_dsn_parameters()
+        if dsn.get('user')!='taskflow_migrator.lenpbbhwxyyfwgvjcozf' or dsn.get('sslmode')!='verify-full':raise ValueError('dump connection contract mismatch')
+        if dsn.get('options','').strip():raise ValueError('unreviewed dump session options')
+        gq.execute("SET LOCAL idle_in_transaction_session_timeout='125s'")
+        gq.execute("SELECT pg_export_snapshot()")
+        snapshot=gq.fetchone()[0]
+        env=os.environ.copy()
+        env['PGOPTIONS']='-c default_transaction_read_only=on -c session_replication_role=origin -c multica.workspace_teardown=off -c search_path=taskflow,extensions -c statement_timeout=120000 -c lock_timeout=3000'
+        with open(os.devnull,'wb') as err:
+            subprocess.run(['pg_dump','--role=taskflow_migrator','--snapshot='+snapshot,'--schema=taskflow','--exclude-table=taskflow.step1_schema_backup','--exclude-table=taskflow.step1_schema_backup_meta','--file',str(path)],env=env,stderr=err,check=True,timeout=120)
+        guard.rollback()
+    finally:guard.close()
     body=path.read_bytes();digest=hashlib.sha256(body).hexdigest();packed=gzip.compress(body);encoded=base64.b64encode(packed).decode()
     c,q=connect(False)
     try:
@@ -86,8 +115,13 @@ def backup():
         owner_only(q,'step1_schema_backup',[('dump_id','bigint',True),('line_no','integer',True),('line','text',True)])
         owner_only(q,'step1_schema_backup_meta',[('dump_id','bigint',True),('taken_at','timestamp with time zone',True),('sha256','text',True),('gz_bytes','bigint',True),('note','text',True)])
         q.execute('SELECT coalesce(max(dump_id),0)+1 FROM taskflow.step1_schema_backup_meta');ident=q.fetchone()[0]
+        # Stable private operator reference before COMMIT; contents are never
+        # emitted in public logs. On loss of runner use exact attempt note.
+        note='G1 backup attempt '+os.environ.get('GITHUB_RUN_ID','isolated')+'-'+os.environ.get('GITHUB_RUN_ATTEMPT','1')
+        reference={'dump_id':ident,'sha256':digest,'gz_bytes':len(packed),'note':note}
+        private_ref=Path(os.environ['RUNNER_TEMP'])/'g1-backup-reference.json';private_ref.write_text(json.dumps(reference));private_ref.chmod(0o600)
         q.execute('INSERT INTO taskflow.step1_schema_backup VALUES(%s,0,%s)',(ident,encoded))
-        q.execute("INSERT INTO taskflow.step1_schema_backup_meta(dump_id,sha256,gz_bytes,note) VALUES(%s,%s,%s,'G1 pre-mapping full taskflow schema; same-DB backup, not disaster recovery')",(ident,digest,len(packed)))
+        q.execute("INSERT INTO taskflow.step1_schema_backup_meta(dump_id,sha256,gz_bytes,note) VALUES(%s,%s,%s,%s)",(ident,digest,len(packed),note))
         q.execute('SELECT line FROM taskflow.step1_schema_backup WHERE dump_id=%s ORDER BY line_no',(ident,));read=''.join(row[0] for row in q)
         if hashlib.sha256(gzip.decompress(base64.b64decode(read))).hexdigest()!=digest:raise ValueError('backup readback mismatch')
         c.commit()
@@ -104,7 +138,21 @@ def backup():
 
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('--action',choices=['apply+postflight','readonly-reconcile'],required=True);args=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('--action',choices=['apply+postflight','readonly-reconcile','readonly-backup-reconcile'],required=True);args=a.parse_args()
+    if args.action=='readonly-backup-reconcile':
+        origin=os.environ.get('G1_BACKUP_ORIGIN','')
+        import re
+        if not re.fullmatch(r'[0-9]+-[0-9]+',origin):raise ValueError('exact origin run-attempt required')
+        c,q=connect()
+        try:
+            owner_only(q,'step1_schema_backup',[('dump_id','bigint',True),('line_no','integer',True),('line','text',True)])
+            owner_only(q,'step1_schema_backup_meta',[('dump_id','bigint',True),('taken_at','timestamp with time zone',True),('sha256','text',True),('gz_bytes','bigint',True),('note','text',True)])
+            q.execute("SELECT dump_id,sha256,gz_bytes FROM taskflow.step1_schema_backup_meta WHERE note=%s",('G1 backup attempt '+origin,));rows=q.fetchall()
+            if len(rows)!=1:print('G1_BACKUP_ORIGIN_ABSENT_OR_AMBIGUOUS_UNRESOLVED');return 4
+            ident,digest,size=rows[0];q.execute('SELECT line FROM taskflow.step1_schema_backup WHERE dump_id=%s ORDER BY line_no',(ident,));packed=base64.b64decode(''.join(x[0] for x in q))
+            if len(packed)!=size or hashlib.sha256(gzip.decompress(packed)).hexdigest()!=digest:print('G1_BACKUP_RECONCILE_HASH_MISMATCH');return 4
+            print('G1_BACKUP_ORIGIN_COMMITTED_HASH_VERIFIED_NO_MAPPING_CLAIM');c.rollback();return 0
+        finally:c.close()
     if args.action=='readonly-reconcile':
         # Ledger absence cannot prove absence of randomly identified native rows.
         # Do not use key/name/title conflict checks to make a rollback claim.
