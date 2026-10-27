@@ -30,6 +30,24 @@ class G1WorkflowContract(unittest.TestCase):
   workflow=(ROOT/'.github/workflows/taskflow-g1-executor-mapping.yml').read_text()
   for marker in ['rm -f --','test ! -e','G1_STOPPED_SENSITIVE_CLEANUP_FAILED','backup_origin']:
    self.assertIn(marker,workflow)
+ def test_client_tls_guard_observes_correct_leg_and_fails_closed(self):
+  from types import SimpleNamespace
+  from unittest.mock import patch
+  p=ROOT/'labs/taskflow/scripts/g1-workflow-operation.py'
+  spec=importlib.util.spec_from_file_location('g1_tls_contract',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+  ca=ROOT/'labs/taskflow/certs/supabase-prod-ca-2021.crt';pin=hashlib.sha256(ca.read_bytes()).hexdigest()
+  for tls,mode,path,digest,ok in [(True,'verify-full',str(ca),pin,True),(False,'verify-full',str(ca),pin,False),(True,'require',str(ca),pin,False),(True,'verify-ca',str(ca),pin,False),(True,'verify-full','',pin,False),(True,'verify-full','/tmp/unreviewed.crt',pin,False),(True,'verify-full',str(ca),'0'*64,False)]:
+   c=SimpleNamespace(info=SimpleNamespace(ssl_in_use=tls),get_dsn_parameters=lambda:{'sslmode':mode,'sslrootcert':path,'host':'aws-1-ap-northeast-2.pooler.supabase.com','port':'5432','dbname':'postgres','user':'taskflow_migrator.lenpbbhwxyyfwgvjcozf'})
+   with patch.dict(os.environ,{'PIN_CA_SHA256':digest}):
+    if ok:m.client_tls_guard(c)
+    else:
+     with self.assertRaises(ValueError):m.client_tls_guard(c)
+  for key,value in [('host','other.supabase.com'),('port','6543'),('dbname','other'),('user','other'),('hostaddr','1.2.3.4'),('options','-c role=postgres')]:
+   dsn={'sslmode':'verify-full','sslrootcert':str(ca),'host':'aws-1-ap-northeast-2.pooler.supabase.com','port':'5432','dbname':'postgres','user':'taskflow_migrator.lenpbbhwxyyfwgvjcozf'};dsn[key]=value
+   c=SimpleNamespace(info=SimpleNamespace(ssl_in_use=True),get_dsn_parameters=lambda:dsn)
+   with patch.dict(os.environ,{'PIN_CA_SHA256':pin}):
+    with self.assertRaises(ValueError):m.client_tls_guard(c)
+  source=p.read_text();self.assertNotIn('pg_stat_ssl WHERE',source);self.assertIn('try:client_tls_guard(c)',source)
  def test_reviewed_runner_refuses_wrong_hash_before_database(self):
   with tempfile.NamedTemporaryFile() as f:
    f.write(b'SELECT 1;');f.flush()
