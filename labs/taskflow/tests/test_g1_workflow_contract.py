@@ -23,6 +23,13 @@ class G1WorkflowContract(unittest.TestCase):
   self.assertIn('return 3',source)
   self.assertIn('G1_BACKUP_APPEND_ATTEMPT_START_SEPARATE_COMMIT',source)
   self.assertIn('G1_BACKUP_COMMIT_STATE_UNRESOLVED_READONLY_BACKUP_RECONCILE_REQUIRED_NO_MAPPING_ATTEMPT',source)
+ def test_backup_baseline_dump_contract_reconcile_cleanup(self):
+  source=(ROOT/'labs/taskflow/scripts/g1-workflow-operation.py').read_text()
+  for marker in ['pg_get_constraintdef','pg_get_indexdef','backup trigger drift','backup rewrite drift','backup default drift','pg_export_snapshot','--snapshot=','--role=taskflow_migrator','PGOPTIONS','readonly-backup-reconcile','G1_BACKUP_ORIGIN','g1-backup-reference.json','G1_BACKUP_ORIGIN_COMMITTED_HASH_VERIFIED_NO_MAPPING_CLAIM']:
+   self.assertIn(marker,source)
+  workflow=(ROOT/'.github/workflows/taskflow-g1-executor-mapping.yml').read_text()
+  for marker in ['rm -f --','test ! -e','G1_STOPPED_SENSITIVE_CLEANUP_FAILED','backup_origin']:
+   self.assertIn(marker,workflow)
  def test_reviewed_runner_refuses_wrong_hash_before_database(self):
   with tempfile.NamedTemporaryFile() as f:
    f.write(b'SELECT 1;');f.flush()
