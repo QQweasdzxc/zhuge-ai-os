@@ -78,7 +78,7 @@ jobs:
           echo "$PIN_ROLLBACK_SHA256  taskflow_native_dispatch_authority_rollback.sql" | sha256sum -c -
           echo "$PIN_POSTFLIGHT_SHA256  taskflow_native_dispatch_authority_postflight.sql" | sha256sum -c -
 
-      - name: Install PostgreSQL 17 client and age (prod server_version=17.6)
+      - name: Install PostgreSQL 17 client (prod server_version=17.6)
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -98,6 +98,34 @@ jobs:
           test -s "$RUNNER_TEMP/pg_service.conf"
           echo "PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf" >> "$GITHUB_ENV"
           echo "PGSERVICE=${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}" >> "$GITHUB_ENV"
+
+      - name: Masked connectivity preflight (categories only; never prints host/user/secret values)
+        run: |
+          set -euo pipefail
+          CONF="$RUNNER_TEMP/pg_service.conf"
+          HOST=$(sed -n 's/^host=//p' "$CONF" | head -1)
+          PORT=$(sed -n 's/^port=//p' "$CONF" | head -1); PORT=${PORT:-5432}
+          if [ -z "$HOST" ]; then echo "preflight: service-file=missing-host"; exit 1; fi
+          if getent ahostsv4 "$HOST" >/dev/null 2>&1; then V4=yes; else V4=no; fi
+          if getent ahostsv6 "$HOST" >/dev/null 2>&1; then V6=yes; else V6=no; fi
+          TCP=unknown
+          if timeout 8 bash -c "cat </dev/null >/dev/tcp/'$HOST'/'$PORT'" 2>"$RUNNER_TEMP/tcp.err"; then TCP=ok
+          elif grep -qi 'refused' "$RUNNER_TEMP/tcp.err"; then TCP=refused
+          elif grep -qi 'unreachable\|no route' "$RUNNER_TEMP/tcp.err"; then TCP=unreachable
+          else TCP=timeout-or-other; fi
+          CLASS=other
+          ERR=$(psql "service=$PGSERVICE" -Atc 'SELECT 1' 2>&1 >/dev/null) || true
+          if [ -z "$ERR" ]; then CLASS=ok
+          elif printf '%s' "$ERR" | grep -qi 'could not translate host name'; then CLASS=dns
+          elif printf '%s' "$ERR" | grep -qi 'network is unreachable\|no route to host'; then CLASS=unreachable
+          elif printf '%s' "$ERR" | grep -qi 'connection refused'; then CLASS=refused
+          elif printf '%s' "$ERR" | grep -qi 'password authentication failed'; then CLASS=auth
+          elif printf '%s' "$ERR" | grep -qi 'definition of service\|no pg_service'; then CLASS=service-name
+          elif printf '%s' "$ERR" | grep -qi 'ssl\|certificate'; then CLASS=tls
+          elif printf '%s' "$ERR" | grep -qi 'timeout\|timed out'; then CLASS=timeout
+          fi
+          unset ERR
+          echo "preflight: ipv4=$V4 ipv6=$V6 tcp=$TCP db-probe=$CLASS"
 
       - name: Database-side role guard (fails closed; required for every action)
         run: |
@@ -210,4 +238,4 @@ jobs:
         run: |
           shred -u "$RUNNER_TEMP/pg_service.conf" 2>/dev/null || true
           shred -u "$RUNNER_TEMP/backup.sql" "$RUNNER_TEMP/backup.sql.gz" "$RUNNER_TEMP/backup.csv" 2>/dev/null || true
-          rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
+          rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/tcp.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
