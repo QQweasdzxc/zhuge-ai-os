@@ -106,8 +106,7 @@ jobs:
           ROOTCERT=$(sed -n 's/^sslrootcert=//p' "$CONF" | head -1)
           SSLCERT=$(sed -n 's/^sslcert=//p' "$CONF" | head -1)
           SSLKEY=$(sed -n 's/^sslkey=//p' "$CONF" | head -1)
-          echo "service-config: sslmode=${SSLMODE:-absent} sslrootcert=$([ -n "$ROOTCERT" ] && echo present || echo absent) sslcert=$([ -n "$SSLCERT" ] && echo present || echo absent) sslkey=$([ -n "$SSLKEY" ] && echo present || echo absent)"
-          unset ROOTCERT SSLCERT SSLKEY
+          echo "service-config-original: sslmode=${SSLMODE:-absent} sslrootcert=$([ -n "$ROOTCERT" ] && echo present || echo absent) sslcert=$([ -n "$SSLCERT" ] && echo present || echo absent) sslkey=$([ -n "$SSLKEY" ] && echo present || echo absent)"
           ORIG_HOST=$(sed -n 's/^host=//p' "$CONF" | head -1)
           if [ -n "$ORIG_HOST" ] && ! getent ahostsv4 "$ORIG_HOST" >/dev/null 2>&1; then
             REF=$(printf '%s' "$ORIG_HOST" | sed -n 's/^db\.\([a-z0-9]*\)\.supabase\.co$/\1/p')
@@ -129,10 +128,20 @@ jobs:
               printf 'password=%s\n' "$PASS"
               printf 'sslmode=verify-full\n'
               printf 'sslrootcert=%s\n' "$GITHUB_WORKSPACE/labs/taskflow/certs/supabase-prod-ca-2021.crt"
+              # Preserve any original client-certificate requirement; we do not
+              # know whether the server demands it and must not silently drop it.
+              [ -n "$SSLCERT" ] && printf 'sslcert=%s\n' "$SSLCERT"
+              [ -n "$SSLKEY" ] && printf 'sslkey=%s\n' "$SSLKEY"
             } > "$CONF"
             unset PASS
             echo "service file rewritten to the project's IPv4 session pooler (values withheld)"
           fi
+          SSLMODE2=$(sed -n 's/^sslmode=//p' "$CONF" | head -1)
+          RC2=$(sed -n 's/^sslrootcert=//p' "$CONF" | head -1)
+          SC2=$(sed -n 's/^sslcert=//p' "$CONF" | head -1)
+          SK2=$(sed -n 's/^sslkey=//p' "$CONF" | head -1)
+          echo "service-config-effective: sslmode=${SSLMODE2:-absent} sslrootcert=$([ -n "$RC2" ] && echo present || echo absent) sslcert=$([ -n "$SC2" ] && echo present || echo absent) sslkey=$([ -n "$SK2" ] && echo present || echo absent)"
+          unset ROOTCERT SSLCERT SSLKEY SSLMODE2 RC2 SC2 SK2
 
       - name: Masked connectivity preflight (categories only; never prints host/user/secret values)
         run: |
@@ -166,23 +175,57 @@ jobs:
           unset ERR
           echo "preflight: ipv4=$V4 ipv6=$V6 tcp=$TCP db-probe=$CLASS"
 
-      - name: Extended masked diagnostics (diagnose-only; redacted values only)
+      - name: Extended masked diagnostics (diagnose-only; allow-listed classes only)
         if: inputs.action == 'diagnose-only'
         run: |
           set -euo pipefail
-          ERR=$(psql "service=$PGSERVICE" -Atc 'SELECT 1' 2>&1 >/dev/null) || true
-          if [ -z "$ERR" ]; then
+          # Fixed allow-list classifier: emits class labels only, never raw or
+          # "redacted" libpq text (substitution cannot cover every secret shape).
+          # Raw stderr stays in shell variables and is unset before step end.
+          classify() {
+            local t="$1" out=""
+            printf '%s' "$t" | grep -qi 'could not translate host name' && out="$out,dns"
+            printf '%s' "$t" | grep -qi 'network is unreachable\|no route to host' && out="$out,unreachable"
+            printf '%s' "$t" | grep -qi 'connection refused' && out="$out,refused"
+            printf '%s' "$t" | grep -qi 'timeout\|timed out' && out="$out,timeout"
+            printf '%s' "$t" | grep -qi 'root certificate file' && out="$out,rootcert_missing"
+            printf '%s' "$t" | grep -qi 'certificate verify failed\|unable to get local issuer\|self-signed certificate\|certificate has expired\|not yet valid' && out="$out,cert_verify_failed"
+            printf '%s' "$t" | grep -qi 'does not match host name\|server certificate for .* does not match' && out="$out,hostname_mismatch"
+            printf '%s' "$t" | grep -qi 'valid client certificate' && out="$out,clientcert_missing"
+            printf '%s' "$t" | grep -qi 'could not open certificate file' && out="$out,clientcert_unreadable"
+            printf '%s' "$t" | grep -qi 'SSL connection is required' && out="$out,ssl_required"
+            printf '%s' "$t" | grep -qi 'does not support SSL' && out="$out,ssl_unsupported"
+            printf '%s' "$t" | grep -qi 'password authentication failed\|no password supplied\|SASL' && out="$out,auth_failed"
+            printf '%s' "$t" | grep -qi 'no tenant identifier\|Tenant or user not found' && out="$out,tenant"
+            printf '%s' "$t" | grep -qi 'definition of service\|no pg_service' && out="$out,service_name"
+            printf '%s' "$t" | grep -q 'ERROR:' && out="$out,db_raised_error"
+            if [ -z "$out" ]; then echo "unknown"; else echo "${out#,}"; fi
+          }
+          ERR=$(psql "service=$PGSERVICE" -Atc 'SELECT 1' 2>&1 >/dev/null) && DRC=0 || DRC=$?
+          if [ "$DRC" -eq 0 ]; then
             echo "diagnose db-probe: ok"
+            ROLE_OUT=$(psql "service=$PGSERVICE" -Atc 'SELECT current_user' 2>/dev/null || true)
+            if [ "$ROLE_OUT" = "taskflow_migrator" ]; then echo "diagnose role: matches-expected=yes"
+            elif [ -n "$ROLE_OUT" ]; then echo "diagnose role: matches-expected=no"
+            else echo "diagnose role: matches-expected=unknown"; fi
+            unset ROLE_OUT
+            SSL_OUT=$(psql "service=$PGSERVICE" -Atc 'SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()' 2>/dev/null || true)
+            case "$SSL_OUT" in
+              t) echo "diagnose ssl: in-use=yes" ;;
+              f) echo "diagnose ssl: in-use=no" ;;
+              *) echo "diagnose ssl: in-use=unknown" ;;
+            esac
+            unset SSL_OUT
           else
-            printf '%s' "$ERR" | sed -E 's/"[^"]*"/"<redacted>"/g; s/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/<ip>/g; s/\b[0-9a-fA-F:]{8,}\b/<addr>/g' | head -2
+            echo "diagnose db-probe: failed exit=$DRC classes=$(classify "$ERR")"
           fi
           unset ERR
           GERR=$(psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
-            -f labs/taskflow/sql/taskflow_migration_role_guard.sql 2>&1 >/dev/null) || true
-          if [ -z "$GERR" ]; then
+            -f labs/taskflow/sql/taskflow_migration_role_guard.sql 2>&1 >/dev/null) && GRC=0 || GRC=$?
+          if [ "$GRC" -eq 0 ]; then
             echo "diagnose role-guard: pass"
           else
-            printf '%s' "$GERR" | sed -E 's/"[^"]*"/"<redacted>"/g; s/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/<ip>/g; s/\b[0-9a-fA-F:]{8,}\b/<addr>/g' | head -2
+            echo "diagnose role-guard: failed exit=$GRC classes=$(classify "$GERR")"
           fi
           unset GERR
 
