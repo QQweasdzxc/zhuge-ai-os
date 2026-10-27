@@ -209,4 +209,4 @@ jobs:
         shell: bash
         env:
           PARITY_DATABASE_URL: postgres://postgres:ci-parity-only@127.0.0.1:5432/multica?sslmode=disable
-        run: sh labs/taskflow/patches/run-parity-tests.sh "$RUNNER_TEMP/multica/server"
+        run: sh labs/taskflow/patches/run-parity-tests.sh "$RUNNER_TEMP/multica/server" dispatch
