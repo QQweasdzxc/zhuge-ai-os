@@ -11,13 +11,28 @@ OWNER='ac5afcc7-f045-41a9-8827-eaf085a04c0d'
 KEYS=['CO-01','CO-02','CO-03','GEM-01','GH-HELPER']
 
 
+def client_tls_guard(c):
+    # libpq measures client-to-pooler TLS. pg_stat_ssl measures the separate
+    # pooler-to-database leg and is not evidence of the client connection.
+    dsn=c.get_dsn_parameters()
+    if any(dsn.get(k)!=v for k,v in {'host':'aws-1-ap-northeast-2.pooler.supabase.com','port':'5432','dbname':'postgres','user':'taskflow_migrator.lenpbbhwxyyfwgvjcozf'}.items()):raise ValueError('client endpoint contract mismatch')
+    if dsn.get('hostaddr') or dsn.get('options','').strip():raise ValueError('client endpoint overrides refused')
+    ca=ROOT/'labs/taskflow/certs/supabase-prod-ca-2021.crt'
+    if not c.info.ssl_in_use or dsn.get('sslmode')!='verify-full':raise ValueError('client TLS mismatch')
+    configured=dsn.get('sslrootcert')
+    if not configured or Path(configured).resolve()!=ca.resolve():raise ValueError('client CA path mismatch')
+    if hashlib.sha256(ca.read_bytes()).hexdigest()!=os.environ['PIN_CA_SHA256']:raise ValueError('client CA pin mismatch')
+
+
 def connect(readonly=True):
     c=psycopg2.connect(service=os.environ['PGSERVICE'],connect_timeout=5)
+    try:client_tls_guard(c)
+    except Exception:c.close();raise
     c.set_session(readonly=readonly)
     q=c.cursor();q.execute("SET LOCAL search_path=taskflow,extensions;SET LOCAL lock_timeout='3s';SET LOCAL statement_timeout='10s';SET LOCAL idle_in_transaction_session_timeout='5s'")
     q.execute((SQL/'taskflow_migration_role_guard.sql').read_text())
-    q.execute("SELECT current_user=session_user,current_setting('session_replication_role')='origin',coalesce(current_setting('multica.workspace_teardown',true),'')<>'on',current_setting('default_transaction_read_only')='off',EXISTS(SELECT 1 FROM pg_stat_ssl WHERE pid=pg_backend_pid() AND ssl)")
-    if q.fetchone()!=(True,True,True,True,True):c.close();raise ValueError('effective session mismatch')
+    q.execute("SELECT current_user=session_user,current_setting('session_replication_role')='origin',coalesce(current_setting('multica.workspace_teardown',true),'')<>'on',current_setting('default_transaction_read_only')='off'")
+    if q.fetchone()!=(True,True,True,True):c.close();raise ValueError('effective session mismatch')
     return c,q
 
 
@@ -50,8 +65,8 @@ def preflight():
     c,q=connect()
     try:
         q.execute((SQL/'taskflow_migration_role_guard.sql').read_text())
-        q.execute("SELECT session_user=current_user,current_setting('session_replication_role')='origin',coalesce(current_setting('multica.workspace_teardown',true),'')<>'on',EXISTS(SELECT 1 FROM pg_stat_ssl WHERE pid=pg_backend_pid() AND ssl),current_setting('server_version_num')::int/10000")
-        if q.fetchone()!=(True,True,True,True,17):raise ValueError('session mismatch')
+        q.execute("SELECT session_user=current_user,current_setting('session_replication_role')='origin',coalesce(current_setting('multica.workspace_teardown',true),'')<>'on',current_setting('server_version_num')::int/10000")
+        if q.fetchone()!=(True,True,True,17):raise ValueError('session mismatch')
         q.execute("SELECT count(*) FROM pg_auth_members WHERE member=current_user::regrole")
         if q.fetchone()[0]:raise ValueError('unexpected role membership')
         q.execute("SELECT count(*) FROM taskflow.member WHERE workspace_id=%s",(WS,))
