@@ -98,6 +98,32 @@ jobs:
           test -s "$RUNNER_TEMP/pg_service.conf"
           echo "PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf" >> "$GITHUB_ENV"
           echo "PGSERVICE=${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}" >> "$GITHUB_ENV"
+          CONF="$RUNNER_TEMP/pg_service.conf"
+          ORIG_HOST=$(sed -n 's/^host=//p' "$CONF" | head -1)
+          if [ -n "$ORIG_HOST" ] && ! getent ahostsv4 "$ORIG_HOST" >/dev/null 2>&1; then
+            REF=$(printf '%s' "$ORIG_HOST" | sed -n 's/^db\.\([a-z0-9]*\)\.supabase\.co$/\1/p')
+            if [ -z "$REF" ]; then
+              echo "connectivity-rewrite: no IPv4 route and host is not a db.<ref>.supabase.co direct host; cannot derive pooler user suffix"
+              exit 1
+            fi
+            ORIG_USER=$(sed -n 's/^user=//p' "$CONF" | head -1); ORIG_USER=${ORIG_USER%%.*}
+            PASS=$(sed -n 's/^password=//p' "$CONF" | head -1)
+            DB=$(sed -n 's/^dbname=//p' "$CONF" | head -1); DB=${DB:-postgres}
+            SSL=$(sed -n 's/^sslmode=//p' "$CONF" | head -1); SSL=${SSL:-require}
+            SVC=$(sed -n 's/^\[\(.*\)\]$/\1/p' "$CONF" | head -1)
+            umask 077
+            {
+              printf '[%s]\n' "$SVC"
+              printf 'host=%s\n' 'aws-1-ap-northeast-2.pooler.supabase.com'
+              printf 'port=5432\n'
+              printf 'user=%s.%s\n' "$ORIG_USER" "$REF"
+              printf 'dbname=%s\n' "$DB"
+              printf 'password=%s\n' "$PASS"
+              printf 'sslmode=%s\n' "$SSL"
+            } > "$CONF"
+            unset PASS
+            echo "service file rewritten to the project's IPv4 session pooler (values withheld)"
+          fi
 
       - name: Masked connectivity preflight (categories only; never prints host/user/secret values)
         run: |
