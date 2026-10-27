@@ -278,13 +278,16 @@ jobs:
             printf '%s' "$t" | grep -q 'ERROR:' && out="$out,db_raised_error"
             if [ -z "$out" ]; then echo "unknown"; else echo "${out#,}"; fi
           }
+          # Job exit status reflects the real login + role-check outcome: any
+          # failure fails the step, so a green run never wraps a failed login.
+          FAIL=0
           ERR=$(psql "service=$PGSERVICE" -Atc 'SELECT 1' 2>&1 >/dev/null) && DRC=0 || DRC=$?
           if [ "$DRC" -eq 0 ]; then
             echo "diagnose db-probe: ok"
             ROLE_OUT=$(psql "service=$PGSERVICE" -Atc 'SELECT current_user' 2>/dev/null || true)
             if [ "$ROLE_OUT" = "taskflow_migrator" ]; then echo "diagnose role: matches-expected=yes"
-            elif [ -n "$ROLE_OUT" ]; then echo "diagnose role: matches-expected=no"
-            else echo "diagnose role: matches-expected=unknown"; fi
+            elif [ -n "$ROLE_OUT" ]; then echo "diagnose role: matches-expected=no"; FAIL=1
+            else echo "diagnose role: matches-expected=unknown"; FAIL=1; fi
             unset ROLE_OUT
             SSL_OUT=$(psql "service=$PGSERVICE" -Atc 'SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()' 2>/dev/null || true)
             case "$SSL_OUT" in
@@ -295,6 +298,7 @@ jobs:
             unset SSL_OUT
           else
             echo "diagnose db-probe: failed exit=$DRC classes=$(classify "$ERR")"
+            FAIL=1
           fi
           unset ERR
           GERR=$(psql "service=$PGSERVICE" -v ON_ERROR_STOP=1 -q \
@@ -303,8 +307,14 @@ jobs:
             echo "diagnose role-guard: pass"
           else
             echo "diagnose role-guard: failed exit=$GRC classes=$(classify "$GERR")"
+            FAIL=1
           fi
           unset GERR
+          if [ "$FAIL" -ne 0 ]; then
+            echo "diagnose: overall=fail (fixed classes above; failing closed)"
+            exit 1
+          fi
+          echo "diagnose: overall=pass"
 
       - name: Database-side role guard (fails closed; required for every action)
         if: inputs.action != 'diagnose-only'
