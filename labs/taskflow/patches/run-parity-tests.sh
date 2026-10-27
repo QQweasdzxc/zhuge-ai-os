@@ -16,10 +16,12 @@ if [ -z "${PARITY_DATABASE_URL:-}" ]; then
 fi
 
 cd "$SERVER_DIR" || exit 1
-for f in migrations/*.up.sql; do
-  psql -v ON_ERROR_STOP=1 -q "$PARITY_DATABASE_URL" -f "$f" > /dev/null || { echo "MIGRATION FAILED: $f"; exit 1; }
-done
-echo "vendored migrations applied"
+# Apply migrations through the repo-owned migrate runner. It carries the
+# existing environment guards (e.g. migration 446 pg_bigm operator-class
+# condition), so no second skip semantics are introduced here.
+CGO_ENABLED=0 go build -o /tmp/parity-migrate ./cmd/migrate || exit 1
+DATABASE_URL="$PARITY_DATABASE_URL" /tmp/parity-migrate up || { echo "MIGRATE RUNNER FAILED"; exit 1; }
+echo "vendored migrations applied via repo migrate runner"
 
 export DATABASE_URL="$PARITY_DATABASE_URL"
 
