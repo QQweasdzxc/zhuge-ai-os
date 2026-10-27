@@ -1,19 +1,104 @@
-name: TaskFlow G1 executor-mapping candidate (SUSPENDED)
-
-# No secrets, environment, database connection, or candidate execution.
-# The prior draft incorrectly targeted a protected schema. Existing gates
-# rejected it before production execution. Replacement requires live
-# taskflow schema compatibility, provenance-safe rollback and passing tests.
-on:
+# REVIEW BRANCH SOURCE ONLY. Not registered/enabled on main; do not dispatch before final parent gate.
+name: TaskFlow G1 reviewed executor mapping (manual gate)
+'on':
   workflow_dispatch:
-
-permissions: {}
-
+    inputs:
+      action:
+        description: G1 action only; never STEP1 or delete rollback
+        required: true
+        type: choice
+        options:
+        - readonly-reconcile
+        - apply+postflight
+      expected_sha:
+        description: Exact reviewed commit of this workflow and pinned source
+        required: true
+        type: string
+      coordination_window:
+        description: Confirm no parallel installer/owner DDL during short all-workspace agent/project/member write pause
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: taskflow-g1-production-mapping
+  cancel-in-progress: false
+env:
+  PIN_CANDIDATE_SHA256: 73ff31cc56afe061c3a09afb018d8b99f065947a434f7830fd22f3bf88d4d9ba
+  PIN_POSTFLIGHT_SHA256: d61d60d7f78551262f5d103d9c75749e24469a68e85e6ca53d65da648e81660e
+  PIN_RUNNER_SHA256: da6f852a224635c67be3d21b8aacc297b785ef031a2f686a7522ba0e6f961b8a
+  PIN_OPERATION_SHA256: 90c783eb8c5c00ab6709aebbe107b90c3f2c83094e0072ea4fac1a7d48b362c8
+  PIN_GUARD_SHA256: 16bac864b32eb8e62c0413831408dfeacd2f13c9a7caf43f324a675680e359db
+  PIN_CA_SHA256: 700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7
 jobs:
-  fail-closed:
+  g1-reviewed:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-migration
     steps:
-      - name: Refuse all G1 execution pending corrected verification
-        run: |
-          echo 'G1_SUSPENDED: corrected schema and rollback verification required; no DB contact'
-          exit 1
+    - name: Anchor before checkout, secret or DB contact
+      env:
+        EXPECTED_SHA: ${{ inputs.expected_sha }}
+        COORDINATED: ${{ inputs.coordination_window }}
+      run: 'set -euo pipefail
+
+        [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] && test "$GITHUB_SHA" = "$EXPECTED_SHA"
+
+        test "$COORDINATED" = true
+
+        '
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.expected_sha }}
+        persist-credentials: false
+    - name: Verify exact reviewed bytes
+      run: 'set -euo pipefail
+
+        echo "$PIN_CANDIDATE_SHA256  labs/taskflow/sql/taskflow_executor_mapping_candidate.sql" | sha256sum -c -
+
+        echo "$PIN_POSTFLIGHT_SHA256  labs/taskflow/sql/taskflow_executor_mapping_postflight.sql" | sha256sum -c -
+
+        echo "$PIN_RUNNER_SHA256  labs/taskflow/scripts/run-g1-reviewed-sql.py" | sha256sum -c -
+
+        echo "$PIN_OPERATION_SHA256  labs/taskflow/scripts/g1-workflow-operation.py" | sha256sum -c -
+
+        echo "$PIN_GUARD_SHA256  labs/taskflow/sql/taskflow_migration_role_guard.sql" | sha256sum -c -
+
+        echo "$PIN_CA_SHA256  labs/taskflow/certs/supabase-prod-ca-2021.crt" | sha256sum -c -
+
+        '
+    - name: Install PostgreSQL 17 client (prod server_version=17.6)
+      run: "set -euo pipefail\nsudo apt-get update -qq\nsudo apt-get install -y -qq postgresql-client-17 || {\n  echo \"deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main\" | sudo tee /etc/apt/sources.list.d/pgdg.list\n  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg\n  sudo apt-get update -qq\n  sudo apt-get install -y -qq postgresql-client-17\n} >/dev/null\n# The runner image pre-installs PG16 client tools; PATH/alternatives\n# mixing yielded psql 17 but pg_dump 16, and pg_dump aborts when the\n# server major is newer (run 40515940876: pg_dump 16.15 vs server\n# 17.6). Pin the PG17 toolchain for all later steps and fail closed\n# on any major mismatch so a mixed install cannot reach backup.\nexport PATH=\"/usr/lib/postgresql/17/bin:$PATH\"\necho \"/usr/lib/postgresql/17/bin\" >> \"$GITHUB_PATH\"\npsql --version; pg_dump --version\npsql --version | grep -qE '^psql \\(PostgreSQL\\) 17\\.' || { echo\
+        \ \"toolchain gate: psql major is not 17\"; exit 1; }\npg_dump --version | grep -qE '^pg_dump \\(PostgreSQL\\) 17\\.' || { echo \"toolchain gate: pg_dump major is not 17\"; exit 1; }\n"
+    - name: Install source-pinned adapter dependency
+      run: sudo apt-get install -y -qq python3-psycopg2 >/dev/null
+    - name: Write one-shot migrator pg_service file (never printed)
+      run: "set -euo pipefail\numask 077\nprintf '%s' \"$RAW_SERVICE\" > \"$RUNNER_TEMP/pg_service.conf.raw\"\ntest -s \"$RUNNER_TEMP/pg_service.conf.raw\"\nPGSERVICE=\"$SERVICE_NAME\"\necho \"PGSERVICEFILE=$RUNNER_TEMP/pg_service.conf\" >> \"$GITHUB_ENV\"\necho \"PGSERVICE=$PGSERVICE\" >> \"$GITHUB_ENV\"\nRAWC=\"$RUNNER_TEMP/pg_service.conf.raw\"\n# Structural facts about the original secret: booleans/counts only, never\n# values, value lengths, or hashes.\nCRLF=no; grep -q \"$(printf '\\r')\" \"$RAWC\" && CRLF=yes\nLEADWS=no; grep -qE '^[[:space:]]+[A-Za-z_]+=' \"$RAWC\" && LEADWS=yes\necho \"structure-original: crlf=$CRLF leading_ws_keys=$LEADWS\"\n# libpq treats CR as a line terminator; normalize so this pipeline sees\n# the same file libpq parses.\ntr -d '\\r' < \"$RAWC\" > \"$RUNNER_TEMP/pg_service.conf\"\nshred -u \"$RAWC\" 2>/dev/null || rm -f \"$RAWC\"\nCONF=\"$RUNNER_TEMP/pg_service.conf\"\n# Section-aware extraction: only the section named by PGSERVICE may\n# supply values, so\
+        \ a legal multi-section file cannot leak another\n# section's password into this connection.\nif ! awk -v svc=\"$PGSERVICE\" '\n  {\n    line=$0; sub(/^[[:space:]]*/,\"\",line); sub(/[[:space:]]*$/,\"\",line)\n    if (line ~ /^\\[.*\\]$/) { name=substr(line,2,length(line)-2); in_sec=(name==svc)?1:0; if(in_sec) found=1; next }\n    if (in_sec) print $0\n  }\n  END { if (!found) exit 3 }' \"$CONF\" > \"$RUNNER_TEMP/section.conf\"; then\n  echo \"service-parse: failed class=service_section_missing\"\n  exit 1\nfi\nSEC=\"$RUNNER_TEMP/section.conf\"\n# Syntax gate on the TARGET section only: libpq rejects unknown keys and\n# malformed lines in the section actually used, but ignores them in\n# other sections (verified on PG16/17 by independent review).\nKNOWN_KEYS=\"application_name channel_binding client_encoding connect_timeout dbname fallback_application_name gssencmode host hostaddr keepalives keepalives_count keepalives_idle keepalives_interval krb_server_hostname options passfile\
+        \ password port replication require_auth requirepeer service ssl_max_protocol_version ssl_min_protocol_version sslcert sslcompression sslcrl sslcrldir sslkey sslmode sslrootcert tcp_user_timeout user\"\nif awk -v keys=\" $KNOWN_KEYS \" '\n  /^[[:space:]]*$/ { next }\n  /^[[:space:]]*#/ { next }\n  {\n    if (match($0, /^[[:space:]]*[A-Za-z_]+=/)) {\n      k = substr($0, RSTART, RLENGTH); gsub(/[[:space:]=]/, \"\", k)\n      if (index(keys, \" \" k \" \")) next\n    }\n    print \"bad\"; exit 0\n  }' \"$SEC\" | grep -q bad; then\n  echo \"service-parse: failed class=service_syntax\"\n  exit 1\nfi\nNPW=$(sed -n 's/^[[:space:]]*password=.*/x/p' \"$SEC\" | wc -l)\nDUPPW=no; [ \"$NPW\" -gt 1 ] && DUPPW=yes\n# libpq service-file semantics, verified locally on PG17: leading\n# whitespace before keys tolerated, first occurrence wins, trailing\n# value whitespace stripped, leading value whitespace preserved.\ngetval() { sed -n \"s/^[[:space:]]*$2=//p\" \"$1\" | head -1 | sed 's/[[:space:]]*$//';\
+        \ }\nPASS=$(getval \"$SEC\" password)\n# Fail closed on a missing or empty password: the rewrite must not\n# proceed and mask the real format problem.\nif [ \"$NPW\" -eq 0 ]; then echo \"service-parse: failed class=password_key_missing\"; exit 1; fi\nif [ -z \"$PASS\" ]; then echo \"service-parse: failed class=password_empty\"; exit 1; fi\necho \"service-parse: ok\"\nSSLMODE=$(getval \"$SEC\" sslmode)\nROOTCERT=$(getval \"$SEC\" sslrootcert)\nSSLCERT=$(getval \"$SEC\" sslcert)\nSSLKEY=$(getval \"$SEC\" sslkey)\nULINE=$(getval \"$SEC\" user)\nUREF=no; printf '%s' \"$ULINE\" | grep -q '\\.' && UREF=yes\necho \"structure-keys: password_present=yes password_nonempty=yes dup_password_key=$DUPPW user_has_ref_suffix=$UREF\"\nunset ULINE\necho \"service-config-original: sslmode=${SSLMODE:-absent} sslrootcert=$([ -n \"$ROOTCERT\" ] && echo present || echo absent) sslcert=$([ -n \"$SSLCERT\" ] && echo present || echo absent) sslkey=$([ -n \"$SSLKEY\" ] && echo present || echo absent)\"\nORIG_HOST=$(getval\
+        \ \"$SEC\" host)\nif [ -n \"$ORIG_HOST\" ] && ! getent ahostsv4 \"$ORIG_HOST\" >/dev/null 2>&1; then\n  REF=$(printf '%s' \"$ORIG_HOST\" | sed -n 's/^db\\.\\([a-z0-9]*\\)\\.supabase\\.co$/\\1/p')\n  if [ -z \"$REF\" ]; then\n    echo \"connectivity-rewrite: no IPv4 route and host is not a db.<ref>.supabase.co direct host; cannot derive pooler user suffix\"\n    unset PASS\n    exit 1\n  fi\n  ORIG_USER=$(getval \"$SEC\" user); ORIG_USER=${ORIG_USER%%.*}\n  DB=$(getval \"$SEC\" dbname); DB=${DB:-postgres}\n  {\n    printf '[%s]\\n' \"$PGSERVICE\"\n    printf 'host=%s\\n' 'aws-1-ap-northeast-2.pooler.supabase.com'\n    printf 'port=5432\\n'\n    printf 'user=%s.%s\\n' \"$ORIG_USER\" \"$REF\"\n    printf 'dbname=%s\\n' \"$DB\"\n    printf 'password=%s\\n' \"$PASS\"\n    printf 'sslmode=verify-full\\n'\n    printf 'sslrootcert=%s\\n' \"$GITHUB_WORKSPACE/labs/taskflow/certs/supabase-prod-ca-2021.crt\"\n    # Preserve any original client-certificate requirement; we do not\n    # know whether\
+        \ the server demands it and must not silently drop it.\n    [ -n \"$SSLCERT\" ] && printf 'sslcert=%s\\n' \"$SSLCERT\"\n    [ -n \"$SSLKEY\" ] && printf 'sslkey=%s\\n' \"$SSLKEY\"\n  } > \"$CONF\"\n  echo \"service file rewritten to the project's IPv4 session pooler (values withheld)\"\nfi\nunset PASS\n# Effective facts, read from the PGSERVICE section only.\nawk -v svc=\"$PGSERVICE\" '\n  {\n    line=$0; sub(/^[[:space:]]*/,\"\",line); sub(/[[:space:]]*$/,\"\",line)\n    if (line ~ /^\\[.*\\]$/) { name=substr(line,2,length(line)-2); in_sec=(name==svc)?1:0; next }\n    if (in_sec) print $0\n  }' \"$CONF\" > \"$RUNNER_TEMP/section_eff.conf\"\nSECEFF=\"$RUNNER_TEMP/section_eff.conf\"\nSSLMODE2=$(getval \"$SECEFF\" sslmode)\nRC2=$(getval \"$SECEFF\" sslrootcert)\nSC2=$(getval \"$SECEFF\" sslcert)\nSK2=$(getval \"$SECEFF\" sslkey)\necho \"service-config-effective: sslmode=${SSLMODE2:-absent} sslrootcert=$([ -n \"$RC2\" ] && echo present || echo absent) sslcert=$([ -n \"$SC2\" ] && echo\
+        \ present || echo absent) sslkey=$([ -n \"$SK2\" ] && echo present || echo absent)\"\nunset ROOTCERT SSLCERT SSLKEY SSLMODE2 RC2 SC2 SK2\n\n# Preserve first-wins effective values; override only safe transport options.\n# libpq must use verified-full TLS even when direct host has working IPv4.\npython3 - <<'PYCONFIG'\nimport os\nfrom pathlib import Path\np=Path(os.environ['RUNNER_TEMP'])/'pg_service.conf'\ns=p.read_text();target=os.environ['SERVICE_NAME'];inside=False;lines=[]\nfor line in s.splitlines():\n    stripped=line.strip()\n    if stripped.startswith('[') and stripped.endswith(']'):\n        inside=stripped[1:-1]==target\n        if inside:\n            lines.extend([line,'sslmode=verify-full','sslrootcert='+os.environ['GITHUB_WORKSPACE']+'/labs/taskflow/certs/supabase-prod-ca-2021.crt','connect_timeout=5','application_name=taskflow-g1-reviewed-workflow'])\n            continue\n    if inside and line.lstrip().split('=',1)[0] in ('sslmode','sslrootcert','connect_timeout','application_name'):\n\
+        \        continue\n    lines.append(line)\np.write_text('\\n'.join(lines)+'\\n')\nPYCONFIG\n"
+      env:
+        RAW_SERVICE: ${{ secrets.TASKFLOW_MIGRATION_PGSERVICEFILE_CONTENT }}
+        SERVICE_NAME: ${{ secrets.TASKFLOW_MIGRATION_PG_SERVICE }}
+    - name: Fresh session, backup, single transaction, postflight or read-only reconciliation
+      env:
+        G1_ACTION: ${{ inputs.action }}
+      run: 'set -euo pipefail
+
+        # system Python uses the distribution psycopg2 package.
+
+        /usr/bin/python3 labs/taskflow/scripts/g1-workflow-operation.py --action "$G1_ACTION"
+
+        '
+    - name: Always remove secret, dump and raw diagnostics
+      if: ${{ always() }}
+      run: 'shred -u "$RUNNER_TEMP/pg_service.conf" "$RUNNER_TEMP/pg_service.conf.raw" "$RUNNER_TEMP/section.conf" "$RUNNER_TEMP/section_eff.conf" "$RUNNER_TEMP/section_pf.conf" "$RUNNER_TEMP/g1-backup.sql" 2>/dev/null || true
+
+        rm -f "$RUNNER_TEMP/guard.err" "$RUNNER_TEMP/tcp.err" "$RUNNER_TEMP/dump.err" "$RUNNER_TEMP/apply.err" "$RUNNER_TEMP/rollback.err" "$RUNNER_TEMP/postflight.out" "$RUNNER_TEMP/postflight.err"
+
+        '
