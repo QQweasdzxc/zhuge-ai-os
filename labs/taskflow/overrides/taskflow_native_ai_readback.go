@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,16 +25,23 @@ const (
 	zhugeNativeTasksSource      = "TASKFLOW_NATIVE_ISSUE_AGENT_QUEUE"
 )
 
+type zhugeNativeProject struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
 type zhugeNativeProjectMapping struct {
-	ExecutorID      string `json:"executor_id"`
-	State           string `json:"state"`
-	Reason          string `json:"reason,omitempty"`
-	ProjectID       string `json:"project_id,omitempty"`
-	ProjectTitle    string `json:"project_title,omitempty"`
-	WorkspaceID     string `json:"workspace_id"`
-	WorkspaceAccess string `json:"workspace_access"`
-	ProjectAccess   string `json:"project_access"`
-	Source          string `json:"source"`
+	IdentityAccess  string               `json:"identity_access"`
+	Projects        []zhugeNativeProject `json:"projects"`
+	ExecutorID      string               `json:"executor_id"`
+	State           string               `json:"state"`
+	Reason          string               `json:"reason,omitempty"`
+	ProjectID       string               `json:"project_id,omitempty"`
+	ProjectTitle    string               `json:"project_title,omitempty"`
+	WorkspaceID     string               `json:"workspace_id"`
+	WorkspaceAccess string               `json:"workspace_access"`
+	ProjectAccess   string               `json:"project_access"`
+	Source          string               `json:"source"`
 
 	// These server-only fields are used by the AI task query and are never
 	// serialized. They come from the native Agent and Project rows above.
@@ -49,17 +58,32 @@ type zhugeNativeProjectAggregate struct {
 	agentKind    pgtype.Text
 	projectID    pgtype.Text
 	projectTitle pgtype.Text
+	projectsJSON []byte
 }
 
 func zhugeWorkspaceID(h *Handler, w http.ResponseWriter, r *http.Request) (string, bool) {
+	userID, authenticated := requireUserID(w, r)
+	if !authenticated {
+		return "", false
+	}
 	workspaceID := h.resolveWorkspaceID(r)
 	if workspaceID == "" {
 		writeError(w, http.StatusBadRequest, "workspace_id or workspace_slug is required")
 		return "", false
 	}
-	if _, ok := h.workspaceMember(w, r, workspaceID); !ok {
+	member, memberOK := h.workspaceMember(w, r, workspaceID)
+	if !memberOK {
 		return "", false
 	}
+	if uuidToString(member.WorkspaceID) != workspaceID || uuidToString(member.UserID) != userID {
+		writeError(w, http.StatusForbidden, "workspace member binding mismatch")
+		return "", false
+	}
+	if _, ok := util.ParseUUID(userID); ok != nil {
+		writeError(w, http.StatusUnauthorized, "invalid authenticated user")
+		return "", false
+	}
+
 	if _, err := util.ParseUUID(workspaceID); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid workspace_id")
 		return "", false
@@ -92,7 +116,8 @@ func (h *Handler) loadZhugeNativeProjectMappings(r *http.Request, workspaceID st
 	       min(native_agents.permission_mode),
 	       min(native_agents.kind),
 	       min(project.id::text),
-	       min(project.title)
+	       min(project.title),
+ coalesce(jsonb_agg(DISTINCT jsonb_build_object('id',project.id,'title',project.title)) FILTER (WHERE project.id IS NOT NULL),'[]'::jsonb)
 		FROM required
 		LEFT JOIN native_agents ON native_agents.system_key = required.executor_id
 		LEFT JOIN project
@@ -109,25 +134,21 @@ func (h *Handler) loadZhugeNativeProjectMappings(r *http.Request, workspaceID st
 	result := make([]zhugeNativeProjectMapping, 0, len(zhugeNativeExecutorIDs))
 	for rows.Next() {
 		var agg zhugeNativeProjectAggregate
-		if err := rows.Scan(&agg.executorID, &agg.agentCount, &agg.projectCount, &agg.agentID, &agg.ownerID, &agg.permission, &agg.agentKind, &agg.projectID, &agg.projectTitle); err != nil {
+		if err := rows.Scan(&agg.executorID, &agg.agentCount, &agg.projectCount, &agg.agentID, &agg.ownerID, &agg.permission, &agg.agentKind, &agg.projectID, &agg.projectTitle, &agg.projectsJSON); err != nil {
 			return nil, err
 		}
 		mapping := zhugeNativeProjectMapping{
 			ExecutorID: agg.executorID, State: "GAP", WorkspaceID: workspaceID,
-			WorkspaceAccess: "ALLOW", ProjectAccess: "UNVERIFIED", Source: zhugeNativeProjectMapSource,
+			Projects: make([]zhugeNativeProject, 0), WorkspaceAccess: "ALLOW", ProjectAccess: "UNVERIFIED", Source: zhugeNativeProjectMapSource,
 		}
 		switch {
 		case agg.agentCount == 0:
 			mapping.Reason = "NATIVE_AGENT_NOT_FOUND"
 		case agg.agentCount != 1:
 			mapping.Reason = "DUPLICATE_EXECUTOR_IDENTITY"
-		case agg.projectCount == 0:
-			mapping.Reason = "NATIVE_PROJECT_NOT_BOUND"
-		case agg.projectCount != 1:
-			mapping.Reason = "DUPLICATE_PROJECT_BINDING"
 		default:
 			agentID, parseErr := util.ParseUUID(agg.agentID.String)
-			if parseErr != nil || !agg.agentID.Valid || !agg.projectID.Valid {
+			if parseErr != nil || !agg.agentID.Valid {
 				mapping.Reason = "NATIVE_IDENTITY_INVALID"
 				break
 			}
@@ -147,12 +168,23 @@ func (h *Handler) loadZhugeNativeProjectMappings(r *http.Request, workspaceID st
 				mapping.ProjectAccess = "DENY"
 				break
 			}
+			mapping.IdentityAccess = "ALLOW"
 			mapping.State = "VERIFIED"
 			mapping.Reason = ""
-			mapping.ProjectID = agg.projectID.String
-			mapping.ProjectTitle = agg.projectTitle.String
+			if err := json.Unmarshal(agg.projectsJSON, &mapping.Projects); err != nil {
+				return nil, err
+			}
+			if agg.projectCount == 1 {
+				mapping.ProjectID = agg.projectID.String
+				mapping.ProjectTitle = agg.projectTitle.String
+			}
 			mapping.ProjectAccess = "ALLOW"
 			mapping.agentID = agentID
+			sort.Slice(mapping.Projects, func(i, j int) bool { return mapping.Projects[i].ID < mapping.Projects[j].ID })
+			if agg.projectCount == 0 {
+				mapping.State = "GAP"
+				mapping.Reason = "NATIVE_PROJECT_NOT_BOUND"
+			}
 		}
 		result = append(result, mapping)
 	}
@@ -225,8 +257,8 @@ func parseNativeTaskPage(r *http.Request) (int32, int32, bool) {
 }
 
 // ListZhugeNativeAITasks reads only canonical Issues that are assigned to a
-// verified Executor Agent, live in that Agent's verified native Project, and
-// have a native TaskFlow queue row. Metadata, PRs, comments and Provider claims
+// verified Executor Agent in this workspace, with or without a project or
+// queue row. Projects and queue are optional native readback, not inclusion gates. Metadata, PRs, comments and Provider claims
 // do not qualify an Issue. Provider state remains UNVERIFIED by design.
 func (h *Handler) ListZhugeNativeAITasks(w http.ResponseWriter, r *http.Request) {
 	workspaceID, ok := zhugeWorkspaceID(h, w, r)
@@ -251,17 +283,11 @@ func (h *Handler) ListZhugeNativeAITasks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var executorIDs []string
-	var agentIDs, projectIDs []pgtype.UUID
+	var agentIDs []pgtype.UUID
 	for _, mapping := range mappings {
-		if mapping.State == "VERIFIED" {
-			projectID, parseErr := util.ParseUUID(mapping.ProjectID)
-			if parseErr != nil {
-				writeError(w, http.StatusServiceUnavailable, "native project mappings unavailable")
-				return
-			}
+		if mapping.IdentityAccess == "ALLOW" {
 			executorIDs = append(executorIDs, mapping.ExecutorID)
 			agentIDs = append(agentIDs, mapping.agentID)
-			projectIDs = append(projectIDs, projectID)
 		}
 	}
 	tasks := make([]zhugeNativeTask, 0)
@@ -269,8 +295,8 @@ func (h *Handler) ListZhugeNativeAITasks(w http.ResponseWriter, r *http.Request)
 	if len(agentIDs) > 0 {
 		if err := h.DB.QueryRow(r.Context(), `
 			WITH mapping AS (
-				SELECT * FROM unnest($2::text[], $3::uuid[], $4::uuid[])
-					AS m(executor_id, agent_id, project_id)
+				SELECT * FROM unnest($2::text[], $3::uuid[])
+					AS m(executor_id, agent_id)
 			), latest_queue AS (
 				SELECT DISTINCT ON (q.issue_id) q.issue_id, q.agent_id
 				FROM agent_task_queue q
@@ -279,35 +305,31 @@ func (h *Handler) ListZhugeNativeAITasks(w http.ResponseWriter, r *http.Request)
 			SELECT count(*)::bigint
 			FROM mapping m
 			JOIN agent a ON a.id = m.agent_id AND a.workspace_id = $1
-			JOIN project p ON p.id = m.project_id AND p.workspace_id = $1
-			                 AND p.lead_type = 'agent' AND p.lead_id = a.id
-			JOIN issue i ON i.workspace_id = $1 AND i.project_id = p.id
-			                AND i.assignee_type = 'agent' AND i.assignee_id = a.id
-			JOIN latest_queue q ON q.issue_id = i.id AND q.agent_id = a.id`,
-			workspaceID, executorIDs, agentIDs, projectIDs).Scan(&total); err != nil {
+			JOIN issue i ON i.workspace_id = $1 AND i.assignee_type = 'agent' AND i.assignee_id = a.id
+ LEFT JOIN project p ON p.id=i.project_id AND p.workspace_id=$1
+			LEFT JOIN latest_queue q ON q.issue_id = i.id`,
+			workspaceID, executorIDs, agentIDs).Scan(&total); err != nil {
 			writeError(w, http.StatusServiceUnavailable, "native AI tasks unavailable")
 			return
 		}
 		rows, err := h.DB.Query(r.Context(), `
 			WITH mapping AS (
-				SELECT * FROM unnest($2::text[], $3::uuid[], $4::uuid[])
-					AS m(executor_id, agent_id, project_id)
+				SELECT * FROM unnest($2::text[], $3::uuid[])
+					AS m(executor_id, agent_id)
 			), latest_queue AS (
 				SELECT DISTINCT ON (q.issue_id) q.issue_id, q.agent_id, q.id, q.status, q.created_at
 				FROM agent_task_queue q
 				ORDER BY q.issue_id, q.created_at DESC, q.id DESC
 			)
-			SELECT i.id::text, i.workspace_id::text, p.id::text, p.title, i.title, i.status,
-			       m.executor_id, q.id::text, q.status, i.updated_at
+			SELECT i.id::text, i.workspace_id::text, coalesce(p.id::text,''), coalesce(p.title,''), i.title, i.status,
+			       m.executor_id, coalesce(q.id::text,''), coalesce(q.status,''), i.updated_at
 			FROM mapping m
 			JOIN agent a ON a.id = m.agent_id AND a.workspace_id = $1
-			JOIN project p ON p.id = m.project_id AND p.workspace_id = $1
-			                 AND p.lead_type = 'agent' AND p.lead_id = a.id
-			JOIN issue i ON i.workspace_id = $1 AND i.project_id = p.id
-			                AND i.assignee_type = 'agent' AND i.assignee_id = a.id
-			JOIN latest_queue q ON q.issue_id = i.id AND q.agent_id = a.id
+			JOIN issue i ON i.workspace_id = $1 AND i.assignee_type = 'agent' AND i.assignee_id = a.id
+ LEFT JOIN project p ON p.id=i.project_id AND p.workspace_id=$1
+			LEFT JOIN latest_queue q ON q.issue_id = i.id
 			ORDER BY i.updated_at DESC, i.id DESC
-			LIMIT $5 OFFSET $6`, workspaceID, executorIDs, agentIDs, projectIDs, limit, offset)
+			LIMIT $4 OFFSET $5`, workspaceID, executorIDs, agentIDs, limit, offset)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, "native AI tasks unavailable")
 			return
