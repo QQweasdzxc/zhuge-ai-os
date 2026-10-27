@@ -17,6 +17,7 @@ SPEC.loader.exec_module(OVERLAY)
 class TaskFlowCTODispatchOverlayTests(unittest.TestCase):
     def test_route_is_added_once_to_a_temporary_vendor_copy(self):
         original = (
+            'r.Get("/api/assignee-frequency", h.GetAssigneeFrequency)\n'
             'r.Route("/{id}", func(r chi.Router) {\n'
             '\t\t\t\tr.Post("/rerun", h.RerunIssue)\n'
             '\t\t\t})\n'
@@ -30,6 +31,8 @@ class TaskFlowCTODispatchOverlayTests(unittest.TestCase):
         self.assertEqual(patched.count('r.Post("/dispatch", h.CTODispatchIssue)'), 1)
         self.assertEqual(patched.count('r.Get("/dispatch-runtime", h.GetDispatchRuntime)'), 1)
         self.assertIn('r.Post("/rerun", h.RerunIssue)', patched)
+        self.assertEqual(patched.count('r.With(handler.RequireHumanActor).Get("/api/zhuge/native-executor-projects", h.ListZhugeNativeExecutorProjects)'), 1)
+        self.assertEqual(patched.count('r.With(handler.RequireHumanActor).Get("/api/zhuge/native-ai-tasks", h.ListZhugeNativeAITasks)'), 1)
 
     def test_overlay_fails_closed_for_reapplication_or_marker_drift(self):
         patched = (
