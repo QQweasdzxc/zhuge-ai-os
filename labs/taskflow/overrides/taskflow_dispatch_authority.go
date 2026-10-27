@@ -17,13 +17,22 @@ var ErrCTODispatchProviderMismatch = errors.New("dispatch provider does not matc
 // closed until that authority is formally provisioned.
 func AuthorizeCTODispatch(authenticatedUserID string, configuredCTOUserIDs []string) error {
 	userID := strings.TrimSpace(authenticatedUserID)
-	if userID == "" || len(configuredCTOUserIDs) == 0 {
+	if userID == "" {
 		return ErrCTODispatchAuthorityUnavailable
 	}
+	hasCandidate := false
 	for _, candidate := range configuredCTOUserIDs {
-		if userID == strings.TrimSpace(candidate) {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed == "" {
+			continue
+		}
+		hasCandidate = true
+		if userID == trimmed {
 			return nil
 		}
+	}
+	if !hasCandidate {
+		return ErrCTODispatchAuthorityUnavailable
 	}
 	return ErrCTODispatchUnauthorized
 }
