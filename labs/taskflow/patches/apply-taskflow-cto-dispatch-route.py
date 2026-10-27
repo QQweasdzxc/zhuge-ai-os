@@ -14,14 +14,15 @@ INSERTION = MARKER + (
 
 def patch_router(path: Path = ROUTER) -> None:
     source = path.read_text()
-    native_marker = 'r.Get("/api/assignee-frequency", h.GetAssigneeFrequency)'
-    if source.count(native_marker)!=1: raise SystemExit("native readback route marker missing or ambiguous")
-    source=source.replace(native_marker,native_marker+'\n\t\t\tr.With(handler.RequireHumanActor).Get("/api/zhuge/native-executor-projects", h.ListZhugeNativeExecutorProjects)\n\t\t\tr.With(handler.RequireHumanActor).Get("/api/zhuge/native-ai-tasks", h.ListZhugeNativeAITasks)')
     if 'r.Post("/dispatch", h.CTODispatchIssue)' in source or 'r.Get("/dispatch-runtime", h.GetDispatchRuntime)' in source:
         raise SystemExit("TaskFlow CTO dispatch route overlay already applied")
     count = source.count(MARKER)
     if count != 1:
         raise SystemExit(f"expected one CTO dispatch route marker, found {count}")
+    native_marker = 'r.Get("/api/assignee-frequency", h.GetAssigneeFrequency)'
+    if source.count(native_marker) != 1:
+        raise SystemExit(f"expected one native readback route marker, found {source.count(native_marker)}")
+    source = source.replace(native_marker, native_marker + '\n\t\t\tr.With(handler.RequireHumanActor).Get("/api/zhuge/native-executor-projects", h.ListZhugeNativeExecutorProjects)\n\t\t\tr.With(handler.RequireHumanActor).Get("/api/zhuge/native-ai-tasks", h.ListZhugeNativeAITasks)')
     path.write_text(source.replace(MARKER, INSERTION, 1))
 
 
