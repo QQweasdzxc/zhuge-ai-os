@@ -168,6 +168,14 @@ class TaskFlowBuildParityTests(unittest.TestCase):
         self.assertIn("workspace project list query import", patch)
         self.assertIn("Work navigation project menu", patch)
 
+    def test_web_image_applies_workspace_groups_after_native_views(self):
+        web = (TASKFLOW / "Dockerfile.web").read_text()
+        self.assertIn("python3 /tmp/apply-taskflow-workspace-groups.py --root /src --overlays /taskflow-groups", web)
+        self.assertLess(
+            web.index("apply-taskflow-ai-native-views.py --root /src"),
+            web.index("apply-taskflow-workspace-groups.py --root /src"),
+        )
+
     def test_taskflow_overlay_is_taskflow_owned_and_separate_from_native_lab(self):
         native_entry = NATIVE_ENTRY.read_text()
         self.assertIn("Multica Agent Lab", native_entry)
