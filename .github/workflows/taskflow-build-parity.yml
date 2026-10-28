@@ -18,6 +18,7 @@ on:
       - review/dm00-dm03-phase2-runtime-hardening-20261020
       - review/co01-phase2-integration-20261020
       - review/navigation-only-release-20261023
+      - review/taskflow-workspace-groups-20261029
     paths:
       - "third_party/multica/**"
       - "labs/taskflow/**"
