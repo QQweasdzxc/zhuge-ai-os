@@ -1,0 +1,44 @@
+
+describe("ProjectsPage human / AI groups (TASKFLOW_WORKSPACE_GROUPS)", () => {
+  const HUMAN = { ...PROJECT, id: "h1", title: "Human Board", lead_type: "member" as const, lead_id: "user-1" };
+  const UNLED = { ...PROJECT, id: "h2", title: "Unled Notes", lead_type: null, lead_id: null };
+  const AI = { ...PROJECT, id: "a1", title: "Agent Project", lead_type: "agent" as const, lead_id: "agent-1" };
+
+  function page(leadKind?: "human" | "agent") {
+    return (
+      <NavigationProvider value={makeAdapter()}>
+        <ProjectsPage leadKind={leadKind} />
+      </NavigationProvider>
+    );
+  }
+
+  it("human shows member-led and unled projects, never agent-led", () => {
+    mocks.projects = [HUMAN, UNLED, AI];
+    renderWithI18n(page("human"));
+    expect(screen.getByText("Human Board")).toBeInTheDocument();
+    expect(screen.getByText("Unled Notes")).toBeInTheDocument();
+    expect(screen.queryByText("Agent Project")).not.toBeInTheDocument();
+  });
+
+  it("agent shows only agent-led projects and the same cache re-renders from human to agent", () => {
+    mocks.projects = [HUMAN, UNLED, AI];
+    const view = renderWithI18n(page("human"));
+    view.rerender(page("agent"));
+    expect(screen.getByText("Agent Project")).toBeInTheDocument();
+    expect(screen.queryByText("Human Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unled Notes")).not.toBeInTheDocument();
+  });
+
+  it("status filter denominator is group-scoped (1 / 1, not 1 / 2)", () => {
+    mocks.projects = [HUMAN, { ...AI, status: "planned" }];
+    mocks.projectViewState.filters = { statuses: ["in_progress"], priorities: [], leads: [] };
+    renderWithI18n(page("human"));
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+  });
+
+  it("empty state follows the group, not the whole workspace", () => {
+    mocks.projects = [AI];
+    renderWithI18n(page("human"));
+    expect(screen.queryByText("Agent Project")).not.toBeInTheDocument();
+  });
+});
