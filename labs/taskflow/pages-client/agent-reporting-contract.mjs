@@ -158,6 +158,7 @@ export function buildNativeAgentReportMutation(validation) {
   return {
     issue_id: event.issue_id, workspace_id: event.workspace_id,
     expected_version: Number.isInteger(validation.expected_version) ? validation.expected_version : null,
+    lease_id: text(validation.lease_id),
     atomic_event_claim: {event_id: event.event_id, sequence: event.sequence, fencing_epoch: event.fencing_epoch},
     issue_update: {status: validation.native_status, decision_scope: validation.state === "WAITING_CTO_DECISION" ? "CTO_QUESTION" : validation.state === "REVIEW" ? "CTO_REVIEW" : "AGENT_REPORT"},
     // Public Issue comments must not contain Agent-controlled free text,
@@ -224,15 +225,78 @@ export const NATIVE_AGENT_ATOMIC_WRITE_CONTRACT = Object.freeze({
  * adapter remains injected; this wrapper never creates a database or claims a
  * commit without the existing row-lock transaction result.
  */
-export function createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter, issueId, taskId = "", idempotencyKey, expectedVersion, fencingToken = ""} = {}) {
-  const configured = nativePersistenceAdapter && typeof nativePersistenceAdapter.runAtomicMutation === "function" && text(issueId) && text(idempotencyKey) && Number.isInteger(expectedVersion);
+export function createNativeAgentAtomicWriteAdapter({nativePersistenceAdapter, issueId, taskId = "", idempotencyKey, expectedVersion, fencingToken = "", serverClock = Date.now} = {}) {
+  const configured = nativePersistenceAdapter && typeof nativePersistenceAdapter.runAtomicMutation === "function" && text(issueId) && text(idempotencyKey) && Number.isInteger(expectedVersion) && typeof serverClock === "function";
   const blockedResult = reason => ({accepted: false, committed: false, state: "BLOCKED", reason, contract: NATIVE_AGENT_ATOMIC_WRITE_CONTRACT});
   if (!configured) return Object.freeze({version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION, configured: false, contract: NATIVE_AGENT_ATOMIC_WRITE_CONTRACT, applyAgentReportMutation: async () => blockedResult("NATIVE_WRITE_UNWIRED"), applyCtoCompletion: async () => blockedResult("NATIVE_WRITE_UNWIRED")});
-  const run = (event, mutate) => nativePersistenceAdapter.runAtomicMutation({issueId, taskId, idempotencyKey, event: {...event, expected_version: expectedVersion, fencing_token: fencingToken}, mutate});
+  const run = (event, mutate, version = expectedVersion) => nativePersistenceAdapter.runAtomicMutation({issueId, taskId, idempotencyKey, event: {...event, expected_version: version, fencing_token: fencingToken}, mutate});
+  // Abstract canonical projection, not a direct SQL-row shape. The native
+  // integration must supply these bindings from locked authoritative rows;
+  // there is no SQL mapping in this wrapper. Missing either side fails closed.
+  // serverClock is injected by server configuration, never by report payload.
+  const leaseFenceError = (current, mutation) => {
+    if (current.status === "done") return "NATIVE_TASK_ALREADY_DONE";
+    if (current.status === "in_review") return "REVIEW_GATE_LOCKED";
+    if (current.lease_active !== true) return "LEASE_INACTIVE";
+    if (current.stop_requested_at) return "STOP_REQUESTED";
+    const expiresAt = timeValue(current.lease_expires_at);
+    const lockedNow = serverClock(); // Fresh read inside the locked reducer.
+    if (!Number.isFinite(lockedNow) || expiresAt === null || expiresAt <= lockedNow) return "LEASE_EXPIRED";
+    if (!text(fencingToken) || text(current.fencing_token) !== text(fencingToken)) return "FENCING_TOKEN_MISMATCH";
+    const epoch = mutation.atomic_event_claim?.fencing_epoch;
+    if (!Number.isInteger(epoch) || current.fencing_epoch !== epoch) return "FENCING_EPOCH_MISMATCH";
+    const audit = mutation.audit || {};
+    const bindings = [
+      [current.issue_id, mutation.issue_id, "ISSUE"],
+      [current.workspace, mutation.workspace_id, "WORKSPACE"],
+      [current.dispatch_id, audit.dispatch_id, "DISPATCH"],
+      [current.executor_id, audit.executor_id, "EXECUTOR"],
+      [current.writer_id, audit.executor_id, "WRITER"],
+      [current.provider, audit.provider, "PROVIDER"],
+      [current.lease_id, mutation.lease_id, "LEASE_ID"],
+      [current.provider_run_id, audit.provider_run_id, "RUN"],
+      [current.provider_session_id, audit.session_id, "SESSION"]
+    ];
+    for (const [stored, reported, label] of bindings) {
+      if (!text(stored) || !text(reported) || text(stored) !== text(reported)) return `${label}_BINDING_MISMATCH`;
+    }
+    return "";
+  };
+  // Absent (undefined) falls back to the factory value; a present value must be an integer.
+  const versionFrom = (value, mismatchReason) => {
+    if (value === undefined) return {version: expectedVersion};
+    if (!Number.isInteger(value)) return {error: "EXPECTED_VERSION_REQUIRED"};
+    if (value !== expectedVersion) return {error: mismatchReason};
+    return {version: value};
+  };
   return Object.freeze({
     version: NATIVE_AGENT_ATOMIC_WRITE_ADAPTER_VERSION, configured: true, contract: NATIVE_AGENT_ATOMIC_WRITE_CONTRACT,
-    applyAgentReportMutation: mutation => run({event_id: mutation.atomic_event_claim.event_id, type: mutation.issue_update?.status || "AGENT_REPORT", expected_version: mutation.expected_version}, (current, event) => ({record: {...current, version: current.version + 1, status: mutation.issue_update?.status || current.status, audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "AGENT_REPORT_COMMITTED"})).then(result => ({...result, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: result.committed === true})),
-    applyCtoCompletion: completion => run({event_id: completion.review_event_id, type: "CTO_COMPLETION", expected_version: expectedVersion}, (current, event) => ({record: {...current, version: current.version + 1, status: "done", audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "CTO_COMPLETION_COMMITTED"})).then(result => ({...result, status: result.committed ? "done" : "BLOCKED", review_event_id: completion.review_event_id, atomic: result.committed === true}))
+    applyAgentReportMutation: mutation => {
+      const {version, error} = versionFrom(mutation.expected_version, "EXPECTED_VERSION_MISMATCH");
+      if (error) return Promise.resolve(blockedResult(error));
+      return run({event_id: mutation.atomic_event_claim.event_id, type: mutation.issue_update?.status || "AGENT_REPORT"}, (current, event) => {
+        const fenceError = leaseFenceError(current, mutation);
+        if (fenceError) throw new Error(fenceError);
+        const audit = mutation.audit && typeof mutation.audit === "object" ? mutation.audit : {};
+        const next = {...current, version: current.version + 1, status: mutation.issue_update?.status || current.status,
+          audit_log: [...(current.audit_log || []), {...audit, event_id: event.event_id, type: audit.type || event.type}]};
+        if (mutation.comment) next.comments = [...(current.comments || []), {...mutation.comment, event_id: event.event_id}];
+        return {record: next, reason: "AGENT_REPORT_COMMITTED"};
+      }, version).then(result => ({...result, event_id: mutation.atomic_event_claim.event_id, atomic_event_claimed: result.committed === true}));
+    },
+    applyCtoCompletion: completion => {
+      const {version, error} = versionFrom(completion.task_revision, "REVIEW_REVISION_MISMATCH");
+      if (error) return Promise.resolve(blockedResult(error));
+      // Internal seam only: caller must use authorizeCtoCompletion first.
+      // CTO review runs after the Agent stopped, so the Agent lease does not apply;
+      // it needs the Issue to be in review (as authorizeCtoCompletion requires) and not already done.
+      return run({event_id: completion.review_event_id, type: "CTO_COMPLETION"}, (current, event) => {
+        if (current.status === "done") throw new Error("NATIVE_TASK_ALREADY_DONE");
+        if (current.status !== "in_review") throw new Error("CTO_REVIEW_REQUIRED");
+        return {record: {...current, version: current.version + 1, status: "done", audit_log: [...(current.audit_log || []), {event_id: event.event_id, type: event.type}]}, reason: "CTO_COMPLETION_COMMITTED"};
+      }, version)
+        .then(result => ({...result, status: result.committed ? "done" : "BLOCKED", review_event_id: completion.review_event_id, atomic: result.committed === true}));
+    }
   });
 }
 
