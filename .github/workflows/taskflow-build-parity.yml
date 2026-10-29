@@ -269,6 +269,57 @@ jobs:
           go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 -v | tee /tmp/report-router.log
           grep -q -- '--- PASS: TestTaskFlowZhugeRoutesInFinalRouter' /tmp/report-router.log
 
+  native-agent-report-real-schema:
+    name: Native agent report writer on real migrated schema (isolated, required)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-ci-only-admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Stage actual Docker source copy and staged migrations
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: Build isolated real-schema database (staged migrations + Dispatch authority candidate SQL, as written)
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: isolated-ci-only-admin
+          STAGED_MIGRATIONS: /tmp/taskflow-source/taskflow-staged-migrations
+          DISPATCH_SQL: labs/taskflow/sql/taskflow_native_dispatch_authority_candidate.sql
+        run: |
+          set -euo pipefail
+          bash labs/taskflow/scripts/build-native-agent-report-real-schema.sh | tee /tmp/real-schema-build.log
+          # the original pgcrypto/pg_trgm assertions ran unmodified; only the optional bigm index may be skipped
+          test "$(grep -c '^allowed failure:' /tmp/real-schema-build.log)" = "1"
+          grep -q '^allowed failure: 446_issue_properties_bigm_index.up.sql' /tmp/real-schema-build.log
+      - name: Writer test on real schema (CI=true makes a missing DSN fatal; no skip allowed)
+        env:
+          CI: 'true'
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+          TASKFLOW_NATIVE_REPORT_REAL_SCHEMA: '1'
+          TASKFLOW_NATIVE_AI_DATABASE_URL: postgres://taskflow_migrator:isolated-ci-only-migrator@127.0.0.1:5432/taskflow_native_ai_real_schema_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./internal/handler -run '^TestTaskFlowNativeAgentReportWritePostgres16$' -count=1 -v | tee /tmp/report-writer-real-schema.log
+          grep -q -- '--- PASS: TestTaskFlowNativeAgentReportWritePostgres16' /tmp/report-writer-real-schema.log
+          ! grep -qi 'skip' /tmp/report-writer-real-schema.log
+
   native-readback-required:
     runs-on: ubuntu-latest
     services:
