@@ -12,8 +12,6 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 DB = os.environ.get("TASKFLOW_CALLER_ACL_DB", "taskflow_native_ai_real_schema_test")
 ADMIN = os.environ.get("TASKFLOW_CALLER_ACL_ADMIN", "postgres")
-if os.environ.get("PGHOST", "") not in ("127.0.0.1", "localhost") and not os.environ.get("PGHOST", "").startswith("/"):
-    print("refusing non-local PostgreSQL host"); sys.exit(1)
 
 def psql(user, text, check=True, tuples=True):
     args = ["psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", user, "-d", DB] + (["-At"] if tuples else [])
@@ -62,6 +60,8 @@ def check_go_fixture_drift():
         assert body.rstrip("; ") in sql, f"Go fixture copy of {fn} drifted from the SQL candidate"
 
 def main():
+    if os.environ.get("PGHOST", "") not in ("127.0.0.1", "localhost") and not os.environ.get("PGHOST", "").startswith("/"):
+        print("refusing non-local PostgreSQL host"); return 1
     check_go_fixture_drift()
     if os.environ.get("TASKFLOW_CALLER_ACL_REAL_SCHEMA") != "1":
         print("CALLER_ACL_NOT_VERIFIED: TASKFLOW_CALLER_ACL_REAL_SCHEMA=1 not set"); return 2
