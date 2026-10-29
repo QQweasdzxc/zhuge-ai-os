@@ -50,7 +50,7 @@ jobs:
       - name: Verify Phase 2 runtime contracts
         run: node --test tests/taskflow-phase2-dispatch-runtime.test.mjs tests/taskflow-native-persistence-adapter.test.mjs tests/taskflow-pages-client-api.test.mjs tests/taskflow-phase2-runtime-read-model.test.mjs
       - name: Verify agent reporting contract (pure, no Provider)
-        run: node --test tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-agent-detail-store.test.mjs
+        run: node --test tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-agent-detail-store.test.mjs tests/taskflow-agent-reporting-review-findings.test.mjs
 
   backend-image:
     runs-on: ubuntu-latest
