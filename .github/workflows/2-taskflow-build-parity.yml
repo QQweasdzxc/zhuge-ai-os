@@ -1,0 +1,381 @@
+name: TaskFlow Build Parity
+
+on:
+  push:
+    branches:
+      - main
+      - review/taskflow-issue-40-20261011
+      - review/taskflow-desktop-login-20261012
+      - review/taskflow-sidebar-project-nav-20261012
+      - review/taskflow-issues-42-44-20261013
+      - review/taskflow-issue-44-20261014
+      - review/taskflow-issue-45-integrated-20261014
+      - release/taskflow-ai-visible-20261016
+      - review/dm00-dm03-taskflow-dispatch-20261020
+      - review/dm00-dm03-core-runtime-20261020
+      - review/dm00-dm03-phase2-dispatch-runtime-20261020
+      - review/dm00-dm03-phase2-runtime-advance-20261020
+      - review/dm00-dm03-phase2-runtime-hardening-20261020
+      - review/co01-phase2-integration-20261020
+      - review/navigation-only-release-20261023
+      - review/taskflow-workspace-groups-20261029
+      - review/taskflow-agent-reporting-subset-20261029
+      - review/taskflow-agent-report-caller-acl-20261029
+    paths:
+      - "third_party/multica/**"
+      - "labs/taskflow/**"
+      - "shared/components/zhuge-navigation.js"
+      - "tests/shared-navigation.test.js"
+      - "tests/taskflow-entry*.test.js"
+      - "tests/taskflow-cli-sso.test.js"
+      - ".github/workflows/taskflow-build-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  overlay-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check patch whitespace
+        run: git diff HEAD^ HEAD --check
+      - name: Verify TaskFlow overlay and fail-closed patch contract
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Verify TaskFlow navigation and authenticated entry contract
+        run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
+      - name: Verify Phase 2 runtime contracts
+        run: node --test tests/taskflow-phase2-dispatch-runtime.test.mjs tests/taskflow-native-persistence-adapter.test.mjs tests/taskflow-pages-client-api.test.mjs tests/taskflow-phase2-runtime-read-model.test.mjs
+      - name: Verify agent reporting contract (pure, no Provider)
+        run: node --test tests/taskflow-agent-reporting-contract.test.mjs tests/taskflow-agent-reporting-native-vertical.test.mjs tests/taskflow-agent-detail-store.test.mjs tests/taskflow-agent-reporting-review-findings.test.mjs
+
+  backend-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow backend from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.backend \
+            -t taskflow-multica-backend:parity . 2>&1 | tee /tmp/taskflow-backend-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-backend-build.log; then
+            echo "Unexpected Multica application-source clone in backend build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-backend-build.log
+
+  web-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build TaskFlow web from repository-root context
+        shell: bash
+        run: |
+          set -o pipefail
+          docker build --pull --progress=plain \
+            -f labs/taskflow/Dockerfile.web \
+            -t taskflow-multica-web:parity . 2>&1 | tee /tmp/taskflow-web-build.log
+          if grep -Eiq 'git clone https://github.com/multica-ai/multica([.]git)?' /tmp/taskflow-web-build.log; then
+            echo "Unexpected Multica application-source clone in web build log" >&2
+            exit 1
+          fi
+          grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-web-build.log
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Native dispatch component Browser QA (isolated API fixtures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --target builder -f labs/taskflow/Dockerfile.web -t taskflow-native-qa:builder .
+          docker create --name taskflow-native-qa -p 127.0.0.1:4173:4173 taskflow-native-qa:builder node /app/packages/views/dispatch-browser/start.mjs
+          docker cp labs/taskflow/tests/native-dispatch-browser taskflow-native-qa:/app/packages/views/dispatch-browser
+          docker start taskflow-native-qa
+          npm ci
+          npx playwright install --with-deps chromium
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 2
+          done
+          TASKFLOW_NATIVE_BROWSER_URL=http://127.0.0.1:4173 TASKFLOW_NATIVE_SCREENSHOTS=/tmp/native-dispatch-screenshots node --test tests/taskflow-native-dispatch-browser.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-dispatch-browser-screenshots
+          path: /tmp/native-dispatch-screenshots
+          if-no-files-found: ignore
+
+  dispatch-authority-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated PG16/17 dispatch-authority safety suite (disposable containers; no production, DSN, or Provider)
+        run: python3 labs/taskflow/tests/test_native_dispatch_authority_safety_postgres.py
+      - name: Isolated PG16 executor-mapping suite (disposable container; no production, DSN, or Provider)
+        run: python3 labs/taskflow/tests/test_executor_mapping_postgres.py
+
+  backend-go-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: third_party/multica/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Verify Go formatting
+        run: |
+          python3 ../../../labs/taskflow/patches/apply-taskflow-github-head-sha.py
+          python3 ../../../labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py
+          python3 ../../../labs/taskflow/patches/apply-taskflow-provider-binding.py
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority.go
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_authority_test.go internal/handler/taskflow_dispatch_authority_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_cto_dispatch_test.go internal/handler/taskflow_cto_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime.go
+          cp ../../../labs/taskflow/overrides/taskflow_dispatch_runtime_test.go internal/handler/taskflow_dispatch_runtime_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_authority.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_dispatch_postgres_test.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_dispatch_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route.go internal/handler/taskflow_provider_route.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_route_test.go internal/handler/taskflow_provider_route_test.go
+          cp ../../../labs/taskflow/overrides/taskflow_native_ai_readback.go internal/handler/taskflow_native_ai_readback.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_binding.go internal/handler/taskflow_provider_binding.go
+          cp ../../../labs/taskflow/overrides/taskflow_provider_binding_test.go internal/handler/taskflow_provider_binding_test.go
+          gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
+          gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
+          gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
+          gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
+          gofmt -w internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go
+          test -z "$(gofmt -l internal/handler/github.go internal/handler/vcs_webhook.go internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go)"
+      - name: Run backend tests
+        run: CGO_ENABLED=0 go test ./...
+      - name: Build backend binaries
+        run: |
+          CGO_ENABLED=0 go build ./cmd/server
+          CGO_ENABLED=0 go build ./cmd/multica
+
+  native-dispatch-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: multica
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-parity-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d multica"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Stage overlay into a temporary vendor copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/multica"
+          cp -a third_party/multica/server "$RUNNER_TEMP/multica/server"
+          cd "$RUNNER_TEMP/multica/server"
+          ROOT="$GITHUB_WORKSPACE"
+          export TASKFLOW_VENDOR_ROOT="$RUNNER_TEMP/multica"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-github-head-sha.py"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-cto-dispatch-route.py"
+          python3 "$ROOT/labs/taskflow/patches/apply-taskflow-provider-binding.py"
+          for f in \
+            taskflow_dispatch_authority.go taskflow_dispatch_authority_test.go \
+            taskflow_cto_dispatch.go taskflow_cto_dispatch_test.go \
+            taskflow_dispatch_runtime.go taskflow_dispatch_runtime_test.go \
+            taskflow_native_dispatch_authority.go taskflow_native_dispatch_postgres.go taskflow_native_dispatch_postgres_test.go \
+            taskflow_provider_dispatch.go taskflow_provider_dispatch_test.go \
+            taskflow_provider_route.go taskflow_provider_route_test.go \
+            taskflow_native_ai_readback.go taskflow_native_ai_readback_test.go \
+            taskflow_provider_binding.go taskflow_provider_binding_test.go; do
+            cp "$ROOT/labs/taskflow/overrides/$f" "internal/handler/$f"
+          done
+          gofmt -w internal/handler/github.go internal/handler/vcs_webhook.go
+          gofmt -w internal/handler/taskflow_dispatch_authority.go internal/handler/taskflow_dispatch_authority_test.go
+          gofmt -w internal/handler/taskflow_cto_dispatch.go internal/handler/taskflow_cto_dispatch_test.go
+          gofmt -w internal/handler/taskflow_dispatch_runtime.go internal/handler/taskflow_dispatch_runtime_test.go
+          gofmt -w internal/handler/taskflow_native_dispatch_authority.go internal/handler/taskflow_native_dispatch_postgres.go internal/handler/taskflow_native_dispatch_postgres_test.go
+          gofmt -w internal/handler/taskflow_provider_dispatch.go internal/handler/taskflow_provider_dispatch_test.go internal/handler/taskflow_provider_route.go internal/handler/taskflow_provider_route_test.go
+          gofmt -w internal/handler/taskflow_native_ai_readback.go internal/handler/taskflow_provider_binding.go internal/handler/taskflow_provider_binding_test.go
+          test -z "$(gofmt -l internal/handler)"
+      - name: Run parity gates against real PostgreSQL 16
+        shell: bash
+        env:
+          PARITY_DATABASE_URL: postgres://postgres:ci-parity-only@127.0.0.1:5432/multica?sslmode=disable
+        run: sh labs/taskflow/patches/run-parity-tests.sh "$RUNNER_TEMP/multica/server" dispatch
+
+  native-agent-report-postgres:
+    name: Native agent report PG16 writer + fail-closed ingress (isolated, required)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: taskflow_native_ai_test
+          POSTGRES_USER: taskflow_native_ai_ci
+          POSTGRES_PASSWORD: isolated-ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskflow_native_ai_ci -d taskflow_native_ai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Stage actual Docker source copy and route chain
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: PG16 writer test (CI=true makes a missing DSN fatal; no skip allowed)
+        env:
+          CI: 'true'
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+          TASKFLOW_NATIVE_AI_DATABASE_URL: postgres://taskflow_native_ai_ci:isolated-ci-only-password@127.0.0.1:5432/taskflow_native_ai_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./internal/handler -run '^TestTaskFlowNativeAgentReportWritePostgres16$' -count=1 -v | tee /tmp/report-writer.log
+          grep -q -- '--- PASS: TestTaskFlowNativeAgentReportWritePostgres16' /tmp/report-writer.log
+          ! grep -qi 'skip' /tmp/report-writer.log
+      - name: Unbound public ingress is registered once and fails closed (503)
+        env:
+          TASKFLOW_ROUTER_CONTRACT_ONLY: '1'
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./cmd/server -run '^TestTaskFlowZhugeRoutesInFinalRouter$' -count=1 -v | tee /tmp/report-router.log
+          grep -q -- '--- PASS: TestTaskFlowZhugeRoutesInFinalRouter' /tmp/report-router.log
+
+  native-agent-report-real-schema:
+    name: Native agent report writer on real migrated schema (isolated, required)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-ci-only-admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+      - name: Stage actual Docker source copy and staged migrations
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: Build isolated real-schema database (staged migrations + Dispatch authority candidate SQL, as written)
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: isolated-ci-only-admin
+          STAGED_MIGRATIONS: /tmp/taskflow-source/taskflow-staged-migrations
+          DISPATCH_SQL: labs/taskflow/sql/taskflow_native_dispatch_authority_candidate.sql
+          CALLER_ACL_SQL: labs/taskflow/sql/taskflow_native_dispatch_caller_acl_candidate.sql
+        run: |
+          set -euo pipefail
+          bash labs/taskflow/scripts/build-native-agent-report-real-schema.sh | tee /tmp/real-schema-build.log
+          # the original pgcrypto/pg_trgm assertions ran unmodified; only the optional bigm index may be skipped
+          test "$(grep -c '^allowed failure:' /tmp/real-schema-build.log)" = "1"
+          grep -q '^allowed failure: 446_issue_properties_bigm_index.up.sql' /tmp/real-schema-build.log
+      - name: Writer test on real schema (CI=true makes a missing DSN fatal; no skip allowed)
+        env:
+          CI: 'true'
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+          TASKFLOW_NATIVE_REPORT_REAL_SCHEMA: '1'
+          TASKFLOW_NATIVE_AI_DATABASE_URL: postgres://taskflow_migrator:isolated-ci-only-migrator@127.0.0.1:5432/taskflow_native_ai_real_schema_test?sslmode=disable
+          TASKFLOW_NATIVE_REPORT_RUNTIME_DSN: postgres://taskflow_runtime:isolated-ci-only-migrator@127.0.0.1:5432/taskflow_native_ai_real_schema_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./internal/handler -run '^TestTaskFlowNativeAgentReportWritePostgres16$' -count=1 -v | tee /tmp/report-writer-real-schema.log
+          grep -q -- '--- PASS: TestTaskFlowNativeAgentReportWritePostgres16' /tmp/report-writer-real-schema.log
+          ! grep -qi 'skip' /tmp/report-writer-real-schema.log
+      - name: Dispatch caller ACL as taskflow_runtime on the real schema (no skip allowed)
+        env:
+          CI: 'true'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGPASSWORD: isolated-ci-only-admin
+          TASKFLOW_CALLER_ACL_REAL_SCHEMA: '1'
+          TASKFLOW_CALLER_ACL_ADMIN: postgres
+          TASKFLOW_CALLER_ACL_ROLE_PASSWORD: isolated-ci-only-migrator
+        run: |
+          set -euo pipefail
+          python3 labs/taskflow/tests/test_native_dispatch_caller_acl_postgres.py | tee /tmp/caller-acl.log
+          grep -q 'failures=0' /tmp/caller-acl.log
+          ! grep -q 'NOT_VERIFIED' /tmp/caller-acl.log
+
+  native-readback-required:
+    runs-on: ubuntu-latest
+    services:
+      isolated-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: isolated-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Stage actual Docker source copy and route chain
+        run: docker build --target source --output type=local,dest=/tmp/taskflow-source -f labs/taskflow/Dockerfile.backend .
+      - name: Install PostgreSQL fixture client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Install explicitly isolated minimal G1 fixture
+        env:
+          PGUSER: postgres
+          PGPASSWORD: isolated-ci-only
+          G1_TEST_SOCKET: 127.0.0.1
+          G1_TEST_PORT: '5432'
+        run: python3 labs/taskflow/tests/setup_g1_readback_fixture.py
+      - name: Required PostgreSQL readback and final router gates (no skipped fixture allowed)
+        env:
+          G1_READBACK_REQUIRED: '1'
+          G1_READBACK_TEST_URL: postgres://postgres:isolated-ci-only@127.0.0.1:5432/postgres?sslmode=disable&search_path=taskflow,extensions
+          TASKFLOW_LOCALE_CONTRACT_ONLY: '1'
+          TASKFLOW_ROUTER_CONTRACT_ONLY: '1'
+        run: |
+          set -euo pipefail
+          cd /tmp/taskflow-source/src/server
+          go test ./internal/handler -run 'TestG1Native|TestNativeDispatchPlural|TestNativeDispatchRequires' -count=1 -v | tee /tmp/readback.log
+          test "$(grep -c '^--- PASS' /tmp/readback.log)" = 7
+          ! grep -q '^--- SKIP' /tmp/readback.log
+          go test ./cmd/server -run 'TestTaskFlowZhugeRoutesInFinalRouter|TestG1NativeFinalHTTPAuthMemberHumanChain' -count=1 -v | tee /tmp/router.log
+          test "$(grep -c '^--- PASS' /tmp/router.log)" = 2
