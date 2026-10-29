@@ -286,4 +286,4 @@ export function validateAgentHandoff(input, context = {}) {
   if (!text(event.next_executor_id) || !text(event.next_provider)) return reject("NEXT_OWNER_INCOMPLETE", event);
   if (!Number.isInteger(event.next_fencing_epoch) || event.next_fencing_epoch <= Number(readback.fencing_epoch || 0)) return reject("FENCING_EPOCH_NOT_MONOTONIC", event);
   return {accepted: true, state: "REASSIGN_REVIEW", reason: "STOP_VERIFIED_CTO_REVIEW_REQUIRED", issue_id: text(event.issue_id), next_executor_id: text(event.next_executor_id), next_provider: text(event.next_provider), next_fencing_epoch: event.next_fencing_epoch};
-      }
+}
