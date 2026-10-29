@@ -86,7 +86,7 @@ if [ -n "${CALLER_ACL_SQL:-}" ]; then
     -c "GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA taskflow TO taskflow_runtime" \
     -c "GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA taskflow TO taskflow_runtime" \
     -c "REVOKE ALL ON TABLE taskflow.dispatch_intent FROM taskflow_runtime"
-  admin -d "$DB" -c "ALTER ROLE taskflow_runtime PASSWORD '${MIGRATOR_PASSWORD}'"
+  admin -d "$DB" -c "ALTER ROLE taskflow_runtime LOGIN PASSWORD '${MIGRATOR_PASSWORD}'"
   migrator -f "$CALLER_ACL_SQL" >/dev/null
   echo "caller ACL candidate applied"
 fi
