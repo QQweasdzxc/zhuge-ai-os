@@ -15,10 +15,11 @@ const event = {
 
 function makeRecord() {
   return {
+    lease_id: "lease-113", dispatch_id: "dispatch-113", provider_run_id: "run-113", provider_session_id: "session-113",
     schema: "zhuge-taskflow-durable-dispatch-v1", intent_id: "intent-113", idempotency_key: "idem-113",
     workspace: "ws-1", issue_id: "issue-113", work_code: "P0-AUTONOMOUS-REPORTING", executor_id: "CO-02",
     provider: "codex_cloud", version: 1, fencing_epoch: 1, writer_id: "CO-02", fencing_token: "fence-1",
-    lease_active: true, status: "in_progress", audit_log: []
+    lease_active: true, lease_expires_at: "2099-01-01T00:00:00.000Z", status: "in_progress", audit_log: []
   };
 }
 
@@ -38,7 +39,7 @@ function nativeAuthority(record) {
 test("synthetic validated Agent progress traverses the Native Authority write seam and preserves one Issue", async () => {
   const record = makeRecord();
   const validation = validateAgentReportEvent(event, {
-    authorization: "AUTHORIZED", issue_id: "issue-113", workspace_id: "ws-1", dispatch_id: "dispatch-113",
+    lease_id: "lease-113", authorization: "AUTHORIZED", issue_id: "issue-113", workspace_id: "ws-1", dispatch_id: "dispatch-113",
     executor_id: "CO-02", provider: "codex_cloud", provider_run_id: "run-113", session_id: "session-113",
     fencing_token: "fence-1", fencing_epoch: 1, lease_active: true, lease_expires_at: "2026-10-23T21:00:00.000Z",
     expected_version: 1, idempotency_key: "idem-113", last_event_sequence: 0,
