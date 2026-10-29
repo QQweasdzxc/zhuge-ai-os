@@ -41,6 +41,16 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 	assertRouteCount(http.MethodGet, "/api/issues/{id}/dispatch-runtime")
 	assertRouteCount(http.MethodGet, "/api/zhuge/native-executor-projects")
 	assertRouteCount(http.MethodGet, "/api/zhuge/native-ai-tasks")
+	assertRouteCount(http.MethodPost, "/api/provider/taskflow/native-agent-reports")
+
+	providerReportRequest := httptest.NewRequest(http.MethodPost, "/api/provider/taskflow/native-agent-reports", strings.NewReader(`{}`))
+	providerReportRequest.Header.Set("Content-Type", "application/json")
+	providerReportRequest.Header.Set("X-User-ID", "00000000-0000-0000-0000-000000000001")
+	providerReportResponse := httptest.NewRecorder()
+	router.ServeHTTP(providerReportResponse, providerReportRequest)
+	if providerReportResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unbound provider ingress must be registered and fail closed with 503, got %d", providerReportResponse.Code)
+	}
 
 	for _, path := range []string{"/api/zhuge/native-executor-projects", "/api/zhuge/native-ai-tasks"} {
 		req := httptest.NewRequest("GET", path, nil)
