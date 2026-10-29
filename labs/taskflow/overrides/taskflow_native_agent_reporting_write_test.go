@@ -104,27 +104,49 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	if err := probePool.QueryRow(ctx, `SELECT current_setting('server_version_num')::int, current_database(), current_user`).Scan(&version, &database, &databaseUser); err != nil {
 		t.Fatal(err)
 	}
-	if version < 160000 || version >= 170000 || database != "taskflow_native_ai_test" || databaseUser != "taskflow_native_ai_ci" {
+	wantDatabase, wantUser, searchPath := "taskflow_native_ai_test", "taskflow_native_ai_ci", "native_agent_report_test,public"
+	if nativeReportRealSchemaMode() {
+		wantDatabase, wantUser, searchPath = "taskflow_native_ai_real_schema_test", "taskflow_migrator", "taskflow,extensions"
+	}
+	if version < 160000 || version >= 170000 || database != wantDatabase || databaseUser != wantUser {
 		t.Fatalf("refusing non-isolated PostgreSQL target: version=%d database=%q user=%q", version, database, databaseUser)
 	}
-	if _, err := probePool.Exec(ctx, `DROP SCHEMA IF EXISTS native_agent_report_test CASCADE`); err != nil {
-		t.Fatalf("reset isolated reporting schema: %v", err)
-	}
-	if _, err := probePool.Exec(ctx, `CREATE SCHEMA native_agent_report_test`); err != nil {
-		t.Fatalf("create isolated reporting schema: %v", err)
+	if nativeReportRealSchemaMode() {
+		// Real-schema mode never creates or drops schemas. It must see the real migrated tables,
+		// and the connecting role must not be a superuser.
+		var superuser bool
+		var realMarkers int
+		if err := probePool.QueryRow(ctx, `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user),
+			(SELECT count(*) FROM information_schema.columns WHERE table_schema = 'taskflow' AND ((table_name = 'issue' AND column_name = 'title') OR (table_name = 'dispatch_intent' AND column_name = 'cto_principal') OR (table_name = 'agent_task_queue' AND column_name = 'runtime_id')))`).Scan(&superuser, &realMarkers); err != nil {
+			t.Fatal(err)
+		}
+		if superuser || realMarkers != 3 {
+			t.Fatalf("real-schema mode requires a non-superuser role and the migrated TaskFlow schema: superuser=%v markers=%d", superuser, realMarkers)
+		}
+	} else {
+		if _, err := probePool.Exec(ctx, `DROP SCHEMA IF EXISTS native_agent_report_test CASCADE`); err != nil {
+			t.Fatalf("reset isolated reporting schema: %v", err)
+		}
+		if _, err := probePool.Exec(ctx, `CREATE SCHEMA native_agent_report_test`); err != nil {
+			t.Fatalf("create isolated reporting schema: %v", err)
+		}
 	}
 	probePool.Close()
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		t.Fatalf("parse isolated PostgreSQL configuration: %v", err)
 	}
-	config.ConnConfig.RuntimeParams["search_path"] = "native_agent_report_test,public"
+	config.ConnConfig.RuntimeParams["search_path"] = searchPath
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatalf("connect reporting schema in isolated PostgreSQL: %v", err)
 	}
 	defer pool.Close()
-	createNativeAgentReportSchema(t, ctx, pool)
+	if nativeReportRealSchemaMode() {
+		realSchemaPrelude(t, ctx, pool)
+	} else {
+		createNativeAgentReportSchema(t, ctx, pool)
+	}
 	seedNativeAgentReportRows(t, ctx, pool)
 	h := &Handler{
 		Queries: db.New(pool), TxStarter: pool,
@@ -300,7 +322,7 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	wrongWorkspace := good
 	wrongWorkspace.EventID, wrongWorkspace.Sequence, wrongWorkspace.WorkspaceID = "event-no-issue", 2, "12999999-9999-4999-8999-999999999999"
 	assertRejected("wrong Workspace Issue lookup", wrongWorkspace, errNativeReportScope)
-	if _, err := pool.Exec(ctx, `INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ('12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,$1::uuid,'agent',$2::uuid)`, reportWorkspace, reportAgent); err != nil {
+	if _, err := pool.Exec(ctx, fixtureSQL(`INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ('12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,$1::uuid,'agent',$2::uuid)`, `INSERT INTO project(id,workspace_id,lead_type,lead_id,title) VALUES ('12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,$1::uuid,'agent',$2::uuid,'second fixture project')`), reportWorkspace, reportAgent); err != nil {
 		t.Fatal(err)
 	}
 	duplicateProject := good
@@ -309,7 +331,7 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	if _, err := pool.Exec(ctx, `DELETE FROM project WHERE id='12bccccb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ('12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee'::uuid,$1::uuid,$2::uuid,'running','{}'::jsonb)`, reportAgent, reportIssue); err != nil {
+	if _, err := pool.Exec(ctx, fixtureSQL(`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ('12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee'::uuid,$1::uuid,$2::uuid,'running','{}'::jsonb)`, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result,runtime_id) VALUES ('12dddddd-dddd-4ddd-8ddd-eeeeeeeeeeee'::uuid,$1::uuid,$2::uuid,'running','{}'::jsonb,'12999999-9999-4999-8999-999999999992')`), reportAgent, reportIssue); err != nil {
 		t.Fatal(err)
 	}
 	duplicateQueue := good
@@ -395,13 +417,13 @@ func TestTaskFlowNativeAgentReportWritePostgres16(t *testing.T) {
 	oldFence := good
 	oldFence.EventID, oldFence.Sequence, oldFence.FencingEpoch = "event-old-fence", 2, 1
 	assertRejected("old fencing epoch after authority advanced", oldFence, errNativeReportScope)
-	if _, err := pool.Exec(ctx, `INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, reportIssueDone, reportWorkspace, reportProject, reportAgent); err != nil {
+	if _, err := pool.Exec(ctx, fixtureSQL(`INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, `INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id,title,creator_type,creator_id,number) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid,'fixture issue','member','12999999-9999-4999-8999-999999999991',(SELECT COALESCE(MAX(number),0)+1 FROM issue WHERE workspace_id=$2::uuid))`), reportIssueDone, reportWorkspace, reportProject, reportAgent); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, reportQueueDone, reportAgent, reportIssueDone); err != nil {
+	if _, err := pool.Exec(ctx, fixtureSQL(`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result,runtime_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb,'12999999-9999-4999-8999-999999999992')`), reportQueueDone, reportAgent, reportIssueDone); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-complete-run','fixture-complete-session','fixture-complete-ack',now()+interval '5 minutes')`, reportDispatchDone, reportLeaseDone, reportWorkspace, reportIssueDone); err != nil {
+	if _, err := pool.Exec(ctx, fixtureSQL(`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-complete-run','fixture-complete-session','fixture-complete-ack',now()+interval '5 minutes')`, `INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at,request_key,request_payload_hash,cto_principal) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-complete-run','fixture-complete-session','fixture-complete-ack',now()+interval '5 minutes','rk-'||$1::text,'fixture-hash','CTO')`), reportDispatchDone, reportLeaseDone, reportWorkspace, reportIssueDone); err != nil {
 		t.Fatal(err)
 	}
 	completed := nativeAgentReportEvent{
@@ -507,11 +529,11 @@ func seedNativeAgentReportRows(t *testing.T, ctx context.Context, pool *pgxpool.
 		query string
 		args  []any
 	}{
-		{`INSERT INTO agent(id,workspace_id,system_key) VALUES ($1::uuid,$2::uuid,'CO-01')`, []any{reportAgent, reportWorkspace}},
-		{`INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ($1::uuid,$2::uuid,'agent',$3::uuid)`, []any{reportProject, reportWorkspace, reportAgent}},
-		{`INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, []any{reportIssue, reportWorkspace, reportProject, reportAgent}},
-		{`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, []any{reportQueue, reportAgent, reportIssue}},
-		{`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-run-1','fixture-session-1','fixture-ack-1',now()+interval '5 minutes')`, []any{reportDispatch, reportLease, reportWorkspace, reportIssue}},
+		{fixtureSQL(`INSERT INTO agent(id,workspace_id,system_key) VALUES ($1::uuid,$2::uuid,'CO-01')`, `INSERT INTO agent(id,workspace_id,system_key,name,runtime_mode,owner_id,runtime_id) VALUES ($1::uuid,$2::uuid,'CO-01','CO-01','cloud','12999999-9999-4999-8999-999999999991','12999999-9999-4999-8999-999999999992')`), []any{reportAgent, reportWorkspace}},
+		{fixtureSQL(`INSERT INTO project(id,workspace_id,lead_type,lead_id) VALUES ($1::uuid,$2::uuid,'agent',$3::uuid)`, `INSERT INTO project(id,workspace_id,lead_type,lead_id,title) VALUES ($1::uuid,$2::uuid,'agent',$3::uuid,'fixture project')`), []any{reportProject, reportWorkspace, reportAgent}},
+		{fixtureSQL(`INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid)`, `INSERT INTO issue(id,workspace_id,project_id,status,revision,assignee_type,assignee_id,title,creator_type,creator_id,number) VALUES ($1::uuid,$2::uuid,$3::uuid,'todo',1,'agent',$4::uuid,'fixture issue','member','12999999-9999-4999-8999-999999999991',(SELECT COALESCE(MAX(number),0)+1 FROM issue WHERE workspace_id=$2::uuid))`), []any{reportIssue, reportWorkspace, reportProject, reportAgent}},
+		{fixtureSQL(`INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb)`, `INSERT INTO agent_task_queue(id,agent_id,issue_id,status,result,runtime_id) VALUES ($1::uuid,$2::uuid,$3::uuid,'running','{}'::jsonb,'12999999-9999-4999-8999-999999999992')`), []any{reportQueue, reportAgent, reportIssue}},
+		{fixtureSQL(`INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-run-1','fixture-session-1','fixture-ack-1',now()+interval '5 minutes')`, `INSERT INTO taskflow.dispatch_intent(id,lease_id,fencing_epoch,workspace_id,issue_id,executor_id,provider,state,provider_run_id,provider_session_id,provider_ack_event_id,lease_expires_at,request_key,request_payload_hash,cto_principal) VALUES ($1::uuid,$2::uuid,1,$3::uuid,$4::uuid,'CO-01','test-provider','provider_acknowledged','fixture-run-1','fixture-session-1','fixture-ack-1',now()+interval '5 minutes','rk-'||$1::text,'fixture-hash','CTO')`), []any{reportDispatch, reportLease, reportWorkspace, reportIssue}},
 	}
 	for _, stmt := range statements {
 		if _, err := pool.Exec(ctx, stmt.query, stmt.args...); err != nil {
@@ -527,4 +549,41 @@ func containsSensitiveReportText(text string) bool {
 		}
 	}
 	return false
+}
+
+func nativeReportRealSchemaMode() bool {
+	return os.Getenv("TASKFLOW_NATIVE_REPORT_REAL_SCHEMA") == "1"
+}
+
+// fixtureSQL picks the default simplified-schema statement, or the real-migrated-schema
+// statement (extra NOT NULL columns) when the explicit real-schema mode is on.
+func fixtureSQL(simplified, real string) string {
+	if nativeReportRealSchemaMode() {
+		return real
+	}
+	return simplified
+}
+
+// realSchemaPrelude removes only rows belonging to the fixed fixture workspace, then creates the
+// fixture user, workspace and runtime that the real schema requires. It never drops a schema.
+func realSchemaPrelude(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	const fixtureUser, fixtureRuntime = "12999999-9999-4999-8999-999999999991", "12999999-9999-4999-8999-999999999992"
+	for _, q := range []string{
+		`DELETE FROM taskflow.dispatch_intent WHERE workspace_id = '` + reportWorkspace + `'::uuid`,
+		`DELETE FROM agent_task_queue WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id = '` + reportWorkspace + `'::uuid)`,
+		`DELETE FROM issue WHERE workspace_id = '` + reportWorkspace + `'::uuid`,
+		`DELETE FROM project WHERE workspace_id = '` + reportWorkspace + `'::uuid`,
+		`DELETE FROM agent WHERE workspace_id = '` + reportWorkspace + `'::uuid`,
+		`DELETE FROM agent_runtime WHERE id = '` + fixtureRuntime + `'::uuid`,
+		`DELETE FROM workspace WHERE id = '` + reportWorkspace + `'::uuid`,
+		`DELETE FROM "user" WHERE id = '` + fixtureUser + `'::uuid`,
+		`INSERT INTO "user"(id,name,email) VALUES ('` + fixtureUser + `','fixture user','native-report-fixture@example.invalid')`,
+		`INSERT INTO workspace(id,name,slug) VALUES ('` + reportWorkspace + `','fixture workspace','native-report-fixture')`,
+		`INSERT INTO agent_runtime(id,workspace_id,name,runtime_mode,provider) VALUES ('` + fixtureRuntime + `','` + reportWorkspace + `','fixture runtime','cloud','test')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("real-schema fixture prelude: %v", err)
+		}
+	}
 }
