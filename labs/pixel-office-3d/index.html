@@ -388,6 +388,9 @@
   .srcbanner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--muted); box-shadow: var(--shadow); }
   .srcbanner b { color: var(--ink); }
   body.tf-mode #sceneMenu, body.tf-mode #newVer { display: none !important; }
+  .ow-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 10px; }
+  .ow-row { text-align: left; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); cursor: pointer; }
+  .ow-row:hover { border-color: var(--tool); }
 </style>
 </head>
 <body>
@@ -746,14 +749,14 @@ function tfBlock(s, suppressGap) {
     : (suppressGap ? '' : `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
       `<div class="tfgap">${esc(L.excerptGapNone || '無回報紀錄；對話摘錄未接線：原始對話無存取管道')}</div>`);
   return `<div class="tf">
-    <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId || (t.isAgentCard ? '—' : (L.tfUnassigned || '未指派')))}</b></div>
+    <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId ? `${t.executorId} · ${L.execUnmapped || '成員對應待確認'}` : (t.isAgentCard ? '—' : (L.tfUnassigned || '未指派')))}</b></div>
     <div class="tfrow"><span>${esc(L.queueL || '執行佇列')}</span><b>${esc(TF_QUEUE_LABEL[t.taskflowTaskStatus] || t.taskflowTaskStatus || '—')}</b></div>
     ${ex}
   </div>`;
 }
 
 function statusLabel(s) {
-  if (s.member) return L.member || '成員';
+  if (s.member) return s.occasional ? `${L.memberAi || 'AI 成員'} · ${L.memberOcc || '偶爾觸發'}` : s.ai ? (L.memberAi || 'AI 成員') : (L.member || '成員');
   if (s.tf) return TF_ISSUE_LABEL[s.tf.issueStatus] || s.tf.issueStatus || '未知';
   return L[s.status] || s.status;
 }
@@ -823,7 +826,12 @@ function render() {
   const officeMode = state.view === 'office' || state.full;
   document.getElementById('officeWrap').style.display = officeMode ? '' : 'none';
   // The office decides who sits at a desk and who wanders around.
-  const officeList = all;
+  // TF mode: people only - one character per office member. Task cards
+  // never turn into people (no clones), and a source executor id (e.g.
+  // CO-01) is not a proven separate member, so it gets no scene person
+  // either; it stays on its cards as the source identifier.
+  let officeList = all;
+  if (TF_MODE) officeList = all.filter((s) => s.member);
   const poppedOut = !!popout?.win;
   // Wait for the first snapshot so people start at their places instead of
   // all walking in through the door.
@@ -879,14 +887,62 @@ function tickTimes() {
   });
 }
 
+// The signed-in Zhuge account on this device is the workspace owner: also a
+// member of the office. The display name comes from the account's own session
+// (verified by login), stays on this device, and is never bundled or sent out.
+function ownerName() {
+  try {
+    const j = JSON.parse(localStorage.getItem('zhuge_ai_os_google_auth_session_v1') || 'null');
+    const u = j && j.user;
+    const meta = (u && u.user_metadata) || {};
+    return String(meta.full_name || meta.name || (u && u.email) || '').trim();
+  } catch { return ''; }
+}
+
 // Merge private office members (this-device roster only, public/members.js)
-// into the displayed data. The raw feed stays in state.feed so roster edits
-// can rebuild without a refetch; members never reach NotifyRules (no alerts)
-// and form their own 成員 group, so task statistics are unaffected.
+// plus the signed-in owner into the displayed data. The raw feed stays in
+// state.feed so roster edits can rebuild without a refetch; members never
+// reach NotifyRules (no alerts) and form their own 成員 group, so task
+// statistics are unaffected.
+// The user's named basic office crew: generic assistant identities (no
+// private data). Display identities only - their presence is not evidence of
+// a live connection, trigger, or execution. GitHub小幫手 is the occasional
+// one: always idle unless real trigger evidence exists (none is wired yet).
+const BUILTIN_AI = [
+  { name: 'Instinct' },
+  { name: 'GPT' },
+  { name: 'Codex' },
+  { name: 'Gem' },
+  { name: 'GitHub小幫手', occasional: true },
+];
+
+function aiMemberSession({ name, occasional }) {
+  const s = OfficeMembers.toSessions([name])[0];
+  s.key = `member:ai:${name}`;
+  s.agent = 'zhuge'; // generic robot badge, not a branded-service claim
+  s.ai = true;
+  if (occasional) s.occasional = true;
+  return s;
+}
+
 function withMembers(data) {
   const names = OfficeMembers.load((k) => { try { return localStorage.getItem(k); } catch { return null; } });
-  if (!names.length) return data;
-  return { ...data, sessions: [...data.sessions, ...OfficeMembers.toSessions(names)] };
+  const extra = [];
+  if (TF_MODE) {
+    const owner = ownerName();
+    if (owner && !names.includes(owner)) {
+      const s = OfficeMembers.toSessions([owner])[0];
+      s.key = `member:owner:${owner}`;
+      s.owner = true;
+      extra.push(s);
+    }
+    for (const spec of BUILTIN_AI) {
+      if (names.includes(spec.name)) continue;
+      extra.push(aiMemberSession(spec));
+    }
+  }
+  if (!names.length && !extra.length) return data;
+  return { ...data, sessions: [...data.sessions, ...extra, ...OfficeMembers.toSessions(names)] };
 }
 
 function onData(data) {
@@ -1076,6 +1132,8 @@ memberNames.addEventListener('change', () => {
 });
 
 document.addEventListener('click', (e) => {
+  const ow = e.target.closest('[data-open-key]');
+  if (ow) { openDetail(ow.dataset.openKey); return; }
   const b = e.target.closest('[data-copy]'); if (!b) return;
   navigator.clipboard?.writeText(b.dataset.copy).then(() => {
     b.textContent = L.copied; setTimeout(() => (b.textContent = L.copy), 1400);
@@ -1416,8 +1474,8 @@ function renderSide() {
   // TF mode: split the count so 45 tasks + 3 members is not read as 48 people.
   const tfTasks = list.filter((s) => !s.member).length;
   const tfMembers = list.length - tfTasks;
-  document.getElementById('sideCount').textContent = TF_MODE && tfMembers
-    ? `${tfTasks}+${tfMembers}`
+  document.getElementById('sideCount').textContent = TF_MODE
+    ? `${L.tfTask || '任務'} ${tfTasks} · ${L.member || '成員'} ${tfMembers}`
     : String(list.length);
   document.getElementById('sideTabCount').textContent = TF_MODE
     ? `${L.tfTask || '任務'} ${tfTasks}${tfMembers ? ` · ${L.member || '成員'} ${tfMembers}` : ''}`
@@ -1479,7 +1537,9 @@ function renderDetail(scrollDown) {
   if (!s.member && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
   const body = document.getElementById('detailBody');
   const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
-  const msgs = s.member ? `<div class="msgs-note">${esc(L.memberNote || '一般辦公室成員，目前沒有指派任務。')}</div>`
+  const myWork = s.owner ? state.data.sessions.filter((x) => x.tf && !x.tf.isAgentCard) : [];
+  const msgs = s.owner ? ''
+    : s.member ? `<div class="msgs-note">${esc(s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
     : s.tf ? (s.tf.isAgentCard ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄未接線：原始對話無存取管道；上方的回報紀錄為模板標籤，不是對話內容。')}</div>` : '')
     : convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
     : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
@@ -1505,7 +1565,9 @@ function renderDetail(scrollDown) {
     ${contextBar(s.context)}
     ${tfBlock(s, true)}
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
-    ${s.tf && !s.tf.isAgentCard ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
+    ${s.owner ? `<div class="side-sec">${esc(L.ownerWork || '手上的事')} · ${myWork.length}</div>
+    <div class="ow-list">${myWork.map((x) => `<button type="button" class="ow-row" data-open-key="${esc(x.key)}">${esc(x.title || x.project || '—')}</button>`).join('')}</div>`
+      : s.tf && !s.tf.isAgentCard ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
     ${msgs}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {

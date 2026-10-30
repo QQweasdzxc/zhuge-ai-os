@@ -213,6 +213,7 @@
       this.first = true;
       this.visible = true;
       this.hit = [];
+      this._drawnLabels = [];
       this.hoverKey = null;
       this.t = performance.now();
       this.pal = palette();
@@ -1345,8 +1346,11 @@
       const font = (w, px) => `${w} ${px}px ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Apple Color Emoji", sans-serif`;
       c.font = font(600, 10);
 
-      // Task cards without an AI executor are not agents: no robot badge.
-      const badge = this.showAgent && !s.member && !(s.tf && !s.tf.isAgentCard) && AGENT_BADGES[s.agent];
+      // Plain people (family, owner) carry no badge; AI members and real
+      // AI executors carry the robot badge; task cards without an AI
+      // executor are not agents: no robot badge.
+      const plainPerson = s.member && !s.ai;
+      const badge = this.showAgent && !plainPerson && !(s.tf && !s.tf.isAgentCard) && AGENT_BADGES[s.agent];
       const pill = (text, fg, bg, yy, alpha = 1, identify = false) => {
         c.globalAlpha = alpha;
         let tx = text;
@@ -1431,7 +1435,29 @@
 
       const hover = this.hoverKey === p.key;
       if (!s.subagent || hover) {
-        pill(this.label(s), pal.text, pal.tagBg, top - 11, p.mode === 'work' || hover ? 1 : 0.7, true);
+        // Name pills never overlap: each label is stacked above any label
+        // already drawn this frame, so every name stays readable and tappable
+        // even when people stand close together (no waiting for them to walk
+        // apart). Office3D shares this code path through inheritance.
+        let tx = this.label(s);
+        while (c.measureText(tx).width > 118 && tx.length > 2) tx = tx.slice(0, -2) + '…';
+        const w = c.measureText(tx).width + 12 + (badge ? 26 : 0);
+        const height = badge ? 22 : 16;
+        const rect = { x0: x - w / 2, x1: x + w / 2, y0: top - 11 - height / 2, y1: top - 11 + height / 2 };
+        for (let iter = 0; iter < 24; iter++) {
+          let need = 0;
+          for (const q of this._drawnLabels) {
+            const xov = Math.min(rect.x1, q.x1) - Math.max(rect.x0, q.x0);
+            const yov = Math.min(rect.y1, q.y1) - Math.max(rect.y0, q.y0);
+            if (xov > 0 && yov > 0) need = Math.max(need, q.y1 - rect.y0 + 2);
+          }
+          if (!need) break;
+          rect.y0 -= need; rect.y1 -= need;
+          if (rect.y0 < 2) { const d = 2 - rect.y0; rect.y0 += d; rect.y1 += d; break; }
+        }
+        pill(this.label(s), pal.text, pal.tagBg, (rect.y0 + rect.y1) / 2, p.mode === 'work' || hover ? 1 : 0.7, true);
+        if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
+        this._drawnLabels.push({ key: p.key, ...rect });
       } else if (badge) {
         this.agentBadge(badge, x, top - 11);
       }
@@ -1531,7 +1557,9 @@
       this.t = now;
       if (!this.visible) return;
       this.step(dt);
-      if (this.draw() !== false) {
+      this._drawnLabels = [];
+      const drawn = this.draw();
+      if (drawn !== false) {
         if (!this.first && ++this.framesShown === 3) this.markReady(true);
         // Capture immediately: a WebGL drawing buffer may be cleared after
         // this task. The overlay and the 3D canvas must be copied together.
