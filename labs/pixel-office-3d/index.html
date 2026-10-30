@@ -724,14 +724,17 @@ const TF_QUEUE_LABEL = { queued: '排隊中', dispatched: '已派發', running: 
 function tfBlock(s, suppressGap) {
   if (!s.tf) return '';
   const t = s.tf;
-  const ex = t.reportLabels && t.reportLabels.length
+  // Report/excerpt rows belong to agent-executed cards only; a human card has
+  // no agent conversation, so an excerpt-gap note there would be noise.
+  const ex = !t.isAgentCard ? ''
+    : t.reportLabels && t.reportLabels.length
     ? `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
       t.reportLabels.map((l) => `<div class="tfex" title="${esc(l)}">${esc(l)}</div>`).join('') +
       (suppressGap ? '' : `<div class="tfgap">${esc(L.excerptGap || '對話摘錄未接線：以上為回報模板標籤，不是對話內容；原始對話無存取管道')}</div>`)
     : (suppressGap ? '' : `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
       `<div class="tfgap">${esc(L.excerptGapNone || '無回報紀錄；對話摘錄未接線：原始對話無存取管道')}</div>`);
   return `<div class="tf">
-    <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId || '未知')}</b></div>
+    <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId || (t.isAgentCard ? '—' : (L.tfUnassigned || '未指派')))}</b></div>
     <div class="tfrow"><span>${esc(L.queueL || '執行佇列')}</span><b>${esc(TF_QUEUE_LABEL[t.taskflowTaskStatus] || t.taskflowTaskStatus || '—')}</b></div>
     ${ex}
   </div>`;
@@ -1422,7 +1425,7 @@ function renderDetail(scrollDown) {
   const body = document.getElementById('detailBody');
   const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
   const msgs = s.member ? `<div class="msgs-note">${esc(L.memberNote || '一般辦公室成員，目前沒有指派任務。')}</div>`
-    : s.tf ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄未接線：原始對話無存取管道；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
+    : s.tf ? (s.tf.isAgentCard ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄未接線：原始對話無存取管道；上方的回報紀錄為模板標籤，不是對話內容。')}</div>` : '')
     : convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
     : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
@@ -1447,8 +1450,8 @@ function renderDetail(scrollDown) {
     ${contextBar(s.context)}
     ${tfBlock(s, true)}
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
-    <div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
-    ${msgs}`;
+    ${s.tf && !s.tf.isAgentCard ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
+    ${msgs}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {
     body.innerHTML = html; body.dataset.html = html;

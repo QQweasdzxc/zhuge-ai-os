@@ -27,24 +27,37 @@ function displayStatus(issueStatus) {
   }
 }
 
-function normalizeTfTasks(tasks, commentsByIssue, now) {
-  commentsByIssue = commentsByIssue || {};
-  now = now || Date.now();
-  return (tasks || []).map((t, i) => {
-    const labels = commentsByIssue[t.issue_id] || [];
+// Normalize the full workspace issue list. opts: {projectsById,
+// nativeByIssueId, commentsByIssue, now}. Agent queue/executor facts come only
+// from the native-ai-tasks merge; human cards stay executor-less (未指派).
+function normalizeTfIssues(issues, opts) {
+  opts = opts || {};
+  const projectsById = opts.projectsById || {};
+  const nativeByIssueId = opts.nativeByIssueId || {};
+  const commentsByIssue = opts.commentsByIssue || {};
+  const now = opts.now || Date.now();
+  return (issues || []).map((it, i) => {
+    const issueId = (it && (it.id || it.issue_id)) || `issue-${i}`;
+    const native = nativeByIssueId[issueId] || null;
+    const isAgentCard = !!(it && it.assignee_type === 'agent');
+    const category = (it && (it.status_category || it.status)) || 'backlog';
+    const labels = commentsByIssue[issueId] || [];
+    const identifier = (it && it.identifier) || null;
+    const projectTitle = (it && it.project_id && projectsById[it.project_id]) || null;
+    const executorId = isAgentCard && native ? (native.executor_id || null) : null;
     return {
-      key: `zhuge:${t.taskflow_task_id || t.issue_id || `task-${i}`}`,
+      key: `zhuge:${issueId}`,
       agent: 'zhuge',
-      agentName: t.executor_id,
-      id: t.taskflow_task_id || t.issue_id || `task-${i}`,
+      agentName: executorId,
+      id: issueId,
       sessionId: null,
       parentId: null,
       subagent: false,
-      cwd: t.project_title || '',
-      project: t.project_title || null,
-      title: t.title || '(無標題)',
-      model: t.executor_id,
-      status: displayStatus(t.issue_status),
+      cwd: projectTitle || '',
+      project: projectTitle,
+      title: `${identifier ? identifier + ' ' : ''}${(it && it.title) || '(無標題)'}`,
+      model: executorId,
+      status: displayStatus(category),
       stuck: 0,
       context: null,
       today: null,
@@ -53,20 +66,42 @@ function normalizeTfTasks(tasks, commentsByIssue, now) {
       reply: null,
       error: null,
       turnStartedAt: null,
-      lastEventAt: t.updated_at ? Date.parse(t.updated_at) : now,
-      startedAt: t.updated_at ? Date.parse(t.updated_at) : now,
+      lastEventAt: it && it.updated_at ? Date.parse(it.updated_at) : now,
+      startedAt: it && it.updated_at ? Date.parse(it.updated_at) : now,
       history: labels.map((text, j) => ({ role: 'assistant', text, at: now - (labels.length - j) * 60000 })),
       tf: {
-        executorId: t.executor_id || null,
-        issueStatus: t.issue_status || null,
-        taskflowTaskStatus: t.taskflow_task_status || null,
+        executorId,
+        isAgentCard,
+        identifier,
+        issueStatus: category,
+        taskflowTaskStatus: native ? (native.taskflow_task_status || null) : null,
         providerRuntimeState: 'unverified', // by design, never displayed as fact
         reportLabels: labels,
         excerptGap: labels.length === 0,
-        updatedAt: t.updated_at || null,
+        updatedAt: (it && it.updated_at) || null,
       },
     };
   });
+}
+
+// Backward-compatible wrapper for the original native-only task shape.
+function normalizeTfTasks(tasks, commentsByIssue, now) {
+  const nativeByIssueId = {};
+  for (const t of tasks || []) if (t && t.issue_id) nativeByIssueId[t.issue_id] = t;
+  const issues = (tasks || []).map((t) => ({
+    id: t.issue_id,
+    title: t.title,
+    status_category: t.issue_status,
+    project_id: null,
+    assignee_type: 'agent',
+    updated_at: t.updated_at,
+  }));
+  const sessions = normalizeTfIssues(issues, { nativeByIssueId, commentsByIssue, now });
+  sessions.forEach((s, i) => {
+    const t = tasks[i] || {};
+    if (t.project_title) { s.project = t.project_title; s.cwd = t.project_title; }
+  });
+  return sessions;
 }
 
 function classifyStatus(status) {
@@ -119,7 +154,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 Zhuge AI OS', server: String(ex.error) };
   let res;
   try {
-    res = await fetchImpl(`${apiBase}/api/zhuge/native-ai-tasks?limit=100&offset=0`, {
+    res = await fetchImpl(`${apiBase}/api/issues?limit=200`, {
       headers: { authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json' },
       mode: 'cors',
       credentials: 'omit',
@@ -138,11 +173,31 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   }
   let data;
   try { data = await res.json(); } catch { return { state: 'error', note: 'TaskFlow 回應格式異常' }; }
-  const tasks = data.tasks || data.items || [];
-  const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, {
-    authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json',
-  }, tasks);
-  const sessions = normalizeTfTasks(tasks, commentsByIssue, now);
+  const issues = data.issues || data.items || [];
+  const headers = { authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json' };
+  // Best-effort enrichment; a failed extra read never blocks the task list.
+  // Per-poll budget: 1 issues + 1 projects + 1 native + comments for agent
+  // cards only (bounded by fetchReportLabels), so an hourly poll stays ~5
+  // requests for typical workspaces.
+  const projectsById = {};
+  try {
+    const rp = await fetchImpl(`${apiBase}/api/projects?limit=100`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
+    if (rp && rp.status === 200) {
+      const pd = await rp.json();
+      for (const p of pd.projects || pd.items || []) if (p && p.id) projectsById[p.id] = p.title || p.name || null;
+    }
+  } catch { /* project titles fall back to blank */ }
+  const nativeByIssueId = {};
+  try {
+    const rn = await fetchImpl(`${apiBase}/api/zhuge/native-ai-tasks?limit=100&offset=0`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
+    if (rn && rn.status === 200) {
+      const nd = await rn.json();
+      for (const t of nd.tasks || nd.items || []) if (t && t.issue_id) nativeByIssueId[t.issue_id] = t;
+    }
+  } catch { /* queue info falls back to blank */ }
+  const agentIssueIds = issues.filter((it) => it && it.assignee_type === 'agent').map((it) => ({ issue_id: it.id || it.issue_id }));
+  const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, headers, agentIssueIds);
+  const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, now });
   return { state: 'ok', sessions, note: '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
 }
 
@@ -180,7 +235,7 @@ async function fetchReportLabels(fetchImpl, apiBase, headers, tasks) {
   return out;
 }
 
-const TfSource = { displayStatus, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, TOKEN_KEYS };
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, TOKEN_KEYS };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
