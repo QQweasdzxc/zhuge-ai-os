@@ -509,6 +509,9 @@ function applyLang(code) {
   document.documentElement.dataset.localized = 'true';
   langCode = code;
   L = I18N[code];
+  // TF mode reads the whole workspace's cards, not only agents: retitle the
+  // page and the sidebar so the words match the actual scope.
+  if (TF_MODE) L = { ...L, title: L.tfTitle || L.title, agentsTitle: L.tfListTitle || L.agentsTitle };
   document.documentElement.lang = L.html;
   rtf = new Intl.RelativeTimeFormat(L.html, { numeric: 'auto', style: 'short' });
   document.querySelectorAll('[data-t]').forEach((el) => (el.textContent = L[el.dataset.t]));
@@ -666,6 +669,13 @@ function resumeCmd(s) {
   return s.agent === 'codex' ? `${cd}codex resume ${shq(s.id)}` : '';
 }
 
+// Task cards that have no AI executor get a task glyph, not the robot mark:
+// the robot is reserved for agent-executed cards so the icon tells the truth.
+const TF_TASK_ICON = '<svg class="agent-logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 4.5h6v3H9z" fill="currentColor"/><path d="M8.5 13.5l2.2 2.2 4.3-4.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function tfIcon(s) {
+  if (s && s.tf && !s.tf.isAgentCard) return TF_TASK_ICON;
+  return agentLogo(s && s.agent);
+}
 function agentLogo(agent) {
   const badge = OFFICE_AGENT_BADGES[agent];
   return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" data-logo="${badge.logo}" alt="" aria-hidden="true">` : '';
@@ -759,7 +769,7 @@ function card(s, now) {
   return `
   <div class="card${s.subagent ? ' sub' : ''}${s.stuck ? ' is-stuck' : ''}${state.flash.has(s.key) ? ' flash' : ''}" data-s="${s.status}" data-key="${esc(s.key)}">
     <div class="top">
-      <span class="agent ${esc(s.agent)}">${agentLogo(s.agent)}${esc(s.agentName || AGENT_NAME[s.agent] || s.agent)}</span>
+      <span class="agent ${esc(s.agent)}">${tfIcon(s)}${esc(s.tf ? (s.tf.isAgentCard ? (s.agentName || AGENT_NAME[s.agent] || s.agent) : (L.tfUnassigned || '未指派')) : (s.agentName || AGENT_NAME[s.agent] || s.agent))}</span>
       <span class="project" title="${esc(s.cwd)}">${esc(project)}</span>
       <span class="time" data-time="${esc(s.key)}">${esc(timeLabel(s, now))}</span>
     </div>
@@ -822,7 +832,12 @@ function render() {
   }
   const agents = new Set(officeList.map(s => s.agent));
   const legend = document.getElementById('agentLegend');
-  const labels = Object.keys(OFFICE_AGENT_BADGES).filter(agent => agents.has(agent))
+  const labels = TF_MODE
+    ? [
+        officeList.some((s) => s.tf && s.tf.isAgentCard) ? `<span>${agentLogo('zhuge')}${esc(L.tfAgent || 'AI 執行')}</span>` : '',
+        officeList.some((s) => s.tf && !s.tf.isAgentCard) ? `<span>${TF_TASK_ICON}${esc(L.tfTask || '任務')}</span>` : '',
+      ].filter(Boolean).join('')
+    : Object.keys(OFFICE_AGENT_BADGES).filter(agent => agents.has(agent))
     .map(agent => `<span>${agentLogo(agent)}${esc(AGENT_NAME[agent])}</span>`).join('');
   if (legend.dataset.html !== labels) { legend.innerHTML = labels; legend.dataset.html = labels; hydrateLogos(legend); }
   legend.hidden = !state.showAgent || !labels;
@@ -1373,7 +1388,7 @@ function renderSide() {
     return `<div class="side-group">${esc(groupLabel(g.key))} · ${items.length}</div>` + items.map((s, i) => {
       const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
       return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
-        ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
+        ${tfIcon(s) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
         <span class="tm" data-time="${esc(s.key)}"></span>
         <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
     }).join('');
@@ -1418,7 +1433,7 @@ function renderDetail(scrollDown) {
   if (!s) { closeDetail(); return; }
   const now = Date.now() - state.skew;
   const dt = document.getElementById('detailTitle');
-  dt.innerHTML = `${agentLogo(s.agent)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  dt.innerHTML = `${tfIcon(s)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
   hydrateLogos(dt);
   // Fetch again whenever the agent logged something new.
   if (!s.member && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
