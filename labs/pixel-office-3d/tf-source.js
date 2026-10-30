@@ -139,11 +139,48 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   let data;
   try { data = await res.json(); } catch { return { state: 'error', note: 'TaskFlow 回應格式異常' }; }
   const tasks = data.tasks || data.items || [];
-  const sessions = normalizeTfTasks(tasks, {}, now);
+  const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, {
+    authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json',
+  }, tasks);
+  const sessions = normalizeTfTasks(tasks, commentsByIssue, now);
   return { state: 'ok', sessions, note: '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
 }
 
-const TfSource = { displayStatus, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, TOKEN_KEYS };
+// Report labels come from the EXISTING authenticated comments endpoint
+// (verified live 2026-10-30: GET /api/issues/{id}/comments -> 200, same
+// Bearer + X-Workspace-Slug chain). Comments hold only templated "[AI 回報]"
+// labels — never raw conversation — so the excerpt gap note stays until a
+// real transcript source exists. Best-effort: a failed comments read never
+// blocks the task list.
+async function fetchReportLabels(fetchImpl, apiBase, headers, tasks) {
+  const out = {};
+  // Bounded fan-out: at most 5 comment reads in flight, so an hourly poll of
+  // a large workspace never bursts the API.
+  const queue = [...(tasks || [])];
+  async function worker() {
+    while (queue.length) {
+      const task = queue.shift();
+      if (!task || !task.issue_id) continue;
+      try {
+        const r = await fetchImpl(`${apiBase}/api/issues/${encodeURIComponent(task.issue_id)}/comments`, {
+          headers, mode: 'cors', credentials: 'omit', cache: 'no-store',
+        });
+        if (!r || r.status !== 200) continue;
+        const j = await r.json();
+        const arr = Array.isArray(j) ? j : (j.comments || j.items || []);
+        const labels = arr
+          .map((c) => (c && (c.content || c.text || c.body)) || '')
+          .filter((x) => typeof x === 'string' && x.trim())
+          .slice(0, 20);
+        if (labels.length) out[task.issue_id] = labels;
+      } catch { /* best-effort: labels stay empty, gap note covers it */ }
+    }
+  }
+  await Promise.all(Array.from({ length: 5 }, worker));
+  return out;
+}
+
+const TfSource = { displayStatus, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, TOKEN_KEYS };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------

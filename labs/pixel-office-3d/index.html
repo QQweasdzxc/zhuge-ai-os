@@ -195,6 +195,9 @@
   body.full .summary { margin-left: 0; flex-wrap: nowrap; }
   body.full .controls { width: auto; flex: 1; min-width: 0; padding: 0; border: 0; flex-wrap: wrap; row-gap: 6px; }
   body.full #viewSeg, body.full .newver { display: none; }
+  /* TF mode: 3D only (the 2D/3D quality switch is locked to 3D) and no
+     dead worker-idle toggle. */
+  body.tf-mode #qualSeg, body.tf-mode #idleToggle { display: none; }
   /* The panel floats over a full-width office; the office pans its view to keep
      the room clear of it (setInset), so the canvas never resizes during the slide. */
   body.full #officeWrap { position: relative; flex: 1; min-height: 0; }
@@ -497,6 +500,7 @@ let rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' })
 function chooseLang(serverGuess) {
   const pick = store.get('lang', 'auto');
   if (pick !== 'auto' && I18N[pick]) return pick;
+  if (TF_MODE && I18N['zh-TW']) return 'zh-TW';
   if (serverGuess && I18N[serverGuess]) return serverGuess;
   return i18nFromBrowser(navigator.languages || [navigator.language]) || 'en';
 }
@@ -513,7 +517,7 @@ function applyLang(code) {
   if (legend) legend.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
     .map((k) => {
       const kk = k.replace('tf:', '');
-      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: L.idle }[kk] || kk) : (L[k] || k);
+      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: (L.tfIdle || L.idle) }[kk] || kk) : (L[k] || k);
       const color = ({ needsYou: 'var(--waiting)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
       return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
     }).join(' ');
@@ -769,7 +773,7 @@ function visible() {
   return state.data.sessions.filter((s) =>
     matchAgent(s) &&
     (state.showSub || !s.subagent) &&
-    (state.showIdle || s.status !== 'idle' || s.member || !!(s.tf && s.tf.issueStatus === 'in_progress')));
+    (state.showIdle || s.status !== 'idle' || s.member || !!s.tf));
 }
 
 function render() {
@@ -787,7 +791,7 @@ function render() {
   if (lg) lg.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
     .map((k) => {
       const kk = k.replace('tf:', '');
-      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: L.idle }[kk] || kk) : (L[k] || k);
+      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: (L.tfIdle || L.idle) }[kk] || kk) : (L[k] || k);
       const color = ({ needsYou: 'var(--waiting)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
       return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
     }).join(' ');
@@ -840,7 +844,7 @@ function render() {
   main.innerHTML = groups.map((g) => {
     const items = list.filter((s) => g.match(s));
     if (!items.length) return '';
-    return `<section><h2>${L[g.key]} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
+    return `<section><h2>${groupLabel(g.key)} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
   }).join('');
   hydrateLogos(main);
 }
@@ -919,7 +923,17 @@ function chime(kind) {
 }
 
 const TF_MODE = PAGE_QUERY.get('source') === 'tf';
-if (TF_MODE) document.body.classList.add('tf-mode');
+// In TF mode the sidebar/2D 'idle' group holds real TaskFlow 待辦 cards,
+// not worker idleness; label it accordingly.
+const groupLabel = (k) => (TF_MODE && k === 'idle' ? (L.tfIdle || L.idle) : L[k]);
+if (TF_MODE) {
+  document.body.classList.add('tf-mode');
+  // 3D only (user 2026-10-30: 「使用3D的就好」): the 2D/3D quality switch is
+  // locked to 3D and hidden via tf-mode CSS; not persisted, so other modes
+  // keep the stored preference. The dead worker-idle toggle is hidden too
+  // (every TF card is visible by default).
+  state.quality = 'high';
+}
 function connect() {
   const conn = document.getElementById('conn');
   if (TF_MODE) {
@@ -1308,7 +1322,7 @@ function syncFull() {
 
 // Agent filter: one chip per client in use, any number selected; none means all.
 function renderChips() {
-  const pool = state.data.sessions.filter((s) => (state.showSub || !s.subagent) && (state.showIdle || s.status !== 'idle'));
+  const pool = state.data.sessions.filter((s) => (state.showSub || !s.subagent) && (state.showIdle || s.status !== 'idle' || !!s.tf));
   const count = new Map();
   for (const s of pool) count.set(s.agent, (count.get(s.agent) || 0) + 1);
   const order = Object.keys(OFFICE_AGENT_BADGES);
@@ -1353,7 +1367,7 @@ function renderSide() {
   const rows = GROUPS.map((g) => {
     const items = list.filter((s) => g.match(s));
     if (!items.length) return '';
-    return `<div class="side-group">${esc(L[g.key])} · ${items.length}</div>` + items.map((s, i) => {
+    return `<div class="side-group">${esc(groupLabel(g.key))} · ${items.length}</div>` + items.map((s, i) => {
       const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
       return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
         ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
