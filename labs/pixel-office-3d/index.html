@@ -485,7 +485,7 @@
   <main id="main"></main>
 </div>
 <div class="conn" id="conn" data-t="disconnected"></div>
-<div id="tfAuth" hidden style="position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Zhuge AI OS 才能讀取正式任務。<a style="color:#ffd9a0" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">使用既有 Zhuge AI OS 登入</a></div>
+<div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Zhuge AI OS 才能讀取正式任務。<a style="color:#ffd9a0" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">使用既有 Zhuge AI OS 登入</a></div>
 <div class="tip" id="tip"></div>
 <div class="ver" id="ver"></div>
 <script src="i18n.js"></script>
@@ -1019,6 +1019,24 @@ if (TF_MODE) {
   // (every TF card is visible by default).
   state.quality = 'high';
 }
+let tfAuthTabWatched = false;
+function positionTfAuth() {
+  const bar = document.getElementById('tfAuth');
+  if (bar.hidden) return;
+  let top = document.querySelector('header').getBoundingClientRect().bottom;
+  // Keep clear of the sidebar tab handle (任務·成員 pill) when it is on screen.
+  const tab = document.getElementById('sideTabCount');
+  if (tab) {
+    const tr = tab.getBoundingClientRect();
+    if (tr.width && tr.left < innerWidth && tr.bottom > top) top = tr.bottom;
+    if (!tfAuthTabWatched && window.ResizeObserver) {
+      tfAuthTabWatched = true;
+      new ResizeObserver(positionTfAuth).observe(tab);
+    }
+  }
+  bar.style.top = Math.max(0, top + 8) + 'px';
+}
+addEventListener('resize', positionTfAuth);
 function connect() {
   const conn = document.getElementById('conn');
   if (TF_MODE) {
@@ -1030,7 +1048,9 @@ function connect() {
       workspace: PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7',
       onData,
       onState: ({ auth, error }) => {
-        document.getElementById('tfAuth').hidden = !auth;
+        const bar = document.getElementById('tfAuth');
+        bar.hidden = !auth;
+        positionTfAuth();
         conn.classList.toggle('on', !!error);
       },
     });
