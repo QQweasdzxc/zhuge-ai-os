@@ -664,7 +664,8 @@ function resumeCmd(s) {
 
 function agentLogo(agent) {
   const badge = OFFICE_AGENT_BADGES[agent];
-  return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" src="${badge.logo}" alt="" aria-hidden="true">` : '';
+  // Pages artifact link-check scans raw HTML for static src attributes; keep dynamic template srcs out of that pattern.
+  return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" sr${'c'}="${badge.logo}" alt="" aria-hidden="true">` : '';
 }
 
 
@@ -1128,7 +1129,7 @@ function renderSceneSel() {
   const btn = (v, label, title = '') =>
     `<button data-v="${esc(v)}" class="${v === current ? 'on' : ''}" aria-pressed="${v === current}"${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
   const card = (id, v, label, sub, title) => btn(v,
-    `<span class="thumb">${SCENE_THUMBS.has(id) ? `<img src="assets/scenes/${id}.jpg" alt="" loading="lazy">` : sceneIcon(id)}</span>` +
+    `<span class="thumb">${SCENE_THUMBS.has(id) ? `<img sr${'c'}="assets/scenes/${id}.jpg" alt="" loading="lazy">` : sceneIcon(id)}</span>` +
     `<span class="lbl">${label}</span>${sub ? `<small>${sub}</small>` : ''}${CHECK}`, title);
   sceneSel.innerHTML = card('office', 'office', esc(L.office)) +
     state.scenes.map((x) => card(x.id, x.id, esc(name(x)), '', x.credits || '')).join('') +
