@@ -43,7 +43,7 @@ test("TaskFlow sends the existing Zhuge session only to API POST and returns to 
   assert.match(entry, /const SESSION_KEY = "zhuge_ai_os_session_v1"/);
   assert.match(entry, /boundedFetch\(api \+ "\/auth\/zhuge"/);
   assert.match(entry, /body: JSON\.stringify\(\{ access_token: accessToken \}\)/);
-  assert.match(entry, /window\.location\.replace\(AIOS_LOGIN_URL\)/);
+  assert.match(entry, /window\.location\.assign\(AIOS_LOGIN_URL\)/);
   assert.match(entry, /zhuge-handoff/);
   assert.match(entry, /zhuge_token/);
   assert.match(entry, /timeoutMs = 45000/);
