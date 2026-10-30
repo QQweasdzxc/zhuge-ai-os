@@ -1,0 +1,1463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What's my agent doing</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👀</text></svg>">
+<style>
+  :root {
+    --bg: #f6f6f3;
+    --panel: #ffffff;
+    --ink: #1c1c1a;
+    --muted: #6d6d68;
+    --faint: #a3a39d;
+    --line: #e4e3dd;
+    --thinking: #7c5cdb;
+    --tool: #2f7dd1;
+    --typing: #1f9d6b;
+    --waiting: #d98a0b;
+    --done: #5b8a4a;
+    --error: #d1453b;
+    --idle: #a3a39d;
+    --claude: #c96442;
+    --codex: #10a37f;
+    --gemini: #4f7cf0;
+    --copilot: #8f5cf5;
+    --omp: #a96926;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413;
+      --panel: #1e1e1c;
+      --ink: #ecebe6;
+      --muted: #a09f99;
+      --faint: #6b6a65;
+      --line: #2e2d2a;
+      --thinking: #a48bf0;
+      --tool: #5ea4ee;
+      --typing: #3fc48f;
+      --waiting: #f0a93a;
+      --done: #86b872;
+      --error: #f0675d;
+      --idle: #6b6a65;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 24px; margin-bottom: 16px; }
+  h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+  h1 span { color: var(--ink); font-weight: 600; }
+  .summary { display: flex; gap: 18px; flex-wrap: wrap; margin-left: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 0; font-size: 12px; color: var(--muted); }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .controls { position: relative; width: 100%; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+  .seg button { border: 0; background: none; color: var(--muted); padding: 5px 12px; border-radius: 5px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .seg button:hover:not(.on) { color: var(--ink); background: var(--bg); }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+  #qualSeg { border-color: transparent; background: transparent; }
+  #qualSeg button.on { background: var(--line); color: var(--ink); }
+  .seg button small { opacity: .65; font-size: 11px; }
+  label.tog { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none; }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--muted); padding: 5px 11px; border-radius: 8px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .btn:hover { color: var(--ink); border-color: var(--faint); }
+  button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--tool); outline-offset: 3px; }
+  .toolbar-space { flex: 1; }
+  .controls > .btn, .settings > summary { min-height: 36px; display: inline-flex; align-items: center; white-space: nowrap; }
+  .settings > summary { list-style: none; gap: 7px; color: var(--ink); }
+  .settings > summary::-webkit-details-marker { display: none; }
+  /* A drawn chevron sits on the text's centre line; the ⌄ glyph hangs below it in most fonts. */
+  .settings > summary::after { content: ""; flex: none; width: 6px; height: 6px; margin: -3px 1px 0 2px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(45deg); transition: transform .2s ease, margin .2s ease; }
+  .settings[open] > summary { background: var(--line); }
+  .settings[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+  .filter-active { font-size: 11px; color: var(--tool); }
+  .settings-panel { position: absolute; z-index: 20; right: 0; top: calc(100% + 10px); width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 180px); overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 12px 40px #0003; }
+  .setting-group + .setting-group { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .setting-label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 9px; }
+  .setting-toggles { display: grid; gap: 12px; margin-top: 14px; }
+  .setting-toggles .tog { color: var(--ink); gap: 8px; }
+  .tog input { accent-color: var(--tool); margin: 0; width: 15px; height: 15px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .setting-row .setting-label { margin: 0; }
+  @media (max-width: 640px) {
+    header { gap: 14px; }
+    .summary { margin-left: 0; width: 100%; gap: 18px; }
+    .controls { gap: 6px; padding-top: 12px; }
+    .seg button { padding-inline: 9px; }
+    .controls > .btn, .settings > summary { padding-inline: 9px; }
+  }
+  @media (max-width: 360px) {
+    body { padding-inline: 10px; }
+    .controls { gap: 4px; }
+    .seg button { padding-inline: 7px; }
+  }
+
+  section { margin-top: 26px; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  section h2 .n { color: var(--faint); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } .controls { margin-left: 0; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; min-width: 0; position: relative; transition: border-color .3s; }
+  .card.sub { padding: 10px 12px; gap: 6px; }
+  .card.flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--done); } 100% { box-shadow: var(--shadow); } }
+  .card[data-s="waiting"], .card[data-s="error"] { border-color: color-mix(in srgb, var(--s) 55%, var(--line)); }
+  .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .agent { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); flex: none; }
+  .agent-logo { width: 20px; height: 20px; object-fit: contain; padding: 1px; flex: none; }
+  @media (prefers-color-scheme: dark) {
+    .agent-logo.mono { filter: invert(1); }
+  }
+  .project { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .time { margin-left: auto; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+  .title { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--s); font-weight: 600; font-size: 13px; min-width: 0; }
+  .status .lbl { white-space: nowrap; flex: none; }
+  .status .act { flex: 1 1 auto; color: var(--ink); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .q, .r { font-size: 12.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+  .q::before { content: "› "; color: var(--faint); }
+  .r { color: var(--ink); opacity: .85; }
+  .r::before { content: "← "; color: var(--faint); }
+  .err { font-size: 12.5px; color: var(--error); }
+  .today-tokens { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .today-panel { width: min(340px, calc(100vw - 32px)); }
+  .today-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .today-big div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .today-big b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .today-big span, .today-note, .today-head { font-size: 12px; color: var(--muted); }
+  .today-head { margin: 12px 0 6px; font-weight: 600; }
+  .today-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
+  .today-row .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .today-note { margin-top: 12px; line-height: 1.5; }
+  .ctx { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--faint); }
+  .ctx .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .ctx .bar i { display: block; height: 100%; border-radius: 2px; background: var(--done); }
+  .ctx.warn .bar i { background: var(--waiting); }
+  .ctx.full .bar i { background: var(--error); }
+  /* ---- toolbar menus and controls, styled to match (no browser defaults) */
+  details.menu > summary { gap: 7px; }
+  .scene-ico { display: inline-flex; }
+  .scene-art { width: 18px; height: 18px; flex: none; display: block; }
+  .scene-list .thumb .scene-art { width: 22px; height: 22px; }
+  #sceneName, #langName { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Scene, agent and language menus share one compact list. */
+  .list-panel { width: 250px; padding: 12px; }
+  .scene-panel { right: auto; left: 0; }
+  .pick-list { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; }
+  .pick-list button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+  .pick-list button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .pick-list .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-list small { color: var(--faint); font-size: 12px; display: inline-flex; align-items: center; gap: 3px; }
+  .pick-list .chk { flex: none; opacity: 0; color: var(--tool); }
+  .pick-list button.on { font-weight: 600; }
+  .pick-list button.on .chk { opacity: 1; }
+  .pick-list .agent-logo { width: 16px; height: 16px; margin: 0; }
+  .scene-list .thumb { flex: none; width: 44px; height: 28px; border-radius: 5px; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 7%, var(--panel)); color: var(--muted); }
+  .scene-list .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Agent rows: a checkbox square, the logo, the name and a count */
+  #agentChips .box { flex: none; display: grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid color-mix(in srgb, var(--ink) 30%, var(--line)); border-radius: 4px; }
+  #agentChips .box .chk { width: 12px; height: 12px; opacity: 0; color: #fff; stroke-width: 2.6; }
+  #agentChips .on .box { background: var(--tool); border-color: var(--tool); }
+  #agentChips .on .box .chk { opacity: 1; }
+  #agentChips .chip-f > .chk, #agentChips button > svg.chk:last-child { display: none; }
+  #agentChips b { font-weight: 500; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  #agentChips .ini { font-size: 11px; color: var(--muted); width: 16px; text-align: center; }
+  details.menu.active > summary { border-color: color-mix(in srgb, var(--tool) 55%, var(--line)); }
+  .prefs-panel { width: 280px; }
+  .prefs-panel .setting-toggles { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; }
+  /* Switches instead of checkboxes */
+  .prefs-panel label.tog { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px; font-size: 13.5px; color: var(--ink); cursor: pointer; }
+  .tog input { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 36px; height: 21px; margin: 0; border-radius: 999px; background: color-mix(in srgb, var(--ink) 18%, var(--panel)); cursor: pointer; transition: background .18s; }
+  .tog input::after { content: ""; position: absolute; top: 2.5px; left: 2.5px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0004; transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+  .tog input:checked { background: var(--tool); }
+  .tog input:checked::after { transform: translateX(15px); }
+  .tog input:focus-visible { outline: 2px solid var(--tool); outline-offset: 2px; }
+  .tog-note { margin: 0 2px 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .prefs-panel .setting-toggles:last-of-type { margin-bottom: 4px; }
+  /* ---- full-screen mode: the office fills the window, agents in a side panel */
+  .ui-ico { stroke-width: 1.8; }
+  .side, .side-tab { display: none; }
+  body.full { overflow: hidden; padding: 0; margin: 0; height: 100dvh; }
+  body.full .wrap { max-width: none; height: 100dvh; padding: 0; display: flex; flex-direction: column; }
+  body.full header { flex-wrap: wrap; gap: 8px 14px; margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  body.full h1 { font-size: 15px; white-space: nowrap; }
+  body.full .summary { margin-left: 0; flex-wrap: nowrap; }
+  body.full .controls { width: auto; flex: 1; min-width: 0; padding: 0; border: 0; flex-wrap: wrap; row-gap: 6px; }
+  body.full #viewSeg, body.full .newver { display: none; }
+  /* The panel floats over a full-width office; the office pans its view to keep
+     the room clear of it (setInset), so the canvas never resizes during the slide. */
+  body.full #officeWrap { position: relative; flex: 1; min-height: 0; }
+  body.full .office { height: 100%; min-height: 0; border: 0; border-radius: 0; }
+  body.full .legend { position: absolute; left: 12px; bottom: 10px; margin: 0; padding: 6px 10px; border-radius: 10px; background: color-mix(in srgb, var(--panel) 85%, transparent); backdrop-filter: blur(6px); }
+  body.full #agentLegend { bottom: 44px; }
+  body.full #main { display: none; }
+  /* The video pop-out preview and its errors float over the office instead of pushing it down. */
+  body.full .pip-preview { position: fixed; z-index: 25; left: 16px; bottom: 84px; width: min(360px, calc(100vw - 32px)); margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px #0004; }
+  body.full .pip-preview video { width: 100%; height: auto; border-radius: 8px; }
+  body.full .pip-preview p { margin: 0 0 8px; font-size: 12px; }
+  body.full .pip-error { position: fixed; z-index: 25; left: 50%; top: calc(var(--bar, 53px) + 12px); transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px #0003; }
+  body.full .side { display: block; position: fixed; z-index: 15; right: 0; bottom: 0; top: var(--bar, 53px); width: 340px; border-left: 1px solid var(--line); background: var(--panel); transition: transform .32s cubic-bezier(.2, .8, .2, 1), box-shadow .32s; overflow: hidden; }
+  body.full.side-closed { --side: 0px; }
+  body.full.side-closed .side { transform: translateX(100%); box-shadow: none; }
+  body.full.side-closed .side-tab { display: inline-flex; animation: tabIn .3s .18s both cubic-bezier(.2, .8, .2, 1); }
+  @keyframes tabIn { from { opacity: 0; transform: translateX(12px); } }
+  .side-tab { position: fixed; z-index: 15; right: 12px; top: calc(var(--bar, 53px) + 12px); align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); font: 600 13px inherit; cursor: pointer; box-shadow: 0 4px 16px #0002; }
+  .side-pane { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--panel); transition: transform .34s cubic-bezier(.2, .8, .2, 1), opacity .34s; }
+  /* Layer two slides in over the list; the list eases left and fades. */
+  #sideDetail { transform: translateX(100%); }
+  .side.detail #sideDetail { transform: none; }
+  .side.detail #sideList { transform: translateX(-22%); opacity: 0; }
+  .side.opening .srow, .side.entering #detailBody > * { animation: rowIn .38s both cubic-bezier(.2, .8, .2, 1); animation-delay: calc(var(--i, 0) * 28ms + 80ms); }
+  .side.entering #detailBody > * { animation-delay: 140ms; }
+  @keyframes rowIn { from { opacity: 0; transform: translateX(14px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .side, .side-pane { transition: none; }
+    .side.opening .srow, .side.entering #detailBody > *, body.full.side-closed .side-tab { animation: none; }
+  }
+  .side-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  #detailTitle { display: flex; align-items: center; gap: 7px; }
+  .side-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-count { color: var(--muted); font-size: 12px; }
+  .icon-btn { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+  .icon-btn:hover { color: var(--ink); }
+  .side-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 8px 10px 16px; }
+  .side-group { margin: 10px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .srow { width: 100%; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 9px; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+  .srow:hover, .srow:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
+  .srow .agent-logo { width: 16px; height: 16px; margin: 0; }
+  .srow .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+  .srow .tm { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .srow .st { grid-column: 2 / 4; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted); }
+  .srow .st i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--s); }
+  .srow .st span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .st b { flex: none; color: var(--s); font-weight: 600; }
+  .srow.sub .nm { font-weight: 500; color: var(--muted); }
+  .dmeta { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 10px 6px 12px; font-size: 12.5px; }
+  .dmeta dt { color: var(--faint); }
+  .dmeta dd { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dmeta dd.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+  .dstatus { display: flex; align-items: center; gap: 7px; margin: 8px 6px 0; font-size: 13px; flex-wrap: wrap; }
+  .dstatus i { width: 8px; height: 8px; border-radius: 50%; background: var(--s); }
+  .dstatus b { color: var(--s); }
+  .dstatus .act { color: var(--muted); }
+  .dtitle { margin: 4px 6px 0; font-size: 13px; color: var(--muted); }
+  .dactions { display: flex; gap: 8px; margin: 0 6px 6px; }
+  .dactions .copy { font-size: 12px; }
+  .side .ctx { margin: 0 6px 10px; }
+  .msgs { display: flex; flex-direction: column; gap: 8px; margin: 6px 4px 0; }
+  .msg { max-width: 92%; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: color-mix(in srgb, var(--tool) 16%, var(--panel)); }
+  .msg.assistant { align-self: flex-start; background: color-mix(in srgb, var(--ink) 6%, var(--panel)); border: 1px solid var(--line); }
+  .msg.tool { align-self: flex-start; display: flex; align-items: center; gap: 6px; padding: 3px 4px; color: var(--muted); font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .msg .at { display: block; margin-top: 3px; font-size: 10.5px; color: var(--faint); }
+  .msgs-note { margin: 12px 6px; font-size: 12.5px; color: var(--muted); }
+  .side-sec { margin: 14px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  /* The panel's group headings already count Needs you / Working / Finished, so the
+     toolbar drops those chips (and then the title) before it would wrap. */
+  @media (max-width: 1240px) { body.full .summary { display: none; } }
+  @media (max-width: 900px) {
+    body.full h1, body.full #langName, body.full .today-tokens,
+    body.full #todayMenu > summary [data-t], body.full #settingsMenu > summary [data-t] { display: none; }
+  }
+  /* Phones: one row of icon buttons; the labels, chevrons and pop-out (unsupported there) go. */
+  @media (max-width: 640px) {
+    html body.full header { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; }
+    html body.full .controls { flex-wrap: nowrap; gap: 6px; }
+    body.full #pipBtn { display: none !important; }
+    body.full details.menu > summary { gap: 0; padding-inline: 9px; }
+    body.full #sceneMenu > summary { gap: 6px; }
+    body.full #sceneName { max-width: 6.5em; }
+    body.full details.menu > summary::after,
+    body.full #agentName, body.full #langName, body.full .today-tokens,
+    body.full #todayMenu > summary [data-t], body.full #settingsMenu > summary [data-t] { display: none; }
+    body.full details.menu.active > summary { position: relative; }
+    body.full details.menu.active > summary::before { content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--tool); }
+  }
+  @media (max-width: 359px) { body.full #sceneName { display: none; } }
+  @media (max-width: 760px) {
+    body.full .side { width: min(340px, 88vw); }
+    body.full h1, body.full .summary { display: none; }
+    body.full header { flex-wrap: wrap; }
+    /* Menus span the screen under the toolbar instead of hanging off their button. */
+    body.full .settings-panel { position: fixed; left: auto; right: 12px; max-width: calc(100vw - 24px); top: calc(var(--bar, 53px) + 6px); max-height: calc(100dvh - var(--bar, 53px) - 24px); }
+    body.full .controls { flex-wrap: wrap; row-gap: 6px; }
+  }
+  .stuck { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--error); white-space: nowrap; }
+  .ui-ico { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .card.is-stuck { border-color: color-mix(in srgb, var(--error) 45%, var(--line)); }
+  .foot { display: flex; gap: 8px; align-items: center; color: var(--faint); font-size: 11.5px; min-width: 0; }
+  .foot .model { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .copy { margin-left: auto; border: 0; background: none; color: var(--faint); font: inherit; font-size: 11.5px; cursor: pointer; padding: 0; flex: none; }
+  .copy:hover { color: var(--ink); }
+
+  [data-s="thinking"] { --s: var(--thinking); }
+  [data-s="tool"] { --s: var(--tool); }
+  [data-s="typing"] { --s: var(--typing); }
+  [data-s="waiting"] { --s: var(--waiting); }
+  [data-s="done"] { --s: var(--done); }
+  [data-s="interrupted"] { --s: var(--idle); }
+  [data-s="error"] { --s: var(--error); }
+  [data-s="idle"] { --s: var(--idle); }
+
+  .ind { width: 18px; height: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex: none; }
+  .ind i { width: 4px; height: 4px; border-radius: 50%; background: var(--s); display: none; }
+  [data-s="thinking"] .ind i { display: block; }
+  [data-s="thinking"] .ind i { animation: bob 1.2s infinite ease-in-out; }
+  [data-s="thinking"] .ind i:nth-child(2) { animation-delay: .15s; }
+  [data-s="thinking"] .ind i:nth-child(3) { animation-delay: .3s; }
+  @keyframes bob { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+  [data-s="tool"] .ind::before { content: ""; width: 11px; height: 11px; border: 2px solid var(--s); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  [data-s="typing"] .ind::before { content: ""; width: 2px; height: 13px; background: var(--s); animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  [data-s="waiting"] .ind::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--s); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--s) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  [data-s="done"] .ind::before { content: "✓"; color: var(--s); font-weight: 700; }
+  [data-s="error"] .ind::before { content: "!"; color: var(--s); font-weight: 800; }
+  [data-s="interrupted"] .ind::before { content: "■"; color: var(--s); font-size: 9px; }
+  [data-s="idle"] .ind::before { content: "–"; color: var(--s); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+  .office { position: relative; height: min(74vh, 820px); min-height: 380px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); }
+  .office-canvas { display: block; }
+  .office canvas { transition: opacity .35s; }
+  .office.loading canvas { opacity: 0; }
+  .office-loader { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 13px; z-index: 2; }
+  .office.loading .office-loader { display: flex; }
+  .office-loader .spin { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--tool); border-radius: 50%; animation: spin .8s linear infinite; }
+  .office-gl, .office-overlay { position: absolute; inset: 0; }
+  .office-overlay { touch-action: none; }
+  .tip { position: fixed; z-index: 10; width: 320px; max-width: calc(100vw - 24px); pointer-events: none; display: none; }
+  .tip.pinned { pointer-events: auto; }
+  .tip .card { box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+  .pip-preview { margin-bottom: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .pip-preview p { margin: 0 0 10px; color: var(--muted); }
+  .pip-preview video { display: block; width: min(100%, 520px); margin-bottom: 10px; background: var(--panel); }
+  .pip-error { color: var(--error); margin: 0 0 12px; }
+  .newver { border: 1px solid var(--tool); background: color-mix(in srgb, var(--tool) 18%, var(--panel)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12.5px; cursor: pointer; animation: glowv 2.4s ease-in-out infinite; }
+  .newver:disabled { opacity: .7; cursor: default; animation: none; }
+  @keyframes glowv { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tool) 25%, transparent); } }
+  .ver { position: fixed; right: 14px; bottom: 12px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--faint); z-index: 5; }
+  .ver button { border: 1px solid var(--tool); background: color-mix(in srgb, var(--tool) 14%, var(--panel)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+  .ver button:disabled { opacity: .6; cursor: default; }
+  .ver code { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 16px; border: 1px dashed var(--line); border-radius: 12px; }
+  .empty code { background: var(--panel); padding: 2px 6px; border-radius: 4px; }
+  .conn { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--error); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 12.5px; display: none; }
+  .conn.on { display: block; }
+
+  /* The PiP iframe owns its animation clock, layout, and pointer events. */
+  body.pip { padding: 8px; }
+  body.pip .wrap { height: calc(100dvh - 16px); display: flex; flex-direction: column; }
+  body.pip header { gap: 6px; margin-bottom: 8px; flex: none; }
+  body.pip h1, body.pip .newver, body.pip #legend, body.pip .ver,
+  body.pip .controls > :not(#viewSeg):not(#qualSeg) { display: none !important; }
+  body.pip .controls { width: auto; padding: 0; border: 0; }
+  body.pip .chip { padding: 2px 6px; font-size: 11px; }
+  body.pip .summary { gap: 4px; width: auto; margin-left: 0; }
+  body.pip #officeWrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  body.pip .office { flex: 1; height: auto; min-height: 120px; }
+  body.pip #main { overflow: auto; min-height: 0; }
+  body.pip #main:empty { display: none; }
+  body.pip section { margin-top: 12px; }
+  body.pip section:first-child { margin-top: 0; }
+  body.pip .grid { grid-template-columns: 1fr; }
+
+  .tf { border-top: 1px dashed var(--line); padding-top: 6px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+  .tfrow { display: flex; gap: 8px; color: var(--muted); }
+  .tfrow b { color: var(--ink); font-weight: 600; }
+  .tfex { color: var(--ink); background: var(--line); border-radius: 6px; padding: 3px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tfgap { color: var(--muted); font-style: italic; }
+  .srcbanner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--muted); box-shadow: var(--shadow); }
+  .srcbanner b { color: var(--ink); }
+  body.tf-mode #sceneMenu, body.tf-mode #newVer { display: none !important; }
+</style>
+</head>
+<body>
+<div id="srcBanner" class="srcbanner" hidden></div>
+<div class="wrap">
+  <header>
+    <h1>👀 <span data-t="title"></span></h1>
+    <div class="summary" id="summary"></div>
+    <button class="newver" id="newVer" hidden></button>
+      <a class="btn" id="classicLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/status-classic.html" target="_blank" rel="noopener">經典報表</a>
+    <div class="controls">
+      <div class="seg" id="viewSeg">
+        <button data-v="office" data-t="office"></button>
+        <button data-v="list" data-t="list"></button>
+      </div>
+      <div class="seg" id="qualSeg">
+        <button data-v="mid" data-t="qMid"></button>
+        <button data-v="high" data-t="qHigh"></button>
+      </div>
+      <details class="settings menu" id="sceneMenu">
+        <summary class="btn" aria-controls="scenePanel" data-a="scene"><span class="scene-ico" id="sceneIco"></span><span id="sceneName"></span></summary>
+        <div class="settings-panel list-panel scene-panel" id="scenePanel">
+          <div class="setting-label" data-t="scene"></div>
+          <div class="pick-list scene-list" id="sceneSeg" role="group"></div>
+        </div>
+      </details>
+      <span class="toolbar-space" aria-hidden="true"></span>
+      <button class="btn" id="pipBtn" hidden></button>
+      <details class="settings menu" id="todayMenu">
+        <summary class="btn" aria-controls="todayPanel" data-a="today"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5h17"/><rect x="5" y="11" width="3.2" height="7" rx="1"/><rect x="10.4" y="6" width="3.2" height="12" rx="1"/><rect x="15.8" y="13.5" width="3.2" height="4.5" rx="1"/></svg><span data-t="today"></span> <span class="today-tokens" id="todayTokens"></span></summary>
+        <div class="settings-panel today-panel" id="todayPanel"></div>
+      </details>
+      <details class="settings menu" id="agentMenu">
+        <summary class="btn" aria-controls="agentPanel" data-a="agents"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16l-6 7.2v5.3l-4 1.5v-6.8z"/></svg><span id="agentName"></span></summary>
+        <div class="settings-panel list-panel" id="agentPanel">
+          <div class="setting-label" data-t="agents"></div>
+          <div class="pick-list" id="agentChips" role="group"></div>
+        </div>
+      </details>
+      <details class="settings menu" id="langMenu">
+        <summary class="btn" aria-controls="langPanel" data-a="language"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.8"/><path d="M3.4 12h17.2M12 3.2c2.6 2.6 3.7 5.6 3.7 8.8s-1.1 6.2-3.7 8.8M12 3.2C9.4 5.8 8.3 8.8 8.3 12s1.1 6.2 3.7 8.8"/></svg><span id="langName"></span></summary>
+        <div class="settings-panel list-panel" id="langPanel">
+          <div class="setting-label" data-t="language"></div>
+          <div class="pick-list" id="langList" role="listbox"></div>
+        </div>
+      </details>
+      <details class="settings menu" id="settingsMenu">
+        <summary class="btn" aria-controls="settingsPanel" data-a="settings"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.1 2.6h-4l-.4 2.4A7.5 7.5 0 0 0 7.1 6.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.5 7.5 0 0 0 2.6 1.5l.4 2.4h4l.4-2.4a7.5 7.5 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg><span data-t="settings"></span></summary>
+        <div class="settings-panel prefs-panel" id="settingsPanel">
+          <div class="setting-toggles">
+            <label class="tog"><span data-t="subagents"></span><input type="checkbox" role="switch" id="showSub"></label>
+            <label class="tog" id="idleToggle"><span data-t="showIdle"></span><input type="checkbox" role="switch" id="showIdle"></label>
+            <label class="tog" id="agentBadgeToggle"><span data-t="showAgent"></span><input type="checkbox" role="switch" id="showAgent"></label>
+            <label class="tog" id="soundToggle"><span data-t="sound"></span><input type="checkbox" role="switch" id="sound"></label>
+            <label class="tog" id="notifyToggle"><span data-t="notify"></span><input type="checkbox" role="switch" id="notify"></label>
+          </div>
+          <p class="tog-note" id="notifyNote" data-t="notifyBlocked" hidden></p>
+          <div class="setting-row" id="memberWrap" style="margin-top:10px">
+            <label class="setting-label" data-t="membersL" for="memberNames"></label>
+            <textarea id="memberNames" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--panel);color:var(--ink)"></textarea>
+            <p class="tog-note" data-t="membersNote"></p>
+          </div>
+        </div>
+      </details>
+    </div>
+  </header>
+  <p class="pip-error" id="pipError" role="alert" hidden></p>
+  <div class="pip-preview" id="pipPreview" hidden>
+    <p data-t="pipVideoHint"></p>
+    <video id="pipVideo" controls autoplay muted playsinline aria-label="Office video preview"></video>
+    <button class="btn" id="videoPipBtn" data-t="pip" hidden></button>
+    <button class="btn" id="closePreview" data-t="pipStop"></button>
+  </div>
+  <div id="officeWrap">
+    <div class="office loading" id="office"><div class="office-loader"><div class="spin"></div><span id="loaderText"></span></div></div>
+    <div class="legend" id="legend"></div>
+    <div class="legend" id="agentLegend" hidden></div>
+  </div>
+  <aside class="side" id="side" aria-label="Agents">
+    <div class="side-pane" id="sideList">
+      <div class="side-head"><b id="sideTitle"></b><span class="side-count" id="sideCount"></span>
+        <button class="icon-btn" id="sideHide"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L21 12l-6.5 6.5M3 12h17"/></svg></button></div>
+      <div class="side-body" id="sideRows"></div>
+    </div>
+    <div class="side-pane" id="sideDetail" inert>
+      <div class="side-head"><button class="icon-btn" id="sideBack"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><b id="detailTitle"></b></div>
+      <div class="side-body" id="detailBody"></div>
+    </div>
+  </aside>
+  <button class="side-tab" id="sideTab"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L3 12l6.5 6.5M21 12H4"/></svg><span id="sideTabCount"></span></button>
+  <main id="main"></main>
+</div>
+<div class="conn" id="conn" data-t="disconnected"></div>
+<div id="tfAuth" hidden style="position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Zhuge AI OS 才能讀取正式任務。<a style="color:#ffd9a0" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">使用既有 Zhuge AI OS 登入</a></div>
+<div class="tip" id="tip"></div>
+<div class="ver" id="ver"></div>
+<script src="i18n.js"></script>
+<script src="office.js"></script>
+<script src="tf-source.js"></script>
+<script src="notify-rules.js"></script>
+<script src="members.js"></script>
+<script src="popout.js"></script>
+
+<script>
+// Language: your pick in the 🌐 menu, else the language of your prompts
+// (the server guesses it), else the browser's, else English.
+let L = I18N.en;
+let langCode = 'en';
+let rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
+function chooseLang(serverGuess) {
+  const pick = store.get('lang', 'auto');
+  if (pick !== 'auto' && I18N[pick]) return pick;
+  if (serverGuess && I18N[serverGuess]) return serverGuess;
+  return i18nFromBrowser(navigator.languages || [navigator.language]) || 'en';
+}
+function applyLang(code) {
+  if (code === langCode && L === I18N[code] && document.documentElement.dataset.localized) return;
+  document.documentElement.dataset.localized = 'true';
+  langCode = code;
+  L = I18N[code];
+  document.documentElement.lang = L.html;
+  rtf = new Intl.RelativeTimeFormat(L.html, { numeric: 'auto', style: 'short' });
+  document.querySelectorAll('[data-t]').forEach((el) => (el.textContent = L[el.dataset.t]));
+  document.querySelectorAll('[data-a]').forEach((el) => { el.setAttribute('aria-label', L[el.dataset.a]); el.title = L[el.dataset.a]; });
+  const legend = document.getElementById('legend');
+  if (legend) legend.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
+    .map((k) => {
+      const kk = k.replace('tf:', '');
+      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: L.idle }[kk] || kk) : (L[k] || k);
+      const color = ({ needsYou: 'var(--waiting)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
+      return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
+    }).join(' ');
+  if (typeof renderLangMenu === 'function') renderLangMenu();
+  if (typeof office !== 'undefined' && office) office.offDutyLabel = L.wentHome;
+  if (typeof syncControls === 'function') syncControls();
+  if (typeof renderSceneSel === 'function') renderSceneSel();
+  if (typeof renderVersion === 'function') renderVersion();
+}
+
+const store = (() => {
+  const fallback = new Map();
+  const get = (k, d) => { try { const v = localStorage.getItem('wmad.' + k); return v == null ? d : JSON.parse(v); } catch { return fallback.has(k) ? fallback.get(k) : d; } };
+  const set = (k, v) => { fallback.set(k, v); try { localStorage.setItem('wmad.' + k, JSON.stringify(v)); } catch {} };
+  return { get, set };
+})();
+
+const PREF_DEFAULTS = { view: 'office', quality: 'high', scene: 'office', agents: [], showSub: false, showIdle: false, showAgent: true, sound: false, notify: true, side: true, lang: 'auto' };
+function validAgentId(v) {
+  return typeof v === 'string' && v !== 'all' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(v) && !Object.hasOwn(Object.prototype, v);
+}
+function validPreference(k, v) {
+  if (!Object.hasOwn(PREF_DEFAULTS, k)) return false;
+  if (typeof PREF_DEFAULTS[k] === 'boolean') return typeof v === 'boolean';
+  if (k === 'view') return ['office', 'list'].includes(v);
+  if (k === 'quality') return ['mid', 'high'].includes(v);
+  // Which agents to show; none selected means all of them.
+  if (k === 'agents') return Array.isArray(v) && v.length <= 32 && v.every(validAgentId);
+  if (k === 'lang') return v === 'auto' || Object.hasOwn(I18N, v);
+  return typeof v === 'string' && /^[a-z0-9-]+$/.test(v);
+}
+// The filter used to be one agent or 'all'; carry an old single choice over once.
+{
+  const old = store.get('agent', 'all');
+  if (validAgentId(old) && !store.get('agents', []).length) store.set('agents', [old]);
+  if (old !== 'all') store.set('agent', 'all');
+}
+function readPreferences() {
+  return Object.fromEntries(Object.entries(PREF_DEFAULTS).map(([k, d]) => {
+    const v = store.get(k, d);
+    return [k, validPreference(k, v) ? v : d];
+  }));
+}
+// Capture the query ONCE: the preference block below strips it with
+// replaceState, while the TF live-source params are only read near connect().
+const PAGE_QUERY = new URLSearchParams(location.search);
+const PIP = PAGE_QUERY.get('pip') === '1';
+if (PIP) document.body.classList.add('pip');
+
+// ?view=office&quality=high&scene=pirate (what `--scene` opens) sets the prefs.
+{
+  const q = PAGE_QUERY;
+  if (PIP) {
+    try {
+      for (const [k, v] of Object.entries(JSON.parse(q.get('prefs')) || {})) if (validPreference(k, v)) store.set(k, v);
+    } catch { /* malformed preferences use the saved defaults */ }
+  }
+  for (const k of ['view', 'quality', 'scene', 'lang']) if (validPreference(k, q.get(k))) store.set(k, q.get(k));
+  if (location.search) history.replaceState(null, '', location.pathname + (PIP ? '?pip=1' : ''));
+}
+
+const state = {
+  ...readPreferences(),
+  // The dashboard is always the full-window office with the agent panel; the pop-out keeps its compact views.
+  full: !PIP,
+  scenes: [],
+  data: { now: Date.now(), sessions: [] },
+  skew: 0,
+  prev: new Map(), // key -> { status, cardStatus, stuck } via NotifyRules.decide
+  flash: new Set(),
+};
+let popout = null;
+
+const ACTIVE = new Set(['thinking', 'tool', 'typing']);
+const AGENT_NAME = Object.fromEntries(Object.entries(OFFICE_AGENT_BADGES).map(([agent, badge]) => [agent, badge.label]));
+// TF cards are grouped by their real card status (tf.issueStatus), never by
+// the animation status: 已完成 counts ONLY 核定完成 (done); 已取消 is its own
+// group, not finished. Non-TF sessions fall back to upstream behavior.
+function groupOf(s) {
+  if (s.member) return 'member';
+  if (s.tf) {
+    switch (s.tf.issueStatus) {
+      case 'in_review': case 'blocked': return 'needsYou';
+      case 'in_progress': return 'working';
+      case 'done': return 'finished';
+      case 'cancelled': return 'interrupted';
+      default: return 'idle';
+    }
+  }
+  if (s.status === 'waiting' || s.status === 'error') return 'needsYou';
+  if (ACTIVE.has(s.status)) return 'working';
+  if (s.status === 'done' || s.status === 'interrupted') return 'finished';
+  return 'idle';
+}
+const GROUPS = [
+  { key: 'needsYou', match: (s) => groupOf(s) === 'needsYou' },
+  { key: 'working', match: (s) => groupOf(s) === 'working' },
+  { key: 'finished', match: (s) => groupOf(s) === 'finished' },
+  { key: 'interrupted', match: (s) => groupOf(s) === 'interrupted' },
+  { key: 'idle', match: (s) => groupOf(s) === 'idle' },
+  { key: 'member', match: (s) => groupOf(s) === 'member' },
+];
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function dur(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
+function ago(t, now) {
+  const s = Math.round((t - now) / 1000);
+  if (s > -45) return rtf.format(0, 'second');
+  const m = Math.round(s / 60);
+  if (m > -60) return rtf.format(m, 'minute');
+  const h = Math.round(m / 60);
+  if (h > -24) return rtf.format(h, 'hour');
+  return rtf.format(Math.round(h / 24), 'day');
+}
+
+function timeLabel(s, now) {
+  if ((ACTIVE.has(s.status) || s.status === 'waiting') && s.turnStartedAt) return dur(now - s.turnStartedAt);
+  return s.lastEventAt ? ago(s.lastEventAt, now) : '';
+}
+
+// Single-quote for POSIX shells: inside '…' nothing ($(), backticks, $VAR)
+// is expanded, so a folder or session name can't run anything when pasted.
+const shq = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
+function resumeCmd(s) {
+  if (s.tf) return ''; // TaskFlow cards have no local CLI resume command
+  if (s.source === 'magpie') return '';
+  if (s.agent === 'omp') return s.resumeCommand || '';
+  const cd = s.cwd ? `cd ${shq(s.cwd)} && ` : '';
+  if (s.agent === 'claude') return `${cd}claude --resume ${shq(s.id)}`;
+  if (s.agent === 'gemini') return `${cd}gemini --resume ${shq(s.sessionId || s.id)}`;
+  if (s.agent === 'copilot') return `${cd}copilot --resume ${shq(s.sessionId || s.id)}`;
+  if (s.agent === 'kimi') return `${cd}kimi --session ${shq(s.sessionId || s.id)}`;
+  if (s.agent === 'dsh') return `${cd}dsh tui --resume ${shq(s.id)}`;
+  if (s.agent === 'grok') return `${cd}grok --resume ${shq(s.id)}`;
+  return s.agent === 'codex' ? `${cd}codex resume ${shq(s.id)}` : '';
+}
+
+function agentLogo(agent) {
+  const badge = OFFICE_AGENT_BADGES[agent];
+  return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" src="${badge.logo}" alt="" aria-hidden="true">` : '';
+}
+
+
+function fmtTokens(n) {
+  if (n < 1000) return String(n);
+  if (n < 1e6) return `${(n / 1e3).toFixed(n < 1e4 ? 1 : 0)}k`;
+  return `${(n / 1e6).toFixed(n < 1e7 ? 2 : 1)}M`;
+}
+
+// How full the model's context window is, from the latest request in the log.
+function contextBar(c) {
+  if (!c || !c.window) return '';
+  const pct = Math.min(100, Math.round((c.used / c.window) * 100));
+  const tip = `${L.context} ${fmtTokens(c.used)} / ${fmtTokens(c.window)}`;
+  return `<div class="ctx${pct >= 85 ? ' full' : pct >= 60 ? ' warn' : ''}" title="${esc(tip)}"><span>${esc(L.context)}</span><span class="bar"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+}
+
+function renderToday() {
+  const t = state.data.summary;
+  document.getElementById('todayTokens').textContent = t && t.tokens ? fmtTokens(t.tokens) : '';
+  const panel = document.getElementById('todayPanel');
+  if (!t || !t.agents) { panel.innerHTML = `<div class="today-note">${esc(L.noUsage)}</div>`; return; }
+  const agents = Object.entries(t.byAgent).sort((a, b) => b[1].turns - a[1].turns || b[1].tokens - a[1].tokens);
+  const projects = Object.entries(t.projects).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  panel.innerHTML = `
+    <div class="today-big">
+      <div><b>${t.turns}</b><span>${esc(L.turnsL)}</span></div>
+      <div><b>${fmtTokens(t.tokens)}</b><span>${esc(L.tokensL)}</span></div>
+      <div><b>${t.agents}</b><span>${esc(L.agentsL)}</span></div>
+    </div>
+    ${agents.map(([a, v]) => `<div class="today-row">${agentLogo(a)}${esc(AGENT_NAME[a] || a)}<span class="n">${v.turns} ${esc(L.turnsL)} · ${fmtTokens(v.tokens)}</span></div>`).join('')}
+    ${projects.length ? `<div class="today-head">${esc(L.topProjects)}</div>` : ''}
+    ${projects.map(([p, n]) => `<div class="today-row">${esc(p)}<span class="n">${n} ${esc(L.turnsL)}</span></div>`).join('')}
+    <div class="today-note">${esc(L.summaryNote)}</div>`;
+}
+
+
+// Zhuge TF truth block: card status and queue status are shown as separate,
+// raw TaskFlow values. The excerpt area shows agent report labels only;
+// raw conversation transcripts have no established access path (gap noted).
+const TF_ISSUE_LABEL = { backlog: '待辦（backlog）', todo: '待辦（todo）', in_progress: '進行中', in_review: '回報待稽核', done: '核定完成', blocked: '卡關', cancelled: '已取消' };
+const TF_QUEUE_LABEL = { queued: '排隊中', dispatched: '已派發', running: '執行中', completed: '已結束', failed: '失敗', cancelled: '已取消' };
+function tfBlock(s, suppressGap) {
+  if (!s.tf) return '';
+  const t = s.tf;
+  const ex = t.reportLabels && t.reportLabels.length
+    ? `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
+      t.reportLabels.map((l) => `<div class="tfex" title="${esc(l)}">${esc(l)}</div>`).join('') +
+      (suppressGap ? '' : `<div class="tfgap">${esc(L.excerptGap || '對話摘錄未接線：以上為回報模板標籤，不是對話內容；原始對話無存取管道')}</div>`)
+    : (suppressGap ? '' : `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
+      `<div class="tfgap">${esc(L.excerptGapNone || '無回報紀錄；對話摘錄未接線：原始對話無存取管道')}</div>`);
+  return `<div class="tf">
+    <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId || '未知')}</b></div>
+    <div class="tfrow"><span>${esc(L.queueL || '執行佇列')}</span><b>${esc(TF_QUEUE_LABEL[t.taskflowTaskStatus] || t.taskflowTaskStatus || '—')}</b></div>
+    ${ex}
+  </div>`;
+}
+
+function statusLabel(s) {
+  if (s.member) return L.member || '成員';
+  if (s.tf) return TF_ISSUE_LABEL[s.tf.issueStatus] || s.tf.issueStatus || '未知';
+  return L[s.status] || s.status;
+}
+function card(s, now) {
+  const project = s.project || (s.cwd ? s.cwd : '—');
+  const title = s.title && s.title !== project ? `<div class="title" title="${esc(s.title)}">${esc(s.title)}</div>` : '';
+  const act = s.activity ? `<span class="act" title="${esc(s.activity)}">${esc(s.activity)}</span>` : '';
+  const showText = !s.subagent || ACTIVE.has(s.status);
+  const q = showText && s.prompt ? `<div class="q" title="${esc(s.prompt)}">${esc(s.prompt)}</div>` : '';
+  const r = showText && s.reply && !ACTIVE.has(s.status) ? `<div class="r" title="${esc(s.reply)}">${esc(s.reply)}</div>` : '';
+  const err = s.error ? `<div class="err">${esc(s.error)}</div>` : '';
+  const sub = s.subagent ? ` · ${L.sub}` : '';
+  const stuck = s.stuck ? `<span class="stuck"><svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.6 13.1A2 2 0 0 1 19.6 20H4.4a2 2 0 0 1-1.7-2.7z"/><path d="M12 9.5v4.2M12 16.6v.1"/></svg>${esc(L.stuck(s.stuck))}</span>` : '';
+  const ctx = contextBar(s.context);
+  return `
+  <div class="card${s.subagent ? ' sub' : ''}${s.stuck ? ' is-stuck' : ''}${state.flash.has(s.key) ? ' flash' : ''}" data-s="${s.status}" data-key="${esc(s.key)}">
+    <div class="top">
+      <span class="agent ${esc(s.agent)}">${agentLogo(s.agent)}${esc(s.agentName || AGENT_NAME[s.agent] || s.agent)}</span>
+      <span class="project" title="${esc(s.cwd)}">${esc(project)}</span>
+      <span class="time" data-time="${esc(s.key)}">${esc(timeLabel(s, now))}</span>
+    </div>
+    ${title}
+    <div class="status"><span class="ind"><i></i><i></i><i></i></span><span class="lbl">${esc(statusLabel(s))}</span>${act}${stuck}</div>
+    ${err}${q}${r}${ctx}
+    ${tfBlock(s)}
+    <div class="foot"><span class="model">${esc(s.tf ? '' : (s.model || '') + sub)}</span>${resumeCmd(s) ? `<button class="copy" data-copy="${esc(resumeCmd(s))}">${L.copy}</button>` : ''}</div>
+  </div>`;
+}
+
+const matchAgent = (s) => !state.agents.length || state.agents.includes(s.agent);
+function visible() {
+  return state.data.sessions.filter((s) =>
+    matchAgent(s) &&
+    (state.showSub || !s.subagent) &&
+    (state.showIdle || s.status !== 'idle' || s.member || !!(s.tf && s.tf.issueStatus === 'in_progress')));
+}
+
+function render() {
+  const now = Date.now() - state.skew;
+  const list = visible();
+  const all = state.data.sessions.filter((s) => matchAgent(s) && (state.showSub || !s.subagent));
+
+  const count = (f) => all.filter((s) => f(s)).length;
+  document.getElementById('summary').innerHTML = GROUPS.slice(0, 3).map((g) => {
+    const n = count(g.match);
+    const color = g.key === 'needsYou' ? 'var(--waiting)' : g.key === 'working' ? 'var(--tool)' : 'var(--done)';
+    return `<span class="chip"><span class="dot" style="color:${color}"></span>${L[g.key]} <b>${n}</b></span>`;
+  }).join('');
+  const lg = document.getElementById('legend');
+  if (lg) lg.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
+    .map((k) => {
+      const kk = k.replace('tf:', '');
+      const label = k === 'member' ? (L.member || kk) : k.startsWith('tf:') ? ({ needsYou: L.needsYou, working: L.working, finished: L.finished, interrupted: L.interrupted, idle: L.idle }[kk] || kk) : (L[k] || k);
+      const color = ({ needsYou: 'var(--waiting)', working: 'var(--tool)', finished: 'var(--done)', interrupted: 'var(--muted)', idle: 'var(--muted)' }[kk]) || 'var(--muted)';
+      return `<span style="color:${color}">●</span><span>${esc(label)}</span>`;
+    }).join(' ');
+
+  renderToday();
+  renderSide();
+  const sb = document.getElementById('srcBanner');
+  if (state.data.sourceNote) { sb.hidden = false; sb.innerHTML = `<b>${esc(state.data.sourceNote)}</b>`; }
+  const working = count((s) => ACTIVE.has(s));
+  const needs = count(GROUPS[0].match);
+  document.title = (needs ? `(${needs}!) ` : working ? `(${working}) ` : '') + L.title;
+
+  const main = document.getElementById('main');
+  const officeMode = state.view === 'office' || state.full;
+  document.getElementById('officeWrap').style.display = officeMode ? '' : 'none';
+  // The office decides who sits at a desk and who wanders around.
+  const officeList = all;
+  const poppedOut = !!popout?.win;
+  // Wait for the first snapshot so people start at their places instead of
+  // all walking in through the door.
+  if (office && state.loaded) {
+    office.showAgent = state.showAgent;
+    office.setVisible(officeMode && !poppedOut);
+    office.update(officeList);
+  }
+  const agents = new Set(officeList.map(s => s.agent));
+  const legend = document.getElementById('agentLegend');
+  const labels = Object.keys(OFFICE_AGENT_BADGES).filter(agent => agents.has(agent))
+    .map(agent => `<span>${agentLogo(agent)}${esc(AGENT_NAME[agent])}</span>`).join('');
+  if (legend.innerHTML !== labels) legend.innerHTML = labels;
+  legend.hidden = !state.showAgent || !labels;
+  document.getElementById('idleToggle').style.display = officeMode && !state.full ? 'none' : '';
+  if (poppedOut) {
+    document.getElementById('officeWrap').style.display = 'none';
+    main.innerHTML = `<div class="empty">${esc(L.pipOn)}</div>`;
+    hideTip();
+    return;
+  }
+  if (officeMode) {
+    main.innerHTML = officeList.length ? '' : `<div class="empty">${esc(L.empty)}</div>`;
+    document.getElementById('officeWrap').style.display = officeList.length || state.full ? '' : 'none';
+    refreshTip();
+    return;
+  }
+  const groups = PIP ? GROUPS.slice(0, 2) : GROUPS;
+  if (!list.some((s) => groups.some((g) => g.match(s)))) {
+    main.innerHTML = `<div class="empty">${esc(PIP ? L.pipQuiet : L.empty)}</div>`;
+    return;
+  }
+  main.innerHTML = groups.map((g) => {
+    const items = list.filter((s) => g.match(s));
+    if (!items.length) return '';
+    return `<section><h2>${L[g.key]} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
+  }).join('');
+}
+
+function tickTimes() {
+  if (tipKey) refreshTip();
+  const now = Date.now() - state.skew;
+  const byKey = new Map(state.data.sessions.map((s) => [s.key, s]));
+  document.querySelectorAll('[data-time]').forEach((el) => {
+    const s = byKey.get(el.dataset.time);
+    if (s) el.textContent = timeLabel(s, now);
+  });
+}
+
+// Merge private office members (this-device roster only, public/members.js)
+// into the displayed data. The raw feed stays in state.feed so roster edits
+// can rebuild without a refetch; members never reach NotifyRules (no alerts)
+// and form their own 成員 group, so task statistics are unaffected.
+function withMembers(data) {
+  const names = OfficeMembers.load((k) => { try { return localStorage.getItem(k); } catch { return null; } });
+  if (!names.length) return data;
+  return { ...data, sessions: [...data.sessions, ...OfficeMembers.toSessions(names)] };
+}
+
+function onData(data) {
+  for (const s of data.sessions) {
+    if (!validAgentId(s.agent)) continue;
+    if (!Object.hasOwn(AGENT_NAME, s.agent)) AGENT_NAME[s.agent] = s.agentName || s.agent;
+  }
+  state.skew = Date.now() - data.now;
+  // Alert decisions live in NotifyRules (public/notify-rules.js, unit-tested):
+  // completion follows the card's real status (tf.issueStatus), never the
+  // animation status; first snapshot and duplicate fetches never alert.
+  state.flash.clear();
+  const decided = NotifyRules.decide(state.prev, data.sessions);
+  state.prev = decided.next;
+  for (const a of decided.alerts) {
+    const s = a.session;
+    const alert = a.kind === 'done' ? L.doneNote(s.project || s.agent)
+      : a.kind === 'stuck' ? `${s.project || s.agent}: ${L.stuck(s.stuck)}`
+      : `${s.project || s.agent}: ${L[s.status]}`;
+    state.flash.add(s.key);
+    if (!PIP && !s.subagent) {
+      if (state.notify && window.Notification && Notification.permission === 'granted') {
+        try { new Notification(alert, { body: s.reply || s.activity || '', tag: s.key }); } catch {}
+      }
+      if (state.sound) chime(a.kind === 'done' ? 'done' : 'attention');
+    }
+  }
+  state.feed = data;
+  state.data = withMembers(data);
+  state.loaded = true;
+  syncControls();
+  applyLang(chooseLang(data.lang));
+  render();
+}
+
+// A short synthesized chime, so no audio file is bundled: one tone when a turn
+// finishes, two rising tones when an agent needs you or looks stuck.
+let audio = null;
+function chime(kind) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const notes = kind === 'done' ? [660] : [587, 880];
+    notes.forEach((f, i) => {
+      const t = audio.currentTime + i * 0.16, o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g).connect(audio.destination);
+      o.start(t); o.stop(t + 0.4);
+    });
+  } catch {}
+}
+
+const TF_MODE = PAGE_QUERY.get('source') === 'tf';
+if (TF_MODE) document.body.classList.add('tf-mode');
+function connect() {
+  const conn = document.getElementById('conn');
+  if (TF_MODE) {
+    // Same-origin TF supply: existing /api/zhuge/* + cookie session gate.
+    // Fail-closed: auth/transport errors never fall back to demo data.
+    window.startTfSource({
+      intervalSec: 3600,
+      apiBase: PAGE_QUERY.get('tfApi') || 'https://zhuge-taskflow-api.onrender.com',
+      workspace: PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7',
+      onData,
+      onState: ({ auth, error }) => {
+        document.getElementById('tfAuth').hidden = !auth;
+        conn.classList.toggle('on', !!error);
+      },
+    });
+    return;
+  }
+  const es = new EventSource('events');
+  es.onmessage = (e) => { conn.classList.remove('on'); onData(JSON.parse(e.data)); };
+  es.onerror = () => conn.classList.add('on');
+}
+
+// Native disclosure keeps settings keyboard-accessible without a modal focus trap.
+const settingsMenu = document.getElementById('settingsMenu');
+const todayMenu = document.getElementById('todayMenu');
+// Toolbar menus: one open at a time; a click outside or Escape closes them.
+const MENUS = [...document.querySelectorAll('details.menu')];
+function closeMenus() { for (const m of MENUS) m.open = false; }
+for (const m of MENUS) m.addEventListener('toggle', () => { if (m.open) for (const o of MENUS) if (o !== m) o.open = false; });
+// composedPath is fixed when the click starts, so a list that redraws under the
+// pointer (the agent filter) still counts as a click inside its menu.
+document.addEventListener('click', (e) => { const path = e.composedPath(); for (const m of MENUS) if (!path.includes(m)) m.open = false; });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const m = MENUS.find((x) => x.open);
+  if (m) { m.open = false; m.querySelector('summary').focus(); }
+});
+settingsMenu.addEventListener('toggle', () => { if (settingsMenu.open) hideTip(); });
+
+document.getElementById('qualSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.quality = b.dataset.v; store.set('quality', state.quality); hideTip(); syncControls(); makeOffice();
+});
+document.getElementById('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  state.view = b.dataset.v; store.set('view', state.view); hideTip(); syncControls(); render();
+});
+const showSub = document.getElementById('showSub');
+const showIdle = document.getElementById('showIdle');
+const showAgent = document.getElementById('showAgent');
+showSub.addEventListener('change', () => { state.showSub = showSub.checked; store.set('showSub', state.showSub); renderNow(); });
+showIdle.addEventListener('change', () => { state.showIdle = showIdle.checked; store.set('showIdle', state.showIdle); renderNow(); });
+const soundBox = document.getElementById('sound');
+soundBox.addEventListener('change', () => {
+  state.sound = soundBox.checked; store.set('sound', state.sound);
+  if (state.sound) chime('done'); // a preview, and the click unlocks audio for later alerts
+});
+showAgent.addEventListener('change', () => { state.showAgent = showAgent.checked; store.set('showAgent', state.showAgent); syncControls(); render(); });
+
+const notifyBtn = document.getElementById('notify');
+function syncControls() {
+  const view = state.full ? 'office' : state.view;
+  document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.view));
+  document.querySelectorAll('#qualSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.quality));
+  document.getElementById('qualSeg').style.display = view === 'office' ? '' : 'none';
+  document.getElementById('sceneMenu').hidden = view !== 'office' || state.quality !== 'high';
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.classList.contains('on')));
+  showSub.checked = state.showSub;
+  showIdle.checked = state.showIdle;
+  soundBox.checked = state.sound;
+  showAgent.checked = state.showAgent;
+  document.getElementById('agentBadgeToggle').style.display = view === 'office' ? '' : 'none';
+  popout?.sync(PIP, view);
+  // On only when both the switch and the browser allow it; blocked shows how to unblock.
+  const perm = window.Notification ? Notification.permission : 'unsupported';
+  document.getElementById('notifyToggle').style.display = perm === 'unsupported' ? 'none' : '';
+  notifyBtn.checked = state.notify && perm === 'granted';
+  document.getElementById('notifyNote').hidden = perm !== 'denied';
+}
+notifyBtn.addEventListener('change', async () => {
+  if (notifyBtn.checked && Notification.permission !== 'granted') {
+    // The first time, ask the browser; a refusal leaves the switch off with a hint.
+    try { await Notification.requestPermission(); } catch {}
+  }
+  state.notify = notifyBtn.checked && Notification.permission === 'granted';
+  store.set('notify', notifyBtn.checked);
+  syncControls();
+});
+
+const memberNames = document.getElementById('memberNames');
+try { memberNames.value = OfficeMembers.load((k) => localStorage.getItem(k)).join('\n'); } catch {}
+memberNames.addEventListener('change', () => {
+  const names = memberNames.value.split('\n').map((x) => x.trim()).filter(Boolean);
+  try { localStorage.setItem(OfficeMembers.KEY, JSON.stringify(names)); } catch {}
+  if (state.feed) { state.data = withMembers(state.feed); renderNow(); }
+});
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  navigator.clipboard?.writeText(b.dataset.copy).then(() => {
+    b.textContent = L.copied; setTimeout(() => (b.textContent = L.copy), 1400);
+  });
+});
+
+// ---- office view
+const tip = document.getElementById('tip');
+let tipKey = null, tipPinned = false, tipAt = { x: 0, y: 0 };
+function placeTip() {
+  const r = tip.getBoundingClientRect();
+  let x = tipAt.x + 16, y = tipAt.y + 16;
+  if (x + r.width > innerWidth - 8) x = tipAt.x - r.width - 16;
+  if (y + r.height > innerHeight - 8) y = Math.max(8, innerHeight - r.height - 8);
+  tip.style.left = Math.max(8, x) + 'px';
+  tip.style.top = y + 'px';
+}
+function refreshTip() {
+  if (!tipKey) return;
+  const s = state.data.sessions.find((x) => x.key === tipKey);
+  if (!s) return hideTip();
+  tip.innerHTML = card(s, Date.now() - state.skew);
+  placeTip();
+}
+function hideTip() { tipKey = null; tipPinned = false; tip.style.display = 'none'; tip.classList.remove('pinned'); }
+const officeOpts = {
+  compact: PIP,
+  onFrame: (renderer) => popout?.drawPreview(renderer),
+  label: (s) => (s.agent === 'omp' && s.subagent && s.title) || s.project || AGENT_NAME[s.agent] || s.agent,
+  onHover(s, at, click) {
+    // In full screen a click opens the agent in the side panel instead of pinning a card.
+    if (click && state.full && s) { hideTip(); openDetail(s.key); return; }
+    if (click) {
+      if (!s) return hideTip();
+      tipPinned = true; tip.classList.add('pinned');
+    } else if (tipPinned) return;
+    if (!s) { if (!tipPinned) hideTip(); return; }
+    tipKey = s.key; tipAt = at;
+    tip.style.display = 'block';
+    refreshTip();
+  },
+};
+let office = null;
+let officeKind = null;
+// The 3D office (three.js + models) is only fetched when someone picks it.
+// Until the new office has drawn a settled frame, show a loader instead of a
+// half-built scene.
+const officeEl = document.getElementById('office');
+function setLoading(on, text) {
+  officeEl.classList.toggle('loading', on);
+  if (text) document.getElementById('loaderText').textContent = text;
+}
+async function makeOffice() {
+  const high = state.quality === 'high';
+  const scene = high && state.scene !== 'office' && state.scenes.some((x) => x.id === state.scene) ? state.scene : 'office';
+  const kind = high ? `high:${scene}` : 'mid';
+  if (kind === officeKind) return;
+  officeKind = kind;
+  setLoading(true, high ? L.loading3d : L.loading2d);
+  let Cls = window.Office;
+  const opts = { ...officeOpts, showAgent: state.showAgent };
+  if (high) {
+    try {
+      Cls = (await import('./office3d.js')).Office3D;
+      if (scene !== 'office') {
+        const m = await fetch(`/scenes/${scene}/manifest.json`).then((r) => r.json());
+        opts.scene = { ...m, base: `/scenes/${scene}/` };
+      }
+    } catch (e) { console.error(e); Cls = window.Office; }
+    if (officeKind !== kind) return;
+  }
+  if (office) office.destroy();
+  let mine;
+  try {
+    mine = new Cls(officeEl, opts);
+  } catch (e) {
+    console.error(e);
+    mine = new window.Office(officeEl, officeOpts);
+    if (high) { state.quality = 'mid'; store.set('quality', 'mid'); officeKind = 'mid'; syncControls(); }
+  }
+  office = mine;
+  office.offDutyLabel = L.wentHome;
+  office.setInset(panelInset(), false);
+  render();
+  const ok = await mine.ready;
+  if (office !== mine) return;
+  if (!ok && high) {
+    // 3D failed (no WebGL, missing files…): fall back to the 2D office.
+    setLoading(true, L.failed3d);
+    state.quality = 'mid'; store.set('quality', 'mid'); syncControls();
+    setTimeout(() => makeOffice(), 1200);
+    return;
+  }
+  setLoading(false);
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+
+// Scenes (3D only): the built-in office plus any installed scene packs.
+const sceneSel = document.getElementById('sceneSeg');
+state.available = [];
+const CHECK = '<svg class="ui-ico chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+// Scene icons are drawn, one per known pack; any other pack gets a map.
+const SCENE_ART = {
+  office: '<rect x="4.5" y="3" width="15" height="18.5" rx="2" fill="#7b93b8"/><rect x="4.5" y="3" width="15" height="3" rx="1.5" fill="#5f7699"/><g fill="#dbe8fb"><rect x="7" y="8" width="3" height="2.4" rx=".5"/><rect x="14" y="8" width="3" height="2.4" rx=".5"/><rect x="7" y="12" width="3" height="2.4" rx=".5"/><rect x="14" y="12" width="3" height="2.4" rx=".5"/></g><rect x="10.3" y="16" width="3.4" height="5.5" rx=".6" fill="#3f4e66"/>',
+  graveyard: '<path d="M12 7.4c-5.1 0-8.4 2.8-8.4 6.9S6.9 21 12 21s8.4-2.6 8.4-6.7-3.3-6.9-8.4-6.9z" fill="#ff8a2a"/><path d="M12 7.4c-2 1.9-2.2 11.6 0 13.6M12 7.4c2 1.9 2.2 11.6 0 13.6" fill="none" stroke="#e0661a" stroke-width="1.1"/><path d="M11 7.6c.1-2.1.9-3.6 2.7-4.3l.8 1.1c-1.2.6-1.7 1.7-1.6 3.2z" fill="#4f8a3a"/><path d="M8 12.3l1.8-1.6 1.1 1.9zM16 12.3l-1.8-1.6-1.1 1.9zM8.3 15.2c1 1.9 6.4 1.9 7.4 0-1.1.5-2 .8-3.7.8s-2.6-.3-3.7-.8z" fill="#5a2a10"/>',
+  pirate: '<path d="M2.5 17.2c1.6 1.3 3.2 1.3 4.8 0s3.2-1.3 4.7 0 3.2 1.3 4.8 0 3.1-1.3 4.7 0V22h-19z" fill="#3d9ad6"/><path d="M4 14h16l-2.4 4.2H6.4z" fill="#8b5636"/><rect x="11.3" y="3" width="1.4" height="11.2" fill="#5a3a24"/><path d="M12.7 4.2c3 1.4 5.2 4.4 5.8 8.3h-5.8z" fill="#f6f1e5"/><path d="M11.3 5.6c-2.4 1.3-4 3.7-4.5 6.9h4.5z" fill="#e8e0cf"/><path d="M12.7 3h4l-1 1.1 1 1.1h-4z" fill="#222"/>',
+  cafe: '<path d="M5 10h12v5.5A5.5 5.5 0 0 1 11.5 21h-1A5.5 5.5 0 0 1 5 15.5z" fill="#f4ead9"/><ellipse cx="11" cy="10.2" rx="6" ry="1.5" fill="#7a4a2e"/><path d="M17 11.4h1.2a2.6 2.6 0 0 1 0 5.2H17" fill="none" stroke="#f4ead9" stroke-width="1.8"/><path d="M8.4 3.5c-1 1.2 1 2.3 0 3.6M11.8 3.5c-1 1.2 1 2.3 0 3.6" fill="none" stroke="#b9a48e" stroke-width="1.4" stroke-linecap="round"/>',
+  station: '<path d="M12 2.5c3.6 2 5.4 5.7 5.4 9.9l-1.8 3.4H8.4l-1.8-3.4c0-4.2 1.8-7.9 5.4-9.9z" fill="#e9edf3"/><circle cx="12" cy="9.6" r="2.3" fill="#3d9ad6" stroke="#9aa6b5" stroke-width="1"/><path d="M6.7 12.6l-2.2 3.5 3.6-.3zM17.3 12.6l2.2 3.5-3.6-.3z" fill="#e2574c"/><path d="M9.6 15.8h4.8L12 21.6z" fill="#ffb24a"/><path d="M10.7 15.8h2.6L12 19.4z" fill="#ff6a2a"/>',
+  castle: '<path d="M3.5 21V9.5h3V7h2.2v2.5h1.6V7h3.4v2.5h1.6V7h2.2v2.5h3V21z" fill="#aab0bb"/><path d="M3.5 9.5h17V11h-17z" fill="#8d94a1"/><path d="M9.6 21v-4.2a2.4 2.4 0 0 1 4.8 0V21z" fill="#6b4a33"/><rect x="11.5" y="2" width="1" height="5" fill="#5a3a24"/><path d="M12.5 2.2h4l-1.2 1.3 1.2 1.3h-4z" fill="#e2574c"/>',
+  map: '<path d="M3 6.5l5.8-2.5 6.4 2.5L21 4v13.5L15.2 20l-6.4-2.5L3 20z" fill="#ecdcb4"/><path d="M8.8 4v13.5M15.2 6.5V20" stroke="#cdb98a" stroke-width="1"/><path d="M6 15l2.5-3 3 2 2.5-4 3 2" fill="none" stroke="#e2574c" stroke-width="1.3" stroke-dasharray="1.6 1.4" stroke-linecap="round"/>',
+};
+const SCENE_THUMBS = new Set(['office', 'graveyard', 'pirate', 'cafe', 'station', 'castle']);
+const sceneIcon = (id) => `<svg class="scene-art" viewBox="0 0 24 24" aria-hidden="true">${SCENE_ART[id] || SCENE_ART.map}</svg>`;
+const DOWNLOAD = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>';
+function renderSceneSel() {
+  const name = (x) => (x.name && (x.name[langCode] || x.name.en)) || x.id;
+  const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const current = state.scenes.some((x) => x.id === state.scene) ? state.scene : 'office';
+  const btn = (v, label, title = '') =>
+    `<button data-v="${esc(v)}" class="${v === current ? 'on' : ''}" aria-pressed="${v === current}"${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
+  const card = (id, v, label, sub, title) => btn(v,
+    `<span class="thumb">${SCENE_THUMBS.has(id) ? `<img src="assets/scenes/${id}.jpg" alt="" loading="lazy">` : sceneIcon(id)}</span>` +
+    `<span class="lbl">${label}</span>${sub ? `<small>${sub}</small>` : ''}${CHECK}`, title);
+  sceneSel.innerHTML = card('office', 'office', esc(L.office)) +
+    state.scenes.map((x) => card(x.id, x.id, esc(name(x)), '', x.credits || '')).join('') +
+    state.available.map((x) => card(x.id, `dl:${x.id}`, esc(name(x)), `${DOWNLOAD}${kb(x.size)}`, `${L.dl} ${kb(x.size)}`)).join('');
+  const cur = current === 'office' ? L.office : name(state.scenes.find((x) => x.id === current) || { id: current });
+  document.getElementById('sceneIco').innerHTML = sceneIcon(current);
+  document.getElementById('sceneName').textContent = cur;
+}
+function loadScenes() {
+  return fetch('api/scenes').then((r) => r.json()).then((d) => {
+    state.scenes = d.installed || [];
+    state.available = d.available || [];
+    renderSceneSel();
+  }).catch(() => {});
+}
+sceneSel.addEventListener('click', async (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.classList.contains('on') || sceneSel.dataset.busy) return;
+  let id = b.dataset.v;
+  hideTip();
+  if (id.startsWith('dl:')) {
+    // A scene pack: download it (the server checks its checksum), then switch.
+    id = id.slice(3);
+    sceneSel.dataset.busy = '1';
+    setLoading(true, L.installing);
+    const r = await fetch(`/api/scenes/install?id=${encodeURIComponent(id)}`, { method: 'POST', headers: { 'x-whatsmyagentdoing': 'install' } })
+      .then((x) => x.json()).catch(() => ({ ok: false }));
+    await loadScenes();
+    delete sceneSel.dataset.busy;
+    if (!r.ok) { setLoading(true, L.installFailed); setTimeout(() => setLoading(false), 2000); renderSceneSel(); return; }
+  }
+  state.scene = id; store.set('scene', id); renderSceneSel(); makeOffice();
+  closeMenus();
+});
+// Know the installed scenes before building the first office, so a saved
+// scene choice doesn't build the default office first and then swap.
+const scenesReady = loadScenes();
+
+// ---- version + one-click update
+const verEl = document.getElementById('ver');
+let verInfo = null;
+function renderVersion() {
+  if (!verInfo) return;
+  let html = `<span>v${esc(verInfo.version)}</span>`;
+  if (verInfo.updateAvailable) {
+    html = verInfo.canUpdate
+      ? `<button id="updBtn">⬆ ${esc(L.update)} v${esc(verInfo.latest)}</button>` + html
+      : `<span>${esc(L.gitPull)} → v${esc(verInfo.latest)}</span>` + html;
+  }
+  verEl.innerHTML = html;
+  // a second, more visible way in, next to the title
+  const top = document.getElementById('newVer');
+  top.hidden = !(verInfo.updateAvailable && verInfo.canUpdate);
+  if (!top.hidden && !top.disabled) top.textContent = `⬆ ${L.newVersion} v${verInfo.latest}`;
+  top.onclick = () => { const b2 = document.getElementById('updBtn'); if (b2) { top.disabled = true; top.textContent = L.updating; b2.click(); } };
+  const b = document.getElementById('updBtn');
+  if (b) b.onclick = async () => {
+    b.disabled = true; b.textContent = L.updating;
+    const r = await fetch('/api/update', { method: 'POST', headers: { 'x-whatsmyagentdoing': 'update' } }).then((x) => x.json()).catch(() => ({ ok: false }));
+    if (!r.ok) { b.textContent = `${L.updateFailed}${r.error ? ': ' + r.error : ''}`; setTimeout(renderVersion, 4000); return; }
+    b.textContent = L.updated;
+    // the server restarts itself; reload once it answers again
+    const t0 = Date.now();
+    const wait = setInterval(() => {
+      fetch('api/version', { cache: 'no-store' }).then((x) => x.json()).then((v) => {
+        if (v.version !== verInfo.version || Date.now() - t0 > 20000) { clearInterval(wait); location.reload(); }
+      }).catch(() => {});
+    }, 1000);
+  };
+}
+function loadVersion() {
+  if (!TF_MODE) fetch('api/version', { cache: 'no-store' }).then((r) => r.json()).then((v) => { verInfo = v; renderVersion(); }).catch(() => {});
+}
+loadVersion();
+setInterval(loadVersion, 30 * 60 * 1000);
+
+// Language: a list of the nine translations plus Auto, in a toolbar menu.
+function renderLangMenu() {
+  const pick = store.get('lang', 'auto');
+  document.getElementById('langName').textContent = pick === 'auto' ? L.auto : I18N[pick]?.langName || L.auto;
+  const item = (v, label, sub) => `<button role="option" aria-selected="${v === pick}" data-lang="${v}" class="${v === pick ? 'on' : ''}"><span class="lbl">${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}${CHECK}</button>`;
+  document.getElementById('langList').innerHTML = item('auto', L.auto, I18N[chooseLangAuto()]?.langName) +
+    Object.entries(I18N).map(([k, v]) => item(k, v.langName)).join('');
+}
+function chooseLangAuto() { return (state.data.lang && I18N[state.data.lang] ? state.data.lang : i18nFromBrowser(navigator.languages || [navigator.language])) || 'en'; }
+document.getElementById('langList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-lang]'); if (!b) return;
+  store.set('lang', b.dataset.lang); state.lang = b.dataset.lang;
+  applyLang(chooseLang(state.data.lang));
+  renderLangMenu(); render();
+  closeMenus();
+});
+popout = new OfficePopout({
+  preferences: () => ({ ...Object.fromEntries(Object.keys(PREF_DEFAULTS).map((k) => [k, state[k]])), lang: store.get('lang', 'auto') }),
+  office: () => office,
+  text: (key) => L[key],
+  changed: () => { syncControls(); render(); },
+});
+// Both windows share preferences; keep filters, language, scene and badges in
+// sync even when changes come from the compact window or another open tab.
+window.addEventListener('storage', (e) => {
+  if (e.key !== null && !Object.keys(PREF_DEFAULTS).some((k) => e.key === 'wmad.' + k)) return;
+  Object.assign(state, readPreferences());
+  renderLangMenu();
+  hideTip();
+  applyLang(chooseLang(state.data.lang));
+  syncControls();
+  renderSceneSel();
+  makeOffice();
+  render();
+});
+applyLang(chooseLang(null));
+syncControls();
+scenesReady.then(() => makeOffice());
+connect();
+// ---- full screen: the office fills the window; agents and their recent
+// conversation live in a side panel (list first, one agent on click).
+const sideEl = document.getElementById('side');
+let sel = null;              // key of the agent open in the panel
+let convo = { key: null, at: null, messages: null, private: false, busy: false };
+
+function statusColor(st) {
+  return { thinking: 'var(--thinking)', tool: 'var(--tool)', typing: 'var(--typing)', waiting: 'var(--waiting)', error: 'var(--error)', done: 'var(--done)' }[st] || 'var(--faint)';
+}
+function hhmm(ms) {
+  if (!ms) return '';
+  return new Date(ms).toLocaleTimeString(langCode || undefined, { hour: '2-digit', minute: '2-digit' });
+}
+// How much of the office the open panel covers. On phones the panel is an
+// overlay over most of the screen, so the view doesn't move for it.
+function panelInset() {
+  return state.full && state.side && !matchMedia('(max-width: 760px)').matches ? sideEl.getBoundingClientRect().width || 340 : 0;
+}
+function setSide(open, remember = true) {
+  state.side = open;
+  if (remember) store.set('side', open);
+  document.body.classList.toggle('side-closed', !open);
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  office?.setInset(panelInset(), !still);
+  if (open) {
+    // Rows slide in one after another each time the panel opens.
+    sideEl.classList.remove('opening'); void sideEl.offsetWidth; sideEl.classList.add('opening');
+    clearTimeout(setSide.t); setSide.t = setTimeout(() => sideEl.classList.remove('opening'), 900);
+  }
+}
+function measureBar() {
+  const h = document.querySelector('header').getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--bar', `${Math.round(h)}px`);
+}
+function syncFull() {
+  document.getElementById('sideTitle').textContent = L.agentsTitle;
+  document.getElementById('sideHide').title = L.hidePanel;
+  document.getElementById('sideHide').setAttribute('aria-label', L.hidePanel);
+  document.getElementById('sideBack').title = L.back;
+  document.getElementById('sideBack').setAttribute('aria-label', L.back);
+  document.getElementById('sideTab').setAttribute('aria-label', L.showPanel);
+}
+
+// Agent filter: one chip per client in use, any number selected; none means all.
+function renderChips() {
+  const pool = state.data.sessions.filter((s) => (state.showSub || !s.subagent) && (state.showIdle || s.status !== 'idle'));
+  const count = new Map();
+  for (const s of pool) count.set(s.agent, (count.get(s.agent) || 0) + 1);
+  const order = Object.keys(OFFICE_AGENT_BADGES);
+  const agents = [...new Set([...count.keys(), ...state.agents])]
+    .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b));
+  const all = !state.agents.length;
+  const row = (v, icon, name, n, on) => `<button class="chip-f${on ? ' on' : ''}" data-v="${esc(v)}" aria-pressed="${on}" title="${esc(name)}">` +
+    `<span class="box">${CHECK}</span>${icon}<span class="lbl">${esc(name)}</span><b>${n}</b></button>`;
+  const html = row('all', '', L.all, pool.length, all) + agents.map((a) => {
+    const logo = agentLogo(a) || `<span class="ini">${esc((AGENT_NAME[a] || a).slice(0, 2))}</span>`;
+    return row(a, logo, AGENT_NAME[a] || a, count.get(a) || 0, !all && state.agents.includes(a));
+  }).join('');
+  const box = document.getElementById('agentChips');
+  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+  // The button says what is shown: All, one or two names, or how many.
+  const names = state.agents.map((a) => AGENT_NAME[a] || a);
+  document.getElementById('agentName').textContent = all ? L.all : names.length <= 2 ? names.join(', ') : `${names.length}`;
+  document.getElementById('agentMenu').classList.toggle('active', !all);
+}
+document.getElementById('agentChips').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-f'); if (!b) return;
+  const v = b.dataset.v;
+  let next = v === 'all' ? [] : state.agents.includes(v) ? state.agents.filter((x) => x !== v) : [...state.agents, v];
+  // Every client picked is the same as all of them.
+  const present = new Set(state.data.sessions.map((s) => s.agent));
+  if (next.length && [...present].every((a) => next.includes(a))) next = [];
+  state.agents = next; store.set('agents', next);
+  syncControls(); renderNow();
+});
+
+// Set when the person changes a filter: the list follows at once even under the pointer.
+let rowsNow = false;
+function renderNow() { rowsNow = true; try { render(); } finally { rowsNow = false; } }
+function renderSide() {
+  renderChips();
+  if (!state.full) return;
+  syncFull();
+  const now = Date.now() - state.skew;
+  const list = visible();
+  document.getElementById('sideCount').textContent = list.length;
+  document.getElementById('sideTabCount').textContent = `${L.agentsTitle} · ${list.length}`;
+  const rows = GROUPS.map((g) => {
+    const items = list.filter((s) => g.match(s));
+    if (!items.length) return '';
+    return `<div class="side-group">${esc(L[g.key])} · ${items.length}</div>` + items.map((s, i) => {
+      const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
+      return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
+        ${agentLogo(s.agent) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
+        <span class="tm" data-time="${esc(s.key)}"></span>
+        <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
+    }).join('');
+  }).join('');
+  const box = document.getElementById('sideRows');
+  const html = rows || `<div class="msgs-note">${esc(TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`;
+  // Rows re-sort as statuses change; hold them still while the pointer is on
+  // the list so a click lands on the agent you aimed at, and catch up on leave.
+  if (box.dataset.html !== html && box.matches(':hover') && box.dataset.html && !rowsNow) { box.dataset.stale = '1'; }
+  else if (box.dataset.html !== html) {
+    box.innerHTML = html; box.dataset.html = html; delete box.dataset.stale;
+    box.querySelectorAll('[data-time]').forEach((el) => { const s = list.find((x) => x.key === el.dataset.time); if (s) el.textContent = timeLabel(s, now); });
+  }
+  if (sel) renderDetail();
+}
+
+function openDetail(key) {
+  sel = key;
+  if (!state.side) setSide(true);
+  document.getElementById('sideList').inert = true;
+  document.getElementById('sideDetail').inert = false;
+  if (convo.key !== key) convo = { key, at: null, messages: null, private: false, busy: false };
+  // Build the details off-screen this frame and start the slide on the next,
+  // so the click doesn't also pay for layout in the slide's first frame.
+  renderDetail(true);
+  requestAnimationFrame(() => {
+    if (sel !== key) return;
+    sideEl.classList.add('detail', 'entering');
+    clearTimeout(openDetail.t); openDetail.t = setTimeout(() => sideEl.classList.remove('entering'), 800);
+  });
+}
+function closeDetail() {
+  sel = null;
+  sideEl.classList.remove('detail');
+  document.getElementById('sideList').inert = false;
+  document.getElementById('sideDetail').inert = true;
+}
+
+function renderDetail(scrollDown) {
+  const s = state.data.sessions.find((x) => x.key === sel);
+  if (!s) { closeDetail(); return; }
+  const now = Date.now() - state.skew;
+  document.getElementById('detailTitle').innerHTML = `${agentLogo(s.agent)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  // Fetch again whenever the agent logged something new.
+  if (!s.member && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
+  const body = document.getElementById('detailBody');
+  const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
+  const msgs = s.member ? `<div class="msgs-note">${esc(L.memberNote || '一般辦公室成員，目前沒有指派任務。')}</div>`
+    : s.tf ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄未接線：原始對話無存取管道；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
+    : convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
+    : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
+      : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
+        : `<div class="msgs">${convo.messages.map((m) => m.role === 'tool'
+          ? `<div class="msg tool" title="${esc(m.text)}">${GEAR}${esc(m.text)}</div>`
+          : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
+  const resume = resumeCmd(s);
+  const html = `
+    ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
+    <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
+    <dl class="dmeta">
+      ${s.member
+        ? `<dt>${esc(L.membersL || '辦公室成員')}</dt><dd>${esc(s.agentName || s.project || '—')}</dd>`
+        : s.tf
+        ? `<dt>${esc(L.projectL || '專案')}</dt><dd class="mono" title="${esc(s.project || '')}">${esc(s.project || '—')}</dd>
+      <dt>${esc(L.updatedL || '更新')}</dt><dd>${s.tf.updatedAt ? esc(new Date(s.tf.updatedAt).toLocaleString()) : '—'}</dd>`
+        : `<dt>${esc(L.modelL)}</dt><dd>${esc(s.model || '—')}${s.subagent ? ` · ${esc(L.sub)}` : ''}</dd>
+      <dt>${esc(L.folderL)}</dt><dd class="mono" title="${esc(s.cwd || '')}">${esc(s.cwd || '—')}</dd>
+      <dt>${esc(L.today)}</dt><dd>${s.today ? `${s.today.turns} ${esc(L.turnsL)} · ${fmtTokens(s.today.tokens)} ${esc(L.tokensL)}` : '—'}</dd>`}
+      <dt></dt><dd data-time="${esc(s.key)}"></dd>
+    </dl>
+    ${contextBar(s.context)}
+    ${tfBlock(s, true)}
+    ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
+    <div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
+    ${msgs}`;
+  // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
+  if (body.dataset.html !== html) {
+    body.innerHTML = html; body.dataset.html = html;
+    const t = body.querySelector('[data-time]'); if (t) t.textContent = timeLabel(s, now);
+    if (scrollDown || nearBottom) body.scrollTop = body.scrollHeight;
+  }
+}
+const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>';
+
+async function loadConvo(s) {
+  const key = s.key, at = s.lastEventAt;
+  convo.busy = true;
+  try {
+    const r = await fetch(`/api/transcript?key=${encodeURIComponent(key)}`);
+    const d = await r.json().catch(() => ({}));
+    if (convo.key !== key) return;
+    convo = { key, at, messages: Array.isArray(d.messages) ? d.messages : [], private: !!d.private, busy: false };
+  } catch {
+    if (convo.key === key) convo.busy = false;
+    return;
+  }
+  if (sel === key) renderDetail();
+}
+
+document.getElementById('sideHide').addEventListener('click', () => setSide(false));
+document.getElementById('sideTab').addEventListener('click', () => setSide(true));
+document.getElementById('sideBack').addEventListener('click', closeDetail);
+document.getElementById('sideRows').addEventListener('mouseleave', (e) => { if (e.currentTarget.dataset.stale) renderSide(); });
+document.getElementById('sideRows').addEventListener('click', (e) => {
+  const b = e.target.closest('.srow'); if (b) openDetail(b.dataset.key);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest?.('input, select, textarea, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape' && state.full && sel) closeDetail();
+});
+addEventListener('resize', () => { if (!state.full) return; measureBar(); office?.setInset(panelInset(), false); });
+if (state.full) {
+  document.body.classList.add('full');
+  requestAnimationFrame(measureBar);
+  // On a phone the panel would cover the office, so it starts folded away.
+  setSide(state.side && !matchMedia('(max-width: 760px)').matches, false);
+  syncFull();
+}
+
+setInterval(tickTimes, 1000);
+</script>
+</body>
+</html>
