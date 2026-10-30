@@ -891,12 +891,20 @@ function tickTimes() {
 // member of the office. The display name comes from the account's own session
 // (verified by login), stays on this device, and is never bundled or sent out.
 function ownerName() {
-  try {
-    const j = JSON.parse(localStorage.getItem('zhuge_ai_os_google_auth_session_v1') || 'null');
-    const u = j && j.user;
-    const meta = (u && u.user_metadata) || {};
-    return String(meta.full_name || meta.name || (u && u.email) || '').trim();
-  } catch { return ''; }
+  // Real session written by shared/auth/auth-service.js: top-level
+  // name/email (no nested user.user_metadata). Older raw Supabase sessions
+  // nest them under user. Check both keys tf-source.js accepts, both shapes.
+  for (const k of ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1']) {
+    try {
+      const j = JSON.parse(localStorage.getItem(k) || 'null');
+      if (!j) continue;
+      const u = j.user || {};
+      const meta = u.user_metadata || {};
+      const v = String(j.name || meta.full_name || meta.name || j.email || u.email || '').trim();
+      if (v) return v;
+    } catch { /* old/invalid session treated as absent */ }
+  }
+  return '';
 }
 
 // Merge private office members (this-device roster only, public/members.js)
