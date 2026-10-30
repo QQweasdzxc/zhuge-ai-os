@@ -664,8 +664,16 @@ function resumeCmd(s) {
 
 function agentLogo(agent) {
   const badge = OFFICE_AGENT_BADGES[agent];
-  // Pages artifact link-check scans raw HTML for static src attributes; keep dynamic template srcs out of that pattern.
-  return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" sr${'c'}="${badge.logo}" alt="" aria-hidden="true">` : '';
+  return badge ? `<img class="agent-logo${badge.mono ? ' mono' : ''}" data-logo="${badge.logo}" alt="" aria-hidden="true">` : '';
+}
+
+// Dynamic image sources are set after insertion so the Pages artifact
+// link-check (which scans raw HTML for static src/href refs) sees real files.
+function hydrateLogos(root) {
+  root.querySelectorAll('img[data-logo]').forEach((img) => {
+    img.src = img.dataset.logo;
+    img.removeAttribute('data-logo');
+  });
 }
 
 
@@ -700,6 +708,7 @@ function renderToday() {
     ${projects.length ? `<div class="today-head">${esc(L.topProjects)}</div>` : ''}
     ${projects.map(([p, n]) => `<div class="today-row">${esc(p)}<span class="n">${n} ${esc(L.turnsL)}</span></div>`).join('')}
     <div class="today-note">${esc(L.summaryNote)}</div>`;
+  hydrateLogos(panel);
 }
 
 
@@ -808,7 +817,7 @@ function render() {
   const legend = document.getElementById('agentLegend');
   const labels = Object.keys(OFFICE_AGENT_BADGES).filter(agent => agents.has(agent))
     .map(agent => `<span>${agentLogo(agent)}${esc(AGENT_NAME[agent])}</span>`).join('');
-  if (legend.innerHTML !== labels) legend.innerHTML = labels;
+  if (legend.dataset.html !== labels) { legend.innerHTML = labels; legend.dataset.html = labels; hydrateLogos(legend); }
   legend.hidden = !state.showAgent || !labels;
   document.getElementById('idleToggle').style.display = officeMode && !state.full ? 'none' : '';
   if (poppedOut) {
@@ -833,6 +842,7 @@ function render() {
     if (!items.length) return '';
     return `<section><h2>${L[g.key]} <span class="n">${items.length}</span></h2><div class="grid">${items.map((s) => card(s, now)).join('')}</div></section>`;
   }).join('');
+  hydrateLogos(main);
 }
 
 function tickTimes() {
@@ -1030,6 +1040,7 @@ function refreshTip() {
   const s = state.data.sessions.find((x) => x.key === tipKey);
   if (!s) return hideTip();
   tip.innerHTML = card(s, Date.now() - state.skew);
+  hydrateLogos(tip);
   placeTip();
 }
 function hideTip() { tipKey = null; tipPinned = false; tip.style.display = 'none'; tip.classList.remove('pinned'); }
@@ -1072,7 +1083,7 @@ async function makeOffice() {
   if (high) {
     try {
       Cls = (await import('./office3d.js')).Office3D;
-      if (scene !== 'office') {
+      if (scene !== 'office' && !TF_MODE) {
         const m = await fetch(`/scenes/${scene}/manifest.json`).then((r) => r.json());
         opts.scene = { ...m, base: `/scenes/${scene}/` };
       }
@@ -1129,16 +1140,23 @@ function renderSceneSel() {
   const btn = (v, label, title = '') =>
     `<button data-v="${esc(v)}" class="${v === current ? 'on' : ''}" aria-pressed="${v === current}"${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
   const card = (id, v, label, sub, title) => btn(v,
-    `<span class="thumb">${SCENE_THUMBS.has(id) ? `<img sr${'c'}="assets/scenes/${id}.jpg" alt="" loading="lazy">` : sceneIcon(id)}</span>` +
+    `<span class="thumb">${SCENE_THUMBS.has(id) ? `<img data-scene-thumb="${id}" alt="" loading="lazy">` : sceneIcon(id)}</span>` +
     `<span class="lbl">${label}</span>${sub ? `<small>${sub}</small>` : ''}${CHECK}`, title);
   sceneSel.innerHTML = card('office', 'office', esc(L.office)) +
     state.scenes.map((x) => card(x.id, x.id, esc(name(x)), '', x.credits || '')).join('') +
     state.available.map((x) => card(x.id, `dl:${x.id}`, esc(name(x)), `${DOWNLOAD}${kb(x.size)}`, `${L.dl} ${kb(x.size)}`)).join('');
+  sceneSel.querySelectorAll('img[data-scene-thumb]').forEach((img) => {
+    img.setAttribute('src', 'assets/scenes/' + img.dataset.sceneThumb + '.jpg');
+    img.removeAttribute('data-scene-thumb');
+  });
   const cur = current === 'office' ? L.office : name(state.scenes.find((x) => x.id === current) || { id: current });
   document.getElementById('sceneIco').innerHTML = sceneIcon(current);
   document.getElementById('sceneName').textContent = cur;
 }
 function loadScenes() {
+  // TF mode is a standalone preview: no upstream scenes API, so show the
+  // built-in office scene only and never request one.
+  if (TF_MODE) { state.scenes = []; state.available = []; renderSceneSel(); return Promise.resolve(); }
   return fetch('api/scenes').then((r) => r.json()).then((d) => {
     state.scenes = d.installed || [];
     state.available = d.available || [];
@@ -1304,7 +1322,7 @@ function renderChips() {
     return row(a, logo, AGENT_NAME[a] || a, count.get(a) || 0, !all && state.agents.includes(a));
   }).join('');
   const box = document.getElementById('agentChips');
-  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; hydrateLogos(box); }
   // The button says what is shown: All, one or two names, or how many.
   const names = state.agents.map((a) => AGENT_NAME[a] || a);
   document.getElementById('agentName').textContent = all ? L.all : names.length <= 2 ? names.join(', ') : `${names.length}`;
@@ -1350,6 +1368,7 @@ function renderSide() {
   if (box.dataset.html !== html && box.matches(':hover') && box.dataset.html && !rowsNow) { box.dataset.stale = '1'; }
   else if (box.dataset.html !== html) {
     box.innerHTML = html; box.dataset.html = html; delete box.dataset.stale;
+    hydrateLogos(box);
     box.querySelectorAll('[data-time]').forEach((el) => { const s = list.find((x) => x.key === el.dataset.time); if (s) el.textContent = timeLabel(s, now); });
   }
   if (sel) renderDetail();
@@ -1381,7 +1400,9 @@ function renderDetail(scrollDown) {
   const s = state.data.sessions.find((x) => x.key === sel);
   if (!s) { closeDetail(); return; }
   const now = Date.now() - state.skew;
-  document.getElementById('detailTitle').innerHTML = `${agentLogo(s.agent)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  const dt = document.getElementById('detailTitle');
+  dt.innerHTML = `${agentLogo(s.agent)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  hydrateLogos(dt);
   // Fetch again whenever the agent logged something new.
   if (!s.member && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
   const body = document.getElementById('detailBody');
@@ -1425,6 +1446,9 @@ const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle
 
 async function loadConvo(s) {
   const key = s.key, at = s.lastEventAt;
+  // TF mode has no transcript endpoint; keep the excerpt-gap note instead of
+  // firing a request that can only 404.
+  if (TF_MODE) { convo = { key, at, messages: [], private: false, busy: false }; if (sel === key) renderDetail(); return; }
   convo.busy = true;
   try {
     const r = await fetch(`/api/transcript?key=${encodeURIComponent(key)}`);
