@@ -478,11 +478,14 @@
 
     update(sessions) {
       const working = sessions.filter((s) => WORKING.has(s.status));
+      // Office members (this device's private roster) are people who belong in
+      // the scene without a task; never collapse them into the off-duty count.
+      const members = sessions.filter((s) => s.member);
       const off = sessions
-        .filter((s) => !WORKING.has(s.status))
+        .filter((s) => !WORKING.has(s.status) && !s.member)
         .sort((a, b) => (b.lastEventAt || 0) - (a.lastEventAt || 0));
-      const wanderers = off.slice(0, MAX_WANDERERS);
-      this.offDuty = off.length - wanderers.length;
+      const wanderers = [...members, ...off.slice(0, MAX_WANDERERS)];
+      this.offDuty = off.length - Math.min(off.length, MAX_WANDERERS);
 
       const cap = this.plan.desks.length;
       // Scene packs have a fixed floor plan; the built-in office grows with the team.
@@ -1342,7 +1345,8 @@
       const font = (w, px) => `${w} ${px}px ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Apple Color Emoji", sans-serif`;
       c.font = font(600, 10);
 
-      const badge = this.showAgent && AGENT_BADGES[s.agent];
+      // Task cards without an AI executor are not agents: no robot badge.
+      const badge = this.showAgent && !s.member && !(s.tf && !s.tf.isAgentCard) && AGENT_BADGES[s.agent];
       const pill = (text, fg, bg, yy, alpha = 1, identify = false) => {
         c.globalAlpha = alpha;
         let tx = text;

@@ -1105,7 +1105,14 @@ function hideTip() { tipKey = null; tipPinned = false; tip.style.display = 'none
 const officeOpts = {
   compact: PIP,
   onFrame: (renderer) => popout?.drawPreview(renderer),
-  label: (s) => (s.agent === 'omp' && s.subagent && s.title) || s.project || AGENT_NAME[s.agent] || s.agent,
+  // Scene nameplates: members show their own name, AI-executed cards the
+  // executor, plain task cards their task id (never the project name, which
+  // read as many people sharing one name).
+  label: (s) => {
+    if (s.member) return s.agentName || s.project || '';
+    if (s.tf) return s.tf.isAgentCard ? (s.agentName || AGENT_NAME[s.agent] || s.agent) : (s.tf.identifier || '');
+    return (s.agent === 'omp' && s.subagent && s.title) || s.project || AGENT_NAME[s.agent] || s.agent;
+  },
   onHover(s, at, click) {
     // In full screen a click opens the agent in the side panel instead of pinning a card.
     if (click && state.full && s) { hideTip(); openDetail(s.key); return; }
@@ -1406,8 +1413,15 @@ function renderSide() {
   syncFull();
   const now = Date.now() - state.skew;
   const list = visible();
-  document.getElementById('sideCount').textContent = list.length;
-  document.getElementById('sideTabCount').textContent = `${L.agentsTitle} · ${list.length}`;
+  // TF mode: split the count so 45 tasks + 3 members is not read as 48 people.
+  const tfTasks = list.filter((s) => !s.member).length;
+  const tfMembers = list.length - tfTasks;
+  document.getElementById('sideCount').textContent = TF_MODE && tfMembers
+    ? `${tfTasks}+${tfMembers}`
+    : String(list.length);
+  document.getElementById('sideTabCount').textContent = TF_MODE
+    ? `${L.tfTask || '任務'} ${tfTasks}${tfMembers ? ` · ${L.member || '成員'} ${tfMembers}` : ''}`
+    : `${L.agentsTitle} · ${list.length}`;
   const rows = GROUPS.map((g) => {
     const items = list.filter((s) => g.match(s));
     if (!items.length) return '';
