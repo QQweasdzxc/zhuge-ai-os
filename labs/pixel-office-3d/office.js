@@ -1448,6 +1448,23 @@
         const base = { x0: x - w / 2, x1: x + w / 2, y0: top - 11 - height / 2, y1: top - 11 + height / 2 };
         const shift = this._labelShift.get(p.key) || 0;
         const rect = { x0: base.x0, x1: base.x1, y0: base.y0 - shift, y1: base.y1 - shift };
+        // Paint-time non-overlap guard: the eased offset lags fast motion by
+        // a frame, so against pills already painted THIS frame, lift just
+        // enough to clear. Residuals are bounded by per-frame motion (a few
+        // px walking, about one pill on a fast 3D orbit swing) - a nudge,
+        // never a hop - and painted text is never covered. The persistent
+        // eased offsets stay order-independent, so camera orbit cannot
+        // reshuffle them; only this transient residual is draw-order based.
+        for (let iter = 0; iter < 24; iter++) {
+          let lift = 0;
+          for (const q of this._drawnLabels) {
+            const xov = Math.min(rect.x1, q.drawn.x1) - Math.max(rect.x0, q.drawn.x0);
+            if (xov <= 0) continue;
+            if (rect.y1 > q.drawn.y0 - 2) lift = Math.max(lift, rect.y1 + 2 - q.drawn.y0);
+          }
+          if (!lift) break;
+          rect.y0 -= lift; rect.y1 -= lift;
+        }
         pill(this.label(s), pal.text, pal.tagBg, (rect.y0 + rect.y1) / 2, p.mode === 'work' || hover ? 1 : 0.7, true);
         if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
         this._drawnLabels.push({ key: p.key, base, drawn: rect });
