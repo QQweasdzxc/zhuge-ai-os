@@ -194,19 +194,25 @@ test("unauthenticated CLI SSO preserves only short-lived callback intent on the 
     body: `<!doctype html><title>Zhuge Login</title><script src="/labs/taskflow/cli-sso.js?v=20261010-2022"></script><script>window.ZhugeTaskFlowCliSSO.startLoginReturnMonitor(window)</script>`
   }));
   await page.goto(entry + "#" + new URLSearchParams({ cli_callback: callback, cli_state: state }).toString(), { waitUntil: "load" });
+  await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).waitFor({ timeout: 7000 });
+  assert.equal(apiCalls, 0, "no Zhuge session is sent to the TaskFlow API");
+  assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "CLI visitor stays on the explanation card until they choose login");
+  const pending = await page.evaluate(() => JSON.parse(sessionStorage.getItem("zhuge_taskflow_cli_intent_v1")));
+  assert.deepEqual(pending, { callback, state, createdAt: pending.createdAt });
+  assert.ok(Date.now() - pending.createdAt < 5000);
+  await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).click();
   await page.waitForURL(url => url.origin === entryUrl.origin && url.pathname === "/modules/worklog/", { timeout: 10000 });
   const loginUrl = new URL(page.url());
   assert.equal(loginUrl.hash, "");
   assert.equal(loginUrl.searchParams.get("app"), "1");
-  assert.equal(apiCalls, 0, "no Zhuge session is sent to the TaskFlow API");
-  const pending = await page.evaluate(() => JSON.parse(sessionStorage.getItem("zhuge_taskflow_cli_intent_v1")));
-  assert.deepEqual(pending, { callback, state, createdAt: pending.createdAt });
-  assert.ok(Date.now() - pending.createdAt < 5000);
   assert.equal(new URL(page.url()).origin, entryUrl.origin, "Zhuge login remains on the AIOS origin");
+  const pendingAfter = await page.evaluate(() => JSON.parse(sessionStorage.getItem("zhuge_taskflow_cli_intent_v1")));
+  assert.deepEqual(pendingAfter, { callback, state, createdAt: pending.createdAt }, "callback intent survives the explicit login navigation");
   await page.close();
 });
 
-test("unauthenticated TaskFlow entry returns to official Zhuge Login on desktop and mobile", async t => {
+
+test("unauthenticated TaskFlow entry stays on the explanation card and leaves via the login button", async t => {
   const browser = await launch(t);
   const entry = await fixtureURL(path.join(ROOT, "labs/taskflow/index.html"));
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
@@ -227,17 +233,25 @@ test("unauthenticated TaskFlow entry returns to official Zhuge Login on desktop 
       body: "<!doctype html><title>Zhuge Login</title>"
     }));
     await page.goto(entry, { waitUntil: "load" });
+    await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).waitFor({ timeout: 7000 });
+    assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "signed-out visitor stays on the explanation card");
+    assert.equal(apiCalls, 0, "no session must never be sent to TaskFlow");
+    assert.match(await page.getByRole("status").innerText(), /尚未登入 Zhuge AI OS/);
+    const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(layout.scrollWidth <= layout.width, JSON.stringify(layout));
+    await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).click();
     await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
     const loginUrl = new URL(page.url());
     assert.equal(loginUrl.searchParams.get("app"), "1");
     assert.equal(loginUrl.searchParams.get("workspace"), "dashboard");
+    assert.equal(loginUrl.searchParams.get("taskflowReturn"), "1");
     assert.equal(loginUrl.hash, "");
-    assert.equal(apiCalls, 0, "no session must never be sent to TaskFlow");
     await page.close();
   }
 });
 
-test("expired or forbidden Zhuge session is rejected and returned to Zhuge Login", async t => {
+
+test("expired or forbidden Zhuge session is rejected and stays on the explanation card until the login button", async t => {
   const browser = await launch(t);
   const entry = await fixtureURL(path.join(ROOT, "labs/taskflow/index.html"));
   const entryOrigin = new URL(entry).origin;
@@ -248,17 +262,22 @@ test("expired or forbidden Zhuge session is rejected and returned to Zhuge Login
       if (location.origin === origin) localStorage.setItem("zhuge_ai_os_session_v1", JSON.stringify({ access_token: "expired-test-session-token" }));
     }, { origin: entryOrigin });
     await page.goto(entry, { waitUntil: "load" });
-    await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
+    await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).waitFor({ timeout: 10000 });
     const authRequest = readCaptured();
     assert.ok(authRequest);
     assert.equal(new URL(authRequest.url).search, "");
     assert.equal(JSON.parse(authRequest.body).access_token, "expired-test-session-token");
+    assert.equal(new URL(page.url()).pathname, new URL(entry).pathname, "rejected session stays on the explanation card");
+    assert.match(await page.getByRole("status").innerText(), /登入狀態已過期/);
+    await page.getByRole("button", { name: "前往 Zhuge AI OS 登入" }).click();
+    await page.waitForURL(url => url.pathname === "/modules/worklog/", { timeout: 10000 });
     const loginUrl = new URL(page.url());
     assert.equal(loginUrl.search, "?app=1&workspace=dashboard&taskflowReturn=1");
     assert.equal(loginUrl.hash, "");
     await page.close();
   }
 });
+
 
 test("TaskFlow entry reports API 404 and 5xx distinctly instead of calling them timeouts", async t => {
   const browser = await launch(t);
