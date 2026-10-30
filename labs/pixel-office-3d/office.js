@@ -1352,17 +1352,17 @@
       // executor are not agents: no robot badge.
       const plainPerson = s.member && !s.ai;
       const badge = this.showAgent && !plainPerson && !(s.tf && !s.tf.isAgentCard) && AGENT_BADGES[s.agent];
-      const pill = (text, fg, bg, yy, alpha = 1, identify = false) => {
+      const pill = (text, fg, bg, yy, alpha = 1, identify = false, xx = x) => {
         c.globalAlpha = alpha;
         let tx = text;
         while (c.measureText(tx).width > 118 && tx.length > 2) tx = tx.slice(0, -2) + '…';
         const extra = badge && identify ? 26 : 0;
         const w = c.measureText(tx).width + 12 + extra;
         const height = extra ? 22 : 16;
-        this.roundRect(x - w / 2, yy - height / 2, w, height, 8, bg);
+        this.roundRect(xx - w / 2, yy - height / 2, w, height, 8, bg);
         c.fillStyle = fg;
-        c.fillText(tx, x + extra / 2, yy + 0.5);
-        if (extra) this.agentBadge(badge, x - w / 2 + 13, yy);
+        c.fillText(tx, xx + extra / 2, yy + 0.5);
+        if (extra) this.agentBadge(badge, xx - w / 2 + 13, yy);
         c.globalAlpha = 1;
         return yy - 8;
       };
@@ -1446,8 +1446,8 @@
         const w = c.measureText(tx).width + 12 + (badge ? 26 : 0);
         const height = badge ? 22 : 16;
         const base = { x0: x - w / 2, x1: x + w / 2, y0: top - 11 - height / 2, y1: top - 11 + height / 2 };
-        const shift = this._labelShift.get(p.key) || 0;
-        const rect = { x0: base.x0, x1: base.x1, y0: base.y0 - shift, y1: base.y1 - shift };
+        const sh = this._labelShift.get(p.key) || { dx: 0, dy: 0 };
+        const rect = { x0: base.x0 + sh.dx, x1: base.x1 + sh.dx, y0: base.y0 - sh.dy, y1: base.y1 - sh.dy };
         // Paint-time non-overlap guard: the eased offset lags fast motion by
         // a frame, so against pills already painted THIS frame, lift just
         // enough to clear. Residuals are bounded by per-frame motion (a few
@@ -1460,12 +1460,35 @@
           for (const q of this._drawnLabels) {
             const xov = Math.min(rect.x1, q.drawn.x1) - Math.max(rect.x0, q.drawn.x0);
             if (xov <= 0) continue;
-            if (rect.y1 > q.drawn.y0 - 2) lift = Math.max(lift, rect.y1 + 2 - q.drawn.y0);
+            // Only a REAL overlap (both axes) lifts - a label sitting below
+            // another is fine and must not be hoisted above it.
+            if (rect.y1 > q.drawn.y0 - 2 && rect.y0 < q.drawn.y1 + 2) lift = Math.max(lift, rect.y1 + 2 - q.drawn.y0);
           }
           if (!lift) break;
           rect.y0 -= lift; rect.y1 -= lift;
         }
-        pill(this.label(s), pal.text, pal.tagBg, (rect.y0 + rect.y1) / 2, p.mode === 'work' || hover ? 1 : 0.7, true);
+        if (rect.x0 < 2) { const d = 2 - rect.x0; rect.x0 += d; rect.x1 += d; }
+        else if (rect.x1 > this.cw - 2) { const d = this.cw - 2 - rect.x1; rect.x0 += d; rect.x1 += d; }
+        if (rect.y0 < 2) { const d = 2 - rect.y0; rect.y0 += d; rect.y1 += d; }
+        // Leader line: when the pill sits away from its head anchor (a
+        // crowded cluster pushed it aside), a thin tether keeps the
+        // label-person pairing readable at a glance.
+        const px = (rect.x0 + rect.x1) / 2, py = (rect.y0 + rect.y1) / 2;
+        const ax = x, ay = top - 11;
+        if (Math.hypot(px - ax, py - ay) > 10) {
+          c.save();
+          c.globalAlpha = (p.mode === 'work' || hover ? 1 : 0.7) * 0.45;
+          c.strokeStyle = pal.text;
+          c.lineWidth = 1;
+          const ex = Math.max(rect.x0 + 4, Math.min(rect.x1 - 4, ax));
+          const ey = ay > py ? rect.y1 - 1 : rect.y0 + 1;
+          c.beginPath();
+          c.moveTo(ex, ey);
+          c.lineTo(ax, ay);
+          c.stroke();
+          c.restore();
+        }
+        pill(this.label(s), pal.text, pal.tagBg, py, p.mode === 'work' || hover ? 1 : 0.7, true, px);
         if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
         this._drawnLabels.push({ key: p.key, base, drawn: rect });
       } else if (badge) {
@@ -1605,7 +1628,9 @@
     // offset is capped so a label never drifts far from its person; beyond
     // the cap a slight residual overlap beats a label teleporting away.
     resolveLabelShifts() {
-      const MAX_SHIFT = 120;
+      const MAXDX = 140; // px sideways cap; the leader line carries the
+      const MAXDYU = 72; // pairing beyond these. Downward stays tiny: a
+      const MAXDYD = 26; // label on its person's body still reads as paired.
       // dt-scaled so 30/60/120Hz (and slow software GL) all glide at the
       // same visual speed; dt capped so a stalled tab never teleports.
       const now = performance.now();
@@ -1613,52 +1638,91 @@
       this._shiftT = now;
       const RISE = 240 * dt; // clears a new collision in ~0.1s
       const FALL = 70 * dt;  // a dissolving cluster settles gently
-      const targets = new Map();
-      const placed = [];
-      // Bottom-most label first: each label only rises to clear labels
-      // below it, so a cluster stacks upward with the smallest possible
-      // displacement (sorting by key instead lets one label trigger a
-      // cascade that pushes a whole pile to the cap). Key breaks ties so
-      // equal heights stay deterministic.
-      for (const r of [...this._drawnLabels].sort((a, b) => (b.base.y0 - a.base.y0) || (a.key < b.key ? -1 : 1))) {
-        const b = r.base;
-        // Exact one-pass clearance: rising only ever moves the rect up, so
-        // walking the already-placed (lower) rects from top to bottom and
-        // taking the worst exact requirement converges immediately. (The
-        // old additive loop overshot into the cap and left residue.)
-        let shift = 0;
-        for (const q of [...placed].sort((a, b2) => a.y0 - b2.y0)) {
-          const xov = Math.min(b.x1, q.x1) - Math.max(b.x0, q.x0);
-          if (xov <= 0) continue;
-          if (b.y1 - shift > q.y0 - 2) shift = Math.max(shift, b.y1 + 2 - q.y0);
+      // Deterministic pair relaxation in fixed key order: a colliding
+      // later-key label separates along the CHEAPER axis - sideways when
+      // that is shorter, upward otherwise - so a crowd spreads around its
+      // people instead of piling into a tall detached column, and camera
+      // orbit cannot reshuffle the layout.
+      const items = [...this._drawnLabels]
+        .map((r) => ({ key: r.key, b: r.base, dx: 0, dy: 0 }))
+        .sort((a, b) => (a.key < b.key ? -1 : 1));
+      const rr = (it) => ({ x0: it.b.x0 + it.dx, x1: it.b.x1 + it.dx, y0: it.b.y0 - it.dy, y1: it.b.y1 - it.dy });
+      // A pill never leaves the screen: fold the bounds clamp into the
+      // offset itself so the relaxation works with the real estate.
+      const clampOnScreen = (it) => {
+        const r = rr(it);
+        if (r.x0 < 2) it.dx += 2 - r.x0;
+        else if (r.x1 > this.cw - 2) it.dx += this.cw - 2 - r.x1;
+        if (it.b.y0 - it.dy < 2) it.dy = it.b.y0 - 2;
+        else if (it.b.y1 - it.dy > this.ch - 2) it.dy = it.b.y1 - (this.ch - 2);
+      };
+      for (const it of items) clampOnScreen(it);
+      for (let pass = 0; pass < 8; pass++) {
+        let moved = false;
+        for (let i = 0; i < items.length; i++) {
+          for (let j = i + 1; j < items.length; j++) {
+            const A = rr(items[i]);
+            const B = rr(items[j]);
+            const xov = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0);
+            const yov = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0);
+            if (xov <= 1 || yov <= 1) continue;
+            const a = items[i], b = items[j];
+            const acx = (A.x0 + A.x1) / 2, bcx = (B.x0 + B.x1) / 2;
+            const acy = (A.y0 + A.y1) / 2, bcy = (B.y0 + B.y1) / 2;
+            // Separate along the cheaper axis, biased sideways (a level
+            // label keeps its person), and let each side give half so no
+            // single label is exiled far. Vertical goes whichever way the
+            // pair already leans - up OR down - so crowds fan into shallow
+            // rows instead of a tall tower over the roof.
+            if (xov <= yov * 1.6) {
+              const dir = bcx >= acx ? 1 : -1;
+              a.dx -= (dir * (xov + 2)) / 2; b.dx += (dir * (xov + 2)) / 2;
+            } else {
+              const dir = bcy >= acy ? -1 : 1; // dy>0 lifts; b below a sinks
+              a.dy += (dir * (yov + 2)) / 2; b.dy -= (dir * (yov + 2)) / 2;
+            }
+            for (const it of [a, b]) {
+              it.dx = Math.max(-MAXDX, Math.min(MAXDX, it.dx));
+              it.dy = Math.max(-MAXDYD, Math.min(MAXDYU, it.dy));
+              clampOnScreen(it);
+            }
+            moved = true;
+          }
         }
-        if (shift > MAX_SHIFT) shift = MAX_SHIFT;
-        if (b.y0 - shift < 2) shift = Math.max(0, b.y0 - 2);
-        if (shift > 0) targets.set(r.key, shift);
-        placed.push({ x0: b.x0, x1: b.x1, y0: b.y0 - shift, y1: b.y1 - shift });
+        if (!moved) break;
       }
+      const targets = new Map();
+      for (const it of items) if (Math.abs(it.dx) > 0.01 || Math.abs(it.dy) > 0.01) targets.set(it.key, { dx: it.dx, dy: it.dy });
       // Steady-state quality of this frame's layout (verification hook):
       // worst residual overlap among the resolved target rects.
       let worst = 0;
-      for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-        const a = placed[i], q = placed[j];
-        const xo = Math.min(a.x1, q.x1) - Math.max(a.x0, q.x0);
-        const yo = Math.min(a.y1, q.y1) - Math.max(a.y0, q.y0);
-        if (xo > 2 && yo > worst) worst = yo;
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const A = rr(items[i]), B = rr(items[j]);
+          const xo = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0);
+          const yo = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0);
+          if (xo > 2 && yo > worst) worst = yo;
+        }
       }
       this._labelTargetOverlap = worst;
       const cur = new Map();
       for (const r of this._drawnLabels) {
         const had = this._labelShift.has(r.key);
-        const prev = this._labelShift.get(r.key) || 0;
-        const want = targets.get(r.key) || 0;
+        const prev = this._labelShift.get(r.key) || { dx: 0, dy: 0 };
+        const want = targets.get(r.key) || { dx: 0, dy: 0 };
         // A label that just appeared starts at its resolved offset; only
         // changes for labels already on screen are eased.
-        if (!had) { if (want > 0.01) cur.set(r.key, want); continue; }
-        const d = want - prev;
-        const step = d > 0 ? RISE : FALL;
-        const next = prev + Math.sign(d) * Math.min(step, Math.abs(d));
-        if (next > 0.01) cur.set(r.key, next);
+        if (!had) {
+          if (Math.abs(want.dx) > 0.01 || Math.abs(want.dy) > 0.01) cur.set(r.key, { ...want });
+          continue;
+        }
+        const ease = (p0, w0) => {
+          const d = w0 - p0;
+          const step = Math.abs(w0) > Math.abs(p0) ? RISE : FALL;
+          return p0 + Math.sign(d) * Math.min(step, Math.abs(d));
+        };
+        const next = { dx: ease(prev.dx, want.dx), dy: ease(prev.dy, want.dy) };
+        if (Math.abs(next.dx) > 0.01 || Math.abs(next.dy) > 0.01) cur.set(r.key, next);
       }
       this._labelShift = cur;
     }
