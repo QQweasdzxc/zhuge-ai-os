@@ -214,6 +214,7 @@
       this.visible = true;
       this.hit = [];
       this._drawnLabels = [];
+      this._labelShift = new Map();
       this.hoverKey = null;
       this.t = performance.now();
       this.pal = palette();
@@ -1435,29 +1436,21 @@
 
       const hover = this.hoverKey === p.key;
       if (!s.subagent || hover) {
-        // Name pills never overlap: each label is stacked above any label
-        // already drawn this frame, so every name stays readable and tappable
-        // even when people stand close together (no waiting for them to walk
-        // apart). Office3D shares this code path through inheritance.
+        // Name pills stay readable without jumping: the overlap offset is
+        // resolved per person in a fixed key order (independent of draw
+        // depth, so orbiting the 3D camera cannot reshuffle the stack) and
+        // eased a little per frame, so labels glide instead of teleporting.
+        // resolveLabelShifts() owns the target offsets.
         let tx = this.label(s);
         while (c.measureText(tx).width > 118 && tx.length > 2) tx = tx.slice(0, -2) + '…';
         const w = c.measureText(tx).width + 12 + (badge ? 26 : 0);
         const height = badge ? 22 : 16;
-        const rect = { x0: x - w / 2, x1: x + w / 2, y0: top - 11 - height / 2, y1: top - 11 + height / 2 };
-        for (let iter = 0; iter < 24; iter++) {
-          let need = 0;
-          for (const q of this._drawnLabels) {
-            const xov = Math.min(rect.x1, q.x1) - Math.max(rect.x0, q.x0);
-            const yov = Math.min(rect.y1, q.y1) - Math.max(rect.y0, q.y0);
-            if (xov > 0 && yov > 0) need = Math.max(need, q.y1 - rect.y0 + 2);
-          }
-          if (!need) break;
-          rect.y0 -= need; rect.y1 -= need;
-          if (rect.y0 < 2) { const d = 2 - rect.y0; rect.y0 += d; rect.y1 += d; break; }
-        }
+        const base = { x0: x - w / 2, x1: x + w / 2, y0: top - 11 - height / 2, y1: top - 11 + height / 2 };
+        const shift = this._labelShift.get(p.key) || 0;
+        const rect = { x0: base.x0, x1: base.x1, y0: base.y0 - shift, y1: base.y1 - shift };
         pill(this.label(s), pal.text, pal.tagBg, (rect.y0 + rect.y1) / 2, p.mode === 'work' || hover ? 1 : 0.7, true);
         if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
-        this._drawnLabels.push({ key: p.key, ...rect });
+        this._drawnLabels.push({ key: p.key, base, drawn: rect });
       } else if (badge) {
         this.agentBadge(badge, x, top - 11);
       }
@@ -1559,6 +1552,7 @@
       this.step(dt);
       this._drawnLabels = [];
       const drawn = this.draw();
+      this.resolveLabelShifts();
       if (drawn !== false) {
         if (!this.first && ++this.framesShown === 3) this.markReady(true);
         // Capture immediately: a WebGL drawing buffer may be cleared after
@@ -1586,6 +1580,70 @@
         }
       }
       this.moveCat(dt, wall);
+    }
+
+    // Per-person label overlap offsets, computed from this frame's base
+    // (unshifted) rects in a fixed key order, then eased toward the target
+    // so a forming or dissolving cluster glides instead of popping. The
+    // offset is capped so a label never drifts far from its person; beyond
+    // the cap a slight residual overlap beats a label teleporting away.
+    resolveLabelShifts() {
+      const MAX_SHIFT = 120;
+      // dt-scaled so 30/60/120Hz (and slow software GL) all glide at the
+      // same visual speed; dt capped so a stalled tab never teleports.
+      const now = performance.now();
+      const dt = Math.min(100, now - (this._shiftT || now)) / 1000;
+      this._shiftT = now;
+      const RISE = 240 * dt; // clears a new collision in ~0.1s
+      const FALL = 70 * dt;  // a dissolving cluster settles gently
+      const targets = new Map();
+      const placed = [];
+      // Bottom-most label first: each label only rises to clear labels
+      // below it, so a cluster stacks upward with the smallest possible
+      // displacement (sorting by key instead lets one label trigger a
+      // cascade that pushes a whole pile to the cap). Key breaks ties so
+      // equal heights stay deterministic.
+      for (const r of [...this._drawnLabels].sort((a, b) => (b.base.y0 - a.base.y0) || (a.key < b.key ? -1 : 1))) {
+        const b = r.base;
+        // Exact one-pass clearance: rising only ever moves the rect up, so
+        // walking the already-placed (lower) rects from top to bottom and
+        // taking the worst exact requirement converges immediately. (The
+        // old additive loop overshot into the cap and left residue.)
+        let shift = 0;
+        for (const q of [...placed].sort((a, b2) => a.y0 - b2.y0)) {
+          const xov = Math.min(b.x1, q.x1) - Math.max(b.x0, q.x0);
+          if (xov <= 0) continue;
+          if (b.y1 - shift > q.y0 - 2) shift = Math.max(shift, b.y1 + 2 - q.y0);
+        }
+        if (shift > MAX_SHIFT) shift = MAX_SHIFT;
+        if (b.y0 - shift < 2) shift = Math.max(0, b.y0 - 2);
+        if (shift > 0) targets.set(r.key, shift);
+        placed.push({ x0: b.x0, x1: b.x1, y0: b.y0 - shift, y1: b.y1 - shift });
+      }
+      // Steady-state quality of this frame's layout (verification hook):
+      // worst residual overlap among the resolved target rects.
+      let worst = 0;
+      for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+        const a = placed[i], q = placed[j];
+        const xo = Math.min(a.x1, q.x1) - Math.max(a.x0, q.x0);
+        const yo = Math.min(a.y1, q.y1) - Math.max(a.y0, q.y0);
+        if (xo > 2 && yo > worst) worst = yo;
+      }
+      this._labelTargetOverlap = worst;
+      const cur = new Map();
+      for (const r of this._drawnLabels) {
+        const had = this._labelShift.has(r.key);
+        const prev = this._labelShift.get(r.key) || 0;
+        const want = targets.get(r.key) || 0;
+        // A label that just appeared starts at its resolved offset; only
+        // changes for labels already on screen are eased.
+        if (!had) { if (want > 0.01) cur.set(r.key, want); continue; }
+        const d = want - prev;
+        const step = d > 0 ? RISE : FALL;
+        const next = prev + Math.sign(d) * Math.min(step, Math.abs(d));
+        if (next > 0.01) cur.set(r.key, next);
+      }
+      this._labelShift = cur;
     }
 
     draw() {
