@@ -567,6 +567,8 @@ function readPreferences() {
 // Capture the query ONCE: the preference block below strips it with
 // replaceState, while the TF live-source params are only read near connect().
 const PAGE_QUERY = new URLSearchParams(location.search);
+// The preference block's replaceState drops the hash too; capture it for roster seeding.
+const PAGE_HASH = location.hash;
 const PIP = PAGE_QUERY.get('pip') === '1';
 if (PIP) document.body.classList.add('pip');
 
@@ -1040,6 +1042,30 @@ notifyBtn.addEventListener('change', async () => {
   store.set('notify', notifyBtn.checked);
   syncControls();
 });
+
+// One-tap private roster seeding: a link may carry `#members=Name1,Name2`
+// (URL-encoded). The hash fragment is client-only - it is never sent to the
+// static host - so this lets a private message hand the device its roster
+// without bundling names in the public repo. Seeded names merge into this
+// device's localStorage roster (dedupe, same cap), then the hash is stripped
+// so the names do not linger in the address bar or history.
+function seedMembersFromHash() {
+  try {
+    const h = PAGE_HASH || '';
+    if (!h) return;
+    const params = new URLSearchParams(h.slice(1));
+    const raw = params.get('members');
+    if (raw == null) return;
+    const incoming = raw.split(',').map((x) => x.trim()).filter(Boolean);
+    if (incoming.length) {
+      const cur = OfficeMembers.load((k) => localStorage.getItem(k));
+      const merged = OfficeMembers.parseRoster(JSON.stringify([...cur, ...incoming]));
+      try { localStorage.setItem(OfficeMembers.KEY, JSON.stringify(merged)); } catch {}
+    }
+    history.replaceState(null, '', location.pathname + location.search);
+  } catch {}
+}
+seedMembersFromHash();
 
 const memberNames = document.getElementById('memberNames');
 try { memberNames.value = OfficeMembers.load((k) => localStorage.getItem(k)).join('\n'); } catch {}
