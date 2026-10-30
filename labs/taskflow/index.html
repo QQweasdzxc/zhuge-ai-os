@@ -36,8 +36,7 @@
       <div class="brand" aria-label="Multica"><span class="brand-mark" aria-hidden="true"></span><span>Multica</span></div>
       <div class="eyebrow">Zhuge AI OS · WORK</div>
       <h1 id="taskflow-title">TaskFlow</h1>
-      <p>以 Zhuge AI OS 身分進入 Multica TaskFlow。Task、Project、Agents、Runs 與 Runtime 沿用 Multica 原生體驗；人類身分與 UUID 由 Zhuge 管理。</p>
-      <div class="journey">Task / Project / Board<br>Assign Agent → Run → Runtime / Progress<br>Blocked / Retry → Result</div>
+      <p>TaskFlow 是 Zhuge AI OS 的任務看板：在這裡查看任務、專案與工作進度。以 Zhuge AI OS 帳號登入即可使用。</p>
       <div class="actions">
         <button id="enterTaskFlow" type="button" disabled>驗證 Zhuge Session…</button>
         <a class="button secondary" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard">回到 Zhuge AI OS</a>
@@ -59,6 +58,7 @@
       const cliSSO = window.ZhugeTaskFlowCliSSO;
       const button = document.getElementById("enterTaskFlow");
       const status = document.getElementById("status");
+      let loginRedirectArmed = false;
       document.getElementById("copyrightYear").textContent = String(new Date().getFullYear());
 
       const cliParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -92,7 +92,12 @@
           }
         }
         status.textContent = message;
-        window.location.replace(AIOS_LOGIN_URL);
+        // Stay on this explanation card instead of an instant replace, so a
+        // signed-out visitor can read what TaskFlow is and choose to leave.
+        // The login flow still returns here via the taskflowReturn contract.
+        loginRedirectArmed = true;
+        button.disabled = false;
+        button.textContent = "前往 Zhuge AI OS 登入";
       }
 
       function normalizedBase(value, label) {
@@ -177,7 +182,7 @@
           headers: { Authorization: "Bearer " + token }
         }, 10000);
         if (response.status === 401 || response.status === 403) {
-          returnToOfficialLogin("Zhuge Session 已失效，正在返回官方登入頁…");
+          returnToOfficialLogin("登入狀態已過期。請重新登入後繼續前往 TaskFlow。");
           return "";
         }
         if (!response.ok) throw httpFailure("TaskFlow Workspace API", response.status);
@@ -187,6 +192,10 @@
       }
 
       async function enter() {
+        if (loginRedirectArmed) {
+          window.location.assign(AIOS_LOGIN_URL);
+          return;
+        }
         let api, web;
         try {
           api = normalizedBase(config.apiUrl, "TaskFlow API");
@@ -199,7 +208,7 @@
 
         const accessToken = currentAccessToken();
         if (!accessToken) {
-          returnToOfficialLogin("尚未登入 Zhuge AI OS，正在返回官方登入頁…");
+          returnToOfficialLogin("尚未登入 Zhuge AI OS。請先登入，登入後即可繼續前往 TaskFlow。");
           return;
         }
 
@@ -219,7 +228,7 @@
             body: JSON.stringify({ access_token: accessToken })
           }, 12000);
           if (response.status === 401 || response.status === 403) {
-            returnToOfficialLogin("Zhuge Session 已失效，正在返回官方登入頁…");
+            returnToOfficialLogin("登入狀態已過期。請重新登入後繼續前往 TaskFlow。");
             return;
           }
           if (!response.ok) throw httpFailure("TaskFlow 登入 API", response.status);
@@ -265,7 +274,7 @@
       } else if (!configured) {
         status.textContent = "TaskFlow Web/API 服務網址尚未設定。";
       } else if (!currentAccessToken()) {
-        returnToOfficialLogin("尚未登入 Zhuge AI OS，正在返回官方登入頁…");
+        returnToOfficialLogin("尚未登入 Zhuge AI OS。請先登入，登入後即可繼續前往 TaskFlow。");
       } else {
         void enter();
       }
