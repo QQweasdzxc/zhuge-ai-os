@@ -5,7 +5,7 @@ const path = require("node:path");
 const { resolveBrowserExecutable, fixtureURL } = require("./browser-executable");
 
 const ROOT = path.join(__dirname, "..");
-const AIOS_LOGIN = "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard";
+const AIOS_HOME = "https://qqweasdzxc.github.io/zhuge-ai-os/";
 const TEST_SESSION_TOKEN = "isolated-test-session-token";
 const TEST_TASKFLOW_TOKEN = "isolated-taskflow-jwt";
 const cors = {
@@ -138,7 +138,7 @@ test("TaskFlow entry hands Zhuge session to API and opens the Multica handoff on
     }));
     assert.ok(layout.scrollWidth <= layout.width, JSON.stringify(layout));
     assert.ok(layout.actionHeight >= 44, JSON.stringify(layout));
-    assert.equal(await page.locator(".secondary").getAttribute("href"), AIOS_LOGIN);
+    assert.equal(await page.locator(".secondary").getAttribute("href"), AIOS_HOME);
     await page.waitForURL(url => url.hostname === "taskflow-web.example" && url.pathname === "/zhuge-handoff.html", { timeout: 10000 });
     const handoffUrl = new URL(page.url());
     assert.equal(handoffUrl.search, "");
