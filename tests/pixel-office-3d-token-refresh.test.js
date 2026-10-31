@@ -102,3 +102,38 @@ test("terminally dead refresh clears the session and reports signed-out, never a
   assert.equal(result.note, "需要登入 Zhuge AI OS");
   assert.equal(store.has(GOOGLE_KEY), false, "terminal refresh failure clears the stored session");
 });
+
+test("recoverable refresh failure keeps the session, shows no false terminal state, and the next poll recovers (simulated)", async () => {
+  let fail = true;
+  const { sandbox, store, calls, fetchStub } = makeWorld({
+    storedSession: { access_token: "old-access", refresh_token: "r1", token_type: "bearer", expires_in: 3600, expires_at: Date.now() - 1000 },
+    refreshResponder: () => fail
+      ? { ok: false, status: 500, json: async () => ({ msg: "database error" }), text: async () => '{"msg":"database error"}' }
+      : { ok: true, status: 200, json: async () => ({ access_token: "new-access", refresh_token: "r2", token_type: "bearer", expires_in: 3600 }), text: async () => "" }
+  });
+  const first = await sandbox.__TfSource.pollTfOnce(fetchStub, "", Date.now(), pollOpts(store));
+  assert.equal(first.state, "error", "recoverable failure is a transient error, not the terminal banner");
+  assert.match(first.note, /自動重試/);
+  assert.ok(!/已失效/.test(first.note), "never the false expired-login note");
+  assert.equal(calls.exchangeToken, null, "the known-stale token is not exchanged");
+  assert.equal(calls.refresh, 1, "one refresh attempt per scheduled poll, no dense retry");
+  assert.equal(store.has(GOOGLE_KEY), true, "session is preserved for the next poll");
+  assert.equal(JSON.parse(store.get(GOOGLE_KEY)).refresh_token, "r1");
+  fail = false;
+  const second = await sandbox.__TfSource.pollTfOnce(fetchStub, "", Date.now(), pollOpts(store));
+  assert.equal(second.state, "ok", "the next scheduled poll recovers normally");
+  assert.equal(calls.exchangeToken, "new-access");
+  assert.equal(JSON.parse(store.get(GOOGLE_KEY)).refresh_token, "r2");
+});
+
+test("anonymous visit never touches the refresh path and stays signed-out (simulated)", async () => {
+  const { sandbox, store, calls, fetchStub } = makeWorld({
+    storedSession: null,
+    refreshResponder: () => { throw new Error("refresh must not be called"); }
+  });
+  const result = await sandbox.__TfSource.pollTfOnce(fetchStub, "", Date.now(), pollOpts(store));
+  assert.equal(result.state, "auth-required");
+  assert.equal(result.note, "需要登入 Zhuge AI OS");
+  assert.equal(calls.refresh, 0);
+  assert.equal(calls.exchangeToken, null);
+});
