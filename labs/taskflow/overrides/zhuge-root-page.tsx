@@ -28,7 +28,7 @@ export default function LandingPage() {
               <p className="mt-1 text-muted-foreground">此技術網址不提供另一套註冊、OTP 或 Multica Cloud 帳號。</p>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard" className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">回到 Zhuge AI OS</a>
+              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/" className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">回到 Zhuge AI OS</a>
               <a href="https://github.com/multica-ai/multica" target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-sm font-medium">查看上游原始碼</a>
             </div>
             <footer className="mt-8 border-t border-border pt-4 text-xs text-muted-foreground">

@@ -4,7 +4,7 @@
  * NOT TaskFlow production parity or an approved launch.
  */
 import {createTaskFlowPagesTransport, readZhugeAccessToken, TaskFlowPagesError} from "./taskflow-api.mjs";
-import {markExplicitReturn} from "./login-return.mjs";
+import {markExplicitReturn,HOME,STATUS_CLASSIC} from "./login-return.mjs";
 import {
   DISPATCH_METADATA_KEYS,
   DISPATCH_STATE_LABELS,
@@ -617,7 +617,8 @@ refs.workspace.addEventListener("change",async event=>{
   history.replaceState(null,"",routeFor());
   await loadData();
 });
-document.querySelector("#tf-login-action").addEventListener("click",()=>markExplicitReturn(sessionStorage));
+document.querySelector("#tf-login-action").addEventListener("click",event=>markExplicitReturn(sessionStorage,Date.now(),
+ new URL(event.currentTarget.href).searchParams.get("tfPagesReturn")==="1"?STATUS_CLASSIC:HOME));
 refs.refresh.addEventListener("click",()=>void bootstrap());
 refs.createOpen?.addEventListener("click",openCreate);
 refs.createCancel?.addEventListener("click",closeCreate);

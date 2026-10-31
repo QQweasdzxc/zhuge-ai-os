@@ -1,0 +1,68 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {chromium}=require('playwright');
+const {resolveBrowserExecutable,fixtureURL}=require('./browser-executable');
+const ROOT=path.resolve(__dirname,'..');
+const HOME='https://qqweasdzxc.github.io/zhuge-ai-os/';
+for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,async t=>{
+ const executablePath=resolveBrowserExecutable();
+ assert.ok(executablePath);
+ const browser=await chromium.launch({executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
+ t.after(()=>browser.close());
+ const page=await browser.newPage({viewport:{width,height:900}});
+ // Isolate local navigation from all external services, including Google login.
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ await page.goto(await fixtureURL(path.join(ROOT,'labs/taskflow/index.html')));
+ await page.getByRole('button',{name:'前往 Zhuge AI OS 登入'}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'回到 Zhuge AI OS'}).getAttribute('href'),HOME);
+ await page.goto(await fixtureURL(path.join(ROOT,'status-classic.html')));
+ await page.locator('#tf-login-action').waitFor({state:'visible'});
+ assert.equal(new URL(await page.locator('#tf-login-action').evaluate(el=>el.href)).searchParams.get('tfPagesReturn'),'1');
+ // Capture the real click handler without leaving the local fixture origin.
+ await page.locator('#tf-login-action').evaluate(el=>el.addEventListener('click',event=>event.preventDefault()));
+ await page.locator('#tf-login-action').click();
+ const result=await page.evaluate(async()=>{
+  const m=await import('/labs/taskflow/pages-client/login-return.mjs');
+  const pending=JSON.parse(sessionStorage.getItem(m.RETURN_KEY));
+  const urls=[];
+  const monitor=m.startReturnMonitor({navigate:url=>urls.push(url)});
+  monitor.stop();
+  const before=urls.length;
+  localStorage.setItem('zhuge_ai_os_session_v1',JSON.stringify({access_token:'header.'+btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))+'.sig'}));
+  m.startReturnMonitor({navigate:url=>urls.push(url)});
+  return {pending,before,urls,remaining:sessionStorage.getItem(m.RETURN_KEY)};
+ });
+ assert.equal(result.pending.target,HOME+'status-classic.html');
+ assert.equal(result.before,0);
+ assert.deepEqual(result.urls,[HOME+'status-classic.html']);
+ assert.equal(result.remaining,null);
+ await page.evaluate(()=>localStorage.clear());
+ await page.goto(await fixtureURL(path.join(ROOT,'labs/pixel-office-3d/index.html')));
+ const login=new URL(await page.locator('#tfAuth a').evaluate(el=>el.href));
+ assert.equal(login.searchParams.get('previewReturn'),'1');
+ await page.addScriptTag({url:new URL('/labs/taskflow/taskflow-post-login.js',page.url()).href});
+ const preview=await page.evaluate(({search,home})=>{
+  const api=window.ZhugeTaskFlowPostLogin,now=1800000000000;
+  const urls=[],location={href:home+'modules/worklog/',replace:url=>urls.push(url)};
+  const capture=api.capture({search},sessionStorage,now);
+  const pending=JSON.parse(sessionStorage.getItem(api.storageKey));
+  const args={authenticated:true,accessApproved:true,runtimeReady:true,location,storage:sessionStorage};
+  const blocked=api.complete({...args,accessApproved:false,now:now+1});
+  const complete=api.complete({...args,now:now+1});
+  const twice=api.complete({...args,now:now+2});
+  const guarded=api.capture({search},sessionStorage,now+120000);
+  const retry=api.capture({search},sessionStorage,now+120001);
+  const expired=api.complete({...args,now:now+120001+600000});
+  return {capture,pending,blocked,complete,twice,guarded,retry,expired,urls};
+ },{search:login.search,home:HOME});
+ assert.equal(preview.capture,true);
+ assert.deepEqual(preview.pending,{intent:'preview',expiresAt:1800000600000});
+ assert.equal(preview.blocked,false);
+ assert.equal(preview.complete,true);
+ assert.equal(preview.twice,false);
+ assert.equal(preview.guarded,false);
+ assert.equal(preview.retry,true);
+ assert.equal(preview.expired,false);
+ assert.deepEqual(preview.urls,[HOME+'labs/pixel-office-3d/']);
+});
