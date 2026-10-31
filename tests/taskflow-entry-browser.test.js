@@ -28,7 +28,7 @@ test("classic status route preserves authenticated TaskFlow Dashboard after pixe
 
     const page=await browser.newPage({viewport});
     await page.addInitScript(()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",
-      JSON.stringify({access_token:"test-pages-supabase-session"})));
+      JSON.stringify({access_token:"h.eyJleHAiOjIwMDAwMDAwMDB9.s"})));
     const apiCalls=[];
     await page.route(officialApi+"/**",route=>{
       const request=route.request(),u=new URL(request.url());

@@ -11,7 +11,7 @@ async function setup(t,{signedIn=true,viewport={width:1440,height:900},issueList
  const browser=await chromium.launch({executablePath:resolveBrowserExecutable(),args:["--no-sandbox","--disable-dev-shm-usage"]});
  t.after(async()=>browser.close());
  const page=await browser.newPage({viewport});
- if(signedIn)await page.addInitScript(()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",JSON.stringify({access_token:"test-supabase-access-token"})));
+ if(signedIn)await page.addInitScript(()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",JSON.stringify({access_token:"h.eyJleHAiOjIwMDAwMDAwMDB9.s"})));
  const requests=[];
  await page.route(API+"/**",async route=>{
    const req=route.request();
