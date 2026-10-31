@@ -248,3 +248,130 @@ test("a new login session restores Cloud REST after stale session cleanup", asyn
   assert.equal(values.get("auth") !== undefined, true);
   assert.equal(context.session.access_token, "relogin-access");
 });
+
+test("transient refresh failure (500) preserves the stored session and records debug", async () => {
+  const rootSession = {
+    provider: "google-oauth", user_uuid: "u1", email: "user@example.test",
+    access_token: "expired-ui", refresh_token: "recoverable", expires_at: 1
+  };
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession,
+    fetchImpl: async () => response(500, { message: "upstream unavailable" })
+  });
+  values.set("provider", "google-oauth");
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  assert.equal(values.get("ui") !== undefined, true);
+  assert.equal(values.get("provider") !== undefined, true);
+  assert.equal(context.session.email, "user@example.test");
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_failed");
+  assert.equal(debug.detail.status, 500);
+  assert.equal(debug.detail.terminal, false);
+});
+
+test("rate-limited refresh (429) preserves the stored session", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(429, { message: "too many requests" })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_failed");
+  assert.equal(debug.detail.terminal, false);
+});
+
+test("refresh network error preserves the stored session and records debug", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => { throw new TypeError("fetch failed"); }
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_network_error");
+});
+
+test("terminal refresh rejection (400 invalid_grant) clears and records terminal debug", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "dead", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(400, { error: "invalid_grant", error_description: "Invalid Refresh Token" })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth"), undefined);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_failed");
+  assert.equal(debug.detail.status, 400);
+  assert.equal(debug.detail.terminal, true);
+});
+
+test("user endpoint 500 preserves the stored session", async () => {
+  const fresh = Date.now() + 3600000;
+  const { context, values } = authContext({
+    stored: { access_token: "fresh", refresh_token: "refresh", expires_at: fresh },
+    rootSession: null,
+    fetchImpl: async () => response(500, { message: "internal error" })
+  });
+
+  assert.equal(await vm.runInContext("getSupabaseAuthUser()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_user_fetch_failed");
+  assert.equal(debug.detail.status, 500);
+});
+
+test("user endpoint 401 with a transient refresh failure preserves the stored session", async () => {
+  const fresh = Date.now() + 3600000;
+  const { context, values } = authContext({
+    stored: { access_token: "fresh-but-rejected", refresh_token: "recoverable", expires_at: fresh },
+    rootSession: null,
+    fetchImpl: async url => {
+      if (String(url).includes("/auth/v1/token")) return response(503, { message: "service unavailable" });
+      return response(401, { message: "bad jwt" });
+    }
+  });
+
+  assert.equal(await vm.runInContext("getSupabaseAuthUser()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+});
+
+test("user endpoint rejecting a freshly refreshed token clears the stored session", async () => {
+  const fresh = Date.now() + 3600000;
+  const { context, values } = authContext({
+    stored: { access_token: "stale", refresh_token: "rotating", expires_at: fresh },
+    rootSession: null,
+    fetchImpl: async url => {
+      if (String(url).includes("/auth/v1/token")) {
+        return response(200, { access_token: "fresh-access", refresh_token: "fresh-refresh", expires_in: 3600, token_type: "bearer" });
+      }
+      return response(401, { message: "user not found" });
+    }
+  });
+
+  assert.equal(await vm.runInContext("getSupabaseAuthUser()", context), null);
+  assert.equal(values.get("auth"), undefined);
+  assert.equal(values.get("provider"), undefined);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_user_fetch_failed");
+  assert.equal(debug.detail.status, 401);
+});
+
+test("worklog boot failure no longer destroys the stored login", () => {
+  const source = read("modules/worklog/worklog-app.js");
+  const bootStart = source.indexOf("async function boot()");
+  const bootEnd = source.indexOf("boot();", bootStart);
+  assert.ok(bootStart > 0 && bootEnd > bootStart);
+  const bootSource = source.slice(bootStart, bootEnd);
+  assert.doesNotMatch(bootSource, /clearStoredAuthSession/);
+  assert.doesNotMatch(bootSource, /saveAll\(\)/);
+  assert.match(bootSource, /recordOAuthDebug\("worklog_boot_auth_error"/);
+});

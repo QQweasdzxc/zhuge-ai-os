@@ -22,32 +22,53 @@ async function performAuthSessionRefresh() {
   const stored = getStoredAuthSession();
   const refreshToken = stored?.refresh_token || session?.refresh_token || "";
   if (!refreshToken) {
+    recordOAuthDebug("auth_session_refresh_missing_token", {});
     clearStoredAuthSession();
     return null;
   }
-  const res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ refresh_token: refreshToken })
-  });
+  let res;
+  try {
+    res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+  } catch (error) {
+    // Transient network failure. Keep the stored session so the next page
+    // load can retry instead of forcing a new login.
+    recordOAuthDebug("auth_session_refresh_network_error", { message: String(error?.message || error).slice(0, 240) });
+    return null;
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     let parsedBody = null;
     try { parsedBody = body ? JSON.parse(body) : null; } catch { parsedBody = null; }
+    const errorCode = parsedBody?.code || parsedBody?.error_code || parsedBody?.error || "";
+    const errorMessage = parsedBody?.message || parsedBody?.msg || body || res.statusText;
+    // Supabase refresh tokens rotate. A definitive rejection (400/401/403 or
+    // invalid_grant) means the stored pair is unrecoverable and must not
+    // remain usable by the root UI or a later REST request. 5xx/429 are
+    // transient: keep the stored session so the next load can retry instead
+    // of destroying a recoverable login.
+    const terminal = res.status === 400 || res.status === 401 || res.status === 403 || errorCode === "invalid_grant";
+    recordOAuthDebug("auth_session_refresh_failed", {
+      status: res.status,
+      code: errorCode,
+      message: String(errorMessage || "").slice(0, 240),
+      terminal
+    });
     console.error("Supabase refresh session failed", {
       status: res.status,
       statusText: res.statusText,
-      code: parsedBody?.code || "",
-      message: parsedBody?.message || body || res.statusText,
+      code: errorCode,
+      message: errorMessage,
       details: parsedBody?.details || "",
       hint: parsedBody?.hint || "",
       body,
-      has_refresh_token: !!refreshToken
+      has_refresh_token: !!refreshToken,
+      terminal
     });
-    // Supabase refresh tokens rotate. Once refresh fails, the stored access /
-    // refresh pair is no longer recoverable and must not remain usable by the
-    // root UI or a later REST request.
-    clearStoredAuthSession();
+    if (terminal) clearStoredAuthSession();
     return null;
   }
   const data = await res.json();
@@ -294,18 +315,36 @@ async function getSupabaseAuthUser() {
   const authSession = await getAuthSession();
   if (!authSession?.access_token) return null;
   let activeAuthSession = authSession;
-  let res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
+  let usedRefreshedToken = false;
+  const fetchAuthUser = token => fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(token) });
+  let res;
+  try {
+    res = await fetchAuthUser(activeAuthSession.access_token);
+  } catch (error) {
+    recordOAuthDebug("auth_user_fetch_network_error", { message: String(error?.message || error).slice(0, 240) });
+    return null;
+  }
   if (res.status === 401) {
     const refreshed = await refreshAuthSession(true);
     if (refreshed?.access_token) {
       activeAuthSession = refreshed;
-      res = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, { headers: authHeaders(activeAuthSession.access_token) });
+      usedRefreshedToken = true;
+      try {
+        res = await fetchAuthUser(activeAuthSession.access_token);
+      } catch (error) {
+        recordOAuthDebug("auth_user_fetch_network_error", { message: String(error?.message || error).slice(0, 240) });
+        return null;
+      }
     }
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, body });
-    clearStoredAuthSession();
+    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, body: String(body || "").slice(0, 240) });
+    // A 401/403 proves the session is dead only when the token being rejected
+    // is the one we just refreshed. Otherwise (5xx, 429, or a 401 after a
+    // transient refresh failure) keep the stored session so the next attempt
+    // can recover without a new login.
+    if (usedRefreshedToken && (res.status === 401 || res.status === 403)) clearStoredAuthSession();
     return null;
   }
   const user = await res.json();

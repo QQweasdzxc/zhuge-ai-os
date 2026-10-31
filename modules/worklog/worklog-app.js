@@ -7554,12 +7554,14 @@ async function boot() {
         await initializeApprovedWorklogRuntime("stored-auth-session");
       }
     }
-  } catch {
-    clearStoredAuthSession();
-    if (session) {
-      session = null;
-      saveAll();
+  } catch (error) {
+    // A boot-time failure (transient network error, runtime exception) must
+    // not destroy the stored login. Keep the auth keys so the next load can
+    // retry, and record the failure for diagnosis.
+    if (typeof recordOAuthDebug === "function") {
+      recordOAuthDebug("worklog_boot_auth_error", { message: String(error?.message || error).slice(0, 240) });
     }
+    session = null;
   }
   render();
 }
