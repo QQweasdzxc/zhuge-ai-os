@@ -4,16 +4,21 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const root = require("node:path").resolve(__dirname, "..");
 const read = file => fs.readFileSync(require("node:path").join(root, file), "utf8");
-test("P1 furniture is an overlay on original Habblaud; root/docs use correct relative paths", () => {
-  for (const p of ["index.html", "docs/index.html"]) {
-    const s = read(p);
-    assert.match(s, /pixel-office\/index\.html/);
-    assert.match(s, /zhuge-office-furnishings\.js/);
-    assert.match(s, /zhuge-office-furnishings\.css/);
-    assert.match(s, /status-classic\.html/);
-  }
-  assert.match(read("index.html"), /src="\.\/assets\/zhuge-office-furnishings\.js"/);
-  assert.match(read("docs/index.html"), /src="\.\.\/assets\/zhuge-office-furnishings\.js"/);
+test("docs home keeps P1 furniture overlay on original Habblaud with correct relative paths", () => {
+  const s = read("docs/index.html");
+  assert.match(s, /pixel-office\/index\.html/);
+  assert.match(s, /zhuge-office-furnishings\.js/);
+  assert.match(s, /zhuge-office-furnishings\.css/);
+  assert.match(s, /status-classic\.html/);
+  assert.match(s, /src="\.\.\/assets\/zhuge-office-furnishings\.js"/);
+});
+test("root home embeds the 3D office entry, not the 2D furnishings world", () => {
+  const s = read("index.html");
+  assert.match(s, /labs\/pixel-office-3d\/index\.html/);
+  assert.match(s, /status-classic\.html/);
+  assert.doesNotMatch(s, /pixel-office\/index\.html/);
+  assert.doesNotMatch(s, /zhuge-office-furnishings\.js/);
+  assert.doesNotMatch(s, /zhuge-office-furnishings\.css/);
 });
 test("P1 works point to real published locations, placeholders cannot fake links", () => {
   const s = read("assets/zhuge-office-furnishings.js");
