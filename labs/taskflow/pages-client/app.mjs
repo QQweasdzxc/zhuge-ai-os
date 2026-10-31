@@ -195,7 +195,7 @@ function renderProjects(){
 function renderIssues(filter=null){
   const issues=filter?state.issues.filter(issue=>issue.project_id===filter):state.issues;
   refs.issues.replaceChildren();
-  refs.title.textContent=filter?(state.projects.find(p=>p.id===filter)?.name||state.projects.find(p=>p.id===filter)?.title||"專案任務"):"TaskFlow Dashboard";
+  refs.title.textContent=filter?(state.projects.find(p=>p.id===filter)?.name||state.projects.find(p=>p.id===filter)?.title||"專案任務"):"經典報表（TaskFlow Dashboard）";
   if(issues.length===0){
     refs.issues.append(element("p",{text:state.total>0&&filter?"目前載入的任務沒有屬於此專案的資料。":"此工作區目前沒有符合條件的任務。",className:"tf-empty"}));
     return;
