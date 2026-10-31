@@ -75,6 +75,7 @@ function normalizeTfIssues(issues, opts) {
         identifier,
         issueStatus: category,
         taskflowTaskStatus: native ? (native.taskflow_task_status || null) : null,
+        taskflowTaskId: native ? (native.taskflow_task_id || null) : null,
         providerRuntimeState: 'unverified', // by design, never displayed as fact
         reportLabels: labels,
         excerptGap: labels.length === 0,
@@ -254,7 +255,49 @@ async function fetchReportLabels(fetchImpl, apiBase, headers, tasks) {
   return out;
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, TOKEN_KEYS };
+// Conversation excerpts come from the EXISTING authenticated endpoint
+// GET {apiBase}/api/tasks/{taskId}/messages (router.go ListTaskMessagesByUser),
+// where taskId is the agent_task_queue id that the native-ai-tasks readback
+// already exposes as taskflow_task_id. The server ACLs it to the caller's own
+// workspace (cross-workspace reads answer 404), so an excerpt read stays
+// inside the signed-in user's own task; it never lists or guesses other
+// tasks. Best-effort: any failure yields ok:false and the UI shows an honest
+// note instead of content. Payload contract (pkg/protocol/messages.go
+// TaskMessagePayload): {task_id, issue_id, seq, type, tool, content, input,
+// output, output_truncated, created_at}; type is text | tool_use |
+// tool_result | error. Daemon-side redaction trims secrets before persist;
+// the UI still renders every field as escaped plain text.
+async function fetchTaskMessages(fetchImpl, apiBase, headers, taskId) {
+  if (!taskId) return { ok: false, reason: 'no-task' };
+  let r;
+  try {
+    r = await fetchImpl(`${apiBase}/api/tasks/${encodeURIComponent(taskId)}/messages`, {
+      headers, mode: 'cors', credentials: 'omit', cache: 'no-store',
+    });
+  } catch { return { ok: false, reason: 'network' }; }
+  if (!r || r.status !== 200) return { ok: false, reason: 'http', status: r && r.status };
+  let arr;
+  try { arr = await r.json(); } catch { return { ok: false, reason: 'bad-json' }; }
+  if (!Array.isArray(arr)) return { ok: false, reason: 'bad-shape' };
+  const messages = [];
+  for (const m of arr) {
+    if (!m || typeof m !== 'object') continue;
+    const at = m.created_at ? Date.parse(m.created_at) : null;
+    if (m.type === 'text' && typeof m.content === 'string' && m.content.trim()) {
+      messages.push({ role: 'assistant', text: m.content, at });
+    } else if (m.type === 'tool_use' && m.tool) {
+      messages.push({ role: 'tool', text: String(m.tool), at });
+    } else if (m.type === 'tool_result' && typeof m.output === 'string' && m.output.trim()) {
+      const suffix = m.output_truncated === true ? '…' : '';
+      messages.push({ role: 'tool', text: `${m.tool ? m.tool + ': ' : ''}${m.output}${suffix}`, at });
+    } else if (m.type === 'error' && typeof m.content === 'string' && m.content.trim()) {
+      messages.push({ role: 'assistant', text: m.content, at });
+    }
+  }
+  return { ok: true, messages };
+}
+
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, TOKEN_KEYS };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
@@ -266,6 +309,20 @@ if (typeof window !== 'undefined') {
   window.startTfSource = function startTfSource(opts) {
     const intervalMs = Math.max(60000, (opts.intervalSec || 3600) * 1000);
     let stopped = false;
+    // Excerpt reads reuse the exact same auth chain as the hourly poll
+    // (stored Supabase token -> /auth/zhuge exchange -> Bearer + workspace
+    // slug). No new credential, scope, or permission is introduced.
+    window.loadTfTaskExcerpts = async function loadTfTaskExcerpts(taskId) {
+      try {
+        const storageGet = (k) => { try { return window.localStorage.getItem(k); } catch { return null; } };
+        const supa = TfSource.readSupabaseToken(storageGet);
+        if (!supa) return { ok: false, reason: 'auth' };
+        const ex = await TfSource.exchangeJwt(window.fetch.bind(window), opts.apiBase, supa);
+        if (ex.error) return { ok: false, reason: 'auth' };
+        const headers = { authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json' };
+        return await TfSource.fetchTaskMessages(window.fetch.bind(window), opts.apiBase, headers, taskId);
+      } catch { return { ok: false, reason: 'error' }; }
+    };
     async function tick() {
       const r = await TfSource.pollTfOnce(window.fetch.bind(window), opts.base || '', Date.now(), {
         apiBase: opts.apiBase,
