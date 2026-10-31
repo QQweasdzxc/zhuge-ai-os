@@ -748,8 +748,9 @@ function renderToday() {
 
 
 // Zhuge TF truth block: card status and queue status are shown as separate,
-// raw TaskFlow values. The excerpt area shows agent report labels only;
-// raw conversation transcripts have no established access path (gap noted).
+// raw TaskFlow values. Cards show agent report labels; real conversation
+// excerpts load in the DETAIL panel when the task is bound to an execution
+// (tf.taskflowTaskId present). Unbound cards keep an honest no-dispatch note.
 const TF_ISSUE_LABEL = { backlog: '待辦（backlog）', todo: '待辦（todo）', in_progress: '進行中', in_review: '回報待稽核', done: '核定完成', blocked: '卡關', cancelled: '已取消' };
 const TF_QUEUE_LABEL = { queued: '排隊中', dispatched: '已派發', running: '執行中', completed: '已結束', failed: '失敗', cancelled: '已取消' };
 function tfBlock(s, suppressGap) {
@@ -757,13 +758,14 @@ function tfBlock(s, suppressGap) {
   const t = s.tf;
   // Report/excerpt rows belong to agent-executed cards only; a human card has
   // no agent conversation, so an excerpt-gap note there would be noise.
+  const gapBound = L.excerptInDetail || '對話摘錄在詳情面板顯示；以上為回報模板標籤，不是對話內容';
   const ex = !t.isAgentCard ? ''
     : t.reportLabels && t.reportLabels.length
     ? `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
       t.reportLabels.map((l) => `<div class="tfex" title="${esc(l)}">${esc(l)}</div>`).join('') +
-      (suppressGap ? '' : `<div class="tfgap">${esc(L.excerptGap || '對話摘錄未接線：以上為回報模板標籤，不是對話內容；原始對話無存取管道')}</div>`)
+      (suppressGap ? '' : `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGap || '對話摘錄：任務尚未派工執行，沒有對話內容；以上為回報模板標籤，不是對話內容'))}</div>`)
     : (suppressGap ? '' : `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
-      `<div class="tfgap">${esc(L.excerptGapNone || '無回報紀錄；對話摘錄未接線：原始對話無存取管道')}</div>`);
+      `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGapNone || '無回報紀錄；對話摘錄：任務尚未派工執行，沒有對話內容'))}</div>`);
   return `<div class="tf">
     <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId ? `${t.executorId} · ${L.execUnmapped || '成員對應待確認'}` : (t.isAgentCard ? '—' : (L.tfUnassigned || '未指派')))}</b></div>
     <div class="tfrow"><span>${esc(L.queueL || '執行佇列')}</span><b>${esc(TF_QUEUE_LABEL[t.taskflowTaskStatus] || t.taskflowTaskStatus || '—')}</b></div>
@@ -1434,7 +1436,7 @@ connect();
 // conversation live in a side panel (list first, one agent on click).
 const sideEl = document.getElementById('side');
 let sel = null;              // key of the agent open in the panel
-let convo = { key: null, at: null, messages: null, private: false, busy: false };
+let convo = { key: null, at: null, messages: null, private: false, busy: false, failed: false };
 
 function statusColor(st) {
   return { thinking: 'var(--thinking)', tool: 'var(--tool)', typing: 'var(--typing)', waiting: 'var(--waiting)', error: 'var(--error)', done: 'var(--done)' }[st] || 'var(--faint)';
@@ -1553,7 +1555,7 @@ function openDetail(key) {
   if (!state.side) setSide(true);
   document.getElementById('sideList').inert = true;
   document.getElementById('sideDetail').inert = false;
-  if (convo.key !== key) convo = { key, at: null, messages: null, private: false, busy: false };
+  if (convo.key !== key) convo = { key, at: null, messages: null, private: false, busy: false, failed: false };
   // Build the details off-screen this frame and start the slide on the next,
   // so the click doesn't also pay for layout in the slide's first frame.
   renderDetail(true);
@@ -1570,6 +1572,10 @@ function closeDetail() {
   document.getElementById('sideDetail').inert = true;
 }
 
+const renderMsgs = (list) => `<div class="msgs">${list.map((m) => m.role === 'tool'
+  ? `<div class="msg tool" title="${esc(m.text)}">${GEAR}${esc(m.text)}</div>`
+  : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
+
 function renderDetail(scrollDown) {
   const s = state.data.sessions.find((x) => x.key === sel);
   if (!s) { closeDetail(); return; }
@@ -1584,13 +1590,17 @@ function renderDetail(scrollDown) {
   const myWork = s.owner ? state.data.sessions.filter((x) => x.tf && !x.tf.isAgentCard) : [];
   const msgs = s.owner ? ''
     : s.member ? `<div class="msgs-note">${esc(s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
-    : s.tf ? (s.tf.isAgentCard ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄未接線：原始對話無存取管道；上方的回報紀錄為模板標籤，不是對話內容。')}</div>` : '')
+    : s.tf ? (s.tf.isAgentCard
+      ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄：任務尚未派工執行，沒有對話內容；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
+      : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
+      : convo.failed ? `<div class="msgs-note">${esc(L.excerptError || '對話摘錄暫時無法讀取；稍後重試。')}</div>`
+      : !convo.messages.length ? `<div class="msgs-note">${esc(L.excerptEmpty || '任務已建立，尚無對話摘錄。')}</div>`
+        : renderMsgs(convo.messages)
+      : '')
     : convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
     : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
-        : `<div class="msgs">${convo.messages.map((m) => m.role === 'tool'
-          ? `<div class="msg tool" title="${esc(m.text)}">${GEAR}${esc(m.text)}</div>`
-          : `<div class="msg ${m.role}">${esc(m.text)}<span class="at">${esc(hhmm(m.at))}</span></div>`).join('')}</div>`;
+        : renderMsgs(convo.messages);
   const resume = resumeCmd(s);
   const html = `
     ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
@@ -1624,9 +1634,29 @@ const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle
 
 async function loadConvo(s) {
   const key = s.key, at = s.lastEventAt;
-  // TF mode has no transcript endpoint; keep the excerpt-gap note instead of
-  // firing a request that can only 404.
-  if (TF_MODE) { convo = { key, at, messages: [], private: false, busy: false }; if (sel === key) renderDetail(); return; }
+  // TF mode: a bound agent task (taskflowTaskId present) has real excerpts
+  // behind the existing authenticated messages endpoint; an unbound card has
+  // no execution record, so it keeps the honest note and fires no request.
+  if (TF_MODE) {
+    if (s.tf && s.tf.isAgentCard && s.tf.taskflowTaskId && window.loadTfTaskExcerpts) {
+      convo.busy = true; convo.key = key;
+      try {
+        const r = await window.loadTfTaskExcerpts(s.tf.taskflowTaskId);
+        if (convo.key !== key) return;
+        convo = r.ok
+          ? { key, at, messages: r.messages, private: false, busy: false, failed: false }
+          : { key, at, messages: [], private: false, busy: false, failed: true };
+      } catch {
+        if (convo.key === key) convo = { key, at, messages: [], private: false, busy: false, failed: true };
+        return;
+      }
+      if (sel === key) renderDetail();
+      return;
+    }
+    convo = { key, at, messages: [], private: false, busy: false, failed: false };
+    if (sel === key) renderDetail();
+    return;
+  }
   convo.busy = true;
   try {
     const r = await fetch(`/api/transcript?key=${encodeURIComponent(key)}`);
