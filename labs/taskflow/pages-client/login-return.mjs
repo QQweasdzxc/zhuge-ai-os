@@ -7,6 +7,11 @@ export const RETURN_KEY="tf-pages-explicit-login-return-v1";
 export const HOME="https://qqweasdzxc.github.io/zhuge-ai-os/";
 export const STATUS_CLASSIC=HOME+"status-classic.html";
 const TIMEOUT_MS=3*60*1000;
+// Mirrors AUTH_VERIFICATION_FAILED_KEY in modules/worklog/worklog-app.js:
+// while a preserved session is known to be unverified, the handoff pauses
+// (the intent is neither consumed nor navigated) until verification recovers
+// or the intent expires.
+export const VERIFY_FAIL_KEY="zhuge_ai_os_auth_verification_failed_v1";
 export function hasFreshZhugeSession(storage,now=Date.now()){
  for(const key of ["zhuge_ai_os_google_auth_session_v1","zhuge_ai_os_session_v1"]){
   try{
@@ -42,6 +47,7 @@ export function startReturnMonitor({
  const stop=()=>{active=false;if(timer!==null)cancel(timer);};
  const check=()=>{
   if(!active)return;
+  if(localStore.getItem(VERIFY_FAIL_KEY))return;
   if(!pendingExplicitReturn(sessionStore,now())){sessionStore.removeItem(RETURN_KEY);stop();return;}
   if(!hasFreshZhugeSession(localStore,now()))return;
   const {target}=JSON.parse(sessionStore.getItem(RETURN_KEY));

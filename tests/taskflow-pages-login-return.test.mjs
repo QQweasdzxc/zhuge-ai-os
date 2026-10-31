@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {HOME,RETURN_KEY,hasFreshZhugeSession,markExplicitReturn,pendingExplicitReturn,startReturnMonitor} from "../labs/taskflow/pages-client/login-return.mjs";
+import {HOME,RETURN_KEY,VERIFY_FAIL_KEY,hasFreshZhugeSession,markExplicitReturn,pendingExplicitReturn,startReturnMonitor} from "../labs/taskflow/pages-client/login-return.mjs";
 function storage(){const values=new Map();return {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};}
 const token=(expiry)=>"header."+Buffer.from(JSON.stringify({exp:expiry})).toString("base64url")+".sig";
 test("return intent must be explicit, same target and short-lived",()=>{
@@ -64,4 +64,23 @@ test("status-classic target is explicit while default HOME and unrelated entry r
  markExplicitReturn(session,now,"https://attacker.example");
  assert.equal(startReturnMonitor(args).active,false);
  assert.equal(urls.length,2);
+});
+
+test("return monitor pauses while a preserved session is known to be unverified",()=>{
+ const now=1000000,store=storage(),session=storage(),urls=[];
+ markExplicitReturn(session,now);
+ store.setItem("zhuge_ai_os_google_auth_session_v1",JSON.stringify({access_token:token(1100)}));
+ store.setItem(VERIFY_FAIL_KEY,"1");
+ let next;
+ const monitor=startReturnMonitor({sessionStore:session,localStore:store,now:()=>now,
+  navigate:url=>urls.push(url),schedule:fn=>{next=fn;return 1;},cancel:()=>{}});
+ assert.equal(monitor.active,true);
+ assert.equal(urls.length,0);
+ assert.equal(session.getItem(RETURN_KEY)!==null,true);
+ next();
+ assert.equal(urls.length,0);
+ store.removeItem(VERIFY_FAIL_KEY);
+ next();
+ assert.deepEqual(urls,[HOME]);
+ assert.equal(session.getItem(RETURN_KEY),null);
 });

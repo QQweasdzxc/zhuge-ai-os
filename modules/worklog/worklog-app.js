@@ -19,6 +19,21 @@ let appAccessRequest = null;
 // failure): render the fail-closed retry surface instead of the login wall,
 // and never initialize the runtime on that unverified identity.
 let authVerificationFailed = false;
+// Non-empty when verification succeeded but runtime initialization threw:
+// render the initialization error surface instead of a misleading
+// "cannot confirm login" state.
+let worklogRuntimeInitError = "";
+// Mirrors VERIFY_FAIL_KEY in labs/taskflow/pages-client/login-return.mjs:
+// set while a preserved session is unverified so the return monitor pauses.
+const AUTH_VERIFICATION_FAILED_KEY = "zhuge_ai_os_auth_verification_failed_v1";
+function markAuthVerified() {
+  authVerificationFailed = false;
+  try { localStorage.removeItem(AUTH_VERIFICATION_FAILED_KEY); } catch { /* best effort */ }
+}
+function markAuthVerificationFailed() {
+  authVerificationFailed = true;
+  try { localStorage.setItem(AUTH_VERIFICATION_FAILED_KEY, "1"); } catch { /* best effort */ }
+}
 let worklogRuntimeReady = false;
 
 function appAccessService() {
@@ -3180,7 +3195,21 @@ function authVerificationScreen() {
 
 function bindAuthVerification() {
   const retry = document.getElementById("authVerifyRetryBtn");
-  if (retry) retry.onclick = () => location.reload();
+  if (retry) retry.onclick = () => {
+    // A reload reprocesses any OAuth callback parameters still on the URL.
+    // When the callback already reached a terminal state (captured into
+    // authCallbackCaptured or a stored OAuth error), strip those parameters
+    // first so the reload cannot re-run a completed/dead exchange. A
+    // genuinely pending exchange keeps its parameters.
+    try {
+      const params = new URLSearchParams(location.search);
+      const hasStoredOAuthError = typeof getStoredOAuthError === "function" && !!getStoredOAuthError();
+      if ((params.has("code") || params.has("error")) && (authCallbackCaptured || hasStoredOAuthError)) {
+        history.replaceState(null, "", location.pathname);
+      }
+    } catch { /* best effort */ }
+    location.reload();
+  };
   const back = document.getElementById("authVerifyLoginBtn");
   if (back) back.onclick = () => {
     // Only leaves the retry surface; the preserved session record is not
@@ -3200,7 +3229,9 @@ function worklogInitializationState() {
     return { state: "loading", error: "正在準備工作空間資料" };
   }
   const state = DataService.getInitializationState();
-  return state?.state === "idle" ? { ...state, state: "loading", error: "正在確認登入、設定與工作身分" } : state;
+  if (state?.state === "idle") return { ...state, state: "loading", error: "正在確認登入、設定與工作身分" };
+  if (worklogRuntimeInitError && state?.state !== "ready") return { state: "error", error: worklogRuntimeInitError };
+  return state;
 }
 
 function formalWorkSummaryIdleState() {
@@ -5092,6 +5123,7 @@ function bindAuth() {
     // though the Google/Supabase session is still valid.
     if (hasGoogleOAuthSession()) {
       clearStoredOAuthError();
+      markAuthVerified();
       activeModule = "dashboard";
       activeWorkspace = "dashboard";
       openTabs = [];
@@ -5114,6 +5146,7 @@ function bindAuth() {
     const result = await getSupabaseAuthUser();
     if (!result) throw new Error("登入已完成，但尚未取得使用者工作階段，請重新整理後再試。");
     session = supabaseSessionFromUser(result.user, result.authSession, "email-password");
+    markAuthVerified();
     appAccessState = null;
     await resolveWorklogAppAccess({ force: true });
     if (String(appAccessState?.status || "").toUpperCase() !== "APPROVED") {
@@ -5934,7 +5967,7 @@ function taskWorkspace() {
   return `<section class="tasks-workspace lifecycle-task-workspace">${taskToolbar}<section class="shared-task-board-shell worktodo-shared-board-shell" data-worktodo-board-shell>${workTodoBoardMarkup()}</section>${drawer}${sharedDrawer}${dialog}</section>`;
 }
 
-function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); globalThis.ZhugeGlobalFloatingHub?.unmount?.(); clearStoredAuthSession(); clearStoredCodeVerifier(); session = null; appAccessState = null; appAccessRequest = null; worklogRuntimeReady = false; tasks = []; workTodoDashboardSummary = formalWorkSummaryIdleState(); workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
+function doLogout() { if (typeof RealtimeService !== "undefined") RealtimeService.stop(); globalThis.ZhugeGlobalFloatingHub?.unmount?.(); clearStoredAuthSession(); clearStoredCodeVerifier(); try { localStorage.removeItem(AUTH_VERIFICATION_FAILED_KEY); } catch { /* best effort */ } session = null; appAccessState = null; appAccessRequest = null; worklogRuntimeReady = false; tasks = []; workTodoDashboardSummary = formalWorkSummaryIdleState(); workJournalEntries = []; taskJournalTaskId = null; taskJournalDraft = null; taskJournalEditingEntryId = null; activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; saveAll(); toast("已登出"); render(); }
 
 function bindOnboarding() {
   let tags = [], src = [];
@@ -7567,10 +7600,13 @@ async function exportEcpImportFile() {
 }
 
 async function boot() {
+  let authVerified = false;
   try {
     const authResult = await getSupabaseAuthUser();
     if (authResult) {
       session = supabaseSessionFromUser(authResult.user, authResult.authSession, authResult.provider);
+      authVerified = true;
+      markAuthVerified();
       if (authCallbackCaptured) { activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; hasOsShellState = true; }
       await resolveWorklogAppAccess({ force: true });
       await initializeApprovedWorklogRuntime("auth-success");
@@ -7579,7 +7615,7 @@ async function boot() {
       // verification failed transiently. The session is preserved, NOT
       // authorized - do not initialize the runtime on an unverified identity
       // and do not show the plain login wall.
-      authVerificationFailed = true;
+      markAuthVerificationFailed();
       session = null;
     }
   } catch (error) {
@@ -7589,9 +7625,16 @@ async function boot() {
     if (typeof recordOAuthDebug === "function") {
       recordOAuthDebug("worklog_boot_auth_error", { message: String(error?.message || error).slice(0, 240) });
     }
-    session = null;
-    if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
-      authVerificationFailed = true;
+    if (authVerified) {
+      // Verification succeeded; the failure is runtime initialization, not
+      // login. Keep the verified session and let render() show the staged
+      // initialization error surface instead of a misleading login state.
+      worklogRuntimeInitError = String(error?.message || error || "runtime initialization failed").slice(0, 240);
+    } else {
+      session = null;
+      if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+        markAuthVerificationFailed();
+      }
     }
   }
   render();

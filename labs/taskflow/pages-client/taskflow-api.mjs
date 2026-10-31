@@ -46,19 +46,19 @@ export function buildNativeCTODispatchBody(input = {}) {
     provider: provider.trim()
   };
 }
+// Same freshness semantics as login-return.mjs hasFreshZhugeSession: only a
+// decodable JWT with a finite numeric exp beyond now+30s is usable. Expired,
+// non-JWT, or unparseable tokens are skipped (they cannot authorize and only
+// produce a doomed 401 from /auth/zhuge); the caller continues to the
+// secondary key.
 function isUsableAccessToken(token) {
   if (typeof token !== "string" || !token.length) return false;
-  // Skip tokens whose JWT expiry has passed (same 30s freshness skew as
-  // login-return.mjs hasFreshZhugeSession): they cannot authorize and only
-  // produce a doomed 401 from /auth/zhuge. Non-JWT or unparseable tokens
-  // keep legacy behavior.
   const payload = token.split(".")[1];
-  if (!payload) return true;
+  if (!payload) return false;
   try {
     const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    if (Number.isFinite(claims.exp) && claims.exp * 1000 <= Date.now() + 30000) return false;
-  } catch { /* unparseable: keep legacy behavior */ }
-  return true;
+    return Number.isFinite(claims?.exp) && claims.exp * 1000 > Date.now() + 30000;
+  } catch { return false; }
 }
 export function readZhugeAccessToken(store) {
   for (const key of [TOKEN_KEY, SECONDARY_KEY]) {

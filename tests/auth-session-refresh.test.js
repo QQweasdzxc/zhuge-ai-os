@@ -201,7 +201,7 @@ test("Cloud REST stops after refresh failure without a second refresh or REST re
     rootSession,
     fetchImpl: async url => {
       calls.push(String(url));
-      if (String(url).includes("/auth/v1/token")) return response(400, { error_code: "invalid_refresh_token", msg: "Invalid Refresh Token" });
+      if (String(url).includes("/auth/v1/token")) return response(400, { msg: "Invalid Refresh Token" });
       return response(401, { code: "PGRST303", message: "JWT expired" });
     }
   });
@@ -346,6 +346,7 @@ test("user endpoint 401 with a transient refresh failure preserves the stored se
 
 test("user endpoint rejecting a freshly refreshed token clears the stored session", async () => {
   const fresh = Date.now() + 3600000;
+  let userCalls = 0;
   const { context, values } = authContext({
     stored: { access_token: "stale", refresh_token: "rotating", expires_at: fresh },
     rootSession: null,
@@ -353,7 +354,12 @@ test("user endpoint rejecting a freshly refreshed token clears the stored sessio
       if (String(url).includes("/auth/v1/token")) {
         return response(200, { access_token: "fresh-access", refresh_token: "fresh-refresh", expires_in: 3600, token_type: "bearer" });
       }
-      return response(401, { message: "user not found" });
+      userCalls += 1;
+      // The first /user 401 triggers the forced refresh; the refreshed token
+      // is then rejected with GoTrue's structured terminal code (403 bad_jwt,
+      // per internal/api/auth.go).
+      if (userCalls === 1) return response(401, { message: "JWT expired" });
+      return response(403, { error_code: "bad_jwt", msg: "invalid JWT: unable to parse or verify signature" });
     }
   });
 
@@ -362,7 +368,8 @@ test("user endpoint rejecting a freshly refreshed token clears the stored sessio
   assert.equal(values.get("provider"), undefined);
   const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
   assert.equal(debug.stage, "auth_user_fetch_failed");
-  assert.equal(debug.detail.status, 401);
+  assert.equal(debug.detail.status, 403);
+  assert.equal(debug.detail.code, "bad_jwt");
 });
 
 test("worklog boot failure no longer destroys the stored login", () => {
@@ -440,7 +447,7 @@ test("worklog boot fail-closes on an unverified preserved session with a retry s
   const bootStart = source.indexOf("async function boot()");
   const bootEnd = source.indexOf("boot();", bootStart);
   const bootSource = source.slice(bootStart, bootEnd);
-  assert.match(bootSource, /authVerificationFailed = true/);
+  assert.match(bootSource, /markAuthVerificationFailed\(\)/);
   assert.doesNotMatch(bootSource, /initializeApprovedWorklogRuntime\("stored-auth-session"\)/);
   assert.match(source, /function authVerificationScreen\(\)/);
   assert.match(source, /id="authVerifyRetryBtn"/);
@@ -452,4 +459,72 @@ test("board hydration failure renders the retry surface when credentials survive
   const source = read("shared/components/golden-master-runtime.js");
   const matches = source.match(/目前無法確認登入狀態，請重新檢查/g) || [];
   assert.equal(matches.length >= 5, true);
+});
+
+test("a present unknown error code overrides the legacy message prefix and preserves", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(400, { error_code: "invalid_refresh_token", msg: "Invalid Refresh Token" })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.detail.terminal, false);
+});
+
+test("user endpoint 401 without a terminal code after refresh preserves the stored session", async () => {
+  const fresh = Date.now() + 3600000;
+  const { context, values } = authContext({
+    stored: { access_token: "stale", refresh_token: "rotating", expires_at: fresh },
+    rootSession: null,
+    fetchImpl: async url => {
+      if (String(url).includes("/auth/v1/token")) {
+        return response(200, { access_token: "fresh-access", refresh_token: "fresh-refresh", expires_in: 3600, token_type: "bearer" });
+      }
+      return response(401, { message: "user not found" });
+    }
+  });
+
+  assert.equal(await vm.runInContext("getSupabaseAuthUser()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const stored = JSON.parse(values.get("auth"));
+  assert.equal(stored.refresh_token, "fresh-refresh");
+});
+
+test("a malformed successful refresh response preserves the stored session", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(200, { token_type: "bearer", expires_in: 3600 })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  const stored = JSON.parse(values.get("auth"));
+  assert.equal(stored.refresh_token, "recoverable");
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_invalid_payload");
+});
+
+test("a successful refresh response without a rotated refresh token keeps the old one", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(200, { access_token: "fresh-access", expires_in: 3600, token_type: "bearer" })
+  });
+
+  const result = await vm.runInContext("getAuthSession()", context);
+  assert.equal(result?.access_token, "fresh-access");
+  assert.equal(result?.refresh_token, "recoverable");
+});
+
+test("worklog boot stages runtime-init errors separately from verification failures", () => {
+  const source = read("modules/worklog/worklog-app.js");
+  const bootStart = source.indexOf("async function boot()");
+  const bootEnd = source.indexOf("boot();", bootStart);
+  const bootSource = source.slice(bootStart, bootEnd);
+  assert.match(bootSource, /authVerified/);
+  assert.match(bootSource, /worklogRuntimeInitError = String/);
+  assert.match(source, /if \(worklogRuntimeInitError && state\?\.state !== "ready"\) return \{ state: "error"/);
 });

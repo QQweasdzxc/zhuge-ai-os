@@ -18,9 +18,14 @@ function harness({token="zhuge-test-jwt",issue=false}={}){
   return {calls,client:createTaskFlowPagesTransport({fetcher,getAccessToken:()=>token})};
 }
 test("reads legacy Zhuge session without writing it elsewhere",()=>{
-  const store={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:"test-token"}):null};
-  assert.equal(readZhugeAccessToken(store),"test-token");
+  const jwt=exp=>`h.${Buffer.from(JSON.stringify({exp})).toString("base64")}.s`;
+  const fresh=jwt(Math.floor(Date.now()/1000)+3600);
+  const store={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:fresh}):null};
+  assert.equal(readZhugeAccessToken(store),fresh);
   assert.equal(readZhugeAccessToken({getItem:()=>"{invalid"}),null);
+  // Non-JWT or unparseable tokens are skipped, matching login-return.mjs.
+  const opaque={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:"test-token"}):null};
+  assert.equal(readZhugeAccessToken(opaque),null);
 });
 test("only trusted Render API and canonical Pages caller allowed",()=>{
   assert.throws(()=>createTaskFlowPagesTransport({apiBase:"https://untrusted.example",getAccessToken:()=>""}),/Only the approved/);

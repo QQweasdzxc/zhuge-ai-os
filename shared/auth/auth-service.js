@@ -53,16 +53,18 @@ async function performAuthSessionRefresh() {
     // unknown bodies) is treated as recoverable: keep the stored session so
     // the next load can retry instead of destroying a recoverable login.
     const TERMINAL_REFRESH_CODES = ["invalid_grant", "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired", "user_banned"];
-    // GoTrue's definitive dead-refresh message ("Invalid Refresh Token...")
-    // on a 400 is terminal even when error_code is missing or a legacy value:
-    // treat that shape as terminal too. Unknown codes without that message
-    // are preserved but never treated as valid.
-    const legacyTerminal = res.status === 400 && /^invalid refresh token/i.test(String(parsedBody?.msg || parsedBody?.message || ""));
+    // Legacy fallback, tightly scoped: HTTP 400 with NO structured error
+    // code and GoTrue's definitive dead-refresh message prefix. A present
+    // unknown code overrides the fallback and is preserved, never cleared.
+    const legacyTerminal = !errorCode && res.status === 400 && /^invalid refresh token/i.test(String(parsedBody?.msg || parsedBody?.message || ""));
     const terminal = TERMINAL_REFRESH_CODES.includes(errorCode) || legacyTerminal;
+    // Persisted diagnostics stay sanitized: status + structured code +
+    // classification only. Raw server/proxy bodies can carry sensitive
+    // content and must not be retained in storage; the console log below
+    // keeps the ephemeral detail.
     recordOAuthDebug("auth_session_refresh_failed", {
       status: res.status,
-      code: errorCode,
-      message: String(errorMessage || "").slice(0, 240),
+      code: String(errorCode || "").slice(0, 120),
       terminal
     });
     console.error("Supabase refresh session failed", {
@@ -90,7 +92,15 @@ async function performAuthSessionRefresh() {
     }
     return null;
   }
-  const data = await res.json();
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  if (!data || typeof data.access_token !== "string" || !data.access_token.length
+      || (data.refresh_token !== undefined && data.refresh_token !== null && typeof data.refresh_token !== "string")) {
+    // A malformed "successful" response must not overwrite the stored
+    // credentials. Preserve them and record diagnostics instead.
+    recordOAuthDebug("auth_session_refresh_invalid_payload", { status: res.status });
+    return null;
+  }
   const sessionValue = {
     access_token: data.access_token,
     refresh_token: data.refresh_token || refreshToken,
@@ -372,14 +382,19 @@ async function getSupabaseAuthUser() {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, body: String(body || "").slice(0, 240) });
-    // A 401/403 proves the session is dead only when the token being rejected
-    // is the one we just refreshed. Otherwise (5xx, 429, or a 401 after a
-    // transient refresh failure) keep the stored session so the next attempt
-    // can recover without a new login.
-    if (usedRefreshedToken && (res.status === 401 || res.status === 403)) {
-      // Only clear when storage still holds the token that was rejected; a
-      // newer session stored by another tab must survive.
+    let parsedBody = null;
+    try { parsedBody = body ? JSON.parse(body) : null; } catch { parsedBody = null; }
+    const rawUserCode = parsedBody?.error_code || parsedBody?.error || parsedBody?.code || "";
+    const userErrorCode = typeof rawUserCode === "string" ? rawUserCode : "";
+    // Sanitized diagnostics: status + structured code only, never the raw body.
+    recordOAuthDebug("auth_user_fetch_failed", { status: res.status, code: userErrorCode.slice(0, 120) });
+    // Status alone is not terminal evidence. GoTrue proves a dead credential
+    // with structured codes (bad_jwt / user_banned / session_expired /
+    // session_not_found, emitted as 403 per internal/api/auth.go), and only
+    // when the rejected token is the one we just refreshed AND still the
+    // stored one. Anything else keeps the stored session for the next retry.
+    const TERMINAL_USER_CODES = ["bad_jwt", "user_banned", "session_expired", "session_not_found"];
+    if (usedRefreshedToken && (res.status === 401 || res.status === 403) && TERMINAL_USER_CODES.includes(userErrorCode)) {
       const latest = getStoredAuthSession();
       const latestAccess = latest?.access_token || "";
       if (!latest || !latestAccess || latestAccess === activeAuthSession.access_token) clearStoredAuthSession();
