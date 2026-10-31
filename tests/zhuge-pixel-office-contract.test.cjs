@@ -5,12 +5,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const text = p => fs.readFileSync(path.join(root, p), 'utf8');
-test('main and docs home immediately embed original Habblaud world route', () => {
-  for (const p of ['index.html', 'docs/index.html']) {
-    assert.match(text(p), /pixel-office\/index\.html/);
-    assert.match(text(p), /lang="zh-TW"/);
-    assert.match(text(p), /status-classic\.html/);
-  }
+test('docs home immediately embeds original Habblaud world route', () => {
+  const s = text('docs/index.html');
+  assert.match(s, /pixel-office\/index\.html/);
+  assert.match(s, /lang="zh-TW"/);
+  assert.match(s, /status-classic\.html/);
+});
+test('root home immediately embeds the 3D office route', () => {
+  const s = text('index.html');
+  assert.match(s, /labs\/pixel-office-3d\/index\.html/);
+  assert.match(s, /lang="zh-TW"/);
+  assert.match(s, /status-classic\.html/);
 });
 test('classic status preserves original root HTML', () => {
   assert.match(text('status-classic.html'), /id="tf-projects"/);
