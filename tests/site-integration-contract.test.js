@@ -66,5 +66,8 @@ test("unrecognized, expired, replayed, and loop-guarded intents do not redirect"
   assert.equal(helper.capture({ search: "?investmentReturn=1" }, storage, 4000), true);
   assert.equal(helper.complete({ authenticated: true, accessApproved: true, runtimeReady: true, storage, location, now: 4000 + 10 * 60 * 1000 }), false);
   storage.setItem("zhuge_taskflow_post_login_recent_return_v1", "5000");
-  assert.equal(helper.capture({ search: "?officeReturn=1" }, storage, 5001), false);
+  assert.equal(helper.capture({ search: "?officeReturn=1" }, storage, 5001), true);
+  storage.setItem("zhuge_taskflow_post_login_recent_return_v1", JSON.stringify([{ i: "office", t: 5000 }, { i: "office", t: 5001 }]));
+  assert.equal(helper.capture({ search: "?officeReturn=1" }, storage, 5002), false);
+  assert.equal(helper.capture({ search: "?previewReturn=1" }, storage, 5003), true);
 });
