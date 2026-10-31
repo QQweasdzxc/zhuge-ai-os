@@ -63,3 +63,74 @@ test("fetchTaskMessages on a bound-but-empty task returns ok with zero messages 
   assert.equal(r.ok, true);
   assert.deepEqual(r.messages, []);
 });
+
+// --- detail-panel loadConvo guards, sliced VERBATIM from index.html --------
+// These cover the browser wiring that switches cards and handles failures;
+// the marker assert fails loudly if the function moves or is renamed.
+const fs = require("node:fs");
+const nodePath = require("node:path");
+const vm = require("node:vm");
+const INDEX = fs.readFileSync(nodePath.join(__dirname, "..", "labs/pixel-office-3d/index.html"), "utf8");
+const lcStart = INDEX.indexOf("async function loadConvo(s) {");
+const lcEnd = INDEX.indexOf("document.getElementById('sideHide').addEventListener");
+assert.ok(lcStart > 0 && lcEnd > lcStart, "loadConvo markers must exist verbatim in index.html");
+const LOADCONVO_SRC = INDEX.slice(lcStart, lcEnd);
+
+function makeConvoWorld() {
+  const calls = { renderDetail: 0 };
+  const sandbox = {
+    console,
+    TF_MODE: true,
+    sel: null,
+    renderDetail: () => { calls.renderDetail++; },
+    window: {},
+    fetch: async () => { throw new Error("no network in this test"); },
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext("var convo = { key: null, at: null, messages: null, private: false, busy: false, failed: false };\n" + LOADCONVO_SRC, sandbox, { filename: "loadconvo.js" });
+  return { sandbox, calls };
+}
+
+const boundCard = (key, tid) => ({ key, tf: { isAgentCard: true, taskflowTaskId: tid }, lastEventAt: 1 });
+
+test("a slow excerpt fetch for card A never writes into card B after switching (verbatim loadConvo)", async () => {
+  const { sandbox, calls } = makeConvoWorld();
+  let resolveA;
+  sandbox.window.loadTfTaskExcerpts = (tid) => tid === "task-A" ? new Promise((res) => { resolveA = res; }) : Promise.resolve({ ok: true, messages: [{ role: "assistant", text: "B 內容", at: 1 }] });
+  sandbox.sel = "zhuge:A";
+  const pA = sandbox.loadConvo(boundCard("zhuge:A", "task-A"));
+  // User switches to card B before A resolves: openDetail resets convo to B.
+  sandbox.sel = "zhuge:B";
+  vm.runInContext("convo = { key: 'zhuge:B', at: null, messages: null, private: false, busy: false, failed: false };", sandbox);
+  const pB = sandbox.loadConvo(boundCard("zhuge:B", "task-B"));
+  resolveA({ ok: true, messages: [{ role: "assistant", text: "A 私密內容", at: 1 }] });
+  await Promise.all([pA, pB]);
+  const c = vm.runInContext("convo", sandbox);
+  assert.equal(c.key, "zhuge:B");
+  assert.ok(!JSON.stringify(c).includes("A 私密內容"), "card A content never lands in card B state");
+  assert.equal(JSON.stringify(c.messages), JSON.stringify([{ role: "assistant", text: "B 內容", at: 1 }]));
+});
+
+test("auth failure / 404 replaces content with an explicit failed state, never stale private content (verbatim loadConvo)", async () => {
+  const { sandbox } = makeConvoWorld();
+  sandbox.window.loadTfTaskExcerpts = async () => ({ ok: false, reason: "auth" });
+  sandbox.sel = "zhuge:A";
+  // Pre-existing content from an earlier card must be replaced, not retained.
+  vm.runInContext("convo = { key: 'zhuge:OLD', at: 0, messages: [{ role: 'assistant', text: '前卡私密內容', at: 0 }], private: false, busy: false, failed: false };", sandbox);
+  await sandbox.loadConvo(boundCard("zhuge:A", "task-A"));
+  const c = vm.runInContext("convo", sandbox);
+  assert.equal(c.failed, true);
+  assert.equal(JSON.stringify(c.messages), "[]", "failed read leaves no messages behind");
+  assert.ok(!JSON.stringify(c).includes("前卡私密內容"));
+  assert.ok(!JSON.stringify(c).includes("fixture") && !JSON.stringify(c).includes("token"), "no token material in panel state");
+});
+
+test("fetchTaskMessages results carry no token material (keys are ok/messages/reason/status only)", async () => {
+  const ok = await TfSource.fetchTaskMessages(async () => reply(200, []), "https://tf.example", { authorization: "Bearer secret-jwt" }, "t1");
+  assert.deepEqual(Object.keys(ok).sort(), ["messages", "ok"]);
+  const bad = await TfSource.fetchTaskMessages(async () => reply(401, {}), "https://tf.example", { authorization: "Bearer secret-jwt" }, "t1");
+  assert.deepEqual(Object.keys(bad).sort(), ["ok", "reason", "status"]);
+  assert.ok(!JSON.stringify([ok, bad]).includes("secret-jwt"));
+});
