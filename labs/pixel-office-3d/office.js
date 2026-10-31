@@ -192,6 +192,40 @@
     }
   }
 
+
+  // Click vs drag guard: a press whose pointer moves more than DRAG_PX at ANY
+  // point of the gesture is a drag, not a click - even if the pointer returns
+  // to where it started. Multi-touch (pinch/zoom) also counts as a drag. The
+  // gesture state fully resets when the click decision is made or on
+  // pointercancel, so a suppressed drag can never suppress the next real
+  // click. Only the click-open is gated; hover and camera behavior are
+  // untouched.
+  const DRAG_PX = 8;
+  function createClickGuard() {
+    let pointers = 0, x0 = 0, y0 = 0, max = 0, multi = false;
+    return {
+      down(e) {
+        pointers += 1;
+        if (pointers > 1) { multi = true; return; }
+        x0 = e.clientX; y0 = e.clientY; max = 0; multi = false;
+      },
+      move(e) {
+        if (pointers !== 1 || multi) return;
+        const d = Math.hypot(e.clientX - x0, e.clientY - y0);
+        if (d > max) max = d;
+      },
+      up() { pointers = Math.max(0, pointers - 1); },
+      cancel() { pointers = 0; max = 0; multi = false; },
+      // True when this click is a genuine click (not the tail of a drag).
+      // Always resets the gesture so the next click starts clean.
+      isClick() {
+        const ok = !multi && max <= DRAG_PX;
+        pointers = 0; max = 0; multi = false;
+        return ok;
+      },
+    };
+  }
+
   // ---------------------------------------------------------------- office
 
   class Office {
@@ -226,8 +260,13 @@
 
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(root);
+      this.clickGuard = createClickGuard();
+      this.canvas.addEventListener('pointerdown', (e) => this.clickGuard.down(e));
+      this.canvas.addEventListener('pointermove', (e) => this.clickGuard.move(e));
+      this.canvas.addEventListener('pointerup', () => this.clickGuard.up());
+      this.canvas.addEventListener('pointercancel', () => this.clickGuard.cancel());
       this.canvas.addEventListener('mousemove', (e) => this.pointer(e));
-      this.canvas.addEventListener('click', (e) => this.pointer(e, true));
+      this.canvas.addEventListener('click', (e) => { if (this.clickGuard.isClick()) this.pointer(e, true); });
       this.canvas.addEventListener('mouseleave', () => { this.hoverKey = null; this.onHover(null); });
       this.resize();
       this.last = performance.now();
@@ -1790,6 +1829,7 @@
   }
 
   window.Office = Office;
+  window.OfficeClickGuard = createClickGuard;
   window.OFFICE_AGENT_BADGES = AGENT_BADGES;
   window.OfficeGrid = Grid;
 })();
