@@ -38,7 +38,7 @@ test("TaskFlow service configuration exposes only separate non-secret public end
 
 test("TaskFlow sends the existing Zhuge session only to API POST and returns to official login", () => {
   const entry = read("labs/taskflow/index.html");
-  assert.match(entry, /href="https:\/\/qqweasdzxc\.github\.io\/zhuge-ai-os\/modules\/worklog\/\?app=1&amp;workspace=dashboard"/);
+  assert.match(entry, /href="https:\/\/qqweasdzxc\.github\.io\/zhuge-ai-os\/"/);
   assert.match(entry, /const AUTH_KEY = "zhuge_ai_os_google_auth_session_v1"/);
   assert.match(entry, /const SESSION_KEY = "zhuge_ai_os_session_v1"/);
   assert.match(entry, /boundedFetch\(api \+ "\/auth\/zhuge"/);
