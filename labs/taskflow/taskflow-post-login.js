@@ -5,6 +5,7 @@
   const RECENT_RETURN_KEY = "zhuge_taskflow_post_login_recent_return_v1";
   const POST_LOGIN_INTENT_TTL_MS = 10 * 60 * 1000;
   const REDIRECT_LOOP_GUARD_MS = 2 * 60 * 1000;
+  const MAX_RECENT_SAME_INTENT = 2;
   const RETURN_PATHS = Object.freeze({
     office: "../../",
     taskflow: "../../labs/taskflow/",
@@ -20,13 +21,29 @@
     return null;
   }
 
+  function readRecentReturns(storage, now) {
+    try {
+      const parsed = JSON.parse(storage.getItem(RECENT_RETURN_KEY) || "[]");
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(entry => entry && typeof entry.i === "string" && Number.isFinite(entry.t) && (entry.t > now || now - entry.t < REDIRECT_LOOP_GUARD_MS));
+    } catch {
+      return [];
+    }
+  }
+
   function capture(location = root.location, storage = root.sessionStorage, now = Date.now()) {
     try {
       const params = new URLSearchParams(location.search);
       const intent = requestedIntent(params);
       if (!intent) return false;
-      const recentReturnAt = Number(storage.getItem(RECENT_RETURN_KEY));
-      if (Number.isFinite(recentReturnAt) && recentReturnAt > 0 && (now < recentReturnAt || now - recentReturnAt < REDIRECT_LOOP_GUARD_MS)) return false;
+      const recent = readRecentReturns(storage, now);
+      if (recent.filter(entry => entry.i === intent).length >= MAX_RECENT_SAME_INTENT) {
+        storage.setItem(RECENT_RETURN_KEY, JSON.stringify(recent));
+        try { if (root.console && typeof root.console.warn === "function") root.console.warn("[taskflow-post-login] redirect loop guard stopped a repeated return:", intent); } catch { /* ignore */ }
+        return false;
+      }
+      recent.push({ i: intent, t: now });
+      storage.setItem(RECENT_RETURN_KEY, JSON.stringify(recent));
       storage.setItem(STORAGE_KEY, JSON.stringify({ intent, expiresAt: now + POST_LOGIN_INTENT_TTL_MS }));
       return true;
     } catch {
@@ -47,7 +64,6 @@
       }
       const destination = new URL(RETURN_PATHS[pending.intent], location.href);
       storage.removeItem(STORAGE_KEY);
-      storage.setItem(RECENT_RETURN_KEY, String(now));
       location.replace(destination.href);
       return true;
     } catch {
