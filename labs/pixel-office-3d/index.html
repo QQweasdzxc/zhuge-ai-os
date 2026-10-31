@@ -763,9 +763,9 @@ function tfBlock(s, suppressGap) {
     : t.reportLabels && t.reportLabels.length
     ? `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
       t.reportLabels.map((l) => `<div class="tfex" title="${esc(l)}">${esc(l)}</div>`).join('') +
-      (suppressGap ? '' : `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGap || '對話摘錄：任務尚未派工執行，沒有對話內容；以上為回報模板標籤，不是對話內容'))}</div>`)
+      (suppressGap ? '' : `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGap || '對話摘錄：這張任務尚未連上對話紀錄；以上為回報模板標籤，不是對話內容'))}</div>`)
     : (suppressGap ? '' : `<div class="tfrow"><span>${esc(L.reportLog || '回報紀錄')}</span></div>` +
-      `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGapNone || '無回報紀錄；對話摘錄：任務尚未派工執行，沒有對話內容'))}</div>`);
+      `<div class="tfgap">${esc(t.taskflowTaskId ? gapBound : (L.excerptGapNone || '無回報紀錄；這張任務尚未連上對話紀錄'))}</div>`);
   return `<div class="tf">
     <div class="tfrow"><span>${esc(L.executorL || '執行者')}</span><b>${esc(t.executorId ? `${t.executorId} · ${L.execUnmapped || '成員對應待確認'}` : (t.isAgentCard ? '—' : (L.tfUnassigned || '未指派')))}</b></div>
     <div class="tfrow"><span>${esc(L.queueL || '執行佇列')}</span><b>${esc(TF_QUEUE_LABEL[t.taskflowTaskStatus] || t.taskflowTaskStatus || '—')}</b></div>
@@ -1591,10 +1591,10 @@ function renderDetail(scrollDown) {
   const msgs = s.owner ? ''
     : s.member ? `<div class="msgs-note">${esc(s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
     : s.tf ? (s.tf.isAgentCard
-      ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '對話摘錄：任務尚未派工執行，沒有對話內容；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
+      ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '這張任務尚未連上對話紀錄；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
       : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
       : convo.failed ? `<div class="msgs-note">${esc(L.excerptError || '對話摘錄暫時無法讀取；稍後重試。')}</div>`
-      : !convo.messages.length ? `<div class="msgs-note">${esc(L.excerptEmpty || '任務已建立，尚無對話摘錄。')}</div>`
+      : !convo.messages.length ? `<div class="msgs-note">${esc(L.excerptEmpty || '這個任務的對話紀錄目前沒有內容。')}</div>`
         : renderMsgs(convo.messages)
       : '')
     : convo.private ? `<div class="msgs-note">${esc(L.privateNote)}</div>`
