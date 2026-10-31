@@ -143,6 +143,14 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   opts = opts || {};
   const apiBase = (opts.apiBase || base || '').replace(/\/$/, '');
   if (!opts.workspace) return { state: 'error', note: '缺少工作區設定（workspace_slug）' };
+  // The stored Supabase pair outlives any single page. When the access token
+  // is due, rotate it through the shared auth-service (loaded by index.html)
+  // instead of reporting a false logout. A terminally dead session is cleared
+  // by auth-service itself and the read below yields the honest signed-out
+  // state; a recoverable failure keeps the stored token for the next poll.
+  if (opts.storageGet && typeof refreshAuthSession === "function" && typeof accessTokenNeedsRefresh === "function" && accessTokenNeedsRefresh()) {
+    try { await refreshAuthSession(false); } catch { /* fall through to the stored-token state */ }
+  }
   const supa = opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null);
   if (!supa) return { state: 'auth-required', note: '需要登入 Zhuge AI OS' };
   let ex;
