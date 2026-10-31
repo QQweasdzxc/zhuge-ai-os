@@ -95,7 +95,9 @@
       d.head.append(style);
       const frame = d.createElement('iframe');
       frame.title = this.text('title');
-      const url = new URL('/', location.href);
+      // Load this same page (path and query, including source=) so the pop-out
+      // keeps the app and its mode; site-root URLs break on project hosting.
+      const url = new URL(location.href);
       url.searchParams.set('pip', '1');
       // Carry the current settings even if storage is unavailable. The page
       // validates these preferences before using them.
