@@ -485,7 +485,7 @@
   <main id="main"></main>
 </div>
 <div class="conn" id="conn" data-t="disconnected"></div>
-<div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Zhuge AI OS 才能讀取正式任務。<a style="color:#ffd9a0" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用既有 Zhuge AI OS 登入</a></div>
+<div id="tfAuth" hidden style="position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#7a2e2e;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px">需要登入 Zhuge AI OS 才能讀取正式任務。<a style="color:#ffd9a0" target="_top" href="https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&amp;workspace=dashboard&amp;previewReturn=1">使用既有 Zhuge AI OS 登入</a></div>
 <div class="tip" id="tip"></div>
 <div class="ver" id="ver"></div>
 <script src="i18n.js"></script>
@@ -585,7 +585,13 @@ if (PIP) document.body.classList.add('pip');
     } catch { /* malformed preferences use the saved defaults */ }
   }
   for (const k of ['view', 'quality', 'scene', 'lang']) if (validPreference(k, q.get(k))) store.set(k, q.get(k));
-  if (location.search) history.replaceState(null, '', location.pathname + (PIP ? '?pip=1' : ''));
+  if (location.search) {
+    const keep = new URLSearchParams();
+    if (PIP) keep.set('pip', '1');
+    if (q.get('source')) keep.set('source', q.get('source'));
+    const kept = keep.toString();
+    history.replaceState(null, '', location.pathname + (kept ? '?' + kept : ''));
+  }
 }
 
 const state = {
