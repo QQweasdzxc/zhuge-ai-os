@@ -96,36 +96,54 @@ test("TaskFlow post-login return is same-origin, one-shot, and waits for approve
   assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: callbackLocation, storage, now: now + 2 }), false);
 });
 
-test("TaskFlow post-login guard allows consecutive legitimate entries and stops only same-intent loops", () => {
+test("TaskFlow post-login guard bounds only automatic redirects and keeps a user path", () => {
   const values = new Map();
   const storage = {
     getItem: key => values.has(key) ? values.get(key) : null,
     setItem: (key, value) => values.set(key, String(value)),
     removeItem: key => values.delete(key)
   };
+  const notices = [];
+  const fakeDocument = {
+    createElement: () => ({ setAttribute() {}, style: {}, appendChild() {} }),
+    body: { appendChild: el => notices.push(el) }
+  };
   const now = 1_800_000_000_000;
   const taskflowLoginReturn = { search: "?app=1&workspace=dashboard&taskflowReturn=1" };
   const previewLoginReturn = { search: "?app=1&workspace=dashboard&previewReturn=1" };
+  const navigations = [];
   const taskflowLocation = {
     href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/",
-    replace() {}
+    replace: url => navigations.push(url)
   };
-  const done = at => TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: taskflowLocation, storage, now: at });
-  // consecutive different entries are never blocked by each other
+  const done = at => TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: taskflowLocation, storage, now: at, document: fakeDocument });
+  // capture never refuses: every explicit entry is recorded
   assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now), true);
   assert.equal(done(now + 100), true);
+  // consecutive different entries redirect normally inside the window
   assert.equal(TaskFlowPostLogin.capture(previewLoginReturn, storage, now + 101), true);
   assert.equal(done(now + 102), true);
-  // a legitimate same-intent re-entry inside the window still works
+  // a legitimate same-intent re-entry inside the window still redirects
   assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 103), true);
   assert.equal(done(now + 104), true);
-  // only a third same-intent capture inside the window is a true bounce loop and is stopped
-  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 105), false);
+  assert.deepEqual(navigations, [
+    "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/",
+    "https://qqweasdzxc.github.io/zhuge-ai-os/labs/pixel-office-3d/?source=tf",
+    "https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/"
+  ]);
+  // only the third automatic redirect of the same intent is stopped: the loop case
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 105), true);
+  assert.equal(done(now + 106), false);
+  assert.deepEqual(navigations.length, 3);
+  // the user keeps an explicit, visible way through instead of a silent dead end
+  assert.equal(notices.length, 1);
   assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
-  // other intents remain unaffected while the same-intent loop is guarded
-  assert.equal(TaskFlowPostLogin.capture(previewLoginReturn, storage, now + 106), true);
-  // the guard lifts after the window
-  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 2 * 60 * 1000 + 105), true);
+  // other intents keep their own budget while the looped intent is paused
+  assert.equal(TaskFlowPostLogin.capture(previewLoginReturn, storage, now + 107), true);
+  assert.equal(done(now + 108), true);
+  // the budget refills after the window
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 2 * 60 * 1000 + 108), true);
+  assert.equal(done(now + 2 * 60 * 1000 + 109), true);
 });
 
 test("expired or malformed post-login intent is removed without redirect", () => {
