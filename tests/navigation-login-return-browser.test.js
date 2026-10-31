@@ -86,3 +86,32 @@ test('pixel-office-3d TF mode survives canonicalization and reload; source=cli i
  await page.waitForFunction(()=>!document.body.classList.contains('tf-mode'));
  assert.equal(new URL(page.url()).searchParams.get('source'),'cli','escape hatch preserved');
 });
+
+test('pixel-office-3d pop out keeps the app path and source param',async t=>{
+ const executablePath=resolveBrowserExecutable();
+ assert.ok(executablePath);
+ const browser=await chromium.launch({executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
+ t.after(()=>browser.close());
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ const base=await fixtureURL(path.join(ROOT,'labs/pixel-office-3d/index.html'));
+ await page.goto(base+'?source=tf');
+ await page.waitForFunction(()=>typeof window.OfficePopout==='function');
+ const result=await page.evaluate(async()=>{
+  if(!window.documentPictureInPicture||typeof window.documentPictureInPicture.requestWindow!=='function') return {src:null,unsupported:true};
+  const pop=new window.OfficePopout({preferences:()=>({lang:'en'}),office:()=>null,text:key=>key,changed:()=>{}});
+  await pop.toggle();
+  const pipWin=window.documentPictureInPicture.window;
+  const frame=pipWin?pipWin.document.querySelector('iframe'):null;
+  const src=frame?frame.src:null;
+  pop.close();
+  return {src};
+ });
+ if(result.unsupported){t.skip('documentPictureInPicture unavailable in this browser');return;}
+ assert.ok(result.src,'pop out frame created');
+ const url=new URL(result.src);
+ assert.ok(url.pathname.endsWith('/labs/pixel-office-3d/index.html'),'pop out keeps the app path');
+ assert.equal(url.searchParams.get('source'),'tf','pop out keeps TF mode');
+ assert.equal(url.searchParams.get('pip'),'1');
+ assert.ok(url.searchParams.get('prefs'),'pop out carries preferences');
+});
