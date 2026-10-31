@@ -57,10 +57,14 @@ for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,
   api.complete({...args,now:now+3});
   const sameIntentReentry=api.capture({search},sessionStorage,now+4);
   api.complete({...args,now:now+5});
-  const loopGuarded=api.capture({search},sessionStorage,now+6);
+  api.capture({search},sessionStorage,now+6);
+  const loopGuarded=api.complete({...args,now:now+7});
+  const notice=document.querySelector('#zhuge-post-login-loop-guard');
+  const noticeLink=notice?notice.querySelector('a'):null;
   const retry=api.capture({search},sessionStorage,now+120006);
   const expired=api.complete({...args,now:now+120006+600000});
-  return {capture,pending,blocked,complete,twice,crossIntent,sameIntentReentry,loopGuarded,retry,expired,urls};
+  return {capture,pending,blocked,complete,twice,crossIntent,sameIntentReentry,loopGuarded,retry,expired,urls,
+    noticeText:notice?notice.textContent:null, noticeHref:noticeLink?noticeLink.getAttribute('href'):null};
  },{search:login.search,home:HOME});
  assert.equal(preview.capture,true);
  assert.deepEqual(preview.pending,{intent:'preview',expiresAt:1800000600000});
@@ -70,6 +74,8 @@ for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,
  assert.equal(preview.crossIntent,true);
  assert.equal(preview.sameIntentReentry,true);
  assert.equal(preview.loopGuarded,false);
+ assert.ok(preview.noticeText.includes('已暫停自動前往'),'loop guard notice is visible and user-readable');
+ assert.equal(preview.noticeHref,HOME+'labs/pixel-office-3d/?source=tf','notice offers the manual continue link');
  assert.equal(preview.retry,true);
  assert.equal(preview.expired,false);
  assert.deepEqual(preview.urls,[HOME+'labs/pixel-office-3d/?source=tf',HOME+'labs/taskflow/',HOME+'labs/pixel-office-3d/?source=tf']);
