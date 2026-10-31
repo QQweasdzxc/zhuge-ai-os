@@ -32,7 +32,7 @@ async function boot(width, { touch = false } = {}) {
     body: `data: ${JSON.stringify(feed)}\n\n`,
   }));
   await page.addInitScript(() => {
-    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["æ¸¬è©¦ç²", "æ¸¬è©¦ä¹"])); } catch {}
+    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["測試甲", "測試乙"])); } catch {}
   });
   await page.goto(await fixtureURL(PAGE));
   // Force the 2D renderer (the guard lives in office.js; 3D has its own controls).
@@ -184,7 +184,7 @@ async function boot3D(width, { touch = false } = {}) {
     body: `data: ${JSON.stringify(feed)}\n\n`,
   }));
   await page.addInitScript(() => {
-    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["æ¸¬è©¦ç²", "æ¸¬è©¦ä¹"])); } catch {}
+    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["測試甲", "測試乙"])); } catch {}
   });
   await page.goto((await fixtureURL(PAGE)) + "?quality=high");
   await page.waitForSelector("canvas.office-gl", { timeout: 30000 });
