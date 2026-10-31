@@ -70,7 +70,7 @@ jobs:
           grep -F "TASKFLOW_SOURCE_MODE=vendored SHA=8db6cfe19ae6fd5c35ec71bd8fea42a3ef3861ec; upstream application source clone=disabled" /tmp/taskflow-backend-build.log
 
   web-image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Build TaskFlow web from repository-root context
