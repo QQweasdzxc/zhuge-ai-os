@@ -67,6 +67,74 @@ test("classic status route preserves authenticated TaskFlow Dashboard after pixe
   }
 });
 
+test("classic status wall gates data controls by auth state",async t=>{
+  const browser=await launch(t);
+  const root=await fixtureURL(path.join(ROOT,"status-classic.html"));
+  const officialApi="https://zhuge-taskflow-api.onrender.com";
+  const seedSession=()=>localStorage.setItem("zhuge_ai_os_google_auth_session_v1",
+    JSON.stringify({access_token:"h.eyJleHAiOjIwMDAwMDAwMDB9.s"}));
+  {
+    const anonymous=await browser.newPage();
+    await anonymous.route(officialApi+"/**",route=>route.abort());
+    await anonymous.goto(root,{waitUntil:"load"});
+    await anonymous.getByText("需要先登入 Zhuge AI OS").waitFor({timeout:7000});
+    assert.equal(await anonymous.locator("#tf-status").textContent(),"尚未登入：請使用既有 Zhuge AI OS 身分登入。");
+    assert.equal(await anonymous.locator("#tf-meta").textContent(),"登入後顯示正式任務，不顯示模擬資料。");
+    assert.equal(await anonymous.locator("#tf-workspace").isDisabled(),true,"anonymous: workspace select disabled");
+    assert.equal(await anonymous.locator("#tf-search").isDisabled(),true,"anonymous: search disabled");
+    assert.equal(await anonymous.locator("#tf-refresh").isDisabled(),false,"anonymous: refresh stays a real retry");
+    await anonymous.close();
+  }
+  {
+    const expired=await browser.newPage();
+    await expired.addInitScript(seedSession);
+    await expired.route(officialApi+"/**",route=>{
+      if(route.request().method()==="OPTIONS")return route.fulfill({status:204,headers:cors});
+      return route.fulfill({status:401,headers:{...cors,"content-type":"application/json"},body:JSON.stringify({error:"invalid session"})});
+    });
+    await expired.goto(root,{waitUntil:"load"});
+    await expired.getByText("登入已失效，請先使用既有 Zhuge AI OS 身分登入。").waitFor({timeout:7000});
+    assert.equal(await expired.locator("#tf-login").isVisible(),true,"expired session keeps the login wall");
+    assert.equal(await expired.locator("#tf-workspace").isDisabled(),true,"expired: workspace select disabled");
+    assert.equal(await expired.locator("#tf-search").isDisabled(),true,"expired: search disabled");
+    await expired.close();
+  }
+  {
+    const offline=await browser.newPage();
+    await offline.addInitScript(seedSession);
+    await offline.route(officialApi+"/**",route=>route.abort());
+    await offline.goto(root,{waitUntil:"load"});
+    await offline.getByText("無法連線 TaskFlow API").waitFor({timeout:7000});
+    assert.equal(await offline.locator("#tf-login").isHidden(),true,"network failure must not raise the auth wall");
+    assert.equal(await offline.locator("#tf-refresh").isDisabled(),false,"network failure keeps retry available");
+    await offline.close();
+  }
+  {
+    const page=await browser.newPage();
+    await page.addInitScript(seedSession);
+    await page.route(officialApi+"/**",route=>{
+      const request=route.request(),u=new URL(request.url());
+      const headers={"content-type":"application/json","access-control-allow-origin":"*",
+        "access-control-allow-headers":"authorization,content-type,x-workspace-slug",
+        "access-control-allow-methods":"GET,POST,OPTIONS"};
+      if(request.method()==="OPTIONS")return route.fulfill({status:204,headers});
+      let body;
+      if(u.pathname==="/auth/zhuge")body={token:"taskflow-in-memory-jwt"};
+      else if(u.pathname==="/api/workspaces")body=[{id:"ws1",slug:"pm-team",name:"PM Team"}];
+      else if(u.pathname==="/api/issues")body={issues:[{id:"abc",title:"TaskFlow source issue",identifier:"ZG-1",status:"todo"}],total:1};
+      else if(u.pathname==="/api/projects")body={projects:[]};
+      else if(u.pathname==="/api/issue-statuses")body={statuses:[]};
+      else return route.fulfill({status:404,headers,body:"{}"});
+      return route.fulfill({status:200,headers,body:JSON.stringify(body)});
+    });
+    await page.goto(root,{waitUntil:"load"});
+    await page.getByText("TaskFlow source issue").waitFor({timeout:8000});
+    assert.equal(await page.locator("#tf-workspace").isDisabled(),false,"successful load re-enables workspace select");
+    assert.equal(await page.locator("#tf-search").isDisabled(),false,"successful load re-enables search");
+    await page.close();
+  }
+});
+
 async function launch(t) {
   const executablePath = resolveBrowserExecutable();
   assert.ok(executablePath, "CI Chromium is required for TaskFlow browser regression");
