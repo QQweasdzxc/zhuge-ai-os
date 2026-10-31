@@ -134,3 +134,24 @@ test("fetchTaskMessages results carry no token material (keys are ok/messages/re
   assert.deepEqual(Object.keys(bad).sort(), ["ok", "reason", "status"]);
   assert.ok(!JSON.stringify([ok, bad]).includes("secret-jwt"));
 });
+
+test("panel closed while a slow fetch is in flight: resolve never re-renders, and reopening ANOTHER card shows only its own content (verbatim loadConvo)", async () => {
+  const { sandbox, calls } = makeConvoWorld();
+  let resolveA;
+  sandbox.window.loadTfTaskExcerpts = (tid) => tid === "task-A" ? new Promise((res) => { resolveA = res; }) : Promise.resolve({ ok: true, messages: [{ role: "assistant", text: "B 的內容", at: 2 }] });
+  sandbox.sel = "zhuge:A";
+  const pA = sandbox.loadConvo(boundCard("zhuge:A", "task-A"));
+  // User closes the panel (closeDetail: sel = null, convo untouched) mid-flight.
+  sandbox.sel = null;
+  resolveA({ ok: true, messages: [{ role: "assistant", text: "A 私密內容", at: 1 }] });
+  await pA;
+  assert.equal(calls.renderDetail, 0, "closed panel is never re-rendered by a late resolve");
+  // User then opens card B: openDetail resets convo to B before loading.
+  sandbox.sel = "zhuge:B";
+  vm.runInContext("convo = { key: 'zhuge:B', at: null, messages: null, private: false, busy: false, failed: false };", sandbox);
+  await sandbox.loadConvo(boundCard("zhuge:B", "task-B"));
+  const c = vm.runInContext("convo", sandbox);
+  assert.equal(c.key, "zhuge:B");
+  assert.ok(!JSON.stringify(c).includes("A 私密內容"), "card B panel never carries card A content");
+  assert.equal(JSON.stringify(c.messages), JSON.stringify([{ role: "assistant", text: "B 的內容", at: 2 }]));
+});
