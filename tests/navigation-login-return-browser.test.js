@@ -41,6 +41,7 @@ for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,
  await page.goto(await fixtureURL(path.join(ROOT,'labs/pixel-office-3d/index.html')));
  const login=new URL(await page.locator('#tfAuth a').evaluate(el=>el.href));
  assert.equal(login.searchParams.get('previewReturn'),'1');
+ assert.equal(await page.locator('#tfAuth a').getAttribute('target'),'_top');
  await page.addScriptTag({url:new URL('/labs/taskflow/taskflow-post-login.js',page.url()).href});
  const preview=await page.evaluate(({search,home})=>{
   const api=window.ZhugeTaskFlowPostLogin,now=1800000000000;
@@ -64,5 +65,24 @@ for(const width of [1440,390])test(`anonymous navigation returns at ${width}px`,
  assert.equal(preview.guarded,false);
  assert.equal(preview.retry,true);
  assert.equal(preview.expired,false);
- assert.deepEqual(preview.urls,[HOME+'labs/pixel-office-3d/']);
+ assert.deepEqual(preview.urls,[HOME+'labs/pixel-office-3d/?source=tf']);
+});
+
+test('pixel-office-3d TF mode survives canonicalization and reload; source=cli is the escape hatch',async t=>{
+ const executablePath=resolveBrowserExecutable();
+ assert.ok(executablePath);
+ const browser=await chromium.launch({executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
+ t.after(()=>browser.close());
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ const base=await fixtureURL(path.join(ROOT,'labs/pixel-office-3d/index.html'));
+ await page.goto(base+'?source=tf');
+ await page.locator('body.tf-mode').waitFor();
+ assert.equal(new URL(page.url()).searchParams.get('source'),'tf','canonicalization preserves source=tf');
+ await page.reload();
+ await page.locator('body.tf-mode').waitFor();
+ assert.equal(new URL(page.url()).searchParams.get('source'),'tf','reload keeps TF mode');
+ await page.goto(base+'?source=cli');
+ await page.waitForFunction(()=>!document.body.classList.contains('tf-mode'));
+ assert.equal(new URL(page.url()).searchParams.get('source'),'cli','escape hatch preserved');
 });
