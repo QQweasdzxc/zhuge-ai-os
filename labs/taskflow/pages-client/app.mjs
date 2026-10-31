@@ -63,13 +63,16 @@ function setStatus(message,type="info") {
 }
 function errMessage(error) {
   if(error?.code==="NETWORK_OR_CORS")return "無法連線 TaskFlow API 或尚未授權此網站來源（CORS）。請由管理端確認設定。";
-  if(error?.code==="SIGN_IN_REQUIRED"||error?.code==="UNAUTHORIZED")return "登入已失效，請先使用既有 Zhuge AI OS 身分登入。";
+  if(error?.code==="SIGN_IN_REQUIRED")return "尚未登入：請使用既有 Zhuge AI OS 身分登入。";
+  if(error?.code==="UNAUTHORIZED")return "登入已失效，請先使用既有 Zhuge AI OS 身分登入。";
   if(error?.code==="FORBIDDEN")return "沒有此工作區的 TaskFlow 存取權限。";
   return "TaskFlow API 發生錯誤："+(error?.message||"Unknown");
 }
 function fail(error) {
   setStatus(errMessage(error),"error");
-  refs.meta.textContent="資料讀取失敗，未顯示模擬資料。";
+  const needsLogin=error?.code==="SIGN_IN_REQUIRED"||error?.code==="UNAUTHORIZED";
+  refs.meta.textContent=needsLogin?"登入後顯示正式任務，不顯示模擬資料。":"資料讀取失敗，未顯示模擬資料。";
+  if(needsLogin){refs.workspace.disabled=true;refs.filter.disabled=true;}
   if(refs.createOpen)refs.createOpen.hidden=true;
   if(["UNAUTHORIZED","SIGN_IN_REQUIRED","AUTH_REQUIRED"].includes(error?.code))refs.login.hidden=false;
 }
@@ -606,6 +609,8 @@ async function bootstrap(){
     state.agentsWorkspace=null;
     renderWorkspaceSelect();
     refs.login.hidden=true;
+    refs.workspace.disabled=false;
+    refs.filter.disabled=false;
     if(refs.createOpen)refs.createOpen.hidden=false;
     await loadData();
   }catch(error){fail(error);}finally{refs.refresh.disabled=false;}
