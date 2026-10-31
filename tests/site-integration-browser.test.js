@@ -21,23 +21,16 @@ for (const viewport of [
     await page.route("**/pixel-office/index.html", route => route.fulfill({ contentType: "text/html", body: "<main>SCENE_FIXTURE_ONLY</main>" }));
     await page.goto(await fixtureURL(path.join(root, "index.html")));
 
-    const rack = page.locator(".zgf-rack");
-    await rack.waitFor();
-    assert.equal(await page.locator("#zgf-trophy-board").count(), 1, "navigation candidate preserves the existing award wall");
+    const frame = page.locator('iframe[title="Zhuge AI OS 像素辦公室"]');
+    await frame.waitFor();
+    const frameSrc = new URL(await frame.getAttribute("src"), page.url());
+    assert.equal(frameSrc.pathname, "/labs/pixel-office-3d/index.html", "root embeds the 3D office");
+    assert.equal(frameSrc.searchParams.get("source"), "tf", "root embed keeps TF mode");
+    assert.equal(await page.locator(".zgf-rack").count(), 0, "root candidate is de-decorated: no furnishings overlay");
     const origin = new URL(page.url()).origin;
-    for (const [id, pathPart] of [["taskflow", "/labs/taskflow/"], ["apps", "/labs/taskflow/"], ["worklog", "/modules/worklog/"], ["investment", "/modules/investment/"]]) {
-      assert.equal(await rack.locator(`[data-zgf-work=${id}]`).getAttribute("href"), origin + pathPart);
-    }
-    const login = rack.locator('[data-zgf-work="login"]');
-    const loginUrl = new URL(await login.getAttribute("href"));
-    assert.equal(loginUrl.searchParams.get("officeReturn"), "1");
-    assert.equal(await login.getAttribute("target"), null, "login stays in the current browsing context");
-    for (const link of await rack.locator("a").all()) {
-      const box = await link.boundingBox();
-      assert.ok(box.width >= 44 && box.height >= 44, JSON.stringify(box));
-      assert.ok(box.x >= 0 && box.x + box.width <= viewport.width, JSON.stringify(box));
-      assert.equal(new URL(await link.getAttribute("href")).origin, origin);
-    }
+    assert.equal(await page.locator("#pixel-fallback a").getAttribute("href"), "./status-classic.html", "classic report fallback preserved");
+    assert.equal(await page.locator('script[src="./assets/zhuge-home-router.js"]').count(), 1, "home router preserved");
+    const loginUrl = new URL("/modules/worklog/?app=1&workspace=dashboard&officeReturn=1", origin);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 
     await page.addScriptTag({ path: path.join(root, "labs/taskflow/taskflow-post-login.js") });
