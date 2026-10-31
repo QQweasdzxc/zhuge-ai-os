@@ -490,6 +490,15 @@
 <div class="ver" id="ver"></div>
 <script src="i18n.js"></script>
 <script src="office.js"></script>
+<script>
+// auth-service.js expects the shared runtime `session` binding to exist; the
+// 3D page keeps no AI OS mirror session, so the binding stays null here and
+// the canonical localStorage session store remains the only source.
+var session = null;
+</script>
+<script src="../../shared/app-config.js"></script>
+<script src="../../shared/utils/shared-utils.js"></script>
+<script src="../../shared/auth/auth-service.js"></script>
 <script src="tf-source.js"></script>
 <script src="notify-rules.js"></script>
 <script src="members.js"></script>

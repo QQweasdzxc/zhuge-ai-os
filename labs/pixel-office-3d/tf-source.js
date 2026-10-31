@@ -143,6 +143,25 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   opts = opts || {};
   const apiBase = (opts.apiBase || base || '').replace(/\/$/, '');
   if (!opts.workspace) return { state: 'error', note: '缺少工作區設定（workspace_slug）' };
+  // The stored Supabase pair outlives any single page. When the access token
+  // is due, rotate it through the shared auth-service (loaded by index.html)
+  // instead of reporting a false logout. Without a stored session (anonymous
+  // visit) nothing changes: the read below yields the signed-out state as
+  // before. A terminally dead session is cleared by auth-service itself and
+  // the read below yields the honest signed-out state. A recoverable refresh
+  // failure (network/5xx) keeps the stored pair; skip this round instead of
+  // exchanging the known-stale token into a false terminal banner - the next
+  // scheduled poll retries at the existing cadence.
+  if (opts.storageGet && typeof getStoredAuthSession === "function" && typeof refreshAuthSession === "function" && typeof accessTokenNeedsRefresh === "function") {
+    const storedBefore = getStoredAuthSession();
+    if (storedBefore && storedBefore.refresh_token && accessTokenNeedsRefresh()) {
+      let refreshed = null;
+      try { refreshed = await refreshAuthSession(false); } catch { refreshed = null; }
+      if (!refreshed && getStoredAuthSession()) {
+        return { state: 'error', note: '連線不穩，將自動重試' };
+      }
+    }
+  }
   const supa = opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null);
   if (!supa) return { state: 'auth-required', note: '需要登入 Zhuge AI OS' };
   let ex;
