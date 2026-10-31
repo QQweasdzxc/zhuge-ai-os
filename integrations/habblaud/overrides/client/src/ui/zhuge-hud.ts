@@ -7,7 +7,6 @@ import './zhuge-hud.css';
 let current: ZhugeProjectStatus | null = null;
 let currentLive = false;
 const HUD_PREFERENCE_KEY = 'zhuge-office-hud-v1';
-let hudAutoCollapseTimer: number | undefined;
 let weatherAdapter: {
   getCity(): WeatherCity;
   getState(): WeatherState;
@@ -243,14 +242,9 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
     document.body.append(bar);
     const saved = (() => { try { return localStorage.getItem(HUD_PREFERENCE_KEY); } catch { return null; } })();
     const mobile = window.matchMedia('(max-width: 700px), (max-height: 520px) and (max-width: 900px)').matches;
-    // First desktop visit gets a short orientation window; mobile starts compact.
+    // Initial layout respects the saved preference and mobile scene-first default.
+    // Once expanded, only the user's toggle may collapse the HUD.
     bar.dataset.open = saved === 'expanded' ? 'true' : saved === 'compact' || mobile ? 'false' : 'true';
-    if (!saved && !mobile) {
-      hudAutoCollapseTimer = window.setTimeout(() => {
-        const liveBar = document.getElementById('zhuge-aios-hud');
-        if (liveBar && liveBar.dataset.userToggled !== 'true') liveBar.dataset.open = 'false';
-      }, 7000);
-    }
   }
   bar.replaceChildren();
   const fresh = isFreshStatus(status);
@@ -292,8 +286,6 @@ export function mountZhugeHud(status: ZhugeProjectStatus, live = false): void {
   menu.setAttribute('aria-expanded', String(bar.dataset.open === 'true'));
   menu.addEventListener('click', () => {
     bar.dataset.open = bar.dataset.open === 'true' ? 'false' : 'true';
-    bar.dataset.userToggled = 'true';
-    if (hudAutoCollapseTimer !== undefined) window.clearTimeout(hudAutoCollapseTimer);
     try { localStorage.setItem(HUD_PREFERENCE_KEY, bar.dataset.open === 'true' ? 'expanded' : 'compact'); } catch { /* Private browsing may disable storage. */ }
     menu.textContent = bar.dataset.open === 'true' ? '收合' : '☰';
     menu.setAttribute('aria-label', bar.dataset.open === 'true' ? '收合辦公室資訊' : '展開辦公室資訊');
