@@ -8,13 +8,15 @@
   const RETURN_PATHS = Object.freeze({
     office: "../../",
     taskflow: "../../labs/taskflow/",
-    investment: "../../modules/investment/"
+    investment: "../../modules/investment/",
+    preview: "../../labs/pixel-office-3d/"
   });
 
   function requestedIntent(params) {
     if (params.get("officeReturn") === "1") return "office";
     if (params.get("taskflowReturn") === "1") return "taskflow";
     if (params.get("investmentReturn") === "1") return "investment";
+    if (params.get("previewReturn") === "1") return "preview";
     return null;
   }
 
