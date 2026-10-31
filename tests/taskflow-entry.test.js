@@ -96,7 +96,7 @@ test("TaskFlow post-login return is same-origin, one-shot, and waits for approve
   assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: callbackLocation, storage, now: now + 2 }), false);
 });
 
-test("TaskFlow authentication failure cannot bounce repeatedly between AIOS login and TaskFlow", () => {
+test("TaskFlow post-login guard allows consecutive legitimate entries and stops only same-intent loops", () => {
   const values = new Map();
   const storage = {
     getItem: key => values.has(key) ? values.get(key) : null,
@@ -105,15 +105,27 @@ test("TaskFlow authentication failure cannot bounce repeatedly between AIOS logi
   };
   const now = 1_800_000_000_000;
   const taskflowLoginReturn = { search: "?app=1&workspace=dashboard&taskflowReturn=1" };
+  const previewLoginReturn = { search: "?app=1&workspace=dashboard&previewReturn=1" };
   const taskflowLocation = {
     href: "https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/",
     replace() {}
   };
+  const done = at => TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: taskflowLocation, storage, now: at });
+  // consecutive different entries are never blocked by each other
   assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now), true);
-  assert.equal(TaskFlowPostLogin.complete({ authenticated: true, accessApproved: true, runtimeReady: true, location: taskflowLocation, storage, now: now + 100 }), true);
-  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 101), false);
+  assert.equal(done(now + 100), true);
+  assert.equal(TaskFlowPostLogin.capture(previewLoginReturn, storage, now + 101), true);
+  assert.equal(done(now + 102), true);
+  // a legitimate same-intent re-entry inside the window still works
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 103), true);
+  assert.equal(done(now + 104), true);
+  // only a third same-intent capture inside the window is a true bounce loop and is stopped
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 105), false);
   assert.equal(values.has(TaskFlowPostLogin.storageKey), false);
-  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 2 * 60 * 1000 + 101), true);
+  // other intents remain unaffected while the same-intent loop is guarded
+  assert.equal(TaskFlowPostLogin.capture(previewLoginReturn, storage, now + 106), true);
+  // the guard lifts after the window
+  assert.equal(TaskFlowPostLogin.capture(taskflowLoginReturn, storage, now + 2 * 60 * 1000 + 105), true);
 });
 
 test("expired or malformed post-login intent is removed without redirect", () => {
