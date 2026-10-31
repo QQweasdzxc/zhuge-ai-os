@@ -9,7 +9,7 @@
     office: "../../",
     taskflow: "../../labs/taskflow/",
     investment: "../../modules/investment/",
-    preview: "../../labs/pixel-office-3d/"
+    preview: "../../labs/pixel-office-3d/?source=tf"
   });
 
   function requestedIntent(params) {
