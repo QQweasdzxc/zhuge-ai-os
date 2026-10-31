@@ -132,3 +132,12 @@ test("runtime readback uses the protected issue endpoint and never accepts clien
   assert.equal(calls[1].options.headers["X-Workspace-Slug"],"pm-team");
   assert.equal(calls[1].options.body,undefined);
 });
+test("expired JWT access tokens are not read as usable",()=>{
+  const jwt=exp=>`h.${Buffer.from(JSON.stringify({exp})).toString("base64")}.s`;
+  const now=Math.floor(Date.now()/1000);
+  const expiredStore={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:jwt(now-3600)}):null};
+  assert.equal(readZhugeAccessToken(expiredStore),null);
+  const freshToken=jwt(now+3600);
+  const freshStore={getItem:k=>k==="zhuge_ai_os_google_auth_session_v1"?JSON.stringify({access_token:freshToken}):null};
+  assert.equal(readZhugeAccessToken(freshStore),freshToken);
+});

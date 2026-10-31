@@ -48,7 +48,7 @@ function authContext({ stored, rootSession, fetchImpl }) {
   const context = vm.createContext({
     Date, JSON, Number, String, Math, Promise, Error, URLSearchParams,
     localStorage,
-    location: { search: "", hash: "", href: "https://example.test/" },
+    location: { search: "", hash: "", href: "https://example.test/", origin: "https://example.test", pathname: "/" },
     history: { replaceState() {} },
     AUTH_CONFIG: { supabaseAnonKey: "anon", supabaseUrl: "https://example.supabase.co" },
     AUTH_SESSION_KEY: "auth",
@@ -374,4 +374,82 @@ test("worklog boot failure no longer destroys the stored login", () => {
   assert.doesNotMatch(bootSource, /clearStoredAuthSession/);
   assert.doesNotMatch(bootSource, /saveAll\(\)/);
   assert.match(bootSource, /recordOAuthDebug\("worklog_boot_auth_error"/);
+});
+
+test("terminal rejection does not clear a newer session stored by another tab", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "old-refresh", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => {
+      // Another tab completes a refresh while this request is in flight.
+      values.set("auth", JSON.stringify({ access_token: "new-access", refresh_token: "new-refresh", expires_at: Date.now() + 3600000 }));
+      return response(400, { error_code: "refresh_token_already_used", msg: "Invalid Refresh Token: Already Used" });
+    }
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  const stored = JSON.parse(values.get("auth"));
+  assert.equal(stored.refresh_token, "new-refresh");
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.stage, "auth_session_refresh_terminal_skipped_newer_session");
+});
+
+test("400 with a non-terminal code and no legacy message preserves the stored session", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(400, { error_code: "validation_failed", msg: "Invalid request body" })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth") !== undefined, true);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.detail.terminal, false);
+});
+
+test("legacy 400 Invalid Refresh Token message without error_code is terminal", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "dead", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(400, { msg: "Invalid Refresh Token" })
+  });
+
+  assert.equal(await vm.runInContext("getAuthSession()", context), null);
+  assert.equal(values.get("auth"), undefined);
+  const debug = JSON.parse(values.get("zhuge_ai_os_oauth_debug_v1"));
+  assert.equal(debug.detail.terminal, true);
+});
+
+test("debug records accumulate in a capped ring log", async () => {
+  const { context, values } = authContext({
+    stored: { access_token: "expired", refresh_token: "recoverable", expires_at: 1 },
+    rootSession: null,
+    fetchImpl: async () => response(500, { message: "upstream unavailable" })
+  });
+
+  await vm.runInContext("getAuthSession()", context);
+  await vm.runInContext("getAuthSession()", context);
+  const log = JSON.parse(values.get("zhuge_ai_os_oauth_debug_log_v1"));
+  assert.equal(Array.isArray(log), true);
+  assert.equal(log.length >= 2, true);
+  assert.equal(log[log.length - 1].stage, "auth_session_refresh_failed");
+});
+
+test("worklog boot fail-closes on an unverified preserved session with a retry surface", () => {
+  const source = read("modules/worklog/worklog-app.js");
+  const bootStart = source.indexOf("async function boot()");
+  const bootEnd = source.indexOf("boot();", bootStart);
+  const bootSource = source.slice(bootStart, bootEnd);
+  assert.match(bootSource, /authVerificationFailed = true/);
+  assert.doesNotMatch(bootSource, /initializeApprovedWorklogRuntime\("stored-auth-session"\)/);
+  assert.match(source, /function authVerificationScreen\(\)/);
+  assert.match(source, /id="authVerifyRetryBtn"/);
+  const snapshot = source.slice(source.indexOf("function saveLocalSnapshot()"), source.indexOf("function saveLocalSnapshot()") + 900);
+  assert.match(snapshot, /if \(session\) localStorage\.setItem\(AI_OS_SESSION_KEY/);
+});
+
+test("board hydration failure renders the retry surface when credentials survive", () => {
+  const source = read("shared/components/golden-master-runtime.js");
+  const matches = source.match(/目前無法確認登入狀態，請重新檢查/g) || [];
+  assert.equal(matches.length >= 5, true);
 });

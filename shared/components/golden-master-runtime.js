@@ -5373,11 +5373,17 @@
       try {
         hydrated = await hydrateBoardSession();
       } catch (error) {
-        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        if (typeof getStoredAuthSession !== "function" || !getStoredAuthSession()) { if (typeof clearStoredAuthSession === "function") clearStoredAuthSession(); }
         renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
         return;
       }
       if (!hydrated) {
+        if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+          // Stored credentials survive but could not be verified: fail closed
+          // on the retry surface instead of the plain login wall.
+          renderAccessError("目前無法確認登入狀態，請重新檢查；若多次失敗請返回登入。\n");
+          return;
+        }
         if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
         renderLoginState();
         return;
@@ -5393,11 +5399,17 @@
       try {
         hydrated = await hydrateBoardSession();
       } catch (error) {
-        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        if (typeof getStoredAuthSession !== "function" || !getStoredAuthSession()) { if (typeof clearStoredAuthSession === "function") clearStoredAuthSession(); }
         renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
         return;
       }
       if (!hydrated) {
+        if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+          // Stored credentials survive but could not be verified: fail closed
+          // on the retry surface instead of the plain login wall.
+          renderAccessError("目前無法確認登入狀態，請重新檢查；若多次失敗請返回登入。\n");
+          return;
+        }
         if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
         renderLoginState();
         return;
@@ -5420,11 +5432,17 @@
       try {
         hydrated = await hydrateBoardSession();
       } catch (error) {
-        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        if (typeof getStoredAuthSession !== "function" || !getStoredAuthSession()) { if (typeof clearStoredAuthSession === "function") clearStoredAuthSession(); }
         renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
         return;
       }
       if (!hydrated) {
+        if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+          // Stored credentials survive but could not be verified: fail closed
+          // on the retry surface instead of the plain login wall.
+          renderAccessError("目前無法確認登入狀態，請重新檢查；若多次失敗請返回登入。\n");
+          return;
+        }
         if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
         renderLoginState();
         return;
@@ -5444,11 +5462,17 @@
       try {
         hydrated = await hydrateBoardSession();
       } catch (error) {
-        if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+        if (typeof getStoredAuthSession !== "function" || !getStoredAuthSession()) { if (typeof clearStoredAuthSession === "function") clearStoredAuthSession(); }
         renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
         return;
       }
       if (!hydrated) {
+        if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+          // Stored credentials survive but could not be verified: fail closed
+          // on the retry surface instead of the plain login wall.
+          renderAccessError("目前無法確認登入狀態，請重新檢查；若多次失敗請返回登入。\n");
+          return;
+        }
         if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
         renderLoginState();
         return;
@@ -5479,11 +5503,17 @@
     try {
       hydrated = await hydrateBoardSession();
     } catch (error) {
-      if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
+      if (typeof getStoredAuthSession !== "function" || !getStoredAuthSession()) { if (typeof clearStoredAuthSession === "function") clearStoredAuthSession(); }
       renderAccessError("登入工作階段無法恢復，請重新檢查或登入。\n");
       return;
     }
     if (!hydrated) {
+      if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+        // Stored credentials survive but could not be verified: fail closed
+        // on the retry surface instead of the plain login wall.
+        renderAccessError("目前無法確認登入狀態，請重新檢查；若多次失敗請返回登入。\n");
+        return;
+      }
       if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
       renderLoginState();
       return;

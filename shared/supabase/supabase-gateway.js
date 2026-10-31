@@ -22,6 +22,12 @@
       readSession: () => typeof getStoredAuthSession === "function" ? getStoredAuthSession() : null,
       refreshSession: force => typeof refreshAuthSession === "function" ? refreshAuthSession(Boolean(force)) : null,
       clearSession: () => {
+        // The lifecycle clears whenever a refresh yields no valid session, but
+        // Shared Auth now preserves the stored session on transient failures
+        // (network/5xx/429). A terminal refresh already removed it. Skip the
+        // clear while a stored session survives so a recoverable error cannot
+        // destroy a preservable login from this layer.
+        if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) return;
         if (typeof clearStoredAuthSession === "function") clearStoredAuthSession();
       }
     });

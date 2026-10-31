@@ -46,11 +46,25 @@ export function buildNativeCTODispatchBody(input = {}) {
     provider: provider.trim()
   };
 }
+function isUsableAccessToken(token) {
+  if (typeof token !== "string" || !token.length) return false;
+  // Skip tokens whose JWT expiry has passed (same 30s freshness skew as
+  // login-return.mjs hasFreshZhugeSession): they cannot authorize and only
+  // produce a doomed 401 from /auth/zhuge. Non-JWT or unparseable tokens
+  // keep legacy behavior.
+  const payload = token.split(".")[1];
+  if (!payload) return true;
+  try {
+    const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    if (Number.isFinite(claims.exp) && claims.exp * 1000 <= Date.now() + 30000) return false;
+  } catch { /* unparseable: keep legacy behavior */ }
+  return true;
+}
 export function readZhugeAccessToken(store) {
   for (const key of [TOKEN_KEY, SECONDARY_KEY]) {
     try {
       const record = JSON.parse(store?.getItem(key) ?? "null");
-      if (typeof record?.access_token === "string" && record.access_token.length) {
+      if (isUsableAccessToken(record?.access_token)) {
         return record.access_token;
       }
     } catch { /* invalid/old session is treated as absent */ }

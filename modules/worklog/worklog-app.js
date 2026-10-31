@@ -15,6 +15,10 @@ let workTodoDashboardSummary = {
 // latest presentation result for the current page session.
 let appAccessState = null;
 let appAccessRequest = null;
+// True when boot could not verify a surviving stored session (transient
+// failure): render the fail-closed retry surface instead of the login wall,
+// and never initialize the runtime on that unverified identity.
+let authVerificationFailed = false;
 let worklogRuntimeReady = false;
 
 function appAccessService() {
@@ -347,7 +351,10 @@ function saveAll(options = {}) {
 function saveLocalSnapshot() {
   if (IS_SYSTEM_TEMPLATE_VIEW) return;
   // Cloud SSOT: do not persist business data in browser storage.
-  localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify(session));
+  // Never overwrite a preserved session record with null: logout and
+  // clearStoredAuthSession() remove the key explicitly, and readers treat a
+  // missing key exactly like a stored null.
+  if (session) localStorage.setItem(AI_OS_SESSION_KEY, JSON.stringify(session));
   localStorage.removeItem("wl_session");
   // P5: wl_library remains legacy backup only. Official Knowledge cache is user-scoped LocalCache.
   localStorage.setItem(ACTIVE_MODULE_KEY, activeModule);
@@ -3167,6 +3174,22 @@ function authScreen() {
   return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><p>Zhuge AI OS 是一套 AI 工作管理平台，整合 Google Login、WorkLog、Google Drive 與知識管理，協助使用者管理每日工作、工作紀錄與知識整理。</p><p class="muted">可使用 Google 或 Email 帳號登入；登入後即可使用 WorkLog、Google Drive 整合及 AI 工作管理功能。</p>${errorBlock}<div class="auth-methods"><button class="btn full" id="googleLoginBtn">使用 Google 帳號登入</button><div class="auth-divider"><span>或使用 Email</span></div><form id="emailAuthForm" novalidate><label for="emailAuthEmail">Email</label><input class="input" id="emailAuthEmail" type="email" autocomplete="email" placeholder="name@example.com" required><label for="emailAuthPassword">密碼</label><input class="input" id="emailAuthPassword" type="password" autocomplete="current-password" minlength="8" placeholder="至少 8 個字元" required><div class="form-actions"><button class="btn" type="submit" data-email-auth-mode="login">Email 登入</button><button class="btn2" type="button" data-email-auth-mode="signup">建立帳號</button><button class="btn2" type="button" data-email-auth-mode="reset">忘記密碼</button></div></form><div id="emailAuthMessage" class="muted" role="status" aria-live="polite"></div></div><nav class="auth-public-links" aria-label="公開產品資訊"><a href="../../product/">產品介紹</a><a href="../../privacy/">隱私權政策</a><a href="../../terms/">服務條款</a><a href="../../support/">支援</a><a href="mailto:qq.1025@gmail.com">聯絡支援</a></nav></section></div></div>`;
 }
 
+function authVerificationScreen() {
+  return `<div class="wrap"><div class="card"><section class="panel auth-panel" style="margin-top:18px"><h1>🪶 Zhuge AI OS</h1><div class="muted">by Mr. KM</div><div class="empty" role="alert" style="margin:14px 0"><b>目前無法確認登入狀態</b><div class="muted">網路或伺服器暫時無法驗證你的登入工作階段。你的登入資料仍保留在這個瀏覽器中，尚未被清除；請重新檢查。若多次失敗，可返回登入頁面重新登入。</div></div><div class="auth-methods"><button class="btn full" id="authVerifyRetryBtn" type="button">重新檢查</button><button class="btn2 full" id="authVerifyLoginBtn" type="button">返回登入頁面</button></div></section></div></div>`;
+}
+
+function bindAuthVerification() {
+  const retry = document.getElementById("authVerifyRetryBtn");
+  if (retry) retry.onclick = () => location.reload();
+  const back = document.getElementById("authVerifyLoginBtn");
+  if (back) back.onclick = () => {
+    // Only leaves the retry surface; the preserved session record is not
+    // touched. A fresh login overwrites it through the normal flow.
+    authVerificationFailed = false;
+    render("auth-verification-back-to-login");
+  };
+}
+
 function worklogWelcomeSeen() {
   return localStorage.getItem(scopedLocalKey(WORKLOG_WELCOME_KEY)) === "1";
 }
@@ -5012,7 +5035,10 @@ function render(reason = "state-update") {
     applySystemTemplateViewState();
     if (IS_EXTENSION_ENTRY) { replaceRootContent(extensionAssistantScreen()); bindWorklogAssistant(); return; }
     clearInvalidAuthState();
-    if (!session) { replaceRootContent(authScreen()); bindAuth(); return; }
+    if (!session) {
+      if (authVerificationFailed) { replaceRootContent(authVerificationScreen()); bindAuthVerification(); return; }
+      replaceRootContent(authScreen()); bindAuth(); return;
+    }
     if (!appAccessState || String(appAccessState.status || "").toUpperCase() === "CHECKING") {
       replaceRootContent(appAccessGateMarkup(appAccessState || { status: "CHECKING", email: appAccessEmail() }));
       bindAppAccessGate(appAccessState || { status: "CHECKING", email: appAccessEmail() });
@@ -7548,11 +7574,13 @@ async function boot() {
       if (authCallbackCaptured) { activeModule = "dashboard"; activeWorkspace = "dashboard"; openTabs = []; recentWorkspaces = []; view = "center"; hasOsShellState = true; }
       await resolveWorklogAppAccess({ force: true });
       await initializeApprovedWorklogRuntime("auth-success");
-    } else if (hasGoogleOAuthSession()) {
-      if (session) {
-        await resolveWorklogAppAccess({ force: true });
-        await initializeApprovedWorklogRuntime("stored-auth-session");
-      }
+    } else if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+      // getSupabaseAuthUser() returned null but stored credentials survive:
+      // verification failed transiently. The session is preserved, NOT
+      // authorized - do not initialize the runtime on an unverified identity
+      // and do not show the plain login wall.
+      authVerificationFailed = true;
+      session = null;
     }
   } catch (error) {
     // A boot-time failure (transient network error, runtime exception) must
@@ -7562,6 +7590,9 @@ async function boot() {
       recordOAuthDebug("worklog_boot_auth_error", { message: String(error?.message || error).slice(0, 240) });
     }
     session = null;
+    if (typeof getStoredAuthSession === "function" && getStoredAuthSession()) {
+      authVerificationFailed = true;
+    }
   }
   render();
 }

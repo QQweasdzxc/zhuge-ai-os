@@ -43,14 +43,22 @@ async function performAuthSessionRefresh() {
     const body = await res.text().catch(() => "");
     let parsedBody = null;
     try { parsedBody = body ? JSON.parse(body) : null; } catch { parsedBody = null; }
-    const errorCode = parsedBody?.code || parsedBody?.error_code || parsedBody?.error || "";
+    const rawCode = parsedBody?.error_code || parsedBody?.error || parsedBody?.code || "";
+    const errorCode = typeof rawCode === "string" ? rawCode : "";
     const errorMessage = parsedBody?.message || parsedBody?.msg || body || res.statusText;
-    // Supabase refresh tokens rotate. A definitive rejection (400/401/403 or
-    // invalid_grant) means the stored pair is unrecoverable and must not
-    // remain usable by the root UI or a later REST request. 5xx/429 are
-    // transient: keep the stored session so the next load can retry instead
-    // of destroying a recoverable login.
-    const terminal = res.status === 400 || res.status === 401 || res.status === 403 || errorCode === "invalid_grant";
+    // Supabase refresh tokens rotate. Terminal means GoTrue proved this
+    // refresh credential is dead: revoked/reused/not-found/expired session or
+    // a legacy invalid_grant rejection. Everything else (5xx, 429, 409,
+    // 401/403 without a terminal code, hook/bad-request 400s, malformed or
+    // unknown bodies) is treated as recoverable: keep the stored session so
+    // the next load can retry instead of destroying a recoverable login.
+    const TERMINAL_REFRESH_CODES = ["invalid_grant", "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired", "user_banned"];
+    // GoTrue's definitive dead-refresh message ("Invalid Refresh Token...")
+    // on a 400 is terminal even when error_code is missing or a legacy value:
+    // treat that shape as terminal too. Unknown codes without that message
+    // are preserved but never treated as valid.
+    const legacyTerminal = res.status === 400 && /^invalid refresh token/i.test(String(parsedBody?.msg || parsedBody?.message || ""));
+    const terminal = TERMINAL_REFRESH_CODES.includes(errorCode) || legacyTerminal;
     recordOAuthDebug("auth_session_refresh_failed", {
       status: res.status,
       code: errorCode,
@@ -68,7 +76,18 @@ async function performAuthSessionRefresh() {
       has_refresh_token: !!refreshToken,
       terminal
     });
-    if (terminal) clearStoredAuthSession();
+    if (terminal) {
+      // Multi-tab: another tab may have completed a refresh (rotating to a
+      // newer pair) while this request was in flight. Only clear when the
+      // stored refresh token is still the one that was rejected.
+      const latest = getStoredAuthSession();
+      const latestRefresh = latest?.refresh_token || "";
+      if (!latest || !latestRefresh || latestRefresh === refreshToken) {
+        clearStoredAuthSession();
+      } else {
+        recordOAuthDebug("auth_session_refresh_terminal_skipped_newer_session", { status: res.status, code: errorCode });
+      }
+    }
     return null;
   }
   const data = await res.json();
@@ -173,8 +192,22 @@ function captureOAuthError() {
 }
 
 function recordOAuthDebug(stage, detail) {
-  const payload = { stage, detail, at: new Date().toISOString(), href: location.href };
-  localStorage.setItem("zhuge_ai_os_oauth_debug_v1", JSON.stringify(payload));
+  // Diagnostics must never persist callback credentials: pathname only, no
+  // query (?code=...) and no fragment (#access_token=...). Best-effort: a
+  // storage failure must not block the auth flow that is reporting.
+  const payload = { stage, detail, at: new Date().toISOString(), href: location.origin + location.pathname };
+  try {
+    localStorage.setItem("zhuge_ai_os_oauth_debug_v1", JSON.stringify(payload));
+    // Keep a capped ring of recent records so a later minor failure cannot
+    // erase the evidence of an earlier important one.
+    const LOG_KEY = "zhuge_ai_os_oauth_debug_log_v1";
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); } catch { log = []; }
+    if (!Array.isArray(log)) log = [];
+    log.push(payload);
+    if (log.length > 10) log = log.slice(log.length - 10);
+    localStorage.setItem(LOG_KEY, JSON.stringify(log));
+  } catch { /* storage unavailable: diagnostics are best-effort */ }
   console.error("Zhuge AI OS OAuth Debug", payload);
 }
 
@@ -344,7 +377,13 @@ async function getSupabaseAuthUser() {
     // is the one we just refreshed. Otherwise (5xx, 429, or a 401 after a
     // transient refresh failure) keep the stored session so the next attempt
     // can recover without a new login.
-    if (usedRefreshedToken && (res.status === 401 || res.status === 403)) clearStoredAuthSession();
+    if (usedRefreshedToken && (res.status === 401 || res.status === 403)) {
+      // Only clear when storage still holds the token that was rejected; a
+      // newer session stored by another tab must survive.
+      const latest = getStoredAuthSession();
+      const latestAccess = latest?.access_token || "";
+      if (!latest || !latestAccess || latestAccess === activeAuthSession.access_token) clearStoredAuthSession();
+    }
     return null;
   }
   const user = await res.json();
