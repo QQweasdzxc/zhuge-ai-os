@@ -71,8 +71,9 @@ test("curated Pages publishes Pixel homepage and retained authenticated TaskFlow
   assert.ok(manifest.build.length > 0, "version.json must declare a build identity");
 
   const home = fs.readFileSync(path.join(site, "index.html"), "utf8");
-  assert.match(home, /pixel-office\/index\.html/);
+  assert.match(home, /labs\/pixel-office-3d\/index\.html\?source=tf/);
   assert.match(home, /<iframe\b/i);
+  assert.doesNotMatch(home, /zhuge-office-furnishings/);
   assert.match(home, /status-classic\.html/);
   const classic = fs.readFileSync(path.join(site, "status-classic.html"), "utf8");
   assert.match(classic, /id=["']taskflow-home-routing["']/);
