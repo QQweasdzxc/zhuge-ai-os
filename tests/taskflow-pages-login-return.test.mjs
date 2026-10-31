@@ -43,3 +43,25 @@ test("monitor does not navigate until a real authenticated Zhuge session exists"
  next();
  assert.deepEqual(urls,[HOME]);assert.equal(cancelled,true);
 });
+
+test("status-classic target is explicit while default HOME and unrelated entry remain unchanged",async()=>{
+ const {STATUS_CLASSIC}=await import("../labs/taskflow/pages-client/login-return.mjs");
+ assert.equal(HOME,"https://qqweasdzxc.github.io/zhuge-ai-os/");
+ assert.equal(STATUS_CLASSIC,HOME+"status-classic.html");
+ const session=storage(),store=storage(),now=1000000,urls=[];
+ const args={sessionStore:session,localStore:store,now:()=>now,navigate:url=>urls.push(url)};
+ assert.equal(startReturnMonitor(args).active,false);
+ markExplicitReturn(session,now,STATUS_CLASSIC);
+ assert.equal(pendingExplicitReturn(session,now),true);
+ assert.equal(pendingExplicitReturn(session,now-1),false);
+ assert.equal(pendingExplicitReturn(session,now+180000),false);
+ store.setItem("zhuge_ai_os_session_v1",JSON.stringify({access_token:token(1200)}));
+ startReturnMonitor(args);
+ assert.deepEqual(urls,[STATUS_CLASSIC]);
+ markExplicitReturn(session,now);
+ startReturnMonitor(args);
+ assert.deepEqual(urls,[STATUS_CLASSIC,HOME]);
+ markExplicitReturn(session,now,"https://attacker.example");
+ assert.equal(startReturnMonitor(args).active,false);
+ assert.equal(urls.length,2);
+});
