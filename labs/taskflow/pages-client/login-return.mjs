@@ -5,6 +5,7 @@
  */
 export const RETURN_KEY="tf-pages-explicit-login-return-v1";
 export const HOME="https://qqweasdzxc.github.io/zhuge-ai-os/";
+export const STATUS_CLASSIC=HOME+"status-classic.html";
 const TIMEOUT_MS=3*60*1000;
 export function hasFreshZhugeSession(storage,now=Date.now()){
  for(const key of ["zhuge_ai_os_google_auth_session_v1","zhuge_ai_os_session_v1"]){
@@ -21,13 +22,13 @@ export function hasFreshZhugeSession(storage,now=Date.now()){
  }
  return false;
 }
-export function markExplicitReturn(sessionStore,now=Date.now()){
- sessionStore.setItem(RETURN_KEY,JSON.stringify({created_at:now,target:HOME}));
+export function markExplicitReturn(sessionStore,now=Date.now(),target=HOME){
+ sessionStore.setItem(RETURN_KEY,JSON.stringify({created_at:now,target}));
 }
 export function pendingExplicitReturn(sessionStore,now=Date.now()){
  try{
   const value=JSON.parse(sessionStore.getItem(RETURN_KEY)||"null");
-  return value?.target===HOME&&Number.isFinite(value.created_at)&&
+  return [HOME,STATUS_CLASSIC].includes(value?.target)&&Number.isFinite(value.created_at)&&
      value.created_at<=now&&value.created_at>now-TIMEOUT_MS;
  }catch{return false;}
 }
@@ -43,9 +44,10 @@ export function startReturnMonitor({
   if(!active)return;
   if(!pendingExplicitReturn(sessionStore,now())){sessionStore.removeItem(RETURN_KEY);stop();return;}
   if(!hasFreshZhugeSession(localStore,now()))return;
+  const {target}=JSON.parse(sessionStore.getItem(RETURN_KEY));
   sessionStore.removeItem(RETURN_KEY);
   stop();
-  navigate(HOME);
+  navigate(target);
  };
  check();
  if(active)timer=schedule(check,450);
