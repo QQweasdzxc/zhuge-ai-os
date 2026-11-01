@@ -1,11 +1,11 @@
-/* Vocabulary Quest cloud-synced source of truth: GitHub branch file. Update by adding new units. */
+/* 單字闖關王教材庫：每一筆 units 是獨立週次，依 category / week 分組。不含學生成績。 */
 window.VOCAB_BANK = {
-  "version": 1,
-  "description": "獨立單字闖關王永久教材庫。新增單元追加到 units；不要覆蓋舊單元。單字庫不儲存學生作答紀錄。",
+  "version": 2,
+  "description": "按「教材系列 / 週次」分類；每次測驗預設僅考選定的當週單字。新增單元時指定 category、week、title；保留原有 units。",
   "units": [
     {
       "id": "unit-001",
-      "title": "Unit 1｜第一批課本單字",
+      "title": "本次 12 個單字（週次待設定）",
       "addedAt": "2026-11-01",
       "words": [
         {
@@ -92,7 +92,9 @@ window.VOCAB_BANK = {
           "tip": "combine A with B：把 A 和 B 結合。",
           "ipa": "kəmˈbaɪn"
         }
-      ]
+      ],
+      "category": "空中學英文",
+      "week": null
     }
   ]
 };
