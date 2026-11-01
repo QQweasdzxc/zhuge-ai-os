@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜每週字庫模式 V1.7</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜測試者選擇 V1.8</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -48,7 +48,7 @@ function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
 function chooseSeries(i){var series=seriesList();if(i<0||i>=series.length)return;s.selectedCategory=series[i];var idx=wordUnits.findIndex(function(u){return u.category===s.selectedCategory});chooseWeek(idx)}
 function shuffled(source){var a=source.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),v=a[i];a[i]=a[j];a[j]=v}return a}
-var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[]};
+var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all"};
 function safe(x){return String(x).replace(/[&<>"]/g,function(a){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]})}
 
 function audioStatus(msg,error){var el=document.getElementById("audio-status");if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66";}}
@@ -156,6 +156,18 @@ function frame(){
  }).join("");
  app.innerHTML='<section class="hero"><span class="tag">VOCABULARY QUEST</span><h1>英文單字闖關王 🏆</h1><p>先選教材系列與週次，再進行該週測驗；不需要登入</p></section>'+
  '<div class="stats"><div class="stat"><b>'+wordUnits.length+'</b><small>已收錄週次</small></div><div class="stat"><b>'+n+'</b><small>本次範圍單字</small></div><div class="stat"><b>'+(a.length?Math.round(c/a.length*100)+"%":"—")+'</b><small>本頁答對率</small></div></div>'+
+ '<section class="panel"><h2>👤 今天由誰測驗？</h2>'+
+ '<p>先選擇孩子或輸入暱稱，不需要註冊、帳號或密碼。答題完成後會記錄是哪一位測試者。</p>'+
+ '<div class="grid2">'+
+ btn((s.testerId==="A"?"✓ ":"")+"測試者 A","testerA",s.testerId==="A"?"primary wide":"outline wide")+
+ btn((s.testerId==="B"?"✓ ":"")+"測試者 B","testerB",s.testerId==="B"?"primary wide":"outline wide")+
+ '</div>'+
+ '<label for="tester-name" class="muted">或直接輸入暱稱（例如：孩子的小名）</label>'+
+ '<input class="input" style="font-size:16px;text-align:left;margin:8px 0" id="tester-name" maxlength="24" autocomplete="off" placeholder="輸入測試者暱稱">'+
+ btn("使用這個暱稱","testerCustom","secondary wide")+
+ '<p class="muted">目前測試者：<strong>'+(s.testerName?safe(s.testerName):"尚未選擇")+'</strong></p>'+
+ (s.testerNotice?'<p class="help">'+safe(s.testerNotice)+'</p>':"")+
+ '</section>'+
  '<section class="panel"><h2>① 選教材系列</h2><p>不同教材分開存放，例如空中學英文，以及往後其他單字庫。</p><div class="actions">'+seriesButtons+'</div></section>'+
  '<section class="panel"><h2>② 選擇要考的週次</h2><p>平常只考選定週次，不會把以前所有單字一起考。</p><div class="actions">'+weekButtons+
  (s.scope<0?btn("↩ 回到當週測驗","scopeWeekly","primary wide"):"")+
@@ -181,7 +193,7 @@ function frame(){
  '<section class="panel"><h2>🔊 聲音測試</h2>'+
  btn("🔈 測試聲音","testTone","outline wide")+
  '<p id="audio-status" role="status" class="muted"></p></section>'+
- '<div class="notice">不用註冊、不用登入。教材字庫永久保存在 GitHub，完成一次測驗後可查看本頁成績。因不採用公開、無保護的資料存取，跨次永久雲端成績目前尚未啟用；關閉或重新整理會清除本頁成績。</div>'
+ '<div class="notice">不用註冊、不用登入。教材字庫永久保存在 GitHub，完成一次測驗後會標記測試者並顯示本頁成績。因不採用公開、無保護的資料存取，跨次永久雲端成績目前尚未啟用；關閉或重新整理會清除本頁成績。</div>'
 }
 function cards(){
  var w=words[s.cardOrder[s.card]],chinese=s.view==="studyCN",front=chinese?"先看中文，聽英文發音再猜拼寫":"先看英文，猜猜中文意思";
@@ -232,7 +244,7 @@ function report(){
  var a=s.attempts,n=a.length,c=a.filter(function(x){return x.good}).length;
  var names=["中英配對","英文拼字","句子填空"];
  var h='<h1 class="title">📊 '+(s.challengeMode==="single"?"本關測驗成績":"三關測驗成績")+'</h1>'+
- '<p class="muted">測驗範圍：'+safe(scopeName())+'</p>'+
+ '<p class="muted">本次測試者：<strong>'+safe(s.runTesterName||s.testerName||'尚未選擇')+'</strong>｜測驗範圍：'+safe(scopeName())+'</p>'+
  '<div class="stats"><div class="stat"><b>'+n+'</b><small>作答題數</small></div>'+
  '<div class="stat"><b>'+c+'</b><small>答對題數</small></div>'+
  '<div class="stat"><b>'+(n?Math.round(c/n*100)+"%":"—")+'</b><small>答對率</small></div></div>'+
@@ -248,16 +260,22 @@ function report(){
  h+='</section><div class="actions">'+(s.missed.length?btn("錯字復活賽","retry","primary wide"):"")+
  btn("再挑戰相同關卡","replay","secondary wide")+btn("返回週次選擇","home","outline wide")+'</div>';
  if(s.sessionRuns.length){
-  h+='<section class="panel"><h2>📋 本頁完成紀錄</h2><p>只顯示這次開啟頁面完成的測驗；尚非雲端歷史。</p>';
+  h+='<section class="panel"><h2>📋 本頁完成紀錄</h2><p>每筆都有測試者標記，只在目前網頁開啟期間保留；尚非雲端歷史。</p>'+
+'<div class="flex">'+btn("全部測試者","filterAll",s.historyFilter==="all"?"primary":"outline")+
+btn("只看目前測試者","filterTester",s.historyFilter==="current"?"primary":"outline")+'</div>';
   s.sessionRuns.forEach(function(r){
-   h+='<div class="table-row"><div><strong>'+safe(r.label||"測驗")+'</strong><div class="small">'+safe(r.scope||"")+'｜'+safe(r.date)+'</div></div><strong>'+r.correct+'/'+r.total+'</strong></div>'
+   if(s.historyFilter==="current"&&r.testerId!==s.testerId)return;
+   h+='<div class="table-row"><div><strong>👤 '+safe(r.tester||"未指定")+'｜'+safe(r.label||"測驗")+'</strong><div class="small">'+safe(r.scope||"")+'｜'+safe(r.date)+'</div></div><strong>'+r.correct+'/'+r.total+'</strong></div>'
   });
   h+='</section>'
  }
  h+='<div class="notice">此版本不要求登入，也不把成績公開到諸葛共用的 Supabase。瀏覽器重新整理後，本頁測驗紀錄會清空。先前未成功上傳的成績無法復原。</div>';
  app.innerHTML=h
 }
-function start(retry,whichStage){s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false}question()}
+function start(retry,whichStage){
+if(!retry&&!s.testerName){s.testerNotice="請先選擇測試者，避免這次成績不知道是誰的。";s.view="home";frame();return}
+if(!retry){s.runTesterId=s.testerId;s.runTesterName=s.testerName}
+s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false}question()}
 function answer(val){if(s.answered)return;var idx=s.order[s.q],correct=(s.retry||s.stage===1)?String(val).trim().toLowerCase()===words[idx][0]:Number(val)===idx;s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);s.score+=correct?(s.clue?7:10):0;if(s.retry){if(correct)s.missed=s.missed.filter(function(i){return i!==idx})}else{s.attempts.push({stage:s.stage,index:idx,good:correct});if(!correct&&s.missed.indexOf(idx)<0)s.missed.push(idx)}question()}
 function next(){
  s.q++;s.answered=false;s.typed="";s.clue=false;s.selected=null;s.choiceKey="";s.choiceList=[];
@@ -267,7 +285,7 @@ function next(){
    if(!s.retry&&!s.lastRecorded&&s.attempts.length){
     var done=s.attempts.filter(function(x){return x.good}).length;
     var label=s.challengeMode==="single"?["第一關｜中英配對","第二關｜英文拼字","第三關｜句子填空"][s.stage]:"三關連續挑戰";
-    s.sessionRuns.push({correct:done,total:s.attempts.length,label:label,scope:scopeName(),date:new Date().toLocaleString("zh-TW")});
+    s.sessionRuns.push({tester:s.runTesterName,testerId:s.runTesterId,correct:done,total:s.attempts.length,label:label,scope:scopeName(),date:new Date().toLocaleString("zh-TW")});
     s.lastRecorded=true
    }
    report();return
@@ -282,7 +300,18 @@ app.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="sp
 app.addEventListener("click",function(e){
  var t=e.target.closest("[data-action]");if(!t)return;
  var act=t.dataset.action;
- if(act==="testTone")testTone();
+ if(act==="testerA"||act==="testerB"){
+ s.testerId=act==="testerA"?"A":"B";s.testerName=s.testerId==="A"?"測試者 A":"測試者 B";s.testerNotice="已選擇 "+s.testerName;frame()
+ }
+ else if(act==="testerCustom"){
+  var el=document.getElementById("tester-name");var name=el?String(el.value||"").trim().replace(/[\n\r]+/g," "):"";
+  if(name.length>24)name=name.slice(0,24);
+  if(!name){s.testerNotice="請先輸入暱稱。";frame();return}
+  s.testerId="custom:"+name;s.testerName=name;s.testerNotice="已選擇 "+name+"；暱稱不會寫入裝置或公開網站程式碼。";frame()
+ }
+ else if(act==="filterAll"){s.historyFilter="all";report()}
+ else if(act==="filterTester"){s.historyFilter="current";report()}
+ else if(act==="testTone")testTone();
  else if(act==="chooseSeries")chooseSeries(Number(t.dataset.index));
  else if(act==="chooseWeek")chooseWeek(Number(t.dataset.index));
  else if(act==="scopeAll"){if(s.scope>=0)s.lastScope=s.scope;s.scope=-1;render()}
