@@ -37,7 +37,7 @@ if(rawBank&&Array.isArray(rawBank.units)&&rawBank.units.length){
   });
   if(ids.length)wordUnits.push({id:unit.id||("unit-"+n),title:String(unit.title||("Unit "+(n+1))),indices:ids})
  });
- if(collected.length>=4)words=collected
+ if(collected.length>0)words=collected
 }
 if(!wordUnits.length)wordUnits=[{id:"unit-001",title:"Unit 1｜第一批課本單字",indices:words.map(function(_,i){return i})}];
 function allIndices(){return words.map(function(_,i){return i})}
@@ -82,7 +82,7 @@ function makeAudio(word,sourceIdx){
 }
 function warmAudio(){
   // Limit parallel connections to keep the webpage responsive on mobile data.
-  words.forEach(function(word,i){
+  words.slice(0,12).forEach(function(word,i){
     setTimeout(function(){if(!audioMap[word[0]])makeAudio(word[0],0)},i*90);
   });
 }
@@ -129,7 +129,7 @@ function sentenceSound(w,slow){
  try{var p=audio.play();if(p&&p.catch)p.catch(function(){sentenceVoiceFallback(text,slow)})}
  catch(e){sentenceVoiceFallback(text,slow)}
 }
-function warmSentences(){words.forEach(function(w,i){setTimeout(function(){
+function warmSentences(){words.slice(0,12).forEach(function(w,i){setTimeout(function(){
  if(sentenceAudio[w[0]])return;
  var a=new Audio("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q="+encodeURIComponent(fullSentence(w)));
  a.preload="auto";sentenceAudio[w[0]]=a;try{a.load()}catch(ignore){}
@@ -189,7 +189,8 @@ function opts(){
  var id=s.order[s.q],key=(s.retry?"retry":s.stage)+":"+s.q+":"+id;
  if(s.choiceKey===key)return s.choiceList;
  var pool=s.pool.length>=4?s.pool:allIndices();
- var others=shuffled(pool.filter(function(i){return i!==id}));
+ var alternatives=pool.filter(function(i){return i!==id&&words[i]&&words[i][0]!==words[id][0]&&words[i][1]!==words[id][1]});
+ var others=shuffled(alternatives);
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
