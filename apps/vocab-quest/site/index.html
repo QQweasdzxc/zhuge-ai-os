@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜全雲端家庭版 V2.0</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜週次管理 V2.1</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -43,7 +43,7 @@ if(rawBank&&Array.isArray(rawBank.units)&&rawBank.units.length){
 if(!wordUnits.length)wordUnits=[{id:"unit-001",title:"本次 12 字（週次待設定）",category:"空中學英文",week:"",indices:words.map(function(_,i){return i})}];
 function allIndices(){return words.map(function(_,i){return i})}
 function currentPool(){return s.scope<0?allIndices():wordUnits[Math.min(s.scope,wordUnits.length-1)].indices.slice()}
-function weekLabel(u){return u.week?"第 "+u.week+" 週":"週次待設定"}
+function weekLabel(u){if(!u.week)return "週次待設定";var w=String(u.week).trim();return w.indexOf("週")>=0?w:"第 "+w+" 週"}
 function seriesList(){return Array.from(new Set(wordUnits.map(function(u){return u.category||"一般單字"})))}
 function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits[Math.min(s.scope,wordUnits.length-1)];return u.category+"｜"+weekLabel(u)+"｜"+u.title}
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
@@ -234,6 +234,29 @@ async function saveNewCloudUnit(){
   s.view="home";render()
  }catch(err){alert("新增失敗："+String(err.message||err))}
 }
+async function editCloudWeek(index){
+ if(!familyCloud.connected){alert("請使用家庭專用連結進入，才可以編輯週次");return}
+ var u=wordUnits[index];
+ if(!u){alert("找不到這個單元");return}
+ var input=window.prompt("修改週次，例如：11月第1週",u.week||"");
+ if(input===null)return;
+ var week=String(input).trim();
+ if(!week||week.length>30){alert("請填寫週次，最多 30 個字");return}
+ if(week===u.week)return;
+ try{
+  var result=await cloudCall("updateUnit",{unitId:u.id,category:u.category,week:week,title:u.title});
+  if(!result.unit)throw new Error("未收到更新確認");
+  var fresh=await cloudCall("load");
+  familyCloud.units=fresh.units||[];
+  familyCloud.learners=fresh.learners||[];
+  familyCloud.attempts=fresh.attempts||[];
+  applyCloudUnits(familyCloud.units);
+  var newIndex=wordUnits.findIndex(function(w){return w.id===u.id});
+  if(newIndex>=0){s.scope=newIndex;s.lastScope=newIndex;s.selectedCategory=wordUnits[newIndex].category}
+  familyCloud.status="✅ 週次已更新並儲存到雲端";
+  s.view="list";updateScopePicker();listing()
+ }catch(e){alert("週次更新失敗："+String(e.message||e))}
+}
 /* No grades, learner data or names stored on this device. */
 function readTesterNames(){return familyCloud.learners.map(function(x){return x.name})}
 function rememberTesterName(_name){}
@@ -311,9 +334,9 @@ function listing(){
  var out='<h1 class="title">📚 教材單字庫</h1><p class="muted">依教材系列、週次分類；測驗預設只使用選定的當週內容。</p>';
  seriesList().forEach(function(category){
   out+='<section class="panel"><h2>📘 '+safe(category)+'</h2>';
-  wordUnits.forEach(function(u){
+  wordUnits.forEach(function(u,index){
    if(u.category!==category)return;
-   out+='<div class="table-row"><strong>'+safe(weekLabel(u))+'｜'+safe(u.title)+'</strong><span class="muted">'+u.indices.length+' 字</span></div>';
+   out+='<div class="table-row"><div><strong>'+safe(weekLabel(u))+'｜'+safe(u.title)+'</strong><div class="small">'+u.indices.length+' 字</div></div>'+btn("✏️ 修改週次","editWeek","outline",'data-index="'+index+'"')+'</div>';
    u.indices.forEach(function(i,j){var w=words[i];out+='<div class="table-row"><div><strong>'+(j+1)+'. '+safe(w[0])+'</strong><div class="small">'+safe(w[1])+'</div></div><button class="pill" data-action="wordSound" data-index="'+i+'" aria-label="發音 '+safe(w[0])+'">🔊</button></div>'})
   });
   out+='</section>'
@@ -417,6 +440,7 @@ app.addEventListener("click",function(e){
  var t=e.target.closest("[data-action]");if(!t)return;
  var act=t.dataset.action;
  if(act==="cloudAddUnit"){saveNewCloudUnit();return}
+ if(act==="editWeek"){editCloudWeek(Number(t.dataset.index));return}
  if(act==="testerCustom"){
   var el=document.getElementById("tester-name");
   var name=el?String(el.value||"").trim().replace(/[\n\r]+/g," "):"";
