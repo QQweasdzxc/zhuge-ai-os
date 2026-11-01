@@ -297,7 +297,29 @@ async function fetchTaskMessages(fetchImpl, apiBase, headers, taskId) {
   return { ok: true, messages };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, TOKEN_KEYS };
+
+// 3D-1 member work overview (ZG-48). Counts and rows come straight from the
+// real card list a poll already returned. No member-to-executor binding is
+// inferred anywhere: unassigned or unmapped cards are NEVER attributed to a
+// character, so the panel must label this as board-wide truth, not the
+// member's own assignments.
+const MEMBER_OVERVIEW_RANK = { in_review: 0, blocked: 1, in_progress: 2, todo: 3, backlog: 4, done: 5, cancelled: 6 };
+function memberOverview(sessions) {
+  const counts = { todo: 0, in_progress: 0, in_review: 0, done: 0 };
+  const rows = [];
+  for (const s of sessions || []) {
+    if (!s || !s.tf) continue; // member/owner sessions carry no card payload
+    const st = s.tf.issueStatus || 'backlog';
+    if (Object.hasOwn(counts, st)) counts[st] += 1;
+    rows.push({ key: s.key, title: s.title || '', issueStatus: st, updatedAt: s.tf.updatedAt || null });
+  }
+  rows.sort((a, b) =>
+    ((MEMBER_OVERVIEW_RANK[a.issueStatus] ?? 9) - (MEMBER_OVERVIEW_RANK[b.issueStatus] ?? 9)) ||
+    String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  return { counts, rows };
+}
+
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------

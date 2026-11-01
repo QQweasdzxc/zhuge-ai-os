@@ -391,6 +391,11 @@
   .ow-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 10px; }
   .ow-row { text-align: left; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); cursor: pointer; }
   .ow-row:hover { border-color: var(--tool); }
+  .ov-counts { margin: 8px 6px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--muted); }
+  .ov-counts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ov-row { display: flex; align-items: baseline; gap: 8px; }
+  .ov-row .chip { flex: none; font-size: 11px; font-weight: 600; color: var(--s, var(--muted)); }
+  .ov-row .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -1602,6 +1607,11 @@ function renderDetail(scrollDown) {
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
         : renderMsgs(convo.messages);
   const resume = resumeCmd(s);
+  // 3D-1 (ZG-48): an AI member's panel shows the board's real work overview.
+  // Member-to-executor mapping is unconfirmed, so this is labelled board-wide
+  // truth; cards are never attributed to the character.
+  const ov = TF_MODE && s.member && s.ai && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
+    ? window.ZhugeTfSource.memberOverview(state.data.sessions) : null;
   const html = `
     ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
@@ -1622,13 +1632,24 @@ function renderDetail(scrollDown) {
     ${s.owner ? `<div class="side-sec">${esc(L.ownerWork || '手上的事')} · ${myWork.length}</div>
     <div class="ow-list">${myWork.map((x) => `<button type="button" class="ow-row" data-open-key="${esc(x.key)}">${esc(x.title || x.project || '—')}</button>`).join('')}</div>`
       : s.tf && !s.tf.isAgentCard ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
-    ${msgs}`}`;
+    ${msgs}${ov ? memberOverviewHtml(ov) : ''}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {
     body.innerHTML = html; body.dataset.html = html;
     const t = body.querySelector('[data-time]'); if (t) t.textContent = timeLabel(s, now);
     if (scrollDown || nearBottom) body.scrollTop = body.scrollHeight;
   }
+}
+function memberOverviewHtml(ov) {
+  const stLabel = (st) => ({
+    in_review: L.ovReview || '待確認', blocked: L.ovBlocked || '卡住', in_progress: L.ovInProgress || '進行中',
+    todo: L.ovTodo || '待辦', backlog: L.ovBacklog || '待規劃', done: L.ovDone || '完成', cancelled: L.ovCancelled || '已取消',
+  })[st] || st;
+  const chip = (st) => `<b class="chip" style="--s:${statusColor(displayStatus(st))}">${esc(stLabel(st))}</b>`;
+  return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
+    <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b></div>
+    <div class="msgs-note">${esc(L.ovNote || '對應尚未確認；以下是全看板的真實卡片，不是這位成員的指派。')}</div>
+    <div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`;
 }
 const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>';
 
