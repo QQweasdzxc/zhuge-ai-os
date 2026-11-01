@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜週次管理 V2.1</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜三條命闖關 V2.2</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
 @media(max-width:380px){.shell{padding:17px 12px 55px}.option{font-size:14px}.panel{padding:17px}.hero{padding:22px 17px}}
 .brand-action{border:0;background:none;color:var(--ink);padding:0;text-align:left;white-space:nowrap}.top{gap:8px;align-items:center}.top-picker-wrap{margin-left:auto;display:flex;flex-direction:column;gap:2px;min-width:0;max-width:55%}.top-picker-label{font-size:10px;font-weight:750;color:var(--muted);text-align:right}.top-picker-wrap select{min-width:0;width:100%;height:39px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);font-size:12px;padding:5px 9px}.hero-compact{padding:19px 20px;border-radius:19px}.hero-compact h1{font-size:clamp(23px,6vw,29px);margin-bottom:6px}.hero-compact p{font-size:13px}.panel-compact{padding:17px 18px;margin-top:13px;border-radius:18px}.panel-compact h2{font-size:18px;margin:0}.panel-compact .actions{margin-top:11px;gap:8px}.panel-compact .btn{min-height:46px;padding:10px}.test-select{border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;background:#fff;color:var(--ink);width:100%;font-size:16px}.tester-current{font-size:13px;color:var(--muted);margin-top:9px}.tester-current b{color:var(--ink)}.actions-inline{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.mini-link{background:#fff;border:1px solid var(--line);color:var(--ink);border-radius:12px;font-weight:750;padding:11px 8px;min-height:46px}.light-row{display:flex;align-items:center;gap:10px;justify-content:space-between}.more-panel{margin:12px 0 0;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:14px}.more-panel summary{color:var(--muted);font-weight:700;cursor:pointer;font-size:13px}.more-panel .btn{margin-top:11px}.compact-input-row{display:flex;gap:8px;margin-top:10px}.compact-input-row .test-select{flex:1;min-width:0}.compact-input-row .btn{flex:0 0 auto}.more-description{font-size:12px;color:var(--muted);margin:10px 0 2px}@media(max-width:380px){.brand{font-size:15px;gap:5px}.mark{padding:6px}.top-picker-wrap{max-width:54%}.top-picker-wrap select{font-size:11px;padding:5px}.panel-compact{padding:15px}.hero-compact{padding:16px 17px}}
+.lives{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:11px 0 3px;padding:7px 12px;background:white;border:1px solid var(--line);border-radius:13px}.hearts{font-size:25px;letter-spacing:3px}.lives small{color:var(--muted);font-size:12px}.game-over{background:linear-gradient(130deg,#34344c,#7b3e6a);color:white;padding:30px 20px;border-radius:24px;text-align:center;margin-top:14px}.game-over .skull{font-size:62px}.game-over h1{font-size:36px;margin:8px 0}.game-over p{color:#fceaf5;margin:8px 0}.game-miss{padding:12px;margin-top:16px;background:#ffffff22;border-radius:13px}.game-miss b{font-size:23px}.game-over-meta{font-size:13px;color:var(--muted);margin-top:12px}
 </style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main>
 <script>
 (function(){
@@ -49,7 +50,7 @@ function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
 function chooseSeries(i){var series=seriesList();if(i<0||i>=series.length)return;s.selectedCategory=series[i];var idx=wordUnits.findIndex(function(u){return u.category===s.selectedCategory});chooseWeek(idx)}
 function shuffled(source){var a=source.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),v=a[i];a[i]=a[j];a[j]=v}return a}
-var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false};
+var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false,lives:3,gameOver:false,lastWrongIndex:-1};
 function safe(x){return String(x).replace(/[&<>"]/g,function(a){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]})}
 
 function audioStatus(msg,error){var el=document.getElementById("audio-status");if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66";}}
@@ -203,17 +204,19 @@ async function refreshCloud(){
   familyCloud.attempts=data.attempts||[];
  }catch(err){familyCloud.status="⚠️ 讀取雲端歷史失敗："+String(err.message||err)}
 }
-async function saveCloudResult(){
+async function saveCloudResult(resultStatus){
  if(!familyCloud.connected||!s.runTesterId){familyCloud.saving="⚠️ 雲端沒有連線，成績未保存";if(s.view==="report")report();return}
  var answers=s.attempts.map(function(a){return {word:words[a.index][0],stage:a.stage,correct:a.good}});
  var mode=s.challengeMode==="all"?"all":["meaning","spelling","sentence"][s.selectedStage];
- familyCloud.saving="☁️ 正在儲存本次成績…";if(s.view==="report")report();
+ var targetCount=s.challengeMode==="all"?s.pool.length*3:s.pool.length;
+ var isOver=resultStatus==="game_over";
+ familyCloud.saving=isOver?"☁️ 正在儲存 Game Over 紀錄…":"☁️ 正在儲存通關成績…";if(s.view==="report")report();else if(s.view==="gameOver")gameOverScreen();
  try{
-  await cloudCall("saveAttempt",{learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers});
-  familyCloud.saving="✅ 本次成績已存入 Supabase";
+  await cloudCall("saveAttempt",{learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers,resultStatus:isOver?"game_over":"completed",targetCount:targetCount});
+  familyCloud.saving=isOver?"✅ Game Over 已記錄到 Supabase":"✅ 通關成績已存入 Supabase";
   await refreshCloud()
  }catch(err){familyCloud.saving="⚠️ 成績儲存失敗："+String(err.message||err)}
- if(s.view==="report")report()
+ if(s.view==="report")report();else if(s.view==="gameOver")gameOverScreen()
 }
 async function saveNewCloudUnit(){
  if(!familyCloud.connected){alert("請先使用家庭專用連結");return}
@@ -362,16 +365,16 @@ function opts(){
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
-function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div><div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
+function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts='<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return i<s.lives?'❤️':'🖤'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
-if(s.answered){h+='<div class="feedback '+(s.correct?"":"wrong")+'"><strong>'+(s.correct?"✅ 答對了，繼續加油！":"🌱 答錯了，這個字再記一次！")+'</strong><p><b>'+w[0]+'</b> ＝ '+safe(w[1])+'</p><p>'+safe(w[3])+'</p><div class="flex"><button class="pill" data-action="sound">🔊 再聽一次</button></div></div><div class="actions">'+btn(s.q===total-1?(s.retry||s.challengeMode==="single"||s.stage===2?"🏆 查看成績":"前往下一關 →"):"下一題 →","advance","primary wide")+'</div>'}
+if(s.answered){h+='<div class="feedback '+(s.correct?"":"wrong")+'"><strong>'+(s.correct?"✅ 答對了，繼續加油！":"💔 答錯，剩下 "+s.lives+" 條命")+'</strong><p><b>'+w[0]+'</b> ＝ '+safe(w[1])+'</p><p>'+safe(w[3])+'</p><div class="flex"><button class="pill" data-action="sound">🔊 再聽一次</button></div></div><div class="actions">'+btn(s.q===total-1?(s.retry||s.challengeMode==="single"||s.stage===2?"🏆 查看成績":"前往下一關 →"):"下一題 →","advance","primary wide")+'</div>'}
 if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
 app.innerHTML=h;
 }
 function report(){
  var a=s.attempts,n=a.length,c=a.filter(function(x){return x.good}).length;
  var names=["中英配對","英文拼字","句子填空"];
- var h='<h1 class="title">📊 '+(s.challengeMode==="single"?"本關測驗成績":"三關測驗成績")+'</h1>'+
+ var h='<h1 class="title">📊 '+(s.gameOver?"本次 Game Over":s.challengeMode==="single"?"本關通關成績":"三關通關成績")+'</h1>'+
  '<p class="muted">本次測試者：<strong>'+safe(s.runTesterName||s.testerName||'尚未選擇')+'</strong>｜測驗範圍：'+safe(scopeName())+'</p>'+
  '<div class="stats"><div class="stat"><b>'+n+'</b><small>作答題數</small></div>'+
  '<div class="stat"><b>'+c+'</b><small>答對題數</small></div>'+
@@ -386,7 +389,7 @@ function report(){
  if(!s.missed.length)h+='<p>沒有錯字，可以繼續挑戰。</p>';
  s.missed.forEach(function(i){h+='<div class="table-row"><strong>'+safe(words[i][0])+'</strong><span class="small">'+safe(words[i][1])+'</span></div>'});
  h+='</section><div class="actions">'+(s.missed.length?btn("錯字復活賽","retry","primary wide"):"")+
- btn("再挑戰相同關卡","replay","secondary wide")+btn("返回週次選擇","home","outline wide")+'</div>';
+ btn("重新挑戰（3條命）","replay","secondary wide")+btn("返回首頁選關","home","outline wide")+'</div>';
  h+='<section class="panel"><h2>☁️ 雲端歷史成績</h2><p class="muted">'+safe(familyCloud.saving||familyCloud.status||"")+'</p>'+ '<div class="flex">'+btn("全部測試者","filterAll",s.historyFilter==="all"?"primary":"outline")+btn("只看目前測試者","filterTester",s.historyFilter==="current"?"primary":"outline")+'</div>';
  if(!familyCloud.connected)h+='<p class="muted">雲端尚未連線，請使用家庭專用網址。</p>';
  else if(!familyCloud.attempts.length)h+='<p class="muted">目前尚無已儲存的測驗紀錄。</p>';
@@ -396,10 +399,10 @@ function report(){
   list.forEach(function(a){
    var who=familyCloud.learners.find(function(l){return l.id===a.learner_id});
    var wrong=(Array.isArray(a.answers)?a.answers:[]).filter(function(v){return v.correct===false}).map(function(v){return v.word}).slice(0,10);
-   h+='<div class="table-row"><div><strong>'+safe(who?who.name:"測試者")+'｜'+safe(modes[a.mode]||"測驗")+'</strong>'+
+   h+='<div class="table-row"><div><strong>'+safe(who?who.name:"測試者")+'｜'+safe(modes[a.mode]||"測驗")+(a.result_status==="game_over"?"｜💀 Game Over":"｜🏆 通關")+'</strong>'+
    '<div class="small">'+safe(a.scope_name)+'｜'+safe(new Date(a.created_at).toLocaleString("zh-TW"))+'</div>'+
    (wrong.length?'<div class="small">錯字：'+safe(wrong.join("、"))+'</div>':"")+
-   '</div><strong>'+a.correct_count+'/'+a.question_count+'</strong></div>'
+   '</div><div style="text-align:right"><strong>'+a.correct_count+'/'+a.question_count+'</strong><div class="small">'+(a.result_status==="game_over"?"已答 "+a.question_count+" / "+(a.target_count||a.question_count)+" 題":"已完成")+'</div></div></div>'
   });
  }
  h+='</section>';
@@ -408,8 +411,45 @@ function report(){
 function start(retry,whichStage){
 if(!retry&&(!s.testerName||!s.testerId||!familyCloud.connected)){s.testerNotice=!familyCloud.connected?"請由家庭專用網址進入，確認已連接雲端":"請先選擇測試者";s.view="home";frame();return}
 if(!retry){s.runTesterId=s.testerId;s.runTesterName=s.testerName}
-s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false}question()}
-function answer(val){if(s.answered)return;var idx=s.order[s.q],correct=(s.retry||s.stage===1)?String(val).trim().toLowerCase()===words[idx][0]:Number(val)===idx;s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);s.score+=correct?(s.clue?7:10):0;if(s.retry){if(correct)s.missed=s.missed.filter(function(i){return i!==idx})}else{s.attempts.push({stage:s.stage,index:idx,good:correct});if(!correct&&s.missed.indexOf(idx)<0)s.missed.push(idx)}question()}
+s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
+function answer(val){
+ if(s.answered||s.gameOver)return;
+ var idx=s.order[s.q],correct=(s.retry||s.stage===1)?String(val).trim().toLowerCase()===words[idx][0]:Number(val)===idx;
+ s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);
+ s.score+=correct?(s.clue?7:10):0;
+ if(s.retry){if(correct)s.missed=s.missed.filter(function(i){return i!==idx})}
+ else{
+  s.attempts.push({stage:s.stage,index:idx,good:correct});
+  if(!correct){
+   s.lives=Math.max(0,s.lives-1);
+   s.lastWrongIndex=idx;
+   if(s.missed.indexOf(idx)<0)s.missed.push(idx)
+  }
+  if(s.lives===0){endGameOver();return}
+ }
+ question()
+}
+function endGameOver(){
+ if(s.gameOver)return;
+ s.gameOver=true;s.view="gameOver";
+ familyCloud.saving="☁️ 正在記錄 Game Over…";
+ gameOverScreen();
+ saveCloudResult("game_over")
+}
+function gameOverScreen(){
+ var w=s.lastWrongIndex>=0?words[s.lastWrongIndex]:null;
+ var target=s.challengeMode==="all"?s.pool.length*3:s.pool.length;
+ app.innerHTML='<section class="game-over"><div class="skull">💀</div>'+
+ '<h1>GAME OVER</h1><p>🖤 🖤 🖤</p><p>答錯三次，三條命已用完！</p>'+
+ '<p>本次已答 '+s.attempts.length+' / '+target+' 題</p>'+
+ (w?'<div class="game-miss">最後一題正確答案<br><b>'+safe(w[0])+'</b><p>'+safe(w[1])+'</p></div>':"")+
+ '</section><section class="panel"><h2>🔄 重新挑戰</h2>'+
+ '<p>'+(s.challengeMode==="all"?"三關連續挑戰從第一關重新開始。":"同一關重新洗牌，再獲得三條命。")+'</p>'+
+ '<div class="actions">'+btn("🎮 重新闖關 ❤️❤️❤️","replay","primary wide")+
+ btn("返回首頁選關","home","outline wide")+
+ btn("📊 查看歷史成績","report","outline wide")+'</div>'+
+ '<p class="game-over-meta" role="status">'+safe(familyCloud.saving)+'</p></section>'
+}
 function next(){
  s.q++;s.answered=false;s.typed="";s.clue=false;s.selected=null;s.choiceKey="";s.choiceList=[];
  if(s.q>=s.order.length){
@@ -421,13 +461,13 @@ function next(){
     s.sessionRuns.push({tester:s.runTesterName,testerId:s.runTesterId,correct:done,total:s.attempts.length,label:label,scope:scopeName(),date:new Date().toLocaleString("zh-TW")});
     s.lastRecorded=true
    }
-   report();if(!s.retry)saveCloudResult();return
+   report();if(!s.retry)saveCloudResult("completed");return
   }
   s.stage++;s.q=0;s.order=shuffled(s.pool);s.choiceKey="";s.choiceList=[]
  }
  s.view="game";question()
 }
-function render(){window.scrollTo(0,0);updateScopePicker();if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else report()}
+function render(){window.scrollTo(0,0);updateScopePicker();if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else if(s.view==="gameOver")gameOverScreen();else report()}
 app.addEventListener("input",function(e){if(e.target.id==="spelling")s.typed=e.target.value});
 app.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="spelling"&&!s.answered&&s.typed.trim())answer(s.typed)});
 app.addEventListener("change",function(e){
