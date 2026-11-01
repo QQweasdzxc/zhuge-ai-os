@@ -354,7 +354,7 @@ function listing(){
  '</details>';
  app.innerHTML=out+'<div class="actions">'+btn("回到週次選擇","home","primary wide")+'</div>'
 }
-function stageName(){return s.retry?"錯字復活賽":(["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"])[s.stage]}
+function stageName(){return s.retry?"錯字自由複習":(["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"])[s.stage]}
 function current(){return words[s.order[s.q]]}
 function opts(){
  var id=s.order[s.q],key=(s.retry?"retry":s.stage)+":"+s.q+":"+id;
@@ -365,7 +365,7 @@ function opts(){
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
-function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts='<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return i<s.lives?'❤️':'🖤'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
+function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return i<s.lives?'❤️':'🖤'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
 if(s.answered){h+='<div class="feedback '+(s.correct?"":"wrong")+'"><strong>'+(s.correct?"✅ 答對了，繼續加油！":"💔 答錯，剩下 "+s.lives+" 條命")+'</strong><p><b>'+w[0]+'</b> ＝ '+safe(w[1])+'</p><p>'+safe(w[3])+'</p><div class="flex"><button class="pill" data-action="sound">🔊 再聽一次</button></div></div><div class="actions">'+btn(s.q===total-1?(s.retry||s.challengeMode==="single"||s.stage===2?"🏆 查看成績":"前往下一關 →"):"下一題 →","advance","primary wide")+'</div>'}
 if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
@@ -388,7 +388,7 @@ function report(){
  h+='</section><section class="panel"><h2>🧠 本次待加強單字（'+s.missed.length+' 字）</h2>';
  if(!s.missed.length)h+='<p>沒有錯字，可以繼續挑戰。</p>';
  s.missed.forEach(function(i){h+='<div class="table-row"><strong>'+safe(words[i][0])+'</strong><span class="small">'+safe(words[i][1])+'</span></div>'});
- h+='</section><div class="actions">'+(s.missed.length?btn("錯字復活賽","retry","primary wide"):"")+
+ h+='</section><div class="actions">'+(s.missed.length?btn("📖 錯字自由複習（不計命）","retry","primary wide"):"")+
  btn("重新挑戰（3條命）","replay","secondary wide")+btn("返回首頁選關","home","outline wide")+'</div>';
  h+='<section class="panel"><h2>☁️ 雲端歷史成績</h2><p class="muted">'+safe(familyCloud.saving||familyCloud.status||"")+'</p>'+ '<div class="flex">'+btn("全部測試者","filterAll",s.historyFilter==="all"?"primary":"outline")+btn("只看目前測試者","filterTester",s.historyFilter==="current"?"primary":"outline")+'</div>';
  if(!familyCloud.connected)h+='<p class="muted">雲端尚未連線，請使用家庭專用網址。</p>';
