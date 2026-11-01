@@ -10,7 +10,7 @@ function failure(error, status=400){return respond({ok:false,error},status)}
 function must(value, label){if(!value)throw new Error(label)}
 async function rest(table, query="", method="GET", body=null){
  const url = BASE + "/rest/v1/" + table + (query?"?"+query:"");
- const res = await fetch(url,{method,headers:{...hdr,...(method==="POST"?{"Prefer":"return=representation"}:{})},body:body===null?undefined:JSON.stringify(body)});
+ const res = await fetch(url,{method,headers:{...hdr,...((method==="POST"||method==="PATCH")?{"Prefer":"return=representation"}:{})},body:body===null?undefined:JSON.stringify(body)});
  const json = await res.json().catch(()=>null);
  if(!res.ok){console.error("vocab REST failed",table,res.status);throw new Error("雲端資料庫操作失敗")}
  return json;
@@ -71,6 +71,16 @@ Deno.serve(async req=>{
    }
    const added=await rest("vocab_family_attempts","","POST",{family_id:familyId,learner_id:learnerId,unit_id:unitId||null,scope_name:scope,mode,question_count:answers.length,correct_count:count,answers});
    return respond({ok:true,attempt:{id:added[0].id,created_at:added[0].created_at,correct_count:count,question_count:answers.length}})
+  }
+  if(action==="updateUnit"){
+   const unitId=text(data.unitId,36),category=text(data.category,100);
+   const week=text(data.week,30),title=text(data.title,120);
+   if(!/^[0-9a-f-]{36}$/.test(unitId)||!category||!week||!title)return failure("請填入正確的單元與週次");
+   const owned=await rest("vocab_family_units",
+      "id=eq."+encodeURIComponent(unitId)+"&family_id="+f+"&select=id,category,week,title",
+      "PATCH",{category,week,title});
+   if(!Array.isArray(owned)||!owned.length)return failure("找不到可以編輯的家庭單元",404);
+   return respond({ok:true,unit:owned[0]})
   }
   if(action==="addUnit"){
    const category=text(data.category,100),week=text(data.week,30),title=text(data.title,120);
