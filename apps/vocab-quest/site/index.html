@@ -124,7 +124,7 @@ function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
 function chooseSeries(i){var series=seriesList();if(i<0||i>=series.length)return;s.selectedCategory=series[i];var idx=wordUnits.findIndex(function(u){return u.category===s.selectedCategory});chooseWeek(idx)}
 function shuffled(source){var a=source.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),v=a[i];a[i]=a[j];a[j]=v}return a}
-var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],wrongCount:0,retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false,lives:3,gameOver:false,lastWrongIndex:-1};
+var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],wrongCount:0,soundOn:true,retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false,lives:3,gameOver:false,lastWrongIndex:-1};
 function safe(x){return String(x).replace(/[&<>"]/g,function(a){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]})}
 
 function audioStatus(msg,error){var el=document.getElementById("audio-status");if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66";}}
@@ -408,7 +408,7 @@ function frame(){
  '<div class="actions-inline">'+btn("📚 查看單字庫","list","outline wide")+btn("📊 雲端歷史成績","report","outline wide")+'</div>'+
  '<div class="tester-current">'+safe(familyCloud.status)+'</div>'+ '<details class="more-panel"><summary>其他選項與聲音測試</summary>'+
  '<p class="more-description">右上角切換當週或總複習；單字、測試者及測驗成績都由 Supabase 雲端保存。</p>'+
- btn("🔈 測試聲音","testTone","outline wide")+
+ btn("🔈 測試聲音","testTone","outline wide")+btn(s.soundOn?"🔔 闖關音效：開":"🔕 闖關音效：關","toggleGameSound","outline wide")+
  '<p id="audio-status" role="status" class="muted"></p></details>'
 }
 function cards(){
@@ -463,6 +463,7 @@ function queueAutoNext(callback,delay){
  },delay)
 }
 function playGameEffect(success){
+ if(!s.soundOn)return;
  /* Web Audio synthesizes short original UI tones; fails silently on muted/blocked phones. */
  try{
   var AudioClass=window.AudioContext||window.webkitAudioContext;
@@ -505,7 +506,7 @@ function opts(){
 function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
 if(s.answered){
- var msg=s.correct?"太棒了！答對了！":"哎呀，蹦！少一條命";
+ var msg=s.correct?"太棒了！答對了！":s.retry?"🥺 小失誤，再記起來就好！":"🥺 哎呀～蹦！少一條命";
  var fx=s.correct?
   '<div class="answer-fx good-fx" role="status" aria-live="polite"><div class="fx-sparkles"><i>⭐</i><i>✨</i><i>🌟</i><i>⭐</i></div><span class="fx-emoji">🌟</span><h3>'+msg+'</h3><p>+ '+(s.clue?7:10)+' 分　🎉 繼續闖關！</p><p class="fx-next">自動前往下一題…</p></div>':
   '<div class="answer-fx bad-fx" role="status" aria-live="polite"><span class="fx-emoji">💥</span><div class="fx-boom">BOOM!</div><h3>'+msg+'</h3><p>'+(s.retry?"自由練習不扣命":"剩餘 "+s.lives+" / 3 條命")+'</p><div class="fx-hint"><small>💡 學習提示</small>'+assistedHint(s.order[s.q])+'</div><p class="fx-next">'+(s.lives===0&&!s.retry?"即將顯示 Game Over…":"即將自動下一題…")+'</p></div>';
@@ -643,6 +644,7 @@ app.addEventListener("click",function(e){
  else if(act==="filterAll"){s.historyFilter="all";report()}
  else if(act==="filterTester"){s.historyFilter="current";report()}
  else if(act==="testTone")testTone();
+ else if(act==="toggleGameSound"){s.soundOn=!s.soundOn;frame()}
  else if(act==="stage0"||act==="stage1"||act==="stage2")start(false,Number(act.slice(-1)));
  else if(act==="start")start(false);
  else if(act==="retry")start(true);
