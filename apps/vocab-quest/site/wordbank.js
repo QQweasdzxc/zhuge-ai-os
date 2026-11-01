@@ -1,11 +1,11 @@
-/* 單字闖關王教材庫：每一筆 units 是獨立週次，依 category / week 分組。不含學生成績。 */
+/* 單字闖關王教材備援；正式週次與成績以 Supabase 雲端為主。 */
 window.VOCAB_BANK = {
   "version": 2,
   "description": "按「教材系列 / 週次」分類；每次測驗預設僅考選定的當週單字。新增單元時指定 category、week、title；保留原有 units。",
   "units": [
     {
       "id": "unit-001",
-      "title": "本次 12 個單字（週次待設定）",
+      "title": "12 個單字",
       "addedAt": "2026-11-01",
       "words": [
         {
@@ -94,7 +94,7 @@ window.VOCAB_BANK = {
         }
       ],
       "category": "空中學英文",
-      "week": null
+      "week": "11月第1週"
     }
   ]
 };
