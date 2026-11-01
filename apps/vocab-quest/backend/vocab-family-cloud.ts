@@ -38,7 +38,7 @@ Deno.serve(async req=>{
    const [learners,units,attempts]=await Promise.all([
     rest("vocab_family_learners","family_id="+f+"&select=id,name,created_at&order=created_at.asc&limit=100"),
     rest("vocab_family_units","family_id="+f+"&select=id,category,week,title,words,sort_order&order=sort_order.asc,created_at.asc&limit=150"),
-    rest("vocab_family_attempts","family_id="+f+"&select=id,learner_id,unit_id,scope_name,mode,question_count,correct_count,answers,created_at&order=created_at.desc&limit=200")
+    rest("vocab_family_attempts","family_id="+f+"&select=id,learner_id,unit_id,scope_name,mode,question_count,correct_count,answers,result_status,target_count,created_at&order=created_at.desc&limit=200")
    ]);
    return respond({ok:true,learners,units,attempts})
   }
@@ -62,6 +62,11 @@ Deno.serve(async req=>{
    if(!answers.length||answers.length>1500)return failure("作答數量不正確");
    for(const a of answers){if(!a||typeof a.word!=="string"||a.word.length>80||typeof a.correct!=="boolean"||![0,1,2].includes(a.stage))return failure("作答內容不正確")}
    const count=answers.filter(x=>x.correct).length;
+   const status=data.resultStatus==="game_over"?"game_over":"completed";
+   const targetCount=data.targetCount===undefined?answers.length:Number(data.targetCount);
+   if(!Number.isInteger(targetCount)||targetCount<answers.length||targetCount>1500)return failure("預定題數不正確");
+   if(status==="completed"&&targetCount!==answers.length)return failure("完成測驗的作答題數不足");
+   if(status==="game_over"&&answers.length-count<3)return failure("需累積三個錯誤才能 Game Over");
    const scope=text(data.scopeName,200);
    if(!scope)return failure("缺少測驗範圍");
    const unitId=typeof data.unitId==="string"?data.unitId:null;
@@ -69,8 +74,8 @@ Deno.serve(async req=>{
     const found=await rest("vocab_family_units","family_id="+f+"&id=eq."+encodeURIComponent(unitId)+"&select=id&limit=1");
     if(!found.length)return failure("指定單元不屬於這個家庭",403)
    }
-   const added=await rest("vocab_family_attempts","","POST",{family_id:familyId,learner_id:learnerId,unit_id:unitId||null,scope_name:scope,mode,question_count:answers.length,correct_count:count,answers});
-   return respond({ok:true,attempt:{id:added[0].id,created_at:added[0].created_at,correct_count:count,question_count:answers.length}})
+   const added=await rest("vocab_family_attempts","","POST",{family_id:familyId,learner_id:learnerId,unit_id:unitId||null,scope_name:scope,mode,question_count:answers.length,correct_count:count,answers,result_status:status,target_count:targetCount});
+   return respond({ok:true,attempt:{id:added[0].id,created_at:added[0].created_at,correct_count:count,question_count:answers.length,result_status:status,target_count:targetCount}})
   }
   if(action==="updateUnit"){
    const unitId=text(data.unitId,36),category=text(data.category,100);
