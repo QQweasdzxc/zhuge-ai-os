@@ -8,6 +8,34 @@
 .lives{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:11px 0 3px;padding:7px 12px;background:white;border:1px solid var(--line);border-radius:13px}.hearts{font-size:25px;letter-spacing:3px}.lives small{color:var(--muted);font-size:12px}.game-over{background:linear-gradient(130deg,#34344c,#7b3e6a);color:white;padding:30px 20px;border-radius:24px;text-align:center;margin-top:14px}.game-over .skull{font-size:62px}.game-over h1{font-size:36px;margin:8px 0}.game-over p{color:#fceaf5;margin:8px 0}.game-miss{padding:12px;margin-top:16px;background:#ffffff22;border-radius:13px}.game-miss b{font-size:23px}.game-over-meta{font-size:13px;color:var(--muted);margin-top:12px}
 .shell{padding-bottom:106px}.release-footer{position:fixed;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:40;display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center;justify-content:flex-end;max-width:calc(100vw - 24px);padding:7px 10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.95);box-shadow:0 4px 18px rgba(34,47,80,.12);font-size:11px;line-height:1.35;color:var(--muted)}.release-footer .release-version{font-weight:850;color:var(--ink)}.release-footer button{border:0;background:transparent;padding:0 2px;color:#415bcc;font-size:11px;font-weight:800;text-decoration:underline;min-height:24px}.release-footer .release-notice{font-weight:750}.release-footer .has-update{color:#bd425b}.release-footer .update-button{border-radius:7px;background:#415bcc;color:white;padding:3px 8px;text-decoration:none}.release-footer:focus-within{background:#fff}@media(max-width:390px){.release-footer{right:7px;max-width:calc(100vw - 14px);font-size:10px;gap:3px 5px}}
 .cloud-warning{background:#fff4e8;border:1px solid #efbc85;color:#814727;padding:14px 16px;border-radius:14px;margin:0 0 13px;font-size:14px}.cloud-warning strong{font-weight:850}.cloud-warning p{margin:5px 0 0}.cloud-status{margin:0 0 13px;padding:8px 12px;background:#e7f7ee;border:1px solid #bce4cd;border-radius:11px;color:#246b48;font-size:12px;font-weight:750}.release-cloud{font-weight:850}.release-cloud.error{color:#b94842}.release-cloud.ok{color:#1d8a68}
+
+/* Original miniature celebratory FX; no external animations or sound files. */
+.answer-fx{position:relative;overflow:hidden;border-radius:18px;padding:17px 15px;margin-top:13px;text-align:center;isolation:isolate}
+.answer-fx.good-fx{background:linear-gradient(115deg,#e8fff1,#eef7ff);border:2px solid #9bd4b5;color:#176d4d}
+.answer-fx.bad-fx{background:linear-gradient(115deg,#fff2ef,#fff9e9);border:2px solid #e7c1a9;color:#8f4b36}
+.answer-fx .fx-emoji{font-size:37px;display:block;line-height:1.15;animation:fx-pop .48s cubic-bezier(.2,1.6,.5,1) both}
+.answer-fx h3{font-size:22px;margin:5px 0 3px}
+.answer-fx p{font-size:13px;margin:6px 0}
+.answer-fx .fx-hint{background:#fff;border-radius:11px;padding:10px;margin:11px auto 4px;max-width:400px;font-weight:680;text-align:left}
+.answer-fx .fx-hint small{display:block;color:var(--muted);font-size:11px;font-weight:700}
+.answer-fx .fx-sparkles{position:absolute;inset:0;pointer-events:none}
+.answer-fx .fx-sparkles i{position:absolute;font-size:20px;font-style:normal;opacity:0;animation:fx-star .8s ease-out both}
+.answer-fx .fx-sparkles i:nth-child(1){left:13%;top:15%;animation-delay:.05s}
+.answer-fx .fx-sparkles i:nth-child(2){left:77%;top:22%;animation-delay:.13s}
+.answer-fx .fx-sparkles i:nth-child(3){left:25%;bottom:12%;animation-delay:.2s}
+.answer-fx .fx-sparkles i:nth-child(4){left:82%;bottom:17%;animation-delay:.08s}
+.answer-fx .fx-boom{font-size:14px;letter-spacing:3px;font-weight:900;color:#a34e3a;animation:fx-rumble .4s ease-out both}
+.answer-fx.bad-fx{animation:fx-shake .35s ease-out both}
+.lives .hearts{display:inline-flex;gap:3px}
+.lives .heart-unit.lost{display:inline-block;animation:heart-lost .48s ease-in-out both}
+.answer-fx .fx-next{color:var(--muted);font-size:12px;margin-top:8px}
+@keyframes fx-pop{0%{opacity:0;transform:scale(.35) rotate(-16deg)}65%{opacity:1;transform:scale(1.2) rotate(7deg)}100%{opacity:1;transform:scale(1)}}
+@keyframes fx-star{0%{opacity:0;transform:scale(.3) translateY(12px)}40%{opacity:1}100%{opacity:0;transform:scale(1.6) translateY(-25px)}}
+@keyframes fx-rumble{0%{transform:scale(.65);opacity:0}50%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes fx-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(5px)}75%{transform:translateX(-2px)}}
+@keyframes heart-lost{0%{transform:scale(1.4) rotate(0);filter:brightness(1.6)}100%{transform:scale(1) rotate(-14deg);filter:none}}
+@media(prefers-reduced-motion:reduce){.answer-fx,.answer-fx *, .lives .heart-unit.lost{animation:none!important}}
+
 </style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main><footer class="release-footer" id="release-footer" aria-label="網站版本資訊"><span class="release-version" id="release-version">V2.3.1</span><span class="release-cloud" id="release-cloud" role="status">☁️ 檢查字庫中</span><span id="release-date">程式更新 2026/11/01 22:44</span><button id="release-check" type="button">檢查新版</button><span class="release-notice" id="release-notice" role="status" aria-live="polite"></span></footer>
 <script>
 (function(){
@@ -96,7 +124,7 @@ function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
 function chooseSeries(i){var series=seriesList();if(i<0||i>=series.length)return;s.selectedCategory=series[i];var idx=wordUnits.findIndex(function(u){return u.category===s.selectedCategory});chooseWeek(idx)}
 function shuffled(source){var a=source.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),v=a[i];a[i]=a[j];a[j]=v}return a}
-var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false,lives:3,gameOver:false,lastWrongIndex:-1};
+var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],wrongCount:0,retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false,lives:3,gameOver:false,lastWrongIndex:-1};
 function safe(x){return String(x).replace(/[&<>"]/g,function(a){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]})}
 
 function audioStatus(msg,error){var el=document.getElementById("audio-status");if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66";}}
@@ -418,6 +446,51 @@ function listing(){
  '</details>';
  app.innerHTML=out+'<div class="actions">'+btn("回到週次選擇","home","primary wide")+'</div>'
 }
+
+/* Auto-next is scoped to the current round; leaving a game cancels stale jumps. */
+var autoNextTimer=null,autoNextSerial=0,sfxContext=null;
+function cancelAutoNext(){
+ autoNextSerial++;
+ if(autoNextTimer!==null){clearTimeout(autoNextTimer);autoNextTimer=null}
+}
+function queueAutoNext(callback,delay){
+ cancelAutoNext();
+ var expected=autoNextSerial;
+ autoNextTimer=setTimeout(function(){
+  autoNextTimer=null;
+  if(expected!==autoNextSerial||s.view!=="game"||!s.answered)return;
+  callback()
+ },delay)
+}
+function playGameEffect(success){
+ /* Web Audio synthesizes short original UI tones; fails silently on muted/blocked phones. */
+ try{
+  var AudioClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioClass)return;
+  if(!sfxContext)sfxContext=new AudioClass();
+  var ctx=sfxContext;
+  if(ctx.state==="suspended")ctx.resume().catch(function(){});
+  var base=ctx.currentTime;
+  var notes=success?[523.25,659.25,783.99]:[220,115];
+  notes.forEach(function(freq,i){
+   var start=base+(success?i*.105:i*.09),len=success?.18:.22;
+   var osc=ctx.createOscillator(),gain=ctx.createGain();
+   osc.type=success?"sine":"triangle";osc.frequency.setValueAtTime(freq,start);
+   if(!success)osc.frequency.exponentialRampToValueAtTime(Math.max(48,freq/2),start+len);
+   gain.gain.setValueAtTime(.0001,start);
+   gain.gain.exponentialRampToValueAtTime(success?.075:.095,start+.012);
+   gain.gain.exponentialRampToValueAtTime(.0001,start+len);
+   osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+len+.02)
+  })
+ }catch(ignore){}
+}
+function assistedHint(wordIndex){
+ var w=words[wordIndex],en=w[0],limit=Math.min(en.length,s.wrongCount>=2?2:1);
+ var masked=en.slice(0,limit).toUpperCase()+" · "+"＿".repeat(Math.max(0,en.length-limit));
+ if(s.stage===0&&!s.retry)return "字首提示："+masked+"。回想這個字的中文意思。";
+ if(s.stage===1||s.retry)return "拼字提示："+masked+"（共 "+en.length+" 個字母）";
+ return "句子提示："+safe(w[1])+"；英文："+masked
+}
 function stageName(){return s.retry?"錯字自由複習":(["第一關｜中英配對","第二關｜拼字挑戰","第三關｜句子填空"])[s.stage]}
 function current(){return words[s.order[s.q]]}
 function opts(){
@@ -429,9 +502,15 @@ function opts(){
  var order=shuffled([id].concat(others.slice(0,3)));
  s.choiceKey=key;s.choiceList=order;return order
 }
-function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return i<s.lives?'❤️':'🖤'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
+function question(){var w=current(),spell=s.stage===1||s.retry;var prompt=s.retry||s.stage===1?safe(w[1]):s.stage===0?w[0]:safe(w[2]).replace("____","_____");var total=s.order.length;var hearts=s.retry?'<div class="lives">📖 錯字自由複習（不計命）</div>':'<div class="lives" role="status" aria-label="剩餘 '+s.lives+' 條命"><span class="hearts">'+Array.from({length:3},function(_,i){return '<span class="heart-unit '+(i>=s.lives&&i===s.lives?'lost':'')+'">'+(i<s.lives?'❤️':'🖤')+'</span>'}).join('')+'</span><small>剩餘 '+s.lives+' / 3 條命</small></div>';var h='<div class="row"><div><h1 class="title">'+stageName()+'</h1><div class="muted">第 '+(s.q+1)+' / '+total+' 題</div></div><strong>⭐ '+s.score+' 分</strong></div>'+hearts+'<div class="progress"><div class="bar" style="width:'+((s.q+(s.answered?1:0))/total*100)+'%"></div></div><div class="question"><div class="muted">'+(spell?"看到中文，拼出正確的英文":s.stage===0?"選出單字的中文意思":"先聽整句英文，再選出填空單字")+'</div><h2 class="'+(s.stage===2&&!s.retry?"sentence":"")+'">'+prompt+'</h2>'+(!spell?'<div><button class="pill" data-action="sound">'+(s.stage===2?"🔊 整句朗讀":"🔊 聽單字")+'</button> <button class="pill" data-action="slow">'+(s.stage===2?"🐢 整句慢速":"🐢 單字慢速")+'</button></div>':'')+'</div>';
 if(spell){h+='<input class="input" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在這裡輸入英文" aria-label="輸入英文拼字" '+(s.answered?"disabled":"")+' value="'+safe(s.typed)+'"><div class="flex">'+btn("💡 提示","hint","outline",s.clue||s.answered?"disabled":"")+btn("確認拼字","submit","primary",s.answered?"disabled":"")+'</div>'+(s.clue?'<div class="help">提示：字首 '+w[0][0].toUpperCase()+'，共 '+w[0].length+' 個英文字母。</div>':'')}else{h+='<div class="grid2">'+opts().map(function(i){var c=s.answered?(i===s.order[s.q]?"good":s.selected===i?"bad":""):"";return '<button class="option '+c+'" data-action="choose" data-index="'+i+'" '+(s.answered?"disabled":"")+'>'+(s.stage===0?safe(words[i][1]):words[i][0])+'</button>'}).join("")+'</div>'}
-if(s.answered){h+='<div class="feedback '+(s.correct?"":"wrong")+'"><strong>'+(s.correct?"✅ 答對了，繼續加油！":"💔 答錯，剩下 "+s.lives+" 條命")+'</strong><p><b>'+w[0]+'</b> ＝ '+safe(w[1])+'</p><p>'+safe(w[3])+'</p><div class="flex"><button class="pill" data-action="sound">🔊 再聽一次</button></div></div><div class="actions">'+btn(s.q===total-1?(s.retry||s.challengeMode==="single"||s.stage===2?"🏆 查看成績":"前往下一關 →"):"下一題 →","advance","primary wide")+'</div>'}
+if(s.answered){
+ var msg=s.correct?"太棒了！答對了！":"哎呀，蹦！少一條命";
+ var fx=s.correct?
+  '<div class="answer-fx good-fx" role="status" aria-live="polite"><div class="fx-sparkles"><i>⭐</i><i>✨</i><i>🌟</i><i>⭐</i></div><span class="fx-emoji">🌟</span><h3>'+msg+'</h3><p>+ '+(s.clue?7:10)+' 分　🎉 繼續闖關！</p><p class="fx-next">自動前往下一題…</p></div>':
+  '<div class="answer-fx bad-fx" role="status" aria-live="polite"><span class="fx-emoji">💥</span><div class="fx-boom">BOOM!</div><h3>'+msg+'</h3><p>'+(s.retry?"自由練習不扣命":"剩餘 "+s.lives+" / 3 條命")+'</p><div class="fx-hint"><small>💡 學習提示</small>'+assistedHint(s.order[s.q])+'</div><p class="fx-next">'+(s.lives===0&&!s.retry?"即將顯示 Game Over…":"即將自動下一題…")+'</p></div>';
+ h+=fx
+}
 if(s.stage===2&&!s.retry)h+='<p class="muted center" id="audio-status" role="status">按「整句朗讀」聽完整英文句子</p>';
 app.innerHTML=h;
 }
@@ -473,11 +552,12 @@ function report(){
  app.innerHTML=h
 }
 function start(retry,whichStage){
+cancelAutoNext();
 if(!retry&&(!s.testerName||!s.testerId||!familyCloud.connected)){s.testerNotice=!familyCloud.connected?"請由家庭專用網址進入，確認已連接雲端":"請先選擇測試者";s.view="home";frame();return}
 if(!retry){s.runTesterId=s.testerId;s.runTesterName=s.testerName}
-s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
+s.view="game";s.retry=!!retry;s.challengeMode=retry?s.challengeMode:(typeof whichStage==="number"?"single":"all");if(!retry)s.selectedStage=s.challengeMode==="single"?whichStage:0;s.q=0;s.stage=retry?1:(s.challengeMode==="single"?s.selectedStage:0);s.pool=retry?s.pool.slice():currentPool();s.order=shuffled(retry?s.missed:s.pool);s.choiceKey="";s.choiceList=[];s.selected=null;s.typed="";s.answered=false;s.correct=false;s.clue=false;s.gameOver=false;s.wrongCount=0;if(!retry){s.score=0;s.attempts=[];s.missed=[];s.lastRecorded=false;s.gameOver=false;s.lastWrongIndex=-1;familyCloud.saving=""}s.lives=3;question()}
 function answer(val){
- if(s.answered||s.gameOver)return;
+ if(s.answered||s.gameOver||s.view!=="game")return;
  var idx=s.order[s.q],correct=(s.retry||s.stage===1)?String(val).trim().toLowerCase()===words[idx][0]:Number(val)===idx;
  s.answered=true;s.correct=correct;s.selected=s.retry||s.stage===1?null:Number(val);
  s.score+=correct?(s.clue?7:10):0;
@@ -486,15 +566,21 @@ function answer(val){
   s.attempts.push({stage:s.stage,index:idx,good:correct});
   if(!correct){
    s.lives=Math.max(0,s.lives-1);
+   s.wrongCount++;
    s.lastWrongIndex=idx;
    if(s.missed.indexOf(idx)<0)s.missed.push(idx)
   }
-  if(s.lives===0){endGameOver();return}
  }
- question()
+ playGameEffect(correct);
+ question();
+ queueAutoNext(function(){
+  if(!correct&&!s.retry&&s.lives===0)endGameOver();
+  else next()
+ },correct?930:2050)
 }
 function endGameOver(){
  if(s.gameOver)return;
+ cancelAutoNext();
  s.gameOver=true;s.view="gameOver";
  familyCloud.saving="☁️ 正在記錄 Game Over…";
  gameOverScreen();
@@ -515,6 +601,8 @@ function gameOverScreen(){
  '<p class="game-over-meta" role="status">'+safe(familyCloud.saving)+'</p></section>'
 }
 function next(){
+ cancelAutoNext();
+ if(s.view!=="game")return;
  s.q++;s.answered=false;s.typed="";s.clue=false;s.selected=null;s.choiceKey="";s.choiceList=[];
  if(s.q>=s.order.length){
   if(s.retry||s.challengeMode==="single"||s.stage===2){
@@ -531,7 +619,7 @@ function next(){
  }
  s.view="game";question()
 }
-function render(){window.scrollTo(0,0);updateScopePicker();if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else if(s.view==="gameOver")gameOverScreen();else report()}
+function render(){cancelAutoNext();window.scrollTo(0,0);updateScopePicker();if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else if(s.view==="gameOver")gameOverScreen();else report()}
 app.addEventListener("input",function(e){if(e.target.id==="spelling")s.typed=e.target.value});
 app.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="spelling"&&!s.answered&&s.typed.trim())answer(s.typed)});
 app.addEventListener("change",function(e){
@@ -543,6 +631,7 @@ app.addEventListener("change",function(e){
 app.addEventListener("click",function(e){
  var t=e.target.closest("[data-action]");if(!t)return;
  var act=t.dataset.action;
+ if(act==="home"||act==="report"||act==="list"||act==="replay"||act==="retry"||act==="stage0"||act==="stage1"||act==="stage2"||act==="start"||act==="study"||act==="studyCN"){cancelAutoNext()}
  if(act==="cloudAddUnit"){saveNewCloudUnit();return}
  if(act==="editWeek"){editCloudWeek(Number(t.dataset.index));return}
  if(act==="testerCustom"){
@@ -573,8 +662,9 @@ app.addEventListener("click",function(e){
  else if(act==="advance")next()
 });
 function currentIfStudy(){return (s.view==="study"||s.view==="studyCN")?words[s.cardOrder[s.card]][0]:current()[0]}
-document.getElementById("homebtn").addEventListener("click",function(){s.view="home";render()});
+document.getElementById("homebtn").addEventListener("click",function(){cancelAutoNext();s.view="home";render()});
 document.getElementById("scope-picker").addEventListener("change",function(e){
+ cancelAutoNext();
  var index=Number(e.target.value);
  if(index===-1){if(s.scope>=0)s.lastScope=s.scope;s.scope=-1}
  else if(index>=0&&index<wordUnits.length){s.scope=index;s.lastScope=index;s.selectedCategory=wordUnits[index].category}
