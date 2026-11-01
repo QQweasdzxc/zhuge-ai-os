@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜測試者選擇 V1.8</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜精簡首頁 V1.9</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
 @media(max-width:380px){.shell{padding:17px 12px 55px}.option{font-size:14px}.panel{padding:17px}.hero{padding:22px 17px}}
-</style></head><body><main class="shell"><header class="top"><div class="brand"><span class="mark">🎮</span><span>單字闖關王</span></div><button class="headbtn" id="homebtn">⌂ 首頁</button></header><div id="app" aria-live="polite"></div></main>
+.brand-action{border:0;background:none;color:var(--ink);padding:0;text-align:left;white-space:nowrap}.top{gap:8px;align-items:center}.top-picker-wrap{margin-left:auto;display:flex;flex-direction:column;gap:2px;min-width:0;max-width:55%}.top-picker-label{font-size:10px;font-weight:750;color:var(--muted);text-align:right}.top-picker-wrap select{min-width:0;width:100%;height:39px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);font-size:12px;padding:5px 9px}.hero-compact{padding:19px 20px;border-radius:19px}.hero-compact h1{font-size:clamp(23px,6vw,29px);margin-bottom:6px}.hero-compact p{font-size:13px}.panel-compact{padding:17px 18px;margin-top:13px;border-radius:18px}.panel-compact h2{font-size:18px;margin:0}.panel-compact .actions{margin-top:11px;gap:8px}.panel-compact .btn{min-height:46px;padding:10px}.test-select{border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;background:#fff;color:var(--ink);width:100%;font-size:16px}.tester-current{font-size:13px;color:var(--muted);margin-top:9px}.tester-current b{color:var(--ink)}.actions-inline{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.mini-link{background:#fff;border:1px solid var(--line);color:var(--ink);border-radius:12px;font-weight:750;padding:11px 8px;min-height:46px}.light-row{display:flex;align-items:center;gap:10px;justify-content:space-between}.more-panel{margin:12px 0 0;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:14px}.more-panel summary{color:var(--muted);font-weight:700;cursor:pointer;font-size:13px}.more-panel .btn{margin-top:11px}.compact-input-row{display:flex;gap:8px;margin-top:10px}.compact-input-row .test-select{flex:1;min-width:0}.compact-input-row .btn{flex:0 0 auto}.more-description{font-size:12px;color:var(--muted);margin:10px 0 2px}@media(max-width:380px){.brand{font-size:15px;gap:5px}.mark{padding:6px}.top-picker-wrap{max-width:54%}.top-picker-wrap select{font-size:11px;padding:5px}.panel-compact{padding:15px}.hero-compact{padding:16px 17px}}
+</style></head><body><main class="shell"><header class="top"><button class="brand brand-action" id="homebtn" aria-label="返回首頁"><span class="mark">🎮</span><span>單字闖關王</span></button><label class="top-picker-wrap"><span class="top-picker-label">測驗項目</span><select id="scope-picker" aria-label="選擇測驗項目"></select></label></header><div id="app" aria-live="polite"></div></main>
 <script>
 (function(){
 "use strict";
@@ -48,7 +49,7 @@ function scopeName(){if(s.scope<0)return "全部單字總複習";var u=wordUnits
 function chooseWeek(i){if(i<0||!wordUnits[i])return;s.scope=i;s.lastScope=i;s.selectedCategory=wordUnits[i].category;render()}
 function chooseSeries(i){var series=seriesList();if(i<0||i>=series.length)return;s.selectedCategory=series[i];var idx=wordUnits.findIndex(function(u){return u.category===s.selectedCategory});chooseWeek(idx)}
 function shuffled(source){var a=source.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),v=a[i];a[i]=a[j];a[j]=v}return a}
-var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all"};
+var app=document.getElementById("app");var s={view:"home",card:0,flipped:false,stage:0,q:0,order:[],selected:null,typed:"",answered:false,correct:false,clue:false,score:0,attempts:[],missed:[],retry:false,sessionRuns:[],lastRecorded:false,challengeMode:"all",selectedStage:0,scope:0,lastScope:0,selectedCategory:wordUnits[0].category,cardOrder:[],pool:[],choiceKey:"",choiceList:[],testerId:"",testerName:"",runTesterId:"",runTesterName:"",testerNotice:"",historyFilter:"all",addingTester:false};
 function safe(x){return String(x).replace(/[&<>"]/g,function(a){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]})}
 
 function audioStatus(msg,error){var el=document.getElementById("audio-status");if(el){el.textContent=msg;el.style.color=error?"#bb3c55":"#237f66";}}
@@ -142,58 +143,67 @@ function testTone(){try{var C=window.AudioContext||window.webkitAudioContext;if(
 
 function btn(label,act,cls,attr){return '<button class="btn '+(cls||"outline")+'" data-action="'+act+'" '+(attr||"")+'>'+label+'</button>'}
 
+/* Store only user-entered nickname options on this browser; no quiz grades or answers. */
+var nicknameCache=[];
+function readTesterNames(){
+ try{
+  if(typeof window.localStorage!=="undefined"){
+   var names=JSON.parse(window.localStorage.getItem("vocab-quest-family-nicknames-v1")||"[]");
+   if(Array.isArray(names))nicknameCache=names.filter(function(n){return typeof n==="string"&&n.length>0&&n.length<=24}).slice(0,30)
+  }
+ }catch(ignore){}
+ return nicknameCache.slice()
+}
+function rememberTesterName(name){
+ var list=readTesterNames();
+ if(list.indexOf(name)<0)list.push(name);
+ nicknameCache=list.slice(0,30);
+ try{if(typeof window.localStorage!=="undefined")window.localStorage.setItem("vocab-quest-family-nicknames-v1",JSON.stringify(nicknameCache))}catch(ignore){}
+}
+function chooseTester(name){
+ name=String(name||"").trim().slice(0,24);
+ if(!name){s.testerName="";s.testerId="";s.addingTester=false;frame();return}
+ rememberTesterName(name);
+ s.testerId="nickname:"+name;s.testerName=name;s.testerNotice="";s.addingTester=false;frame()
+}
+function updateScopePicker(){
+ var picker=document.getElementById("scope-picker");if(!picker)return;
+ picker.innerHTML=wordUnits.map(function(u,i){
+  var label=(u.category||"教材")+"｜"+weekLabel(u);
+  return '<option value="'+i+'">'+safe(label)+'</option>'
+ }).join("")+'<option value="-1">🌍 全部單字總複習</option>';
+ picker.value=String(s.scope);
+}
 function frame(){
- var total=words.length, current=currentPool(), n=current.length;
- var a=s.attempts,c=a.filter(function(x){return x.good}).length;
- var series=seriesList();
- var active=s.selectedCategory||wordUnits[0].category;
- var seriesButtons=series.map(function(category,i){
-  return btn((active===category?"✓ ":"")+safe(category),"chooseSeries",active===category?"primary wide":"outline wide",'data-index="'+i+'"')
- }).join("");
- var weekButtons=wordUnits.map(function(u,i){
-  if(u.category!==active)return "";
-  return btn((s.scope===i?"✓ ":"")+safe(weekLabel(u))+"｜"+safe(u.title)+"（"+u.indices.length+" 字）","chooseWeek",s.scope===i?"primary wide":"outline wide",'data-index="'+i+'"')
- }).join("");
- app.innerHTML='<section class="hero"><span class="tag">VOCABULARY QUEST</span><h1>英文單字闖關王 🏆</h1><p>先選教材系列與週次，再進行該週測驗；不需要登入</p></section>'+
- '<div class="stats"><div class="stat"><b>'+wordUnits.length+'</b><small>已收錄週次</small></div><div class="stat"><b>'+n+'</b><small>本次範圍單字</small></div><div class="stat"><b>'+(a.length?Math.round(c/a.length*100)+"%":"—")+'</b><small>本頁答對率</small></div></div>'+
- '<section class="panel"><h2>👤 今天由誰測驗？</h2>'+
- '<p>先選擇孩子或輸入暱稱，不需要註冊、帳號或密碼。答題完成後會記錄是哪一位測試者。</p>'+
- '<div class="grid2">'+
- btn((s.testerId==="A"?"✓ ":"")+"測試者 A","testerA",s.testerId==="A"?"primary wide":"outline wide")+
- btn((s.testerId==="B"?"✓ ":"")+"測試者 B","testerB",s.testerId==="B"?"primary wide":"outline wide")+
- '</div>'+
- '<label for="tester-name" class="muted">或直接輸入暱稱（例如：孩子的小名）</label>'+
- '<input class="input" style="font-size:16px;text-align:left;margin:8px 0" id="tester-name" maxlength="24" autocomplete="off" placeholder="輸入測試者暱稱">'+
- btn("使用這個暱稱","testerCustom","secondary wide")+
- '<p class="muted">目前測試者：<strong>'+(s.testerName?safe(s.testerName):"尚未選擇")+'</strong></p>'+
- (s.testerNotice?'<p class="help">'+safe(s.testerNotice)+'</p>':"")+
+ var num=currentPool().length,chosen=s.testerName;
+ var known=readTesterNames();
+ var testerOptions='<option value="">請選擇自己的暱稱</option>'+
+ known.map(function(n){return '<option value="'+safe(n)+'" '+(n===chosen?'selected':'')+'>'+safe(n)+'</option>'}).join('')+
+ '<option value="__new__">＋ 新增暱稱</option>';
+ var testerBox=s.addingTester||(!known.length&&!chosen)?
+ '<div class="compact-input-row"><input class="test-select" id="tester-name" maxlength="24" autocomplete="off" placeholder="輸入暱稱，例如：安安" aria-label="新增測驗者暱稱">'+btn("加入","testerCustom","primary")+'</div>':
+ '<select class="test-select" id="tester-picker" aria-label="選擇測驗者">'+testerOptions+'</select>';
+ app.innerHTML='<section class="hero hero-compact"><h1>今天想練哪一關？</h1><p>'+safe(scopeName())+' · '+num+' 個單字</p></section>'+
+ '<section class="panel panel-compact"><div class="light-row"><h2>👤 誰要測驗？</h2><span class="muted">不用登入</span></div>'+
+ '<div style="margin-top:11px">'+testerBox+'</div>'+
+ (chosen?'<div class="tester-current">目前選擇：<b>'+safe(chosen)+'</b></div>':'')+
+ (s.testerNotice?'<div class="tester-current">'+safe(s.testerNotice)+'</div>':'')+
  '</section>'+
- '<section class="panel"><h2>① 選教材系列</h2><p>不同教材分開存放，例如空中學英文，以及往後其他單字庫。</p><div class="actions">'+seriesButtons+'</div></section>'+
- '<section class="panel"><h2>② 選擇要考的週次</h2><p>平常只考選定週次，不會把以前所有單字一起考。</p><div class="actions">'+weekButtons+
- (s.scope<0?btn("↩ 回到當週測驗","scopeWeekly","primary wide"):"")+
- '</div><p class="muted">目前測驗範圍：'+safe(scopeName())+'</p></section>'+
- '<section class="panel"><h2>③ 當週闖關｜'+n+' 個單字</h2><p>三關獨立選擇，題目和選項每次隨機。</p><div class="actions">'+
- btn("第一關｜中英配對（"+n+" 題）","stage0","primary wide")+
- btn("第二關｜英文拼字（"+n+" 題）","stage1","secondary wide")+
- btn("第三關｜句子填空（"+n+" 題）","stage2","secondary wide")+
+ '<section class="panel panel-compact"><h2>🎯 開始測驗</h2><div class="actions">'+
+ btn("第一關｜中英配對（"+num+" 題）","stage0","primary wide")+
+ btn("第二關｜英文拼字（"+num+" 題）","stage1","secondary wide")+
+ btn("第三關｜句子填空（"+num+" 題）","stage2","secondary wide")+
+ btn("🏆 三關連續挑戰（"+num*3+" 題）","start","outline wide")+
  '</div></section>'+
- '<section class="panel"><h2>🏆 當週三關連續挑戰</h2><p>同一週的 '+n+' 個單字，每關各出一次，共 '+(n*3)+' 題。</p>'+
- btn("🚀 本週完整測驗（"+(n*3)+" 題）","start","outline wide")+'</section>'+
- '<section class="panel"><h2>📖 單字卡與教材庫</h2><div class="actions">'+
- btn("📖 當週英文單字卡","study","secondary wide")+
- btn("🎧 當週中文聽力卡","studyCN","secondary wide")+
- btn("📚 查看全部教材庫","list","outline wide")+
- btn("📊 查看本頁面測驗結果","report","outline wide")+
+ '<section class="panel panel-compact"><h2>📖 單字卡</h2><div class="actions-inline">'+
+ btn("英文先出現","study","secondary wide")+
+ btn("中文先出現","studyCN","secondary wide")+
  '</div></section>'+
- '<section class="panel"><h2>🌍 額外選項｜全部單字總複習</h2>'+
- '<p>只在需要期中複習或大考複習時才選，平常不會自動合併各週題庫。</p>'+
- (s.scope<0?'<p><strong>目前已選擇全部總複習。</strong></p>':'')+
- btn(s.scope<0?"↩ 返回當週測驗":"切換至全部單字（"+total+" 字）",""+(s.scope<0?"scopeWeekly":"scopeAll"),"outline wide")+
- '</section>'+
- '<section class="panel"><h2>🔊 聲音測試</h2>'+
+ '<div class="actions-inline">'+btn("📚 查看單字庫","list","outline wide")+btn("📊 測驗紀錄","report","outline wide")+'</div>'+
+ '<details class="more-panel"><summary>其他選項與聲音測試</summary>'+
+ '<p class="more-description">右上角可切換教材週次或全部單字總複習。這台裝置只保留曾輸入的暱稱，不儲存測驗分數。</p>'+
  btn("🔈 測試聲音","testTone","outline wide")+
- '<p id="audio-status" role="status" class="muted"></p></section>'+
- '<div class="notice">不用註冊、不用登入。教材字庫永久保存在 GitHub，完成一次測驗後會標記測試者並顯示本頁成績。因不採用公開、無保護的資料存取，跨次永久雲端成績目前尚未啟用；關閉或重新整理會清除本頁成績。</div>'
+ '<p id="audio-status" role="status" class="muted"></p></details>'
 }
 function cards(){
  var w=words[s.cardOrder[s.card]],chinese=s.view==="studyCN",front=chinese?"先看中文，聽英文發音再猜拼寫":"先看英文，猜猜中文意思";
@@ -294,28 +304,27 @@ function next(){
  }
  s.view="game";question()
 }
-function render(){window.scrollTo(0,0);if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else report()}
+function render(){window.scrollTo(0,0);updateScopePicker();if(s.view==="home")frame();else if(s.view==="study"||s.view==="studyCN")cards();else if(s.view==="list")listing();else if(s.view==="game")question();else report()}
 app.addEventListener("input",function(e){if(e.target.id==="spelling")s.typed=e.target.value});
 app.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="spelling"&&!s.answered&&s.typed.trim())answer(s.typed)});
+app.addEventListener("change",function(e){
+ if(e.target&&e.target.id==="tester-picker"){
+  if(e.target.value==="__new__"){s.addingTester=true;s.testerNotice="";frame()}
+  else chooseTester(e.target.value)
+ }
+});
 app.addEventListener("click",function(e){
  var t=e.target.closest("[data-action]");if(!t)return;
  var act=t.dataset.action;
- if(act==="testerA"||act==="testerB"){
- s.testerId=act==="testerA"?"A":"B";s.testerName=s.testerId==="A"?"測試者 A":"測試者 B";s.testerNotice="已選擇 "+s.testerName;frame()
- }
- else if(act==="testerCustom"){
-  var el=document.getElementById("tester-name");var name=el?String(el.value||"").trim().replace(/[\n\r]+/g," "):"";
-  if(name.length>24)name=name.slice(0,24);
-  if(!name){s.testerNotice="請先輸入暱稱。";frame();return}
-  s.testerId="custom:"+name;s.testerName=name;s.testerNotice="已選擇 "+name+"；暱稱不會寫入裝置或公開網站程式碼。";frame()
+ if(act==="testerCustom"){
+  var el=document.getElementById("tester-name");
+  var name=el?String(el.value||"").trim().replace(/[\n\r]+/g," "):"";
+  if(!name){s.testerNotice="請輸入一個暱稱";frame();return}
+  chooseTester(name)
  }
  else if(act==="filterAll"){s.historyFilter="all";report()}
  else if(act==="filterTester"){s.historyFilter="current";report()}
  else if(act==="testTone")testTone();
- else if(act==="chooseSeries")chooseSeries(Number(t.dataset.index));
- else if(act==="chooseWeek")chooseWeek(Number(t.dataset.index));
- else if(act==="scopeAll"){if(s.scope>=0)s.lastScope=s.scope;s.scope=-1;render()}
- else if(act==="scopeWeekly"){chooseWeek(s.lastScope>=0&&s.lastScope<wordUnits.length?s.lastScope:0)}
  else if(act==="stage0"||act==="stage1"||act==="stage2")start(false,Number(act.slice(-1)));
  else if(act==="start")start(false);
  else if(act==="retry")start(true);
@@ -326,15 +335,22 @@ app.addEventListener("click",function(e){
  else if(act==="flip"){s.flipped=!s.flipped;render()}
  else if(act==="prev"||act==="nextcard"){s.card=Math.max(0,Math.min(s.cardOrder.length-1,s.card+(act==="prev"?-1:1)));s.flipped=false;render()}
  else if(act==="sound"||act==="slow"){if(s.view==="game"&&s.stage===2&&!s.retry)sentenceSound(current(),act==="slow");else say(currentIfStudy(),act==="slow")}
- else if(act==="wordSound"){say(words[Number(t.dataset.index)][0],false)}
+ else if(act==="wordSound")say(words[Number(t.dataset.index)][0],false);
  else if(act==="list"){s.view="list";render()}
  else if(act==="report"){s.view="report";render()}
- else if(act==="choose"){answer(t.dataset.index)}
+ else if(act==="choose")answer(t.dataset.index);
  else if(act==="hint"){s.clue=true;question()}
  else if(act==="submit"){if(s.typed.trim())answer(s.typed);else{var el=document.getElementById("spelling");if(el)el.focus()}}
- else if(act==="advance"){next()}
+ else if(act==="advance")next()
 });
 function currentIfStudy(){return (s.view==="study"||s.view==="studyCN")?words[s.cardOrder[s.card]][0]:current()[0]}
-document.getElementById("homebtn").addEventListener("click",function(){s.view="home";render()});render();warmAudio();warmSentences();
+document.getElementById("homebtn").addEventListener("click",function(){s.view="home";render()});
+document.getElementById("scope-picker").addEventListener("change",function(e){
+ var index=Number(e.target.value);
+ if(index===-1){if(s.scope>=0)s.lastScope=s.scope;s.scope=-1}
+ else if(index>=0&&index<wordUnits.length){s.scope=index;s.lastScope=index;s.selectedCategory=wordUnits[index].category}
+ s.view="home";render()
+});
+render();warmAudio();warmSentences();
 })();
 </script></body></html>
