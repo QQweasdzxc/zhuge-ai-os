@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜隨機題庫與總複習 V1.5</title><script src="./wordbank.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f4f6ff"><title>英文單字闖關王｜隨機題庫與總複習 V1.5</title><script src="./wordbank.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js"></script><link rel="preconnect" href="https://ssl.gstatic.com" crossorigin><link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <style>
 :root{--bg:#f4f6ff;--ink:#263554;--muted:#697a94;--line:#e0e6f4;--blue:#5165d8;--blue2:#7a57d7;--white:#fff;--green:#1d8a68;--red:#ca4e66;--gold:#d4a032}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at top left,#e2edff,transparent 44%),radial-gradient(ellipse at top right,#fff0e1,transparent 40%),var(--bg);font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.5;cursor:default}.shell{margin:auto;max-width:760px;padding:21px 18px 65px;min-height:100dvh}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:18px}.mark{background:#e7eafe;border-radius:13px;padding:9px}.headbtn{border:1px solid var(--line);background:white;border-radius:12px;padding:9px 13px;font-weight:700;color:var(--ink)}.hero{background:linear-gradient(120deg,#506de0,#8661d0);color:white;padding:28px 24px;border-radius:24px;box-shadow:0 14px 30px #526de133}.hero h1{font-size:clamp(28px,7vw,39px);margin:0 0 8px;line-height:1.2}.hero p{margin:0;color:#eff1ff;font-size:14px}.tag{display:inline-block;background:#ffffff2b;border-radius:99px;padding:5px 11px;font-size:12px;margin-bottom:12px}.stats,.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.stat,.mini{background:white;border:1px solid var(--line);padding:13px 7px;border-radius:16px;text-align:center}.stat b{display:block;font-size:23px}.stat small,.mini small{display:block;font-size:11px;color:var(--muted)}.panel{background:white;border-radius:23px;border:1px solid var(--line);padding:21px;margin-top:16px;box-shadow:0 9px 24px #3049680e}.panel h2{font-size:19px;margin:0 0 10px}.panel p{color:var(--muted);font-size:13px;margin:3px 0 13px}.btn{border:0;border-radius:14px;padding:13px 15px;font-weight:800;min-height:49px;display:inline-flex;align-items:center;justify-content:center;gap:7px}.wide{width:100%}.primary{color:#fff;background:var(--blue)}.secondary{background:#e9edff;color:#3a4aa2}.outline{background:white;border:1px solid var(--line);color:var(--ink)}.actions{display:grid;gap:10px;margin-top:14px}.notice{font-size:12px;color:#7b6570;background:#fff5f1;border:1px solid #f9dfd3;border-radius:12px;padding:11px 13px;margin-top:16px}.muted{color:var(--muted);font-size:13px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-size:24px;line-height:1.3;margin:0}.progress{background:#e7ebf6;height:9px;border-radius:9px;margin:16px 0;overflow:hidden}.bar{background:linear-gradient(90deg,#6d8cec,#8365d3);height:100%;border-radius:9px;transition:width .2s}.question{background:linear-gradient(135deg,#f0f5ff,#fff);border:1px solid #e0e8ff;border-radius:21px;text-align:center;padding:26px 17px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}.question h2{font-size:clamp(27px,6vw,38px);margin:0;overflow-wrap:anywhere}.question h2.sentence{font-size:clamp(19px,4.4vw,27px)}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.option{min-height:75px;border:1.5px solid #dee5f3;border-radius:15px;background:white;padding:12px 8px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}.option:hover{border-color:#98ace7;background:#f7f9ff}.option.good{background:#e7f8ee;border-color:#4fb68d}.option.bad{background:#fff0f1;border-color:#e69bab}.pill{border:1px solid #dce4f9;background:white;color:var(--blue);border-radius:99px;padding:8px 15px;font-size:13px;font-weight:800}.input{width:100%;border:2px solid #dfe5f5;border-radius:14px;padding:14px;font-size:22px;color:var(--ink);text-align:center;margin:15px 0 10px}.help{background:#fff6e6;border-radius:12px;padding:11px;font-size:13px;margin:8px 0;color:#86631f}.feedback{background:#eaf9f2;border:1px solid #c3e7d4;border-radius:15px;padding:14px;margin-top:15px}.feedback.wrong{background:#fff2f3;border-color:#f1d4da}.feedback strong{display:block;font-size:17px}.feedback p{margin:8px 0 0;font-size:13px;color:#4c6077}.card{width:100%;background:linear-gradient(145deg,#eef3ff,#fff);border:1px solid #dfe7fb;border-radius:24px;min-height:270px;padding:30px 15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--ink)}.card b{font-size:clamp(30px,8vw,45px)}.card .trans{font-size:23px;font-weight:800}.flex{display:flex;gap:9px;justify-content:space-between;align-items:center;margin-top:14px}.flex>.btn{flex:1}.table-row{border-bottom:1px solid #edf0f7;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-row:last-child{border:0}.small{font-size:12px;color:var(--muted)}.success{color:var(--green)}.danger{color:var(--red)}.trophy{font-size:56px;text-align:center}.star{color:var(--gold);font-size:24px}.center{text-align:center}button:focus-visible,input:focus-visible{outline:3px solid #89a0f2;outline-offset:2px}
@@ -137,6 +137,182 @@ function warmSentences(){words.slice(0,12).forEach(function(w,i){setTimeout(func
 function testTone(){try{var C=window.AudioContext||window.webkitAudioContext;if(!C){audioStatus("不支援音效測試",true);return;}var ctx=new C();ctx.resume();var o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(523.25,ctx.currentTime);o.frequency.setValueAtTime(659.25,ctx.currentTime+0.2);g.gain.setValueAtTime(0.001,ctx.currentTime);g.gain.linearRampToValueAtTime(0.22,ctx.currentTime+0.02);g.gain.setValueAtTime(0.22,ctx.currentTime+0.30);g.gain.linearRampToValueAtTime(0.001,ctx.currentTime+0.44);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+0.45);setTimeout(function(){ctx.close()},900);audioStatus("已送出提示音。如仍無聲，請提高媒體音量並檢查靜音模式。")}catch(e){audioStatus("測試音效無法啟動，請使用 Safari",true)}}
 
 function btn(label,act,cls,attr){return '<button class="btn '+(cls||"outline")+'" data-action="'+act+'" '+(attr||"")+'>'+label+'</button>'}
+
+/* Family vocabulary store: public SDK key only, with Supabase RLS. */
+var cloudURL="https://lenpbbhwxyyfwgvjcozf.supabase.co";
+var cloudKey="sb_publishable_ffE7BbcZqx-r3J8bWwAofQ__EJ26Lox";
+var cloud={client:null,user:null,message:"",saving:"",learner:"學習者",history:[],units:[],ready:false};
+var builtInWords=words.map(function(w){return w.slice()});
+var builtInUnits=wordUnits.map(function(u){return {id:u.id,title:u.title,indices:u.indices.slice()}});
+function setupCloud(){
+ if(!window.supabase||!window.supabase.createClient){
+  cloud.message="無法載入雲端連線程式。請確認網路並重開 Safari";return
+ }
+ try{
+  cloud.client=window.supabase.createClient(cloudURL,cloudKey,{
+   auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:true}
+  });
+  cloud.client.auth.onAuthStateChange(function(type,session){
+   var was=!!cloud.user;cloud.user=session&&session.user?session.user:null;
+   if(type==="SIGNED_IN"&&cloud.user){
+    cloud.message="已登入，接下來完成的測驗將儲存到雲端";
+    setTimeout(function(){fetchCloudWords();if(s.view==="home")frame();if(s.view==="report")fetchCloudHistory()},0)
+   }else if(type==="SIGNED_OUT"){
+    cloud.message="已登出";cloud.history=[];cloud.units=[];resetCloudWords();if(s.view==="home")frame()
+   }
+  });
+  cloud.client.auth.getUser().then(function(result){if(result.data&&result.data.user){cloud.user=result.data.user;fetchCloudWords();if(s.view==="home")frame()}});
+  cloud.ready=true
+ }catch(e){cloud.message="雲端連線初始化失敗"}
+}
+function resetCloudWords(){
+ words=builtInWords.map(function(w){return w.slice()});
+ wordUnits=builtInUnits.map(function(u){return {id:u.id,title:u.title,indices:u.indices.slice()}});
+ if(s.scope>=wordUnits.length)s.scope=0
+}
+async function fetchCloudWords(){
+ if(!cloud.client||!cloud.user)return;
+ var results=await Promise.all([
+  cloud.client.from("vocab_game_units").select("id,title,created_at").order("created_at",{ascending:true}),
+  cloud.client.from("vocab_game_words").select("id,unit_id,en,zh,sentence,tip,ipa").order("created_at",{ascending:true})
+ ]);
+ if(results[0].error||results[1].error){
+  cloud.message="讀取雲端單字庫失敗："+(results[0].error||results[1].error).message;return
+ }
+ resetCloudWords();
+ cloud.units=results[0].data||[];
+ var rows=results[1].data||[];
+ cloud.units.forEach(function(u){
+  var ix=[];
+  rows.forEach(function(w){
+   if(w.unit_id!==u.id)return;
+   ix.push(words.length);
+   words.push([w.en,w.zh,w.sentence,w.tip||"",w.ipa||""])
+  });
+  if(ix.length)wordUnits.push({id:u.id,title:u.title,indices:ix})
+ });
+ if(s.view==="home")frame();else if(s.view==="list")listing()
+}
+function cloudLoginPanel(){
+ if(!cloud.ready)return '<section class="panel"><h2>☁️ 成績雲端連線</h2><p>'+safe(cloud.message||"登入元件尚未載入，仍可先試玩但不會上傳成績")+'</p></section>';
+ if(cloud.user){
+  return '<section class="panel"><h2>☁️ 雲端成績｜已登入</h2><p>目前帳號：'+safe(cloud.user.email||"已驗證使用者")+
+  '</p><p>孩子的成績按登入帳號分開保管，完成測驗後會存入雲端。</p>'+
+  '<label class="muted" for="cloud-learner">學習者名稱（例如：安安、卡卡）</label>'+
+  '<input class="input" style="font-size:16px;text-align:left" id="cloud-learner" maxlength="40" value="'+safe(cloud.learner)+'" placeholder="學習者名稱">'+
+  '<div class="actions">'+btn("📊 查看雲端歷史成績","cloudHistory","primary wide")+btn("安全登出","logout","outline wide")+'</div>'+
+  '<p class="muted">'+safe(cloud.message)+'</p></section>'
+ }
+ return '<section class="panel"><h2>☁️ 雲端成績登入</h2><p>使用家長的電子郵件及密碼登入，同一帳號在不同手機可查看歷史成績。未登入的試玩不會存檔。</p>'+
+ '<input class="input" style="font-size:16px;text-align:left" id="cloud-email" type="email" autocomplete="username" placeholder="家長的電子郵件">'+
+ '<input class="input" style="font-size:16px;text-align:left" id="cloud-password" type="password" autocomplete="current-password" placeholder="登入密碼（至少 6 碼）">'+
+ '<div class="actions">'+btn("🔐 登入並啟用雲端成績","cloudLogin","primary wide")+btn("第一次使用｜建立雲端帳號","cloudSignup","secondary wide")+'</div>'+
+ '<p class="muted">註冊可能需前往信箱確認；如果確認信沒有返回遊戲，請由家長設定 Supabase 的允許轉址。</p>'+
+ '<p class="muted">'+safe(cloud.message)+'</p></section>'
+}
+function formValue(id){var el=document.getElementById(id);return el?String(el.value||"").trim():""}
+async function cloudAuth(which){
+ if(!cloud.client){cloud.message="雲端程式還沒連上";frame();return}
+ var email=formValue("cloud-email"),password=formValue("cloud-password");
+ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||password.length<6){cloud.message="請填寫有效信箱，以及至少六個字元的密碼";frame();return}
+ cloud.message="驗證中…";
+ try{
+  var result=which==="signup"?
+   await cloud.client.auth.signUp({email:email,password:password,options:{emailRedirectTo:"https://vocab-quest-family.onrender.com/"}}):
+   await cloud.client.auth.signInWithPassword({email:email,password:password});
+  if(result.error)throw result.error;
+  if(result.data&&result.data.user&&result.data.session){
+   cloud.user=result.data.user;cloud.message="登入成功，雲端成績已啟用";
+   await fetchCloudWords()
+  }else{
+   cloud.message="已送出註冊要求。請到信箱點選確認信，再回網站登入。如連結跳到其他系統，需設定 Supabase 允許轉址。"
+  }
+ }catch(e){cloud.message="雲端登入失敗："+(e.message||String(e))}
+ if(s.view==="home")frame()
+}
+async function cloudLogout(){
+ if(cloud.client)await cloud.client.auth.signOut();
+ cloud.user=null;cloud.history=[];cloud.units=[];resetCloudWords();cloud.message="已登出，本機不保留登入工作階段";s.view="home";frame()
+}
+function cloudForm(){
+ if(!cloud.user)return '<p class="muted">新增雲端單字需要先到首頁登入。</p>';
+ var opts=cloud.units.map(function(u){return '<option value="'+safe(u.id)+'">'+safe(u.title)+'</option>'}).join("");
+ return '<section class="panel"><h2>➕ 雲端新增單字</h2><p>先建立新課本單元，再新增單字。這些資料存入 Supabase，登入後會自動與原本的單字合併。</p>'+
+ '<label class="muted" for="new-unit-title">新單元名稱</label>'+
+ '<input class="input" style="font-size:16px;text-align:left" id="new-unit-title" maxlength="120" placeholder="例如：Unit 2｜第三課單字">'+
+ btn("建立新單元","cloudAddUnit","secondary wide")+
+ (cloud.units.length?'<label class="muted" for="new-word-unit">選擇單元</label>'+
+ '<select class="input" style="font-size:16px;text-align:left" id="new-word-unit">'+opts+'</select>'+
+ '<input class="input" style="font-size:16px;text-align:left" id="new-word-en" placeholder="英文單字（例如：mountain）">'+
+ '<input class="input" style="font-size:16px;text-align:left" id="new-word-zh" placeholder="中文意思">'+
+ '<input class="input" style="font-size:16px;text-align:left" id="new-word-sentence" placeholder="英文例句，請用 ____ 標示空格">'+
+ '<input class="input" style="font-size:16px;text-align:left" id="new-word-tip" placeholder="記憶提示（選填）">'+
+ btn("💾 儲存新單字至雲端","cloudAddWord","primary wide"):'<p class="muted">請先建立一個新單元。</p>')+
+ '<p id="cloud-form-status" class="muted">'+safe(cloud.message)+'</p></section>'
+}
+function cloudFormMessage(message){cloud.message=message;var el=document.getElementById("cloud-form-status");if(el)el.textContent=message}
+async function cloudAddUnit(){
+ if(!cloud.user)return;
+ var title=formValue("new-unit-title");
+ if(!title||title.length>120){cloudFormMessage("請填寫單元名稱（不超過 120 字）");return}
+ var res=await cloud.client.from("vocab_game_units").insert([{title:title}]).select("id").single();
+ if(res.error){cloudFormMessage("新增失敗："+res.error.message);return}
+ cloud.message="單元已保存到 Supabase："+title;
+ await fetchCloudWords()
+}
+async function cloudAddWord(){
+ if(!cloud.user)return;
+ var unit=formValue("new-word-unit"),en=formValue("new-word-en").toLowerCase(),zh=formValue("new-word-zh");
+ var sentence=formValue("new-word-sentence"),tip=formValue("new-word-tip");
+ if(!unit||!en||!zh||sentence.indexOf("____")<0){cloudFormMessage("請選單元，輸入英文、中文及包含 ____ 的例句");return}
+ var res=await cloud.client.from("vocab_game_words").insert([{unit_id:unit,en:en,zh:zh,sentence:sentence,tip:tip}]);
+ if(res.error){cloudFormMessage("新增失敗："+res.error.message);return}
+ cloud.message="已保存單字 "+en+" 到雲端資料庫";
+ await fetchCloudWords()
+}
+async function saveCloudAttempt(){
+ if(!cloud.client||!cloud.user){cloud.saving="本次未登入，成績沒有寫入雲端";showSaveStatus();return}
+ cloud.saving="正在儲存本次成績到雲端…";showSaveStatus();
+ var result=await cloud.client.from("vocab_game_attempts").insert([{
+  learner_name:(cloud.learner||"學習者").slice(0,40),
+  scope_name:scopeName(),
+  mode:s.challengeMode==="all"?"all":(["meaning","spelling","sentence"][s.selectedStage]||"all"),
+  question_count:s.attempts.length,
+  correct_count:s.attempts.filter(function(a){return a.good}).length,
+  answers:s.attempts.map(function(a){return {word:words[a.index][0],stage:a.stage,correct:a.good}})
+ }]);
+ cloud.saving=result.error?"⚠️ 雲端儲存失敗："+result.error.message:"✅ 本次成績已成功儲存至 Supabase";
+ showSaveStatus();
+ if(!result.error)fetchCloudHistory()
+}
+function showSaveStatus(){var el=document.getElementById("cloud-save-status");if(el)el.textContent=cloud.saving}
+async function fetchCloudHistory(){
+ if(!cloud.client||!cloud.user)return;
+ var el=document.getElementById("cloud-history");
+ if(el)el.textContent="正在讀取雲端成績…";
+ var result=await cloud.client.from("vocab_game_attempts")
+  .select("id,learner_name,scope_name,mode,question_count,correct_count,answers,created_at")
+  .order("created_at",{ascending:false}).limit(100);
+ if(result.error){cloud.message="雲端成績讀取失敗："+result.error.message;var el2=document.getElementById("cloud-history");if(el2)el2.textContent=cloud.message;return}
+ cloud.history=result.data||[];
+ renderCloudHistory()
+}
+function renderCloudHistory(){
+ var el=document.getElementById("cloud-history");
+ if(!el)return;
+ if(!cloud.user){el.innerHTML='<p class="muted">請先回首頁登入，才能查看雲端歷史成績。</p>';return}
+ if(!cloud.history.length){el.innerHTML='<p class="muted">目前還沒有雲端歷史紀錄。登入後完成一關，就會自動新增紀錄。</p>';return}
+ var modes={meaning:"中英配對",spelling:"英文拼字",sentence:"句子填空",all:"三關連續"};
+ el.innerHTML='<p class="muted">以下資料是從 Supabase 即時讀取，最多顯示最近 100 次完成測驗。</p>'+
+ cloud.history.map(function(r){
+  var d=new Date(r.created_at).toLocaleString("zh-TW",{hour12:false});
+  var wrong=Array.isArray(r.answers)?r.answers.filter(function(a){return !a.correct}).map(function(a){return a.word}).slice(0,10).join("、"):"";
+  return '<div class="table-row"><div><strong>'+safe(r.learner_name)+'｜'+safe(modes[r.mode]||r.mode)+'</strong>'+
+   '<div class="small">'+safe(r.scope_name)+'｜'+safe(d)+'</div>'+
+   (wrong?'<div class="small">待加強：'+safe(wrong)+'</div>':'')+
+   '</div><strong>'+r.correct_count+'/'+r.question_count+'</strong></div>'
+ }).join("")
+}
 function frame(){
  var a=s.attempts,c=a.filter(function(x){return x.good}).length,num=currentPool().length;
  var unitButtons=wordUnits.map(function(u,i){return btn((s.scope===i?"✓ ":"")+safe(u.title)+"（"+u.indices.length+" 字）","scopeUnit",s.scope===i?"primary wide":"outline wide",'data-index="'+i+'"')}).join("");
