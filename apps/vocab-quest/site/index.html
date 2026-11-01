@@ -364,17 +364,7 @@ function report(){
  s.missed.forEach(function(i){h+='<div class="table-row"><strong>'+safe(words[i][0])+'</strong><span class="small">'+safe(words[i][1])+'</span></div>'});
  h+='</section><div class="actions">'+(s.missed.length?btn("錯字復活賽","retry","primary wide"):"")+
  btn("再挑戰相同關卡","replay","secondary wide")+btn("返回週次選擇","home","outline wide")+'</div>';
- if(s.sessionRuns.length){
-  h+='<section class="panel"><h2>📋 本頁完成紀錄</h2><p>每筆都有測試者標記，只在目前網頁開啟期間保留；尚非雲端歷史。</p>'+
-'<div class="flex">'+btn("全部測試者","filterAll",s.historyFilter==="all"?"primary":"outline")+
-btn("只看目前測試者","filterTester",s.historyFilter==="current"?"primary":"outline")+'</div>';
-  s.sessionRuns.forEach(function(r){
-   if(s.historyFilter==="current"&&r.testerId!==s.testerId)return;
-   h+='<div class="table-row"><div><strong>👤 '+safe(r.tester||"未指定")+'｜'+safe(r.label||"測驗")+'</strong><div class="small">'+safe(r.scope||"")+'｜'+safe(r.date)+'</div></div><strong>'+r.correct+'/'+r.total+'</strong></div>'
-  });
-  h+='</section>'
- }
- h+='<section class="panel"><h2>☁️ 雲端歷史成績</h2><p class="muted">'+safe(familyCloud.saving||"")+'</p>';
+ h+='<section class="panel"><h2>☁️ 雲端歷史成績</h2><p class="muted">'+safe(familyCloud.saving||familyCloud.status||"")+'</p>'+ '<div class="flex">'+btn("全部測試者","filterAll",s.historyFilter==="all"?"primary":"outline")+btn("只看目前測試者","filterTester",s.historyFilter==="current"?"primary":"outline")+'</div>';
  if(!familyCloud.connected)h+='<p class="muted">雲端尚未連線，請使用家庭專用網址。</p>';
  else if(!familyCloud.attempts.length)h+='<p class="muted">目前尚無已儲存的測驗紀錄。</p>';
  else{
