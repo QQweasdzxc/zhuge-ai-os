@@ -144,6 +144,96 @@ function testTone(){try{var C=window.AudioContext||window.webkitAudioContext;if(
 function btn(label,act,cls,attr){return '<button class="btn '+(cls||"outline")+'" data-action="'+act+'" '+(attr||"")+'>'+label+'</button>'}
 
 /* Store only user-entered nickname options on this browser; no quiz grades or answers. */
+/* Family-only cloud access by unguessable URL fragment, no account/login.
+   Never include the family key in public source or send quiz scores to localStorage. */
+var familyCloud={token:"",connected:false,loading:false,saving:"",status:"",learners:[],units:[],attempts:[]};
+var familyEndpoint="https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/vocab-family-cloud";
+function familyToken(){try{return new URLSearchParams((window.location.hash||"").replace(/^#/,"")).get("f")||""}catch(e){return ""}}
+async function cloudCall(action,body){
+ if(!familyCloud.token)throw new Error("未使用家庭專用網址");
+ var res=await fetch(familyEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({token:familyCloud.token,action:action},body||{})),cache:"no-store"});
+ var data=await res.json().catch(function(){return null});
+ if(!res.ok||!data||!data.ok)throw new Error(data&&data.error?data.error:"雲端網路錯誤");
+ return data
+}
+function applyCloudUnits(units){
+ var all=[],groups=[];
+ units.forEach(function(u){
+  var ids=[];
+  (Array.isArray(u.words)?u.words:[]).forEach(function(w){
+   if(!w||!w.en||!w.zh||!w.sentence||!w.sentence.includes("____"))return;
+   ids.push(all.length);all.push([w.en,w.zh,w.sentence,w.tip||"",w.ipa||""])
+  });
+  if(ids.length)groups.push({id:u.id,category:u.category,title:u.title,week:String(u.week||""),indices:ids})
+ });
+ if(!groups.length)throw new Error("雲端沒有可用字庫");
+ words=all;wordUnits=groups;
+ if(s.scope>=groups.length||s.scope<-1)s.scope=0;
+ if(s.lastScope>=groups.length)s.lastScope=0;
+ s.selectedCategory=groups[s.scope<0?s.lastScope:s.scope].category
+}
+async function initFamilyCloud(){
+ familyCloud.token=familyToken();
+ if(!familyCloud.token){familyCloud.status="⚠️ 請使用家庭專用連結，才能讀寫雲端成績";frame();return}
+ familyCloud.status="☁️ 正在載入家庭雲端…";frame();
+ try{
+  var data=await cloudCall("load");
+  familyCloud.learners=data.learners||[];
+  familyCloud.units=data.units||[];
+  familyCloud.attempts=data.attempts||[];
+  applyCloudUnits(familyCloud.units);
+  familyCloud.connected=true;
+  familyCloud.status="☁️ 已連線家庭雲端，成績會自動保存";
+  try{
+   var legacy=JSON.parse(window.localStorage&&window.localStorage.getItem("vocab-quest-family-nicknames-v1")||"[]");
+   if(Array.isArray(legacy))for(const name of legacy.slice(0,20)){
+    if(typeof name!=="string"||!name.trim()||familyCloud.learners.some(function(p){return p.name===name.trim()}))continue;
+    try{var added=await cloudCall("addLearner",{name:name.trim()});if(added.learner)familyCloud.learners.push(added.learner)}catch(ignore){}
+   }
+   if(window.localStorage)window.localStorage.removeItem("vocab-quest-family-nicknames-v1")
+  }catch(ignore){}
+ }catch(err){familyCloud.connected=false;familyCloud.status="⚠️ 雲端未連線："+String(err.message||err)}
+ render()
+}
+async function refreshCloud(){
+ if(!familyCloud.connected)return;
+ try{
+  var data=await cloudCall("load");
+  familyCloud.learners=data.learners||[];
+  familyCloud.attempts=data.attempts||[];
+ }catch(err){familyCloud.status="⚠️ 讀取雲端歷史失敗："+String(err.message||err)}
+}
+async function saveCloudResult(){
+ if(!familyCloud.connected||!s.runTesterId){familyCloud.saving="⚠️ 雲端沒有連線，成績未保存";if(s.view==="report")report();return}
+ var answers=s.attempts.map(function(a){return {word:words[a.index][0],stage:a.stage,correct:a.good}});
+ var mode=s.challengeMode==="all"?"all":["meaning","spelling","sentence"][s.selectedStage];
+ familyCloud.saving="☁️ 正在儲存本次成績…";if(s.view==="report")report();
+ try{
+  await cloudCall("saveAttempt",{learnerId:s.runTesterId,unitId:s.scope<0?null:wordUnits[s.scope].id,scopeName:scopeName(),mode:mode,answers:answers});
+  familyCloud.saving="✅ 本次成績已存入 Supabase";
+  await refreshCloud()
+ }catch(err){familyCloud.saving="⚠️ 成績儲存失敗："+String(err.message||err)}
+ if(s.view==="report")report()
+}
+async function saveNewCloudUnit(){
+ if(!familyCloud.connected){alert("請先使用家庭專用連結");return}
+ var val=function(id){var v=document.getElementById(id);return v?String(v.value||"").trim():""};
+ var category=val("add-category"),week=val("add-week"),title=val("add-title");
+ var lines=val("add-words").split(/\n+/).filter(Boolean);
+ var addedWords=lines.map(function(line){var p=line.split(/\s*\|\s*/);return {en:p[0]||"",zh:p[1]||"",sentence:p[2]||"",tip:p[3]||""}});
+ if(!category||!title||!addedWords.length||addedWords.some(function(w){return !w.en||!w.zh||!w.sentence.includes("____")})){alert("請輸入教材、週次及單字，每行：英文 | 中文 | 例句 ____");return}
+ try{
+  var result=await cloudCall("addUnit",{category,week,title,words:addedWords});
+  var fresh=await cloudCall("load");
+  familyCloud.units=fresh.units||[];
+  familyCloud.learners=fresh.learners||[];
+  applyCloudUnits(familyCloud.units);
+  var ix=wordUnits.findIndex(function(u){return u.id===result.unit.id});
+  if(ix>=0){s.scope=ix;s.lastScope=ix;s.selectedCategory=wordUnits[ix].category}
+  familyCloud.status="✅ 新單元已保存到 Supabase";
+  s.view="home";render()
+ }catch(err){alert("新增失敗："+String(err.message||err))}
+}
 /* No grades, learner data or names stored on this device. */
 function readTesterNames(){return familyCloud.learners.map(function(x){return x.name})}
 function rememberTesterName(_name){}
