@@ -1661,11 +1661,12 @@ function renderDetail(scrollDown) {
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
         : renderMsgs(convo.messages);
   const resume = resumeCmd(s);
-  // 3D-1 (ZG-48): an AI member's panel shows the board's real work overview.
-  // Member-to-executor mapping is unconfirmed, so this is labelled board-wide
-  // truth; cards are never attributed to the character.
+  // ZG-56: an AI member's panel lists only cards whose assignee_id resolves
+  // to the agent bound to that member. No member-to-agent binding is
+  // confirmed yet, so boundAgentId stays null and the panel shows an honest
+  // 尚未綁定 state; the board-wide view lives on the main board, not here.
   const ov = TF_MODE && s.member && s.ai && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
-    ? window.ZhugeTfSource.memberOverview(state.data.sessions) : null;
+    ? window.ZhugeTfSource.memberOverview(state.data.sessions, { boundAgentId: s.tfAgentId || null }) : null;
   const html = `
     ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
@@ -1700,10 +1701,14 @@ function memberOverviewHtml(ov) {
     todo: L.ovTodo || '待辦', backlog: L.ovBacklog || '待規劃', done: L.ovDone || '完成', cancelled: L.ovCancelled || '已取消',
   })[st] || st;
   const chip = (st) => `<b class="chip" style="--s:${statusColor(displayStatus(st))}">${esc(stLabel(st))}</b>`;
+  if (!ov.bound) {
+    return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
+    <div class="msgs-note">${esc(L.ovUnbound || '這位成員尚未綁定 TaskFlow 負責人（agent），所以沒有可列出的個人卡片；未指派或對應不到的卡片不歸任何人物。全看板總覽請看主看板。')}</div>`;
+  }
   return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
     <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b></div>
-    <div class="msgs-note">${esc(L.ovNote || '對應尚未確認；以下是全看板的真實卡片，不是這位成員的指派。')}</div>
-    <div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`;
+    ${ov.rows.length ? `<div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`
+      : `<div class="msgs-note">${esc(L.ovEmpty || '這位成員目前沒有指派卡片。')}</div>`}`;
 }
 const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>';
 
