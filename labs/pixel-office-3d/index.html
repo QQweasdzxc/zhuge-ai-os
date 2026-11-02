@@ -1661,8 +1661,17 @@ function renderDetail(scrollDown) {
   const body = document.getElementById('detailBody');
   const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
   const myWork = s.owner ? state.data.sessions.filter((x) => x.tf && !x.tf.isAgentCard) : [];
+  // ZG-56: an AI member's panel lists only cards whose assignee_id resolves
+  // to the agent bound to that member by a source-evidenced mapping. Unbound
+  // members keep the honest 尚未綁定 state; the board-wide view lives on the
+  // main board, not here.
+  const ov = TF_MODE && s.member && s.ai && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
+    ? window.ZhugeTfSource.memberOverview(state.data.sessions, { boundAgentId: s.tfAgentId || null }) : null;
+  // The member description is derived from the actual binding/data, never a
+  // static claim: a bound member reads as bound; only unbound members keep
+  // the "not yet obtained" note (which is then true).
   const msgs = s.owner ? ''
-    : s.member ? `<div class="msgs-note">${esc(s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
+    : s.member ? `<div class="msgs-note">${esc(ov && ov.bound ? (L.memberBoundNote || 'AI 成員；已綁定 TaskFlow 負責人（agent），下列為其名下卡片。') : s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
     : s.tf ? (s.tf.isAgentCard
       ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '這張任務尚未連上對話紀錄；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
       : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
@@ -1675,12 +1684,6 @@ function renderDetail(scrollDown) {
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
         : renderMsgs(convo.messages);
   const resume = resumeCmd(s);
-  // ZG-56: an AI member's panel lists only cards whose assignee_id resolves
-  // to the agent bound to that member. No member-to-agent binding is
-  // confirmed yet, so boundAgentId stays null and the panel shows an honest
-  // 尚未綁定 state; the board-wide view lives on the main board, not here.
-  const ov = TF_MODE && s.member && s.ai && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
-    ? window.ZhugeTfSource.memberOverview(state.data.sessions, { boundAgentId: s.tfAgentId || null }) : null;
   const html = `
     ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
@@ -1720,6 +1723,7 @@ function memberOverviewHtml(ov) {
     <div class="msgs-note">${esc(L.ovUnbound || '這位成員尚未綁定 TaskFlow 負責人（agent），所以沒有可列出的個人卡片；未指派或對應不到的卡片不歸任何人物。全看板總覽請看主看板。')}</div>`;
   }
   return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
+    <div class="msgs-note">${esc(L.ovStatusNote || '卡片狀態為 TaskFlow 看板記錄，不代表即時執行狀態。')}</div>
     <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b></div>
     ${ov.rows.length ? `<div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`
       : `<div class="msgs-note">${esc(L.ovEmpty || '這位成員目前沒有指派卡片。')}</div>`}`;
@@ -1787,4 +1791,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-                         </html>
+                                                      </html>

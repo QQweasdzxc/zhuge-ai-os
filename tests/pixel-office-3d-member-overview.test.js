@@ -88,6 +88,13 @@ test("index.html renders the overview only for AI members and stays honest when 
   assert.ok(!INDEX.includes("不是這位成員的指派"), "board-wide fallback copy is gone");
 });
 
+test("index.html derives the member description from the actual binding state", () => {
+  assert.ok(INDEX.includes("ov && ov.bound"), "member note is conditional on the resolved binding");
+  assert.ok(INDEX.includes("memberBoundNote"), "bound members get a bound-truth note, not the static unbound claim");
+  assert.ok(INDEX.includes("ovStatusNote"), "bound overview clarifies TF status is not live runtime");
+  assert.ok(!INDEX.includes("No member-to-agent binding is\n"), "stale pre-binding comment is gone");
+});
+
 // ZG-56 member->agent binding: only source-evidenced identities bind, by
 // system_key. Instinct is bound (user-approved INSTINCT-01 identity, ZG-45).
 // GH-HELPER exists in the TF directory but has no source-evidenced mapping to
