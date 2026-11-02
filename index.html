@@ -1,2 +1,27 @@
 <!doctype html>
-<html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101827"><meta name="description" content="Zhuge AI OS 像素辦公室和工程狀態"><title>Zhuge AI OS｜像素辦公室</title><link rel="stylesheet" href="./assets/zhuge-pixel-home.css"><script src="./assets/zhuge-home-router.js"></script></head><body><iframe title="Zhuge AI OS 像素辦公室" src="./labs/pixel-office-3d/index.html?source=tf"></iframe><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.164 · Build 20261102-1051</footer></body></html>
+<html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101827"><meta name="description" content="Zhuge AI OS 像素辦公室和工程狀態"><title>Zhuge AI OS｜像素辦公室</title><link rel="stylesheet" href="./assets/zhuge-pixel-home.css"><script src="./assets/zhuge-home-router.js"></script></head><body><iframe title="Zhuge AI OS 像素辦公室" src="./labs/pixel-office-3d/index.html?source=tf"></iframe><script>
+// ZG-52 embedded-auth relay. The TaskFlow panel embeds this root page, which
+// iframes the office one level deeper, so the office's handshake cannot reach
+// the TF page directly. This relay forwards ONLY the three pinned message
+// types between the two first-party parties: ready (office -> TF parent) and
+// embedded-auth / embedded-auth-clear (TF parent -> office). Messages from
+// any other origin are dropped; the token passes through transiently and is
+// never read, stored, or logged here.
+(function () {
+  'use strict';
+  var TF_ORIGIN = 'https://zhuge-taskflow-web.onrender.com';
+  var SELF_ORIGIN = location.origin;
+  var RELAY_TYPES = { 'zhuge-office-ready': 1, 'zhuge-office-embedded-auth': 1, 'zhuge-office-embedded-auth-clear': 1 };
+  if (window.parent === window) return;
+  var office = document.querySelector('iframe');
+  if (!office) return;
+  window.addEventListener('message', function (e) {
+    if (!e.data || !RELAY_TYPES[e.data.type]) return;
+    if (e.source === office.contentWindow && e.origin === SELF_ORIGIN) {
+      window.parent.postMessage(e.data, TF_ORIGIN);
+    } else if (e.source === window.parent && e.origin === TF_ORIGIN) {
+      office.contentWindow.postMessage(e.data, SELF_ORIGIN);
+    }
+  });
+})();
+</script><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.164 · Build 20261102-1051</footer></body></html>
