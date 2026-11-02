@@ -114,6 +114,76 @@ function classifyStatus(status) {
 
 const TOKEN_KEYS = ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1'];
 
+// ZG-52 embedded bootstrap (TF web panel iframe). The parent TaskFlow page is
+// the ONLY accepted sender; the token is a read-only session JWT delivered
+// over postMessage after the office announces readiness, held in memory only
+// (never localStorage), and validated by a live API call before the UI calls
+// itself connected. No new scope: the same workspace reads the office's own
+// login flow would make.
+const EMBEDDED_PARENT_ORIGIN = 'https://zhuge-taskflow-web.onrender.com';
+const EMBEDDED_READY_TYPE = 'zhuge-office-ready';
+const EMBEDDED_AUTH_TYPE = 'zhuge-office-embedded-auth';
+const EMBEDDED_CLEAR_TYPE = 'zhuge-office-embedded-auth-clear';
+function embeddedAuthMessageOk(origin, sourceIsParent, data) {
+  if (origin !== EMBEDDED_PARENT_ORIGIN) return false;
+  if (!sourceIsParent) return false;
+  if (!data || data.type !== EMBEDDED_AUTH_TYPE) return false;
+  return typeof data.token === 'string' && data.token.length > 0;
+}
+function embeddedClearMessageOk(origin, sourceIsParent, data) {
+  if (origin !== EMBEDDED_PARENT_ORIGIN) return false;
+  if (!sourceIsParent) return false;
+  return !!(data && data.type === EMBEDDED_CLEAR_TYPE);
+}
+
+// Embedded auth lifecycle controller. The session JWT the parent hands over
+// stays valid server-side until its own exp (HMAC, no revocation list), so
+// revocation here is a CLIENT discipline: the parent's auth lifecycle pushes
+// clear/replace, and the moment either lands we (1) drop the in-memory token,
+// (2) wipe everything the previous token rendered (no stale account data on
+// screen), (3) abort in-flight reads, and (4) discard any late response from
+// the old generation so a delayed A-account reply can never land on B's (or
+// a logged-out) board.
+function createEmbeddedAuthCtl(opts) {
+  opts = opts || {};
+  const onWipe = typeof opts.onWipe === 'function' ? opts.onWipe : () => {};
+  let token = null;
+  let gen = 0;
+  let inflight = null; // AbortController of the active read generation
+  return {
+    getToken() { return token; },
+    // Replace (account switch) or set the first token: previous generation's
+    // data and requests die before the new token is accepted.
+    setToken(t) {
+      gen++;
+      if (inflight) { try { inflight.abort(); } catch { /* ignore */ } inflight = null; }
+      token = (typeof t === 'string' && t) ? t : null;
+      onWipe();
+    },
+    // Logout / parent panel closed: drop the token, wipe, abort.
+    revoke() {
+      gen++;
+      if (inflight) { try { inflight.abort(); } catch { /* ignore */ } inflight = null; }
+      token = null;
+      onWipe();
+    },
+    isStale(g) { return g !== gen; },
+    // Begin one read generation; caller passes signal into its fetches and
+    // checks isStale(gen) after every await. done() releases the controller.
+    begin() {
+      const g = gen;
+      const ctl = new AbortController();
+      inflight = ctl;
+      let released = false;
+      return {
+        gen: g,
+        signal: ctl.signal,
+        done() { if (!released && inflight === ctl) { inflight = null; released = true; } },
+      };
+    },
+  };
+}
+
 function readSupabaseToken(storageGet) {
   for (const k of TOKEN_KEYS) {
     try {
@@ -153,7 +223,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   // failure (network/5xx) keeps the stored pair; skip this round instead of
   // exchanging the known-stale token into a false terminal banner - the next
   // scheduled poll retries at the existing cadence.
-  if (opts.storageGet && typeof getStoredAuthSession === "function" && typeof refreshAuthSession === "function" && typeof accessTokenNeedsRefresh === "function") {
+  if (!opts.embeddedJwt && opts.storageGet && typeof getStoredAuthSession === "function" && typeof refreshAuthSession === "function" && typeof accessTokenNeedsRefresh === "function") {
     const storedBefore = getStoredAuthSession();
     if (storedBefore && storedBefore.refresh_token && accessTokenNeedsRefresh()) {
       let refreshed = null;
@@ -163,13 +233,19 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
       }
     }
   }
-  const supa = opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null);
-  if (!supa) return { state: 'auth-required', note: '需要登入 Zhuge AI OS' };
+  const stale = () => (typeof opts.isStale === 'function' ? opts.isStale() : false);
+  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
+  const supa = opts.embeddedJwt ? null : (opts.storageGet ? readSupabaseToken(opts.storageGet) : (opts.supabaseToken || null));
+  if (!supa && !opts.embeddedJwt) return { state: 'auth-required', note: opts.embedded ? '等待內嵌授權' : '需要登入 Zhuge AI OS' };
   let ex;
-  try {
-    ex = await exchangeJwt(fetchImpl, apiBase, supa);
-  } catch (e) {
-    return { state: 'error', note: `連線失敗：${e && e.message ? e.message : 'network'}` };
+  if (opts.embeddedJwt) {
+    ex = { jwt: opts.embeddedJwt };
+  } else {
+    try {
+      ex = await exchangeJwt(fetchImpl, apiBase, supa);
+    } catch (e) {
+      return { state: 'error', note: `連線失敗：${e && e.message ? e.message : 'network'}` };
+    }
   }
   if (ex.error) return { state: 'auth-required', note: '登入狀態已失效，請重新登入 Zhuge AI OS', server: String(ex.error) };
   let res;
@@ -179,6 +255,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
       mode: 'cors',
       credentials: 'omit',
       cache: 'no-store',
+      signal: opts.signal,
     });
   } catch (e) {
     return { state: 'error', note: `連線失敗：${e && e.message ? e.message : 'network'}` };
@@ -191,8 +268,10 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
     if (cls === 'auth-forbidden') return { state: cls, note: '此帳號沒有此工作區權限', server: srvMsg };
     return { state: cls, note: `TaskFlow 暫時無法讀取（HTTP ${res.status}${srvMsg ? `：${srvMsg}` : ''}）`, server: srvMsg };
   }
+  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   let data;
   try { data = await res.json(); } catch { return { state: 'error', note: 'TaskFlow 回應格式異常' }; }
+  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const issues = data.issues || data.items || [];
   const headers = { authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json' };
   // Best-effort enrichment; a failed extra read never blocks the task list.
@@ -217,8 +296,9 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   } catch { /* queue info falls back to blank */ }
   const agentIssueIds = issues.filter((it) => it && it.assignee_type === 'agent').map((it) => ({ issue_id: it.id || it.issue_id }));
   const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, headers, agentIssueIds);
+  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, now });
-  return { state: 'ok', sessions, note: '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
+  return { state: 'ok', sessions, note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
 }
 
 // Report labels come from the EXISTING authenticated comments endpoint
@@ -319,7 +399,7 @@ function memberOverview(sessions) {
   return { counts, rows };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS };
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
@@ -331,27 +411,56 @@ if (typeof window !== 'undefined') {
   window.startTfSource = function startTfSource(opts) {
     const intervalMs = Math.max(60000, (opts.intervalSec || 3600) * 1000);
     let stopped = false;
+    const getEmbeddedJwt = typeof opts.getEmbeddedJwt === 'function' ? opts.getEmbeddedJwt : () => null;
     // Excerpt reads reuse the exact same auth chain as the hourly poll
     // (stored Supabase token -> /auth/zhuge exchange -> Bearer + workspace
     // slug). No new credential, scope, or permission is introduced.
     window.loadTfTaskExcerpts = async function loadTfTaskExcerpts(taskId) {
+      const ctl = opts.authCtl || null;
+      const readGen = ctl ? ctl.begin() : null;
+      const stale = () => (readGen ? ctl.isStale(readGen.gen) : false);
       try {
+        const embedded = getEmbeddedJwt();
         const storageGet = (k) => { try { return window.localStorage.getItem(k); } catch { return null; } };
-        const supa = TfSource.readSupabaseToken(storageGet);
-        if (!supa) return { ok: false, reason: 'auth' };
-        const ex = await TfSource.exchangeJwt(window.fetch.bind(window), opts.apiBase, supa);
+        const supa = embedded ? null : TfSource.readSupabaseToken(storageGet);
+        if (!supa && !embedded) return { ok: false, reason: 'auth' };
+        const ex = embedded ? { jwt: embedded } : await TfSource.exchangeJwt(window.fetch.bind(window), opts.apiBase, supa);
+        if (stale()) return { ok: false, reason: 'stale' };
         if (ex.error) return { ok: false, reason: 'auth' };
         const headers = { authorization: `Bearer ${ex.jwt}`, 'X-Workspace-Slug': opts.workspace, Accept: 'application/json' };
-        return await TfSource.fetchTaskMessages(window.fetch.bind(window), opts.apiBase, headers, taskId);
-      } catch { return { ok: false, reason: 'error' }; }
+        const out = await TfSource.fetchTaskMessages(window.fetch.bind(window), opts.apiBase, headers, taskId);
+        if (stale()) return { ok: false, reason: 'stale' }; // never paint a dead identity's excerpt
+        return out;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return { ok: false, reason: 'stale' };
+        return { ok: false, reason: 'error' };
+      } finally {
+        if (readGen) readGen.done();
+      }
     };
     async function tick() {
-      const r = await TfSource.pollTfOnce(window.fetch.bind(window), opts.base || '', Date.now(), {
-        apiBase: opts.apiBase,
-        workspace: opts.workspace,
-        storageGet: (k) => { try { return window.localStorage.getItem(k); } catch { return null; } },
-      });
+      const ctl = opts.authCtl || null;
+      const readGen = ctl ? ctl.begin() : null;
+      const embeddedJwt = getEmbeddedJwt();
+      let r;
+      try {
+        r = await TfSource.pollTfOnce(window.fetch.bind(window), opts.base || '', Date.now(), {
+          apiBase: opts.apiBase,
+          workspace: opts.workspace,
+          embedded: !!embeddedJwt,
+          embeddedJwt,
+          signal: readGen ? readGen.signal : undefined,
+          isStale: readGen ? () => ctl.isStale(readGen.gen) : undefined,
+          storageGet: (k) => { try { return window.localStorage.getItem(k); } catch { return null; } },
+        });
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // superseded identity: drop silently
+        throw e;
+      } finally {
+        if (readGen) readGen.done();
+      }
       if (stopped) return;
+      if (r.state === 'stale') return; // auth changed mid-read: old identity's result is discarded
       if (r.state === 'ok') {
         opts.onState && opts.onState({ auth: null, error: null });
         opts.onData({ now: Date.now(), sessions: r.sessions, source: 'live-tf', sourceNote: r.note });
