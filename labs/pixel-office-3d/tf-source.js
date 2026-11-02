@@ -34,12 +34,17 @@ function normalizeTfIssues(issues, opts) {
   opts = opts || {};
   const projectsById = opts.projectsById || {};
   const nativeByIssueId = opts.nativeByIssueId || {};
+  // ZG-56: UUID-level stable assignee resolution. Never match by display
+  // name; an id absent from the agents map stays unbound (尚未綁定).
+  const agentsById = opts.agentsById || {};
   const commentsByIssue = opts.commentsByIssue || {};
   const now = opts.now || Date.now();
   return (issues || []).map((it, i) => {
     const issueId = (it && (it.id || it.issue_id)) || `issue-${i}`;
     const native = nativeByIssueId[issueId] || null;
     const isAgentCard = !!(it && it.assignee_type === 'agent');
+    const assigneeId = (it && it.assignee_id) || null;
+    const assigneeAgent = assigneeId && agentsById[assigneeId] ? agentsById[assigneeId] : null;
     const category = (it && (it.status_category || it.status)) || 'backlog';
     const labels = commentsByIssue[issueId] || [];
     const identifier = (it && it.identifier) || null;
@@ -74,6 +79,8 @@ function normalizeTfIssues(issues, opts) {
         isAgentCard,
         identifier,
         issueStatus: category,
+        assigneeId,
+        assigneeAgent,
         taskflowTaskStatus: native ? (native.taskflow_task_status || null) : null,
         taskflowTaskId: native ? (native.taskflow_task_id || null) : null,
         providerRuntimeState: 'unverified', // by design, never displayed as fact
@@ -297,8 +304,30 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   const agentIssueIds = issues.filter((it) => it && it.assignee_type === 'agent').map((it) => ({ issue_id: it.id || it.issue_id }));
   const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, headers, agentIssueIds);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
-  const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, now });
+  const agentsById = await fetchAgents(fetchImpl, apiBase, headers);
+  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
+  const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, agentsById, now });
   return { state: 'ok', sessions, note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
+}
+
+// ZG-56: workspace agents directory. GET /api/agents resolves the assignee_id
+// UUID on each card to a stable agent identity ({id, name}). Best-effort: any
+// failure yields {} and every card degrades to 尚未綁定 instead of a wrong
+// attribution.
+async function fetchAgents(fetchImpl, apiBase, headers) {
+  const out = {};
+  try {
+    const r = await fetchImpl(`${apiBase}/api/agents?limit=200`, {
+      headers, mode: 'cors', credentials: 'omit', cache: 'no-store',
+    });
+    if (!r || r.status !== 200) return out;
+    const j = await r.json();
+    const arr = Array.isArray(j) ? j : (j.agents || j.items || []);
+    for (const a of arr) {
+      if (a && a.id) out[a.id] = { id: a.id, name: a.name || a.label || a.identifier || null };
+    }
+  } catch { /* agents read is best-effort */ }
+  return out;
 }
 
 // Report labels come from the EXISTING authenticated comments endpoint
@@ -378,28 +407,37 @@ async function fetchTaskMessages(fetchImpl, apiBase, headers, taskId) {
 }
 
 
-// 3D-1 member work overview (ZG-48). Counts and rows come straight from the
-// real card list a poll already returned. No member-to-executor binding is
-// inferred anywhere: unassigned or unmapped cards are NEVER attributed to a
-// character, so the panel must label this as board-wide truth, not the
-// member's own assignments.
+// ZG-56 member work overview (supersedes the ZG-48 board-wide fallback).
+// A member's panel lists ONLY cards whose assignee_id resolves to the agent
+// bound to that member. Cards with no assignee, or an assignee not in the
+// agents directory, belong to no one: they are counted as unbound and never
+// attributed. With no confirmed binding (boundAgentId null) the panel shows
+// an honest 尚未綁定 state instead of the whole board.
 const MEMBER_OVERVIEW_RANK = { in_review: 0, blocked: 1, in_progress: 2, todo: 3, backlog: 4, done: 5, cancelled: 6 };
-function memberOverview(sessions) {
+function memberOverview(sessions, opts) {
+  opts = opts || {};
+  const boundAgentId = opts.boundAgentId || null;
   const counts = { todo: 0, in_progress: 0, in_review: 0, done: 0 };
   const rows = [];
+  let unboundCount = 0;
+  let boardTotal = 0;
   for (const s of sessions || []) {
     if (!s || !s.tf) continue; // member/owner sessions carry no card payload
+    boardTotal += 1;
+    const mine = boundAgentId && s.tf.assigneeAgent && s.tf.assigneeId === boundAgentId;
+    if (!s.tf.assigneeId || !s.tf.assigneeAgent) unboundCount += 1;
+    if (!mine) continue;
     const st = s.tf.issueStatus || 'backlog';
     if (Object.hasOwn(counts, st)) counts[st] += 1;
-    rows.push({ key: s.key, title: s.title || '', issueStatus: st, updatedAt: s.tf.updatedAt || null });
+    rows.push({ key: s.key, title: s.title || '', issueStatus: st, updatedAt: s.tf.updatedAt || null, assigneeId: s.tf.assigneeId });
   }
   rows.sort((a, b) =>
     ((MEMBER_OVERVIEW_RANK[a.issueStatus] ?? 9) - (MEMBER_OVERVIEW_RANK[b.issueStatus] ?? 9)) ||
     String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-  return { counts, rows };
+  return { counts, rows, bound: !!boundAgentId, boundAgentId, unboundCount, boardTotal };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
