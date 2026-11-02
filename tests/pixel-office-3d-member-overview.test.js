@@ -39,7 +39,19 @@ test("different assignees land in different member overviews", () => {
   const b = TfSource.memberOverview(sessions, { boundAgentId: AGENT_B });
   assert.deepEqual(a.rows.map((r) => r.key), ["zhuge:i2", "zhuge:i1"]);
   assert.deepEqual(b.rows.map((r) => r.key), ["zhuge:i3", "zhuge:i6"]);
-  assert.deepEqual(a.counts, { todo: 1, in_progress: 1, in_review: 0, done: 0 });
+  assert.deepEqual(a.counts, { todo: 1, in_progress: 1, in_review: 0, done: 0, backlog: 0, blocked: 0, cancelled: 0 });
+});
+
+test("every status bucket is counted so the overview reconciles with the list", () => {
+  const more = TfSource.normalizeTfIssues([
+    { id: "j1", identifier: "ZG-11", title: "p", status_category: "backlog", assignee_type: "agent", assignee_id: AGENT_A },
+    { id: "j2", identifier: "ZG-12", title: "q", status_category: "blocked", assignee_type: "agent", assignee_id: AGENT_A },
+    { id: "j3", identifier: "ZG-13", title: "r", status_category: "cancelled", assignee_type: "agent", assignee_id: AGENT_A },
+  ], { agentsById, now: 0 });
+  const ov = TfSource.memberOverview(more, { boundAgentId: AGENT_A });
+  assert.equal(ov.rows.length, 3, "backlog/blocked/cancelled cards are listed");
+  assert.deepEqual(ov.counts, { todo: 0, in_progress: 0, in_review: 0, done: 0, backlog: 1, blocked: 1, cancelled: 1 },
+    "no listed card may fall outside the displayed counts");
 });
 
 test("unassigned or unmapped cards are attributed to no one", () => {
@@ -53,7 +65,7 @@ test("no confirmed binding yields an honest unbound state, never the whole board
   const ov = TfSource.memberOverview(sessions);
   assert.equal(ov.bound, false);
   assert.deepEqual(ov.rows, []);
-  assert.deepEqual(ov.counts, { todo: 0, in_progress: 0, in_review: 0, done: 0 });
+  assert.deepEqual(ov.counts, { todo: 0, in_progress: 0, in_review: 0, done: 0, backlog: 0, blocked: 0, cancelled: 0 });
   assert.equal(ov.boardTotal, 6, "board total reported separately, not mixed into personal stats");
 });
 

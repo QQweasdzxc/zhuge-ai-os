@@ -424,7 +424,7 @@ const MEMBER_OVERVIEW_RANK = { in_review: 0, blocked: 1, in_progress: 2, todo: 3
 function memberOverview(sessions, opts) {
   opts = opts || {};
   const boundAgentId = opts.boundAgentId || null;
-  const counts = { todo: 0, in_progress: 0, in_review: 0, done: 0 };
+  const counts = { todo: 0, in_progress: 0, in_review: 0, done: 0, backlog: 0, blocked: 0, cancelled: 0 };
   const rows = [];
   let unboundCount = 0;
   let boardTotal = 0;
