@@ -24,7 +24,10 @@ Two-part bootstrap, both verified empirically against the live build:
    on a page too short to scroll, no scroll event ever fires, so the list
    would otherwise keep its empty initial window forever (verified live:
    defaultItemHeight alone leaves the window empty; one synthetic scroll
-   event after data arrival renders all rows).
+   event renders all rows once Virtuoso's ResizeObserver has delivered the
+   scroll parent's size — RO callbacks run after rAF in the same frame, so
+   the nudge uses double-rAF plus a 150ms fallback, fired on container
+   attach and on timeline item-count changes).
 """
 
 from __future__ import annotations
@@ -90,10 +93,18 @@ TIMELINE_ITEMS_PATCHED = (
     "  const timelineItemCount = items.length;\n"
     "  useEffect(() => {\n"
     "    if (!scrollContainerEl) return;\n"
-    "    const raf = requestAnimationFrame(() => {\n"
-    "      scrollContainerEl.dispatchEvent(new Event(\"scroll\"));\n"
-    "    });\n"
-    "    return () => cancelAnimationFrame(raf);\n"
+    "    const el = scrollContainerEl;\n"
+    "    const nudge = () => el.dispatchEvent(new Event(\"scroll\"));\n"
+    "    // ResizeObserver callbacks run after rAF in the same frame, so a\n"
+    "    // single-rAF nudge can still beat Virtuoso's first viewport\n"
+    "    // observation (verified live). Double-rAF lands after it; the\n"
+    "    // timeout covers slow cold-start layouts.\n"
+    "    const raf = requestAnimationFrame(() => requestAnimationFrame(nudge));\n"
+    "    const timer = window.setTimeout(nudge, 150);\n"
+    "    return () => {\n"
+    "      cancelAnimationFrame(raf);\n"
+    "      window.clearTimeout(timer);\n"
+    "    };\n"
     "  }, [scrollContainerEl, timelineItemCount]);\n"
 )
 
