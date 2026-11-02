@@ -937,12 +937,16 @@ function ownerName() {
 // statistics are unaffected.
 // The user's named basic office crew: generic assistant identities (no
 // private data). Display identities only - their presence is not evidence of
-// a live connection, trigger, or execution. GitHub小幫手 is the occasional
-// one: always idle unless real trigger evidence exists (none is wired yet).
+// a live connection, trigger, or execution. Roster per the user's 2026-11-03
+// Slack direction: Codex is three separate people (one per executor), GPT
+// one, Gem one, GitHub not fixed to one. GitHub小幫手 is the occasional one:
+// always idle unless real trigger evidence exists (none is wired yet).
 const BUILTIN_AI = [
   { name: 'Instinct' },
   { name: 'GPT' },
-  { name: 'Codex' },
+  { name: 'Codex-01' },
+  { name: 'Codex-02' },
+  { name: 'Codex-03' },
   { name: 'Gem' },
   { name: 'GitHub小幫手', occasional: true },
 ];
@@ -1671,7 +1675,7 @@ function renderDetail(scrollDown) {
   // static claim: a bound member reads as bound; only unbound members keep
   // the "not yet obtained" note (which is then true).
   const msgs = s.owner ? ''
-    : s.member ? `<div class="msgs-note">${esc(ov && ov.bound ? (L.memberBoundNote || 'AI 成員；已綁定 TaskFlow 負責人（agent），下列為其名下卡片。') : s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
+    : s.member ? `<div class="msgs-note">${esc(ov && ov.bound ? (L.memberBoundNote || 'AI 工程師；已綁定 TaskFlow 負責人（agent），下列為其名下卡片。') : s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 工程師；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 工程師；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
     : s.tf ? (s.tf.isAgentCard
       ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '這張任務尚未連上對話紀錄；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
       : convo.messages == null ? `<div class="msgs-note">${esc(L.loadingMsgs)}</div>`
@@ -1791,4 +1795,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-                                                      </html>
+  </html>
