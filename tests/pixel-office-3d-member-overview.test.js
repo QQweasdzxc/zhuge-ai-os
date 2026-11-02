@@ -99,8 +99,9 @@ test("index.html derives the member description from the actual binding state", 
 // system_key. Bound: Instinct (user-approved INSTINCT-01 identity, ZG-45),
 // Codex-01/02/03 (user's 2026-11-03 roster statement + governance doc naming
 // CO-01/02/03 as the three Codex executors), Gem (same doc: GEM-01). GPT and
-// GitHub小幫手 stay truthfully unbound (no GPT agent in the directory; no
-// source maps GH-HELPER to the member).
+// GitHub小幫手 binds to GH-HELPER, the single existing agent of the
+// documented GH-HELPER-* class (user's 2026-11-03 direction + governance
+// doc). GPT stays truthfully unbound (no GPT agent in the directory).
 test("resolveMemberAgentId binds only source-evidenced members by system_key", () => {
   const agents = [
     { id: "dddddddd-0000-0000-0000-00000000000d", name: "Instinct", system_key: "INSTINCT-01" },
@@ -115,7 +116,7 @@ test("resolveMemberAgentId binds only source-evidenced members by system_key", (
   assert.equal(TfSource.resolveMemberAgentId("Codex-02", agents), "c0c0c0c0-0000-0000-0000-000000000002");
   assert.equal(TfSource.resolveMemberAgentId("Codex-03", agents), "c0c0c0c0-0000-0000-0000-000000000003");
   assert.equal(TfSource.resolveMemberAgentId("Gem", agents), "90909090-0000-0000-0000-00000000000a");
-  assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), null, "GH-HELPER has no source-evidenced member mapping; stays unbound");
+  assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), "eeeeeeee-0000-0000-0000-00000000000e", "GH-HELPER is the single existing agent of the documented GH-HELPER-* class");
 });
 
 test("resolveMemberAgentId never binds unverified members or name-only matches", () => {
