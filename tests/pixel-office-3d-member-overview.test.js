@@ -87,3 +87,26 @@ test("index.html renders the overview only for AI members and stays honest when 
   assert.ok(INDEX.includes("data-open-key"), "rows drill into the real card detail");
   assert.ok(!INDEX.includes("不是這位成員的指派"), "board-wide fallback copy is gone");
 });
+
+// ZG-56 member->agent binding: only verified identities bind, by system_key.
+test("resolveMemberAgentId binds verified members by system_key", () => {
+  const agents = [
+    { id: "dddddddd-0000-0000-0000-00000000000d", name: "Instinct", system_key: "INSTINCT-01" },
+    { id: "eeeeeeee-0000-0000-0000-00000000000e", name: "GH-HELPER", system_key: "GH-HELPER" },
+  ];
+  assert.equal(TfSource.resolveMemberAgentId("Instinct", agents), "dddddddd-0000-0000-0000-00000000000d");
+  assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), "eeeeeeee-0000-0000-0000-00000000000e");
+});
+
+test("resolveMemberAgentId never binds unverified members or name-only matches", () => {
+  const agents = [
+    { id: "dddddddd-0000-0000-0000-00000000000d", name: "Codex", system_key: "CO-01" },
+    { id: "ffffffff-0000-0000-0000-00000000000f", name: "Instinct", system_key: null },
+  ];
+  assert.equal(TfSource.resolveMemberAgentId("Codex", agents), null, "no verified binding for Codex this round");
+  assert.equal(TfSource.resolveMemberAgentId("Gem", agents), null);
+  assert.equal(TfSource.resolveMemberAgentId("GPT", agents), null);
+  assert.equal(TfSource.resolveMemberAgentId("Instinct", agents), null, "display-name match without system_key is not a binding");
+  assert.equal(TfSource.resolveMemberAgentId("Instinct", []), null, "missing directory degrades to unbound");
+  assert.equal(TfSource.resolveMemberAgentId("Instinct", null), null);
+});
