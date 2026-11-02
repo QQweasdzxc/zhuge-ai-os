@@ -104,6 +104,12 @@ RUN TASKFLOW_AI_REPO=/src TASKFLOW_AI_VENDOR=/src TASKFLOW_AI_OVERLAYS=/taskflow
     python3 /tmp/test_taskflow_ai_engineering_overlay.py \
  && python3 /tmp/apply-taskflow-ai-engineering.py --root /src --overlays /taskflow-ai
 
+# Office panel: install only into the copied source tree.
+COPY labs/taskflow/patches/apply-taskflow-office-panel.py /tmp/apply-taskflow-office-panel.py
+COPY labs/taskflow/overrides/taskflow-office-panel.tsx /taskflow-office/taskflow-office-panel.tsx
+COPY labs/taskflow/overrides/taskflow-office-panel.test.tsx /taskflow-office/taskflow-office-panel.test.tsx
+RUN python3 /tmp/apply-taskflow-office-panel.py --root /src --overlays /taskflow-office
+
 COPY labs/taskflow/patches/apply-taskflow-dispatch-center.py /tmp/apply-taskflow-dispatch-center.py
 COPY labs/taskflow/overrides/taskflow-dispatch-center.tsx /taskflow-dispatch/taskflow-dispatch-center.tsx
 COPY labs/taskflow/overrides/taskflow-dispatch-center.test.tsx /taskflow-dispatch/taskflow-dispatch-center.test.tsx
@@ -172,6 +178,7 @@ RUN pnpm --filter @multica/core exec vitest run issues/taskflow-row-query.test.t
  && pnpm --filter @multica/views exec vitest run issues/surface/use-issue-status-branches.test.tsx issues/surface/use-issue-group-branches.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issue-statuses/taskflow-project-status-scope.test.ts issue-statuses/taskflow-project-status-preferences.test.tsx \
  && pnpm --filter @multica/views exec vitest run issues/components/taskflow-project-status-settings.test.tsx
+RUN pnpm --filter @multica/views exec vitest run common/taskflow-office-panel.test.tsx
 RUN pnpm --filter @multica/views exec vitest run common/taskflow-dispatch-center.test.tsx
 RUN pnpm --filter @multica/core exec vitest run issues/surface/taskflow-project-partition.test.ts \
  && pnpm --filter @multica/views exec vitest run projects/components/projects-page.test.tsx \
