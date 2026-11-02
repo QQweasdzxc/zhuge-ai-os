@@ -57,7 +57,8 @@ case "$PROFILE" in
     run_gate cli_auth 2 env CGO_ENABLED=0 go test ./internal/auth -v -run TestZhugeCLIAuthorizationCode -count=1
     run_gate cli_mw 2 env CGO_ENABLED=0 go test ./internal/middleware -v -run TestZhugeCLIAuthorizationCode -count=1
     run_gate cli_token 1 env CGO_ENABLED=0 go test ./internal/handler -v -run TestZhugeIssueCliToken -count=1
-    echo "ALL PARITY GATES PASSED (profile=full pool=7 webhook=3 router=1 locale=1 dispatch=18 cli_auth=2 cli_mw=2 cli_token=1)"
+    sh /tmp/run-service-agent-token-tests.sh "$SERVER_DIR" /tmp/sat-sql || exit 1
+    echo "ALL PARITY GATES PASSED (profile=full pool=7 webhook=3 router=1 locale=1 dispatch=18 cli_auth=2 cli_mw=2 cli_token=1 service_agent_token=9)"
     ;;
   dispatch)
     run_dispatch_gate

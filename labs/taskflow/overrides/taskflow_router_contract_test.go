@@ -38,6 +38,9 @@ func TestTaskFlowZhugeRoutesInFinalRouter(t *testing.T) {
 
 	assertRouteCount(http.MethodPost, "/auth/zhuge")
 	assertRouteCount(http.MethodPost, "/api/cli-token")
+	assertRouteCount(http.MethodPost, "/api/agents/{id}/service-tokens")
+	assertRouteCount(http.MethodGet, "/api/agents/{id}/service-tokens")
+	assertRouteCount(http.MethodDelete, "/api/agents/{id}/service-tokens/{tokenId}")
 	assertRouteCount(http.MethodGet, "/api/issues/{id}/dispatch-runtime")
 	assertRouteCount(http.MethodGet, "/api/zhuge/native-executor-projects")
 	assertRouteCount(http.MethodGet, "/api/zhuge/native-ai-tasks")

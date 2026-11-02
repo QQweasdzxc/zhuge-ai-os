@@ -90,6 +90,12 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
  && cp /tmp/taskflow_provider_binding_test.go /src/server/internal/handler/taskflow_provider_binding_test.go \
  && python3 /tmp/patch-router-contract-test-main.py
 
+# SAT is a TaskFlow overlay; frozen vendor and migration staging stay unchanged.
+COPY labs/taskflow/patches/apply-taskflow-service-agent-token.py /tmp/apply-taskflow-service-agent-token.py
+COPY labs/taskflow/patches/service-agent-token/ /tmp/service-agent-token/
+RUN python3 /tmp/apply-taskflow-service-agent-token.py --root /src
+COPY labs/taskflow/tests/service_agent_token_contract_test.go /src/server/internal/handler/service_agent_token_contract_test.go
+
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
 COPY labs/taskflow/overrides/taskflow_backlog_assignment_test.go /src/server/internal/handler/taskflow_backlog_assignment_test.go
@@ -131,6 +137,9 @@ RUN cd server && gofmt -w internal/handler/github.go internal/handler/vcs_webhoo
 # Run the phase-2 Go gates against a real PostgreSQL 16 with the full vendored
 # schema. The script starts the server, applies migrations, and requires the
 # exact expected --- PASS count per gate so a skipped TestMain fails the build.
+COPY labs/taskflow/patches/run-service-agent-token-tests.sh /tmp/run-service-agent-token-tests.sh
+COPY labs/taskflow/sql/taskflow_service_agent_tokens_candidate.sql /tmp/sat-sql/taskflow_service_agent_tokens_candidate.sql
+COPY labs/taskflow/sql/taskflow_service_agent_tokens_postflight.sql /tmp/sat-sql/taskflow_service_agent_tokens_postflight.sql
 COPY labs/taskflow/patches/run-parity-tests.sh /tmp/run-parity-tests.sh
 RUN sh /tmp/run-parity-tests.sh /src/server
 RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/server ./cmd/server
