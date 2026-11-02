@@ -446,13 +446,20 @@ function memberOverview(sessions, opts) {
 
 // ZG-56: verified member->agent bindings ONLY, keyed by the server-side
 // system_key (stable identity), never by mutable display name. Display-name
-// similarity is not evidence of identity: Codex/Gem/GPT have no confirmed
-// agent counterpart this round and stay unbound (honest 尚未綁定 panel)
-// until a source-evidenced mapping exists. Only Instinct is bound:
-// the user approved the INSTINCT-01 agent identity and its rename to
-// Instinct on 2026-11-02 (ZG-45). GH-HELPER is a real TF agent, but no
-// source maps it to the GitHub小幫手 member, so it stays unbound.
-const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01' };
+// similarity alone is not evidence of identity.
+// - Instinct: the user approved the INSTINCT-01 agent identity and its
+//   rename to Instinct on 2026-11-02 (ZG-45).
+// - Codex-01/02/03: the user stated on 2026-11-03 (Slack DM) that Codex is
+//   three separate people; the repo's PM dispatch governance doc
+//   (docs/10_GOVERNANCE/principles/AI_DISPATCH_OPERATING_PRINCIPLE_20261020.md)
+//   names CO-01/CO-02/CO-03 as the three Codex executors ("CO-03／Codex-03"),
+//   and CO-01 holds the real dispatch-verification cards ZG-44/ZG-33.
+// - Gem: the user stated Gem is one person; the same governance doc names
+//   GEM-01 as the Gem engineer (DM-04 owner).
+// GPT stays unbound: the doc's CTO-01 role has no agent in the workspace
+// agents directory. GH-HELPER is a real TF agent, but no source maps it to
+// the GitHub小幫手 member, so it stays unbound.
+const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'Codex-01': 'CO-01', 'Codex-02': 'CO-02', 'Codex-03': 'CO-03', Gem: 'GEM-01' };
 function resolveMemberAgentId(memberName, agents) {
   const key = MEMBER_AGENT_BINDING[memberName];
   if (!key) return null;
