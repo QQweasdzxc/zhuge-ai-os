@@ -473,7 +473,37 @@ function resolveMemberAgentId(memberName, agents) {
   return hit ? hit.id : null;
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl, startTfSource, resolveMemberAgentId, MEMBER_AGENT_BINDING };
+// ZG-56 dynamic roster (user direction 2026-11-03: Codex 是三人、GPT 一人、
+// Gem 一人、GitHub 不一定是一人 — 全部如實反映 TF 目錄裡的實際成員):
+// AI engineer figures are DERIVED from the live agents directory, one figure
+// per actual agent, instead of a hardcoded name list. Only the documented
+// existing classes render (INSTINCT-01, CTO-01, CO-*, GEM-*, GH-HELPER-*) —
+// an unknown system_key never becomes a figure, so no arbitrary provider
+// class or account can appear. A new agent in a known class (e.g. a second
+// GH-HELPER-*) automatically becomes its own figure; a removed agent's
+// figure disappears. Figure names are stable per system_key, so member
+// settings keyed by name survive roster changes.
+const AI_ROSTER_CLASSES = [
+  { pattern: /^INSTINCT-01$/, name: () => 'Instinct' },
+  { pattern: /^CTO-01$/, name: () => 'GPT' },
+  { pattern: /^CO-(\d+)$/, name: (m) => `Codex-${m[1]}` },
+  { pattern: /^GEM-(\d+)$/, name: (m) => (m[1] === '01' ? 'Gem' : `Gem-${m[1]}`) },
+  { pattern: /^GH-HELPER(?:-(\d+))?$/, name: (m) => (m[1] ? `GitHub小幫手-${m[1]}` : 'GitHub小幫手'), occasional: true },
+];
+function deriveAiRoster(agents) {
+  const out = [];
+  for (const cls of AI_ROSTER_CLASSES) {
+    const hits = (agents || [])
+      .filter((a) => a && typeof a.system_key === 'string' && cls.pattern.test(a.system_key))
+      .sort((a, b) => (a.system_key < b.system_key ? -1 : a.system_key > b.system_key ? 1 : 0));
+    for (const a of hits) {
+      out.push({ name: cls.name(a.system_key.match(cls.pattern)), agentId: a.id, systemKey: a.system_key, occasional: !!cls.occasional });
+    }
+  }
+  return out;
+}
+
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl, startTfSource, resolveMemberAgentId, MEMBER_AGENT_BINDING, deriveAiRoster, AI_ROSTER_CLASSES };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
