@@ -250,3 +250,56 @@ test("root relay wiring markers: pinned origins, no token persistence, after ifr
   assert.ok(!/localStorage|sessionStorage/.test(ROOT.match(/\/\/ ZG-52 embedded-auth relay[\s\S]*?<\/script>/)[0]), "relay never touches storage");
   assert.ok(ROOT.indexOf("ZG-52 embedded-auth relay") > ROOT.indexOf("<iframe"), "relay installs after the iframe exists");
 });
+
+// --- regression: late token must re-poll immediately (production double-layer
+// finding 2026-11-02: the relay delivered the token AFTER the poller's first
+// tokenless tick, and nothing re-read until the >=60s interval, leaving the
+// nested office stuck on 等待內嵌授權 with 任務 0) ----------------------------
+
+test("kick: a token landing after the first tick re-reads now, not one interval later", async () => {
+  const { startTfSource } = require("../labs/pixel-office-3d/tf-source.js");
+  const ctl = createEmbeddedAuthCtl({});
+  const states = [];
+  const boards = [];
+  const fetchImpl = stubFetch([
+    { match: "/api/issues", respond: async () => ok200({ issues: [{ id: "i1", title: "巢狀卡片", status_category: "in_progress" }], total: 1 }) },
+    { match: "/api/projects", respond: async () => ok200({ projects: [] }) },
+    { match: "/api/zhuge/native-ai-tasks", respond: async () => ok200({ tasks: [] }) },
+  ]);
+  globalThis.window = { fetch: fetchImpl, localStorage: { getItem: () => null } };
+  try {
+    const poller = startTfSource({
+      intervalSec: 3600, // production cadence: 1h — kick must NOT wait for it
+      apiBase: "https://api.example", workspace: "ws",
+      getEmbeddedJwt: () => ctl.getToken(),
+      authCtl: ctl,
+      onData: (d) => boards.push(d),
+      onState: (s) => states.push(s),
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(boards.length, 1, "first tokenless tick reports its honest state");
+    assert.equal(boards[0].sessions.length, 0);
+    assert.equal(states[0].auth, "auth-required");
+
+    ctl.setToken("late-jwt"); // relay delivers the handshake after load
+    poller.kick();
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(boards.length, 2, "kick re-reads immediately");
+    assert.equal(boards[1].sessions.length, 1, "board fills on the kicked read");
+    assert.equal(boards[1].sessions[0].title.includes("巢狀卡片"), true);
+
+    poller.stop();
+    poller.kick(); // after stop, kick is inert
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(boards.length, 2, "stopped poller stays stopped");
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test("office wiring markers: setToken is followed by the poller kick", () => {
+  const setBlock = INDEX.match(/embeddedAuthMessageOk[\s\S]{0,400}/);
+  assert.ok(setBlock, "auth acceptance block exists");
+  assert.ok(setBlock[0].includes("tfSourceKick"), "kick armed in the acceptance block");
+  assert.ok(/tfSourceKick = tfStarted && typeof tfStarted\.kick/.test(INDEX), "connect() captures the poller kick");
+});
