@@ -1,59 +1,89 @@
 "use strict";
-// 3D-1 (ZG-48) member work overview. Counts and rows come straight from the
-// real card list; no member-to-executor binding is inferred, so unassigned
-// or unmapped cards are never attributed to a character.
+// ZG-56 member work overview (supersedes the ZG-48 board-wide fallback):
+// a member's panel lists ONLY cards whose assignee_id resolves to the agent
+// bound to that member; unassigned or unmapped cards belong to no one and
+// are never attributed; agents-directory failure degrades to 尚未綁定.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const nodePath = require("node:path");
 const TfSource = require("../labs/pixel-office-3d/tf-source.js");
 
-const sessions = TfSource.normalizeTfIssues([
-  { id: "i1", identifier: "ZG-1", title: "a", status_category: "todo" },
-  { id: "i2", identifier: "ZG-2", title: "b", status_category: "todo" },
-  { id: "i3", identifier: "ZG-3", title: "c", status_category: "in_progress" },
-  { id: "i4", identifier: "ZG-4", title: "d", status_category: "in_review" },
-  { id: "i5", identifier: "ZG-5", title: "e", status_category: "done" },
-  { id: "i6", identifier: "ZG-6", title: "f", status_category: "backlog" },
-  { id: "i7", identifier: "ZG-7", title: "g", status_category: "cancelled" },
-  { id: "i8", identifier: "ZG-8", title: "h", status_category: "blocked" },
-], { now: 0 });
+const AGENT_A = "aaaaaaaa-0000-0000-0000-00000000000a";
+const AGENT_B = "bbbbbbbb-0000-0000-0000-00000000000b";
+const agentsById = {
+  [AGENT_A]: { id: AGENT_A, name: "CC-01" },
+  [AGENT_B]: { id: AGENT_B, name: "CO-01" },
+};
 
-test("memberOverview counts exactly the four promised statuses from real cards", () => {
-  const ov = TfSource.memberOverview(sessions);
-  assert.deepEqual(ov.counts, { todo: 2, in_progress: 1, in_review: 1, done: 1 });
+const issues = [
+  { id: "i1", identifier: "ZG-1", title: "a", status_category: "todo", assignee_type: "agent", assignee_id: AGENT_A },
+  { id: "i2", identifier: "ZG-2", title: "b", status_category: "in_progress", assignee_type: "agent", assignee_id: AGENT_A },
+  { id: "i3", identifier: "ZG-3", title: "c", status_category: "in_review", assignee_type: "agent", assignee_id: AGENT_B },
+  { id: "i4", identifier: "ZG-4", title: "d", status_category: "todo", assignee_type: "agent", assignee_id: "cccccccc-0000-0000-0000-00000000000c" }, // not in directory
+  { id: "i5", identifier: "ZG-5", title: "e", status_category: "todo" }, // unassigned
+  { id: "i6", identifier: "ZG-6", title: "f", status_category: "done", assignee_type: "agent", assignee_id: AGENT_B },
+];
+
+const sessions = TfSource.normalizeTfIssues(issues, { agentsById, now: 0 });
+
+test("normalizeTfIssues resolves assignee via the agents directory, by UUID only", () => {
+  assert.equal(sessions[0].tf.assigneeAgent.name, "CC-01");
+  assert.equal(sessions[2].tf.assigneeAgent.name, "CO-01");
+  assert.equal(sessions[3].tf.assigneeAgent, null, "id absent from directory stays unbound");
+  assert.equal(sessions[4].tf.assigneeId, null, "unassigned card has no assigneeId");
 });
 
-test("memberOverview rows keep every card with its own status, none invented or dropped", () => {
+test("different assignees land in different member overviews", () => {
+  const a = TfSource.memberOverview(sessions, { boundAgentId: AGENT_A });
+  const b = TfSource.memberOverview(sessions, { boundAgentId: AGENT_B });
+  assert.deepEqual(a.rows.map((r) => r.key), ["zhuge:i2", "zhuge:i1"]);
+  assert.deepEqual(b.rows.map((r) => r.key), ["zhuge:i3", "zhuge:i6"]);
+  assert.deepEqual(a.counts, { todo: 1, in_progress: 1, in_review: 0, done: 0 });
+});
+
+test("unassigned or unmapped cards are attributed to no one", () => {
+  const a = TfSource.memberOverview(sessions, { boundAgentId: AGENT_A });
+  const b = TfSource.memberOverview(sessions, { boundAgentId: AGENT_B });
+  assert.ok(!a.rows.concat(b.rows).some((r) => ["zhuge:i4", "zhuge:i5"].includes(r.key)));
+  assert.equal(a.unboundCount, 2, "unmapped-id and unassigned cards counted as unbound");
+});
+
+test("no confirmed binding yields an honest unbound state, never the whole board", () => {
   const ov = TfSource.memberOverview(sessions);
-  assert.equal(ov.rows.length, 8);
-  for (const r of ov.rows) assert.ok(r.key && r.title && r.issueStatus, "row carries key/title/issueStatus");
-  assert.ok(!ov.rows.some((r) => "owner" in r || "assignee" in r), "rows never claim an owner");
+  assert.equal(ov.bound, false);
+  assert.deepEqual(ov.rows, []);
+  assert.deepEqual(ov.counts, { todo: 0, in_progress: 0, in_review: 0, done: 0 });
+  assert.equal(ov.boardTotal, 6, "board total reported separately, not mixed into personal stats");
+});
+
+test("agents-directory failure degrades to unbound, not mis-assignment", () => {
+  const degraded = TfSource.normalizeTfIssues(issues, { agentsById: {}, now: 0 });
+  assert.ok(degraded.every((s) => s.tf.assigneeAgent === null));
+  const ov = TfSource.memberOverview(degraded, { boundAgentId: AGENT_A });
+  assert.deepEqual(ov.rows, [], "no resolved agent means no attribution even with a binding");
+  assert.equal(ov.unboundCount, 6);
 });
 
 test("memberOverview ignores member/owner sessions that carry no card payload", () => {
   const mixed = sessions.concat([{ key: "member:ai:Codex", member: true, ai: true }, { key: "member:owner:u", member: true, owner: true }]);
-  const ov = TfSource.memberOverview(mixed);
-  assert.equal(ov.rows.length, 8, "member sessions add no cards");
-  assert.deepEqual(ov.counts, { todo: 2, in_progress: 1, in_review: 1, done: 1 });
+  const ov = TfSource.memberOverview(mixed, { boundAgentId: AGENT_A });
+  assert.equal(ov.rows.length, 2, "member sessions add no cards");
+  assert.equal(ov.boardTotal, 6);
 });
 
 test("memberOverview orders attention first, finished last", () => {
-  const ov = TfSource.memberOverview(sessions);
-  assert.deepEqual(ov.rows.map((r) => r.issueStatus),
-    ["in_review", "blocked", "in_progress", "todo", "todo", "backlog", "done", "cancelled"]);
-});
-
-test("memberOverview tolerates empty and missing statuses honestly", () => {
-  assert.deepEqual(TfSource.memberOverview([]), { counts: { todo: 0, in_progress: 0, in_review: 0, done: 0 }, rows: [] });
-  assert.deepEqual(TfSource.memberOverview(null).rows, []);
+  const b = TfSource.memberOverview(sessions, { boundAgentId: AGENT_B });
+  assert.deepEqual(b.rows.map((r) => r.issueStatus), ["in_review", "done"]);
 });
 
 // --- index.html wiring markers (fail loudly if the panel code moves) -------
 const INDEX = fs.readFileSync(nodePath.join(__dirname, "..", "labs/pixel-office-3d/index.html"), "utf8");
-test("index.html renders the overview only for AI members and labels it unmapped", () => {
+test("index.html renders the overview only for AI members and stays honest when unbound", () => {
   assert.ok(INDEX.includes("window.ZhugeTfSource.memberOverview"), "panel calls the pure helper");
   assert.ok(INDEX.includes("s.member && s.ai"), "overview is gated to AI member sessions");
-  assert.ok(INDEX.includes("memberOverviewHtml"), "renderer exists");
+  assert.ok(INDEX.includes("boundAgentId"), "call passes an explicit binding");
+  assert.ok(INDEX.includes("!ov.bound"), "unbound state renders without rows");
   assert.ok(INDEX.includes("data-open-key"), "rows drill into the real card detail");
+  assert.ok(!INDEX.includes("不是這位成員的指派"), "board-wide fallback copy is gone");
 });
