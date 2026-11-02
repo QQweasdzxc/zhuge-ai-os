@@ -59,6 +59,9 @@ class TimelineBootstrapOverlayTests(unittest.TestCase):
             self.assertIn("defaultItemHeight={64}", patched)
             self.assertEqual(patched.count("defaultItemHeight"), 1)
             self.assertNotIn(OVERLAY.TIMELINE_VIRTUOSO_ANCHOR, patched)
+            self.assertIn('scrollContainerEl.dispatchEvent(new Event("scroll"))', patched)
+            self.assertEqual(patched.count("dispatchEvent(new Event"), 1)
+            self.assertNotIn(OVERLAY.SCROLL_CONTAINER_ANCHOR, patched)
         self.assertEqual((SOURCE_ROOT / ISSUE_DETAIL).read_bytes(), vendor_before)
 
     def test_missing_upstream_marker_fails_closed(self) -> None:

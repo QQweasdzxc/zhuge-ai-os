@@ -11,9 +11,18 @@ no default height is set, so totalHeight starts at 0, the scroller collapses
 to 0px, the viewport child (height: 100%) collapses with it, and Virtuoso
 never mounts the first row it would measure. The stream stays empty with no
 console error even though the timeline query returns healthy data (observed
-on production ZG-45/ZG-46, 2026-11-02). Seeding defaultItemHeight gives the
-first paint a nonzero totalHeight; real measured row heights replace the
-estimate as rows mount.
+on production ZG-45/ZG-46, 2026-11-02).
+
+Two-part bootstrap, both verified empirically against the live build:
+1. defaultItemHeight seeds a nonzero totalHeight so the first computed
+   render window is sized from estimates; real measured row heights
+   replace the estimate as rows mount.
+2. A one-shot scroll nudge on the custom scroll parent after it attaches.
+   Virtuoso recomputes its render window on scroll-parent scroll events;
+   on a page too short to scroll, no scroll event ever fires after mount,
+   so the list would otherwise keep its empty initial window forever
+   (verified: one synthetic scroll event renders all rows; defaultItemHeight
+   alone leaves the window empty).
 """
 
 from __future__ import annotations
@@ -53,8 +62,37 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
     return source.replace(old, new, 1)
 
 
+SCROLL_CONTAINER_ANCHOR = (
+    "    [isPeek, restoreScrollRef],\n"
+    "  );\n"
+    "  const [pendingPostedCommentId, setPendingPostedCommentId] = useState<string | null>(null);\n"
+)
+
+SCROLL_CONTAINER_PATCHED = (
+    "    [isPeek, restoreScrollRef],\n"
+    "  );\n"
+    "  // TaskFlow shell bootstrap: with customScrollParent, react-virtuoso\n"
+    "  // recomputes its render window on scroll-parent scroll events. On a\n"
+    "  // page too short to scroll, no scroll event fires after mount, so the\n"
+    "  // virtual list would keep its empty initial window forever (the\n"
+    "  // activity stream renders zero rows with healthy data). Nudge the\n"
+    "  // scroll parent once it attaches so the first window is computed\n"
+    "  // from settled geometry.\n"
+    "  useEffect(() => {\n"
+    "    if (!scrollContainerEl) return;\n"
+    "    const raf = requestAnimationFrame(() => {\n"
+    "      scrollContainerEl.dispatchEvent(new Event(\"scroll\"));\n"
+    "    });\n"
+    "    return () => cancelAnimationFrame(raf);\n"
+    "  }, [scrollContainerEl]);\n"
+    "  const [pendingPostedCommentId, setPendingPostedCommentId] = useState<string | null>(null);\n"
+)
+
+
 def patch_issue_detail(source: str) -> str:
-    return replace_once(source, TIMELINE_VIRTUOSO_ANCHOR, TIMELINE_VIRTUOSO_PATCHED, "timeline Virtuoso props")
+    source = replace_once(source, TIMELINE_VIRTUOSO_ANCHOR, TIMELINE_VIRTUOSO_PATCHED, "timeline Virtuoso props")
+    source = replace_once(source, SCROLL_CONTAINER_ANCHOR, SCROLL_CONTAINER_PATCHED, "scroll container mount nudge")
+    return source
 
 
 def verify_and_patch(root: Path, relative: str, patcher) -> None:
