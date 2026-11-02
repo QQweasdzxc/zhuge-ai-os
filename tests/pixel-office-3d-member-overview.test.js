@@ -88,14 +88,17 @@ test("index.html renders the overview only for AI members and stays honest when 
   assert.ok(!INDEX.includes("不是這位成員的指派"), "board-wide fallback copy is gone");
 });
 
-// ZG-56 member->agent binding: only verified identities bind, by system_key.
-test("resolveMemberAgentId binds verified members by system_key", () => {
+// ZG-56 member->agent binding: only source-evidenced identities bind, by
+// system_key. Instinct is bound (user-approved INSTINCT-01 identity, ZG-45).
+// GH-HELPER exists in the TF directory but has no source-evidenced mapping to
+// the GitHub小幫手 member, so it must stay truthfully unbound.
+test("resolveMemberAgentId binds only source-evidenced members by system_key", () => {
   const agents = [
     { id: "dddddddd-0000-0000-0000-00000000000d", name: "Instinct", system_key: "INSTINCT-01" },
     { id: "eeeeeeee-0000-0000-0000-00000000000e", name: "GH-HELPER", system_key: "GH-HELPER" },
   ];
   assert.equal(TfSource.resolveMemberAgentId("Instinct", agents), "dddddddd-0000-0000-0000-00000000000d");
-  assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), "eeeeeeee-0000-0000-0000-00000000000e");
+  assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), null, "GH-HELPER has no source-evidenced member mapping; stays unbound");
 });
 
 test("resolveMemberAgentId never binds unverified members or name-only matches", () => {
