@@ -941,6 +941,9 @@ function ownerName() {
 // Slack direction: Codex is three separate people (one per executor), GPT
 // one, Gem one, GitHub not fixed to one. GitHub小幫手 is the occasional one:
 // always idle unless real trigger evidence exists (none is wired yet).
+// Fallback only: used when the agents directory is unavailable, so the
+// office still shows the last-known roster shape with honest unbound panels.
+// The live roster is derived from the directory (see withMembers).
 const BUILTIN_AI = [
   { name: 'Instinct' },
   { name: 'GPT' },
@@ -951,17 +954,22 @@ const BUILTIN_AI = [
   { name: 'GitHub小幫手', occasional: true },
 ];
 
-function aiMemberSession({ name, occasional }, agents) {
+function aiMemberSession({ name, occasional, agentId }, agents) {
   const s = OfficeMembers.toSessions([name])[0];
   s.key = `member:ai:${name}`;
   s.agent = 'zhuge'; // generic robot badge, not a branded-service claim
   s.ai = true;
   if (occasional) s.occasional = true;
-  // ZG-56: bind only verified member->agent identities (system_key table in
-  // tf-source). Unverified members keep tfAgentId null and their panel shows
-  // the honest 尚未綁定 state instead of borrowed or guessed cards.
-  s.tfAgentId = window.ZhugeTfSource && typeof window.ZhugeTfSource.resolveMemberAgentId === 'function'
-    ? window.ZhugeTfSource.resolveMemberAgentId(name, agents || []) : null;
+  // ZG-56: directory-derived figures carry their agent id directly; the
+  // static fallback resolves through the verified system_key table and is
+  // null when the directory is absent, so the panel shows the honest
+  // 尚未綁定 state instead of borrowed or guessed cards.
+  if (agentId != null) {
+    s.tfAgentId = agentId;
+  } else {
+    s.tfAgentId = window.ZhugeTfSource && typeof window.ZhugeTfSource.resolveMemberAgentId === 'function'
+      ? window.ZhugeTfSource.resolveMemberAgentId(name, agents || []) : null;
+  }
   return s;
 }
 
@@ -976,7 +984,15 @@ function withMembers(data) {
       s.owner = true;
       extra.push(s);
     }
-    for (const spec of BUILTIN_AI) {
+    // ZG-56 dynamic roster: one figure per actual engineer agent in the TF
+    // directory (Codex 三人 / GPT 一人 / Gem 一人 / GitHub 不一定一人).
+    // Only documented classes render; a directory miss falls back to the
+    // static shape with honest unbound panels. Family/owner members are
+    // never affected.
+    const derived = window.ZhugeTfSource && typeof window.ZhugeTfSource.deriveAiRoster === 'function'
+      ? window.ZhugeTfSource.deriveAiRoster(data.agents) : [];
+    const specs = derived.length ? derived : BUILTIN_AI;
+    for (const spec of specs) {
       if (names.includes(spec.name)) continue;
       extra.push(aiMemberSession(spec, data.agents));
     }
@@ -1795,4 +1811,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-    </html>
+  </html>

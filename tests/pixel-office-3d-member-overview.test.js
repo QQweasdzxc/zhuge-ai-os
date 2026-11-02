@@ -146,3 +146,51 @@ test("resolveMemberAgentId never binds unverified members or name-only matches",
   assert.equal(TfSource.resolveMemberAgentId("Instinct", []), null, "missing directory degrades to unbound");
   assert.equal(TfSource.resolveMemberAgentId("Instinct", null), null);
 });
+
+// ZG-56 dynamic roster: figures derive from the live agents directory, one
+// per actual agent in the documented classes (user 2026-11-03: Codex 三人、
+// GPT 一人、Gem 一人、GitHub 不一定一人). Unknown classes never render.
+test("deriveAiRoster renders one figure per actual agent in documented classes only", () => {
+  const agents = [
+    { id: "d1", name: "Instinct", system_key: "INSTINCT-01" },
+    { id: "d2", name: "GPT", system_key: "CTO-01" },
+    { id: "d3", name: "CO-01", system_key: "CO-01" },
+    { id: "d4", name: "CO-02", system_key: "CO-02" },
+    { id: "d5", name: "CO-03", system_key: "CO-03" },
+    { id: "d6", name: "GEM-01", system_key: "GEM-01" },
+    { id: "d7", name: "GH-HELPER", system_key: "GH-HELPER" },
+  ];
+  const roster = TfSource.deriveAiRoster(agents);
+  assert.deepEqual(roster.map((r) => r.name), ["Instinct", "GPT", "Codex-01", "Codex-02", "Codex-03", "Gem", "GitHub小幫手"]);
+  assert.deepEqual(roster.map((r) => r.agentId), ["d1", "d2", "d3", "d4", "d5", "d6", "d7"]);
+  assert.equal(roster[6].occasional, true, "GitHub小幫手 keeps the occasional presence flag");
+});
+
+test("deriveAiRoster grows and shrinks with the actual directory", () => {
+  const agents = [
+    { id: "d7", name: "GH-HELPER", system_key: "GH-HELPER" },
+    { id: "d8", name: "GH-HELPER-02", system_key: "GH-HELPER-02" },
+    { id: "d9", name: "CO-05", system_key: "CO-05" },
+    { id: "da", name: "SLACK-BOT", system_key: "SLACK-BOT-01" },
+    { id: "db", name: "no-key" },
+    { id: "dc", name: "null-key", system_key: null },
+  ];
+  const roster = TfSource.deriveAiRoster(agents);
+  assert.deepEqual(roster.map((r) => [r.name, r.systemKey]), [
+    ["Codex-05", "CO-05"],
+    ["GitHub小幫手", "GH-HELPER"],
+    ["GitHub小幫手-02", "GH-HELPER-02"],
+  ], "every GH-HELPER-* agent becomes its own figure; unknown classes and keyless agents never render");
+});
+
+test("deriveAiRoster tolerates a missing directory", () => {
+  assert.deepEqual(TfSource.deriveAiRoster([]), []);
+  assert.deepEqual(TfSource.deriveAiRoster(null), []);
+  assert.deepEqual(TfSource.deriveAiRoster(undefined), []);
+});
+
+test("index.html derives the AI roster from the directory with a static unbound fallback", () => {
+  assert.ok(INDEX.includes("deriveAiRoster(data.agents)"), "live roster derives from the agents directory");
+  assert.ok(INDEX.includes("derived.length ? derived : BUILTIN_AI"), "static list is fallback-only");
+  assert.ok(INDEX.includes("agentId"), "derived figures carry their agent id directly");
+});
