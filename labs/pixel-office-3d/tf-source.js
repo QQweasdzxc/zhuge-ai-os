@@ -461,9 +461,11 @@ function memberOverview(sessions, opts) {
 //   Mention helpers, and GH-HELPER is the only agent of that class in the
 //   workspace directory, so the figure maps to that one actual member (more
 //   GH-HELPER-* agents would become separate figures, not an aggregate).
-// GPT stays unbound: the doc's CTO-01 role has no agent in the workspace
-// agents directory.
-const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'Codex-01': 'CO-01', 'Codex-02': 'CO-02', 'Codex-03': 'CO-03', Gem: 'GEM-01', 'GitHub小幫手': 'GH-HELPER' };
+// - GPT: the doc's CTO-01 role had no agent until the user approved an
+//   identity-only GPT record on 2026-11-03 (Slack DM); created via the
+//   reviewed-candidate migration path (labs/taskflow/sql/taskflow_cto01_gpt_identity_candidate.sql),
+//   NULL runtime_id, offline, private - no account, runtime or permission.
+const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'Codex-01': 'CO-01', 'Codex-02': 'CO-02', 'Codex-03': 'CO-03', Gem: 'GEM-01', 'GitHub小幫手': 'GH-HELPER', GPT: 'CTO-01' };
 function resolveMemberAgentId(memberName, agents) {
   const key = MEMBER_AGENT_BINDING[memberName];
   if (!key) return null;

@@ -101,7 +101,8 @@ test("index.html derives the member description from the actual binding state", 
 // CO-01/02/03 as the three Codex executors), Gem (same doc: GEM-01). GPT and
 // GitHub小幫手 binds to GH-HELPER, the single existing agent of the
 // documented GH-HELPER-* class (user's 2026-11-03 direction + governance
-// doc). GPT stays truthfully unbound (no GPT agent in the directory).
+// doc). GPT binds to CTO-01, the identity-only record the user approved on
+// 2026-11-03 (no runtime, account or permission).
 test("resolveMemberAgentId binds only source-evidenced members by system_key", () => {
   const agents = [
     { id: "dddddddd-0000-0000-0000-00000000000d", name: "Instinct", system_key: "INSTINCT-01" },
@@ -117,6 +118,8 @@ test("resolveMemberAgentId binds only source-evidenced members by system_key", (
   assert.equal(TfSource.resolveMemberAgentId("Codex-03", agents), "c0c0c0c0-0000-0000-0000-000000000003");
   assert.equal(TfSource.resolveMemberAgentId("Gem", agents), "90909090-0000-0000-0000-00000000000a");
   assert.equal(TfSource.resolveMemberAgentId("GitHub小幫手", agents), "eeeeeeee-0000-0000-0000-00000000000e", "GH-HELPER is the single existing agent of the documented GH-HELPER-* class");
+  const withGpt = [...agents, { id: "b420a00e-0000-0000-0000-0000000000a1", name: "GPT", system_key: "CTO-01" }];
+  assert.equal(TfSource.resolveMemberAgentId("GPT", withGpt), "b420a00e-0000-0000-0000-0000000000a1", "user-approved identity-only CTO-01 record binds the GPT figure");
 });
 
 test("resolveMemberAgentId never binds unverified members or name-only matches", () => {
@@ -125,7 +128,7 @@ test("resolveMemberAgentId never binds unverified members or name-only matches",
     { id: "ffffffff-0000-0000-0000-00000000000f", name: "Instinct", system_key: null },
   ];
   assert.equal(TfSource.resolveMemberAgentId("Codex", agents), null, "the retired single Codex figure has no binding; Codex-01/02/03 carry it");
-  assert.equal(TfSource.resolveMemberAgentId("GPT", agents), null, "no GPT agent exists in the directory");
+  assert.equal(TfSource.resolveMemberAgentId("GPT", agents), null, "GPT unbound when the CTO-01 agent is absent from the directory");
   assert.equal(TfSource.resolveMemberAgentId("Gem", agents), null, "GEM-01 missing from this partial directory -> unbound, no guessing");
   assert.equal(TfSource.resolveMemberAgentId("Instinct", agents), null, "display-name match without system_key is not a binding");
   assert.equal(TfSource.resolveMemberAgentId("Instinct", []), null, "missing directory degrades to unbound");
