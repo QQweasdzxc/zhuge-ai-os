@@ -314,7 +314,7 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   const agentsById = await fetchAgents(fetchImpl, apiBase, headers);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, agentsById, now });
-  return { state: 'ok', sessions, note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
+  return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
 }
 
 // ZG-56: workspace agents directory. GET /api/agents resolves the assignee_id
@@ -331,7 +331,7 @@ async function fetchAgents(fetchImpl, apiBase, headers) {
     const j = await r.json();
     const arr = Array.isArray(j) ? j : (j.agents || j.items || []);
     for (const a of arr) {
-      if (a && a.id) out[a.id] = { id: a.id, name: a.name || a.label || a.identifier || null };
+      if (a && a.id) out[a.id] = { id: a.id, name: a.name || a.label || a.identifier || null, system_key: a.system_key || null };
     }
   } catch { /* agents read is best-effort */ }
   return out;
@@ -444,7 +444,22 @@ function memberOverview(sessions, opts) {
   return { counts, rows, bound: !!boundAgentId, boundAgentId, unboundCount, boardTotal };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl, startTfSource };
+// ZG-56: verified member->agent bindings ONLY, keyed by the server-side
+// system_key (stable identity), never by mutable display name. Display-name
+// similarity is not evidence of identity: Codex/Gem/GPT have no confirmed
+// agent counterpart this round and stay unbound (honest 尚未綁定 panel)
+// until the user confirms a mapping. Instinct and GitHub小幫手 were verified
+// 2026-11-02 (ZG-45 SAT round: INSTINCT-01 created + renamed Instinct;
+// GH-HELPER performed real attributed writes).
+const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'GitHub小幫手': 'GH-HELPER' };
+function resolveMemberAgentId(memberName, agents) {
+  const key = MEMBER_AGENT_BINDING[memberName];
+  if (!key) return null;
+  const hit = (agents || []).find((a) => a && a.system_key === key);
+  return hit ? hit.id : null;
+}
+
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl, startTfSource, resolveMemberAgentId, MEMBER_AGENT_BINDING };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
@@ -510,7 +525,7 @@ function startTfSource(opts) {
       if (r.state === 'stale') return; // auth changed mid-read: old identity's result is discarded
       if (r.state === 'ok') {
         opts.onState && opts.onState({ auth: null, error: null });
-        opts.onData({ now: Date.now(), sessions: r.sessions, source: 'live-tf', sourceNote: r.note });
+        opts.onData({ now: Date.now(), sessions: r.sessions, agents: r.agents || [], source: 'live-tf', sourceNote: r.note });
       } else if (r.state === 'auth-required' || r.state === 'auth-forbidden') {
         opts.onState && opts.onState({ auth: r.state, error: null });
         opts.onData({ now: Date.now(), sessions: [], source: 'live-tf', sourceNote: r.note });
