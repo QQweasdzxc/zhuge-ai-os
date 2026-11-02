@@ -1059,19 +1059,73 @@ function positionTfAuth() {
   bar.style.top = Math.max(0, top + 8) + 'px';
 }
 addEventListener('resize', positionTfAuth);
+// ZG-52 embedded bootstrap (TF web panel iframe). The parent TaskFlow page is
+// the only accepted credential source: the office announces readiness first
+// (targetOrigin pinned to the verified referrer origin), accepts only the
+// exact parent origin + exact message type + parent source, keeps the token
+// in memory only (never localStorage — also dodges 3rd-party storage
+// partitioning), and pollTfOnce validates it with live API calls.
+const embeddedParent = (() => {
+  try {
+    if (window.parent === window) return null;
+    const o = new URL(document.referrer).origin;
+    return o === 'https://zhuge-taskflow-web.onrender.com' ? o : null;
+  } catch { return null; }
+})();
+// The handed-over session JWT stays valid server-side until its own exp (the
+// API's JWT branch checks HMAC+sub+exp only, no revocation list), so the
+// bridge's revocation is a client discipline the controller below enforces:
+// on clear or token replace it drops the in-memory token, wipes every byte
+// the previous identity rendered (board, alert baseline, feed), aborts
+// in-flight reads, and stale-marks the generation so a delayed A-account
+// response can never paint itself onto B's (or a logged-out) board.
+function wipeEmbeddedBoard() {
+  state.prev = new Map(); // alert baseline belongs to the old identity
+  state.flash.clear();
+  state.feed = null;
+  state.data = withMembers({ now: Date.now(), sessions: [], source: 'live-tf', sourceNote: '等待內嵌授權' });
+  render();
+}
+const embeddedAuthCtl = TfSource.createEmbeddedAuthCtl({ onWipe: () => { if (embeddedParent) wipeEmbeddedBoard(); } });
+if (embeddedParent) {
+  addEventListener('message', (e) => {
+    if (e.origin !== embeddedParent || e.source !== window.parent || !e.data) return;
+    if (TfSource.embeddedClearMessageOk(e.origin, e.source === window.parent, e.data)) {
+      embeddedAuthCtl.revoke();
+      // Re-announce: a still-logged-in parent re-issues, a logged-out one
+      // stays silent and the office shows its honest waiting state.
+      window.parent.postMessage({ type: 'zhuge-office-ready' }, embeddedParent);
+      return;
+    }
+    if (TfSource.embeddedAuthMessageOk(e.origin, e.source === window.parent, e.data)) {
+      embeddedAuthCtl.setToken(e.data.token); // replace wipes the old identity first
+      const bar = document.getElementById('tfAuth');
+      if (bar) bar.hidden = true;
+    }
+  });
+  window.parent.postMessage({ type: 'zhuge-office-ready' }, embeddedParent);
+}
 function connect() {
   const conn = document.getElementById('conn');
   if (TF_MODE) {
     // Same-origin TF supply: existing /api/zhuge/* + cookie session gate.
     // Fail-closed: auth/transport errors never fall back to demo data.
+    // Embedded: the login banner's target=_top link would navigate the host
+    // TaskFlow tab away, so the banner only appears once a delivered token
+    // was actually rejected (not while the handshake is in flight).
     window.startTfSource({
       intervalSec: 3600,
       apiBase: PAGE_QUERY.get('tfApi') || 'https://zhuge-taskflow-api.onrender.com',
       workspace: PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7',
+      getEmbeddedJwt: () => embeddedAuthCtl.getToken(),
+      authCtl: embeddedAuthCtl,
       onData,
       onState: ({ auth, error }) => {
         const bar = document.getElementById('tfAuth');
-        bar.hidden = !auth;
+        bar.hidden = !auth || (embeddedParent && !embeddedAuthCtl.getToken());
+        if (embeddedParent && auth && embeddedAuthCtl.getToken()) {
+          bar.textContent = '內嵌授權已失效，請收合後重新開啟辦公室面板。';
+        }
         positionTfAuth();
         conn.classList.toggle('on', !!error);
       },
