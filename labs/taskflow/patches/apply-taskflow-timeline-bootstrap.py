@@ -17,12 +17,14 @@ Two-part bootstrap, both verified empirically against the live build:
 1. defaultItemHeight seeds a nonzero totalHeight so the first computed
    render window is sized from estimates; real measured row heights
    replace the estimate as rows mount.
-2. A one-shot scroll nudge on the custom scroll parent after it attaches.
+2. A scroll nudge on the custom scroll parent, fired when the container
+   attaches and whenever the timeline item count changes (the timeline
+   query resolves after mount, so a mount-only nudge fires too early).
    Virtuoso recomputes its render window on scroll-parent scroll events;
-   on a page too short to scroll, no scroll event ever fires after mount,
-   so the list would otherwise keep its empty initial window forever
-   (verified: one synthetic scroll event renders all rows; defaultItemHeight
-   alone leaves the window empty).
+   on a page too short to scroll, no scroll event ever fires, so the list
+   would otherwise keep its empty initial window forever (verified live:
+   defaultItemHeight alone leaves the window empty; one synthetic scroll
+   event after data arrival renders all rows).
 """
 
 from __future__ import annotations
@@ -62,36 +64,43 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
     return source.replace(old, new, 1)
 
 
-SCROLL_CONTAINER_ANCHOR = (
-    "    [isPeek, restoreScrollRef],\n"
+TIMELINE_ITEMS_ANCHOR = (
+    "  const items = useMemo<TimelineItem[]>(\n"
+    "    () => flattenGroups(timelineView.groups, expandedResolved),\n"
+    "    [timelineView.groups, expandedResolved],\n"
     "  );\n"
-    "  const [pendingPostedCommentId, setPendingPostedCommentId] = useState<string | null>(null);\n"
 )
 
-SCROLL_CONTAINER_PATCHED = (
-    "    [isPeek, restoreScrollRef],\n"
+TIMELINE_ITEMS_PATCHED = (
+    "  const items = useMemo<TimelineItem[]>(\n"
+    "    () => flattenGroups(timelineView.groups, expandedResolved),\n"
+    "    [timelineView.groups, expandedResolved],\n"
     "  );\n"
+    "\n"
     "  // TaskFlow shell bootstrap: with customScrollParent, react-virtuoso\n"
-    "  // recomputes its render window on scroll-parent scroll events. On a\n"
-    "  // page too short to scroll, no scroll event fires after mount, so the\n"
-    "  // virtual list would keep its empty initial window forever (the\n"
-    "  // activity stream renders zero rows with healthy data). Nudge the\n"
-    "  // scroll parent once it attaches so the first window is computed\n"
-    "  // from settled geometry.\n"
+    "  // recomputes its render window only at mount and on scroll-parent\n"
+    "  // scroll events. On a page too short to scroll, no scroll event ever\n"
+    "  // fires, so the list keeps its empty initial window forever (the\n"
+    "  // activity stream renders zero rows with healthy data). The timeline\n"
+    "  // query resolves after mount, so nudge the scroll parent when the\n"
+    "  // container is attached and whenever the item count changes: a real\n"
+    "  // window is then computed from settled geometry with data present.\n"
+    "  // Verified live: one synthetic scroll event renders all rows; without\n"
+    "  // it the stream stays empty until the user happens to scroll.\n"
+    "  const timelineItemCount = items.length;\n"
     "  useEffect(() => {\n"
     "    if (!scrollContainerEl) return;\n"
     "    const raf = requestAnimationFrame(() => {\n"
     "      scrollContainerEl.dispatchEvent(new Event(\"scroll\"));\n"
     "    });\n"
     "    return () => cancelAnimationFrame(raf);\n"
-    "  }, [scrollContainerEl]);\n"
-    "  const [pendingPostedCommentId, setPendingPostedCommentId] = useState<string | null>(null);\n"
+    "  }, [scrollContainerEl, timelineItemCount]);\n"
 )
 
 
 def patch_issue_detail(source: str) -> str:
     source = replace_once(source, TIMELINE_VIRTUOSO_ANCHOR, TIMELINE_VIRTUOSO_PATCHED, "timeline Virtuoso props")
-    source = replace_once(source, SCROLL_CONTAINER_ANCHOR, SCROLL_CONTAINER_PATCHED, "scroll container mount nudge")
+    source = replace_once(source, TIMELINE_ITEMS_ANCHOR, TIMELINE_ITEMS_PATCHED, "timeline items render-window nudge")
     return source
 
 
