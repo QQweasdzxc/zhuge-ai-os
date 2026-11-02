@@ -456,7 +456,9 @@
           <p class="tog-note" id="notifyNote" data-t="notifyBlocked" hidden></p>
           <div class="setting-row" id="memberWrap" style="margin-top:10px">
             <label class="setting-label" data-t="membersL" for="memberNames"></label>
-            <textarea id="memberNames" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--panel);color:var(--ink)"></textarea>
+            <div id="memberSyncStatus" role="status" aria-live="polite"></div>
+            <button id="memberSyncRetry" type="button" hidden>重試同步</button>
+            <textarea id="memberNames" disabled rows="3" style="width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--panel);color:var(--ink)"></textarea>
             <p class="tog-note" data-t="membersNote"></p>
           </div>
         </div>
@@ -956,8 +958,9 @@ function aiMemberSession({ name, occasional }) {
   return s;
 }
 
+var rosterSync = null;
 function withMembers(data) {
-  const names = OfficeMembers.load((k) => { try { return localStorage.getItem(k); } catch { return null; } });
+  const names = rosterSync ? rosterSync.visible() : [];
   const extra = [];
   if (TF_MODE) {
     const owner = ownerName();
@@ -1150,37 +1153,76 @@ notifyBtn.addEventListener('change', async () => {
   syncControls();
 });
 
-// One-tap private roster seeding: a link may carry `#members=Name1,Name2`
-// (URL-encoded). The hash fragment is client-only - it is never sent to the
-// static host - so this lets a private message hand the device its roster
-// without bundling names in the public repo. Seeded names merge into this
-// device's localStorage roster (dedupe, same cap), then the hash is stripped
-// so the names do not linger in the address bar or history.
-function seedMembersFromHash() {
-  try {
-    const h = PAGE_HASH || '';
-    if (!h) return;
-    const params = new URLSearchParams(h.slice(1));
-    const raw = params.get('members');
-    if (raw == null) return;
-    const incoming = raw.split(',').map((x) => x.trim()).filter(Boolean);
-    if (incoming.length) {
-      const cur = OfficeMembers.load((k) => localStorage.getItem(k));
-      const merged = OfficeMembers.parseRoster(JSON.stringify([...cur, ...incoming]));
-      try { localStorage.setItem(OfficeMembers.KEY, JSON.stringify(merged)); } catch {}
-    }
+// Legacy import links no longer write device storage. Remove private fragments
+// from the address bar; roster edits require an authenticated cloud save.
+try {
+  if (new URLSearchParams((PAGE_HASH || '').slice(1)).has('members')) {
     history.replaceState(null, '', location.pathname + location.search);
-  } catch {}
-}
-seedMembersFromHash();
+  }
+} catch { /* best effort in embedded browser contexts */ }
 
 const memberNames = document.getElementById('memberNames');
-try { memberNames.value = OfficeMembers.load((k) => localStorage.getItem(k)).join('\n'); } catch {}
-memberNames.addEventListener('change', () => {
-  const names = memberNames.value.split('\n').map((x) => x.trim()).filter(Boolean);
-  try { localStorage.setItem(OfficeMembers.KEY, JSON.stringify(names)); } catch {}
-  if (state.feed) { state.data = withMembers(state.feed); renderNow(); }
+const rosterToken = () => ZhugeTfSource.readSupabaseToken(k => localStorage.getItem(k));
+const memberSyncStatus = document.getElementById('memberSyncStatus');
+const memberSyncRetry = document.getElementById('memberSyncRetry');
+let rosterBusy = false;
+rosterSync = OfficeMembers.createSync({
+  storage: localStorage, getToken: rosterToken, fetchImpl: window.fetch.bind(window), config: AUTH_CONFIG,
+  getAuth: async () => {
+    if (!rosterToken()) return null;
+    if (getStoredAuthSession()?.refresh_token && accessTokenNeedsRefresh()) {
+      const refreshed = await refreshAuthSession(false);
+      if (!refreshed && getStoredAuthSession()) throw new Error('refresh-failed');
+    }
+    const token = rosterToken();
+    if (!token) throw new Error('auth-expired');
+    const response = await fetch(`${AUTH_CONFIG.supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: AUTH_CONFIG.supabaseAnonKey, Authorization: `Bearer ${token}` },
+      credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('auth-failed');
+    const user = await response.json();
+    if (!user.id) throw new Error('auth-failed');
+    return { owner: user.id, token };
+  },
+  onChange: ({ status, code, pending, names }) => {
+    rosterBusy = status === 'loading';
+    memberNames.disabled = rosterBusy || !rosterToken();
+    memberSyncRetry.hidden = status !== 'error';
+    memberSyncStatus.textContent = status === 'loading' ? '正在同步私密名單…'
+      : status === 'synced' ? '已同步至本人帳號'
+      : status === 'signed-out' ? (pending ? '未同步：舊本機名單已保留，請登入後遷移至私密雲端。' : '請登入後儲存私密名單。')
+      : code === 'roster-full' ? '合併超過 24 人，舊本機名單仍保留，請先整理名單後重試。'
+      : '未同步：私密名單同步失敗；尚未遷移的本機名單仍保留，請重試。';
+    // Do not replace an in-progress draft on background reads.
+    if (document.activeElement !== memberNames || status === 'error') memberNames.value = names.join('\n');
+    if (state.feed) { state.data = withMembers(state.feed); renderNow(); }
+  },
 });
+const syncRoster = () => {
+  if (!rosterBusy && document.activeElement !== memberNames) rosterSync.sync().catch(() => {});
+};
+memberNames.addEventListener('change', async () => {
+  try {
+    const names = await rosterSync.save(memberNames.value.split('\n'));
+    memberNames.value = names.join('\n');
+  } catch { /* sanitized error state is rendered by the controller */ }
+});
+memberSyncRetry.addEventListener('click', syncRoster);
+window.addEventListener('storage', event => {
+  if (!event.key || event.key === OfficeMembers.KEY || /auth_session|session_v1/.test(event.key)) {
+    // visible() immediately hides a previous account's names, even while an
+    // old request is pending. That request cannot publish or remove local data.
+    memberNames.disabled = rosterBusy || !rosterToken();
+    memberNames.value = rosterSync.visible().join('\n');
+    if (state.feed) { state.data = withMembers(state.feed); renderNow(); }
+    rosterSync.sync().catch(() => {});
+  }
+});
+window.addEventListener('focus', syncRoster);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncRoster(); });
+setInterval(syncRoster, 30000);
+syncRoster();
 
 document.addEventListener('click', (e) => {
   const ow = e.target.closest('[data-open-key]');

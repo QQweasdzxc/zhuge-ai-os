@@ -1,0 +1,17 @@
+✔ normalizeTfIssues carries taskflow_task_id as tf.taskflowTaskId, null when unbound (1.288087ms)
+✔ fetchTaskMessages maps the protocol payload into plain display entries (1.089909ms)
+✔ fetchTaskMessages never fires a request without a bound task id (0.169976ms)
+✔ fetchTaskMessages is best-effort: http error, network error, bad shape all yield ok:false (1.230821ms)
+✔ fetchTaskMessages on a bound-but-empty task returns ok with zero messages (honest empty state) (0.232169ms)
+✔ a slow excerpt fetch for card A never writes into card B after switching (verbatim loadConvo) (1.651744ms)
+✔ auth failure / 404 replaces content with an explicit failed state, never stale private content (verbatim loadConvo) (1.058522ms)
+✔ fetchTaskMessages results carry no token material (keys are ok/messages/reason/status only) (0.278799ms)
+✔ panel closed while a slow fetch is in flight: resolve never re-renders, and reopening ANOTHER card shows only its own content (verbatim loadConvo) (0.929518ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.95515

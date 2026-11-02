@@ -1,0 +1,602 @@
+
+> zhuge-ai-os-browser-regression@0.0.0 test:browser
+> node tests/run-browser-regression.js
+
+✔ AI Board Browser UI exposes PM-readable drawer status, free workspace movement, and navigation (6181.728816ms)
+✔ Drawer PM acceptance and QJC card drag share the formal completion lifecycle (7745.291357ms)
+✔ C publish UI sends the current identity and keeps legacy health check out of the Mother Template (3401.110473ms)
+▶ Create Board Golden Journey: real Mother clicks → canonical SQL → shared navigation → persisted Consumer
+  ✔ unassigned (9138.617727ms)
+  ✔ worklog (10099.416102ms)
+  ✔ investment (10124.626187ms)
+✔ Create Board Golden Journey: real Mother clicks → canonical SQL → shared navigation → persisted Consumer (33060.481118ms)
+✔ Creator sees both independent MFA controls and Non-Creator sees none (5725.070339ms)
+✔ Functional Tabs: actual adopter markup/renderers share Desktop/Mobile geometry, focus and overflow (27306.092456ms)
+✔ Functional Tabs preserve domain actions, link navigation, keyboard selection and disclosures (3333.183662ms)
+✔ Page Rhythm Authority enforces Type A/B/C spacing exactly at desktop and narrow mobile (877.950104ms)
+✔ Functional Tabs pixel fixture has 0 changed pixels and exact computed/geometry parity at Desktop and Mobile (4901.532214ms)
+✔ Investment IVTK desktop surface matches the C Mother Template contract (1690.839005ms)
+✔ Investment IVTK mobile surface preserves the C responsive contract (1335.851224ms)
+✔ Mobile compact actions and Workspace archive/restore use Shared C across AI, WorkTodo, GAS and C Mother (18209.335573ms)
+✔ Module C Workspace Reorder browser E2E: WorkTodo and AI Board, create, both edges, reload (7820.22935ms)
+▶ Module C Workspace and Workflow canvas browser QA uses localhost and in-memory authority only
+  ✔ new Workspace gets one Step automatically and no new Edge (1495.961317ms)
+  ✔ AI Board custom Workspaces accept TASK and shared repair keeps TASK-081 edge-free (2097.358596ms)
+  ✔ existing user Draft Edges/settings remain unpublished during Workspace and TASK creation, including reload (1712.676217ms)
+  ✔ failed atomic save retry reuses the request key, including after drawer close/reopen (1536.009735ms)
+  ✔ invalid system structure rolls back and browser never publishes (1499.230815ms)
+  ✔ desktop canvas connects by plus click and drag, removes only Edges, publishes, and reads back after reload (4301.483177ms)
+  ✔ mobile tap source then target creates an Edge (1380.15376ms)
+  ✔ worktodo optional Workflow retains Workspace creation UI (1582.994309ms)
+  ✔ procurement optional Workflow retains Workspace creation UI (1457.6494ms)
+  ✔ c optional Workflow retains Workspace creation UI (1460.728473ms)
+✔ Module C Workspace and Workflow canvas browser QA uses localhost and in-memory authority only (19132.119455ms)
+✔ Sprint 3 release identity is consistent across product and module manifests (32.03703ms)
+✔ Shared Header compact geometry and usable controls across all formal adopters (67060.414452ms)
+✔ Shared Workspace counts expose hidden TASK-079 and block delete without a writer call (1847.261375ms)
+✔ all Workspaces use the WorkLog collapsed rail geometry (5663.98693ms)
+✔ collapsed rail geometry is owned by shared navigation, not WorkLog CSS (4.338716ms)
+✔ Pixel Office, login return, and Creator navigation at 1920x1080 (13698.408156ms)
+✔ Pixel Office, login return, and Creator navigation at 1440x900 (7011.042905ms)
+✔ Pixel Office, login return, and Creator navigation at 390x844 (3907.842227ms)
+✔ Pixel Office, login return, and Creator navigation at 844x390 (4648.077211ms)
+[taskflow-post-login] redirect loop guard stopped an automatic return: office
+✔ Pixel Office login return is fixed, one-use, and waits for approved access/runtime (1.956629ms)
+✔ TaskFlow and Investment intents resolve only to fixed same-site routes (0.391459ms)
+✔ Investment retains App Access/MFA gates and provides fixed login and Office routes (0.585432ms)
+✔ unrecognized, expired, replayed, and loop-guarded intents do not redirect (1.139036ms)
+✔ SkyEye Location-Centric V2 remains mobile-first and adds desktop map/evidence presentation (4808.904994ms)
+✔ TASK-088 Batch C exposes one opt-in core component contract (2.354247ms)
+✔ TASK-088 Batch C shared drawer uses core states at desktop, tablet and mobile widths (2662.469046ms)
+✔ TASK-088 Part 1 shared Drawer and collapsed Navigation keep the desktop contract (2878.929268ms)
+✔ TASK-088 Batch A keeps a single shared foundation token authority (1.336593ms)
+✔ TASK-088 compatibility theme files do not redeclare foundation values (1.363474ms)
+✔ TASK-088 Batch A runtime contract holds at desktop, tablet and mobile widths (2283.062677ms)
+✔ TASK-088 Batch B keeps one shared navigation state contract (2.041296ms)
+✔ TASK-088 Batch B sidebar opens/closes consistently across desktop, tablet and mobile (2720.280306ms)
+✔ CLI callback accepts only loopback HTTP callback endpoints (1.511327ms)
+✔ CLI state has the native 128-bit lowercase hexadecimal form (1.064094ms)
+✔ browser handoff stays on Zhuge origin and carries CLI intent only in the fragment (0.445801ms)
+✔ TaskFlow return paths are relative and same-origin only (0.312761ms)
+✔ native callback carries an opaque one-time code, never an API access token (1.488893ms)
+✔ pending CLI intent resumes after Zhuge login only with a fresh existing session (1.047158ms)
+✔ pending CLI intent expires and rejects tampered callback/state data (0.352021ms)
+✔ CLI overlay uses Zhuge-authenticated identity and five-minute native grant (1.305287ms)
+✔ handoff validates same-origin destination before storing the TaskFlow token (0.412421ms)
+✔ classic status route preserves authenticated TaskFlow Dashboard after pixel homepage migration (4473.978805ms)
+✔ classic status wall gates data controls by auth state (3781.131601ms)
+✔ TaskFlow entry hands Zhuge session to API and opens the Multica handoff on desktop and mobile (4895.545403ms)
+✔ authenticated Multica CLI login reaches TaskFlow authorization without exposing tokens in query (2039.178654ms)
+✔ unauthenticated CLI SSO preserves only short-lived callback intent on the same AIOS origin (1244.408116ms)
+✔ unauthenticated TaskFlow entry stays on the explanation card and leaves via the login button (2255.71191ms)
+✔ expired or forbidden Zhuge session is rejected and stays on the explanation card until the login button (1992.295731ms)
+✔ TaskFlow entry reports API 404 and 5xx distinctly instead of calling them timeouts (1403.514495ms)
+✔ TaskFlow entry distinguishes an aborted request from an ordinary network failure (1472.894982ms)
+[taskflow-post-login] redirect loop guard stopped an automatic return: taskflow
+✔ formal TaskFlow entry has a consistent new Product release identity (105.82665ms)
+✔ WORK navigation places TaskFlow before WorkLog on the canonical AIOS origin (0.332371ms)
+✔ TaskFlow service configuration exposes only separate non-secret public endpoints (0.528766ms)
+✔ TaskFlow sends the existing Zhuge session only to API POST and returns to official login (0.383408ms)
+✔ TaskFlow CLI login return uses same-origin Zhuge login and the guarded one-use SSO bridge (0.397509ms)
+✔ TaskFlow post-login return is same-origin, one-shot, and waits for approved WorkLog runtime (1.517425ms)
+✔ TaskFlow post-login guard bounds only automatic redirects and keeps a user path (1.338375ms)
+✔ expired or malformed post-login intent is removed without redirect (0.282816ms)
+✔ WorkLog deep links do not create a TaskFlow return intent (0.235465ms)
+✔ anonymous Pages client never fakes TaskFlow data or redirects to Render (1071.948347ms)
+✔ Pages client reads real mocked native API contracts without changing host (1286.927797ms)
+✔ mobile native TaskFlow Pages client has no horizontal overflow (1934.656118ms)
+✔ native TaskFlow Pages client stays usable in mobile landscape (1704.141433ms)
+✔ Workbench renders native issues, PM Inbox routing, and native detail links (1753.584756ms)
+✔ Workbench shows truthful empty state and permission errors (1688.178226ms)
+✔ Workbench empty state excludes ordinary native issues (1601.567472ms)
+✔ detail labels metadata Run ID as unverified and uses protected evidence for official field (1745.585362ms)
+WORKLOG_BROWSER_DESKTOP: first-paint=752ms, app-shell-ready=1218ms, CSS=16, JS=59, CSS-start-span=10ms, JS-start-span=68ms
+WORKLOG_BROWSER_MOBILE-EMULATION: first-paint=484ms, app-shell-ready=1097ms, CSS=16, JS=59, CSS-start-span=6ms, JS-start-span=19ms
+✔ WorkLog starts its real CSS/JS loader in parallel on desktop and mobile and survives reload (5938.789551ms)
+✔ WorkLog still shows its fail-closed resource message when a stylesheet fails (2989.685764ms)
+WORKLOG_LOADER_FIXTURE: styles=16, scripts=59, simulatedResourceDelay=60ms, serialNetworkFloor=4500ms, observedLoader=196ms
+✔ WorkLog starts CSS and script downloads together while retaining CSS and execution order (199.89198ms)
+✔ WorkLog stops before executing scripts when any parallel stylesheet load fails (95.342048ms)
+✔ WorkLog stops before executing scripts when a parallel script preload fails (66.328268ms)
+✔ WorkLog stops subsequent script execution after a script load failure (74.153793ms)
+✔ WorkLog does not load the application bundles on the public landing page (1.130843ms)
+✔ WorkTodo uses the Shared Task Drawer presentation contract at runtime (4490.689845ms)
+ℹ tests 92
+ℹ suites 0
+ℹ pass 92
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 317256.951399
+{
+  "status": "PASS",
+  "fixture": "tests/task-088-responsive-preview.html",
+  "results": {
+    "desktop-1440": {
+      "width": 1440,
+      "height": 1000,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 285,
+        "y": 251.609375,
+        "width": 144.28125,
+        "height": 44,
+        "top": 251.609375,
+        "right": 429.28125,
+        "bottom": 295.609375,
+        "left": 285
+      },
+      "drawerCloseBox": {
+        "x": 1239,
+        "y": 94.5,
+        "width": 44,
+        "height": 44,
+        "top": 94.5,
+        "right": 1283,
+        "bottom": 138.5,
+        "left": 1239
+      },
+      "hubBox": {
+        "x": 1370,
+        "y": 930,
+        "width": 48,
+        "height": 48,
+        "top": 930,
+        "right": 1418,
+        "bottom": 978,
+        "left": 1370
+      },
+      "drawerPanelHeight": "860px",
+      "drawerOverflow": "visible",
+      "safeBottom": "0px",
+      "bodyFontSize": "16px",
+      "hasLongText": true
+    },
+    "desktop-1440-text-zoom": {
+      "width": 1440,
+      "height": 1000,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 285,
+        "y": 291.03125,
+        "width": 176.34375,
+        "height": 44,
+        "top": 291.03125,
+        "right": 461.34375,
+        "bottom": 335.03125,
+        "left": 285
+      },
+      "drawerCloseBox": {
+        "x": 1239,
+        "y": 97,
+        "width": 44,
+        "height": 44,
+        "top": 97,
+        "right": 1283,
+        "bottom": 141,
+        "left": 1239
+      },
+      "hubBox": {
+        "x": 1370,
+        "y": 930,
+        "width": 48,
+        "height": 48,
+        "top": 930,
+        "right": 1418,
+        "bottom": 978,
+        "left": 1370
+      },
+      "drawerPanelHeight": "860px",
+      "drawerOverflow": "visible",
+      "safeBottom": "0px",
+      "bodyFontSize": "20px",
+      "hasLongText": true
+    },
+    "tablet-1024": {
+      "width": 1024,
+      "height": 900,
+      "clientWidth": 1024,
+      "scrollWidth": 1024,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 309,
+        "y": 267.109375,
+        "width": 144.28125,
+        "height": 44,
+        "top": 267.109375,
+        "right": 453.28125,
+        "bottom": 311.109375,
+        "left": 309
+      },
+      "drawerCloseBox": {
+        "x": 933,
+        "y": 69.5,
+        "width": 44,
+        "height": 44,
+        "top": 69.5,
+        "right": 977,
+        "bottom": 113.5,
+        "left": 933
+      },
+      "hubBox": {
+        "x": 954,
+        "y": 830,
+        "width": 48,
+        "height": 48,
+        "top": 830,
+        "right": 1002,
+        "bottom": 878,
+        "left": 954
+      },
+      "drawerPanelHeight": "810px",
+      "drawerOverflow": "visible",
+      "safeBottom": "0px",
+      "bodyFontSize": "16px",
+      "hasLongText": true
+    },
+    "tablet-1024-text-zoom": {
+      "width": 1024,
+      "height": 900,
+      "clientWidth": 1024,
+      "scrollWidth": 1024,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 309,
+        "y": 305.90625,
+        "width": 176.34375,
+        "height": 44,
+        "top": 305.90625,
+        "right": 485.34375,
+        "bottom": 349.90625,
+        "left": 309
+      },
+      "drawerCloseBox": {
+        "x": 933,
+        "y": 72,
+        "width": 44,
+        "height": 44,
+        "top": 72,
+        "right": 977,
+        "bottom": 116,
+        "left": 933
+      },
+      "hubBox": {
+        "x": 954,
+        "y": 830,
+        "width": 48,
+        "height": 48,
+        "top": 830,
+        "right": 1002,
+        "bottom": 878,
+        "left": 954
+      },
+      "drawerPanelHeight": "810px",
+      "drawerOverflow": "visible",
+      "safeBottom": "0px",
+      "bodyFontSize": "20px",
+      "hasLongText": true
+    },
+    "mobile-500": {
+      "width": 500,
+      "height": 900,
+      "clientWidth": 500,
+      "scrollWidth": 500,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 37,
+        "y": 331.109375,
+        "width": 144.28125,
+        "height": 44,
+        "top": 331.109375,
+        "right": 181.28125,
+        "bottom": 375.109375,
+        "left": 37
+      },
+      "drawerCloseBox": {
+        "x": 442,
+        "y": 20.53125,
+        "width": 44,
+        "height": 44,
+        "top": 20.53125,
+        "right": 486,
+        "bottom": 64.53125,
+        "left": 442
+      },
+      "hubBox": {
+        "x": 442,
+        "y": 842,
+        "width": 44,
+        "height": 44,
+        "top": 842,
+        "right": 486,
+        "bottom": 886,
+        "left": 442
+      },
+      "drawerPanelHeight": "900px",
+      "drawerOverflow": "auto",
+      "safeBottom": "0px",
+      "bodyFontSize": "16px",
+      "hasLongText": true
+    },
+    "mobile-500-text-zoom": {
+      "width": 500,
+      "height": 900,
+      "clientWidth": 500,
+      "scrollWidth": 500,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 37,
+        "y": 374.90625,
+        "width": 176.34375,
+        "height": 44,
+        "top": 374.90625,
+        "right": 213.34375,
+        "bottom": 418.90625,
+        "left": 37
+      },
+      "drawerCloseBox": {
+        "x": 442,
+        "y": 25.25,
+        "width": 44,
+        "height": 44,
+        "top": 25.25,
+        "right": 486,
+        "bottom": 69.25,
+        "left": 442
+      },
+      "hubBox": {
+        "x": 442,
+        "y": 842,
+        "width": 44,
+        "height": 44,
+        "top": 842,
+        "right": 486,
+        "bottom": 886,
+        "left": 442
+      },
+      "drawerPanelHeight": "900px",
+      "drawerOverflow": "auto",
+      "safeBottom": "0px",
+      "bodyFontSize": "20px",
+      "hasLongText": true
+    },
+    "narrow-375": {
+      "width": 375,
+      "height": 812,
+      "clientWidth": 375,
+      "scrollWidth": 375,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 31,
+        "y": 355.109375,
+        "width": 144.28125,
+        "height": 44,
+        "top": 355.109375,
+        "right": 175.28125,
+        "bottom": 399.109375,
+        "left": 31
+      },
+      "drawerCloseBox": {
+        "x": 317,
+        "y": 18.6875,
+        "width": 44,
+        "height": 44,
+        "top": 18.6875,
+        "right": 361,
+        "bottom": 62.6875,
+        "left": 317
+      },
+      "hubBox": {
+        "x": 317,
+        "y": 754,
+        "width": 44,
+        "height": 44,
+        "top": 754,
+        "right": 361,
+        "bottom": 798,
+        "left": 317
+      },
+      "drawerPanelHeight": "812px",
+      "drawerOverflow": "auto",
+      "safeBottom": "0px",
+      "bodyFontSize": "16px",
+      "hasLongText": true
+    },
+    "narrow-375-text-zoom": {
+      "width": 375,
+      "height": 812,
+      "clientWidth": 375,
+      "scrollWidth": 375,
+      "targetMinHeight": "44px",
+      "targetBox": {
+        "x": 31,
+        "y": 432.90625,
+        "width": 176.34375,
+        "height": 44,
+        "top": 432.90625,
+        "right": 207.34375,
+        "bottom": 476.90625,
+        "left": 31
+      },
+      "drawerCloseBox": {
+        "x": 317,
+        "y": 22.640625,
+        "width": 44,
+        "height": 44,
+        "top": 22.640625,
+        "right": 361,
+        "bottom": 66.640625,
+        "left": 317
+      },
+      "hubBox": {
+        "x": 317,
+        "y": 754,
+        "width": 44,
+        "height": 44,
+        "top": 754,
+        "right": 361,
+        "bottom": 798,
+        "left": 317
+      },
+      "drawerPanelHeight": "812px",
+      "drawerOverflow": "auto",
+      "safeBottom": "0px",
+      "bodyFontSize": "20px",
+      "hasLongText": true
+    }
+  }
+}
+TASK-088 P3-P6 desktop source previews: PASS
+Investment Screenshot Import browser regression: PASS
+Investment Sprint 3 browser regression: PASS
+{
+  "passCount": 16,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "Lab Center → same-origin Lab runtime",
+      "result": "PASS",
+      "evidence": "path=/labs/investment/; 10 local functions; single AIOS shell and Investment local navigation"
+    },
+    {
+      "name": "official Treasury macro context remains truthful without a readable response",
+      "result": "PASS",
+      "evidence": "anonymous browser displays an explicit unavailable state; no yield is fabricated"
+    },
+    {
+      "name": "holdings authenticated-read gate",
+      "result": "PASS",
+      "evidence": "anonymous browser shows SESSION_REQUIRED before owner mapping or protected view SELECT; valuation is labeled non-real-time"
+    },
+    {
+      "name": "canonical holdings remain fail-closed without session",
+      "result": "PASS",
+      "evidence": "SESSION_REQUIRED is explicit; no zero count or fixture holding is presented"
+    },
+    {
+      "name": "historical backtest requires an explicitly selected research symbol",
+      "result": "PASS",
+      "evidence": "no seeded ticker, synthetic bars, or transaction write path is exposed"
+    },
+    {
+      "name": "market view shows no invented macro value without a provider response",
+      "result": "PASS",
+      "evidence": "the global yield component remains an attributed daily Treasury series, not a quote fallback"
+    },
+    {
+      "name": "canonical watchlist separated from local temporary observations and notification delivery gates",
+      "result": "PASS",
+      "evidence": "watchlist is owner-authenticated; settings/digest are a local preview and explicitly require a future server scheduler + delivery secret"
+    },
+    {
+      "name": "canonical closed-history boundary",
+      "result": "PASS",
+      "evidence": "history view uses authenticated adapter and presents no locally synthesized rows while unauthenticated"
+    },
+    {
+      "name": "market scanner authorization boundary",
+      "result": "PASS",
+      "evidence": "local anonymous preview does not call Production providers or display fixtures; signed-in Production acceptance remains a final release gate and does not block implementation"
+    },
+    {
+      "name": "research uses the shared OHLC candlestick and volume chart",
+      "result": "PASS",
+      "evidence": "20 explicitly labeled QA fixture bars render through the shared research chart; no authenticated or market-data claim"
+    },
+    {
+      "name": "Taiwan scanner, sector filter, and TDCC-local-observation components",
+      "result": "PASS",
+      "evidence": "production components render explicitly synthetic fixture data; table/card switch, heatmap-to-scanner filter, and source-dated TDCC comparison operate without claiming live market readback"
+    },
+    {
+      "name": "chip-cycle observation desktop/mobile browser fixture",
+      "result": "PASS",
+      "evidence": "{\"width\":390,\"scrollWidth\":390}; synthetic source rows are explicitly fixture-only and the renderer preserves the heuristic disclaimer"
+    },
+    {
+      "name": "Mobile Lab local navigation",
+      "result": "PASS",
+      "evidence": "{\"width\":390,\"scrollWidth\":390}; all 10 navigation touch targets are >=44px"
+    },
+    {
+      "name": "research OHLCV chart remains readable on mobile",
+      "result": "PASS",
+      "evidence": "{\"width\":390,\"scrollWidth\":390}; shared chart renders the same OHLC evidence without horizontal page overflow"
+    },
+    {
+      "name": "Taiwan scanner/heatmap components remain operable on mobile",
+      "result": "PASS",
+      "evidence": "{\"width\":390,\"clientWidth\":390,\"scrollWidth\":390,\"visualWidth\":390,\"viewportMeta\":\"width=device-width, initial-scale=1\",\"overflowers\":[{\"tag\":\"TABLE\",\"className\":\"data-table\",\"width\":780,\"right\":809,\"scrollWidth\":780},{\"tag\":\"THEAD\",\"className\":\"\",\"width\":780,\"right\":809,\"scrollWidth\":780},{\"tag\":\"TR\",\"className\":\"\",\"width\":780,\"right\":809,\"scrollWidth\":780},{\"tag\":\"TH\",\"className\":\"\",\"width\":144,\"right\":470,\"scrollWidth\":144},{\"tag\":\"TH\",\"className\":\"\",\"width\":195,\"right\":665,\"scrollWidth\":195},{\"tag\":\"TH\",\"className\":\"\",\"width\":144,\"right\":809,\"scrollWidth\":144},{\"tag\":\"TBODY\",\"className\":\"\",\"width\":780,\"right\":809,\"scrollWidth\":780},{\"tag\":\"TR\",\"className\":\"\",\"width\":780,\"right\":809,\"scrollWidth\":780},{\"tag\":\"TD\",\"className\":\"\",\"width\":144,\"right\":470,\"scrollWidth\":144},{\"tag\":\"TD\",\"className\":\"\",\"width\":195,\"right\":665,\"scrollWidth\":195},{\"tag\":\"TD\",\"className\":\"\",\"width\":144,\"right\":809,\"scrollWidth\":144},{\"tag\":\"TR\",\"className\":\"\",\"width\":780,\"right\":809,\"scrollWidth\":780}]}; synthetic QA fixture only"
+    },
+    {
+      "name": "Lab browser write boundary",
+      "result": "PASS",
+      "evidence": "anonymous journey generated zero protected data reads and zero writes; implementation exposes SELECT-only canonical adapter methods"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "providerCorsErrors": 0,
+  "screenshots": [
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-holdings-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-holdings-auth-gate-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-watchlist-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-closed-history-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-research-ohlcv-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-taiwan-market-components-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-chip-cycle-desktop-1440.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-chip-cycle-mobile-390x844.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-global-context-mobile-390x844.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-treasury-curve-mobile-390x844.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-investment-mobile-390x844.png",
+    "/tmp/zhuge-lab-investment-browser-evidence/lab-research-ohlcv-mobile-390x844.png"
+  ],
+  "evidence": "/tmp/zhuge-lab-investment-browser-evidence/browser-result.json"
+}
+{
+  "status": "PASS",
+  "browserExecutable": "chromium",
+  "browserTests": [
+    "tests/site-integration-browser.test.js",
+    "tests/site-integration-contract.test.js",
+    "tests/release-consistency.test.js",
+    "tests/taskflow-entry.test.js",
+    "tests/taskflow-cli-sso.test.js",
+    "tests/worklog-resource-loader.test.js",
+    "tests/taskflow-entry-browser.test.js",
+    "tests/taskflow-pages-client-browser.test.mjs",
+    "tests/worklog-resource-loader-browser.test.js",
+    "tests/functional-tabs-browser.test.js",
+    "tests/functional-tabs-visual-conformance-browser.test.js",
+    "tests/create-board-golden-journey-browser.test.js",
+    "tests/shared-header-compact-browser.test.js",
+    "tests/mobile-actions-workspace-archive-browser.test.js",
+    "tests/ai-board-batch-2-browser.test.js",
+    "tests/ai-board-completion-gate-browser.test.js",
+    "tests/module-c-workspace-reorder-browser.test.js",
+    "tests/module-c-workspace-workflow-binding-browser.test.js",
+    "tests/c-template-publish-browser.test.js",
+    "tests/creator-mfa-control-browser.test.js",
+    "tests/investment/ivtk-parity-browser.test.js",
+    "tests/shared-navigation-collapsed.test.js",
+    "tests/task-088-core-components.test.js",
+    "tests/task-088-part1-shared-foundation.test.js",
+    "tests/task-088-shared-foundation.test.js",
+    "tests/task-088-shared-shell.test.js",
+    "tests/worktodo-shared-drawer-browser.test.js",
+    "tests/skyeye-mobile-browser.test.js"
+  ],
+  "standaloneScripts": [
+    "tests/task-088-responsive-browser.js",
+    "tests/task-088-desktop-preview.js",
+    "tests/investment/screenshot-import-browser-regression.js",
+    "tests/investment/sprint-3-browser-regression.js",
+    "tests/lab-investment-browser.e2e.mjs"
+  ],
+  "skipped": 0
+}

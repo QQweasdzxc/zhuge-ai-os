@@ -1,9 +1,8 @@
 "use strict";
 // Isolated-origin gesture verification for the drag-vs-click guard on the
 // pixel-office-3d 2D canvas. Local fixture server only (every non-loopback
-// request is aborted): no production origin, no real token, no auth of any
-// kind. Scene people come from the page's own device-local roster feature
-// (localStorage zhuge.office.members), seeded with fixture names.
+// request is aborted): no production origin or real token. Scene people
+// come from an isolated event feed and account-private roster fixtures.
 // Live-site post-deploy smoke is reported separately and not claimed here.
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -12,6 +11,15 @@ const { chromium } = require("playwright");
 const { resolveBrowserExecutable, fixtureURL } = require("./browser-executable");
 const ROOT = path.resolve(__dirname, "..");
 const PAGE = path.join(ROOT, "labs/pixel-office-3d/index.html");
+
+// Neutral members keep the gesture target stable; roster storage is now cloud
+// only, so provision the same fake members through the authenticated API seam.
+async function installRosterFixture(page) {
+  const owner = '00000000-0000-4000-8000-000000000001';
+  await page.route('**/auth/v1/user', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: owner }) }));
+  await page.route('**/rest/v1/office_member_roster?**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ owner, names: ['Fixture Member A', 'Fixture Member B'], updated_at: '2026-11-02T00:00:00Z' }]) }));
+  await page.addInitScript(() => localStorage.setItem('zhuge_ai_os_google_auth_session_v1', JSON.stringify({ access_token: 'fixture-gesture', expires_at: Date.now() + 3600000 })));
+}
 
 async function boot(width, { touch = false } = {}) {
   const executablePath = resolveBrowserExecutable();
@@ -31,9 +39,7 @@ async function boot(width, { touch = false } = {}) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
     body: `data: ${JSON.stringify(feed)}\n\n`,
   }));
-  await page.addInitScript(() => {
-    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["測試甲", "測試乙"])); } catch {}
-  });
+  await installRosterFixture(page);
   await page.goto(await fixtureURL(PAGE));
   // Force the 2D renderer (the guard lives in office.js; 3D has its own controls).
   await page.locator('#qualSeg button[data-v="mid"]').click();
@@ -50,23 +56,16 @@ async function probePerson(page, canvas) {
   assert.ok(box);
   return await page.evaluate(async (box) => {
     const cv = [...document.querySelectorAll("canvas")].filter(c => c.getBoundingClientRect().width > 100).pop();
-    const hits = [];
-    for (let gx = 0; gx < 30; gx++) for (let gy = 0; gy < 40; gy++) {
-      const x = box.x + box.width * (gx + 0.5) / 30, y = box.y + box.height * (gy + 0.5) / 40;
-      cv.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
-      if (cv.style.cursor === "pointer") hits.push([x, y]);
+    // Read projected hit geometry, then verify through the real hover handler.
+    // Avoid the TF wall and targets covered by the open sidebar.
+    for (const h of office.hit.filter(h => office.people.has(h.key)).reverse()) {
+      const x = box.x + (h.x0 + h.x1) / 2;
+      const y = box.y + (h.y0 + h.y1) / 2;
+      if (document.elementFromPoint(x, y) !== cv) continue;
+      cv.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+      if (cv.style.cursor === 'pointer' && office.people.has(office.hoverKey)) return { x, y };
     }
-    if (!hits.length) return null;
-    // Aim at the centroid of the cluster around the first hit (people wander;
-    // an edge point or a multi-person average can miss by click time).
-    const first = hits[0];
-    const cluster = hits.filter(h => Math.hypot(h[0] - first[0], h[1] - first[1]) < 60);
-    const cx = cluster.reduce((a, h) => a + h[0], 0) / cluster.length;
-    const cy = cluster.reduce((a, h) => a + h[1], 0) / cluster.length;
-    // Return the probed hit closest to the centroid (an actual pointer point).
-    let best = cluster[0], bd = 1e9;
-    for (const h of cluster) { const d = Math.hypot(h[0] - cx, h[1] - cy); if (d < bd) { bd = d; best = h; } }
-    return { x: Math.round(best[0]), y: Math.round(best[1]) };
+    return null;
   }, box);
 }
 
@@ -183,9 +182,7 @@ async function boot3D(width, { touch = false } = {}) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
     body: `data: ${JSON.stringify(feed)}\n\n`,
   }));
-  await page.addInitScript(() => {
-    try { localStorage.setItem("zhuge.office.members", JSON.stringify(["測試甲", "測試乙"])); } catch {}
-  });
+  await installRosterFixture(page);
   await page.goto((await fixtureURL(PAGE)) + "?quality=high");
   await page.waitForSelector("canvas.office-gl", { timeout: 30000 });
   await page.waitForSelector("canvas.office-overlay", { timeout: 30000 });
@@ -216,7 +213,7 @@ async function dragReleaseOnPerson(page, canvas, useTouch) {
     const hover = await page.evaluate(({ x, y }) => {
       const cv = document.querySelector("canvas.office-overlay");
       cv.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
-      return cv.style.cursor;
+      return office.people.has(office.hoverKey) ? cv.style.cursor : "";
     }, p);
     const d = await detailOpen(page, 800);
     assert.ok(!d.open, `drag ending on a person must not open detail, got ${JSON.stringify(d)}`);

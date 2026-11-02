@@ -1,0 +1,37 @@
+✔ canonical stored access token wins over a stale UI session token (3.620034ms)
+✔ auth refresh implementation is single-flight and synchronizes the root session (0.341553ms)
+✔ REST and Storage stop when JWT refresh does not produce a valid session (0.660544ms)
+✔ reused refresh token clears stored, root, and app-state sessions without retrying (4.333516ms)
+✔ successful refresh updates canonical and root sessions (1.340565ms)
+✔ expired root auth state is removed before UI render can treat it as logged in (1.526926ms)
+✔ UI guard leaves an expired session with a refresh token for the controlled refresh path (1.079152ms)
+✔ valid session reaches Cloud REST without an unnecessary refresh (3.194764ms)
+✔ Cloud REST stops after refresh failure without a second refresh or REST retry (2.42763ms)
+✔ a new login session restores Cloud REST after stale session cleanup (2.113328ms)
+✔ transient refresh failure (500) preserves the stored session and records debug (1.173054ms)
+✔ rate-limited refresh (429) preserves the stored session (1.095257ms)
+✔ refresh network error preserves the stored session and records debug (1.162188ms)
+✔ terminal refresh rejection (400 invalid_grant) clears and records terminal debug (1.840007ms)
+✔ user endpoint 500 preserves the stored session (1.175217ms)
+✔ user endpoint 401 with a transient refresh failure preserves the stored session (1.272243ms)
+✔ user endpoint rejecting a freshly refreshed token clears the stored session (1.116749ms)
+✔ worklog boot failure no longer destroys the stored login (2.286928ms)
+✔ terminal rejection does not clear a newer session stored by another tab (1.300465ms)
+✔ 400 with a non-terminal code and no legacy message preserves the stored session (1.136549ms)
+✔ legacy 400 Invalid Refresh Token message without error_code is terminal (1.242078ms)
+✔ debug records accumulate in a capped ring log (1.176649ms)
+✔ worklog boot fail-closes on an unverified preserved session with a retry surface (2.062822ms)
+✔ board hydration failure renders the retry surface when credentials survive (2.189613ms)
+✔ a present unknown error code overrides the legacy message prefix and preserves (1.021777ms)
+✔ user endpoint 401 without a terminal code after refresh preserves the stored session (1.121056ms)
+✔ a malformed successful refresh response preserves the stored session (1.029508ms)
+✔ a successful refresh response without a rotated refresh token keeps the old one (1.012613ms)
+✔ worklog boot stages runtime-init errors separately from verification failures (2.059867ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56.210103

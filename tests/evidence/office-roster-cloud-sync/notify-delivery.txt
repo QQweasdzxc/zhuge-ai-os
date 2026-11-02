@@ -1,0 +1,12 @@
+✔ in_progress -> done across two polls fires exactly one done Notification + done chime (simulated) (7.391805ms)
+✔ in_progress -> in_review fires attention (待稽核需要你), in_review -> done fires done (核定完成) (simulated) (3.123197ms)
+✔ gating: notify off, permission denied, sound off each suppress their channel (simulated) (2.483305ms)
+✔ notification permission not granted suppresses Notification but chime still fires (simulated) (1.470661ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25.642378

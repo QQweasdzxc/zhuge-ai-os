@@ -1,0 +1,12 @@
+✔ P2 #78 keeps exactly three family residents and one non-worker pet (5.815056ms)
+✔ P2 #78 uses the native renderer Sprite contract for the pet (0.600625ms)
+✔ P2 #78 leaves the frozen Multica vendor untouched (45.886669ms)
+✔ P2 #78 roster direction labels family and pet without worker state (2.133603ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 94.028623

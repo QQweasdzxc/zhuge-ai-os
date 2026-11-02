@@ -1,0 +1,20 @@
+✔ real migration SQL: own CRUD, foreign SELECT/INSERT/UPDATE/DELETE, owner reassignment and anonymous rejection (1990.09647ms)
+✔ migration executes against RLS: cloud empty (1354.204278ms)
+✔ migration executes against RLS: both present (915.939121ms)
+✔ migration executes against RLS: local empty (1229.154026ms)
+✔ migration executes against RLS: same roster (695.414056ms)
+✔ migration executes against RLS: no legacy key (1181.633905ms)
+✔ failed writes/invalid confirmation preserve legacy key and do not publish edits; retry migrates (1339.435117ms)
+✔ signed out never reads roster or writes local data; logout preserves pending migration and hides prior account (1482.796762ms)
+✔ overflow retains every legacy name; concurrent local mutation/account switch cannot clear pending copy (1387.923324ms)
+✔ concurrent device update is merged after conditional-write conflict, never silently overwritten (647.637462ms)
+✔ browser login chain + mobile migration + desktop round trip run through real RLS SQL (21264.238136ms)
+✔ unconfirmed cloud response cannot remove legacy; failed reads preserve it; cap is enforced by SQL (748.947716ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34247.220158
