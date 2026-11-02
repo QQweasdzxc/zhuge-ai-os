@@ -1,0 +1,13 @@
+✔ docs home keeps P1 furniture overlay on original Habblaud with correct relative paths (1.602434ms)
+✔ root home embeds the 3D office entry, not the 2D furnishings world (0.341264ms)
+✔ P1 works point to real published locations, placeholders cannot fake links (0.646785ms)
+✔ P1 does not alter original canvas or fabricate current agent status (0.405711ms)
+✔ P2 meeting room control is only an honest pending entry; the outside door illustration is removed (0.408245ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.674542
