@@ -456,10 +456,14 @@ function memberOverview(sessions, opts) {
 //   and CO-01 holds the real dispatch-verification cards ZG-44/ZG-33.
 // - Gem: the user stated Gem is one person; the same governance doc names
 //   GEM-01 as the Gem engineer (DM-04 owner).
+// - GitHub小幫手: the user said GitHub is not fixed to one person; the same
+//   governance doc defines the "GH-HELPER-*" class as parallel GitHub
+//   Mention helpers, and GH-HELPER is the only agent of that class in the
+//   workspace directory, so the figure maps to that one actual member (more
+//   GH-HELPER-* agents would become separate figures, not an aggregate).
 // GPT stays unbound: the doc's CTO-01 role has no agent in the workspace
-// agents directory. GH-HELPER is a real TF agent, but no source maps it to
-// the GitHub小幫手 member, so it stays unbound.
-const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'Codex-01': 'CO-01', 'Codex-02': 'CO-02', 'Codex-03': 'CO-03', Gem: 'GEM-01' };
+// agents directory.
+const MEMBER_AGENT_BINDING = { Instinct: 'INSTINCT-01', 'Codex-01': 'CO-01', 'Codex-02': 'CO-02', 'Codex-03': 'CO-03', Gem: 'GEM-01', 'GitHub小幫手': 'GH-HELPER' };
 function resolveMemberAgentId(memberName, agents) {
   const key = MEMBER_AGENT_BINDING[memberName];
   if (!key) return null;
