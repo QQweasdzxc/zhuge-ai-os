@@ -444,16 +444,18 @@ function memberOverview(sessions, opts) {
   return { counts, rows, bound: !!boundAgentId, boundAgentId, unboundCount, boardTotal };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl, startTfSource };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------
 
 if (typeof window !== 'undefined') {
   window.ZhugeTfSource = TfSource;
-  // Start polling and feed the existing onData pipeline. Interval default 1h,
-  // min 60s — faster live polling needs the user's explicit approval.
-  window.startTfSource = function startTfSource(opts) {
+}
+
+// Start polling and feed the existing onData pipeline. Interval default 1h,
+// min 60s — faster live polling needs the user's explicit approval.
+function startTfSource(opts) {
     const intervalMs = Math.max(60000, (opts.intervalSec || 3600) * 1000);
     let stopped = false;
     const getEmbeddedJwt = typeof opts.getEmbeddedJwt === 'function' ? opts.getEmbeddedJwt : () => null;
@@ -518,6 +520,15 @@ if (typeof window !== 'undefined') {
     }
     tick();
     const timer = setInterval(tick, intervalMs);
-    return () => { stopped = true; clearInterval(timer); };
-  };
+    // kick: the embedded token arrives AFTER the first (tokenless) tick, so an
+    // immediate extra read is what connects the office now instead of one
+    // interval (>=60s, default 1h) later. stop() ends both paths.
+    return {
+      stop: () => { stopped = true; clearInterval(timer); },
+      kick: () => { if (!stopped) tick(); },
+    };
+}
+
+if (typeof window !== 'undefined') {
+  window.startTfSource = startTfSource;
 }
