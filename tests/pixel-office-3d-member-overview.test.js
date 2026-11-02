@@ -57,3 +57,28 @@ test("index.html renders the overview only for AI members and labels it unmapped
   assert.ok(INDEX.includes("memberOverviewHtml"), "renderer exists");
   assert.ok(INDEX.includes("data-open-key"), "rows drill into the real card detail");
 });
+
+test("memberOverview with executorIds counts only that member's verified cards", () => {
+  const withExec = TfSource.normalizeTfIssues([
+    { id: "a1", identifier: "ZG-11", title: "mine-1", status_category: "todo", assignee_type: "agent" },
+    { id: "a2", identifier: "ZG-12", title: "mine-2", status_category: "in_progress", assignee_type: "agent" },
+    { id: "a3", identifier: "ZG-13", title: "theirs", status_category: "todo", assignee_type: "agent" },
+    { id: "h1", identifier: "ZG-14", title: "unassigned", status_category: "todo" },
+  ], {
+    now: 0,
+    nativeByIssueId: {
+      a1: { executor_id: "CO-01" },
+      a2: { executor_id: "CO-01" },
+      a3: { executor_id: "GEM-01" },
+    },
+  });
+  const ov = TfSource.memberOverview(withExec, { executorIds: ["CO-01"] });
+  assert.deepEqual(ov.counts, { todo: 1, in_progress: 1, in_review: 0, done: 0 });
+  assert.deepEqual(ov.rows.map((r) => r.title).sort(), ["ZG-11 mine-1", "ZG-12 mine-2"], "other executors and unassigned cards stay out");
+});
+
+test("memberOverview with executorIds and zero matches returns an empty overview, no invented rows", () => {
+  const ov = TfSource.memberOverview(sessions, { executorIds: ["CO-99"] });
+  assert.deepEqual(ov.counts, { todo: 0, in_progress: 0, in_review: 0, done: 0 });
+  assert.equal(ov.rows.length, 0);
+});

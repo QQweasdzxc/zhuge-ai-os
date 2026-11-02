@@ -779,6 +779,7 @@ function tfBlock(s, suppressGap) {
 }
 
 function statusLabel(s) {
+  if (s.board) return L.ovGlobal || '全看板';
   if (s.member) return s.occasional ? `${L.memberAi || 'AI 成員'} · ${L.memberOcc || '偶爾觸發'}` : s.ai ? (L.memberAi || 'AI 成員') : (L.member || '成員');
   if (s.tf) return TF_ISSUE_LABEL[s.tf.issueStatus] || s.tf.issueStatus || '未知';
   return L[s.status] || s.status;
@@ -947,6 +948,22 @@ const BUILTIN_AI = [
   { name: 'GitHub小幫手', occasional: true },
 ];
 
+// Verified member -> TaskFlow executor mapping (ZG-48). Empty on purpose: no
+// character-to-executor binding is confirmed anywhere yet. Fill ONLY from a
+// verified source, never from names, hints, or guesses.
+const MEMBER_EXECUTORS = {
+  // 'Codex': ['CO-01'], // shape example - unverified, do not enable
+};
+
+// 3D-1: board-wide truth lives in its own 全看板 entry, never inside a
+// member's panel; a member shows only verified assignments.
+function boardOverviewSession() {
+  const s = OfficeMembers.toSessions([''])[0];
+  s.key = 'board:overview';
+  s.board = true;
+  return s;
+}
+
 function aiMemberSession({ name, occasional }) {
   const s = OfficeMembers.toSessions([name])[0];
   s.key = `member:ai:${name}`;
@@ -967,6 +984,7 @@ function withMembers(data) {
       s.owner = true;
       extra.push(s);
     }
+    extra.push(boardOverviewSession());
     for (const spec of BUILTIN_AI) {
       if (names.includes(spec.name)) continue;
       extra.push(aiMemberSession(spec));
@@ -1524,7 +1542,7 @@ function renderSide() {
   const list = visible();
   // TF mode: split the count so 45 tasks + 3 members is not read as 48 people.
   const tfTasks = list.filter((s) => !s.member).length;
-  const tfMembers = list.length - tfTasks;
+  const tfMembers = list.filter((s) => s.member && !s.board).length;
   document.getElementById('sideCount').textContent = TF_MODE
     ? `${L.tfTask || '任務'} ${tfTasks} · ${L.member || '成員'} ${tfMembers}`
     : String(list.length);
@@ -1537,7 +1555,7 @@ function renderSide() {
     return `<div class="side-group">${esc(groupLabel(g.key))} · ${items.length}</div>` + items.map((s, i) => {
       const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
       return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g.key === 'working' ? 3 : g.key === 'finished' ? 8 : 0), 14)}">
-        ${tfIcon(s) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
+        ${tfIcon(s) || '<span></span>'}<span class="nm">${esc(s.board ? (L.ovGlobal || '全看板') : s.project || AGENT_NAME[s.agent] || s.agent)}</span>
         <span class="tm" data-time="${esc(s.key)}"></span>
         <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
     }).join('');
@@ -1586,14 +1604,16 @@ function renderDetail(scrollDown) {
   if (!s) { closeDetail(); return; }
   const now = Date.now() - state.skew;
   const dt = document.getElementById('detailTitle');
-  dt.innerHTML = `${tfIcon(s)}${esc(s.project || AGENT_NAME[s.agent] || s.agent)}`;
+  dt.innerHTML = `${tfIcon(s)}${esc(s.board ? (L.ovGlobal || '全看板') : s.project || AGENT_NAME[s.agent] || s.agent)}`;
   hydrateLogos(dt);
   // Fetch again whenever the agent logged something new.
   if (!s.member && convo.at !== s.lastEventAt && !convo.busy) loadConvo(s);
   const body = document.getElementById('detailBody');
   const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
   const myWork = s.owner ? state.data.sessions.filter((x) => x.tf && !x.tf.isAgentCard) : [];
-  const msgs = s.owner ? ''
+  const msgs = s.board ? ''
+    : s.owner ? ''
+    : s.member && s.ai && MEMBER_EXECUTORS[s.agentName] ? ''
     : s.member ? `<div class="msgs-note">${esc(s.occasional ? (L.memberOccNote || '偶爾觸發的 AI 成員；尚未取得它的觸發或任務狀態（待確認），不會假裝在忙。') : s.ai ? (L.memberAiNote || 'AI 成員；尚未取得它對應的任務或狀態（對應待確認）。') : (L.memberNote || '一般辦公室成員，目前沒有指派任務。'))}</div>`
     : s.tf ? (s.tf.isAgentCard
       ? !s.tf.taskflowTaskId ? `<div class="msgs-note">${esc(L.excerptGapDetail || '這張任務尚未連上對話紀錄；上方的回報紀錄為模板標籤，不是對話內容。')}</div>`
@@ -1607,16 +1627,20 @@ function renderDetail(scrollDown) {
       : !convo.messages.length ? `<div class="msgs-note">${esc(L.noMessages)}</div>`
         : renderMsgs(convo.messages);
   const resume = resumeCmd(s);
-  // 3D-1 (ZG-48): an AI member's panel shows the board's real work overview.
-  // Member-to-executor mapping is unconfirmed, so this is labelled board-wide
-  // truth; cards are never attributed to the character.
-  const ov = TF_MODE && s.member && s.ai && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
-    ? window.ZhugeTfSource.memberOverview(state.data.sessions) : null;
+  // 3D-1 (ZG-48): board-wide truth renders only in the 全看板 entry. A member
+  // panel shows cards only with a verified executor mapping; without one the
+  // panel shows no counts and no card pile (the note above says 對應待確認).
+  const memberExecutors = s.member && s.ai && MEMBER_EXECUTORS[s.agentName] ? MEMBER_EXECUTORS[s.agentName] : null;
+  const ov = TF_MODE && (s.board || memberExecutors) && window.ZhugeTfSource && typeof window.ZhugeTfSource.memberOverview === 'function'
+    ? window.ZhugeTfSource.memberOverview(state.data.sessions, memberExecutors ? { executorIds: memberExecutors } : undefined)
+    : null;
   const html = `
     ${s.title && s.title !== s.project ? `<div class="dtitle">${esc(s.title)}</div>` : ''}
     <div class="dstatus" style="--s:${statusColor(s.status)}"><i></i><b>${esc(statusLabel(s))}</b>${s.activity ? `<span class="act">${esc(s.activity)}</span>` : ''}${s.stuck ? `<span class="stuck">${esc(L.stuck(s.stuck))}</span>` : ''}</div>
     <dl class="dmeta">
-      ${s.member
+      ${s.board
+        ? ''
+        : s.member
         ? `<dt>${esc(L.membersL || '辦公室成員')}</dt><dd>${esc(s.agentName || s.project || '—')}</dd>`
         : s.tf
         ? `<dt>${esc(L.projectL || '專案')}</dt><dd class="mono" title="${esc(s.project || '')}">${esc(s.project || '—')}</dd>
@@ -1631,8 +1655,8 @@ function renderDetail(scrollDown) {
     ${resume ? `<div class="dactions"><button class="copy" data-copy="${esc(resume)}">${L.copy}</button></div>` : ''}
     ${s.owner ? `<div class="side-sec">${esc(L.ownerWork || '手上的事')} · ${myWork.length}</div>
     <div class="ow-list">${myWork.map((x) => `<button type="button" class="ow-row" data-open-key="${esc(x.key)}">${esc(x.title || x.project || '—')}</button>`).join('')}</div>`
-      : s.tf && !s.tf.isAgentCard ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>
-    ${msgs}${ov ? memberOverviewHtml(ov) : ''}`}`;
+      : s.tf && !s.tf.isAgentCard ? '' : `${s.board ? '' : `<div class="side-sec">${esc(s.member ? (L.member || '成員') : s.tf ? (L.excerptTitle || '對話摘錄') : L.recent)}</div>`}
+    ${msgs}${ov ? memberOverviewHtml(ov, { board: !!s.board, mapped: !!memberExecutors }) : ''}`}`;
   // The turn timer ticks on its own (tickTimes), so the panel only redraws when something changed.
   if (body.dataset.html !== html) {
     body.innerHTML = html; body.dataset.html = html;
@@ -1640,16 +1664,23 @@ function renderDetail(scrollDown) {
     if (scrollDown || nearBottom) body.scrollTop = body.scrollHeight;
   }
 }
-function memberOverviewHtml(ov) {
+function memberOverviewHtml(ov, opts) {
+  opts = opts || {};
   const stLabel = (st) => ({
     in_review: L.ovReview || '待確認', blocked: L.ovBlocked || '卡住', in_progress: L.ovInProgress || '進行中',
     todo: L.ovTodo || '待辦', backlog: L.ovBacklog || '待規劃', done: L.ovDone || '完成', cancelled: L.ovCancelled || '已取消',
   })[st] || st;
   const chip = (st) => `<b class="chip" style="--s:${statusColor(displayStatus(st))}">${esc(stLabel(st))}</b>`;
-  return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
+  const note = opts.board ? (L.ovGlobalNote || '全看板的真實卡片統計；不屬於任何一位成員。')
+    : opts.mapped ? (L.ovMine || '依已確認的對應，以下是這位成員的指派卡片。')
+    : (L.ovNote || '對應尚未確認；以下是全看板的真實卡片，不是這位成員的指派。');
+  const list = ov.rows.length
+    ? `<div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`
+    : `<div class="msgs-note">${esc(opts.board ? (L.ovEmptyBoard || '全看板目前沒有卡片。') : (L.ovEmpty || '目前沒有指派卡片。'))}</div>`;
+  return `<div class="side-sec">${esc(opts.board ? (L.ovGlobal || '全看板') : (L.ovTitle || '工作總覽'))}</div>
     <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b></div>
-    <div class="msgs-note">${esc(L.ovNote || '對應尚未確認；以下是全看板的真實卡片，不是這位成員的指派。')}</div>
-    <div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`;
+    <div class="msgs-note">${esc(note)}</div>
+    ${list}`;
 }
 const GEAR = '<svg class="ui-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>';
 

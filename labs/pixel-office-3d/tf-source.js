@@ -304,11 +304,16 @@ async function fetchTaskMessages(fetchImpl, apiBase, headers, taskId) {
 // character, so the panel must label this as board-wide truth, not the
 // member's own assignments.
 const MEMBER_OVERVIEW_RANK = { in_review: 0, blocked: 1, in_progress: 2, todo: 3, backlog: 4, done: 5, cancelled: 6 };
-function memberOverview(sessions) {
+// opts.executorIds: the executor ids VERIFIED to belong to one member. When
+// given, only cards whose real executor is in the list are counted; every
+// other card stays out. Omit it for the board-wide view (the 全看板 entry).
+function memberOverview(sessions, opts) {
+  const ids = opts && Array.isArray(opts.executorIds) ? opts.executorIds : null;
   const counts = { todo: 0, in_progress: 0, in_review: 0, done: 0 };
   const rows = [];
   for (const s of sessions || []) {
     if (!s || !s.tf) continue; // member/owner sessions carry no card payload
+    if (ids && !ids.includes(s.tf.executorId)) continue;
     const st = s.tf.issueStatus || 'backlog';
     if (Object.hasOwn(counts, st)) counts[st] += 1;
     rows.push({ key: s.key, title: s.title || '', issueStatus: st, updatedAt: s.tf.updatedAt || null });
