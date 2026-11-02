@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - sat-service-agent-token
       - review/taskflow-issue-40-20261011
       - review/taskflow-desktop-login-20261012
       - review/taskflow-sidebar-project-nav-20261012
@@ -45,6 +46,15 @@ jobs:
         run: git diff HEAD^ HEAD --check
       - name: Verify TaskFlow overlay and fail-closed patch contract
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s labs/taskflow/tests -v
+      - name: Verify SAT SQL guards on disposable PostgreSQL 16
+        shell: bash
+        run: |
+          docker run -d --name taskflow-sat-sql -e POSTGRES_PASSWORD=ci-sat-only postgres:16
+          for attempt in $(seq 1 30); do
+            if docker exec taskflow-sat-sql pg_isready -U postgres; then break; fi
+            sleep 1
+          done
+          python3 labs/taskflow/tests/service_agent_token_postgres.py taskflow-sat-sql
       - name: Verify TaskFlow navigation and authenticated entry contract
         run: node --test tests/shared-navigation.test.js tests/taskflow-entry.test.js tests/taskflow-cli-sso.test.js
       - name: Verify Phase 2 runtime contracts
