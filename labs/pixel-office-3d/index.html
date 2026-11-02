@@ -1090,6 +1090,7 @@ function wipeEmbeddedBoard() {
   state.data = withMembers({ now: Date.now(), sessions: [], source: 'live-tf', sourceNote: '等待內嵌授權' });
   render();
 }
+let tfSourceKick = null; // poller kick, armed by connect()
 const embeddedAuthCtl = TfSource.createEmbeddedAuthCtl({ onWipe: () => { if (embeddedParent) wipeEmbeddedBoard(); } });
 if (embeddedParent) {
   addEventListener('message', (e) => {
@@ -1105,6 +1106,9 @@ if (embeddedParent) {
       embeddedAuthCtl.setToken(e.data.token); // replace wipes the old identity first
       const bar = document.getElementById('tfAuth');
       if (bar) bar.hidden = true;
+      // The token lands AFTER the poller's first (tokenless) tick; kick so the
+      // board connects now instead of one poll interval (>=60s) later.
+      if (tfSourceKick) tfSourceKick();
     }
   });
   window.parent.postMessage({ type: 'zhuge-office-ready' }, embeddedParent);
@@ -1117,7 +1121,7 @@ function connect() {
     // Embedded: the login banner's target=_top link would navigate the host
     // TaskFlow tab away, so the banner only appears once a delivered token
     // was actually rejected (not while the handshake is in flight).
-    window.startTfSource({
+    const tfStarted = window.startTfSource({
       intervalSec: 3600,
       apiBase: PAGE_QUERY.get('tfApi') || 'https://zhuge-taskflow-api.onrender.com',
       workspace: PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7',
@@ -1134,6 +1138,7 @@ function connect() {
         conn.classList.toggle('on', !!error);
       },
     });
+    tfSourceKick = tfStarted && typeof tfStarted.kick === 'function' ? tfStarted.kick : null;
     return;
   }
   const es = new EventSource('events');
