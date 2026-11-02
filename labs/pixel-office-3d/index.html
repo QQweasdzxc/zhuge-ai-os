@@ -1069,7 +1069,11 @@ const embeddedParent = (() => {
   try {
     if (window.parent === window) return null;
     const o = new URL(document.referrer).origin;
-    return o === 'https://zhuge-taskflow-web.onrender.com' ? o : null;
+    // Direct embed by the TF page, or nested one level through our own site
+    // root shell (which relays the handshake from the TF page). Both are
+    // first-party and pinned in tf-source.js; any other embedder is ignored.
+    if (o === TfSource.EMBEDDED_PARENT_ORIGIN || o === TfSource.EMBEDDED_SHELL_ORIGIN) return o;
+    return null;
   } catch { return null; }
 })();
 // The handed-over session JWT stays valid server-side until its own exp (the

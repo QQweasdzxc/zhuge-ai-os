@@ -128,17 +128,24 @@ const TOKEN_KEYS = ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v
 // itself connected. No new scope: the same workspace reads the office's own
 // login flow would make.
 const EMBEDDED_PARENT_ORIGIN = 'https://zhuge-taskflow-web.onrender.com';
+// The public site root (index.html) is a thin shell that iframes the office one
+// level deeper. When the TF panel embeds that root, the shell relays the
+// handshake across the second boundary, so the office's parent is the shell,
+// not the TF page. Both origins are first-party and pinned; anything else is
+// rejected. The shell never sees or stores the token beyond transient relay.
+const EMBEDDED_SHELL_ORIGIN = 'https://qqweasdzxc.github.io';
+const EMBEDDED_ALLOWED_ORIGINS = new Set([EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN]);
 const EMBEDDED_READY_TYPE = 'zhuge-office-ready';
 const EMBEDDED_AUTH_TYPE = 'zhuge-office-embedded-auth';
 const EMBEDDED_CLEAR_TYPE = 'zhuge-office-embedded-auth-clear';
 function embeddedAuthMessageOk(origin, sourceIsParent, data) {
-  if (origin !== EMBEDDED_PARENT_ORIGIN) return false;
+  if (!EMBEDDED_ALLOWED_ORIGINS.has(origin)) return false;
   if (!sourceIsParent) return false;
   if (!data || data.type !== EMBEDDED_AUTH_TYPE) return false;
   return typeof data.token === 'string' && data.token.length > 0;
 }
 function embeddedClearMessageOk(origin, sourceIsParent, data) {
-  if (origin !== EMBEDDED_PARENT_ORIGIN) return false;
+  if (!EMBEDDED_ALLOWED_ORIGINS.has(origin)) return false;
   if (!sourceIsParent) return false;
   return !!(data && data.type === EMBEDDED_CLEAR_TYPE);
 }
@@ -437,7 +444,7 @@ function memberOverview(sessions, opts) {
   return { counts, rows, bound: !!boundAgentId, boundAgentId, unboundCount, boardTotal };
 }
 
-const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
+const TfSource = { displayStatus, normalizeTfIssues, normalizeTfTasks, classifyStatus, readSupabaseToken, exchangeJwt, pollTfOnce, fetchAgents, fetchReportLabels, fetchTaskMessages, memberOverview, TOKEN_KEYS, EMBEDDED_PARENT_ORIGIN, EMBEDDED_SHELL_ORIGIN, EMBEDDED_READY_TYPE, EMBEDDED_AUTH_TYPE, EMBEDDED_CLEAR_TYPE, embeddedAuthMessageOk, embeddedClearMessageOk, createEmbeddedAuthCtl };
 if (typeof module !== 'undefined' && module.exports) module.exports = TfSource;
 
 // --- browser part -----------------------------------------------------------

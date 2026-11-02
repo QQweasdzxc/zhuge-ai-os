@@ -24,6 +24,7 @@ const {
 
 const INDEX = fs.readFileSync(nodePath.join(__dirname, "..", "labs/pixel-office-3d/index.html"), "utf8");
 const PANEL = fs.readFileSync(nodePath.join(__dirname, "..", "labs/taskflow/overrides/taskflow-office-panel.tsx"), "utf8");
+const ROOT = fs.readFileSync(nodePath.join(__dirname, "..", "index.html"), "utf8");
 
 const ok200 = (body) => ({ status: 200, json: async () => body });
 
@@ -172,4 +173,80 @@ test("panel revokes via the auth store immediately, poll is fallback only", () =
   assert.ok(PANEL.includes("lastSent = null"), "account switch forces re-send");
   assert.ok(PANEL.includes("setInterval"), "60s fallback remains");
   assert.ok(PANEL.includes("EMBEDDED_CLEAR_TYPE"), "clear type sent");
+});
+
+// --- ZG-52 nested-embed relay (site root shell) ------------------------------
+
+const { EMBEDDED_SHELL_ORIGIN, EMBEDDED_AUTH_TYPE } = require("../labs/pixel-office-3d/tf-source.js");
+
+test("auth gate accepts the first-party shell origin, rejects everything else", () => {
+  const parent = {};
+  const ok = { type: EMBEDDED_AUTH_TYPE, token: "jwt-1" };
+  assert.equal(embeddedAuthMessageOk(EMBEDDED_SHELL_ORIGIN, parent, ok), true, "shell origin accepted (nested embed)");
+  assert.equal(embeddedAuthMessageOk(EMBEDDED_PARENT_ORIGIN, parent, ok), true, "direct TF embed still accepted");
+  assert.equal(embeddedAuthMessageOk("https://evil.example", parent, ok), false, "third party rejected");
+  assert.equal(embeddedAuthMessageOk("https://qqweasdzxc.github.io.evil.example", parent, ok), false, "lookalike suffix rejected");
+  assert.equal(embeddedClearMessageOk(EMBEDDED_SHELL_ORIGIN, parent, { type: EMBEDDED_CLEAR_TYPE }), true, "clear via shell accepted");
+  assert.equal(embeddedClearMessageOk("https://evil.example", parent, { type: EMBEDDED_CLEAR_TYPE }), false, "clear from third party rejected");
+});
+
+test("office accepts nested embed via shell referrer, rejects foreign referrers", () => {
+  assert.ok(INDEX.includes("TfSource.EMBEDDED_SHELL_ORIGIN"), "office referrer allowlist includes the shell origin");
+  assert.ok(INDEX.includes("TfSource.EMBEDDED_PARENT_ORIGIN"), "direct TF embed still allowed");
+});
+
+function runRelay(win) {
+  const m = ROOT.match(/\/\/ ZG-52 embedded-auth relay[\s\S]*?<\/script>/);
+  assert.ok(m, "relay script present in root index.html");
+  const body = m[0].replace(/<\/?script>/g, "");
+  // minimal DOM/window mock
+  const listeners = [];
+  win.addEventListener = (t, fn) => { if (t === "message") listeners.push(fn); };
+  win.location = { origin: "https://qqweasdzxc.github.io" };
+  new Function("window", "document", "location", body)(win, win.document, win.location);
+  return listeners;
+}
+
+test("root relay forwards ready office->TF and auth TF->office, drops foreign origins", () => {
+  const officeWin = { posted: [] };
+  const parentWin = { posted: [] };
+  const officeEl = { contentWindow: { postMessage: (data, origin) => officeWin.posted.push({ data, origin }) } };
+  const win = {
+    parent: { postMessage: (data, origin) => parentWin.posted.push({ data, origin }) },
+    document: { querySelector: () => officeEl },
+  };
+  const officeContentWindow = officeEl.contentWindow;
+  const [relay] = runRelay(win);
+  assert.ok(relay, "message listener installed");
+
+  // ready from the office iframe -> forwarded to TF origin only
+  relay({ data: { type: "zhuge-office-ready" }, source: officeContentWindow, origin: "https://qqweasdzxc.github.io" });
+  assert.deepEqual(parentWin.posted, [{ data: { type: "zhuge-office-ready" }, origin: "https://zhuge-taskflow-web.onrender.com" }]);
+  assert.equal(officeWin.posted.length, 0);
+
+  // auth from the TF parent -> forwarded into the office iframe
+  relay({ data: { type: "zhuge-office-embedded-auth", token: "jwt-9" }, source: win.parent, origin: "https://zhuge-taskflow-web.onrender.com" });
+  assert.deepEqual(officeWin.posted, [{ data: { type: "zhuge-office-embedded-auth", token: "jwt-9" }, origin: "https://qqweasdzxc.github.io" }]);
+
+  // clear likewise
+  relay({ data: { type: "zhuge-office-embedded-auth-clear" }, source: win.parent, origin: "https://zhuge-taskflow-web.onrender.com" });
+  assert.equal(officeWin.posted.length, 2);
+
+  // foreign origin pretending to be TF -> dropped
+  relay({ data: { type: "zhuge-office-embedded-auth", token: "evil" }, source: win.parent, origin: "https://evil.example" });
+  assert.equal(officeWin.posted.length, 2, "foreign auth dropped");
+
+  // injected into the office frame from outside -> dropped (source not the iframe)
+  relay({ data: { type: "zhuge-office-embedded-auth", token: "evil" }, source: {}, origin: "https://qqweasdzxc.github.io" });
+  assert.equal(parentWin.posted.length, 1, "non-iframe source not relayed upward");
+
+  // unknown types never relay
+  relay({ data: { type: "zhuge-office-ready2" }, source: officeContentWindow, origin: "https://qqweasdzxc.github.io" });
+  assert.equal(parentWin.posted.length, 1);
+});
+
+test("root relay wiring markers: pinned origins, no token persistence, after iframe", () => {
+  assert.ok(ROOT.includes("zhuge-taskflow-web.onrender.com"), "TF origin pinned");
+  assert.ok(!/localStorage|sessionStorage/.test(ROOT.match(/\/\/ ZG-52 embedded-auth relay[\s\S]*?<\/script>/)[0]), "relay never touches storage");
+  assert.ok(ROOT.indexOf("ZG-52 embedded-auth relay") > ROOT.indexOf("<iframe"), "relay installs after the iframe exists");
 });
