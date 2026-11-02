@@ -1728,7 +1728,7 @@ function memberOverviewHtml(ov) {
   }
   return `<div class="side-sec">${esc(L.ovTitle || '工作總覽')}</div>
     <div class="msgs-note">${esc(L.ovStatusNote || '卡片狀態為 TaskFlow 看板記錄，不代表即時執行狀態。')}</div>
-    <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b></div>
+    <div class="ov-counts">${esc(L.ovTodo || '待辦')} <b>${ov.counts.todo}</b> · ${esc(L.ovInProgress || '進行中')} <b>${ov.counts.in_progress}</b> · ${esc(L.ovReview || '待確認')} <b>${ov.counts.in_review}</b> · ${esc(L.ovBacklog || '待規劃')} <b>${ov.counts.backlog}</b> · ${esc(L.ovBlocked || '卡住')} <b>${ov.counts.blocked}</b> · ${esc(L.ovDone || '完成')} <b>${ov.counts.done}</b> · ${esc(L.ovCancelled || '已取消')} <b>${ov.counts.cancelled}</b></div>
     ${ov.rows.length ? `<div class="ow-list">${ov.rows.map((r) => `<button type="button" class="ow-row ov-row" data-open-key="${esc(r.key)}">${chip(r.issueStatus)}<span class="t">${esc(r.title)}</span></button>`).join('')}</div>`
       : `<div class="msgs-note">${esc(L.ovEmpty || '這位成員目前沒有指派卡片。')}</div>`}`;
 }
@@ -1795,4 +1795,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-  </html>
+    </html>
