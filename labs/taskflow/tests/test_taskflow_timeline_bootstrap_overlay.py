@@ -61,7 +61,9 @@ class TimelineBootstrapOverlayTests(unittest.TestCase):
             self.assertNotIn(OVERLAY.TIMELINE_VIRTUOSO_ANCHOR, patched)
             self.assertIn('scrollContainerEl.dispatchEvent(new Event("scroll"))', patched)
             self.assertEqual(patched.count("dispatchEvent(new Event"), 1)
-            self.assertNotIn(OVERLAY.SCROLL_CONTAINER_ANCHOR, patched)
+            self.assertIn("[scrollContainerEl, timelineItemCount]", patched)
+            self.assertEqual(patched.count("const items = useMemo<TimelineItem[]>"), 1)
+            self.assertGreater(patched.find("timelineItemCount"), patched.find("const items = useMemo"))
         self.assertEqual((SOURCE_ROOT / ISSUE_DETAIL).read_bytes(), vendor_before)
 
     def test_missing_upstream_marker_fails_closed(self) -> None:
