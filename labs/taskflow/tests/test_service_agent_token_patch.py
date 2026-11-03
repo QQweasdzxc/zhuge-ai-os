@@ -102,7 +102,7 @@ class ServiceAgentTokenPatchTests(unittest.TestCase):
         self.assertIn('COPY labs/taskflow/tests/service_agent_token_contract_test.go', docker)
         self.assertIn('sh /tmp/run-service-agent-token-tests.sh', (TASKFLOW / 'patches/run-parity-tests.sh').read_text())
         gate = (TASKFLOW / 'patches/run-service-agent-token-tests.sh').read_text()
-        self.assertIn('"$got" -eq 9', gate)
+        self.assertIn('"$got" -eq 10', gate)
         self.assertIn('candidate postflight', gate)
 
     def test_all_sql_paths_have_exact_shared_role_guard(self):

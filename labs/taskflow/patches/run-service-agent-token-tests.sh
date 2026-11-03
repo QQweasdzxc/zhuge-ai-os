@@ -35,5 +35,5 @@ log=/tmp/t-service-agent-token.log
 DATABASE_URL="$SAT_URL" CGO_ENABLED=0 go test ./internal/handler -v -run '^TestServiceAgentToken' -count=1 > "$log" 2>&1 || { cat "$log"; exit 1; }
 cat "$log"
 got=$(grep -cE '^--- PASS: TestServiceAgentToken' "$log")
-[ "$got" -eq 9 ] || { echo "SAT expected 9 executed contracts, got $got"; exit 1; }
-echo "GATE service_agent_token: 9/9 PASS"
+[ "$got" -eq 10 ] || { echo "SAT expected 10 executed contracts, got $got"; exit 1; }
+echo "GATE service_agent_token: 10/10 PASS"

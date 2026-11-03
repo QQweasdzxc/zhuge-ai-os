@@ -47,6 +47,8 @@ last_used_at records credential validation even if a later scope/handler denies.
 Explicit SAT method/path allowlist, always bound to one workspace:
 
 - GET `/api/issues`, `/api/issues/search`, `/api/issues/{uuid}`.
+- POST `/api/issues` (create only) so service-agent cards carry true agent
+  attribution; deletion, moving, batch mutations and broad edits stay denied.
 - GET `/api/issues/{uuid}/comments`, `/timeline`, `/attachments`.
 - POST `/api/issues/{uuid}/comments` with native comment validation/permissions.
 - PUT `/api/issues/{uuid}` with only `status` and optional `expected_revision`.
@@ -56,7 +58,7 @@ Explicit SAT method/path allowlist, always bound to one workspace:
   only for issue attachments without chat bindings. Native ownership checks remain.
 
 Everything else returns 403, including human/account routes, credential/runtime
-management, issue creation/deletion/moving, batch mutations and broad issue edits.
+management, issue deletion/moving, batch mutations and broad issue edits.
 Conflicting workspace selectors, including duplicate query values, are rejected.
 Entity ownership is checked even if the human belongs to both workspaces.
 Auth strips forged identity/source/task headers and stamps creator, agent and

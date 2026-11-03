@@ -188,6 +188,21 @@ func TestServiceAgentTokenCrossWorkspace(t *testing.T) {
 	att := dbfx.Insert(t, "attachment", testutil.Cols{"workspace_id": other, "issue_id": issue, "uploader_type": "member", "uploader_id": testUserID, "filename": "x.txt", "url": "https://example.test/x", "content_type": "text/plain", "size_bytes": 1})
 	satWant(t, f.call(t, "GET", "/api/attachments/"+att, "", nil), 403)
 }
+
+// Create-only scope: SAT may create issues and the creation carries true
+// agent attribution (creator_type=agent), closing the member-identity hole
+// where UI-session creation recorded the human owner.
+func TestServiceAgentTokenCreateIssueAttribution(t *testing.T) {
+	f := newSATFixture(t)
+	w := f.call(t, "POST", "/api/issues", `{"title":"SAT created card"}`, nil)
+	satWant(t, w, 201)
+	var creatorType, creator string
+	dbfx.QueryRow(t, `SELECT creator_type,creator_id::text FROM issue WHERE title='SAT created card'`).Scan(&creatorType, &creator)
+	if creatorType != "agent" || creator != f.agent {
+		t.Fatalf("wrong creator %s/%s", creatorType, creator)
+	}
+}
+
 func TestServiceAgentTokenDefaultDeny(t *testing.T) {
 	f := newSATFixture(t)
 	noDB := middleware.Auth(nil, nil, nil, nil)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("SAT passed without database") }))
@@ -198,7 +213,7 @@ func TestServiceAgentTokenDefaultDeny(t *testing.T) {
 	satWant(t, denied, 401)
 
 	for _, tc := range []struct{ method, path, body string }{
-		{"GET", "/api/me", ""}, {"GET", "/api/agents", ""}, {"POST", "/api/issues", `{"title":"bad"}`},
+		{"GET", "/api/me", ""}, {"GET", "/api/agents", ""},
 		{"DELETE", "/api/issues/" + f.issue, ""}, {"POST", "/api/issues/" + f.issue + "/rerun", ""},
 		{"PUT", "/api/issues/" + f.issue, `{"status":"done","title":"bad"}`},
 		{"POST", "/api/agents/" + f.agent + "/service-tokens", `{"name":"bad"}`},
