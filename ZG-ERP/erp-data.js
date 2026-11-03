@@ -49,12 +49,12 @@
           purchase: (i + si) % 5 === 4 ? "" : `202${3 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-15`,
           activate: (i + si) % 5 === 4 ? "" : `202${3 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-20`,
           warranty: (i + si) % 5 === 4 ? "" : `202${6 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-19`,
-          brand: BRANDS[i], origin: ORIGINS[(i + si) % ORIGINS.length], mfgYear: MFGY[(i + si * 2) % MFGY.length], type: TYPES[k[1]] || "其他"
+          brand: BRANDS[i], origin: ORIGINS[(i + si) % ORIGINS.length], mfgYear: MFGY[(i + si * 2) % MFGY.length], type: TYPES[k[1]] || "其他", po: ""
         });
       });
     });
     // 用戶貼紙上的實際編號（僅編號本身，非公司資料）：放在台北當範例
-    out[0] = { code: "CSPH107030182", name: "Yealink 話機", model: "T46U", owner: "陳小明", site: "台北", zone: "3F 工程部", status: "使用中", project: PROJECT_SEED[0], serial: "YK-T46U-107030182", purchase: "2024-01-18", activate: "2024-01-22", warranty: "2027-01-21", brand: "Yealink", origin: "中國", mfgYear: "2023", type: "話機" };
+    out[0] = { code: "CSPH107030182", name: "Yealink 話機", model: "T46U", owner: "陳小明", site: "台北", zone: "3F 工程部", status: "使用中", project: PROJECT_SEED[0], serial: "YK-T46U-107030182", purchase: "2024-01-18", activate: "2024-01-22", warranty: "2027-01-21", brand: "Yealink", origin: "中國", mfgYear: "2023", type: "話機", po: "" };
     return out;
   }
 
@@ -116,7 +116,7 @@
       const serials = (info.serials || []).map((s) => String(s).trim()).filter(Boolean);
       const seen = new Set(); const items = [];
       serials.forEach((s) => { if (!seen.has(s)) { seen.add(s); items.push({ serial: s, state: "pending", receivedAt: "", code: "" }); } });
-      const b = { id: "b" + Date.now(), vendor: info.vendor || "", brand: info.brand || "", model: info.model || "", origin: info.origin || "未確認", mfgYear: info.mfgYear || "", type: info.type || "",
+      const b = { id: "b" + Date.now(), po: info.po || "", vendor: info.vendor || "", brand: info.brand || "", model: info.model || "", origin: info.origin || "未確認", mfgYear: info.mfgYear || "", type: info.type || "",
         note: info.note || "", at: new Date().toISOString(), items, unexpected: [], closed: false };
       this.db.batches.push(b); this.persist(); return b;
     }
@@ -140,7 +140,7 @@
         const code = "CSNW" + String(107040000 + this.db.meta.codeSeq++).padStart(9, "0");
         const a = { code, name: b.model || b.brand || "未命名設備", model: b.model || "", brand: b.brand || "", origin: b.origin || "未確認",
           owner: dest.owner || "公用", site: dest.site, zone: dest.zone, status: "備用", project: dest.project || UNASSIGNED,
-          serial: x.serial, purchase: b.at.slice(0, 10), activate: "", warranty: "", mfgYear: b.mfgYear || "", type: b.type || "" };
+          serial: x.serial, purchase: b.at.slice(0, 10), activate: "", warranty: "", mfgYear: b.mfgYear || "", type: b.type || "", po: b.po || "" };
         this.db.assets.push(a);
         x.state = "inbound"; x.code = code;
         this.db.movements.push({ code, type: "inbound", at: new Date().toISOString(), note: "進貨入庫（" + (b.vendor || "未填廠商") + "）→ " + dest.site + " " + dest.zone });
