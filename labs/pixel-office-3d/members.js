@@ -11,6 +11,19 @@
 const Members = (() => {
   const KEY = 'zhuge.office.members';
 
+  // Accepts a name -> appearance map ('auto'|'female'|'male'). Never throws.
+  function parsePrefs(raw) {
+    try {
+      const o = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw;
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return {};
+      const out = {};
+      for (const [k, v] of Object.entries(o)) {
+        if (v === 'female' || v === 'male') out[k] = v;
+      }
+      return out;
+    } catch { return {}; }
+  }
+
   // Accepts a JSON array of strings or {name} objects. Never throws.
   function parseRoster(raw, limit = 24) {
     try {
@@ -36,9 +49,10 @@ const Members = (() => {
 
   // Neutral presence sessions: constant idle, no timestamps (no activity
   // claim), member:true so stats/alerts/grouping keep them apart from tasks.
-  function toSessions(names) {
+  function toSessions(names, prefs) {
     return (names || []).map((name, i) => ({
       key: `member:${i}:${name}`,
+      appearance: (prefs && (prefs[name] === 'female' || prefs[name] === 'male')) ? prefs[name] : 'auto',
       agent: 'person',
       agentName: name,
       id: `member-${i}`,
@@ -68,7 +82,7 @@ const Members = (() => {
   // Serialize reads/migrations/edits. Conditional writes prevent a migration
   // from overwriting another device's changes between GET and PATCH.
   function createSync({ storage, getToken, getAuth, fetchImpl, config, onChange = () => {} }) {
-    let names = [], token = null, queue = Promise.resolve();
+    let names = [], prefs = {}, token = null, queue = Promise.resolve();
     const clean = value => parseRoster(JSON.stringify(value));
     const current = auth => getToken() === auth.token;
     const check = auth => { if (!current(auth)) throw new Error('account-changed'); };
@@ -91,10 +105,11 @@ const Members = (() => {
       return rows;
     }
     async function read(auth) {
-      const rows = await request(auth, `?owner=eq.${encodeURIComponent(auth.owner)}&select=owner,names,updated_at`);
+      const rows = await request(auth, `?owner=eq.${encodeURIComponent(auth.owner)}&select=owner,names,prefs,updated_at`);
       if (rows.length > 1) throw new Error('invalid-response');
       const row = rows[0] || null;
-      if (row && (row.owner !== auth.owner || !Array.isArray(row.names) || !row.updated_at)) throw new Error('invalid-response');
+      const badPrefs = row && row.prefs != null && (typeof row.prefs !== 'object' || Array.isArray(row.prefs));
+      if (row && (row.owner !== auth.owner || !Array.isArray(row.names) || !row.updated_at || badPrefs)) throw new Error('invalid-response');
       return row;
     }
     async function write(auth, row, next) {
@@ -149,6 +164,7 @@ const Members = (() => {
           }
           check(auth);
           names = row ? clean(row.names) : [];
+          prefs = row ? parsePrefs(row.prefs) : {};
           onChange({ status: 'synced', names: visible() });
           return visible();
         } catch (error) {
@@ -160,10 +176,48 @@ const Members = (() => {
       queue = result.catch(() => {});
       return result;
     }
-    return { visible, sync: () => run(), save: value => run(clean(value)) };
+    // Appearance preference for one member. Serialized with roster edits;
+    // same optimistic concurrency. 'auto' removes the override.
+    function saveAppearance(name, value) {
+      if (value !== 'auto' && value !== 'female' && value !== 'male') return Promise.reject(new Error('bad-appearance'));
+      // Capture the initiating account before enqueueing, like roster edits.
+      const editToken = getToken();
+      const task = async () => {
+        if (!editToken || getToken() !== editToken) throw new Error('account-changed');
+        const auth = await getAuth();
+        if (!auth) throw new Error('login-required');
+        check(auth);
+        let row = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            row = await read(auth);
+            const next = parsePrefs(row ? row.prefs : null);
+            if (value === 'auto') delete next[name]; else next[name] = value;
+            const suffix = row ? `?owner=eq.${encodeURIComponent(auth.owner)}&updated_at=eq.${encodeURIComponent(row.updated_at)}` : '';
+            const rows = await request(auth, suffix, { method: row ? 'PATCH' : 'POST',
+              body: JSON.stringify(row ? { prefs: next } : { owner: auth.owner, names: [], prefs: next }) });
+            if (!rows.length) throw new Error('conflict');
+            if (rows.length !== 1 || rows[0].owner !== auth.owner) throw new Error('unconfirmed-write');
+            row = rows[0];
+            break;
+          } catch (error) {
+            if (error.message !== 'conflict' || attempt === 2) throw error;
+          }
+        }
+        check(auth);
+        prefs = parsePrefs(row.prefs);
+        onChange({ status: 'synced', names: visible() });
+        return { ...prefs };
+      };
+      const result = queue.then(task);
+      queue = result.catch(() => {});
+      result.catch(error => onChange({ status: 'error', code: error.message, names: visible() }));
+      return result;
+    }
+    return { visible, appearance: () => ({ ...prefs }), sync: () => run(), save: value => run(clean(value)), saveAppearance };
   }
 
-  return { KEY, parseRoster, load, toSessions, createSync };
+  return { KEY, parseRoster, parsePrefs, load, toSessions, createSync };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Members;

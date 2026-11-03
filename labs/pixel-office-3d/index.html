@@ -459,6 +459,9 @@
             <div id="memberSyncStatus" role="status" aria-live="polite"></div>
             <button id="memberSyncRetry" type="button" hidden>重試同步</button>
             <textarea id="memberNames" disabled rows="3" style="width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--panel);color:var(--ink)"></textarea>
+            <label class="setting-label" data-t="appearanceL"></label>
+            <div id="memberAppearance"></div>
+            <p class="tog-note" data-t="appearanceNote"></p>
             <p class="tog-note" data-t="membersNote"></p>
           </div>
         </div>
@@ -1001,7 +1004,7 @@ function withMembers(data) {
     }
   }
   if (!names.length && !extra.length) return data;
-  return { ...data, sessions: [...data.sessions, ...extra, ...OfficeMembers.toSessions(names)] };
+  return { ...data, sessions: [...data.sessions, ...extra, ...OfficeMembers.toSessions(names, rosterSync ? rosterSync.appearance() : null)] };
 }
 
 function onData(data) {
@@ -1284,9 +1287,39 @@ rosterSync = OfficeMembers.createSync({
       : '未同步：私密名單同步失敗；尚未遷移的本機名單仍保留，請重試。';
     // Do not replace an in-progress draft on background reads.
     if (document.activeElement !== memberNames || status === 'error') memberNames.value = names.join('\n');
+    renderMemberAppearance();
     if (state.feed) { state.data = withMembers(state.feed); renderNow(); }
   },
 });
+const memberAppearanceEl = document.getElementById('memberAppearance');
+function renderMemberAppearance() {
+  if (!memberAppearanceEl) return;
+  const names = rosterSync ? rosterSync.visible() : [];
+  const prefs = rosterSync ? rosterSync.appearance() : {};
+  memberAppearanceEl.innerHTML = '';
+  for (const name of names) {
+    const row = document.createElement('label');
+    row.className = 'tog';
+    row.style.cssText = 'display:flex;justify-content:space-between;gap:8px;align-items:center';
+    const span = document.createElement('span');
+    span.textContent = name;
+    const sel = document.createElement('select');
+    for (const [v, key] of [['auto', 'appearanceAuto'], ['female', 'appearanceFemale'], ['male', 'appearanceMale']]) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = L[key] || v;
+      sel.appendChild(o);
+    }
+    sel.value = prefs[name] || 'auto';
+    sel.disabled = rosterBusy || !rosterToken();
+    sel.addEventListener('change', async () => {
+      sel.disabled = true;
+      try { await rosterSync.saveAppearance(name, sel.value); } catch { /* controller renders sync state */ }
+      renderMemberAppearance();
+    });
+    row.append(span, sel);
+    memberAppearanceEl.appendChild(row);
+  }
+}
 const syncRoster = () => {
   if (!rosterBusy && document.activeElement !== memberNames) rosterSync.sync().catch(() => {});
 };
