@@ -651,7 +651,7 @@
         (got ? '<button class="pill sm" data-a="ibconfirm" data-v="' + esc(b.id) + '">確認入庫 ' + got + " 台</button>" : "") + "</div>";
       if (open) {
         card += '<div class="dtable" style="margin-top:8px">' + b.items.map((x) =>
-          '<div class="zrow"><span>' + esc(x.serial) + (x.code ? " → " + esc(x.code) : "") + '</span><span class="small">' + ({ pending: "待收", received: "已核對", inbound: "已入庫" })[x.state] + "</span></div>").join("") +
+          '<div class="zrow"><span>' + esc(x.serial) + (x.code ? " → " + esc(x.code) : "") + '</span><span class="small">' + ({ pending: "待收", received: "已核對", inbound: "已入庫", conflict: "序號已在清冊，未重複建立" })[x.state] + "</span></div>").join("") +
           (b.unexpected.length ? '<div class="lbl sim">清單外掃到（不會自動入庫）</div>' + b.unexpected.map((u) => '<div class="zrow"><span>' + esc(u.serial) + '</span><span class="small">清單外' + (u.n > 1 ? " ×" + u.n : "") + "</span></div>").join("") : "") + "</div>";
       }
       if (S.ibConfirm === b.id) {
