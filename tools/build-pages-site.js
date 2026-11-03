@@ -14,7 +14,8 @@ const ROOT_FILES = new Set([
 ]);
 const ROUTE_ROOTS = new Set([
   "app", "assets", "config", "contact", "google-data", "labs", "modules",
-  "privacy", "product", "public", "scopes", "shared", "support", "terms"
+  "privacy", "product", "public", "scopes", "shared", "support", "terms",
+  "ZG-ERP"
 ]);
 const EXCLUDED_RUNTIME_PATHS = [
   /^labs\/investment\/(?:docs|test|tests)(?:\/|$)/,
