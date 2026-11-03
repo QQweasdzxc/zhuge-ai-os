@@ -541,7 +541,7 @@
       list.map((a) => {
         const lr = lastRecordOf(a.code);
         let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
-          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + "</span>" + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
+          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
           "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner) + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
@@ -554,6 +554,7 @@
             '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="brand" value="' + esc(d.brand || "") + '" placeholder="品牌，可留空"></div>' +
             '<div class="frow"><span class="lbl">產地</span><input class="inp" data-f="origin" value="' + esc(d.origin || "") + '" placeholder="製造產地；沒資料留「未確認」，不要依品牌猜"></div>' +
             '<div class="frow"><span class="lbl">產品類型</span><input class="inp" data-f="type" value="' + esc(d.type || "") + '" placeholder="耳機/話機/PC/NB…可新增分類"></div>' +
+            '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="po" value="' + esc(d.po || "") + '" placeholder="採購編號，可回查到貨批次"></div>' +
             '<div class="frow"><span class="lbl">製造年份</span><input class="inp" data-f="mfgYear" value="' + esc(d.mfgYear || "") + '" placeholder="如 2023；和購入日、啟用日分開"></div>' +
             '<div class="frow"><span class="lbl">購入日期</span><input class="inp" type="date" data-f="purchase" value="' + esc(d.purchase) + '"></div>' +
             '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
@@ -620,10 +621,11 @@
   /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
   function pcInbound() {
     const bs = batches().slice().reverse();
-    const nb = S.nb || (S.nb = { vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
+    const nb = S.nb || (S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
     let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。測試資料只存在此瀏覽器。</p>';
     // 建單
     html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給的序號清單，每行一筆）</div>' +
+      '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="nb_po" value="' + esc(nb.po) + '" placeholder="採購編號；同一筆採購分批到貨用同一個"></div>' +
       '<div class="frow"><span class="lbl">廠商</span><input class="inp" data-f="nb_vendor" value="' + esc(nb.vendor) + '" placeholder="廠商名稱（測試）"></div>' +
       '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="nb_brand" value="' + esc(nb.brand) + '" placeholder="品牌"></div>' +
       '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="nb_model" value="' + esc(nb.model) + '" placeholder="型號"></div>' +
@@ -640,7 +642,7 @@
       const got = b.items.filter((x) => x.state === "received").length;
       const inb = b.items.filter((x) => x.state === "inbound").length;
       const open = S.ibOpen === b.id;
-      let card = '<div class="card" style="margin-top:10px"><div class="sct"><b>' + esc(b.vendor || "未填廠商") + " · " + esc(b.model || "未填型號") + "</b><span class='small'>" + esc(new Date(b.at).toLocaleString("zh-TW", { hour12: false })) + "</span></div>" +
+      let card = '<div class="card" style="margin-top:10px"><div class="sct"><b>' + (b.po ? "PO " + esc(b.po) + " · " : "") + esc(b.vendor || "未填廠商") + " · " + esc(b.model || "未填型號") + "</b><span class='small'>" + esc(new Date(b.at).toLocaleString("zh-TW", { hour12: false })) + "</span></div>" +
         '<div class="smeta">' + esc(b.brand || "未填品牌") + " · 產地 " + esc(b.origin) + (b.mfgYear ? " · 製造年份 " + esc(b.mfgYear) : "") + (b.note ? " · " + esc(b.note) : "") + "</div>" +
         '<span class="bar"><i style="width:' + (b.items.length ? Math.round(((got + inb) / b.items.length) * 100) : 0) + '%"></i></span>' +
         '<div class="smeta">清單 ' + b.items.length + " 台 · 待收 " + pend + " · 已核對待入庫 " + got + " · 已入庫 " + inb + (b.unexpected.length ? ' · <b class="pbad">清單外 ' + b.unexpected.length + " 筆</b>" : "") + (b.closed ? " · 全部入庫完成" : "") + "</div>" +
@@ -783,7 +785,7 @@
       S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
       S.dtab = "assets"; S.asite = x.site;
       S.editCode = v;
-      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "" };
+      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -797,7 +799,7 @@
       else {
         const x = getA(v);
         S.editCode = v;
-        S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "" };
+        S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
       }
     }
     else if (a === "cancel") { S.editCode = ""; S.editDraft = null; }
@@ -831,8 +833,8 @@
       const serials = String(nb.serials || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
       if (!serials.length) { S.nbNote = "請先貼上至少一筆序號（每行一筆）。"; }
       else {
-        const b = store.addBatch({ vendor: nb.vendor, brand: nb.brand, model: nb.model, origin: nb.origin, mfgYear: nb.mfgYear, type: nb.type, note: nb.note, serials });
-        S.nb = { vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = "";
+        const b = store.addBatch({ po: nb.po, vendor: nb.vendor, brand: nb.brand, model: nb.model, origin: nb.origin, mfgYear: nb.mfgYear, type: nb.type, note: nb.note, serials });
+        S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = "";
         S.ibOpen = b.id; S.ibConfirm = ""; S.ibDraft = null;
       }
     }
