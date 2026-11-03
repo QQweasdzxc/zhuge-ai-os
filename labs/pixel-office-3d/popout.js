@@ -67,8 +67,12 @@
             if (e.name !== 'InvalidStateError' || !this.videoSupported) throw e;
             this.documentBroken = true;
             await this.startPreview();
+            await this.tryFloatVideo();
           }
-        } else await this.startPreview();
+        } else {
+          await this.startPreview();
+          await this.tryFloatVideo();
+        }
       } catch (e) {
         console.warn('Could not open picture-in-picture:', e);
         this.close();
@@ -117,6 +121,15 @@
       } else if (this.video.webkitSetPresentationMode) {
         this.video.webkitSetPresentationMode('picture-in-picture');
       }
+    }
+
+    // One click should float the office, not stop at an inline preview: when
+    // document PiP is unavailable (e.g. the office is embedded at the site
+    // root), open video PiP in the same click. If the browser refuses, the
+    // preview and its own PiP control stay as the honest fallback.
+    async tryFloatVideo() {
+      if (!this.canOpenVideo()) return;
+      try { await this.openVideo(); } catch (e) { /* preview + hint remain as the fallback */ }
     }
 
     async startPreview() {
