@@ -195,6 +195,10 @@ func TestServiceAgentTokenCrossWorkspace(t *testing.T) {
 // where UI-session creation recorded the human owner.
 func TestServiceAgentTokenCreateIssueAttribution(t *testing.T) {
 	f := newSATFixture(t)
+	// dbfx.Issue numbers rows MAX(number)+1 without touching
+	// workspace.issue_counter, which AllocateIssueNumber increments on the real
+	// create path; resync so the POST allocates the true next number.
+	dbfx.Exec(t, `UPDATE workspace SET issue_counter=(SELECT COALESCE(MAX(number),0) FROM issue WHERE workspace_id=$1) WHERE id=$1`, testWorkspaceID)
 	w := f.call(t, "POST", "/api/issues", `{"title":"SAT created card"}`, nil)
 	satWant(t, w, 201)
 	var creatorType, creator string
