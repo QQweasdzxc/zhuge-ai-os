@@ -80,7 +80,16 @@
   function detectGps() {
     S.gpsErr = "";
     if (!navigator.geolocation) { S.gpsErr = "這個瀏覽器不支援定位，請直接選擇盤點據點。"; render(); return; }
+    let done = false;
+    const wd = setTimeout(() => {
+      if (done) return;
+      done = true;
+      S.gpsErr = "定位逾時：瀏覽器沒有回應（可能授權視窗沒有顯示或被忽略）。請直接選擇盤點據點，或確認網址列的定位授權後再試。";
+      render();
+    }, 12000);
     navigator.geolocation.getCurrentPosition((pos) => {
+      if (done) return;
+      done = true; clearTimeout(wd);
       const fix = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: Math.round(pos.coords.accuracy || 0), at: timeStr(new Date()) };
       S.gps = fix;
       let best = null, bd = Infinity;
@@ -89,6 +98,8 @@
       if (best) S.site = best;
       render();
     }, (err) => {
+      if (done) return;
+      done = true; clearTimeout(wd);
       const code = err && err.code;
       S.gpsErr = code === 1 ? "定位權限被拒絕。要用定位請在瀏覽器設定允許；目前可手動選擇盤點據點，紀錄會註記沒有定位。"
         : code === 2 ? "目前收不到定位訊號（可能在室內或訊號弱）。可手動選擇盤點據點，或到空曠處再試。"
@@ -109,10 +120,21 @@
     // 開始盤點時抓一次起點定位：未決定時會跳出一次瀏覽器授權請求；明確拒絕則不問，維持手動據點
     if (!S.gps && navigator.geolocation) {
       const capture = () => {
+        let done = false;
+        const wd = setTimeout(() => {
+          if (done) return;
+          done = true;
+          S.gpsErr = "起點定位逾時：瀏覽器沒有回應（可能授權視窗沒有顯示）。本次先以手動據點開始，紀錄會註記沒有定位。";
+          begin(null);
+        }, 8000);
         navigator.geolocation.getCurrentPosition((pos) => {
+          if (done) return;
+          done = true; clearTimeout(wd);
           const f = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: Math.round(pos.coords.accuracy || 0), at: timeStr(new Date()) };
           S.gps = f; S.gpsErr = ""; begin(f);
         }, (err) => {
+          if (done) return;
+          done = true; clearTimeout(wd);
           S.gpsErr = err && err.code === 1 ? "定位權限被拒絕。本次紀錄會註記沒有定位；之後要用定位請在瀏覽器設定允許。"
             : "起點定位未取得（" + (err && err.code === 3 ? "逾時" : "收不到訊號") + "）。本次先以手動據點開始，紀錄會註記沒有定位。";
           begin(null);
