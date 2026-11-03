@@ -63,6 +63,13 @@ func serviceAgentRouteAllowed(w http.ResponseWriter, r *http.Request, q *db.Quer
 	if r.Method == "GET" && (p == "/api/issues" || p == "/api/issues/search") {
 		return true
 	}
+	// Issue creation is allowed so a service agent's cards carry true agent
+	// attribution (creator_type=agent). It remains bound to this one workspace
+	// by the selector validation above; deletion, moving, batch mutations and
+	// broad edits stay denied.
+	if r.Method == "POST" && p == "/api/issues" {
+		return true
+	}
 	if r.Method == "POST" && p == "/api/upload-file" {
 		r.Body = http.MaxBytesReader(w, r.Body, 100<<20)
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
