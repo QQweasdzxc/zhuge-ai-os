@@ -83,8 +83,8 @@
       if (!s || s.zones.includes(zone)) return false;
       s.zones.push(zone); this.persist(); return true;
     }
-    startSession(site, lat, lon) {
-      const sess = { id: "s" + Date.now(), site, lat, lon, at: new Date().toISOString(), closed: false };
+    startSession(site, lat, lon, acc) {
+      const sess = { id: "s" + Date.now(), site, lat, lon, acc: acc == null ? null : acc, at: new Date().toISOString(), closed: false };
       this.db.sessions.push(sess); this.persist(); return sess;
     }
     addRecord(sess, rec) {
