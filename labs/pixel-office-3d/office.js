@@ -1528,7 +1528,7 @@
           c.restore();
         }
         pill(this.label(s), pal.text, pal.tagBg, py, p.mode === 'work' || hover ? 1 : 0.7, true, px);
-        if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1 });
+        if (!this.compact) this.hit.push({ key: p.key, x0: rect.x0, x1: rect.x1, y0: rect.y0, y1: rect.y1, plate: true });
         this._drawnLabels.push({ key: p.key, base, drawn: rect });
       } else if (badge) {
         this.agentBadge(badge, x, top - 11);
