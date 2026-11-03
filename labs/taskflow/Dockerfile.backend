@@ -98,6 +98,7 @@ COPY labs/taskflow/tests/service_agent_token_contract_test.go /src/server/intern
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
+COPY labs/taskflow/overrides/sat_activity_attribution_test.go /src/server/cmd/server/sat_activity_attribution_test.go
 COPY labs/taskflow/overrides/taskflow_backlog_assignment_test.go /src/server/internal/handler/taskflow_backlog_assignment_test.go
 
 COPY labs/taskflow/patches/apply-taskflow-stability.py /tmp/apply-taskflow-stability.py

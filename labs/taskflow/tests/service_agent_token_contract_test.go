@@ -55,6 +55,7 @@ func newSATFixture(t *testing.T) satFixture {
 		r.Post("/api/issues/{id}/comments", testHandler.CreateComment)
 		r.Get("/api/issues/{id}/comments", testHandler.ListComments)
 		r.Get("/api/attachments/{id}", testHandler.GetAttachmentByID)
+		r.Delete("/api/attachments/{id}", testHandler.DeleteAttachment)
 		r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
 		r.With(RequireHumanActor).Post("/api/agents/{id}/service-tokens", testHandler.CreateServiceAgentToken)
 		r.With(RequireHumanActor).Get("/api/agents/{id}/service-tokens", testHandler.ListServiceAgentTokens)
@@ -360,5 +361,138 @@ func TestServiceAgentTokenAuditAtomicity(t *testing.T) {
 	call("DELETE", path+"/"+f.tokenID)
 	if dbfx.Count(t, `SELECT count(*) FROM taskflow.service_agent_tokens WHERE id=$1 AND revoked_at IS NULL`, f.tokenID) != 1 {
 		t.Fatal("failed audit revoked token")
+	}
+}
+
+// Cross-workspace WRITES are denied at the same route gate as reads: a
+// comment on a foreign issue and an upload bound to a foreign issue_id must
+// both fail with 403 and leave no rows behind.
+func TestServiceAgentTokenCrossWorkspaceWrites(t *testing.T) {
+	f := newSATFixture(t)
+	other := dbfx.Workspace(t, "SAT other writes", "sat-other-writes-"+uuid.NewString())
+	dbfx.Insert(t, "member", testutil.Cols{"workspace_id": other, "user_id": testUserID, "role": "owner"})
+	issue := dbfx.Issue(t, "foreign write target", testutil.Cols{"workspace_id": other})
+
+	satWant(t, f.call(t, "POST", "/api/issues/"+issue+"/comments", `{"content":"SAT cross write"}`, nil), 403)
+
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	file, err := form.CreateFormFile("file", "x.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = file.Write([]byte("SAT cross attachment")); err != nil {
+		t.Fatal(err)
+	}
+	if err = form.WriteField("issue_id", issue); err != nil {
+		t.Fatal(err)
+	}
+	if err = form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/upload-file", &body)
+	req.Header.Set("Authorization", "Bearer "+f.token)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	w := httptest.NewRecorder()
+	f.router.ServeHTTP(w, req)
+	satWant(t, w, 403)
+
+	if dbfx.Count(t, `SELECT count(*) FROM comment WHERE issue_id=$1`, issue) != 0 {
+		t.Fatal("cross-workspace comment written")
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM attachment WHERE issue_id=$1`, issue) != 0 {
+		t.Fatal("cross-workspace attachment written")
+	}
+}
+
+// README contract: last_used_at records credential validation even when a
+// later scope/route check denies the request. AuthenticateServiceAgentToken
+// writes it in the same UPDATE that validates the token, before the route
+// allowlist runs, so a denied call still proves the credential was used.
+func TestServiceAgentTokenDeniedRecordsLastUsed(t *testing.T) {
+	f := newSATFixture(t)
+	satWant(t, f.call(t, "GET", "/api/me", "", nil), 403)
+	if dbfx.Count(t, `SELECT count(*) FROM taskflow.service_agent_tokens WHERE id=$1 AND last_used_at IS NOT NULL`, f.tokenID) != 1 {
+		t.Fatal("denied request did not record last_used_at")
+	}
+}
+
+// Attachment delete scope for SAT. The route gate allows DELETE on
+// in-workspace attachments; the handler then authorizes via the uploader
+// (members only) or a workspace admin/owner from ctxMember. For a SAT
+// request X-User-ID is the token's human creator, so the creator's owner
+// membership makes EVERY workspace attachment deletable by the agent,
+// including other members' uploads. Pinned current behavior (attribution
+// inversion): the delete is authorized under, and its change event is
+// published as, the human creator's member identity - not the agent. A
+// future fix that binds deletion to the agent identity must update this
+// pin deliberately, not silently.
+func TestServiceAgentTokenAttachmentDeleteScope(t *testing.T) {
+	f := newSATFixture(t)
+
+	oldStorage := testHandler.Storage
+	testHandler.Storage = &mockStorage{}
+	t.Cleanup(func() { testHandler.Storage = oldStorage })
+
+	// Agent-uploaded attachment via SAT.
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	file, err := form.CreateFormFile("file", "agent-delete.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = file.Write([]byte("SAT delete me")); err != nil {
+		t.Fatal(err)
+	}
+	if err = form.WriteField("issue_id", f.issue); err != nil {
+		t.Fatal(err)
+	}
+	if err = form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/api/upload-file", &body)
+	req.Header.Set("Authorization", "Bearer "+f.token)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	uploaded := httptest.NewRecorder()
+	f.router.ServeHTTP(uploaded, req)
+	satWant(t, uploaded, 200)
+	var agentAtt AttachmentResponse
+	if json.Unmarshal(uploaded.Body.Bytes(), &agentAtt) != nil || agentAtt.ID == "" {
+		t.Fatal("agent attachment not persisted")
+	}
+
+	// Another member's upload in the same workspace: not the token creator.
+	otherUser := dbfx.User(t, "SAT other uploader", "sat-uploader-"+uuid.NewString()+"@multica.test")
+	dbfx.Insert(t, "member", testutil.Cols{"workspace_id": testWorkspaceID, "user_id": otherUser, "role": "member"})
+	memberAtt := dbfx.Insert(t, "attachment", testutil.Cols{"workspace_id": testWorkspaceID, "issue_id": f.issue, "uploader_type": "member", "uploader_id": otherUser, "filename": "member.txt", "url": "https://example.test/member", "content_type": "text/plain", "size_bytes": 1})
+
+	attachmentEvents := make(chan events.Event, 2)
+	testHandler.Bus.Subscribe(protocol.EventIssueAttachmentsChanged, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		if id, ok := payload["issue_id"].(string); ok && id == f.issue {
+			attachmentEvents <- e
+		}
+	})
+
+	// SAT deletes its own agent upload.
+	satWant(t, f.call(t, "DELETE", "/api/attachments/"+agentAtt.ID, "", nil), 204)
+	// SAT deletes another member's upload via the creator's owner membership.
+	satWant(t, f.call(t, "DELETE", "/api/attachments/"+memberAtt, "", nil), 204)
+
+	for i := 0; i < 2; i++ {
+		select {
+		case e := <-attachmentEvents:
+			if e.ActorType != "member" || e.ActorID != testUserID {
+				t.Fatalf("attachment delete event actor changed: %+v", e)
+			}
+		default:
+			t.Fatal("attachment change event missing")
+		}
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM attachment WHERE id IN ($1,$2)`, agentAtt.ID, memberAtt) != 0 {
+		t.Fatal("attachments not deleted")
 	}
 }
