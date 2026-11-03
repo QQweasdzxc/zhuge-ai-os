@@ -29,7 +29,7 @@
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
     asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
-    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: ""
+    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
   };
 
   /* ---- 資料導出 ---- */
@@ -75,23 +75,42 @@
       else if (a.warranty && a.warranty < t) items.push({ a, why: "保固已到期 " + a.warranty, tone: "mid" });
     });
     const undecided = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
-    return { items, undecided };
+    const recv = openBatches().map((b) => ({ b, left: b.items.filter((x) => x.state === "pending").length, got: b.items.filter((x) => x.state === "received").length }));
+    return { items, undecided, recv };
   }
   function attentionCard() {
-    const { items, undecided } = attention();
-    if (!items.length && !undecided) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
+    const { items, undecided, recv } = attention();
+    if (!items.length && !undecided && !recv.length) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
     const shown = items.slice(0, 6);
     let rows = shown.map((x) =>
       '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) +
       '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · 保管人 " + esc(x.a.owner) + " · " + esc(x.why) + '</span></span>' +
       '<button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button></div>').join("");
+    recv.forEach((x) => { rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>進貨「' + esc(x.b.vendor || x.b.model || "未填廠商") + "」</b>" +
+      (x.left ? "待收 " + x.left + " 台" : "已收齊 ") + (x.got ? "，已核對 " + x.got + " 台待確認入庫" : "") +
+      '<br><span class="small">' + esc(x.b.brand || "未填品牌") + " · " + esc(x.b.model || "未填型號") + " · 產地 " + esc(x.b.origin) + '</span></span>' +
+      '<button class="pill sm" data-a="goinbound" data-v="' + esc(x.b.id) + '">去核對</button></div>'; });
     if (undecided) rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>' + undecided + " 筆盤點差異</b>還沒決定" +
       '<br><span class="small">手機掃到的位置不符或查無編號，決定後才會從這裡消失。</span></span>' +
       '<button class="pill sm" data-a="godiff">去決定</button></div>';
     if (items.length > shown.length) rows += '<div class="small">另有 ' + (items.length - shown.length) + " 筆；到「設備資料」依狀態篩選可逐筆處理。</div>";
-    return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0)) + "）</div>" + rows + "</div>";
+    return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0) + recv.length) + "）</div>" + rows + "</div>";
   }
   const projAssets = (p) => assets().filter((a) => (a.project || D.UNASSIGNED) === p);
+  const batches = () => store.listBatches();
+  const openBatches = () => batches().filter((b) => !b.closed);
+  const originOf = (a) => a.origin || "未確認";
+  const brandOf = (a) => a.brand || "未確認";
+  const distinctOrigins = () => [...new Set(assets().map(originOf))];
+  /* 設備年齡：依所選基準（購入/啟用/製造年份）計算；缺該日期列「年限未確認」，不猜。門檻由使用者設定，預設 5 年為待確認值，不自動報廢。 */
+  const AGE_THRESHOLD_DEFAULT = 5;
+  function assetAge(a, basis) {
+    const now = new Date().getFullYear();
+    if (basis === "mfgYear") return a.mfgYear ? now - Number(a.mfgYear) : null;
+    const v = basis === "activate" ? a.activate : a.purchase;
+    return v ? now - Number(String(v).slice(0, 4)) : null;
+  }
+  const distinctBrands = () => [...new Set(assets().map(brandOf))];
 
   /* ---- 掃描 ---- */
   function scan(code) {
@@ -487,16 +506,42 @@
   }
   function pcAssets() {
     if (!S.asite) S.asite = siteNames()[0] || "";
-    const list = assets().filter((a) => a.site === S.asite);
+    const list = assets().filter((a) => a.site === S.asite)
+      .filter((a) => !S.afOrigin || originOf(a) === S.afOrigin)
+      .filter((a) => !S.afBrand || brandOf(a) === S.afBrand)
+      .filter((a) => !S.afType || (a.type || "未分類") === S.afType)
+      .filter((a) => {
+        if (!S.ageFilter) return true;
+        const g = assetAge(a, S.ageBasis);
+        return S.ageFilter === "aged" ? (g !== null && g >= (S.ageThreshold || AGE_THRESHOLD_DEFAULT)) : g === null;
+      });
     const zones = zonesOf(S.asite);
     return '<h3 class="ptitle">設備資料</h3><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存只更新這個瀏覽器的測試資料，不會寫回試算表。</p>' +
       (S.retTab ? '<div class="chips"><button class="pill sm" data-a="back">← 回' + ({ dash: "儀表板", map: "位置圖", diff: "盤點差異" }[S.retTab] || "上一頁") + "</button></div>" : "") +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.asite === p ? " on" : "") + '" data-a="asite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
+      '<div class="chips"><span class="lbl" style="align-self:center">產地</span>' +
+      '<button class="pill sm' + (S.afOrigin === "" ? " on" : "") + '" data-a="aforigin" data-v="">全部</button>' +
+      distinctOrigins().map((o) => '<button class="pill sm' + (S.afOrigin === o ? " on" : "") + '" data-a="aforigin" data-v="' + esc(o) + '">' + esc(o) + "</button>").join("") + "</div>" +
+      '<div class="chips"><span class="lbl" style="align-self:center">品牌</span>' +
+      '<button class="pill sm' + (S.afBrand === "" ? " on" : "") + '" data-a="afbrand" data-v="">全部</button>' +
+      distinctBrands().map((b) => '<button class="pill sm' + (S.afBrand === b ? " on" : "") + '" data-a="afbrand" data-v="' + esc(b) + '">' + esc(b) + "</button>").join("") + "</div>" +
+      '<div class="chips"><span class="lbl" style="align-self:center">產品類型</span>' +
+      '<button class="pill sm' + (S.afType === "" ? " on" : "") + '" data-a="aftype" data-v="">全部</button>' +
+      [...new Set(assets().map((a) => a.type || "未分類"))].map((t) => '<button class="pill sm' + (S.afType === t ? " on" : "") + '" data-a="aftype" data-v="' + esc(t) + '">' + esc(t) + "</button>").join("") + "</div>" +
+      '<p class="small">產品類型（耳機/話機/PC/NB…可新增）和品牌、型號分開記，能交叉篩選。產地是製造產地，和品牌所屬國、廠商所在地分開記；逐台保留，沒資料列「未確認」，不由品牌推斷。' + (S.afOrigin || S.afBrand || S.afType ? "目前篩出 " + list.length + " 台。" : "") + "</p>" +
+      '<div class="chips"><span class="lbl" style="align-self:center">年限</span>' +
+      '<button class="pill sm' + (S.ageFilter === "" ? " on" : "") + '" data-a="agefilter" data-v="">全部</button>' +
+      '<button class="pill sm' + (S.ageFilter === "aged" ? " on" : "") + '" data-a="agefilter" data-v="aged">屆齡</button>' +
+      '<button class="pill sm' + (S.ageFilter === "unknown" ? " on" : "") + '" data-a="agefilter" data-v="unknown">年限未確認</button>' +
+      '<select class="inp sm" data-f="ageBasis" style="min-height:36px">' +
+      [["purchase", "從購入日算"], ["activate", "從啟用日算"], ["mfgYear", "從製造年份算"]].map((o) => '<option value="' + o[0] + '"' + (S.ageBasis === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select>" +
+      '<input class="inp sm" type="number" min="1" max="30" data-f="ageThreshold" value="' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + '" style="width:64px;min-height:36px"><span class="lbl" style="align-self:center">年（待確認，不是公司正式規定）</span></div>' +
+      (S.ageFilter === "aged" ? '<p class="small">屆齡評估清單 ' + list.length + ' 台：滿 ' + (S.ageThreshold || AGE_THRESHOLD_DEFAULT) + ' 年只列入評估，不會自動改狀態或報廢；實際淘汰由你決定。</p>' : "") +
       '<div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
       list.map((a) => {
         const lr = lastRecordOf(a.code);
         let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
-          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + "</span>" + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
+          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + "</span>" + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
           "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner) + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
@@ -506,6 +551,10 @@
             '<div class="frow"><span class="lbl">設備狀態</span><select class="inp" data-f="status">' + D.STATUSES.map((st) => '<option value="' + esc(st) + '"' + (d.status === st ? " selected" : "") + ">" + esc(st) + "</option>").join("") + "</select></div>" +
             '<div class="frow"><span class="lbl">歸屬專案</span><select class="inp" data-f="project">' + projects().map((p) => '<option value="' + esc(p) + '"' + ((d.project || D.UNASSIGNED) === p ? " selected" : "") + ">" + esc(p) + "</option>").join("") + "</select></div>" +
             '<div class="frow"><span class="lbl">設備序號</span><input class="inp" data-f="serial" value="' + esc(d.serial) + '" placeholder="S/N，可留空"></div>' +
+            '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="brand" value="' + esc(d.brand || "") + '" placeholder="品牌，可留空"></div>' +
+            '<div class="frow"><span class="lbl">產地</span><input class="inp" data-f="origin" value="' + esc(d.origin || "") + '" placeholder="製造產地；沒資料留「未確認」，不要依品牌猜"></div>' +
+            '<div class="frow"><span class="lbl">產品類型</span><input class="inp" data-f="type" value="' + esc(d.type || "") + '" placeholder="耳機/話機/PC/NB…可新增分類"></div>' +
+            '<div class="frow"><span class="lbl">製造年份</span><input class="inp" data-f="mfgYear" value="' + esc(d.mfgYear || "") + '" placeholder="如 2023；和購入日、啟用日分開"></div>' +
             '<div class="frow"><span class="lbl">購入日期</span><input class="inp" type="date" data-f="purchase" value="' + esc(d.purchase) + '"></div>' +
             '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
             '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
@@ -568,6 +617,91 @@
           selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
         : '<div class="small">點圖上任一位置，帶出該位置的設備資料。</div>');
   }
+  /* ---- 入庫作業：整批建單（待入庫，不影響庫存）→ 到貨核對（手機）→ 確認入庫（此時才建設備）---- */
+  function pcInbound() {
+    const bs = batches().slice().reverse();
+    const nb = S.nb || (S.nb = { vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
+    let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。測試資料只存在此瀏覽器。</p>';
+    // 建單
+    html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給的序號清單，每行一筆）</div>' +
+      '<div class="frow"><span class="lbl">廠商</span><input class="inp" data-f="nb_vendor" value="' + esc(nb.vendor) + '" placeholder="廠商名稱（測試）"></div>' +
+      '<div class="frow"><span class="lbl">品牌</span><input class="inp" data-f="nb_brand" value="' + esc(nb.brand) + '" placeholder="品牌"></div>' +
+      '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="nb_model" value="' + esc(nb.model) + '" placeholder="型號"></div>' +
+      '<div class="frow"><span class="lbl">產地</span><input class="inp" data-f="nb_origin" value="' + esc(nb.origin) + '" placeholder="製造產地；沒資料留空會記「未確認」"></div>' +
+      '<div class="frow"><span class="lbl">產品類型</span><input class="inp" data-f="nb_type" value="' + esc(nb.type) + '" placeholder="耳機/話機/PC/NB…可新增分類"></div>' +
+      '<div class="frow"><span class="lbl">製造年份</span><input class="inp" data-f="nb_mfgYear" value="' + esc(nb.mfgYear) + '" placeholder="如 2025，可留空"></div>' +
+      '<div class="frow"><span class="lbl">序號清單</span><textarea class="inp" data-f="nb_serials" rows="4" placeholder="每行一筆廠商序號">' + esc(nb.serials) + '</textarea></div>' +
+      '<div class="frow"><span class="lbl">備註</span><input class="inp" data-f="nb_note" value="' + esc(nb.note) + '" placeholder="可留空"></div>' +
+      '<button class="btn" data-a="nbcreate">建立待入庫批次</button>' + (S.nbNote ? '<div class="toast t-none" style="margin-top:8px">' + esc(S.nbNote) + "</div>" : "") + '</div>';
+    // 批次列表
+    if (!bs.length) html += '<div class="toast idle" style="margin-top:10px">還沒有進貨批次。</div>';
+    html += bs.map((b) => {
+      const pend = b.items.filter((x) => x.state === "pending").length;
+      const got = b.items.filter((x) => x.state === "received").length;
+      const inb = b.items.filter((x) => x.state === "inbound").length;
+      const open = S.ibOpen === b.id;
+      let card = '<div class="card" style="margin-top:10px"><div class="sct"><b>' + esc(b.vendor || "未填廠商") + " · " + esc(b.model || "未填型號") + "</b><span class='small'>" + esc(new Date(b.at).toLocaleString("zh-TW", { hour12: false })) + "</span></div>" +
+        '<div class="smeta">' + esc(b.brand || "未填品牌") + " · 產地 " + esc(b.origin) + (b.mfgYear ? " · 製造年份 " + esc(b.mfgYear) : "") + (b.note ? " · " + esc(b.note) : "") + "</div>" +
+        '<span class="bar"><i style="width:' + (b.items.length ? Math.round(((got + inb) / b.items.length) * 100) : 0) + '%"></i></span>' +
+        '<div class="smeta">清單 ' + b.items.length + " 台 · 待收 " + pend + " · 已核對待入庫 " + got + " · 已入庫 " + inb + (b.unexpected.length ? ' · <b class="pbad">清單外 ' + b.unexpected.length + " 筆</b>" : "") + (b.closed ? " · 全部入庫完成" : "") + "</div>" +
+        '<div class="scact"><button class="pill sm" data-a="ibopen" data-v="' + esc(b.id) + '">' + (open ? "收合明細" : "看明細") + "</button>" +
+        (pend || got ? '<button class="pill sm" data-a="gorecv" data-v="' + esc(b.id) + '">手機到貨核對</button>' : "") +
+        (got ? '<button class="pill sm" data-a="ibconfirm" data-v="' + esc(b.id) + '">確認入庫 ' + got + " 台</button>" : "") + "</div>";
+      if (open) {
+        card += '<div class="dtable" style="margin-top:8px">' + b.items.map((x) =>
+          '<div class="zrow"><span>' + esc(x.serial) + (x.code ? " → " + esc(x.code) : "") + '</span><span class="small">' + ({ pending: "待收", received: "已核對", inbound: "已入庫" })[x.state] + "</span></div>").join("") +
+          (b.unexpected.length ? '<div class="lbl sim">清單外掃到（不會自動入庫）</div>' + b.unexpected.map((u) => '<div class="zrow"><span>' + esc(u.serial) + '</span><span class="small">清單外' + (u.n > 1 ? " ×" + u.n : "") + "</span></div>").join("") : "") + "</div>";
+      }
+      if (S.ibConfirm === b.id) {
+        const dr = S.ibDraft || (S.ibDraft = { site: siteNames()[0], zone: zonesOf(siteNames()[0])[0] || "", project: D.UNASSIGNED, owner: "公用" });
+        card += '<div class="card" style="margin-top:8px;background:var(--ds-raised)"><div class="lbl">確認入庫 ' + got + ' 台：建立內部登記編號，狀態「備用」</div>' +
+          '<div class="frow"><span class="lbl">入庫據點</span><select class="inp" data-f="ibd_site">' + siteNames().map((s) => '<option value="' + esc(s) + '"' + (dr.site === s ? " selected" : "") + ">" + esc(s) + "</option>").join("") + "</select></div>" +
+          '<div class="frow"><span class="lbl">區域</span><select class="inp" data-f="ibd_zone">' + zonesOf(dr.site).map((z) => '<option value="' + esc(z) + '"' + (dr.zone === z ? " selected" : "") + ">" + esc(z) + "</option>").join("") + "</select></div>" +
+          '<div class="frow"><span class="lbl">歸屬專案</span><select class="inp" data-f="ibd_project">' + projects().map((p) => '<option value="' + esc(p) + '"' + (dr.project === p ? " selected" : "") + ">" + esc(p) + "</option>").join("") + "</select></div>" +
+          '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="ibd_owner" value="' + esc(dr.owner) + '"></div>' +
+          '<button class="btn" data-a="ibdo" data-v="' + esc(b.id) + '">建立 ' + got + ' 台設備並入庫</button>' +
+          '<button class="btn secondary" data-a="ibconfirm" data-v="' + esc(b.id) + '">取消</button></div>';
+      }
+      if (S.ibDone && S.ibDone[b.id]) {
+        card += '<div class="toast t-ok" style="margin-top:8px">已入庫 ' + S.ibDone[b.id].length + " 台：" + S.ibDone[b.id].map((a) => esc(a.code)).join("、") + "。到「設備資料」可繼續編輯。</div>";
+      }
+      return card + "</div>";
+    }).join("");
+    return html;
+  }
+  /* ---- 手機到貨核對 ---- */
+  function phoneRecv() {
+    const obs = openBatches();
+    if (!S.recvBatch || !obs.some((b) => b.id === S.recvBatch)) S.recvBatch = obs.length ? obs[0].id : "";
+    const b = S.recvBatch ? store.batch(S.recvBatch) : null;
+    if (!b) return '<div class="screen"><h3 class="ptitle">到貨核對</h3><p class="psub">還沒有待入庫批次。先在「電腦 · 入庫作業」貼上廠商序號清單建立批次。</p><button class="btn" data-a="goinbound">到電腦建立批次</button></div>';
+    const pend = b.items.filter((x) => x.state === "pending");
+    const got = b.items.filter((x) => x.state === "received").length;
+    const last = S.recvLast;
+    const toast = last
+      ? '<div class="toast t-' + (last.result === "ok" ? "ok" : last.result === "dup" ? "dup" : "none") + '">' +
+        ({ ok: "✓ 核對相符", dup: "＝ 重複掃描", unexpected: "≠ 清單外", exists: "≠ 已在設備清冊", empty: "請輸入序號", nobatch: "找不到批次" })[last.result] +
+        '<div class="tname">' + esc(last.serial) + "</div>" +
+        '<div class="tloc">' + ({ ok: "已記為到貨，待確認入庫。", dup: "這筆序號之前已核對過，不重複計。", unexpected: "不在這批清單內，已另列，不會自動入庫。", exists: "這個序號已經是正式設備（" + esc((last.asset || {}).code || "") + "），不再入庫。" })[last.result] + "</div></div>"
+      : '<div class="toast idle">輸入或掃描設備上的廠商序號開始核對。分批到貨沒問題：核對幾台就記幾台。</div>';
+    return '<div class="screen"><h3 class="ptitle">到貨核對</h3>' +
+      '<p class="psub">' + esc(b.vendor || "未填廠商") + " · " + esc(b.brand || "") + " " + esc(b.model || "") + " · 產地 " + esc(b.origin) + "</p>" +
+      (obs.length > 1 ? '<div class="chips">' + obs.map((x) => '<button class="pill' + (S.recvBatch === x.id ? " on" : "") + '" data-a="recvbatch" data-v="' + esc(x.id) + '">' + esc(x.vendor || x.model || "批次") + "</button>").join("") + "</div>" : "") +
+      '<div class="scope"><div class="sct"><span>核對進度</span><span>' + got + " / " + b.items.length + "</span></div>" +
+      '<span class="bar"><i style="width:' + (b.items.length ? Math.round((got / b.items.length) * 100) : 0) + '%"></i></span>' +
+      '<div class="smeta">待收 ' + pend.length + " · 已核對 " + got + (b.unexpected.length ? ' · <b class="pbad">清單外 ' + b.unexpected.length + "</b>" : "") + "</div>" +
+      (pend.length ? '<div class="smeta">還沒到：' + pend.slice(0, 6).map((x) => esc(x.serial)).join("、") + (pend.length > 6 ? " …等 " + pend.length + " 筆" : "") + "</div>" : "") + "</div>" +
+      toast +
+      '<div class="frow"><input class="inp" data-f="recvCode" placeholder="輸入廠商序號" value="' + esc(S.recvCode) + '"><button class="btn mini" data-a="recvscan">核對</button></div>' +
+      '<div class="lbl sim">測試用：模擬掃到</div><div class="chips">' +
+      (pend.length ? '<button class="pill sm" data-a="recvtest" data-v="' + esc(pend[0].serial) + '">清單內序號</button>' : "") +
+      (got ? '<button class="pill sm" data-a="recvtest" data-v="' + esc(b.items.find((x) => x.state === "received").serial) + '">重複掃已核對</button>' : "") +
+      '<button class="pill sm" data-a="recvtest" data-v="SN-NOT-IN-LIST">清單外序號</button>' +
+      '<button class="pill sm" data-a="recvtest" data-v="YK-T46U-107030182">已在清冊的序號</button></div>' +
+      '<div class="hand">核對完到「電腦 · 入庫作業」確認入庫，才會產生登記編號並列入設備。</div>' +
+      '<button class="btn" data-a="goinbound" data-v="' + esc(b.id) + '">到電腦確認入庫</button></div>';
+  }
+
   function pcDiff() {
     const recs = allRecords().filter((r) => r.status !== "ok").slice().reverse();
     const todoN = recs.filter((r) => !r.decision).length;
@@ -584,12 +718,13 @@
   }
   function pcView() {
     const tab = S.dtab;
-    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : pcDiff();
+    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : pcDiff();
     const recs = curRecs();
     const diffN = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
     return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="dlogo">諸葛 · 設備管理</div>' +
       '<button class="dnav' + (tab === "dash" ? " on" : "") + '" data-a="dtab" data-v="dash">總覽儀表板</button>' +
       '<button class="dnav' + (tab === "assets" ? " on" : "") + '" data-a="dtab" data-v="assets">設備資料</button>' +
+      '<button class="dnav' + (tab === "inbound" ? " on" : "") + '" data-a="dtab" data-v="inbound">入庫作業' + (openBatches().length ? " (" + openBatches().length + ")" : "") + '</button>' +
       '<button class="dnav' + (tab === "zones" ? " on" : "") + '" data-a="dtab" data-v="zones">位置表</button>' +
       '<button class="dnav' + (tab === "map" ? " on" : "") + '" data-a="dtab" data-v="map">位置圖</button>' +
       '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button></nav>" +
@@ -606,6 +741,7 @@
     if (S.mode === "phone") {
       let body;
       if (S.dash) body = phoneDash();
+      else if (S.screen === "recv") body = phoneRecv();
       else if (S.screen === "start") body = phoneStart();
       else if (S.screen === "scan") body = phoneScan();
       else body = phoneResult();
@@ -647,7 +783,7 @@
       S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
       S.dtab = "assets"; S.asite = x.site;
       S.editCode = v;
-      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty };
+      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "" };
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -661,7 +797,7 @@
       else {
         const x = getA(v);
         S.editCode = v;
-        S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty };
+        S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "" };
       }
     }
     else if (a === "cancel") { S.editCode = ""; S.editDraft = null; }
@@ -685,6 +821,49 @@
         setMark(S.mapSite, S.mapZone, Math.round(((e.clientX - r.left) / r.width) * 1000) / 10, Math.round(((e.clientY - r.top) / r.height) * 1000) / 10);
       }
     }
+    else if (a === "aforigin") { S.afOrigin = v; }
+    else if (a === "afbrand") { S.afBrand = v; }
+    else if (a === "aftype") { S.afType = v; }
+    else if (a === "agefilter") { S.ageFilter = v; }
+    else if (a === "goinbound") { S.mode = "pc"; S.dash = false; S.dtab = "inbound"; if (v) S.ibOpen = v; }
+    else if (a === "nbcreate") {
+      const nb = S.nb || {};
+      const serials = String(nb.serials || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      if (!serials.length) { S.nbNote = "請先貼上至少一筆序號（每行一筆）。"; }
+      else {
+        const b = store.addBatch({ vendor: nb.vendor, brand: nb.brand, model: nb.model, origin: nb.origin, mfgYear: nb.mfgYear, type: nb.type, note: nb.note, serials });
+        S.nb = { vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" }; S.nbNote = "";
+        S.ibOpen = b.id; S.ibConfirm = ""; S.ibDraft = null;
+      }
+    }
+    else if (a === "ibopen") { S.ibOpen = S.ibOpen === v ? "" : v; }
+    else if (a === "ibconfirm") {
+      if (S.ibConfirm === v) { S.ibConfirm = ""; S.ibDraft = null; }
+      else {
+        const b = store.batch(v); if (!b) return;
+        S.ibConfirm = v; S.ibOpen = v;
+        const s0 = siteNames()[0] || "";
+        S.ibDraft = { site: s0, zone: zonesOf(s0)[0] || "", project: D.UNASSIGNED, owner: "公用" };
+      }
+    }
+    else if (a === "ibdo") {
+      const made = store.confirmInbound(v, S.ibDraft || {});
+      if (made.length) {
+        S.ibDone = S.ibDone || {}; S.ibDone[v] = made;
+        S.ibConfirm = ""; S.ibDraft = null; S.ibOpen = v;
+      }
+    }
+    else if (a === "gorecv") { S.mode = "phone"; S.screen = "recv"; S.recvBatch = v; S.recvLast = null; }
+    else if (a === "recvbatch") { S.recvBatch = v; S.recvLast = null; }
+    else if (a === "recvscan") {
+      const r = store.receiveSerial(S.recvBatch, S.recvCode);
+      S.recvLast = { serial: String(S.recvCode || "").trim(), result: r.result, asset: r.asset || null };
+      S.recvCode = "";
+    }
+    else if (a === "recvtest") {
+      const r = store.receiveSerial(S.recvBatch, v);
+      S.recvLast = { serial: v, result: r.result, asset: r.asset || null };
+    }
     else if (a === "decide") {
       if (S.sess) store.decide(S.sess.id, v, t.getAttribute("data-d"));
       else {
@@ -699,6 +878,11 @@
     if (!f) return;
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; return; }
+    if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
+    if (f.indexOf("ibd_") === 0) { if (S.ibDraft) S.ibDraft[f.slice(4)] = e.target.value; return; }
+    if (f === "recvCode") { S.recvCode = e.target.value; return; }
+    if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; }
+    if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
     if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
   });
   document.addEventListener("change", (e) => {
@@ -708,6 +892,12 @@
       return;
     }
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
+    if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
+    if (f.indexOf("ibd_") === 0 && S.ibDraft) {
+      S.ibDraft[f.slice(4)] = e.target.value;
+      if (f === "ibd_site") S.ibDraft.zone = zonesOf(S.ibDraft.site)[0] || "";
+      render(); return;
+    }
     if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
   });
   document.addEventListener("keydown", (e) => {
