@@ -49,7 +49,7 @@ test("讀取路徑把 bridge 列映射為 MockStore.state() 同形", async () =>
   const { SheetsStore, DEFAULT_COLUMNS } = loadSheets();
   const A = DEFAULT_COLUMNS.assets, S = DEFAULT_COLUMNS.sites, R = DEFAULT_COLUMNS.records;
   const fake = {
-    assets: { header: Object.values(A), rows: [["CSPH107030182", "Yealink 話機", "T46U", "YK-1", "陳小明", "台北", "3F 工程部", "使用中", "總部資訊設備更新", "2024-01-18", "2024-01-22", "2027-01-21"]] },
+    assets: { header: Object.values(A), rows: [["CSPH107030182", "Yealink 話機", "T46U", "YK-1", "陳小明", "台北", "3F 工程部", "使用中", "總部資訊設備更新", "2024-01-18", "2024-01-22", "2027-01-21", "Yealink", "中國", "話機", "2023", "PO-TEST-001"]] },
     sites: { header: Object.values(S), rows: [["台北", "25.047", "121.517", "1F 櫃台、3F 工程部"]] },
     records: { header: Object.values(R), rows: [["s1", "CSPH107030182", "ok", "3F 工程部", "2026-11-04T00:00:00Z", "2", "維持登記"]] }
   };

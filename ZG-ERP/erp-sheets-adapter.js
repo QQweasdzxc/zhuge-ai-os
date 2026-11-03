@@ -12,7 +12,7 @@
 
   /* 欄位對照（預設草擬，待實際表格確認後調整） */
   const DEFAULT_COLUMNS = {
-    assets: { code: "登記編號", name: "名稱", model: "型號", serial: "序號", owner: "保管人", site: "據點", zone: "區域", status: "狀態", project: "歸屬專案", purchase: "購入日期", activate: "啟用日期", warranty: "保固到期" },
+    assets: { code: "登記編號", name: "名稱", model: "型號", serial: "序號", owner: "保管人", site: "據點", zone: "區域", status: "狀態", project: "歸屬專案", purchase: "購入日期", activate: "啟用日期", warranty: "保固到期", brand: "品牌", origin: "產地", type: "產品類型", mfgYear: "製造年份", po: "PO編號" },
     sites: { name: "據點", lat: "緯度", lon: "經度", zones: "區域清單" },
     records: { sessionId: "場次", code: "登記編號", status: "判定", zone: "現場區域", at: "時間", n: "次數", decision: "處置" }
   };
@@ -51,7 +51,8 @@
           code: String(o[A.code] || "").trim(), name: o[A.name] || "", model: o[A.model] || "",
           serial: o[A.serial] || "", owner: o[A.owner] || "", site: o[A.site] || "", zone: o[A.zone] || "",
           status: o[A.status] || "使用中", project: o[A.project] || "",
-          purchase: o[A.purchase] || "", activate: o[A.activate] || "", warranty: o[A.warranty] || ""
+          purchase: o[A.purchase] || "", activate: o[A.activate] || "", warranty: o[A.warranty] || "",
+          brand: o[A.brand] || "", origin: o[A.origin] || "", type: o[A.type] || "", mfgYear: o[A.mfgYear] || "", po: o[A.po] || ""
         })).filter((a) => a.code),
         sites: siteRows.map((o) => ({
           name: o[S.name] || "", lat: Number(o[S.lat]) || 0, lon: Number(o[S.lon]) || 0,
