@@ -85,6 +85,16 @@ test('toSessions carries appearance, defaulting to auto', () => {
   assert.equal(out[0].appearance,'female');
   assert.equal(out[1].appearance,'auto');
 });
+test('saveAppearance binds the initiating account: a mid-queue account switch aborts the write', async t => {
+  const db = await database(); t.after(() => db.close());
+  const d = device(db);
+  await d.sync.save(['Fixture A']);
+  const pending = d.sync.saveAppearance('Fixture A','female');
+  d.setToken('fixture-B');
+  await assert.rejects(pending, e => e.message === 'account-changed');
+  assert.deepEqual((await asUser(db,A,'select prefs from office_member_roster')).rows[0].prefs,{});
+  assert.equal((await asUser(db,B,'select prefs from office_member_roster')).rows.length,0);
+});
 test('saveAppearance persists under RLS, auto removes the override, invalid values never reach the network', async t => {
   const db = await database(); t.after(() => db.close());
   const d = device(db);
