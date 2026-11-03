@@ -80,13 +80,15 @@
   function attentionCard() {
     const { items, undecided } = attention();
     if (!items.length && !undecided) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
-    let rows = items.map((x) =>
+    const shown = items.slice(0, 6);
+    let rows = shown.map((x) =>
       '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) +
       '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · 保管人 " + esc(x.a.owner) + " · " + esc(x.why) + '</span></span>' +
       '<button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button></div>').join("");
     if (undecided) rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>' + undecided + " 筆盤點差異</b>還沒決定" +
       '<br><span class="small">手機掃到的位置不符或查無編號，決定後才會從這裡消失。</span></span>' +
       '<button class="pill sm" data-a="godiff">去決定</button></div>';
+    if (items.length > shown.length) rows += '<div class="small">另有 ' + (items.length - shown.length) + " 筆；到「設備資料」依狀態篩選可逐筆處理。</div>";
     return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0)) + "）</div>" + rows + "</div>";
   }
   const projAssets = (p) => assets().filter((a) => (a.project || D.UNASSIGNED) === p);
