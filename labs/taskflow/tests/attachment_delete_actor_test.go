@@ -9,7 +9,6 @@ package handler
 // service_agent_token_contract_test.go (TestServiceAgentTokenAttachmentDeleteScope).
 
 import (
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
