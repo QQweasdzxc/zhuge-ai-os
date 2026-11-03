@@ -68,7 +68,7 @@
       records: [],    // {sessionId, code, status, zone, at, n, decision}
       batches: [],    // 進貨批次 {id, vendor, brand, model, origin, note, at, items:[{serial,state,receivedAt,code}], unexpected:[{serial,at,n}]}
       movements: [],  // 設備流轉 {code, type, at, note}  type: inbound / outbound-sale / outbound-use / outbound-transfer / repair-start / repair-end
-      meta: { codeSeq: 1 }
+      meta: { codeSeq: 1, codePrefix: "CSNW" } // codePrefix 為測試用編碼，不是公司正式編碼規則；正式規則待公司提供後改這裡
     };
   }
 
@@ -79,7 +79,8 @@
       this.db = raw && raw.__v === 2 ? raw : seed();
       this.db.batches = this.db.batches || [];
       this.db.movements = this.db.movements || [];
-      this.db.meta = this.db.meta || { codeSeq: 1 };
+      this.db.meta = this.db.meta || { codeSeq: 1, codePrefix: "CSNW" };
+      this.db.meta.codePrefix = this.db.meta.codePrefix || "CSNW";
       this.persist();
     }
     persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.db)); } catch { /* 空間不足時維持記憶體狀態 */ } }
@@ -125,7 +126,12 @@
       const b = this.batch(id); if (!b) return { result: "nobatch" };
       const s = String(serial || "").trim(); if (!s) return { result: "empty" };
       const it = b.items.find((x) => x.serial === s);
-      if (it && it.state === "pending") { it.state = "received"; it.receivedAt = new Date().toISOString(); this.persist(); return { result: "ok", item: it }; }
+      if (it && it.state === "pending") {
+        /* 掃描當下就擋：清單內但序號已在清冊（含別批先入庫），不標到貨 */
+        const ex = this.db.assets.find((a) => a.serial === s);
+        if (ex) return { result: "exists", asset: ex };
+        it.state = "received"; it.receivedAt = new Date().toISOString(); this.persist(); return { result: "ok", item: it };
+      }
       if (it) return { result: "dup", item: it };
       if (this.db.assets.some((a) => a.serial === s)) return { result: "exists", asset: this.db.assets.find((a) => a.serial === s) };
       const u = b.unexpected.find((x) => x.serial === s);
@@ -137,7 +143,9 @@
       const b = this.batch(id); if (!b) return [];
       const made = [];
       b.items.filter((x) => x.state === "received").forEach((x) => {
-        const code = "CSNW" + String(107040000 + this.db.meta.codeSeq++).padStart(9, "0");
+        /* 防撞：同序號已在清冊（含別批先入庫）就不重複建機，標 conflict 保留人工處理 */
+        if (this.db.assets.some((a) => a.serial && a.serial === x.serial)) { x.state = "conflict"; return; }
+        const code = (this.db.meta.codePrefix || "CSNW") + String(107040000 + this.db.meta.codeSeq++).padStart(9, "0");
         const a = { code, name: b.model || b.brand || "未命名設備", model: b.model || "", brand: b.brand || "", origin: b.origin || "未確認",
           owner: dest.owner || "公用", site: dest.site, zone: dest.zone, status: "備用", project: dest.project || UNASSIGNED,
           serial: x.serial, purchase: b.at.slice(0, 10), activate: "", warranty: "", mfgYear: b.mfgYear || "", type: b.type || "", po: b.po || "" };
