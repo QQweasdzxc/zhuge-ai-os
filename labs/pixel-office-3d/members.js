@@ -180,7 +180,10 @@ const Members = (() => {
     // same optimistic concurrency. 'auto' removes the override.
     function saveAppearance(name, value) {
       if (value !== 'auto' && value !== 'female' && value !== 'male') return Promise.reject(new Error('bad-appearance'));
+      // Capture the initiating account before enqueueing, like roster edits.
+      const editToken = getToken();
       const task = async () => {
+        if (!editToken || getToken() !== editToken) throw new Error('account-changed');
         const auth = await getAuth();
         if (!auth) throw new Error('login-required');
         check(auth);
@@ -208,6 +211,7 @@ const Members = (() => {
       };
       const result = queue.then(task);
       queue = result.catch(() => {});
+      result.catch(error => onChange({ status: 'error', code: error.message, names: visible() }));
       return result;
     }
     return { visible, appearance: () => ({ ...prefs }), sync: () => run(), save: value => run(clean(value)), saveAppearance };
