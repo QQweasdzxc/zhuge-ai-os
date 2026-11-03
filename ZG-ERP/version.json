@@ -1,0 +1,7 @@
+{
+  "name": "ZG-ERP 庫存 · 設備管理",
+  "version": "0.1.0-mock.1",
+  "updated": "2026-11-04",
+  "dataBackend": "mock",
+  "note": "測試資料版：資料為虛構範例，只存在瀏覽器。正式版以 Google 試算表為唯一資料來源（比照 vendor-sheet-service / gas-vendor-bridge 模式），欄位對照待實際表格提供。"
+}
