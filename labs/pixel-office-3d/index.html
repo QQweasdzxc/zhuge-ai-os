@@ -1194,9 +1194,9 @@ window.zhugeOpenTfBoard = (() => {
       const jwt = j.token || j.Token;
       if (!jwt) throw new Error('no-token');
       const ws = PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7';
-      const handoff = new URL('/zhuge-handoff.html', TF_WEB);
-      handoff.hash = new URLSearchParams({ zhuge_token: jwt, zhuge_dest: '/' + encodeURIComponent(ws) + '/issues' }).toString();
-      nav(handoff.toString());
+      // Invisible intake: the web app plants the token itself at boot
+      // (labs/taskflow/overrides/zhuge-token-intake-inline.ts); no visible page.
+      nav(TF_WEB + '/' + encodeURIComponent(ws) + '/issues#zhuge_token=' + jwt);
     } catch (e) {
       nav(TF_LANDING); // slow/cold or expired session: landing owns recovery
     } finally { inFlight = false; }
