@@ -883,8 +883,9 @@
     if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("ibd_") === 0) { if (S.ibDraft) S.ibDraft[f.slice(4)] = e.target.value; return; }
     if (f === "recvCode") { S.recvCode = e.target.value; return; }
-    if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; }
+    if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; } /* 重繪在 change（blur/Enter/步進）時做，避免打字中斷焦點 */
     if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
+    if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
     if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
   });
   document.addEventListener("change", (e) => {
