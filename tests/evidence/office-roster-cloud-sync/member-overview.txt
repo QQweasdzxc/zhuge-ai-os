@@ -1,0 +1,14 @@
+✔ memberOverview counts exactly the four promised statuses from real cards (16.139653ms)
+✔ memberOverview rows keep every card with its own status, none invented or dropped (0.545951ms)
+✔ memberOverview ignores member/owner sessions that carry no card payload (0.61841ms)
+✔ memberOverview orders attention first, finished last (0.271478ms)
+✔ memberOverview tolerates empty and missing statuses honestly (0.267973ms)
+✔ index.html renders the overview only for AI members and labels it unmapped (1.975941ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.846458
