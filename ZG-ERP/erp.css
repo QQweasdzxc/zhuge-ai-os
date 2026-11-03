@@ -119,3 +119,7 @@ button.arow { font: inherit; text-align: left; background: #fff; border: 0; bord
   .opt { display: none; }
 }
 .dtr .smeta { grid-column: auto; }
+
+.view.live { padding: 0; overflow: hidden; }
+.view.live video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.view.live .hint { position: absolute; bottom: 6px; left: 8px; right: 8px; }
