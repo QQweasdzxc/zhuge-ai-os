@@ -49,7 +49,7 @@ test("wall entry without a stored session falls back to the landing (login) page
   assert.deepEqual(navigations, ["https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/"]);
 });
 
-test("wall entry with a session exchanges once and hands off to the real board, same tab", async () => {
+test("wall entry with a session exchanges once and navigates straight to the board (invisible intake), same tab", async () => {
   const apiReply = { ok: true, json: async () => ({ token: "JWT123" }) };
   const { sandbox, navigations, fetches } = runHook({ session: "SUPA", apiReply });
   await sandbox.window.zhugeOpenTfBoard();
@@ -59,10 +59,10 @@ test("wall entry with a session exchanges once and hands off to the real board, 
   assert.equal(fetches[0].opts.body, JSON.stringify({ access_token: "SUPA" }));
   assert.equal(navigations.length, 1);
   const target = new URL(navigations[0]);
-  assert.equal(target.origin + target.pathname, "https://zhuge-taskflow-web.onrender.com/zhuge-handoff.html");
+  assert.equal(target.origin + target.pathname, "https://zhuge-taskflow-web.onrender.com/zhuge-lab-ac5afcc7/issues");
   const hash = new URLSearchParams(target.hash.replace(/^#/, ""));
   assert.equal(hash.get("zhuge_token"), "JWT123");
-  assert.equal(hash.get("zhuge_dest"), "/zhuge-lab-ac5afcc7/issues");
+  assert.equal(hash.get("zhuge_dest"), null);
 });
 
 test("wall entry falls back to the landing page when the exchange fails", async () => {
