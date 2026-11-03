@@ -33,10 +33,10 @@
   'use strict';
   function hide() { var nav = document.getElementById('pixel-fallback'); if (nav) nav.hidden = true; }
   // Proof the office initialized, not just that some document (e.g. an HTTP
-  // error page) finished loading: the real office toolbar owns #tfLink.
+  // error page) finished loading: the real office toolbar owns #sceneMenu.
   function officeReady() {
     var f = document.querySelector('iframe');
-    try { return !!(f && f.contentDocument && f.contentDocument.getElementById('tfLink')); } catch (e) { return false; }
+    try { return !!(f && f.contentDocument && f.contentDocument.getElementById('sceneMenu')); } catch (e) { return false; }
   }
   document.addEventListener('DOMContentLoaded', function () {
     if (officeReady()) { hide(); return; }
