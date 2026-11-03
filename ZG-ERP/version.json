@@ -1,7 +1,7 @@
 {
   "name": "ZG-ERP 庫存 · 設備管理",
-  "version": "0.2.0-mock.1",
+  "version": "0.2.0-mock.2",
   "updated": "2026-11-04",
   "dataBackend": "mock",
-  "note": "測試資料版 batch 2：相機連續掃描（getUserMedia + BarcodeDetector，不支援退回手動輸入）、定位權限/錯誤與精度處理、開始盤點時已授權則補抓起點定位。資料為虛構範例只存在瀏覽器；正式版以 Google 試算表為唯一資料來源，欄位對照待實際表格提供。"
+  "note": "測試資料版 batch 2：相機連續掃描（getUserMedia + BarcodeDetector，iPhone Safari 等無 BarcodeDetector 時改用內建 jsQR 解 QR，仍不支援退回手動輸入）、定位權限/錯誤與精度處理、開始盤點時抓一次起點定位（未決定會詢問一次，拒絕則維持手動據點）。資料為虛構範例只存在瀏覽器；正式版以 Google 試算表為唯一資料來源，欄位對照待實際表格提供。"
 }
