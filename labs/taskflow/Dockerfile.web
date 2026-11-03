@@ -29,6 +29,16 @@ COPY labs/taskflow/patches/apply-zhuge-house-rules.py /tmp/apply-zhuge-house-rul
 RUN python3 /tmp/apply-zhuge-identity.py \
  && python3 /tmp/apply-zhuge-house-rules.py
 
+COPY labs/taskflow/overrides/zhuge-token-intake-inline.ts /tmp/zhuge-token-intake-inline.ts
+COPY labs/taskflow/patches/apply-taskflow-token-intake.py /tmp/apply-taskflow-token-intake.py
+COPY labs/taskflow/tests/test_taskflow_token_intake_overlay.py /tmp/test_taskflow_token_intake_overlay.py
+RUN TASKFLOW_TOKEN_INTAKE_REPO_ROOT=/ \
+    TASKFLOW_TOKEN_INTAKE_VENDOR=/src \
+    TASKFLOW_TOKEN_INTAKE_INPUT=/tmp/zhuge-token-intake-inline.ts \
+    TASKFLOW_TOKEN_INTAKE_PATCH=/tmp/apply-taskflow-token-intake.py \
+    python3 /tmp/test_taskflow_token_intake_overlay.py \
+ && python3 /tmp/apply-taskflow-token-intake.py --root /src --intake /tmp/zhuge-token-intake-inline.ts
+
 COPY labs/taskflow/patches/apply-taskflow-project-navigation.py /tmp/apply-taskflow-project-navigation.py
 COPY labs/taskflow/tests/test_taskflow_project_navigation_overlay.py /tmp/test_taskflow_project_navigation_overlay.py
 RUN TASKFLOW_PROJECT_NAV_SOURCE=/src \
