@@ -29,6 +29,7 @@ for (const viewport of [
     assert.equal(await page.locator(".zgf-rack").count(), 0, "root candidate is de-decorated: no furnishings overlay");
     const origin = new URL(page.url()).origin;
     assert.equal(await page.locator("#pixel-fallback a").getAttribute("href"), "./status-classic.html", "classic report fallback preserved");
+    await page.waitForFunction(() => document.getElementById("pixel-fallback").hidden === true, null, { timeout: 5000 });
     assert.equal(await page.locator('script[src="./assets/zhuge-home-router.js"]').count(), 1, "home router preserved");
     const loginUrl = new URL("/modules/worklog/?app=1&workspace=dashboard&officeReturn=1", origin);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
