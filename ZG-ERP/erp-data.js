@@ -33,6 +33,10 @@
     const OWNERS = ["陳小明", "林小華", "王小美", "張小強", "公用"];
     const PROJ = [...PROJECT_SEED, UNASSIGNED];
     const ST = ["使用中", "使用中", "維修中", "備用", "待修", "使用中"];
+    const BRANDS = ["Yealink", "Lenovo", "DELL", "Cisco", "HP", "Yealink"];
+    const MFGY = ["2021", "2022", "2023", "2020", "", "2024"]; // 虛構製造年份；空白 = 年限未確認
+    const TYPES = { "Yealink 話機": "話機", "筆記型電腦": "NB", "螢幕": "其他", "網路交換器": "其他", "事務機": "其他" }; // 虛構產品類型分類，可新增
+    const ORIGINS = ["中國", "台灣", "越南", "馬來西亞", "未確認", "中國"]; // 虛構測試值；產地逐台記，不由品牌推斷
     const out = [];
     Object.keys(SITE_SEED).forEach((site, si) => {
       KINDS.forEach((k, i) => {
@@ -44,12 +48,13 @@
           serial: `${k[0].slice(2)}-${String(20230000 + si * 420 + i * 37).padStart(8, "0")}`,
           purchase: (i + si) % 5 === 4 ? "" : `202${3 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-15`,
           activate: (i + si) % 5 === 4 ? "" : `202${3 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-20`,
-          warranty: (i + si) % 5 === 4 ? "" : `202${6 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-19`
+          warranty: (i + si) % 5 === 4 ? "" : `202${6 + ((i + si) % 3)}-${String((i + si * 2) % 12 + 1).padStart(2, "0")}-19`,
+          brand: BRANDS[i], origin: ORIGINS[(i + si) % ORIGINS.length], mfgYear: MFGY[(i + si * 2) % MFGY.length], type: TYPES[k[1]] || "其他"
         });
       });
     });
     // 用戶貼紙上的實際編號（僅編號本身，非公司資料）：放在台北當範例
-    out[0] = { code: "CSPH107030182", name: "Yealink 話機", model: "T46U", owner: "陳小明", site: "台北", zone: "3F 工程部", status: "使用中", project: PROJECT_SEED[0], serial: "YK-T46U-107030182", purchase: "2024-01-18", activate: "2024-01-22", warranty: "2027-01-21" };
+    out[0] = { code: "CSPH107030182", name: "Yealink 話機", model: "T46U", owner: "陳小明", site: "台北", zone: "3F 工程部", status: "使用中", project: PROJECT_SEED[0], serial: "YK-T46U-107030182", purchase: "2024-01-18", activate: "2024-01-22", warranty: "2027-01-21", brand: "Yealink", origin: "中國", mfgYear: "2023", type: "話機" };
     return out;
   }
 
@@ -60,7 +65,10 @@
       projects: PROJECT_SEED.slice(),
       assets: seedAssets(),
       sessions: [],   // {id, site, lat, lon, at, closed}
-      records: []     // {sessionId, code, status, zone, at, n, decision}
+      records: [],    // {sessionId, code, status, zone, at, n, decision}
+      batches: [],    // 進貨批次 {id, vendor, brand, model, origin, note, at, items:[{serial,state,receivedAt,code}], unexpected:[{serial,at,n}]}
+      movements: [],  // 設備流轉 {code, type, at, note}  type: inbound / outbound-sale / outbound-use / outbound-transfer / repair-start / repair-end
+      meta: { codeSeq: 1 }
     };
   }
 
@@ -69,6 +77,9 @@
       let raw = null;
       try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { raw = null; }
       this.db = raw && raw.__v === 2 ? raw : seed();
+      this.db.batches = this.db.batches || [];
+      this.db.movements = this.db.movements || [];
+      this.db.meta = this.db.meta || { codeSeq: 1 };
       this.persist();
     }
     persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.db)); } catch { /* 空間不足時維持記憶體狀態 */ } }
@@ -98,6 +109,51 @@
       if (r) { r.decision = decision; this.persist(); }
     }
     closeSession(sess) { sess.closed = true; this.persist(); }
+    /* ---- 進貨批次（待入庫）：序號清單只是預計到貨，確認入庫前不影響設備總數與應盤 ---- */
+    listBatches() { return this.db.batches; }
+    batch(id) { return this.db.batches.find((b) => b.id === id); }
+    addBatch(info) {
+      const serials = (info.serials || []).map((s) => String(s).trim()).filter(Boolean);
+      const seen = new Set(); const items = [];
+      serials.forEach((s) => { if (!seen.has(s)) { seen.add(s); items.push({ serial: s, state: "pending", receivedAt: "", code: "" }); } });
+      const b = { id: "b" + Date.now(), vendor: info.vendor || "", brand: info.brand || "", model: info.model || "", origin: info.origin || "未確認", mfgYear: info.mfgYear || "", type: info.type || "",
+        note: info.note || "", at: new Date().toISOString(), items, unexpected: [], closed: false };
+      this.db.batches.push(b); this.persist(); return b;
+    }
+    /* 到貨核對一筆序號：ok 清單內新到 / dup 重複 / unexpected 清單外 / exists 已在設備清冊 */
+    receiveSerial(id, serial) {
+      const b = this.batch(id); if (!b) return { result: "nobatch" };
+      const s = String(serial || "").trim(); if (!s) return { result: "empty" };
+      const it = b.items.find((x) => x.serial === s);
+      if (it && it.state === "pending") { it.state = "received"; it.receivedAt = new Date().toISOString(); this.persist(); return { result: "ok", item: it }; }
+      if (it) return { result: "dup", item: it };
+      if (this.db.assets.some((a) => a.serial === s)) return { result: "exists", asset: this.db.assets.find((a) => a.serial === s) };
+      const u = b.unexpected.find((x) => x.serial === s);
+      if (u) { u.n += 1; this.persist(); return { result: "dup" }; }
+      b.unexpected.push({ serial: s, at: new Date().toISOString(), n: 1 }); this.persist(); return { result: "unexpected" };
+    }
+    /* 確認入庫：把已核對收到的序號建成正式設備（內部登記編號此時才產生），逐台保留批次的品牌/產地 */
+    confirmInbound(id, dest) {
+      const b = this.batch(id); if (!b) return [];
+      const made = [];
+      b.items.filter((x) => x.state === "received").forEach((x) => {
+        const code = "CSNW" + String(107040000 + this.db.meta.codeSeq++).padStart(9, "0");
+        const a = { code, name: b.model || b.brand || "未命名設備", model: b.model || "", brand: b.brand || "", origin: b.origin || "未確認",
+          owner: dest.owner || "公用", site: dest.site, zone: dest.zone, status: "備用", project: dest.project || UNASSIGNED,
+          serial: x.serial, purchase: b.at.slice(0, 10), activate: "", warranty: "", mfgYear: b.mfgYear || "", type: b.type || "" };
+        this.db.assets.push(a);
+        x.state = "inbound"; x.code = code;
+        this.db.movements.push({ code, type: "inbound", at: new Date().toISOString(), note: "進貨入庫（" + (b.vendor || "未填廠商") + "）→ " + dest.site + " " + dest.zone });
+        made.push(a);
+      });
+      if (b.items.every((x) => x.state === "inbound")) b.closed = true;
+      this.persist(); return made;
+    }
+    addMovement(code, type, note) {
+      const m = { code, type, at: new Date().toISOString(), note: note || "" };
+      this.db.movements.push(m); this.persist(); return m;
+    }
+    movementsOf(code) { return this.db.movements.filter((m) => m.code === code); }
     sessionRecords(sess) { return this.db.records.filter((r) => r.sessionId === sess.id); }
   }
 
