@@ -29,7 +29,7 @@
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
     asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
-    mapSite: "", mapZone: "", mapImg: "", mapEdit: false
+    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: ""
   };
 
   /* ---- 資料導出 ---- */
@@ -65,6 +65,30 @@
     });
   }
   const stCount = (st) => assets().filter((a) => a.status === st).length;
+  const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  /* 需要處理：待修/維修中、保固已到期（用現有欄位即時算，不造假數據）、未決定的盤點差異 */
+  function attention() {
+    const t = todayStr();
+    const items = [];
+    assets().forEach((a) => {
+      if (a.status === "待修" || a.status === "維修中") items.push({ a, why: a.status, tone: "bad" });
+      else if (a.warranty && a.warranty < t) items.push({ a, why: "保固已到期 " + a.warranty, tone: "mid" });
+    });
+    const undecided = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
+    return { items, undecided };
+  }
+  function attentionCard() {
+    const { items, undecided } = attention();
+    if (!items.length && !undecided) return '<div class="acard ok"><b>目前沒有需要立即處理的項目。</b><span class="small">待修、維修中、保固到期和未決定的盤點差異會列在這裡。</span></div>';
+    let rows = items.map((x) =>
+      '<div class="arow2"><span class="dot ' + x.tone + '"></span><span class="aname"><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) +
+      '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · 保管人 " + esc(x.a.owner) + " · " + esc(x.why) + '</span></span>' +
+      '<button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button></div>').join("");
+    if (undecided) rows += '<div class="arow2"><span class="dot mid"></span><span class="aname"><b>' + undecided + " 筆盤點差異</b>還沒決定" +
+      '<br><span class="small">手機掃到的位置不符或查無編號，決定後才會從這裡消失。</span></span>' +
+      '<button class="pill sm" data-a="godiff">去決定</button></div>';
+    return '<div class="acard"><div class="albl">需要處理（' + (items.length + (undecided ? 1 : 0)) + "）</div>" + rows + "</div>";
+  }
   const projAssets = (p) => assets().filter((a) => (a.project || D.UNASSIGNED) === p);
 
   /* ---- 掃描 ---- */
@@ -73,7 +97,9 @@
     if (!code || !S.sess) return;
     const a = getA(code);
     const status = !a ? "none" : a.site !== S.site ? "site" : a.zone !== S.zone ? "zone" : "ok";
-    store.addRecord(S.sess, { code, status, zone: S.zone, at: new Date().toISOString() });
+    const sessProj = S.sess.project || "";
+    const pm = !!(a && sessProj && (a.project || D.UNASSIGNED) !== sessProj);
+    store.addRecord(S.sess, { code, status, zone: S.zone, at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
     S.open = code;
     render();
   }
@@ -112,7 +138,7 @@
     if (!S.site) return;
     const begin = (fix) => {
       const g = fix || S.gps || { lat: null, lon: null, acc: null };
-      S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null);
+      S.sess = store.startSession(S.site, g.lat, g.lon, g.acc != null ? g.acc : null, S.scanProject || "");
       S.zone = zonesOf(S.site)[0] || "";
       S.open = ""; S.screen = "scan";
       render();
@@ -264,8 +290,14 @@
       '<div class="lbl" style="margin-top:14px">盤點據點（可改）</div>' +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
       (g && S.nearest && S.site && S.site !== S.nearest ? '<div class="warn">你選的據點和定位最近的據點不同，結果會註記。</div>' : "") +
+      '<div class="lbl" style="margin-top:14px">這次主要盤哪個專案？（可先設定，掃描時沿用，不用每筆重選）</div>' +
+      '<div class="chips"><button class="pill' + (S.scanProject === "" ? " on" : "") + '" data-a="sproj" data-v="">全部專案</button>' +
+      projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "") + '" data-a="sproj" data-v="' + esc(p) + '">' + esc(p.replace("（測試）", "")) + "</button>").join("") + "</div>" +
+      '<div class="small">設定的只是「這次盤點的範圍」，不會改任何設備的歸屬專案。掃到其他專案的設備會提示並照樣記錄。</div>' +
+      (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
+        " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
-      '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始連續掃描" + (S.site ? " · " + esc(S.site) : "") + "</button></div>";
+      '<button class="btn" data-a="start"' + (S.site ? "" : " disabled") + ">開始連續掃描" + (S.site ? " · " + esc(S.site) : "") + (S.scanProject ? " · " + esc(S.scanProject.replace("（測試）", "")) : "") + "</button></div>";
   }
   function phoneScan() {
     const recs = curRecs();
@@ -283,13 +315,26 @@
         (a ? '<div class="tloc">設備狀態：<b>' + esc(a.status) + "</b>" + (a.status !== "使用中" && a.status !== "備用" ? "（掃描不會改狀態）" : "") +
           "<br>歸屬專案：<b>" + esc(a.project || D.UNASSIGNED) + "</b><br>設備序號：" + esc(a.serial || "未登記") +
           "<br>登記：" + esc(a.site) + " " + esc(a.zone) + "<br>現場：" + esc(S.site) + " " + esc(r.zone) + "</div>" : "") +
+        (lastShown.projMismatch && a ? '<div class="warn">歸屬專案是「' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "」，和這次設定的「" + esc((lastShown.sessProject || "").replace("（測試）", "")) + "」不同。已記錄，不會自動改歸屬。</div>" : "") +
         (r.status === "none" ? '<div class="tloc">先記下來，盤點後再補登。</div>' : "") + "</div>";
     } else {
       toast = '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>';
     }
+    const sessProj = S.sess.project || "";
+    const scope = assets().filter((a) => a.site === S.site && (!sessProj || (a.project || D.UNASSIGNED) === sessProj));
+    const scopeGot = scope.filter((a) => recs.some((r) => r.code === a.code));
+    const scopeMiss = scope.filter((a) => !scopeGot.includes(a));
+    const outScope = recs.filter((r) => { const x = getA(r.code); return !x || x.site !== S.site || (sessProj && (x.project || D.UNASSIGNED) !== sessProj); }).length;
+    const otherProj = sessProj ? assets().find((a) => a.site === S.site && (a.project || D.UNASSIGNED) !== sessProj) : null;
+    const scopeStrip = '<div class="scope"><div class="sct"><span>本次範圍：' + esc(S.site) + (sessProj ? " · " + esc(sessProj.replace("（測試）", "")) : " · 全部專案") + "</span><span>" + scopeGot.length + " / " + scope.length + "</span></div>" +
+      '<span class="bar"><i style="width:' + (scope.length ? Math.round((scopeGot.length / scope.length) * 100) : 0) + '%"></i></span>' +
+      '<div class="smeta">應盤 ' + scope.length + " · 已掃 " + scopeGot.length + " · " + (scopeMiss.length ? "<b class=\"pbad\">還差 " + scopeMiss.length + "</b>" : "全部掃完") +
+      (outScope ? " · 範圍外 " + outScope + " 筆（都有記錄）" : "") + "</div>" +
+      (scopeMiss.length ? '<div class="smeta">未掃：' + scopeMiss.slice(0, 8).map((a) => esc(a.name) + " " + esc(a.code.slice(-4))).join("、") + (scopeMiss.length > 8 ? " …等 " + scopeMiss.length + " 台" : "") + "</div>" : "") + "</div>";
     return '<div class="screen">' +
       '<div class="scanbar"><button class="zonebtn" data-a="zoneopen"><span class="lbl">' + esc(S.site) + " · 目前區域</span><b>" + esc(S.zone) + " ▾</b></button>" +
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
+      scopeStrip +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       (S.camOn
@@ -300,6 +345,7 @@
       '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
       siteAssets.slice(0, 4).map((a) => '<button class="pill sm" data-a="scan" data-v="' + esc(a.code) + '">' + esc(a.name) + " " + esc(a.code.slice(-4)) + "</button>").join("") +
       (foreign ? '<button class="pill sm" data-a="scan" data-v="' + esc(foreign.code) + '">其他據點的設備</button>' : "") +
+      (otherProj ? '<button class="pill sm" data-a="scan" data-v="' + esc(otherProj.code) + '">其他專案的設備</button>' : "") +
       '<button class="pill sm" data-a="scan" data-v="CSXX999999999">不在清冊內的編號</button>' +
       (last ? '<button class="pill sm" data-a="scan" data-v="' + esc(last.code) + '">再掃同一個</button>' : "") + "</div>" +
       '<div class="lbl sim">本次已掃 ' + recs.length + " 筆</div>" +
@@ -307,7 +353,7 @@
         const a = getA(r.code);
         return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
           '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + "</span>" : "") + "</button>";
+          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + "</span>" : "") + "</button>";
       }).join("") + "</div>";
   }
   function decisionButtons(r) {
@@ -326,11 +372,19 @@
     const badStatus = recs.filter((r) => { const a = getA(r.code); return a && (a.status === "維修中" || a.status === "待修" || a.status === "已報廢"); }).length;
     return '<div class="screen"><h3 class="ptitle">' + esc(S.site) + "盤點結果</h3>" +
       '<p class="psub">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無") + " · 共掃 " + recs.length + " 筆 · 只存在這個瀏覽器，尚未連接試算表</p>" +
+      (() => { const sp = S.sess.project || "";
+        const sc = siteAssets.filter((a) => !sp || (a.project || D.UNASSIGNED) === sp);
+        const got = sc.filter((a) => recs.some((r) => r.code === a.code));
+        const pm = recs.filter((r) => r.projMismatch).length;
+        return '<div class="scope"><div class="sct"><span>本次範圍：' + esc(S.site) + (sp ? " · " + esc(sp.replace("（測試）", "")) : " · 全部專案") + "</span><span>" + got.length + " / " + sc.length + "</span></div>" +
+          '<span class="bar"><i style="width:' + (sc.length ? Math.round((got.length / sc.length) * 100) : 0) + '%"></i></span>' +
+          '<div class="smeta">範圍內應盤 ' + sc.length + " · 掃到 " + got.length + " · " + (sc.length - got.length ? "<b class=\"pbad\">未掃 " + (sc.length - got.length) + "</b>" : "全部掃完") + "</div>" +
+          (pm ? '<div class="warn">' + pm + " 台掃到的設備歸屬在其他專案，已記錄、沒有改歸屬。</div>" : "") + "</div>"; })() +
       '<div class="tiles"><div class="tile"><b>' + count("ok") + '</b>相符</div><div class="tile"><b>' + count("zone") + '</b>位置不符</div><div class="tile"><b>' + count("site") + '</b>異地</div><div class="tile"><b>' + count("none") + "</b>查無</div></div>" +
       (badStatus > 0 ? '<div class="warn">掃到 ' + badStatus + " 台狀態不是正常使用（待修、維修中或已報廢）。盤點只記「有沒有看到」，不會把狀態改成正常。</div>" : "") +
-      '<div class="lbl sim">' + esc(S.site) + "位置表：應有 / 已掃</div><div class=\"ztable\">" +
+      '<div class="lbl sim">' + esc(S.site) + "位置表：應有 / 已掃" + (S.sess.project ? "（只算本次範圍專案）" : "") + "</div><div class=\"ztable\">" +
       zonesOf(S.site).map((z) => {
-        const should = siteAssets.filter((a) => a.zone === z);
+        const should = siteAssets.filter((a) => a.zone === z && (!S.sess.project || (a.project || D.UNASSIGNED) === S.sess.project));
         const got = should.filter((a) => recs.some((r) => r.code === a.code));
         const miss = should.filter((a) => !got.includes(a));
         return '<div class="zrow"><span>' + esc(z) + "</span><b>" + got.length + " / " + should.length + "</b>" +
@@ -367,14 +421,14 @@
       if (dst) list = list.filter((x) => x.a.status === dst);
       drill = '<div class="drill"><div class="lbl">' + { done: "已盤點明細", todo: "未盤到明細", zone: "位置不符明細" }[metric] + "（篩選：" + esc(dst || "全部狀態") + "）</div>" +
         (list.length === 0 ? '<div class="small">沒有符合的設備。</div>' : list.slice(0, 8).map((x) =>
-          '<div class="zrow"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
+          '<div class="zrow act"><span><b>' + esc(x.a.name) + "</b> " + esc(x.a.code.slice(-6)) + '<br><span class="small">' + esc(x.a.site) + " " + esc(x.a.zone) + " · " + esc(x.a.status) + " · 歸屬 " + esc(x.a.project || D.UNASSIGNED) + (x.note ? " · " + esc(x.note) : "") + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(x.a.code) + '">處理</button><span class="small">' + esc(x.tag) + "</span></div>").join("")) +
         (list.length > 8 ? '<div class="small">另有 ' + (list.length - 8) + " 筆。</div>" : "") + "</div>";
     }
     let projDrill = "";
     if (pfilter) {
       const list = projAssets(pfilter);
       projDrill = '<div class="drill"><div class="lbl">「' + esc(pfilter) + "」反查到 " + list.length + " 台，分布在 " + esc([...new Set(list.map((a) => a.site))].join("、") || "無") + "；同一專案可跨據點。</div>" +
-        list.map((a) => '<div class="zrow"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">' + esc(a.site) + " " + esc(a.zone) + " · " + esc(a.owner) + " · " + esc(a.status) + '</span></span><span class="small">' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></div>").join("") + "</div>";
+        list.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">' + esc(a.site) + " " + esc(a.zone) + " · " + esc(a.owner) + " · " + esc(a.status) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button><span class="small">' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></div>").join("") + "</div>";
     }
     const tiles = '<div class="' + (isPhone ? "tiles two" : "dtiles") + '">' +
       '<button class="tile tb' + (metric === "total" ? " sel" : "") + '" data-a="metric" data-v="total"><b>' + sum.t + "</b>設備總數</button>" +
@@ -384,10 +438,23 @@
     const stChips = '<div class="lbl sim">設備狀態篩選（和盤點是兩回事）</div><div class="chips">' +
       '<button class="pill sm' + (dst === "" ? " on" : "") + '" data-a="dst" data-v="">全部</button>' +
       D.STATUSES.map((st) => '<button class="pill sm' + (dst === st ? " on" : "") + '" data-a="dst" data-v="' + esc(st) + '">' + esc(st) + " " + stCount(st) + "</button>").join("") + "</div>";
-    const pjChips = '<div class="lbl sim">歸屬專案（按專案反查設備，和實際放置地點、保管人分開；專案名為虛構測試）</div><div class="chips">' +
-      '<button class="pill sm' + (pfilter === "" ? " on" : "") + '" data-a="pfilter" data-v="">全部</button>' +
-      projects().map((p) => '<button class="pill sm' + (pfilter === p ? " on" : "") + '" data-a="pfilter" data-v="' + esc(p) + '">' + esc(p) + " " + projAssets(p).length + "</button>").join("") + "</div>";
-    return tiles + drill + stChips + pjChips + projDrill + siteTable(rows, sorted, isPhone);
+
+    return attentionCard() + tiles + drill + siteTable(rows, sorted, isPhone) + stChips + projTable(pfilter) + projDrill;
+  }
+  function projTable(pfilter) {
+    const head = '<div class="lbl sim">各專案使用概況（按專案反查設備，和實際放置地點、保管人分開；專案名為虛構測試）</div>';
+    const rowsHtml = projects().map((p) => {
+      const list = projAssets(p);
+      const use = list.filter((a) => a.status === "使用中").length;
+      const repair = list.filter((a) => a.status === "待修" || a.status === "維修中").length;
+      const where = [...new Set(list.map((a) => a.site))].join("、");
+      return '<button class="prow' + (pfilter === p ? " sel" : "") + '" data-a="pfilter" data-v="' + esc(p) + '">' +
+        '<span class="pn">' + esc(p.replace("（測試）", "")) + '</span><span>' + list.length + " 台</span>" +
+        '<span>使用中 ' + use + '</span><span class="' + (repair ? "pbad" : "") + '">' + (repair ? "待修/維修 " + repair : "—") + '</span>' +
+        '<span class="small">' + esc(where) + "</span></button>";
+    }).join("");
+    return head + '<div class="ptable">' + rowsHtml + "</div>" +
+      (pfilter ? '<div class="chips" style="margin-top:6px"><button class="pill sm" data-a="pfilter" data-v="">清除專案篩選</button></div>' : "");
   }
   function siteTable(rows, sorted, isPhone) {
     const mlabel = { total: "依設備數排序", done: "依盤點進度排序", todo: "依未盤到排序", zone: "依位置不符排序" }[S.metric];
@@ -396,8 +463,16 @@
         '<div class="srow"><button class="shead" data-a="dsite" data-v="' + esc(r.n) + '"><span class="sname">' + esc(r.n) + '</span><span class="spct">' + r.pct + '%</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span class="smeta">已盤 ' + r.done + "/" + r.t + " · 未盤 " + r.left + " · 不符 " + r.z + "</span></button>" +
         (S.dsite === r.n ? '<div class="sdet"><div class="lbl">狀態分布</div><div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + '</div><button class="pill sm" data-a="gosite" data-v="' + esc(r.n) + '">去盤點' + esc(r.n) + "</button></div>" : "") + "</div>").join("");
     }
-    return '<div class="dtable"><div class="dtr head"><span>據點</span><span>設備數</span><span>已盤</span><span>進度</span><span>未盤</span><span>不符</span><span class="opt">狀態分布' + (S.dst ? "（" + esc(S.dst) + "）" : "") + "</span></div>" +
-      sorted.map((r) => '<div class="dtr"><span><b>' + esc(r.n) + "</b></span><span>" + r.t + "</span><span>" + r.done + '</span><span class="bar"><i style="width:' + r.pct + '%"></i></span><span>' + r.left + "</span><span>" + r.z + '</span><span class="smeta opt">' + (S.dst ? esc(S.dst) + " " + assets().filter((a) => a.site === r.n && a.status === S.dst).length + " 台" : D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ")) + "</span></div>").join("") + "</div>" +
+    return '<div class="lbl sim">各據點盤點進度 · ' + mlabel + " · 最沒進度的排前面</div>" +
+      '<div class="scards">' + sorted.map((r) => {
+        const worst = r.left > 0;
+        return '<div class="scard"><div class="sct"><b>' + esc(r.n) + "</b><span class=\"spct\">" + r.pct + "%</span></div>" +
+          '<span class="bar"><i style="width:' + r.pct + '%"></i></span>' +
+          '<div class="smeta">已盤 ' + r.done + "/" + r.t + (worst ? ' · <b class="pbad">未盤 ' + r.left + "</b>" : " · 全部盤完") + (r.z ? ' · <b class="pbad">不符 ' + r.z + "</b>" : "") + "</div>" +
+          '<div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + "</div>" +
+          '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
+          (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
+      }).join("") + "</div>" +
       '<p class="small">正式版會用試算表的「最後盤點時間」和「登記區域」計算，並可匯出報表。</p>';
   }
 
@@ -413,6 +488,7 @@
     const list = assets().filter((a) => a.site === S.asite);
     const zones = zonesOf(S.asite);
     return '<h3 class="ptitle">設備資料</h3><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存只更新這個瀏覽器的測試資料，不會寫回試算表。</p>' +
+      (S.retTab ? '<div class="chips"><button class="pill sm" data-a="back">← 回' + ({ dash: "儀表板", map: "位置圖", diff: "盤點差異" }[S.retTab] || "上一頁") + "</button></div>" : "") +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.asite === p ? " on" : "") + '" data-a="asite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
       '<div class="dtable"><div class="atr head"><span>登記編號</span><span>名稱 / 型號 / S/N</span><span>歸屬專案</span><span class="opt">保管人</span><span class="opt">區域</span><span>狀態</span><span></span></div>' +
       list.map((a) => {
@@ -487,7 +563,7 @@
       canvas +
       (sel ? '<div class="card"><div class="lbl">' + esc(S.mapSite) + " · " + esc(sel) + " 的設備（" + selAssets.length + " 台）</div>" +
         (selAssets.length === 0 ? '<div class="small">這個位置目前沒有登記設備。</div>' :
-          selAssets.map((a) => '<div class="zrow"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "</span></span></div>").join("")) + "</div>"
+          selAssets.map((a) => '<div class="zrow act"><span><b>' + esc(a.name) + "</b> " + esc(a.code.slice(-6)) + '<br><span class="small">S/N ' + esc(a.serial || "未登記") + " · " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span></span><button class="pill sm" data-a="ajump" data-v="' + esc(a.code) + '">處理</button></div>').join("")) + "</div>"
         : '<div class="small">點圖上任一位置，帶出該位置的設備資料。</div>');
   }
   function pcDiff() {
@@ -499,7 +575,7 @@
         recs.map((r) => {
           const a = getA(r.code);
           return '<div class="item static">' + chip(r.status) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-            '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
+            '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
             decisionButtons(r) + "</div>";
         }).join("")) +
       '<button class="btn secondary" disabled style="margin-top:8px">寫回試算表（正式版功能，待接入你的表格）</button>';
@@ -563,7 +639,19 @@
     else if (a === "dsite") { S.dsite = S.dsite === v ? "" : v; }
     else if (a === "dst") { S.dst = v; }
     else if (a === "pfilter") { S.pfilter = S.pfilter === v ? "" : v; }
-    else if (a === "dtab") { S.dtab = v; S.editCode = ""; S.editDraft = null; }
+    else if (a === "dtab") { S.dtab = v; S.editCode = ""; S.editDraft = null; S.retTab = ""; }
+    else if (a === "ajump") {
+      const x = getA(v); if (!x) return;
+      S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
+      S.dtab = "assets"; S.asite = x.site;
+      S.editCode = v;
+      S.editDraft = { owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty };
+    }
+    else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
+    else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
+    else if (a === "sitelist") { S.mode = "pc"; S.dash = false; S.asite = v; S.dtab = "assets"; S.retTab = "dash"; S.editCode = ""; S.editDraft = null; }
+    else if (a === "gositepc") { S.mode = "phone"; S.dash = false; S.site = v; S.screen = "start"; }
+    else if (a === "sproj") { S.scanProject = v; }
     else if (a === "asite") { S.asite = v; S.editCode = ""; S.editDraft = null; }
     else if (a === "gosite") { S.site = v; S.dash = false; S.screen = "start"; }
     else if (a === "edit") {
