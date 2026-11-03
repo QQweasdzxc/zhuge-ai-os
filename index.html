@@ -32,11 +32,16 @@
 (function () {
   'use strict';
   function hide() { var nav = document.getElementById('pixel-fallback'); if (nav) nav.hidden = true; }
-  function loaded() { var f = document.querySelector('iframe'); return !!(f && f.contentDocument && f.contentDocument.readyState === 'complete'); }
-  document.addEventListener('DOMContentLoaded', function () {
-    if (loaded()) { hide(); return; }
+  // Proof the office initialized, not just that some document (e.g. an HTTP
+  // error page) finished loading: the real office toolbar owns #tfLink.
+  function officeReady() {
     var f = document.querySelector('iframe');
-    if (f) f.addEventListener('load', hide);
+    try { return !!(f && f.contentDocument && f.contentDocument.getElementById('tfLink')); } catch (e) { return false; }
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (officeReady()) { hide(); return; }
+    var f = document.querySelector('iframe');
+    if (f) f.addEventListener('load', function () { if (officeReady()) hide(); });
   });
 })();
 </script><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.164 · Build 20261102-1051</footer></body></html>
