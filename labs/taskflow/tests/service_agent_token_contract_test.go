@@ -417,16 +417,17 @@ func TestServiceAgentTokenDeniedRecordsLastUsed(t *testing.T) {
 	}
 }
 
-// Attachment delete scope for SAT. The route gate allows DELETE on
-// in-workspace attachments; the handler then authorizes via the uploader
-// (members only) or a workspace admin/owner from ctxMember. For a SAT
-// request X-User-ID is the token's human creator, so the creator's owner
-// membership makes EVERY workspace attachment deletable by the agent,
-// including other members' uploads. Pinned current behavior (attribution
-// inversion): the delete is authorized under, and its change event is
-// published as, the human creator's member identity - not the agent. A
-// future fix that binds deletion to the agent identity must update this
-// pin deliberately, not silently.
+// Attachment delete scope and attribution for SAT. The route gate allows
+// DELETE on in-workspace attachments; the handler authorizes via the
+// uploader (members only) or a workspace admin/owner from ctxMember. For a
+// SAT request X-User-ID is the token's human creator, so the creator's
+// owner membership makes every workspace attachment deletable by the agent
+// (authorization semantics unchanged; out of scope here). Attribution:
+// deletes publish the resolved actor, so SAT deletions are credited to the
+// agent on both the issue-bound (EventIssueAttachmentsChanged) and
+// comment-bound (EventCommentUpdated) branches. Before the identity fix
+// both branches were hard-coded to the human creator's member identity;
+// the pre-fix pin documented that defect on main in PR #179.
 func TestServiceAgentTokenAttachmentDeleteScope(t *testing.T) {
 	f := newSATFixture(t)
 
@@ -485,14 +486,37 @@ func TestServiceAgentTokenAttachmentDeleteScope(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		select {
 		case e := <-attachmentEvents:
-			if e.ActorType != "member" || e.ActorID != testUserID {
-				t.Fatalf("attachment delete event actor changed: %+v", e)
+			if e.ActorType != "agent" || e.ActorID != f.agent {
+				t.Fatalf("attachment delete not credited to agent: %+v", e)
 			}
 		default:
 			t.Fatal("attachment change event missing")
 		}
 	}
-	if dbfx.Count(t, `SELECT count(*) FROM attachment WHERE id IN ($1,$2)`, agentAtt.ID, memberAtt) != 0 {
+	// Comment-bound branch: deleting a comment attachment also publishes
+	// EventCommentUpdated, which must credit the agent too.
+	boundComment := dbfx.Comment(t, f.issue, "SAT bound comment", testutil.Cols{"author_type": "agent", "author_id": f.agent})
+	commentAtt := dbfx.Insert(t, "attachment", testutil.Cols{"workspace_id": testWorkspaceID, "issue_id": f.issue, "comment_id": boundComment, "uploader_type": "agent", "uploader_id": f.agent, "filename": "bound.txt", "url": "https://example.test/bound", "content_type": "text/plain", "size_bytes": 1})
+	commentEvents := make(chan events.Event, 1)
+	testHandler.Bus.Subscribe(protocol.EventCommentUpdated, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		if c, ok := payload["comment"].(CommentResponse); ok && c.ID == boundComment {
+			commentEvents <- e
+		}
+	})
+	satWant(t, f.call(t, "DELETE", "/api/attachments/"+commentAtt, "", nil), 204)
+	select {
+	case e := <-commentEvents:
+		if e.ActorType != "agent" || e.ActorID != f.agent {
+			t.Fatalf("comment-bound delete not credited to agent: %+v", e)
+		}
+	default:
+		t.Fatal("comment-bound delete event missing")
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM attachment WHERE id IN ($1,$2,$3)`, agentAtt.ID, memberAtt, commentAtt) != 0 {
 		t.Fatal("attachments not deleted")
 	}
 }
