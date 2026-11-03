@@ -26,11 +26,17 @@
 })();
 </script><script>
 // ZG-55 acceptance: the classic-report nav is a failure fallback, not a
-// permanent second entry. Hide it once the office iframe has loaded.
+// permanent second entry. Hide it once the office iframe has loaded. Runs
+// before <nav> exists, so defer to DOMContentLoaded and cover the race where
+// the iframe already fired load.
 (function () {
   'use strict';
-  var nav = document.getElementById('pixel-fallback');
-  var office = document.querySelector('iframe');
-  if (nav && office) office.addEventListener('load', function () { nav.hidden = true; });
+  function hide() { var nav = document.getElementById('pixel-fallback'); if (nav) nav.hidden = true; }
+  function loaded() { var f = document.querySelector('iframe'); return !!(f && f.contentDocument && f.contentDocument.readyState === 'complete'); }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (loaded()) { hide(); return; }
+    var f = document.querySelector('iframe');
+    if (f) f.addEventListener('load', hide);
+  });
 })();
 </script><nav id="pixel-fallback"><a href="./status-classic.html">經典報表</a></nav><footer hidden id="zhuge-source-identity">Version 0.9.0-alpha.9.164 · Build 20261102-1051</footer></body></html>
