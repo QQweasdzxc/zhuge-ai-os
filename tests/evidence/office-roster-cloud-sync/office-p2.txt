@@ -1,0 +1,12 @@
+✔ P2 fixed cast authority is Jackal/GPT/Codex/Gem and never impersonates a Provider session (2.671403ms)
+✔ P2 static modules/PRs are visible as read-only information; people statuses require a verified live source (3.542495ms)
+✔ P2 work descriptions preserve P1 primary destination, new-tab security, disabled unknown links (0.342746ms)
+✔ P2 native room overlay is applied only to the pinned upstream Reception and keeps the vendor untouched (81.915574ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109.073841
