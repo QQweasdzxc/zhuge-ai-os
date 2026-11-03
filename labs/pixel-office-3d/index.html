@@ -89,6 +89,13 @@
   .tog input { accent-color: var(--tool); margin: 0; width: 15px; height: 15px; }
   .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .setting-row .setting-label { margin: 0; }
+  /* Member roster + appearance rows stack vertically inside the flex-row .setting-row wrapper. */
+  #memberWrap { flex-direction: column; align-items: stretch; gap: 6px; }
+  #memberWrap .setting-label { margin: 0 0 2px; }
+  #memberWrap #memberSyncStatus { font-size: 12px; color: var(--muted); }
+  #memberAppearance label.tog { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 2px; }
+  #memberAppearance label.tog span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #memberAppearance select { font: inherit; flex: none; }
   @media (max-width: 640px) {
     header { gap: 14px; }
     .summary { margin-left: 0; width: 100%; gap: 18px; }
