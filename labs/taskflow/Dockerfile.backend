@@ -94,7 +94,10 @@ RUN cp /tmp/dbid.go /src/server/pkg/dbid/dbid.go \
 COPY labs/taskflow/patches/apply-taskflow-service-agent-token.py /tmp/apply-taskflow-service-agent-token.py
 COPY labs/taskflow/patches/service-agent-token/ /tmp/service-agent-token/
 RUN python3 /tmp/apply-taskflow-service-agent-token.py --root /src
+COPY labs/taskflow/patches/apply-taskflow-attachment-delete-actor.py /tmp/apply-taskflow-attachment-delete-actor.py
+RUN python3 /tmp/apply-taskflow-attachment-delete-actor.py --root /src
 COPY labs/taskflow/tests/service_agent_token_contract_test.go /src/server/internal/handler/service_agent_token_contract_test.go
+COPY labs/taskflow/tests/attachment_delete_actor_test.go /src/server/internal/handler/attachment_delete_actor_test.go
 
 # Test the router after every TaskFlow and house-rule patch has been applied.
 COPY labs/taskflow/overrides/taskflow_router_contract_test.go /src/server/cmd/server/taskflow_router_contract_test.go
