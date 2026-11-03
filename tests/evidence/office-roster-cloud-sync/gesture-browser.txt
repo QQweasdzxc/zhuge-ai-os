@@ -1,0 +1,12 @@
+✔ drag never opens detail; click still does (1440px) (8717.79963ms)
+✔ drag never opens detail; click still does (390px) (9088.920949ms)
+✔ 3D renderer: drag never opens detail; click still does (1440px) (105619.521863ms)
+✔ 3D renderer: drag never opens detail; click still does (390px) (39025.742467ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162460.089541
