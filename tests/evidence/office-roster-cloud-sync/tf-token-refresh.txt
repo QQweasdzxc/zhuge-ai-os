@@ -1,0 +1,47 @@
+Zhuge AI OS OAuth Debug {
+  stage: 'auth_session_refresh_failed',
+  detail: { status: 400, code: 'refresh_token_already_used', terminal: true },
+  at: '2026-11-02T02:51:47.897Z',
+  href: 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/pixel-office-3d/'
+}
+Supabase refresh session failed {
+  status: 400,
+  statusText: undefined,
+  code: 'refresh_token_already_used',
+  message: '{"error_code":"refresh_token_already_used"}',
+  details: '',
+  hint: '',
+  body: '{"error_code":"refresh_token_already_used"}',
+  has_refresh_token: true,
+  terminal: true
+}
+Zhuge AI OS OAuth Debug {
+  stage: 'auth_session_refresh_failed',
+  detail: { status: 500, code: '', terminal: false },
+  at: '2026-11-02T02:51:47.901Z',
+  href: 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/pixel-office-3d/'
+}
+Supabase refresh session failed {
+  status: 500,
+  statusText: undefined,
+  code: '',
+  message: 'database error',
+  details: '',
+  hint: '',
+  body: '{"msg":"database error"}',
+  has_refresh_token: true,
+  terminal: false
+}
+✔ expired stored token rotates through the shared refresh before the exchange (simulated) (6.635348ms)
+✔ valid stored token skips the refresh entirely (simulated) (3.385912ms)
+✔ terminally dead refresh clears the session and reports signed-out, never a false-expired loop (simulated) (4.33545ms)
+✔ recoverable refresh failure keeps the session, shows no false terminal state, and the next poll recovers (simulated) (4.247817ms)
+✔ anonymous visit never touches the refresh path and stays signed-out (simulated) (42.385414ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.906736

@@ -1,0 +1,16 @@
+✔ docs home immediately embeds original Habblaud world route (1.523341ms)
+✔ root home immediately embeds the 3D office route (2.635503ms)
+✔ classic status preserves original root HTML (1.971054ms)
+✔ project status is structured and identifies source time (0.39915ms)
+✔ pixel adapter drives upstream OfficeSnapshot, not an inert array (36.136869ms)
+✔ read-only HUD does not inject project text through innerHTML (0.353612ms)
+✔ pinned MIT source with separated candidate artifact, no automatic deployment (2.479409ms)
+✔ OAuth callbacks are routed before Pixel iframe loads (0.613682ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 62.313871

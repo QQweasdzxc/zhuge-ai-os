@@ -1,0 +1,15 @@
+✔ plain click (press + release, no move) stays a click (3.795968ms)
+✔ tiny jitter within threshold stays a click (0.801525ms)
+✔ drag beyond threshold is not a click (0.753593ms)
+✔ drag out and back to origin is still not a click (whole-gesture max) (0.846202ms)
+✔ a suppressed drag does not pollute the next genuine click (0.840104ms)
+✔ multi-touch (pinch) counts as a drag and resets cleanly (0.720483ms)
+✔ pointercancel resets the gesture; the next click is clean (0.820884ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.235248
