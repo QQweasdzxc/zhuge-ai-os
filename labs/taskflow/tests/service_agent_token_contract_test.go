@@ -49,6 +49,7 @@ func newSATFixture(t *testing.T) satFixture {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireWorkspaceMember(testHandler.Queries))
 		r.Get("/api/issues", testHandler.ListIssues)
+		r.Post("/api/issues", testHandler.CreateIssue)
 		r.Get("/api/issues/{id}", testHandler.GetIssue)
 		r.Put("/api/issues/{id}", testHandler.UpdateIssue)
 		r.Post("/api/issues/{id}/comments", testHandler.CreateComment)
