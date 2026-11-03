@@ -519,7 +519,7 @@
 
     update(sessions) {
       const working = sessions.filter((s) => WORKING.has(s.status));
-      // Office members (this device's private roster) are people who belong in
+      // Office members (the account-private roster) are people who belong in
       // the scene without a task; never collapse them into the off-duty count.
       const members = sessions.filter((s) => s.member);
       const off = sessions
