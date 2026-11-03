@@ -1,0 +1,9 @@
+Initial cached origin/main: 1133d66112f8633d003b41722c579c527fcc0de9
+Initial checkout: 607a2472449fef0809800aa084a4a8df23d25dde
+Initial sandbox fetch: Failed to connect to proxy port 8080 after 0 ms: Could not connect to server
+Recovery: allowed execution environment, git fetch origin main succeeded, then git fetch origin succeeded.
+BASE_SHA=3d4ed70bf419fe7ea908aaa7d702824e7ce0e4a0
+Explicit recovery: stash authorized uncommitted work, rebase office-roster-cloud-sync onto fetched origin/main, restore work. No work discarded.
+Before continuing: HEAD=origin/main=merge-base=BASE_SHA.
+New Build generated with release-governance new-build-id and synchronized with sync-build: 20261102-1040.
+No production migration, main push, merge or deployment.
