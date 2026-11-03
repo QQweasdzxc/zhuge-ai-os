@@ -8,6 +8,7 @@ const browserTests = [
   "tests/site-integration-contract.test.js",
   "tests/release-consistency.test.js",
   "tests/taskflow-entry.test.js",
+  "tests/office-tf-entry.test.js",
   "tests/taskflow-cli-sso.test.js",
   "tests/worklog-resource-loader.test.js",
   "tests/taskflow-entry-browser.test.js",
