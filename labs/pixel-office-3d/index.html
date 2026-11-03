@@ -412,8 +412,6 @@
     <h1>👀 <span data-t="title"></span></h1>
     <div class="summary" id="summary"></div>
     <button class="newver" id="newVer" hidden></button>
-      <a class="btn" id="classicLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/status-classic.html" target="_blank" rel="noopener">經典報表</a>
-      <a class="btn" id="tfLink" href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" target="_blank" rel="noopener">開啟 TF 看板 ↗</a>
     <div class="controls">
       <div class="seg" id="viewSeg">
         <button data-v="office" data-t="office"></button>
@@ -1151,6 +1149,59 @@ if (embeddedParent) {
   });
   window.parent.postMessage({ type: 'zhuge-office-ready' }, embeddedParent);
 }
+// Wall TF entry: same-tab, straight into the real board - no landing card,
+// no new tab. Reuses the landing page's own contract (exchange the stored
+// Zhuge session at {api}/auth/zhuge, carry the JWT to {web}/zhuge-handoff.html
+// in the URL hash only; nothing is persisted here). Without a stored session
+// the landing page is the honest fallback because it owns the login redirect.
+// Platform note: any same-tab navigation unloads this page, so an active
+// documentPictureInPicture window closes - that is a browser constraint.
+window.zhugeOpenTfBoard = (() => {
+  const TF_API = PAGE_QUERY.get('tfApi') || 'https://zhuge-taskflow-api.onrender.com';
+  const TF_WEB = PAGE_QUERY.get('tfWeb') || 'https://zhuge-taskflow-web.onrender.com';
+  const TF_LANDING = 'https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/';
+  const TOKEN_KEYS = ['zhuge_ai_os_google_auth_session_v1', 'zhuge_ai_os_session_v1'];
+  let inFlight = false;
+  function storedToken() {
+    for (const k of TOKEN_KEYS) {
+      try {
+        const j = JSON.parse(localStorage.getItem(k) || 'null');
+        if (j && typeof j.access_token === 'string' && j.access_token.length) return j.access_token;
+      } catch { /* invalid/absent session */ }
+    }
+    return '';
+  }
+  function nav(url) { (window.top || window).location.assign(url); }
+  function note(text) {
+    const bar = document.getElementById('srcBanner');
+    if (bar) { bar.textContent = text; bar.hidden = false; }
+  }
+  return async function openTfBoard() {
+    if (inFlight) return;
+    const supa = storedToken();
+    if (!supa) { nav(TF_LANDING); return; }
+    inFlight = true;
+    note('正在前往 TaskFlow 看板…');
+    try {
+      const r = await fetch(TF_API + '/auth/zhuge', {
+        method: 'POST', mode: 'cors', credentials: 'omit',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ access_token: supa }),
+        signal: AbortSignal.timeout(60000), // rides out a Render cold start
+      });
+      if (!r.ok) throw new Error('auth ' + r.status);
+      const j = await r.json();
+      const jwt = j.token || j.Token;
+      if (!jwt) throw new Error('no-token');
+      const ws = PAGE_QUERY.get('tfWorkspace') || 'zhuge-lab-ac5afcc7';
+      const handoff = new URL('/zhuge-handoff.html', TF_WEB);
+      handoff.hash = new URLSearchParams({ zhuge_token: jwt, zhuge_dest: '/' + encodeURIComponent(ws) + '/issues' }).toString();
+      nav(handoff.toString());
+    } catch (e) {
+      nav(TF_LANDING); // slow/cold or expired session: landing owns recovery
+    } finally { inFlight = false; }
+  };
+})();
 function connect() {
   const conn = document.getElementById('conn');
   if (TF_MODE) {
@@ -1893,4 +1944,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-              </html>
+      </html>
