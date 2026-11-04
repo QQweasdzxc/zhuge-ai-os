@@ -159,6 +159,14 @@
     return warning + '<div class="small legacydetail">舊帳參考（尚未確認為現況）：' + esc(r.name || "名稱未填") + " · 型號 " + esc(r.model || "未填") + " · S/N " + esc(r.serial || "舊帳未填") + '<br>出處 ' + esc(r.provenance || r.siteLead || "") + " · " + esc(r.recordKey || "") + " · 原區域 " + esc(r.zone || "未填") + " · 原位置 " + esc(r.place || "未填") + "。不自動改使用部門、專案或保管人。</div>";
   }
 
+  function editValues(x) {
+    const d={ name:x.name||"",model:x.model||"",department:x.department||"",owner:x.owner||"",zone:x.zone||"",status:x.status||"",project:x.project||D.UNASSIGNED,serial:x.serial||"",purchase:x.purchase||"",activate:x.activate||"",warranty:x.warranty||"",brand:x.brand||"",origin:x.origin||"",mfgYear:x.mfgYear||"",type:x.type||"",po:x.po||"" };
+    S.editBase={...d}; S.editLegacy=[];
+    const matches=(store.legacyRows?store.legacyRows():[]).filter(r=>r.code===x.code);
+    if(matches.length===1)for(const k of ["name","model","serial","purchase"])if(!String(d[k]).trim()&&matches[0][k]){d[k]=matches[0][k];S.editLegacy.push(k);}
+    return d;
+  }
+
   /* ---- 掃描 ---- */
   function scan(code) {
     code = String(code || "").trim();
@@ -683,11 +691,13 @@
       list.map((a) => {
         const lr = lastRecordOf(a.code);
         let row = '<button class="atr arow" data-a="edit" data-v="' + esc(a.code) + '"><span class="icode">' + esc(a.code) + "</span>" +
-          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + legacyDetails(a.code) + (a.__edited ? '<span class="dbadge"> 已修改（此瀏覽器）</span>' : "") + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
+          "<span>" + esc(a.name) + ' <span class="small">' + esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · " + esc(brandOf(a)) + " · 產地 " + esc(originOf(a)) + (a.po ? " · PO " + esc(a.po) : "") + "</span>" + legacyDetails(a.code) + (S.savedAt === a.code ? '<span class="dbadge"> ✓已儲存</span>' : "") + "</span>" +
           "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
-          row += '<div class="drawer">' + legacyDetails(a.code) +
+          row += '<div class="drawer">' + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy ? ' disabled' : '') + '>' + legacyDetails(a.code) +
+            '<div class="frow"><span class="lbl">名稱</span><input class="inp" data-f="name" value="' + esc(d.name) + '"></div>' +
+            '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="model" value="' + esc(d.model) + '"></div>' +
             (store.departmentReady || D.isMock ? '<div class="frow"><span class="lbl">使用部門</span><input class="inp" data-f="department" value="' + esc(d.department || "") + '"></div>' : "") +
       '<div class="frow"><span class="lbl">保管人</span><input class="inp" data-f="owner" value="' + esc(d.owner) + '"></div>' +
             '<div class="frow"><span class="lbl">區域</span><select class="inp" data-f="zone">' + zones.map((z) => '<option value="' + esc(z) + '"' + (d.zone === z ? " selected" : "") + ">" + esc(z) + "</option>").join("") + "</select></div>" +
@@ -703,8 +713,10 @@
             '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
             '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
             '<div class="frow"><span class="lbl">最後盤點</span><span class="small">' + (lr ? esc(new Date(lr.at).toLocaleString("zh-TW", { hour12: false })) + "（由掃描紀錄帶出，不可手改）" : "尚未盤點") + "</span></div>" +
-            '<div class="frow"><button class="btn mini" data-a="save">儲存（只存這個瀏覽器）</button><button class="pill sm" data-a="cancel">取消</button></div>' +
-            '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></div>';
+            (S.editError ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
+            '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
+            (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
+            '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
         }
         return row;
       }).join("") + "</div>";
@@ -1079,7 +1091,7 @@
       S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
       S.dtab = "assets"; S.asite = x.site;
       S.editCode = v;
-      S.editDraft = { department: x.department || "", owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
+      S.editDraft = editValues(x); S.editError = ""; S.editSeat = ""; S.savedAt = "";
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -1094,14 +1106,29 @@
       else {
         const x = getA(v);
         S.editCode = v;
-        S.editDraft = { department: x.department || "", owner: x.owner, zone: x.zone, status: x.status, project: x.project || D.UNASSIGNED, serial: x.serial, purchase: x.purchase, activate: x.activate, warranty: x.warranty, brand: x.brand || "", origin: x.origin || "", mfgYear: x.mfgYear || "", type: x.type || "", po: x.po || "" };
+        S.editDraft = editValues(x); S.editError = ""; S.editSeat = ""; S.savedAt = "";
+      }
+    }
+    else if (a === "asset-seat-save") {
+      if (!S.editBusy && S.editCode && S.editSeat) {
+        const code = S.editCode, asset = getA(code); S.editBusy = true; S.editError = ""; render();
+        seatUI.savePlacement(asset, S.editSeat).then(() => { S.editSeat = ""; }).catch(e => { S.editError = e.message; }).finally(() => { S.editBusy = false; render(); });
       }
     }
     else if (a === "cancel") { S.editCode = ""; S.editDraft = null; }
     else if (a === "save") {
       if (S.editCode && S.editDraft) {
-        store.saveAsset(S.editCode, { ...S.editDraft });
-        S.savedAt = S.editCode; S.editCode = ""; S.editDraft = null;
+        if (S.editBusy) return;
+        const code = S.editCode, draft = { ...S.editDraft }, base = { ...S.editBase };
+        S.savedAt = ""; S.editBusy = true; S.editError = ""; render();
+        (async () => {
+          try {
+            if (D.isMock) store.saveAsset(code, draft);
+            else await store.saveAssetVerified(code, draft, base);
+            if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; }
+          } catch (e) { S.editError = e.message || "儲存未確認，請保留輸入後重試"; }
+          finally { S.editBusy = false; render(); }
+        })();
       }
     }
     else if (a === "addsite") {
@@ -1233,6 +1260,7 @@
     if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; return; } /* 重繪在 change（blur/Enter/步進）時做，避免打字中斷焦點 */
     if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
     if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
+    if (f === "editSeat") S.editSeat = e.target.value;
     if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
   });
   document.addEventListener("change", (e) => {
@@ -1248,6 +1276,7 @@
       if (f === "ibd_site") S.ibDraft.zone = zonesOf(S.ibDraft.site)[0] || "";
       render(); return;
     }
+    if (f === "editSeat") S.editSeat = e.target.value;
     if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
   });
   document.addEventListener("keydown", (e) => {
