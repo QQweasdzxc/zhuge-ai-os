@@ -351,7 +351,7 @@
       const a = this._db().assets.find(x => x.code === code);
       if (!a) throw new Error("找不到設備 " + code);
       const patch = {}, expected = {};
-      for (const k of Object.keys(draft)) if (String(draft[k] ?? "") !== String(base[k] ?? "")) { patch[k] = draft[k]; expected[k] = base[k] ?? ""; }
+      for (const k of Object.keys(draft)) if (String(draft[k] ?? "") !== String(base[k] ?? "")) { patch[k] = String(draft[k] ?? ""); expected[k] = String(base[k] ?? ""); }
       const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected }) });
       const b = res ? await res.json() : null;
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
