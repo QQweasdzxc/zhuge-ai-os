@@ -360,6 +360,7 @@
     });
   }
   function afterRender() {
+    if(seatUI)seatUI.layout();
     if (S.camOn && cam.stream) {
       const v = document.getElementById("camv");
       if (v && v.srcObject !== cam.stream) { v.srcObject = cam.stream; v.play().catch(() => {}); }
