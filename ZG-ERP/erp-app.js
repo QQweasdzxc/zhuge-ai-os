@@ -35,7 +35,7 @@
     dtab: "dash", dash: false, screen: "start",
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
-    asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
+    asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
     mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
   };
 
@@ -348,7 +348,9 @@
           '<div class="small">準確度約 ±' + g.acc + " 公尺 · " + esc(g.at) + "</div>" +
           (S.nearest ? '<div class="match">最近據點：<b>' + esc(S.nearest) + "</b>（距離約 " + (S.nearestD < 1 ? Math.round(S.nearestD * 1000) + " 公尺" : S.nearestD.toFixed(1) + " 公里") + "）</div>" : "")) +
       '<div class="lbl" style="margin-top:14px">盤點據點（可改）</div>' +
-      '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
+      (siteNames().length === 0
+        ? '<div class="chips"><span class="small">尚未建立據點。請先到「電腦 · 管理編輯 → 位置表」新增第一個據點，這裡才會出現選項。</span></div>'
+        : '<div class="chips">' + siteNames().map((p) => '<button class="pill' + (S.site === p ? " on" : "") + '" data-a="site" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>") +
       (g && S.nearest && S.site && S.site !== S.nearest ? '<div class="warn">你選的據點和定位最近的據點不同，結果會註記。</div>' : "") +
       '<div class="lbl" style="margin-top:14px">這次主要盤哪個專案？（可先設定，掃描時沿用，不用每筆重選）</div>' +
       '<div class="chips"><button class="pill' + (S.scanProject === "" ? " on" : "") + '" data-a="sproj" data-v="">全部專案</button>' +
@@ -607,7 +609,15 @@
       }).join("") + "</div>";
   }
   function pcZones() {
-    return '<h3 class="ptitle">位置表</h3><p class="psub">維護各據點的區域和據點座標。座標讓手機用定位找最近據點；區域清單就是手機上「目前區域」的選項。正式版位置表會放在你的試算表。</p>' +
+    const addForm = '<div class="zcard"><b>新增據點</b><div class="small">建立據點和它的第一個區域；手機「盤點據點」就會出現這個選項。座標選填，填了手機才能用定位自動找最近據點。</div>' +
+      '<div class="frow"><input class="inp" data-f="ns_name" placeholder="據點名稱（如 台北）" value="' + esc(S.newSite.name || "") + '"></div>' +
+      '<div class="frow"><input class="inp" data-f="ns_zone" placeholder="第一個區域（如 1F 辦公區）" value="' + esc(S.newSite.zone || "") + '"></div>' +
+      '<div class="frow"><input class="inp" data-f="ns_lat" placeholder="緯度（選填，如 25.033）" value="' + esc(S.newSite.lat || "") + '"><input class="inp" data-f="ns_lon" placeholder="經度（選填，如 121.565）" value="' + esc(S.newSite.lon || "") + '"></div>' +
+      (S.siteErr ? '<div class="warn">' + esc(S.siteErr) + "</div>" : "") +
+      '<div class="frow"><button class="pill sm" data-a="addsite">建立據點</button></div></div>';
+    return '<h3 class="ptitle">位置表</h3><p class="psub">維護各據點的區域和據點座標。座標讓手機用定位找最近據點；區域清單就是手機上「目前區域」的選項。位置表直接存進你的試算表。</p>' +
+      addForm +
+      (sites().length === 0 ? '<div class="zcard"><div class="small">還沒有任何據點。先用上方「新增據點」建立第一個，手機掃描才能開始。</div></div>' : "") +
       sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">座標 ' + s.lat.toFixed(4) + ", " + s.lon.toFixed(4) + "（測試值）</span></div>" +
         s.zones.map((z) => '<div class="zrow"><span>' + esc(z) + "</span><b>" + assets().filter((a) => a.site === s.name && a.zone === z).length + " 台</b></div>").join("") +
         '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] || "") + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
@@ -858,6 +868,21 @@
         S.savedAt = S.editCode; S.editCode = ""; S.editDraft = null;
       }
     }
+    else if (a === "addsite") {
+      const name = (S.newSite.name || "").trim();
+      const zone = (S.newSite.zone || "").trim();
+      const latS = (S.newSite.lat || "").trim(), lonS = (S.newSite.lon || "").trim();
+      S.siteErr = "";
+      if (!name) S.siteErr = "請填據點名稱。";
+      else if (!zone) S.siteErr = "請填第一個區域。";
+      else if (sites().find((x) => x.name === name)) S.siteErr = "已經有「" + name + "」這個據點。";
+      else if ((latS && isNaN(Number(latS))) || (lonS && isNaN(Number(lonS)))) S.siteErr = "座標要是數字（或留空）。";
+      else if ((latS && (Number(latS) < -90 || Number(latS) > 90)) || (lonS && (Number(lonS) < -180 || Number(lonS) > 180))) S.siteErr = "座標超出範圍。";
+      if (S.siteErr) { render(); return; }
+      if (typeof store.addSite === "function" && store.addSite(name, zone, latS === "" ? null : Number(latS), lonS === "" ? null : Number(lonS))) {
+        S.newSite = {};
+      }
+    }
     else if (a === "addzone") {
       const val = (S.newZone[v] || "").trim();
       if (val) { store.addZone(v, val); S.newZone[v] = ""; }
@@ -929,6 +954,7 @@
     if (!f) return;
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; return; }
+    if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("ibd_") === 0) { if (S.ibDraft) S.ibDraft[f.slice(4)] = e.target.value; return; }
     if (f === "recvCode") { S.recvCode = e.target.value; return; }
