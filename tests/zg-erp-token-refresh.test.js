@@ -56,12 +56,16 @@ test("401 → 換發成功 → 帶新 token 原樣重試一次", async () => {
   assert.ok(retries.length > 0 && retries.every((c) => c.auth === "Bearer newTok"), "重試應帶新 token");
 });
 
-test("換發回 null → 不重試，原錯誤維持", async () => {
+test("換發回 null → 不重試；讀取 401 歸類為登入驗證被拒（可行動錯誤，非泛泛資料庫錯誤）", async () => {
   const { SheetsStore } = loadSheets();
   let fetchCount = 0;
   const fetchImpl = async () => { fetchCount += 1; return { ok: false, status: 401, json: async () => ({}) }; };
   const store = new SheetsStore({ bridgeUrl: "https://b.test/fn", fetchImpl, tokenProvider: () => "oldTok", tokenRefresher: async () => null });
-  await assert.rejects(store.init(), /讀取失敗/);
+  let caught = null;
+  await store.init().catch((e) => { caught = e; });
+  assert.ok(caught, "應拋錯");
+  assert.match(caught.message, /登入驗證被拒/);
+  assert.equal(caught.authRefused, true, "要帶 authRefused 標記給前台顯示重新登入");
   assert.equal(fetchCount, 7, "換發失敗不得重試（每路各一次）");
 });
 
