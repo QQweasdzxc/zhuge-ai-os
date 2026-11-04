@@ -600,4 +600,4 @@ function startTfSource(opts) {
 
 if (typeof window !== 'undefined') {
   window.startTfSource = startTfSource;
-                                         }
+}
