@@ -368,7 +368,7 @@
       projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "") + '" data-a="sproj" data-v="' + esc(p) + '">' + esc(p.replace("（測試）", "")) + "</button>").join("") + "</div>" +
       '<div class="frow"><input class="inp" data-f="scanProjectInput" placeholder="輸入專案名稱（新建或既有皆可）" value="' + esc(S.scanProjectInput) + '"><button class="btn mini" data-a="sprojset">設定</button></div>' +
       (S.scanProject && !projects().includes(S.scanProject) ? '<div class="small">本次自訂專案「' + esc(S.scanProject) + '」：掃到的新設備會以這個專案登記，既有設備歸屬不變。</div>' : "") +
-      '<div class="small">設定的只是「這次盤點的範圍」，不會改任何設備的歸屬專案。掃到其他專案的設備會提示並照樣記錄。</div>' +
+      '<div class="small">這次設定的專案會記在每一筆掃描裡；新掃到的設備會登記到這個專案。已在清冊裡的設備歸屬不變，掃到其他專案的設備會提示並照樣記錄。</div>' +
       (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
