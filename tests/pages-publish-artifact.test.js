@@ -82,7 +82,8 @@ test("curated Pages publishes Pixel homepage and retained authenticated TaskFlow
   assert.match(classic, /href=["']modules\/worklog\//);
   assert.doesNotMatch(classic, /window\.location\.replace\("https:\/\/zhuge-taskflow-web\.onrender\.com\/"\)/);
   const docsHome = fs.readFileSync(path.join(site, "docs/index.html"), "utf8");
-  assert.match(docsHome, /pixel-office\/index\.html/);
+  assert.match(docsHome, /\.\.\/labs\/pixel-office-3d\/index\.html\?source=tf/);
+  assert.doesNotMatch(docsHome,/zhuge-office-furnishings/);
   assert.match(docsHome, /status-classic\.html/);
   assertLocalReferencesResolve(classic, "status-classic.html");
   for (const relative of ["labs/taskflow/pages-client/taskflow-api.mjs","labs/taskflow/pages-client/app.mjs","labs/taskflow/pages-client/app.css","labs/taskflow/pages-client/login-return.mjs"]) {
