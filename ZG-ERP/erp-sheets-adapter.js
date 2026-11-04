@@ -91,6 +91,7 @@
       if (!opts || !opts.bridgeUrl) throw new Error("SheetsStore 需要 bridgeUrl（zg-ledger-bridge 位址）");
       this.fetch = opts.fetchImpl || global.fetch.bind(global);
       this._token = typeof opts.tokenProvider === "function" ? opts.tokenProvider : null;
+      this._refresher = typeof opts.tokenRefresher === "function" ? opts.tokenRefresher : null;
       this.bridgeUrl = opts.bridgeUrl;
       this.actor = opts.actor || "";
       this.db = null;
@@ -102,18 +103,40 @@
       if (t) h.Authorization = "Bearer " + t;
       return h;
     }
+    /* 只在「驗證被拒」(401) 且換發到新 token 時，帶新 token 原樣重試一次。
+     * 網路錯誤、5xx、其他 4xx 一律不重試——寫入尤其不可模糊重送（冪等性不明）。
+     * 換發由 tokenRefresher 負責單機單次（並行讀取共用同一 Promise，refresh token 會輪替）。 */
+    /* 單機單次：並行的多路 401 共用同一次換發（refresh token 會輪替，不可同時多送） */
+    async _refreshOnce() {
+      if (!this._refreshPromise) {
+        this._refreshPromise = Promise.resolve()
+          .then(() => this._refresher())
+          .finally(() => { this._refreshPromise = null; });
+      }
+      return this._refreshPromise;
+    }
+    async _fetchAuth(url, init) {
+      let res = await this.fetch(url, init);
+      if (res && res.status === 401 && this._refresher) {
+        const fresh = await this._refreshOnce();
+        if (fresh) {
+          res = await this.fetch(url, Object.assign({}, init, { headers: this._authHeaders(init && init.headers) }));
+        }
+      }
+      return res;
+    }
     _url(action, tab) {
       return this.bridgeUrl + "?action=" + action + "&tab=" + encodeURIComponent(TABS[tab] || tab);
     }
     async _read(tab) {
-      const res = await this.fetch(this._url("read", tab), { method: "GET", headers: this._authHeaders() });
+      const res = await this._fetchAuth(this._url("read", tab), { method: "GET", headers: this._authHeaders() });
       if (!res || !res.ok) throw new Error("現存資料庫讀取失敗（" + TABS[tab] + "）");
       const body = await res.json();
       if (!body || !Array.isArray(body.header) || !Array.isArray(body.rows)) throw new Error("bridge 回應格式不符（" + TABS[tab] + "）");
       return body.rows;
     }
     async _append(tab, row) {
-      const res = await this.fetch(this._url("append", tab), {
+      const res = await this._fetchAuth(this._url("append", tab), {
         method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ row })
       });
       if (!res || !res.ok) throw new Error(UNSYNCED + "（新增 " + TABS[tab] + "）");
@@ -124,7 +147,7 @@
     }
     async _update(tab, rowNum, row) {
       const range = TABS[tab] + "!A" + rowNum + ":" + String.fromCharCode(64 + row.length) + rowNum;
-      const res = await this.fetch(this._url("update", tab), {
+      const res = await this._fetchAuth(this._url("update", tab), {
         method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ range, row })
       });
       if (!res || !res.ok) throw new Error(UNSYNCED + "（更新 " + TABS[tab] + " 第 " + rowNum + " 列）");
