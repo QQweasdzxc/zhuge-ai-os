@@ -42,7 +42,7 @@
     place: "", gps: null, gpsErr: "", site: "", zone: "", zoneOpen: false,
     open: "", filter: "all", metric: "total", dsite: "", dst: "", pfilter: "",
     asite: "", editCode: "", editDraft: null, savedAt: "", newZone: {}, newSite: {}, siteErr: "", sess: null, manualCode: "", camOn: false, camErr: "", camLast: "", camLastAt: 0,
-    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
+    mapSite: "", mapZone: "", mapImg: "", mapEdit: false, retTab: "", scanProject: "", scanProjectInput: "", afOrigin: "", afBrand: "", afType: "", ageBasis: "purchase", ageFilter: "", ibOpen: "", ibConfirm: "", ibDraft: null, recvBatch: "", recvCode: "", recvLast: null
   };
 
   /* ---- 資料導出 ---- */
@@ -366,6 +366,8 @@
       '<div class="lbl" style="margin-top:14px">這次主要盤哪個專案？（可先設定，掃描時沿用，不用每筆重選）</div>' +
       '<div class="chips"><button class="pill' + (S.scanProject === "" ? " on" : "") + '" data-a="sproj" data-v="">全部專案</button>' +
       projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "") + '" data-a="sproj" data-v="' + esc(p) + '">' + esc(p.replace("（測試）", "")) + "</button>").join("") + "</div>" +
+      '<div class="frow"><input class="inp" data-f="scanProjectInput" placeholder="輸入專案名稱（新建或既有皆可）" value="' + esc(S.scanProjectInput) + '"><button class="btn mini" data-a="sprojset">設定</button></div>' +
+      (S.scanProject && !projects().includes(S.scanProject) ? '<div class="small">本次自訂專案「' + esc(S.scanProject) + '」：掃到的新設備會以這個專案登記，既有設備歸屬不變。</div>' : "") +
       '<div class="small">設定的只是「這次盤點的範圍」，不會改任何設備的歸屬專案。掃到其他專案的設備會提示並照樣記錄。</div>' +
       (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
@@ -864,7 +866,8 @@
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
     else if (a === "sitelist") { S.mode = "pc"; S.dash = false; S.asite = v; S.dtab = "assets"; S.retTab = "dash"; S.editCode = ""; S.editDraft = null; }
     else if (a === "gositepc") { S.mode = "phone"; S.dash = false; S.site = v; S.screen = "start"; }
-    else if (a === "sproj") { S.scanProject = v; }
+    else if (a === "sproj") { S.scanProject = v; S.scanProjectInput = ""; }
+    else if (a === "sprojset") { S.scanProject = (S.scanProjectInput || "").trim(); }
     else if (a === "asite") { S.asite = v; S.editCode = ""; S.editDraft = null; }
     else if (a === "gosite") { S.site = v; S.dash = false; S.screen = "start"; }
     else if (a === "edit") {
@@ -967,6 +970,7 @@
     const f = e.target.getAttribute && e.target.getAttribute("data-f");
     if (!f) return;
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
+    if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; return; }
     if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
@@ -994,6 +998,7 @@
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); S.manualCode = ""; render(); }
+    if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "scanProjectInput") { S.scanProject = (S.scanProjectInput || "").trim(); render(); }
   });
 
   /* 開機：sheets 後端需先載入鏡像（唯一 async 入口），mock 直接渲染 */
