@@ -44,7 +44,7 @@ test("finished chip is labeled cumulative in TF mode; no today-completed proxy",
 test("chip filter view lists matching tasks and offers a way back", () => {
   assert.match(html, /state\.sideFilter \? GROUPS\.find/);
   assert.match(html, /id="sideFilterBack"/);
-  assert.match(html, /state\.sideFilter = null; render\(\); return;/);
+  assert.match(html, /state\.sideFilter = null; render\(\); document\.getElementById\('side'\)\.scrollLeft = 0; return;/);
   assert.match(html, /state\.sideFilter === k \? ' on' : ''/);
 });
 
@@ -77,4 +77,15 @@ test("every locale defines the new stat-row keys", () => {
 test("no wording claims the review queue awaits the viewer personally", () => {
   assert.ok(!/待你核准|等你核准/.test(html), "no 待你核准/等你核准 anywhere");
   assert.ok(!/待你核准|等你核准/.test(i18nSrc), "no 待你核准/等你核准 in i18n");
+});
+
+test("ZG-60 return journey: side panel cannot hold a horizontal scroll offset", () => {
+  // overflow: clip (not hidden) makes .side a non-scroll container, so the
+  // detail pane's translateX(100%) cannot leave a stuck scrollLeft after 返回.
+  assert.ok(/\.side\b[^}]*overflow:\s*clip/.test(html.replace(/\s+/g, ' ')), ".side uses overflow: clip");
+});
+
+test("ZG-60 narrow header: stat chips never wrap mid-label", () => {
+  assert.ok(/\.summary \.chip\s*\{[^}]*white-space:\s*nowrap/.test(html.replace(/\s+/g, ' ')), ".summary .chip has white-space: nowrap");
+  assert.ok(/\.summary \.chip\s*\{[^}]*flex:\s*none/.test(html.replace(/\s+/g, ' ')), ".summary .chip has flex: none");
 });
