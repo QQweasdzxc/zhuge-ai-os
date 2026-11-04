@@ -77,7 +77,7 @@
   const zonesOf = (n) => { const s = siteOf(n); return s ? s.zones : []; };
   const assets = () => db().assets;
   const getA = (code) => assets().find((a) => a.code === code);
-  const projects = () => [...db().projects, D.UNASSIGNED];
+  const projects = () => [...new Set([...db().projects, D.UNASSIGNED])];
   const allRecords = () => db().records.map((r) => ({ ...r, sessionSite: (db().sessions.find((x) => x.id === r.sessionId) || {}).site || "" }));
   function lastRecordOf(code) {
     const rs = allRecords().filter((r) => r.code === code);
