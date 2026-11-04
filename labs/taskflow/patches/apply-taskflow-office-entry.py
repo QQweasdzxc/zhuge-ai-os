@@ -12,6 +12,19 @@ import argparse
 from pathlib import Path
 
 SIDEBAR = "packages/views/layout/app-sidebar.tsx"
+"""Install the native office sidebar entry in a copied web tree; frozen vendor is read-only.
+
+The previous floating office overlay (a fixed-position iframe panel) covered
+native controls on some pages, so the office entry is a normal sidebar item
+instead: a same-tab navigation link that lives in the sidebar flow and can
+never block page content.
+"""
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+SIDEBAR = "packages/views/layout/app-sidebar.tsx"
 SIDEBAR_TEST = "packages/views/layout/app-sidebar.test.tsx"
 
 OFFICE_URL = "https://qqweasdzxc.github.io/zhuge-ai-os/"
@@ -50,13 +63,26 @@ TEST_MARKER = 'describe("workspace-switcher unread dot", () => {'
 TEST_BLOCK = '''
 describe("TaskFlow office entry", () => {
   it("is a native same-tab sidebar link to the Zhuge office homepage", () => {
-    render(<AppSidebar />);
-    const link = screen.getByRole("link", { name: "辦公室" });
-    expect(link).toHaveAttribute("href", "https://qqweasdzxc.github.io/zhuge-ai-os/");
-    expect(link).not.toHaveAttribute("target");
+    // The mocked SidebarMenuButton surfaces the render-prop anchor as
+    // data-href / data-target; no data-target means same-tab navigation.
+    const { container } = render(<AppSidebar />);
+    const link = container.querySelector(
+      'button[data-href="https://qqweasdzxc.github.io/zhuge-ai-os/"]',
+    );
+    expect(link).not.toBeNull();
+    expect(link?.textContent).toContain("辦公室");
+    expect(link).not.toHaveAttribute("data-target");
   });
 });
 '''
+
+# The test-file mock renders SidebarMenuButton as a plain button and exposes
+# only render.props.href. Surface target as well so the same-tab contract of
+# the office anchor stays testable; undefined target renders no attribute.
+MOCK_TYPE = "render?: React.ReactElement<{ href?: string }>;"
+MOCK_TYPE_NEW = "render?: React.ReactElement<{ href?: string; target?: string }>;"
+MOCK_BUTTON = 'data-href={render?.props.href}>'
+MOCK_BUTTON_NEW = 'data-href={render?.props.href} data-target={render?.props.target}>'
 
 
 def replace_exact(text: str, old: str, replacement: str, purpose: str) -> str:
@@ -77,6 +103,8 @@ def patch_sidebar(text: str) -> str:
 def patch_sidebar_test(text: str) -> str:
     if "TaskFlow office entry" in text:
         raise ValueError("office entry test already applied")
+    text = replace_exact(text, MOCK_TYPE, MOCK_TYPE_NEW, "sidebar button mock target typing")
+    text = replace_exact(text, MOCK_BUTTON, MOCK_BUTTON_NEW, "sidebar button mock target attribute")
     return replace_exact(text, TEST_MARKER, TEST_BLOCK + "\n" + TEST_MARKER, "office entry runtime contract test")
 
 
