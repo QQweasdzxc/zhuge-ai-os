@@ -570,6 +570,23 @@
     legacyFlows() { return this._legacyFlows || []; }
     legacyQuestions() { return this._legacyQuestions || []; }
     legacyAuxError() { return this._legacyAuxError || ""; }
+    async loadSeatMap() {
+      try { const b = await this._readFull("座位圖");
+        const headers = ["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
+        if (!headers.every((v,i) => b.header[i] === v)) throw new Error("座位圖欄位不符");
+        this.seatRows = b.rows; this.seatReady = true; this.seatError = "";
+      } catch(e) { this.seatReady = false; this.seatError = e.message; this.seatRows = []; }
+      return this.seatRows;
+    }
+    async appendSeatEvent(row) {
+      if (!this.seatReady) throw new Error("座位圖尚未連接，未寫入");
+      const res = await this._fetchAuth(this._url("seat-event", "座位圖"), {method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({row})});
+      if (!res || !res.ok) { let b;try{b=await res.json()}catch{}if(res.status===409)await this.loadSeatMap();const err=new Error(b?.error?.message || b?.error?.code || (typeof b?.error==="string"?b.error:"") || "座位資料未同步，請重試");err.conflict=res.status===409;throw err; }
+      const body = await res.json(); if (!body.ok) throw new Error("座位寫回失敗");
+      const stored = body.row || row;
+      if (!this.seatRows.some(r => r[0] === stored[0])) this.seatRows.push(stored);
+      return stored;
+    }
     /* 地點 QR：掃到位置表登錄的 QR 內容 → 回傳 {site, zone}；未登錄回傳 null（不自動猜） */
     findSiteByQr(qrContent) {
       const q = String(qrContent || "").trim();
