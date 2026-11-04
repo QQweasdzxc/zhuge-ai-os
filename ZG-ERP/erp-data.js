@@ -10,7 +10,7 @@
 (function (global) {
   "use strict";
 
-  const DATA_BACKEND = "mock"; // "mock" | "sheets"（待實際試算表接入後切換）
+  const DATA_BACKEND = "sheets"; // "mock" | "sheets"（2026-11-04 12:20 切換：bridge 已部署、讀寫正向路徑已驗）
   const STORAGE_KEY = "zg_erp_demo_v2";
 
   const STATUSES = ["使用中", "備用", "待修", "維修中", "已報廢"];
@@ -165,15 +165,40 @@
     sessionRecords(sess) { return this.db.records.filter((r) => r.sessionId === sess.id); }
   }
 
-  /* 預留：正式 Google 試算表轉接器（vendor-sheet-service / gas-vendor-bridge 模式）。
-   * 啟用前需：使用者提供實際試算表與欄位 → 建立對應 edge function bridge
-   * （服務帳號分享該表）→ DATA_BACKEND 改為 "sheets" 並實作同名方法。 */
-  class SheetsStore { constructor() { throw new Error("正式試算表尚未接入（等待實際表格）"); } }
+  /* 正式「現存資料庫」轉接器（erp-sheets-adapter.js，zg-ledger-bridge 模式）。
+   * 啟用條件：bridge 部署完成＋新試算表建立 → DATA_BACKEND 改為 "sheets"。
+   * 舊帳（59 整合工作簿）唯讀比對，不是寫入目標。 */
+  const BRIDGE_URL = "https://lenpbbhwxyyfwgvjcozf.supabase.co/functions/v1/zg-ledger-bridge";
+  function zhugeSession() {
+    for (const key of ["zhuge_ai_os_google_auth_session_v1", "zhuge_ai_os_session_v1"]) {
+      try {
+        const sess = JSON.parse(localStorage.getItem(key) || "null");
+        if (sess) return sess;
+      } catch { /* 下一個 key */ }
+    }
+    return null;
+  }
+  function zhugeAccessToken() {
+    const s = zhugeSession();
+    if (!s) return null;
+    return s.access_token || (s.session && s.session.access_token) || (s.data && s.data.access_token) || null;
+  }
+  function currentActor() {
+    const sess = zhugeSession() || {};
+    const u = sess.user || {};
+    return sess.name || sess.email || u.email || u.name || "";
+  }
+  function buildStore() {
+    if (DATA_BACKEND !== "sheets") return new MockStore();
+    if (!global.ZgErpSheets) throw new Error("erp-sheets-adapter.js 未載入");
+    return new global.ZgErpSheets.SheetsStore({ bridgeUrl: BRIDGE_URL, actor: currentActor(),
+      tokenProvider: zhugeAccessToken });
+  }
 
   global.ZgErpData = Object.freeze({
     backend: DATA_BACKEND,
     isMock: DATA_BACKEND === "mock",
-    store: DATA_BACKEND === "sheets" ? new SheetsStore() : new MockStore(),
+    store: buildStore(),
     STATUSES, UNASSIGNED
   });
 })(window);
