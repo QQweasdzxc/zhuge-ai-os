@@ -32,7 +32,8 @@
     annotations: ["記錄鍵", "資產編號", "出處", "快照", "進度", "結論", "原因", "證據", "確認人", "時間", "新帳資產編號", "備註"]
   };
 
-  const MOVEMENT_TYPE = { "inbound": "入庫", "outbound-transfer": "調撥", "outbound-sale": "出庫", "outbound-use": "出庫", "repair-start": "維修", "repair-end": "維修" };
+  function operationId(){const r=crypto.randomUUID().replace(/-/g,''),time=Date.now().toString(16).padStart(12,'0');return time.slice(0,8)+'-'+time.slice(8)+'-7'+r.slice(13,16)+'-'+r.slice(16,20)+'-'+r.slice(20);}
+  const MOVEMENT_TYPE = { "inbound": "入庫", "outbound-transfer": "調撥", "outbound-sale": "出庫", "outbound-use": "出庫", "repair-send": "送修", "repair-start": "維修中", "repair-end": "修畢回庫" };
 
   function assetToRow(a, actor) {
     return [a.code, a.name || "", a.model || "", a.serial || "", a.site || "", a.zone || "", a.owner || "", a.project || "",
@@ -68,7 +69,7 @@
   }
   function rowToMovement(row, i) {
     const rev = Object.keys(MOVEMENT_TYPE).find((k) => MOVEMENT_TYPE[k] === row[2]);
-    return { __row: i + 2, id: String(row[0] || ""), at: row[1] || "", type: rev || String(row[2] || ""), code: String(row[3] || "").trim(),
+    return { __row: i + 2, id: String(row[0] || ""), at: row[1] || "", type: row[2]==="維修"?"repair-legacy":rev || String(row[2] || ""), code: String(row[3] || "").trim(),
       from: row[4] || "", to: row[5] || "", qty: Number(row[6]) || 1, operator: row[7] || "", note: row[8] || "", source: row[9] || "" };
   }
 
@@ -167,6 +168,12 @@
       return this._refreshPromise;
     }
     async _fetchAuth(url, init) {
+      if(init?.method==='POST'){
+        const payload=JSON.parse(init.body||'{}');
+        payload.operationId=payload.operationId||operationId();
+        payload.reservationToken=payload.reservationToken||crypto.randomUUID();
+        init={...init,body:JSON.stringify(payload)};
+      }
       let res = await this.fetch(url, init);
       if (res && res.status === 401 && this._refresher) {
         const fresh = await this._refreshOnce();
@@ -204,16 +211,20 @@
       const body = await res.json();
       if (!body || body.ok !== true || !body.updatedRange) throw new Error(UNSYNCED + "（寫回驗證失敗 " + TABS[tab] + "）");
       const m = /!A(\d+):/.exec(body.updatedRange);
+      if(m){this._originalRows=this._originalRows||{};this._originalRows[tab]=this._originalRows[tab]||[];const actual=[...row],actorCol={assets:19,sessions:8,records:10,movements:7,annotations:8}[tab];if(actorCol!==undefined)actual[actorCol]=body.actor||actual[actorCol]||'';this._originalRows[tab][Number(m[1])-2]=actual;}
       return m ? Number(m[1]) : -1; // 讀回驗證的實際列號
     }
     async _update(tab, rowNum, row) {
       const range = TABS[tab] + "!A" + rowNum + ":" + String.fromCharCode(64 + row.length) + rowNum;
+      const prior=this._originalRows?.[tab]?.[rowNum-2];
+      if(!prior)throw Error('原始資料不存在，未寫入');
       const res = await this._fetchAuth(this._url("update", tab), {
-        method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ range, row })
+        method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ range, row,expected:prior })
       });
       if (!res || !res.ok) throw new Error(UNSYNCED + "（更新 " + TABS[tab] + " 第 " + rowNum + " 列）");
       const body = await res.json();
       if (!body || body.ok !== true) throw new Error(UNSYNCED + "（寫回驗證失敗 " + TABS[tab] + " 第 " + rowNum + " 列）");
+      this._originalRows[tab][rowNum-2]=[...row];
     }
 
     /* 讀回整份狀態（與 MockStore.state() 同形、同步；需先 await init()） */
@@ -223,6 +234,7 @@
       if (this.db) return this.db;
       const [assetRows, sessionRows, recordRows, movementRows, batchRows, siteRows, annotationRows] = await Promise.all(
         ["assets", "sessions", "records", "movements", "batches", "sites", "annotations"].map(async (t) => { const body = await this._readFull(t); this._headers = this._headers || {}; this._headers[t] = body.header; return body.rows; }));
+      this._originalRows=Object.fromEntries(['assets','sessions','records','movements','batches','sites','annotations'].map((k,i)=>[k,JSON.parse(JSON.stringify([assetRows,sessionRows,recordRows,movementRows,batchRows,siteRows,annotationRows][i]))]));
       this.departmentReady = ["assets", "sessions", "records"].every((t) => HEADERS[t].every((h, i) => this._headers[t][i] === h));
       const assets = assetRows.map(rowToAsset).filter((a) => a.code);
       const sites = [];
@@ -300,9 +312,24 @@
       return { pending: this._pendingCount || 0, unsynced: u.length };
     }
     _notify() { (this._listeners || []).forEach((cb) => { try { cb(this.syncStatus()); } catch (e) { /* 聽眾錯誤不影響寫入 */ } }); }
+    /* Explicit shared read refresh. Never replace pending/failed local work or a snapshot
+       if a local write started while the read was in flight. No polling timer. */
+    async refreshShared(canApply) {
+      const safe=()=>!(this._seatAttempts?.size)&&!(this._intakeAttempts?.size)&&!(this._scanIntents?.size)&&!(this._repairAttempts?.size)&&!(this._pendingCount||0)&&!(this._unsynced||[]).length&&(!canApply||canApply());
+      if(!safe())throw new Error("請先完成或取消編輯，並處理未同步資料，再更新共同盤點結果");
+      const generation=this._writeGeneration||0;
+      const fresh=new SheetsStore({fetchImpl:this.fetch,bridgeUrl:this.bridgeUrl,actor:this.actor,tokenProvider:this._token,tokenRefresher:this._refresher});
+      await fresh.init();await fresh.loadSeatMap();if(!fresh.seatReady)throw Error('共同座位資料未能讀取，保留目前畫面');
+      if(!safe()||generation!==(this._writeGeneration||0))throw new Error("更新期間有本機操作，保留目前輸入；請稍後再更新");
+      this.db=fresh.db;this.seatRows=fresh.seatRows;this.seatReady=fresh.seatReady;this.seatError=fresh.seatError;
+      for(const k of ['_originalRows','_headers','departmentReady','_siteQrRows','_legacyRows','_legacyError','_legacyFlows','_legacyQuestions','_legacyAuxError'])this[k]=fresh[k];
+      this.lastSharedReadAt=new Date().toISOString();
+      return this.db;
+    }
     /* entity 先進鏡像並標 __pending；writeFn 背景執行；失敗標 __unsynced 並可重試。
      * 同一 entity 的寫入依序執行（__chain），避免「新增尚未完成就更新」的競態。 */
-    _mirror(entity, writeFn) {
+    _mirror(entity, writeFn,options) {
+      this._writeGeneration=(this._writeGeneration||0)+1;
       this._pendingCount = (this._pendingCount || 0) + 1;
       if (entity) entity.__pending = true;
       this._notify();
@@ -313,11 +340,7 @@
       }).catch((err) => {
         if (entity) { delete entity.__pending; entity.__unsynced = true; }
         (this._unsynced = this._unsynced || []).push({ entity, error: String(err && err.message || err), redo: () => {
-          return writeFn().then(() => {
-            if (entity) delete entity.__unsynced;
-            this._unsynced = this._unsynced.filter((x) => x.entity !== entity);
-            this._notify();
-          });
+          return Promise.reject(new Error("寫入結果未確定，不可重送；保留畫面並核對"));
         } });
       }).finally(() => {
         this._pendingCount -= 1;
@@ -347,16 +370,34 @@
       return { ok: failed === 0, failed };
     }
 
+    async editControl(action,code){
+      this._editReservations=this._editReservations||new Map();
+      let held=this._editReservations.get(code);
+      if(action==='reserve'){if(held)throw new Error('請先完成或取消原本的編輯');held={token:crypto.randomUUID(),expiresAt:0,lastRenewAt:0};}
+      if(!held)throw new Error('編輯權限已失效，輸入已保留；請重新讀取後核對');
+      const res=await this._fetchAuth(this._url(action,'assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code,reservationToken:held.token,operationId:operationId()})});
+      const body=await res.json();
+      if(!res.ok||body.ok!==true)throw new Error(body.error?.message||'正由其他人編輯，尚未保存，請稍後重試');
+      if(action==='release'){this._editReservations.delete(code);return;}
+      held.expiresAt=Date.now()+300000;held.lastRenewAt=Date.now();this._editReservations.set(code,held);
+      return held;
+    }
+    async reserveAssetEdit(code){return this.editControl('reserve',code);}
+    async readAssetForEdit(code){const data=await this._readFull('assets'),hits=data.rows.map((r,i)=>({r,i})).filter(x=>x.r[0]===code);if(hits.length!==1)throw new Error('設備編號不唯一，沒有取得可編輯資料');const fresh=rowToAsset(hits[0].r,hits[0].i);Object.assign(this._db().assets.find(a=>a.code===code),fresh);return fresh;}
+    async releaseAssetEdit(code){if(this._editReservations?.has(code))return this.editControl('release',code);}
+    async noteEditActivity(code){const h=this._editReservations?.get(code);if(!h||h.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');if(Date.now()-h.lastRenewAt>=60000){if(!h.renewing)h.renewing=this.editControl('renew',code).finally(()=>{h.renewing=null});return h.renewing;}}
     async saveAssetVerified(code, draft, base) {
       const a = this._db().assets.find(x => x.code === code);
       if (!a) throw new Error("找不到設備 " + code);
+      const held=this._editReservations?.get(code);if(held?.attempted)throw new Error('上次儲存結果未確定，不可重送；輸入保留請先核對');if(!held||held.expiresAt<=Date.now())throw new Error('編輯權限已到期，輸入保留；請重新讀取後核對');
       const patch = {}, expected = {};
       const normalized = { ...draft }; if (["未指定（待確認）", "未指定(待確認)", "未指定"].includes(normalized.project)) normalized.project = "";
       for (const k of Object.keys(normalized)) if (String(normalized[k] ?? "") !== String(base[k] ?? "")) { patch[k] = String(normalized[k] ?? ""); expected[k] = String(base[k] ?? ""); }
-      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected }) });
+      held.attempted=true;
+      const res = await this._fetchAuth(this._url("asset-edit", "assets"), { method: "POST", headers: this._authHeaders({ "content-type": "application/json" }), body: JSON.stringify({ code, patch, expected,reservationToken:held.token,operationId:operationId() }) });
       const b = res ? await res.json() : null;
       if (!res || !res.ok || !b?.ok || !Array.isArray(b.row) || !Number.isInteger(b.rowNum) || b.row[0] !== code) throw new Error(b?.error?.message || "儲存未確認，請保留輸入後重試");
-      Object.assign(a, rowToAsset(b.row, b.rowNum - 2));
+      Object.assign(a, rowToAsset(b.row, b.rowNum - 2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[b.rowNum-2]=[...b.row];this._editReservations.delete(code);
       return a;
     }
 
@@ -395,6 +436,24 @@
       });
       return sess;
     }
+    async scanIntentVerified(intent){
+      this._scanIntents=this._scanIntents||new Map();const key=intent.sessionId+':'+intent.code;
+      if(this._scanIntents.has(key))throw new Error('此筆掃描結果待查，輸入已保留，不可重送');
+      const operation=operationId();this._scanIntents.set(key,{...intent,operation});
+      this._writeGeneration=(this._writeGeneration||0)+1;this._pendingCount=(this._pendingCount||0)+1;
+      try{
+        const res=await this._fetchAuth(this._url('scan-intent','assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({...intent,operationId:operation})});
+        const body=await res.json();
+        if(!res.ok||body.ok!==true){const error=new Error(body.error?.message||'掃描尚未保存，保留輸入');error.safeToRetry=body.error?.code==='RECORD_BUSY';if(error.safeToRetry)this._scanIntents.delete(key);throw error;}
+        if(!Array.isArray(body.asset)||!Array.isArray(body.record)||body.asset[0]!==intent.code||body.record[0]!==intent.sessionId||body.record[1]!==intent.code||!Number.isInteger(body.assetRow)||!Number.isInteger(body.recordRow))throw Error('掃描保存結果待查，保留輸入且不可重送');
+        const db=this._db(),asset=rowToAsset(body.asset,body.assetRow-2),record=rowToRecord(body.record,body.recordRow-2),oldAsset=db.assets.find(x=>x.code===intent.code),oldRecord=db.records.find(x=>x.sessionId===intent.sessionId&&x.code===intent.code);
+        if(oldAsset)Object.assign(oldAsset,asset);else db.assets.push(asset);this._originalRows=this._originalRows||{};for(const [tab,row,num]of [['assets',body.asset,body.assetRow],['records',body.record,body.recordRow]]){this._originalRows[tab]=this._originalRows[tab]||[];this._originalRows[tab][num-2]=[...row];}
+        if(body.exception)record.stateException=body.exception;if(body.metadataIssue)record.metadataIssue=body.metadataIssue;if(body.assignedProject)record.projectAssigned=body.assignedProject;if(body.departmentMismatch)record.departmentMismatch=true;
+        if(oldRecord)Object.assign(oldRecord,record);else db.records.push(record);
+        if(body.binding&&!this.seatRows.some(r=>r[0]===body.binding[0]))this.seatRows.push(body.binding);
+        this._scanIntents.delete(key);return oldRecord||record;
+      }finally{this._pendingCount-=1;}
+    }
     /* 同場次同編號：次數 +1（更新原列），不重複列（比照 MockStore 語意） */
     addRecord(sess, rec) {
       const db = this._db();
@@ -431,6 +490,7 @@
     listBatches() { return this._db().batches; }
     batch(id) { return this._db().batches.find((b) => b.id === id); }
     async importIntakeVerified(id, groups) {
+      this._intakeAttempts=this._intakeAttempts||new Set();if(this._intakeAttempts.has(id))throw Error('上次匯入結果待查，不可重送；請先核對批次');this._intakeAttempts.add(id);this._writeGeneration=(this._writeGeneration||0)+1;
       const res=await this._fetchAuth(this._url("intake-import","batches"),{method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({id,groups})});
       const body=res?await res.json():null;
       if(!res||!res.ok||!body?.ok||!Array.isArray(body.rows)||!Array.isArray(body.ids))throw new Error(body?.error?.message||"匯入未確認，請保留畫面重試");
@@ -438,7 +498,7 @@
         if(!head||head[11]!=="進行中"||["po","vendor","brand","model","origin","type","mfgYear","note"].some((k,i)=>String(head[i+2]??"")!==b[k])||rows.length!==b.serials.length+1||!b.serials.every(serial=>rows.some(r=>r[0]==="明細"&&r[12]===serial&&r[11]==="pending")))throw Error("讀回批次不完整，請保留畫面重試");
         made.push({...b,id:bid,at:head[10],closed:false,items:b.serials.map(serial=>({serial,state:"pending",receivedAt:"",code:""})),unexpected:[]});
       }
-      const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}return made;
+      const db=this._db();for(const b of made){const i=db.batches.findIndex(x=>x.id===b.id);if(i<0)db.batches.push(b);else db.batches[i]=b;}this._intakeAttempts.delete(id);return made;
     }
     addBatch(info) {
       const db = this._db();
@@ -501,6 +561,17 @@
       }
       if (b.items.length && b.items.every((x) => x.state === "inbound")) b.closed = true;
       return made;
+    }
+    async saveRepairVerified(plan){
+      if(!plan?.code||!plan?.event)throw new Error('維修資料不完整');
+      this._repairAttempts=this._repairAttempts||new Set();
+      if(this._repairAttempts.has(plan.code))throw new Error('此筆維修寫入結果待查，不可重送');
+      this._repairAttempts.add(plan.code);this._writeGeneration=(this._writeGeneration||0)+1;this._pendingCount=(this._pendingCount||0)+1;
+      try{
+        const res=await this._fetchAuth(this._url('repair-stage','assets'),{method:'POST',headers:this._authHeaders({'content-type':'application/json'}),body:JSON.stringify({code:plan.code,stage:plan.stage,note:plan.event.note,site:plan.patch.site||'',zone:plan.patch.zone||'',expected:plan.expected,operationId:operationId(),...(this._editReservations?.has(plan.code)?{editorCode:plan.code,reservationToken:this._editReservations.get(plan.code).token}: {})})});
+        const body=await res.json();if(!res.ok||body?.ok!==true||!Array.isArray(body.asset)||!Array.isArray(body.movement)||body.asset[0]!==plan.code||body.movement[3]!==plan.code)throw new Error(body.error?.message||'維修寫入結果待查，保留畫面且不可重送');
+        const asset=this._db().assets.find(a=>a.code===plan.code);Object.assign(asset,rowToAsset(body.asset,body.assetRow-2));this._originalRows=this._originalRows||{};this._originalRows.assets=this._originalRows.assets||[];this._originalRows.assets[body.assetRow-2]=[...body.asset];this._db().movements.push(rowToMovement(body.movement,body.movementRow-2));this._repairAttempts.delete(plan.code);this._editReservations?.delete(plan.code);return asset;
+      }finally{this._pendingCount-=1;}
     }
     addMovement(code, type, note, extra) {
       const db = this._db();
@@ -584,7 +655,7 @@
       full.__write = this._mirror(full, async () => {
         const rowNum = await this._append("annotations", annotationToRow(full));
         full.__row = rowNum;
-      });
+      },{noRetry:!!ann.noRetry});
       return full;
     }
     annotationsOf(recordKey) { return this._db().annotations.filter((a) => a.recordKey === recordKey); }
@@ -602,13 +673,15 @@
       return this.seatRows;
     }
     async appendSeatEvent(row) {
+      this._seatAttempts=this._seatAttempts||new Set();if(this._seatAttempts.has(row[0]))throw Error('上次座位寫入結果待查，不可重送；請先核對');
       if (!this.seatReady) throw new Error("座位圖尚未連接，未寫入");
-      const res = await this._fetchAuth(this._url("seat-event", "座位圖"), {method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({row})});
+      this._seatAttempts.add(row[0]);this._writeGeneration=(this._writeGeneration||0)+1;
+      const res = await this._fetchAuth(this._url("seat-event", "座位圖"), {method:"POST",headers:this._authHeaders({"content-type":"application/json"}),body:JSON.stringify({row,...(row[1]==='placement'&&this._editReservations?.has(row[6])?{editorCode:row[6],reservationToken:this._editReservations.get(row[6]).token}: {})})});
       if (!res || !res.ok) { let b;try{b=await res.json()}catch{}if(res.status===409)await this.loadSeatMap();const err=new Error(b?.error?.message || b?.error?.code || (typeof b?.error==="string"?b.error:"") || "座位資料未同步，請重試");err.conflict=res.status===409;throw err; }
       const body = await res.json(); if (!body.ok) throw new Error("座位寫回失敗");
       const stored = body.row || row;
       if (!this.seatRows.some(r => r[0] === stored[0])) this.seatRows.push(stored);
-      return stored;
+      this._seatAttempts.delete(row[0]);return stored;
     }
     /* 地點 QR：掃到位置表登錄的 QR 內容 → 回傳 {site, zone}；未登錄回傳 null（不自動猜） */
     findSiteByQr(qrContent) {
@@ -622,6 +695,6 @@
     sessionRecords(sess) { return this._db().records.filter((r) => r.sessionId === sess.id); }
   }
 
-  global.ZgErpSheets = Object.freeze({ SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED });
-  if (typeof module !== "undefined" && module.exports) module.exports = { SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED, annotationToRow, rowToAnnotation, rowToLegacy, rowToFlow, rowToQuestion };
+  global.ZgErpSheets = Object.freeze({ SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED,movementToRow,rowToMovement });
+  if (typeof module !== "undefined" && module.exports) module.exports = { SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, movementToRow,rowToMovement,NOT_CONNECTED, UNSYNCED, annotationToRow, rowToAnnotation, rowToLegacy, rowToFlow, rowToQuestion };
 })(typeof window !== "undefined" ? window : globalThis);
