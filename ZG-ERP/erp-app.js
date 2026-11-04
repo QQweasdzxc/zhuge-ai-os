@@ -9,6 +9,8 @@
   const store = D.store;
   const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render()) : null;
   const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
+  const repairUI=window.ErpRepairUI?window.ErpRepairUI.create(store,()=>render()):null;
+  const differenceUI=window.ErpDifferenceUI?window.ErpDifferenceUI.create(store,()=>render()):null;
   const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描" };
   const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2" };
   const LOGIN_URL = "./";
@@ -168,14 +170,45 @@
     return d;
   }
 
+  async function openControlledEditor(code){
+    if(S.editBusy)return;const x=getA(code);if(!x)return;
+    if(S.editCode&&S.editCode!==code&&!D.isMock)await store.releaseAssetEdit(S.editCode);
+    S.editTouched=false;S.editCode=code;S.editDraft=editValues(x);S.editError='';S.editSeat='';S.savedAt='';S.editBusy=true;S.editLocked=true;render();
+    try{if(!D.isMock){await store.reserveAssetEdit(code);const fresh=await store.readAssetForEdit(code);S.editDraft=editValues(fresh);}S.editConflict=false;S.editLocked=false;}
+    catch(e){S.editError=e.message+'；輸入已保留，尚未保存。';}
+    finally{S.editBusy=false;render();}
+  }
+  async function rebaseControlledEditor(){
+    const code=S.editCode,draft={...S.editDraft},base={...S.editBase};if(!code||S.editBusy||S.editConflict)return;
+    if(store._editReservations?.get(code)?.attempted){S.editError='上次寫入結果待查，輸入保留，不可重新取得權限或重送。';render();return;}
+    S.editBusy=true;render();
+    try{
+      await store.releaseAssetEdit(code);await store.reserveAssetEdit(code);
+      const fresh=await store.readAssetForEdit(code);
+      const merged=window.ErpEditCore.rebase(base,draft,fresh),conflicts=merged.conflicts;
+      if(!conflicts.length){S.editDraft=merged.values;S.editBase=merged.base;}
+      if(conflicts.length){S.editConflict=true;S.editLocked=true;S.editError='資料已被其他操作改動，輸入保留但未保存。衝突欄位：'+conflicts.join('、')+'。請取消後重新核對，不自動覆蓋。';await store.releaseAssetEdit(code);}
+      else{S.editLocked=false;S.editError='已重新讀取並取得編輯權，原輸入保留；請核對後再儲存。';}
+    }catch(e){S.editLocked=true;S.editError=e.message;}
+    finally{S.editBusy=false;render();}
+  }
+  function noteControlledActivity(){S.editTouched=true;if(D.isMock||!S.editCode||S.editLocked)return;store.noteEditActivity(S.editCode).catch(e=>{S.editLocked=true;S.editError=e.message;render();});}
   /* ---- 掃描 ---- */
-  function scan(code) {
+  async function scan(code,retained) {
     code = String(code || "").trim();
     if (!code || !S.sess) return;
     let seatTarget = null;
-    try { if (typeof seatUI !== "undefined" && seatUI) seatTarget = seatUI.target(S.site, S.zone, code); }
+    try { if(retained)seatTarget=retained.seatTarget;else if (typeof seatUI !== "undefined" && seatUI) seatTarget = seatUI.target(S.site, S.zone, code); }
     catch(e) { S.scanSetupErr = e.message; render(); return; }
     S.scanSetupErr = "";
+    if(!D.isMock&&typeof store.scanIntentVerified==='function'){
+      if(S.scanBusy){S.scanQueue=S.scanQueue||[];S.scanQueue.push(retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget});render();return;}
+      S.scanUncertain=false;
+      S.scanBusy=true;S.scanIntent=retained||{sessionId:S.sess.id,code,zone:S.zone,seatTarget};S.manualCode=code;render();
+      try{await S.sess.__write;if(S.sess.__unsynced)throw Error('盤點場次尚未保存，不能追加掃描');await store.scanIntentVerified(S.scanIntent);S.scanIntent=null;if(S.scanHeld)delete S.scanHeld[code];S.manualCode='';S.open=code;}
+      catch(e){S.scanSetupErr=e.message;S.scanUncertain=!e.safeToRetry;S.scanHeld=S.scanHeld||{};S.scanHeld[code]={...S.scanIntent,uncertain:S.scanUncertain,error:e.message};}
+      finally{S.scanBusy=false;render();const next=S.scanQueue?.shift();if(next)scan(next.code,next);}return;
+    }
     const a = getA(code);
     const status = !a ? "none" : a.site !== S.site ? "site" : a.zone !== S.zone ? "zone" : "ok";
     const rawProject = String(S.sess.project || "").trim();
@@ -487,6 +520,12 @@
     } else {
       toast = D.isMock ? '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>' : '<div class="toast idle">還沒掃到東西。對準設備標籤掃描，或手動輸入登記編號。</div>';
     }
+    // The current unresolved intent must never inherit a previous scan's success card.
+    if (S.scanIntent && (S.scanBusy || S.scanHeld?.[S.scanIntent.code])) {
+      const current = S.scanIntent, uncertain = !!S.scanHeld?.[current.code]?.uncertain;
+      const copy = S.scanBusy ? "正在核對保存，尚未確認完成。" : uncertain ? "保存結果待查，不能確認已保存。請勿重送，也不計入已掃筆數。" : "這筆尚未保存，輸入已保留。可在下方重試。";
+      toast = '<div class="toast syncpending" data-current-scan="'+esc(current.code)+'"><b>'+esc(copy)+'</b><div class="tcode">本筆掃描：'+esc(current.code)+'</div><div class="small">區域：'+esc(current.zone||"未指定")+'。先前已完成的掃描另列於下方「本次已掃」。</div></div>';
+    }
     const sessProj = S.sess.project || "";
     const scope = assets().filter((a) => a.site === S.site && (!sessProj || (a.project || D.UNASSIGNED) === sessProj));
     const scopeGot = scope.filter((a) => recs.some((r) => r.code === a.code));
@@ -503,7 +542,7 @@
       '<button class="btn mini" data-a="toresult">結束 (' + recs.length + ")</button></div>" +
       '<div class="small">本次使用部門：' + esc(S.sess.department || "未指定") + " · 專案：" + esc(S.sess.project || "全部專案") + " · 經手人：" + esc(S.sess.operator || "未記錄") + "（開始前設定，這批沿用）</div>" +
       scopeStrip +
-      (S.scanSetupErr ? '<div class="warn">'+esc(S.scanSetupErr)+'</div>' : "") +
+      (S.scanSetupErr ? '<div class="warn">'+(S.scanUncertain?'本筆掃描 '+esc(S.scanIntent?.code||'')+'：保存結果待查，請勿重送。':esc(S.scanSetupErr))+(S.scanIntent&&!S.scanUncertain?'<button class="pill" data-a="scan-intent-retry">重試這筆未保存掃描</button>':'')+'</div>' : "") +
       recs.filter(r=>r.__seatError).map(r=>'<div class="warn">座位登記未同步：'+esc(r.code)+' · '+esc(r.__seatError)+'<button class="pill" data-seat-retry="'+esc(r.code)+'">重試座位登記（不重掃設備）</button></div>').join("") +
       (seatUI ? seatUI.scanPanel(S.site,S.zone,S.sess,recs) : "") +
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
@@ -512,6 +551,8 @@
         ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤，辨識到就會自動記錄</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
         : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
+      (S.scanBusy?'<div class="warn">正在核對保存：'+esc(S.scanIntent?.code||'')+'，完成前不計入成功。</div>':'')+(S.scanQueue?.length?'<div class="warn">等候保存：'+S.scanQueue.map(x=>esc(x.code)).join('、')+'</div>':'')+
+      Object.values(S.scanHeld||{}).map(x=>'<div class="warn">'+(x.uncertain?'結果待查掃描 ':'未保存掃描 ')+esc(x.code)+' · '+esc(x.zone)+'：'+(x.uncertain?'不能確認已保存':esc(x.error))+(x.uncertain?'（結果待查，不可重送）':'<button class="pill" data-a="scan-intent-retry" data-v="'+esc(x.code)+'">重試這筆</button>')+'</div>').join('') +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +
       (D.isMock
         ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
@@ -696,7 +737,7 @@
           "<span>" + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + '</span><span class="opt">' + esc(a.owner ? (a.owner === "公用" && a.source === "盤點" ? "公用（舊版預設，未確認）" : a.owner) : "未確認") + '</span><span class="opt">' + esc(a.zone) + "</span><span>" + esc(a.status) + '</span><span class="small">' + (S.editCode === a.code ? "收合" : "編輯") + "</span></button>";
         if (S.editCode === a.code && S.editDraft) {
           const d = S.editDraft;
-          row += '<div class="drawer">' + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy ? ' disabled' : '') + '>' + legacyDetails(a.code) +
+          row += '<div class="drawer">' + (repairUI&&!S.editLocked?repairUI.html(a):'') + (S.editLocked?'<div class="warn">編輯權限不可用，資料為唯讀，原輸入保留。'+esc(S.editError||'')+'</div>'+(S.editConflict?'':'<button class="pill" data-a="edit-rebase">重新讀取核對並取得編輯權</button>')+'<button class="pill" data-a="cancel">取消編輯</button>':'') + (S.editLegacy?.length ? '<div class="small">已帶入唯一完整編號舊帳的空白描述欄位：'+esc(S.editLegacy.join('、'))+'。供核對，按儲存才寫入；不帶入保管人或座位。</div>' : '') + '<fieldset style="border:0;padding:0;margin:0;min-width:0"' + (S.editBusy||S.editLocked ? ' disabled' : '') + '>' + legacyDetails(a.code) +
             '<div class="frow"><span class="lbl">名稱</span><input class="inp" data-f="name" value="' + esc(d.name) + '"></div>' +
             '<div class="frow"><span class="lbl">型號</span><input class="inp" data-f="model" value="' + esc(d.model) + '"></div>' +
             (store.departmentReady || D.isMock ? '<div class="frow"><span class="lbl">使用部門</span><input class="inp" data-f="department" value="' + esc(d.department || "") + '"></div>' : "") +
@@ -714,7 +755,7 @@
             '<div class="frow"><span class="lbl">啟用日期</span><input class="inp" type="date" data-f="activate" value="' + esc(d.activate) + '"></div>' +
             '<div class="frow"><span class="lbl">保固到期</span><input class="inp" type="date" data-f="warranty" value="' + esc(d.warranty) + '"></div>' +
             '<div class="frow"><span class="lbl">最後盤點</span><span class="small">' + (lr ? esc(new Date(lr.at).toLocaleString("zh-TW", { hour12: false })) + "（由掃描紀錄帶出，不可手改）" : "尚未盤點") + "</span></div>" +
-            (S.editError ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
+            (S.editError&&!S.editLocked ? '<div class="warn">' + esc(S.editError) + '</div>' : '') +
             '<div class="frow"><button class="btn mini" data-a="save"' + (S.editBusy ? ' disabled' : '') + '>' + (S.editBusy ? '正在儲存並讀回核對…' : D.isMock ? '儲存（隔離測試）' : '儲存至資料庫') + '</button><button class="pill sm" data-a="cancel"' + (S.editBusy ? ' disabled' : '') + '>取消</button></div>' +
             (seatUI ? seatUI.assetEditor(a, S.editSeat, S.editBusy) : '') +
             '<div class="small">狀態改動是人工判斷（例如送修），手機掃描本身不會改狀態。歸屬專案和實際放置地點分開。序號、購入、啟用、保固到期都可留空；登記編號不等於設備序號。</div></fieldset></div>';
@@ -921,7 +962,7 @@
     return '<div class="zrow"><span><b>' + esc(row.code || "（無編號）") + "</b> " + esc(row.name || "") + (row.model ? " · " + esc(row.model) : "") +
       '<br><span class="small">出處 ' + esc(row.provenance || row.siteLead || "?") + (row.zone ? " · " + esc(row.zone) : "") + (row.place ? " · " + esc(row.place) : "") + (row.scopeStatus ? " · " + esc(row.scopeStatus) : "") + "</span>" +
       (flowText ? '<br><span class="small">' + flowText + "</span>" : "") +
-      (extra ? '<br><span class="small">' + extra + "</span>" : "") + "</span>" + (withForm ? annForm(row) : "") + "</div>";
+      (extra ? '<br><span class="small">' + extra + "</span>" : "") + "</span>" + (withForm ? annForm(row)+(differenceUI?differenceUI.html(row):"") : "") + "</div>";
   }
   function pcLegacy() {
     const R = window.ZgErpReconcile;
@@ -1043,6 +1084,7 @@
       return;
     }
     let html = zhugeBar() + loginBar() + mockBar() + syncBadge() + modeBar();
+    if(!D.isMock)html+='<div class="loginbar"><button class="pill sm" data-a="shared-refresh"'+(S.sharedBusy?' disabled':'')+'>'+(S.sharedBusy?'正在更新共同資料…':'更新共同盤點結果')+'</button> <span>'+esc(S.sharedMessage||(store.lastSharedReadAt?'上次更新 '+new Date(store.lastSharedReadAt).toLocaleTimeString('zh-TW'):'共用同一份設備與盤點紀錄；更新可查看其他人的新結果。'))+'</span></div>';
     if (S.bootErr) {
       root.innerHTML = html + (S.bootAuth
         ? '<div class="phone"><div class="card"><h2>工作階段已失效</h2><p>登入驗證被現存資料庫拒絕，自動換發也失敗。請 <a href="' + LOGIN_URL + '">重新登入諸葛</a> 後再回來。</p><button data-a="bootretry">重試</button></div></div>'
@@ -1073,6 +1115,13 @@
     const t = e.target.closest("[data-a]");
     if (!t) return;
     const a = t.getAttribute("data-a"), v = t.getAttribute("data-v") || "";
+    if(S.editCode&&['mode','tab','dtab','back','godiff','sitelist','gositepc','asite','gosite'].includes(a)){
+      if(S.editTouched){S.editError='還有未保存的輸入，請先保存或明確取消編輯後再離開。';render();return;}
+      if(S.editBusy)return;
+      if(!D.isMock)store.releaseAssetEdit(S.editCode).catch(()=>{});
+      S.editCode='';S.editDraft=null;S.editConflict=false;
+    }
+    if(['end','finish','newsession','start','toresult'].includes(a)&&(S.scanBusy||S.scanQueue?.length||Object.keys(S.scanHeld||{}).length)){S.scanSetupErr='尚有未保存或結果待查的掃描，保留場次與輸入；請先核對。';render();return;}
     if (a === "mode") { S.mode = v; }
     else if (a === "tab") { S.dash = v === "dash"; }
     else if (a === "site") { if(seatUI)seatUI.resetSelection();S.site = v; }
@@ -1083,7 +1132,8 @@
     else if (a === "scan") { scan(v); return; }
     else if (a === "camstart") { camStart(); return; }
     else if (a === "camstop") { camStop(); return; }
-    else if (a === "manual") { scan(S.manualCode); S.manualCode = ""; return; }
+    else if (a === "manual") { scan(S.manualCode); return; }
+    else if(a==='scan-intent-retry'){const held=S.scanHeld?.[v]||S.scanIntent;if(held&&!held.uncertain)scan(held.code,held);return;}
     else if (a === "open") { S.open = S.open === v ? "" : v; }
     else if (a === "toresult") { S.screen = "result"; }
     else if (a === "tostart") { S.screen = "start"; }
@@ -1097,8 +1147,7 @@
       const x = getA(v); if (!x) return;
       S.retTab = S.dtab; S.mode = "pc"; S.dash = false;
       S.dtab = "assets"; S.asite = x.site;
-      S.editCode = v;
-      S.editDraft = editValues(x); S.editError = ""; S.editSeat = ""; S.savedAt = "";
+      openControlledEditor(v);return;
     }
     else if (a === "back") { S.dtab = S.retTab || "dash"; S.retTab = ""; S.editCode = ""; S.editDraft = null; }
     else if (a === "godiff") { S.mode = "pc"; S.dash = false; S.dtab = "diff"; }
@@ -1109,23 +1158,21 @@
     else if (a === "asite") { S.asite = v; S.editCode = ""; S.editDraft = null; }
     else if (a === "gosite") { S.site = v; S.dash = false; S.screen = "start"; }
     else if (a === "edit") {
-      if (S.editCode === v) { S.editCode = ""; S.editDraft = null; }
-      else {
-        const x = getA(v);
-        S.editCode = v;
-        S.editDraft = editValues(x); S.editError = ""; S.editSeat = ""; S.savedAt = "";
-      }
+      if(S.editBusy)return;
+      if(S.editCode===v){if(!D.isMock)store.releaseAssetEdit(v).catch(()=>{});S.editCode='';S.editDraft=null;}
+      else{openControlledEditor(v);return;}
     }
     else if (a === "asset-seat-save") {
-      if (!S.editBusy && S.editCode && S.editSeat) {
+      if (!S.editBusy && !S.editLocked && S.editCode && S.editSeat) {
         const code = S.editCode, asset = getA(code); S.editBusy = true; S.editError = ""; render();
         seatUI.savePlacement(asset, S.editSeat).then(() => { S.editSeat = ""; }).catch(e => { S.editError = e.message; }).finally(() => { S.editBusy = false; render(); });
       }
     }
-    else if (a === "cancel") { S.editCode = ""; S.editDraft = null; }
+    else if (a === "edit-rebase") {rebaseControlledEditor();return;}
+    else if (a === "cancel") { if(!D.isMock&&S.editCode)store.releaseAssetEdit(S.editCode).catch(()=>{});S.editCode = ""; S.editDraft = null; }
     else if (a === "save") {
       if (S.editCode && S.editDraft) {
-        if (S.editBusy) return;
+        if (S.editBusy||S.editLocked) return;
         const code = S.editCode, draft = { ...S.editDraft }, base = { ...S.editBase };
         S.savedAt = ""; S.editBusy = true; S.editError = ""; render();
         (async () => {
@@ -1133,7 +1180,7 @@
             if (D.isMock) store.saveAsset(code, draft);
             else await store.saveAssetVerified(code, draft, base);
             if (S.editCode === code) { S.savedAt = code; S.editCode = ""; S.editDraft = null; }
-          } catch (e) { S.editError = e.message || "儲存未確認，請保留輸入後重試"; }
+          } catch (e) { S.editLocked=true;S.editError = e.message || "儲存結果未確認，輸入保留，不可重送，請先核對"; }
           finally { S.editBusy = false; render(); }
         })();
       }
@@ -1268,7 +1315,7 @@
     if (f === "ageBasis") { S.ageBasis = e.target.value; render(); return; }
     if (f === "ageThreshold") { S.ageThreshold = Number(e.target.value) || AGE_THRESHOLD_DEFAULT; render(); return; }
     if (f === "editSeat") S.editSeat = e.target.value;
-    if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
+    if (S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();}
   });
   document.addEventListener("change", (e) => {
     if (e.target.getAttribute && e.target.getAttribute("data-f") === "mapfile") {
@@ -1284,13 +1331,21 @@
       render(); return;
     }
     if (f === "editSeat") S.editSeat = e.target.value;
-    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) S.editDraft[f] = e.target.value;
+    if (f && S.editDraft && Object.prototype.hasOwnProperty.call(S.editDraft, f)) {S.editDraft[f] = e.target.value;noteControlledActivity();}
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); S.manualCode = ""; render(); }
+    if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "manualCode") { scan(S.manualCode); }
     if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "scanProjectInput") { S.scanProject = (S.scanProjectInput || "").trim(); render(); }
   });
 
+  document.addEventListener('click',e=>{const t=e.target.closest?.('[data-diff-action]');if(t&&differenceUI)differenceUI.act(t.dataset.diffAction,t.dataset.diffKey);});
+  document.addEventListener('input',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
+  document.addEventListener('change',e=>{if(e.target.dataset?.diffField&&differenceUI)differenceUI.field(e.target);});
+  function sharedReadSafe(){return !S.scanBusy&&!S.scanQueue?.length&&!Object.keys(S.scanHeld||{}).length&&!S.editDraft&&!S.ibDraft&&!S.annOpen&&!S.camOn&&!seatUI?.state.busy&&!seatUI?.state.draft&&!seatUI?.state.editing&&!intakeUI?.state.busy&&!intakeUI?.state.book&&!differenceUI?.state.key&&!repairUI?.state.code;}
+  document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-a="shared-refresh"]');if(!t||S.sharedBusy||!store.refreshShared)return;S.sharedBusy=true;S.sharedMessage='';render();try{await store.refreshShared(sharedReadSafe);const current=S.sess&&db().sessions.find(x=>x.id===S.sess.id);if(current)S.sess=current;S.sharedMessage='共同資料已更新，包含所有人的設備與盤點結果。';}catch(e){S.sharedMessage=e.message;}finally{S.sharedBusy=false;render();}});
+  document.addEventListener('click',async e=>{const t=e.target.closest?.('[data-repair-action]');if(t&&repairUI){if(t.dataset.repairAction==='save'&&S.editTouched){repairUI.state.error='上方有尚未保存的設備編輯，請先保存或取消後再登記維修。';render();return;}await repairUI.act(t.dataset.repairAction,t.dataset.repairCode);if(t.dataset.repairAction==='save'&&!repairUI.state.code){S.editCode='';S.editDraft=null;render();}}});
+  document.addEventListener('change',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
+  document.addEventListener('input',e=>{if(e.target.dataset?.repairField&&repairUI)repairUI.field(e.target)});
   document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-seat-retry]");if(!t)return;const rec=curRecs().find(r=>r.code===t.dataset.seatRetry);if(!rec||!rec.__seatRetry)return;rec.__seatPending=true;rec.__seatError="";render();Promise.all([rec.__write,getA(rec.code)?.__write,S.sess.__write].filter(Boolean)).then(()=>rec.__seatRetry()).then(()=>{rec.__seatPending=false;render()}).catch(e=>{rec.__seatPending=false;rec.__seatError=e.message;render()})});
   document.addEventListener("click", e => {
     const t=e.target.closest && e.target.closest("[data-seat-action]"); if(!t||!seatUI)return;
