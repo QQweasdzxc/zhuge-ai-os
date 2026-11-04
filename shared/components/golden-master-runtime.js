@@ -5,7 +5,7 @@
   "use strict";
   const defaultService = root.ZhugeBoardReadService;
   if (!defaultService) return;
-  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", dataSource: "", readOnly: false, cNativeWorkTodo: false, entryLabel: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, workflowVersions: [], workflowEditor: null, workflowEditorBase: null, workflowHistory: [], workflowHistoryIndex: -1, workflowModalOpen: false, workflowStudioPositions: new Map(), workflowStudioSelectedStep: "", workflowStudioValidation: null, authorityConformance: undefined, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
+  const state = { applicationScope: "ai_board", moduleId: "c", showTemplateReleasePanel: true, boardInstanceId: "", boardName: "", taskCodePrefix: "", boardIsTemplate: false, consumerId: "", dataStatus: "available", readState: "loading", readSlow: false, dataSource: "", readOnly: false, cNativeWorkTodo: false, entryLabel: "", service: defaultService, consumerExtensions: null, workflowCapability: null, workflowData: null, workflowVersions: [], workflowEditor: null, workflowEditorBase: null, workflowHistory: [], workflowHistoryIndex: -1, workflowModalOpen: false, workflowStudioPositions: new Map(), workflowStudioSelectedStep: "", workflowStudioValidation: null, authorityConformance: undefined, templateRelease: null, templateReleaseTimer: null, templateReleaseRefreshBound: false, templateAdoptionBusy: false, templateAdoptionError: "", templateParityReport: null, templateParityBusy: false, templateParityGuardBound: false, workspaces: [], tasks: [], principles: [], systemMaps: [], taskById: new Map(), workspaceById: new Map(), workTodoJournalByTask: new Map(), sharedActionContracts: new Map(), searchQuery: "", archiveSearch: "", archiveFilter: "all", stopRealtime: null, refreshPromise: null, realtimeTimer: null, boardView: "board", activeTaskId: "", pendingCreateWorkspaceId: "", consumerProvisionIdempotencyKey: "", taskChecklistWrites: new Set(), workspaceMenuDocumentBound: false, templateReleaseEventsBound: false };
   function moduleConsumerId(scope) {
     if (scope === "c") return state.consumerId || "c";
     if (scope === "worktodo") return "worktodo";
@@ -801,6 +801,15 @@
     const legacyBoard = document.getElementById("boardColumns") || document.querySelector(".board");
     if (!boardMount && !legacyBoard) return;
     closeWorkspaceMenus();
+    if (!state.workspaces.length && state.readState !== "ready") {
+      const target = boardMount || legacyBoard;
+      target.innerHTML = state.readState === "error"
+        ? '<div class="board-empty" role="status">工作區資料尚未讀取成功，請使用重新整理再試。</div>'
+        : state.readSlow
+          ? '<div class="board-empty" role="status" aria-live="polite" aria-busy="true">讀取時間較長，仍在等待正式資料。尚未判定為空白；請勿重複送出操作。</div>'
+          : '<div class="board-empty" role="status" aria-live="polite" aria-busy="true">正在讀取工作區與卡片…</div>';
+      return;
+    }
     const workspaces = state.workspaces.filter(isMainBoardWorkspace).sort((a, b) => a.sortOrder - b.sortOrder);
     const itemLabel = workItemLabel();
     const columns = workspaces.map(workspace => {
@@ -4880,6 +4889,13 @@
     if (state.refreshPromise) return state.refreshPromise;
     if (!options.quiet) clearBanner();
     const service = activeService();
+    state.readState = "loading";
+    state.readSlow = false;
+    const slowReadTimer = root.setTimeout(() => {
+      state.readSlow = true;
+      if (!state.workspaces.length && state.readState === "loading") renderWorkspaceColumns();
+    }, 15000);
+    if (!state.workspaces.length) renderWorkspaceColumns();
     const loadOptions = { applicationScope: state.applicationScope };
     if ((state.applicationScope === "c" || state.cNativeWorkTodo) && state.boardInstanceId) loadOptions.boardInstanceId = state.boardInstanceId;
     state.refreshPromise = service.load(loadOptions).then(async result => {
@@ -4889,6 +4905,7 @@
       state.taskCodePrefix = String(result.taskCodePrefix || state.taskCodePrefix || (state.applicationScope === "c" ? "MDTK" : "")).toUpperCase();
       state.boardIsTemplate = state.applicationScope === "c" && (result.isTemplateInstance === true || (!state.boardInstanceId && !result.consumerId));
       state.consumerId = String(result.consumerId || state.consumerId || moduleConsumerId(state.applicationScope));
+      state.readState = "ready";
       state.workspaces = result.workspaces || [];
       state.dataStatus = String(result.dataStatus || "available");
       state.dataSource = String(result.dataSource || "");
@@ -4958,6 +4975,8 @@
       }
       return result;
     }).catch(error => {
+      state.readState = "error";
+      if (!state.workspaces.length) renderWorkspaceColumns();
       if (error?.code === "BOARD_INSTANCE_ARCHIVED") {
         state.tasks = []; state.workspaces = []; state.taskById = new Map(); state.workspaceById = new Map();
         renderAccessState({ title: "此看板已封存", message: "工作區、卡片與紀錄仍完整保留。請到管理中心還原看板後再開啟。" });
@@ -4968,7 +4987,7 @@
       setBanner(message, "error");
       root.ZhugeSharedNavigation?.setSyncStatus?.({ label: "🔴 同步失敗", time: "請重新整理", state: "error" });
       throw error;
-    }).finally(() => { state.refreshPromise = null; });
+    }).finally(() => { root.clearTimeout(slowReadTimer); state.readSlow = false; state.refreshPromise = null; });
     return state.refreshPromise;
   }
   function initRealtime() {
@@ -5070,6 +5089,7 @@
     state.entryLabel = state.cNativeWorkTodo ? "WorkTodo" : "";
     state.taskCodePrefix = state.applicationScope === "c" ? "MDTK" : state.applicationScope === "procurement" ? "GAS" : "";
     state.dataStatus = "available";
+    state.readState = "loading";
     state.dataSource = "";
     const workflowReadOnly = state.readOnly || state.applicationScope === "c" && isInvestmentCMode();
     const cWorkflowRuntime = ["c", "ai_board", "worktodo", "procurement"].includes(state.applicationScope);

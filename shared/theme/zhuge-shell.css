@@ -26,7 +26,7 @@
 .zhuge-shared-header-main { display: flex; align-items: center; gap: var(--shell-header-gap); min-width: 0; flex: 1; }
 .zhuge-shared-menu { display: none; flex: 0 0 auto; }
 .zhuge-shared-header-copy { min-width: 0; }
-.zhuge-shared-header h1 { margin: 0; font-size: 1.25rem; line-height: 1.25; }
+.zhuge-shared-header h1 { color: inherit; margin: 0; font-size: 1.25rem; line-height: 1.25; }
 .zhuge-shared-header-copy > p:last-child { margin: 2px 0 0; color: #cbd5e1; font-size: .75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zhuge-shared-header-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--shell-header-gap); min-width: 0; }
 .zhuge-shared-identity { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; border: 1px solid #334155; border-radius: 10px; background: #111827; padding: 5px 8px; }

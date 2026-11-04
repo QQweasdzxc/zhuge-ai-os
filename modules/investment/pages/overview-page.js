@@ -46,6 +46,23 @@
     return `<div class="investment-kpi-unavailable"><strong>資料尚未完整</strong><small>目前缺少已實現損益與股利資料，不推估總報酬。</small></div>`;
   }
 
+  // Decode feed entities as text, then use the existing escaping boundary.
+  // No decoded markup is inserted into the document.
+  function feedText(value) {
+    const names = { amp: "&", nbsp: " ", lt: "<", gt: ">", quot: '"', apos: "'", ndash: "-", mdash: "-", hellip: "…", lsquo: "'", rsquo: "'", ldquo: '"', rdquo: '"' };
+    let text = String(value ?? "");
+    for (let pass = 0; pass < 3; pass += 1) {
+      const next = text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
+        if (entity[0] !== "#") return names[entity.toLowerCase()] ?? match;
+        const code = entity[1]?.toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+        return Number.isInteger(code) && code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : match;
+      });
+      if (next === text) break;
+      text = next;
+    }
+    return text.replace(/\u00a0/g, " ");
+  }
+
   function renderTodayFocus(state, escape) {
     const items = Array.isArray(state.todayFocus) ? state.todayFocus.filter(Boolean).slice(0, 3) : [];
     if (!items.length) {
@@ -57,7 +74,7 @@
       }
       return `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不產生推測結論；可先查看持股或稍後重新整理。"><strong data-zhuge-state-status>目前沒有可驗證的今日重點</strong><small data-zhuge-state-detail>目前資料還不夠，諸葛暫時不判斷；你可以先查看持股。</small></div>`;
     }
-    return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(String(item.title || "未命名事項"))}</strong><p>${escape(String(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
+    return `<div class="investment-focus-list">${items.map(item => `<article><span>${escape(String(item.type || "投資事項"))}</span><strong>${escape(feedText(item.title || "未命名事項"))}</strong><p>${escape(feedText(item.summary || "尚無說明"))}</p></article>`).join("")}</div>`;
   }
 
   function renderRealtime(state, escape) {
@@ -77,7 +94,7 @@
       ? `<div class="investment-quote-grid">${quotes.map(quote => `<article class="investment-quote-card ${quote.available ? "is-available" : "is-unavailable"}"><header><strong>${escape(String(quote.symbol || ""))}</strong><span>${escape(String(quote.market || ""))}</span></header><b>${quote.available ? escape(String(quote.price)) : "目前不可用"}</b><small>${escape(String(quote.currency || ""))} · ${escape(String(quote.source || quote.provider || "無來源"))}</small><small>${quote.asOf ? `as-of ${escape(String(quote.asOf))}` : "尚無 as-of 時間"} · ${escape(String(quote.freshness || "unknown"))}</small></article>`).join("")}</div>`
       : "";
     const eventMarkup = events.length
-      ? `<div class="investment-event-list">${events.map(event => `<article><header><span>${escape(String(event.type || "市場事件"))}</span><time>${escape(String(event.occurredAt || event.observedAt || ""))}</time></header><strong>${escape(String(event.title || "未命名事件"))}</strong><p>${escape(String(event.summary || "尚無摘要"))}</p><small>${escape(String(event.source || "無來源"))} · ${escape(String(event.freshness || "unknown"))}</small></article>`).join("")}</div>`
+      ? `<div class="investment-event-list">${events.map(event => `<article><header><span>${escape(feedText(event.type || "市場事件"))}</span><time>${escape(feedText(event.occurredAt || event.observedAt || ""))}</time></header><strong>${escape(feedText(event.title || "未命名事件"))}</strong><p>${escape(feedText(event.summary || "尚無摘要"))}</p><small>${escape(feedText(event.source || "無來源"))} · ${escape(feedText(event.freshness || "unknown"))}</small></article>`).join("")}</div>`
       : `<div class="investment-panel-empty zhuge-state" data-investment-state="pending" data-zhuge-state="unavailable" data-zhuge-state-action="目前不需補資料；可稍後重新整理或回到持股頁。"><strong data-zhuge-state-status>新聞／搜尋目前不可用</strong><small data-zhuge-state-detail>未取得可驗證的 Provider evidence；不顯示猜測資料。</small></div>`;
     return `${quoteMarkup}${eventMarkup}`;
   }
