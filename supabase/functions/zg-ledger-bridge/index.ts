@@ -20,7 +20,7 @@ const APPROVAL_CHECK_TIMEOUT_MS = 10000;
 const DEFAULT_ORIGIN = "https://qqweasdzxc.github.io";
 
 // 新帳分頁（唯寫目標；釐清標示記錄每筆舊帳的核對進度與人工結論，不改寫舊帳原文）；舊帳僅整合-主檔/待確認/整合-流轉對應可比對讀取
-const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示"] as const;
+const LEDGER_TABS = ["資產", "盤點場次", "盤點紀錄", "流轉紀錄", "進貨批次", "位置表", "釐清標示", "座位圖"] as const;
 const LEGACY_READABLE_TABS = ["整合-主檔", "整合-待確認", "整合-流轉對應"] as const;
 
 class HttpError extends Error {
@@ -154,6 +154,19 @@ async function sheetsAppend(token: string, spreadsheetId: string, tab: string, r
   return body; // 讀回驗證由呼叫端以 updatedRange 再 read 確認
 }
 
+// Sheets append assigns a single row order. Reconcile after append so racing writes cannot silently supersede a winner.
+function canonicalSeatEvents(rows: unknown[][]) {
+  const occupants=new Map<string,string>(),bindings=new Map<string,{version:string;seat:string}>(),maps=new Map<string,string>(),accepted=new Set<string>();
+  for(const r of rows){try{const id=asText(r[0]),kind=r[1],version=asText(r[2]),place=JSON.stringify([r[3],r[4]]),seat=String(r[5]),data=JSON.parse(String(r[7]));if(accepted.has(id))continue;
+    if(kind==='map'){const prior=maps.get(place);if(prior&&prior!==version)continue;maps.set(place,version);}
+    if(['occupant','binding','check'].includes(String(kind))&&maps.get(place)!==version)continue;
+    if(kind==='occupant'){const key=version+':'+seat;if((data.previous||'')!==(occupants.get(key)||''))continue;occupants.set(key,id);}
+    if(kind==='binding'){const key=asText(r[6]),prior=bindings.get(key);if(prior&&(prior.version!==version||prior.seat!==seat))continue;bindings.set(key,{version,seat});}
+    accepted.add(id);
+  }catch{}}
+  return accepted;
+}
+
 /* --- 動作路由 --- */
 Deno.serve(async (request) => {
   let origin = "";
@@ -184,6 +197,55 @@ Deno.serve(async (request) => {
     }
     if (target.readonly) {
       throw new HttpError("Legacy workbook is comparison-only and read-only.", 400, "TARGET_READ_ONLY");
+    }
+    if (tab === "座位圖") {
+      if (action !== "seat-event") throw new HttpError("Seat map events are append-only.",400,"SEAT_APPEND_ONLY");
+      const {row} = await request.json();
+      if (!Array.isArray(row) || row.length !== 10 || row.some(v => typeof v === "object")) throw new HttpError("Seat event invalid.",400,"BAD_REQUEST");
+      const schema = await sheetsRead(token,target.spreadsheetId,tab);
+      const headers=["事件鍵","類型","圖版本","據點","區域","座位編號","資產編號","內容JSON","時間","經手人"];
+      if (!headers.every((h,i)=>schema.header[i]===h)) throw new HttpError("Seat schema is not ready.",503,"SCHEMA_NOT_READY");
+      if (!["part","map","occupant","binding","check"].includes(row[1]) || !asText(row[0]) || !asText(row[2]) || !asText(row[3]) || !asText(row[4]) || String(row[7]).length>24000) throw new HttpError("Seat event invalid.",400,"BAD_REQUEST");
+      let data;try{data=JSON.parse(row[7]);}catch{throw new HttpError("Seat payload invalid.",400,"BAD_REQUEST");}
+      if(!data||typeof data!=="object"||Array.isArray(data))throw new HttpError("Seat payload must be an object.",400,"BAD_REQUEST");
+      const previous=schema.rows.find(r=>r[0]===row[0]);
+      if(previous) {if(previous.slice(1,8).some((v,i)=>String(v)!==String(row[i+1])))throw new HttpError("Seat event conflicts.",409,"SEAT_CONFLICT");if(!canonicalSeatEvents(schema.rows).has(asText(row[0])))throw new HttpError("Concurrent seat event won; reload before retry.",409,"SEAT_CONFLICT");return json({ok:true,row:previous,actor},200,origin);}
+      if (["occupant","binding","check"].includes(row[1]) && (!Number.isInteger(Number(row[5])) || Number(row[5])<1 || Number(row[5])>500))throw new HttpError("Seat number invalid.",400,"BAD_REQUEST");
+      if(row[1]==="occupant" && (typeof data.previous!=="string"||typeof data.name!=="string"||data.name.length>120))throw new HttpError("Name invalid.",400,"BAD_REQUEST");
+      if (["occupant","binding","check"].includes(row[1])) {
+        const commit=schema.rows.find(r=>r[1]==="map"&&r[2]===row[2]&&r[3]===row[3]&&r[4]===row[4]);
+        if(!commit)throw new HttpError("Saved map not found.",400,"SEAT_MAP_MISSING");
+        let map;try{const meta=JSON.parse(String(commit[7]));map=JSON.parse(meta.parts.map((id:string)=>{const part=schema.rows.find(r=>r[0]===id&&r[1]==="part"&&r[2]===row[2]);if(!part)throw Error();return JSON.parse(String(part[7])).text}).join(""));}catch{throw new HttpError("Saved map invalid.",400,"SEAT_MAP_INVALID");}
+        if(!Array.isArray(map.seats)||!map.seats.some((x:{number:number})=>x.number===Number(row[5])))throw new HttpError("Seat not in saved map.",400,"SEAT_UNKNOWN");
+        if(row[1]==="binding"||row[1]==="check") {
+          const sessions=await sheetsRead(token,target.spreadsheetId,"盤點場次");
+          const session=sessions.rows.find(r=>r[0]===data.sessionId&&r[1]===row[3]&&r[10]==="進行中");
+          if(!session)throw new HttpError("Active session not found for this site.",400,"SESSION_MISSING");
+          if(row[1]==="check"&&data.confirmed!==true)throw new HttpError("Explicit seat check required.",400,"SEAT_CHECK_REQUIRED");
+          if(row[1]==="binding") { const records=await sheetsRead(token,target.spreadsheetId,"盤點紀錄");
+            if(!records.rows.some(r=>r[0]===data.sessionId&&r[1]===row[6]&&r[3]===row[3]&&r[4]===row[4]))throw new HttpError("Actual scan record missing.",400,"SCAN_MISSING");
+          }
+        }
+      }
+      if(row[1]==="binding"){
+        const prior=[...schema.rows].reverse().find(r=>r[1]==="binding"&&r[6]===row[6]);
+        if(prior && (prior[2]!==row[2]||String(prior[5])!==String(row[5])))throw new HttpError("Equipment already has another seat; preserved original binding.",409,"SEAT_CONFLICT");
+      }
+      if(row[1]==="map") {
+        if(schema.rows.some(r=>r[1]==="map"&&r[3]===row[3]&&r[4]===row[4]&&r[2]!==row[2]))throw new HttpError("Existing map preserved; replacement requires a migration.",409,"SEAT_CONFLICT");
+        if(!Array.isArray(data.parts)||!data.parts.length||data.parts.length>60)throw new HttpError("Map manifest invalid.",400,"BAD_REQUEST");
+        let map;try{map=JSON.parse(data.parts.map((id:string)=>{const part=schema.rows.find(r=>r[0]===id&&r[1]==="part"&&r[2]===row[2]&&r[3]===row[3]&&r[4]===row[4]);if(!part)throw Error();return JSON.parse(String(part[7])).text}).join(""));}catch{throw new HttpError("Map parts incomplete.",400,"SEAT_MAP_INCOMPLETE");}
+        if(!Array.isArray(map.seats)||!map.seats.length||map.seats.length>500||new Set(map.seats.map((x:{number:number})=>x.number)).size!==map.seats.length||map.seats.some((x:{number:number})=>!Number.isInteger(x.number)||x.number<1||x.number>500))throw new HttpError("Map seat numbers invalid.",400,"SEAT_MAP_INVALID");
+      }
+      if(row[1]==="part" && (typeof data.text!=="string" || data.text.length>12000))throw new HttpError("Map part invalid.",400,"BAD_REQUEST");
+      row[8]=new Date().toISOString();row[9]=actor;
+      const appended=await sheetsAppend(token,target.spreadsheetId,tab,row);
+      if(!appended?.updates?.updatedRange)throw new HttpError("Seat write unverified.",502,"WRITE_VERIFY_FAILED");
+      const readback=await sheetsRead(token,target.spreadsheetId,tab);
+      const rangeMatch=String(appended.updates.updatedRange).match(/!A(\d+):J\d+$/);if(!rangeMatch||Number(rangeMatch[1])>readback.rows.length+1)throw new HttpError("Seat append prefix not read back.",502,"WRITE_VERIFY_FAILED");
+      const saved=readback.rows.find(r=>r[0]===row[0]);if(!saved||saved.slice(0,8).some((v,i)=>String(v)!==String(row[i])))throw new HttpError("Seat readback failed.",502,"WRITE_VERIFY_FAILED");
+      if(!canonicalSeatEvents(readback.rows).has(asText(row[0])))throw new HttpError("A concurrent edit or binding won. Reload seat data before retry; your write was not applied.",409,"SEAT_CONFLICT");
+      return json({ok:true,row:saved,actor},200,origin);
     }
     if (action === "append") {
       const { row } = await request.json() as { row: unknown[] };
