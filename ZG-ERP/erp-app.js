@@ -394,7 +394,7 @@
         (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
         (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備已按「使用中」存入新帳（現場在用＝可用）；盤點後可補登細節。</div>' : "") + "</div>";
     } else {
-      toast = '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>';
+      toast = D.isMock ? '<div class="toast idle">還沒掃到東西。輸入登記編號，或點下面的測試按鈕模擬掃描。</div>' : '<div class="toast idle">還沒掃到東西。對準設備標籤掃描，或手動輸入登記編號。</div>';
     }
     const sessProj = S.sess.project || "";
     const scope = assets().filter((a) => a.site === S.site && (!sessProj || (a.project || D.UNASSIGNED) === sessProj));
@@ -449,7 +449,7 @@
     const siteAssets = assets().filter((a) => a.site === S.site);
     const badStatus = recs.filter((r) => { const a = getA(r.code); return a && (a.status === "維修中" || a.status === "待修" || a.status === "已報廢"); }).length;
     return '<div class="screen"><h3 class="ptitle">' + esc(S.site) + "盤點結果</h3>" +
-      '<p class="psub">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無") + " · 共掃 " + recs.length + " 筆 · 只存在這個瀏覽器，尚未連接試算表</p>" +
+      '<p class="psub">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無") + " · 共掃 " + recs.length + " 筆" + (D.isMock ? " · 只存在這個瀏覽器，尚未連接試算表" : " · 寫入你的試算表；失敗會標「未同步」，點一下可重試") + "</p>" +
       (() => { const sp = S.sess.project || "";
         const sc = siteAssets.filter((a) => !sp || (a.project || D.UNASSIGNED) === sp);
         const got = sc.filter((a) => recs.some((r) => r.code === a.code));
@@ -771,7 +771,7 @@
   function pcDiff() {
     const recs = allRecords().filter((r) => r.status !== "ok").slice().reverse();
     const todoN = recs.filter((r) => !r.decision).length;
-    return '<h3 class="ptitle">盤點差異</h3><p class="psub">手機掃完的差異在這裡逐筆決定。每個決定立刻寫進試算表的「釐清標示」，含舊帳快照。</p>' +
+    return '<h3 class="ptitle">盤點差異</h3><p class="psub">手機掃完的差異在這裡逐筆決定，決定結果寫進盤點紀錄。</p>' +
       '<div class="lbl sim">累計掃描差異（所有場次，新→舊）：' + recs.length + " 筆 · 待處理 " + todoN + "</div>" +
       (recs.length === 0 ? '<div class="toast idle">還沒有掃描紀錄。到「手機 · 現場掃描」掃幾筆，差異會出現在這裡。</div>' :
         recs.map((r) => {
