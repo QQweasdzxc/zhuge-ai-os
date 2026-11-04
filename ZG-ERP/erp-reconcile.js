@@ -45,6 +45,7 @@
   }
 
   function inScopeLegacy(row, scope) {
+    if (scope.source && norm(row.siteLead) !== norm(scope.source)) return false;
     if (scope.site && norm(row.siteLead).indexOf(norm(scope.site)) === -1) return false; // 來源工作表只是線索
     if (scope.project && norm(row.project) !== norm(scope.project)) return false;
     return true;
@@ -88,8 +89,10 @@
     scopedLegacy.forEach((r) => {
       const list = byCode.get(r.code) || []; list.push(r); byCode.set(r.code, list);
     });
-    const ambiguous = [...byCode.entries()].filter(([, list]) => list.length > 1)
-      .map(([code, list]) => ({ code, verdict: "待人工判定", candidates: list }));
+    const globalCount = new Map();
+    legacy.forEach((r) => globalCount.set(r.code, (globalCount.get(r.code) || 0) + 1));
+    const ambiguous = [...byCode.entries()].filter(([code]) => globalCount.get(code) > 1)
+      .map(([code, list]) => ({ code, verdict: "待人工判定", candidates: list, totalCandidates: globalCount.get(code) }));
 
     const matched = [], locationMismatch = [], pending = [], clarified = [], staleAnnotations = [];
     const applyAnn = (row) => {
@@ -102,7 +105,14 @@
       return ann;
     };
     byCode.forEach((list, code) => {
-      if (list.length > 1) return; // 模糊組不進自動比對
+      if (globalCount.get(code) > 1) {
+        // 人工註記逐記錄鍵讀回，並檢查快照；不因此自動選定唯一設備關係。
+        list.forEach((row) => {
+          const ann = applyAnn(row);
+          if (ann && ann.conclusion) clarified.push({ code, legacy: row, annotation: ann, verdict: ann.conclusion, identityUnresolved: true });
+        });
+        return;
+      }
       const row = list[0];
       const ann = applyAnn(row);
       if (ann && ann.conclusion) { // 人工結論優先：已釐清
@@ -139,7 +149,7 @@
      * newInventory＝範圍內實際觀察到的實體設備數，不因舊帳模糊而扣（記錄≠資產，僅資產與掃描觀察計入）。 */
     const accounted = matched.length + clarified.length;
     return {
-      scope: { site: scope.site || "", project: scope.project || "", closed: !!scope.closed },
+      scope: { source: scope.source || "", site: scope.site || "", project: scope.project || "", closed: !!scope.closed },
       counts: {
         legacyInScope: scopedLegacy.length,
         observedInScope: observed.size,

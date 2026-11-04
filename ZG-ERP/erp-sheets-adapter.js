@@ -76,6 +76,56 @@
     return [a.recordKey, a.code || "", a.provenance || "", JSON.stringify(a.snapshot || {}), a.progress || "",
       a.conclusion || "", a.reason || "", a.evidence || "", a.confirmer || "", a.at || "", a.newAssetCode || "", a.note || ""];
   }
+  /* 舊帳（59 整合工作簿，唯讀比對）：依「欄名」對應，不倚賴欄位順序；
+   * 記錄鍵逐字採用（永不以列位置推導）；出處＝來源工作表＋來源列；髒值欄不作篩選維度 */
+  function rowToLegacy(header, row, i) {
+    const ix = {};
+    (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
+    const g = (...names) => {
+      for (const nm of names) { const n = ix[nm]; if (n != null) return String(row[n] == null ? "" : row[n]).trim(); }
+      return "";
+    };
+    const src = g("來源工作表"), srcRow = g("來源列");
+    return {
+      __row: i + 2,
+      recordKey: g("記錄鍵"),
+      code: g("資產編號"),
+      name: g("名稱"), model: g("型號規格", "型號"),
+      siteLead: src,
+      zone: g("區域", "地點位置", "位置"),
+      place: g("地點位置"),
+      owner: g("保管人", "使用人"),
+      serial: g("S-N", "S/N", "序號"),
+      project: g("專案"),
+      scopeStatus: g("對應狀態"),
+      provenance: src + (srcRow ? " 第" + srcRow + "列" : "")
+    };
+  }
+
+  /* 舊帳整合-流轉對應（唯讀）：記錄間關係線索（同編號快照、可能移轉等）；非移動證明 */
+  function rowToFlow(header, row, i) {
+    const ix = {};
+    (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
+    const g = (...names) => {
+      for (const nm of names) { const n = ix[nm]; if (n != null) return String(row[n] == null ? "" : row[n]).trim(); }
+      return "";
+    };
+    return { __row: i + 2, relationKey: g("關係鍵"), type: g("類型"), code: g("資產編號"),
+      rkeyA: g("記錄鍵A"), rkeyB: g("記錄鍵B"), originA: g("出處A"), originB: g("出處B"),
+      status: g("狀態"), note: g("說明") };
+  }
+  /* 舊帳整合-待確認（唯讀）：舊帳人工整理的待確認事項 */
+  function rowToQuestion(header, row, i) {
+    const ix = {};
+    (header || []).forEach((h, n) => { const k = String(h == null ? "" : h).trim(); if (k && ix[k] == null) ix[k] = n; });
+    const g = (...names) => {
+      for (const nm of names) { const n = ix[nm]; if (n != null) return String(row[n] == null ? "" : row[n]).trim(); }
+      return "";
+    };
+    return { __row: i + 2, itemKey: g("項目鍵"), category: g("類別"), summary: g("內容摘要"),
+      related: g("相關記錄鍵/出處"), suggestion: g("建議處理"), status: g("狀態") };
+  }
+
   function rowToAnnotation(row, i) {
     let snap = null;
     try { snap = JSON.parse(row[3] || "null"); } catch { snap = null; }
@@ -128,18 +178,21 @@
     _url(action, tab) {
       return this.bridgeUrl + "?action=" + action + "&tab=" + encodeURIComponent(TABS[tab] || tab);
     }
-    async _read(tab) {
+    async _read(tab) { return (await this._readFull(tab)).rows; }
+    /* 讀取完整回應（含 header）：舊帳依欄名對應，必須拿到實際標頭 */
+    async _readFull(tab) {
       const res = await this._fetchAuth(this._url("read", tab), { method: "GET", headers: this._authHeaders() });
+      const label = TABS[tab] || tab;
       if (res && res.status === 401) {
         // 已走過換發仍被拒（或無 token 可換）：這是登入問題，不是資料庫問題，要給可行動的錯誤。
-        const err = new Error("登入驗證被拒（" + TABS[tab] + "）");
+        const err = new Error("登入驗證被拒（" + label + "）");
         err.authRefused = true;
         throw err;
       }
-      if (!res || !res.ok) throw new Error("現存資料庫讀取失敗（" + TABS[tab] + "）");
+      if (!res || !res.ok) throw new Error("現存資料庫讀取失敗（" + label + "）");
       const body = await res.json();
-      if (!body || !Array.isArray(body.header) || !Array.isArray(body.rows)) throw new Error("bridge 回應格式不符（" + TABS[tab] + "）");
-      return body.rows;
+      if (!body || !Array.isArray(body.header) || !Array.isArray(body.rows)) throw new Error("bridge 回應格式不符（" + label + "）");
+      return { header: body.header, rows: body.rows };
     }
     async _append(tab, row) {
       const res = await this._fetchAuth(this._url("append", tab), {
@@ -203,6 +256,30 @@
         annotations: annotationRows.map(rowToAnnotation).filter((a) => a.recordKey),
         meta: { codePrefix: "CSNW", codeSeq: 1 } // codePrefix 待公司正式編碼規則；codeSeq 由現有資產推導
       };
+      this._legacyRows = [];
+      this._legacyError = "";
+      this._legacyFlows = [];
+      this._legacyQuestions = [];
+      this._legacyAuxError = "";
+      try {
+        const lm = await this._readFull("\u6574\u5408-\u4e3b\u6a94");
+        this._legacyRows = lm.rows.map((row, i) => rowToLegacy(lm.header, row, i)).filter((r) => r.recordKey);
+      } catch (e) {
+        this._legacyError = String((e && e.message) || e); // 舊帳讀取失敗不拖垮新帳；UI 據實顯示
+      }
+      /* 舊帳關係與待確認事項：各自失敗隔離，缺了只少線索區塊 */
+      try {
+        const lf = await this._readFull("\u6574\u5408-\u6d41\u8f49\u5c0d\u61c9");
+        this._legacyFlows = lf.rows.map((row, i) => rowToFlow(lf.header, row, i)).filter((f) => f.relationKey || f.code || f.rkeyA || f.rkeyB);
+      } catch (e) {
+        this._legacyAuxError = String((e && e.message) || e);
+      }
+      try {
+        const lq = await this._readFull("\u6574\u5408-\u5f85\u78ba\u8a8d");
+        this._legacyQuestions = lq.rows.map((row, i) => rowToQuestion(lq.header, row, i)).filter((q) => q.itemKey || q.summary);
+      } catch (e) {
+        this._legacyAuxError = this._legacyAuxError || String((e && e.message) || e);
+      }
       let maxSeq = 0;
       this.db.assets.forEach((a) => {
         const m = /^CSNW10704(\d{4,})$/.exec(a.code);
@@ -412,6 +489,8 @@
      * 已有 待修/維修中/已報廢 的，不因再掃到自動改回可用——回 exception 給管理端提示。
      * 備用（入庫新建）不因掃描被猜成使用中；位置以最新現場觀察更新。 */
     observeAsset(sess, code, zone) {
+      const rawProject = String(sess.project || "").trim();
+      const currentProject = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
       const db = this._db();
       const BLOCK = ["待修", "維修中", "已報廢"];
       const existing = db.assets.find((a) => a.code === code);
@@ -419,15 +498,19 @@
         if (BLOCK.includes(existing.status)) {
           return { exception: true, reason: "既有狀態「" + existing.status + "」，不因掃描自動改回可用", asset: existing };
         }
-        if (existing.site !== sess.site || (zone && existing.zone !== zone)) {
-          this.saveAsset(existing.code, { site: sess.site, zone: zone || existing.zone });
-          return { exception: false, moved: true, asset: existing };
+        const patch = {};
+        /* 使用者 14:30 定案：掃到原本沒有專案的設備，歸入正在盤的專案；已屬其他專案的保留原歸屬，只提示差異 */
+        if (currentProject && ["", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(String(existing.project || "").trim())) patch.project = currentProject;
+        if (existing.site !== sess.site || (zone && existing.zone !== zone)) { patch.site = sess.site; patch.zone = zone || existing.zone; }
+        if (Object.keys(patch).length) {
+          this.saveAsset(existing.code, patch);
+          return { exception: false, moved: !!patch.site, assignedProject: patch.project || "", asset: existing };
         }
         return { exception: false, moved: false, asset: existing };
       }
       const now = new Date().toISOString();
       const a = { code, name: "", model: "", serial: "", owner: "公用", site: sess.site, zone: zone || "",
-        status: "使用中", project: sess.project || "", brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
+        status: "使用中", project: currentProject, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
         purchase: "", activate: "", warranty: "", source: "盤點", createdAt: now, createdBy: this.actor, updatedAt: now };
       db.assets.push(a);
       a.__write = this._mirror(a, async () => {
@@ -448,6 +531,11 @@
       return full;
     }
     annotationsOf(recordKey) { return this._db().annotations.filter((a) => a.recordKey === recordKey); }
+    legacyRows() { return this._legacyRows || []; }
+    legacyError() { return this._legacyError || ""; }
+    legacyFlows() { return this._legacyFlows || []; }
+    legacyQuestions() { return this._legacyQuestions || []; }
+    legacyAuxError() { return this._legacyAuxError || ""; }
     /* 地點 QR：掃到位置表登錄的 QR 內容 → 回傳 {site, zone}；未登錄回傳 null（不自動猜） */
     findSiteByQr(qrContent) {
       const q = String(qrContent || "").trim();
@@ -461,5 +549,5 @@
   }
 
   global.ZgErpSheets = Object.freeze({ SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED });
-  if (typeof module !== "undefined" && module.exports) module.exports = { SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED, annotationToRow, rowToAnnotation };
+  if (typeof module !== "undefined" && module.exports) module.exports = { SheetsStore, TABS, HEADERS, MOVEMENT_TYPE, NOT_CONNECTED, UNSYNCED, annotationToRow, rowToAnnotation, rowToLegacy, rowToFlow, rowToQuestion };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -24,6 +24,23 @@
     高雄: { lat: 22.627, lon: 120.301, zones: ["1F 門市", "2F 辦公區", "機房"] }
   };
 
+  /* 舊帳比對的測試資料（僅 mock；正式環境由 bridge 讀 59 工作簿整合-主檔）。
+   * 涵蓋：已盤到（對到資產）、同編號多筆（候選並列）、尚未掃到、無編號列（僅人工查） */
+  const LEGACY_SEED = [
+    { recordKey: "R-T001", source: "台北", srcRow: "12", code: "CSPH107030182", name: "Yealink 話機", model: "T46U", zone: "3F 工程部", owner: "陳小明", project: "", scopeStatus: "在冊" },
+    { recordKey: "R-T002", source: "台北", srcRow: "13", code: "CSLT209000111", name: "筆記型電腦", model: "ThinkPad E14", zone: "3F 工程部", owner: "陳小明", project: "", scopeStatus: "在冊" },
+    { recordKey: "R-T003", source: "台北", srcRow: "14", code: "CSLT209000111", name: "筆記型電腦", model: "ThinkPad E14", zone: "倉庫", owner: "陳小明", project: "", scopeStatus: "在冊" },
+    { recordKey: "R-T004", source: "高雄", srcRow: "5", code: "CSMB300000222", name: "螢幕", model: "24 吋", zone: "1F 門市", owner: "", project: "", scopeStatus: "在冊" },
+    { recordKey: "R-T005", source: "台中", srcRow: "8", code: "", name: "無編號設備", model: "", zone: "倉庫", owner: "", project: "", scopeStatus: "待確認" }
+  ];
+
+  const LEGACY_FLOWS_SEED = [
+    { relationKey: "M-T001", type: "快照共用", code: "CSLT209000111", rkeyA: "R-T002", rkeyB: "R-T003", originA: "台北 第13列", originB: "台北 第14列", status: "待確認", note: "兩列同編號；差異為記錄差異，非移動證明" }
+  ];
+  const LEGACY_QUESTIONS_SEED = [
+    { itemKey: "Q-T001", category: "跨地點同碼", summary: "編號 CSMB300000222 出現在多個出處（內容不同）", related: "R-T004", suggestion: "人工確認是否同一資產；確認前不合併", status: "待確認" }
+  ];
+
   function seedAssets() {
     const KINDS = [
       ["CSPH", "Yealink 話機", "T46U"], ["CSNB", "筆記型電腦", "ThinkPad E14"],
@@ -68,6 +85,7 @@
       records: [],    // {sessionId, code, status, zone, at, n, decision}
       batches: [],    // 進貨批次 {id, vendor, brand, model, origin, note, at, items:[{serial,state,receivedAt,code}], unexpected:[{serial,at,n}]}
       movements: [],  // 設備流轉 {code, type, at, note}  type: inbound / outbound-sale / outbound-use / outbound-transfer / repair-start / repair-end
+      annotations: [], // 釐清標示 {recordKey, code, provenance, snapshot, progress, conclusion, reason, evidence, confirmer, at, note}
       meta: { codeSeq: 1, codePrefix: "CSNW" } // codePrefix 為測試用編碼，不是公司正式編碼規則；正式規則待公司提供後改這裡
     };
   }
@@ -78,6 +96,8 @@
       try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { raw = null; }
       this.db = raw && raw.__v === 2 ? raw : seed();
       this.db.batches = this.db.batches || [];
+      this.actor = "現場測試"; // 釐清標示確認人（mock）
+      this.db.annotations = this.db.annotations || [];
       this.db.movements = this.db.movements || [];
       this.db.meta = this.db.meta || { codeSeq: 1, codePrefix: "CSNW" };
       this.db.meta.codePrefix = this.db.meta.codePrefix || "CSNW";
@@ -109,7 +129,49 @@
       const r = this.db.records.find((x) => x.sessionId === sessionId && x.code === code);
       if (r) { r.decision = decision; this.persist(); }
     }
+    /* 現場觀察（與正式 SheetsStore 同規則，供 isolated QA）：新掃到建資產（使用中）；
+     * 原本未指定專案的歸入本次專案；已屬其他專案不改；待修/維修/報廢不回沖 */
+    observeAsset(sess, code, zone) {
+      const rawProject = String(sess.project || "").trim();
+      const currentProject = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
+      const BLOCK = ["待修", "維修中", "已報廢"];
+      const existing = this.db.assets.find((a) => a.code === code);
+      if (existing) {
+        if (BLOCK.includes(existing.status)) return { exception: true, reason: "既有狀態「" + existing.status + "」，不因掃描自動改回可用", asset: existing };
+        const patch = {};
+        if (currentProject && ["", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(String(existing.project || "").trim())) patch.project = currentProject;
+        if (existing.site !== sess.site || (zone && existing.zone !== zone)) { patch.site = sess.site; patch.zone = zone || existing.zone; }
+        if (Object.keys(patch).length) { Object.assign(existing, patch); this.persist(); return { exception: false, moved: !!patch.site, assignedProject: patch.project || "", asset: existing }; }
+        return { exception: false, moved: false, asset: existing };
+      }
+      const now = new Date().toISOString();
+      const a = { code, name: "", model: "", serial: "", owner: "公用", site: sess.site, zone: zone || "",
+        status: "使用中", project: currentProject, brand: "", origin: "未確認", type: "", mfgYear: "", po: "",
+        purchase: "", activate: "", warranty: "", source: "盤點", createdAt: now, createdBy: this.actor, updatedAt: now };
+      this.db.assets.push(a); this.persist();
+      return { exception: false, created: true, asset: a };
+    }
     closeSession(sess) { sess.closed = true; this.persist(); }
+    /* ---- 舊帳比對（mock 固定種子；正式由 SheetsStore 讀整合-主檔） ---- */
+    legacyRows() {
+      return LEGACY_SEED.map((r) => ({
+        recordKey: r.recordKey, code: r.code, name: r.name, model: r.model,
+        siteLead: r.source, zone: r.zone, owner: r.owner, serial: "", project: r.project,
+        scopeStatus: r.scopeStatus, provenance: r.source + " 第" + r.srcRow + "列"
+      }));
+    }
+    legacyError() { return ""; }
+    legacyFlows() { return LEGACY_FLOWS_SEED.map((f) => ({ ...f })); }
+    legacyQuestions() { return LEGACY_QUESTIONS_SEED.map((q) => ({ ...q })); }
+    legacyAuxError() { return ""; }
+    addAnnotation(ann) {
+      const full = Object.assign({ at: new Date().toISOString(), confirmer: "現場測試" }, ann);
+      this.db.annotations = this.db.annotations || [];
+      this.db.annotations.push(full);
+      this.persist();
+      return full;
+    }
+    annotationsOf(recordKey) { return (this.db.annotations || []).filter((a) => a.recordKey === recordKey); }
     /* ---- 進貨批次（待入庫）：序號清單只是預計到貨，確認入庫前不影響設備總數與應盤 ---- */
     listBatches() { return this.db.batches; }
     batch(id) { return this.db.batches.find((b) => b.id === id); }
