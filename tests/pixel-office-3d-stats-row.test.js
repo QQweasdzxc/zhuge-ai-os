@@ -44,7 +44,7 @@ test("finished chip is labeled cumulative in TF mode; no today-completed proxy",
 test("chip filter view lists matching tasks and offers a way back", () => {
   assert.match(html, /state\.sideFilter \? GROUPS\.find/);
   assert.match(html, /id="sideFilterBack"/);
-  assert.match(html, /state\.sideFilter = null; render\(\); document\.getElementById\('side'\)\.scrollLeft = 0; return;/);
+  assert.match(html, /state\.sideFilter = null; renderNow\(\); document\.getElementById\('side'\)\.scrollLeft = 0; return;/);
   assert.match(html, /state\.sideFilter === k \? ' on' : ''/);
 });
 
@@ -88,4 +88,10 @@ test("ZG-60 return journey: side panel cannot hold a horizontal scroll offset", 
 test("ZG-60 narrow header: stat chips never wrap mid-label", () => {
   assert.ok(/\.summary \.chip\s*\{[^}]*white-space:\s*nowrap/.test(html.replace(/\s+/g, ' ')), ".summary .chip has white-space: nowrap");
   assert.ok(/\.summary \.chip\s*\{[^}]*flex:\s*none/.test(html.replace(/\s+/g, ' ')), ".summary .chip has flex: none");
+});
+
+test("unchanged summary retains pointer identity and explicit filter actions bypass hover deferral", () => {
+  assert.match(html, /summaryEl\.dataset\.html !== summaryHtml/);
+  const chipHandler=html.split("document.getElementById('summary').addEventListener('click'")[1].split("document.addEventListener('keydown'")[0];
+  assert.match(chipHandler, /renderNow\(\)/);
 });
