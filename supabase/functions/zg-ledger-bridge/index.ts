@@ -260,6 +260,38 @@ Deno.serve(async (request) => {
       if(!canonicalSeatEvents(readback.rows).has(asText(row[0])))throw new HttpError("A concurrent edit or binding won. Reload seat data before retry; your write was not applied.",409,"SEAT_CONFLICT");
       return json({ok:true,row:saved,actor},200,origin);
     }
+    if (action === "intake-import") {
+      if(tab!=="進貨批次")throw new HttpError("進貨批次限定。",400,"BAD_REQUEST");
+      const {id,groups}=await request.json();
+      const keys=["po","vendor","brand","model","origin","type","mfgYear","note"];
+      if(typeof id!=="string"||!/^xi-[a-f0-9-]{36}$/.test(id)||!Array.isArray(groups)||!groups.length||groups.length>100)throw new HttpError("匯入格式不符。",400,"BAD_REQUEST");
+      const serials:string[]=[];
+      for(const b of groups){if(!b||keys.some(k=>typeof b[k]!=="string"||b[k].length>2000)||!Array.isArray(b.serials)||!b.serials.length||b.serials.some((v:unknown)=>typeof v!=="string"||!v.trim()||v!==v.trim()||v.length>2000)||b.mfgYear&&!/^\d{4}$/.test(b.mfgYear))throw new HttpError("欄位或序號格式不符。",400,"BAD_REQUEST");serials.push(...b.serials);}
+      if(serials.length>500||new Set(serials).size!==serials.length)throw new HttpError("最多500筆，序號不可重複。",400,"BAD_REQUEST");
+      const before=await sheetsRead(token,target.spreadsheetId,tab);
+      const headers=["行別","批次鍵","PO","廠商","品牌","型號","產地","類型","製造年份","備註","建立時間","狀態","序號","到貨時間","登記編號"];
+      if(!headers.every((h,i)=>before.header[i]===h))throw new HttpError("進貨批次欄位不符，未寫入。",503,"SCHEMA_NOT_READY");
+      const at=new Date().toISOString(),ids=groups.map((_:unknown,i:number)=>id+"-"+i),rows:unknown[][]=[];
+      for(let i=0;i<groups.length;i++){const b=groups[i];rows.push(["批次",ids[i],b.po,b.vendor,b.brand,b.model,b.origin,b.type,b.mfgYear,b.note,at,"進行中","","",""]);for(const serial of b.serials)rows.push(["明細",ids[i],"","","","","","","","","","pending",serial,"",""]);}
+      const own=(rs:unknown[][])=>rs.filter(r=>String(r[1]??"").startsWith(id+"-"));
+      const equal=(stored:unknown[][])=>stored.length===rows.length&&stored.every((r,i)=>rows[i].every((v,c)=>c===10||String(r[c]??"")===String(v)));
+      const prior=own(before.rows);
+      if(prior.length){if(!equal(prior))throw new HttpError("此匯入已有不完整或不同內容，未重複追加。請保留畫面並核對批次。",409,"IMPORT_PARTIAL");return json({ok:true,rows:prior,ids,replayed:true},200,origin);}
+      const assets=await sheetsRead(token,target.spreadsheetId,"資產");
+      if(assets.rows.length>=9999)throw new HttpError("設備讀取範圍不足，未匯入。",409,"IMPORT_LIMIT");
+      if(assets.header[3]!=="序號")throw new HttpError("設備序號欄位不符。",503,"SCHEMA_NOT_READY");
+      const current=new Set(assets.rows.map(r=>String(r[3]??"").trim()).filter(Boolean));
+      const closed=new Set(before.rows.filter(r=>r[0]==="批次"&&r[11]==="已結案").map(r=>r[1]));
+      for(const r of before.rows)if(r[0]==="明細"&&!closed.has(r[1])&&r[12])current.add(String(r[12]).trim());
+      if(serials.some(s=>current.has(s)))throw new HttpError("序號已存在設備或未結案批次，未匯入。請重新核對預覽。",409,"SERIAL_EXISTS");
+      if(before.rows.length+rows.length>9500)throw new HttpError("批次資料量已達本次匯入上限，未寫入。",409,"IMPORT_LIMIT");
+      const url=`${GOOGLE_SHEETS_API}/${target.spreadsheetId}/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      const res=await fetch(url,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({values:rows}),signal:AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS)});
+      if(!res.ok)throw new HttpError("匯入未確認，請保留畫面並用同一按鈕重試。",502,"IMPORT_UNVERIFIED");
+      const saved=own((await sheetsRead(token,target.spreadsheetId,tab)).rows);
+      if(!equal(saved))throw new HttpError("寫入後未完整讀回，請保留畫面並用同一按鈕重試。",409,"IMPORT_UNVERIFIED");
+      return json({ok:true,rows:saved,ids},200,origin);
+    }
     if (action === "asset-edit") {
       if(tab!=="資產")throw new HttpError("Asset tab required.",400,"BAD_REQUEST");
       const {code,patch,expected}=await request.json();
