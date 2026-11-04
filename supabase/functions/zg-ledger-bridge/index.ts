@@ -475,4 +475,4 @@ function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json", ...corsHeaders(origin) }
   });
-        }
+}
