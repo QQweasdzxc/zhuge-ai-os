@@ -297,8 +297,11 @@
       r.__write = this._mirror(r, () => this._update("records", r.__row, recordToRow(r, sess)));
     }
     closeSession(sess) {
-      sess.closed = true; sess.closedAt = new Date().toISOString();
-      sess.__write = this._mirror(sess, () => this._update("sessions", sess.__row, sessionToRow(sess, this.actor)));
+      const db = this._db();
+      const cur = db.sessions.find((x) => x.id === (sess && sess.id));
+      if (!cur) throw new Error("找不到盤點場次");
+      cur.closed = true; cur.closedAt = new Date().toISOString();
+      cur.__write = this._mirror(cur, () => this._update("sessions", cur.__row, sessionToRow(cur, this.actor)));
     }
     /* ---- 進貨批次 ---- */
     listBatches() { return this._db().batches; }
