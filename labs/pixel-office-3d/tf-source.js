@@ -292,26 +292,36 @@ async function pollTfOnce(fetchImpl, base, now, opts) {
   // Per-poll budget: 1 issues + 1 projects + 1 native + comments for agent
   // cards only (bounded by fetchReportLabels), so an hourly poll stays ~5
   // requests for typical workspaces.
-  const projectsById = {};
-  try {
-    const rp = await fetchImpl(`${apiBase}/api/projects?limit=100`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
-    if (rp && rp.status === 200) {
-      const pd = await rp.json();
-      for (const p of pd.projects || pd.items || []) if (p && p.id) projectsById[p.id] = p.title || p.name || null;
-    }
-  } catch { /* project titles fall back to blank */ }
-  const nativeByIssueId = {};
-  try {
-    const rn = await fetchImpl(`${apiBase}/api/zhuge/native-ai-tasks?limit=100&offset=0`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
-    if (rn && rn.status === 200) {
-      const nd = await rn.json();
-      for (const t of nd.tasks || nd.items || []) if (t && t.issue_id) nativeByIssueId[t.issue_id] = t;
-    }
-  } catch { /* queue info falls back to blank */ }
+  // These reads all depend on the same authenticated issue snapshot, not on
+  // one another. Start them together so metadata latency is not added four
+  // times before the first office snapshot. Request count/cadence is unchanged.
   const agentIssueIds = issues.filter((it) => it && it.assignee_type === 'agent').map((it) => ({ issue_id: it.id || it.issue_id }));
-  const commentsByIssue = await fetchReportLabels(fetchImpl, apiBase, headers, agentIssueIds);
-  if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
-  const agentsById = await fetchAgents(fetchImpl, apiBase, headers);
+  const [projectsById, nativeByIssueId, commentsByIssue, agentsById] = await Promise.all([
+    (async () => {
+      const out = {};
+      try {
+        const rp = await fetchImpl(`${apiBase}/api/projects?limit=100`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
+        if (rp && rp.status === 200) {
+          const pd = await rp.json();
+          for (const p of pd.projects || pd.items || []) if (p && p.id) out[p.id] = p.title || p.name || null;
+        }
+      } catch { /* project titles fall back to blank */ }
+      return out;
+    })(),
+    (async () => {
+      const out = {};
+      try {
+        const rn = await fetchImpl(`${apiBase}/api/zhuge/native-ai-tasks?limit=100&offset=0`, { headers, mode: 'cors', credentials: 'omit', cache: 'no-store' });
+        if (rn && rn.status === 200) {
+          const nd = await rn.json();
+          for (const t of nd.tasks || nd.items || []) if (t && t.issue_id) out[t.issue_id] = t;
+        }
+      } catch { /* queue info falls back to blank */ }
+      return out;
+    })(),
+    fetchReportLabels(fetchImpl, apiBase, headers, agentIssueIds),
+    fetchAgents(fetchImpl, apiBase, headers),
+  ]);
   if (stale()) return { state: 'stale', note: '授權已變更，捨棄本次讀取' };
   const sessions = normalizeTfIssues(issues, { projectsById, nativeByIssueId, commentsByIssue, agentsById, now });
   return { state: 'ok', sessions, agents: Object.values(agentsById), note: opts.embeddedJwt ? '即時連線（內嵌授權）' : '即時連線（Zhuge 登入授權）', total: data.total, schema: data.schema };
