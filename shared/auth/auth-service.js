@@ -218,7 +218,9 @@ function recordOAuthDebug(stage, detail) {
     if (log.length > 10) log = log.slice(log.length - 10);
     localStorage.setItem(LOG_KEY, JSON.stringify(log));
   } catch { /* storage unavailable: diagnostics are best-effort */ }
-  console.error("Zhuge AI OS OAuth Debug", payload);
+  // A signed-out visitor has no refresh token. Keep diagnostic history, but
+  // do not classify this expected state as an application error.
+  if (stage !== "auth_session_refresh_missing_token") console.error("Zhuge AI OS OAuth Debug", payload);
 }
 
 function base64UrlEncode(bytes) {
