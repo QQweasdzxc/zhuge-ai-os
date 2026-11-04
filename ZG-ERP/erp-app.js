@@ -322,6 +322,11 @@
   function loginBar() {
     const s = session();
     if (s && s.access_token) {
+      const exp = Number(s.expires_at || (s.session && s.session.expires_at) || 0);
+      const expMs = exp ? (exp < 1e12 ? exp * 1000 : exp) : 0; // Supabase 秒級與 auth-service 毫秒級都接受
+      if (expMs && expMs < Date.now()) {
+        return '<div class="loginbar">諸葛登入狀態：工作階段已過期。<a href="' + LOGIN_URL + '">重新登入諸葛</a>（換發失敗時需要）</div>';
+      }
       const who = s.user && (s.user.email || s.user.name) ? esc(s.user.email || s.user.name) : "已登入";
       return '<div class="loginbar">諸葛登入狀態：' + who + "</div>";
     }
