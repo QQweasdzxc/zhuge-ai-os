@@ -289,7 +289,7 @@
   /* ZG-60: in TF mode the counts are the way into their task lists, so they
      stay visible (and tappable) on narrow screens as their own header row;
      non-TF dashboards keep dropping them (panel headings carry the counts). */
-  @media (max-width: 1240px) { body.full.tf-mode .summary { display: flex; order: 9; width: 100%; margin-left: 0; gap: 14px; padding-top: 8px; } }
+  @media (max-width: 1240px) { body.full.tf-mode .summary { display: flex; order: 9; width: 100%; margin-left: 0; flex-wrap: wrap; gap: 8px 14px; padding-top: 8px; } }
   @media (max-width: 640px) { html body.full.tf-mode header { flex-wrap: wrap; } }
   @media (max-width: 900px) {
     body.full h1, body.full #langName, body.full .today-tokens,
@@ -858,13 +858,16 @@ function render() {
   // cumulative count it is. A 今日完成 label stays out: TF has no
   // status-transition history yet, so there is no honest source for it.
   const chipKeys = TF_MODE ? ['needsReview', 'blocked', 'working', 'finished'] : ['needsYou', 'working', 'finished'];
-  document.getElementById('summary').innerHTML = chipKeys.map((k) => {
+  const summaryEl = document.getElementById('summary');
+  const summaryHtml = chipKeys.map((k) => {
     const g = GROUPS.find((x) => x.key === k);
     const n = count(g.match);
     const color = k === 'needsYou' || k === 'needsReview' ? 'var(--waiting)' : k === 'blocked' ? 'var(--error)' : k === 'working' ? 'var(--tool)' : 'var(--done)';
     const label = TF_MODE && k === 'finished' ? (L.tfFinishedAll || L.finished) : (TF_MODE ? groupLabel(k) : L[k]);
     return `<button type="button" class="chip chip-s${state.sideFilter === k ? ' on' : ''}" data-group="${k}"><span class="dot" style="color:${color}"></span>${esc(label)} <b>${n}</b></button>`;
   }).join('');
+  // Keep stable buttons across unrelated redraws, including pointer down/up.
+  if (summaryEl.dataset.html !== summaryHtml) { summaryEl.innerHTML = summaryHtml; summaryEl.dataset.html = summaryHtml; }
   const lg = document.getElementById('legend');
   if (lg) lg.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
     .map((k) => {
@@ -1973,20 +1976,23 @@ document.getElementById('sideTab').addEventListener('click', () => setSide(true)
 document.getElementById('sideBack').addEventListener('click', closeDetail);
 document.getElementById('sideRows').addEventListener('mouseleave', (e) => { if (e.currentTarget.dataset.stale) renderSide(); });
 document.getElementById('sideRows').addEventListener('click', (e) => {
-  if (e.target.closest('#sideFilterBack')) { state.sideFilter = null; render(); document.getElementById('side').scrollLeft = 0; return; }
+  if (e.target.closest('#sideFilterBack')) { state.sideFilter = null; renderNow(); document.getElementById('side').scrollLeft = 0; return; }
   const b = e.target.closest('.srow'); if (b) openDetail(b.dataset.key);
 });
 document.getElementById('summary').addEventListener('click', (e) => {
   const b = e.target.closest('.chip-s'); if (!b) return;
   state.sideFilter = state.sideFilter === b.dataset.group ? null : b.dataset.group;
   if (state.sideFilter) { closeDetail(); if (!state.side) setSide(true); }
-  render();
+  renderNow();
 });
 document.addEventListener('keydown', (e) => {
   if (e.target.closest?.('input, select, textarea, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'Escape' && state.full && sel) closeDetail();
 });
 addEventListener('resize', () => { if (!state.full) return; measureBar(); office?.setInset(panelInset(), false); });
+// Real counts and locale text can wrap the statistics row after first data.
+// Keep the sidebar below the actual toolbar, not its initial zero-count height.
+if (window.ResizeObserver) new ResizeObserver(() => { if (state.full) measureBar(); }).observe(document.querySelector('header'));
 if (state.full) {
   document.body.classList.add('full');
   requestAnimationFrame(measureBar);
@@ -1998,4 +2004,4 @@ if (state.full) {
 setInterval(tickTimes, 1000);
 </script>
 </body>
-  </html>
+                                                           </html>
