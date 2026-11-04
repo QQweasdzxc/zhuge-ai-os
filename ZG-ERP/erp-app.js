@@ -131,15 +131,17 @@
     if (!code || !S.sess) return;
     const a = getA(code);
     const status = !a ? "none" : a.site !== S.site ? "site" : a.zone !== S.zone ? "zone" : "ok";
-    const sessProj = S.sess.project || "";
-    const pm = !!(a && sessProj && (a.project || D.UNASSIGNED) !== sessProj);
+    const rawProject = String(S.sess.project || "").trim();
+    const sessProj = ["", "全部", "全部專案", "未指定", "未指定（待確認）", "未指定(待確認)"].includes(rawProject) ? "" : rawProject;
+    const pm = !!(a && sessProj && a.project && a.project !== D.UNASSIGNED && a.project !== sessProj); // 未指定不算衝突：依 14:30 定案歸入本次專案
     store.addRecord(S.sess, { code, status, zone: S.zone, at: new Date().toISOString(), projMismatch: pm, sessProject: sessProj });
     /* 12:07 商業規則：現場掃到的設備寫進新帳（使用中）；既有待修/維修/報廢不回沖，記例外提示 */
     if (typeof store.observeAsset === "function") {
       const obs = store.observeAsset(S.sess, code, S.zone);
-      if (obs && obs.exception) {
-        const rec = [...S.sess.records].reverse().find((r) => r.code === code);
-        if (rec) rec.stateException = obs.reason;
+      if (obs && (obs.exception || obs.assignedProject)) {
+        const rec = [...curRecs()].reverse().find((r) => r.code === code);
+        if (rec && obs.exception) rec.stateException = obs.reason;
+        if (rec && obs.assignedProject) rec.projectAssigned = obs.assignedProject; // 原本未指定專案 → 已歸入本次專案（14:30 定案）
       }
     }
     S.open = code;
@@ -367,8 +369,8 @@
       '<div class="chips"><button class="pill' + (S.scanProject === "" ? " on" : "") + '" data-a="sproj" data-v="">全部專案</button>' +
       projects().map((p) => '<button class="pill' + (S.scanProject === p ? " on" : "") + '" data-a="sproj" data-v="' + esc(p) + '">' + esc(p.replace("（測試）", "")) + "</button>").join("") + "</div>" +
       '<div class="frow"><input class="inp" data-f="scanProjectInput" placeholder="輸入專案名稱（新建或既有皆可）" value="' + esc(S.scanProjectInput) + '"><button class="btn mini" data-a="sprojset">設定</button></div>' +
-      (S.scanProject && !projects().includes(S.scanProject) ? '<div class="small">本次自訂專案「' + esc(S.scanProject) + '」：掃到的新設備會以這個專案登記，既有設備歸屬不變。</div>' : "") +
-      '<div class="small">這次設定的專案會記在每一筆掃描裡；新掃到的設備會登記到這個專案。已在清冊裡的設備歸屬不變，掃到其他專案的設備會提示並照樣記錄。</div>' +
+      (S.scanProject && !projects().includes(S.scanProject) ? '<div class="small">本次自訂專案「' + esc(S.scanProject) + '」：掃到的新設備、以及原本未指定專案的設備，會登記到這個專案；已屬其他專案的設備歸屬不變，掃到會提示差異。</div>' : "") +
+      '<div class="small">這次設定的專案會記在每一筆掃描裡；掃到的新設備、以及原本未指定專案的設備，會登記到這個專案。已屬其他專案的設備歸屬不變，掃到會提示差異並照樣記錄。</div>' +
       (S.site ? '<div class="match">本次範圍：<b>' + esc(S.site) + "</b>" + (S.scanProject ? " · <b>" + esc(S.scanProject.replace("（測試）", "")) + "</b>" : " · 全部專案") +
         " · 應盤 <b>" + assets().filter((a) => a.site === S.site && (!S.scanProject || (a.project || D.UNASSIGNED) === S.scanProject)).length + "</b> 台</div>" : "") +
       "</div>" +
@@ -391,6 +393,7 @@
           "<br>歸屬專案：<b>" + esc(a.project || D.UNASSIGNED) + "</b><br>設備序號：" + esc(a.serial || "未登記") +
           "<br>登記：" + esc(a.site) + " " + esc(a.zone) + "<br>現場：" + esc(S.site) + " " + esc(r.zone) + "</div>" : "") +
         (lastShown.projMismatch && a ? '<div class="warn">歸屬專案是「' + esc((a.project || D.UNASSIGNED).replace("（測試）", "")) + "」，和這次設定的「" + esc((lastShown.sessProject || "").replace("（測試）", "")) + "」不同。已記錄，不會自動改歸屬。</div>" : "") +
+        (lastShown.projectAssigned ? '<div class="tloc">原本未指定專案，已歸入「' + esc(String(lastShown.projectAssigned).replace("（測試）", "")) + "」。</div>" : "") +
         (lastShown.stateException ? '<div class="warn">' + esc(lastShown.stateException) + "。需由管理端確認後才會變更，本次掃描已照常保存。</div>" : "") +
         (r.status === "none" && !lastShown.stateException ? '<div class="tloc">新設備已按「使用中」存入新帳（現場在用＝可用）；盤點後可補登細節。</div>' : "") + "</div>";
     } else {
@@ -431,7 +434,7 @@
         const a = getA(r.code);
         return '<button class="item" data-a="open" data-v="' + esc(r.code) + '">' + chip(dupFlag(r)) +
           '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
-          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
+          (S.open === r.code ? '<span class="idet">' + (a ? esc(a.model) + " · S/N " + esc(a.serial || "未登記") + " · 狀態 " + esc(a.status) + " · 保管人 " + esc(a.owner) + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 啟用 " + esc(a.activate || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) : "清冊無此編號") + " · " + esc(new Date(r.at).toLocaleTimeString("zh-TW", { hour12: false })) + (r.n > 1 ? " · 已重複 " + r.n + " 次" : "") + (r.projMismatch ? " · 歸屬專案與本次範圍不同（未改歸屬）" : "") + (r.projectAssigned ? " · 原本未指定專案→已歸入本次專案" : "") + (r.stateException ? " · ⚠ " + esc(r.stateException) : "") + "</span>" : "") + "</button>";
       }).join("") + "</div>";
   }
   function decisionButtons(r) {
@@ -545,7 +548,7 @@
         const worst = r.left > 0;
         return '<div class="scard"><div class="sct"><b>' + esc(r.n) + "</b><span class=\"spct\">" + r.pct + "%</span></div>" +
           '<span class="bar"><i style="width:' + r.pct + '%"></i></span>' +
-          '<div class="smeta">已盤 ' + r.done + "/" + r.t + (worst ? ' · <b class="pbad">未盤 ' + r.left + "</b>" : " · 全部盤完") + (r.z ? ' · <b class="pbad">不符 ' + r.z + "</b>" : "") + "</div>" +
+          '<div class="smeta">已盤 ' + r.done + "/" + r.t + (worst ? ' · <b class="pbad">未盤 ' + r.left + "</b>" : (r.t ? " · 新帳已登記設備均有盤點紀錄（仍需核對舊帳）" : " · 尚無設備基準，不能判定盤完")) + (r.z ? ' · <b class="pbad">不符 ' + r.z + "</b>" : "") + "</div>" +
           '<div class="smeta">' + D.STATUSES.map((st) => esc(st) + " " + assets().filter((a) => a.site === r.n && a.status === st).length).join(" · ") + "</div>" +
           '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
           (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
@@ -782,9 +785,135 @@
         }).join("")) +
       '';
   }
+  /* ---- 舊帳比對（唯讀舊帳 + 釐清標示寫新帳；現場只掃不判，此頁只出現在電腦管理端） ---- */
+  function annForm(row) {
+    if (S.annOpen !== row.recordKey) return '<button class="pill sm" data-a="annopen" data-v="' + esc(row.recordKey) + '">釐清標示</button>';
+    const d = S.annDraft || {};
+    return '<span class="acts">' +
+      '<select class="inp sm" data-f="ann_conclusion">' +
+      '<option value="">只記系統比對進度</option>' +
+      window.ZgErpReconcile.CONCLUSIONS.map((c) => '<option value="' + esc(c) + '"' + (d.conclusion === c ? " selected" : "") + ">" + esc(c) + "</option>").join("") + "</select>" +
+      '<input class="inp sm" data-f="ann_reason" placeholder="原因（報廢／遺失必填）" value="' + esc(d.reason || "") + '">' +
+      '<input class="inp sm" data-f="ann_evidence" placeholder="證據（報廢／遺失必填）" value="' + esc(d.evidence || "") + '">' +
+      '<input class="inp sm" data-f="ann_note" placeholder="備註（可空）" value="' + esc(d.note || "") + '">' +
+      '<button class="pill sm" data-a="annsub" data-v="' + esc(row.recordKey) + '">存標示</button>' +
+      '<button class="pill sm" data-a="anncancel">取消</button>' +
+      (S.annErr ? '<div class="warn">' + esc(S.annErr) + "</div>" : "") + "</span>";
+  }
+  const LEGACY_PAGE = 100;
+  /* 每組獨立分頁，避免 5,400 列全量 DOM；全部列均可抵達，篩選變更重設頁碼。 */
+  function capList(key, list, renderOne) {
+    const pages = S.legPages || (S.legPages = {});
+    const last = Math.max(0, Math.ceil(list.length / LEGACY_PAGE) - 1);
+    const page = Math.max(0, Math.min(last, Number(pages[key]) || 0));
+    pages[key] = page;
+    const start = page * LEGACY_PAGE;
+    const end = Math.min(start + LEGACY_PAGE, list.length);
+    const btn = (label, target, disabled) => '<button class="pill sm" data-a="legpage" data-v="' + esc(key) + '" data-page="' + target + '"' + (disabled ? ' disabled' : '') + ' aria-label="' + esc(key + ' ' + label) + '">' + label + '</button>';
+    const nav = '<div class="zrow"><span class="small" role="status">顯示第 ' + (list.length ? start + 1 : 0) + '–' + end + ' 筆／共 ' + list.length + ' 筆 · 第 ' + (page + 1) + '/' + (last + 1) + ' 頁</span><span class="acts">' +
+      btn('第一頁', 0, page === 0) + btn('上一頁', page - 1, page === 0) + btn('下一頁', page + 1, page === last) + btn('最後一頁', last, page === last) + '</span></div>';
+    return nav + list.slice(start, end).map(renderOne).join('') + (list.length > LEGACY_PAGE ? nav : '');
+  }
+  function legacyLine(row, extra, withForm, flowText) {
+    return '<div class="zrow"><span><b>' + esc(row.code || "（無編號）") + "</b> " + esc(row.name || "") + (row.model ? " · " + esc(row.model) : "") +
+      '<br><span class="small">出處 ' + esc(row.provenance || row.siteLead || "?") + (row.zone ? " · " + esc(row.zone) : "") + (row.place ? " · " + esc(row.place) : "") + (row.scopeStatus ? " · " + esc(row.scopeStatus) : "") + "</span>" +
+      (flowText ? '<br><span class="small">' + flowText + "</span>" : "") +
+      (extra ? '<br><span class="small">' + extra + "</span>" : "") + "</span>" + (withForm ? annForm(row) : "") + "</div>";
+  }
+  function pcLegacy() {
+    const R = window.ZgErpReconcile;
+    const legacy = store.legacyRows ? store.legacyRows() : [];
+    const lerr = store.legacyError ? store.legacyError() : "";
+    const coded = legacy.filter((r) => r.code);
+    const noCode = legacy.length - coded.length;
+    if (!legacy.length) {
+      return '<h3 class="ptitle">舊帳比對</h3><p class="psub">' +
+        (lerr ? "舊帳暫時讀不到（" + esc(lerr) + "）。新帳功能不受影響，修好後這裡會顯示比對。" : "舊帳還沒有可比對的資料。") + "</p>";
+    }
+    const leads = [...new Set(legacy.map((r) => r.siteLead).filter(Boolean))].sort();
+    const projs = [...new Set(legacy.map((r) => r.project).filter(Boolean))].sort();
+    const scope = { site: S.legLead || "", project: S.legProj || "", closed: false }; // 不宣告範圍盤完：未掃到只標「尚未掃到」，永不輸出遺失
+    const res = R.reconcile(legacy, db(), scope, db().annotations || []);
+    /* 舊帳關係（整合-流轉對應）與待確認事項（整合-待確認）：唯讀線索，供「原發 A vs 現場 B」追查 */
+    const flows = store.legacyFlows ? store.legacyFlows() : [];
+    const questions = store.legacyQuestions ? store.legacyQuestions() : [];
+    const auxErr = store.legacyAuxError ? store.legacyAuxError() : "";
+    const flowsByKey = new Map();
+    flows.forEach((f) => {
+      [f.rkeyA, f.rkeyB, f.code].filter(Boolean).forEach((k) => {
+        if (!flowsByKey.has(k)) flowsByKey.set(k, []);
+        flowsByKey.get(k).push(f);
+      });
+    });
+    const flowHint = (row) => {
+      const hit = (flowsByKey.get(row.recordKey) || []).concat(row.code ? (flowsByKey.get(row.code) || []) : []);
+      const uniq = [...new Map(hit.map((f) => [f.relationKey || f.note, f])).values()];
+      return uniq.slice(0, 3).map((f) => "舊帳關係 " + esc(f.relationKey || "") + (f.type ? "（" + esc(f.type) + "）" : "") + (f.note ? "：" + esc(f.note) : "") + (f.status ? " · " + esc(f.status) : "")).join("<br>");
+    };
+    const c = res.counts;
+    const chips = '<div class="chips"><button class="pill' + (!S.legLead ? " on" : "") + '" data-a="leglead" data-v="">全部出處</button>' +
+      leads.map((p) => '<button class="pill' + (S.legLead === p ? " on" : "") + '" data-a="leglead" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
+      (projs.length ? '<div class="chips"><button class="pill' + (!S.legProj ? " on" : "") + '" data-a="legproj" data-v="">全部專案</button>' +
+        projs.map((p) => '<button class="pill' + (S.legProj === p ? " on" : "") + '" data-a="legproj" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" : "");
+    let out = '<h3 class="ptitle">舊帳比對</h3>' +
+      '<p class="psub">舊帳原文永不改寫；每筆的核對進度與人工結論存到新帳「釐清標示」，以記錄鍵＋出處快照連結，舊帳列變動會標「標示失配」留人工。出處與舊帳專案欄位都是原值線索，不是確認位置或正式歸屬；選定專案後，「舊帳有而未掃到」才是該專案的缺漏清單。</p>' +
+      chips +
+      '<div class="scope"><div class="sct"><span>舊帳 ' + c.legacyInScope + " 筆（範圍內）</span><span>有交代 " + c.accounted + " · 沒查清 " + c.unaccounted + "</span></div>" +
+      '<div class="smeta">已盤到 ' + c.matched + " · 已釐清 " + c.clarified + " · 尚未掃到 " + c.pending + " · 位置不符 " + c.locationMismatch + " · 同編號多筆 " + c.ambiguous + " 組 · 現場實際觀察 " + c.newInventory + " 台 · 新有舊無 " + c.newOnly + (noCode ? " · 無編號 " + noCode + " 列僅人工查" : "") + "</div></div>";
+    if (res.pending.length && res.newOnly.length) {
+      out += '<div class="warn">本範圍有 ' + res.pending.length + " 筆舊帳尚未掃到，同時有 " + res.newOnly.length + " 台現場新掃到（舊帳沒有）。可能是少一台或換機（例如管理部原發 A、現場卻是 B）；兩邊一起列待查，系統不自動認定換機關係。查明後用釐清標示記下去向、依據與確認人。</div>";
+    }
+    if (auxErr) {
+      out += '<div class="warn">舊帳的關係／待確認資料暫時讀不到（' + esc(auxErr) + "）；主檔比對不受影響。</div>";
+    }
+    const inScopeKeys = new Set(legacy.filter((r) => (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)).map((r) => r.recordKey));
+    const qShown = questions.filter((q) => {
+      const toks = String(q.related || "").split(/\s+/).filter(Boolean);
+      return !toks.length ? (!S.legLead && !S.legProj) : toks.some((t) => inScopeKeys.has(t));
+    });
+    if (qShown.length) {
+      out += '<div class="lbl">舊帳待確認事項（' + qShown.length + "）— 舊帳人工紀錄，唯讀；處理結果請用釐清標示記到新帳</div><div class=\"ztable\">" +
+        capList("舊帳待確認事項", qShown, (q) => '<div class="zrow"><span><b>' + esc(q.itemKey || "") + "</b> " + esc(q.category || "") + " · " + esc(q.summary || "") + '<br><span class="small">相關 ' + esc(q.related || "") + (q.suggestion ? " · 建議：" + esc(q.suggestion) : "") + (q.status ? " · " + esc(q.status) : "") + "</span></span></div>") + "</div>";
+    }
+    if (noCode) {
+      out += '<div class="lbl">無編號原始紀錄（' + noCode + '） - 僅人工查，不自動配對設備</div><div class="ztable">' +
+        capList("無編號", legacy.filter((r) => !r.code && (!S.legLead || r.siteLead === S.legLead) && (!S.legProj || r.project === S.legProj)),
+          (row) => legacyLine(row, "記錄鍵 " + esc(row.recordKey), true, flowHint(row))) + '</div>';
+    }
+    if (res.staleAnnotations.length) {
+      out += '<div class="lbl">標示失配（舊帳列內容變動，原標示未套用，請人工核對）</div><div class="ztable">' +
+        capList("標示失配", res.staleAnnotations, (x) => '<div class="zrow"><span><b>' + esc(x.recordKey) + '</b> 原結論「' + esc(x.annotation.conclusion || x.annotation.progress || "") + "」<br><span class=\"small\">快照 " + esc(JSON.stringify(x.annotation.snapshot || {})) + "<br>現列 " + esc(JSON.stringify(x.currentRow || {})) + "</span></span></div>") + "</div>";
+    }
+    if (res.pending.length) {
+      out += '<div class="lbl">尚未掃到（' + res.pending.length + "）— 不等於遺失；查明後用釐清標示記結論</div><div class=\"ztable\">" +
+        capList("尚未掃到", res.pending, (x) => legacyLine(x.legacy, esc(x.openQuestion || ""), true, flowHint(x.legacy))) + "</div>";
+    }
+    if (res.locationMismatch.length) {
+      out += '<div class="lbl">位置不符（' + res.locationMismatch.length + "）— 舊帳主張與現場觀察不同，逐筆確認，不自動改帳</div><div class=\"ztable\">" +
+        capList("位置不符", res.locationMismatch, (x) => legacyLine(x.legacy, "本次在「" + esc(x.observedSite || "?") + " " + esc(x.observedZone || "") + "」觀察到。" + esc(x.openQuestion || ""), true, flowHint(x.legacy))) + "</div>";
+    }
+    if (res.ambiguous.length) {
+      out += '<div class="lbl">同編號多筆（' + res.ambiguous.length + " 組）— 候選並列，不自動選定；請對實機逐列判定</div><div class=\"ztable\">" +
+        capList("同編號候選", res.ambiguous.flatMap((g) => g.candidates.map((row) => ({ row, count: g.candidates.length }))),
+          (x) => legacyLine(x.row, "此編號共有 " + x.count + " 筆候選；不自動選定", true, flowHint(x.row))) + "</div>";
+    }
+    if (res.clarified.length) {
+      out += '<div class="lbl">已釐清（' + res.clarified.length + "）</div><div class=\"ztable\">" +
+        capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div>";
+    }
+    if (res.matched.length) {
+      out += '<div class="lbl">已盤到（' + res.matched.length + "）</div><div class=\"ztable\">" +
+        capList("已盤到", res.matched, (x) => legacyLine(x.legacy, "", true, flowHint(x.legacy))) + "</div>";
+    }
+    if (res.newOnly.length) {
+      out += '<div class="lbl">新有舊無（' + res.newOnly.length + "）— 現場實際觀察到、舊帳沒有；已算進新帳</div><div class=\"ztable\">" +
+        capList("新有舊無", res.newOnly, (x) => '<div class="zrow"><span><b>' + esc(x.code) + "</b><br><span class=\"small\">" + esc((x.observed.site || "") + " " + (x.observed.zone || "")) + " · 來源 " + esc([...x.observed.sources].join("、")) + "</span></span></div>") + "</div>";
+    }
+    return out;
+  }
   function pcView() {
     const tab = S.dtab;
-    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : pcDiff();
+    const body = tab === "dash" ? pcDash() : tab === "assets" ? pcAssets() : tab === "inbound" ? pcInbound() : tab === "zones" ? pcZones() : tab === "map" ? pcMap() : tab === "legacy" ? pcLegacy() : pcDiff();
     const recs = curRecs();
     const diffN = allRecords().filter((r) => r.status !== "ok" && !r.decision).length;
     return '<div class="desktop"><div class="dbody"><nav class="dside"><div class="dlogo">諸葛 · 設備管理</div>' +
@@ -793,7 +922,8 @@
       '<button class="dnav' + (tab === "inbound" ? " on" : "") + '" data-a="dtab" data-v="inbound">入庫作業' + (openBatches().length ? " (" + openBatches().length + ")" : "") + '</button>' +
       '<button class="dnav' + (tab === "zones" ? " on" : "") + '" data-a="dtab" data-v="zones">位置表</button>' +
       '<button class="dnav' + (tab === "map" ? " on" : "") + '" data-a="dtab" data-v="map">位置圖</button>' +
-      '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button></nav>" +
+      '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button>" +
+      '<button class="dnav' + (tab === "legacy" ? " on" : "") + '" data-a="dtab" data-v="legacy">舊帳比對</button></nav>' +
       '<div class="dmain"><div class="dhand">' + (recs.length > 0
         ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起）。差異已帶到「盤點差異」。"
         : "還沒有手機掃描紀錄。切到上方「手機 · 現場掃描」掃幾筆，寫進試算表後這裡會接著顯示。") + "</div>" + body + "</div></div></div>";
@@ -964,6 +1094,39 @@
         if (r) store.decide(r.sessionId, v, t.getAttribute("data-d"));
       }
     }
+    else if (a === "legpage") {
+      const page = Number(t.getAttribute("data-page"));
+      if (Number.isInteger(page) && page >= 0) {
+        (S.legPages || (S.legPages = {}))[v] = page;
+        S.annOpen = ""; S.annDraft = {}; S.annErr = "";
+      }
+    }
+    else if (a === "leglead") { S.legLead = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
+    else if (a === "legproj") { S.legProj = v; S.legPages = {}; S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
+    else if (a === "annopen") { S.annOpen = v; S.annDraft = {}; S.annErr = ""; }
+    else if (a === "anncancel") { S.annOpen = ""; S.annDraft = {}; S.annErr = ""; }
+    else if (a === "annsub") {
+      const row = (store.legacyRows ? store.legacyRows() : []).find((x) => x.recordKey === v);
+      const d = S.annDraft || {};
+      const ann = {
+        recordKey: v,
+        code: row ? row.code : "",
+        provenance: row ? row.provenance : "",
+        snapshot: row ? window.ZgErpReconcile.snapshotOf(row) : null,
+        confirmer: store.actor || "", // 報廢／遺失需確認人：存檔前帶入目前登入者，validate 才過
+        conclusion: (d.conclusion || "").trim(),
+        reason: (d.reason || "").trim(),
+        evidence: (d.evidence || "").trim(),
+        note: (d.note || "").trim()
+      };
+      const chk = window.ZgErpReconcile.validateAnnotation(ann);
+      if (!row) { S.annErr = "找不到這筆舊帳列，請重新整理後再試。"; }
+      else if (!chk.ok) { S.annErr = chk.reason; }
+      else {
+        store.addAnnotation(ann);
+        S.annOpen = ""; S.annDraft = {}; S.annErr = "";
+      }
+    }
     render();
   });
   document.addEventListener("input", (e) => {
@@ -971,6 +1134,7 @@
     if (!f) return;
     if (f === "manualCode") { S.manualCode = e.target.value; return; }
     if (f === "scanProjectInput") { S.scanProjectInput = e.target.value; return; }
+    if (f.indexOf("ann_") === 0) { S.annDraft = S.annDraft || {}; S.annDraft[f.slice(4)] = e.target.value; return; }
     if (f.indexOf("nz_") === 0) { S.newZone[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("ns_") === 0) { S.newSite[f.slice(3)] = e.target.value; return; }
     if (f.indexOf("nb_") === 0) { S.nb = S.nb || {}; S.nb[f.slice(3)] = e.target.value; return; }
