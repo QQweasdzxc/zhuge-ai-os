@@ -94,7 +94,7 @@ test("寫入路徑：401 可換發重試一次；重試仍 401 則表面化，�
   const saved = store.saveAsset("CSPH107030182", { name: "話機（改）" });
   await saved.__write; // 鏡像寫入失敗以 __unsynced 呈現（契約：不假裝成功）
   assert.equal(saved.__unsynced, true, "重試仍 401 → 標未同步，不假裝成功");
-  const updates = fetchCount - 7;
+  const updates = fetchCount - 10; // init 讀 10 路：新帳 7 分頁＋舊帳整合-主檔／流轉對應／待確認（各自失敗隔離）
   assert.equal(updates, 2, "寫入 401：換發後僅原樣重試一次");
   assert.equal(refreshCalls, 1);
 });
