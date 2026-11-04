@@ -832,7 +832,7 @@
     }
     const leads = [...new Set(legacy.map((r) => r.siteLead).filter(Boolean))].sort();
     const projs = [...new Set(legacy.map((r) => r.project).filter(Boolean))].sort();
-    const scope = { site: S.legLead || "", project: S.legProj || "", closed: false }; // 不宣告範圍盤完：未掃到只標「尚未掃到」，永不輸出遺失
+    const scope = { source: S.legLead || "", site: "", project: S.legProj || "", closed: false }; // 不宣告範圍盤完：未掃到只標「尚未掃到」，永不輸出遺失
     const res = R.reconcile(legacy, db(), scope, db().annotations || []);
     /* 舊帳關係（整合-流轉對應）與待確認事項（整合-待確認）：唯讀線索，供「原發 A vs 現場 B」追查 */
     const flows = store.legacyFlows ? store.legacyFlows() : [];
@@ -894,12 +894,12 @@
     }
     if (res.ambiguous.length) {
       out += '<div class="lbl">同編號多筆（' + res.ambiguous.length + " 組）— 候選並列，不自動選定；請對實機逐列判定</div><div class=\"ztable\">" +
-        capList("同編號候選", res.ambiguous.flatMap((g) => g.candidates.map((row) => ({ row, count: g.candidates.length }))),
-          (x) => legacyLine(x.row, "此編號共有 " + x.count + " 筆候選；不自動選定", true, flowHint(x.row))) + "</div>";
+        capList("同編號候選", res.ambiguous.flatMap((g) => g.candidates.map((row) => ({ row, count: g.totalCandidates || g.candidates.length }))),
+          (x) => legacyLine(x.row, "此編號共有 " + x.count + " 筆候選；不自動選定。已存結論見「已釐清」；快照變動見「標示失配」", true, flowHint(x.row))) + "</div>";
     }
     if (res.clarified.length) {
       out += '<div class="lbl">已釐清（' + res.clarified.length + "）</div><div class=\"ztable\">" +
-        capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div>";
+        capList("已釐清", res.clarified, (x) => legacyLine(x.legacy, (x.identityUnresolved ? "同編號候選關係仍待確認 · " : "") + "結論「" + esc(x.annotation.conclusion) + "」" + (x.annotation.reason ? " · 原因：" + esc(x.annotation.reason) : "") + (x.annotation.evidence ? " · 證據：" + esc(x.annotation.evidence) : "") + (x.annotation.note ? " · 備註：" + esc(x.annotation.note) : "") + " · 確認人 " + esc(x.annotation.confirmer || "") + " " + esc(x.annotation.at ? new Date(x.annotation.at).toLocaleString("zh-TW", { hour12: false }) : ""), false)) + "</div>";
     }
     if (res.matched.length) {
       out += '<div class="lbl">已盤到（' + res.matched.length + "）</div><div class=\"ztable\">" +
