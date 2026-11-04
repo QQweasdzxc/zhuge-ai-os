@@ -68,7 +68,7 @@ must_replace(sidebar, '            <JoinDiscordCard />\n', '')
 must_replace(
     sidebar,
     '<DropdownMenuItem variant="destructive" onClick={logout}>\n                      <LogOut className="h-3.5 w-3.5" />\n                      {t(($) => $.sidebar.log_out)}\n                    </DropdownMenuItem>',
-    '<DropdownMenuItem\n                      onClick={() => {\n                        logout();\n                        window.location.assign("https://qqweasdzxc.github.io/zhuge-ai-os/modules/worklog/?app=1&workspace=dashboard");\n                      }}\n                    >\n                      <LogOut className="h-3.5 w-3.5" />\n                      返回 Zhuge AI OS\n                    </DropdownMenuItem>'
+    '<DropdownMenuItem\n                      onClick={() => {\n                        logout();\n                        window.location.assign("https://qqweasdzxc.github.io/zhuge-ai-os/");\n                      }}\n                    >\n                      <LogOut className="h-3.5 w-3.5" />\n                      返回 Zhuge AI OS\n                    </DropdownMenuItem>'
 )
 
 # ---------------------------------------------------------------------------
