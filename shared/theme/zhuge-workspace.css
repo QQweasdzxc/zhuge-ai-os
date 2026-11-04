@@ -937,3 +937,7 @@ html[data-theme="light"] .zhuge-module-shell .field select { background: var(--z
 @media (max-width: 700px) {
   .investment-module-shell .investment-main { padding: 0 !important; }
 }
+
+/* Keep heading text on the shared header on the same surface palette. */
+.zhuge-module-shell .zhuge-shared-header h1 { color: inherit; }
+.zhuge-module-shell .workspace-shell-header.zhuge-shared-header .zhuge-shared-header-copy > p:last-child { color: #cbd5e1; }
