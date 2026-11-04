@@ -5,9 +5,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const text = p => fs.readFileSync(path.join(root, p), 'utf8');
-test('docs home immediately embeds original Habblaud world route', () => {
+test('docs home embeds current 3D office without legacy furnishings overlay', () => {
   const s = text('docs/index.html');
-  assert.match(s, /pixel-office\/index\.html/);
+  assert.match(s, /\.\.\/labs\/pixel-office-3d\/index\.html\?source=tf/);
+  assert.doesNotMatch(s,/zhuge-office-furnishings/);
   assert.match(s, /lang="zh-TW"/);
   assert.match(s, /status-classic\.html/);
 });

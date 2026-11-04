@@ -67,7 +67,16 @@ for (const viewport of [
     fs.mkdirSync(outputDir, { recursive: true });
     await page.screenshot({ path: path.join(outputDir, `office-${viewport.width}x${viewport.height}.png`) });
     await page.goto(await fixtureURL(path.join(root, "docs/index.html")));
-    await page.locator(".zgf-rack").waitFor();
-    assert.equal(await page.locator(".zgf-rack [data-zgf-work=taskflow]").getAttribute("href"), origin + "/labs/taskflow/");
+    const docsFrame = page.locator('iframe[title="Zhuge AI OS 像素辦公室"]');
+    await docsFrame.waitFor();
+    const docsFrameSrc = new URL(await docsFrame.getAttribute("src"), page.url());
+    assert.equal(docsFrameSrc.pathname, "/labs/pixel-office-3d/index.html", "docs embeds the current office");
+    assert.equal(docsFrameSrc.searchParams.get("source"), "tf", "docs keeps TF mode");
+    assert.equal(await page.locator(".zgf-rack").count(), 0, "docs does not recreate legacy furnishings");
+    assert.equal(await page.locator("#pixel-fallback a").getAttribute("href"), "./status-classic.html", "docs classic report remains linked");
+    await page.waitForFunction(() => document.getElementById("pixel-fallback").hidden === true, null, { timeout: 20000 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "docs wrapper stays within viewport");
+    assert.deepEqual(errors, [], "docs and root stay free of page errors");
+    await page.screenshot({ path: path.join(outputDir, `docs-office-${viewport.width}x${viewport.height}.png`) });
   });
 }
