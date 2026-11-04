@@ -1,5 +1,5 @@
 /* ZG-ERP 庫存／設備管理 — 正式版（接 zg-ledger-bridge → 現存資料庫試算表）。
- * 資料一律來自 ZgErpData（目前是瀏覽器內的虛構測試資料；正式版改接 Google 試算表，
+ * 資料一律來自 ZgErpData（DATA_BACKEND=sheets：讀寫使用者的 Google 試算表，
  * 比照 vendor-sheet-service / gas-vendor-bridge 模式，欄位待使用者提供實際表格後對照）。
  * 本頁不連接、不讀寫任何正式試算表或資料庫。
  */
@@ -405,12 +405,14 @@
         : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方輸入／測試按鈕</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">掃描</button></div>' +
-      '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
-      siteAssets.slice(0, 4).map((a) => '<button class="pill sm" data-a="scan" data-v="' + esc(a.code) + '">' + esc(a.name) + " " + esc(a.code.slice(-4)) + "</button>").join("") +
-      (foreign ? '<button class="pill sm" data-a="scan" data-v="' + esc(foreign.code) + '">其他據點的設備</button>' : "") +
-      (otherProj ? '<button class="pill sm" data-a="scan" data-v="' + esc(otherProj.code) + '">其他專案的設備</button>' : "") +
-      '<button class="pill sm" data-a="scan" data-v="CSXX999999999">不在清冊內的編號</button>' +
-      (last ? '<button class="pill sm" data-a="scan" data-v="' + esc(last.code) + '">再掃同一個</button>' : "") + "</div>" +
+      (D.isMock
+        ? '<div class="lbl sim">測試用：模擬掃到（虛構設備）</div><div class="chips">' +
+          siteAssets.slice(0, 4).map((a) => '<button class="pill sm" data-a="scan" data-v="' + esc(a.code) + '">' + esc(a.name) + " " + esc(a.code.slice(-4)) + "</button>").join("") +
+          (foreign ? '<button class="pill sm" data-a="scan" data-v="' + esc(foreign.code) + '">其他據點的設備</button>' : "") +
+          (otherProj ? '<button class="pill sm" data-a="scan" data-v="' + esc(otherProj.code) + '">其他專案的設備</button>' : "") +
+          '<button class="pill sm" data-a="scan" data-v="CSXX999999999">不在清冊內的編號</button>' +
+          (last ? '<button class="pill sm" data-a="scan" data-v="' + esc(last.code) + '">再掃同一個</button>' : "") + "</div>"
+        : "") +
       '<div class="lbl sim">本次已掃 ' + recs.length + " 筆</div>" +
       [...recs].reverse().map((r) => {
         const a = getA(r.code);
@@ -461,9 +463,8 @@
           '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 購入 " + esc(a.purchase || "未登記") + " · 保固 " + esc(a.warranty || "未登記") + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(S.site) + " " + esc(r.zone) : "清冊查無，需補登") + "</span>" +
           decisionButtons(r) + "</div>";
       }).join("")) +
-      '<div class="hand">接下來在電腦整理：這批差異也會出現在「電腦 · 管理編輯」的盤點差異裡（同一瀏覽器）。</div>' +
+      '<div class="hand">接下來在電腦整理：這批掃描已寫進試算表，「電腦 · 管理編輯」的盤點差異會看到同一份。</div>' +
       '<button class="btn" data-a="mode" data-v="pc">到電腦管理端處理</button>' +
-      '<button class="btn secondary" disabled>寫回試算表（正式版功能，待接入你的表格）</button>' +
       '<button class="btn secondary" data-a="tostart">回到起點</button></div>';
   }
   function phoneDash() {
@@ -536,7 +537,7 @@
           '<div class="scact"><button class="pill sm" data-a="sitelist" data-v="' + esc(r.n) + '">看設備</button>' +
           (worst ? '<button class="pill sm" data-a="gositepc" data-v="' + esc(r.n) + '">去盤點</button>' : "") + "</div></div>";
       }).join("") + "</div>" +
-      '<p class="small">正式版會用試算表的「最後盤點時間」和「登記區域」計算，並可匯出報表。</p>';
+      '<p class="small">盤點進度以試算表的「最後盤點時間」和「登記區域」即時計算。</p>';
   }
 
   /* ---- 電腦端 ---- */
@@ -558,7 +559,7 @@
         return S.ageFilter === "aged" ? (g !== null && g >= (S.ageThreshold || AGE_THRESHOLD_DEFAULT)) : g === null;
       });
     const zones = zonesOf(S.asite);
-    return '<h3 class="ptitle">設備資料</h3><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存只更新這個瀏覽器的測試資料，不會寫回試算表。</p>' +
+    return '<h3 class="ptitle">設備資料</h3><p class="psub">編輯保管人、區域、設備狀態、歸屬專案、序號與日期。儲存直接寫回你的試算表；失敗會標「未同步」，不會假裝成功。</p>' +
       (S.retTab ? '<div class="chips"><button class="pill sm" data-a="back">← 回' + ({ dash: "儀表板", map: "位置圖", diff: "盤點差異" }[S.retTab] || "上一頁") + "</button></div>" : "") +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.asite === p ? " on" : "") + '" data-a="asite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
       '<div class="chips"><span class="lbl" style="align-self:center">產地</span>' +
@@ -621,7 +622,7 @@
       sites().map((s) => '<div class="zcard"><div><b>' + esc(s.name) + '</b> <span class="small">座標 ' + s.lat.toFixed(4) + ", " + s.lon.toFixed(4) + "（測試值）</span></div>" +
         s.zones.map((z) => '<div class="zrow"><span>' + esc(z) + "</span><b>" + assets().filter((a) => a.site === s.name && a.zone === z).length + " 台</b></div>").join("") +
         '<div class="frow"><input class="inp" data-f="nz_' + esc(s.name) + '" placeholder="新增' + esc(s.name) + '的區域" value="' + esc(S.newZone[s.name] || "") + '"><button class="pill sm" data-a="addzone" data-v="' + esc(s.name) + '">加入</button></div>' +
-        '<div class="small">加入後，手機端「目前區域」會出現這個選項。重新命名、停用區域是正式版的功能。</div></div>').join("");
+        '<div class="small">加入後，手機端「目前區域」會出現這個選項。重新命名、停用區域尚未支援。</div></div>').join("");
   }
   function zoneAssets(site, zone) { return assets().filter((a) => a.site === site && a.zone === zone); }
   function demoPlanSvg(site, zones, sel) {
@@ -654,7 +655,7 @@
       canvas = demoPlanSvg(S.mapSite, zones, sel);
     }
     return '<h3 class="ptitle">位置圖</h3>' +
-      '<p class="psub">選據點、在圖上點一個位置，就帶出該位置的設備、歸屬專案與狀態。位置標記由人綁定到區域，不靠系統猜圖。設備清單仍讀同一份資料（正式版：你的 Google 試算表），圖裡不另存一套。</p>' +
+      '<p class="psub">選據點、在圖上點一個位置，就帶出該位置的設備、歸屬專案與狀態。位置標記由人綁定到區域，不靠系統猜圖。設備清單仍讀同一份試算表資料，圖裡不另存一套。</p>' +
       '<div class="chips">' + siteNames().map((p) => '<button class="pill sm' + (S.mapSite === p ? " on" : "") + '" data-a="mapsite" data-v="' + esc(p) + '">' + esc(p) + "</button>").join("") + "</div>" +
       '<div class="frow"><label class="pill sm" style="display:inline-flex;align-items:center;cursor:pointer">選擇圖檔（本機預覽）<input type="file" accept="image/*" data-f="mapfile" style="display:none"></label>' +
       (S.mapImg ? '<button class="pill sm" data-a="mapedit">' + (S.mapEdit ? "完成標記" : "標記位置") + '</button><button class="pill sm" data-a="mapclear">移除圖檔</button>' : "") + "</div>" +
@@ -672,7 +673,7 @@
   function pcInbound() {
     const bs = batches().slice().reverse();
     const nb = S.nb || (S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
-    let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。測試資料只存在此瀏覽器。</p>';
+    let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。批次直接存進你的試算表。</p>';
     // 建單
     html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給的序號清單，每行一筆）</div>' +
       '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="nb_po" value="' + esc(nb.po) + '" placeholder="採購編號；同一筆採購分批到貨用同一個"></div>' +
@@ -757,16 +758,16 @@
   function pcDiff() {
     const recs = allRecords().filter((r) => r.status !== "ok").slice().reverse();
     const todoN = recs.filter((r) => !r.decision).length;
-    return '<h3 class="ptitle">盤點差異</h3><p class="psub">手機掃完的差異在這裡逐筆決定。決定只記在這個瀏覽器，「寫回試算表」不會執行。</p>' +
+    return '<h3 class="ptitle">盤點差異</h3><p class="psub">手機掃完的差異在這裡逐筆決定。每個決定立刻寫進試算表的「釐清標示」，含舊帳快照。</p>' +
       '<div class="lbl sim">累計掃描差異（所有場次，新→舊）：' + recs.length + " 筆 · 待處理 " + todoN + "</div>" +
-      (recs.length === 0 ? '<div class="toast idle">還沒有掃描紀錄。到「手機 · 現場掃描」掃幾筆，差異會出現在這裡（同一瀏覽器）。</div>' :
+      (recs.length === 0 ? '<div class="toast idle">還沒有掃描紀錄。到「手機 · 現場掃描」掃幾筆，差異會出現在這裡。</div>' :
         recs.map((r) => {
           const a = getA(r.code);
           return '<div class="item static">' + chip(r.status) + syncMark(r) + '<span class="iname">' + esc(a ? a.name : r.code) + '</span><span class="icode">' + esc(r.code.slice(-6)) + "</span>" +
             '<span class="idet">' + (a ? esc(a.status) + " · S/N " + esc(a.serial || "未登記") + " · 歸屬 " + esc(a.project || D.UNASSIGNED) + " · 登記 " + esc(a.site) + " " + esc(a.zone) + " → 現場 " + esc(r.sessionSite) + " " + esc(r.zone) : "清冊查無，需補登") + (r.projMismatch ? " · 歸屬專案與該場次範圍不同（未改歸屬）" : "") + " · " + esc(new Date(r.at).toLocaleString("zh-TW", { hour12: false })) + "</span>" +
             decisionButtons(r) + "</div>";
         }).join("")) +
-      '<button class="btn secondary" disabled style="margin-top:8px">寫回試算表（正式版功能，待接入你的表格）</button>';
+      '';
   }
   function pcView() {
     const tab = S.dtab;
@@ -781,7 +782,7 @@
       '<button class="dnav' + (tab === "map" ? " on" : "") + '" data-a="dtab" data-v="map">位置圖</button>' +
       '<button class="dnav' + (tab === "diff" ? " on" : "") + '" data-a="dtab" data-v="diff">盤點差異' + (diffN > 0 ? " (" + diffN + ")" : "") + "</button></nav>" +
       '<div class="dmain"><div class="dhand">' + (recs.length > 0
-        ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起，同一瀏覽器）。差異已帶到「盤點差異」。"
+        ? "手機在 <b>" + esc(S.site) + "</b> 掃了 " + recs.length + " 筆（" + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + " 起）。差異已帶到「盤點差異」。"
         : "還沒有手機掃描紀錄。切到上方「手機 · 現場掃描」掃幾筆，這裡會接著顯示（同一瀏覽器）。") + "</div>" + body + "</div></div></div>";
   }
 
