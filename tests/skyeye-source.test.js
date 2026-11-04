@@ -88,7 +88,9 @@ test("SkyEye Edge adapter has a read-only and sanitized provider boundary", () =
   assert.match(normalizers, /malformed/);
   assert.doesNotMatch(edge, /console\.(log|error|warn)\(/);
   assert.doesNotMatch(edge, /service_role/i);
-  assert.doesNotMatch(edge, /supabase\.from|\.insert\(|\.update\(|\.delete\(/i);
+  // Bounded in-memory Map eviction is not a product database mutation.
+  assert.match(edge, /weatherResponseCache = new Map/);
+  assert.doesNotMatch(edge.replace('weatherResponseCache.delete(weatherResponseCache.keys().next().value!)', 'cacheEviction()'), /supabase\.from|\.insert\(|\.update\(|\.delete\(/i);
 });
 
 test("SkyEye CCTV loader keeps one request timestamp binding", () => {
