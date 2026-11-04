@@ -252,6 +252,14 @@
       this._mirror(null, () => this._append("sites", [site, zone, "", s.lat || "", s.lon || ""]));
       return true;
     }
+    addSite(name, zone, lat, lon) {
+      const db = this._db();
+      if (db.sites.find((x) => x.name === name)) return false;
+      const s = { name, lat: lat || 0, lon: lon || 0, zones: [zone], qr: "" };
+      db.sites.push(s);
+      this._mirror(null, () => this._append("sites", [name, zone, "", lat == null ? "" : lat, lon == null ? "" : lon]));
+      return true;
+    }
     startSession(site, lat, lon, acc, project, fixType) {
       const db = this._db();
       const sess = { id: "s" + Date.now() + "-" + (++this._seq), site, lat, lon, acc: acc == null ? null : acc, project: project || "",
