@@ -59,12 +59,9 @@
   .summary { display: flex; gap: 18px; flex-wrap: wrap; margin-left: auto; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 0; font-size: 12px; color: var(--muted); }
   .chip b { color: var(--ink); font-weight: 600; }
-  button.sum-chip { cursor: pointer; background: none; border: 1px solid transparent; border-radius: 999px; padding: 2px 8px; font: inherit; }
-  button.sum-chip:hover { border-color: var(--line); }
-  button.sum-chip.on { border-color: var(--ink); background: var(--panel); }
-  .side-filter { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 6px 6px; padding: 6px 4px 6px 10px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
-  .filter-back { flex: none; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--ink); font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer; }
-  .filter-back:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .chip-s { background: none; border: 0; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; font: inherit; cursor: pointer; }
+  .chip-s:hover, .chip-s.on { background: var(--panel); color: var(--ink); }
+  .chip-s.on { box-shadow: inset 0 0 0 1px var(--line); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
   .controls { position: relative; width: 100%; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
   .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
@@ -249,6 +246,10 @@
   .icon-btn:hover { color: var(--ink); }
   .side-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 8px 10px 16px; }
   .side-group { margin: 10px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .side-filter { position: sticky; top: -8px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -10px 6px; padding: 10px 16px 8px; background: var(--panel); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--ink); }
+  .side-filter-back { flex: none; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer; }
+  .side-filter-back:hover { background: var(--panel); }
+  .side-sep { height: 1px; background: var(--line); margin: 8px 6px 2px; }
   .srow { width: 100%; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 9px; align-items: center; text-align: left; padding: 9px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
   .srow:hover, .srow:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
   .srow .agent-logo { width: 16px; height: 16px; margin: 0; }
@@ -282,6 +283,11 @@
   /* The panel's group headings already count Needs you / Working / Finished, so the
      toolbar drops those chips (and then the title) before it would wrap. */
   @media (max-width: 1240px) { body.full .summary { display: none; } }
+  /* ZG-60: in TF mode the counts are the way into their task lists, so they
+     stay visible (and tappable) on narrow screens as their own header row;
+     non-TF dashboards keep dropping them (panel headings carry the counts). */
+  @media (max-width: 1240px) { body.full.tf-mode .summary { display: flex; order: 9; width: 100%; margin-left: 0; gap: 14px; padding-top: 8px; } }
+  @media (max-width: 640px) { html body.full.tf-mode header { flex-wrap: wrap; } }
   @media (max-width: 900px) {
     body.full h1, body.full #langName, body.full .today-tokens,
     body.full #todayMenu > summary [data-t], body.full #settingsMenu > summary [data-t] { display: none; }
@@ -632,16 +638,15 @@ const state = {
   data: { now: Date.now(), sessions: [] },
   skew: 0,
   prev: new Map(), // key -> { status, cardStatus, stuck } via NotifyRules.decide
-  sideFilter: null, // set by clicking a summary chip; filters the side list to one group
   flash: new Set(),
+  sideFilter: null, // ZG-60: active stat-chip group filter for the task panel
 };
 let popout = null;
 
 const ACTIVE = new Set(['thinking', 'tool', 'typing']);
 const AGENT_NAME = Object.fromEntries(Object.entries(OFFICE_AGENT_BADGES).map(([agent, badge]) => [agent, badge.label]));
 // TF cards are grouped by their real card status (tf.issueStatus), never by
-// the animation status: 待審核 (in_review) and 卡關 (blocked) are their own
-// groups, 已完成 counts ONLY 核定完成 (done); 已取消 is its own
+// the animation status: 已完成 counts ONLY 核定完成 (done); 已取消 is its own
 // group, not finished. Non-TF sessions fall back to upstream behavior.
 function groupOf(s) {
   if (s.member) return 'member';
@@ -844,15 +849,18 @@ function render() {
   const all = state.data.sessions.filter((s) => matchAgent(s) && (state.showSub || !s.subagent));
 
   const count = (f) => all.filter((s) => f(s)).length;
-  // The stats row is clickable: each chip filters the task list to its
-    // group. TF mode splits 待審核 from 卡關 and marks 已完成 as cumulative
-  // (every 核定完成 card in the workspace, not a today count).
+  // ZG-60: every count opens the exact list behind it. TF mode splits the old
+  // 「需要你」 bucket into 待審核 (the review queue - no reviewer is recorded,
+  // so it never claims to await the viewer) and 卡關, and marks 已完成 as the
+  // cumulative count it is. A 今日完成 label stays out: TF has no
+  // status-transition history yet, so there is no honest source for it.
   const chipKeys = TF_MODE ? ['needsReview', 'blocked', 'working', 'finished'] : ['needsYou', 'working', 'finished'];
-  const chipColor = (k) => k === 'needsYou' || k === 'needsReview' ? 'var(--waiting)' : k === 'blocked' ? 'var(--error)' : k === 'working' ? 'var(--tool)' : 'var(--done)';
   document.getElementById('summary').innerHTML = chipKeys.map((k) => {
-    const n = count((s) => groupOf(s) === k);
-    const label = TF_MODE && k === 'finished' ? (L.tfFinishedAll || L.finished) : L[k];
-    return `<button type="button" class="chip sum-chip${state.sideFilter === k ? ' on' : ''}" data-group="${k}"><span class="dot" style="color:${chipColor(k)}"></span>${esc(label)} <b>${n}</b></button>`;
+    const g = GROUPS.find((x) => x.key === k);
+    const n = count(g.match);
+    const color = k === 'needsYou' || k === 'needsReview' ? 'var(--waiting)' : k === 'blocked' ? 'var(--error)' : k === 'working' ? 'var(--tool)' : 'var(--done)';
+    const label = TF_MODE && k === 'finished' ? (L.tfFinishedAll || L.finished) : (TF_MODE ? groupLabel(k) : L[k]);
+    return `<button type="button" class="chip chip-s${state.sideFilter === k ? ' on' : ''}" data-group="${k}"><span class="dot" style="color:${color}"></span>${esc(label)} <b>${n}</b></button>`;
   }).join('');
   const lg = document.getElementById('legend');
   if (lg) lg.innerHTML = [...new Set(state.data.sessions.map((x) => x.member ? 'member' : x.tf ? 'tf:' + groupOf(x) : x.status))]
@@ -868,7 +876,7 @@ function render() {
   const sb = document.getElementById('srcBanner');
   if (state.data.sourceNote) { sb.hidden = false; sb.innerHTML = `<b>${esc(state.data.sourceNote)}</b>`; }
   const working = count((s) => ACTIVE.has(s));
-  const needs = count((s) => { const g = groupOf(s); return g === 'needsYou' || g === 'needsReview' || g === 'blocked'; });
+  const needs = count((s) => { const gk = groupOf(s); return gk === 'needsYou' || gk === 'needsReview' || gk === 'blocked'; });
   document.title = (needs ? `(${needs}!) ` : working ? `(${working}) ` : '') + L.title;
 
   const main = document.getElementById('main');
@@ -1768,35 +1776,35 @@ function renderSide() {
   document.getElementById('sideTabCount').textContent = TF_MODE
     ? `${L.tfTask || '任務'} ${tfTasks}${tfMembers ? ` · ${L.member || '成員'} ${tfMembers}` : ''}`
     : `${L.agentsTitle} · ${list.length}`;
-  const srowHtml = (s, i, g) => {
+  const rowHtml = (s, i, g) => {
     const act = s.stuck ? L.stuck(s.stuck) : s.activity || (s.status === 'done' && s.reply) || s.title || '';
-    return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g === 'working' ? 3 : g === 'finished' ? 8 : 0), 14)}">
-      ${tfIcon(s) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
-      <span class="tm" data-time="${esc(s.key)}"></span>
-      <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
+    return `<button class="srow${s.subagent ? ' sub' : ''}" data-key="${esc(s.key)}" style="--s:${statusColor(s.status)};--i:${Math.min(i + (g && g.key === 'working' ? 3 : g && g.key === 'finished' ? 8 : 0), 14)}">
+        ${tfIcon(s) || '<span></span>'}<span class="nm">${esc(s.project || AGENT_NAME[s.agent] || s.agent)}</span>
+        <span class="tm" data-time="${esc(s.key)}"></span>
+        <span class="st"><i></i><b>${esc(statusLabel(s))}</b>${act ? `<span>${esc(act)}</span>` : ''}</span></button>`;
   };
-  if (state.sideFilter) document.getElementById('sideTitle').textContent = groupLabel(state.sideFilter);
+  // ZG-60: a stat chip filters the panel to exactly the tasks behind its
+  // count, with an explicit way back to the full list.
+  const filterG = state.sideFilter ? GROUPS.find((g) => g.key === state.sideFilter) : null;
+  const flabel = filterG ? (TF_MODE && filterG.key === 'finished' ? (L.tfFinishedAll || L.finished) : groupLabel(filterG.key)) : null;
+  if (flabel) document.getElementById('sideTitle').textContent = flabel;
   let rows;
-  if (state.sideFilter) {
-    // A summary chip filters the list to exactly one group; the bar names it
-    // and 返回 restores the full list.
-    const items = list.filter((s) => groupOf(s) === state.sideFilter);
-    rows = `<div class="side-filter"><span>${esc(groupLabel(state.sideFilter))} · ${items.length}</span><button type="button" class="filter-back" data-clear-filter>${esc(L.back)}</button></div>`
-      + (items.length ? items.map((s, i) => srowHtml(s, i, state.sideFilter)).join('')
-        : `<div class="msgs-note">${esc(TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`);
+  if (filterG) {
+    const items = list.filter((s) => filterG.match(s));
+    rows = `<div class="side-filter"><span>${esc(flabel)} · ${items.length}</span><button type="button" class="side-filter-back" id="sideFilterBack">${esc(L.back)}</button></div>`
+      + (items.map((s, i) => rowHtml(s, i, filterG)).join('') || `<div class="msgs-note">${esc(TF_MODE ? (L.emptyTf || L.empty) : L.empty)}</div>`);
   } else {
-    // TF mode: this strip lists the most recently updated real cards by the
-    // source's lastEventAt, newest first; it is a freshness strip, not a
-    // status claim.
-    const recentStrip = TF_MODE ? (() => {
-      const recent = list.filter((s) => s.tf && !s.member && s.lastEventAt).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 5);
-      if (!recent.length) return '';
-      return `<div class="side-group">${esc(L.recentUpdates || '近期更新')}</div>` + recent.map((s, i) => srowHtml(s, i, groupOf(s))).join('');
-    })() : '';
-    rows = recentStrip + GROUPS.map((g) => {
+    // Clearly labeled recent-activity strip. It is NOT 今日完成: TF has no
+    // status-transition history yet, so nothing here claims daily completion.
+    let recent = '';
+    if (TF_MODE) {
+      const up = list.filter((s) => s.tf && !s.member && s.lastEventAt).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 5);
+      if (up.length) recent = `<div class="side-group">${esc(L.tfRecentUpdates || '近期更新')}</div>` + up.map((s, i) => rowHtml(s, i, null)).join('') + '<div class="side-sep"></div>';
+    }
+    rows = recent + GROUPS.map((g) => {
       const items = list.filter((s) => g.match(s));
       if (!items.length) return '';
-      return `<div class="side-group">${esc(groupLabel(g.key))} · ${items.length}</div>` + items.map((s, i) => srowHtml(s, i, g.key)).join('');
+      return `<div class="side-group">${esc(groupLabel(g.key))} · ${items.length}</div>` + items.map((s, i) => rowHtml(s, i, g)).join('');
     }).join('');
   }
   const box = document.getElementById('sideRows');
@@ -1962,13 +1970,13 @@ document.getElementById('sideTab').addEventListener('click', () => setSide(true)
 document.getElementById('sideBack').addEventListener('click', closeDetail);
 document.getElementById('sideRows').addEventListener('mouseleave', (e) => { if (e.currentTarget.dataset.stale) renderSide(); });
 document.getElementById('sideRows').addEventListener('click', (e) => {
-  if (e.target.closest('[data-clear-filter]')) { state.sideFilter = null; render(); return; }
+  if (e.target.closest('#sideFilterBack')) { state.sideFilter = null; render(); return; }
   const b = e.target.closest('.srow'); if (b) openDetail(b.dataset.key);
 });
 document.getElementById('summary').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-group]'); if (!b) return;
+  const b = e.target.closest('.chip-s'); if (!b) return;
   state.sideFilter = state.sideFilter === b.dataset.group ? null : b.dataset.group;
-  if (state.sideFilter && !state.side) setSide(true);
+  if (state.sideFilter) { closeDetail(); if (!state.side) setSide(true); }
   render();
 });
 document.addEventListener('keydown', (e) => {
