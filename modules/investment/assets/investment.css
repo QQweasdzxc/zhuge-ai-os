@@ -4,8 +4,8 @@
   --investment-panel: color-mix(in srgb, var(--zhuge-color-panel) 92%, #102844 8%);
   --investment-panel-soft: color-mix(in srgb, var(--zhuge-color-panel) 78%, #17385d 22%);
   --investment-line: var(--zhuge-color-line);
-  --investment-text: var(--zhuge-color-text);
-  --investment-muted: var(--zhuge-color-muted);
+  --investment-text: var(--zhuge-text);
+  --investment-muted: var(--zhuge-muted);
   --investment-accent: var(--zhuge-color-accent);
   --investment-gain: #ff6b78;
   --investment-loss: #43d392;
@@ -671,3 +671,10 @@ button { color: inherit; }
 .investment-volume-patterns span:nth-child(2) { color: #ffd481; }
 .investment-volume-source { color: var(--investment-muted); overflow-wrap: anywhere; }
 @media (max-width: 767px) { .investment-volume-confirmation { padding: 14px; } .investment-volume-confirmation-row header { align-items: flex-start; flex-direction: column; } }
+
+/* Match command surfaces to the active product palette in light and dark modes. */
+.zhuge-module-shell .investment-command-panel,
+.zhuge-module-shell .investment-kpi-section,
+.zhuge-module-shell .investment-secondary-layer { background: var(--zhuge-surface); color: var(--zhuge-text); }
+.zhuge-module-shell .investment-focus-list article,
+.zhuge-module-shell .investment-event-list article { background: var(--zhuge-surface-raised); }
