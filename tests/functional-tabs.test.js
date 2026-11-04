@@ -15,6 +15,8 @@ function violations(css) {
     if (!VISUAL.test(match[2])) continue;
     for (const selector of match[1].split(',')) {
       const normalized = selector.trim();
+      // Pixel Office's side-tab is a drawer reopen button, not a functional tab.
+      if (/(?:^|[\s>+~])\.side-tab$/.test(normalized)) continue;
       const target = normalized.split(/[>+~]/).at(-1).trim().split(/\s+/).at(-1);
       const affectsTabParent = /[>+~]/.test(normalized) && TAB_TOKEN.test(normalized) && !/\.investment-tool-nav\s*\[[^\]]+\]\s+\.investment-tool-nav-(?:summary|label|chevron)/.test(normalized);
       const affectsPageRhythm = /[+~]/.test(normalized) && PAGE_RHYTHM_TOKEN.test(normalized);
@@ -36,6 +38,7 @@ test('Functional Tabs visual CSS has one source authority and no private rhythm 
     const css = file.endsWith('.css') ? source : [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(match => match[1]).join('\n');
     for (const selector of violations(css)) errors.push(relative + ': ' + selector);
   }
+  assert.match(read('labs/pixel-office-3d/index.html'), /<button class="side-tab" id="sideTab"/);
   assert.deepEqual(errors, []);
   assert.doesNotMatch(read('shared/theme/zhuge-shell.css'), /@import[^;]*zhuge-functional-tabs\.css/);
   for (const file of ['app/Board/ai/index.html','app/Board/worktodo/index.html','app/Board/template-preview/index.html','app/Board/procurement/index.html','app/Board/investment/index.html','modules/investment/index.html','modules/skyeye/index.html','app/dashboard/index.html','labs/investment/index.html']) {
@@ -54,6 +57,7 @@ test('Static authority guard rejects private tab and parent-rhythm CSS', () => {
   for (const selector of ['.module-shell .workspace-shell-header+.workspace-tabs','.module-shell .workspace-tabs+.workspace-canvas','.module-shell .zhuge-functional-tabs-stack+.workspace-canvas','.module-shell .workspace-shell-header+.page-content']) {
     for (const property of ['margin-top:8px','margin-bottom:0','padding-top:0','row-gap:4px','gap:0','transform:translateY(1px)']) assert.equal(violations(selector + '{' + property + '}').length, 1, `${selector} ${property}`);
   }
+  assert.deepEqual(violations('.side-tab{display:none}body.full.side-closed .side-tab{display:inline-flex}'), []);
   assert.deepEqual(violations('.workspace-tab-search-trigger{width:44px}.investment-tool-nav{position:relative}.investment-tool-nav-summary{min-height:44px}.investment-tool-nav[open] .investment-tool-nav-summary{color:red}'), []);
 });
 
