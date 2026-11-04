@@ -252,6 +252,7 @@
      不主動清除 session——跨頁登入狀態由 shared/auth/auth-service.js 統一管理。 */
   let zhugeRefreshInFlight = null;
   async function zhugeRefreshToken() {
+    if (global.ErpAuth) return global.ErpAuth.refresh();
     if (zhugeRefreshInFlight) return zhugeRefreshInFlight;
     zhugeRefreshInFlight = (async () => {
       const entry = zhugeSessionEntry();
