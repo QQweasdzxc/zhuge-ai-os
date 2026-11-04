@@ -55,3 +55,19 @@ test("camera holds a label once, rearming only after a stable blank interval", (
   assert.equal(d.accept("CSMN112020005", 7800), true);
   assert.equal(d.accept("CSMN112020005", 18000), false);
 });
+
+test('QR frame uses actual native corner points, rectangle fallback, or no geometry without inventing a box', () => {
+ const corners=[{x:10,y:20},{x:80,y:22},{x:78,y:91},{x:9,y:90}];
+ assert.deepEqual(Core.qrDetection({rawValue:'REAL',cornerPoints:corners},1920,1080).points,corners);
+ assert.deepEqual(Core.qrDetection({rawValue:'REAL',boundingBox:{x:3,y:4,width:10,height:20}},100,100).points,[{x:3,y:4},{x:13,y:4},{x:13,y:24},{x:3,y:24}]);
+ assert.equal(Core.qrDetection({rawValue:'REAL'},100,100).points,null);
+ assert.equal(Core.qrDetection(null,100,100).value,'');
+ assert.equal(Core.qrDetection({rawValue:'REAL',cornerPoints:[{x:NaN,y:0}]},100,100).points,null);
+});
+test('jsQR exposes decoded geometry from the same full frame used for detection', () => {
+ const frame=Core.matrixToRGBA(fixture.modules,4,4);
+ const d=Core.decodeDetectionWithJsQR(jsQR,frame.data,frame.width,frame.height);
+ assert.equal(d.value,fixture.value); assert.equal(d.points.length,4); assert.equal(d.width,frame.width); assert.equal(d.height,frame.height);
+ const blank=new Uint8ClampedArray(64*64*4).fill(255);
+ assert.equal(Core.decodeDetectionWithJsQR(jsQR,blank,64,64).points,null);
+});

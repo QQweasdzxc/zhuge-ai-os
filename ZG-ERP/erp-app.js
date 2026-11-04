@@ -257,13 +257,30 @@
   }
 
   /* ---- 相機連續掃描：getUserMedia 取影像；條碼辨識優先 BarcodeDetector，不支援時用內建 jsQR（僅 QR） ---- */
-  const cam = { stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "" };
+  const cam = { stream: null, det: null, timer: null, canvas: null, dedup: null, engine: "", detection: null };
   function camStop(silent) {
     if (cam.timer) { clearInterval(cam.timer); cam.timer = null; }
     if (cam.stream) { cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
-    cam.det = null; cam.engine = "";
+    cam.det = null; cam.engine = ""; cam.detection = null;
     S.camOn = false;
     if (!silent) render();
+  }
+  function drawQrFrame() {
+    const svg = document.getElementById("qrframe"), poly = document.getElementById("qrpolygon"), label = document.getElementById("qrdetected");
+    if (!svg || !poly) return;
+    const d = cam.detection;
+    const visible = !!(d && d.value && d.points);
+    svg.toggleAttribute("hidden", !visible);
+    if (visible) {
+      svg.setAttribute("viewBox", "0 0 " + d.width + " " + d.height);
+      poly.setAttribute("points", d.points.map((p) => p.x + "," + p.y).join(" "));
+    } else poly.removeAttribute("points");
+    if (label) label.textContent = d && d.value ? (visible ? "已辨識 QR／條碼，框線是實際位置；儲存狀態見下方" : "已辨識，但瀏覽器未提供位置，無法畫框；儲存狀態見下方") : "對準標籤，辨識到就會自動記錄";
+  }
+  function camOnDetection(detection) {
+    cam.detection = detection;
+    drawQrFrame();
+    camOnCode(detection && detection.value || "");
   }
   function camOnCode(val) {
     if (!cam.dedup) cam.dedup = ErpScanCore.makePresenceDeduper(1500);
@@ -274,8 +291,8 @@
     if (!v || v.readyState < 2 || !S.sess) return;
     if (cam.engine === "barcode") {
       cam.det.detect(v).then((codes) => {
-        camOnCode(codes && codes.length ? String(codes[0].rawValue || "").trim() : "");
-      }).catch(() => { /* 單次辨識失敗略過，繼續下一幀 */ });
+        camOnDetection(ErpScanCore.qrDetection(codes && codes[0], v.videoWidth, v.videoHeight));
+      }).catch(() => { cam.detection = null; drawQrFrame(); /* 辨識失敗不沿用舊框，也不虛構已移開 */ });
     } else if (cam.engine === "jsqr") {
       try {
         if (!cam.canvas) cam.canvas = document.createElement("canvas");
@@ -285,8 +302,8 @@
         const ctx = cam.canvas.getContext("2d", { willReadFrequently: true });
         ctx.drawImage(v, 0, 0, w, h);
         const img = ctx.getImageData(0, 0, w, h);
-        camOnCode(ErpScanCore.decodeWithJsQR(window.jsQR, img.data, w, h).trim());
-      } catch (e) { /* 單幀失敗略過 */ }
+        camOnDetection(ErpScanCore.decodeDetectionWithJsQR(window.jsQR, img.data, w, h));
+      } catch (e) { cam.detection = null; drawQrFrame(); /* 單幀失敗清除舊框 */ }
     }
   }
   function camStart() {
@@ -332,6 +349,7 @@
     if (S.camOn && cam.stream) {
       const v = document.getElementById("camv");
       if (v && v.srcObject !== cam.stream) { v.srcObject = cam.stream; v.play().catch(() => {}); }
+      drawQrFrame();
     }
   }
 
@@ -464,7 +482,7 @@
       '<div class="small">起點定位 ' + (S.sess.lat != null ? Number(S.sess.lat).toFixed(3) + ", " + Number(S.sess.lon).toFixed(3) + (S.sess.acc != null ? "（±" + S.sess.acc + " m）" : "") : "無（手動選擇據點）") + " · " + esc(new Date(S.sess.at).toLocaleTimeString("zh-TW", { hour12: false })) + "（固定，換區域不會改）</div>" +
       (S.zoneOpen ? '<div class="zonepick">' + zonesOf(S.site).map((z) => '<button class="pill' + (S.zone === z ? " on" : "") + '" data-a="zone" data-v="' + esc(z) + '">' + esc(z) + "</button>").join("") + "</div>" : "") +
       (S.camOn
-        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
+        ? '<div class="view live"><video id="camv" autoplay playsinline muted></video><svg id="qrframe" class="qrframe" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden><polygon id="qrpolygon" vector-effect="non-scaling-stroke"></polygon></svg><span id="qrdetected" class="detectedhint" aria-live="polite">對準標籤，辨識到就會自動記錄</span><span class="hint">' + (cam.engine === "jsqr" ? "對準 QR 碼（此瀏覽器僅支援 QR），掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）" : "對準 QR／條碼，掃到會自動記一筆（同一張持續對準只記一次，移開約 1.5 秒後可再掃）") + '</span></div><div class="frow"><button class="pill sm" data-a="camstop">關閉相機</button></div>'
         : '<div class="view" role="img" aria-label="相機取景區"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="qr"></div><span class="hint">可用相機連續掃描，或用下方手動輸入</span></div><div class="frow"><button class="pill sm" data-a="camstart">開啟相機掃描</button></div>' + (S.camErr ? '<div class="warn">' + esc(S.camErr) + "</div>" : "")) +
       toast +
       '<div class="frow"><input class="inp" data-f="manualCode" placeholder="輸入登記編號（如 CSPH107030182）" value="' + esc(S.manualCode) + '"><button class="btn mini" data-a="manual">手動登記</button></div>' +

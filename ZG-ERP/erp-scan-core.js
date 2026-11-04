@@ -40,6 +40,24 @@
       reset() { last = ""; absentAt = null; }
     };
   }
+  function qrDetection(result, width, height) {
+    if (!result) return { value: "", points: null, width, height };
+    const value = String(result.rawValue || result.data || "").trim();
+    let points = result.cornerPoints;
+    if ((!points || points.length !== 4) && result.location) {
+      const l = result.location;
+      points = [l.topLeftCorner, l.topRightCorner, l.bottomRightCorner, l.bottomLeftCorner];
+    }
+    if ((!points || points.length !== 4) && result.boundingBox) {
+      const b = result.boundingBox;
+      points = [{x:b.x,y:b.y},{x:b.x+b.width,y:b.y},{x:b.x+b.width,y:b.y+b.height},{x:b.x,y:b.y+b.height}];
+    }
+    const valid = value && width > 0 && height > 0 && Array.isArray(points) && points.length === 4 && points.every((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+    return { value, width, height, points: valid ? points.map((p) => ({x:p.x,y:p.y})) : null };
+  }
+  function decodeDetectionWithJsQR(jsQR, rgba, width, height) {
+    return qrDetection(jsQR && rgba && width && height ? jsQR(rgba, width, height) : null, width, height);
+  }
   // 用 jsQR 解一幀 RGBA 像素；回傳字串或空字串
   function decodeWithJsQR(jsQR, rgba, width, height) {
     if (!jsQR || !rgba || !width || !height) return "";
@@ -60,5 +78,5 @@
     }
     return { data, width: W, height: W };
   }
-  return { makeDeduper, makePresenceDeduper, decodeWithJsQR, matrixToRGBA };
+  return { makeDeduper, makePresenceDeduper, qrDetection, decodeDetectionWithJsQR, decodeWithJsQR, matrixToRGBA };
 });
