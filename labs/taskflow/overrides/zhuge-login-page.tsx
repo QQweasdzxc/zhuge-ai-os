@@ -37,6 +37,7 @@ export default function Page() {
   const [ready, setReady] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -58,9 +59,33 @@ export default function Page() {
       if (current.hash) window.history.replaceState(null, "", current.pathname + current.search);
       if (parsed.status !== "valid") {
         setIntent(parsed);
-        setMessage(parsed.status === "invalid"
-          ? "CLI 登入要求無效。請在 CLI 重新執行 multica login。"
-          : "請從 Zhuge AI OS 的 WORK → TaskFlow 進入；CLI 登入也必須使用同一個 Zhuge 身分。");
+        if (parsed.status === "invalid") {
+          setMessage("CLI 登入要求無效。請在 CLI 重新執行 multica login。");
+          return;
+        }
+        // No CLI intent: a direct or stale landing on this gate. A browser that
+        // already holds a live TaskFlow session (e.g. signed in through the
+        // Zhuge entry in another tab) continues straight into the workspace
+        // instead of stopping here; the root route forwards it to the board.
+        // Everyone else gets a working door below: the official Zhuge entry,
+        // which hands a signed-in Zhuge session straight through and otherwise
+        // starts the login-then-return flow. Authentication is never skipped.
+        const existing = window.localStorage.getItem("multica_token");
+        if (existing) {
+          api.setToken(existing);
+          api.getMe().then((user) => {
+            if (!alive || !user) return;
+            window.location.replace("/");
+          }).catch(() => {
+            if (!alive) return;
+            api.setToken(null);
+            setSessionChecked(true);
+            setMessage("TaskFlow 登入狀態已過期。請從 Zhuge AI OS 重新進入。");
+          });
+          return;
+        }
+        setSessionChecked(true);
+        setMessage("請從 Zhuge AI OS 的 WORK → TaskFlow 進入；CLI 登入也必須使用同一個 Zhuge 身分。");
         return;
       }
       setIntent(parsed);
@@ -114,6 +139,11 @@ export default function Page() {
               <div className="font-semibold">{identity.name || identity.email}</div>
               <div className="text-muted-foreground">{identity.email}</div>
               <div className="mt-1 break-all text-xs text-muted-foreground">Zhuge UUID：{identity.id}</div>
+            </div>
+          )}
+          {intent.status !== "valid" && sessionChecked && (
+            <div className="mt-6 flex flex-col justify-center gap-3">
+              <a href="https://qqweasdzxc.github.io/zhuge-ai-os/labs/taskflow/" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground">從 Zhuge AI OS 進入 TaskFlow</a>
             </div>
           )}
           {intent.status === "valid" && (

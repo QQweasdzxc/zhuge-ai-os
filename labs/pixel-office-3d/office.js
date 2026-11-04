@@ -38,6 +38,10 @@
     badge.image = new Image();
     badge.image.src = badge.logo;
   }
+  // ZG-61: user-selected ERP wall poster (transparent PNG). It replaces the
+  // green TESTS poster in the same wall slot - an asset swap, not a redesign.
+  const ERP_WALL_POSTER = { image: new Image() };
+  ERP_WALL_POSTER.image.src = 'assets/erp-wall-poster.png';
   const PANTS = ['#34405a', '#2c2c34', '#4a3f35', '#3b4a3f'];
   const PANEL = ['#7d93c4', '#d98b6a', '#7fb08a', '#c9a24c'];
 
@@ -494,7 +498,7 @@
 
       const posters = [
         { y: 2.2, color: '#c96442', text: 'SHIP IT' },
-        { y: 4.6, color: '#10a37f', text: 'TESTS ✓' },
+        { y: 4.6, erpPoster: true },
       ];
       return { W, D, OW, OD, MR, PY, RW, grid, items, props, pois, desks, windows, posters, pp, door: { x: 0.4, y: D - 1.2 } };
     }
@@ -838,6 +842,21 @@
       });
       // left wall: posters, clock, door
       for (const ps of this.plan.posters) {
+        if (ps.erpPoster) {
+          // ZG-61: user-selected image poster on a light backing so the
+          // transparent PNG reads on the wall; the bare backing shows until
+          // the asset finishes loading.
+          this.poly([P(0, ps.y, 0.95), P(0, ps.y + 0.9, 0.95), P(0, ps.y + 0.9, 1.95), P(0, ps.y, 1.95)], '#fdfdfb', pal.trim);
+          const posterImg = ERP_WALL_POSTER.image;
+          if (posterImg.complete && posterImg.naturalWidth > 0) {
+            this.onWall('x0', ps.y + 0.45, 1.45, (c) => {
+              c.imageSmoothingEnabled = true;
+              c.imageSmoothingQuality = 'high';
+              c.drawImage(posterImg, -15, -15.5, 30, 31);
+            });
+          }
+          continue;
+        }
         this.poly([P(0, ps.y, 0.95), P(0, ps.y + 0.9, 0.95), P(0, ps.y + 0.9, 1.95), P(0, ps.y, 1.95)], ps.color);
         this.onWall('x0', ps.y + 0.45, 1.4, (c) => {
           c.font = '800 8px ui-sans-serif, system-ui, sans-serif'; c.fillStyle = '#fff'; c.textAlign = 'center'; c.fillText(ps.text, 0, 0);
