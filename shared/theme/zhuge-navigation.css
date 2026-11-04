@@ -410,3 +410,8 @@ html[data-theme="system"] .zhuge-module-shell .sidebar-build-summary { color: va
     min-height: 0;
   }
 }
+
+/* Group captions share the active sidebar palette, including system-light mode. */
+.zhuge-module-shell .side-section h3{color:var(--zhuge-text,#e2e8f0)}
+.zhuge-module-shell :is(.brand-companion,.sidebar-sync-summary strong){color:var(--zhuge-text,#e2e8f0)}
+.zhuge-module-shell :is(.sidebar-sync-summary span,.sidebar-build-summary span){color:var(--zhuge-muted,#94a3b8)}
