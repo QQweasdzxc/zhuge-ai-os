@@ -191,11 +191,12 @@
           if (b) b.items.push({ serial: String(row[12] || ""), state: row[11] || "pending", receivedAt: row[13] || "", code: row[14] || "" });
         }
       });
+      const sessionList = sessionRows.map(rowToSession).filter((s) => s.id);
       this.db = {
         __v: 2,
         assets, sites,
-        projects: [...new Set(assets.map((a) => a.project).filter(Boolean))],
-        sessions: sessionRows.map(rowToSession).filter((s) => s.id),
+        projects: [...new Set(assets.map((a) => a.project).concat(sessionList.map((s) => s.project)).filter(Boolean))],
+        sessions: sessionList,
         records: recordRows.map(rowToRecord).filter((r) => r.code),
         movements: movementRows.map(rowToMovement).filter((m) => m.code),
         batches,
