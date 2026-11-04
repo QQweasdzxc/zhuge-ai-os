@@ -7,6 +7,7 @@
   "use strict";
   const D = window.ZgErpData;
   const store = D.store;
+  const intakeUI = window.ErpIntakeUI ? window.ErpIntakeUI.create(store, () => render()) : null;
   const seatUI = window.ErpSeatUI ? window.ErpSeatUI.create(store, () => render()) : null;
   const LABEL = { ok: "相符", zone: "位置不符", site: "異地設備", none: "查無編號", dup: "重複掃描" };
   const GLYPH = { ok: "✓", zone: "≠", site: "⇄", none: "?", dup: "×2" };
@@ -791,6 +792,7 @@
     const bs = batches().slice().reverse();
     const nb = S.nb || (S.nb = { po: "", vendor: "", brand: "", model: "", origin: "", mfgYear: "", type: "", note: "", serials: "" });
     let html = '<h3 class="ptitle">入庫作業</h3><p class="psub">廠商序號清單先建成「待入庫」批次，不增加庫存；實物到貨逐台核對後確認入庫，才產生內部登記編號並列入設備與應盤。批次直接存進你的試算表。</p>';
+    if(intakeUI)html+=intakeUI.html();
     // 建單
     html += '<div class="card"><div class="lbl">建立進貨批次（貼上廠商給的序號清單，每行一筆）</div>' +
       '<div class="frow"><span class="lbl">PO 編號</span><input class="inp" data-f="nb_po" value="' + esc(nb.po) + '" placeholder="採購編號；同一筆採購分批到貨用同一個"></div>' +
@@ -1296,6 +1298,8 @@
     else seatUI.field(f,e.target.value);
   });
   document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset.seatField;if(f==="name"&&seatUI)seatUI.field(f,e.target.value);});
+  document.addEventListener("change",e=>{if(intakeUI&&(e.target.dataset.intake||e.target.dataset.intakeMap))intakeUI.field(e.target);});
+  document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-intake-action]");if(t&&intakeUI)intakeUI.act(t.dataset.intakeAction);});
   /* 開機：sheets 後端需先載入鏡像（唯一 async 入口），mock 直接渲染 */
   function boot() {
     if (!D.isMock && typeof store.init === "function") {
