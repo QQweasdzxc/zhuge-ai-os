@@ -23,8 +23,12 @@ test("TASK-088 successor owns one shared responsive/accessibility layer", () => 
 });
 
 test("runtime surfaces use the Candidate Build while public surfaces use the shared asset revision", () => {
+  const officeEntry = read("index.html");
+  assert.match(officeEntry, /labs\/pixel-office-3d\/index\.html\?source=tf/);
+  assert.match(officeEntry, /viewport-fit=cover/);
+  assert.doesNotMatch(officeEntry, /user-scalable\s*=\s*no|max(?:imum)?-scale\s*=\s*1/i);
   const runtimeSurfaces = [
-    "index.html",
+    "status-classic.html",
     "app/dashboard/index.html",
     "app/Board/worktodo/index.html",
     "app/Board/ai/index.html",
